@@ -27,3 +27,16 @@
 - Storing ATM location coordinates without bank's data localisation approval
 - Cross-bank EJ record queries (strict bank_id isolation)
 - CCTV clip storage in YugabyteDB — use MinIO only, store reference in `cctv_evidences` table
+
+---
+
+## Enforcement
+
+| Rule | Enforced By | Blocks |
+|---|---|---|
+| Raw EJ files immutable — no UPDATE on ej_raw_logs | Semgrep pattern: UPDATE ej_raw_logs in any .py file | PR merge blocked |
+| OEM fingerprinting stays in Go edge agent only | `ej-parser-specialist` agent review: Python fingerprint logic = CRITICAL | PR merge blocked |
+| LLM confidence < 0.85 → human review flag | `ej-parser-specialist` agent checklist: confidence threshold path covered | PR merge blocked |
+| BGE-M3 embeddings as vector(1024) | Alembic migration CI test: wrong vector dimension fails schema validation | PR merge blocked |
+| canonical_hash on every EJ record | Semgrep pattern: EJCanonicalRecord without canonical_hash field | PR merge blocked |
+| CCTV clips in MinIO only — not in YugabyteDB | `security-auditor` agent + Semgrep: bytea column for cctv_ tables = CRITICAL | PR merge blocked |

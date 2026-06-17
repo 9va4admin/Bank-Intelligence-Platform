@@ -200,3 +200,15 @@ spec:
 - Exposing `/docs` (Swagger UI) in production — information disclosure
 - Direct pod-to-pod communication bypassing Istio service mesh
 - Using nginx separately — Istio Ingress Gateway is the standard
+
+---
+
+## Enforcement
+
+| Rule | Enforced By | Blocks |
+|---|---|---|
+| /health/live and /health/ready endpoints exist | CI smoke test: curl health endpoints after deploy | Deploy-staging blocked |
+| No print() — structlog only | Semgrep rule: `python.lang.best-practice.logging.no-print` | PR merge (CI SAST) |
+| Istio not nginx | Helm chart lint: no nginx Deployment/Service in templates/ | PR merge (CI lint) |
+| SERVICE_NAME constant defined in every service | CI lint: grep for SERVICE_NAME in service entrypoint | PR merge |
+| OTel init in lifespan — not at module level | `security-auditor` agent review | PR merge |

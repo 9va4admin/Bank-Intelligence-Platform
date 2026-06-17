@@ -97,5 +97,17 @@ for file in $STAGED_FILES; do
     fi
 done
 
+# 8. Rules constitution — every .claude/rules/*.md must have an ## Enforcement section
+for file in $STAGED_FILES; do
+    if echo "$file" | grep -qE "^\.claude/rules/.*\.md$"; then
+        if ! git show ":$file" | grep -q "^## Enforcement"; then
+            echo "BLOCKED: Rules file $file has no ## Enforcement section."
+            echo "Per RULES-CONSTITUTION.md: every rule must specify what enforces it."
+            echo "Add an '## Enforcement' section before committing this rules file."
+            exit 1
+        fi
+    fi
+done
+
 echo "=== Security and isolation checks passed ==="
 exit 0

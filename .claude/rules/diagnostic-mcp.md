@@ -209,3 +209,16 @@ pii_fields := {
 - Logging the diagnostic session token in any ASTRA-side log
 - Keeping session alive after bank revokes (must check revocation status per call)
 - Allowing ASTRA support to call tools not approved in the session scope
+
+---
+
+## Enforcement
+
+| Rule | Enforced By | Blocks |
+|---|---|---|
+| OPA validates every tool call | OPA policy `astra/diagnostic/allow_tool` called at runtime — not bypassed | Runtime (403 returned) |
+| No raw log lines in responses | `security-auditor` agent: Loki query returning raw lines = CRITICAL | PR merge blocked |
+| No workflow/instrument IDs in responses | `security-auditor` agent: response model containing `_id` fields = HIGH | PR merge blocked |
+| Every call logged to Immudb | Code review: `log_diagnostic_access()` must appear before every `return` | PR merge blocked |
+| Session token never from env vars | Semgrep: `os.environ.get` in diagnostic_mcp_server.py = ERROR | PR merge blocked |
+| Bank revocation checked per call | `security-auditor` agent: missing revocation check = CRITICAL | PR merge blocked |

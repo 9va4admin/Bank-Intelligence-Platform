@@ -162,3 +162,16 @@ worker = Worker(
 - Sharing a Temporal task queue between CTS and EJ workers
 - Starting a workflow without a deterministic workflow ID (no UUID4 — use instrument_id)
 - Catching `CancelledException` and suppressing it (Temporal cancellation must propagate)
+
+---
+
+## Enforcement
+
+| Rule | Enforced By | Blocks |
+|---|---|---|
+| IETWatchdogWorkflow spawned before any activity | `cts-workflow-reviewer` agent checklist item 2 | PR merge (CRITICAL) |
+| No asyncio.sleep inside workflows | Semgrep rule `astra-no-sleep-in-workflow` (pattern: asyncio.sleep in workflows/) | PR merge (CI SAST) |
+| No datetime.now() inside workflows | Semgrep rule `astra-no-datetime-now-in-workflow` | PR merge (CI SAST) |
+| Standard retry constants used | `cts-workflow-reviewer` agent verifies no inline RetryPolicy dicts | PR merge |
+| Workflow IDs follow cts-{bank_id}-{instrument_id} pattern | `cts-workflow-reviewer` agent checklist item 3 | PR merge |
+| Graceful degradation: CBS miss → degrade not crash | `cts-workflow-reviewer` agent checklist item 4 | PR merge |

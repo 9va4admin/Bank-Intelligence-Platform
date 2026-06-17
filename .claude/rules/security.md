@@ -31,3 +31,17 @@
 - Every write to YugabyteDB that modifies a cheque or EJ record: must emit to `platform.audit.events` Kafka topic
 - AuditEvent must be HSM-signed before Immudb write
 - Audit writes are fire-and-forget from app perspective — Temporal handles durability
+
+---
+
+## Enforcement
+
+| Rule | Enforced By | Blocks |
+|---|---|---|
+| Zero secrets in code | gitleaks (pre-commit hook + CI `gitleaks` stage) | Commit blocked + PR merge blocked |
+| No os.environ.get() in app code | Semgrep `astra-no-direct-env-secrets` | PR merge blocked |
+| No verify=False in HTTP calls | Semgrep `python.requests.security.disabled-cert-validation` | PR merge blocked |
+| Account numbers masked in logs | `security-auditor` agent PII checklist + Semgrep log masking rule | PR merge blocked |
+| No SELECT * on PII tables | Semgrep `astra-no-select-star-pii` + pre-commit Check 4 | Commit blocked |
+| SHAP values before NGCH filing | `cts-workflow-reviewer` agent checklist item 6 | PR merge (CRITICAL) |
+| Audit write after every DB write | `cts-workflow-reviewer` / `ej-parser-specialist` agent checklists | PR merge (CRITICAL) |
