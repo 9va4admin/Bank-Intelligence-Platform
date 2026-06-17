@@ -24,3 +24,16 @@
 - Migrations must be reversible (downgrade function required)
 - Test migration on staging YugabyteDB before production
 - Never drop columns in a single migration — use deprecation pattern (rename → keep → drop in next release)
+
+---
+
+## Enforcement
+
+| Rule | Enforced By | Blocks |
+|---|---|---|
+| No SELECT * on PII tables | Semgrep `astra-no-select-star-pii` + pre-commit Check 4 | Commit blocked |
+| All migrations via Alembic | Semgrep pattern: raw DDL (CREATE TABLE / ALTER TABLE) in .py files outside migrations/ | PR merge blocked |
+| Parameterised queries only — no f-string SQL | Semgrep `python.lang.security.audit.formatted-sql-query` | PR merge blocked (CI SAST) |
+| LIMIT on all list queries | Semgrep custom rule: SELECT query without LIMIT in application code | PR merge blocked |
+| bank_id in every WHERE clause on tenant tables | `security-auditor` agent — data isolation checklist item | PR merge (CRITICAL if missing) |
+| Migrations reversible (downgrade required) | CI migration test: `alembic downgrade -1` after `alembic upgrade head` | PR merge blocked |

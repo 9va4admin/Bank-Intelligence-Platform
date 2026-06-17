@@ -261,3 +261,16 @@ hotfix/*      → runs: full pipeline, deploys to staging for validation
 - No skipping gitleaks — CRITICAL finding blocks release always
 - No manual steps in the pipeline — fully automated gate
 - No cloud services called from CI runner — air-gapped pipeline
+
+---
+
+## Enforcement
+
+| Rule | Enforced By | Blocks |
+|---|---|---|
+| Pipeline stages not reordered | GitLab CI DAG `needs:` dependencies make reordering impossible structurally | Pipeline fails to parse |
+| Multi-stage Dockerfile (no single-stage) | Trivy image scan + CI Dockerfile lint (`hadolint`) | PR merge blocked |
+| Non-root user in Docker images | checkov `CKV_DOCKER_*` + hadolint | PR merge blocked |
+| No secrets in Docker images | Trivy `--scanners secret` on every image build | PR merge blocked |
+| Chart version bumped on every release | CI `build-chart` stage: fails if Chart.yaml version not incremented vs previous tag | Release blocked |
+| Smoke tests run post-deploy | Helm post-upgrade hook is mandatory — cannot be disabled in bank values | Deploy blocked |

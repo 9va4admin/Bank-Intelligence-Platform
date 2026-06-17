@@ -61,3 +61,16 @@ These services are shared but have per-module rate limits and separate logical p
 - Any Python import across module boundaries
 - KEDA ScaledObject that watches both `cts.*` and `ej.*` Kafka topics
 - Single vLLM worker serving both CTS and EJ queues
+
+---
+
+## Enforcement
+
+| Rule | Enforced By | Blocks |
+|---|---|---|
+| No cross-module Python imports | pre-commit Check 6 + Semgrep `astra-no-cross-module-import` | Commit blocked |
+| CTS code never references redis-ej | pre-commit Check 7 | Commit blocked |
+| EJ code never references redis-cts | pre-commit Check 7 | Commit blocked |
+| Separate K8s namespaces | checkov `CKV_K8S_*` — verifies ResourceQuota exists per namespace | PR merge (CI checkov stage) |
+| Separate KEDA ScaledObjects | Helm chart lint — ScaledObject must declare namespace explicitly | PR merge (CI lint stage) |
+| Separate Temporal task queues | `cts-workflow-reviewer` agent — verifies worker polls only own queue | PR merge |

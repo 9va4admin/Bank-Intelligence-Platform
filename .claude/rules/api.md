@@ -26,3 +26,16 @@
 - Every route handler gets automatic OTel span via middleware
 - Add custom attributes: `bank_id`, `module`, `operation` to every span
 - Never use `print()` — structured logging via `structlog` with OTel context injection
+
+---
+
+## Enforcement
+
+| Rule | Enforced By | Blocks |
+|---|---|---|
+| All routes require JWT auth | CI integration test: unauthenticated requests to all routes must return 401 | PR merge blocked |
+| No dict returns — typed Pydantic models only | mypy strict CI check: `disallow_any_expr = true` | PR merge blocked |
+| Pagination: limit max 100 | Semgrep pattern: `limit` parameter without upper bound validator | PR merge blocked |
+| Rate limiting on submission endpoints | CI integration test: 601st request must return 429 | PR merge blocked |
+| No business logic in routers | `security-auditor` agent code review: logic in router = HIGH finding | PR merge |
+| OTel span on every route | CI integration test: Tempo receives spans for all tested routes | PR merge blocked |

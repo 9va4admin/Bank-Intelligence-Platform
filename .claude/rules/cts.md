@@ -63,3 +63,18 @@ Banks change Layer 3 values via Admin UI maker-checker — code never needs to c
 - Target: 0.000% — enforced by IETWatchdogWorkflow architecture, not by a configurable threshold
 - The watchdog fires at T-30 seconds regardless of any config — this is structural, not a setting
 - What IS configurable: `iet_minutes` (default 180) — the total IET window the bank operates under
+
+---
+
+## Enforcement
+
+| Rule | Enforced By | Blocks |
+|---|---|---|
+| IET watchdog spawned first | `cts-workflow-reviewer` agent checklist item 1 | PR merge (CRITICAL finding) |
+| Vault miss → HUMAN_REVIEW only | Semgrep `astra-vault-miss-must-review` | PR merge (CI Semgrep stage) |
+| No hardcoded thresholds | Semgrep `astra-no-hardcoded-threshold` | PR merge (CI Semgrep stage) |
+| All thresholds via config_service | Semgrep `astra-no-direct-env-secrets` + code review | PR merge |
+| NGCH only via ngch_filer.py | `cts-workflow-reviewer` agent + Semgrep pattern | PR merge |
+| No SELECT * on PII tables | Semgrep `astra-no-select-star-pii` + pre-commit Check 4 | Commit blocked |
+| Immudb write after every YugabyteDB write | `cts-workflow-reviewer` agent checklist item 5 | PR merge (CRITICAL) |
+| IETWatchdogWorkflow as first child | `cts-workflow-reviewer` agent checklist item 2 | PR merge (CRITICAL) |

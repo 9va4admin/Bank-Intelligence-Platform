@@ -201,3 +201,16 @@ Early sunset requires written sign-off from all affected bank IT admins.
 - Deleting v1 route while any bank's compatibility-matrix entry shows "in use"
 - Setting Sunset date less than 6 months from deprecation announcement
 - Kafka events without `schema_version` field
+
+---
+
+## Enforcement
+
+| Rule | Enforced By | Blocks |
+|---|---|---|
+| Removed endpoints not referenced in code | pre-commit Check 5 (scans staged files against REMOVED entries in compatibility matrix) | Commit blocked |
+| Breaking changes detected before merge | CI `api-compat` stage (`infra/ci-checks/check-api-compatibility.sh`) | PR merge blocked |
+| Deprecation headers on sunset routes | CI `api-compat` Check 4: scans deprecated routes for missing headers | PR merge blocked |
+| Past sunset dates caught before deploy | CI `api-compat` Check 3: fails if sunset date < today | PR merge blocked |
+| Kafka events carry schema_version | CI `api-compat` Check 5: Semgrep pattern on Kafka producer calls | PR merge blocked |
+| 6-month minimum sunset window | `api-breaking-change` skill enforces when creating deprecation | Session-time enforcement |

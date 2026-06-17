@@ -171,3 +171,16 @@ Respond in JSON:
 - Filing to NGCH without SHAP values stored — audit compliance violation
 - Logging full prompt content if it contains account numbers or customer names
 - Using cloud LLM APIs (OpenAI, Anthropic API) — data localisation violation
+
+---
+
+## Enforcement
+
+| Rule | Enforced By | Blocks |
+|---|---|---|
+| Explicit queue in every vLLM call | Semgrep pattern: vllm call without extra_body queue key | PR merge (CI SAST) |
+| Langfuse generation.end() called on every AI call | `security-auditor` agent + Langfuse CI smoke test (missing traces = fail) | PR merge |
+| SHAP computed before NGCH filing | `cts-workflow-reviewer` agent checklist item 6 | PR merge (CRITICAL) |
+| Confidence thresholds from config_service only | Semgrep `astra-no-hardcoded-threshold` | PR merge (CI SAST) |
+| AI outputs never cached | Semgrep pattern: redis.set() inside ai-inference paths | PR merge |
+| No AI decision without OTel span | CI integration test: span count assertion | PR merge |
