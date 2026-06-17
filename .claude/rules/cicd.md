@@ -76,6 +76,26 @@ test-cts-critical:
     - changes: ["modules/cts/**"]
 ```
 
+## Stage: api-compatibility
+```yaml
+api-compatibility:
+  stage: security-scan   # runs in parallel with other security checks
+  script:
+    - chmod +x infra/ci-checks/check-api-compatibility.sh
+    - BASE_BRANCH=$CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+        bash infra/ci-checks/check-api-compatibility.sh
+  rules:
+    - changes:
+        - "apps/api/**"
+        - "docs/api/**"
+        - "apps/*/routers/**"
+  allow_failure: false   # breaking API changes block merge — no exceptions
+  artifacts:
+    when: always
+    paths:
+      - docs/api/openapi-current.json   # saved for next run's diff comparison
+```
+
 ## Stage: security-scan
 ```yaml
 gitleaks:
