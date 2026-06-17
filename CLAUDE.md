@@ -82,6 +82,59 @@ Two independent but unified product modules sold to Indian banks:
 - Central does: full LLM normalisation, cross-ATM patterns, dispute matching
 - Phased rollout: Phase 1 (ATM mgmt system API) → Phase 2 (ATM controller edge agent) → Phase 3 (direct on ATM)
 
+### 2.5 Module Blast Isolation (CTS ↔ EJ — Non-Negotiable)
+
+**Principle:** CTS load must never degrade EJ. EJ failure must never affect CTS. No cascading impact in either direction.
+
+This is enforced at every layer — not by convention but by hard boundaries:
+
+#### Kubernetes
+- CTS and EJ run in **separate Kubernetes namespaces**: `astra-cts-{bank_id}` and `astra-ej-{bank_id}`
+- Each namespace has its own `ResourceQuota` and `LimitRange` — CTS cannot consume EJ's CPU/memory budget
+- Istio `NetworkPolicy`: CTS pods cannot call EJ pods directly, and vice versa
+- No shared Deployments — every service belongs to exactly one module namespace
+
+#### Kafka
+- Separate topic prefixes already: `cts.*` and `ej.*` — no cross-topic consumption ever
+- Separate Kafka consumer groups per module — no shared group coordinator
+- Separate KEDA `ScaledObject` per module — CTS scaling events do not trigger EJ scaling
+- `cts-agent-worker` must never subscribe to any `ej.*` topic, and vice versa
+
+#### Redis
+- **Two separate Redis Clusters**: `redis-cts` (Signature Vault + PPS Vault) and `redis-ej` (EJ canonical cache, ATM health signals)
+- Separate Helm release per Redis cluster — separate resource limits
+- No shared Redis keyspace — CTS eviction pressure cannot evict EJ keys
+
+#### Database (YugabyteDB)
+- Separate pgbouncer pools: `pgbouncer-cts` and `pgbouncer-ej` — separate connection budgets
+- CTS tables and EJ tables are in separate YugabyteDB schemas: `schema: cts` and `schema: ej`
+- No cross-schema JOINs in application code — only analytics-service may read both (read-only, async)
+
+#### AI Inference (vLLM)
+- Separate inference queues per model family:
+  - `queue: cts-vision` → Qwen2-VL (cheque images, signatures) — CTS exclusive
+  - `queue: cts-ocr` → GOT-OCR2.0 (MICR line) — CTS exclusive
+  - `queue: ej-reasoning` → Llama 3.3 70B (EJ log parsing) — EJ exclusive
+  - `queue: ej-embeddings` → BGE-M3 (dispute matching) — EJ exclusive
+  - `queue: shared-fraud` → XGBoost (fraud scoring) — CTS only, no GPU queue
+- If CTS vision queue saturates, EJ reasoning queue is unaffected — separate vLLM workers per queue
+
+#### Temporal
+- Separate Temporal task queues: `cts-processing-{bank_id}` and `ej-normalisation-{bank_id}`
+- Separate Temporal worker Deployments — CTS workers only poll CTS task queues
+- Temporal namespace isolation: `temporal-ns: cts` and `temporal-ns: ej` (if multi-namespace Temporal)
+
+#### Shared Services (allowed exceptions)
+Only these services are shared — and each has a per-module rate limit:
+- `audit-service` — shared, but CTS and EJ write to separate Immudb collections
+- `notification-service` — shared, separate Kafka consumer groups per module
+- `analytics-service` — read-only consumer, separate consumer group, no write path
+
+#### What Sharing Means for Code
+- No Python import across module boundaries: `from modules.cts import ...` forbidden in `modules/ej/` and vice versa
+- Shared utilities live in `shared/` only — never in a module directory
+- Pydantic models: CTS models in `modules/cts/`, EJ models in `modules/ej/` — no cross-import
+
 ### 2.4 MCP as Integration Standard
 - MCP (Model Context Protocol) = universal integration layer for AI agents
 - **CTS + NPCI**: Standards proposal to NPCI for MCP-native NGCH interface
