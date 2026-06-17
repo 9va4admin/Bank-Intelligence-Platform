@@ -3,7 +3,7 @@
 
 set -e
 
-echo "=== ASTRA Pre-Commit Security Check ==="
+echo "=== ASTRA Pre-Commit Security + API Compatibility Check ==="
 
 # 1. Gitleaks — scan for secrets
 if command -v gitleaks &> /dev/null; then
@@ -46,7 +46,22 @@ for file in $STAGED_FILES; do
     fi
 done
 
-# 5. Module blast isolation — cross-module Python imports forbidden
+# 5. API compatibility — check for references to REMOVED endpoints
+if [[ -f "docs/api/compatibility-matrix.md" ]]; then
+    REMOVED=$(grep -E "\| REMOVED \|" docs/api/compatibility-matrix.md | \
+        grep -oE "/v[0-9]+/[a-z/{}._-]+" || true)
+    for path in $REMOVED; do
+        if grep -r --include="*.py" --include="*.ts" --include="*.tsx" \
+                   -l "\"${path}\"\|'${path}'" apps/ modules/ shared/ 2>/dev/null | \
+           grep -v "__pycache__"; then
+            echo "BLOCKED: Reference to REMOVED API endpoint '${path}' in staged files."
+            echo "This endpoint was sunset. Update callers to use the current version."
+            exit 1
+        fi
+    done
+fi
+
+# 6. Module blast isolation — cross-module Python imports forbidden
 for file in $STAGED_FILES; do
     if echo "$file" | grep -qE "^modules/cts/"; then
         if git show ":$file" | grep -qE "from modules\.ej|import modules\.ej"; then
