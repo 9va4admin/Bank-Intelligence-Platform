@@ -1,50 +1,112 @@
-# ASTRA Platform Defaults — Layer 1 (Non-Overridable)
+# ASTRA Platform Defaults — Layer 1 (Non-Overridable) + Layer 2 Starting Defaults
 # ─────────────────────────────────────────────────────────────────────
-# These values are baked into the Helm chart. No bank values file
-# can override them. Changing any of these requires a new chart release
-# reviewed by ASTRA's security and compliance team.
+# Layer 1 (marked NON-OVERRIDABLE): baked into chart, banks cannot change.
+#   Changing these requires a new ASTRA chart release.
+#
+# Layer 2 (marked BANK-CONFIGURABLE): starting defaults injected at deployment.
+#   Banks override these in infra/helm/values/banks/{bank_id}.yaml
+#   Changes require Helm upgrade (bank change management process).
+#
+# Layer 3 (marked HOT-RELOAD): defaults seeded into YugabyteDB at first deploy.
+#   Banks change these via Admin UI (maker-checker) — no restart, no code change.
+#   These defaults exist here only as the seed value at bank onboarding.
+#
+# RULE: No Python/Go code may contain a numeric threshold literal.
+#       All values must be fetched from config_service at runtime.
 # ─────────────────────────────────────────────────────────────────────
 
 platform:
   name: astra
-  version: "{{ .Chart.Version }}"   # injected from Chart.yaml
+  version: "{{ .Chart.Version }}"
 
-# Security — cannot be disabled by any bank
+# ── Security (NON-OVERRIDABLE) ───────────────────────────────────────
 security:
   min_tls_version: "1.3"
-  mtls_mode: STRICT                  # Istio PeerAuthentication: STRICT
-  hsm_required: true                 # FIPS 140-2 Level 3 — no software key ops
-  data_localisation: enforced        # no customer data leaves bank premises
-  secrets_source: vault              # HashiCorp Vault only — no env var secrets
+  mtls_mode: STRICT
+  hsm_required: true
+  data_localisation: enforced
+  secrets_source: vault
 
-# Audit — cannot be disabled by any bank
+# ── Audit (NON-OVERRIDABLE) ──────────────────────────────────────────
 audit:
-  enabled: true                      # immutable — tampering is cryptographically detectable
+  enabled: true
   immudb_required: true
   hsm_sign_events: true
   kafka_topic: platform.audit.events
 
-# Workflow safety — cannot be disabled
+# ── Workflow Safety (NON-OVERRIDABLE) ────────────────────────────────
 workflow:
-  iet_watchdog_enabled: true         # IETWatchdogWorkflow always spawned
-  exactly_once_ngch: true            # Temporal idempotency on all NGCH submissions
-  vault_miss_action: HUMAN_REVIEW    # vault miss NEVER auto-returns — always human review
+  iet_watchdog_enabled: true
+  exactly_once_ngch: true
+  vault_miss_action: HUMAN_REVIEW       # structural — never configurable to AUTO_RETURN
 
-# Module isolation — enforced at namespace level
+# ── Module Isolation (NON-OVERRIDABLE) ──────────────────────────────
 isolation:
   cts_namespace_prefix: astra-cts
   ej_namespace_prefix: astra-ej
-  cross_module_network_policy: DENY  # Istio AuthorizationPolicy default
+  cross_module_network_policy: DENY
 
-# Resource guarantees — minimums that cannot be lowered
-resources:
-  cts_agent_worker:
-    min_replicas: 2                  # always 2 warm pods during clearing hours
-  ej_normalisation_worker:
-    min_replicas: 1
-
-# Observability — always on
+# ── Observability (NON-OVERRIDABLE) ─────────────────────────────────
 observability:
   otel_enabled: true
-  langfuse_enabled: true             # every AI call logged
+  langfuse_enabled: true
   prometheus_scrape: true
+
+# ── CTS Business Thresholds (Layer 3 — HOT-RELOAD, bank-configurable) ──
+# These are SEED defaults loaded into YugabyteDB at bank onboarding.
+# After onboarding, banks change these via Admin UI — no Helm upgrade needed.
+# Values here are ASTRA's recommended starting point, not mandates.
+cts:
+  thresholds:
+    iet_minutes: 180                        # RBI mandate: T+3 hours. Bank may tighten.
+    stp_auto_confirm_threshold: 0.92        # fraud score <= this → auto-confirm
+    human_review_fraud_threshold: 0.72      # fraud score > this → human review queue
+    high_value_amount_threshold: 500000     # ₹5,00,000 — cheques above go to human review
+    signature_min_match_score: 0.85         # Siamese network match score minimum
+    ocr_min_confidence: 0.90               # GOT-OCR2 field confidence minimum
+    alteration_risk_threshold: 0.65        # Qwen2-VL tamper risk score threshold
+    iet_emergency_buffer_seconds: 30       # watchdog fires this many seconds before IET
+    human_review_max_wait_minutes: 55      # HumanReviewWorkflow timeout before auto-return
+
+# ── EJ Business Thresholds (Layer 3 — HOT-RELOAD, bank-configurable) ──
+ej:
+  thresholds:
+    llm_field_min_confidence: 0.80         # per-field extraction confidence minimum
+    llm_record_max_weak_fields: 3          # reject record if more fields below minimum
+    oem_fingerprint_min_confidence: 0.90   # OEM detection confidence — below = manual review
+    dispute_auto_resolve_confidence: 0.95  # auto-resolve only if evidence confidence >= this
+    atm_health_degraded_threshold: 0.70    # ATM health score below this = DEGRADED alert
+    atm_health_critical_threshold: 0.40    # ATM health score below this = CRITICAL alert
+    ej_pull_interval_minutes: 15           # how often edge agent pushes EJ files
+
+# ── AI Model Config (Layer 2 — BANK-CONFIGURABLE via Helm values) ────
+# Banks may choose quantisation level or model variant based on GPU profile.
+ai:
+  models:
+    cts_vision: qwen2-vl-72b-awq           # AWQ quantised for pilot GPUs
+    cts_ocr: got-ocr2                      # no quantisation — small model
+    cts_cctv: internvl2-26b-awq
+    cts_reasoning: llama-3.3-70b-awq
+    ej_reasoning: llama-3.3-70b-awq
+    ej_embeddings: bge-m3
+    ej_dispute: qwen2.5-72b-awq
+  timeouts_seconds:
+    cts_vision: 120
+    cts_ocr: 30
+    cts_reasoning: 60
+    ej_reasoning: 180
+    ej_embeddings: 15
+
+# ── Model Drift Alerting (Layer 2 — BANK-CONFIGURABLE) ──────────────
+# Alert if model metric drops by these amounts over 7 days
+model_drift:
+  alert_threshold_pct: 2.0                # alert if metric drops > 2%
+  tighten_threshold_pct: 5.0              # auto-tighten decision thresholds
+  pull_from_production_pct: 8.0           # pull model from production
+
+# ── Resource Minimums (NON-OVERRIDABLE) ─────────────────────────────
+resources:
+  cts_agent_worker:
+    min_replicas: 2
+  ej_normalisation_worker:
+    min_replicas: 1

@@ -21,7 +21,7 @@
 - Model: Llama 3.3 70B via vLLM (not vision model — EJ is text)
 - Prompt must include: OEM fingerprint, raw log excerpt, canonical schema as JSON schema
 - Never cache parsed results — each log file is unique
-- If LLM extraction confidence < 0.85, flag for human review (do not auto-store)
+- If LLM extraction confidence < `config_service.get("ej.field_extraction.min_confidence")`, flag for human review — never hardcode 0.85
 
 ## Forbidden Patterns in EJ
 - Storing ATM location coordinates without bank's data localisation approval

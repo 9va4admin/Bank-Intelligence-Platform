@@ -85,11 +85,13 @@ async def ocr_extract(input: OcrInput) -> OcrResult:
         # 6. Parse and validate response
         result = OcrResult.model_validate_json(response.choices[0].message.content)
 
-        # 7. Confidence check
-        if result.confidence < config_service.get("ai.ocr.min_confidence", 0.90):
+        # 7. Confidence check — threshold always from config_service, no default literal
+        ocr_min_confidence = config_service.get(f"banks.{input.bank_id}.ai.ocr.min_confidence")
+        if result.confidence < ocr_min_confidence:
             log.warning("ocr_extract.low_confidence",
                         bank_id=input.bank_id,
-                        confidence=result.confidence)
+                        confidence=result.confidence,
+                        threshold=ocr_min_confidence)
             result.requires_human_review = True
 
         # 8. Complete Langfuse generation
