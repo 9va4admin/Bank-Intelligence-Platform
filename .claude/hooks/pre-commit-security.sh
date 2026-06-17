@@ -97,6 +97,38 @@ for file in $STAGED_FILES; do
     fi
 done
 
+# 9. TDD pairing — every new implementation file must have a paired test file
+for file in $STAGED_FILES; do
+    # Only check new Python files (not modifications, not __init__.py, not test files, not migrations)
+    if echo "$file" | grep -qE "^(modules|shared|apps)/.*\.py$" && \
+       ! echo "$file" | grep -qE "(__init__|test_|migrations/)" && \
+       ! git ls-files --error-unmatch "$file" 2>/dev/null; then
+        # This is a NEW implementation file — check for paired test file
+        dir=$(dirname "$file")
+        base=$(basename "$file" .py)
+        test_path="tests/${dir}/test_${base}.py"
+        # Test file must exist either already in git or in this commit's staged files
+        if ! git ls-files --error-unmatch "$test_path" 2>/dev/null && \
+           ! echo "$STAGED_FILES" | grep -qF "$test_path"; then
+            echo "BLOCKED: New file '$file' has no paired test file."
+            echo "Expected: $test_path"
+            echo "TDD rule: write the test first (RED), then the implementation (GREEN)."
+            exit 1
+        fi
+    fi
+done
+
+# 10. No @pytest.mark.skip in committed test files — skipped tests hide missing coverage
+for file in $STAGED_FILES; do
+    if echo "$file" | grep -qE "^tests/.*test_.*\.py$"; then
+        if git show ":$file" | grep -qE "@pytest\.mark\.skip"; then
+            echo "BLOCKED: @pytest.mark.skip found in $file"
+            echo "Skipped tests do not count toward coverage. Fix or remove the skip."
+            exit 1
+        fi
+    fi
+done
+
 # 8. Rules constitution — every .claude/rules/*.md must have an ## Enforcement section
 for file in $STAGED_FILES; do
     if echo "$file" | grep -qE "^\.claude/rules/.*\.md$"; then
