@@ -73,31 +73,44 @@ decision.shap_values = shap_summary
 # Never file to NGCH without SHAP stored — audit requirement
 ```
 
-## Confidence Threshold Rules
+## Confidence Threshold Rules — All Values from config_service
 ```python
-# These thresholds come from config_service — never hardcode
+# Load all AI thresholds at activity start — never hardcode
+ai_config = await config_service.get_ai_config(bank_id)
 
 # OCR confidence
-if ocr_result.confidence < 0.90:
+ocr_min = ai_config["ocr.min_confidence"]           # bank sets this, default in Layer 2 template
+if ocr_result.confidence < ocr_min:
     return route_to_human_review("OCR_LOW_CONFIDENCE")
 
 # Signature verification
-if sig_result.match_score < config.get("sig_verification.min_score", 0.85):
+sig_min = ai_config["signature.min_match_score"]    # bank sets this
+if sig_result.match_score < sig_min:
     return route_to_human_review("SIGNATURE_LOW_CONFIDENCE")
 
-# EJ field extraction (per-field)
+# EJ field extraction (per-field threshold)
+ej_field_min = ai_config["ej.field_extraction.min_confidence"]
 for field, extraction in ej_result.fields.items():
-    if extraction.confidence < 0.80:
+    if extraction.confidence < ej_field_min:
         extraction.value = None
         extraction.warning = "LOW_CONFIDENCE_EXTRACTION"
 
-# EJ record-level: if >3 fields below threshold, reject entire record
+# EJ record rejection threshold (how many low-confidence fields before reject)
+ej_max_weak_fields = ai_config["ej.field_extraction.max_weak_fields"]
 low_confidence_count = sum(
-    1 for f in ej_result.fields.values() if f.confidence < 0.80
+    1 for f in ej_result.fields.values() if f.confidence < ej_field_min
 )
-if low_confidence_count > 3:
+if low_confidence_count > ej_max_weak_fields:
     raise EJParseFailedError("too_many_low_confidence_fields")
+
+# FORBIDDEN — hardcoded AI thresholds
+if ocr_result.confidence < 0.90:    # WRONG
+if sig_result.match_score < 0.85:   # WRONG
+if low_confidence_count > 3:        # WRONG
 ```
+
+Default values for these keys live in `infra/helm/values/_defaults.yaml`.
+Banks adjust via Admin UI (Layer 3) — changes hot-reload in < 30 seconds, no restart.
 
 ## Graceful Degradation When GPU / vLLM Is Down
 ```python

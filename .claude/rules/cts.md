@@ -17,6 +17,22 @@
 - Retry policies: OCR/signature max 2 retries; NGCH filing max 3 retries with exponential backoff
 - Workflow IDs: `cts-{bank_id}-{instrument_id}` — must be idempotent (exactly-once guarantee)
 
+## The Golden Rule — No Literal Thresholds in Code, Ever
+```
+WRONG:  if fraud_score > 0.72
+WRONG:  if amount > 500000
+WRONG:  if confidence < 0.90
+WRONG:  IET_MINUTES = 180
+
+CORRECT: thresholds = await config_service.get_cts_config(bank_id)
+         if fraud_score > thresholds["human_review_fraud_threshold"]
+         if amount > thresholds["high_value_amount_threshold"]
+         if confidence < thresholds["ocr_min_confidence"]
+         if elapsed > thresholds["iet_minutes"] * 60
+```
+Default values live in `infra/helm/values/_defaults.yaml`.
+Banks change them via Admin UI (no code, no restart, no ASTRA involvement).
+
 ## Forbidden Patterns in CTS
 - `SELECT *` on `cheque_instruments` or `agent_decisions` tables
 - Logging `account_number`, `amount`, `payee_name` in full — mask to last 4 digits / first letter
@@ -24,7 +40,26 @@
 - Caching AI outputs (OCR, signature scores, fraud scores) — every cheque is unique
 - Skipping Immudb write after any YugabyteDB write
 
-## File Decision Thresholds (from config_service, never hardcoded)
-- `stp_auto_confirm_threshold`: default 0.92 (bank-configurable)
-- `human_review_fraud_threshold`: default 0.72 (bank-configurable)
-- `high_value_amount_threshold`: default ₹5,00,000 (bank-configurable)
+## Decision Thresholds — Always from config_service, Never Hardcoded
+```python
+# CORRECT — every threshold is a config_service call
+thresholds = await config_service.get_module_config("cts", bank_id)
+
+stp_threshold      = thresholds["stp_auto_confirm_threshold"]
+fraud_threshold    = thresholds["human_review_fraud_threshold"]
+high_value_limit   = thresholds["high_value_amount_threshold"]
+iet_minutes        = thresholds["iet_minutes"]
+vault_miss_action  = thresholds["vault_miss_action"]  # always HUMAN_REVIEW — Layer 1 enforced
+
+# FORBIDDEN — never write a literal threshold in code
+if fraud_score > 0.72:    # WRONG — hardcoded, not bank-configurable
+if amount > 500000:       # WRONG — hardcoded, not bank-configurable
+```
+
+Defaults live in `infra/helm/values/_defaults.yaml` (Layer 1) and `infra/helm/values/bank-template.yaml` (Layer 2 starting point).
+Banks change Layer 3 values via Admin UI maker-checker — code never needs to change.
+
+## IET Breach Rate
+- Target: 0.000% — enforced by IETWatchdogWorkflow architecture, not by a configurable threshold
+- The watchdog fires at T-30 seconds regardless of any config — this is structural, not a setting
+- What IS configurable: `iet_minutes` (default 180) — the total IET window the bank operates under
