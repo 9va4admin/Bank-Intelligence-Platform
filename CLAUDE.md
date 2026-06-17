@@ -135,6 +135,123 @@ Only these services are shared — and each has a per-module rate limit:
 - Shared utilities live in `shared/` only — never in a module directory
 - Pydantic models: CTS models in `modules/cts/`, EJ models in `modules/ej/` — no cross-import
 
+### 2.6 On-Premises Deployment, Upgrade, and Configuration Model
+
+#### Deployment Model — Per-Bank, Air-Gapped, GitOps Pull
+
+ASTRA is not SaaS. Each bank runs a fully isolated ASTRA instance inside their own data center. There is no central control plane that reaches into a bank's environment. All delivery is pull-based.
+
+```
+ASTRA Vendor (9va4admin)          Bank's Premises
+─────────────────────────         ──────────────────────────────────────
+GitLab CI builds & tests          ArgoCD (bank-owned)
+       │                                   │
+       ▼                                   │ watches
+Private OCI Helm Registry  ◄──── pulls ───┘
+(versioned chart releases)
+       │
+       └── infra/helm/values/banks/{bank_id}.yaml  (bank-specific config)
+```
+
+- ASTRA team publishes versioned Helm charts to a **private OCI registry** hosted by ASTRA
+- Each bank's ArgoCD is configured to watch a specific chart version in that registry
+- The bank's IT team controls when to sync (their change management process gates upgrades)
+- Bank-specific `values/{bank_id}.yaml` lives in the ASTRA repo — changes go through PR + maker-checker
+- **No ASTRA team member ever has shell/kubectl access to any bank's cluster in production**
+
+#### Upgrade Process
+
+```
+Step 1 — ASTRA releases new version
+  GitLab CI: run full test suite → tag v1.x.y → build Helm chart
+  → publish chart to OCI registry as astra/cerebrum:v1.x.y
+  → publish release notes + upgrade guide + compatibility matrix
+
+Step 2 — Bank change management
+  Bank IT Admin raises Change Request (bank's ITSM tool)
+  Review: release notes, schema migration impact, config changes needed
+  Approval: bank CISO + Change Advisory Board (CAB)
+
+Step 3 — Upgrade execution (bank controls this)
+  ArgoCD: change targetRevision from v1.x.y-1 to v1.x.y
+  Helm pre-upgrade hook: Alembic migration Job runs first (with --dry-run reported)
+  Helm upgrade: rolling update (zero-downtime for stateless services)
+  Temporal workers: drain existing workflows before restart (graceful shutdown)
+  Post-upgrade: smoke test suite runs automatically via Helm post-upgrade hook
+
+Step 4 — Rollback if needed (bank controls this)
+  ArgoCD: revert targetRevision to previous version
+  Alembic: downgrade migration runs automatically
+  SLA: rollback complete in < 10 minutes
+```
+
+#### Schema Migration Strategy
+- All migrations via Alembic — never raw DDL in application code
+- Migrations are **always backwards-compatible for one version** (additive only):
+  - New column: nullable first, populate in app, add NOT NULL constraint in next release
+  - Dropped column: mark deprecated in N, remove in N+1
+  - This ensures rollback never requires a data migration
+- Migration runs as a **Kubernetes Job** in a Helm pre-upgrade hook — completes before any new pods start
+- Migration failures: Helm upgrade fails and rolls back automatically
+
+#### Bank-Specific Configuration — Four Layers, Zero Code Changes
+
+```
+LAYER 1 — Platform Constraints  [in Helm chart — non-overridable by bank]
+  Baked into the chart defaults. Banks cannot override these.
+  Examples: min_tls_version: "1.3", audit_trail_enabled: true, data_localisation: enforced
+  Change requires: ASTRA vendor release
+
+LAYER 2 — Deployment Topology  [in infra/helm/values/banks/{bank_id}.yaml]
+  Controls what gets deployed and at what scale.
+  Examples: module_cts_enabled, module_ej_enabled, cbs_connector_type, max_agent_swarm_size
+  Change requires: PR to ASTRA repo → bank IT Admin approval → ArgoCD sync
+  Audited: Git history is the audit trail
+
+LAYER 3 — Business Rules / Thresholds  [Admin UI → YugabyteDB → config_service hot-reload]
+  Operational parameters. Changes take effect within 30 seconds, no restart needed.
+  Examples: iet_minutes, stp_auto_confirm_threshold, human_review_fraud_threshold,
+            high_value_amount_threshold, special_cheque_routes
+  Change requires: Maker (ops_manager) submits → Checker (bank_it_admin) approves
+  Audited: every change written to Immudb as ConfigChangeEvent before taking effect
+
+LAYER 4 — Business Policy Rules  [OPA Rego policies → hot-reloaded via OPA config watcher]
+  Complex conditional routing and decision logic. No code deploy needed.
+  Examples: "Government cheques always to human review", "Return immediately if account frozen",
+            "High-value cheques on first-clearing-day require dual approval"
+  Change requires: compliance_officer authors Rego → bank_it_admin approves → OPA hot-reloads
+  Audited: Rego policy versions stored in YugabyteDB with full diff history
+
+LAYER 5 — Secrets  [HashiCorp Vault — dynamic, rotated every 24h]
+  DB passwords, TLS certs, API keys for CBS/NGCH/WhatsApp.
+  Change requires: Vault operator — no application restart needed (dynamic secrets)
+  Audited: Vault audit log
+```
+
+#### Config Hot-Reload Architecture
+```
+Admin UI ──► API Gateway ──► config-service ──► YugabyteDB (writes)
+                                     │
+                              publishes event to
+                                     │
+                             Kafka: platform.config.changed
+                                     │
+                    ┌────────────────┴───────────────────┐
+                    ▼                                     ▼
+            cts-agent-worker                    ej-normalisation-worker
+         (reloads thresholds                  (reloads LLM confidence
+          in < 30 seconds)                     threshold in < 30 seconds)
+
+OPA Watcher polls YugabyteDB for new Rego policy versions → hot-reloads
+No pod restart required for Layer 3 or Layer 4 changes.
+```
+
+#### Multi-Bank Operations (ASTRA Vendor View)
+- Each bank has a separate row in ASTRA's internal `banks` registry (not a shared DB — just ASTRA's own records)
+- Each bank has its own `infra/helm/values/banks/{bank_id}.yaml` in the repo
+- Version matrix tracked: which bank is on which chart version → drives support and upgrade nudges
+- No bank's data ever crosses to another bank's environment — complete isolation at Helm namespace level
+
 ### 2.4 MCP as Integration Standard
 - MCP (Model Context Protocol) = universal integration layer for AI agents
 - **CTS + NPCI**: Standards proposal to NPCI for MCP-native NGCH interface
@@ -339,12 +456,34 @@ cerebrum/
 │
 ├── infra/
 │   ├── helm/
-│   │   ├── cerebrum/                  ← Main Helm chart
+│   │   ├── cerebrum/                  ← Main Helm chart (published to OCI registry)
+│   │   │   ├── Chart.yaml             ← Version bumped on every release
+│   │   │   ├── templates/
+│   │   │   │   ├── namespaces.yaml    ← astra-cts-{bank_id} + astra-ej-{bank_id}
+│   │   │   │   ├── resource-quotas.yaml
+│   │   │   │   ├── network-policies.yaml
+│   │   │   │   └── pre-upgrade-migration-job.yaml  ← Alembic runs before pods
+│   │   │   └── hooks/
+│   │   │       ├── pre-upgrade.yaml   ← DB migration job
+│   │   │       └── post-upgrade.yaml  ← Smoke test job
 │   │   └── values/
-│   │       ├── _defaults.yaml         ← Platform defaults (non-overridable)
-│   │       ├── bank-template.yaml     ← New bank onboarding template
+│   │       ├── _defaults.yaml         ← Layer 1: platform constraints (non-overridable)
+│   │       ├── bank-template.yaml     ← Layer 2 template: copy for each new bank
 │   │       └── banks/
-│   │           └── example-bank.yaml  ← Example bank config
+│   │           └── example-bank.yaml  ← Filled example for reference
+│   ├── argocd/
+│   │   ├── app-of-apps.yaml           ← ArgoCD App-of-Apps: one entry per bank
+│   │   └── apps/
+│   │       └── bank-template-app.yaml ← ArgoCD Application template per bank
+│   ├── opa/
+│   │   ├── policies/
+│   │   │   ├── cts_routing.rego       ← Layer 4: CTS cheque routing rules
+│   │   │   ├── cts_auto_return.rego   ← Layer 4: auto-return triggers
+│   │   │   └── ej_dispute.rego        ← Layer 4: dispute auto-resolve rules
+│   │   └── bundles/                   ← OPA bundle build output
+│   ├── migrations/
+│   │   ├── cts/                       ← Alembic migrations for cts schema
+│   │   └── ej/                        ← Alembic migrations for ej schema
 │   ├── k8s/
 │   │   ├── temporal/
 │   │   ├── kafka/
@@ -368,31 +507,88 @@ cerebrum/
 
 ## 5. Configuration Hierarchy
 
-```
-LEVEL 1 — Platform Defaults (in code, non-overridable)
-  min_tls_version: "1.3"
-  audit_trail_enabled: true  # cannot be turned off
-  data_localisation: enforced
-  hsm_required: true
+Five layers. Lower layers cannot override higher layers. All changes at Layer 2+ are audited.
 
-LEVEL 2 — Bank Config (Helm values/bank-{id}.yaml, maker-checker)
-  iet_minutes: 180
-  human_review_fraud_threshold: 0.72
-  stp_auto_confirm_threshold: 0.92
-  max_agent_swarm_size: 500
-  cbs_connector_type: finacle
+```
+LAYER 1 — Platform Constraints  [Helm chart _defaults.yaml — non-overridable]
+─────────────────────────────────────────────────────────────────────────────
+  Who changes: ASTRA vendor only, via a new chart release
+  How: New Helm chart version → bank upgrade process
+  Hot-reload: No (requires pod restart with new chart)
+
+  min_tls_version: "1.3"
+  audit_trail_enabled: true          # cannot be turned off by any bank
+  data_localisation: enforced        # no external API calls with customer data
+  hsm_required: true
+  exactly_once_ngch: true            # Temporal idempotency — never overridable
+  iet_watchdog_enabled: true         # IET watchdog — never overridable
+
+LAYER 2 — Deployment Topology  [infra/helm/values/banks/{bank_id}.yaml]
+─────────────────────────────────────────────────────────────────────────────
+  Who changes: ASTRA vendor + bank_it_admin, via PR to ASTRA repo
+  How: PR review → ArgoCD sync → rolling deploy (bank's change management gates this)
+  Hot-reload: No (Helm upgrade required)
+  Audit trail: Git history + Immudb ConfigChangeEvent on apply
+
   module_cts_enabled: true
   module_ej_enabled: false
-  high_value_amount_threshold: 500000
+  cbs_connector_type: finacle        # finacle | bancs | flexcube
+  max_agent_swarm_size: 500
+  redis_cts_nodes: 6
+  redis_ej_nodes: 6
+  gpu_profile: pilot                 # pilot (4×RTX4090) | production (4×A100)
+  clearing_zones: [MUMBAI, DELHI]
+  dc_count: 2
 
-LEVEL 3 — Module Config (Admin UI, ops manager role)
+LAYER 3 — Business Rules / Thresholds  [Admin UI → YugabyteDB → config_service]
+─────────────────────────────────────────────────────────────────────────────
+  Who changes: ops_manager (maker) + bank_it_admin (checker) — dual approval required
+  How: Admin UI form → maker submits → checker approves → config_service publishes
+       Kafka event platform.config.changed → workers reload within 30 seconds
+  Hot-reload: YES — no pod restart, no deployment
+  Audit trail: Every change written to Immudb as ConfigChangeEvent BEFORE taking effect
+
+  iet_minutes: 180
+  stp_auto_confirm_threshold: 0.92
+  human_review_fraud_threshold: 0.72
+  high_value_amount_threshold: 500000
   special_cheque_routes: [GOVERNMENT, COURT_ORDER]
   ej_pull_schedule: "*/15 * * * *"
   dispute_auto_resolve_categories: [BALANCE_SUFFICIENT, DISPENSE_CONFIRMED]
+  vault_miss_action: HUMAN_REVIEW     # never changeable to AUTO_RETURN
 
-LEVEL 4 — User Preferences (individual users, UI)
-  dashboard_layout, notification_preferences, locale
+LAYER 4 — Business Policy Rules  [OPA Rego → YugabyteDB → OPA config watcher]
+─────────────────────────────────────────────────────────────────────────────
+  Who changes: compliance_officer (author) + bank_it_admin (approve)
+  How: Rego policy authored in Admin UI → approval → OPA watcher detects version change
+       OPA hot-reloads policy bundle — no restart needed
+  Hot-reload: YES — OPA live bundle reload
+  Audit trail: Full Rego diff stored in YugabyteDB policy_versions table + Immudb
+
+  Examples of what lives here:
+  - "Government/court-order cheques always require human review regardless of score"
+  - "If account frozen in CBS, return immediately without fraud scoring"
+  - "Cheques > ₹50L on first clearing day: dual ops_reviewer approval required"
+  - "EJ disputes for cash-not-dispensed: auto-resolve only if CCTV confirms no dispense"
+
+LAYER 5 — User Preferences  [per-user YugabyteDB record]
+─────────────────────────────────────────────────────────────────────────────
+  Who changes: individual user, via UI settings
+  Hot-reload: YES — per-request preference fetch
+  No approval required, no audit trail (non-operational preferences)
+
+  dashboard_layout, notification_preferences, locale, timezone
 ```
+
+### Config-Service Architecture
+`shared/config/config_service.py` is the single point of access for all configuration.
+- Layer 1: read from environment variable injected by Helm at startup (immutable)
+- Layer 2: read from environment variable injected by Helm at startup (immutable until redeploy)
+- Layer 3: read from YugabyteDB `config` table, cached in Redis with 30-second TTL, invalidated on Kafka `platform.config.changed`
+- Layer 4: OPA decision API called per request (OPA holds loaded policy bundle in memory)
+- Layer 5: read from YugabyteDB `user_preferences` table per authenticated user
+
+**No service reads from environment variables directly — always via config_service.**
 
 ---
 

@@ -1,0 +1,122 @@
+# ASTRA Bank Configuration Template — Layer 2 (Deployment Topology)
+# ─────────────────────────────────────────────────────────────────────
+# Copy this file to infra/helm/values/banks/{bank_id}.yaml
+# Fill in all REQUIRED fields. Optional fields have safe defaults.
+# Changes to this file require: PR review → bank_it_admin approval → ArgoCD sync
+#
+# IMPORTANT: Layer 3 (thresholds) and Layer 4 (policy rules) are configured
+# via the Admin UI — do NOT put operational thresholds in this file.
+# ─────────────────────────────────────────────────────────────────────
+
+# ── Bank Identity ────────────────────────────────────────────────────
+bank:
+  id: ""                          # REQUIRED: lowercase, hyphenated (e.g. kotak-mah)
+  name: ""                        # REQUIRED: full legal name (e.g. "Kotak Mahindra Bank Ltd")
+  ifsc_prefix: ""                 # REQUIRED: 4-char IFSC prefix (e.g. KKBK)
+  rbi_registration_number: ""     # REQUIRED: RBI registration number
+  contact_email: ""               # REQUIRED: bank IT admin email for alerts
+
+# ── Module Enablement ────────────────────────────────────────────────
+modules:
+  cts:
+    enabled: false                # REQUIRED: set true to activate CTS module
+    ngch_zone: ""                 # REQUIRED if cts.enabled: MUMBAI | DELHI | CHENNAI | KOLKATA | ...
+    clearing_zones: []            # REQUIRED if cts.enabled: list of zones this bank processes
+  ej:
+    enabled: false                # set true to activate EJ module
+    atm_count_estimate: 0         # approximate ATM count (for capacity planning)
+
+# ── CBS Connector ────────────────────────────────────────────────────
+cbs:
+  connector_type: ""              # REQUIRED: finacle | bancs | flexcube
+  host: ""                        # REQUIRED: CBS host (internal network)
+  port: 443
+  # Credentials managed in HashiCorp Vault — do NOT put here
+  # Vault path: secret/astra/{bank.id}/cbs
+
+# ── Infrastructure Sizing ────────────────────────────────────────────
+# Adjust based on daily cheque volume and ATM count
+sizing:
+  profile: pilot                  # pilot | standard | large
+  # pilot:    4×RTX 4090, max 100 cheques/batch
+  # standard: 2×A100 40GB, max 300 cheques/batch
+  # large:    4×A100 80GB, max 500 cheques/batch
+
+  cts_agent_worker:
+    min_replicas: 2               # always warm — never 0
+    max_replicas: 500             # must match max_agent_swarm_size in Layer 3
+    kafka_lag_trigger: 10         # KEDA: scale up when lag > N
+
+  ej_normalisation_worker:
+    min_replicas: 1
+    max_replicas: 50
+    kafka_lag_trigger: 5
+
+# ── Redis Cluster Sizing ─────────────────────────────────────────────
+redis:
+  cts:
+    nodes: 6                      # 3 per DC (active-active)
+    memory_gb: 8                  # per node
+  ej:
+    nodes: 6
+    memory_gb: 4
+
+# ── Data Centers ────────────────────────────────────────────────────
+datacenters:
+  dc1:
+    name: ""                      # REQUIRED: e.g. "Mumbai Primary"
+    location: ""                  # city/site name (for documentation)
+  dc2:
+    name: ""                      # REQUIRED: e.g. "Mumbai DR"
+    location: ""
+  dc3_backup:
+    name: ""                      # REQUIRED: air-gapped backup DC
+    location: ""
+
+# ── Multi-Center (large banks with RPCs) ─────────────────────────────
+# Leave empty [] if single-center bank
+regional_processing_centers: []
+# Example:
+# regional_processing_centers:
+#   - id: rpc-mumbai
+#     name: "Mumbai RPC"
+#     ngch_zone: MUMBAI
+#     dc_primary: dc1
+#   - id: rpc-delhi
+#     name: "Delhi RPC"
+#     ngch_zone: DELHI
+#     dc_primary: dc2
+
+# ── Storage ──────────────────────────────────────────────────────────
+storage:
+  minio:
+    hot_bucket_size_tb: 10        # Tier 1: 90 days of artifacts
+    warm_bucket_size_tb: 50       # Tier 2: 2 years
+    cold_retention_years: 10      # Tier 3: regulatory WORM
+  yugabyte:
+    data_size_gb: 500             # initial allocation
+
+# ── Identity Provider ────────────────────────────────────────────────
+idp:
+  type: saml2                     # saml2 only (ASTRA does not store passwords)
+  metadata_url: ""                # REQUIRED: bank's SAML IdP metadata URL
+  # Roles must be mapped in bank's IdP to ASTRA role names:
+  # ops_reviewer, fraud_analyst, ops_manager, bank_it_admin,
+  # compliance_officer, rbi_examiner, ml_engineer
+
+# ── Notifications ────────────────────────────────────────────────────
+notifications:
+  email:
+    from_address: ""              # e.g. astra-alerts@bank.com
+    smtp_relay: ""                # internal SMTP relay (Postal uses this)
+  whatsapp:
+    enabled: false
+    # WhatsApp Business API credentials in Vault:
+    # secret/astra/{bank.id}/whatsapp
+
+# ── ASTRA Chart Version ──────────────────────────────────────────────
+# Controlled by ASTRA vendor — do not edit manually
+# ArgoCD targetRevision is set here; bump after change management approval
+astra:
+  chart_version: ""               # e.g. "1.0.0" — set by ASTRA team at onboarding
+  # To upgrade: raise change request → get approval → update this value → ArgoCD syncs

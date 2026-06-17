@@ -1,0 +1,55 @@
+# ASTRA ArgoCD App-of-Apps
+# ─────────────────────────────────────────────────────────────────────
+# Each bank gets one ArgoCD Application entry here.
+# ArgoCD is installed in the bank's cluster — ASTRA vendor does not
+# have access to this ArgoCD instance after initial setup.
+#
+# To onboard a new bank: add an entry below and run /new-bank command
+# to generate the bank values file.
+# ─────────────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: astra-banks
+  namespace: argocd
+spec:
+  generators:
+    - git:
+        repoURL: https://gitlab.astra.internal/9va4admin/bank-intelligence-platform.git
+        revision: main
+        files:
+          - path: "infra/helm/values/banks/*.yaml"
+  template:
+    metadata:
+      name: "astra-{{ .bank.id }}"
+      annotations:
+        # Bank IT Admin contact for this deployment
+        astra/bank-contact: "{{ .bank.contact_email }}"
+        astra/chart-version: "{{ .astra.chart_version }}"
+    spec:
+      project: astra
+      source:
+        # Pulls chart from private OCI registry — bank environment must have registry access
+        repoURL: oci://registry.astra.internal/charts
+        chart: cerebrum
+        targetRevision: "{{ .astra.chart_version }}"
+        helm:
+          valueFiles:
+            - $values/infra/helm/values/_defaults.yaml
+            - $values/infra/helm/values/banks/{{ .bank.id }}.yaml
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "astra-platform-{{ .bank.id }}"
+      syncPolicy:
+        # MANUAL sync — bank's change management team approves before ArgoCD syncs
+        # Change to automated: {} only after bank approves automated upgrades
+        syncOptions:
+          - CreateNamespace=true
+          - PrunePropagationPolicy=foreground
+          - RespectIgnoreDifferences=true
+        retry:
+          limit: 3
+          backoff:
+            duration: 30s
+            factor: 2
+            maxDuration: 5m
