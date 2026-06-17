@@ -46,5 +46,41 @@ for file in $STAGED_FILES; do
     fi
 done
 
-echo "=== Security check passed ==="
+# 5. Module blast isolation — cross-module Python imports forbidden
+for file in $STAGED_FILES; do
+    if echo "$file" | grep -qE "^modules/cts/"; then
+        if git show ":$file" | grep -qE "from modules\.ej|import modules\.ej"; then
+            echo "BLOCKED: Cross-module import in $file"
+            echo "modules/cts/ must never import from modules/ej/ — isolation violation."
+            exit 1
+        fi
+    fi
+    if echo "$file" | grep -qE "^modules/ej/"; then
+        if git show ":$file" | grep -qE "from modules\.cts|import modules\.cts"; then
+            echo "BLOCKED: Cross-module import in $file"
+            echo "modules/ej/ must never import from modules/cts/ — isolation violation."
+            exit 1
+        fi
+    fi
+done
+
+# 6. Detect shared Redis URL used by wrong module
+for file in $STAGED_FILES; do
+    if echo "$file" | grep -qE "^modules/cts/"; then
+        if git show ":$file" | grep -qE "redis\.ej\.|redis-ej"; then
+            echo "BLOCKED: CTS code referencing EJ Redis cluster in $file"
+            echo "CTS must use redis-cts only."
+            exit 1
+        fi
+    fi
+    if echo "$file" | grep -qE "^modules/ej/"; then
+        if git show ":$file" | grep -qE "redis\.cts\.|redis-cts"; then
+            echo "BLOCKED: EJ code referencing CTS Redis cluster in $file"
+            echo "EJ must use redis-ej only."
+            exit 1
+        fi
+    fi
+done
+
+echo "=== Security and isolation checks passed ==="
 exit 0
