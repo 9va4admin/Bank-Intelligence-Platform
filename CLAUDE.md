@@ -1,4 +1,4 @@
-# CEREBRUM — Bank Intelligence Platform
+# ASTRA — Bank Intelligence Platform
 ## Claude Code Master Index & Project Constitution
 
 > **This file is the single source of truth for Claude Code sessions.**
@@ -11,9 +11,11 @@
 
 | Field | Value |
 |---|---|
-| Platform Name | CEREBRUM |
-| Full Form | Cheque + EJ + RBI + AI — Unified Banking Intelligence |
+| Platform Name | **ASTRA** |
+| Full Form | Automated Settlement and Transaction Recognition Architecture |
+| Tagline | Precision Banking. Zero Compromise. |
 | Author / Domain Expert | Nilesh Shah (Ex-NPCI · Piramal · Fullerton/SMFG) |
+| Etymology | Sanskrit: precision weapon · Latin: star |
 | Classification | Confidential — Banking Grade |
 | Started | June 2026 |
 | Repo | 9va4admin/bank-intelligence-platform |
@@ -152,7 +154,7 @@ Two independent but unified product modules sold to Indian banks:
 | Certificates | cert-manager + internal CA | mTLS across all services |
 | HSM | FIPS 140-2 Level 3 | NGCH PKI signing, key custody |
 | Policy Engine | OPA (Open Policy Agent) | Rego policies, business rules |
-| Identity | Bank's IdP via SAML 2.0 | CEREBRUM never stores passwords |
+| Identity | Bank's IdP via SAML 2.0 | ASTRA never stores passwords |
 
 ### Observability (Single Pane — Infra + AI + Business)
 | Component | Technology | Reason |

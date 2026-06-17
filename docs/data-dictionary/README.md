@@ -1,4 +1,4 @@
-# CEREBRUM — Data Dictionary
+# ASTRA — Data Dictionary
 
 > All entity schemas, field definitions, constraints, and relationships.
 > These are the authoritative definitions. Pydantic models and YugabyteDB
@@ -505,7 +505,7 @@ IMMUDB GUARANTEES:
 ## 16. User
 
 **Storage:** YugabyteDB — `platform.users`
-**Note:** CEREBRUM never stores passwords. Identity via bank IdP (SAML 2.0).
+**Note:** ASTRA never stores passwords. Identity via bank IdP (SAML 2.0).
 
 | Field | Type | Constraints | Description |
 |---|---|---|---|
