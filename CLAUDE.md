@@ -661,6 +661,7 @@ LAYER 5 — User Preferences  [per-user YugabyteDB record]
 | `cbs-connector` | Central DC (internal) | `get_balance`, `get_account_status`, `get_account_metadata` | `account_events/{bank_id}` |
 | `branch-ej-agent` | Branch / ATM controller (Go binary) | `fetch_ej_file`, `list_pending`, `confirm_receipt` | `ej://atm/{atm_id}/logs/{date}`, `ej://atm/{atm_id}/health` |
 | `cctv-adapter` | Branch / DVR (per vendor) | `fetch_clip`, `list_cameras`, `get_timestamp_frame` | `cctv://branch/{branch_id}/cameras` |
+| `astra-diagnostic-mcp` | Bank's cluster (consent-gated) | `get_error_summary`, `get_service_health`, `get_queue_depths`, `get_workflow_failures`, `get_iet_risk_events`, `get_model_drift_signals` | `diag://errors/{service}/{window}`, `diag://metrics/{service}`, `diag://workflows/failed` |
 
 ---
 
