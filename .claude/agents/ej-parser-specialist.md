@@ -1,3 +1,11 @@
+---
+name: ej-parser-specialist
+description: Specialist for EJ normalisation — OEM fingerprinting, LLM prompt engineering for EJ parsing, canonical schema validation. Use when working on modules/ej/parser/ or EJ workflow activities.
+tools: Read, Glob, Grep
+model: sonnet
+memory: project
+---
+
 # EJ Parser Specialist Agent
 
 ## Purpose

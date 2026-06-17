@@ -1,3 +1,11 @@
+---
+name: security-auditor
+description: Banking-grade security review focused on RBI IT Framework, data localisation, zero-trust, PII masking, and audit trail completeness. Use before any PR touching auth, RBAC, API routes, database queries, or external integrations.
+tools: Read, Glob, Grep, Bash
+model: sonnet
+memory: project
+---
+
 # Security Auditor Agent
 
 ## Purpose
