@@ -1,0 +1,38 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /home/user/Bank-Intelligence-Platform/.claude/hooks/pre-commit-security.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /home/user/Bank-Intelligence-Platform/.claude/hooks/lint-on-save.sh \"$CLAUDE_FILE_PATH\""
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git:*)",
+      "Bash(pytest:*)",
+      "Bash(pip:*)",
+      "Bash(alembic:*)"
+    ],
+    "deny": [
+      "Bash(curl * | bash:*)",
+      "Bash(wget * | sh:*)"
+    ]
+  }
+}
