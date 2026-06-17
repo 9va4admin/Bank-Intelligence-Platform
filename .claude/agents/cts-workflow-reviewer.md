@@ -1,3 +1,11 @@
+---
+name: cts-workflow-reviewer
+description: Reviews CTS Temporal workflows for IET safety, exactly-once guarantees, vault miss handling, and audit trail completeness. Use when modifying modules/cts/workflows/, modules/cts/vaults/, or modules/cts/mcp/.
+tools: Read, Glob, Grep
+model: sonnet
+memory: project
+---
+
 # CTS Workflow Reviewer Agent
 
 ## Purpose

@@ -1,3 +1,11 @@
+---
+name: test-writer
+description: Generates pytest tests for ASTRA components. Enforces 95%+ coverage for CTS workflow activities, IET boundary tests, vault miss paths, and graceful degradation scenarios.
+tools: Read, Glob, Grep, Write
+model: sonnet
+memory: project
+---
+
 # Test Writer Agent
 
 ## Purpose
