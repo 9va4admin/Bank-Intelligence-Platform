@@ -1,4 +1,52 @@
 {
+  "model": "claude-sonnet-4-6",
+
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(pytest *)",
+      "Bash(go test *)",
+      "Bash(go build *)",
+      "Bash(ruff *)",
+      "Bash(alembic *)",
+      "Bash(helm lint *)",
+      "Bash(helm template *)",
+      "Bash(kubectl get *)",
+      "Bash(kubectl describe *)",
+      "Bash(kubectl logs *)",
+      "Bash(temporal workflow describe *)",
+      "Bash(temporal workflow list *)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(cat *)",
+      "Read(*)",
+      "Write(modules/*)",
+      "Write(shared/*)",
+      "Write(apps/*)",
+      "Write(edge/*)",
+      "Write(infra/helm/values/banks/*)",
+      "Write(infra/opa/policies/*)",
+      "Write(infra/migrations/*)",
+      "Write(.claude/*)",
+      "Write(docs/*)",
+      "Write(compliance/*)",
+      "Edit(*)"
+    ],
+    "deny": [
+      "Bash(kubectl delete *)",
+      "Bash(kubectl exec *)",
+      "Bash(kubectl apply * --force*)",
+      "Bash(rm -rf *)",
+      "Bash(temporal workflow terminate *)",
+      "Bash(temporal workflow cancel *)",
+      "Bash(curl * | bash *)",
+      "Bash(wget * | sh *)",
+      "Write(infra/helm/values/_defaults.yaml)",
+      "Write(infra/helm/cerebrum/Chart.yaml)"
+    ]
+  },
+
   "hooks": {
     "PreToolUse": [
       {
@@ -6,7 +54,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /home/user/Bank-Intelligence-Platform/.claude/hooks/pre-commit-security.sh"
+            "command": "bash .claude/hooks/pre-commit-security.sh"
           }
         ]
       }
@@ -17,22 +65,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /home/user/Bank-Intelligence-Platform/.claude/hooks/lint-on-save.sh \"$CLAUDE_FILE_PATH\""
+            "command": "bash .claude/hooks/post-edit-lint.sh \"$CLAUDE_FILE_PATH\""
           }
         ]
       }
     ]
   },
-  "permissions": {
-    "allow": [
-      "Bash(git:*)",
-      "Bash(pytest:*)",
-      "Bash(pip:*)",
-      "Bash(alembic:*)"
-    ],
-    "deny": [
-      "Bash(curl * | bash:*)",
-      "Bash(wget * | sh:*)"
-    ]
-  }
+
+  "env": {
+    "ASTRA_ENV": "development",
+    "PYTHONPATH": ".",
+    "TEMPORAL_NAMESPACE": "cts"
+  },
+
+  "includeCoAuthoredBy": true
 }
