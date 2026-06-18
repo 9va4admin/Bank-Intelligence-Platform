@@ -25,10 +25,6 @@ from pydantic import BaseModel, ConfigDict
 
 log = structlog.get_logger()
 
-_OCR_MIN_CONFIDENCE = 0.85
-_SIG_MIN_MATCH = 0.80
-
-
 class DecisionInput(BaseModel):
     model_config = ConfigDict(frozen=True)
     instrument_id: str
@@ -62,6 +58,8 @@ async def synthesise_decision(
     """
     stp_threshold: float = config["stp_auto_confirm_threshold"]
     fraud_threshold: float = config["human_review_fraud_threshold"]
+    ocr_min_confidence: float = config["ocr_min_confidence"]
+    sig_min_match: float = config["sig_min_match_score"]
 
     # Hard gate 1: CBS says return immediately
     if inp.cbs_outcome == "RETURN":
@@ -87,10 +85,10 @@ async def synthesise_decision(
     if inp.fraud_score >= fraud_threshold:
         human_review_reasons.append(f"fraud_score={inp.fraud_score:.3f} >= threshold={fraud_threshold}")
 
-    if inp.ocr_confidence < _OCR_MIN_CONFIDENCE:
+    if inp.ocr_confidence < ocr_min_confidence:
         human_review_reasons.append(f"ocr_confidence={inp.ocr_confidence:.3f} below minimum")
 
-    if inp.signature_match_score < _SIG_MIN_MATCH:
+    if inp.signature_match_score < sig_min_match:
         human_review_reasons.append(f"signature_match={inp.signature_match_score:.3f} below minimum")
 
     if inp.cbs_outcome in ("CBS_UNAVAILABLE", "HUMAN_REVIEW"):
