@@ -1,0 +1,29 @@
+{{/*
+PersistentVolumeClaim for migration logs.
+
+One PVC per bank, shared across all migration Job runs.
+Logs accumulate at: /var/astra/logs/migrations/{bank_id}/{run_id}/{chain}.jsonl
+
+Retention: managed by the bank's storage admin — ASTRA does not auto-delete logs.
+Access: ReadWriteOnce (only one node runs the migration Job at a time).
+Exposed as MCP resources if bank grants diagnostic consent.
+*/}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "astra-migration-logs-{{ .Values.bank_id }}"
+  namespace: "{{ .Release.Namespace }}"
+  labels:
+    app.kubernetes.io/name: astra-migration-logs
+    app.kubernetes.io/instance: "{{ .Release.Name }}"
+    astra/bank-id: "{{ .Values.bank_id }}"
+  annotations:
+    # Keep the PVC when the chart is uninstalled — logs must survive upgrades and rollbacks.
+    "helm.sh/resource-policy": keep
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: "{{ .Values.migrationLogs.storageClass | default "standard" }}"
+  resources:
+    requests:
+      storage: "{{ .Values.migrationLogs.storageSize | default "5Gi" }}"

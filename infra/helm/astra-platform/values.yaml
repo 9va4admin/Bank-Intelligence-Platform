@@ -58,3 +58,10 @@ config_service:
   replicas: 2
 api_gateway:
   replicas: 2
+
+# ── Migration Log Storage (BANK-CONFIGURABLE) ────────────────────────────────
+# PVC for JSONL migration logs at /var/astra/logs/migrations/{bank_id}/{run_id}/
+# Logs survive Job completion and are accessible as MCP resources with bank consent.
+migrationLogs:
+  storageClass: standard          # override with bank's preferred StorageClass
+  storageSize: 5Gi                # ~5 years of migration logs at typical upgrade cadence

@@ -6,13 +6,18 @@ Execution order (always sequential, fail-fast):
   2. cts migrations       — runs only if modules.cts.enabled = true
   3. ej migrations        — runs only if modules.ej.enabled = true
 
-If step 1 fails, steps 2 and 3 do not run and the Helm upgrade aborts,
+If any step fails, subsequent steps do not run and the Helm upgrade aborts,
 leaving the database in its pre-upgrade state (Alembic is transactional).
+
+Logging:
+  Every step writes JSONL to /var/astra/logs/migrations/{bank_id}/{run_id}/{chain}.jsonl
+  on a PersistentVolume shared across all containers in the Job.
+  Logs are never written to any DB schema — disk only.
+  ASTRA support can pull these as MCP resources if bank grants consent.
 
 Credentials flow:
   Vault Agent sidecar (init container) writes DB_URL to /vault/secrets/db-url
-  before the migration containers start. Migration containers source it from there.
-  No secrets appear in environment variables or Job spec.
+  before the migration containers start. No secrets appear in env vars or Job spec.
 */}}
 apiVersion: batch/v1
 kind: Job
@@ -23,93 +28,133 @@ metadata:
     app.kubernetes.io/name: astra-migration
     app.kubernetes.io/instance: "{{ .Release.Name }}"
     app.kubernetes.io/version: "{{ .Chart.AppVersion }}"
-    astra/bank-id: "{{ .Values.bank.id }}"
+    astra/bank-id: "{{ .Values.bank_id }}"
     astra/migration-chain: all
   annotations:
-    # Helm hook: runs before any upgrade/install, weight -10 so it runs first
     "helm.sh/hook": pre-upgrade,pre-install
     "helm.sh/hook-weight": "-10"
-    # Delete the old Job before creating a new one (idempotent upgrades)
     "helm.sh/hook-delete-policy": before-hook-creation
 spec:
-  # Must complete within 15 minutes — Alembic on a healthy DB is fast.
-  # If it exceeds this, something is seriously wrong (DB unreachable, lock held).
   activeDeadlineSeconds: 900
-  backoffLimit: 0        # no retries — a failed migration needs human investigation
+  backoffLimit: 0
   template:
     metadata:
       labels:
         app.kubernetes.io/name: astra-migration
-        astra/bank-id: "{{ .Values.bank.id }}"
+        astra/bank-id: "{{ .Values.bank_id }}"
       annotations:
-        # Vault Agent sidecar injection — fetches DB credentials before migration runs
         vault.hashicorp.com/agent-inject: "true"
-        vault.hashicorp.com/role: "astra-migration-{{ .Values.bank.id }}"
-        # Vault writes DB URLs to files; containers source them as env vars via entrypoint
+        vault.hashicorp.com/role: "astra-migration-{{ .Values.bank_id }}"
         vault.hashicorp.com/agent-inject-secret-platform-db-url: >-
-          secret/astra/{{ .Values.bank.id }}/db/platform/url
+          secret/astra/{{ .Values.bank_id }}/db/platform/url
         vault.hashicorp.com/agent-inject-template-platform-db-url: |
-          {{`{{- with secret "secret/astra/`}}{{ .Values.bank.id }}{{`/db/platform/url" -}}`}}
+          {{`{{- with secret "secret/astra/`}}{{ .Values.bank_id }}{{`/db/platform/url" -}}`}}
           export PLATFORM_DB_URL="{{ "{{" }} .Data.data.value {{ "}}" }}"
           {{`{{- end }}`}}
         {{- if .Values.modules.cts.enabled }}
         vault.hashicorp.com/agent-inject-secret-cts-db-url: >-
-          secret/astra/{{ .Values.bank.id }}/db/cts/url
+          secret/astra/{{ .Values.bank_id }}/db/cts/url
         vault.hashicorp.com/agent-inject-template-cts-db-url: |
-          {{`{{- with secret "secret/astra/`}}{{ .Values.bank.id }}{{`/db/cts/url" -}}`}}
+          {{`{{- with secret "secret/astra/`}}{{ .Values.bank_id }}{{`/db/cts/url" -}}`}}
           export CTS_DB_URL="{{ "{{" }} .Data.data.value {{ "}}" }}"
           {{`{{- end }}`}}
         {{- end }}
         {{- if .Values.modules.ej.enabled }}
         vault.hashicorp.com/agent-inject-secret-ej-db-url: >-
-          secret/astra/{{ .Values.bank.id }}/db/ej/url
+          secret/astra/{{ .Values.bank_id }}/db/ej/url
         vault.hashicorp.com/agent-inject-template-ej-db-url: |
-          {{`{{- with secret "secret/astra/`}}{{ .Values.bank.id }}{{`/db/ej/url" -}}`}}
+          {{`{{- with secret "secret/astra/`}}{{ .Values.bank_id }}{{`/db/ej/url" -}}`}}
           export EJ_DB_URL="{{ "{{" }} .Data.data.value {{ "}}" }}"
           {{`{{- end }}`}}
         {{- end }}
-        # Vault agent exits after injecting secrets (not a long-running sidecar for Jobs)
         vault.hashicorp.com/agent-pre-populate-only: "true"
     spec:
       restartPolicy: Never
       serviceAccountName: "astra-migration-sa"
 
-      # ── initContainers: platform → CTS (sequential, fail-fast) ─────────
       initContainers:
 
-        # Step 1 — Platform migrations (ALWAYS runs)
+        # ── Step 0: generate shared run_id ───────────────────────────────────
+        # Writes run_id to /migration-run/run_id so all subsequent containers
+        # log under the same run identifier.
+        - name: init-run-id
+          image: busybox:1.36
+          command:
+            - /bin/sh
+            - -c
+            - |
+              RUN_ID="{{ .Release.Name }}-$(date -u +%Y%m%dT%H%M%SZ)"
+              echo "${RUN_ID}" > /migration-run/run_id
+              LOG_DIR="/var/astra/logs/migrations/{{ .Values.bank_id }}/${RUN_ID}"
+              mkdir -p "${LOG_DIR}"
+              echo "${LOG_DIR}" > /migration-run/log_dir
+              echo "run_id=${RUN_ID} log_dir=${LOG_DIR}"
+          volumeMounts:
+            - name: migration-run
+              mountPath: /migration-run
+            - name: migration-logs
+              mountPath: /var/astra/logs/migrations
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+          resources:
+            requests: { cpu: "50m", memory: "32Mi" }
+            limits:   { cpu: "100m", memory: "64Mi" }
+
+        # ── Step 1: platform migrations (ALWAYS) ─────────────────────────────
         - name: migrate-platform
           image: "{{ .Values.global.registry }}/astra/cts-agent-worker:{{ .Chart.AppVersion }}"
-          # Same image as the worker — Alembic is installed there.
-          # We only use the migration tooling; no service starts.
           command:
             - /bin/sh
             - -c
             - |
               set -e
-              # Source Vault-injected credentials
               . /vault/secrets/platform-db-url
-              echo "[migration] Running platform schema migrations..."
-              alembic -c /app/infra/migrations/platform/alembic.ini upgrade head
-              echo "[migration] Platform migrations complete."
+              LOG_DIR=$(cat /migration-run/log_dir)
+              LOG_FILE="${LOG_DIR}/platform.jsonl"
+              RUN_ID=$(cat /migration-run/run_id)
+
+              log_event() {
+                LEVEL=$1; EVENT=$2; DETAIL=${3:-""}
+                printf '{"ts":"%s","level":"%s","run_id":"%s","chain":"platform","event":"%s","detail":"%s","chart_version":"{{ .Chart.AppVersion }}"}\n' \
+                  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$LEVEL" "$RUN_ID" "$EVENT" "$DETAIL" \
+                  >> "${LOG_FILE}"
+              }
+
+              log_event "INFO" "MIGRATION_START" "chain=platform"
+
+              # Capture alembic current revision before upgrade
+              FROM_REV=$(alembic -c /app/infra/migrations/platform/alembic.ini current 2>/dev/null | awk '{print $1}' || echo "none")
+              log_event "INFO" "REVISION_BEFORE" "from_rev=${FROM_REV}"
+
+              if alembic -c /app/infra/migrations/platform/alembic.ini upgrade head 2>&1 | tee /tmp/alembic-out.txt; then
+                TO_REV=$(alembic -c /app/infra/migrations/platform/alembic.ini current 2>/dev/null | awk '{print $1}' || echo "unknown")
+                log_event "INFO" "MIGRATION_COMPLETE" "from_rev=${FROM_REV} to_rev=${TO_REV}"
+              else
+                DETAIL=$(tail -3 /tmp/alembic-out.txt | tr '\n' ' ')
+                log_event "ERROR" "MIGRATION_FAILED" "${DETAIL}"
+                exit 1
+              fi
           volumeMounts:
             - name: migration-src
               mountPath: /app/infra/migrations
               readOnly: true
+            - name: migration-run
+              mountPath: /migration-run
+              readOnly: true
+            - name: migration-logs
+              mountPath: /var/astra/logs/migrations
           resources:
-            requests:
-              cpu: "100m"
-              memory: "256Mi"
-            limits:
-              cpu: "500m"
-              memory: "512Mi"
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { cpu: "500m", memory: "512Mi" }
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
 
-        # Step 2 — CTS migrations (conditional)
+        # ── Step 2: CTS migrations (conditional) ─────────────────────────────
         {{- if .Values.modules.cts.enabled }}
         - name: migrate-cts
           image: "{{ .Values.global.registry }}/astra/cts-agent-worker:{{ .Chart.AppVersion }}"
@@ -119,20 +164,42 @@ spec:
             - |
               set -e
               . /vault/secrets/cts-db-url
-              echo "[migration] Running CTS schema migrations..."
-              alembic -c /app/infra/migrations/cts/alembic.ini upgrade head
-              echo "[migration] CTS migrations complete."
+              LOG_DIR=$(cat /migration-run/log_dir)
+              LOG_FILE="${LOG_DIR}/cts.jsonl"
+              RUN_ID=$(cat /migration-run/run_id)
+
+              log_event() {
+                LEVEL=$1; EVENT=$2; DETAIL=${3:-""}
+                printf '{"ts":"%s","level":"%s","run_id":"%s","chain":"cts","event":"%s","detail":"%s","chart_version":"{{ .Chart.AppVersion }}"}\n' \
+                  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$LEVEL" "$RUN_ID" "$EVENT" "$DETAIL" \
+                  >> "${LOG_FILE}"
+              }
+
+              log_event "INFO" "MIGRATION_START" "chain=cts"
+
+              FROM_REV=$(alembic -c /app/infra/migrations/cts/alembic.ini current 2>/dev/null | awk '{print $1}' || echo "none")
+              log_event "INFO" "REVISION_BEFORE" "from_rev=${FROM_REV}"
+
+              if alembic -c /app/infra/migrations/cts/alembic.ini upgrade head 2>&1 | tee /tmp/alembic-out.txt; then
+                TO_REV=$(alembic -c /app/infra/migrations/cts/alembic.ini current 2>/dev/null | awk '{print $1}' || echo "unknown")
+                log_event "INFO" "MIGRATION_COMPLETE" "from_rev=${FROM_REV} to_rev=${TO_REV}"
+              else
+                DETAIL=$(tail -3 /tmp/alembic-out.txt | tr '\n' ' ')
+                log_event "ERROR" "MIGRATION_FAILED" "${DETAIL}"
+                exit 1
+              fi
           volumeMounts:
             - name: migration-src
               mountPath: /app/infra/migrations
               readOnly: true
+            - name: migration-run
+              mountPath: /migration-run
+              readOnly: true
+            - name: migration-logs
+              mountPath: /var/astra/logs/migrations
           resources:
-            requests:
-              cpu: "100m"
-              memory: "256Mi"
-            limits:
-              cpu: "500m"
-              memory: "512Mi"
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { cpu: "500m", memory: "512Mi" }
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000
@@ -140,10 +207,7 @@ spec:
             readOnlyRootFilesystem: true
         {{- end }}
 
-      # ── Main container: EJ migrations (conditional) ─────────────────
-      # Runs after all initContainers succeed.
-      # If neither CTS nor EJ is enabled, this is a no-op health check
-      # (platform-only deploy is valid at initial bank onboarding).
+      # ── Main container: EJ migrations (conditional) ──────────────────────
       containers:
         {{- if .Values.modules.ej.enabled }}
         - name: migrate-ej
@@ -154,61 +218,94 @@ spec:
             - |
               set -e
               . /vault/secrets/ej-db-url
-              echo "[migration] Running EJ schema migrations..."
-              alembic -c /app/infra/migrations/ej/alembic.ini upgrade head
-              echo "[migration] EJ migrations complete."
+              LOG_DIR=$(cat /migration-run/log_dir)
+              LOG_FILE="${LOG_DIR}/ej.jsonl"
+              RUN_ID=$(cat /migration-run/run_id)
+
+              log_event() {
+                LEVEL=$1; EVENT=$2; DETAIL=${3:-""}
+                printf '{"ts":"%s","level":"%s","run_id":"%s","chain":"ej","event":"%s","detail":"%s","chart_version":"{{ .Chart.AppVersion }}"}\n' \
+                  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$LEVEL" "$RUN_ID" "$EVENT" "$DETAIL" \
+                  >> "${LOG_FILE}"
+              }
+
+              log_event "INFO" "MIGRATION_START" "chain=ej"
+
+              FROM_REV=$(alembic -c /app/infra/migrations/ej/alembic.ini current 2>/dev/null | awk '{print $1}' || echo "none")
+              log_event "INFO" "REVISION_BEFORE" "from_rev=${FROM_REV}"
+
+              if alembic -c /app/infra/migrations/ej/alembic.ini upgrade head 2>&1 | tee /tmp/alembic-out.txt; then
+                TO_REV=$(alembic -c /app/infra/migrations/ej/alembic.ini current 2>/dev/null | awk '{print $1}' || echo "unknown")
+                log_event "INFO" "MIGRATION_COMPLETE" "from_rev=${FROM_REV} to_rev=${TO_REV}"
+              else
+                DETAIL=$(tail -3 /tmp/alembic-out.txt | tr '\n' ' ')
+                log_event "ERROR" "MIGRATION_FAILED" "${DETAIL}"
+                exit 1
+              fi
           volumeMounts:
             - name: migration-src
               mountPath: /app/infra/migrations
               readOnly: true
+            - name: migration-run
+              mountPath: /migration-run
+              readOnly: true
+            - name: migration-logs
+              mountPath: /var/astra/logs/migrations
           resources:
-            requests:
-              cpu: "100m"
-              memory: "256Mi"
-            limits:
-              cpu: "500m"
-              memory: "512Mi"
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { cpu: "500m", memory: "512Mi" }
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
         {{- else }}
-        # EJ disabled — Job needs at least one container to be valid.
-        # This no-op confirms all enabled migrations completed successfully.
+        # EJ disabled — no-op completion logger. Writes a summary JSONL for the run.
         - name: migration-complete
-          image: "{{ .Values.global.registry }}/astra/cts-agent-worker:{{ .Chart.AppVersion }}"
+          image: busybox:1.36
           command:
             - /bin/sh
             - -c
             - |
-              echo "[migration] All enabled schema migrations complete."
-              echo "[migration] modules.cts.enabled={{ .Values.modules.cts.enabled }}"
-              echo "[migration] modules.ej.enabled={{ .Values.modules.ej.enabled }}"
+              LOG_DIR=$(cat /migration-run/log_dir)
+              RUN_ID=$(cat /migration-run/run_id)
+              printf '{"ts":"%s","level":"INFO","run_id":"%s","chain":"summary","event":"ALL_MIGRATIONS_COMPLETE","detail":"cts_enabled={{ .Values.modules.cts.enabled }} ej_enabled={{ .Values.modules.ej.enabled }}","chart_version":"{{ .Chart.AppVersion }}"}\n' \
+                "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$RUN_ID" \
+                >> "${LOG_DIR}/summary.jsonl"
+              echo "All enabled migrations complete. run_id=${RUN_ID}"
+          volumeMounts:
+            - name: migration-run
+              mountPath: /migration-run
+              readOnly: true
+            - name: migration-logs
+              mountPath: /var/astra/logs/migrations
           resources:
-            requests:
-              cpu: "50m"
-              memory: "64Mi"
-            limits:
-              cpu: "100m"
-              memory: "128Mi"
+            requests: { cpu: "50m", memory: "64Mi" }
+            limits:   { cpu: "100m", memory: "128Mi" }
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
         {{- end }}
 
-      # ── Volumes ───────────────────────────────────────────────────────
+      # ── Volumes ─────────────────────────────────────────────────────────
       volumes:
-        # Migration source files baked into a ConfigMap at chart package time.
-        # Alembic reads migration scripts from here — no mutable state.
         - name: migration-src
           configMap:
             name: "{{ .Release.Name }}-migration-scripts"
 
-      # ── Scheduling ───────────────────────────────────────────────────
-      # Run on a node that has DB network access (migration nodes, not GPU nodes)
+        # Shared scratch volume — carries run_id and log_dir path between containers.
+        # emptyDir is sufficient: only lives for the duration of this Job.
+        - name: migration-run
+          emptyDir: {}
+
+        # PersistentVolume for migration logs — survives Job completion.
+        # Mounted at /var/astra/logs/migrations inside each container.
+        # Exposed as MCP resources: migration://logs/{bank_id}/{run_id}/{chain}
+        - name: migration-logs
+          persistentVolumeClaim:
+            claimName: "astra-migration-logs-{{ .Values.bank_id }}"
+
       nodeSelector:
         astra/node-role: "platform"
       tolerations:
