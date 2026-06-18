@@ -4,9 +4,10 @@ import {
   Bell, Mail, MessageSquare, Calendar, ChevronRight,
   ShieldCheck, Users, MapPin, Building2, Globe, Eye,
   AlertTriangle, CheckCircle2, Clock, TrendingUp, Cpu,
-  ToggleLeft, ToggleRight, Send
+  ToggleLeft, ToggleRight, Send, Shield, Monitor, Lock
 } from 'lucide-react'
 import WeeklyDigestModal from '../components/WeeklyDigestModal'
+import { BRE_RULES } from '../hooks/useBRERules'
 
 const ROLES = [
   {
@@ -174,6 +175,23 @@ export default function ManagerPortal() {
 
   const toggle = k => setNotif(p => ({ ...p, [k]: !p[k] }))
 
+  // Compute mandatory channels for this role from BRE rules
+  const mandatoryKeys = new Set()
+  BRE_RULES.forEach(rule => {
+    const ch = rule.channels?.[activeRole]
+    if (!ch?.mandatory) return
+    ch.mandatory.forEach(m => {
+      if (m === 'onscreen') return // onscreen is always on, not in prefs
+      if (m === 'email') {
+        mandatoryKeys.add('email_critical')
+        mandatoryKeys.add('email_high')
+      }
+      if (m === 'whatsapp') {
+        mandatoryKeys.add('whatsapp_critical')
+      }
+    })
+  })
+
   return (
     <div className="min-h-screen bg-[#020817] text-white flex flex-col">
       {/* Top nav */}
@@ -183,8 +201,10 @@ export default function ManagerPortal() {
         </Link>
         <div className="flex items-center gap-1 text-xs">
           <Link to="/ej" className="px-3 py-1.5 rounded text-slate-400 hover:text-white">Command Center</Link>
-          <Link to="/ej/incidents" className="px-3 py-1.5 rounded text-slate-400 hover:text-white">Incident Management</Link>
+          <Link to="/ej/incidents" className="px-3 py-1.5 rounded text-slate-400 hover:text-white">Incidents</Link>
           <span className="px-3 py-1.5 rounded bg-violet-600/20 text-violet-300 font-medium border border-violet-500/30">Manager Portal</span>
+          <Link to="/ej/bre" className="px-3 py-1.5 rounded text-slate-400 hover:text-white">BRE Policy</Link>
+          <Link to="/ej/notifications" className="px-3 py-1.5 rounded text-slate-400 hover:text-white">Notifications</Link>
         </div>
         <Link to="/cts" className="text-xs text-slate-400 hover:text-white flex items-center gap-1">
           CTS Workstation →
@@ -366,22 +386,31 @@ export default function ManagerPortal() {
                   { key: 'whatsapp_high', label: 'WhatsApp — HIGH', icon: MessageSquare },
                   { key: 'weekly_digest', label: 'Weekly Digest (Mon 9AM)', icon: Calendar },
                   { key: 'monthly_digest', label: 'Monthly Report (1st 9AM)', icon: Calendar },
-                ].map(({ key, label, icon: Icon }) => (
-                  <button
-                    key={key}
-                    onClick={() => toggle(key)}
-                    className="w-full flex items-center justify-between gap-3 hover:bg-white/5 rounded-lg px-2 py-1.5 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Icon size={13} className="text-slate-400" />
-                      <span className="text-xs text-slate-300">{label}</span>
-                    </div>
-                    {notif[key]
-                      ? <ToggleRight size={20} className="text-violet-400" />
-                      : <ToggleLeft size={20} className="text-slate-600" />
-                    }
-                  </button>
-                ))}
+                ].map(({ key, label, icon: Icon }) => {
+                  const mandatory = mandatoryKeys.has(key)
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => !mandatory && toggle(key)}
+                      className={`w-full flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 transition-colors ${
+                        mandatory ? 'opacity-80 cursor-not-allowed' : 'hover:bg-white/5'
+                      }`}
+                      title={mandatory ? 'Mandatory — set by BRE policy. Contact Compliance Officer to change.' : undefined}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Icon size={13} className="text-slate-400" />
+                        <span className="text-xs text-slate-300">{label}</span>
+                        {mandatory && <Lock size={10} className="text-amber-400" title="Mandatory via BRE" />}
+                      </div>
+                      {mandatory
+                        ? <ToggleRight size={20} className="text-amber-400" />
+                        : notif[key]
+                          ? <ToggleRight size={20} className="text-violet-400" />
+                          : <ToggleLeft size={20} className="text-slate-600" />
+                      }
+                    </button>
+                  )
+                })}
               </div>
               <button className="mt-4 w-full text-xs bg-violet-600/30 hover:bg-violet-600/50 border border-violet-500/30 text-violet-300 rounded-lg py-2 transition-colors flex items-center justify-center gap-2">
                 <CheckCircle2 size={13} /> Save Preferences
@@ -431,6 +460,47 @@ export default function ManagerPortal() {
                   <CheckCircle2 size={12} /> Test email queued via Postal SMTP
                 </div>
               )}
+            </div>
+
+            {/* BRE Rules Affecting You */}
+            <div className="bg-white/5 rounded-xl border border-white/5 p-5">
+              <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-3">
+                <Shield size={15} className="text-red-400" /> BRE Rules Affecting You
+              </h2>
+              {(() => {
+                const myRules = BRE_RULES.filter(r => r.notify_roles.includes(activeRole)).slice(0, 5)
+                return myRules.length === 0 ? (
+                  <p className="text-xs text-slate-500">No BRE rules configured for this role.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {myRules.map(rule => {
+                      const ch = rule.channels[activeRole] || {}
+                      return (
+                        <div key={rule.id} className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2">
+                          <div>
+                            <div className="text-xs font-medium text-slate-200">{rule.name}</div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              {ch.onscreen && <Monitor size={10} className="text-cyan-400" title="OnScreen" />}
+                              {ch.whatsapp && <MessageSquare size={10} className="text-emerald-400" title="WhatsApp" />}
+                              {ch.email && <Mail size={10} className="text-violet-400" title="Email" />}
+                              {ch.mandatory?.length > 0 && <Lock size={9} className="text-amber-400" title="Has mandatory channels" />}
+                            </div>
+                          </div>
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                            rule.severity === 'CRITICAL' ? 'text-red-400 bg-red-400/10' :
+                            rule.severity === 'HIGH' ? 'text-amber-400 bg-amber-400/10' :
+                            rule.severity === 'MEDIUM' ? 'text-yellow-400 bg-yellow-400/10' :
+                            'text-slate-400 bg-slate-400/10'
+                          }`}>{rule.severity}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+              <Link to="/ej/bre" className="mt-3 text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1">
+                View all BRE rules <ChevronRight size={12} />
+              </Link>
             </div>
 
             {/* Data retention info */}
