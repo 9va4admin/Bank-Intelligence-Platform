@@ -24,8 +24,10 @@ export default function EJCommandCenter() {
         <Link to="/" className="text-xs text-slate-500 hover:text-cyan-400 transition-colors">← ASTRA Platform</Link>
         <div className="flex items-center gap-1 text-xs">
           <span className="px-3 py-1.5 rounded bg-cyan-600/20 text-cyan-300 font-medium border border-cyan-500/30">Command Center</span>
-          <Link to="/ej/incidents" className="px-3 py-1.5 rounded text-slate-400 hover:text-white transition-colors">Incident Management</Link>
+          <Link to="/ej/incidents" className="px-3 py-1.5 rounded text-slate-400 hover:text-white transition-colors">Incidents</Link>
           <Link to="/ej/portal" className="px-3 py-1.5 rounded text-slate-400 hover:text-white transition-colors">Manager Portal</Link>
+          <Link to="/ej/bre" className="px-3 py-1.5 rounded text-slate-400 hover:text-white transition-colors">BRE Policy</Link>
+          <Link to="/ej/notifications" className="px-3 py-1.5 rounded text-slate-400 hover:text-white transition-colors">Notifications</Link>
         </div>
         <Link to="/cts" className="text-xs text-slate-500 hover:text-cyan-400 transition-colors">CTS Workstation →</Link>
       </div>
