@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
@@ -51,12 +52,18 @@ export default function Navbar() {
 
         {/* CTA */}
         <div className="hidden md:flex items-center gap-3">
-          <a
-            href="#contact"
+          <Link
+            to="/cts"
             className="text-sm text-slate-400 hover:text-white transition-colors px-4 py-2"
           >
-            Sign In
-          </a>
+            CTS Demo
+          </Link>
+          <Link
+            to="/ej"
+            className="text-sm font-medium bg-violet-600 hover:bg-violet-500 text-white px-5 py-2 rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-violet-500/20"
+          >
+            EJ Dashboard
+          </Link>
           <a
             href="#contact"
             className="text-sm font-medium bg-gold-400 hover:bg-gold-500 text-navy-950 px-5 py-2 rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-gold-400/20"
@@ -96,9 +103,16 @@ export default function Navbar() {
               {label}
             </a>
           ))}
+          <Link
+            to="/ej"
+            className="mt-1 text-sm font-medium bg-violet-600 text-white px-5 py-2.5 rounded-lg text-center"
+            onClick={() => setMenuOpen(false)}
+          >
+            EJ Dashboard
+          </Link>
           <a
             href="#contact"
-            className="mt-2 text-sm font-medium bg-gold-400 text-navy-950 px-5 py-2.5 rounded-lg text-center"
+            className="mt-1 text-sm font-medium bg-gold-400 text-navy-950 px-5 py-2.5 rounded-lg text-center"
             onClick={() => setMenuOpen(false)}
           >
             Request Demo
