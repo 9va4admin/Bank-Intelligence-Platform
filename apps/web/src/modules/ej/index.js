@@ -1,1 +1,1 @@
-export { default as EJDashboard } from './EJDashboard'
+export { default as EJDashboard } from './EJCommandCenter'
