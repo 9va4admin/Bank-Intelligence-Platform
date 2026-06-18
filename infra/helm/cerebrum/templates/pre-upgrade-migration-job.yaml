@@ -1,0 +1,217 @@
+{{/*
+Pre-upgrade migration Job — runs BEFORE any new pods start.
+
+Execution order (always sequential, fail-fast):
+  1. platform migrations  — always runs (platform schema is mandatory)
+  2. cts migrations       — runs only if modules.cts.enabled = true
+  3. ej migrations        — runs only if modules.ej.enabled = true
+
+If step 1 fails, steps 2 and 3 do not run and the Helm upgrade aborts,
+leaving the database in its pre-upgrade state (Alembic is transactional).
+
+Credentials flow:
+  Vault Agent sidecar (init container) writes DB_URL to /vault/secrets/db-url
+  before the migration containers start. Migration containers source it from there.
+  No secrets appear in environment variables or Job spec.
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Release.Name }}-pre-upgrade-migration"
+  namespace: "{{ .Release.Namespace }}"
+  labels:
+    app.kubernetes.io/name: astra-migration
+    app.kubernetes.io/instance: "{{ .Release.Name }}"
+    app.kubernetes.io/version: "{{ .Chart.AppVersion }}"
+    astra/bank-id: "{{ .Values.bank.id }}"
+    astra/migration-chain: all
+  annotations:
+    # Helm hook: runs before any upgrade/install, weight -10 so it runs first
+    "helm.sh/hook": pre-upgrade,pre-install
+    "helm.sh/hook-weight": "-10"
+    # Delete the old Job before creating a new one (idempotent upgrades)
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  # Must complete within 15 minutes — Alembic on a healthy DB is fast.
+  # If it exceeds this, something is seriously wrong (DB unreachable, lock held).
+  activeDeadlineSeconds: 900
+  backoffLimit: 0        # no retries — a failed migration needs human investigation
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: astra-migration
+        astra/bank-id: "{{ .Values.bank.id }}"
+      annotations:
+        # Vault Agent sidecar injection — fetches DB credentials before migration runs
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "astra-migration-{{ .Values.bank.id }}"
+        # Vault writes DB URLs to files; containers source them as env vars via entrypoint
+        vault.hashicorp.com/agent-inject-secret-platform-db-url: >-
+          secret/astra/{{ .Values.bank.id }}/db/platform/url
+        vault.hashicorp.com/agent-inject-template-platform-db-url: |
+          {{`{{- with secret "secret/astra/`}}{{ .Values.bank.id }}{{`/db/platform/url" -}}`}}
+          export PLATFORM_DB_URL="{{ "{{" }} .Data.data.value {{ "}}" }}"
+          {{`{{- end }}`}}
+        {{- if .Values.modules.cts.enabled }}
+        vault.hashicorp.com/agent-inject-secret-cts-db-url: >-
+          secret/astra/{{ .Values.bank.id }}/db/cts/url
+        vault.hashicorp.com/agent-inject-template-cts-db-url: |
+          {{`{{- with secret "secret/astra/`}}{{ .Values.bank.id }}{{`/db/cts/url" -}}`}}
+          export CTS_DB_URL="{{ "{{" }} .Data.data.value {{ "}}" }}"
+          {{`{{- end }}`}}
+        {{- end }}
+        {{- if .Values.modules.ej.enabled }}
+        vault.hashicorp.com/agent-inject-secret-ej-db-url: >-
+          secret/astra/{{ .Values.bank.id }}/db/ej/url
+        vault.hashicorp.com/agent-inject-template-ej-db-url: |
+          {{`{{- with secret "secret/astra/`}}{{ .Values.bank.id }}{{`/db/ej/url" -}}`}}
+          export EJ_DB_URL="{{ "{{" }} .Data.data.value {{ "}}" }}"
+          {{`{{- end }}`}}
+        {{- end }}
+        # Vault agent exits after injecting secrets (not a long-running sidecar for Jobs)
+        vault.hashicorp.com/agent-pre-populate-only: "true"
+    spec:
+      restartPolicy: Never
+      serviceAccountName: "astra-migration-sa"
+
+      # ── initContainers: platform → CTS (sequential, fail-fast) ─────────
+      initContainers:
+
+        # Step 1 — Platform migrations (ALWAYS runs)
+        - name: migrate-platform
+          image: "{{ .Values.global.registry }}/astra/cts-agent-worker:{{ .Chart.AppVersion }}"
+          # Same image as the worker — Alembic is installed there.
+          # We only use the migration tooling; no service starts.
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              # Source Vault-injected credentials
+              . /vault/secrets/platform-db-url
+              echo "[migration] Running platform schema migrations..."
+              alembic -c /app/infra/migrations/platform/alembic.ini upgrade head
+              echo "[migration] Platform migrations complete."
+          volumeMounts:
+            - name: migration-src
+              mountPath: /app/infra/migrations
+              readOnly: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+
+        # Step 2 — CTS migrations (conditional)
+        {{- if .Values.modules.cts.enabled }}
+        - name: migrate-cts
+          image: "{{ .Values.global.registry }}/astra/cts-agent-worker:{{ .Chart.AppVersion }}"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              . /vault/secrets/cts-db-url
+              echo "[migration] Running CTS schema migrations..."
+              alembic -c /app/infra/migrations/cts/alembic.ini upgrade head
+              echo "[migration] CTS migrations complete."
+          volumeMounts:
+            - name: migration-src
+              mountPath: /app/infra/migrations
+              readOnly: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+        {{- end }}
+
+      # ── Main container: EJ migrations (conditional) ─────────────────
+      # Runs after all initContainers succeed.
+      # If neither CTS nor EJ is enabled, this is a no-op health check
+      # (platform-only deploy is valid at initial bank onboarding).
+      containers:
+        {{- if .Values.modules.ej.enabled }}
+        - name: migrate-ej
+          image: "{{ .Values.global.registry }}/astra/ej-normalisation-worker:{{ .Chart.AppVersion }}"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              . /vault/secrets/ej-db-url
+              echo "[migration] Running EJ schema migrations..."
+              alembic -c /app/infra/migrations/ej/alembic.ini upgrade head
+              echo "[migration] EJ migrations complete."
+          volumeMounts:
+            - name: migration-src
+              mountPath: /app/infra/migrations
+              readOnly: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+        {{- else }}
+        # EJ disabled — Job needs at least one container to be valid.
+        # This no-op confirms all enabled migrations completed successfully.
+        - name: migration-complete
+          image: "{{ .Values.global.registry }}/astra/cts-agent-worker:{{ .Chart.AppVersion }}"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "[migration] All enabled schema migrations complete."
+              echo "[migration] modules.cts.enabled={{ .Values.modules.cts.enabled }}"
+              echo "[migration] modules.ej.enabled={{ .Values.modules.ej.enabled }}"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+        {{- end }}
+
+      # ── Volumes ───────────────────────────────────────────────────────
+      volumes:
+        # Migration source files baked into a ConfigMap at chart package time.
+        # Alembic reads migration scripts from here — no mutable state.
+        - name: migration-src
+          configMap:
+            name: "{{ .Release.Name }}-migration-scripts"
+
+      # ── Scheduling ───────────────────────────────────────────────────
+      # Run on a node that has DB network access (migration nodes, not GPU nodes)
+      nodeSelector:
+        astra/node-role: "platform"
+      tolerations:
+        - key: "astra/migration-only"
+          operator: "Exists"
+          effect: "NoSchedule"

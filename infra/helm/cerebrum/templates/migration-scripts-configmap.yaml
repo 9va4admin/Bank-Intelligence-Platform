@@ -1,0 +1,159 @@
+{{/*
+ConfigMap: migration-scripts
+
+Packages the three alembic.ini config files into a ConfigMap so the
+pre-upgrade migration Job can mount them without needing the full repo
+available inside the cluster.
+
+The migration Python files themselves are baked into the Docker image
+at build time (COPY infra/migrations /app/infra/migrations in Dockerfile).
+Only the alembic.ini config files are here — they contain no secrets
+(DB URL comes from Vault at runtime via the $PLATFORM_DB_URL env var).
+
+If the alembic.ini files referenced in this ConfigMap differ from those
+in the Docker image, the migration will fail with a config error — this
+is intentional (chart and image must be built from the same commit).
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "{{ .Release.Name }}-migration-scripts"
+  namespace: "{{ .Release.Namespace }}"
+  labels:
+    app.kubernetes.io/name: astra-migration
+    app.kubernetes.io/instance: "{{ .Release.Name }}"
+    astra/bank-id: "{{ .Values.bank.id }}"
+  annotations:
+    "helm.sh/hook": pre-upgrade,pre-install
+    "helm.sh/hook-weight": "-20"          # created before the migration Job (weight -10)
+    "helm.sh/hook-delete-policy": before-hook-creation
+data:
+  # ── platform/alembic.ini ────────────────────────────────────────────
+  # DB URL sourced from $PLATFORM_DB_URL — injected by Vault agent at runtime
+  platform-alembic.ini: |
+    [alembic]
+    script_location = /app/infra/migrations/platform
+    version_locations = /app/infra/migrations/platform/versions
+    version_table = alembic_version
+    version_table_schema = platform
+    sqlalchemy.url = %(PLATFORM_DB_URL)s
+
+    [loggers]
+    keys = root,sqlalchemy,alembic
+
+    [handlers]
+    keys = console
+
+    [formatters]
+    keys = generic
+
+    [logger_root]
+    level = WARN
+    handlers = console
+    qualname =
+
+    [logger_sqlalchemy]
+    level = WARN
+    handlers =
+    qualname = sqlalchemy.engine
+
+    [logger_alembic]
+    level = INFO
+    handlers =
+    qualname = alembic
+
+    [handler_console]
+    class = StreamHandler
+    args = (sys.stderr,)
+    level = NOTSET
+    formatter = generic
+
+    [formatter_generic]
+    format = %(levelname)-5.5s [%(name)s] %(message)s
+    datefmt = %%H:%%M:%%S
+
+  # ── cts/alembic.ini ─────────────────────────────────────────────────
+  cts-alembic.ini: |
+    [alembic]
+    script_location = /app/infra/migrations/cts
+    version_locations = /app/infra/migrations/cts/versions
+    version_table = alembic_version
+    version_table_schema = cts
+    sqlalchemy.url = %(CTS_DB_URL)s
+
+    [loggers]
+    keys = root,sqlalchemy,alembic
+
+    [handlers]
+    keys = console
+
+    [formatters]
+    keys = generic
+
+    [logger_root]
+    level = WARN
+    handlers = console
+    qualname =
+
+    [logger_sqlalchemy]
+    level = WARN
+    handlers =
+    qualname = sqlalchemy.engine
+
+    [logger_alembic]
+    level = INFO
+    handlers =
+    qualname = alembic
+
+    [handler_console]
+    class = StreamHandler
+    args = (sys.stderr,)
+    level = NOTSET
+    formatter = generic
+
+    [formatter_generic]
+    format = %(levelname)-5.5s [%(name)s] %(message)s
+    datefmt = %%H:%%M:%%S
+
+  # ── ej/alembic.ini ──────────────────────────────────────────────────
+  ej-alembic.ini: |
+    [alembic]
+    script_location = /app/infra/migrations/ej
+    version_locations = /app/infra/migrations/ej/versions
+    version_table = alembic_version
+    version_table_schema = ej
+    sqlalchemy.url = %(EJ_DB_URL)s
+
+    [loggers]
+    keys = root,sqlalchemy,alembic
+
+    [handlers]
+    keys = console
+
+    [formatters]
+    keys = generic
+
+    [logger_root]
+    level = WARN
+    handlers = console
+    qualname =
+
+    [logger_sqlalchemy]
+    level = WARN
+    handlers =
+    qualname = sqlalchemy.engine
+
+    [logger_alembic]
+    level = INFO
+    handlers =
+    qualname = alembic
+
+    [handler_console]
+    class = StreamHandler
+    args = (sys.stderr,)
+    level = NOTSET
+    formatter = generic
+
+    [formatter_generic]
+    format = %(levelname)-5.5s [%(name)s] %(message)s
+    datefmt = %%H:%%M:%%S
