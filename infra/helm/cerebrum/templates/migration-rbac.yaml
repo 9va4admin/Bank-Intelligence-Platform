@@ -1,0 +1,69 @@
+{{/*
+RBAC for migration and smoke-test Jobs.
+
+Two service accounts:
+  astra-migration-sa — used by pre-upgrade Job (needs Vault auth, DB access)
+  astra-smoke-sa     — used by post-upgrade smoke test Job
+
+Both are namespace-scoped with minimum permissions.
+Vault auth is handled by the Vault Agent sidecar — the SA needs:
+  - TokenReview (for Vault Kubernetes auth method to verify the SA JWT)
+  - Nothing else — no K8s API access needed for Alembic migrations
+*/}}
+
+# ── Migration ServiceAccount ────────────────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: astra-migration-sa
+  namespace: "{{ .Release.Namespace }}"
+  labels:
+    app.kubernetes.io/name: astra-migration
+    app.kubernetes.io/instance: "{{ .Release.Name }}"
+    astra/bank-id: "{{ .Values.bank.id }}"
+  annotations:
+    # Vault Kubernetes auth — this SA's JWT is used to authenticate to Vault
+    vault.hashicorp.com/role: "astra-migration-{{ .Values.bank.id }}"
+
+---
+# ── Smoke Test ServiceAccount ───────────────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: astra-smoke-sa
+  namespace: "{{ .Release.Namespace }}"
+  labels:
+    app.kubernetes.io/name: astra-smoke-test
+    app.kubernetes.io/instance: "{{ .Release.Name }}"
+    astra/bank-id: "{{ .Values.bank.id }}"
+  annotations:
+    vault.hashicorp.com/role: "astra-smoke-{{ .Values.bank.id }}"
+
+---
+# ── No ClusterRole needed — migrations only talk to the DB (outside K8s API)
+# The Vault Agent sidecar uses its own internal token exchange — not this SA's
+# permissions. This Role is a placeholder to satisfy Vault's TokenReview check.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: astra-migration-role
+  namespace: "{{ .Release.Namespace }}"
+rules: []   # no K8s API permissions needed — DB access is network, not RBAC
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: astra-migration-rolebinding
+  namespace: "{{ .Release.Namespace }}"
+subjects:
+  - kind: ServiceAccount
+    name: astra-migration-sa
+    namespace: "{{ .Release.Namespace }}"
+  - kind: ServiceAccount
+    name: astra-smoke-sa
+    namespace: "{{ .Release.Namespace }}"
+roleRef:
+  kind: Role
+  apiRef: astra-migration-role
+  apiGroup: rbac.authorization.k8s.io
