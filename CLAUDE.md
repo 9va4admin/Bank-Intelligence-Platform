@@ -150,22 +150,28 @@ GitLab CI builds & tests          ArgoCD (bank-owned)
 Private OCI Helm Registry  ◄──── pulls ───┘
 (versioned chart releases)
        │
-       └── infra/helm/values/banks/{bank_id}.yaml  (bank-specific config)
+       └── infra/helm/values/banks/{bank_id}/   (bank-specific config, one file per chart)
+                ├── platform.yaml               always present
+                ├── cts.yaml                    only if CTS purchased
+                └── ej.yaml                     only if EJ purchased
 ```
 
-- ASTRA team publishes versioned Helm charts to a **private OCI registry** hosted by ASTRA
-- Each bank's ArgoCD is configured to watch a specific chart version in that registry
-- The bank's IT team controls when to sync (their change management process gates upgrades)
-- Bank-specific `values/{bank_id}.yaml` lives in the ASTRA repo — changes go through PR + maker-checker
+- ASTRA team publishes **three independent versioned Helm charts** to a private OCI registry:
+  - `astra-platform` — shared infra, deployed to every bank
+  - `astra-cts` — CTS module, deployed only to banks that purchased CTS
+  - `astra-ej` — EJ module, deployed only to banks that purchased EJ
+- Each chart has its own version — a CTS fix ships without forcing EJ banks to upgrade
+- ArgoCD ApplicationSets auto-discover which charts a bank uses by the presence of `cts.yaml` / `ej.yaml`
+- Bank-specific values live in `infra/helm/values/banks/{bank_id}/` — changes go through PR + maker-checker
 - **No ASTRA team member ever has shell/kubectl access to any bank's cluster in production**
 
 #### Upgrade Process
 
 ```
 Step 1 — ASTRA releases new version
-  GitLab CI: run full test suite → tag v1.x.y → build Helm chart
-  → publish chart to OCI registry as astra/cerebrum:v1.x.y
-  → publish release notes + upgrade guide + compatibility matrix
+  GitLab CI: run full test suite → tag v1.x.y → build all three Helm charts
+  → publish to OCI registry as astra-platform:v1.x.y, astra-cts:v1.x.y, astra-ej:v1.x.y
+  → publish release notes + upgrade guide + compatibility matrix per chart
 
 Step 2 — Bank change management
   Bank IT Admin raises Change Request (bank's ITSM tool)
@@ -456,21 +462,31 @@ cerebrum/
 │
 ├── infra/
 │   ├── helm/
-│   │   ├── cerebrum/                  ← Main Helm chart (published to OCI registry)
-│   │   │   ├── Chart.yaml             ← Version bumped on every release
+│   │   ├── astra-platform/            ← Shared infra chart — deployed to EVERY bank
+│   │   │   ├── Chart.yaml
+│   │   │   ├── values.yaml            ← Layer 1 (non-overridable) + Layer 2 defaults
 │   │   │   ├── templates/
-│   │   │   │   ├── namespaces.yaml    ← astra-cts-{bank_id} + astra-ej-{bank_id}
-│   │   │   │   ├── resource-quotas.yaml
-│   │   │   │   ├── network-policies.yaml
-│   │   │   │   └── pre-upgrade-migration-job.yaml  ← Alembic runs before pods
+│   │   │   │   ├── migration-scripts-configmap.yaml
+│   │   │   │   ├── pre-upgrade-migration-job.yaml  ← platform+cts+ej Alembic chains
+│   │   │   │   └── migration-rbac.yaml
 │   │   │   └── hooks/
-│   │   │       ├── pre-upgrade.yaml   ← DB migration job
-│   │   │       └── post-upgrade.yaml  ← Smoke test job
+│   │   │       └── post-upgrade.yaml  ← Smoke test: Vault + mTLS + Immudb assertions
+│   │   ├── astra-cts/                 ← CTS module chart — only banks with CTS purchased
+│   │   │   ├── Chart.yaml             ← Independent version from astra-ej
+│   │   │   ├── values.yaml            ← CTS Layer 2 defaults + Layer 3 threshold seeds
+│   │   │   ├── templates/             ← CTS Deployments, KEDA ScaledObjects, Redis
+│   │   │   └── hooks/
+│   │   ├── astra-ej/                  ← EJ module chart — only banks with EJ purchased
+│   │   │   ├── Chart.yaml             ← Independent version from astra-cts
+│   │   │   ├── values.yaml            ← EJ Layer 2 defaults + Layer 3 threshold seeds
+│   │   │   ├── templates/             ← EJ Deployments, KEDA ScaledObjects, Redis
+│   │   │   └── hooks/
 │   │   └── values/
-│   │       ├── _defaults.yaml         ← Layer 1: platform constraints (non-overridable)
-│   │       ├── bank-template.yaml     ← Layer 2 template: copy for each new bank
 │   │       └── banks/
-│   │           └── example-bank.yaml  ← Filled example for reference
+│   │           └── {bank_id}/
+│   │               ├── platform.yaml  ← Always present — bank identity, CBS, DC config
+│   │               ├── cts.yaml       ← Present only if CTS purchased
+│   │               └── ej.yaml        ← Present only if EJ purchased
 │   ├── argocd/
 │   │   ├── app-of-apps.yaml           ← ArgoCD App-of-Apps: one entry per bank
 │   │   └── apps/

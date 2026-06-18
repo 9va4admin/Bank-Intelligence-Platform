@@ -1,16 +1,24 @@
 # ASTRA ArgoCD App-of-Apps
 # ─────────────────────────────────────────────────────────────────────
-# Each bank gets one ArgoCD Application entry here.
-# ArgoCD is installed in the bank's cluster — ASTRA vendor does not
-# have access to this ArgoCD instance after initial setup.
+# Each bank gets up to three ArgoCD Applications:
+#   1. astra-platform-{bank_id}  — always installed (shared infra)
+#   2. astra-cts-{bank_id}       — installed only if bank purchased CTS
+#   3. astra-ej-{bank_id}        — installed only if bank purchased EJ
 #
-# To onboard a new bank: add an entry below and run /new-bank command
-# to generate the bank values file.
+# Bank values live in infra/helm/values/banks/{bank_id}/
+#   platform.yaml  — always present
+#   cts.yaml       — present only if CTS purchased (ArgoCD discovers via file presence)
+#   ej.yaml        — present only if EJ purchased
+#
+# ArgoCD is installed in the BANK's cluster.
+# ASTRA vendor does not have kubectl/ArgoCD access to any bank cluster in production.
 # ─────────────────────────────────────────────────────────────────────
+
+# ── 1. astra-platform (every bank) ───────────────────────────────────────────
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: astra-banks
+  name: astra-platform-banks
   namespace: argocd
 spec:
   generators:
@@ -18,35 +26,118 @@ spec:
         repoURL: https://gitlab.astra.internal/9va4admin/bank-intelligence-platform.git
         revision: main
         files:
-          - path: "infra/helm/values/banks/*.yaml"
+          - path: "infra/helm/values/banks/*/platform.yaml"
   template:
     metadata:
-      name: "astra-{{ .bank.id }}"
+      name: "astra-platform-{{ .bank_id }}"
       annotations:
-        # Bank IT Admin contact for this deployment
-        astra/bank-contact: "{{ .bank.contact_email }}"
-        astra/chart-version: "{{ .astra.chart_version }}"
+        astra/chart: astra-platform
+        astra/chart-version: "{{ .astra.platform_chart_version }}"
     spec:
       project: astra
       source:
-        # Pulls chart from private OCI registry — bank environment must have registry access
         repoURL: oci://registry.astra.internal/charts
-        chart: cerebrum
-        targetRevision: "{{ .astra.chart_version }}"
+        chart: astra-platform
+        targetRevision: "{{ .astra.platform_chart_version }}"
         helm:
           valueFiles:
-            - $values/infra/helm/values/_defaults.yaml
-            - $values/infra/helm/values/banks/{{ .bank.id }}.yaml
+            - $values/infra/helm/values/banks/{{ .bank_id }}/platform.yaml
       destination:
         server: https://kubernetes.default.svc
-        namespace: "astra-platform-{{ .bank.id }}"
+        namespace: "astra-platform-{{ .bank_id }}"
       syncPolicy:
-        # MANUAL sync — bank's change management team approves before ArgoCD syncs
-        # Change to automated: {} only after bank approves automated upgrades
         syncOptions:
           - CreateNamespace=true
           - PrunePropagationPolicy=foreground
-          - RespectIgnoreDifferences=true
+        retry:
+          limit: 3
+          backoff:
+            duration: 30s
+            factor: 2
+            maxDuration: 5m
+
+---
+# ── 2. astra-cts (only banks with cts.yaml) ──────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: astra-cts-banks
+  namespace: argocd
+spec:
+  generators:
+    - git:
+        repoURL: https://gitlab.astra.internal/9va4admin/bank-intelligence-platform.git
+        revision: main
+        files:
+          # Only generates an Application for banks that HAVE a cts.yaml file.
+          # Banks without CTS purchased simply have no cts.yaml — no Application created.
+          - path: "infra/helm/values/banks/*/cts.yaml"
+  template:
+    metadata:
+      name: "astra-cts-{{ .bank_id }}"
+      annotations:
+        astra/chart: astra-cts
+        astra/chart-version: "{{ .astra.cts_chart_version }}"
+    spec:
+      project: astra
+      source:
+        repoURL: oci://registry.astra.internal/charts
+        chart: astra-cts
+        targetRevision: "{{ .astra.cts_chart_version }}"
+        helm:
+          valueFiles:
+            - $values/infra/helm/values/banks/{{ .bank_id }}/cts.yaml
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "astra-cts-{{ .bank_id }}"
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+          - PrunePropagationPolicy=foreground
+        retry:
+          limit: 3
+          backoff:
+            duration: 30s
+            factor: 2
+            maxDuration: 5m
+
+---
+# ── 3. astra-ej (only banks with ej.yaml) ────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: astra-ej-banks
+  namespace: argocd
+spec:
+  generators:
+    - git:
+        repoURL: https://gitlab.astra.internal/9va4admin/bank-intelligence-platform.git
+        revision: main
+        files:
+          # Only generates an Application for banks that HAVE an ej.yaml file.
+          - path: "infra/helm/values/banks/*/ej.yaml"
+  template:
+    metadata:
+      name: "astra-ej-{{ .bank_id }}"
+      annotations:
+        astra/chart: astra-ej
+        astra/chart-version: "{{ .astra.ej_chart_version }}"
+    spec:
+      project: astra
+      source:
+        repoURL: oci://registry.astra.internal/charts
+        chart: astra-ej
+        targetRevision: "{{ .astra.ej_chart_version }}"
+        helm:
+          valueFiles:
+            - $values/infra/helm/values/banks/{{ .bank_id }}/ej.yaml
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "astra-ej-{{ .bank_id }}"
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+          - PrunePropagationPolicy=foreground
         retry:
           limit: 3
           backoff:

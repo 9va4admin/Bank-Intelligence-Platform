@@ -1,0 +1,46 @@
+# example-bank/platform.yaml — Layer 2 overrides for astra-platform chart.
+# Applied to every bank regardless of modules purchased.
+# ─────────────────────────────────────────────────────────────────────────────
+# Changes require: PR to ASTRA repo → bank_it_admin approval → ArgoCD sync
+# ─────────────────────────────────────────────────────────────────────────────
+
+bank_id: example-bank             # lowercase, hyphenated — must match Vault path segment
+
+# ── CBS Connector ────────────────────────────────────────────────────────────
+cbs_connector_type: finacle        # finacle | bancs | flexcube
+
+# ── Identity Provider ────────────────────────────────────────────────────────
+idp:
+  type: saml2
+  metadata_url: "https://idp.example-bank.internal/saml/metadata"
+  # Role mapping in bank IdP must include all ASTRA role names
+
+# ── Data Centers ─────────────────────────────────────────────────────────────
+datacenters:
+  dc1:
+    name: "Mumbai Primary"
+    location: "Mumbai"
+  dc2:
+    name: "Pune DR"
+    location: "Pune"
+  dc3_backup:
+    name: "Hyderabad Tape"
+    location: "Hyderabad"
+
+# ── Notifications ────────────────────────────────────────────────────────────
+notifications:
+  email:
+    from_address: "astra-alerts@example-bank.com"
+    smtp_relay: "smtp.example-bank.internal"
+  whatsapp:
+    enabled: false
+
+# ── Shared Services Scale ────────────────────────────────────────────────────
+api_gateway:
+  replicas: 2
+audit_service:
+  replicas: 2
+
+# ── ASTRA Chart Version ──────────────────────────────────────────────────────
+astra:
+  platform_chart_version: "0.1.0"

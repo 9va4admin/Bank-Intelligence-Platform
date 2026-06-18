@@ -1,0 +1,19 @@
+apiVersion: v2
+name: astra-platform
+description: |
+  ASTRA Platform — shared infrastructure deployed to every bank regardless of modules enabled.
+  Includes: auth, audit-service, config-service, API gateway, notification-service,
+  analytics-service, YugabyteDB platform schema, Immudb, Vault sidecar config.
+type: application
+version: "0.1.0"
+appVersion: "0.1.0"
+keywords:
+  - banking
+  - astra
+  - platform
+  - audit
+  - auth
+home: https://github.com/9va4admin/bank-intelligence-platform
+maintainers:
+  - name: ASTRA Vendor
+    email: platform@9va4.in

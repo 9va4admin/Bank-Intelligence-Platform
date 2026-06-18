@@ -1,0 +1,60 @@
+# astra-platform/values.yaml — Layer 1 + Layer 2 defaults for shared platform services.
+# Deployed to EVERY bank. Banks cannot disable this chart.
+# ─────────────────────────────────────────────────────────────────────────────────────
+# Layer 1 (NON-OVERRIDABLE): security, audit, mTLS, data localisation.
+#   Changing these requires a new astra-platform chart release.
+# Layer 2 (BANK-CONFIGURABLE): topology, scale, CBS connector type.
+#   Banks override in infra/helm/values/banks/{bank_id}/platform.yaml
+# ─────────────────────────────────────────────────────────────────────────────────────
+
+platform:
+  name: astra
+  version: "{{ .Chart.Version }}"
+
+# ── Security (NON-OVERRIDABLE) ──────────────────────────────────────────────
+security:
+  min_tls_version: "1.3"
+  mtls_mode: STRICT
+  hsm_required: true
+  data_localisation: enforced
+  secrets_source: vault             # all secrets must come from Vault — never env vars
+
+# ── Audit (NON-OVERRIDABLE) ─────────────────────────────────────────────────
+audit:
+  enabled: true                     # cannot be turned off by any bank
+  immudb_required: true
+  hsm_sign_events: true
+  kafka_topic: platform.audit.events
+
+# ── Module Isolation (NON-OVERRIDABLE) ──────────────────────────────────────
+isolation:
+  cts_namespace_prefix: astra-cts
+  ej_namespace_prefix: astra-ej
+  cross_module_network_policy: DENY
+
+# ── Observability (NON-OVERRIDABLE) ─────────────────────────────────────────
+observability:
+  otel_enabled: true
+  langfuse_enabled: true
+  prometheus_scrape: true
+
+# ── Deployment Topology (BANK-CONFIGURABLE via platform.yaml) ───────────────
+bank_id: ""                         # REQUIRED — set in banks/{bank_id}/platform.yaml
+dc_count: 2                         # active-active DC pair
+cbs_connector_type: finacle         # finacle | bancs | flexcube
+
+# ── Model Drift Alerting (BANK-CONFIGURABLE) ────────────────────────────────
+model_drift:
+  alert_threshold_pct: 2.0          # alert if model metric drops > 2% over 7 days
+  tighten_threshold_pct: 5.0        # auto-tighten thresholds at 5%
+  pull_from_production_pct: 8.0     # pull model from production at 8%
+
+# ── Shared Services Scale (BANK-CONFIGURABLE) ───────────────────────────────
+audit_service:
+  replicas: 2
+notification_service:
+  replicas: 2
+config_service:
+  replicas: 2
+api_gateway:
+  replicas: 2
