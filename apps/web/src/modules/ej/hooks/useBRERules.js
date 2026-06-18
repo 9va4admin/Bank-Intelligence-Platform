@@ -47,7 +47,7 @@ const BRE_RULES = [
   {
     id: 'DISPENSE_MISMATCH', name: 'Dispense Amount Mismatch', severity: 'CRITICAL',
     category: 'Transaction Integrity',
-    description: 'EJ dispensed amount differs from requested amount by more than ₹100',
+    description: 'EJ dispensed amount differs from requested amount by >₹100',
     rego_conditions: ['abs(input.dispensed_amount - input.requested_amount) > 100'],
     notify_roles: ['branch_manager','zonal_manager','regional_head','ops_reviewer'],
     channels: {
@@ -62,7 +62,7 @@ const BRE_RULES = [
   {
     id: 'HIGH_TXN_VELOCITY', name: 'High Transaction Velocity', severity: 'HIGH',
     category: 'Fraud Signal',
-    description: 'ATM processes more than 50 transactions in any 15-minute window',
+    description: 'ATM processes >50 transactions in any 15-minute window',
     rego_conditions: ['input.txn_count_15m > data.config.velocity_threshold'],
     notify_roles: ['zonal_manager','ops_reviewer','fraud_analyst'],
     channels: {
@@ -115,7 +115,7 @@ const BRE_RULES = [
   {
     id: 'AFTER_HOURS_CRIT', name: 'After-Hours CRITICAL Activity', severity: 'HIGH',
     category: 'Security',
-    description: 'CRITICAL transaction event between 23:00-06:00 IST — elevated fraud risk',
+    description: 'CRITICAL transaction event between 23:00–06:00 IST — elevated fraud risk',
     rego_conditions: ['input.hour >= 23', 'input.severity == "CRITICAL"'],
     notify_roles: ['ops_reviewer','fraud_analyst','zonal_manager'],
     channels: {
@@ -125,12 +125,12 @@ const BRE_RULES = [
     },
     escalation: { unacked_minutes:20, then_notify:'regional_head', then_channels:['whatsapp'] },
     status:'PENDING', version:0, last_edited_by:'compliance@bank.in', last_approved_by:null, last_changed:'2026-06-17',
-    pending_change: { submitted_by:'compliance@bank.in', submitted_at:'2026-06-17T14:32:00Z', description:'New rule for overnight security monitoring at high-risk ATMs', awaiting:'bank_it_admin' },
+    pending_change: { submitted_by:'compliance@bank.in', submitted_at:'2026-06-17T14:32:00Z', description:'New rule for overnight security monitoring', awaiting:'bank_it_admin' },
   },
   {
     id: 'EJ_PARSE_FAIL', name: 'EJ Parse Failure', severity: 'MEDIUM',
     category: 'Data Quality',
-    description: 'LLM confidence below threshold for more than 3 fields in one EJ file',
+    description: 'LLM confidence below threshold for >3 fields in one EJ file',
     rego_conditions: ['input.low_confidence_fields > data.config.max_weak_fields'],
     notify_roles: ['ops_reviewer','ml_engineer'],
     channels: {
@@ -150,34 +150,17 @@ export function useBRERules() {
 
   const approveChange = (ruleId) => {
     setRules(prev => prev.map(r => r.id === ruleId ? {
-      ...r,
-      status: 'ACTIVE',
-      version: r.version + 1,
-      last_approved_by: 'itadmin@bank.in',
+      ...r, status:'ACTIVE', version: r.version + 1,
+      last_approved_by:'itadmin@bank.in',
       last_changed: new Date().toISOString().split('T')[0],
       pending_change: null,
     } : r))
-    setSelectedRule(prev => prev?.id === ruleId ? {
-      ...prev,
-      status: 'ACTIVE',
-      version: prev.version + 1,
-      last_approved_by: 'itadmin@bank.in',
-      last_changed: new Date().toISOString().split('T')[0],
-      pending_change: null,
-    } : prev)
   }
 
   const rejectChange = (ruleId) => {
     setRules(prev => prev.map(r => r.id === ruleId ? {
-      ...r,
-      status: r.version > 0 ? 'ACTIVE' : 'DRAFT',
-      pending_change: null,
+      ...r, status: r.version > 0 ? 'ACTIVE' : 'DRAFT', pending_change: null,
     } : r))
-    setSelectedRule(prev => prev?.id === ruleId ? {
-      ...prev,
-      status: prev.version > 0 ? 'ACTIVE' : 'DRAFT',
-      pending_change: null,
-    } : prev)
   }
 
   return { rules, selectedRule, setSelectedRule, approveChange, rejectChange }
