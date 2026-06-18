@@ -1,0 +1,34 @@
+# example-bank/ej.yaml — Layer 2 overrides for astra-ej chart.
+# Only present at banks where EJ module is purchased.
+# ─────────────────────────────────────────────────────────────────────────────
+# Changes require: PR to ASTRA repo → bank_it_admin approval → ArgoCD sync
+# Layer 3 thresholds configured post-onboarding via Admin UI maker-checker.
+# ─────────────────────────────────────────────────────────────────────────────
+
+atm_count: 45
+branch_count: 12
+
+redis_ej:
+  nodes: 6
+
+ai:
+  models:
+    reasoning: llama-3.3-70b-awq
+    embeddings: bge-m3
+    dispute: qwen2.5-72b-awq
+  timeouts_seconds:
+    reasoning: 180
+    embeddings: 15
+    dispute: 120
+
+edge_agent:
+  watch_interval_seconds: 30
+  retry_interval_seconds: 60
+  max_upload_attempts: 10
+
+ej_normalisation_worker:
+  min_replicas: 1
+  keda_kafka_lag_threshold: 5
+
+astra:
+  ej_chart_version: "0.1.0"

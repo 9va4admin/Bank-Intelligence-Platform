@@ -1,0 +1,27 @@
+apiVersion: v2
+name: astra-ej
+description: |
+  ASTRA EJ Module — ATM Electronic Journal Intelligence.
+  Requires astra-platform to be installed first.
+  Includes: ej-ingestion-service, ej-normalisation-worker, dispute-engine,
+  YugabyteDB ej schema, Redis EJ cluster, Temporal EJ task queues,
+  edge ej-agent Helm values (edge binary deployed separately via DaemonSet or manual).
+type: application
+version: "0.1.0"
+appVersion: "0.1.0"
+keywords:
+  - banking
+  - ej
+  - atm
+  - electronic-journal
+  - astra
+  - dispute
+home: https://github.com/9va4admin/bank-intelligence-platform
+maintainers:
+  - name: ASTRA Vendor
+    email: platform@9va4.in
+dependencies:
+  - name: astra-platform
+    version: ">=0.1.0"
+    repository: "oci://registry.astra.internal/charts"
+    condition: platform.enabled

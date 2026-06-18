@@ -1,0 +1,53 @@
+# astra-ej/values.yaml — Layer 2 + Layer 3 seed defaults for the EJ module.
+# Installed only at banks that have purchased the EJ module.
+# Requires astra-platform to be installed first.
+# ─────────────────────────────────────────────────────────────────────────────────────
+# Layer 2 (BANK-CONFIGURABLE): scale, GPU profile, ATM fleet size.
+#   Banks override in infra/helm/values/banks/{bank_id}/ej.yaml
+# Layer 3 (HOT-RELOAD SEEDS): threshold defaults seeded into YugabyteDB at onboarding.
+#   After onboarding, banks change these via Admin UI maker-checker — no Helm upgrade.
+# ─────────────────────────────────────────────────────────────────────────────────────
+
+# ── Deployment Topology (BANK-CONFIGURABLE) ─────────────────────────────────
+atm_count: 0                        # total ATMs in bank fleet — set per bank
+branch_count: 0                     # total branches — drives edge agent rollout planning
+
+# ── Redis EJ Cluster (BANK-CONFIGURABLE) ────────────────────────────────────
+redis_ej:
+  nodes: 6                          # 3+3 across two DCs
+  # connection URL comes from Vault: secret/astra/{bank_id}/redis/ej/auth_token
+
+# ── AI Models for EJ (BANK-CONFIGURABLE) ────────────────────────────────────
+ai:
+  models:
+    reasoning: llama-3.3-70b-awq    # EJ log parsing and field extraction
+    embeddings: bge-m3              # dispute semantic matching
+    dispute: qwen2.5-72b-awq        # dispute arbitration reasoning
+  timeouts_seconds:
+    reasoning: 180                  # EJ logs can be large — generous timeout
+    embeddings: 15
+    dispute: 120
+
+# ── Worker Scale (BANK-CONFIGURABLE) ────────────────────────────────────────
+ej_normalisation_worker:
+  min_replicas: 1
+  keda_kafka_lag_threshold: 5
+dispute_engine:
+  min_replicas: 1
+
+# ── Edge Agent Config (BANK-CONFIGURABLE) ───────────────────────────────────
+edge_agent:
+  watch_interval_seconds: 30        # how often edge agent polls EJ watch directory
+  retry_interval_seconds: 60        # how often retry loop runs for failed uploads
+  max_upload_attempts: 10           # after this many failures, mark FAILED in SQLite buffer
+  # OEM fingerprinting, encryption, mTLS — all configured via ASTRA_* env vars on the edge host
+
+# ── Layer 3 Threshold Seeds (HOT-RELOAD after onboarding) ───────────────────
+thresholds:
+  llm_field_min_confidence: 0.80        # per-field extraction minimum — below → null + warning
+  llm_record_max_weak_fields: 3         # reject EJ record if more than this many weak fields
+  oem_fingerprint_min_confidence: 0.90  # OEM detection confidence — below → manual OEM review
+  dispute_auto_resolve_confidence: 0.95 # auto-resolve dispute only if evidence ≥ this
+  atm_health_degraded_threshold: 0.70   # ATM health score below → DEGRADED alert
+  atm_health_critical_threshold: 0.40   # ATM health score below → CRITICAL alert
+  ej_pull_interval_minutes: 15          # frequency of EJ pulls from edge agent

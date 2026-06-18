@@ -1,0 +1,25 @@
+apiVersion: v2
+name: astra-cts
+description: |
+  ASTRA CTS Module — Cheque Truncation System for RBI IET compliance.
+  Requires astra-platform to be installed first.
+  Includes: cts-agent-worker, ngch-adapter, vault-sync-service, signature-verification-service,
+  fraud-scoring-service, YugabyteDB cts schema, Redis CTS cluster, Temporal CTS task queues.
+type: application
+version: "0.1.0"
+appVersion: "0.1.0"
+keywords:
+  - banking
+  - cts
+  - cheque-truncation
+  - astra
+  - iet
+home: https://github.com/9va4admin/bank-intelligence-platform
+maintainers:
+  - name: ASTRA Vendor
+    email: platform@9va4.in
+dependencies:
+  - name: astra-platform
+    version: ">=0.1.0"
+    repository: "oci://registry.astra.internal/charts"
+    condition: platform.enabled   # set false only in dev when platform already installed

@@ -1,0 +1,62 @@
+# astra-cts/values.yaml — Layer 2 + Layer 3 seed defaults for the CTS module.
+# Installed only at banks that have purchased the CTS module.
+# Requires astra-platform to be installed first.
+# ─────────────────────────────────────────────────────────────────────────────────────
+# Layer 1 (NON-OVERRIDABLE): iet_watchdog, exactly_once_ngch, vault_miss_action.
+# Layer 2 (BANK-CONFIGURABLE): scale, GPU profile, clearing zones.
+#   Banks override in infra/helm/values/banks/{bank_id}/cts.yaml
+# Layer 3 (HOT-RELOAD SEEDS): threshold defaults seeded into YugabyteDB at onboarding.
+#   After onboarding, banks change these via Admin UI maker-checker — no Helm upgrade.
+# ─────────────────────────────────────────────────────────────────────────────────────
+
+# ── Workflow Safety (NON-OVERRIDABLE) ───────────────────────────────────────
+workflow:
+  iet_watchdog_enabled: true        # structural — cannot be disabled by any bank
+  exactly_once_ngch: true           # Temporal idempotency — never overridable
+  vault_miss_action: HUMAN_REVIEW   # vault miss ALWAYS → human review, never AUTO_RETURN
+
+# ── Deployment Topology (BANK-CONFIGURABLE) ─────────────────────────────────
+clearing_zones: []                  # e.g. [MUMBAI, DELHI] — set per bank
+max_agent_swarm_size: 500           # max parallel cheque-processing pods (KEDA ceiling)
+gpu_profile: pilot                  # pilot (4×RTX4090) | production (4×A100)
+
+# ── Redis CTS Cluster (BANK-CONFIGURABLE) ───────────────────────────────────
+redis_cts:
+  nodes: 6                          # 3+3 across two DCs
+  # connection URL comes from Vault: secret/astra/{bank_id}/redis/cts/auth_token
+
+# ── AI Models for CTS (BANK-CONFIGURABLE) ───────────────────────────────────
+ai:
+  models:
+    vision: qwen2-vl-72b-awq        # cheque image analysis, alteration detection
+    ocr: got-ocr2                   # MICR line, handwriting extraction
+    cctv: internvl2-26b-awq         # CCTV frame analysis (if cctv_enabled)
+    reasoning: llama-3.3-70b-awq    # fraud synthesis and explanation
+  timeouts_seconds:
+    vision: 120
+    ocr: 30
+    reasoning: 60
+
+# ── Feature Flags (BANK-CONFIGURABLE) ───────────────────────────────────────
+cctv_enabled: false                 # enable CCTV adapter integration
+special_cheque_routes: []           # e.g. [GOVERNMENT, COURT_ORDER]
+
+# ── Worker Scale (BANK-CONFIGURABLE) ────────────────────────────────────────
+cts_agent_worker:
+  min_replicas: 2                   # always 2 warm — never scale to 0
+  keda_kafka_lag_threshold: 10      # scale up when Kafka lag > 10
+
+# ── Layer 3 Threshold Seeds (HOT-RELOAD after onboarding) ───────────────────
+# These values are written to YugabyteDB at bank onboarding. Banks then adjust
+# via Admin UI maker-checker. These defaults represent ASTRA's recommended baseline.
+# RULE: No Python/Go code may hardcode these. Always fetch via config_service.
+thresholds:
+  iet_minutes: 180                      # RBI mandate: T+3 hours
+  stp_auto_confirm_threshold: 0.92      # fraud score ≤ this → STP confirm
+  human_review_fraud_threshold: 0.72    # fraud score > this → human review queue
+  high_value_amount_threshold: 500000   # ₹5,00,000 → human review regardless of score
+  signature_min_match_score: 0.85       # Siamese network minimum
+  ocr_min_confidence: 0.90             # GOT-OCR2 field confidence minimum
+  alteration_risk_threshold: 0.65      # Qwen2-VL tamper risk threshold
+  iet_emergency_buffer_seconds: 30     # watchdog fires 30s before IET — not configurable in spirit, but recorded
+  human_review_max_wait_minutes: 55    # HumanReviewWorkflow timeout before auto-return
