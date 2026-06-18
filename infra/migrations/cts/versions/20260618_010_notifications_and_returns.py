@@ -25,7 +25,7 @@ def upgrade() -> None:
         "cheque_notifications",
         sa.Column("notification_id", UUID(as_uuid=True), primary_key=True,
                   server_default=sa.text("uuid_generate_v4()")),
-        sa.Column("bank_id", sa.Text, sa.ForeignKey("cts.banks_master.bank_id"),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"),
                   nullable=False),
         sa.Column("instrument_id", UUID(as_uuid=True), nullable=False),
 
@@ -69,7 +69,7 @@ def upgrade() -> None:
         "return_notices",
         sa.Column("notice_id", UUID(as_uuid=True), primary_key=True,
                   server_default=sa.text("uuid_generate_v4()")),
-        sa.Column("bank_id", sa.Text, sa.ForeignKey("cts.banks_master.bank_id"),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"),
                   nullable=False),
         sa.Column("return_id", UUID(as_uuid=True),
                   sa.ForeignKey("cts.return_items.return_id"), nullable=False),

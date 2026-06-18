@@ -30,7 +30,7 @@ def upgrade() -> None:
                   server_default=sa.text("uuid_generate_v4()")),
         sa.Column("atm_id", sa.Text,
                   sa.ForeignKey("ej.atm_master.atm_id"), nullable=False),
-        sa.Column("bank_id", sa.Text, nullable=False),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"), nullable=False),
 
         # Workflow reference
         sa.Column("workflow_id", sa.Text, nullable=True),
@@ -92,7 +92,7 @@ def upgrade() -> None:
                   server_default=sa.text("uuid_generate_v4()")),
         sa.Column("atm_id", sa.Text,
                   sa.ForeignKey("ej.atm_master.atm_id"), nullable=False),
-        sa.Column("bank_id", sa.Text, nullable=False),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"), nullable=False),
         sa.Column("snapshot_id", UUID(as_uuid=True),
                   sa.ForeignKey("ej.atm_health_snapshots.snapshot_id"), nullable=True),
 

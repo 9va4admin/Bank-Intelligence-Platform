@@ -28,7 +28,7 @@ def upgrade() -> None:
         "dispute_cases",
         sa.Column("case_id", UUID(as_uuid=True), primary_key=True,
                   server_default=sa.text("uuid_generate_v4()")),
-        sa.Column("bank_id", sa.Text, nullable=False),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"), nullable=False),
         sa.Column("atm_id", sa.Text,
                   sa.ForeignKey("ej.atm_master.atm_id"), nullable=True),
 
@@ -94,7 +94,7 @@ def upgrade() -> None:
                   server_default=sa.text("uuid_generate_v4()")),
         sa.Column("case_id", UUID(as_uuid=True),
                   sa.ForeignKey("ej.dispute_cases.case_id"), nullable=False),
-        sa.Column("bank_id", sa.Text, nullable=False),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"), nullable=False),
 
         # EJ evidence
         sa.Column("ej_record_id", UUID(as_uuid=True),
@@ -133,7 +133,7 @@ def upgrade() -> None:
                   server_default=sa.text("uuid_generate_v4()")),
         sa.Column("case_id", UUID(as_uuid=True),
                   sa.ForeignKey("ej.dispute_cases.case_id"), nullable=False),
-        sa.Column("bank_id", sa.Text, nullable=False),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"), nullable=False),
         sa.Column("atm_id", sa.Text, nullable=False),
         sa.Column("branch_ifsc", sa.Text, nullable=True),
 
@@ -187,7 +187,7 @@ def upgrade() -> None:
                   server_default=sa.text("uuid_generate_v4()")),
         sa.Column("case_id", UUID(as_uuid=True),
                   sa.ForeignKey("ej.dispute_cases.case_id"), nullable=False),
-        sa.Column("bank_id", sa.Text, nullable=False),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"), nullable=False),
 
         sa.Column("npci_claim_id", sa.Text, nullable=True),   # NPCI's claim reference
         sa.Column("filing_type", sa.Text, nullable=False),
@@ -228,7 +228,7 @@ def upgrade() -> None:
                   server_default=sa.text("uuid_generate_v4()")),
         sa.Column("case_id", UUID(as_uuid=True),
                   sa.ForeignKey("ej.dispute_cases.case_id"), nullable=False),
-        sa.Column("bank_id", sa.Text, nullable=False),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"), nullable=False),
 
         sa.Column("event_type", sa.Text, nullable=False),
         # DISPUTE_RAISED | EVIDENCE_ASSEMBLED | AUTO_RESOLVED | ESCALATED |

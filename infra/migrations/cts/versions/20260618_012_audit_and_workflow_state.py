@@ -31,7 +31,7 @@ def upgrade() -> None:
         "cts_audit_events",
         sa.Column("event_id", UUID(as_uuid=True), primary_key=True,
                   server_default=sa.text("uuid_generate_v4()")),
-        sa.Column("bank_id", sa.Text, sa.ForeignKey("cts.banks_master.bank_id"),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"),
                   nullable=False),
 
         # Event classification
@@ -85,7 +85,7 @@ def upgrade() -> None:
         "workflow_states",
         sa.Column("workflow_id", sa.Text, primary_key=True),
         # cts-{bank_id}-{instrument_id} or cts-iet-{bank_id}-{instrument_id}
-        sa.Column("bank_id", sa.Text, sa.ForeignKey("cts.banks_master.bank_id"),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"),
                   nullable=False),
         sa.Column("workflow_type", sa.Text, nullable=False),
         # ChequeProcessingWorkflow | IETWatchdogWorkflow | HumanReviewWorkflow | VaultSyncWorkflow
@@ -139,7 +139,7 @@ def upgrade() -> None:
         sa.Column("instrument_id", UUID(as_uuid=True), nullable=False),
         sa.Column("decision_id", UUID(as_uuid=True),
                   sa.ForeignKey("cts.agent_decisions.decision_id"), nullable=False),
-        sa.Column("bank_id", sa.Text, sa.ForeignKey("cts.banks_master.bank_id"),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"),
                   nullable=False),
 
         sa.Column("amount_range", sa.Text, nullable=False),

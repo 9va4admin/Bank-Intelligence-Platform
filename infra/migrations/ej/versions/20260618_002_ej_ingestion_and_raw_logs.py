@@ -29,7 +29,7 @@ def upgrade() -> None:
         "ej_ingestion_sessions",
         sa.Column("session_id", UUID(as_uuid=True), primary_key=True,
                   server_default=sa.text("uuid_generate_v4()")),
-        sa.Column("bank_id", sa.Text, nullable=False),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"), nullable=False),
         sa.Column("branch_ifsc", sa.Text, nullable=True),   # NULL if fetching by zone
         sa.Column("zone", sa.Text, nullable=True),
 
@@ -71,7 +71,7 @@ def upgrade() -> None:
     op.execute("""
         CREATE TABLE ej.ej_raw_logs (
             log_id          UUID            NOT NULL DEFAULT uuid_generate_v4(),
-            bank_id         TEXT            NOT NULL,
+            bank_id         TEXT            NOT NULL REFERENCES platform.banks(bank_id),
             atm_id          TEXT            NOT NULL REFERENCES ej.atm_master(atm_id),
             session_id      UUID            REFERENCES ej.ej_ingestion_sessions(session_id),
 

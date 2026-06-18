@@ -1,7 +1,12 @@
-"""CTS schema + master data tables: banks, branches, processing_centers, clearing_zones.
+"""CTS schema + CTS-specific master data: clearing_zones, processing_centers, branches_master.
+
+Banks registry moved to platform.banks (platform migration 001).
+All bank_id FKs in this file point to platform.banks.bank_id.
+
+Depends on: platform migration chain must run first (platform schema + banks table must exist).
 
 Revision ID: 20260618_001
-Revises: (base)
+Revises: (base — CTS chain; platform chain is a prerequisite run separately)
 Create Date: 2026-06-18
 """
 from alembic import op
@@ -17,45 +22,38 @@ depends_on = None
 def upgrade() -> None:
     # ── Create CTS schema ──────────────────────────────────────────────────
     op.execute("CREATE SCHEMA IF NOT EXISTS cts")
+    # Extensions already created by platform migration — IF NOT EXISTS is safe
     op.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
     op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
 
-    # ── banks_master ───────────────────────────────────────────────────────
-    op.create_table(
-        "banks_master",
-        sa.Column("bank_id", sa.Text, primary_key=True),
-        sa.Column("bank_name", sa.Text, nullable=False),
-        sa.Column("bank_code", sa.Text, nullable=False, unique=True),   # NPCI bank code
-        sa.Column("ifsc_prefix", sa.Text, nullable=False),              # first 4 chars of IFSC
-        sa.Column("ngch_member_code", sa.Text, nullable=True),          # NGCH clearing member code
-        sa.Column("is_active", sa.Boolean, nullable=False, server_default="true"),
-        sa.Column("onboarded_at", sa.DateTime(timezone=True), nullable=False,
-                  server_default=sa.text("NOW()")),
-        schema="cts",
-    )
-    op.create_index("ix_cts_banks_master_bank_code", "banks_master",
-                    ["bank_code"], schema="cts")
-
     # ── clearing_zones ─────────────────────────────────────────────────────
+    # CTS-specific: NGCH clearing zones (MUMBAI, DELHI, CHENNAI, KOLKATA, etc.)
+    # Not in platform schema — clearing zones are a CTS concept only.
     op.create_table(
         "clearing_zones",
-        sa.Column("zone_id", sa.Text, primary_key=True),               # e.g. "NGCH_NATIONAL"
+        sa.Column("zone_id", sa.Text, primary_key=True),
+        # e.g. "NGCH_MUMBAI", "NGCH_DELHI", "NGCH_NATIONAL"
         sa.Column("zone_name", sa.Text, nullable=False),
-        sa.Column("ngch_endpoint", sa.Text, nullable=True),            # NGCH SFTP/API endpoint
+        sa.Column("ngch_endpoint", sa.Text, nullable=True),
+        # NGCH SFTP/API endpoint for this zone — from Vault, not stored plaintext here
+        # This field stores the endpoint identifier, not credentials
         sa.Column("is_active", sa.Boolean, nullable=False, server_default="true"),
         schema="cts",
     )
 
     # ── processing_centers ─────────────────────────────────────────────────
+    # Regional Processing Centers (RPCs) per bank per clearing zone.
+    # Large banks have one RPC per zone; smaller banks use a single center.
     op.create_table(
         "processing_centers",
         sa.Column("center_id", UUID(as_uuid=True), primary_key=True,
                   server_default=sa.text("uuid_generate_v4()")),
-        sa.Column("bank_id", sa.Text, sa.ForeignKey("cts.banks_master.bank_id"),
+        sa.Column("bank_id", sa.Text,
+                  sa.ForeignKey("platform.banks.bank_id"),  # → platform schema
                   nullable=False),
-        sa.Column("zone_id", sa.Text, sa.ForeignKey("cts.clearing_zones.zone_id"),
-                  nullable=False),
-        sa.Column("center_name", sa.Text, nullable=False),             # e.g. "MUMBAI_RPC"
+        sa.Column("zone_id", sa.Text,
+                  sa.ForeignKey("cts.clearing_zones.zone_id"), nullable=False),
+        sa.Column("center_name", sa.Text, nullable=False),  # e.g. "MUMBAI_RPC"
         sa.Column("center_code", sa.Text, nullable=False),
         sa.Column("is_active", sa.Boolean, nullable=False, server_default="true"),
         schema="cts",
@@ -64,19 +62,23 @@ def upgrade() -> None:
                     ["bank_id"], schema="cts")
 
     # ── branches_master ────────────────────────────────────────────────────
+    # CTS-specific: branches that participate in cheque clearing.
+    # Not all branches present cheques (some are sub-offices under a service branch).
     op.create_table(
         "branches_master",
         sa.Column("branch_id", UUID(as_uuid=True), primary_key=True,
                   server_default=sa.text("uuid_generate_v4()")),
-        sa.Column("bank_id", sa.Text, sa.ForeignKey("cts.banks_master.bank_id"),
+        sa.Column("bank_id", sa.Text,
+                  sa.ForeignKey("platform.banks.bank_id"),  # → platform schema
                   nullable=False),
         sa.Column("center_id", UUID(as_uuid=True),
                   sa.ForeignKey("cts.processing_centers.center_id"), nullable=True),
         sa.Column("ifsc", sa.Text, nullable=False, unique=True),
         sa.Column("branch_name", sa.Text, nullable=False),
-        sa.Column("micr_code", sa.Text, nullable=True),                # 9-digit MICR city code
+        sa.Column("micr_code", sa.Text, nullable=True),      # 9-digit MICR city code
         sa.Column("is_service_branch", sa.Boolean, nullable=False,
-                  server_default="false"),                             # submits to NGCH on behalf of others
+                  server_default="false"),
+        # Service branch submits to NGCH on behalf of sub-branches
         sa.Column("is_active", sa.Boolean, nullable=False, server_default="true"),
         schema="cts",
     )
@@ -92,5 +94,4 @@ def downgrade() -> None:
     op.drop_table("branches_master", schema="cts")
     op.drop_table("processing_centers", schema="cts")
     op.drop_table("clearing_zones", schema="cts")
-    op.drop_table("banks_master", schema="cts")
     op.execute("DROP SCHEMA IF EXISTS cts CASCADE")

@@ -30,7 +30,7 @@ def upgrade() -> None:
         "pps_registrations",
         sa.Column("registration_id", UUID(as_uuid=True), primary_key=True,
                   server_default=sa.text("uuid_generate_v4()")),
-        sa.Column("bank_id", sa.Text, sa.ForeignKey("cts.banks_master.bank_id"),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"),
                   nullable=False),
 
         # Account (hashed, never raw)
@@ -81,7 +81,7 @@ def upgrade() -> None:
         "pps_confirmations",
         sa.Column("confirmation_id", UUID(as_uuid=True), primary_key=True,
                   server_default=sa.text("uuid_generate_v4()")),
-        sa.Column("bank_id", sa.Text, sa.ForeignKey("cts.banks_master.bank_id"),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"),
                   nullable=False),
         sa.Column("vault_entry_id", UUID(as_uuid=True),
                   sa.ForeignKey("cts.pps_vault_entries.entry_id"), nullable=False),
@@ -113,7 +113,7 @@ def upgrade() -> None:
         "pps_submission_audit",
         sa.Column("audit_id", UUID(as_uuid=True), primary_key=True,
                   server_default=sa.text("uuid_generate_v4()")),
-        sa.Column("bank_id", sa.Text, sa.ForeignKey("cts.banks_master.bank_id"),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"),
                   nullable=False),
         sa.Column("related_registration_id", UUID(as_uuid=True), nullable=True),
         sa.Column("related_confirmation_id", UUID(as_uuid=True), nullable=True),
@@ -145,7 +145,7 @@ def upgrade() -> None:
         "pps_npci_exchange_log",
         sa.Column("exchange_id", UUID(as_uuid=True), primary_key=True,
                   server_default=sa.text("uuid_generate_v4()")),
-        sa.Column("bank_id", sa.Text, sa.ForeignKey("cts.banks_master.bank_id"),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"),
                   nullable=False),
 
         sa.Column("file_ref", sa.Text, nullable=False),        # NPCI exchange file reference
@@ -176,7 +176,7 @@ def upgrade() -> None:
         "pps_dispute_log",
         sa.Column("dispute_id", UUID(as_uuid=True), primary_key=True,
                   server_default=sa.text("uuid_generate_v4()")),
-        sa.Column("bank_id", sa.Text, sa.ForeignKey("cts.banks_master.bank_id"),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"),
                   nullable=False),
         sa.Column("instrument_id", UUID(as_uuid=True), nullable=False),
 

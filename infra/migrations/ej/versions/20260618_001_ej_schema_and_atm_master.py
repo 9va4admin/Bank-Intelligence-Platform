@@ -29,9 +29,8 @@ def upgrade() -> None:
         "atm_master",
         sa.Column("atm_id", sa.Text, primary_key=True),
         # Bank-assigned ATM ID (e.g. "ATM-MUM-0042") — NOT a UUID for query clarity
-        sa.Column("bank_id", sa.Text, nullable=False),
-        # No FK to cts.banks_master — EJ schema is isolated from CTS schema
-        # Cross-schema join only in analytics-service (read-only, async)
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"), nullable=False),
+        # FK to platform.banks — shared bank registry (platform schema is always deployed)
 
         sa.Column("atm_name", sa.Text, nullable=True),      # branch/location label
         sa.Column("branch_ifsc", sa.Text, nullable=True),   # branch where ATM is installed

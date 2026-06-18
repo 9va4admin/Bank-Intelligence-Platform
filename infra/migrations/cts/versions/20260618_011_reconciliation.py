@@ -28,7 +28,7 @@ def upgrade() -> None:
         "reconciliation_sessions",
         sa.Column("recon_session_id", UUID(as_uuid=True), primary_key=True,
                   server_default=sa.text("uuid_generate_v4()")),
-        sa.Column("bank_id", sa.Text, sa.ForeignKey("cts.banks_master.bank_id"),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"),
                   nullable=False),
         sa.Column("clearing_session_id", UUID(as_uuid=True),
                   sa.ForeignKey("cts.clearing_sessions.session_id"), nullable=True),
