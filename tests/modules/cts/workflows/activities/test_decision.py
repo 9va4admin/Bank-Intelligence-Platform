@@ -44,10 +44,14 @@ def _make_signals(
 def _make_config(
     stp_threshold=0.92,
     fraud_threshold=0.72,
+    ocr_min_confidence=0.85,
+    sig_min_match=0.80,
 ):
     return {
         "stp_auto_confirm_threshold": stp_threshold,
         "human_review_fraud_threshold": fraud_threshold,
+        "ocr_min_confidence": ocr_min_confidence,
+        "sig_min_match_score": sig_min_match,
     }
 
 

@@ -188,3 +188,45 @@ class TestFraudFallbackRules:
                                            model=mock_model, explainer=mock_explainer)
 
         assert result_altered.fraud_score > result_clean.fraud_score
+
+    @pytest.mark.asyncio
+    async def test_fallback_low_ocr_confidence_raises_score(self):
+        """Rule-based fallback: ocr_confidence < 0.70 bumps score."""
+        from modules.cts.workflows.activities.fraud import score_fraud
+
+        mock_model = MagicMock()
+        mock_model.predict_proba = MagicMock(side_effect=Exception("down"))
+        mock_explainer = MagicMock()
+
+        result_good_ocr = await score_fraud(
+            _make_input(ocr_confidence=0.95),
+            model=mock_model, explainer=mock_explainer,
+        )
+        mock_model.predict_proba = MagicMock(side_effect=Exception("down"))
+        result_bad_ocr = await score_fraud(
+            _make_input(ocr_confidence=0.60),
+            model=mock_model, explainer=mock_explainer,
+        )
+
+        assert result_bad_ocr.fraud_score > result_good_ocr.fraud_score
+
+    @pytest.mark.asyncio
+    async def test_fallback_very_high_amount_raises_score(self):
+        """Rule-based fallback: amount > 5_000_000 bumps score."""
+        from modules.cts.workflows.activities.fraud import score_fraud
+
+        mock_model = MagicMock()
+        mock_model.predict_proba = MagicMock(side_effect=Exception("down"))
+        mock_explainer = MagicMock()
+
+        result_normal = await score_fraud(
+            _make_input(amount=50000.0),
+            model=mock_model, explainer=mock_explainer,
+        )
+        mock_model.predict_proba = MagicMock(side_effect=Exception("down"))
+        result_huge = await score_fraud(
+            _make_input(amount=6_000_000.0),
+            model=mock_model, explainer=mock_explainer,
+        )
+
+        assert result_huge.fraud_score > result_normal.fraud_score

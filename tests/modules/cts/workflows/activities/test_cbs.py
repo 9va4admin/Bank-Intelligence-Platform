@@ -236,6 +236,35 @@ class TestCBSActivityDegradation:
         result = await check_cbs_balance(_make_input(), cbs_connector=mock_connector)
         assert result.outcome == "RETURN"
 
+    @pytest.mark.asyncio
+    async def test_cbs_unavailable_degraded_flag(self):
+        """CBSUnavailableError specifically sets degraded=True."""
+        from modules.cts.workflows.activities.cbs import check_cbs_balance
+        from shared.cbs_connector.exceptions import CBSUnavailableError
+
+        mock_connector = AsyncMock()
+        mock_connector.get_account_info = AsyncMock(
+            side_effect=CBSUnavailableError("service down")
+        )
+
+        result = await check_cbs_balance(_make_input(), cbs_connector=mock_connector)
+        assert result.outcome == "CBS_UNAVAILABLE"
+        assert result.degraded is True
+
+    @pytest.mark.asyncio
+    async def test_unexpected_error_also_returns_cbs_unavailable(self):
+        """Unexpected errors (not CBSUnavailableError) also degrade gracefully."""
+        from modules.cts.workflows.activities.cbs import check_cbs_balance
+
+        mock_connector = AsyncMock()
+        mock_connector.get_account_info = AsyncMock(
+            side_effect=RuntimeError("connection pool exhausted")
+        )
+
+        result = await check_cbs_balance(_make_input(), cbs_connector=mock_connector)
+        assert result.outcome == "CBS_UNAVAILABLE"
+        assert result.degraded is True
+
 
 # ---------------------------------------------------------------------------
 # Output schema
