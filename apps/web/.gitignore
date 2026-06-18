@@ -24,3 +24,4 @@ dist-ssr
 *.sw?
 apps/web/tmp/
 apps/web/dist/
+apps/web/tmp/
