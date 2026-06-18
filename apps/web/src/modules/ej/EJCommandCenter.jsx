@@ -10,22 +10,52 @@ import TxnVelocityChart from './components/TxnVelocityChart'
 import RiskPanel from './components/RiskPanel'
 import { Link } from 'react-router-dom'
 
+const TIME_RANGES = ['Live', '2h', '6h', '24h', '7d', '30d']
+
 export default function EJCommandCenter() {
   const ctx = useEJCommandCenter()
   const [ejViewerOpen, setEJViewerOpen] = useState(false)
+  const [timeRange, setTimeRange] = useState('Live')
 
   return (
     <div className="min-h-screen bg-[#020817] text-slate-100 font-sans">
       {/* Top nav strip */}
       <div className="border-b border-slate-800 px-6 py-2 flex items-center justify-between">
         <Link to="/" className="text-xs text-slate-500 hover:text-cyan-400 transition-colors">← ASTRA Platform</Link>
-        <span className="text-xs font-mono text-slate-600">EJ INTELLIGENCE · COMMAND CENTER</span>
+        <div className="flex items-center gap-1 text-xs">
+          <span className="px-3 py-1.5 rounded bg-cyan-600/20 text-cyan-300 font-medium border border-cyan-500/30">Command Center</span>
+          <Link to="/ej/incidents" className="px-3 py-1.5 rounded text-slate-400 hover:text-white transition-colors">Incident Management</Link>
+          <Link to="/ej/portal" className="px-3 py-1.5 rounded text-slate-400 hover:text-white transition-colors">Manager Portal</Link>
+        </div>
         <Link to="/cts" className="text-xs text-slate-500 hover:text-cyan-400 transition-colors">CTS Workstation →</Link>
       </div>
 
       <div className="px-4 py-3 space-y-3">
         <CommandHeader kpis={ctx.kpis} tick={ctx.tick} />
-        <KPIStrip kpis={ctx.kpis} tick={ctx.tick} />
+        <div className="flex items-center justify-between gap-4">
+          <KPIStrip kpis={ctx.kpis} tick={ctx.tick} />
+          {/* Time range selector */}
+          <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1 border border-white/5 flex-shrink-0">
+            {TIME_RANGES.map(t => (
+              <button
+                key={t}
+                onClick={() => setTimeRange(t)}
+                className={`px-2.5 py-1 rounded text-xs font-mono transition-colors ${
+                  timeRange === t
+                    ? 'bg-cyan-600/40 text-cyan-300 border border-cyan-500/40'
+                    : 'text-slate-500 hover:text-slate-200'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+        {timeRange !== 'Live' && (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-4 py-2 text-xs text-amber-300 flex items-center gap-2">
+            <span className="font-mono">HISTORICAL</span> — Showing alarm and incident data from the last {timeRange}. Live updates paused.
+          </div>
+        )}
         <FleetFilter filters={ctx.filters} setFilters={ctx.setFilters} states={ctx.states} cities={ctx.cities} />
 
         {/* Main 3-panel layout */}
