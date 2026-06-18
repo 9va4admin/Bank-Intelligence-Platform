@@ -1,106 +1,92 @@
-const ACTIVITIES = [
-  { step: '01', name: 'Image Validation', detail: 'CTS 2010 standard check', model: 'Rule-based' },
-  { step: '02', name: 'MICR OCR', detail: 'Bank code, account, serial', model: 'GOT-OCR2.0' },
-  { step: '03', name: 'Alteration Detection', detail: 'Tampering, overwriting, corrections', model: 'Qwen2-VL 72B' },
-  { step: '04', name: 'Signature Verification', detail: 'Siamese network vs CBS specimens', model: 'PyTorch SNN' },
-  { step: '05', name: 'Positive Pay Check', detail: 'Amount + payee vs bank instruction', model: 'Redis Vault' },
-  { step: '06', name: 'CBS Balance Check', detail: 'Live balance via CBS connector', model: 'CBS API' },
-  { step: '07', name: 'Fraud Scoring', detail: 'XGBoost ensemble + SHAP rationale', model: 'XGBoost' },
-  { step: '08', name: 'Decision + NGCH Filing', detail: 'Confirm / Return / Human Review', model: 'Temporal' },
-]
-
-const INVARIANTS = [
-  { label: '0.000%', desc: 'IET breach rate — enforced by watchdog at T-30s' },
-  { label: '<600ms', desc: 'End-to-end wall clock (p99), 500 cheques in parallel' },
-  { label: 'Zero', desc: 'Duplicate NGCH filings — Temporal exactly-once' },
-  { label: 'Always', desc: 'SHAP rationale before any auto-decision' },
+const PIPELINE = [
+  { step: '01', name: 'Image + MICR OCR', model: 'GOT-OCR2.0', detail: 'MICR line, amount in figures and words, date' },
+  { step: '02', name: 'Alteration Detection', model: 'Qwen2-VL 72B', detail: 'Overwriting, erasure, correction fluid detection' },
+  { step: '03', name: 'Signature Verification', model: 'Siamese Network', detail: 'vs CBS stored specimen, Vault lookup < 5ms' },
+  { step: '04', name: 'Positive Pay Check', model: 'PPS Vault', detail: 'Issuer-submitted cheque details match' },
+  { step: '05', name: 'Fraud Scoring', model: 'XGBoost + SHAP', detail: 'Score + human-readable rationale, no black box' },
+  { step: '06', name: 'Decision + NGCH Filing', model: 'Temporal Agent', detail: 'STP confirm / STP return / human review queue' },
 ]
 
 export default function CTSModule() {
   return (
-    <section id="cts" className="py-24 px-6 relative overflow-hidden">
-      {/* Background accent */}
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-blue-600/6 blur-3xl pointer-events-none" />
-
-      <div className="max-w-7xl mx-auto relative">
-        <div className="grid lg:grid-cols-2 gap-12 items-start">
-
-          {/* Left: copy */}
-          <div>
-            <div className="inline-flex items-center gap-2 glass-gold rounded-full px-4 py-1.5 mb-6">
-              <span className="w-1.5 h-1.5 rounded-full bg-gold-400" />
-              <span className="text-xs font-semibold text-gold-400 uppercase tracking-wide">Module 1 — CTS</span>
-            </div>
-
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-5 leading-tight">
-              One AI Agent Per Cheque.
-              <br />
-              <span className="text-gradient-blue">500 Cheques = 500 Parallel Agents.</span>
+    <section id="cts" className="bg-white py-20 px-6">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row gap-12 mb-14">
+          <div className="lg:w-1/2">
+            <span className="inline-block text-xs font-semibold text-teal-600 tracking-widest uppercase mb-3">Module 1 — CTS</span>
+            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
+              One AI Agent.<br />One Cheque.<br />
+              <span className="text-teal-500">Under 600 Milliseconds.</span>
             </h2>
-
-            <p className="text-slate-400 leading-relaxed mb-8">
-              ASTRA spins up one Temporal workflow per inward cheque. Each agent runs all 8 processing
-              steps — OCR, alteration detection, signature verification, fraud scoring — in under 600ms
-              wall clock. The IET watchdog fires at T-30 seconds regardless. No IET breach. Ever.
+            <p className="text-slate-500 leading-relaxed mb-4">
+              500 inward cheques arrive. ASTRA spawns 500 parallel agents — one per cheque. Every agent runs a complete 6-step pipeline: OCR, alteration detection, signature verification, positive pay, fraud scoring, NGCH filing. All 500 complete in under 600ms wall clock.
             </p>
+            <p className="text-slate-500 leading-relaxed">
+              The IET watchdog runs as a separate child workflow. At T-30 seconds, it files an emergency return directly to NGCH. IET breach rate: <strong className="text-slate-800">0.000%</strong>. Not a target. A structural guarantee.
+            </p>
+          </div>
 
-            {/* Invariant stats */}
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              {INVARIANTS.map(({ label, desc }) => (
-                <div key={label} className="glass rounded-xl p-4">
-                  <div className="text-xl font-bold text-gradient-blue mb-1">{label}</div>
-                  <div className="text-xs text-slate-500 leading-tight">{desc}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Who buys */}
-            <div className="glass rounded-xl p-5">
-              <div className="text-xs text-slate-500 uppercase tracking-wide mb-3">Target Buyers</div>
-              <div className="flex flex-wrap gap-2">
-                {['Urban Co-op Banks', 'Regional Rural Banks', 'Mid-tier Private Banks', 'Small Finance Banks'].map(b => (
-                  <span key={b} className="text-xs bg-white/5 border border-white/8 text-slate-300 px-3 py-1.5 rounded-full">
-                    {b}
-                  </span>
+          {/* What If panel */}
+          <div className="lg:w-1/2">
+            <div className="bg-forest-900 rounded-2xl p-7 text-white h-full">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-lg">💡</span>
+                <span className="text-xs font-semibold text-teal-400 tracking-widest uppercase">What If — The Mandate Tightens</span>
+              </div>
+              <p className="text-slate-300 text-sm mb-5 leading-relaxed">
+                Today: T+3 hours (180 min). RBI has already signalled T+30 min next. Possibly T+5 min (real-time clearing) later.
+              </p>
+              <div className="space-y-3 mb-5">
+                {[
+                  { label: 'T+3 hrs (today)', value: 'item_expiry_minutes = 180', active: false },
+                  { label: 'T+30 min (next phase)', value: 'item_expiry_minutes = 30', active: true },
+                  { label: 'T+5 min (real-time)', value: 'item_expiry_minutes = 5', active: false },
+                ].map(({ label, value, active }) => (
+                  <div key={label} className={`flex items-center justify-between rounded-lg px-4 py-3 ${active ? 'bg-teal-400/15 border border-teal-400/30' : 'bg-white/4'}`}>
+                    <span className={`text-xs ${active ? 'text-teal-300' : 'text-slate-400'}`}>{label}</span>
+                    <code className={`text-xs font-mono ${active ? 'text-teal-200' : 'text-slate-500'}`}>{value}</code>
+                  </div>
                 ))}
+              </div>
+              <div className="border-t border-white/10 pt-4">
+                <p className="text-sm text-white font-medium mb-1">For ASTRA: Admin UI config change. Done in 30 seconds.</p>
+                <p className="text-sm text-slate-400">For competitors: 18–24 month architectural rebuild. That gap is the opportunity.</p>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Right: pipeline visual */}
-          <div className="space-y-2">
-            <div className="text-xs text-slate-500 uppercase tracking-wide mb-4">Processing Pipeline — per cheque</div>
-            {ACTIVITIES.map(({ step, name, detail, model }, i) => (
-              <div
-                key={step}
-                className="flex items-center gap-4 glass rounded-xl px-4 py-3 group hover:border-blue-500/30 transition-colors duration-200"
-              >
-                <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
-                  <span className="text-xs font-mono text-slate-500">{step}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-white">{name}</div>
-                  <div className="text-xs text-slate-500 truncate">{detail}</div>
-                </div>
-                <div className="text-xs font-mono text-blue-400/70 bg-blue-400/8 px-2 py-1 rounded-md whitespace-nowrap flex-shrink-0">
-                  {model}
+        {/* Pipeline */}
+        <div className="bg-slate-50 rounded-2xl border border-slate-200 p-7">
+          <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-widest mb-6">6-Step Agent Pipeline · Exactly Once · IET-Safe</h3>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {PIPELINE.map(({ step, name, model, detail }) => (
+              <div key={step} className="bg-white rounded-xl border border-slate-200 p-4 flex items-start gap-3">
+                <span className="text-xs font-mono text-teal-500 font-bold pt-0.5">{step}</span>
+                <div>
+                  <div className="font-medium text-slate-900 text-sm">{name}</div>
+                  <div className="text-xs text-teal-600 mb-1">{model}</div>
+                  <div className="text-xs text-slate-400">{detail}</div>
                 </div>
               </div>
             ))}
-
-            {/* Terminal state */}
-            <div className="flex gap-2 mt-4">
-              {[
-                { label: 'STP Confirm', color: 'text-green-400 bg-green-400/10 border-green-500/20' },
-                { label: 'STP Return', color: 'text-red-400 bg-red-400/10 border-red-500/20' },
-                { label: 'Human Review', color: 'text-amber-400 bg-amber-400/10 border-amber-500/20' },
-              ].map(({ label, color }) => (
-                <div key={label} className={`flex-1 text-center text-xs font-medium py-2 rounded-lg border ${color}`}>
-                  {label}
-                </div>
-              ))}
-            </div>
           </div>
+        </div>
+
+        {/* Key guarantees */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5">
+          {[
+            { val: '0.000%', label: 'IET Breach Rate', color: 'text-teal-500' },
+            { val: '<600ms', label: 'Any Batch Size (p99)', color: 'text-sky-500' },
+            { val: '500+', label: 'Parallel Agents', color: 'text-violet-500' },
+            { val: '100%', label: 'On-Premises, No Cloud', color: 'text-slate-700' },
+          ].map(({ val, label, color }) => (
+            <div key={label} className="text-center rounded-xl bg-slate-50 border border-slate-200 py-5">
+              <div className={`text-2xl font-bold mb-1 ${color}`}>{val}</div>
+              <div className="text-xs text-slate-400">{label}</div>
+            </div>
+          ))}
         </div>
       </div>
     </section>

@@ -6,123 +6,95 @@ export default function ContactSection() {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    // In production: POST to /v1/api/demo-request
     setSubmitted(true)
   }
 
   return (
-    <section id="contact" className="py-24 px-6 relative overflow-hidden">
-      {/* Background */}
-      <div className="absolute inset-0 grid-pattern opacity-20" />
-      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-gold-400/30 to-transparent" />
+    <section id="contact" className="bg-cream-100 py-20 px-6">
+      <div className="max-w-5xl mx-auto">
+        <div className="grid lg:grid-cols-2 gap-12 items-start">
+          {/* Left */}
+          <div>
+            <span className="inline-block text-xs font-semibold text-teal-600 tracking-widest uppercase mb-3">Get Started</span>
+            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-5">
+              Schedule a Demo<br />with the ASTRA Team.
+            </h2>
+            <p className="text-slate-500 mb-8 leading-relaxed">
+              We run structured 90-minute demos tailored to your bank's current CTS and ATM estate. We cover the live pipeline, the What If configuration scenarios, and RBI compliance mapping for your environment.
+            </p>
 
-      <div className="max-w-3xl mx-auto relative">
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 glass-gold rounded-full px-4 py-1.5 mb-4">
-            <span className="text-xs font-medium text-gold-400 uppercase tracking-wide">Get Started</span>
-          </div>
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-            Ready to Solve IET?
-          </h2>
-          <p className="text-slate-400">
-            Schedule a demo with Nilesh Shah — Ex-NPCI, Ex-Piramal, Ex-Fullerton/SMFG.
-            We&apos;ll walk through your cheque volume, CBS type, and deployment timeline.
-            No sales pitch. Just the platform.
-          </p>
-        </div>
-
-        {!submitted ? (
-          <form onSubmit={handleSubmit} className="glass rounded-2xl p-8 space-y-5">
-            <div className="grid sm:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-2">Your Name</label>
-                <input
-                  type="text"
-                  required
-                  value={form.name}
-                  onChange={e => setForm({ ...form, name: e.target.value })}
-                  className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-gold-400/40 focus:bg-white/6 transition-all"
-                  placeholder="Rahul Sharma"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-2">Bank / Institution</label>
-                <input
-                  type="text"
-                  required
-                  value={form.bank}
-                  onChange={e => setForm({ ...form, bank: e.target.value })}
-                  className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-gold-400/40 focus:bg-white/6 transition-all"
-                  placeholder="Saraswat Co-op Bank"
-                />
-              </div>
+            <div className="space-y-5">
+              {[
+                { icon: '👤', label: 'Expert-led demo', detail: 'With Nilesh Shah — Ex-NPCI, Piramal, Fullerton/SMFG' },
+                { icon: '🏦', label: 'Bank-specific walkthrough', detail: 'We map ASTRA to your CBS, ATM estate, and clearing zone' },
+                { icon: '📋', label: 'RBI compliance mapping', detail: 'We show the exact control-to-mandate mapping for your bank type' },
+              ].map(({ icon, label, detail }) => (
+                <div key={label} className="flex items-start gap-3">
+                  <span className="text-xl">{icon}</span>
+                  <div>
+                    <div className="font-medium text-slate-900 text-sm">{label}</div>
+                    <div className="text-xs text-slate-400">{detail}</div>
+                  </div>
+                </div>
+              ))}
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-2">Your Role</label>
-                <select
-                  value={form.role}
-                  onChange={e => setForm({ ...form, role: e.target.value })}
-                  className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-slate-300 focus:outline-none focus:border-gold-400/40 transition-all appearance-none"
+            <div className="mt-8 pt-8 border-t border-slate-200">
+              <div className="text-xs text-slate-400 uppercase tracking-widest font-semibold mb-3">18-Month First-Mover Window</div>
+              <p className="text-sm text-slate-500">The T+3 regime begins January 2026. Banks that deploy ASTRA in H1 FY26 establish operational muscle before the mandate tightens further. The window to move first is open now.</p>
+            </div>
+          </div>
+
+          {/* Right — form */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+            {submitted ? (
+              <div className="text-center py-8">
+                <div className="text-4xl mb-4">✅</div>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Request Received</h3>
+                <p className="text-slate-500 text-sm">The ASTRA team will reach out within one business day to schedule your demo.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <h3 className="font-semibold text-slate-900 mb-5">Request a Demo</h3>
+                {[
+                  { id: 'name', label: 'Your Name', type: 'text', placeholder: 'Full name' },
+                  { id: 'bank', label: 'Bank / Institution', type: 'text', placeholder: 'Bank name' },
+                  { id: 'role', label: 'Your Role', type: 'text', placeholder: 'e.g. Head - IT, CTO, GM Operations' },
+                  { id: 'email', label: 'Official Email', type: 'email', placeholder: 'you@yourbank.com' },
+                ].map(({ id, label, type, placeholder }) => (
+                  <div key={id}>
+                    <label className="block text-xs font-medium text-slate-600 mb-1.5">{label}</label>
+                    <input
+                      type={type}
+                      value={form[id]}
+                      onChange={e => setForm(f => ({ ...f, [id]: e.target.value }))}
+                      placeholder={placeholder}
+                      required
+                      className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-teal-400 bg-slate-50"
+                    />
+                  </div>
+                ))}
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1.5">What would you like to see? (optional)</label>
+                  <textarea
+                    rows={3}
+                    value={form.message}
+                    onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
+                    placeholder="CTS pipeline demo, EJ dispute demo, RBI compliance mapping..."
+                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-teal-400 bg-slate-50 resize-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full bg-teal-400 hover:bg-teal-500 text-forest-900 font-semibold py-3 rounded-xl text-sm transition-colors"
                 >
-                  <option value="" className="bg-navy-900">Select role</option>
-                  {['CTO / IT Head', 'CISO', 'Operations Head', 'Compliance Officer', 'CEO / MD', 'Other'].map(r => (
-                    <option key={r} value={r} className="bg-navy-900">{r}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-2">Work Email</label>
-                <input
-                  type="email"
-                  required
-                  value={form.email}
-                  onChange={e => setForm({ ...form, email: e.target.value })}
-                  className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-gold-400/40 focus:bg-white/6 transition-all"
-                  placeholder="rahul@saraswatbank.com"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-2">
-                Cheque volume / ATM fleet size <span className="text-slate-600">(optional)</span>
-              </label>
-              <textarea
-                rows={3}
-                value={form.message}
-                onChange={e => setForm({ ...form, message: e.target.value })}
-                className="w-full bg-white/4 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-gold-400/40 focus:bg-white/6 transition-all resize-none"
-                placeholder="e.g. ~500 cheques/day, Finacle CBS, 45 ATMs (NCR + Diebold), looking to go live before June IET deadline"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full bg-gold-400 hover:bg-gold-500 text-navy-950 font-semibold py-3.5 rounded-xl text-sm transition-all duration-200 hover:shadow-xl hover:shadow-gold-400/20 hover:-translate-y-0.5"
-            >
-              Request a Demo
-            </button>
-
-            <p className="text-center text-xs text-slate-600">
-              Your data stays confidential. No cold calls. Response within 24 hours.
-            </p>
-          </form>
-        ) : (
-          <div className="glass glass-gold rounded-2xl p-12 text-center">
-            <div className="w-16 h-16 rounded-full bg-gold-400/15 flex items-center justify-center mx-auto mb-6">
-              <svg className="w-8 h-8 text-gold-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-white mb-3">Request Received</h3>
-            <p className="text-slate-400 text-sm">
-              We&apos;ll reach out to <span className="text-white">{form.email}</span> within 24 hours
-              to schedule a walkthrough tailored to {form.bank || 'your institution'}.
-            </p>
+                  Schedule Demo →
+                </button>
+                <p className="text-xs text-slate-400 text-center">No vendor data access. No cold calls. Just the demo.</p>
+              </form>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </section>
   )
