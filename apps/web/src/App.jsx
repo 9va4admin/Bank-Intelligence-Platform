@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter as BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
 import CTSWorkstation from './modules/cts/pages/CTSWorkstation'
 import './index.css'
