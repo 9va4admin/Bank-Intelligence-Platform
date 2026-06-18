@@ -27,7 +27,7 @@ def upgrade() -> None:
         "ej_canonical_records",
         sa.Column("record_id", UUID(as_uuid=True), primary_key=True,
                   server_default=sa.text("uuid_generate_v4()")),
-        sa.Column("bank_id", sa.Text, nullable=False),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"), nullable=False),
         sa.Column("atm_id", sa.Text,
                   sa.ForeignKey("ej.atm_master.atm_id"), nullable=False),
         sa.Column("log_id", UUID(as_uuid=True), nullable=False),
@@ -106,7 +106,7 @@ def upgrade() -> None:
         CREATE TABLE ej.ej_embeddings (
             embedding_id    UUID            NOT NULL DEFAULT uuid_generate_v4() PRIMARY KEY,
             record_id       UUID            NOT NULL REFERENCES ej.ej_canonical_records(record_id),
-            bank_id         TEXT            NOT NULL,
+            bank_id         TEXT            NOT NULL REFERENCES platform.banks(bank_id),
             atm_id          TEXT            NOT NULL,
 
             -- BGE-M3 1024-dim embedding of the canonical record JSON
@@ -141,7 +141,7 @@ def upgrade() -> None:
                   server_default=sa.text("uuid_generate_v4()")),
         sa.Column("record_id", UUID(as_uuid=True),
                   sa.ForeignKey("ej.ej_canonical_records.record_id"), nullable=False),
-        sa.Column("bank_id", sa.Text, nullable=False),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"), nullable=False),
         sa.Column("oem_fingerprint", sa.Text, nullable=False),
 
         # Per-field extraction detail

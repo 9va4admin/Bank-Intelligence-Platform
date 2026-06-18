@@ -29,7 +29,7 @@ def upgrade() -> None:
         "stop_payment_instructions",
         sa.Column("stop_id", UUID(as_uuid=True), primary_key=True,
                   server_default=sa.text("uuid_generate_v4()")),
-        sa.Column("bank_id", sa.Text, sa.ForeignKey("cts.banks_master.bank_id"),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"),
                   nullable=False),
 
         # Account (hashed — never raw)

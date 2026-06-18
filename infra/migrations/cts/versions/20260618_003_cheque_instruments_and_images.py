@@ -24,7 +24,7 @@ def upgrade() -> None:
     op.execute("""
         CREATE TABLE cts.cheque_instruments (
             instrument_id       UUID            NOT NULL DEFAULT uuid_generate_v4(),
-            bank_id             TEXT            NOT NULL REFERENCES cts.banks_master(bank_id),
+            bank_id             TEXT            NOT NULL REFERENCES platform.banks(bank_id),
             center_id           UUID            REFERENCES cts.processing_centers(center_id),
             batch_id            UUID            REFERENCES cts.clearing_batches(batch_id),
 

@@ -27,7 +27,7 @@ def upgrade() -> None:
         sa.Column("decision_id", UUID(as_uuid=True), primary_key=True,
                   server_default=sa.text("uuid_generate_v4()")),
         sa.Column("instrument_id", UUID(as_uuid=True), nullable=False),
-        sa.Column("bank_id", sa.Text, sa.ForeignKey("cts.banks_master.bank_id"),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"),
                   nullable=False),
         sa.Column("workflow_id", sa.Text, nullable=False, unique=True),
         # cts-{bank_id}-{instrument_id} — unique per cheque
@@ -103,7 +103,7 @@ def upgrade() -> None:
         sa.Column("instrument_id", UUID(as_uuid=True), nullable=False),
         sa.Column("decision_id", UUID(as_uuid=True),
                   sa.ForeignKey("cts.agent_decisions.decision_id"), nullable=False),
-        sa.Column("bank_id", sa.Text, sa.ForeignKey("cts.banks_master.bank_id"),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"),
                   nullable=False),
 
         # Idempotency: one submission per instrument per decision type
@@ -149,7 +149,7 @@ def upgrade() -> None:
         sa.Column("instrument_id", UUID(as_uuid=True), nullable=False),
         sa.Column("decision_id", UUID(as_uuid=True),
                   sa.ForeignKey("cts.agent_decisions.decision_id"), nullable=False),
-        sa.Column("bank_id", sa.Text, sa.ForeignKey("cts.banks_master.bank_id"),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"),
                   nullable=False),
         sa.Column("workflow_id", sa.Text, nullable=False),  # HumanReviewWorkflow ID
         sa.Column("parent_workflow_id", sa.Text, nullable=False),  # ChequeProcessingWorkflow ID

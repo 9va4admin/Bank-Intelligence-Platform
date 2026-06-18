@@ -35,7 +35,7 @@ def upgrade() -> None:
         "signature_vault_entries",
         sa.Column("entry_id", UUID(as_uuid=True), primary_key=True,
                   server_default=sa.text("uuid_generate_v4()")),
-        sa.Column("bank_id", sa.Text, sa.ForeignKey("cts.banks_master.bank_id"),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"),
                   nullable=False),
 
         # Account identified by hash — never raw account number
@@ -89,7 +89,7 @@ def upgrade() -> None:
         "pps_vault_entries",
         sa.Column("entry_id", UUID(as_uuid=True), primary_key=True,
                   server_default=sa.text("uuid_generate_v4()")),
-        sa.Column("bank_id", sa.Text, sa.ForeignKey("cts.banks_master.bank_id"),
+        sa.Column("bank_id", sa.Text, sa.ForeignKey("platform.banks.bank_id"),
                   nullable=False),
 
         # Account identified by hash — never raw
