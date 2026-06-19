@@ -10,6 +10,7 @@ import CTSExceptions from './modules/cts/pages/CTSExceptions'
 import CTSReconciliation from './modules/cts/pages/CTSReconciliation'
 import CTSCompliance from './modules/cts/pages/CTSCompliance'
 import CTSScanner from './modules/cts/pages/CTSScanner'
+import CTSEndorsement from './modules/cts/pages/CTSEndorsement'
 import { EJDashboard } from './modules/ej'
 import IncidentManagement from './modules/ej/pages/IncidentManagement'
 import ManagerPortal from './modules/ej/pages/ManagerPortal'
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="/cts/reconciliation" element={<CTSReconciliation />} />
         <Route path="/cts/compliance" element={<CTSCompliance />} />
         <Route path="/cts/scanner" element={<CTSScanner />} />
+        <Route path="/cts/endorsement" element={<CTSEndorsement />} />
         <Route path="/cts/analytics" element={<CTSAnalytics />} />
         <Route path="/cts/config" element={<CTSConfig />} />
         {/* EJ module — own routes, no overlap with CTS */}
