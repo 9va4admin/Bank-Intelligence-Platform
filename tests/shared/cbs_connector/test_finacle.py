@@ -130,3 +130,108 @@ async def test_get_signature_specimens_raises_unavailable_on_error(connector):
     connector._http.get = AsyncMock(side_effect=Exception("timeout"))
     with pytest.raises(CBSUnavailableError):
         await connector.get_signature_specimens("1234567890123456", "test-bank")
+
+
+# ---------------------------------------------------------------------------
+# check_stop_payment — CTS critical: payment stopped by drawer
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_check_stop_payment_returns_true_when_stopped(connector):
+    connector._http.get = AsyncMock(return_value=_mock_response({
+        "stopPayment": True,
+        "stopReason": "Loss of cheque reported",
+        "stoppedAt": "2026-06-18T09:12:00Z",
+    }))
+    result = await connector.check_stop_payment("1234567890123456", "450001", "test-bank")
+    assert result.is_stopped is True
+    assert result.reason == "Loss of cheque reported"
+
+
+@pytest.mark.asyncio
+async def test_check_stop_payment_returns_false_when_not_stopped(connector):
+    connector._http.get = AsyncMock(return_value=_mock_response({
+        "stopPayment": False,
+    }))
+    result = await connector.check_stop_payment("1234567890123456", "450001", "test-bank")
+    assert result.is_stopped is False
+    assert result.reason is None
+
+
+@pytest.mark.asyncio
+async def test_check_stop_payment_raises_unavailable_on_error(connector):
+    connector._http.get = AsyncMock(side_effect=Exception("connection reset"))
+    with pytest.raises(CBSUnavailableError):
+        await connector.check_stop_payment("1234567890123456", "450001", "test-bank")
+
+
+# ---------------------------------------------------------------------------
+# get_pps_entries — Positive Pay System: CTS mandate for high-value cheques
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_get_pps_entries_returns_list_when_registered(connector):
+    connector._http.get = AsyncMock(return_value=_mock_response({
+        "ppsEntries": [
+            {
+                "chequeSeriesStart": "450001",
+                "chequeSeriesEnd": "450010",
+                "amount": 250000.0,
+                "payee": "ABC Suppliers Ltd",
+                "issuedDate": "2026-06-15",
+                "isActive": True,
+            }
+        ]
+    }))
+    entries = await connector.get_pps_entries("1234567890123456", "test-bank")
+    assert len(entries) == 1
+    assert entries[0].cheque_series_start == "450001"
+    assert entries[0].amount == 250000.0
+    assert entries[0].is_active is True
+
+
+@pytest.mark.asyncio
+async def test_get_pps_entries_returns_empty_when_none_registered(connector):
+    connector._http.get = AsyncMock(return_value=_mock_response({"ppsEntries": []}))
+    entries = await connector.get_pps_entries("1234567890123456", "test-bank")
+    assert entries == []
+
+
+@pytest.mark.asyncio
+async def test_get_pps_entries_raises_unavailable_on_error(connector):
+    connector._http.get = AsyncMock(side_effect=Exception("timeout"))
+    with pytest.raises(CBSUnavailableError):
+        await connector.get_pps_entries("1234567890123456", "test-bank")
+
+
+# ---------------------------------------------------------------------------
+# get_cheque_status — check if a specific cheque leaf is valid / reported lost
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_get_cheque_status_active_leaf(connector):
+    connector._http.get = AsyncMock(return_value=_mock_response({
+        "chequeNumber": "450001",
+        "status": "ACTIVE",
+        "issuedDate": "2026-06-15",
+    }))
+    status = await connector.get_cheque_status("1234567890123456", "450001", "test-bank")
+    assert status == "ACTIVE"
+
+
+@pytest.mark.asyncio
+async def test_get_cheque_status_reported_lost(connector):
+    connector._http.get = AsyncMock(return_value=_mock_response({
+        "chequeNumber": "450002",
+        "status": "LOST",
+        "reportedAt": "2026-06-17T14:30:00Z",
+    }))
+    status = await connector.get_cheque_status("1234567890123456", "450002", "test-bank")
+    assert status == "LOST"
+
+
+@pytest.mark.asyncio
+async def test_get_cheque_status_raises_unavailable_on_error(connector):
+    connector._http.get = AsyncMock(side_effect=Exception("timeout"))
+    with pytest.raises(CBSUnavailableError):
+        await connector.get_cheque_status("1234567890123456", "450001", "test-bank")

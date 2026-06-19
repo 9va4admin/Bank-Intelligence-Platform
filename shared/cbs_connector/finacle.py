@@ -12,7 +12,9 @@ from typing import Any
 
 import structlog
 
-from shared.cbs_connector.base import AccountInfo, AccountStatus, CBSConnector
+from shared.cbs_connector.base import (
+    AccountInfo, AccountStatus, CBSConnector, PPSEntry, StopPaymentResult,
+)
 from shared.cbs_connector.exceptions import AccountNotFoundError, CBSUnavailableError
 
 log = structlog.get_logger()
@@ -92,6 +94,64 @@ class FinacleCBSConnector(CBSConnector):
             if img_b64:
                 specimens.append(base64.b64decode(img_b64))
         return specimens
+
+    async def check_stop_payment(
+        self, account_number: str, cheque_number: str, bank_id: str
+    ) -> StopPaymentResult:
+        self._assert_ready()
+        url = f"{self._base_url}/api/v1/accounts/{account_number}/chequebook/{cheque_number}/stop-payment"
+        try:
+            response = await self._http.get(url)
+            response.raise_for_status()
+            data = response.json()
+        except Exception as exc:
+            log.error("cbs.finacle.check_stop_payment.failed",
+                      account_last4=account_number[-4:], cheque=cheque_number, error=str(exc))
+            raise CBSUnavailableError(f"Finacle check_stop_payment failed: {exc}") from exc
+
+        return StopPaymentResult(
+            is_stopped=bool(data.get("stopPayment", False)),
+            reason=data.get("stopReason"),
+            stopped_at=data.get("stoppedAt"),
+        )
+
+    async def get_pps_entries(self, account_number: str, bank_id: str) -> list[PPSEntry]:
+        self._assert_ready()
+        url = f"{self._base_url}/api/v1/accounts/{account_number}/positive-pay"
+        try:
+            response = await self._http.get(url)
+            response.raise_for_status()
+            data = response.json()
+        except Exception as exc:
+            log.error("cbs.finacle.get_pps_entries.failed",
+                      account_last4=account_number[-4:], error=str(exc))
+            raise CBSUnavailableError(f"Finacle get_pps_entries failed: {exc}") from exc
+
+        entries = []
+        for raw in data.get("ppsEntries", []):
+            entries.append(PPSEntry(
+                cheque_series_start=str(raw.get("chequeSeriesStart", "")),
+                cheque_series_end=str(raw.get("chequeSeriesEnd", "")),
+                amount=float(raw.get("amount", 0.0)),
+                is_active=bool(raw.get("isActive", False)),
+            ))
+        return entries
+
+    async def get_cheque_status(
+        self, account_number: str, cheque_number: str, bank_id: str
+    ) -> str:
+        self._assert_ready()
+        url = f"{self._base_url}/api/v1/accounts/{account_number}/chequebook/{cheque_number}"
+        try:
+            response = await self._http.get(url)
+            response.raise_for_status()
+            data = response.json()
+        except Exception as exc:
+            log.error("cbs.finacle.get_cheque_status.failed",
+                      account_last4=account_number[-4:], cheque=cheque_number, error=str(exc))
+            raise CBSUnavailableError(f"Finacle get_cheque_status failed: {exc}") from exc
+
+        return str(data.get("status", "ACTIVE"))
 
     def _assert_ready(self) -> None:
         if not self._ready:
