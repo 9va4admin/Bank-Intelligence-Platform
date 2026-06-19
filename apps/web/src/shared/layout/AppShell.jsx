@@ -10,6 +10,7 @@ const NAV = [
   { to: '/cts/reconciliation',  label: 'Reconciliation'  },
   { to: '/cts/compliance',      label: 'Compliance Cert' },
   { to: '/cts/scanner',         label: 'Scanner SDK'     },
+  { to: '/cts/endorsement',     label: 'Endorsement'     },
   { to: '/cts/analytics',       label: 'Analytics'       },
   { to: '/cts/config',    label: 'Config'        },
 ]
