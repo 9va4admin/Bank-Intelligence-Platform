@@ -28,12 +28,15 @@ function makeBatch(n, startIdx = 0) {
     for (let i = 0; i < weights.length; i++) { cum += weights[i]; if (r < cum) return statuses[i] }
     return 'NGCH_ACK'
   }
+  // Lot assignment: every 15 instruments → new lot (NGCH convention)
+  const LOT_SIZE = 15
   return Array.from({ length: n }, (_, i) => {
     const idx = startIdx + i
     const status = pick()
     const amts   = ['₹12,500', '₹45,000', '₹2,00,000', '₹8,75,000', '₹15,000', '₹3,50,000']
     const payees = ['Reliance Ind.', 'HDFC Securities', 'Tata Cons.', 'Infosys Ltd.', 'SBI MF']
     const iqaFail = status === 'IQA_FAIL'
+    const lotSeq  = Math.floor(idx / LOT_SIZE) + 1
     return {
       instrument_id: `CHQ-OUT-${String(idx + 1).padStart(5, '0')}`,
       account_display: `****${1000 + ((idx * 37) % 9000)}`,
@@ -42,6 +45,8 @@ function makeBatch(n, startIdx = 0) {
       zone: zones[idx % zones.length],
       micr: `0${idx % 9}2000${String(idx).padStart(6, '0')}`,
       date_on_cheque: '19-Jun-2026',
+      lot_number: `LOT_SVCB0000001_20260619_SES-0619-001_${String(lotSeq).padStart(2, '0')}`,
+      lot_seq: lotSeq,
       status,
       iqa_fail_reason: iqaFail ? IQA_FAIL_REASONS[idx % IQA_FAIL_REASONS.length] : null,
       ocr_confidence: iqaFail ? null : (0.72 + Math.random() * 0.27).toFixed(2),
@@ -235,7 +240,7 @@ function BatchRow({ item, selected, onClick, isDark }) {
             <span className={`text-[9px] truncate max-w-[120px] text-red-400`} title={item.iqa_fail_reason}>⚠ {item.iqa_fail_reason}</span>
           )}
         </div>
-        <div className={`flex gap-2 text-[10px] ${th.meta} mt-0.5`}>
+        <div className={`flex gap-2 text-[10px] ${th.meta} mt-0.5 flex-wrap`}>
           <span>{item.account_display}</span>
           <span>·</span>
           <span className="truncate max-w-[120px]">{item.payee}</span>
@@ -243,6 +248,14 @@ function BatchRow({ item, selected, onClick, isDark }) {
           <span>{item.amount}</span>
           <span>·</span>
           <span>{item.zone}</span>
+          {item.lot_seq && (
+            <>
+              <span>·</span>
+              <span className={isDark ? 'text-violet-400 font-medium' : 'text-violet-600 font-medium'}>
+                Lot {item.lot_seq}
+              </span>
+            </>
+          )}
         </div>
       </div>
       <div className={`shrink-0 text-[9px] font-mono ${th.muted}`}>
@@ -284,6 +297,7 @@ function DetailPanel({ item, isDark }) {
     { label: 'MICR Code',       val: item.micr,            mono: true },
     { label: 'Date on Cheque',  val: item.date_on_cheque,  mono: false },
     { label: 'Scanner ID',      val: item.scanner_id,      mono: true },
+    { label: 'Lot Number',      val: item.lot_number,      mono: true },
   ]
 
   const checks = item.status !== 'IQA_FAIL' ? [
@@ -441,6 +455,7 @@ export default function CTSPresentment() {
   const [selected, setSelected] = useState(INITIAL_BATCH[0])
   const [activeSession, setActiveSession] = useState(0)
   const [filterStatus, setFilterStatus] = useState('ALL')
+  const [filterLot, setFilterLot]       = useState('ALL')
   const [search, setSearch] = useState('')
 
   const addedRef = useRef(42)
@@ -490,8 +505,13 @@ export default function CTSPresentment() {
 
   const allStatuses = ['ALL', ...Object.keys(STATUS_META)]
 
+  // Derive unique lot numbers from batch for the lot filter dropdown
+  const lotNumbers = ['ALL', ...Array.from(new Set(batch.map(b => b.lot_number).filter(Boolean)))
+    .sort()]
+
   const visible = batch.filter(item => {
     if (filterStatus !== 'ALL' && item.status !== filterStatus) return false
+    if (filterLot !== 'ALL' && item.lot_number !== filterLot) return false
     if (search && !item.instrument_id.toLowerCase().includes(search.toLowerCase())
         && !item.payee.toLowerCase().includes(search.toLowerCase())
         && !item.account_display.includes(search)) return false
@@ -525,6 +545,14 @@ export default function CTSPresentment() {
                 className={`text-[11px] rounded-lg border px-2 py-1.5 focus:outline-none ${th.sel}`}>
                 {allStatuses.map(s => (
                   <option key={s} value={s}>{s === 'ALL' ? 'All Statuses' : (STATUS_META[s]?.label ?? s)}</option>
+                ))}
+              </select>
+              <select value={filterLot} onChange={e => setFilterLot(e.target.value)}
+                className={`text-[11px] rounded-lg border px-2 py-1.5 focus:outline-none ${th.sel}`}>
+                {lotNumbers.map(l => (
+                  <option key={l} value={l}>
+                    {l === 'ALL' ? 'All Lots' : `Lot ${batch.find(b => b.lot_number === l)?.lot_seq ?? l}`}
+                  </option>
                 ))}
               </select>
               <span className={`text-[10px] font-mono shrink-0 ${th.lbl}`}>{visible.length}/{batch.length}</span>
