@@ -11,6 +11,7 @@ const NAV = [
   { to: '/cts/compliance',      label: 'Compliance Cert' },
   { to: '/cts/scanner',         label: 'Scanner SDK'     },
   { to: '/cts/endorsement',     label: 'Endorsement'     },
+  { to: '/cts/rpc',             label: 'RPC Consolidation'},
   { to: '/cts/analytics',       label: 'Analytics'       },
   { to: '/cts/config',    label: 'Config'        },
 ]
