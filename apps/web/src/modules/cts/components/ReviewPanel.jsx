@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import IETTimer from './IETTimer'
 import FraudGauge from './FraudGauge'
 import ShapExplainer from './ShapExplainer'
@@ -135,20 +135,31 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
     }, 800)
   }
 
+  const [chequeHover, setChequeHover] = useState(false)
+  const hoverTimeout = useRef(null)
+
+  const showCheque = () => {
+    clearTimeout(hoverTimeout.current)
+    setChequeHover(true)
+  }
+  const hideCheque = () => {
+    hoverTimeout.current = setTimeout(() => setChequeHover(false), 120)
+  }
+
   const tabs = ['overview', 'cheque', 'ai analysis']
-  const reasonColor = REASON_COLORS[item.reason] || 'bg-slate-400/10 border-slate-400/20 text-slate-300'
+  const reasonColor = REASON_COLORS[item.reason] || (isDark ? 'bg-slate-400/10 border-slate-400/20 text-slate-300' : 'bg-slate-100 border-slate-300 text-slate-600')
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Header */}
-      <div className={`px-6 pt-5 pb-0 border-b ${th.border} shrink-0`}>
-        <div className="flex items-start justify-between mb-4">
+      <div className={`px-6 pt-4 pb-0 border-b ${th.border} shrink-0`}>
+        <div className="flex items-start justify-between mb-3">
           <div>
             <div className={`text-[11px] font-mono mb-0.5 ${th.id}`}>{item.instrument_id} · {item.clearing_zone}</div>
-            <div className={`text-lg font-bold ${th.heading}`}>
+            <div className={`text-base font-bold ${th.heading}`}>
               {item.account_display} <span className={th.dot}>·</span> {item.payee_display}
             </div>
-            <div className="flex items-center gap-2 mt-1.5">
+            <div className="flex items-center gap-2 mt-1">
               <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${reasonColor}`}>
                 {item.reason_label}
               </span>
@@ -166,7 +177,7 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 py-2 text-xs font-medium rounded-t-lg capitalize transition-colors ${tab === t ? th.tabActive : th.tabIdle}`}
+              className={`px-4 py-1.5 text-xs font-medium rounded-t-lg capitalize transition-colors ${tab === t ? th.tabActive : th.tabIdle}`}
             >
               {t}
             </button>
@@ -174,13 +185,13 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+      {/* Content — fills remaining height */}
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
 
         {tab === 'overview' && (
           <>
-            <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${reasonColor}`}>
-              <span className="text-lg mt-0.5">⚠</span>
+            <div className={`flex items-start gap-3 rounded-xl border px-4 py-2.5 ${reasonColor}`}>
+              <span className="text-base mt-0.5">⚠</span>
               <div>
                 <div className="text-xs font-semibold">Flagged: {item.reason_label}</div>
                 <div className="text-[11px] opacity-70 mt-0.5">
@@ -193,7 +204,7 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2">
               {[
                 { label: 'OCR', val: `${Math.round(item.ocr_confidence * 100)}%`, sub: 'confidence', color: th.heading },
                 {
@@ -205,15 +216,46 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
                 { label: 'Fraud', val: `${Math.round(item.fraud_score * 100)}%`, sub: 'XGBoost score', color: item.fraud_score >= 0.80 ? 'text-red-400' : 'text-amber-400' },
               ].map(({ label, val, sub, color }) => (
                 <div key={label} className={`rounded-xl p-3 text-center ${th.glass}`}>
-                  <div className={`text-[10px] ${th.lbl} uppercase tracking-wide mb-1`}>{label}</div>
+                  <div className={`text-[10px] ${th.lbl} uppercase tracking-wide mb-0.5`}>{label}</div>
                   <div className={`text-xl font-mono font-bold ${color}`}>{val}</div>
                   <div className={`text-[10px] ${th.lbl}`}>{sub}</div>
                 </div>
               ))}
             </div>
 
-            <div className={`rounded-xl p-4 ${th.glass}`}>
-              <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-3`}>OCR Extracted Fields · GOT-OCR2.0</div>
+            {/* OCR fields with cheque hover preview */}
+            <div className={`rounded-xl p-4 ${th.glass} relative`}>
+              <div className="flex items-center justify-between mb-3">
+                <div className={`text-[10px] ${th.lbl} uppercase tracking-widest`}>OCR Extracted Fields · GOT-OCR2.0</div>
+                {/* Cheque preview icon */}
+                <div className="relative" onMouseEnter={showCheque} onMouseLeave={hideCheque}>
+                  <button
+                    className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg border transition-all ${
+                      isDark
+                        ? 'border-white/10 text-slate-400 hover:text-gold-400 hover:border-gold-400/30 hover:bg-gold-400/5'
+                        : 'border-slate-200 text-slate-400 hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50'
+                    }`}
+                    title="Preview cheque image"
+                  >
+                    <span>🧾</span>
+                    <span>View Cheque</span>
+                  </button>
+
+                  {/* Floating cheque popover */}
+                  {chequeHover && (
+                    <div
+                      className={`absolute right-0 top-8 z-50 w-[480px] rounded-xl shadow-2xl border p-3 ${
+                        isDark ? 'bg-navy-900 border-white/10' : 'bg-white border-slate-200'
+                      }`}
+                      onMouseEnter={showCheque}
+                      onMouseLeave={hideCheque}
+                    >
+                      <div className={`text-[9px] ${th.lbl} uppercase tracking-widest mb-2`}>Cheque Image — compare with extracted fields</div>
+                      <ChequeMockImage fields={item.ocr_fields} alterations={item.ocr_fields.alterations} accountDisplay={item.account_display} isDark={isDark} />
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                 {[
                   ['Date', item.ocr_fields.date],
@@ -236,12 +278,12 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
         )}
 
         {tab === 'cheque' && (
-          <ChequeMockImage fields={item.ocr_fields} alterations={item.ocr_fields.alterations} accountDisplay={item.account_display} />
+          <ChequeMockImage fields={item.ocr_fields} alterations={item.ocr_fields.alterations} accountDisplay={item.account_display} isDark={isDark} />
         )}
 
         {tab === 'ai analysis' && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-5">
+          <div className="space-y-3">
+            <div className="flex items-center gap-4">
               <FraudGauge score={item.fraud_score} />
               <div className={`flex-1 rounded-xl p-4 space-y-2 ${th.glass}`}>
                 <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-2`}>Model Stack</div>

@@ -202,7 +202,7 @@ export default function BREPolicyManager() {
           <span className="px-3 py-1.5 rounded bg-violet-600/20 text-violet-300 font-medium border border-violet-500/30">BRE Policy</span>
           <Link to="/ej/notifications" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Notifications</Link>
         </div>
-        <Link to="/cts" className={`text-xs ${th.nlnk}`}>CTS →</Link>
+        <span />
       </nav>
 
       <div className="max-w-7xl w-full mx-auto px-6 py-4 space-y-4 flex-1 flex flex-col">

@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, Link } from 'react-router-dom'
 import { useTheme } from '../theme/ThemeContext'
 
 const NAV = [
@@ -29,10 +29,10 @@ export default function AppShell({ children }) {
     <div className={`flex flex-col h-screen overflow-hidden ${shell}`}>
       {/* Topbar */}
       <header className={`shrink-0 border-b ${topbar} flex items-center px-5 gap-6`} style={{ height: '52px' }}>
-        {/* Logo */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        {/* Logo — links to portal */}
+        <Link to="/" className="flex items-center gap-2.5 shrink-0 group">
           <div className="relative w-6 h-6">
-            <div className="absolute inset-0 rounded bg-gold-400/20" />
+            <div className="absolute inset-0 rounded bg-gold-400/20 group-hover:bg-gold-400/30 transition-colors" />
             <div className="absolute inset-[2px] rounded bg-gold-400 flex items-center justify-center">
               <span className="text-navy-950 font-mono font-bold text-[10px]">A</span>
             </div>
@@ -41,7 +41,7 @@ export default function AppShell({ children }) {
             <span className="text-sm font-bold">ASTRA</span>
             <span className={`text-[10px] ml-1.5 ${subtext}`}>CTS Workstation</span>
           </div>
-        </div>
+        </Link>
 
         {/* Nav links */}
         <nav className="flex items-end h-full gap-1">

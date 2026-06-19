@@ -227,9 +227,7 @@ export default function ManagerPortal() {
           <Link to="/ej/bre" className={`px-3 py-1.5 rounded ${nlnk}`}>BRE Policy</Link>
           <Link to="/ej/notifications" className={`px-3 py-1.5 rounded ${nlnk}`}>Notifications</Link>
         </div>
-        <Link to="/cts" className={`text-xs flex items-center gap-1 ${nlnk}`}>
-          CTS Workstation →
-        </Link>
+        <span />
       </nav>
 
       <div className="flex-1 max-w-7xl w-full mx-auto px-6 py-6 space-y-6">

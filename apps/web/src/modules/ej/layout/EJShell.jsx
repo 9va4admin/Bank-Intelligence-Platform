@@ -13,16 +13,16 @@ export default function EJShell({ children }) {
     <div className={`min-h-screen ${bg}`}>
       {/* Top bar */}
       <div className={`border-b px-6 py-3 flex items-center justify-between ${topbar}`}>
-        <div className="flex items-center gap-3">
+        <Link to="/" className="flex items-center gap-3 group">
           <div className="relative w-6 h-6">
-            <div className="absolute inset-0 rounded bg-gold-400/20" />
+            <div className="absolute inset-0 rounded bg-gold-400/20 group-hover:bg-gold-400/30 transition-colors" />
             <div className="absolute inset-[2px] rounded bg-gold-400 flex items-center justify-center">
               <span className="text-navy-950 font-mono font-bold text-[10px]">A</span>
             </div>
           </div>
           <span className={`text-sm font-bold ${logoText}`}>ASTRA</span>
           <span className={`text-xs ${subtext}`}>/ EJ Intelligence</span>
-        </div>
+        </Link>
         <div className="flex items-center gap-3">
           <Link to="/" className={`text-xs ${subtext} hover:underline`}>← Portal</Link>
           <button
