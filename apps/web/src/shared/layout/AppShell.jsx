@@ -2,7 +2,8 @@ import { NavLink, Link } from 'react-router-dom'
 import { useTheme } from '../theme/ThemeContext'
 
 const NAV = [
-  { to: '/cts',           label: 'CTS Queue'     },
+  { to: '/cts/outward',   label: 'Outward ↑'     },
+  { to: '/cts',           label: 'Inward ↓'      },
   { to: '/cts/vault',     label: 'Vault Status'  },
   { to: '/cts/decisions', label: 'Decisions Log' },
   { to: '/cts/analytics', label: 'Analytics'     },
