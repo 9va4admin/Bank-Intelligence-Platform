@@ -5,6 +5,8 @@ import DisputeTable from './components/DisputeTable'
 import SubmitLogModal from './components/SubmitLogModal'
 import RaiseDisputeModal from './components/RaiseDisputeModal'
 import { useATMFleet, useEJLogs, useDisputes } from './hooks/useEJData'
+import EJShell from './layout/EJShell'
+import { useTheme } from '../../shared/theme/ThemeContext'
 
 const TABS = [
   { id: 'fleet', label: 'ATM Fleet Map' },
@@ -12,28 +14,36 @@ const TABS = [
   { id: 'disputes', label: 'Disputes' },
 ]
 
-const bankId = 'demo-bank' // TODO: get from auth context
+const bankId = 'demo-bank'
 
 export default function EJDashboard({ defaultTab = 'fleet' }) {
   const [activeTab, setActiveTab] = useState(defaultTab)
   const [submitLogOpen, setSubmitLogOpen] = useState(false)
   const [raiseDisputeOpen, setRaiseDisputeOpen] = useState(false)
+  const { isDark } = useTheme()
 
   const { data: atms, isLoading: atmsLoading } = useATMFleet(bankId)
   const { data: logs, isLoading: logsLoading } = useEJLogs(bankId)
   const { data: disputes, isLoading: disputesLoading } = useDisputes(bankId)
 
+  const heading   = isDark ? 'text-gray-100' : 'text-gray-900'
+  const subtext   = isDark ? 'text-gray-400' : 'text-gray-500'
+  const tabBorder = isDark ? 'border-gray-700' : 'border-gray-200'
+  const tabActive = isDark ? 'border-blue-400 text-blue-400' : 'border-blue-600 text-blue-600'
+  const tabIdle   = isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
+  const sectionH  = isDark ? 'text-gray-200' : 'text-gray-800'
+
   return (
-    <div className="min-h-screen bg-gray-100">
+    <EJShell>
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">EJ Intelligence</h1>
-          <p className="text-sm text-gray-500 mt-1">ATM Electronic Journal Processing</p>
+          <h1 className={`text-2xl font-bold ${heading}`}>EJ Intelligence</h1>
+          <p className={`text-sm mt-1 ${subtext}`}>ATM Electronic Journal Processing</p>
         </div>
 
         {/* Tab bar */}
-        <div className="border-b border-gray-200 mb-6">
+        <div className={`border-b ${tabBorder} mb-6`}>
           <nav className="flex gap-6">
             {TABS.map(tab => (
               <button
@@ -41,8 +51,8 @@ export default function EJDashboard({ defaultTab = 'fleet' }) {
                 onClick={() => setActiveTab(tab.id)}
                 className={`pb-3 text-sm font-medium transition-colors ${
                   activeTab === tab.id
-                    ? 'border-b-2 border-blue-600 text-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? `border-b-2 ${tabActive}`
+                    : tabIdle
                 }`}
               >
                 {tab.label}
@@ -55,8 +65,8 @@ export default function EJDashboard({ defaultTab = 'fleet' }) {
         {activeTab === 'fleet' && (
           <section>
             <div className="mb-4">
-              <h2 className="text-base font-semibold text-gray-800">ATM Fleet Map</h2>
-              <p className="text-xs text-gray-500 mt-0.5">Click a row to expand ATM details.</p>
+              <h2 className={`text-base font-semibold ${sectionH}`}>ATM Fleet Map</h2>
+              <p className={`text-xs mt-0.5 ${subtext}`}>Click a row to expand ATM details.</p>
             </div>
             <ATMFleetTable atms={atms} isLoading={atmsLoading} />
           </section>
@@ -66,8 +76,8 @@ export default function EJDashboard({ defaultTab = 'fleet' }) {
           <section>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-base font-semibold text-gray-800">EJ Logs</h2>
-                <p className="text-xs text-gray-500 mt-0.5">Normalised Electronic Journal records.</p>
+                <h2 className={`text-base font-semibold ${sectionH}`}>EJ Logs</h2>
+                <p className={`text-xs mt-0.5 ${subtext}`}>Normalised Electronic Journal records.</p>
               </div>
               <button
                 onClick={() => setSubmitLogOpen(true)}
@@ -84,8 +94,8 @@ export default function EJDashboard({ defaultTab = 'fleet' }) {
           <section>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-base font-semibold text-gray-800">Disputes</h2>
-                <p className="text-xs text-gray-500 mt-0.5">NPCI dispute cases and resolution status.</p>
+                <h2 className={`text-base font-semibold ${sectionH}`}>Disputes</h2>
+                <p className={`text-xs mt-0.5 ${subtext}`}>NPCI dispute cases and resolution status.</p>
               </div>
               <button
                 onClick={() => setRaiseDisputeOpen(true)}
@@ -101,6 +111,6 @@ export default function EJDashboard({ defaultTab = 'fleet' }) {
 
       <SubmitLogModal isOpen={submitLogOpen} onClose={() => setSubmitLogOpen(false)} />
       <RaiseDisputeModal isOpen={raiseDisputeOpen} onClose={() => setRaiseDisputeOpen(false)} />
-    </div>
+    </EJShell>
   )
 }

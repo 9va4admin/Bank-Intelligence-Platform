@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import EJShell from '../layout/EJShell'
 import { Shield, CheckCircle2, XCircle, Lock, Monitor, MessageSquare, Mail, ChevronRight, AlertTriangle, Clock, FileText, Users } from 'lucide-react'
 import { useBRERules } from '../hooks/useBRERules'
 
@@ -173,7 +174,7 @@ export default function BREPolicyManager() {
   const pending = rules.filter(r => r.pending_change)
 
   return (
-    <div className="min-h-screen bg-[#020817] text-white flex flex-col">
+    <EJShell><div className="bg-[#020817] text-white flex flex-col">
       <nav className="flex items-center justify-between px-6 py-3 border-b border-white/5 bg-black/30">
         <Link to="/" className="text-xs text-slate-400 hover:text-white">← ASTRA Platform</Link>
         <div className="flex items-center gap-1 text-xs flex-wrap justify-center">
@@ -274,6 +275,6 @@ export default function BREPolicyManager() {
           </div>
         </div>
       </div>
-    </div>
+    </div></EJShell>
   )
 }

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import EJShell from '../layout/EJShell'
 
 const MOCK_INCIDENTS = [
   { id:'INC-2026-0041', atm_id:'ATM-MUM-004', city:'Mumbai',    branch:'Kurla',        severity:'CRITICAL', type:'Dispense-Balance Mismatch',  status:'IN_PROGRESS', opened:'2026-06-18T10:31:07Z', assigned_to:'Rahul Sharma',     sla_breach_at:'2026-06-18T11:01:07Z', notes:'Cassette 1 jam confirmed. Engineer dispatched.' },
@@ -152,11 +153,11 @@ export default function IncidentManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-[#020817] text-slate-100">
+    <EJShell>
+      <div className="bg-[#020817] text-slate-100">
       {/* Nav */}
       <div className="border-b border-slate-800 px-6 py-2 flex items-center gap-6">
-        <Link to="/" className="text-xs text-slate-500 hover:text-cyan-400">← ASTRA</Link>
-        <Link to="/ej" className="text-xs text-slate-500 hover:text-cyan-400">Command Center</Link>
+        <Link to="/ej" className="text-xs text-slate-500 hover:text-cyan-400">← EJ Dashboard</Link>
         <span className="text-xs text-cyan-400 font-semibold border-b border-cyan-500 pb-px">Incident Management</span>
         <Link to="/ej/portal" className="text-xs text-slate-500 hover:text-cyan-400">Manager Portal</Link>
       </div>
@@ -266,6 +267,7 @@ export default function IncidentManagement() {
           <DetailPanel inc={selected} onClose={() => setSelected(null)} onStatusChange={changeStatus} />
         </>
       )}
-    </div>
+      </div>
+    </EJShell>
   )
 }
