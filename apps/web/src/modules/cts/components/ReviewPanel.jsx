@@ -62,26 +62,31 @@ function SigPanel({ item, isDark }) {
   const borderColor = matchPct < 70 ? 'border-red-400/30 bg-red-400/5' : matchPct < 85 ? 'border-amber-400/30 bg-amber-400/5' : 'border-emerald-400/30 bg-emerald-400/5'
 
   return (
-    <div className={`rounded-xl border p-4 ${borderColor}`}>
-      <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-3">Signature Verification · Siamese SNN</div>
-      <div className="flex items-center gap-4 mb-3">
-        <div className="text-center">
-          <div className={`text-3xl font-bold font-mono ${color}`}>{matchPct}%</div>
-          <div className="text-[10px] text-slate-500">match score</div>
+    <div className={`rounded-xl border px-4 py-3 ${borderColor}`}>
+      <div className="flex items-center gap-4">
+        {/* Score */}
+        <div className="shrink-0 flex items-baseline gap-1">
+          <span className={`text-2xl font-bold font-mono ${color}`}>{matchPct}%</span>
+          <span className="text-[10px] text-slate-500">match</span>
         </div>
-        <div className="flex-1 space-y-1.5">
-          <div className={`h-2 ${barBg} rounded-full overflow-hidden`}>
+        {/* Bar + labels */}
+        <div className="flex-1 space-y-1">
+          <div className={`h-1.5 ${barBg} rounded-full overflow-hidden`}>
             <div className={`h-full rounded-full transition-all ${matchPct >= 85 ? 'bg-emerald-400' : matchPct >= 70 ? 'bg-amber-400' : 'bg-red-400'}`}
               style={{ width: `${matchPct}%` }} />
           </div>
           <div className={`flex justify-between text-[10px] ${tick}`}>
             <span>0%</span>
-            <span className="text-slate-500">threshold: 85%</span>
+            <span>threshold: 85%</span>
             <span>100%</span>
           </div>
         </div>
+        {/* Meta */}
+        <div className="shrink-0 text-right">
+          <div className="text-[10px] text-slate-500 uppercase tracking-widest">Siamese SNN</div>
+          <div className="text-[10px] text-slate-500">{item.sig_specimen_label}</div>
+        </div>
       </div>
-      <div className="text-[10px] text-slate-500">{item.sig_specimen_label} · Compared against CBS stored specimen</div>
     </div>
   )
 }
@@ -235,7 +240,7 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
               ].map(({ label, val, sub, color }) => (
                 <div key={label} className={`rounded-xl p-3 text-center ${th.glass}`}>
                   <div className={`text-[10px] ${th.lbl} uppercase tracking-wide mb-0.5`}>{label}</div>
-                  <div className={`text-xl font-mono font-bold ${color}`}>{val}</div>
+                  <div className={`text-3xl font-mono font-bold ${color}`}>{val}</div>
                   <div className={`text-[10px] ${th.lbl}`}>{sub}</div>
                 </div>
               ))}
