@@ -49,6 +49,7 @@ An empty "Enforced By" cell means the rule file is non-compliant with this const
 | `database.md` | Query patterns, connection pools, migrations | Semgrep `astra-no-select-star-pii`, Alembic migration CI check |
 | `api.md` | Router structure, auth, rate limits, OTel | CI integration tests (auth failure = test fail), OpenAPI schema lint |
 | `ej.md` | EJ immutability, edge agent, LLM parsing | ej-parser-specialist agent, CI contract tests for MCP server |
+| `frontend.md` | Multi-theme support, `useTheme()` pattern, dark/light class mapping | Semgrep (hardcoded dark wrapper classes), code review (missing `useTheme` import) |
 
 ---
 
