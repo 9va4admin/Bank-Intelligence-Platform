@@ -45,6 +45,23 @@ class AccountInfo(BaseModel):
     cbs_account_id: Optional[str] = None   # internal CBS ref, not PII
 
 
+class StopPaymentResult(BaseModel):
+    """Result of a stop payment inquiry."""
+    model_config = ConfigDict(frozen=True)
+    is_stopped: bool
+    reason: Optional[str] = None
+    stopped_at: Optional[str] = None
+
+
+class PPSEntry(BaseModel):
+    """A single Positive Pay System registration record."""
+    model_config = ConfigDict(frozen=True)
+    cheque_series_start: str
+    cheque_series_end: str
+    amount: float
+    is_active: bool
+
+
 class CBSConnector(ABC):
     """Abstract interface for CBS adapters. All methods are async."""
 
@@ -63,6 +80,37 @@ class CBSConnector(ABC):
         Fetch all registered signature specimen images for an account.
 
         Returns list of raw image bytes (JPEG/PNG). Empty list if none on file.
+        Raises CBSUnavailableError on connection failure.
+        """
+
+    @abstractmethod
+    async def check_stop_payment(
+        self, account_number: str, cheque_number: str, bank_id: str
+    ) -> StopPaymentResult:
+        """
+        Check whether a payment stop instruction exists for a cheque.
+
+        Returns StopPaymentResult. Never raises on 'not stopped' — raises
+        CBSUnavailableError only on CBS connection failure.
+        """
+
+    @abstractmethod
+    async def get_pps_entries(self, account_number: str, bank_id: str) -> list[PPSEntry]:
+        """
+        Fetch all active Positive Pay System registrations for an account.
+
+        Returns empty list if PPS not registered for this account.
+        Raises CBSUnavailableError on connection failure.
+        """
+
+    @abstractmethod
+    async def get_cheque_status(
+        self, account_number: str, cheque_number: str, bank_id: str
+    ) -> str:
+        """
+        Get the CBS status of a specific cheque leaf.
+
+        Returns status string: ACTIVE | LOST | STOLEN | USED | CANCELLED.
         Raises CBSUnavailableError on connection failure.
         """
 
