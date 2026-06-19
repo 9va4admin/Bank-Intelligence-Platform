@@ -9,6 +9,7 @@ const NAV = [
   { to: '/cts/exceptions',      label: 'Exceptions'      },
   { to: '/cts/reconciliation',  label: 'Reconciliation'  },
   { to: '/cts/compliance',      label: 'Compliance Cert' },
+  { to: '/cts/scanner',         label: 'Scanner SDK'     },
   { to: '/cts/analytics',       label: 'Analytics'       },
   { to: '/cts/config',    label: 'Config'        },
 ]
