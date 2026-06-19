@@ -19,6 +19,8 @@ fi
 
 # 2. Check for common secret patterns (belt and suspenders)
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+# Only files being ADDED (new, not modified) — for TDD pairing check
+NEW_FILES=$(git diff --cached --name-only --diff-filter=A)
 for file in $STAGED_FILES; do
     if git show ":$file" | grep -qiE "(password|secret|api_key|private_key)\s*=\s*['\"][^'\"]{8,}"; then
         echo "BLOCKED: Potential hardcoded credential in $file"
@@ -98,19 +100,30 @@ for file in $STAGED_FILES; do
 done
 
 # 9. TDD pairing — every new implementation file must have a paired test file
-for file in $STAGED_FILES; do
-    # Only check new Python files (not modifications, not __init__.py, not test files, not migrations)
+for file in $NEW_FILES; do
+    # Python: modules/, shared/, apps/api/, apps/ai-server/
     if echo "$file" | grep -qE "^(modules|shared|apps)/.*\.py$" && \
-       ! echo "$file" | grep -qE "(__init__|test_|migrations/)" && \
-       ! git ls-files --error-unmatch "$file" 2>/dev/null; then
-        # This is a NEW implementation file — check for paired test file
+       ! echo "$file" | grep -qE "(__init__|test_|migrations/)"; then
         dir=$(dirname "$file")
         base=$(basename "$file" .py)
         test_path="tests/${dir}/test_${base}.py"
-        # Test file must exist either already in git or in this commit's staged files
         if ! git ls-files --error-unmatch "$test_path" 2>/dev/null && \
-           ! echo "$STAGED_FILES" | grep -qF "$test_path"; then
-            echo "BLOCKED: New file '$file' has no paired test file."
+           ! echo "$NEW_FILES" | grep -qF "$test_path"; then
+            echo "BLOCKED: New Python file '$file' has no paired test file."
+            echo "Expected: $test_path"
+            echo "TDD rule: write the test first (RED), then the implementation (GREEN)."
+            exit 1
+        fi
+    fi
+    # JSX/JS: React components and pages
+    if echo "$file" | grep -qE "^apps/web/src/(modules|shared)/.*\.(jsx|js)$" && \
+       ! echo "$file" | grep -qE "(\.test\.|test-setup|main\.jsx)"; then
+        dir=$(dirname "$file")
+        base=$(basename "$file" | sed 's/\.\(jsx\|js\)$//')
+        test_path="${dir}/${base}.test.jsx"
+        if ! git ls-files --error-unmatch "$test_path" 2>/dev/null && \
+           ! echo "$NEW_FILES" | grep -qF "$test_path"; then
+            echo "BLOCKED: New JSX file '$file' has no paired test file."
             echo "Expected: $test_path"
             echo "TDD rule: write the test first (RED), then the implementation (GREEN)."
             exit 1
