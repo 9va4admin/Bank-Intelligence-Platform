@@ -2,7 +2,6 @@ import { NavLink } from 'react-router-dom'
 
 const NAV = [
   { to: '/cts', icon: '◈', label: 'CTS Queue', badge: null },
-  { to: '/ej', icon: '⬡', label: 'EJ Intelligence', badge: 'soon' },
   { to: '/fleet', icon: '◉', label: 'Fleet', badge: 'soon' },
   { to: '/disputes', icon: '⚖', label: 'Disputes', badge: 'soon' },
   { to: '/audit', icon: '🔒', label: 'Audit Trail', badge: 'soon' },
