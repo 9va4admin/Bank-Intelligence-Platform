@@ -5,6 +5,7 @@ import CTSVaultStatus from './modules/cts/pages/CTSVaultStatus'
 import CTSDecisionsLog from './modules/cts/pages/CTSDecisionsLog'
 import CTSAnalytics from './modules/cts/pages/CTSAnalytics'
 import CTSConfig from './modules/cts/pages/CTSConfig'
+import CTSPresentment from './modules/cts/pages/CTSPresentment'
 import { EJDashboard } from './modules/ej'
 import IncidentManagement from './modules/ej/pages/IncidentManagement'
 import ManagerPortal from './modules/ej/pages/ManagerPortal'
@@ -19,6 +20,7 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         {/* CTS module */}
         <Route path="/cts" element={<CTSWorkstation />} />
+        <Route path="/cts/outward" element={<CTSPresentment />} />
         <Route path="/cts/vault" element={<CTSVaultStatus />} />
         <Route path="/cts/decisions" element={<CTSDecisionsLog />} />
         <Route path="/cts/analytics" element={<CTSAnalytics />} />
