@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import EJShell from '../layout/EJShell'
 import { Bell, Monitor, MessageSquare, Mail, Lock, CheckCircle2, AlertCircle, Clock, Activity, ChevronRight } from 'lucide-react'
 import { BRE_RULES } from '../hooks/useBRERules'
 
@@ -264,7 +265,7 @@ export default function NotificationCenter() {
   const [tab, setTab] = useState('matrix')
 
   return (
-    <div className="min-h-screen bg-[#020817] text-white flex flex-col">
+    <EJShell><div className="bg-[#020817] text-white flex flex-col">
       <nav className="flex items-center justify-between px-6 py-3 border-b border-white/5 bg-black/30">
         <Link to="/" className="text-xs text-slate-400 hover:text-white">← ASTRA Platform</Link>
         <div className="flex items-center gap-1 text-xs flex-wrap justify-center">
@@ -298,6 +299,6 @@ export default function NotificationCenter() {
           {tab === 'log'    && <DeliveryLogTab/>}
         </div>
       </div>
-    </div>
+    </div></EJShell>
   )
 }

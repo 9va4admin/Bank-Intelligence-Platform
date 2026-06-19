@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import EJShell from '../layout/EJShell'
 import {
   Bell, Mail, MessageSquare, Calendar, ChevronRight,
   ShieldCheck, Users, MapPin, Building2, Globe, Eye,
@@ -193,7 +194,7 @@ export default function ManagerPortal() {
   })
 
   return (
-    <div className="min-h-screen bg-[#020817] text-white flex flex-col">
+    <EJShell><div className="bg-[#020817] text-white flex flex-col">
       {/* Top nav */}
       <nav className="flex items-center justify-between px-6 py-3 border-b border-white/5 bg-black/30">
         <Link to="/" className="text-xs text-slate-400 hover:text-white flex items-center gap-1">
@@ -532,6 +533,6 @@ export default function ManagerPortal() {
       </div>
 
       <WeeklyDigestModal open={digestOpen} onClose={() => setDigestOpen(false)} role={role.label} />
-    </div>
+    </div></EJShell>
   )
 }
