@@ -6,8 +6,9 @@ const NAV = [
   { to: '/cts',           label: 'Inward ↓'      },
   { to: '/cts/vault',     label: 'Vault Status'  },
   { to: '/cts/decisions',  label: 'Decisions Log' },
-  { to: '/cts/exceptions', label: 'Exceptions'    },
-  { to: '/cts/analytics',  label: 'Analytics'     },
+  { to: '/cts/exceptions',      label: 'Exceptions'      },
+  { to: '/cts/reconciliation',  label: 'Reconciliation'  },
+  { to: '/cts/analytics',       label: 'Analytics'       },
   { to: '/cts/config',    label: 'Config'        },
 ]
 
