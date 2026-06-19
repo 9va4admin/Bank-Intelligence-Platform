@@ -301,36 +301,33 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
         )}
       </div>
 
-      {/* Action footer */}
-      <div className={`shrink-0 border-t ${th.border} px-6 py-4 ${th.foot} backdrop-blur space-y-3`}>
-        <select
-          value={returnReason}
-          onChange={(e) => setReturnReason(e.target.value)}
-          className={`w-full border rounded-xl px-3 py-2.5 text-xs focus:outline-none appearance-none cursor-pointer ${th.sel}`}
-        >
-          <option value="" className={th.selOpt}>Select return reason (required to Return)</option>
-          {RETURN_REASONS.map((r) => (
-            <option key={r} value={r} className={th.selOpt}>{r}</option>
-          ))}
-        </select>
-        <div className="flex gap-3">
+      {/* Action footer — single row: dropdown + two buttons */}
+      <div className={`shrink-0 border-t ${th.border} px-6 py-3 ${th.foot} backdrop-blur`}>
+        <div className="flex items-center gap-2">
+          <select
+            value={returnReason}
+            onChange={(e) => setReturnReason(e.target.value)}
+            className={`flex-1 border rounded-xl px-3 py-2 text-xs focus:outline-none appearance-none cursor-pointer ${th.sel}`}
+          >
+            <option value="" className={th.selOpt}>Select return reason (required to Return)</option>
+            {RETURN_REASONS.map((r) => (
+              <option key={r} value={r} className={th.selOpt}>{r}</option>
+            ))}
+          </select>
           <button
             onClick={() => handleAction('RETURN')}
             disabled={!returnReason || !!confirming}
-            className="flex-1 py-3 rounded-xl border border-red-500/40 bg-red-500/10 text-red-400 text-sm font-semibold hover:bg-red-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="shrink-0 px-5 py-2 rounded-xl border border-red-500/40 bg-red-500/10 text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
           >
-            {confirming === 'RETURN' ? 'Filing Return to NGCH…' : '✕  Return Cheque'}
+            {confirming === 'RETURN' ? 'Filing…' : '✕ Return'}
           </button>
           <button
             onClick={() => handleAction('CONFIRM')}
             disabled={!!confirming}
-            className="flex-1 py-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/30 transition-all disabled:opacity-40"
+            className="shrink-0 px-5 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30 transition-all disabled:opacity-40 whitespace-nowrap"
           >
-            {confirming === 'CONFIRM' ? 'Filing Confirm to NGCH…' : '✓  Confirm Cheque'}
+            {confirming === 'CONFIRM' ? 'Filing…' : '✓ Confirm'}
           </button>
-        </div>
-        <div className={`text-center text-[10px] ${th.footNote}`}>
-          Decision filed to NGCH immediately · Logged to Immudb · HSM-signed audit record
         </div>
       </div>
     </div>
