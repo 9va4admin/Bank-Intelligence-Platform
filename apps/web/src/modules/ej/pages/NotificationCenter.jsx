@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import EJShell from '../layout/EJShell'
+import { useTheme } from '../../../shared/theme/ThemeContext'
 import { Bell, Monitor, MessageSquare, Mail, Lock, CheckCircle2, AlertCircle, Clock, Activity, ChevronRight } from 'lucide-react'
 import { BRE_RULES } from '../hooks/useBRERules'
 
@@ -263,37 +264,49 @@ function DeliveryLogTab() {
 
 export default function NotificationCenter() {
   const [tab, setTab] = useState('matrix')
+  const { isDark } = useTheme()
+
+  const th = {
+    pg:   isDark ? 'bg-[#020817] text-white' : 'bg-slate-50 text-slate-900',
+    nav:  isDark ? 'border-white/5 bg-black/30' : 'border-slate-200 bg-white',
+    nlnk: isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900',
+    h1:   isDark ? 'text-white' : 'text-slate-900',
+    sub:  isDark ? 'text-slate-400' : 'text-slate-500',
+    tabBorder: isDark ? 'border-white/5' : 'border-slate-200',
+    tabIdle:   isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900',
+    card: isDark ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200',
+  }
 
   return (
-    <EJShell><div className="bg-[#020817] text-white flex flex-col">
-      <nav className="flex items-center justify-between px-6 py-3 border-b border-white/5 bg-black/30">
-        <Link to="/" className="text-xs text-slate-400 hover:text-white">← ASTRA Platform</Link>
+    <EJShell><div className={`flex flex-col ${th.pg}`}>
+      <nav className={`flex items-center justify-between px-6 py-3 border-b ${th.nav}`}>
+        <Link to="/" className={`text-xs ${th.nlnk}`}>← ASTRA Platform</Link>
         <div className="flex items-center gap-1 text-xs flex-wrap justify-center">
-          <Link to="/ej" className="px-3 py-1.5 rounded text-slate-400 hover:text-white">Command Center</Link>
-          <Link to="/ej/incidents" className="px-3 py-1.5 rounded text-slate-400 hover:text-white">Incidents</Link>
-          <Link to="/ej/portal" className="px-3 py-1.5 rounded text-slate-400 hover:text-white">Manager Portal</Link>
-          <Link to="/ej/bre" className="px-3 py-1.5 rounded text-slate-400 hover:text-white">BRE Policy</Link>
+          <Link to="/ej" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Command Center</Link>
+          <Link to="/ej/incidents" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Incidents</Link>
+          <Link to="/ej/portal" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Manager Portal</Link>
+          <Link to="/ej/bre" className={`px-3 py-1.5 rounded ${th.nlnk}`}>BRE Policy</Link>
           <span className="px-3 py-1.5 rounded bg-violet-600/20 text-violet-300 font-medium border border-violet-500/30">Notifications</span>
         </div>
-        <Link to="/cts" className="text-xs text-slate-400 hover:text-white">CTS →</Link>
+        <Link to="/cts" className={`text-xs ${th.nlnk}`}>CTS →</Link>
       </nav>
 
       <div className="max-w-7xl w-full mx-auto px-6 py-6 flex-1 space-y-6">
         <div>
-          <h1 className="text-xl font-bold flex items-center gap-2"><Bell size={20} className="text-violet-400"/> Notification Center</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Role × channel matrix · Channel health · Delivery log</p>
+          <h1 className={`text-xl font-bold flex items-center gap-2 ${th.h1}`}><Bell size={20} className="text-violet-400"/> Notification Center</h1>
+          <p className={`text-xs ${th.sub} mt-0.5`}>Role × channel matrix · Channel health · Delivery log</p>
         </div>
 
-        <div className="flex gap-1 border-b border-white/5">
+        <div className={`flex gap-1 border-b ${th.tabBorder}`}>
           {[['matrix','Notification Matrix'],['health','Channel Health'],['log','Delivery Log']].map(([id,label]) => (
             <button key={id} onClick={() => setTab(id)}
-              className={`px-5 py-2.5 text-sm transition-colors border-b-2 -mb-px ${tab===id ? 'border-violet-500 text-violet-300' : 'border-transparent text-slate-400 hover:text-white'}`}>
+              className={`px-5 py-2.5 text-sm transition-colors border-b-2 -mb-px ${tab===id ? 'border-violet-500 text-violet-300' : `border-transparent ${th.tabIdle}`}`}>
               {label}
             </button>
           ))}
         </div>
 
-        <div className="bg-white/5 rounded-xl border border-white/5 p-6">
+        <div className={`rounded-xl border p-6 ${th.card}`}>
           {tab === 'matrix' && <MatrixTab/>}
           {tab === 'health' && <ChannelHealthTab/>}
           {tab === 'log'    && <DeliveryLogTab/>}

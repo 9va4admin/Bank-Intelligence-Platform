@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import EJShell from '../layout/EJShell'
+import { useTheme } from '../../../shared/theme/ThemeContext'
 import { Shield, CheckCircle2, XCircle, Lock, Monitor, MessageSquare, Mail, ChevronRight, AlertTriangle, Clock, FileText, Users } from 'lucide-react'
 import { useBRERules } from '../hooks/useBRERules'
 
@@ -161,6 +162,23 @@ export default function BREPolicyManager() {
   const [activeRole, setActiveRole] = useState('compliance_officer')
   const [catFilter, setCatFilter] = useState('All')
   const [sevFilter, setSevFilter] = useState('All')
+  const { isDark } = useTheme()
+
+  const th = {
+    pg:      isDark ? 'bg-[#020817] text-white' : 'bg-slate-50 text-slate-900',
+    nav:     isDark ? 'border-white/5 bg-black/30' : 'border-slate-200 bg-white',
+    nlnk:    isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900',
+    h1:      isDark ? 'text-white' : 'text-slate-900',
+    sub:     isDark ? 'text-slate-400' : 'text-slate-500',
+    roleBtn: isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-700',
+    ctx:     isDark ? 'bg-white/5 border-white/5 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600',
+    sel:     isDark ? 'bg-white/5 border-white/10 text-slate-300' : 'bg-white border-slate-300 text-slate-700',
+    selOpt:  isDark ? 'bg-[#020817]' : 'bg-white',
+    ruleBtn: isDark ? 'border-white/5 bg-white/2 hover:border-white/15' : 'border-slate-200 bg-white hover:border-slate-300',
+    ruleName:isDark ? 'text-slate-200' : 'text-slate-800',
+    ruleMeta:isDark ? 'text-slate-500' : 'text-slate-400',
+    detail:  isDark ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200',
+  }
 
   const role = ROLES.find(r => r.id === activeRole)
 
@@ -174,24 +192,24 @@ export default function BREPolicyManager() {
   const pending = rules.filter(r => r.pending_change)
 
   return (
-    <EJShell><div className="bg-[#020817] text-white flex flex-col">
-      <nav className="flex items-center justify-between px-6 py-3 border-b border-white/5 bg-black/30">
-        <Link to="/" className="text-xs text-slate-400 hover:text-white">← ASTRA Platform</Link>
+    <EJShell><div className={`flex flex-col ${th.pg}`}>
+      <nav className={`flex items-center justify-between px-6 py-3 border-b ${th.nav}`}>
+        <Link to="/" className={`text-xs ${th.nlnk}`}>← ASTRA Platform</Link>
         <div className="flex items-center gap-1 text-xs flex-wrap justify-center">
-          <Link to="/ej" className="px-3 py-1.5 rounded text-slate-400 hover:text-white">Command Center</Link>
-          <Link to="/ej/incidents" className="px-3 py-1.5 rounded text-slate-400 hover:text-white">Incidents</Link>
-          <Link to="/ej/portal" className="px-3 py-1.5 rounded text-slate-400 hover:text-white">Manager Portal</Link>
+          <Link to="/ej" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Command Center</Link>
+          <Link to="/ej/incidents" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Incidents</Link>
+          <Link to="/ej/portal" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Manager Portal</Link>
           <span className="px-3 py-1.5 rounded bg-violet-600/20 text-violet-300 font-medium border border-violet-500/30">BRE Policy</span>
-          <Link to="/ej/notifications" className="px-3 py-1.5 rounded text-slate-400 hover:text-white">Notifications</Link>
+          <Link to="/ej/notifications" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Notifications</Link>
         </div>
-        <Link to="/cts" className="text-xs text-slate-400 hover:text-white">CTS →</Link>
+        <Link to="/cts" className={`text-xs ${th.nlnk}`}>CTS →</Link>
       </nav>
 
       <div className="max-w-7xl w-full mx-auto px-6 py-4 space-y-4 flex-1 flex flex-col">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold flex items-center gap-2"><Shield size={20} className="text-violet-400"/> BRE Policy Manager</h1>
-            <p className="text-xs text-slate-400 mt-0.5">Business Rule Engine — OPA Rego governance · Maker-checker workflow</p>
+            <h1 className={`text-xl font-bold flex items-center gap-2 ${th.h1}`}><Shield size={20} className="text-violet-400"/> BRE Policy Manager</h1>
+            <p className={`text-xs ${th.sub} mt-0.5`}>Business Rule Engine — OPA Rego governance · Maker-checker workflow</p>
           </div>
           {activeRole === 'bank_it_admin' && pending.length > 0 && (
             <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-lg text-xs text-amber-400 animate-pulse">
@@ -204,7 +222,7 @@ export default function BREPolicyManager() {
           <span className="text-xs text-slate-500 self-center">Viewing as:</span>
           {ROLES.map(r => (
             <button key={r.id} onClick={() => setActiveRole(r.id)}
-              className={`px-3 py-1 rounded-lg text-xs transition-colors ${activeRole === r.id ? `bg-white/10 ${r.color} border border-white/20` : 'text-slate-500 hover:text-slate-300'}`}>
+              className={`px-3 py-1 rounded-lg text-xs transition-colors ${activeRole === r.id ? `bg-white/10 ${r.color} border border-white/20` : th.roleBtn}`}>
               {r.label}
             </button>
           ))}
@@ -213,7 +231,7 @@ export default function BREPolicyManager() {
         <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-xs ${
           activeRole === 'compliance_officer' ? 'bg-rose-500/10 border-rose-500/20 text-rose-300' :
           activeRole === 'bank_it_admin' ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' :
-          'bg-white/5 border-white/5 text-slate-400'
+          th.ctx
         }`}>
           <Lock size={12}/>
           {activeRole === 'compliance_officer' && 'Full access — can view Rego conditions, submit rule changes for approval'}
@@ -226,18 +244,18 @@ export default function BREPolicyManager() {
 
         <div className="flex gap-3">
           <select value={catFilter} onChange={e => setCatFilter(e.target.value)}
-            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-300 outline-none">
+            className={`border rounded-lg px-3 py-1.5 text-xs outline-none ${th.sel}`}>
             {['All','Transaction Integrity','Cash Management','Customer Impact','Fraud Signal','Availability','Security','Maintenance','Data Quality'].map(c => (
-              <option key={c} value={c} className="bg-[#020817]">{c}</option>
+              <option key={c} value={c} className={th.selOpt}>{c}</option>
             ))}
           </select>
           <select value={sevFilter} onChange={e => setSevFilter(e.target.value)}
-            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-300 outline-none">
+            className={`border rounded-lg px-3 py-1.5 text-xs outline-none ${th.sel}`}>
             {['All','CRITICAL','HIGH','MEDIUM','LOW'].map(s => (
-              <option key={s} value={s} className="bg-[#020817]">{s}</option>
+              <option key={s} value={s} className={th.selOpt}>{s}</option>
             ))}
           </select>
-          <span className="text-xs text-slate-500 self-center">{visibleRules.length} rules</span>
+          <span className={`text-xs ${th.sub} self-center`}>{visibleRules.length} rules</span>
         </div>
 
         <div className="flex gap-4 flex-1 min-h-0" style={{height:'560px'}}>
@@ -247,7 +265,7 @@ export default function BREPolicyManager() {
                 className={`w-full text-left px-3 py-3 rounded-xl border transition-all ${
                   selectedRule?.id === r.id
                     ? 'border-violet-500/40 bg-violet-500/10'
-                    : 'border-white/5 bg-white/2 hover:border-white/15'
+                    : th.ruleBtn
                 }`}>
                 <div className="flex items-center justify-between mb-1">
                   <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${SEV[r.severity]}`}>{r.severity}</span>
@@ -256,8 +274,8 @@ export default function BREPolicyManager() {
                     <span className={`text-xs px-1.5 py-0.5 rounded ${STATUS_CLS[r.status]}`}>{r.status}</span>
                   </div>
                 </div>
-                <div className="text-sm font-medium text-slate-200">{r.name}</div>
-                <div className="text-xs text-slate-500 mt-0.5 flex items-center justify-between">
+                <div className={`text-sm font-medium ${th.ruleName}`}>{r.name}</div>
+                <div className={`text-xs ${th.ruleMeta} mt-0.5 flex items-center justify-between`}>
                   <span>{r.category}</span>
                   <span>v{r.version}</span>
                 </div>
@@ -265,7 +283,7 @@ export default function BREPolicyManager() {
             ))}
           </div>
 
-          <div className="flex-1 bg-white/5 rounded-xl border border-white/5 overflow-hidden flex flex-col">
+          <div className={`flex-1 rounded-xl border overflow-hidden flex flex-col ${th.detail}`}>
             <RuleDetail
               rule={selectedRule}
               role={activeRole}
