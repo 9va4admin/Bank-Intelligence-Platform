@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom'
 
 const NAV = [
-  { to: '/cts', icon: '◈', label: 'CTS Queue', badge: null },
-  { to: '/fleet', icon: '◉', label: 'Fleet', badge: 'soon' },
-  { to: '/disputes', icon: '⚖', label: 'Disputes', badge: 'soon' },
-  { to: '/audit', icon: '🔒', label: 'Audit Trail', badge: 'soon' },
+  { to: '/cts',           icon: '◈', label: 'CTS Queue',     badge: null },
+  { to: '/cts/vault',     icon: '🔑', label: 'Vault Status',  badge: null },
+  { to: '/cts/decisions', icon: '📋', label: 'Decisions Log', badge: null },
+  { to: '/cts/analytics', icon: '📊', label: 'Analytics',     badge: null },
+  { to: '/cts/config',    icon: '⚙',  label: 'Config',        badge: null },
 ]
 
 export default function AppShell({ children }) {
