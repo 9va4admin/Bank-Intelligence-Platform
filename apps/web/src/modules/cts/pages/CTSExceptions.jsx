@@ -1,0 +1,372 @@
+/**
+ * CTS Discrepancy / Exception Report page.
+ * Displays per-session exceptions with severity grouping and CSV download.
+ * Exception types: IQA Fail, IET Near-Breach, Vault Miss, NGCH Reject,
+ *                  Human Review, Words/Figures Mismatch, Alteration Detected,
+ *                  OCR Low Confidence, Signature Low Confidence, Fraud High Score.
+ */
+import { useState } from 'react'
+import AppShell from '../../../shared/layout/AppShell'
+import { useTheme } from '../../../shared/theme/ThemeContext'
+
+// ── Exception data ────────────────────────────────────────────────────────
+
+const SESSION_META = {
+  session_id:    'SES-0619-001',
+  bank_ifsc:     'SVCB0000001',
+  bank_name:     'Saraswat Co-operative Bank',
+  clearing_date: '2026-06-19',
+  generated_at:  '2026-06-19T14:30:00Z',
+  total_processed: 47,
+}
+
+const SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM']
+
+const EXCEPTIONS = [
+  {
+    id: 'EX-001',
+    instrument_id: 'CHQ-IN-001994',
+    exception_type: 'IET_NEAR_BREACH',
+    label: 'IET Near-Breach (< 30s margin)',
+    severity: 'CRITICAL',
+    occurred_at: '2026-06-19T13:29:35Z',
+    detail: 'Filed 25 s before IET deadline. IETWatchdog emergency trigger.',
+    resolved: true,
+    margin_seconds: 25,
+  },
+  {
+    id: 'EX-002',
+    instrument_id: 'CHQ-IN-001982',
+    exception_type: 'NGCH_REJECT',
+    label: 'NGCH Filing Rejected / Retried',
+    severity: 'CRITICAL',
+    occurred_at: '2026-06-19T11:42:18Z',
+    detail: 'NGCH returned HTTP 503. Auto-retried via Temporal (attempt 2/3 succeeded).',
+    resolved: true,
+    margin_seconds: null,
+  },
+  {
+    id: 'EX-003',
+    instrument_id: 'CHQ-IN-001947',
+    exception_type: 'IQA_FAIL',
+    label: 'Image Quality Failure',
+    severity: 'HIGH',
+    occurred_at: '2026-06-19T10:14:22Z',
+    detail: 'Front image JPEG compression artefacts. DPI: 178 (min 200). Resent by presenting bank.',
+    resolved: true,
+    margin_seconds: null,
+  },
+  {
+    id: 'EX-004',
+    instrument_id: 'CHQ-IN-001958',
+    exception_type: 'VAULT_MISS',
+    label: 'Signature / PPS Vault Miss',
+    severity: 'HIGH',
+    occurred_at: '2026-06-19T10:31:05Z',
+    detail: 'No signature specimen on file for A/c ****7842. Routed to human review.',
+    resolved: true,
+    margin_seconds: null,
+  },
+  {
+    id: 'EX-005',
+    instrument_id: 'CHQ-IN-001963',
+    exception_type: 'WORDS_FIGURES_MISMATCH',
+    label: 'Words / Figures Amount Differ',
+    severity: 'HIGH',
+    occurred_at: '2026-06-19T10:55:44Z',
+    detail: 'Figures: ₹1,25,000. Words: "One Lakh Only". Difference: ₹25,000.',
+    resolved: false,
+    margin_seconds: null,
+  },
+  {
+    id: 'EX-006',
+    instrument_id: 'CHQ-IN-001971',
+    exception_type: 'ALTERATION_DETECTED',
+    label: 'Possible Alteration Detected',
+    severity: 'HIGH',
+    occurred_at: '2026-06-19T11:08:33Z',
+    detail: 'Qwen2-VL confidence: 0.91 alteration on payee name field. Ink bleed inconsistency.',
+    resolved: false,
+    margin_seconds: null,
+  },
+  {
+    id: 'EX-007',
+    instrument_id: 'CHQ-IN-001975',
+    exception_type: 'FRAUD_HIGH_SCORE',
+    label: 'Fraud Score Above Threshold',
+    severity: 'HIGH',
+    occurred_at: '2026-06-19T11:19:55Z',
+    detail: 'XGBoost fraud score: 0.81 (threshold: 0.72). Top SHAP: unusual_payee +0.31.',
+    resolved: true,
+    margin_seconds: null,
+  },
+  {
+    id: 'EX-008',
+    instrument_id: 'CHQ-IN-001931',
+    exception_type: 'OCR_LOW_CONFIDENCE',
+    label: 'OCR Confidence Below Threshold',
+    severity: 'MEDIUM',
+    occurred_at: '2026-06-19T10:02:11Z',
+    detail: 'GOT-OCR2 MICR line confidence: 0.74 (threshold: 0.88). Handwritten amount unclear.',
+    resolved: true,
+    margin_seconds: null,
+  },
+  {
+    id: 'EX-009',
+    instrument_id: 'CHQ-IN-001935',
+    exception_type: 'SIGNATURE_LOW_CONF',
+    label: 'Signature Match Low Confidence',
+    severity: 'MEDIUM',
+    occurred_at: '2026-06-19T10:07:47Z',
+    detail: 'Siamese net match score: 0.71 (threshold: 0.80). Possible pen pressure variation.',
+    resolved: true,
+    margin_seconds: null,
+  },
+  {
+    id: 'EX-010',
+    instrument_id: 'CHQ-IN-001989',
+    exception_type: 'HUMAN_REVIEW',
+    label: 'Escalated to Human Review',
+    severity: 'MEDIUM',
+    occurred_at: '2026-06-19T12:05:22Z',
+    detail: 'Multiple low-confidence signals. Compound exception — routed to senior reviewer.',
+    resolved: false,
+    margin_seconds: null,
+  },
+]
+
+// ── CSV generation (mirrors Python DiscrepancyExporter.to_csv) ───────────
+
+function buildCsv(exceptions, meta) {
+  const lines = []
+  lines.push(['# CTS Discrepancy / Exception Report'])
+  lines.push(['# Bank IFSC', meta.bank_ifsc])
+  lines.push(['# Session ID', meta.session_id])
+  lines.push(['# Clearing Date', meta.clearing_date])
+  lines.push(['# Generated At', meta.generated_at])
+  lines.push(['# Total Instruments', meta.total_processed])
+  lines.push(['# Total Exceptions', exceptions.length])
+  lines.push(['# Unresolved', exceptions.filter(e => !e.resolved).length])
+  lines.push([])
+  lines.push(['InstrumentID', 'ExceptionType', 'Label', 'Severity',
+              'OccurredAt', 'Detail', 'Resolved', 'MarginSeconds'])
+  for (const e of exceptions) {
+    lines.push([
+      e.instrument_id,
+      e.exception_type,
+      e.label,
+      e.severity,
+      e.occurred_at,
+      e.detail,
+      e.resolved ? 'Yes' : 'No',
+      e.margin_seconds ?? '',
+    ])
+  }
+  return lines.map(row => row.map(cell =>
+    String(cell).includes(',') ? `"${String(cell).replace(/"/g, '""')}"` : cell
+  ).join(',')).join('\n')
+}
+
+function downloadCsv(csv, filename) {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+// ── Severity colours ──────────────────────────────────────────────────────
+
+const SEV_D = {
+  CRITICAL: 'bg-red-900/60 text-red-300 border border-red-700/50',
+  HIGH:     'bg-amber-900/50 text-amber-300 border border-amber-700/40',
+  MEDIUM:   'bg-sky-900/50 text-sky-300 border border-sky-700/40',
+}
+const SEV_L = {
+  CRITICAL: 'bg-red-100 text-red-700 border border-red-300',
+  HIGH:     'bg-amber-100 text-amber-700 border border-amber-300',
+  MEDIUM:   'bg-sky-100 text-sky-700 border border-sky-300',
+}
+
+// ── Component ─────────────────────────────────────────────────────────────
+
+export default function CTSExceptions() {
+  const { isDark } = useTheme()
+  const [severityFilter, setSeverityFilter] = useState('All')
+  const [showResolved, setShowResolved]     = useState(true)
+
+  const th = {
+    page:    isDark ? 'bg-navy-950'        : 'bg-slate-50',
+    card:    isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
+    heading: isDark ? 'text-white'         : 'text-slate-900',
+    body:    isDark ? 'text-slate-300'     : 'text-slate-700',
+    muted:   isDark ? 'text-slate-400'     : 'text-slate-500',
+    divider: isDark ? 'border-white/8'     : 'border-slate-200',
+    row:     isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
+    badge:   isDark ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600',
+  }
+
+  const SEV = isDark ? SEV_D : SEV_L
+
+  const filtered = EXCEPTIONS.filter(e => {
+    if (severityFilter !== 'All' && e.severity !== severityFilter) return false
+    if (!showResolved && e.resolved) return false
+    return true
+  })
+
+  const counts = {
+    CRITICAL: EXCEPTIONS.filter(e => e.severity === 'CRITICAL').length,
+    HIGH:     EXCEPTIONS.filter(e => e.severity === 'HIGH').length,
+    MEDIUM:   EXCEPTIONS.filter(e => e.severity === 'MEDIUM').length,
+  }
+  const unresolvedCount = EXCEPTIONS.filter(e => !e.resolved).length
+
+  function handleDownload() {
+    const csv = buildCsv(EXCEPTIONS, SESSION_META)
+    const fname = `DISC_${SESSION_META.bank_ifsc}_${SESSION_META.clearing_date.replace(/-/g,'')}_${SESSION_META.session_id}.csv`
+    downloadCsv(csv, fname)
+  }
+
+  return (
+    <AppShell>
+      <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5 space-y-5`}>
+
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>Exception Report</h1>
+            <p className={`text-xs mt-0.5 ${th.muted}`}>
+              {SESSION_META.bank_name} · Session {SESSION_META.session_id} · {SESSION_META.clearing_date}
+            </p>
+          </div>
+          <button
+            onClick={handleDownload}
+            className="flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium bg-violet-600 hover:bg-violet-500 text-white"
+          >
+            ⬇ Download CSV
+          </button>
+        </div>
+
+        {/* Summary KPI strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Total Exceptions', value: EXCEPTIONS.length, color: th.heading },
+            { label: 'Critical',         value: counts.CRITICAL,   color: 'text-red-400' },
+            { label: 'High',             value: counts.HIGH,        color: 'text-amber-400' },
+            { label: 'Unresolved',       value: unresolvedCount,    color: 'text-orange-400' },
+          ].map(k => (
+            <div key={k.label} className={`border rounded-lg p-3 ${th.card}`}>
+              <div className={`text-2xl font-bold ${k.color}`}>{k.value}</div>
+              <div className={`text-xs mt-0.5 ${th.muted}`}>{k.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className={`text-xs ${th.muted}`}>Severity:</span>
+          {['All', ...SEVERITY_ORDER].map(s => (
+            <button
+              key={s}
+              onClick={() => setSeverityFilter(s)}
+              className={`px-2.5 py-1 rounded text-xs font-medium border transition-colors
+                ${severityFilter === s
+                  ? 'bg-violet-600 border-violet-500 text-white'
+                  : `${th.badge} border-transparent`}`}
+            >
+              {s} {s !== 'All' ? `(${counts[s] ?? 0})` : `(${EXCEPTIONS.length})`}
+            </button>
+          ))}
+          <label className={`flex items-center gap-1.5 text-xs ${th.muted} cursor-pointer ml-4`}>
+            <input
+              type="checkbox"
+              checked={showResolved}
+              onChange={e => setShowResolved(e.target.checked)}
+              className="w-3.5 h-3.5 accent-violet-500"
+            />
+            Show resolved
+          </label>
+          <span className={`ml-auto text-xs ${th.muted}`}>{filtered.length} shown</span>
+        </div>
+
+        {/* Exception table */}
+        <div className={`border rounded-lg overflow-hidden ${th.card}`}>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className={`border-b ${th.divider} ${th.muted}`}>
+                <th className="px-3 py-2 text-left font-medium">Instrument ID</th>
+                <th className="px-3 py-2 text-left font-medium">Exception</th>
+                <th className="px-3 py-2 text-left font-medium">Severity</th>
+                <th className="px-3 py-2 text-left font-medium hidden md:table-cell">Occurred At</th>
+                <th className="px-3 py-2 text-left font-medium hidden lg:table-cell">Detail</th>
+                <th className="px-3 py-2 text-left font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(ex => (
+                <tr key={ex.id} className={`border-b ${th.row}`}>
+                  <td className={`px-3 py-2 font-mono ${th.body}`}>{ex.instrument_id}</td>
+                  <td className={`px-3 py-2 ${th.body}`}>{ex.label}</td>
+                  <td className="px-3 py-2">
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${SEV[ex.severity]}`}>
+                      {ex.severity}
+                    </span>
+                  </td>
+                  <td className={`px-3 py-2 hidden md:table-cell ${th.muted}`}>
+                    {ex.occurred_at.replace('T', ' ').replace('Z', '')}
+                    {ex.margin_seconds !== null && (
+                      <span className="ml-1 text-red-400 font-medium">({ex.margin_seconds}s margin)</span>
+                    )}
+                  </td>
+                  <td className={`px-3 py-2 hidden lg:table-cell ${th.muted} max-w-xs truncate`} title={ex.detail}>
+                    {ex.detail}
+                  </td>
+                  <td className="px-3 py-2">
+                    {ex.resolved
+                      ? <span className="text-emerald-400 text-[11px] font-medium">✓ Resolved</span>
+                      : <span className="text-amber-400 text-[11px] font-medium">⚠ Open</span>}
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={6} className={`px-3 py-8 text-center ${th.muted}`}>
+                    No exceptions match current filters.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Exception type legend */}
+        <div className={`border rounded-lg p-4 ${th.card}`}>
+          <h3 className={`text-xs font-semibold mb-3 ${th.heading}`}>Exception Type Reference</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5">
+            {[
+              ['IQA_FAIL',             'Image Quality Failure',            'HIGH'],
+              ['IET_NEAR_BREACH',      'IET Near-Breach (< 30s)',          'CRITICAL'],
+              ['VAULT_MISS',           'Signature / PPS Vault Miss',       'HIGH'],
+              ['NGCH_REJECT',          'NGCH Filing Rejected / Retried',   'CRITICAL'],
+              ['HUMAN_REVIEW',         'Escalated to Human Review',        'MEDIUM'],
+              ['WORDS_FIGURES_MISMATCH','Words / Figures Amount Differ',   'HIGH'],
+              ['ALTERATION_DETECTED',  'Possible Alteration Detected',     'HIGH'],
+              ['OCR_LOW_CONFIDENCE',   'OCR Confidence Below Threshold',   'MEDIUM'],
+              ['SIGNATURE_LOW_CONF',   'Signature Match Low Confidence',   'HIGH'],
+              ['FRAUD_HIGH_SCORE',     'Fraud Score Above Threshold',      'HIGH'],
+            ].map(([code, label, sev]) => (
+              <div key={code} className="flex items-center gap-2">
+                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0 ${SEV[sev]}`}>{sev}</span>
+                <span className={`text-[10px] font-mono ${th.muted}`}>{code}</span>
+                <span className={`text-[10px] ${th.muted}`}>— {label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>
+    </AppShell>
+  )
+}
