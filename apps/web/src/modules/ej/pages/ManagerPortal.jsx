@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import EJShell from '../layout/EJShell'
+import { useTheme } from '../../../shared/theme/ThemeContext'
 import {
   Bell, Mail, MessageSquare, Calendar, ChevronRight,
   ShieldCheck, Users, MapPin, Building2, Globe, Eye,
@@ -159,6 +160,25 @@ export default function ManagerPortal() {
   const [notif, setNotif] = useState(DEFAULT_NOTIF)
   const [digestOpen, setDigestOpen] = useState(false)
   const [sentDemo, setSentDemo] = useState(false)
+  const { isDark } = useTheme()
+
+  const pg   = isDark ? 'bg-[#020817] text-white' : 'bg-slate-50 text-slate-900'
+  const nav  = isDark ? 'border-white/5 bg-black/30' : 'border-slate-200 bg-white'
+  const nlnk = isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'
+  const card = isDark ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200'
+  const row  = isDark ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'
+  const h2   = isDark ? 'text-slate-300' : 'text-slate-700'
+  const h1   = isDark ? 'text-white' : 'text-slate-900'
+  const sub  = isDark ? 'text-slate-400' : 'text-slate-500'
+  const mono = isDark ? 'text-slate-200' : 'text-slate-800'
+  const muted= isDark ? 'text-slate-400' : 'text-slate-500'
+  const ctx  = isDark ? 'bg-white/5 border-white/5' : 'bg-slate-100 border-slate-200'
+  const sep  = isDark ? 'bg-white/10' : 'bg-slate-300'
+  const roleBtnActive = isDark ? 'border-violet-500/60 bg-violet-500/10' : 'border-violet-400 bg-violet-50'
+  const roleBtnIdle   = isDark ? 'border-white/5 bg-white/2 hover:border-white/20' : 'border-slate-200 bg-white hover:border-slate-300'
+  const roleLbl       = isDark ? 'text-slate-300' : 'text-slate-700'
+  const ctx2 = isDark ? 'bg-white/5' : 'bg-slate-100'
+  const retBdr= isDark ? 'border-white/5' : 'border-slate-200'
 
   const role = ROLES.find(r => r.id === activeRole)
   const RoleIcon = role.icon
@@ -194,35 +214,35 @@ export default function ManagerPortal() {
   })
 
   return (
-    <EJShell><div className="bg-[#020817] text-white flex flex-col">
+    <EJShell><div className={`min-h-full flex flex-col ${pg}`}>
       {/* Top nav */}
-      <nav className="flex items-center justify-between px-6 py-3 border-b border-white/5 bg-black/30">
-        <Link to="/" className="text-xs text-slate-400 hover:text-white flex items-center gap-1">
+      <nav className={`flex items-center justify-between px-6 py-3 border-b ${nav}`}>
+        <Link to="/" className={`text-xs flex items-center gap-1 ${nlnk}`}>
           ← ASTRA Platform
         </Link>
         <div className="flex items-center gap-1 text-xs">
-          <Link to="/ej" className="px-3 py-1.5 rounded text-slate-400 hover:text-white">Command Center</Link>
-          <Link to="/ej/incidents" className="px-3 py-1.5 rounded text-slate-400 hover:text-white">Incidents</Link>
-          <span className="px-3 py-1.5 rounded bg-violet-600/20 text-violet-300 font-medium border border-violet-500/30">Manager Portal</span>
-          <Link to="/ej/bre" className="px-3 py-1.5 rounded text-slate-400 hover:text-white">BRE Policy</Link>
-          <Link to="/ej/notifications" className="px-3 py-1.5 rounded text-slate-400 hover:text-white">Notifications</Link>
+          <Link to="/ej" className={`px-3 py-1.5 rounded ${nlnk}`}>Command Center</Link>
+          <Link to="/ej/incidents" className={`px-3 py-1.5 rounded ${nlnk}`}>Incidents</Link>
+          <span className="px-3 py-1.5 rounded bg-violet-600/20 text-violet-500 font-medium border border-violet-500/30">Manager Portal</span>
+          <Link to="/ej/bre" className={`px-3 py-1.5 rounded ${nlnk}`}>BRE Policy</Link>
+          <Link to="/ej/notifications" className={`px-3 py-1.5 rounded ${nlnk}`}>Notifications</Link>
         </div>
-        <Link to="/cts" className="text-xs text-slate-400 hover:text-white flex items-center gap-1">
+        <Link to="/cts" className={`text-xs flex items-center gap-1 ${nlnk}`}>
           CTS Workstation →
         </Link>
       </nav>
 
       <div className="flex-1 max-w-7xl w-full mx-auto px-6 py-6 space-y-6">
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <Users size={20} className="text-violet-400" /> Manager Portal
+          <h1 className={`text-xl font-bold flex items-center gap-2 ${h1}`}>
+            <Users size={20} className="text-violet-500" /> Manager Portal
           </h1>
-          <p className="text-xs text-slate-400 mt-1">Role-scoped ATM health view · Notification preferences · Digest scheduling</p>
+          <p className={`text-xs mt-1 ${sub}`}>Role-scoped ATM health view · Notification preferences · Digest scheduling</p>
         </div>
 
         {/* Role switcher */}
         <div>
-          <div className="text-xs text-slate-400 uppercase tracking-widest mb-3">Select Role (Demo)</div>
+          <div className={`text-xs ${muted} uppercase tracking-widest mb-3`}>Select Role (Demo)</div>
           <div className="grid grid-cols-3 gap-3 lg:grid-cols-6">
             {ROLES.map(r => {
               const Icon = r.icon
@@ -231,13 +251,11 @@ export default function ManagerPortal() {
                   key={r.id}
                   onClick={() => setActiveRole(r.id)}
                   className={`flex flex-col items-center gap-2 p-3 rounded-xl border text-center transition-all ${
-                    activeRole === r.id
-                      ? 'border-violet-500/60 bg-violet-500/10'
-                      : 'border-white/5 bg-white/2 hover:border-white/20'
+                    activeRole === r.id ? roleBtnActive : roleBtnIdle
                   }`}
                 >
                   <Icon size={18} className={r.color} />
-                  <span className="text-xs text-slate-300 leading-tight">{r.label}</span>
+                  <span className={`text-xs leading-tight ${roleLbl}`}>{r.label}</span>
                 </button>
               )
             })}
@@ -245,25 +263,25 @@ export default function ManagerPortal() {
         </div>
 
         {/* Role context bar */}
-        <div className="flex items-center gap-6 bg-white/5 rounded-xl px-5 py-4 border border-white/5">
+        <div className={`flex items-center gap-6 rounded-xl px-5 py-4 border ${ctx}`}>
           <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg bg-white/5`}>
+            <div className={`p-2 rounded-lg ${ctx2}`}>
               <RoleIcon size={20} className={role.color} />
             </div>
             <div>
-              <div className="text-sm font-semibold text-white">{role.label}</div>
-              <div className="text-xs text-slate-400">{role.desc}</div>
+              <div className={`text-sm font-semibold ${h1}`}>{role.label}</div>
+              <div className={`text-xs ${sub}`}>{role.desc}</div>
             </div>
           </div>
-          <div className="h-8 w-px bg-white/10" />
+          <div className={`h-8 w-px ${sep}`} />
           <div>
-            <div className="text-xs text-slate-400">Scope</div>
-            <div className="text-sm text-white font-medium">{role.scopeValue}</div>
+            <div className={`text-xs ${muted}`}>Scope</div>
+            <div className={`text-sm font-medium ${h1}`}>{role.scopeValue}</div>
           </div>
-          <div className="h-8 w-px bg-white/10" />
+          <div className={`h-8 w-px ${sep}`} />
           <div>
-            <div className="text-xs text-slate-400">ATMs Visible</div>
-            <div className="text-2xl font-bold text-white">{role.atms}</div>
+            <div className={`text-xs ${muted}`}>ATMs Visible</div>
+            <div className={`text-2xl font-bold ${h1}`}>{role.atms}</div>
           </div>
           {activeRole === 'compliance_officer' && (
             <>
@@ -278,15 +296,15 @@ export default function ManagerPortal() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* ATM Health (scoped) */}
           <div className="lg:col-span-2 space-y-4">
-            <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
-              <Cpu size={15} className="text-cyan-400" /> ATM Health — {role.scope} View
+            <h2 className={`text-sm font-semibold flex items-center gap-2 ${h2}`}>
+              <Cpu size={15} className="text-cyan-500" /> ATM Health — {role.scope} View
             </h2>
 
             {displayAtms ? (
               <div className="space-y-2">
                 {displayAtms.map(a => (
-                  <div key={a.id} className="flex items-center gap-4 bg-white/5 rounded-lg px-4 py-3 border border-white/5">
-                    <span className="text-sm font-mono text-slate-200 w-28">{a.id}</span>
+                  <div key={a.id} className={`flex items-center gap-4 rounded-lg px-4 py-3 border ${row}`}>
+                    <span className={`text-sm font-mono w-28 ${mono}`}>{a.id}</span>
                     <span className={`text-xs px-2 py-0.5 rounded font-medium ${STATUS_STYLE[a.status]}`}>{a.status}</span>
                     <div className="flex-1 flex items-center gap-1">
                       <div className="flex-1 bg-white/10 rounded-full h-1.5 overflow-hidden">
@@ -303,7 +321,7 @@ export default function ManagerPortal() {
                 ))}
               </div>
             ) : (
-              <div className="bg-white/5 rounded-xl border border-white/5 px-6 py-8 text-center">
+              <div className={`rounded-xl border px-6 py-8 text-center ${card}`}>
                 {activeRole === 'compliance_officer' ? (
                   <div className="text-slate-400 text-sm">
                     <ShieldCheck size={24} className="text-rose-400 mx-auto mb-3" />
@@ -343,12 +361,12 @@ export default function ManagerPortal() {
             )}
 
             {/* Open incidents */}
-            <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 pt-2">
-              <AlertTriangle size={15} className="text-amber-400" /> Open Incidents — {role.scope} Scope
+            <h2 className={`text-sm font-semibold flex items-center gap-2 pt-2 ${h2}`}>
+              <AlertTriangle size={15} className="text-amber-500" /> Open Incidents — {role.scope} Scope
             </h2>
             <div className="space-y-2">
               {displayIncidents && displayIncidents.length > 0 ? displayIncidents.map(inc => (
-                <div key={inc.id} className="flex items-center gap-3 bg-white/5 rounded-lg px-4 py-2.5 border border-white/5">
+                <div key={inc.id} className={`flex items-center gap-3 rounded-lg px-4 py-2.5 border ${row}`}>
                   <span className={`text-xs px-2 py-0.5 rounded font-medium ${SEV_STYLE[inc.sev]}`}>{inc.sev}</span>
                   <span className="text-xs font-mono text-slate-400 w-32">{inc.id}</span>
                   <span className="text-xs font-mono text-cyan-400 w-24">{inc.atm}</span>
@@ -374,8 +392,8 @@ export default function ManagerPortal() {
           {/* Right panel: notifications + digest */}
           <div className="space-y-5">
             {/* Notification prefs */}
-            <div className="bg-white/5 rounded-xl border border-white/5 p-5">
-              <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-4">
+            <div className={`rounded-xl border p-5 ${card}`}>
+              <h2 className={`text-sm font-semibold flex items-center gap-2 mb-4 ${h2}`}>
                 <Bell size={15} className="text-violet-400" /> Notification Preferences
               </h2>
               <div className="space-y-3">
@@ -419,8 +437,8 @@ export default function ManagerPortal() {
             </div>
 
             {/* Digest preview */}
-            <div className="bg-white/5 rounded-xl border border-white/5 p-5">
-              <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-1">
+            <div className={`rounded-xl border p-5 ${card}`}>
+              <h2 className={`text-sm font-semibold flex items-center gap-2 mb-1 ${h2}`}>
                 <Calendar size={15} className="text-emerald-400" /> Scheduled Digests
               </h2>
               <p className="text-xs text-slate-500 mb-4">
@@ -464,8 +482,8 @@ export default function ManagerPortal() {
             </div>
 
             {/* BRE Rules Affecting You */}
-            <div className="bg-white/5 rounded-xl border border-white/5 p-5">
-              <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-3">
+            <div className={`rounded-xl border p-5 ${card}`}>
+              <h2 className={`text-sm font-semibold flex items-center gap-2 mb-3 ${h2}`}>
                 <Shield size={15} className="text-red-400" /> BRE Rules Affecting You
               </h2>
               {(() => {
@@ -505,8 +523,8 @@ export default function ManagerPortal() {
             </div>
 
             {/* Data retention info */}
-            <div className="bg-white/5 rounded-xl border border-white/5 p-5">
-              <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-3">
+            <div className={`rounded-xl border p-5 ${card}`}>
+              <h2 className={`text-sm font-semibold flex items-center gap-2 mb-3 ${h2}`}>
                 <Clock size={15} className="text-slate-400" /> Data Retention
               </h2>
               <div className="space-y-2 text-xs">
@@ -524,7 +542,7 @@ export default function ManagerPortal() {
                   </div>
                 ))}
               </div>
-              <div className="mt-3 pt-3 border-t border-white/5 text-xs text-slate-500">
+              <div className={`mt-3 pt-3 border-t ${retBdr} text-xs ${muted}`}>
                 All data stored on-premises · No cloud transmission · YugabyteDB + MinIO WORM
               </div>
             </div>
