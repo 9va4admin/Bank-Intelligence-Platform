@@ -16,12 +16,19 @@ const RETURN_REASONS = [
   'Payee name discrepancy',
 ]
 
-const REASON_COLORS = {
+const REASON_COLORS_D = {
   SIGNATURE_LOW_CONFIDENCE: 'bg-amber-400/10 border-amber-400/30 text-amber-300',
   FRAUD_SCORE_HIGH:         'bg-red-400/10 border-red-400/30 text-red-300',
   OCR_LOW_CONFIDENCE:       'bg-orange-400/10 border-orange-400/30 text-orange-300',
   VAULT_MISS:               'bg-purple-400/10 border-purple-400/30 text-purple-300',
   HIGH_VALUE_DUAL_APPROVAL: 'bg-sky-400/10 border-sky-400/30 text-sky-300',
+}
+const REASON_COLORS_L = {
+  SIGNATURE_LOW_CONFIDENCE: 'bg-amber-100 border-amber-400 text-amber-700',
+  FRAUD_SCORE_HIGH:         'bg-red-100 border-red-400 text-red-700',
+  OCR_LOW_CONFIDENCE:       'bg-orange-100 border-orange-400 text-orange-700',
+  VAULT_MISS:               'bg-purple-100 border-purple-400 text-purple-700',
+  HIGH_VALUE_DUAL_APPROVAL: 'bg-sky-100 border-sky-400 text-sky-700',
 }
 
 function SigPanel({ item, isDark }) {
@@ -83,6 +90,8 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
   const [tab, setTab] = useState('overview')
   const [returnReason, setReturnReason] = useState('')
   const [confirming, setConfirming] = useState(null)
+
+  const REASON_COLORS = isDark ? REASON_COLORS_D : REASON_COLORS_L
 
   const th = {
     border:   isDark ? 'border-white/8'    : 'border-slate-200',
