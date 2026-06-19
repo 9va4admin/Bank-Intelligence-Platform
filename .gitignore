@@ -1,3 +1,6 @@
 __pycache__/
 .coverage
 .claude/worktrees/
+node_modules/
+dist/
+*.local
