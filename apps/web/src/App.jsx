@@ -29,6 +29,10 @@ export default function App() {
         <Route path="/ej/portal" element={<ManagerPortal />} />
         <Route path="/ej/bre" element={<BREPolicyManager />} />
         <Route path="/ej/notifications" element={<NotificationCenter />} />
+        {/* EJ deep-links from landing page cards */}
+        <Route path="/fleet" element={<EJDashboard defaultTab="fleet" />} />
+        <Route path="/disputes" element={<EJDashboard defaultTab="disputes" />} />
+        <Route path="/audit" element={<ManagerPortal />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
