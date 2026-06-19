@@ -12,6 +12,7 @@ import CTSCompliance from './modules/cts/pages/CTSCompliance'
 import CTSScanner from './modules/cts/pages/CTSScanner'
 import CTSEndorsement from './modules/cts/pages/CTSEndorsement'
 import CTSRPCConsolidation from './modules/cts/pages/CTSRPCConsolidation'
+import CTSSubMember from './modules/cts/pages/CTSSubMember'
 import { EJDashboard } from './modules/ej'
 import IncidentManagement from './modules/ej/pages/IncidentManagement'
 import ManagerPortal from './modules/ej/pages/ManagerPortal'
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/cts/scanner" element={<CTSScanner />} />
         <Route path="/cts/endorsement" element={<CTSEndorsement />} />
         <Route path="/cts/rpc" element={<CTSRPCConsolidation />} />
+        <Route path="/cts/sub-member" element={<CTSSubMember />} />
         <Route path="/cts/analytics" element={<CTSAnalytics />} />
         <Route path="/cts/config" element={<CTSConfig />} />
         {/* EJ module — own routes, no overlap with CTS */}
