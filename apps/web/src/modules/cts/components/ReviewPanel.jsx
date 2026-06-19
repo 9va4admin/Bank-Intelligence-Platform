@@ -151,25 +151,26 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-      {/* Header */}
-      <div className={`px-6 pt-4 pb-0 border-b ${th.border} shrink-0`}>
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            <div className={`text-[11px] font-mono mb-0.5 ${th.id}`}>{item.instrument_id} · {item.clearing_zone}</div>
-            <div className={`text-base font-bold ${th.heading}`}>
-              {item.account_display} <span className={th.dot}>·</span> {item.payee_display}
-            </div>
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${reasonColor}`}>
-                {item.reason_label}
-              </span>
-              <span className={`text-[10px] ${th.meta}`}>{item.amount_range}</span>
-              <span className={`text-[10px] ${th.lbl}`}>·</span>
-              <span className={`text-[10px] ${th.meta}`}>{item.amount_label}</span>
-              {item.opa_rule && <span className="text-[10px] text-sky-400/70 font-mono">OPA</span>}
-            </div>
-          </div>
-          <IETTimer deadline={item.iet_deadline} />
+      {/* Header — compact, IET inline on first row */}
+      <div className={`px-6 pt-3 pb-0 border-b ${th.border} shrink-0`}>
+        {/* Row 1: instrument ID + IET timer inline */}
+        <div className="flex items-center justify-between mb-1">
+          <div className={`text-[11px] font-mono ${th.id}`}>{item.instrument_id} · {item.clearing_zone}</div>
+          <IETTimer deadline={item.iet_deadline} compact />
+        </div>
+        {/* Row 2: account · payee */}
+        <div className={`text-base font-bold ${th.heading} mb-1`}>
+          {item.account_display} <span className={th.dot}>·</span> {item.payee_display}
+        </div>
+        {/* Row 3: badges */}
+        <div className="flex items-center gap-2 mb-2">
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${reasonColor}`}>
+            {item.reason_label}
+          </span>
+          <span className={`text-[10px] ${th.meta}`}>{item.amount_range}</span>
+          <span className={`text-[10px] ${th.lbl}`}>·</span>
+          <span className={`text-[10px] ${th.meta}`}>{item.amount_label}</span>
+          {item.opa_rule && <span className="text-[10px] text-sky-400/70 font-mono">OPA</span>}
         </div>
 
         <div className="flex gap-1">
