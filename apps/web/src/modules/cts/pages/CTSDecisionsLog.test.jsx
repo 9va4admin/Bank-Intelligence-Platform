@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi } from 'vitest'
+import { ThemeProvider } from '../../../shared/theme/ThemeContext'
 
 vi.mock('../../../shared/layout/AppShell', () => ({
   default: ({ children }) => <div data-testid="appshell">{children}</div>,
@@ -8,7 +9,9 @@ vi.mock('../../../shared/layout/AppShell', () => ({
 
 import CTSDecisionsLog from './CTSDecisionsLog'
 
-const renderPage = () => render(<MemoryRouter><CTSDecisionsLog /></MemoryRouter>)
+const renderPage = () => render(
+  <MemoryRouter><ThemeProvider><CTSDecisionsLog /></ThemeProvider></MemoryRouter>
+)
 
 describe('CTSDecisionsLog', () => {
   it('renders inside AppShell', () => {
