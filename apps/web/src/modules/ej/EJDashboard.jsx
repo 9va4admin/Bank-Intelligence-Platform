@@ -14,8 +14,8 @@ const TABS = [
 
 const bankId = 'demo-bank' // TODO: get from auth context
 
-export default function EJDashboard() {
-  const [activeTab, setActiveTab] = useState('fleet')
+export default function EJDashboard({ defaultTab = 'fleet' }) {
+  const [activeTab, setActiveTab] = useState(defaultTab)
   const [submitLogOpen, setSubmitLogOpen] = useState(false)
   const [raiseDisputeOpen, setRaiseDisputeOpen] = useState(false)
 

@@ -6,7 +6,6 @@ import IncidentManagement from './modules/ej/pages/IncidentManagement'
 import ManagerPortal from './modules/ej/pages/ManagerPortal'
 import BREPolicyManager from './modules/ej/pages/BREPolicyManager'
 import NotificationCenter from './modules/ej/pages/NotificationCenter'
-import ComingSoon from './shared/layout/ComingSoon'
 import './index.css'
 
 export default function App() {
@@ -20,9 +19,9 @@ export default function App() {
         <Route path="/ej/portal" element={<ManagerPortal />} />
         <Route path="/ej/bre" element={<BREPolicyManager />} />
         <Route path="/ej/notifications" element={<NotificationCenter />} />
-        <Route path="/fleet" element={<ComingSoon module="Fleet" icon="◉" desc="ATM fleet health, uptime monitoring, and predictive maintenance." />} />
-        <Route path="/disputes" element={<ComingSoon module="Disputes" icon="⚖" desc="NPCI dispute resolution, CCTV evidence matching, and auto-arbitration." />} />
-        <Route path="/audit" element={<ComingSoon module="Audit Trail" icon="🔒" desc="Immutable Immudb audit log, HSM-signed events, and RBI compliance reports." />} />
+        <Route path="/fleet" element={<EJDashboard defaultTab="fleet" />} />
+        <Route path="/disputes" element={<EJDashboard defaultTab="disputes" />} />
+        <Route path="/audit" element={<ManagerPortal />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
