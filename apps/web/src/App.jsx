@@ -7,6 +7,7 @@ import CTSAnalytics from './modules/cts/pages/CTSAnalytics'
 import CTSConfig from './modules/cts/pages/CTSConfig'
 import CTSPresentment from './modules/cts/pages/CTSPresentment'
 import CTSExceptions from './modules/cts/pages/CTSExceptions'
+import CTSReconciliation from './modules/cts/pages/CTSReconciliation'
 import { EJDashboard } from './modules/ej'
 import IncidentManagement from './modules/ej/pages/IncidentManagement'
 import ManagerPortal from './modules/ej/pages/ManagerPortal'
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/cts/vault" element={<CTSVaultStatus />} />
         <Route path="/cts/decisions" element={<CTSDecisionsLog />} />
         <Route path="/cts/exceptions" element={<CTSExceptions />} />
+        <Route path="/cts/reconciliation" element={<CTSReconciliation />} />
         <Route path="/cts/analytics" element={<CTSAnalytics />} />
         <Route path="/cts/config" element={<CTSConfig />} />
         {/* EJ module — own routes, no overlap with CTS */}
