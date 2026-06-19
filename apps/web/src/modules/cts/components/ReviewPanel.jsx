@@ -158,12 +158,11 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
           <div className={`text-[11px] font-mono ${th.id}`}>{item.instrument_id} · {item.clearing_zone}</div>
           <IETTimer deadline={item.iet_deadline} compact />
         </div>
-        {/* Row 2: account · payee */}
-        <div className={`text-base font-bold ${th.heading} mb-1`}>
-          {item.account_display} <span className={th.dot}>·</span> {item.payee_display}
-        </div>
-        {/* Row 3: badges */}
-        <div className="flex items-center gap-2 mb-2">
+        {/* Row 2: account · payee + badges inline */}
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <span className={`text-base font-bold ${th.heading}`}>
+            {item.account_display} <span className={th.dot}>·</span> {item.payee_display}
+          </span>
           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${reasonColor}`}>
             {item.reason_label}
           </span>
