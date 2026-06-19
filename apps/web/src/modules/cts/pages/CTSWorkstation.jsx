@@ -72,7 +72,7 @@ export default function CTSWorkstation() {
   return (
     <AppShell>
       <div className="flex flex-col h-full">
-        <BatchStats stats={{ ...batchStats, human_review: pending.length, stp_rate: parseFloat(stpRate) }} />
+        <BatchStats stats={{ ...batchStats, human_review: pending.length, stp_rate: parseFloat(stpRate) }} isDark={isDark} />
 
         <div className="flex flex-1 min-h-0">
           {/* Queue column */}
@@ -101,6 +101,7 @@ export default function CTSWorkstation() {
                   item={item}
                   selected={selected?.instrument_id === item.instrument_id}
                   onClick={() => setSelected(item)}
+                  isDark={isDark}
                 />
               ))}
 
@@ -125,7 +126,7 @@ export default function CTSWorkstation() {
           </div>
 
           {/* Review panel */}
-          <ReviewPanel item={selected} onDecision={handleDecision} />
+          <ReviewPanel item={selected} onDecision={handleDecision} isDark={isDark} />
 
           {/* Live STP stream */}
           <div className={`w-64 shrink-0 border-l ${th.divider} flex flex-col`}>
