@@ -10,13 +10,18 @@ function getTimeLeft(deadline) {
   }
 }
 
-function urgencyClass(mins) {
+function urgencyClass(mins, bright) {
+  if (bright) {
+    if (mins < 10) return 'text-white bg-red-500 border-red-400 font-bold'
+    if (mins < 30) return 'text-white bg-amber-500 border-amber-400 font-bold'
+    return 'text-white bg-emerald-600 border-emerald-500 font-bold'
+  }
   if (mins < 10) return 'text-red-400 border-red-400/40 bg-red-400/10'
   if (mins < 30) return 'text-amber-400 border-amber-400/40 bg-amber-400/10'
   return 'text-emerald-400 border-emerald-400/40 bg-emerald-400/10'
 }
 
-export default function IETTimer({ deadline, compact = false }) {
+export default function IETTimer({ deadline, compact = false, bright = false }) {
   const [left, setLeft] = useState(() => getTimeLeft(deadline))
 
   useEffect(() => {
@@ -24,13 +29,13 @@ export default function IETTimer({ deadline, compact = false }) {
     return () => clearInterval(id)
   }, [deadline])
 
-  const cls = urgencyClass(left.mins)
+  const cls = urgencyClass(left.mins, bright)
   const pulse = left.mins < 10
 
   if (compact) {
     return (
       <span className={`inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded border ${cls} ${pulse ? 'animate-pulse' : ''}`}>
-        {left.mins}m {String(left.secs).padStart(2, '0')}s
+        ⏱ {left.mins}m {String(left.secs).padStart(2, '0')}s
       </span>
     )
   }

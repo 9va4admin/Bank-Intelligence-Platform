@@ -151,18 +151,33 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-      {/* Header — compact, IET inline on first row */}
-      <div className={`px-6 pt-3 pb-0 border-b ${th.border} shrink-0`}>
-        {/* Row 1: instrument ID + IET timer inline */}
-        <div className="flex items-center justify-between mb-1">
-          <div className={`text-[11px] font-mono ${th.id}`}>{item.instrument_id} · {item.clearing_zone}</div>
-          <IETTimer deadline={item.iet_deadline} compact />
-        </div>
-        {/* Row 2: account · payee + badges inline */}
+      {/* Header — single compact row */}
+      <div className={`px-6 pt-2 pb-0 border-b ${th.border} shrink-0`}>
+        {/* Single row: cheque no (hover → image) · zone · account · payee · badges · IET */}
         <div className="flex items-center gap-2 mb-2 flex-wrap">
-          <span className={`text-base font-bold ${th.heading}`}>
-            {item.account_display} <span className={th.dot}>·</span> {item.payee_display}
+          {/* Cheque number — hover shows cheque image */}
+          <div className="relative" onMouseEnter={showCheque} onMouseLeave={hideCheque}>
+            <span className={`text-[11px] font-mono cursor-default underline decoration-dotted ${isDark ? 'text-gold-400 decoration-gold-400/40' : 'text-amber-600 decoration-amber-400/60'}`}>
+              {item.instrument_id}
+            </span>
+            {chequeHover && (
+              <div
+                className={`absolute left-0 top-6 z-50 w-[480px] rounded-xl shadow-2xl border p-3 ${isDark ? 'bg-navy-900 border-white/10' : 'bg-white border-slate-200'}`}
+                onMouseEnter={showCheque} onMouseLeave={hideCheque}
+              >
+                <div className={`text-[9px] ${th.lbl} uppercase tracking-widest mb-2`}>Cheque Image — compare with extracted fields</div>
+                <ChequeMockImage fields={item.ocr_fields} alterations={item.ocr_fields.alterations} isDark={isDark} />
+              </div>
+            )}
+          </div>
+          <span className={`text-[10px] ${th.lbl}`}>·</span>
+          <span className={`text-[10px] font-mono ${th.id}`}>{item.clearing_zone}</span>
+          <span className={`text-[10px] ${th.lbl}`}>·</span>
+          <span className={`text-sm font-bold ${th.heading}`}>
+            {item.account_display}
           </span>
+          <span className={`text-[10px] ${th.dot}`}>·</span>
+          <span className={`text-sm font-bold ${th.heading}`}>{item.payee_display}</span>
           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${reasonColor}`}>
             {item.reason_label}
           </span>
@@ -170,6 +185,9 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
           <span className={`text-[10px] ${th.lbl}`}>·</span>
           <span className={`text-[10px] ${th.meta}`}>{item.amount_label}</span>
           {item.opa_rule && <span className="text-[10px] text-sky-400/70 font-mono">OPA</span>}
+          <div className="ml-auto">
+            <IETTimer deadline={item.iet_deadline} compact bright />
+          </div>
         </div>
 
         <div className="flex gap-1">
@@ -223,38 +241,10 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
               ))}
             </div>
 
-            {/* OCR fields with cheque hover preview */}
+            {/* OCR fields */}
             <div className={`rounded-xl p-4 ${th.glass} relative`}>
-              <div className="flex items-center justify-between mb-3">
+              <div className="mb-3">
                 <div className={`text-[10px] ${th.lbl} uppercase tracking-widest`}>OCR Extracted Fields · GOT-OCR2.0</div>
-                {/* Cheque preview icon */}
-                <div className="relative" onMouseEnter={showCheque} onMouseLeave={hideCheque}>
-                  <button
-                    className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg border transition-all ${
-                      isDark
-                        ? 'border-white/10 text-slate-400 hover:text-gold-400 hover:border-gold-400/30 hover:bg-gold-400/5'
-                        : 'border-slate-200 text-slate-400 hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50'
-                    }`}
-                    title="Preview cheque image"
-                  >
-                    <span>🧾</span>
-                    <span>View Cheque</span>
-                  </button>
-
-                  {/* Floating cheque popover */}
-                  {chequeHover && (
-                    <div
-                      className={`absolute right-0 top-8 z-50 w-[480px] rounded-xl shadow-2xl border p-3 ${
-                        isDark ? 'bg-navy-900 border-white/10' : 'bg-white border-slate-200'
-                      }`}
-                      onMouseEnter={showCheque}
-                      onMouseLeave={hideCheque}
-                    >
-                      <div className={`text-[9px] ${th.lbl} uppercase tracking-widest mb-2`}>Cheque Image — compare with extracted fields</div>
-                      <ChequeMockImage fields={item.ocr_fields} alterations={item.ocr_fields.alterations} accountDisplay={item.account_display} isDark={isDark} />
-                    </div>
-                  )}
-                </div>
               </div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                 {[
