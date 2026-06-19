@@ -29,7 +29,7 @@ export default function EJCommandCenter() {
           <Link to="/ej/bre" className="px-3 py-1.5 rounded text-slate-400 hover:text-white transition-colors">BRE Policy</Link>
           <Link to="/ej/notifications" className="px-3 py-1.5 rounded text-slate-400 hover:text-white transition-colors">Notifications</Link>
         </div>
-        <Link to="/cts" className="text-xs text-slate-500 hover:text-cyan-400 transition-colors">CTS Workstation →</Link>
+        <span />
       </div>
 
       <div className="px-4 py-3 space-y-3">
