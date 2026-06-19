@@ -36,7 +36,8 @@ function buildMatrix() {
 
 const MATRIX = buildMatrix()
 
-const SEV_PILL = { CRITICAL:'bg-red-500/20 text-red-300 border border-red-500/30', HIGH:'bg-amber-500/20 text-amber-300 border border-amber-500/30', MEDIUM:'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30', LOW:'bg-slate-500/20 text-slate-300 border border-slate-400/20' }
+const SEV_PILL_D = { CRITICAL:'bg-red-500/20 text-red-300 border border-red-500/30', HIGH:'bg-amber-500/20 text-amber-300 border border-amber-500/30', MEDIUM:'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30', LOW:'bg-slate-500/20 text-slate-300 border border-slate-400/20' }
+const SEV_PILL_L = { CRITICAL:'bg-red-100 text-red-700 border border-red-400', HIGH:'bg-amber-100 text-amber-700 border border-amber-400', MEDIUM:'bg-yellow-100 text-yellow-700 border border-yellow-400', LOW:'bg-slate-100 text-slate-600 border border-slate-300' }
 
 const DELIVERY_LOG = [
   { time:'10:47:03', rule:'Cash Not Dispensed', atm:'ATM-MUM-004', channel:'WhatsApp', role:'ops_reviewer', status:'Delivered' },
@@ -51,23 +52,36 @@ const DELIVERY_LOG = [
   { time:'09:22:44', rule:'EJ Parse Failure', atm:'ATM-CHN-003', channel:'OnScreen', role:'ml_engineer', status:'Delivered' },
 ]
 
-function MatrixTab() {
+function MatrixTab({ isDark }) {
+  const SEV_PILL = isDark ? SEV_PILL_D : SEV_PILL_L
+  const violet   = isDark ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30' : 'bg-violet-100 text-violet-700 border border-violet-400'
+  const divider  = isDark ? 'border-white/10' : 'border-slate-200'
+  const dividerSm = isDark ? 'border-white/5' : 'border-slate-100'
+  const rowMeta  = isDark ? 'text-slate-200' : 'text-slate-800'
+  const muted    = isDark ? 'text-slate-500' : 'text-slate-400'
+  const empty    = isDark ? 'text-slate-600' : 'text-slate-400'
+  const stepCard = isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-slate-50'
+  const stepText = isDark ? 'text-slate-200' : 'text-slate-800'
+  const stepMeta = isDark ? 'text-slate-500' : 'text-slate-500'
+  const stepChev = isDark ? 'text-slate-600' : 'text-slate-400'
+  const legend   = isDark ? 'text-slate-500' : 'text-slate-500'
+  const escalHead= isDark ? 'text-slate-400' : 'text-slate-500'
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm min-w-[700px]">
         <thead>
-          <tr className="border-b border-white/10">
-            <th className="text-left text-xs text-slate-500 pb-3 pr-4 font-normal">Role</th>
-            <th className="text-center text-xs text-slate-500 pb-3 px-3 font-normal">
+          <tr className={`border-b ${divider}`}>
+            <th className={`text-left text-xs ${muted} pb-3 pr-4 font-normal`}>Role</th>
+            <th className={`text-center text-xs ${muted} pb-3 px-3 font-normal`}>
               <div className="flex flex-col items-center gap-1"><Monitor size={14}/> On-Screen</div>
             </th>
-            <th className="text-center text-xs text-slate-500 pb-3 px-3 font-normal">
+            <th className={`text-center text-xs ${muted} pb-3 px-3 font-normal`}>
               <div className="flex flex-col items-center gap-1"><MessageSquare size={14}/> WhatsApp</div>
             </th>
-            <th className="text-center text-xs text-slate-500 pb-3 px-3 font-normal">
+            <th className={`text-center text-xs ${muted} pb-3 px-3 font-normal`}>
               <div className="flex flex-col items-center gap-1"><Mail size={14}/> Email</div>
             </th>
-            <th className="text-center text-xs text-slate-500 pb-3 px-3 font-normal">
+            <th className={`text-center text-xs ${muted} pb-3 px-3 font-normal`}>
               <div className="flex flex-col items-center gap-1"><Bell size={14}/> Digest</div>
             </th>
           </tr>
@@ -76,9 +90,9 @@ function MatrixTab() {
           {ROLES_ORDER.map(r => {
             const m = MATRIX[r]
             return (
-              <tr key={r} className="border-b border-white/5">
+              <tr key={r} className={`border-b ${dividerSm}`}>
                 <td className="py-3 pr-4">
-                  <div className="text-sm font-medium text-slate-200">{ROLE_LABEL[r]}</div>
+                  <div className={`text-sm font-medium ${rowMeta}`}>{ROLE_LABEL[r]}</div>
                 </td>
                 {['onscreen','whatsapp','email'].map(ch => (
                   <td key={ch} className="py-3 px-3 text-center">
@@ -86,16 +100,16 @@ function MatrixTab() {
                       {['CRITICAL','HIGH','MEDIUM','LOW'].filter(s => m[ch].has(s)).map(s => (
                         <span key={s} className={`text-xs px-1.5 py-0.5 rounded font-medium ${SEV_PILL[s]}`}>{s[0]}</span>
                       ))}
-                      {m[ch].size === 0 && <span className="text-slate-600 text-xs">—</span>}
+                      {m[ch].size === 0 && <span className={`${empty} text-xs`}>—</span>}
                     </div>
                   </td>
                 ))}
                 <td className="py-3 px-3 text-center">
                   <div className="flex flex-wrap justify-center gap-1">
                     {[...m.digest].map(d => (
-                      <span key={d} className="text-xs px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30">{d[0]}</span>
+                      <span key={d} className={`text-xs px-1.5 py-0.5 rounded ${violet}`}>{d[0]}</span>
                     ))}
-                    {m.digest.size === 0 && <span className="text-slate-600 text-xs">—</span>}
+                    {m.digest.size === 0 && <span className={`${empty} text-xs`}>—</span>}
                   </div>
                 </td>
               </tr>
@@ -104,18 +118,18 @@ function MatrixTab() {
         </tbody>
       </table>
 
-      <div className="mt-4 flex flex-wrap gap-4 text-xs text-slate-500">
+      <div className={`mt-4 flex flex-wrap gap-4 text-xs ${legend}`}>
         <span className="flex items-center gap-1"><span className={`px-1.5 py-0.5 rounded ${SEV_PILL.CRITICAL}`}>C</span> CRITICAL</span>
         <span className="flex items-center gap-1"><span className={`px-1.5 py-0.5 rounded ${SEV_PILL.HIGH}`}>H</span> HIGH</span>
         <span className="flex items-center gap-1"><span className={`px-1.5 py-0.5 rounded ${SEV_PILL.MEDIUM}`}>M</span> MEDIUM</span>
         <span className="flex items-center gap-1"><span className={`px-1.5 py-0.5 rounded ${SEV_PILL.LOW}`}>L</span> LOW</span>
-        <span className="flex items-center gap-1"><span className="px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30">W</span> Weekly Digest</span>
-        <span className="flex items-center gap-1"><span className="px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30">M</span> Monthly Report</span>
+        <span className="flex items-center gap-1"><span className={`px-1.5 py-0.5 rounded ${violet}`}>W</span> Weekly Digest</span>
+        <span className="flex items-center gap-1"><span className={`px-1.5 py-0.5 rounded ${violet}`}>M</span> Monthly Report</span>
         <span className="flex items-center gap-1"><Lock size={10}/> Mandatory (cannot be opted out)</span>
       </div>
 
       <div className="mt-6">
-        <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">CRITICAL Rule Escalation Chain (example: Cash Not Dispensed)</div>
+        <div className={`text-xs font-semibold ${escalHead} uppercase tracking-widest mb-3`}>CRITICAL Rule Escalation Chain (example: Cash Not Dispensed)</div>
         <div className="flex items-center gap-2 flex-wrap">
           {[
             { role:'Branch Manager', channels:['OnScreen','WhatsApp','Email'], t:'0m' },
@@ -124,12 +138,12 @@ function MatrixTab() {
             { role:'National Head',  channels:['WhatsApp','Email'],            t:'↑ if unACKed 10m', escalation:true },
           ].map((step, i) => (
             <div key={i} className="flex items-center gap-2">
-              {i > 0 && <ChevronRight size={14} className="text-slate-600"/>}
-              <div className={`px-3 py-2 rounded-xl border text-xs ${step.escalation ? 'border-amber-500/40 bg-amber-500/10' : 'border-white/10 bg-white/5'}`}>
-                <div className="font-medium text-slate-200">{step.role}</div>
-                <div className="text-slate-500">{step.channels.join(' · ')}</div>
-                {step.escalation && <div className="text-amber-400 text-xs mt-0.5">{step.t}</div>}
-                {!step.escalation && <div className="text-slate-600">{step.t}</div>}
+              {i > 0 && <ChevronRight size={14} className={stepChev}/>}
+              <div className={`px-3 py-2 rounded-xl border text-xs ${step.escalation ? 'border-amber-500/40 bg-amber-500/10' : stepCard}`}>
+                <div className={`font-medium ${stepText}`}>{step.role}</div>
+                <div className={stepMeta}>{step.channels.join(' · ')}</div>
+                {step.escalation && <div className="text-amber-500 text-xs mt-0.5">{step.t}</div>}
+                {!step.escalation && <div className={empty}>{step.t}</div>}
               </div>
             </div>
           ))}
@@ -139,7 +153,14 @@ function MatrixTab() {
   )
 }
 
-function ChannelHealthTab() {
+function ChannelHealthTab({ isDark }) {
+  const card    = isDark ? 'bg-white/5 border border-white/5' : 'bg-white border border-slate-200'
+  const heading = isDark ? 'text-white' : 'text-slate-900'
+  const lbl     = isDark ? 'text-slate-400' : 'text-slate-500'
+  const val     = isDark ? 'text-white' : 'text-slate-900'
+  const note    = isDark ? 'text-slate-500' : 'text-slate-500'
+  const footer  = isDark ? 'bg-slate-800/30 border-white/5' : 'bg-slate-50 border-slate-200'
+  const fIcon   = isDark ? 'text-slate-600' : 'text-slate-400'
   const channels = [
     {
       name: 'On-Screen (Live)',
@@ -191,39 +212,44 @@ function ChannelHealthTab() {
         {channels.map(ch => {
           const Icon = ch.icon
           return (
-            <div key={ch.name} className="bg-white/5 rounded-xl border border-white/5 p-5">
+            <div key={ch.name} className={`rounded-xl p-5 ${card}`}>
               <div className="flex items-center justify-between mb-3">
                 <Icon size={20} className={ch.color}/>
                 <span className={`text-xs px-2 py-0.5 rounded font-medium ${ch.statusCls}`}>● {ch.status}</span>
               </div>
-              <div className="text-sm font-semibold text-white mb-3">{ch.name}</div>
+              <div className={`text-sm font-semibold ${heading} mb-3`}>{ch.name}</div>
               <div className="space-y-2 mb-3">
                 {ch.metrics.map(m => (
                   <div key={m.label} className="flex justify-between text-xs">
-                    <span className="text-slate-400">{m.label}</span>
-                    <span className="text-white font-medium">{m.val}</span>
+                    <span className={lbl}>{m.label}</span>
+                    <span className={`${val} font-medium`}>{m.val}</span>
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-slate-500">{ch.note}</p>
+              <p className={`text-xs ${note}`}>{ch.note}</p>
             </div>
           )
         })}
       </div>
-      <div className="bg-slate-800/30 border border-white/5 rounded-xl px-5 py-3 text-xs text-slate-500 flex items-center gap-2">
-        <AlertCircle size={13} className="text-slate-600"/>
+      <div className={`${footer} rounded-xl px-5 py-3 text-xs ${note} flex items-center gap-2`}>
+        <AlertCircle size={13} className={fIcon}/>
         SMS is not in the ASTRA notification stack — WhatsApp Business API replaces SMS for all time-sensitive alerts. Banks with legacy SMS integrations can add a custom channel plugin via the notification-service dispatcher.
       </div>
     </div>
   )
 }
 
-function DeliveryLogTab() {
+function DeliveryLogTab({ isDark }) {
+  const muted   = isDark ? 'text-slate-500' : 'text-slate-400'
+  const divider = isDark ? 'border-white/5' : 'border-slate-100'
+  const body    = isDark ? 'text-slate-200' : 'text-slate-800'
+  const mono    = isDark ? 'text-slate-400' : 'text-slate-500'
+  const faint   = isDark ? 'text-slate-600' : 'text-slate-400'
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-left text-xs text-slate-500 border-b border-white/5">
+          <tr className={`text-left text-xs ${muted} border-b ${divider}`}>
             <th className="pb-2 pr-4">Time</th>
             <th className="pb-2 pr-4">Rule</th>
             <th className="pb-2 pr-4">ATM</th>
@@ -234,30 +260,30 @@ function DeliveryLogTab() {
         </thead>
         <tbody>
           {DELIVERY_LOG.map((entry, i) => (
-            <tr key={i} className="border-b border-white/5">
-              <td className="py-2 pr-4 font-mono text-xs text-slate-400">{entry.time}</td>
-              <td className="py-2 pr-4 text-xs text-slate-200">{entry.rule}</td>
-              <td className="py-2 pr-4 font-mono text-xs text-cyan-400">{entry.atm}</td>
-              <td className="py-2 pr-4 text-xs text-slate-300">
+            <tr key={i} className={`border-b ${divider}`}>
+              <td className={`py-2 pr-4 font-mono text-xs ${mono}`}>{entry.time}</td>
+              <td className={`py-2 pr-4 text-xs ${body}`}>{entry.rule}</td>
+              <td className="py-2 pr-4 font-mono text-xs text-cyan-500">{entry.atm}</td>
+              <td className={`py-2 pr-4 text-xs ${body}`}>
                 <span className="flex items-center gap-1">
-                  {entry.channel === 'WhatsApp' && <MessageSquare size={11} className="text-emerald-400"/>}
-                  {entry.channel === 'Email' && <Mail size={11} className="text-violet-400"/>}
-                  {entry.channel === 'OnScreen' && <Monitor size={11} className="text-cyan-400"/>}
+                  {entry.channel === 'WhatsApp' && <MessageSquare size={11} className="text-emerald-500"/>}
+                  {entry.channel === 'Email' && <Mail size={11} className="text-violet-500"/>}
+                  {entry.channel === 'OnScreen' && <Monitor size={11} className="text-cyan-500"/>}
                   {entry.channel}
                 </span>
               </td>
-              <td className="py-2 pr-4 text-xs text-slate-400 capitalize">{(entry.role||'').replace('_',' ')}</td>
+              <td className={`py-2 pr-4 text-xs ${mono} capitalize`}>{(entry.role||'').replace('_',' ')}</td>
               <td className="py-2 text-xs">
                 {entry.status === 'Delivered'
-                  ? <span className="flex items-center gap-1 text-emerald-400"><CheckCircle2 size={11}/> Delivered {entry.note && <span className="text-slate-500">({entry.note})</span>}</span>
-                  : <span className="flex items-center gap-1 text-red-400"><AlertCircle size={11}/> Failed {entry.retry && <span className="text-amber-400">→ retry</span>}</span>
+                  ? <span className="flex items-center gap-1 text-emerald-500"><CheckCircle2 size={11}/> Delivered {entry.note && <span className={faint}>({entry.note})</span>}</span>
+                  : <span className="flex items-center gap-1 text-red-500"><AlertCircle size={11}/> Failed {entry.retry && <span className="text-amber-500">→ retry</span>}</span>
                 }
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      <div className="mt-3 text-xs text-slate-600">Showing last 10 delivery events · No PII in delivery log · Recipient identified by role only</div>
+      <div className={`mt-3 text-xs ${faint}`}>Showing last 10 delivery events · No PII in delivery log · Recipient identified by role only</div>
     </div>
   )
 }
@@ -307,9 +333,9 @@ export default function NotificationCenter() {
         </div>
 
         <div className={`rounded-xl border p-6 ${th.card}`}>
-          {tab === 'matrix' && <MatrixTab/>}
-          {tab === 'health' && <ChannelHealthTab/>}
-          {tab === 'log'    && <DeliveryLogTab/>}
+          {tab === 'matrix' && <MatrixTab isDark={isDark}/>}
+          {tab === 'health' && <ChannelHealthTab isDark={isDark}/>}
+          {tab === 'log'    && <DeliveryLogTab isDark={isDark}/>}
         </div>
       </div>
     </div></EJShell>
