@@ -23,8 +23,8 @@ export default function CTSVaultStatus() {
   const { isDark } = useTheme()
 
   const th = {
-    page:      isDark ? 'bg-navy-950' : 'bg-slate-50',
-    card:      isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
+    page:      isDark ? 'bg-transparent' : 'bg-slate-50',
+    card:      isDark ? 'bg-white/4 border-white/8' : 'bg-white border-slate-200',
     cardFaint: isDark ? 'bg-navy-900/40 border-white/5' : 'bg-slate-50 border-slate-100',
     heading:   isDark ? 'text-white' : 'text-slate-900',
     body:      isDark ? 'text-slate-300' : 'text-slate-700',

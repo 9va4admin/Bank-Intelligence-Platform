@@ -78,21 +78,33 @@ export default function AppShell({ children }) {
   const [section, page] = useBreadcrumb(location.pathname)
 
   // ── Theme tokens ────────────────────────────────────────
-  const shell    = isDark ? 'bg-navy-950 text-white'        : 'bg-slate-50 text-slate-900'
-  const topbar   = isDark ? 'bg-navy-900/80 border-white/8' : 'bg-white border-slate-200'
-  const subtext  = isDark ? 'text-slate-500'                : 'text-slate-400'
-  const userBg   = isDark ? 'bg-gold-400/20 text-gold-400'  : 'bg-amber-100 text-amber-700'
-  const userName = isDark ? 'text-slate-300'                : 'text-slate-700'
-  const main     = isDark ? 'bg-navy-950'                   : 'bg-slate-50'
+  // ── Gradient dark shell ─────────────────────────────────
+  // Rich indigo-navy diagonal — breaks the flat pitch-black feel
+  const darkGradient = 'linear-gradient(145deg, #020917 0%, #0e1654 38%, #060d2e 65%, #03061a 100%)'
 
-  // Pill nav container
+  const shell    = isDark ? 'text-white'                     : 'bg-slate-50 text-slate-900'
+  const shellStyle = isDark ? { background: darkGradient }  : undefined
+
+  // Topbar: glass over gradient
+  const topbar   = isDark
+    ? 'bg-white/4 backdrop-blur-md border-white/8'
+    : 'bg-white border-slate-200'
+
+  const subtext  = isDark ? 'text-slate-400'                : 'text-slate-400'
+  const userBg   = isDark ? 'bg-gold-400/20 text-gold-400'  : 'bg-amber-100 text-amber-700'
+  const userName = isDark ? 'text-slate-200'                : 'text-slate-700'
+
+  // Content area: subtle darker overlay so cards pop
+  const main     = isDark ? 'bg-black/15'                   : 'bg-slate-50'
+
+  // Pill nav — glass effect over gradient
   const navPill  = isDark
-    ? 'bg-navy-800/60 border border-white/8 rounded-full px-1.5 py-1'
+    ? 'bg-white/6 border border-white/10 rounded-full px-1.5 py-1 backdrop-blur-sm'
     : 'bg-slate-100 border border-slate-200 rounded-full px-1.5 py-1'
 
-  // Active capsule (dark regardless of theme — like reference image)
+  // Active capsule
   const activeCapsule = isDark
-    ? 'bg-slate-700 text-white shadow-sm'
+    ? 'bg-white/15 text-white shadow-sm ring-1 ring-white/10'
     : 'bg-slate-800 text-white shadow-sm'
 
   const idleItem = isDark
@@ -101,30 +113,30 @@ export default function AppShell({ children }) {
 
   const divider = isDark ? 'bg-white/10' : 'bg-slate-300/80'
 
-  // Dropdown panel
+  // Dropdown panel — glass card
   const dropdownBg = isDark
-    ? 'bg-navy-900 border-white/10 shadow-2xl shadow-black/60'
+    ? 'bg-[#0e1654]/90 backdrop-blur-xl border-white/10 shadow-2xl shadow-black/60'
     : 'bg-white border-slate-200 shadow-2xl shadow-slate-400/30'
 
   const groupHasActive = (items) =>
     items.some(({ to }) => location.pathname.startsWith(to))
 
   // Breadcrumb strip colours
-  const breadcrumbBg   = isDark ? 'bg-navy-900/60 border-white/6' : 'bg-white/80 border-slate-100'
-  const breadcrumbMuted = isDark ? 'text-slate-500' : 'text-slate-400'
-  const breadcrumbPage  = isDark ? 'text-slate-200' : 'text-slate-700'
+  const breadcrumbBg    = isDark ? 'bg-white/3 border-white/6 backdrop-blur-sm' : 'bg-white/80 border-slate-100'
+  const breadcrumbMuted = isDark ? 'text-slate-400' : 'text-slate-400'
+  const breadcrumbPage  = isDark ? 'text-slate-100' : 'text-slate-700'
 
   // Profile dropdown
   const profileBg = isDark
-    ? 'bg-navy-900 border-white/10 shadow-2xl shadow-black/60'
+    ? 'bg-[#0e1654]/95 backdrop-blur-xl border-white/10 shadow-2xl shadow-black/60'
     : 'bg-white border-slate-200 shadow-2xl shadow-slate-400/30'
   const profileItem = isDark
     ? 'text-slate-300 hover:text-white hover:bg-white/8 rounded-lg'
     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg'
-  const profileSection = isDark ? 'text-slate-600' : 'text-slate-400'
+  const profileSection = isDark ? 'text-slate-500' : 'text-slate-400'
 
   return (
-    <div className={`flex flex-col h-screen overflow-hidden ${shell}`}>
+    <div className={`flex flex-col h-screen overflow-hidden ${shell}`} style={shellStyle}>
 
       {/* ── Topbar ──────────────────────────────────────── */}
       <header

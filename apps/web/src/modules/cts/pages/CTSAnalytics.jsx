@@ -38,8 +38,8 @@ export default function CTSAnalytics() {
   const stpRate = ((today.stp_confirm / today.total) * 100).toFixed(1)
 
   const th = {
-    page:     isDark ? 'bg-navy-950' : 'bg-slate-50',
-    card:     isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
+    page:     isDark ? 'bg-transparent' : 'bg-slate-50',
+    card:     isDark ? 'bg-white/4 border-white/8' : 'bg-white border-slate-200',
     heading:  isDark ? 'text-white' : 'text-slate-900',
     faint:    isDark ? 'text-slate-600' : 'text-slate-400',
     muted:    isDark ? 'text-slate-400' : 'text-slate-500',
