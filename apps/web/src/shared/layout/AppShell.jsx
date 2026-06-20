@@ -83,7 +83,7 @@ export default function AppShell({ children }) {
   }, [])
 
   const scheduleClose = useCallback(() => {
-    closeTimer.current = setTimeout(() => setOpenGroup(null), 180)
+    closeTimer.current = setTimeout(() => setOpenGroup(null), 300)
   }, [])
   const [profileOpen, setProfileOpen] = useState(false)
   const [section, page] = useBreadcrumb(location.pathname)
@@ -215,8 +215,8 @@ export default function AppShell({ children }) {
                     </button>
 
                     {openGroup === group.label && (
-                      /* -mt-1 + pt-3 bridges the gap so cursor moving down doesn't close it */
-                      <div className={`absolute top-full left-1/2 -translate-x-1/2 -mt-1 pt-2 min-w-[190px] z-50`}>
+                      {/* -mt-2 + pt-4 creates invisible overlap so gap never triggers onMouseLeave */}
+                      <div className={`absolute top-full left-1/2 -translate-x-1/2 -mt-2 pt-4 min-w-[190px] z-50`}>
                         <div
                           className={`rounded-xl border py-2 ${dropdownBg}`}
                           onMouseEnter={() => openMenu(group.label)}
