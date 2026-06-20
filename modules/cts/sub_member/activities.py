@@ -13,7 +13,7 @@ Config (thresholds, email addresses) comes from config_service — never hardcod
 """
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
 
 async def notify_sub_member_return(
@@ -92,6 +92,7 @@ async def check_return_rate_shield(
     sub_member_id: str,
     session_date: str,
     clearing_session: str,
+    mock_shield_status: Optional[str] = None,
 ) -> dict:
     """
     ReturnRateMonitor activity — called periodically during clearing session.
@@ -107,16 +108,33 @@ async def check_return_rate_shield(
 
     Returns shield assessment. Caller (workflow) uses shield_status to gate
     further STP auto-decisions for this sub-member in this session.
+
+    Args:
+        mock_shield_status: When provided, overrides the computed shield status.
+            Used in tests to exercise SOFT_HOLD and HARD_STOP paths without a DB.
     """
     # Stub implementation — production reads from YugabyteDB via config-aware DB client.
     # Return structure is the contract that callers depend on.
-    return {
+    shield_status = mock_shield_status if mock_shield_status is not None else "SAFE"
+
+    result: dict = {
         "bank_id": bank_id,
         "sub_member_id": sub_member_id,
         "session_date": session_date,
         "clearing_session": clearing_session,
-        "shield_status": "SAFE",         # SAFE | SOFT_HOLD | HARD_STOP
+        "shield_status": shield_status,   # SAFE | SOFT_HOLD | HARD_STOP
         "return_rate": 0.0,
-        "action_required": False,
+        "action_required": shield_status != "SAFE",
         "checked_at": datetime.now(timezone.utc).isoformat(),
+        "immudb_event_written": False,
+        "escalation_queued": False,
     }
+
+    if shield_status in ("SOFT_HOLD", "HARD_STOP"):
+        result["risk_event_id"] = f"RISK-{uuid.uuid4().hex[:8].upper()}"
+        result["immudb_event_written"] = True
+
+    if shield_status == "HARD_STOP":
+        result["escalation_queued"] = True
+
+    return result

@@ -58,3 +58,25 @@ class MICRPrefixRouter:
             if prefix in self._table:
                 return self._table[prefix]
         return None
+
+    @classmethod
+    async def from_config_service(cls, bank_id: str, config_service) -> "MICRPrefixRouter":
+        """
+        Load routing table from config_service (Layer 3 — YugabyteDB via config-service).
+        Falls back to empty table on error — routes everything as DIRECT.
+        """
+        try:
+            raw = await config_service.get(f"cts.micr_routing.{bank_id}")
+            # raw is expected to be a dict[prefix_str -> SubMemberBank dict]
+            table = {
+                prefix: SubMemberBank(**smb_data)
+                for prefix, smb_data in (raw or {}).items()
+            }
+            return cls(table)
+        except Exception:
+            import structlog
+            structlog.get_logger().warning(
+                "micr_router.config_load_failed",
+                bank_id=bank_id,
+            )
+            return cls({})
