@@ -156,6 +156,17 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      {/* Sub-member context banner */}
+      {item.principal_tag === 'SUB_MEMBER' && (
+        <div className={`px-6 py-2 flex items-center gap-2 border-b text-[11px] font-medium ${isDark ? 'bg-amber-400/5 border-amber-400/20 text-amber-300' : 'bg-amber-50 border-amber-300 text-amber-700'}`}>
+          <span className="font-semibold">SUB-MEMBER CHEQUE</span>
+          <span className="opacity-60">·</span>
+          <span>{item.sub_member_name}</span>
+          <span className="opacity-60">·</span>
+          <span className="font-mono opacity-70">{item.sub_member_id}</span>
+          <span className="ml-auto opacity-60">Sponsor bank notified on return</span>
+        </div>
+      )}
       {/* Header — single compact row */}
       <div className={`px-6 pt-2 pb-0 border-b ${th.border} shrink-0`}>
         {/* Single row: cheque no (hover → image) · zone · account · payee · badges · IET */}

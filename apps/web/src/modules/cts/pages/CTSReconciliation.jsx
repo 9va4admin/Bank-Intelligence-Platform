@@ -2,6 +2,77 @@ import { useState } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 
+// ── Sub-member ledger mock data ───────────────────────────────────────────────
+const SMB_LEDGERS = [
+  {
+    sub_member_id: 'SMB-MH-001',
+    bank_name: 'Vasavi Co-op Bank',
+    sponsor_bank_id: 'SVCB-DIRECT-001',
+    total_received: 42,
+    stp_pass: 28,
+    stp_return: 12,
+    eyeball: 2,
+    fraud_hold: 0,
+    iet_emergency: 0,
+    return_rate_pct: 28.6,
+    return_rate_threshold_pct: 15.0,
+    soft_hold_threshold_pct: 25.0,
+    shield_status: 'SOFT_HOLD',
+    tier1_sent: 12,
+    tier2_sent: false,
+    soft_hold_active: true,
+  },
+  {
+    sub_member_id: 'SMB-MH-002',
+    bank_name: 'Andheri Urban Co-op Bank',
+    sponsor_bank_id: 'SVCB-DIRECT-001',
+    total_received: 31,
+    stp_pass: 27,
+    stp_return: 4,
+    eyeball: 0,
+    fraud_hold: 0,
+    iet_emergency: 0,
+    return_rate_pct: 12.9,
+    return_rate_threshold_pct: 15.0,
+    soft_hold_threshold_pct: 25.0,
+    shield_status: 'SAFE',
+    tier1_sent: 4,
+    tier2_sent: false,
+    soft_hold_active: false,
+  },
+]
+
+const SHIELD_D = {
+  SAFE:      'text-emerald-300 bg-emerald-900/30 border-emerald-700/40',
+  SOFT_HOLD: 'text-amber-300 bg-amber-900/30 border-amber-700/40',
+  HARD_STOP: 'text-red-300 bg-red-900/30 border-red-700/40',
+}
+const SHIELD_L = {
+  SAFE:      'text-emerald-700 bg-emerald-50 border-emerald-300',
+  SOFT_HOLD: 'text-amber-700 bg-amber-50 border-amber-300',
+  HARD_STOP: 'text-red-700 bg-red-50 border-red-300',
+}
+
+function buildSmbCsv(ledger) {
+  return [
+    '# ASTRA CTS — Sub-Member Batch Return Summary',
+    `# Bank: ${ledger.bank_name}`,
+    `# Sub-Member ID: ${ledger.sub_member_id}`,
+    `# Note: Amounts shown as range buckets only per RBI data handling guidelines`,
+    '#',
+    'Bucket,Count',
+    `STP_PASS,${ledger.stp_pass}`,
+    `STP_RETURN,${ledger.stp_return}`,
+    `EYEBALL,${ledger.eyeball}`,
+    `FRAUD_HOLD,${ledger.fraud_hold}`,
+    `IET_EMERGENCY,${ledger.iet_emergency}`,
+    '#',
+    `# Total Received: ${ledger.total_received}`,
+    `# Return Rate: ${ledger.return_rate_pct.toFixed(2)}%`,
+    `# Shield Status: ${ledger.shield_status}`,
+  ].join('\n')
+}
+
 // ── Mock data ────────────────────────────────────────────────────────────────
 const SESSIONS = [
   { id: 'SES-0619-001', date: '2026-06-19', label: 'Jun 19 — Session 1' },
@@ -275,6 +346,95 @@ export default function CTSReconciliation() {
             <div><strong className={th.muted}>Amt Mismatch</strong> — Both records present but amount ranges differ</div>
             <div><strong className={th.muted}>NGCH Only</strong> — Filed to NGCH, no corresponding CBS posting found</div>
             <div><strong className={th.muted}>CBS Only</strong> — CBS posting found, no corresponding NGCH record</div>
+          </div>
+        </div>
+
+        {/* Sub-Member Ledger Section */}
+        <div className="mt-6">
+          <div className={`flex items-center justify-between mb-3`}>
+            <div>
+              <h2 className={`text-sm font-semibold ${th.heading}`}>Sub-Member Ledger</h2>
+              <p className={`text-[11px] ${th.muted} mt-0.5`}>Per-session clearing breakdown for sub-member banks routed through this sponsor</p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {SMB_LEDGERS.map(smb => {
+              const SHIELD = isDark ? SHIELD_D : SHIELD_L
+              const shieldCls = SHIELD[smb.shield_status] || SHIELD.SAFE
+              const returnBarPct = Math.min(100, (smb.return_rate_pct / smb.return_rate_threshold_pct) * 100)
+              const barColor = smb.shield_status === 'HARD_STOP' ? 'bg-red-400' : smb.shield_status === 'SOFT_HOLD' ? 'bg-amber-400' : 'bg-emerald-400'
+
+              return (
+                <div key={smb.sub_member_id} className={`border rounded-xl p-4 ${th.card} ${smb.soft_hold_active ? (isDark ? 'border-amber-400/30' : 'border-amber-300') : ''}`}>
+                  {/* Row 1: Name + shield + CSV */}
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div>
+                      <div className={`text-sm font-semibold ${th.heading}`}>{smb.bank_name}</div>
+                      <div className={`text-[10px] font-mono ${th.faint} mt-0.5`}>{smb.sub_member_id} · {smb.sponsor_bank_id}</div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${shieldCls}`}>
+                        {smb.shield_status === 'SAFE' ? '✓ SAFE' : smb.shield_status === 'SOFT_HOLD' ? '⚠ SOFT HOLD' : '✕ HARD STOP'}
+                      </span>
+                      <button
+                        onClick={() => downloadCsv(buildSmbCsv(smb), `SMB_${smb.sub_member_id}_${session.date.replace(/-/g,'')}.csv`)}
+                        className={`text-[10px] px-2.5 py-1 rounded-lg border flex items-center gap-1 transition-colors ${isDark ? 'border-white/10 text-slate-400 hover:text-white hover:border-white/20' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        CSV
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Row 2: Bucket grid */}
+                  <div className="grid grid-cols-6 gap-2 mb-3">
+                    {[
+                      { label: 'Total',    value: smb.total_received, color: th.heading },
+                      { label: 'STP Pass', value: smb.stp_pass,       color: 'text-emerald-500' },
+                      { label: 'Return',   value: smb.stp_return,     color: 'text-red-400' },
+                      { label: 'Eyeball',  value: smb.eyeball,        color: 'text-amber-400' },
+                      { label: 'Fraud Hld',value: smb.fraud_hold,     color: 'text-orange-400' },
+                      { label: 'IET Emrg', value: smb.iet_emergency,  color: smb.iet_emergency > 0 ? 'text-red-400' : th.faint },
+                    ].map(b => (
+                      <div key={b.label} className={`rounded-lg px-3 py-2 ${isDark ? 'bg-white/3' : 'bg-slate-50'}`}>
+                        <div className={`text-[9px] ${th.faint} mb-1`}>{b.label}</div>
+                        <div className={`text-lg font-bold ${b.color}`}>{b.value}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Row 3: Return rate bar + notification status */}
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-[10px] ${th.faint}`}>Return rate</span>
+                        <span className={`text-[10px] font-semibold ${smb.shield_status !== 'SAFE' ? (isDark ? 'text-amber-300' : 'text-amber-700') : (isDark ? 'text-emerald-400' : 'text-emerald-700')}`}>
+                          {smb.return_rate_pct.toFixed(1)}% / {smb.return_rate_threshold_pct.toFixed(1)}% threshold
+                        </span>
+                      </div>
+                      <div className={`h-1.5 rounded-full ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                        <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${Math.min(returnBarPct, 100)}%` }} />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className={`text-[10px] ${th.faint}`}>
+                        Tier 1 notif:
+                        <span className={`ml-1 font-semibold ${isDark ? 'text-sky-400' : 'text-sky-600'}`}>{smb.tier1_sent} sent</span>
+                      </div>
+                      <div className={`text-[10px] ${th.faint}`}>
+                        Tier 2 batch:
+                        <span className={`ml-1 font-semibold ${smb.tier2_sent ? (isDark ? 'text-emerald-400' : 'text-emerald-700') : (isDark ? 'text-slate-500' : 'text-slate-400')}`}>
+                          {smb.tier2_sent ? 'sent' : 'pending (session active)'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
 

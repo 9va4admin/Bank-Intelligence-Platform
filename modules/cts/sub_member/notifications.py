@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
@@ -5,9 +6,27 @@ from .models import SubMemberBank, SubMemberBatchLedger, SubMemberReturn
 
 
 class NotificationTier(Enum):
-    TIER1_IMMEDIATE = "TIER1_IMMEDIATE"       # Per-cheque rejection → branch manager
+    TIER1_IMMEDIATE = "TIER1_IMMEDIATE"           # Per-cheque rejection → branch manager
     TIER2_BATCH_SUMMARY = "TIER2_BATCH_SUMMARY"  # End-of-session summary → BM + ops head
     TIER3_GM_ESCALATION = "TIER3_GM_ESCALATION"  # Return rate breach → GM
+
+
+class NotificationTemplate(Enum):
+    RETURN_IMMEDIATE = "RETURN_IMMEDIATE"    # Single cheque return event
+    BATCH_SUMMARY = "BATCH_SUMMARY"          # End-of-session digest with CSV
+    THRESHOLD_ALERT = "THRESHOLD_ALERT"      # Return rate breach alert to GM
+
+
+@dataclass(frozen=True)
+class SubMemberNotificationConfig:
+    sub_member_id: str
+    tier1_enabled: bool = True
+    tier2_enabled: bool = True
+    tier3_enabled: bool = True
+    tier1_channels: tuple = ("EMAIL",)    # future: ("EMAIL", "SMS")
+    tier2_channels: tuple = ("EMAIL",)
+    tier3_channels: tuple = ("EMAIL",)
+    batch_summary_format: str = "CSV"     # CSV only — PDF deferred to Phase D
 
 
 class BatchRejectionEmailer:

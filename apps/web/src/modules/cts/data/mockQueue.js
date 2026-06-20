@@ -37,6 +37,9 @@ export const MOCK_QUEUE = [
     },
     sig_specimen_available: true,
     sig_specimen_label: 'Last updated: 14-Feb-2026',
+    principal_tag: 'SUB_MEMBER',
+    sub_member_name: 'Vasavi Co-op Bank',
+    sub_member_id: 'SMB-MH-001',
   },
   {
     instrument_id: 'CHQ-2026-001851',
@@ -145,6 +148,9 @@ export const MOCK_QUEUE = [
     },
     sig_specimen_available: false,
     sig_specimen_label: 'No specimen — account opened 22-Jan-2026',
+    principal_tag: 'SUB_MEMBER',
+    sub_member_name: 'Andheri Urban Co-op Bank',
+    sub_member_id: 'SMB-MH-002',
   },
   {
     instrument_id: 'CHQ-2026-001882',
