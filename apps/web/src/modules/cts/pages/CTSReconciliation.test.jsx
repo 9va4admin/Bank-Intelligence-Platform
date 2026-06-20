@@ -1,20 +1,41 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { ThemeProvider } from '../../../shared/theme/ThemeContext'
+
+vi.mock('../../../shared/layout/AppShell', () => ({
+  default: ({ children }) => <div data-testid="appshell">{children}</div>,
+}))
+
+let captured = {}
+vi.mock('../../../shared/layout/PageHeaderContext', () => ({
+  usePageHeader: (opts = {}) => { captured = opts },
+  PageHeaderCtx: {},
+  PageHeaderProvider: ({ children }) => <>{children}</>,
+}))
+
 import CTSReconciliation from './CTSReconciliation'
 
 const renderPage = () => render(
-  <MemoryRouter>
-    <ThemeProvider>
-      <CTSReconciliation />
-    </ThemeProvider>
-  </MemoryRouter>
+  <MemoryRouter><ThemeProvider><CTSReconciliation /></ThemeProvider></MemoryRouter>
 )
 
 describe('CTSReconciliation', () => {
-  it('renders page heading', () => {
+  it('renders without crashing', () => {
     renderPage()
-    expect(screen.getAllByText('Reconciliation').length).toBeGreaterThan(0)
+    expect(screen.getByTestId('appshell')).toBeInTheDocument()
+  })
+
+  it('passes subtitle to page header', () => {
+    renderPage()
+    expect(typeof captured.subtitle).toBe('string')
+  })
+
+  it('passes Download CSV button to page header actions', () => {
+    renderPage()
+    render(<div>{captured.actions}</div>, { wrapper: ({ children }) => <MemoryRouter><ThemeProvider>{children}</ThemeProvider></MemoryRouter> })
+    expect(screen.getByText(/Download CSV/)).toBeInTheDocument()
   })
 
   it('renders KPI strip with Total Items', () => {
@@ -27,11 +48,6 @@ describe('CTSReconciliation', () => {
     expect(screen.getByText('Jun 19 — Session 1')).toBeInTheDocument()
   })
 
-  it('renders Download CSV button', () => {
-    renderPage()
-    expect(screen.getByText(/Download CSV/)).toBeInTheDocument()
-  })
-
   it('renders MATCHED status badge in table', () => {
     renderPage()
     expect(screen.getAllByText(/Matched/).length).toBeGreaterThan(0)
@@ -39,7 +55,6 @@ describe('CTSReconciliation', () => {
 
   it('filter by PENDING shows fewer rows than all', () => {
     renderPage()
-    // Before filter: many instrument IDs shown
     const before = screen.queryAllByText(/CHQ-IN-/).length
     const pendingBtn = screen.getByRole('button', { name: 'Pending' })
     fireEvent.click(pendingBtn)
