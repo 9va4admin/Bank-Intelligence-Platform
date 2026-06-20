@@ -1,7 +1,7 @@
 import { useState, useContext } from 'react'
 import { NavLink, Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../theme/ThemeContext'
-import { PageHeaderProvider, PageHeaderCtx } from './PageHeaderContext'
+import { PageHeaderCtx } from './PageHeaderContext'
 
 const FLAT_NAV = [
   { to: '/cts',         label: 'Inward',  end: true },
@@ -152,50 +152,54 @@ export default function AppShell({ children }) {
               </div>
             ))}
 
-            {/* Group dropdowns — pure CSS hover via group/peer, no JS timers */}
+            {/* Group dropdowns */}
             {NAV_GROUPS.map((group, gIdx) => {
               const isGroupActive = groupHasActive(group.items)
+              const isOpen = openGroup === group.label
               return (
                 <div key={group.label} className="flex items-center">
-                  {/*
-                    CSS-only hover: the outer div is `group`. The dropdown has
-                    `hidden group-hover:block`. An invisible pt-3 spacer bridges
-                    the gap so moving the cursor down to the panel keeps `group`
-                    hovered and the menu stays visible.
-                  */}
-                  <div className="relative group">
+                  <div
+                    className="relative"
+                    onMouseEnter={() => setOpenGroup(group.label)}
+                    onMouseLeave={() => setOpenGroup(null)}
+                  >
                     <button
                       className={`px-4 py-1.5 text-xs rounded-full transition-all whitespace-nowrap flex items-center gap-1.5 ${
                         isGroupActive ? activeCapsule : idleItem
                       }`}
                     >
                       {group.label}
-                      <svg className="w-3 h-3 opacity-50 transition-transform group-hover:rotate-180"
-                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <svg className="w-3 h-3 opacity-50" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                       </svg>
                     </button>
 
-                    {/* Invisible bridge + panel — stays open while cursor is anywhere in this div */}
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 hidden group-hover:block pt-2 min-w-[190px] z-50">
-                      <div className={`rounded-xl border py-2 ${dropdownBg}`}>
-                        {group.items.map(({ to, label }) => {
-                          const isActive = location.pathname.startsWith(to)
-                          return (
-                            <NavLink
-                              key={to} to={to}
-                              className={() =>
-                                `flex items-center px-4 py-2 text-xs transition-colors mx-1.5 my-0.5 rounded-lg ${
-                                  isActive ? dropdownActive : dropdownItem
-                                }`
-                              }
-                            >
-                              {label}
-                            </NavLink>
-                          )
-                        })}
+                    {isOpen && (
+                      <div
+                        className="absolute top-full left-1/2 -translate-x-1/2 z-50"
+                        style={{ paddingTop: '6px', minWidth: '190px' }}
+                      >
+                        <div className={`rounded-xl border py-2 ${dropdownBg}`}>
+                          {group.items.map(({ to, label }) => {
+                            const isActive = location.pathname.startsWith(to)
+                            return (
+                              <NavLink
+                                key={to} to={to}
+                                className={() =>
+                                  `flex items-center px-4 py-2 text-xs transition-colors mx-1.5 my-0.5 rounded-lg ${
+                                    isActive ? dropdownActive : dropdownItem
+                                  }`
+                                }
+                                onClick={() => setOpenGroup(null)}
+                              >
+                                {label}
+                              </NavLink>
+                            )
+                          })}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   {gIdx < NAV_GROUPS.length - 1 && (
@@ -273,13 +277,10 @@ export default function AppShell({ children }) {
       {/* ── PageHeaderProvider wraps both the breadcrumb bar and content.       */}
       {/* ── Pages call usePageHeader() which sets state on the provider.        */}
       {/* ── PageHeaderBar reads from that same provider — re-renders on change. */}
-      <PageHeaderProvider>
-        <PageHeaderBar page={page} section={section} isDark={isDark} />
-        {/* overflow-y-auto here so every page gets a scrollbar automatically */}
-        <div className={`flex-1 min-h-0 overflow-y-auto ${main}`}>
-          {children}
-        </div>
-      </PageHeaderProvider>
+      <PageHeaderBar page={page} section={section} isDark={isDark} />
+      <div className={`flex-1 min-h-0 overflow-y-auto ${main}`}>
+        {children}
+      </div>
     </div>
   )
 }
