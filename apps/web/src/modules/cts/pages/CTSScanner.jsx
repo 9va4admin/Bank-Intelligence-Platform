@@ -115,7 +115,7 @@ export default function CTSScanner() {
 
   return (
     <AppShell>
-      <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
+      <div className={`${th.page} px-6 py-5`}>
 
         {/* Connected scanners grid */}
         <div className="grid grid-cols-5 gap-3 mb-6">

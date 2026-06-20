@@ -216,7 +216,7 @@ export default function CTSDecisionsLog() {
 
   return (
     <AppShell>
-      <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
+      <div className={`${th.page} px-6 py-5`}>
 
         {/* Summary strip */}
         <div className="grid grid-cols-5 gap-3 mb-5">
