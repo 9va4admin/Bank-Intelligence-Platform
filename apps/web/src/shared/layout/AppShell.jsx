@@ -72,6 +72,7 @@ function useBreadcrumb(pathname) {
 export default function AppShell({ children }) {
   const { isDark, toggle } = useTheme()
   const location = useLocation()
+  const [openGroup, setOpenGroup] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
   const [section, page] = useBreadcrumb(location.pathname)
 
