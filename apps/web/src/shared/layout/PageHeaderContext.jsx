@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useLayoutEffect } from 'react'
 
 export const PageHeaderCtx = createContext({
   subtitle: null,
@@ -27,7 +27,7 @@ export function PageHeaderProvider({ children }) {
  */
 export function usePageHeader({ subtitle, actions } = {}) {
   const { setSubtitle, setActions } = useContext(PageHeaderCtx)
-  useEffect(() => {
+  useLayoutEffect(() => {
     setSubtitle(subtitle ?? null)
     setActions(actions ?? null)
     return () => {

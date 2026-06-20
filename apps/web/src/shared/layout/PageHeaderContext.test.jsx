@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, act } from '@testing-library/react'
 import { PageHeaderProvider, PageHeaderCtx, usePageHeader } from './PageHeaderContext'
 import { useContext } from 'react'
 
