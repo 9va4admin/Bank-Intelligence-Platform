@@ -60,7 +60,7 @@ export default function CTSConfig() {
 
   return (
     <AppShell>
-      <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
+      <div className={`${th.page} px-6 py-5`}>
 
         {/* Layer 3 — editable */}
         <div className="mb-6">

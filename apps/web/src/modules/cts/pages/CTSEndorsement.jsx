@@ -85,7 +85,7 @@ export default function CTSEndorsement() {
 
   return (
     <AppShell>
-      <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
+      <div className={`${th.page} px-6 py-5`}>
 
         {/* KPI strip */}
         <div className="grid grid-cols-4 gap-3 mb-5">

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useContext } from 'react'
+import { useState, useContext } from 'react'
 import { NavLink, Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../theme/ThemeContext'
 import { PageHeaderProvider, PageHeaderCtx } from './PageHeaderContext'
@@ -31,7 +31,6 @@ const NAV_GROUPS = [
   },
 ]
 
-// Profile menu items (master config + account)
 const PROFILE_MENU = [
   { section: 'Master Config' },
   { to: '/cts/config/sub-member-banks', label: 'Sub-Member Banks',    icon: '🏦' },
@@ -43,7 +42,6 @@ const PROFILE_MENU = [
   { to: '/logout',                      label: 'Sign Out',            icon: '→'  },
 ]
 
-// Map routes → readable breadcrumb label
 const ROUTE_LABELS = {
   '/cts':               ['CTS', 'Inward Queue'],
   '/cts/outward':       ['CTS', 'Outward'],
@@ -74,86 +72,52 @@ function useBreadcrumb(pathname) {
 export default function AppShell({ children }) {
   const { isDark, toggle } = useTheme()
   const location = useLocation()
-  const [openGroup, setOpenGroup] = useState(null)
-  const closeTimer = useRef(null)
-
-  const openMenu = useCallback((label) => {
-    clearTimeout(closeTimer.current)
-    setOpenGroup(label)
-  }, [])
-
-  const scheduleClose = useCallback(() => {
-    closeTimer.current = setTimeout(() => setOpenGroup(null), 300)
-  }, [])
   const [profileOpen, setProfileOpen] = useState(false)
   const [section, page] = useBreadcrumb(location.pathname)
 
-  // ── Theme tokens ────────────────────────────────────────
-  // ── Gradient dark shell ─────────────────────────────────
-  // Rich indigo-navy diagonal — breaks the flat pitch-black feel
   const darkGradient = 'linear-gradient(145deg, #020917 0%, #0e1654 38%, #060d2e 65%, #03061a 100%)'
-
-  const shell    = isDark ? 'text-white'                     : 'bg-slate-50 text-slate-900'
-  const shellStyle = isDark ? { background: darkGradient }  : undefined
-
-  // Topbar: glass over gradient
-  const topbar   = isDark
-    ? 'bg-white/4 backdrop-blur-md border-white/8'
-    : 'bg-white border-slate-200'
-
-  const subtext  = isDark ? 'text-slate-400'                : 'text-slate-400'
-  const userBg   = isDark ? 'bg-gold-400/20 text-gold-400'  : 'bg-amber-100 text-amber-700'
-  const userName = isDark ? 'text-slate-200'                : 'text-slate-700'
-
-  // Content area: subtle darker overlay so cards pop
-  const main     = isDark ? 'bg-black/15'                   : 'bg-slate-50'
-
-  // Pill nav — glass effect over gradient
-  const navPill  = isDark
+  const shell       = isDark ? 'text-white'                    : 'bg-slate-50 text-slate-900'
+  const shellStyle  = isDark ? { background: darkGradient }    : undefined
+  const topbar      = isDark ? 'bg-white/4 backdrop-blur-md border-white/8' : 'bg-white border-slate-200'
+  const subtext     = isDark ? 'text-slate-400'                : 'text-slate-400'
+  const userBg      = isDark ? 'bg-gold-400/20 text-gold-400'  : 'bg-amber-100 text-amber-700'
+  const userName    = isDark ? 'text-slate-200'                : 'text-slate-700'
+  const main        = isDark ? 'bg-black/15'                   : 'bg-slate-50'
+  const navPill     = isDark
     ? 'bg-white/6 border border-white/10 rounded-full px-1.5 py-1 backdrop-blur-sm'
     : 'bg-slate-100 border border-slate-200 rounded-full px-1.5 py-1'
-
-  // Active capsule
   const activeCapsule = isDark
     ? 'bg-white/15 text-white shadow-sm ring-1 ring-white/10'
     : 'bg-slate-800 text-white shadow-sm'
-
-  const idleItem = isDark
+  const idleItem    = isDark
     ? 'text-slate-400 hover:text-white hover:bg-white/8'
     : 'text-slate-500 hover:text-slate-900 hover:bg-white'
-
-  const divider = isDark ? 'bg-white/10' : 'bg-slate-300/80'
-
-  // Dropdown panel — glass card
-  const dropdownBg = isDark
-    ? 'bg-[#0e1654]/90 backdrop-blur-xl border-white/10 shadow-2xl shadow-black/60'
+  const divider     = isDark ? 'bg-white/10' : 'bg-slate-300/80'
+  const dropdownBg  = isDark
+    ? 'bg-[#0e1654]/95 backdrop-blur-xl border-white/10 shadow-2xl shadow-black/60'
     : 'bg-white border-slate-200 shadow-2xl shadow-slate-400/30'
-
-  const groupHasActive = (items) =>
-    items.some(({ to }) => location.pathname.startsWith(to))
-
-  // Breadcrumb strip colours
-  const breadcrumbBg    = isDark ? 'bg-white/3 border-white/6 backdrop-blur-sm' : 'bg-white/80 border-slate-100'
-  const breadcrumbMuted = isDark ? 'text-slate-400' : 'text-slate-400'
-  const breadcrumbPage  = isDark ? 'text-slate-100' : 'text-slate-700'
-
-  // Profile dropdown
-  const profileBg = isDark
+  const dropdownItem = isDark
+    ? 'text-slate-300 hover:text-white hover:bg-white/10'
+    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+  const dropdownActive = isDark
+    ? 'bg-white/15 text-white font-medium'
+    : 'bg-slate-800 text-white font-medium'
+  const profileBg   = isDark
     ? 'bg-[#0e1654]/95 backdrop-blur-xl border-white/10 shadow-2xl shadow-black/60'
     : 'bg-white border-slate-200 shadow-2xl shadow-slate-400/30'
   const profileItem = isDark
-    ? 'text-slate-300 hover:text-white hover:bg-white/8 rounded-lg'
+    ? 'text-slate-300 hover:text-white hover:bg-white/10 rounded-lg'
     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg'
   const profileSection = isDark ? 'text-slate-500' : 'text-slate-400'
 
+  const groupHasActive = (items) => items.some(({ to }) => location.pathname.startsWith(to))
+
   return (
-    <div className={`flex flex-col h-screen overflow-hidden ${shell}`} style={shellStyle}>
+    <div className={`flex flex-col h-screen ${shell}`} style={shellStyle}>
 
       {/* ── Topbar ──────────────────────────────────────── */}
-      <header
-        className={`shrink-0 border-b ${topbar} flex items-center px-5`}
-        style={{ height: '52px' }}
-      >
+      <header className={`shrink-0 border-b ${topbar} flex items-center px-5`} style={{ height: '52px' }}>
+
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 shrink-0 group mr-4">
           <div className="relative w-6 h-6">
@@ -177,12 +141,9 @@ export default function AppShell({ children }) {
             {FLAT_NAV.map(({ to, label, end }, idx) => (
               <div key={to} className="flex items-center">
                 <NavLink
-                  to={to}
-                  end={end}
+                  to={to} end={end}
                   className={({ isActive }) =>
-                    `px-4 py-1.5 text-xs rounded-full transition-all whitespace-nowrap ${
-                      isActive ? activeCapsule : idleItem
-                    }`
+                    `px-4 py-1.5 text-xs rounded-full transition-all whitespace-nowrap ${isActive ? activeCapsule : idleItem}`
                   }
                 >
                   {label}
@@ -191,59 +152,50 @@ export default function AppShell({ children }) {
               </div>
             ))}
 
-            {/* Group dropdowns */}
+            {/* Group dropdowns — pure CSS hover via group/peer, no JS timers */}
             {NAV_GROUPS.map((group, gIdx) => {
               const isGroupActive = groupHasActive(group.items)
               return (
                 <div key={group.label} className="flex items-center">
-                  {/* Wrapper covers button + dropdown so hover doesn't break */}
-                  <div
-                    className="relative"
-                    onMouseEnter={() => openMenu(group.label)}
-                    onMouseLeave={scheduleClose}
-                  >
+                  {/*
+                    CSS-only hover: the outer div is `group`. The dropdown has
+                    `hidden group-hover:block`. An invisible pt-3 spacer bridges
+                    the gap so moving the cursor down to the panel keeps `group`
+                    hovered and the menu stays visible.
+                  */}
+                  <div className="relative group">
                     <button
                       className={`px-4 py-1.5 text-xs rounded-full transition-all whitespace-nowrap flex items-center gap-1.5 ${
                         isGroupActive ? activeCapsule : idleItem
                       }`}
                     >
                       {group.label}
-                      <svg className="w-3 h-3 opacity-50" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor" strokeWidth={2.5}>
+                      <svg className="w-3 h-3 opacity-50 transition-transform group-hover:rotate-180"
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                       </svg>
                     </button>
 
-                    {openGroup === group.label && (
-                      {/* -mt-2 + pt-4 creates invisible overlap so gap never triggers onMouseLeave */}
-                      <div className={`absolute top-full left-1/2 -translate-x-1/2 -mt-2 pt-4 min-w-[190px] z-50`}>
-                        <div
-                          className={`rounded-xl border py-2 ${dropdownBg}`}
-                          onMouseEnter={() => openMenu(group.label)}
-                          onMouseLeave={scheduleClose}
-                        >
-                          {group.items.map(({ to, label }) => {
-                            const isActive = location.pathname.startsWith(to)
-                            return (
-                              <NavLink
-                                key={to}
-                                to={to}
-                                className={() =>
-                                  `flex items-center px-4 py-2 text-xs transition-colors mx-1.5 my-0.5 rounded-lg ${
-                                    isActive
-                                      ? (isDark ? 'bg-slate-700 text-white font-medium' : 'bg-slate-800 text-white font-medium')
-                                      : (isDark ? 'text-slate-300 hover:text-white hover:bg-white/8' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100')
-                                  }`
-                                }
-                                onClick={() => setOpenGroup(null)}
-                              >
-                                {label}
-                              </NavLink>
-                            )
-                          })}
-                        </div>
+                    {/* Invisible bridge + panel — stays open while cursor is anywhere in this div */}
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 hidden group-hover:block pt-2 min-w-[190px] z-50">
+                      <div className={`rounded-xl border py-2 ${dropdownBg}`}>
+                        {group.items.map(({ to, label }) => {
+                          const isActive = location.pathname.startsWith(to)
+                          return (
+                            <NavLink
+                              key={to} to={to}
+                              className={() =>
+                                `flex items-center px-4 py-2 text-xs transition-colors mx-1.5 my-0.5 rounded-lg ${
+                                  isActive ? dropdownActive : dropdownItem
+                                }`
+                              }
+                            >
+                              {label}
+                            </NavLink>
+                          )
+                        })}
                       </div>
-                    )}
+                    </div>
                   </div>
 
                   {gIdx < NAV_GROUPS.length - 1 && (
@@ -255,14 +207,14 @@ export default function AppShell({ children }) {
           </nav>
         </div>
 
-        {/* ── Right: bank info + user (with profile menu) + toggle ── */}
+        {/* ── Right: bank info + user + toggle ── */}
         <div className="flex items-center gap-4 shrink-0 ml-4">
           <div className="text-right hidden md:block">
             <div className={`text-[11px] font-medium leading-tight ${userName}`}>Saraswat Co-op Bank</div>
             <div className={`text-[10px] leading-tight ${subtext}`}>Zone: MUMBAI · Finacle</div>
           </div>
 
-          {/* Profile avatar — click to open config menu */}
+          {/* Profile avatar */}
           <div className="relative">
             <button
               className={`flex items-center gap-2 rounded-lg px-1.5 py-1 transition-all ${
@@ -293,8 +245,7 @@ export default function AppShell({ children }) {
                     </div>
                   ) : (
                     <Link
-                      key={item.to}
-                      to={item.to}
+                      key={item.to} to={item.to}
                       className={`flex items-center gap-2.5 px-4 py-1.5 text-xs mx-1.5 my-0.5 transition-colors ${profileItem}`}
                       onClick={() => setProfileOpen(false)}
                     >
@@ -319,13 +270,13 @@ export default function AppShell({ children }) {
         </div>
       </header>
 
-      {/* ── Main content + unified page header (inside provider so context flows up) */}
+      {/* ── PageHeaderProvider wraps both the breadcrumb bar and content.       */}
+      {/* ── Pages call usePageHeader() which sets state on the provider.        */}
+      {/* ── PageHeaderBar reads from that same provider — re-renders on change. */}
       <PageHeaderProvider>
-        <PageHeaderBar
-          page={page} section={section}
-          breadcrumbBg={breadcrumbBg} breadcrumbMuted={breadcrumbMuted} breadcrumbPage={breadcrumbPage}
-        />
-        <div className={`flex-1 min-h-0 overflow-hidden ${main}`}>
+        <PageHeaderBar page={page} section={section} isDark={isDark} />
+        {/* overflow-y-auto here so every page gets a scrollbar automatically */}
+        <div className={`flex-1 min-h-0 overflow-y-auto ${main}`}>
           {children}
         </div>
       </PageHeaderProvider>
@@ -333,21 +284,21 @@ export default function AppShell({ children }) {
   )
 }
 
-function PageHeaderBar({ page, section, breadcrumbBg, breadcrumbMuted, breadcrumbPage }) {
+function PageHeaderBar({ page, section, isDark }) {
   const { subtitle, actions } = useContext(PageHeaderCtx)
   if (!page) return null
+
+  const bg     = isDark ? 'bg-white/3 border-white/6 backdrop-blur-sm' : 'bg-white/80 border-slate-100'
+  const muted  = isDark ? 'text-slate-400' : 'text-slate-400'
+  const strong = isDark ? 'text-slate-100' : 'text-slate-700'
+
   return (
-    <div className={`shrink-0 border-b ${breadcrumbBg} flex items-center px-6 gap-2`}
-      style={{ height: '44px' }}>
-      <span className={`text-[11px] ${breadcrumbMuted}`}>{section}</span>
-      <span className={`text-[11px] ${breadcrumbMuted} opacity-40`}>›</span>
-      <span className={`text-[13px] font-semibold ${breadcrumbPage}`}>{page}</span>
+    <div className={`shrink-0 border-b ${bg} flex items-center px-6 gap-2`} style={{ height: '44px' }}>
+      <span className={`text-[11px] ${muted}`}>{section}</span>
+      <span className={`text-[11px] ${muted} opacity-40`}>›</span>
+      <span className={`text-[13px] font-semibold ${strong}`}>{page}</span>
       <div className="ml-auto flex items-center gap-4">
-        {subtitle && (
-          <span className={`text-[11px] ${breadcrumbMuted} hidden sm:block`}>
-            {subtitle}
-          </span>
-        )}
+        {subtitle && <span className={`text-[11px] ${muted} hidden sm:block`}>{subtitle}</span>}
         {actions}
       </div>
     </div>

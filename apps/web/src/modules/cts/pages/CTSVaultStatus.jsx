@@ -42,7 +42,7 @@ export default function CTSVaultStatus() {
 
   return (
     <AppShell>
-      <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
+      <div className={`${th.page} px-6 py-5`}>
 
         {/* Vault cards */}
         <div className="grid grid-cols-2 gap-4 mb-6">

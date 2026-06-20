@@ -275,7 +275,7 @@ export default function CTSSubMember() {
 
   return (
     <AppShell>
-      <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
+      <div className={`${th.page} px-6 py-5`}>
 
         {/* KPI Strip */}
         <div className="grid grid-cols-7 gap-2 mb-5">

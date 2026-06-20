@@ -244,7 +244,7 @@ export default function CTSExceptions() {
 
   return (
     <AppShell>
-      <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5 space-y-5`}>
+      <div className={`${th.page} px-6 py-5 space-y-5`}>
 
         {/* Summary KPI strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
