@@ -105,7 +105,7 @@ function pipelinePos(status) {
 
 function SessionBar({ sessions, activeIdx, onSelect, isDark }) {
   const th = {
-    bar:    isDark ? 'bg-navy-900/60 border-white/8' : 'bg-white border-slate-200',
+    bar:    isDark ? 'bg-white/4 border-white/8' : 'bg-white border-slate-200',
     label:  isDark ? 'text-slate-400' : 'text-slate-500',
   }
   return (
@@ -277,7 +277,7 @@ function DetailPanel({ item, isDark }) {
   const pos = pipelinePos(item.status)
 
   const th = {
-    page:    isDark ? 'bg-navy-950'                    : 'bg-slate-50',
+    page:    isDark ? 'bg-transparent'                    : 'bg-slate-50',
     card:    isDark ? 'bg-navy-900/50 border-white/8'  : 'bg-white border-slate-200',
     heading: isDark ? 'text-white'                     : 'text-slate-900',
     body:    isDark ? 'text-slate-300'                 : 'text-slate-700',
@@ -492,7 +492,7 @@ export default function CTSPresentment() {
   }, [])
 
   const th = {
-    page:    isDark ? 'bg-navy-950'               : 'bg-slate-50',
+    page:    isDark ? 'bg-transparent'               : 'bg-slate-50',
     divider: isDark ? 'border-white/8'             : 'border-slate-200',
     heading: isDark ? 'text-white'                 : 'text-slate-900',
     muted:   isDark ? 'text-slate-400'             : 'text-slate-500',

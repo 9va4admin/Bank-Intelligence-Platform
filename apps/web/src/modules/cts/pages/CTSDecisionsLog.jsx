@@ -171,8 +171,8 @@ export default function CTSDecisionsLog() {
   const rows     = filter === 'All' ? DECISIONS : DECISIONS.filter(d => d.outcome === filter)
 
   const th = {
-    page:    isDark ? 'bg-navy-950' : 'bg-slate-50',
-    card:    isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
+    page:    isDark ? 'bg-transparent' : 'bg-slate-50',
+    card:    isDark ? 'bg-white/4 border-white/8' : 'bg-white border-slate-200',
     heading: isDark ? 'text-white' : 'text-slate-900',
     body:    isDark ? 'text-slate-300' : 'text-slate-700',
     muted:   isDark ? 'text-slate-400' : 'text-slate-500',
