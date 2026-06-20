@@ -58,6 +58,11 @@ export default function QueueCard({ item, selected, onClick, isDark }) {
         <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${REASON_COLORS[item.reason] || fallback}`}>
           {item.reason_label}
         </span>
+        {item.principal_tag === 'SUB_MEMBER' && (
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${isDark ? 'text-amber-300 bg-amber-400/10 border-amber-400/30' : 'text-amber-700 bg-amber-100 border-amber-400'}`}>
+            SUB-MEMBER
+          </span>
+        )}
         <span className={`text-[10px] ${amt}`}>{item.amount_range}</span>
         <span className={`text-[10px] font-mono font-bold ml-auto ${fraudColor(item.fraud_score)}`}>
           {Math.round(item.fraud_score * 100)}%
