@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
 // ── Mock batch ────────────────────────────────────────────────────────────────
 const TEMPLATE = {
@@ -64,31 +65,27 @@ export default function CTSEndorsement() {
 
   const endorsedInstr = INSTRUMENTS.filter(i => statuses[i.id] === 'ENDORSED')
 
+  usePageHeader({
+    subtitle: `Automated reverse-image stamping — ${TEMPLATE.bank_name} · ${TEMPLATE.bank_ifsc}`,
+    actions: (
+      <button
+        onClick={endorseAll}
+        disabled={endorsing || pending === 0}
+        className={`flex items-center gap-2 text-xs rounded-lg px-4 py-2 font-medium transition-colors ${
+          pending === 0
+            ? isDark ? 'bg-white/5 text-slate-500 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+            : 'bg-violet-600 hover:bg-violet-500 text-white'
+        }`}
+      >
+        {endorsing && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
+        {endorsing ? 'Endorsing…' : pending === 0 ? 'All Endorsed' : `Endorse All (${pending})`}
+      </button>
+    ),
+  })
+
   return (
     <AppShell>
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Endorsement</h1>
-            <p className={`text-xs ${th.muted} mt-0.5`}>
-              Automated reverse-image stamping — {TEMPLATE.bank_name} · {TEMPLATE.bank_ifsc}
-            </p>
-          </div>
-          <button
-            onClick={endorseAll}
-            disabled={endorsing || pending === 0}
-            className={`flex items-center gap-2 text-xs rounded-lg px-4 py-2 font-medium transition-colors ${
-              pending === 0
-                ? isDark ? 'bg-white/5 text-slate-500 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                : 'bg-violet-600 hover:bg-violet-500 text-white'
-            }`}
-          >
-            {endorsing && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
-            {endorsing ? 'Endorsing…' : pending === 0 ? 'All Endorsed' : `Endorse All (${pending})`}
-          </button>
-        </div>
 
         {/* KPI strip */}
         <div className="grid grid-cols-4 gap-3 mb-5">

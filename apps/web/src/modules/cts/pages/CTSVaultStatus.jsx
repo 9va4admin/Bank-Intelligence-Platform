@@ -1,5 +1,6 @@
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
 const VAULT_DATA = [
   { label: 'Signature Vault',  keys: 18_432, hitRate: 99.2, lastSync: '2026-06-19 06:00', status: 'HEALTHY',  redis: 'redis-cts', missAction: 'HUMAN_REVIEW' },
@@ -37,10 +38,11 @@ export default function CTSVaultStatus() {
     redis:     isDark ? 'text-slate-600' : 'text-slate-400',
   }
 
+  usePageHeader({ subtitle: 'Signature Vault · PPS Vault · VaultSyncWorkflow' })
+
   return (
     <AppShell>
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
-        <h1 className={`text-lg font-semibold ${th.heading} mb-5`}>Vault Status</h1>
 
         {/* Vault cards */}
         <div className="grid grid-cols-2 gap-4 mb-6">

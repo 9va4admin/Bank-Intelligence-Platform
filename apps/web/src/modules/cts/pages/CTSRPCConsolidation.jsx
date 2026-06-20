@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
 // ── Mock RPC data ─────────────────────────────────────────────────────────────
 const RPCS = [
@@ -84,23 +85,19 @@ export default function CTSRPCConsolidation() {
   const total_iet     = RPCS.reduce((a, r) => a + r.iet_risk, 0)
   const avg_stp       = (RPCS.reduce((a, r) => a + r.stp_rate, 0) / RPCS.length).toFixed(1)
 
+  usePageHeader({
+    subtitle: `Multi-centre clearing view · ${SESSION_DATE} · ${CLEARING_SESSION}`,
+    actions: (
+      <div className={`text-xs px-3 py-1.5 rounded-lg border ${isDark ? 'border-emerald-700/40 bg-emerald-900/20 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
+        <span className="w-1.5 h-1.5 inline-block rounded-full bg-emerald-400 mr-1.5 animate-pulse" />
+        {RPCS.filter(r => r.status === 'ACTIVE').length}/{RPCS.length} RPCs Active
+      </div>
+    ),
+  })
+
   return (
     <AppShell>
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>RPC Consolidation</h1>
-            <p className={`text-xs ${th.muted} mt-0.5`}>
-              Multi-centre clearing view · {SESSION_DATE} · {CLEARING_SESSION}
-            </p>
-          </div>
-          <div className={`text-xs px-3 py-1.5 rounded-lg border ${isDark ? 'border-emerald-700/40 bg-emerald-900/20 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
-            <span className="w-1.5 h-1.5 inline-block rounded-full bg-emerald-400 mr-1.5 animate-pulse" />
-            {RPCS.filter(r => r.status === 'ACTIVE').length}/{RPCS.length} RPCs Active
-          </div>
-        </div>
 
         {/* Consolidated KPI strip */}
         <div className="grid grid-cols-5 gap-3 mb-5">

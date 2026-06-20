@@ -1,5 +1,6 @@
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
 const DAILY = [
   { date: 'Jun 13', total: 487, stp_confirm: 401, stp_return: 62, human: 24, avg_ms: 389 },
@@ -48,10 +49,11 @@ export default function CTSAnalytics() {
     legend:   isDark ? 'text-slate-500' : 'text-slate-500',
   }
 
+  usePageHeader({ subtitle: 'Decision analytics · 7-day rolling view' })
+
   return (
     <AppShell>
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
-        <h1 className={`text-lg font-semibold ${th.heading} mb-5`}>Analytics</h1>
 
         {/* KPI strip */}
         <div className="grid grid-cols-5 gap-3 mb-6">
