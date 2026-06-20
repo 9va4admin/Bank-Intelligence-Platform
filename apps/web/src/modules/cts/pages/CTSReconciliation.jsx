@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
 // ── Sub-member ledger mock data ───────────────────────────────────────────────
 const SMB_LEDGERS = [
@@ -197,34 +198,35 @@ export default function CTSReconciliation() {
     downloadCsv(csv, `RECON_SVCB0000001_${date}_${session.id}.csv`)
   }
 
+  usePageHeader({
+    subtitle: session.label,
+    actions: (
+      <div className="flex items-center gap-3">
+        <select
+          value={sessionIdx}
+          onChange={e => { setSessionIdx(Number(e.target.value)); setFilterStatus('ALL') }}
+          className={`text-xs border rounded-lg px-3 py-1.5 ${th.select}`}
+        >
+          {SESSIONS.map((s, i) => (
+            <option key={s.id} value={i}>{s.label}</option>
+          ))}
+        </select>
+        <button
+          onClick={handleDownload}
+          className="flex items-center gap-2 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded-lg px-3 py-1.5"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Download CSV
+        </button>
+      </div>
+    ),
+  })
+
   return (
     <AppShell>
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <h1 className={`text-lg font-semibold ${th.heading}`}>Reconciliation</h1>
-          <div className="flex items-center gap-3">
-            <select
-              value={sessionIdx}
-              onChange={e => { setSessionIdx(Number(e.target.value)); setFilterStatus('ALL') }}
-              className={`text-xs border rounded-lg px-3 py-1.5 ${th.select}`}
-            >
-              {SESSIONS.map((s, i) => (
-                <option key={s.id} value={i}>{s.label}</option>
-              ))}
-            </select>
-            <button
-              onClick={handleDownload}
-              className="flex items-center gap-2 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded-lg px-3 py-1.5"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Download CSV
-            </button>
-          </div>
-        </div>
 
         {/* KPI Strip */}
         <div className="grid grid-cols-5 gap-3 mb-6">

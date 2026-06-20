@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
 const SUB_MEMBERS = [
   {
@@ -268,20 +269,13 @@ export default function CTSSubMember() {
     { label: 'Shield Active',    value: softHoldCount,       color: softHoldCount > 0 ? 'text-red-400' : 'text-emerald-400' },
   ]
 
+  usePageHeader({
+    subtitle: 'Sponsor routing · Bucket classification · Return rate shield · Tier 1/2/3 notifications',
+  })
+
   return (
     <AppShell>
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Sub-Member Bank Monitoring</h1>
-            <p className={`text-xs ${th.muted}`}>Sponsor routing · Bucket classification · Return rate shield · Tier 1/2/3 notifications</p>
-          </div>
-          <div className={`text-[11px] px-2 py-1 rounded border ${th.kpi} ${th.muted}`}>
-            Session: MORNING 2026-06-19
-          </div>
-        </div>
 
         {/* KPI Strip */}
         <div className="grid grid-cols-7 gap-2 mb-5">

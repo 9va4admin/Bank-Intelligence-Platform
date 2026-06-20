@@ -8,6 +8,7 @@
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
 // ── Exception data ────────────────────────────────────────────────────────
 
@@ -229,25 +230,21 @@ export default function CTSExceptions() {
     downloadCsv(csv, fname)
   }
 
+  usePageHeader({
+    subtitle: `${SESSION_META.bank_name} · Session ${SESSION_META.session_id} · ${SESSION_META.clearing_date}`,
+    actions: (
+      <button
+        onClick={handleDownload}
+        className="flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium bg-violet-600 hover:bg-violet-500 text-white"
+      >
+        ⬇ Download CSV
+      </button>
+    ),
+  })
+
   return (
     <AppShell>
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5 space-y-5`}>
-
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Exception Report</h1>
-            <p className={`text-xs mt-0.5 ${th.muted}`}>
-              {SESSION_META.bank_name} · Session {SESSION_META.session_id} · {SESSION_META.clearing_date}
-            </p>
-          </div>
-          <button
-            onClick={handleDownload}
-            className="flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium bg-violet-600 hover:bg-violet-500 text-white"
-          >
-            ⬇ Download CSV
-          </button>
-        </div>
 
         {/* Summary KPI strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

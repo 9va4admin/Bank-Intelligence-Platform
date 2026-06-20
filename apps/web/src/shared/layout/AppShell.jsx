@@ -1,6 +1,7 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useContext } from 'react'
 import { NavLink, Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../theme/ThemeContext'
+import { PageHeaderProvider, PageHeaderCtx } from './PageHeaderContext'
 
 const FLAT_NAV = [
   { to: '/cts',         label: 'Inward',  end: true },
@@ -86,6 +87,7 @@ export default function AppShell({ children }) {
   }, [])
   const [profileOpen, setProfileOpen] = useState(false)
   const [section, page] = useBreadcrumb(location.pathname)
+  const { subtitle, actions } = useContext(PageHeaderCtx)
 
   // ── Theme tokens ────────────────────────────────────────
   // ── Gradient dark shell ─────────────────────────────────
@@ -318,20 +320,33 @@ export default function AppShell({ children }) {
         </div>
       </header>
 
-      {/* ── Breadcrumb strip ────────────────────────────── */}
+      {/* ── Unified page header bar (breadcrumb + title + subtitle + actions) */}
       {page && (
-        <div className={`shrink-0 border-b ${breadcrumbBg} flex items-center px-6 gap-1.5`}
-          style={{ height: '30px' }}>
+        <div className={`shrink-0 border-b ${breadcrumbBg} flex items-center px-6 gap-2`}
+          style={{ height: '44px' }}>
+          {/* Left: breadcrumb path */}
           <span className={`text-[11px] ${breadcrumbMuted}`}>{section}</span>
-          <span className={`text-[11px] ${breadcrumbMuted} opacity-50`}>›</span>
-          <span className={`text-[11px] font-medium ${breadcrumbPage}`}>{page}</span>
+          <span className={`text-[11px] ${breadcrumbMuted} opacity-40`}>›</span>
+          <span className={`text-[13px] font-semibold ${breadcrumbPage}`}>{page}</span>
+
+          {/* Right: subtitle + page actions */}
+          <div className="ml-auto flex items-center gap-4">
+            {subtitle && (
+              <span className={`text-[11px] ${breadcrumbMuted} hidden sm:block`}>
+                {subtitle}
+              </span>
+            )}
+            {actions}
+          </div>
         </div>
       )}
 
       {/* ── Main content ────────────────────────────────── */}
-      <div className={`flex-1 min-h-0 overflow-hidden ${main}`}>
-        {children}
-      </div>
+      <PageHeaderProvider>
+        <div className={`flex-1 min-h-0 overflow-hidden ${main}`}>
+          {children}
+        </div>
+      </PageHeaderProvider>
     </div>
   )
 }

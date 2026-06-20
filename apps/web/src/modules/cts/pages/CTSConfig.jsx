@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
 const LAYER3_CONFIG = [
   { key: 'iet_minutes',                  label: 'IET Window',                value: 180,      unit: 'minutes', desc: 'RBI mandated clearing window. Breach = deemed approval.',       editable: true,  warn: true  },
@@ -48,15 +49,18 @@ export default function CTSConfig() {
     l1val:     isDark ? 'bg-white/4 text-slate-500' : 'bg-slate-100 text-slate-500',
   }
 
+  usePageHeader({
+    subtitle: 'Layer 3 business rules · Layer 1 platform constraints',
+    actions: (
+      <div className={`text-[10px] ${th.meta} px-3 py-1.5 rounded-lg`}>
+        Maker-Checker required · Changes hot-reload in &lt;30s
+      </div>
+    ),
+  })
+
   return (
     <AppShell>
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
-        <div className="flex items-center justify-between mb-5">
-          <h1 className={`text-lg font-semibold ${th.heading}`}>Config</h1>
-          <div className={`text-[10px] ${th.meta} px-3 py-1.5 rounded-lg`}>
-            Maker-Checker required · Changes hot-reload in &lt;30s
-          </div>
-        </div>
 
         {/* Layer 3 — editable */}
         <div className="mb-6">

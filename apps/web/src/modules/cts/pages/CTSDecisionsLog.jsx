@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
 // RBI return reason code mapping — mirrors modules/cts/rrf/models.py RBIReturnCode
 const RBI_CODE_MAP = {
@@ -190,38 +191,32 @@ export default function CTSDecisionsLog() {
     ? returned
     : returned.filter(d => d.id === rrfModal)
 
+  usePageHeader({
+    subtitle: `Session: ${SESSION_META.session_id} · ${SESSION_META.bank_name} · ${SESSION_META.clearing_zone}`,
+    actions: (
+      <div className="flex items-center gap-2">
+        {returned.length > 0 && (
+          <button onClick={() => setRrfModal('session')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${th.sessionRrf}`}>
+            <span>📄</span>
+            <span>RRF ({returned.length} returns)</span>
+          </button>
+        )}
+        <div className="flex gap-1">
+          {FILTERS.map(f => (
+            <button key={f} onClick={() => setFilter(f)}
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${filter === f ? th.filterActive : th.filterIdle}`}>
+              {f.replace(/_/g, ' ')}
+            </button>
+          ))}
+        </div>
+      </div>
+    ),
+  })
+
   return (
     <AppShell>
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
-
-        {/* Title row */}
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Decisions Log</h1>
-            <div className={`text-[10px] ${th.muted} mt-0.5`}>
-              Session: {SESSION_META.session_id} · {SESSION_META.bank_name} · {SESSION_META.clearing_zone}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Session-level RRF export */}
-            {returned.length > 0 && (
-              <button onClick={() => setRrfModal('session')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${th.sessionRrf}`}>
-                <span>📄</span>
-                <span>RRF ({returned.length} returns)</span>
-              </button>
-            )}
-            {/* Filters */}
-            <div className="flex gap-1">
-              {FILTERS.map(f => (
-                <button key={f} onClick={() => setFilter(f)}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${filter === f ? th.filterActive : th.filterIdle}`}>
-                  {f.replace(/_/g, ' ')}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
 
         {/* Summary strip */}
         <div className="grid grid-cols-5 gap-3 mb-5">

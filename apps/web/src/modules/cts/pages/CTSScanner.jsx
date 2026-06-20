@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
 // ── Mock scanner registry ─────────────────────────────────────────────────
 const SCANNERS = [
@@ -95,28 +96,26 @@ export default function CTSScanner() {
   const micrFail = scans.filter(s => !s.micr_ok).length
   const avgIqa   = scans.length ? (scans.reduce((a, s) => a + s.iqa_score, 0) / scans.length).toFixed(3) : '—'
 
+  usePageHeader({
+    subtitle: 'Panini · Canon · TWAIN/ISIS — OEM-agnostic ingestion',
+    actions: (
+      <button
+        onClick={running ? stopScan : startScan}
+        className={`flex items-center gap-2 text-xs rounded-lg px-4 py-2 font-medium transition-colors ${
+          running
+            ? 'bg-red-600 hover:bg-red-500 text-white'
+            : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+        }`}
+      >
+        <span className={`w-2 h-2 rounded-full ${running ? 'bg-white animate-pulse' : 'bg-white'}`} />
+        {running ? 'Stop Scanning' : 'Start Scanning'}
+      </button>
+    ),
+  })
+
   return (
     <AppShell>
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Scanner SDK</h1>
-            <p className={`text-xs ${th.muted} mt-0.5`}>Panini · Canon · TWAIN/ISIS — OEM-agnostic ingestion</p>
-          </div>
-          <button
-            onClick={running ? stopScan : startScan}
-            className={`flex items-center gap-2 text-xs rounded-lg px-4 py-2 font-medium transition-colors ${
-              running
-                ? 'bg-red-600 hover:bg-red-500 text-white'
-                : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-            }`}
-          >
-            <span className={`w-2 h-2 rounded-full ${running ? 'bg-white animate-pulse' : 'bg-white'}`} />
-            {running ? 'Stop Scanning' : 'Start Scanning'}
-          </button>
-        </div>
 
         {/* Connected scanners grid */}
         <div className="grid grid-cols-5 gap-3 mb-6">
