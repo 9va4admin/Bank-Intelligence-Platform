@@ -77,47 +77,17 @@ export default function AppShell({ children }) {
   const [section, page] = useBreadcrumb(location.pathname)
 
   const darkGradient = 'linear-gradient(145deg, #020917 0%, #0e1654 38%, #060d2e 65%, #03061a 100%)'
-  const shell       = isDark ? 'text-white'                    : 'bg-slate-50 text-slate-900'
-  const shellStyle  = isDark ? { background: darkGradient }    : undefined
-  const topbar      = isDark ? 'bg-white/4 backdrop-blur-md border-white/8' : 'bg-white border-slate-200'
-  const subtext     = isDark ? 'text-slate-400'                : 'text-slate-400'
-  const userBg      = isDark ? 'bg-gold-400/20 text-gold-400'  : 'bg-amber-100 text-amber-700'
-  const userName    = isDark ? 'text-slate-200'                : 'text-slate-700'
-  const main        = isDark ? 'bg-black/15'                   : 'bg-slate-50'
-  const navPill     = isDark
-    ? 'bg-white/6 border border-white/10 rounded-full px-1.5 py-1 backdrop-blur-sm'
-    : 'bg-slate-100 border border-slate-200 rounded-full px-1.5 py-1'
-  const activeCapsule = isDark
-    ? 'bg-white/15 text-white shadow-sm ring-1 ring-white/10'
-    : 'bg-slate-800 text-white shadow-sm'
-  const idleItem    = isDark
-    ? 'text-slate-400 hover:text-white hover:bg-white/8'
-    : 'text-slate-500 hover:text-slate-900 hover:bg-white'
-  const divider     = isDark ? 'bg-white/10' : 'bg-slate-300/80'
-  const dropdownBg  = isDark
-    ? 'bg-[#0e1654]/95 backdrop-blur-xl border-white/10 shadow-2xl shadow-black/60'
-    : 'bg-white border-slate-200 shadow-2xl shadow-slate-400/30'
-  const dropdownItem = isDark
-    ? 'text-slate-300 hover:text-white hover:bg-white/10'
-    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-  const dropdownActive = isDark
-    ? 'bg-white/15 text-white font-medium'
-    : 'bg-slate-800 text-white font-medium'
-  const profileBg   = isDark
-    ? 'bg-[#0e1654]/95 backdrop-blur-xl border-white/10 shadow-2xl shadow-black/60'
-    : 'bg-white border-slate-200 shadow-2xl shadow-slate-400/30'
-  const profileItem = isDark
-    ? 'text-slate-300 hover:text-white hover:bg-white/10 rounded-lg'
-    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg'
-  const profileSection = isDark ? 'text-slate-500' : 'text-slate-400'
 
   const groupHasActive = (items) => items.some(({ to }) => location.pathname.startsWith(to))
 
   return (
-    <div className={`flex flex-col h-screen ${shell}`} style={shellStyle}>
+    <div
+      className="flex flex-col h-screen bg-slate-50 text-slate-900 dark:text-white"
+      style={isDark ? { background: darkGradient } : undefined}
+    >
 
       {/* ── Topbar ──────────────────────────────────────── */}
-      <header className={`shrink-0 border-b ${topbar} flex items-center px-5`} style={{ height: '52px' }}>
+      <header className="shrink-0 border-b bg-white border-slate-200 dark:bg-white/4 dark:backdrop-blur-md dark:border-white/8 flex items-center px-5" style={{ height: '52px' }}>
 
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 shrink-0 group mr-4">
@@ -129,14 +99,14 @@ export default function AppShell({ children }) {
           </div>
           <span className="text-sm tracking-tight leading-none">
             <span className="font-bold">A</span>
-            <span className={`font-bold ${isDark ? 'text-gold-400' : 'text-amber-500'}`}>+</span>
+            <span className="font-bold text-amber-500 dark:text-gold-400">+</span>
             <span className="font-bold">stra</span>
           </span>
         </Link>
 
         {/* ── Centered pill nav ─────────────────────────── */}
         <div className="flex-1 flex justify-center">
-          <nav className={`flex items-center ${navPill} gap-0.5`}>
+          <nav className="flex items-center bg-slate-100 border border-slate-200 rounded-full px-1.5 py-1 dark:bg-white/6 dark:border dark:border-white/10 dark:backdrop-blur-sm gap-0.5">
 
             {/* Flat items */}
             {FLAT_NAV.map(({ to, label, end }, idx) => (
@@ -144,12 +114,12 @@ export default function AppShell({ children }) {
                 <NavLink
                   to={to} end={end}
                   className={({ isActive }) =>
-                    `px-4 py-1.5 text-xs rounded-full transition-all whitespace-nowrap ${isActive ? activeCapsule : idleItem}`
+                    `px-4 py-1.5 text-xs rounded-full transition-all whitespace-nowrap ${isActive ? 'bg-slate-800 text-white shadow-sm dark:bg-white/15 dark:text-white dark:shadow-sm dark:ring-1 dark:ring-white/10' : 'text-slate-500 hover:text-slate-900 hover:bg-white dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/8'}`
                   }
                 >
                   {label}
                 </NavLink>
-                <div className={`w-px h-4 mx-1 shrink-0 ${divider}`} />
+                <div className="w-px h-4 mx-1 shrink-0 bg-slate-300/80 dark:bg-white/10" />
               </div>
             ))}
 
@@ -166,7 +136,9 @@ export default function AppShell({ children }) {
                   >
                     <button
                       className={`px-4 py-1.5 text-xs rounded-full transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                        isGroupActive ? activeCapsule : idleItem
+                        isGroupActive
+                          ? 'bg-slate-800 text-white shadow-sm dark:bg-white/15 dark:text-white dark:shadow-sm dark:ring-1 dark:ring-white/10'
+                          : 'text-slate-500 hover:text-slate-900 hover:bg-white dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/8'
                       }`}
                     >
                       {group.label}
@@ -181,7 +153,7 @@ export default function AppShell({ children }) {
                         className="absolute top-full left-1/2 -translate-x-1/2 z-50"
                         style={{ paddingTop: '6px', minWidth: '190px' }}
                       >
-                        <div className={`rounded-xl border py-2 ${dropdownBg}`}>
+                        <div className="rounded-xl border py-2 bg-white border-slate-200 shadow-2xl shadow-slate-400/30 dark:bg-[#0e1654]/95 dark:backdrop-blur-xl dark:border-white/10 dark:shadow-2xl dark:shadow-black/60">
                           {group.items.map(({ to, label }) => {
                             const isActive = location.pathname.startsWith(to)
                             return (
@@ -189,7 +161,9 @@ export default function AppShell({ children }) {
                                 key={to} to={to}
                                 className={() =>
                                   `flex items-center px-4 py-2 text-xs transition-colors mx-1.5 my-0.5 rounded-lg ${
-                                    isActive ? dropdownActive : dropdownItem
+                                    isActive
+                                      ? 'bg-slate-800 text-white font-medium dark:bg-white/15 dark:text-white dark:font-medium'
+                                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/10'
                                   }`
                                 }
                                 onClick={() => setOpenGroup(null)}
@@ -204,7 +178,7 @@ export default function AppShell({ children }) {
                   </div>
 
                   {gIdx < NAV_GROUPS.length - 1 && (
-                    <div className={`w-px h-4 mx-1 shrink-0 ${divider}`} />
+                    <div className="w-px h-4 mx-1 shrink-0 bg-slate-300/80 dark:bg-white/10" />
                   )}
                 </div>
               )
@@ -215,24 +189,22 @@ export default function AppShell({ children }) {
         {/* ── Right: bank info + user + toggle ── */}
         <div className="flex items-center gap-4 shrink-0 ml-4">
           <div className="text-right hidden md:block">
-            <div className={`text-[11px] font-medium leading-tight ${userName}`}>Saraswat Co-op Bank</div>
-            <div className={`text-[10px] leading-tight ${subtext}`}>Zone: MUMBAI · Finacle</div>
+            <div className="text-[11px] font-medium leading-tight text-slate-700 dark:text-slate-200">Saraswat Co-op Bank</div>
+            <div className="text-[10px] leading-tight text-slate-400">Zone: MUMBAI · Finacle</div>
           </div>
 
           {/* Profile avatar */}
           <div className="relative">
             <button
-              className={`flex items-center gap-2 rounded-lg px-1.5 py-1 transition-all ${
-                isDark ? 'hover:bg-white/8' : 'hover:bg-slate-100'
-              }`}
+              className="flex items-center gap-2 rounded-lg px-1.5 py-1 transition-all hover:bg-slate-100 dark:hover:bg-white/8"
               onClick={() => setProfileOpen((v) => !v)}
             >
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${userBg}`}>R</div>
+              <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 bg-amber-100 text-amber-700 dark:bg-gold-400/20 dark:text-gold-400">R</div>
               <div className="hidden sm:block text-left">
-                <div className={`text-[11px] leading-tight font-medium ${userName}`}>Rahul S.</div>
-                <div className={`text-[10px] leading-tight ${subtext}`}>ops_reviewer</div>
+                <div className="text-[11px] leading-tight font-medium text-slate-700 dark:text-slate-200">Rahul S.</div>
+                <div className="text-[10px] leading-tight text-slate-400">ops_reviewer</div>
               </div>
-              <svg className={`w-3 h-3 opacity-50 hidden sm:block ${subtext}`} fill="none" viewBox="0 0 24 24"
+              <svg className="w-3 h-3 opacity-50 hidden sm:block text-slate-400" fill="none" viewBox="0 0 24 24"
                 stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
@@ -240,18 +212,18 @@ export default function AppShell({ children }) {
 
             {profileOpen && (
               <div
-                className={`absolute right-0 top-full mt-2 w-52 z-50 rounded-xl border py-2 ${profileBg}`}
+                className="absolute right-0 top-full mt-2 w-52 z-50 rounded-xl border py-2 bg-white border-slate-200 shadow-2xl shadow-slate-400/30 dark:bg-[#0e1654]/95 dark:backdrop-blur-xl dark:border-white/10 dark:shadow-2xl dark:shadow-black/60"
                 onMouseLeave={() => setProfileOpen(false)}
               >
                 {PROFILE_MENU.map((item, i) =>
                   item.section ? (
-                    <div key={i} className={`px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest ${profileSection}`}>
+                    <div key={i} className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
                       {item.section}
                     </div>
                   ) : (
                     <Link
                       key={item.to} to={item.to}
-                      className={`flex items-center gap-2.5 px-4 py-1.5 text-xs mx-1.5 my-0.5 transition-colors ${profileItem}`}
+                      className="flex items-center gap-2.5 px-4 py-1.5 text-xs mx-1.5 my-0.5 transition-colors text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/10"
                       onClick={() => setProfileOpen(false)}
                     >
                       <span className="w-4 text-center opacity-70">{item.icon}</span>
@@ -266,9 +238,7 @@ export default function AppShell({ children }) {
           <button
             onClick={toggle}
             title={isDark ? 'Switch to light' : 'Switch to dark'}
-            className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all shrink-0 ${
-              isDark ? 'hover:bg-white/8 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
-            }`}
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all shrink-0 hover:bg-slate-100 text-slate-500 dark:hover:bg-white/8 dark:text-slate-400"
           >
             {isDark ? '☀' : '🌙'}
           </button>
@@ -278,29 +248,25 @@ export default function AppShell({ children }) {
       {/* ── PageHeaderProvider wraps both the breadcrumb bar and content.       */}
       {/* ── Pages call usePageHeader() which sets state on the provider.        */}
       {/* ── PageHeaderBar reads from that same provider — re-renders on change. */}
-      <PageHeaderBar page={page} section={section} isDark={isDark} />
-      <div className={`flex-1 min-h-0 overflow-y-auto ${main}`}>
+      <PageHeaderBar page={page} section={section} />
+      <div className="flex-1 min-h-0 overflow-y-auto bg-slate-50 dark:bg-black/15">
         {children}
       </div>
     </div>
   )
 }
 
-function PageHeaderBar({ page, section, isDark }) {
+function PageHeaderBar({ page, section }) {
   const { subtitle, actions } = useContext(PageHeaderCtx)
   if (!page) return null
 
-  const bg     = isDark ? 'bg-white/3 border-white/6 backdrop-blur-sm' : 'bg-white/80 border-slate-100'
-  const muted  = isDark ? 'text-slate-400' : 'text-slate-400'
-  const strong = isDark ? 'text-slate-100' : 'text-slate-700'
-
   return (
-    <div className={`shrink-0 border-b ${bg} flex items-center px-6 gap-2`} style={{ height: '44px' }}>
-      <span className={`text-[11px] ${muted}`}>{section}</span>
-      <span className={`text-[11px] ${muted} opacity-40`}>›</span>
-      <span className={`text-[13px] font-semibold ${strong}`}>{page}</span>
+    <div className="shrink-0 border-b bg-white/80 border-slate-100 dark:bg-white/3 dark:border-white/6 dark:backdrop-blur-sm flex items-center px-6 gap-2" style={{ height: '44px' }}>
+      <span className="text-[11px] text-slate-400">{section}</span>
+      <span className="text-[11px] text-slate-400 opacity-40">›</span>
+      <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-100">{page}</span>
       <div className="ml-auto flex items-center gap-4">
-        {subtitle && <span className={`text-[11px] ${muted} hidden sm:block`}>{subtitle}</span>}
+        {subtitle && <span className="text-[11px] text-slate-400 hidden sm:block">{subtitle}</span>}
         {actions}
       </div>
     </div>
