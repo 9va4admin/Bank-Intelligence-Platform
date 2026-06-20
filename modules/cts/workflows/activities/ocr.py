@@ -10,6 +10,9 @@ from typing import Optional
 import structlog
 from pydantic import BaseModel, ConfigDict
 
+from modules.cts.sub_member.models import PrincipalTag
+from modules.cts.sub_member.router import MICRPrefixRouter
+
 log = structlog.get_logger()
 
 
@@ -31,12 +34,15 @@ class OCRActivityResult(BaseModel):
     overall_confidence: float = 0.0
     low_confidence_reason: Optional[str] = None
     degraded: bool = False
+    principal_tag: Optional[str] = None   # "DIRECT" | "SUB_MEMBER"
+    sub_member_id: Optional[str] = None   # populated when principal_tag == "SUB_MEMBER"
 
 
 async def ocr_extract(
     inp: OCRActivityInput,
     vllm_client=None,
     min_confidence: float = 0.85,
+    routing_table: Optional[dict] = None,
 ) -> OCRActivityResult:
     """
     Extract cheque fields using GOT-OCR2.0.
@@ -65,6 +71,9 @@ async def ocr_extract(
 
     low_fields = [k for k, v in data.items() if isinstance(v, dict) and v.get("confidence", 1.0) < min_confidence]
 
+    micr_line = data.get("micr_line", {}).get("value")
+    principal_tag, sub_member_id = _route_micr(micr_line, routing_table, inp.instrument_id)
+
     if low_fields:
         log.info(
             "ocr_activity.low_confidence",
@@ -73,18 +82,49 @@ async def ocr_extract(
         )
         return OCRActivityResult(
             outcome="HUMAN_REVIEW",
-            micr_line=data.get("micr_line", {}).get("value"),
+            micr_line=micr_line,
             amount_figures=data.get("amount_figures", {}).get("value"),
             overall_confidence=overall,
             low_confidence_reason=f"low_confidence_fields: {low_fields}",
+            principal_tag=principal_tag,
+            sub_member_id=sub_member_id,
         )
 
     return OCRActivityResult(
         outcome="PROCEED",
-        micr_line=data.get("micr_line", {}).get("value"),
+        micr_line=micr_line,
         amount_figures=data.get("amount_figures", {}).get("value"),
         amount_words=data.get("amount_words", {}).get("value"),
         date=data.get("date", {}).get("value"),
         payee=data.get("payee", {}).get("value"),
         overall_confidence=overall,
+        principal_tag=principal_tag,
+        sub_member_id=sub_member_id,
     )
+
+
+def _route_micr(
+    micr_line: Optional[str],
+    routing_table: Optional[dict],
+    instrument_id: str,
+) -> tuple[Optional[str], Optional[str]]:
+    """
+    Identify principal tag from MICR line using MICRPrefixRouter.
+    Returns (principal_tag_str, sub_member_id_str).
+    Defaults to DIRECT when no micr_line or no routing_table is provided.
+    """
+    if not micr_line or not routing_table:
+        return PrincipalTag.DIRECT.value, None
+
+    try:
+        router = MICRPrefixRouter(routing_table)
+        tag, smb = router.identify(micr_line)
+        sub_member_id = smb.sub_member_id if smb is not None else None
+        return tag.value, sub_member_id
+    except Exception as exc:
+        log.warning(
+            "ocr_activity.micr_routing_failed",
+            instrument_id=instrument_id,
+            error=str(exc),
+        )
+        return PrincipalTag.DIRECT.value, None
