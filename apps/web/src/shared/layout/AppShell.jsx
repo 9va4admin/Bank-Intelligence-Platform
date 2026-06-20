@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { NavLink, Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../theme/ThemeContext'
 
@@ -74,6 +74,16 @@ export default function AppShell({ children }) {
   const { isDark, toggle } = useTheme()
   const location = useLocation()
   const [openGroup, setOpenGroup] = useState(null)
+  const closeTimer = useRef(null)
+
+  const openMenu = useCallback((label) => {
+    clearTimeout(closeTimer.current)
+    setOpenGroup(label)
+  }, [])
+
+  const scheduleClose = useCallback(() => {
+    closeTimer.current = setTimeout(() => setOpenGroup(null), 180)
+  }, [])
   const [profileOpen, setProfileOpen] = useState(false)
   const [section, page] = useBreadcrumb(location.pathname)
 
@@ -188,8 +198,8 @@ export default function AppShell({ children }) {
                   {/* Wrapper covers button + dropdown so hover doesn't break */}
                   <div
                     className="relative"
-                    onMouseEnter={() => setOpenGroup(group.label)}
-                    onMouseLeave={() => setOpenGroup(null)}
+                    onMouseEnter={() => openMenu(group.label)}
+                    onMouseLeave={scheduleClose}
                   >
                     <button
                       className={`px-4 py-1.5 text-xs rounded-full transition-all whitespace-nowrap flex items-center gap-1.5 ${
@@ -206,7 +216,11 @@ export default function AppShell({ children }) {
                     {openGroup === group.label && (
                       /* -mt-1 + pt-3 bridges the gap so cursor moving down doesn't close it */
                       <div className={`absolute top-full left-1/2 -translate-x-1/2 -mt-1 pt-2 min-w-[190px] z-50`}>
-                        <div className={`rounded-xl border py-2 ${dropdownBg}`}>
+                        <div
+                          className={`rounded-xl border py-2 ${dropdownBg}`}
+                          onMouseEnter={() => openMenu(group.label)}
+                          onMouseLeave={scheduleClose}
+                        >
                           {group.items.map(({ to, label }) => {
                             const isActive = location.pathname.startsWith(to)
                             return (
