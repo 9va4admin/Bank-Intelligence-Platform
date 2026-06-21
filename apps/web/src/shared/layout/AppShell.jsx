@@ -4,9 +4,10 @@ import { useTheme } from '../theme/ThemeContext'
 import { PageHeaderCtx } from './PageHeaderContext'
 
 const FLAT_NAV = [
-  { to: '/cts',         label: 'Inward',  end: true },
-  { to: '/cts/outward', label: 'Outward' },
-  { to: '/cts/vault',   label: 'Vault'   },
+  { to: '/cts',          label: 'Inward',   end: true },
+  { to: '/cts/outward',  label: 'Outward'  },
+  { to: '/cts/vault',    label: 'Vault'    },
+  { to: '/cts/pipeline', label: 'Pipeline' },
 ]
 
 const NAV_GROUPS = [
@@ -55,6 +56,7 @@ const ROUTE_LABELS = {
   '/cts/endorsement':   ['Operations', 'Endorsement'],
   '/cts/scanner':       ['Operations', 'Scanner SDK'],
   '/cts/rpc':           ['Operations', 'RPC Consolidation'],
+  '/cts/pipeline':      ['CTS', 'Pipeline Visualizer'],
   '/cts/config':        ['Admin', 'Config'],
   '/cts/config/sub-member-banks': ['Admin · Config', 'Sub-Member Banks'],
   '/cts/config/micr-prefixes':    ['Admin · Config', 'MICR Prefix Table'],
