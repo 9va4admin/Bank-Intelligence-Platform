@@ -32,11 +32,11 @@ const REASON_COLORS_L = {
 }
 
 function SigPanel({ item, isDark }) {
-  const muted  = isDark ? 'text-slate-400'  : 'text-slate-500'
-  const note   = isDark ? 'text-slate-500'  : 'text-slate-500'
-  const noteBg = isDark ? 'bg-white/3'      : 'bg-slate-50'
-  const barBg  = isDark ? 'bg-white/5'      : 'bg-slate-100'
-  const tick   = isDark ? 'text-slate-600'  : 'text-slate-400'
+  const muted  = 'text-slate-500 dark:text-slate-400'
+  const note   = 'text-slate-500 dark:text-slate-500'
+  const noteBg = 'bg-slate-50 dark:bg-white/3'
+  const barBg  = 'bg-slate-100 dark:bg-white/5'
+  const tick   = 'text-slate-400 dark:text-slate-600'
 
   if (!item.sig_specimen_available) {
     return (
@@ -99,23 +99,23 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
   const REASON_COLORS = isDark ? REASON_COLORS_D : REASON_COLORS_L
 
   const th = {
-    border:   isDark ? 'border-white/8'    : 'border-slate-200',
-    id:       isDark ? 'text-slate-500'    : 'text-slate-400',
-    heading:  isDark ? 'text-white'        : 'text-slate-900',
-    dot:      isDark ? 'text-slate-500'    : 'text-slate-400',
-    meta:     isDark ? 'text-slate-500'    : 'text-slate-400',
+    border:   'border-slate-200 dark:border-white/8',
+    id:       'text-slate-400 dark:text-slate-500',
+    heading:  'text-slate-900 dark:text-white',
+    dot:      'text-slate-400 dark:text-slate-500',
+    meta:     'text-slate-400 dark:text-slate-500',
     tabActive: isDark
       ? 'bg-white/6 text-white border-t border-l border-r border-white/10'
       : 'bg-slate-100 text-slate-900 border-t border-l border-r border-slate-200',
-    tabIdle:  isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-700',
-    glass:    isDark ? 'bg-white/5 border border-white/8'    : 'bg-slate-50 border border-slate-200',
-    lbl:      isDark ? 'text-slate-500'    : 'text-slate-400',
-    val:      isDark ? 'text-slate-200'    : 'text-slate-800',
-    barBg:    isDark ? 'bg-white/5'        : 'bg-slate-100',
-    foot:     isDark ? 'bg-navy-950/80'    : 'bg-white',
-    sel:      isDark ? 'bg-white/4 border-white/8 text-slate-300 focus:border-gold-400/40' : 'bg-white border-slate-300 text-slate-700 focus:border-amber-400',
-    selOpt:   isDark ? 'bg-navy-900'       : 'bg-white',
-    footNote: isDark ? 'text-slate-600'    : 'text-slate-400',
+    tabIdle:  'text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300',
+    glass:    'bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border dark:border-white/8',
+    lbl:      'text-slate-400 dark:text-slate-500',
+    val:      'text-slate-800 dark:text-slate-200',
+    barBg:    'bg-slate-100 dark:bg-white/5',
+    foot:     'bg-white dark:bg-navy-950/80',
+    sel:      'bg-white border-slate-300 text-slate-700 focus:border-amber-400 dark:bg-white/4 dark:border-white/8 dark:text-slate-300 dark:focus:border-gold-400/40',
+    selOpt:   'bg-white dark:bg-navy-900',
+    footNote: 'text-slate-400 dark:text-slate-600',
   }
 
   if (!item) {
@@ -152,13 +152,13 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
   }
 
   const tabs = ['overview', 'cheque', 'ai analysis']
-  const reasonColor = REASON_COLORS[item.reason] || (isDark ? 'bg-slate-400/10 border-slate-400/20 text-slate-300' : 'bg-slate-100 border-slate-300 text-slate-600')
+  const reasonColor = REASON_COLORS[item.reason] || ('bg-slate-100 border-slate-300 text-slate-600 dark:bg-slate-400/10 dark:border-slate-400/20 dark:text-slate-300')
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Sub-member context banner */}
       {item.principal_tag === 'SUB_MEMBER' && (
-        <div className={`px-6 py-2 flex items-center gap-2 border-b text-[11px] font-medium ${isDark ? 'bg-amber-400/5 border-amber-400/20 text-amber-300' : 'bg-amber-50 border-amber-300 text-amber-700'}`}>
+        <div className={`px-6 py-2 flex items-center gap-2 border-b text-[11px] font-medium ${'bg-amber-50 border-amber-300 text-amber-700 dark:bg-amber-400/5 dark:border-amber-400/20 dark:text-amber-300'}`}>
           <span className="font-semibold">SUB-MEMBER CHEQUE</span>
           <span className="opacity-60">·</span>
           <span>{item.sub_member_name}</span>
@@ -173,12 +173,12 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
         <div className="flex items-center gap-2 mb-2 flex-wrap">
           {/* Cheque number — hover shows cheque image */}
           <div className="relative" onMouseEnter={showCheque} onMouseLeave={hideCheque}>
-            <span className={`text-[11px] font-mono cursor-default underline decoration-dotted ${isDark ? 'text-gold-400 decoration-gold-400/40' : 'text-amber-600 decoration-amber-400/60'}`}>
+            <span className={`text-[11px] font-mono cursor-default underline decoration-dotted ${'text-amber-600 decoration-amber-400/60 dark:text-gold-400 dark:decoration-gold-400/40'}`}>
               {item.instrument_id}
             </span>
             {chequeHover && (
               <div
-                className={`absolute left-0 top-6 z-50 w-[480px] rounded-xl shadow-2xl border p-3 ${isDark ? 'bg-navy-900 border-white/10' : 'bg-white border-slate-200'}`}
+                className={`absolute left-0 top-6 z-50 w-[480px] rounded-xl shadow-2xl border p-3 ${'bg-white border-slate-200 dark:bg-navy-900 dark:border-white/10'}`}
                 onMouseEnter={showCheque} onMouseLeave={hideCheque}
               >
                 <div className={`text-[9px] ${th.lbl} uppercase tracking-widest mb-2`}>Cheque Image — compare with extracted fields</div>

@@ -26,12 +26,12 @@ export default function EJDashboard({ defaultTab = 'fleet' }) {
   const { data: logs, isLoading: logsLoading } = useEJLogs(bankId)
   const { data: disputes, isLoading: disputesLoading } = useDisputes(bankId)
 
-  const heading   = isDark ? 'text-gray-100' : 'text-gray-900'
-  const subtext   = isDark ? 'text-gray-400' : 'text-gray-500'
-  const tabBorder = isDark ? 'border-gray-700' : 'border-gray-200'
-  const tabActive = isDark ? 'border-blue-400 text-blue-400' : 'border-blue-600 text-blue-600'
-  const tabIdle   = isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
-  const sectionH  = isDark ? 'text-gray-200' : 'text-gray-800'
+  const heading   = 'text-gray-900 dark:text-gray-100'
+  const subtext   = 'text-gray-500 dark:text-gray-400'
+  const tabBorder = 'border-gray-200 dark:border-gray-700'
+  const tabActive = 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+  const tabIdle   = 'text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300'
+  const sectionH  = 'text-gray-800 dark:text-gray-200'
 
   return (
     <EJShell>

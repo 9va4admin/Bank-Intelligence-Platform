@@ -4,10 +4,10 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 export default function EJShell({ children }) {
   const { isDark, toggle } = useTheme()
 
-  const bg      = isDark ? 'bg-gray-900 text-gray-100' : 'bg-gray-100 text-gray-900'
-  const topbar  = isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-  const logoText = isDark ? 'text-white' : 'text-gray-900'
-  const subtext  = isDark ? 'text-gray-400' : 'text-gray-500'
+  const bg      = 'bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-100'
+  const topbar  = 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+  const logoText = 'text-gray-900 dark:text-white'
+  const subtext  = 'text-gray-500 dark:text-gray-400'
 
   return (
     <div className={`min-h-screen ${bg}`}>
@@ -27,12 +27,12 @@ export default function EJShell({ children }) {
           <Link to="/" className={`text-xs ${subtext} hover:underline`}>← Portal</Link>
           <button
             onClick={toggle}
-            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={'Switch to dark mode dark:Switch dark:to dark:light dark:mode'}
             className={`w-8 h-8 rounded-lg flex items-center justify-center text-base transition-all ${
-              isDark ? 'hover:bg-white/10 text-gray-400' : 'hover:bg-gray-100 text-gray-500'
+              'hover:bg-gray-100 text-gray-500 dark:hover:bg-white/10 dark:text-gray-400'
             }`}
           >
-            {isDark ? '☀' : '🌙'}
+            {'🌙 dark:☀'}
           </button>
         </div>
       </div>

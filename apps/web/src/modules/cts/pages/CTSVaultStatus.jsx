@@ -24,18 +24,18 @@ export default function CTSVaultStatus() {
   const { isDark } = useTheme()
 
   const th = {
-    page:      isDark ? 'bg-transparent' : 'bg-slate-50',
-    card:      isDark ? 'bg-white/4 border-white/8' : 'bg-white border-slate-200',
-    cardFaint: isDark ? 'bg-navy-900/40 border-white/5' : 'bg-slate-50 border-slate-100',
-    heading:   isDark ? 'text-white' : 'text-slate-900',
-    body:      isDark ? 'text-slate-300' : 'text-slate-700',
-    muted:     isDark ? 'text-slate-400' : 'text-slate-500',
-    faint:     isDark ? 'text-slate-600' : 'text-slate-400',
-    divider:   isDark ? 'border-white/8' : 'border-slate-200',
-    dividerSm: isDark ? 'border-white/5' : 'border-slate-100',
-    row:       isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
-    thCell:    isDark ? 'text-slate-600' : 'text-slate-400',
-    redis:     isDark ? 'text-slate-600' : 'text-slate-400',
+    page:      'bg-slate-50 dark:bg-transparent',
+    card:      'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
+    cardFaint: 'bg-slate-50 border-slate-100 dark:bg-navy-900/40 dark:border-white/5',
+    heading:   'text-slate-900 dark:text-white',
+    body:      'text-slate-700 dark:text-slate-300',
+    muted:     'text-slate-500 dark:text-slate-400',
+    faint:     'text-slate-400 dark:text-slate-600',
+    divider:   'border-slate-200 dark:border-white/8',
+    dividerSm: 'border-slate-100 dark:border-white/5',
+    row:       'border-slate-100 hover:bg-slate-50 dark:border-white/4 dark:hover:bg-white/2',
+    thCell:    'text-slate-400 dark:text-slate-600',
+    redis:     'text-slate-400 dark:text-slate-600',
   }
 
   usePageHeader({ subtitle: 'Signature Vault · PPS Vault · VaultSyncWorkflow' })
@@ -119,11 +119,11 @@ export default function CTSVaultStatus() {
 }
 
 function Stat({ label, value, highlight, warn, isDark }) {
-  const labelCls = isDark ? 'text-slate-600' : 'text-slate-400'
+  const labelCls = 'text-slate-400 dark:text-slate-600'
   return (
     <div>
       <div className={`text-[10px] ${labelCls} mb-0.5`}>{label}</div>
-      <div className={`text-sm font-semibold ${highlight ? 'text-emerald-500' : warn ? 'text-amber-500' : isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+      <div className={`text-sm font-semibold ${highlight ? 'text-emerald-500' : warn ? 'text-amber-500' : 'text-slate-800 dark:text-slate-200'}`}>
         {value}
       </div>
     </div>

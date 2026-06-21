@@ -164,16 +164,16 @@ export default function CTSReconciliation() {
   const visible = filterStatus === 'ALL' ? items : items.filter(i => i.status === filterStatus)
 
   const th = {
-    page:    isDark ? 'bg-transparent'                        : 'bg-slate-50',
-    card:    isDark ? 'bg-white/4 border-white/8'         : 'bg-white border-slate-200',
-    heading: isDark ? 'text-white'                         : 'text-slate-900',
-    body:    isDark ? 'text-slate-300'                     : 'text-slate-700',
-    muted:   isDark ? 'text-slate-400'                     : 'text-slate-500',
-    faint:   isDark ? 'text-slate-600'                     : 'text-slate-400',
-    divider: isDark ? 'border-white/8'                     : 'border-slate-200',
-    row:     isDark ? 'border-white/4 hover:bg-white/2'    : 'border-slate-100 hover:bg-slate-50',
-    select:  isDark ? 'bg-navy-900 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
-    mono:    isDark ? 'text-slate-300 font-mono text-xs'   : 'text-slate-600 font-mono text-xs',
+    page:    'bg-slate-50 dark:bg-transparent',
+    card:    'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
+    heading: 'text-slate-900 dark:text-white',
+    body:    'text-slate-700 dark:text-slate-300',
+    muted:   'text-slate-500 dark:text-slate-400',
+    faint:   'text-slate-400 dark:text-slate-600',
+    divider: 'border-slate-200 dark:border-white/8',
+    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/4 dark:hover:bg-white/2',
+    select:  'bg-white border-slate-300 text-slate-900 dark:bg-navy-900 dark:border-white/10 dark:text-white',
+    mono:    'text-slate-600 font-mono text-xs dark:text-slate-300 dark:font-mono dark:text-xs',
   }
 
   const ST_D = {
@@ -293,9 +293,9 @@ export default function CTSReconciliation() {
               {/* NGCH status */}
               <div className="col-span-1">
                 <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                  item.ngch === 'CONFIRMED' ? (isDark ? 'text-emerald-400' : 'text-emerald-700') :
-                  item.ngch === 'RETURNED'  ? (isDark ? 'text-red-400'     : 'text-red-700')     :
-                  item.ngch === 'FILED'     ? (isDark ? 'text-amber-400'   : 'text-amber-700')   :
+                  item.ngch === 'CONFIRMED' ? ('text-emerald-700 dark:text-emerald-400') :
+                  item.ngch === 'RETURNED'  ? ('text-red-700 dark:text-red-400')     :
+                  item.ngch === 'FILED'     ? ('text-amber-700 dark:text-amber-400')   :
                   th.faint
                 }`}>{item.ngch || '—'}</span>
               </div>
@@ -303,9 +303,9 @@ export default function CTSReconciliation() {
               {/* CBS status */}
               <div className="col-span-1">
                 <span className={`text-[10px] font-medium ${
-                  item.cbs === 'POSTED'   ? (isDark ? 'text-emerald-400' : 'text-emerald-700') :
-                  item.cbs === 'REVERSED' ? (isDark ? 'text-red-400'     : 'text-red-700')     :
-                  item.cbs === 'PENDING'  ? (isDark ? 'text-amber-400'   : 'text-amber-700')   :
+                  item.cbs === 'POSTED'   ? ('text-emerald-700 dark:text-emerald-400') :
+                  item.cbs === 'REVERSED' ? ('text-red-700 dark:text-red-400')     :
+                  item.cbs === 'PENDING'  ? ('text-amber-700 dark:text-amber-400')   :
                   th.faint
                 }`}>{item.cbs || '—'}</span>
               </div>
@@ -368,7 +368,7 @@ export default function CTSReconciliation() {
               const barColor = smb.shield_status === 'HARD_STOP' ? 'bg-red-400' : smb.shield_status === 'SOFT_HOLD' ? 'bg-amber-400' : 'bg-emerald-400'
 
               return (
-                <div key={smb.sub_member_id} className={`border rounded-xl p-4 ${th.card} ${smb.soft_hold_active ? (isDark ? 'border-amber-400/30' : 'border-amber-300') : ''}`}>
+                <div key={smb.sub_member_id} className={`border rounded-xl p-4 ${th.card} ${smb.soft_hold_active ? ('border-amber-300 dark:border-amber-400/30') : ''}`}>
                   {/* Row 1: Name + shield + CSV */}
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div>
@@ -381,7 +381,7 @@ export default function CTSReconciliation() {
                       </span>
                       <button
                         onClick={() => downloadCsv(buildSmbCsv(smb), `SMB_${smb.sub_member_id}_${session.date.replace(/-/g,'')}.csv`)}
-                        className={`text-[10px] px-2.5 py-1 rounded-lg border flex items-center gap-1 transition-colors ${isDark ? 'border-white/10 text-slate-400 hover:text-white hover:border-white/20' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}
+                        className={`text-[10px] px-2.5 py-1 rounded-lg border flex items-center gap-1 transition-colors ${'border-slate-200 text-slate-500 hover:text-slate-800 dark:border-white/10 dark:text-slate-400 dark:hover:text-white dark:hover:border-white/20'}`}
                       >
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -401,7 +401,7 @@ export default function CTSReconciliation() {
                       { label: 'Fraud Hld',value: smb.fraud_hold,     color: 'text-orange-400' },
                       { label: 'IET Emrg', value: smb.iet_emergency,  color: smb.iet_emergency > 0 ? 'text-red-400' : th.faint },
                     ].map(b => (
-                      <div key={b.label} className={`rounded-lg px-3 py-2 ${isDark ? 'bg-white/3' : 'bg-slate-50'}`}>
+                      <div key={b.label} className={`rounded-lg px-3 py-2 ${'bg-slate-50 dark:bg-white/3'}`}>
                         <div className={`text-[9px] ${th.faint} mb-1`}>{b.label}</div>
                         <div className={`text-lg font-bold ${b.color}`}>{b.value}</div>
                       </div>
@@ -413,22 +413,22 @@ export default function CTSReconciliation() {
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-1">
                         <span className={`text-[10px] ${th.faint}`}>Return rate</span>
-                        <span className={`text-[10px] font-semibold ${smb.shield_status !== 'SAFE' ? (isDark ? 'text-amber-300' : 'text-amber-700') : (isDark ? 'text-emerald-400' : 'text-emerald-700')}`}>
+                        <span className={`text-[10px] font-semibold ${smb.shield_status !== 'SAFE' ? ('text-amber-700 dark:text-amber-300') : ('text-emerald-700 dark:text-emerald-400')}`}>
                           {smb.return_rate_pct.toFixed(1)}% / {smb.return_rate_threshold_pct.toFixed(1)}% threshold
                         </span>
                       </div>
-                      <div className={`h-1.5 rounded-full ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                      <div className={`h-1.5 rounded-full ${'bg-slate-100 dark:bg-white/5'}`}>
                         <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${Math.min(returnBarPct, 100)}%` }} />
                       </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <div className={`text-[10px] ${th.faint}`}>
                         Tier 1 notif:
-                        <span className={`ml-1 font-semibold ${isDark ? 'text-sky-400' : 'text-sky-600'}`}>{smb.tier1_sent} sent</span>
+                        <span className={`ml-1 font-semibold ${'text-sky-600 dark:text-sky-400'}`}>{smb.tier1_sent} sent</span>
                       </div>
                       <div className={`text-[10px] ${th.faint}`}>
                         Tier 2 batch:
-                        <span className={`ml-1 font-semibold ${smb.tier2_sent ? (isDark ? 'text-emerald-400' : 'text-emerald-700') : (isDark ? 'text-slate-500' : 'text-slate-400')}`}>
+                        <span className={`ml-1 font-semibold ${smb.tier2_sent ? ('text-emerald-700 dark:text-emerald-400') : ('text-slate-400 dark:text-slate-500')}`}>
                           {smb.tier2_sent ? 'sent' : 'pending (session active)'}
                         </span>
                       </div>

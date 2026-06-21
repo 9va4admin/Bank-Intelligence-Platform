@@ -105,7 +105,7 @@ function shieldStatus(smb) {
 function ReturnRateBar({ value, threshold, softThreshold, isDark }) {
   const pct = Math.min(value * 100, 100)
   const color = value >= softThreshold ? 'bg-red-500' : value >= threshold ? 'bg-amber-400' : 'bg-emerald-400'
-  const track = isDark ? 'bg-white/10' : 'bg-slate-200'
+  const track = 'bg-slate-200 dark:bg-white/10'
   return (
     <div className={`relative h-2 rounded-full overflow-visible ${track}`}>
       <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
@@ -133,12 +133,12 @@ function ShieldBadge({ status, isDark }) {
 
 function DetailPanel({ smb, isDark, onClose }) {
   const th = {
-    panel:   isDark ? 'bg-navy-900 border-white/10' : 'bg-white border-slate-200',
-    heading: isDark ? 'text-white' : 'text-slate-900',
-    label:   isDark ? 'text-slate-400' : 'text-slate-500',
-    value:   isDark ? 'text-slate-200' : 'text-slate-700',
-    divider: isDark ? 'border-white/8' : 'border-slate-100',
-    row:     isDark ? 'border-white/5 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
+    panel:   'bg-white border-slate-200 dark:bg-navy-900 dark:border-white/10',
+    heading: 'text-slate-900 dark:text-white',
+    label:   'text-slate-500 dark:text-slate-400',
+    value:   'text-slate-700 dark:text-slate-200',
+    divider: 'border-slate-100 dark:border-white/8',
+    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/2',
   }
 
   const rate = smb.stp_return / smb.total
@@ -153,7 +153,7 @@ function DetailPanel({ smb, isDark, onClose }) {
           <div className={`text-sm font-semibold ${th.heading}`}>{smb.bank_name} — Detail</div>
           <div className={`text-xs ${th.label}`}>{smb.ifsc_prefix} · MICR {smb.micr_prefix} · Sponsor: {smb.sponsor}</div>
         </div>
-        <button onClick={onClose} className={`text-sm px-2 py-1 rounded ${isDark ? 'hover:bg-white/8 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>✕</button>
+        <button onClick={onClose} className={`text-sm px-2 py-1 rounded ${'hover:bg-slate-100 text-slate-500 dark:hover:bg-white/8 dark:text-slate-400'}`}>✕</button>
       </div>
 
       {/* Notification config */}
@@ -241,15 +241,15 @@ export default function CTSSubMember() {
   const [selected, setSelected] = useState(null)
 
   const th = {
-    page:    isDark ? 'bg-navy-950 text-white'          : 'bg-slate-50 text-slate-900',
-    card:    isDark ? 'bg-white/4 border-white/8'      : 'bg-white border-slate-200',
-    heading: isDark ? 'text-white'                      : 'text-slate-900',
-    body:    isDark ? 'text-slate-300'                  : 'text-slate-700',
-    muted:   isDark ? 'text-slate-400'                  : 'text-slate-500',
-    label:   isDark ? 'text-slate-500'                  : 'text-slate-400',
-    divider: isDark ? 'border-white/8'                  : 'border-slate-200',
-    row:     isDark ? 'border-white/5 hover:bg-white/3' : 'border-slate-100 hover:bg-slate-50',
-    kpi:     isDark ? 'bg-navy-900/70 border-white/6'   : 'bg-white border-slate-200',
+    page:    'bg-slate-50 text-slate-900 dark:bg-navy-950 dark:text-white',
+    card:    'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
+    heading: 'text-slate-900 dark:text-white',
+    body:    'text-slate-700 dark:text-slate-300',
+    muted:   'text-slate-500 dark:text-slate-400',
+    label:   'text-slate-400 dark:text-slate-500',
+    divider: 'border-slate-200 dark:border-white/8',
+    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/3',
+    kpi:     'bg-white border-slate-200 dark:bg-navy-900/70 dark:border-white/6',
   }
 
   const totalInward  = SUB_MEMBERS.reduce((s, m) => s + m.total, 0)
@@ -306,7 +306,7 @@ export default function CTSSubMember() {
               <div
                 key={smb.id}
                 onClick={() => setSelected(isActive ? null : smb.id)}
-                className={`border rounded-lg p-4 cursor-pointer transition-all ${th.card} ${isActive ? (isDark ? 'ring-1 ring-gold-400/50' : 'ring-1 ring-amber-400/60') : ''}`}
+                className={`border rounded-lg p-4 cursor-pointer transition-all ${th.card} ${isActive ? ('ring-1 ring-amber-400/60 dark:ring-1 dark:ring-gold-400/50') : ''}`}
               >
                 {/* Card header */}
                 <div className="flex items-start justify-between mb-3">
@@ -396,10 +396,10 @@ export default function CTSSubMember() {
                 const smb = SUB_MEMBERS.find(m => m.id === e.smb)
                 const bc = BUCKET_COLORS[e.bucket]
                 const tierColor = e.tier === 3
-                  ? (isDark ? 'bg-red-900/40 text-red-300 border-red-700/40' : 'bg-red-50 text-red-700 border-red-200')
+                  ? ('bg-red-50 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700/40')
                   : e.tier === 2
-                  ? (isDark ? 'bg-amber-900/40 text-amber-300 border-amber-700/40' : 'bg-amber-50 text-amber-700 border-amber-200')
-                  : (isDark ? 'bg-sky-900/40 text-sky-300 border-sky-700/40' : 'bg-sky-50 text-sky-700 border-sky-200')
+                  ? ('bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700/40')
+                  : ('bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/40 dark:text-sky-300 dark:border-sky-700/40')
                 return (
                   <tr key={e.id} className={`border-b ${th.row}`}>
                     <td className={`px-4 py-2 ${th.body}`}>{e.time}</td>

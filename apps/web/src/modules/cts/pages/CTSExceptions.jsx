@@ -199,14 +199,14 @@ export default function CTSExceptions() {
   const [showResolved, setShowResolved]     = useState(true)
 
   const th = {
-    page:    isDark ? 'bg-transparent'        : 'bg-slate-50',
-    card:    isDark ? 'bg-white/4 border-white/8' : 'bg-white border-slate-200',
-    heading: isDark ? 'text-white'         : 'text-slate-900',
-    body:    isDark ? 'text-slate-300'     : 'text-slate-700',
-    muted:   isDark ? 'text-slate-400'     : 'text-slate-500',
-    divider: isDark ? 'border-white/8'     : 'border-slate-200',
-    row:     isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
-    badge:   isDark ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600',
+    page:    'bg-slate-50 dark:bg-transparent',
+    card:    'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
+    heading: 'text-slate-900 dark:text-white',
+    body:    'text-slate-700 dark:text-slate-300',
+    muted:   'text-slate-500 dark:text-slate-400',
+    divider: 'border-slate-200 dark:border-white/8',
+    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/4 dark:hover:bg-white/2',
+    badge:   'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300',
   }
 
   const SEV = isDark ? SEV_D : SEV_L

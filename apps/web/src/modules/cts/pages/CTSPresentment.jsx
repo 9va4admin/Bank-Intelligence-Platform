@@ -105,8 +105,8 @@ function pipelinePos(status) {
 
 function SessionBar({ sessions, activeIdx, onSelect, isDark }) {
   const th = {
-    bar:    isDark ? 'bg-white/4 border-white/8' : 'bg-white border-slate-200',
-    label:  isDark ? 'text-slate-400' : 'text-slate-500',
+    bar:    'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
+    label:  'text-slate-500 dark:text-slate-400',
   }
   return (
     <div className={`shrink-0 border-b ${th.bar} px-5 py-2 flex items-center gap-3`}>
@@ -118,14 +118,12 @@ function SessionBar({ sessions, activeIdx, onSelect, isDark }) {
           <button key={s.id} onClick={() => onSelect(i)}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-lg border text-[11px] transition-all ${
               active
-                ? isDark ? 'border-gold-400/50 bg-gold-400/10 text-gold-400 font-semibold'
-                         : 'border-amber-400/60 bg-amber-50 text-amber-700 font-semibold'
-                : isDark ? 'border-white/8 text-slate-400 hover:text-slate-200 hover:border-white/20'
-                         : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                ? 'border-amber-400/60 bg-amber-50 text-amber-700 font-semibold dark:border-gold-400/50 dark:bg-gold-400/10 dark:text-gold-400 dark:font-semibold'
+                : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:border-white/8 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:border-white/20'
             }`}>
             {isLive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
             <span className="font-mono">{s.window}</span>
-            {s.status === 'ACTIVE' && <span className={`text-[9px] font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>LIVE</span>}
+            {s.status === 'ACTIVE' && <span className={`text-[9px] font-medium ${'text-emerald-600 dark:text-emerald-400'}`}>LIVE</span>}
             {s.status === 'PENDING' && <span className={`text-[9px] ${th.label}`}>Pending</span>}
           </button>
         )
@@ -133,7 +131,7 @@ function SessionBar({ sessions, activeIdx, onSelect, isDark }) {
       <div className={`ml-auto flex items-center gap-4 text-[11px] ${th.label}`}>
         <span>📷 <span className="font-mono font-semibold">4</span> scanners</span>
         <span>📁 <span className="font-mono font-semibold">2</span> folders</span>
-        <span className={`font-mono font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>SCN feed active</span>
+        <span className={`font-mono font-semibold ${'text-emerald-600 dark:text-emerald-400'}`}>SCN feed active</span>
       </div>
     </div>
   )
@@ -150,24 +148,24 @@ function KpiStrip({ batch, isDark }) {
   const dateInvalid = batch.filter(b => b.date_valid === false).length
 
   const th = {
-    card:  isDark ? 'bg-navy-900/50 border-white/8' : 'bg-white border-slate-200',
-    lbl:   isDark ? 'text-slate-500' : 'text-slate-400',
-    val:   isDark ? 'text-white' : 'text-slate-900',
+    card:  'bg-white border-slate-200 dark:bg-navy-900/50 dark:border-white/8',
+    lbl:   'text-slate-400 dark:text-slate-500',
+    val:   'text-slate-900 dark:text-white',
   }
 
   const tiles = [
-    { label: 'Total Batch',      val: total,      color: isDark ? 'text-white' : 'text-slate-900' },
-    { label: 'IQA Fail',         val: iqaFail,    color: iqaFail > 0 ? 'text-red-400' : isDark ? 'text-emerald-400' : 'text-emerald-600' },
-    { label: 'AI Extracted',     val: extracted,  color: isDark ? 'text-violet-400' : 'text-violet-600' },
-    { label: 'Submitted NGCH',   val: submitted,  color: isDark ? 'text-blue-400' : 'text-blue-600' },
-    { label: 'NGCH ACK',         val: acked,      color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
-    { label: 'NGCH Reject',      val: rejected,   color: rejected > 0 ? 'text-red-400' : isDark ? 'text-slate-500' : 'text-slate-400' },
-    { label: 'Amt Mismatch',     val: amtMismatch,color: amtMismatch > 0 ? 'text-amber-400' : isDark ? 'text-slate-500' : 'text-slate-400' },
-    { label: 'Date Invalid',     val: dateInvalid, color: dateInvalid > 0 ? 'text-amber-400' : isDark ? 'text-slate-500' : 'text-slate-400' },
+    { label: 'Total Batch',      val: total,      color: 'text-slate-900 dark:text-white' },
+    { label: 'IQA Fail',         val: iqaFail,    color: iqaFail > 0 ? 'text-red-400' : 'text-emerald-600 dark:text-emerald-400' },
+    { label: 'AI Extracted',     val: extracted,  color: 'text-violet-600 dark:text-violet-400' },
+    { label: 'Submitted NGCH',   val: submitted,  color: 'text-blue-600 dark:text-blue-400' },
+    { label: 'NGCH ACK',         val: acked,      color: 'text-emerald-600 dark:text-emerald-400' },
+    { label: 'NGCH Reject',      val: rejected,   color: rejected > 0 ? 'text-red-400' : 'text-slate-400 dark:text-slate-500' },
+    { label: 'Amt Mismatch',     val: amtMismatch,color: amtMismatch > 0 ? 'text-amber-400' : 'text-slate-400 dark:text-slate-500' },
+    { label: 'Date Invalid',     val: dateInvalid, color: dateInvalid > 0 ? 'text-amber-400' : 'text-slate-400 dark:text-slate-500' },
   ]
 
   return (
-    <div className={`shrink-0 border-b ${isDark ? 'border-white/8' : 'border-slate-200'} px-5 py-3`}>
+    <div className={`shrink-0 border-b ${'border-slate-200 dark:border-white/8'} px-5 py-3`}>
       <div className="flex gap-4 overflow-x-auto">
         {tiles.map(t => (
           <div key={t.label} className={`shrink-0 rounded-xl border ${th.card} px-4 py-2 min-w-[100px]`}>
@@ -187,13 +185,13 @@ function PipelineLane({ batch, isDark }) {
   const total = batch.length || 1
 
   const th = {
-    card:  isDark ? 'bg-navy-900/50 border-white/8' : 'bg-white border-slate-200',
-    lbl:   isDark ? 'text-slate-500' : 'text-slate-400',
-    bar:   isDark ? 'bg-white/5' : 'bg-slate-100',
+    card:  'bg-white border-slate-200 dark:bg-navy-900/50 dark:border-white/8',
+    lbl:   'text-slate-400 dark:text-slate-500',
+    bar:   'bg-slate-100 dark:bg-white/5',
   }
 
   return (
-    <div className={`shrink-0 border-b ${isDark ? 'border-white/8' : 'border-slate-200'} px-5 py-3`}>
+    <div className={`shrink-0 border-b ${'border-slate-200 dark:border-white/8'} px-5 py-3`}>
       <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>Outward Pipeline — Current Session</div>
       <div className="flex gap-2 items-end">
         {PIPELINE_STEPS.map((step, i) => {
@@ -203,7 +201,7 @@ function PipelineLane({ batch, isDark }) {
             <div key={step.id} className="flex-1 min-w-0">
               <div className="flex items-baseline justify-between mb-1">
                 <span className={`text-[10px] ${th.lbl} truncate`}>{step.icon} {step.label}</span>
-                <span className={`text-[10px] font-mono font-bold shrink-0 ml-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{cnt}</span>
+                <span className={`text-[10px] font-mono font-bold shrink-0 ml-1 ${'text-slate-700 dark:text-slate-300'}`}>{cnt}</span>
               </div>
               <div className={`h-1.5 ${th.bar} rounded-full overflow-hidden`}>
                 <div className="h-full bg-gold-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
@@ -222,11 +220,11 @@ function BatchRow({ item, selected, onClick, isDark }) {
   const s = SM[item.status] || SM['CAPTURED']
   const th = {
     row:  selected
-      ? isDark ? 'bg-gold-400/8 border-gold-400/30' : 'bg-amber-50 border-amber-300'
-      : isDark ? 'border-white/5 hover:bg-white/2'  : 'border-slate-100 hover:bg-slate-50',
-    id:   isDark ? 'text-gold-400' : 'text-amber-600',
-    meta: isDark ? 'text-slate-400' : 'text-slate-500',
-    muted:isDark ? 'text-slate-500' : 'text-slate-400',
+      ? 'bg-amber-50 border-amber-300 dark:bg-gold-400/8 dark:border-gold-400/30'
+      : 'border-slate-100 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/2',
+    id:   'text-amber-600 dark:text-gold-400',
+    meta: 'text-slate-500 dark:text-slate-400',
+    muted:'text-slate-400 dark:text-slate-500',
   }
 
   return (
@@ -251,7 +249,7 @@ function BatchRow({ item, selected, onClick, isDark }) {
           {item.lot_seq && (
             <>
               <span>·</span>
-              <span className={isDark ? 'text-violet-400 font-medium' : 'text-violet-600 font-medium'}>
+              <span className={'text-violet-600 font-medium dark:text-violet-400 dark:font-medium'}>
                 Lot {item.lot_seq}
               </span>
             </>
@@ -267,7 +265,7 @@ function BatchRow({ item, selected, onClick, isDark }) {
 
 function DetailPanel({ item, isDark }) {
   if (!item) return (
-    <div className={`flex-1 flex items-center justify-center ${isDark ? 'text-slate-600' : 'text-slate-300'} text-sm`}>
+    <div className={`flex-1 flex items-center justify-center ${'text-slate-300 dark:text-slate-600'} text-sm`}>
       Select a cheque to inspect
     </div>
   )
@@ -277,15 +275,15 @@ function DetailPanel({ item, isDark }) {
   const pos = pipelinePos(item.status)
 
   const th = {
-    page:    isDark ? 'bg-transparent'                    : 'bg-slate-50',
-    card:    isDark ? 'bg-navy-900/50 border-white/8'  : 'bg-white border-slate-200',
-    heading: isDark ? 'text-white'                     : 'text-slate-900',
-    body:    isDark ? 'text-slate-300'                 : 'text-slate-700',
-    muted:   isDark ? 'text-slate-400'                 : 'text-slate-500',
-    lbl:     isDark ? 'text-slate-500'                 : 'text-slate-400',
-    divider: isDark ? 'border-white/8'                 : 'border-slate-200',
-    id:      isDark ? 'text-gold-400'                  : 'text-amber-600',
-    bar:     isDark ? 'bg-white/5'                     : 'bg-slate-100',
+    page:    'bg-slate-50 dark:bg-transparent',
+    card:    'bg-white border-slate-200 dark:bg-navy-900/50 dark:border-white/8',
+    heading: 'text-slate-900 dark:text-white',
+    body:    'text-slate-700 dark:text-slate-300',
+    muted:   'text-slate-500 dark:text-slate-400',
+    lbl:     'text-slate-400 dark:text-slate-500',
+    divider: 'border-slate-200 dark:border-white/8',
+    id:      'text-amber-600 dark:text-gold-400',
+    bar:     'bg-slate-100 dark:bg-white/5',
   }
 
   const fields = [
@@ -335,19 +333,19 @@ function DetailPanel({ item, isDark }) {
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] border ${
                     fail    ? 'bg-red-500/20 border-red-500/50 text-red-400'
                     : done  ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
-                    : current ? (isDark ? 'bg-gold-400/20 border-gold-400/50 text-gold-400' : 'bg-amber-100 border-amber-400 text-amber-600')
-                    : isDark ? 'bg-white/5 border-white/10 text-slate-600' : 'bg-slate-100 border-slate-200 text-slate-400'
+                    : current ? ('bg-amber-100 border-amber-400 text-amber-600 dark:bg-gold-400/20 dark:border-gold-400/50 dark:text-gold-400')
+                    : 'bg-slate-100 border-slate-200 text-slate-400 dark:bg-white/5 dark:border-white/10 dark:text-slate-600'
                   }`}>
                     {fail ? '✕' : done ? '✓' : step.icon}
                   </div>
                   <div className={`text-[8px] mt-0.5 text-center leading-tight ${
-                    fail ? 'text-red-400' : done ? (isDark ? 'text-emerald-400' : 'text-emerald-600') :
-                    current ? (isDark ? 'text-gold-400' : 'text-amber-600') :
-                    isDark ? 'text-slate-600' : 'text-slate-400'
+                    fail ? 'text-red-400' : done ? ('text-emerald-600 dark:text-emerald-400') :
+                    current ? ('text-amber-600 dark:text-gold-400') :
+                    'text-slate-400 dark:text-slate-600'
                   }`}>{step.label}</div>
                 </div>
                 {i < PIPELINE_STEPS.length - 1 && (
-                  <div className={`h-px flex-1 mx-0.5 mt-[-12px] ${done ? (isDark ? 'bg-emerald-500/40' : 'bg-emerald-300') : (isDark ? 'bg-white/8' : 'bg-slate-200')}`} />
+                  <div className={`h-px flex-1 mx-0.5 mt-[-12px] ${done ? ('bg-emerald-300 dark:bg-emerald-500/40') : ('bg-slate-200 dark:bg-white/8')}`} />
                 )}
               </div>
             )
@@ -400,7 +398,7 @@ function DetailPanel({ item, isDark }) {
                   </div>
                   <div className="flex items-center gap-2">
                     {c.val && <span className={`text-[11px] font-mono ${th.body}`}>{c.val}</span>}
-                    <span className={`text-[11px] font-semibold ${c.ok ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : 'text-red-400'}`}>
+                    <span className={`text-[11px] font-semibold ${c.ok ? ('text-emerald-600 dark:text-emerald-400') : 'text-red-400'}`}>
                       {c.ok ? '✓' : '✕'}
                     </span>
                   </div>
@@ -425,7 +423,7 @@ function DetailPanel({ item, isDark }) {
               </div>
               <div className="flex items-center justify-between px-4 py-2">
                 <span className={`text-[11px] ${th.muted}`}>HSM signed</span>
-                <span className={`text-[11px] ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>✓ FIPS 140-2 L3</span>
+                <span className={`text-[11px] ${'text-emerald-600 dark:text-emerald-400'}`}>✓ FIPS 140-2 L3</span>
               </div>
               {item.ngch_ack_id && (
                 <div className="flex items-center justify-between px-4 py-2">
@@ -492,15 +490,13 @@ export default function CTSPresentment() {
   }, [])
 
   const th = {
-    page:    isDark ? 'bg-transparent'               : 'bg-slate-50',
-    divider: isDark ? 'border-white/8'             : 'border-slate-200',
-    heading: isDark ? 'text-white'                 : 'text-slate-900',
-    muted:   isDark ? 'text-slate-400'             : 'text-slate-500',
-    lbl:     isDark ? 'text-slate-500'             : 'text-slate-400',
-    search:  isDark ? 'bg-white/5 border-white/10 text-slate-300 placeholder:text-slate-600 focus:border-gold-400/40'
-                    : 'bg-white border-slate-300 text-slate-700 placeholder:text-slate-400 focus:border-amber-400',
-    sel:     isDark ? 'bg-white/5 border-white/10 text-slate-300 focus:border-gold-400/40'
-                    : 'bg-white border-slate-300 text-slate-700 focus:border-amber-400',
+    page:    'bg-slate-50 dark:bg-transparent',
+    divider: 'border-slate-200 dark:border-white/8',
+    heading: 'text-slate-900 dark:text-white',
+    muted:   'text-slate-500 dark:text-slate-400',
+    lbl:     'text-slate-400 dark:text-slate-500',
+    search:  'bg-white border-slate-300 text-slate-700 placeholder:text-slate-400 focus:border-amber-400 dark:bg-white/5 dark:border-white/10 dark:text-slate-300 dark:placeholder:text-slate-600 dark:focus:border-gold-400/40',
+    sel:     'bg-white border-slate-300 text-slate-700 focus:border-amber-400 dark:bg-white/5 dark:border-white/10 dark:text-slate-300 dark:focus:border-gold-400/40',
   }
 
   const allStatuses = ['ALL', ...Object.keys(STATUS_META)]

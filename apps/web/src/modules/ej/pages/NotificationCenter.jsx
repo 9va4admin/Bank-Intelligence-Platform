@@ -54,18 +54,18 @@ const DELIVERY_LOG = [
 
 function MatrixTab({ isDark }) {
   const SEV_PILL = isDark ? SEV_PILL_D : SEV_PILL_L
-  const violet   = isDark ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30' : 'bg-violet-100 text-violet-700 border border-violet-400'
-  const divider  = isDark ? 'border-white/10' : 'border-slate-200'
-  const dividerSm = isDark ? 'border-white/5' : 'border-slate-100'
-  const rowMeta  = isDark ? 'text-slate-200' : 'text-slate-800'
-  const muted    = isDark ? 'text-slate-500' : 'text-slate-400'
-  const empty    = isDark ? 'text-slate-600' : 'text-slate-400'
-  const stepCard = isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-slate-50'
-  const stepText = isDark ? 'text-slate-200' : 'text-slate-800'
-  const stepMeta = isDark ? 'text-slate-500' : 'text-slate-500'
-  const stepChev = isDark ? 'text-slate-600' : 'text-slate-400'
-  const legend   = isDark ? 'text-slate-500' : 'text-slate-500'
-  const escalHead= isDark ? 'text-slate-400' : 'text-slate-500'
+  const violet   = 'bg-violet-100 text-violet-700 border border-violet-400 dark:bg-violet-500/20 dark:text-violet-300 dark:border dark:border-violet-500/30'
+  const divider  = 'border-slate-200 dark:border-white/10'
+  const dividerSm = 'border-slate-100 dark:border-white/5'
+  const rowMeta  = 'text-slate-800 dark:text-slate-200'
+  const muted    = 'text-slate-400 dark:text-slate-500'
+  const empty    = 'text-slate-400 dark:text-slate-600'
+  const stepCard = 'border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5'
+  const stepText = 'text-slate-800 dark:text-slate-200'
+  const stepMeta = 'text-slate-500 dark:text-slate-500'
+  const stepChev = 'text-slate-400 dark:text-slate-600'
+  const legend   = 'text-slate-500 dark:text-slate-500'
+  const escalHead= 'text-slate-500 dark:text-slate-400'
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm min-w-[700px]">
@@ -154,13 +154,13 @@ function MatrixTab({ isDark }) {
 }
 
 function ChannelHealthTab({ isDark }) {
-  const card    = isDark ? 'bg-white/5 border border-white/5' : 'bg-white border border-slate-200'
-  const heading = isDark ? 'text-white' : 'text-slate-900'
-  const lbl     = isDark ? 'text-slate-400' : 'text-slate-500'
-  const val     = isDark ? 'text-white' : 'text-slate-900'
-  const note    = isDark ? 'text-slate-500' : 'text-slate-500'
-  const footer  = isDark ? 'bg-slate-800/30 border-white/5' : 'bg-slate-50 border-slate-200'
-  const fIcon   = isDark ? 'text-slate-600' : 'text-slate-400'
+  const card    = 'bg-white border border-slate-200 dark:bg-white/5 dark:border dark:border-white/5'
+  const heading = 'text-slate-900 dark:text-white'
+  const lbl     = 'text-slate-500 dark:text-slate-400'
+  const val     = 'text-slate-900 dark:text-white'
+  const note    = 'text-slate-500 dark:text-slate-500'
+  const footer  = 'bg-slate-50 border-slate-200 dark:bg-slate-800/30 dark:border-white/5'
+  const fIcon   = 'text-slate-400 dark:text-slate-600'
   const channels = [
     {
       name: 'On-Screen (Live)',
@@ -240,11 +240,11 @@ function ChannelHealthTab({ isDark }) {
 }
 
 function DeliveryLogTab({ isDark }) {
-  const muted   = isDark ? 'text-slate-500' : 'text-slate-400'
-  const divider = isDark ? 'border-white/5' : 'border-slate-100'
-  const body    = isDark ? 'text-slate-200' : 'text-slate-800'
-  const mono    = isDark ? 'text-slate-400' : 'text-slate-500'
-  const faint   = isDark ? 'text-slate-600' : 'text-slate-400'
+  const muted   = 'text-slate-400 dark:text-slate-500'
+  const divider = 'border-slate-100 dark:border-white/5'
+  const body    = 'text-slate-800 dark:text-slate-200'
+  const mono    = 'text-slate-500 dark:text-slate-400'
+  const faint   = 'text-slate-400 dark:text-slate-600'
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -293,14 +293,14 @@ export default function NotificationCenter() {
   const { isDark } = useTheme()
 
   const th = {
-    pg:   isDark ? 'bg-[#020817] text-white' : 'bg-slate-50 text-slate-900',
-    nav:  isDark ? 'border-white/5 bg-black/30' : 'border-slate-200 bg-white',
-    nlnk: isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900',
-    h1:   isDark ? 'text-white' : 'text-slate-900',
-    sub:  isDark ? 'text-slate-400' : 'text-slate-500',
-    tabBorder: isDark ? 'border-white/5' : 'border-slate-200',
-    tabIdle:   isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900',
-    card: isDark ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200',
+    pg:   'bg-slate-50 text-slate-900 dark:bg-[#020817] dark:text-white',
+    nav:  'border-slate-200 bg-white dark:border-white/5 dark:bg-black/30',
+    nlnk: 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
+    h1:   'text-slate-900 dark:text-white',
+    sub:  'text-slate-500 dark:text-slate-400',
+    tabBorder: 'border-slate-200 dark:border-white/5',
+    tabIdle:   'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
+    card: 'bg-white border-slate-200 dark:bg-white/5 dark:border-white/5',
   }
 
   return (

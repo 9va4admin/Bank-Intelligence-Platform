@@ -81,15 +81,15 @@ export default function CTSScanner() {
   const oemC = isDark ? OEM_COLOR : OEM_COLOR_L
 
   const th = {
-    page:    isDark ? 'bg-transparent'                      : 'bg-slate-50',
-    card:    isDark ? 'bg-white/4 border-white/8'       : 'bg-white border-slate-200',
-    heading: isDark ? 'text-white'                       : 'text-slate-900',
-    body:    isDark ? 'text-slate-300'                   : 'text-slate-700',
-    muted:   isDark ? 'text-slate-400'                   : 'text-slate-500',
-    faint:   isDark ? 'text-slate-600'                   : 'text-slate-400',
-    divider: isDark ? 'border-white/8'                   : 'border-slate-200',
-    row:     isDark ? 'border-white/4 hover:bg-white/2'  : 'border-slate-100 hover:bg-slate-50',
-    mono:    isDark ? 'text-slate-300 font-mono text-xs' : 'text-slate-600 font-mono text-xs',
+    page:    'bg-slate-50 dark:bg-transparent',
+    card:    'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
+    heading: 'text-slate-900 dark:text-white',
+    body:    'text-slate-700 dark:text-slate-300',
+    muted:   'text-slate-500 dark:text-slate-400',
+    faint:   'text-slate-400 dark:text-slate-600',
+    divider: 'border-slate-200 dark:border-white/8',
+    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/4 dark:hover:bg-white/2',
+    mono:    'text-slate-600 font-mono text-xs dark:text-slate-300 dark:font-mono dark:text-xs',
   }
 
   const micrOk   = scans.filter(s => s.micr_ok).length
@@ -142,9 +142,9 @@ export default function CTSScanner() {
         <div className="grid grid-cols-4 gap-3 mb-4">
           {[
             { label: 'Scanned This Session', value: scanCount,      color: th.heading },
-            { label: 'MICR OK',              value: micrOk,         color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
-            { label: 'MICR Failures',        value: micrFail,       color: micrFail > 0 ? (isDark ? 'text-red-400' : 'text-red-600') : (isDark ? 'text-emerald-400' : 'text-emerald-600') },
-            { label: 'Avg IQA Score',        value: avgIqa,         color: isDark ? 'text-amber-400' : 'text-amber-600' },
+            { label: 'MICR OK',              value: micrOk,         color: 'text-emerald-600 dark:text-emerald-400' },
+            { label: 'MICR Failures',        value: micrFail,       color: micrFail > 0 ? ('text-red-600 dark:text-red-400') : ('text-emerald-600 dark:text-emerald-400') },
+            { label: 'Avg IQA Score',        value: avgIqa,         color: 'text-amber-600 dark:text-amber-400' },
           ].map(k => (
             <div key={k.label} className={`border rounded-xl px-4 py-3 ${th.card}`}>
               <div className={`text-[10px] ${th.faint} mb-1`}>{k.label}</div>
@@ -197,10 +197,10 @@ export default function CTSScanner() {
                 </div>
                 <div className={`col-span-1 text-center ${th.body}`}>{scan.front_dpi}</div>
                 <div className={`col-span-1 text-center ${th.body}`}>{scan.front_kb}</div>
-                <div className={`col-span-1 text-center font-medium ${scan.micr_ok ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-red-400' : 'text-red-600')}`}>
+                <div className={`col-span-1 text-center font-medium ${scan.micr_ok ? ('text-emerald-600 dark:text-emerald-400') : ('text-red-600 dark:text-red-400')}`}>
                   {scan.micr_ok ? '✓' : '✗'}
                 </div>
-                <div className={`col-span-1 text-center ${scan.iqa_score >= 0.90 ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : scan.iqa_score >= 0.70 ? (isDark ? 'text-amber-400' : 'text-amber-600') : (isDark ? 'text-red-400' : 'text-red-600')}`}>
+                <div className={`col-span-1 text-center ${scan.iqa_score >= 0.90 ? ('text-emerald-600 dark:text-emerald-400') : scan.iqa_score >= 0.70 ? ('text-amber-600 dark:text-amber-400') : ('text-red-600 dark:text-red-400')}`}>
                   {scan.iqa_score}
                 </div>
                 <div className={`col-span-2 text-right ${th.faint}`}>{scan.ts}</div>

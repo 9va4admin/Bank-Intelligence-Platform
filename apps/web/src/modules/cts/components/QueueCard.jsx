@@ -28,10 +28,10 @@ export default function QueueCard({ item, selected, onClick, isDark }) {
     ? 'border-white/8 bg-white/2 hover:border-white/15 hover:bg-white/4'
     : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
 
-  const idText  = isDark ? 'text-slate-500'  : 'text-slate-400'
-  const name    = isDark ? 'text-white'       : 'text-slate-900'
-  const amt     = isDark ? 'text-slate-500'   : 'text-slate-400'
-  const fallback= isDark ? 'text-slate-300 bg-white/5 border-white/10' : 'text-slate-600 bg-slate-100 border-slate-300'
+  const idText  = 'text-slate-400 dark:text-slate-500'
+  const name    = 'text-slate-900 dark:text-white'
+  const amt     = 'text-slate-400 dark:text-slate-500'
+  const fallback= 'text-slate-600 bg-slate-100 border-slate-300 dark:text-slate-300 dark:bg-white/5 dark:border-white/10'
 
   return (
     <button
@@ -59,7 +59,7 @@ export default function QueueCard({ item, selected, onClick, isDark }) {
           {item.reason_label}
         </span>
         {item.principal_tag === 'SUB_MEMBER' && (
-          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${isDark ? 'text-amber-300 bg-amber-400/10 border-amber-400/30' : 'text-amber-700 bg-amber-100 border-amber-400'}`}>
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${'text-amber-700 bg-amber-100 border-amber-400 dark:text-amber-300 dark:bg-amber-400/10 dark:border-amber-400/30'}`}>
             SUB-MEMBER
           </span>
         )}

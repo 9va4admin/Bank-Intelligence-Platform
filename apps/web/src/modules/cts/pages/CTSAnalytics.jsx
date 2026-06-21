@@ -39,14 +39,14 @@ export default function CTSAnalytics() {
   const stpRate = ((today.stp_confirm / today.total) * 100).toFixed(1)
 
   const th = {
-    page:     isDark ? 'bg-transparent' : 'bg-slate-50',
-    card:     isDark ? 'bg-white/4 border-white/8' : 'bg-white border-slate-200',
-    heading:  isDark ? 'text-white' : 'text-slate-900',
-    faint:    isDark ? 'text-slate-600' : 'text-slate-400',
-    muted:    isDark ? 'text-slate-400' : 'text-slate-500',
-    bar:      isDark ? 'bg-white/5' : 'bg-slate-100',
-    dateLbl:  isDark ? 'text-slate-600' : 'text-slate-400',
-    legend:   isDark ? 'text-slate-500' : 'text-slate-500',
+    page:     'bg-slate-50 dark:bg-transparent',
+    card:     'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
+    heading:  'text-slate-900 dark:text-white',
+    faint:    'text-slate-400 dark:text-slate-600',
+    muted:    'text-slate-500 dark:text-slate-400',
+    bar:      'bg-slate-100 dark:bg-white/5',
+    dateLbl:  'text-slate-400 dark:text-slate-600',
+    legend:   'text-slate-500 dark:text-slate-500',
   }
 
   usePageHeader({ subtitle: 'Decision analytics · 7-day rolling view' })
