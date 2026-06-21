@@ -141,8 +141,14 @@ export default function ReviewPanel({ item, onDecision }) {
     hoverTimeout.current = setTimeout(() => setChequeHover(false), 120)
   }
 
-  const tabs = ['overview', 'cheque', 'ai analysis']
+  const tabs = ['overview', 'cheque', 'ai analysis', 'passport']
   const reasonColor = REASON_COLORS[item.reason] || ('bg-slate-100 border-slate-300 text-slate-600 dark:bg-slate-400/10 dark:border-slate-400/20 dark:text-slate-300')
+
+  // D1: Trust Score strip calculations
+  const totalIetMs = new Date(item.iet_deadline) - new Date(item.received_at)
+  const remainingMs = new Date(item.iet_deadline) - Date.now()
+  const ietPct = Math.max(0, Math.min(1, remainingMs / totalIetMs))
+  const minsLeft = Math.max(0, Math.round(remainingMs / 60000))
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -194,6 +200,45 @@ export default function ReviewPanel({ item, onDecision }) {
           <div className="ml-auto">
             <IETTimer deadline={item.iet_deadline} compact bright />
           </div>
+        </div>
+
+        {/* D1: Trust Score strip */}
+        <div className="flex items-center gap-3 py-2">
+          {[
+            {
+              label: 'OCR',
+              pct: item.ocr_confidence,
+              display: `${Math.round(item.ocr_confidence * 100)}%`,
+              bar: item.ocr_confidence >= 0.92 ? 'bg-emerald-500' : item.ocr_confidence >= 0.80 ? 'bg-amber-400' : 'bg-red-400',
+            },
+            {
+              label: 'Sig',
+              pct: item.sig_match_score ?? 0,
+              display: item.sig_match_score != null ? `${Math.round(item.sig_match_score * 100)}%` : 'N/A',
+              bar: item.sig_match_score == null ? 'bg-purple-400' : item.sig_match_score >= 0.85 ? 'bg-emerald-500' : item.sig_match_score >= 0.70 ? 'bg-amber-400' : 'bg-red-400',
+            },
+            {
+              label: 'Fraud',
+              pct: item.fraud_score,
+              display: `${Math.round(item.fraud_score * 100)}%`,
+              bar: item.fraud_score >= 0.80 ? 'bg-red-400' : item.fraud_score >= 0.72 ? 'bg-amber-400' : 'bg-emerald-500',
+              invert: true,
+            },
+            {
+              label: 'IET',
+              pct: ietPct,
+              display: `${minsLeft}m`,
+              bar: ietPct <= 0.20 ? 'bg-red-400 animate-pulse' : ietPct <= 0.40 ? 'bg-amber-400' : 'bg-sky-400',
+            },
+          ].map(({ label, pct, display, bar, invert }) => (
+            <div key={label} className="flex items-center gap-1.5 min-w-0">
+              <span className={`text-[9px] font-semibold uppercase tracking-wider ${th.lbl} w-6 shrink-0`}>{label}</span>
+              <div className={`w-16 h-1 ${th.barBg} rounded-full overflow-hidden`}>
+                <div className={`h-full rounded-full ${bar}`} style={{ width: `${(invert ? pct : pct) * 100}%` }} />
+              </div>
+              <span className={`text-[10px] font-mono ${th.lbl}`}>{display}</span>
+            </div>
+          ))}
         </div>
 
         <div className="flex gap-1">
@@ -305,6 +350,73 @@ export default function ReviewPanel({ item, onDecision }) {
             </div>
           </div>
         )}
+
+        {/* D2: Cheque Digital Passport */}
+        {tab === 'passport' && (() => {
+          const base = new Date(item.received_at).getTime()
+          const steps = [
+            { label: 'Received from NGCH', ts: base,          icon: '📥', note: `Zone: ${item.clearing_zone} · ${item.cbs_type}`, status: 'done' },
+            { label: 'MICR Line Parsed',   ts: base + 2400,   icon: '🔢', note: `GOT-OCR2.0 · MICR: ${item.ocr_fields.micr}`, status: 'done' },
+            { label: 'OCR Extraction',     ts: base + 46000,  icon: '📄', note: `Confidence: ${Math.round(item.ocr_confidence * 100)}% · ${item.ocr_fields.alterations ? '⚠ Alteration flag' : '✓ No alteration'}`, status: item.ocr_confidence < 0.88 ? 'warn' : 'done' },
+            { label: 'Vision Analysis',    ts: base + 89000,  icon: '🔍', note: 'Qwen2-VL 72B · Tamper risk: low', status: 'done' },
+            { label: 'Signature Check',    ts: base + 134000, icon: '✍', note: item.sig_match_score != null ? `Siamese SNN · ${Math.round(item.sig_match_score * 100)}% match · ${item.sig_specimen_label}` : 'Vault miss — no specimen on file', status: item.sig_match_score == null ? 'warn' : item.sig_match_score < 0.80 ? 'warn' : 'done' },
+            { label: 'Fraud Scored',       ts: base + 178000, icon: '🛡', note: `XGBoost · Score: ${Math.round(item.fraud_score * 100)}% · ${item.shap_values[0].feature}: top SHAP driver`, status: item.fraud_score >= 0.80 ? 'risk' : 'warn' },
+            { label: 'Routed to Review',   ts: base + 241000, icon: '👤', note: `Reason: ${item.reason_label}`, status: 'review' },
+            { label: 'Awaiting Decision',  ts: Date.now(),    icon: '⏳', note: `IET deadline in ${minsLeft} min`, status: 'pending' },
+          ]
+          const stC = { done: 'bg-emerald-500', warn: 'bg-amber-400', risk: 'bg-red-400', review: 'bg-sky-400', pending: 'bg-slate-400 animate-pulse' }
+          const stT = { done: 'text-emerald-400', warn: 'text-amber-400', risk: 'text-red-400', review: 'text-sky-400', pending: 'text-slate-400' }
+          return (
+            <div className="space-y-3">
+              <div className={`rounded-xl p-4 ${th.glass}`}>
+                <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-4`}>Processing Timeline · {item.instrument_id}</div>
+                <div className="relative">
+                  <div className={`absolute left-3 top-3 bottom-3 w-px ${th.barBg}`} />
+                  <div className="space-y-4">
+                    {steps.map((s, i) => (
+                      <div key={i} className="flex items-start gap-3 relative">
+                        <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center z-10 ${stC[s.status]} text-white text-[11px]`}>
+                          {s.icon}
+                        </div>
+                        <div className="flex-1 min-w-0 pt-0.5">
+                          <div className="flex items-baseline gap-2 flex-wrap">
+                            <span className={`text-xs font-semibold ${th.heading}`}>{s.label}</span>
+                            <span className={`text-[9px] font-mono ${th.lbl}`}>
+                              {new Date(s.ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            </span>
+                            {i > 0 && <span className={`text-[9px] ${th.lbl}`}>+{((s.ts - base) / 1000).toFixed(0)}s</span>}
+                          </div>
+                          <div className={`text-[11px] ${th.lbl} mt-0.5`}>{s.note}</div>
+                        </div>
+                        <span className={`text-[9px] font-semibold uppercase ${stT[s.status]} shrink-0`}>{s.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className={`rounded-xl p-4 ${th.glass}`}>
+                <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-3`}>Instrument Metadata</div>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                  {[
+                    ['Instrument ID', item.instrument_id],
+                    ['Clearing Zone', item.clearing_zone],
+                    ['CBS Type', item.cbs_type],
+                    ['Received', new Date(item.received_at).toLocaleTimeString('en-IN')],
+                    ['IET Deadline', new Date(item.iet_deadline).toLocaleTimeString('en-IN')],
+                    ['Amount Range', item.amount_range],
+                    ...(item.principal_tag === 'SUB_MEMBER' ? [['Sub-Member', item.sub_member_name], ['SMB ID', item.sub_member_id]] : []),
+                    ...(item.opa_rule ? [['OPA Rule', item.opa_rule]] : []),
+                  ].map(([k, v]) => (
+                    <div key={k} className="flex flex-col">
+                      <span className={`text-[10px] ${th.lbl}`}>{k}</span>
+                      <span className={`text-xs font-mono mt-0.5 ${th.val} truncate`}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Action footer — single row: dropdown + two buttons */}

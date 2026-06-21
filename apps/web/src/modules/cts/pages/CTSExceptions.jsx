@@ -7,8 +7,8 @@
  */
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
-import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { MOCK_QUEUE } from '../data/mockQueue'
 
 // ── Exception data ────────────────────────────────────────────────────────
 
@@ -187,11 +187,27 @@ const SEV = {
 }
 
 
+// ── D4: Predictive risk signals derived from live queue ───────────────────
+
+function buildPredictiveSignals(queue) {
+  const now = Date.now()
+  const ietRisk = queue.filter(item => {
+    const minsLeft = (new Date(item.iet_deadline) - now) / 60000
+    return minsLeft < 60
+  })
+  const vaultMisses = queue.filter(i => i.reason === 'VAULT_MISS')
+  const fraudCluster = queue.filter(i => i.fraud_score >= 0.78)
+  const subMemberItems = queue.filter(i => i.principal_tag === 'SUB_MEMBER')
+  const avgFraud = queue.length ? (queue.reduce((a, i) => a + i.fraud_score, 0) / queue.length) : 0
+  return { ietRisk, vaultMisses, fraudCluster, subMemberItems, avgFraud }
+}
+
 // ── Component ─────────────────────────────────────────────────────────────
 
 export default function CTSExceptions() {
   const [severityFilter, setSeverityFilter] = useState('All')
   const [showResolved, setShowResolved]     = useState(true)
+  const predictive = buildPredictiveSignals(MOCK_QUEUE.filter(i => i.status === 'PENDING'))
 
   const th = {
     page:    'bg-slate-50 dark:bg-transparent',
@@ -238,6 +254,60 @@ export default function CTSExceptions() {
   return (
     <AppShell>
       <div className={`${th.page} px-6 py-5 space-y-5`}>
+
+        {/* D4: Predictive Risk Signals */}
+        <div className={`border rounded-lg p-4 ${th.card}`}>
+          <div className="flex items-center gap-2 mb-3">
+            <span className={`text-xs font-semibold ${th.heading}`}>Predictive Risk Signals</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 border border-violet-400/20 uppercase tracking-wide">Live Queue</span>
+            <span className={`text-[10px] ${th.muted} ml-auto`}>Based on {MOCK_QUEUE.length} pending items</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              {
+                label: 'IET Risk (<60 min)',
+                value: predictive.ietRisk.length,
+                sub: predictive.ietRisk.length > 0 ? predictive.ietRisk.map(i => i.instrument_id).join(', ') : 'All clear',
+                color: predictive.ietRisk.length > 0 ? 'text-red-400' : 'text-emerald-400',
+                bg: predictive.ietRisk.length > 0 ? 'border-red-400/20 bg-red-400/3' : 'border-emerald-400/10',
+                icon: '⏱',
+              },
+              {
+                label: 'Vault Misses',
+                value: predictive.vaultMisses.length,
+                sub: predictive.vaultMisses.length > 0 ? 'Auto-return blocked — human required' : 'No vault misses',
+                color: predictive.vaultMisses.length > 0 ? 'text-purple-400' : 'text-emerald-400',
+                bg: predictive.vaultMisses.length > 0 ? 'border-purple-400/20 bg-purple-400/3' : 'border-emerald-400/10',
+                icon: '🔐',
+              },
+              {
+                label: 'Fraud Cluster ≥78%',
+                value: predictive.fraudCluster.length,
+                sub: predictive.fraudCluster.length > 0 ? `Avg queue fraud: ${Math.round(predictive.avgFraud * 100)}%` : 'Within threshold',
+                color: predictive.fraudCluster.length >= 3 ? 'text-red-400' : predictive.fraudCluster.length > 0 ? 'text-amber-400' : 'text-emerald-400',
+                bg: predictive.fraudCluster.length >= 3 ? 'border-red-400/20 bg-red-400/3' : 'border-amber-400/10',
+                icon: '🛡',
+              },
+              {
+                label: 'Sub-Member Items',
+                value: predictive.subMemberItems.length,
+                sub: predictive.subMemberItems.length > 0 ? 'Sponsor bank notification on return' : 'None in queue',
+                color: predictive.subMemberItems.length > 0 ? 'text-amber-400' : 'text-slate-400',
+                bg: predictive.subMemberItems.length > 0 ? 'border-amber-400/20 bg-amber-400/3' : 'border-slate-200 dark:border-white/8',
+                icon: '🏦',
+              },
+            ].map(sig => (
+              <div key={sig.label} className={`border rounded-lg p-3 ${sig.bg}`}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="text-sm">{sig.icon}</span>
+                  <span className={`text-[10px] font-medium ${th.muted}`}>{sig.label}</span>
+                </div>
+                <div className={`text-2xl font-bold font-mono ${sig.color}`}>{sig.value}</div>
+                <div className={`text-[10px] ${th.muted} mt-0.5 truncate`} title={sig.sub}>{sig.sub}</div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Summary KPI strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
