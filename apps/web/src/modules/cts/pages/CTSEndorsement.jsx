@@ -29,7 +29,6 @@ function buildQrData(instr) {
 }
 
 export default function CTSEndorsement() {
-  const { isDark } = useTheme()
   const [statuses, setStatuses] = useState(() =>
     Object.fromEntries(INSTRUMENTS.map(i => [i.id, 'PENDING']))
   )

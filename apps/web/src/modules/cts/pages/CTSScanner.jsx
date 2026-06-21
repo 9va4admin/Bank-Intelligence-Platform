@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
@@ -34,26 +33,19 @@ function generateScan(idx, scanner) {
 }
 
 const oemC = {
-  badge: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-700/40',
-  dot:   'bg-blue-500 dark:bg-blue-400'
-},
-  CANON:   { badge: 'bg-purple-500/20 text-purple-300 border-purple-700/40', dot: 'bg-purple-400' },
-  GENERIC: { badge: 'bg-slate-500/20 text-slate-400 border-slate-600/40', dot: 'bg-slate-400' },
-}
-,
-  CANON:   { badge: 'bg-purple-50 text-purple-700 border-purple-200', dot: 'bg-purple-500' },
-  GENERIC: { badge: 'bg-slate-100 text-slate-600 border-slate-300', dot: 'bg-slate-400' },
+  PANINI:  { badge: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-700/40', dot: 'bg-blue-500 dark:bg-blue-400' },
+  CANON:   { badge: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-500/20 dark:text-purple-300 dark:border-purple-700/40', dot: 'bg-purple-500 dark:bg-purple-400' },
+  GENERIC: { badge: 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-500/20 dark:text-slate-400 dark:border-slate-600/40', dot: 'bg-slate-400' },
 }
 
 const STATUS_COLOR = {
-  READY:    { d: 'text-emerald-400', l: 'text-emerald-600', dot: 'bg-emerald-500' },
-  SCANNING: { d: 'text-amber-400',   l: 'text-amber-600',   dot: 'bg-amber-400 animate-pulse' },
-  OFFLINE:  { d: 'text-slate-500',   l: 'text-slate-400',   dot: 'bg-slate-500' },
-  ERROR:    { d: 'text-red-400',     l: 'text-red-600',     dot: 'bg-red-500' },
+  READY:    { cls: 'text-emerald-600 dark:text-emerald-400', dot: 'bg-emerald-500' },
+  SCANNING: { cls: 'text-amber-600 dark:text-amber-400',     dot: 'bg-amber-400 animate-pulse' },
+  OFFLINE:  { cls: 'text-slate-400 dark:text-slate-500',     dot: 'bg-slate-500' },
+  ERROR:    { cls: 'text-red-600 dark:text-red-400',         dot: 'bg-red-500' },
 }
 
 export default function CTSScanner() {
-  const { isDark } = useTheme()
   const [scans, setScans]         = useState([])
   const [scanCount, setScanCount] = useState(0)
   const [running, setRunning]     = useState(false)
@@ -129,7 +121,7 @@ export default function CTSScanner() {
                 </div>
                 <div className={`text-xs font-medium ${th.heading} mb-0.5`}>{s.model}</div>
                 <div className={`text-[10px] ${th.muted}`}>{s.id}</div>
-                <div className={`text-[10px] mt-1 font-medium ${isDark ? sc.d : sc.l}`}>{s.status}</div>
+                <div className={`text-[10px] mt-1 font-medium ${sc.cls}`}>{s.status}</div>
                 <div className={`text-[10px] ${th.faint} mt-1`}>{s.counter.toLocaleString()} scans</div>
                 <div className={`text-[10px] ${th.faint}`}>{s.operator}</div>
               </div>

@@ -160,7 +160,6 @@ export default function ManagerPortal() {
   const [notif, setNotif] = useState(DEFAULT_NOTIF)
   const [digestOpen, setDigestOpen] = useState(false)
   const [sentDemo, setSentDemo] = useState(false)
-  const { isDark } = useTheme()
 
   const pg   = 'bg-slate-50 text-slate-900 dark:bg-[#020817] dark:text-white'
   const nav  = 'border-slate-200 bg-white dark:border-white/5 dark:bg-black/30'

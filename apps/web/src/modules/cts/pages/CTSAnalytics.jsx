@@ -34,7 +34,6 @@ const maxReturn = Math.max(...RETURN_REASONS.map(d => d.count))
 const maxTotal  = Math.max(...DAILY.map(d => d.total))
 
 export default function CTSAnalytics() {
-  const { isDark } = useTheme()
   const today  = DAILY[DAILY.length - 1]
   const stpRate = ((today.stp_confirm / today.total) * 100).toFixed(1)
 
