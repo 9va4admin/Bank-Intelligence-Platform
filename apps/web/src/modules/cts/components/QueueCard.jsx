@@ -14,9 +14,21 @@ function fraudColor(score) {
   return 'text-emerald-400'
 }
 
+// D3: Return prediction — weighted composite of fraud, sig, and reason type
+function returnPrediction(item) {
+  let score = item.fraud_score * 0.40
+  if (item.sig_match_score === null) score += 0.35
+  else score += (1 - item.sig_match_score) * 0.35
+  const reasonBonus = { VAULT_MISS: 0.20, SIGNATURE_LOW_CONFIDENCE: 0.18, FRAUD_SCORE_HIGH: 0.12, OCR_LOW_CONFIDENCE: 0.08, HIGH_VALUE_DUAL_APPROVAL: 0.04 }
+  score += reasonBonus[item.reason] ?? 0
+  return Math.min(score, 0.99)
+}
+
 export default function QueueCard({ item, selected, onClick }) {
   const minsLeft = Math.floor((new Date(item.iet_deadline) - Date.now()) / 60000)
   const urgent = minsLeft < 30
+  const retPct = Math.round(returnPrediction(item) * 100)
+  const retColor = retPct >= 75 ? 'text-red-400 border-red-400/30 bg-red-400/8' : retPct >= 55 ? 'text-amber-400 border-amber-400/30 bg-amber-400/8' : 'text-slate-400 border-slate-400/20 bg-transparent'
 
   const idleCls = 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-white/8 dark:bg-white/2 dark:hover:border-white/15 dark:hover:bg-white/4'
 
@@ -56,8 +68,11 @@ export default function QueueCard({ item, selected, onClick }) {
           </span>
         )}
         <span className={`text-[10px] ${amt}`}>{item.amount_range}</span>
-        <span className={`text-[10px] font-mono font-bold ml-auto ${fraudColor(item.fraud_score)}`}>
+        <span className={`text-[10px] font-mono font-bold ${fraudColor(item.fraud_score)}`}>
           {Math.round(item.fraud_score * 100)}%
+        </span>
+        <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ml-auto ${retColor}`}>
+          ↩ {retPct}%
         </span>
       </div>
     </button>
