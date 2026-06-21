@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import BatchStats from '../components/BatchStats'
+import { PipelineLiveBoard } from './CTSPipelineVisualizer'
 import QueueCard from '../components/QueueCard'
 import ReviewPanel from '../components/ReviewPanel'
 import { MOCK_QUEUE, BATCH_STATS, getStpStream } from '../data/mockQueue'
@@ -13,6 +14,7 @@ export default function CTSWorkstation() {
   )
   const [selected, setSelected] = useState(MOCK_QUEUE[0])
   const [decisions, setDecisions] = useState([])
+  const [pipelineFullscreen, setPipelineFullscreen] = useState(false)
 
   const stpSource   = useRef(getStpStream())
   const stpIndexRef = useRef(0)
@@ -70,6 +72,32 @@ export default function CTSWorkstation() {
   return (
     <AppShell>
       <div className="flex flex-col h-full">
+        {/* Pipeline section — compact embed with fullscreen expand */}
+        <div className="shrink-0 border-b border-slate-200 dark:border-white/8 relative" style={{ height: 320 }}>
+          <div className="absolute inset-0 overflow-hidden">
+            <PipelineLiveBoard />
+          </div>
+          <button
+            onClick={() => setPipelineFullscreen(true)}
+            title="Open on wall display"
+            className="absolute top-2 right-2 z-10 w-7 h-7 flex items-center justify-center rounded-lg border border-white/10 bg-black/40 text-slate-400 hover:text-white hover:border-white/30 hover:bg-black/60 transition-all text-sm backdrop-blur-sm"
+          >
+            ⛶
+          </button>
+        </div>
+        {/* Fullscreen overlay */}
+        {pipelineFullscreen && (
+          <div className="fixed inset-0 z-[999]" style={{ background: '#020817' }}>
+            <PipelineLiveBoard fullscreenMode />
+            <button
+              onClick={() => setPipelineFullscreen(false)}
+              className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-xl border border-white/15 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all text-lg"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         <BatchStats stats={{ ...batchStats, human_review: pending.length, stp_rate: parseFloat(stpRate) }} />
 
         <div className="flex flex-1 min-h-0">

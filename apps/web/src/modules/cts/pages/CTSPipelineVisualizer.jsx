@@ -734,7 +734,7 @@ function BatchSummaryBar({ confirmCount, returnCount, reviewCount, onClickStat }
 
 // ─── Main page component ──────────────────────────────────────────────────────
 
-export default function CTSPipelineVisualizer() {
+export function PipelineLiveBoard({ fullscreenMode = false }) {
   const [running, setRunning] = useState(true)
   const [particles, setParticles] = useState([])
   const [stats] = useState(initStats)
@@ -868,10 +868,10 @@ export default function CTSPipelineVisualizer() {
   const activeParticles = particles.filter(p => !p.finalized)
 
   return (
-    <AppShell>
+    <>
       <div
         className="flex flex-col h-full overflow-hidden select-none"
-        style={{ background: 'linear-gradient(180deg, #020817 0%, #030c24 50%, #020817 100%)', minHeight: 0 }}
+        style={{ background: 'linear-gradient(180deg, #020817 0%, #030c24 50%, #020817 100%)', minHeight: 0, ...(fullscreenMode ? { height: '100vh' } : {}) }}
       >
         {/* Top accent line */}
         <div
@@ -1072,6 +1072,14 @@ export default function CTSPipelineVisualizer() {
           onClose={() => setSelectedItem(null)}
         />
       )}
+    </>
+  )
+}
+
+export default function CTSPipelineVisualizer() {
+  return (
+    <AppShell>
+      <PipelineLiveBoard />
     </AppShell>
   )
 }
