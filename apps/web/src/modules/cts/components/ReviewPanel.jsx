@@ -5,15 +5,26 @@ import ShapExplainer from './ShapExplainer'
 import ChequeMockImage from './ChequeMockImage'
 
 const RETURN_REASONS = [
-  'Signature mismatch confirmed',
-  'Amount alteration detected',
-  'Insufficient funds',
-  'Account dormant / frozen',
-  'Post-dated cheque',
-  'Mutilated / damaged cheque',
+  // Presenting bank
+  'CTS compliance failure',
+  'Date invalid or stale cheque',
   'Words and figures differ',
-  'No specimen on file — cannot verify',
+  'Endorsement irregular',
+  'Instrument mutilated / damaged',
+  'Duplicate instrument',
+  // Drawee bank
+  'Account dormant — no txn >2 years',
+  'Account frozen / NPA / closed',
+  'Payment stopped by drawer',
+  'Positive Pay mismatch',
+  'Signature mismatch confirmed',
+  'Amount alteration / overwrite detected',
   'Payee name discrepancy',
+  'Insufficient funds',
+  'Post-dated cheque',
+  'No specimen on file — cannot verify',
+  'KYC expired — refer to branch',
+  'Legal / court hold on account',
 ]
 
 const REASON_COLORS = {
@@ -354,41 +365,63 @@ export default function ReviewPanel({ item, onDecision }) {
         {/* D2: Cheque Digital Passport */}
         {tab === 'passport' && (() => {
           const base = new Date(item.received_at).getTime()
+          // Two-bank pipeline — Presenting Bank → NGCH → Drawee Bank
           const steps = [
-            { label: 'Received from NGCH', ts: base,          icon: '📥', note: `Zone: ${item.clearing_zone} · ${item.cbs_type}`, status: 'done' },
-            { label: 'MICR Line Parsed',   ts: base + 2400,   icon: '🔢', note: `GOT-OCR2.0 · MICR: ${item.ocr_fields.micr}`, status: 'done' },
-            { label: 'OCR Extraction',     ts: base + 46000,  icon: '📄', note: `Confidence: ${Math.round(item.ocr_confidence * 100)}% · ${item.ocr_fields.alterations ? '⚠ Alteration flag' : '✓ No alteration'}`, status: item.ocr_confidence < 0.88 ? 'warn' : 'done' },
-            { label: 'Vision Analysis',    ts: base + 89000,  icon: '🔍', note: 'Qwen2-VL 72B · Tamper risk: low', status: 'done' },
-            { label: 'Signature Check',    ts: base + 134000, icon: '✍', note: item.sig_match_score != null ? `Siamese SNN · ${Math.round(item.sig_match_score * 100)}% match · ${item.sig_specimen_label}` : 'Vault miss — no specimen on file', status: item.sig_match_score == null ? 'warn' : item.sig_match_score < 0.80 ? 'warn' : 'done' },
-            { label: 'Fraud Scored',       ts: base + 178000, icon: '🛡', note: `XGBoost · Score: ${Math.round(item.fraud_score * 100)}% · ${item.shap_values[0].feature}: top SHAP driver`, status: item.fraud_score >= 0.80 ? 'risk' : 'warn' },
-            { label: 'Routed to Review',   ts: base + 241000, icon: '👤', note: `Reason: ${item.reason_label}`, status: 'review' },
-            { label: 'Awaiting Decision',  ts: Date.now(),    icon: '⏳', note: `IET deadline in ${minsLeft} min`, status: 'pending' },
+            // ── Presenting Bank (collecting) ──────────────────────────────
+            { phase: 'PRESENTING BANK', label: 'Image Quality + CTS-2010', ts: base,          icon: '📥', note: `IQA passed · CTS-2010 compliant · Zone: ${item.clearing_zone}`, status: 'done' },
+            { label: 'MICR Line Extraction',                                ts: base + 2400,   icon: '🔢', note: `GOT-OCR2.0 · MICR: ${item.ocr_fields.micr} · IFSC verified`, status: 'done' },
+            { label: 'OCR — Fields Extraction',                             ts: base + 46000,  icon: '📄', note: `Conf: ${Math.round(item.ocr_confidence * 100)}% · Payee: ${item.payee_display} · Amount: ${item.ocr_fields.amount_figures}`, status: item.ocr_confidence < 0.88 ? 'warn' : 'done' },
+            { label: 'CTS Compliance Check',                                ts: base + 65000,  icon: '✅', note: `Date: ${item.ocr_fields.date} ✓ · Words/Figures match · Endorsement ✓ · No stale`, status: item.ocr_fields.alterations ? 'warn' : 'done' },
+            { label: 'Duplicate Instrument Check',                          ts: base + 68000,  icon: '🔁', note: 'Redis dedup check · No prior filing found for this MICR + date', status: 'done' },
+            // ── NGCH Gateway ───────────────────────────────────────────────
+            { phase: 'NGCH GATEWAY', label: 'Presented to NGCH MUMBAI',    ts: base + 82000,  icon: '🌐', note: `Routed to drawee bank · ${item.cbs_type} · Ack received`, status: 'done' },
+            // ── Drawee Bank (paying) ───────────────────────────────────────
+            { phase: 'DRAWEE BANK', label: 'Account Validity Check',        ts: base + 97000,  icon: '🏦', note: `Active · KYC valid · No freeze/NPA/court hold · Not dormant`, status: 'done' },
+            { label: 'Stop Cheque Instruction',                             ts: base + 99000,  icon: '🛑', note: 'No stop payment instruction found in CBS', status: 'done' },
+            { label: 'Positive Pay System (PPS)',                           ts: base + 115000, icon: '📋', note: item.sig_match_score != null ? 'PPS record found · Amount and payee match ✓' : 'PPS not registered — mandatory for >₹50K', status: item.sig_match_score != null ? 'done' : 'warn' },
+            { label: 'Signature Verification',                              ts: base + 152000, icon: '✍', note: item.sig_match_score != null ? `Siamese SNN · ${Math.round(item.sig_match_score * 100)}% match · ${item.sig_specimen_label}` : 'Vault miss — no specimen on file', status: item.sig_match_score == null ? 'warn' : item.sig_match_score < 0.80 ? 'warn' : 'done' },
+            { label: 'Vision — Alteration Detection',                       ts: base + 194000, icon: '🔍', note: `Qwen2-VL 72B · ${item.ocr_fields.alterations ? '⚠ Alteration flag on amount field' : '✓ No alteration or overwrite detected'}`, status: item.ocr_fields.alterations ? 'warn' : 'done' },
+            { label: 'Fraud Scoring',                                       ts: base + 235000, icon: '🛡', note: `XGBoost · Score: ${Math.round(item.fraud_score * 100)}% · SHAP: ${item.shap_values[0].feature} (top driver)`, status: item.fraud_score >= 0.80 ? 'risk' : 'warn' },
+            { label: 'Routed to Human Review',                              ts: base + 241000, icon: '👤', note: `OPA decision · Reason: ${item.reason_label}`, status: 'review' },
+            { label: 'Awaiting Reviewer Decision',                          ts: Date.now(),    icon: '⏳', note: `IET deadline in ${minsLeft} min`, status: 'pending' },
           ]
           const stC = { done: 'bg-emerald-500', warn: 'bg-amber-400', risk: 'bg-red-400', review: 'bg-sky-400', pending: 'bg-slate-400 animate-pulse' }
           const stT = { done: 'text-emerald-400', warn: 'text-amber-400', risk: 'text-red-400', review: 'text-sky-400', pending: 'text-slate-400' }
+          const phaseColors = {
+            'PRESENTING BANK': 'text-amber-400 border-amber-400/20 bg-amber-400/5',
+            'NGCH GATEWAY':    'text-cyan-400 border-cyan-400/20 bg-cyan-400/5',
+            'DRAWEE BANK':     'text-violet-400 border-violet-400/20 bg-violet-400/5',
+          }
           return (
             <div className="space-y-3">
               <div className={`rounded-xl p-4 ${th.glass}`}>
-                <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-4`}>Processing Timeline · {item.instrument_id}</div>
+                <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-4`}>Two-Bank Processing Timeline · {item.instrument_id}</div>
                 <div className="relative">
                   <div className={`absolute left-3 top-3 bottom-3 w-px ${th.barBg}`} />
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {steps.map((s, i) => (
-                      <div key={i} className="flex items-start gap-3 relative">
-                        <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center z-10 ${stC[s.status]} text-white text-[11px]`}>
-                          {s.icon}
-                        </div>
-                        <div className="flex-1 min-w-0 pt-0.5">
-                          <div className="flex items-baseline gap-2 flex-wrap">
-                            <span className={`text-xs font-semibold ${th.heading}`}>{s.label}</span>
-                            <span className={`text-[9px] font-mono ${th.lbl}`}>
-                              {new Date(s.ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                            </span>
-                            {i > 0 && <span className={`text-[9px] ${th.lbl}`}>+{((s.ts - base) / 1000).toFixed(0)}s</span>}
+                      <div key={i}>
+                        {s.phase && (
+                          <div className={`inline-flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border mb-2 ml-10 ${phaseColors[s.phase] || ''}`}>
+                            {s.phase}
                           </div>
-                          <div className={`text-[11px] ${th.lbl} mt-0.5`}>{s.note}</div>
+                        )}
+                        <div className="flex items-start gap-3 relative">
+                          <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center z-10 ${stC[s.status]} text-white text-[11px]`}>
+                            {s.icon}
+                          </div>
+                          <div className="flex-1 min-w-0 pt-0.5">
+                            <div className="flex items-baseline gap-2 flex-wrap">
+                              <span className={`text-xs font-semibold ${th.heading}`}>{s.label}</span>
+                              <span className={`text-[9px] font-mono ${th.lbl}`}>
+                                {new Date(s.ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                              </span>
+                              {i > 0 && <span className={`text-[9px] ${th.lbl}`}>+{((s.ts - base) / 1000).toFixed(1)}s</span>}
+                            </div>
+                            <div className={`text-[11px] ${th.lbl} mt-0.5`}>{s.note}</div>
+                          </div>
+                          <span className={`text-[9px] font-semibold uppercase ${stT[s.status]} shrink-0`}>{s.status}</span>
                         </div>
-                        <span className={`text-[9px] font-semibold uppercase ${stT[s.status]} shrink-0`}>{s.status}</span>
                       </div>
                     ))}
                   </div>
