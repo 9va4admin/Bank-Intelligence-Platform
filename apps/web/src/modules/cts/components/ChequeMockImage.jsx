@@ -1,4 +1,4 @@
-export default function ChequeMockImage({ fields, alterations, isDark = true }) {
+export default function ChequeMockImage({ fields, alterations }) {
   const wrap   = 'border-slate-200 bg-slate-50 dark:border-white/8 dark:bg-white/3'
   const bank   = 'text-slate-800 dark:text-slate-300'
   const sub    = 'text-slate-500 dark:text-slate-600'

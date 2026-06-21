@@ -1,4 +1,4 @@
-export default function BatchStats({ stats, isDark }) {
+export default function BatchStats({ stats }) {
   const pctDone = Math.round(((stats.stp_confirmed + stats.stp_returned + stats.human_review) / stats.total_inward) * 100)
 
   const heading = 'text-slate-900 dark:text-white'

@@ -25,7 +25,7 @@ const REASON_COLORS = {
 }
 
 
-function SigPanel({ item, isDark }) {
+function SigPanel({ item }) {
   const muted  = 'text-slate-500 dark:text-slate-400'
   const note   = 'text-slate-500 dark:text-slate-500'
   const noteBg = 'bg-slate-50 dark:bg-white/3'
@@ -85,7 +85,7 @@ function SigPanel({ item, isDark }) {
   )
 }
 
-export default function ReviewPanel({ item, onDecision, isDark }) {
+export default function ReviewPanel({ item, onDecision }) {
   const [tab, setTab] = useState('overview')
   const [returnReason, setReturnReason] = useState('')
   const [confirming, setConfirming] = useState(null)
@@ -96,9 +96,7 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
     heading:  'text-slate-900 dark:text-white',
     dot:      'text-slate-400 dark:text-slate-500',
     meta:     'text-slate-400 dark:text-slate-500',
-    tabActive: isDark
-      ? 'bg-white/6 text-white border-t border-l border-r border-white/10'
-      : 'bg-slate-100 text-slate-900 border-t border-l border-r border-slate-200',
+    tabActive: 'bg-slate-100 text-slate-900 border-t border-l border-r border-slate-200 dark:bg-white/6 dark:text-white dark:border-white/10',
     tabIdle:  'text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300',
     glass:    'bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border dark:border-white/8',
     lbl:      'text-slate-400 dark:text-slate-500',
@@ -174,7 +172,7 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
                 onMouseEnter={showCheque} onMouseLeave={hideCheque}
               >
                 <div className={`text-[9px] ${th.lbl} uppercase tracking-widest mb-2`}>Cheque Image — compare with extracted fields</div>
-                <ChequeMockImage fields={item.ocr_fields} alterations={item.ocr_fields.alterations} isDark={isDark} />
+                <ChequeMockImage fields={item.ocr_fields} alterations={item.ocr_fields.alterations} />
               </div>
             )}
           </div>
@@ -271,12 +269,12 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
               </div>
             </div>
 
-            <SigPanel item={item} isDark={isDark} />
+            <SigPanel item={item} />
           </>
         )}
 
         {tab === 'cheque' && (
-          <ChequeMockImage fields={item.ocr_fields} alterations={item.ocr_fields.alterations} accountDisplay={item.account_display} isDark={isDark} />
+          <ChequeMockImage fields={item.ocr_fields} alterations={item.ocr_fields.alterations} accountDisplay={item.account_display} />
         )}
 
         {tab === 'ai analysis' && (
@@ -303,7 +301,7 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
               </div>
             </div>
             <div className={`rounded-xl p-4 ${th.glass}`}>
-              <ShapExplainer shapValues={item.shap_values} isDark={isDark} />
+              <ShapExplainer shapValues={item.shap_values} />
             </div>
           </div>
         )}

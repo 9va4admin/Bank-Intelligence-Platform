@@ -14,13 +14,11 @@ function fraudColor(score) {
   return 'text-emerald-400'
 }
 
-export default function QueueCard({ item, selected, onClick, isDark }) {
+export default function QueueCard({ item, selected, onClick }) {
   const minsLeft = Math.floor((new Date(item.iet_deadline) - Date.now()) / 60000)
   const urgent = minsLeft < 30
 
-  const idleCls = isDark
-    ? 'border-white/8 bg-white/2 hover:border-white/15 hover:bg-white/4'
-    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+  const idleCls = 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-white/8 dark:bg-white/2 dark:hover:border-white/15 dark:hover:bg-white/4'
 
   const idText  = 'text-slate-400 dark:text-slate-500'
   const name    = 'text-slate-900 dark:text-white'
