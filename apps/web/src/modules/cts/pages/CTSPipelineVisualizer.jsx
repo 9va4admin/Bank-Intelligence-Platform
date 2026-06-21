@@ -29,7 +29,7 @@ const MOCK_QUEUE = [
     reason: 'SIGNATURE_LOW_CONFIDENCE',
     amount_range: '₹[5L-10L]',
     account_suffix: '****7823',
-    bank: 'Vasavi Co-op → HDFC',
+    bank: 'State Bank of India',
     stop_payment: false, dormant: false, pps_match: true, kyc_expired: false,
     stageResults: {
       0: { ms: 3,   ok: true,  detail: 'IQA passed · CTS-2010 validated' },
@@ -52,7 +52,7 @@ const MOCK_QUEUE = [
     reason: 'HIGH_VALUE_DUAL_APPROVAL',
     amount_range: '₹[>1Cr]',
     account_suffix: '****3341',
-    bank: 'Andheri Urban → Axis',
+    bank: 'HDFC Bank',
     stop_payment: false, dormant: false, pps_match: true, kyc_expired: false,
     stageResults: {
       0: { ms: 2,   ok: true,  detail: 'IQA passed · CTS-2010 validated' },
@@ -75,7 +75,7 @@ const MOCK_QUEUE = [
     reason: 'OCR_FIELD_MISMATCH',
     amount_range: '₹[1L-5L]',
     account_suffix: '****5512',
-    bank: 'Saraswat Co-op → ICICI',
+    bank: 'ICICI Bank',
     stop_payment: false, dormant: false, pps_match: false, kyc_expired: false,
     stageResults: {
       0: { ms: 4,   ok: true,  detail: 'IQA passed · CTS-2010 validated' },
@@ -520,51 +520,77 @@ function StatsStrip({ stats, stageActive }) {
 
 // ─── Exit pools ───────────────────────────────────────────────────────────────
 
-function ConfirmPool({ count }) {
-  const display = Math.min(count, 16)
+function ConfirmPool({ items, onSelect }) {
+  const total = items.length + 847
   return (
     <div
-      className="w-44 shrink-0 rounded-2xl border border-emerald-500/20 flex flex-col p-4 relative overflow-hidden"
+      className="flex-1 rounded-2xl border border-emerald-500/20 flex flex-col p-4 relative overflow-hidden min-w-0"
       style={{ background: 'linear-gradient(145deg, rgba(16,185,129,0.07) 0%, rgba(16,185,129,0.02) 100%)', boxShadow: '0 0 40px rgba(16,185,129,0.04)' }}
     >
       <div className="absolute inset-x-0 bottom-0 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(16,185,129,0.5), transparent)' }} />
-      <div className="flex items-center gap-1.5 mb-2">
+      <div className="flex items-center gap-2 mb-3 shrink-0">
         <div className="w-2 h-2 rounded-full bg-emerald-400" style={{ boxShadow: '0 0 6px #10b981' }} />
-        <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">STP Confirm</span>
+        <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">STP Confirmed</span>
+        <span className="ml-auto font-mono text-xl font-bold text-emerald-400" style={{ textShadow: '0 0 16px rgba(16,185,129,0.5)' }}>{total}</span>
       </div>
-      <div className="font-mono text-3xl font-bold text-emerald-400 mb-0.5" style={{ textShadow: '0 0 20px rgba(16,185,129,0.4)' }}>
-        {count + 847}
-      </div>
-      <div className="text-[10px] text-emerald-700">confirmed this session</div>
-      <div className="mt-auto pt-3 flex flex-wrap gap-1">
-        {Array.from({ length: display }, (_, i) => (
-          <div key={i} className="w-2 h-2 rounded-full" style={{ background: '#10b981', opacity: 0.5 + (i / display) * 0.5, boxShadow: '0 0 4px rgba(16,185,129,0.6)' }} />
+      <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+        {items.slice(-12).reverse().map((item) => (
+          <button
+            key={item.id}
+            onClick={() => onSelect(item)}
+            className="shrink-0 rounded-xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/12 hover:border-emerald-500/40 transition-all px-3 py-2.5 text-left group"
+            style={{ minWidth: 118 }}
+          >
+            <div className="text-[10px] font-mono font-semibold text-emerald-300 group-hover:text-emerald-200 truncate" style={{ maxWidth: 100 }}>{item.id}</div>
+            <div className="text-[9px] text-slate-500 mt-0.5">{item.account_suffix}</div>
+            <div className="flex items-center gap-1 mt-1.5">
+              <span className="text-[9px] text-emerald-600">{item.amount_range}</span>
+              <span className="ml-auto text-[9px] font-mono text-emerald-500">{Math.round((item.fraud_score ?? 0) * 100)}%</span>
+            </div>
+            <div className="text-[8px] text-emerald-700 mt-1">✓ STP confirmed</div>
+          </button>
         ))}
+        {items.length === 0 && (
+          <div className="flex items-center justify-center w-full text-[11px] text-slate-700 py-4">Awaiting…</div>
+        )}
       </div>
     </div>
   )
 }
 
-function ReturnPool({ count }) {
-  const display = Math.min(count, 16)
+function ReturnPool({ items, onSelect }) {
+  const total = items.length + 124
   return (
     <div
-      className="w-44 shrink-0 rounded-2xl border border-red-500/20 flex flex-col p-4 relative overflow-hidden"
+      className="flex-1 rounded-2xl border border-red-500/20 flex flex-col p-4 relative overflow-hidden min-w-0"
       style={{ background: 'linear-gradient(145deg, rgba(239,68,68,0.07) 0%, rgba(239,68,68,0.02) 100%)', boxShadow: '0 0 40px rgba(239,68,68,0.04)' }}
     >
       <div className="absolute inset-x-0 bottom-0 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(239,68,68,0.5), transparent)' }} />
-      <div className="flex items-center gap-1.5 mb-2">
+      <div className="flex items-center gap-2 mb-3 shrink-0">
         <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" style={{ boxShadow: '0 0 6px #ef4444' }} />
-        <span className="text-[10px] font-semibold text-red-400 uppercase tracking-wider">STP Return</span>
+        <span className="text-[10px] font-semibold text-red-400 uppercase tracking-wider">STP Returned</span>
+        <span className="ml-auto font-mono text-xl font-bold text-red-400" style={{ textShadow: '0 0 16px rgba(239,68,68,0.5)' }}>{total}</span>
       </div>
-      <div className="font-mono text-3xl font-bold text-red-400 mb-0.5" style={{ textShadow: '0 0 20px rgba(239,68,68,0.4)' }}>
-        {count + 124}
-      </div>
-      <div className="text-[10px] text-red-700">returned this session</div>
-      <div className="mt-auto pt-3 flex flex-wrap gap-1">
-        {Array.from({ length: display }, (_, i) => (
-          <div key={i} className="w-2 h-2 rounded-full" style={{ background: '#ef4444', opacity: 0.5 + (i / display) * 0.5, boxShadow: '0 0 4px rgba(239,68,68,0.6)' }} />
+      <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+        {items.slice(-12).reverse().map((item) => (
+          <button
+            key={item.id}
+            onClick={() => onSelect(item)}
+            className="shrink-0 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/12 hover:border-red-500/40 transition-all px-3 py-2.5 text-left group"
+            style={{ minWidth: 118 }}
+          >
+            <div className="text-[10px] font-mono font-semibold text-red-300 group-hover:text-red-200 truncate" style={{ maxWidth: 100 }}>{item.id}</div>
+            <div className="text-[9px] text-slate-500 mt-0.5">{item.account_suffix}</div>
+            <div className="flex items-center gap-1 mt-1.5">
+              <span className="text-[9px] text-red-700">{item.amount_range}</span>
+              <span className="ml-auto text-[9px] font-mono text-red-400">{Math.round((item.fraud_score ?? 0) * 100)}%</span>
+            </div>
+            <div className="text-[8px] text-red-700 mt-1 truncate" style={{ maxWidth: 100 }}>{item.reason || 'STP returned'}</div>
+          </button>
         ))}
+        {items.length === 0 && (
+          <div className="flex items-center justify-center w-full text-[11px] text-slate-700 py-4">Awaiting…</div>
+        )}
       </div>
     </div>
   )
@@ -675,9 +701,7 @@ export default function CTSPipelineVisualizer() {
               } else {
                 np.finalized = true
                 np.exitProgress = 0
-                if (np.outcome === 'STP_CONFIRM') toConfirm.push(np)
-                else if (np.outcome === 'STP_RETURN') toReturn.push(np)
-                else toReview.push({
+                const exitItem = {
                   id: np.id,
                   fraud_score: np.fraud_score,
                   sig_match_score: np.sig_match_score,
@@ -686,18 +710,22 @@ export default function CTSPipelineVisualizer() {
                   amount_range: np.amount_range,
                   account_suffix: np.account_suffix,
                   bank: np.bank,
+                  stop_payment: np.stop_payment,
+                  dormant: np.dormant,
+                  pps_match: np.pps_match,
                   stageResults: np.stageResults,
-                })
+                }
+                if (np.outcome === 'STP_CONFIRM') toConfirm.push(exitItem)
+                else if (np.outcome === 'STP_RETURN') toReturn.push(exitItem)
+                else toReview.push(exitItem)
               }
             }
             next.push(np)
           }
 
-          if (Object.keys(newActive).length) {
-            setStageActive(sa => ({ ...sa, ...newActive }))
-          }
-          if (toConfirm.length) setConfirmPool(c => [...c, ...toConfirm].slice(-300))
-          if (toReturn.length)  setReturnPool(r => [...r, ...toReturn].slice(-300))
+          if (Object.keys(newActive).length) setStageActive(sa => ({ ...sa, ...newActive }))
+          if (toConfirm.length) setConfirmPool(c => [...c, ...toConfirm].slice(-60))
+          if (toReturn.length)  setReturnPool(r => [...r, ...toReturn].slice(-60))
           if (toReview.length)  setReviewDock(d => [...d, ...toReview].slice(-20))
           return next
         })
@@ -865,11 +893,11 @@ export default function CTSPipelineVisualizer() {
             <StatsStrip stats={stats} stageActive={stageActive} />
           </div>
 
-          {/* Exit pools */}
+          {/* Exit pools — all three clickable */}
           <div className="flex gap-3 shrink-0" style={{ height: 150 }}>
-            <ConfirmPool count={confirmPool.length} />
-            <ReviewDock items={reviewDock} onSelect={item => openItem(item, false)} />
-            <ReturnPool count={returnPool.length} />
+            <ConfirmPool items={confirmPool} onSelect={item => openItem(item, false)} />
+            <ReviewDock  items={reviewDock}  onSelect={item => openItem(item, false)} />
+            <ReturnPool  items={returnPool}  onSelect={item => openItem(item, false)} />
           </div>
         </div>
       </div>

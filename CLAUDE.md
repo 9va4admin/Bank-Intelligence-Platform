@@ -34,7 +34,7 @@ Two independent but unified product modules sold to Indian banks:
 - Missed IET = deemed approval = bank pays regardless of fraud
 - One AI agent per inward cheque → decision in < 600ms
 - 500 cheques → 500 parallel agents → entire batch < 600ms wall clock
-- Target buyers: Urban Co-op Banks, RRBs, mid-tier private banks
+- Target buyers: Any bank participating in CTS clearing — public sector banks (SBI, PNB, BoB, Canara), private sector banks (HDFC, ICICI, Axis, Kotak, Yes, IndusInd), small finance banks, urban co-operative banks, RRBs, foreign banks with Indian operations — any institution that processes inward cheques and is subject to RBI's IET mandate
 - 18-month first-mover window before incumbents (Nelito, TCS BaNCS) catch up
 
 **Module 2 — ATM EJ Intelligence**
