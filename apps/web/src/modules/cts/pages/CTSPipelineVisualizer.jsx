@@ -517,7 +517,9 @@ function StageNode({ stage, leftPct, isPulsing }) {
 // ─── Moving particle dot ──────────────────────────────────────────────────────
 
 function ParticleDot({ particle }) {
-  const progress = (particle.stage + particle.stageProgress) / (STAGES.length - 1)
+  // Cap at last stage so dot never travels past Decision node
+  const rawProgress = (particle.stage + particle.stageProgress) / (STAGES.length - 1)
+  const progress = Math.min(rawProgress, 1)
   const leftPct = 5 + progress * 90
   const colorMap = {
     STP_CONFIRM:  { dot: '#10b981', glow: '#10b981' },
@@ -690,6 +692,46 @@ function ReviewDock({ items, onSelect }) {
   )
 }
 
+// ─── Batch summary stats bar ─────────────────────────────────────────────────
+
+const BATCH_STATS_DEF = [
+  { key: 'total',       label: 'Total Batch',     color: 'text-white',        base: 487 },
+  { key: 'iqa_fail',    label: 'IQA Fail',         color: 'text-red-400',      base: 3   },
+  { key: 'ai_extract',  label: 'AI Extracted',     color: 'text-violet-400',   base: 0   },
+  { key: 'submitted',   label: 'Submitted NGCH',   color: 'text-cyan-400',     base: 0   },
+  { key: 'ngch_ack',    label: 'NGCH Ack',         color: 'text-emerald-400',  base: 0   },
+  { key: 'ngch_reject', label: 'NGCH Reject',      color: 'text-red-400',      base: 4   },
+  { key: 'amt_mismatch',label: 'Amt Mismatch',     color: 'text-amber-400',    base: 1   },
+  { key: 'date_invalid',label: 'Date Invalid',     color: 'text-slate-500',    base: 0   },
+]
+
+function BatchSummaryBar({ confirmCount, returnCount, reviewCount, onClickStat }) {
+  const vals = {
+    total:        487 + confirmCount + returnCount + reviewCount,
+    iqa_fail:     3,
+    ai_extract:   confirmCount + returnCount + reviewCount,
+    submitted:    confirmCount + returnCount,
+    ngch_ack:     confirmCount,
+    ngch_reject:  4 + returnCount,
+    amt_mismatch: 1,
+    date_invalid: 0,
+  }
+  return (
+    <div className="flex gap-2 shrink-0">
+      {BATCH_STATS_DEF.map(({ key, label, color }) => (
+        <button
+          key={key}
+          onClick={() => onClickStat(key)}
+          className="flex-1 min-w-0 rounded-xl border border-white/6 bg-white/2 hover:bg-white/4 hover:border-white/12 transition-all px-3 py-2.5 text-left group"
+        >
+          <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-600 group-hover:text-slate-500 truncate mb-1">{label}</div>
+          <div className={`font-mono text-xl font-bold ${color}`}>{vals[key]}</div>
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // ─── Main page component ──────────────────────────────────────────────────────
 
 export default function CTSPipelineVisualizer() {
@@ -703,7 +745,8 @@ export default function CTSPipelineVisualizer() {
   const [exceptions] = useState(MOCK_EXCEPTIONS)
   const [selectedItem, setSelectedItem] = useState(null)
   const [isException, setIsException] = useState(false)
-  const [poolModal, setPoolModal] = useState(null) // 'confirm' | 'return' | 'review' | null
+  const [poolModal, setPoolModal] = useState(null)   // 'confirm' | 'return' | 'review' | null
+  const [statModal, setStatModal]   = useState(null) // batch stat key
 
   const runningRef = useRef(running)
   runningRef.current = running
@@ -848,6 +891,12 @@ export default function CTSPipelineVisualizer() {
 
           {/* Circuit board track */}
           <div className="shrink-0 flex flex-col">
+            {/* Pipeline label */}
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Inward Clearing Pipeline</span>
+              <div className="flex-1 h-px bg-white/4" />
+              <span className="text-[9px] text-slate-700 font-mono">Live · 500 parallel agents · &lt;600ms</span>
+            </div>
             {/* Track wrapper */}
             <div
               className="relative w-full rounded-2xl border border-amber-400/10 overflow-visible"
@@ -949,13 +998,60 @@ export default function CTSPipelineVisualizer() {
           </div>
 
           {/* Exit pools — all three clickable */}
-          <div className="flex gap-3 shrink-0" style={{ height: 150 }}>
+          <div className="flex gap-3 shrink-0" style={{ height: 144 }}>
             <ConfirmPool items={confirmPool} onSelect={item => openItem(item, false)} />
             <ReviewDock  items={reviewDock}  onSelect={item => openItem(item, false)} />
             <ReturnPool  items={returnPool}  onSelect={item => openItem(item, false)} />
           </div>
+
+          {/* Batch summary stats */}
+          <BatchSummaryBar
+            confirmCount={confirmPool.length}
+            returnCount={returnPool.length}
+            reviewCount={reviewDock.length}
+            onClickStat={setStatModal}
+          />
         </div>
       </div>
+
+      {/* Batch stat drill-down */}
+      {statModal && (() => {
+        const def = BATCH_STATS_DEF.find(d => d.key === statModal)
+        const vals = {
+          total:        487 + confirmPool.length + returnPool.length + reviewDock.length,
+          iqa_fail:     3,
+          ai_extract:   confirmPool.length + returnPool.length + reviewDock.length,
+          submitted:    confirmPool.length + returnPool.length,
+          ngch_ack:     confirmPool.length,
+          ngch_reject:  4 + returnPool.length,
+          amt_mismatch: 1,
+          date_invalid: 0,
+        }
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(2,8,23,0.7)', backdropFilter: 'blur(6px)' }} onClick={() => setStatModal(null)}>
+            <div className="rounded-2xl border border-white/10 p-6 w-80" style={{ background: '#050f2e' }} onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-[10px] text-slate-500 uppercase tracking-wider">{def?.label}</div>
+                  <div className={`font-mono text-4xl font-bold mt-1 ${def?.color}`}>{vals[statModal]}</div>
+                </div>
+                <button onClick={() => setStatModal(null)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/10 text-lg">×</button>
+              </div>
+              <div className="text-[11px] text-slate-500">Session SES-0619-001 · MUMBAI clearing · 18-Jun-2026</div>
+              <div className="mt-4 pt-4 border-t border-white/6 text-[11px] text-slate-600">
+                {statModal === 'ngch_ack'    && 'Cheques confirmed and acknowledged by NGCH — settled.'}
+                {statModal === 'ngch_reject' && 'NGCH returned error; Temporal auto-retried. 4 required manual intervention.'}
+                {statModal === 'iqa_fail'    && 'Image quality below CTS-2010 DPI threshold (200 DPI). Returned to presenting bank.'}
+                {statModal === 'ai_extract'  && 'Successfully parsed by AI (OCR + vision). Includes all STP and human review items.'}
+                {statModal === 'submitted'   && 'Filed to NGCH (confirm + return). Excludes items still in human review.'}
+                {statModal === 'total'       && 'Total inward instruments received this session across all presenting banks.'}
+                {statModal === 'amt_mismatch'&& 'Words vs figures amount discrepancy detected by OCR. Routed to human review.'}
+                {statModal === 'date_invalid'&& 'No stale or post-dated instruments detected this session.'}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Pool list modal */}
       {poolModal && (
