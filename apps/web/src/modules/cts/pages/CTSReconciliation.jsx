@@ -43,16 +43,12 @@ const SMB_LEDGERS = [
   },
 ]
 
-const SHIELD_D = {
-  SAFE:      'text-emerald-300 bg-emerald-900/30 border-emerald-700/40',
-  SOFT_HOLD: 'text-amber-300 bg-amber-900/30 border-amber-700/40',
-  HARD_STOP: 'text-red-300 bg-red-900/30 border-red-700/40',
+const SHIELD = {
+  SAFE:      'text-emerald-700 bg-emerald-50 border-emerald-300 dark:text-emerald-300 dark:bg-emerald-900/30 dark:border-emerald-700/40',
+  SOFT_HOLD: 'text-amber-700 bg-amber-50 border-amber-300 dark:text-amber-300 dark:bg-amber-900/30 dark:border-amber-700/40',
+  HARD_STOP: 'text-red-700 bg-red-50 border-red-300 dark:text-red-300 dark:bg-red-900/30 dark:border-red-700/40'
 }
-const SHIELD_L = {
-  SAFE:      'text-emerald-700 bg-emerald-50 border-emerald-300',
-  SOFT_HOLD: 'text-amber-700 bg-amber-50 border-amber-300',
-  HARD_STOP: 'text-red-700 bg-red-50 border-red-300',
-}
+
 
 function buildSmbCsv(ledger) {
   return [
@@ -176,21 +172,13 @@ export default function CTSReconciliation() {
     mono:    'text-slate-600 font-mono text-xs dark:text-slate-300 dark:font-mono dark:text-xs',
   }
 
-  const ST_D = {
-    MATCHED:         'bg-emerald-900/40 text-emerald-300 border-emerald-700/40',
-    PENDING:         'bg-amber-900/40   text-amber-300   border-amber-700/40',
-    AMOUNT_MISMATCH: 'bg-orange-900/40  text-orange-300  border-orange-700/40',
-    NGCH_ONLY:       'bg-red-900/40     text-red-300     border-red-700/40',
-    CBS_ONLY:        'bg-purple-900/40  text-purple-300  border-purple-700/40',
-  }
-  const ST_L = {
-    MATCHED:         'bg-emerald-50  text-emerald-700 border-emerald-200',
-    PENDING:         'bg-amber-50    text-amber-700   border-amber-200',
-    AMOUNT_MISMATCH: 'bg-orange-50   text-orange-700  border-orange-200',
-    NGCH_ONLY:       'bg-red-50      text-red-700     border-red-200',
-    CBS_ONLY:        'bg-purple-50   text-purple-700  border-purple-200',
-  }
-  const ST = isDark ? ST_D : ST_L
+  const ST = {
+  MATCHED:         'bg-emerald-50  text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700/40',
+  PENDING:         'bg-amber-50    text-amber-700   border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700/40',
+  AMOUNT_MISMATCH: 'bg-orange-50   text-orange-700  border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-700/40',
+  NGCH_ONLY:       'bg-red-50      text-red-700     border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700/40',
+  CBS_ONLY:        'bg-purple-50   text-purple-700  border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-700/40'
+}
 
   function handleDownload() {
     const csv  = buildCsv(items, session)
@@ -254,9 +242,7 @@ export default function CTSReconciliation() {
               className={`text-xs px-3 py-1 rounded-full border transition-colors ${
                 filterStatus === s
                   ? 'bg-violet-600 text-white border-violet-600'
-                  : isDark
-                    ? 'border-white/10 text-slate-400 hover:text-white'
-                    : 'border-slate-200 text-slate-500 hover:text-slate-900'
+                  : 'border-slate-200 text-slate-500 hover:text-slate-900 dark:border-white/10 dark:text-slate-400 dark:hover:text-white'
               }`}
             >
               {s === 'ALL' ? 'All' : (STATUS_META[s]?.label || s)}
@@ -362,7 +348,6 @@ export default function CTSReconciliation() {
 
           <div className="space-y-3">
             {SMB_LEDGERS.map(smb => {
-              const SHIELD = isDark ? SHIELD_D : SHIELD_L
               const shieldCls = SHIELD[smb.shield_status] || SHIELD.SAFE
               const returnBarPct = Math.min(100, (smb.return_rate_pct / smb.return_rate_threshold_pct) * 100)
               const barColor = smb.shield_status === 'HARD_STOP' ? 'bg-red-400' : smb.shield_status === 'SOFT_HOLD' ? 'bg-amber-400' : 'bg-emerald-400'

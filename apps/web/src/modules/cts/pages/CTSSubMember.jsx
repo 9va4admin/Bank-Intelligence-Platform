@@ -87,11 +87,11 @@ const RETURN_EVENTS = [
 ]
 
 const BUCKET_COLORS = {
-  STP_PASS:      { d: 'bg-emerald-900/40 text-emerald-300 border-emerald-700/40', l: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  STP_RETURN:    { d: 'bg-red-900/40 text-red-300 border-red-700/40',             l: 'bg-red-50 text-red-700 border-red-200' },
-  EYEBALL:       { d: 'bg-amber-900/40 text-amber-300 border-amber-700/40',       l: 'bg-amber-50 text-amber-700 border-amber-200' },
-  FRAUD_HOLD:    { d: 'bg-violet-900/40 text-violet-300 border-violet-700/40',    l: 'bg-violet-50 text-violet-700 border-violet-200' },
-  IET_EMERGENCY: { d: 'bg-rose-900/60 text-rose-200 border-rose-600/50',          l: 'bg-rose-100 text-rose-700 border-rose-300' },
+  STP_PASS:      'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700/40',
+  STP_RETURN:    'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700/40',
+  EYEBALL:       'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700/40',
+  FRAUD_HOLD:    'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/40 dark:text-violet-300 dark:border-violet-700/40',
+  IET_EMERGENCY: 'bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-900/60 dark:text-rose-200 dark:border-rose-600/50',
 }
 
 function shieldStatus(smb) {
@@ -118,14 +118,26 @@ function ReturnRateBar({ value, threshold, softThreshold, isDark }) {
 
 function ShieldBadge({ status, isDark }) {
   const map = {
-    SAFE:      { d: 'bg-emerald-900/40 text-emerald-300', l: 'bg-emerald-50 text-emerald-700', label: '✓ SAFE' },
-    WARN:      { d: 'bg-amber-900/40 text-amber-300',     l: 'bg-amber-50 text-amber-700',     label: '⚠ WARN' },
-    SOFT_HOLD: { d: 'bg-red-900/50 text-red-300',         l: 'bg-red-100 text-red-700',         label: '⏸ SOFT-HOLD' },
-    HARD_STOP: { d: 'bg-rose-900/70 text-rose-200',       l: 'bg-rose-200 text-rose-800',       label: '⛔ HARD-STOP' },
+    SAFE:      {
+    cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+    label: '✓ SAFE'
+  },
+    WARN:      {
+    cls: 'bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+    label: '⚠ WARN'
+  },
+    SOFT_HOLD: {
+    cls: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300',
+    label: '⏸ SOFT-HOLD'
+  },
+    HARD_STOP: {
+    cls: 'bg-rose-200 text-rose-800 dark:bg-rose-900/70 dark:text-rose-200',
+    label: '⛔ HARD-STOP'
+  },
   }
   const m = map[status] || map.SAFE
   return (
-    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${isDark ? m.d : m.l}`}>
+    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${m}`}>
       {m.label}
     </span>
   )
@@ -175,7 +187,7 @@ function DetailPanel({ smb, isDark, onClose }) {
         ].map(({ label, count, bucket }) => {
           const bc = BUCKET_COLORS[bucket]
           return (
-            <div key={bucket} className={`rounded border px-2 py-1.5 text-center ${isDark ? bc.d : bc.l}`}>
+            <div key={bucket} className={`rounded border px-2 py-1.5 text-center ${bc}`}>
               <div className="text-lg font-bold">{count}</div>
               <div className="text-[10px] opacity-80">{label}</div>
             </div>
@@ -220,7 +232,7 @@ function DetailPanel({ smb, isDark, onClose }) {
                     <td className={`py-1 font-mono ${th.value}`}>...{e.suffix}</td>
                     <td className={`py-1 ${th.value}`}>{e.reason}</td>
                     <td className="py-1">
-                      <span className={`px-1.5 py-0.5 rounded text-[9px] border ${isDark ? bc.d : bc.l}`}>
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] border ${bc}`}>
                         {e.bucket}
                       </span>
                     </td>
@@ -334,7 +346,7 @@ export default function CTSSubMember() {
                     return count > 0 ? (
                       <div
                         key={bucket}
-                        className={`relative h-6 rounded text-[9px] flex items-center justify-center font-bold border ${isDark ? bc.d : bc.l}`}
+                        className={`relative h-6 rounded text-[9px] flex items-center justify-center font-bold border ${bc}`}
                         style={{ width: `${width}%`, minWidth: '20px' }}
                         title={`${bucket}: ${count}`}
                       >
@@ -407,7 +419,7 @@ export default function CTSSubMember() {
                     <td className={`px-4 py-2 font-mono ${th.body}`}>…{e.suffix}</td>
                     <td className={`px-4 py-2 ${th.body}`}>{e.reason}</td>
                     <td className="px-4 py-2">
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] border ${isDark ? bc.d : bc.l}`}>
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] border ${bc}`}>
                         {e.bucket}
                       </span>
                     </td>

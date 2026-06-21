@@ -65,25 +65,14 @@ function makeBatch(n, startIdx = 0) {
 const INITIAL_BATCH = makeBatch(42)
 
 const STATUS_META = {
-  CAPTURED:     { label: 'Captured',     color: 'text-slate-400',   bg: 'bg-slate-400/10 border-slate-400/20' },
-  IQA_PASS:     { label: 'IQA Pass',     color: 'text-sky-400',     bg: 'bg-sky-400/10 border-sky-400/20'     },
-  IQA_FAIL:     { label: 'IQA Fail',     color: 'text-red-400',     bg: 'bg-red-400/10 border-red-400/25'     },
-  AI_EXTRACTED: { label: 'AI Extracted', color: 'text-violet-400',  bg: 'bg-violet-400/10 border-violet-400/20'},
-  PKI_SIGNED:   { label: 'PKI Signed',   color: 'text-amber-400',   bg: 'bg-amber-400/10 border-amber-400/20' },
-  SUBMITTED:    { label: 'Submitted',    color: 'text-blue-400',    bg: 'bg-blue-400/10 border-blue-400/20'   },
-  NGCH_ACK:     { label: 'NGCH ACK ✓',  color: 'text-emerald-400', bg: 'bg-emerald-400/10 border-emerald-400/20'},
-  NGCH_REJECT:  { label: 'NGCH Reject',  color: 'text-red-500',     bg: 'bg-red-500/10 border-red-500/25'     },
-}
-
-const STATUS_META_L = {
-  CAPTURED:     { label: 'Captured',     color: 'text-slate-500',   bg: 'bg-slate-50 border-slate-300'   },
-  IQA_PASS:     { label: 'IQA Pass',     color: 'text-sky-600',     bg: 'bg-sky-50 border-sky-300'       },
-  IQA_FAIL:     { label: 'IQA Fail',     color: 'text-red-600',     bg: 'bg-red-50 border-red-300'       },
-  AI_EXTRACTED: { label: 'AI Extracted', color: 'text-violet-600',  bg: 'bg-violet-50 border-violet-300' },
-  PKI_SIGNED:   { label: 'PKI Signed',   color: 'text-amber-600',   bg: 'bg-amber-50 border-amber-300'   },
-  SUBMITTED:    { label: 'Submitted',    color: 'text-blue-600',    bg: 'bg-blue-50 border-blue-300'     },
-  NGCH_ACK:     { label: 'NGCH ACK ✓',  color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-300'},
-  NGCH_REJECT:  { label: 'NGCH Reject',  color: 'text-red-700',     bg: 'bg-red-50 border-red-300'       },
+  CAPTURED:     { label: 'Captured',     color: 'text-slate-500 dark:text-slate-400',   bg: 'bg-slate-50 border-slate-300 dark:bg-slate-400/10 dark:border-slate-400/20' },
+  IQA_PASS:     { label: 'IQA Pass',     color: 'text-sky-600 dark:text-sky-400',       bg: 'bg-sky-50 border-sky-300 dark:bg-sky-400/10 dark:border-sky-400/20'         },
+  IQA_FAIL:     { label: 'IQA Fail',     color: 'text-red-600 dark:text-red-400',       bg: 'bg-red-50 border-red-300 dark:bg-red-400/10 dark:border-red-400/25'         },
+  AI_EXTRACTED: { label: 'AI Extracted', color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 border-violet-300 dark:bg-violet-400/10 dark:border-violet-400/20'},
+  PKI_SIGNED:   { label: 'PKI Signed',   color: 'text-amber-600 dark:text-amber-400',   bg: 'bg-amber-50 border-amber-300 dark:bg-amber-400/10 dark:border-amber-400/20' },
+  SUBMITTED:    { label: 'Submitted',    color: 'text-blue-600 dark:text-blue-400',     bg: 'bg-blue-50 border-blue-300 dark:bg-blue-400/10 dark:border-blue-400/20'     },
+  NGCH_ACK:     { label: 'NGCH ACK ✓',  color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 border-emerald-300 dark:bg-emerald-400/10 dark:border-emerald-400/20'},
+  NGCH_REJECT:  { label: 'NGCH Reject',  color: 'text-red-700 dark:text-red-500',       bg: 'bg-red-50 border-red-300 dark:bg-red-500/10 dark:border-red-500/25'         },
 }
 
 const PIPELINE_STEPS = [
@@ -216,8 +205,7 @@ function PipelineLane({ batch, isDark }) {
 }
 
 function BatchRow({ item, selected, onClick, isDark }) {
-  const SM = isDark ? STATUS_META : STATUS_META_L
-  const s = SM[item.status] || SM['CAPTURED']
+  const s = STATUS_META[item.status] || STATUS_META['CAPTURED']
   const th = {
     row:  selected
       ? 'bg-amber-50 border-amber-300 dark:bg-gold-400/8 dark:border-gold-400/30'
@@ -269,9 +257,7 @@ function DetailPanel({ item, isDark }) {
       Select a cheque to inspect
     </div>
   )
-
-  const SM = isDark ? STATUS_META : STATUS_META_L
-  const s  = SM[item.status] || SM['CAPTURED']
+  const s  = STATUS_META[item.status] || STATUS_META['CAPTURED']
   const pos = pipelinePos(item.status)
 
   const th = {

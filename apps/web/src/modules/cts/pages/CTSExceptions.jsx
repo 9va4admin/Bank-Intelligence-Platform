@@ -180,16 +180,12 @@ function downloadCsv(csv, filename) {
 
 // ── Severity colours ──────────────────────────────────────────────────────
 
-const SEV_D = {
-  CRITICAL: 'bg-red-900/60 text-red-300 border border-red-700/50',
-  HIGH:     'bg-amber-900/50 text-amber-300 border border-amber-700/40',
-  MEDIUM:   'bg-sky-900/50 text-sky-300 border border-sky-700/40',
+const SEV = {
+  CRITICAL: 'bg-red-100 text-red-700 border border-red-300 dark:bg-red-900/60 dark:text-red-300 dark:border dark:border-red-700/50',
+  HIGH:     'bg-amber-100 text-amber-700 border border-amber-300 dark:bg-amber-900/50 dark:text-amber-300 dark:border dark:border-amber-700/40',
+  MEDIUM:   'bg-sky-100 text-sky-700 border border-sky-300 dark:bg-sky-900/50 dark:text-sky-300 dark:border dark:border-sky-700/40'
 }
-const SEV_L = {
-  CRITICAL: 'bg-red-100 text-red-700 border border-red-300',
-  HIGH:     'bg-amber-100 text-amber-700 border border-amber-300',
-  MEDIUM:   'bg-sky-100 text-sky-700 border border-sky-300',
-}
+
 
 // ── Component ─────────────────────────────────────────────────────────────
 
@@ -208,8 +204,6 @@ export default function CTSExceptions() {
     row:     'border-slate-100 hover:bg-slate-50 dark:border-white/4 dark:hover:bg-white/2',
     badge:   'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300',
   }
-
-  const SEV = isDark ? SEV_D : SEV_L
 
   const filtered = EXCEPTIONS.filter(e => {
     if (severityFilter !== 'All' && e.severity !== severityFilter) return false

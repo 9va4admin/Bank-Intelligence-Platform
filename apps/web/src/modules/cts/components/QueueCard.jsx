@@ -1,17 +1,12 @@
 import IETTimer from './IETTimer'
 
-const REASON_COLORS_D = {
-  SIGNATURE_LOW_CONFIDENCE: 'text-amber-300 bg-amber-400/10 border-amber-400/20',
-  FRAUD_SCORE_HIGH:         'text-red-300 bg-red-400/10 border-red-400/20',
-  OCR_LOW_CONFIDENCE:       'text-orange-300 bg-orange-400/10 border-orange-400/20',
-  VAULT_MISS:               'text-purple-300 bg-purple-400/10 border-purple-400/20',
+const REASON_COLORS = {
+  SIGNATURE_LOW_CONFIDENCE: 'text-amber-700 bg-amber-100 border-amber-400 dark:text-amber-300 dark:bg-amber-400/10 dark:border-amber-400/20',
+  FRAUD_SCORE_HIGH:         'text-red-700 bg-red-100 border-red-400 dark:text-red-300 dark:bg-red-400/10 dark:border-red-400/20',
+  OCR_LOW_CONFIDENCE:       'text-orange-700 bg-orange-100 border-orange-400 dark:text-orange-300 dark:bg-orange-400/10 dark:border-orange-400/20',
+  VAULT_MISS:               'text-purple-700 bg-purple-100 border-purple-400 dark:text-purple-300 dark:bg-purple-400/10 dark:border-purple-400/20'
 }
-const REASON_COLORS_L = {
-  SIGNATURE_LOW_CONFIDENCE: 'text-amber-700 bg-amber-100 border-amber-400',
-  FRAUD_SCORE_HIGH:         'text-red-700 bg-red-100 border-red-400',
-  OCR_LOW_CONFIDENCE:       'text-orange-700 bg-orange-100 border-orange-400',
-  VAULT_MISS:               'text-purple-700 bg-purple-100 border-purple-400',
-}
+
 
 function fraudColor(score) {
   if (score >= 0.80) return 'text-red-400'
@@ -20,7 +15,6 @@ function fraudColor(score) {
 }
 
 export default function QueueCard({ item, selected, onClick, isDark }) {
-  const REASON_COLORS = isDark ? REASON_COLORS_D : REASON_COLORS_L
   const minsLeft = Math.floor((new Date(item.iet_deadline) - Date.now()) / 60000)
   const urgent = minsLeft < 30
 
