@@ -7,7 +7,6 @@ const FLAT_NAV = [
   { to: '/cts',          label: 'Inward Queue', end: true },
   { to: '/cts/outward',  label: 'Outward'  },
   { to: '/cts/vault',    label: 'Vault'    },
-  { to: '/cts/pipeline', label: 'AI Pipeline' },
 ]
 
 const NAV_GROUPS = [
