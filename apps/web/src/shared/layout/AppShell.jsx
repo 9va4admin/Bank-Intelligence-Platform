@@ -4,10 +4,10 @@ import { useTheme } from '../theme/ThemeContext'
 import { PageHeaderCtx } from './PageHeaderContext'
 
 const FLAT_NAV = [
-  { to: '/cts',          label: 'Inward',   end: true },
+  { to: '/cts',          label: 'Inward Queue', end: true },
   { to: '/cts/outward',  label: 'Outward'  },
   { to: '/cts/vault',    label: 'Vault'    },
-  { to: '/cts/pipeline', label: 'Pipeline' },
+  { to: '/cts/pipeline', label: 'AI Pipeline' },
 ]
 
 const NAV_GROUPS = [
@@ -44,7 +44,7 @@ const PROFILE_MENU = [
 ]
 
 const ROUTE_LABELS = {
-  '/cts':               ['CTS', 'Inward Queue'],
+  '/cts':               ['CTS', 'Inward Queue — Human Review'],
   '/cts/outward':       ['CTS', 'Outward'],
   '/cts/vault':         ['CTS', 'Vault Status'],
   '/cts/decisions':     ['Reports', 'Decisions Log'],
@@ -56,7 +56,7 @@ const ROUTE_LABELS = {
   '/cts/endorsement':   ['Operations', 'Endorsement'],
   '/cts/scanner':       ['Operations', 'Scanner SDK'],
   '/cts/rpc':           ['Operations', 'RPC Consolidation'],
-  '/cts/pipeline':      ['CTS', 'Pipeline Visualizer'],
+  '/cts/pipeline':      ['CTS', 'Inward AI Pipeline Visualizer'],
   '/cts/config':        ['Admin', 'Config'],
   '/cts/config/sub-member-banks': ['Admin · Config', 'Sub-Member Banks'],
   '/cts/config/micr-prefixes':    ['Admin · Config', 'MICR Prefix Table'],
