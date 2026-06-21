@@ -43,16 +43,12 @@ const DECISIONS = [
   { id: 'CHQ-2026-001894', micr: '400160001894', account: '****6634', amount: '₹[1L-5L]', payee: 'D***', reason: 'SIG_MISMATCH',  outcome: 'STP_RETURN',   agent_ms: 478, fraud: 0.79, ngch: 'ACK-7814', filed: '10:44:22', reviewer: null,      return_reason: 'Signature mismatch confirmed', iet_deadline: '2026-06-19T13:30:00Z', returned_at: '2026-06-19T10:44:22Z', presenting_ifsc: 'HDFC0001234' },
 ]
 
-const OUTCOME_STYLE_D = {
-  STP_CONFIRM:  'text-emerald-400 bg-emerald-400/10',
-  STP_RETURN:   'text-red-400 bg-red-400/10',
-  HUMAN_REVIEW: 'text-amber-400 bg-amber-400/10',
+const OUTCOME_STYLE = {
+  STP_CONFIRM:  'text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-400/10',
+  STP_RETURN:   'text-red-700 bg-red-50 dark:text-red-400 dark:bg-red-400/10',
+  HUMAN_REVIEW: 'text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-400/10'
 }
-const OUTCOME_STYLE_L = {
-  STP_CONFIRM:  'text-emerald-700 bg-emerald-50',
-  STP_RETURN:   'text-red-700 bg-red-50',
-  HUMAN_REVIEW: 'text-amber-700 bg-amber-50',
-}
+
 
 const FILTERS = ['All', 'STP_CONFIRM', 'STP_RETURN', 'HUMAN_REVIEW']
 
@@ -166,8 +162,6 @@ export default function CTSDecisionsLog() {
   const [filter, setFilter]     = useState('All')
   const [rrfModal, setRrfModal] = useState(null) // null | 'session' | rowId
   const { isDark } = useTheme()
-
-  const OUTCOME_STYLE = isDark ? OUTCOME_STYLE_D : OUTCOME_STYLE_L
   const returned = DECISIONS.filter(d => d.outcome === 'STP_RETURN')
   const rows     = filter === 'All' ? DECISIONS : DECISIONS.filter(d => d.outcome === filter)
 

@@ -18,11 +18,22 @@ const MOCK_INCIDENTS = [
   { id:'INC-2026-0038', atm_id:'ATM-BLR-002', city:'Bangalore', branch:'Whitefield',   severity:'MEDIUM',   type:'EJ Upload Timeout',          status:'RESOLVED',    opened:'2026-06-17T18:00:00Z', assigned_to:'Kiran Rao',     sla_breach_at:'2026-06-18T02:00:00Z', notes:'Network restored after ISP maintenance.' },
 ]
 
-const SEV_D = { CRITICAL: 'bg-red-900/60 text-red-300 border-red-700/50', HIGH: 'bg-amber-900/50 text-amber-300 border-amber-700/40', MEDIUM: 'bg-yellow-900/40 text-yellow-300 border-yellow-700/30', LOW: 'bg-slate-800 text-slate-400 border-slate-700' }
-const SEV_L = { CRITICAL: 'bg-red-100 text-red-700 border-red-300', HIGH: 'bg-amber-100 text-amber-700 border-amber-300', MEDIUM: 'bg-yellow-100 text-yellow-700 border-yellow-300', LOW: 'bg-slate-100 text-slate-600 border-slate-300' }
+const SEV = {
+  CRITICAL: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/60 dark:text-red-300 dark:border-red-700/50',
+  HIGH:     'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700/40',
+  MEDIUM:   'bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-700/30',
+  LOW:      'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+}
 
-const STATUS_D = { OPEN: 'bg-red-900/50 text-red-300', ASSIGNED: 'bg-blue-900/50 text-blue-300', IN_PROGRESS: 'bg-violet-900/50 text-violet-300', RESOLVED: 'bg-emerald-900/40 text-emerald-400', CLOSED: 'bg-slate-800 text-slate-500' }
-const STATUS_L = { OPEN: 'bg-red-100 text-red-700', ASSIGNED: 'bg-blue-100 text-blue-700', IN_PROGRESS: 'bg-violet-100 text-violet-700', RESOLVED: 'bg-emerald-100 text-emerald-700', CLOSED: 'bg-slate-100 text-slate-500' }
+
+const STATUS = {
+  OPEN:        'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300',
+  ASSIGNED:    'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
+  IN_PROGRESS: 'bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300',
+  RESOLVED:    'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400',
+  CLOSED:      'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-500'
+}
+
 
 const TIME_RANGES = ['2h','6h','24h','7d','30d']
 const STATUS_OPTIONS = ['ALL','OPEN','ASSIGNED','IN_PROGRESS','RESOLVED','CLOSED']
@@ -42,7 +53,6 @@ function DetailPanel({ inc, onClose, onStatusChange, isDark }) {
   const sla = getSLA(inc)
   const nextStatus = { OPEN:'ASSIGNED', ASSIGNED:'IN_PROGRESS', IN_PROGRESS:'RESOLVED', RESOLVED:'CLOSED' }
   const SEV    = isDark ? SEV_D    : SEV_L
-  const STATUS = isDark ? STATUS_D : STATUS_L
 
   const panel  = 'bg-white border-slate-200 dark:bg-[#0a1628] dark:border-slate-800'
   const hdr    = 'border-slate-200 dark:border-slate-800'
@@ -140,7 +150,6 @@ export default function IncidentManagement() {
   const { isDark } = useTheme()
 
   const SEV    = isDark ? SEV_D    : SEV_L
-  const STATUS = isDark ? STATUS_D : STATUS_L
 
   const th = {
     page:    'bg-slate-50 text-slate-900 dark:bg-[#020817] dark:text-slate-100',

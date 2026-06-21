@@ -36,8 +36,13 @@ function buildMatrix() {
 
 const MATRIX = buildMatrix()
 
-const SEV_PILL_D = { CRITICAL:'bg-red-500/20 text-red-300 border border-red-500/30', HIGH:'bg-amber-500/20 text-amber-300 border border-amber-500/30', MEDIUM:'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30', LOW:'bg-slate-500/20 text-slate-300 border border-slate-400/20' }
-const SEV_PILL_L = { CRITICAL:'bg-red-100 text-red-700 border border-red-400', HIGH:'bg-amber-100 text-amber-700 border border-amber-400', MEDIUM:'bg-yellow-100 text-yellow-700 border border-yellow-400', LOW:'bg-slate-100 text-slate-600 border border-slate-300' }
+const SEV_PILL = {
+  CRITICAL: 'bg-red-100 text-red-700 border border-red-400 dark:bg-red-500/20 dark:text-red-300 dark:border dark:border-red-500/30',
+  HIGH:     'bg-amber-100 text-amber-700 border border-amber-400 dark:bg-amber-500/20 dark:text-amber-300 dark:border dark:border-amber-500/30',
+  MEDIUM:   'bg-yellow-100 text-yellow-700 border border-yellow-400 dark:bg-yellow-500/20 dark:text-yellow-300 dark:border dark:border-yellow-500/30',
+  LOW:      'bg-slate-100 text-slate-600 border border-slate-300 dark:bg-slate-500/20 dark:text-slate-300 dark:border dark:border-slate-400/20'
+}
+
 
 const DELIVERY_LOG = [
   { time:'10:47:03', rule:'Cash Not Dispensed', atm:'ATM-MUM-004', channel:'WhatsApp', role:'ops_reviewer', status:'Delivered' },
@@ -53,7 +58,6 @@ const DELIVERY_LOG = [
 ]
 
 function MatrixTab({ isDark }) {
-  const SEV_PILL = isDark ? SEV_PILL_D : SEV_PILL_L
   const violet   = 'bg-violet-100 text-violet-700 border border-violet-400 dark:bg-violet-500/20 dark:text-violet-300 dark:border dark:border-violet-500/30'
   const divider  = 'border-slate-200 dark:border-white/10'
   const dividerSm = 'border-slate-100 dark:border-white/5'

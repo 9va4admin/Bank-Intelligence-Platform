@@ -33,13 +33,14 @@ function generateScan(idx, scanner) {
   }
 }
 
-const OEM_COLOR = {
-  PANINI:  { badge: 'bg-blue-500/20 text-blue-300 border-blue-700/40', dot: 'bg-blue-400' },
+const oemC = {
+  badge: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-700/40',
+  dot:   'bg-blue-500 dark:bg-blue-400'
+},
   CANON:   { badge: 'bg-purple-500/20 text-purple-300 border-purple-700/40', dot: 'bg-purple-400' },
   GENERIC: { badge: 'bg-slate-500/20 text-slate-400 border-slate-600/40', dot: 'bg-slate-400' },
 }
-const OEM_COLOR_L = {
-  PANINI:  { badge: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-500' },
+,
   CANON:   { badge: 'bg-purple-50 text-purple-700 border-purple-200', dot: 'bg-purple-500' },
   GENERIC: { badge: 'bg-slate-100 text-slate-600 border-slate-300', dot: 'bg-slate-400' },
 }
@@ -77,8 +78,6 @@ export default function CTSScanner() {
   }
 
   useEffect(() => () => clearInterval(intervalRef.current), [])
-
-  const oemC = isDark ? OEM_COLOR : OEM_COLOR_L
 
   const th = {
     page:    'bg-slate-50 dark:bg-transparent',

@@ -53,11 +53,17 @@ const CROSS_CENTRE_ALERTS = [
     zones: ['HYDERABAD'], ts: '10:57:02' },
 ]
 
-const SEV_D = { HIGH: 'bg-red-900/40 text-red-300 border-red-700/40', MEDIUM: 'bg-amber-900/40 text-amber-300 border-amber-700/40' }
-const SEV_L = { HIGH: 'bg-red-50 text-red-700 border-red-200', MEDIUM: 'bg-amber-50 text-amber-700 border-amber-200' }
+const sev = {
+  HIGH:   'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700/40',
+  MEDIUM: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700/40'
+}
 
-const RPC_STATUS_D = { ACTIVE: 'text-emerald-400', DEGRADED: 'text-red-400' }
-const RPC_STATUS_L = { ACTIVE: 'text-emerald-600', DEGRADED: 'text-red-600' }
+
+const rpcS = {
+  ACTIVE:   'text-emerald-600 dark:text-emerald-400',
+  DEGRADED: 'text-red-600 dark:text-red-400'
+}
+
 
 export default function CTSRPCConsolidation() {
   const { isDark } = useTheme()
@@ -74,9 +80,6 @@ export default function CTSRPCConsolidation() {
     row:     'border-slate-100 hover:bg-slate-50 dark:border-white/4 dark:hover:bg-white/2',
     mono:    'text-slate-600 font-mono text-xs dark:text-slate-300 dark:font-mono dark:text-xs',
   }
-
-  const sev  = isDark ? SEV_D : SEV_L
-  const rpcS = isDark ? RPC_STATUS_D : RPC_STATUS_L
 
   // Consolidated totals
   const total_inward  = RPCS.reduce((a, r) => a + r.inward,  0)
