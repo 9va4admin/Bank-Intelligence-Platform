@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
-import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
 const SUB_MEMBERS = [
@@ -116,7 +115,7 @@ function ReturnRateBar({ value, threshold, softThreshold }) {
   )
 }
 
-function ShieldBadge({ status, isDark }) {
+function ShieldBadge({ status }) {
   const map = {
     SAFE:      {
     cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
@@ -143,7 +142,7 @@ function ShieldBadge({ status, isDark }) {
   )
 }
 
-function DetailPanel({ smb, isDark, onClose }) {
+function DetailPanel({ smb, onClose }) {
   const th = {
     panel:   'bg-white border-slate-200 dark:bg-navy-900 dark:border-white/10',
     heading: 'text-slate-900 dark:text-white',
@@ -203,7 +202,7 @@ function DetailPanel({ smb, isDark, onClose }) {
             {(rate * 100).toFixed(1)}%
           </span>
         </div>
-        <ReturnRateBar value={rate} threshold={smb.return_threshold} softThreshold={smb.soft_hold_threshold} isDark={isDark} />
+        <ReturnRateBar value={rate} threshold={smb.return_threshold} softThreshold={smb.soft_hold_threshold} />
         <div className={`flex gap-4 mt-1 text-[9px] ${th.label}`}>
           <span>● Warn at {(smb.return_threshold * 100).toFixed(0)}%</span>
           <span>● Soft-Hold at {(smb.soft_hold_threshold * 100).toFixed(0)}%</span>
@@ -249,7 +248,6 @@ function DetailPanel({ smb, isDark, onClose }) {
 }
 
 export default function CTSSubMember() {
-  const { isDark } = useTheme()
   const [selected, setSelected] = useState(null)
 
   const th = {
@@ -303,7 +301,6 @@ export default function CTSSubMember() {
         {selected && (
           <DetailPanel
             smb={SUB_MEMBERS.find(m => m.id === selected)}
-            isDark={isDark}
             onClose={() => setSelected(null)}
           />
         )}
@@ -329,7 +326,7 @@ export default function CTSSubMember() {
                     </div>
                     <div className={`text-[10px] ${th.label} mt-0.5`}>Sponsor: {smb.sponsor}</div>
                   </div>
-                  <ShieldBadge status={status} isDark={isDark} />
+                  <ShieldBadge status={status} />
                 </div>
 
                 {/* Mini bucket bar */}
@@ -381,7 +378,6 @@ export default function CTSSubMember() {
                     value={rate}
                     threshold={smb.return_threshold}
                     softThreshold={smb.soft_hold_threshold}
-                    isDark={isDark}
                   />
                 </div>
               </div>
