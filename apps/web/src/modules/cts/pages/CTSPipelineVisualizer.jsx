@@ -2,6 +2,22 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
+// ─── Stage config ──────────────────────────────────────────────────────────────
+// bank: 'p' = Presenting Bank · 'g' = NGCH Gateway · 'd' = Drawee Bank
+
+const STAGES = [
+  { id: 0, label: 'Ingest',      icon: '📥', shortLabel: 'Ingest',   avgMs: 3,   bank: 'p' },
+  { id: 1, label: 'MICR / OCR',  icon: '🔢', shortLabel: 'MICR/OCR', avgMs: 55,  bank: 'p' },
+  { id: 2, label: 'Compliance',  icon: '✅', shortLabel: 'Comply',   avgMs: 68,  bank: 'p' },
+  { id: 3, label: 'NGCH',        icon: '🌐', shortLabel: 'NGCH',     avgMs: 82,  bank: 'g' },
+  { id: 4, label: 'Account',     icon: '🏦', shortLabel: 'Account',  avgMs: 97,  bank: 'd' },
+  { id: 5, label: 'Pos Pay',     icon: '📋', shortLabel: 'PPS',      avgMs: 115, bank: 'd' },
+  { id: 6, label: 'Signature',   icon: '✍️', shortLabel: 'Sig',      avgMs: 152, bank: 'd' },
+  { id: 7, label: 'Vision',      icon: '🔍', shortLabel: 'Vision',   avgMs: 194, bank: 'd' },
+  { id: 8, label: 'Fraud',       icon: '🛡️', shortLabel: 'Fraud',    avgMs: 235, bank: 'd' },
+  { id: 9, label: 'Decision',    icon: '⚖️', shortLabel: 'Decide',   avgMs: 255, bank: 'd' },
+]
+
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
 const MOCK_QUEUE = [
@@ -13,15 +29,19 @@ const MOCK_QUEUE = [
     reason: 'SIGNATURE_LOW_CONFIDENCE',
     amount_range: '₹[5L-10L]',
     account_suffix: '****7823',
-    bank: 'Saraswat Co-op',
+    bank: 'Vasavi Co-op → HDFC',
+    stop_payment: false, dormant: false, pps_match: true, kyc_expired: false,
     stageResults: {
-      0: { ms: 3,   ok: true,  detail: 'CTS 2010 validated' },
-      1: { ms: 11,  ok: true,  detail: 'MICR: 001847 · IFSC: SRCB0000021' },
-      2: { ms: 49,  ok: true,  detail: 'OCR conf 0.94 · Payee: R***' },
-      3: { ms: 92,  ok: true,  detail: 'No alteration detected' },
-      4: { ms: 138, ok: false, detail: 'Match score 0.61 < threshold 0.85' },
-      5: { ms: 181, ok: false, detail: 'Fraud score 0.81 · SHAP: sig_mismatch=0.44' },
-      6: { ms: 184, ok: false, detail: 'HELD — awaiting reviewer' },
+      0: { ms: 3,   ok: true,  detail: 'IQA passed · CTS-2010 validated' },
+      1: { ms: 11,  ok: true,  detail: 'MICR: 001847 · IFSC: HDFC0001234 · OCR conf 0.94' },
+      2: { ms: 49,  ok: true,  detail: 'Date valid · ₹ figures/words match · Crossing ✓' },
+      3: { ms: 82,  ok: true,  detail: 'Presented to NGCH MUMBAI · Ack: MUM240618001847' },
+      4: { ms: 97,  ok: true,  detail: 'Account active · KYC valid · No legal hold' },
+      5: { ms: 115, ok: true,  detail: 'PPS record found · Amount ₹[5L-10L] matches' },
+      6: { ms: 152, ok: false, detail: 'Match score 0.61 < threshold 0.85 — MISMATCH' },
+      7: { ms: 194, ok: false, detail: 'No alteration on amount field' },
+      8: { ms: 235, ok: false, detail: 'Fraud score 0.81 · SHAP: sig_mismatch=0.44' },
+      9: { ms: 241, ok: false, detail: 'HELD — awaiting reviewer decision' },
     },
   },
   {
@@ -32,15 +52,19 @@ const MOCK_QUEUE = [
     reason: 'HIGH_VALUE_DUAL_APPROVAL',
     amount_range: '₹[>1Cr]',
     account_suffix: '****3341',
-    bank: 'Saraswat Co-op',
+    bank: 'Andheri Urban → Axis',
+    stop_payment: false, dormant: false, pps_match: true, kyc_expired: false,
     stageResults: {
-      0: { ms: 2,   ok: true,  detail: 'CTS 2010 validated' },
-      1: { ms: 9,   ok: true,  detail: 'MICR: 001901 · IFSC: SRCB0000021' },
-      2: { ms: 53,  ok: true,  detail: 'OCR conf 0.91 · Payee: K***' },
-      3: { ms: 88,  ok: true,  detail: 'No alteration detected' },
-      4: { ms: 124, ok: true,  detail: 'Match score 0.88 ✓' },
-      5: { ms: 165, ok: false, detail: 'Fraud score 0.77 · SHAP: high_value=0.51' },
-      6: { ms: 168, ok: false, detail: 'HELD — dual approval required >₹1Cr' },
+      0: { ms: 2,   ok: true,  detail: 'IQA passed · CTS-2010 validated' },
+      1: { ms: 9,   ok: true,  detail: 'MICR: 001901 · IFSC: UTIB0000112 · OCR conf 0.91' },
+      2: { ms: 53,  ok: true,  detail: 'Date valid · ₹ figures/words match · Crossing ✓' },
+      3: { ms: 82,  ok: true,  detail: 'Presented to NGCH MUMBAI · Ack: MUM240618001901' },
+      4: { ms: 97,  ok: true,  detail: 'Account active · KYC valid · No legal hold' },
+      5: { ms: 115, ok: true,  detail: 'PPS record found · Amount ₹[>1Cr] matches' },
+      6: { ms: 152, ok: true,  detail: 'Match score 0.88 ✓' },
+      7: { ms: 194, ok: true,  detail: 'No alteration detected' },
+      8: { ms: 235, ok: false, detail: 'Fraud 0.77 · SHAP: high_value=0.51 · OPA rule fired' },
+      9: { ms: 240, ok: false, detail: 'HELD — dual approval required >₹1Cr' },
     },
   },
   {
@@ -51,15 +75,19 @@ const MOCK_QUEUE = [
     reason: 'OCR_FIELD_MISMATCH',
     amount_range: '₹[1L-5L]',
     account_suffix: '****5512',
-    bank: 'Saraswat Co-op',
+    bank: 'Saraswat Co-op → ICICI',
+    stop_payment: false, dormant: false, pps_match: false, kyc_expired: false,
     stageResults: {
-      0: { ms: 4,   ok: true,  detail: 'CTS 2010 validated' },
-      1: { ms: 13,  ok: true,  detail: 'MICR: 001733 · IFSC: SRCB0000021' },
-      2: { ms: 58,  ok: false, detail: 'Amount figures/words mismatch' },
-      3: { ms: 91,  ok: true,  detail: 'Minor ink variation detected' },
-      4: { ms: 127, ok: true,  detail: 'Match score 0.79 ✓' },
-      5: { ms: 168, ok: false, detail: 'Fraud score 0.74 · SHAP: ocr_mismatch=0.38' },
-      6: { ms: 171, ok: false, detail: 'HELD — OCR field mismatch' },
+      0: { ms: 4,   ok: true,  detail: 'IQA passed · CTS-2010 validated' },
+      1: { ms: 13,  ok: false, detail: 'MICR conf 0.88 · Amount words/figures MISMATCH' },
+      2: { ms: 58,  ok: false, detail: 'Amount mismatch flagged for drawee check' },
+      3: { ms: 82,  ok: true,  detail: 'Presented to NGCH MUMBAI · Ack: MUM240618001733' },
+      4: { ms: 97,  ok: true,  detail: 'Account active · KYC valid' },
+      5: { ms: 115, ok: false, detail: 'PPS not registered — >₹50K without PPS' },
+      6: { ms: 152, ok: true,  detail: 'Match score 0.79 ✓' },
+      7: { ms: 194, ok: true,  detail: 'No alteration detected' },
+      8: { ms: 235, ok: false, detail: 'Fraud score 0.74 · SHAP: ocr_mismatch=0.38' },
+      9: { ms: 241, ok: false, detail: 'HELD — words/figures mismatch + PPS absent' },
     },
   },
 ]
@@ -73,46 +101,36 @@ const MOCK_EXCEPTIONS = [
     ocr_confidence: 0.96,
     amount_range: '₹[5L-10L]',
     account_suffix: '****9904',
-    bank: 'Saraswat Co-op',
+    bank: 'Thane Janata → SBI',
+    stop_payment: false, dormant: false, pps_match: true, kyc_expired: false,
     stageResults: {
-      0: { ms: 3,   ok: true,  detail: 'CTS 2010 validated' },
-      1: { ms: 10,  ok: true,  detail: 'MICR: 001654 · IFSC: SRCB0000021' },
-      2: { ms: 47,  ok: true,  detail: 'OCR conf 0.96 · Payee: V***' },
-      3: { ms: 79,  ok: true,  detail: 'No alteration detected' },
-      4: { ms: 84,  ok: false, detail: 'VAULT MISS — no signature specimen on file' },
+      0: { ms: 3,   ok: true,  detail: 'IQA passed · CTS-2010 validated' },
+      1: { ms: 10,  ok: true,  detail: 'MICR: 001654 · IFSC: SBIN0040001 · OCR conf 0.96' },
+      2: { ms: 47,  ok: true,  detail: 'Date valid · figures/words match' },
+      3: { ms: 82,  ok: true,  detail: 'Presented to NGCH MUMBAI · Ack: MUM240618001654' },
+      4: { ms: 97,  ok: true,  detail: 'Account active · KYC valid' },
+      5: { ms: 115, ok: true,  detail: 'PPS matched ✓' },
+      6: { ms: 120, ok: false, detail: 'VAULT MISS — no signature specimen on file' },
     },
   },
   {
     id: 'CHQ-MUM-001712',
-    reason: 'CBS_TIMEOUT',
+    reason: 'DORMANT_ACCOUNT',
     fraud_score: null,
     sig_match_score: 0.91,
     ocr_confidence: 0.93,
     amount_range: '₹[1L-5L]',
     account_suffix: '****2278',
-    bank: 'Saraswat Co-op',
+    bank: 'Bharat Co-op → PNB',
+    stop_payment: false, dormant: true, pps_match: false, kyc_expired: true,
     stageResults: {
-      0: { ms: 2,   ok: true,  detail: 'CTS 2010 validated' },
-      1: { ms: 8,   ok: true,  detail: 'MICR: 001712 · IFSC: SRCB0000021' },
-      2: { ms: 44,  ok: true,  detail: 'OCR conf 0.93 · Payee: A***' },
-      3: { ms: 76,  ok: true,  detail: 'No alteration detected' },
-      4: { ms: 112, ok: true,  detail: 'Match score 0.91 ✓' },
-      5: { ms: 122, ok: false, detail: 'CBS TIMEOUT after 10s — balance unavailable' },
+      0: { ms: 2,   ok: true,  detail: 'IQA passed · CTS-2010 validated' },
+      1: { ms: 8,   ok: true,  detail: 'MICR: 001712 · IFSC: PUNB0120000 · OCR conf 0.93' },
+      2: { ms: 44,  ok: true,  detail: 'Date valid · figures/words match' },
+      3: { ms: 82,  ok: true,  detail: 'Presented to NGCH MUMBAI · Ack: MUM240618001712' },
+      4: { ms: 91,  ok: false, detail: 'DORMANT — no txn 28 months · RBI rule: return' },
     },
   },
-]
-
-// ─── Stage config ──────────────────────────────────────────────────────────────
-
-const STAGES = [
-  { id: 0, label: 'Ingest',   icon: '📥', shortLabel: 'Ingest',  avgMs: 3   },
-  { id: 1, label: 'MICR',    icon: '🔢', shortLabel: 'MICR',    avgMs: 10  },
-  { id: 2, label: 'OCR',     icon: '📄', shortLabel: 'OCR',     avgMs: 52  },
-  { id: 3, label: 'Vision',  icon: '🔍', shortLabel: 'Vision',  avgMs: 88  },
-  { id: 4, label: 'Sig',     icon: '✍️',  shortLabel: 'Sig',     avgMs: 130 },
-  { id: 5, label: 'Fraud',   icon: '🛡️',  shortLabel: 'Fraud',   avgMs: 170 },
-  { id: 6, label: 'Decision',icon: '⚖️',  shortLabel: 'Decide',  avgMs: 175 },
-  { id: 7, label: 'NGCH',    icon: '📤', shortLabel: 'NGCH',    avgMs: 195 },
 ]
 
 // ─── Particle factory ──────────────────────────────────────────────────────────
@@ -134,8 +152,14 @@ function makeParticle() {
     account_suffix: `****${String(Math.floor(Math.random() * 9000) + 1000)}`,
     bank: 'Saraswat Co-op',
     reason: outcome === 'HUMAN_REVIEW'
-      ? ['SIGNATURE_LOW_CONFIDENCE', 'HIGH_VALUE_DUAL_APPROVAL', 'FRAUD_SCORE_HIGH'][Math.floor(Math.random() * 3)]
+      ? ['SIGNATURE_LOW_CONFIDENCE', 'HIGH_VALUE_DUAL_APPROVAL', 'FRAUD_SCORE_HIGH', 'VAULT_MISS', 'PPS_ABSENT'][Math.floor(Math.random() * 5)]
+      : outcome === 'STP_RETURN'
+      ? ['DORMANT_ACCOUNT', 'STOP_PAYMENT', 'FUNDS_INSUFFICIENT', 'OCR_FIELD_MISMATCH'][Math.floor(Math.random() * 4)]
       : null,
+    stop_payment: Math.random() < 0.04,
+    dormant: Math.random() < 0.06,
+    pps_match: Math.random() > 0.1,
+    kyc_expired: Math.random() < 0.05,
     speed: 0.008 + Math.random() * 0.006,
     stageResults: {},
     finalized: false,
@@ -207,59 +231,96 @@ function ChildPanel({ item, onClose, isException }) {
           >×</button>
         </div>
 
-        {/* Swimlane */}
-        <div className="p-6 overflow-x-auto">
+        {/* Swimlane — two bank phases */}
+        <div className="p-5 overflow-x-auto">
+          {/* Phase header labels */}
+          <div className="flex items-center gap-2 mb-2 min-w-max">
+            <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border" style={{ color: 'rgba(251,191,36,0.7)', borderColor: 'rgba(251,191,36,0.2)', background: 'rgba(251,191,36,0.06)' }}>Presenting Bank</span>
+            <span className="text-slate-700 text-xs">·</span>
+            <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border" style={{ color: 'rgba(6,182,212,0.7)', borderColor: 'rgba(6,182,212,0.2)', background: 'rgba(6,182,212,0.06)' }}>NGCH Gateway</span>
+            <span className="text-slate-700 text-xs">·</span>
+            <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border" style={{ color: 'rgba(139,92,246,0.7)', borderColor: 'rgba(139,92,246,0.2)', background: 'rgba(139,92,246,0.06)' }}>Drawee Bank</span>
+          </div>
+
           <div className="flex items-start gap-0 min-w-max">
-            {allStages.map((s, i) => (
-              <div key={i} className="flex items-center">
-                {/* Stage card */}
-                <div
-                  className={`w-[108px] rounded-xl border p-3 flex flex-col gap-2 ${statusBorder[s.status]}`}
-                  style={{
-                    boxShadow: s.status === 'done'
-                      ? '0 0 12px rgba(52,211,153,0.08)'
-                      : s.status === 'error'
-                      ? '0 0 14px rgba(248,113,113,0.12)'
-                      : s.status === 'warn'
-                      ? '0 0 14px rgba(251,191,36,0.12)'
-                      : 'none',
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">{STAGES[i].icon}</span>
-                    <span className={`text-lg font-bold leading-none ${statusText[s.status]}`}>{statusIcon[s.status]}</span>
-                  </div>
-                  <div>
-                    <div className="text-[11px] font-semibold text-white/80">{s.label}</div>
-                    <div className={`text-[10px] mt-0.5 ${s.result ? 'text-slate-400' : 'text-slate-700'}`}>
-                      {s.result ? `${s.result.ms}ms` : '—'}
+            {allStages.map((s, i) => {
+              const bc = BANK_COLORS[STAGES[i].bank] || BANK_COLORS.p
+              const borderByStatus = {
+                done:    `1px solid rgba(52,211,153,0.35)`,
+                warn:    `1px solid rgba(251,191,36,0.40)`,
+                error:   `1px solid rgba(239,68,68,0.40)`,
+                pending: `1px solid rgba(255,255,255,0.05)`,
+              }
+              const bgByStatus = {
+                done:    'rgba(52,211,153,0.06)',
+                warn:    'rgba(251,191,36,0.06)',
+                error:   'rgba(239,68,68,0.06)',
+                pending: 'rgba(255,255,255,0.015)',
+              }
+              const isNGCH = STAGES[i].bank === 'g'
+              const showSep = i > 0 && STAGES[i].bank !== STAGES[i-1].bank
+
+              return (
+                <div key={i} className="flex items-center">
+                  {/* Phase separator */}
+                  {showSep && (
+                    <div className="flex flex-col items-center justify-center mx-1" style={{ height: 100 }}>
+                      <div className="w-px flex-1" style={{ background: `linear-gradient(180deg, transparent, ${bc.idle}, transparent)` }} />
+                      <span className="text-[8px] font-mono rotate-90 whitespace-nowrap my-1" style={{ color: bc.idle }}>▶</span>
+                      <div className="w-px flex-1" style={{ background: `linear-gradient(180deg, transparent, ${bc.idle}, transparent)` }} />
+                    </div>
+                  )}
+                  {/* Stage card */}
+                  <div
+                    className="rounded-xl p-3 flex flex-col gap-2"
+                    style={{
+                      width: isNGCH ? 92 : 106,
+                      border: borderByStatus[s.status],
+                      background: bgByStatus[s.status],
+                      boxShadow: s.status === 'done' ? '0 0 12px rgba(52,211,153,0.06)'
+                        : s.status === 'error' ? '0 0 14px rgba(239,68,68,0.10)'
+                        : s.status === 'warn' ? '0 0 14px rgba(251,191,36,0.10)'
+                        : 'none',
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">{STAGES[i].icon}</span>
+                      <span className={`text-lg font-bold leading-none ${statusText[s.status]}`}>{statusIcon[s.status]}</span>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-semibold text-white/80">{s.label}</div>
+                      <div className={`text-[10px] mt-0.5 ${s.result ? 'text-slate-400' : 'text-slate-700'}`}>
+                        {s.result ? `${s.result.ms}ms` : '—'}
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-slate-400 leading-tight border-t border-white/5 pt-2 min-h-[30px]">
+                      {s.result ? s.result.detail : 'not reached'}
                     </div>
                   </div>
-                  <div className="text-[10px] text-slate-400 leading-tight border-t border-white/5 pt-2 min-h-[30px]">
-                    {s.result ? s.result.detail : 'not reached'}
-                  </div>
+                  {/* Arrow connector */}
+                  {i < allStages.length - 1 && STAGES[i].bank === STAGES[i+1].bank && (
+                    <div className="flex items-center justify-center px-0.5">
+                      <span className="text-slate-700 text-base font-bold">›</span>
+                    </div>
+                  )}
                 </div>
-                {/* Arrow connector */}
-                {i < allStages.length - 1 && (
-                  <div className="flex items-center justify-center px-1">
-                    <span className="text-slate-700 text-base font-bold">›</span>
-                  </div>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           {/* Score row */}
-          <div className="mt-5 flex gap-3">
+          <div className="mt-4 flex gap-3 flex-wrap">
             {[
               { label: 'OCR Confidence',  val: item.ocr_confidence,  fmt: v => `${(v*100).toFixed(0)}%`, good: v => v > 0.90 },
               { label: 'Signature Match', val: item.sig_match_score, fmt: v => v == null ? 'N/A' : `${(v*100).toFixed(0)}%`, good: v => v != null && v > 0.85 },
               { label: 'Fraud Score',     val: item.fraud_score,     fmt: v => v == null ? 'N/A' : `${(v*100).toFixed(0)}%`, good: v => v != null && v < 0.72 },
               { label: 'Amount Range',    val: item.amount_range,    fmt: v => v, good: () => true, isStr: true },
-            ].map(({ label, val, fmt, good, isStr }) => (
-              <div key={label} className="flex-1 bg-white/3 rounded-xl border border-white/6 px-4 py-3">
+              { label: 'PPS Match',       val: item.pps_match,       fmt: v => v == null ? 'N/A' : v ? 'YES' : 'NO', good: v => v === true, isStr: false, isBool: true },
+              { label: 'Dormant Acct',    val: item.dormant,         fmt: v => v == null ? 'N/A' : v ? 'YES' : 'NO', good: v => v === false, isStr: false, isBool: true },
+            ].map(({ label, val, fmt, good }) => (
+              <div key={label} className="flex-1 min-w-[90px] bg-white/3 rounded-xl border border-white/6 px-4 py-3">
                 <div className="text-[10px] text-slate-500 mb-1">{label}</div>
-                <div className={`text-xl font-bold font-mono ${isStr ? 'text-amber-400' : val == null ? 'text-slate-600' : good(val) ? 'text-emerald-400' : 'text-red-400'}`}>
+                <div className={`text-lg font-bold font-mono ${val == null ? 'text-slate-600' : good(val) ? 'text-emerald-400' : 'text-red-400'}`}>
                   {fmt(val)}
                 </div>
               </div>
@@ -276,11 +337,22 @@ function ChildPanel({ item, onClose, isException }) {
             </div>
             <select className="text-[11px] bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-slate-300 focus:outline-none focus:border-amber-400/50 cursor-pointer">
               <option>Select return reason…</option>
-              <option>Funds Insufficient</option>
-              <option>Signature Mismatch</option>
-              <option>Amount Alteration</option>
-              <option>Refer to Drawer</option>
-              <option>Payment Stopped</option>
+              <optgroup label="Presenting Bank">
+                <option>Date Invalid / Stale</option>
+                <option>Amount Words/Figures Mismatch</option>
+                <option>Endorsement Irregular</option>
+                <option>CTS Compliance Failure</option>
+              </optgroup>
+              <optgroup label="Drawee Bank">
+                <option>Account Dormant / Inactive</option>
+                <option>Payment Stopped by Drawer</option>
+                <option>Positive Pay Mismatch</option>
+                <option>Signature Mismatch</option>
+                <option>Amount Alteration / Overwrite</option>
+                <option>Funds Insufficient</option>
+                <option>Account Frozen / NPA</option>
+                <option>Refer to Drawer</option>
+              </optgroup>
             </select>
             <button
               onClick={onClose}
@@ -350,7 +422,14 @@ function IETTimerStrip({ confirmCount, returnCount, reviewCount }) {
 
 // ─── Stage node ───────────────────────────────────────────────────────────────
 
+const BANK_COLORS = {
+  p: { active: 'rgba(251,191,36,0.95)',  idle: 'rgba(251,191,36,0.22)',  bgActive: 'rgba(251,191,36,0.18)',  bgIdle: 'rgba(251,191,36,0.04)',  glow: 'rgba(251,191,36,0.7)',  glowFar: 'rgba(251,191,36,0.3)',  label: 'rgba(251,191,36,0.8)' },
+  g: { active: 'rgba(6,182,212,0.95)',   idle: 'rgba(6,182,212,0.30)',   bgActive: 'rgba(6,182,212,0.18)',   bgIdle: 'rgba(6,182,212,0.06)',   glow: 'rgba(6,182,212,0.7)',   glowFar: 'rgba(6,182,212,0.3)',   label: 'rgba(6,182,212,0.8)' },
+  d: { active: 'rgba(139,92,246,0.95)',  idle: 'rgba(139,92,246,0.25)',  bgActive: 'rgba(139,92,246,0.18)',  bgIdle: 'rgba(139,92,246,0.04)',  glow: 'rgba(139,92,246,0.7)',  glowFar: 'rgba(139,92,246,0.3)',  label: 'rgba(139,92,246,0.8)' },
+}
+
 function StageNode({ stage, leftPct, isPulsing }) {
+  const c = BANK_COLORS[stage.bank] || BANK_COLORS.p
   return (
     <div
       className="absolute flex flex-col items-center z-10"
@@ -359,11 +438,11 @@ function StageNode({ stage, leftPct, isPulsing }) {
       <div
         className="w-10 h-10 rounded-full border-2 flex items-center justify-center text-base relative"
         style={{
-          borderColor: isPulsing ? 'rgba(251,191,36,0.95)' : 'rgba(251,191,36,0.22)',
-          background: isPulsing ? 'rgba(251,191,36,0.18)' : 'rgba(251,191,36,0.04)',
+          borderColor: isPulsing ? c.active : c.idle,
+          background: isPulsing ? c.bgActive : c.bgIdle,
           boxShadow: isPulsing
-            ? '0 0 18px rgba(251,191,36,0.7), 0 0 36px rgba(251,191,36,0.3), inset 0 0 10px rgba(251,191,36,0.1)'
-            : '0 0 8px rgba(251,191,36,0.06)',
+            ? `0 0 18px ${c.glow}, 0 0 36px ${c.glowFar}, inset 0 0 10px ${c.bgActive}`
+            : `0 0 8px ${c.bgIdle}`,
           transition: 'all 0.25s ease',
         }}
       >
@@ -371,7 +450,7 @@ function StageNode({ stage, leftPct, isPulsing }) {
       </div>
       <div
         className="text-[9px] font-semibold tracking-wider uppercase whitespace-nowrap mt-1"
-        style={{ color: isPulsing ? 'rgba(251,191,36,0.8)' : 'rgba(148,163,184,0.6)', transition: 'color 0.25s' }}
+        style={{ color: isPulsing ? c.label : 'rgba(148,163,184,0.6)', transition: 'color 0.25s' }}
       >
         {stage.shortLabel}
       </div>
@@ -382,7 +461,7 @@ function StageNode({ stage, leftPct, isPulsing }) {
 // ─── Moving particle dot ──────────────────────────────────────────────────────
 
 function ParticleDot({ particle }) {
-  const progress = (particle.stage + particle.stageProgress) / 7
+  const progress = (particle.stage + particle.stageProgress) / (STAGES.length - 1)
   const leftPct = 5 + progress * 90
   const colorMap = {
     STP_CONFIRM:  { dot: '#10b981', glow: '#10b981' },
@@ -590,7 +669,7 @@ export default function CTSPipelineVisualizer() {
               const stageMs = STAGES[np.stage].avgMs + Math.floor(Math.random() * 20 - 10)
               np.stageResults = { ...np.stageResults, [np.stage]: { ms: stageMs, ok: true } }
               newActive[np.stage] = Date.now()
-              if (np.stage < 7) {
+              if (np.stage < STAGES.length - 1) {
                 np.stage = np.stage + 1
                 np.stageProgress = 0
               } else {
@@ -700,7 +779,7 @@ export default function CTSPipelineVisualizer() {
                 <div key={p} className="absolute top-0 bottom-0 w-px pointer-events-none" style={{ left: `${p}%`, background: 'rgba(255,255,255,0.015)' }} />
               ))}
 
-              {/* Track glow line */}
+              {/* Track glow line — amber (presenting) → cyan (NGCH) → violet (drawee) */}
               <div
                 className="absolute pointer-events-none"
                 style={{
@@ -709,14 +788,30 @@ export default function CTSPipelineVisualizer() {
                   right: '5%',
                   height: '2px',
                   transform: 'translateY(-50%)',
-                  background: 'linear-gradient(90deg, rgba(251,191,36,0.05) 0%, rgba(251,191,36,0.55) 15%, rgba(251,191,36,0.85) 50%, rgba(251,191,36,0.55) 85%, rgba(251,191,36,0.05) 100%)',
-                  boxShadow: '0 0 10px rgba(251,191,36,0.45), 0 0 22px rgba(251,191,36,0.2)',
+                  background: 'linear-gradient(90deg, rgba(251,191,36,0.05) 0%, rgba(251,191,36,0.7) 25%, rgba(6,182,212,0.8) 38%, rgba(139,92,246,0.7) 55%, rgba(139,92,246,0.8) 80%, rgba(139,92,246,0.05) 100%)',
+                  boxShadow: '0 0 10px rgba(251,191,36,0.3), 0 0 22px rgba(139,92,246,0.15)',
                 }}
               />
 
+              {/* Bank phase labels */}
+              <div className="absolute top-2 left-[5%] text-[9px] font-semibold uppercase tracking-widest pointer-events-none" style={{ color: 'rgba(251,191,36,0.45)' }}>Presenting Bank</div>
+              <div className="absolute top-2 right-[4%] text-[9px] font-semibold uppercase tracking-widest pointer-events-none" style={{ color: 'rgba(139,92,246,0.45)' }}>Drawee Bank</div>
+
+              {/* Two-bank separator after NGCH (stage 3) */}
+              {(() => {
+                const ngchLeft = 5 + (3 / (STAGES.length - 1)) * 90
+                const acctLeft = 5 + (4 / (STAGES.length - 1)) * 90
+                const midLeft = (ngchLeft + acctLeft) / 2
+                return (
+                  <div className="absolute top-0 bottom-0 w-px pointer-events-none"
+                    style={{ left: `${midLeft}%`, background: 'linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.12) 30%, rgba(255,255,255,0.12) 70%, transparent 100%)', borderRight: '1px dashed rgba(255,255,255,0.08)' }}
+                  />
+                )
+              })()}
+
               {/* Stage nodes */}
               {STAGES.map((s, i) => {
-                const leftPct = 5 + (i / 7) * 90
+                const leftPct = 5 + (i / (STAGES.length - 1)) * 90
                 return <StageNode key={i} stage={s} leftPct={leftPct} isPulsing={!!stageActive[i]} />
               })}
 
@@ -728,7 +823,7 @@ export default function CTSPipelineVisualizer() {
               {/* Exception indicators */}
               {exceptions.map((exc) => {
                 const stuckStage = Object.keys(exc.stageResults).length - 1
-                const leftPct = 5 + (stuckStage / 7) * 90 + 2.5
+                const leftPct = 5 + (stuckStage / (STAGES.length - 1)) * 90 + 2.5
                 return (
                   <button
                     key={exc.id}
