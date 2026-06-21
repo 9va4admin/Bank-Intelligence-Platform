@@ -1,4 +1,3 @@
-import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
@@ -21,8 +20,6 @@ const SYNC_LOG = [
 const STATUS_COLOR = { HEALTHY: 'text-emerald-500', DEGRADED: 'text-amber-500', DOWN: 'text-red-500' }
 
 export default function CTSVaultStatus() {
-  const { isDark } = useTheme()
-
   const th = {
     page:      'bg-slate-50 dark:bg-transparent',
     card:      'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
@@ -53,10 +50,10 @@ export default function CTSVaultStatus() {
                 <span className={`text-xs font-semibold ${STATUS_COLOR[v.status]}`}>{v.status}</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Stat label="Keys loaded" value={v.keys.toLocaleString()} isDark={isDark} />
-                <Stat label="Hit rate" value={`${v.hitRate}%`} highlight isDark={isDark} />
-                <Stat label="Last sync" value={v.lastSync} isDark={isDark} />
-                <Stat label="Miss action" value={v.missAction} warn isDark={isDark} />
+                <Stat label="Keys loaded" value={v.keys.toLocaleString()} />
+                <Stat label="Hit rate" value={`${v.hitRate}%`} highlight />
+                <Stat label="Last sync" value={v.lastSync} />
+                <Stat label="Miss action" value={v.missAction} warn />
               </div>
               <div className={`mt-3 text-[10px] ${th.redis}`}>Redis cluster: {v.redis}</div>
             </div>
@@ -118,7 +115,7 @@ export default function CTSVaultStatus() {
   )
 }
 
-function Stat({ label, value, highlight, warn, isDark }) {
+function Stat({ label, value, highlight, warn }) {
   const labelCls = 'text-slate-400 dark:text-slate-600'
   return (
     <div>

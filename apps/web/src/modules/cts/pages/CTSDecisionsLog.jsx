@@ -104,7 +104,7 @@ function downloadXml(xml, filename) {
 }
 
 // ── RRF Preview Modal ─────────────────────────────────────────────────────────
-function RrfModal({ returns, sessionMeta, onClose, isDark }) {
+function RrfModal({ returns, sessionMeta, onClose }) {
   const xml = buildRrfXml(returns, sessionMeta)
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
   const filename = `RRF_${sessionMeta.bank_ifsc}_${date}_${sessionMeta.session_id}.xml`
