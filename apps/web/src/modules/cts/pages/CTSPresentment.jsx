@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -92,7 +91,7 @@ function pipelinePos(status) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function SessionBar({ sessions, activeIdx, onSelect, isDark }) {
+function SessionBar({ sessions, activeIdx, onSelect }) {
   const th = {
     bar:    'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
     label:  'text-slate-500 dark:text-slate-400',
@@ -126,7 +125,7 @@ function SessionBar({ sessions, activeIdx, onSelect, isDark }) {
   )
 }
 
-function KpiStrip({ batch, isDark }) {
+function KpiStrip({ batch }) {
   const total     = batch.length
   const iqaFail   = batch.filter(b => b.status === 'IQA_FAIL').length
   const extracted = batch.filter(b => ['AI_EXTRACTED','PKI_SIGNED','SUBMITTED','NGCH_ACK','NGCH_REJECT'].includes(b.status)).length
@@ -167,7 +166,7 @@ function KpiStrip({ batch, isDark }) {
   )
 }
 
-function PipelineLane({ batch, isDark }) {
+function PipelineLane({ batch }) {
   const counts = {}
   PIPELINE_STEPS.forEach((_, i) => { counts[i] = 0 })
   batch.forEach(b => { const p = pipelinePos(b.status); counts[p] = (counts[p] || 0) + 1 })
@@ -204,7 +203,7 @@ function PipelineLane({ batch, isDark }) {
   )
 }
 
-function BatchRow({ item, selected, onClick, isDark }) {
+function BatchRow({ item, selected, onClick }) {
   const s = STATUS_META[item.status] || STATUS_META['CAPTURED']
   const th = {
     row:  selected
@@ -251,7 +250,7 @@ function BatchRow({ item, selected, onClick, isDark }) {
   )
 }
 
-function DetailPanel({ item, isDark }) {
+function DetailPanel({ item }) {
   if (!item) return (
     <div className={`flex-1 flex items-center justify-center ${'text-slate-300 dark:text-slate-600'} text-sm`}>
       Select a cheque to inspect
@@ -434,7 +433,6 @@ function DetailPanel({ item, isDark }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CTSPresentment() {
-  const { isDark } = useTheme()
   const [batch, setBatch] = useState(INITIAL_BATCH)
   const [selected, setSelected] = useState(INITIAL_BATCH[0])
   const [activeSession, setActiveSession] = useState(0)
@@ -504,13 +502,13 @@ export default function CTSPresentment() {
     <AppShell>
       <div className={`flex flex-col h-full ${th.page}`}>
         {/* Session selector */}
-        <SessionBar sessions={SESSIONS} activeIdx={activeSession} onSelect={setActiveSession} isDark={isDark} />
+        <SessionBar sessions={SESSIONS} activeIdx={activeSession} onSelect={setActiveSession} />
 
         {/* KPI strip */}
-        <KpiStrip batch={batch} isDark={isDark} />
+        <KpiStrip batch={batch} />
 
         {/* Pipeline progress */}
-        <PipelineLane batch={batch} isDark={isDark} />
+        <PipelineLane batch={batch} />
 
         {/* Main body: list + detail */}
         <div className="flex flex-1 min-h-0">
@@ -556,7 +554,6 @@ export default function CTSPresentment() {
                   item={item}
                   selected={selected?.instrument_id === item.instrument_id}
                   onClick={() => setSelected(item)}
-                  isDark={isDark}
                 />
               ))}
             </div>
@@ -564,7 +561,7 @@ export default function CTSPresentment() {
 
           {/* Detail panel */}
           <div className="flex-1 min-w-0">
-            <DetailPanel item={selected} isDark={isDark} />
+            <DetailPanel item={selected} />
           </div>
         </div>
       </div>

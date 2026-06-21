@@ -1,4 +1,4 @@
-export default function ShapExplainer({ shapValues, isDark }) {
+export default function ShapExplainer({ shapValues }) {
   const maxAbs  = Math.max(...shapValues.map((s) => Math.abs(s.value)))
   const label   = 'text-slate-500 dark:text-slate-400'
   const divider = 'border-slate-200 dark:border-white/5'

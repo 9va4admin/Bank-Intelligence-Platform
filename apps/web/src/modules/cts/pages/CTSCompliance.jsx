@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
@@ -110,7 +109,6 @@ function downloadXml(xml, filename) {
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function CTSCompliance() {
-  const { isDark } = useTheme()
   const [selectedLot, setSelectedLot] = useState(LOTS[0])
   const [filterResult, setFilterResult] = useState('ALL')
 
@@ -238,9 +236,7 @@ export default function CTSCompliance() {
               className={`text-xs px-3 py-1 rounded-full border transition-colors ${
                 filterResult === f
                   ? 'bg-violet-600 text-white border-violet-600'
-                  : isDark
-                    ? 'border-white/10 text-slate-400 hover:text-white'
-                    : 'border-slate-200 text-slate-500 hover:text-slate-900'
+                  : 'border-slate-200 text-slate-500 hover:text-slate-900 dark:border-white/10 dark:text-slate-400 dark:hover:text-white'
               }`}
             >
               {f === 'ALL' ? 'All' : f}

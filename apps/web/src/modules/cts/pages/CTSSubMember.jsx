@@ -102,7 +102,7 @@ function shieldStatus(smb) {
   return 'SAFE'
 }
 
-function ReturnRateBar({ value, threshold, softThreshold, isDark }) {
+function ReturnRateBar({ value, threshold, softThreshold }) {
   const pct = Math.min(value * 100, 100)
   const color = value >= softThreshold ? 'bg-red-500' : value >= threshold ? 'bg-amber-400' : 'bg-emerald-400'
   const track = 'bg-slate-200 dark:bg-white/10'
