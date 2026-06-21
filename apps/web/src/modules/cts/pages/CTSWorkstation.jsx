@@ -59,14 +59,14 @@ export default function CTSWorkstation() {
     : BATCH_STATS.stp_rate.toFixed(1)
 
   const th = {
-    divider:  isDark ? 'border-white/8' : 'border-slate-200',
-    dividerSm:isDark ? 'border-white/5' : 'border-slate-100',
-    heading:  isDark ? 'text-white' : 'text-slate-900',
-    muted:    isDark ? 'text-slate-400' : 'text-slate-500',
-    faint:    isDark ? 'text-slate-600' : 'text-slate-400',
-    decided:  isDark ? 'border-white/5 bg-white/2' : 'border-slate-100 bg-slate-50',
-    footer:   isDark ? 'border-white/5' : 'border-slate-100',
-    empty:    isDark ? 'text-slate-600' : 'text-slate-400',
+    divider:  'border-slate-200 dark:border-white/8',
+    dividerSm:'border-slate-100 dark:border-white/5',
+    heading:  'text-slate-900 dark:text-white',
+    muted:    'text-slate-500 dark:text-slate-400',
+    faint:    'text-slate-400 dark:text-slate-600',
+    decided:  'border-slate-100 bg-slate-50 dark:border-white/5 dark:bg-white/2',
+    footer:   'border-slate-100 dark:border-white/5',
+    empty:    'text-slate-400 dark:text-slate-600',
   }
 
   return (

@@ -44,21 +44,21 @@ function DetailPanel({ inc, onClose, onStatusChange, isDark }) {
   const SEV    = isDark ? SEV_D    : SEV_L
   const STATUS = isDark ? STATUS_D : STATUS_L
 
-  const panel  = isDark ? 'bg-[#0a1628] border-slate-800' : 'bg-white border-slate-200'
-  const hdr    = isDark ? 'border-slate-800' : 'border-slate-200'
-  const id_cls = isDark ? 'text-cyan-400' : 'text-blue-600'
-  const ttl    = isDark ? 'text-slate-100' : 'text-slate-900'
-  const close  = isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-700'
-  const kCard  = isDark ? 'bg-slate-900/60 border-slate-800 text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-400'
-  const kVal   = isDark ? 'text-slate-200' : 'text-slate-800'
-  const tlBdr  = isDark ? 'border-slate-700' : 'border-slate-300'
-  const tlTxt  = isDark ? 'text-slate-300' : 'text-slate-700'
-  const tlTs   = isDark ? 'text-slate-600' : 'text-slate-400'
-  const lbl    = isDark ? 'text-slate-500' : 'text-slate-400'
-  const ta     = isDark ? 'bg-slate-900/60 border-slate-700 text-slate-200 focus:border-cyan-700' : 'bg-slate-50 border-slate-300 text-slate-800 focus:border-blue-400'
-  const ftr    = isDark ? 'border-slate-800' : 'border-slate-200'
-  const btn    = isDark ? 'bg-cyan-800 hover:bg-cyan-700 text-cyan-100' : 'bg-blue-600 hover:bg-blue-700 text-white'
-  const clsBtn = isDark ? 'text-slate-400 hover:text-slate-200 border-slate-700' : 'text-slate-500 hover:text-slate-700 border-slate-300'
+  const panel  = 'bg-white border-slate-200 dark:bg-[#0a1628] dark:border-slate-800'
+  const hdr    = 'border-slate-200 dark:border-slate-800'
+  const id_cls = 'text-blue-600 dark:text-cyan-400'
+  const ttl    = 'text-slate-900 dark:text-slate-100'
+  const close  = 'text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300'
+  const kCard  = 'bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-900/60 dark:border-slate-800 dark:text-slate-500'
+  const kVal   = 'text-slate-800 dark:text-slate-200'
+  const tlBdr  = 'border-slate-300 dark:border-slate-700'
+  const tlTxt  = 'text-slate-700 dark:text-slate-300'
+  const tlTs   = 'text-slate-400 dark:text-slate-600'
+  const lbl    = 'text-slate-400 dark:text-slate-500'
+  const ta     = 'bg-slate-50 border-slate-300 text-slate-800 focus:border-blue-400 dark:bg-slate-900/60 dark:border-slate-700 dark:text-slate-200 dark:focus:border-cyan-700'
+  const ftr    = 'border-slate-200 dark:border-slate-800'
+  const btn    = 'bg-blue-600 hover:bg-blue-700 text-white dark:bg-cyan-800 dark:hover:bg-cyan-700 dark:text-cyan-100'
+  const clsBtn = 'text-slate-500 hover:text-slate-700 border-slate-300 dark:text-slate-400 dark:hover:text-slate-200 dark:border-slate-700'
 
   return (
     <div className={`fixed inset-y-0 right-0 w-96 border-l z-50 flex flex-col shadow-2xl ${panel}`}>
@@ -143,34 +143,34 @@ export default function IncidentManagement() {
   const STATUS = isDark ? STATUS_D : STATUS_L
 
   const th = {
-    page:    isDark ? 'bg-[#020817] text-slate-100' : 'bg-slate-50 text-slate-900',
-    nav:     isDark ? 'border-b border-slate-800' : 'border-b border-slate-200',
-    navLink: isDark ? 'text-slate-500 hover:text-cyan-400' : 'text-slate-400 hover:text-blue-600',
-    navAct:  isDark ? 'text-cyan-400 font-semibold border-b border-cyan-500 pb-px' : 'text-blue-600 font-semibold border-b border-blue-500 pb-px',
-    h1:      isDark ? 'text-slate-100' : 'text-slate-900',
-    sub:     isDark ? 'text-slate-500' : 'text-slate-500',
-    createBtn: isDark ? 'bg-cyan-800 hover:bg-cyan-700 text-cyan-100' : 'bg-blue-600 hover:bg-blue-700 text-white',
-    filterBar: isDark ? 'bg-slate-900/40 border-slate-800' : 'bg-white border-slate-200',
-    filterLbl: isDark ? 'text-slate-500' : 'text-slate-400',
+    page:    'bg-slate-50 text-slate-900 dark:bg-[#020817] dark:text-slate-100',
+    nav:     'border-b border-slate-200 dark:border-b dark:border-slate-800',
+    navLink: 'text-slate-400 hover:text-blue-600 dark:text-slate-500 dark:hover:text-cyan-400',
+    navAct:  'text-blue-600 font-semibold border-b border-blue-500 pb-px dark:text-cyan-400 dark:font-semibold dark:border-b dark:border-cyan-500 dark:pb-px',
+    h1:      'text-slate-900 dark:text-slate-100',
+    sub:     'text-slate-500 dark:text-slate-500',
+    createBtn: 'bg-blue-600 hover:bg-blue-700 text-white dark:bg-cyan-800 dark:hover:bg-cyan-700 dark:text-cyan-100',
+    filterBar: 'bg-white border-slate-200 dark:bg-slate-900/40 dark:border-slate-800',
+    filterLbl: 'text-slate-400 dark:text-slate-500',
     filterBtn: (active) => active
-      ? (isDark ? 'bg-cyan-800 text-cyan-100' : 'bg-blue-600 text-white')
-      : (isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'),
-    sep:     isDark ? 'bg-slate-700' : 'bg-slate-300',
-    select:  isDark ? 'bg-slate-800 border-slate-700 text-slate-200 focus:border-cyan-600' : 'bg-white border-slate-300 text-slate-700 focus:border-blue-400',
-    count:   isDark ? 'text-slate-600' : 'text-slate-400',
-    tbl:     isDark ? 'border-slate-800' : 'border-slate-200',
-    thead:   isDark ? 'bg-slate-900/80 border-b border-slate-800 text-slate-500' : 'bg-slate-100 border-b border-slate-200 text-slate-400',
-    tbody:   isDark ? 'divide-slate-800/60' : 'divide-slate-100',
-    row:     isDark ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50',
-    idCls:   isDark ? 'text-cyan-400' : 'text-blue-600',
-    atmId:   isDark ? 'text-slate-200' : 'text-slate-800',
-    branch:  isDark ? 'text-slate-500' : 'text-slate-500',
-    type:    isDark ? 'text-slate-300' : 'text-slate-700',
-    asgn:    isDark ? 'text-slate-400' : 'text-slate-600',
-    asgnNone:isDark ? 'text-slate-600' : 'text-slate-400',
-    time:    isDark ? 'text-slate-500' : 'text-slate-400',
-    detBtn:  isDark ? 'text-cyan-500 hover:text-cyan-300' : 'text-blue-500 hover:text-blue-700',
-    overlay: isDark ? 'bg-black/40' : 'bg-black/20',
+      ? ('bg-blue-600 text-white dark:bg-cyan-800 dark:text-cyan-100')
+      : ('text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'),
+    sep:     'bg-slate-300 dark:bg-slate-700',
+    select:  'bg-white border-slate-300 text-slate-700 focus:border-blue-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:focus:border-cyan-600',
+    count:   'text-slate-400 dark:text-slate-600',
+    tbl:     'border-slate-200 dark:border-slate-800',
+    thead:   'bg-slate-100 border-b border-slate-200 text-slate-400 dark:bg-slate-900/80 dark:border-b dark:border-slate-800 dark:text-slate-500',
+    tbody:   'divide-slate-100 dark:divide-slate-800/60',
+    row:     'hover:bg-slate-50 dark:hover:bg-slate-800/40',
+    idCls:   'text-blue-600 dark:text-cyan-400',
+    atmId:   'text-slate-800 dark:text-slate-200',
+    branch:  'text-slate-500 dark:text-slate-500',
+    type:    'text-slate-700 dark:text-slate-300',
+    asgn:    'text-slate-600 dark:text-slate-400',
+    asgnNone:'text-slate-400 dark:text-slate-600',
+    time:    'text-slate-400 dark:text-slate-500',
+    detBtn:  'text-blue-500 hover:text-blue-700 dark:text-cyan-500 dark:hover:text-cyan-300',
+    overlay: 'bg-black/20 dark:bg-black/40',
   }
 
   function changeStatus(id, newStatus) {
@@ -192,10 +192,10 @@ export default function IncidentManagement() {
   }
 
   const summaryCards = [
-    { label:'Open',         value: counts.open,     color:'text-red-500',     bg: isDark ? 'border-red-800/40 bg-red-950/20' : 'border-red-200 bg-red-50' },
-    { label:'In Progress',  value: counts.inProg,   color:'text-violet-500',  bg: isDark ? 'border-violet-800/40 bg-violet-950/20' : 'border-violet-200 bg-violet-50' },
-    { label:'Resolved',     value: counts.resolved, color:'text-emerald-500', bg: isDark ? 'border-emerald-800/30 bg-emerald-950/10' : 'border-emerald-200 bg-emerald-50' },
-    { label:'SLA Breached', value: counts.breached, color: counts.breached > 0 ? 'text-red-500 animate-pulse' : (isDark ? 'text-slate-500' : 'text-slate-400'), bg: counts.breached > 0 ? (isDark ? 'border-red-700/50 bg-red-950/30' : 'border-red-200 bg-red-50') : (isDark ? 'border-slate-800 bg-slate-900/30' : 'border-slate-200 bg-white') },
+    { label:'Open',         value: counts.open,     color:'text-red-500',     bg: 'border-red-200 bg-red-50 dark:border-red-800/40 dark:bg-red-950/20' },
+    { label:'In Progress',  value: counts.inProg,   color:'text-violet-500',  bg: 'border-violet-200 bg-violet-50 dark:border-violet-800/40 dark:bg-violet-950/20' },
+    { label:'Resolved',     value: counts.resolved, color:'text-emerald-500', bg: 'border-emerald-200 bg-emerald-50 dark:border-emerald-800/30 dark:bg-emerald-950/10' },
+    { label:'SLA Breached', value: counts.breached, color: counts.breached > 0 ? 'text-red-500 animate-pulse' : ('text-slate-400 dark:text-slate-500'), bg: counts.breached > 0 ? ('border-red-200 bg-red-50 dark:border-red-700/50 dark:bg-red-950/30') : ('border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/30') },
   ]
 
   return (

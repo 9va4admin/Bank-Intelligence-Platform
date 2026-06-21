@@ -37,16 +37,16 @@ export default function CTSEndorsement() {
   const [selected, setSelected]   = useState(null)
 
   const th = {
-    page:    isDark ? 'bg-transparent'                     : 'bg-slate-50',
-    card:    isDark ? 'bg-white/4 border-white/8'      : 'bg-white border-slate-200',
-    heading: isDark ? 'text-white'                      : 'text-slate-900',
-    body:    isDark ? 'text-slate-300'                  : 'text-slate-700',
-    muted:   isDark ? 'text-slate-400'                  : 'text-slate-500',
-    faint:   isDark ? 'text-slate-600'                  : 'text-slate-400',
-    divider: isDark ? 'border-white/8'                  : 'border-slate-200',
-    row:     isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
-    mono:    isDark ? 'text-slate-300 font-mono text-xs': 'text-slate-600 font-mono text-xs',
-    input:   isDark ? 'bg-navy-800 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
+    page:    'bg-slate-50 dark:bg-transparent',
+    card:    'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
+    heading: 'text-slate-900 dark:text-white',
+    body:    'text-slate-700 dark:text-slate-300',
+    muted:   'text-slate-500 dark:text-slate-400',
+    faint:   'text-slate-400 dark:text-slate-600',
+    divider: 'border-slate-200 dark:border-white/8',
+    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/4 dark:hover:bg-white/2',
+    mono:    'text-slate-600 font-mono text-xs dark:text-slate-300 dark:font-mono dark:text-xs',
+    input:   'bg-white border-slate-300 text-slate-900 dark:bg-navy-800 dark:border-white/10 dark:text-white',
   }
 
   const endorsed = Object.values(statuses).filter(s => s === 'ENDORSED').length
@@ -73,7 +73,7 @@ export default function CTSEndorsement() {
         disabled={endorsing || pending === 0}
         className={`flex items-center gap-2 text-xs rounded-lg px-4 py-2 font-medium transition-colors ${
           pending === 0
-            ? isDark ? 'bg-white/5 text-slate-500 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+            ? 'bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-white/5 dark:text-slate-500 dark:cursor-not-allowed'
             : 'bg-violet-600 hover:bg-violet-500 text-white'
         }`}
       >
@@ -91,9 +91,9 @@ export default function CTSEndorsement() {
         <div className="grid grid-cols-4 gap-3 mb-5">
           {[
             { label: 'Total Instruments', value: INSTRUMENTS.length,  color: th.heading },
-            { label: 'Endorsed',          value: endorsed,            color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
-            { label: 'Pending',           value: pending,             color: pending > 0 ? (isDark ? 'text-amber-400' : 'text-amber-600') : (isDark ? 'text-emerald-400' : 'text-emerald-600') },
-            { label: 'Completion',        value: `${Math.round((endorsed / INSTRUMENTS.length) * 100)}%`, color: isDark ? 'text-violet-400' : 'text-violet-600' },
+            { label: 'Endorsed',          value: endorsed,            color: 'text-emerald-600 dark:text-emerald-400' },
+            { label: 'Pending',           value: pending,             color: pending > 0 ? ('text-amber-600 dark:text-amber-400') : ('text-emerald-600 dark:text-emerald-400') },
+            { label: 'Completion',        value: `${Math.round((endorsed / INSTRUMENTS.length) * 100)}%`, color: 'text-violet-600 dark:text-violet-400' },
           ].map(k => (
             <div key={k.label} className={`border rounded-xl px-4 py-3 ${th.card}`}>
               <div className={`text-[10px] ${th.faint} mb-1`}>{k.label}</div>
@@ -105,8 +105,8 @@ export default function CTSEndorsement() {
         {/* Endorsement stamp reference card */}
         <div className={`border rounded-xl p-4 mb-4 ${th.card}`}>
           <div className={`text-xs font-medium ${th.heading} mb-2`}>Endorsement Stamp Template</div>
-          <div className={`border rounded-lg px-4 py-3 text-xs ${isDark ? 'border-violet-700/40 bg-violet-900/10' : 'border-violet-200 bg-violet-50'}`}>
-            <div className={`font-semibold ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>{TEMPLATE.bank_name}</div>
+          <div className={`border rounded-lg px-4 py-3 text-xs ${'border-violet-200 bg-violet-50 dark:border-violet-700/40 dark:bg-violet-900/10'}`}>
+            <div className={`font-semibold ${'text-violet-700 dark:text-violet-300'}`}>{TEMPLATE.bank_name}</div>
             <div className={`${th.muted} mt-0.5`}>{TEMPLATE.branch_name} · IFSC: {TEMPLATE.bank_ifsc}</div>
             <div className={`mt-1 ${th.body}`}>Payee's Account Credited: ****XXXX</div>
             <div className={`${th.body}`}>Date of Presentation: {PRESENTATION_DATE}</div>
@@ -141,11 +141,11 @@ export default function CTSEndorsement() {
                 <div className={`col-span-1 ${th.faint} text-xs`}>{instr.lot}</div>
                 <div className="col-span-2 text-center">
                   {status === 'ENDORSED' ? (
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-50 text-emerald-700'}`}>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'}`}>
                       ✓ Endorsed
                     </span>
                   ) : (
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-50 text-amber-700'}`}>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${'bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
                       Pending
                     </span>
                   )}
@@ -156,8 +156,8 @@ export default function CTSEndorsement() {
                     disabled={status !== 'ENDORSED'}
                     className={`text-[10px] px-2 py-0.5 rounded font-medium transition-colors ${
                       status === 'ENDORSED'
-                        ? isDark ? 'bg-white/8 hover:bg-white/12 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                        : isDark ? 'text-slate-600 cursor-not-allowed' : 'text-slate-300 cursor-not-allowed'
+                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-white/8 dark:hover:bg-white/12 dark:text-slate-300'
+                        : 'text-slate-300 cursor-not-allowed dark:text-slate-600 dark:cursor-not-allowed'
                     }`}
                   >
                     View
@@ -172,7 +172,7 @@ export default function CTSEndorsement() {
         {selected && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setSelected(null)}>
             <div
-              className={`w-96 border rounded-2xl p-6 shadow-2xl ${isDark ? 'bg-navy-900 border-white/12' : 'bg-white border-slate-200'}`}
+              className={`w-96 border rounded-2xl p-6 shadow-2xl ${'bg-white border-slate-200 dark:bg-navy-900 dark:border-white/12'}`}
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
@@ -181,8 +181,8 @@ export default function CTSEndorsement() {
               </div>
 
               {/* Stamp card */}
-              <div className={`border-2 rounded-xl p-4 text-xs ${isDark ? 'border-violet-600/50 bg-violet-900/10' : 'border-violet-300 bg-violet-50'}`}>
-                <div className={`font-bold text-sm ${isDark ? 'text-violet-300' : 'text-violet-800'}`}>{TEMPLATE.bank_name}</div>
+              <div className={`border-2 rounded-xl p-4 text-xs ${'border-violet-300 bg-violet-50 dark:border-violet-600/50 dark:bg-violet-900/10'}`}>
+                <div className={`font-bold text-sm ${'text-violet-800 dark:text-violet-300'}`}>{TEMPLATE.bank_name}</div>
                 <div className={`${th.muted} mb-2`}>{TEMPLATE.branch_name}</div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 mb-2">
                   <div className={th.faint}>IFSC</div>
@@ -196,13 +196,13 @@ export default function CTSEndorsement() {
                   <div className={th.faint}>Presentation Date</div>
                   <div className={th.body}>{PRESENTATION_DATE}</div>
                 </div>
-                <div className={`border-t pt-2 italic ${isDark ? 'border-violet-700/40 text-violet-300' : 'border-violet-200 text-violet-700'}`}>
+                <div className={`border-t pt-2 italic ${'border-violet-200 text-violet-700 dark:border-violet-700/40 dark:text-violet-300'}`}>
                   {TEMPLATE.endorsement_text}
                 </div>
               </div>
 
               {/* QR data */}
-              <div className={`mt-3 rounded-lg px-3 py-2 text-[10px] font-mono break-all ${isDark ? 'bg-white/4 text-slate-400' : 'bg-slate-50 text-slate-500'}`}>
+              <div className={`mt-3 rounded-lg px-3 py-2 text-[10px] font-mono break-all ${'bg-slate-50 text-slate-500 dark:bg-white/4 dark:text-slate-400'}`}>
                 <div className={`text-[9px] uppercase tracking-wider ${th.faint} mb-1`}>QR Data</div>
                 {buildQrData(selected)}
               </div>

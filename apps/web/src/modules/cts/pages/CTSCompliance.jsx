@@ -127,36 +127,36 @@ export default function CTSCompliance() {
   const certFilename = `CTS2010_CERT_SVCB0000001_20260619_SES-0619-001_LOT${lotSeq}.xml`
 
   const th = {
-    page:    isDark ? 'bg-transparent'                      : 'bg-slate-50',
-    card:    isDark ? 'bg-white/4 border-white/8'       : 'bg-white border-slate-200',
-    heading: isDark ? 'text-white'                       : 'text-slate-900',
-    body:    isDark ? 'text-slate-300'                   : 'text-slate-700',
-    muted:   isDark ? 'text-slate-400'                   : 'text-slate-500',
-    faint:   isDark ? 'text-slate-600'                   : 'text-slate-400',
-    divider: isDark ? 'border-white/8'                   : 'border-slate-200',
-    row:     isDark ? 'border-white/4 hover:bg-white/2'  : 'border-slate-100 hover:bg-slate-50',
-    select:  isDark ? 'bg-navy-900 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
-    mono:    isDark ? 'text-slate-300 font-mono text-xs' : 'text-slate-600 font-mono text-xs',
-    bar:     isDark ? 'bg-white/5'                       : 'bg-slate-100',
+    page:    'bg-slate-50 dark:bg-transparent',
+    card:    'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
+    heading: 'text-slate-900 dark:text-white',
+    body:    'text-slate-700 dark:text-slate-300',
+    muted:   'text-slate-500 dark:text-slate-400',
+    faint:   'text-slate-400 dark:text-slate-600',
+    divider: 'border-slate-200 dark:border-white/8',
+    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/4 dark:hover:bg-white/2',
+    select:  'bg-white border-slate-300 text-slate-900 dark:bg-navy-900 dark:border-white/10 dark:text-white',
+    mono:    'text-slate-600 font-mono text-xs dark:text-slate-300 dark:font-mono dark:text-xs',
+    bar:     'bg-slate-100 dark:bg-white/5',
   }
 
   const overallColor = overall === 'PASS'
-    ? (isDark ? 'text-emerald-400' : 'text-emerald-600')
-    : (isDark ? 'text-red-400'     : 'text-red-600')
+    ? ('text-emerald-600 dark:text-emerald-400')
+    : ('text-red-600 dark:text-red-400')
 
   function ScoreBar({ value, min, label }) {
     const pct   = Math.min((value / 1.0) * 100, 100)
     const pass  = value >= min
     const color = pass
-      ? (isDark ? 'bg-emerald-500' : 'bg-emerald-500')
-      : (isDark ? 'bg-red-500'     : 'bg-red-500')
+      ? ('bg-emerald-500 dark:bg-emerald-500')
+      : ('bg-red-500 dark:bg-red-500')
     return (
       <div className="flex items-center gap-2">
         <span className={`text-[10px] w-24 shrink-0 ${th.muted}`}>{label}</span>
         <div className={`flex-1 ${th.bar} rounded-full h-1.5`}>
           <div className={`h-1.5 rounded-full ${color}`} style={{ width: `${pct}%` }} />
         </div>
-        <span className={`text-[10px] w-10 text-right ${pass ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-red-400' : 'text-red-600')}`}>
+        <span className={`text-[10px] w-10 text-right ${pass ? ('text-emerald-600 dark:text-emerald-400') : ('text-red-600 dark:text-red-400')}`}>
           {typeof value === 'number' && value < 10 ? `${value}` : value}
         </span>
       </div>
@@ -197,9 +197,9 @@ export default function CTSCompliance() {
         <div className="grid grid-cols-5 gap-3 mb-6">
           {[
             { label: 'Instruments',   value: lotItems.length, color: th.heading },
-            { label: 'Passed',        value: passed,          color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
-            { label: 'Failed',        value: failed,          color: failed > 0 ? (isDark ? 'text-red-400' : 'text-red-600') : (isDark ? 'text-emerald-400' : 'text-emerald-600') },
-            { label: 'Pass Rate',     value: `${passRate}%`,  color: parseFloat(passRate) === 100 ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600') },
+            { label: 'Passed',        value: passed,          color: 'text-emerald-600 dark:text-emerald-400' },
+            { label: 'Failed',        value: failed,          color: failed > 0 ? ('text-red-600 dark:text-red-400') : ('text-emerald-600 dark:text-emerald-400') },
+            { label: 'Pass Rate',     value: `${passRate}%`,  color: parseFloat(passRate) === 100 ? ('text-emerald-600 dark:text-emerald-400') : ('text-amber-600 dark:text-amber-400') },
             { label: 'Overall',       value: overall,         color: overallColor },
           ].map(k => (
             <div key={k.label} className={`border rounded-xl px-4 py-3 ${th.card}`}>
@@ -268,7 +268,7 @@ export default function CTSCompliance() {
 
               {/* DPI */}
               <div className="col-span-1 text-center">
-                <span className={`text-xs font-medium ${item.front_dpi >= CTS2010.MIN_DPI ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-red-400' : 'text-red-600')}`}>
+                <span className={`text-xs font-medium ${item.front_dpi >= CTS2010.MIN_DPI ? ('text-emerald-600 dark:text-emerald-400') : ('text-red-600 dark:text-red-400')}`}>
                   {item.front_dpi}
                 </span>
               </div>
@@ -290,7 +290,7 @@ export default function CTSCompliance() {
 
               {/* Result */}
               <div className="col-span-1 text-center">
-                <span className={`text-xs font-bold ${item.result === 'PASS' ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-red-400' : 'text-red-600')}`}>
+                <span className={`text-xs font-bold ${item.result === 'PASS' ? ('text-emerald-600 dark:text-emerald-400') : ('text-red-600 dark:text-red-400')}`}>
                   {item.result === 'PASS' ? '✓' : '✗'} {item.result}
                 </span>
               </div>

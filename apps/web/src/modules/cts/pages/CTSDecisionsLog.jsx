@@ -115,10 +115,10 @@ function RrfModal({ returns, sessionMeta, onClose, isDark }) {
 
   const th = {
     overlay: 'fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6',
-    modal:   isDark ? 'bg-navy-900 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900',
-    code:    isDark ? 'bg-navy-950/80 text-emerald-400 border-white/8' : 'bg-slate-50 text-emerald-700 border-slate-200',
-    muted:   isDark ? 'text-slate-400' : 'text-slate-500',
-    btn:     isDark ? 'bg-gold-400/10 border-gold-400/30 text-gold-400 hover:bg-gold-400/20' : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100',
+    modal:   'bg-white border-slate-200 text-slate-900 dark:bg-navy-900 dark:border-white/10 dark:text-white',
+    code:    'bg-slate-50 text-emerald-700 border-slate-200 dark:bg-navy-950/80 dark:text-emerald-400 dark:border-white/8',
+    muted:   'text-slate-500 dark:text-slate-400',
+    btn:     'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 dark:bg-gold-400/10 dark:border-gold-400/30 dark:text-gold-400 dark:hover:bg-gold-400/20',
   }
 
   return (
@@ -126,29 +126,29 @@ function RrfModal({ returns, sessionMeta, onClose, isDark }) {
       <div className={`w-full max-w-3xl max-h-[80vh] rounded-2xl border shadow-2xl flex flex-col ${th.modal}`}
         onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className={`flex items-center justify-between px-5 py-3 border-b ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
+        <div className={`flex items-center justify-between px-5 py-3 border-b ${'border-slate-200 dark:border-white/8'}`}>
           <div>
             <div className="text-sm font-semibold">Return Reason File (RRF)</div>
             <div className={`text-[10px] font-mono ${th.muted}`}>{filename}</div>
           </div>
           <div className="flex items-center gap-2">
-            <div className={`text-[10px] px-2 py-0.5 rounded border ${isDark ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' : 'border-emerald-300 bg-emerald-50 text-emerald-700'}`}>
+            <div className={`text-[10px] px-2 py-0.5 rounded border ${'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400'}`}>
               {returns.length} returns · CTS-2010 XML
             </div>
             <button onClick={() => downloadXml(xml, filename)}
               className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${th.btn}`}>
               ↓ Download XML
             </button>
-            <button onClick={onClose} className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${isDark ? 'hover:bg-white/8 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>✕</button>
+            <button onClick={onClose} className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${'hover:bg-slate-100 text-slate-500 dark:hover:bg-white/8 dark:text-slate-400'}`}>✕</button>
           </div>
         </div>
 
         {/* Summary row */}
-        <div className={`shrink-0 px-5 py-2 border-b ${isDark ? 'border-white/8' : 'border-slate-200'} flex gap-6 text-[11px] ${th.muted}`}>
+        <div className={`shrink-0 px-5 py-2 border-b ${'border-slate-200 dark:border-white/8'} flex gap-6 text-[11px] ${th.muted}`}>
           <span>Bank: <span className="font-mono font-semibold">{sessionMeta.bank_ifsc}</span></span>
           <span>Session: <span className="font-mono">{sessionMeta.session_id}</span></span>
           <span>Zone: <span className="font-mono">{sessionMeta.clearing_zone}</span></span>
-          <span className={isDark ? 'text-emerald-400' : 'text-emerald-600'}>
+          <span className={'text-emerald-600 dark:text-emerald-400'}>
             ✓ NGCH-ready · HSM sign pending (backend)
           </span>
         </div>
@@ -172,19 +172,19 @@ export default function CTSDecisionsLog() {
   const rows     = filter === 'All' ? DECISIONS : DECISIONS.filter(d => d.outcome === filter)
 
   const th = {
-    page:    isDark ? 'bg-transparent' : 'bg-slate-50',
-    card:    isDark ? 'bg-white/4 border-white/8' : 'bg-white border-slate-200',
-    heading: isDark ? 'text-white' : 'text-slate-900',
-    body:    isDark ? 'text-slate-300' : 'text-slate-700',
-    muted:   isDark ? 'text-slate-400' : 'text-slate-500',
-    faint:   isDark ? 'text-slate-600' : 'text-slate-400',
-    divider: isDark ? 'border-white/8' : 'border-slate-200',
-    thead:   isDark ? 'bg-white/2 border-white/8 text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-400',
-    row:     isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
-    filterActive: isDark ? 'bg-gold-400/15 text-gold-400' : 'bg-amber-100 text-amber-700',
-    filterIdle:   isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-700',
-    rrfBtn:  isDark ? 'border-red-500/25 text-red-400 hover:bg-red-500/10' : 'border-red-300 text-red-600 hover:bg-red-50',
-    sessionRrf: isDark ? 'border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20' : 'border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100',
+    page:    'bg-slate-50 dark:bg-transparent',
+    card:    'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
+    heading: 'text-slate-900 dark:text-white',
+    body:    'text-slate-700 dark:text-slate-300',
+    muted:   'text-slate-500 dark:text-slate-400',
+    faint:   'text-slate-400 dark:text-slate-600',
+    divider: 'border-slate-200 dark:border-white/8',
+    thead:   'bg-slate-50 border-slate-200 text-slate-400 dark:bg-white/2 dark:border-white/8 dark:text-slate-600',
+    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/4 dark:hover:bg-white/2',
+    filterActive: 'bg-amber-100 text-amber-700 dark:bg-gold-400/15 dark:text-gold-400',
+    filterIdle:   'text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300',
+    rrfBtn:  'border-red-300 text-red-600 hover:bg-red-50 dark:border-red-500/25 dark:text-red-400 dark:hover:bg-red-500/10',
+    sessionRrf: 'border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20',
   }
 
   const modalReturns = rrfModal === 'session'
@@ -222,10 +222,10 @@ export default function CTSDecisionsLog() {
         <div className="grid grid-cols-5 gap-3 mb-5">
           {[
             { label: 'Total Filed',   value: DECISIONS.length,                                            color: th.heading },
-            { label: 'STP Confirmed', value: DECISIONS.filter(d => d.outcome === 'STP_CONFIRM').length,   color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
-            { label: 'STP Returned',  value: returned.length,                                             color: isDark ? 'text-red-400' : 'text-red-600' },
-            { label: 'Human Review',  value: DECISIONS.filter(d => d.outcome === 'HUMAN_REVIEW').length,  color: isDark ? 'text-amber-400' : 'text-amber-600' },
-            { label: 'RRF Generated', value: returned.length > 0 ? '✓' : '—',                            color: returned.length > 0 ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : th.faint },
+            { label: 'STP Confirmed', value: DECISIONS.filter(d => d.outcome === 'STP_CONFIRM').length,   color: 'text-emerald-600 dark:text-emerald-400' },
+            { label: 'STP Returned',  value: returned.length,                                             color: 'text-red-600 dark:text-red-400' },
+            { label: 'Human Review',  value: DECISIONS.filter(d => d.outcome === 'HUMAN_REVIEW').length,  color: 'text-amber-600 dark:text-amber-400' },
+            { label: 'RRF Generated', value: returned.length > 0 ? '✓' : '—',                            color: returned.length > 0 ? ('text-emerald-600 dark:text-emerald-400') : th.faint },
           ].map(s => (
             <div key={s.label} className={`border rounded-xl px-4 py-3 ${th.card}`}>
               <div className={`text-[10px] ${th.faint} mb-1`}>{s.label}</div>
@@ -270,7 +270,7 @@ export default function CTSDecisionsLog() {
                     <td className={`px-4 py-2.5 text-right ${th.body} font-mono`}>{d.agent_ms}</td>
                     <td className="px-4 py-2.5 text-right">
                       {d.fraud !== null
-                        ? <span className={d.fraud > 0.7 ? (isDark ? 'text-red-400' : 'text-red-600') : (isDark ? 'text-emerald-400' : 'text-emerald-600')}>{(d.fraud * 100).toFixed(0)}%</span>
+                        ? <span className={d.fraud > 0.7 ? ('text-red-600 dark:text-red-400') : ('text-emerald-600 dark:text-emerald-400')}>{(d.fraud * 100).toFixed(0)}%</span>
                         : <span className={th.faint}>—</span>}
                     </td>
                     <td className={`px-4 py-2.5 ${th.muted} font-mono text-[10px]`}>{d.ngch}</td>

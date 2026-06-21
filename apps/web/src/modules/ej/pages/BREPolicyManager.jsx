@@ -165,19 +165,19 @@ export default function BREPolicyManager() {
   const { isDark } = useTheme()
 
   const th = {
-    pg:      isDark ? 'bg-[#020817] text-white' : 'bg-slate-50 text-slate-900',
-    nav:     isDark ? 'border-white/5 bg-black/30' : 'border-slate-200 bg-white',
-    nlnk:    isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900',
-    h1:      isDark ? 'text-white' : 'text-slate-900',
-    sub:     isDark ? 'text-slate-400' : 'text-slate-500',
-    roleBtn: isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-700',
-    ctx:     isDark ? 'bg-white/5 border-white/5 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600',
-    sel:     isDark ? 'bg-white/5 border-white/10 text-slate-300' : 'bg-white border-slate-300 text-slate-700',
-    selOpt:  isDark ? 'bg-[#020817]' : 'bg-white',
-    ruleBtn: isDark ? 'border-white/5 bg-white/2 hover:border-white/15' : 'border-slate-200 bg-white hover:border-slate-300',
-    ruleName:isDark ? 'text-slate-200' : 'text-slate-800',
-    ruleMeta:isDark ? 'text-slate-500' : 'text-slate-400',
-    detail:  isDark ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200',
+    pg:      'bg-slate-50 text-slate-900 dark:bg-[#020817] dark:text-white',
+    nav:     'border-slate-200 bg-white dark:border-white/5 dark:bg-black/30',
+    nlnk:    'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
+    h1:      'text-slate-900 dark:text-white',
+    sub:     'text-slate-500 dark:text-slate-400',
+    roleBtn: 'text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300',
+    ctx:     'bg-slate-100 border-slate-200 text-slate-600 dark:bg-white/5 dark:border-white/5 dark:text-slate-400',
+    sel:     'bg-white border-slate-300 text-slate-700 dark:bg-white/5 dark:border-white/10 dark:text-slate-300',
+    selOpt:  'bg-white dark:bg-[#020817]',
+    ruleBtn: 'border-slate-200 bg-white hover:border-slate-300 dark:border-white/5 dark:bg-white/2 dark:hover:border-white/15',
+    ruleName:'text-slate-800 dark:text-slate-200',
+    ruleMeta:'text-slate-400 dark:text-slate-500',
+    detail:  'bg-white border-slate-200 dark:bg-white/5 dark:border-white/5',
   }
 
   const role = ROLES.find(r => r.id === activeRole)

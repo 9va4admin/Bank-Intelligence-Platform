@@ -1,7 +1,7 @@
 export default function ShapExplainer({ shapValues, isDark }) {
   const maxAbs  = Math.max(...shapValues.map((s) => Math.abs(s.value)))
-  const label   = isDark ? 'text-slate-400' : 'text-slate-500'
-  const divider = isDark ? 'border-white/5' : 'border-slate-200'
+  const label   = 'text-slate-500 dark:text-slate-400'
+  const divider = 'border-slate-200 dark:border-white/5'
 
   return (
     <div className="space-y-2">
