@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
@@ -161,7 +160,6 @@ function RrfModal({ returns, sessionMeta, onClose }) {
 export default function CTSDecisionsLog() {
   const [filter, setFilter]     = useState('All')
   const [rrfModal, setRrfModal] = useState(null) // null | 'session' | rowId
-  const { isDark } = useTheme()
   const returned = DECISIONS.filter(d => d.outcome === 'STP_RETURN')
   const rows     = filter === 'All' ? DECISIONS : DECISIONS.filter(d => d.outcome === filter)
 
@@ -310,7 +308,6 @@ export default function CTSDecisionsLog() {
           returns={modalReturns}
           sessionMeta={SESSION_META}
           onClose={() => setRrfModal(null)}
-          isDark={isDark}
         />
       )}
     </AppShell>
