@@ -232,9 +232,9 @@ function ChildPanel({ item, onClose, isException }) {
         </div>
 
         {/* Swimlane — two bank phases */}
-        <div className="p-5 overflow-x-auto">
+        <div className="p-5">
           {/* Phase header labels */}
-          <div className="flex items-center gap-2 mb-2 min-w-max">
+          <div className="flex items-center gap-2 mb-2">
             <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border" style={{ color: 'rgba(251,191,36,0.7)', borderColor: 'rgba(251,191,36,0.2)', background: 'rgba(251,191,36,0.06)' }}>Presenting Bank</span>
             <span className="text-slate-700 text-xs">·</span>
             <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border" style={{ color: 'rgba(6,182,212,0.7)', borderColor: 'rgba(6,182,212,0.2)', background: 'rgba(6,182,212,0.06)' }}>NGCH Gateway</span>
@@ -242,7 +242,7 @@ function ChildPanel({ item, onClose, isException }) {
             <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border" style={{ color: 'rgba(139,92,246,0.7)', borderColor: 'rgba(139,92,246,0.2)', background: 'rgba(139,92,246,0.06)' }}>Drawee Bank</span>
           </div>
 
-          <div className="flex items-start gap-0 min-w-max">
+          <div className="flex items-start gap-0">
             {allStages.map((s, i) => {
               const bc = BANK_COLORS[STAGES[i].bank] || BANK_COLORS.p
               const borderByStatus = {
@@ -261,46 +261,43 @@ function ChildPanel({ item, onClose, isException }) {
               const showSep = i > 0 && STAGES[i].bank !== STAGES[i-1].bank
 
               return (
-                <div key={i} className="flex items-center">
+                <div key={i} className="flex items-center flex-1 min-w-0">
                   {/* Phase separator */}
                   {showSep && (
-                    <div className="flex flex-col items-center justify-center mx-1" style={{ height: 100 }}>
-                      <div className="w-px flex-1" style={{ background: `linear-gradient(180deg, transparent, ${bc.idle}, transparent)` }} />
-                      <span className="text-[8px] font-mono rotate-90 whitespace-nowrap my-1" style={{ color: bc.idle }}>▶</span>
+                    <div className="flex flex-col items-center justify-center shrink-0" style={{ width: 10, height: 88 }}>
                       <div className="w-px flex-1" style={{ background: `linear-gradient(180deg, transparent, ${bc.idle}, transparent)` }} />
                     </div>
                   )}
                   {/* Stage card */}
                   <div
-                    className="rounded-xl p-3 flex flex-col gap-2"
+                    className="rounded-lg p-2 flex flex-col gap-1.5 flex-1 min-w-0"
                     style={{
-                      width: isNGCH ? 92 : 106,
                       border: borderByStatus[s.status],
                       background: bgByStatus[s.status],
-                      boxShadow: s.status === 'done' ? '0 0 12px rgba(52,211,153,0.06)'
-                        : s.status === 'error' ? '0 0 14px rgba(239,68,68,0.10)'
-                        : s.status === 'warn' ? '0 0 14px rgba(251,191,36,0.10)'
+                      boxShadow: s.status === 'done' ? '0 0 10px rgba(52,211,153,0.06)'
+                        : s.status === 'error' ? '0 0 12px rgba(239,68,68,0.10)'
+                        : s.status === 'warn' ? '0 0 12px rgba(251,191,36,0.10)'
                         : 'none',
                     }}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-sm">{STAGES[i].icon}</span>
-                      <span className={`text-lg font-bold leading-none ${statusText[s.status]}`}>{statusIcon[s.status]}</span>
+                      <span className="text-xs">{STAGES[i].icon}</span>
+                      <span className={`text-sm font-bold leading-none ${statusText[s.status]}`}>{statusIcon[s.status]}</span>
                     </div>
                     <div>
-                      <div className="text-[11px] font-semibold text-white/80">{s.label}</div>
-                      <div className={`text-[10px] mt-0.5 ${s.result ? 'text-slate-400' : 'text-slate-700'}`}>
+                      <div className="text-[10px] font-semibold text-white/80 truncate">{s.label}</div>
+                      <div className={`text-[9px] mt-0.5 ${s.result ? 'text-slate-400' : 'text-slate-700'}`}>
                         {s.result ? `${s.result.ms}ms` : '—'}
                       </div>
                     </div>
-                    <div className="text-[10px] text-slate-400 leading-tight border-t border-white/5 pt-2 min-h-[30px]">
+                    <div className="text-[9px] text-slate-400 leading-tight border-t border-white/5 pt-1.5" style={{ minHeight: 24 }}>
                       {s.result ? s.result.detail : 'not reached'}
                     </div>
                   </div>
-                  {/* Arrow connector */}
+                  {/* Arrow connector within same bank */}
                   {i < allStages.length - 1 && STAGES[i].bank === STAGES[i+1].bank && (
-                    <div className="flex items-center justify-center px-0.5">
-                      <span className="text-slate-700 text-base font-bold">›</span>
+                    <div className="shrink-0 flex items-center justify-center" style={{ width: 8 }}>
+                      <span className="text-slate-700 text-xs font-bold">›</span>
                     </div>
                   )}
                 </div>
@@ -369,9 +366,61 @@ function ChildPanel({ item, onClose, isException }) {
   )
 }
 
+// ─── Pool list modal ──────────────────────────────────────────────────────────
+
+function PoolListModal({ type, items, baseCount, onSelect, onClose }) {
+  const cfg = {
+    confirm: { label: 'STP Confirmed', accent: '#10b981', border: 'border-emerald-500/30', bg: 'rgba(16,185,129,0.06)', tagCls: 'text-emerald-400', rowBg: 'rgba(16,185,129,0.04)', rowBorder: 'rgba(16,185,129,0.15)' },
+    return:  { label: 'STP Returned',  accent: '#ef4444', border: 'border-red-500/30',     bg: 'rgba(239,68,68,0.06)',  tagCls: 'text-red-400',     rowBg: 'rgba(239,68,68,0.04)',  rowBorder: 'rgba(239,68,68,0.15)'  },
+    review:  { label: 'Human Review',  accent: '#f59e0b', border: 'border-amber-500/30',   bg: 'rgba(245,158,11,0.06)', tagCls: 'text-amber-400',   rowBg: 'rgba(245,158,11,0.04)', rowBorder: 'rgba(245,158,11,0.15)' },
+  }[type]
+  const total = items.length + baseCount
+  const list = type === 'confirm' ? [...items].reverse() : items
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-end p-4" style={{ background: 'rgba(2,8,23,0.6)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
+      <div
+        className={`w-96 max-h-[80vh] flex flex-col rounded-2xl border ${cfg.border} overflow-hidden mt-14`}
+        style={{ background: '#050f2e', boxShadow: `0 0 60px ${cfg.accent}22, 0 24px 60px rgba(0,0,0,0.7)` }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/8 shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full" style={{ background: cfg.accent, boxShadow: `0 0 6px ${cfg.accent}` }} />
+            <span className={`text-[11px] font-semibold uppercase tracking-wider ${cfg.tagCls}`}>{cfg.label}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className={`font-mono text-sm font-bold ${cfg.tagCls}`}>{total}</span>
+            <button onClick={onClose} className="w-6 h-6 flex items-center justify-center rounded-md text-slate-500 hover:text-white hover:bg-white/10 text-base leading-none">×</button>
+          </div>
+        </div>
+        <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: 'thin', scrollbarColor: `${cfg.accent}30 transparent` }}>
+          {list.slice(0, 60).map(item => (
+            <button
+              key={item.id}
+              onClick={() => { onSelect(item); onClose() }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/4 transition-colors border-b text-left"
+              style={{ borderColor: 'rgba(255,255,255,0.04)' }}
+            >
+              <div className="flex-1 min-w-0">
+                <div className={`text-[11px] font-mono font-semibold ${cfg.tagCls} truncate`}>{item.id}</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">{item.account_suffix} · {item.amount_range}</div>
+              </div>
+              {item.reason && (
+                <div className="text-[9px] text-slate-600 truncate max-w-[120px] text-right">{item.reason}</div>
+              )}
+              <div className="text-[10px] font-mono text-slate-500 shrink-0">{Math.round((item.fraud_score ?? 0) * 100)}%</div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── IET Timer strip ──────────────────────────────────────────────────────────
 
-function IETTimerStrip({ confirmCount, returnCount, reviewCount }) {
+function IETTimerStrip({ confirmCount, returnCount, reviewCount, onOpenPool }) {
   const [elapsed, setElapsed] = useState(0)
   useEffect(() => {
     const t = setInterval(() => setElapsed(e => e + 1), 1000)
@@ -383,6 +432,12 @@ function IETTimerStrip({ confirmCount, returnCount, reviewCount }) {
   const mm = String(Math.floor(Math.abs(remaining) / 60)).padStart(2, '0')
   const ss = String(Math.abs(remaining) % 60).padStart(2, '0')
   const barColor = pct < 50 ? '#10b981' : pct < 80 ? '#f59e0b' : '#ef4444'
+
+  const pools = [
+    { key: 'confirm', label: 'STP Confirmed', val: confirmCount + 847, color: 'text-emerald-400', hoverCls: 'hover:text-emerald-300 hover:bg-emerald-500/8' },
+    { key: 'return',  label: 'STP Returned',  val: returnCount  + 124, color: 'text-red-400',     hoverCls: 'hover:text-red-300 hover:bg-red-500/8'     },
+    { key: 'review',  label: 'Human Review',  val: reviewCount,         color: 'text-amber-400',   hoverCls: 'hover:text-amber-300 hover:bg-amber-500/8'  },
+  ]
 
   return (
     <div className="flex items-center gap-5 bg-white/2 border border-white/6 rounded-xl px-5 py-3 shrink-0">
@@ -401,15 +456,16 @@ function IETTimerStrip({ confirmCount, returnCount, reviewCount }) {
 
       <div className="w-px h-8 bg-white/8 shrink-0" />
 
-      {[
-        { label: 'STP Confirmed', val: confirmCount + 847, color: 'text-emerald-400' },
-        { label: 'STP Returned',  val: returnCount  + 124, color: 'text-red-400' },
-        { label: 'Human Review',  val: reviewCount,         color: 'text-amber-400' },
-      ].map(({ label, val, color }) => (
-        <div key={label} className="flex flex-col items-center shrink-0">
+      {pools.map(({ key, label, val, color, hoverCls }) => (
+        <button
+          key={key}
+          onClick={() => onOpenPool(key)}
+          className={`flex flex-col items-center shrink-0 rounded-lg px-3 py-1 transition-colors cursor-pointer ${hoverCls}`}
+          title={`View all ${label}`}
+        >
           <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5 whitespace-nowrap">{label}</div>
-          <div className={`font-mono text-xl font-bold ${color}`}>{val}</div>
-        </div>
+          <div className={`font-mono text-xl font-bold underline-offset-2 hover:underline ${color}`}>{val}</div>
+        </button>
       ))}
 
       <div className="ml-auto flex items-center gap-2 shrink-0">
@@ -533,21 +589,19 @@ function ConfirmPool({ items, onSelect }) {
         <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">STP Confirmed</span>
         <span className="ml-auto font-mono text-xl font-bold text-emerald-400" style={{ textShadow: '0 0 16px rgba(16,185,129,0.5)' }}>{total}</span>
       </div>
-      <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-        {items.slice(-12).reverse().map((item) => (
+      <div className="flex gap-2 overflow-hidden flex-1">
+        {items.slice(-4).reverse().map((item) => (
           <button
             key={item.id}
             onClick={() => onSelect(item)}
-            className="shrink-0 rounded-xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/12 hover:border-emerald-500/40 transition-all px-3 py-2.5 text-left group"
-            style={{ minWidth: 118 }}
+            className="flex-1 min-w-0 rounded-xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/12 hover:border-emerald-500/40 transition-all px-3 py-2.5 text-left group"
           >
-            <div className="text-[10px] font-mono font-semibold text-emerald-300 group-hover:text-emerald-200 truncate" style={{ maxWidth: 100 }}>{item.id}</div>
+            <div className="text-[10px] font-mono font-semibold text-emerald-300 group-hover:text-emerald-200 truncate">{item.id}</div>
             <div className="text-[9px] text-slate-500 mt-0.5">{item.account_suffix}</div>
             <div className="flex items-center gap-1 mt-1.5">
-              <span className="text-[9px] text-emerald-600">{item.amount_range}</span>
-              <span className="ml-auto text-[9px] font-mono text-emerald-500">{Math.round((item.fraud_score ?? 0) * 100)}%</span>
+              <span className="text-[9px] text-emerald-600 truncate">{item.amount_range}</span>
+              <span className="ml-auto text-[9px] font-mono text-emerald-500 shrink-0">{Math.round((item.fraud_score ?? 0) * 100)}%</span>
             </div>
-            <div className="text-[8px] text-emerald-700 mt-1">✓ STP confirmed</div>
           </button>
         ))}
         {items.length === 0 && (
@@ -571,21 +625,20 @@ function ReturnPool({ items, onSelect }) {
         <span className="text-[10px] font-semibold text-red-400 uppercase tracking-wider">STP Returned</span>
         <span className="ml-auto font-mono text-xl font-bold text-red-400" style={{ textShadow: '0 0 16px rgba(239,68,68,0.5)' }}>{total}</span>
       </div>
-      <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-        {items.slice(-12).reverse().map((item) => (
+      <div className="flex gap-2 overflow-hidden flex-1">
+        {items.slice(-4).reverse().map((item) => (
           <button
             key={item.id}
             onClick={() => onSelect(item)}
-            className="shrink-0 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/12 hover:border-red-500/40 transition-all px-3 py-2.5 text-left group"
-            style={{ minWidth: 118 }}
+            className="flex-1 min-w-0 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/12 hover:border-red-500/40 transition-all px-3 py-2.5 text-left group"
           >
-            <div className="text-[10px] font-mono font-semibold text-red-300 group-hover:text-red-200 truncate" style={{ maxWidth: 100 }}>{item.id}</div>
+            <div className="text-[10px] font-mono font-semibold text-red-300 group-hover:text-red-200 truncate">{item.id}</div>
             <div className="text-[9px] text-slate-500 mt-0.5">{item.account_suffix}</div>
             <div className="flex items-center gap-1 mt-1.5">
-              <span className="text-[9px] text-red-700">{item.amount_range}</span>
-              <span className="ml-auto text-[9px] font-mono text-red-400">{Math.round((item.fraud_score ?? 0) * 100)}%</span>
+              <span className="text-[9px] text-red-700 truncate">{item.amount_range}</span>
+              <span className="ml-auto text-[9px] font-mono text-red-400 shrink-0">{Math.round((item.fraud_score ?? 0) * 100)}%</span>
             </div>
-            <div className="text-[8px] text-red-700 mt-1 truncate" style={{ maxWidth: 100 }}>{item.reason || 'STP returned'}</div>
+            <div className="text-[8px] text-red-800 mt-1 truncate">{item.reason || '—'}</div>
           </button>
         ))}
         {items.length === 0 && (
@@ -650,6 +703,7 @@ export default function CTSPipelineVisualizer() {
   const [exceptions] = useState(MOCK_EXCEPTIONS)
   const [selectedItem, setSelectedItem] = useState(null)
   const [isException, setIsException] = useState(false)
+  const [poolModal, setPoolModal] = useState(null) // 'confirm' | 'return' | 'review' | null
 
   const runningRef = useRef(running)
   runningRef.current = running
@@ -789,10 +843,11 @@ export default function CTSPipelineVisualizer() {
             confirmCount={confirmPool.length}
             returnCount={returnPool.length}
             reviewCount={reviewDock.length}
+            onOpenPool={setPoolModal}
           />
 
           {/* Circuit board track */}
-          <div className="flex-1 flex flex-col min-h-0" style={{ minHeight: 200 }}>
+          <div className="shrink-0 flex flex-col">
             {/* Track wrapper */}
             <div
               className="relative w-full rounded-2xl border border-amber-400/10 overflow-visible"
@@ -901,6 +956,17 @@ export default function CTSPipelineVisualizer() {
           </div>
         </div>
       </div>
+
+      {/* Pool list modal */}
+      {poolModal && (
+        <PoolListModal
+          type={poolModal}
+          items={poolModal === 'confirm' ? confirmPool : poolModal === 'return' ? returnPool : reviewDock}
+          baseCount={poolModal === 'confirm' ? 847 : poolModal === 'return' ? 124 : 0}
+          onSelect={item => { openItem(item, false); setPoolModal(null) }}
+          onClose={() => setPoolModal(null)}
+        />
+      )}
 
       {/* Child panel */}
       {selectedItem && (
