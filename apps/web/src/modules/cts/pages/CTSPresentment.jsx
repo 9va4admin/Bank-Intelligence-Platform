@@ -125,7 +125,7 @@ function SessionBar({ sessions, activeIdx, onSelect }) {
   )
 }
 
-function KpiStrip({ batch }) {
+function KpiStrip({ batch, filterStatus, onFilter }) {
   const total     = batch.length
   const iqaFail   = batch.filter(b => b.status === 'IQA_FAIL').length
   const extracted = batch.filter(b => ['AI_EXTRACTED','PKI_SIGNED','SUBMITTED','NGCH_ACK','NGCH_REJECT'].includes(b.status)).length
@@ -136,31 +136,38 @@ function KpiStrip({ batch }) {
   const dateInvalid = batch.filter(b => b.date_valid === false).length
 
   const th = {
-    card:  'bg-white border-slate-200 dark:bg-navy-900/50 dark:border-white/8',
-    lbl:   'text-slate-400 dark:text-slate-500',
-    val:   'text-slate-900 dark:text-white',
+    card:    'bg-white border-slate-200 dark:bg-navy-900/50 dark:border-white/8',
+    cardAct: 'bg-amber-50 border-amber-300 dark:bg-gold-400/10 dark:border-gold-400/40',
+    lbl:     'text-slate-400 dark:text-slate-500',
   }
 
   const tiles = [
-    { label: 'Total Batch',      val: total,      color: 'text-slate-900 dark:text-white' },
-    { label: 'IQA Fail',         val: iqaFail,    color: iqaFail > 0 ? 'text-red-400' : 'text-emerald-600 dark:text-emerald-400' },
-    { label: 'AI Extracted',     val: extracted,  color: 'text-violet-600 dark:text-violet-400' },
-    { label: 'Submitted NGCH',   val: submitted,  color: 'text-blue-600 dark:text-blue-400' },
-    { label: 'NGCH ACK',         val: acked,      color: 'text-emerald-600 dark:text-emerald-400' },
-    { label: 'NGCH Reject',      val: rejected,   color: rejected > 0 ? 'text-red-400' : 'text-slate-400 dark:text-slate-500' },
-    { label: 'Amt Mismatch',     val: amtMismatch,color: amtMismatch > 0 ? 'text-amber-400' : 'text-slate-400 dark:text-slate-500' },
-    { label: 'Date Invalid',     val: dateInvalid, color: dateInvalid > 0 ? 'text-amber-400' : 'text-slate-400 dark:text-slate-500' },
+    { key: 'ALL',          label: 'Total Batch',    val: total,       color: 'text-slate-900 dark:text-white' },
+    { key: 'IQA_FAIL',     label: 'IQA Fail',       val: iqaFail,     color: iqaFail > 0 ? 'text-red-400' : 'text-emerald-600 dark:text-emerald-400' },
+    { key: 'AI_EXTRACTED', label: 'AI Extracted',   val: extracted,   color: 'text-violet-600 dark:text-violet-400' },
+    { key: 'SUBMITTED',    label: 'Submitted NGCH', val: submitted,   color: 'text-blue-600 dark:text-blue-400' },
+    { key: 'NGCH_ACK',     label: 'NGCH ACK',       val: acked,       color: 'text-emerald-600 dark:text-emerald-400' },
+    { key: 'NGCH_REJECT',  label: 'NGCH Reject',    val: rejected,    color: rejected > 0 ? 'text-red-400' : 'text-slate-400 dark:text-slate-500' },
+    { key: 'AMT_MISMATCH', label: 'Amt Mismatch',   val: amtMismatch, color: amtMismatch > 0 ? 'text-amber-400' : 'text-slate-400 dark:text-slate-500' },
+    { key: 'DATE_INVALID', label: 'Date Invalid',   val: dateInvalid, color: dateInvalid > 0 ? 'text-amber-400' : 'text-slate-400 dark:text-slate-500' },
   ]
 
   return (
     <div className={`shrink-0 border-b ${'border-slate-200 dark:border-white/8'} px-5 py-3`}>
       <div className="flex gap-4 overflow-x-auto">
-        {tiles.map(t => (
-          <div key={t.label} className={`shrink-0 rounded-xl border ${th.card} px-4 py-2 min-w-[100px]`}>
-            <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-0.5`}>{t.label}</div>
-            <div className={`text-2xl font-bold font-mono ${t.color}`}>{t.val}</div>
-          </div>
-        ))}
+        {tiles.map(t => {
+          const active = filterStatus === t.key
+          return (
+            <button key={t.key}
+              onClick={() => onFilter(active ? 'ALL' : t.key)}
+              className={`shrink-0 rounded-xl border px-4 py-2 min-w-[100px] text-left transition-all ${
+                active ? th.cardAct : `${th.card} hover:border-amber-300/50 dark:hover:border-gold-400/20`
+              }`}>
+              <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-0.5`}>{t.label}</div>
+              <div className={`text-2xl font-bold font-mono ${t.color}`}>{t.val}</div>
+            </button>
+          )
+        })}
       </div>
     </div>
   )
@@ -250,6 +257,124 @@ function BatchRow({ item, selected, onClick }) {
   )
 }
 
+// ─── Outward Pipeline Visualizer ─────────────────────────────────────────────
+
+const STAGE_MS = [850, 320, 1240, 680, 210, 1800, 420]
+
+function OutwardPipelineViz({ item }) {
+  const pos = pipelinePos(item.status)
+  const isFail = ['IQA_FAIL', 'NGCH_REJECT'].includes(item.status)
+
+  const getState = (i) => {
+    if (i < pos) return 'done'
+    if (i === pos) return isFail ? 'fail' : 'current'
+    return 'pending'
+  }
+
+  const bankOf = (i) => i < 6 ? 'pres' : 'ngch'
+
+  const NODE_STYLE = {
+    done:    { bg: 'rgba(5,46,22,0.8)',  border: '#10b981', glow: 'rgba(16,185,129,0.5)',   icon: '✓', tc: '#34d399' },
+    current: { bg: 'rgba(28,10,0,0.9)', border: '#f59e0b', glow: 'rgba(245,158,11,0.6)',   icon: null, tc: '#fbbf24' },
+    fail:    { bg: 'rgba(28,5,5,0.9)',  border: '#ef4444', glow: 'rgba(239,68,68,0.5)',    icon: '✕', tc: '#f87171' },
+    pending: { bg: 'rgba(15,23,42,0.5)', border: '#1e293b', glow: 'none',                  icon: null, tc: '#475569' },
+  }
+  const NGCH_CURRENT = { bg: 'rgba(0,26,36,0.9)', border: '#06b6d4', glow: 'rgba(6,182,212,0.6)', icon: null, tc: '#22d3ee' }
+
+  // Track fill pct: how far along the 7-stage track
+  const trackPct = Math.min(100, (pos / (PIPELINE_STEPS.length - 1)) * 100)
+
+  return (
+    <div className="relative rounded-xl border border-amber-500/20 overflow-hidden"
+      style={{ background: 'linear-gradient(135deg, #05080f 0%, #0a0f1e 60%, #050d14 100%)' }}>
+
+      {/* Subtle radial glow at current stage area */}
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: `radial-gradient(ellipse 60% 80% at ${10 + trackPct * 0.8}% 50%, rgba(245,158,11,0.07) 0%, transparent 70%)` }} />
+
+      {/* Phase labels row */}
+      <div className="flex items-center px-4 pt-3 pb-1 gap-2">
+        <div className="flex-1 flex items-center gap-1.5">
+          <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#f59e0b', boxShadow: '0 0 6px rgba(245,158,11,0.8)' }} />
+          <span className="text-[9px] uppercase tracking-widest" style={{ color: 'rgba(245,158,11,0.6)' }}>Presenting Bank</span>
+        </div>
+        <div className="w-px h-3" style={{ background: 'rgba(255,255,255,0.1)' }} />
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#06b6d4', boxShadow: '0 0 6px rgba(6,182,212,0.8)' }} />
+          <span className="text-[9px] uppercase tracking-widest" style={{ color: 'rgba(6,182,212,0.6)' }}>NGCH</span>
+        </div>
+      </div>
+
+      {/* Track + nodes */}
+      <div className="relative px-4 pb-4 pt-1">
+        {/* Track base */}
+        <div className="absolute left-8 right-8 h-px" style={{ top: '28px', background: 'rgba(255,255,255,0.06)' }} />
+        {/* Track fill */}
+        <div className="absolute left-8 h-px transition-all duration-700"
+          style={{
+            top: '28px',
+            width: `calc(${trackPct}% * (100% - 64px) / 100 + ${trackPct > 0 ? 0 : 0}px)`,
+            width: `calc((100% - 64px) * ${trackPct / 100})`,
+            background: isFail
+              ? 'linear-gradient(90deg, #10b981 0%, #ef4444 100%)'
+              : `linear-gradient(90deg, #10b981 0%, #f59e0b ${Math.min(100, trackPct + 5)}%)`,
+            boxShadow: isFail ? '0 0 8px rgba(239,68,68,0.4)' : '0 0 8px rgba(245,158,11,0.4)',
+            opacity: 0.7,
+          }} />
+
+        {/* Stage divider line before NGCH */}
+        <div className="absolute w-px"
+          style={{ left: `calc(64px + (100% - 64px) * ${5 / 6} - 8px)`, top: '8px', height: '44px', background: 'rgba(255,255,255,0.12)' }} />
+
+        {/* Nodes */}
+        <div className="flex items-start">
+          {PIPELINE_STEPS.map((step, i) => {
+            const state = getState(i)
+            const bank = bankOf(i)
+            let ns = NODE_STYLE[state]
+            if (state === 'current' && bank === 'ngch') ns = NGCH_CURRENT
+            if (state === 'fail' && bank === 'ngch') ns = { ...NODE_STYLE.fail }
+
+            return (
+              <div key={step.id} className="flex-1 min-w-0 flex flex-col items-center relative">
+                {/* Node circle */}
+                <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-500 relative z-10"
+                  style={{
+                    background: ns.bg,
+                    borderColor: ns.border,
+                    boxShadow: ns.glow !== 'none' ? `0 0 14px ${ns.glow}, inset 0 0 8px ${ns.glow.replace('0.', '0.15')}` : 'none',
+                  }}>
+                  <span style={{ color: ns.tc, fontSize: state === 'pending' ? '14px' : '13px' }}>
+                    {ns.icon ?? step.icon}
+                  </span>
+                  {/* Pulse ring on current */}
+                  {state === 'current' && (
+                    <div className="absolute inset-0 rounded-full border-2 animate-ping"
+                      style={{ borderColor: ns.border, opacity: 0.35 }} />
+                  )}
+                </div>
+
+                {/* Label */}
+                <div className="text-[8px] mt-1.5 text-center leading-tight font-medium px-0.5"
+                  style={{ color: ns.tc, opacity: state === 'pending' ? 0.5 : 1 }}>
+                  {step.label}
+                </div>
+
+                {/* Timing / status sub-label */}
+                <div className="text-[7px] mt-0.5 text-center" style={{ color: ns.tc, opacity: 0.55 }}>
+                  {state === 'done'    && `${STAGE_MS[i]}ms`}
+                  {state === 'current' && (isFail ? 'FAILED' : '● live')}
+                  {state === 'pending' && '—'}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function DetailPanel({ item }) {
   if (!item) return (
     <div className={`flex-1 flex items-center justify-center ${'text-slate-300 dark:text-slate-600'} text-sm`}>
@@ -306,36 +431,8 @@ function DetailPanel({ item }) {
 
       {/* Pipeline progress */}
       <div className={`shrink-0 px-5 py-3 border-b ${th.divider}`}>
-        <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>Processing Pipeline</div>
-        <div className="flex gap-1 items-center">
-          {PIPELINE_STEPS.map((step, i) => {
-            const done    = i < pos
-            const current = i === pos
-            const fail    = current && ['IQA_FAIL', 'NGCH_REJECT'].includes(item.status)
-            return (
-              <div key={step.id} className="flex items-center gap-1 flex-1 min-w-0">
-                <div className="flex flex-col items-center min-w-0 flex-1">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] border ${
-                    fail    ? 'bg-red-500/20 border-red-500/50 text-red-400'
-                    : done  ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
-                    : current ? ('bg-amber-100 border-amber-400 text-amber-600 dark:bg-gold-400/20 dark:border-gold-400/50 dark:text-gold-400')
-                    : 'bg-slate-100 border-slate-200 text-slate-400 dark:bg-white/5 dark:border-white/10 dark:text-slate-600'
-                  }`}>
-                    {fail ? '✕' : done ? '✓' : step.icon}
-                  </div>
-                  <div className={`text-[8px] mt-0.5 text-center leading-tight ${
-                    fail ? 'text-red-400' : done ? ('text-emerald-600 dark:text-emerald-400') :
-                    current ? ('text-amber-600 dark:text-gold-400') :
-                    'text-slate-400 dark:text-slate-600'
-                  }`}>{step.label}</div>
-                </div>
-                {i < PIPELINE_STEPS.length - 1 && (
-                  <div className={`h-px flex-1 mx-0.5 mt-[-12px] ${done ? ('bg-emerald-300 dark:bg-emerald-500/40') : ('bg-slate-200 dark:bg-white/8')}`} />
-                )}
-              </div>
-            )
-          })}
-        </div>
+        <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>Outward Clearing Pipeline</div>
+        <OutwardPipelineViz item={item} />
       </div>
 
       <div className="flex-1 px-5 py-4 space-y-4">
@@ -490,7 +587,17 @@ export default function CTSPresentment() {
     .sort()]
 
   const visible = batch.filter(item => {
-    if (filterStatus !== 'ALL' && item.status !== filterStatus) return false
+    if (filterStatus === 'AMT_MISMATCH') {
+      if (item.amount_words_match !== false) return false
+    } else if (filterStatus === 'DATE_INVALID') {
+      if (item.date_valid !== false) return false
+    } else if (filterStatus === 'AI_EXTRACTED') {
+      if (!['AI_EXTRACTED','PKI_SIGNED','SUBMITTED','NGCH_ACK','NGCH_REJECT'].includes(item.status)) return false
+    } else if (filterStatus === 'SUBMITTED') {
+      if (!['SUBMITTED','NGCH_ACK','NGCH_REJECT'].includes(item.status)) return false
+    } else if (filterStatus !== 'ALL') {
+      if (item.status !== filterStatus) return false
+    }
     if (filterLot !== 'ALL' && item.lot_number !== filterLot) return false
     if (search && !item.instrument_id.toLowerCase().includes(search.toLowerCase())
         && !item.payee.toLowerCase().includes(search.toLowerCase())
@@ -505,7 +612,7 @@ export default function CTSPresentment() {
         <SessionBar sessions={SESSIONS} activeIdx={activeSession} onSelect={setActiveSession} />
 
         {/* KPI strip */}
-        <KpiStrip batch={batch} />
+        <KpiStrip batch={batch} filterStatus={filterStatus} onFilter={setFilterStatus} />
 
         {/* Pipeline progress */}
         <PipelineLane batch={batch} />
