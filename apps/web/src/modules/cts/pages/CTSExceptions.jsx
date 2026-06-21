@@ -190,7 +190,6 @@ const SEV = {
 // ── Component ─────────────────────────────────────────────────────────────
 
 export default function CTSExceptions() {
-  const { isDark } = useTheme()
   const [severityFilter, setSeverityFilter] = useState('All')
   const [showResolved, setShowResolved]     = useState(true)
 

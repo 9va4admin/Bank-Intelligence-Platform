@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import EJShell from '../layout/EJShell'
-import { useTheme } from '../../../shared/theme/ThemeContext'
 
 const MOCK_INCIDENTS = [
   { id:'INC-2026-0041', atm_id:'ATM-MUM-004', city:'Mumbai',    branch:'Kurla',        severity:'CRITICAL', type:'Dispense-Balance Mismatch',  status:'IN_PROGRESS', opened:'2026-06-18T10:31:07Z', assigned_to:'Rahul Sharma',  sla_breach_at:'2026-06-18T11:01:07Z', notes:'Cassette 1 jam confirmed. Engineer dispatched.' },
@@ -48,11 +47,10 @@ function getSLA(inc) {
   return { label:`${Math.round(diff/60)}h left`, cls:'text-slate-400' }
 }
 
-function DetailPanel({ inc, onClose, onStatusChange, isDark }) {
+function DetailPanel({ inc, onClose, onStatusChange }) {
   const [note, setNote] = useState(inc.notes)
   const sla = getSLA(inc)
   const nextStatus = { OPEN:'ASSIGNED', ASSIGNED:'IN_PROGRESS', IN_PROGRESS:'RESOLVED', RESOLVED:'CLOSED' }
-  const SEV    = isDark ? SEV_D    : SEV_L
 
   const panel  = 'bg-white border-slate-200 dark:bg-[#0a1628] dark:border-slate-800'
   const hdr    = 'border-slate-200 dark:border-slate-800'
@@ -147,10 +145,6 @@ export default function IncidentManagement() {
   const [sevFilter, setSevFilter]     = useState('ALL')
   const [timeRange, setTimeRange]     = useState('24h')
   const [selected, setSelected]       = useState(null)
-  const { isDark } = useTheme()
-
-  const SEV    = isDark ? SEV_D    : SEV_L
-
   const th = {
     page:    'bg-slate-50 text-slate-900 dark:bg-[#020817] dark:text-slate-100',
     nav:     'border-b border-slate-200 dark:border-b dark:border-slate-800',
@@ -307,7 +301,7 @@ export default function IncidentManagement() {
         {selected && (
           <>
             <div className={`fixed inset-0 ${th.overlay} z-40`} onClick={() => setSelected(null)} />
-            <DetailPanel inc={selected} onClose={() => setSelected(null)} onStatusChange={changeStatus} isDark={isDark} />
+            <DetailPanel inc={selected} onClose={() => setSelected(null)} onStatusChange={changeStatus} />
           </>
         )}
       </div>

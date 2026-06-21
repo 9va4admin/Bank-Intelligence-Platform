@@ -20,7 +20,6 @@ export default function EJDashboard({ defaultTab = 'fleet' }) {
   const [activeTab, setActiveTab] = useState(defaultTab)
   const [submitLogOpen, setSubmitLogOpen] = useState(false)
   const [raiseDisputeOpen, setRaiseDisputeOpen] = useState(false)
-  const { isDark } = useTheme()
 
   const { data: atms, isLoading: atmsLoading } = useATMFleet(bankId)
   const { data: logs, isLoading: logsLoading } = useEJLogs(bankId)

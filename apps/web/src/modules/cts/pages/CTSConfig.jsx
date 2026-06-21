@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
@@ -24,7 +23,6 @@ export default function CTSConfig() {
     Object.fromEntries(LAYER3_CONFIG.map(c => [c.key, c.value]))
   )
   const [saved, setSaved] = useState(null)
-  const { isDark } = useTheme()
 
   function handleSave(key) {
     setSaved(key)
@@ -39,12 +37,8 @@ export default function CTSConfig() {
     body:      'text-slate-700 dark:text-slate-400',
     faint:     'text-slate-400 dark:text-slate-600',
     meta:      'bg-slate-100 text-slate-500 dark:bg-white/4 dark:text-slate-500',
-    input:     isDark
-                 ? 'bg-white/5 border-white/10 text-white focus:border-amber-400/50'
-                 : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-amber-500',
-    btn:       isDark
-                 ? 'bg-gold-400/10 text-gold-400 hover:bg-gold-400/20'
-                 : 'bg-amber-100 text-amber-700 hover:bg-amber-200',
+    input:     'bg-slate-50 border-slate-300 text-slate-900 focus:border-amber-500 dark:bg-white/5 dark:border-white/10 dark:text-white dark:focus:border-amber-400/50',
+    btn:       'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-gold-400/10 dark:text-gold-400 dark:hover:bg-gold-400/20',
     l1label:   'text-slate-400 dark:text-slate-500',
     l1val:     'bg-slate-100 text-slate-500 dark:bg-white/4 dark:text-slate-500',
   }

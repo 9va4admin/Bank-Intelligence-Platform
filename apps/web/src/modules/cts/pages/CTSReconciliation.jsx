@@ -145,7 +145,6 @@ function downloadCsv(csv, filename) {
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function CTSReconciliation() {
-  const { isDark } = useTheme()
   const [sessionIdx, setSessionIdx] = useState(0)
   const [filterStatus, setFilterStatus] = useState('ALL')
 

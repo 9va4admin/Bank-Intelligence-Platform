@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import EJShell from '../layout/EJShell'
-import { useTheme } from '../../../shared/theme/ThemeContext'
 import { Bell, Monitor, MessageSquare, Mail, Lock, CheckCircle2, AlertCircle, Clock, Activity, ChevronRight } from 'lucide-react'
 import { BRE_RULES } from '../hooks/useBRERules'
 
@@ -57,7 +56,7 @@ const DELIVERY_LOG = [
   { time:'09:22:44', rule:'EJ Parse Failure', atm:'ATM-CHN-003', channel:'OnScreen', role:'ml_engineer', status:'Delivered' },
 ]
 
-function MatrixTab({ isDark }) {
+function MatrixTab() {
   const violet   = 'bg-violet-100 text-violet-700 border border-violet-400 dark:bg-violet-500/20 dark:text-violet-300 dark:border dark:border-violet-500/30'
   const divider  = 'border-slate-200 dark:border-white/10'
   const dividerSm = 'border-slate-100 dark:border-white/5'
@@ -157,7 +156,7 @@ function MatrixTab({ isDark }) {
   )
 }
 
-function ChannelHealthTab({ isDark }) {
+function ChannelHealthTab() {
   const card    = 'bg-white border border-slate-200 dark:bg-white/5 dark:border dark:border-white/5'
   const heading = 'text-slate-900 dark:text-white'
   const lbl     = 'text-slate-500 dark:text-slate-400'
@@ -243,7 +242,7 @@ function ChannelHealthTab({ isDark }) {
   )
 }
 
-function DeliveryLogTab({ isDark }) {
+function DeliveryLogTab() {
   const muted   = 'text-slate-400 dark:text-slate-500'
   const divider = 'border-slate-100 dark:border-white/5'
   const body    = 'text-slate-800 dark:text-slate-200'
@@ -294,7 +293,6 @@ function DeliveryLogTab({ isDark }) {
 
 export default function NotificationCenter() {
   const [tab, setTab] = useState('matrix')
-  const { isDark } = useTheme()
 
   const th = {
     pg:   'bg-slate-50 text-slate-900 dark:bg-[#020817] dark:text-white',
@@ -337,9 +335,9 @@ export default function NotificationCenter() {
         </div>
 
         <div className={`rounded-xl border p-6 ${th.card}`}>
-          {tab === 'matrix' && <MatrixTab isDark={isDark}/>}
-          {tab === 'health' && <ChannelHealthTab isDark={isDark}/>}
-          {tab === 'log'    && <DeliveryLogTab isDark={isDark}/>}
+          {tab === 'matrix' && <MatrixTab />}
+          {tab === 'health' && <ChannelHealthTab />}
+          {tab === 'log'    && <DeliveryLogTab />}
         </div>
       </div>
     </div></EJShell>

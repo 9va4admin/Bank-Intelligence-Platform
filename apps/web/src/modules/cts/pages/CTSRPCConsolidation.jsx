@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
@@ -66,7 +65,6 @@ const rpcS = {
 
 
 export default function CTSRPCConsolidation() {
-  const { isDark } = useTheme()
   const [selected, setSelected] = useState(null)
 
   const th = {
@@ -135,7 +133,7 @@ export default function CTSRPCConsolidation() {
                 <span className={`w-2 h-2 rounded-full mt-0.5 ${rpc.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-red-500'}`} />
               </div>
               <div className={`text-xs font-semibold ${th.heading} mb-0.5`}>{rpc.name}</div>
-              <div className={`text-[10px] ${rpc.status === 'ACTIVE' ? (isDark ? rpcS.ACTIVE : rpcS.ACTIVE) : (isDark ? rpcS.DEGRADED : rpcS.DEGRADED)} font-medium mb-2`}>{rpc.status}</div>
+              <div className={`text-[10px] ${rpc.status === 'ACTIVE' ? rpcS.ACTIVE : rpcS.DEGRADED} font-medium mb-2`}>{rpc.status}</div>
               <div className="space-y-0.5">
                 <div className="flex justify-between">
                   <span className={`text-[10px] ${th.faint}`}>Inward</span>

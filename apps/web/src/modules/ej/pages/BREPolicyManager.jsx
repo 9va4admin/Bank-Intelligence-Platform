@@ -162,7 +162,6 @@ export default function BREPolicyManager() {
   const [activeRole, setActiveRole] = useState('compliance_officer')
   const [catFilter, setCatFilter] = useState('All')
   const [sevFilter, setSevFilter] = useState('All')
-  const { isDark } = useTheme()
 
   const th = {
     pg:      'bg-slate-50 text-slate-900 dark:bg-[#020817] dark:text-white',
