@@ -5,6 +5,7 @@ import { PageHeaderCtx } from './PageHeaderContext'
 
 const FLAT_NAV = [
   { to: '/cts',          label: 'Inward Queue', end: true },
+  { to: '/cts/pipeline', label: 'Inward View'  },
   { to: '/cts/outward',  label: 'Outward'  },
   { to: '/cts/vault',    label: 'Vault'    },
 ]
@@ -55,7 +56,7 @@ const ROUTE_LABELS = {
   '/cts/endorsement':   ['Operations', 'Endorsement'],
   '/cts/scanner':       ['Operations', 'Scanner SDK'],
   '/cts/rpc':           ['Operations', 'RPC Consolidation'],
-  '/cts/pipeline':      ['CTS', 'Inward AI Pipeline Visualizer'],
+  '/cts/pipeline':      ['CTS', 'Inward View — AI Pipeline'],
   '/cts/config':        ['Admin', 'Config'],
   '/cts/config/sub-member-banks': ['Admin · Config', 'Sub-Member Banks'],
   '/cts/config/micr-prefixes':    ['Admin · Config', 'MICR Prefix Table'],
