@@ -1,4 +1,5 @@
-import { useState, useContext, useRef } from 'react'
+import { useState, useContext, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { NavLink, Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../theme/ThemeContext'
 import { PageHeaderCtx } from './PageHeaderContext'
@@ -137,61 +138,18 @@ export default function AppShell({ children }) {
               const isGroupActive = groupHasActive(group.items)
               const isOpen = openGroup === group.label
               return (
-                <div key={group.label} className="flex items-center">
-                  <div
-                    className="relative"
-                    onMouseEnter={() => openNav(group.label)}
-                    onMouseLeave={closeNav}
-                  >
-                    <button
-                      className={`px-4 py-1.5 text-xs rounded-full transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                        isGroupActive
-                          ? 'bg-slate-800 text-white shadow-sm dark:bg-white/20 dark:text-white dark:shadow-sm dark:ring-1 dark:ring-white/20'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-200 dark:hover:text-white dark:hover:bg-white/15'
-                      }`}
-                    >
-                      {group.label}
-                      <svg className="w-3 h-3 opacity-50" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-
-                    {isOpen && (
-                      <div
-                        className="absolute top-full left-1/2 -translate-x-1/2 z-50"
-                        onMouseEnter={() => openNav(group.label)}
-                        onMouseLeave={closeNav}
-                        style={{ paddingTop: '8px', minWidth: '190px' }}
-                      >
-                        <div className="rounded-xl border py-2 bg-white border-slate-200 shadow-2xl shadow-slate-400/30 dark:bg-[#0e1654]/95 dark:backdrop-blur-xl dark:border-white/10 dark:shadow-2xl dark:shadow-black/60">
-                          {group.items.map(({ to, label }) => {
-                            const isActive = location.pathname.startsWith(to)
-                            return (
-                              <NavLink
-                                key={to} to={to}
-                                className={() =>
-                                  `flex items-center px-4 py-2 text-xs transition-colors mx-1.5 my-0.5 rounded-lg ${
-                                    isActive
-                                      ? 'bg-slate-800 text-white font-medium dark:bg-white/15 dark:text-white dark:font-medium'
-                                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/10'
-                                  }`
-                                }
-                                onClick={() => setOpenGroup(null)}
-                              >
-                                {label}
-                              </NavLink>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {gIdx < NAV_GROUPS.length - 1 && (
-                    <div className="w-px h-4 mx-1 shrink-0 bg-slate-300/80 dark:bg-white/10" />
-                  )}
-                </div>
+                <NavGroup
+                  key={group.label}
+                  group={group}
+                  isGroupActive={isGroupActive}
+                  isOpen={isOpen}
+                  isDark={isDark}
+                  onOpen={() => openNav(group.label)}
+                  onClose={closeNav}
+                  onItemClick={() => setOpenGroup(null)}
+                  location={location}
+                  showDivider={gIdx < NAV_GROUPS.length - 1}
+                />
               )
             })}
           </nav>
@@ -259,7 +217,7 @@ export default function AppShell({ children }) {
       {/* ── PageHeaderProvider wraps both the breadcrumb bar and content.       */}
       {/* ── Pages call usePageHeader() which sets state on the provider.        */}
       {/* ── PageHeaderBar reads from that same provider — re-renders on change. */}
-      <PageHeaderBar page={page} section={section} />
+      <PageHeaderBar page={page} section={section} isDark={isDark} />
       <div className="flex-1 min-h-0 overflow-y-auto bg-slate-50 dark:bg-black/15">
         {children}
       </div>
@@ -267,17 +225,96 @@ export default function AppShell({ children }) {
   )
 }
 
-function PageHeaderBar({ page, section }) {
+function NavGroup({ group, isGroupActive, isOpen, isDark, onOpen, onClose, onItemClick, location, showDivider }) {
+  const btnRef = useRef(null)
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 })
+
+  useEffect(() => {
+    if (isOpen && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + 6, left: r.left + r.width / 2, width: Math.max(r.width, 190) })
+    }
+  }, [isOpen])
+
+  const panelBg = isDark
+    ? { background: 'rgba(14,22,84,0.97)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)', backdropFilter: 'blur(20px)' }
+    : { background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 20px 40px rgba(100,116,139,0.25)' }
+
+  return (
+    <div className="flex items-center">
+      <div
+        ref={btnRef}
+        onMouseEnter={onOpen}
+        onMouseLeave={onClose}
+        style={{ position: 'relative' }}
+      >
+        <button
+          className={`px-4 py-1.5 text-xs rounded-full transition-all whitespace-nowrap flex items-center gap-1.5 ${
+            isGroupActive
+              ? 'bg-slate-800 text-white shadow-sm dark:bg-white/20 dark:text-white dark:ring-1 dark:ring-white/20'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-200 dark:hover:text-white dark:hover:bg-white/15'
+          }`}
+        >
+          {group.label}
+          <svg className="w-3 h-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
+
+      {isOpen && createPortal(
+        <div
+          style={{ position: 'fixed', top: pos.top, left: pos.left, transform: 'translateX(-50%)', zIndex: 9999, minWidth: '200px', paddingTop: '2px' }}
+          onMouseEnter={onOpen}
+          onMouseLeave={onClose}
+        >
+          <div style={{ borderRadius: '12px', padding: '6px 0', ...panelBg }}>
+            {group.items.map(({ to, label }) => {
+              const isActive = location.pathname.startsWith(to)
+              return (
+                <NavLink
+                  key={to} to={to}
+                  style={isActive
+                    ? { display: 'flex', alignItems: 'center', padding: '8px 16px', fontSize: '12px', margin: '2px 6px', borderRadius: '8px', background: isDark ? 'rgba(255,255,255,0.15)' : '#1e293b', color: '#fff', fontWeight: 500, textDecoration: 'none' }
+                    : { display: 'flex', alignItems: 'center', padding: '8px 16px', fontSize: '12px', margin: '2px 6px', borderRadius: '8px', color: isDark ? 'rgb(203,213,225)' : '#475569', textDecoration: 'none' }
+                  }
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.1)' : '#f1f5f9'; e.currentTarget.style.color = isDark ? '#fff' : '#0f172a' }}
+                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = ''; e.currentTarget.style.color = isDark ? 'rgb(203,213,225)' : '#475569' }}
+                  onClick={onItemClick}
+                >
+                  {label}
+                </NavLink>
+              )
+            })}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showDivider && <div className="w-px h-4 mx-1 shrink-0 bg-slate-300/80 dark:bg-white/10" />}
+    </div>
+  )
+}
+
+function PageHeaderBar({ page, section, isDark }) {
   const { subtitle, actions } = useContext(PageHeaderCtx)
   if (!page) return null
 
   return (
-    <div className="shrink-0 border-b bg-white/80 border-slate-100 dark:bg-white/3 dark:border-white/6 dark:backdrop-blur-sm flex items-center px-6 gap-2" style={{ height: '44px' }}>
-      <span className="text-[11px] text-slate-400">{section}</span>
-      <span className="text-[11px] text-slate-400 opacity-40">›</span>
-      <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-100">{page}</span>
+    <div
+      className="shrink-0 border-b flex items-center px-6 gap-2"
+      style={{
+        height: '44px',
+        background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.85)',
+        borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgb(241 245 249)',
+        backdropFilter: 'blur(8px)',
+      }}
+    >
+      <span className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>{section}</span>
+      <span className={`text-[11px] opacity-40 ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>›</span>
+      <span className={`text-[13px] font-semibold ${isDark ? 'text-white' : 'text-slate-700'}`}>{page}</span>
       <div className="ml-auto flex items-center gap-4">
-        {subtitle && <span className="text-[11px] text-slate-400 hidden sm:block">{subtitle}</span>}
+        {subtitle && <span className={`text-[11px] hidden sm:block ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>{subtitle}</span>}
         {actions}
       </div>
     </div>
