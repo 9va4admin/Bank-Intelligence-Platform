@@ -1,4 +1,4 @@
-import { useState, useContext } from 'react'
+import { useState, useContext, useRef } from 'react'
 import { NavLink, Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../theme/ThemeContext'
 import { PageHeaderCtx } from './PageHeaderContext'
@@ -78,6 +78,15 @@ export default function AppShell({ children }) {
   const location = useLocation()
   const [openGroup, setOpenGroup] = useState(null)
   const [profileOpen, setProfileOpen] = useState(false)
+  const closeTimer = useRef(null)
+
+  const openNav = (label) => {
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+    setOpenGroup(label)
+  }
+  const closeNav = () => {
+    closeTimer.current = setTimeout(() => setOpenGroup(null), 150)
+  }
   const [section, page] = useBreadcrumb(location.pathname)
 
   const darkGradient = 'linear-gradient(145deg, #020917 0%, #0e1654 38%, #060d2e 65%, #03061a 100%)'
@@ -114,7 +123,7 @@ export default function AppShell({ children }) {
                 <NavLink
                   to={to} end={end}
                   className={({ isActive }) =>
-                    `px-4 py-1.5 text-xs rounded-full transition-all whitespace-nowrap ${isActive ? 'bg-slate-800 text-white shadow-sm dark:bg-white/20 dark:text-white dark:shadow-sm dark:ring-1 dark:ring-white/20' : 'text-slate-500 hover:text-slate-900 hover:bg-white dark:text-slate-200 dark:hover:text-white dark:hover:bg-white/12'}`
+                    `px-4 py-1.5 text-xs rounded-full transition-all whitespace-nowrap ${isActive ? 'bg-slate-800 text-white shadow-sm dark:bg-white/20 dark:text-white dark:shadow-sm dark:ring-1 dark:ring-white/20' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-200 dark:hover:text-white dark:hover:bg-white/15'}`
                   }
                 >
                   {label}
@@ -131,14 +140,14 @@ export default function AppShell({ children }) {
                 <div key={group.label} className="flex items-center">
                   <div
                     className="relative"
-                    onMouseEnter={() => setOpenGroup(group.label)}
-                    onMouseLeave={() => setOpenGroup(null)}
+                    onMouseEnter={() => openNav(group.label)}
+                    onMouseLeave={closeNav}
                   >
                     <button
                       className={`px-4 py-1.5 text-xs rounded-full transition-all whitespace-nowrap flex items-center gap-1.5 ${
                         isGroupActive
                           ? 'bg-slate-800 text-white shadow-sm dark:bg-white/20 dark:text-white dark:shadow-sm dark:ring-1 dark:ring-white/20'
-                          : 'text-slate-500 hover:text-slate-900 hover:bg-white dark:text-slate-200 dark:hover:text-white dark:hover:bg-white/12'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-200 dark:hover:text-white dark:hover:bg-white/15'
                       }`}
                     >
                       {group.label}
@@ -151,7 +160,9 @@ export default function AppShell({ children }) {
                     {isOpen && (
                       <div
                         className="absolute top-full left-1/2 -translate-x-1/2 z-50"
-                        style={{ paddingTop: '6px', minWidth: '190px' }}
+                        onMouseEnter={() => openNav(group.label)}
+                        onMouseLeave={closeNav}
+                        style={{ paddingTop: '8px', minWidth: '190px' }}
                       >
                         <div className="rounded-xl border py-2 bg-white border-slate-200 shadow-2xl shadow-slate-400/30 dark:bg-[#0e1654]/95 dark:backdrop-blur-xl dark:border-white/10 dark:shadow-2xl dark:shadow-black/60">
                           {group.items.map(({ to, label }) => {
