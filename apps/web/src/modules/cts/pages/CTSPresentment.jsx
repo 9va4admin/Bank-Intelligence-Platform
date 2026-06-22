@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
+import { useTheme } from '../../../shared/theme/ThemeContext'
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -93,7 +94,7 @@ function pipelinePos(status) {
 
 function SessionBar({ sessions, activeIdx, onSelect }) {
   const th = {
-    bar:    'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
+    bar:    'bg-white border-slate-200 dark:bg-white/8 dark:border-white/8',
     label:  'text-slate-500 dark:text-slate-400',
   }
   return (
@@ -377,7 +378,7 @@ function OutwardPipelineViz({ item }) {
 
 function DetailPanel({ item }) {
   if (!item) return (
-    <div className={`flex-1 flex items-center justify-center ${'text-slate-300 dark:text-slate-600'} text-sm`}>
+    <div className={`flex-1 flex items-center justify-center ${'text-slate-300 dark:text-slate-500'} text-sm`}>
       Select a cheque to inspect
     </div>
   )

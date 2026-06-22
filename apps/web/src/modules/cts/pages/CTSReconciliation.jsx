@@ -160,11 +160,11 @@ export default function CTSReconciliation() {
 
   const th = {
     page:    'bg-slate-50 dark:bg-transparent',
-    card:    'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
+    card:    'bg-white border-slate-200 dark:bg-white/8 dark:border-white/8',
     heading: 'text-slate-900 dark:text-white',
     body:    'text-slate-700 dark:text-slate-300',
     muted:   'text-slate-500 dark:text-slate-400',
-    faint:   'text-slate-400 dark:text-slate-600',
+    faint:   'text-slate-400 dark:text-slate-500',
     divider: 'border-slate-200 dark:border-white/8',
     row:     'border-slate-100 hover:bg-slate-50 dark:border-white/4 dark:hover:bg-white/2',
     select:  'bg-white border-slate-300 text-slate-900 dark:bg-navy-900 dark:border-white/10 dark:text-white',

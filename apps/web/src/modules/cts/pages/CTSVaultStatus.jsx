@@ -1,5 +1,6 @@
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useTheme } from '../../../shared/theme/ThemeContext'
 
 const VAULT_DATA = [
   { label: 'Signature Vault',  keys: 18_432, hitRate: 99.2, lastSync: '2026-06-19 06:00', status: 'HEALTHY',  redis: 'redis-cts', missAction: 'HUMAN_REVIEW' },
@@ -13,26 +14,28 @@ const RECENT_MISSES = [
 ]
 
 const SYNC_LOG = [
-  { time: '06:00:03', event: 'VaultSyncWorkflow completed', signatures: 18_432, pps: 12_817, duration: '4m 12s', status: 'OK' },
+  { time: '06:00:03',       event: 'VaultSyncWorkflow completed', signatures: 18_432, pps: 12_817, duration: '4m 12s', status: 'OK' },
   { time: 'Yesterday 06:00', event: 'VaultSyncWorkflow completed', signatures: 18_401, pps: 12_790, duration: '4m 08s', status: 'OK' },
 ]
 
 const STATUS_COLOR = { HEALTHY: 'text-emerald-500', DEGRADED: 'text-amber-500', DOWN: 'text-red-500' }
 
 export default function CTSVaultStatus() {
+  const { isDark } = useTheme()
+
   const th = {
-    page:      'bg-slate-50 dark:bg-transparent',
-    card:      'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
-    cardFaint: 'bg-slate-50 border-slate-100 dark:bg-navy-900/40 dark:border-white/5',
-    heading:   'text-slate-900 dark:text-white',
-    body:      'text-slate-700 dark:text-slate-300',
-    muted:     'text-slate-500 dark:text-slate-400',
-    faint:     'text-slate-400 dark:text-slate-600',
-    divider:   'border-slate-200 dark:border-white/8',
-    dividerSm: 'border-slate-100 dark:border-white/5',
-    row:       'border-slate-100 hover:bg-slate-50 dark:border-white/4 dark:hover:bg-white/2',
-    thCell:    'text-slate-400 dark:text-slate-600',
-    redis:     'text-slate-400 dark:text-slate-600',
+    page:    isDark ? 'text-white'                                          : 'bg-slate-50 text-slate-900',
+    card:    isDark ? 'bg-white/5 border-white/8'                          : 'bg-white border-slate-200',
+    heading: isDark ? 'text-white'                                          : 'text-slate-900',
+    body:    isDark ? 'text-slate-300'                                      : 'text-slate-700',
+    muted:   isDark ? 'text-slate-400'                                      : 'text-slate-500',
+    faint:   isDark ? 'text-slate-500'                                      : 'text-slate-400',
+    divider: isDark ? 'border-white/8'                                      : 'border-slate-200',
+    dividerSm: isDark ? 'border-white/5'                                    : 'border-slate-100',
+    row:     isDark ? 'border-white/5 hover:bg-white/3'                     : 'border-slate-100 hover:bg-slate-50',
+    redis:   isDark ? 'text-slate-500'                                      : 'text-slate-400',
+    statVal: isDark ? 'text-slate-200'                                      : 'text-slate-800',
+    thCell:  isDark ? 'text-slate-500'                                      : 'text-slate-400',
   }
 
   usePageHeader({ subtitle: 'Signature Vault · PPS Vault · VaultSyncWorkflow' })
@@ -50,10 +53,10 @@ export default function CTSVaultStatus() {
                 <span className={`text-xs font-semibold ${STATUS_COLOR[v.status]}`}>{v.status}</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Stat label="Keys loaded" value={v.keys.toLocaleString()} />
-                <Stat label="Hit rate" value={`${v.hitRate}%`} highlight />
-                <Stat label="Last sync" value={v.lastSync} />
-                <Stat label="Miss action" value={v.missAction} warn />
+                <Stat label="Keys loaded"  value={v.keys.toLocaleString()} statVal={th.statVal} muted={th.muted} />
+                <Stat label="Hit rate"     value={`${v.hitRate}%`}         statVal="text-emerald-500" muted={th.muted} />
+                <Stat label="Last sync"    value={v.lastSync}              statVal={th.statVal} muted={th.muted} />
+                <Stat label="Miss action"  value={v.missAction}            statVal="text-amber-500"   muted={th.muted} />
               </div>
               <div className={`mt-3 text-[10px] ${th.redis}`}>Redis cluster: {v.redis}</div>
             </div>
@@ -115,14 +118,11 @@ export default function CTSVaultStatus() {
   )
 }
 
-function Stat({ label, value, highlight, warn }) {
-  const labelCls = 'text-slate-400 dark:text-slate-600'
+function Stat({ label, value, statVal, muted }) {
   return (
     <div>
-      <div className={`text-[10px] ${labelCls} mb-0.5`}>{label}</div>
-      <div className={`text-sm font-semibold ${highlight ? 'text-emerald-500' : warn ? 'text-amber-500' : 'text-slate-800 dark:text-slate-200'}`}>
-        {value}
-      </div>
+      <div className={`text-[10px] ${muted} mb-0.5`}>{label}</div>
+      <div className={`text-sm font-semibold ${statVal}`}>{value}</div>
     </div>
   )
 }
