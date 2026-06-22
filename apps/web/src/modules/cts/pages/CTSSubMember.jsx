@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
+import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
 const SUB_MEMBERS = [
@@ -252,7 +253,7 @@ export default function CTSSubMember() {
 
   const th = {
     page:    'bg-slate-50 text-slate-900 dark:bg-navy-950 dark:text-white',
-    card:    'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
+    card:    'bg-white border-slate-200 dark:bg-white/8 dark:border-white/8',
     heading: 'text-slate-900 dark:text-white',
     body:    'text-slate-700 dark:text-slate-300',
     muted:   'text-slate-500 dark:text-slate-400',

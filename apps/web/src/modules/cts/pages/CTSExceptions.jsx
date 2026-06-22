@@ -7,6 +7,7 @@
  */
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
+import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { MOCK_QUEUE } from '../data/mockQueue'
 
@@ -211,7 +212,7 @@ export default function CTSExceptions() {
 
   const th = {
     page:    'bg-slate-50 dark:bg-transparent',
-    card:    'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
+    card:    'bg-white border-slate-200 dark:bg-white/8 dark:border-white/8',
     heading: 'text-slate-900 dark:text-white',
     body:    'text-slate-700 dark:text-slate-300',
     muted:   'text-slate-500 dark:text-slate-400',
