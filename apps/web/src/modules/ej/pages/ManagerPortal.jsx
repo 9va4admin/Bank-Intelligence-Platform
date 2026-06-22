@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import EJShell from '../layout/EJShell'
-import { useTheme } from '../../../shared/theme/ThemeContext'
 import {
   Bell, Mail, MessageSquare, Calendar, ChevronRight,
   ShieldCheck, Users, MapPin, Building2, Globe, Eye,
@@ -162,8 +161,6 @@ export default function ManagerPortal() {
   const [sentDemo, setSentDemo] = useState(false)
 
   const pg   = 'bg-slate-50 text-slate-900 dark:bg-[#020817] dark:text-white'
-  const nav  = 'border-slate-200 bg-white dark:border-white/5 dark:bg-black/30'
-  const nlnk = 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
   const card = 'bg-white border-slate-200 dark:bg-white/5 dark:border-white/5'
   const row  = 'bg-slate-50 border-slate-100 dark:bg-white/5 dark:border-white/5'
   const h2   = 'text-slate-700 dark:text-slate-300'
@@ -214,21 +211,6 @@ export default function ManagerPortal() {
 
   return (
     <EJShell><div className={`min-h-full flex flex-col ${pg}`}>
-      {/* Top nav */}
-      <nav className={`flex items-center justify-between px-6 py-3 border-b ${nav}`}>
-        <Link to="/" className={`text-xs flex items-center gap-1 ${nlnk}`}>
-          ← ASTRA Platform
-        </Link>
-        <div className="flex items-center gap-1 text-xs">
-          <Link to="/ej" className={`px-3 py-1.5 rounded ${nlnk}`}>Command Center</Link>
-          <Link to="/ej/incidents" className={`px-3 py-1.5 rounded ${nlnk}`}>Incidents</Link>
-          <span className="px-3 py-1.5 rounded bg-violet-600/20 text-violet-500 font-medium border border-violet-500/30">Manager Portal</span>
-          <Link to="/ej/bre" className={`px-3 py-1.5 rounded ${nlnk}`}>BRE Policy</Link>
-          <Link to="/ej/notifications" className={`px-3 py-1.5 rounded ${nlnk}`}>Notifications</Link>
-        </div>
-        <span />
-      </nav>
-
       <div className="flex-1 max-w-7xl w-full mx-auto px-6 py-6 space-y-6">
         <div>
           <h1 className={`text-xl font-bold flex items-center gap-2 ${h1}`}>
