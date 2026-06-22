@@ -5,7 +5,7 @@ export default function BatchStats({ stats }) {
   const meta    = 'text-slate-400 dark:text-slate-500'
   const bar     = 'bg-slate-100 dark:bg-white/5'
   const lbl     = 'text-slate-400 dark:text-slate-500'
-  const wrapper = 'border-slate-200 bg-white dark:border-white/8 dark:bg-navy-900/60'
+  const wrapper = 'border-slate-200 bg-white dark:border-white/10 dark:bg-navy-900/60'
 
   const tiles = [
     { label: 'Inward',    value: stats.total_inward,          color: heading },

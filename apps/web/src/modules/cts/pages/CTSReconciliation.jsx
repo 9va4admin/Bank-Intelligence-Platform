@@ -160,13 +160,13 @@ export default function CTSReconciliation() {
 
   const th = {
     page:    'bg-slate-50 dark:bg-transparent',
-    card:    'bg-white border-slate-200 dark:bg-white/8 dark:border-white/8',
+    card:    'bg-white border-slate-200 dark:bg-white/10 dark:border-white/10',
     heading: 'text-slate-900 dark:text-white',
     body:    'text-slate-700 dark:text-slate-300',
     muted:   'text-slate-500 dark:text-slate-400',
     faint:   'text-slate-400 dark:text-slate-500',
-    divider: 'border-slate-200 dark:border-white/8',
-    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/4 dark:hover:bg-white/2',
+    divider: 'border-slate-200 dark:border-white/10',
+    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/5',
     select:  'bg-white border-slate-300 text-slate-900 dark:bg-navy-900 dark:border-white/10 dark:text-white',
     mono:    'text-slate-600 font-mono text-xs dark:text-slate-300 dark:font-mono dark:text-xs',
   }
@@ -385,7 +385,7 @@ export default function CTSReconciliation() {
                       { label: 'Fraud Hld',value: smb.fraud_hold,     color: 'text-orange-400' },
                       { label: 'IET Emrg', value: smb.iet_emergency,  color: smb.iet_emergency > 0 ? 'text-red-400' : th.faint },
                     ].map(b => (
-                      <div key={b.label} className={`rounded-lg px-3 py-2 ${'bg-slate-50 dark:bg-white/3'}`}>
+                      <div key={b.label} className={`rounded-lg px-3 py-2 ${'bg-slate-50 dark:bg-white/5'}`}>
                         <div className={`text-[9px] ${th.faint} mb-1`}>{b.label}</div>
                         <div className={`text-lg font-bold ${b.color}`}>{b.value}</div>
                       </div>

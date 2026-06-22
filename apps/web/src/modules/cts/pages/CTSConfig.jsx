@@ -32,16 +32,16 @@ export default function CTSConfig() {
 
   const th = {
     page:      'bg-slate-50 dark:bg-transparent',
-    card:      'bg-white border-slate-200 dark:bg-white/8 dark:border-white/8',
+    card:      'bg-white border-slate-200 dark:bg-white/10 dark:border-white/10',
     cardFaint: 'bg-slate-50 border-slate-100 dark:bg-navy-900/40 dark:border-white/5',
     heading:   'text-slate-900 dark:text-white',
     body:      'text-slate-700 dark:text-slate-400',
     faint:     'text-slate-400 dark:text-slate-500',
-    meta:      'bg-slate-100 text-slate-500 dark:bg-white/8 dark:text-slate-500',
+    meta:      'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-500',
     input:     'bg-slate-50 border-slate-300 text-slate-900 focus:border-amber-500 dark:bg-white/5 dark:border-white/10 dark:text-white dark:focus:border-amber-400/50',
     btn:       'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-gold-400/10 dark:text-gold-400 dark:hover:bg-gold-400/20',
     l1label:   'text-slate-400 dark:text-slate-500',
-    l1val:     'bg-slate-100 text-slate-500 dark:bg-white/8 dark:text-slate-500',
+    l1val:     'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-500',
   }
 
   usePageHeader({

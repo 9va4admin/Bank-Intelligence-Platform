@@ -39,7 +39,7 @@ export default function CTSAnalytics() {
 
   const th = {
     page:     'bg-slate-50 dark:bg-transparent',
-    card:     'bg-white border-slate-200 dark:bg-white/8 dark:border-white/8',
+    card:     'bg-white border-slate-200 dark:bg-white/10 dark:border-white/10',
     heading:  'text-slate-900 dark:text-white',
     faint:    'text-slate-400 dark:text-slate-500',
     muted:    'text-slate-500 dark:text-slate-400',

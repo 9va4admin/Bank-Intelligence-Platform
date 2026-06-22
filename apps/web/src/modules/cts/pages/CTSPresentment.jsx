@@ -94,7 +94,7 @@ function pipelinePos(status) {
 
 function SessionBar({ sessions, activeIdx, onSelect }) {
   const th = {
-    bar:    'bg-white border-slate-200 dark:bg-white/8 dark:border-white/8',
+    bar:    'bg-white border-slate-200 dark:bg-white/10 dark:border-white/10',
     label:  'text-slate-500 dark:text-slate-400',
   }
   return (
@@ -108,7 +108,7 @@ function SessionBar({ sessions, activeIdx, onSelect }) {
             className={`flex items-center gap-1.5 px-3 py-1 rounded-lg border text-[11px] transition-all ${
               active
                 ? 'border-amber-400/60 bg-amber-50 text-amber-700 font-semibold dark:border-gold-400/50 dark:bg-gold-400/10 dark:text-gold-400 dark:font-semibold'
-                : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:border-white/8 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:border-white/20'
+                : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:border-white/10 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:border-white/20'
             }`}>
             {isLive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
             <span className="font-mono">{s.window}</span>
@@ -137,7 +137,7 @@ function KpiStrip({ batch, filterStatus, onFilter }) {
   const dateInvalid = batch.filter(b => b.date_valid === false).length
 
   const th = {
-    card:    'bg-white border-slate-200 dark:bg-navy-900/50 dark:border-white/8',
+    card:    'bg-white border-slate-200 dark:bg-navy-900/50 dark:border-white/10',
     cardAct: 'bg-amber-50 border-amber-300 dark:bg-gold-400/10 dark:border-gold-400/40',
     lbl:     'text-slate-400 dark:text-slate-500',
   }
@@ -154,7 +154,7 @@ function KpiStrip({ batch, filterStatus, onFilter }) {
   ]
 
   return (
-    <div className={`shrink-0 border-b ${'border-slate-200 dark:border-white/8'} px-5 py-3`}>
+    <div className={`shrink-0 border-b ${'border-slate-200 dark:border-white/10'} px-5 py-3`}>
       <div className="flex gap-4 overflow-x-auto">
         {tiles.map(t => {
           const active = filterStatus === t.key
@@ -181,13 +181,13 @@ function PipelineLane({ batch }) {
   const total = batch.length || 1
 
   const th = {
-    card:  'bg-white border-slate-200 dark:bg-navy-900/50 dark:border-white/8',
+    card:  'bg-white border-slate-200 dark:bg-navy-900/50 dark:border-white/10',
     lbl:   'text-slate-400 dark:text-slate-500',
     bar:   'bg-slate-100 dark:bg-white/5',
   }
 
   return (
-    <div className={`shrink-0 border-b ${'border-slate-200 dark:border-white/8'} px-5 py-3`}>
+    <div className={`shrink-0 border-b ${'border-slate-200 dark:border-white/10'} px-5 py-3`}>
       <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>Outward Pipeline — Current Session</div>
       <div className="flex gap-2 items-end">
         {PIPELINE_STEPS.map((step, i) => {
@@ -216,7 +216,7 @@ function BatchRow({ item, selected, onClick }) {
   const th = {
     row:  selected
       ? 'bg-amber-50 border-amber-300 dark:bg-gold-400/8 dark:border-gold-400/30'
-      : 'border-slate-100 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/2',
+      : 'border-slate-100 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/5',
     id:   'text-amber-600 dark:text-gold-400',
     meta: 'text-slate-500 dark:text-slate-400',
     muted:'text-slate-400 dark:text-slate-500',
@@ -387,12 +387,12 @@ function DetailPanel({ item }) {
 
   const th = {
     page:    'bg-slate-50 dark:bg-transparent',
-    card:    'bg-white border-slate-200 dark:bg-navy-900/50 dark:border-white/8',
+    card:    'bg-white border-slate-200 dark:bg-navy-900/50 dark:border-white/10',
     heading: 'text-slate-900 dark:text-white',
     body:    'text-slate-700 dark:text-slate-300',
     muted:   'text-slate-500 dark:text-slate-400',
     lbl:     'text-slate-400 dark:text-slate-500',
-    divider: 'border-slate-200 dark:border-white/8',
+    divider: 'border-slate-200 dark:border-white/10',
     id:      'text-amber-600 dark:text-gold-400',
     bar:     'bg-slate-100 dark:bg-white/5',
   }
@@ -573,7 +573,7 @@ export default function CTSPresentment() {
 
   const th = {
     page:    'bg-slate-50 dark:bg-transparent',
-    divider: 'border-slate-200 dark:border-white/8',
+    divider: 'border-slate-200 dark:border-white/10',
     heading: 'text-slate-900 dark:text-white',
     muted:   'text-slate-500 dark:text-slate-400',
     lbl:     'text-slate-400 dark:text-slate-500',

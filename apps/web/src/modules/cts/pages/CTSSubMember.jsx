@@ -149,8 +149,8 @@ function DetailPanel({ smb, onClose }) {
     heading: 'text-slate-900 dark:text-white',
     label:   'text-slate-500 dark:text-slate-400',
     value:   'text-slate-700 dark:text-slate-200',
-    divider: 'border-slate-100 dark:border-white/8',
-    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/2',
+    divider: 'border-slate-100 dark:border-white/10',
+    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/5',
   }
 
   const rate = smb.stp_return / smb.total
@@ -253,13 +253,13 @@ export default function CTSSubMember() {
 
   const th = {
     page:    'bg-slate-50 text-slate-900 dark:bg-navy-950 dark:text-white',
-    card:    'bg-white border-slate-200 dark:bg-white/8 dark:border-white/8',
+    card:    'bg-white border-slate-200 dark:bg-white/10 dark:border-white/10',
     heading: 'text-slate-900 dark:text-white',
     body:    'text-slate-700 dark:text-slate-300',
     muted:   'text-slate-500 dark:text-slate-400',
     label:   'text-slate-400 dark:text-slate-500',
-    divider: 'border-slate-200 dark:border-white/8',
-    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/3',
+    divider: 'border-slate-200 dark:border-white/10',
+    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/5',
     kpi:     'bg-white border-slate-200 dark:bg-navy-900/70 dark:border-white/6',
   }
 

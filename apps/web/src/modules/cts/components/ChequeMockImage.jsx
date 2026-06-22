@@ -1,5 +1,5 @@
 export default function ChequeMockImage({ fields, alterations }) {
-  const wrap   = 'border-slate-200 bg-slate-50 dark:border-white/8 dark:bg-white/3'
+  const wrap   = 'border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5'
   const bank   = 'text-slate-800 dark:text-slate-300'
   const sub    = 'text-slate-500 dark:text-slate-600'
   const dateBx = 'border-slate-300 text-slate-700 dark:border-white/10 dark:text-slate-300'
@@ -11,7 +11,7 @@ export default function ChequeMockImage({ fields, alterations }) {
   const micrTx = 'text-slate-400 dark:text-slate-600'
   const wmark  = 'text-slate-200 dark:text-white/3'
   const divDash= 'border-slate-200 dark:border-white/10'
-  const micrBd = 'border-slate-200 dark:border-white/8'
+  const micrBd = 'border-slate-200 dark:border-white/10'
 
   return (
     <div className={`rounded-xl border ${wrap} p-5 font-mono text-xs relative overflow-hidden`}>
