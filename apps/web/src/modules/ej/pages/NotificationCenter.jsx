@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import EJShell from '../layout/EJShell'
-import { Bell, Monitor, MessageSquare, Mail, Lock, CheckCircle2, AlertCircle, Clock, Activity, ChevronRight } from 'lucide-react'
+import { Bell, Monitor, MessageSquare, Mail, Lock, CheckCircle2, AlertCircle, ChevronRight } from 'lucide-react'
 import { BRE_RULES } from '../hooks/useBRERules'
 
 const ROLES_ORDER = ['branch_manager','zonal_manager','regional_head','national_head','ops_reviewer','compliance_officer']
@@ -307,18 +306,6 @@ export default function NotificationCenter() {
 
   return (
     <EJShell><div className={`flex flex-col ${th.pg}`}>
-      <nav className={`flex items-center justify-between px-6 py-3 border-b ${th.nav}`}>
-        <Link to="/" className={`text-xs ${th.nlnk}`}>← ASTRA Platform</Link>
-        <div className="flex items-center gap-1 text-xs flex-wrap justify-center">
-          <Link to="/ej" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Command Center</Link>
-          <Link to="/ej/incidents" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Incidents</Link>
-          <Link to="/ej/portal" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Manager Portal</Link>
-          <Link to="/ej/bre" className={`px-3 py-1.5 rounded ${th.nlnk}`}>BRE Policy</Link>
-          <span className="px-3 py-1.5 rounded bg-violet-600/20 text-violet-300 font-medium border border-violet-500/30">Notifications</span>
-        </div>
-        <span />
-      </nav>
-
       <div className="max-w-7xl w-full mx-auto px-6 py-6 flex-1 space-y-6">
         <div>
           <h1 className={`text-xl font-bold flex items-center gap-2 ${th.h1}`}><Bell size={20} className="text-violet-400"/> Notification Center</h1>

@@ -1,8 +1,6 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import EJShell from '../layout/EJShell'
-import { useTheme } from '../../../shared/theme/ThemeContext'
-import { Shield, CheckCircle2, XCircle, Lock, Monitor, MessageSquare, Mail, ChevronRight, AlertTriangle, Clock, FileText, Users } from 'lucide-react'
+import { Shield, CheckCircle2, XCircle, Lock, Monitor, MessageSquare, Mail, AlertTriangle, Clock, FileText, Users } from 'lucide-react'
 import { useBRERules } from '../hooks/useBRERules'
 
 const ROLES = [
@@ -179,8 +177,6 @@ export default function BREPolicyManager() {
     detail:  'bg-white border-slate-200 dark:bg-white/5 dark:border-white/5',
   }
 
-  const role = ROLES.find(r => r.id === activeRole)
-
   const visibleRules = rules.filter(r => {
     if (activeRole === 'branch_manager' && !r.notify_roles.includes('branch_manager')) return false
     if (catFilter !== 'All' && r.category !== catFilter) return false
@@ -192,18 +188,6 @@ export default function BREPolicyManager() {
 
   return (
     <EJShell><div className={`flex flex-col ${th.pg}`}>
-      <nav className={`flex items-center justify-between px-6 py-3 border-b ${th.nav}`}>
-        <Link to="/" className={`text-xs ${th.nlnk}`}>← ASTRA Platform</Link>
-        <div className="flex items-center gap-1 text-xs flex-wrap justify-center">
-          <Link to="/ej" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Command Center</Link>
-          <Link to="/ej/incidents" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Incidents</Link>
-          <Link to="/ej/portal" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Manager Portal</Link>
-          <span className="px-3 py-1.5 rounded bg-violet-600/20 text-violet-300 font-medium border border-violet-500/30">BRE Policy</span>
-          <Link to="/ej/notifications" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Notifications</Link>
-        </div>
-        <span />
-      </nav>
-
       <div className="max-w-7xl w-full mx-auto px-6 py-4 space-y-4 flex-1 flex flex-col">
         <div className="flex items-center justify-between">
           <div>

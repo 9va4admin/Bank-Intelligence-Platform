@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
 import EJShell from '../layout/EJShell'
 
 const MOCK_INCIDENTS = [
@@ -191,7 +190,7 @@ export default function IncidentManagement() {
     open:     incidents.filter(i => i.status === 'OPEN').length,
     inProg:   incidents.filter(i => i.status === 'IN_PROGRESS').length,
     resolved: incidents.filter(i => ['RESOLVED','CLOSED'].includes(i.status)).length,
-    breached: incidents.filter(i => !['RESOLVED','CLOSED'].includes(i.status) && new Date(i.sla_breach_at) < Date.now()).length,
+    breached: incidents.filter(i => !['RESOLVED','CLOSED'].includes(i.status) && new Date(i.sla_breach_at) < new Date()).length,
   }
 
   const summaryCards = [
@@ -204,12 +203,6 @@ export default function IncidentManagement() {
   return (
     <EJShell>
       <div className={`min-h-full ${th.page}`}>
-        <div className={`${th.nav} px-6 py-2 flex items-center gap-6`}>
-          <Link to="/ej" className={`text-xs ${th.navLink}`}>← EJ Dashboard</Link>
-          <span className={`text-xs ${th.navAct}`}>Incident Management</span>
-          <Link to="/ej/portal" className={`text-xs ${th.navLink}`}>Manager Portal</Link>
-        </div>
-
         <div className="px-6 py-4 space-y-4">
           <div className="flex items-center justify-between">
             <div>
