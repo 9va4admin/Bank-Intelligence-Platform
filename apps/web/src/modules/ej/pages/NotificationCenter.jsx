@@ -294,7 +294,7 @@ export default function NotificationCenter() {
   const [tab, setTab] = useState('matrix')
 
   const th = {
-    pg:   'bg-slate-50 text-slate-900 dark:bg-[#020817] dark:text-white',
+    pg:   'bg-transparent text-slate-900 dark:text-white',
     nav:  'border-slate-200 bg-white dark:border-white/5 dark:bg-black/30',
     nlnk: 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
     h1:   'text-slate-900 dark:text-white',
