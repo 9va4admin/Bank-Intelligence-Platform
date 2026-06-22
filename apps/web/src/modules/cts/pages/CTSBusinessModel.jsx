@@ -255,35 +255,38 @@ export default function CTSBusinessModel() {
     setVolumeLakhs(TIER_DEFAULTS[t])
   }
 
-  // 3-year projection data
+  // 3-year vendor P&L projection data (vendor revenue from bank portfolio vs vendor costs)
+  // Assumes a growing bank portfolio: Y1=3 banks, Y2=8 banks, Y3=15 banks
+  const BANK_PORTFOLIO = { 1: 3, 2: 8, 3: 15 }
   const projData = [1, 2, 3].map(y => {
     const r = calcRevenue(volumeLakhs, pricingModel, y)
+    const c = calcCosts(y)
+    const banks = BANK_PORTFOLIO[y]
+    const totalRev = r.total * banks
+    const totalCost = c.total + banks * PER_BANK_ONBOARDING  // fixed vendor costs + onboarding
     return {
-      name: `Year ${y}`,
-      'Per-Cheque': parseFloat(r.perChequeRevLakhs.toFixed(1)),
-      Platform:     parseFloat(r.platformRevLakhs.toFixed(1)),
-      Services:     parseFloat((r.managedAI + r.support + r.implAmortised).toFixed(1)),
+      name: `Year ${y} (${banks} banks)`,
+      Revenue:  parseFloat(totalRev.toFixed(1)),
+      'Vendor Costs': parseFloat(totalCost.toFixed(1)),
+      'Net Profit': parseFloat((totalRev - totalCost).toFixed(1)),
     }
   })
 
-  // Unit economics per 1000 cheques
-  const revPer1k = ((model.rev.total / (volumeLakhs * 100000 * Math.pow(1.2, year - 1))) * 1000)
-  const infraPer1k = ((model.cost.gpu + model.cost.k8s) / (volumeLakhs * 100000 * Math.pow(1.2, year - 1)) * 100000 / 100000 * 1000) * (100000 / 100000)
-  // simpler: cost per 1k
+  // Unit economics per bank — how much of vendor cost does one bank need to cover?
   const adjVol = volumeLakhs * 100000 * Math.pow(1.2, year - 1)
-  const infraC = ((42 + 22) / adjVol) * 1000 * 100000
-  const aiC    = (15 / adjVol) * 1000 * 100000
-  const teamC  = ((36 + 9) / adjVol) * 1000 * 100000
-  const varC   = VAR_COST_PER_CHEQUE_RS * 1000
-  const revU   = (model.rev.total / adjVol) * 1000 * 100000
-  const profU  = revU - infraC - aiC - teamC - varC
+  const teamC    = (model.cost.engineering / model.rev.total) * model.rev.total
+  const salesC   = (model.cost.salesMarketing / model.rev.total) * model.rev.total
+  const cloudC   = (model.cost.cloud / model.rev.total) * model.rev.total
+  const officeC  = ((model.cost.office + model.cost.compliance) / model.rev.total) * model.rev.total
+  const revU     = model.rev.total
+  const profU    = model.grossProfit
 
   const unitData = [
-    { name: 'Revenue /1k', value: parseFloat(revU.toFixed(2)), fill: CHART_COLORS.revenue },
-    { name: 'Infra Cost', value: -parseFloat(infraC.toFixed(2)), fill: CHART_COLORS.infra },
-    { name: 'AI Inference', value: -parseFloat(aiC.toFixed(2)), fill: '#fb923c' },
-    { name: 'Team Alloc', value: -parseFloat(teamC.toFixed(2)), fill: '#ef4444' },
-    { name: 'Gross Profit', value: parseFloat(profU.toFixed(2)), fill: CHART_COLORS.profit },
+    { name: 'Revenue /bank', value: parseFloat(revU.toFixed(1)), fill: CHART_COLORS.revenue },
+    { name: 'Engineering', value: -parseFloat(model.cost.engineering.toFixed(1)), fill: '#f59e0b' },
+    { name: 'Sales & Mktg', value: -parseFloat(model.cost.salesMarketing.toFixed(1)), fill: '#f87171' },
+    { name: 'Cloud+Office', value: -parseFloat((model.cost.cloud + model.cost.office + model.cost.compliance).toFixed(1)), fill: '#60a5fa' },
+    { name: 'Gross Profit', value: parseFloat(profU.toFixed(1)), fill: CHART_COLORS.profit },
   ]
 
   const marginColor = model.grossMarginPct >= 70 ? 'text-emerald-400'
@@ -365,9 +368,9 @@ export default function CTSBusinessModel() {
         {/* ── KPI Row ── */}
         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4">
           <KpiCard
-            label="ARR" isDark={isDark}
+            label="ARR / Bank" isDark={isDark}
             value={fmtRs(model.arr)} color="text-emerald-400"
-            sub="Annual recurring revenue"
+            sub="Annual recurring revenue per bank"
           />
           <KpiCard
             label="Impl. Fee (1-time)" isDark={isDark}
@@ -375,20 +378,20 @@ export default function CTSBusinessModel() {
             sub={`÷3 = ${fmtRs(IMPL_FEE / 3)}/yr amortised`}
           />
           <KpiCard
-            label="Total Cost" isDark={isDark}
+            label="Vendor Fixed Cost" isDark={isDark}
             value={fmtRs(model.cost.total)} color="text-amber-400"
-            sub={`Fixed ${fmtRs(FIXED_COST_BASE)} + Var ${fmtRs(model.cost.variable)}`}
+            sub={`${fmtRs(VENDOR_FIXED_ANNUAL)}L/yr total (team+S&M+cloud+office)`}
           />
           <KpiCard
             label="Gross Margin" isDark={isDark}
             value={`${model.grossMarginPct.toFixed(1)}%`} color={marginColor}
-            sub={`Profit ${fmtRs(model.grossProfit)}`}
+            sub={`No infra COGS — banks own all hardware`}
           />
           <KpiCard
-            label="Break-even Vol" isDark={isDark}
-            value={model.breakEvenLakhs > 0 && isFinite(model.breakEvenLakhs) ? fmtVol(parseFloat(model.breakEvenLakhs.toFixed(0))) : '—'}
+            label="Banks to Break Even" isDark={isDark}
+            value={isFinite(model.banksToBreakeven) ? `${model.banksToBreakeven} banks` : '—'}
             color="text-violet-400"
-            sub="Cheques/yr to cover costs"
+            sub={`@ ${fmtRs(model.arr)} ARR/bank`}
           />
         </div>
 
@@ -475,38 +478,26 @@ export default function CTSBusinessModel() {
               </table>
             </div>
 
-            {/* 3b. 3-Year Revenue Projection */}
+            {/* 3b. 3-Year Vendor P&L Projection */}
             <div className={`${th.card} border rounded-xl p-5`}>
-              <SectionHeader title="3-Year Revenue Projection (20% YoY Volume Growth)" isDark={isDark} />
+              <SectionHeader title="3-Year Vendor P&L — Bank Portfolio Growth (Y1: 3 banks → Y2: 8 → Y3: 15)" isDark={isDark} />
               <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={projData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                  <defs>
-                    {[
-                      ['rev', CHART_COLORS.revenue],
-                      ['plat', CHART_COLORS.platform],
-                      ['svc', CHART_COLORS.services],
-                    ].map(([id, color]) => (
-                      <linearGradient key={id} id={`grad-${id}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={color} stopOpacity={0.3} />
-                        <stop offset="95%" stopColor={color} stopOpacity={0.05} />
-                      </linearGradient>
-                    ))}
-                  </defs>
+                <BarChart data={projData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9'} />
-                  <XAxis dataKey="name" tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v}L`} width={55} />
+                  <XAxis dataKey="name" tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v}L`} width={60} />
                   <Tooltip contentStyle={tooltipStyle} formatter={(v, n) => [`₹${v}L`, n]} />
                   <Legend wrapperStyle={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b' }} />
-                  <Area type="monotone" dataKey="Per-Cheque" stackId="1" stroke={CHART_COLORS.revenue} fill={`url(#grad-rev)`} strokeWidth={2} />
-                  <Area type="monotone" dataKey="Platform" stackId="1" stroke={CHART_COLORS.platform} fill={`url(#grad-plat)`} strokeWidth={2} />
-                  <Area type="monotone" dataKey="Services" stackId="1" stroke={CHART_COLORS.services} fill={`url(#grad-svc)`} strokeWidth={2} />
-                </AreaChart>
+                  <Bar dataKey="Revenue" fill={CHART_COLORS.revenue} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Vendor Costs" fill={CHART_COLORS.cost} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Net Profit" fill={CHART_COLORS.profit} radius={[4, 4, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             </div>
 
             {/* 3c. Unit Economics */}
             <div className={`${th.card} border rounded-xl p-5`}>
-              <SectionHeader title="Unit Economics — Per 1,000 Cheques Processed (₹)" isDark={isDark} />
+              <SectionHeader title="Unit Economics — Per Bank Revenue vs Vendor Cost Allocation (₹L)" isDark={isDark} />
               <ResponsiveContainer width="100%" height={180}>
                 <BarChart data={unitData} layout="vertical" margin={{ top: 0, right: 30, left: 90, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9'} />
@@ -526,31 +517,64 @@ export default function CTSBusinessModel() {
 
             {/* 3d. Cost Structure */}
             <div className={`${th.card} border rounded-xl p-5`}>
-              <SectionHeader title={`Cost Structure — ${fmtRs(model.cost.total)}/yr Total`} isDark={isDark} />
+              <SectionHeader title={`ASTRA Vendor Costs — ${fmtRs(model.cost.total)}/yr (Year ${year})`} isDark={isDark} />
+              <div className={`text-xs ${th.muted} mb-3`}>Banks own all infra. Zero COGS per deployment. ~88% gross margin.</div>
               <div className="space-y-2.5 mb-4">
                 {COST_SLICES.map(s => {
-                  const varPct = s.label === 'AI Model Ops' ? (model.cost.variable / model.cost.total * 100) : 0
-                  const effectivePct = varPct > 0 ? varPct + s.pct : s.pct
+                  const lakhs = model.cost[s.key] ?? 0
+                  const effectivePct = model.cost.total > 0 ? (lakhs / model.cost.total * 100) : s.pct
                   return (
                     <div key={s.label}>
                       <div className="flex justify-between items-center mb-1">
                         <span className={`text-xs font-medium ${th.body}`}>{s.label}</span>
                         <div className="flex items-center gap-2">
-                          <span className={`text-xs font-mono ${th.muted}`}>{fmtRs(s.lakhs + (s.label === 'AI Model Ops' ? model.cost.variable : 0))}</span>
-                          <span className="text-xs font-semibold" style={{ color: s.color }}>{s.pct}%</span>
+                          <span className={`text-xs font-mono ${th.muted}`}>{fmtRs(lakhs)}</span>
+                          <span className="text-xs font-semibold" style={{ color: s.color }}>{effectivePct.toFixed(0)}%</span>
                         </div>
                       </div>
                       <div className={`w-full h-2 rounded-full ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
-                        <div className="h-2 rounded-full transition-all" style={{ width: `${s.pct}%`, backgroundColor: s.color }} />
+                        <div className="h-2 rounded-full transition-all" style={{ width: `${effectivePct}%`, backgroundColor: s.color }} />
                       </div>
                     </div>
                   )
                 })}
               </div>
               <div className={`pt-3 border-t ${th.divider} flex items-center justify-between`}>
-                <span className={`text-xs ${th.muted}`}>Variable (AI inference compute)</span>
-                <span className="text-xs font-semibold text-orange-400 font-mono">{fmtRs(model.cost.variable)} this vol</span>
+                <span className={`text-xs ${th.muted}`}>Per-bank onboarding (variable, one-time)</span>
+                <span className="text-xs font-semibold text-orange-400 font-mono">{fmtRs(PER_BANK_ONBOARDING)} / bank</span>
               </div>
+            </div>
+
+            {/* 3d2. Bank Portfolio Scale */}
+            <div className={`${th.card} border rounded-xl p-5`}>
+              <SectionHeader title="Bank Portfolio — Revenue &amp; Break-Even at Scale" isDark={isDark} />
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className={`${th.thead} text-left`}>
+                    {['Banks', 'Portfolio Rev/yr', 'Vendor Cost/yr', 'Net Profit', 'Margin'].map(h => (
+                      <th key={h} className="pb-2 pr-2 font-semibold uppercase tracking-wide">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[5, 10, 20, 50].map(banks => {
+                    const portfolioRev = model.arr * banks
+                    const vendorCost = model.cost.total + banks * PER_BANK_ONBOARDING
+                    const net = portfolioRev - vendorCost
+                    const margin = portfolioRev > 0 ? (net / portfolioRev * 100) : 0
+                    const isBreakEven = banks >= model.banksToBreakeven
+                    return (
+                      <tr key={banks} className={`border-t ${th.row} ${isBreakEven && banks === Math.ceil(model.banksToBreakeven) ? (isDark ? 'bg-emerald-900/10' : 'bg-emerald-50') : ''}`}>
+                        <td className={`py-2 pr-2 font-bold ${th.heading}`}>{banks}</td>
+                        <td className="py-2 pr-2 text-emerald-400 font-mono font-semibold">{fmtRs(portfolioRev)}</td>
+                        <td className={`py-2 pr-2 text-amber-400 font-mono`}>{fmtRs(vendorCost)}</td>
+                        <td className={`py-2 pr-2 font-mono font-semibold ${net >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{net >= 0 ? '+' : ''}{fmtRs(net)}</td>
+                        <td className={`py-2 font-semibold ${margin >= 60 ? 'text-emerald-400' : margin >= 30 ? 'text-amber-400' : 'text-red-400'}`}>{margin.toFixed(0)}%</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
 
             {/* 3e. Bank ROI Panel */}
