@@ -99,11 +99,7 @@ export default function AppShell({ children }) {
               <span className="text-navy-950 font-mono font-bold text-[10px]">A</span>
             </div>
           </div>
-          <span className="text-sm tracking-tight leading-none">
-            <span className="font-bold">A</span>
-            <span className="font-bold text-amber-500 dark:text-gold-400">+</span>
-            <span className="font-bold">stra</span>
-          </span>
+          <span className="text-sm font-bold tracking-tight leading-none">stra</span>
         </Link>
 
         {/* ── Centered pill nav ─────────────────────────── */}

@@ -32,11 +32,7 @@ export default function EJShell({ children }) {
               <span className="font-mono font-bold text-[10px]" style={{ color: '#020817' }}>A</span>
             </div>
           </div>
-          <span className="text-sm tracking-tight leading-none text-white">
-            <span className="font-bold">A</span>
-            <span className="font-bold text-amber-400">+</span>
-            <span className="font-bold">stra</span>
-          </span>
+          <span className="text-sm font-bold tracking-tight leading-none text-white">stra</span>
         </Link>
 
         {/* ── Centered dark nav strip ─────────────────── */}
