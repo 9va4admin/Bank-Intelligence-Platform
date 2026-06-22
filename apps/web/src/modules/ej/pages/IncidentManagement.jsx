@@ -51,12 +51,12 @@ function DetailPanel({ inc, onClose, onStatusChange }) {
   const sla = getSLA(inc)
   const nextStatus = { OPEN:'ASSIGNED', ASSIGNED:'IN_PROGRESS', IN_PROGRESS:'RESOLVED', RESOLVED:'CLOSED' }
 
-  const panel  = 'bg-white border-slate-200 dark:bg-[#0a1628] dark:border-slate-800'
+  const panel  = 'bg-white/5 border-white/8'
   const hdr    = 'border-slate-200 dark:border-slate-800'
   const id_cls = 'text-blue-600 dark:text-cyan-400'
   const ttl    = 'text-slate-900 dark:text-slate-100'
   const close  = 'text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300'
-  const kCard  = 'bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-900/60 dark:border-slate-800 dark:text-slate-500'
+  const kCard  = 'bg-white/5 border-white/8 text-slate-400'
   const kVal   = 'text-slate-800 dark:text-slate-200'
   const tlBdr  = 'border-slate-300 dark:border-slate-700'
   const tlTxt  = 'text-slate-700 dark:text-slate-300'
@@ -152,13 +152,13 @@ export default function IncidentManagement() {
     h1:      'text-slate-900 dark:text-slate-100',
     sub:     'text-slate-500 dark:text-slate-500',
     createBtn: 'bg-blue-600 hover:bg-blue-700 text-white dark:bg-cyan-800 dark:hover:bg-cyan-700 dark:text-cyan-100',
-    filterBar: 'bg-white border-slate-200 dark:bg-slate-900/40 dark:border-slate-800',
+    filterBar: 'bg-white/5 border-white/8',
     filterLbl: 'text-slate-400 dark:text-slate-500',
     filterBtn: (active) => active
       ? ('bg-blue-600 text-white dark:bg-cyan-800 dark:text-cyan-100')
       : ('text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'),
     sep:     'bg-slate-300 dark:bg-slate-700',
-    select:  'bg-white border-slate-300 text-slate-700 focus:border-blue-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:focus:border-cyan-600',
+    select:  'bg-white/5 border-white/10 text-slate-200 focus:border-cyan-600',
     count:   'text-slate-400 dark:text-slate-600',
     tbl:     'border-slate-200 dark:border-slate-800',
     thead:   'bg-slate-100 border-b border-slate-200 text-slate-400 dark:bg-slate-900/80 dark:border-b dark:border-slate-800 dark:text-slate-500',
