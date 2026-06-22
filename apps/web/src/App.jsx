@@ -14,6 +14,7 @@ import CTSScanner from './modules/cts/pages/CTSScanner'
 import CTSEndorsement from './modules/cts/pages/CTSEndorsement'
 import CTSRPCConsolidation from './modules/cts/pages/CTSRPCConsolidation'
 import CTSSubMember from './modules/cts/pages/CTSSubMember'
+import CTSImageQuality from './modules/cts/pages/CTSImageQuality'
 import CTSPipelineVisualizer from './modules/cts/pages/CTSPipelineVisualizer'
 import CTSDiscrepancy from './modules/cts/pages/CTSDiscrepancy'
 import CTSBatches from './modules/cts/pages/CTSBatches'
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="/cts/exceptions" element={<CTSExceptions />} />
         <Route path="/cts/reconciliation" element={<CTSReconciliation />} />
         <Route path="/cts/compliance" element={<CTSCompliance />} />
+        <Route path="/cts/iqa" element={<CTSImageQuality />} />
         <Route path="/cts/scanner" element={<CTSScanner />} />
         <Route path="/cts/endorsement" element={<CTSEndorsement />} />
         <Route path="/cts/rpc" element={<CTSRPCConsolidation />} />
