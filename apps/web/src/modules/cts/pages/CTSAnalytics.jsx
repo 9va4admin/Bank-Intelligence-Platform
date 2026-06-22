@@ -34,18 +34,24 @@ const maxReturn = Math.max(...RETURN_REASONS.map(d => d.count))
 const maxTotal  = Math.max(...DAILY.map(d => d.total))
 
 export default function CTSAnalytics() {
+  const { isDark } = useTheme()
   const today  = DAILY[DAILY.length - 1]
   const stpRate = ((today.stp_confirm / today.total) * 100).toFixed(1)
 
   const th = {
-    page:     'bg-slate-50 dark:bg-transparent',
-    card:     'bg-white border-slate-200 dark:bg-white/10 dark:border-white/10',
-    heading:  'text-slate-900 dark:text-white',
-    faint:    'text-slate-400 dark:text-slate-500',
-    muted:    'text-slate-500 dark:text-slate-400',
-    bar:      'bg-slate-100 dark:bg-white/5',
-    dateLbl:  'text-slate-400 dark:text-slate-500',
-    legend:   'text-slate-500 dark:text-slate-500',
+    page:    isDark ? 'bg-navy-950' : 'bg-slate-50',
+    card:    isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
+    heading: isDark ? 'text-white' : 'text-slate-900',
+    body:    isDark ? 'text-slate-300' : 'text-slate-700',
+    muted:   isDark ? 'text-slate-400' : 'text-slate-500',
+    faint:   isDark ? 'text-slate-600' : 'text-slate-400',
+    divider: isDark ? 'border-white/8' : 'border-slate-200',
+    row:     isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
+    select:  isDark ? 'bg-navy-900 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
+    input:   isDark ? 'bg-navy-800 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
+    bar:     isDark ? 'bg-white/5' : 'bg-slate-100',
+    dateLbl: isDark ? 'text-slate-500' : 'text-slate-400',
+    legend:  isDark ? 'text-slate-500' : 'text-slate-500',
   }
 
   usePageHeader({ subtitle: 'Decision analytics · 7-day rolling view' })
