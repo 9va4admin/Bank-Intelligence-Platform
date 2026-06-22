@@ -18,6 +18,7 @@ import CTSImageQuality from './modules/cts/pages/CTSImageQuality'
 import CTSPipelineVisualizer from './modules/cts/pages/CTSPipelineVisualizer'
 import CTSDiscrepancy from './modules/cts/pages/CTSDiscrepancy'
 import CTSBatches from './modules/cts/pages/CTSBatches'
+import CTSBusinessModel from './modules/cts/pages/CTSBusinessModel'
 import { EJDashboard } from './modules/ej'
 import IncidentManagement from './modules/ej/pages/IncidentManagement'
 import ManagerPortal from './modules/ej/pages/ManagerPortal'
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="/cts/discrepancy" element={<CTSDiscrepancy />} />
         <Route path="/cts/batches" element={<CTSBatches />} />
         <Route path="/cts/analytics" element={<CTSAnalytics />} />
+        <Route path="/cts/business-model" element={<CTSBusinessModel />} />
         <Route path="/cts/config" element={<CTSConfig />} />
         {/* EJ module — own routes, no overlap with CTS */}
         <Route path="/ej" element={<EJDashboard />} />

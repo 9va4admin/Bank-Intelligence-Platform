@@ -34,6 +34,12 @@ const NAV_GROUPS = [
       { to: '/cts/rpc',         label: 'RPC Consolidation'},
     ],
   },
+  {
+    label: 'Commercial',
+    items: [
+      { to: '/cts/business-model', label: 'Business Model' },
+    ],
+  },
 ]
 
 const PROFILE_MENU = [
@@ -61,6 +67,7 @@ const ROUTE_LABELS = {
   '/cts/iqa':           ['Operations', 'Image Quality Assessment'],
   '/cts/scanner':       ['Operations', 'Scanner SDK'],
   '/cts/rpc':           ['Operations', 'RPC Consolidation'],
+  '/cts/business-model':['Commercial', 'Business Model — Cost & Revenue'],
   '/cts/pipeline':      ['CTS', 'Inward View — AI Pipeline'],
   '/cts/config':        ['Admin', 'Config'],
   '/cts/config/sub-member-banks': ['Admin · Config', 'Sub-Member Banks'],
