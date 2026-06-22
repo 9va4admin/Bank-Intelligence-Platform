@@ -30,8 +30,20 @@ const TIER_DEFAULTS = {
   enterprise: 6000,
 }
 
-const FIXED_COST_BASE = 124  // ₹ lakhs / year / bank
-const VAR_COST_PER_CHEQUE_RS = 0.08
+// ── ASTRA Vendor Cost Model ────────────────────────────────────────────────
+// Banks run ALL infra on their own premises — GPU, K8s, Redis, YugabyteDB, etc.
+// ASTRA has ZERO infra cost per bank deployment.
+// ASTRA's costs are: software team + vendor-side cloud ops + S&M + office.
+const VENDOR_COSTS_ANNUAL = {
+  engineering:  180,  // 6 devs × ₹30L avg CTC
+  salesMarketing: 120, // 2 sales + 1 presales + events + travel
+  cloud:         30,  // CI/CD, OCI registry, staging env, upgrade tooling
+  office:        24,  // office & ops
+  compliance:    18,  // compliance & legal
+}
+const VENDOR_FIXED_ANNUAL = Object.values(VENDOR_COSTS_ANNUAL).reduce((a, b) => a + b, 0)  // 372L/yr
+const PER_BANK_ONBOARDING = 8   // one-time variable cost per bank onboarded (effort + customisation support)
+
 const IMPL_FEE = 25
 const MANAGED_AI_RETAINER = 18
 const SUPPORT_RETAINER = 12
@@ -64,36 +76,41 @@ function calcRevenue(volumeLakhs, pricingModel, year) {
   return { perChequeRevLakhs, platformRevLakhs, implAmortised, managedAI, support, total, adjVol }
 }
 
-function calcCosts(volumeLakhs, year) {
-  const vol = volumeLakhs * 100000 * Math.pow(1.2, year - 1)
-  const varCostLakhs = (vol * VAR_COST_PER_CHEQUE_RS) / 100000
-  const totalFixed = FIXED_COST_BASE
-  return {
-    gpu: 42,
-    engineering: 36,
-    k8s: 22,
-    modelOps: 15,
-    compliance: 9,
-    variable: varCostLakhs,
-    total: totalFixed + varCostLakhs,
-  }
+function calcCosts(year) {
+  // No variable cost per cheque — bank bears all infra. ASTRA cost is purely vendor-side.
+  // Engineering team grows slightly in year 2–3 as we add more banks.
+  const teamGrowthFactor = year === 1 ? 1.0 : year === 2 ? 1.1 : 1.15
+  const engineering  = VENDOR_COSTS_ANNUAL.engineering * teamGrowthFactor
+  const salesMarketing = VENDOR_COSTS_ANNUAL.salesMarketing
+  const cloud        = VENDOR_COSTS_ANNUAL.cloud
+  const office       = VENDOR_COSTS_ANNUAL.office
+  const compliance   = VENDOR_COSTS_ANNUAL.compliance
+  const total = engineering + salesMarketing + cloud + office + compliance
+  return { engineering, salesMarketing, cloud, office, compliance, total }
 }
 
 function calcModel(volumeLakhs, pricingModel, year) {
   const rev = calcRevenue(volumeLakhs, pricingModel, year)
-  const cost = calcCosts(volumeLakhs, year)
+  const cost = calcCosts(year)
   const grossProfit = rev.total - cost.total
   const grossMarginPct = rev.total > 0 ? (grossProfit / rev.total) * 100 : 0
-  const fixedCostBase = FIXED_COST_BASE
   const implFee = IMPL_FEE
 
-  // Break-even volume (cheques/year) at per-cheque rate
+  // Break-even: how many banks needed to cover ASTRA's annual fixed costs?
+  // Average revenue per bank at selected pricing / volume
+  const avgRevPerBank = rev.total  // this IS per-bank revenue for the selected config
+  const banksToBreakeven = avgRevPerBank > 0
+    ? Math.ceil(cost.total / avgRevPerBank)
+    : Infinity
+
+  // Break-even cheque volume for per-cheque model (within a single bank)
   const perChequeRate = pricingModel === 'saas' ? (year === 1 ? 1.20 : 1.10)
     : pricingModel === 'licence' ? 0.30 : 0.80
-  const marginalProfit = perChequeRate - VAR_COST_PER_CHEQUE_RS
   const fixedRevenue = rev.platformRevLakhs + rev.implAmortised + rev.managedAI + rev.support
-  const breakEvenCheques = marginalProfit > 0
-    ? ((fixedCostBase - fixedRevenue * 100000) / marginalProfit)
+  // Revenue needed from per-cheque to cover vendor costs (per-bank share at ~10 banks)
+  const vendorSharePerBank = cost.total / 10
+  const breakEvenCheques = perChequeRate > 0
+    ? Math.max(0, (vendorSharePerBank - fixedRevenue) / perChequeRate) * 100000
     : Infinity
   const breakEvenLakhs = breakEvenCheques / 100000
 
@@ -115,21 +132,26 @@ function calcModel(volumeLakhs, pricingModel, year) {
 
   return {
     arr, implFee, rev, cost, grossProfit, grossMarginPct, breakEvenLakhs,
+    banksToBreakeven,
     ietSavingsLakhs, fteSavingsLakhs, fraudSavingsLakhs, floatSavingsLakhs,
     auditSavingsLakhs, totalBankSaves,
     paybackMonths: arr > 0 ? Math.max(1, Math.round((implFee / (arr / 12)))) : 99,
   }
 }
 
-// ─── Sensitivity table ─────────────────────────────────────────────────────
+// ─── Sensitivity table — gross profit per bank at various rates/volumes ───────
+// (sensitivity is now: at this rate+volume, what is the margin for one bank?
+//  comparing to the per-bank share of vendor fixed costs at a given bank count)
 
 const SENS_VOLUMES = [100, 500, 1000, 2000]
 const SENS_RATES = [0.80, 1.20, 1.50, 2.00]
+const SENS_BANK_BASE = 10  // assume 10-bank portfolio for per-bank cost share
 
 function calcSensitivity(rate, vol) {
   const revenue = (vol * 100000 * rate) / 100000 + MANAGED_AI_RETAINER + SUPPORT_RETAINER
-  const cost = FIXED_COST_BASE + (vol * 100000 * VAR_COST_PER_CHEQUE_RS) / 100000
-  return revenue - cost
+  // Per-bank cost share of vendor fixed costs (at 10 banks)
+  const perBankCostShare = VENDOR_FIXED_ANNUAL / SENS_BANK_BASE
+  return revenue - perBankCostShare
 }
 
 // ─── Colour helpers ─────────────────────────────────────────────────────────
@@ -143,12 +165,13 @@ const CHART_COLORS = {
   services:'#a78bfa',
 }
 
+// Cost slices reflect ASTRA vendor costs (not bank infra — bank bears all infra)
 const COST_SLICES = [
-  { label: 'GPU Infra (A100s)', pct: 35, color: '#f87171', lakhs: 42 },
-  { label: 'Engineering & Support', pct: 28, color: '#f59e0b', lakhs: 36 },
-  { label: 'Kubernetes + Storage', pct: 18, color: '#60a5fa', lakhs: 22 },
-  { label: 'AI Model Ops', pct: 12, color: '#a78bfa', lakhs: 15 },
-  { label: 'Compliance Infra', pct: 7, color: '#34d399', lakhs: 9 },
+  { label: 'Engineering Team', pct: 48, color: '#f59e0b', key: 'engineering' },
+  { label: 'Sales & Marketing', pct: 32, color: '#f87171', key: 'salesMarketing' },
+  { label: 'Cloud & Tooling',   pct: 8,  color: '#60a5fa', key: 'cloud' },
+  { label: 'Office & Ops',      pct: 7,  color: '#a78bfa', key: 'office' },
+  { label: 'Compliance & Legal',pct: 5,  color: '#34d399', key: 'compliance' },
 ]
 
 // ─── Sub-components ────────────────────────────────────────────────────────
@@ -224,7 +247,7 @@ export default function CTSBusinessModel() {
 
   const model = useMemo(
     () => calcModel(volumeLakhs, pricingModel, year),
-    [volumeLakhs, pricingModel, year]
+    [volumeLakhs, pricingModel, year]  // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   const handleTierChange = (t) => {

@@ -230,30 +230,30 @@
 
     <!-- Cost Base -->
     <div class="input-section">
-      <div class="section-title">Monthly Cost Base <span style="color:var(--faint);font-size:9px;text-transform:none;letter-spacing:0;font-weight:400">(₹ Lakhs / month)</span></div>
+      <div class="section-title">ASTRA Vendor Monthly Costs <span style="color:var(--faint);font-size:9px;text-transform:none;letter-spacing:0;font-weight:400">(₹ Lakhs / month)</span></div>
+      <div class="hint" style="margin-bottom:10px;line-height:1.5">Banks run all infra on-premises (GPU, K8s, Redis, DB). ASTRA has zero infra cost per bank deployment.</div>
       <div class="field">
-        <label>GPU Infrastructure <span>(A100s amortised + power)</span></label>
-        <input type="number" id="c_gpu" value="3.5" min="0" step="0.25">
+        <label>Engineering Team <span>(6 devs × ₹30L avg CTC)</span></label>
+        <input type="number" id="c_team" value="15" min="0" step="0.5">
+        <div class="hint">Monthly burn = annual CTC ÷ 12</div>
       </div>
       <div class="field">
-        <label>Engineering &amp; Support Team</label>
-        <input type="number" id="c_team" value="3.0" min="0" step="0.25">
+        <label>Sales &amp; Marketing <span>(2 sales + 1 presales + events)</span></label>
+        <input type="number" id="c_sales" value="10" min="0" step="0.5">
       </div>
       <div class="field">
-        <label>K8s · Storage · Network</label>
-        <input type="number" id="c_infra" value="1.8" min="0" step="0.1">
+        <label>Cloud &amp; Tooling <span>(CI/CD, OCI registry, staging)</span></label>
+        <input type="number" id="c_cloud" value="2.5" min="0" step="0.25">
+        <div class="hint">GitLab CI, private Helm OCI registry, upgrade tooling</div>
       </div>
       <div class="field">
-        <label>AI Model Ops <span>(vLLM, MLflow, Langfuse)</span></label>
-        <input type="number" id="c_aiops" value="1.25" min="0" step="0.1">
+        <label>Office &amp; Ops <span>(premises, admin, misc)</span></label>
+        <input type="number" id="c_office" value="2.0" min="0" step="0.25">
       </div>
       <div class="field">
-        <label>Compliance Infra <span>(Immudb, Vault, HSM)</span></label>
-        <input type="number" id="c_compliance" value="0.75" min="0" step="0.1">
-      </div>
-      <div class="field">
-        <label>Variable AI Compute <span>(₹ per 1,000 cheques)</span></label>
-        <input type="number" id="c_varcomp" value="80" min="0" step="10">
+        <label>Per-Bank Onboarding <span>(one-time, ₹ Lakhs)</span></label>
+        <input type="number" id="c_onboard" value="8" min="0" step="1">
+        <div class="hint">Onboarding effort + customisation support per bank</div>
       </div>
     </div>
 
