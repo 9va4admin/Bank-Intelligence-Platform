@@ -273,10 +273,10 @@
     <!-- KPI strip -->
     <div class="kpi-strip" id="kpi-strip">
       <div class="kpi green"><div class="kpi-label">Total Revenue (60M)</div><div class="kpi-val" id="k_rev">—</div><div class="kpi-sub" id="k_rev_sub">—</div></div>
-      <div class="kpi amber"><div class="kpi-label">Total Cost (60M)</div><div class="kpi-val" id="k_cost">—</div><div class="kpi-sub" id="k_cost_sub">—</div></div>
+      <div class="kpi amber"><div class="kpi-label">Vendor Cost (60M)</div><div class="kpi-val" id="k_cost">—</div><div class="kpi-sub" id="k_cost_sub">Zero infra COGS</div></div>
       <div class="kpi" id="kpi_net"><div class="kpi-label">Net Profit (60M)</div><div class="kpi-val" id="k_net">—</div><div class="kpi-sub" id="k_net_sub">—</div></div>
       <div class="kpi violet"><div class="kpi-label">Break-even Month</div><div class="kpi-val" id="k_be">—</div><div class="kpi-sub" id="k_be_sub">—</div></div>
-      <div class="kpi sky"><div class="kpi-label">Avg Gross Margin</div><div class="kpi-val" id="k_margin">—</div><div class="kpi-sub" id="k_margin_sub">—</div></div>
+      <div class="kpi sky"><div class="kpi-label">Banks to Break Even</div><div class="kpi-val" id="k_banks_be">—</div><div class="kpi-sub" id="k_banks_be_sub">—</div></div>
     </div>
 
     <!-- Breakeven detail bar -->
@@ -383,6 +383,8 @@ function mo(m) {
 }
 
 // ── Build monthly rows ────────────────────────────────────────────────────────
+// Cost model: ASTRA is a software vendor. Banks run all infra on-premises.
+// ASTRA's costs = team + S&M + cloud tooling + office. Zero infra cost per bank.
 function buildModel() {
   // inputs
   const baseVol     = v('i_vol')         // lakhs/month at steady state
@@ -398,14 +400,15 @@ function buildModel() {
   const userFee     = v('i_userfee')     // ₹ per user/month → /100 for lakhs
   const aiRetainer  = v('i_airetainer') // ₹L/month
   const support     = v('i_support')    // ₹L/month from M2
-  const cGpu        = v('c_gpu')
-  const cTeam       = v('c_team')
-  const cInfra      = v('c_infra')
-  const cAiops      = v('c_aiops')
-  const cComp       = v('c_compliance')
-  const varComp     = v('c_varcomp')    // ₹ per 1000 cheques → /100 for ₹L per 1L cheques
 
-  const fixedCostMo = cGpu + cTeam + cInfra + cAiops + cComp  // ₹L/month
+  // ASTRA vendor costs (not bank infra — bank bears all infra)
+  const cTeam       = v('c_team')        // engineering team ₹L/month
+  const cSales      = v('c_sales')       // sales & marketing ₹L/month
+  const cCloud      = v('c_cloud')       // cloud & tooling ₹L/month
+  const cOffice     = v('c_office')      // office & ops ₹L/month
+  const cOnboard    = v('c_onboard')     // per-bank onboarding one-time ₹L
+
+  const fixedCostMo = cTeam + cSales + cCloud + cOffice  // ₹L/month vendor fixed
 
   const rows = []
   for (let m = 1; m <= 60; m++) {
@@ -421,8 +424,8 @@ function buildModel() {
     let perChqRevL = 0
     if (perChq > 0) {
       const discounted = vol > 500 ? (500 * perChq + (vol - 500) * perChq * (1 - voldis)) : vol * perChq
-      perChqRevL = discounted // vol in lakhs × ₹/cheque = ₹ in lakhs (since 1L cheques × ₹X/chq = ₹X×L)
-      // Actually: vol is in lakhs (= 100,000 cheques per unit)
+      perChqRevL = discounted
+      // vol in lakhs (= 100,000 cheques per unit)
       // Revenue = vol_lakhs × 100000 × perChq (₹) / 100000 = vol_lakhs × perChq (₹L)
     }
     const licenceRev  = licenceL
@@ -430,8 +433,9 @@ function buildModel() {
     const servicesL   = aiRetainer + (m >= 2 ? support : 0)
     const totalRev    = oneTime + perChqRevL + licenceRev + userRevL + servicesL
 
-    // Cost (₹ Lakhs)
-    const varCostL    = (vol * varComp) / 100  // vol lakhs × ₹/1000chq × 1000 / 100000 = vol * varComp / 100
+    // Cost (₹ Lakhs) — vendor costs only, no variable compute cost (bank pays for their GPU)
+    // M1 includes per-bank onboarding cost
+    const varCostL    = m === 1 ? cOnboard : 0
     const totalCost   = fixedCostMo + varCostL
     const net         = totalRev - totalCost
 
@@ -472,8 +476,13 @@ function recalculate() {
     document.getElementById('k_be').textContent     = '>60'
     document.getElementById('k_be_sub').textContent = 'not within 60 months'
   }
-  document.getElementById('k_margin').textContent     = avgMargin.toFixed(1) + '%'
-  document.getElementById('k_margin_sub').textContent = 'average over 60M'
+  // Banks to break even: how many banks like this one needed to cover ASTRA's monthly fixed costs?
+  const fixedCostMoCalc = v('c_team') + v('c_sales') + v('c_cloud') + v('c_office')
+  // Average monthly revenue from a single bank (steady state = last 12 months avg)
+  const last12Rev = rows.slice(48, 60).reduce((s,r) => s + r.totalRev, 0) / 12
+  const banksBeCalc = last12Rev > 0 ? Math.ceil(fixedCostMoCalc / last12Rev) : Infinity
+  document.getElementById('k_banks_be').textContent     = banksBeCalc <= 200 ? banksBeCalc + ' banks' : '>200'
+  document.getElementById('k_banks_be_sub').textContent = `@ ${fL(last12Rev)}/mo avg per bank`
 
   // ── Yearly net ──
   function yearNet(y) { return rows.slice((y-1)*12, y*12).reduce((s,r) => s+r.net,0) }
@@ -595,10 +604,9 @@ function recalculate() {
     vols.forEach(vv => {
       // Quick 60M net at this rate + volume (keep all other inputs same, just override vol and perChq)
       let net60 = 0
-      const origVol = v('i_vol'); const origPCQ = v('i_perchq')
-      // Inline calc: fixed cost 60M + variable cost - revenue at this vol/rate
-      const fixedC = v('c_gpu')+v('c_team')+v('c_infra')+v('c_aiops')+v('c_compliance')
-      const vc = v('c_varcomp')
+      // Inline calc: ASTRA vendor fixed costs only (no infra — bank pays for their own)
+      const fixedC = v('c_team')+v('c_sales')+v('c_cloud')+v('c_office')
+      const vc = 0  // no variable compute cost for ASTRA (bank bears GPU/infra)
       const yoyR = v('i_yoy')/100
       const vdR  = v('i_voldiscount')/100
       const rampMo = Math.max(1,v('i_ramp'))
@@ -612,7 +620,8 @@ function recalculate() {
         const vol2 = vv*rm*ym
         const dis2 = vol2>500?(500*rate+(vol2-500)*rate*(1-vdR)):vol2*rate
         const rev2 = (mm===1?ot2:0) + dis2 + lic2 + (users2*uf2)/100000 + air2 + (mm>=2?sup2:0)
-        const cst2 = fixedC + (vol2*vc)/100
+        // ASTRA vendor cost: fixed only + M1 onboarding (no variable compute — bank bears infra)
+        const cst2 = fixedC + (mm===1?v('c_onboard'):0)
         net60 += rev2 - cst2
       }
       const cls = net60 >= 50 ? 'g' : net60 >= 0 ? 'y' : 'r'
