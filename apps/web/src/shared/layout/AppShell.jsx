@@ -91,7 +91,7 @@ export default function AppShell({ children }) {
     >
 
       {/* ── Topbar ──────────────────────────────────────── */}
-      <header className="shrink-0 border-b bg-white border-slate-200 dark:bg-white/4 dark:backdrop-blur-md dark:border-white/8 flex items-center px-5" style={{ height: '52px' }}>
+      <header className="shrink-0 border-b bg-white border-slate-200 dark:bg-navy-950/95 dark:backdrop-blur-md dark:border-white/10 flex items-center px-5" style={{ height: '52px' }}>
 
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 shrink-0 group mr-4">
@@ -101,12 +101,12 @@ export default function AppShell({ children }) {
               <span className="text-navy-950 font-mono font-bold text-[10px]">A</span>
             </div>
           </div>
-          <span className="text-sm font-bold tracking-tight leading-none">stra</span>
+          <span className="text-sm font-bold tracking-tight leading-none dark:text-white">stra</span>
         </Link>
 
         {/* ── Centered pill nav ─────────────────────────── */}
         <div className="flex-1 flex justify-center">
-          <nav className="flex items-center bg-slate-100 border border-slate-200 rounded-full px-1.5 py-1 dark:bg-white/6 dark:border dark:border-white/10 dark:backdrop-blur-sm gap-0.5">
+          <nav className="flex items-center bg-slate-100 border border-slate-200 rounded-full px-1.5 py-1 dark:bg-[#0e1654]/70 dark:border dark:border-white/20 dark:backdrop-blur-sm gap-0.5">
 
             {/* Flat items */}
             {FLAT_NAV.map(({ to, label, end }, idx) => (
@@ -114,7 +114,7 @@ export default function AppShell({ children }) {
                 <NavLink
                   to={to} end={end}
                   className={({ isActive }) =>
-                    `px-4 py-1.5 text-xs rounded-full transition-all whitespace-nowrap ${isActive ? 'bg-slate-800 text-white shadow-sm dark:bg-white/15 dark:text-white dark:shadow-sm dark:ring-1 dark:ring-white/10' : 'text-slate-500 hover:text-slate-900 hover:bg-white dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/8'}`
+                    `px-4 py-1.5 text-xs rounded-full transition-all whitespace-nowrap ${isActive ? 'bg-slate-800 text-white shadow-sm dark:bg-white/20 dark:text-white dark:shadow-sm dark:ring-1 dark:ring-white/20' : 'text-slate-500 hover:text-slate-900 hover:bg-white dark:text-slate-200 dark:hover:text-white dark:hover:bg-white/12'}`
                   }
                 >
                   {label}
@@ -137,8 +137,8 @@ export default function AppShell({ children }) {
                     <button
                       className={`px-4 py-1.5 text-xs rounded-full transition-all whitespace-nowrap flex items-center gap-1.5 ${
                         isGroupActive
-                          ? 'bg-slate-800 text-white shadow-sm dark:bg-white/15 dark:text-white dark:shadow-sm dark:ring-1 dark:ring-white/10'
-                          : 'text-slate-500 hover:text-slate-900 hover:bg-white dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/8'
+                          ? 'bg-slate-800 text-white shadow-sm dark:bg-white/20 dark:text-white dark:shadow-sm dark:ring-1 dark:ring-white/20'
+                          : 'text-slate-500 hover:text-slate-900 hover:bg-white dark:text-slate-200 dark:hover:text-white dark:hover:bg-white/12'
                       }`}
                     >
                       {group.label}
@@ -189,8 +189,8 @@ export default function AppShell({ children }) {
         {/* ── Right: bank info + user + toggle ── */}
         <div className="flex items-center gap-4 shrink-0 ml-4">
           <div className="text-right hidden md:block">
-            <div className="text-[11px] font-medium leading-tight text-slate-700 dark:text-slate-200">Saraswat Co-op Bank</div>
-            <div className="text-[10px] leading-tight text-slate-400">Zone: MUMBAI · Finacle</div>
+            <div className="text-[11px] font-medium leading-tight text-slate-700 dark:text-white">Saraswat Co-op Bank</div>
+            <div className="text-[10px] leading-tight text-slate-400 dark:text-slate-300">Zone: MUMBAI · Finacle</div>
           </div>
 
           {/* Profile avatar */}
@@ -201,8 +201,8 @@ export default function AppShell({ children }) {
             >
               <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 bg-amber-100 text-amber-700 dark:bg-gold-400/20 dark:text-gold-400">R</div>
               <div className="hidden sm:block text-left">
-                <div className="text-[11px] leading-tight font-medium text-slate-700 dark:text-slate-200">Rahul S.</div>
-                <div className="text-[10px] leading-tight text-slate-400">ops_reviewer</div>
+                <div className="text-[11px] leading-tight font-medium text-slate-700 dark:text-white">Rahul S.</div>
+                <div className="text-[10px] leading-tight text-slate-400 dark:text-slate-300">ops_reviewer</div>
               </div>
               <svg className="w-3 h-3 opacity-50 hidden sm:block text-slate-400" fill="none" viewBox="0 0 24 24"
                 stroke="currentColor" strokeWidth={2.5}>
@@ -238,7 +238,7 @@ export default function AppShell({ children }) {
           <button
             onClick={toggle}
             title={isDark ? 'Switch to light' : 'Switch to dark'}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all shrink-0 hover:bg-slate-100 text-slate-500 dark:hover:bg-white/8 dark:text-slate-400"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all shrink-0 hover:bg-slate-100 text-slate-500 dark:hover:bg-white/10 dark:text-slate-200"
           >
             {isDark ? '☀' : '🌙'}
           </button>
