@@ -62,7 +62,7 @@ function MatrixTab() {
   const rowMeta  = 'text-slate-800 dark:text-slate-200'
   const muted    = 'text-slate-400 dark:text-slate-500'
   const empty    = 'text-slate-400 dark:text-slate-600'
-  const stepCard = 'border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5'
+  const stepCard = 'border-white/10 bg-white/5'
   const stepText = 'text-slate-800 dark:text-slate-200'
   const stepMeta = 'text-slate-500 dark:text-slate-500'
   const stepChev = 'text-slate-400 dark:text-slate-600'
@@ -156,12 +156,12 @@ function MatrixTab() {
 }
 
 function ChannelHealthTab() {
-  const card    = 'bg-white border border-slate-200 dark:bg-white/5 dark:border dark:border-white/5'
+  const card    = 'bg-white/5 border border-white/8'
   const heading = 'text-slate-900 dark:text-white'
   const lbl     = 'text-slate-500 dark:text-slate-400'
   const val     = 'text-slate-900 dark:text-white'
   const note    = 'text-slate-500 dark:text-slate-500'
-  const footer  = 'bg-slate-50 border-slate-200 dark:bg-slate-800/30 dark:border-white/5'
+  const footer  = 'bg-white/5 border-white/8'
   const fIcon   = 'text-slate-400 dark:text-slate-600'
   const channels = [
     {
@@ -295,13 +295,13 @@ export default function NotificationCenter() {
 
   const th = {
     pg:   'bg-transparent text-slate-900 dark:text-white',
-    nav:  'border-slate-200 bg-white dark:border-white/5 dark:bg-black/30',
+    nav:  'border-white/5 bg-black/30',
     nlnk: 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
     h1:   'text-slate-900 dark:text-white',
     sub:  'text-slate-500 dark:text-slate-400',
     tabBorder: 'border-slate-200 dark:border-white/5',
     tabIdle:   'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
-    card: 'bg-white border-slate-200 dark:bg-white/5 dark:border-white/5',
+    card: 'bg-white/5 border-white/8',
   }
 
   return (

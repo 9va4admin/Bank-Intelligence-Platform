@@ -160,21 +160,21 @@ export default function ManagerPortal() {
   const [digestOpen, setDigestOpen] = useState(false)
   const [sentDemo, setSentDemo] = useState(false)
 
-  const pg   = 'bg-transparent text-slate-900 dark:text-white'
-  const card = 'bg-white border-slate-200 dark:bg-white/5 dark:border-white/5'
-  const row  = 'bg-slate-50 border-slate-100 dark:bg-white/5 dark:border-white/5'
-  const h2   = 'text-slate-700 dark:text-slate-300'
-  const h1   = 'text-slate-900 dark:text-white'
-  const sub  = 'text-slate-500 dark:text-slate-400'
-  const mono = 'text-slate-800 dark:text-slate-200'
-  const muted= 'text-slate-500 dark:text-slate-400'
-  const ctx  = 'bg-slate-100 border-slate-200 dark:bg-white/5 dark:border-white/5'
-  const sep  = 'bg-slate-300 dark:bg-white/10'
-  const roleBtnActive = 'border-violet-400 bg-violet-50 dark:border-violet-500/60 dark:bg-violet-500/10'
-  const roleBtnIdle   = 'border-slate-200 bg-white hover:border-slate-300 dark:border-white/5 dark:bg-white/2 dark:hover:border-white/20'
-  const roleLbl       = 'text-slate-700 dark:text-slate-300'
-  const ctx2 = 'bg-slate-100 dark:bg-white/5'
-  const retBdr= 'border-slate-200 dark:border-white/5'
+  const pg   = 'bg-transparent text-white'
+  const card = 'bg-white/5 border-white/8'
+  const row  = 'bg-white/5 border-white/5'
+  const h2   = 'text-slate-300'
+  const h1   = 'text-white'
+  const sub  = 'text-slate-400'
+  const mono = 'text-slate-200'
+  const muted= 'text-slate-400'
+  const ctx  = 'bg-white/5 border-white/8'
+  const sep  = 'bg-white/10'
+  const roleBtnActive = 'border-violet-500/60 bg-violet-500/10'
+  const roleBtnIdle   = 'border-white/8 bg-white/5 hover:border-white/20'
+  const roleLbl       = 'text-slate-300'
+  const ctx2 = 'bg-white/5'
+  const retBdr= 'border-white/8'
 
   const role = ROLES.find(r => r.id === activeRole)
   const RoleIcon = role.icon
