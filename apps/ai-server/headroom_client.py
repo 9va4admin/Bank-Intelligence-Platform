@@ -17,9 +17,11 @@ from __future__ import annotations
 
 import os
 import time
+import httpx
 import structlog
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
+from openai import AsyncOpenAI
 
 # Headroom compresses messages before they hit vLLM
 # 'headroom-ai[ml]' extra provides the local Kompress-base model
@@ -39,15 +41,9 @@ class HeadroomVLLMClient:
     """
 
     def __init__(self, base_url: str):
-        import httpx
-        from openai import AsyncOpenAI
-
         self._base_url = base_url
-        # vLLM speaks OpenAI protocol — no key needed (mTLS via Istio handles auth)
-        # OpenAI SDK requires an api_key arg but vLLM auth goes through Istio mTLS.
-        # SDK validates the param is non-empty; we pass an env var that the SDK
-        # reads before we set it — so it effectively gets a no-op placeholder.
-        import os
+        # vLLM speaks OpenAI protocol — auth goes through Istio mTLS.
+        # SDK validates api_key is non-empty; we set a placeholder via env.
         os.environ.setdefault("OPENAI_API_KEY", "x-istio")
         self._client = AsyncOpenAI(
             base_url=base_url,
