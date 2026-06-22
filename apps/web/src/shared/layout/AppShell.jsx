@@ -6,18 +6,20 @@ import { PageHeaderCtx } from './PageHeaderContext'
 const FLAT_NAV = [
   { to: '/cts',          label: 'Inward Queue', end: true },
   { to: '/cts/pipeline', label: 'Inward View'  },
-  { to: '/cts/outward',  label: 'Outward'  },
-  { to: '/cts/vault',    label: 'Vault'    },
+  { to: '/cts/outward',  label: 'Outward'      },
+  { to: '/cts/batches',  label: 'Batches'      },
+  { to: '/cts/vault',    label: 'Vault'        },
 ]
 
 const NAV_GROUPS = [
   {
     label: 'Reports',
     items: [
-      { to: '/cts/decisions',      label: 'Decisions Log'    },
-      { to: '/cts/reconciliation', label: 'Reconciliation'   },
-      { to: '/cts/analytics',      label: 'Analytics'        },
-      { to: '/cts/compliance',     label: 'Compliance Cert'  },
+      { to: '/cts/decisions',     label: 'Decisions Log'    },
+      { to: '/cts/discrepancy',   label: 'Discrepancy'      },
+      { to: '/cts/reconciliation',label: 'Reconciliation'   },
+      { to: '/cts/analytics',     label: 'Analytics'        },
+      { to: '/cts/compliance',    label: 'Compliance Cert'  },
     ],
   },
   {
