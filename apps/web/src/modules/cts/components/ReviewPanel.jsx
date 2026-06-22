@@ -39,7 +39,7 @@ const REASON_COLORS = {
 function SigPanel({ item }) {
   const muted  = 'text-slate-500 dark:text-slate-400'
   const note   = 'text-slate-500 dark:text-slate-500'
-  const noteBg = 'bg-slate-50 dark:bg-white/3'
+  const noteBg = 'bg-slate-50 dark:bg-white/5'
   const barBg  = 'bg-slate-100 dark:bg-white/5'
   const tick   = 'text-slate-400 dark:text-slate-600'
 
@@ -102,19 +102,19 @@ export default function ReviewPanel({ item, onDecision }) {
   const [confirming, setConfirming] = useState(null)
 
   const th = {
-    border:   'border-slate-200 dark:border-white/8',
+    border:   'border-slate-200 dark:border-white/10',
     id:       'text-slate-400 dark:text-slate-500',
     heading:  'text-slate-900 dark:text-white',
     dot:      'text-slate-400 dark:text-slate-500',
     meta:     'text-slate-400 dark:text-slate-500',
-    tabActive: 'bg-slate-100 text-slate-900 border-t border-l border-r border-slate-200 dark:bg-white/6 dark:text-white dark:border-white/10',
+    tabActive: 'bg-slate-100 text-slate-900 border-t border-l border-r border-slate-200 dark:bg-white/5 dark:text-white dark:border-white/10',
     tabIdle:  'text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300',
-    glass:    'bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border dark:border-white/8',
+    glass:    'bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border dark:border-white/10',
     lbl:      'text-slate-400 dark:text-slate-500',
     val:      'text-slate-800 dark:text-slate-200',
     barBg:    'bg-slate-100 dark:bg-white/5',
     foot:     'bg-white dark:bg-navy-950/80',
-    sel:      'bg-white border-slate-300 text-slate-700 focus:border-amber-400 dark:bg-white/4 dark:border-white/8 dark:text-slate-300 dark:focus:border-gold-400/40',
+    sel:      'bg-white border-slate-300 text-slate-700 focus:border-amber-400 dark:bg-white/5 dark:border-white/10 dark:text-slate-300 dark:focus:border-gold-400/40',
     selOpt:   'bg-white dark:bg-navy-900',
     footNote: 'text-slate-400 dark:text-slate-600',
   }

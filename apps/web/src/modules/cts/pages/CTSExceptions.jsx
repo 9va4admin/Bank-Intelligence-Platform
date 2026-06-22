@@ -212,12 +212,12 @@ export default function CTSExceptions() {
 
   const th = {
     page:    'bg-slate-50 dark:bg-transparent',
-    card:    'bg-white border-slate-200 dark:bg-white/8 dark:border-white/8',
+    card:    'bg-white border-slate-200 dark:bg-white/10 dark:border-white/10',
     heading: 'text-slate-900 dark:text-white',
     body:    'text-slate-700 dark:text-slate-300',
     muted:   'text-slate-500 dark:text-slate-400',
-    divider: 'border-slate-200 dark:border-white/8',
-    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/4 dark:hover:bg-white/2',
+    divider: 'border-slate-200 dark:border-white/10',
+    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/5',
     badge:   'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300',
   }
 
@@ -294,7 +294,7 @@ export default function CTSExceptions() {
                 value: predictive.subMemberItems.length,
                 sub: predictive.subMemberItems.length > 0 ? 'Sponsor bank notification on return' : 'None in queue',
                 color: predictive.subMemberItems.length > 0 ? 'text-amber-400' : 'text-slate-400',
-                bg: predictive.subMemberItems.length > 0 ? 'border-amber-400/20 bg-amber-400/3' : 'border-slate-200 dark:border-white/8',
+                bg: predictive.subMemberItems.length > 0 ? 'border-amber-400/20 bg-amber-400/3' : 'border-slate-200 dark:border-white/10',
                 icon: '🏦',
               },
             ].map(sig => (

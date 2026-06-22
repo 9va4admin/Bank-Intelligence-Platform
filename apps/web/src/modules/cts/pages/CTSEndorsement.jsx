@@ -37,13 +37,13 @@ export default function CTSEndorsement() {
 
   const th = {
     page:    'bg-slate-50 dark:bg-transparent',
-    card:    'bg-white border-slate-200 dark:bg-white/8 dark:border-white/8',
+    card:    'bg-white border-slate-200 dark:bg-white/10 dark:border-white/10',
     heading: 'text-slate-900 dark:text-white',
     body:    'text-slate-700 dark:text-slate-300',
     muted:   'text-slate-500 dark:text-slate-400',
     faint:   'text-slate-400 dark:text-slate-500',
-    divider: 'border-slate-200 dark:border-white/8',
-    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/4 dark:hover:bg-white/2',
+    divider: 'border-slate-200 dark:border-white/10',
+    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/5',
     mono:    'text-slate-600 font-mono text-xs dark:text-slate-300 dark:font-mono dark:text-xs',
     input:   'bg-white border-slate-300 text-slate-900 dark:bg-navy-800 dark:border-white/10 dark:text-white',
   }
@@ -155,7 +155,7 @@ export default function CTSEndorsement() {
                     disabled={status !== 'ENDORSED'}
                     className={`text-[10px] px-2 py-0.5 rounded font-medium transition-colors ${
                       status === 'ENDORSED'
-                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-white/8 dark:hover:bg-white/12 dark:text-slate-300'
+                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-white/10 dark:hover:bg-white/15 dark:text-slate-300'
                         : 'text-slate-300 cursor-not-allowed dark:text-slate-500 dark:cursor-not-allowed'
                     }`}
                   >
@@ -201,7 +201,7 @@ export default function CTSEndorsement() {
               </div>
 
               {/* QR data */}
-              <div className={`mt-3 rounded-lg px-3 py-2 text-[10px] font-mono break-all ${'bg-slate-50 text-slate-500 dark:bg-white/8 dark:text-slate-400'}`}>
+              <div className={`mt-3 rounded-lg px-3 py-2 text-[10px] font-mono break-all ${'bg-slate-50 text-slate-500 dark:bg-white/10 dark:text-slate-400'}`}>
                 <div className={`text-[9px] uppercase tracking-wider ${th.faint} mb-1`}>QR Data</div>
                 {buildQrData(selected)}
               </div>

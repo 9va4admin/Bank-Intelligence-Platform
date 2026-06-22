@@ -112,7 +112,7 @@ function RrfModal({ returns, sessionMeta, onClose }) {
   const th = {
     overlay: 'fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6',
     modal:   'bg-white border-slate-200 text-slate-900 dark:bg-navy-900 dark:border-white/10 dark:text-white',
-    code:    'bg-slate-50 text-emerald-700 border-slate-200 dark:bg-navy-950/80 dark:text-emerald-400 dark:border-white/8',
+    code:    'bg-slate-50 text-emerald-700 border-slate-200 dark:bg-navy-950/80 dark:text-emerald-400 dark:border-white/10',
     muted:   'text-slate-500 dark:text-slate-400',
     btn:     'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 dark:bg-gold-400/10 dark:border-gold-400/30 dark:text-gold-400 dark:hover:bg-gold-400/20',
   }
@@ -122,7 +122,7 @@ function RrfModal({ returns, sessionMeta, onClose }) {
       <div className={`w-full max-w-3xl max-h-[80vh] rounded-2xl border shadow-2xl flex flex-col ${th.modal}`}
         onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className={`flex items-center justify-between px-5 py-3 border-b ${'border-slate-200 dark:border-white/8'}`}>
+        <div className={`flex items-center justify-between px-5 py-3 border-b ${'border-slate-200 dark:border-white/10'}`}>
           <div>
             <div className="text-sm font-semibold">Return Reason File (RRF)</div>
             <div className={`text-[10px] font-mono ${th.muted}`}>{filename}</div>
@@ -140,7 +140,7 @@ function RrfModal({ returns, sessionMeta, onClose }) {
         </div>
 
         {/* Summary row */}
-        <div className={`shrink-0 px-5 py-2 border-b ${'border-slate-200 dark:border-white/8'} flex gap-6 text-[11px] ${th.muted}`}>
+        <div className={`shrink-0 px-5 py-2 border-b ${'border-slate-200 dark:border-white/10'} flex gap-6 text-[11px] ${th.muted}`}>
           <span>Bank: <span className="font-mono font-semibold">{sessionMeta.bank_ifsc}</span></span>
           <span>Session: <span className="font-mono">{sessionMeta.session_id}</span></span>
           <span>Zone: <span className="font-mono">{sessionMeta.clearing_zone}</span></span>
@@ -166,14 +166,14 @@ export default function CTSDecisionsLog() {
 
   const th = {
     page:    'bg-slate-50 dark:bg-transparent',
-    card:    'bg-white border-slate-200 dark:bg-white/8 dark:border-white/8',
+    card:    'bg-white border-slate-200 dark:bg-white/10 dark:border-white/10',
     heading: 'text-slate-900 dark:text-white',
     body:    'text-slate-700 dark:text-slate-300',
     muted:   'text-slate-500 dark:text-slate-400',
     faint:   'text-slate-400 dark:text-slate-500',
-    divider: 'border-slate-200 dark:border-white/8',
-    thead:   'bg-slate-50 border-slate-200 text-slate-400 dark:bg-white/2 dark:border-white/8 dark:text-slate-500',
-    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/4 dark:hover:bg-white/2',
+    divider: 'border-slate-200 dark:border-white/10',
+    thead:   'bg-slate-50 border-slate-200 text-slate-400 dark:bg-white/5 dark:border-white/10 dark:text-slate-500',
+    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/5',
     filterActive: 'bg-amber-100 text-amber-700 dark:bg-gold-400/15 dark:text-gold-400',
     filterIdle:   'text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300',
     rrfBtn:  'border-red-300 text-red-600 hover:bg-red-50 dark:border-red-500/25 dark:text-red-400 dark:hover:bg-red-500/10',
