@@ -162,7 +162,7 @@ export default function BREPolicyManager() {
   const [sevFilter, setSevFilter] = useState('All')
 
   const th = {
-    pg:      'bg-slate-50 text-slate-900 dark:bg-[#020817] dark:text-white',
+    pg:      'bg-transparent text-slate-900 dark:text-white',
     nav:     'border-slate-200 bg-white dark:border-white/5 dark:bg-black/30',
     nlnk:    'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
     h1:      'text-slate-900 dark:text-white',
@@ -170,7 +170,7 @@ export default function BREPolicyManager() {
     roleBtn: 'text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300',
     ctx:     'bg-slate-100 border-slate-200 text-slate-600 dark:bg-white/5 dark:border-white/5 dark:text-slate-400',
     sel:     'bg-white border-slate-300 text-slate-700 dark:bg-white/5 dark:border-white/10 dark:text-slate-300',
-    selOpt:  'bg-white dark:bg-[#020817]',
+    selOpt:  'bg-white dark:bg-slate-900',
     ruleBtn: 'border-slate-200 bg-white hover:border-slate-300 dark:border-white/5 dark:bg-white/2 dark:hover:border-white/15',
     ruleName:'text-slate-800 dark:text-slate-200',
     ruleMeta:'text-slate-400 dark:text-slate-500',

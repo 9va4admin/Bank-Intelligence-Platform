@@ -160,7 +160,7 @@ export default function ManagerPortal() {
   const [digestOpen, setDigestOpen] = useState(false)
   const [sentDemo, setSentDemo] = useState(false)
 
-  const pg   = 'bg-slate-50 text-slate-900 dark:bg-[#020817] dark:text-white'
+  const pg   = 'bg-transparent text-slate-900 dark:text-white'
   const card = 'bg-white border-slate-200 dark:bg-white/5 dark:border-white/5'
   const row  = 'bg-slate-50 border-slate-100 dark:bg-white/5 dark:border-white/5'
   const h2   = 'text-slate-700 dark:text-slate-300'

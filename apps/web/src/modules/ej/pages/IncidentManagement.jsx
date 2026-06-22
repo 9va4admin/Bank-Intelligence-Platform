@@ -145,7 +145,7 @@ export default function IncidentManagement() {
   const [timeRange, setTimeRange]     = useState('24h')
   const [selected, setSelected]       = useState(null)
   const th = {
-    page:    'bg-slate-50 text-slate-900 dark:bg-[#020817] dark:text-slate-100',
+    page:    'bg-transparent text-slate-900 dark:text-slate-100',
     nav:     'border-b border-slate-200 dark:border-b dark:border-slate-800',
     navLink: 'text-slate-400 hover:text-blue-600 dark:text-slate-500 dark:hover:text-cyan-400',
     navAct:  'text-blue-600 font-semibold border-b border-blue-500 pb-px dark:text-cyan-400 dark:font-semibold dark:border-b dark:border-cyan-500 dark:pb-px',
