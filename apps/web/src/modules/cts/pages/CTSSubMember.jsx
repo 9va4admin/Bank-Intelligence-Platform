@@ -86,12 +86,19 @@ const RETURN_EVENTS = [
   { id: 'CHQ-IN-20260619-0134', smb: 'SMB-MH-002', reason: 'DRAWEE_ACCOUNT_FROZEN', bucket: 'STP_RETURN', amount: '₹[1L–5L]',   suffix: '1127', time: '10:03', tier: 1 },
 ]
 
-const BUCKET_COLORS = {
-  STP_PASS:      'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700/40',
-  STP_RETURN:    'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700/40',
-  EYEBALL:       'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700/40',
-  FRAUD_HOLD:    'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/40 dark:text-violet-300 dark:border-violet-700/40',
-  IET_EMERGENCY: 'bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-900/60 dark:text-rose-200 dark:border-rose-600/50',
+const BUCKET_COLORS_D = {
+  STP_PASS:      'bg-emerald-900/40 text-emerald-300 border-emerald-700/40',
+  STP_RETURN:    'bg-red-900/40 text-red-300 border-red-700/40',
+  EYEBALL:       'bg-amber-900/40 text-amber-300 border-amber-700/40',
+  FRAUD_HOLD:    'bg-violet-900/40 text-violet-300 border-violet-700/40',
+  IET_EMERGENCY: 'bg-rose-900/60 text-rose-200 border-rose-600/50',
+}
+const BUCKET_COLORS_L = {
+  STP_PASS:      'bg-emerald-50 text-emerald-700 border-emerald-200',
+  STP_RETURN:    'bg-red-50 text-red-700 border-red-200',
+  EYEBALL:       'bg-amber-50 text-amber-700 border-amber-200',
+  FRAUD_HOLD:    'bg-violet-50 text-violet-700 border-violet-200',
+  IET_EMERGENCY: 'bg-rose-100 text-rose-700 border-rose-300',
 }
 
 function shieldStatus(smb) {
@@ -116,41 +123,36 @@ function ReturnRateBar({ value, threshold, softThreshold }) {
   )
 }
 
-function ShieldBadge({ status }) {
-  const map = {
-    SAFE:      {
-    cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-    label: '✓ SAFE'
-  },
-    WARN:      {
-    cls: 'bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-    label: '⚠ WARN'
-  },
-    SOFT_HOLD: {
-    cls: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300',
-    label: '⏸ SOFT-HOLD'
-  },
-    HARD_STOP: {
-    cls: 'bg-rose-200 text-rose-800 dark:bg-rose-900/70 dark:text-rose-200',
-    label: '⛔ HARD-STOP'
-  },
+function ShieldBadge({ status, isDark }) {
+  const map_D = {
+    SAFE:      { cls: 'bg-emerald-900/40 text-emerald-300', label: '✓ SAFE' },
+    WARN:      { cls: 'bg-amber-900/40 text-amber-300',     label: '⚠ WARN' },
+    SOFT_HOLD: { cls: 'bg-red-900/50 text-red-300',         label: '⏸ SOFT-HOLD' },
+    HARD_STOP: { cls: 'bg-rose-900/70 text-rose-200',       label: '⛔ HARD-STOP' },
   }
+  const map_L = {
+    SAFE:      { cls: 'bg-emerald-50 text-emerald-700', label: '✓ SAFE' },
+    WARN:      { cls: 'bg-amber-50 text-amber-700',     label: '⚠ WARN' },
+    SOFT_HOLD: { cls: 'bg-red-100 text-red-700',        label: '⏸ SOFT-HOLD' },
+    HARD_STOP: { cls: 'bg-rose-200 text-rose-800',      label: '⛔ HARD-STOP' },
+  }
+  const map = isDark ? map_D : map_L
   const m = map[status] || map.SAFE
   return (
-    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${m}`}>
+    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${m.cls}`}>
       {m.label}
     </span>
   )
 }
 
-function DetailPanel({ smb, onClose }) {
+function DetailPanel({ smb, onClose, isDark, BUCKET_COLORS }) {
   const th = {
-    panel:   'bg-white border-slate-200 dark:bg-navy-900 dark:border-white/10',
-    heading: 'text-slate-900 dark:text-white',
-    label:   'text-slate-500 dark:text-slate-400',
-    value:   'text-slate-700 dark:text-slate-200',
-    divider: 'border-slate-100 dark:border-white/10',
-    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/5',
+    panel:   isDark ? 'bg-navy-900 border-white/10' : 'bg-white border-slate-200',
+    heading: isDark ? 'text-white' : 'text-slate-900',
+    label:   isDark ? 'text-slate-400' : 'text-slate-500',
+    value:   isDark ? 'text-slate-200' : 'text-slate-700',
+    divider: isDark ? 'border-white/10' : 'border-slate-100',
+    row:     isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
   }
 
   const rate = smb.stp_return / smb.total
@@ -165,7 +167,7 @@ function DetailPanel({ smb, onClose }) {
           <div className={`text-sm font-semibold ${th.heading}`}>{smb.bank_name} — Detail</div>
           <div className={`text-xs ${th.label}`}>{smb.ifsc_prefix} · MICR {smb.micr_prefix} · Sponsor: {smb.sponsor}</div>
         </div>
-        <button onClick={onClose} className={`text-sm px-2 py-1 rounded ${'hover:bg-slate-100 text-slate-500 dark:hover:bg-white/8 dark:text-slate-400'}`}>✕</button>
+        <button onClick={onClose} className={`text-sm px-2 py-1 rounded ${isDark ? 'hover:bg-white/8 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>✕</button>
       </div>
 
       {/* Notification config */}
@@ -249,18 +251,23 @@ function DetailPanel({ smb, onClose }) {
 }
 
 export default function CTSSubMember() {
+  const { isDark } = useTheme()
   const [selected, setSelected] = useState(null)
 
+  const BUCKET_COLORS = isDark ? BUCKET_COLORS_D : BUCKET_COLORS_L
+
   const th = {
-    page:    'bg-slate-50 text-slate-900 dark:bg-navy-950 dark:text-white',
-    card:    'bg-white border-slate-200 dark:bg-white/10 dark:border-white/10',
-    heading: 'text-slate-900 dark:text-white',
-    body:    'text-slate-700 dark:text-slate-300',
-    muted:   'text-slate-500 dark:text-slate-400',
-    label:   'text-slate-400 dark:text-slate-500',
-    divider: 'border-slate-200 dark:border-white/10',
-    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/5',
-    kpi:     'bg-white border-slate-200 dark:bg-navy-900/70 dark:border-white/6',
+    page:    isDark ? 'bg-navy-950 text-white' : 'bg-slate-50 text-slate-900',
+    card:    isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
+    heading: isDark ? 'text-white' : 'text-slate-900',
+    body:    isDark ? 'text-slate-300' : 'text-slate-700',
+    muted:   isDark ? 'text-slate-400' : 'text-slate-500',
+    label:   isDark ? 'text-slate-600' : 'text-slate-400',
+    divider: isDark ? 'border-white/8' : 'border-slate-200',
+    row:     isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
+    kpi:     isDark ? 'bg-navy-900/70 border-white/6' : 'bg-white border-slate-200',
+    select:  isDark ? 'bg-navy-900 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
+    input:   isDark ? 'bg-navy-800 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
   }
 
   const totalInward  = SUB_MEMBERS.reduce((s, m) => s + m.total, 0)
@@ -272,7 +279,7 @@ export default function CTSSubMember() {
 
   const KPIs = [
     { label: 'Sub-Member Banks', value: SUB_MEMBERS.length, color: 'text-sky-400' },
-    { label: 'Total Inward',     value: totalInward,         color: 'text-slate-200' },
+    { label: 'Total Inward',     value: totalInward,         color: isDark ? 'text-slate-200' : 'text-slate-900' },
     { label: 'Total Returns',    value: totalReturns,        color: 'text-red-400' },
     { label: 'Avg Return Rate',  value: `${avgReturnRate}%`, color: totalReturns / totalInward > 0.15 ? 'text-red-400' : 'text-emerald-400' },
     { label: 'Eyeball Queue',    value: totalEyeball,        color: 'text-amber-400' },
@@ -303,6 +310,8 @@ export default function CTSSubMember() {
           <DetailPanel
             smb={SUB_MEMBERS.find(m => m.id === selected)}
             onClose={() => setSelected(null)}
+            isDark={isDark}
+            BUCKET_COLORS={BUCKET_COLORS}
           />
         )}
 
@@ -316,7 +325,7 @@ export default function CTSSubMember() {
               <div
                 key={smb.id}
                 onClick={() => setSelected(isActive ? null : smb.id)}
-                className={`border rounded-lg p-4 cursor-pointer transition-all ${th.card} ${isActive ? ('ring-1 ring-amber-400/60 dark:ring-1 dark:ring-gold-400/50') : ''}`}
+                className={`border rounded-lg p-4 cursor-pointer transition-all ${th.card} ${isActive ? (isDark ? 'ring-1 ring-gold-400/50' : 'ring-1 ring-amber-400/60') : ''}`}
               >
                 {/* Card header */}
                 <div className="flex items-start justify-between mb-3">
@@ -327,7 +336,7 @@ export default function CTSSubMember() {
                     </div>
                     <div className={`text-[10px] ${th.label} mt-0.5`}>Sponsor: {smb.sponsor}</div>
                   </div>
-                  <ShieldBadge status={status} />
+                  <ShieldBadge status={status} isDark={isDark} />
                 </div>
 
                 {/* Mini bucket bar */}
@@ -405,10 +414,10 @@ export default function CTSSubMember() {
                 const smb = SUB_MEMBERS.find(m => m.id === e.smb)
                 const bc = BUCKET_COLORS[e.bucket]
                 const tierColor = e.tier === 3
-                  ? ('bg-red-50 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700/40')
+                  ? (isDark ? 'bg-red-900/40 text-red-300 border-red-700/40' : 'bg-red-50 text-red-700 border-red-200')
                   : e.tier === 2
-                  ? ('bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700/40')
-                  : ('bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/40 dark:text-sky-300 dark:border-sky-700/40')
+                  ? (isDark ? 'bg-amber-900/40 text-amber-300 border-amber-700/40' : 'bg-amber-50 text-amber-700 border-amber-200')
+                  : (isDark ? 'bg-sky-900/40 text-sky-300 border-sky-700/40' : 'bg-sky-50 text-sky-700 border-sky-200')
                 return (
                   <tr key={e.id} className={`border-b ${th.row}`}>
                     <td className={`px-4 py-2 ${th.body}`}>{e.time}</td>

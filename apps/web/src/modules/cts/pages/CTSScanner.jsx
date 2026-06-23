@@ -33,20 +33,8 @@ function generateScan(idx, scanner) {
   }
 }
 
-const oemC = {
-  PANINI:  { badge: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-700/40', dot: 'bg-blue-500 dark:bg-blue-400' },
-  CANON:   { badge: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-500/20 dark:text-purple-300 dark:border-purple-700/40', dot: 'bg-purple-500 dark:bg-purple-400' },
-  GENERIC: { badge: 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-500/20 dark:text-slate-400 dark:border-slate-600/40', dot: 'bg-slate-400' },
-}
-
-const STATUS_COLOR = {
-  READY:    { cls: 'text-emerald-600 dark:text-emerald-400', dot: 'bg-emerald-500' },
-  SCANNING: { cls: 'text-amber-600 dark:text-amber-400',     dot: 'bg-amber-400 animate-pulse' },
-  OFFLINE:  { cls: 'text-slate-400 dark:text-slate-500',     dot: 'bg-slate-500' },
-  ERROR:    { cls: 'text-red-600 dark:text-red-400',         dot: 'bg-red-500' },
-}
-
 export default function CTSScanner() {
+  const { isDark } = useTheme()
   const [scans, setScans]         = useState([])
   const [scanCount, setScanCount] = useState(0)
   const [running, setRunning]     = useState(false)
@@ -73,16 +61,44 @@ export default function CTSScanner() {
   useEffect(() => () => clearInterval(intervalRef.current), [])
 
   const th = {
-    page:    'bg-slate-50 dark:bg-transparent',
-    card:    'bg-white border-slate-200 dark:bg-white/10 dark:border-white/10',
-    heading: 'text-slate-900 dark:text-white',
-    body:    'text-slate-700 dark:text-slate-300',
-    muted:   'text-slate-500 dark:text-slate-400',
-    faint:   'text-slate-400 dark:text-slate-500',
-    divider: 'border-slate-200 dark:border-white/10',
-    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/5',
-    mono:    'text-slate-600 font-mono text-xs dark:text-slate-300 dark:font-mono dark:text-xs',
+    page:    isDark ? 'bg-navy-950' : 'bg-slate-50',
+    card:    isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
+    heading: isDark ? 'text-white' : 'text-slate-900',
+    body:    isDark ? 'text-slate-300' : 'text-slate-700',
+    muted:   isDark ? 'text-slate-400' : 'text-slate-500',
+    faint:   isDark ? 'text-slate-600' : 'text-slate-400',
+    divider: isDark ? 'border-white/8' : 'border-slate-200',
+    row:     isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
+    select:  isDark ? 'bg-navy-900 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
+    input:   isDark ? 'bg-navy-800 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
+    mono:    isDark ? 'text-slate-300 font-mono text-xs' : 'text-slate-600 font-mono text-xs',
   }
+
+  const oemC_D = {
+    PANINI:  { badge: 'bg-blue-500/20 text-blue-300 border-blue-700/40',     dot: 'bg-blue-400' },
+    CANON:   { badge: 'bg-purple-500/20 text-purple-300 border-purple-700/40', dot: 'bg-purple-400' },
+    GENERIC: { badge: 'bg-slate-500/20 text-slate-400 border-slate-600/40',  dot: 'bg-slate-400' },
+  }
+  const oemC_L = {
+    PANINI:  { badge: 'bg-blue-50 text-blue-700 border-blue-200',     dot: 'bg-blue-500' },
+    CANON:   { badge: 'bg-purple-50 text-purple-700 border-purple-200', dot: 'bg-purple-500' },
+    GENERIC: { badge: 'bg-slate-100 text-slate-600 border-slate-300', dot: 'bg-slate-400' },
+  }
+  const oemC = isDark ? oemC_D : oemC_L
+
+  const STATUS_COLOR_D = {
+    READY:    { cls: 'text-emerald-400', dot: 'bg-emerald-500' },
+    SCANNING: { cls: 'text-amber-400',   dot: 'bg-amber-400 animate-pulse' },
+    OFFLINE:  { cls: 'text-slate-500',   dot: 'bg-slate-500' },
+    ERROR:    { cls: 'text-red-400',     dot: 'bg-red-500' },
+  }
+  const STATUS_COLOR_L = {
+    READY:    { cls: 'text-emerald-600', dot: 'bg-emerald-500' },
+    SCANNING: { cls: 'text-amber-600',   dot: 'bg-amber-400 animate-pulse' },
+    OFFLINE:  { cls: 'text-slate-400',   dot: 'bg-slate-500' },
+    ERROR:    { cls: 'text-red-600',     dot: 'bg-red-500' },
+  }
+  const STATUS_COLOR = isDark ? STATUS_COLOR_D : STATUS_COLOR_L
 
   const micrOk   = scans.filter(s => s.micr_ok).length
   const micrFail = scans.filter(s => !s.micr_ok).length
@@ -133,10 +149,10 @@ export default function CTSScanner() {
         {/* Session KPI strip */}
         <div className="grid grid-cols-4 gap-3 mb-4">
           {[
-            { label: 'Scanned This Session', value: scanCount,      color: th.heading },
-            { label: 'MICR OK',              value: micrOk,         color: 'text-emerald-600 dark:text-emerald-400' },
-            { label: 'MICR Failures',        value: micrFail,       color: micrFail > 0 ? ('text-red-600 dark:text-red-400') : ('text-emerald-600 dark:text-emerald-400') },
-            { label: 'Avg IQA Score',        value: avgIqa,         color: 'text-amber-600 dark:text-amber-400' },
+            { label: 'Scanned This Session', value: scanCount, color: th.heading },
+            { label: 'MICR OK',              value: micrOk,   color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+            { label: 'MICR Failures',        value: micrFail, color: micrFail > 0 ? (isDark ? 'text-red-400' : 'text-red-600') : (isDark ? 'text-emerald-400' : 'text-emerald-600') },
+            { label: 'Avg IQA Score',        value: avgIqa,   color: isDark ? 'text-amber-400' : 'text-amber-600' },
           ].map(k => (
             <div key={k.label} className={`border rounded-xl px-4 py-3 ${th.card}`}>
               <div className={`text-[10px] ${th.faint} mb-1`}>{k.label}</div>
@@ -189,10 +205,10 @@ export default function CTSScanner() {
                 </div>
                 <div className={`col-span-1 text-center ${th.body}`}>{scan.front_dpi}</div>
                 <div className={`col-span-1 text-center ${th.body}`}>{scan.front_kb}</div>
-                <div className={`col-span-1 text-center font-medium ${scan.micr_ok ? ('text-emerald-600 dark:text-emerald-400') : ('text-red-600 dark:text-red-400')}`}>
+                <div className={`col-span-1 text-center font-medium ${scan.micr_ok ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-red-400' : 'text-red-600')}`}>
                   {scan.micr_ok ? '✓' : '✗'}
                 </div>
-                <div className={`col-span-1 text-center ${scan.iqa_score >= 0.90 ? ('text-emerald-600 dark:text-emerald-400') : scan.iqa_score >= 0.70 ? ('text-amber-600 dark:text-amber-400') : ('text-red-600 dark:text-red-400')}`}>
+                <div className={`col-span-1 text-center ${scan.iqa_score >= 0.90 ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : scan.iqa_score >= 0.70 ? (isDark ? 'text-amber-400' : 'text-amber-600') : (isDark ? 'text-red-400' : 'text-red-600')}`}>
                   {scan.iqa_score}
                 </div>
                 <div className={`col-span-2 text-right ${th.faint}`}>{scan.ts}</div>
