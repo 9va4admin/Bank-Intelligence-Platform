@@ -105,12 +105,12 @@ export default function AppShell({ children }) {
 
   return (
     <div
-      className="flex flex-col h-screen bg-slate-50 text-slate-900 dark:text-white"
+      className={`flex flex-col h-screen ${isDark ? 'text-white' : 'bg-slate-50 text-slate-900'}`}
       style={isDark ? { background: darkGradient } : undefined}
     >
 
       {/* ── Topbar ──────────────────────────────────────── */}
-      <header className="shrink-0 border-b bg-white border-slate-200 dark:bg-navy-950/95 dark:backdrop-blur-md dark:border-white/10 flex items-center px-5" style={{ height: '52px' }}>
+      <header className={`shrink-0 border-b flex items-center px-5 ${isDark ? 'bg-navy-950/95 backdrop-blur-md border-white/10' : 'bg-white border-slate-200'}`} style={{ height: '52px' }}>
 
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 shrink-0 group mr-4">
@@ -120,12 +120,12 @@ export default function AppShell({ children }) {
               <span className="text-navy-950 font-mono font-bold text-[10px]">A</span>
             </div>
           </div>
-          <span className="text-sm font-bold tracking-tight leading-none dark:text-white">stra</span>
+          <span className={`text-sm font-bold tracking-tight leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>stra</span>
         </Link>
 
         {/* ── Centered pill nav ─────────────────────────── */}
         <div className="flex-1 flex justify-center">
-          <nav className="flex items-center bg-slate-100 border border-slate-200 rounded-full px-1.5 py-1 dark:bg-[#0e1654]/70 dark:border dark:border-white/20 dark:backdrop-blur-sm gap-0.5">
+          <nav className={`flex items-center rounded-full px-1.5 py-1 gap-0.5 ${isDark ? 'bg-[#0e1654]/70 border border-white/20 backdrop-blur-sm' : 'bg-slate-100 border border-slate-200'}`}>
 
             {/* Flat items */}
             {FLAT_NAV.map(({ to, label, end }, idx) => (
@@ -133,12 +133,14 @@ export default function AppShell({ children }) {
                 <NavLink
                   to={to} end={end}
                   className={({ isActive }) =>
-                    `px-4 py-1.5 text-xs rounded-full transition-all whitespace-nowrap ${isActive ? 'bg-slate-800 text-white shadow-sm dark:bg-white/20 dark:text-white dark:shadow-sm dark:ring-1 dark:ring-white/20' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-200 dark:hover:text-white dark:hover:bg-white/15'}`
+                    `px-4 py-1.5 text-xs rounded-full transition-all whitespace-nowrap ${isActive
+                      ? (isDark ? 'bg-white/20 text-white shadow-sm ring-1 ring-white/20' : 'bg-slate-800 text-white shadow-sm')
+                      : (isDark ? 'text-slate-200 hover:text-white hover:bg-white/15' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200')}`
                   }
                 >
                   {label}
                 </NavLink>
-                <div className="w-px h-4 mx-1 shrink-0 bg-slate-300/80 dark:bg-white/10" />
+                <div className={`w-px h-4 mx-1 shrink-0 ${isDark ? 'bg-white/10' : 'bg-slate-300/80'}`} />
               </div>
             ))}
 
@@ -167,20 +169,20 @@ export default function AppShell({ children }) {
         {/* ── Right: bank info + user + toggle ── */}
         <div className="flex items-center gap-4 shrink-0 ml-4">
           <div className="text-right hidden md:block">
-            <div className="text-[11px] font-medium leading-tight text-slate-700 dark:text-white">Saraswat Co-op Bank</div>
-            <div className="text-[10px] leading-tight text-slate-400 dark:text-slate-300">Zone: MUMBAI · Finacle</div>
+            <div className={`text-[11px] font-medium leading-tight ${isDark ? 'text-white' : 'text-slate-700'}`}>Saraswat Co-op Bank</div>
+            <div className={`text-[10px] leading-tight ${isDark ? 'text-slate-300' : 'text-slate-400'}`}>Zone: MUMBAI · Finacle</div>
           </div>
 
           {/* Profile avatar */}
           <div className="relative">
             <button
-              className="flex items-center gap-2 rounded-lg px-1.5 py-1 transition-all hover:bg-slate-100 dark:hover:bg-white/8"
+              className={`flex items-center gap-2 rounded-lg px-1.5 py-1 transition-all ${isDark ? 'hover:bg-white/8' : 'hover:bg-slate-100'}`}
               onClick={() => setProfileOpen((v) => !v)}
             >
-              <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 bg-amber-100 text-amber-700 dark:bg-gold-400/20 dark:text-gold-400">R</div>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${isDark ? 'bg-gold-400/20 text-gold-400' : 'bg-amber-100 text-amber-700'}`}>R</div>
               <div className="hidden sm:block text-left">
-                <div className="text-[11px] leading-tight font-medium text-slate-700 dark:text-white">Rahul S.</div>
-                <div className="text-[10px] leading-tight text-slate-400 dark:text-slate-300">ops_reviewer</div>
+                <div className={`text-[11px] leading-tight font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>Rahul S.</div>
+                <div className={`text-[10px] leading-tight ${isDark ? 'text-slate-300' : 'text-slate-400'}`}>ops_reviewer</div>
               </div>
               <svg className="w-3 h-3 opacity-50 hidden sm:block text-slate-400" fill="none" viewBox="0 0 24 24"
                 stroke="currentColor" strokeWidth={2.5}>
@@ -190,18 +192,18 @@ export default function AppShell({ children }) {
 
             {profileOpen && (
               <div
-                className="absolute right-0 top-full mt-2 w-52 z-50 rounded-xl border py-2 bg-white border-slate-200 shadow-2xl shadow-slate-400/30 dark:bg-[#0e1654]/95 dark:backdrop-blur-xl dark:border-white/10 dark:shadow-2xl dark:shadow-black/60"
+                className={`absolute right-0 top-full mt-2 w-52 z-50 rounded-xl border py-2 shadow-2xl ${isDark ? 'bg-[#0e1654]/95 backdrop-blur-xl border-white/10 shadow-black/60' : 'bg-white border-slate-200 shadow-slate-400/30'}`}
                 onMouseLeave={() => setProfileOpen(false)}
               >
                 {PROFILE_MENU.map((item, i) =>
                   item.section ? (
-                    <div key={i} className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                    <div key={i} className={`px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                       {item.section}
                     </div>
                   ) : (
                     <Link
                       key={item.to} to={item.to}
-                      className="flex items-center gap-2.5 px-4 py-1.5 text-xs mx-1.5 my-0.5 transition-colors text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/10"
+                      className={`flex items-center gap-2.5 px-4 py-1.5 text-xs mx-1.5 my-0.5 transition-colors rounded-lg ${isDark ? 'text-slate-300 hover:text-white hover:bg-white/10' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
                       onClick={() => setProfileOpen(false)}
                     >
                       <span className="w-4 text-center opacity-70">{item.icon}</span>
@@ -216,7 +218,7 @@ export default function AppShell({ children }) {
           <button
             onClick={toggle}
             title={isDark ? 'Switch to light' : 'Switch to dark'}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all shrink-0 hover:bg-slate-100 text-slate-500 dark:hover:bg-white/10 dark:text-slate-200"
+            className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all shrink-0 ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-500'}`}
           >
             {isDark ? '☀' : '🌙'}
           </button>
@@ -227,7 +229,7 @@ export default function AppShell({ children }) {
       {/* ── Pages call usePageHeader() which sets state on the provider.        */}
       {/* ── PageHeaderBar reads from that same provider — re-renders on change. */}
       <PageHeaderBar page={page} section={section} isDark={isDark} />
-      <div className="flex-1 min-h-0 overflow-y-auto bg-slate-50 dark:bg-black/15">
+      <div className={`flex-1 min-h-0 overflow-y-auto ${isDark ? 'bg-black/15' : 'bg-slate-50'}`}>
         {children}
       </div>
     </div>
@@ -260,8 +262,8 @@ function NavGroup({ group, isGroupActive, isOpen, isDark, onOpen, onClose, onIte
         <button
           className={`px-4 py-1.5 text-xs rounded-full transition-all whitespace-nowrap flex items-center gap-1.5 ${
             isGroupActive
-              ? 'bg-slate-800 text-white shadow-sm dark:bg-white/20 dark:text-white dark:ring-1 dark:ring-white/20'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-200 dark:hover:text-white dark:hover:bg-white/15'
+              ? (isDark ? 'bg-white/20 text-white shadow-sm ring-1 ring-white/20' : 'bg-slate-800 text-white shadow-sm')
+              : (isDark ? 'text-slate-200 hover:text-white hover:bg-white/15' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200')
           }`}
         >
           {group.label}
@@ -300,7 +302,7 @@ function NavGroup({ group, isGroupActive, isOpen, isDark, onOpen, onClose, onIte
         document.body
       )}
 
-      {showDivider && <div className="w-px h-4 mx-1 shrink-0 bg-slate-300/80 dark:bg-white/10" />}
+      {showDivider && <div className={`w-px h-4 mx-1 shrink-0 ${isDark ? 'bg-white/10' : 'bg-slate-300/80'}`} />}
     </div>
   )
 }
