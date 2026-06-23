@@ -27,21 +27,33 @@ const RETURN_REASONS = [
   'Legal / court hold on account',
 ]
 
-const REASON_COLORS = {
-  SIGNATURE_LOW_CONFIDENCE: 'bg-amber-100 border-amber-400 text-amber-700 dark:bg-amber-400/10 dark:border-amber-400/30 dark:text-amber-300',
-  FRAUD_SCORE_HIGH:         'bg-red-100 border-red-400 text-red-700 dark:bg-red-400/10 dark:border-red-400/30 dark:text-red-300',
-  OCR_LOW_CONFIDENCE:       'bg-orange-100 border-orange-400 text-orange-700 dark:bg-orange-400/10 dark:border-orange-400/30 dark:text-orange-300',
-  VAULT_MISS:               'bg-purple-100 border-purple-400 text-purple-700 dark:bg-purple-400/10 dark:border-purple-400/30 dark:text-purple-300',
-  HIGH_VALUE_DUAL_APPROVAL: 'bg-sky-100 border-sky-400 text-sky-700 dark:bg-sky-400/10 dark:border-sky-400/30 dark:text-sky-300'
+function getReasonColors(isDark) {
+  return {
+    SIGNATURE_LOW_CONFIDENCE: isDark
+      ? 'bg-amber-400/10 border-amber-400/30 text-amber-300'
+      : 'bg-amber-100 border-amber-400 text-amber-700',
+    FRAUD_SCORE_HIGH: isDark
+      ? 'bg-red-400/10 border-red-400/30 text-red-300'
+      : 'bg-red-100 border-red-400 text-red-700',
+    OCR_LOW_CONFIDENCE: isDark
+      ? 'bg-orange-400/10 border-orange-400/30 text-orange-300'
+      : 'bg-orange-100 border-orange-400 text-orange-700',
+    VAULT_MISS: isDark
+      ? 'bg-purple-400/10 border-purple-400/30 text-purple-300'
+      : 'bg-purple-100 border-purple-400 text-purple-700',
+    HIGH_VALUE_DUAL_APPROVAL: isDark
+      ? 'bg-sky-400/10 border-sky-400/30 text-sky-300'
+      : 'bg-sky-100 border-sky-400 text-sky-700',
+  }
 }
 
 
-function SigPanel({ item }) {
-  const muted  = 'text-slate-500 dark:text-slate-400'
-  const note   = 'text-slate-500 dark:text-slate-500'
-  const noteBg = 'bg-slate-50 dark:bg-white/5'
-  const barBg  = 'bg-slate-100 dark:bg-white/5'
-  const tick   = 'text-slate-400 dark:text-slate-600'
+function SigPanel({ item, isDark }) {
+  const muted  = isDark ? 'text-slate-400' : 'text-slate-500'
+  const note   = isDark ? 'text-slate-500' : 'text-slate-500'
+  const noteBg = isDark ? 'bg-white/5' : 'bg-slate-50'
+  const barBg  = isDark ? 'bg-white/5' : 'bg-slate-100'
+  const tick   = isDark ? 'text-slate-600' : 'text-slate-400'
 
   if (!item.sig_specimen_available) {
     return (
@@ -96,27 +108,33 @@ function SigPanel({ item }) {
   )
 }
 
-export default function ReviewPanel({ item, onDecision }) {
+export default function ReviewPanel({ item, onDecision, isDark }) {
   const [tab, setTab] = useState('overview')
   const [returnReason, setReturnReason] = useState('')
   const [confirming, setConfirming] = useState(null)
 
+  const REASON_COLORS = getReasonColors(isDark)
+
   const th = {
-    border:   'border-slate-200 dark:border-white/10',
-    id:       'text-slate-400 dark:text-slate-500',
-    heading:  'text-slate-900 dark:text-white',
-    dot:      'text-slate-400 dark:text-slate-500',
-    meta:     'text-slate-400 dark:text-slate-500',
-    tabActive: 'bg-slate-100 text-slate-900 border-t border-l border-r border-slate-200 dark:bg-white/5 dark:text-white dark:border-white/10',
-    tabIdle:  'text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300',
-    glass:    'bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border dark:border-white/10',
-    lbl:      'text-slate-400 dark:text-slate-500',
-    val:      'text-slate-800 dark:text-slate-200',
-    barBg:    'bg-slate-100 dark:bg-white/5',
-    foot:     'bg-white dark:bg-navy-950/80',
-    sel:      'bg-white border-slate-300 text-slate-700 focus:border-amber-400 dark:bg-white/5 dark:border-white/10 dark:text-slate-300 dark:focus:border-gold-400/40',
-    selOpt:   'bg-white dark:bg-navy-900',
-    footNote: 'text-slate-400 dark:text-slate-600',
+    border:   isDark ? 'border-white/10' : 'border-slate-200',
+    id:       isDark ? 'text-slate-500' : 'text-slate-400',
+    heading:  isDark ? 'text-white' : 'text-slate-900',
+    dot:      isDark ? 'text-slate-500' : 'text-slate-400',
+    meta:     isDark ? 'text-slate-500' : 'text-slate-400',
+    tabActive: isDark
+      ? 'bg-white/5 text-white border-t border-l border-r border-white/10'
+      : 'bg-slate-100 text-slate-900 border-t border-l border-r border-slate-200',
+    tabIdle:  isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-700',
+    glass:    isDark ? 'bg-white/5 border border-white/10' : 'bg-slate-50 border border-slate-200',
+    lbl:      isDark ? 'text-slate-500' : 'text-slate-400',
+    val:      isDark ? 'text-slate-200' : 'text-slate-800',
+    barBg:    isDark ? 'bg-white/5' : 'bg-slate-100',
+    foot:     isDark ? 'bg-navy-950/80' : 'bg-white',
+    sel:      isDark
+      ? 'bg-white/5 border-white/10 text-slate-300 focus:border-gold-400/40'
+      : 'bg-white border-slate-300 text-slate-700 focus:border-amber-400',
+    selOpt:   isDark ? 'bg-navy-900' : 'bg-white',
+    footNote: isDark ? 'text-slate-600' : 'text-slate-400',
   }
 
   if (!item) {
@@ -153,7 +171,11 @@ export default function ReviewPanel({ item, onDecision }) {
   }
 
   const tabs = ['overview', 'cheque', 'ai analysis', 'passport']
-  const reasonColor = REASON_COLORS[item.reason] || ('bg-slate-100 border-slate-300 text-slate-600 dark:bg-slate-400/10 dark:border-slate-400/20 dark:text-slate-300')
+  const reasonColor = REASON_COLORS[item.reason] || (
+    isDark
+      ? 'bg-slate-400/10 border-slate-400/20 text-slate-300'
+      : 'bg-slate-100 border-slate-300 text-slate-600'
+  )
 
   // D1: Trust Score strip calculations
   const totalIetMs = new Date(item.iet_deadline) - new Date(item.received_at)
@@ -161,11 +183,20 @@ export default function ReviewPanel({ item, onDecision }) {
   const ietPct = Math.max(0, Math.min(1, remainingMs / totalIetMs))
   const minsLeft = Math.max(0, Math.round(remainingMs / 60000))
 
+  const subMemberBanner = isDark
+    ? 'bg-amber-400/5 border-amber-400/20 text-amber-300'
+    : 'bg-amber-50 border-amber-300 text-amber-700'
+
+  const chequePopupBg = isDark ? 'bg-navy-900 border-white/10' : 'bg-white border-slate-200'
+  const instrumentIdColor = isDark
+    ? 'text-gold-400 decoration-gold-400/40'
+    : 'text-amber-600 decoration-amber-400/60'
+
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Sub-member context banner */}
       {item.principal_tag === 'SUB_MEMBER' && (
-        <div className={`px-6 py-2 flex items-center gap-2 border-b text-[11px] font-medium ${'bg-amber-50 border-amber-300 text-amber-700 dark:bg-amber-400/5 dark:border-amber-400/20 dark:text-amber-300'}`}>
+        <div className={`px-6 py-2 flex items-center gap-2 border-b text-[11px] font-medium ${subMemberBanner}`}>
           <span className="font-semibold">SUB-MEMBER CHEQUE</span>
           <span className="opacity-60">·</span>
           <span>{item.sub_member_name}</span>
@@ -180,16 +211,16 @@ export default function ReviewPanel({ item, onDecision }) {
         <div className="flex items-center gap-2 mb-2 flex-wrap">
           {/* Cheque number — hover shows cheque image */}
           <div className="relative" onMouseEnter={showCheque} onMouseLeave={hideCheque}>
-            <span className={`text-[11px] font-mono cursor-default underline decoration-dotted ${'text-amber-600 decoration-amber-400/60 dark:text-gold-400 dark:decoration-gold-400/40'}`}>
+            <span className={`text-[11px] font-mono cursor-default underline decoration-dotted ${instrumentIdColor}`}>
               {item.instrument_id}
             </span>
             {chequeHover && (
               <div
-                className={`absolute left-0 top-6 z-50 w-[480px] rounded-xl shadow-2xl border p-3 ${'bg-white border-slate-200 dark:bg-navy-900 dark:border-white/10'}`}
+                className={`absolute left-0 top-6 z-50 w-[480px] rounded-xl shadow-2xl border p-3 ${chequePopupBg}`}
                 onMouseEnter={showCheque} onMouseLeave={hideCheque}
               >
                 <div className={`text-[9px] ${th.lbl} uppercase tracking-widest mb-2`}>Cheque Image — compare with extracted fields</div>
-                <ChequeMockImage fields={item.ocr_fields} alterations={item.ocr_fields.alterations} />
+                <ChequeMockImage fields={item.ocr_fields} alterations={item.ocr_fields.alterations} isDark={isDark} />
               </div>
             )}
           </div>
@@ -325,12 +356,12 @@ export default function ReviewPanel({ item, onDecision }) {
               </div>
             </div>
 
-            <SigPanel item={item} />
+            <SigPanel item={item} isDark={isDark} />
           </>
         )}
 
         {tab === 'cheque' && (
-          <ChequeMockImage fields={item.ocr_fields} alterations={item.ocr_fields.alterations} accountDisplay={item.account_display} />
+          <ChequeMockImage fields={item.ocr_fields} alterations={item.ocr_fields.alterations} accountDisplay={item.account_display} isDark={isDark} />
         )}
 
         {tab === 'ai analysis' && (
@@ -357,7 +388,7 @@ export default function ReviewPanel({ item, onDecision }) {
               </div>
             </div>
             <div className={`rounded-xl p-4 ${th.glass}`}>
-              <ShapExplainer shapValues={item.shap_values} />
+              <ShapExplainer shapValues={item.shap_values} isDark={isDark} />
             </div>
           </div>
         )}

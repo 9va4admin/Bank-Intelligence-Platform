@@ -177,7 +177,7 @@ function KpiStrip({ batch, filterStatus, onFilter, isDark }) {
             <button key={t.key}
               onClick={() => onFilter(active ? 'ALL' : t.key)}
               className={`shrink-0 rounded-xl border px-4 py-2 min-w-[100px] text-left transition-all ${
-                active ? th.cardAct : `${th.card} hover:border-amber-300/50 dark:hover:border-gold-400/20`
+                active ? th.cardAct : `${th.card} ${isDark ? 'hover:border-gold-400/20' : 'hover:border-amber-300/50'}`
               }`}>
               <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-0.5`}>{t.label}</div>
               <div className={`text-2xl font-bold font-mono ${t.color}`}>{t.val}</div>
@@ -228,6 +228,7 @@ function PipelineLane({ batch, isDark }) {
 }
 
 function BatchRow({ item, selected, onClick, isDark }) {
+  const STATUS_META = isDark ? STATUS_META_D : STATUS_META_L
   const s = STATUS_META[item.status] || STATUS_META['CAPTURED']
   const th = {
     row:  selected
@@ -392,25 +393,26 @@ function OutwardPipelineViz({ item }) {
   )
 }
 
-function DetailPanel({ item }) {
+function DetailPanel({ item, isDark }) {
   if (!item) return (
-    <div className={`flex-1 flex items-center justify-center ${'text-slate-300 dark:text-slate-500'} text-sm`}>
+    <div className={`flex-1 flex items-center justify-center ${isDark ? 'text-slate-500' : 'text-slate-300'} text-sm`}>
       Select a cheque to inspect
     </div>
   )
+  const STATUS_META = isDark ? STATUS_META_D : STATUS_META_L
   const s  = STATUS_META[item.status] || STATUS_META['CAPTURED']
   const pos = pipelinePos(item.status)
 
   const th = {
-    page:    'bg-slate-50 dark:bg-transparent',
-    card:    'bg-white border-slate-200 dark:bg-navy-900/50 dark:border-white/10',
-    heading: 'text-slate-900 dark:text-white',
-    body:    'text-slate-700 dark:text-slate-300',
-    muted:   'text-slate-500 dark:text-slate-400',
-    lbl:     'text-slate-400 dark:text-slate-500',
-    divider: 'border-slate-200 dark:border-white/10',
-    id:      'text-amber-600 dark:text-gold-400',
-    bar:     'bg-slate-100 dark:bg-white/5',
+    page:    isDark ? 'bg-transparent' : 'bg-slate-50',
+    card:    isDark ? 'bg-navy-900/50 border-white/10' : 'bg-white border-slate-200',
+    heading: isDark ? 'text-white' : 'text-slate-900',
+    body:    isDark ? 'text-slate-300' : 'text-slate-700',
+    muted:   isDark ? 'text-slate-400' : 'text-slate-500',
+    lbl:     isDark ? 'text-slate-500' : 'text-slate-400',
+    divider: isDark ? 'border-white/10' : 'border-slate-200',
+    id:      isDark ? 'text-gold-400' : 'text-amber-600',
+    bar:     isDark ? 'bg-white/5' : 'bg-slate-100',
   }
 
   const fields = [
@@ -497,7 +499,7 @@ function DetailPanel({ item }) {
                   </div>
                   <div className="flex items-center gap-2">
                     {c.val && <span className={`text-[11px] font-mono ${th.body}`}>{c.val}</span>}
-                    <span className={`text-[11px] font-semibold ${c.ok ? ('text-emerald-600 dark:text-emerald-400') : 'text-red-400'}`}>
+                    <span className={`text-[11px] font-semibold ${c.ok ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : 'text-red-400'}`}>
                       {c.ok ? '✓' : '✕'}
                     </span>
                   </div>
@@ -522,7 +524,7 @@ function DetailPanel({ item }) {
               </div>
               <div className="flex items-center justify-between px-4 py-2">
                 <span className={`text-[11px] ${th.muted}`}>HSM signed</span>
-                <span className={`text-[11px] ${'text-emerald-600 dark:text-emerald-400'}`}>✓ FIPS 140-2 L3</span>
+                <span className={`text-[11px] ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>✓ FIPS 140-2 L3</span>
               </div>
               {item.ngch_ack_id && (
                 <div className="flex items-center justify-between px-4 py-2">
@@ -547,6 +549,7 @@ function DetailPanel({ item }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CTSPresentment() {
+  const { isDark } = useTheme()
   const [batch, setBatch] = useState(INITIAL_BATCH)
   const [selected, setSelected] = useState(INITIAL_BATCH[0])
   const [activeSession, setActiveSession] = useState(0)
@@ -587,14 +590,20 @@ export default function CTSPresentment() {
     return () => clearInterval(timer)
   }, [])
 
+  const STATUS_META = isDark ? STATUS_META_D : STATUS_META_L
+
   const th = {
-    page:    'bg-slate-50 dark:bg-transparent',
-    divider: 'border-slate-200 dark:border-white/10',
-    heading: 'text-slate-900 dark:text-white',
-    muted:   'text-slate-500 dark:text-slate-400',
-    lbl:     'text-slate-400 dark:text-slate-500',
-    search:  'bg-white border-slate-300 text-slate-700 placeholder:text-slate-400 focus:border-amber-400 dark:bg-white/5 dark:border-white/10 dark:text-slate-300 dark:placeholder:text-slate-600 dark:focus:border-gold-400/40',
-    sel:     'bg-white border-slate-300 text-slate-700 focus:border-amber-400 dark:bg-white/5 dark:border-white/10 dark:text-slate-300 dark:focus:border-gold-400/40',
+    page:    isDark ? 'bg-transparent' : 'bg-slate-50',
+    divider: isDark ? 'border-white/10' : 'border-slate-200',
+    heading: isDark ? 'text-white' : 'text-slate-900',
+    muted:   isDark ? 'text-slate-400' : 'text-slate-500',
+    lbl:     isDark ? 'text-slate-500' : 'text-slate-400',
+    search:  isDark
+      ? 'bg-white/5 border-white/10 text-slate-300 placeholder:text-slate-600 focus:border-gold-400/40'
+      : 'bg-white border-slate-300 text-slate-700 placeholder:text-slate-400 focus:border-amber-400',
+    sel:     isDark
+      ? 'bg-white/5 border-white/10 text-slate-300 focus:border-gold-400/40'
+      : 'bg-white border-slate-300 text-slate-700 focus:border-amber-400',
   }
 
   const allStatuses = ['ALL', ...Object.keys(STATUS_META)]
@@ -629,10 +638,10 @@ export default function CTSPresentment() {
         <SessionBar sessions={SESSIONS} activeIdx={activeSession} onSelect={setActiveSession} />
 
         {/* KPI strip */}
-        <KpiStrip batch={batch} filterStatus={filterStatus} onFilter={setFilterStatus} />
+        <KpiStrip batch={batch} filterStatus={filterStatus} onFilter={setFilterStatus} isDark={isDark} />
 
         {/* Pipeline progress */}
-        <PipelineLane batch={batch} />
+        <PipelineLane batch={batch} isDark={isDark} />
 
         {/* Main body: list + detail */}
         <div className="flex flex-1 min-h-0">
@@ -685,7 +694,7 @@ export default function CTSPresentment() {
 
           {/* Detail panel */}
           <div className="flex-1 min-w-0">
-            <DetailPanel item={selected} />
+            <DetailPanel item={selected} isDark={isDark} />
           </div>
         </div>
       </div>

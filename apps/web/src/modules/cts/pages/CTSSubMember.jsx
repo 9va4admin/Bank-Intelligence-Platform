@@ -109,10 +109,10 @@ function shieldStatus(smb) {
   return 'SAFE'
 }
 
-function ReturnRateBar({ value, threshold, softThreshold }) {
+function ReturnRateBar({ value, threshold, softThreshold, isDark }) {
   const pct = Math.min(value * 100, 100)
   const color = value >= softThreshold ? 'bg-red-500' : value >= threshold ? 'bg-amber-400' : 'bg-emerald-400'
-  const track = 'bg-slate-200 dark:bg-white/10'
+  const track = isDark ? 'bg-white/10' : 'bg-slate-200'
   return (
     <div className={`relative h-2 rounded-full overflow-visible ${track}`}>
       <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
@@ -205,7 +205,7 @@ function DetailPanel({ smb, onClose, isDark, BUCKET_COLORS }) {
             {(rate * 100).toFixed(1)}%
           </span>
         </div>
-        <ReturnRateBar value={rate} threshold={smb.return_threshold} softThreshold={smb.soft_hold_threshold} />
+        <ReturnRateBar value={rate} threshold={smb.return_threshold} softThreshold={smb.soft_hold_threshold} isDark={isDark} />
         <div className={`flex gap-4 mt-1 text-[9px] ${th.label}`}>
           <span>● Warn at {(smb.return_threshold * 100).toFixed(0)}%</span>
           <span>● Soft-Hold at {(smb.soft_hold_threshold * 100).toFixed(0)}%</span>
@@ -388,6 +388,7 @@ export default function CTSSubMember() {
                     value={rate}
                     threshold={smb.return_threshold}
                     softThreshold={smb.soft_hold_threshold}
+                    isDark={isDark}
                   />
                 </div>
               </div>
