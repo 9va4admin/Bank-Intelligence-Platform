@@ -43,13 +43,6 @@ const DECISIONS = [
   { id: 'CHQ-2026-001894', micr: '400160001894', account: '****6634', amount: '₹[1L-5L]', payee: 'D***', reason: 'SIG_MISMATCH',  outcome: 'STP_RETURN',   agent_ms: 478, fraud: 0.79, ngch: 'ACK-7814', filed: '10:44:22', reviewer: null,      return_reason: 'Signature mismatch confirmed', iet_deadline: '2026-06-19T13:30:00Z', returned_at: '2026-06-19T10:44:22Z', presenting_ifsc: 'HDFC0001234' },
 ]
 
-const OUTCOME_STYLE = {
-  STP_CONFIRM:  'text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-400/10',
-  STP_RETURN:   'text-red-700 bg-red-50 dark:text-red-400 dark:bg-red-400/10',
-  HUMAN_REVIEW: 'text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-400/10'
-}
-
-
 const FILTERS = ['All', 'STP_CONFIRM', 'STP_RETURN', 'HUMAN_REVIEW']
 
 // ── Client-side RRF XML generation (mirrors Python backend logic) ─────────────
@@ -104,17 +97,21 @@ function downloadXml(xml, filename) {
 }
 
 // ── RRF Preview Modal ─────────────────────────────────────────────────────────
-function RrfModal({ returns, sessionMeta, onClose }) {
+function RrfModal({ returns, sessionMeta, onClose, isDark }) {
   const xml = buildRrfXml(returns, sessionMeta)
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
   const filename = `RRF_${sessionMeta.bank_ifsc}_${date}_${sessionMeta.session_id}.xml`
 
   const th = {
-    overlay: 'fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6',
-    modal:   'bg-white border-slate-200 text-slate-900 dark:bg-navy-900 dark:border-white/10 dark:text-white',
-    code:    'bg-slate-50 text-emerald-700 border-slate-200 dark:bg-navy-950/80 dark:text-emerald-400 dark:border-white/10',
-    muted:   'text-slate-500 dark:text-slate-400',
-    btn:     'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 dark:bg-gold-400/10 dark:border-gold-400/30 dark:text-gold-400 dark:hover:bg-gold-400/20',
+    overlay:  'fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6',
+    modal:    isDark ? 'bg-navy-900 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900',
+    code:     isDark ? 'bg-navy-950/80 text-emerald-400 border-white/10' : 'bg-slate-50 text-emerald-700 border-slate-200',
+    muted:    isDark ? 'text-slate-400' : 'text-slate-500',
+    btn:      isDark ? 'bg-gold-400/10 border-gold-400/30 text-gold-400 hover:bg-gold-400/20' : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100',
+    divider:  isDark ? 'border-white/10' : 'border-slate-200',
+    badge:    isDark ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' : 'border-emerald-300 bg-emerald-50 text-emerald-700',
+    closeBtn: isDark ? 'hover:bg-white/8 text-slate-400' : 'hover:bg-slate-100 text-slate-500',
+    ngchReady: isDark ? 'text-emerald-400' : 'text-emerald-600',
   }
 
   return (
@@ -122,29 +119,29 @@ function RrfModal({ returns, sessionMeta, onClose }) {
       <div className={`w-full max-w-3xl max-h-[80vh] rounded-2xl border shadow-2xl flex flex-col ${th.modal}`}
         onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className={`flex items-center justify-between px-5 py-3 border-b ${'border-slate-200 dark:border-white/10'}`}>
+        <div className={`flex items-center justify-between px-5 py-3 border-b ${th.divider}`}>
           <div>
             <div className="text-sm font-semibold">Return Reason File (RRF)</div>
             <div className={`text-[10px] font-mono ${th.muted}`}>{filename}</div>
           </div>
           <div className="flex items-center gap-2">
-            <div className={`text-[10px] px-2 py-0.5 rounded border ${'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400'}`}>
+            <div className={`text-[10px] px-2 py-0.5 rounded border ${th.badge}`}>
               {returns.length} returns · CTS-2010 XML
             </div>
             <button onClick={() => downloadXml(xml, filename)}
               className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${th.btn}`}>
               ↓ Download XML
             </button>
-            <button onClick={onClose} className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${'hover:bg-slate-100 text-slate-500 dark:hover:bg-white/8 dark:text-slate-400'}`}>✕</button>
+            <button onClick={onClose} className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${th.closeBtn}`}>✕</button>
           </div>
         </div>
 
         {/* Summary row */}
-        <div className={`shrink-0 px-5 py-2 border-b ${'border-slate-200 dark:border-white/10'} flex gap-6 text-[11px] ${th.muted}`}>
+        <div className={`shrink-0 px-5 py-2 border-b ${th.divider} flex gap-6 text-[11px] ${th.muted}`}>
           <span>Bank: <span className="font-mono font-semibold">{sessionMeta.bank_ifsc}</span></span>
           <span>Session: <span className="font-mono">{sessionMeta.session_id}</span></span>
           <span>Zone: <span className="font-mono">{sessionMeta.clearing_zone}</span></span>
-          <span className={'text-emerald-600 dark:text-emerald-400'}>
+          <span className={th.ngchReady}>
             ✓ NGCH-ready · HSM sign pending (backend)
           </span>
         </div>
@@ -159,26 +156,41 @@ function RrfModal({ returns, sessionMeta, onClose }) {
 }
 
 export default function CTSDecisionsLog() {
+  const { isDark } = useTheme()
   const [filter, setFilter]     = useState('All')
   const [rrfModal, setRrfModal] = useState(null) // null | 'session' | rowId
   const returned = DECISIONS.filter(d => d.outcome === 'STP_RETURN')
   const rows     = filter === 'All' ? DECISIONS : DECISIONS.filter(d => d.outcome === filter)
 
   const th = {
-    page:    'bg-slate-50 dark:bg-transparent',
-    card:    'bg-white border-slate-200 dark:bg-white/10 dark:border-white/10',
-    heading: 'text-slate-900 dark:text-white',
-    body:    'text-slate-700 dark:text-slate-300',
-    muted:   'text-slate-500 dark:text-slate-400',
-    faint:   'text-slate-400 dark:text-slate-500',
-    divider: 'border-slate-200 dark:border-white/10',
-    thead:   'bg-slate-50 border-slate-200 text-slate-400 dark:bg-white/5 dark:border-white/10 dark:text-slate-500',
-    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/5',
-    filterActive: 'bg-amber-100 text-amber-700 dark:bg-gold-400/15 dark:text-gold-400',
-    filterIdle:   'text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300',
-    rrfBtn:  'border-red-300 text-red-600 hover:bg-red-50 dark:border-red-500/25 dark:text-red-400 dark:hover:bg-red-500/10',
-    sessionRrf: 'border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20',
+    page:    isDark ? 'bg-navy-950' : 'bg-slate-50',
+    card:    isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
+    heading: isDark ? 'text-white' : 'text-slate-900',
+    body:    isDark ? 'text-slate-300' : 'text-slate-700',
+    muted:   isDark ? 'text-slate-400' : 'text-slate-500',
+    faint:   isDark ? 'text-slate-600' : 'text-slate-400',
+    divider: isDark ? 'border-white/8' : 'border-slate-200',
+    row:     isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
+    select:  isDark ? 'bg-navy-900 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
+    input:   isDark ? 'bg-navy-800 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
+    thead:   isDark ? 'bg-white/5 border-white/10 text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-400',
+    filterActive: isDark ? 'bg-gold-400/15 text-gold-400' : 'bg-amber-100 text-amber-700',
+    filterIdle:   isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-700',
+    rrfBtn:  isDark ? 'border-red-500/25 text-red-400 hover:bg-red-500/10' : 'border-red-300 text-red-600 hover:bg-red-50',
+    sessionRrf: isDark ? 'border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20' : 'border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100',
   }
+
+  const OUTCOME_STYLE_D = {
+    STP_CONFIRM:  'text-emerald-400 bg-emerald-400/10',
+    STP_RETURN:   'text-red-400 bg-red-400/10',
+    HUMAN_REVIEW: 'text-amber-400 bg-amber-400/10',
+  }
+  const OUTCOME_STYLE_L = {
+    STP_CONFIRM:  'text-emerald-700 bg-emerald-50',
+    STP_RETURN:   'text-red-700 bg-red-50',
+    HUMAN_REVIEW: 'text-amber-700 bg-amber-50',
+  }
+  const OUTCOME_STYLE = isDark ? OUTCOME_STYLE_D : OUTCOME_STYLE_L
 
   const modalReturns = rrfModal === 'session'
     ? returned
@@ -215,10 +227,10 @@ export default function CTSDecisionsLog() {
         <div className="grid grid-cols-5 gap-3 mb-5">
           {[
             { label: 'Total Filed',   value: DECISIONS.length,                                            color: th.heading },
-            { label: 'STP Confirmed', value: DECISIONS.filter(d => d.outcome === 'STP_CONFIRM').length,   color: 'text-emerald-600 dark:text-emerald-400' },
-            { label: 'STP Returned',  value: returned.length,                                             color: 'text-red-600 dark:text-red-400' },
-            { label: 'Human Review',  value: DECISIONS.filter(d => d.outcome === 'HUMAN_REVIEW').length,  color: 'text-amber-600 dark:text-amber-400' },
-            { label: 'RRF Generated', value: returned.length > 0 ? '✓' : '—',                            color: returned.length > 0 ? ('text-emerald-600 dark:text-emerald-400') : th.faint },
+            { label: 'STP Confirmed', value: DECISIONS.filter(d => d.outcome === 'STP_CONFIRM').length,   color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+            { label: 'STP Returned',  value: returned.length,                                             color: isDark ? 'text-red-400' : 'text-red-600' },
+            { label: 'Human Review',  value: DECISIONS.filter(d => d.outcome === 'HUMAN_REVIEW').length,  color: isDark ? 'text-amber-400' : 'text-amber-600' },
+            { label: 'RRF Generated', value: returned.length > 0 ? '✓' : '—',                            color: returned.length > 0 ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : th.faint },
           ].map(s => (
             <div key={s.label} className={`border rounded-xl px-4 py-3 ${th.card}`}>
               <div className={`text-[10px] ${th.faint} mb-1`}>{s.label}</div>
@@ -263,7 +275,7 @@ export default function CTSDecisionsLog() {
                     <td className={`px-4 py-2.5 text-right ${th.body} font-mono`}>{d.agent_ms}</td>
                     <td className="px-4 py-2.5 text-right">
                       {d.fraud !== null
-                        ? <span className={d.fraud > 0.7 ? ('text-red-600 dark:text-red-400') : ('text-emerald-600 dark:text-emerald-400')}>{(d.fraud * 100).toFixed(0)}%</span>
+                        ? <span className={d.fraud > 0.7 ? (isDark ? 'text-red-400' : 'text-red-600') : (isDark ? 'text-emerald-400' : 'text-emerald-600')}>{(d.fraud * 100).toFixed(0)}%</span>
                         : <span className={th.faint}>—</span>}
                     </td>
                     <td className={`px-4 py-2.5 ${th.muted} font-mono text-[10px]`}>{d.ngch}</td>
@@ -309,6 +321,7 @@ export default function CTSDecisionsLog() {
           returns={modalReturns}
           sessionMeta={SESSION_META}
           onClose={() => setRrfModal(null)}
+          isDark={isDark}
         />
       )}
     </AppShell>

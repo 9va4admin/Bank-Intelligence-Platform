@@ -20,6 +20,7 @@ const LAYER1_CONFIG = [
 ]
 
 export default function CTSConfig() {
+  const { isDark } = useTheme()
   const [values, setValues] = useState(
     Object.fromEntries(LAYER3_CONFIG.map(c => [c.key, c.value]))
   )
@@ -31,17 +32,21 @@ export default function CTSConfig() {
   }
 
   const th = {
-    page:      'bg-slate-50 dark:bg-transparent',
-    card:      'bg-white border-slate-200 dark:bg-white/10 dark:border-white/10',
-    cardFaint: 'bg-slate-50 border-slate-100 dark:bg-navy-900/40 dark:border-white/5',
-    heading:   'text-slate-900 dark:text-white',
-    body:      'text-slate-700 dark:text-slate-400',
-    faint:     'text-slate-400 dark:text-slate-500',
-    meta:      'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-500',
-    input:     'bg-slate-50 border-slate-300 text-slate-900 focus:border-amber-500 dark:bg-white/5 dark:border-white/10 dark:text-white dark:focus:border-amber-400/50',
-    btn:       'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-gold-400/10 dark:text-gold-400 dark:hover:bg-gold-400/20',
-    l1label:   'text-slate-400 dark:text-slate-500',
-    l1val:     'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-500',
+    page:      isDark ? 'bg-navy-950' : 'bg-slate-50',
+    card:      isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
+    cardFaint: isDark ? 'bg-navy-900/40 border-white/5' : 'bg-slate-50 border-slate-100',
+    heading:   isDark ? 'text-white' : 'text-slate-900',
+    body:      isDark ? 'text-slate-300' : 'text-slate-700',
+    muted:     isDark ? 'text-slate-400' : 'text-slate-500',
+    faint:     isDark ? 'text-slate-600' : 'text-slate-400',
+    divider:   isDark ? 'border-white/8' : 'border-slate-200',
+    row:       isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
+    select:    isDark ? 'bg-navy-900 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
+    input:     isDark ? 'bg-navy-800 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
+    meta:      isDark ? 'bg-white/10 text-slate-500' : 'bg-slate-100 text-slate-500',
+    btn:       isDark ? 'bg-gold-400/10 text-gold-400 hover:bg-gold-400/20' : 'bg-amber-100 text-amber-700 hover:bg-amber-200',
+    l1label:   isDark ? 'text-slate-500' : 'text-slate-400',
+    l1val:     isDark ? 'bg-white/10 text-slate-500' : 'bg-slate-100 text-slate-500',
   }
 
   usePageHeader({

@@ -64,16 +64,28 @@ function makeBatch(n, startIdx = 0) {
 
 const INITIAL_BATCH = makeBatch(42)
 
-const STATUS_META = {
-  CAPTURED:     { label: 'Captured',     color: 'text-slate-500 dark:text-slate-400',   bg: 'bg-slate-50 border-slate-300 dark:bg-slate-400/10 dark:border-slate-400/20' },
-  IQA_PASS:     { label: 'IQA Pass',     color: 'text-sky-600 dark:text-sky-400',       bg: 'bg-sky-50 border-sky-300 dark:bg-sky-400/10 dark:border-sky-400/20'         },
-  IQA_FAIL:     { label: 'IQA Fail',     color: 'text-red-600 dark:text-red-400',       bg: 'bg-red-50 border-red-300 dark:bg-red-400/10 dark:border-red-400/25'         },
-  AI_EXTRACTED: { label: 'AI Extracted', color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 border-violet-300 dark:bg-violet-400/10 dark:border-violet-400/20'},
-  PKI_SIGNED:   { label: 'PKI Signed',   color: 'text-amber-600 dark:text-amber-400',   bg: 'bg-amber-50 border-amber-300 dark:bg-amber-400/10 dark:border-amber-400/20' },
-  SUBMITTED:    { label: 'Submitted',    color: 'text-blue-600 dark:text-blue-400',     bg: 'bg-blue-50 border-blue-300 dark:bg-blue-400/10 dark:border-blue-400/20'     },
-  NGCH_ACK:     { label: 'NGCH ACK ✓',  color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 border-emerald-300 dark:bg-emerald-400/10 dark:border-emerald-400/20'},
-  NGCH_REJECT:  { label: 'NGCH Reject',  color: 'text-red-700 dark:text-red-500',       bg: 'bg-red-50 border-red-300 dark:bg-red-500/10 dark:border-red-500/25'         },
+// STATUS_META_D / STATUS_META_L are selected per-render based on isDark
+const STATUS_META_D = {
+  CAPTURED:     { label: 'Captured',     color: 'text-slate-400',    bg: 'bg-slate-400/10 border-slate-400/20'   },
+  IQA_PASS:     { label: 'IQA Pass',     color: 'text-sky-400',      bg: 'bg-sky-400/10 border-sky-400/20'       },
+  IQA_FAIL:     { label: 'IQA Fail',     color: 'text-red-400',      bg: 'bg-red-400/10 border-red-400/25'       },
+  AI_EXTRACTED: { label: 'AI Extracted', color: 'text-violet-400',   bg: 'bg-violet-400/10 border-violet-400/20' },
+  PKI_SIGNED:   { label: 'PKI Signed',   color: 'text-amber-400',    bg: 'bg-amber-400/10 border-amber-400/20'   },
+  SUBMITTED:    { label: 'Submitted',    color: 'text-blue-400',     bg: 'bg-blue-400/10 border-blue-400/20'     },
+  NGCH_ACK:     { label: 'NGCH ACK ✓',  color: 'text-emerald-400',  bg: 'bg-emerald-400/10 border-emerald-400/20'},
+  NGCH_REJECT:  { label: 'NGCH Reject',  color: 'text-red-500',      bg: 'bg-red-500/10 border-red-500/25'       },
 }
+const STATUS_META_L = {
+  CAPTURED:     { label: 'Captured',     color: 'text-slate-500',    bg: 'bg-slate-50 border-slate-300'          },
+  IQA_PASS:     { label: 'IQA Pass',     color: 'text-sky-600',      bg: 'bg-sky-50 border-sky-300'              },
+  IQA_FAIL:     { label: 'IQA Fail',     color: 'text-red-600',      bg: 'bg-red-50 border-red-300'              },
+  AI_EXTRACTED: { label: 'AI Extracted', color: 'text-violet-600',   bg: 'bg-violet-50 border-violet-300'        },
+  PKI_SIGNED:   { label: 'PKI Signed',   color: 'text-amber-600',    bg: 'bg-amber-50 border-amber-300'          },
+  SUBMITTED:    { label: 'Submitted',    color: 'text-blue-600',     bg: 'bg-blue-50 border-blue-300'            },
+  NGCH_ACK:     { label: 'NGCH ACK ✓',  color: 'text-emerald-700',  bg: 'bg-emerald-50 border-emerald-300'      },
+  NGCH_REJECT:  { label: 'NGCH Reject',  color: 'text-red-700',      bg: 'bg-red-50 border-red-300'              },
+}
+// STATUS_META is aliased per-component using isDark (see below)
 
 const PIPELINE_STEPS = [
   { id: 'CAPTURE',   label: 'Scan & Capture',   icon: '📷', desc: 'Scanner feed → TIFF+JPEG'    },
@@ -92,10 +104,14 @@ function pipelinePos(status) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function SessionBar({ sessions, activeIdx, onSelect }) {
+function SessionBar({ sessions, activeIdx, onSelect, isDark }) {
   const th = {
-    bar:    'bg-white border-slate-200 dark:bg-white/10 dark:border-white/10',
-    label:  'text-slate-500 dark:text-slate-400',
+    bar:    isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
+    label:  isDark ? 'text-slate-400' : 'text-slate-500',
+    sessionActive: isDark ? 'border-gold-400/50 bg-gold-400/10 text-gold-400 font-semibold' : 'border-amber-400/60 bg-amber-50 text-amber-700 font-semibold',
+    sessionIdle:   isDark ? 'border-white/10 text-slate-400 hover:text-slate-200 hover:border-white/20' : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300',
+    live:   isDark ? 'text-emerald-400' : 'text-emerald-600',
+    scnFeed: isDark ? 'text-emerald-400' : 'text-emerald-600',
   }
   return (
     <div className={`shrink-0 border-b ${th.bar} px-5 py-2 flex items-center gap-3`}>
@@ -106,13 +122,11 @@ function SessionBar({ sessions, activeIdx, onSelect }) {
         return (
           <button key={s.id} onClick={() => onSelect(i)}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-lg border text-[11px] transition-all ${
-              active
-                ? 'border-amber-400/60 bg-amber-50 text-amber-700 font-semibold dark:border-gold-400/50 dark:bg-gold-400/10 dark:text-gold-400 dark:font-semibold'
-                : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:border-white/10 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:border-white/20'
+              active ? th.sessionActive : th.sessionIdle
             }`}>
             {isLive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
             <span className="font-mono">{s.window}</span>
-            {s.status === 'ACTIVE' && <span className={`text-[9px] font-medium ${'text-emerald-600 dark:text-emerald-400'}`}>LIVE</span>}
+            {s.status === 'ACTIVE' && <span className={`text-[9px] font-medium ${th.live}`}>LIVE</span>}
             {s.status === 'PENDING' && <span className={`text-[9px] ${th.label}`}>Pending</span>}
           </button>
         )
@@ -120,13 +134,13 @@ function SessionBar({ sessions, activeIdx, onSelect }) {
       <div className={`ml-auto flex items-center gap-4 text-[11px] ${th.label}`}>
         <span>📷 <span className="font-mono font-semibold">4</span> scanners</span>
         <span>📁 <span className="font-mono font-semibold">2</span> folders</span>
-        <span className={`font-mono font-semibold ${'text-emerald-600 dark:text-emerald-400'}`}>SCN feed active</span>
+        <span className={`font-mono font-semibold ${th.scnFeed}`}>SCN feed active</span>
       </div>
     </div>
   )
 }
 
-function KpiStrip({ batch, filterStatus, onFilter }) {
+function KpiStrip({ batch, filterStatus, onFilter, isDark }) {
   const total     = batch.length
   const iqaFail   = batch.filter(b => b.status === 'IQA_FAIL').length
   const extracted = batch.filter(b => ['AI_EXTRACTED','PKI_SIGNED','SUBMITTED','NGCH_ACK','NGCH_REJECT'].includes(b.status)).length
@@ -137,24 +151,25 @@ function KpiStrip({ batch, filterStatus, onFilter }) {
   const dateInvalid = batch.filter(b => b.date_valid === false).length
 
   const th = {
-    card:    'bg-white border-slate-200 dark:bg-navy-900/50 dark:border-white/10',
-    cardAct: 'bg-amber-50 border-amber-300 dark:bg-gold-400/10 dark:border-gold-400/40',
-    lbl:     'text-slate-400 dark:text-slate-500',
+    card:    isDark ? 'bg-navy-900/50 border-white/8' : 'bg-white border-slate-200',
+    cardAct: isDark ? 'bg-gold-400/10 border-gold-400/40' : 'bg-amber-50 border-amber-300',
+    lbl:     isDark ? 'text-slate-500' : 'text-slate-400',
+    divider: isDark ? 'border-white/8' : 'border-slate-200',
   }
 
   const tiles = [
-    { key: 'ALL',          label: 'Total Batch',    val: total,       color: 'text-slate-900 dark:text-white' },
-    { key: 'IQA_FAIL',     label: 'IQA Fail',       val: iqaFail,     color: iqaFail > 0 ? 'text-red-400' : 'text-emerald-600 dark:text-emerald-400' },
-    { key: 'AI_EXTRACTED', label: 'AI Extracted',   val: extracted,   color: 'text-violet-600 dark:text-violet-400' },
-    { key: 'SUBMITTED',    label: 'Submitted NGCH', val: submitted,   color: 'text-blue-600 dark:text-blue-400' },
-    { key: 'NGCH_ACK',     label: 'NGCH ACK',       val: acked,       color: 'text-emerald-600 dark:text-emerald-400' },
-    { key: 'NGCH_REJECT',  label: 'NGCH Reject',    val: rejected,    color: rejected > 0 ? 'text-red-400' : 'text-slate-400 dark:text-slate-500' },
-    { key: 'AMT_MISMATCH', label: 'Amt Mismatch',   val: amtMismatch, color: amtMismatch > 0 ? 'text-amber-400' : 'text-slate-400 dark:text-slate-500' },
-    { key: 'DATE_INVALID', label: 'Date Invalid',   val: dateInvalid, color: dateInvalid > 0 ? 'text-amber-400' : 'text-slate-400 dark:text-slate-500' },
+    { key: 'ALL',          label: 'Total Batch',    val: total,       color: isDark ? 'text-white' : 'text-slate-900' },
+    { key: 'IQA_FAIL',     label: 'IQA Fail',       val: iqaFail,     color: iqaFail > 0 ? 'text-red-400' : (isDark ? 'text-emerald-400' : 'text-emerald-600') },
+    { key: 'AI_EXTRACTED', label: 'AI Extracted',   val: extracted,   color: isDark ? 'text-violet-400' : 'text-violet-600' },
+    { key: 'SUBMITTED',    label: 'Submitted NGCH', val: submitted,   color: isDark ? 'text-blue-400' : 'text-blue-600' },
+    { key: 'NGCH_ACK',     label: 'NGCH ACK',       val: acked,       color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+    { key: 'NGCH_REJECT',  label: 'NGCH Reject',    val: rejected,    color: rejected > 0 ? 'text-red-400' : (isDark ? 'text-slate-500' : 'text-slate-400') },
+    { key: 'AMT_MISMATCH', label: 'Amt Mismatch',   val: amtMismatch, color: amtMismatch > 0 ? 'text-amber-400' : (isDark ? 'text-slate-500' : 'text-slate-400') },
+    { key: 'DATE_INVALID', label: 'Date Invalid',   val: dateInvalid, color: dateInvalid > 0 ? 'text-amber-400' : (isDark ? 'text-slate-500' : 'text-slate-400') },
   ]
 
   return (
-    <div className={`shrink-0 border-b ${'border-slate-200 dark:border-white/10'} px-5 py-3`}>
+    <div className={`shrink-0 border-b ${th.divider} px-5 py-3`}>
       <div className="flex gap-4 overflow-x-auto">
         {tiles.map(t => {
           const active = filterStatus === t.key
@@ -174,20 +189,21 @@ function KpiStrip({ batch, filterStatus, onFilter }) {
   )
 }
 
-function PipelineLane({ batch }) {
+function PipelineLane({ batch, isDark }) {
   const counts = {}
   PIPELINE_STEPS.forEach((_, i) => { counts[i] = 0 })
   batch.forEach(b => { const p = pipelinePos(b.status); counts[p] = (counts[p] || 0) + 1 })
   const total = batch.length || 1
 
   const th = {
-    card:  'bg-white border-slate-200 dark:bg-navy-900/50 dark:border-white/10',
-    lbl:   'text-slate-400 dark:text-slate-500',
-    bar:   'bg-slate-100 dark:bg-white/5',
+    lbl:     isDark ? 'text-slate-500' : 'text-slate-400',
+    bar:     isDark ? 'bg-white/5' : 'bg-slate-100',
+    divider: isDark ? 'border-white/8' : 'border-slate-200',
+    cnt:     isDark ? 'text-slate-300' : 'text-slate-700',
   }
 
   return (
-    <div className={`shrink-0 border-b ${'border-slate-200 dark:border-white/10'} px-5 py-3`}>
+    <div className={`shrink-0 border-b ${th.divider} px-5 py-3`}>
       <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>Outward Pipeline — Current Session</div>
       <div className="flex gap-2 items-end">
         {PIPELINE_STEPS.map((step, i) => {
@@ -197,7 +213,7 @@ function PipelineLane({ batch }) {
             <div key={step.id} className="flex-1 min-w-0">
               <div className="flex items-baseline justify-between mb-1">
                 <span className={`text-[10px] ${th.lbl} truncate`}>{step.icon} {step.label}</span>
-                <span className={`text-[10px] font-mono font-bold shrink-0 ml-1 ${'text-slate-700 dark:text-slate-300'}`}>{cnt}</span>
+                <span className={`text-[10px] font-mono font-bold shrink-0 ml-1 ${th.cnt}`}>{cnt}</span>
               </div>
               <div className={`h-1.5 ${th.bar} rounded-full overflow-hidden`}>
                 <div className="h-full bg-gold-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
@@ -211,15 +227,15 @@ function PipelineLane({ batch }) {
   )
 }
 
-function BatchRow({ item, selected, onClick }) {
+function BatchRow({ item, selected, onClick, isDark }) {
   const s = STATUS_META[item.status] || STATUS_META['CAPTURED']
   const th = {
     row:  selected
-      ? 'bg-amber-50 border-amber-300 dark:bg-gold-400/8 dark:border-gold-400/30'
-      : 'border-slate-100 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/5',
-    id:   'text-amber-600 dark:text-gold-400',
-    meta: 'text-slate-500 dark:text-slate-400',
-    muted:'text-slate-400 dark:text-slate-500',
+      ? (isDark ? 'bg-gold-400/8 border-gold-400/30' : 'bg-amber-50 border-amber-300')
+      : (isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50'),
+    id:   isDark ? 'text-gold-400' : 'text-amber-600',
+    meta: isDark ? 'text-slate-400' : 'text-slate-500',
+    muted: isDark ? 'text-slate-500' : 'text-slate-400',
   }
 
   return (
@@ -244,7 +260,7 @@ function BatchRow({ item, selected, onClick }) {
           {item.lot_seq && (
             <>
               <span>·</span>
-              <span className={'text-violet-600 font-medium dark:text-violet-400 dark:font-medium'}>
+              <span className={isDark ? 'text-violet-400 font-medium' : 'text-violet-600 font-medium'}>
                 Lot {item.lot_seq}
               </span>
             </>
