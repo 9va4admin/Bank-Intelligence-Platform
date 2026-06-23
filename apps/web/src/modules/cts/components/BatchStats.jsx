@@ -1,11 +1,11 @@
-export default function BatchStats({ stats }) {
+export default function BatchStats({ stats, isDark }) {
   const pctDone = Math.round(((stats.stp_confirmed + stats.stp_returned + stats.human_review) / stats.total_inward) * 100)
 
-  const heading = 'text-slate-900 dark:text-white'
-  const meta    = 'text-slate-400 dark:text-slate-500'
-  const bar     = 'bg-slate-100 dark:bg-white/5'
-  const lbl     = 'text-slate-400 dark:text-slate-500'
-  const wrapper = 'border-slate-200 bg-white dark:border-white/10 dark:bg-navy-900/60'
+  const heading = isDark ? 'text-white' : 'text-slate-900'
+  const meta    = isDark ? 'text-slate-500' : 'text-slate-400'
+  const bar     = isDark ? 'bg-white/5' : 'bg-slate-100'
+  const lbl     = isDark ? 'text-slate-500' : 'text-slate-400'
+  const wrapper = isDark ? 'border-white/10 bg-navy-900/60' : 'border-slate-200 bg-white'
 
   const tiles = [
     { label: 'Inward',    value: stats.total_inward,          color: heading },

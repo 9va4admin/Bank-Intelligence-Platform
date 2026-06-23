@@ -1,17 +1,17 @@
-export default function ChequeMockImage({ fields, alterations }) {
-  const wrap   = 'border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5'
-  const bank   = 'text-slate-800 dark:text-slate-300'
-  const sub    = 'text-slate-500 dark:text-slate-600'
-  const dateBx = 'border-slate-300 text-slate-700 dark:border-white/10 dark:text-slate-300'
-  const dateVl = 'text-amber-600 dark:text-gold-400'
-  const payLbl = 'text-slate-500 dark:text-slate-500'
-  const payNm  = 'text-slate-900 dark:text-white'
-  const wordTx = 'text-slate-900 dark:text-white'
-  const amtBox = 'border-slate-400 text-amber-600 dark:border-white/15 dark:text-gold-400'
-  const micrTx = 'text-slate-400 dark:text-slate-600'
-  const wmark  = 'text-slate-200 dark:text-white/3'
-  const divDash= 'border-slate-200 dark:border-white/10'
-  const micrBd = 'border-slate-200 dark:border-white/10'
+export default function ChequeMockImage({ fields, alterations, isDark }) {
+  const wrap   = isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-slate-50'
+  const bank   = isDark ? 'text-slate-300' : 'text-slate-800'
+  const sub    = isDark ? 'text-slate-600' : 'text-slate-500'
+  const dateBx = isDark ? 'border-white/10 text-slate-300' : 'border-slate-300 text-slate-700'
+  const dateVl = isDark ? 'text-gold-400' : 'text-amber-600'
+  const payLbl = isDark ? 'text-slate-500' : 'text-slate-500'
+  const payNm  = isDark ? 'text-white' : 'text-slate-900'
+  const wordTx = isDark ? 'text-white' : 'text-slate-900'
+  const amtBox = isDark ? 'border-white/15 text-gold-400' : 'border-slate-400 text-amber-600'
+  const micrTx = isDark ? 'text-slate-600' : 'text-slate-400'
+  const wmark  = isDark ? 'text-white/3' : 'text-slate-200'
+  const divDash= isDark ? 'border-white/10' : 'border-slate-200'
+  const micrBd = isDark ? 'border-white/10' : 'border-slate-200'
 
   return (
     <div className={`rounded-xl border ${wrap} p-5 font-mono text-xs relative overflow-hidden`}>
