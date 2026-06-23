@@ -200,10 +200,10 @@ export default function IncidentManagement() {
   }
 
   const summaryCards = [
-    { label:'Open',         value: counts.open,     color:'text-red-500',     bg: 'border-red-200 bg-red-50 dark:border-red-800/40 dark:bg-red-950/20' },
-    { label:'In Progress',  value: counts.inProg,   color:'text-violet-500',  bg: 'border-violet-200 bg-violet-50 dark:border-violet-800/40 dark:bg-violet-950/20' },
-    { label:'Resolved',     value: counts.resolved, color:'text-emerald-500', bg: 'border-emerald-200 bg-emerald-50 dark:border-emerald-800/30 dark:bg-emerald-950/10' },
-    { label:'SLA Breached', value: counts.breached, color: counts.breached > 0 ? 'text-red-500 animate-pulse' : ('text-slate-400 dark:text-slate-500'), bg: counts.breached > 0 ? ('border-red-200 bg-red-50 dark:border-red-700/50 dark:bg-red-950/30') : ('border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/30') },
+    { label:'Open',         value: counts.open,     color:'text-red-500',     bg: isDark ? 'border-red-800/40 bg-red-950/20'       : 'border-red-200 bg-red-50' },
+    { label:'In Progress',  value: counts.inProg,   color:'text-violet-500',  bg: isDark ? 'border-violet-800/40 bg-violet-950/20' : 'border-violet-200 bg-violet-50' },
+    { label:'Resolved',     value: counts.resolved, color:'text-emerald-500', bg: isDark ? 'border-emerald-800/30 bg-emerald-950/10': 'border-emerald-200 bg-emerald-50' },
+    { label:'SLA Breached', value: counts.breached, color: counts.breached > 0 ? 'text-red-500 animate-pulse' : (isDark ? 'text-slate-500' : 'text-slate-400'), bg: counts.breached > 0 ? (isDark ? 'border-red-700/50 bg-red-950/30' : 'border-red-200 bg-red-50') : (isDark ? 'border-slate-800 bg-slate-900/30' : 'border-slate-200 bg-white') },
   ]
 
   return (
@@ -300,7 +300,7 @@ export default function IncidentManagement() {
         {selected && (
           <>
             <div className={`fixed inset-0 ${th.overlay} z-40`} onClick={() => setSelected(null)} />
-            <DetailPanel inc={selected} onClose={() => setSelected(null)} onStatusChange={changeStatus} />
+            <DetailPanel inc={selected} onClose={() => setSelected(null)} onStatusChange={changeStatus} isDark={isDark} />
           </>
         )}
       </div>
