@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import EJShell from '../layout/EJShell'
+import { useTheme } from '../../../shared/theme/ThemeContext'
 
 const MOCK_INCIDENTS = [
   { id:'INC-2026-0041', atm_id:'ATM-MUM-004', city:'Mumbai',    branch:'Kurla',        severity:'CRITICAL', type:'Dispense-Balance Mismatch',  status:'IN_PROGRESS', opened:'2026-06-18T10:31:07Z', assigned_to:'Rahul Sharma',  sla_breach_at:'2026-06-18T11:01:07Z', notes:'Cassette 1 jam confirmed. Engineer dispatched.' },
@@ -16,20 +17,23 @@ const MOCK_INCIDENTS = [
   { id:'INC-2026-0038', atm_id:'ATM-BLR-002', city:'Bangalore', branch:'Whitefield',   severity:'MEDIUM',   type:'EJ Upload Timeout',          status:'RESOLVED',    opened:'2026-06-17T18:00:00Z', assigned_to:'Kiran Rao',     sla_breach_at:'2026-06-18T02:00:00Z', notes:'Network restored after ISP maintenance.' },
 ]
 
-const SEV = {
-  CRITICAL: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/60 dark:text-red-300 dark:border-red-700/50',
-  HIGH:     'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700/40',
-  MEDIUM:   'bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-700/30',
-  LOW:      'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+function makeSev(isDark) {
+  return {
+    CRITICAL: isDark ? 'bg-red-900/60 text-red-300 border-red-700/50'     : 'bg-red-100 text-red-700 border-red-300',
+    HIGH:     isDark ? 'bg-amber-900/50 text-amber-300 border-amber-700/40': 'bg-amber-100 text-amber-700 border-amber-300',
+    MEDIUM:   isDark ? 'bg-yellow-900/40 text-yellow-300 border-yellow-700/30': 'bg-yellow-100 text-yellow-700 border-yellow-300',
+    LOW:      isDark ? 'bg-slate-800 text-slate-400 border-slate-700'      : 'bg-slate-100 text-slate-600 border-slate-300',
+  }
 }
 
-
-const STATUS = {
-  OPEN:        'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300',
-  ASSIGNED:    'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
-  IN_PROGRESS: 'bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300',
-  RESOLVED:    'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400',
-  CLOSED:      'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-500'
+function makeStatus(isDark) {
+  return {
+    OPEN:        isDark ? 'bg-red-900/50 text-red-300'       : 'bg-red-100 text-red-700',
+    ASSIGNED:    isDark ? 'bg-blue-900/50 text-blue-300'     : 'bg-blue-100 text-blue-700',
+    IN_PROGRESS: isDark ? 'bg-violet-900/50 text-violet-300' : 'bg-violet-100 text-violet-700',
+    RESOLVED:    isDark ? 'bg-emerald-900/40 text-emerald-400': 'bg-emerald-100 text-emerald-700',
+    CLOSED:      isDark ? 'bg-slate-800 text-slate-500'      : 'bg-slate-100 text-slate-500',
+  }
 }
 
 
@@ -46,26 +50,28 @@ function getSLA(inc) {
   return { label:`${Math.round(diff/60)}h left`, cls:'text-slate-400' }
 }
 
-function DetailPanel({ inc, onClose, onStatusChange }) {
+function DetailPanel({ inc, onClose, onStatusChange, isDark }) {
   const [note, setNote] = useState(inc.notes)
   const sla = getSLA(inc)
   const nextStatus = { OPEN:'ASSIGNED', ASSIGNED:'IN_PROGRESS', IN_PROGRESS:'RESOLVED', RESOLVED:'CLOSED' }
+  const SEV    = makeSev(isDark)
+  const STATUS = makeStatus(isDark)
 
-  const panel  = 'bg-white/5 border-white/8'
-  const hdr    = 'border-slate-200 dark:border-slate-800'
-  const id_cls = 'text-blue-600 dark:text-cyan-400'
-  const ttl    = 'text-slate-900 dark:text-slate-100'
-  const close  = 'text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300'
-  const kCard  = 'bg-white/5 border-white/8 text-slate-400'
-  const kVal   = 'text-slate-800 dark:text-slate-200'
-  const tlBdr  = 'border-slate-300 dark:border-slate-700'
-  const tlTxt  = 'text-slate-700 dark:text-slate-300'
-  const tlTs   = 'text-slate-400 dark:text-slate-600'
-  const lbl    = 'text-slate-400 dark:text-slate-500'
-  const ta     = 'bg-slate-50 border-slate-300 text-slate-800 focus:border-blue-400 dark:bg-slate-900/60 dark:border-slate-700 dark:text-slate-200 dark:focus:border-cyan-700'
-  const ftr    = 'border-slate-200 dark:border-slate-800'
-  const btn    = 'bg-blue-600 hover:bg-blue-700 text-white dark:bg-cyan-800 dark:hover:bg-cyan-700 dark:text-cyan-100'
-  const clsBtn = 'text-slate-500 hover:text-slate-700 border-slate-300 dark:text-slate-400 dark:hover:text-slate-200 dark:border-slate-700'
+  const panel  = isDark ? 'bg-white/5 border-white/8'            : 'bg-white border-slate-200'
+  const hdr    = isDark ? 'border-slate-800'                      : 'border-slate-200'
+  const id_cls = isDark ? 'text-cyan-400'                         : 'text-blue-600'
+  const ttl    = isDark ? 'text-slate-100'                        : 'text-slate-900'
+  const close  = isDark ? 'text-slate-500 hover:text-slate-300'   : 'text-slate-400 hover:text-slate-700'
+  const kCard  = isDark ? 'bg-white/5 border-white/8 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'
+  const kVal   = isDark ? 'text-slate-200'                        : 'text-slate-800'
+  const tlBdr  = isDark ? 'border-slate-700'                      : 'border-slate-300'
+  const tlTxt  = isDark ? 'text-slate-300'                        : 'text-slate-700'
+  const tlTs   = isDark ? 'text-slate-600'                        : 'text-slate-400'
+  const lbl    = isDark ? 'text-slate-500'                        : 'text-slate-400'
+  const ta     = isDark ? 'bg-slate-900/60 border-slate-700 text-slate-200 focus:border-cyan-700' : 'bg-slate-50 border-slate-300 text-slate-800 focus:border-blue-400'
+  const ftr    = isDark ? 'border-slate-800'                      : 'border-slate-200'
+  const btn    = isDark ? 'bg-cyan-800 hover:bg-cyan-700 text-cyan-100' : 'bg-blue-600 hover:bg-blue-700 text-white'
+  const clsBtn = isDark ? 'text-slate-400 hover:text-slate-200 border-slate-700' : 'text-slate-500 hover:text-slate-700 border-slate-300'
 
   return (
     <div className={`fixed inset-y-0 right-0 w-96 border-l z-50 flex flex-col shadow-2xl ${panel}`}>
@@ -144,35 +150,35 @@ export default function IncidentManagement() {
   const [sevFilter, setSevFilter]     = useState('ALL')
   const [timeRange, setTimeRange]     = useState('24h')
   const [selected, setSelected]       = useState(null)
+  const { isDark } = useTheme()
+  const SEV    = makeSev(isDark)
+  const STATUS = makeStatus(isDark)
   const th = {
-    page:    'bg-transparent text-slate-900 dark:text-slate-100',
-    nav:     'border-b border-slate-200 dark:border-b dark:border-slate-800',
-    navLink: 'text-slate-400 hover:text-blue-600 dark:text-slate-500 dark:hover:text-cyan-400',
-    navAct:  'text-blue-600 font-semibold border-b border-blue-500 pb-px dark:text-cyan-400 dark:font-semibold dark:border-b dark:border-cyan-500 dark:pb-px',
-    h1:      'text-slate-900 dark:text-slate-100',
-    sub:     'text-slate-500 dark:text-slate-500',
-    createBtn: 'bg-blue-600 hover:bg-blue-700 text-white dark:bg-cyan-800 dark:hover:bg-cyan-700 dark:text-cyan-100',
-    filterBar: 'bg-white/5 border-white/8',
-    filterLbl: 'text-slate-400 dark:text-slate-500',
+    page:      isDark ? 'bg-transparent text-slate-100'  : 'bg-transparent text-slate-900',
+    h1:        isDark ? 'text-slate-100'                 : 'text-slate-900',
+    sub:       'text-slate-500',
+    createBtn: isDark ? 'bg-cyan-800 hover:bg-cyan-700 text-cyan-100' : 'bg-blue-600 hover:bg-blue-700 text-white',
+    filterBar: isDark ? 'bg-white/5 border-white/8'      : 'bg-white border-slate-200',
+    filterLbl: isDark ? 'text-slate-500'                 : 'text-slate-400',
     filterBtn: (active) => active
-      ? ('bg-blue-600 text-white dark:bg-cyan-800 dark:text-cyan-100')
-      : ('text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'),
-    sep:     'bg-slate-300 dark:bg-slate-700',
-    select:  'bg-white/5 border-white/10 text-slate-200 focus:border-cyan-600',
-    count:   'text-slate-400 dark:text-slate-600',
-    tbl:     'border-slate-200 dark:border-slate-800',
-    thead:   'bg-slate-100 border-b border-slate-200 text-slate-400 dark:bg-slate-900/80 dark:border-b dark:border-slate-800 dark:text-slate-500',
-    tbody:   'divide-slate-100 dark:divide-slate-800/60',
-    row:     'hover:bg-slate-50 dark:hover:bg-slate-800/40',
-    idCls:   'text-blue-600 dark:text-cyan-400',
-    atmId:   'text-slate-800 dark:text-slate-200',
-    branch:  'text-slate-500 dark:text-slate-500',
-    type:    'text-slate-700 dark:text-slate-300',
-    asgn:    'text-slate-600 dark:text-slate-400',
-    asgnNone:'text-slate-400 dark:text-slate-600',
-    time:    'text-slate-400 dark:text-slate-500',
-    detBtn:  'text-blue-500 hover:text-blue-700 dark:text-cyan-500 dark:hover:text-cyan-300',
-    overlay: 'bg-black/20 dark:bg-black/40',
+      ? (isDark ? 'bg-cyan-800 text-cyan-100' : 'bg-blue-600 text-white')
+      : (isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'),
+    sep:       isDark ? 'bg-slate-700'                   : 'bg-slate-300',
+    select:    isDark ? 'bg-white/5 border-white/10 text-slate-200 focus:border-cyan-600' : 'bg-white border-slate-300 text-slate-800 focus:border-blue-400',
+    count:     isDark ? 'text-slate-600'                 : 'text-slate-400',
+    tbl:       isDark ? 'border-slate-800'               : 'border-slate-200',
+    thead:     isDark ? 'bg-slate-900/80 border-b border-slate-800 text-slate-500' : 'bg-slate-100 border-b border-slate-200 text-slate-400',
+    tbody:     isDark ? 'divide-slate-800/60'            : 'divide-slate-100',
+    row:       isDark ? 'hover:bg-slate-800/40'          : 'hover:bg-slate-50',
+    idCls:     isDark ? 'text-cyan-400'                  : 'text-blue-600',
+    atmId:     isDark ? 'text-slate-200'                 : 'text-slate-800',
+    branch:    'text-slate-500',
+    type:      isDark ? 'text-slate-300'                 : 'text-slate-700',
+    asgn:      isDark ? 'text-slate-400'                 : 'text-slate-600',
+    asgnNone:  isDark ? 'text-slate-600'                 : 'text-slate-400',
+    time:      isDark ? 'text-slate-500'                 : 'text-slate-400',
+    detBtn:    isDark ? 'text-cyan-500 hover:text-cyan-300' : 'text-blue-500 hover:text-blue-700',
+    overlay:   isDark ? 'bg-black/40'                    : 'bg-black/20',
   }
 
   function changeStatus(id, newStatus) {
