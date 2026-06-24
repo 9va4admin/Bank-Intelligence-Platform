@@ -307,3 +307,51 @@ class TestStorePPS:
 
         await vault.store("ACC001", "100001", amount=99.0, payee="New")
         assert key not in vault._cache
+
+
+class TestPPSVaultMissingBranches:
+    def test_connect_without_redis_client_imports_redis(self, monkeypatch):
+        """Covers lines 39-40: connect() with no redis_client imports redis module."""
+        import sys
+        from unittest.mock import MagicMock
+        fake_redis_mod = MagicMock()
+        fake_redis_instance = MagicMock()
+        fake_redis_mod.Redis.return_value = fake_redis_instance
+        monkeypatch.setitem(sys.modules, "redis", fake_redis_mod)
+
+        from modules.cts.vaults.pps_vault import PPSVault
+        vault = PPSVault(bank_id="test-bank", pepper="pepper")
+        vault.connect()  # no redis_client → imports redis
+        assert vault._ready is True
+        assert vault._redis is fake_redis_instance
+
+    @pytest.mark.asyncio
+    async def test_lookup_non_numeric_amount_passes_through(self):
+        """Covers lines 94-95: ValueError when converting amount to float → pass."""
+        from unittest.mock import MagicMock
+        from modules.cts.vaults.pps_vault import PPSVault
+        mock_redis = MagicMock()
+        mock_redis.hgetall.return_value = {
+            b"amount": b"not-a-number",
+            b"payee": b"Test Payee",
+            b"cheque_number": b"100001",
+        }
+        vault = PPSVault(bank_id="test-bank", pepper="pepper")
+        vault.connect(redis_client=mock_redis)
+        result = await vault.lookup("ACC001", "test-bank", "100001")
+        assert result.outcome == "FOUND"
+        # amount field stays as string "not-a-number" — no crash
+        assert result.pps_entry["amount"] == "not-a-number"
+
+    @pytest.mark.asyncio
+    async def test_store_with_ttl_calls_expire(self):
+        """Covers line 119: store() with ttl_seconds calls redis.expire."""
+        from unittest.mock import MagicMock
+        from modules.cts.vaults.pps_vault import PPSVault
+        mock_redis = MagicMock()
+        vault = PPSVault(bank_id="test-bank", pepper="pepper")
+        vault.connect(redis_client=mock_redis)
+        await vault.store("ACC001", "100001", amount=5000.0, payee="Payee", ttl_seconds=3600)
+        mock_redis.expire.assert_called_once()
+        args = mock_redis.expire.call_args[0]
+        assert args[1] == 3600
