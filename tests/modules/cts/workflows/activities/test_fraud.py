@@ -230,3 +230,129 @@ class TestFraudFallbackRules:
         )
 
         assert result_huge.fraud_score > result_normal.fraud_score
+
+
+# ---------------------------------------------------------------------------
+# vLLM rationale synthesis path (lines 97, 141-189)
+# ---------------------------------------------------------------------------
+
+class TestFraudRationaleSynthesis:
+    """Cover the _synthesise_rationale path invoked when vllm_client is provided."""
+
+    def _make_vllm_response(self):
+        return {
+            "content": "The fraud score is elevated due to signature mismatch and high amount.",
+            "usage": {
+                "raw_prompt_tokens": 800,
+                "compressed_prompt_tokens": 180,
+                "reduction_pct": 77.5,
+            },
+            "latency_ms": {
+                "compression": 12,
+                "inference": 320,
+            },
+        }
+
+    def _make_input_with_ocr(self):
+        from modules.cts.workflows.activities.fraud import FraudActivityInput
+        return FraudActivityInput(
+            instrument_id="INST001",
+            bank_id="test-bank",
+            amount=50000.0,
+            micr_line="123456789012345",
+            ocr_confidence=0.97,
+            alteration_detected=False,
+            account_last4="7890",
+            ocr_result={"amount": "50000", "confidence": 0.98},
+        )
+
+    @pytest.mark.asyncio
+    async def test_rationale_populated_when_vllm_client_provided(self):
+        """Score fraud with vllm_client → rationale is returned."""
+        from modules.cts.workflows.activities.fraud import score_fraud
+        from unittest.mock import AsyncMock, MagicMock
+
+        mock_model = MagicMock()
+        mock_model.predict_proba = MagicMock(return_value=[[0.3, 0.7]])
+        mock_explainer = MagicMock()
+        mock_explainer.shap_values = MagicMock(return_value=[[0.1, -0.2, 0.05, 0.3, -0.15, 0.0]])
+
+        vllm_client = MagicMock()
+        vllm_client.chat = AsyncMock(return_value=self._make_vllm_response())
+
+        result = await score_fraud(
+            self._make_input_with_ocr(),
+            model=mock_model,
+            explainer=mock_explainer,
+            vllm_client=vllm_client,
+        )
+        assert result.rationale is not None
+        assert len(result.rationale) > 10
+
+    @pytest.mark.asyncio
+    async def test_rationale_headroom_reduction_pct_captured(self):
+        """headroom_reduction_pct comes from vllm response usage."""
+        from modules.cts.workflows.activities.fraud import score_fraud
+        from unittest.mock import AsyncMock, MagicMock
+
+        mock_model = MagicMock()
+        mock_model.predict_proba = MagicMock(return_value=[[0.3, 0.7]])
+        mock_explainer = MagicMock()
+        mock_explainer.shap_values = MagicMock(return_value=[[0.1, -0.2, 0.05, 0.3, -0.15, 0.0]])
+
+        vllm_client = MagicMock()
+        vllm_client.chat = AsyncMock(return_value=self._make_vllm_response())
+
+        result = await score_fraud(
+            self._make_input_with_ocr(),
+            model=mock_model,
+            explainer=mock_explainer,
+            vllm_client=vllm_client,
+        )
+        assert result.headroom_reduction_pct == 77.5
+
+    @pytest.mark.asyncio
+    async def test_rationale_skipped_when_ocr_result_is_none(self):
+        """vllm_client present but ocr_result is None → rationale stays None."""
+        from modules.cts.workflows.activities.fraud import score_fraud
+        from unittest.mock import AsyncMock, MagicMock
+
+        mock_model = MagicMock()
+        mock_model.predict_proba = MagicMock(return_value=[[0.3, 0.7]])
+        mock_explainer = MagicMock()
+        mock_explainer.shap_values = MagicMock(return_value=[[0.1, -0.2, 0.05, 0.3, -0.15, 0.0]])
+
+        vllm_client = MagicMock()
+        vllm_client.chat = AsyncMock(return_value=self._make_vllm_response())
+
+        result = await score_fraud(
+            _make_input(),  # ocr_result=None by default
+            model=mock_model,
+            explainer=mock_explainer,
+            vllm_client=vllm_client,
+        )
+        vllm_client.chat.assert_not_called()
+        assert result.rationale is None
+
+    @pytest.mark.asyncio
+    async def test_rationale_uses_cts_reasoning_queue(self):
+        """vllm_client.chat must be called with queue='cts-reasoning'."""
+        from modules.cts.workflows.activities.fraud import score_fraud
+        from unittest.mock import AsyncMock, MagicMock, call
+
+        mock_model = MagicMock()
+        mock_model.predict_proba = MagicMock(return_value=[[0.3, 0.7]])
+        mock_explainer = MagicMock()
+        mock_explainer.shap_values = MagicMock(return_value=[[0.1, -0.2, 0.05, 0.3, -0.15, 0.0]])
+
+        vllm_client = MagicMock()
+        vllm_client.chat = AsyncMock(return_value=self._make_vllm_response())
+
+        await score_fraud(
+            self._make_input_with_ocr(),
+            model=mock_model,
+            explainer=mock_explainer,
+            vllm_client=vllm_client,
+        )
+        call_kwargs = vllm_client.chat.call_args.kwargs
+        assert call_kwargs.get("queue") == "cts-reasoning"
