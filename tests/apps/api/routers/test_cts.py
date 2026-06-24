@@ -180,3 +180,471 @@ class TestCTSHealthRoute:
         response = client.get("/v1/cts/inward/INST001/submit")
         # GET on a POST-only route → 405 or 401 — not a crash
         assert response.status_code in (401, 405)
+
+
+def _patch_temporalio():
+    """
+    temporalio is not installed in the test environment (no GPU/Temporal server).
+    Patch the dynamic imports inside the router so the Temporal client path executes.
+    """
+    import sys
+    from types import ModuleType
+
+    # Build a minimal temporalio stub
+    temporalio = ModuleType("temporalio")
+    temporalio_client = ModuleType("temporalio.client")
+
+    class _WorkflowAlreadyStartedError(Exception):
+        pass
+
+    temporalio_client.WorkflowAlreadyStartedError = _WorkflowAlreadyStartedError
+    temporalio.client = temporalio_client
+    sys.modules.setdefault("temporalio", temporalio)
+    sys.modules.setdefault("temporalio.client", temporalio_client)
+
+
+class TestCTSSubmitWithTemporalClient:
+    """Covers lines 152-171: Temporal client present path."""
+
+    def _make_app_with_temporal(self, temporal_client):
+        _patch_temporalio()
+        from apps.api.routers.cts import router_v1, get_current_bank_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        app.state.temporal_client = temporal_client
+        return app
+
+    def test_submit_with_temporal_client_starts_workflow(self):
+        _patch_temporalio()
+        temporal_client = MagicMock()
+        temporal_client.start_workflow = AsyncMock(return_value=MagicMock())
+        app = self._make_app_with_temporal(temporal_client)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        with patch("modules.cts.workflows.cheque_workflow.ChequeProcessingWorkflow", MagicMock()):
+            response = client.post(
+                "/v1/cts/inward/INST001/submit",
+                json=_submit_payload(),
+                headers=_auth_headers(),
+            )
+        assert response.status_code in (200, 202)
+        temporal_client.start_workflow.assert_called_once()
+
+    def test_submit_with_temporal_workflow_already_started_is_idempotent(self):
+        """WorkflowAlreadyStartedError → still returns 202 (idempotent)."""
+        _patch_temporalio()
+        temporal_client = MagicMock()
+        temporal_client.start_workflow = AsyncMock(
+            side_effect=Exception("workflow already started")
+        )
+        app = self._make_app_with_temporal(temporal_client)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        with patch("modules.cts.workflows.cheque_workflow.ChequeProcessingWorkflow", MagicMock()):
+            response = client.post(
+                "/v1/cts/inward/INST001/submit",
+                json=_submit_payload(),
+                headers=_auth_headers(),
+            )
+        assert response.status_code in (200, 202)
+
+    def test_submit_with_temporal_unknown_error_returns_503(self):
+        """Non-idempotent Temporal error → 503."""
+        _patch_temporalio()
+        temporal_client = MagicMock()
+        temporal_client.start_workflow = AsyncMock(
+            side_effect=Exception("connection refused")
+        )
+        app = self._make_app_with_temporal(temporal_client)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        with patch("modules.cts.workflows.cheque_workflow.ChequeProcessingWorkflow", MagicMock()):
+            response = client.post(
+                "/v1/cts/inward/INST001/submit",
+                json=_submit_payload(),
+                headers=_auth_headers(),
+            )
+        assert response.status_code == 503
+
+    def test_submit_workflow_uses_correct_task_queue(self):
+        """Task queue must be cts-processing-{bank_id}."""
+        _patch_temporalio()
+        temporal_client = MagicMock()
+        temporal_client.start_workflow = AsyncMock(return_value=MagicMock())
+        app = self._make_app_with_temporal(temporal_client)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        with patch("modules.cts.workflows.cheque_workflow.ChequeProcessingWorkflow", MagicMock()):
+            client.post(
+                "/v1/cts/inward/INST001/submit",
+                json=_submit_payload(),
+                headers=_auth_headers(),
+            )
+        _, kwargs = temporal_client.start_workflow.call_args
+        assert kwargs["task_queue"] == "cts-processing-test-bank"
+
+    def test_submit_workflow_id_passed_to_temporal(self):
+        """Temporal must receive the deterministic workflow ID."""
+        _patch_temporalio()
+        temporal_client = MagicMock()
+        temporal_client.start_workflow = AsyncMock(return_value=MagicMock())
+        app = self._make_app_with_temporal(temporal_client)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        with patch("modules.cts.workflows.cheque_workflow.ChequeProcessingWorkflow", MagicMock()):
+            client.post(
+                "/v1/cts/inward/INST001/submit",
+                json=_submit_payload(),
+                headers=_auth_headers(),
+            )
+        _, kwargs = temporal_client.start_workflow.call_args
+        assert kwargs["id"] == "cts-test-bank-INST001"
+
+    def test_submit_sets_workflow_id_response_header(self):
+        _patch_temporalio()
+        temporal_client = MagicMock()
+        temporal_client.start_workflow = AsyncMock(return_value=MagicMock())
+        app = self._make_app_with_temporal(temporal_client)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        with patch("modules.cts.workflows.cheque_workflow.ChequeProcessingWorkflow", MagicMock()):
+            response = client.post(
+                "/v1/cts/inward/INST001/submit",
+                json=_submit_payload(),
+                headers=_auth_headers(),
+            )
+        assert response.headers.get("x-workflow-id") == "cts-test-bank-INST001"
+
+
+class TestCTSDecisionWithTemporalClient:
+    """Covers lines 210-221: decision fetch when Temporal client is present."""
+
+    def _make_app_with_temporal(self, temporal_client):
+        from apps.api.routers.cts import router_v1, get_current_bank_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        app.state.temporal_client = temporal_client
+        return app
+
+    def test_get_decision_returns_completed_result_from_temporal(self):
+        result = MagicMock()
+        result.decision = "STP_CONFIRM"
+        result.rationale = "All checks passed"
+
+        handle = MagicMock()
+        handle.result = AsyncMock(return_value=result)
+
+        temporal_client = MagicMock()
+        temporal_client.get_workflow_handle = MagicMock(return_value=handle)
+
+        app = self._make_app_with_temporal(temporal_client)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get("/v1/cts/decisions/INST001", headers=_auth_headers())
+        assert response.status_code == 200
+        data = response.json()
+        assert data["decision"] == "STP_CONFIRM"
+        assert data["rationale"] == "All checks passed"
+
+    def test_get_decision_temporal_error_falls_back_to_running(self):
+        """If Temporal throws (workflow still running) → return RUNNING status."""
+        handle = MagicMock()
+        handle.result = AsyncMock(side_effect=Exception("workflow not finished"))
+
+        temporal_client = MagicMock()
+        temporal_client.get_workflow_handle = MagicMock(return_value=handle)
+
+        app = self._make_app_with_temporal(temporal_client)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get("/v1/cts/decisions/INST001", headers=_auth_headers())
+        assert response.status_code == 200
+        assert response.json()["workflow_status"] == "RUNNING"
+
+
+class TestCTSReviewDecision:
+    """Covers lines 247-291: review decision signal path."""
+
+    def _make_app(self, temporal_client=None):
+        from apps.api.routers.cts import router_v1, get_current_bank_id, get_current_user_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        app.dependency_overrides[get_current_user_id] = lambda: "reviewer-001"
+        if temporal_client:
+            app.state.temporal_client = temporal_client
+        return app
+
+    def test_review_unauthenticated_returns_401(self):
+        from apps.api.routers.cts import router_v1
+        app = FastAPI()
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.post(
+            "/v1/cts/review/INST001/decide",
+            json={"action": "CONFIRM", "reason": "Signature matches"},
+        )
+        assert response.status_code == 401
+
+    def test_review_empty_reason_returns_422(self):
+        app = self._make_app()
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.post(
+            "/v1/cts/review/INST001/decide",
+            json={"action": "CONFIRM", "reason": "   "},
+            headers=_auth_headers(),
+        )
+        assert response.status_code == 422
+
+    def test_review_missing_reason_returns_422(self):
+        app = self._make_app()
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.post(
+            "/v1/cts/review/INST001/decide",
+            json={"action": "CONFIRM"},
+            headers=_auth_headers(),
+        )
+        assert response.status_code == 422
+
+    def test_review_invalid_action_returns_422(self):
+        app = self._make_app()
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.post(
+            "/v1/cts/review/INST001/decide",
+            json={"action": "APPROVE", "reason": "looks good"},
+            headers=_auth_headers(),
+        )
+        assert response.status_code == 422
+
+    def test_review_no_temporal_client_returns_200_signal_not_sent(self):
+        app = self._make_app(temporal_client=None)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.post(
+            "/v1/cts/review/INST001/decide",
+            json={"action": "CONFIRM", "reason": "Signature matches"},
+            headers=_auth_headers(),
+        )
+        assert response.status_code == 200
+        assert response.json()["signal_sent"] is False
+
+    def test_review_with_temporal_sends_signal(self):
+        handle = MagicMock()
+        handle.signal = AsyncMock()
+
+        temporal_client = MagicMock()
+        temporal_client.get_workflow_handle = MagicMock(return_value=handle)
+
+        app = self._make_app(temporal_client=temporal_client)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.post(
+            "/v1/cts/review/INST001/decide",
+            json={"action": "RETURN", "reason": "Amount mismatch"},
+            headers=_auth_headers(),
+        )
+        assert response.status_code == 200
+        assert response.json()["signal_sent"] is True
+        handle.signal.assert_called_once()
+
+    def test_review_with_temporal_targets_correct_workflow_id(self):
+        handle = MagicMock()
+        handle.signal = AsyncMock()
+
+        temporal_client = MagicMock()
+        temporal_client.get_workflow_handle = MagicMock(return_value=handle)
+
+        app = self._make_app(temporal_client=temporal_client)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        client.post(
+            "/v1/cts/review/INST001/decide",
+            json={"action": "CONFIRM", "reason": "OK"},
+            headers=_auth_headers(),
+        )
+        temporal_client.get_workflow_handle.assert_called_once_with(
+            "cts-humanreview-test-bank-INST001"
+        )
+
+    def test_review_temporal_signal_failure_returns_503(self):
+        handle = MagicMock()
+        handle.signal = AsyncMock(side_effect=Exception("workflow not found"))
+
+        temporal_client = MagicMock()
+        temporal_client.get_workflow_handle = MagicMock(return_value=handle)
+
+        app = self._make_app(temporal_client=temporal_client)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.post(
+            "/v1/cts/review/INST001/decide",
+            json={"action": "CONFIRM", "reason": "Looks valid"},
+            headers=_auth_headers(),
+        )
+        assert response.status_code == 503
+
+    def test_review_response_has_instrument_id(self):
+        app = self._make_app()
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.post(
+            "/v1/cts/review/INST001/decide",
+            json={"action": "CONFIRM", "reason": "Signature matches"},
+            headers=_auth_headers(),
+        )
+        assert response.json()["instrument_id"] == "INST001"
+
+    def test_review_response_has_workflow_id(self):
+        app = self._make_app()
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.post(
+            "/v1/cts/review/INST001/decide",
+            json={"action": "CONFIRM", "reason": "Signature matches"},
+            headers=_auth_headers(),
+        )
+        assert response.json()["workflow_id"] == "cts-humanreview-test-bank-INST001"
+
+
+# ---------------------------------------------------------------------------
+# Auth edge cases — invalid token branches (lines 43, 53)
+# ---------------------------------------------------------------------------
+
+class TestCTSAuthEdgeCases:
+    """Cover the 'token does not start with test-token-' rejection paths."""
+
+    def test_submit_invalid_token_returns_401(self):
+        from apps.api.routers.cts import router_v1
+        app = FastAPI()
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.post(
+            "/v1/cts/inward/INST001/submit",
+            json=_submit_payload(),
+            headers={"Authorization": "Bearer invalid-jwt-token"},
+        )
+        assert response.status_code == 401
+
+    def test_get_decision_invalid_token_returns_401(self):
+        from apps.api.routers.cts import router_v1
+        app = FastAPI()
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get(
+            "/v1/cts/decisions/INST001",
+            headers={"Authorization": "Bearer invalid-jwt-token"},
+        )
+        assert response.status_code == 401
+
+    def test_review_invalid_token_returns_401(self):
+        from apps.api.routers.cts import router_v1
+        app = FastAPI()
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.post(
+            "/v1/cts/review/INST001/decide",
+            json={"action": "CONFIRM", "reason": "ok"},
+            headers={"Authorization": "Bearer invalid-jwt-token"},
+        )
+        assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Dependency coverage — get_current_user_id + get_temporal_client 503
+# ---------------------------------------------------------------------------
+
+class TestCTSDependencyCoverage:
+    """Exercise auth helpers and temporal-client 503 directly."""
+
+    def test_get_current_user_id_valid_token_returns_reviewer(self):
+        """Calls /review without user_id override so get_current_user_id executes."""
+        from apps.api.routers.cts import router_v1, get_current_bank_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        # Override bank_id only; leave user_id to the real implementation
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.post(
+            "/v1/cts/review/INST001/decide",
+            json={"action": "CONFIRM", "reason": "ok"},
+            headers=_auth_headers("test-bank"),  # test-token-test-bank → reviewer-001
+        )
+        assert response.status_code == 200
+
+    def test_get_current_bank_id_valid_test_token_returns_bank(self):
+        """Exercises the removeprefix return branch (line 41)."""
+        from apps.api.routers.cts import router_v1
+        app = FastAPI()
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get(
+            "/v1/cts/decisions/INST001",
+            headers={"Authorization": "Bearer test-token-mybank"},
+        )
+        # 200 proves bank_id extraction succeeded (line 41 executed)
+        assert response.status_code == 200
+
+    def test_get_current_user_id_no_token_returns_401(self):
+        """Covers get_current_user_id missing-token path (line 50)."""
+        from apps.api.routers.cts import router_v1, get_current_bank_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        client = TestClient(app, raise_server_exceptions=False)
+
+        # No Authorization header → credentials is None inside get_current_user_id
+        response = client.post(
+            "/v1/cts/review/INST001/decide",
+            json={"action": "CONFIRM", "reason": "ok"},
+        )
+        assert response.status_code == 401
+
+    def test_get_current_user_id_invalid_token_returns_401(self):
+        """Covers get_current_user_id invalid-token raise (line 54)."""
+        from apps.api.routers.cts import router_v1, get_current_bank_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.post(
+            "/v1/cts/review/INST001/decide",
+            json={"action": "CONFIRM", "reason": "ok"},
+            headers={"Authorization": "Bearer not-a-test-token"},
+        )
+        assert response.status_code == 401
+
+    def test_get_temporal_client_raises_503_when_no_client(self):
+        """Covers lines 63-69: get_temporal_client raises 503 when not set on app state."""
+        _patch_temporalio()
+        from apps.api.routers.cts import router_v1, get_current_bank_id, get_temporal_client
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        # Explicitly do NOT set app.state.temporal_client → triggers 503 in get_temporal_client
+        # We wire it as a dependency to the submit route which uses Optional[client]
+        # but test via a route that requires it (submit with real temporal path won't bypass)
+        with patch("modules.cts.workflows.cheque_workflow.ChequeProcessingWorkflow", MagicMock()):
+            client = TestClient(app, raise_server_exceptions=False)
+            # The submit route uses get_temporal_client as Optional — let's call get_temporal_client directly
+            from fastapi import Request
+            from unittest.mock import MagicMock as MM
+            req = MM(spec=Request)
+            req.app.state = MM()
+            del req.app.state.temporal_client  # AttributeError → getattr returns None
+            import pytest as pt
+            from fastapi import HTTPException
+            with pt.raises(HTTPException) as exc_info:
+                get_temporal_client(req)
+            assert exc_info.value.status_code == 503
