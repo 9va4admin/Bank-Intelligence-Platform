@@ -1,0 +1,360 @@
+---
+# Grafana dashboard ConfigMap — loaded via Grafana sidecar (grafana.sidecar.dashboards.enabled: true)
+# Each key is a JSON dashboard file. Grafana watches this ConfigMap and hot-reloads.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: astra-grafana-dashboards
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"   # sidecar selector — must match grafana.sidecar.dashboards.label
+data:
+  cts-iet-vault.json: |
+    {
+      "title": "ASTRA CTS — IET & Vault",
+      "uid": "astra-cts-iet-vault",
+      "schemaVersion": 38,
+      "refresh": "10s",
+      "time": { "from": "now-1h", "to": "now" },
+      "templating": {
+        "list": [
+          {
+            "name": "bank_id",
+            "type": "query",
+            "datasource": "Prometheus",
+            "query": "label_values(cts_cheque_processing_duration_seconds_count, bank_id)",
+            "label": "Bank"
+          }
+        ]
+      },
+      "panels": [
+        {
+          "type": "stat",
+          "title": "IET Breach Count (last 1h)",
+          "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+          "options": { "colorMode": "background", "thresholds": { "steps": [{"value": 0, "color": "green"}, {"value": 1, "color": "red"}] } },
+          "targets": [
+            {
+              "expr": "sum(increase(cts_iet_breach_total{bank_id=~\"$bank_id\"}[1h]))",
+              "legendFormat": "IET Breaches"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Near-Breach Events (T-30s, last 1h)",
+          "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+          "options": { "colorMode": "background", "thresholds": { "steps": [{"value": 0, "color": "green"}, {"value": 5, "color": "orange"}, {"value": 20, "color": "red"}] } },
+          "targets": [
+            {
+              "expr": "sum(increase(cts_iet_near_breach_total{bank_id=~\"$bank_id\"}[1h]))",
+              "legendFormat": "Near-Breach"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Vault Hit Rate (%)",
+          "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+          "options": { "unit": "percent", "thresholds": { "steps": [{"value": 0, "color": "red"}, {"value": 95, "color": "orange"}, {"value": 99, "color": "green"}] } },
+          "targets": [
+            {
+              "expr": "100 * sum(rate(cts_vault_lookup_total{bank_id=~\"$bank_id\",outcome=\"HIT\"}[5m])) / sum(rate(cts_vault_lookup_total{bank_id=~\"$bank_id\"}[5m]))",
+              "legendFormat": "Hit Rate"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Vault Miss → Human Review (last 1h)",
+          "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+          "options": { "colorMode": "background", "thresholds": { "steps": [{"value": 0, "color": "green"}, {"value": 10, "color": "orange"}] } },
+          "targets": [
+            {
+              "expr": "sum(increase(cts_vault_miss_routed_human_review_total{bank_id=~\"$bank_id\"}[1h]))",
+              "legendFormat": "Vault Miss → Human Review"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "CTS Agent Decision Latency (p50/p95/p99)",
+          "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+          "options": { "unit": "ms" },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum by(le) (rate(cts_cheque_processing_duration_seconds_bucket{bank_id=~\"$bank_id\"}[5m]))) * 1000",
+              "legendFormat": "p50"
+            },
+            {
+              "expr": "histogram_quantile(0.95, sum by(le) (rate(cts_cheque_processing_duration_seconds_bucket{bank_id=~\"$bank_id\"}[5m]))) * 1000",
+              "legendFormat": "p95"
+            },
+            {
+              "expr": "histogram_quantile(0.99, sum by(le) (rate(cts_cheque_processing_duration_seconds_bucket{bank_id=~\"$bank_id\"}[5m]))) * 1000",
+              "legendFormat": "p99"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Decision Throughput (decisions/min)",
+          "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "sum(rate(cts_cheque_decision_total{bank_id=~\"$bank_id\",outcome=\"STP_CONFIRM\"}[1m])) * 60",
+              "legendFormat": "STP_CONFIRM"
+            },
+            {
+              "expr": "sum(rate(cts_cheque_decision_total{bank_id=~\"$bank_id\",outcome=\"STP_RETURN\"}[1m])) * 60",
+              "legendFormat": "STP_RETURN"
+            },
+            {
+              "expr": "sum(rate(cts_cheque_decision_total{bank_id=~\"$bank_id\",outcome=\"HUMAN_REVIEW\"}[1m])) * 60",
+              "legendFormat": "HUMAN_REVIEW"
+            }
+          ]
+        },
+        {
+          "type": "gauge",
+          "title": "SLA: p99 Decision Latency vs 600ms Target",
+          "gridPos": { "x": 0, "y": 12, "w": 8, "h": 6 },
+          "options": {
+            "unit": "ms",
+            "thresholds": { "steps": [{"value": 0, "color": "green"}, {"value": 500, "color": "orange"}, {"value": 600, "color": "red"}] },
+            "min": 0, "max": 600
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.99, sum by(le) (rate(cts_cheque_processing_duration_seconds_bucket{bank_id=~\"$bank_id\"}[5m]))) * 1000"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "IET Remaining Time Distribution (active workflows)",
+          "gridPos": { "x": 8, "y": 12, "w": 16, "h": 6 },
+          "options": { "unit": "s" },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.10, sum by(le) (cts_iet_remaining_seconds_bucket{bank_id=~\"$bank_id\"}))",
+              "legendFormat": "p10 (lowest 10% of remaining time)"
+            },
+            {
+              "expr": "histogram_quantile(0.50, sum by(le) (cts_iet_remaining_seconds_bucket{bank_id=~\"$bank_id\"}))",
+              "legendFormat": "p50"
+            }
+          ]
+        }
+      ]
+    }
+
+  cts-fraud-ai.json: |
+    {
+      "title": "ASTRA CTS — Fraud & AI Models",
+      "uid": "astra-cts-fraud-ai",
+      "schemaVersion": 38,
+      "refresh": "30s",
+      "time": { "from": "now-6h", "to": "now" },
+      "templating": {
+        "list": [
+          {
+            "name": "bank_id",
+            "type": "query",
+            "datasource": "Prometheus",
+            "query": "label_values(cts_fraud_score_histogram_bucket, bank_id)",
+            "label": "Bank"
+          }
+        ]
+      },
+      "panels": [
+        {
+          "type": "stat",
+          "title": "Fraud Detections (last 1h)",
+          "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+          "targets": [
+            {
+              "expr": "sum(increase(cts_fraud_detected_total{bank_id=~\"$bank_id\"}[1h]))",
+              "legendFormat": "Fraud Detected"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "OCR Accuracy (7-day rolling)",
+          "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+          "options": { "unit": "percentunit", "thresholds": { "steps": [{"value": 0, "color": "red"}, {"value": 0.98, "color": "orange"}, {"value": 0.99, "color": "green"}] } },
+          "targets": [
+            {
+              "expr": "avg_over_time(cts_ocr_accuracy_ratio{bank_id=~\"$bank_id\"}[7d])",
+              "legendFormat": "OCR Accuracy"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Signature Match Precision (7-day rolling)",
+          "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+          "options": { "unit": "percentunit", "thresholds": { "steps": [{"value": 0, "color": "red"}, {"value": 0.96, "color": "orange"}, {"value": 0.97, "color": "green"}] } },
+          "targets": [
+            {
+              "expr": "avg_over_time(cts_signature_precision_ratio{bank_id=~\"$bank_id\"}[7d])",
+              "legendFormat": "Sig Precision"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "False Positive Rate (7-day rolling)",
+          "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+          "options": { "unit": "percentunit", "thresholds": { "steps": [{"value": 0, "color": "green"}, {"value": 0.03, "color": "orange"}, {"value": 0.05, "color": "red"}] } },
+          "targets": [
+            {
+              "expr": "avg_over_time(cts_fraud_false_positive_rate{bank_id=~\"$bank_id\"}[7d])",
+              "legendFormat": "FP Rate"
+            }
+          ]
+        },
+        {
+          "type": "heatmap",
+          "title": "Fraud Score Distribution",
+          "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "sum by(le) (increase(cts_fraud_score_histogram_bucket{bank_id=~\"$bank_id\"}[5m]))",
+              "legendFormat": "{{le}}"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "AI Model Inference Latency (p95)",
+          "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+          "options": { "unit": "ms" },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by(le,model) (rate(cts_ai_inference_duration_seconds_bucket{bank_id=~\"$bank_id\"}[5m]))) * 1000",
+              "legendFormat": "{{model}}"
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "title": "Model Drift Alerts (7-day delta > 2%)",
+          "gridPos": { "x": 0, "y": 12, "w": 24, "h": 6 },
+          "targets": [
+            {
+              "expr": "abs(cts_model_metric_current{bank_id=~\"$bank_id\"} - cts_model_metric_baseline_7d{bank_id=~\"$bank_id\"}) / cts_model_metric_baseline_7d{bank_id=~\"$bank_id\"} > 0.02",
+              "legendFormat": "{{model}} — {{metric}}"
+            }
+          ]
+        }
+      ]
+    }
+
+  ej-normalisation.json: |
+    {
+      "title": "ASTRA EJ — Normalisation & ATM Health",
+      "uid": "astra-ej-normalisation",
+      "schemaVersion": 38,
+      "refresh": "30s",
+      "time": { "from": "now-6h", "to": "now" },
+      "templating": {
+        "list": [
+          {
+            "name": "bank_id",
+            "type": "query",
+            "datasource": "Prometheus",
+            "query": "label_values(ej_normalisation_total, bank_id)",
+            "label": "Bank"
+          }
+        ]
+      },
+      "panels": [
+        {
+          "type": "stat",
+          "title": "EJ Logs Normalised (last 1h)",
+          "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+          "targets": [
+            {
+              "expr": "sum(increase(ej_normalisation_total{bank_id=~\"$bank_id\",outcome=\"NORMALISED\"}[1h]))",
+              "legendFormat": "NORMALISED"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Parse Failures (last 1h)",
+          "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+          "options": { "colorMode": "background", "thresholds": { "steps": [{"value": 0, "color": "green"}, {"value": 5, "color": "orange"}] } },
+          "targets": [
+            {
+              "expr": "sum(increase(ej_normalisation_total{bank_id=~\"$bank_id\",outcome=\"PARSE_FAILED\"}[1h]))",
+              "legendFormat": "PARSE_FAILED"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Critical ATMs",
+          "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+          "options": { "colorMode": "background", "thresholds": { "steps": [{"value": 0, "color": "green"}, {"value": 1, "color": "red"}] } },
+          "targets": [
+            {
+              "expr": "count(ej_atm_health_status{bank_id=~\"$bank_id\",status=\"CRITICAL\"} == 1)",
+              "legendFormat": "CRITICAL ATMs"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Degraded ATMs",
+          "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+          "options": { "colorMode": "background", "thresholds": { "steps": [{"value": 0, "color": "green"}, {"value": 1, "color": "orange"}] } },
+          "targets": [
+            {
+              "expr": "count(ej_atm_health_status{bank_id=~\"$bank_id\",status=\"DEGRADED\"} == 1)",
+              "legendFormat": "DEGRADED ATMs"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "EJ Normalisation Throughput",
+          "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "sum(rate(ej_normalisation_total{bank_id=~\"$bank_id\",outcome=\"NORMALISED\"}[5m])) * 60",
+              "legendFormat": "NORMALISED/min"
+            },
+            {
+              "expr": "sum(rate(ej_normalisation_total{bank_id=~\"$bank_id\",outcome=\"PARSE_FAILED\"}[5m])) * 60",
+              "legendFormat": "PARSE_FAILED/min"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "LLM Parse Latency p95 (EJ Llama 3.3 70B)",
+          "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+          "options": { "unit": "ms" },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by(le) (rate(ej_llm_parse_duration_seconds_bucket{bank_id=~\"$bank_id\"}[5m]))) * 1000",
+              "legendFormat": "p95 Parse Latency"
+            }
+          ]
+        },
+        {
+          "type": "geomap",
+          "title": "ATM Fleet Health Map",
+          "gridPos": { "x": 0, "y": 12, "w": 24, "h": 10 },
+          "targets": [
+            {
+              "expr": "ej_atm_health_status{bank_id=~\"$bank_id\"}",
+              "legendFormat": "{{atm_id}}"
+            }
+          ]
+        }
+      ]
+    }
