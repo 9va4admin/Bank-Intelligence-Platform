@@ -393,6 +393,8 @@ cerebrum/
 │   ├── cts/                           ← CTS domain (fully isolated)
 │   │   ├── workflows/                 ← Temporal workflow definitions
 │   │   │   ├── cheque_workflow.py     ← Main: one cheque one agent
+│   │   │   ├── human_review_workflow.py ← 55-min timeout, signal-driven
+│   │   │   ├── iet_watchdog_workflow.py ← T-30s emergency filer
 │   │   │   ├── vault_sync_workflow.py ← CBS → Redis vault sync
 │   │   │   └── activities/
 │   │   │       ├── ocr.py
@@ -402,28 +404,68 @@ cerebrum/
 │   │   │       ├── cbs.py
 │   │   │       ├── fraud.py
 │   │   │       ├── decision.py
-│   │   │       └── ngch_filer.py
+│   │   │       ├── ngch_filer.py
+│   │   │       └── write_audit.py
 │   │   ├── vaults/
 │   │   │   ├── signature_vault.py
 │   │   │   └── pps_vault.py
+│   │   ├── compliance/                ← CTS 2010 validation rules
+│   │   │   ├── cts2010.py
+│   │   │   ├── exporter.py
+│   │   │   └── models.py
+│   │   ├── endorsement/               ← Batch endorsement stamping
+│   │   │   ├── batch.py
+│   │   │   ├── models.py
+│   │   │   └── stamper.py
+│   │   ├── lot/                       ← Lot management
+│   │   │   └── manager.py
+│   │   ├── reconciliation/            ← Session reconciliation engine
+│   │   │   ├── engine.py
+│   │   │   ├── exporter.py
+│   │   │   └── models.py
+│   │   ├── reports/                   ← Report generation
+│   │   │   ├── exporter.py
+│   │   │   └── models.py
+│   │   ├── rrf/                       ← Return Reason File generation
+│   │   │   ├── generator.py
+│   │   │   └── models.py
+│   │   ├── scanner/                   ← Physical scanner adapters + MICR
+│   │   │   ├── adapters.py
+│   │   │   ├── micr.py
+│   │   │   ├── models.py
+│   │   │   └── session.py
+│   │   ├── sub_member/                ← Sub-member bank (sponsor routing)
+│   │   │   ├── activities.py
+│   │   │   ├── csv_generator.py
+│   │   │   ├── kafka_bridge.py
+│   │   │   ├── models.py
+│   │   │   ├── notifications.py
+│   │   │   ├── risk_shield.py
+│   │   │   └── router.py
+│   │   ├── worker.py                  ← Temporal worker: CTS task queues
 │   │   └── mcp/
 │   │       └── ngch_adapter.py        ← MCP server wrapping NGCH
 │   │
 │   └── ej/                            ← EJ domain (fully isolated)
 │       ├── workflows/
-│       │   ├── normalise_workflow.py
-│       │   ├── dispute_workflow.py
+│       │   ├── normalise_workflow.py  ← Full 8-activity pipeline: ingest→store→audit
+│       │   ├── dispute_workflow.py    ← EJ match + CCTV → auto-resolve or escalate
 │       │   └── activities/
 │       │       ├── ingest.py
 │       │       ├── fingerprint.py
 │       │       ├── llm_parse.py
 │       │       ├── validate.py
-│       │       ├── dispute_match.py
-│       │       └── cctv_extract.py
+│       │       ├── store_canonical.py ← Persist to YugabyteDB ej schema
+│       │       ├── trigger_dispute_check.py ← Publish to ej.canonical Kafka
+│       │       ├── update_atm_health.py     ← Publish to ej.health.signals Kafka
+│       │       ├── write_audit.py     ← Immudb audit (all terminal states)
+│       │       ├── dispute_match.py   ← BGE-M3 semantic claim-to-EJ matching
+│       │       └── cctv_extract.py    ← CCTV clip → MinIO (object_key only)
+│       ├── worker.py                  ← Temporal worker: EJ task queues
 │       ├── parser/
 │       │   └── llm_parser.py
 │       ├── mcp/
-│       │   └── branch_mcp_server.py   ← Edge MCP server (Go, see infra/)
+│       │   └── diagnostic_mcp_server.py ← Consent-gated diagnostic MCP server
 │       └── cctv/
 │           └── evidence_extractor.py
 │
@@ -444,10 +486,11 @@ cerebrum/
 │   ├── config/
 │   │   └── config_service.py          ← Reads from Vault + OPA
 │   ├── cbs_connector/
-│   │   ├── base.py                    ← Abstract CBS interface
-│   │   ├── finacle.py
-│   │   ├── bancs.py
-│   │   └── flexcube.py
+│   │   ├── base.py                    ← Abstract CBS interface + AccountInfo/PPSEntry models
+│   │   ├── finacle.py                 ← Infosys Finacle REST adapter (IMPLEMENTED)
+│   │   ├── bancs.py                   ← TCS BaNCS REST adapter (IMPLEMENTED)
+│   │   ├── flexcube.py                ← Oracle FlexCube SOAP/XML adapter (IMPLEMENTED)
+│   │   └── exceptions.py              ← AccountNotFoundError, CBSUnavailableError
 │   └── event_bus/
 │       ├── producer.py
 │       └── consumer.py
@@ -853,43 +896,56 @@ NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
 
 ---
 
-## 16. Next Steps (Build Order)
+## 16. Build Status & Next Steps
+
+### Completed (as of June 2026)
 
 ```
-PHASE 1 — Foundation (Weeks 1–4)
-  [ ] Monorepo scaffold (this structure)
-  [ ] Shared: auth, RBAC, config_service, OTel setup
-  [ ] Shared: audit_event schema + Immudb client
-  [ ] Shared: notification dispatcher (email + WhatsApp)
-  [ ] Infra: Helm chart skeleton + bank-template.yaml
-  [ ] Infra: Kafka topics, Redis, YugabyteDB schema migrations
+PHASE 1 — Foundation
+  [x] Monorepo scaffold
+  [x] Shared: auth, RBAC (roles + ABAC), config_service (5-layer hierarchy)
+  [x] Shared: audit_event schema + Immudb client (HSM signing)
+  [x] Shared: notification dispatcher (Postal email + Meta WhatsApp)
+  [x] Shared: event_bus producer + consumer (Kafka, exactly-once)
+  [x] Shared: OTel setup (traces + metrics + logs)
+  [x] Infra: Helm chart skeleton + bank values template
+  [x] CBS Connectors: Finacle (REST), BaNCS (REST), FlexCube (SOAP/XML) — all 3 COMPLETE
 
-PHASE 2 — CTS Core (Weeks 5–8)
-  [ ] Vault: signature_vault + pps_vault (Redis)
-  [ ] MCP: ngch_adapter (wraps SFTP, exposes MCP tools)
-  [ ] Temporal: ChequeProcessingWorkflow + all activities
-  [ ] AI: OCR activity (GOT-OCR2 via vLLM)
-  [ ] AI: Signature verification activity (Siamese network)
-  [ ] AI: Fraud scoring activity (XGBoost + SHAP)
-  [ ] Temporal: IETWatchdogWorkflow
-  [ ] API: CTS router endpoints
-  [ ] Frontend: CTS ops workstation (human review queue)
+PHASE 2 — CTS Core
+  [x] Vault: signature_vault + pps_vault (Redis, hashed keys, vault-miss → HUMAN_REVIEW)
+  [x] MCP: ngch_adapter (SFTP wrapper, exposes 4 MCP tools)
+  [x] Temporal: ChequeProcessingWorkflow + 9 activities (OCR, alteration, signature, PPS,
+       CBS, fraud, decision, ngch_filer, write_audit)
+  [x] Temporal: IETWatchdogWorkflow (T-30s emergency filer, ABANDON parent-close policy)
+  [x] Temporal: HumanReviewWorkflow (55-min timeout, signal-driven)
+  [x] Temporal: VaultSyncWorkflow (CBS → Redis, 6AM daily)
+  [x] API: CTS router — /v1/cts/* endpoints (submit, decision, human-review queue)
+  [x] Frontend: CTS ops workstation — human review queue with live polling (useReviewQueue hook)
+  [x] CTS modules: compliance/CTS2010, endorsement/batch, scanner/MICR, rrf, reconciliation,
+       lot, reports, sub_member (sponsor-bank routing + risk shield)
+  [x] Test coverage: 1338 tests, 95%+ on all CTS workflow activities
 
-PHASE 3 — Observability (Weeks 9–10)
-  [ ] OTel instrumentation across all CTS services
-  [ ] Grafana dashboards: infra + CTS metrics + AI explainability panel
-  [ ] Langfuse integration for all LLM calls
+PHASE 3 — Observability (partial)
+  [x] OTel setup in shared/observability/otel_setup.py
+  [x] Langfuse setup stub in shared/observability/
+  [ ] Grafana dashboards (infra YAML — not yet wired)
   [ ] SHAP panel in ops workstation
 
-PHASE 4 — EJ Module (Weeks 11–14)
-  [ ] Edge: branch-ej-agent (Go MCP server)
-  [ ] EJ ingestion gateway
-  [ ] Temporal: EJNormalisationWorkflow (LLM parser)
-  [ ] Temporal: DisputeResolutionWorkflow
-  [ ] CCTV adapter (first OEM)
-  [ ] Frontend: EJ dashboard + dispute console + fleet map
+PHASE 4 — EJ Module (core complete)
+  [x] Temporal: EJNormalisationWorkflow — full 8-activity pipeline:
+       ingest → fingerprint → llm_parse → validate →
+       store_canonical → trigger_dispute_check → update_atm_health → write_audit
+  [x] Temporal: DisputeResolutionWorkflow — EJ match + CCTV → auto-resolve or escalate
+  [x] EJ activities: ingest, fingerprint, llm_parse, validate, dispute_match, cctv_extract
+  [x] EJ: LLM parser (Llama 3.3 70B prompt structure)
+  [x] EJ: CCTV evidence extractor (MinIO object_key pattern)
+  [x] EJ: Diagnostic MCP server (consent-gated, OPA-controlled, Immudb audit)
+  [x] EJ: worker.py (Temporal worker registration)
+  [ ] Edge: branch-ej-agent Go binary (EJ file → compress → encrypt → upload)
+  [ ] EJ ingestion gateway (FastAPI + Kafka)
+  [ ] Frontend: EJ dashboard + dispute console + fleet map (planned)
 
-PHASE 5 — Hardening (Weeks 15–16)
+PHASE 5 — Hardening
   [ ] Active-active DR drills
   [ ] Chaos Mesh scenarios
   [ ] RBI compliance mapping verification
@@ -897,6 +953,13 @@ PHASE 5 — Hardening (Weeks 15–16)
   [ ] Security: penetration test prep
   [ ] Bank onboarding: first pilot bank Helm deploy
 ```
+
+### Immediate Next (in priority order)
+1. EJ ingestion gateway (FastAPI) — bridge from branch-ej-agent MCP → Kafka `ej.raw.ingested`
+2. ATM Health Workflow — scheduled hourly, anomaly detection from ej.health.signals
+3. Frontend: EJ dashboard + dispute console
+4. Go edge agent (branch-ej-agent) — OEM fingerprint, gzip+AES, SQLite buffer, MCP server
+5. Grafana dashboard YAML for CTS IET / fraud / vault metrics
 
 ---
 
