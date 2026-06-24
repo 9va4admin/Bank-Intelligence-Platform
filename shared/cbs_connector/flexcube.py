@@ -22,3 +22,12 @@ class FlexCubeCBSConnector(CBSConnector):
 
     async def get_signature_specimens(self, account_number: str, bank_id: str) -> list[bytes]:
         raise NotImplementedError("FlexCube adapter not yet implemented")
+
+    async def get_cheque_status(self, cheque_number: str, account_number: str, bank_id: str):
+        raise NotImplementedError("FlexCube adapter not yet implemented")
+
+    async def check_stop_payment(self, cheque_number: str, account_number: str, bank_id: str) -> bool:
+        raise NotImplementedError("FlexCube adapter not yet implemented")
+
+    async def get_pps_entries(self, account_number: str, bank_id: str) -> list:
+        raise NotImplementedError("FlexCube adapter not yet implemented")
