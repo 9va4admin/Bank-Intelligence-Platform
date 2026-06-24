@@ -1,0 +1,107 @@
+# Chaos Scenario 4: Kafka Broker Failure (Event Bus Resilience)
+#
+# Simulates: 1 of 3 Kafka brokers fails during peak clearing window.
+# Expected behaviour:
+#   - Kafka auto-rebalances partitions to remaining 2 brokers (within 30 seconds)
+#   - CTS inward events continue flowing — no message loss (min.insync.replicas=2)
+#   - CTS agent KEDA scaling continues (Kafka lag metric from remaining brokers)
+#   - EJ ingestion continues — edge agents buffer locally if needed (SQLite WAL)
+#   - Audit event stream (platform.audit.events) continues — no audit trail gap
+#   - MirrorMaker2 cross-DC replication continues via surviving brokers
+#
+# RBI Control: AUD-01 (audit trail continuity), DR-01 (resilience)
+# Duration: 5 minutes
+# Strimzi operator auto-heals broker pod after chaos ends
+
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: kafka-broker-1-failure
+  namespace: chaos-testing
+  labels:
+    scenario: kafka-broker-failure
+    rbi-control: DR-01
+    severity: high
+    runbook: "docs/runbooks/kafka-broker-failure.md"
+spec:
+  action: pod-failure   # pod-failure (not kill) — broker stays degraded, not fully dead
+  mode: one
+  selector:
+    namespaces:
+      - kafka
+    labelSelectors:
+      "app.kubernetes.io/name": "strimzi"
+      "strimzi.io/kind": "Kafka"
+      "strimzi.io/broker-id": "1"   # target broker 1; brokers 0 and 2 remain healthy
+  duration: "5m"
+
+---
+# Companion: NetworkChaos latency from broker 1 to simulate degraded (not dead) broker
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: kafka-broker-1-network-degraded
+  namespace: chaos-testing
+  labels:
+    scenario: kafka-broker-failure
+    rbi-control: DR-01
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces:
+      - kafka
+    labelSelectors:
+      "strimzi.io/broker-id": "1"
+  delay:
+    latency: "1000ms"
+    correlation: "90"
+    jitter: "200ms"
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - astra-cts-saraswat-coop
+        - astra-ej-saraswat-coop
+  duration: "5m"
+
+---
+# Pass criteria:
+#   1. cts.inward.{bank_id} topic: zero message loss (verify via consumer offset tracking)
+#   2. Kafka consumer lag for cts-agent-worker stays < 100 messages during rebalance
+#   3. KEDA ScaledObject for CTS workers continues scaling based on lag metric
+#   4. platform.audit.events topic: zero gaps in event IDs
+#   5. EJ edge agent buffers: no data loss — SQLite WAL holds events during rebalance
+#   6. MirrorMaker2 replication lag stays < 5 seconds (cross-DC)
+#   7. After broker recovery: ISR (in-sync replicas) restores to 3 within 2 minutes
+#
+# Metrics to watch:
+#   kafka_topic_partitions_under_replicated_partitions (should spike, then return to 0)
+#   kafka_consumer_group_lag (cts-agent consumer group — should recover within 30s)
+#   kafka_mirrormaker2_replication_lag_seconds (should stay < 5s)
+
+---
+# Scenario 4b: Kafka MirrorMaker2 failure (cross-DC replication)
+# Separate from broker failure — tests DC2 continuing with stale data
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: mirrormaker2-failure
+  namespace: chaos-testing
+  labels:
+    scenario: kafka-broker-failure
+    rbi-control: DR-01
+    severity: medium
+spec:
+  action: pod-kill
+  mode: all
+  selector:
+    namespaces:
+      - kafka
+    labelSelectors:
+      "app.kubernetes.io/name": "kafka-mirror-maker-2"
+  duration: "5m"
+  gracePeriod: 0
+# Expected: DC2 consumers continue from last committed offsets; no message re-processing
+# (Kafka consumer offsets stored per-DC; MirrorMaker2 restart catches up automatically)
