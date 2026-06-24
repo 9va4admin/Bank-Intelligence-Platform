@@ -24,6 +24,8 @@ import IncidentManagement from './modules/ej/pages/IncidentManagement'
 import ManagerPortal from './modules/ej/pages/ManagerPortal'
 import BREPolicyManager from './modules/ej/pages/BREPolicyManager'
 import NotificationCenter from './modules/ej/pages/NotificationCenter'
+import DisputeConsole from './modules/ej/pages/DisputeConsole'
+import ATMFleetMap from './modules/ej/pages/ATMFleetMap'
 import './index.css'
 
 export default function App() {
@@ -56,6 +58,8 @@ export default function App() {
         <Route path="/ej/incidents" element={<IncidentManagement />} />
         <Route path="/ej/portal" element={<ManagerPortal />} />
         <Route path="/ej/bre" element={<BREPolicyManager />} />
+        <Route path="/ej/disputes" element={<DisputeConsole />} />
+        <Route path="/ej/fleet" element={<ATMFleetMap />} />
         <Route path="/ej/notifications" element={<NotificationCenter />} />
         {/* EJ deep-links from landing page cards */}
         <Route path="/fleet" element={<EJDashboard defaultTab="fleet" />} />

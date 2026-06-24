@@ -4,6 +4,8 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 const NAV_ITEMS = [
   { to: '/ej',               label: 'Command Center', end: true },
   { to: '/ej/incidents',     label: 'Incidents'                 },
+  { to: '/ej/disputes',      label: 'Dispute Console'           },
+  { to: '/ej/fleet',         label: 'Fleet Map'                 },
   { to: '/ej/portal',        label: 'Manager Portal'            },
   { to: '/ej/bre',           label: 'BRE Policy'                },
   { to: '/ej/notifications', label: 'Notifications'             },
