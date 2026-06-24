@@ -12,8 +12,10 @@ class TestEJWorkerRegistrations:
     def test_all_workflows_registered(self):
         from modules.ej.workflows.normalise_workflow import EJNormalisationWorkflow
         from modules.ej.workflows.dispute_workflow import DisputeResolutionWorkflow
+        from modules.ej.workflows.atm_health_workflow import ATMHealthWorkflow
         assert EJNormalisationWorkflow in ALL_WORKFLOWS
         assert DisputeResolutionWorkflow in ALL_WORKFLOWS
+        assert ATMHealthWorkflow in ALL_WORKFLOWS
 
     def test_all_8_normalisation_activities_registered(self):
         from modules.ej.workflows.activities.ingest import ingest_ej_log

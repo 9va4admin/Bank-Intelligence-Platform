@@ -35,6 +35,7 @@ except ImportError:
 
 from modules.ej.workflows.normalise_workflow import EJNormalisationWorkflow
 from modules.ej.workflows.dispute_workflow import DisputeResolutionWorkflow
+from modules.ej.workflows.atm_health_workflow import ATMHealthWorkflow
 
 from modules.ej.workflows.activities.ingest import ingest_ej_log
 from modules.ej.workflows.activities.fingerprint import validate_oem_fingerprint
@@ -50,6 +51,7 @@ from modules.ej.workflows.activities.cctv_extract import extract_cctv_evidence
 ALL_WORKFLOWS = [
     EJNormalisationWorkflow,
     DisputeResolutionWorkflow,
+    ATMHealthWorkflow,
 ]
 
 ALL_ACTIVITIES = [
