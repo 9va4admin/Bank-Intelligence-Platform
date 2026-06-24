@@ -317,3 +317,20 @@ class TestStoreSignatures:
 
         await vault.store_signatures("ACC004", [b"new"])
         assert key not in vault._cache
+
+
+class TestSignatureVaultConnectFallback:
+    def test_connect_without_redis_client_imports_redis(self, monkeypatch):
+        """Covers lines 39-40: connect() with no redis_client imports redis module."""
+        import sys
+        from unittest.mock import MagicMock
+        fake_redis_mod = MagicMock()
+        fake_redis_instance = MagicMock()
+        fake_redis_mod.Redis.return_value = fake_redis_instance
+        monkeypatch.setitem(sys.modules, "redis", fake_redis_mod)
+
+        from modules.cts.vaults.signature_vault import SignatureVault
+        vault = SignatureVault(bank_id="test-bank", pepper="pepper")
+        vault.connect()  # no redis_client → imports redis
+        assert vault._ready is True
+        assert vault._redis is fake_redis_instance
