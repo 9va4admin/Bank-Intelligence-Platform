@@ -40,6 +40,10 @@ from modules.ej.workflows.activities.ingest import ingest_ej_log
 from modules.ej.workflows.activities.fingerprint import validate_oem_fingerprint
 from modules.ej.workflows.activities.llm_parse import llm_parse_ej
 from modules.ej.workflows.activities.validate import validate_ej_canonical
+from modules.ej.workflows.activities.store_canonical import store_canonical
+from modules.ej.workflows.activities.trigger_dispute_check import trigger_dispute_check
+from modules.ej.workflows.activities.update_atm_health import update_atm_health
+from modules.ej.workflows.activities.write_audit import write_audit
 from modules.ej.workflows.activities.dispute_match import match_dispute_to_ej
 from modules.ej.workflows.activities.cctv_extract import extract_cctv_evidence
 
@@ -53,6 +57,10 @@ ALL_ACTIVITIES = [
     validate_oem_fingerprint,
     llm_parse_ej,
     validate_ej_canonical,
+    store_canonical,
+    trigger_dispute_check,
+    update_atm_health,
+    write_audit,
     match_dispute_to_ej,
     extract_cctv_evidence,
 ]
