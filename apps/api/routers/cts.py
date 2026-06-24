@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict
 
 from modules.cts.workflows.cheque_workflow import ChequeWorkflowInput
 from modules.cts.workflows.human_review_workflow import ReviewDecision
+from shared.event_bus.producer import KafkaEventProducer
 
 log = structlog.get_logger()
 
@@ -68,6 +69,11 @@ def get_temporal_client(request: Request):
             detail="Workflow engine unavailable",
         )
     return client
+
+
+def get_kafka_producer(request: Request) -> Optional[KafkaEventProducer]:
+    """Return Kafka producer from app state, or None in test/dev mode."""
+    return getattr(request.app.state, "kafka_producer", None)
 
 
 # ---------------------------------------------------------------------------
@@ -155,7 +161,8 @@ async def submit_inward_cheque(
     bank_id: str = Depends(get_current_bank_id),
 ) -> ChequeSubmitResponse:
     """
-    Trigger ChequeProcessingWorkflow for an inward cheque.
+    Publish inward cheque to Kafka cts.inward.{bank_id} (feeds KEDA autoscaler),
+    then trigger ChequeProcessingWorkflow directly for low-latency path.
     Workflow ID is deterministic — submitting the same instrument_id twice is idempotent.
     """
     workflow_id = f"cts-{bank_id}-{instrument_id}"
@@ -170,6 +177,32 @@ async def submit_inward_cheque(
         presented_payee=body.presented_payee,
         iet_deadline=body.iet_deadline,
     )
+
+    # Publish to Kafka cts.inward.{bank_id} so KEDA ScaledObject has a real lag
+    # metric for autoscaling CTS workers. Fire-and-forget — Temporal is the
+    # durability guarantee, not Kafka.
+    kafka_producer: Optional[KafkaEventProducer] = get_kafka_producer(request)
+    if kafka_producer is not None:
+        try:
+            kafka_producer.publish(
+                topic=f"cts.inward.{bank_id}",
+                event_type="CTS_INWARD_SUBMITTED",
+                payload={
+                    "instrument_id": instrument_id,
+                    "workflow_id": workflow_id,
+                    "iet_deadline": body.iet_deadline,
+                },
+                bank_id=bank_id,
+            )
+        except Exception as exc:
+            # Kafka publish failure is non-fatal — Temporal is the primary path.
+            # KEDA will scale conservatively until Kafka recovers.
+            log.warning(
+                "cts.kafka_publish_failed",
+                instrument_id=instrument_id,
+                bank_id=bank_id,
+                error=str(exc),
+            )
 
     temporal_client = getattr(request.app.state, "temporal_client", None)
 
