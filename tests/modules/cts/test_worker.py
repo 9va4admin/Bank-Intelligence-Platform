@@ -130,6 +130,11 @@ class TestWorkerRetryConstants:
         sys.modules["temporalio.client"] = temporal_client_mod
         sys.modules["temporalio.worker"] = temporal_worker_mod
 
+        # Pre-clear any None sentinel entries so real module packages aren't
+        # poisoned when the mock temporalio package is traversed during import
+        for key in [k for k, v in list(sys.modules.items()) if v is None]:
+            sys.modules.pop(key, None)
+
         try:
             import modules.cts.worker as w_fresh
             assert w_fresh._TEMPORAL_AVAILABLE is True
@@ -142,6 +147,12 @@ class TestWorkerRetryConstants:
             sys.modules.pop("modules.cts.worker", None)
             for key, val in saved.items():
                 sys.modules[key] = val
+            # Remove any None sentinel entries Python added for modules.ej.*
+            # (Python sets sys.modules[name] = None as a negative cache when a
+            # parent package is a mock and a subpackage was never found)
+            for key in [k for k, v in list(sys.modules.items())
+                        if v is None and k.startswith("modules.")]:
+                sys.modules.pop(key, None)
 
 
 class TestRunWorkerHappyPath:
