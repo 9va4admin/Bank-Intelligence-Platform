@@ -170,3 +170,52 @@ def test_make_key_differs_by_collection(client: ImmudbClient):
     k1 = client._make_key("test-bank", "cts_events", "instr-001")
     k2 = client._make_key("test-bank", "ej_events", "instr-001")
     assert k1 != k2
+
+
+# ---------------------------------------------------------------------------
+# connect() — lines 48-57
+# ---------------------------------------------------------------------------
+
+def test_connect_success_sets_ready():
+    """connect() with a stubbed SDK → _ready=True."""
+    from shared.audit.immudb_client import ImmudbClient
+    from unittest.mock import MagicMock, patch
+
+    stub_sdk = MagicMock()
+    with patch.dict(
+        "sys.modules",
+        {"immudb": MagicMock(ImmudbClient=stub_sdk)},
+    ):
+        c = ImmudbClient()
+        c.connect("localhost", 3322, "test-bank", "cts_events")
+    assert c._ready is True
+    assert c._bank_id == "test-bank"
+    assert c._collection == "cts_events"
+
+
+def test_connect_failure_raises_immudb_unavailable():
+    """connect() when SDK import raises → ImmudbUnavailableError."""
+    from shared.audit.immudb_client import ImmudbClient, ImmudbUnavailableError
+    from unittest.mock import patch
+    import sys
+
+    # Make immudb module raise on import
+    with patch.dict("sys.modules", {"immudb": None}):
+        c = ImmudbClient()
+        import pytest
+        with pytest.raises(ImmudbUnavailableError):
+            c.connect("localhost", 3322, "test-bank")
+
+
+def test_connect_sdk_constructor_raises_immudb_unavailable():
+    """connect() when SDK instantiation raises → ImmudbUnavailableError."""
+    from shared.audit.immudb_client import ImmudbClient, ImmudbUnavailableError
+    from unittest.mock import MagicMock, patch
+    import pytest
+
+    mock_module = MagicMock()
+    mock_module.ImmudbClient = MagicMock(side_effect=ConnectionRefusedError("port closed"))
+    with patch.dict("sys.modules", {"immudb": mock_module}):
+        c = ImmudbClient()
+        with pytest.raises(ImmudbUnavailableError):
+            c.connect("localhost", 3322, "test-bank")
