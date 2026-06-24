@@ -314,3 +314,30 @@ class TestHumanReviewResult:
             filed_decision="RETURN", acknowledgement_id="ACK",
         )
         assert r.instrument_id == "CHQ-001"
+
+
+class TestHumanReviewMissingBranches:
+    def test_receive_decision_sets_internal_state(self):
+        """Covers line 105: receive_decision() signal handler stores the decision."""
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow, ReviewDecision
+        wf = HumanReviewWorkflow()
+        decision = ReviewDecision(action="CONFIRM", reason="looks fine", reviewer_id="rev-001", decided_at=1234567890.0)
+        wf.receive_decision(decision)
+        assert wf._decision is decision
+
+    @pytest.mark.asyncio
+    async def test_no_injected_decision_no_timeout_falls_through(self):
+        """Covers line 134: else branch — no injected decision and not simulating timeout."""
+        from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from unittest.mock import AsyncMock
+
+        wf = HumanReviewWorkflow()
+        result = await wf.run_with_mocks(
+            _make_input(),
+            event_producer=AsyncMock(),
+            ngch_adapter=_make_ngch(),
+            injected_decision=None,
+            simulate_timeout=False,
+        )
+        # No decision → treated as timeout path (_decision=None)
+        assert result.outcome == "TIMEOUT_AUTO_RETURNED"

@@ -247,3 +247,58 @@ class TestChequeWorkflowResult:
         result = await wf.run_with_mocks(_make_workflow_input(), mock_results=_make_all_proceed_results())
         with pytest.raises(Exception):
             result.decision = "SOMETHING"
+
+
+class TestChequeWorkflowSubMember:
+    @pytest.mark.asyncio
+    async def test_sub_member_stp_return_triggers_notification(self):
+        """Covers lines 110-129: sub_member_id set + STP_RETURN → notify_sub_member_return called."""
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
+        from modules.cts.workflows.activities.decision import DecisionResult
+
+        results = _make_all_proceed_results()
+        results["decision"] = DecisionResult(
+            instrument_id="INST001",
+            decision="STP_RETURN",
+            rationale="Signature mismatch",
+            shap_values={"amount": 0.01},
+        )
+        results["sub_member_id"] = "vasavi-coop"
+        results["amount_range"] = "₹[1L-5L]"
+        results["session_date"] = "2026-06-24"
+        results["clearing_session"] = "MORNING"
+
+        wf = ChequeProcessingWorkflow()
+        result = await wf.run_with_mocks(_make_workflow_input(), mock_results=results)
+        assert result.sub_member_notified is True
+        assert result.ledger_updated is True
+
+    @pytest.mark.asyncio
+    async def test_sub_member_stp_confirm_updates_ledger_not_notified(self):
+        """Covers lines 131-139: sub_member_id + STP_CONFIRM → ledger updated, no notification."""
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
+
+        results = _make_all_proceed_results()
+        results["sub_member_id"] = "vasavi-coop"
+        results["session_date"] = "2026-06-24"
+        results["clearing_session"] = "MORNING"
+
+        wf = ChequeProcessingWorkflow()
+        result = await wf.run_with_mocks(_make_workflow_input(), mock_results=results)
+        assert result.sub_member_notified is False
+        assert result.ledger_updated is True
+
+    @pytest.mark.asyncio
+    async def test_run_shield_check_returns_dict(self):
+        """Covers line 170: run_shield_check calls check_return_rate_shield."""
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
+
+        wf = ChequeProcessingWorkflow()
+        result = await wf.run_shield_check(
+            bank_id="test-bank",
+            sub_member_id="vasavi-coop",
+            session_date="2026-06-24",
+            clearing_session="MORNING",
+        )
+        assert isinstance(result, dict)
+        assert "shield_status" in result
