@@ -661,3 +661,157 @@ class TestCTSDependencyCoverage:
         req.app.state.temporal_client = mock_client
         result = get_temporal_client(req)
         assert result is mock_client
+
+
+# ---------------------------------------------------------------------------
+# GET /v1/cts/queue — human review queue
+# ---------------------------------------------------------------------------
+
+class TestCTSQueueRoute:
+    def test_queue_no_temporal_returns_empty(self):
+        """Without Temporal client, returns empty queue with 200."""
+        from apps.api.routers.cts import router_v1, get_current_bank_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get("/v1/cts/queue", headers=_auth_headers())
+        assert response.status_code == 200
+        data = response.json()
+        assert data["items"] == []
+        assert data["total"] == 0
+        assert data["bank_id"] == "test-bank"
+
+    def test_queue_unauthenticated_returns_401(self):
+        """No auth header → 401."""
+        from apps.api.routers.cts import router_v1
+        app = FastAPI()
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get("/v1/cts/queue")
+        assert response.status_code == 401
+
+    def test_queue_limit_capped_at_100(self):
+        """limit > 100 is silently capped to 100."""
+        from apps.api.routers.cts import router_v1, get_current_bank_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        client = TestClient(app, raise_server_exceptions=False)
+        # limit=500 should still return 200 (capped internally)
+        response = client.get("/v1/cts/queue?limit=500", headers=_auth_headers())
+        assert response.status_code == 200
+        assert response.json()["total"] == 0
+
+    def test_queue_with_temporal_returns_items(self):
+        """Temporal client returning workflow list → items populated."""
+        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from unittest.mock import MagicMock, AsyncMock
+
+        # Build async iterable of workflow stubs
+        wf = MagicMock()
+        wf.id = "cts-humanreview-test-bank-INST001"
+        wf.start_time = MagicMock()
+        wf.start_time.timestamp.return_value = 1_700_000_000.0
+        wf.memo = {
+            "instrument_id": "INST001",
+            "account_display": "****1234",
+            "payee_display": "N***",
+            "amount_range": "₹[1L-5L]",
+            "clearing_zone": "MUMBAI",
+            "received_at": 1_699_990_000.0,
+            "iet_deadline": 1_700_010_800.0,
+            "reason": "FRAUD_SCORE_HIGH",
+            "fraud_score": 0.82,
+            "ocr_confidence": 0.97,
+            "sig_match_score": 0.88,
+        }
+
+        async def _async_iter():
+            yield wf
+
+        mock_client = MagicMock()
+        mock_client.list_workflows = MagicMock(return_value=_async_iter())
+
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        app.state.temporal_client = mock_client
+
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get("/v1/cts/queue", headers=_auth_headers())
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        item = data["items"][0]
+        assert item["instrument_id"] == "INST001"
+        assert item["reason"] == "FRAUD_SCORE_HIGH"
+        assert item["fraud_score"] == 0.82
+        assert item["clearing_zone"] == "MUMBAI"
+
+    def test_queue_temporal_error_returns_empty(self):
+        """Temporal list_workflows error → empty queue (not 503)."""
+        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from unittest.mock import MagicMock
+
+        async def _broken_iter():
+            raise Exception("temporal unavailable")
+            yield  # make it an async generator
+
+        mock_client = MagicMock()
+        mock_client.list_workflows = MagicMock(return_value=_broken_iter())
+
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        app.state.temporal_client = mock_client
+
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get("/v1/cts/queue", headers=_auth_headers())
+        assert response.status_code == 200
+        assert response.json()["items"] == []
+
+    def test_queue_sorted_by_iet_deadline_ascending(self):
+        """Items are returned sorted by iet_deadline ascending (most urgent first)."""
+        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from unittest.mock import MagicMock
+
+        def _make_wf(inst_id, iet_deadline):
+            wf = MagicMock()
+            wf.id = f"cts-humanreview-test-bank-{inst_id}"
+            wf.start_time = MagicMock()
+            wf.start_time.timestamp.return_value = 1_700_000_000.0
+            wf.memo = {
+                "instrument_id": inst_id,
+                "account_display": "****1234",
+                "payee_display": "N***",
+                "amount_range": "₹[1L-5L]",
+                "clearing_zone": "MUMBAI",
+                "received_at": 1_699_990_000.0,
+                "iet_deadline": iet_deadline,
+                "reason": "OCR_LOW_CONFIDENCE",
+            }
+            return wf
+
+        wf_late  = _make_wf("INST002", 1_700_020_000.0)   # later IET
+        wf_early = _make_wf("INST001", 1_700_010_000.0)   # earlier IET — must be first
+
+        async def _async_iter():
+            yield wf_late
+            yield wf_early
+
+        mock_client = MagicMock()
+        mock_client.list_workflows = MagicMock(return_value=_async_iter())
+
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        app.state.temporal_client = mock_client
+
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get("/v1/cts/queue", headers=_auth_headers())
+        assert response.status_code == 200
+        items = response.json()["items"]
+        assert len(items) == 2
+        assert items[0]["instrument_id"] == "INST001"   # earlier IET first
+        assert items[1]["instrument_id"] == "INST002"
