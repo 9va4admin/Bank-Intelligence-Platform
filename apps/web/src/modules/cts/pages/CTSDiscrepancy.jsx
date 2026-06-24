@@ -4,8 +4,8 @@ import AppShell from '../../../shared/layout/AppShell'
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
-const DISC_TYPES = {
-  AMOUNT_MISMATCH:   { label: 'Amount Mismatch',        color: 'text-red-400',    bg: 'bg-red-900/30 border-red-700/40',    icon: '₹' },
+const DISC_TYPES_D = {
+  AMOUNT_MISMATCH:   { label: 'Amount Mismatch',        color: 'text-red-400',    bg: 'bg-red-900/30 border-red-700/40',       icon: '₹' },
   MICR_ERROR:        { label: 'MICR Read Error',         color: 'text-orange-400', bg: 'bg-orange-900/30 border-orange-700/40', icon: '⊟' },
   LOT_COUNT_DIFF:    { label: 'Lot Count Mismatch',      color: 'text-amber-400',  bg: 'bg-amber-900/30 border-amber-700/40',   icon: '≠' },
   STALE_DATE:        { label: 'Stale Dated',             color: 'text-violet-400', bg: 'bg-violet-900/30 border-violet-700/40', icon: '📅' },
@@ -15,12 +15,29 @@ const DISC_TYPES = {
   UNPROCESSED:       { label: 'Unprocessed Item',        color: 'text-slate-400',  bg: 'bg-slate-800/60 border-slate-600/40',   icon: '⌛' },
   EXTENSION_FILE:    { label: 'Extension File Item',     color: 'text-cyan-400',   bg: 'bg-cyan-900/30 border-cyan-700/40',     icon: '↗' },
 }
+const DISC_TYPES_L = {
+  AMOUNT_MISMATCH:   { label: 'Amount Mismatch',        color: 'text-red-700',    bg: 'bg-red-50 border-red-200',              icon: '₹' },
+  MICR_ERROR:        { label: 'MICR Read Error',         color: 'text-orange-700', bg: 'bg-orange-50 border-orange-200',        icon: '⊟' },
+  LOT_COUNT_DIFF:    { label: 'Lot Count Mismatch',      color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200',          icon: '≠' },
+  STALE_DATE:        { label: 'Stale Dated',             color: 'text-violet-700', bg: 'bg-violet-50 border-violet-200',        icon: '📅' },
+  POST_DATE:         { label: 'Post Dated',              color: 'text-blue-700',   bg: 'bg-blue-50 border-blue-200',            icon: '📅' },
+  WORDS_FIGURES:     { label: 'Words/Figures Diff',      color: 'text-rose-700',   bg: 'bg-rose-50 border-rose-200',            icon: 'Ξ' },
+  DUPLICATE:         { label: 'Duplicate Instrument',    color: 'text-red-700',    bg: 'bg-red-50 border-red-200',              icon: '⊕' },
+  UNPROCESSED:       { label: 'Unprocessed Item',        color: 'text-slate-600',  bg: 'bg-slate-100 border-slate-300',         icon: '⌛' },
+  EXTENSION_FILE:    { label: 'Extension File Item',     color: 'text-cyan-700',   bg: 'bg-cyan-50 border-cyan-200',            icon: '↗' },
+}
 
-const STATUS_META = {
-  OPEN:       { label: 'Open',       cls: 'text-amber-300 bg-amber-900/40 border-amber-700/40' },
-  ESCALATED:  { label: 'Escalated',  cls: 'text-red-300   bg-red-900/40   border-red-700/40'   },
+const STATUS_D = {
+  OPEN:       { label: 'Open',       cls: 'text-amber-300   bg-amber-900/40   border-amber-700/40'   },
+  ESCALATED:  { label: 'Escalated',  cls: 'text-red-300     bg-red-900/40     border-red-700/40'     },
   RESOLVED:   { label: 'Resolved',   cls: 'text-emerald-300 bg-emerald-900/40 border-emerald-700/40' },
-  RETURNED:   { label: 'Returned',   cls: 'text-slate-300 bg-slate-800/60 border-slate-600/40' },
+  RETURNED:   { label: 'Returned',   cls: 'text-slate-300   bg-slate-800/60   border-slate-600/40'   },
+}
+const STATUS_L = {
+  OPEN:       { label: 'Open',       cls: 'text-amber-700   bg-amber-50   border-amber-200'   },
+  ESCALATED:  { label: 'Escalated',  cls: 'text-red-700     bg-red-50     border-red-200'     },
+  RESOLVED:   { label: 'Resolved',   cls: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
+  RETURNED:   { label: 'Returned',   cls: 'text-slate-600   bg-slate-100  border-slate-300'   },
 }
 
 const BRANCHES = ['Andheri (W)', 'Bandra (E)', 'Churchgate', 'Dadar', 'Goregaon', 'Kurla', 'Malad', 'Vashi']
@@ -92,6 +109,9 @@ export default function CTSDiscrepancy() {
   const [selected,     setSelected]     = useState(null)
   const [search,       setSearch]       = useState('')
 
+  const DISC_TYPES = isDark ? DISC_TYPES_D : DISC_TYPES_L
+  const STATUS_META = isDark ? STATUS_D : STATUS_L
+
   const th = {
     page:    isDark ? 'bg-[#020817] text-white'          : 'bg-slate-50 text-slate-900',
     card:    isDark ? 'bg-white/4 border-white/8'         : 'bg-white border-slate-200',
@@ -134,7 +154,7 @@ export default function CTSDiscrepancy() {
               <span className={`text-xs px-2 py-1 rounded border ${isDark ? 'border-white/10 text-slate-400' : 'border-slate-200 text-slate-500'}`}>
                 Session: 19-Jun-2026
               </span>
-              <button className="text-xs px-3 py-1.5 rounded-lg bg-cyan-600/20 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-600/30 transition-colors">
+              <button className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${isDark ? 'bg-cyan-600/20 text-cyan-300 border-cyan-500/30 hover:bg-cyan-600/30' : 'bg-cyan-50 text-cyan-700 border-cyan-200 hover:bg-cyan-100'}`}>
                 Export Register
               </button>
             </div>
@@ -143,11 +163,11 @@ export default function CTSDiscrepancy() {
           {/* KPI Strip */}
           <div className="grid grid-cols-5 gap-3 mt-4">
             {[
-              { label: 'Total Items',  val: SUMMARY.total,     color: 'text-white' },
-              { label: 'Open',         val: SUMMARY.open,      color: 'text-amber-400' },
-              { label: 'Escalated',    val: SUMMARY.escalated, color: 'text-red-400' },
-              { label: 'Resolved',     val: SUMMARY.resolved,  color: 'text-emerald-400' },
-              { label: 'Returned',     val: SUMMARY.returned,  color: 'text-slate-400' },
+              { label: 'Total Items',  val: SUMMARY.total,     color: th.val },
+              { label: 'Open',         val: SUMMARY.open,      color: isDark ? 'text-amber-400' : 'text-amber-600' },
+              { label: 'Escalated',    val: SUMMARY.escalated, color: isDark ? 'text-red-400' : 'text-red-600' },
+              { label: 'Resolved',     val: SUMMARY.resolved,  color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+              { label: 'Returned',     val: SUMMARY.returned,  color: isDark ? 'text-slate-400' : 'text-slate-500' },
             ].map(k => (
               <div key={k.label} className={`rounded-lg border px-4 py-3 ${th.card}`}>
                 <div className={`text-2xl font-bold font-mono ${k.color}`}>{k.val}</div>
@@ -165,7 +185,7 @@ export default function CTSDiscrepancy() {
             <p className={`text-[10px] uppercase tracking-widest font-semibold mb-2 ${th.label}`}>By Type</p>
             <button
               onClick={() => setTypeFilter('ALL')}
-              className={`w-full text-left px-2 py-1.5 rounded text-xs mb-1 flex justify-between items-center ${typeFilter === 'ALL' ? 'bg-cyan-600/20 text-cyan-300' : `${th.sub} hover:bg-white/5`}`}
+              className={`w-full text-left px-2 py-1.5 rounded text-xs mb-1 flex justify-between items-center ${typeFilter === 'ALL' ? (isDark ? 'bg-cyan-600/20 text-cyan-300' : 'bg-cyan-50 text-cyan-700') : `${th.sub} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}`}
             >
               <span>All Types</span>
               <span className={`font-mono text-[10px] ${th.badge} px-1.5 py-0.5 rounded`}>{ALL_DISCS.length}</span>
@@ -176,7 +196,7 @@ export default function CTSDiscrepancy() {
                 <button
                   key={key}
                   onClick={() => setTypeFilter(key)}
-                  className={`w-full text-left px-2 py-1.5 rounded text-xs mb-0.5 flex justify-between items-center transition-colors ${typeFilter === key ? 'bg-cyan-600/20 text-cyan-300' : `${th.sub} hover:bg-white/5`}`}
+                  className={`w-full text-left px-2 py-1.5 rounded text-xs mb-0.5 flex justify-between items-center transition-colors ${typeFilter === key ? (isDark ? 'bg-cyan-600/20 text-cyan-300' : 'bg-cyan-50 text-cyan-700') : `${th.sub} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}`}
                 >
                   <span className="flex items-center gap-1.5">
                     <span className={`${meta.color} text-[10px]`}>{meta.icon}</span>
@@ -259,12 +279,12 @@ export default function CTSDiscrepancy() {
                     <div className={`font-mono text-sm font-semibold ${th.val}`}>{sel.id}</div>
                     <div className={`text-xs mt-0.5 ${th.sub}`}>{sel.instrument}</div>
                   </div>
-                  <button onClick={() => setSelected(null)} className={`text-lg leading-none ${th.sub} hover:text-white transition-colors`}>×</button>
+                  <button onClick={() => setSelected(null)} className={`text-lg leading-none ${th.sub} ${isDark ? 'hover:text-white' : 'hover:text-slate-900'} transition-colors`}>×</button>
                 </div>
 
                 <div className={`rounded-lg border px-3 py-2 ${DISC_TYPES[sel.type].bg}`}>
                   <div className={`text-[11px] font-semibold ${DISC_TYPES[sel.type].color}`}>{DISC_TYPES[sel.type].label}</div>
-                  <div className="text-xs text-slate-300 mt-1">{sel.detail}</div>
+                  <div className={`text-xs mt-1 ${th.sub}`}>{sel.detail}</div>
                 </div>
 
                 {[
@@ -290,13 +310,13 @@ export default function CTSDiscrepancy() {
                 {/* Actions */}
                 {sel.status === 'OPEN' && (
                   <div className="space-y-2 pt-1">
-                    <button className="w-full text-xs py-1.5 rounded-lg bg-amber-600/20 text-amber-300 border border-amber-500/30 hover:bg-amber-600/30 transition-colors">
+                    <button className={`w-full text-xs py-1.5 rounded-lg border transition-colors ${isDark ? 'bg-amber-600/20 text-amber-300 border-amber-500/30 hover:bg-amber-600/30' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'}`}>
                       Escalate to Manager
                     </button>
-                    <button className="w-full text-xs py-1.5 rounded-lg bg-red-600/20 text-red-300 border border-red-500/30 hover:bg-red-600/30 transition-colors">
+                    <button className={`w-full text-xs py-1.5 rounded-lg border transition-colors ${isDark ? 'bg-red-600/20 text-red-300 border-red-500/30 hover:bg-red-600/30' : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'}`}>
                       Mark as Return
                     </button>
-                    <button className="w-full text-xs py-1.5 rounded-lg bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-600/30 transition-colors">
+                    <button className={`w-full text-xs py-1.5 rounded-lg border transition-colors ${isDark ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-600/30' : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'}`}>
                       Mark Resolved
                     </button>
                   </div>
