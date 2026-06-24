@@ -5,8 +5,11 @@ import QueueCard from '../components/QueueCard'
 import ReviewPanel from '../components/ReviewPanel'
 import { MOCK_QUEUE, BATCH_STATS, getStpStream } from '../data/mockQueue'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
 const STP_DELAY_MS = 3200
+const SESSION_START = new Date(new Date().setHours(10, 0, 0, 0))
+const IET_WINDOW_MINS = 180
 
 export default function CTSWorkstation() {
   const { isDark } = useTheme()
@@ -20,6 +23,12 @@ export default function CTSWorkstation() {
   const stpIndexRef = useRef(0)
   const [stpStream, setStpStream]   = useState([])
   const [batchStats, setBatchStats] = useState({ ...BATCH_STATS })
+  const [now, setNow] = useState(new Date())
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [])
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -53,6 +62,28 @@ export default function CTSWorkstation() {
     const next = pending.find((p) => p.instrument_id !== id)
     setSelected(next || null)
   }
+
+  const sessionElapsedSec = Math.max(0, Math.floor((now - SESSION_START) / 1000))
+  const sessionElapsedStr = `${String(Math.floor(sessionElapsedSec / 3600)).padStart(2,'0')}:${String(Math.floor((sessionElapsedSec % 3600) / 60)).padStart(2,'0')}:${String(sessionElapsedSec % 60).padStart(2,'0')}`
+
+  usePageHeader({
+    subtitle: `AM Clearing · SES-0619-001 · IET Window: ${IET_WINDOW_MINS}min`,
+    actions: (
+      <div className="flex items-center gap-3">
+        <div className={`text-[10px] font-mono px-3 py-1.5 rounded-lg border ${isDark ? 'border-white/10 text-slate-300 bg-white/4' : 'border-slate-200 text-slate-600 bg-white'}`}>
+          Session {sessionElapsedStr}
+        </div>
+        <div className={`flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg border ${
+          pending.length > 0
+            ? isDark ? 'border-amber-700/40 bg-amber-900/20 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'
+            : isDark ? 'border-emerald-700/40 bg-emerald-900/20 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+        }`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${pending.length > 0 ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
+          {pending.length > 0 ? `${pending.length} awaiting review` : 'Queue clear'}
+        </div>
+      </div>
+    ),
+  })
 
   const stpRate = batchStats.total_inward > 0
     ? ((batchStats.stp_confirmed + batchStats.stp_returned) / batchStats.total_inward * 100).toFixed(1)
