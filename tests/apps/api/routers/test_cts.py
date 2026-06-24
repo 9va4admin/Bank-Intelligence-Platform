@@ -648,3 +648,16 @@ class TestCTSDependencyCoverage:
             with pt.raises(HTTPException) as exc_info:
                 get_temporal_client(req)
             assert exc_info.value.status_code == 503
+
+    def test_get_temporal_client_returns_client_when_set(self):
+        """Covers line 69: get_temporal_client returns client when set on app state."""
+        _patch_temporalio()
+        from apps.api.routers.cts import get_temporal_client
+        from fastapi import Request
+        from unittest.mock import MagicMock as MM
+        mock_client = MM()
+        req = MM(spec=Request)
+        req.app.state = MM()
+        req.app.state.temporal_client = mock_client
+        result = get_temporal_client(req)
+        assert result is mock_client
