@@ -202,22 +202,41 @@ def _atm_log_payload():
     }
 
 
-def _make_ej_modules_stub():
-    """Stub modules.ej.workflows.* so dynamic imports inside route don't fail."""
+import contextlib
+
+@contextlib.contextmanager
+def _ej_modules_stub():
+    """Context manager: stub modules.ej.workflows.* for the duration of a test
+    and restore sys.modules on exit so later tests see real packages."""
     import sys
     from unittest.mock import MagicMock
+
+    stub_keys = ["modules", "modules.ej", "modules.ej.workflows",
+                 "modules.ej.workflows.normalise_workflow",
+                 "modules.ej.workflows.dispute_workflow"]
+    saved = {k: sys.modules.get(k) for k in stub_keys}
+
     normalise_mod = MagicMock()
     normalise_mod.EJNormalisationWorkflow = MagicMock()
     normalise_mod.EJNormalisationInput = MagicMock(return_value=MagicMock())
     dispute_mod = MagicMock()
     dispute_mod.DisputeResolutionWorkflow = MagicMock()
     dispute_mod.EJDisputeInput = MagicMock(return_value=MagicMock())
+
     sys.modules.setdefault("modules", MagicMock())
     sys.modules.setdefault("modules.ej", MagicMock())
     sys.modules.setdefault("modules.ej.workflows", MagicMock())
     sys.modules["modules.ej.workflows.normalise_workflow"] = normalise_mod
     sys.modules["modules.ej.workflows.dispute_workflow"] = dispute_mod
-    return normalise_mod, dispute_mod
+
+    try:
+        yield normalise_mod, dispute_mod
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                sys.modules.pop(k, None)
+            else:
+                sys.modules[k] = v
 
 
 class TestEJLogByAtmRoute:
@@ -238,62 +257,59 @@ class TestEJLogByAtmRoute:
         from apps.api.routers.ej import router_v1, get_current_bank_id
         from unittest.mock import AsyncMock, MagicMock
 
-        _make_ej_modules_stub()
+        with _ej_modules_stub():
+            mock_temporal = AsyncMock()
+            mock_temporal.start_workflow = AsyncMock()
 
-        mock_temporal = AsyncMock()
-        mock_temporal.start_workflow = AsyncMock()
+            app = FastAPI()
+            app.include_router(router_v1)
+            app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+            app.state.temporal_client = mock_temporal
 
-        app = FastAPI()
-        app.include_router(router_v1)
-        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
-        app.state.temporal_client = mock_temporal
-
-        client = TestClient(app, raise_server_exceptions=False)
-        response = client.post("/v1/ej/inward/ATM002/log", json=_atm_log_payload())
-        assert response.status_code == 202
-        assert response.json()["status"] == "ACCEPTED"
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.post("/v1/ej/inward/ATM002/log", json=_atm_log_payload())
+            assert response.status_code == 202
+            assert response.json()["status"] == "ACCEPTED"
 
     def test_submit_already_started_error_still_returns_202(self):
         """'already started' exception is swallowed — idempotent workflow."""
         from apps.api.routers.ej import router_v1, get_current_bank_id
         from unittest.mock import AsyncMock
 
-        _make_ej_modules_stub()
+        with _ej_modules_stub():
+            mock_temporal = AsyncMock()
+            mock_temporal.start_workflow = AsyncMock(
+                side_effect=Exception("workflow already started for this id")
+            )
 
-        mock_temporal = AsyncMock()
-        mock_temporal.start_workflow = AsyncMock(
-            side_effect=Exception("workflow already started for this id")
-        )
+            app = FastAPI()
+            app.include_router(router_v1)
+            app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+            app.state.temporal_client = mock_temporal
 
-        app = FastAPI()
-        app.include_router(router_v1)
-        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
-        app.state.temporal_client = mock_temporal
-
-        client = TestClient(app, raise_server_exceptions=False)
-        response = client.post("/v1/ej/inward/ATM003/log", json=_atm_log_payload())
-        assert response.status_code == 202
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.post("/v1/ej/inward/ATM003/log", json=_atm_log_payload())
+            assert response.status_code == 202
 
     def test_submit_temporal_error_returns_503(self):
         """Non-'already started' temporal error → 503."""
         from apps.api.routers.ej import router_v1, get_current_bank_id
         from unittest.mock import AsyncMock
 
-        _make_ej_modules_stub()
+        with _ej_modules_stub():
+            mock_temporal = AsyncMock()
+            mock_temporal.start_workflow = AsyncMock(
+                side_effect=Exception("connection refused")
+            )
 
-        mock_temporal = AsyncMock()
-        mock_temporal.start_workflow = AsyncMock(
-            side_effect=Exception("connection refused")
-        )
+            app = FastAPI()
+            app.include_router(router_v1)
+            app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+            app.state.temporal_client = mock_temporal
 
-        app = FastAPI()
-        app.include_router(router_v1)
-        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
-        app.state.temporal_client = mock_temporal
-
-        client = TestClient(app, raise_server_exceptions=False)
-        response = client.post("/v1/ej/inward/ATM004/log", json=_atm_log_payload())
-        assert response.status_code == 503
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.post("/v1/ej/inward/ATM004/log", json=_atm_log_payload())
+            assert response.status_code == 503
 
 
 # ---------------------------------------------------------------------------
@@ -389,57 +405,54 @@ class TestEJResolveDisputeRoute:
         from apps.api.routers.ej import router_v1, get_current_bank_id
         from unittest.mock import AsyncMock
 
-        _make_ej_modules_stub()
+        with _ej_modules_stub():
+            mock_temporal = AsyncMock()
+            mock_temporal.start_workflow = AsyncMock()
 
-        mock_temporal = AsyncMock()
-        mock_temporal.start_workflow = AsyncMock()
+            app = FastAPI()
+            app.include_router(router_v1)
+            app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+            app.state.temporal_client = mock_temporal
 
-        app = FastAPI()
-        app.include_router(router_v1)
-        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
-        app.state.temporal_client = mock_temporal
-
-        client = TestClient(app, raise_server_exceptions=False)
-        response = client.post("/v1/ej/disputes/CLAIM002/resolve", json=_dispute_payload())
-        assert response.status_code == 202
-        assert response.json()["workflow_id"] == "ej-dispute-test-bank-CLAIM002"
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.post("/v1/ej/disputes/CLAIM002/resolve", json=_dispute_payload())
+            assert response.status_code == 202
+            assert response.json()["workflow_id"] == "ej-dispute-test-bank-CLAIM002"
 
     def test_already_started_error_swallowed_returns_202(self):
         from apps.api.routers.ej import router_v1, get_current_bank_id
         from unittest.mock import AsyncMock
 
-        _make_ej_modules_stub()
+        with _ej_modules_stub():
+            mock_temporal = AsyncMock()
+            mock_temporal.start_workflow = AsyncMock(
+                side_effect=Exception("workflow already started")
+            )
 
-        mock_temporal = AsyncMock()
-        mock_temporal.start_workflow = AsyncMock(
-            side_effect=Exception("workflow already started")
-        )
+            app = FastAPI()
+            app.include_router(router_v1)
+            app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+            app.state.temporal_client = mock_temporal
 
-        app = FastAPI()
-        app.include_router(router_v1)
-        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
-        app.state.temporal_client = mock_temporal
-
-        client = TestClient(app, raise_server_exceptions=False)
-        response = client.post("/v1/ej/disputes/CLAIM003/resolve", json=_dispute_payload())
-        assert response.status_code == 202
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.post("/v1/ej/disputes/CLAIM003/resolve", json=_dispute_payload())
+            assert response.status_code == 202
 
     def test_temporal_error_returns_503(self):
         from apps.api.routers.ej import router_v1, get_current_bank_id
         from unittest.mock import AsyncMock
 
-        _make_ej_modules_stub()
+        with _ej_modules_stub():
+            mock_temporal = AsyncMock()
+            mock_temporal.start_workflow = AsyncMock(
+                side_effect=Exception("grpc connection timeout")
+            )
 
-        mock_temporal = AsyncMock()
-        mock_temporal.start_workflow = AsyncMock(
-            side_effect=Exception("grpc connection timeout")
-        )
+            app = FastAPI()
+            app.include_router(router_v1)
+            app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+            app.state.temporal_client = mock_temporal
 
-        app = FastAPI()
-        app.include_router(router_v1)
-        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
-        app.state.temporal_client = mock_temporal
-
-        client = TestClient(app, raise_server_exceptions=False)
-        response = client.post("/v1/ej/disputes/CLAIM004/resolve", json=_dispute_payload())
-        assert response.status_code == 503
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.post("/v1/ej/disputes/CLAIM004/resolve", json=_dispute_payload())
+            assert response.status_code == 503
