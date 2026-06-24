@@ -91,3 +91,32 @@ def test_configure_otel_adds_astra_platform_attribute():
 def test_configure_otel_is_idempotent():
     configure_otel(service_name="svc", service_version="1.0")
     configure_otel(service_name="svc", service_version="1.0")  # no exception
+
+
+# ---------------------------------------------------------------------------
+# OTLP endpoint branch (lines 55-57) — BatchSpanProcessor added when endpoint given
+# ---------------------------------------------------------------------------
+
+def test_configure_otel_with_otlp_endpoint_adds_span_processor():
+    """When otlp_endpoint is provided, an OTLP BatchSpanProcessor must be added."""
+    from unittest.mock import MagicMock, patch
+
+    mock_exporter_instance = MagicMock()
+    mock_exporter_cls = MagicMock(return_value=mock_exporter_instance)
+
+    with patch.dict("sys.modules", {
+        "opentelemetry.exporter.otlp.proto.grpc.trace_exporter": MagicMock(
+            OTLPSpanExporter=mock_exporter_cls
+        )
+    }):
+        provider = configure_otel(
+            service_name="cts-agent-worker",
+            service_version="1.0.0",
+            otlp_endpoint="http://tempo.astra.internal:4317",
+        )
+
+    # OTLPSpanExporter was instantiated with the endpoint
+    mock_exporter_cls.assert_called_once_with(
+        endpoint="http://tempo.astra.internal:4317", insecure=True
+    )
+    assert provider is not None

@@ -98,3 +98,44 @@ def test_render_unknown_template_falls_back_to_generic(channel):
     assert subject is not None
     assert body is not None
     assert len(subject) > 0
+
+
+# ---------------------------------------------------------------------------
+# connect() — success and failure paths
+# ---------------------------------------------------------------------------
+
+def test_connect_success_sets_ready():
+    """connect() with a mocked smtplib.SMTP should set _ready=True."""
+    ch = EmailChannel(smtp_host="postal.astra.internal", smtp_port=25,
+                      from_address="noreply@astra.bank", bank_id="test-bank")
+    with patch("smtplib.SMTP") as mock_smtp_cls:
+        mock_smtp_cls.return_value = MagicMock()
+        ch.connect()
+    assert ch._ready is True
+
+
+def test_connect_failure_raises_runtime_error():
+    """connect() when SMTP raises must wrap in RuntimeError."""
+    ch = EmailChannel(smtp_host="bad-host", smtp_port=25,
+                      from_address="noreply@astra.bank", bank_id="test-bank")
+    with patch("smtplib.SMTP", side_effect=Exception("connection refused")):
+        with pytest.raises(RuntimeError, match="Postal SMTP connect failed"):
+            ch.connect()
+
+
+# ---------------------------------------------------------------------------
+# _render() — KeyError fallback (lines 94-95): context missing template keys
+# ---------------------------------------------------------------------------
+
+def test_render_template_missing_context_key_falls_back_to_raw_template(channel):
+    """If context is missing a key required by the template, return raw subject/body."""
+    # cts.human_review_escalated requires {instrument_id} and {queue_position}
+    # Provide neither — KeyError must be caught, returning raw template strings
+    subject, body = channel._render(
+        template_id="cts.human_review_escalated",
+        context={},  # missing instrument_id, queue_position
+    )
+    # Should return the unformatted template strings (no KeyError raised)
+    assert "ASTRA CTS" in subject
+    assert subject is not None
+    assert body is not None

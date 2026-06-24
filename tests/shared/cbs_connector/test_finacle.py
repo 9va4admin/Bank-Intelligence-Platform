@@ -235,3 +235,24 @@ async def test_get_cheque_status_raises_unavailable_on_error(connector):
     connector._http.get = AsyncMock(side_effect=Exception("timeout"))
     with pytest.raises(CBSUnavailableError):
         await connector.get_cheque_status("1234567890123456", "450001", "test-bank")
+
+
+# ---------------------------------------------------------------------------
+# connect() — without injected http_client (uses real httpx import)
+# ---------------------------------------------------------------------------
+
+def test_connect_without_http_client_uses_httpx(monkeypatch):
+    """connect() with no arg must import httpx and create an AsyncClient."""
+    import sys
+
+    fake_httpx = MagicMock()
+    fake_client = MagicMock()
+    fake_httpx.AsyncClient.return_value = fake_client
+    monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
+
+    c = FinacleCBSConnector(base_url="http://finacle", bank_id="test-bank")
+    c.connect()
+
+    assert c._ready is True
+    fake_httpx.AsyncClient.assert_called_once_with(timeout=10.0)
+    assert c._http is fake_client

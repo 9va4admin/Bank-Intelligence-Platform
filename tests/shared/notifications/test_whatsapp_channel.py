@@ -111,3 +111,48 @@ def test_template_map_returns_meta_name_for_known_template(channel):
 def test_template_map_returns_generic_for_unknown_template(channel):
     meta_name = channel._map_template("unknown.xyz")
     assert meta_name == "astra_generic_notification"
+
+
+# ---------------------------------------------------------------------------
+# connect() — without http_client (imports httpx internally)
+# ---------------------------------------------------------------------------
+
+def test_connect_without_http_client_uses_httpx(monkeypatch):
+    """connect() without http_client must import httpx and create AsyncClient."""
+    import sys
+
+    fake_httpx = MagicMock()
+    fake_client = MagicMock()
+    fake_httpx.AsyncClient.return_value = fake_client
+    monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
+
+    ch = WhatsAppChannel(
+        api_url="https://graph.facebook.com/v18.0",
+        phone_number_id="12345678",
+        bank_id="test-bank",
+    )
+    ch.connect(access_token="test-token")
+
+    assert ch._ready is True
+    assert ch._access_token == "test-token"
+    fake_httpx.AsyncClient.assert_called_once_with(timeout=10.0)
+    assert ch._http is fake_client
+
+
+def test_connect_with_http_client_uses_provided_client(monkeypatch):
+    """connect() with http_client must use the provided client, not create one."""
+    import sys
+
+    fake_httpx = MagicMock()
+    monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
+
+    ch = WhatsAppChannel(
+        api_url="https://graph.facebook.com/v18.0",
+        phone_number_id="12345678",
+        bank_id="test-bank",
+    )
+    provided_client = MagicMock()
+    ch.connect(access_token="test-token", http_client=provided_client)
+
+    assert ch._http is provided_client
+    fake_httpx.AsyncClient.assert_not_called()

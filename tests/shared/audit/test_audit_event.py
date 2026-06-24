@@ -176,3 +176,26 @@ def audit_event() -> AuditEvent:
         bank_id="test-bank",
         payload={"instrument_id": "instr-001", "decision": "STP_CONFIRM", "fraud_score": 0.12},
     )
+
+
+# ---------------------------------------------------------------------------
+# to_json() — signature hex branch (line 59)
+# ---------------------------------------------------------------------------
+
+def test_to_json_includes_signature_hex_when_signed():
+    """When an event has a signature, to_json() must include it as a hex string."""
+    mock_hsm = MagicMock()
+    mock_hsm.sign.return_value = b"\xde\xad\xbe\xef"
+
+    evt = AuditEvent(
+        event_type=AuditEventType.CTS_NGCH_FILED,
+        bank_id="test-bank",
+        payload={"instrument_id": "instr-001"},
+    )
+    signed = evt.sign(mock_hsm)
+
+    raw = signed.to_json()
+    parsed = json.loads(raw)
+
+    assert "signature" in parsed
+    assert parsed["signature"] == b"\xde\xad\xbe\xef".hex()
