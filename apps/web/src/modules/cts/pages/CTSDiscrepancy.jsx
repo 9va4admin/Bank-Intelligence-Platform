@@ -44,8 +44,8 @@ const BRANCHES = ['Andheri (W)', 'Bandra (E)', 'Churchgate', 'Dadar', 'Goregaon'
 const SESSIONS = ['SES-0619-001 (10:00–12:00)', 'SES-0619-002 (12:00–14:00)']
 
 function seed(n) {
-  const types   = Object.keys(DISC_TYPES)
-  const statuses= Object.keys(STATUS_META)
+  const types   = Object.keys(DISC_TYPES_D)
+  const statuses= Object.keys(STATUS_D)
   const now     = Date.now()
   return Array.from({ length: n }, (_, i) => {
     const type   = types[(i * 7 + 3) % types.length]
@@ -94,7 +94,7 @@ const SUMMARY = {
   returned:    ALL_DISCS.filter(d => d.status === 'RETURNED').length,
 }
 
-const TYPE_COUNTS = Object.keys(DISC_TYPES).map(k => ({
+const TYPE_COUNTS = Object.keys(DISC_TYPES_D).map(k => ({
   key: k,
   count: ALL_DISCS.filter(d => d.type === k).length,
 })).sort((a, b) => b.count - a.count)
