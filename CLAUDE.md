@@ -925,25 +925,32 @@ PHASE 2 — CTS Core
        lot, reports, sub_member (sponsor-bank routing + risk shield)
   [x] Test coverage: 1338 tests, 95%+ on all CTS workflow activities
 
-PHASE 3 — Observability (partial)
+PHASE 3 — Observability
   [x] OTel setup in shared/observability/otel_setup.py
   [x] Langfuse setup stub in shared/observability/
-  [ ] Grafana dashboards (infra YAML — not yet wired)
+  [x] Grafana dashboards ConfigMap — cts-iet-vault.json, cts-fraud-ai.json, ej-normalisation.json
+  [x] PrometheusRule CRD — CTSIETBreach, CTSFraudF1Drop, EJATMCriticalHealth, platform alerts
   [ ] SHAP panel in ops workstation
 
-PHASE 4 — EJ Module (core complete)
+PHASE 4 — EJ Module (COMPLETE)
   [x] Temporal: EJNormalisationWorkflow — full 8-activity pipeline:
        ingest → fingerprint → llm_parse → validate →
        store_canonical → trigger_dispute_check → update_atm_health → write_audit
   [x] Temporal: DisputeResolutionWorkflow — EJ match + CCTV → auto-resolve or escalate
-  [x] EJ activities: ingest, fingerprint, llm_parse, validate, dispute_match, cctv_extract
+  [x] Temporal: ATMHealthWorkflow — hourly scheduled, 3-state health machine (HEALTHY/DEGRADED/CRITICAL)
+  [x] EJ activities: all 10 registered (8 normalisation + dispute_match + cctv_extract)
   [x] EJ: LLM parser (Llama 3.3 70B prompt structure)
   [x] EJ: CCTV evidence extractor (MinIO object_key pattern)
   [x] EJ: Diagnostic MCP server (consent-gated, OPA-controlled, Immudb audit)
-  [x] EJ: worker.py (Temporal worker registration)
-  [ ] Edge: branch-ej-agent Go binary (EJ file → compress → encrypt → upload)
-  [ ] EJ ingestion gateway (FastAPI + Kafka)
-  [ ] Frontend: EJ dashboard + dispute console + fleet map (planned)
+  [x] EJ: worker.py (Temporal worker with all workflows + activities registered)
+  [x] Edge: branch-ej-agent Go binary (OEM fingerprint, gzip+AES-256-GCM, SQLite WAL buffer,
+       MCP server — tools: list_pending, fetch_ej_file, confirm_receipt;
+       resources: ej://atm/{id}/logs/{date}, ej://atm/{id}/health) — 11 Go tests, all pass
+  [x] EJ ingestion gateway (FastAPI /v1/ej-ingest/raw-log → Kafka ej.raw.ingested.{bank_id},
+       idempotent workflow IDs, test-mode mock Kafka) — 12 tests
+  [x] Frontend: EJ Command Center, Incidents, Dispute Console (/ej/disputes),
+       ATM Fleet Map (/ej/fleet), Manager Portal, BRE Policy, Notifications
+       — EJShell nav updated, all routes wired in App.jsx
 
 PHASE 5 — Hardening
   [ ] Active-active DR drills
@@ -954,12 +961,11 @@ PHASE 5 — Hardening
   [ ] Bank onboarding: first pilot bank Helm deploy
 ```
 
-### Immediate Next (in priority order)
-1. EJ ingestion gateway (FastAPI) — bridge from branch-ej-agent MCP → Kafka `ej.raw.ingested`
-2. ATM Health Workflow — scheduled hourly, anomaly detection from ej.health.signals
-3. Frontend: EJ dashboard + dispute console
-4. Go edge agent (branch-ej-agent) — OEM fingerprint, gzip+AES, SQLite buffer, MCP server
-5. Grafana dashboard YAML for CTS IET / fraud / vault metrics
+### Immediate Next (Phase 5 Hardening)
+1. RBI IT Framework control mapping (`compliance/rbi-it-framework/control-mapping.yaml`)
+2. Performance test harness — CTS 500-cheque parallel agent benchmark
+3. Chaos Mesh scenario YAMLs (DC failure, Redis eviction, vLLM down)
+4. First pilot bank Helm values (`infra/helm/values/banks/saraswat-coop/`)
 
 ---
 
