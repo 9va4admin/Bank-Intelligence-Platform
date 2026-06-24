@@ -255,3 +255,23 @@ class TestMCPTools:
         adapter = NGCHAdapter(bank_id="b", base_url="https://ngch.internal/api")
         for tool in adapter.list_tools():
             assert "inputSchema" in tool
+
+
+class TestNGCHAdapterConnectFallback:
+    def test_connect_without_http_client_imports_httpx(self, monkeypatch):
+        """Covers lines 34-35: connect() with no http_client → imports httpx, creates AsyncClient."""
+        import sys
+        from unittest.mock import MagicMock
+        from modules.cts.mcp.ngch_adapter import NGCHAdapter
+
+        fake_httpx = MagicMock()
+        fake_client = MagicMock()
+        fake_httpx.AsyncClient.return_value = fake_client
+        monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
+
+        adapter = NGCHAdapter(bank_id="test-bank", base_url="https://ngch.internal/api")
+        adapter.connect()
+
+        assert adapter._ready is True
+        fake_httpx.AsyncClient.assert_called_once_with(timeout=30.0)
+        assert adapter._http is fake_client
