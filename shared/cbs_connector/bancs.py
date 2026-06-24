@@ -1,37 +1,167 @@
 """
-BaNCSCBSConnector — TCS BaNCS Core Banking adapter (stub).
+BaNCSCBSConnector — TCS BaNCS Core Banking adapter.
 
-Full implementation follows the same pattern as FinacleCBSConnector.
-BaNCS uses a different REST API shape and different status string vocabulary.
-This stub is present so that the factory in __init__.py can select it
-at startup when cbs.connector.type = "bancs".
+Communicates with TCS BaNCS REST/JSON API. BaNCS uses single-character status codes
+and different field names from Finacle — all normalised to the canonical AccountInfo model.
+
+BaNCS status codes:
+  A → ACTIVE      F → FROZEN     C → CLOSED
+  I → DORMANT     N → NPA        D → DORMANT
 """
-from shared.cbs_connector.base import AccountInfo, AccountStatus, CBSConnector
-from shared.cbs_connector.exceptions import CBSUnavailableError
+import base64
+from typing import Any
+
+import structlog
+
+from shared.cbs_connector.base import (
+    AccountInfo, AccountStatus, CBSConnector, PPSEntry, StopPaymentResult,
+)
+from shared.cbs_connector.exceptions import AccountNotFoundError, CBSUnavailableError
+
+log = structlog.get_logger()
+
+_STATUS_MAP: dict[str, AccountStatus] = {
+    "A":   AccountStatus.ACTIVE,
+    "F":   AccountStatus.FROZEN,
+    "C":   AccountStatus.CLOSED,
+    "I":   AccountStatus.DORMANT,   # Inactive → Dormant
+    "D":   AccountStatus.DORMANT,
+    "N":   AccountStatus.NPA,
+}
 
 
 class BaNCSCBSConnector(CBSConnector):
     def __init__(self, base_url: str, bank_id: str) -> None:
-        self._base_url = base_url
+        self._base_url = base_url.rstrip("/")
         self._bank_id = bank_id
+        self._http = None
         self._ready = False
 
     def connect(self, http_client=None) -> None:
-        import httpx  # type: ignore[import]
-        self._http = http_client or httpx.AsyncClient(timeout=10.0)
+        if http_client is not None:
+            self._http = http_client
+        else:
+            import httpx  # type: ignore[import]
+            self._http = httpx.AsyncClient(timeout=10.0)
         self._ready = True
+        log.info("cbs.bancs.connected", base_url=self._base_url, bank_id=self._bank_id)
 
     async def get_account_info(self, account_number: str, bank_id: str) -> AccountInfo:
-        raise NotImplementedError("BaNCS adapter not yet implemented")
+        self._assert_ready()
+        url = f"{self._base_url}/api/v1/accounts/{account_number}"
+        try:
+            response = await self._http.get(url)
+            if response.status_code == 404:
+                raise AccountNotFoundError(account_number)
+            response.raise_for_status()
+            data = response.json()
+        except AccountNotFoundError:
+            raise
+        except Exception as exc:
+            log.error("cbs.bancs.get_account_info.failed",
+                      account_last4=account_number[-4:], error=str(exc))
+            raise CBSUnavailableError(f"BaNCS get_account_info failed: {exc}") from exc
+
+        raw_status = data.get("acctSts", "A")
+        status = _STATUS_MAP.get(raw_status, AccountStatus.ACTIVE)
+        account_hash = self._hash_account(account_number)
+
+        return AccountInfo(
+            account_number_hash=account_hash,
+            account_number_last4=account_number[-4:],
+            status=status,
+            bank_id=bank_id,
+            available_balance=data.get("avlBal"),
+            currency=data.get("ccy", "INR"),
+            cbs_account_id=data.get("acctId"),
+        )
 
     async def get_signature_specimens(self, account_number: str, bank_id: str) -> list[bytes]:
-        raise NotImplementedError("BaNCS adapter not yet implemented")
+        self._assert_ready()
+        url = f"{self._base_url}/api/v1/accounts/{account_number}/signatures"
+        try:
+            response = await self._http.get(url)
+            response.raise_for_status()
+            data = response.json()
+        except Exception as exc:
+            log.error("cbs.bancs.get_signatures.failed",
+                      account_last4=account_number[-4:], error=str(exc))
+            raise CBSUnavailableError(f"BaNCS get_signature_specimens failed: {exc}") from exc
 
-    async def get_cheque_status(self, cheque_number: str, account_number: str, bank_id: str):
-        raise NotImplementedError("BaNCS adapter not yet implemented")
+        specimens = []
+        for item in data.get("sigImages", []):
+            img_b64 = item.get("imgData", "")
+            if img_b64:
+                specimens.append(base64.b64decode(img_b64))
+        return specimens
 
-    async def check_stop_payment(self, cheque_number: str, account_number: str, bank_id: str) -> bool:
-        raise NotImplementedError("BaNCS adapter not yet implemented")
+    async def check_stop_payment(
+        self, account_number: str, cheque_number: str, bank_id: str
+    ) -> StopPaymentResult:
+        self._assert_ready()
+        url = (
+            f"{self._base_url}/api/v1/accounts/{account_number}"
+            f"/chequebook/{cheque_number}/stop-payment"
+        )
+        try:
+            response = await self._http.get(url)
+            response.raise_for_status()
+            data = response.json()
+        except Exception as exc:
+            log.error("cbs.bancs.check_stop_payment.failed",
+                      account_last4=account_number[-4:], cheque=cheque_number, error=str(exc))
+            raise CBSUnavailableError(f"BaNCS check_stop_payment failed: {exc}") from exc
 
-    async def get_pps_entries(self, account_number: str, bank_id: str) -> list:
-        raise NotImplementedError("BaNCS adapter not yet implemented")
+        return StopPaymentResult(
+            is_stopped=bool(data.get("spActive", False)),
+            reason=data.get("spReason") or None,
+            stopped_at=data.get("spDt") or None,
+        )
+
+    async def get_pps_entries(self, account_number: str, bank_id: str) -> list[PPSEntry]:
+        self._assert_ready()
+        url = f"{self._base_url}/api/v1/accounts/{account_number}/positive-pay"
+        try:
+            response = await self._http.get(url)
+            response.raise_for_status()
+            data = response.json()
+        except Exception as exc:
+            log.error("cbs.bancs.get_pps_entries.failed",
+                      account_last4=account_number[-4:], error=str(exc))
+            raise CBSUnavailableError(f"BaNCS get_pps_entries failed: {exc}") from exc
+
+        entries = []
+        for raw in data.get("ppsList", []):
+            entries.append(PPSEntry(
+                cheque_series_start=str(raw.get("chqFrom", "")),
+                cheque_series_end=str(raw.get("chqTo", "")),
+                amount=float(raw.get("amt", 0.0)),
+                is_active=raw.get("sts") == "A",
+            ))
+        return entries
+
+    async def get_cheque_status(
+        self, account_number: str, cheque_number: str, bank_id: str
+    ) -> str:
+        self._assert_ready()
+        url = (
+            f"{self._base_url}/api/v1/accounts/{account_number}"
+            f"/chequebook/{cheque_number}"
+        )
+        try:
+            response = await self._http.get(url)
+            response.raise_for_status()
+            data = response.json()
+        except Exception as exc:
+            log.error("cbs.bancs.get_cheque_status.failed",
+                      account_last4=account_number[-4:], cheque=cheque_number, error=str(exc))
+            raise CBSUnavailableError(f"BaNCS get_cheque_status failed: {exc}") from exc
+
+        return str(data.get("chqSts", "ACTIVE"))
+
+    def _assert_ready(self) -> None:
+        if not self._ready:
+            raise RuntimeError(
+                "BaNCSCBSConnector.connect() has not been called. "
+                "Call it in the service startup before querying CBS."
+            )
