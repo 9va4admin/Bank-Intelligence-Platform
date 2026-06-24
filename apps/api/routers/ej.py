@@ -6,6 +6,7 @@ All routes versioned under /v1/ej/.
 No business logic — delegates to workflow triggers.
 """
 import hashlib
+import json
 from typing import Any, Literal, Optional
 
 import structlog
@@ -69,6 +70,9 @@ class ATMHealthResponse(BaseModel):
     atm_id: str
     bank_id: str
     status: str             # "HEALTHY" | "DEGRADED" | "CRITICAL" | "UNKNOWN"
+    pending_ej_count: int = 0
+    consecutive_failures: int = 0
+    last_ej_received_at: Optional[float] = None
 
 
 # ---------------------------------------------------------------------------
@@ -139,13 +143,44 @@ async def submit_ej_log(
 @router_v1.get("/atm/{atm_id}/health", response_model=ATMHealthResponse)
 async def get_atm_health(
     atm_id: str,
+    request: Request,
     bank_id: str = Depends(get_current_bank_id),
 ) -> ATMHealthResponse:
-    # In production: query EJ health signals from Redis / YugabyteDB time-series
+    """
+    Query ATM health state from Redis EJ health signal cache.
+    Key written by update_atm_health activity after each EJNormalisationWorkflow.
+    Falls back to UNKNOWN when Redis is unavailable or no signal recorded yet.
+    """
+    redis_ej = getattr(request.app.state, "redis_ej", None)
+
+    if redis_ej is not None:
+        try:
+            # Key written by modules/ej/workflows/activities/update_atm_health.py
+            key = f"ej:health:{bank_id}:{atm_id}"
+            raw = redis_ej.get(key)
+            if raw:
+                health = json.loads(raw)
+                return ATMHealthResponse(
+                    atm_id=atm_id,
+                    bank_id=bank_id,
+                    status=health.get("status", "UNKNOWN"),
+                    pending_ej_count=health.get("pending_ej_count", 0),
+                    consecutive_failures=health.get("consecutive_failures", 0),
+                    last_ej_received_at=health.get("last_ej_received_at"),
+                )
+        except Exception as exc:
+            log.warning(
+                "ej.atm_health_redis_error",
+                atm_id=atm_id,
+                bank_id=bank_id,
+                error=str(exc),
+            )
+
+    # No Redis / no signal yet — return UNKNOWN, not a fake HEALTHY
     return ATMHealthResponse(
         atm_id=atm_id,
         bank_id=bank_id,
-        status="HEALTHY",
+        status="UNKNOWN",
     )
 
 
@@ -165,11 +200,35 @@ async def submit_ej_log_by_atm(
     bank_id: str = Depends(get_current_bank_id),
 ) -> EJLogByAtmResponse:
     """
-    Submit raw EJ log for normalisation. ATM ID is part of the URL path.
-    Triggers EJNormalisationWorkflow (idempotent).
+    Publish raw EJ log to Kafka ej.raw.ingested.{bank_id} (feeds KEDA autoscaler),
+    then trigger EJNormalisationWorkflow directly for low-latency path.
+    ATM ID is part of the URL path. Workflow is idempotent on raw_log_hash.
     """
     raw_log_hash = hashlib.sha256(body.raw_log.encode()).hexdigest()
     workflow_id = f"ej-normalise-{bank_id}-{raw_log_hash[:16]}"
+
+    # Publish to Kafka ej.raw.ingested.{bank_id} for KEDA ScaledObject lag metric
+    kafka_producer = getattr(request.app.state, "kafka_producer_ej", None)
+    if kafka_producer is not None:
+        try:
+            kafka_producer.publish(
+                topic=f"ej.raw.ingested.{bank_id}",
+                event_type="EJ_RAW_LOG_INGESTED",
+                payload={
+                    "raw_log_hash": raw_log_hash,
+                    "workflow_id": workflow_id,
+                    "atm_id": atm_id,
+                    "oem_fingerprint": body.oem_fingerprint,
+                },
+                bank_id=bank_id,
+            )
+        except Exception as exc:
+            log.warning(
+                "ej.kafka_publish_failed",
+                atm_id=atm_id,
+                bank_id=bank_id,
+                error=str(exc),
+            )
 
     temporal_client = getattr(request.app.state, "temporal_client", None)
 
