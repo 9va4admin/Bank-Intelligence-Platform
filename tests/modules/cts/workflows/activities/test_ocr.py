@@ -189,3 +189,75 @@ class TestOCRDegradation:
 
         result = await ocr_extract(_make_input(), vllm_client=mock_vllm, min_confidence=0.85)
         assert result.micr_line is None
+
+
+# ---------------------------------------------------------------------------
+# _route_micr exception path (lines 119-130)
+# ---------------------------------------------------------------------------
+
+class TestRouteMicrException:
+    """Cover lines 119-130: MICRPrefixRouter raises → fallback to DIRECT."""
+
+    def test_route_micr_exception_returns_direct(self):
+        """When MICRPrefixRouter.identify raises, returns DIRECT and None."""
+        from modules.cts.workflows.activities.ocr import _route_micr
+        from unittest.mock import patch, MagicMock
+
+        with patch(
+            "modules.cts.workflows.activities.ocr.MICRPrefixRouter",
+            side_effect=Exception("routing table corrupt"),
+        ):
+            tag, smb = _route_micr(
+                micr_line="123456789012345",
+                routing_table={"prefix": "123"},
+                instrument_id="INST001",
+            )
+        from modules.cts.workflows.activities.ocr import PrincipalTag
+        assert tag == PrincipalTag.DIRECT.value
+        assert smb is None
+
+    def test_route_micr_identify_raises_returns_direct(self):
+        """MICRPrefixRouter instantiates OK but identify() raises → fallback."""
+        from modules.cts.workflows.activities.ocr import _route_micr
+        from unittest.mock import patch, MagicMock
+
+        mock_router = MagicMock()
+        mock_router.identify = MagicMock(side_effect=ValueError("unknown prefix"))
+
+        with patch(
+            "modules.cts.workflows.activities.ocr.MICRPrefixRouter",
+            return_value=mock_router,
+        ):
+            tag, smb = _route_micr(
+                micr_line="999999999999999",
+                routing_table={"prefix": "123"},
+                instrument_id="INST002",
+            )
+        from modules.cts.workflows.activities.ocr import PrincipalTag
+        assert tag == PrincipalTag.DIRECT.value
+        assert smb is None
+
+    def test_route_micr_with_sub_member_returns_id(self):
+        """Happy path with sub_member: returns tag.value and sub_member_id."""
+        from modules.cts.workflows.activities.ocr import _route_micr
+        from unittest.mock import patch, MagicMock
+
+        mock_smb = MagicMock()
+        mock_smb.sub_member_id = "SMB-001"
+        mock_tag = MagicMock()
+        mock_tag.value = "SPONSOR"
+
+        mock_router = MagicMock()
+        mock_router.identify = MagicMock(return_value=(mock_tag, mock_smb))
+
+        with patch(
+            "modules.cts.workflows.activities.ocr.MICRPrefixRouter",
+            return_value=mock_router,
+        ):
+            tag, smb = _route_micr(
+                micr_line="123456789012345",
+                routing_table={"prefix": "123"},
+                instrument_id="INST003",
+            )
+        assert tag == "SPONSOR"
+        assert smb == "SMB-001"
