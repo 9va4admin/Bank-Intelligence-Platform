@@ -184,12 +184,12 @@ export default function CTSBatches() {
           {/* KPIs */}
           <div className="grid grid-cols-6 gap-3 mt-4">
             {[
-              { label: 'Total Lots',      val: SUMMARY.lots,           color: 'text-white' },
-              { label: 'Instruments',     val: SUMMARY.instruments,    color: 'text-white' },
-              { label: 'Total Value',     val: SUMMARY.totalAmt,       color: 'text-cyan-300' },
-              { label: 'Settled',         val: SUMMARY.settled,        color: 'text-emerald-400' },
-              { label: 'In Progress',     val: SUMMARY.pending,        color: 'text-amber-400' },
-              { label: 'Count Mismatch',  val: SUMMARY.countMismatch,  color: SUMMARY.countMismatch > 0 ? 'text-red-400 animate-pulse' : 'text-slate-500' },
+              { label: 'Total Lots',      val: SUMMARY.lots,           color: th.heading },
+              { label: 'Instruments',     val: SUMMARY.instruments,    color: th.heading },
+              { label: 'Total Value',     val: SUMMARY.totalAmt,       color: isDark ? 'text-cyan-300' : 'text-cyan-700' },
+              { label: 'Settled',         val: SUMMARY.settled,        color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+              { label: 'In Progress',     val: SUMMARY.pending,        color: isDark ? 'text-amber-400' : 'text-amber-600' },
+              { label: 'Count Mismatch',  val: SUMMARY.countMismatch,  color: SUMMARY.countMismatch > 0 ? 'text-red-400 animate-pulse' : (isDark ? 'text-slate-500' : 'text-slate-400') },
             ].map(k => (
               <div key={k.label} className={`rounded-lg border px-4 py-3 ${th.card}`}>
                 <div className={`text-xl font-bold font-mono ${k.color}`}>{k.val}</div>
