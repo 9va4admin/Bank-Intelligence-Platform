@@ -303,3 +303,32 @@ class TestDisputeIngestRoute:
         # Either 422 (field not in schema) or 200/202 (field silently ignored)
         # Must NOT echo account_number back in response
         assert "account_number" not in response.text
+
+
+class TestDisputesAuthEdgeCases:
+    """Cover lines 39-43: real auth paths in get_current_user."""
+    def test_invalid_token_returns_401(self):
+        from apps.api.routers.disputes import router_v1
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        app = FastAPI()
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get(
+            "/v1/disputes/",
+            headers={"Authorization": "Bearer random-invalid-token"},
+        )
+        assert response.status_code == 401
+
+    def test_valid_test_token_returns_200(self):
+        from apps.api.routers.disputes import router_v1
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        app = FastAPI()
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get(
+            "/v1/disputes/",
+            headers={"Authorization": "Bearer test-token-test-bank"},
+        )
+        assert response.status_code == 200
