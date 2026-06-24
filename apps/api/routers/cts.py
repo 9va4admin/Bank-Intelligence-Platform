@@ -5,6 +5,7 @@ Routes:
   POST /v1/cts/inward/{instrument_id}/submit   — trigger ChequeProcessingWorkflow
   GET  /v1/cts/decisions/{instrument_id}       — poll workflow status
   POST /v1/cts/review/{instrument_id}/decide   — ops_reviewer submits CONFIRM/RETURN signal
+  GET  /v1/cts/queue                           — human review queue for ops workstation
 
 All routes require JWT auth (bank_id extracted from token claim).
 No business logic — delegates to Temporal workflow client.
@@ -111,6 +112,30 @@ class ReviewDecisionResponse(BaseModel):
     instrument_id: str
     workflow_id: str
     signal_sent: bool
+
+
+class QueueItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    workflow_id: str
+    bank_id: str
+    account_display: str          # masked: ****1234
+    payee_display: str            # masked: N***
+    amount_range: str             # ₹[1L-5L]
+    clearing_zone: str
+    received_at: float            # Unix timestamp
+    iet_deadline: float           # Unix timestamp
+    reason: str                   # VAULT_MISS | FRAUD_SCORE_HIGH | OCR_LOW_CONFIDENCE | ...
+    fraud_score: Optional[float] = None
+    ocr_confidence: Optional[float] = None
+    sig_match_score: Optional[float] = None
+
+
+class QueueResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    items: list[QueueItem]
+    total: int
+    bank_id: str
 
 
 # ---------------------------------------------------------------------------
@@ -293,3 +318,61 @@ async def submit_review_decision(
         workflow_id=workflow_id,
         signal_sent=signal_sent,
     )
+
+
+@router_v1.get(
+    "/queue",
+    response_model=QueueResponse,
+)
+async def get_human_review_queue(
+    request: Request,
+    bank_id: str = Depends(get_current_bank_id),
+    limit: int = 50,
+) -> QueueResponse:
+    """
+    Return current human review queue for the ops workstation.
+    Items are sorted by IET deadline ascending (most urgent first).
+    When Temporal is unavailable, returns an empty queue rather than 503
+    so the workstation can still load.
+    """
+    if limit > 100:
+        limit = 100
+
+    temporal_client = getattr(request.app.state, "temporal_client", None)
+    items: list[QueueItem] = []
+
+    if temporal_client is not None:
+        try:
+            # Query Temporal for open HumanReviewWorkflow instances for this bank.
+            # Uses Temporal's visibility query API (requires Elasticsearch-backed visibility).
+            query = (
+                f"WorkflowType = 'HumanReviewWorkflow' "
+                f"AND ExecutionStatus = 'Running' "
+                f"AND BankId = '{bank_id}'"
+            )
+            async for wf in temporal_client.list_workflows(query=query, page_size=limit):
+                memo = wf.memo or {}
+                items.append(QueueItem(
+                    instrument_id=memo.get("instrument_id", wf.id.split("-")[-1]),
+                    workflow_id=wf.id,
+                    bank_id=bank_id,
+                    account_display=memo.get("account_display", "****????"),
+                    payee_display=memo.get("payee_display", "?***"),
+                    amount_range=memo.get("amount_range", "₹[unknown]"),
+                    clearing_zone=memo.get("clearing_zone", "UNKNOWN"),
+                    received_at=memo.get("received_at", wf.start_time.timestamp() if wf.start_time else 0.0),
+                    iet_deadline=memo.get("iet_deadline", 0.0),
+                    reason=memo.get("reason", "UNKNOWN"),
+                    fraud_score=memo.get("fraud_score"),
+                    ocr_confidence=memo.get("ocr_confidence"),
+                    sig_match_score=memo.get("sig_match_score"),
+                ))
+        except Exception as exc:
+            log.warning("cts.queue_fetch_error", bank_id=bank_id, error=str(exc))
+
+    # Sort by IET deadline ascending — most urgent first
+    items.sort(key=lambda x: x.iet_deadline)
+
+    log.info("cts.queue_fetched", bank_id=bank_id, count=len(items))
+
+    return QueueResponse(items=items, total=len(items), bank_id=bank_id)

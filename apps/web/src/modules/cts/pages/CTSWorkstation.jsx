@@ -3,7 +3,8 @@ import AppShell from '../../../shared/layout/AppShell'
 import BatchStats from '../components/BatchStats'
 import QueueCard from '../components/QueueCard'
 import ReviewPanel from '../components/ReviewPanel'
-import { MOCK_QUEUE, BATCH_STATS, getStpStream } from '../data/mockQueue'
+import { BATCH_STATS, getStpStream } from '../data/mockQueue'
+import useReviewQueue from '../hooks/useReviewQueue'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
@@ -13,11 +14,30 @@ const IET_WINDOW_MINS = 180
 
 export default function CTSWorkstation() {
   const { isDark } = useTheme()
-  const [queue, setQueue] = useState(
-    [...MOCK_QUEUE].sort((a, b) => new Date(a.iet_deadline) - new Date(b.iet_deadline))
-  )
-  const [selected, setSelected] = useState(MOCK_QUEUE[0])
+  // Token would come from auth context in production; undefined triggers mock fallback in dev
+  const { items: liveItems, loading: queueLoading, useMock } = useReviewQueue({ pollEnabled: true })
+  const [queue, setQueue] = useState([])
+  const [selected, setSelected] = useState(null)
   const [decisions, setDecisions] = useState([])
+
+  useEffect(() => {
+    if (!queueLoading) {
+      setQueue((prev) => {
+        // Preserve local decision state (CONFIRMED/RETURNED) across poll refreshes
+        const localDecisions = new Map(prev.map(item => [item.instrument_id, item.status]))
+        const merged = liveItems.map(item => ({
+          ...item,
+          status: localDecisions.get(item.instrument_id) ?? item.status,
+        }))
+        // Auto-select first pending item when queue first loads
+        if (prev.length === 0 && merged.length > 0) {
+          const firstPending = merged.find(i => i.status === 'PENDING')
+          if (firstPending) setSelected(firstPending)
+        }
+        return merged
+      })
+    }
+  }, [liveItems, queueLoading])
 
   const stpSource   = useRef(getStpStream())
   const stpIndexRef = useRef(0)
