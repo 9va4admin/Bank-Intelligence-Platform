@@ -1,41 +1,41 @@
-import { useState, useContext, useRef, useEffect } from 'react'
+import { useState, useContext } from 'react'
 import { NavLink, Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../theme/ThemeContext'
 import { PageHeaderCtx } from './PageHeaderContext'
 
 // ── Sidebar navigation structure ────────────────────────────────────────────
 
-const CTS_ICON = (
-  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-4 h-4">
-    <rect x="3" y="5" width="14" height="10" rx="1.5" />
-    <path d="M3 8h14" strokeWidth="1.4" />
-    <path d="M7 12h2m2 0h2" strokeWidth="1.6" strokeLinecap="round" />
-  </svg>
-)
-const EJ_ICON = (
-  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-4 h-4">
-    <rect x="4" y="3" width="12" height="14" rx="1.5" />
-    <path d="M7 7h6M7 10h6M7 13h4" strokeWidth="1.4" strokeLinecap="round" />
-  </svg>
-)
-const ADMIN_ICON = (
-  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-4 h-4">
-    <circle cx="10" cy="7" r="3" />
-    <path d="M4 17c0-3.314 2.686-5 6-5s6 1.686 6 5" strokeLinecap="round" />
-  </svg>
-)
-const CHEVRON_ICON = (
-  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3 shrink-0 transition-transform duration-200">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M6 4l4 4-4 4" />
-  </svg>
-)
+function CtsIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-4 h-4">
+      <rect x="3" y="5" width="14" height="10" rx="1.5" />
+      <path d="M3 8h14" strokeWidth="1.4" />
+      <path d="M7 12h2m2 0h2" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  )
+}
+function AdminIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-4 h-4">
+      <circle cx="10" cy="7" r="3" />
+      <path d="M4 17c0-3.314 2.686-5 6-5s6 1.686 6 5" strokeLinecap="round" />
+    </svg>
+  )
+}
+function ChevronIcon({ style }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3 shrink-0 transition-transform duration-200" style={style}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 4l4 4-4 4" />
+    </svg>
+  )
+}
 
 const SIDEBAR_MODULES = [
   {
     id: 'cts',
     label: 'CTS',
     fullLabel: 'Cheque Truncation',
-    icon: CTS_ICON,
+    Icon: CtsIcon,
     sections: [
       {
         label: 'Operations',
@@ -80,28 +80,10 @@ const SIDEBAR_MODULES = [
     ],
   },
   {
-    id: 'ej',
-    label: 'EJ',
-    fullLabel: 'EJ Intelligence',
-    icon: EJ_ICON,
-    sections: [
-      {
-        label: 'EJ',
-        items: [
-          { to: '/ej',          label: 'Command Center'  },
-          { to: '/ej/incidents',label: 'Incidents'       },
-          { to: '/ej/fleet',    label: 'ATM Fleet Map'   },
-          { to: '/ej/disputes', label: 'Disputes'        },
-          { to: '/ej/manager',  label: 'Manager Portal'  },
-        ],
-      },
-    ],
-  },
-  {
     id: 'admin',
     label: 'Admin',
     fullLabel: 'Administration',
-    icon: ADMIN_ICON,
+    Icon: AdminIcon,
     sections: [
       {
         label: 'Admin',
@@ -149,11 +131,6 @@ const ROUTE_LABELS = {
   '/cts/config/micr-prefixes':    ['Admin · Config', 'MICR Prefix Table'],
   '/cts/config/thresholds':       ['Admin · Config', 'Thresholds & Rules'],
   '/cts/config/ngch-routing':     ['Admin · Config', 'NGCH Routing'],
-  '/ej':           ['EJ', 'Command Center'],
-  '/ej/incidents': ['EJ', 'Incidents'],
-  '/ej/fleet':     ['EJ', 'ATM Fleet Map'],
-  '/ej/disputes':  ['EJ', 'Disputes'],
-  '/ej/manager':   ['EJ', 'Manager Portal'],
 }
 
 function useBreadcrumb(pathname) {
@@ -164,9 +141,7 @@ function useBreadcrumb(pathname) {
 }
 
 function activeModuleId(pathname) {
-  if (pathname.startsWith('/ej')) return 'ej'
-  if (pathname.startsWith('/admin')) return 'admin'
-  if (pathname.startsWith('/cts/config')) return 'admin'
+  if (pathname.startsWith('/admin') || pathname.startsWith('/cts/config')) return 'admin'
   return 'cts'
 }
 
@@ -377,7 +352,7 @@ function SidebarModule({ mod, collapsed, isDark, isActiveModule, location }) {
               : (isDark ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100')
           }`}
         >
-          {mod.icon}
+          <mod.Icon />
         </NavLink>
       </div>
     )
@@ -395,12 +370,10 @@ function SidebarModule({ mod, collapsed, isDark, isActiveModule, location }) {
         }`}
       >
         <span className={hasActiveItem ? (isDark ? 'text-gold-400' : 'text-amber-600') : (isDark ? 'text-slate-500' : 'text-slate-400')}>
-          {mod.icon}
+          <mod.Icon />
         </span>
         <span className="flex-1 text-left">{mod.label}</span>
-        <span style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }} className="transition-transform duration-200">
-          {CHEVRON_ICON}
-        </span>
+        <ChevronIcon style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }} />
       </button>
 
       {/* Module sections */}
@@ -441,9 +414,7 @@ function SidebarSection({ section, isDark, location, showHeader, expanded, onTog
               : (isDark ? 'text-slate-600 hover:text-slate-400' : 'text-slate-400 hover:text-slate-600')
           }`}
         >
-          <span style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }} className="transition-transform duration-150">
-            {CHEVRON_ICON}
-          </span>
+          <ChevronIcon style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }} />
           {section.label}
         </button>
       )}
