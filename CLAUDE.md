@@ -5,6 +5,8 @@
 > Every architectural decision, tech choice, NFR, and design rationale
 > is recorded here. Read this fully before writing any code.
 
+> **Standing Session Rule:** After every task — no matter how small — commit all changed/created files and push to the active branch immediately. Every push must be complete so that a `git pull` on the developer's local machine always reflects the latest state. Never leave files uncommitted at end of task.
+
 ---
 
 ## 0. Project Identity
