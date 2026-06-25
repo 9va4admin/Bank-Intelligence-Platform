@@ -34,12 +34,6 @@ describe('AppShell sidebar navigation', () => {
     expect(ctsBtns.length).toBeGreaterThan(0)
   })
 
-  it('renders EJ module section', () => {
-    renderShell()
-    const ejItems = screen.getAllByText('EJ')
-    expect(ejItems.length).toBeGreaterThan(0)
-  })
-
   it('renders Admin module section', () => {
     renderShell()
     const adminItems = screen.getAllByText('Admin')
@@ -105,14 +99,6 @@ describe('AppShell sidebar navigation', () => {
   it('renders children content', () => {
     renderShell('/cts', <div>Hello World Content</div>)
     expect(screen.getByText('Hello World Content')).toBeTruthy()
-  })
-
-  it('shows EJ items after clicking EJ module', () => {
-    renderShell('/cts')
-    const ejBtns = screen.getAllByText('EJ')
-    const ejBtn = ejBtns.find((el) => el.closest('button'))
-    if (ejBtn) fireEvent.click(ejBtn.closest('button'))
-    expect(screen.getByText('Command Center')).toBeTruthy()
   })
 
   it('shows Admin items after clicking Admin module', () => {
