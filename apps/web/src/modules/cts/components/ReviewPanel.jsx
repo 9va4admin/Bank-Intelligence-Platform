@@ -113,6 +113,9 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
   const [returnReason, setReturnReason] = useState('')
   const [confirming, setConfirming] = useState(null)
 
+  const [chequeHover, setChequeHover] = useState(false)
+  const hoverTimeout = useRef(null)
+
   const REASON_COLORS = getReasonColors(isDark)
 
   const th = {
@@ -158,9 +161,6 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
       setTab('overview')
     }, 800)
   }
-
-  const [chequeHover, setChequeHover] = useState(false)
-  const hoverTimeout = useRef(null)
 
   const showCheque = () => {
     clearTimeout(hoverTimeout.current)
