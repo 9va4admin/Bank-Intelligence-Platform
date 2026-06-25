@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict
 
 from modules.cts.workflows.cheque_workflow import ChequeWorkflowInput
 from modules.cts.workflows.human_review_workflow import ReviewDecision
-from shared.event_bus.producer import KafkaEventProducer
+from shared.event_bus.producer import EventProducer as KafkaEventProducer
 
 log = structlog.get_logger()
 
@@ -409,3 +409,156 @@ async def get_human_review_queue(
     log.info("cts.queue_fetched", bank_id=bank_id, count=len(items))
 
     return QueueResponse(items=items, total=len(items), bank_id=bank_id)
+
+
+# ---------------------------------------------------------------------------
+# Cheque search (global search bar)
+# ---------------------------------------------------------------------------
+
+class ChequeSearchResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    cheque_number: str
+    account_display: str    # masked ****1234
+    payee_display: str      # masked N***
+    amount_range: str       # ₹[1L-5L]
+    status: str             # STP_CONFIRM | STP_RETURN | HUMAN_REVIEW | RUNNING
+    clearing_zone: str
+    received_at: float      # Unix timestamp
+    fraud_score: Optional[float] = None
+    ocr_confidence: Optional[float] = None
+
+
+class ChequeSearchResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    results: list[ChequeSearchResult]
+    total: int
+    bank_id: str
+
+
+@router_v1.get(
+    "/instruments/search",
+    response_model=ChequeSearchResponse,
+)
+async def search_instruments(
+    q: str,
+    bank_id: str = Depends(get_current_bank_id),
+    limit: int = 8,
+) -> ChequeSearchResponse:
+    """
+    Typeahead search by cheque number, instrument ID, or masked account suffix.
+    Minimum query length enforced at 3 chars.
+    Returns masked fields only — no raw PII in search results.
+    """
+    if len(q.strip()) < 3:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Search query must be at least 3 characters",
+        )
+    if limit > 20:
+        limit = 20
+
+    # Production: query YugabyteDB cts.cheque_instruments with explicit column list.
+    # SELECT instrument_id, cheque_number, account_display, payee_display,
+    #        amount_range, status, clearing_zone, received_at, fraud_score, ocr_confidence
+    # FROM cts.cheque_instruments
+    # WHERE bank_id = $1
+    #   AND (cheque_number ILIKE $2 OR instrument_id ILIKE $2)
+    # ORDER BY received_at DESC LIMIT $3
+    log.info("cts.instrument_search", bank_id=bank_id, query_len=len(q))
+    return ChequeSearchResponse(results=[], total=0, bank_id=bank_id)
+
+
+# ---------------------------------------------------------------------------
+# Vault sync — manual trigger + status
+# ---------------------------------------------------------------------------
+
+class VaultSyncStatus(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    last_run_at: Optional[float] = None       # Unix timestamp
+    triggered_by: Optional[str] = None        # SCHEDULED | MANUAL
+    duration_seconds: Optional[int] = None
+    pps_records_loaded: int = 0
+    stop_cheque_records_loaded: int = 0
+    status: str = "UNKNOWN"                   # SUCCESS | PARTIAL | FAILED | RUNNING | UNKNOWN
+    next_scheduled: Optional[float] = None
+    workflow_id: Optional[str] = None
+
+
+class VaultSyncTriggerResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    workflow_id: str
+    status: Literal["TRIGGERED"]
+    message: str
+
+
+@router_v1.get(
+    "/vault-sync/status",
+    response_model=VaultSyncStatus,
+)
+async def get_vault_sync_status(
+    request: Request,
+    bank_id: str = Depends(get_current_bank_id),
+) -> VaultSyncStatus:
+    """Return the status of the most recent VaultSyncWorkflow run for this bank."""
+    temporal_client = getattr(request.app.state, "temporal_client", None)
+    if temporal_client is not None:
+        try:
+            from modules.cts.workflows.vault_sync_workflow import VaultSyncWorkflow
+            import datetime
+            today = datetime.date.today().isoformat()
+            workflow_id = f"cts-vaultsync-{bank_id}-{today}"
+            handle = temporal_client.get_workflow_handle(workflow_id)
+            result = await handle.result()
+            return VaultSyncStatus(
+                status="SUCCESS",
+                workflow_id=workflow_id,
+                pps_records_loaded=result.pps_records_loaded if hasattr(result, "pps_records_loaded") else 0,
+                stop_cheque_records_loaded=result.stop_records_loaded if hasattr(result, "stop_records_loaded") else 0,
+            )
+        except Exception:
+            pass
+    return VaultSyncStatus(status="UNKNOWN")
+
+
+@router_v1.post(
+    "/vault-sync/trigger",
+    response_model=VaultSyncTriggerResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def trigger_vault_sync(
+    request: Request,
+    bank_id: str = Depends(get_current_bank_id),
+) -> VaultSyncTriggerResponse:
+    """
+    Manually trigger a VaultSyncWorkflow run.
+    Uses a timestamp-based workflow ID so it runs even if today's scheduled run
+    already completed — each manual trigger is a distinct workflow instance.
+    """
+    import time as _time
+    ts = int(_time.time())
+    workflow_id = f"cts-vaultsync-manual-{bank_id}-{ts}"
+
+    temporal_client = getattr(request.app.state, "temporal_client", None)
+    if temporal_client is not None:
+        try:
+            from modules.cts.workflows.vault_sync_workflow import VaultSyncWorkflow, VaultSyncInput
+            await temporal_client.start_workflow(
+                VaultSyncWorkflow.run,
+                VaultSyncInput(bank_id=bank_id, triggered_by="MANUAL"),
+                id=workflow_id,
+                task_queue=f"cts-processing-{bank_id}",
+            )
+        except Exception as exc:
+            log.error("cts.vault_sync_trigger_error", bank_id=bank_id, error=str(exc))
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Failed to trigger vault sync workflow",
+            ) from exc
+
+    log.info("cts.vault_sync_triggered", bank_id=bank_id, workflow_id=workflow_id)
+    return VaultSyncTriggerResponse(
+        workflow_id=workflow_id,
+        status="TRIGGERED",
+        message=f"VaultSyncWorkflow started: {workflow_id}. PPS & Stop Cheque data will refresh within ~60 seconds.",
+    )

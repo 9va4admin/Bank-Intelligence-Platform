@@ -2,6 +2,7 @@ import { useState, useContext } from 'react'
 import { NavLink, Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../theme/ThemeContext'
 import { PageHeaderCtx } from './PageHeaderContext'
+import ChequeSearchBar from './ChequeSearchBar'
 
 // ── Sidebar navigation structure ────────────────────────────────────────────
 
@@ -53,6 +54,7 @@ const SIDEBAR_MODULES = [
         items: [
           { to: '/cts/batches',       label: 'Batches'          },
           { to: '/cts/vault',         label: 'Vault'            },
+          { to: '/cts/vault-sync',    label: 'PPS & Stop Cheque'},
           { to: '/cts/sub-member',    label: 'Sub-Member'       },
           { to: '/cts/endorsement',   label: 'Endorsement'      },
           { to: '/cts/exceptions',    label: 'Exceptions'       },
@@ -102,6 +104,7 @@ const ROUTE_LABELS = {
   '/cts':               ['CTS', 'Inward Queue — Human Review'],
   '/cts/outward':       ['CTS', 'Outward'],
   '/cts/vault':         ['CTS', 'Vault Status'],
+  '/cts/vault-sync':    ['Processing', 'Positive Pay & Stop Cheque'],
   '/cts/decisions':     ['Reports', 'Decisions Log'],
   '/cts/reconciliation':['Reports', 'Reconciliation'],
   '/cts/analytics':     ['Reports', 'Analytics'],
@@ -276,6 +279,9 @@ export default function AppShell({ children }) {
             <span className={`text-[11px] opacity-30 shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>›</span>
             <span className={`text-[13px] font-semibold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{page}</span>
           </div>
+
+          {/* Search bar */}
+          <ChequeSearchBar isDark={isDark} />
 
           {/* Right: bank info + theme toggle */}
           <div className="flex items-center gap-4 shrink-0">
