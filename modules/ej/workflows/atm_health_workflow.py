@@ -83,3 +83,61 @@ class ATMHealthWorkflow:
             anomaly_count=anomaly_count,
             alert_sent=alert_sent,
         )
+
+    async def run(self, inp: ATMHealthInput) -> ATMHealthResult:
+        """Production Temporal @workflow.run entry point."""
+        return await self.run_with_mocks(inp, mock_results={})
+
+
+# ---------------------------------------------------------------------------
+# Temporal Schedule — register once per bank at worker startup
+# ---------------------------------------------------------------------------
+
+async def register_atm_health_schedule(temporal_client, bank_id: str) -> None:
+    """
+    Register (or update) a Temporal Schedule that triggers ATMHealthWorkflow
+    every hour at :00.
+
+    Schedule ID: ej-atmhealth-schedule-{bank_id}
+    Idempotent — safe to call on every worker startup.
+    """
+    from temporalio.client import (
+        Schedule,
+        ScheduleActionStartWorkflow,
+        ScheduleSpec,
+    )
+    from temporalio.common import RetryPolicy
+    from datetime import timedelta
+
+    schedule_id = f"ej-atmhealth-schedule-{bank_id}"
+
+    try:
+        await temporal_client.create_schedule(
+            schedule_id,
+            Schedule(
+                action=ScheduleActionStartWorkflow(
+                    ATMHealthWorkflow.run,
+                    ATMHealthInput(bank_id=bank_id, atm_id="fleet"),
+                    id=f"ej-atm-health-{bank_id}-scheduled",
+                    task_queue=f"ej-normalisation-{bank_id}",
+                    retry_policy=RetryPolicy(
+                        maximum_attempts=2,
+                        initial_interval=timedelta(minutes=2),
+                    ),
+                ),
+                spec=ScheduleSpec(
+                    cron_expressions=["0 * * * *"],   # every hour at :00
+                ),
+            ),
+        )
+        log.info("atm_health.schedule_registered", bank_id=bank_id, schedule_id=schedule_id)
+    except Exception as exc:
+        if "already exists" in str(exc).lower() or "already registered" in str(exc).lower():
+            log.info("atm_health.schedule_exists", bank_id=bank_id, schedule_id=schedule_id)
+        else:
+            log.warning(
+                "atm_health.schedule_register_failed",
+                bank_id=bank_id,
+                schedule_id=schedule_id,
+                error=str(exc),
+            )
