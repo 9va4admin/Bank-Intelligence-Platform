@@ -24,6 +24,10 @@ import CTSDraweeView from './modules/cts/pages/CTSDraweeView'
 import CTSSettlement from './modules/cts/pages/CTSSettlement'
 import CTSVaultSync from './modules/cts/pages/CTSVaultSync'
 import CTSSchedules from './modules/cts/pages/CTSSchedules'
+import CTSSubMemberBanks from './modules/cts/pages/CTSSubMemberBanks'
+import CTSMICRPrefixes from './modules/cts/pages/CTSMICRPrefixes'
+import CTSThresholds from './modules/cts/pages/CTSThresholds'
+import CTSNGCHRouting from './modules/cts/pages/CTSNGCHRouting'
 import EJSchedules from './modules/ej/pages/EJSchedules'
 import UserManagement from './modules/admin/pages/UserManagement'
 import { EJDashboard } from './modules/ej'
@@ -65,6 +69,10 @@ export default function App() {
         <Route path="/cts/settlement" element={<CTSSettlement />} />
         <Route path="/cts/vault-sync" element={<CTSVaultSync />} />
         <Route path="/cts/schedules" element={<CTSSchedules />} />
+        <Route path="/cts/config/sub-member-banks" element={<CTSSubMemberBanks />} />
+        <Route path="/cts/config/micr-prefixes" element={<CTSMICRPrefixes />} />
+        <Route path="/cts/config/thresholds" element={<CTSThresholds />} />
+        <Route path="/cts/config/ngch-routing" element={<CTSNGCHRouting />} />
         {/* Admin */}
         <Route path="/admin/users" element={<UserManagement />} />
         {/* EJ module — own routes, no overlap with CTS */}
