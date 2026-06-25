@@ -815,3 +815,116 @@ class TestCTSQueueRoute:
         assert len(items) == 2
         assert items[0]["instrument_id"] == "INST001"   # earlier IET first
         assert items[1]["instrument_id"] == "INST002"
+
+
+# ---------------------------------------------------------------------------
+# Cheque search endpoint
+# ---------------------------------------------------------------------------
+
+class TestChequeSearchRoute:
+    def test_search_unauthenticated_returns_401(self):
+        from apps.api.routers.cts import router_v1
+        app = FastAPI()
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get("/v1/cts/instruments/search?q=000234")
+        assert response.status_code == 401
+
+    def test_search_query_too_short_returns_422(self):
+        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts import get_current_bank_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get("/v1/cts/instruments/search?q=00", headers={"Authorization": "Bearer test-token-test-bank"})
+        assert response.status_code == 422
+
+    def test_search_valid_query_returns_200(self):
+        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts import get_current_bank_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get("/v1/cts/instruments/search?q=000234", headers={"Authorization": "Bearer test-token-test-bank"})
+        assert response.status_code == 200
+        body = response.json()
+        assert "results" in body
+        assert "total" in body
+        assert body["bank_id"] == "test-bank"
+
+    def test_search_limit_capped_at_20(self):
+        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts import get_current_bank_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        client = TestClient(app, raise_server_exceptions=False)
+        # limit=99 should be silently capped to 20
+        response = client.get("/v1/cts/instruments/search?q=000234&limit=99", headers={"Authorization": "Bearer test-token-test-bank"})
+        assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Vault sync endpoints
+# ---------------------------------------------------------------------------
+
+class TestVaultSyncRoutes:
+    def test_sync_status_unauthenticated_returns_401(self):
+        from apps.api.routers.cts import router_v1
+        app = FastAPI()
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get("/v1/cts/vault-sync/status")
+        assert response.status_code == 401
+
+    def test_sync_status_no_temporal_returns_unknown(self):
+        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts import get_current_bank_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        # No temporal client on app.state
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get("/v1/cts/vault-sync/status", headers={"Authorization": "Bearer test-token-test-bank"})
+        assert response.status_code == 200
+        assert response.json()["status"] == "UNKNOWN"
+
+    def test_trigger_unauthenticated_returns_401(self):
+        from apps.api.routers.cts import router_v1
+        app = FastAPI()
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.post("/v1/cts/vault-sync/trigger")
+        assert response.status_code == 401
+
+    def test_trigger_no_temporal_returns_triggered(self):
+        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts import get_current_bank_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        # No temporal — should still return TRIGGERED (fire and forget when no client)
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.post("/v1/cts/vault-sync/trigger", headers={"Authorization": "Bearer test-token-test-bank"})
+        assert response.status_code == 202
+        body = response.json()
+        assert body["status"] == "TRIGGERED"
+        assert "workflow_id" in body
+
+    def test_trigger_with_temporal_starts_workflow(self):
+        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts import get_current_bank_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+
+        mock_client = MagicMock()
+        mock_client.start_workflow = AsyncMock(return_value=None)
+        app.state.temporal_client = mock_client
+
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.post("/v1/cts/vault-sync/trigger", headers={"Authorization": "Bearer test-token-test-bank"})
+        assert response.status_code == 202
+        assert response.json()["status"] == "TRIGGERED"

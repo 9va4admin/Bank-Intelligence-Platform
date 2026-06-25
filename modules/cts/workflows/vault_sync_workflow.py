@@ -29,8 +29,9 @@ log = structlog.get_logger()
 class VaultSyncInput(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id: str
-    sync_date: str      # ISO date "YYYY-MM-DD" — part of idempotent workflow ID
-    pepper: str         # HMAC pepper from Vault (not logged)
+    sync_date: str = ""         # ISO date "YYYY-MM-DD" — part of idempotent workflow ID
+    pepper: str = ""            # HMAC pepper from Vault (not logged)
+    triggered_by: str = "SCHEDULED"   # SCHEDULED | MANUAL
 
 
 class SignatureRecord(BaseModel):
@@ -53,8 +54,10 @@ class VaultSyncResult(BaseModel):
     outcome: str                       # "SYNC_COMPLETE" | "PARTIAL_FAILURE"
     signatures_loaded: int
     pps_records_loaded: int
+    stop_records_loaded: int = 0
     integrity_check_passed: bool
     failed_accounts: list[str] = []
+    triggered_by: str = "SCHEDULED"
 
 
 # ---------------------------------------------------------------------------
@@ -264,6 +267,13 @@ class VaultSyncWorkflow:
     def workflow_id(self, bank_id: str, sync_date: str) -> str:
         return f"cts-vaultsync-{bank_id}-{sync_date}"
 
+    async def run(self, inp: VaultSyncInput) -> VaultSyncResult:
+        """
+        Production Temporal @workflow.run entry point.
+        Delegates to run_with_mocks with no injected deps (Temporal activity stubs resolve them).
+        """
+        return await self.run_with_mocks(inp)
+
     async def run_with_mocks(
         self,
         inp: VaultSyncInput,
@@ -346,4 +356,68 @@ class VaultSyncWorkflow:
             signatures_loaded=len(sig_records),
             pps_records_loaded=len(pps_records),
             integrity_check_passed=integrity_ok,
+            triggered_by=inp.triggered_by,
         )
+
+
+# ---------------------------------------------------------------------------
+# Temporal Schedule — register once per bank at worker startup
+# ---------------------------------------------------------------------------
+
+async def register_vault_sync_schedule(temporal_client, bank_id: str) -> None:
+    """
+    Register (or update) a Temporal Schedule that triggers VaultSyncWorkflow
+    every day at 07:00 AM.
+
+    Schedule ID: cts-vaultsync-schedule-{bank_id}
+    If the schedule already exists it is left unchanged (idempotent).
+
+    Call this from the CTS worker startup coroutine after the Temporal client
+    is ready:
+
+        await register_vault_sync_schedule(client, bank_id)
+    """
+    from temporalio.client import (
+        Schedule,
+        ScheduleActionStartWorkflow,
+        ScheduleIntervalSpec,
+        ScheduleSpec,
+        ScheduleAlreadyRunningError,
+    )
+    from temporalio.common import RetryPolicy
+    from datetime import timedelta
+
+    schedule_id = f"cts-vaultsync-schedule-{bank_id}"
+
+    try:
+        await temporal_client.create_schedule(
+            schedule_id,
+            Schedule(
+                action=ScheduleActionStartWorkflow(
+                    VaultSyncWorkflow.run,
+                    VaultSyncInput(bank_id=bank_id, triggered_by="SCHEDULED"),
+                    id=f"cts-vaultsync-{bank_id}-scheduled",
+                    task_queue=f"cts-processing-{bank_id}",
+                    retry_policy=RetryPolicy(
+                        maximum_attempts=3,
+                        initial_interval=timedelta(minutes=5),
+                    ),
+                ),
+                spec=ScheduleSpec(
+                    # "0 7 * * *" — every day at 07:00 AM
+                    cron_expressions=["0 7 * * *"],
+                ),
+            ),
+        )
+        log.info("vault_sync.schedule_registered", bank_id=bank_id, schedule_id=schedule_id)
+    except Exception as exc:
+        # Schedule already exists — no action needed
+        if "already exists" in str(exc).lower() or "already registered" in str(exc).lower():
+            log.info("vault_sync.schedule_exists", bank_id=bank_id, schedule_id=schedule_id)
+        else:
+            log.warning(
+                "vault_sync.schedule_register_failed",
+                bank_id=bank_id,
+                schedule_id=schedule_id,
+                error=str(exc),
+            )
