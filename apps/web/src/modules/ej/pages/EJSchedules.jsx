@@ -1,49 +1,57 @@
 import { useState } from 'react'
-import AppShell from '../../../shared/layout/AppShell'
+import EJShell from '../layout/EJShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 
-// ── Mock schedule data ──────────────────────────────────────────────────────
-// In production these come from GET /v1/cts/schedules
-
-// CTS-only schedules — EJ schedules are managed separately in the EJ module
+// EJ-only schedules — CTS schedules are managed separately in the CTS module
 const MOCK_SCHEDULES = [
   {
-    schedule_id: 'cts-vaultsync-schedule-bank001',
-    label: 'PPS & Stop Cheque Vault Sync',
-    description: 'Pulls Positive Pay and Stop Cheque records from CBS into the CTS Redis vaults.',
-    workflow: 'VaultSyncWorkflow',
-    module: 'CTS',
-    cron: '0 7 * * *',
-    cron_human: 'Daily at 07:00 AM',
-    task_queue: 'cts-processing-bank001',
+    schedule_id: 'ej-atmhealth-schedule-bank001',
+    label: 'ATM Health Assessment',
+    description: 'Analyses health signals from ej.health.signals, detects anomalies, and predicts failures across the fleet.',
+    workflow: 'ATMHealthWorkflow',
+    module: 'EJ',
+    cron: '0 * * * *',
+    cron_human: 'Every hour at :00',
+    task_queue: 'ej-normalisation-bank001',
     status: 'RUNNING',         // RUNNING | PAUSED
-    last_run_at: '2026-06-25T07:00:14Z',
+    last_run_at: '2026-06-25T08:00:07Z',
     last_run_status: 'SUCCESS',
-    last_run_duration_s: 43,
-    next_run_at: '2026-06-26T07:00:00Z',
+    last_run_duration_s: 12,
+    next_run_at: '2026-06-25T09:00:00Z',
+    created_at: '2026-06-01T00:00:00Z',
+    triggered_by_default: 'SCHEDULED',
+    editable_fields: ['cron'],
+  },
+  {
+    schedule_id: 'ej-pull-schedule-bank001',
+    label: 'EJ Log Pull',
+    description: 'Pulls new Electronic Journal files from branch edge agents via MCP into the normalisation pipeline.',
+    workflow: 'EJIngestionTriggerWorkflow',
+    module: 'EJ',
+    cron: '*/15 * * * *',
+    cron_human: 'Every 15 minutes',
+    task_queue: 'ej-normalisation-bank001',
+    status: 'RUNNING',
+    last_run_at: '2026-06-25T08:45:02Z',
+    last_run_status: 'SUCCESS',
+    last_run_duration_s: 4,
+    next_run_at: '2026-06-25T09:00:00Z',
     created_at: '2026-06-01T00:00:00Z',
     triggered_by_default: 'SCHEDULED',
     editable_fields: ['cron'],
   },
 ]
 
-// ── Common cron presets ─────────────────────────────────────────────────────
-
 const CRON_PRESETS = [
+  { label: 'Every 5 minutes',   value: '*/5 * * * *'  },
   { label: 'Every 15 minutes',  value: '*/15 * * * *' },
   { label: 'Every 30 minutes',  value: '*/30 * * * *' },
   { label: 'Every hour',        value: '0 * * * *'    },
   { label: 'Every 2 hours',     value: '0 */2 * * *'  },
   { label: 'Every 6 hours',     value: '0 */6 * * *'  },
-  { label: 'Daily at 04:00 AM', value: '0 4 * * *'    },
-  { label: 'Daily at 06:00 AM', value: '0 6 * * *'    },
-  { label: 'Daily at 07:00 AM', value: '0 7 * * *'    },
-  { label: 'Daily at 08:00 AM', value: '0 8 * * *'    },
   { label: 'Daily at midnight', value: '0 0 * * *'    },
   { label: 'Custom…',           value: '__custom__'   },
 ]
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
 
 function fmtDate(iso) {
   if (!iso) return '—'
@@ -63,17 +71,6 @@ function RunStatusPill({ s, isDark }) {
   return <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${cls}`}>{s}</span>
 }
 
-function ModuleBadge({ module, isDark }) {
-  const CTS_D = 'bg-violet-900/40 text-violet-300'
-  const CTS_L = 'bg-violet-50 text-violet-700'
-  const EJ_D  = 'bg-blue-900/40 text-blue-300'
-  const EJ_L  = 'bg-blue-50 text-blue-700'
-  const cls = module === 'CTS' ? (isDark ? CTS_D : CTS_L) : (isDark ? EJ_D : EJ_L)
-  return <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wide ${cls}`}>{module}</span>
-}
-
-// ── Edit Schedule Modal ──────────────────────────────────────────────────────
-
 function EditScheduleModal({ schedule, isDark, onClose, onSave }) {
   const [cron, setCron] = useState(schedule.cron)
   const [preset, setPreset] = useState(
@@ -83,10 +80,9 @@ function EditScheduleModal({ schedule, isDark, onClose, onSave }) {
 
   const th = {
     overlay: 'fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm',
-    modal:   isDark ? 'bg-navy-900 border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg mx-4' : 'bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-lg mx-4',
+    modal:   isDark ? 'bg-[#040d2a] border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg mx-4' : 'bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-lg mx-4',
     head:    isDark ? 'border-b border-white/8' : 'border-b border-slate-100',
     heading: isDark ? 'text-white' : 'text-slate-900',
-    body:    isDark ? 'text-slate-300' : 'text-slate-700',
     muted:   isDark ? 'text-slate-400' : 'text-slate-500',
     label:   isDark ? 'text-slate-300 text-xs font-medium' : 'text-slate-600 text-xs font-medium',
     input:   isDark ? 'bg-white/8 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800',
@@ -110,7 +106,6 @@ function EditScheduleModal({ schedule, isDark, onClose, onSave }) {
   return (
     <div className={th.overlay} onClick={onClose}>
       <div className={th.modal} onClick={e => e.stopPropagation()}>
-        {/* Header */}
         <div className={`flex items-start justify-between px-6 py-4 ${th.head}`}>
           <div>
             <div className={`text-sm font-semibold ${th.heading}`}>Edit Schedule</div>
@@ -123,16 +118,13 @@ function EditScheduleModal({ schedule, isDark, onClose, onSave }) {
           </button>
         </div>
 
-        {/* Body */}
         <div className="px-6 py-5 space-y-4">
-          {/* Read-only info */}
           <div className={`rounded-xl border px-4 py-3 text-xs space-y-1.5 ${th.info}`}>
             <div className="flex justify-between"><span className={th.muted}>Workflow</span><span className="font-mono">{schedule.workflow}</span></div>
             <div className="flex justify-between"><span className={th.muted}>Task Queue</span><span className="font-mono text-[11px]">{schedule.task_queue}</span></div>
             <div className="flex justify-between"><span className={th.muted}>Schedule ID</span><span className="font-mono text-[10px] truncate ml-4">{schedule.schedule_id}</span></div>
           </div>
 
-          {/* Cron preset */}
           <div>
             <label className={`block mb-1.5 ${th.label}`}>Frequency</label>
             <select
@@ -146,13 +138,12 @@ function EditScheduleModal({ schedule, isDark, onClose, onSave }) {
             </select>
           </div>
 
-          {/* Cron expression */}
           <div>
             <label className={`block mb-1.5 ${th.label}`}>Cron Expression</label>
             <input
               value={cron}
               onChange={e => { setCron(e.target.value); setPreset('__custom__') }}
-              placeholder="e.g. 0 7 * * *"
+              placeholder="e.g. 0 * * * *"
               className={`w-full h-9 px-3 rounded-lg border text-xs font-mono outline-none ${th.input}`}
             />
             <p className={`text-[11px] mt-1 ${th.muted}`}>
@@ -160,13 +151,11 @@ function EditScheduleModal({ schedule, isDark, onClose, onSave }) {
             </p>
           </div>
 
-          {/* Warning */}
           <div className={`rounded-xl border px-4 py-3 text-xs ${isDark ? 'bg-amber-900/20 border-amber-700/30 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
-            ⚠ This updates the Temporal Schedule directly. The new cron takes effect for all future runs. The current run (if any) is not affected.
+            ⚠ This updates the Temporal Schedule directly. The new cron takes effect for all future runs.
           </div>
         </div>
 
-        {/* Footer */}
         <div className={`flex items-center justify-end gap-3 px-6 py-4 border-t ${th.head}`}>
           <button onClick={onClose} className={`px-4 py-2 rounded-lg text-xs ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/8' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`}>
             Cancel
@@ -177,7 +166,7 @@ function EditScheduleModal({ schedule, isDark, onClose, onSave }) {
             className={`px-4 py-2 rounded-lg text-xs font-medium transition-all ${
               saving || !cron.trim()
                 ? 'opacity-50 cursor-not-allowed bg-slate-700 text-slate-400'
-                : (isDark ? 'bg-violet-600 hover:bg-violet-500 text-white' : 'bg-violet-600 hover:bg-violet-700 text-white')
+                : (isDark ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white')
             }`}
           >
             {saving ? 'Saving…' : 'Save Schedule'}
@@ -188,9 +177,7 @@ function EditScheduleModal({ schedule, isDark, onClose, onSave }) {
   )
 }
 
-// ── Page ─────────────────────────────────────────────────────────────────────
-
-export default function CTSSchedules() {
+export default function EJSchedules() {
   const { isDark } = useTheme()
   const [schedules, setSchedules] = useState(MOCK_SCHEDULES)
   const [editing, setEditing] = useState(null)
@@ -203,8 +190,6 @@ export default function CTSSchedules() {
     body:    isDark ? 'text-slate-300' : 'text-slate-700',
     muted:   isDark ? 'text-slate-400' : 'text-slate-500',
     divider: isDark ? 'border-white/8' : 'border-slate-200',
-    row:     isDark ? 'border-white/5 hover:bg-white/3' : 'border-slate-100 hover:bg-slate-50',
-    input:   isDark ? 'bg-white/8 border-white/10 text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400',
   }
 
   const handleToggle = async (s) => {
@@ -222,20 +207,18 @@ export default function CTSSchedules() {
     setSchedules(prev => prev.map(s => s.schedule_id === updated.schedule_id ? updated : s))
   }
 
-  const displayed = schedules
   const running = schedules.filter(s => s.status === 'RUNNING').length
   const paused  = schedules.filter(s => s.status === 'PAUSED').length
 
   return (
-    <AppShell>
+    <EJShell>
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
 
-        {/* Header */}
         <div className="flex items-start justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>Temporal Schedules</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>EJ Temporal Schedules</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              Automated workflow schedules — view, pause, and edit cron expressions
+              Automated EJ workflow schedules — view, pause, and edit cron expressions
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -252,26 +235,18 @@ export default function CTSSchedules() {
           </div>
         </div>
 
-        {/* Schedule cards */}
         <div className="space-y-3">
-          {displayed.map(s => (
+          {schedules.map(s => (
             <div key={s.schedule_id} className={`rounded-xl border ${th.card}`}>
-              {/* Card header */}
               <div className={`flex items-start justify-between px-5 py-4 border-b ${th.divider}`}>
                 <div className="flex items-start gap-3 min-w-0">
-                  <div className="mt-0.5">
-                    <StatusDot status={s.status} />
-                  </div>
+                  <div className="mt-0.5"><StatusDot status={s.status} /></div>
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-sm font-semibold ${th.heading}`}>{s.label}</span>
-                      <ModuleBadge module={s.module} isDark={isDark} />
-                    </div>
+                    <div className={`text-sm font-semibold ${th.heading}`}>{s.label}</div>
                     <p className={`text-[11px] mt-0.5 ${th.muted}`}>{s.description}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 ml-4 shrink-0">
-                  {/* Pause / Resume */}
                   <button
                     onClick={() => handleToggle(s)}
                     disabled={togglingId === s.schedule_id}
@@ -285,7 +260,6 @@ export default function CTSSchedules() {
                   >
                     {togglingId === s.schedule_id ? '…' : s.status === 'RUNNING' ? 'Pause' : 'Resume'}
                   </button>
-                  {/* Edit */}
                   <button
                     onClick={() => setEditing(s)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
@@ -299,7 +273,6 @@ export default function CTSSchedules() {
                 </div>
               </div>
 
-              {/* Card body */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-y md:divide-y-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.06)' : '#e2e8f0' }}>
                 {[
                   { label: 'Cron', value: s.cron, sub: s.cron_human, mono: true },
@@ -318,20 +291,18 @@ export default function CTSSchedules() {
           ))}
         </div>
 
-        {/* How it works callout */}
         <div className={`mt-6 rounded-xl border px-5 py-4 ${isDark ? 'bg-white/2 border-white/6' : 'bg-slate-50 border-slate-200'}`}>
-          <div className={`text-xs font-semibold mb-2 ${th.heading}`}>How Temporal Schedules work in ASTRA</div>
+          <div className={`text-xs font-semibold mb-2 ${th.heading}`}>How EJ Temporal Schedules work</div>
           <div className={`text-[11px] space-y-1 ${th.muted}`}>
-            <p>• Each schedule is a <strong className={th.body}>Temporal Schedule</strong> (not a cron job) — durable, audited, and exactly-once. If the worker is down when the cron fires, Temporal catches up automatically on restart.</p>
-            <p>• Editing a cron here calls <strong className={th.body}>PATCH /v1/cts/schedules/{'{id}'}</strong> which calls <code className="font-mono">temporal_client.get_schedule_handle(id).update(new_spec)</code> — the existing schedule is updated in-place, never deleted and recreated.</p>
+            <p>• Each schedule is a <strong className={th.body}>Temporal Schedule</strong> on task queue <code className="font-mono">ej-normalisation-&#123;bank_id&#125;</code> — isolated from CTS workflows.</p>
+            <p>• Editing a cron calls <strong className={th.body}>PATCH /v1/ej/schedules/{'{id}'}</strong> which calls <code className="font-mono">temporal_client.get_schedule_handle(id).update(new_spec)</code> in-place.</p>
             <p>• Pausing stops future runs without deleting the schedule. Any currently running workflow is not affected.</p>
-            <p>• Each workflow run logs a <strong className={th.body}>triggered_by: SCHEDULED</strong> audit event to Immudb — visible in the Decisions Log and the Sync History tab on the PPS & Stop Cheque page.</p>
+            <p>• Each run logs a <strong className={th.body}>triggered_by: SCHEDULED</strong> audit event to Immudb.</p>
           </div>
         </div>
 
       </div>
 
-      {/* Edit modal */}
       {editing && (
         <EditScheduleModal
           schedule={editing}
@@ -340,6 +311,6 @@ export default function CTSSchedules() {
           onSave={handleSave}
         />
       )}
-    </AppShell>
+    </EJShell>
   )
 }

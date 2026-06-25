@@ -20,6 +20,12 @@ const NAV_SECTIONS = [
       { to: '/ej/notifications', label: 'Notifications'   },
     ],
   },
+  {
+    label: 'Admin',
+    items: [
+      { to: '/ej/schedules', label: 'Schedules' },
+    ],
+  },
 ]
 
 const ROUTE_LABELS = {
@@ -30,6 +36,7 @@ const ROUTE_LABELS = {
   '/ej/portal':        ['Management', 'Manager Portal'],
   '/ej/bre':           ['Management', 'BRE Policy Manager'],
   '/ej/notifications': ['Management', 'Notification Center'],
+  '/ej/schedules':     ['Admin', 'Temporal Schedules'],
 }
 
 function useBreadcrumb(pathname) {
