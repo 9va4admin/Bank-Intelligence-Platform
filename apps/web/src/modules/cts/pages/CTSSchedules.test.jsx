@@ -30,53 +30,31 @@ describe('CTSSchedules', () => {
     expect(screen.getAllByText(/running/i).length).toBeGreaterThanOrEqual(1)
   })
 
-  it('renders all three mock schedules', () => {
+  it('renders CTS-only schedule', () => {
     renderPage()
     expect(screen.getByText('PPS & Stop Cheque Vault Sync')).toBeInTheDocument()
-    expect(screen.getByText('ATM Health Assessment')).toBeInTheDocument()
-    expect(screen.getByText('EJ Log Pull')).toBeInTheDocument()
   })
 
-  it('shows module badges CTS and EJ', () => {
+  it('does NOT show EJ schedules', () => {
     renderPage()
-    expect(screen.getAllByText('CTS').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('EJ').length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByText('ATM Health Assessment')).not.toBeInTheDocument()
+    expect(screen.queryByText('EJ Log Pull')).not.toBeInTheDocument()
   })
 
-  it('shows cron expressions', () => {
+  it('shows correct CTS cron expression', () => {
     renderPage()
     expect(screen.getByText('0 7 * * *')).toBeInTheDocument()
-    expect(screen.getByText('0 * * * *')).toBeInTheDocument()
-    expect(screen.getByText('*/15 * * * *')).toBeInTheDocument()
   })
 
-  it('shows workflow names', () => {
+  it('shows VaultSyncWorkflow name', () => {
     renderPage()
     expect(screen.getByText('VaultSyncWorkflow')).toBeInTheDocument()
-    expect(screen.getByText('ATMHealthWorkflow')).toBeInTheDocument()
-    expect(screen.getByText('EJIngestionTriggerWorkflow')).toBeInTheDocument()
   })
 
-  it('shows Pause and Edit buttons for each schedule', () => {
+  it('shows Pause and Edit buttons', () => {
     renderPage()
-    const pauseBtns = screen.getAllByText('Pause')
-    expect(pauseBtns.length).toBe(3)
-    const editBtns = screen.getAllByText('Edit')
-    expect(editBtns.length).toBe(3)
-  })
-
-  it('filter tab ALL shows all schedules', () => {
-    renderPage()
-    expect(screen.getByText(/All \(3\)/)).toBeInTheDocument()
-  })
-
-  it('filter tabs ALL / CTS / EJ are present', () => {
-    renderPage()
-    // All 3 filter options exist — exact text "CTS" and "EJ" appear multiple times
-    // (filter buttons + module badges), so just verify count >= 1
-    expect(screen.getAllByText('CTS').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('EJ').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText(/All \(3\)/)).toBeInTheDocument()
+    expect(screen.getAllByText('Pause').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('Edit').length).toBeGreaterThanOrEqual(1)
   })
 
   it('clicking Edit opens the edit modal', () => {

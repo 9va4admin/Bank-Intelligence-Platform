@@ -573,7 +573,7 @@ class ScheduleInfo(BaseModel):
     schedule_id: str
     label: str
     workflow: str
-    module: str                        # "CTS" | "EJ"
+    module: str                        # always "CTS" for this router
     cron: str
     cron_human: str
     task_queue: str
@@ -604,8 +604,8 @@ class ScheduleUpdateResponse(BaseModel):
     message: str
 
 
-# Known schedule registry — what this bank runs
-_SCHEDULE_REGISTRY = [
+# CTS-only schedule registry — EJ schedules live in the EJ router
+_CTS_SCHEDULE_REGISTRY = [
     {
         "schedule_id_tpl": "cts-vaultsync-schedule-{bank_id}",
         "label": "PPS & Stop Cheque Vault Sync",
@@ -614,24 +614,6 @@ _SCHEDULE_REGISTRY = [
         "cron": "0 7 * * *",
         "cron_human": "Daily at 07:00 AM",
         "task_queue_tpl": "cts-processing-{bank_id}",
-    },
-    {
-        "schedule_id_tpl": "ej-atmhealth-schedule-{bank_id}",
-        "label": "ATM Health Assessment",
-        "workflow": "ATMHealthWorkflow",
-        "module": "EJ",
-        "cron": "0 * * * *",
-        "cron_human": "Every hour at :00",
-        "task_queue_tpl": "ej-normalisation-{bank_id}",
-    },
-    {
-        "schedule_id_tpl": "ej-pull-schedule-{bank_id}",
-        "label": "EJ Log Pull",
-        "workflow": "EJIngestionTriggerWorkflow",
-        "module": "EJ",
-        "cron": "*/15 * * * *",
-        "cron_human": "Every 15 minutes",
-        "task_queue_tpl": "ej-normalisation-{bank_id}",
     },
 ]
 
@@ -651,7 +633,7 @@ async def list_schedules(
     temporal_client = getattr(request.app.state, "temporal_client", None)
     results: list[ScheduleInfo] = []
 
-    for reg in _SCHEDULE_REGISTRY:
+    for reg in _CTS_SCHEDULE_REGISTRY:
         sid = reg["schedule_id_tpl"].format(bank_id=bank_id)
         tq  = reg["task_queue_tpl"].format(bank_id=bank_id)
         # Try to fetch live state from Temporal

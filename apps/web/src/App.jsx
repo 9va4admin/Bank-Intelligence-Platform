@@ -24,6 +24,7 @@ import CTSDraweeView from './modules/cts/pages/CTSDraweeView'
 import CTSSettlement from './modules/cts/pages/CTSSettlement'
 import CTSVaultSync from './modules/cts/pages/CTSVaultSync'
 import CTSSchedules from './modules/cts/pages/CTSSchedules'
+import EJSchedules from './modules/ej/pages/EJSchedules'
 import UserManagement from './modules/admin/pages/UserManagement'
 import { EJDashboard } from './modules/ej'
 import IncidentManagement from './modules/ej/pages/IncidentManagement'
@@ -74,6 +75,7 @@ export default function App() {
         <Route path="/ej/disputes" element={<DisputeConsole />} />
         <Route path="/ej/fleet" element={<ATMFleetMap />} />
         <Route path="/ej/notifications" element={<NotificationCenter />} />
+        <Route path="/ej/schedules" element={<EJSchedules />} />
         {/* EJ deep-links from landing page cards */}
         <Route path="/fleet" element={<EJDashboard defaultTab="fleet" />} />
         <Route path="/disputes" element={<EJDashboard defaultTab="disputes" />} />

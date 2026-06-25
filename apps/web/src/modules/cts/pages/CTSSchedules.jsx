@@ -5,57 +5,22 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 // ── Mock schedule data ──────────────────────────────────────────────────────
 // In production these come from GET /v1/cts/schedules
 
+// CTS-only schedules — EJ schedules are managed separately in the EJ module
 const MOCK_SCHEDULES = [
   {
     schedule_id: 'cts-vaultsync-schedule-bank001',
     label: 'PPS & Stop Cheque Vault Sync',
-    description: 'Pulls Positive Pay and Stop Cheque records from CBS into Redis vaults.',
+    description: 'Pulls Positive Pay and Stop Cheque records from CBS into the CTS Redis vaults.',
     workflow: 'VaultSyncWorkflow',
     module: 'CTS',
     cron: '0 7 * * *',
     cron_human: 'Daily at 07:00 AM',
     task_queue: 'cts-processing-bank001',
-    status: 'RUNNING',         // RUNNING | PAUSED | DELETED
+    status: 'RUNNING',         // RUNNING | PAUSED
     last_run_at: '2026-06-25T07:00:14Z',
     last_run_status: 'SUCCESS',
     last_run_duration_s: 43,
     next_run_at: '2026-06-26T07:00:00Z',
-    created_at: '2026-06-01T00:00:00Z',
-    triggered_by_default: 'SCHEDULED',
-    editable_fields: ['cron'],
-  },
-  {
-    schedule_id: 'ej-atmhealth-schedule-bank001',
-    label: 'ATM Health Assessment',
-    description: 'Analyses ATM health signals, detects anomalies, and predicts failures across the fleet.',
-    workflow: 'ATMHealthWorkflow',
-    module: 'EJ',
-    cron: '0 * * * *',
-    cron_human: 'Every hour at :00',
-    task_queue: 'ej-normalisation-bank001',
-    status: 'RUNNING',
-    last_run_at: '2026-06-25T08:00:07Z',
-    last_run_status: 'SUCCESS',
-    last_run_duration_s: 12,
-    next_run_at: '2026-06-25T09:00:00Z',
-    created_at: '2026-06-01T00:00:00Z',
-    triggered_by_default: 'SCHEDULED',
-    editable_fields: ['cron'],
-  },
-  {
-    schedule_id: 'ej-pull-schedule-bank001',
-    label: 'EJ Log Pull',
-    description: 'Pulls new Electronic Journal files from branch edge agents via MCP into the normalisation pipeline.',
-    workflow: 'EJIngestionTriggerWorkflow',
-    module: 'EJ',
-    cron: '*/15 * * * *',
-    cron_human: 'Every 15 minutes',
-    task_queue: 'ej-normalisation-bank001',
-    status: 'RUNNING',
-    last_run_at: '2026-06-25T08:45:02Z',
-    last_run_status: 'SUCCESS',
-    last_run_duration_s: 4,
-    next_run_at: '2026-06-25T09:00:00Z',
     created_at: '2026-06-01T00:00:00Z',
     triggered_by_default: 'SCHEDULED',
     editable_fields: ['cron'],
@@ -230,7 +195,6 @@ export default function CTSSchedules() {
   const [schedules, setSchedules] = useState(MOCK_SCHEDULES)
   const [editing, setEditing] = useState(null)
   const [togglingId, setTogglingId] = useState(null)
-  const [filter, setFilter] = useState('ALL')   // ALL | CTS | EJ
 
   const th = {
     page:    isDark ? '' : 'bg-slate-50',
@@ -258,7 +222,7 @@ export default function CTSSchedules() {
     setSchedules(prev => prev.map(s => s.schedule_id === updated.schedule_id ? updated : s))
   }
 
-  const displayed = filter === 'ALL' ? schedules : schedules.filter(s => s.module === filter)
+  const displayed = schedules
   const running = schedules.filter(s => s.status === 'RUNNING').length
   const paused  = schedules.filter(s => s.status === 'PAUSED').length
 
@@ -286,23 +250,6 @@ export default function CTSSchedules() {
               </div>
             )}
           </div>
-        </div>
-
-        {/* Filter tabs */}
-        <div className={`flex gap-1 mb-4 p-1 rounded-lg w-fit border ${isDark ? 'bg-white/4 border-white/8' : 'bg-slate-100 border-slate-200'}`}>
-          {['ALL', 'CTS', 'EJ'].map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 text-xs rounded-md transition-all font-medium ${
-                filter === f
-                  ? (isDark ? 'bg-white/15 text-white' : 'bg-white text-slate-800 shadow-sm')
-                  : (isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700')
-              }`}
-            >
-              {f === 'ALL' ? `All (${schedules.length})` : f}
-            </button>
-          ))}
         </div>
 
         {/* Schedule cards */}
