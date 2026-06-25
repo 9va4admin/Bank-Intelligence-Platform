@@ -1,5 +1,3 @@
-import AppShell from '../../../shared/layout/AppShell'
-import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useState, useMemo } from 'react'
 import {
@@ -223,8 +221,7 @@ function SectionHeader({ title, isDark }) {
 // ─── Main component ────────────────────────────────────────────────────────
 
 export default function CTSBusinessModel() {
-  const { isDark } = useTheme()
-  usePageHeader({ title: 'CTS Business Model', subtitle: 'Cost · Revenue · Unit Economics' })
+  const { isDark, toggle } = useTheme()
 
   const [tier, setTier] = useState('medium')
   const [volumeLakhs, setVolumeLakhs] = useState(800)
@@ -301,7 +298,29 @@ export default function CTSBusinessModel() {
   }
 
   return (
-    <AppShell>
+    <div className={`flex flex-col h-screen ${th.page}`}>
+      {/* Minimal standalone header */}
+      <header className={`shrink-0 flex items-center justify-between px-6 border-b ${isDark ? 'bg-[#040d2a] border-white/8' : 'bg-white border-slate-200'}`} style={{ height: '52px' }}>
+        <div className="flex items-center gap-3">
+          <div className="relative w-6 h-6 shrink-0">
+            <div className={`absolute inset-0 rounded ${isDark ? 'bg-gold-400/20' : 'bg-amber-100'}`} />
+            <div className="absolute inset-[2px] rounded bg-gold-400 flex items-center justify-center">
+              <span className="text-navy-950 font-mono font-bold text-[10px]">A</span>
+            </div>
+          </div>
+          <span className={`text-xs font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>ASTRA</span>
+          <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>›</span>
+          <span className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Business Model — Cost & Revenue</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-amber-900/40 text-amber-400 border border-amber-700/40' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>Internal Reference</span>
+        </div>
+        <button
+          onClick={toggle}
+          title={isDark ? 'Switch to light' : 'Switch to dark'}
+          className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-500'}`}
+        >
+          {isDark ? '☀' : '🌙'}
+        </button>
+      </header>
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5 space-y-5`}>
 
         {/* ── Configurator Strip ── */}
@@ -685,6 +704,6 @@ export default function CTSBusinessModel() {
           </div>
         </div>
       </div>
-    </AppShell>
+    </div>
   )
 }
