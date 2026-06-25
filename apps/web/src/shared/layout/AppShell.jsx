@@ -5,11 +5,14 @@ import { useTheme } from '../theme/ThemeContext'
 import { PageHeaderCtx } from './PageHeaderContext'
 
 const FLAT_NAV = [
-  { to: '/cts',          label: 'Inward Queue', end: true },
-  { to: '/cts/pipeline', label: 'Inward View'  },
-  { to: '/cts/outward',  label: 'Outward'      },
-  { to: '/cts/batches',  label: 'Batches'      },
-  { to: '/cts/vault',    label: 'Vault'        },
+  { to: '/cts',               label: 'Inward Queue',   end: true },
+  { to: '/cts/ops-dashboard', label: 'Ops Dashboard'  },
+  { to: '/cts/pipeline',      label: 'Inward View'    },
+  { to: '/cts/outward',       label: 'Outward'        },
+  { to: '/cts/drawee',        label: 'Drawee / Outward' },
+  { to: '/cts/settlement',    label: 'Settlement'     },
+  { to: '/cts/batches',       label: 'Batches'        },
+  { to: '/cts/vault',         label: 'Vault'          },
 ]
 
 const NAV_GROUPS = [
@@ -40,6 +43,12 @@ const NAV_GROUPS = [
       { to: '/cts/business-model', label: 'Business Model' },
     ],
   },
+  {
+    label: 'Admin',
+    items: [
+      { to: '/admin/users', label: 'User Management' },
+    ],
+  },
 ]
 
 const PROFILE_MENU = [
@@ -67,9 +76,13 @@ const ROUTE_LABELS = {
   '/cts/iqa':           ['Operations', 'Image Quality Assessment'],
   '/cts/scanner':       ['Operations', 'Scanner SDK'],
   '/cts/rpc':           ['Operations', 'RPC Consolidation'],
-  '/cts/business-model':['Commercial', 'Business Model — Cost & Revenue'],
-  '/cts/pipeline':      ['CTS', 'Inward View — AI Pipeline'],
-  '/cts/config':        ['Admin', 'Config'],
+  '/cts/business-model':  ['Commercial', 'Business Model — Cost & Revenue'],
+  '/cts/pipeline':        ['CTS', 'Inward View — AI Pipeline'],
+  '/cts/ops-dashboard':   ['CTS', 'Ops Dashboard'],
+  '/cts/drawee':          ['CTS', 'Drawee & Outward Position'],
+  '/cts/settlement':      ['CTS', 'Settlement Lifecycle'],
+  '/admin/users':         ['Admin', 'User Management'],
+  '/cts/config':          ['Admin', 'Config'],
   '/cts/config/sub-member-banks': ['Admin · Config', 'Sub-Member Banks'],
   '/cts/config/micr-prefixes':    ['Admin · Config', 'MICR Prefix Table'],
   '/cts/config/thresholds':       ['Admin · Config', 'Thresholds & Rules'],

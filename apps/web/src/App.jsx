@@ -19,6 +19,10 @@ import CTSPipelineVisualizer from './modules/cts/pages/CTSPipelineVisualizer'
 import CTSDiscrepancy from './modules/cts/pages/CTSDiscrepancy'
 import CTSBatches from './modules/cts/pages/CTSBatches'
 import CTSBusinessModel from './modules/cts/pages/CTSBusinessModel'
+import CTSOpsDashboard from './modules/cts/pages/CTSOpsDashboard'
+import CTSDraweeView from './modules/cts/pages/CTSDraweeView'
+import CTSSettlement from './modules/cts/pages/CTSSettlement'
+import UserManagement from './modules/admin/pages/UserManagement'
 import { EJDashboard } from './modules/ej'
 import IncidentManagement from './modules/ej/pages/IncidentManagement'
 import ManagerPortal from './modules/ej/pages/ManagerPortal'
@@ -53,6 +57,11 @@ export default function App() {
         <Route path="/cts/analytics" element={<CTSAnalytics />} />
         <Route path="/cts/business-model" element={<CTSBusinessModel />} />
         <Route path="/cts/config" element={<CTSConfig />} />
+        <Route path="/cts/ops-dashboard" element={<CTSOpsDashboard />} />
+        <Route path="/cts/drawee" element={<CTSDraweeView />} />
+        <Route path="/cts/settlement" element={<CTSSettlement />} />
+        {/* Admin */}
+        <Route path="/admin/users" element={<UserManagement />} />
         {/* EJ module — own routes, no overlap with CTS */}
         <Route path="/ej" element={<EJDashboard />} />
         <Route path="/ej/incidents" element={<IncidentManagement />} />
