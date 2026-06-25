@@ -71,12 +71,6 @@ const SIDEBAR_MODULES = [
           { to: '/cts/compliance',     label: 'Compliance Cert' },
         ],
       },
-      {
-        label: 'Commercial',
-        items: [
-          { to: '/cts/business-model', label: 'Business Model'  },
-        ],
-      },
     ],
   },
   {
@@ -118,7 +112,6 @@ const ROUTE_LABELS = {
   '/cts/iqa':           ['Processing', 'Image Quality Assessment'],
   '/cts/scanner':       ['Processing', 'Scanner SDK'],
   '/cts/rpc':           ['Processing', 'RPC Consolidation'],
-  '/cts/business-model':  ['Commercial', 'Business Model — Cost & Revenue'],
   '/cts/pipeline':        ['CTS', 'Inward Pipeline — AI View'],
   '/cts/ops-dashboard':   ['CTS', 'Ops Dashboard'],
   '/cts/drawee':          ['CTS', 'Drawee & Outward Position'],
