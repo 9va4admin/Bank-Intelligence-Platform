@@ -85,6 +85,7 @@ const SIDEBAR_MODULES = [
         label: 'Admin',
         items: [
           { to: '/admin/users',                  label: 'User Management'   },
+          { to: '/cts/schedules',                label: 'Schedules'         },
           { to: '/cts/config/sub-member-banks',  label: 'Sub-Member Banks'  },
           { to: '/cts/config/micr-prefixes',     label: 'MICR Prefixes'     },
           { to: '/cts/config/thresholds',        label: 'Thresholds'        },
@@ -122,6 +123,7 @@ const ROUTE_LABELS = {
   '/cts/batches':         ['Processing', 'Batches'],
   '/cts/discrepancy':     ['Reports', 'Discrepancy'],
   '/admin/users':         ['Admin', 'User Management'],
+  '/cts/schedules':       ['Admin', 'Temporal Schedules'],
   '/cts/config':          ['Admin', 'Configuration'],
   '/cts/config/sub-member-banks': ['Admin · Config', 'Sub-Member Banks'],
   '/cts/config/micr-prefixes':    ['Admin · Config', 'MICR Prefix Table'],

@@ -23,6 +23,7 @@ import CTSOpsDashboard from './modules/cts/pages/CTSOpsDashboard'
 import CTSDraweeView from './modules/cts/pages/CTSDraweeView'
 import CTSSettlement from './modules/cts/pages/CTSSettlement'
 import CTSVaultSync from './modules/cts/pages/CTSVaultSync'
+import CTSSchedules from './modules/cts/pages/CTSSchedules'
 import UserManagement from './modules/admin/pages/UserManagement'
 import { EJDashboard } from './modules/ej'
 import IncidentManagement from './modules/ej/pages/IncidentManagement'
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="/cts/drawee" element={<CTSDraweeView />} />
         <Route path="/cts/settlement" element={<CTSSettlement />} />
         <Route path="/cts/vault-sync" element={<CTSVaultSync />} />
+        <Route path="/cts/schedules" element={<CTSSchedules />} />
         {/* Admin */}
         <Route path="/admin/users" element={<UserManagement />} />
         {/* EJ module — own routes, no overlap with CTS */}
