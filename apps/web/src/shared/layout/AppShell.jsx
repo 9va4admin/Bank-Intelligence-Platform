@@ -56,6 +56,9 @@ const SIDEBAR_MODULES = [
           { to: '/cts/vault',         label: 'Vault'            },
           { to: '/cts/vault-sync',    label: 'PPS & Stop Cheque'},
           { to: '/cts/sub-member',    label: 'Sub-Member'       },
+          { to: '/cts/smb/registry',      label: 'SMB Registry'     },
+          { to: '/cts/smb/ledger',        label: 'SMB Ledger'       },
+          { to: '/cts/smb/forwarding-log',label: 'SMB Fwd Log'      },
           { to: '/cts/endorsement',   label: 'Endorsement'      },
           { to: '/cts/exceptions',    label: 'Exceptions'       },
           { to: '/cts/iqa',           label: 'Image Quality'    },
@@ -129,6 +132,9 @@ const ROUTE_LABELS = {
   '/cts/config/micr-prefixes':    ['Admin · Config', 'MICR Prefix Table'],
   '/cts/config/thresholds':       ['Admin · Config', 'Thresholds & Rules'],
   '/cts/config/ngch-routing':     ['Admin · Config', 'NGCH Routing'],
+  '/cts/smb/registry':            ['Processing', 'SMB Registry'],
+  '/cts/smb/ledger':              ['Processing', 'SMB Clearing Ledger'],
+  '/cts/smb/forwarding-log':      ['Processing', 'SMB Forwarding Log'],
 }
 
 function useBreadcrumb(pathname) {
