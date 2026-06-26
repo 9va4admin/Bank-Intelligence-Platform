@@ -403,7 +403,8 @@ cerebrum/
 │   │   │       ├── alteration.py
 │   │   │       ├── signature.py
 │   │   │       ├── pps.py
-│   │   │       ├── cbs.py
+│   │   │       ├── cbs.py             ← balance check + account status
+│   │   │       ├── stop_payment.py    ← CBS stop-payment instruction lookup
 │   │   │       ├── fraud.py
 │   │   │       ├── decision.py
 │   │   │       ├── ngch_filer.py
@@ -693,7 +694,7 @@ LAYER 5 — User Preferences  [per-user YugabyteDB record]
 ### CTS Workflows
 | Workflow | Trigger | Activities | Terminal States |
 |---|---|---|---|
-| `ChequeProcessingWorkflow` | Kafka `cts.inward` event | validate_cts2010, ocr_extract, detect_alteration, verify_signature, lookup_pps, check_cbs_balance, score_fraud, synthesise_decision, file_to_ngch, write_audit, send_notification | STP_CONFIRM, STP_RETURN, HUMAN_REVIEW |
+| `ChequeProcessingWorkflow` | Kafka `cts.inward` event | validate_cts2010, ocr_extract, detect_alteration, verify_signature, lookup_pps, check_cbs_balance, check_stop_payment, score_fraud, synthesise_decision, file_to_ngch, write_audit, send_notification | STP_CONFIRM, STP_RETURN, HUMAN_REVIEW |
 | `HumanReviewWorkflow` | Signal from ChequeProcessingWorkflow | push_to_queue, wait_for_signal (max 55min), receive_decision, file_to_ngch, write_audit | REVIEWER_CONFIRMED, REVIEWER_RETURNED, TIMEOUT_AUTO_RETURNED |
 | `VaultSyncWorkflow` | CBS event stream / schedule (6AM daily) | load_signatures_from_cbs, load_pps_from_cbs, warm_redis_vault, verify_vault_integrity | SYNC_COMPLETE |
 | `IETWatchdogWorkflow` | Child of ChequeProcessingWorkflow | monitor_countdown, emergency_file_if_30s_remaining | SAFE, EMERGENCY_FILED |
