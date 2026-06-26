@@ -9,13 +9,14 @@ const STAGES = [
   { id: 0, label: 'Ingest',      icon: '📥', shortLabel: 'Ingest',   avgMs: 3,   bank: 'p' },
   { id: 1, label: 'MICR / OCR',  icon: '🔢', shortLabel: 'MICR/OCR', avgMs: 55,  bank: 'p' },
   { id: 2, label: 'Compliance',  icon: '✅', shortLabel: 'Comply',   avgMs: 68,  bank: 'p' },
-  { id: 3, label: 'NGCH',        icon: '🌐', shortLabel: 'NGCH',     avgMs: 82,  bank: 'g' },
-  { id: 4, label: 'Account',     icon: '🏦', shortLabel: 'Account',  avgMs: 97,  bank: 'd' },
-  { id: 5, label: 'Pos Pay',     icon: '📋', shortLabel: 'PPS',      avgMs: 115, bank: 'd' },
-  { id: 6, label: 'Signature',   icon: '✍️', shortLabel: 'Sig',      avgMs: 152, bank: 'd' },
-  { id: 7, label: 'Vision',      icon: '🔍', shortLabel: 'Vision',   avgMs: 194, bank: 'd' },
-  { id: 8, label: 'Fraud',       icon: '🛡️', shortLabel: 'Fraud',    avgMs: 235, bank: 'd' },
-  { id: 9, label: 'Decision',    icon: '⚖️', shortLabel: 'Decide',   avgMs: 255, bank: 'd' },
+  { id: 3,  label: 'Account',     icon: '🏦', shortLabel: 'Account',  avgMs: 97,  bank: 'd' },
+  { id: 4,  label: 'Stop Pay',   icon: '🚫', shortLabel: 'StopPay',  avgMs: 108, bank: 'd' },
+  { id: 5,  label: 'Pos Pay',    icon: '📋', shortLabel: 'PPS',      avgMs: 120, bank: 'd' },
+  { id: 6,  label: 'Signature',  icon: '✍️', shortLabel: 'Sig',      avgMs: 158, bank: 'd' },
+  { id: 7,  label: 'Vision',     icon: '🔍', shortLabel: 'Vision',   avgMs: 200, bank: 'd' },
+  { id: 8,  label: 'Fraud',      icon: '🛡️', shortLabel: 'Fraud',    avgMs: 240, bank: 'd' },
+  { id: 9,  label: 'Decision',   icon: '⚖️', shortLabel: 'Decide',   avgMs: 260, bank: 'd' },
+  { id: 10, label: 'NGCH',       icon: '🌐', shortLabel: 'NGCH',     avgMs: 320, bank: 'g' },
 ]
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
@@ -35,13 +36,13 @@ const MOCK_QUEUE = [
       0: { ms: 3,   ok: true,  detail: 'IQA passed · CTS-2010 validated' },
       1: { ms: 11,  ok: true,  detail: 'MICR: 001847 · IFSC: HDFC0001234 · OCR conf 0.94' },
       2: { ms: 49,  ok: true,  detail: 'Date valid · ₹ figures/words match · Crossing ✓' },
-      3: { ms: 82,  ok: true,  detail: 'Presented to NGCH MUMBAI · Ack: MUM240618001847' },
-      4: { ms: 97,  ok: true,  detail: 'Account active · KYC valid · No legal hold' },
-      5: { ms: 115, ok: true,  detail: 'PPS record found · Amount ₹[5L-10L] matches' },
-      6: { ms: 152, ok: false, detail: 'Match score 0.61 < threshold 0.85 — MISMATCH' },
-      7: { ms: 194, ok: false, detail: 'No alteration on amount field' },
-      8: { ms: 235, ok: false, detail: 'Fraud score 0.81 · SHAP: sig_mismatch=0.44' },
-      9: { ms: 241, ok: false, detail: 'HELD — awaiting reviewer decision' },
+      3: { ms: 97,  ok: true,  detail: 'Account active · KYC valid · No legal hold' },
+      4: { ms: 106, ok: true,  detail: 'No stop payment instruction on record' },
+      5: { ms: 120, ok: true,  detail: 'PPS record found · Amount ₹[5L-10L] matches' },
+      6: { ms: 158, ok: false, detail: 'Match score 0.61 < threshold 0.85 — MISMATCH' },
+      7: { ms: 200, ok: false, detail: 'No alteration on amount field' },
+      8: { ms: 240, ok: false, detail: 'Fraud score 0.81 · SHAP: sig_mismatch=0.44' },
+      9: { ms: 260, ok: false, detail: 'HELD — awaiting reviewer decision' },
     },
   },
   {
@@ -58,13 +59,13 @@ const MOCK_QUEUE = [
       0: { ms: 2,   ok: true,  detail: 'IQA passed · CTS-2010 validated' },
       1: { ms: 9,   ok: true,  detail: 'MICR: 001901 · IFSC: UTIB0000112 · OCR conf 0.91' },
       2: { ms: 53,  ok: true,  detail: 'Date valid · ₹ figures/words match · Crossing ✓' },
-      3: { ms: 82,  ok: true,  detail: 'Presented to NGCH MUMBAI · Ack: MUM240618001901' },
-      4: { ms: 97,  ok: true,  detail: 'Account active · KYC valid · No legal hold' },
-      5: { ms: 115, ok: true,  detail: 'PPS record found · Amount ₹[>1Cr] matches' },
-      6: { ms: 152, ok: true,  detail: 'Match score 0.88 ✓' },
-      7: { ms: 194, ok: true,  detail: 'No alteration detected' },
-      8: { ms: 235, ok: false, detail: 'Fraud 0.77 · SHAP: high_value=0.51 · OPA rule fired' },
-      9: { ms: 240, ok: false, detail: 'HELD — dual approval required >₹1Cr' },
+      3: { ms: 97,  ok: true,  detail: 'Account active · KYC valid · No legal hold' },
+      4: { ms: 106, ok: true,  detail: 'No stop payment instruction on record' },
+      5: { ms: 120, ok: true,  detail: 'PPS record found · Amount ₹[>1Cr] matches' },
+      6: { ms: 158, ok: true,  detail: 'Match score 0.88 ✓' },
+      7: { ms: 200, ok: true,  detail: 'No alteration detected' },
+      8: { ms: 240, ok: false, detail: 'Fraud 0.77 · SHAP: high_value=0.51 · OPA rule fired' },
+      9: { ms: 260, ok: false, detail: 'HELD — dual approval required >₹1Cr' },
     },
   },
   {
@@ -81,13 +82,13 @@ const MOCK_QUEUE = [
       0: { ms: 4,   ok: true,  detail: 'IQA passed · CTS-2010 validated' },
       1: { ms: 13,  ok: false, detail: 'MICR conf 0.88 · Amount words/figures MISMATCH' },
       2: { ms: 58,  ok: false, detail: 'Amount mismatch flagged for drawee check' },
-      3: { ms: 82,  ok: true,  detail: 'Presented to NGCH MUMBAI · Ack: MUM240618001733' },
-      4: { ms: 97,  ok: true,  detail: 'Account active · KYC valid' },
-      5: { ms: 115, ok: false, detail: 'PPS not registered — >₹50K without PPS' },
-      6: { ms: 152, ok: true,  detail: 'Match score 0.79 ✓' },
-      7: { ms: 194, ok: true,  detail: 'No alteration detected' },
-      8: { ms: 235, ok: false, detail: 'Fraud score 0.74 · SHAP: ocr_mismatch=0.38' },
-      9: { ms: 241, ok: false, detail: 'HELD — words/figures mismatch + PPS absent' },
+      3: { ms: 97,  ok: true,  detail: 'Account active · KYC valid' },
+      4: { ms: 108, ok: true,  detail: 'No stop payment instruction on record' },
+      5: { ms: 120, ok: false, detail: 'PPS not registered — >₹50K without PPS' },
+      6: { ms: 158, ok: true,  detail: 'Match score 0.79 ✓' },
+      7: { ms: 200, ok: true,  detail: 'No alteration detected' },
+      8: { ms: 240, ok: false, detail: 'Fraud score 0.74 · SHAP: ocr_mismatch=0.38' },
+      9: { ms: 260, ok: false, detail: 'HELD — words/figures mismatch + PPS absent' },
     },
   },
 ]
@@ -107,10 +108,10 @@ const MOCK_EXCEPTIONS = [
       0: { ms: 3,   ok: true,  detail: 'IQA passed · CTS-2010 validated' },
       1: { ms: 10,  ok: true,  detail: 'MICR: 001654 · IFSC: SBIN0040001 · OCR conf 0.96' },
       2: { ms: 47,  ok: true,  detail: 'Date valid · figures/words match' },
-      3: { ms: 82,  ok: true,  detail: 'Presented to NGCH MUMBAI · Ack: MUM240618001654' },
-      4: { ms: 97,  ok: true,  detail: 'Account active · KYC valid' },
-      5: { ms: 115, ok: true,  detail: 'PPS matched ✓' },
-      6: { ms: 120, ok: false, detail: 'VAULT MISS — no signature specimen on file' },
+      3: { ms: 97,  ok: true,  detail: 'Account active · KYC valid' },
+      4: { ms: 106, ok: true,  detail: 'No stop payment instruction on record' },
+      5: { ms: 120, ok: true,  detail: 'PPS matched ✓' },
+      6: { ms: 125, ok: false, detail: 'VAULT MISS — no signature specimen on file' },
     },
   },
   {
@@ -127,8 +128,7 @@ const MOCK_EXCEPTIONS = [
       0: { ms: 2,   ok: true,  detail: 'IQA passed · CTS-2010 validated' },
       1: { ms: 8,   ok: true,  detail: 'MICR: 001712 · IFSC: PUNB0120000 · OCR conf 0.93' },
       2: { ms: 44,  ok: true,  detail: 'Date valid · figures/words match' },
-      3: { ms: 82,  ok: true,  detail: 'Presented to NGCH MUMBAI · Ack: MUM240618001712' },
-      4: { ms: 91,  ok: false, detail: 'DORMANT — no txn 28 months · RBI rule: return' },
+      3: { ms: 91,  ok: false, detail: 'DORMANT — no txn 28 months · RBI rule: return' },
     },
   },
 ]
@@ -920,23 +920,35 @@ export function PipelineLiveBoard({ fullscreenMode = false }) {
                   right: '5%',
                   height: '2px',
                   transform: 'translateY(-50%)',
-                  background: 'linear-gradient(90deg, rgba(251,191,36,0.05) 0%, rgba(251,191,36,0.7) 25%, rgba(6,182,212,0.8) 38%, rgba(139,92,246,0.7) 55%, rgba(139,92,246,0.8) 80%, rgba(139,92,246,0.05) 100%)',
-                  boxShadow: '0 0 10px rgba(251,191,36,0.3), 0 0 22px rgba(139,92,246,0.15)',
+                  background: 'linear-gradient(90deg, rgba(251,191,36,0.05) 0%, rgba(251,191,36,0.7) 22%, rgba(139,92,246,0.7) 40%, rgba(139,92,246,0.8) 75%, rgba(6,182,212,0.8) 90%, rgba(6,182,212,0.05) 100%)',
+                  boxShadow: '0 0 10px rgba(251,191,36,0.3), 0 0 22px rgba(6,182,212,0.15)',
                 }}
               />
 
               {/* Bank phase labels */}
               <div className="absolute top-2 left-[5%] text-[9px] font-semibold uppercase tracking-widest pointer-events-none" style={{ color: 'rgba(251,191,36,0.45)' }}>Presenting Bank</div>
-              <div className="absolute top-2 right-[4%] text-[9px] font-semibold uppercase tracking-widest pointer-events-none" style={{ color: 'rgba(139,92,246,0.45)' }}>Drawee Bank</div>
+              <div className="absolute top-2 text-[9px] font-semibold uppercase tracking-widest pointer-events-none" style={{ left: '42%', color: 'rgba(139,92,246,0.45)' }}>Drawee Bank</div>
+              <div className="absolute top-2 right-[4%] text-[9px] font-semibold uppercase tracking-widest pointer-events-none" style={{ color: 'rgba(6,182,212,0.45)' }}>NGCH</div>
 
-              {/* Two-bank separator after NGCH (stage 3) */}
+              {/* Separator 1: Presenting Bank (0-2) → Drawee Bank (3-8) */}
               {(() => {
-                const ngchLeft = 5 + (3 / (STAGES.length - 1)) * 90
-                const acctLeft = 5 + (4 / (STAGES.length - 1)) * 90
-                const midLeft = (ngchLeft + acctLeft) / 2
+                const leftA = 5 + (2 / (STAGES.length - 1)) * 90
+                const leftB = 5 + (3 / (STAGES.length - 1)) * 90
+                const mid = (leftA + leftB) / 2
                 return (
                   <div className="absolute top-0 bottom-0 w-px pointer-events-none"
-                    style={{ left: `${midLeft}%`, background: 'linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.12) 30%, rgba(255,255,255,0.12) 70%, transparent 100%)', borderRight: '1px dashed rgba(255,255,255,0.08)' }}
+                    style={{ left: `${mid}%`, background: 'linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.12) 30%, rgba(255,255,255,0.12) 70%, transparent 100%)', borderRight: '1px dashed rgba(255,255,255,0.08)' }}
+                  />
+                )
+              })()}
+              {/* Separator 2: Drawee Bank (3-9) → NGCH Gateway (10) */}
+              {(() => {
+                const leftA = 5 + (9 / (STAGES.length - 1)) * 90
+                const leftB = 5 + (10 / (STAGES.length - 1)) * 90
+                const mid = (leftA + leftB) / 2
+                return (
+                  <div className="absolute top-0 bottom-0 w-px pointer-events-none"
+                    style={{ left: `${mid}%`, background: 'linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.12) 30%, rgba(255,255,255,0.12) 70%, transparent 100%)', borderRight: '1px dashed rgba(255,255,255,0.08)' }}
                   />
                 )
               })()}
