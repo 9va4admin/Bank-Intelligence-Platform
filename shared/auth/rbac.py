@@ -33,6 +33,7 @@ class Role(str, Enum):
     COMPLIANCE_OFFICER = "compliance_officer"
     RBI_EXAMINER = "rbi_examiner"
     ML_ENGINEER = "ml_engineer"
+    SMB_IT_ADMIN = "smb_it_admin"   # Sub-Member Bank IT administrator (at the sponsor bank)
 
 
 class Permission(str, Enum):
@@ -63,6 +64,12 @@ class Permission(str, Enum):
     # Admin
     ADMIN_CONSOLE = "admin:console"
 
+    # Sub-Member Bank management
+    SMB_REGISTER = "smb:register"           # Register new SMB or deactivate existing
+    SMB_VIEW_LEDGER = "smb:view_ledger"     # View batch ledgers and forwarding logs
+    SMB_VAULT_SYNC = "smb:vault_sync"       # Trigger vault sync for an SMB
+    SMB_CONFIG_CHANGE = "smb:config_change" # Update SMB thresholds (Layer 3)
+
 
 # Permission matrix: role → set of granted permissions
 _ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
@@ -84,18 +91,24 @@ _ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
         Permission.VIEW_PII,
         Permission.CONFIG_LAYER3_SUBMIT,
         Permission.AUDIT_READ,
+        Permission.SMB_VIEW_LEDGER,
     }),
     Role.BANK_IT_ADMIN: frozenset({
         Permission.ADMIN_CONSOLE,
         Permission.CONFIG_LAYER3_APPROVE,
         Permission.CONFIG_LAYER2_CHANGE,
         Permission.AUDIT_READ,
+        Permission.SMB_REGISTER,
+        Permission.SMB_VIEW_LEDGER,
+        Permission.SMB_VAULT_SYNC,
+        Permission.SMB_CONFIG_CHANGE,
     }),
     Role.COMPLIANCE_OFFICER: frozenset({
         Permission.AUDIT_READ,
         Permission.VIEW_PII,
         Permission.CTS_VIEW_ANALYTICS,
         Permission.EJ_VIEW_DASHBOARD,
+        Permission.SMB_VIEW_LEDGER,
     }),
     Role.RBI_EXAMINER: frozenset({
         Permission.AUDIT_READ,
@@ -103,6 +116,15 @@ _ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
     Role.ML_ENGINEER: frozenset({
         Permission.AI_MODEL_METRICS,
         Permission.AI_MLFLOW_ACCESS,
+    }),
+    # smb_it_admin: staff at the Sponsor Bank responsible for onboarding and managing SMBs.
+    # Scoped to their sponsor bank's SMB roster only — cannot touch direct clearing operations.
+    Role.SMB_IT_ADMIN: frozenset({
+        Permission.SMB_REGISTER,
+        Permission.SMB_VIEW_LEDGER,
+        Permission.SMB_VAULT_SYNC,
+        Permission.SMB_CONFIG_CHANGE,
+        Permission.AUDIT_READ,
     }),
 }
 
