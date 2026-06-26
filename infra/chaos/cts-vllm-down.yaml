@@ -1,0 +1,88 @@
+# Chaos Mesh Scenario: vLLM Inference Server Down
+# ─────────────────────────────────────────────────────────────────────────────
+# Purpose : Verify graceful AI degradation path — all cheques route to
+#           human review when vision/OCR/reasoning models are unavailable.
+#           IET watchdog must still fire and file before deadline.
+# NFR     : LLM down → rule-based fallback scorer → all to human review (CLAUDE.md §12)
+# When    : Before any vLLM upgrade, GPU maintenance window, or model swap.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: cts-vllm-kill-vision
+  namespace: chaos-testing
+  labels:
+    scenario: vllm-down
+    module: cts
+    queue: cts-vision
+    severity: HIGH
+spec:
+  action: pod-failure
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-staging-internal
+    labelSelectors:
+      "app.kubernetes.io/component": "vllm-worker"
+      "astra/inference-queue": "cts-vision"
+  duration: "4m"
+  scheduler:
+    cron: "@manually"
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: cts-vllm-kill-ocr
+  namespace: chaos-testing
+  labels:
+    scenario: vllm-down
+    module: cts
+    queue: cts-ocr
+    severity: HIGH
+spec:
+  action: pod-failure
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-staging-internal
+    labelSelectors:
+      "app.kubernetes.io/component": "vllm-worker"
+      "astra/inference-queue": "cts-ocr"
+  duration: "4m"
+  scheduler:
+    cron: "@manually"
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: cts-vllm-kill-reasoning
+  namespace: chaos-testing
+  labels:
+    scenario: vllm-down
+    module: cts
+    queue: cts-reasoning
+    severity: HIGH
+spec:
+  action: pod-failure
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-staging-internal
+    labelSelectors:
+      "app.kubernetes.io/component": "vllm-worker"
+      "astra/inference-queue": "cts-reasoning"
+  duration: "4m"
+  scheduler:
+    cron: "@manually"
+# ─────────────────────────────────────────────────────────────────────────────
+# Expected observations:
+#   - ocr_extract activity: vLLMUnavailableError caught → ActivityResult(outcome=HUMAN_REVIEW)
+#   - detect_alteration activity: same degradation path
+#   - verify_signature activity: Siamese network is separate HTTP service — may still work
+#   - score_fraud activity: XGBoost runs locally (no GPU) — continues working
+#   - All cheques route to human_review queue — human review queue depth rises
+#   - IETWatchdogWorkflow: unaffected (no AI calls) — files emergency before T-30s
+#   - Prometheus alert CTS_VLLM_QUEUE_DOWN fires within 60s per queue
+#   - After pods recover: processing resumes automatically (Temporal retries)
+#   - Zero cheques dropped or lost — all queued in Temporal + human review queue
+# ─────────────────────────────────────────────────────────────────────────────

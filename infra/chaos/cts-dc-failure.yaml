@@ -1,0 +1,61 @@
+# Chaos Mesh Scenario: DC1 Complete Failure
+# ─────────────────────────────────────────────────────────────────────────────
+# Purpose : Validate active-active failover — DC2 takes 100% traffic in < 30s.
+# Expectation: zero IET breaches, zero cheque decisions lost, RTO < 30s.
+# When to run: quarterly DR drill, before each major release.
+# Run from : ChaosEngine control plane (DC-neutral — separate management cluster).
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: cts-dc1-network-partition
+  namespace: chaos-testing
+  labels:
+    scenario: dc-failure
+    module: cts
+    severity: CRITICAL
+    drill_type: quarterly-dr
+spec:
+  action: partition
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-staging-internal
+    labelSelectors:
+      "topology.kubernetes.io/zone": "dc1"
+  direction: both
+  # Partition lasts 5 minutes — enough to validate failover + alerting
+  duration: "5m"
+  scheduler:
+    cron: "@manually"   # never auto-run — triggered by DR drill runbook only
+---
+# Companion: verify DC2 picks up within 30s
+# Expected observations (captured in DR drill report):
+#   - Prometheus alert CTS_DC1_PARTITION fires within 60s
+#   - Grafana: cts-agent-worker pod count in dc1 drops to 0
+#   - Grafana: cts-agent-worker pod count in dc2 rises to cover full swarm
+#   - Kafka MirrorMaker2: topic offsets for cts.inward.{bank_id} replicate to dc2 within 5s
+#   - Zero new IET breaches during partition window (checked post-drill)
+#   - Temporal workflow continuations pick up on dc2 workers (ABANDON policy on watchdog)
+#   - ArgoCD health: astra-cts ApplicationSet shows Degraded → Healthy within 30s
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: cts-dc1-pod-kill
+  namespace: chaos-testing
+  labels:
+    scenario: dc-failure
+    module: cts
+spec:
+  action: pod-kill
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-staging-internal
+    labelSelectors:
+      "topology.kubernetes.io/zone": "dc1"
+      "app.kubernetes.io/component": "cts-agent-worker"
+  gracePeriod: 0   # simulate hard failure, not graceful shutdown
+  duration: "5m"
+  scheduler:
+    cron: "@manually"
