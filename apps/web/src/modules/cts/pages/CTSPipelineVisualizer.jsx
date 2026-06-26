@@ -4,8 +4,10 @@ import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
 // ─── Stage config ──────────────────────────────────────────────────────────────
 // bank: 'd' = Drawee Bank (all processing stages) · 'g' = NGCH Gateway
-// Inward clearing = drawee bank perspective only. Presenting bank work is done
-// before NGCH submission — ASTRA never runs the presenting bank's pipeline.
+// This visualizer shows the INWARD clearing pipeline (drawee bank role).
+// ASTRA also runs the OUTWARD pipeline (presentee bank role) — scanner capture,
+// lot management, endorsement, NGCH submission, session reconciliation — those
+// are separate workflows not shown here.
 
 const STAGES = [
   { id: 0, label: 'Ingest',      icon: '📥', shortLabel: 'Ingest',   avgMs: 3,   bank: 'd' },

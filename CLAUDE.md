@@ -32,11 +32,24 @@ Two independent but unified product modules sold to Indian banks:
 
 **Module 1 — CTS (Cheque Truncation System)**
 - Reimagines India's cheque clearing infrastructure with agentic AI
-- Solves the RBI T+3 hour IET (Item Expiry Time) mandate (Jan 2026)
-- Missed IET = deemed approval = bank pays regardless of fraud
-- One AI agent per inward cheque → decision in < 600ms
-- 500 cheques → 500 parallel agents → entire batch < 600ms wall clock
-- Target buyers: Any bank participating in CTS clearing — public sector banks (SBI, PNB, BoB, Canara), private sector banks (HDFC, ICICI, Axis, Kotak, Yes, IndusInd), small finance banks, urban co-operative banks, RRBs, foreign banks with Indian operations — any institution that processes inward cheques and is subject to RBI's IET mandate
+- Handles **both sides** of CTS clearing for the bank:
+
+  **Outward clearing (Presentee Bank role)**
+  - Bank's customers deposit cheques drawn on other banks
+  - ASTRA: physical scanner capture → MICR line extraction → CTS-2010 image compliance
+    → lot/batch creation → endorsement stamping → NGCH submission
+  - Session reconciliation + Return Reason File (RRF) generation at session close
+  - Sub-member bank (SMB) sponsor routing: Saraswat-class UCBs route outward
+    instruments for smaller UCBs through ASTRA
+
+  **Inward clearing (Drawee Bank role)**
+  - Cheques drawn on the bank arrive from NGCH
+  - Solves the RBI T+3 hour IET (Item Expiry Time) mandate (Jan 2026)
+  - Missed IET = deemed approval = bank pays regardless of fraud
+  - One AI agent per inward cheque → decision in < 600ms
+  - 500 cheques → 500 parallel agents → entire batch < 600ms wall clock
+
+- Target buyers: Any bank participating in CTS clearing — public sector banks (SBI, PNB, BoB, Canara), private sector banks (HDFC, ICICI, Axis, Kotak, Yes, IndusInd), small finance banks, urban co-operative banks, RRBs, foreign banks with Indian operations — any institution that both submits outward cheques and receives inward instruments subject to RBI's IET mandate
 - 18-month first-mover window before incumbents (Nelito, TCS BaNCS) catch up
 
 **Module 2 — ATM EJ Intelligence**
@@ -677,10 +690,14 @@ LAYER 5 — User Preferences  [per-user YugabyteDB record]
 
 | Topic | Producer | Consumer | Purpose |
 |---|---|---|---|
-| `cts.inward.{bank_id}` | NGCH Adapter | CTS Agent Workers (KEDA) | Fan-out per inward cheque |
-| `cts.decisions.{bank_id}` | CTS Agents | Audit Service, Analytics | All filed decisions |
-| `cts.human.review.{bank_id}` | CTS Agents | Ops Workstation | Human review queue |
+| `cts.inward.{bank_id}` | NGCH Adapter | CTS Agent Workers (KEDA) | Fan-out per inward cheque (drawee side) |
+| `cts.decisions.{bank_id}` | CTS Agents | Audit Service, Analytics | All filed inward decisions |
+| `cts.human.review.{bank_id}` | CTS Agents | Ops Workstation | Human review queue (inward) |
 | `cts.vault.sync.{bank_id}` | CBS Connector | Vault Sync Worker | Signature/PPS updates |
+| `cts.outward.scanned.{bank_id}` | Scanner Service | OutwardScanWorkflow | Newly scanned outward instruments |
+| `cts.outward.lot.sealed.{bank_id}` | Lot Manager | BatchEndorsementWorkflow | Lot sealed and ready for endorsement |
+| `cts.outward.submitted.{bank_id}` | NGCHSubmissionWorkflow | Audit Service, Analytics | Instruments submitted to NGCH (outward) |
+| `cts.smb.inbound.{bank_id}` | SMB Forwarding Worker | SMBForwardingWorkflow | Sub-member instruments arriving for sponsor routing |
 | `ej.raw.ingested.{bank_id}` | EJ Ingestion Gateway | EJ Parse Workers | Trigger normalisation |
 | `ej.canonical.{bank_id}` | EJ Parse Workers | Dispute Engine, Analytics | Normalised records |
 | `ej.health.signals.{bank_id}` | EJ Parse Workers | Anomaly Detector | ATM health time-series |
@@ -691,13 +708,22 @@ LAYER 5 — User Preferences  [per-user YugabyteDB record]
 
 ## 8. Temporal Workflows
 
-### CTS Workflows
+### CTS Workflows — Inward Clearing (Drawee Bank)
 | Workflow | Trigger | Activities | Terminal States |
 |---|---|---|---|
 | `ChequeProcessingWorkflow` | Kafka `cts.inward` event | validate_cts2010, ocr_extract, detect_alteration, verify_signature, lookup_pps, check_cbs_balance, check_stop_payment, score_fraud, synthesise_decision, file_to_ngch, write_audit, send_notification | STP_CONFIRM, STP_RETURN, HUMAN_REVIEW |
 | `HumanReviewWorkflow` | Signal from ChequeProcessingWorkflow | push_to_queue, wait_for_signal (max 55min), receive_decision, file_to_ngch, write_audit | REVIEWER_CONFIRMED, REVIEWER_RETURNED, TIMEOUT_AUTO_RETURNED |
 | `VaultSyncWorkflow` | CBS event stream / schedule (6AM daily) | load_signatures_from_cbs, load_pps_from_cbs, warm_redis_vault, verify_vault_integrity | SYNC_COMPLETE |
 | `IETWatchdogWorkflow` | Child of ChequeProcessingWorkflow | monitor_countdown, emergency_file_if_30s_remaining | SAFE, EMERGENCY_FILED |
+
+### CTS Workflows — Outward Clearing (Presentee Bank)
+| Workflow | Trigger | Activities | Terminal States |
+|---|---|---|---|
+| `OutwardScanWorkflow` | Scanner session open (ops workstation) | capture_image, extract_micr, validate_cts2010_image, create_lot_entry, write_audit | ACCEPTED, CTS_REJECTED |
+| `BatchEndorsementWorkflow` | Lot sealed by ops | stamp_endorsement, update_lot_status, write_audit | ENDORSED, FAILED |
+| `NGCHSubmissionWorkflow` | Lot endorsed + clearing session opens | build_ngch_file, submit_to_ngch, confirm_acknowledgement, write_audit | SUBMITTED, SUBMISSION_FAILED |
+| `SessionReconciliationWorkflow` | Clearing session close | fetch_ngch_settlement_report, match_submitted_vs_settled, generate_rrf, write_audit | RECONCILED, EXCEPTIONS_FLAGGED |
+| `SMBForwardingWorkflow` | Kafka `cts.smb.inbound.{bank_id}` (sub-member instrument arrives) | validate_smb_instrument, route_to_sponsor_lot, forward_to_ngch, notify_smb, write_audit | FORWARDED, RETURNED_TO_SMB |
 
 ### EJ Workflows
 | Workflow | Trigger | Activities | Terminal States |
