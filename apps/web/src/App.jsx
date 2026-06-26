@@ -28,6 +28,9 @@ import CTSSubMemberBanks from './modules/cts/pages/CTSSubMemberBanks'
 import CTSMICRPrefixes from './modules/cts/pages/CTSMICRPrefixes'
 import CTSThresholds from './modules/cts/pages/CTSThresholds'
 import CTSNGCHRouting from './modules/cts/pages/CTSNGCHRouting'
+import CTSSMBRegistry from './modules/cts/pages/CTSSMBRegistry'
+import CTSSMBLedger from './modules/cts/pages/CTSSMBLedger'
+import CTSSMBForwardingLog from './modules/cts/pages/CTSSMBForwardingLog'
 import EJSchedules from './modules/ej/pages/EJSchedules'
 import UserManagement from './modules/admin/pages/UserManagement'
 import { EJDashboard } from './modules/ej'
@@ -73,6 +76,9 @@ export default function App() {
         <Route path="/cts/config/micr-prefixes" element={<CTSMICRPrefixes />} />
         <Route path="/cts/config/thresholds" element={<CTSThresholds />} />
         <Route path="/cts/config/ngch-routing" element={<CTSNGCHRouting />} />
+        <Route path="/cts/smb/registry" element={<CTSSMBRegistry />} />
+        <Route path="/cts/smb/ledger" element={<CTSSMBLedger />} />
+        <Route path="/cts/smb/forwarding-log" element={<CTSSMBForwardingLog />} />
         {/* Admin */}
         <Route path="/admin/users" element={<UserManagement />} />
         {/* EJ module — own routes, no overlap with CTS */}
