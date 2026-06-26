@@ -781,3 +781,270 @@ async def resume_schedule(
         status="UPDATED",
         message=f"Schedule {schedule_id} resumed.",
     )
+
+
+# ---------------------------------------------------------------------------
+# Sub-Member Bank (SMB) endpoints — /v1/cts/smb/...
+# Requires smb_it_admin or ops_manager role (enforced in production by RBAC).
+# ---------------------------------------------------------------------------
+
+class SMBRegistration(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    sub_member_id: str
+    bank_name: str
+    sponsor_bank_id: str
+    micr_prefix: str
+    ifsc_prefix: str
+    return_rate_threshold: float = 0.15
+    soft_hold_threshold: float = 0.25
+
+
+class SMBRegistrationResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    sub_member_id: str
+    status: Literal["REGISTERED"]
+    message: str
+
+
+class SMBListItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    sub_member_id: str
+    bank_name: str
+    micr_prefix: str
+    ifsc_prefix: str
+    is_active: bool
+    return_rate_threshold: float
+    soft_hold_threshold: float
+    vault_sync_status: str        # NEVER_SYNCED | SYNC_OK | SYNC_PARTIAL | SYNC_FAILED
+    last_vault_sync_at: Optional[float] = None
+    signature_count: int = 0
+    pps_entry_count: int = 0
+
+
+class SMBListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    sub_members: list[SMBListItem]
+    total: int
+    sponsor_bank_id: str
+
+
+class SMBSessionLedger(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    sub_member_id: str
+    bank_name: str
+    session_date: str
+    clearing_session: str
+    total_received: int
+    stp_pass: int
+    stp_return: int
+    eyeball: int
+    fraud_hold: int
+    iet_emergency: int
+    return_rate_pct: float
+    stp_rate_pct: float
+    soft_hold_active: bool
+    risk_event_emitted: bool
+
+
+class SMBLedgerResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    ledgers: list[SMBSessionLedger]
+    session_date: str
+    bank_id: str
+
+
+class SMBForwardingLogItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    forwarding_id: str
+    instrument_id: str
+    sub_member_id: str
+    micr_prefix_matched: str
+    forwarding_status: str
+    iet_deadline_utc: str
+    received_at: str
+    forwarded_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    terminal_decision: Optional[str] = None
+
+
+class SMBForwardingLogResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    items: list[SMBForwardingLogItem]
+    total: int
+    sub_member_id: str
+
+
+class SMBVaultSyncTriggerResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    sub_member_id: str
+    workflow_id: str
+    status: Literal["TRIGGERED"]
+    message: str
+
+
+@router_v1.get(
+    "/smb",
+    response_model=SMBListResponse,
+)
+async def list_sub_members(
+    bank_id: str = Depends(get_current_bank_id),
+    active_only: bool = True,
+) -> SMBListResponse:
+    """
+    List all Sub-Member Banks registered under this Sponsor Bank.
+    Returns vault sync status and current threshold configuration for each SMB.
+    Production: queries cts.sub_member_banks JOIN cts.smb_vault_config WHERE bank_id = $1.
+    """
+    log.info("smb.list", bank_id=bank_id, active_only=active_only)
+    # Production: SELECT sub_member_id, bank_name, micr_prefix, ifsc_prefix,
+    #   is_active, return_rate_threshold, soft_hold_threshold,
+    #   v.last_sync_status, v.last_vault_sync_at, v.signature_count, v.pps_entry_count
+    # FROM cts.sub_member_banks s LEFT JOIN cts.smb_vault_config v USING (bank_id, sub_member_id)
+    # WHERE s.bank_id = $1 AND ($2 = FALSE OR s.is_active = TRUE)
+    return SMBListResponse(sub_members=[], total=0, sponsor_bank_id=bank_id)
+
+
+@router_v1.post(
+    "/smb",
+    response_model=SMBRegistrationResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def register_sub_member(
+    body: SMBRegistration,
+    bank_id: str = Depends(get_current_bank_id),
+) -> SMBRegistrationResponse:
+    """
+    Register a new Sub-Member Bank under this Sponsor Bank.
+    Also creates the smb_vault_config and smb_kafka_topics registry rows.
+    Requires smb_it_admin role (enforced by RBAC in production).
+    Thresholds are seeded from request body — bank can update via Admin UI (Layer 3).
+    """
+    if body.return_rate_threshold >= body.soft_hold_threshold:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="soft_hold_threshold must be greater than return_rate_threshold",
+        )
+
+    log.info(
+        "smb.register",
+        bank_id=bank_id,
+        sub_member_id=body.sub_member_id,
+        micr_prefix=body.micr_prefix,
+    )
+    # Production: INSERT INTO cts.sub_member_banks (...) VALUES (...)
+    # + INSERT INTO cts.smb_vault_config (...) VALUES (...)
+    # + INSERT INTO cts.smb_kafka_topics (...) with derived topic names
+    # + INSERT INTO cts.micr_prefix_routing (...) VALUES (...)
+    return SMBRegistrationResponse(
+        sub_member_id=body.sub_member_id,
+        status="REGISTERED",
+        message=(
+            f"Sub-Member Bank '{body.sub_member_id}' registered under sponsor '{bank_id}'. "
+            f"MICR prefix '{body.micr_prefix}' active from today. "
+            f"Vault sync required before first clearing session."
+        ),
+    )
+
+
+@router_v1.get(
+    "/smb/{sub_member_id}/ledger",
+    response_model=SMBLedgerResponse,
+)
+async def get_smb_session_ledger(
+    sub_member_id: str,
+    bank_id: str = Depends(get_current_bank_id),
+    session_date: Optional[str] = None,
+) -> SMBLedgerResponse:
+    """
+    Return batch ledger for a Sub-Member Bank across all clearing sessions
+    for a given date (defaults to today).
+    Production: queries cts.sub_member_batch_ledgers WHERE bank_id = $1 AND sub_member_id = $2
+    AND session_date = $3.
+    """
+    import datetime as _dt
+    date_str = session_date or _dt.date.today().isoformat()
+    log.info("smb.ledger", bank_id=bank_id, sub_member_id=sub_member_id, date=date_str)
+    return SMBLedgerResponse(ledgers=[], session_date=date_str, bank_id=bank_id)
+
+
+@router_v1.get(
+    "/smb/{sub_member_id}/forwarding-log",
+    response_model=SMBForwardingLogResponse,
+)
+async def get_smb_forwarding_log(
+    sub_member_id: str,
+    bank_id: str = Depends(get_current_bank_id),
+    limit: int = 50,
+) -> SMBForwardingLogResponse:
+    """
+    Return recent forwarding log entries for a Sub-Member Bank.
+    Ordered by received_at DESC. Exposes forwarding status and terminal decisions.
+    No raw PII — instrument_id and forwarding_id are opaque references.
+    """
+    if limit > 100:
+        limit = 100
+    log.info("smb.forwarding_log", bank_id=bank_id, sub_member_id=sub_member_id, limit=limit)
+    return SMBForwardingLogResponse(items=[], total=0, sub_member_id=sub_member_id)
+
+
+@router_v1.post(
+    "/smb/{sub_member_id}/vault-sync",
+    response_model=SMBVaultSyncTriggerResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def trigger_smb_vault_sync(
+    sub_member_id: str,
+    request: Request,
+    bank_id: str = Depends(get_current_bank_id),
+) -> SMBVaultSyncTriggerResponse:
+    """
+    Trigger VaultSyncWorkflow scoped to a specific Sub-Member Bank.
+    Syncs SMB signature specimens and PPS entries into the sponsor bank's Redis vault
+    under the smb_vault_prefix namespace (sig:{sub_member_id}:{hash}).
+    """
+    import time as _time
+    ts = int(_time.time())
+    workflow_id = f"cts-smb-vaultsync-{bank_id}-{sub_member_id}-{ts}"
+
+    temporal_client = getattr(request.app.state, "temporal_client", None)
+    if temporal_client is not None:
+        try:
+            from modules.cts.workflows.vault_sync_workflow import VaultSyncWorkflow, VaultSyncInput
+            await temporal_client.start_workflow(
+                VaultSyncWorkflow.run,
+                VaultSyncInput(
+                    bank_id=bank_id,
+                    triggered_by="MANUAL_SMB",
+                    sub_member_id=sub_member_id,
+                ),
+                id=workflow_id,
+                task_queue=f"cts-processing-{bank_id}",
+            )
+        except Exception as exc:
+            log.error(
+                "smb.vault_sync_trigger_error",
+                bank_id=bank_id,
+                sub_member_id=sub_member_id,
+                error=str(exc),
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Failed to trigger SMB vault sync workflow",
+            ) from exc
+
+    log.info(
+        "smb.vault_sync_triggered",
+        bank_id=bank_id,
+        sub_member_id=sub_member_id,
+        workflow_id=workflow_id,
+    )
+    return SMBVaultSyncTriggerResponse(
+        sub_member_id=sub_member_id,
+        workflow_id=workflow_id,
+        status="TRIGGERED",
+        message=(
+            f"Vault sync started for Sub-Member '{sub_member_id}'. "
+            f"Signature specimens and PPS entries will be loaded into vault namespace "
+            f"sig:{sub_member_id}:* within ~60 seconds."
+        ),
+    )

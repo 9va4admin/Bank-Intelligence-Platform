@@ -72,6 +72,8 @@ from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
 from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
 from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
 from modules.cts.workflows.vault_sync_workflow import VaultSyncWorkflow
+from modules.cts.workflows.smb_forwarding_workflow import SMBForwardingWorkflow
+from modules.cts.workflows.smb_cheque_processing_workflow import SMBChequeProcessingWorkflow
 
 from modules.cts.workflows.activities.ocr import ocr_extract
 from modules.cts.workflows.activities.alteration import detect_alteration
@@ -82,6 +84,12 @@ from modules.cts.workflows.activities.fraud import score_fraud
 from modules.cts.workflows.activities.decision import synthesise_decision
 from modules.cts.workflows.activities.ngch_filer import file_to_ngch
 from modules.cts.workflows.activities.write_audit import write_audit
+from modules.cts.workflows.activities.smb_forwarding_activities import (
+    validate_smb_forwarding_window,
+    write_forwarding_log_start,
+    write_forwarding_log_complete,
+    write_smb_forwarding_audit,
+)
 from modules.cts.workflows.vault_sync_workflow import (
     load_signatures_from_cbs,
     load_pps_from_cbs,
@@ -89,12 +97,19 @@ from modules.cts.workflows.vault_sync_workflow import (
     verify_vault_integrity,
 )
 from modules.cts.workflows.human_review_workflow import push_to_review_queue
+from modules.cts.sub_member.activities import (
+    notify_sub_member_return,
+    emit_batch_ledger_update,
+    check_return_rate_shield,
+)
 
 ALL_WORKFLOWS = [
     ChequeProcessingWorkflow,
     IETWatchdogWorkflow,
     HumanReviewWorkflow,
     VaultSyncWorkflow,
+    SMBForwardingWorkflow,
+    SMBChequeProcessingWorkflow,
 ]
 
 ALL_ACTIVITIES = [
@@ -107,11 +122,18 @@ ALL_ACTIVITIES = [
     synthesise_decision,
     file_to_ngch,
     write_audit,
+    validate_smb_forwarding_window,
+    write_forwarding_log_start,
+    write_forwarding_log_complete,
+    write_smb_forwarding_audit,
     load_signatures_from_cbs,
     load_pps_from_cbs,
     warm_redis_vault,
     verify_vault_integrity,
     push_to_review_queue,
+    notify_sub_member_return,
+    emit_batch_ledger_update,
+    check_return_rate_shield,
 ]
 
 
