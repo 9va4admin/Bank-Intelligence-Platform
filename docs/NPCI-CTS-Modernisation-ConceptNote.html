@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CTS Protocol Modernisation — Concept Note for NPCI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',system-ui,sans-serif;background:#f4f6f9;color:#1e293b;font-size:13px;line-height:1.5;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+  /* ─── LAYOUT ─── */
+  .page{max-width:960px;margin:0 auto;background:#fff;box-shadow:0 0 40px rgba(0,0,0,.10)}
+
+  /* ─── TOP STRIP ─── */
+  .topstrip{background:#0f2044;color:rgba(255,255,255,.55);font-size:9.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;padding:8px 32px;display:flex;justify-content:space-between;align-items:center}
+  .topstrip span{color:rgba(255,255,255,.85)}
+
+  /* ─── HERO ─── */
+  .hero{background:#0f2044;padding:36px 32px 28px;color:#fff;border-bottom:3px solid #2563eb}
+  .hero-kicker{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#60a5fa;margin-bottom:10px}
+  .hero h1{font-size:32px;font-weight:900;line-height:1.1;color:#fff;margin-bottom:6px}
+  .hero h1 span{color:#60a5fa}
+  .hero-sub{font-size:13px;color:rgba(255,255,255,.65);font-weight:400;margin-bottom:20px;max-width:620px;line-height:1.6}
+  .hero-meta{display:flex;gap:32px;flex-wrap:wrap}
+  .hero-meta-item{font-size:10.5px;color:rgba(255,255,255,.5)}
+  .hero-meta-item strong{display:block;color:#fff;font-size:12px;font-weight:700;margin-bottom:1px}
+
+  /* ─── KPI STRIP ─── */
+  .kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid #e2e8f0}
+  .kpi{padding:20px 22px 18px;border-right:1px solid #e2e8f0;background:#fff}
+  .kpi:last-child{border-right:none}
+  .kpi-val{font-size:26px;font-weight:900;color:#0f2044;line-height:1;margin-bottom:4px}
+  .kpi-val.blue{color:#2563eb}
+  .kpi-val.red{color:#dc2626}
+  .kpi-label{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748b;margin-bottom:3px}
+  .kpi-note{font-size:10px;color:#94a3b8;line-height:1.4}
+  .kpi-badge{display:inline-block;margin-top:6px;padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:#dcfce7;color:#16a34a}
+  .kpi-badge.warn{background:#fef9c3;color:#b45309}
+  .kpi-badge.blue{background:#dbeafe;color:#1d4ed8}
+  .kpi-badge.red{background:#fee2e2;color:#b91c1c}
+
+  /* ─── SECTION HEADERS ─── */
+  .sec-header{padding:10px 32px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #e2e8f0;background:#f8fafc}
+  .sec-num{width:22px;height:22px;border-radius:50%;background:#0f2044;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .sec-num.blue{background:#2563eb}
+  .sec-num.green{background:#059669}
+  .sec-num.amber{background:#d97706}
+  .sec-num.red{background:#dc2626}
+  .sec-header-text{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#0f2044}
+  .sec-header-sub{font-size:10px;color:#64748b;margin-left:auto;font-weight:500}
+
+  /* ─── SECTION BODY ─── */
+  .sec-body{padding:24px 32px}
+
+  /* ─── PROBLEM BLOCKS ─── */
+  .prob-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}
+  .prob-card{border:1px solid #e2e8f0;border-left:3px solid #dc2626;background:#fff;padding:14px 16px;border-radius:0 4px 4px 0}
+  .prob-card-num{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#dc2626;margin-bottom:4px}
+  .prob-card h4{font-size:12px;font-weight:700;color:#0f2044;margin-bottom:5px}
+  .prob-card p{font-size:11px;color:#475569;line-height:1.55}
+  .prob-outcome{margin-top:8px;padding:5px 8px;background:#fee2e2;border-radius:3px;font-size:10px;font-weight:600;color:#991b1b}
+
+  /* ─── STAT CALLOUT ─── */
+  .stat-banner{background:#0f2044;color:#fff;padding:18px 32px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;text-align:center}
+  .stat-banner-item{}
+  .stat-banner-val{font-size:22px;font-weight:900;color:#60a5fa;line-height:1}
+  .stat-banner-lbl{font-size:9.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-top:4px}
+
+  /* ─── ECOSYSTEM STRIP ─── */
+  .eco-strip{background:#f1f5f9;border:1px solid #e2e8f0;padding:14px 20px;margin:16px 0;border-radius:4px}
+  .eco-strip-title{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#64748b;margin-bottom:10px}
+  .eco-flow{display:flex;align-items:center;gap:0;flex-wrap:wrap}
+  .eco-node{background:#0f2044;color:#fff;font-size:10px;font-weight:700;padding:6px 12px;border-radius:3px;white-space:nowrap}
+  .eco-node.blue{background:#2563eb}
+  .eco-node.green{background:#059669}
+  .eco-node.amber{background:#d97706}
+  .eco-node.gray{background:#475569}
+  .eco-node.light{background:#e2e8f0;color:#0f2044}
+  .eco-arrow{color:#94a3b8;font-size:14px;padding:0 6px;font-weight:700}
+  .eco-arrow.red{color:#dc2626}
+
+  /* ─── PHASE CARDS ─── */
+  .phase-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid #e2e8f0;border-radius:4px;overflow:hidden;margin-top:4px}
+  .phase-card{padding:18px 18px;border-right:1px solid #e2e8f0}
+  .phase-card:last-child{border-right:none}
+  .phase-card-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+  .phase-badge{min-width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:4px;font-size:11px;font-weight:900;letter-spacing:.02em;flex-shrink:0}
+  .phase-badge.p1{background:#dbeafe;color:#1d4ed8}
+  .phase-badge.p2{background:#dcfce7;color:#15803d}
+  .phase-badge.p3{background:#fdf4ff;color:#7e22ce}
+  .phase-title{font-size:12px;font-weight:800;color:#0f2044;line-height:1.3}
+  .phase-period{font-size:10px;color:#64748b;margin-top:1px}
+  .phase-body{font-size:11px;color:#475569;line-height:1.55;margin-bottom:10px}
+  .phase-tag{display:inline-block;padding:2px 7px;border-radius:3px;font-size:9.5px;font-weight:700;background:#f1f5f9;color:#475569;margin:2px 2px 0 0}
+  .phase-outcome{margin-top:10px;padding:7px 10px;background:#f8fafc;border-left:2px solid #2563eb;font-size:10.5px;color:#1d4ed8;font-weight:600}
+
+  /* ─── LAYER BLOCKS ─── */
+  .layer-block{border:1px solid #e2e8f0;border-radius:4px;overflow:hidden;margin-bottom:12px}
+  .layer-head{display:flex;align-items:center;gap:10px;padding:10px 16px;background:#0f2044;color:#fff}
+  .layer-head.blue{background:#1e3a5f}
+  .layer-head.green{background:#14532d}
+  .layer-head.amber{background:#78350f}
+  .layer-label{font-size:9px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+  .layer-title{font-size:12px;font-weight:800;color:#fff;flex:1}
+  .layer-tag{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:2px;background:rgba(255,255,255,.15);color:rgba(255,255,255,.9)}
+  .layer-body{padding:16px}
+  .layer-body p{font-size:11.5px;color:#475569;line-height:1.6;margin-bottom:12px}
+  .layer-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .layer-item{background:#f8fafc;border:1px solid #e2e8f0;padding:10px 12px;border-radius:3px}
+  .layer-item h5{font-size:11px;font-weight:700;color:#0f2044;margin-bottom:3px}
+  .layer-item p{font-size:10.5px;color:#64748b;margin-bottom:0;line-height:1.5}
+  .layer-item code{font-family:monospace;font-size:10px;background:#e2e8f0;padding:1px 4px;border-radius:2px;color:#1e293b}
+
+  /* ─── FLOW BLOCKS ─── */
+  .flow-header{background:#1e3a5f;padding:12px 16px;display:flex;align-items:center;gap:10px;border-radius:4px 4px 0 0}
+  .flow-num{width:26px;height:26px;border-radius:50%;background:#2563eb;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .flow-title{font-size:12px;font-weight:700;color:#fff}
+  .flow-subtitle{font-size:10px;color:rgba(255,255,255,.6);margin-left:auto}
+  .flow-body{border:1px solid #e2e8f0;border-top:none;border-radius:0 0 4px 4px;padding:16px;margin-bottom:14px}
+  .flow-desc{font-size:11px;color:#475569;line-height:1.55;margin-bottom:12px}
+  .code-block{background:#0f172a;border-radius:4px;padding:14px 16px;margin-bottom:10px;overflow-x:auto}
+  .code-block pre{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#e2e8f0;line-height:1.6;white-space:pre;margin:0}
+  .code-block .k{color:#7dd3fc}
+  .code-block .s{color:#86efac}
+  .code-block .n{color:#fca5a5}
+  .code-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748b;margin-bottom:5px}
+  .response-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+  .resp-card{border:1px solid #e2e8f0;border-radius:3px;overflow:hidden}
+  .resp-head{padding:7px 10px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+  .resp-head.ok{background:#dcfce7;color:#15803d}
+  .resp-head.err{background:#fee2e2;color:#b91c1c}
+  .resp-head.multi{background:#dbeafe;color:#1d4ed8}
+  .resp-body{padding:8px 10px}
+  .resp-body pre{font-family:monospace;font-size:9.5px;color:#1e293b;line-height:1.5;white-space:pre}
+
+  /* ─── SECURITY SECTION ─── */
+  .sec-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:4px}
+  .sec-card{border:1px solid #e2e8f0;border-radius:4px;overflow:hidden}
+  .sec-card-head{padding:10px 14px;font-size:11px;font-weight:800;color:#fff;display:flex;align-items:center;gap:7px}
+  .sec-card-head.navy{background:#0f2044}
+  .sec-card-head.blue{background:#2563eb}
+  .sec-card-head.green{background:#059669}
+  .sec-card-head.amber{background:#d97706}
+  .sec-card-head.red{background:#dc2626}
+  .sec-card-head.slate{background:#475569}
+  .sec-card-icon{font-size:14px}
+  .sec-card-body{padding:12px 14px}
+  .sec-card-body ul{padding-left:14px;margin:0}
+  .sec-card-body ul li{font-size:10.5px;color:#475569;line-height:1.6;margin-bottom:3px}
+  .sec-card-body ul li strong{color:#0f2044;font-weight:700}
+  .metric-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f1f5f9;font-size:10.5px}
+  .metric-row:last-child{border-bottom:none}
+  .metric-label{color:#64748b;font-weight:500}
+  .metric-val{font-weight:700;color:#0f2044}
+  .metric-val.green{color:#16a34a}
+  .metric-val.amber{color:#d97706}
+  .metric-val.red{color:#dc2626}
+
+  /* ─── ERROR TABLES ─── */
+  table{width:100%;border-collapse:collapse;font-size:10.5px;margin-top:8px}
+  th{background:#0f2044;color:#fff;text-align:left;padding:7px 10px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  td{padding:6px 10px;border-bottom:1px solid #f1f5f9;color:#374151;vertical-align:top}
+  tr:hover td{background:#f8fafc}
+  .err-code{font-family:monospace;font-weight:700;color:#1d4ed8;white-space:nowrap;font-size:10px}
+  .err-code.warn{color:#d97706}
+  .err-code.danger{color:#dc2626}
+  .cat-pill{display:inline-block;padding:1px 6px;border-radius:2px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+  .cat-pill.fin{background:#dbeafe;color:#1d4ed8}
+  .cat-pill.inst{background:#fef9c3;color:#b45309}
+  .cat-pill.sec{background:#fee2e2;color:#b91c1c}
+  .cat-pill.img{background:#f3e8ff;color:#7e22ce}
+  .cat-pill.sys{background:#f1f5f9;color:#475569}
+  .cat-pill.rate{background:#fce7f3;color:#be185d}
+  .retry-yes{color:#16a34a;font-weight:700}
+  .retry-no{color:#dc2626;font-weight:700}
+
+  /* ─── ROADMAP ─── */
+  .roadmap-track{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid #e2e8f0;border-radius:4px;overflow:hidden;margin-top:8px}
+  .rm-phase{border-right:1px solid #e2e8f0}
+  .rm-phase:last-child{border-right:none}
+  .rm-phase-head{padding:10px 14px 10px;font-size:10px;font-weight:800;color:#fff;letter-spacing:.05em;text-transform:uppercase}
+  .rm-phase-head.p1{background:#2563eb}
+  .rm-phase-head.p2{background:#059669}
+  .rm-phase-head.p3{background:#7c3aed}
+  .rm-phase-head .period{font-size:9px;font-weight:500;opacity:.8;margin-top:1px}
+  .rm-body{padding:12px 14px}
+  .rm-item{display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;font-size:10.5px}
+  .rm-dot{width:6px;height:6px;border-radius:50%;background:#2563eb;flex-shrink:0;margin-top:4px}
+  .rm-dot.green{background:#059669}
+  .rm-dot.purple{background:#7c3aed}
+  .rm-text{color:#374151;line-height:1.5}
+  .rm-text strong{color:#0f2044;font-weight:700}
+
+  /* ─── MCP SECTION ─── */
+  .mcp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+  .mcp-card{border:1px solid #e2e8f0;border-radius:4px;overflow:hidden}
+  .mcp-head{padding:9px 14px;background:#f1f5f9;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#0f2044;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:6px}
+  .mcp-icon{font-size:13px}
+  .mcp-body{padding:12px 14px}
+  .mcp-tool{padding:5px 0;border-bottom:1px solid #f1f5f9;font-size:10.5px}
+  .mcp-tool:last-child{border-bottom:none}
+  .mcp-tool-name{font-family:monospace;font-weight:700;color:#2563eb;font-size:10px}
+  .mcp-tool-desc{color:#64748b;line-height:1.45;margin-top:1px;font-size:10px}
+
+  /* ─── PRINCIPLES ─── */
+  .principle-strip{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}
+  .principle{display:flex;gap:12px;align-items:flex-start;border:1px solid #e2e8f0;padding:12px 14px;border-radius:4px;background:#fff}
+  .principle-num{font-size:20px;font-weight:900;color:#e2e8f0;line-height:1;flex-shrink:0;width:28px}
+  .principle-head{font-size:11px;font-weight:700;color:#0f2044;margin-bottom:3px}
+  .principle-body{font-size:10.5px;color:#64748b;line-height:1.5}
+
+  /* ─── CALLOUT ─── */
+  .callout{border-left:3px solid #2563eb;padding:10px 14px;background:#eff6ff;margin:12px 0;border-radius:0 4px 4px 0}
+  .callout p{font-size:11px;color:#1e40af;line-height:1.6;margin:0}
+  .callout.green{border-left-color:#059669;background:#f0fdf4}
+  .callout.green p{color:#14532d}
+  .callout.amber{border-left-color:#d97706;background:#fffbeb}
+  .callout.amber p{color:#78350f}
+  .callout.red{border-left-color:#dc2626;background:#fef2f2}
+  .callout.red p{color:#7f1d1d}
+
+  /* ─── ARROW TAG ─── */
+  .arrow-tag{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:3px;font-size:10px;font-weight:600;color:#374151;margin-top:6px}
+  .arrow-tag::before{content:'→';color:#2563eb;font-weight:800}
+  .arrow-tag.green::before{color:#059669}
+  .arrow-tag.red::before{color:#dc2626}
+
+  /* ─── THESIS BAND ─── */
+  .thesis-band{background:#0f2044;padding:24px 32px;display:flex;align-items:flex-start;gap:20px}
+  .thesis-label{font-size:9px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#60a5fa;margin-bottom:6px}
+  .thesis-quote{font-size:14px;color:#fff;font-weight:600;line-height:1.6;font-style:italic;max-width:680px}
+  .thesis-quote strong{color:#60a5fa;font-style:normal}
+  .thesis-attr{font-size:10px;color:rgba(255,255,255,.5);margin-top:8px}
+
+  /* ─── FOOTER ─── */
+  .footer{background:#0f172a;padding:10px 32px;display:flex;justify-content:space-between;align-items:center}
+  .footer-text{font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.35)}
+
+  /* ─── DIVIDER ─── */
+  .divider{height:1px;background:#e2e8f0;margin:12px 0}
+  .spacer{height:16px}
+
+  /* ─── AUTH FLOW ─── */
+  .auth-layers{display:grid;grid-template-columns:1fr;gap:0;border:1px solid #e2e8f0;border-radius:4px;overflow:hidden;margin-top:4px}
+  .auth-layer{display:flex;gap:0;align-items:stretch}
+  .auth-layer-num{width:48px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;flex-shrink:0}
+  .auth-layer-num.l1{background:#0f2044;color:#60a5fa}
+  .auth-layer-num.l2{background:#1e3a5f;color:#93c5fd}
+  .auth-layer-num.l3{background:#2563eb;color:#fff}
+  .auth-layer-content{flex:1;padding:14px 16px;border-top:1px solid #e2e8f0}
+  .auth-layer:first-child .auth-layer-content{border-top:none}
+  .auth-layer-title{font-size:12px;font-weight:800;color:#0f2044;margin-bottom:2px}
+  .auth-layer-sub{font-size:10px;color:#64748b;margin-bottom:8px}
+  .auth-layer-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .auth-spec{background:#f8fafc;border:1px solid #e2e8f0;padding:8px 10px;border-radius:3px}
+  .auth-spec label{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748b;display:block;margin-bottom:3px}
+  .auth-spec val{font-size:10.5px;font-weight:600;color:#0f2044;display:block}
+
+  /* ─── IET CLOCK ─── */
+  .iet-timeline{display:flex;align-items:center;gap:0;margin:12px 0;padding:14px 16px;background:#0f172a;border-radius:4px}
+  .iet-seg{flex:1;display:flex;flex-direction:column;align-items:center;position:relative}
+  .iet-bar{height:8px;border-radius:2px;width:100%;margin-bottom:5px}
+  .iet-bar.safe{background:#059669}
+  .iet-bar.warn{background:#d97706}
+  .iet-bar.danger{background:#dc2626}
+  .iet-bar.dead{background:#374151}
+  .iet-label{font-size:9px;color:rgba(255,255,255,.6);text-align:center;font-weight:500}
+  .iet-label strong{color:#fff;display:block;font-size:10px;margin-bottom:1px}
+  .iet-divider{width:1px;height:30px;background:rgba(255,255,255,.2);flex-shrink:0;margin:0 4px}
+
+  /* ─── BANK ECOSYSTEM ─── */
+  .bank-eco{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:8px}
+  .bank-eco-card{border:1px solid #e2e8f0;border-radius:4px;padding:10px 12px;text-align:center;background:#fff}
+  .bank-eco-count{font-size:20px;font-weight:900;color:#0f2044;line-height:1}
+  .bank-eco-type{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#64748b;margin-top:3px;line-height:1.3}
+  .bank-eco-card.highlight{background:#0f2044;border-color:#0f2044}
+  .bank-eco-card.highlight .bank-eco-count{color:#60a5fa}
+  .bank-eco-card.highlight .bank-eco-type{color:rgba(255,255,255,.6)}
+
+  /* ─── STANDARDS BADGES ─── */
+  .standards-strip{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .std-badge{padding:4px 10px;border:1px solid #e2e8f0;border-radius:2px;font-size:9.5px;font-weight:700;color:#374151;background:#f8fafc}
+  .std-badge.active{background:#0f2044;color:#fff;border-color:#0f2044}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- TOP STRIP -->
+  <div class="topstrip">
+    <span>Concept Note · Industry Submission · Confidential</span>
+    <span>NPCI CTS Clearing Infrastructure · June 2026</span>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-kicker">National Payments Corporation of India · CTS Protocol Modernisation</div>
+    <h1>From SFTP to <span>Real-Time API</span><br>to MCP-Native Clearing</h1>
+    <p class="hero-sub">A framework to move India's Cheque Truncation System from batch-file exchange to a real-time, instrument-level JSON API — and ultimately to an MCP-native intelligence layer — enabling 600 million cheques to be submitted, processed, and confirmed with the speed, precision, and auditability that the RBI IET mandate demands.</p>
+    <div class="hero-meta">
+      <div class="hero-meta-item"><strong>Nilesh Shah</strong>Ex-NPCI · Piramal Finance · Fullerton India (SMFG)</div>
+      <div class="hero-meta-item"><strong>June 2026</strong>Industry Consultation Draft</div>
+      <div class="hero-meta-item"><strong>Scope</strong>CTS 2010 · NGCH · All 1,581 Member Banks</div>
+      <div class="hero-meta-item"><strong>Classification</strong>Confidential — NPCI Distribution Only</div>
+    </div>
+  </div>
+
+  <!-- KPI STRIP -->
+  <div class="kpi-strip">
+    <div class="kpi">
+      <div class="kpi-label">Annual Cheque Volume</div>
+      <div class="kpi-val blue">609 M</div>
+      <div class="kpi-note">Cheques cleared through CTS in FY2025. ₹71 lakh crore in value. India's largest paper-based payment rail.</div>
+      <span class="kpi-badge blue">FY25 NPCI Data</span>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Member Banks on CTS</div>
+      <div class="kpi-val">1,581</div>
+      <div class="kpi-note">PSU Banks · Private Banks · Co-operative Banks · RRBs · Foreign Banks. Every one impacted by this proposal.</div>
+      <span class="kpi-badge">Verified Active</span>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">IET Mandate Window</div>
+      <div class="kpi-val red">3 Hours</div>
+      <div class="kpi-note">RBI Jan 2026: Silence within 3 hours = deemed confirmation. Miss the window, bank absorbs the loss — regardless of fraud.</div>
+      <span class="kpi-badge red">RBI Jan 2026</span>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">SFTP Polling Latency</div>
+      <div class="kpi-val red">5–20 min</div>
+      <div class="kpi-note">Average time before a drawee bank discovers an inward item. This latency is consumed silently from the 3-hour IET window.</div>
+      <span class="kpi-badge warn">Wasted IET Time</span>
+    </div>
+  </div>
+
+  <!-- STAT BANNER -->
+  <div class="stat-banner">
+    <div class="stat-banner-item">
+      <div class="stat-banner-val">₹71L Cr</div>
+      <div class="stat-banner-lbl">Annual CTS Value Cleared</div>
+    </div>
+    <div class="stat-banner-item">
+      <div class="stat-banner-val">1,180</div>
+      <div class="stat-banner-lbl">Co-operative Banks on CTS</div>
+    </div>
+    <div class="stat-banner-item">
+      <div class="stat-banner-val">~80</div>
+      <div class="stat-banner-lbl">Sponsor Banks (Direct NPCI)</div>
+    </div>
+    <div class="stat-banner-item">
+      <div class="stat-banner-val">3 Grids</div>
+      <div class="stat-banner-lbl">MICR Clearing Zones (Mumbai · Delhi · Chennai)</div>
+    </div>
+  </div>
+
+  <!-- SECTION 1: CLEARING ECOSYSTEM -->
+  <div class="sec-header">
+    <div class="sec-num">1</div>
+    <div class="sec-header-text">The Clearing Ecosystem — Who Is in the Room</div>
+    <div class="sec-header-sub">1,581 Banks · 3 Grid Zones · ₹71 Lakh Crore</div>
+  </div>
+  <div class="sec-body">
+    <div class="bank-eco">
+      <div class="bank-eco-card highlight">
+        <div class="bank-eco-count">1,581</div>
+        <div class="bank-eco-type">Total CTS<br>Members</div>
+      </div>
+      <div class="bank-eco-card">
+        <div class="bank-eco-count">47</div>
+        <div class="bank-eco-type">Public Sector<br>Banks</div>
+      </div>
+      <div class="bank-eco-card">
+        <div class="bank-eco-count">1,180</div>
+        <div class="bank-eco-type">Co-operative<br>Banks</div>
+      </div>
+      <div class="bank-eco-card">
+        <div class="bank-eco-count">26</div>
+        <div class="bank-eco-type">Regional Rural<br>Banks (RRBs)</div>
+      </div>
+      <div class="bank-eco-card">
+        <div class="bank-eco-count">~80</div>
+        <div class="bank-eco-type">Direct Sponsor<br>Banks (NGCH)</div>
+      </div>
+    </div>
+
+    <div class="spacer"></div>
+    <div class="eco-strip">
+      <div class="eco-strip-title">Current CTS Clearing Flow — SFTP Batch Model</div>
+      <div class="eco-flow">
+        <div class="eco-node green">Depositor</div>
+        <div class="eco-arrow">→</div>
+        <div class="eco-node">Presentee Branch</div>
+        <div class="eco-arrow">→</div>
+        <div class="eco-node blue">Presentee Sponsor Bank<br><span style="font-size:9px;font-weight:400;opacity:.7">Scans · MICR · SFTP Upload</span></div>
+        <div class="eco-arrow">→</div>
+        <div class="eco-node amber">NPCI NGCH<br><span style="font-size:9px;font-weight:400;opacity:.7">Batch Sort · Route</span></div>
+        <div class="eco-arrow">→</div>
+        <div class="eco-node blue">Drawee Sponsor Bank<br><span style="font-size:9px;font-weight:400;opacity:.7">SFTP Poll · Process</span></div>
+        <div class="eco-arrow red">→</div>
+        <div class="eco-node" style="background:#dc2626">Return if Rejected<br><span style="font-size:9px;font-weight:400;opacity:.7">Silence = Confirmed</span></div>
+      </div>
+    </div>
+
+    <div class="callout red">
+      <p><strong>The Structural Flaw:</strong> A drawee bank learns about an inward item only at its next SFTP poll cycle — typically 5 to 20 minutes after NPCI receives it. In a 3-hour IET window, this silent latency is unacceptable. A bank processing 1,000 cheques in the AM session is consuming 10–20 minutes of its IET headroom before it even knows the items have arrived.</p>
+    </div>
+  </div>
+
+  <!-- SECTION 2: THE IMPERATIVE -->
+  <div class="sec-header">
+    <div class="sec-num red">2</div>
+    <div class="sec-header-text">The Imperative for Change — Five Structural Failures</div>
+    <div class="sec-header-sub">Why SFTP Cannot Serve a Real-Time Clearing Mandate</div>
+  </div>
+  <div class="sec-body">
+    <div class="prob-grid">
+      <div class="prob-card">
+        <div class="prob-card-num">Failure 01</div>
+        <h4>No Real-Time Receipt Confirmation</h4>
+        <p>When a presentee bank submits a batch via SFTP, confirmation arrives only in the next polling cycle — 5 to 15 minutes later. A failed submission may not be discovered until IET headroom has already been consumed.</p>
+        <div class="prob-outcome">↳ IET exposure from submission uncertainty</div>
+      </div>
+      <div class="prob-card">
+        <div class="prob-card-num">Failure 02</div>
+        <h4>Zero Per-Instrument Error Feedback</h4>
+        <p>Batch-level rejection provides no instrument-level detail. A bank submitting 500 instruments in a batch discovers only that "the batch failed." Identifying which instruments failed, why, and what to correct requires manual investigation.</p>
+        <div class="prob-outcome">↳ Manual triage consuming operations bandwidth</div>
+      </div>
+      <div class="prob-card">
+        <div class="prob-card-num">Failure 03</div>
+        <h4>Polling Creates Artificial Inward Latency</h4>
+        <p>Inward items arrive at NPCI in real time. The drawee bank discovers them only at its next poll cycle. This introduces 5–20 minutes of artificial latency before processing can begin — directly consuming IET headroom that belongs to the bank.</p>
+        <div class="prob-outcome">↳ Up to 11% of IET window wasted on polling delay</div>
+      </div>
+      <div class="prob-card">
+        <div class="prob-card-num">Failure 04</div>
+        <h4>No Machine-Readable Status API</h4>
+        <p>Live status of a submitted instrument is unavailable during the clearing window. Settlement reports arrive only at session close. A bank cannot determine in real time whether an item has been delivered, is being processed, or is at IET risk.</p>
+        <div class="prob-outcome">↳ No IET risk visibility until it is too late</div>
+      </div>
+      <div class="prob-card">
+        <div class="prob-card-num">Failure 05</div>
+        <h4>No Native AI Integration Path</h4>
+        <p>Modern processing systems use AI agents for fraud detection, signature verification, and decision-making. SFTP provides no structured API surface for these agents — every bank builds its own translation layer, introducing inconsistency, latency, and unverifiable processing gaps.</p>
+        <div class="prob-outcome">↳ Each bank's AI integration is a custom point solution</div>
+      </div>
+      <div class="prob-card">
+        <div class="prob-card-num">The IET Clock</div>
+        <h4>How the 3-Hour Window Is Actually Consumed</h4>
+        <div class="iet-timeline">
+          <div class="iet-seg">
+            <div class="iet-bar safe"></div>
+            <div class="iet-label"><strong>0–5 min</strong>SFTP Upload<br>+ Polling Wait</div>
+          </div>
+          <div class="iet-divider"></div>
+          <div class="iet-seg">
+            <div class="iet-bar safe"></div>
+            <div class="iet-label"><strong>5–25 min</strong>NPCI Batch<br>Processing</div>
+          </div>
+          <div class="iet-divider"></div>
+          <div class="iet-seg">
+            <div class="iet-bar warn"></div>
+            <div class="iet-label"><strong>25–40 min</strong>Drawee<br>Poll Delay</div>
+          </div>
+          <div class="iet-divider"></div>
+          <div class="iet-seg">
+            <div class="iet-bar safe" style="background:#2563eb"></div>
+            <div class="iet-label"><strong>40–150 min</strong>AI/CBS<br>Processing</div>
+          </div>
+          <div class="iet-divider"></div>
+          <div class="iet-seg">
+            <div class="iet-bar warn"></div>
+            <div class="iet-label"><strong>150–170 min</strong>Human<br>Review Buffer</div>
+          </div>
+          <div class="iet-divider"></div>
+          <div class="iet-seg">
+            <div class="iet-bar danger"></div>
+            <div class="iet-label"><strong>170–180 min</strong>IET<br>Breach Risk</div>
+          </div>
+        </div>
+        <div class="prob-outcome">↳ API eliminates the orange: 35 min reclaimed for AI processing</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 3: THE PROPOSAL -->
+  <div class="sec-header">
+    <div class="sec-num blue">3</div>
+    <div class="sec-header-text">The Proposal — Three Phases of Protocol Evolution</div>
+    <div class="sec-header-sub">Progressive, Non-Disruptive, Backwards-Compatible</div>
+  </div>
+  <div class="sec-body">
+    <div class="callout green">
+      <p><strong>Design Principle:</strong> Each phase builds on the previous. No bank is forced to migrate before its readiness. SFTP and API operate in parallel for 24 months. The IET mandate creates urgency for Phase 1; the intelligence economy drives Phase 3.</p>
+    </div>
+    <div class="spacer"></div>
+    <div class="phase-grid">
+      <div class="phase-card">
+        <div class="phase-card-head">
+          <div class="phase-badge p1">P·1</div>
+          <div>
+            <div class="phase-title">JSON REST API<br>Layer</div>
+            <div class="phase-period">Months 0–12</div>
+          </div>
+        </div>
+        <div class="phase-body">Replace SFTP file exchange with synchronous REST APIs. Individual instrument submission, real-time callback delivery, structured per-instrument error codes, and live status queries — at UPI-standard quality. Clearing mechanics unchanged.</div>
+        <div>
+          <span class="phase-tag">POST /cts/v1/instruments</span>
+          <span class="phase-tag">POST /cts/v1/returns</span>
+          <span class="phase-tag">GET /cts/v1/status</span>
+        </div>
+        <div class="phase-outcome">→ Zero SFTP polling · Real-time receipt confirmation · Per-instrument error feedback</div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-card-head">
+          <div class="phase-badge p2">P·2</div>
+          <div>
+            <div class="phase-title">Webhook Push<br>Delivery</div>
+            <div class="phase-period">Months 12–24</div>
+          </div>
+        </div>
+        <div class="phase-body">NPCI pushes inward items to registered drawee bank endpoints in real time as instruments clear NPCI's inbound validation. Banks register webhook endpoints at onboarding. NPCI delivers with retry semantics. Banks gain the full IET window from the moment NPCI receives the item.</div>
+        <div>
+          <span class="phase-tag">Webhook Push</span>
+          <span class="phase-tag">Retry: 3x, Exp Backoff</span>
+          <span class="phase-tag">5s Response SLA</span>
+        </div>
+        <div class="phase-outcome">→ Full 3-hour IET window available · Zero polling infrastructure at banks</div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-card-head">
+          <div class="phase-badge p3">P·3</div>
+          <div>
+            <div class="phase-title">MCP Intelligence<br>Layer</div>
+            <div class="phase-period">Months 24–36</div>
+          </div>
+        </div>
+        <div class="phase-body">NPCI exposes a Model Context Protocol server above the REST APIs. AI processing systems at member banks interact with the clearing grid through structured tools — submitting instruments, querying context, filing decisions — as native operations in an intelligent agent workflow.</div>
+        <div>
+          <span class="phase-tag">MCP Tools</span>
+          <span class="phase-tag">MCP Resources</span>
+          <span class="phase-tag">AI-Native</span>
+        </div>
+        <div class="phase-outcome">→ Clearing grid becomes a native capability in AI agent workflows</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 4: DESIGN PRINCIPLES -->
+  <div class="sec-header">
+    <div class="sec-num">4</div>
+    <div class="sec-header-text">API Design Principles — The Foundation</div>
+    <div class="sec-header-sub">Five Principles Governing Every Design Decision</div>
+  </div>
+  <div class="sec-body">
+    <div class="principle-strip">
+      <div class="principle">
+        <div class="principle-num">01</div>
+        <div>
+          <div class="principle-head">Instrument-First, Not Batch-First</div>
+          <div class="principle-body">Every API operation addresses a single instrument. Batching is handled at transport layer (bulk array), not at protocol layer. Each instrument gets its own response, error feedback, lifecycle state, and IET timer — independent of every other instrument in the submission.</div>
+        </div>
+      </div>
+      <div class="principle">
+        <div class="principle-num">02</div>
+        <div>
+          <div class="principle-head">Authentication Before Data — Always</div>
+          <div class="principle-body">Every request carries two identity layers: institutional identity (mTLS certificate + API key) and request integrity (HMAC-SHA256 signature over the payload body). Data is never processed unless both layers pass. This mirrors UPI's device authentication → transaction authorisation model.</div>
+        </div>
+      </div>
+      <div class="principle">
+        <div class="principle-num">03</div>
+        <div>
+          <div class="principle-head">Synchronous Acknowledgement, Async Processing</div>
+          <div class="principle-body">Submission APIs return synchronously with a receipt confirmation within 200ms SLA. The instrument then undergoes asynchronous NPCI validation and forwarding. Status is queryable at any time. Outcomes are delivered via webhook callbacks — no polling required.</div>
+        </div>
+      </div>
+      <div class="principle">
+        <div class="principle-num">04</div>
+        <div>
+          <div class="principle-head">Machine-Readable Errors at Every Layer</div>
+          <div class="principle-body">Every error carries: numeric error code, category code, human-readable description, remediation hint, affected field path, and correlation ID. No error is a black box. A bank's processing system must be able to classify any error and route it to the correct remediation path without human intervention.</div>
+        </div>
+      </div>
+      <div class="principle">
+        <div class="principle-num">05</div>
+        <div>
+          <div class="principle-head">Idempotency as a First-Class Guarantee</div>
+          <div class="principle-body">Every state-changing operation requires an <code>X-Idempotency-Key</code> header (UUIDv7). NPCI stores idempotency keys for 24 hours. A retry with the same key returns the original response without reprocessing. Eliminates the possibility of duplicate instrument submissions under network retry conditions — permanently.</div>
+        </div>
+      </div>
+      <div class="principle">
+        <div class="principle-num">06</div>
+        <div>
+          <div class="principle-head">IET-Aware at Protocol Level</div>
+          <div class="principle-body">Every instrument response and status query includes <code>iet_deadline</code>, <code>iet_remaining_seconds</code>, and <code>iet_risk_level</code>. The protocol is not neutral to time — it actively communicates urgency. Banks' processing systems receive continuous IET state without needing to calculate it independently.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 5: AUTHENTICATION -->
+  <div class="sec-header">
+    <div class="sec-num blue">5</div>
+    <div class="sec-header-text">Authentication Architecture — Three Mandatory Layers</div>
+    <div class="sec-header-sub">Zero Trust · mTLS · HMAC-SHA256 · Token Scoping</div>
+  </div>
+  <div class="sec-body">
+    <div class="callout amber">
+      <p><strong>Architecture Principle:</strong> No layer can be skipped. Failure at Layer 1 (mTLS) means no TCP connection — no HTTP response is ever issued. Failure at Layer 2 (API key + session token) means a 401 before any payload is parsed. Failure at Layer 3 (request signature) means a 401 even if credentials are valid — the request integrity must be independently verified.</p>
+    </div>
+    <div class="spacer"></div>
+    <div class="auth-layers">
+      <div class="auth-layer">
+        <div class="auth-layer-num l1">L·1</div>
+        <div class="auth-layer-content">
+          <div class="auth-layer-title">Transport Identity — Mutual TLS</div>
+          <div class="auth-layer-sub">Always-on · Enforced at TCP connection · No bypass mechanism exists</div>
+          <div class="auth-layer-grid">
+            <div class="auth-spec"><label>Mechanism</label><val>mTLS (TLS 1.3)</val></div>
+            <div class="auth-spec"><label>Certificate Authority</label><val>NPCI Internal PKI</val></div>
+            <div class="auth-spec"><label>Certificate Validity</label><val>2 Years (renewable)</val></div>
+            <div class="auth-spec"><label>Certificate Identity Fields</label><val>bank_ifsc · member_type (SB/SMB) · clearing_zones</val></div>
+            <div class="auth-spec"><label>Revocation</label><val>OCSP Stapling — real-time revocation check on every handshake</val></div>
+            <div class="auth-spec"><label>Failure Behaviour</label><val>TLS handshake rejected — no HTTP response issued</val></div>
+          </div>
+          <div class="arrow-tag">NPCI accepts connections only from banks holding a valid NPCI-issued client certificate</div>
+        </div>
+      </div>
+      <div class="auth-layer">
+        <div class="auth-layer-num l2">L·2</div>
+        <div class="auth-layer-content">
+          <div class="auth-layer-title">Application Identity — API Key + Session Token</div>
+          <div class="auth-layer-sub">Per clearing session · Scoped to operations and zones · 4-hour TTL</div>
+          <div class="auth-layer-grid">
+            <div class="auth-spec"><label>API Key</label><val>Static credential · Issued at onboarding · Rotated annually</val></div>
+            <div class="auth-spec"><label>Session Token</label><val>Bearer JWT · Obtained via POST /auth/v1/token · 4-hour validity</val></div>
+            <div class="auth-spec"><label>Token Scope</label><val>clearing_date · bank_ifsc · allowed_operations · clearing_zones</val></div>
+            <div class="auth-spec"><label>Token Binding</label><val>Bound to originating IP CIDR registered at onboarding</val></div>
+            <div class="auth-spec"><label>Token Signing</label><val>RS256 · NPCI private key (HSM-held, FIPS 140-2)</val></div>
+            <div class="auth-spec"><label>Token Payload</label><val>iss: npci.org.in · aud: cts-api · jti: unique per token</val></div>
+          </div>
+          <div class="arrow-tag">Tokens are scoped — a token for INSTRUMENT_SUBMIT cannot file returns without explicit scope</div>
+        </div>
+      </div>
+      <div class="auth-layer">
+        <div class="auth-layer-num l3">L·3</div>
+        <div class="auth-layer-content">
+          <div class="auth-layer-title">Request Integrity — HMAC-SHA256 Signature</div>
+          <div class="auth-layer-sub">Per request · Prevents replay attacks · Signing key held in bank HSM</div>
+          <div class="auth-layer-grid">
+            <div class="auth-spec"><label>Algorithm</label><val>HMAC-SHA256</val></div>
+            <div class="auth-spec"><label>Signed String Components</label><val>HTTP_METHOD + \n + URL_PATH + \n + TIMESTAMP_MS + \n + SHA256(request_body)</val></div>
+            <div class="auth-spec"><label>Signing Key</label><val>bank_signing_secret · Held in bank HSM · Never transmitted</val></div>
+            <div class="auth-spec"><label>Timestamp Tolerance</label><val>±5 minutes · Requests outside window rejected with AUTH_4002</val></div>
+            <div class="auth-spec"><label>Replay Protection</label><val>Signature nonce cached for 10 minutes · Same signature rejected with AUTH_4012</val></div>
+            <div class="auth-spec"><label>Headers Required</label><val>X-NPCI-Signature: {hmac_hex} · X-NPCI-Timestamp: {epoch_ms}</val></div>
+          </div>
+          <div class="arrow-tag">Even a valid token cannot submit a request if the body has been tampered with in transit</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 6: API FLOWS -->
+  <div class="sec-header">
+    <div class="sec-num green">6</div>
+    <div class="sec-header-text">API Specification — Five Core Flows</div>
+    <div class="sec-header-sub">Base URL: https://cts.npci.org.in/api · All Versions in URL Path · TLS 1.3 Mandatory</div>
+  </div>
+  <div class="sec-body">
+
+    <!-- FLOW 1 -->
+    <div class="flow-header">
+      <div class="flow-num">1</div>
+      <div class="flow-title">Presentee Bank → NPCI: Instrument Submission</div>
+      <div class="flow-subtitle">POST /cts/v1/instruments · HTTP 202 Accepted</div>
+    </div>
+    <div class="flow-body">
+      <div class="flow-desc">The presentee bank (or its sponsor bank on behalf of a sub-member) submits scanned cheque instruments with MICR data and base64-encoded images. NPCI returns synchronous receipt confirmation within 200ms. Per-instrument acceptance or rejection follows in the same response for multi-instrument submissions.</div>
+
+      <div class="code-label">Required Headers</div>
+      <div class="code-block"><pre>Authorization:      Bearer {session_token}
+X-NPCI-Signature:   {hmac_sha256_of_body}
+X-NPCI-Timestamp:   {epoch_milliseconds}
+X-Idempotency-Key:  {uuid_v7}                 — deduplicated for 24 hours
+X-Presenting-Bank:  {bank_ifsc}               — 11-char IFSC of presenting bank
+Content-Type:       application/json
+X-API-Version:      1.0</pre></div>
+
+      <div class="code-label">Request Payload (Single Instrument)</div>
+      <div class="code-block"><pre>{
+  "submission": {
+    "batch_id":             "BTH_HDFC0000001_20260626_001",
+    "submitted_at":         "2026-06-26T10:00:00.000Z",
+    "presenting_bank_ifsc": "HDFC0000001",
+    "clearing_zone":        "MUMBAI_MCS",
+    "total_instruments":    1,
+    "total_amount_paise":   25000000
+  },
+  "instruments": [{
+    "instrument_id":   "INS_01J4K7M9P2Q3R4S5T6U7V8W9X0",     <span class="k">← UUIDv7 — bank-generated</span>
+    "micr_data": {
+      "cheque_number":   "000123",
+      "micr_code":       "400240001",                           <span class="k">← 9-digit MICR code</span>
+      "account_number":  "50100012345678",
+      "transaction_code":"29"
+    },
+    "instrument_metadata": {
+      "drawee_bank_ifsc":  "ICIC0000001",
+      "amount_paise":      25000000,                            <span class="k">← Always in Paise, never rupees</span>
+      "currency":          "INR",
+      "cheque_date":       "2026-06-25",
+      "instrument_type":   "BEARER_CHEQUE",
+      "clearing_type":     "NORMAL",
+      "iet_deadline":      "2026-06-26T13:00:00.000Z"          <span class="k">← Computed by presentee bank</span>
+    },
+    "images": {
+      "front": {
+        "data":            "base64_encoded_tiff_300dpi...",
+        "format":          "TIFF",
+        "dpi":             300,
+        "size_bytes":      48291,
+        "checksum_sha256": "a3f5c2d1e8b4..."                   <span class="k">← NPCI validates checksum</span>
+      },
+      "rear": {
+        "data":            "base64_encoded_tiff_300dpi...",
+        "format":          "TIFF",
+        "dpi":             300,
+        "size_bytes":      31042,
+        "checksum_sha256": "b7e9f3a2c1d4..."
+      }
+    },
+    "presentee_metadata": {
+      "branch_code":        "BRC_MUM_001",
+      "scanner_id":         "SCN_0042",
+      "operator_id_hash":   "sha256_of_operator_id",           <span class="k">← Never plain operator ID</span>
+      "scan_timestamp":     "2026-06-26T09:55:12.000Z",
+      "endorsement_stamp":  "FOR HDFC BANK CTS CLEARING 2026-06-26",
+      "batch_sequence_no":  1
+    }
+  }]
+}</pre></div>
+
+      <div class="response-grid">
+        <div class="resp-card">
+          <div class="resp-head ok">✓ HTTP 202 — Accepted</div>
+          <div class="resp-body"><pre>{
+  "status": "ACCEPTED",
+  "correlation_id": "npci_01J4K7...",
+  "data": {
+    "npci_batch_ref": "NPCI_BTH_20260626_MUM_00847",
+    "instruments_accepted": 1,
+    "instruments_rejected": 0,
+    "accepted": [{
+      "instrument_id": "INS_01J4K7...",
+      "npci_reference": "NPCI_INS_20260626_001234567",
+      "drawee_bank_ifsc": "ICIC0000001",
+      "iet_deadline": "2026-06-26T13:00:00.000Z",
+      "status": "QUEUED_FOR_FORWARDING",
+      "est_delivery_ms": 3000
+    }]
+  }
+}</pre></div>
+        </div>
+        <div class="resp-card">
+          <div class="resp-head multi">⊕ HTTP 207 — Partial (Multi-Status)</div>
+          <div class="resp-body"><pre>{
+  "status": "PARTIAL_ACCEPTANCE",
+  "correlation_id": "npci_01J4K8...",
+  "data": {
+    "instruments_accepted": 498,
+    "instruments_rejected": 2,
+    "rejected": [{
+      "instrument_id": "INS_01J4K7MXXX",
+      "error": {
+        "code": "IMAGE_4004",
+        "category": "IMAGE_QUALITY_FAILURE",
+        "description": "Front image DPI below minimum.",
+        "detail": "Received: 200 DPI. Required: 300 DPI minimum.",
+        "remediation": "Re-scan at 300 DPI. New idempotency key required.",
+        "field": "instruments[1].images.front.dpi"
+      }
+    }]
+  }
+}</pre></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FLOW 2 -->
+    <div class="flow-header">
+      <div class="flow-num">2</div>
+      <div class="flow-title">NPCI → Drawee Bank: Real-Time Inward Push (Webhook)</div>
+      <div class="flow-subtitle">POST {bank_registered_webhook_url} · 5-Second Response SLA</div>
+    </div>
+    <div class="flow-body">
+      <div class="flow-desc">Upon accepting an instrument, NPCI immediately pushes it to the drawee sponsor bank's registered HTTPS webhook endpoint. This is the core change from SFTP polling — the drawee bank's IET clock starts from NPCI receipt, not from the bank's next poll cycle. NPCI retries 3 times on non-2xx responses (30s, then 120s).</div>
+
+      <div class="code-label">Headers Sent by NPCI to the Bank's Webhook</div>
+      <div class="code-block"><pre>X-NPCI-Delivery-ID:    del_01J4K7M9P2Q3R4S5T6U7V8W9X0     <span class="k">← Unique per delivery attempt</span>
+X-NPCI-Signature:      {hmac_sha256_using_shared_webhook_secret}
+X-NPCI-Timestamp:      {epoch_ms}
+X-NPCI-Retry-Count:    0                                   <span class="k">← Increments: 0, 1, 2</span>
+Content-Type:          application/json
+X-API-Version:         1.0</pre></div>
+
+      <div class="code-label">Inward Instrument Payload (Delivered by NPCI)</div>
+      <div class="code-block"><pre>{
+  "event_type":   "INWARD_INSTRUMENT_RECEIVED",
+  "event_id":     "evt_01J4K7M9P2Q3R4S5T6U7V8W9X0",
+  "delivered_at": "2026-06-26T10:00:03.241Z",
+  "npci_reference":"NPCI_INS_20260626_001234567",
+  "instrument": {
+    "instrument_id":         "INS_01J4K7M9P2Q3R4S5T6U7V8W9X0",
+    "micr_data": { ... },    <span class="k">← Same structure as submission</span>
+    "instrument_metadata": {
+      "presenting_bank_ifsc": "HDFC0000001",
+      "drawee_bank_ifsc":     "ICIC0000001",
+      "amount_paise":          25000000,
+      "cheque_date":           "2026-06-25",
+      "iet_deadline":          "2026-06-26T13:00:00.000Z",
+      "iet_remaining_seconds": 10797                        <span class="k">← Live countdown at delivery time</span>
+    },
+    "images": { "front": { ... }, "rear": { ... } },       <span class="k">← Full base64 images included</span>
+    "npci_validations_passed": [
+      "MICR_FORMAT_VALID", "IMAGE_QUALITY_COMPLIANT",
+      "CHEQUE_DATE_VALID",  "PRESENTING_BANK_AUTHORISED",
+      "DUPLICATE_CHECK_PASSED"
+    ],
+    "clearing_session": {
+      "session_id":       "SES_MUM_20260626_AM",
+      "clearing_zone":    "MUMBAI_MCS",
+      "settlement_date":  "2026-06-26"
+    }
+  }
+}</pre></div>
+
+      <div class="code-label">Expected Acknowledgement from Bank (within 5 seconds)</div>
+      <div class="code-block"><pre>{
+  "status":               "ACKNOWLEDGED",
+  "delivery_id":          "del_01J4K7M9P2Q3R4S5T6U7V8W9X0",
+  "received_at":          "2026-06-26T10:00:03.891Z",
+  "bank_internal_ref":    "ICICI_INW_20260626_987654"       <span class="k">← Bank's own reference — logged by NPCI</span>
+}</pre></div>
+
+      <div class="callout amber">
+        <p><strong>Retry Protocol:</strong> If the bank does not respond within 5 seconds, NPCI retries after 30 seconds, then after 2 minutes. After 3 failed attempts, NPCI marks delivery as UNDELIVERED and escalates per RBI protocol. <strong>The IET timer continues regardless of delivery status.</strong> Banks must ensure webhook infrastructure has 99.99% uptime during clearing hours.</p>
+      </div>
+    </div>
+
+    <!-- FLOW 3 -->
+    <div class="flow-header">
+      <div class="flow-num">3</div>
+      <div class="flow-title">Drawee Bank → NPCI: Return Filing</div>
+      <div class="flow-subtitle">POST /cts/v1/returns · Images NOT Re-transmitted · Metadata Only</div>
+    </div>
+    <div class="flow-body">
+      <div class="flow-desc">When the drawee bank decides to return an instrument, it files a structured return via API. Images are NOT re-transmitted — NPCI holds the originals. Only metadata and the return reason code are sent. IET status is returned synchronously, confirming the return was filed within the window.</div>
+
+      <div class="code-label">Return Filing Payload</div>
+      <div class="code-block"><pre>{
+  "returns": [{
+    "return_id":            "RET_01J4K7M9P2Q3R4S5T6U7V8W9X0",
+    "npci_reference":       "NPCI_INS_20260626_001234567",
+    "instrument_id":        "INS_01J4K7M9P2Q3R4S5T6U7V8W9X0",
+    "returning_bank_ifsc":  "ICIC0000001",
+    "return_reason": {
+      "primary_code":       "01",                           <span class="k">← RBI standardised code</span>
+      "primary_description":"Funds Insufficient",
+      "secondary_code":     null,
+      "rbi_regulation_ref": "RBI/CTS/2010/Return_Reason_Code_01"
+    },
+    "return_metadata": {
+      "decision_timestamp":  "2026-06-26T11:23:44.000Z",
+      "decision_mode":       "AUTOMATED_STP",               <span class="k">← AUTOMATED_STP | HUMAN_REVIEWED</span>
+      "authorised_by_role":  "SYSTEM_AGENT",
+      "branch_code":         "BRC_MUM_001",
+      "remarks":             "Account balance insufficient for cheque amount.",
+      "advice_to_presenter": "Resubmit after account holder deposits funds."
+    },
+    "return_memo": {
+      "objection_memo_no":  "OM_ICIC_20260626_00421",
+      "account_suffix":     "5678",                         <span class="k">← Last 4 only — never full account number</span>
+      "amount_paise":       25000000
+    }
+  }]
+}</pre></div>
+
+      <div class="code-block"><pre><span class="k">// Response — Return Accepted (HTTP 202)</span>
+{
+  "status": "ACCEPTED",
+  "data": {
+    "accepted": [{
+      "return_id":         "RET_01J4K7...",
+      "npci_return_ref":   "NPCI_RET_20260626_000891",
+      "status":            "RETURN_FILED",
+      "settlement_impact": "DEBIT_REVERSED",
+      "filed_at":          "2026-06-26T11:23:45.221Z",
+      "iet_status":        "FILED_WITHIN_IET",              <span class="n">← FILED_WITHIN_IET | IET_BREACH_RISK | IET_EXPIRED</span>
+      "iet_remaining_at_filing_seconds": 5775
+    }]
+  }
+}</pre></div>
+    </div>
+
+    <!-- FLOW 4 -->
+    <div class="flow-header">
+      <div class="flow-num">4</div>
+      <div class="flow-title">Real-Time Status Query</div>
+      <div class="flow-subtitle">GET /cts/v1/instruments/{npci_reference} · Live IET Countdown</div>
+    </div>
+    <div class="flow-body">
+      <div class="flow-desc">Any authorised party — presentee or drawee bank — may query the real-time lifecycle status of any instrument at any point during the clearing session. The response includes live IET remaining time, risk level, and full lifecycle event log. Queryable every 30 seconds per instrument (rate limit: 5,000 queries/minute per bank).</div>
+      <div class="code-block"><pre><span class="k">// Response — Instrument Status</span>
+{
+  "npci_reference":      "NPCI_INS_20260626_001234567",
+  "current_status":      "DELIVERED_TO_DRAWEE",
+  "iet_deadline":        "2026-06-26T13:00:00.000Z",
+  "iet_remaining_secs":  5412,
+  "iet_risk_level":      "NORMAL",                          <span class="n">← NORMAL | ELEVATED | HIGH | CRITICAL | EXPIRED</span>
+  "lifecycle": [
+    { "event": "SUBMITTED_BY_PRESENTEE",  "timestamp": "...10:00:00Z", "party": "HDFC0000001" },
+    { "event": "NPCI_VALIDATION_PASSED",  "timestamp": "...10:00:00Z", "party": "NPCI" },
+    { "event": "DELIVERED_TO_DRAWEE",     "timestamp": "...10:00:03Z", "party": "ICIC0000001" },
+    { "event": "DELIVERY_ACKNOWLEDGED",   "timestamp": "...10:00:03Z", "party": "ICIC0000001" }
+  ]
+}</pre></div>
+
+      <div class="layer-grid" style="margin-top:10px">
+        <div class="layer-item" style="border-left:3px solid #059669">
+          <h5>NORMAL — &gt;60 min remaining</h5>
+          <p>Process normally within standard workflow</p>
+        </div>
+        <div class="layer-item" style="border-left:3px solid #2563eb">
+          <h5>ELEVATED — 30–60 min remaining</h5>
+          <p>Prioritise in processing queue; skip non-critical enrichment steps</p>
+        </div>
+        <div class="layer-item" style="border-left:3px solid #d97706">
+          <h5>HIGH — 10–30 min remaining</h5>
+          <p>Escalate to supervisor; initiate emergency decision protocol</p>
+        </div>
+        <div class="layer-item" style="border-left:3px solid #dc2626">
+          <h5>CRITICAL — &lt;10 min remaining</h5>
+          <p>Emergency filing path; AI decision without human review</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- FLOW 5 -->
+    <div class="flow-header">
+      <div class="flow-num">5</div>
+      <div class="flow-title">Clearing Session Lifecycle Notifications</div>
+      <div class="flow-subtitle">Webhook Push to All Members · Replaces Settlement Report Files</div>
+    </div>
+    <div class="flow-body">
+      <div class="flow-desc">NPCI pushes session state changes to all registered member endpoints. Replaces settlement report files. Member banks receive real-time session progression — including the 30-minute IET warning that must trigger emergency return-filing for all unresolved instruments.</div>
+      <div class="code-block"><pre><span class="k">// IET Warning — Sent 30 Minutes Before IET Window Closes</span>
+{
+  "event_type":  "CLEARING_SESSION_STATE_CHANGE",
+  "session": {
+    "session_id":            "SES_MUM_20260626_AM",
+    "new_state":             "IET_WINDOW_CLOSING",           <span class="n">← State transition trigger</span>
+    "iet_deadline":          "2026-06-26T13:00:00.000Z",
+    "iet_minutes_remaining": 30,
+    "message":               "IET window closes in 30 minutes. All unresolved instruments will be deemed confirmed at 13:00 IST.",
+    "action_required":       "FILE_ALL_PENDING_RETURNS_IMMEDIATELY"
+  }
+}</pre></div>
+
+      <div class="eco-strip">
+        <div class="eco-strip-title">Session State Machine</div>
+        <div class="eco-flow" style="flex-wrap:wrap;gap:4px">
+          <div class="eco-node gray" style="font-size:9px;padding:4px 8px">SESSION_ANNOUNCED</div>
+          <div class="eco-arrow">→</div>
+          <div class="eco-node green" style="font-size:9px;padding:4px 8px">SESSION_OPEN</div>
+          <div class="eco-arrow">→</div>
+          <div class="eco-node blue" style="font-size:9px;padding:4px 8px">SUBMISSION_CUTOFF</div>
+          <div class="eco-arrow">→</div>
+          <div class="eco-node" style="background:#2563eb;font-size:9px;padding:4px 8px">PROCESSING</div>
+          <div class="eco-arrow">→</div>
+          <div class="eco-node amber" style="font-size:9px;padding:4px 8px">IET_WINDOW_CLOSING</div>
+          <div class="eco-arrow">→</div>
+          <div class="eco-node" style="background:#dc2626;font-size:9px;padding:4px 8px">IET_EXPIRED</div>
+          <div class="eco-arrow">→</div>
+          <div class="eco-node gray" style="font-size:9px;padding:4px 8px">SETTLEMENT_RUN</div>
+          <div class="eco-arrow">→</div>
+          <div class="eco-node green" style="font-size:9px;padding:4px 8px">SETTLEMENT_COMPLETE</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /sec-body -->
+
+  <!-- SECTION 7: SECURITY FRAMEWORK -->
+  <div class="sec-header">
+    <div class="sec-num red">7</div>
+    <div class="sec-header-text">Security Framework — Enterprise-Grade, Banking-Mandatory</div>
+    <div class="sec-header-sub">Rate Limiting · Fallback Mechanisms · Accessibility Controls · Incident Response</div>
+  </div>
+  <div class="sec-body">
+
+    <div class="sec-grid-3">
+      <div class="sec-card">
+        <div class="sec-card-head navy"><span class="sec-card-icon">⚡</span>Rate Limiting</div>
+        <div class="sec-card-body">
+          <div class="metric-row"><span class="metric-label">Instrument Submit</span><span class="metric-val">2,000 / min per bank</span></div>
+          <div class="metric-row"><span class="metric-label">Return Filing</span><span class="metric-val">500 / min per bank</span></div>
+          <div class="metric-row"><span class="metric-label">Status Query</span><span class="metric-val">5,000 / min per bank</span></div>
+          <div class="metric-row"><span class="metric-label">Auth Token</span><span class="metric-val">10 / min per key</span></div>
+          <div class="metric-row"><span class="metric-label">Concurrent Connections</span><span class="metric-val">50 per bank CIDR</span></div>
+          <div class="metric-row"><span class="metric-label">Max Payload Size</span><span class="metric-val">10 MB per request</span></div>
+          <div style="margin-top:8px">
+            <ul>
+              <li>Limits enforced at NPCI gateway — bank's IP CIDR bucket</li>
+              <li>Headers returned: <code>X-RateLimit-Limit</code>, <code>X-RateLimit-Remaining</code>, <code>Retry-After</code></li>
+              <li>IET CRITICAL instruments get priority lane: 10× normal limit</li>
+              <li>Limits increased on prior written request during peak periods</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-card">
+        <div class="sec-card-head blue"><span class="sec-card-icon">🔄</span>Fallback &amp; Resilience</div>
+        <div class="sec-card-body">
+          <div class="metric-row"><span class="metric-label">API Availability SLA</span><span class="metric-val green">99.99%</span></div>
+          <div class="metric-row"><span class="metric-label">SFTP Fallback</span><span class="metric-val green">Always available</span></div>
+          <div class="metric-row"><span class="metric-label">SFTP Sunset</span><span class="metric-val amber">30 months notice</span></div>
+          <div class="metric-row"><span class="metric-label">Webhook Retry</span><span class="metric-val">3× exp backoff</span></div>
+          <div class="metric-row"><span class="metric-label">Webhook Fallback</span><span class="metric-val">SFTP for undeliverable</span></div>
+          <div style="margin-top:8px">
+            <ul>
+              <li><strong>SFTP never removed without 30-month notice</strong> — banks cannot be stranded</li>
+              <li>API failure → automatic SFTP fallback mode, no bank intervention needed</li>
+              <li>Webhook undeliverable after 3 attempts → SFTP delivery triggered automatically</li>
+              <li>NPCI maintains active-active API infrastructure across 2 DCs — DC failure transparent to banks</li>
+              <li>Bank acknowledgement failures: NPCI records UNDELIVERED, escalates to RBI protocol — IET clock is not paused</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-card">
+        <div class="sec-card-head green"><span class="sec-card-icon">🔐</span>Cryptographic Controls</div>
+        <div class="sec-card-body">
+          <div class="metric-row"><span class="metric-label">Transport</span><span class="metric-val">TLS 1.3 mandatory</span></div>
+          <div class="metric-row"><span class="metric-label">Cipher Suites</span><span class="metric-val">AES-256-GCM only</span></div>
+          <div class="metric-row"><span class="metric-label">Key Exchange</span><span class="metric-val">ECDHE (P-384)</span></div>
+          <div class="metric-row"><span class="metric-label">Signature Algorithm</span><span class="metric-val">HMAC-SHA256</span></div>
+          <div class="metric-row"><span class="metric-label">Token Signing</span><span class="metric-val">RS256 · FIPS HSM</span></div>
+          <div class="metric-row"><span class="metric-label">Cert Authority</span><span class="metric-val">NPCI Internal PKI</span></div>
+          <div style="margin-top:8px">
+            <ul>
+              <li>TLS 1.2 not accepted — TLS 1.3 only from Day 1</li>
+              <li>No self-signed certificates — NPCI PKI only</li>
+              <li>Certificate pinning recommended for bank API clients</li>
+              <li>NPCI session tokens signed with HSM-held private key — cannot be forged</li>
+              <li>All API logs encrypted at rest (AES-256) — retained 10 years per RBI</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-card">
+        <div class="sec-card-head amber"><span class="sec-card-icon">🏦</span>Accessibility &amp; Onboarding</div>
+        <div class="sec-card-body">
+          <div class="metric-row"><span class="metric-label">Sponsor Banks (SBs)</span><span class="metric-val">Direct API access</span></div>
+          <div class="metric-row"><span class="metric-label">Sub-Member Banks (SMBs)</span><span class="metric-val">Via SB — scoped token</span></div>
+          <div class="metric-row"><span class="metric-label">Webhook Registration</span><span class="metric-val">NPCI member portal</span></div>
+          <div class="metric-row"><span class="metric-label">Sandbox Environment</span><span class="metric-val green">Free · Always On</span></div>
+          <div class="metric-row"><span class="metric-label">UAT Validation Period</span><span class="metric-val">30 days minimum</span></div>
+          <div style="margin-top:8px">
+            <ul>
+              <li>SMBs access clearing through their Sponsor Bank's API proxy — no direct NPCI endpoint for SMBs</li>
+              <li>SBs may issue scoped sub-tokens to SMB technology vendors on their behalf</li>
+              <li>Sandbox at cts-sandbox.npci.org.in — full simulation including IET timers</li>
+              <li>Mandatory 5-step UAT checklist before production go-live</li>
+              <li>Existing SFTP participants onboard without disrupting live operations</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-card">
+        <div class="sec-card-head red"><span class="sec-card-icon">🚨</span>Fraud &amp; Abuse Prevention</div>
+        <div class="sec-card-body">
+          <div class="metric-row"><span class="metric-label">Duplicate Detection</span><span class="metric-val">24h idempotency window</span></div>
+          <div class="metric-row"><span class="metric-label">Replay Prevention</span><span class="metric-val">10-min nonce cache</span></div>
+          <div class="metric-row"><span class="metric-label">Timestamp Tolerance</span><span class="metric-val">±5 minutes only</span></div>
+          <div class="metric-row"><span class="metric-label">IP CIDR Binding</span><span class="metric-val">Per bank, registered</span></div>
+          <div class="metric-row"><span class="metric-label">Auth Lockout</span><span class="metric-val">5-min after 5 fails</span></div>
+          <div style="margin-top:8px">
+            <ul>
+              <li>Cross-bank duplicate detection: same cheque_number + account_number + MICR code within 24h flags INSTR_4006</li>
+              <li>Anomalous submission rate triggers automatic alert to NPCI NOC and bank's registered contact</li>
+              <li>Compromised API key: revocation effective in &lt;30 seconds across all NPCI gateways</li>
+              <li>All authentication events logged to immutable audit trail — non-repudiable</li>
+              <li>NPCI fraud signals (cross-bank patterns) shared via MCP resource layer in Phase 3</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-card">
+        <div class="sec-card-head slate"><span class="sec-card-icon">📋</span>Audit &amp; Compliance</div>
+        <div class="sec-card-body">
+          <div class="metric-row"><span class="metric-label">Log Retention</span><span class="metric-val">10 Years (RBI)</span></div>
+          <div class="metric-row"><span class="metric-label">Audit Trail</span><span class="metric-val">Immutable · Timestamped</span></div>
+          <div class="metric-row"><span class="metric-label">Correlation IDs</span><span class="metric-val">Every request + response</span></div>
+          <div class="metric-row"><span class="metric-label">IET Breach Logging</span><span class="metric-val">Real-time · RBI reportable</span></div>
+          <div class="metric-row"><span class="metric-label">RBI Examination</span><span class="metric-val">Query API available</span></div>
+          <div style="margin-top:8px">
+            <ul>
+              <li>Every API call logged with: timestamp, bank_ifsc, operation, correlation_id, response_code, latency_ms</li>
+              <li>IET breach events logged separately — automatically surfaced in RBI's supervisory dashboard</li>
+              <li>Non-repudiable: bank's HMAC signature stored with every instrument submission log entry</li>
+              <li>RBI examiners access via time-scoped read-only query API — no direct database access</li>
+              <li>Data residency: all logs within Indian jurisdiction — no cross-border data flow</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- SECTION 8: ERROR CODES -->
+  <div class="sec-header">
+    <div class="sec-num">8</div>
+    <div class="sec-header-text">Error Taxonomy — Complete Reference</div>
+    <div class="sec-header-sub">Machine-Readable · Categorised · Remediation-Linked</div>
+  </div>
+  <div class="sec-body">
+
+    <div class="callout">
+      <p><strong>Error Code Structure:</strong> <code>{DOMAIN}_{HTTP_CLASS}{SEQUENCE}</code> — e.g. <code>AUTH_4001</code>, <code>INSTR_4006</code>, <code>SYS_5003</code>. Every error includes: numeric code, category, human description, field path (where applicable), remediation instruction, and documentation URL. No error is a black box — every error is actionable without human intervention.</p>
+    </div>
+    <div class="spacer"></div>
+
+    <div style="font-size:10.5px;font-weight:700;color:#0f2044;margin-bottom:4px">Authentication Errors (AUTH) — HTTP 401 · 403 · 429</div>
+    <table>
+      <tr><th>Code</th><th>HTTP</th><th>Description</th><th>Remediation</th><th style="width:60px">Retry?</th></tr>
+      <tr><td class="err-code danger">AUTH_4001</td><td>401</td><td>HMAC signature validation failed</td><td>Verify signing_secret and signed string format: METHOD\nPATH\nTIMESTAMP\nSHA256(body)</td><td class="retry-no">No†</td></tr>
+      <tr><td class="err-code danger">AUTH_4002</td><td>401</td><td>Timestamp outside ±5 min window</td><td>Synchronise server clock via NTP; ensure no clock skew</td><td class="retry-no">No†</td></tr>
+      <tr><td class="err-code danger">AUTH_4003</td><td>401</td><td>Session token expired</td><td>Obtain new token via POST /auth/v1/token; retry original request</td><td class="retry-yes">Yes*</td></tr>
+      <tr><td class="err-code danger">AUTH_4004</td><td>401</td><td>Session token not yet valid</td><td>Token issuance anomaly — contact NPCI technical support</td><td class="retry-no">No</td></tr>
+      <tr><td class="err-code danger">AUTH_4005</td><td>401</td><td>API key revoked</td><td>Re-onboard via NPCI member portal; await new key issuance</td><td class="retry-no">No</td></tr>
+      <tr><td class="err-code warn">AUTH_4006</td><td>403</td><td>Operation not in token scope</td><td>Include required operation in token request scope parameter</td><td class="retry-no">No†</td></tr>
+      <tr><td class="err-code warn">AUTH_4007</td><td>403</td><td>Bank IFSC header does not match mTLS certificate</td><td>Verify X-Presenting-Bank header against certificate identity</td><td class="retry-no">No†</td></tr>
+      <tr><td class="err-code danger">AUTH_4008</td><td>403</td><td>mTLS client certificate expired</td><td>Renew certificate via NPCI PKI portal (allow 3 business days)</td><td class="retry-no">No</td></tr>
+      <tr><td class="err-code danger">AUTH_4009</td><td>403</td><td>mTLS certificate revoked</td><td>Contact NPCI security team immediately — certificate compromised</td><td class="retry-no">No</td></tr>
+      <tr><td class="err-code warn">AUTH_4010</td><td>403</td><td>Request IP not in registered CIDR</td><td>Register IP range via NPCI member portal (24h propagation)</td><td class="retry-no">No</td></tr>
+      <tr><td class="err-code warn">AUTH_4011</td><td>429</td><td>Too many auth attempts — 5-min lockout</td><td>Wait 5 minutes; verify credentials before next attempt</td><td class="retry-yes">After 5min</td></tr>
+      <tr><td class="err-code warn">AUTH_4012</td><td>401</td><td>Replay attack: signature already used with different payload</td><td>Generate new idempotency key; never reuse request signatures</td><td class="retry-no">No†</td></tr>
+    </table>
+
+    <div class="spacer"></div>
+    <div style="font-size:10.5px;font-weight:700;color:#0f2044;margin-bottom:4px">Instrument Validation Errors (INSTR) — HTTP 422 · 409</div>
+    <table>
+      <tr><th>Code</th><th>Category</th><th>Description</th><th>Remediation</th><th style="width:60px">Retry?</th></tr>
+      <tr><td class="err-code">INSTR_4001</td><td><span class="cat-pill inst">Date</span></td><td>Cheque date in future (post-dated)</td><td>Hold instrument; submit on or after cheque date</td><td class="retry-yes">Yes (later)</td></tr>
+      <tr><td class="err-code">INSTR_4002</td><td><span class="cat-pill inst">Date</span></td><td>Cheque date &gt;3 months old (stale)</td><td>Return to depositor — instrument cannot be cleared</td><td class="retry-no">No</td></tr>
+      <tr><td class="err-code">INSTR_4003</td><td><span class="cat-pill fin">Financial</span></td><td>Amount in Paise is zero</td><td>Verify amount_paise field — must be &gt; 0</td><td class="retry-no">No†</td></tr>
+      <tr><td class="err-code">INSTR_4004</td><td><span class="cat-pill fin">Financial</span></td><td>Amount exceeds single-instrument limit</td><td>Contact NPCI for RTGS routing for high-value instruments</td><td class="retry-no">No</td></tr>
+      <tr><td class="err-code">INSTR_4005</td><td><span class="cat-pill sys">Routing</span></td><td>Drawee bank IFSC not a CTS participant</td><td>Route via alternative clearing mechanism</td><td class="retry-no">No</td></tr>
+      <tr><td class="err-code danger">INSTR_4006</td><td><span class="cat-pill sec">Security</span></td><td>Duplicate: npci_reference already exists</td><td>Query existing reference — do NOT resubmit</td><td class="retry-no">No</td></tr>
+      <tr><td class="err-code danger">INSTR_4007</td><td><span class="cat-pill sec">Security</span></td><td>Duplicate: same cheque+account within 24h</td><td>Verify against duplicate entry; contact NPCI if legitimate</td><td class="retry-no">No</td></tr>
+      <tr><td class="err-code">INSTR_4008</td><td><span class="cat-pill sys">Routing</span></td><td>Instrument type not supported in clearing zone</td><td>Submit to correct clearing zone</td><td class="retry-no">No†</td></tr>
+      <tr><td class="err-code">INSTR_4014</td><td><span class="cat-pill inst">Session</span></td><td>Clearing session not open for submission</td><td>Check session schedule via GET /cts/v1/sessions/current</td><td class="retry-yes">Yes (wait)</td></tr>
+      <tr><td class="err-code">INSTR_4015</td><td><span class="cat-pill inst">Session</span></td><td>Submission cutoff time passed</td><td>Resubmit in next clearing session</td><td class="retry-yes">Next session</td></tr>
+    </table>
+
+    <div class="spacer"></div>
+    <div style="font-size:10.5px;font-weight:700;color:#0f2044;margin-bottom:4px">Image Quality &amp; MICR Errors (IMAGE / MICR) — HTTP 422</div>
+    <table>
+      <tr><th>Code</th><th>Category</th><th>Description</th><th>Remediation</th><th style="width:60px">Retry?</th></tr>
+      <tr><td class="err-code">IMAGE_4001</td><td><span class="cat-pill img">Image</span></td><td>Front image missing</td><td>Include base64 front image — mandatory field</td><td class="retry-no">No†</td></tr>
+      <tr><td class="err-code">IMAGE_4003</td><td><span class="cat-pill img">Image</span></td><td>Image format not supported (TIFF / JPEG2000 only)</td><td>Convert to TIFF or JPEG2000 before submission</td><td class="retry-no">No†</td></tr>
+      <tr><td class="err-code">IMAGE_4004</td><td><span class="cat-pill img">Image</span></td><td>Image DPI below 300 DPI minimum</td><td>Re-scan at 300 DPI; new idempotency key required for resubmission</td><td class="retry-no">No†</td></tr>
+      <tr><td class="err-code">IMAGE_4005</td><td><span class="cat-pill img">Image</span></td><td>Image file size exceeds 5 MB per image</td><td>Compress within CTS 2010 quality parameters</td><td class="retry-no">No†</td></tr>
+      <tr><td class="err-code">IMAGE_4006</td><td><span class="cat-pill img">Image</span></td><td>Image SHA-256 checksum mismatch</td><td>Re-encode image and recompute checksum; new idempotency key</td><td class="retry-no">No†</td></tr>
+      <tr><td class="err-code">IMAGE_4010</td><td><span class="cat-pill img">Image</span></td><td>Image quality below CTS 2010 legibility threshold</td><td>Re-scan under better conditions (lighting, scanner calibration)</td><td class="retry-no">No†</td></tr>
+      <tr><td class="err-code">MICR_4001</td><td><span class="cat-pill fin">MICR</span></td><td>MICR code not in RBI MICR directory</td><td>Verify drawee branch MICR code against RBI directory</td><td class="retry-no">No†</td></tr>
+      <tr><td class="err-code">MICR_4004</td><td><span class="cat-pill fin">MICR</span></td><td>MICR data inconsistent with image OCR extraction</td><td>Verify MICR reader calibration; re-scan instrument</td><td class="retry-no">No†</td></tr>
+      <tr><td class="err-code">MICR_4005</td><td><span class="cat-pill fin">MICR</span></td><td>Drawee bank derived from MICR differs from metadata</td><td>Correct drawee_bank_ifsc in metadata to match MICR code</td><td class="retry-no">No†</td></tr>
+    </table>
+
+    <div class="spacer"></div>
+    <div style="font-size:10.5px;font-weight:700;color:#0f2044;margin-bottom:4px">Return Filing Errors (RET) — HTTP 422 · 403 · 409</div>
+    <table>
+      <tr><th>Code</th><th>Description</th><th>Remediation</th><th style="width:60px">Retry?</th></tr>
+      <tr><td class="err-code">RET_4001</td><td>NPCI reference not found</td><td>Verify npci_reference value from original submission receipt</td><td class="retry-no">No</td></tr>
+      <tr><td class="err-code danger">RET_4002</td><td>Instrument already returned — duplicate return</td><td>Do not resubmit; return already filed and recorded</td><td class="retry-no">No</td></tr>
+      <tr><td class="err-code danger">RET_4003</td><td>IET deadline passed — instrument is deemed confirmed</td><td>Cannot return; instrument is irrevocably confirmed for settlement</td><td class="retry-no">Never</td></tr>
+      <tr><td class="err-code">RET_4004</td><td>Return reason code not valid</td><td>Use valid RBI return reason code from published standardised list</td><td class="retry-no">No†</td></tr>
+      <tr><td class="err-code">RET_4005</td><td>Return reason code 99 — remarks field missing</td><td>Include mandatory remarks when using code 99 (Other)</td><td class="retry-no">No†</td></tr>
+      <tr><td class="err-code danger">RET_4006</td><td>Returning bank IFSC does not match drawee IFSC</td><td>Only the drawee bank may file a return for an instrument</td><td class="retry-no">No</td></tr>
+      <tr><td class="err-code danger">RET_4007</td><td>Instrument in terminal state — cannot be returned</td><td>Query instrument status first; terminal states are irreversible</td><td class="retry-no">No</td></tr>
+    </table>
+
+    <div class="spacer"></div>
+    <div style="font-size:10.5px;font-weight:700;color:#0f2044;margin-bottom:4px">Rate Limiting &amp; System Errors (RATE / SYS)</div>
+    <table>
+      <tr><th>Code</th><th>HTTP</th><th>Description</th><th>Retry Strategy</th></tr>
+      <tr><td class="err-code warn">RATE_4001</td><td>429</td><td>Instrument submission rate exceeded</td><td>Exponential backoff — see <code>Retry-After</code> header (seconds)</td></tr>
+      <tr><td class="err-code warn">RATE_4002</td><td>429</td><td>Return filing rate exceeded</td><td>Exponential backoff — IET CRITICAL instruments: use priority lane</td></tr>
+      <tr><td class="err-code warn">RATE_4003</td><td>429</td><td>Status query rate exceeded</td><td>Exponential backoff; consider webhook-based status instead</td></tr>
+      <tr><td class="err-code warn">RATE_4005</td><td>429</td><td>Concurrent connection limit exceeded</td><td>Implement connection pooling; reduce concurrent connections</td></tr>
+      <tr><td class="err-code danger">SYS_5001</td><td>500</td><td>Internal NPCI error — instrument state unknown</td><td><strong>Do NOT retry.</strong> Contact NPCI NOC with correlation_id; query status first</td></tr>
+      <tr><td class="err-code danger">SYS_5002</td><td>500</td><td>Database write failure — state indeterminate</td><td><strong>Do NOT retry.</strong> Contact NPCI NOC; query status before any resubmission</td></tr>
+      <tr><td class="err-code">SYS_5003</td><td>503</td><td>NPCI gateway maintenance window</td><td>Retry after window; SFTP fallback activates automatically</td></tr>
+      <tr><td class="err-code">SYS_5004</td><td>503</td><td>Clearing zone temporarily unavailable</td><td>Retry: 5s → 15s → 45s → 135s (4 attempts max)</td></tr>
+      <tr><td class="err-code warn">SYS_5005</td><td>504</td><td>NPCI processing timeout — state unknown</td><td>Query instrument status before retrying; avoid duplicate submission</td></tr>
+    </table>
+
+    <div class="callout amber" style="margin-top:12px">
+      <p><strong>Return Reason Codes — RBI Standardised (Selected):</strong> &nbsp;
+        <code>01</code> Funds Insufficient &nbsp;·&nbsp;
+        <code>06</code> Payment Stopped &nbsp;·&nbsp;
+        <code>07</code> Court Order &nbsp;·&nbsp;
+        <code>08</code> Account Closed &nbsp;·&nbsp;
+        <code>11</code> Signature Differs &nbsp;·&nbsp;
+        <code>16</code> Cheque Stale &nbsp;·&nbsp;
+        <code>17</code> Cheque Mutilated &nbsp;·&nbsp;
+        <code>18</code> Amount Words/Figures Differ &nbsp;·&nbsp;
+        <code>21</code> Alteration Requires Authentication &nbsp;·&nbsp;
+        <code>27</code> Lost/Stolen &nbsp;·&nbsp;
+        <code>28</code> Duplicate &nbsp;·&nbsp;
+        <code>30</code> Fraud Under Investigation &nbsp;·&nbsp;
+        <code>43</code> Positive Pay Mismatch &nbsp;·&nbsp;
+        <code>44</code> Positive Pay Not Registered &nbsp;·&nbsp;
+        <code>98</code> Technical — Resubmit &nbsp;·&nbsp;
+        <code>99</code> Other (Remarks Mandatory)</p>
+    </div>
+  </div>
+
+  <!-- SECTION 9: MCP LAYER -->
+  <div class="sec-header">
+    <div class="sec-num" style="background:#7c3aed">9</div>
+    <div class="sec-header-text">Phase 3 — MCP Intelligence Layer</div>
+    <div class="sec-header-sub">AI-Native Clearing · From REST Integration to Agent-Native Tool</div>
+  </div>
+  <div class="sec-body">
+    <div class="callout" style="border-left-color:#7c3aed;background:#faf5ff">
+      <p style="color:#4c1d95"><strong>The Strategic Shift:</strong> In Phase 1, AI systems at member banks <em>call</em> an API. In Phase 3, AI agents <em>use</em> the clearing grid as a native tool within their reasoning workflow. The difference is not cosmetic — it is the difference between a bank that has integrated clearing and a bank where clearing is a first-class capability of its intelligence infrastructure. India pioneered UPI. India can pioneer MCP-native clearing.</p>
+    </div>
+    <div class="spacer"></div>
+    <div class="mcp-grid">
+      <div class="mcp-card">
+        <div class="mcp-head"><span class="mcp-icon">🔧</span>MCP Tools — Actions the Agent Can Invoke</div>
+        <div class="mcp-body">
+          <div class="mcp-tool">
+            <div class="mcp-tool-name">submit_instrument</div>
+            <div class="mcp-tool-desc">Submit scanned instrument. Returns npci_reference, iet_deadline, delivery_status synchronously.</div>
+          </div>
+          <div class="mcp-tool">
+            <div class="mcp-tool-name">file_return</div>
+            <div class="mcp-tool-desc">File return for inward instrument. Returns return_reference, iet_status (FILED_WITHIN_IET / IET_BREACH_RISK).</div>
+          </div>
+          <div class="mcp-tool">
+            <div class="mcp-tool-name">query_instrument_status</div>
+            <div class="mcp-tool-desc">Real-time status, IET countdown, lifecycle events for any instrument by npci_reference.</div>
+          </div>
+          <div class="mcp-tool">
+            <div class="mcp-tool-name">query_duplicate_history</div>
+            <div class="mcp-tool-desc">Check prior presentations of a cheque (MICR + account hash). Returns count, dates, outcomes. No PII in response.</div>
+          </div>
+          <div class="mcp-tool">
+            <div class="mcp-tool-name">query_session_state</div>
+            <div class="mcp-tool-desc">Current clearing session status, IET deadline, pending instrument count, risk level for a given zone.</div>
+          </div>
+          <div class="mcp-tool">
+            <div class="mcp-tool-name">get_return_reason_codes</div>
+            <div class="mcp-tool-desc">Machine-readable return reason code definitions with applicability rules. Agent uses to select correct return code.</div>
+          </div>
+        </div>
+      </div>
+      <div class="mcp-card">
+        <div class="mcp-head"><span class="mcp-icon">📦</span>MCP Resources — Structured Data the Agent Can Read</div>
+        <div class="mcp-body">
+          <div class="mcp-tool">
+            <div class="mcp-tool-name">npci://clearing/{zone}/session/current</div>
+            <div class="mcp-tool-desc">Live session state, IET deadline, submission cutoff. Updated in real time by NPCI. Agent reads before processing decisions.</div>
+          </div>
+          <div class="mcp-tool">
+            <div class="mcp-tool-name">npci://clearing/{zone}/risk/signals</div>
+            <div class="mcp-tool-desc">Aggregate cross-bank fraud signals for the current session. Example: "Code 11 returns up 340% in MUMBAI zone today." No per-bank or per-instrument data.</div>
+          </div>
+          <div class="mcp-tool">
+            <div class="mcp-tool-name">npci://member/{bank_ifsc}/position/current</div>
+            <div class="mcp-tool-desc">Bank's own net clearing position in the current session. Own bank only — cross-bank position data is never exposed.</div>
+          </div>
+          <div class="mcp-tool">
+            <div class="mcp-tool-name">npci://system/health</div>
+            <div class="mcp-tool-desc">NPCI infrastructure health per clearing zone. Agents use to trigger degradation handling before encountering errors.</div>
+          </div>
+          <div class="mcp-tool">
+            <div class="mcp-tool-name">npci://instruments/{npci_ref}/context</div>
+            <div class="mcp-tool-desc">Enriched instrument context: presenting bank info, NPCI validation flags, IET status, clearing session assignment.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 10: MIGRATION -->
+  <div class="sec-header">
+    <div class="sec-num green">10</div>
+    <div class="sec-header-text">Migration Roadmap — Non-Disruptive, Bank-Controlled</div>
+    <div class="sec-header-sub">24-Month Parallel Operation · 30-Month SFTP Notice · No Forced Cutover</div>
+  </div>
+  <div class="sec-body">
+    <div class="roadmap-track">
+      <div class="rm-phase">
+        <div class="rm-phase-head p1">Phase 1 · REST API<div class="period">Months 0–12</div></div>
+        <div class="rm-body">
+          <div class="rm-item"><div class="rm-dot"></div><div class="rm-text"><strong>Months 0–3:</strong> NPCI API infrastructure ready. Sandbox live. Mandatory UAT environment available to all 1,581 members.</div></div>
+          <div class="rm-item"><div class="rm-dot"></div><div class="rm-text"><strong>Months 3–6:</strong> Pilot with 10 Sponsor Banks. Full flow testing: submission, webhook delivery, return filing, status query.</div></div>
+          <div class="rm-item"><div class="rm-dot"></div><div class="rm-text"><strong>Months 6–9:</strong> Open onboarding for all Sponsor Banks. SFTP continues in parallel — no bank disrupted.</div></div>
+          <div class="rm-item"><div class="rm-dot"></div><div class="rm-text"><strong>Months 9–12:</strong> Measure adoption. Publish API vs SFTP latency comparison. IET incident rate tracking by protocol.</div></div>
+        </div>
+      </div>
+      <div class="rm-phase">
+        <div class="rm-phase-head p2">Phase 2 · Webhook Push<div class="period">Months 12–24</div></div>
+        <div class="rm-body">
+          <div class="rm-item"><div class="rm-dot green"></div><div class="rm-text"><strong>Months 12–15:</strong> Webhook push infrastructure deployed. Banks register endpoints via member portal. Pilot with 5 high-volume SBs.</div></div>
+          <div class="rm-item"><div class="rm-dot green"></div><div class="rm-text"><strong>Months 15–18:</strong> Open webhook registration. Banks choosing webhooks get immediate full-IET-window benefit.</div></div>
+          <div class="rm-item"><div class="rm-dot green"></div><div class="rm-text"><strong>Months 18–21:</strong> Measure: banks on webhook show &lt;5s inward latency vs 5–20min SFTP. Publish data to drive adoption.</div></div>
+          <div class="rm-item"><div class="rm-dot green"></div><div class="rm-text"><strong>Month 24:</strong> SFTP sunset notice formally issued. 30-month countdown begins. No bank loses SFTP access until Month 54.</div></div>
+        </div>
+      </div>
+      <div class="rm-phase">
+        <div class="rm-phase-head p3">Phase 3 · MCP Layer<div class="period">Months 24–36</div></div>
+        <div class="rm-body">
+          <div class="rm-item"><div class="rm-dot purple"></div><div class="rm-text"><strong>Months 24–27:</strong> MCP server specification published. Tool catalog and resource schema finalized with industry input.</div></div>
+          <div class="rm-item"><div class="rm-dot purple"></div><div class="rm-text"><strong>Months 27–30:</strong> MCP sandbox available. Banks with AI-native processing systems begin integration testing.</div></div>
+          <div class="rm-item"><div class="rm-dot purple"></div><div class="rm-text"><strong>Months 30–33:</strong> MCP production go-live. AI agents at member banks use NPCI as a native clearing tool.</div></div>
+          <div class="rm-item"><div class="rm-dot purple"></div><div class="rm-text"><strong>Month 36:</strong> Cross-bank fraud signal sharing via MCP resource layer. India's clearing grid becomes an intelligence network.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spacer"></div>
+    <div class="layer-grid">
+      <div class="layer-item" style="border-left:3px solid #2563eb">
+        <h5>Bank Onboarding Requirements</h5>
+        <p>Step 1: Webhook URL registration. Step 2: NPCI PKI certificate issuance. Step 3: API key provisioning. Step 4: Mandatory 5-step UAT completion. Step 5: Production go-live with parallel SFTP.</p>
+      </div>
+      <div class="layer-item" style="border-left:3px solid #059669">
+        <h5>Standards Compliance</h5>
+        <div class="standards-strip">
+          <span class="std-badge active">RBI CTS 2010</span>
+          <span class="std-badge active">RBI IT Framework</span>
+          <span class="std-badge active">ISO 20022 Mappable</span>
+          <span class="std-badge active">OWASP API Top 10</span>
+          <span class="std-badge active">NIST SP 800-131A</span>
+          <span class="std-badge active">FIPS 140-2</span>
+          <span class="std-badge">TLS 1.3</span>
+          <span class="std-badge">HMAC-SHA256</span>
+          <span class="std-badge">Data Localisation</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- THESIS BAND -->
+  <div class="thesis-band">
+    <div style="flex:1">
+      <div class="thesis-label">The Core Thesis</div>
+      <div class="thesis-quote">"India clears <strong>600 million cheques</strong> a year across <strong>1,581 banks</strong>. The RBI's IET mandate makes real-time delivery not a convenience but a <strong>regulatory necessity</strong>. The SFTP protocol was the right answer for 2010. The <strong>JSON REST API</strong> is the right answer for 2026. <strong>MCP-native clearing</strong> is the right answer for 2030. India pioneered UPI. India can pioneer intelligent clearing."</div>
+      <div class="thesis-attr">Nilesh Shah · Ex-NPCI · Piramal Finance · Fullerton India (SMFG) · Industry Submission to NPCI · June 2026</div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="footer-text">NPCI CTS Modernisation · Concept Note · Confidential · Industry Submission · June 2026</div>
+    <div class="footer-text">Nilesh Shah · Not for Distribution · All Rights Reserved</div>
+  </div>
+
+</div>
+</body>
+</html>
