@@ -33,7 +33,6 @@
     gap: 32px;
   }
 
-  /* ─── SLIDE SHELL ─── */
   .slide {
     width: 1280px;
     height: 720px;
@@ -47,7 +46,6 @@
     page-break-after: always;
   }
 
-  /* ─── HEADER STRIP ─── */
   .hdr {
     height: 52px;
     display: flex;
@@ -58,264 +56,105 @@
     border-bottom: 2px solid var(--border);
     flex-shrink: 0;
   }
-  .hdr-tag {
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-  .hdr-logo {
-    font-size: 13px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    background: linear-gradient(90deg, var(--g1), var(--g3));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  .hdr-num {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--muted);
-  }
+  .hdr-tag  { font-size:11px; font-weight:800; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); }
+  .hdr-logo { font-size:13px; font-weight:800; letter-spacing:0.08em; background:linear-gradient(90deg,var(--g1),var(--g3)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .hdr-num  { font-size:11px; font-weight:700; color:var(--muted); }
 
-  /* ─── BODY ─── */
-  .body {
-    padding: 22px 60px 20px;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
+  .body { padding:22px 60px 20px; flex:1; display:flex; flex-direction:column; overflow:hidden; }
 
-  /* ─── GRADIENT TEXT ─── */
-  .g-green {
-    background: linear-gradient(90deg, var(--g1), var(--g3));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  .g-emerald {
-    background: linear-gradient(90deg, #10b981, #06b6d4);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  .g-amber {
-    background: linear-gradient(90deg, #f59e0b, #ef4444);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
+  .g-green  { background:linear-gradient(90deg,var(--g1),var(--g3)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .g-emerald{ background:linear-gradient(90deg,#10b981,#06b6d4); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .g-amber  { background:linear-gradient(90deg,#f59e0b,#ef4444); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
 
-  /* ─── CHIP ─── */
-  .chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 14px;
-    border-radius: 100px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    margin-bottom: 12px;
-    border: 1px solid;
-  }
-  .chip-green { color: var(--g2); border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.07); }
-  .chip-red   { color: #ef4444;  border-color: rgba(239,68,68,0.35);  background: rgba(239,68,68,0.06); }
-  .chip-amber { color: #d97706;  border-color: rgba(217,119,6,0.35);  background: rgba(217,119,6,0.06); }
-  .chip-slate { color: var(--slate); border-color: var(--border); background: var(--soft); }
-  .chip-teal  { color: #0891b2;  border-color: rgba(8,145,178,0.35);  background: rgba(8,145,178,0.06); }
+  .chip { display:inline-flex; align-items:center; gap:6px; padding:4px 14px; border-radius:100px; font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:12px; border:1px solid; }
+  .chip-green  { color:var(--g2);   border-color:rgba(16,185,129,0.4); background:rgba(16,185,129,0.07); }
+  .chip-red    { color:#ef4444;     border-color:rgba(239,68,68,0.35);  background:rgba(239,68,68,0.06); }
+  .chip-amber  { color:#d97706;     border-color:rgba(217,119,6,0.35);  background:rgba(217,119,6,0.06); }
+  .chip-slate  { color:var(--slate);border-color:var(--border);         background:var(--soft); }
+  .chip-teal   { color:#0891b2;     border-color:rgba(8,145,178,0.35);  background:rgba(8,145,178,0.06); }
 
-  /* ─── ICON BADGE ─── */
-  .ibadge {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    flex-shrink: 0;
-  }
-  .ib-green { background: rgba(16,185,129,0.12); border: 1.5px solid rgba(16,185,129,0.3); }
-  .ib-red   { background: rgba(239,68,68,0.10);  border: 1.5px solid rgba(239,68,68,0.25); }
-  .ib-amber { background: rgba(217,119,6,0.10);  border: 1.5px solid rgba(217,119,6,0.3); }
-  .ib-teal  { background: rgba(8,145,178,0.10);  border: 1.5px solid rgba(8,145,178,0.3); }
-  .ib-violet{ background: rgba(139,92,246,0.10); border: 1.5px solid rgba(139,92,246,0.3); }
-  .ib-slate { background: rgba(100,116,139,0.10);border: 1.5px solid rgba(100,116,139,0.3); }
+  .ibadge { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+  .ib-green  { background:rgba(16,185,129,0.12); border:1.5px solid rgba(16,185,129,0.3); }
+  .ib-red    { background:rgba(239,68,68,0.10);  border:1.5px solid rgba(239,68,68,0.25); }
+  .ib-amber  { background:rgba(217,119,6,0.10);  border:1.5px solid rgba(217,119,6,0.3); }
+  .ib-teal   { background:rgba(8,145,178,0.10);  border:1.5px solid rgba(8,145,178,0.3); }
+  .ib-violet { background:rgba(139,92,246,0.10); border:1.5px solid rgba(139,92,246,0.3); }
+  .ib-slate  { background:rgba(100,116,139,0.10);border:1.5px solid rgba(100,116,139,0.3); }
 
-  /* ─── STAT BOX ─── */
-  .sbox {
-    border-radius: 14px;
-    padding: 18px 16px;
-    text-align: center;
-    border: 1.5px solid;
-    flex: 1;
-  }
-  .sbox .sn { font-size: 46px; font-weight: 900; line-height: 1; margin-bottom: 6px; }
-  .sbox .sl { font-size: 12px; color: var(--slate); line-height: 1.5; font-weight: 500; }
-  .sbox-green { border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.05); }
-  .sbox-amber { border-color: rgba(217,119,6,0.3);  background: rgba(217,119,6,0.05); }
-  .sbox-red   { border-color: rgba(239,68,68,0.3);  background: rgba(239,68,68,0.05); }
-  .sbox-teal  { border-color: rgba(8,145,178,0.3);  background: rgba(8,145,178,0.05); }
-  .sbox-slate { border-color: var(--border); background: var(--soft); }
+  .sbox { border-radius:14px; padding:18px 16px; text-align:center; border:1.5px solid; flex:1; }
+  .sbox .sn { font-size:46px; font-weight:900; line-height:1; margin-bottom:6px; }
+  .sbox .sl { font-size:12px; color:var(--slate); line-height:1.5; font-weight:500; }
+  .sbox-green { border-color:rgba(16,185,129,0.3); background:rgba(16,185,129,0.05); }
+  .sbox-amber { border-color:rgba(217,119,6,0.3);  background:rgba(217,119,6,0.05); }
+  .sbox-red   { border-color:rgba(239,68,68,0.3);  background:rgba(239,68,68,0.05); }
+  .sbox-teal  { border-color:rgba(8,145,178,0.3);  background:rgba(8,145,178,0.05); }
+  .sbox-slate { border-color:var(--border); background:var(--soft); }
 
-  /* ─── PROBLEM CARD ─── */
-  .prob-card {
-    border-radius: 14px;
-    padding: 18px 16px;
-    border: 1.5px solid;
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-  }
-  .pc-red    { border-color: rgba(239,68,68,0.3);  background: rgba(239,68,68,0.04); }
-  .pc-amber  { border-color: rgba(217,119,6,0.3);  background: rgba(217,119,6,0.04); }
-  .pc-green  { border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.04); }
-  .pc-teal   { border-color: rgba(8,145,178,0.3);  background: rgba(8,145,178,0.04); }
-  .pc-violet { border-color: rgba(139,92,246,0.3); background: rgba(139,92,246,0.04); }
-  .pc-slate  { border-color: var(--border); background: var(--soft); }
-  .prob-card h4 { font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
-  .prob-card p  { font-size: 12px; color: var(--slate); line-height: 1.55; }
+  .prob-card { border-radius:14px; padding:18px 16px; border:1.5px solid; display:flex; gap:12px; align-items:flex-start; }
+  .pc-red    { border-color:rgba(239,68,68,0.3);  background:rgba(239,68,68,0.04); }
+  .pc-amber  { border-color:rgba(217,119,6,0.3);  background:rgba(217,119,6,0.04); }
+  .pc-green  { border-color:rgba(16,185,129,0.3); background:rgba(16,185,129,0.04); }
+  .pc-teal   { border-color:rgba(8,145,178,0.3);  background:rgba(8,145,178,0.04); }
+  .pc-violet { border-color:rgba(139,92,246,0.3); background:rgba(139,92,246,0.04); }
+  .pc-slate  { border-color:var(--border); background:var(--soft); }
+  .prob-card h4 { font-size:13px; font-weight:700; color:#1e293b; margin-bottom:4px; }
+  .prob-card p  { font-size:12px; color:var(--slate); line-height:1.55; }
 
-  /* ─── MINI DASH ─── */
-  .mini-dash {
-    border-radius: 14px;
-    border: 1.5px solid var(--border);
-    overflow: hidden;
-    background: #fff;
-  }
-  .md-hdr {
-    padding: 10px 16px;
-    background: linear-gradient(90deg, rgba(16,185,129,0.12), rgba(5,150,105,0.06));
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .md-hdr-title { font-size: 11px; font-weight: 700; color: var(--g2); letter-spacing: 0.06em; text-transform: uppercase; }
-  .md-dot { width: 8px; height: 8px; border-radius: 50%; }
-  .md-dot-green { background: #10b981; }
-  .md-dot-amber { background: #f59e0b; }
-  .md-dot-red   { background: #ef4444; }
-  .md-row {
-    display: flex;
-    align-items: center;
-    padding: 8px 16px;
-    border-bottom: 1px solid var(--border);
-    gap: 10px;
-  }
-  .md-row:last-child { border-bottom: none; }
-  .md-row-label { font-size: 11px; color: var(--slate); font-weight: 500; flex: 1; }
-  .md-row-val   { font-size: 11px; font-weight: 700; color: #1e293b; }
-  .md-row-badge {
-    padding: 2px 8px;
-    border-radius: 100px;
-    font-size: 10px;
-    font-weight: 700;
-  }
-  .mdb-green { background: rgba(16,185,129,0.12); color: #059669; }
-  .mdb-amber { background: rgba(245,158,11,0.12); color: #d97706; }
-  .mdb-red   { background: rgba(239,68,68,0.12);  color: #dc2626; }
+  .mini-dash { border-radius:14px; border:1.5px solid var(--border); overflow:hidden; background:#fff; }
+  .md-hdr { padding:10px 16px; background:linear-gradient(90deg,rgba(16,185,129,0.12),rgba(5,150,105,0.06)); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .md-hdr-title { font-size:11px; font-weight:700; color:var(--g2); letter-spacing:0.06em; text-transform:uppercase; }
+  .md-dot { width:8px; height:8px; border-radius:50%; }
+  .md-dot-green { background:#10b981; }
+  .md-dot-amber { background:#f59e0b; }
+  .md-dot-red   { background:#ef4444; }
+  .md-row { display:flex; align-items:center; padding:8px 16px; border-bottom:1px solid var(--border); gap:10px; }
+  .md-row:last-child { border-bottom:none; }
+  .md-row-label { font-size:11px; color:var(--slate); font-weight:500; flex:1; }
+  .md-row-val   { font-size:11px; font-weight:700; color:#1e293b; }
+  .md-row-badge { padding:2px 8px; border-radius:100px; font-size:10px; font-weight:700; }
+  .mdb-green { background:rgba(16,185,129,0.12); color:#059669; }
+  .mdb-amber { background:rgba(245,158,11,0.12); color:#d97706; }
+  .mdb-red   { background:rgba(239,68,68,0.12);  color:#dc2626; }
 
-  /* ─── TABLE ─── */
-  .comp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  .comp-table th {
-    background: rgba(16,185,129,0.08);
-    padding: 9px 14px;
-    text-align: left;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--g2);
-    border-bottom: 2px solid rgba(16,185,129,0.25);
-  }
-  .comp-table td {
-    padding: 9px 14px;
-    border-bottom: 1px solid var(--border);
-    color: #334155;
-    vertical-align: middle;
-  }
-  .comp-table tr:last-child td { border-bottom: none; }
-  .comp-table tr:hover td { background: rgba(16,185,129,0.03); }
-  .td-astra td:nth-child(2) { font-weight: 700; color: var(--g2); }
-  .check { color: #10b981; font-weight: 700; font-size: 14px; }
-  .cross { color: #ef4444; font-weight: 700; font-size: 14px; }
-  .part  { color: #f59e0b; font-weight: 700; font-size: 14px; }
+  .comp-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .comp-table th { background:rgba(16,185,129,0.08); padding:9px 14px; text-align:left; font-size:11px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color:var(--g2); border-bottom:2px solid rgba(16,185,129,0.25); }
+  .comp-table td { padding:9px 14px; border-bottom:1px solid var(--border); color:#334155; vertical-align:middle; }
+  .comp-table tr:last-child td { border-bottom:none; }
+  .comp-table tr:hover td { background:rgba(16,185,129,0.03); }
+  .td-astra td:nth-child(2) { font-weight:700; color:var(--g2); }
+  .check { color:#10b981; font-weight:700; font-size:13px; }
+  .cross { color:#ef4444; font-weight:700; font-size:13px; }
+  .part  { color:#f59e0b; font-weight:700; font-size:13px; }
 
-  /* ─── DARK SLIDE ─── */
-  .s-dark {
-    background: linear-gradient(160deg, #0a1628 0%, #0f2a1a 40%, #0a1628 100%) !important;
-    color: #fff;
-  }
-  .s-dark::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(16,185,129,0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(16,185,129,0.04) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-  }
-  .s-dark .hdr {
-    background: transparent;
-    border-bottom-color: var(--border-dark);
-  }
-  .s-dark .hdr-tag,
-  .s-dark .hdr-num { color: rgba(255,255,255,0.4); }
+  .s-dark { background:linear-gradient(160deg,#0a1628 0%,#0f2a1a 40%,#0a1628 100%) !important; color:#fff; }
+  .s-dark::before { content:''; position:absolute; inset:0; background-image:linear-gradient(rgba(16,185,129,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(16,185,129,0.04) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; }
+  .s-dark .hdr { background:transparent; border-bottom-color:var(--border-dark); }
+  .s-dark .hdr-tag, .s-dark .hdr-num { color:rgba(255,255,255,0.4); }
 
-  /* ─── DIVIDERS ─── */
-  .div-bar {
-    width: 48px;
-    height: 4px;
-    border-radius: 2px;
-    background: linear-gradient(90deg, var(--g1), var(--g3));
-    margin-bottom: 14px;
-  }
+  .pbar-track { height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
+  .pbar-fill  { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--g1),var(--g3)); }
 
-  /* ─── PROGRESS BAR ─── */
-  .pbar-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
-  .pbar-fill  { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--g1), var(--g3)); }
+  .tl-row { display:flex; align-items:flex-start; gap:14px; }
+  .tl-dot-col { display:flex; flex-direction:column; align-items:center; }
+  .tl-dot { width:12px; height:12px; border-radius:50%; background:var(--g1); flex-shrink:0; margin-top:3px; }
+  .tl-line { width:2px; flex:1; background:rgba(16,185,129,0.2); min-height:16px; }
 
-  /* ─── TIMELINE DOT ─── */
-  .tl-row { display: flex; align-items: flex-start; gap: 14px; }
-  .tl-dot-col { display: flex; flex-direction: column; align-items: center; gap: 0; }
-  .tl-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--g1); flex-shrink: 0; margin-top: 3px; }
-  .tl-line { width: 2px; flex: 1; background: rgba(16,185,129,0.2); min-height: 16px; }
+  .row  { display:flex; gap:16px; }
+  .col  { display:flex; flex-direction:column; }
+  .flex1 { flex:1; }
+  .mt4 { margin-top:4px; } .mt8 { margin-top:8px; } .mt10 { margin-top:10px; }
+  .mt12 { margin-top:12px; } .mt14 { margin-top:14px; } .mt16 { margin-top:16px; }
+  .gap6 { gap:6px; } .gap8 { gap:8px; } .gap10 { gap:10px; } .gap12 { gap:12px; }
+  .gap14 { gap:14px; } .gap16 { gap:16px; } .gap20 { gap:20px; } .gap24 { gap:24px; }
 
-  /* ─── UTILITY ─── */
-  .row { display: flex; gap: 16px; }
-  .col { display: flex; flex-direction: column; }
-  .flex1 { flex: 1; }
-  .mt4 { margin-top: 4px; }
-  .mt8 { margin-top: 8px; }
-  .mt12 { margin-top: 12px; }
-  .mt16 { margin-top: 16px; }
-  .mt20 { margin-top: 20px; }
-  .gap8 { gap: 8px; }
-  .gap10 { gap: 10px; }
-  .gap12 { gap: 12px; }
-  .gap14 { gap: 14px; }
-  .gap16 { gap: 16px; }
-  .gap20 { gap: 20px; }
+  h2.title { font-size:30px; font-weight:800; color:#0f172a; line-height:1.15; }
+  h3.sec   { font-size:20px; font-weight:800; color:#0f172a; }
+  p.lead   { font-size:14px; color:var(--slate); line-height:1.65; }
+  p.sm     { font-size:12px; color:var(--slate); line-height:1.6; }
 
-  h1.hero { font-size: 52px; font-weight: 900; line-height: 1.08; color: #0f172a; }
-  h1.hero-dark { font-size: 52px; font-weight: 900; line-height: 1.08; color: #fff; }
-  h2.title { font-size: 30px; font-weight: 800; color: #0f172a; line-height: 1.15; }
-  h3.sec { font-size: 20px; font-weight: 800; color: #0f172a; }
-  p.lead { font-size: 14px; color: var(--slate); line-height: 1.65; }
-  p.sm   { font-size: 12px; color: var(--slate); line-height: 1.6; }
-  strong.hi { color: #0f172a; }
-
-  /* print */
   @media print {
-    body { background: none; padding: 0; gap: 0; }
-    .slide { box-shadow: none; border-radius: 0; page-break-after: always; }
+    body { background:none; padding:0; gap:0; }
+    .slide { box-shadow:none; border-radius:0; page-break-after:always; }
   }
 </style>
 </head>
@@ -325,41 +164,49 @@
      SLIDE 1 — COVER (DARK)
 ═══════════════════════════════════════════════════════════════════ -->
 <div class="slide s-dark" id="s1">
-  <!-- radial glow -->
   <div style="position:absolute;top:-120px;left:50%;transform:translateX(-50%);width:700px;height:500px;background:radial-gradient(ellipse,rgba(16,185,129,0.22) 0%,transparent 68%);pointer-events:none;"></div>
 
   <div class="hdr">
-    <span class="hdr-tag" style="color:rgba(255,255,255,0.35);">Automated Settlement & Transaction Recognition Architecture</span>
+    <span class="hdr-tag" style="color:rgba(255,255,255,0.35);">Automated Settlement &amp; Transaction Recognition Architecture</span>
     <span class="hdr-logo">ASTRA</span>
   </div>
 
   <div class="body" style="justify-content:center;align-items:flex-start;position:relative;z-index:1;">
-    <div style="max-width:780px;">
-      <div class="chip chip-green" style="margin-bottom:20px;">CTS Intelligence Platform</div>
-      <h1 class="hero-dark" style="margin-bottom:16px;">
+    <div style="max-width:820px;">
+      <div class="chip chip-green" style="margin-bottom:16px;">CTS Intelligence Platform</div>
+      <h1 style="font-size:52px;font-weight:900;line-height:1.08;color:#fff;margin-bottom:8px;">
         Beyond Automation.<br>
         <span class="g-green">Agentic Clearing.</span>
       </h1>
-      <p style="font-size:16px;color:rgba(255,255,255,0.6);line-height:1.65;max-width:560px;margin-bottom:32px;">
-        Reimagining India's cheque clearing infrastructure with AI that decides, explains, and files — before the clock runs out.
+      <!-- v1 tagline made explicit -->
+      <div style="display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:8px;border:1px solid rgba(16,185,129,0.4);background:rgba(16,185,129,0.10);margin-bottom:20px;">
+        <span style="font-size:14px;">✅</span>
+        <span style="font-size:13px;font-weight:700;color:#10b981;letter-spacing:0.02em;">Not a Roadmap. A Working Platform.</span>
+      </div>
+      <p style="font-size:15px;color:rgba(255,255,255,0.55);line-height:1.65;max-width:580px;margin-bottom:28px;">
+        Reimagining India's cheque clearing infrastructure with on-premises AI that decides, explains, and files — before the clock runs out.
       </p>
 
-      <div class="row gap16" style="margin-bottom:36px;">
-        <div style="padding:14px 20px;border-radius:12px;border:1px solid rgba(16,185,129,0.3);background:rgba(16,185,129,0.08);">
-          <div style="font-size:28px;font-weight:900;color:#10b981;line-height:1;">609M</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.45);font-weight:600;margin-top:4px;">Cheques cleared / year</div>
+      <div class="row gap14" style="margin-bottom:32px;">
+        <div style="padding:12px 18px;border-radius:12px;border:1px solid rgba(16,185,129,0.3);background:rgba(16,185,129,0.08);">
+          <div style="font-size:26px;font-weight:900;color:#10b981;line-height:1;">609M</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);font-weight:600;margin-top:3px;">Cheques cleared / year</div>
         </div>
-        <div style="padding:14px 20px;border-radius:12px;border:1px solid rgba(16,185,129,0.3);background:rgba(16,185,129,0.08);">
-          <div style="font-size:28px;font-weight:900;color:#10b981;line-height:1;">₹71L Cr</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.45);font-weight:600;margin-top:4px;">Annual clearing value</div>
+        <div style="padding:12px 18px;border-radius:12px;border:1px solid rgba(16,185,129,0.3);background:rgba(16,185,129,0.08);">
+          <div style="font-size:26px;font-weight:900;color:#10b981;line-height:1;">₹71L Cr</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);font-weight:600;margin-top:3px;">Annual clearing value</div>
         </div>
-        <div style="padding:14px 20px;border-radius:12px;border:1px solid rgba(239,68,68,0.35);background:rgba(239,68,68,0.08);">
-          <div style="font-size:28px;font-weight:900;color:#f87171;line-height:1;">T+3h</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.45);font-weight:600;margin-top:4px;">RBI IET mandate · Jan 2026</div>
+        <div style="padding:12px 18px;border-radius:12px;border:1px solid rgba(239,68,68,0.35);background:rgba(239,68,68,0.08);">
+          <div style="font-size:26px;font-weight:900;color:#f87171;line-height:1;">T+3h</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);font-weight:600;margin-top:3px;">RBI IET mandate · Jan 2026</div>
         </div>
-        <div style="padding:14px 20px;border-radius:12px;border:1px solid rgba(16,185,129,0.3);background:rgba(16,185,129,0.08);">
-          <div style="font-size:28px;font-weight:900;color:#10b981;line-height:1;">&lt;600ms</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.45);font-weight:600;margin-top:4px;">ASTRA decision · per batch</div>
+        <div style="padding:12px 18px;border-radius:12px;border:1px solid rgba(16,185,129,0.3);background:rgba(16,185,129,0.08);">
+          <div style="font-size:26px;font-weight:900;color:#10b981;line-height:1;">&lt;600ms</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);font-weight:600;margin-top:3px;">ASTRA batch decision</div>
+        </div>
+        <div style="padding:12px 18px;border-radius:12px;border:1px solid rgba(16,185,129,0.3);background:rgba(16,185,129,0.08);">
+          <div style="font-size:26px;font-weight:900;color:#10b981;line-height:1;">1,300+</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);font-weight:600;margin-top:3px;">Automated tests · 95%+ coverage</div>
         </div>
       </div>
 
@@ -370,7 +217,7 @@
           <div style="font-size:11px;color:rgba(255,255,255,0.4);">Ex-NPCI · Piramal · Fullerton/SMFG</div>
         </div>
         <div style="width:1px;height:32px;background:rgba(255,255,255,0.12);margin:0 8px;"></div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.35);">Confidential — Banking Grade</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.3);">Confidential — Banking Grade</div>
       </div>
     </div>
   </div>
@@ -383,90 +230,81 @@
   <div class="hdr">
     <span class="hdr-tag">What We Cover</span>
     <span class="hdr-logo">ASTRA</span>
-    <span class="hdr-num">02 / 11</span>
+    <span class="hdr-num">02 / 12</span>
   </div>
   <div class="body" style="flex-direction:row;align-items:center;gap:40px;padding-top:16px;">
-    <!-- orbital SVG -->
-    <div style="flex-shrink:0;width:340px;height:580px;position:relative;">
-      <svg width="340" height="580" viewBox="0 0 340 580" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <!-- outer ellipse -->
-        <ellipse cx="170" cy="290" rx="150" ry="260" stroke="rgba(16,185,129,0.18)" stroke-width="1.5" stroke-dasharray="6 4"/>
-        <!-- inner ellipse -->
-        <ellipse cx="170" cy="290" rx="80" ry="145" stroke="rgba(16,185,129,0.12)" stroke-width="1" stroke-dasharray="4 4"/>
-        <!-- center node -->
-        <circle cx="170" cy="290" r="34" fill="rgba(16,185,129,0.12)" stroke="rgba(16,185,129,0.5)" stroke-width="1.5"/>
-        <text x="170" y="285" text-anchor="middle" font-family="Inter" font-size="11" font-weight="800" fill="#10b981">ASTRA</text>
-        <text x="170" y="299" text-anchor="middle" font-family="Inter" font-size="10" font-weight="600" fill="#059669">CTS</text>
+    <div style="flex-shrink:0;width:320px;height:580px;position:relative;">
+      <svg width="320" height="580" viewBox="0 0 320 580" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="160" cy="290" rx="140" ry="255" stroke="rgba(16,185,129,0.18)" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <ellipse cx="160" cy="290" rx="72" ry="138" stroke="rgba(16,185,129,0.12)" stroke-width="1" stroke-dasharray="4 4"/>
+        <circle cx="160" cy="290" r="34" fill="rgba(16,185,129,0.12)" stroke="rgba(16,185,129,0.5)" stroke-width="1.5"/>
+        <text x="160" y="285" text-anchor="middle" font-family="Inter" font-size="11" font-weight="800" fill="#10b981">ASTRA</text>
+        <text x="160" y="299" text-anchor="middle" font-family="Inter" font-size="10" font-weight="600" fill="#059669">CTS</text>
+        <!-- spokes -->
+        <line x1="160" y1="252" x2="160" y2="38" stroke="rgba(16,185,129,0.2)" stroke-width="1" stroke-dasharray="4 3"/>
+        <circle cx="160" cy="28" r="15" fill="#ef4444" fill-opacity="0.12" stroke="#ef4444" stroke-opacity="0.4" stroke-width="1.5"/>
+        <text x="160" y="33" text-anchor="middle" font-family="Inter" font-size="12" fill="#ef4444">⚠</text>
 
-        <!-- spoke + node: 12 o'clock — Problem -->
-        <line x1="170" y1="256" x2="170" y2="30" stroke="rgba(16,185,129,0.22)" stroke-width="1" stroke-dasharray="4 3"/>
-        <circle cx="170" cy="22" r="16" fill="#ef4444" fill-opacity="0.12" stroke="#ef4444" stroke-opacity="0.4" stroke-width="1.5"/>
-        <text x="170" y="26" text-anchor="middle" font-family="Inter" font-size="13" fill="#ef4444">⚠</text>
+        <line x1="184" y1="260" x2="292" y2="90" stroke="rgba(16,185,129,0.2)" stroke-width="1" stroke-dasharray="4 3"/>
+        <circle cx="300" cy="78" r="15" fill="#f59e0b" fill-opacity="0.12" stroke="#f59e0b" stroke-opacity="0.4" stroke-width="1.5"/>
+        <text x="300" y="83" text-anchor="middle" font-family="Inter" font-size="12" fill="#f59e0b">⏱</text>
 
-        <!-- spoke + node: 2 o'clock — Why Now -->
-        <line x1="195" y1="267" x2="305" y2="88" stroke="rgba(16,185,129,0.22)" stroke-width="1" stroke-dasharray="4 3"/>
-        <circle cx="313" cy="78" r="16" fill="#f59e0b" fill-opacity="0.12" stroke="#f59e0b" stroke-opacity="0.4" stroke-width="1.5"/>
-        <text x="313" y="82" text-anchor="middle" font-family="Inter" font-size="13" fill="#f59e0b">⏱</text>
+        <line x1="205" y1="305" x2="298" y2="370" stroke="rgba(16,185,129,0.2)" stroke-width="1" stroke-dasharray="4 3"/>
+        <circle cx="305" cy="382" r="15" fill="#10b981" fill-opacity="0.12" stroke="#10b981" stroke-opacity="0.4" stroke-width="1.5"/>
+        <text x="305" y="387" text-anchor="middle" font-family="Inter" font-size="12" fill="#10b981">🏛</text>
 
-        <!-- spoke + node: 4 o'clock — The Shift -->
-        <line x1="210" y1="310" x2="318" y2="380" stroke="rgba(16,185,129,0.22)" stroke-width="1" stroke-dasharray="4 3"/>
-        <circle cx="324" cy="392" r="16" fill="#10b981" fill-opacity="0.12" stroke="#10b981" stroke-opacity="0.4" stroke-width="1.5"/>
-        <text x="324" y="396" text-anchor="middle" font-family="Inter" font-size="13" fill="#10b981">🔄</text>
+        <line x1="192" y1="336" x2="248" y2="498" stroke="rgba(16,185,129,0.2)" stroke-width="1" stroke-dasharray="4 3"/>
+        <circle cx="252" cy="510" r="15" fill="#0891b2" fill-opacity="0.12" stroke="#0891b2" stroke-opacity="0.4" stroke-width="1.5"/>
+        <text x="252" y="515" text-anchor="middle" font-family="Inter" font-size="12" fill="#0891b2">🤖</text>
 
-        <!-- spoke + node: 5 o'clock — Platform -->
-        <line x1="195" y1="340" x2="256" y2="500" stroke="rgba(16,185,129,0.22)" stroke-width="1" stroke-dasharray="4 3"/>
-        <circle cx="260" cy="512" r="16" fill="#0891b2" fill-opacity="0.12" stroke="#0891b2" stroke-opacity="0.4" stroke-width="1.5"/>
-        <text x="260" y="517" text-anchor="middle" font-family="Inter" font-size="13" fill="#0891b2">🤖</text>
+        <line x1="128" y1="336" x2="72" y2="498" stroke="rgba(16,185,129,0.2)" stroke-width="1" stroke-dasharray="4 3"/>
+        <circle cx="68" cy="510" r="15" fill="#8b5cf6" fill-opacity="0.12" stroke="#8b5cf6" stroke-opacity="0.4" stroke-width="1.5"/>
+        <text x="68" y="515" text-anchor="middle" font-family="Inter" font-size="12" fill="#8b5cf6">🧠</text>
 
-        <!-- spoke + node: 7 o'clock — Decision -->
-        <line x1="145" y1="340" x2="84" y2="500" stroke="rgba(16,185,129,0.22)" stroke-width="1" stroke-dasharray="4 3"/>
-        <circle cx="80" cy="512" r="16" fill="#8b5cf6" fill-opacity="0.12" stroke="#8b5cf6" stroke-opacity="0.4" stroke-width="1.5"/>
-        <text x="80" y="517" text-anchor="middle" font-family="Inter" font-size="13" fill="#8b5cf6">🧠</text>
+        <line x1="115" y1="305" x2="22" y2="370" stroke="rgba(16,185,129,0.2)" stroke-width="1" stroke-dasharray="4 3"/>
+        <circle cx="15" cy="382" r="15" fill="#64748b" fill-opacity="0.12" stroke="#64748b" stroke-opacity="0.4" stroke-width="1.5"/>
+        <text x="15" y="387" text-anchor="middle" font-family="Inter" font-size="12" fill="#64748b">📊</text>
 
-        <!-- spoke + node: 8 o'clock — Competition -->
-        <line x1="130" y1="310" x2="22" y2="380" stroke="rgba(16,185,129,0.22)" stroke-width="1" stroke-dasharray="4 3"/>
-        <circle cx="16" cy="392" r="16" fill="#64748b" fill-opacity="0.12" stroke="#64748b" stroke-opacity="0.4" stroke-width="1.5"/>
-        <text x="16" y="396" text-anchor="middle" font-family="Inter" font-size="13" fill="#64748b">📊</text>
-
-        <!-- spoke + node: 10 o'clock — Market -->
-        <line x1="145" y1="267" x2="35" y2="88" stroke="rgba(16,185,129,0.22)" stroke-width="1" stroke-dasharray="4 3"/>
-        <circle cx="27" cy="78" r="16" fill="#10b981" fill-opacity="0.12" stroke="#10b981" stroke-opacity="0.4" stroke-width="1.5"/>
-        <text x="27" y="82" text-anchor="middle" font-family="Inter" font-size="13" fill="#10b981">📈</text>
+        <line x1="136" y1="260" x2="28" y2="90" stroke="rgba(16,185,129,0.2)" stroke-width="1" stroke-dasharray="4 3"/>
+        <circle cx="20" cy="78" r="15" fill="#10b981" fill-opacity="0.12" stroke="#10b981" stroke-opacity="0.4" stroke-width="1.5"/>
+        <text x="20" y="83" text-anchor="middle" font-family="Inter" font-size="12" fill="#10b981">📈</text>
       </svg>
     </div>
-
-    <!-- labels column -->
-    <div class="col gap16" style="flex:1;">
+    <div class="col gap14 flex1">
       <div><span class="chip chip-slate" style="margin-bottom:6px;">Navigation</span></div>
-      <h2 class="title">The Story in Seven Moves</h2>
-      <div class="col gap10 mt8">
+      <h2 class="title" style="margin-bottom:4px;">The Story in Eight Moves</h2>
+      <div class="col gap9 mt4">
         <div class="tl-row">
           <div class="tl-dot-col"><div class="tl-dot" style="background:#ef4444;"></div><div class="tl-line"></div></div>
           <div><div style="font-size:13px;font-weight:700;color:#1e293b;">The Problem</div><div style="font-size:11px;color:var(--slate);">IET mandate, missed deadlines, deemed approvals</div></div>
         </div>
         <div class="tl-row">
           <div class="tl-dot-col"><div class="tl-dot" style="background:#f59e0b;"></div><div class="tl-line"></div></div>
-          <div><div style="font-size:13px;font-weight:700;color:#1e293b;">Why Now</div><div style="font-size:11px;color:var(--slate);">18-month window before incumbents respond</div></div>
+          <div><div style="font-size:13px;font-weight:700;color:#1e293b;">Why Now</div><div style="font-size:11px;color:var(--slate);">18-month window — incumbents haven't started yet</div></div>
         </div>
         <div class="tl-row">
           <div class="tl-dot-col"><div class="tl-dot" style="background:#10b981;"></div><div class="tl-line"></div></div>
-          <div><div style="font-size:13px;font-weight:700;color:#1e293b;">The Shift</div><div style="font-size:11px;color:var(--slate);">From linear queues to parallel agentic swarms</div></div>
+          <div><div style="font-size:13px;font-weight:700;color:#1e293b;">The Clearing Ecosystem</div><div style="font-size:11px;color:var(--slate);">Presentee Bank → NPCI NGCH → Drawee Bank — where ASTRA sits</div></div>
         </div>
         <div class="tl-row">
           <div class="tl-dot-col"><div class="tl-dot" style="background:#0891b2;"></div><div class="tl-line"></div></div>
-          <div><div style="font-size:13px;font-weight:700;color:#1e293b;">Platform Concept</div><div style="font-size:11px;color:var(--slate);">One agent per cheque — 500 decisions in parallel</div></div>
+          <div><div style="font-size:13px;font-weight:700;color:#1e293b;">Platform Concept</div><div style="font-size:11px;color:var(--slate);">Agentic swarm, on-premises AI, bank data enrichment</div></div>
         </div>
         <div class="tl-row">
           <div class="tl-dot-col"><div class="tl-dot" style="background:#8b5cf6;"></div><div class="tl-line"></div></div>
-          <div><div style="font-size:13px;font-weight:700;color:#1e293b;">Decision Intelligence</div><div style="font-size:11px;color:var(--slate);">Three outcomes, full explainability, auditable trail</div></div>
+          <div><div style="font-size:13px;font-weight:700;color:#1e293b;">Decision Intelligence</div><div style="font-size:11px;color:var(--slate);">Three outcomes, explainability, audit trail</div></div>
         </div>
         <div class="tl-row">
           <div class="tl-dot-col"><div class="tl-dot" style="background:#64748b;"></div><div class="tl-line"></div></div>
           <div><div style="font-size:13px;font-weight:700;color:#1e293b;">Competitive Position</div><div style="font-size:11px;color:var(--slate);">What incumbents can't replicate in time</div></div>
         </div>
         <div class="tl-row">
+          <div class="tl-dot-col"><div class="tl-dot" style="background:#10b981;"></div><div class="tl-line"></div></div>
+          <div><div style="font-size:13px;font-weight:700;color:#1e293b;">Market Opportunity</div><div style="font-size:11px;color:var(--slate);">Every bank that clears cheques is a buyer</div></div>
+        </div>
+        <div class="tl-row">
           <div class="tl-dot-col"><div class="tl-dot" style="background:#10b981;"></div></div>
-          <div><div style="font-size:13px;font-weight:700;color:#1e293b;">Readiness & Market</div><div style="font-size:11px;color:var(--slate);">Built, tested, and ready for pilot deployment</div></div>
+          <div><div style="font-size:13px;font-weight:700;color:#1e293b;">Readiness Signal</div><div style="font-size:11px;color:var(--slate);">Built, tested, 90-day pilot-to-production</div></div>
         </div>
       </div>
     </div>
@@ -480,40 +318,37 @@
   <div class="hdr">
     <span class="hdr-tag">The Problem</span>
     <span class="hdr-logo">ASTRA</span>
-    <span class="hdr-num">03 / 11</span>
+    <span class="hdr-num">03 / 12</span>
   </div>
   <div class="body">
     <div class="chip chip-red">IET — The New Mandate</div>
     <h2 class="title" style="margin-bottom:8px;">Miss the deadline. <span class="g-amber">Pay regardless.</span></h2>
-    <p class="lead" style="max-width:700px;margin-bottom:20px;">RBI's Jan 2026 Item Expiry Time rule creates a 3-hour hard window per inward cheque. A missed IET is a deemed approval — the presenting bank must pay even if the cheque is fraudulent.</p>
+    <p class="lead" style="max-width:700px;margin-bottom:18px;">RBI's Jan 2026 Item Expiry Time rule creates a 3-hour hard window per inward cheque. A missed IET is a deemed approval — the presenting bank must pay even if the cheque is fraudulent.</p>
 
-    <div class="row gap14 mt4">
-      <!-- left: problem cards -->
+    <div class="row gap14">
       <div class="col gap10 flex1">
         <div class="prob-card pc-red">
           <div class="ibadge ib-red">⏰</div>
           <div>
             <h4>The T+3h Hard Stop</h4>
-            <p>Every inward cheque must receive a file-or-return decision within 3 hours of presentation. No grace period, no extension. The clock starts at NGCH receipt.</p>
+            <p>Every inward cheque must receive a file-or-return decision within 3 hours of presentation. No grace period. The clock starts at NGCH receipt. Silence = approval.</p>
           </div>
         </div>
         <div class="prob-card pc-amber">
           <div class="ibadge ib-amber">🔗</div>
           <div>
             <h4>Legacy Queues Create Bottlenecks</h4>
-            <p>Current CTS platforms process batches sequentially. A slow fraud check on cheque #1 delays the entire batch of 500. A single system hiccup cascades into IET risk for all.</p>
+            <p>Current CTS platforms process batches sequentially. A slow fraud check on cheque #1 delays the entire batch of 500. A single hiccup cascades into IET risk for all.</p>
           </div>
         </div>
         <div class="prob-card pc-slate">
           <div class="ibadge ib-slate">👤</div>
           <div>
-            <h4>Human Review Can't Scale</h4>
-            <p>High-value and suspicious cheques require human sign-off. Manual queues have no IET awareness — reviewers don't see a countdown. Escalations arrive too late to act.</p>
+            <h4>Human Review Has No Countdown</h4>
+            <p>Escalated cheques enter a queue with no IET awareness. Reviewers don't see a timer. By the time a high-value cheque is flagged for attention, the window may already be closing.</p>
           </div>
         </div>
       </div>
-
-      <!-- right: stat boxes -->
       <div class="col gap12" style="width:260px;">
         <div class="sbox sbox-red">
           <div class="sn g-amber">₹0</div>
@@ -533,67 +368,62 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════
-     SLIDE 4 — WHY NOW
+     SLIDE 4 — WHY NOW (updated)
 ═══════════════════════════════════════════════════════════════════ -->
 <div class="slide" id="s4">
   <div class="hdr">
     <span class="hdr-tag">Why Now</span>
     <span class="hdr-logo">ASTRA</span>
-    <span class="hdr-num">04 / 11</span>
+    <span class="hdr-num">04 / 12</span>
   </div>
   <div class="body">
     <div class="chip chip-amber">Market Timing</div>
-    <h2 class="title" style="margin-bottom:8px;">An 18-month window. <span class="g-green">Then it closes.</span></h2>
-    <p class="lead" style="max-width:700px;margin-bottom:20px;">Large software incumbents respond to regulatory shifts in 24–36 months. The IET mandate activated in Jan 2026. The window to establish a first-mover position is open now.</p>
+    <h2 class="title" style="margin-bottom:8px;">The window is open. <span class="g-amber">Incumbents haven't started.</span></h2>
+    <p class="lead" style="max-width:780px;margin-bottom:16px;">Large banking software vendors need 24–36 months to re-architect a product. ASTRA is already built. The gap between the IET mandate going live and incumbents shipping a real agentic response is the first-mover window.</p>
 
-    <div class="row gap16">
-      <!-- timeline -->
-      <div class="col flex1 gap0">
-        <div style="display:flex;gap:0;margin-bottom:16px;">
-          <div style="flex:1;padding:14px 16px;background:rgba(239,68,68,0.06);border:1.5px solid rgba(239,68,68,0.25);border-radius:12px 0 0 12px;">
-            <div style="font-size:11px;font-weight:700;color:#ef4444;letter-spacing:0.06em;margin-bottom:6px;">JAN 2026</div>
-            <div style="font-size:12px;font-weight:700;color:#1e293b;">IET Mandate Activates</div>
-            <div style="font-size:11px;color:var(--slate);margin-top:3px;">RBI circular effective.<br>All banks now at risk.</div>
-          </div>
-          <div style="flex:1;padding:14px 16px;background:rgba(16,185,129,0.06);border:1.5px solid rgba(16,185,129,0.25);border-left:none;">
-            <div style="font-size:11px;font-weight:700;color:var(--g2);letter-spacing:0.06em;margin-bottom:6px;">NOW — Q2 2026</div>
-            <div style="font-size:12px;font-weight:700;color:#1e293b;">ASTRA Ready for Pilot</div>
-            <div style="font-size:11px;color:var(--slate);margin-top:3px;">Platform built and tested.<br>First bank deployment ready.</div>
-          </div>
-          <div style="flex:1;padding:14px 16px;background:rgba(245,158,11,0.06);border:1.5px solid rgba(245,158,11,0.25);border-left:none;">
-            <div style="font-size:11px;font-weight:700;color:#d97706;letter-spacing:0.06em;margin-bottom:6px;">MID 2027</div>
-            <div style="font-size:12px;font-weight:700;color:#1e293b;">Incumbents Catch Up</div>
-            <div style="font-size:11px;color:var(--slate);margin-top:3px;">Legacy rebuilds complete.<br>Window narrows.</div>
-          </div>
-          <div style="flex:1;padding:14px 16px;background:rgba(100,116,139,0.06);border:1.5px solid rgba(100,116,139,0.2);border-left:none;border-radius:0 12px 12px 0;">
-            <div style="font-size:11px;font-weight:700;color:var(--slate);letter-spacing:0.06em;margin-bottom:6px;">2028+</div>
-            <div style="font-size:12px;font-weight:700;color:#1e293b;">Market Consolidates</div>
-            <div style="font-size:11px;color:var(--slate);margin-top:3px;">Banks locked into vendors.<br>Switching cost high.</div>
-          </div>
+    <div class="row gap12" style="margin-bottom:14px;">
+      <div style="flex:1;padding:14px 16px;background:rgba(239,68,68,0.06);border:1.5px solid rgba(239,68,68,0.25);border-radius:12px;">
+        <div style="font-size:11px;font-weight:700;color:#ef4444;letter-spacing:0.06em;margin-bottom:6px;">JAN 2026</div>
+        <div style="font-size:13px;font-weight:700;color:#1e293b;">IET Mandate Live</div>
+        <div style="font-size:11px;color:var(--slate);margin-top:3px;">Every bank now at risk. No grace period from RBI. Missed IET = deemed approval.</div>
+      </div>
+      <div style="flex:1;padding:14px 16px;background:rgba(16,185,129,0.07);border:1.5px solid rgba(16,185,129,0.3);border-radius:12px;">
+        <div style="font-size:11px;font-weight:700;color:var(--g2);letter-spacing:0.06em;margin-bottom:6px;">NOW — Q2 2026</div>
+        <div style="font-size:13px;font-weight:700;color:#1e293b;">ASTRA: Pilot-Ready</div>
+        <div style="font-size:11px;color:var(--slate);margin-top:3px;">Platform complete. Three CBS connectors built. 1,300+ tests passing. 90-day deployment path.</div>
+      </div>
+      <div style="flex:1;padding:14px 16px;background:rgba(245,158,11,0.06);border:1.5px solid rgba(245,158,11,0.25);border-radius:12px;">
+        <div style="font-size:11px;font-weight:700;color:#d97706;letter-spacing:0.06em;margin-bottom:6px;">2026–2027</div>
+        <div style="font-size:13px;font-weight:700;color:#1e293b;">Incumbents: Roadmap Stage</div>
+        <div style="font-size:11px;color:var(--slate);margin-top:3px;">Design phases, RFPs, internal approvals. The average enterprise re-architecture takes 24–36 months.</div>
+      </div>
+      <div style="flex:1;padding:14px 16px;background:rgba(100,116,139,0.06);border:1.5px solid rgba(100,116,139,0.2);border-radius:12px;">
+        <div style="font-size:11px;font-weight:700;color:var(--slate);letter-spacing:0.06em;margin-bottom:6px;">MID 2027+</div>
+        <div style="font-size:13px;font-weight:700;color:#1e293b;">Window Narrows</div>
+        <div style="font-size:11px;color:var(--slate);margin-top:3px;">Early ASTRA banks are locked in. Re-certification for a bank switching CTS platforms takes 12–18 months.</div>
+      </div>
+    </div>
+
+    <div class="row gap12">
+      <div class="prob-card pc-green flex1">
+        <div class="ibadge ib-green">🏛</div>
+        <div>
+          <h4>Every Bank Is Exposed — No Exceptions</h4>
+          <p>Public sector banks, private banks, SFBs, UCBs, RRBs, foreign banks — the IET mandate applies to all inward cheque clearing participants. The addressable market is every bank with a CTS connection.</p>
         </div>
-
-        <div class="row gap12">
-          <div class="prob-card pc-green flex1">
-            <div class="ibadge ib-green">🏛</div>
-            <div>
-              <h4>Every Bank Is Exposed</h4>
-              <p>Public sector banks, private banks, SFBs, UCBs, RRBs, foreign banks — any institution with inward CTS clearing faces the same IET risk. The market is every participant.</p>
-            </div>
-          </div>
-          <div class="prob-card pc-teal flex1">
-            <div class="ibadge ib-teal">🔒</div>
-            <div>
-              <h4>Multi-CBS — No Exclusions</h4>
-              <p>Banks run Finacle, BaNCS, or FlexCube. ASTRA connects to all three on day one. No bank is excluded on the basis of their core banking platform.</p>
-            </div>
-          </div>
-          <div class="prob-card pc-violet flex1">
-            <div class="ibadge ib-violet">🚀</div>
-            <div>
-              <h4>Zero Cloud Dependency</h4>
-              <p>Full on-premises deployment — bank's data centre, bank's servers, bank's control. Satisfies RBI data localisation from day one. No cloud migration required.</p>
-            </div>
-          </div>
+      </div>
+      <div class="prob-card pc-teal flex1">
+        <div class="ibadge ib-teal">🔌</div>
+        <div>
+          <h4>Multi-CBS From Day One</h4>
+          <p>Banks run Finacle, BaNCS, or FlexCube. ASTRA connects to all three from day one — no integration backlog. No bank is excluded on the basis of their core banking platform.</p>
+        </div>
+      </div>
+      <div class="prob-card pc-violet flex1">
+        <div class="ibadge ib-violet">🔒</div>
+        <div>
+          <h4>On-Premises — No Cloud Migration</h4>
+          <p>Fully air-gapped deployment. Data never leaves the bank's data centre. No cloud dependency to satisfy RBI data localisation. Banks don't need to redesign their security posture.</p>
         </div>
       </div>
     </div>
@@ -601,63 +431,82 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════
-     SLIDE 5 — THE SHIFT
+     SLIDE 5 — CLEARING ECOSYSTEM (NEW)
 ═══════════════════════════════════════════════════════════════════ -->
 <div class="slide" id="s5">
   <div class="hdr">
-    <span class="hdr-tag">The Architecture Shift</span>
+    <span class="hdr-tag">The Clearing Ecosystem</span>
     <span class="hdr-logo">ASTRA</span>
-    <span class="hdr-num">05 / 11</span>
+    <span class="hdr-num">05 / 12</span>
   </div>
   <div class="body">
-    <div class="chip chip-green">Agentic Approach</div>
-    <div class="row gap24 mt4">
-      <!-- OLD WAY -->
-      <div class="flex1">
-        <h3 style="font-size:15px;font-weight:800;color:#94a3b8;margin-bottom:14px;text-transform:uppercase;letter-spacing:0.08em;">Old Way — Linear Pipeline</h3>
-        <div style="position:relative;">
-          <div style="display:flex;flex-direction:column;gap:4px;">
-            <div style="padding:9px 14px;background:rgba(100,116,139,0.07);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--slate);font-weight:600;">Cheque #1 — OCR ▶</div>
-            <div style="padding:9px 14px;background:rgba(100,116,139,0.07);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--slate);font-weight:600;">Cheque #1 — Signature ▶</div>
-            <div style="padding:9px 14px;background:rgba(100,116,139,0.07);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--slate);font-weight:600;">Cheque #1 — Balance check ▶</div>
-            <div style="padding:9px 14px;background:rgba(100,116,139,0.07);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--slate);font-weight:600;">Cheque #1 — Fraud score ▶</div>
-            <div style="padding:9px 14px;background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);border-radius:8px;font-size:12px;color:#ef4444;font-weight:700;">↳ WAIT — cheque #2 queued…</div>
-            <div style="padding:9px 14px;background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);border-radius:8px;font-size:12px;color:#ef4444;font-weight:700;">↳ WAIT — cheque #3 queued…</div>
-            <div style="padding:9px 14px;background:rgba(239,68,68,0.10);border:1.5px solid rgba(239,68,68,0.35);border-radius:8px;font-size:12px;color:#dc2626;font-weight:800;">⏱ Wall clock: 5–8 minutes for 500 cheques</div>
-          </div>
-        </div>
-        <div style="margin-top:12px;padding:10px 14px;background:rgba(239,68,68,0.05);border-radius:8px;border:1px solid rgba(239,68,68,0.2);">
-          <div style="font-size:11px;color:#ef4444;font-weight:700;">BOTTLENECK RISK</div>
-          <div style="font-size:11px;color:var(--slate);margin-top:3px;">Any step delay cascades to all 500 cheques. No IET awareness per cheque. Single point of backpressure.</div>
-        </div>
+    <div class="chip chip-teal">Where ASTRA Sits</div>
+    <h2 class="title" style="margin-bottom:8px;">Presentee Bank → NPCI → <span class="g-green">Drawee Bank.</span> ASTRA owns the decision.</h2>
+    <p class="lead" style="max-width:780px;margin-bottom:18px;">ASTRA is deployed at the <strong style="color:#0f172a;">Drawee Bank</strong> — the bank whose account is being drawn upon. Every inward cheque arriving from NPCI's NGCH grid triggers an ASTRA agent that analyses, decides, and files back — all within the IET window.</p>
+
+    <!-- ecosystem flow diagram -->
+    <div style="display:flex;align-items:center;gap:0;margin-bottom:18px;background:var(--soft);border-radius:14px;border:1.5px solid var(--border);padding:16px 24px;">
+      <!-- Presentee Bank -->
+      <div style="text-align:center;flex:1;">
+        <div style="width:52px;height:52px;border-radius:14px;background:rgba(100,116,139,0.12);border:1.5px solid rgba(100,116,139,0.3);display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 8px;">🏦</div>
+        <div style="font-size:12px;font-weight:700;color:#334155;">Presentee Bank</div>
+        <div style="font-size:10px;color:var(--slate);margin-top:3px;">Customer deposits cheque.<br>Bank scans &amp; submits to NGCH.</div>
       </div>
+      <!-- arrow -->
+      <div style="text-align:center;padding:0 8px;flex-shrink:0;">
+        <div style="font-size:18px;color:var(--muted);">→</div>
+        <div style="font-size:9px;color:var(--muted);font-weight:600;margin-top:2px;">CTS image<br>+ MICR data</div>
+      </div>
+      <!-- NPCI NGCH -->
+      <div style="text-align:center;flex:1;">
+        <div style="width:52px;height:52px;border-radius:14px;background:rgba(8,145,178,0.12);border:1.5px solid rgba(8,145,178,0.3);display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 8px;">🔀</div>
+        <div style="font-size:12px;font-weight:700;color:#0369a1;">NPCI NGCH</div>
+        <div style="font-size:10px;color:var(--slate);margin-top:3px;">National clearing grid.<br>Routes inward items.<br><strong style="color:#0891b2;">IET clock starts here.</strong></div>
+      </div>
+      <!-- arrow -->
+      <div style="text-align:center;padding:0 8px;flex-shrink:0;">
+        <div style="font-size:18px;color:var(--muted);">→</div>
+        <div style="font-size:9px;color:var(--muted);font-weight:600;margin-top:2px;">Inward item<br>to drawee</div>
+      </div>
+      <!-- ASTRA at Drawee Bank -->
+      <div style="text-align:center;flex:1.4;padding:12px 16px;border-radius:12px;background:rgba(16,185,129,0.07);border:2px solid rgba(16,185,129,0.35);">
+        <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,rgba(16,185,129,0.2),rgba(5,150,105,0.15));border:1.5px solid rgba(16,185,129,0.5);display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 8px;">⚡</div>
+        <div style="font-size:12px;font-weight:800;color:var(--g2);">ASTRA at Drawee Bank</div>
+        <div style="font-size:10px;color:#334155;margin-top:4px;line-height:1.6;">Receives inward cheque · spawns AI agent<br>Queries own bank data (signature, balance, positive pay, stop-cheque)<br>Decides in &lt;600ms · Files result to NGCH</div>
+        <div style="margin-top:6px;padding:4px 10px;background:rgba(16,185,129,0.15);border-radius:100px;display:inline-block;font-size:10px;font-weight:700;color:var(--g2);">IET watchdog active per cheque</div>
+      </div>
+      <!-- arrow -->
+      <div style="text-align:center;padding:0 8px;flex-shrink:0;">
+        <div style="font-size:18px;color:var(--muted);">→</div>
+        <div style="font-size:9px;color:var(--muted);font-weight:600;margin-top:2px;">Confirm / Return<br>decision filed</div>
+      </div>
+      <!-- NPCI settlement -->
+      <div style="text-align:center;flex:1;">
+        <div style="width:52px;height:52px;border-radius:14px;background:rgba(16,185,129,0.10);border:1.5px solid rgba(16,185,129,0.3);display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 8px;">✅</div>
+        <div style="font-size:12px;font-weight:700;color:#059669;">Settlement</div>
+        <div style="font-size:10px;color:var(--slate);margin-top:3px;">NPCI processes confirmed<br>items. Returns routed<br>back to presentee bank.</div>
+      </div>
+    </div>
 
-      <!-- divider -->
-      <div style="width:1px;background:var(--border);flex-shrink:0;"></div>
-
-      <!-- NEW WAY -->
-      <div class="flex1">
-        <h3 style="font-size:15px;font-weight:800;color:var(--g2);margin-bottom:14px;text-transform:uppercase;letter-spacing:0.08em;">ASTRA Way — Agentic Swarm</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:10px;">
-          <div style="padding:9px 10px;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.25);border-radius:8px;font-size:11px;color:var(--g2);font-weight:700;text-align:center;">Agent #1<br><span style="font-size:10px;color:var(--slate);">Cheque #1 complete</span></div>
-          <div style="padding:9px 10px;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.25);border-radius:8px;font-size:11px;color:var(--g2);font-weight:700;text-align:center;">Agent #2<br><span style="font-size:10px;color:var(--slate);">Cheque #2 complete</span></div>
-          <div style="padding:9px 10px;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.25);border-radius:8px;font-size:11px;color:var(--g2);font-weight:700;text-align:center;">Agent #3<br><span style="font-size:10px;color:var(--slate);">Cheque #3 complete</span></div>
-          <div style="padding:9px 10px;background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.18);border-radius:8px;font-size:11px;color:var(--slate);font-weight:600;text-align:center;">Agent #4</div>
-          <div style="padding:9px 10px;background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.18);border-radius:8px;font-size:11px;color:var(--slate);font-weight:600;text-align:center;">Agent #5</div>
-          <div style="padding:9px 10px;border:1px dashed rgba(16,185,129,0.25);border-radius:8px;font-size:11px;color:rgba(16,185,129,0.5);font-weight:600;text-align:center;">… 495 more</div>
+    <!-- bank data enrichment row -->
+    <div style="margin-top:0;">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Bank Intelligence Layer — Drawee Bank's Own Data, Used Per Cheque</div>
+      <div class="row gap10">
+        <div style="flex:1;padding:10px 14px;border-radius:10px;background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.2);display:flex;align-items:center;gap:10px;">
+          <span style="font-size:20px;">✍</span>
+          <div><div style="font-size:12px;font-weight:700;color:#1e293b;">Signature Registry</div><div style="font-size:11px;color:var(--slate);">Stored specimen per account — matched in real time against the scanned cheque image.</div></div>
         </div>
-        <div style="padding:10px 14px;background:rgba(16,185,129,0.08);border:1.5px solid rgba(16,185,129,0.35);border-radius:8px;margin-bottom:10px;">
-          <div style="font-size:12px;font-weight:800;color:var(--g2);">⚡ Wall clock: &lt;600ms for ALL 500 cheques</div>
+        <div style="flex:1;padding:10px 14px;border-radius:10px;background:rgba(8,145,178,0.05);border:1px solid rgba(8,145,178,0.18);display:flex;align-items:center;gap:10px;">
+          <span style="font-size:20px;">📋</span>
+          <div><div style="font-size:12px;font-weight:700;color:#1e293b;">Positive Pay Register</div><div style="font-size:11px;color:var(--slate);">Issuer-declared cheque details — amount, payee, series. Any deviation is flagged before clearing.</div></div>
         </div>
-        <div style="display:flex;gap:8px;">
-          <div style="flex:1;padding:10px 12px;background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.2);border-radius:8px;">
-            <div style="font-size:11px;font-weight:700;color:var(--g2);">Per-agent IET watchdog</div>
-            <div style="font-size:10px;color:var(--slate);margin-top:3px;">Each agent has its own countdown. Fires emergency at T−30s. No cheque is ever forgotten.</div>
-          </div>
-          <div style="flex:1;padding:10px 12px;background:rgba(8,145,178,0.05);border:1px solid rgba(8,145,178,0.2);border-radius:8px;">
-            <div style="font-size:11px;font-weight:700;color:#0891b2;">Durable execution</div>
-            <div style="font-size:10px;color:var(--slate);margin-top:3px;">Agents survive server restarts. Pod failure does not kill an in-flight cheque decision.</div>
-          </div>
+        <div style="flex:1;padding:10px 14px;border-radius:10px;background:rgba(239,68,68,0.04);border:1px solid rgba(239,68,68,0.18);display:flex;align-items:center;gap:10px;">
+          <span style="font-size:20px;">🛑</span>
+          <div><div style="font-size:12px;font-weight:700;color:#1e293b;">Stop-Cheque Instructions</div><div style="font-size:11px;color:var(--slate);">Account-holder stop instructions are applied per instrument — not just as a bulk account flag.</div></div>
+        </div>
+        <div style="flex:1;padding:10px 14px;border-radius:10px;background:rgba(139,92,246,0.04);border:1px solid rgba(139,92,246,0.18);display:flex;align-items:center;gap:10px;">
+          <span style="font-size:20px;">💰</span>
+          <div><div style="font-size:12px;font-weight:700;color:#1e293b;">Real-Time Balance</div><div style="font-size:11px;color:var(--slate);">Live account balance queried from CBS — not a stale overnight snapshot.</div></div>
         </div>
       </div>
     </div>
@@ -665,151 +514,147 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════
-     SLIDE 6 — PLATFORM CONCEPT
+     SLIDE 6 — PLATFORM CONCEPT (updated with on-prem AI + swarm)
 ═══════════════════════════════════════════════════════════════════ -->
 <div class="slide" id="s6">
   <div class="hdr">
     <span class="hdr-tag">Platform Concept</span>
     <span class="hdr-logo">ASTRA</span>
-    <span class="hdr-num">06 / 11</span>
+    <span class="hdr-num">06 / 12</span>
   </div>
   <div class="body">
-    <div class="chip chip-teal">How It Works</div>
-    <h2 class="title" style="margin-bottom:6px;">One agent. One cheque. <span class="g-green">Three possible outcomes.</span></h2>
-    <p class="lead" style="max-width:700px;margin-bottom:18px;">ASTRA's agent receives a cheque image from the clearing grid, independently analyses all risk dimensions, and files a decision — all within the IET window.</p>
+    <div class="chip chip-green">How It Works</div>
+    <h2 class="title" style="margin-bottom:6px;">One agent. One cheque. <span class="g-green">All intelligence. Local.</span></h2>
+    <p class="lead" style="max-width:760px;margin-bottom:14px;">ASTRA runs entirely on the bank's own servers — no cloud, no external API calls with customer data. The AI models run on-premises on GPU infrastructure the bank owns and controls.</p>
 
-    <!-- flow diagram row -->
-    <div class="row gap0" style="margin-bottom:16px;align-items:center;">
-      <div style="padding:12px 16px;background:rgba(8,145,178,0.07);border:1.5px solid rgba(8,145,178,0.25);border-radius:12px;text-align:center;flex:1;">
-        <div style="font-size:22px;margin-bottom:4px;">📥</div>
+    <!-- agent flow -->
+    <div class="row gap0" style="margin-bottom:14px;align-items:stretch;">
+      <div style="padding:12px 14px;background:rgba(8,145,178,0.07);border:1.5px solid rgba(8,145,178,0.25);border-radius:12px 0 0 12px;text-align:center;flex:1;">
+        <div style="font-size:20px;margin-bottom:4px;">📥</div>
         <div style="font-size:11px;font-weight:700;color:#0891b2;">Inward Cheque</div>
-        <div style="font-size:10px;color:var(--slate);margin-top:2px;">Arrives from clearing grid</div>
+        <div style="font-size:10px;color:var(--slate);margin-top:2px;">Arrives from NPCI NGCH<br>Image + MICR data</div>
       </div>
-      <div style="font-size:18px;color:var(--border);padding:0 8px;">→</div>
-      <div style="padding:12px 16px;background:rgba(139,92,246,0.07);border:1.5px solid rgba(139,92,246,0.25);border-radius:12px;text-align:center;flex:1;">
-        <div style="font-size:22px;margin-bottom:4px;">🤖</div>
+      <div style="font-size:16px;color:var(--border);padding:0 6px;align-self:center;">→</div>
+      <div style="padding:12px 14px;background:rgba(139,92,246,0.07);border:1.5px solid rgba(139,92,246,0.25);border-radius:0;text-align:center;flex:1;">
+        <div style="font-size:20px;margin-bottom:4px;">🤖</div>
         <div style="font-size:11px;font-weight:700;color:#8b5cf6;">ASTRA Agent</div>
-        <div style="font-size:10px;color:var(--slate);margin-top:2px;">Spawned per cheque</div>
+        <div style="font-size:10px;color:var(--slate);margin-top:2px;">Spawned per cheque<br>Runs fully in parallel</div>
       </div>
-      <div style="font-size:18px;color:var(--border);padding:0 8px;">→</div>
-      <div style="padding:12px 10px;background:rgba(16,185,129,0.05);border:1px dashed rgba(16,185,129,0.3);border-radius:12px;text-align:center;flex:1;">
-        <div style="font-size:10px;font-weight:700;color:var(--g2);margin-bottom:4px;">ANALYSES</div>
-        <div style="font-size:10px;color:var(--slate);line-height:1.6;">Image integrity<br>Signature match<br>Balance verification<br>Fraud score + reason</div>
+      <div style="font-size:16px;color:var(--border);padding:0 6px;align-self:center;">→</div>
+      <div style="padding:12px 10px;background:rgba(16,185,129,0.05);border:1px dashed rgba(16,185,129,0.3);border-radius:0;text-align:center;flex:1.2;">
+        <div style="font-size:10px;font-weight:700;color:var(--g2);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.06em;">On-Premises AI Analysis</div>
+        <div style="font-size:10px;color:var(--slate);line-height:1.7;">📷 Vision AI — image integrity &amp; alteration<br>✍ Signature AI — specimen match<br>📊 Fraud AI — structured risk scoring<br>📝 Text AI — MICR &amp; field extraction</div>
       </div>
-      <div style="font-size:18px;color:var(--border);padding:0 8px;">→</div>
-      <div style="padding:12px 16px;background:rgba(16,185,129,0.07);border:1.5px solid rgba(16,185,129,0.3);border-radius:12px;text-align:center;flex:1;">
-        <div style="font-size:22px;margin-bottom:4px;">⚡</div>
-        <div style="font-size:11px;font-weight:700;color:var(--g2);">Decision</div>
-        <div style="font-size:10px;color:var(--slate);margin-top:2px;">&lt;600ms wall clock</div>
+      <div style="font-size:16px;color:var(--border);padding:0 6px;align-self:center;">→</div>
+      <div style="padding:12px 10px;background:rgba(16,185,129,0.05);border:1px dashed rgba(16,185,129,0.3);border-radius:0;text-align:center;flex:1;">
+        <div style="font-size:10px;font-weight:700;color:var(--g2);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.06em;">Bank Data Check</div>
+        <div style="font-size:10px;color:var(--slate);line-height:1.7;">Signature match<br>Positive pay verify<br>Stop-cheque lookup<br>Live balance</div>
       </div>
-      <div style="font-size:18px;color:var(--border);padding:0 8px;">→</div>
-      <div style="padding:12px 16px;background:rgba(8,145,178,0.07);border:1.5px solid rgba(8,145,178,0.25);border-radius:12px;text-align:center;flex:1;">
-        <div style="font-size:22px;margin-bottom:4px;">📤</div>
-        <div style="font-size:11px;font-weight:700;color:#0891b2;">Filed to NGCH</div>
-        <div style="font-size:10px;color:var(--slate);margin-top:2px;">IET satisfied</div>
+      <div style="font-size:16px;color:var(--border);padding:0 6px;align-self:center;">→</div>
+      <div style="padding:12px 14px;background:rgba(16,185,129,0.07);border:1.5px solid rgba(16,185,129,0.3);border-radius:0 12px 12px 0;text-align:center;flex:1;">
+        <div style="font-size:20px;margin-bottom:4px;">⚡</div>
+        <div style="font-size:11px;font-weight:700;color:var(--g2);">Decision Filed</div>
+        <div style="font-size:10px;color:var(--slate);margin-top:2px;">&lt;600ms wall clock<br>500 cheques parallel</div>
       </div>
     </div>
 
     <!-- three outcomes -->
-    <div class="row gap12">
-      <div style="flex:1;padding:16px;border-radius:14px;border:1.5px solid rgba(16,185,129,0.3);background:rgba(16,185,129,0.05);">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-          <div class="ibadge ib-green" style="width:38px;height:38px;font-size:18px;">✅</div>
-          <div style="font-size:13px;font-weight:800;color:#059669;">Straight-Through Confirm</div>
+    <div class="row gap10">
+      <div style="flex:1;padding:14px;border-radius:12px;border:1.5px solid rgba(16,185,129,0.3);background:rgba(16,185,129,0.05);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <div class="ibadge ib-green" style="width:36px;height:36px;font-size:16px;">✅</div>
+          <div style="font-size:12px;font-weight:800;color:#059669;">Straight-Through Confirm</div>
         </div>
-        <div style="font-size:12px;color:var(--slate);line-height:1.6;">All checks pass cleanly. Agent auto-confirms and files without human involvement. Highest volume outcome — operationally invisible.</div>
-        <div class="pbar-track mt8"><div class="pbar-fill" style="width:65%;"></div></div>
-        <div style="font-size:10px;color:var(--muted);margin-top:4px;font-weight:600;">~65% of batch volume</div>
+        <div style="font-size:11px;color:var(--slate);line-height:1.6;margin-bottom:8px;">All checks pass. Agent confirms and files. No human involvement. Operationally invisible.</div>
+        <div class="pbar-track"><div class="pbar-fill" style="width:65%;"></div></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px;font-weight:600;">~65% of volume</div>
       </div>
-      <div style="flex:1;padding:16px;border-radius:14px;border:1.5px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.04);">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-          <div class="ibadge ib-red" style="width:38px;height:38px;font-size:18px;">↩</div>
-          <div style="font-size:13px;font-weight:800;color:#dc2626;">Straight-Through Return</div>
+      <div style="flex:1;padding:14px;border-radius:12px;border:1.5px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.04);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <div class="ibadge ib-red" style="width:36px;height:36px;font-size:16px;">↩</div>
+          <div style="font-size:12px;font-weight:800;color:#dc2626;">Straight-Through Return</div>
         </div>
-        <div style="font-size:12px;color:var(--slate);line-height:1.6;">Clear-cut violation detected — account closed, stop-pay active, signature mismatch beyond threshold. Auto-returned with a coded reason. No human needed.</div>
-        <div class="pbar-track mt8"><div class="pbar-fill" style="width:30%;background:linear-gradient(90deg,#ef4444,#dc2626);"></div></div>
-        <div style="font-size:10px;color:var(--muted);margin-top:4px;font-weight:600;">~30% of batch volume</div>
+        <div style="font-size:11px;color:var(--slate);line-height:1.6;margin-bottom:8px;">Clear violation — stop-cheque active, positive-pay mismatch, account closed. Auto-returned with coded reason.</div>
+        <div class="pbar-track"><div class="pbar-fill" style="width:30%;background:linear-gradient(90deg,#ef4444,#dc2626);"></div></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px;font-weight:600;">~30% of volume</div>
       </div>
-      <div style="flex:1;padding:16px;border-radius:14px;border:1.5px solid rgba(217,119,6,0.3);background:rgba(217,119,6,0.04);">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-          <div class="ibadge ib-amber" style="width:38px;height:38px;font-size:18px;">🔍</div>
-          <div style="font-size:13px;font-weight:800;color:#d97706;">Precision Human Review</div>
+      <div style="flex:1;padding:14px;border-radius:12px;border:1.5px solid rgba(217,119,6,0.3);background:rgba(217,119,6,0.04);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <div class="ibadge ib-amber" style="width:36px;height:36px;font-size:16px;">🔍</div>
+          <div style="font-size:12px;font-weight:800;color:#d97706;">Precision Human Review</div>
         </div>
-        <div style="font-size:12px;color:var(--slate);line-height:1.6;">Ambiguous signals escalated to ops reviewer — with agent rationale, confidence scores, and IET countdown visible. Reviewer sees exactly what to verify.</div>
-        <div class="pbar-track mt8"><div class="pbar-fill" style="width:5%;background:linear-gradient(90deg,#f59e0b,#d97706);"></div></div>
-        <div style="font-size:10px;color:var(--muted);margin-top:4px;font-weight:600;">~5% of batch volume</div>
+        <div style="font-size:11px;color:var(--slate);line-height:1.6;margin-bottom:8px;">Ambiguous signals escalated — with AI rationale, factor scores, and IET countdown visible to the reviewer.</div>
+        <div class="pbar-track"><div class="pbar-fill" style="width:5%;background:linear-gradient(90deg,#f59e0b,#d97706);"></div></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px;font-weight:600;">~5% of volume</div>
       </div>
     </div>
   </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════
-     SLIDE 7 — DECISION INTELLIGENCE
+     SLIDE 7 — DECISION INTELLIGENCE (updated with on-prem AI)
 ═══════════════════════════════════════════════════════════════════ -->
 <div class="slide" id="s7">
   <div class="hdr">
     <span class="hdr-tag">Decision Intelligence</span>
     <span class="hdr-logo">ASTRA</span>
-    <span class="hdr-num">07 / 11</span>
+    <span class="hdr-num">07 / 12</span>
   </div>
   <div class="body">
     <div class="chip chip-green">Explainability · Audit · Compliance</div>
-    <h2 class="title" style="margin-bottom:6px;">Every decision <span class="g-green">tells you why.</span></h2>
-    <p class="lead" style="max-width:720px;margin-bottom:16px;">ASTRA produces a full reasoning trace alongside every outcome — factor-level scores, a plain-language explanation, and a cryptographically verifiable audit record. No black-box decisions.</p>
+    <h2 class="title" style="margin-bottom:6px;">Every decision <span class="g-green">tells you why.</span> Every model <span class="g-green">runs on your servers.</span></h2>
+    <p class="lead" style="max-width:780px;margin-bottom:14px;">ASTRA produces a full reasoning trace alongside every outcome. Factor-level scores, plain-language explanation, cryptographic audit record. No black-box decisions — and no customer data leaving the bank's premises.</p>
 
     <div class="row gap16">
-      <!-- left: factor breakdown mock -->
-      <div style="flex:1.2;">
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Decision Factor Breakdown</div>
+      <div style="flex:1.1;">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Decision Factor Breakdown</div>
         <div class="col gap6">
           <div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:12px;font-weight:600;color:#1e293b;">Image integrity</span><span style="font-size:12px;font-weight:700;color:#10b981;">98.2%</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="font-size:12px;font-weight:600;color:#1e293b;">Vision AI — image integrity &amp; alteration</span><span style="font-size:12px;font-weight:700;color:#10b981;">98.2%</span></div>
             <div class="pbar-track"><div class="pbar-fill" style="width:98%;"></div></div>
           </div>
           <div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:12px;font-weight:600;color:#1e293b;">Signature match</span><span style="font-size:12px;font-weight:700;color:#10b981;">94.7%</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="font-size:12px;font-weight:600;color:#1e293b;">Signature AI — specimen match</span><span style="font-size:12px;font-weight:700;color:#10b981;">94.7%</span></div>
             <div class="pbar-track"><div class="pbar-fill" style="width:94%;"></div></div>
           </div>
           <div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:12px;font-weight:600;color:#1e293b;">Balance coverage</span><span style="font-size:12px;font-weight:700;color:#10b981;">✓ Confirmed</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="font-size:12px;font-weight:600;color:#1e293b;">Positive pay — CBS match</span><span style="font-size:12px;font-weight:700;color:#10b981;">✓ Confirmed</span></div>
             <div class="pbar-track"><div class="pbar-fill" style="width:100%;"></div></div>
           </div>
           <div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:12px;font-weight:600;color:#1e293b;">Positive pay match</span><span style="font-size:12px;font-weight:700;color:#10b981;">✓ Confirmed</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="font-size:12px;font-weight:600;color:#1e293b;">Balance coverage — live CBS query</span><span style="font-size:12px;font-weight:700;color:#10b981;">✓ Sufficient</span></div>
             <div class="pbar-track"><div class="pbar-fill" style="width:100%;"></div></div>
           </div>
           <div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:12px;font-weight:600;color:#1e293b;">Fraud risk signal</span><span style="font-size:12px;font-weight:700;color:#10b981;">Low — 4.1%</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="font-size:12px;font-weight:600;color:#1e293b;">Fraud AI — structured risk score</span><span style="font-size:12px;font-weight:700;color:#10b981;">Low — 4.1%</span></div>
             <div class="pbar-track"><div class="pbar-fill" style="width:4%;background:linear-gradient(90deg,#10b981,#06b6d4);"></div></div>
           </div>
-          <div style="margin-top:6px;padding:12px 14px;background:rgba(16,185,129,0.07);border:1.5px solid rgba(16,185,129,0.3);border-radius:10px;">
-            <div style="font-size:11px;font-weight:700;color:var(--g2);margin-bottom:4px;">Agent Plain-Language Rationale</div>
-            <div style="font-size:11px;color:#334155;line-height:1.6;font-style:italic;">"Cheque image shows no alteration markers. Signature matches stored specimen with high confidence. Account has sufficient balance and an active positive-pay registration for this series. Fraud indicators are within normal band. Recommended action: <strong>Straight-Through Confirm.</strong>"</div>
+          <div style="margin-top:6px;padding:10px 14px;background:rgba(16,185,129,0.07);border:1.5px solid rgba(16,185,129,0.3);border-radius:10px;">
+            <div style="font-size:11px;font-weight:700;color:var(--g2);margin-bottom:3px;">Agent Plain-Language Rationale</div>
+            <div style="font-size:11px;color:#334155;line-height:1.6;font-style:italic;">"Vision analysis finds no alteration markers. Signature matches stored specimen at high confidence. Positive pay registration active for this series. Live balance covers the amount. Fraud indicators within normal band. Recommended: <strong>Straight-Through Confirm.</strong>"</div>
           </div>
         </div>
       </div>
-
-      <!-- right: audit + compliance -->
-      <div class="col gap12" style="flex:1;">
+      <div class="col gap10 flex1">
+        <div class="prob-card pc-green">
+          <div class="ibadge ib-green">🏠</div>
+          <div>
+            <h4>All AI Models On Your Premises</h4>
+            <p>Vision models, signature models, fraud models — all run on GPU servers the bank owns. No customer cheque image or account data ever touches an external system or cloud API.</p>
+          </div>
+        </div>
         <div class="prob-card pc-teal">
           <div class="ibadge ib-teal">🔐</div>
           <div>
             <h4>Immutable Audit Trail</h4>
-            <p>Every decision is cryptographically signed and written to a tamper-evident ledger. Any record read back verifies its own authenticity. RBI examiner access is date-scoped, read-only, and logged.</p>
+            <p>Every decision is cryptographically signed and written to a tamper-evident ledger. RBI examiners get time-scoped read-only access — full audit, no vendor involvement needed.</p>
           </div>
         </div>
         <div class="prob-card pc-violet">
-          <div class="ibadge ib-violet">📋</div>
+          <div class="ibadge ib-violet">⚙️</div>
           <div>
-            <h4>RBI Audit-Ready by Design</h4>
-            <p>Every factor, every threshold, every configuration change is stored with a maker-checker trail. The platform explains its own decisions to examiners without vendor involvement.</p>
-          </div>
-        </div>
-        <div class="prob-card pc-green">
-          <div class="ibadge ib-green">⚙️</div>
-          <div>
-            <h4>Bank-Configurable Thresholds</h4>
-            <p>Fraud sensitivity, high-value limits, and auto-confirm thresholds are bank-controlled via an admin UI with dual approval — live in under 30 seconds, no deployment needed.</p>
+            <h4>Bank-Controlled Thresholds</h4>
+            <p>Fraud sensitivity, high-value limits, and auto-confirm thresholds are bank-controlled via admin UI with dual approval. Live in under 30 seconds — no code deploy, no vendor call.</p>
           </div>
         </div>
       </div>
@@ -824,12 +669,12 @@
   <div class="hdr">
     <span class="hdr-tag">Competitive Position</span>
     <span class="hdr-logo">ASTRA</span>
-    <span class="hdr-num">08 / 11</span>
+    <span class="hdr-num">08 / 12</span>
   </div>
   <div class="body">
     <div class="chip chip-slate">Market Landscape</div>
     <h2 class="title" style="margin-bottom:6px;">What incumbents <span class="g-amber">cannot replicate fast enough.</span></h2>
-    <p class="lead" style="max-width:720px;margin-bottom:16px;">Existing CTS vendors evolved from batch-file architectures. Retrofitting parallel agent orchestration, AI explainability, and per-instrument IET tracking onto a legacy core is a multi-year re-engineering effort.</p>
+    <p class="lead" style="max-width:760px;margin-bottom:14px;">Existing CTS vendors evolved from batch-file architectures. Retrofitting parallel agent orchestration, on-premises Vision AI, per-instrument IET tracking, and real-time bank data enrichment is a multi-year re-engineering effort.</p>
 
     <table class="comp-table td-astra">
       <thead>
@@ -854,9 +699,21 @@
           <td><span class="part">~ In progress</span></td>
         </tr>
         <tr>
+          <td><strong>On-premises Vision AI</strong> — image analysis, no cloud</td>
+          <td><span class="check">✓ Fully local</span></td>
+          <td><span class="cross">✗ Rules-based only</span></td>
+          <td><span class="cross">✗ Cloud APIs</span></td>
+        </tr>
+        <tr>
+          <td><strong>Signature + Positive Pay + Stop-Cheque</strong> per instrument</td>
+          <td><span class="check">✓ Real-time, per cheque</span></td>
+          <td><span class="part">~ Account-level flag</span></td>
+          <td><span class="cross">✗ None</span></td>
+        </tr>
+        <tr>
           <td><strong>AI explainability</strong> — factor-level rationale per decision</td>
           <td><span class="check">✓ Every decision</span></td>
-          <td><span class="cross">✗ Score only, no reason</span></td>
+          <td><span class="cross">✗ Score only</span></td>
           <td><span class="part">~ Limited</span></td>
         </tr>
         <tr>
@@ -866,34 +723,22 @@
           <td><span class="cross">✗ None or single</span></td>
         </tr>
         <tr>
-          <td><strong>On-premises, air-gapped</strong> — zero cloud dependency</td>
-          <td><span class="check">✓ 100% on-prem</span></td>
-          <td><span class="check">✓ On-prem</span></td>
-          <td><span class="cross">✗ Cloud-native</span></td>
-        </tr>
-        <tr>
-          <td><strong>Hot-reload configuration</strong> — no restart for threshold changes</td>
-          <td><span class="check">✓ &lt;30s live</span></td>
-          <td><span class="cross">✗ Restart required</span></td>
-          <td><span class="part">~ Variable</span></td>
-        </tr>
-        <tr>
-          <td><strong>Cryptographic audit trail</strong> — tamper-evident, examiner-ready</td>
+          <td><strong>Cryptographic audit trail</strong> — RBI examiner-ready</td>
           <td><span class="check">✓ Every write signed</span></td>
-          <td><span class="part">~ Log files only</span></td>
+          <td><span class="part">~ Log files</span></td>
           <td><span class="part">~ DB audit tables</span></td>
         </tr>
       </tbody>
     </table>
 
-    <div style="margin-top:14px;display:flex;gap:16px;">
+    <div class="row gap12 mt14">
       <div style="flex:1;padding:10px 14px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.25);border-radius:10px;display:flex;align-items:center;gap:10px;">
-        <span style="font-size:20px;">⏱</span>
-        <div><div style="font-size:11px;font-weight:700;color:var(--g2);">18-Month Structural Lead</div><div style="font-size:10px;color:var(--slate);">Agentic architecture cannot be bolted onto a sequential core. This is a ground-up rebuild — which ASTRA has already completed.</div></div>
+        <span style="font-size:18px;">⏱</span>
+        <div><div style="font-size:11px;font-weight:700;color:var(--g2);">18-Month Structural Lead</div><div style="font-size:10px;color:var(--slate);">Agentic architecture cannot be bolted onto a sequential core. ASTRA is the ground-up rebuild — already complete.</div></div>
       </div>
       <div style="flex:1;padding:10px 14px;background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.2);border-radius:10px;display:flex;align-items:center;gap:10px;">
-        <span style="font-size:20px;">🔒</span>
-        <div><div style="font-size:11px;font-weight:700;color:#dc2626;">Switching Cost Locks In Early Wins</div><div style="font-size:10px;color:var(--slate);">Once a bank certifies and deploys a CTS platform, re-certification is a 12–18 month process. First-mover advantage compounds.</div></div>
+        <span style="font-size:18px;">🔒</span>
+        <div><div style="font-size:11px;font-weight:700;color:#dc2626;">Switching Cost Locks In Early Wins</div><div style="font-size:10px;color:var(--slate);">Once a bank certifies and deploys a CTS platform, re-certification takes 12–18 months. First movers compound.</div></div>
       </div>
     </div>
   </div>
@@ -906,14 +751,14 @@
   <div class="hdr">
     <span class="hdr-tag">Market Opportunity</span>
     <span class="hdr-logo">ASTRA</span>
-    <span class="hdr-num">09 / 11</span>
+    <span class="hdr-num">09 / 12</span>
   </div>
   <div class="body">
     <div class="chip chip-green">Size of Prize</div>
     <h2 class="title" style="margin-bottom:6px;">Every bank that clears cheques <span class="g-green">is a buyer.</span></h2>
-    <p class="lead" style="max-width:700px;margin-bottom:16px;">The IET mandate affects all 200+ RBI member banks without exception. Market entry via CTS opens a natural cross-sell to the bank's ATM fleet through ASTRA's EJ Intelligence module — same buyer, same platform, one deployment.</p>
+    <p class="lead" style="max-width:700px;margin-bottom:16px;">The IET mandate affects all 200+ RBI member banks without exception. CTS entry opens a natural cross-sell to the bank's ATM fleet through ASTRA's EJ Intelligence module — same buyer, same platform, one deployment.</p>
 
-    <div class="row gap14">
+    <div class="row gap12">
       <div class="sbox sbox-green flex1">
         <div class="sn g-green">609M</div>
         <div class="sl">Cheques cleared annually (FY25)<br>Every one subject to IET</div>
@@ -932,26 +777,26 @@
       </div>
     </div>
 
-    <div class="row gap14 mt14">
+    <div class="row gap12 mt12">
       <div class="prob-card pc-green flex1">
         <div class="ibadge ib-green">💰</div>
         <div>
-          <h4>Per-Cheque SaaS Model</h4>
-          <p>Revenue scales with clearing volume — aligned with bank success. No fixed-fee risk for the bank. Pilot banks start at zero commitment.</p>
+          <h4>Per-Cheque SaaS or Platform Licence</h4>
+          <p>Revenue scales with clearing volume — aligned with bank success. Pilot banks start at zero commitment. Larger banks prefer a platform licence for full control on-premises.</p>
         </div>
       </div>
       <div class="prob-card pc-teal flex1">
         <div class="ibadge ib-teal">🏗</div>
         <div>
-          <h4>Platform Licence Alternative</h4>
-          <p>Larger banks prefer a full-stack licence — own the platform, run it on-premises, no per-cheque visibility. Both models supported from day one.</p>
+          <h4>Land with CTS · Expand to EJ</h4>
+          <p>Same bank IT team, same infrastructure, same compliance certification. The EJ Intelligence module activates with a configuration flag after CTS is live — zero new deployment cost.</p>
         </div>
       </div>
       <div class="prob-card pc-violet flex1">
-        <div class="ibadge ib-violet">🔄</div>
+        <div class="ibadge ib-violet">🚀</div>
         <div>
-          <h4>ATM EJ — Zero New Deployment</h4>
-          <p>A CTS bank activates the EJ Intelligence module with a configuration flag. No new servers, no new certification. Cross-sell revenue unlocked from the same infrastructure.</p>
+          <h4>90-Day Pilot to Production</h4>
+          <p>ASTRA connects to the bank's CBS, runs in parallel with the existing CTS platform, and goes live on a subset of inward volume. No rip-and-replace. No big-bang cutover.</p>
         </div>
       </div>
     </div>
@@ -965,86 +810,90 @@
   <div class="hdr">
     <span class="hdr-tag">Readiness Signal</span>
     <span class="hdr-logo">ASTRA</span>
-    <span class="hdr-num">10 / 11</span>
+    <span class="hdr-num">10 / 12</span>
   </div>
   <div class="body">
-    <div class="chip chip-green">Platform Status</div>
+    <div class="chip chip-green">Not a Roadmap. A Working Platform.</div>
     <h2 class="title" style="margin-bottom:6px;">Built. Tested. <span class="g-green">Ready for pilot.</span></h2>
-    <p class="lead" style="max-width:700px;margin-bottom:16px;">ASTRA's CTS module is not a prototype or a roadmap. Every workflow, every AI integration, and every compliance path has been built and tested against production-equivalent scenarios.</p>
+    <p class="lead" style="max-width:740px;margin-bottom:14px;">Every workflow, every AI integration, every compliance path, and every CBS connector has been built and tested against production-equivalent scenarios. This is a working platform, not a slide-deck vision.</p>
 
-    <div class="row gap16">
-      <!-- left: readiness grid -->
-      <div class="col gap8 flex1">
-        <div class="row gap8">
+    <div class="row gap14">
+      <div class="col gap10" style="flex:1.1;">
+        <div class="row gap10">
           <div style="flex:1;padding:12px 14px;background:rgba(16,185,129,0.06);border:1.5px solid rgba(16,185,129,0.25);border-radius:12px;">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Tests</div>
-            <div style="font-size:32px;font-weight:900;color:#10b981;line-height:1;">1,300+</div>
-            <div style="font-size:11px;color:var(--slate);">Automated tests<br>95%+ critical path coverage</div>
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">Tests</div>
+            <div style="font-size:30px;font-weight:900;color:#10b981;line-height:1;">1,300+</div>
+            <div style="font-size:11px;color:var(--slate);margin-top:3px;">95%+ on critical paths</div>
           </div>
           <div style="flex:1;padding:12px 14px;background:rgba(8,145,178,0.06);border:1.5px solid rgba(8,145,178,0.2);border-radius:12px;">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">IET Breach Rate</div>
-            <div style="font-size:32px;font-weight:900;color:#0891b2;line-height:1;">0.000%</div>
-            <div style="font-size:11px;color:var(--slate);">IET watchdog active<br>across all test scenarios</div>
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">IET Breach Rate</div>
+            <div style="font-size:30px;font-weight:900;color:#0891b2;line-height:1;">0.000%</div>
+            <div style="font-size:11px;color:var(--slate);margin-top:3px;">Across all test scenarios</div>
           </div>
         </div>
-        <div class="row gap8">
+        <div class="row gap10">
           <div style="flex:1;padding:12px 14px;background:rgba(139,92,246,0.06);border:1.5px solid rgba(139,92,246,0.2);border-radius:12px;">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">CBS Connectors</div>
-            <div style="font-size:32px;font-weight:900;color:#8b5cf6;line-height:1;">3 / 3</div>
-            <div style="font-size:11px;color:var(--slate);">Finacle · BaNCS · FlexCube<br>All implemented</div>
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">CBS Connectors</div>
+            <div style="font-size:30px;font-weight:900;color:#8b5cf6;line-height:1;">3 / 3</div>
+            <div style="font-size:11px;color:var(--slate);margin-top:3px;">Finacle · BaNCS · FlexCube</div>
           </div>
-          <div style="flex:1;padding:12px 14px;background:rgba(245,158,11,0.06);border:1.5px solid rgba(245,158,11,0.2);border-radius:12px;">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Go-Live</div>
-            <div style="font-size:32px;font-weight:900;color:#d97706;line-height:1;">90d</div>
-            <div style="font-size:11px;color:var(--slate);">Pilot-to-production timeline<br>for first bank</div>
+          <div style="flex:1;padding:12px 14px;background:rgba(16,185,129,0.06);border:1.5px solid rgba(16,185,129,0.2);border-radius:12px;">
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">AI Models</div>
+            <div style="font-size:30px;font-weight:900;color:#10b981;line-height:1;">4 types</div>
+            <div style="font-size:11px;color:var(--slate);margin-top:3px;">Vision · Signature · Fraud · OCR</div>
+          </div>
+        </div>
+        <div style="padding:12px 16px;background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.2);border-radius:12px;">
+          <div style="display:flex;gap:16px;align-items:center;">
+            <div style="text-align:center;flex:1;"><div style="font-size:22px;font-weight:900;color:#10b981;">Day 1</div><div style="font-size:10px;color:var(--slate);">CBS integration &amp; parallel run</div></div>
+            <div style="width:1px;height:36px;background:var(--border);"></div>
+            <div style="text-align:center;flex:1;"><div style="font-size:22px;font-weight:900;color:#10b981;">Day 30</div><div style="font-size:10px;color:var(--slate);">First live clearing batch</div></div>
+            <div style="width:1px;height:36px;background:var(--border);"></div>
+            <div style="text-align:center;flex:1;"><div style="font-size:22px;font-weight:900;color:#10b981;">Day 90</div><div style="font-size:10px;color:var(--slate);">Full production cutover</div></div>
           </div>
         </div>
       </div>
 
-      <!-- right: mini-dashboard mock -->
-      <div style="width:380px;flex-shrink:0;">
+      <div style="width:360px;flex-shrink:0;">
         <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">ASTRA Ops Workstation — Live View</div>
         <div class="mini-dash">
           <div class="md-hdr">
             <span class="md-hdr-title">Clearing Session · Active</span>
-            <div style="display:flex;gap:6px;align-items:center;">
-              <div class="md-dot md-dot-green"></div>
-              <span style="font-size:10px;color:var(--g2);font-weight:600;">Live</span>
-            </div>
+            <div style="display:flex;gap:6px;align-items:center;"><div class="md-dot md-dot-green"></div><span style="font-size:10px;color:var(--g2);font-weight:600;">Live</span></div>
           </div>
           <div class="md-row">
-            <span style="font-size:16px;margin-right:6px;">⚡</span>
+            <span style="font-size:14px;margin-right:6px;">⚡</span>
             <span class="md-row-label">Batch progress</span>
-            <div style="flex:2;margin:0 12px;"><div class="pbar-track"><div class="pbar-fill" style="width:73%;"></div></div></div>
+            <div style="flex:2;margin:0 10px;"><div class="pbar-track"><div class="pbar-fill" style="width:73%;"></div></div></div>
             <span class="md-row-val">367 / 500</span>
           </div>
           <div class="md-row">
-            <span style="font-size:16px;margin-right:6px;">✅</span>
+            <span style="font-size:14px;margin-right:6px;">✅</span>
             <span class="md-row-label">Straight-through confirmed</span>
             <span class="md-row-badge mdb-green">232</span>
           </div>
           <div class="md-row">
-            <span style="font-size:16px;margin-right:6px;">↩</span>
+            <span style="font-size:14px;margin-right:6px;">↩</span>
             <span class="md-row-label">Straight-through returned</span>
             <span class="md-row-badge mdb-amber">123</span>
           </div>
           <div class="md-row">
-            <span style="font-size:16px;margin-right:6px;">🔍</span>
+            <span style="font-size:14px;margin-right:6px;">🔍</span>
             <span class="md-row-label">In human review queue</span>
             <span class="md-row-badge mdb-red">12</span>
           </div>
           <div class="md-row">
-            <span style="font-size:16px;margin-right:6px;">⏱</span>
+            <span style="font-size:14px;margin-right:6px;">⏱</span>
             <span class="md-row-label">Remaining IET budget</span>
             <span class="md-row-val" style="color:var(--g2);">2h 14m</span>
           </div>
           <div class="md-row" style="background:rgba(16,185,129,0.04);">
-            <span style="font-size:16px;margin-right:6px;">🛡</span>
+            <span style="font-size:14px;margin-right:6px;">🛡</span>
             <span class="md-row-label">IET watchdog status</span>
-            <span class="md-row-badge mdb-green">All safe</span>
+            <span class="md-row-badge mdb-green">All safe · 0 at risk</span>
           </div>
           <div class="md-row">
-            <span style="font-size:16px;margin-right:6px;">📋</span>
+            <span style="font-size:14px;margin-right:6px;">📋</span>
             <span class="md-row-label">Audit trail writes</span>
             <span class="md-row-badge mdb-green">367 verified</span>
           </div>
@@ -1055,62 +904,136 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════
-     SLIDE 11 — NEXT STEP (DARK CTA)
+     SLIDE 11 — WHAT YOU GET (ENGAGEMENT TERMS) — NEW explicit slide
 ═══════════════════════════════════════════════════════════════════ -->
-<div class="slide s-dark" id="s11">
-  <!-- radial glow bottom-right -->
+<div class="slide" id="s11">
+  <div class="hdr">
+    <span class="hdr-tag">What You Get</span>
+    <span class="hdr-logo">ASTRA</span>
+    <span class="hdr-num">11 / 12</span>
+  </div>
+  <div class="body">
+    <div class="chip chip-green">Pilot Engagement Model</div>
+    <h2 class="title" style="margin-bottom:6px;">No rip-and-replace. <span class="g-green">No big-bang commitment.</span></h2>
+    <p class="lead" style="max-width:760px;margin-bottom:16px;">ASTRA connects to your existing infrastructure and runs in parallel. Your current CTS platform continues unchanged. We earn the right to replace it — by demonstrating superior IET protection and decision quality on your own clearing data.</p>
+
+    <div class="row gap12 mt4">
+      <!-- what bank gets -->
+      <div class="col gap10" style="flex:1.3;">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">What's Included in Pilot</div>
+        <div class="row gap10">
+          <div style="flex:1;padding:12px 14px;border-radius:12px;border:1.5px solid rgba(16,185,129,0.25);background:rgba(16,185,129,0.04);">
+            <div style="font-size:16px;margin-bottom:6px;">🔌</div>
+            <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:4px;">CBS Integration</div>
+            <div style="font-size:11px;color:var(--slate);line-height:1.5;">Live connection to your Finacle, BaNCS, or FlexCube. Signature registry, positive pay, stop-cheque — all wired.</div>
+          </div>
+          <div style="flex:1;padding:12px 14px;border-radius:12px;border:1.5px solid rgba(8,145,178,0.25);background:rgba(8,145,178,0.04);">
+            <div style="font-size:16px;margin-bottom:6px;">🏛</div>
+            <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:4px;">NPCI NGCH Connectivity</div>
+            <div style="font-size:11px;color:var(--slate);line-height:1.5;">ASTRA connects to your existing NGCH interface. Inward items flow to ASTRA agents. Decisions filed back through the same channel.</div>
+          </div>
+        </div>
+        <div class="row gap10">
+          <div style="flex:1;padding:12px 14px;border-radius:12px;border:1.5px solid rgba(139,92,246,0.25);background:rgba(139,92,246,0.04);">
+            <div style="font-size:16px;margin-bottom:6px;">🖥</div>
+            <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:4px;">Ops Workstation</div>
+            <div style="font-size:11px;color:var(--slate);line-height:1.5;">Human review queue with IET countdown, AI rationale, factor scores, and one-click confirm/return for your ops team.</div>
+          </div>
+          <div style="flex:1;padding:12px 14px;border-radius:12px;border:1.5px solid rgba(217,119,6,0.25);background:rgba(217,119,6,0.04);">
+            <div style="font-size:16px;margin-bottom:6px;">📊</div>
+            <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:4px;">Management Dashboard</div>
+            <div style="font-size:11px;color:var(--slate);line-height:1.5;">Real-time clearing session view, AI model performance, IET risk heatmap, and full decision audit export for RBI.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- bank's obligations + terms -->
+      <div class="col gap10" style="flex:1;">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">What We Ask of You</div>
+        <div class="col gap8">
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:var(--soft);border-radius:10px;border:1px solid var(--border);">
+            <span style="font-size:14px;flex-shrink:0;margin-top:1px;">🖥</span>
+            <div><div style="font-size:12px;font-weight:700;color:#1e293b;">On-Premises GPU Server</div><div style="font-size:11px;color:var(--slate);">4 × GPU cards for AI inference. Bank owns and controls the hardware. ASTRA provides sizing guidance.</div></div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:var(--soft);border-radius:10px;border:1px solid var(--border);">
+            <span style="font-size:14px;flex-shrink:0;margin-top:1px;">🔑</span>
+            <div><div style="font-size:12px;font-weight:700;color:#1e293b;">CBS Read Access</div><div style="font-size:11px;color:var(--slate);">Read-only API access to signature registry, positive pay, stop-cheque, and account balance. No write access requested.</div></div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:var(--soft);border-radius:10px;border:1px solid var(--border);">
+            <span style="font-size:14px;flex-shrink:0;margin-top:1px;">👥</span>
+            <div><div style="font-size:12px;font-weight:700;color:#1e293b;">IT Admin Sponsor</div><div style="font-size:11px;color:var(--slate);">One bank IT administrator to coordinate connectivity. Estimated 2–3 days of IT team time for the integration phase.</div></div>
+          </div>
+        </div>
+        <div style="padding:12px 16px;background:rgba(16,185,129,0.07);border:1.5px solid rgba(16,185,129,0.3);border-radius:12px;margin-top:4px;">
+          <div style="font-size:12px;font-weight:700;color:var(--g2);margin-bottom:4px;">Pilot Terms</div>
+          <div style="font-size:11px;color:#334155;line-height:1.65;">Zero upfront cost · No commitment to production · Bank retains full control of go-live decision · Pilot runs in parallel — existing CTS platform unchanged · All pilot data stays on bank premises</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     SLIDE 12 — NEXT STEP (DARK CTA — updated)
+═══════════════════════════════════════════════════════════════════ -->
+<div class="slide s-dark" id="s12">
   <div style="position:absolute;bottom:-100px;right:-80px;width:500px;height:400px;background:radial-gradient(circle,rgba(16,185,129,0.18),transparent 65%);pointer-events:none;"></div>
-  <!-- radial glow top-left subtle -->
   <div style="position:absolute;top:-60px;left:-40px;width:300px;height:300px;background:radial-gradient(circle,rgba(16,185,129,0.08),transparent 65%);pointer-events:none;"></div>
 
   <div class="hdr">
     <span class="hdr-tag" style="color:rgba(255,255,255,0.35);">Next Step</span>
     <span class="hdr-logo">ASTRA</span>
-    <span class="hdr-num">11 / 11</span>
+    <span class="hdr-num">12 / 12</span>
   </div>
 
   <div class="body" style="justify-content:center;align-items:center;text-align:center;position:relative;z-index:1;">
-    <div style="max-width:860px;">
-      <div style="font-size:13px;font-weight:700;color:rgba(16,185,129,0.8);letter-spacing:0.14em;text-transform:uppercase;margin-bottom:18px;">The Conversation Starts Here</div>
-      <h1 class="hero-dark" style="font-size:48px;margin-bottom:20px;">
+    <div style="max-width:920px;">
+      <div style="font-size:12px;font-weight:700;color:rgba(16,185,129,0.8);letter-spacing:0.14em;text-transform:uppercase;margin-bottom:14px;">The Conversation Starts Here</div>
+      <h1 style="font-size:44px;font-weight:900;line-height:1.1;color:#fff;margin-bottom:16px;">
         Your bank. Your clearing data.<br>
-        <span class="g-green">Your decision in &lt;600ms.</span>
+        <span class="g-green">Your decision in &lt;600ms. On your servers.</span>
       </h1>
-      <p style="font-size:15px;color:rgba(255,255,255,0.55);line-height:1.7;max-width:640px;margin:0 auto 36px;">We propose a structured pilot engagement — no upfront commitment, no rip-and-replace. ASTRA connects to your existing CBS and runs in parallel with your current CTS platform until you are ready to switch.</p>
+      <p style="font-size:14px;color:rgba(255,255,255,0.5);line-height:1.7;max-width:660px;margin:0 auto 28px;">
+        A 90-day pilot. No commitment to production. ASTRA connects to your CBS, runs alongside your existing CTS platform, and demonstrates on your own clearing volume. You decide if it goes to production.
+      </p>
 
-      <div class="row gap12" style="justify-content:center;margin-bottom:40px;">
-        <div style="padding:14px 20px;border-radius:12px;border:1px solid rgba(16,185,129,0.35);background:rgba(16,185,129,0.09);text-align:left;width:200px;">
+      <!-- three explicit asks -->
+      <div class="row gap10" style="justify-content:center;margin-bottom:28px;">
+        <div style="padding:16px 18px;border-radius:12px;border:1px solid rgba(16,185,129,0.35);background:rgba(16,185,129,0.09);text-align:left;width:220px;">
+          <div style="font-size:11px;font-weight:700;color:rgba(16,185,129,0.7);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;">Step 1</div>
           <div style="font-size:22px;margin-bottom:6px;">📞</div>
-          <div style="font-size:12px;font-weight:700;color:#10b981;margin-bottom:3px;">Discovery Call</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.45);">Review your clearing volumes and IET exposure</div>
+          <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:4px;">Discovery Call</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);line-height:1.5;">60 minutes. Review your inward clearing volume, CBS type, IET exposure, and pilot scope.</div>
         </div>
-        <div style="padding:14px 20px;border-radius:12px;border:1px solid rgba(16,185,129,0.35);background:rgba(16,185,129,0.09);text-align:left;width:200px;">
+        <div style="padding:16px 18px;border-radius:12px;border:1px solid rgba(16,185,129,0.35);background:rgba(16,185,129,0.09);text-align:left;width:220px;">
+          <div style="font-size:11px;font-weight:700;color:rgba(16,185,129,0.7);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;">Step 2</div>
           <div style="font-size:22px;margin-bottom:6px;">🔌</div>
-          <div style="font-size:12px;font-weight:700;color:#10b981;margin-bottom:3px;">CBS Integration</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.45);">Connect to your Finacle, BaNCS, or FlexCube</div>
+          <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:4px;">Integration Sprint</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);line-height:1.5;">CBS connector live. NGCH channel wired. Signature registry and positive pay loaded. 2–4 weeks.</div>
         </div>
-        <div style="padding:14px 20px;border-radius:12px;border:1px solid rgba(16,185,129,0.35);background:rgba(16,185,129,0.09);text-align:left;width:200px;">
+        <div style="padding:16px 18px;border-radius:12px;border:1px solid rgba(16,185,129,0.35);background:rgba(16,185,129,0.09);text-align:left;width:220px;">
+          <div style="font-size:11px;font-weight:700;color:rgba(16,185,129,0.7);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;">Step 3</div>
           <div style="font-size:22px;margin-bottom:6px;">🚀</div>
-          <div style="font-size:12px;font-weight:700;color:#10b981;margin-bottom:3px;">Pilot Go-Live</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.45);">Live clearing, real cheques, zero IET risk</div>
+          <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:4px;">Parallel Live Run</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);line-height:1.5;">ASTRA processes real inward cheques alongside your existing system. Compare outcomes. Measure IET protection. Decide.</div>
         </div>
       </div>
 
-      <div style="display:flex;align-items:center;justify-content:center;gap:16px;padding:20px 28px;border-radius:16px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);display:inline-flex;">
+      <div style="display:inline-flex;align-items:center;gap:16px;padding:18px 28px;border-radius:16px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);">
         <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">⚡</div>
         <div style="text-align:left;">
           <div style="font-size:14px;font-weight:800;color:#fff;">Nilesh Shah</div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.5);">Ex-NPCI · Piramal · Fullerton/SMFG</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.45);">Ex-NPCI · Piramal · Fullerton/SMFG</div>
         </div>
         <div style="width:1px;height:36px;background:rgba(255,255,255,0.12);margin:0 8px;"></div>
         <div style="text-align:left;">
-          <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:2px;">Contact</div>
-          <div style="font-size:13px;font-weight:700;color:#10b981;">admin@9va.in</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:3px;">Reach out</div>
+          <div style="font-size:14px;font-weight:700;color:#10b981;">admin@9va.in</div>
         </div>
         <div style="width:1px;height:36px;background:rgba(255,255,255,0.12);margin:0 8px;"></div>
         <div style="text-align:left;">
-          <div style="font-size:11px;color:rgba(255,255,255,0.35);">Confidential — Banking Grade</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.25);">ASTRA · Automated Settlement &amp; Transaction Recognition Architecture</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.3);">Confidential — Banking Grade</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.2);margin-top:2px;">ASTRA · Automated Settlement &amp; Transaction Recognition Architecture</div>
         </div>
       </div>
     </div>
