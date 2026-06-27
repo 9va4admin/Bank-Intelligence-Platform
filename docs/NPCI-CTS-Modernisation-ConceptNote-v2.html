@@ -3385,6 +3385,446 @@ def verify_webhook_signature(
   </div>
 </div>
 
+<!-- §19 NPCI vs BANK RESPONSIBILITY MATRIX -->
+<div class="section" id="npci-bank-matrix">
+  <div class="sec-header">
+    <span class="sec-num" style="background:#0891b2">19</span>
+    <div>
+      <div class="sec-header-text">NPCI vs Bank — Responsibility Matrix</div>
+      <div class="sec-header-sub">Clear demarcation of what each party must build and operate per phase</div>
+    </div>
+  </div>
+  <div class="sec-body">
+    <div class="callout amber" style="margin-bottom:16px">
+      <p><strong>Reading Guide:</strong> This matrix answers the most critical question for any member bank evaluating Vision 2030: "What do I have to build versus what does NPCI provide?" Rows are responsibilities; columns are phases. 🔵 = NPCI obligation · 🟢 = Bank obligation · 🟡 = Shared / Both</p>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:26%">Responsibility Area</th>
+          <th style="width:18.5%">Phase 1 — Jan 2027<br><small style="font-weight:400;opacity:.7">AI + SFTP</small></th>
+          <th style="width:18.5%">Phase 2 — Sep 2027<br><small style="font-weight:400;opacity:.7">REST API</small></th>
+          <th style="width:18.5%">Phase 3 — Jan 2028<br><small style="font-weight:400;opacity:.7">MCP Native</small></th>
+          <th style="width:18.5%">Phase 4 — Jan 2029<br><small style="font-weight:400;opacity:.7">Mobile-First</small></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td colspan="5" style="background:#f1f5f9;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#475569;padding:6px 10px">INFRASTRUCTURE &amp; CONNECTIVITY</td></tr>
+        <tr>
+          <td><strong>NGCH clearing grid</strong><br><small style="color:#64748b">Core settlement infrastructure</small></td>
+          <td style="color:#1d4ed8">🔵 NPCI operates NGCH SFTP grids unchanged. No change needed.</td>
+          <td style="color:#1d4ed8">🔵 NPCI provisions REST API layer on top of NGCH. Bank connects to new endpoint.</td>
+          <td style="color:#1d4ed8">🔵 NPCI deploys MCP server in NGCH DMZ. Maintains persistent mTLS sockets per bank.</td>
+          <td style="color:#1d4ed8">🔵 NPCI adds mobile submission API gateway. Lien-mark messaging to CBS via new API.</td>
+        </tr>
+        <tr>
+          <td><strong>Connectivity to NGCH</strong><br><small style="color:#64748b">Transport layer</small></td>
+          <td style="color:#166534">🟢 Bank maintains SFTP leased line / MPLS to NGCH. No change.</td>
+          <td style="color:#92400e">🟡 Bank adds HTTPS REST client alongside SFTP (dual mode during transition).</td>
+          <td style="color:#92400e">🟡 Bank upgrades to MCP client (persistent socket). SFTP decommissioned at bank end.</td>
+          <td style="color:#166534">🟢 Bank maintains REST + MCP. Mobile app connects via bank's internet-facing API gateway.</td>
+        </tr>
+        <tr>
+          <td><strong>mTLS certificates</strong><br><small style="color:#64748b">Mutual authentication</small></td>
+          <td style="color:#1d4ed8">🔵 NPCI issues SFTP keys via existing PKI process.</td>
+          <td style="color:#92400e">🟡 NPCI issues REST mTLS client cert via NPCI CA. Bank stores in HSM. Rotation every 90 days.</td>
+          <td style="color:#92400e">🟡 Same cert for MCP. NPCI operates NPCI CA. Bank's HSM holds private key (never extracted).</td>
+          <td style="color:#92400e">🟡 NPCI issues mobile app attestation verification service. Bank issues drawer JWT from KYC record.</td>
+        </tr>
+
+        <tr><td colspan="5" style="background:#f1f5f9;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#475569;padding:6px 10px">API &amp; PROTOCOL</td></tr>
+        <tr>
+          <td><strong>API specification</strong></td>
+          <td style="color:#1d4ed8">🔵 Not applicable — SFTP file format spec already published.</td>
+          <td style="color:#1d4ed8">🔵 NPCI publishes OpenAPI 3.1 spec for all 5 endpoints (EP-1 to EP-5). Versioned.</td>
+          <td style="color:#1d4ed8">🔵 NPCI publishes MCP server manifest (tools + resources). Updates via NPCI MCP Registry.</td>
+          <td style="color:#1d4ed8">🔵 NPCI publishes Mobile Submission API spec + lien-mark messaging spec.</td>
+        </tr>
+        <tr>
+          <td><strong>Idempotency / deduplication</strong></td>
+          <td style="color:#166534">🟢 Bank's NGCH adapter assigns unique SFTP file name per batch (existing practice).</td>
+          <td style="color:#92400e">🟡 Bank generates UUIDv7 idempotency key per instrument. NPCI deduplicates on 24h window.</td>
+          <td style="color:#92400e">🟡 Same UUIDv7 key passed as MCP tool call parameter. NPCI MCP server deduplicates.</td>
+          <td style="color:#92400e">🟡 Bank generates mobile submission idempotency key. NPCI deduplicates across channels.</td>
+        </tr>
+        <tr>
+          <td><strong>HMAC request signing</strong></td>
+          <td style="color:#64748b">— Not applicable (SFTP)</td>
+          <td style="color:#92400e">🟡 NPCI defines canonical string format. Bank implements HMAC-SHA256 signing in ngch_adapter.</td>
+          <td style="color:#92400e">🟡 MCP uses same HMAC scheme. NPCI verifies per tool call.</td>
+          <td style="color:#92400e">🟡 Mobile app signs each submission with drawer private key. Bank verifies before forwarding to NPCI.</td>
+        </tr>
+
+        <tr><td colspan="5" style="background:#f1f5f9;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#475569;padding:6px 10px">AI &amp; PROCESSING (BANK SIDE)</td></tr>
+        <tr>
+          <td><strong>Vision AI (cheque alteration)</strong></td>
+          <td style="color:#166534">🟢 Bank deploys Qwen2-VL 72B on-premises GPU. NPCI has no role in bank-side AI.</td>
+          <td style="color:#166534">🟢 Bank continues own AI. REST transport does not change AI architecture.</td>
+          <td style="color:#166534">🟢 Bank's AI is now invoked by MCP-native workflow. Same models, new orchestration.</td>
+          <td style="color:#166534">🟢 Bank's AI additionally processes mobile-submitted images. NPCI provides no AI.</td>
+        </tr>
+        <tr>
+          <td><strong>IET Watchdog</strong><br><small style="color:#64748b">T-30s emergency filer</small></td>
+          <td style="color:#166534">🟢 Bank deploys IETWatchdogWorkflow (Temporal). NPCI is unaware of this internal mechanism.</td>
+          <td style="color:#166534">🟢 Watchdog switches to REST filing at T-30s. Bank's internal Temporal unchanged.</td>
+          <td style="color:#1d4ed8">🔵 NPCI MCP server pushes IET risk signals in real-time. Bank's watchdog subscribes to stream.</td>
+          <td style="color:#166534">🟢 Same watchdog. Mobile submissions have same IET window — watchdog fires at T-30s regardless.</td>
+        </tr>
+        <tr>
+          <td><strong>SHAP explainability</strong></td>
+          <td style="color:#166534">🟢 Bank computes SHAP per instrument. Stored in bank's YugabyteDB. Not shared with NPCI.</td>
+          <td style="color:#166534">🟢 Same — SHAP stays within bank's audit trail.</td>
+          <td style="color:#92400e">🟡 Bank may optionally share aggregated drift metrics with NPCI via diagnostic MCP (consent-gated).</td>
+          <td style="color:#166534">🟢 Same. SHAP required for RBI audit at bank level. Not transmitted to NPCI.</td>
+        </tr>
+
+        <tr><td colspan="5" style="background:#f1f5f9;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#475569;padding:6px 10px">SETTLEMENT &amp; REPORTING</td></tr>
+        <tr>
+          <td><strong>Settlement file / report</strong></td>
+          <td style="color:#1d4ed8">🔵 NPCI generates SFTP settlement report at session close. Bank polls and downloads.</td>
+          <td style="color:#1d4ed8">🔵 NPCI provides GET /settlement/{date} REST endpoint. Real-time session position available.</td>
+          <td style="color:#1d4ed8">🔵 NPCI pushes settlement events via MCP resource subscription. Bank subscribes to stream.</td>
+          <td style="color:#1d4ed8">🔵 Same as Phase 3 plus mobile submission settlement lane tracked separately.</td>
+        </tr>
+        <tr>
+          <td><strong>Return Reason File (RRF)</strong></td>
+          <td style="color:#166534">🟢 Bank generates RRF from HumanReview + STP return decisions. Uploads via SFTP.</td>
+          <td style="color:#166534">🟢 Bank POSTs returns via REST EP-2. NPCI acknowledges per-instrument in real-time.</td>
+          <td style="color:#166534">🟢 Bank calls MCP tool file_return. NPCI confirms via return event on subscription stream.</td>
+          <td style="color:#166534">🟢 Same. Mobile-submitted returns need drawer notification — bank handles via WhatsApp/email.</td>
+        </tr>
+
+        <tr><td colspan="5" style="background:#f1f5f9;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#475569;padding:6px 10px">COMPLIANCE &amp; AUDIT</td></tr>
+        <tr>
+          <td><strong>RBI IT Framework audit</strong></td>
+          <td style="color:#166534">🟢 Bank maps ASTRA controls to RBI IT Framework. NPCI has no audit obligation for bank-internal systems.</td>
+          <td style="color:#92400e">🟡 Bank audits its REST integration. NPCI audits its own REST API infrastructure under NPCI IT policy.</td>
+          <td style="color:#92400e">🟡 Both audit MCP interface. NPCI seeks CERT-In certification of MCP server in NGCH.</td>
+          <td style="color:#92400e">🟡 RBI sandbox requires joint regulatory reporting from NPCI + participating banks.</td>
+        </tr>
+        <tr>
+          <td><strong>Immutable audit trail</strong></td>
+          <td style="color:#166534">🟢 Bank writes every cheque decision to Immudb (HSM-signed). NPCI has no role.</td>
+          <td style="color:#166534">🟢 Same. NGCH REST response code added to each AuditEvent at bank side.</td>
+          <td style="color:#166534">🟢 Same. MCP tool call reference stored in AuditEvent.</td>
+          <td style="color:#166534">🟢 Same. Mobile submission audit includes: device attestation result, drawer JWT, NPCI mobile ref.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout green" style="margin-top:16px">
+      <p><strong>Summary:</strong> NPCI's role grows from "SFTP file host" (Phase 1) to "real-time API platform" (Phase 2) to "MCP intelligence layer" (Phase 3) to "multi-channel clearing hub" (Phase 4). Banks evolve from "SFTP file sender" to "REST API client" to "MCP-native agent" to "mobile-origination gateway." The bank's AI stack (Vision LLM, IET Watchdog, audit trail) remains entirely bank-owned and bank-operated at all phases — NPCI never touches or accesses the bank's AI inference or customer data.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §20 AUTO INCIDENT MANAGEMENT -->
+<div class="section" id="auto-incident-mgmt">
+  <div class="sec-header">
+    <span class="sec-num" style="background:#dc2626">20</span>
+    <div>
+      <div class="sec-header-text">Auto Incident Management</div>
+      <div class="sec-header-sub">Automated detection, classification, escalation and resolution of CTS processing incidents</div>
+    </div>
+  </div>
+  <div class="sec-body">
+
+    <p style="font-size:11.5px;color:#475569;line-height:1.7;margin-bottom:16px">In a 3-hour IET window, every minute of undetected degradation reduces the time available for processing decisions. ASTRA's incident management is not reactive — it is predictive and automated. Incidents are detected, classified, and escalated before a human operator notices a queue depth growing.</p>
+
+    <div class="layer-block">
+      <div class="layer-head red"><span class="layer-label">Tier 1</span><span class="layer-title">IET Risk Incidents — Highest Priority</span><span class="layer-tag">AUTO-ESCALATE</span></div>
+      <div class="layer-body">
+        <div class="layer-grid-3">
+          <div class="layer-item">
+            <h5>IET_BREACH_IMMINENT</h5>
+            <p>Triggered when IET watchdog reaches T-5 minutes and NGCH filing has not confirmed. Auto-action: IETWatchdogWorkflow fires emergency path. Ops team paged simultaneously. SLA: resolved in &lt;60 seconds or deemed confirmed.</p>
+          </div>
+          <div class="layer-item">
+            <h5>NGCH_FILING_FAILURE</h5>
+            <p>3 consecutive NGCH submission retries failed (SFTP or REST). Auto-action: switch to SFTP fallback if in REST mode. Alert: NPCI NOC + bank ops. Instrument enters emergency queue. IET watchdog takes over filing.</p>
+          </div>
+          <div class="layer-item">
+            <h5>CBS_TOTAL_BLACKOUT</h5>
+            <p>CBS connector returns error on &gt;95% of requests for &gt;60 seconds. Auto-action: all inward cheques skip CBS check, go to image-only path with human review flag. Alert: CBS team + bank IT + ops manager. SLA: restore within 10 minutes or escalate to CTO.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="layer-block">
+      <div class="layer-head amber"><span class="layer-label">Tier 2</span><span class="layer-title">Processing Degradation Incidents</span><span class="layer-tag">ALERT + WATCHLIST</span></div>
+      <div class="layer-body">
+        <div class="layer-grid-3">
+          <div class="layer-item">
+            <h5>VAULT_HIT_RATE_DROP</h5>
+            <p>Signature vault hit rate drops below config threshold (default 85%) for &gt;5 minutes. Indicates vault sync failure or Redis eviction. Auto-action: trigger emergency VaultSyncWorkflow. Alert: ops manager. Instruments continue — vault miss → human review (never auto-return).</p>
+          </div>
+          <div class="layer-item">
+            <h5>AI_INFERENCE_QUEUE_BACKUP</h5>
+            <p>vLLM queue depth exceeds 200 items or p99 latency &gt;5s. Auto-action: KEDA scales up GPU workers. Alert: ml_engineer. If queue not clearing in 10 min: pause new inward intake, prioritise existing IET queue.</p>
+          </div>
+          <div class="layer-item">
+            <h5>FRAUD_SPIKE_DETECTED</h5>
+            <p>Fraud score &gt;0.85 on &gt;15% of instruments in a 30-minute window (vs baseline &lt;2%). Possible coordinated fraud attack. Auto-action: lower STP threshold to 0.99 (nearly all to human review). Alert: fraud_analyst + compliance_officer + NPCI NOC.</p>
+          </div>
+          <div class="layer-item">
+            <h5>HUMAN_REVIEW_QUEUE_DEPTH</h5>
+            <p>Human review queue exceeds 50 items with avg wait &gt;20 minutes. Risk: IET breach for queue tail. Auto-action: additional ops_reviewer accounts auto-notified. If queue reaches 100 items: ops_manager escalation with IET risk report per instrument.</p>
+          </div>
+          <div class="layer-item">
+            <h5>NGCH_LATENCY_ELEVATED</h5>
+            <p>NGCH filing latency p99 &gt;8s (up from normal &lt;2s). Indicates NGCH load or connectivity issue. Auto-action: IET watchdog polling frequency doubles. Alert: bank NOC + NPCI NOC. If &gt;30s: switch instruments to SFTP emergency path.</p>
+          </div>
+          <div class="layer-item">
+            <h5>SIGNATURE_VERIFY_DEGRADED</h5>
+            <p>Siamese network inference error rate &gt;10% or match score distribution shifts &gt;15% from baseline. Possible model drift. Auto-action: lower signature confidence threshold, route more to human review. Alert: ml_engineer for model inspection.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="layer-block">
+      <div class="layer-head blue"><span class="layer-label">Tier 3</span><span class="layer-title">Operational Advisories</span><span class="layer-tag">NOTIFY + LOG</span></div>
+      <div class="layer-body">
+        <div class="layer-grid">
+          <div class="layer-item"><h5>MODEL_DRIFT_WARN</h5><p>Any AI metric drops &gt;2% over 7-day rolling window. Alert: ml_engineer. No auto-action — monitoring only until drift reaches 5% threshold.</p></div>
+          <div class="layer-item"><h5>CBS_SLOW_RESPONSE</h5><p>CBS p99 latency &gt;4s (normal &lt;1s). Not a failure but reduces IET headroom. Alert: CBS team. CBS timeout shortened in config to protect IET path.</p></div>
+          <div class="layer-item"><h5>VAULT_SYNC_OVERDUE</h5><p>VaultSyncWorkflow has not completed its daily 6AM run by 7AM. Alert: ops_manager. Manual trigger available from Admin UI.</p></div>
+          <div class="layer-item"><h5>KAFKA_LAG_GROWING</h5><p>cts.inward consumer lag &gt;500 messages. KEDA should auto-scale, but lag growing means scaling is not keeping up. Alert: bank_it_admin. May need manual pod count increase.</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec-grid-2" style="margin-top:12px">
+      <div class="sec-card">
+        <div class="sec-card-head navy">Incident Detection Stack</div>
+        <div class="sec-card-body">
+          <ul>
+            <li><strong>Prometheus Rules:</strong> PrometheusRule CRDs define all alert conditions — evaluated every 15 seconds</li>
+            <li><strong>Grafana Alertmanager:</strong> Routes alerts to correct channel based on severity + module</li>
+            <li><strong>Temporal signals:</strong> IETWatchdogWorkflow emits internal signals — not Prometheus-dependent</li>
+            <li><strong>OPA policies:</strong> Business-level thresholds (fraud spike, vault miss rate) evaluated via OPA — hot-reloadable without restart</li>
+            <li><strong>Langfuse anomaly detection:</strong> AI inference patterns (confidence distribution drift) detected from trace aggregates</li>
+          </ul>
+        </div>
+      </div>
+      <div class="sec-card">
+        <div class="sec-card-head red">Escalation Matrix</div>
+        <div class="sec-card-body">
+          <ul>
+            <li><strong>Tier 1:</strong> Auto-page ops_manager + bank_it_admin via WhatsApp + email within 30 seconds of detection. NPCI NOC notified if NGCH involved.</li>
+            <li><strong>Tier 2:</strong> Dashboard alert + email to relevant role. 10-minute SLA for human acknowledgement before auto-escalating to Tier 1.</li>
+            <li><strong>Tier 3:</strong> Dashboard notification + daily digest email. No paging.</li>
+            <li><strong>RBI Reportable:</strong> Any IET breach (even T+1 second) automatically generates RBI incident report draft in compliance_officer's queue within 5 minutes.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- §21 CTS CHEQUE MOVEMENT MONITOR -->
+<div class="section" id="cheque-movement-monitor">
+  <div class="sec-header">
+    <span class="sec-num" style="background:#0891b2">21</span>
+    <div>
+      <div class="sec-header-text">CTS Cheque Movement Monitor — Real-Time at NPCI</div>
+      <div class="sec-header-sub">Live instrument lifecycle tracking dashboard — from presentee deposit to drawee decision to settlement</div>
+    </div>
+  </div>
+  <div class="sec-body">
+
+    <p style="font-size:11.5px;color:#475569;line-height:1.7;margin-bottom:16px">Today, NPCI has no real-time view of where individual instruments are in the clearing lifecycle. The SFTP model provides only batch-level acknowledgements. Vision 2030 phases 2 and 3 unlock instrument-level tracking — enabling NPCI to provide a live clearing health dashboard to participating banks and to RBI on demand.</p>
+
+    <div class="callout" style="margin-bottom:16px">
+      <p><strong>Available from:</strong> Phase 2 (REST API) — each REST call carries instrument_ref which NPCI can track. Full real-time push available in Phase 3 (MCP resource subscriptions). Phase 1 (SFTP) offers only batch-level visibility.</p>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div style="font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#64748b;margin-bottom:10px">Instrument Lifecycle — 8 States</div>
+      <div class="eco-strip">
+        <div class="eco-flow">
+          <div class="eco-node green">SCANNED<br><small style="opacity:.7">Presentee bank</small></div>
+          <span class="eco-arrow green">→</span>
+          <div class="eco-node blue">SUBMITTED<br><small style="opacity:.7">NGCH received</small></div>
+          <span class="eco-arrow">→</span>
+          <div class="eco-node">DISTRIBUTED<br><small style="opacity:.7">Drawee notified</small></div>
+          <span class="eco-arrow">→</span>
+          <div class="eco-node" style="background:#2563eb">IN_PROCESSING<br><small style="opacity:.7">Drawee AI active</small></div>
+          <span class="eco-arrow">→</span>
+          <div class="eco-node amber">DECISION_PENDING<br><small style="opacity:.7">Human review</small></div>
+          <span class="eco-arrow">→</span>
+          <div class="eco-node green">CONFIRMED<br><small style="opacity:.7">STP pass</small></div>
+          <span class="eco-arrow red">|</span>
+          <div class="eco-node red">RETURNED<br><small style="opacity:.7">Rejected</small></div>
+          <span class="eco-arrow green">→</span>
+          <div class="eco-node" style="background:#059669">SETTLED<br><small style="opacity:.7">T+30min / T+1</small></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="layer-grid-3" style="margin-bottom:16px">
+      <div class="layer-item">
+        <h5>📊 NPCI Operations Dashboard</h5>
+        <p>Live Grafana dashboard at NPCI NOC showing: total instruments in flight per clearing zone (Mumbai / Delhi / Chennai), instruments per lifecycle state, IET risk bucket count (SAFE / ELEVATED / HIGH / CRITICAL), STP rate per member bank, return rate by reason code.</p>
+      </div>
+      <div class="layer-item">
+        <h5>🏦 Bank Self-Service View</h5>
+        <p>Each member bank sees only their own instruments. Presentee banks see outward submission status. Drawee banks see inward queue depth, current IET risk, AI processing rates. Available via ASTRA Admin UI and NPCI Member Portal (Phase 2+).</p>
+      </div>
+      <div class="layer-item">
+        <h5>🚨 RBI On-Demand Report</h5>
+        <p>RBI DPSS can request a point-in-time clearing health snapshot: total instruments across all banks, IET breach count (target: 0), fraud return rate, settlement position. Generated from NPCI's central tracking within 60 seconds of request.</p>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>Phase 1 (SFTP)</th>
+          <th>Phase 2 (REST)</th>
+          <th>Phase 3 (MCP)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Instrument visibility granularity</strong></td><td>Batch file level (hundreds of instruments per file)</td><td>Per-instrument via instrument_ref in REST calls</td><td>Real-time push per state change via MCP resource subscription</td></tr>
+        <tr><td><strong>IET risk visibility at NPCI</strong></td><td>❌ None — NPCI cannot see bank-side IET clocks</td><td>⚡ Partial — banks can optionally report IET status via REST callback</td><td>✅ Live — NPCI MCP server tracks iet_deadline per instrument, computes risk level, pushes to bank</td></tr>
+        <tr><td><strong>Drawee decision latency</strong></td><td>Unknown until SFTP return file arrives (session close)</td><td>Known within 30 minutes (REST polling by presentee bank)</td><td>Real-time — NPCI pushes CONFIRMED/RETURNED event to presentee bank within seconds</td></tr>
+        <tr><td><strong>Fraud return pattern detection</strong></td><td>NPCI sees return reason codes at session close — no real-time pattern</td><td>Near-real-time — REST returns include reason_code. NPCI aggregates per 15 min</td><td>Live — NPCI MCP streams fraud_return_spike alert to all member banks if pattern detected across multiple drawees</td></tr>
+        <tr><td><strong>Settlement position per bank</strong></td><td>End-of-session settlement report only</td><td>GET /settlement/{bank_ifsc}/{date} gives running position</td><td>Live settlement position via MCP resource: settlement_position/{bank_ifsc}/{date}</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout green" style="margin-top:12px">
+      <p><strong>Phase 3 Intelligence Unlock:</strong> When NPCI operates the MCP server, it has — for the first time — a real-time view of every instrument across all member banks simultaneously. This enables NPCI to detect coordinated fraud rings (same cheque series presented at multiple banks), clearing gridlock early warnings, and system-wide IET risk before any individual bank's watchdog fires. This is the foundational data layer for India's future AI-native payment oversight.</p>
+    </div>
+  </div>
+</div>
+
+<!-- §22 DISPUTE MANAGEMENT -->
+<div class="section" id="dispute-management">
+  <div class="sec-header">
+    <span class="sec-num" style="background:#7c3aed">22</span>
+    <div>
+      <div class="sec-header-text">Dispute Management &amp; Resolution</div>
+      <div class="sec-header-sub">End-to-end dispute lifecycle — from customer complaint to NPCI arbitration to resolution</div>
+    </div>
+  </div>
+  <div class="sec-body">
+
+    <p style="font-size:11.5px;color:#475569;line-height:1.7;margin-bottom:16px">Cheque disputes arise when a payee or drawer contests a clearing decision — a wrongful return, an unauthorised honour, a forged instrument that was confirmed. ASTRA's evidence architecture is designed so that every dispute can be answered within hours, not weeks, using AI-generated audit trails, SHAP explanations, and immutable Immudb records.</p>
+
+    <div class="prob-grid">
+      <div class="prob-card purple">
+        <div class="prob-card-num">Type 1</div>
+        <h4>Wrongful Return</h4>
+        <p>Drawee bank returned a valid cheque. Payee's bank (presentee) raises dispute. Claim: return reason is incorrect or fraudulent.</p>
+        <div class="prob-outcome" style="background:#f3e8ff;color:#6d28d9">Resolution: NPCI reviews drawee's AI decision + SHAP values + reviewer notes</div>
+      </div>
+      <div class="prob-card red">
+        <div class="prob-card-num">Type 2</div>
+        <h4>Fraud / Forgery Claim</h4>
+        <p>Drawer claims cheque was forged and confirmed by drawee bank. Funds debited without authorisation.</p>
+        <div class="prob-outcome">Resolution: Siamese network match evidence + alteration detection report + CCTV if available</div>
+      </div>
+      <div class="prob-card blue">
+        <div class="prob-card-num">Type 3</div>
+        <h4>Amount Discrepancy</h4>
+        <p>Amount confirmed differs from amount on cheque face. Often indicates alteration that AI missed or human reviewer approved incorrectly.</p>
+        <div class="prob-outcome" style="background:#dbeafe;color:#1e40af">Resolution: OCR output + Vision LLM alteration report + original image from MinIO</div>
+      </div>
+      <div class="prob-card amber">
+        <div class="prob-card-num">Type 4</div>
+        <h4>IET Breach Dispute</h4>
+        <p>Bank claims they filed within IET window; NPCI records show breach. Or bank claims NGCH was unreachable causing forced confirmation.</p>
+        <div class="prob-outcome" style="background:#fef9c3;color:#92400e">Resolution: IETWatchdogWorkflow audit trail + NGCH response timestamps + Immudb record</div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#64748b;margin-bottom:10px">Dispute Resolution Workflow — 6 Steps</div>
+
+    <div class="flow-steps">
+      <div class="flow-step">
+        <div class="flow-step-num blue">1</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Dispute Raised</div>
+          <div class="flow-step-desc">Customer raises dispute with their bank. Bank logs in ASTRA Dispute Console (/disputes/new). Selects instrument by cheque number or MICR line. System auto-fetches: original image, clearing timestamp, decision record, reviewer identity.</div>
+          <div class="flow-step-actors"><span class="actor-tag presentee">Presentee Bank</span><span class="actor-tag drawee">Drawee Bank</span><span class="actor-tag">Customer</span></div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num blue">2</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Evidence Package Assembly — Automated</div>
+          <div class="flow-step-desc">ASTRA auto-assembles evidence package within 60 seconds: (a) High-res cheque image from MinIO WORM storage, (b) OCR extracted fields with confidence scores, (c) Alteration detection report from Qwen2-VL with field-level findings, (d) Signature match score from Siamese network, (e) Fraud score + SHAP values in human-readable format, (f) Decision rationale from Llama 3.3 70B, (g) Human reviewer name + decision + timestamp (if applicable), (h) IET timeline from IETWatchdogWorkflow, (i) Immudb audit record with Merkle proof.</div>
+          <div class="flow-step-actors"><span class="actor-tag new">ASTRA Auto</span><span class="actor-tag">AI Evidence</span></div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">3</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Bank-Level Review (T+1 Business Day)</div>
+          <div class="flow-step-desc">Drawee bank's compliance_officer reviews evidence package. If the dispute is valid (bank error): bank initiates reversal directly with RBI payment system. Case closed as BANK_ERROR_RESOLVED. If bank contests: case escalated to NPCI arbitration.</div>
+          <div class="flow-step-actors"><span class="actor-tag drawee">Drawee Bank</span><span class="actor-tag">Compliance</span></div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num amber">4</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">NPCI Arbitration (T+3 Business Days)</div>
+          <div class="flow-step-desc">NPCI Dispute Panel receives evidence package + bank's contest rationale. NPCI has read-only access to evidence package via ASTRA's consent-gated diagnostic MCP (no PII exposed — only decision records). Panel reviews AI explainability reports. NPCI issues binding arbitration decision within 3 working days per NPCI Dispute Resolution Guidelines.</div>
+          <div class="flow-step-actors"><span class="actor-tag npci">NPCI Panel</span><span class="actor-tag rbi">RBI Framework</span></div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">5</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Resolution &amp; Financial Settlement</div>
+          <div class="flow-step-desc">Based on NPCI decision: (a) DRAWEE_AT_FAULT → debit drawee settlement account, credit presentee bank, notify customer within 1 business day. (b) PRESENTEE_AT_FAULT → case closed, customer directed to civil remedy. (c) NPCI_PROCESS_ERROR → NPCI indemnifies both banks for infrastructure failure. All outcomes written to Immudb as DisputeResolution audit event.</div>
+          <div class="flow-step-actors"><span class="actor-tag npci">NPCI</span><span class="actor-tag drawee">Drawee Bank</span><span class="actor-tag presentee">Presentee Bank</span></div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num green">6</div>
+        <div class="flow-step-body">
+          <div class="flow-step-title">Model Feedback Loop</div>
+          <div class="flow-step-desc">If dispute reveals AI model error (alteration missed, false signature match), ASTRA auto-creates model improvement ticket in MLflow. ml_engineer reviews annotated case as training data. Model retrained if &gt;3 similar cases in 30 days. Fraud detection threshold auto-tightened for similar instrument patterns via OPA policy update (Layer 4, no code deploy).</div>
+          <div class="flow-step-actors"><span class="actor-tag new">ASTRA AI</span><span class="actor-tag">MLflow</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec-grid-2" style="margin-top:16px">
+      <div class="sec-card">
+        <div class="sec-card-head purple">Dispute SLA (per RBI Guidelines)</div>
+        <div class="sec-card-body">
+          <ul>
+            <li><strong>Bank-level acknowledgement:</strong> T+0 (same day as complaint)</li>
+            <li><strong>Evidence package assembly:</strong> &lt;60 seconds (automated)</li>
+            <li><strong>Bank review period:</strong> 1 working day</li>
+            <li><strong>NPCI arbitration decision:</strong> 3 working days</li>
+            <li><strong>Financial resolution:</strong> T+7 calendar days maximum</li>
+            <li><strong>Customer notification:</strong> within 1 day of resolution</li>
+          </ul>
+        </div>
+      </div>
+      <div class="sec-card">
+        <div class="sec-card-head navy">Why ASTRA's AI Evidence Changes Dispute Economics</div>
+        <div class="sec-card-body">
+          <ul>
+            <li><strong>Today:</strong> disputes require manual retrieval of scanned cheque image, phone calls between banks, 2-3 weeks to resolve</li>
+            <li><strong>ASTRA Phase 1:</strong> evidence assembled in 60 seconds. SHAP report explains why AI made the decision in plain English — arbitrators understand it without technical expertise</li>
+            <li><strong>ASTRA Phase 3:</strong> NPCI can access evidence package via MCP tool (consent-gated) without needing bank to manually share files</li>
+            <li><strong>Cost impact:</strong> Dispute resolution cost estimated to drop 70% (from ₹1,200/case to ₹360/case) due to automation</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- §23 COMPETITIVE POSITIONING -->
 <div class="section" id="competitive-positioning">
   <div class="sec-header">
