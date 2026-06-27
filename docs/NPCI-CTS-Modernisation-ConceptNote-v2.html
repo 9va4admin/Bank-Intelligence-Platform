@@ -60,6 +60,8 @@
   .sec-num.pink{background:#db2777}
   .sec-header-text{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#0f2044}
   .sec-header-sub{font-size:10px;color:#64748b;margin-left:auto;font-weight:500}
+  .sec-title{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#0f2044}
+  .sec-sub{font-size:10px;color:#64748b;font-weight:500}
   .sec-body{padding:24px 32px}
 
   /* PROBLEM CARDS */
@@ -363,7 +365,7 @@
 
   /* NAVBAR */
   .sticky-nav{position:sticky;top:0;z-index:100;background:#0f2044;border-bottom:2px solid #2563eb;padding:0}
-  .nav-inner{max-width:980px;margin:0 auto;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none}
+  .nav-inner{display:flex;align-items:center;overflow-x:auto;scrollbar-width:none}
   .nav-inner::-webkit-scrollbar{display:none}
   .nav-section{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.4);padding:8px 12px 8px 16px;white-space:nowrap;border-right:1px solid rgba(255,255,255,.08)}
   .nav-link{font-size:9.5px;font-weight:600;color:rgba(255,255,255,.65);text-decoration:none;padding:8px 10px;white-space:nowrap;transition:color .15s,background .15s;display:inline-block}
@@ -405,31 +407,31 @@
 <nav class="sticky-nav">
   <div class="nav-inner">
     <span class="nav-section">CTS Vision 2030</span>
-    <a class="nav-link" href="#ecosystem">§1 Ecosystem</a>
-    <a class="nav-link" href="#current-process">§2 Current Process</a>
-    <a class="nav-link" href="#failure-modes">§3 Failures</a>
-    <a class="nav-link" href="#vision-roadmap">§4 Roadmap</a>
-    <a class="nav-link" href="#design-principles">§5 Principles</a>
-    <a class="nav-link" href="#phase1-deepdive">§6 Phase 1</a>
-    <a class="nav-link" href="#phase2-rest">§7 Phase 2</a>
-    <a class="nav-link" href="#phase3-mcp">§8 Phase 3</a>
-    <a class="nav-link" href="#phase4-mobile">§9 Phase 4</a>
-    <a class="nav-link" href="#data-dictionary">§10 Data Dict</a>
-    <a class="nav-link" href="#er-diagram">§11 ER Diagram</a>
-    <a class="nav-link" href="#auth-mechanism">§12 Auth</a>
-    <a class="nav-link" href="#api-payloads">§13 API Payloads</a>
-    <a class="nav-link" href="#error-codes">§14 Error Codes</a>
-    <a class="nav-link" href="#test-cases">§15 Test Cases</a>
-    <a class="nav-link" href="#test-environment">§16 Test Env</a>
-    <a class="nav-link" href="#vendor-certification">§17 Vendor Cert</a>
-    <a class="nav-link" href="#sequence-diagrams">§18 Seq Diagrams</a>
-    <a class="nav-link" href="#npci-bank-matrix">§19 NPCI vs Bank</a>
-    <a class="nav-link" href="#auto-incident-mgmt">§20 Incidents</a>
-    <a class="nav-link" href="#cheque-movement-monitor">§21 Movement</a>
-    <a class="nav-link" href="#dispute-management">§22 Disputes</a>
-    <a class="nav-link" href="#competitive-positioning">§23 Competitive</a>
-    <a class="nav-link" href="#regulatory-roadmap">§24 Regulatory</a>
-    <a class="nav-link" href="#conclusion">§25 Conclusion</a>
+    <a class="nav-link" href="#ecosystem">1 Ecosystem</a>
+    <a class="nav-link" href="#current-process">2 Current Process</a>
+    <a class="nav-link" href="#failure-modes">3 Failures</a>
+    <a class="nav-link" href="#vision-roadmap">4 Roadmap</a>
+    <a class="nav-link" href="#design-principles">5 Principles</a>
+    <a class="nav-link" href="#phase1-deepdive">6 Phase 1</a>
+    <a class="nav-link" href="#phase2-rest">7 Phase 2</a>
+    <a class="nav-link" href="#phase3-mcp">8 Phase 3</a>
+    <a class="nav-link" href="#phase4-mobile">9 Phase 4</a>
+    <a class="nav-link" href="#data-dictionary">10 Data Dict</a>
+    <a class="nav-link" href="#er-diagram">11 ER Diagram</a>
+    <a class="nav-link" href="#auth-mechanism">12 Auth</a>
+    <a class="nav-link" href="#api-payloads">13 API Payloads</a>
+    <a class="nav-link" href="#error-codes">14 Error Codes</a>
+    <a class="nav-link" href="#test-cases">15 Test Cases</a>
+    <a class="nav-link" href="#test-environment">16 Test Env</a>
+    <a class="nav-link" href="#vendor-certification">17 Vendor Cert</a>
+    <a class="nav-link" href="#sequence-diagrams">18 Seq Diagrams</a>
+    <a class="nav-link" href="#npci-bank-matrix">19 NPCI vs Bank</a>
+    <a class="nav-link" href="#auto-incident-mgmt">20 Incidents</a>
+    <a class="nav-link" href="#cheque-movement-monitor">21 Movement</a>
+    <a class="nav-link" href="#dispute-management">22 Disputes</a>
+    <a class="nav-link" href="#competitive-positioning">23 Competitive</a>
+    <a class="nav-link" href="#regulatory-roadmap">24 Regulatory</a>
+    <a class="nav-link" href="#conclusion">25 Conclusion</a>
     <div class="nav-controls">
       <button class="nav-btn" onclick="expandAll()">▼ Expand All</button>
       <button class="nav-btn" onclick="collapseAll()">▲ Collapse All</button>
@@ -3312,313 +3314,267 @@ def verify_webhook_signature(
       <div class="sec-sub">Message flows across all four phases — actors, timing, and IET boundaries</div>
     </div>
   </div>
+  <div class="sec-body">
 
   <!-- SD1: Phase 1 Inward Clearing -->
-  <div style="margin-bottom:20px">
-    <div style="font-size:10px;font-weight:800;color:#3b82f6;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;display:flex;align-items:center;gap:8px">
-      <span style="background:#1e3a5f;color:#60a5fa;padding:3px 10px;border-radius:3px;font-size:9px">SD-1</span>
-      Phase 1 — Inward Clearing: Single Cheque STP Path · Wall clock &lt;600ms
+  <div style="margin-bottom:28px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <span style="background:#1e3a5f;color:#60a5fa;padding:3px 12px;border-radius:3px;font-size:9px;font-weight:800">SD-1</span>
+      <span style="font-size:10px;font-weight:700;color:#0f2044;text-transform:uppercase;letter-spacing:.06em">Phase 1 — Inward Clearing: Single Cheque STP Path · Wall clock &lt;600ms</span>
     </div>
-    <div style="font-size:9px;color:#64748b;margin-bottom:10px">Actors: NGCH (SFTP) → Kafka → ChequeProcessingWorkflow → IETWatchdog → AI Activities → CBS/Vaults → NGCH (file back)</div>
 
-    <table style="border-collapse:collapse;width:100%;background:#0f172a;border-radius:6px;overflow:hidden;font-size:9px">
-      <thead>
-        <tr>
-          <th style="background:#0f2044;color:#60a5fa;padding:7px 10px;text-align:center;width:32px">#</th>
-          <th style="background:#0f2044;color:#60a5fa;padding:7px 10px;text-align:left;width:22%">From</th>
-          <th style="background:#0f2044;color:#60a5fa;padding:7px 6px;text-align:center;width:40px">Dir</th>
-          <th style="background:#0f2044;color:#60a5fa;padding:7px 10px;text-align:left;width:22%">To</th>
-          <th style="background:#0f2044;color:#60a5fa;padding:7px 10px;text-align:left">Message / Action</th>
-          <th style="background:#0f2044;color:#60a5fa;padding:7px 10px;text-align:right;width:60px">Time</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#60a5fa;font-weight:700">1</td>
-          <td style="padding:6px 10px;color:#93c5fd;font-weight:600">NGCH SFTP</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#4ade80;font-weight:600">NGCH Adapter</td>
-          <td style="padding:6px 10px;color:#94a3b8">Poll SFTP every 15 min · download inward file · N cheques in batch</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+0</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#60a5fa;font-weight:700">2</td>
-          <td style="padding:6px 10px;color:#4ade80;font-weight:600">NGCH Adapter</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#10b981;font-weight:600">Kafka cts.inward.{id}</td>
-          <td style="padding:6px 10px;color:#94a3b8">Publish N events (1 per cheque) · KEDA detects lag · scales 0→N workers in &lt;2s</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+0ms</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#60a5fa;font-weight:700">3</td>
-          <td style="padding:6px 10px;color:#10b981;font-weight:600">Kafka Consumer</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#c4b5fd;font-weight:600">Temporal: ChequeProcessingWorkflow</td>
-          <td style="padding:6px 10px;color:#94a3b8">start_workflow(id=cts-{bank_id}-{instrument_id}) · exactly-once via Temporal dedup</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+5ms</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b;background:#0a0f1a">
-          <td style="padding:6px 10px;text-align:center;color:#f59e0b;font-weight:700">4</td>
-          <td style="padding:6px 10px;color:#c4b5fd;font-weight:600">ChequeProcessingWorkflow</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#fbbf24;font-weight:600">IETWatchdogWorkflow</td>
-          <td style="padding:6px 10px;color:#fbbf24"><strong>start_child_workflow(ABANDON policy)</strong> · watchdog starts IET countdown · T=180 min</td>
-          <td style="padding:6px 10px;text-align:right;color:#f59e0b">T+8ms ⚠</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#60a5fa;font-weight:700">5</td>
-          <td style="padding:6px 10px;color:#c4b5fd;font-weight:600">ChequeProcessingWorkflow</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#86efac;font-weight:600">Activity: ocr_extract</td>
-          <td style="padding:6px 10px;color:#94a3b8">GOT-OCR2.0 · MICR line + all fields · confidence per field · structured JSON output</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+80ms</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#60a5fa;font-weight:700">6</td>
-          <td style="padding:6px 10px;color:#c4b5fd;font-weight:600">ChequeProcessingWorkflow</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#86efac;font-weight:600">Activity: detect_alteration</td>
-          <td style="padding:6px 10px;color:#94a3b8">Qwen2-VL 72B · per-field tamper analysis · returns alteration_detected=false, tamper_risk=0.02</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+290ms</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#60a5fa;font-weight:700">7</td>
-          <td style="padding:6px 10px;color:#c4b5fd;font-weight:600">ChequeProcessingWorkflow</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#86efac;font-weight:600">Activity: verify_signature</td>
-          <td style="padding:6px 10px;color:#94a3b8">Siamese NN · sig vault lookup (Redis HIT &lt;5ms) · match_score=0.9873 ≥ threshold</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+320ms</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#60a5fa;font-weight:700">8</td>
-          <td style="padding:6px 10px;color:#c4b5fd;font-weight:600">ChequeProcessingWorkflow</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#fbbf24;font-weight:600">CBS / PPS Vault</td>
-          <td style="padding:6px 10px;color:#94a3b8">check_cbs_balance (CBS REST &lt;800ms) + lookup_pps (Redis HIT) · balance OK · PPS confirmed</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+390ms</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#60a5fa;font-weight:700">9</td>
-          <td style="padding:6px 10px;color:#c4b5fd;font-weight:600">ChequeProcessingWorkflow</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#86efac;font-weight:600">Activity: score_fraud</td>
-          <td style="padding:6px 10px;color:#94a3b8">XGBoost ensemble · fraud_score=0.031 · SHAP values computed · stored to agent_decisions</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+400ms</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#60a5fa;font-weight:700">10</td>
-          <td style="padding:6px 10px;color:#c4b5fd;font-weight:600">ChequeProcessingWorkflow</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#c4b5fd;font-weight:600">synthesise_decision</td>
-          <td style="padding:6px 10px;color:#94a3b8">fraud_score 0.031 &lt; stp_threshold 0.92 · all checks PASS → outcome = STP_CONFIRM</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+410ms</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#60a5fa;font-weight:700">11</td>
-          <td style="padding:6px 10px;color:#c4b5fd;font-weight:600">Activity: file_to_ngch</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#93c5fd;font-weight:600">NGCH SFTP</td>
-          <td style="padding:6px 10px;color:#94a3b8">Upload CONFIRM decision file · idempotency key prevents duplicate · NGCH ACK received</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+480ms</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#60a5fa;font-weight:700">12</td>
-          <td style="padding:6px 10px;color:#c4b5fd;font-weight:600">ChequeProcessingWorkflow</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#fbbf24;font-weight:600">IETWatchdogWorkflow</td>
-          <td style="padding:6px 10px;color:#4ade80">Signal: SAFE · watchdog stops · IET window still has 179m 30s remaining</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+483ms</td>
-        </tr>
-        <tr>
-          <td style="padding:6px 10px;text-align:center;color:#60a5fa;font-weight:700">13</td>
-          <td style="padding:6px 10px;color:#c4b5fd;font-weight:600">Activity: write_audit</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#9ca3af;font-weight:600">Immudb</td>
-          <td style="padding:6px 10px;color:#4ade80"><strong>✓ Total wall clock: 487ms · IET: SAFE</strong> · AuditEvent written with HSM signature + SHAP</td>
-          <td style="padding:6px 10px;text-align:right;color:#4ade80"><strong>487ms</strong></td>
-        </tr>
-      </tbody>
-    </table>
-    <div style="margin-top:8px;padding:8px 12px;background:#0f2044;border-radius:4px;font-size:9px;color:#60a5fa">
-      <strong>IET Emergency Path (if T-30s reached before step 11):</strong>
-      IETWatchdogWorkflow → files directly to NGCH (SFTP fallback) with emergency_confirm → signals parent workflow → parent skips file_to_ngch (idempotency key prevents duplicate) → AuditEvent: IET_EMERGENCY_FILED written to Immudb immediately
-    </div>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 498" style="width:100%;border:1px solid #e2e8f0;border-radius:6px;display:block">
+      <defs>
+        <marker id="sd1-call" markerWidth="7" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#1e3a5f"/></marker>
+        <marker id="sd1-ret" markerWidth="7" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#059669"/></marker>
+      </defs>
+      <rect width="820" height="498" fill="#f8fafc"/>
+      <!-- TOP ACTOR BOXES -->
+      <rect x="21" y="10" width="118" height="36" fill="#0f2044" rx="3"/>
+      <text x="80" y="24" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">NGCH SFTP</text>
+      <text x="80" y="38" text-anchor="middle" fill="#7dd3fc" font-size="7.5" font-family="Arial,sans-serif">Inward File Source</text>
+      <rect x="191" y="10" width="118" height="36" fill="#0f2044" rx="3"/>
+      <text x="250" y="24" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">Kafka + KEDA</text>
+      <text x="250" y="38" text-anchor="middle" fill="#7dd3fc" font-size="7.5" font-family="Arial,sans-serif">cts.inward · Auto-scale</text>
+      <rect x="355" y="10" width="150" height="36" fill="#1e1b4b" rx="3"/>
+      <text x="430" y="24" text-anchor="middle" fill="#c4b5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">Temporal Workflow</text>
+      <text x="430" y="38" text-anchor="middle" fill="#a5b4fc" font-size="7.5" font-family="Arial,sans-serif">ChequeProcessingWorkflow</text>
+      <rect x="541" y="10" width="118" height="36" fill="#0f2044" rx="3"/>
+      <text x="600" y="24" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">AI Stack</text>
+      <text x="600" y="38" text-anchor="middle" fill="#7dd3fc" font-size="7.5" font-family="Arial,sans-serif">OCR · Vision · XGBoost</text>
+      <rect x="697" y="10" width="112" height="36" fill="#0f2044" rx="3"/>
+      <text x="753" y="24" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">CBS + Vaults</text>
+      <text x="753" y="38" text-anchor="middle" fill="#7dd3fc" font-size="7.5" font-family="Arial,sans-serif">CBS · Redis · PPS</text>
+      <!-- LIFELINES -->
+      <line x1="80" y1="46" x2="80" y2="456" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,4"/>
+      <line x1="250" y1="46" x2="250" y2="456" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,4"/>
+      <line x1="430" y1="46" x2="430" y2="456" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,4"/>
+      <line x1="600" y1="46" x2="600" y2="456" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,4"/>
+      <line x1="753" y1="46" x2="753" y2="456" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,4"/>
+      <!-- ① NGCH SFTP → Kafka -->
+      <text x="165" y="64" text-anchor="middle" fill="#1e3a5f" font-size="7.5" font-weight="600" font-family="Arial,sans-serif">① Poll SFTP · download N-cheque inward batch</text>
+      <line x1="80" y1="69" x2="242" y2="69" stroke="#1e3a5f" stroke-width="1.5" marker-end="url(#sd1-call)"/>
+      <!-- ② Kafka → Temporal -->
+      <text x="340" y="94" text-anchor="middle" fill="#1e3a5f" font-size="7.5" font-weight="600" font-family="Arial,sans-serif">② Publish N events · KEDA scales 0→N workers in &lt;2s</text>
+      <line x1="250" y1="99" x2="422" y2="99" stroke="#1e3a5f" stroke-width="1.5" marker-end="url(#sd1-call)"/>
+      <!-- ③ Temporal self-loop: IETWatchdog -->
+      <path d="M430,124 L472,124 L472,142 L430,142" fill="none" stroke="#d97706" stroke-width="1.5"/>
+      <polygon points="430,138 430,146 424,142" fill="#d97706"/>
+      <text x="477" y="134" fill="#b45309" font-size="7.5" font-weight="700" font-family="Arial,sans-serif">③ spawn IETWatchdog (ABANDON policy)</text>
+      <text x="477" y="146" fill="#92400e" font-size="7" font-family="Arial,sans-serif">IET countdown T=180min starts ⚠</text>
+      <!-- ④ Temporal → AI Stack: ocr_extract -->
+      <text x="515" y="167" text-anchor="middle" fill="#1e3a5f" font-size="7.5" font-weight="600" font-family="Arial,sans-serif">④ ocr_extract (GOT-OCR2.0 · MICR + all fields)</text>
+      <line x1="430" y1="172" x2="592" y2="172" stroke="#1e3a5f" stroke-width="1.5" marker-end="url(#sd1-call)"/>
+      <!-- ⑤ AI Stack → Temporal return -->
+      <line x1="592" y1="194" x2="438" y2="194" stroke="#059669" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#sd1-ret)"/>
+      <text x="515" y="192" text-anchor="middle" fill="#047857" font-size="7" font-family="Arial,sans-serif">⑤ structured JSON · confidence OK</text>
+      <!-- ⑥ Temporal → AI Stack: alteration + signature -->
+      <text x="515" y="214" text-anchor="middle" fill="#1e3a5f" font-size="7.5" font-weight="600" font-family="Arial,sans-serif">⑥ detect_alteration + verify_signature</text>
+      <text x="515" y="225" text-anchor="middle" fill="#475569" font-size="7" font-family="Arial,sans-serif">(Qwen2-VL 72B · Siamese NN)</text>
+      <line x1="430" y1="231" x2="592" y2="231" stroke="#1e3a5f" stroke-width="1.5" marker-end="url(#sd1-call)"/>
+      <!-- ⑦ AI Stack → Temporal return -->
+      <line x1="592" y1="252" x2="438" y2="252" stroke="#059669" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#sd1-ret)"/>
+      <text x="515" y="250" text-anchor="middle" fill="#047857" font-size="7" font-family="Arial,sans-serif">⑦ tamper_risk=0.02 · sig_score=0.987 ✓</text>
+      <!-- ⑧ Temporal → CBS+Vaults -->
+      <text x="591" y="272" text-anchor="middle" fill="#1e3a5f" font-size="7.5" font-weight="600" font-family="Arial,sans-serif">⑧ check_cbs_balance + lookup_pps (Redis &lt;5ms)</text>
+      <line x1="430" y1="277" x2="745" y2="277" stroke="#1e3a5f" stroke-width="1.5" marker-end="url(#sd1-call)"/>
+      <!-- ⑨ CBS+Vaults → Temporal return -->
+      <line x1="745" y1="298" x2="438" y2="298" stroke="#059669" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#sd1-ret)"/>
+      <text x="591" y="296" text-anchor="middle" fill="#047857" font-size="7" font-family="Arial,sans-serif">⑨ balance OK · PPS confirmed</text>
+      <!-- ⑩ Temporal → AI Stack: fraud + decision -->
+      <text x="515" y="318" text-anchor="middle" fill="#1e3a5f" font-size="7.5" font-weight="600" font-family="Arial,sans-serif">⑩ score_fraud · XGBoost → 0.031 · SHAP ✓</text>
+      <text x="515" y="329" text-anchor="middle" fill="#475569" font-size="7" font-family="Arial,sans-serif">synthesise_decision → STP_CONFIRM</text>
+      <line x1="430" y1="335" x2="592" y2="335" stroke="#1e3a5f" stroke-width="1.5" marker-end="url(#sd1-call)"/>
+      <!-- ⑪ Temporal → NGCH SFTP: file_to_ngch (leftward) -->
+      <text x="260" y="355" text-anchor="middle" fill="#166534" font-size="8" font-weight="700" font-family="Arial,sans-serif">⑪ file_to_ngch: STP_CONFIRM · Total wall clock &lt;600ms · IET SAFE ✓</text>
+      <line x1="430" y1="361" x2="88" y2="361" stroke="#1e3a5f" stroke-width="1.8" marker-end="url(#sd1-call)"/>
+      <!-- ⑫ write_audit note -->
+      <text x="430" y="385" text-anchor="middle" fill="#6b7280" font-size="7" font-family="Arial,sans-serif">⑫ write_audit → Immudb (HSM-signed AuditEvent · SHAP values stored)</text>
+      <!-- Emergency path note -->
+      <rect x="14" y="396" width="500" height="15" fill="#fef9c3" rx="2" stroke="#f59e0b" stroke-width="0.5"/>
+      <text x="18" y="407" fill="#92400e" font-size="7" font-family="Arial,sans-serif">⚠ Emergency path: IETWatchdog files NGCH direct at T−30s · parent checks idempotency key · no duplicate · IET breach rate = 0.000%</text>
+      <!-- BOTTOM ACTOR BOXES -->
+      <rect x="21" y="458" width="118" height="36" fill="#0f2044" rx="3"/>
+      <text x="80" y="472" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">NGCH SFTP</text>
+      <text x="80" y="486" text-anchor="middle" fill="#7dd3fc" font-size="7.5" font-family="Arial,sans-serif">Inward File Source</text>
+      <rect x="191" y="458" width="118" height="36" fill="#0f2044" rx="3"/>
+      <text x="250" y="472" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">Kafka + KEDA</text>
+      <text x="250" y="486" text-anchor="middle" fill="#7dd3fc" font-size="7.5" font-family="Arial,sans-serif">cts.inward · Auto-scale</text>
+      <rect x="355" y="458" width="150" height="36" fill="#1e1b4b" rx="3"/>
+      <text x="430" y="472" text-anchor="middle" fill="#c4b5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">Temporal Workflow</text>
+      <text x="430" y="486" text-anchor="middle" fill="#a5b4fc" font-size="7.5" font-family="Arial,sans-serif">ChequeProcessingWorkflow</text>
+      <rect x="541" y="458" width="118" height="36" fill="#0f2044" rx="3"/>
+      <text x="600" y="472" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">AI Stack</text>
+      <text x="600" y="486" text-anchor="middle" fill="#7dd3fc" font-size="7.5" font-family="Arial,sans-serif">OCR · Vision · XGBoost</text>
+      <rect x="697" y="458" width="112" height="36" fill="#0f2044" rx="3"/>
+      <text x="753" y="472" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">CBS + Vaults</text>
+      <text x="753" y="486" text-anchor="middle" fill="#7dd3fc" font-size="7.5" font-family="Arial,sans-serif">CBS · Redis · PPS</text>
+    </svg>
   </div>
 
   <!-- SD2: Phase 2 REST + Webhook -->
-  <div style="margin-bottom:20px">
-    <div style="font-size:10px;font-weight:800;color:#10b981;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;display:flex;align-items:center;gap:8px">
-      <span style="background:#14532d;color:#4ade80;padding:3px 10px;border-radius:3px;font-size:9px">SD-2</span>
-      Phase 2 — Outward Cheque: Presentee Bank → NPCI REST API → Drawee Bank · 30-min settlement
+  <div style="margin-bottom:28px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <span style="background:#14532d;color:#4ade80;padding:3px 12px;border-radius:3px;font-size:9px;font-weight:800">SD-2</span>
+      <span style="font-size:10px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:.06em">Phase 2 — REST API: Presentee Bank → NPCI → Drawee Bank · 30-min settlement</span>
     </div>
-    <div style="font-size:9px;color:#64748b;margin-bottom:10px">Actors: Presentee Bank (ASTRA) → NPCI REST API → NPCI Webhook → Drawee Bank (ASTRA) → RBI e-Kuber</div>
-
-    <table style="border-collapse:collapse;width:100%;background:#0f172a;border-radius:6px;overflow:hidden;font-size:9px">
-      <thead>
-        <tr>
-          <th style="background:#14532d;color:#4ade80;padding:7px 10px;text-align:center;width:32px">#</th>
-          <th style="background:#14532d;color:#4ade80;padding:7px 10px;text-align:left;width:22%">From</th>
-          <th style="background:#14532d;color:#4ade80;padding:7px 6px;text-align:center;width:40px">Dir</th>
-          <th style="background:#14532d;color:#4ade80;padding:7px 10px;text-align:left;width:22%">To</th>
-          <th style="background:#14532d;color:#4ade80;padding:7px 10px;text-align:left">Message / Action</th>
-          <th style="background:#14532d;color:#4ade80;padding:7px 10px;text-align:right;width:70px">Timing</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#4ade80;font-weight:700">1</td>
-          <td style="padding:6px 10px;color:#6ee7b7;font-weight:600">Presentee Bank (ASTRA)</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#93c5fd;font-weight:600">NPCI REST API</td>
-          <td style="padding:6px 10px;color:#94a3b8"><strong>POST /cts/v1/instruments</strong> · L1 mTLS cert · L2 session token (X-NPCI-Token) · L3 HMAC-SHA256 (X-NPCI-Signature) · body: {instrument_ref, presentee_ifsc, drawee_ifsc, image_hash, micr_line, iet_deadline_utc, idempotency_key}</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+0</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#4ade80;font-weight:700">2</td>
-          <td style="padding:6px 10px;color:#93c5fd;font-weight:600">NPCI REST API</td>
-          <td style="padding:6px;text-align:center;color:#94a3b8;font-size:14px">←</td>
-          <td style="padding:6px 10px;color:#6ee7b7;font-weight:600">Presentee Bank</td>
-          <td style="padding:6px 10px;color:#94a3b8"><strong>HTTP 201 Created</strong> · {npci_ref, session_id, iet_deadline_confirmed, clearing_zone} · NGCH queues cheque for distribution</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+120ms</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#4ade80;font-weight:700">3</td>
-          <td style="padding:6px 10px;color:#93c5fd;font-weight:600">NPCI (Webhook Push)</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#c4b5fd;font-weight:600">Drawee Bank webhook endpoint</td>
-          <td style="padding:6px 10px;color:#94a3b8"><strong>POST /v1/ngch/webhook/inward</strong> · X-NPCI-Webhook-Signature: HMAC · body: {instrument_ref, presentee_ifsc, image_url, iet_deadline_utc, npci_ref} · delivered &lt;5s of submission</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+5s</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#4ade80;font-weight:700">4</td>
-          <td style="padding:6px 10px;color:#c4b5fd;font-weight:600">Drawee Bank</td>
-          <td style="padding:6px;text-align:center;color:#94a3b8;font-size:14px">←</td>
-          <td style="padding:6px 10px;color:#93c5fd;font-weight:600">NPCI Webhook</td>
-          <td style="padding:6px 10px;color:#94a3b8"><strong>HTTP 200 OK</strong> · verify HMAC · check idempotency key (Redis dedup) · publish to cts.inward.{bank_id} Kafka</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+5.1s</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#4ade80;font-weight:700">5</td>
-          <td style="padding:6px 10px;color:#c4b5fd;font-weight:600">Drawee Bank (ASTRA AI)</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#93c5fd;font-weight:600">NPCI REST API</td>
-          <td style="padding:6px 10px;color:#94a3b8">Full AI pipeline runs (same as SD-1) → decision in &lt;600ms · <strong>POST /cts/v1/returns</strong> · {npci_ref, decision: CONFIRM, return_reason: null, idempotency_key}</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+6s</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#4ade80;font-weight:700">6</td>
-          <td style="padding:6px 10px;color:#93c5fd;font-weight:600">NPCI</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#6ee7b7;font-weight:600">Presentee Bank (Webhook)</td>
-          <td style="padding:6px 10px;color:#94a3b8"><strong>POST /v1/ngch/webhook/return-notification</strong> · {npci_ref, decision: CONFIRMED, settled_in_batch_id} · presentee bank credits beneficiary account</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+6.5s</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#4ade80;font-weight:700">7</td>
-          <td style="padding:6px 10px;color:#93c5fd;font-weight:600">NPCI (every 30 min)</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#fbbf24;font-weight:600">RBI e-Kuber</td>
-          <td style="padding:6px 10px;color:#94a3b8">Settlement batch closes · net position calculated per bank · <strong>Debit/credit via e-Kuber RTGS</strong> · settlement confirmation pushed to all banks</td>
-          <td style="padding:6px 10px;text-align:right;color:#4ade80"><strong>T+30min</strong></td>
-        </tr>
-      </tbody>
-    </table>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 410" style="width:100%;border:1px solid #e2e8f0;border-radius:6px;display:block">
+      <defs>
+        <marker id="sd2-call" markerWidth="7" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#1e3a5f"/></marker>
+        <marker id="sd2-ret" markerWidth="7" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#059669"/></marker>
+      </defs>
+      <rect width="780" height="410" fill="#f8fafc"/>
+      <!-- TOP ACTOR BOXES -->
+      <rect x="15" y="10" width="140" height="36" fill="#0f2044" rx="3"/>
+      <text x="85" y="24" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">Presentee Bank</text>
+      <text x="85" y="38" text-anchor="middle" fill="#7dd3fc" font-size="7.5" font-family="Arial,sans-serif">ASTRA (Outward)</text>
+      <rect x="228" y="10" width="148" height="36" fill="#1e3a5f" rx="3"/>
+      <text x="302" y="24" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">NPCI REST API</text>
+      <text x="302" y="38" text-anchor="middle" fill="#7dd3fc" font-size="7.5" font-family="Arial,sans-serif">POST /cts/v1/* · mTLS + HMAC</text>
+      <rect x="455" y="10" width="148" height="36" fill="#1e1b4b" rx="3"/>
+      <text x="529" y="24" text-anchor="middle" fill="#c4b5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">Drawee Bank</text>
+      <text x="529" y="38" text-anchor="middle" fill="#a5b4fc" font-size="7.5" font-family="Arial,sans-serif">ASTRA (Inward · AI Pipeline)</text>
+      <rect x="651" y="10" width="114" height="36" fill="#422006" rx="3"/>
+      <text x="708" y="24" text-anchor="middle" fill="#fcd34d" font-size="9" font-weight="700" font-family="Arial,sans-serif">RBI e-Kuber</text>
+      <text x="708" y="38" text-anchor="middle" fill="#fbbf24" font-size="7.5" font-family="Arial,sans-serif">RTGS Settlement</text>
+      <!-- LIFELINES -->
+      <line x1="85" y1="46" x2="85" y2="365" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,4"/>
+      <line x1="302" y1="46" x2="302" y2="365" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,4"/>
+      <line x1="529" y1="46" x2="529" y2="365" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,4"/>
+      <line x1="708" y1="46" x2="708" y2="365" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,4"/>
+      <!-- ① Presentee Bank → NPCI REST API: POST instruments -->
+      <text x="193" y="65" text-anchor="middle" fill="#1e3a5f" font-size="7.5" font-weight="600" font-family="Arial,sans-serif">① POST /cts/v1/instruments · mTLS + session token + HMAC-SHA256</text>
+      <line x1="85" y1="70" x2="294" y2="70" stroke="#1e3a5f" stroke-width="1.5" marker-end="url(#sd2-call)"/>
+      <!-- ② NPCI → Presentee Bank: 201 return -->
+      <line x1="294" y1="93" x2="93" y2="93" stroke="#059669" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#sd2-ret)"/>
+      <text x="193" y="91" text-anchor="middle" fill="#047857" font-size="7" font-family="Arial,sans-serif">② HTTP 201 · {npci_ref, iet_deadline_confirmed, clearing_zone}</text>
+      <!-- ③ NPCI Webhook → Drawee Bank: POST inward -->
+      <text x="415" y="115" text-anchor="middle" fill="#1e3a5f" font-size="7.5" font-weight="600" font-family="Arial,sans-serif">③ POST /v1/ngch/webhook/inward · X-NPCI-Signature (HMAC)</text>
+      <text x="415" y="126" text-anchor="middle" fill="#475569" font-size="7" font-family="Arial,sans-serif">{instrument_ref, image_url, iet_deadline_utc} · delivered &lt;5s</text>
+      <line x1="302" y1="132" x2="521" y2="132" stroke="#1e3a5f" stroke-width="1.5" marker-end="url(#sd2-call)"/>
+      <!-- ④ Drawee Bank → NPCI: HTTP 200 OK (dedup + publish Kafka) -->
+      <line x1="521" y1="153" x2="310" y2="153" stroke="#059669" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#sd2-ret)"/>
+      <text x="415" y="151" text-anchor="middle" fill="#047857" font-size="7" font-family="Arial,sans-serif">④ HTTP 200 · verify HMAC · Redis dedup · publish cts.inward Kafka</text>
+      <!-- ⑤ Drawee Bank AI pipeline + POST /cts/v1/returns -->
+      <text x="415" y="177" text-anchor="middle" fill="#1e3a5f" font-size="7.5" font-weight="600" font-family="Arial,sans-serif">⑤ AI pipeline (SD-1 flow) → decision &lt;600ms</text>
+      <text x="415" y="188" text-anchor="middle" fill="#475569" font-size="7" font-family="Arial,sans-serif">POST /cts/v1/returns · {decision: CONFIRM, idempotency_key}</text>
+      <line x1="529" y1="194" x2="310" y2="194" stroke="#1e3a5f" stroke-width="1.5" marker-end="url(#sd2-call)"/>
+      <!-- ⑥ NPCI → Presentee Bank: return notification webhook -->
+      <text x="193" y="218" text-anchor="middle" fill="#1e3a5f" font-size="7.5" font-weight="600" font-family="Arial,sans-serif">⑥ POST /v1/ngch/webhook/return-notification</text>
+      <text x="193" y="229" text-anchor="middle" fill="#475569" font-size="7" font-family="Arial,sans-serif">{decision: CONFIRMED, batch_id} · presentee credits beneficiary</text>
+      <line x1="302" y1="235" x2="93" y2="235" stroke="#1e3a5f" stroke-width="1.5" marker-end="url(#sd2-call)"/>
+      <!-- ⑦ NPCI → RBI e-Kuber: settlement batch (every 30 min) -->
+      <text x="505" y="272" text-anchor="middle" fill="#1e3a5f" font-size="7.5" font-weight="600" font-family="Arial,sans-serif">⑦ Settlement batch · net position per bank</text>
+      <text x="505" y="283" text-anchor="middle" fill="#475569" font-size="7" font-family="Arial,sans-serif">Debit/credit via e-Kuber RTGS · every 30 min</text>
+      <line x1="302" y1="289" x2="700" y2="289" stroke="#1e3a5f" stroke-width="1.5" marker-end="url(#sd2-call)"/>
+      <!-- Settlement confirmation back -->
+      <line x1="700" y1="310" x2="310" y2="310" stroke="#059669" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#sd2-ret)"/>
+      <text x="505" y="308" text-anchor="middle" fill="#047857" font-size="7" font-family="Arial,sans-serif">⑧ Settlement confirmed · all banks notified · T+30min</text>
+      <!-- BOTTOM ACTOR BOXES -->
+      <rect x="15" y="367" width="140" height="36" fill="#0f2044" rx="3"/>
+      <text x="85" y="381" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">Presentee Bank</text>
+      <text x="85" y="395" text-anchor="middle" fill="#7dd3fc" font-size="7.5" font-family="Arial,sans-serif">ASTRA (Outward)</text>
+      <rect x="228" y="367" width="148" height="36" fill="#1e3a5f" rx="3"/>
+      <text x="302" y="381" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">NPCI REST API</text>
+      <text x="302" y="395" text-anchor="middle" fill="#7dd3fc" font-size="7.5" font-family="Arial,sans-serif">POST /cts/v1/* · mTLS + HMAC</text>
+      <rect x="455" y="367" width="148" height="36" fill="#1e1b4b" rx="3"/>
+      <text x="529" y="381" text-anchor="middle" fill="#c4b5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">Drawee Bank</text>
+      <text x="529" y="395" text-anchor="middle" fill="#a5b4fc" font-size="7.5" font-family="Arial,sans-serif">ASTRA (Inward · AI Pipeline)</text>
+      <rect x="651" y="367" width="114" height="36" fill="#422006" rx="3"/>
+      <text x="708" y="381" text-anchor="middle" fill="#fcd34d" font-size="9" font-weight="700" font-family="Arial,sans-serif">RBI e-Kuber</text>
+      <text x="708" y="395" text-anchor="middle" fill="#fbbf24" font-size="7.5" font-family="Arial,sans-serif">RTGS Settlement</text>
+    </svg>
   </div>
 
   <!-- SD3: Phase 4 Mobile -->
   <div style="margin-bottom:12px">
-    <div style="font-size:10px;font-weight:800;color:#ec4899;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;display:flex;align-items:center;gap:8px">
-      <span style="background:#9d174d;color:#f9a8d4;padding:3px 10px;border-radius:3px;font-size:9px">SD-3</span>
-      Phase 4 — Drawer Mobile Upload: Happy Path · Lien-first · &lt;60s end-to-end
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <span style="background:#9d174d;color:#f9a8d4;padding:3px 12px;border-radius:3px;font-size:9px;font-weight:800">SD-3</span>
+      <span style="font-size:10px;font-weight:700;color:#9d174d;text-transform:uppercase;letter-spacing:.06em">Phase 4 — Drawer Mobile Upload: Lien-first · Happy Path · &lt;60s end-to-end</span>
     </div>
-    <div style="font-size:9px;color:#64748b;margin-bottom:10px">Actors: Drawer (Mobile App) → NPCI Mobile API → Drawer Bank CBS (Lien) → Drawee Bank (ASTRA AI) → Beneficiary Bank CBS → RBI e-Kuber</div>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 460" style="width:100%;border:1px solid #e2e8f0;border-radius:6px;display:block">
+      <defs>
+        <marker id="sd3-call" markerWidth="7" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#1e3a5f"/></marker>
+        <marker id="sd3-ret" markerWidth="7" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#059669"/></marker>
+      </defs>
+      <rect width="820" height="460" fill="#f8fafc"/>
+      <!-- TOP ACTOR BOXES -->
+      <rect x="12" y="10" width="116" height="36" fill="#500724" rx="3"/>
+      <text x="70" y="24" text-anchor="middle" fill="#fda4af" font-size="9" font-weight="700" font-family="Arial,sans-serif">Drawer App</text>
+      <text x="70" y="38" text-anchor="middle" fill="#fb7185" font-size="7.5" font-family="Arial,sans-serif">Mobile · Biometric KYC</text>
+      <rect x="176" y="10" width="132" height="36" fill="#1e3a5f" rx="3"/>
+      <text x="242" y="24" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">NPCI Mobile API</text>
+      <text x="242" y="38" text-anchor="middle" fill="#7dd3fc" font-size="7.5" font-family="Arial,sans-serif">/cts/v1/mobile-instruments</text>
+      <rect x="362" y="10" width="134" height="36" fill="#0f2044" rx="3"/>
+      <text x="429" y="24" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">Drawer Bank CBS</text>
+      <text x="429" y="38" text-anchor="middle" fill="#7dd3fc" font-size="7.5" font-family="Arial,sans-serif">Lien Mark · Debit Exec</text>
+      <rect x="552" y="10" width="134" height="36" fill="#1e1b4b" rx="3"/>
+      <text x="619" y="24" text-anchor="middle" fill="#c4b5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">Drawee Bank</text>
+      <text x="619" y="38" text-anchor="middle" fill="#a5b4fc" font-size="7.5" font-family="Arial,sans-serif">ASTRA · AI Pipeline</text>
+      <rect x="706" y="10" width="104" height="36" fill="#0f2044" rx="3"/>
+      <text x="758" y="24" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">Beneficiary</text>
+      <text x="758" y="38" text-anchor="middle" fill="#7dd3fc" font-size="7.5" font-family="Arial,sans-serif">Bank CBS</text>
+      <!-- LIFELINES -->
+      <line x1="70" y1="46" x2="70" y2="415" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,4"/>
+      <line x1="242" y1="46" x2="242" y2="415" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,4"/>
+      <line x1="429" y1="46" x2="429" y2="415" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,4"/>
+      <line x1="619" y1="46" x2="619" y2="415" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,4"/>
+      <line x1="758" y1="46" x2="758" y2="415" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,4"/>
+      <!-- ① Drawer App → NPCI: submit mobile instrument -->
+      <text x="156" y="65" text-anchor="middle" fill="#1e3a5f" font-size="7.5" font-weight="600" font-family="Arial,sans-serif">① POST /cts/v1/mobile-instruments · device attestation · drawer JWT</text>
+      <line x1="70" y1="70" x2="234" y2="70" stroke="#1e3a5f" stroke-width="1.5" marker-end="url(#sd3-call)"/>
+      <!-- ② NPCI → Drawer Bank CBS: lien mark request -->
+      <text x="335" y="94" text-anchor="middle" fill="#1e3a5f" font-size="7.5" font-weight="600" font-family="Arial,sans-serif">② Lien Mark Request · SOFT_HOLD · cheque amount</text>
+      <line x1="242" y1="99" x2="421" y2="99" stroke="#1e3a5f" stroke-width="1.5" marker-end="url(#sd3-call)"/>
+      <!-- ③ Drawer Bank CBS → NPCI: lien confirmed -->
+      <line x1="421" y1="121" x2="250" y2="121" stroke="#059669" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#sd3-ret)"/>
+      <text x="335" y="119" text-anchor="middle" fill="#047857" font-size="7" font-family="Arial,sans-serif">③ Lien confirmed · lien_ref returned</text>
+      <!-- ④ NPCI → Drawer App: submitted notification -->
+      <line x1="242" y1="142" x2="78" y2="142" stroke="#059669" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#sd3-ret)"/>
+      <text x="156" y="140" text-anchor="middle" fill="#047857" font-size="7" font-family="Arial,sans-serif">④ HTTP 201 · push notification: "Cheque submitted · ₹X held"</text>
+      <!-- ⑤ NPCI Webhook → Drawee Bank ASTRA -->
+      <text x="430" y="164" text-anchor="middle" fill="#1e3a5f" font-size="7.5" font-weight="600" font-family="Arial,sans-serif">⑤ POST /v1/ngch/webhook/inward · mobile-origin · iet_deadline=T+180min</text>
+      <line x1="242" y1="169" x2="611" y2="169" stroke="#1e3a5f" stroke-width="1.5" marker-end="url(#sd3-call)"/>
+      <!-- ⑤b IETWatchdog note -->
+      <text x="619" y="187" text-anchor="middle" fill="#b45309" font-size="7" font-family="Arial,sans-serif">IETWatchdog spawns (ABANDON)</text>
+      <!-- ⑥ Drawee Bank AI pipeline → POST /cts/v1/returns -->
+      <text x="430" y="208" text-anchor="middle" fill="#1e3a5f" font-size="7.5" font-weight="600" font-family="Arial,sans-serif">⑥ AI pipeline &lt;600ms → STP_CONFIRM</text>
+      <text x="430" y="219" text-anchor="middle" fill="#475569" font-size="7" font-family="Arial,sans-serif">POST /cts/v1/returns · {decision: CONFIRM, idempotency_key}</text>
+      <line x1="619" y1="225" x2="250" y2="225" stroke="#1e3a5f" stroke-width="1.5" marker-end="url(#sd3-call)"/>
+      <!-- ⑦ NPCI → Drawer Bank CBS: convert lien → debit -->
+      <text x="335" y="249" text-anchor="middle" fill="#1e3a5f" font-size="7.5" font-weight="600" font-family="Arial,sans-serif">⑦ Convert lien → debit · CBS executes actual debit</text>
+      <line x1="242" y1="254" x2="421" y2="254" stroke="#1e3a5f" stroke-width="1.5" marker-end="url(#sd3-call)"/>
+      <!-- ⑧ Drawer Bank CBS → NPCI: debit confirmed -->
+      <line x1="421" y1="276" x2="250" y2="276" stroke="#059669" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#sd3-ret)"/>
+      <text x="335" y="274" text-anchor="middle" fill="#047857" font-size="7" font-family="Arial,sans-serif">⑧ Debit confirmed · lien_events.status = DEBITED</text>
+      <!-- ⑨ NPCI → Beneficiary Bank CBS: credit instruction -->
+      <text x="500" y="298" text-anchor="middle" fill="#1e3a5f" font-size="7.5" font-weight="600" font-family="Arial,sans-serif">⑨ Credit instruction → beneficiary account</text>
+      <line x1="242" y1="303" x2="750" y2="303" stroke="#1e3a5f" stroke-width="1.5" marker-end="url(#sd3-call)"/>
+      <!-- ⑩ Beneficiary Bank → NPCI: credit confirmed -->
+      <line x1="750" y1="324" x2="250" y2="324" stroke="#059669" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#sd3-ret)"/>
+      <text x="500" y="322" text-anchor="middle" fill="#047857" font-size="7" font-family="Arial,sans-serif">⑩ Credit confirmed · settlement via 30-min batch</text>
+      <!-- ⑪ NPCI → Drawer App: end notification -->
+      <text x="156" y="348" text-anchor="middle" fill="#166534" font-size="8" font-weight="700" font-family="Arial,sans-serif">⑪ "Cheque confirmed. Funds credited." · push + WhatsApp · end-to-end &lt;60s ✓</text>
+      <line x1="242" y1="354" x2="78" y2="354" stroke="#1e3a5f" stroke-width="1.5" marker-end="url(#sd3-call)"/>
+      <!-- BOTTOM ACTOR BOXES -->
+      <rect x="12" y="417" width="116" height="36" fill="#500724" rx="3"/>
+      <text x="70" y="431" text-anchor="middle" fill="#fda4af" font-size="9" font-weight="700" font-family="Arial,sans-serif">Drawer App</text>
+      <text x="70" y="445" text-anchor="middle" fill="#fb7185" font-size="7.5" font-family="Arial,sans-serif">Mobile · Biometric KYC</text>
+      <rect x="176" y="417" width="132" height="36" fill="#1e3a5f" rx="3"/>
+      <text x="242" y="431" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">NPCI Mobile API</text>
+      <text x="242" y="445" text-anchor="middle" fill="#7dd3fc" font-size="7.5" font-family="Arial,sans-serif">/cts/v1/mobile-instruments</text>
+      <rect x="362" y="417" width="134" height="36" fill="#0f2044" rx="3"/>
+      <text x="429" y="431" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">Drawer Bank CBS</text>
+      <text x="429" y="445" text-anchor="middle" fill="#7dd3fc" font-size="7.5" font-family="Arial,sans-serif">Lien Mark · Debit Exec</text>
+      <rect x="552" y="417" width="134" height="36" fill="#1e1b4b" rx="3"/>
+      <text x="619" y="431" text-anchor="middle" fill="#c4b5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">Drawee Bank</text>
+      <text x="619" y="445" text-anchor="middle" fill="#a5b4fc" font-size="7.5" font-family="Arial,sans-serif">ASTRA · AI Pipeline</text>
+      <rect x="706" y="417" width="104" height="36" fill="#0f2044" rx="3"/>
+      <text x="758" y="431" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="700" font-family="Arial,sans-serif">Beneficiary</text>
+      <text x="758" y="445" text-anchor="middle" fill="#7dd3fc" font-size="7.5" font-family="Arial,sans-serif">Bank CBS</text>
+    </svg>
+  </div>
 
-    <table style="border-collapse:collapse;width:100%;background:#0f172a;border-radius:6px;overflow:hidden;font-size:9px">
-      <thead>
-        <tr>
-          <th style="background:#9d174d;color:#f9a8d4;padding:7px 10px;text-align:center;width:32px">#</th>
-          <th style="background:#9d174d;color:#f9a8d4;padding:7px 10px;text-align:left;width:20%">From</th>
-          <th style="background:#9d174d;color:#f9a8d4;padding:7px 6px;text-align:center;width:36px">Dir</th>
-          <th style="background:#9d174d;color:#f9a8d4;padding:7px 10px;text-align:left;width:20%">To</th>
-          <th style="background:#9d174d;color:#f9a8d4;padding:7px 10px;text-align:left">Message / Action</th>
-          <th style="background:#9d174d;color:#f9a8d4;padding:7px 10px;text-align:right;width:70px">Timing</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#f9a8d4;font-weight:700">1</td>
-          <td style="padding:6px 10px;color:#f9a8d4;font-weight:600">Drawer (Mobile)</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#93c5fd;font-weight:600">Drawer's Bank App</td>
-          <td style="padding:6px 10px;color:#94a3b8">Photo front + rear cheque · fill beneficiary VPA/account · biometric KYC confirm · app signs with drawer private key</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+0</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#f9a8d4;font-weight:700">2</td>
-          <td style="padding:6px 10px;color:#f9a8d4;font-weight:600">Drawer Bank App</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#93c5fd;font-weight:600">NPCI Mobile API</td>
-          <td style="padding:6px 10px;color:#94a3b8"><strong>POST /cts/v1/mobile-instruments</strong> · device attestation (Play Integrity / DeviceCheck) · drawer JWT · image hashes · beneficiary details</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+2s</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#f9a8d4;font-weight:700">3</td>
-          <td style="padding:6px 10px;color:#93c5fd;font-weight:600">NPCI Mobile API</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#c4b5fd;font-weight:600">Drawer Bank CBS</td>
-          <td style="padding:6px 10px;color:#94a3b8"><strong>Lien Mark Request</strong> · amount=cheque amount · lien_type=SOFT_HOLD · CBS marks lien on drawer account immediately</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+3s</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#f9a8d4;font-weight:700">4</td>
-          <td style="padding:6px 10px;color:#c4b5fd;font-weight:600">Drawer Bank CBS</td>
-          <td style="padding:6px;text-align:center;color:#94a3b8;font-size:14px">←</td>
-          <td style="padding:6px 10px;color:#93c5fd;font-weight:600">NPCI</td>
-          <td style="padding:6px 10px;color:#94a3b8"><strong>Lien confirmed</strong> · lien_ref returned · drawer notified via push notification: "Cheque submitted, ₹X held"</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+4s</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#f9a8d4;font-weight:700">5</td>
-          <td style="padding:6px 10px;color:#93c5fd;font-weight:600">NPCI (Webhook)</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#6ee7b7;font-weight:600">Drawee Bank (ASTRA)</td>
-          <td style="padding:6px 10px;color:#94a3b8"><strong>POST /v1/ngch/webhook/inward</strong> · mobile-origin flag · image URL · iet_deadline=T+180min · IETWatchdogWorkflow starts immediately</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+5s</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#f9a8d4;font-weight:700">6</td>
-          <td style="padding:6px 10px;color:#6ee7b7;font-weight:600">Drawee Bank (ASTRA AI)</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#93c5fd;font-weight:600">NPCI REST API</td>
-          <td style="padding:6px 10px;color:#94a3b8">AI pipeline: OCR + alteration + signature + CBS + fraud in &lt;600ms → outcome=STP_CONFIRM · <strong>POST /cts/v1/returns</strong> · {decision: CONFIRM}</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+6s</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#f9a8d4;font-weight:700">7</td>
-          <td style="padding:6px 10px;color:#93c5fd;font-weight:600">NPCI</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#c4b5fd;font-weight:600">Drawer Bank CBS</td>
-          <td style="padding:6px 10px;color:#94a3b8"><strong>Convert lien → debit instruction</strong> · CBS releases lien, executes actual debit from drawer account · lien_events.status = DEBITED</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+7s</td>
-        </tr>
-        <tr style="border-bottom:1px solid #1e293b">
-          <td style="padding:6px 10px;text-align:center;color:#f9a8d4;font-weight:700">8</td>
-          <td style="padding:6px 10px;color:#93c5fd;font-weight:600">NPCI</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#6ee7b7;font-weight:600">Beneficiary Bank CBS</td>
-          <td style="padding:6px 10px;color:#94a3b8"><strong>Credit instruction</strong> · beneficiary account credited · settlement via next 30-min batch window</td>
-          <td style="padding:6px 10px;text-align:right;color:#64748b">T+8s</td>
-        </tr>
-        <tr>
-          <td style="padding:6px 10px;text-align:center;color:#f9a8d4;font-weight:700">9</td>
-          <td style="padding:6px 10px;color:#93c5fd;font-weight:600">NPCI → Drawer Bank App</td>
-          <td style="padding:6px;text-align:center;color:#4ade80;font-size:14px">→</td>
-          <td style="padding:6px 10px;color:#f9a8d4;font-weight:600">Drawer (notification)</td>
-          <td style="padding:6px 10px;color:#4ade80"><strong>✓ Cheque confirmed &amp; funds transferred</strong> · push notification + WhatsApp: "Cheque for ₹X to [Beneficiary] confirmed. Funds credited." · end-to-end: &lt;60 seconds</td>
-          <td style="padding:6px 10px;text-align:right;color:#4ade80"><strong>&lt;60s</strong></td>
-        </tr>
-      </tbody>
-    </table>
   </div>
 </div>
 
@@ -4230,23 +4186,23 @@ def verify_webhook_signature(
     </div>
   </div>
 
-  <div style="max-width:720px; margin:0 auto; line-height:1.9; font-size:0.82rem; color:#cbd5e1;">
+  <div style="max-width:720px; margin:0 auto; line-height:1.9; font-size:0.82rem; color:#1e293b;">
 
-    <p style="margin-bottom:1.2rem;">India processes <strong style="color:#f9fafb;">609 million cheques per year</strong> — ₹71 lakh crore in value. Every one of those instruments travels through a 1987-era SFTP batch model that operates on a 24-hour cycle, with no real-time feedback, no AI oversight, and a 3-hour silent-acceptance window (IET) that exposes drawee banks to unlimited fraud liability if their internal systems are slow.</p>
+    <p style="margin-bottom:1.2rem;">India processes <strong style="color:#0f2044;">609 million cheques per year</strong> — ₹71 lakh crore in value. Every one of those instruments travels through a 1987-era SFTP batch model that operates on a 24-hour cycle, with no real-time feedback, no AI oversight, and a 3-hour silent-acceptance window (IET) that exposes drawee banks to unlimited fraud liability if their internal systems are slow.</p>
 
-    <p style="margin-bottom:1.2rem;">CTS Vision 2030 proposes a phased, backwards-compatible modernisation path that requires no big-bang cutover, no disruption to existing clearing members, and no new RBI legislation for the first two phases. <strong style="color:#f9fafb;">The architecture already exists.</strong> ASTRA has built it. The question is not whether to modernise — it is whether NPCI leads the modernisation or responds to it when a foreign payment network makes the comparison impossible to ignore.</p>
+    <p style="margin-bottom:1.2rem;">CTS Vision 2030 proposes a phased, backwards-compatible modernisation path that requires no big-bang cutover, no disruption to existing clearing members, and no new RBI legislation for the first two phases. <strong style="color:#0f2044;">The architecture already exists.</strong> ASTRA has built it. The question is not whether to modernise — it is whether NPCI leads the modernisation or responds to it when a foreign payment network makes the comparison impossible to ignore.</p>
 
-    <div style="background:#0f172a; border-left:3px solid #3b82f6; padding:1rem 1.2rem; margin:1.5rem 0; border-radius:0 8px 8px 0;">
-      <div style="font-size:0.78rem; font-weight:700; color:#93c5fd; margin-bottom:0.5rem;">What NPCI Is Asked to Do — Four Decisions</div>
-      <div style="font-size:0.76rem; color:#94a3b8; line-height:1.9;">
-        <strong style="color:#e2e8f0;">Decision 1 (Today):</strong> Acknowledge receipt of this concept note. Assign an NPCI CTS Integration Team point of contact to engage with ASTRA on the Phase 2 REST API specification.<br>
-        <strong style="color:#e2e8f0;">Decision 2 (Month 3):</strong> Publish the NPCI CTS REST API OpenAPI specification (draft). Open vendor sandbox registration. ASTRA commits to Phase 2 certification within 90 days of spec publication.<br>
-        <strong style="color:#e2e8f0;">Decision 3 (Month 6):</strong> Approve Phase 3 MCP exploration — form an NPCI technical working group with ASTRA and two pilot banks to design the MCP server specification. No commitment to production yet.<br>
-        <strong style="color:#e2e8f0;">Decision 4 (Month 12):</strong> Commission Phase 4 regulatory impact study in coordination with Ministry of Finance and RBI DPSS. ASTRA provides technical architecture for the NI Act amendment proposal.
+    <div style="background:#f0f4ff; border-left:3px solid #2563eb; padding:1rem 1.2rem; margin:1.5rem 0; border-radius:0 8px 8px 0;">
+      <div style="font-size:0.78rem; font-weight:700; color:#1d4ed8; margin-bottom:0.5rem;">What NPCI Is Asked to Do — Four Decisions</div>
+      <div style="font-size:0.76rem; color:#374151; line-height:1.9;">
+        <strong style="color:#0f2044;">Decision 1 (Today):</strong> Acknowledge receipt of this concept note. Assign an NPCI CTS Integration Team point of contact to engage with ASTRA on the Phase 2 REST API specification.<br>
+        <strong style="color:#0f2044;">Decision 2 (Month 3):</strong> Publish the NPCI CTS REST API OpenAPI specification (draft). Open vendor sandbox registration. ASTRA commits to Phase 2 certification within 90 days of spec publication.<br>
+        <strong style="color:#0f2044;">Decision 3 (Month 6):</strong> Approve Phase 3 MCP exploration — form an NPCI technical working group with ASTRA and two pilot banks to design the MCP server specification. No commitment to production yet.<br>
+        <strong style="color:#0f2044;">Decision 4 (Month 12):</strong> Commission Phase 4 regulatory impact study in coordination with Ministry of Finance and RBI DPSS. ASTRA provides technical architecture for the NI Act amendment proposal.
       </div>
     </div>
 
-    <p style="margin-bottom:1.2rem;">The cheque is not dying. Despite UPI's growth, 609 million cheques per year is structural — trade finance, high-value property transactions, government payments, and rural banking depend on it. But the infrastructure serving the cheque is operating at 1987 speed in a 2027 world. <strong style="color:#f9fafb;">The IET mandate of January 2026 was RBI's signal: the status quo is no longer acceptable.</strong></p>
+    <p style="margin-bottom:1.2rem;">The cheque is not dying. Despite UPI's growth, 609 million cheques per year is structural — trade finance, high-value property transactions, government payments, and rural banking depend on it. But the infrastructure serving the cheque is operating at 1987 speed in a 2027 world. <strong style="color:#0f2044;">The IET mandate of January 2026 was RBI's signal: the status quo is no longer acceptable.</strong></p>
 
   </div>
 
@@ -4287,7 +4243,7 @@ def verify_webhook_signature(
 
 <!-- FOOTER -->
 <div class="footer">
-  <div class="footer-text">CTS Vision 2030 · Product Concept Note v2.0 · Complete (5 of 5 Chunks) · Confidential — NPCI Distribution Only</div>
+  <div class="footer-text">CTS Vision 2030 · Product Concept Note v2.0 · Confidential — NPCI Distribution Only</div>
   <div class="footer-text">Nilesh Shah · June 2026 · © ASTRA — Automated Settlement and Transaction Recognition Architecture</div>
 </div>
 
@@ -4305,14 +4261,16 @@ def verify_webhook_signature(
     // Create wrapper
     var wrapper = document.createElement('div');
     wrapper.className = 'sec-content';
-    wrapper.style.maxHeight = '9999px';
+    // Collapse all sections except TOC on initial load
+    var keepOpen = sec.id === 'toc';
+    wrapper.style.maxHeight = keepOpen ? '9999px' : '0px';
     // Move children into wrapper
     children.forEach(function(c){ wrapper.appendChild(c); });
     sec.appendChild(wrapper);
     // Add toggle button to header
     var btn = document.createElement('button');
-    btn.className = 'sec-toggle';
-    btn.innerHTML = '&#9660;';
+    btn.className = 'sec-toggle' + (keepOpen ? '' : ' collapsed');
+    btn.innerHTML = keepOpen ? '&#9660;' : '&#9654;';
     btn.title = 'Toggle section';
     btn.addEventListener('click', function(){
       if(wrapper.style.maxHeight === '0px'){
