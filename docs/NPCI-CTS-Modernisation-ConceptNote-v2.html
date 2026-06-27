@@ -365,14 +365,23 @@
 
   /* NAVBAR */
   .sticky-nav{position:sticky;top:0;z-index:100;background:#0f2044;border-bottom:2px solid #2563eb;padding:0}
-  .nav-inner{display:flex;align-items:center;overflow-x:auto;scrollbar-width:none}
-  .nav-inner::-webkit-scrollbar{display:none}
-  .nav-section{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.4);padding:8px 12px 8px 16px;white-space:nowrap;border-right:1px solid rgba(255,255,255,.08)}
-  .nav-link{font-size:9.5px;font-weight:600;color:rgba(255,255,255,.65);text-decoration:none;padding:8px 10px;white-space:nowrap;transition:color .15s,background .15s;display:inline-block}
-  .nav-link:hover{color:#60a5fa;background:rgba(255,255,255,.05)}
-  .nav-controls{margin-left:auto;display:flex;gap:4px;padding:0 12px;flex-shrink:0}
-  .nav-btn{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:2px;border:1px solid rgba(255,255,255,.2);background:transparent;color:rgba(255,255,255,.7);cursor:pointer;transition:all .15s;white-space:nowrap}
+  .nav-inner{display:flex;align-items:center;gap:0;padding:0 8px}
+  .nav-brand{font-size:14px;font-weight:900;letter-spacing:-.02em;color:#fff;padding:8px 14px 8px 8px;white-space:nowrap;border-right:1px solid rgba(255,255,255,.15);margin-right:4px;flex-shrink:0}
+  .nav-brand span{color:#60a5fa}
+  .nav-controls{display:flex;gap:4px;padding:0 8px;flex-shrink:0;border-right:1px solid rgba(255,255,255,.12);margin-right:4px}
+  .nav-btn{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 9px;border-radius:2px;border:1px solid rgba(255,255,255,.2);background:transparent;color:rgba(255,255,255,.7);cursor:pointer;transition:all .15s;white-space:nowrap}
   .nav-btn:hover{background:rgba(255,255,255,.1);color:#fff}
+  /* Dropdown groups */
+  .nav-groups{display:flex;align-items:stretch;gap:0;flex:1}
+  .nav-group{position:relative;display:flex;align-items:stretch}
+  .nav-group-label{font-size:10px;font-weight:700;color:rgba(255,255,255,.75);padding:0 13px;cursor:default;white-space:nowrap;display:flex;align-items:center;gap:5px;border-radius:0;transition:background .15s;border-right:1px solid rgba(255,255,255,.06)}
+  .nav-group-label::after{content:'▾';font-size:8px;opacity:.6}
+  .nav-group:hover .nav-group-label{background:rgba(255,255,255,.08);color:#fff}
+  .nav-dropdown{display:none;position:absolute;top:100%;left:0;background:#0a1a3a;border:1px solid rgba(255,255,255,.12);border-top:2px solid #2563eb;border-radius:0 0 4px 4px;min-width:180px;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  .nav-group:hover .nav-dropdown{display:block}
+  .nav-dropdown a{display:block;font-size:11px;font-weight:500;color:rgba(255,255,255,.7);text-decoration:none;padding:7px 14px;border-bottom:1px solid rgba(255,255,255,.05);transition:all .12s;white-space:nowrap}
+  .nav-dropdown a:last-child{border-bottom:none}
+  .nav-dropdown a:hover{background:rgba(96,165,250,.12);color:#60a5fa;padding-left:18px}
 
   /* EXPAND / COLLAPSE */
   .section{position:relative}
@@ -406,35 +415,67 @@
 <!-- STICKY NAVBAR -->
 <nav class="sticky-nav">
   <div class="nav-inner">
-    <span class="nav-section">CTS Vision 2030</span>
-    <a class="nav-link" href="#ecosystem">1 Ecosystem</a>
-    <a class="nav-link" href="#current-process">2 Current Process</a>
-    <a class="nav-link" href="#failure-modes">3 Failures</a>
-    <a class="nav-link" href="#vision-roadmap">4 Roadmap</a>
-    <a class="nav-link" href="#design-principles">5 Principles</a>
-    <a class="nav-link" href="#phase1-deepdive">6 Phase 1</a>
-    <a class="nav-link" href="#phase2-rest">7 Phase 2</a>
-    <a class="nav-link" href="#phase3-mcp">8 Phase 3</a>
-    <a class="nav-link" href="#phase4-mobile">9 Phase 4</a>
-    <a class="nav-link" href="#data-dictionary">10 Data Dict</a>
-    <a class="nav-link" href="#er-diagram">11 ER Diagram</a>
-    <a class="nav-link" href="#auth-mechanism">12 Auth</a>
-    <a class="nav-link" href="#api-payloads">13 API Payloads</a>
-    <a class="nav-link" href="#error-codes">14 Error Codes</a>
-    <a class="nav-link" href="#test-cases">15 Test Cases</a>
-    <a class="nav-link" href="#test-environment">16 Test Env</a>
-    <a class="nav-link" href="#vendor-certification">17 Vendor Cert</a>
-    <a class="nav-link" href="#sequence-diagrams">18 Seq Diagrams</a>
-    <a class="nav-link" href="#npci-bank-matrix">19 NPCI vs Bank</a>
-    <a class="nav-link" href="#auto-incident-mgmt">20 Incidents</a>
-    <a class="nav-link" href="#cheque-movement-monitor">21 Movement</a>
-    <a class="nav-link" href="#dispute-management">22 Disputes</a>
-    <a class="nav-link" href="#competitive-positioning">23 Competitive</a>
-    <a class="nav-link" href="#regulatory-roadmap">24 Regulatory</a>
-    <a class="nav-link" href="#conclusion">25 Conclusion</a>
+    <span class="nav-brand">CTS <span>Vision 2030</span></span>
     <div class="nav-controls">
-      <button class="nav-btn" onclick="expandAll()">▼ Expand All</button>
-      <button class="nav-btn" onclick="collapseAll()">▲ Collapse All</button>
+      <button class="nav-btn" onclick="expandAll()">▼ EA</button>
+      <button class="nav-btn" onclick="collapseAll()">▲ CA</button>
+    </div>
+    <div class="nav-groups">
+      <!-- Group 1: Context -->
+      <div class="nav-group">
+        <span class="nav-group-label">Context</span>
+        <div class="nav-dropdown">
+          <a href="#ecosystem" onclick="navigateTo('ecosystem',event)">1 · The Clearing Ecosystem</a>
+          <a href="#current-process" onclick="navigateTo('current-process',event)">2 · Current 10-Step Process</a>
+          <a href="#failure-modes" onclick="navigateTo('failure-modes',event)">3 · Why Status Quo Must Change</a>
+          <a href="#vision-roadmap" onclick="navigateTo('vision-roadmap',event)">4 · Vision 2030 Roadmap</a>
+        </div>
+      </div>
+      <!-- Group 2: Phases -->
+      <div class="nav-group">
+        <span class="nav-group-label">Phases</span>
+        <div class="nav-dropdown">
+          <a href="#design-principles" onclick="navigateTo('design-principles',event)">5 · Design Principles</a>
+          <a href="#phase1-deepdive" onclick="navigateTo('phase1-deepdive',event)">6 · Phase 1: AI at Bank End</a>
+          <a href="#phase2-rest" onclick="navigateTo('phase2-rest',event)">7 · Phase 2: REST API + Webhook</a>
+          <a href="#phase3-mcp" onclick="navigateTo('phase3-mcp',event)">8 · Phase 3: MCP Architecture</a>
+          <a href="#phase4-mobile" onclick="navigateTo('phase4-mobile',event)">9 · Phase 4: Mobile-First</a>
+        </div>
+      </div>
+      <!-- Group 3: Technical -->
+      <div class="nav-group">
+        <span class="nav-group-label">Technical</span>
+        <div class="nav-dropdown">
+          <a href="#data-dictionary" onclick="navigateTo('data-dictionary',event)">10 · Data Dictionary</a>
+          <a href="#er-diagram" onclick="navigateTo('er-diagram',event)">11 · ER Diagram</a>
+          <a href="#auth-mechanism" onclick="navigateTo('auth-mechanism',event)">12 · Auth Mechanism</a>
+          <a href="#api-payloads" onclick="navigateTo('api-payloads',event)">13 · API Payloads</a>
+          <a href="#error-codes" onclick="navigateTo('error-codes',event)">14 · Error Codes</a>
+          <a href="#test-cases" onclick="navigateTo('test-cases',event)">15 · Test Cases</a>
+          <a href="#test-environment" onclick="navigateTo('test-environment',event)">16 · Test Environment</a>
+          <a href="#vendor-certification" onclick="navigateTo('vendor-certification',event)">17 · Vendor Certification</a>
+        </div>
+      </div>
+      <!-- Group 4: Analysis -->
+      <div class="nav-group">
+        <span class="nav-group-label">Analysis</span>
+        <div class="nav-dropdown">
+          <a href="#sequence-diagrams" onclick="navigateTo('sequence-diagrams',event)">18 · Sequence Diagrams</a>
+          <a href="#npci-bank-matrix" onclick="navigateTo('npci-bank-matrix',event)">19 · NPCI vs Bank Matrix</a>
+          <a href="#auto-incident-mgmt" onclick="navigateTo('auto-incident-mgmt',event)">20 · Auto Incident Mgmt</a>
+          <a href="#cheque-movement-monitor" onclick="navigateTo('cheque-movement-monitor',event)">21 · Cheque Movement</a>
+          <a href="#dispute-management" onclick="navigateTo('dispute-management',event)">22 · Dispute Management</a>
+        </div>
+      </div>
+      <!-- Group 5: Strategy -->
+      <div class="nav-group">
+        <span class="nav-group-label">Strategy</span>
+        <div class="nav-dropdown">
+          <a href="#competitive-positioning" onclick="navigateTo('competitive-positioning',event)">23 · Competitive Positioning</a>
+          <a href="#regulatory-roadmap" onclick="navigateTo('regulatory-roadmap',event)">24 · Regulatory Roadmap</a>
+          <a href="#conclusion" onclick="navigateTo('conclusion',event)">25 · Conclusion</a>
+        </div>
+      </div>
     </div>
   </div>
 </nav>
@@ -561,7 +602,7 @@
 <!-- ══════════════════════════════════════════════════════
      SECTION 1 — THE CLEARING ECOSYSTEM
      ══════════════════════════════════════════════════════ -->
-<div class="sec-header">
+<div id="ecosystem" class="sec-header">
   <div class="sec-num">1</div>
   <div class="sec-header-text">The Clearing Ecosystem — Who Is in the Room</div>
   <div class="sec-header-sub">1,581 Banks · 3 Grid Zones · ₹71 Lakh Crore</div>
@@ -683,7 +724,7 @@
 <!-- ══════════════════════════════════════════════════════
      SECTION 2 — THE CURRENT 10-STEP PROCESS
      ══════════════════════════════════════════════════════ -->
-<div class="sec-header">
+<div id="current-process" class="sec-header">
   <div class="sec-num red">2</div>
   <div class="sec-header-text">How Cheque Clearing Works Today — The 10-Step SFTP Batch Process</div>
   <div class="sec-header-sub">Status Quo · T+1 Day · Batch File Model · No Real-Time Feedback</div>
@@ -822,7 +863,7 @@
 <!-- ══════════════════════════════════════════════════════
      SECTION 3 — WHY THE STATUS QUO MUST CHANGE
      ══════════════════════════════════════════════════════ -->
-<div class="sec-header">
+<div id="failure-modes" class="sec-header">
   <div class="sec-num red">3</div>
   <div class="sec-header-text">The Imperative for Change — Six Structural Failures</div>
   <div class="sec-header-sub">Why SFTP Cannot Serve a Real-Time IET Mandate</div>
@@ -871,7 +912,7 @@
 <!-- ══════════════════════════════════════════════════════
      SECTION 4 — VISION 2030: THE FOUR-PHASE ROADMAP
      ══════════════════════════════════════════════════════ -->
-<div class="sec-header">
+<div id="vision-roadmap" class="sec-header">
   <div class="sec-num blue">4</div>
   <div class="sec-header-text">Vision 2030 — The Four-Phase Modernisation Roadmap</div>
   <div class="sec-header-sub">Progressive · Non-Disruptive · Backwards-Compatible at Every Step</div>
@@ -1000,7 +1041,7 @@
 <!-- ══════════════════════════════════════════════════════
      SECTION 5 — DESIGN PRINCIPLES
      ══════════════════════════════════════════════════════ -->
-<div class="sec-header">
+<div id="design-principles" class="sec-header">
   <div class="sec-num">5</div>
   <div class="sec-header-text">Design Principles — Governing Every Architectural Decision</div>
   <div class="sec-header-sub">Eight Non-Negotiable Principles Across All Four Phases</div>
@@ -1078,7 +1119,7 @@
 <!-- ══════════════════════════════════════════════════════
      SECTION 6 — PHASE 1 IN DEPTH: AI AT THE BANK END
      ══════════════════════════════════════════════════════ -->
-<div class="sec-header">
+<div id="phase1-deepdive" class="sec-header">
   <div class="sec-num blue">6</div>
   <div class="sec-header-text">Phase 1 Deep-Dive — AI-Powered Bank-Side Processing</div>
   <div class="sec-header-sub">Go Live: January 2027 · Zero NPCI Dependency · Full IET Compliance</div>
@@ -1258,7 +1299,7 @@
 <!-- ══════════════════════════════════════════════════════
      SECTION 7 — PHASE 2: NPCI REST API + WEBHOOK
      ══════════════════════════════════════════════════════ -->
-<div class="sec-header">
+<div id="phase2-rest" class="sec-header">
   <div class="sec-num green">7</div>
   <div class="sec-header-text">Phase 2 Deep-Dive — NPCI REST API + Webhook Push Delivery</div>
   <div class="sec-header-sub">Go Live: September 2027 · 30-Min Settlement · Per-Instrument Real-Time Tracking</div>
@@ -1380,7 +1421,7 @@
 <!-- ══════════════════════════════════════════════════════
      SECTION 8 — PHASE 3: MCP ARCHITECTURE
      ══════════════════════════════════════════════════════ -->
-<div class="sec-header">
+<div id="phase3-mcp" class="sec-header">
   <div class="sec-num purple">8</div>
   <div class="sec-header-text">Phase 3 Deep-Dive — MCP-Native Clearing Intelligence</div>
   <div class="sec-header-sub">Go Live: December 2027 · Model Context Protocol · Socket Transport · AI-Native</div>
@@ -1460,7 +1501,7 @@
 <!-- ══════════════════════════════════════════════════════
      SECTION 9 — PHASE 4: MOBILE-FIRST CLEARING
      ══════════════════════════════════════════════════════ -->
-<div class="sec-header">
+<div id="phase4-mobile" class="sec-header">
   <div class="sec-num amber">9</div>
   <div class="sec-header-text">Phase 4 Deep-Dive — Mobile-First Clearing with Lien-Mark Mechanism</div>
   <div class="sec-header-sub">Go Live: September 2028 · Drawer Mobile App · UPI-Like Experience · 30-Min Settlement</div>
@@ -1575,7 +1616,7 @@
 <!-- ══════════════════════════════════════════════════════
      SECTION 10 — DATA DICTIONARY
      ══════════════════════════════════════════════════════ -->
-<div class="sec-header">
+<div id="data-dictionary" class="sec-header">
   <div class="sec-num teal">10</div>
   <div class="sec-header-text">Data Dictionary — All Entities Across All Four Phases</div>
   <div class="sec-header-sub">Canonical Entity Definitions · Field-Level Specifications · Phase Applicability</div>
@@ -4294,6 +4335,31 @@ function expandAll(){
 function collapseAll(){
   document.querySelectorAll('.sec-content').forEach(function(c){ c.style.maxHeight='0px'; });
   document.querySelectorAll('.sec-toggle').forEach(function(b){ b.classList.add('collapsed'); b.innerHTML='&#9654;'; });
+}
+function navigateTo(id, event){
+  if(event) event.preventDefault();
+  var target = document.getElementById(id);
+  if(!target) return;
+  // If target is a sec-header, expand the sec-content sibling
+  var content = target.nextElementSibling;
+  if(content && content.classList.contains('sec-body')){
+    var sc = content.querySelector('.sec-content');
+    if(sc && sc.style.maxHeight === '0px'){
+      sc.style.maxHeight='9999px';
+      var btn = content.querySelector('.sec-toggle');
+      if(btn){ btn.classList.remove('collapsed'); btn.innerHTML='&#9660;'; }
+    }
+  }
+  // For .section divs, expand internal sec-content
+  if(target.classList && target.classList.contains('section')){
+    var sc2 = target.querySelector('.sec-content');
+    if(sc2 && sc2.style.maxHeight === '0px'){
+      sc2.style.maxHeight='9999px';
+      var btn2 = target.querySelector('.sec-toggle');
+      if(btn2){ btn2.classList.remove('collapsed'); btn2.innerHTML='&#9660;'; }
+    }
+  }
+  setTimeout(function(){ target.scrollIntoView({behavior:'smooth',block:'start'}); }, 50);
 }
 </script>
 </body>
