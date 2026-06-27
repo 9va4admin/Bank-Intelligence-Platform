@@ -1077,12 +1077,496 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════════
-     END OF CHUNK 1 — PLACEHOLDER FOR CHUNKS 2–5
+     SECTION 7 — PHASE 2: NPCI REST API + WEBHOOK
      ══════════════════════════════════════════════════════ -->
+<div class="sec-header">
+  <div class="sec-num green">7</div>
+  <div class="sec-header-text">Phase 2 Deep-Dive — NPCI REST API + Webhook Push Delivery</div>
+  <div class="sec-header-sub">Go Live: September 2027 · 30-Min Settlement · Per-Instrument Real-Time Tracking</div>
+</div>
+<div class="sec-body">
+  <div class="callout green">
+    <p><strong>Phase 2 Principle:</strong> NPCI becomes an API-first clearing exchange. Presentee banks push instruments one-at-a-time (or micro-batches of up to 50). NPCI webhooks the drawee bank within seconds. The drawee bank's full 3-hour IET window begins from the webhook delivery timestamp. Settlement batches every 30 minutes. SFTP remains active in parallel for 12 months.</p>
+  </div>
+  <div class="spacer"></div>
+
+  <p style="font-size:11px;font-weight:700;color:#0f2044;margin-bottom:6px;">OUTWARD CLEARING SEQUENCE — PRESENTEE BANK TO NPCI (Phase 2)</p>
+  <div class="layer-block">
+    <div class="layer-head green">
+      <div class="layer-label">Sequence</div>
+      <div class="layer-title">Step-by-Step: Presentee Bank Submits via REST API</div>
+      <div class="layer-tag">POST /cts/v2/instruments</div>
+    </div>
+    <div class="layer-body">
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="flow-step-num green">1</div>
+          <div class="flow-step-body">
+            <div class="flow-step-title">Authenticate — Three-Layer Auth (see §12)</div>
+            <div class="flow-step-desc">Bank presents mTLS client certificate (issued by NPCI PKI). Exchanges for 30-minute session token via <code>POST /auth/v1/session</code>. Every request carries: mTLS cert + session token + HMAC-SHA256 signature over request body.</div>
+            <div class="flow-step-actors"><span class="actor-tag presentee">Presentee Bank</span><span class="actor-tag npci">NPCI Auth Server</span></div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num green">2</div>
+          <div class="flow-step-body">
+            <div class="flow-step-title">Submit Instrument — POST /cts/v2/instruments</div>
+            <div class="flow-step-desc">ASTRA posts one instrument (or micro-batch of up to 50) with: instrument metadata, image URL (MinIO presigned), MICR data, AI-extracted fields, tamper risk score, idempotency key (UUIDv7). NPCI responds synchronously within 200ms with receipt confirmation and assigned <code>npci_ref</code>.</div>
+            <div class="flow-step-actors"><span class="actor-tag presentee">Presentee Bank</span><span class="actor-tag npci">NPCI API Gateway</span></div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num green">3</div>
+          <div class="flow-step-body">
+            <div class="flow-step-title">NPCI Validates and Routes to Drawee Bank</div>
+            <div class="flow-step-desc">NPCI validates CTS-2010 compliance, extracts drawee bank IFSC from MICR, routes to correct clearing grid (Mumbai / Delhi / Chennai). Validation failure returns machine-readable error synchronously — the presentee bank knows immediately, not at next poll cycle.</div>
+            <div class="flow-step-actors"><span class="actor-tag npci">NPCI / NGCH Engine</span></div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num green">4</div>
+          <div class="flow-step-body">
+            <div class="flow-step-title">NPCI Webhooks Drawee Bank — Inward Item Delivery</div>
+            <div class="flow-step-desc">NPCI delivers the instrument to the drawee bank's registered webhook endpoint within 5 seconds of validation. Payload includes: instrument data, cheque image URL, IET deadline UTC, npci_ref. Drawee bank returns HTTP 200 within 5 seconds (acknowledgement only — not a decision). NPCI retries 3x with exponential backoff on failure. Fallback: drawee polls <code>GET /cts/v2/instruments/pending</code>.</div>
+            <div class="flow-step-actors"><span class="actor-tag npci">NPCI Webhook Engine</span><span class="actor-tag drawee">Drawee Bank Webhook</span></div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">5</div>
+          <div class="flow-step-body">
+            <div class="flow-step-title">Drawee Bank Processes — ASTRA Phase 1 AI Stack</div>
+            <div class="flow-step-desc">Webhook triggers Temporal <code>ChequeProcessingWorkflow</code>. Full Phase 1 AI stack: OCR verification, signature check, PPS lookup, CBS balance, fraud scoring, SHAP. IET watchdog active from webhook receipt. STP decision in &lt;600ms.</div>
+            <div class="flow-step-actors"><span class="actor-tag drawee">Drawee Bank ASTRA</span></div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num red">6</div>
+          <div class="flow-step-body">
+            <div class="flow-step-title">Drawee Bank Files Decision — POST /cts/v2/confirmations or /returns</div>
+            <div class="flow-step-desc">STP confirm: <code>POST /cts/v2/confirmations/{npci_ref}</code>. Return: <code>POST /cts/v2/returns/{npci_ref}</code> with machine-readable return reason code. Human review cases filed within 55-minute window, or IET watchdog fires at T-30s. NPCI acknowledges within 200ms.</div>
+            <div class="flow-step-actors"><span class="actor-tag drawee">Drawee Bank</span><span class="actor-tag npci">NPCI API</span></div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num teal">7</div>
+          <div class="flow-step-body">
+            <div class="flow-step-title">30-Minute Settlement Batch — Net Position Calculation</div>
+            <div class="flow-step-desc">At each 30-minute window, NPCI calculates net positions for all banks. Submits to RBI e-Kuber for inter-bank settlement. Both banks receive notification via webhook or <code>GET /cts/v2/settlement/position</code>.</div>
+            <div class="flow-step-actors"><span class="actor-tag npci">NPCI / NGCH</span><span class="actor-tag rbi">RBI e-Kuber</span></div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num teal">8</div>
+          <div class="flow-step-body">
+            <div class="flow-step-title">Settlement Notification — Banks Update CBS</div>
+            <div class="flow-step-desc">NPCI pushes settlement confirmation to both banks via webhook <code>POST /v1/ngch/webhook/settlement</code>. Banks create CBS counter-entries. Customer accounts updated. Reconciliation discrepancies flagged automatically by ASTRA reconciliation engine.</div>
+            <div class="flow-step-actors"><span class="actor-tag presentee">Presentee Bank CBS</span><span class="actor-tag drawee">Drawee Bank CBS</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p style="font-size:11px;font-weight:700;color:#0f2044;margin-bottom:6px;margin-top:16px;">PHASE 2 — NPCI REST API ENDPOINTS OVERVIEW</p>
+  <table>
+    <tr><th>Method</th><th>Endpoint</th><th>Called By</th><th>Purpose</th><th>SLA</th></tr>
+    <tr><td><span class="err-code">POST</span></td><td><code>/auth/v1/session</code></td><td>Both Banks</td><td>Exchange mTLS cert + API key for 30-min session token</td><td>500ms</td></tr>
+    <tr><td><span class="err-code">POST</span></td><td><code>/cts/v2/instruments</code></td><td>Presentee Bank</td><td>Submit 1-50 instruments with image, MICR, AI metadata</td><td>200ms sync receipt</td></tr>
+    <tr><td><span class="err-code">GET</span></td><td><code>/cts/v2/instruments/{npci_ref}</code></td><td>Both Banks</td><td>Real-time status of a specific instrument</td><td>100ms</td></tr>
+    <tr><td><span class="err-code">GET</span></td><td><code>/cts/v2/instruments/pending</code></td><td>Drawee Bank</td><td>Fallback poll — fetch undelivered inward items</td><td>500ms</td></tr>
+    <tr><td><span class="err-code">POST</span></td><td><code>/cts/v2/confirmations/{npci_ref}</code></td><td>Drawee Bank</td><td>File STP confirmation for an inward instrument</td><td>200ms</td></tr>
+    <tr><td><span class="err-code">POST</span></td><td><code>/cts/v2/returns/{npci_ref}</code></td><td>Drawee Bank</td><td>File return with machine-readable reason code</td><td>200ms</td></tr>
+    <tr><td><span class="err-code">GET</span></td><td><code>/cts/v2/settlement/{session_id}</code></td><td>Both Banks</td><td>Fetch net settlement position for a 30-min window</td><td>500ms</td></tr>
+    <tr><td><span class="err-code">GET</span></td><td><code>/cts/v2/settlement/position</code></td><td>Both Banks</td><td>Live intra-session net position (before batch close)</td><td>200ms</td></tr>
+    <tr><td><span class="err-code">POST</span></td><td><code>/cts/v2/returns/bulk</code></td><td>Drawee Bank</td><td>Bulk return for up to 50 instruments in one call</td><td>500ms</td></tr>
+    <tr><td><span class="err-code">GET</span></td><td><code>/cts/v2/iet/risk</code></td><td>Drawee Bank</td><td>Live IET risk signal — instruments approaching expiry</td><td>100ms</td></tr>
+  </table>
+
+  <div class="spacer"></div>
+  <p style="font-size:11px;font-weight:700;color:#0f2044;margin-bottom:6px;">PHASE 2 — WEBHOOK ENDPOINTS (BANK EXPOSES THESE TO NPCI)</p>
+  <table>
+    <tr><th>Method</th><th>Bank Endpoint</th><th>Pushed By</th><th>Payload</th><th>Ack SLA</th></tr>
+    <tr><td><span class="err-code green">POST</span></td><td><code>/v1/ngch/webhook/inward</code></td><td>NPCI</td><td>Inward instrument: metadata + image URL + IET deadline</td><td>5s HTTP 200</td></tr>
+    <tr><td><span class="err-code green">POST</span></td><td><code>/v1/ngch/webhook/return-notification</code></td><td>NPCI</td><td>Filed return confirmed by NPCI</td><td>5s</td></tr>
+    <tr><td><span class="err-code green">POST</span></td><td><code>/v1/ngch/webhook/settlement</code></td><td>NPCI</td><td>30-min settlement batch result with net position</td><td>5s</td></tr>
+    <tr><td><span class="err-code green">POST</span></td><td><code>/v1/ngch/webhook/iet-alert</code></td><td>NPCI</td><td>IET risk alert — instrument approaching expiry</td><td>5s</td></tr>
+    <tr><td><span class="err-code green">POST</span></td><td><code>/v1/ngch/webhook/session-event</code></td><td>NPCI</td><td>Clearing session open/close, grid status changes</td><td>5s</td></tr>
+  </table>
+
+  <div class="callout amber">
+    <p><strong>Webhook Reliability:</strong> NPCI retries failed deliveries 3x with exponential backoff (5s, 15s, 45s). If all retries fail, instrument placed in bank's <code>/pending</code> queue for poll fallback. NPCI never drops an inward item. Banks must respond HTTP 200 within 5 seconds (acknowledgement only — processing decision comes later via <code>POST /cts/v2/confirmations</code>).</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 8 — PHASE 3: MCP ARCHITECTURE
+     ══════════════════════════════════════════════════════ -->
+<div class="sec-header">
+  <div class="sec-num purple">8</div>
+  <div class="sec-header-text">Phase 3 Deep-Dive — MCP-Native Clearing Intelligence</div>
+  <div class="sec-header-sub">Go Live: December 2027 · Model Context Protocol · Socket Transport · AI-Native</div>
+</div>
+<div class="sec-body">
+  <div class="callout purple">
+    <p><strong>Phase 3 Principle:</strong> NPCI exposes its clearing grid as an MCP server. Bank-side AI agents interact natively — submitting instruments, receiving inward items, querying IET risk, consuming settlement data — all as first-class MCP tool calls and resource subscriptions over a persistent mTLS socket. REST API remains fully active alongside MCP.</p>
+  </div>
+  <div class="spacer"></div>
+
+  <div class="eco-strip">
+    <div class="eco-strip-title">MCP Architecture — NPCI as an AI-Native Clearing Server</div>
+    <div class="eco-flow">
+      <div class="eco-node blue">ASTRA<br><span style="font-size:9px;opacity:.7">MCP Client · Bank Agent</span></div>
+      <div class="eco-arrow green">⟷ MCP Socket</div>
+      <div class="eco-node amber">NPCI MCP Server<br><span style="font-size:9px;opacity:.7">mTLS · JSON-RPC 2.0</span></div>
+      <div class="eco-arrow">tools</div>
+      <div class="eco-node">submit_instrument<br>file_decision<br>query_status</div>
+      <div class="eco-arrow">resources</div>
+      <div class="eco-node green">inward_cheques/<br>settlement/<br>iet_signals/live</div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+
+  <div class="sec-grid-2">
+    <div class="mcp-card">
+      <div class="mcp-head">🔧 MCP Tools — Actions (Bank Calls NPCI)</div>
+      <div class="mcp-body">
+        <div class="mcp-tool"><div class="mcp-tool-name">submit_instrument</div><div class="mcp-tool-desc">Submit a single cheque with metadata, image reference, MICR, AI outputs. Returns npci_ref + IET deadline. Idempotency key required.</div></div>
+        <div class="mcp-tool"><div class="mcp-tool-name">file_decision</div><div class="mcp-tool-desc">File confirm or return for an inward instrument. Accepts npci_ref, decision (CONFIRM/RETURN), return_reason_code, SHAP values reference.</div></div>
+        <div class="mcp-tool"><div class="mcp-tool-name">query_instrument_status</div><div class="mcp-tool-desc">Real-time status: RECEIVED / VALIDATED / ROUTED / DELIVERED / CONFIRMED / RETURNED / SETTLED / IET_EXPIRED.</div></div>
+        <div class="mcp-tool"><div class="mcp-tool-name">get_settlement_position</div><div class="mcp-tool-desc">Current intra-session net position or completed batch. Returns per-bank debit/credit totals, instrument counts, exception list.</div></div>
+        <div class="mcp-tool"><div class="mcp-tool-name">get_iet_risk_snapshot</div><div class="mcp-tool-desc">All inward instruments for this bank with remaining IET time and risk level: SAFE / ELEVATED / HIGH / CRITICAL.</div></div>
+        <div class="mcp-tool"><div class="mcp-tool-name">get_batch_position</div><div class="mcp-tool-desc">Count of submitted, pending, confirmed, returned instruments across all active sessions. Used by ops dashboard.</div></div>
+        <div class="mcp-tool"><div class="mcp-tool-name">get_counterparty_health</div><div class="mcp-tool-desc">Processing health of a counterparty bank: response latency, IET near-miss rate, recent return rate.</div></div>
+        <div class="mcp-tool"><div class="mcp-tool-name">register_webhook</div><div class="mcp-tool-desc">Register/update bank webhook endpoint. Validates reachability and certificate before confirming registration.</div></div>
+      </div>
+    </div>
+    <div class="mcp-card">
+      <div class="mcp-head">📂 MCP Resources — Data Streams (Bank Subscribes)</div>
+      <div class="mcp-body">
+        <div class="mcp-tool"><div class="mcp-tool-name">inward_cheques/{bank_ifsc}</div><div class="mcp-tool-desc">Live stream of inward instruments. Each event: full payload + image reference + IET deadline. Replaces webhook in Phase 3.</div></div>
+        <div class="mcp-tool"><div class="mcp-tool-name">return_notifications/{bank_ifsc}</div><div class="mcp-tool-desc">Stream of returns on outward instruments. Each event: npci_ref, return_reason_code, timestamp.</div></div>
+        <div class="mcp-tool"><div class="mcp-tool-name">settlement_position/{bank_ifsc}/{date}</div><div class="mcp-tool-desc">Live settlement updates. Pushed every 30 minutes at batch close. Subscribe once, receive all session updates.</div></div>
+        <div class="mcp-tool"><div class="mcp-tool-name">iet_risk_signals/live</div><div class="mcp-tool-desc">Real-time IET risk feed. NPCI pushes SAFE-ELEVATED-HIGH-CRITICAL transitions per instrument. IET watchdog subscribes directly.</div></div>
+        <div class="mcp-tool"><div class="mcp-tool-name">cheque_images/{npci_ref}</div><div class="mcp-tool-desc">Binary cheque image resource (front + back). Vision LLM receives in-stream — no separate download step.</div></div>
+        <div class="mcp-tool"><div class="mcp-tool-name">session_events/live</div><div class="mcp-tool-desc">Session lifecycle: SESSION_OPEN, SESSION_CLOSE, GRID_MAINTENANCE, EMERGENCY_EXTENSION.</div></div>
+        <div class="mcp-tool"><div class="mcp-tool-name">grid_health/{grid_id}</div><div class="mcp-tool-desc">Real-time health of each clearing grid (MUMBAI / DELHI / CHENNAI). Processing latency, queue depth, incident alerts.</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+
+  <div class="layer-block">
+    <div class="layer-head purple">
+      <div class="layer-label">MCP Transport</div>
+      <div class="layer-title">Protocol Stack — How MCP Runs Over NPCI Infrastructure</div>
+      <div class="layer-tag">mTLS + JSON-RPC 2.0</div>
+    </div>
+    <div class="layer-body">
+      <div class="layer-grid-3">
+        <div class="layer-item"><h5>Transport Layer</h5><p>Persistent HTTPS/WSS with mTLS. Same NPCI-issued certificate as Phase 2 — no new PKI. Connection maintained for full session lifetime (up to 8 hours).</p></div>
+        <div class="layer-item"><h5>MCP Protocol</h5><p>JSON-RPC 2.0 over transport. Tool calls: <code>tools/call</code>. Resource subscriptions: <code>resources/subscribe</code>. Server-sent events for resource updates. MCP spec v1.0+ compliant.</p></div>
+        <div class="layer-item"><h5>Authentication</h5><p>Same three-layer auth as Phase 2. Session token in MCP handshake. Token refresh transparent — no workflow interruption.</p></div>
+        <div class="layer-item"><h5>Idempotency</h5><p>UUIDv7 required on all mutating tool calls. MCP request ID = correlation ID. NPCI deduplicates within 24-hour window.</p></div>
+        <div class="layer-item"><h5>Reconnection</h5><p>ASTRA MCP client auto-reconnects within 5 seconds. Missed resource events replayed from <code>last_event_id</code>. IET watchdog operates independently during reconnect.</p></div>
+        <div class="layer-item"><h5>Rate Limits</h5><p>Tool calls: 600/min per bank. Resource subscriptions: unlimited within session. Binary image streaming: 100 concurrent streams per bank.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <p><strong>Phase 3 + Phase 2 Coexistence:</strong> MCP and REST operate simultaneously. Banks not yet upgraded continue on REST/Webhook. Banks on MCP gain: lower latency (no HTTP request overhead), cheque images streamed in-band as binary resources, live IET risk pushed without polling. Clearing outcomes — settlement, IET compliance — identical across both modes.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 9 — PHASE 4: MOBILE-FIRST CLEARING
+     ══════════════════════════════════════════════════════ -->
+<div class="sec-header">
+  <div class="sec-num amber">9</div>
+  <div class="sec-header-text">Phase 4 Deep-Dive — Mobile-First Clearing with Lien-Mark Mechanism</div>
+  <div class="sec-header-sub">Go Live: September 2028 · Drawer Mobile App · UPI-Like Experience · 30-Min Settlement</div>
+</div>
+<div class="sec-body">
+  <div class="callout amber">
+    <p><strong>Phase 4 Principle:</strong> The drawer becomes a digital participant for the first time. They upload a cheque scan via their bank's mobile app, fill in beneficiary details. NPCI routes in real time. Drawee bank lien-marks the amount on confirmation — funds reserved, overdraft prevented. Settlement at next 30-minute batch. Physical cheque path (Phase 1-3) continues in parallel. Phase 3 and Phase 4 co-exist during transition.</p>
+  </div>
+  <div class="callout red" style="margin-top:8px;">
+    <p><strong>Regulatory Prerequisite:</strong> Phase 4 requires RBI regulatory sandbox engagement to clarify legal standing of mobile-originated instruments under the Negotiable Instruments Act, 1881. Lien-mark mechanism requires RBI approval of hold/release framework. NPCI must engage RBI from Q1 2027 for Phase 4 to go live on schedule in September 2028.</p>
+  </div>
+  <div class="spacer"></div>
+
+  <p style="font-size:11px;font-weight:700;color:#0f2044;margin-bottom:8px;">PHASE 4 — FULL 9-STEP MOBILE CLEARING LIFECYCLE</p>
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="flow-step-num purple">1</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">Drawer Uploads Cheque Scan via Drawee Bank Mobile App</div>
+        <div class="flow-step-desc">Drawer opens bank mobile app, selects "Issue Cheque Digitally", scans physical cheque (or uploads pre-scanned image), fills: payee name, payee account number, payee bank IFSC, confirms amount. App performs client-side image quality check (minimum 200 DPI) before upload. Drawer authenticates with mobile PIN or biometric.</div>
+        <div class="flow-step-actors"><span class="actor-tag drawer">Drawer (Mobile App)</span><span class="actor-tag drawee">Drawee Bank</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num">2</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">Drawee Bank Validates and Submits to NPCI in Real Time</div>
+        <div class="flow-step-desc">Drawee bank runs ASTRA Vision AI pipeline (CTS-2010 compliance, MICR extraction, alteration check, signature verification against drawer's on-file specimen), checks CBS for account validity and balance. On pass: submits to NPCI via <code>POST /cts/v2/mobile-instruments</code> with mobile-origin flag. On fail: drawer notified immediately with specific reason — not after a day.</div>
+        <div class="flow-step-actors"><span class="actor-tag drawee">Drawee Bank ASTRA</span><span class="actor-tag npci">NPCI API</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num amber">3</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">NPCI Routes to Beneficiary (Presentee) Bank in Real Time</div>
+        <div class="flow-step-desc">NPCI validates submission, resolves beneficiary bank from IFSC and account number, delivers via MCP resource push or webhook to the presentee bank within 5 seconds. Payload: cheque image, drawer details (masked), amount, payee details, mobile-origin flag, unique instrument reference.</div>
+        <div class="flow-step-actors"><span class="actor-tag npci">NPCI</span><span class="actor-tag presentee">Presentee Bank</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num green">4</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">Drawee Bank Places Lien Mark on Drawer's Account</div>
+        <div class="flow-step-desc">Simultaneously with Step 3 routing, drawee bank places a lien on drawer's account for the cheque amount. Lien = soft hold: funds reserved, cannot be withdrawn or used for other payments, but not yet debited. Drawer receives immediate push notification: "Cheque lien of Rs.X placed on your account." CBS records: instrument reference, lien amount, lien expiry (72 hours or next settlement, whichever sooner).</div>
+        <div class="flow-step-actors"><span class="actor-tag drawee">Drawee Bank CBS</span><span class="actor-tag drawer">Drawer Notified</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num green">5</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">Beneficiary (Presentee) Bank Confirms or Rejects to NPCI</div>
+        <div class="flow-step-desc">Presentee bank verifies: payee account exists and is active, payee name matches (fuzzy match against CBS), account not frozen. On pass: files confirmation <code>POST /cts/v2/confirmations/{npci_ref}</code>. On fail: files rejection with reason code. Beneficiary notified: "Cheque of Rs.X from [Drawer Bank] received — pending settlement."</div>
+        <div class="flow-step-actors"><span class="actor-tag presentee">Presentee Bank</span><span class="actor-tag npci">NPCI</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num">6</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">NPCI Sends Final Decision to Drawee Bank</div>
+        <div class="flow-step-desc">NPCI delivers presentee bank decision to drawee bank: CONFIRMED (proceed to settlement) or REJECTED (release lien). Delivered via MCP resource event on <code>return_notifications/{drawee_ifsc}</code> or webhook <code>POST /v1/ngch/webhook/settlement-decision</code>. This is the definitive lien resolution instruction.</div>
+        <div class="flow-step-actors"><span class="actor-tag npci">NPCI</span><span class="actor-tag drawee">Drawee Bank</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num teal">7</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">Drawee Bank Releases or Converts the Lien</div>
+        <div class="flow-step-desc">CONFIRMED: lien converted to debit at next 30-minute settlement. CBS debit entry created, lien removed. Drawer notified: "Cheque debited from your account." REJECTED: lien released immediately. Drawer notified: "Cheque rejected — lien released. Reason: [plain language]." Fully automated via Temporal workflow — no manual intervention.</div>
+        <div class="flow-step-actors"><span class="actor-tag drawee">Drawee Bank CBS</span><span class="actor-tag drawer">Drawer Notified</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num teal">8</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">30-Minute Settlement — NPCI Net Settlement via RBI e-Kuber</div>
+        <div class="flow-step-desc">At next 30-minute window, NPCI includes all mobile-origin confirmed instruments alongside Phase 1/2/3 instruments in net settlement. Positions submitted to RBI e-Kuber. Mobile-origin cheques settle identically to physically deposited cheques from NPCI's and RBI's perspective.</div>
+        <div class="flow-step-actors"><span class="actor-tag npci">NPCI / NGCH</span><span class="actor-tag rbi">RBI e-Kuber</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num green">9</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">Beneficiary Credited — Both Parties Notified in Real Time</div>
+        <div class="flow-step-desc">Presentee bank credits payee's account and notifies: "Rs.X credited to your account." Drawee bank confirms debit to drawer. Full lifecycle — from mobile scan to final credit — typically 30-90 minutes vs T+1 day in batch model. Both parties have real-time visibility throughout. Cheque lifecycle complete, fully audited, cryptographically logged in Immudb.</div>
+        <div class="flow-step-actors"><span class="actor-tag presentee">Presentee Bank CBS</span><span class="actor-tag drawee">Drawee Bank CBS</span><span class="actor-tag drawer">Drawer Notified</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+  <p style="font-size:11px;font-weight:700;color:#0f2044;margin-bottom:8px;">LIEN MARK LIFECYCLE — FROM DRAWER UPLOAD TO FINAL DEBIT</p>
+  <div class="lien-flow">
+    <div class="lien-step blue"><strong>Upload</strong>Drawer scans and submits on mobile app</div>
+    <div class="lien-step blue"><strong>Validate</strong>ASTRA AI: image, signature, balance</div>
+    <div class="lien-step amber"><strong>Lien Mark</strong>CBS holds amount — drawer notified instantly</div>
+    <div class="lien-step"><strong>Route</strong>NPCI delivers to presentee bank in &lt;5s</div>
+    <div class="lien-step green"><strong>Confirm</strong>Presentee bank verifies payee and confirms</div>
+    <div class="lien-step green"><strong>Settle</strong>30-min batch — RBI net settlement</div>
+    <div class="lien-step green"><strong>Credit</strong>Payee credited — lien converted to debit</div>
+  </div>
+  <div style="display:flex;gap:12px;margin-top:8px;">
+    <div style="flex:1;background:#fee2e2;border:1px solid #fecaca;border-radius:3px;padding:8px 12px;font-size:10px;color:#991b1b;font-weight:600;">Rejection path: Lien released immediately. Drawer notified. No debit, no delay.</div>
+    <div style="flex:1;background:#dcfce7;border:1px solid #bbf7d0;border-radius:3px;padding:8px 12px;font-size:10px;color:#166534;font-weight:600;">Confirmation path: Lien to Debit at T+30min. Payee credited. Both notified.</div>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="callout green">
+    <p><strong>Same-Bank Instruments in Phase 4:</strong> When drawer and payee are at the same bank, the cheque never reaches NPCI. Bank processes internally: validate drawer, lien-mark, confirm payee account, convert lien to debit at next internal settlement. Typically completes in &lt;5 minutes. Mobile experience is identical — the routing difference is invisible to the user.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 10 — DATA DICTIONARY
+     ══════════════════════════════════════════════════════ -->
+<div class="sec-header">
+  <div class="sec-num teal">10</div>
+  <div class="sec-header-text">Data Dictionary — All Entities Across All Four Phases</div>
+  <div class="sec-header-sub">Canonical Entity Definitions · Field-Level Specifications · Phase Applicability</div>
+</div>
+<div class="sec-body">
+  <div class="callout">
+    <p><strong>Conventions:</strong> All timestamps UTC ISO 8601. All amounts as integer paise (1 INR = 100 paise) to avoid floating-point errors. All IDs are UUIDv7 (time-ordered) unless specified. <code>bank_id</code> = RBI-assigned IFSC prefix (first 4 chars). Fields marked <span class="cat-pill mob">P4</span> are new in Phase 4. Fields marked <span class="cat-pill fin">P2+</span> apply from Phase 2 onwards.</p>
+  </div>
+  <div class="spacer"></div>
+
+  <!-- ENTITY 1: ChequeInstrument -->
+  <div class="layer-block">
+    <div class="layer-head">
+      <div class="layer-label">Entity 01</div>
+      <div class="layer-title">ChequeInstrument — Core Clearing Entity</div>
+      <div class="layer-tag">All Phases</div>
+    </div>
+    <div class="layer-body">
+      <p>Central entity representing a single cheque from submission to final settlement. One record per physical or mobile-originated cheque. All other entities reference this record.</p>
+      <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th><th>Phase</th></tr>
+        <tr><td><code>instrument_id</code></td><td>UUIDv7 PK</td><td>ASTRA-generated unique identifier. Used as Temporal workflow ID prefix.</td><td>P1+</td></tr>
+        <tr><td><code>npci_ref</code></td><td>VARCHAR(36)</td><td>NPCI-assigned reference after successful submission. Null in Phase 1 (SFTP).</td><td><span class="cat-pill fin">P2+</span></td></tr>
+        <tr><td><code>bank_id</code></td><td>VARCHAR(4)</td><td>Drawee bank IFSC prefix. Multi-tenancy partition key — every query must include this.</td><td>P1+</td></tr>
+        <tr><td><code>presentee_bank_ifsc</code></td><td>VARCHAR(11)</td><td>Full IFSC of the presentee (payee's) bank.</td><td>P1+</td></tr>
+        <tr><td><code>drawee_bank_ifsc</code></td><td>VARCHAR(11)</td><td>Full IFSC of the drawee (drawer's) bank.</td><td>P1+</td></tr>
+        <tr><td><code>clearing_grid</code></td><td>ENUM</td><td>MUMBAI / DELHI / CHENNAI — MICR clearing zone.</td><td>P1+</td></tr>
+        <tr><td><code>micr_code</code></td><td>VARCHAR(9)</td><td>9-digit MICR code extracted from cheque. Validated against RBI MICR directory.</td><td>P1+</td></tr>
+        <tr><td><code>cheque_number</code></td><td>VARCHAR(6)</td><td>6-digit cheque leaf number from MICR line.</td><td>P1+</td></tr>
+        <tr><td><code>account_hash</code></td><td>VARCHAR(64)</td><td>HMAC-SHA256 of drawer account number with bank-specific pepper. Never store raw account number.</td><td>P1+</td></tr>
+        <tr><td><code>account_last4</code></td><td>CHAR(4)</td><td>Last 4 digits of drawer account — for display and audit only.</td><td>P1+</td></tr>
+        <tr><td><code>amount_paise</code></td><td>BIGINT</td><td>Cheque amount in paise (integer). Never float. 100 paise = Rs.1.</td><td>P1+</td></tr>
+        <tr><td><code>amount_range</code></td><td>VARCHAR(20)</td><td>Bucketed: STANDARD / HIGH_VALUE / VERY_HIGH_VALUE. Used in logs and analytics.</td><td>P1+</td></tr>
+        <tr><td><code>payee_name_enc</code></td><td>BYTEA</td><td>pgcrypto-encrypted payee name. Decrypted only for authorised roles.</td><td>P1+</td></tr>
+        <tr><td><code>drawer_name_enc</code></td><td>BYTEA</td><td>pgcrypto-encrypted drawer name.</td><td>P1+</td></tr>
+        <tr><td><code>cheque_date</code></td><td>DATE</td><td>Date printed on cheque. Must be within validity window (typically 3 months).</td><td>P1+</td></tr>
+        <tr><td><code>image_ref_front</code></td><td>VARCHAR(512)</td><td>MinIO object key for front-of-cheque image (CTS-2010). Never store binary in DB.</td><td>P1+</td></tr>
+        <tr><td><code>image_ref_back</code></td><td>VARCHAR(512)</td><td>MinIO object key for back-of-cheque image.</td><td>P1+</td></tr>
+        <tr><td><code>status</code></td><td>ENUM</td><td>RECEIVED / OCR_COMPLETE / AI_PROCESSING / STP_CONFIRM / HUMAN_REVIEW / NGCH_FILED / SETTLED / RETURNED / IET_EMERGENCY_FILED</td><td>P1+</td></tr>
+        <tr><td><code>iet_deadline_utc</code></td><td>TIMESTAMPTZ</td><td>Absolute UTC timestamp of IET expiry. Watchdog monitors against this.</td><td>P1+</td></tr>
+        <tr><td><code>received_at</code></td><td>TIMESTAMPTZ</td><td>Timestamp of first receipt. Monthly partition key for archiving.</td><td>P1+</td></tr>
+        <tr><td><code>decided_at</code></td><td>TIMESTAMPTZ</td><td>Timestamp when final decision was filed to NGCH.</td><td>P1+</td></tr>
+        <tr><td><code>ngch_idempotency_key</code></td><td>UUIDv7</td><td>Idempotency key for NPCI API submission. Prevents duplicate filing on retry.</td><td><span class="cat-pill fin">P2+</span></td></tr>
+        <tr><td><code>origin_mode</code></td><td>ENUM</td><td>PHYSICAL_SFTP / PHYSICAL_API / PHYSICAL_MCP / MOBILE_APP.</td><td>P1+</td></tr>
+        <tr><td><code>mobile_submission_ref</code></td><td>UUIDv7</td><td>Links to MobileSubmission entity.</td><td><span class="cat-pill mob">P4</span></td></tr>
+        <tr><td><code>lien_id</code></td><td>UUIDv7</td><td>Reference to LienEvent entity.</td><td><span class="cat-pill mob">P4</span></td></tr>
+        <tr><td><code>workflow_id</code></td><td>VARCHAR(120)</td><td>Temporal workflow ID: <code>cts-{bank_id}-{instrument_id}</code>. Exactly-once guarantee.</td><td>P1+</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ENTITY 2: AgentDecision -->
+  <div class="layer-block">
+    <div class="layer-head blue">
+      <div class="layer-label">Entity 02</div>
+      <div class="layer-title">AgentDecision — AI Processing Output and Audit Record</div>
+      <div class="layer-tag">All Phases</div>
+    </div>
+    <div class="layer-body">
+      <p>One AgentDecision per ChequeInstrument. Records all AI outputs, confidence scores, and SHAP explainability values. Required before any NGCH filing — no filing without this record.</p>
+      <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th><th>Phase</th></tr>
+        <tr><td><code>decision_id</code></td><td>UUIDv7 PK</td><td>Unique decision record identifier.</td><td>P1+</td></tr>
+        <tr><td><code>instrument_id</code></td><td>UUIDv7 FK</td><td>Reference to ChequeInstrument.</td><td>P1+</td></tr>
+        <tr><td><code>bank_id</code></td><td>VARCHAR(4)</td><td>Multi-tenancy key. Every query includes this.</td><td>P1+</td></tr>
+        <tr><td><code>ocr_confidence</code></td><td>FLOAT4</td><td>GOT-OCR2.0 confidence score (0.0-1.0) for MICR extraction.</td><td>P1+</td></tr>
+        <tr><td><code>alteration_risk</code></td><td>FLOAT4</td><td>Qwen2-VL tamper detection score (0.0-1.0).</td><td>P1+</td></tr>
+        <tr><td><code>signature_match_score</code></td><td>FLOAT4</td><td>Siamese network match score (0.0-1.0). -1 if vault miss.</td><td>P1+</td></tr>
+        <tr><td><code>signature_vault_hit</code></td><td>BOOLEAN</td><td>Specimen found in Redis vault. FALSE always routes to HUMAN_REVIEW.</td><td>P1+</td></tr>
+        <tr><td><code>pps_matched</code></td><td>BOOLEAN</td><td>Positive Pay check result. NULL if bank has no PPS mandate.</td><td>P1+</td></tr>
+        <tr><td><code>cbs_balance_sufficient</code></td><td>BOOLEAN</td><td>CBS balance check result. NULL if CBS unreachable (graceful degradation).</td><td>P1+</td></tr>
+        <tr><td><code>stop_payment_flag</code></td><td>BOOLEAN</td><td>CBS stop payment found. TRUE = immediate return.</td><td>P1+</td></tr>
+        <tr><td><code>fraud_score</code></td><td>FLOAT4</td><td>XGBoost ensemble fraud score (0.0-1.0).</td><td>P1+</td></tr>
+        <tr><td><code>shap_values</code></td><td>JSONB</td><td>Feature-level SHAP explainability. Stored before NGCH filing — non-negotiable audit requirement.</td><td>P1+</td></tr>
+        <tr><td><code>llm_rationale</code></td><td>TEXT</td><td>Llama 3.3 70B human-readable rationale. Shown in ops workstation human review panel.</td><td>P1+</td></tr>
+        <tr><td><code>final_decision</code></td><td>ENUM</td><td>STP_CONFIRM / STP_RETURN / HUMAN_REVIEW / IET_EMERGENCY_CONFIRM / IET_EMERGENCY_RETURN</td><td>P1+</td></tr>
+        <tr><td><code>return_reason_code</code></td><td>VARCHAR(10)</td><td>Machine-readable return reason. NULL for confirmations.</td><td>P1+</td></tr>
+        <tr><td><code>processing_ms</code></td><td>INTEGER</td><td>Total wall-clock processing time in milliseconds. SLA target &lt;600ms for STP.</td><td>P1+</td></tr>
+        <tr><td><code>decided_by</code></td><td>VARCHAR(50)</td><td>AGENT / HUMAN:{user_id} / IET_WATCHDOG. Full audit trail.</td><td>P1+</td></tr>
+        <tr><td><code>created_at</code></td><td>TIMESTAMPTZ</td><td>Decision record creation timestamp.</td><td>P1+</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ENTITY 3: LienEvent -->
+  <div class="layer-block">
+    <div class="layer-head amber">
+      <div class="layer-label">Entity 03 — Phase 4</div>
+      <div class="layer-title">LienEvent — Drawer Account Lien Lifecycle</div>
+      <div class="layer-tag">Phase 4 Only</div>
+    </div>
+    <div class="layer-body">
+      <p>Tracks the complete lifecycle of a lien on the drawer's account. One LienEvent per ChequeInstrument. States: PLACED to CONFIRMED_FOR_DEBIT or RELEASED.</p>
+      <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th><th>Notes</th></tr>
+        <tr><td><code>lien_id</code></td><td>UUIDv7 PK</td><td>Unique lien identifier.</td><td></td></tr>
+        <tr><td><code>instrument_id</code></td><td>UUIDv7 FK</td><td>Reference to ChequeInstrument.</td><td></td></tr>
+        <tr><td><code>bank_id</code></td><td>VARCHAR(4)</td><td>Drawee bank ID.</td><td></td></tr>
+        <tr><td><code>account_hash</code></td><td>VARCHAR(64)</td><td>HMAC-SHA256 of drawer account. Never store raw account number.</td><td>PII rule</td></tr>
+        <tr><td><code>lien_amount_paise</code></td><td>BIGINT</td><td>Amount held under lien in paise. Must equal cheque amount.</td><td></td></tr>
+        <tr><td><code>status</code></td><td>ENUM</td><td>PLACED / CONFIRMED_FOR_DEBIT / DEBITED / RELEASED / EXPIRED</td><td></td></tr>
+        <tr><td><code>placed_at</code></td><td>TIMESTAMPTZ</td><td>When lien placed in CBS. Must be within 5s of NPCI receipt acknowledgement.</td><td></td></tr>
+        <tr><td><code>expiry_at</code></td><td>TIMESTAMPTZ</td><td>Lien auto-expires if settlement not received within 72 hours.</td><td></td></tr>
+        <tr><td><code>resolved_at</code></td><td>TIMESTAMPTZ</td><td>When lien converted to debit or released.</td><td></td></tr>
+        <tr><td><code>resolution_trigger</code></td><td>ENUM</td><td>PRESENTEE_CONFIRM / PRESENTEE_REJECT / NPCI_SETTLEMENT / LIEN_EXPIRY / DRAWER_CANCEL</td><td></td></tr>
+        <tr><td><code>cbs_lien_ref</code></td><td>VARCHAR(50)</td><td>Core banking system lien reference number for CBS reconciliation.</td><td></td></tr>
+        <tr><td><code>notification_sent</code></td><td>BOOLEAN</td><td>Whether drawer push notification was sent. FALSE triggers retry.</td><td></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ENTITY 4: MobileSubmission -->
+  <div class="layer-block">
+    <div class="layer-head purple">
+      <div class="layer-label">Entity 04 — Phase 4</div>
+      <div class="layer-title">MobileSubmission — Drawer Mobile Origin Record</div>
+      <div class="layer-tag">Phase 4 Only</div>
+    </div>
+    <div class="layer-body">
+      <p>Captures all drawer-side submission metadata for mobile-originated instruments. Required for audit, dispute resolution, and NI Act compliance trail.</p>
+      <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th><th>Notes</th></tr>
+        <tr><td><code>submission_id</code></td><td>UUIDv7 PK</td><td>Drawer's mobile submission reference.</td><td></td></tr>
+        <tr><td><code>instrument_id</code></td><td>UUIDv7 FK</td><td>Linked ChequeInstrument after bank validation.</td><td></td></tr>
+        <tr><td><code>bank_id</code></td><td>VARCHAR(4)</td><td>Drawee bank ID.</td><td></td></tr>
+        <tr><td><code>drawer_user_id_hash</code></td><td>VARCHAR(64)</td><td>Hashed mobile banking user ID. For audit — never raw user ID.</td><td>PII rule</td></tr>
+        <tr><td><code>device_id_hash</code></td><td>VARCHAR(64)</td><td>Hashed mobile device ID. For fraud and duplicate detection.</td><td></td></tr>
+        <tr><td><code>image_capture_method</code></td><td>ENUM</td><td>CAMERA_LIVE / GALLERY_UPLOAD. Affects image quality validation rules.</td><td></td></tr>
+        <tr><td><code>image_quality_score</code></td><td>FLOAT4</td><td>Client-side image quality score (0.0-1.0). Below 0.7 rejected before upload.</td><td></td></tr>
+        <tr><td><code>payee_account_hash</code></td><td>VARCHAR(64)</td><td>Hashed payee account number entered by drawer.</td><td>PII rule</td></tr>
+        <tr><td><code>payee_ifsc</code></td><td>VARCHAR(11)</td><td>Payee bank IFSC entered by drawer.</td><td></td></tr>
+        <tr><td><code>payee_name_entered</code></td><td>TEXT</td><td>Payee name as entered by drawer. Used for name-match at presentee bank.</td><td></td></tr>
+        <tr><td><code>submitted_at</code></td><td>TIMESTAMPTZ</td><td>Timestamp of drawer's mobile submission.</td><td></td></tr>
+        <tr><td><code>auth_method</code></td><td>ENUM</td><td>PIN / BIOMETRIC / OTP. Authentication method used by drawer.</td><td></td></tr>
+        <tr><td><code>status</code></td><td>ENUM</td><td>SUBMITTED / BANK_VALIDATED / BANK_REJECTED / NPCI_ROUTED / COMPLETED / CANCELLED</td><td></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ENTITY 5: SettlementBatch -->
+  <div class="layer-block">
+    <div class="layer-head green">
+      <div class="layer-label">Entity 05</div>
+      <div class="layer-title">SettlementBatch — 30-Minute Settlement Window Record</div>
+      <div class="layer-tag">Phase 2+</div>
+    </div>
+    <div class="layer-body">
+      <p>Each 30-minute settlement window produces one SettlementBatch record per participating bank. Replaces the flat settlement file from Phase 2 onwards.</p>
+      <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th><th>Notes</th></tr>
+        <tr><td><code>batch_id</code></td><td>UUIDv7 PK</td><td>NPCI-assigned settlement batch identifier.</td><td></td></tr>
+        <tr><td><code>session_id</code></td><td>VARCHAR(20)</td><td>Clearing session ID (NPCI-assigned: date + grid + sequence).</td><td></td></tr>
+        <tr><td><code>bank_id</code></td><td>VARCHAR(4)</td><td>Bank for which this settlement position is calculated.</td><td></td></tr>
+        <tr><td><code>window_start_utc</code></td><td>TIMESTAMPTZ</td><td>Start of the 30-minute settlement window.</td><td></td></tr>
+        <tr><td><code>window_end_utc</code></td><td>TIMESTAMPTZ</td><td>End of the 30-minute settlement window.</td><td></td></tr>
+        <tr><td><code>total_confirmed_count</code></td><td>INTEGER</td><td>Number of confirmed (paid) instruments in this window.</td><td></td></tr>
+        <tr><td><code>total_returned_count</code></td><td>INTEGER</td><td>Number of returned instruments in this window.</td><td></td></tr>
+        <tr><td><code>net_position_paise</code></td><td>BIGINT</td><td>Net debit (negative) or credit (positive) for this bank. Positive = bank receives funds.</td><td></td></tr>
+        <tr><td><code>rbi_settlement_ref</code></td><td>VARCHAR(30)</td><td>RBI e-Kuber settlement reference number after execution.</td><td></td></tr>
+        <tr><td><code>status</code></td><td>ENUM</td><td>CALCULATED / SUBMITTED_TO_RBI / SETTLED / EXCEPTION</td><td></td></tr>
+        <tr><td><code>settled_at</code></td><td>TIMESTAMPTZ</td><td>Timestamp of RBI settlement confirmation.</td><td></td></tr>
+        <tr><td><code>origin_breakdown</code></td><td>JSONB</td><td>Count by origin_mode: {PHYSICAL_API: 230, MOBILE_APP: 45}. For analytics.</td><td></td></tr>
+      </table>
+    </div>
+  </div>
+</div>
 
 <!-- FOOTER -->
 <div class="footer">
-  <div class="footer-text">CTS Vision 2030 · Product Concept Note v2.0 · Chunk 1 of 5 · Confidential — NPCI Distribution Only</div>
+  <div class="footer-text">CTS Vision 2030 · Product Concept Note v2.0 · Chunks 1-2 of 5 · Confidential — NPCI Distribution Only</div>
   <div class="footer-text">Nilesh Shah · June 2026 · © ASTRA — Automated Settlement and Transaction Recognition Architecture</div>
 </div>
 
