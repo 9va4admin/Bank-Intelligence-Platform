@@ -1564,9 +1564,799 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════════
+     CHUNK 3 — §11 ER Diagram · §12 Authentication · §13 API Payloads · §14 Error Codes
+     ═══════════════════════════════════════════════════════════════ -->
+
+<!-- §11 ER DIAGRAM -->
+<div class="section" id="er-diagram">
+  <div class="sec-header">
+    <span class="sec-num teal">11</span>
+    <div>
+      <div class="sec-title">Entity Relationship Diagram</div>
+      <div class="sec-sub">Logical data model across all four phases — YSQL schema (YugabyteDB)</div>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-bottom:1.5rem;">
+    All tables live in the <code>cts</code> schema in YugabyteDB. Partition key is always <code>bank_id</code> (row-level multi-tenancy). Phase 4 tables (<code>mobile_submissions</code>, <code>lien_events</code>) are provisioned only when <code>module_cts_phase4_enabled: true</code> in bank Helm values.
+  </div>
+
+  <!-- ER Visual — HTML/CSS diagram -->
+  <div style="overflow-x:auto; padding:0.5rem 0;">
+  <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.5rem; min-width:860px;">
+
+    <!-- Column 1: Core instrument chain -->
+    <div style="display:flex; flex-direction:column; gap:1rem;">
+
+      <div style="background:#0f2744; border:2px solid #3b82f6; border-radius:10px; padding:1rem;">
+        <div style="font-size:0.75rem; font-weight:700; color:#93c5fd; letter-spacing:.08em; text-transform:uppercase; margin-bottom:0.5rem;">cheque_instruments</div>
+        <div style="font-size:0.7rem; color:#475569; margin-bottom:0.4rem;">PK · All Phases</div>
+        <div style="font-size:0.72rem; color:#cbd5e1; line-height:1.8;">
+          🔑 instrument_id UUIDv7<br>
+          📌 bank_id VARCHAR(4)<br>
+          origin_mode ENUM<br>
+          amount_paise BIGINT<br>
+          account_hash VARCHAR(64)<br>
+          payee_name_enc BYTEA<br>
+          micr_line VARCHAR(30)<br>
+          image_ref_front VARCHAR(512)<br>
+          iet_deadline TIMESTAMPTZ<br>
+          status ENUM<br>
+          presentee_ifsc VARCHAR(11)<br>
+          drawee_ifsc VARCHAR(11)<br>
+          ngch_idempotency_key UUIDv7<br>
+          workflow_id VARCHAR(120)<br>
+          <span style="color:#64748b;">+ 11 more fields</span>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:center;">
+        <div style="font-size:0.85rem; color:#3b82f6;">│ 1:1 │</div>
+      </div>
+
+      <div style="background:#0f2744; border:2px solid #10b981; border-radius:10px; padding:1rem;">
+        <div style="font-size:0.75rem; font-weight:700; color:#6ee7b7; letter-spacing:.08em; text-transform:uppercase; margin-bottom:0.5rem;">agent_decisions</div>
+        <div style="font-size:0.7rem; color:#475569; margin-bottom:0.4rem;">PK · All Phases</div>
+        <div style="font-size:0.72rem; color:#cbd5e1; line-height:1.8;">
+          🔑 decision_id UUIDv7<br>
+          🔗 instrument_id UUIDv7 FK<br>
+          📌 bank_id VARCHAR(4)<br>
+          outcome ENUM<br>
+          fraud_score NUMERIC(5,4)<br>
+          ocr_confidence NUMERIC(5,4)<br>
+          signature_match NUMERIC(5,4)<br>
+          alteration_detected BOOLEAN<br>
+          shap_values JSONB<br>
+          llm_rationale TEXT<br>
+          ngch_ref VARCHAR(30)<br>
+          filed_at TIMESTAMPTZ<br>
+          decision_latency_ms INTEGER<br>
+          <span style="color:#64748b;">+ 7 more fields</span>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:center;">
+        <div style="font-size:0.85rem; color:#10b981;">│ 1:N │</div>
+      </div>
+
+      <div style="background:#0f2744; border:2px solid #8b5cf6; border-radius:10px; padding:1rem;">
+        <div style="font-size:0.75rem; font-weight:700; color:#c4b5fd; letter-spacing:.08em; text-transform:uppercase; margin-bottom:0.5rem;">human_review_items</div>
+        <div style="font-size:0.7rem; color:#475569; margin-bottom:0.4rem;">PK · All Phases</div>
+        <div style="font-size:0.72rem; color:#cbd5e1; line-height:1.8;">
+          🔑 review_id UUIDv7<br>
+          🔗 instrument_id UUIDv7 FK<br>
+          🔗 decision_id UUIDv7 FK<br>
+          📌 bank_id VARCHAR(4)<br>
+          assigned_to VARCHAR(50)<br>
+          clearing_zone VARCHAR(20)<br>
+          enqueued_at TIMESTAMPTZ<br>
+          iet_deadline TIMESTAMPTZ<br>
+          reviewer_decision ENUM<br>
+          reviewer_rationale TEXT<br>
+          decided_at TIMESTAMPTZ<br>
+          temporal_signal_id VARCHAR(80)
+        </div>
+      </div>
+    </div>
+
+    <!-- Column 2: Settlement + Vault -->
+    <div style="display:flex; flex-direction:column; gap:1rem; margin-top:2rem;">
+
+      <div style="background:#0f2744; border:2px solid #f59e0b; border-radius:10px; padding:1rem;">
+        <div style="font-size:0.75rem; font-weight:700; color:#fcd34d; letter-spacing:.08em; text-transform:uppercase; margin-bottom:0.5rem;">settlement_batches</div>
+        <div style="font-size:0.7rem; color:#475569; margin-bottom:0.4rem;">PK · Phase 2+</div>
+        <div style="font-size:0.72rem; color:#cbd5e1; line-height:1.8;">
+          🔑 batch_id UUIDv7<br>
+          📌 bank_id VARCHAR(4)<br>
+          session_id VARCHAR(20)<br>
+          window_start_utc TIMESTAMPTZ<br>
+          window_end_utc TIMESTAMPTZ<br>
+          total_confirmed_count INT<br>
+          total_returned_count INT<br>
+          net_position_paise BIGINT<br>
+          rbi_settlement_ref VARCHAR(30)<br>
+          status ENUM<br>
+          settled_at TIMESTAMPTZ<br>
+          origin_breakdown JSONB
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:center;">
+        <div style="font-size:0.85rem; color:#f59e0b;">│ 1:N │</div>
+      </div>
+
+      <div style="background:#0f2744; border:2px solid #f59e0b; border-radius:10px; padding:1rem; border-style:dashed;">
+        <div style="font-size:0.75rem; font-weight:700; color:#fcd34d; letter-spacing:.08em; text-transform:uppercase; margin-bottom:0.5rem;">settlement_instruments</div>
+        <div style="font-size:0.7rem; color:#475569; margin-bottom:0.4rem;">Junction · Phase 2+</div>
+        <div style="font-size:0.72rem; color:#cbd5e1; line-height:1.8;">
+          🔑 id UUIDv7<br>
+          🔗 batch_id UUIDv7 FK<br>
+          🔗 instrument_id UUIDv7 FK<br>
+          📌 bank_id VARCHAR(4)<br>
+          role ENUM (DRAWEE/PRESENTEE)<br>
+          contribution_paise BIGINT<br>
+          included_at TIMESTAMPTZ
+        </div>
+      </div>
+
+      <div style="background:#111827; border:1.5px solid #374151; border-radius:10px; padding:1rem; margin-top:1rem;">
+        <div style="font-size:0.75rem; font-weight:700; color:#9ca3af; letter-spacing:.08em; text-transform:uppercase; margin-bottom:0.5rem;">Redis Vaults (not in YSQL)</div>
+        <div style="font-size:0.72rem; color:#6b7280; line-height:1.9;">
+          <span style="color:#3b82f6;">redis-cts cluster:</span><br>
+          sig:{bank_id}:{acct_hash} → vector<br>
+          pps:{bank_id}:{acct_hash}:{series} → JSON<br><br>
+          <span style="color:#10b981;">Cache-aside, write-through</span><br>
+          Warmed daily at 06:00 by<br>VaultSyncWorkflow ← CBS
+        </div>
+      </div>
+
+      <div style="background:#111827; border:1.5px solid #374151; border-radius:10px; padding:1rem;">
+        <div style="font-size:0.75rem; font-weight:700; color:#9ca3af; letter-spacing:.08em; text-transform:uppercase; margin-bottom:0.5rem;">MinIO Object Store</div>
+        <div style="font-size:0.72rem; color:#6b7280; line-height:1.9;">
+          cts-images/{bank_id}/{YYYY/MM/DD}/<br>
+          &nbsp;&nbsp;{instrument_id}-front.tif<br>
+          &nbsp;&nbsp;{instrument_id}-back.tif<br><br>
+          SSE-KMS · WORM Day 730+<br>
+          ILM: Hot→Warm→Cold auto-tier
+        </div>
+      </div>
+    </div>
+
+    <!-- Column 3: Phase 4 entities + Audit -->
+    <div style="display:flex; flex-direction:column; gap:1rem; margin-top:0;">
+
+      <div style="background:#0f2744; border:2px solid #ec4899; border-radius:10px; padding:1rem;">
+        <div style="font-size:0.75rem; font-weight:700; color:#f9a8d4; letter-spacing:.08em; text-transform:uppercase; margin-bottom:0.5rem;">mobile_submissions <span style="font-size:0.65rem; background:#9d174d; padding:1px 6px; border-radius:4px;">Phase 4</span></div>
+        <div style="font-size:0.7rem; color:#475569; margin-bottom:0.4rem;">PK · Phase 4 only</div>
+        <div style="font-size:0.72rem; color:#cbd5e1; line-height:1.8;">
+          🔑 submission_id UUIDv7<br>
+          🔗 instrument_id UUIDv7 FK<br>
+          📌 bank_id VARCHAR(4)<br>
+          drawer_account_hash VARCHAR(64)<br>
+          drawer_mobile_hash VARCHAR(64)<br>
+          image_front_raw_ref VARCHAR(512)<br>
+          image_rear_raw_ref VARCHAR(512)<br>
+          device_attestation JSONB<br>
+          kyc_verified_at TIMESTAMPTZ<br>
+          beneficiary_vpa VARCHAR(60)<br>
+          submitted_via ENUM<br>
+          npci_mobile_ref VARCHAR(40)<br>
+          quality_score NUMERIC(4,3)<br>
+          reviewed_before_accept BOOLEAN
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:center;">
+        <div style="font-size:0.85rem; color:#ec4899;">│ 1:N │</div>
+      </div>
+
+      <div style="background:#0f2744; border:2px solid #ec4899; border-radius:10px; padding:1rem;">
+        <div style="font-size:0.75rem; font-weight:700; color:#f9a8d4; letter-spacing:.08em; text-transform:uppercase; margin-bottom:0.5rem;">lien_events <span style="font-size:0.65rem; background:#9d174d; padding:1px 6px; border-radius:4px;">Phase 4</span></div>
+        <div style="font-size:0.7rem; color:#475569; margin-bottom:0.4rem;">PK · Phase 4 only</div>
+        <div style="font-size:0.72rem; color:#cbd5e1; line-height:1.8;">
+          🔑 lien_id UUIDv7<br>
+          🔗 instrument_id UUIDv7 FK<br>
+          🔗 submission_id UUIDv7 FK<br>
+          📌 bank_id VARCHAR(4)<br>
+          lien_type ENUM<br>
+          amount_paise BIGINT<br>
+          status ENUM<br>
+          cbs_lien_ref VARCHAR(30)<br>
+          marked_at TIMESTAMPTZ<br>
+          released_at TIMESTAMPTZ<br>
+          debited_at TIMESTAMPTZ<br>
+          expiry_utc TIMESTAMPTZ
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:center;">
+        <div style="font-size:0.85rem; color:#6b7280;">│ Audit │</div>
+      </div>
+
+      <div style="background:#0f2744; border:2px solid #64748b; border-radius:10px; padding:1rem;">
+        <div style="font-size:0.75rem; font-weight:700; color:#94a3b8; letter-spacing:.08em; text-transform:uppercase; margin-bottom:0.5rem;">audit_events (Immudb)</div>
+        <div style="font-size:0.7rem; color:#475569; margin-bottom:0.4rem;">Append-only · All Phases</div>
+        <div style="font-size:0.72rem; color:#cbd5e1; line-height:1.8;">
+          🔑 event_id UUIDv7<br>
+          event_type VARCHAR(60)<br>
+          bank_id VARCHAR(4)<br>
+          entity_id UUIDv7<br>
+          entity_type VARCHAR(30)<br>
+          actor VARCHAR(50)<br>
+          payload_hash VARCHAR(64)<br>
+          hsm_signature BYTEA<br>
+          merkle_root VARCHAR(64)<br>
+          created_at TIMESTAMPTZ<br><br>
+          <span style="color:#64748b;">HSM-signed · Merkle-verified<br>Cannot UPDATE or DELETE</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- grid -->
+  </div><!-- overflow -->
+
+  <!-- Relationship legend -->
+  <div style="display:flex; gap:2rem; flex-wrap:wrap; margin-top:1.5rem; padding:1rem; background:#0f172a; border-radius:8px;">
+    <div style="font-size:0.72rem; color:#94a3b8;"><span style="color:#3b82f6; font-weight:700;">━━ Blue border</span> = Core clearing entity</div>
+    <div style="font-size:0.72rem; color:#94a3b8;"><span style="color:#10b981; font-weight:700;">━━ Green border</span> = AI output entity</div>
+    <div style="font-size:0.72rem; color:#94a3b8;"><span style="color:#f59e0b; font-weight:700;">━━ Amber border</span> = Settlement entity</div>
+    <div style="font-size:0.72rem; color:#94a3b8;"><span style="color:#ec4899; font-weight:700;">━━ Pink border</span> = Phase 4 mobile entity</div>
+    <div style="font-size:0.72rem; color:#94a3b8;"><span style="color:#8b5cf6; font-weight:700;">━━ Purple border</span> = Workflow entity</div>
+    <div style="font-size:0.72rem; color:#94a3b8;">🔑 = Primary Key &nbsp; 🔗 = Foreign Key &nbsp; 📌 = Partition Key</div>
+  </div>
+</div>
+
+<!-- §12 AUTHENTICATION MECHANISM -->
+<div class="section" id="auth-mechanism">
+  <div class="sec-header">
+    <span class="sec-num pink">12</span>
+    <div>
+      <div class="sec-title">Authentication Mechanism — NPCI Standard</div>
+      <div class="sec-sub">Three-layer security for Phases 2 &amp; 3 · Four-layer for Phase 4 mobile</div>
+    </div>
+  </div>
+
+  <div class="layer-grid-3" style="margin-bottom:2rem;">
+    <div class="layer-block">
+      <div class="layer-label">L1 · Transport Security</div>
+      <div class="layer-title">Mutual TLS (mTLS)</div>
+      <div class="layer-body">
+        Every TCP connection to NPCI requires a bank-specific X.509 client certificate issued by NPCI's own PKI CA. NPCI presents its server cert; bank validates against NPCI Root CA bundle. Connection is rejected before any HTTP traffic if either side fails cert verification.<br><br>
+        <strong>Certificate lifecycle:</strong> 1-year validity · Rotated 30 days before expiry via Vault PKI dynamic certs · Private key stored in HSM (FIPS 140-2 Level 3) · bank never exports private key<br><br>
+        <strong>Helm config:</strong> <code>ngch_cert_ref: vault://secret/astra/{bank_id}/ngch/tls</code><br>
+        <strong>Cipher suites:</strong> TLS_AES_256_GCM_SHA384, TLS_CHACHA20_POLY1305_SHA256 (TLS 1.3 only)
+      </div>
+    </div>
+    <div class="layer-block">
+      <div class="layer-label">L2 · Application Identity</div>
+      <div class="layer-title">API Key + Session Token</div>
+      <div class="layer-body">
+        Bank provisioned with a static API key during onboarding (stored in Vault, never in code). This key is exchanged for a short-lived session token on each ASTRA startup.<br><br>
+        <strong>Token exchange:</strong><br>
+        <code>POST /cts/v1/auth/session</code><br>
+        Request header: <code>X-NPCI-API-Key: {key}</code><br>
+        Response: <code>{"session_token": "...", "expires_in": 1800}</code><br><br>
+        Session token is cached in Redis CTS (TTL = 25 min, refreshed 5 min before expiry). Every API call sends: <code>Authorization: Bearer {session_token}</code><br><br>
+        <strong>Rotation:</strong> NPCI API keys rotate every 90 days. ASTRA config_service fetches new key from Vault — zero downtime, zero code change.
+      </div>
+    </div>
+    <div class="layer-block">
+      <div class="layer-label">L3 · Request Integrity</div>
+      <div class="layer-title">HMAC-SHA256 Signature</div>
+      <div class="layer-body">
+        Every mutating request (POST/PUT/DELETE) is signed using a shared HMAC secret stored in Vault. This prevents replay attacks and message tampering in transit (defence-in-depth beyond mTLS).<br><br>
+        <strong>Canonical string to sign:</strong><br>
+        <code>{HTTP_METHOD}\n{URL_PATH}\n{UTC_TIMESTAMP}\n{SHA256(request_body)}</code><br><br>
+        <strong>Header sent:</strong><br>
+        <code>X-NPCI-Signature: {timestamp}.{hex(HMAC-SHA256)}</code><br><br>
+        <strong>NPCI validation:</strong> Timestamp must be within ±300 seconds of NPCI server time. Requests older than 5 minutes are rejected (replay protection). Duplicate request signatures within 5 minutes are rejected.
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth flow sequence -->
+  <div style="margin-bottom:1.5rem;">
+    <div style="font-size:0.8rem; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em; margin-bottom:1rem;">Authentication Flow — Every API Call</div>
+    <div style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
+      <div style="background:#0f2744; border:1px solid #1e40af; border-radius:8px; padding:0.6rem 1rem; font-size:0.75rem; color:#93c5fd; text-align:center;">
+        ASTRA starts up<br><span style="color:#475569; font-size:0.68rem;">Vault agent sidecar<br>injects certs + keys</span>
+      </div>
+      <div style="color:#3b82f6; font-size:1.2rem;">→</div>
+      <div style="background:#0f2744; border:1px solid #1e40af; border-radius:8px; padding:0.6rem 1rem; font-size:0.75rem; color:#93c5fd; text-align:center;">
+        mTLS handshake<br><span style="color:#475569; font-size:0.68rem;">L1: TLS 1.3 + client cert<br>NPCI validates bank cert</span>
+      </div>
+      <div style="color:#3b82f6; font-size:1.2rem;">→</div>
+      <div style="background:#0f2744; border:1px solid #1e40af; border-radius:8px; padding:0.6rem 1rem; font-size:0.75rem; color:#93c5fd; text-align:center;">
+        POST /auth/session<br><span style="color:#475569; font-size:0.68rem;">L2: API Key → 30-min<br>session token</span>
+      </div>
+      <div style="color:#3b82f6; font-size:1.2rem;">→</div>
+      <div style="background:#0f2744; border:1px solid #1e40af; border-radius:8px; padding:0.6rem 1rem; font-size:0.75rem; color:#93c5fd; text-align:center;">
+        Cache token in<br>Redis CTS (25-min TTL)
+      </div>
+      <div style="color:#3b82f6; font-size:1.2rem;">→</div>
+      <div style="background:#0f2744; border:1px solid #1e40af; border-radius:8px; padding:0.6rem 1rem; font-size:0.75rem; color:#93c5fd; text-align:center;">
+        Per-request:<br><span style="color:#475569; font-size:0.68rem;">L3: Sign canonical string<br>with HMAC-SHA256</span>
+      </div>
+      <div style="color:#3b82f6; font-size:1.2rem;">→</div>
+      <div style="background:#052e16; border:1px solid #15803d; border-radius:8px; padding:0.6rem 1rem; font-size:0.75rem; color:#86efac; text-align:center;">
+        NPCI validates<br>all 3 layers<br><span style="color:#166534; font-size:0.68rem;">200 OK / 401 / 403</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phase 4 L4 -->
+  <div style="background:#1c0533; border:2px solid #9333ea; border-radius:12px; padding:1.5rem; margin-top:1.5rem;">
+    <div style="font-size:0.8rem; font-weight:700; color:#c084fc; text-transform:uppercase; letter-spacing:.07em; margin-bottom:0.8rem;">L4 · Mobile Attestation — Phase 4 Only</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
+      <div>
+        <div style="font-size:0.75rem; color:#e9d5ff; line-height:1.8;">
+          <strong>Device Integrity:</strong> Google Play Integrity API (Android) / Apple DeviceCheck (iOS). NPCI Cheque App sends device attestation token with every mobile submission.<br><br>
+          <strong>JWT Claims required:</strong><br>
+          • <code>sub</code>: drawer mobile number hash<br>
+          • <code>bank_id</code>: drawer's bank IFSC prefix<br>
+          • <code>kyc_level</code>: FULL_KYC / V-CIP<br>
+          • <code>device_id</code>: hardware-attested device fingerprint<br>
+          • <code>iat</code> / <code>exp</code>: issued at / expires (5-minute window)
+        </div>
+      </div>
+      <div>
+        <div style="font-size:0.75rem; color:#e9d5ff; line-height:1.8;">
+          <strong>Signing:</strong> JWT signed with drawer's bank's private key (HSM-resident). NPCI validates against bank's registered public key in NPCI PKI directory.<br><br>
+          <strong>Additional checks:</strong><br>
+          • Cheque serial number verified against drawer's PPS in CBS<br>
+          • Amount on image matches amount declared in API payload (Vision AI cross-check)<br>
+          • KYC status verified against UIDAI / CERSAI in real-time<br>
+          • Device not on NPCI fraud device blacklist<br><br>
+          <strong>Regulatory:</strong> Requires RBI regulatory sandbox approval and NI Act 1881 amendment for mobile-originated instruments.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Idempotency -->
+  <div style="background:#0c1a0e; border:1px solid #166534; border-radius:10px; padding:1.2rem; margin-top:1.5rem;">
+    <div style="font-size:0.78rem; font-weight:700; color:#86efac; margin-bottom:0.6rem;">Idempotency — Exactly-Once Guarantee at NPCI Layer</div>
+    <div style="font-size:0.75rem; color:#6b7280; line-height:1.8;">
+      Every POST request includes header: <code style="color:#4ade80;">X-Idempotency-Key: {UUIDv7}</code>&nbsp;&nbsp;
+      UUIDv7 format: time-ordered, generated from <code>instrument_id + bank_id + attempt_number</code>.
+      NPCI deduplicates identical idempotency keys within a 24-hour rolling window.
+      On duplicate: NPCI returns <code>HTTP 200</code> with original response (not <code>409</code>) — ASTRA treats this as success.
+      Key stored in <code>cts.cheque_instruments.ngch_idempotency_key</code> — reused on retry without regenerating.
+      IETWatchdogWorkflow uses the same key for emergency filing — preventing double-counting even if both parent and watchdog fire simultaneously.
+    </div>
+  </div>
+</div>
+
+<!-- §13 API PAYLOADS — FULL JSON EXAMPLES -->
+<div class="section" id="api-payloads">
+  <div class="sec-header">
+    <span class="sec-num purple">13</span>
+    <div>
+      <div class="sec-title">API Payloads — Full JSON Examples</div>
+      <div class="sec-sub">Phase 2 REST API · Request and response bodies for all critical endpoints</div>
+    </div>
+  </div>
+
+  <!-- EP1: POST /auth/session -->
+  <div style="margin-bottom:2rem;">
+    <div style="font-size:0.78rem; font-weight:700; color:#f59e0b; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.8rem;">
+      EP-1 &nbsp;·&nbsp; <code>POST /cts/v1/auth/session</code> &nbsp;—&nbsp; Session Token Exchange
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+      <div>
+        <div style="font-size:0.7rem; color:#64748b; margin-bottom:0.4rem; text-transform:uppercase; letter-spacing:.05em;">Request Headers Only (no body)</div>
+        <pre class="code-block" style="font-size:0.72rem;">{
+  "headers": {
+    "X-NPCI-API-Key": "npci-bank-HDFC0001-prod-k...",
+    "Content-Type": "application/json",
+    "X-Request-ID": "01906c5a-3e8f-7b2a-9c01-abcdef012345"
+  }
+}</pre>
+      </div>
+      <div>
+        <div style="font-size:0.7rem; color:#64748b; margin-bottom:0.4rem; text-transform:uppercase; letter-spacing:.05em;">Response 200 OK</div>
+        <pre class="code-block" style="font-size:0.72rem;">{
+  "session_token": "eyJhbGciOiJSUzI1NiJ9...",
+  "token_type": "Bearer",
+  "expires_in": 1800,
+  "scope": "cts:submit cts:query cts:return",
+  "bank_id": "HDFC",
+  "grid": "MUMBAI",
+  "issued_at": "2027-03-15T09:00:00Z"
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- EP2: POST /instruments -->
+  <div style="margin-bottom:2rem;">
+    <div style="font-size:0.78rem; font-weight:700; color:#3b82f6; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.8rem;">
+      EP-2 &nbsp;·&nbsp; <code>POST /cts/v1/instruments</code> &nbsp;—&nbsp; Submit Outward Cheque
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+      <div>
+        <div style="font-size:0.7rem; color:#64748b; margin-bottom:0.4rem; text-transform:uppercase; letter-spacing:.05em;">Request Body (presentee bank → NPCI)</div>
+        <pre class="code-block" style="font-size:0.68rem;">{
+  "instrument_ref": "01906c5a-3e8f-7b2a-9c01-abc123",
+  "presentee_ifsc": "HDFC0001234",
+  "drawee_ifsc":    "ICIC0005678",
+  "amount_paise":   1500000,
+  "amount_words":   "fifteen thousand rupees only",
+  "cheque_date":    "2027-03-10",
+  "cheque_number":  "000472",
+  "micr_line":      "400234567 001234   0000472",
+  "image_hash_front": "sha256:a3f9b2c1...",
+  "image_hash_rear":  "sha256:d4e5f6a7...",
+  "image_dimensions": {
+    "width_pixels": 1728,
+    "height_pixels": 816,
+    "dpi": 200,
+    "colour_mode": "GREY_SCALE"
+  },
+  "iet_deadline_utc": "2027-03-15T12:00:00Z",
+  "lot_id": "LOT-HDFC-20270315-042",
+  "clearing_session": "CTS-MUM-20270315-S2",
+  "origin_mode": "PHYSICAL_API"
+}</pre>
+      </div>
+      <div>
+        <div style="font-size:0.7rem; color:#64748b; margin-bottom:0.4rem; text-transform:uppercase; letter-spacing:.05em;">Response 201 Created</div>
+        <pre class="code-block" style="font-size:0.68rem;">{
+  "npci_instrument_ref": "NPCI-CTS-MUM-20270315-8827341",
+  "instrument_ref":      "01906c5a-3e8f-7b2a-9c01-abc123",
+  "status":              "ACCEPTED",
+  "iet_deadline_utc":    "2027-03-15T12:00:00Z",
+  "grid":                "MUMBAI",
+  "session":             "CTS-MUM-20270315-S2",
+  "accepted_at":         "2027-03-15T09:04:22.318Z",
+  "webhook_registered":  true,
+  "estimated_decision_window": "09:30-10:00 IST"
+}</pre>
+        <div style="font-size:0.7rem; color:#64748b; margin-top:0.8rem; margin-bottom:0.4rem; text-transform:uppercase; letter-spacing:.05em;">Request Headers (every mutating call)</div>
+        <pre class="code-block" style="font-size:0.68rem;">{
+  "Authorization":    "Bearer eyJhbGc...",
+  "X-NPCI-API-Key":   "npci-bank-HDFC-prod-k...",
+  "X-NPCI-Signature": "1710493462.a3b4c5d6e7f8...",
+  "X-Idempotency-Key":"01906c5a-3e8f-7000-0001-000000000001",
+  "X-Request-ID":     "01906c5a-3e8f-7b2a-9c01-abc999",
+  "Content-Type":     "application/json"
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- EP3: POST /returns -->
+  <div style="margin-bottom:2rem;">
+    <div style="font-size:0.78rem; font-weight:700; color:#10b981; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.8rem;">
+      EP-3 &nbsp;·&nbsp; <code>POST /cts/v1/returns</code> &nbsp;—&nbsp; File Inward Decision (Drawee Bank)
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+      <div>
+        <div style="font-size:0.7rem; color:#64748b; margin-bottom:0.4rem; text-transform:uppercase; letter-spacing:.05em;">Request Body — CONFIRM (honour cheque)</div>
+        <pre class="code-block" style="font-size:0.68rem;">{
+  "npci_instrument_ref": "NPCI-CTS-MUM-20270315-8827341",
+  "bank_id":             "ICIC",
+  "decision":            "CONFIRM",
+  "filed_at_utc":        "2027-03-15T10:48:12.441Z",
+  "decision_latency_ms": 487,
+  "ai_summary": {
+    "fraud_score":         0.0312,
+    "ocr_confidence":      0.9981,
+    "signature_match":     0.9873,
+    "alteration_detected": false,
+    "decision_path":       "STP_CONFIRM"
+  }
+}</pre>
+      </div>
+      <div>
+        <div style="font-size:0.7rem; color:#64748b; margin-bottom:0.4rem; text-transform:uppercase; letter-spacing:.05em;">Request Body — RETURN (dishonour)</div>
+        <pre class="code-block" style="font-size:0.68rem;">{
+  "npci_instrument_ref": "NPCI-CTS-MUM-20270315-9923001",
+  "bank_id":             "ICIC",
+  "decision":            "RETURN",
+  "return_reason_code":  "RET-003",
+  "return_reason_text":  "Insufficient Funds",
+  "filed_at_utc":        "2027-03-15T10:51:07.882Z",
+  "decision_latency_ms": 394,
+  "ai_summary": {
+    "fraud_score":         0.0841,
+    "ocr_confidence":      0.9940,
+    "signature_match":     0.9812,
+    "alteration_detected": false,
+    "decision_path":       "STP_RETURN"
+  }
+}</pre>
+        <div style="font-size:0.7rem; color:#64748b; margin-top:0.8rem; margin-bottom:0.4rem; text-transform:uppercase; letter-spacing:.05em;">Response 200 OK (both cases)</div>
+        <pre class="code-block" style="font-size:0.68rem;">{
+  "ngch_ack_ref":   "ACK-NPCI-20270315-7714882",
+  "received_at":    "2027-03-15T10:48:12.619Z",
+  "iet_status":     "WITHIN_WINDOW",
+  "time_remaining": "01:11:48",
+  "settlement_window": "10:30-11:00 IST"
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- EP4: Webhook inward -->
+  <div style="margin-bottom:2rem;">
+    <div style="font-size:0.78rem; font-weight:700; color:#8b5cf6; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.8rem;">
+      EP-4 &nbsp;·&nbsp; Webhook Push — NPCI → Drawee Bank (Inward Cheque Arrived)
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+      <div>
+        <div style="font-size:0.7rem; color:#64748b; margin-bottom:0.4rem; text-transform:uppercase; letter-spacing:.05em;">Webhook POST to bank endpoint · Headers</div>
+        <pre class="code-block" style="font-size:0.68rem;">{
+  "X-NPCI-Webhook-Event":     "CTS_INWARD_RECEIVED",
+  "X-NPCI-Webhook-Signature": "1710493462.sha256=b1c2d3e4...",
+  "X-NPCI-Delivery-ID":       "dlv-01906c5a-4411-7b2a-9c01",
+  "X-NPCI-Timestamp":         "1710493462",
+  "Content-Type":             "application/json"
+}</pre>
+        <div style="font-size:0.7rem; color:#64748b; margin-top:0.8rem; margin-bottom:0.4rem; text-transform:uppercase; letter-spacing:.05em;">Webhook Body</div>
+        <pre class="code-block" style="font-size:0.68rem;">{
+  "event":              "CTS_INWARD_RECEIVED",
+  "delivery_id":        "dlv-01906c5a-4411-7b2a-9c01",
+  "npci_instrument_ref":"NPCI-CTS-MUM-20270315-8827341",
+  "drawee_ifsc":        "ICIC0005678",
+  "presentee_ifsc":     "HDFC0001234",
+  "amount_range":       "10000-25000",
+  "cheque_date":        "2027-03-10",
+  "iet_deadline_utc":   "2027-03-15T12:00:00Z",
+  "image_retrieval_url":"GET /cts/v1/images/NPCI-CTS-MUM-20270315-8827341",
+  "received_at_ngch":   "2027-03-15T09:04:22Z",
+  "clearing_session":   "CTS-MUM-20270315-S2",
+  "grid":               "MUMBAI"
+}</pre>
+      </div>
+      <div>
+        <div style="font-size:0.7rem; color:#64748b; margin-bottom:0.4rem; text-transform:uppercase; letter-spacing:.05em;">Bank Endpoint Response (must return within 5s)</div>
+        <pre class="code-block" style="font-size:0.68rem;">{
+  "received":    true,
+  "delivery_id": "dlv-01906c5a-4411-7b2a-9c01",
+  "workflow_id": "cts-ICIC-01906c5a-3e8f-7b2a-9c01-abc123"
+}
+
+// HTTP 200 acknowledges receipt.
+// If bank returns non-200 or times out (>5s):
+//   NPCI retries with exponential backoff:
+//   T+5s, T+15s, T+45s, T+2m, T+5m (5 attempts)
+// After 5 failed attempts: fallback to polling available.
+// Bank MUST be idempotent on delivery_id — NPCI
+// guarantees at-least-once delivery, not exactly-once.</pre>
+
+        <div style="font-size:0.7rem; color:#64748b; margin-top:0.8rem; margin-bottom:0.4rem; text-transform:uppercase; letter-spacing:.05em;">Webhook Signature Verification (bank side)</div>
+        <pre class="code-block" style="font-size:0.68rem;">// Python — in ngch_webhook.py
+import hmac, hashlib
+
+def verify_webhook_signature(
+    body: bytes,
+    timestamp: str,
+    signature_header: str,
+    secret: str
+) -> bool:
+    # Reconstruct canonical string
+    canonical = f"{timestamp}.{body.decode()}"
+    expected = "sha256=" + hmac.new(
+        secret.encode(),
+        canonical.encode(),
+        hashlib.sha256
+    ).hexdigest()
+    # Constant-time comparison (prevent timing attacks)
+    return hmac.compare_digest(
+        expected,
+        signature_header.split(".", 1)[1]
+    )</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- EP5: Phase 4 Mobile -->
+  <div style="margin-bottom:2rem;">
+    <div style="font-size:0.78rem; font-weight:700; color:#ec4899; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.8rem;">
+      EP-5 &nbsp;·&nbsp; <code>POST /cts/v1/mobile/submissions</code> &nbsp;—&nbsp; Phase 4 Mobile Upload (Drawer → NPCI)
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+      <div>
+        <div style="font-size:0.7rem; color:#64748b; margin-bottom:0.4rem; text-transform:uppercase; letter-spacing:.05em;">Request Body (multipart/form-data)</div>
+        <pre class="code-block" style="font-size:0.68rem;">{
+  "cheque_front_image": "[BINARY: JPEG/PNG ≥ 200 DPI]",
+  "cheque_rear_image":  "[BINARY: JPEG/PNG ≥ 200 DPI]",
+  "metadata": {
+    "drawer_bank_ifsc":    "SBIN0012345",
+    "beneficiary_account": "[ENCRYPTED]",
+    "beneficiary_ifsc":    "HDFC0001234",
+    "beneficiary_name":    "Ramesh Traders Pvt Ltd",
+    "amount_paise":        7500000,
+    "cheque_date":         "2027-09-10",
+    "cheque_number":       "000831",
+    "purpose_code":        "P0301"
+  },
+  "device_attestation": {
+    "platform":     "ANDROID",
+    "play_integrity_token": "eyJhbGci...",
+    "device_id_hash": "sha256:9f3a1b..."
+  },
+  "drawer_jwt":    "eyJhbGciOiJSUzI1NiJ9...",
+  "kyc_consent":   true,
+  "submission_id": "01906c5a-9999-7b2a-0001-mob000000001"
+}</pre>
+      </div>
+      <div>
+        <div style="font-size:0.7rem; color:#64748b; margin-bottom:0.4rem; text-transform:uppercase; letter-spacing:.05em;">Response 202 Accepted</div>
+        <pre class="code-block" style="font-size:0.68rem;">{
+  "npci_mobile_ref":   "MOB-NPCI-20280910-4421009",
+  "submission_id":     "01906c5a-9999-7b2a-0001-mob000000001",
+  "status":            "QUEUED_FOR_PROCESSING",
+  "quality_assessment": {
+    "image_quality":  "ACCEPTABLE",
+    "micr_readable":  true,
+    "cts2010_compliant": true,
+    "quality_score":  0.947
+  },
+  "drawee_bank":       "ICIC",
+  "drawee_notified":   true,
+  "lien_status":       "PENDING",
+  "estimated_lien_in": "00:05:00",
+  "settlement_window": "11:00-11:30 IST",
+  "tracking_url":      "/cts/v1/mobile/submissions/MOB-NPCI-20280910-4421009"
+}</pre>
+        <div class="callout" style="margin-top:0.8rem; font-size:0.72rem;">
+          <strong>Note:</strong> Amount in API payload is cross-validated against the amount read by NPCI's Vision AI from the cheque image. Discrepancy > ₹1 causes immediate rejection (error code IMG_4007). This eliminates amount manipulation attacks unique to mobile channel.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- §14 ERROR CODE TAXONOMY -->
+<div class="section" id="error-codes">
+  <div class="sec-header">
+    <span class="sec-num teal">14</span>
+    <div>
+      <div class="sec-title">Error &amp; Return Code Taxonomy</div>
+      <div class="sec-sub">Complete NPCI CTS API error codes · Return reason codes · Success codes</div>
+    </div>
+  </div>
+
+  <!-- AUTH errors -->
+  <div style="margin-bottom:1.5rem;">
+    <div style="font-size:0.78rem; font-weight:700; color:#f59e0b; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.6rem;">AUTH — Authentication &amp; Authorisation Errors (HTTP 401 / 403)</div>
+    <table class="data-table">
+      <tr><th>Code</th><th>HTTP</th><th>Meaning</th><th>ASTRA Action</th></tr>
+      <tr><td><code>AUTH_4001</code></td><td>401</td><td>mTLS client certificate expired or not trusted by NPCI CA</td><td>Renew cert from Vault PKI → retry once; alert security_lead if renewal fails</td></tr>
+      <tr><td><code>AUTH_4002</code></td><td>401</td><td>API Key invalid, revoked, or not found</td><td>Fetch fresh key from Vault → exchange new session token → retry; page bank IT admin</td></tr>
+      <tr><td><code>AUTH_4003</code></td><td>401</td><td>Session token expired (> 30 minutes)</td><td>Exchange new session token via <code>POST /auth/session</code> → retry transparently</td></tr>
+      <tr><td><code>AUTH_4004</code></td><td>401</td><td>HMAC-SHA256 signature verification failed</td><td>Recompute signature; if still failing → check clock skew (NTP sync); alert</td></tr>
+      <tr><td><code>AUTH_4005</code></td><td>401</td><td>Timestamp in X-NPCI-Signature is older than 5 minutes (replay rejected)</td><td>Resend with current timestamp; if systematic → check server NTP drift</td></tr>
+      <tr><td><code>AUTH_4006</code></td><td>403</td><td>Bank not authorised for the requested NPCI grid / clearing zone</td><td>Non-retryable; notify bank_it_admin to check NPCI membership</td></tr>
+      <tr><td><code>AUTH_5001</code></td><td>503</td><td>NPCI Auth service temporarily unavailable</td><td>Retry with backoff (2s, 4s, 8s); if IET risk HIGH → activate SFTP fallback</td></tr>
+    </table>
+  </div>
+
+  <!-- INSTR errors -->
+  <div style="margin-bottom:1.5rem;">
+    <div style="font-size:0.78rem; font-weight:700; color:#3b82f6; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.6rem;">INSTR — Instrument Validation Errors (HTTP 400 / 409 / 422)</div>
+    <table class="data-table">
+      <tr><th>Code</th><th>HTTP</th><th>Meaning</th><th>ASTRA Action</th></tr>
+      <tr><td><code>INSTR_4001</code></td><td>422</td><td>MICR line format invalid (wrong length, non-numeric characters)</td><td>Re-run GOT-OCR2.0 extraction; if persistent → route to human review for manual MICR entry</td></tr>
+      <tr><td><code>INSTR_4002</code></td><td>422</td><td>Drawee IFSC not registered with NPCI for CTS clearing</td><td>Non-retryable; route to human review; check NPCI IFSC directory</td></tr>
+      <tr><td><code>INSTR_4003</code></td><td>409</td><td>Duplicate submission — idempotency key already processed</td><td>Treat as success; return original NPCI response cached for this key</td></tr>
+      <tr><td><code>INSTR_4004</code></td><td>400</td><td>Cheque date is stale (older than 3 months per NI Act)</td><td>Non-retryable STP return; return reason code RET-016</td></tr>
+      <tr><td><code>INSTR_4005</code></td><td>400</td><td>Amount in payload does not match amount extracted from image</td><td>Vision AI cross-check failed; route to human review immediately</td></tr>
+      <tr><td><code>INSTR_4006</code></td><td>410</td><td>IET deadline has already passed — instrument expired</td><td>Terminal; write audit event IET_BREACH; notify ops_manager and compliance_officer immediately</td></tr>
+      <tr><td><code>INSTR_4007</code></td><td>422</td><td>Image does not meet CTS-2010 standard (DPI, dimensions, colour mode)</td><td>Re-scan physical cheque; if mobile submission → request resubmission with better image</td></tr>
+      <tr><td><code>INSTR_4008</code></td><td>422</td><td>Image hash mismatch — tampered in transit</td><td>Re-upload image; if persistent → security incident, escalate to security_lead</td></tr>
+      <tr><td><code>INSTR_4009</code></td><td>409</td><td>Instrument already returned/confirmed — cannot file again</td><td>Treat as success if outcome matches; alert if outcome differs (should never happen)</td></tr>
+      <tr><td><code>INSTR_4010</code></td><td>422</td><td>Return reason code not valid for this instrument category</td><td>Check return reason code mapping table; resubmit with correct code</td></tr>
+    </table>
+  </div>
+
+  <!-- IMG errors -->
+  <div style="margin-bottom:1.5rem;">
+    <div style="font-size:0.78rem; font-weight:700; color:#ec4899; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.6rem;">IMG — Image Quality Errors (HTTP 400 / 415)</div>
+    <table class="data-table">
+      <tr><th>Code</th><th>HTTP</th><th>Meaning</th><th>ASTRA Action</th></tr>
+      <tr><td><code>IMG_4001</code></td><td>415</td><td>Image format not accepted (must be TIFF/JPEG for physical, JPEG/PNG for mobile)</td><td>Convert image format; re-upload</td></tr>
+      <tr><td><code>IMG_4002</code></td><td>400</td><td>Image resolution below 200 DPI (CTS-2010 minimum)</td><td>Re-scan at correct resolution; if mobile → prompt drawer to retake photo in better light</td></tr>
+      <tr><td><code>IMG_4003</code></td><td>400</td><td>Image file size exceeds 2MB limit per image</td><td>Compress TIFF without loss of resolution; check scanner settings</td></tr>
+      <tr><td><code>IMG_4004</code></td><td>400</td><td>Front and rear images appear to be the same cheque side</td><td>Re-scan both sides; route to human review</td></tr>
+      <tr><td><code>IMG_4005</code></td><td>400</td><td>Cheque not detected in image (blank, obscured, or tilted > 5°)</td><td>Re-scan / re-photograph; rotate and resubmit if tilt issue</td></tr>
+      <tr><td><code>IMG_4006</code></td><td>400</td><td>MICR band not readable in image (torn, soiled, or band absent)</td><td>Route to human review for manual entry; flag cheque for physical inspection</td></tr>
+      <tr><td><code>IMG_4007</code></td><td>400</td><td>Amount on image does not match declared amount (Phase 4 cross-check)</td><td>Vision AI fraud alert; route to HUMAN_REVIEW with fraud_reason IMG_AMOUNT_MISMATCH</td></tr>
+    </table>
+  </div>
+
+  <!-- SYS errors -->
+  <div style="margin-bottom:1.5rem;">
+    <div style="font-size:0.78rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.6rem;">SYS — System &amp; Maintenance Errors (HTTP 429 / 500 / 503 / 504)</div>
+    <table class="data-table">
+      <tr><th>Code</th><th>HTTP</th><th>Meaning</th><th>ASTRA Action</th></tr>
+      <tr><td><code>SYS_4291</code></td><td>429</td><td>Rate limit exceeded — instrument submission rate per bank</td><td>Parse <code>Retry-After</code> header; honour it; alert if recurring; never wait past IET T-60s</td></tr>
+      <tr><td><code>SYS_4292</code></td><td>429</td><td>Rate limit exceeded — decision filing rate</td><td>Same as above; IETWatchdogWorkflow monitors and activates SFTP fallback if > T-60s</td></tr>
+      <tr><td><code>SYS_5001</code></td><td>500</td><td>NPCI internal error — instrument processing failed</td><td>Retry once after 5s; if persistent → activate SFTP fallback for this instrument</td></tr>
+      <tr><td><code>SYS_5002</code></td><td>500</td><td>NPCI webhook delivery configuration error (bank endpoint unreachable)</td><td>NPCI falls back to polling mode; bank must fix webhook endpoint; alert bank_it_admin</td></tr>
+      <tr><td><code>SYS_5003</code></td><td>503</td><td>NPCI system maintenance window in progress</td><td>Honour <code>Retry-After</code>; IETWatchdogWorkflow checks time remaining; SFTP fallback if IET at risk</td></tr>
+      <tr><td><code>SYS_5004</code></td><td>504</td><td>NPCI gateway timeout on instrument processing (> 30s)</td><td>Retry with same idempotency key; recheck status via GET before retry</td></tr>
+      <tr><td><code>SYS_5005</code></td><td>503</td><td>NPCI database unavailable (rare — DC failover in progress)</td><td>Back off 60s; IETWatchdogWorkflow monitors; activate SFTP fallback if IET risk CRITICAL</td></tr>
+    </table>
+  </div>
+
+  <!-- SETTLE errors -->
+  <div style="margin-bottom:1.5rem;">
+    <div style="font-size:0.78rem; font-weight:700; color:#f59e0b; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.6rem;">SETTLE — Settlement Errors (HTTP 400 / 409)</div>
+    <table class="data-table">
+      <tr><th>Code</th><th>HTTP</th><th>Meaning</th><th>ASTRA Action</th></tr>
+      <tr><td><code>SETTLE_4001</code></td><td>409</td><td>Settlement batch already closed — cannot add more instruments</td><td>Route instrument to next available 30-min window; IET deadline must be re-checked</td></tr>
+      <tr><td><code>SETTLE_4002</code></td><td>400</td><td>Net settlement position exceeds bank's intraday credit limit with RBI</td><td>Escalate to treasury; pause outward submission; alert ops_manager immediately</td></tr>
+      <tr><td><code>SETTLE_4003</code></td><td>400</td><td>RBI e-Kuber settlement reference does not match NPCI records</td><td>Reconciliation exception; write to SessionReconciliationWorkflow exceptions list; alert</td></tr>
+    </table>
+  </div>
+
+  <!-- MOB errors (Phase 4) -->
+  <div style="margin-bottom:1.5rem;">
+    <div style="font-size:0.78rem; font-weight:700; color:#ec4899; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.6rem;">MOB — Mobile Submission Errors / Phase 4 Only (HTTP 400 / 403)</div>
+    <table class="data-table">
+      <tr><th>Code</th><th>HTTP</th><th>Meaning</th><th>ASTRA Action</th></tr>
+      <tr><td><code>MOB_4001</code></td><td>403</td><td>Device attestation failed — Play Integrity / DeviceCheck token invalid</td><td>Non-retryable; instruct drawer to update app or use a compliant device</td></tr>
+      <tr><td><code>MOB_4002</code></td><td>403</td><td>Drawer not KYC-verified for mobile cheque submission</td><td>Non-retryable; direct drawer to complete V-CIP / full KYC with their bank</td></tr>
+      <tr><td><code>MOB_4003</code></td><td>403</td><td>Device on NPCI fraud blacklist</td><td>Non-retryable; alert bank fraud team; flag drawer account for review</td></tr>
+      <tr><td><code>MOB_4004</code></td><td>400</td><td>Lien marking failed — drawer account insufficient balance</td><td>Reject mobile submission; notify drawer bank; return to drawer with reason</td></tr>
+      <tr><td><code>MOB_4005</code></td><td>400</td><td>Cheque serial number not registered in CBS PPS (Positive Pay)</td><td>Non-retryable; prompt drawer to register cheque in Positive Pay with drawer bank</td></tr>
+    </table>
+  </div>
+
+  <!-- Success Codes -->
+  <div style="margin-bottom:1.5rem;">
+    <div style="font-size:0.78rem; font-weight:700; color:#10b981; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.6rem;">Success Codes — HTTP 200 / 201 / 202</div>
+    <table class="data-table">
+      <tr><th>HTTP</th><th>Endpoint</th><th>Meaning</th></tr>
+      <tr><td>201</td><td>POST /instruments</td><td>Outward cheque accepted by NPCI, queued for clearing, webhook will fire to drawee bank</td></tr>
+      <tr><td>200</td><td>POST /returns</td><td>Drawee decision (CONFIRM or RETURN) filed, acknowledgement received, IET cleared</td></tr>
+      <tr><td>200</td><td>GET /instruments/{ref}</td><td>Status retrieved successfully — check <code>status</code> field (PENDING / CONFIRMED / RETURNED / EXPIRED)</td></tr>
+      <tr><td>200</td><td>GET /settlement-report</td><td>Settlement position for the requested window retrieved — check <code>net_position_paise</code></td></tr>
+      <tr><td>200</td><td>GET /session-event</td><td>Clearing session event details retrieved — check <code>session_status</code></td></tr>
+      <tr><td>202</td><td>POST /mobile/submissions</td><td>Mobile cheque accepted for processing — lien marking initiated, drawee bank being notified</td></tr>
+      <tr><td>200</td><td>POST /mobile/lien-confirm</td><td>Lien mark confirmed on drawer's account — instrument proceeding to clearing</td></tr>
+    </table>
+  </div>
+
+  <!-- Return Reason Codes -->
+  <div>
+    <div style="font-size:0.78rem; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.6rem;">Return Reason Codes (RET) — Filed by Drawee Bank to Dishonour a Cheque</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+      <table class="data-table">
+        <tr><th>Code</th><th>Reason</th><th>NI Act Section</th></tr>
+        <tr><td><code>RET-001</code></td><td>Funds Insufficient</td><td>§138</td></tr>
+        <tr><td><code>RET-002</code></td><td>Account Closed</td><td>§138</td></tr>
+        <tr><td><code>RET-003</code></td><td>Insufficient Funds</td><td>§138</td></tr>
+        <tr><td><code>RET-004</code></td><td>Stop Payment Instruction Active</td><td>—</td></tr>
+        <tr><td><code>RET-005</code></td><td>Drawer Signature Mismatch</td><td>—</td></tr>
+        <tr><td><code>RET-006</code></td><td>Alteration / Tampering Detected</td><td>—</td></tr>
+        <tr><td><code>RET-007</code></td><td>Positive Pay Mismatch</td><td>RBI Circular 2020</td></tr>
+        <tr><td><code>RET-008</code></td><td>Amount in Words ≠ Amount in Figures</td><td>—</td></tr>
+        <tr><td><code>RET-009</code></td><td>Payee Name Mismatch</td><td>—</td></tr>
+      </table>
+      <table class="data-table">
+        <tr><th>Code</th><th>Reason</th><th>NI Act Section</th></tr>
+        <tr><td><code>RET-010</code></td><td>Account Frozen / Attachment Order</td><td>—</td></tr>
+        <tr><td><code>RET-011</code></td><td>Drawer Deceased / Insolvent</td><td>—</td></tr>
+        <tr><td><code>RET-012</code></td><td>Minor Account — Instrument Invalid</td><td>—</td></tr>
+        <tr><td><code>RET-013</code></td><td>Joint Account — All Signatories Required</td><td>—</td></tr>
+        <tr><td><code>RET-014</code></td><td>Refer to Drawer (fraud suspicion)</td><td>—</td></tr>
+        <tr><td><code>RET-015</code></td><td>Image Quality Insufficient — Re-present</td><td>—</td></tr>
+        <tr><td><code>RET-016</code></td><td>Cheque Stale — Date Older than 3 Months</td><td>§35A</td></tr>
+        <tr><td><code>RET-017</code></td><td>Post-Dated Cheque — Not Yet Valid</td><td>—</td></tr>
+        <tr><td><code>RET-018</code></td><td>Lien Release Failed (Phase 4 only)</td><td>—</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
 <!-- FOOTER -->
 <div class="footer">
-  <div class="footer-text">CTS Vision 2030 · Product Concept Note v2.0 · Chunks 1-2 of 5 · Confidential — NPCI Distribution Only</div>
+  <div class="footer-text">CTS Vision 2030 · Product Concept Note v2.0 · Chunks 1-3 of 5 · Confidential — NPCI Distribution Only</div>
   <div class="footer-text">Nilesh Shah · June 2026 · © ASTRA — Automated Settlement and Transaction Recognition Architecture</div>
 </div>
 
