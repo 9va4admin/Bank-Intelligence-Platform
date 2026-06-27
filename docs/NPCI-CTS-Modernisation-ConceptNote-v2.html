@@ -2354,9 +2354,715 @@ def verify_webhook_signature(
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════════
+     CHUNK 4 — §15 Test Cases · §16 Test Environment · §17 Vendor Certification
+     ═══════════════════════════════════════════════════════════════ -->
+
+<!-- §15 TEST CASES -->
+<div class="section" id="test-cases">
+  <div class="sec-header">
+    <span class="sec-num purple">15</span>
+    <div>
+      <div class="sec-title">Test Cases — All Four Phases</div>
+      <div class="sec-sub">Mandatory test scenarios for bank-side vendor certification · Organised by phase and criticality</div>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-bottom:1.5rem;">
+    <strong>Criticality Legend:</strong>&nbsp;
+    <span style="background:#7f1d1d; color:#fca5a5; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:700;">P0 — BLOCKER</span>&nbsp;
+    <span style="background:#78350f; color:#fcd34d; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:700;">P1 — HIGH</span>&nbsp;
+    <span style="background:#1e3a5f; color:#93c5fd; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:700;">P2 — MEDIUM</span>&nbsp;
+    P0 failures block certification. P1 failures require documented deviation plan. P2 are advisory.
+  </div>
+
+  <!-- Phase 1 Test Cases -->
+  <div style="margin-bottom:2rem;">
+    <div style="font-size:0.82rem; font-weight:700; color:#3b82f6; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.8rem; padding-bottom:0.4rem; border-bottom:1px solid #1e3a5f;">
+      Phase 1 — AI Acceleration (SFTP Transport) Test Cases
+    </div>
+    <table class="data-table">
+      <tr><th style="width:10%">TC-ID</th><th style="width:10%">Priority</th><th style="width:30%">Test Scenario</th><th style="width:25%">Expected Outcome</th><th style="width:25%">Pass Criterion</th></tr>
+      <tr>
+        <td><code>P1-TC-001</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>Single inward cheque: full STP pipeline (OCR → signature → PPS → fraud → CONFIRM)</td>
+        <td>NGCH decision filed via SFTP within 600ms wall clock</td>
+        <td>p99 latency &lt; 600ms over 1,000 test instruments; zero IET breaches</td>
+      </tr>
+      <tr>
+        <td><code>P1-TC-002</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>500 inward cheques arrive simultaneously (full batch)</td>
+        <td>All 500 agents spawn in parallel; all decisions filed within 600ms</td>
+        <td>Wall clock &lt; 600ms; zero sequential processing; KEDA scaled to 500 pods</td>
+      </tr>
+      <tr>
+        <td><code>P1-TC-003</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>IET Watchdog fires: cheque stalls in human review, T-30s remaining</td>
+        <td>Watchdog emergency-files to NGCH before IET breach</td>
+        <td>SFTP filing timestamp &lt; IET deadline - 5s; ABANDON parent policy confirmed</td>
+      </tr>
+      <tr>
+        <td><code>P1-TC-004</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>Signature vault miss: account not in Redis cache</td>
+        <td>Cheque routed to HUMAN_REVIEW (never AUTO_RETURN)</td>
+        <td>Audit event <code>VAULT_MISS_HUMAN_REVIEW</code> written; no auto-return in any test case</td>
+      </tr>
+      <tr>
+        <td><code>P1-TC-005</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>Alteration detected by Qwen2-VL: amount in figures overwritten</td>
+        <td>Cheque returned with RET-006; SHAP values stored; fraud score elevated</td>
+        <td>Return reason RET-006; SHAP JSON not null in <code>agent_decisions</code> table</td>
+      </tr>
+      <tr>
+        <td><code>P1-TC-006</code></td>
+        <td><span style="background:#78350f; color:#fcd34d; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P1</span></td>
+        <td>PPS mismatch: amount on cheque differs from Positive Pay registered amount</td>
+        <td>Cheque routed to HUMAN_REVIEW with reason PPS_MISMATCH</td>
+        <td>Human review queue receives item; ops_reviewer decision required</td>
+      </tr>
+      <tr>
+        <td><code>P1-TC-007</code></td>
+        <td><span style="background:#78350f; color:#fcd34d; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P1</span></td>
+        <td>CBS unreachable during balance check</td>
+        <td>Processing continues with image-only path; CBS result marked UNREACHABLE</td>
+        <td>No workflow crash; decision still filed before IET; CBS_UNAVAILABLE audit event</td>
+      </tr>
+      <tr>
+        <td><code>P1-TC-008</code></td>
+        <td><span style="background:#78350f; color:#fcd34d; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P1</span></td>
+        <td>vLLM (Qwen2-VL) GPU inference timeout after 120s</td>
+        <td>Activity degrades gracefully to human review; no IET breach</td>
+        <td>Temporal retries 2x; fallback to HUMAN_REVIEW; IETWatchdogWorkflow active</td>
+      </tr>
+      <tr>
+        <td><code>P1-TC-009</code></td>
+        <td><span style="background:#78350f; color:#fcd34d; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P1</span></td>
+        <td>Same workflow ID submitted twice (Temporal deduplication)</td>
+        <td>Exactly-once guarantee: second submission produces no duplicate NGCH filing</td>
+        <td>NGCH SFTP file count = 1; Temporal shows single workflow execution</td>
+      </tr>
+      <tr>
+        <td><code>P1-TC-010</code></td>
+        <td><span style="background:#1e3a5f; color:#93c5fd; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P2</span></td>
+        <td>Outward scanning: CTS-2010 non-compliant image (wrong DPI)</td>
+        <td>OutwardScanWorkflow rejects with status CTS_REJECTED; Kafka event published</td>
+        <td>Scanner operator notified; image not submitted to NGCH</td>
+      </tr>
+      <tr>
+        <td><code>P1-TC-011</code></td>
+        <td><span style="background:#1e3a5f; color:#93c5fd; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P2</span></td>
+        <td>Sub-member bank (UCB) cheque arrives for sponsor routing</td>
+        <td>SMBForwardingWorkflow validates, routes to sponsor lot, submits to NGCH on SMB's behalf</td>
+        <td>NGCH submission shows sponsor IFSC; SMB notified via notification-service</td>
+      </tr>
+      <tr>
+        <td><code>P1-TC-012</code></td>
+        <td><span style="background:#1e3a5f; color:#93c5fd; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P2</span></td>
+        <td>VaultSyncWorkflow runs at 6AM daily: CBS has 10,000 new signatures</td>
+        <td>All 10,000 signatures loaded to Redis within 30 minutes; vault integrity verified</td>
+        <td>Redis key count increases by 10,000; VaultSyncWorkflow status = SYNC_COMPLETE</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Phase 2 Test Cases -->
+  <div style="margin-bottom:2rem;">
+    <div style="font-size:0.82rem; font-weight:700; color:#10b981; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.8rem; padding-bottom:0.4rem; border-bottom:1px solid #14532d;">
+      Phase 2 — REST API Test Cases
+    </div>
+    <table class="data-table">
+      <tr><th style="width:10%">TC-ID</th><th style="width:10%">Priority</th><th style="width:30%">Test Scenario</th><th style="width:25%">Expected Outcome</th><th style="width:25%">Pass Criterion</th></tr>
+      <tr>
+        <td><code>P2-TC-001</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>POST /instruments: valid submission with all 3 auth layers</td>
+        <td>HTTP 201; NPCI instrument reference returned; webhook triggers drawee within 5s</td>
+        <td>Response schema valid; drawee webhook fired; status = ACCEPTED</td>
+      </tr>
+      <tr>
+        <td><code>P2-TC-002</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>POST /returns: CONFIRM decision filed within IET window</td>
+        <td>HTTP 200; <code>iet_status: WITHIN_WINDOW</code>; settlement batch includes instrument</td>
+        <td>ACK reference returned; <code>time_remaining</code> positive; no IET breach audit event</td>
+      </tr>
+      <tr>
+        <td><code>P2-TC-003</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>Duplicate POST /instruments (same idempotency key)</td>
+        <td>HTTP 409 INSTR_4003; original response body returned; no double-filing</td>
+        <td>NGCH count = 1; Immudb shows single filing event for this idempotency key</td>
+      </tr>
+      <tr>
+        <td><code>P2-TC-004</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>HMAC signature with timestamp > 5 min old (replay attack simulation)</td>
+        <td>HTTP 401 AUTH_4005; request rejected</td>
+        <td>No instrument created; security event logged to Immudb</td>
+      </tr>
+      <tr>
+        <td><code>P2-TC-005</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>NPCI REST API returns HTTP 503 SYS_5003 (maintenance); IET at risk (T-90s)</td>
+        <td>IETWatchdogWorkflow activates SFTP fallback path; instrument filed via SFTP</td>
+        <td>SFTP filing timestamp &lt; IET deadline; audit event SFTP_FALLBACK_ACTIVATED</td>
+      </tr>
+      <tr>
+        <td><code>P2-TC-006</code></td>
+        <td><span style="background:#78350f; color:#fcd34d; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P1</span></td>
+        <td>Rate limit: 601 submissions in 60 seconds (exceeds 600/min limit)</td>
+        <td>601st request receives HTTP 429 SYS_4291; ASTRA backs off per Retry-After</td>
+        <td>Retry-After header honoured; no submission dropped; queue drains after backoff</td>
+      </tr>
+      <tr>
+        <td><code>P2-TC-007</code></td>
+        <td><span style="background:#78350f; color:#fcd34d; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P1</span></td>
+        <td>Webhook delivery fails (bank endpoint returns 500 three times)</td>
+        <td>NPCI retries up to 5 times; bank falls back to REST polling; processing uninterrupted</td>
+        <td>Instrument still processed within IET; polling GET /instruments/{ref} returns status</td>
+      </tr>
+      <tr>
+        <td><code>P2-TC-008</code></td>
+        <td><span style="background:#78350f; color:#fcd34d; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P1</span></td>
+        <td>Session token expiry during processing batch</td>
+        <td>ASTRA silently refreshes token; no requests dropped; no user-visible error</td>
+        <td>Token refresh occurs at T-5min; all in-flight requests complete successfully</td>
+      </tr>
+      <tr>
+        <td><code>P2-TC-009</code></td>
+        <td><span style="background:#78350f; color:#fcd34d; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P1</span></td>
+        <td>mTLS client cert expiry (cert expired yesterday)</td>
+        <td>HTTP 401 AUTH_4001; Vault renews cert; retry succeeds</td>
+        <td>New cert provisioned from Vault PKI within 60s; retry HTTP 201; alert security_lead</td>
+      </tr>
+      <tr>
+        <td><code>P2-TC-010</code></td>
+        <td><span style="background:#1e3a5f; color:#93c5fd; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P2</span></td>
+        <td>Settlement batch: 30-minute window closes; GET /settlement-report</td>
+        <td>Net position returned in paise; RBI e-Kuber reference present in report</td>
+        <td>Report math: confirmed_count × avg_amount matches net_position_paise ± 1 paise</td>
+      </tr>
+      <tr>
+        <td><code>P2-TC-011</code></td>
+        <td><span style="background:#1e3a5f; color:#93c5fd; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P2</span></td>
+        <td>Dual-mode (REST + SFTP simultaneously active)</td>
+        <td>Both paths process independently; no duplicate filing across transports</td>
+        <td>Idempotency key prevents double-counting; both audit trails consistent</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Phase 3 Test Cases -->
+  <div style="margin-bottom:2rem;">
+    <div style="font-size:0.82rem; font-weight:700; color:#8b5cf6; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.8rem; padding-bottom:0.4rem; border-bottom:1px solid #3b0764;">
+      Phase 3 — MCP Transport Test Cases
+    </div>
+    <table class="data-table">
+      <tr><th style="width:10%">TC-ID</th><th style="width:10%">Priority</th><th style="width:30%">Test Scenario</th><th style="width:25%">Expected Outcome</th><th style="width:25%">Pass Criterion</th></tr>
+      <tr>
+        <td><code>P3-TC-001</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>MCP socket connection: bank connects to NPCI MCP server with mTLS</td>
+        <td>Persistent socket established; server capabilities listed; tools available</td>
+        <td>MCP handshake completes &lt; 2s; tool list includes all 8 Phase 3 tools</td>
+      </tr>
+      <tr>
+        <td><code>P3-TC-002</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>MCP tool call: <code>submit_instrument</code> via JSON-RPC 2.0</td>
+        <td>Tool returns NPCI instrument reference; same idempotency guarantee as REST</td>
+        <td>Response schema valid; MCP call_id echoed; exactly-once: duplicate tool call returns same result</td>
+      </tr>
+      <tr>
+        <td><code>P3-TC-003</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>MCP resource subscription: <code>iet_risk_signals/live</code> streaming</td>
+        <td>IETWatchdogWorkflow receives live risk level push; acts at CRITICAL before T-30s</td>
+        <td>Risk signal received &lt; 1s of state change; workflow acts within 30s of CRITICAL signal</td>
+      </tr>
+      <tr>
+        <td><code>P3-TC-004</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>MCP socket drops mid-clearing session (network partition simulation)</td>
+        <td>ASTRA reconnects; re-subscribes to resources; no IET breach during reconnect</td>
+        <td>Reconnect within 5s; IETWatchdogWorkflow survived (ABANDON policy); no duplicate filing</td>
+      </tr>
+      <tr>
+        <td><code>P3-TC-005</code></td>
+        <td><span style="background:#78350f; color:#fcd34d; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P1</span></td>
+        <td>MCP and REST co-exist: instrument submitted via MCP, status queried via REST</td>
+        <td>NPCI ref valid across both transports; idempotency key consistent</td>
+        <td>GET /instruments/{ref} returns same data as MCP <code>query_status</code> tool call</td>
+      </tr>
+      <tr>
+        <td><code>P3-TC-006</code></td>
+        <td><span style="background:#78350f; color:#fcd34d; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P1</span></td>
+        <td>MCP backpressure: 500 tool calls in 1 second (KEDA max swarm)</td>
+        <td>MCP server queues requests; ASTRA handles backpressure without socket overflow</td>
+        <td>All 500 responses received within 5s; no connection resets; no data loss</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Phase 4 Test Cases -->
+  <div style="margin-bottom:2rem;">
+    <div style="font-size:0.82rem; font-weight:700; color:#ec4899; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.8rem; padding-bottom:0.4rem; border-bottom:1px solid #831843;">
+      Phase 4 — Mobile Clearing Test Cases
+    </div>
+    <table class="data-table">
+      <tr><th style="width:10%">TC-ID</th><th style="width:10%">Priority</th><th style="width:30%">Test Scenario</th><th style="width:25%">Expected Outcome</th><th style="width:25%">Pass Criterion</th></tr>
+      <tr>
+        <td><code>P4-TC-001</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>Happy path: drawer uploads cheque via mobile app; lien marked; confirmed; settled</td>
+        <td>9-step lifecycle completes; beneficiary credited within 30-min window</td>
+        <td>lien_events.status = CONVERTED_TO_DEBIT; settlement_batch includes instrument; beneficiary bank receives credit</td>
+      </tr>
+      <tr>
+        <td><code>P4-TC-002</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>Amount mismatch: declared amount ₹15,000 but image shows ₹1,50,000</td>
+        <td>HTTP 400 IMG_4007; submission rejected; lien NOT marked</td>
+        <td>mobile_submissions.status = REJECTED; no lien_event created; fraud alert raised</td>
+      </tr>
+      <tr>
+        <td><code>P4-TC-003</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>Device attestation failed (rooted device / Play Integrity fails)</td>
+        <td>HTTP 403 MOB_4001; upload blocked; no instrument created</td>
+        <td>No <code>cheque_instruments</code> row; Immudb audit event MOB_DEVICE_REJECTED</td>
+      </tr>
+      <tr>
+        <td><code>P4-TC-004</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>Insufficient balance in drawer's account for lien marking</td>
+        <td>HTTP 400 MOB_4004; lien fails; submission rejected; drawer notified</td>
+        <td>lien_events.status = FAILED; notification sent to drawer; no NGCH submission</td>
+      </tr>
+      <tr>
+        <td><code>P4-TC-005</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>Drawee bank (AI agent) rejects mobile cheque (fraud_score > threshold)</td>
+        <td>Decision RETURN filed; lien released; drawer notified with reason</td>
+        <td>lien_events.status = RELEASED; cheque_instruments.status = RETURNED; RET code set</td>
+      </tr>
+      <tr>
+        <td><code>P4-TC-006</code></td>
+        <td><span style="background:#78350f; color:#fcd34d; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P1</span></td>
+        <td>Cheque not in CBS Positive Pay (MOB_4005)</td>
+        <td>NPCI rejects submission; prompts drawer to register in PPS</td>
+        <td>HTTP 400 MOB_4005; clear error message in app UI; no instrument created</td>
+      </tr>
+      <tr>
+        <td><code>P4-TC-007</code></td>
+        <td><span style="background:#78350f; color:#fcd34d; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P1</span></td>
+        <td>Lien expiry: drawee bank takes > 24h to decide (lien expired)</td>
+        <td>Lien auto-released; submission status = LIEN_EXPIRED; drawer notified</td>
+        <td>lien_events.status = EXPIRED; auto-release triggered by Temporal timer; audit complete</td>
+      </tr>
+      <tr>
+        <td><code>P4-TC-008</code></td>
+        <td><span style="background:#1e3a5f; color:#93c5fd; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P2</span></td>
+        <td>Image quality marginal (quality_score = 0.72, just above 0.70 minimum)</td>
+        <td>Accepted with flag <code>reviewed_before_accept: true</code>; manual review queued</td>
+        <td>Submission proceeds but human review item created before drawee bank decision</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Security + Compliance Test Cases -->
+  <div style="margin-bottom:2rem;">
+    <div style="font-size:0.82rem; font-weight:700; color:#f59e0b; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.8rem; padding-bottom:0.4rem; border-bottom:1px solid #451a03;">
+      Cross-Phase: Security, Compliance &amp; Audit Test Cases
+    </div>
+    <table class="data-table">
+      <tr><th style="width:10%">TC-ID</th><th style="width:10%">Priority</th><th style="width:30%">Test Scenario</th><th style="width:25%">Expected Outcome</th><th style="width:25%">Pass Criterion</th></tr>
+      <tr>
+        <td><code>SEC-TC-001</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>Immudb audit trail: every YugabyteDB write generates audit event</td>
+        <td>Immudb event count = YugabyteDB write count for cheque_instruments + agent_decisions</td>
+        <td>Zero orphan DB writes; every event HSM-signed; Merkle root verifiable</td>
+      </tr>
+      <tr>
+        <td><code>SEC-TC-002</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>SHAP values: every NGCH filing must have SHAP stored</td>
+        <td>No filing without SHAP; query agent_decisions where shap_values IS NULL = 0 rows</td>
+        <td>Zero rows with null shap_values where ngch_ref is not null</td>
+      </tr>
+      <tr>
+        <td><code>SEC-TC-003</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>PII in logs: account number, amount, payee name must never appear unmasked</td>
+        <td>Log grep: no 10-digit account number patterns; no payee names; no exact amounts</td>
+        <td>grep -E '[0-9]{10}' in structlog output = 0 matches over 10,000 test cheques</td>
+      </tr>
+      <tr>
+        <td><code>SEC-TC-004</code></td>
+        <td><span style="background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P0</span></td>
+        <td>DC1 failure simulation (Chaos Mesh): DC2 takes over within 30 seconds</td>
+        <td>All in-flight workflows resume on DC2; no IET breaches; RTO &lt; 30s</td>
+        <td>Temporal shows resumed workflows on DC2; no duplicate NGCH filings; RTO measured</td>
+      </tr>
+      <tr>
+        <td><code>SEC-TC-005</code></td>
+        <td><span style="background:#78350f; color:#fcd34d; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P1</span></td>
+        <td>Redis eviction under memory pressure: vault miss triggers human review</td>
+        <td>Evicted keys cause HUMAN_REVIEW routing (never auto-return)</td>
+        <td>Zero auto-returns traceable to vault miss; human_review_items count increases correctly</td>
+      </tr>
+      <tr>
+        <td><code>SEC-TC-006</code></td>
+        <td><span style="background:#78350f; color:#fcd34d; padding:1px 6px; border-radius:3px; font-size:0.7rem;">P1</span></td>
+        <td>Config hot-reload: change fraud_threshold via Admin UI during live clearing</td>
+        <td>New threshold applies to cheques received after change; in-flight cheques use old threshold</td>
+        <td>Config reload &lt; 30s; no pod restart; Kafka event platform.config.changed observed</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- §16 TEST ENVIRONMENT -->
+<div class="section" id="test-environment">
+  <div class="sec-header">
+    <span class="sec-num teal">16</span>
+    <div>
+      <div class="sec-title">Test Environment Specification</div>
+      <div class="sec-sub">NPCI-provided sandbox · Bank staging setup · Test data and simulator tooling</div>
+    </div>
+  </div>
+
+  <div class="layer-grid-3" style="margin-bottom:2rem;">
+    <div class="layer-block">
+      <div class="layer-label">NPCI UAT Sandbox</div>
+      <div class="layer-title">npci-cts-uat.ngch.in</div>
+      <div class="layer-body">
+        <strong>Provided by NPCI during certification.</strong> Mirrors production API behaviour with simulated clearing sessions.<br><br>
+        <strong>Base URLs:</strong><br>
+        Phase 2 REST: <code>https://cts-api-uat.npci.org.in/cts/v1</code><br>
+        Phase 3 MCP: <code>wss://cts-mcp-uat.npci.org.in/mcp</code><br>
+        Phase 4 Mobile: <code>https://cts-mob-uat.npci.org.in/cts/v1</code><br><br>
+        <strong>Features:</strong><br>
+        • Pre-loaded IFSC directory (10,000+ entries)<br>
+        • Simulated clearing sessions every 30 minutes<br>
+        • Configurable response delays for latency testing<br>
+        • Fault injection endpoints (simulate 503, 429, etc.)<br>
+        • IET window: configurable from 3 min to 3 hours<br>
+        • Webhook delivery to <code>https://bank-ngrok.astra.test</code>
+      </div>
+    </div>
+    <div class="layer-block">
+      <div class="layer-label">Bank Staging Environment</div>
+      <div class="layer-title">ASTRA Staging Cluster</div>
+      <div class="layer-body">
+        <strong>Bank deploys ASTRA to their staging Kubernetes cluster.</strong> Must mirror production topology.<br><br>
+        <strong>Minimum spec:</strong><br>
+        • 2 DCs (even in staging — DC failover test needed)<br>
+        • YugabyteDB cluster: 3 nodes (not single-node)<br>
+        • Redis: 6-node cluster (3+3 per DC)<br>
+        • GPU: 1× RTX 4090 minimum (for model inference)<br>
+        • Temporal: 1 server + 2 workers minimum<br>
+        • CBS Simulator: mock CBS returning test account data<br><br>
+        <strong>Cert provisioning:</strong><br>
+        NPCI issues staging mTLS cert for <code>bank_id-uat</code>. Stored in Vault under <code>secret/astra/{bank_id}/ngch-uat/tls/*</code>. Helm values point to UAT cert ref.
+      </div>
+    </div>
+    <div class="layer-block">
+      <div class="layer-label">Test Data</div>
+      <div class="layer-title">Synthetic Cheque Corpus</div>
+      <div class="layer-body">
+        <strong>NPCI provides a synthetic cheque image corpus for testing.</strong> No real customer data ever used.<br><br>
+        <strong>Corpus includes:</strong><br>
+        • 500 CTS-2010 compliant cheque images (TIFF 200 DPI)<br>
+        • 50 images with simulated alterations<br>
+        • 20 images with signature mismatches<br>
+        • 10 post-dated / stale cheques<br>
+        • 5 MICR-damaged images<br>
+        • 100 mobile-submitted JPEG images (Phase 4)<br>
+        • 10 mobile images with amount tampering (Phase 4)<br><br>
+        <strong>CBS Simulator:</strong><br>
+        Mock Finacle/BaNCS endpoint. Returns predictable account states for test accounts. Config: <code>cbs_connector_type: simulator</code> in staging Helm values.
+      </div>
+    </div>
+  </div>
+
+  <!-- Mock NPCI Server for CI -->
+  <div style="background:#0c1a0e; border:1px solid #166534; border-radius:10px; padding:1.5rem; margin-bottom:1.5rem;">
+    <div style="font-size:0.78rem; font-weight:700; color:#86efac; margin-bottom:0.8rem;">Mock NPCI Server — FastAPI (for CI Pipeline, No Real NPCI Dependency)</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
+      <div style="font-size:0.74rem; color:#6b7280; line-height:1.8;">
+        <code style="color:#4ade80;">infra/ci-checks/mock-npci-server/main.py</code><br><br>
+        Implements the full NPCI CTS REST OpenAPI spec as a FastAPI app. Used in CI pipeline to run integration tests without NPCI UAT dependency.<br><br>
+        <strong>Behaviour modes (configurable via headers):</strong><br>
+        • <code>X-NPCI-Sim-Delay: 50</code> → adds 50ms processing delay<br>
+        • <code>X-NPCI-Sim-Error: SYS_5003</code> → returns that error code<br>
+        • <code>X-NPCI-Sim-IET-Risk: CRITICAL</code> → pushes risk signal on MCP resource<br>
+        • <code>X-NPCI-Sim-Reject-Auth</code> → simulates cert expiry
+      </div>
+      <div style="font-size:0.74rem; color:#6b7280; line-height:1.8;">
+        <strong>Contract tests (50 scenarios):</strong><br>
+        Each NPCI error code (AUTH, INSTR, IMG, SYS, SETTLE, MOB) has a dedicated test that configures the mock server to return it and verifies ASTRA's handling is correct.<br><br>
+        Run: <code style="color:#4ade80;">pytest tests/integration/npci/ --mock-npci-server=http://localhost:8099</code><br><br>
+        CI stage: <code>test-npci-contract</code> runs after unit tests, before image build. Failure blocks PR merge — NPCI contract compliance is non-negotiable.
+      </div>
+    </div>
+  </div>
+
+  <!-- Test execution -->
+  <div style="font-size:0.8rem; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.8rem;">Test Execution Order (Certification Run)</div>
+  <div style="display:flex; flex-wrap:wrap; gap:0.6rem; align-items:center; margin-bottom:1.5rem;">
+    <div style="background:#0f2744; border:1px solid #1e40af; border-radius:8px; padding:0.5rem 0.9rem; font-size:0.72rem; color:#93c5fd; text-align:center;">
+      1. Unit Tests<br><span style="color:#475569; font-size:0.66rem;">pytest · 95%+ CTS activities<br>80%+ overall</span>
+    </div>
+    <div style="color:#3b82f6;">→</div>
+    <div style="background:#0f2744; border:1px solid #1e40af; border-radius:8px; padding:0.5rem 0.9rem; font-size:0.72rem; color:#93c5fd; text-align:center;">
+      2. NPCI Contract<br><span style="color:#475569; font-size:0.66rem;">50 mock-server scenarios<br>all phases</span>
+    </div>
+    <div style="color:#3b82f6;">→</div>
+    <div style="background:#0f2744; border:1px solid #1e40af; border-radius:8px; padding:0.5rem 0.9rem; font-size:0.72rem; color:#93c5fd; text-align:center;">
+      3. Performance<br><span style="color:#475569; font-size:0.66rem;">500 cheques &lt; 600ms<br>p99 latency</span>
+    </div>
+    <div style="color:#3b82f6;">→</div>
+    <div style="background:#0f2744; border:1px solid #1e40af; border-radius:8px; padding:0.5rem 0.9rem; font-size:0.72rem; color:#93c5fd; text-align:center;">
+      4. NPCI UAT<br><span style="color:#475569; font-size:0.66rem;">Real sandbox<br>P0 + P1 scenarios</span>
+    </div>
+    <div style="color:#3b82f6;">→</div>
+    <div style="background:#0f2744; border:1px solid #1e40af; border-radius:8px; padding:0.5rem 0.9rem; font-size:0.72rem; color:#93c5fd; text-align:center;">
+      5. Chaos Tests<br><span style="color:#475569; font-size:0.66rem;">DC failure · Redis eviction<br>vLLM down · NPCI 503</span>
+    </div>
+    <div style="color:#3b82f6;">→</div>
+    <div style="background:#0f2744; border:1px solid #1e40af; border-radius:8px; padding:0.5rem 0.9rem; font-size:0.72rem; color:#93c5fd; text-align:center;">
+      6. Security Pen Test<br><span style="color:#475569; font-size:0.66rem;">OWASP ZAP · HMAC bypass<br>PII in logs</span>
+    </div>
+    <div style="color:#3b82f6;">→</div>
+    <div style="background:#052e16; border:1px solid #15803d; border-radius:8px; padding:0.5rem 0.9rem; font-size:0.72rem; color:#86efac; text-align:center;">
+      7. NPCI Sign-Off<br><span style="color:#166534; font-size:0.66rem;">Certification issued<br>bank goes live</span>
+    </div>
+  </div>
+
+  <!-- Performance benchmarks -->
+  <div style="background:#0f172a; border:1px solid #1e293b; border-radius:10px; padding:1.2rem;">
+    <div style="font-size:0.78rem; font-weight:700; color:#94a3b8; margin-bottom:0.8rem;">Performance Benchmarks — Must Pass for Certification</div>
+    <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:1rem;">
+      <div style="text-align:center;">
+        <div style="font-size:1.4rem; font-weight:800; color:#3b82f6;">600ms</div>
+        <div style="font-size:0.68rem; color:#475569;">CTS agent p99 latency<br>(single cheque)</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:1.4rem; font-weight:800; color:#10b981;">0.000%</div>
+        <div style="font-size:0.68rem; color:#475569;">IET breach rate<br>(over 10,000 test instruments)</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:1.4rem; font-weight:800; color:#f59e0b;">&lt;30s</div>
+        <div style="font-size:0.68rem; color:#475569;">DC failover RTO<br>(Chaos Mesh test)</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:1.4rem; font-weight:800; color:#8b5cf6;">99.0%+</div>
+        <div style="font-size:0.68rem; color:#475569;">OCR accuracy<br>(synthetic corpus)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- §17 VENDOR CERTIFICATION MECHANISM -->
+<div class="section" id="vendor-certification">
+  <div class="sec-header">
+    <span class="sec-num pink">17</span>
+    <div>
+      <div class="sec-title">Vendor Certification Mechanism</div>
+      <div class="sec-sub">Process for bank-side software vendors to obtain NPCI CTS Certification across all four phases</div>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-bottom:1.5rem;">
+    Any bank-side vendor (software provider, system integrator, or bank's in-house IT team) that builds or deploys ASTRA-class CTS software must complete this certification before live NGCH connectivity is granted. Certification is phase-specific — a vendor certified for Phase 1 must re-certify for Phase 2 before activating REST API access.
+  </div>
+
+  <!-- Certification phases -->
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-bottom:2rem;">
+
+    <!-- Gate 1 -->
+    <div style="background:#0f2744; border:2px solid #3b82f6; border-radius:12px; padding:1.5rem;">
+      <div style="font-size:0.7rem; font-weight:700; color:#3b82f6; text-transform:uppercase; letter-spacing:.08em; margin-bottom:0.3rem;">Gate 1 — Self-Certification</div>
+      <div style="font-size:0.85rem; font-weight:700; color:#e2e8f0; margin-bottom:0.8rem;">Vendor-Run Test Suite</div>
+      <div style="font-size:0.74rem; color:#94a3b8; line-height:1.8;">
+        <strong>Who runs it:</strong> Vendor's QA team, independently<br>
+        <strong>Tool:</strong> NPCI-provided mock server + test case suite (this document §15)<br>
+        <strong>What must pass:</strong> All P0 test cases for target phase; zero failures<br>
+        <strong>Output:</strong> Self-certification report (PDF) signed by vendor's CTO/CISO<br>
+        <strong>Format:</strong><br>
+        • Test run log (CI output)<br>
+        • Coverage report (&gt;95% for CTS activities)<br>
+        • Performance benchmark results (500 cheques / latency report)<br>
+        • Security scan report (gitleaks + Trivy + Semgrep clean)<br>
+        <strong>Timeline:</strong> Vendor completes within 30 days of starting<br>
+        <strong>Gate opens:</strong> Submit report to NPCI CTS Integration Team via NPCI Vendor Portal
+      </div>
+    </div>
+
+    <!-- Gate 2 -->
+    <div style="background:#0f2744; border:2px solid #10b981; border-radius:12px; padding:1.5rem;">
+      <div style="font-size:0.7rem; font-weight:700; color:#10b981; text-transform:uppercase; letter-spacing:.08em; margin-bottom:0.3rem;">Gate 2 — NPCI Technical Review</div>
+      <div style="font-size:0.85rem; font-weight:700; color:#e2e8f0; margin-bottom:0.8rem;">Architecture &amp; Security Audit</div>
+      <div style="font-size:0.74rem; color:#94a3b8; line-height:1.8;">
+        <strong>Who runs it:</strong> NPCI CTS Integration Team (2 engineers + 1 security reviewer)<br>
+        <strong>Format:</strong> 1-day technical review (on-site or video)<br>
+        <strong>Review agenda:</strong><br>
+        • Architecture walkthrough vs. this concept note<br>
+        • IET safety design review (watchdog pattern verification)<br>
+        • Authentication implementation (3-layer L1/L2/L3)<br>
+        • Idempotency design (UUIDv7 key lifecycle)<br>
+        • PII handling and data localisation compliance<br>
+        • Audit trail completeness (Immudb integration)<br>
+        • Vault miss handling verification (never auto-return)<br>
+        <strong>Output:</strong> NPCI technical review report — PASS / CONDITIONAL / FAIL<br>
+        <strong>Timeline:</strong> NPCI responds within 10 business days of submission
+      </div>
+    </div>
+
+    <!-- Gate 3 -->
+    <div style="background:#0f2744; border:2px solid #f59e0b; border-radius:12px; padding:1.5rem;">
+      <div style="font-size:0.7rem; font-weight:700; color:#f59e0b; text-transform:uppercase; letter-spacing:.08em; margin-bottom:0.3rem;">Gate 3 — UAT on NPCI Sandbox</div>
+      <div style="font-size:0.85rem; font-weight:700; color:#e2e8f0; margin-bottom:0.8rem;">Live Testing on NPCI UAT Environment</div>
+      <div style="font-size:0.74rem; color:#94a3b8; line-height:1.8;">
+        <strong>Who participates:</strong> Vendor + bank IT team + NPCI observer<br>
+        <strong>Duration:</strong> 5 business days (minimum 3 full clearing sessions per day)<br>
+        <strong>Scenarios run (NPCI-observed):</strong><br>
+        • All P0 test cases from §15 (each scenario run 3x)<br>
+        • DC failover test (Chaos Mesh, live on staging)<br>
+        • IET near-breach simulation (IET compressed to 5 minutes)<br>
+        • 500-cheque parallel batch load test<br>
+        • Error injection (AUTH_4001, SYS_5003, INSTR_4006)<br>
+        <strong>Pass criteria:</strong><br>
+        • Zero IET breaches across all runs<br>
+        • DC failover RTO &lt; 30s (measured by NPCI)<br>
+        • All P0 scenarios pass; P1 failures documented<br>
+        <strong>Output:</strong> NPCI UAT sign-off letter (per phase)
+      </div>
+    </div>
+
+    <!-- Gate 4 -->
+    <div style="background:#0f2744; border:2px solid #8b5cf6; border-radius:12px; padding:1.5rem;">
+      <div style="font-size:0.7rem; font-weight:700; color:#8b5cf6; text-transform:uppercase; letter-spacing:.08em; margin-bottom:0.3rem;">Gate 4 — Production Certification</div>
+      <div style="font-size:0.85rem; font-weight:700; color:#e2e8f0; margin-bottom:0.8rem;">Controlled Production Pilot</div>
+      <div style="font-size:0.74rem; color:#94a3b8; line-height:1.8;">
+        <strong>Who participates:</strong> Bank + NPCI + RBI (for Phases 3 and 4)<br>
+        <strong>Duration:</strong> 30-day controlled pilot (limited instrument volume)<br>
+        <strong>Volume cap during pilot:</strong><br>
+        • Week 1: 100 instruments/day<br>
+        • Week 2: 500 instruments/day<br>
+        • Week 3: 2,000 instruments/day<br>
+        • Week 4: full production volume<br>
+        <strong>Monitoring:</strong> NPCI observes IET metrics in real-time via ASTRA Diagnostic MCP (consent-gated). Any IET breach = immediate halt + root cause required.<br><br>
+        <strong>Certificate issued:</strong> NPCI CTS Vendor Certificate (phase-specific)<br>
+        Valid 2 years · Renewal requires re-run of Gate 3 scenarios<br>
+        <strong>Public registry:</strong> NPCI publishes list of certified vendors on npci.org.in
+      </div>
+    </div>
+  </div>
+
+  <!-- Certification checklist -->
+  <div style="background:#0c1a0e; border:1px solid #166534; border-radius:10px; padding:1.5rem; margin-bottom:1.5rem;">
+    <div style="font-size:0.78rem; font-weight:700; color:#86efac; margin-bottom:0.8rem;">Mandatory Certification Checklist — ASTRA Submits This With Gate 1</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; font-size:0.73rem; color:#4ade80; line-height:2;">
+      <div>
+        <strong style="color:#86efac;">Architecture</strong><br>
+        ☑ IET Watchdog design reviewed (ParentClosePolicy: ABANDON)<br>
+        ☑ Vault miss → HUMAN_REVIEW enforced (never AUTO_RETURN)<br>
+        ☑ Exactly-once: Temporal workflow IDs + NPCI idempotency key<br>
+        ☑ Active-active DC setup (RPO=0, RTO&lt;30s demonstrated)<br>
+        ☑ CTS and EJ module blast isolation confirmed<br>
+        ☑ SFTP fallback active for all phases (never decommissioned)<br><br>
+        <strong style="color:#86efac;">Security</strong><br>
+        ☑ mTLS cert from NPCI PKI loaded in HSM (FIPS 140-2 L3)<br>
+        ☑ API Key and HMAC secret in HashiCorp Vault (never in code)<br>
+        ☑ PII: account numbers HMAC-hashed; names pgcrypto-encrypted<br>
+        ☑ gitleaks: zero findings on entire git history<br>
+        ☑ Trivy: zero CRITICAL CVEs in Docker images<br>
+        ☑ OWASP ZAP: zero HIGH findings on staging environment
+      </div>
+      <div>
+        <strong style="color:#86efac;">AI &amp; Audit</strong><br>
+        ☑ SHAP values stored before every NGCH filing (zero exceptions)<br>
+        ☑ All AI thresholds from config_service (zero hardcoded values)<br>
+        ☑ Langfuse: every AI inference traced and observable<br>
+        ☑ Immudb: every DB write has paired audit event (HSM-signed)<br>
+        ☑ OCR accuracy &gt; 99.0% on synthetic corpus<br>
+        ☑ Signature verification precision &gt; 97.0%<br><br>
+        <strong style="color:#86efac;">Operations</strong><br>
+        ☑ Config hot-reload &lt; 30s (Layer 3 changes, no pod restart)<br>
+        ☑ Maker-checker for all Layer 3 config changes<br>
+        ☑ Rollback procedure: ArgoCD revert &lt; 10 minutes<br>
+        ☑ Post-upgrade smoke test passes (Vault + mTLS + Immudb)<br>
+        ☑ All Kafka topics prefixed correctly (cts.* / ej.*)<br>
+        ☑ Separate Redis clusters (redis-cts, redis-ej confirmed)
+      </div>
+    </div>
+  </div>
+
+  <!-- Phase-specific cert matrix -->
+  <div style="font-size:0.78rem; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.6rem;">Certification Matrix — What Each Phase Certifies</div>
+  <table class="data-table">
+    <tr><th>Phase</th><th>Transport Certified</th><th>New Gate 3 Scenarios</th><th>RBI Involvement</th><th>Certificate Name</th></tr>
+    <tr>
+      <td><strong>Phase 1</strong></td>
+      <td>SFTP (existing)</td>
+      <td>P1-TC-001 to P1-TC-012 + SEC-TC-001 to SEC-TC-006</td>
+      <td>No (existing SFTP model)</td>
+      <td>NPCI CTS-AI Cert (Phase 1)</td>
+    </tr>
+    <tr>
+      <td><strong>Phase 2</strong></td>
+      <td>REST API + Webhooks</td>
+      <td>P2-TC-001 to P2-TC-011 (addition to Phase 1 suite)</td>
+      <td>Regulatory review (new API integration)</td>
+      <td>NPCI CTS-REST Cert (Phase 2)</td>
+    </tr>
+    <tr>
+      <td><strong>Phase 3</strong></td>
+      <td>MCP (JSON-RPC 2.0 over mTLS socket)</td>
+      <td>P3-TC-001 to P3-TC-006 (addition to Phase 2 suite)</td>
+      <td>Yes — new protocol requires RBI notification</td>
+      <td>NPCI CTS-MCP Cert (Phase 3)</td>
+    </tr>
+    <tr>
+      <td><strong>Phase 4</strong></td>
+      <td>Mobile + Lien API</td>
+      <td>P4-TC-001 to P4-TC-008 (mobile-specific scenarios)</td>
+      <td>Yes — NI Act 1881 amendment + RBI regulatory sandbox required before cert issued</td>
+      <td>NPCI CTS-Mobile Cert (Phase 4) — conditional on RBI regulatory sandbox approval</td>
+    </tr>
+  </table>
+
+  <!-- Support contacts -->
+  <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem; margin-top:1.5rem;">
+    <div style="background:#111827; border:1px solid #1f2937; border-radius:8px; padding:1rem; text-align:center;">
+      <div style="font-size:0.7rem; color:#6b7280; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.3rem;">NPCI CTS Integration</div>
+      <div style="font-size:0.78rem; color:#93c5fd;">cts-integration@npci.org.in</div>
+      <div style="font-size:0.7rem; color:#475569; margin-top:0.3rem;">Technical queries, UAT access, sandbox credentials</div>
+    </div>
+    <div style="background:#111827; border:1px solid #1f2937; border-radius:8px; padding:1rem; text-align:center;">
+      <div style="font-size:0.7rem; color:#6b7280; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.3rem;">ASTRA Vendor Support</div>
+      <div style="font-size:0.78rem; color:#93c5fd;">certs@9va.in</div>
+      <div style="font-size:0.7rem; color:#475569; margin-top:0.3rem;">ASTRA certification assistance, Helm onboarding, architecture review</div>
+    </div>
+    <div style="background:#111827; border:1px solid #1f2937; border-radius:8px; padding:1rem; text-align:center;">
+      <div style="font-size:0.7rem; color:#6b7280; text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.3rem;">NPCI Vendor Portal</div>
+      <div style="font-size:0.78rem; color:#93c5fd;">vendor.npci.org.in/cts</div>
+      <div style="font-size:0.7rem; color:#475569; margin-top:0.3rem;">Submit Gate 1 report, track certification status, access test corpus</div>
+    </div>
+  </div>
+</div>
+
 <!-- FOOTER -->
 <div class="footer">
-  <div class="footer-text">CTS Vision 2030 · Product Concept Note v2.0 · Chunks 1-3 of 5 · Confidential — NPCI Distribution Only</div>
+  <div class="footer-text">CTS Vision 2030 · Product Concept Note v2.0 · Chunks 1-4 of 5 · Confidential — NPCI Distribution Only</div>
   <div class="footer-text">Nilesh Shah · June 2026 · © ASTRA — Automated Settlement and Transaction Recognition Architecture</div>
 </div>
 
