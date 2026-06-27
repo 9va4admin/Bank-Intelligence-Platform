@@ -27,8 +27,8 @@
   .v-badge{display:inline-block;background:#2563eb;color:#fff;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:3px 10px;border-radius:2px;margin-bottom:12px}
 
   /* KPI STRIP */
-  .kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid #e2e8f0}
-  .kpi{padding:18px 16px 16px;border-right:1px solid #e2e8f0;background:#fff}
+  .kpi-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));border-bottom:1px solid #e2e8f0}
+  .kpi,.kpi-card{padding:18px 16px 16px;border-right:1px solid #e2e8f0;background:#fff}
   .kpi:last-child{border-right:none}
   .kpi-val{font-size:22px;font-weight:900;color:#0f2044;line-height:1;margin-bottom:4px}
   .kpi-val.blue{color:#2563eb}
@@ -153,7 +153,7 @@
   .layer-item code{font-family:monospace;font-size:10px;background:#e2e8f0;padding:1px 4px;border-radius:2px;color:#1e293b}
 
   /* CODE BLOCKS */
-  .code-block{background:#0f172a;border-radius:4px;padding:14px 16px;margin-bottom:10px;overflow-x:auto}
+  .code-block{background:#0f172a;color:#e2e8f0;border-radius:4px;padding:14px 16px;margin-bottom:10px;overflow-x:auto}
   .code-block pre{font-family:'JetBrains Mono','Fira Code',monospace;font-size:10.5px;color:#e2e8f0;line-height:1.65;white-space:pre;margin:0}
   .code-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748b;margin-bottom:5px;display:flex;align-items:center;gap:8px}
   .code-label span{background:#1e293b;color:#94a3b8;padding:2px 8px;border-radius:2px;font-size:9px}
@@ -361,14 +361,79 @@
   .arrow-tag{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:3px;font-size:10px;font-weight:600;color:#374151;margin-top:6px}
   .arrow-tag::before{content:'→';color:#2563eb;font-weight:800}
 
+  /* NAVBAR */
+  .sticky-nav{position:sticky;top:0;z-index:100;background:#0f2044;border-bottom:2px solid #2563eb;padding:0}
+  .nav-inner{max-width:980px;margin:0 auto;display:flex;align-items:center;overflow-x:auto;scrollbar-width:none}
+  .nav-inner::-webkit-scrollbar{display:none}
+  .nav-section{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.4);padding:8px 12px 8px 16px;white-space:nowrap;border-right:1px solid rgba(255,255,255,.08)}
+  .nav-link{font-size:9.5px;font-weight:600;color:rgba(255,255,255,.65);text-decoration:none;padding:8px 10px;white-space:nowrap;transition:color .15s,background .15s;display:inline-block}
+  .nav-link:hover{color:#60a5fa;background:rgba(255,255,255,.05)}
+  .nav-controls{margin-left:auto;display:flex;gap:4px;padding:0 12px;flex-shrink:0}
+  .nav-btn{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:2px;border:1px solid rgba(255,255,255,.2);background:transparent;color:rgba(255,255,255,.7);cursor:pointer;transition:all .15s;white-space:nowrap}
+  .nav-btn:hover{background:rgba(255,255,255,.1);color:#fff}
+
+  /* EXPAND / COLLAPSE */
+  .section{position:relative}
+  .sec-content{overflow:hidden;transition:max-height .3s ease}
+  .sec-toggle{margin-left:auto;width:22px;height:22px;border:none;background:transparent;cursor:pointer;color:#94a3b8;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .25s}
+  .sec-toggle.collapsed{transform:rotate(-90deg)}
+
+  /* TABLE OF CONTENTS */
+  .toc-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 16px;margin-top:12px}
+  .toc-item{display:flex;gap:6px;align-items:baseline;font-size:10.5px;padding:3px 0;border-bottom:1px dotted #e2e8f0}
+  .toc-num{font-size:9px;font-weight:700;color:#94a3b8;flex-shrink:0;width:20px}
+  .toc-link{color:#2563eb;text-decoration:none;font-weight:500;line-height:1.4}
+  .toc-link:hover{text-decoration:underline;color:#1d4ed8}
+  .toc-tag{font-size:8.5px;font-weight:700;padding:1px 5px;border-radius:2px;margin-left:4px;white-space:nowrap}
+  .toc-tag.p1{background:#dbeafe;color:#1d4ed8}
+  .toc-tag.p2{background:#dcfce7;color:#15803d}
+  .toc-tag.p3{background:#f3e8ff;color:#7e22ce}
+  .toc-tag.p4{background:#fef9c3;color:#b45309}
+  .toc-tag.new{background:#0f2044;color:#fff}
+
   /* PRINT */
   @media print{
     body{background:#fff}
     .page{box-shadow:none;max-width:100%}
+    .sticky-nav{display:none}
+    .sec-content{max-height:none!important}
   }
 </style>
 </head>
 <body>
+<!-- STICKY NAVBAR -->
+<nav class="sticky-nav">
+  <div class="nav-inner">
+    <span class="nav-section">CTS Vision 2030</span>
+    <a class="nav-link" href="#ecosystem">§1 Ecosystem</a>
+    <a class="nav-link" href="#current-process">§2 Current Process</a>
+    <a class="nav-link" href="#failure-modes">§3 Failures</a>
+    <a class="nav-link" href="#vision-roadmap">§4 Roadmap</a>
+    <a class="nav-link" href="#design-principles">§5 Principles</a>
+    <a class="nav-link" href="#phase1-deepdive">§6 Phase 1</a>
+    <a class="nav-link" href="#phase2-rest">§7 Phase 2</a>
+    <a class="nav-link" href="#phase3-mcp">§8 Phase 3</a>
+    <a class="nav-link" href="#phase4-mobile">§9 Phase 4</a>
+    <a class="nav-link" href="#data-dictionary">§10 Data Dict</a>
+    <a class="nav-link" href="#er-diagram">§11 ER Diagram</a>
+    <a class="nav-link" href="#auth-mechanism">§12 Auth</a>
+    <a class="nav-link" href="#api-payloads">§13 API Payloads</a>
+    <a class="nav-link" href="#error-codes">§14 Error Codes</a>
+    <a class="nav-link" href="#test-cases">§15 Test Cases</a>
+    <a class="nav-link" href="#test-environment">§16 Test Env</a>
+    <a class="nav-link" href="#vendor-certification">§17 Vendor Cert</a>
+    <a class="nav-link" href="#sequence-diagrams">§18 Seq Diagrams</a>
+    <a class="nav-link" href="#npci-bank-matrix">§19 NPCI vs Bank</a>
+    <a class="nav-link" href="#competitive-positioning">§20 Competitive</a>
+    <a class="nav-link" href="#regulatory-roadmap">§21 Regulatory</a>
+    <a class="nav-link" href="#conclusion">§22 Conclusion</a>
+    <div class="nav-controls">
+      <button class="nav-btn" onclick="expandAll()">▼ Expand All</button>
+      <button class="nav-btn" onclick="collapseAll()">▲ Collapse All</button>
+    </div>
+  </div>
+</nav>
+
 <div class="page">
 
 <!-- TOP STRIP -->
@@ -387,7 +452,7 @@
     <div class="hero-meta-item"><strong>Nilesh Shah</strong>Ex-NPCI · Piramal Finance · Fullerton India (SMFG)</div>
     <div class="hero-meta-item"><strong>June 2026</strong>Industry Consultation Draft v2.0</div>
     <div class="hero-meta-item"><strong>Scope</strong>CTS 2010 · NGCH · All 1,581 Member Banks</div>
-    <div class="hero-meta-item"><strong>Horizon</strong>Jan 2027 → Sep 2028 → 2030</div>
+    <div class="hero-meta-item"><strong>Horizon</strong>Jan 2027 → Sep 2027 → Jan 2028 → Jan 2029</div>
     <div class="hero-meta-item"><strong>Classification</strong>Confidential — NPCI Distribution Only</div>
   </div>
 </div>
@@ -426,6 +491,41 @@
   </div>
 </div>
 
+<!-- TABLE OF CONTENTS -->
+<div class="section" id="toc">
+  <div class="sec-header">
+    <div class="sec-num" style="background:#475569">≡</div>
+    <div class="sec-header-text">Table of Contents</div>
+    <div class="sec-header-sub">22 Sections · 4 Phases · Full-Spectrum Roadmap</div>
+  </div>
+  <div class="sec-body">
+    <div class="toc-grid">
+      <div class="toc-item"><span class="toc-num">§1</span><a class="toc-link" href="#ecosystem">CTS Ecosystem Overview</a></div>
+      <div class="toc-item"><span class="toc-num">§2</span><a class="toc-link" href="#current-process">Current SFTP Clearing Process</a></div>
+      <div class="toc-item"><span class="toc-num">§3</span><a class="toc-link" href="#failure-modes">Failure Modes &amp; IET Risk</a></div>
+      <div class="toc-item"><span class="toc-num">§4</span><a class="toc-link" href="#vision-roadmap">Vision 2030 Roadmap</a></div>
+      <div class="toc-item"><span class="toc-num">§5</span><a class="toc-link" href="#design-principles">Design Principles</a></div>
+      <div class="toc-item"><span class="toc-num">§6</span><a class="toc-link" href="#phase1-deepdive">Phase 1 Deep-Dive <span class="toc-tag p1">Jan 2027</span></a></div>
+      <div class="toc-item"><span class="toc-num">§7</span><a class="toc-link" href="#phase2-rest">Phase 2 — REST API <span class="toc-tag p2">Sep 2027</span></a></div>
+      <div class="toc-item"><span class="toc-num">§8</span><a class="toc-link" href="#phase3-mcp">Phase 3 — MCP Native <span class="toc-tag p3">Jan 2028</span></a></div>
+      <div class="toc-item"><span class="toc-num">§9</span><a class="toc-link" href="#phase4-mobile">Phase 4 — Mobile-First <span class="toc-tag p4">Jan 2029</span></a></div>
+      <div class="toc-item"><span class="toc-num">§10</span><a class="toc-link" href="#data-dictionary">Data Dictionary</a></div>
+      <div class="toc-item"><span class="toc-num">§11</span><a class="toc-link" href="#er-diagram">Entity-Relationship Diagram</a></div>
+      <div class="toc-item"><span class="toc-num">§12</span><a class="toc-link" href="#auth-mechanism">Authentication — 3-Layer</a></div>
+      <div class="toc-item"><span class="toc-num">§13</span><a class="toc-link" href="#api-payloads">API Payloads (EP-1 to EP-5)</a></div>
+      <div class="toc-item"><span class="toc-num">§14</span><a class="toc-link" href="#error-codes">Error &amp; Return Codes</a></div>
+      <div class="toc-item"><span class="toc-num">§15</span><a class="toc-link" href="#test-cases">Test Cases (47 Scenarios)</a></div>
+      <div class="toc-item"><span class="toc-num">§16</span><a class="toc-link" href="#test-environment">Test Environment</a></div>
+      <div class="toc-item"><span class="toc-num">§17</span><a class="toc-link" href="#vendor-certification">Vendor Certification Gates</a></div>
+      <div class="toc-item"><span class="toc-num">§18</span><a class="toc-link" href="#sequence-diagrams">Sequence Diagrams</a></div>
+      <div class="toc-item"><span class="toc-num">§19</span><a class="toc-link" href="#npci-bank-matrix">NPCI vs Bank Responsibility <span class="toc-tag new">New</span></a></div>
+      <div class="toc-item"><span class="toc-num">§20</span><a class="toc-link" href="#competitive-positioning">Competitive Positioning</a></div>
+      <div class="toc-item"><span class="toc-num">§21</span><a class="toc-link" href="#regulatory-roadmap">Regulatory Roadmap</a></div>
+      <div class="toc-item"><span class="toc-num">§22</span><a class="toc-link" href="#conclusion">Conclusion</a></div>
+    </div>
+  </div>
+</div>
+
 <!-- STAT BANNER -->
 <div class="stat-banner">
   <div class="stat-banner-item">
@@ -446,7 +546,7 @@
   </div>
   <div class="stat-banner-item">
     <div class="stat-banner-val">4 Phases</div>
-    <div class="stat-banner-lbl">Jan 2027 → Sep 2027 → Dec 2027 → Sep 2028</div>
+    <div class="stat-banner-lbl">Jan 2027 → Sep 2027 → Jan 2028 → Jan 2029</div>
   </div>
 </div>
 
@@ -865,7 +965,7 @@
       </div>
     </div>
     <div class="rm-phase">
-      <div class="rm-phase-head p3">Phase 3 — MCP Intelligence<div class="period">Dec 2027</div></div>
+      <div class="rm-phase-head p3">Phase 3 — MCP Intelligence<div class="period">Jan 2028</div></div>
       <div class="rm-body">
         <div class="rm-item"><div class="rm-dot purple"></div><div class="rm-text"><strong>NPCI MCP server</strong> — tools + resources over socket transport</div></div>
         <div class="rm-item"><div class="rm-dot purple"></div><div class="rm-text"><strong>Image as Resource</strong> — cheque images streamed via MCP resources</div></div>
@@ -876,7 +976,7 @@
       </div>
     </div>
     <div class="rm-phase">
-      <div class="rm-phase-head p4">Phase 4 — Mobile-First<div class="period">Sep 2028</div></div>
+      <div class="rm-phase-head p4">Phase 4 — Mobile-First<div class="period">Jan 2029</div></div>
       <div class="rm-body">
         <div class="rm-item"><div class="rm-dot amber"></div><div class="rm-text"><strong>Drawer mobile app</strong> — upload scan, fill beneficiary, submit</div></div>
         <div class="rm-item"><div class="rm-dot amber"></div><div class="rm-text"><strong>Real-time routing</strong> — NPCI pushes to drawee bank instantly</div></div>
@@ -3463,9 +3563,8 @@ def verify_webhook_signature(
       </div>
     </div>
 
-    <p style="margin-bottom:1.2rem;">The cheque is not dying. Despite UPI's growth, 609 million cheques per year is structural — trade finance, high-value property transactions, government payments, and rural banking depend on it. But the infrastructure serving the cheque is operating at 1987 speed in a 2027 world. <strong style="color:#f9fafb;">The IET mandate of January 2026 was RBI's signal: the status quo is no longer acceptable.</strong> ASTRA is the answer to that signal.</p>
+    <p style="margin-bottom:1.2rem;">The cheque is not dying. Despite UPI's growth, 609 million cheques per year is structural — trade finance, high-value property transactions, government payments, and rural banking depend on it. But the infrastructure serving the cheque is operating at 1987 speed in a 2027 world. <strong style="color:#f9fafb;">The IET mandate of January 2026 was RBI's signal: the status quo is no longer acceptable.</strong></p>
 
-    <p style="margin-bottom:1.5rem; color:#94a3b8; font-size:0.78rem; font-style:italic;">This concept note was prepared by Nilesh Shah (Ex-NPCI · Piramal Finance · Fullerton India / SMFG) and documents the technical architecture of ASTRA — Automated Settlement and Transaction Recognition Architecture. All architectural decisions referenced herein are implemented and testable. A live demonstration on ASTRA staging infrastructure can be arranged at NPCI's convenience.</p>
   </div>
 
   <!-- Final KPI strip -->
@@ -3482,12 +3581,12 @@ def verify_webhook_signature(
     </div>
     <div class="kpi-card">
       <div class="kpi-val">Phase 3</div>
-      <div class="kpi-badge">Dec 2027</div>
+      <div class="kpi-badge">Jan 2028</div>
       <div class="kpi-label">MCP Native · Agentic clearing</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-val kpi-val amber">Phase 4</div>
-      <div class="kpi-badge purple">Sep 2028</div>
+      <div class="kpi-badge purple">Jan 2029</div>
       <div class="kpi-label">Mobile Submit · Lien-first</div>
     </div>
     <div class="kpi-card">
@@ -3506,9 +3605,55 @@ def verify_webhook_signature(
 <!-- FOOTER -->
 <div class="footer">
   <div class="footer-text">CTS Vision 2030 · Product Concept Note v2.0 · Complete (5 of 5 Chunks) · Confidential — NPCI Distribution Only</div>
-  <div class="footer-text">Nilesh Shah · Ex-NPCI · Piramal Finance · Fullerton India / SMFG · June 2026 · © ASTRA — Automated Settlement and Transaction Recognition Architecture</div>
+  <div class="footer-text">Nilesh Shah · June 2026 · © ASTRA — Automated Settlement and Transaction Recognition Architecture</div>
 </div>
 
 </div><!-- .page -->
+
+<script>
+(function(){
+  // Wrap content of each section in collapsible div
+  document.querySelectorAll('.section').forEach(function(sec){
+    var header = sec.querySelector('.sec-header');
+    if(!header) return;
+    // Collect all children that are NOT the header
+    var children = Array.from(sec.children).filter(function(c){ return c !== header; });
+    if(children.length === 0) return;
+    // Create wrapper
+    var wrapper = document.createElement('div');
+    wrapper.className = 'sec-content';
+    wrapper.style.maxHeight = '9999px';
+    // Move children into wrapper
+    children.forEach(function(c){ wrapper.appendChild(c); });
+    sec.appendChild(wrapper);
+    // Add toggle button to header
+    var btn = document.createElement('button');
+    btn.className = 'sec-toggle';
+    btn.innerHTML = '&#9660;';
+    btn.title = 'Toggle section';
+    btn.addEventListener('click', function(){
+      if(wrapper.style.maxHeight === '0px'){
+        wrapper.style.maxHeight = '9999px';
+        btn.classList.remove('collapsed');
+        btn.innerHTML = '&#9660;';
+      } else {
+        wrapper.style.maxHeight = '0px';
+        btn.classList.add('collapsed');
+        btn.innerHTML = '&#9654;';
+      }
+    });
+    header.appendChild(btn);
+  });
+})();
+
+function expandAll(){
+  document.querySelectorAll('.sec-content').forEach(function(c){ c.style.maxHeight='9999px'; });
+  document.querySelectorAll('.sec-toggle').forEach(function(b){ b.classList.remove('collapsed'); b.innerHTML='&#9660;'; });
+}
+function collapseAll(){
+  document.querySelectorAll('.sec-content').forEach(function(c){ c.style.maxHeight='0px'; });
+  document.querySelectorAll('.sec-toggle').forEach(function(b){ b.classList.add('collapsed'); b.innerHTML='&#9654;'; });
+}
+</script>
 </body>
 </html>
