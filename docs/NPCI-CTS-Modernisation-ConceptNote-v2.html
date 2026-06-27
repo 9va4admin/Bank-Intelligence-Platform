@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CTS Vision 2030 — Product Concept Note v2.0 · NPCI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',system-ui,sans-serif;background:#f4f6f9;color:#1e293b;font-size:13px;line-height:1.5;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .page{max-width:980px;margin:0 auto;background:#fff;box-shadow:0 0 40px rgba(0,0,0,.10)}
+
+  /* TOP STRIP */
+  .topstrip{background:#0f2044;color:rgba(255,255,255,.55);font-size:9.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;padding:8px 32px;display:flex;justify-content:space-between;align-items:center}
+  .topstrip span{color:rgba(255,255,255,.85)}
+
+  /* HERO */
+  .hero{background:linear-gradient(135deg,#0f2044 0%,#1a3a6b 60%,#0f2044 100%);padding:40px 32px 30px;color:#fff;border-bottom:3px solid #2563eb;position:relative;overflow:hidden}
+  .hero::before{content:'';position:absolute;right:-60px;top:-60px;width:300px;height:300px;border-radius:50%;background:rgba(37,99,235,.12);pointer-events:none}
+  .hero-kicker{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#60a5fa;margin-bottom:10px}
+  .hero h1{font-size:30px;font-weight:900;line-height:1.12;color:#fff;margin-bottom:8px}
+  .hero h1 span{color:#60a5fa}
+  .hero-sub{font-size:12.5px;color:rgba(255,255,255,.65);font-weight:400;margin-bottom:22px;max-width:680px;line-height:1.65}
+  .hero-meta{display:flex;gap:32px;flex-wrap:wrap}
+  .hero-meta-item{font-size:10.5px;color:rgba(255,255,255,.5)}
+  .hero-meta-item strong{display:block;color:#fff;font-size:12px;font-weight:700;margin-bottom:1px}
+  .v-badge{display:inline-block;background:#2563eb;color:#fff;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:3px 10px;border-radius:2px;margin-bottom:12px}
+
+  /* KPI STRIP */
+  .kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid #e2e8f0}
+  .kpi{padding:18px 16px 16px;border-right:1px solid #e2e8f0;background:#fff}
+  .kpi:last-child{border-right:none}
+  .kpi-val{font-size:22px;font-weight:900;color:#0f2044;line-height:1;margin-bottom:4px}
+  .kpi-val.blue{color:#2563eb}
+  .kpi-val.red{color:#dc2626}
+  .kpi-val.green{color:#059669}
+  .kpi-val.amber{color:#d97706}
+  .kpi-label{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748b;margin-bottom:3px}
+  .kpi-note{font-size:9.5px;color:#94a3b8;line-height:1.4}
+  .kpi-badge{display:inline-block;margin-top:5px;padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:#dcfce7;color:#16a34a}
+  .kpi-badge.warn{background:#fef9c3;color:#b45309}
+  .kpi-badge.blue{background:#dbeafe;color:#1d4ed8}
+  .kpi-badge.red{background:#fee2e2;color:#b91c1c}
+  .kpi-badge.purple{background:#f3e8ff;color:#7e22ce}
+
+  /* STAT BANNER */
+  .stat-banner{background:#0f2044;color:#fff;padding:16px 32px;display:grid;grid-template-columns:repeat(5,1fr);gap:16px;text-align:center}
+  .stat-banner-val{font-size:20px;font-weight:900;color:#60a5fa;line-height:1}
+  .stat-banner-lbl{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-top:4px}
+
+  /* SECTION HEADERS */
+  .sec-header{padding:10px 32px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #e2e8f0;background:#f8fafc}
+  .sec-num{width:22px;height:22px;border-radius:50%;background:#0f2044;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .sec-num.blue{background:#2563eb}
+  .sec-num.green{background:#059669}
+  .sec-num.amber{background:#d97706}
+  .sec-num.red{background:#dc2626}
+  .sec-num.purple{background:#7c3aed}
+  .sec-num.teal{background:#0891b2}
+  .sec-num.pink{background:#db2777}
+  .sec-header-text{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#0f2044}
+  .sec-header-sub{font-size:10px;color:#64748b;margin-left:auto;font-weight:500}
+  .sec-body{padding:24px 32px}
+
+  /* PROBLEM CARDS */
+  .prob-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}
+  .prob-card{border:1px solid #e2e8f0;border-left:3px solid #dc2626;background:#fff;padding:14px 16px;border-radius:0 4px 4px 0}
+  .prob-card-num{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#dc2626;margin-bottom:4px}
+  .prob-card h4{font-size:12px;font-weight:700;color:#0f2044;margin-bottom:5px}
+  .prob-card p{font-size:11px;color:#475569;line-height:1.55}
+  .prob-outcome{margin-top:8px;padding:5px 8px;background:#fee2e2;border-radius:3px;font-size:10px;font-weight:600;color:#991b1b}
+  .prob-card.green{border-left-color:#059669}
+  .prob-card.blue{border-left-color:#2563eb}
+  .prob-card.amber{border-left-color:#d97706}
+  .prob-card.purple{border-left-color:#7c3aed}
+
+  /* FLOW STEPS */
+  .flow-steps{margin-top:8px}
+  .flow-step{display:flex;gap:14px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #f1f5f9}
+  .flow-step:last-child{border-bottom:none}
+  .flow-step-num{width:26px;height:26px;border-radius:50%;background:#0f2044;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+  .flow-step-num.blue{background:#2563eb}
+  .flow-step-num.green{background:#059669}
+  .flow-step-num.amber{background:#d97706}
+  .flow-step-num.red{background:#dc2626}
+  .flow-step-num.purple{background:#7c3aed}
+  .flow-step-body{}
+  .flow-step-title{font-size:12px;font-weight:700;color:#0f2044;margin-bottom:3px}
+  .flow-step-desc{font-size:11px;color:#475569;line-height:1.55}
+  .flow-step-actors{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap}
+  .actor-tag{display:inline-block;padding:2px 7px;border-radius:3px;font-size:9.5px;font-weight:700;background:#f1f5f9;color:#475569}
+  .actor-tag.npci{background:#dbeafe;color:#1d4ed8}
+  .actor-tag.rbi{background:#fef9c3;color:#b45309}
+  .actor-tag.drawee{background:#dcfce7;color:#166534}
+  .actor-tag.presentee{background:#f3e8ff;color:#7e22ce}
+  .actor-tag.drawer{background:#fee2e2;color:#991b1b}
+  .actor-tag.new{background:#0f2044;color:#fff}
+
+  /* PHASE TIMELINE */
+  .phase-timeline{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid #e2e8f0;border-radius:4px;overflow:hidden;margin-top:8px}
+  .phase-card{padding:18px 16px;border-right:1px solid #e2e8f0;position:relative}
+  .phase-card:last-child{border-right:none}
+  .phase-card-badge{display:inline-block;padding:3px 10px;border-radius:3px;font-size:10px;font-weight:800;letter-spacing:.04em;margin-bottom:10px}
+  .phase-card-badge.p1{background:#dbeafe;color:#1d4ed8}
+  .phase-card-badge.p2{background:#dcfce7;color:#15803d}
+  .phase-card-badge.p3{background:#f3e8ff;color:#7e22ce}
+  .phase-card-badge.p4{background:#fef9c3;color:#b45309}
+  .phase-card-live{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:6px;display:block}
+  .phase-card-title{font-size:13px;font-weight:800;color:#0f2044;line-height:1.3;margin-bottom:6px}
+  .phase-card-sub{font-size:10.5px;color:#64748b;font-weight:600;margin-bottom:10px}
+  .phase-card-body{font-size:10.5px;color:#475569;line-height:1.6;margin-bottom:10px}
+  .phase-tag{display:inline-block;padding:2px 7px;border-radius:3px;font-size:9.5px;font-weight:600;background:#f1f5f9;color:#475569;margin:2px 2px 0 0}
+  .phase-outcome{margin-top:10px;padding:7px 10px;background:#f8fafc;border-left:2px solid #2563eb;font-size:10px;color:#1d4ed8;font-weight:600}
+  .phase-outcome.green{border-left-color:#059669;color:#166534}
+  .phase-outcome.purple{border-left-color:#7c3aed;color:#6d28d9}
+  .phase-outcome.amber{border-left-color:#d97706;color:#92400e}
+
+  /* ECOSYSTEM STRIP */
+  .eco-strip{background:#f1f5f9;border:1px solid #e2e8f0;padding:14px 20px;margin:12px 0;border-radius:4px}
+  .eco-strip-title{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#64748b;margin-bottom:10px}
+  .eco-flow{display:flex;align-items:center;gap:0;flex-wrap:wrap;gap:2px}
+  .eco-node{background:#0f2044;color:#fff;font-size:10px;font-weight:700;padding:7px 12px;border-radius:3px;white-space:nowrap;line-height:1.3}
+  .eco-node.blue{background:#2563eb}
+  .eco-node.green{background:#059669}
+  .eco-node.amber{background:#d97706}
+  .eco-node.red{background:#dc2626}
+  .eco-node.purple{background:#7c3aed}
+  .eco-node.gray{background:#475569}
+  .eco-node.light{background:#e2e8f0;color:#0f2044}
+  .eco-node.teal{background:#0891b2}
+  .eco-arrow{color:#94a3b8;font-size:14px;padding:0 4px;font-weight:700}
+  .eco-arrow.red{color:#dc2626}
+  .eco-arrow.green{color:#059669}
+
+  /* LAYER BLOCKS */
+  .layer-block{border:1px solid #e2e8f0;border-radius:4px;overflow:hidden;margin-bottom:12px}
+  .layer-head{display:flex;align-items:center;gap:10px;padding:10px 16px;background:#0f2044;color:#fff}
+  .layer-head.blue{background:#1e3a5f}
+  .layer-head.green{background:#14532d}
+  .layer-head.amber{background:#78350f}
+  .layer-head.red{background:#7f1d1d}
+  .layer-head.purple{background:#4c1d95}
+  .layer-label{font-size:9px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+  .layer-title{font-size:12px;font-weight:800;color:#fff;flex:1}
+  .layer-tag{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:2px;background:rgba(255,255,255,.15);color:rgba(255,255,255,.9)}
+  .layer-body{padding:16px}
+  .layer-body p{font-size:11.5px;color:#475569;line-height:1.6;margin-bottom:12px}
+  .layer-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .layer-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .layer-item{background:#f8fafc;border:1px solid #e2e8f0;padding:10px 12px;border-radius:3px}
+  .layer-item h5{font-size:11px;font-weight:700;color:#0f2044;margin-bottom:3px}
+  .layer-item p{font-size:10.5px;color:#64748b;margin-bottom:0;line-height:1.5}
+  .layer-item code{font-family:monospace;font-size:10px;background:#e2e8f0;padding:1px 4px;border-radius:2px;color:#1e293b}
+
+  /* CODE BLOCKS */
+  .code-block{background:#0f172a;border-radius:4px;padding:14px 16px;margin-bottom:10px;overflow-x:auto}
+  .code-block pre{font-family:'JetBrains Mono','Fira Code',monospace;font-size:10.5px;color:#e2e8f0;line-height:1.65;white-space:pre;margin:0}
+  .code-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748b;margin-bottom:5px;display:flex;align-items:center;gap:8px}
+  .code-label span{background:#1e293b;color:#94a3b8;padding:2px 8px;border-radius:2px;font-size:9px}
+
+  /* RESPONSE GRID */
+  .response-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+  .resp-card{border:1px solid #e2e8f0;border-radius:3px;overflow:hidden}
+  .resp-head{padding:7px 10px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+  .resp-head.ok{background:#dcfce7;color:#15803d}
+  .resp-head.err{background:#fee2e2;color:#b91c1c}
+  .resp-head.warn{background:#fef9c3;color:#b45309}
+  .resp-body{padding:8px 10px;background:#fafafa}
+  .resp-body pre{font-family:monospace;font-size:9.5px;color:#1e293b;line-height:1.5;white-space:pre}
+
+  /* AUTH */
+  .auth-layers{border:1px solid #e2e8f0;border-radius:4px;overflow:hidden;margin-top:4px}
+  .auth-layer{display:flex;align-items:stretch}
+  .auth-layer-num{width:48px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;flex-shrink:0}
+  .auth-layer-num.l1{background:#0f2044;color:#60a5fa}
+  .auth-layer-num.l2{background:#1e3a5f;color:#93c5fd}
+  .auth-layer-num.l3{background:#2563eb;color:#fff}
+  .auth-layer-content{flex:1;padding:14px 16px;border-top:1px solid #e2e8f0}
+  .auth-layer:first-child .auth-layer-content{border-top:none}
+  .auth-layer-title{font-size:12px;font-weight:800;color:#0f2044;margin-bottom:2px}
+  .auth-layer-sub{font-size:10px;color:#64748b;margin-bottom:8px}
+  .auth-spec-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .auth-spec{background:#f8fafc;border:1px solid #e2e8f0;padding:8px 10px;border-radius:3px}
+  .auth-spec label{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748b;display:block;margin-bottom:3px}
+  .auth-spec val{font-size:10.5px;font-weight:600;color:#0f2044;display:block}
+
+  /* ERROR TABLES */
+  table{width:100%;border-collapse:collapse;font-size:10.5px;margin-top:8px}
+  th{background:#0f2044;color:#fff;text-align:left;padding:7px 10px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  td{padding:6px 10px;border-bottom:1px solid #f1f5f9;color:#374151;vertical-align:top}
+  tr:hover td{background:#f8fafc}
+  .err-code{font-family:monospace;font-weight:700;color:#1d4ed8;white-space:nowrap;font-size:10px}
+  .err-code.warn{color:#d97706}
+  .err-code.danger{color:#dc2626}
+  .err-code.green{color:#059669}
+  .cat-pill{display:inline-block;padding:1px 6px;border-radius:2px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+  .cat-pill.fin{background:#dbeafe;color:#1d4ed8}
+  .cat-pill.inst{background:#fef9c3;color:#b45309}
+  .cat-pill.sec{background:#fee2e2;color:#b91c1c}
+  .cat-pill.img{background:#f3e8ff;color:#7e22ce}
+  .cat-pill.sys{background:#f1f5f9;color:#475569}
+  .cat-pill.rate{background:#fce7f3;color:#be185d}
+  .cat-pill.mob{background:#ccfbf1;color:#0f766e}
+  .cat-pill.settle{background:#fef3c7;color:#92400e}
+  .retry-yes{color:#16a34a;font-weight:700}
+  .retry-no{color:#dc2626;font-weight:700}
+
+  /* CALLOUT */
+  .callout{border-left:3px solid #2563eb;padding:10px 14px;background:#eff6ff;margin:12px 0;border-radius:0 4px 4px 0}
+  .callout p{font-size:11px;color:#1e40af;line-height:1.6;margin:0}
+  .callout.green{border-left-color:#059669;background:#f0fdf4}
+  .callout.green p{color:#14532d}
+  .callout.amber{border-left-color:#d97706;background:#fffbeb}
+  .callout.amber p{color:#78350f}
+  .callout.red{border-left-color:#dc2626;background:#fef2f2}
+  .callout.red p{color:#7f1d1d}
+  .callout.purple{border-left-color:#7c3aed;background:#faf5ff}
+  .callout.purple p{color:#4c1d95}
+
+  /* IET CLOCK */
+  .iet-timeline{display:flex;align-items:center;gap:0;margin:12px 0;padding:14px 16px;background:#0f172a;border-radius:4px}
+  .iet-seg{flex:1;display:flex;flex-direction:column;align-items:center;position:relative}
+  .iet-bar{height:8px;border-radius:2px;width:100%;margin-bottom:5px}
+  .iet-bar.safe{background:#059669}
+  .iet-bar.warn{background:#d97706}
+  .iet-bar.danger{background:#dc2626}
+  .iet-bar.dead{background:#374151}
+  .iet-bar.blue{background:#2563eb}
+  .iet-label{font-size:9px;color:rgba(255,255,255,.6);text-align:center;font-weight:500}
+  .iet-label strong{color:#fff;display:block;font-size:10px;margin-bottom:1px}
+  .iet-divider{width:1px;height:30px;background:rgba(255,255,255,.2);flex-shrink:0;margin:0 4px}
+
+  /* SEQUENCE DIAGRAM */
+  .seq-wrap{background:#0f172a;border-radius:4px;padding:20px;margin-top:8px;overflow-x:auto}
+  .seq-actors{display:flex;gap:0;margin-bottom:16px}
+  .seq-actor{flex:1;text-align:center;font-size:10px;font-weight:700;color:#fff;position:relative;min-width:100px}
+  .seq-actor-box{background:#1e3a5f;border:1px solid #2563eb;border-radius:3px;padding:6px 8px;margin:0 4px;font-size:10px;font-weight:700;color:#fff;line-height:1.3}
+  .seq-actor-box.npci{background:#78350f;border-color:#d97706}
+  .seq-actor-box.rbi{background:#14532d;border-color:#059669}
+  .seq-actor-box.drawer{background:#4c1d95;border-color:#7c3aed}
+  .seq-actor-box.cbs{background:#1e3a5f;border-color:#60a5fa}
+  .seq-lines{position:relative}
+  .seq-msg{display:flex;align-items:center;gap:0;margin-bottom:6px;min-height:26px;position:relative}
+  .seq-spacer{flex:1;min-width:100px}
+  .seq-arrow-line{height:1px;background:#4b5563;flex:1;position:relative;min-width:40px}
+  .seq-arrow-line.solid{background:#60a5fa}
+  .seq-arrow-line.dashed{background:transparent;border-top:1px dashed #4b5563}
+  .seq-arrow-line.return{background:transparent;border-top:1px dashed #60a5fa}
+  .seq-arrow-txt{font-size:9px;color:#94a3b8;text-align:center;white-space:nowrap;background:#0f172a;padding:0 4px;position:absolute;top:-8px;left:50%;transform:translateX(-50%)}
+  .seq-arrow-txt.blue{color:#60a5fa}
+  .seq-arrow-txt.green{color:#86efac}
+  .seq-arrow-txt.amber{color:#fcd34d}
+  .seq-note{background:#1e293b;border:1px solid #374151;border-radius:3px;padding:5px 10px;font-size:9.5px;color:#94a3b8;margin-bottom:8px;margin-left:8px}
+
+  /* MCP */
+  .mcp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+  .mcp-card{border:1px solid #e2e8f0;border-radius:4px;overflow:hidden}
+  .mcp-head{padding:9px 14px;background:#f1f5f9;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#0f2044;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:6px}
+  .mcp-body{padding:12px 14px}
+  .mcp-tool{padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:10.5px}
+  .mcp-tool:last-child{border-bottom:none}
+  .mcp-tool-name{font-family:monospace;font-weight:700;color:#2563eb;font-size:10px}
+  .mcp-tool-desc{color:#64748b;line-height:1.45;margin-top:2px;font-size:10px}
+
+  /* PRINCIPLES */
+  .principle-strip{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}
+  .principle{display:flex;gap:12px;align-items:flex-start;border:1px solid #e2e8f0;padding:12px 14px;border-radius:4px;background:#fff}
+  .principle-num{font-size:20px;font-weight:900;color:#e2e8f0;line-height:1;flex-shrink:0;width:28px}
+  .principle-head{font-size:11px;font-weight:700;color:#0f2044;margin-bottom:3px}
+  .principle-body{font-size:10.5px;color:#64748b;line-height:1.5}
+
+  /* BANK ECO */
+  .bank-eco{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:8px}
+  .bank-eco-card{border:1px solid #e2e8f0;border-radius:4px;padding:10px 12px;text-align:center;background:#fff}
+  .bank-eco-count{font-size:20px;font-weight:900;color:#0f2044;line-height:1}
+  .bank-eco-type{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#64748b;margin-top:3px;line-height:1.3}
+  .bank-eco-card.highlight{background:#0f2044;border-color:#0f2044}
+  .bank-eco-card.highlight .bank-eco-count{color:#60a5fa}
+  .bank-eco-card.highlight .bank-eco-type{color:rgba(255,255,255,.6)}
+
+  /* THESIS BAND */
+  .thesis-band{background:#0f2044;padding:24px 32px;display:flex;align-items:flex-start;gap:20px}
+  .thesis-label{font-size:9px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#60a5fa;margin-bottom:6px}
+  .thesis-quote{font-size:14px;color:#fff;font-weight:600;line-height:1.6;font-style:italic;max-width:720px}
+  .thesis-quote strong{color:#60a5fa;font-style:normal}
+  .thesis-attr{font-size:10px;color:rgba(255,255,255,.5);margin-top:8px}
+
+  /* ROADMAP TRACK */
+  .roadmap-track{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid #e2e8f0;border-radius:4px;overflow:hidden;margin-top:8px}
+  .rm-phase{border-right:1px solid #e2e8f0}
+  .rm-phase:last-child{border-right:none}
+  .rm-phase-head{padding:10px 14px;font-size:10px;font-weight:800;color:#fff;letter-spacing:.05em;text-transform:uppercase}
+  .rm-phase-head.p1{background:#2563eb}
+  .rm-phase-head.p2{background:#059669}
+  .rm-phase-head.p3{background:#7c3aed}
+  .rm-phase-head.p4{background:#d97706}
+  .rm-phase-head .period{font-size:9px;font-weight:500;opacity:.8;margin-top:2px}
+  .rm-body{padding:12px 14px}
+  .rm-item{display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;font-size:10.5px}
+  .rm-dot{width:6px;height:6px;border-radius:50%;background:#2563eb;flex-shrink:0;margin-top:4px}
+  .rm-dot.green{background:#059669}
+  .rm-dot.purple{background:#7c3aed}
+  .rm-dot.amber{background:#d97706}
+  .rm-text{color:#374151;line-height:1.5}
+
+  /* METRICS */
+  .metric-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f1f5f9;font-size:10.5px}
+  .metric-row:last-child{border-bottom:none}
+  .metric-label{color:#64748b;font-weight:500}
+  .metric-val{font-weight:700;color:#0f2044}
+  .metric-val.green{color:#16a34a}
+  .metric-val.amber{color:#d97706}
+  .metric-val.red{color:#dc2626}
+  .metric-val.blue{color:#2563eb}
+
+  /* SEC GRID */
+  .sec-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}
+  .sec-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:4px}
+  .sec-card{border:1px solid #e2e8f0;border-radius:4px;overflow:hidden}
+  .sec-card-head{padding:10px 14px;font-size:11px;font-weight:800;color:#fff;display:flex;align-items:center;gap:7px}
+  .sec-card-head.navy{background:#0f2044}
+  .sec-card-head.blue{background:#2563eb}
+  .sec-card-head.green{background:#059669}
+  .sec-card-head.amber{background:#d97706}
+  .sec-card-head.red{background:#dc2626}
+  .sec-card-head.purple{background:#7c3aed}
+  .sec-card-head.teal{background:#0891b2}
+  .sec-card-body{padding:12px 14px}
+  .sec-card-body ul{padding-left:14px;margin:0}
+  .sec-card-body ul li{font-size:10.5px;color:#475569;line-height:1.6;margin-bottom:3px}
+  .sec-card-body ul li strong{color:#0f2044;font-weight:700}
+
+  /* DIVIDERS */
+  .divider{height:1px;background:#e2e8f0;margin:12px 0}
+  .spacer{height:14px}
+
+  /* FOOTER */
+  .footer{background:#0f172a;padding:10px 32px;display:flex;justify-content:space-between;align-items:center}
+  .footer-text{font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.35)}
+
+  /* STANDARDS */
+  .standards-strip{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .std-badge{padding:4px 10px;border:1px solid #e2e8f0;border-radius:2px;font-size:9.5px;font-weight:700;color:#374151;background:#f8fafc}
+  .std-badge.active{background:#0f2044;color:#fff;border-color:#0f2044}
+  .std-badge.new{background:#2563eb;color:#fff;border-color:#2563eb}
+
+  /* LIEN */
+  .lien-flow{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px}
+  .lien-step{background:#f8fafc;border:1px solid #e2e8f0;border-radius:3px;padding:8px 6px;text-align:center;font-size:9.5px;color:#475569;line-height:1.4}
+  .lien-step strong{display:block;font-size:10px;color:#0f2044;font-weight:700;margin-bottom:2px}
+  .lien-step.blue{background:#dbeafe;border-color:#bfdbfe;color:#1d4ed8}
+  .lien-step.blue strong{color:#1d4ed8}
+  .lien-step.green{background:#dcfce7;border-color:#bbf7d0;color:#166534}
+  .lien-step.green strong{color:#166534}
+  .lien-step.amber{background:#fef9c3;border-color:#fef08a;color:#92400e}
+  .lien-step.amber strong{color:#92400e}
+  .lien-step.red{background:#fee2e2;border-color:#fecaca;color:#991b1b}
+  .lien-step.red strong{color:#991b1b}
+
+  /* ARROW TAG */
+  .arrow-tag{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:3px;font-size:10px;font-weight:600;color:#374151;margin-top:6px}
+  .arrow-tag::before{content:'→';color:#2563eb;font-weight:800}
+
+  /* PRINT */
+  @media print{
+    body{background:#fff}
+    .page{box-shadow:none;max-width:100%}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- TOP STRIP -->
+<div class="topstrip">
+  <span>CTS Vision 2030 · Product Concept Note v2.0 · Confidential — NPCI Distribution Only</span>
+  <span>Nilesh Shah · June 2026 · Draft for Industry Consultation</span>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="v-badge">Version 2.0 — Vision 2030 Edition</div>
+  <div class="hero-kicker">National Payments Corporation of India · CTS Protocol Modernisation · Full-Spectrum Roadmap</div>
+  <h1>CTS Vision 2030:<br>From SFTP Batch to <span>Mobile-First Real-Time Clearing</span></h1>
+  <p class="hero-sub">A four-phase, decade-spanning product roadmap to transform India's Cheque Truncation System from a file-based batch clearing rail into a real-time, AI-native, mobile-first payment experience — delivering the speed and precision that 609 million annual cheques and the RBI IET mandate demand, while preserving full backwards-compatibility at every transition.</p>
+  <div class="hero-meta">
+    <div class="hero-meta-item"><strong>Nilesh Shah</strong>Ex-NPCI · Piramal Finance · Fullerton India (SMFG)</div>
+    <div class="hero-meta-item"><strong>June 2026</strong>Industry Consultation Draft v2.0</div>
+    <div class="hero-meta-item"><strong>Scope</strong>CTS 2010 · NGCH · All 1,581 Member Banks</div>
+    <div class="hero-meta-item"><strong>Horizon</strong>Jan 2027 → Sep 2028 → 2030</div>
+    <div class="hero-meta-item"><strong>Classification</strong>Confidential — NPCI Distribution Only</div>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-strip">
+  <div class="kpi">
+    <div class="kpi-label">Annual Cheque Volume</div>
+    <div class="kpi-val blue">609 M</div>
+    <div class="kpi-note">Cheques cleared through CTS in FY2025. ₹71 lakh crore in value.</div>
+    <span class="kpi-badge blue">FY25 NPCI Data</span>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Member Banks on CTS</div>
+    <div class="kpi-val">1,581</div>
+    <div class="kpi-note">PSU · Private · Co-operative · RRBs · Foreign banks. All impacted.</div>
+    <span class="kpi-badge">Verified Active</span>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">IET Window</div>
+    <div class="kpi-val red">3 Hours</div>
+    <div class="kpi-note">RBI Jan 2026: Silence = deemed confirmation. Miss it, bank pays regardless of fraud.</div>
+    <span class="kpi-badge red">RBI Jan 2026</span>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">SFTP Poll Waste</div>
+    <div class="kpi-val amber">5–20 min</div>
+    <div class="kpi-note">IET headroom silently consumed before drawee bank even knows items arrived.</div>
+    <span class="kpi-badge warn">Wasted IET Time</span>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Vision 2030 Target</div>
+    <div class="kpi-val green">&lt;60 sec</div>
+    <div class="kpi-note">End-to-end cheque confirmation — from drawer's mobile to beneficiary credit.</div>
+    <span class="kpi-badge purple">Phase 4 Goal</span>
+  </div>
+</div>
+
+<!-- STAT BANNER -->
+<div class="stat-banner">
+  <div class="stat-banner-item">
+    <div class="stat-banner-val">₹71L Cr</div>
+    <div class="stat-banner-lbl">Annual CTS Value Cleared</div>
+  </div>
+  <div class="stat-banner-item">
+    <div class="stat-banner-val">1,180</div>
+    <div class="stat-banner-lbl">Co-operative Banks on CTS</div>
+  </div>
+  <div class="stat-banner-item">
+    <div class="stat-banner-val">~80</div>
+    <div class="stat-banner-lbl">Direct Sponsor Banks (NGCH)</div>
+  </div>
+  <div class="stat-banner-item">
+    <div class="stat-banner-val">3 Grids</div>
+    <div class="stat-banner-lbl">MICR Clearing Zones — Mumbai · Delhi · Chennai</div>
+  </div>
+  <div class="stat-banner-item">
+    <div class="stat-banner-val">4 Phases</div>
+    <div class="stat-banner-lbl">Jan 2027 → Sep 2027 → Dec 2027 → Sep 2028</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 1 — THE CLEARING ECOSYSTEM
+     ══════════════════════════════════════════════════════ -->
+<div class="sec-header">
+  <div class="sec-num">1</div>
+  <div class="sec-header-text">The Clearing Ecosystem — Who Is in the Room</div>
+  <div class="sec-header-sub">1,581 Banks · 3 Grid Zones · ₹71 Lakh Crore</div>
+</div>
+<div class="sec-body">
+  <div class="bank-eco">
+    <div class="bank-eco-card highlight">
+      <div class="bank-eco-count">1,581</div>
+      <div class="bank-eco-type">Total CTS Members</div>
+    </div>
+    <div class="bank-eco-card">
+      <div class="bank-eco-count">47</div>
+      <div class="bank-eco-type">Public Sector Banks</div>
+    </div>
+    <div class="bank-eco-card">
+      <div class="bank-eco-count">1,180</div>
+      <div class="bank-eco-type">Co-operative Banks</div>
+    </div>
+    <div class="bank-eco-card">
+      <div class="bank-eco-count">26</div>
+      <div class="bank-eco-type">Regional Rural Banks</div>
+    </div>
+    <div class="bank-eco-card">
+      <div class="bank-eco-count">~80</div>
+      <div class="bank-eco-type">Direct Sponsor Banks</div>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="eco-strip">
+    <div class="eco-strip-title">Current CTS Ecosystem — Key Actors</div>
+    <div class="eco-flow">
+      <div class="eco-node purple">Drawer<br><span style="font-size:9px;opacity:.7">Writes Cheque</span></div>
+      <div class="eco-arrow">→</div>
+      <div class="eco-node green">Payee / Beneficiary<br><span style="font-size:9px;opacity:.7">Deposits at Bank</span></div>
+      <div class="eco-arrow">→</div>
+      <div class="eco-node blue">Presentee Bank<br><span style="font-size:9px;opacity:.7">Scans · MICR · SFTP</span></div>
+      <div class="eco-arrow">→</div>
+      <div class="eco-node amber">NPCI / NGCH<br><span style="font-size:9px;opacity:.7">Batch Sort · Route</span></div>
+      <div class="eco-arrow">→</div>
+      <div class="eco-node">Drawee Bank<br><span style="font-size:9px;opacity:.7">SFTP Poll · Verify</span></div>
+      <div class="eco-arrow">→</div>
+      <div class="eco-node teal">RBI<br><span style="font-size:9px;opacity:.7">Net Settlement</span></div>
+      <div class="eco-arrow">→</div>
+      <div class="eco-node green">CBS of Both Banks<br><span style="font-size:9px;opacity:.7">Counter Entries</span></div>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <p style="font-size:11.5px;color:#475569;line-height:1.65;">
+    The CTS ecosystem has <strong>five distinct participant classes</strong> — each with different capabilities, latency sensitivities, and IET exposure profiles. A modernisation proposal must serve all five simultaneously, without forcing any participant to abandon existing infrastructure before they are ready.
+  </p>
+
+  <div class="spacer"></div>
+
+  <div class="sec-grid-3">
+    <div class="sec-card">
+      <div class="sec-card-head navy">🏦 Drawee Bank (Payer's Bank)</div>
+      <div class="sec-card-body">
+        <ul>
+          <li><strong>Role:</strong> Pays or rejects the cheque</li>
+          <li><strong>IET exposure:</strong> Maximum — must decide within 3 hours</li>
+          <li><strong>Current pain:</strong> Learns of inward items only at SFTP poll cycle</li>
+          <li><strong>Vision 2030 gain:</strong> Instant webhook delivery, AI-assisted decision in &lt;600ms</li>
+        </ul>
+      </div>
+    </div>
+    <div class="sec-card">
+      <div class="sec-card-head blue">🏦 Presentee Bank (Payee's Bank)</div>
+      <div class="sec-card-body">
+        <ul>
+          <li><strong>Role:</strong> Collects cheque, submits to NPCI</li>
+          <li><strong>IET exposure:</strong> Low — submits and waits</li>
+          <li><strong>Current pain:</strong> No per-instrument confirmation; batch failures are opaque</li>
+          <li><strong>Vision 2030 gain:</strong> Synchronous receipt, per-instrument error codes</li>
+        </ul>
+      </div>
+    </div>
+    <div class="sec-card">
+      <div class="sec-card-head amber">🏛 NPCI / NGCH (Clearing House)</div>
+      <div class="sec-card-body">
+        <ul>
+          <li><strong>Role:</strong> Routes instruments, manages settlement</li>
+          <li><strong>Current state:</strong> SFTP-based batch hub</li>
+          <li><strong>Vision 2030 role:</strong> REST API gateway → Webhook dispatcher → MCP intelligence server → Mobile clearing orchestrator</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="sec-grid-2">
+    <div class="sec-card">
+      <div class="sec-card-head teal">🏛 RBI (Settlement Authority)</div>
+      <div class="sec-card-body">
+        <ul>
+          <li><strong>Role:</strong> Holds inter-bank settlement accounts; enforces IET mandate</li>
+          <li><strong>IET mandate:</strong> Jan 2026 — silence within 3 hours = deemed confirmation</li>
+          <li><strong>Vision 2030 role:</strong> Regulatory sandbox for Phase 4 lien-mark mechanism; legal instrument framework for mobile-submitted cheques under NI Act 1881</li>
+        </ul>
+      </div>
+    </div>
+    <div class="sec-card">
+      <div class="sec-card-head purple">👤 Drawer (Cheque Writer) — New Actor in Phase 4</div>
+      <div class="sec-card-body">
+        <ul>
+          <li><strong>Role (today):</strong> Passive — writes cheque, has no digital interaction post-issuance</li>
+          <li><strong>Role (Phase 4):</strong> Active initiator — uploads scan, fills beneficiary data, receives lien notification</li>
+          <li><strong>Requirement:</strong> RBI regulatory sandbox + NI Act clarification for mobile-originated instruments</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 2 — THE CURRENT 10-STEP PROCESS
+     ══════════════════════════════════════════════════════ -->
+<div class="sec-header">
+  <div class="sec-num red">2</div>
+  <div class="sec-header-text">How Cheque Clearing Works Today — The 10-Step SFTP Batch Process</div>
+  <div class="sec-header-sub">Status Quo · T+1 Day · Batch File Model · No Real-Time Feedback</div>
+</div>
+<div class="sec-body">
+  <div class="callout red">
+    <p><strong>The Structural Reality:</strong> Today's CTS is a store-and-forward file transfer system dressed as a clearing network. Every actor in the chain polls for updates, waits for batch cycles, and has zero real-time visibility. Under a 3-hour IET mandate, this is structurally incompatible with safe, compliant clearing.</p>
+  </div>
+  <div class="spacer"></div>
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="flow-step-num purple">1</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">Payee Deposits Cheque at Their Bank (Presentee Bank)</div>
+        <div class="flow-step-desc">The person who received a cheque (payee/beneficiary) deposits it at their bank branch. The cheque is drawn on the drawer's account at a different bank (the drawee bank). Same-bank cheques — where drawer and payee share the same bank — are handled internally by that bank and never enter NPCI clearing.</div>
+        <div class="flow-step-actors"><span class="actor-tag drawer">Drawer</span><span class="actor-tag">Payee</span><span class="actor-tag presentee">Presentee Bank</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num blue">2</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">Presentee Bank Scans, Validates and Uploads via SFTP</div>
+        <div class="flow-step-desc">The presentee bank scans the physical cheque (CTS-2010 image standards), extracts the MICR line, performs basic due diligence (signature spot-check, account validity, CTS-2010 image compliance), bundles instruments into a lot, and uploads a batch file to NPCI's SFTP server. No per-instrument confirmation is received — only batch-level SFTP transfer acknowledgement.</div>
+        <div class="flow-step-actors"><span class="actor-tag presentee">Presentee Bank</span><span class="actor-tag npci">NPCI SFTP</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num amber">3</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">NPCI Accumulates Batches from All Presentee Banks</div>
+        <div class="flow-step-desc">NPCI's NGCH collects batch files from all presentee banks across all three clearing grids (Mumbai, Delhi, Chennai). Instruments from hundreds of banks are accumulated over the clearing session window. No real-time processing — NPCI holds until the batch cycle triggers.</div>
+        <div class="flow-step-actors"><span class="actor-tag npci">NPCI / NGCH</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num amber">4</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">NPCI Sorts and Routes to Drawee Bank Buckets</div>
+        <div class="flow-step-desc">NPCI processes the accumulated batch, validates instrument images against CTS-2010 standards, extracts MICR data, sorts instruments by drawee bank IFSC, and places the sorted batch files into each drawee bank's designated SFTP bucket. The drawee bank has no notification — it must poll to discover new items.</div>
+        <div class="flow-step-actors"><span class="actor-tag npci">NPCI / NGCH</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num">5</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">Drawee Bank Polls and Fetches Its Inward Instruments</div>
+        <div class="flow-step-desc">The drawee bank polls its SFTP bucket at a configured interval (typically every 5–20 minutes). When new files are detected, it downloads the batch. This polling gap is the primary source of wasted IET headroom — the bank's 3-hour clock started when NPCI received the item, but the bank is unaware for the first 5–20 minutes.</div>
+        <div class="flow-step-actors"><span class="actor-tag drawee">Drawee Bank</span><span class="actor-tag npci">NPCI SFTP</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num red">6</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">Drawee Bank Performs Due Diligence and Files Return or Confirms</div>
+        <div class="flow-step-desc">The drawee bank processes each inward instrument: verifies signature, checks account balance, validates against stop payment instructions, screens for fraud, and either confirms (approves payment) or returns (rejects with a return reason). Returns are filed to NPCI's SFTP server. Silence within the IET window is treated as confirmation — the bank pays regardless. This is the critical IET risk moment.</div>
+        <div class="flow-step-actors"><span class="actor-tag drawee">Drawee Bank</span><span class="actor-tag npci">NPCI SFTP (Return File)</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num teal">7</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">NPCI Performs Net Settlement Across All Banks</div>
+        <div class="flow-step-desc">At session close, NPCI calculates the net position for each bank across all instruments — confirmed items create credit (presentee bank) and debit (drawee bank) positions. NPCI submits net settlement instructions to RBI, which executes the inter-bank transfers through the settlement accounts held at RBI's e-Kuber system.</div>
+        <div class="flow-step-actors"><span class="actor-tag npci">NPCI / NGCH</span><span class="actor-tag rbi">RBI / e-Kuber</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num teal">8</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">NPCI Places Settlement Files in Bank Buckets</div>
+        <div class="flow-step-desc">NPCI generates settlement reports — confirmed instruments, return instruments, net settlement position per bank — and places them in each bank's SFTP settlement bucket. Again, no push notification — banks must poll to discover settlement files are available.</div>
+        <div class="flow-step-actors"><span class="actor-tag npci">NPCI / NGCH</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num green">9</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">Banks Fetch Settlement Files</div>
+        <div class="flow-step-desc">Both presentee and drawee banks poll their SFTP buckets, fetch the settlement files, and validate the contents against their submitted/processed instrument records. Any discrepancy between submitted instruments and settled instruments triggers a reconciliation exception that must be resolved manually.</div>
+        <div class="flow-step-actors"><span class="actor-tag presentee">Presentee Bank</span><span class="actor-tag drawee">Drawee Bank</span><span class="actor-tag npci">NPCI SFTP</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num green">10</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">Banks Create Counter Entries in Their Core Banking System (CBS)</div>
+        <div class="flow-step-desc">Based on the settled position, each bank creates the corresponding accounting entries in its CBS: credit to payee's account (presentee bank) and debit from drawer's account (drawee bank) for confirmed instruments; reversal entries for returned instruments. The clearing cycle is complete.</div>
+        <div class="flow-step-actors"><span class="actor-tag presentee">Presentee Bank CBS</span><span class="actor-tag drawee">Drawee Bank CBS</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="callout amber">
+    <p><strong>Same-Bank Exception (Important):</strong> When drawer and payee hold accounts at the same bank, the cheque never enters NPCI clearing. The bank processes it internally — debit drawer, credit payee — without any SFTP interaction. This volume can be significant for large banks (HDFC, SBI process crores of same-bank instruments monthly) and represents an immediate AI intelligence opportunity independent of NPCI timelines.</p>
+  </div>
+
+  <div class="spacer"></div>
+
+  <!-- IET CLOCK -->
+  <p style="font-size:11px;font-weight:700;color:#0f2044;margin-bottom:8px;">WHERE THE 3-HOUR IET WINDOW IS ACTUALLY CONSUMED TODAY</p>
+  <div class="iet-timeline">
+    <div class="iet-seg">
+      <div class="iet-bar warn"></div>
+      <div class="iet-label"><strong>0–20 min</strong>Presentee SFTP<br>Upload + NPCI Batch</div>
+    </div>
+    <div class="iet-divider"></div>
+    <div class="iet-seg">
+      <div class="iet-bar danger"></div>
+      <div class="iet-label"><strong>20–40 min</strong>Drawee Bank<br>Poll Delay</div>
+    </div>
+    <div class="iet-divider"></div>
+    <div class="iet-seg">
+      <div class="iet-bar blue"></div>
+      <div class="iet-label"><strong>40–120 min</strong>Manual / Basic<br>Processing</div>
+    </div>
+    <div class="iet-divider"></div>
+    <div class="iet-seg">
+      <div class="iet-bar safe"></div>
+      <div class="iet-label"><strong>120–150 min</strong>Human Review<br>(High Risk Items)</div>
+    </div>
+    <div class="iet-divider"></div>
+    <div class="iet-seg">
+      <div class="iet-bar danger"></div>
+      <div class="iet-label"><strong>150–170 min</strong>Return Filing<br>SFTP Upload</div>
+    </div>
+    <div class="iet-divider"></div>
+    <div class="iet-seg">
+      <div class="iet-bar dead"></div>
+      <div class="iet-label"><strong>170–180 min</strong>IET Breach<br>Risk Zone</div>
+    </div>
+  </div>
+  <p style="font-size:10.5px;color:#dc2626;font-weight:600;margin-top:8px;">↳ 40 minutes consumed before the drawee bank even begins processing. Under Vision 2030 Phase 2+, this falls to &lt;5 seconds.</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 3 — WHY THE STATUS QUO MUST CHANGE
+     ══════════════════════════════════════════════════════ -->
+<div class="sec-header">
+  <div class="sec-num red">3</div>
+  <div class="sec-header-text">The Imperative for Change — Six Structural Failures</div>
+  <div class="sec-header-sub">Why SFTP Cannot Serve a Real-Time IET Mandate</div>
+</div>
+<div class="sec-body">
+  <div class="prob-grid">
+    <div class="prob-card">
+      <div class="prob-card-num">Failure 01</div>
+      <h4>Silent Inward Item Arrival</h4>
+      <p>Drawee banks discover inward items only at their next SFTP poll — 5 to 20 minutes after NPCI receives them. In a 3-hour IET window, this silent latency is structurally incompatible with safe clearing. A bank processing 500 cheques burns 11% of its IET window before processing even begins.</p>
+      <div class="prob-outcome">↳ Up to 11% of IET window wasted on polling delay alone</div>
+    </div>
+    <div class="prob-card">
+      <div class="prob-card-num">Failure 02</div>
+      <h4>Zero Per-Instrument Error Feedback</h4>
+      <p>Batch-level rejection provides no instrument-level detail. A presentee bank submitting 500 instruments discovers only that "the batch failed." Identifying which instruments failed, for what reason, and the remediation path requires manual human investigation across SFTP log files.</p>
+      <div class="prob-outcome">↳ Manual triage consuming critical operations bandwidth</div>
+    </div>
+    <div class="prob-card">
+      <div class="prob-card-num">Failure 03</div>
+      <h4>No Machine-Readable Status API</h4>
+      <p>Live status of a submitted instrument is unavailable during the clearing window. An AI agent processing system has no way to query NPCI about a specific instrument's current state — whether it has been received, validated, routed, or is at IET risk. Status arrives only at session close in a settlement file.</p>
+      <div class="prob-outcome">↳ No IET risk visibility until it is too late to act</div>
+    </div>
+    <div class="prob-card">
+      <div class="prob-card-num">Failure 04</div>
+      <h4>No Native AI Integration Surface</h4>
+      <p>Modern clearing requires AI agents for fraud detection, signature verification, alteration detection, and CCTV correlation. SFTP provides no structured API surface for these agents. Each bank builds its own file-parsing integration, introducing inconsistency, latency gaps, and unverifiable processing quality.</p>
+      <div class="prob-outcome">↳ Each bank's AI integration is a custom, unverifiable point solution</div>
+    </div>
+    <div class="prob-card">
+      <div class="prob-card-num">Failure 05</div>
+      <h4>Drawer Has No Digital Identity in the Process</h4>
+      <p>The person who wrote the cheque — the drawer — has zero digital presence in the current CTS process. They cannot track their cheque's status, cannot receive notifications about processing outcomes, and cannot participate in dispute resolution. This is a decade behind UPI's real-time payment experience.</p>
+      <div class="prob-outcome">↳ Drawer experience is 1970s in a 2024 payments landscape</div>
+    </div>
+    <div class="prob-card">
+      <div class="prob-card-num">Failure 06</div>
+      <h4>Settlement Information Arrives Too Late</h4>
+      <p>Settlement files are available only at session close — hours after instruments were processed. Banks cannot update CBS in real time, cannot notify customers of cheque outcomes, and cannot identify settlement discrepancies until after the window closes. Reconciliation exceptions are discovered late and resolved slowly.</p>
+      <div class="prob-outcome">↳ Customer experience is opaque; reconciliation is reactive not proactive</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 4 — VISION 2030: THE FOUR-PHASE ROADMAP
+     ══════════════════════════════════════════════════════ -->
+<div class="sec-header">
+  <div class="sec-num blue">4</div>
+  <div class="sec-header-text">Vision 2030 — The Four-Phase Modernisation Roadmap</div>
+  <div class="sec-header-sub">Progressive · Non-Disruptive · Backwards-Compatible at Every Step</div>
+</div>
+<div class="sec-body">
+  <div class="callout green">
+    <p><strong>Master Design Principle:</strong> Each phase delivers standalone value. No bank is forced to migrate before its readiness. SFTP and API operate in parallel for minimum 12 months at each transition. Phase 1 requires zero NPCI infrastructure change — banks can deploy today. The IET mandate creates urgency for Phase 1; the intelligence economy and customer experience drive Phases 3 and 4.</p>
+  </div>
+  <div class="spacer"></div>
+
+  <div class="phase-timeline">
+    <div class="phase-card">
+      <span class="phase-card-badge p1">Phase 1</span>
+      <span class="phase-card-live">Go Live: January 2027</span>
+      <div class="phase-card-title">Smarter Bank — Same NPCI Pipes</div>
+      <div class="phase-card-sub">AI + Parallel Agents + Temporal Workflows at Bank End</div>
+      <div class="phase-card-body">Keep SFTP, keep NPCI's file formats, change nothing at NPCI. Inject Vision AI, parallel processing agents, and long-running workflows inside the bank. Collapse internal processing from hours to sub-minute. Achieve 30-minute clearing cycle without asking NPCI to change a single byte. Simultaneously address IET mandate compliance for all 1,581 member banks.</div>
+      <div>
+        <span class="phase-tag">Local Vision LLM</span>
+        <span class="phase-tag">Parallel Agents</span>
+        <span class="phase-tag">Temporal Workflows</span>
+        <span class="phase-tag">Same SFTP</span>
+        <span class="phase-tag">&lt;600ms Decision</span>
+      </div>
+      <div class="phase-outcome">→ IET breach rate: 0.000% · 30-min clearing cycle · Zero NPCI dependency</div>
+    </div>
+
+    <div class="phase-card">
+      <span class="phase-card-badge p2">Phase 2</span>
+      <span class="phase-card-live">Go Live: September 2027</span>
+      <div class="phase-card-title">NPCI Gets an API — Near Real-Time</div>
+      <div class="phase-card-sub">REST API + Webhook Push · Settlement at 30-Min Intervals</div>
+      <div class="phase-card-body">NPCI exposes REST APIs. Presentee banks push one instrument at a time (or configurable micro-batches). NPCI webhooks the drawee bank within seconds of receipt. Drawee bank responds via API. Settlement rhythm stays at 30-minute batches — but every individual instrument is tracked in real time. Full IET window available from moment of NPCI receipt.</div>
+      <div>
+        <span class="phase-tag">POST /cts/v1/instruments</span>
+        <span class="phase-tag">Webhook Delivery</span>
+        <span class="phase-tag">GET /cts/v1/status</span>
+        <span class="phase-tag">30-min Settlement</span>
+      </div>
+      <div class="phase-outcome green">→ Full IET window from NPCI receipt · Per-instrument tracking · Zero SFTP polling</div>
+    </div>
+
+    <div class="phase-card">
+      <span class="phase-card-badge p3">Phase 3</span>
+      <span class="phase-card-live">Go Live: December 2027</span>
+      <div class="phase-card-title">MCP-Native Clearing Intelligence</div>
+      <div class="phase-card-sub">Model Context Protocol · Socket Transport · Resource Streaming</div>
+      <div class="phase-card-body">Same logic as Phase 2 — same 30-minute settlement, same actors — but the transport layer graduates to MCP (Model Context Protocol). Instruments flow over persistent sockets. Cheque images and settlement files become MCP Resources pushed and consumed natively. Banks and NPCI speak AI-agent protocol. Clearing grid becomes a native capability in LLM-driven workflows.</div>
+      <div>
+        <span class="phase-tag">MCP Tools</span>
+        <span class="phase-tag">MCP Resources</span>
+        <span class="phase-tag">Socket Transport</span>
+        <span class="phase-tag">AI-Native</span>
+      </div>
+      <div class="phase-outcome purple">→ Clearing grid as AI agent tool · Document streaming as MCP resource · Maximum composability</div>
+    </div>
+
+    <div class="phase-card">
+      <span class="phase-card-badge p4">Phase 4</span>
+      <span class="phase-card-live">Go Live: September 2028</span>
+      <div class="phase-card-title">Mobile-First Clearing — UPI-Like Experience</div>
+      <div class="phase-card-sub">Drawer Mobile App · Lien Mark · Real-Time Notification</div>
+      <div class="phase-card-body">The drawer uploads a scan of the cheque via their bank's mobile app and fills in beneficiary details. NPCI routes to the drawee bank in real time. Drawee bank confirms and lien-marks the amount immediately. NPCI routes confirmation to the beneficiary's bank. Settlement still executes at 30-minute intervals. Drawer and beneficiary receive real-time status — like UPI, but for cheques.</div>
+      <div>
+        <span class="phase-tag">Mobile App</span>
+        <span class="phase-tag">Lien Mark</span>
+        <span class="phase-tag">Real-Time Notify</span>
+        <span class="phase-tag">NI Act Sandbox</span>
+      </div>
+      <div class="phase-outcome amber">→ Cheque experience at UPI speed · Drawer digital identity · Full lifecycle transparency</div>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <!-- DETAILED ROADMAP TRACK -->
+  <p style="font-size:11px;font-weight:700;color:#0f2044;margin-bottom:8px;">MILESTONE TRACK — KEY DELIVERABLES PER PHASE</p>
+  <div class="roadmap-track">
+    <div class="rm-phase">
+      <div class="rm-phase-head p1">Phase 1 — AI at Bank End<div class="period">Jan 2027</div></div>
+      <div class="rm-body">
+        <div class="rm-item"><div class="rm-dot"></div><div class="rm-text"><strong>Vision LLM deployed</strong> at bank — alteration detection, signature verification</div></div>
+        <div class="rm-item"><div class="rm-dot"></div><div class="rm-text"><strong>Temporal workflows</strong> — parallel agent processing, IET watchdog</div></div>
+        <div class="rm-item"><div class="rm-dot"></div><div class="rm-text"><strong>CBS integration</strong> — balance check, stop payment in &lt;10ms</div></div>
+        <div class="rm-item"><div class="rm-dot"></div><div class="rm-text"><strong>30-min clearing</strong> — SFTP batch cycle compressed from T+1</div></div>
+        <div class="rm-item"><div class="rm-dot"></div><div class="rm-text"><strong>Same-bank AI</strong> — internal clearing with full AI stack</div></div>
+        <div class="rm-item"><div class="rm-dot"></div><div class="rm-text"><strong>IET breach: 0.000%</strong> — watchdog fires at T-30s emergency</div></div>
+      </div>
+    </div>
+    <div class="rm-phase">
+      <div class="rm-phase-head p2">Phase 2 — NPCI REST API<div class="period">Sep 2027</div></div>
+      <div class="rm-body">
+        <div class="rm-item"><div class="rm-dot green"></div><div class="rm-text"><strong>NPCI REST APIs live</strong> — submit, return, status, settlement</div></div>
+        <div class="rm-item"><div class="rm-dot green"></div><div class="rm-text"><strong>Webhook delivery</strong> — NPCI pushes inward items to drawee bank</div></div>
+        <div class="rm-item"><div class="rm-dot green"></div><div class="rm-text"><strong>3-layer auth</strong> — mTLS + API Key + HMAC-SHA256 signing</div></div>
+        <div class="rm-item"><div class="rm-dot green"></div><div class="rm-text"><strong>Per-instrument errors</strong> — machine-readable codes, remediation hints</div></div>
+        <div class="rm-item"><div class="rm-dot green"></div><div class="rm-text"><strong>30-min settlement</strong> — settlement file API replaces SFTP bucket</div></div>
+        <div class="rm-item"><div class="rm-dot green"></div><div class="rm-text"><strong>Dual-mode</strong> — SFTP + API parallel for 12-month migration window</div></div>
+      </div>
+    </div>
+    <div class="rm-phase">
+      <div class="rm-phase-head p3">Phase 3 — MCP Intelligence<div class="period">Dec 2027</div></div>
+      <div class="rm-body">
+        <div class="rm-item"><div class="rm-dot purple"></div><div class="rm-text"><strong>NPCI MCP server</strong> — tools + resources over socket transport</div></div>
+        <div class="rm-item"><div class="rm-dot purple"></div><div class="rm-text"><strong>Image as Resource</strong> — cheque images streamed via MCP resources</div></div>
+        <div class="rm-item"><div class="rm-dot purple"></div><div class="rm-text"><strong>IET risk signals</strong> — live stream from NPCI to bank AI agents</div></div>
+        <div class="rm-item"><div class="rm-dot purple"></div><div class="rm-text"><strong>Settlement as Resource</strong> — push delivery, no polling</div></div>
+        <div class="rm-item"><div class="rm-dot purple"></div><div class="rm-text"><strong>Agentic workflow</strong> — ChequeProcessingWorkflow calls NPCI as MCP tool</div></div>
+        <div class="rm-item"><div class="rm-dot purple"></div><div class="rm-text"><strong>Phase 2 co-exists</strong> — REST API stays live, MCP is additive layer</div></div>
+      </div>
+    </div>
+    <div class="rm-phase">
+      <div class="rm-phase-head p4">Phase 4 — Mobile-First<div class="period">Sep 2028</div></div>
+      <div class="rm-body">
+        <div class="rm-item"><div class="rm-dot amber"></div><div class="rm-text"><strong>Drawer mobile app</strong> — upload scan, fill beneficiary, submit</div></div>
+        <div class="rm-item"><div class="rm-dot amber"></div><div class="rm-text"><strong>Real-time routing</strong> — NPCI pushes to drawee bank instantly</div></div>
+        <div class="rm-item"><div class="rm-dot amber"></div><div class="rm-text"><strong>Lien-mark mechanism</strong> — drawee bank holds amount on approval</div></div>
+        <div class="rm-item"><div class="rm-dot amber"></div><div class="rm-text"><strong>Beneficiary confirmation</strong> — presentee bank confirms acceptance</div></div>
+        <div class="rm-item"><div class="rm-dot amber"></div><div class="rm-text"><strong>Lien release/revoke</strong> — final settlement triggers CBS update</div></div>
+        <div class="rm-item"><div class="rm-dot amber"></div><div class="rm-text"><strong>Phase 3 co-exists</strong> — physical cheque path remains for transition</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 5 — DESIGN PRINCIPLES
+     ══════════════════════════════════════════════════════ -->
+<div class="sec-header">
+  <div class="sec-num">5</div>
+  <div class="sec-header-text">Design Principles — Governing Every Architectural Decision</div>
+  <div class="sec-header-sub">Eight Non-Negotiable Principles Across All Four Phases</div>
+</div>
+<div class="sec-body">
+  <div class="principle-strip">
+    <div class="principle">
+      <div class="principle-num">01</div>
+      <div>
+        <div class="principle-head">Backwards Compatibility at Every Phase Transition</div>
+        <div class="principle-body">SFTP and the new protocol run simultaneously for a minimum of 12 months at each phase boundary. No bank is forced off SFTP before it is ready. Dual-mode operation is a first-class requirement, not an afterthought. A bank on Phase 1 receives full IET safety guarantees while operating purely on SFTP.</div>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="principle-num">02</div>
+      <div>
+        <div class="principle-head">Instrument-First, Not Batch-First</div>
+        <div class="principle-body">Every API operation, every MCP tool call, every mobile interaction addresses a single instrument with its own state machine, IET timer, error record, and audit trail. Batching is a transport optimisation — not a protocol concept. Each instrument is independently trackable, queryable, and auditable at any moment.</div>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="principle-num">03</div>
+      <div>
+        <div class="principle-head">Authentication Before Data — Three Layers Minimum</div>
+        <div class="principle-body">Every request carries: (L1) institutional mTLS certificate from NPCI-issued PKI, (L2) API Key + session token (30-minute TTL) from NPCI auth server, (L3) HMAC-SHA256 request signature over canonical string. No instrument data is processed unless all three layers pass independently. Applies from Phase 2 onwards; Phase 4 adds mobile device attestation as L4.</div>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="principle-num">04</div>
+      <div>
+        <div class="principle-head">Idempotency as a First-Class Guarantee</div>
+        <div class="principle-body">Every state-changing operation requires an <code>X-Idempotency-Key</code> (UUIDv7) with 24-hour NPCI-side deduplication. A retry with the same key returns the original response without reprocessing. This eliminates duplicate NGCH submissions under any network retry condition — permanently. A duplicate filing is never possible if the key policy is followed.</div>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="principle-num">05</div>
+      <div>
+        <div class="principle-head">Machine-Readable Errors at Every Layer</div>
+        <div class="principle-body">Every error carries: numeric error code, category (AUTH/INSTR/SYS/IMG/RATE/SETTLE), human-readable description, remediation hint, affected field path, and correlation ID. No error is a black box. A bank's AI processing system must classify any error and route it to the correct remediation without human intervention — including the emergency IET path.</div>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="principle-num">06</div>
+      <div>
+        <div class="principle-head">IET Safety Is Structural, Not Configurable</div>
+        <div class="principle-body">The IET watchdog fires at T-30 seconds regardless of any configuration, any API mode, any network condition. This is hardwired in the bank-side processing architecture (ASTRA). An emergency filing path — to SFTP if REST is unavailable, to REST if webhook is unavailable — is always active. IET breach rate target: 0.000% across all phases.</div>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="principle-num">07</div>
+      <div>
+        <div class="principle-head">Data Localisation — No Instrument Data Leaves India</div>
+        <div class="principle-body">All cheque images, MICR data, customer information, and processing decisions remain within the bank's on-premises infrastructure and NPCI's India-based grid. No cloud processing, no cross-border data flows, no third-party AI API calls with customer data. This applies to all four phases including Phase 4 mobile capture. LLMs run on-premises at the bank.</div>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="principle-num">08</div>
+      <div>
+        <div class="principle-head">Synchronous Acknowledgement, Async Processing</div>
+        <div class="principle-body">Submission APIs return synchronously within 200ms SLA with a receipt confirmation. The instrument then undergoes asynchronous NPCI validation and forwarding. Status is queryable at any time. Outcomes are delivered via webhook/MCP push — no polling required from Phase 2 onwards. The 200ms synchronous window is the only moment where latency is a bank-side obligation.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- THESIS BAND -->
+<div class="thesis-band">
+  <div>
+    <div class="thesis-label">The Vision 2030 Thesis</div>
+    <div class="thesis-quote">"A cheque is not a piece of paper — it is a <strong>payment instruction</strong>. The paper is an implementation detail. Vision 2030 separates the instruction from the paper, gives the instruction a digital identity, a real-time lifecycle, and an AI-verified audit trail — while preserving every legal and settlement guarantee that makes cheques India's highest-value payment instrument."</div>
+    <div class="thesis-attr">— Nilesh Shah, Ex-NPCI · Concept Note v2.0, June 2026</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 6 — PHASE 1 IN DEPTH: AI AT THE BANK END
+     ══════════════════════════════════════════════════════ -->
+<div class="sec-header">
+  <div class="sec-num blue">6</div>
+  <div class="sec-header-text">Phase 1 Deep-Dive — AI-Powered Bank-Side Processing</div>
+  <div class="sec-header-sub">Go Live: January 2027 · Zero NPCI Dependency · Full IET Compliance</div>
+</div>
+<div class="sec-body">
+  <div class="callout">
+    <p><strong>Phase 1 Principle:</strong> NPCI does not need to change a single byte. Banks deploy ASTRA — the AI clearing intelligence platform — and immediately gain IET safety, fraud detection, and 30-minute clearing cycles. This phase is fundable and deployable today, independent of NPCI's modernisation timeline.</p>
+  </div>
+  <div class="spacer"></div>
+
+  <div class="layer-block">
+    <div class="layer-head">
+      <div class="layer-label">Outward Clearing</div>
+      <div class="layer-title">Presentee Bank Role — From Scanner to SFTP Submission</div>
+      <div class="layer-tag">SFTP Unchanged</div>
+    </div>
+    <div class="layer-body">
+      <div class="layer-grid">
+        <div class="layer-item">
+          <h5>Physical Scanner → CTS-2010 Image</h5>
+          <p>High-resolution scanner captures front and back. MICR line extracted via <code>GOT-OCR2.0</code> (99%+ accuracy). CTS-2010 compliance validated automatically.</p>
+        </div>
+        <div class="layer-item">
+          <h5>Vision AI — Alteration Detection</h5>
+          <p><code>Qwen2-VL 72B</code> analyses image for overwriting, erasure, correction fluid, ink differences. Tamper risk score computed per field — amount, date, payee, signature area.</p>
+        </div>
+        <div class="layer-item">
+          <h5>Lot Creation and Endorsement</h5>
+          <p>Instruments batched into lots, endorsement stamp applied digitally, lot sealed and flagged for SFTP submission. Sub-member bank (UCB) instruments routed through sponsor bank.</p>
+        </div>
+        <div class="layer-item">
+          <h5>SFTP Submission + Session Reconciliation</h5>
+          <p>Lot submitted to NPCI SFTP. Return Reason File generated at session close. Settlement file fetched and reconciled automatically — exceptions flagged to ops workstation.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="layer-block">
+    <div class="layer-head blue">
+      <div class="layer-label">Inward Clearing — IET Critical Path</div>
+      <div class="layer-title">Drawee Bank Role — 500 Parallel Agents in &lt;600ms Wall Clock</div>
+      <div class="layer-tag">IET Watchdog Active</div>
+    </div>
+    <div class="layer-body">
+      <p>Each inward cheque spawns one dedicated AI agent. 500 cheques → 500 parallel agents → entire batch decided in &lt;600ms wall clock. The IET watchdog runs as a sibling process for every instrument — if processing stalls, it files directly to NPCI at T-30 seconds before IET expiry.</p>
+      <div class="layer-grid-3">
+        <div class="layer-item">
+          <h5>1. OCR + Alteration Detection</h5>
+          <p><code>GOT-OCR2.0</code> extracts all fields. <code>Qwen2-VL</code> detects alterations. If confidence &lt; threshold → human review, not auto-return.</p>
+        </div>
+        <div class="layer-item">
+          <h5>2. Signature Verification</h5>
+          <p>Siamese neural network compares against CBS specimen vault. Vault miss → human review. Match score &lt; threshold → human review. Never auto-return on vault miss.</p>
+        </div>
+        <div class="layer-item">
+          <h5>3. Positive Pay Check</h5>
+          <p>PPS vault lookup for banks with Positive Pay mandate. Mismatch or vault miss → human review. PPS confirmation adds to fraud score confidence.</p>
+        </div>
+        <div class="layer-item">
+          <h5>4. CBS Balance + Stop Payment</h5>
+          <p>Real-time CBS query for balance adequacy and stop payment instructions. CBS unavailable → image-only path, human review — never auto-return.</p>
+        </div>
+        <div class="layer-item">
+          <h5>5. Fraud Scoring + SHAP</h5>
+          <p>XGBoost ensemble + <code>Llama 3.3 70B</code> synthesis. SHAP values computed for every decision. Score &gt; threshold → human review. Score stored before NGCH filing.</p>
+        </div>
+        <div class="layer-item">
+          <h5>6. STP Decision + NGCH Filing</h5>
+          <p>Score &lt; STP threshold + all checks pass → auto-confirm filed to NGCH. Score &gt; threshold → human review queue. IET watchdog monitors all paths.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="layer-block">
+    <div class="layer-head amber">
+      <div class="layer-label">IET Safety</div>
+      <div class="layer-title">IET Watchdog Workflow — T-30 Second Emergency Filer</div>
+      <div class="layer-tag">Non-Negotiable</div>
+    </div>
+    <div class="layer-body">
+      <p>For every inward instrument, a sibling <code>IETWatchdogWorkflow</code> is spawned as the very first action — before any AI activity begins. It monitors the remaining IET window. At T-30 seconds before IET expiry, if no decision has been filed, it immediately files an emergency confirmation directly to NGCH. This fires regardless of the main workflow state — network conditions, AI model availability, or human reviewer delays.</p>
+      <div class="layer-grid">
+        <div class="layer-item">
+          <h5>Spawn Order</h5>
+          <p>IETWatchdogWorkflow is always the first child workflow. No activity executes before the watchdog is active and confirmed started.</p>
+        </div>
+        <div class="layer-item">
+          <h5>Parent-Close Policy: ABANDON</h5>
+          <p>Watchdog survives parent workflow failure. If the main processing workflow crashes, the watchdog remains active and will still file at T-30s.</p>
+        </div>
+        <div class="layer-item">
+          <h5>Emergency Path</h5>
+          <p>SFTP direct submission as fallback if REST/MCP unavailable. The emergency path is always tested in smoke tests — it cannot be disabled.</p>
+        </div>
+        <div class="layer-item">
+          <h5>Audit</h5>
+          <p>Every watchdog firing is written to Immudb as a CRITICAL audit event. Emergency filings are surfaced on the ops workstation in real time.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     END OF CHUNK 1 — PLACEHOLDER FOR CHUNKS 2–5
+     ══════════════════════════════════════════════════════ -->
+
+<!-- FOOTER -->
+<div class="footer">
+  <div class="footer-text">CTS Vision 2030 · Product Concept Note v2.0 · Chunk 1 of 5 · Confidential — NPCI Distribution Only</div>
+  <div class="footer-text">Nilesh Shah · June 2026 · © ASTRA — Automated Settlement and Transaction Recognition Architecture</div>
+</div>
+
+</div><!-- .page -->
+</body>
+</html>
