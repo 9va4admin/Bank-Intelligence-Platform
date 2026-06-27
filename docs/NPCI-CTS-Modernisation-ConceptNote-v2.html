@@ -3060,10 +3060,453 @@ def verify_webhook_signature(
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════════
+     CHUNK 5 — §18 Sequence Diagrams · §19 Competitive Positioning · §20 Regulatory Roadmap · §21 Conclusion
+     ═══════════════════════════════════════════════════════════════ -->
+
+<!-- §18 SEQUENCE DIAGRAMS -->
+<div class="section" id="sequence-diagrams">
+  <div class="sec-header">
+    <span class="sec-num teal">18</span>
+    <div>
+      <div class="sec-title">Sequence Diagrams</div>
+      <div class="sec-sub">Message flows across all four phases — actors, timing, and IET boundaries</div>
+    </div>
+  </div>
+
+  <!-- SD1: Phase 1 Inward Clearing -->
+  <div style="margin-bottom:2.5rem;">
+    <div style="font-size:0.78rem; font-weight:700; color:#3b82f6; text-transform:uppercase; letter-spacing:.06em; margin-bottom:1rem;">SD-1 · Phase 1 Inward Clearing — Single Cheque (STP Path)</div>
+
+    <!-- Actor headers -->
+    <div style="display:grid; grid-template-columns:repeat(6, 1fr); gap:0; margin-bottom:0; text-align:center;">
+      <div style="background:#1e3a5f; padding:0.5rem; border-radius:6px 0 0 0; font-size:0.68rem; font-weight:700; color:#93c5fd;">NPCI / NGCH<br><span style="color:#3b82f6; font-weight:400;">SFTP server</span></div>
+      <div style="background:#1a3530; padding:0.5rem; font-size:0.68rem; font-weight:700; color:#6ee7b7;">Kafka<br><span style="color:#10b981; font-weight:400;">cts.inward.{id}</span></div>
+      <div style="background:#2d1a4a; padding:0.5rem; font-size:0.68rem; font-weight:700; color:#c4b5fd;">Temporal<br><span style="color:#8b5cf6; font-weight:400;">ChequeProcessing<br>Workflow</span></div>
+      <div style="background:#2d1a4a; padding:0.5rem; font-size:0.68rem; font-weight:700; color:#c4b5fd;">IET Watchdog<br><span style="color:#8b5cf6; font-weight:400;">Child workflow</span></div>
+      <div style="background:#1a2d1a; padding:0.5rem; font-size:0.68rem; font-weight:700; color:#86efac;">AI Activities<br><span style="color:#4ade80; font-weight:400;">OCR·Sig·Fraud</span></div>
+      <div style="background:#2d2500; padding:0.5rem; border-radius:0 6px 0 0; font-size:0.68rem; font-weight:700; color:#fcd34d;">CBS / Vaults<br><span style="color:#f59e0b; font-weight:400;">Redis · Core</span></div>
+    </div>
+
+    <!-- Sequence rows -->
+    <div style="border:1px solid #1e293b; border-top:none; border-radius:0 0 8px 8px; overflow:hidden;">
+      <div style="display:grid; grid-template-columns:repeat(6,1fr); border-bottom:1px solid #0f172a;">
+        <div style="padding:0.6rem; background:#0c1a2e; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;">① Batch SFTP poll (every 15 min) → receives inward file with N cheques</div>
+        <div style="padding:0.6rem; background:#081510; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#0a1a0a; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#0d0c00; font-size:0.69rem; color:#64748b;"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(6,1fr); border-bottom:1px solid #0f172a;">
+        <div style="padding:0.6rem; background:#0c1a2e; font-size:0.69rem; color:#3b82f6; border-right:1px dashed #1e293b;">→ publishes N events to Kafka (1 per cheque)</div>
+        <div style="padding:0.6rem; background:#081510; font-size:0.69rem; color:#10b981; border-right:1px dashed #1e293b;">② N events arrive · KEDA: scale 0→N pods in &lt;2s</div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#0a1a0a; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#0d0c00; font-size:0.69rem; color:#64748b;"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(6,1fr); border-bottom:1px solid #0f172a;">
+        <div style="padding:0.6rem; background:#0c1a2e; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#081510; font-size:0.69rem; color:#10b981; border-right:1px dashed #1e293b;">→ triggers ChequeProcessingWorkflow per cheque</div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#c4b5fd; border-right:1px dashed #1e293b;">③ Workflow starts · <strong>spawns IETWatchdog FIRST</strong></div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#c4b5fd; border-right:1px dashed #1e293b;">④ Watchdog starts countdown from IET deadline</div>
+        <div style="padding:0.6rem; background:#0a1a0a; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#0d0c00; font-size:0.69rem; color:#64748b;"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(6,1fr); border-bottom:1px solid #0f172a;">
+        <div style="padding:0.6rem; background:#0c1a2e; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#081510; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#c4b5fd; border-right:1px dashed #1e293b;">⑤ ocr_extract activity</div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#0a1a0a; font-size:0.69rem; color:#86efac; border-right:1px dashed #1e293b;">GOT-OCR2.0 · MICR + fields · returns confidence 0.9981</div>
+        <div style="padding:0.6rem; background:#0d0c00; font-size:0.69rem; color:#64748b;"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(6,1fr); border-bottom:1px solid #0f172a;">
+        <div style="padding:0.6rem; background:#0c1a2e; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#081510; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#c4b5fd; border-right:1px dashed #1e293b;">⑥ detect_alteration activity</div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#0a1a0a; font-size:0.69rem; color:#86efac; border-right:1px dashed #1e293b;">Qwen2-VL 72B · tamper analysis · alteration_detected=false</div>
+        <div style="padding:0.6rem; background:#0d0c00; font-size:0.69rem; color:#64748b;"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(6,1fr); border-bottom:1px solid #0f172a;">
+        <div style="padding:0.6rem; background:#0c1a2e; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#081510; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#c4b5fd; border-right:1px dashed #1e293b;">⑦ verify_signature activity</div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#0a1a0a; font-size:0.69rem; color:#86efac; border-right:1px dashed #1e293b;">Siamese NN · match_score=0.9873</div>
+        <div style="padding:0.6rem; background:#0d0c00; font-size:0.69rem; color:#fcd34d;">sig vault lookup · cache HIT · &lt;5ms</div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(6,1fr); border-bottom:1px solid #0f172a;">
+        <div style="padding:0.6rem; background:#0c1a2e; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#081510; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#c4b5fd; border-right:1px dashed #1e293b;">⑧ check_cbs_balance + lookup_pps</td>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#0a1a0a; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#0d0c00; font-size:0.69rem; color:#fcd34d;">PPS vault HIT · CBS: balance OK</div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(6,1fr); border-bottom:1px solid #0f172a;">
+        <div style="padding:0.6rem; background:#0c1a2e; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#081510; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#c4b5fd; border-right:1px dashed #1e293b;">⑨ score_fraud · XGBoost + SHAP</div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#0a1a0a; font-size:0.69rem; color:#86efac; border-right:1px dashed #1e293b;">fraud_score=0.031 · shap_values={...} stored</div>
+        <div style="padding:0.6rem; background:#0d0c00; font-size:0.69rem; color:#64748b;"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(6,1fr); border-bottom:1px solid #0f172a;">
+        <div style="padding:0.6rem; background:#0c1a2e; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#081510; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#c4b5fd; border-right:1px dashed #1e293b;">⑩ synthesise_decision → STP_CONFIRM</div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#0a1a0a; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#0d0c00; font-size:0.69rem; color:#64748b;"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(6,1fr); border-bottom:1px solid #0f172a;">
+        <div style="padding:0.6rem; background:#0c1a2e; font-size:0.69rem; color:#3b82f6; border-right:1px dashed #1e293b;">⑪ SFTP: file CONFIRM decision to NGCH</div>
+        <div style="padding:0.6rem; background:#081510; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#c4b5fd; border-right:1px dashed #1e293b;">file_to_ngch activity → write_audit</div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#c4b5fd; border-right:1px dashed #1e293b;">Watchdog: receives SAFE signal · stops</div>
+        <div style="padding:0.6rem; background:#0a1a0a; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#0d0c00; font-size:0.69rem; color:#64748b;"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(6,1fr);">
+        <div style="padding:0.6rem; background:#0c1a2e; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#081510; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#86efac; border-right:1px dashed #1e293b;">⑫ Total wall clock: <strong style="color:#4ade80;">487ms ✓</strong></div>
+        <div style="padding:0.6rem; background:#120d2a; font-size:0.69rem; color:#86efac; border-right:1px dashed #1e293b;">IET: <strong style="color:#4ade80;">SAFE</strong></div>
+        <div style="padding:0.6rem; background:#0a1a0a; font-size:0.69rem; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.6rem; background:#0d0c00; font-size:0.69rem; color:#64748b;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SD2: Phase 2 REST + Webhook -->
+  <div style="margin-bottom:2.5rem;">
+    <div style="font-size:0.78rem; font-weight:700; color:#10b981; text-transform:uppercase; letter-spacing:.06em; margin-bottom:1rem;">SD-2 · Phase 2 — Presentee Bank Submits Outward Cheque (REST API)</div>
+    <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:0; text-align:center; margin-bottom:0;">
+      <div style="background:#1a3530; padding:0.5rem; border-radius:6px 0 0 0; font-size:0.68rem; font-weight:700; color:#6ee7b7;">Presentee Bank<br>(ASTRA)</div>
+      <div style="background:#1e3a5f; padding:0.5rem; font-size:0.68rem; font-weight:700; color:#93c5fd;">NPCI REST API</div>
+      <div style="background:#2d1a4a; padding:0.5rem; font-size:0.68rem; font-weight:700; color:#c4b5fd;">NPCI Webhook</div>
+      <div style="background:#2d1a4a; padding:0.5rem; font-size:0.68rem; font-weight:700; color:#c4b5fd;">Drawee Bank<br>(ASTRA)</div>
+      <div style="background:#2d2500; padding:0.5rem; border-radius:0 6px 0 0; font-size:0.68rem; font-weight:700; color:#fcd34d;">RBI e-Kuber</div>
+    </div>
+    <div style="border:1px solid #1e293b; border-top:none; border-radius:0 0 8px 8px; overflow:hidden; font-size:0.69rem;">
+      <div style="display:grid; grid-template-columns:repeat(5,1fr); border-bottom:1px solid #0f172a;">
+        <div style="padding:0.55rem; background:#081510; color:#6ee7b7; border-right:1px dashed #1e293b;">① POST /cts/v1/instruments<br>+ L1 mTLS + L2 token + L3 HMAC</div>
+        <div style="padding:0.55rem; background:#0c1a2e; color:#93c5fd; border-right:1px dashed #1e293b;">Validates auth (3 layers) · Queues cheque · Returns 201 with NPCI ref</div>
+        <div style="padding:0.55rem; background:#120d2a; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.55rem; background:#120d2a; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.55rem; background:#0d0c00; color:#64748b;"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(5,1fr); border-bottom:1px solid #0f172a;">
+        <div style="padding:0.55rem; background:#081510; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.55rem; background:#0c1a2e; color:#93c5fd; border-right:1px dashed #1e293b;">② NPCI enriches: assigns session, IET deadline, grid</div>
+        <div style="padding:0.55rem; background:#120d2a; color:#c4b5fd; border-right:1px dashed #1e293b;">③ Webhook POST to drawee bank endpoint &lt;5s<br>X-NPCI-Webhook-Signature: {hmac}</div>
+        <div style="padding:0.55rem; background:#120d2a; color:#c4b5fd; border-right:1px dashed #1e293b;">④ Verifies webhook HMAC · publishes to cts.inward.{id} Kafka · HTTP 200</div>
+        <div style="padding:0.55rem; background:#0d0c00; color:#64748b;"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(5,1fr); border-bottom:1px solid #0f172a;">
+        <div style="padding:0.55rem; background:#081510; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.55rem; background:#0c1a2e; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.55rem; background:#120d2a; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.55rem; background:#120d2a; color:#c4b5fd; border-right:1px dashed #1e293b;">⑤ AI agent pipeline runs (same as Phase 1 inward)<br>→ POST /cts/v1/returns (CONFIRM/RETURN)</div>
+        <div style="padding:0.55rem; background:#0d0c00; color:#64748b;"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(5,1fr);">
+        <div style="padding:0.55rem; background:#081510; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.55rem; background:#0c1a2e; color:#93c5fd; border-right:1px dashed #1e293b;">⑥ Settlement batch closes every 30 min · Net position calculated</div>
+        <div style="padding:0.55rem; background:#120d2a; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.55rem; background:#120d2a; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.55rem; background:#0d0c00; color:#fcd34d;">⑦ RBI e-Kuber: NET settlement executed · Debit/credit banks</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SD3: Phase 4 Mobile -->
+  <div style="margin-bottom:1.5rem;">
+    <div style="font-size:0.78rem; font-weight:700; color:#ec4899; text-transform:uppercase; letter-spacing:.06em; margin-bottom:1rem;">SD-3 · Phase 4 — Drawer Mobile Upload (Happy Path)</div>
+    <div style="display:grid; grid-template-columns:repeat(6, 1fr); gap:0; text-align:center; margin-bottom:0;">
+      <div style="background:#3b0018; padding:0.5rem; border-radius:6px 0 0 0; font-size:0.68rem; font-weight:700; color:#f9a8d4;">Drawer<br>(Mobile App)</div>
+      <div style="background:#1e3a5f; padding:0.5rem; font-size:0.68rem; font-weight:700; color:#93c5fd;">NPCI Mobile API</div>
+      <div style="background:#2d1a4a; padding:0.5rem; font-size:0.68rem; font-weight:700; color:#c4b5fd;">Drawer Bank<br>CBS (Lien)</div>
+      <div style="background:#1a3530; padding:0.5rem; font-size:0.68rem; font-weight:700; color:#6ee7b7;">Drawee Bank<br>(ASTRA AI)</div>
+      <div style="background:#1a3530; padding:0.5rem; font-size:0.68rem; font-weight:700; color:#6ee7b7;">Beneficiary Bank<br>CBS</div>
+      <div style="background:#2d2500; padding:0.5rem; border-radius:0 6px 0 0; font-size:0.68rem; font-weight:700; color:#fcd34d;">RBI e-Kuber</div>
+    </div>
+    <div style="border:1px solid #1e293b; border-top:none; border-radius:0 0 8px 8px; overflow:hidden; font-size:0.69rem;">
+      <div style="display:grid; grid-template-columns:repeat(6,1fr); border-bottom:1px solid #0f172a;">
+        <div style="padding:0.5rem; background:#1a000a; color:#f9a8d4; border-right:1px dashed #1e293b;">① Photo front+rear of cheque · fill beneficiary details · KYC biometric confirm</div>
+        <div style="padding:0.5rem; background:#0c1a2e; color:#93c5fd; border-right:1px dashed #1e293b;">② POST /mobile/submissions · device attestation verified · Vision AI image quality check</div>
+        <div style="padding:0.5rem; background:#120d2a; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.5rem; background:#081510; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.5rem; background:#081510; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.5rem; background:#0d0c00; color:#64748b;"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(6,1fr); border-bottom:1px solid #0f172a;">
+        <div style="padding:0.5rem; background:#1a000a; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.5rem; background:#0c1a2e; color:#93c5fd; border-right:1px dashed #1e293b;">③ Notifies drawer's bank: lien request</div>
+        <div style="padding:0.5rem; background:#120d2a; color:#c4b5fd; border-right:1px dashed #1e293b;">④ CBS marks lien on drawer account · returns lien_ref · 202 accepted</div>
+        <div style="padding:0.5rem; background:#081510; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.5rem; background:#081510; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.5rem; background:#0d0c00; color:#64748b;"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(6,1fr); border-bottom:1px solid #0f172a;">
+        <div style="padding:0.5rem; background:#1a000a; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.5rem; background:#0c1a2e; color:#93c5fd; border-right:1px dashed #1e293b;">⑤ Webhook → drawee bank with cheque details · IET window = 3h</div>
+        <div style="padding:0.5rem; background:#120d2a; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.5rem; background:#081510; color:#6ee7b7; border-right:1px dashed #1e293b;">⑥ AI agent pipeline: OCR · signature · fraud · decision in &lt;600ms</div>
+        <div style="padding:0.5rem; background:#081510; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.5rem; background:#0d0c00; color:#64748b;"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(6,1fr); border-bottom:1px solid #0f172a;">
+        <div style="padding:0.5rem; background:#1a000a; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.5rem; background:#0c1a2e; color:#93c5fd; border-right:1px dashed #1e293b;">⑦ POST /returns (CONFIRM) · lien converted to debit instruction</div>
+        <div style="padding:0.5rem; background:#120d2a; color:#c4b5fd; border-right:1px dashed #1e293b;">⑧ CBS: lien → actual debit from drawer account</div>
+        <div style="padding:0.5rem; background:#081510; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.5rem; background:#081510; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.5rem; background:#0d0c00; color:#64748b;"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(6,1fr);">
+        <div style="padding:0.5rem; background:#1a000a; color:#f9a8d4; border-right:1px dashed #1e293b;">⑨ Push notification: cheque paid · settlement pending</div>
+        <div style="padding:0.5rem; background:#0c1a2e; color:#93c5fd; border-right:1px dashed #1e293b;">⑩ Net settlement in 30-min batch</div>
+        <div style="padding:0.5rem; background:#120d2a; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.5rem; background:#081510; color:#64748b; border-right:1px dashed #1e293b;"></div>
+        <div style="padding:0.5rem; background:#081510; color:#6ee7b7; border-right:1px dashed #1e293b;">⑪ CBS credit: beneficiary account updated</div>
+        <div style="padding:0.5rem; background:#0d0c00; color:#fcd34d;">⑫ e-Kuber settlement executed · interbank debit/credit done</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- §19 COMPETITIVE POSITIONING -->
+<div class="section" id="competitive-positioning">
+  <div class="sec-header">
+    <span class="sec-num pink">19</span>
+    <div>
+      <div class="sec-title">Competitive Positioning — ASTRA vs Incumbents</div>
+      <div class="sec-sub">Why Vision 2030 is an 18-month first-mover window that existing vendors cannot close</div>
+    </div>
+  </div>
+
+  <table class="data-table" style="margin-bottom:1.5rem;">
+    <tr style="background:#1e3a5f;">
+      <th>Capability</th>
+      <th>Nelito / Finacus (incumbents)</th>
+      <th>TCS BaNCS CTS</th>
+      <th>ASTRA (Vision 2030)</th>
+    </tr>
+    <tr>
+      <td>IET Compliance Architecture</td>
+      <td style="color:#f87171;">Rule-based SLA monitor (alert only) · No agent architecture</td>
+      <td style="color:#fbbf24;">SLA timer with escalation to human queue</td>
+      <td style="color:#4ade80;">IET Watchdog as Temporal child workflow · ABANDON policy · T-30s emergency filer · 0.000% target enforced structurally</td>
+    </tr>
+    <tr>
+      <td>Fraud Detection</td>
+      <td style="color:#f87171;">Rule engine (amount limits, blacklists) · No AI</td>
+      <td style="color:#fbbf24;">Basic ML (logistic regression) · No explainability</td>
+      <td style="color:#4ade80;">XGBoost ensemble + SHAP explainability + Llama 3.3 70B rationale · Every decision auditable in human language</td>
+    </tr>
+    <tr>
+      <td>Cheque Alteration Detection</td>
+      <td style="color:#f87171;">None — human review for all suspicious images</td>
+      <td style="color:#fbbf24;">Image noise analysis (pixel-level diff) · High false positives</td>
+      <td style="color:#4ade80;">Qwen2-VL 72B Vision LLM · Field-level alteration detection with confidence per field · Sub-second inference</td>
+    </tr>
+    <tr>
+      <td>NPCI Phase 2 REST API Readiness</td>
+      <td style="color:#f87171;">Not designed for it · Significant rework needed (est. 18 months)</td>
+      <td style="color:#fbbf24;">TCS has NPCI relationship · Likely 12 months to adapt BaNCS CTS</td>
+      <td style="color:#4ade80;">Transport-agnostic architecture (ngch_adapter) · SFTP → REST is config flag change · 3-month implementation (A-1 to A-20 checklist)</td>
+    </tr>
+    <tr>
+      <td>MCP (Phase 3) Native Support</td>
+      <td style="color:#f87171;">No MCP roadmap announced</td>
+      <td style="color:#fbbf24;">No MCP roadmap announced</td>
+      <td style="color:#4ade80;">MCP as foundational integration standard since Day 1 · ngch_adapter already MCP server · Phase 3 upgrade is client-side add-on</td>
+    </tr>
+    <tr>
+      <td>On-Premises, Zero Cloud</td>
+      <td style="color:#fbbf24;">Some vendors offer SaaS shared infrastructure (data localisation risk)</td>
+      <td style="color:#fbbf24;">TCS manages hosting for smaller banks (shared infra)</td>
+      <td style="color:#4ade80;">100% on-premises · Bank's own data centre · No vendor access to production · Helm + ArgoCD GitOps · Bank controls everything</td>
+    </tr>
+    <tr>
+      <td>Deployment Isolation</td>
+      <td style="color:#f87171;">Shared database for multi-bank deployments common</td>
+      <td style="color:#fbbf24;">Per-bank schemas in shared cluster</td>
+      <td style="color:#4ade80;">Per-bank Kubernetes namespace · Separate Redis clusters · Separate pgbouncer pools · No cross-bank data possible</td>
+    </tr>
+    <tr>
+      <td>Sub-Member Bank Routing</td>
+      <td style="color:#fbbf24;">Manual routing configuration</td>
+      <td style="color:#fbbf24;">Rule-based routing</td>
+      <td style="color:#4ade80;">SMBForwardingWorkflow with AI risk shield · Sponsor exposure monitoring · Automated UCB routing with full audit</td>
+    </tr>
+    <tr>
+      <td>Time-to-Market (Phase 2)</td>
+      <td style="color:#f87171;">Estimate: 18-24 months after NPCI go-live</td>
+      <td style="color:#fbbf24;">Estimate: 12-18 months</td>
+      <td style="color:#4ade80;"><strong>3-6 months</strong> — transport adapter only, zero workflow changes</td>
+    </tr>
+  </table>
+
+  <div class="callout">
+    <strong>The 18-Month Window:</strong> When NPCI publishes the Phase 2 REST API specification (estimated mid-2027), incumbents face architectural retrofit. ASTRA's transport-agnostic design means Phase 2 go-live is a configuration change, not a development project. First bank live on Phase 2 REST gets a compounding advantage: lower latency, real-time feedback, 30-minute settlement vs. T+1 SFTP — visible in every clearing report they share with customers.
+  </div>
+</div>
+
+<!-- §20 REGULATORY ROADMAP -->
+<div class="section" id="regulatory-roadmap">
+  <div class="sec-header">
+    <span class="sec-num purple">20</span>
+    <div>
+      <div class="sec-title">Regulatory Roadmap &amp; Approvals Required</div>
+      <div class="sec-sub">RBI, NPCI, and NI Act dependencies per phase — what must be approved before each phase goes live</div>
+    </div>
+  </div>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-bottom:1.5rem;">
+
+    <div style="background:#0f2744; border:2px solid #3b82f6; border-radius:12px; padding:1.5rem;">
+      <div style="font-size:0.7rem; font-weight:700; color:#3b82f6; text-transform:uppercase; letter-spacing:.08em; margin-bottom:0.5rem;">Phase 1 — Regulatory Status</div>
+      <div style="font-size:0.85rem; font-weight:700; color:#e2e8f0; margin-bottom:0.8rem;">✅ No new approval required</div>
+      <div style="font-size:0.73rem; color:#94a3b8; line-height:1.8;">
+        SFTP transport is unchanged. ASTRA adds AI processing at the bank's own infrastructure. This is equivalent to a bank improving its internal cheque processing system — no RBI notification required beyond normal system change management.<br><br>
+        <strong>Bank action needed:</strong><br>
+        • Internal IT change approval (ISO 27001 change management)<br>
+        • CBS team sign-off on read-only API connector<br>
+        • CISO approval of AI inference on payment images<br>
+        • Board-level risk committee approval (recommended)
+      </div>
+    </div>
+
+    <div style="background:#0f2744; border:2px solid #10b981; border-radius:12px; padding:1.5rem;">
+      <div style="font-size:0.7rem; font-weight:700; color:#10b981; text-transform:uppercase; letter-spacing:.08em; margin-bottom:0.5rem;">Phase 2 — Regulatory Status</div>
+      <div style="font-size:0.85rem; font-weight:700; color:#e2e8f0; margin-bottom:0.8rem;">⚡ NPCI approval required</div>
+      <div style="font-size:0.73rem; color:#94a3b8; line-height:1.8;">
+        REST API replaces SFTP at the NGCH interface. This requires:<br><br>
+        <strong>NPCI approval:</strong><br>
+        • NPCI Technical Committee review of bank's integration design<br>
+        • NPCI vendor certification (Gates 1-4 in §17)<br>
+        • NPCI Circular to member banks authorising REST parallel operation<br><br>
+        <strong>RBI notification:</strong><br>
+        • RBI IT Department notification (not approval) per IT Framework §5.3<br>
+        • No new RBI permission needed — same legal instrument, new transmission method<br><br>
+        <strong>NI Act:</strong> No change required — physical cheque is still the instrument.
+      </div>
+    </div>
+
+    <div style="background:#0f2744; border:2px solid #8b5cf6; border-radius:12px; padding:1.5rem;">
+      <div style="font-size:0.7rem; font-weight:700; color:#8b5cf6; text-transform:uppercase; letter-spacing:.08em; margin-bottom:0.5rem;">Phase 3 — Regulatory Status</div>
+      <div style="font-size:0.85rem; font-weight:700; color:#e2e8f0; margin-bottom:0.8rem;">⚡ RBI + NPCI review required</div>
+      <div style="font-size:0.73rem; color:#94a3b8; line-height:1.8;">
+        MCP is a new protocol at the NGCH interface. While functionally equivalent to REST, the persistent socket model and agentic invocation pattern require regulatory review.<br><br>
+        <strong>NPCI action:</strong><br>
+        • NPCI Board approval to deploy MCP server in NGCH infrastructure<br>
+        • NPCI Operational Circular authorising MCP alongside REST (co-existence)<br>
+        • NPCI CERT-In security audit of MCP server<br><br>
+        <strong>RBI action:</strong><br>
+        • RBI IT Department review of agentic protocol at payment infrastructure<br>
+        • RBI Payment Systems Policy Department — likely a Directions consultation<br>
+        <strong>Estimated regulatory lead time: 12-18 months from proposal submission</strong>
+      </div>
+    </div>
+
+    <div style="background:#0f2744; border:2px solid #ec4899; border-radius:12px; padding:1.5rem;">
+      <div style="font-size:0.7rem; font-weight:700; color:#ec4899; text-transform:uppercase; letter-spacing:.08em; margin-bottom:0.5rem;">Phase 4 — Regulatory Status</div>
+      <div style="font-size:0.85rem; font-weight:700; color:#e2e8f0; margin-bottom:0.8rem;">🔴 RBI Regulatory Sandbox + NI Act amendment</div>
+      <div style="font-size:0.73rem; color:#94a3b8; line-height:1.8;">
+        Mobile-originated cheque submission has no existing legal standing under Indian law. The Negotiable Instruments Act 1881 contemplates a physical paper instrument.<br><br>
+        <strong>NI Act 1881:</strong><br>
+        • Section 6: "A cheque is a bill of exchange drawn on a specified banker..."<br>
+        • Amendment needed: recognise digitally-submitted cheques as valid instruments<br>
+        • Ministry of Finance must table NI Act amendment bill in Parliament<br>
+        • <strong>Estimated timeline: 24-36 months (Parliament + Presidential assent + rules)</strong><br><br>
+        <strong>RBI Regulatory Sandbox (Cohort):</strong><br>
+        • Apply under RBI's Regulatory Sandbox framework (DPSS.CO.OD.No.1500)<br>
+        • Sandbox provides limited exemption to test without full legal change<br>
+        • Max 500 transactions/day during sandbox; full banks cannot participate
+      </div>
+    </div>
+  </div>
+
+  <div class="callout" style="border-color:#f59e0b; background:#1c1000;">
+    <strong style="color:#fcd34d;">Key Insight for NPCI:</strong> Phases 1 and 2 can proceed in parallel with this concept note and standard NPCI vendor engagement. Phase 3 (MCP) requires NPCI Board commitment (12-18 months lead). Phase 4 (Mobile) requires a Parliament Act — this is a 3-5 year horizon. ASTRA builds the technical architecture now so the infrastructure is ready the moment the regulatory path opens. Being technically ready when regulation permits is the competitive advantage.
+  </div>
+</div>
+
+<!-- §21 CONCLUSION -->
+<div class="section" id="conclusion">
+  <div class="sec-header">
+    <span class="sec-num teal">21</span>
+    <div>
+      <div class="sec-title">Conclusion — Call to Action</div>
+      <div class="sec-sub">A once-in-a-decade opportunity to leapfrog the batch era permanently</div>
+    </div>
+  </div>
+
+  <div style="max-width:720px; margin:0 auto; line-height:1.9; font-size:0.82rem; color:#cbd5e1;">
+
+    <p style="margin-bottom:1.2rem;">India processes <strong style="color:#f9fafb;">609 million cheques per year</strong> — ₹71 lakh crore in value. Every one of those instruments travels through a 1987-era SFTP batch model that operates on a 24-hour cycle, with no real-time feedback, no AI oversight, and a 3-hour silent-acceptance window (IET) that exposes drawee banks to unlimited fraud liability if their internal systems are slow.</p>
+
+    <p style="margin-bottom:1.2rem;">CTS Vision 2030 proposes a phased, backwards-compatible modernisation path that requires no big-bang cutover, no disruption to existing clearing members, and no new RBI legislation for the first two phases. <strong style="color:#f9fafb;">The architecture already exists.</strong> ASTRA has built it. The question is not whether to modernise — it is whether NPCI leads the modernisation or responds to it when a foreign payment network makes the comparison impossible to ignore.</p>
+
+    <div style="background:#0f172a; border-left:3px solid #3b82f6; padding:1rem 1.2rem; margin:1.5rem 0; border-radius:0 8px 8px 0;">
+      <div style="font-size:0.78rem; font-weight:700; color:#93c5fd; margin-bottom:0.5rem;">What NPCI Is Asked to Do — Four Decisions</div>
+      <div style="font-size:0.76rem; color:#94a3b8; line-height:1.9;">
+        <strong style="color:#e2e8f0;">Decision 1 (Today):</strong> Acknowledge receipt of this concept note. Assign an NPCI CTS Integration Team point of contact to engage with ASTRA on the Phase 2 REST API specification.<br>
+        <strong style="color:#e2e8f0;">Decision 2 (Month 3):</strong> Publish the NPCI CTS REST API OpenAPI specification (draft). Open vendor sandbox registration. ASTRA commits to Phase 2 certification within 90 days of spec publication.<br>
+        <strong style="color:#e2e8f0;">Decision 3 (Month 6):</strong> Approve Phase 3 MCP exploration — form an NPCI technical working group with ASTRA and two pilot banks to design the MCP server specification. No commitment to production yet.<br>
+        <strong style="color:#e2e8f0;">Decision 4 (Month 12):</strong> Commission Phase 4 regulatory impact study in coordination with Ministry of Finance and RBI DPSS. ASTRA provides technical architecture for the NI Act amendment proposal.
+      </div>
+    </div>
+
+    <p style="margin-bottom:1.2rem;">The cheque is not dying. Despite UPI's growth, 609 million cheques per year is structural — trade finance, high-value property transactions, government payments, and rural banking depend on it. But the infrastructure serving the cheque is operating at 1987 speed in a 2027 world. <strong style="color:#f9fafb;">The IET mandate of January 2026 was RBI's signal: the status quo is no longer acceptable.</strong> ASTRA is the answer to that signal.</p>
+
+    <p style="margin-bottom:1.5rem; color:#94a3b8; font-size:0.78rem; font-style:italic;">This concept note was prepared by Nilesh Shah (Ex-NPCI · Piramal Finance · Fullerton India / SMFG) and documents the technical architecture of ASTRA — Automated Settlement and Transaction Recognition Architecture. All architectural decisions referenced herein are implemented and testable. A live demonstration on ASTRA staging infrastructure can be arranged at NPCI's convenience.</p>
+  </div>
+
+  <!-- Final KPI strip -->
+  <div class="kpi-strip" style="margin-top:2rem;">
+    <div class="kpi-card">
+      <div class="kpi-val">Phase 1</div>
+      <div class="kpi-badge">Jan 2027</div>
+      <div class="kpi-label">AI + SFTP · Zero infra change</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-val">Phase 2</div>
+      <div class="kpi-badge">Sep 2027</div>
+      <div class="kpi-label">REST API · 30-min settlement</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-val">Phase 3</div>
+      <div class="kpi-badge">Dec 2027</div>
+      <div class="kpi-label">MCP Native · Agentic clearing</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-val kpi-val amber">Phase 4</div>
+      <div class="kpi-badge purple">Sep 2028</div>
+      <div class="kpi-label">Mobile Submit · Lien-first</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-val" style="color:#10b981;">0.000%</div>
+      <div class="kpi-badge" style="background:#052e16; color:#4ade80;">IET Breach</div>
+      <div class="kpi-label">All phases · Structural guarantee</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-val">609M</div>
+      <div class="kpi-badge">cheques/year</div>
+      <div class="kpi-label">FY25 · Every one deserves AI</div>
+    </div>
+  </div>
+</div>
+
 <!-- FOOTER -->
 <div class="footer">
-  <div class="footer-text">CTS Vision 2030 · Product Concept Note v2.0 · Chunks 1-4 of 5 · Confidential — NPCI Distribution Only</div>
-  <div class="footer-text">Nilesh Shah · June 2026 · © ASTRA — Automated Settlement and Transaction Recognition Architecture</div>
+  <div class="footer-text">CTS Vision 2030 · Product Concept Note v2.0 · Complete (5 of 5 Chunks) · Confidential — NPCI Distribution Only</div>
+  <div class="footer-text">Nilesh Shah · Ex-NPCI · Piramal Finance · Fullerton India / SMFG · June 2026 · © ASTRA — Automated Settlement and Transaction Recognition Architecture</div>
 </div>
 
 </div><!-- .page -->
