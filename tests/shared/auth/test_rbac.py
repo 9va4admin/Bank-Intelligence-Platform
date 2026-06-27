@@ -11,18 +11,30 @@ Roles from CLAUDE.md:
   compliance_officer— Audit+reports, read-only audit trail, no config
   rbi_examiner      — Audit only (time-scoped), read-only date-scoped, no config
   ml_engineer       — AI server+MLflow, inference logs, no customer data, no config
+  smb_admin         — Full control within own SMB tenant
+  smb_editor        — Action HR queue + view within own SMB tenant
+  smb_viewer        — Read-only within own SMB tenant
+
+Tenant isolation rules:
+  SB users can see SB data + all SMB data (from SB context — no impersonation)
+  SMB users can ONLY see their own bank's data — complete blind wall to SB
+  SMB A cannot see SMB B
+  Nobody can edit or delete login logs — Immudb enforces immutability
 
 ABAC rules:
   ops_reviewer further scoped to clearing_zone attribute
   All roles scoped to bank_id
   rbi_examiner access time-limited per engagement
+  permission_level (ADMIN/EDIT/READ_ONLY) gates write operations within tenant
 """
 import time
 
 import pytest
 
 from shared.auth.rbac import (
+    BankType,
     Permission,
+    PermissionLevel,
     RBACPolicy,
     Role,
     UserContext,
@@ -33,6 +45,8 @@ from shared.auth.exceptions import (
     InsufficientZoneScopeError,
     BankIsolationError,
     EngagementExpiredError,
+    TenantIsolationError,
+    PermissionLevelError,
 )
 
 
@@ -341,3 +355,382 @@ def test_assert_permission_error_includes_role_and_permission(fraud_analyst):
     msg = str(exc_info.value)
     assert "fraud_analyst" in msg.lower() or "FRAUD_ANALYST" in msg
     assert "CTS_VIEW_QUEUE" in msg
+
+
+# ===========================================================================
+# CYCLE 1: BankType + PermissionLevel enums
+# ===========================================================================
+
+class TestBankTypeEnum:
+    def test_sb_value(self):
+        assert BankType.SB == "SB"
+
+    def test_smb_value(self):
+        assert BankType.SMB == "SMB"
+
+    def test_only_two_values(self):
+        assert set(BankType) == {BankType.SB, BankType.SMB}
+
+
+class TestPermissionLevelEnum:
+    def test_admin_value(self):
+        assert PermissionLevel.ADMIN == "ADMIN"
+
+    def test_edit_value(self):
+        assert PermissionLevel.EDIT == "EDIT"
+
+    def test_read_only_value(self):
+        assert PermissionLevel.READ_ONLY == "READ_ONLY"
+
+    def test_only_three_values(self):
+        assert set(PermissionLevel) == {
+            PermissionLevel.ADMIN,
+            PermissionLevel.EDIT,
+            PermissionLevel.READ_ONLY,
+        }
+
+
+# ===========================================================================
+# CYCLE 2: UserContext carries bank_type and permission_level
+# ===========================================================================
+
+class TestUserContextBankTypeAndPermissionLevel:
+    def test_sb_user_has_bank_type(self):
+        user = UserContext(
+            user_id="u-sb-1",
+            role=Role.OPS_MANAGER,
+            bank_id="hdfc-bank",
+            bank_type=BankType.SB,
+            permission_level=PermissionLevel.EDIT,
+        )
+        assert user.bank_type == BankType.SB
+        assert user.permission_level == PermissionLevel.EDIT
+
+    def test_smb_user_has_bank_type(self):
+        user = UserContext(
+            user_id="u-smb-1",
+            role=Role.SMB_EDITOR,
+            bank_id="saraswat-ucb",
+            bank_type=BankType.SMB,
+            permission_level=PermissionLevel.EDIT,
+        )
+        assert user.bank_type == BankType.SMB
+
+    def test_default_bank_type_is_sb_for_backward_compat(self):
+        # Existing UserContext without bank_type must not break — defaults to SB
+        user = UserContext(
+            user_id="u-old",
+            role=Role.OPS_REVIEWER,
+            bank_id="test-bank",
+        )
+        assert user.bank_type == BankType.SB
+
+    def test_default_permission_level_is_edit_for_backward_compat(self):
+        user = UserContext(
+            user_id="u-old",
+            role=Role.OPS_REVIEWER,
+            bank_id="test-bank",
+        )
+        assert user.permission_level == PermissionLevel.EDIT
+
+
+# ===========================================================================
+# CYCLE 3: SMB roles in Role enum
+# ===========================================================================
+
+class TestSMBRoles:
+    def test_smb_admin_role_exists(self):
+        assert Role.SMB_ADMIN == "smb_admin"
+
+    def test_smb_editor_role_exists(self):
+        assert Role.SMB_EDITOR == "smb_editor"
+
+    def test_smb_viewer_role_exists(self):
+        assert Role.SMB_VIEWER == "smb_viewer"
+
+    def test_smb_admin_can_view_hr_queue(self):
+        user = UserContext(
+            user_id="smb-adm-1",
+            role=Role.SMB_ADMIN,
+            bank_id="saraswat-ucb",
+            bank_type=BankType.SMB,
+            permission_level=PermissionLevel.ADMIN,
+        )
+        assert has_permission(user, Permission.CTS_VIEW_QUEUE) is True
+
+    def test_smb_admin_can_submit_decision(self):
+        user = UserContext(
+            user_id="smb-adm-1",
+            role=Role.SMB_ADMIN,
+            bank_id="saraswat-ucb",
+            bank_type=BankType.SMB,
+            permission_level=PermissionLevel.ADMIN,
+        )
+        assert has_permission(user, Permission.CTS_SUBMIT_DECISION) is True
+
+    def test_smb_editor_can_view_queue_and_submit_decision(self):
+        user = UserContext(
+            user_id="smb-ed-1",
+            role=Role.SMB_EDITOR,
+            bank_id="saraswat-ucb",
+            bank_type=BankType.SMB,
+            permission_level=PermissionLevel.EDIT,
+        )
+        assert has_permission(user, Permission.CTS_VIEW_QUEUE) is True
+        assert has_permission(user, Permission.CTS_SUBMIT_DECISION) is True
+
+    def test_smb_viewer_can_view_queue_but_not_submit(self):
+        user = UserContext(
+            user_id="smb-vw-1",
+            role=Role.SMB_VIEWER,
+            bank_id="saraswat-ucb",
+            bank_type=BankType.SMB,
+            permission_level=PermissionLevel.READ_ONLY,
+        )
+        assert has_permission(user, Permission.CTS_VIEW_QUEUE) is True
+        assert has_permission(user, Permission.CTS_SUBMIT_DECISION) is False
+
+    def test_smb_admin_can_read_login_log(self):
+        user = UserContext(
+            user_id="smb-adm-1",
+            role=Role.SMB_ADMIN,
+            bank_id="saraswat-ucb",
+            bank_type=BankType.SMB,
+            permission_level=PermissionLevel.ADMIN,
+        )
+        assert has_permission(user, Permission.LOGIN_LOG_READ) is True
+
+    def test_smb_viewer_can_read_login_log(self):
+        user = UserContext(
+            user_id="smb-vw-1",
+            role=Role.SMB_VIEWER,
+            bank_id="saraswat-ucb",
+            bank_type=BankType.SMB,
+            permission_level=PermissionLevel.READ_ONLY,
+        )
+        assert has_permission(user, Permission.LOGIN_LOG_READ) is True
+
+    def test_nobody_has_login_log_delete_permission(self):
+        # LOGIN_LOG_DELETE must not exist in any role's permission set
+        for role in Role:
+            user = UserContext(
+                user_id="u-test",
+                role=role,
+                bank_id="test-bank",
+                bank_type=BankType.SB if role not in (Role.SMB_ADMIN, Role.SMB_EDITOR, Role.SMB_VIEWER) else BankType.SMB,
+                permission_level=PermissionLevel.ADMIN,
+            )
+            assert has_permission(user, Permission.LOGIN_LOG_DELETE) is False
+
+    def test_smb_admin_cannot_access_sb_config(self):
+        user = UserContext(
+            user_id="smb-adm-1",
+            role=Role.SMB_ADMIN,
+            bank_id="saraswat-ucb",
+            bank_type=BankType.SMB,
+            permission_level=PermissionLevel.ADMIN,
+        )
+        assert has_permission(user, Permission.CONFIG_LAYER3_SUBMIT) is False
+        assert has_permission(user, Permission.CONFIG_LAYER3_APPROVE) is False
+        assert has_permission(user, Permission.ADMIN_CONSOLE) is False
+
+
+# ===========================================================================
+# CYCLE 4: TenantIsolationError + assert_tenant_access
+# ===========================================================================
+
+@pytest.fixture
+def sb_admin():
+    return UserContext(
+        user_id="sb-adm-1",
+        role=Role.BANK_IT_ADMIN,
+        bank_id="hdfc-bank",
+        bank_type=BankType.SB,
+        permission_level=PermissionLevel.ADMIN,
+    )
+
+@pytest.fixture
+def sb_editor():
+    return UserContext(
+        user_id="sb-ed-1",
+        role=Role.OPS_MANAGER,
+        bank_id="hdfc-bank",
+        bank_type=BankType.SB,
+        permission_level=PermissionLevel.EDIT,
+    )
+
+@pytest.fixture
+def smb_admin_user():
+    return UserContext(
+        user_id="smb-adm-1",
+        role=Role.SMB_ADMIN,
+        bank_id="saraswat-ucb",
+        bank_type=BankType.SMB,
+        permission_level=PermissionLevel.ADMIN,
+    )
+
+@pytest.fixture
+def smb_viewer_user():
+    return UserContext(
+        user_id="smb-vw-1",
+        role=Role.SMB_VIEWER,
+        bank_id="saraswat-ucb",
+        bank_type=BankType.SMB,
+        permission_level=PermissionLevel.READ_ONLY,
+    )
+
+
+class TestTenantIsolation:
+    """SB sees all. SMB sees only own. No cross-tenant. No impersonation."""
+
+    def test_sb_user_can_access_own_sb_data(self, sb_admin):
+        policy = RBACPolicy()
+        # No exception
+        policy.assert_tenant_access(sb_admin, target_bank_type=BankType.SB, target_bank_id="hdfc-bank")
+
+    def test_sb_user_can_view_smb_data_from_sb_context(self, sb_admin):
+        policy = RBACPolicy()
+        # SB can see any SMB's data — no exception
+        policy.assert_tenant_access(sb_admin, target_bank_type=BankType.SMB, target_bank_id="saraswat-ucb")
+
+    def test_sb_user_cannot_access_different_sb(self, sb_admin):
+        policy = RBACPolicy()
+        with pytest.raises(BankIsolationError):
+            policy.assert_tenant_access(sb_admin, target_bank_type=BankType.SB, target_bank_id="icici-bank")
+
+    def test_smb_user_can_access_own_smb_data(self, smb_admin_user):
+        policy = RBACPolicy()
+        # No exception
+        policy.assert_tenant_access(smb_admin_user, target_bank_type=BankType.SMB, target_bank_id="saraswat-ucb")
+
+    def test_smb_user_cannot_access_sb_data(self, smb_admin_user):
+        policy = RBACPolicy()
+        with pytest.raises(TenantIsolationError):
+            policy.assert_tenant_access(smb_admin_user, target_bank_type=BankType.SB, target_bank_id="hdfc-bank")
+
+    def test_smb_user_cannot_access_different_smb(self, smb_admin_user):
+        policy = RBACPolicy()
+        with pytest.raises(TenantIsolationError):
+            policy.assert_tenant_access(smb_admin_user, target_bank_type=BankType.SMB, target_bank_id="cosmos-ucb")
+
+    def test_smb_viewer_cannot_access_sb_data(self, smb_viewer_user):
+        policy = RBACPolicy()
+        with pytest.raises(TenantIsolationError):
+            policy.assert_tenant_access(smb_viewer_user, target_bank_type=BankType.SB, target_bank_id="hdfc-bank")
+
+    def test_tenant_isolation_error_message_is_informative(self, smb_admin_user):
+        policy = RBACPolicy()
+        with pytest.raises(TenantIsolationError) as exc_info:
+            policy.assert_tenant_access(smb_admin_user, target_bank_type=BankType.SB, target_bank_id="hdfc-bank")
+        msg = str(exc_info.value)
+        assert "saraswat-ucb" in msg
+        assert "SMB" in msg
+
+
+# ===========================================================================
+# CYCLE 5: PermissionLevel enforcement
+# ===========================================================================
+
+class TestPermissionLevelEnforcement:
+
+    def test_admin_can_perform_admin_action(self, sb_admin):
+        policy = RBACPolicy()
+        # No exception
+        policy.assert_permission_level(sb_admin, required=PermissionLevel.ADMIN)
+
+    def test_edit_user_cannot_perform_admin_action(self, sb_editor):
+        policy = RBACPolicy()
+        with pytest.raises(PermissionLevelError):
+            policy.assert_permission_level(sb_editor, required=PermissionLevel.ADMIN)
+
+    def test_edit_user_can_perform_edit_action(self, sb_editor):
+        policy = RBACPolicy()
+        # No exception
+        policy.assert_permission_level(sb_editor, required=PermissionLevel.EDIT)
+
+    def test_read_only_user_cannot_perform_edit_action(self):
+        ro_user = UserContext(
+            user_id="ro-1",
+            role=Role.OPS_REVIEWER,
+            bank_id="hdfc-bank",
+            bank_type=BankType.SB,
+            permission_level=PermissionLevel.READ_ONLY,
+        )
+        policy = RBACPolicy()
+        with pytest.raises(PermissionLevelError):
+            policy.assert_permission_level(ro_user, required=PermissionLevel.EDIT)
+
+    def test_read_only_user_can_perform_read_action(self):
+        ro_user = UserContext(
+            user_id="ro-1",
+            role=Role.OPS_REVIEWER,
+            bank_id="hdfc-bank",
+            bank_type=BankType.SB,
+            permission_level=PermissionLevel.READ_ONLY,
+        )
+        policy = RBACPolicy()
+        # No exception — READ_ONLY satisfies READ_ONLY requirement
+        policy.assert_permission_level(ro_user, required=PermissionLevel.READ_ONLY)
+
+    def test_admin_satisfies_edit_requirement(self, sb_admin):
+        policy = RBACPolicy()
+        # ADMIN is a superset of EDIT
+        policy.assert_permission_level(sb_admin, required=PermissionLevel.EDIT)
+
+    def test_admin_satisfies_read_only_requirement(self, sb_admin):
+        policy = RBACPolicy()
+        policy.assert_permission_level(sb_admin, required=PermissionLevel.READ_ONLY)
+
+    def test_permission_level_error_message_is_informative(self, sb_editor):
+        policy = RBACPolicy()
+        with pytest.raises(PermissionLevelError) as exc_info:
+            policy.assert_permission_level(sb_editor, required=PermissionLevel.ADMIN)
+        msg = str(exc_info.value)
+        assert "EDIT" in msg
+        assert "ADMIN" in msg
+
+
+# ===========================================================================
+# CYCLE 6: Login Log — SB sees all, SMB sees own, nobody can delete
+# ===========================================================================
+
+class TestLoginLogAccess:
+
+    def test_sb_admin_has_login_log_read(self, sb_admin):
+        assert has_permission(sb_admin, Permission.LOGIN_LOG_READ) is True
+
+    def test_sb_editor_has_login_log_read(self, sb_editor):
+        assert has_permission(sb_editor, Permission.LOGIN_LOG_READ) is True
+
+    def test_sb_read_only_user_has_login_log_read(self):
+        ro = UserContext(
+            user_id="ro-1", role=Role.COMPLIANCE_OFFICER,
+            bank_id="hdfc-bank", bank_type=BankType.SB,
+            permission_level=PermissionLevel.READ_ONLY,
+        )
+        assert has_permission(ro, Permission.LOGIN_LOG_READ) is True
+
+    def test_smb_admin_has_login_log_read(self, smb_admin_user):
+        assert has_permission(smb_admin_user, Permission.LOGIN_LOG_READ) is True
+
+    def test_login_log_read_scope_sb_sees_all(self, sb_admin):
+        # SB user's login log query must not be restricted to a single bank_id.
+        # We verify this via the policy helper — returns None meaning "no restriction"
+        policy = RBACPolicy()
+        scope = policy.login_log_bank_scope(sb_admin)
+        assert scope is None  # None = no bank_id filter — sees all
+
+    def test_login_log_read_scope_smb_sees_own(self, smb_admin_user):
+        policy = RBACPolicy()
+        scope = policy.login_log_bank_scope(smb_admin_user)
+        assert scope == "saraswat-ucb"  # must filter to own bank only
+
+    def test_login_log_delete_does_not_exist_on_any_role(self):
+        # LOGIN_LOG_DELETE must not be in _ROLE_PERMISSIONS for any role
+        for role in Role:
+            user = UserContext(
+                user_id="u-test", role=role, bank_id="test-bank",
+                bank_type=BankType.SB if role not in (Role.SMB_ADMIN, Role.SMB_EDITOR, Role.SMB_VIEWER) else BankType.SMB,
+                permission_level=PermissionLevel.ADMIN,
+            )
+            assert has_permission(user, Permission.LOGIN_LOG_DELETE) is False
