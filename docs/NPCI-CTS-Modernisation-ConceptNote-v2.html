@@ -368,11 +368,11 @@
   .nav-inner{display:flex;align-items:center;gap:0;padding:0 8px}
   .nav-brand{font-size:14px;font-weight:900;letter-spacing:-.02em;color:#fff;padding:8px 14px 8px 8px;white-space:nowrap;border-right:1px solid rgba(255,255,255,.15);margin-right:4px;flex-shrink:0}
   .nav-brand span{color:#60a5fa}
-  .nav-controls{display:flex;gap:4px;padding:0 8px;flex-shrink:0;border-right:1px solid rgba(255,255,255,.12);margin-right:4px}
+  .nav-controls{display:flex;gap:4px;padding:0 8px;flex-shrink:0;margin-left:auto}
   .nav-btn{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 9px;border-radius:2px;border:1px solid rgba(255,255,255,.2);background:transparent;color:rgba(255,255,255,.7);cursor:pointer;transition:all .15s;white-space:nowrap}
   .nav-btn:hover{background:rgba(255,255,255,.1);color:#fff}
   /* Dropdown groups */
-  .nav-groups{display:flex;align-items:stretch;gap:0;flex:1}
+  .nav-groups{display:flex;align-items:stretch;gap:0;justify-content:center;flex:1}
   .nav-group{position:relative;display:flex;align-items:stretch}
   .nav-group-label{font-size:10px;font-weight:700;color:rgba(255,255,255,.75);padding:0 13px;cursor:default;white-space:nowrap;display:flex;align-items:center;gap:5px;border-radius:0;transition:background .15s;border-right:1px solid rgba(255,255,255,.06)}
   .nav-group-label::after{content:'▾';font-size:8px;opacity:.6}
@@ -416,10 +416,6 @@
 <nav class="sticky-nav">
   <div class="nav-inner">
     <span class="nav-brand">CTS <span>Vision 2030</span></span>
-    <div class="nav-controls">
-      <button class="nav-btn" onclick="expandAll()">▼ EA</button>
-      <button class="nav-btn" onclick="collapseAll()">▲ CA</button>
-    </div>
     <div class="nav-groups">
       <!-- Group 1: Context -->
       <div class="nav-group">
@@ -476,6 +472,10 @@
           <a href="#conclusion" onclick="navigateTo('conclusion',event)">25 · Conclusion</a>
         </div>
       </div>
+    </div>
+    <div class="nav-controls">
+      <button class="nav-btn" onclick="expandAll()">▼ EA</button>
+      <button class="nav-btn" onclick="collapseAll()">▲ CA</button>
     </div>
   </div>
 </nav>
