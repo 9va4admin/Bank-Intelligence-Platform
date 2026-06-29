@@ -92,8 +92,8 @@ function fmt(iso) {
 function Modal({ title, onClose, isDark, children }) {
   const th = {
     overlay: 'fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm',
-    box:     isDark ? 'bg-navy-900 border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg mx-4' : 'bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-lg mx-4',
-    header:  isDark ? 'flex items-center justify-between px-6 py-4 border-b border-white/8' : 'flex items-center justify-between px-6 py-4 border-b border-slate-200',
+    box:     isDark ? 'bg-navy-900 border border-white/10 rounded-xl shadow-2xl w-full max-w-lg mx-4' : 'bg-white border border-slate-200 rounded-xl shadow-2xl w-full max-w-lg mx-4',
+    header:  isDark ? 'flex items-center justify-between px-6 py-4 border-b border-white/10' : 'flex items-center justify-between px-6 py-4 border-b border-slate-200',
     title:   isDark ? 'text-sm font-semibold text-white' : 'text-sm font-semibold text-slate-900',
     close:   isDark ? 'text-slate-400 hover:text-white text-lg leading-none' : 'text-slate-400 hover:text-slate-700 text-lg leading-none',
   }
@@ -159,7 +159,7 @@ function CreateEditModal({ user, isDark, onClose, onSave, defaultBankType }) {
 
   const body = isDark ? 'text-slate-300' : 'text-slate-700'
   const muted = isDark ? 'text-slate-400' : 'text-slate-500'
-  const btnPri = 'px-4 py-1.5 rounded-lg text-[12px] font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors'
+  const btnPri = 'px-4 py-1.5 rounded-lg text-[12px] font-medium bg-gold-400 hover:bg-gold-500 text-navy-950 transition-colors'
   const btnSec = isDark
     ? 'px-4 py-1.5 rounded-lg text-[12px] border border-white/10 text-slate-300 hover:text-white transition-colors'
     : 'px-4 py-1.5 rounded-lg text-[12px] border border-slate-200 text-slate-600 hover:text-slate-900 transition-colors'
@@ -236,7 +236,7 @@ function CreateEditModal({ user, isDark, onClose, onSave, defaultBankType }) {
         )}
       </div>
 
-      <div className={`flex justify-end gap-2 px-6 py-4 border-t ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
+      <div className={`flex justify-end gap-2 px-6 py-4 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
         <button onClick={onClose} className={btnSec}>Cancel</button>
         <button onClick={() => onSave(form)} className={btnPri}>{isEdit ? 'Save Changes' : 'Create User'}</button>
       </div>
@@ -254,7 +254,7 @@ function TOTPSetupModal({ user, isDark, onClose }) {
   const demoBase32 = 'JBSWY3DPEHPK3PXP'
   const otpauthUri = `otpauth://totp/ASTRA:${user.email}?secret=${demoBase32}&issuer=ASTRA`
 
-  const btnPri = 'px-4 py-1.5 rounded-lg text-[12px] font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors'
+  const btnPri = 'px-4 py-1.5 rounded-lg text-[12px] font-medium bg-gold-400 hover:bg-gold-500 text-navy-950 transition-colors'
   const btnSec = isDark ? 'px-4 py-1.5 rounded-lg text-[12px] border border-white/10 text-slate-300 hover:text-white transition-colors' : 'px-4 py-1.5 rounded-lg text-[12px] border border-slate-200 text-slate-600 hover:text-slate-900 transition-colors'
   const muted = isDark ? 'text-slate-400' : 'text-slate-500'
   const body = isDark ? 'text-slate-200' : 'text-slate-800'
@@ -309,13 +309,13 @@ function TOTPSetupModal({ user, isDark, onClose }) {
 
 function ConfirmModal({ title, message, confirmLabel, danger, isDark, onClose, onConfirm }) {
   const btnDanger = 'px-4 py-1.5 rounded-lg text-[12px] font-medium bg-red-600 hover:bg-red-500 text-white transition-colors'
-  const btnPri = 'px-4 py-1.5 rounded-lg text-[12px] font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors'
+  const btnPri = 'px-4 py-1.5 rounded-lg text-[12px] font-medium bg-gold-400 hover:bg-gold-500 text-navy-950 transition-colors'
   const btnSec = isDark ? 'px-4 py-1.5 rounded-lg text-[12px] border border-white/10 text-slate-300 hover:text-white transition-colors' : 'px-4 py-1.5 rounded-lg text-[12px] border border-slate-200 text-slate-600 hover:text-slate-900 transition-colors'
   const body = isDark ? 'text-slate-300' : 'text-slate-600'
   return (
     <Modal title={title} onClose={onClose} isDark={isDark}>
       <div className="px-6 py-5"><p className={`text-[13px] ${body}`}>{message}</p></div>
-      <div className={`flex justify-end gap-2 px-6 py-4 border-t ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
+      <div className={`flex justify-end gap-2 px-6 py-4 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
         <button onClick={onClose} className={btnSec}>Cancel</button>
         <button onClick={onConfirm} className={danger ? btnDanger : btnPri}>{confirmLabel}</button>
       </div>
@@ -340,7 +340,7 @@ export default function UserManagement() {
     muted:   isDark ? 'text-slate-400' : 'text-slate-500',
     divider: isDark ? 'border-white/8' : 'border-slate-200',
     row:     isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
-    input:   isDark ? 'bg-navy-900 border-white/10 text-slate-300 placeholder-slate-500' : 'bg-white border-slate-200 text-slate-700 placeholder-slate-400',
+    input:   isDark ? 'bg-navy-900 border-white/10 text-slate-300 placeholder:text-slate-500' : 'bg-white border-slate-200 text-slate-700 placeholder:text-slate-400',
   }
 
   const ROLE_COLORS = isDark ? ROLE_COLORS_D : ROLE_COLORS_L
@@ -395,7 +395,7 @@ export default function UserManagement() {
             </div>
             <button
               onClick={() => setModal({ type: 'create' })}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-gold-400 hover:bg-gold-500 text-navy-950 transition-colors"
             >+ New User</button>
           </div>
         </div>
@@ -413,14 +413,14 @@ export default function UserManagement() {
                 onClick={() => { setBankTypeTab(tab.key); setSearch('') }}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-medium transition-all ${
                   bankTypeTab === tab.key
-                    ? 'bg-blue-600 text-white shadow-sm'
+                    ? 'bg-gold-400 text-navy-950'
                     : (isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700')
                 }`}
               >
                 {tab.label}
                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
                   bankTypeTab === tab.key
-                    ? 'bg-white/20 text-white'
+                    ? 'bg-navy-950/20 text-navy-950'
                     : (isDark ? 'bg-white/8 text-slate-400' : 'bg-slate-200 text-slate-500')
                 }`}>{tab.count}</span>
               </button>
@@ -434,29 +434,21 @@ export default function UserManagement() {
             </div>
           )}
 
-          {/* Summary cards */}
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: `${bankTypeTab} Users`, value: tabUsers.length, color: th.heading, sub: 'in this tab' },
-              { label: 'Active',               value: activeCount,     color: 'text-emerald-400', sub: 'can log in' },
-              { label: 'TOTP Enabled',         value: totpCount,       color: 'text-blue-400',    sub: tabUsers.length ? `${Math.round(totpCount / tabUsers.length * 100)}% coverage` : '—' },
-            ].map(k => (
-              <div key={k.label} className={`border rounded-xl p-4 ${th.card}`}>
-                <div className={`text-[10px] uppercase tracking-wide ${th.muted} mb-1`}>{k.label}</div>
-                <div className={`text-2xl font-bold font-mono ${k.color}`}>{k.value}</div>
-                <div className={`text-[10px] mt-0.5 ${th.muted}`}>{k.sub}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Search bar */}
+          {/* Search + inline stats */}
           <div className="flex gap-3 items-center">
             <input
               type="text" placeholder="Search name or email…"
               value={search} onChange={e => setSearch(e.target.value)}
-              className={`text-[12px] border rounded-lg px-3 py-1.5 flex-1 max-w-xs focus:outline-none ${th.input}`}
+              className={`text-[12px] border rounded-lg px-3 py-1.5 flex-1 max-w-xs focus:outline-none focus:border-gold-400/40 transition-colors ${th.input}`}
             />
-            <span className={`text-[11px] ${th.muted}`}>{filtered.length} results</span>
+            <span className={`text-[11px] ${th.muted}`}>{filtered.length} shown</span>
+            <div className={`h-4 w-px ${th.divider}`} />
+            <span className={`text-[11px] ${th.muted}`}>
+              <span className={th.heading}>{activeCount}</span> active
+              <span className="mx-1.5 opacity-40">·</span>
+              <span className={th.heading}>{totpCount}</span> with TOTP
+              {tabUsers.length > 0 && <span className="opacity-60"> ({Math.round(totpCount / tabUsers.length * 100)}%)</span>}
+            </span>
           </div>
 
           {/* User table */}
@@ -465,7 +457,7 @@ export default function UserManagement() {
               <table className="w-full text-[12px]">
                 <thead>
                   <tr className={`border-b ${th.divider}`}>
-                    {['User', 'Role', 'Permission', bankTypeTab === 'SB' ? 'Zone' : 'Bank', 'TOTP', 'Status', 'Last Login', ''].map(h => (
+                    {['User', 'Role', 'Permission', bankTypeTab === 'SB' ? 'Zone' : 'Bank', 'TOTP', 'Status', 'Last Login', 'Actions'].map(h => (
                       <th key={h} className={`px-4 py-2.5 text-left text-[10px] uppercase tracking-wide ${th.muted}`}>{h}</th>
                     ))}
                   </tr>
@@ -520,7 +512,17 @@ export default function UserManagement() {
                     </tr>
                   ))}
                   {filtered.length === 0 && (
-                    <tr><td colSpan={8} className={`px-4 py-10 text-center text-[12px] ${th.muted}`}>No users in this view.</td></tr>
+                    <tr>
+                      <td colSpan={8} className={`px-4 py-12 text-center ${th.muted}`}>
+                        <div className="text-2xl mb-2 opacity-30">👤</div>
+                        <div className={`text-[12px] font-medium ${th.body} mb-1`}>
+                          {search ? `No users match "${search}"` : `No ${bankTypeTab} users yet`}
+                        </div>
+                        <div className={`text-[11px] ${th.muted}`}>
+                          {search ? 'Try a different name or email.' : 'Create the first user with the button above.'}
+                        </div>
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>
