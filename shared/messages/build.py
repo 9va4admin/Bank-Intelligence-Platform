@@ -100,6 +100,11 @@ def main() -> int:
 
     redis_status = "pushed to Redis + " if redis_client else ""
     print(f"Built {key_count} messages × {locale_count} locales → {redis_status}{output_dir}")
+
+    # Regenerate the taxonomy HTML doc every time the build runs
+    from shared.messages.build_docs import build_html
+    build_html(yaml_path=Path(args.messages_file))
+
     return 0
 
 
