@@ -223,45 +223,54 @@ export default function CTSWorkstation() {
 
             {/* Session summary footer */}
             <div className={`px-3 pt-3 pb-3 border-t ${th.footer}`}>
-              <div className={`text-[9px] font-bold uppercase tracking-widest mb-3 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+              <div className="text-[9px] font-bold uppercase tracking-widest mb-3" style={{ color: isDark ? '#64748b' : '#94a3b8' }}>
                 This Session
               </div>
 
               {/* 2-col stat grid */}
               <div className="grid grid-cols-2 gap-2 mb-2">
                 {/* STP Confirmed */}
-                <div className={`rounded-lg px-2.5 py-2 ${isDark ? 'bg-emerald-950/60 ring-1 ring-emerald-800/50' : 'bg-emerald-50 ring-1 ring-emerald-200'}`}>
-                  <div className={`text-2xl font-black leading-none tabular-nums ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                <div className="rounded-lg px-2.5 py-2" style={{
+                  background: isDark ? 'rgba(6,78,59,0.35)' : '#ecfdf5',
+                  outline: isDark ? '1px solid rgba(6,78,59,0.6)' : '1px solid #a7f3d0',
+                }}>
+                  <div className="text-2xl font-black leading-none tabular-nums" style={{ color: isDark ? '#34d399' : '#059669' }}>
                     {stpStream.filter(s => s.outcome === 'CONFIRM').length}
                   </div>
-                  <div className={`text-[9px] mt-1 font-semibold uppercase tracking-wide ${isDark ? 'text-emerald-600' : 'text-emerald-700'}`}>
+                  <div className="text-[9px] mt-1 font-semibold uppercase tracking-wide" style={{ color: isDark ? '#059669' : '#047857' }}>
                     Confirmed
                   </div>
                 </div>
 
                 {/* STP Returned */}
-                <div className={`rounded-lg px-2.5 py-2 ${isDark ? 'bg-red-950/60 ring-1 ring-red-800/50' : 'bg-red-50 ring-1 ring-red-200'}`}>
-                  <div className={`text-2xl font-black leading-none tabular-nums ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+                <div className="rounded-lg px-2.5 py-2" style={{
+                  background: isDark ? 'rgba(127,29,29,0.35)' : '#fff1f2',
+                  outline: isDark ? '1px solid rgba(127,29,29,0.6)' : '1px solid #fecdd3',
+                }}>
+                  <div className="text-2xl font-black leading-none tabular-nums" style={{ color: isDark ? '#f87171' : '#dc2626' }}>
                     {stpStream.filter(s => s.outcome === 'RETURN').length}
                   </div>
-                  <div className={`text-[9px] mt-1 font-semibold uppercase tracking-wide ${isDark ? 'text-red-600' : 'text-red-700'}`}>
+                  <div className="text-[9px] mt-1 font-semibold uppercase tracking-wide" style={{ color: isDark ? '#dc2626' : '#b91c1c' }}>
                     Returned
                   </div>
                 </div>
               </div>
 
-              {/* Human decisions — full width, amber highlight */}
-              <div className={`rounded-lg px-2.5 py-2 mb-2 flex items-center justify-between ${isDark ? 'bg-amber-950/50 ring-1 ring-amber-800/40' : 'bg-amber-50 ring-1 ring-amber-200'}`}>
-                <span className={`text-[10px] font-semibold ${isDark ? 'text-amber-500' : 'text-amber-700'}`}>Human decisions</span>
-                <span className={`text-xl font-black tabular-nums leading-none ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
+              {/* Human decisions — full-width amber card */}
+              <div className="rounded-lg px-2.5 py-2 mb-2 flex items-center justify-between" style={{
+                background: isDark ? 'rgba(120,53,15,0.35)' : '#fffbeb',
+                outline: isDark ? '1px solid rgba(120,53,15,0.6)' : '1px solid #fde68a',
+              }}>
+                <span className="text-[10px] font-semibold" style={{ color: isDark ? '#d97706' : '#92400e' }}>Human decisions</span>
+                <span className="text-xl font-black tabular-nums leading-none" style={{ color: isDark ? '#fbbf24' : '#d97706' }}>
                   {decisions.length}
                 </span>
               </div>
 
-              {/* Immudb writes — subdued divider row */}
-              <div className={`flex items-center justify-between px-1 pt-2 border-t ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
-                <span className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Immudb writes</span>
-                <span className={`text-sm font-bold tabular-nums font-mono ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+              {/* Immudb writes — quiet divider row */}
+              <div className={`flex items-center justify-between px-1 pt-2 border-t ${th.divider}`}>
+                <span className={`text-[10px] ${th.faint}`}>Immudb writes</span>
+                <span className={`text-sm font-bold tabular-nums font-mono ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                   {stpStream.length + decisions.length}
                 </span>
               </div>
