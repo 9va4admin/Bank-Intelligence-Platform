@@ -2,6 +2,7 @@ import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { getReturnReasons, saveReturnReasons, getDefaultReturnReasons } from '../data/returnReasons'
 
 const LAYER3_CONFIG = [
   { key: 'iet_minutes',                  label: 'IET Window',                value: 180,      unit: 'minutes', desc: 'RBI mandated clearing window. Breach = deemed approval.',       editable: true,  warn: true  },
@@ -49,6 +50,39 @@ export default function CTSConfig() {
   )
   const [pendingChanges, setPendingChanges] = useState([])
   const [changeLog, setChangeLog] = useState(MOCK_CHANGE_LOG)
+
+  // Return reasons management
+  const [returnReasons, setReturnReasons] = useState(() => getReturnReasons())
+  const [newReasonGroup, setNewReasonGroup] = useState(Object.keys(getDefaultReturnReasons())[0])
+  const [newReasonText, setNewReasonText] = useState('')
+  const [reasonGroups] = useState(() => Object.keys(getDefaultReturnReasons()))
+
+  function addReason() {
+    const text = newReasonText.trim()
+    if (!text) return
+    const updated = {
+      ...returnReasons,
+      [newReasonGroup]: [...(returnReasons[newReasonGroup] || []), text].sort((a, b) => a.localeCompare(b)),
+    }
+    setReturnReasons(updated)
+    saveReturnReasons(updated)
+    setNewReasonText('')
+  }
+
+  function removeReason(group, reason) {
+    const updated = {
+      ...returnReasons,
+      [group]: returnReasons[group].filter(r => r !== reason),
+    }
+    setReturnReasons(updated)
+    saveReturnReasons(updated)
+  }
+
+  function resetReasons() {
+    const defaults = getDefaultReturnReasons()
+    setReturnReasons(defaults)
+    saveReturnReasons(defaults)
+  }
 
   function handleSubmit(key) {
     const cfg = LAYER3_CONFIG.find(c => c.key === key)
@@ -257,6 +291,79 @@ export default function CTSConfig() {
                   <div className={`text-[10px] ${th.faint} mt-0.5`}>{c.desc}</div>
                 </div>
                 <span className={`font-mono text-xs px-3 py-1 rounded-lg ${th.l1val}`}>{c.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Return Reason Management */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className={`text-xs font-semibold ${th.muted} uppercase tracking-widest`}>Return Reasons</span>
+              <span className={`text-xs ${th.faint}`}>Shown to ops reviewers in the human review queue</span>
+            </div>
+            <button
+              type="button"
+              onClick={resetReasons}
+              className={`text-[10px] px-3 py-1.5 rounded-lg border transition-colors ${isDark ? 'border-white/10 text-slate-400 hover:text-slate-200 hover:border-white/20' : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}
+            >
+              Reset to defaults
+            </button>
+          </div>
+
+          {/* Add new reason */}
+          <div className={`flex items-center gap-2 mb-4 p-3 rounded-xl border ${th.card}`}>
+            <select
+              value={newReasonGroup}
+              onChange={e => setNewReasonGroup(e.target.value)}
+              className={`text-xs px-3 py-2 rounded-lg border shrink-0 ${isDark ? 'bg-white/5 border-white/10 text-slate-200' : 'bg-white border-slate-200 text-slate-700'}`}
+            >
+              {reasonGroups.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+            <input
+              type="text"
+              value={newReasonText}
+              onChange={e => setNewReasonText(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addReason()}
+              placeholder="Enter new return reason…"
+              className={`flex-1 text-xs px-3 py-2 rounded-lg border outline-none ${isDark ? 'bg-white/5 border-white/10 text-slate-200 placeholder:text-slate-600' : 'bg-white border-slate-200 text-slate-700 placeholder:text-slate-400'}`}
+            />
+            <button
+              type="button"
+              onClick={addReason}
+              disabled={!newReasonText.trim()}
+              className="text-xs px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-emerald-500 transition-colors"
+            >
+              Add
+            </button>
+          </div>
+
+          {/* Grouped reason lists */}
+          <div className="grid grid-cols-2 gap-4">
+            {Object.entries(returnReasons).sort(([a], [b]) => a.localeCompare(b)).map(([group, reasons]) => (
+              <div key={group} className={`rounded-xl border ${th.card} overflow-hidden`}>
+                <div className={`px-4 py-2.5 border-b ${th.divider} flex items-center justify-between`}>
+                  <span className={`text-[10px] font-semibold uppercase tracking-widest ${th.muted}`}>{group}</span>
+                  <span className={`text-[10px] ${th.faint}`}>{reasons.length} reasons</span>
+                </div>
+                <div className="divide-y" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9' }}>
+                  {[...reasons].sort((a, b) => a.localeCompare(b)).map(reason => (
+                    <div key={reason} className={`flex items-center justify-between px-4 py-2 group ${isDark ? 'hover:bg-white/3' : 'hover:bg-slate-50'}`}>
+                      <span className={`text-xs ${th.body}`}>{reason}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeReason(group, reason)}
+                        className={`text-[10px] opacity-0 group-hover:opacity-100 transition-opacity px-2 py-0.5 rounded border ${isDark ? 'border-red-700/50 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-500 hover:bg-red-50'}`}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  {reasons.length === 0 && (
+                    <div className={`px-4 py-4 text-xs text-center ${th.faint}`}>No reasons — add one above</div>
+                  )}
+                </div>
               </div>
             ))}
           </div>

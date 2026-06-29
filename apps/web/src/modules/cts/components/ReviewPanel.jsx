@@ -3,33 +3,7 @@ import IETTimer from './IETTimer'
 import FraudGauge from './FraudGauge'
 import ShapExplainer from './ShapExplainer'
 import ChequeMockImage from './ChequeMockImage'
-
-const RETURN_REASONS_GROUPED = {
-  'Presenting Bank': [
-    'CTS compliance failure',
-    'Date invalid or stale cheque',
-    'Words and figures differ',
-    'Endorsement irregular',
-    'Instrument mutilated / damaged',
-    'Duplicate instrument',
-  ],
-  'Drawee Bank': [
-    'Account dormant — no txn >2 years',
-    'Account frozen / NPA / closed',
-    'Payment stopped by drawer',
-    'Positive Pay mismatch',
-    'Signature mismatch confirmed',
-    'Amount alteration / overwrite detected',
-    'Payee name discrepancy',
-    'Insufficient funds',
-    'Post-dated cheque',
-    'No specimen on file — cannot verify',
-    'KYC expired — refer to branch',
-    'Legal / court hold on account',
-  ],
-}
-
-const ALL_REASONS = Object.values(RETURN_REASONS_GROUPED).flat()
+import { getReturnReasons } from '../data/returnReasons'
 
 const RECENT_KEY = 'astra-recent-return-reasons'
 const getRecentReasons = () => {
@@ -126,6 +100,8 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
   const [returnReason, setReturnReason] = useState('')
   const [confirming, setConfirming] = useState(null)
   const [reasonSearch, setReasonSearch] = useState('')
+  const RETURN_REASONS_GROUPED = getReturnReasons()
+  const ALL_REASONS = Object.values(RETURN_REASONS_GROUPED).flat().sort()
   const [reasonOpen, setReasonOpen] = useState(false)
   const [confirmSecs, setConfirmSecs] = useState(null)
 
@@ -561,7 +537,7 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
       </div>
 
       {/* Action footer */}
-      <div className={`shrink-0 border-t ${th.border} px-6 py-3 ${th.foot} backdrop-blur`}>
+      <div className={`relative z-20 shrink-0 border-t ${th.border} px-6 py-3 ${th.foot} backdrop-blur`}>
         <div className="flex items-center gap-2">
           {/* Searchable grouped return-reason combobox */}
           <div className="relative flex-1" ref={reasonDropdownRef}>
@@ -608,11 +584,12 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
                       <div className={`mx-3 border-t ${th.border} my-1`} />
                     </div>
                   )}
-                  {/* Grouped reasons */}
-                  {Object.entries(RETURN_REASONS_GROUPED).map(([group, reasons]) => {
+                  {/* Grouped reasons — sorted alphabetically within each group */}
+                  {Object.entries(RETURN_REASONS_GROUPED).sort(([a], [b]) => a.localeCompare(b)).map(([group, reasons]) => {
+                    const sorted = [...reasons].sort((a, b) => a.localeCompare(b))
                     const filtered = reasonSearch
-                      ? reasons.filter(r => r.toLowerCase().includes(reasonSearch.toLowerCase()))
-                      : reasons
+                      ? sorted.filter(r => r.toLowerCase().includes(reasonSearch.toLowerCase()))
+                      : sorted
                     if (!filtered.length) return null
                     return (
                       <div key={group}>
