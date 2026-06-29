@@ -1,14 +1,60 @@
 EJ_LOG_INGESTED:
   text: ""
+EJ_LOG_DUPLICATE:
+  text: ""
+EJ_LOG_CORRUPT:
+  text: ""
+EJ_EDGE_BUFFER_HIGH:
+  text: ""
+EJ_EDGE_BUFFER_FULL:
+  text: ""
+EJ_OEM_DETECTED:
+  text: ""
+EJ_OEM_UNKNOWN:
+  text: ""
+EJ_OEM_FORMAT_CHANGED:
+  text: ""
 EJ_PARSE_COMPLETE:
+  text: ""
+EJ_PARSE_LOW_CONFIDENCE:
   text: ""
 EJ_PARSE_FAILED:
   text: ""
+EJ_PARSE_MODEL_UNAVAILABLE:
+  text: ""
+EJ_CANONICAL_STORED:
+  text: ""
+EJ_SCHEMA_VALID:
+  text: ""
+EJ_SCHEMA_INVALID:
+  text: ""
+EJ_DISPUTE_RECEIVED:
+  text: ""
 EJ_DISPUTE_MATCHED:
   text: ""
+EJ_DISPUTE_NO_MATCH:
+  text: ""
 EJ_DISPUTE_AUTO_RESOLVED:
+  text: ""
+EJ_DISPUTE_ESCALATED:
+  text: ""
+EJ_DISPUTE_CCTV_REQUESTED:
+  text: ""
+EJ_DISPUTE_CCTV_RETRIEVED:
+  text: ""
+EJ_DISPUTE_CCTV_UNAVAILABLE:
+  text: ""
+EJ_ATM_HEALTH_HEALTHY:
   text: ""
 EJ_ATM_HEALTH_DEGRADED:
   text: ""
 EJ_ATM_HEALTH_CRITICAL:
+  text: ""
+EJ_ATM_CASH_LOW:
+  text: ""
+EJ_ATM_DISPENSE_FAILURE_RATE_HIGH:
+  text: ""
+EJ_ATM_OFFLINE:
+  text: ""
+EJ_ATM_PREDICTED_FAILURE:
   text: ""

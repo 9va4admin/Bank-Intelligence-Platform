@@ -1,3 +1,4 @@
+# ── Login / session ───────────────────────────────────────────────────────────
 AUTH_LOGIN_SUCCESS:
   text: "Login successful — {display_name} ({role}) signed in from {ip_display}."
   severity: INFO
@@ -11,10 +12,22 @@ AUTH_LOGIN_FAILED:
   variables: [username, attempt, max_attempts]
 
 AUTH_ACCOUNT_LOCKED:
-  text: "Account {username} locked after {max_attempts} failed login attempts."
+  text: "Account {username} locked after {max_attempts} failed login attempts. Unlock required."
   severity: ERROR
   surface: [UI, AUDIT, NOTIFICATION]
   variables: [username, max_attempts]
+
+AUTH_ACCOUNT_UNLOCKED:
+  text: "Account {username} unlocked by {unlocked_by}."
+  severity: INFO
+  surface: [AUDIT, NOTIFICATION]
+  variables: [username, unlocked_by]
+
+AUTH_SESSION_STARTED:
+  text: "Session started for {display_name} — session ID {session_display}, expires {expires_at}."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [display_name, session_display, expires_at]
 
 AUTH_SESSION_EXPIRED:
   text: "Session expired for {display_name} — please sign in again."
@@ -22,14 +35,33 @@ AUTH_SESSION_EXPIRED:
   surface: [UI]
   variables: [display_name]
 
-AUTH_ACCESS_DENIED:
-  text: "Access denied — {role} cannot perform {action} on {resource}."
+AUTH_SESSION_REVOKED:
+  text: "Session forcibly revoked for {display_name} by {revoked_by} — reason: {reason}."
   severity: WARN
-  surface: [UI, AUDIT]
-  variables: [role, action, resource]
+  surface: [AUDIT, NOTIFICATION]
+  variables: [display_name, revoked_by, reason]
 
+AUTH_PASSWORD_RESET_INITIATED:
+  text: "Password reset initiated for {username} by {initiated_by}."
+  severity: WARN
+  surface: [AUDIT]
+  variables: [username, initiated_by]
+
+# ── TOTP / MFA ────────────────────────────────────────────────────────────────
 AUTH_TOTP_ENABLED:
   text: "Two-factor authentication enabled for {display_name}."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [display_name]
+
+AUTH_TOTP_DISABLED:
+  text: "Two-factor authentication disabled for {display_name} by {disabled_by}."
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [display_name, disabled_by]
+
+AUTH_TOTP_VERIFIED:
+  text: "TOTP verification successful for {display_name}."
   severity: INFO
   surface: [AUDIT]
   variables: [display_name]
@@ -40,20 +72,90 @@ AUTH_TOTP_FAILED:
   surface: [AUDIT]
   variables: [display_name]
 
+AUTH_TOTP_BYPASS_USED:
+  text: "TOTP backup code used by {display_name} — remaining backup codes: {remaining_count}."
+  severity: WARN
+  surface: [AUDIT]
+  variables: [display_name, remaining_count]
+
+# ── SAML / IdP ────────────────────────────────────────────────────────────────
+AUTH_SAML_ASSERTION_VALID:
+  text: "SAML assertion validated for {username} from IdP {idp_entity_id}."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [username, idp_entity_id]
+
+AUTH_SAML_ASSERTION_INVALID:
+  text: "SAML assertion invalid for {username} — {error}. Login denied."
+  severity: ERROR
+  surface: [AUDIT]
+  variables: [username, error]
+
+AUTH_SAML_IDP_UNREACHABLE:
+  text: "Bank IdP {idp_entity_id} unreachable — login blocked. Check IdP connectivity."
+  severity: CRITICAL
+  surface: [UI, NOTIFICATION]
+  variables: [idp_entity_id]
+
+# ── RBAC / access control ─────────────────────────────────────────────────────
+AUTH_ACCESS_DENIED:
+  text: "Access denied — {role} cannot perform {action} on {resource}."
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [role, action, resource]
+
+AUTH_ZONE_ACCESS_DENIED:
+  text: "Zone access denied — {display_name} ({role}) not authorised for clearing zone {zone}."
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [display_name, role, zone]
+
 AUTH_ROLE_CHANGED:
   text: "Role changed for {target_user} from {old_role} to {new_role} by {changed_by}."
   severity: WARN
   surface: [AUDIT, NOTIFICATION]
   variables: [target_user, old_role, new_role, changed_by]
 
+AUTH_ZONE_SCOPE_CHANGED:
+  text: "Clearing zone scope updated for {target_user} — zones: {new_zones} (changed by {changed_by})."
+  severity: WARN
+  surface: [AUDIT]
+  variables: [target_user, new_zones, changed_by]
+
+# ── User lifecycle ────────────────────────────────────────────────────────────
 AUTH_USER_CREATED:
   text: "User {display_name} ({role}) created by {created_by}."
   severity: INFO
   surface: [AUDIT]
   variables: [display_name, role, created_by]
 
+AUTH_USER_UPDATED:
+  text: "User profile updated for {display_name} by {updated_by} — fields: {changed_fields}."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [display_name, updated_by, changed_fields]
+
 AUTH_USER_DEACTIVATED:
   text: "User {display_name} deactivated by {deactivated_by}."
   severity: WARN
   surface: [AUDIT, NOTIFICATION]
   variables: [display_name, deactivated_by]
+
+AUTH_USER_REACTIVATED:
+  text: "User {display_name} reactivated by {reactivated_by}."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [display_name, reactivated_by]
+
+# ── RBI examiner access ───────────────────────────────────────────────────────
+AUTH_RBI_ACCESS_GRANTED:
+  text: "RBI examiner access granted for {examiner_name} — scope: {scope}, valid until {valid_until}."
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [examiner_name, scope, valid_until]
+
+AUTH_RBI_ACCESS_EXPIRED:
+  text: "RBI examiner access expired for {examiner_name} — {access_duration} day engagement closed."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [examiner_name, access_duration]
