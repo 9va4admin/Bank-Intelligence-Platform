@@ -4,16 +4,15 @@ import AppShell from '../../../shared/layout/AppShell'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-// Each status: dark = [textColor, bgColor, borderColor], light = [textColor, bgColor, borderColor]
 const LOT_STATUSES = {
-  RECEIVED:     { label: 'Received',     dot: '#94a3b8', dark: ['#94a3b8', 'rgba(30,41,59,0.6)',    '#475569'], light: ['#475569', '#f1f5f9',          '#cbd5e1'] },
-  IQA_COMPLETE: { label: 'IQA Complete', dot: '#60a5fa', dark: ['#93c5fd', 'rgba(23,37,84,0.5)',    '#1d4ed8'], light: ['#1d4ed8', '#eff6ff',          '#93c5fd'] },
-  EXTRACTED:    { label: 'AI Extracted', dot: '#a78bfa', dark: ['#c4b5fd', 'rgba(46,16,101,0.5)',   '#7c3aed'], light: ['#7c3aed', '#f5f3ff',          '#c4b5fd'] },
-  PKI_SIGNED:   { label: 'PKI Signed',   dot: '#22d3ee', dark: ['#67e8f9', 'rgba(8,51,68,0.5)',     '#0891b2'], light: ['#0e7490', '#ecfeff',          '#67e8f9'] },
-  SUBMITTED:    { label: 'Submitted',    dot: '#fbbf24', dark: ['#fcd34d', 'rgba(78,35,0,0.5)',     '#b45309'], light: ['#92400e', '#fffbeb',          '#fcd34d'] },
-  NGCH_ACK:     { label: 'NGCH Ack',     dot: '#34d399', dark: ['#6ee7b7', 'rgba(6,46,36,0.5)',     '#059669'], light: ['#065f46', '#ecfdf5',          '#6ee7b7'] },
-  SETTLED:      { label: 'Settled',      dot: '#34d399', dark: ['#a7f3d0', 'rgba(6,46,36,0.65)',    '#047857'], light: ['#065f46', '#d1fae5',          '#34d399'] },
-  PARTIAL_FAIL: { label: 'Partial Fail', dot: '#f87171', dark: ['#fca5a5', 'rgba(69,10,10,0.5)',    '#b91c1c'], light: ['#991b1b', '#fff1f2',          '#fca5a5'] },
+  RECEIVED:     { label: 'Received',     dot: 'bg-slate-400',   dark: 'text-slate-300 bg-slate-800/60 border-slate-600/40',     light: 'text-slate-600 bg-slate-100 border-slate-300'         },
+  IQA_COMPLETE: { label: 'IQA Complete', dot: 'bg-blue-400',    dark: 'text-blue-300 bg-blue-900/40 border-blue-700/50',        light: 'text-blue-700 bg-blue-50 border-blue-300'              },
+  EXTRACTED:    { label: 'AI Extracted', dot: 'bg-violet-400',  dark: 'text-violet-300 bg-violet-900/40 border-violet-700/50',  light: 'text-violet-700 bg-violet-50 border-violet-300'        },
+  PKI_SIGNED:   { label: 'PKI Signed',   dot: 'bg-cyan-400',    dark: 'text-cyan-300 bg-cyan-900/40 border-cyan-700/50',        light: 'text-cyan-700 bg-cyan-50 border-cyan-300'              },
+  SUBMITTED:    { label: 'Submitted',    dot: 'bg-amber-400',   dark: 'text-amber-300 bg-amber-900/40 border-amber-700/50',     light: 'text-amber-700 bg-amber-50 border-amber-300'           },
+  NGCH_ACK:     { label: 'NGCH Ack',     dot: 'bg-emerald-400', dark: 'text-emerald-300 bg-emerald-900/40 border-emerald-700/50', light: 'text-emerald-700 bg-emerald-50 border-emerald-300'  },
+  SETTLED:      { label: 'Settled',      dot: 'bg-emerald-300', dark: 'text-emerald-200 bg-emerald-900/60 border-emerald-600/50', light: 'text-emerald-800 bg-emerald-100 border-emerald-400'  },
+  PARTIAL_FAIL: { label: 'Partial Fail', dot: 'bg-red-400',     dark: 'text-red-300 bg-red-900/40 border-red-700/50',           light: 'text-red-700 bg-red-50 border-red-300'                },
 }
 
 const STATUS_ORDER = ['RECEIVED', 'IQA_COMPLETE', 'EXTRACTED', 'PKI_SIGNED', 'SUBMITTED', 'NGCH_ACK', 'SETTLED']
@@ -106,10 +105,8 @@ const SUMMARY = {
 
 function StatusBadge({ status, isDark }) {
   const m = LOT_STATUSES[status]
-  const [text, bg, border] = isDark ? m.dark : m.light
   return (
-    <span className="px-2 py-0.5 rounded border text-[10px] font-semibold"
-      style={{ color: text, background: bg, borderColor: border }}>
+    <span className={`px-2 py-0.5 rounded border text-[10px] font-semibold ${isDark ? m.dark : m.light}`}>
       {m.label}
     </span>
   )
