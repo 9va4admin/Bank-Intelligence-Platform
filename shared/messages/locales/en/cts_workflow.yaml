@@ -1,0 +1,89 @@
+CTS_WF_CHEQUE_RECEIVED:
+  text: "Cheque {instrument_id} received from {bank} — queued for processing."
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [instrument_id, bank]
+
+CTS_WF_OCR_COMPLETE:
+  text: "OCR extraction complete for {instrument_id} — confidence {confidence_pct}%."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, confidence_pct]
+
+CTS_WF_OCR_LOW_CONFIDENCE:
+  text: "OCR confidence below threshold for {instrument_id} — routed to human review."
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id]
+
+CTS_WF_ALTERATION_DETECTED:
+  text: "Alteration detected on cheque {instrument_id} — field: {field}. Routed to human review."
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, field]
+
+CTS_WF_SIGNATURE_VERIFIED:
+  text: "Signature verified for account {account_display} on cheque {instrument_id}."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [account_display, instrument_id]
+
+CTS_WF_SIGNATURE_MISMATCH:
+  text: "Signature mismatch for account {account_display} — cheque {instrument_id} routed to human review."
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [account_display, instrument_id]
+
+CTS_WF_VAULT_MISS:
+  text: "No signature specimen on record for {account_display} — cheque {instrument_id} routed to human review."
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [account_display, instrument_id]
+
+CTS_WF_FRAUD_SCORE_HIGH:
+  text: "Fraud score {score} exceeds threshold for {instrument_id} — routed to human review."
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [score, instrument_id]
+
+CTS_WF_STP_CONFIRMED:
+  text: "Cheque {instrument_id} auto-confirmed via STP — filed to NGCH."
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [instrument_id]
+
+CTS_WF_STP_RETURNED:
+  text: "Cheque {instrument_id} auto-returned — reason: {return_reason}."
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, return_reason]
+
+CTS_WF_HUMAN_REVIEW_ASSIGNED:
+  text: "Cheque {instrument_id} assigned to reviewer {reviewer} — IET deadline {iet_deadline}."
+  severity: INFO
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, reviewer, iet_deadline]
+
+CTS_WF_HUMAN_CONFIRMED:
+  text: "Reviewer {reviewer} confirmed cheque {instrument_id} — filed to NGCH."
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [reviewer, instrument_id]
+
+CTS_WF_HUMAN_RETURNED:
+  text: "Reviewer {reviewer} returned cheque {instrument_id} — reason: {return_reason}."
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [reviewer, instrument_id, return_reason]
+
+CTS_WF_IET_WATCHDOG_FIRED:
+  text: "IET watchdog triggered for {instrument_id} — emergency filing initiated with {seconds_remaining}s remaining."
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, seconds_remaining]
+
+CTS_WF_REVIEW_TIMEOUT:
+  text: "Human review timed out for {instrument_id} after {elapsed_minutes} minutes — auto-returned."
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, elapsed_minutes]

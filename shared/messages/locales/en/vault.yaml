@@ -1,0 +1,41 @@
+VAULT_SIGNATURE_LOADED:
+  text: "Signature vault warmed for bank {bank_id} — {count} specimens loaded."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [bank_id, count]
+
+VAULT_SIGNATURE_STALE:
+  text: "Signature vault stale for bank {bank_id} — last synced {hours_ago}h ago. All cheques routed to human review."
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [bank_id, hours_ago]
+
+VAULT_PPS_HIT:
+  text: "PPS match found for account {account_display} — cheque series {cheque_series}."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [account_display, cheque_series]
+
+VAULT_PPS_MISS:
+  text: "No PPS record for account {account_display} — cheque {instrument_id} routed to human review."
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [account_display, instrument_id]
+
+VAULT_PPS_AMOUNT_MISMATCH:
+  text: "PPS amount mismatch for {instrument_id} — expected {expected_range}, presented {presented_range}."
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, expected_range, presented_range]
+
+VAULT_SYNC_COMPLETE:
+  text: "Vault sync complete for bank {bank_id} — signatures: {sig_count}, PPS entries: {pps_count}."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [bank_id, sig_count, pps_count]
+
+VAULT_SYNC_FAILED:
+  text: "Vault sync failed for bank {bank_id} — CBS error: {error_code}. Retaining existing vault data."
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [bank_id, error_code]
