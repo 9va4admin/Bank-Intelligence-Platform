@@ -222,42 +222,26 @@ export default function CTSWorkstation() {
             </div>
 
             {/* Session summary footer */}
-            <div className={`px-4 pt-4 pb-4 border-t ${th.footer}`}>
-              <div className="text-xs font-black uppercase tracking-widest mb-4" style={{ color: isDark ? '#e2e8f0' : '#1e293b' }}>
+            <div style={{ padding: '16px', borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '16px', color: isDark ? '#e2e8f0' : '#0f172a' }}>
                 This Session
               </div>
 
-              <div className="space-y-3">
-                {/* STP Confirmed */}
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium" style={{ color: isDark ? '#94a3b8' : '#64748b' }}>STP Confirmed</span>
-                  <span className="text-3xl font-black tabular-nums leading-none" style={{ color: isDark ? '#34d399' : '#059669' }}>
-                    {stpStream.filter(s => s.outcome === 'CONFIRM').length}
-                  </span>
-                </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {[
+                  { label: 'STP Confirmed',   value: stpStream.filter(s => s.outcome === 'CONFIRM').length, color: isDark ? '#34d399' : '#059669' },
+                  { label: 'STP Returned',    value: stpStream.filter(s => s.outcome === 'RETURN').length,  color: isDark ? '#f87171' : '#dc2626' },
+                  { label: 'Human decisions', value: decisions.length,                                        color: isDark ? '#fbbf24' : '#d97706' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 500, color: isDark ? '#94a3b8' : '#64748b' }}>{label}</span>
+                    <span style={{ fontSize: '32px', fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color }}>{value}</span>
+                  </div>
+                ))}
 
-                {/* STP Returned */}
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium" style={{ color: isDark ? '#94a3b8' : '#64748b' }}>STP Returned</span>
-                  <span className="text-3xl font-black tabular-nums leading-none" style={{ color: isDark ? '#f87171' : '#dc2626' }}>
-                    {stpStream.filter(s => s.outcome === 'RETURN').length}
-                  </span>
-                </div>
-
-                {/* Human decisions */}
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium" style={{ color: isDark ? '#94a3b8' : '#64748b' }}>Human decisions</span>
-                  <span className="text-3xl font-black tabular-nums leading-none" style={{ color: isDark ? '#fbbf24' : '#d97706' }}>
-                    {decisions.length}
-                  </span>
-                </div>
-
-                {/* Immudb writes */}
-                <div className={`flex items-center justify-between pt-3 border-t ${th.divider}`}>
-                  <span className="text-[11px] font-medium" style={{ color: isDark ? '#94a3b8' : '#64748b' }}>Immudb writes</span>
-                  <span className="text-3xl font-black tabular-nums leading-none font-mono" style={{ color: isDark ? '#cbd5e1' : '#475569' }}>
-                    {stpStream.length + decisions.length}
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '12px', borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #e2e8f0' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 500, color: isDark ? '#94a3b8' : '#64748b' }}>Immudb writes</span>
+                  <span style={{ fontSize: '32px', fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: isDark ? '#cbd5e1' : '#475569' }}>{stpStream.length + decisions.length}</span>
                 </div>
               </div>
             </div>
