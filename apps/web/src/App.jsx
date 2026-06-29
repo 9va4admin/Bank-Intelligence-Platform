@@ -33,6 +33,7 @@ import CTSSMBLedger from './modules/cts/pages/CTSSMBLedger'
 import CTSSMBForwardingLog from './modules/cts/pages/CTSSMBForwardingLog'
 import EJSchedules from './modules/ej/pages/EJSchedules'
 import UserManagement from './modules/admin/pages/UserManagement'
+import LoginLog from './modules/admin/pages/LoginLog'
 import { EJDashboard } from './modules/ej'
 import IncidentManagement from './modules/ej/pages/IncidentManagement'
 import ManagerPortal from './modules/ej/pages/ManagerPortal'
@@ -81,6 +82,7 @@ export default function App() {
         <Route path="/cts/smb/forwarding-log" element={<CTSSMBForwardingLog />} />
         {/* Admin */}
         <Route path="/admin/users" element={<UserManagement />} />
+        <Route path="/admin/login-log" element={<LoginLog />} />
         {/* EJ module — own routes, no overlap with CTS */}
         <Route path="/ej" element={<EJDashboard />} />
         <Route path="/ej/incidents" element={<IncidentManagement />} />
