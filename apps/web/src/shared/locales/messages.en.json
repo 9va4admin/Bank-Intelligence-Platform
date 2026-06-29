@@ -1,1330 +1,4 @@
 {
-  "AUTH_LOGIN_SUCCESS": {
-    "text": "Login successful — {display_name} ({role}) signed in from {ip_display}.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "display_name",
-      "role",
-      "ip_display"
-    ]
-  },
-  "AUTH_LOGIN_FAILED": {
-    "text": "Login failed for {username} — invalid credentials. Attempt {attempt} of {max_attempts}.",
-    "severity": "WARN",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "username",
-      "attempt",
-      "max_attempts"
-    ]
-  },
-  "AUTH_ACCOUNT_LOCKED": {
-    "text": "Account {username} locked after {max_attempts} failed login attempts. Unlock required.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "username",
-      "max_attempts"
-    ]
-  },
-  "AUTH_ACCOUNT_UNLOCKED": {
-    "text": "Account {username} unlocked by {unlocked_by}.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "username",
-      "unlocked_by"
-    ]
-  },
-  "AUTH_SESSION_STARTED": {
-    "text": "Session started for {display_name} — session ID {session_display}, expires {expires_at}.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "display_name",
-      "session_display",
-      "expires_at"
-    ]
-  },
-  "AUTH_SESSION_EXPIRED": {
-    "text": "Session expired for {display_name} — please sign in again.",
-    "severity": "INFO",
-    "surface": [
-      "UI"
-    ],
-    "variables": [
-      "display_name"
-    ]
-  },
-  "AUTH_SESSION_REVOKED": {
-    "text": "Session forcibly revoked for {display_name} by {revoked_by} — reason: {reason}.",
-    "severity": "WARN",
-    "surface": [
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "display_name",
-      "revoked_by",
-      "reason"
-    ]
-  },
-  "AUTH_PASSWORD_RESET_INITIATED": {
-    "text": "Password reset initiated for {username} by {initiated_by}.",
-    "severity": "WARN",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "username",
-      "initiated_by"
-    ]
-  },
-  "AUTH_TOTP_ENABLED": {
-    "text": "Two-factor authentication enabled for {display_name}.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "display_name"
-    ]
-  },
-  "AUTH_TOTP_DISABLED": {
-    "text": "Two-factor authentication disabled for {display_name} by {disabled_by}.",
-    "severity": "WARN",
-    "surface": [
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "display_name",
-      "disabled_by"
-    ]
-  },
-  "AUTH_TOTP_VERIFIED": {
-    "text": "TOTP verification successful for {display_name}.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "display_name"
-    ]
-  },
-  "AUTH_TOTP_FAILED": {
-    "text": "TOTP verification failed for {display_name} — code invalid or expired.",
-    "severity": "WARN",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "display_name"
-    ]
-  },
-  "AUTH_TOTP_BYPASS_USED": {
-    "text": "TOTP backup code used by {display_name} — remaining backup codes: {remaining_count}.",
-    "severity": "WARN",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "display_name",
-      "remaining_count"
-    ]
-  },
-  "AUTH_SAML_ASSERTION_VALID": {
-    "text": "SAML assertion validated for {username} from IdP {idp_entity_id}.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "username",
-      "idp_entity_id"
-    ]
-  },
-  "AUTH_SAML_ASSERTION_INVALID": {
-    "text": "SAML assertion invalid for {username} — {error}. Login denied.",
-    "severity": "ERROR",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "username",
-      "error"
-    ]
-  },
-  "AUTH_SAML_IDP_UNREACHABLE": {
-    "text": "Bank IdP {idp_entity_id} unreachable — login blocked. Check IdP connectivity.",
-    "severity": "CRITICAL",
-    "surface": [
-      "UI",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "idp_entity_id"
-    ]
-  },
-  "AUTH_ACCESS_DENIED": {
-    "text": "Access denied — {role} cannot perform {action} on {resource}.",
-    "severity": "WARN",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "role",
-      "action",
-      "resource"
-    ]
-  },
-  "AUTH_ZONE_ACCESS_DENIED": {
-    "text": "Zone access denied — {display_name} ({role}) not authorised for clearing zone {zone}.",
-    "severity": "WARN",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "display_name",
-      "role",
-      "zone"
-    ]
-  },
-  "AUTH_ROLE_CHANGED": {
-    "text": "Role changed for {target_user} from {old_role} to {new_role} by {changed_by}.",
-    "severity": "WARN",
-    "surface": [
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "target_user",
-      "old_role",
-      "new_role",
-      "changed_by"
-    ]
-  },
-  "AUTH_ZONE_SCOPE_CHANGED": {
-    "text": "Clearing zone scope updated for {target_user} — zones: {new_zones} (changed by {changed_by}).",
-    "severity": "WARN",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "target_user",
-      "new_zones",
-      "changed_by"
-    ]
-  },
-  "AUTH_USER_CREATED": {
-    "text": "User {display_name} ({role}) created by {created_by}.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "display_name",
-      "role",
-      "created_by"
-    ]
-  },
-  "AUTH_USER_UPDATED": {
-    "text": "User profile updated for {display_name} by {updated_by} — fields: {changed_fields}.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "display_name",
-      "updated_by",
-      "changed_fields"
-    ]
-  },
-  "AUTH_USER_DEACTIVATED": {
-    "text": "User {display_name} deactivated by {deactivated_by}.",
-    "severity": "WARN",
-    "surface": [
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "display_name",
-      "deactivated_by"
-    ]
-  },
-  "AUTH_USER_REACTIVATED": {
-    "text": "User {display_name} reactivated by {reactivated_by}.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "display_name",
-      "reactivated_by"
-    ]
-  },
-  "AUTH_RBI_ACCESS_GRANTED": {
-    "text": "RBI examiner access granted for {examiner_name} — scope: {scope}, valid until {valid_until}.",
-    "severity": "WARN",
-    "surface": [
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "examiner_name",
-      "scope",
-      "valid_until"
-    ]
-  },
-  "AUTH_RBI_ACCESS_EXPIRED": {
-    "text": "RBI examiner access expired for {examiner_name} — {access_duration} day engagement closed.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "examiner_name",
-      "access_duration"
-    ]
-  },
-  "CBS_BALANCE_CHECK_OK": {
-    "text": "Balance check passed for {account_display} — {instrument_id} proceeds.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "account_display",
-      "instrument_id"
-    ]
-  },
-  "CBS_BALANCE_INSUFFICIENT": {
-    "text": "Insufficient balance for {account_display} — {instrument_id} cannot be honoured.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "account_display",
-      "instrument_id"
-    ]
-  },
-  "CBS_ACCOUNT_NOT_FOUND": {
-    "text": "Account {account_display} not found in CBS {cbs_type} — {instrument_id} to human review.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "account_display",
-      "cbs_type",
-      "instrument_id"
-    ]
-  },
-  "CBS_ACCOUNT_FROZEN": {
-    "text": "Account {account_display} is frozen in CBS — {instrument_id} returned immediately.",
-    "severity": "CRITICAL",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "account_display",
-      "instrument_id"
-    ]
-  },
-  "CBS_ACCOUNT_CLOSED": {
-    "text": "Account {account_display} is closed in CBS — {instrument_id} returned immediately.",
-    "severity": "CRITICAL",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "account_display",
-      "instrument_id"
-    ]
-  },
-  "CBS_ACCOUNT_DORMANT": {
-    "text": "Account {account_display} is dormant in CBS — {instrument_id} routed to human review.",
-    "severity": "WARN",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "account_display",
-      "instrument_id"
-    ]
-  },
-  "CBS_ACCOUNT_LIEN_MARKED": {
-    "text": "Lien marked on {account_display} — {instrument_id} routed to human review for manual balance verification.",
-    "severity": "WARN",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "account_display",
-      "instrument_id"
-    ]
-  },
-  "CBS_STOP_PAYMENT_ACTIVE": {
-    "text": "Stop payment instruction active for {instrument_id} on {account_display} — returned immediately.",
-    "severity": "CRITICAL",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "instrument_id",
-      "account_display"
-    ]
-  },
-  "CBS_STOP_PAYMENT_CLEAR": {
-    "text": "No stop payment on record for {instrument_id} / {account_display}.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id",
-      "account_display"
-    ]
-  },
-  "CBS_UNREACHABLE": {
-    "text": "CBS {cbs_type} unreachable for {bank_id} — timeout after {timeout_seconds}s. Degraded path active.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "cbs_type",
-      "bank_id",
-      "timeout_seconds"
-    ]
-  },
-  "CBS_RECOVERED": {
-    "text": "CBS {cbs_type} connection restored for {bank_id} after {downtime_minutes} minutes.",
-    "severity": "INFO",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "cbs_type",
-      "bank_id",
-      "downtime_minutes"
-    ]
-  },
-  "CBS_RESPONSE_TIMEOUT": {
-    "text": "CBS {cbs_type} response timeout for {bank_id} on query type {query_type} — attempt {attempt}.",
-    "severity": "WARN",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "cbs_type",
-      "bank_id",
-      "query_type",
-      "attempt"
-    ]
-  },
-  "CBS_AUTH_FAILED": {
-    "text": "CBS {cbs_type} authentication failure for {bank_id} — credentials may be stale.",
-    "severity": "CRITICAL",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "cbs_type",
-      "bank_id"
-    ]
-  },
-  "CBS_VAULT_SYNC_STARTED": {
-    "text": "CBS vault sync started for {bank_id} — fetching signatures and PPS from {cbs_type}.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "bank_id",
-      "cbs_type"
-    ]
-  },
-  "CBS_VAULT_SYNC_COMPLETE": {
-    "text": "CBS vault sync complete for {bank_id} — {sig_count} signatures, {pps_count} PPS entries loaded.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "bank_id",
-      "sig_count",
-      "pps_count"
-    ]
-  },
-  "CBS_VAULT_SYNC_FAILED": {
-    "text": "CBS vault sync failed for {bank_id} — error: {error_code}. Retaining existing vault data.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "bank_id",
-      "error_code"
-    ]
-  },
-  "CBS_VAULT_PARTIAL_SYNC": {
-    "text": "CBS vault partial sync for {bank_id} — {loaded_count} of {total_count} accounts synced. {failed_count} failures.",
-    "severity": "WARN",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "bank_id",
-      "loaded_count",
-      "total_count",
-      "failed_count"
-    ]
-  },
-  "CTS_COMP_BANK_LOGO_MISSING": {
-    "text": "CTS-2010 violation on {instrument_id}: bank logo absent or non-UV-reactive.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id"
-    ]
-  },
-  "CTS_COMP_WATERMARK_MISSING": {
-    "text": "CTS-2010 violation on {instrument_id}: CTS-INDIA watermark absent.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id"
-    ]
-  },
-  "CTS_COMP_VOID_PANTOGRAPH_MISSING": {
-    "text": "CTS-2010 violation on {instrument_id}: VOID pantograph not present.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id"
-    ]
-  },
-  "CTS_COMP_IFSC_MISSING": {
-    "text": "CTS-2010 violation on {instrument_id}: IFSC code absent or unreadable.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id"
-    ]
-  },
-  "CTS_COMP_MICR_BAND_INVALID": {
-    "text": "CTS-2010 violation on {instrument_id}: MICR band position or dimensions non-compliant.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id"
-    ]
-  },
-  "CTS_COMP_IMAGE_RESOLUTION_LOW": {
-    "text": "CTS-2010 violation on {instrument_id}: image resolution {actual_dpi} DPI below required 200 DPI.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id",
-      "actual_dpi"
-    ]
-  },
-  "CTS_COMP_IMAGE_COLOUR_INVALID": {
-    "text": "CTS-2010 violation on {instrument_id}: front image must be colour (24-bit), rear greyscale.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id"
-    ]
-  },
-  "CTS_COMP_INSTRUMENT_SIZE_INVALID": {
-    "text": "CTS-2010 violation on {instrument_id}: physical dimensions {actual_dimensions} outside standard range.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id",
-      "actual_dimensions"
-    ]
-  },
-  "CTS_COMP_POST_DATED": {
-    "text": "Instrument {instrument_id} is post-dated — cheque date {cheque_date} is in the future.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id",
-      "cheque_date"
-    ]
-  },
-  "CTS_COMP_STALE_DATED": {
-    "text": "Instrument {instrument_id} stale — cheque date {cheque_date} exceeds {validity_days}-day validity.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id",
-      "cheque_date",
-      "validity_days"
-    ]
-  },
-  "CTS_COMP_AMOUNT_WORDS_BLANK": {
-    "text": "CTS-2010 violation on {instrument_id}: amount in words is blank.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id"
-    ]
-  },
-  "CTS_COMP_PAYEE_BLANK": {
-    "text": "CTS-2010 violation on {instrument_id}: payee name is blank.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id"
-    ]
-  },
-  "CTS_COMP_DRAWEE_BANK_MISMATCH": {
-    "text": "CTS-2010 violation on {instrument_id}: drawee IFSC {micr_ifsc} does not match image bank {image_bank}.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id",
-      "micr_ifsc",
-      "image_bank"
-    ]
-  },
-  "CTS_COMP_EXCESSIVE_DAMAGE": {
-    "text": "Instrument {instrument_id} rejected — physical damage exceeds acceptable threshold for truncation.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id"
-    ]
-  },
-  "CTS_NGCH_FILED_CONFIRM": {
-    "text": "Cheque {instrument_id} CONFIRMED and filed to NGCH — reference {ngch_ref}.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id",
-      "ngch_ref"
-    ]
-  },
-  "CTS_NGCH_FILED_RETURN": {
-    "text": "Cheque {instrument_id} RETURNED and filed to NGCH — reason: {return_reason}, ref {ngch_ref}.",
-    "severity": "WARN",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id",
-      "return_reason",
-      "ngch_ref"
-    ]
-  },
-  "CTS_NGCH_SUBMIT_FAILED": {
-    "text": "NGCH submission failed for {instrument_id} — error {error_code}. Attempt {attempt} of {max_attempts}.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "instrument_id",
-      "error_code",
-      "attempt",
-      "max_attempts"
-    ]
-  },
-  "CTS_NGCH_SUBMIT_FAILED_TERMINAL": {
-    "text": "NGCH submission permanently failed for {instrument_id} after {max_attempts} attempts — manual intervention required.",
-    "severity": "CRITICAL",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "instrument_id",
-      "max_attempts"
-    ]
-  },
-  "CTS_NGCH_DUPLICATE_DETECTED": {
-    "text": "Duplicate NGCH filing detected for {instrument_id} — idempotency key matched. Skipped safely.",
-    "severity": "WARN",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id"
-    ]
-  },
-  "CTS_NGCH_IET_EXPIRED": {
-    "text": "IET window expired for {instrument_id} — deemed approval in effect. Bank is liable.",
-    "severity": "CRITICAL",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "instrument_id"
-    ]
-  },
-  "CTS_NGCH_MAINTENANCE_WINDOW": {
-    "text": "NGCH in maintenance — {instrument_id} queued for filing on reconnect. IET watchdog active.",
-    "severity": "WARN",
-    "surface": [
-      "UI",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "instrument_id"
-    ]
-  },
-  "CTS_NGCH_RATE_LIMITED": {
-    "text": "NGCH rate limit hit — {pending_count} instruments queued. Retry after {retry_after_seconds}s.",
-    "severity": "WARN",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "pending_count",
-      "retry_after_seconds"
-    ]
-  },
-  "CTS_NGCH_AUTH_CERT_EXPIRED": {
-    "text": "NGCH mTLS certificate expired for {bank_id} — renewing from Vault. Filings paused.",
-    "severity": "CRITICAL",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "bank_id"
-    ]
-  },
-  "CTS_NGCH_AUTH_CERT_RENEWED": {
-    "text": "NGCH mTLS certificate renewed for {bank_id} — filings resumed.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "bank_id"
-    ]
-  },
-  "CTS_NGCH_TRANSPORT_SWITCHED": {
-    "text": "NGCH transport switched from {old_transport} to {new_transport} for {bank_id}.",
-    "severity": "WARN",
-    "surface": [
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "old_transport",
-      "new_transport",
-      "bank_id"
-    ]
-  },
-  "CTS_NGCH_SETTLEMENT_REPORT_RECEIVED": {
-    "text": "NGCH settlement report received for session {session_id} — {total_items} items, value {total_value_range}.",
-    "severity": "INFO",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "session_id",
-      "total_items",
-      "total_value_range"
-    ]
-  },
-  "CTS_NGCH_RETURN_NOTIFICATION_RECEIVED": {
-    "text": "NGCH return notification for {instrument_id} — reason: {return_reason}.",
-    "severity": "WARN",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "instrument_id",
-      "return_reason"
-    ]
-  },
-  "CTS_NGCH_SESSION_RECONCILED": {
-    "text": "Clearing session {session_id} reconciled — {matched} matched, {exceptions} exceptions.",
-    "severity": "INFO",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "session_id",
-      "matched",
-      "exceptions"
-    ]
-  },
-  "CTS_OUT_SCANNER_SESSION_OPENED": {
-    "text": "Scanner session {session_id} opened by {operator} — {scanner_id} active.",
-    "severity": "INFO",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "session_id",
-      "operator",
-      "scanner_id"
-    ]
-  },
-  "CTS_OUT_SCANNER_SESSION_CLOSED": {
-    "text": "Scanner session {session_id} closed — {instrument_count} instruments captured.",
-    "severity": "INFO",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "session_id",
-      "instrument_count"
-    ]
-  },
-  "CTS_OUT_SCANNER_OFFLINE": {
-    "text": "Scanner {scanner_id} went offline — session {session_id} paused.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "scanner_id",
-      "session_id"
-    ]
-  },
-  "CTS_OUT_SCANNER_JAM": {
-    "text": "Paper jam on {scanner_id} — last captured instrument was {instrument_id}.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "scanner_id",
-      "instrument_id"
-    ]
-  },
-  "CTS_OUT_IMAGE_CAPTURED": {
-    "text": "Front and rear images captured for {instrument_id} — quality score {quality_pct}%.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id",
-      "quality_pct"
-    ]
-  },
-  "CTS_OUT_IMAGE_QUALITY_FAIL": {
-    "text": "Image quality below threshold for {instrument_id} — score {quality_pct}%. Rescan required.",
-    "severity": "WARN",
-    "surface": [
-      "UI"
-    ],
-    "variables": [
-      "instrument_id",
-      "quality_pct"
-    ]
-  },
-  "CTS_OUT_IMAGE_SKEW_HIGH": {
-    "text": "Excessive skew detected on {instrument_id} — {skew_degrees}°. Rescan recommended.",
-    "severity": "WARN",
-    "surface": [
-      "UI"
-    ],
-    "variables": [
-      "instrument_id",
-      "skew_degrees"
-    ]
-  },
-  "CTS_OUT_MICR_EXTRACTED": {
-    "text": "MICR line extracted for {instrument_id} — IFSC {drawee_ifsc}, account {account_display}.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id",
-      "drawee_ifsc",
-      "account_display"
-    ]
-  },
-  "CTS_OUT_MICR_UNREADABLE": {
-    "text": "MICR line unreadable on {instrument_id} — manual entry required.",
-    "severity": "ERROR",
-    "surface": [
-      "UI"
-    ],
-    "variables": [
-      "instrument_id"
-    ]
-  },
-  "CTS_OUT_CTS2010_PASS": {
-    "text": "CTS-2010 compliance check passed for outward {instrument_id}.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id"
-    ]
-  },
-  "CTS_OUT_CTS2010_FAIL": {
-    "text": "CTS-2010 compliance failed for outward {instrument_id} — {violation_count} violations: {violations}.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id",
-      "violation_count",
-      "violations"
-    ]
-  },
-  "CTS_OUT_CTS2010_NON_CTS_FORM": {
-    "text": "Non-CTS cheque form detected for {instrument_id} — not eligible for truncation.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id"
-    ]
-  },
-  "CTS_OUT_LOT_CREATED": {
-    "text": "Lot {lot_id} created for clearing zone {zone} — {instrument_count} instruments.",
-    "severity": "INFO",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "lot_id",
-      "zone",
-      "instrument_count"
-    ]
-  },
-  "CTS_OUT_LOT_INSTRUMENT_ADDED": {
-    "text": "Instrument {instrument_id} added to lot {lot_id} — lot total: {lot_total}.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id",
-      "lot_id",
-      "lot_total"
-    ]
-  },
-  "CTS_OUT_LOT_SEALED": {
-    "text": "Lot {lot_id} sealed by {operator} — {instrument_count} instruments, value {total_value_range}.",
-    "severity": "INFO",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "lot_id",
-      "operator",
-      "instrument_count",
-      "total_value_range"
-    ]
-  },
-  "CTS_OUT_LOT_SEAL_FAILED": {
-    "text": "Lot {lot_id} seal failed — {reason}. Resolve before submission.",
-    "severity": "ERROR",
-    "surface": [
-      "UI"
-    ],
-    "variables": [
-      "lot_id",
-      "reason"
-    ]
-  },
-  "CTS_OUT_LOT_INSTRUMENT_REMOVED": {
-    "text": "Instrument {instrument_id} removed from lot {lot_id} by {operator} — reason: {reason}.",
-    "severity": "WARN",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id",
-      "lot_id",
-      "operator",
-      "reason"
-    ]
-  },
-  "CTS_OUT_ENDORSEMENT_STAMPED": {
-    "text": "Endorsement stamp applied to {instrument_id} — stamp ref {stamp_ref}.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id",
-      "stamp_ref"
-    ]
-  },
-  "CTS_OUT_ENDORSEMENT_BATCH_COMPLETE": {
-    "text": "Endorsement batch {lot_id} complete — {count} instruments stamped.",
-    "severity": "INFO",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "lot_id",
-      "count"
-    ]
-  },
-  "CTS_OUT_ENDORSEMENT_FAILED": {
-    "text": "Endorsement failed for {instrument_id} — {error}. Retrying.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id",
-      "error"
-    ]
-  },
-  "CTS_OUT_NGCH_FILE_BUILT": {
-    "text": "NGCH presentation file built for lot {lot_id} — {instrument_count} instruments.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "lot_id",
-      "instrument_count"
-    ]
-  },
-  "CTS_OUT_NGCH_SUBMITTED": {
-    "text": "Lot {lot_id} submitted to NGCH — acknowledgement {ngch_ack_ref}.",
-    "severity": "INFO",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "lot_id",
-      "ngch_ack_ref"
-    ]
-  },
-  "CTS_OUT_NGCH_SUBMISSION_FAILED": {
-    "text": "NGCH outward submission failed for lot {lot_id} — error {error_code}. Retrying.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "lot_id",
-      "error_code"
-    ]
-  },
-  "CTS_OUT_NGCH_SESSION_CUTOFF_MISSED": {
-    "text": "Lot {lot_id} missed clearing session cutoff {cutoff_time} — deferred to next session.",
-    "severity": "WARN",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "lot_id",
-      "cutoff_time"
-    ]
-  },
-  "CTS_OUT_RRF_GENERATED": {
-    "text": "Return Reason File generated for session {session_id} — {return_count} returns.",
-    "severity": "INFO",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "session_id",
-      "return_count"
-    ]
-  },
-  "CTS_OUT_RECONCILIATION_COMPLETE": {
-    "text": "Session {session_id} reconciled — {matched} matched, {exceptions} exceptions, {returns} returns.",
-    "severity": "INFO",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "session_id",
-      "matched",
-      "exceptions",
-      "returns"
-    ]
-  },
-  "CTS_OUT_RECONCILIATION_EXCEPTION": {
-    "text": "Reconciliation exception on {instrument_id} — NGCH status {ngch_status} vs local {local_status}.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "instrument_id",
-      "ngch_status",
-      "local_status"
-    ]
-  },
-  "CTS_SMB_INSTRUMENT_RECEIVED": {
-    "text": "Inward instrument {instrument_id} received from sub-member {smb_name} ({smb_ifsc}) via sponsor {sponsor_ifsc}.",
-    "severity": "INFO",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id",
-      "smb_name",
-      "smb_ifsc",
-      "sponsor_ifsc"
-    ]
-  },
-  "CTS_SMB_INSTRUMENT_VALIDATED": {
-    "text": "Sub-member instrument {instrument_id} passed sponsor bank validation.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id"
-    ]
-  },
-  "CTS_SMB_INSTRUMENT_REJECTED": {
-    "text": "Sub-member instrument {instrument_id} from {smb_name} rejected — reason: {rejection_reason}.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "instrument_id",
-      "smb_name",
-      "rejection_reason"
-    ]
-  },
-  "CTS_SMB_ROUTED_TO_SPONSOR_LOT": {
-    "text": "Sub-member instrument {instrument_id} routed to sponsor lot {lot_id} for NGCH submission.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id",
-      "lot_id"
-    ]
-  },
-  "CTS_SMB_FORWARDED_TO_NGCH": {
-    "text": "Sub-member instrument {instrument_id} forwarded to NGCH under sponsor {sponsor_ifsc}.",
-    "severity": "INFO",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id",
-      "sponsor_ifsc"
-    ]
-  },
-  "CTS_SMB_RETURNED_TO_SMB": {
-    "text": "Instrument {instrument_id} returned to sub-member {smb_name} — reason: {return_reason}.",
-    "severity": "WARN",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "instrument_id",
-      "smb_name",
-      "return_reason"
-    ]
-  },
-  "CTS_SMB_RISK_SHIELD_TRIGGERED": {
-    "text": "Risk shield triggered for {smb_name} — {instrument_id} held pending review. Trigger: {trigger}.",
-    "severity": "WARN",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "smb_name",
-      "instrument_id",
-      "trigger"
-    ]
-  },
-  "CTS_SMB_RISK_SHIELD_CLEARED": {
-    "text": "Risk shield cleared for {instrument_id} from {smb_name} — processing resumed.",
-    "severity": "INFO",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "instrument_id",
-      "smb_name"
-    ]
-  },
-  "CTS_SMB_DAILY_LIMIT_APPROACHING": {
-    "text": "Sub-member {smb_name} at {usage_pct}% of daily submission limit.",
-    "severity": "WARN",
-    "surface": [
-      "UI",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "smb_name",
-      "usage_pct"
-    ]
-  },
-  "CTS_SMB_DAILY_LIMIT_EXCEEDED": {
-    "text": "Sub-member {smb_name} has exceeded daily submission limit — further instruments held.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "smb_name"
-    ]
-  },
-  "CTS_SMB_SMB_OFFLINE": {
-    "text": "Sub-member {smb_name} ({smb_ifsc}) has not submitted in {hours_since}h — connectivity check advised.",
-    "severity": "WARN",
-    "surface": [
-      "UI",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "smb_name",
-      "smb_ifsc",
-      "hours_since"
-    ]
-  },
-  "CTS_SMB_NOTIFICATION_SENT": {
-    "text": "Return notification sent to {smb_name} for {return_count} returned instruments from session {session_id}.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "smb_name",
-      "return_count",
-      "session_id"
-    ]
-  },
   "CTS_WF_CHEQUE_RECEIVED": {
     "text": "Cheque {instrument_id} received from {bank} — queued for processing.",
     "severity": "INFO",
@@ -1911,6 +585,1561 @@
     ],
     "variables": [
       "instrument_id"
+    ]
+  },
+  "CTS_OUT_SCANNER_SESSION_OPENED": {
+    "text": "Scanner session {session_id} opened by {operator} — {scanner_id} active.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "session_id",
+      "operator",
+      "scanner_id"
+    ]
+  },
+  "CTS_OUT_SCANNER_SESSION_CLOSED": {
+    "text": "Scanner session {session_id} closed — {instrument_count} instruments captured.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "session_id",
+      "instrument_count"
+    ]
+  },
+  "CTS_OUT_SCANNER_OFFLINE": {
+    "text": "Scanner {scanner_id} went offline — session {session_id} paused.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "scanner_id",
+      "session_id"
+    ]
+  },
+  "CTS_OUT_SCANNER_JAM": {
+    "text": "Paper jam on {scanner_id} — last captured instrument was {instrument_id}.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "scanner_id",
+      "instrument_id"
+    ]
+  },
+  "CTS_OUT_IMAGE_CAPTURED": {
+    "text": "Front and rear images captured for {instrument_id} — quality score {quality_pct}%.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "quality_pct"
+    ]
+  },
+  "CTS_OUT_IMAGE_QUALITY_FAIL": {
+    "text": "Image quality below threshold for {instrument_id} — score {quality_pct}%. Rescan required.",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "instrument_id",
+      "quality_pct"
+    ]
+  },
+  "CTS_OUT_IMAGE_SKEW_HIGH": {
+    "text": "Excessive skew detected on {instrument_id} — {skew_degrees}°. Rescan recommended.",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "instrument_id",
+      "skew_degrees"
+    ]
+  },
+  "CTS_OUT_MICR_EXTRACTED": {
+    "text": "MICR line extracted for {instrument_id} — IFSC {drawee_ifsc}, account {account_display}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "drawee_ifsc",
+      "account_display"
+    ]
+  },
+  "CTS_OUT_MICR_UNREADABLE": {
+    "text": "MICR line unreadable on {instrument_id} — manual entry required.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_OUT_CTS2010_PASS": {
+    "text": "CTS-2010 compliance check passed for outward {instrument_id}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_OUT_CTS2010_FAIL": {
+    "text": "CTS-2010 compliance failed for outward {instrument_id} — {violation_count} violations: {violations}.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "violation_count",
+      "violations"
+    ]
+  },
+  "CTS_OUT_CTS2010_NON_CTS_FORM": {
+    "text": "Non-CTS cheque form detected for {instrument_id} — not eligible for truncation.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_OUT_LOT_CREATED": {
+    "text": "Lot {lot_id} created for clearing zone {zone} — {instrument_count} instruments.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "lot_id",
+      "zone",
+      "instrument_count"
+    ]
+  },
+  "CTS_OUT_LOT_INSTRUMENT_ADDED": {
+    "text": "Instrument {instrument_id} added to lot {lot_id} — lot total: {lot_total}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "lot_id",
+      "lot_total"
+    ]
+  },
+  "CTS_OUT_LOT_SEALED": {
+    "text": "Lot {lot_id} sealed by {operator} — {instrument_count} instruments, value {total_value_range}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "lot_id",
+      "operator",
+      "instrument_count",
+      "total_value_range"
+    ]
+  },
+  "CTS_OUT_LOT_SEAL_FAILED": {
+    "text": "Lot {lot_id} seal failed — {reason}. Resolve before submission.",
+    "severity": "ERROR",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "lot_id",
+      "reason"
+    ]
+  },
+  "CTS_OUT_LOT_INSTRUMENT_REMOVED": {
+    "text": "Instrument {instrument_id} removed from lot {lot_id} by {operator} — reason: {reason}.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "lot_id",
+      "operator",
+      "reason"
+    ]
+  },
+  "CTS_OUT_ENDORSEMENT_STAMPED": {
+    "text": "Endorsement stamp applied to {instrument_id} — stamp ref {stamp_ref}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "stamp_ref"
+    ]
+  },
+  "CTS_OUT_ENDORSEMENT_BATCH_COMPLETE": {
+    "text": "Endorsement batch {lot_id} complete — {count} instruments stamped.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "lot_id",
+      "count"
+    ]
+  },
+  "CTS_OUT_ENDORSEMENT_FAILED": {
+    "text": "Endorsement failed for {instrument_id} — {error}. Retrying.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "error"
+    ]
+  },
+  "CTS_OUT_NGCH_FILE_BUILT": {
+    "text": "NGCH presentation file built for lot {lot_id} — {instrument_count} instruments.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "lot_id",
+      "instrument_count"
+    ]
+  },
+  "CTS_OUT_NGCH_SUBMITTED": {
+    "text": "Lot {lot_id} submitted to NGCH — acknowledgement {ngch_ack_ref}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "lot_id",
+      "ngch_ack_ref"
+    ]
+  },
+  "CTS_OUT_NGCH_SUBMISSION_FAILED": {
+    "text": "NGCH outward submission failed for lot {lot_id} — error {error_code}. Retrying.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "lot_id",
+      "error_code"
+    ]
+  },
+  "CTS_OUT_NGCH_SESSION_CUTOFF_MISSED": {
+    "text": "Lot {lot_id} missed clearing session cutoff {cutoff_time} — deferred to next session.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "lot_id",
+      "cutoff_time"
+    ]
+  },
+  "CTS_OUT_RRF_GENERATED": {
+    "text": "Return Reason File generated for session {session_id} — {return_count} returns.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "session_id",
+      "return_count"
+    ]
+  },
+  "CTS_OUT_RECONCILIATION_COMPLETE": {
+    "text": "Session {session_id} reconciled — {matched} matched, {exceptions} exceptions, {returns} returns.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "session_id",
+      "matched",
+      "exceptions",
+      "returns"
+    ]
+  },
+  "CTS_OUT_RECONCILIATION_EXCEPTION": {
+    "text": "Reconciliation exception on {instrument_id} — NGCH status {ngch_status} vs local {local_status}.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "ngch_status",
+      "local_status"
+    ]
+  },
+  "CTS_COMP_BANK_LOGO_MISSING": {
+    "text": "CTS-2010 violation on {instrument_id}: bank logo absent or non-UV-reactive.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_COMP_WATERMARK_MISSING": {
+    "text": "CTS-2010 violation on {instrument_id}: CTS-INDIA watermark absent.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_COMP_VOID_PANTOGRAPH_MISSING": {
+    "text": "CTS-2010 violation on {instrument_id}: VOID pantograph not present.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_COMP_IFSC_MISSING": {
+    "text": "CTS-2010 violation on {instrument_id}: IFSC code absent or unreadable.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_COMP_MICR_BAND_INVALID": {
+    "text": "CTS-2010 violation on {instrument_id}: MICR band position or dimensions non-compliant.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_COMP_IMAGE_RESOLUTION_LOW": {
+    "text": "CTS-2010 violation on {instrument_id}: image resolution {actual_dpi} DPI below required 200 DPI.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "actual_dpi"
+    ]
+  },
+  "CTS_COMP_IMAGE_COLOUR_INVALID": {
+    "text": "CTS-2010 violation on {instrument_id}: front image must be colour (24-bit), rear greyscale.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_COMP_INSTRUMENT_SIZE_INVALID": {
+    "text": "CTS-2010 violation on {instrument_id}: physical dimensions {actual_dimensions} outside standard range.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "actual_dimensions"
+    ]
+  },
+  "CTS_COMP_POST_DATED": {
+    "text": "Instrument {instrument_id} is post-dated — cheque date {cheque_date} is in the future.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "cheque_date"
+    ]
+  },
+  "CTS_COMP_STALE_DATED": {
+    "text": "Instrument {instrument_id} stale — cheque date {cheque_date} exceeds {validity_days}-day validity.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "cheque_date",
+      "validity_days"
+    ]
+  },
+  "CTS_COMP_AMOUNT_WORDS_BLANK": {
+    "text": "CTS-2010 violation on {instrument_id}: amount in words is blank.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_COMP_PAYEE_BLANK": {
+    "text": "CTS-2010 violation on {instrument_id}: payee name is blank.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_COMP_DRAWEE_BANK_MISMATCH": {
+    "text": "CTS-2010 violation on {instrument_id}: drawee IFSC {micr_ifsc} does not match image bank {image_bank}.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "micr_ifsc",
+      "image_bank"
+    ]
+  },
+  "CTS_COMP_EXCESSIVE_DAMAGE": {
+    "text": "Instrument {instrument_id} rejected — physical damage exceeds acceptable threshold for truncation.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_NGCH_FILED_CONFIRM": {
+    "text": "Cheque {instrument_id} CONFIRMED and filed to NGCH — reference {ngch_ref}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "ngch_ref"
+    ]
+  },
+  "CTS_NGCH_FILED_RETURN": {
+    "text": "Cheque {instrument_id} RETURNED and filed to NGCH — reason: {return_reason}, ref {ngch_ref}.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason",
+      "ngch_ref"
+    ]
+  },
+  "CTS_NGCH_SUBMIT_FAILED": {
+    "text": "NGCH submission failed for {instrument_id} — error {error_code}. Attempt {attempt} of {max_attempts}.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "error_code",
+      "attempt",
+      "max_attempts"
+    ]
+  },
+  "CTS_NGCH_SUBMIT_FAILED_TERMINAL": {
+    "text": "NGCH submission permanently failed for {instrument_id} after {max_attempts} attempts — manual intervention required.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "max_attempts"
+    ]
+  },
+  "CTS_NGCH_DUPLICATE_DETECTED": {
+    "text": "Duplicate NGCH filing detected for {instrument_id} — idempotency key matched. Skipped safely.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_NGCH_IET_EXPIRED": {
+    "text": "IET window expired for {instrument_id} — deemed approval in effect. Bank is liable.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_NGCH_MAINTENANCE_WINDOW": {
+    "text": "NGCH in maintenance — {instrument_id} queued for filing on reconnect. IET watchdog active.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_NGCH_RATE_LIMITED": {
+    "text": "NGCH rate limit hit — {pending_count} instruments queued. Retry after {retry_after_seconds}s.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "pending_count",
+      "retry_after_seconds"
+    ]
+  },
+  "CTS_NGCH_AUTH_CERT_EXPIRED": {
+    "text": "NGCH mTLS certificate expired for {bank_id} — renewing from Vault. Filings paused.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id"
+    ]
+  },
+  "CTS_NGCH_AUTH_CERT_RENEWED": {
+    "text": "NGCH mTLS certificate renewed for {bank_id} — filings resumed.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id"
+    ]
+  },
+  "CTS_NGCH_TRANSPORT_SWITCHED": {
+    "text": "NGCH transport switched from {old_transport} to {new_transport} for {bank_id}.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "old_transport",
+      "new_transport",
+      "bank_id"
+    ]
+  },
+  "CTS_NGCH_SETTLEMENT_REPORT_RECEIVED": {
+    "text": "NGCH settlement report received for session {session_id} — {total_items} items, value {total_value_range}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "session_id",
+      "total_items",
+      "total_value_range"
+    ]
+  },
+  "CTS_NGCH_RETURN_NOTIFICATION_RECEIVED": {
+    "text": "NGCH return notification for {instrument_id} — reason: {return_reason}.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason"
+    ]
+  },
+  "CTS_NGCH_SESSION_RECONCILED": {
+    "text": "Clearing session {session_id} reconciled — {matched} matched, {exceptions} exceptions.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "session_id",
+      "matched",
+      "exceptions"
+    ]
+  },
+  "CTS_SMB_INSTRUMENT_RECEIVED": {
+    "text": "Inward instrument {instrument_id} received from sub-member {smb_name} ({smb_ifsc}) via sponsor {sponsor_ifsc}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "smb_name",
+      "smb_ifsc",
+      "sponsor_ifsc"
+    ]
+  },
+  "CTS_SMB_INSTRUMENT_VALIDATED": {
+    "text": "Sub-member instrument {instrument_id} passed sponsor bank validation.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_SMB_INSTRUMENT_REJECTED": {
+    "text": "Sub-member instrument {instrument_id} from {smb_name} rejected — reason: {rejection_reason}.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "smb_name",
+      "rejection_reason"
+    ]
+  },
+  "CTS_SMB_ROUTED_TO_SPONSOR_LOT": {
+    "text": "Sub-member instrument {instrument_id} routed to sponsor lot {lot_id} for NGCH submission.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "lot_id"
+    ]
+  },
+  "CTS_SMB_FORWARDED_TO_NGCH": {
+    "text": "Sub-member instrument {instrument_id} forwarded to NGCH under sponsor {sponsor_ifsc}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "sponsor_ifsc"
+    ]
+  },
+  "CTS_SMB_RETURNED_TO_SMB": {
+    "text": "Instrument {instrument_id} returned to sub-member {smb_name} — reason: {return_reason}.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "smb_name",
+      "return_reason"
+    ]
+  },
+  "CTS_SMB_RISK_SHIELD_TRIGGERED": {
+    "text": "Risk shield triggered for {smb_name} — {instrument_id} held pending review. Trigger: {trigger}.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_name",
+      "instrument_id",
+      "trigger"
+    ]
+  },
+  "CTS_SMB_RISK_SHIELD_CLEARED": {
+    "text": "Risk shield cleared for {instrument_id} from {smb_name} — processing resumed.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "smb_name"
+    ]
+  },
+  "CTS_SMB_DAILY_LIMIT_APPROACHING": {
+    "text": "Sub-member {smb_name} at {usage_pct}% of daily submission limit.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_name",
+      "usage_pct"
+    ]
+  },
+  "CTS_SMB_DAILY_LIMIT_EXCEEDED": {
+    "text": "Sub-member {smb_name} has exceeded daily submission limit — further instruments held.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_name"
+    ]
+  },
+  "CTS_SMB_SMB_OFFLINE": {
+    "text": "Sub-member {smb_name} ({smb_ifsc}) has not submitted in {hours_since}h — connectivity check advised.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_name",
+      "smb_ifsc",
+      "hours_since"
+    ]
+  },
+  "CTS_SMB_NOTIFICATION_SENT": {
+    "text": "Return notification sent to {smb_name} for {return_count} returned instruments from session {session_id}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "smb_name",
+      "return_count",
+      "session_id"
+    ]
+  },
+  "CBS_BALANCE_CHECK_OK": {
+    "text": "Balance check passed for {account_display} — {instrument_id} proceeds.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "instrument_id"
+    ]
+  },
+  "CBS_BALANCE_INSUFFICIENT": {
+    "text": "Insufficient balance for {account_display} — {instrument_id} cannot be honoured.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "account_display",
+      "instrument_id"
+    ]
+  },
+  "CBS_ACCOUNT_NOT_FOUND": {
+    "text": "Account {account_display} not found in CBS {cbs_type} — {instrument_id} to human review.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "cbs_type",
+      "instrument_id"
+    ]
+  },
+  "CBS_ACCOUNT_FROZEN": {
+    "text": "Account {account_display} is frozen in CBS — {instrument_id} returned immediately.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "account_display",
+      "instrument_id"
+    ]
+  },
+  "CBS_ACCOUNT_CLOSED": {
+    "text": "Account {account_display} is closed in CBS — {instrument_id} returned immediately.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "account_display",
+      "instrument_id"
+    ]
+  },
+  "CBS_ACCOUNT_DORMANT": {
+    "text": "Account {account_display} is dormant in CBS — {instrument_id} routed to human review.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "instrument_id"
+    ]
+  },
+  "CBS_ACCOUNT_LIEN_MARKED": {
+    "text": "Lien marked on {account_display} — {instrument_id} routed to human review for manual balance verification.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "instrument_id"
+    ]
+  },
+  "CBS_STOP_PAYMENT_ACTIVE": {
+    "text": "Stop payment instruction active for {instrument_id} on {account_display} — returned immediately.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "account_display"
+    ]
+  },
+  "CBS_STOP_PAYMENT_CLEAR": {
+    "text": "No stop payment on record for {instrument_id} / {account_display}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "account_display"
+    ]
+  },
+  "CBS_UNREACHABLE": {
+    "text": "CBS {cbs_type} unreachable for {bank_id} — timeout after {timeout_seconds}s. Degraded path active.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "cbs_type",
+      "bank_id",
+      "timeout_seconds"
+    ]
+  },
+  "CBS_RECOVERED": {
+    "text": "CBS {cbs_type} connection restored for {bank_id} after {downtime_minutes} minutes.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "cbs_type",
+      "bank_id",
+      "downtime_minutes"
+    ]
+  },
+  "CBS_RESPONSE_TIMEOUT": {
+    "text": "CBS {cbs_type} response timeout for {bank_id} on query type {query_type} — attempt {attempt}.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "cbs_type",
+      "bank_id",
+      "query_type",
+      "attempt"
+    ]
+  },
+  "CBS_AUTH_FAILED": {
+    "text": "CBS {cbs_type} authentication failure for {bank_id} — credentials may be stale.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "cbs_type",
+      "bank_id"
+    ]
+  },
+  "CBS_VAULT_SYNC_STARTED": {
+    "text": "CBS vault sync started for {bank_id} — fetching signatures and PPS from {cbs_type}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "cbs_type"
+    ]
+  },
+  "CBS_VAULT_SYNC_COMPLETE": {
+    "text": "CBS vault sync complete for {bank_id} — {sig_count} signatures, {pps_count} PPS entries loaded.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "sig_count",
+      "pps_count"
+    ]
+  },
+  "CBS_VAULT_SYNC_FAILED": {
+    "text": "CBS vault sync failed for {bank_id} — error: {error_code}. Retaining existing vault data.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "error_code"
+    ]
+  },
+  "CBS_VAULT_PARTIAL_SYNC": {
+    "text": "CBS vault partial sync for {bank_id} — {loaded_count} of {total_count} accounts synced. {failed_count} failures.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "loaded_count",
+      "total_count",
+      "failed_count"
+    ]
+  },
+  "VAULT_SIG_HIT": {
+    "text": "Signature vault hit for {account_display} — specimen found, verification proceeding.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display"
+    ]
+  },
+  "VAULT_SIG_MISS": {
+    "text": "Signature vault miss for {account_display} — no specimen on record. {instrument_id} to human review.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "account_display",
+      "instrument_id"
+    ]
+  },
+  "VAULT_SIG_STALE": {
+    "text": "Signature vault stale for {bank_id} — last sync {hours_ago}h ago. All inward cheques to human review.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "hours_ago"
+    ]
+  },
+  "VAULT_SIG_LOAD_COMPLETE": {
+    "text": "Signature vault loaded for {bank_id} — {count} specimens ready.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "count"
+    ]
+  },
+  "VAULT_SIG_LOAD_FAILED": {
+    "text": "Signature vault load failed for {bank_id} — {error}. Existing data retained.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "error"
+    ]
+  },
+  "VAULT_SIG_SPECIMEN_UPDATED": {
+    "text": "Signature specimen updated for {account_display} by vault sync — previous version archived.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display"
+    ]
+  },
+  "VAULT_SIG_SPECIMEN_REVOKED": {
+    "text": "Signature specimen revoked for {account_display} — subsequent cheques will route to human review.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "account_display"
+    ]
+  },
+  "VAULT_SIG_MULTI_SIGNATORY": {
+    "text": "Multi-signatory account {account_display} — {required_sigs} signatures required, {found_sigs} detected.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "required_sigs",
+      "found_sigs"
+    ]
+  },
+  "VAULT_SIG_INTEGRITY_FAIL": {
+    "text": "Signature vault integrity check failed for {bank_id} — {corrupt_count} entries corrupted. Resync required.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "corrupt_count"
+    ]
+  },
+  "VAULT_PPS_HIT": {
+    "text": "PPS vault hit for {account_display} — cheque series {cheque_series} registered.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "cheque_series"
+    ]
+  },
+  "VAULT_PPS_MISS": {
+    "text": "No PPS record for {account_display} / {instrument_id} — routed to human review.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "instrument_id"
+    ]
+  },
+  "VAULT_PPS_AMOUNT_MISMATCH": {
+    "text": "PPS amount mismatch on {instrument_id} — registered {expected_range}, presented {presented_range}.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "expected_range",
+      "presented_range"
+    ]
+  },
+  "VAULT_PPS_SERIES_MISMATCH": {
+    "text": "PPS series mismatch on {instrument_id} — presented series {presented_series} not registered.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "presented_series"
+    ]
+  },
+  "VAULT_PPS_PAYEE_MISMATCH": {
+    "text": "PPS payee mismatch on {instrument_id} — registered payee differs from instrument.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "VAULT_PPS_LOAD_COMPLETE": {
+    "text": "PPS vault loaded for {bank_id} — {count} entries ready.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "count"
+    ]
+  },
+  "VAULT_PPS_LOAD_FAILED": {
+    "text": "PPS vault load failed for {bank_id} — {error}. Existing data retained.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "error"
+    ]
+  },
+  "VAULT_PPS_ENTRY_EXPIRED": {
+    "text": "PPS entry expired for {account_display} cheque series {cheque_series} — no longer valid.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "cheque_series"
+    ]
+  },
+  "VAULT_SYNC_COMPLETE": {
+    "text": "Vault sync complete for {bank_id} — signatures: {sig_count}, PPS entries: {pps_count}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "sig_count",
+      "pps_count"
+    ]
+  },
+  "VAULT_SYNC_FAILED": {
+    "text": "Vault sync failed for {bank_id} — error: {error_code}. Retaining existing vault data.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "error_code"
+    ]
+  },
+  "AUTH_LOGIN_SUCCESS": {
+    "text": "Login successful — {display_name} ({role}) signed in from {ip_display}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "display_name",
+      "role",
+      "ip_display"
+    ]
+  },
+  "AUTH_LOGIN_FAILED": {
+    "text": "Login failed for {username} — invalid credentials. Attempt {attempt} of {max_attempts}.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "username",
+      "attempt",
+      "max_attempts"
+    ]
+  },
+  "AUTH_ACCOUNT_LOCKED": {
+    "text": "Account {username} locked after {max_attempts} failed login attempts. Unlock required.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "username",
+      "max_attempts"
+    ]
+  },
+  "AUTH_ACCOUNT_UNLOCKED": {
+    "text": "Account {username} unlocked by {unlocked_by}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "username",
+      "unlocked_by"
+    ]
+  },
+  "AUTH_SESSION_STARTED": {
+    "text": "Session started for {display_name} — session ID {session_display}, expires {expires_at}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "display_name",
+      "session_display",
+      "expires_at"
+    ]
+  },
+  "AUTH_SESSION_EXPIRED": {
+    "text": "Session expired for {display_name} — please sign in again.",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "display_name"
+    ]
+  },
+  "AUTH_SESSION_REVOKED": {
+    "text": "Session forcibly revoked for {display_name} by {revoked_by} — reason: {reason}.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "display_name",
+      "revoked_by",
+      "reason"
+    ]
+  },
+  "AUTH_PASSWORD_RESET_INITIATED": {
+    "text": "Password reset initiated for {username} by {initiated_by}.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "username",
+      "initiated_by"
+    ]
+  },
+  "AUTH_TOTP_ENABLED": {
+    "text": "Two-factor authentication enabled for {display_name}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "display_name"
+    ]
+  },
+  "AUTH_TOTP_DISABLED": {
+    "text": "Two-factor authentication disabled for {display_name} by {disabled_by}.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "display_name",
+      "disabled_by"
+    ]
+  },
+  "AUTH_TOTP_VERIFIED": {
+    "text": "TOTP verification successful for {display_name}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "display_name"
+    ]
+  },
+  "AUTH_TOTP_FAILED": {
+    "text": "TOTP verification failed for {display_name} — code invalid or expired.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "display_name"
+    ]
+  },
+  "AUTH_TOTP_BYPASS_USED": {
+    "text": "TOTP backup code used by {display_name} — remaining backup codes: {remaining_count}.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "display_name",
+      "remaining_count"
+    ]
+  },
+  "AUTH_SAML_ASSERTION_VALID": {
+    "text": "SAML assertion validated for {username} from IdP {idp_entity_id}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "username",
+      "idp_entity_id"
+    ]
+  },
+  "AUTH_SAML_ASSERTION_INVALID": {
+    "text": "SAML assertion invalid for {username} — {error}. Login denied.",
+    "severity": "ERROR",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "username",
+      "error"
+    ]
+  },
+  "AUTH_SAML_IDP_UNREACHABLE": {
+    "text": "Bank IdP {idp_entity_id} unreachable — login blocked. Check IdP connectivity.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "idp_entity_id"
+    ]
+  },
+  "AUTH_ACCESS_DENIED": {
+    "text": "Access denied — {role} cannot perform {action} on {resource}.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "role",
+      "action",
+      "resource"
+    ]
+  },
+  "AUTH_ZONE_ACCESS_DENIED": {
+    "text": "Zone access denied — {display_name} ({role}) not authorised for clearing zone {zone}.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "display_name",
+      "role",
+      "zone"
+    ]
+  },
+  "AUTH_ROLE_CHANGED": {
+    "text": "Role changed for {target_user} from {old_role} to {new_role} by {changed_by}.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "target_user",
+      "old_role",
+      "new_role",
+      "changed_by"
+    ]
+  },
+  "AUTH_ZONE_SCOPE_CHANGED": {
+    "text": "Clearing zone scope updated for {target_user} — zones: {new_zones} (changed by {changed_by}).",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "target_user",
+      "new_zones",
+      "changed_by"
+    ]
+  },
+  "AUTH_USER_CREATED": {
+    "text": "User {display_name} ({role}) created by {created_by}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "display_name",
+      "role",
+      "created_by"
+    ]
+  },
+  "AUTH_USER_UPDATED": {
+    "text": "User profile updated for {display_name} by {updated_by} — fields: {changed_fields}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "display_name",
+      "updated_by",
+      "changed_fields"
+    ]
+  },
+  "AUTH_USER_DEACTIVATED": {
+    "text": "User {display_name} deactivated by {deactivated_by}.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "display_name",
+      "deactivated_by"
+    ]
+  },
+  "AUTH_USER_REACTIVATED": {
+    "text": "User {display_name} reactivated by {reactivated_by}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "display_name",
+      "reactivated_by"
+    ]
+  },
+  "AUTH_RBI_ACCESS_GRANTED": {
+    "text": "RBI examiner access granted for {examiner_name} — scope: {scope}, valid until {valid_until}.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "examiner_name",
+      "scope",
+      "valid_until"
+    ]
+  },
+  "AUTH_RBI_ACCESS_EXPIRED": {
+    "text": "RBI examiner access expired for {examiner_name} — {access_duration} day engagement closed.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "examiner_name",
+      "access_duration"
     ]
   },
   "EJ_LOG_INGESTED": {
@@ -2570,235 +2799,6 @@
       "from_pods",
       "to_pods",
       "trigger"
-    ]
-  },
-  "VAULT_SIG_HIT": {
-    "text": "Signature vault hit for {account_display} — specimen found, verification proceeding.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "account_display"
-    ]
-  },
-  "VAULT_SIG_MISS": {
-    "text": "Signature vault miss for {account_display} — no specimen on record. {instrument_id} to human review.",
-    "severity": "WARN",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "account_display",
-      "instrument_id"
-    ]
-  },
-  "VAULT_SIG_STALE": {
-    "text": "Signature vault stale for {bank_id} — last sync {hours_ago}h ago. All inward cheques to human review.",
-    "severity": "CRITICAL",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "bank_id",
-      "hours_ago"
-    ]
-  },
-  "VAULT_SIG_LOAD_COMPLETE": {
-    "text": "Signature vault loaded for {bank_id} — {count} specimens ready.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "bank_id",
-      "count"
-    ]
-  },
-  "VAULT_SIG_LOAD_FAILED": {
-    "text": "Signature vault load failed for {bank_id} — {error}. Existing data retained.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "bank_id",
-      "error"
-    ]
-  },
-  "VAULT_SIG_SPECIMEN_UPDATED": {
-    "text": "Signature specimen updated for {account_display} by vault sync — previous version archived.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "account_display"
-    ]
-  },
-  "VAULT_SIG_SPECIMEN_REVOKED": {
-    "text": "Signature specimen revoked for {account_display} — subsequent cheques will route to human review.",
-    "severity": "WARN",
-    "surface": [
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "account_display"
-    ]
-  },
-  "VAULT_SIG_MULTI_SIGNATORY": {
-    "text": "Multi-signatory account {account_display} — {required_sigs} signatures required, {found_sigs} detected.",
-    "severity": "WARN",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "account_display",
-      "required_sigs",
-      "found_sigs"
-    ]
-  },
-  "VAULT_SIG_INTEGRITY_FAIL": {
-    "text": "Signature vault integrity check failed for {bank_id} — {corrupt_count} entries corrupted. Resync required.",
-    "severity": "CRITICAL",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "bank_id",
-      "corrupt_count"
-    ]
-  },
-  "VAULT_PPS_HIT": {
-    "text": "PPS vault hit for {account_display} — cheque series {cheque_series} registered.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "account_display",
-      "cheque_series"
-    ]
-  },
-  "VAULT_PPS_MISS": {
-    "text": "No PPS record for {account_display} / {instrument_id} — routed to human review.",
-    "severity": "WARN",
-    "surface": [
-      "UI",
-      "AUDIT"
-    ],
-    "variables": [
-      "account_display",
-      "instrument_id"
-    ]
-  },
-  "VAULT_PPS_AMOUNT_MISMATCH": {
-    "text": "PPS amount mismatch on {instrument_id} — registered {expected_range}, presented {presented_range}.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "instrument_id",
-      "expected_range",
-      "presented_range"
-    ]
-  },
-  "VAULT_PPS_SERIES_MISMATCH": {
-    "text": "PPS series mismatch on {instrument_id} — presented series {presented_series} not registered.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "instrument_id",
-      "presented_series"
-    ]
-  },
-  "VAULT_PPS_PAYEE_MISMATCH": {
-    "text": "PPS payee mismatch on {instrument_id} — registered payee differs from instrument.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "instrument_id"
-    ]
-  },
-  "VAULT_PPS_LOAD_COMPLETE": {
-    "text": "PPS vault loaded for {bank_id} — {count} entries ready.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "bank_id",
-      "count"
-    ]
-  },
-  "VAULT_PPS_LOAD_FAILED": {
-    "text": "PPS vault load failed for {bank_id} — {error}. Existing data retained.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "bank_id",
-      "error"
-    ]
-  },
-  "VAULT_PPS_ENTRY_EXPIRED": {
-    "text": "PPS entry expired for {account_display} cheque series {cheque_series} — no longer valid.",
-    "severity": "WARN",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "account_display",
-      "cheque_series"
-    ]
-  },
-  "VAULT_SYNC_COMPLETE": {
-    "text": "Vault sync complete for {bank_id} — signatures: {sig_count}, PPS entries: {pps_count}.",
-    "severity": "INFO",
-    "surface": [
-      "AUDIT"
-    ],
-    "variables": [
-      "bank_id",
-      "sig_count",
-      "pps_count"
-    ]
-  },
-  "VAULT_SYNC_FAILED": {
-    "text": "Vault sync failed for {bank_id} — error: {error_code}. Retaining existing vault data.",
-    "severity": "ERROR",
-    "surface": [
-      "UI",
-      "AUDIT",
-      "NOTIFICATION"
-    ],
-    "variables": [
-      "bank_id",
-      "error_code"
     ]
   }
 }
