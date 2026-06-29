@@ -222,26 +222,38 @@ export default function CTSWorkstation() {
             </div>
 
             {/* Session summary footer */}
-            <div style={{ padding: '16px', borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '16px', color: isDark ? '#e2e8f0' : '#0f172a' }}>
+            <div className={`px-4 pt-4 pb-4 border-t ${th.footer}`}>
+              <div className={`text-[11px] font-extrabold uppercase tracking-widest mb-4 ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
                 This Session
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {[
-                  { label: 'STP Confirmed',   value: stpStream.filter(s => s.outcome === 'CONFIRM').length, color: isDark ? '#34d399' : '#059669' },
-                  { label: 'STP Returned',    value: stpStream.filter(s => s.outcome === 'RETURN').length,  color: isDark ? '#f87171' : '#dc2626' },
-                  { label: 'Human decisions', value: decisions.length,                                        color: isDark ? '#fbbf24' : '#d97706' },
-                ].map(({ label, value, color }) => (
-                  <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 500, color: isDark ? '#94a3b8' : '#64748b' }}>{label}</span>
-                    <span style={{ fontSize: '32px', fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color }}>{value}</span>
-                  </div>
-                ))}
+              <div className="flex flex-col gap-3.5">
+                <div className="flex items-center justify-between">
+                  <span className={`text-[11px] font-medium ${th.muted}`}>STP Confirmed</span>
+                  <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                    {stpStream.filter(s => s.outcome === 'CONFIRM').length}
+                  </span>
+                </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '12px', borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #e2e8f0' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 500, color: isDark ? '#94a3b8' : '#64748b' }}>Immudb writes</span>
-                  <span style={{ fontSize: '32px', fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: isDark ? '#cbd5e1' : '#475569' }}>{stpStream.length + decisions.length}</span>
+                <div className="flex items-center justify-between">
+                  <span className={`text-[11px] font-medium ${th.muted}`}>STP Returned</span>
+                  <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+                    {stpStream.filter(s => s.outcome === 'RETURN').length}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className={`text-[11px] font-medium ${th.muted}`}>Human decisions</span>
+                  <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
+                    {decisions.length}
+                  </span>
+                </div>
+
+                <div className={`flex items-center justify-between pt-3 border-t ${th.divider}`}>
+                  <span className={`text-[11px] font-medium ${th.muted}`}>Immudb writes</span>
+                  <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                    {stpStream.length + decisions.length}
+                  </span>
                 </div>
               </div>
             </div>
