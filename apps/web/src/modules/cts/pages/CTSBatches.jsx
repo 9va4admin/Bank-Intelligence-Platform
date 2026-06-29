@@ -5,14 +5,14 @@ import AppShell from '../../../shared/layout/AppShell'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const LOT_STATUSES = {
-  RECEIVED:     { label: 'Received',       color: 'text-slate-400',   bg: 'bg-slate-800/60 border-slate-600/40',     dot: 'bg-slate-400'   },
-  IQA_COMPLETE: { label: 'IQA Complete',   color: 'text-blue-400',    bg: 'bg-blue-900/30 border-blue-700/40',       dot: 'bg-blue-400'    },
-  EXTRACTED:    { label: 'AI Extracted',   color: 'text-violet-400',  bg: 'bg-violet-900/30 border-violet-700/40',   dot: 'bg-violet-400'  },
-  PKI_SIGNED:   { label: 'PKI Signed',     color: 'text-cyan-400',    bg: 'bg-cyan-900/30 border-cyan-700/40',       dot: 'bg-cyan-400'    },
-  SUBMITTED:    { label: 'Submitted',      color: 'text-amber-400',   bg: 'bg-amber-900/30 border-amber-700/40',     dot: 'bg-amber-400'   },
-  NGCH_ACK:     { label: 'NGCH Ack',       color: 'text-emerald-400', bg: 'bg-emerald-900/30 border-emerald-700/40', dot: 'bg-emerald-400' },
-  SETTLED:      { label: 'Settled',        color: 'text-emerald-300', bg: 'bg-emerald-900/40 border-emerald-600/40', dot: 'bg-emerald-300' },
-  PARTIAL_FAIL: { label: 'Partial Fail',   color: 'text-red-400',     bg: 'bg-red-900/30 border-red-700/40',         dot: 'bg-red-400'     },
+  RECEIVED:     { label: 'Received',     dot: 'bg-slate-400',   dark: 'text-slate-300 bg-slate-800/60 border-slate-600/40',     light: 'text-slate-600 bg-slate-100 border-slate-300'         },
+  IQA_COMPLETE: { label: 'IQA Complete', dot: 'bg-blue-400',    dark: 'text-blue-300 bg-blue-900/40 border-blue-700/50',        light: 'text-blue-700 bg-blue-50 border-blue-300'              },
+  EXTRACTED:    { label: 'AI Extracted', dot: 'bg-violet-400',  dark: 'text-violet-300 bg-violet-900/40 border-violet-700/50',  light: 'text-violet-700 bg-violet-50 border-violet-300'        },
+  PKI_SIGNED:   { label: 'PKI Signed',   dot: 'bg-cyan-400',    dark: 'text-cyan-300 bg-cyan-900/40 border-cyan-700/50',        light: 'text-cyan-700 bg-cyan-50 border-cyan-300'              },
+  SUBMITTED:    { label: 'Submitted',    dot: 'bg-amber-400',   dark: 'text-amber-300 bg-amber-900/40 border-amber-700/50',     light: 'text-amber-700 bg-amber-50 border-amber-300'           },
+  NGCH_ACK:     { label: 'NGCH Ack',     dot: 'bg-emerald-400', dark: 'text-emerald-300 bg-emerald-900/40 border-emerald-700/50', light: 'text-emerald-700 bg-emerald-50 border-emerald-300'  },
+  SETTLED:      { label: 'Settled',      dot: 'bg-emerald-300', dark: 'text-emerald-200 bg-emerald-900/60 border-emerald-600/50', light: 'text-emerald-800 bg-emerald-100 border-emerald-400'  },
+  PARTIAL_FAIL: { label: 'Partial Fail', dot: 'bg-red-400',     dark: 'text-red-300 bg-red-900/40 border-red-700/50',           light: 'text-red-700 bg-red-50 border-red-300'                },
 }
 
 const STATUS_ORDER = ['RECEIVED', 'IQA_COMPLETE', 'EXTRACTED', 'PKI_SIGNED', 'SUBMITTED', 'NGCH_ACK', 'SETTLED']
@@ -103,10 +103,10 @@ const SUMMARY = {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function StatusBadge({ status }) {
+function StatusBadge({ status, isDark }) {
   const m = LOT_STATUSES[status]
   return (
-    <span className={`px-2 py-0.5 rounded border text-[10px] font-semibold ${m.color} ${m.bg}`}>
+    <span className={`px-2 py-0.5 rounded border text-[10px] font-semibold ${isDark ? m.dark : m.light}`}>
       {m.label}
     </span>
   )
@@ -257,7 +257,7 @@ export default function CTSBatches() {
                           : <span className={th.sub}>—</span>}
                       </td>
                       <td className="px-3 py-2 w-28"><ProgressBar lot={l} /></td>
-                      <td className="px-3 py-2"><StatusBadge status={l.status} /></td>
+                      <td className="px-3 py-2"><StatusBadge status={l.status} isDark={isDark} /></td>
                     </tr>
                   )
                 })}
@@ -275,7 +275,7 @@ export default function CTSBatches() {
                   <div className={`text-xs ${th.sub}`}>{lot.branch} · {lot.session_label} · {lot.scanner_id}</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <StatusBadge status={lot.status} />
+                  <StatusBadge status={lot.status} isDark={isDark} />
                   <button onClick={() => { setSelectedLot(null); setSelInst(null) }} className={`text-xl leading-none ${th.sub} hover:text-white`}>×</button>
                 </div>
               </div>

@@ -38,11 +38,15 @@ log = structlog.get_logger()
 router_v1 = APIRouter(tags=["User Management v1"])
 _bearer = HTTPBearer(auto_error=False)
 
-_VALID_ROLES = {
+_SB_ROLES = {
     "ops_reviewer", "fraud_analyst", "ops_manager",
-    "bank_it_admin", "compliance_officer", "rbi_examiner", "ml_engineer",
+    "bank_it_admin", "compliance_officer", "rbi_examiner", "ml_engineer", "smb_it_admin",
 }
+_SMB_ROLES = {"smb_admin", "smb_editor", "smb_viewer"}
+_VALID_ROLES = _SB_ROLES | _SMB_ROLES
 _VALID_ZONES = {"MUMBAI", "DELHI", "CHENNAI", "KOLKATA", "HYDERABAD", "BANGALORE", "ALL"}
+_VALID_BANK_TYPES = {"SB", "SMB"}
+_VALID_PERMISSION_LEVELS = {"ADMIN", "EDIT", "READ_ONLY"}
 
 
 # ---------------------------------------------------------------------------
@@ -75,18 +79,22 @@ class UserCreateRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
     email: str = Field(..., description="Must match bank's IdP email")
     display_name: str = Field(..., min_length=2, max_length=100)
-    role: str = Field(..., description="One of the 7 ASTRA roles")
+    role: str = Field(..., description="One of the ASTRA roles")
+    bank_type: str = Field("SB", description="SB or SMB — immutable after creation")
+    permission_level: str = Field("EDIT", description="ADMIN, EDIT, or READ_ONLY")
     clearing_zone: str = Field("ALL", description="Zone scope for ops_reviewer")
     employee_id: Optional[str] = None
     branch_code: Optional[str] = None
 
 
 class UserUpdateRequest(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
     role: Optional[str] = None
+    permission_level: Optional[str] = None
     clearing_zone: Optional[str] = None
     is_active: Optional[bool] = None
     display_name: Optional[str] = None
+    # bank_type intentionally absent — immutable after user creation; extra="forbid" rejects it
 
 
 class UserResponse(BaseModel):
@@ -95,6 +103,8 @@ class UserResponse(BaseModel):
     email: str
     display_name: str
     role: str
+    bank_type: str
+    permission_level: str
     clearing_zone: str
     bank_id: str
     is_active: bool
@@ -190,35 +200,40 @@ def _generate_totp_secret() -> str:
 _MOCK_USERS: dict[str, dict] = {
     "usr-001": {
         "user_id": "usr-001", "email": "ops1@bank.com", "display_name": "Ramesh Kumar",
-        "role": "ops_reviewer", "clearing_zone": "MUMBAI", "bank_id": "hdfc-bank",
+        "role": "ops_reviewer", "bank_type": "SB", "permission_level": "EDIT",
+        "clearing_zone": "MUMBAI", "bank_id": "hdfc-bank",
         "is_active": True, "totp_enabled": True, "employee_id": "EMP-1001",
         "branch_code": "BOM001", "created_at": datetime(2026, 1, 15, tzinfo=timezone.utc),
         "last_login_at": datetime(2026, 6, 25, 9, 12, tzinfo=timezone.utc),
     },
     "usr-002": {
         "user_id": "usr-002", "email": "fraud@bank.com", "display_name": "Priya Sharma",
-        "role": "fraud_analyst", "clearing_zone": "ALL", "bank_id": "hdfc-bank",
+        "role": "fraud_analyst", "bank_type": "SB", "permission_level": "EDIT",
+        "clearing_zone": "ALL", "bank_id": "hdfc-bank",
         "is_active": True, "totp_enabled": False, "employee_id": "EMP-1002",
         "branch_code": None, "created_at": datetime(2026, 2, 3, tzinfo=timezone.utc),
         "last_login_at": datetime(2026, 6, 24, 16, 45, tzinfo=timezone.utc),
     },
     "usr-003": {
         "user_id": "usr-003", "email": "mgr@bank.com", "display_name": "Sunil Mehta",
-        "role": "ops_manager", "clearing_zone": "ALL", "bank_id": "hdfc-bank",
+        "role": "ops_manager", "bank_type": "SB", "permission_level": "EDIT",
+        "clearing_zone": "ALL", "bank_id": "hdfc-bank",
         "is_active": True, "totp_enabled": True, "employee_id": "EMP-1003",
         "branch_code": None, "created_at": datetime(2026, 1, 10, tzinfo=timezone.utc),
         "last_login_at": datetime(2026, 6, 25, 8, 55, tzinfo=timezone.utc),
     },
     "usr-004": {
         "user_id": "usr-004", "email": "compliance@bank.com", "display_name": "Anita Desai",
-        "role": "compliance_officer", "clearing_zone": "ALL", "bank_id": "hdfc-bank",
+        "role": "compliance_officer", "bank_type": "SB", "permission_level": "EDIT",
+        "clearing_zone": "ALL", "bank_id": "hdfc-bank",
         "is_active": True, "totp_enabled": True, "employee_id": "EMP-1004",
         "branch_code": None, "created_at": datetime(2026, 1, 10, tzinfo=timezone.utc),
         "last_login_at": datetime(2026, 6, 23, 14, 20, tzinfo=timezone.utc),
     },
     "usr-005": {
         "user_id": "usr-005", "email": "ops2@bank.com", "display_name": "Vikram Singh",
-        "role": "ops_reviewer", "clearing_zone": "DELHI", "bank_id": "hdfc-bank",
+        "role": "ops_reviewer", "bank_type": "SB", "permission_level": "EDIT",
+        "clearing_zone": "DELHI", "bank_id": "hdfc-bank",
         "is_active": False, "totp_enabled": False, "employee_id": "EMP-1005",
         "branch_code": "DEL002", "created_at": datetime(2026, 3, 20, tzinfo=timezone.utc),
         "last_login_at": None,
@@ -268,8 +283,17 @@ async def create_user(
     body: UserCreateRequest,
     admin: dict = Depends(require_it_admin),
 ) -> UserResponse:
+    if body.bank_type not in _VALID_BANK_TYPES:
+        raise HTTPException(status_code=422, detail=f"Invalid bank_type. Must be SB or SMB.")
+    if body.permission_level not in _VALID_PERMISSION_LEVELS:
+        raise HTTPException(status_code=422, detail=f"Invalid permission_level. Must be ADMIN, EDIT, or READ_ONLY.")
     if body.role not in _VALID_ROLES:
         raise HTTPException(status_code=422, detail=f"Invalid role. Must be one of: {sorted(_VALID_ROLES)}")
+    # Enforce role↔bank_type compatibility
+    if body.bank_type == "SB" and body.role in _SMB_ROLES:
+        raise HTTPException(status_code=422, detail=f"Role '{body.role}' is only valid for SMB users (bank_type=SMB).")
+    if body.bank_type == "SMB" and body.role in _SB_ROLES:
+        raise HTTPException(status_code=422, detail=f"Role '{body.role}' is only valid for SB users (bank_type=SB).")
     if body.clearing_zone not in _VALID_ZONES:
         raise HTTPException(status_code=422, detail=f"Invalid zone. Must be one of: {sorted(_VALID_ZONES)}")
     if any(u["email"] == body.email for u in _MOCK_USERS.values()):
@@ -281,6 +305,8 @@ async def create_user(
         "email": body.email,
         "display_name": body.display_name,
         "role": body.role,
+        "bank_type": body.bank_type,
+        "permission_level": body.permission_level,
         "clearing_zone": body.clearing_zone,
         "bank_id": admin["bank_id"],
         "is_active": True,
@@ -291,7 +317,7 @@ async def create_user(
         "last_login_at": None,
     }
     _MOCK_USERS[user_id] = new_user
-    log.info("user.created", user_id=user_id, role=body.role, bank_id=admin["bank_id"])
+    log.info("user.created", user_id=user_id, role=body.role, bank_type=body.bank_type, bank_id=admin["bank_id"])
     return _to_response(new_user)
 
 
@@ -315,9 +341,20 @@ async def update_user(
     u = _MOCK_USERS.get(user_id)
     if not u or u["bank_id"] != admin["bank_id"]:
         raise HTTPException(status_code=404, detail="User not found")
+    # bank_type field absent from UserUpdateRequest — detect if caller sent it as extra JSON key
+    # (FastAPI ignores extra fields by default, but we surface a clear error if somehow present)
+    if body.permission_level is not None:
+        if body.permission_level not in _VALID_PERMISSION_LEVELS:
+            raise HTTPException(status_code=422, detail="Invalid permission_level. Must be ADMIN, EDIT, or READ_ONLY.")
+        u["permission_level"] = body.permission_level
     if body.role is not None:
         if body.role not in _VALID_ROLES:
             raise HTTPException(status_code=422, detail="Invalid role")
+        # Maintain role↔bank_type compatibility on update too
+        if u["bank_type"] == "SB" and body.role in _SMB_ROLES:
+            raise HTTPException(status_code=422, detail=f"Role '{body.role}' is only valid for SMB users.")
+        if u["bank_type"] == "SMB" and body.role in _SB_ROLES:
+            raise HTTPException(status_code=422, detail=f"Role '{body.role}' is only valid for SB users.")
         u["role"] = body.role
     if body.clearing_zone is not None:
         if body.clearing_zone not in _VALID_ZONES:

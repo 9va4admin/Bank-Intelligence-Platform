@@ -1,31 +1,44 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import IETTimer from './IETTimer'
 import FraudGauge from './FraudGauge'
 import ShapExplainer from './ShapExplainer'
 import ChequeMockImage from './ChequeMockImage'
 
-const RETURN_REASONS = [
-  // Presenting bank
-  'CTS compliance failure',
-  'Date invalid or stale cheque',
-  'Words and figures differ',
-  'Endorsement irregular',
-  'Instrument mutilated / damaged',
-  'Duplicate instrument',
-  // Drawee bank
-  'Account dormant — no txn >2 years',
-  'Account frozen / NPA / closed',
-  'Payment stopped by drawer',
-  'Positive Pay mismatch',
-  'Signature mismatch confirmed',
-  'Amount alteration / overwrite detected',
-  'Payee name discrepancy',
-  'Insufficient funds',
-  'Post-dated cheque',
-  'No specimen on file — cannot verify',
-  'KYC expired — refer to branch',
-  'Legal / court hold on account',
-]
+const RETURN_REASONS_GROUPED = {
+  'Presenting Bank': [
+    'CTS compliance failure',
+    'Date invalid or stale cheque',
+    'Words and figures differ',
+    'Endorsement irregular',
+    'Instrument mutilated / damaged',
+    'Duplicate instrument',
+  ],
+  'Drawee Bank': [
+    'Account dormant — no txn >2 years',
+    'Account frozen / NPA / closed',
+    'Payment stopped by drawer',
+    'Positive Pay mismatch',
+    'Signature mismatch confirmed',
+    'Amount alteration / overwrite detected',
+    'Payee name discrepancy',
+    'Insufficient funds',
+    'Post-dated cheque',
+    'No specimen on file — cannot verify',
+    'KYC expired — refer to branch',
+    'Legal / court hold on account',
+  ],
+}
+
+const ALL_REASONS = Object.values(RETURN_REASONS_GROUPED).flat()
+
+const RECENT_KEY = 'astra-recent-return-reasons'
+const getRecentReasons = () => {
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') } catch { return [] }
+}
+const saveRecentReason = (reason) => {
+  const updated = [reason, ...getRecentReasons().filter(r => r !== reason)].slice(0, 3)
+  localStorage.setItem(RECENT_KEY, JSON.stringify(updated))
+}
 
 function getReasonColors(isDark) {
   return {
@@ -112,11 +125,49 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
   const [tab, setTab] = useState('overview')
   const [returnReason, setReturnReason] = useState('')
   const [confirming, setConfirming] = useState(null)
+  const [reasonSearch, setReasonSearch] = useState('')
+  const [reasonOpen, setReasonOpen] = useState(false)
+  const [confirmSecs, setConfirmSecs] = useState(null)
 
   const [chequeHover, setChequeHover] = useState(false)
   const hoverTimeout = useRef(null)
+  const confirmTimerRef = useRef(null)
+  const confirmCountRef = useRef(null)
+  const reasonDropdownRef = useRef(null)
 
   const REASON_COLORS = getReasonColors(isDark)
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        if (confirmSecs !== null) {
+          clearInterval(confirmCountRef.current)
+          clearTimeout(confirmTimerRef.current)
+          setConfirmSecs(null)
+          setConfirming(null)
+        }
+        if (reasonOpen) setReasonOpen(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [confirmSecs, reasonOpen])
+
+  useEffect(() => {
+    if (!reasonOpen) return
+    const onOutside = (e) => {
+      if (reasonDropdownRef.current && !reasonDropdownRef.current.contains(e.target)) {
+        setReasonOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onOutside)
+    return () => document.removeEventListener('mousedown', onOutside)
+  }, [reasonOpen])
+
+  useEffect(() => () => {
+    clearInterval(confirmCountRef.current)
+    clearTimeout(confirmTimerRef.current)
+  }, [])
 
   const th = {
     border:   isDark ? 'border-white/10' : 'border-slate-200',
@@ -151,16 +202,42 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
     )
   }
 
-  const handleAction = (action) => {
-    if (action === 'RETURN' && !returnReason) return
-    setConfirming(action)
-    setTimeout(() => {
-      onDecision(item.instrument_id, action, returnReason)
+  const handleAction = useCallback((action) => {
+    if (action === 'RETURN') {
+      if (!returnReason) return
+      setConfirming('RETURN')
+      saveRecentReason(returnReason)
+      setTimeout(() => {
+        onDecision(item.instrument_id, 'RETURN', returnReason)
+        setConfirming(null)
+        setReturnReason('')
+        setReasonSearch('')
+        setTab('overview')
+      }, 800)
+      return
+    }
+
+    // CONFIRM — 2-second cancellable countdown
+    setConfirming('CONFIRM')
+    setConfirmSecs(2)
+    confirmCountRef.current = setInterval(() => {
+      setConfirmSecs(s => {
+        if (s <= 1) {
+          clearInterval(confirmCountRef.current)
+          return null
+        }
+        return s - 1
+      })
+    }, 1000)
+    confirmTimerRef.current = setTimeout(() => {
+      onDecision(item.instrument_id, 'CONFIRM', '')
       setConfirming(null)
+      setConfirmSecs(null)
       setReturnReason('')
+      setReasonSearch('')
       setTab('overview')
-    }, 800)
-  }
+    }, 2000)
+  }, [item, returnReason, onDecision])
 
   const showCheque = () => {
     clearTimeout(hoverTimeout.current)
@@ -483,32 +560,106 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
         })()}
       </div>
 
-      {/* Action footer — single row: dropdown + two buttons */}
+      {/* Action footer */}
       <div className={`shrink-0 border-t ${th.border} px-6 py-3 ${th.foot} backdrop-blur`}>
         <div className="flex items-center gap-2">
-          <select
-            value={returnReason}
-            onChange={(e) => setReturnReason(e.target.value)}
-            className={`flex-1 border rounded-xl px-3 py-2 text-xs focus:outline-none appearance-none cursor-pointer ${th.sel}`}
-          >
-            <option value="" className={th.selOpt}>Select return reason (required to Return)</option>
-            {RETURN_REASONS.map((r) => (
-              <option key={r} value={r} className={th.selOpt}>{r}</option>
-            ))}
-          </select>
+          {/* Searchable grouped return-reason combobox */}
+          <div className="relative flex-1" ref={reasonDropdownRef}>
+            <button
+              type="button"
+              onClick={() => { setReasonOpen(o => !o); setReasonSearch('') }}
+              disabled={!!confirming}
+              className={`w-full flex items-center justify-between border rounded-lg px-3 py-2 text-xs focus:outline-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${th.sel}`}
+            >
+              <span className={returnReason ? th.val : th.footNote}>
+                {returnReason || 'Select return reason (required to Return)'}
+              </span>
+              <span className={`ml-2 shrink-0 ${th.lbl}`}>{reasonOpen ? '▲' : '▼'}</span>
+            </button>
+
+            {reasonOpen && (
+              <div className={`absolute bottom-full mb-1 left-0 right-0 z-50 rounded-lg border shadow-2xl overflow-hidden ${isDark ? 'bg-navy-900 border-white/10' : 'bg-white border-slate-200'}`}>
+                {/* Search */}
+                <div className={`px-3 py-2 border-b ${th.border}`}>
+                  <input
+                    autoFocus
+                    type="text"
+                    value={reasonSearch}
+                    onChange={e => setReasonSearch(e.target.value)}
+                    placeholder="Search reasons…"
+                    className={`w-full text-xs bg-transparent outline-none placeholder:${th.footNote} ${th.val}`}
+                  />
+                </div>
+                <div className="max-h-52 overflow-y-auto">
+                  {/* Recently used */}
+                  {!reasonSearch && getRecentReasons().length > 0 && (
+                    <div>
+                      <div className={`px-3 pt-2 pb-1 text-[9px] font-semibold uppercase tracking-widest ${th.footNote}`}>Recent</div>
+                      {getRecentReasons().map(r => (
+                        <button
+                          key={`recent-${r}`}
+                          type="button"
+                          onMouseDown={() => { setReturnReason(r); setReasonOpen(false); setReasonSearch('') }}
+                          className={`w-full text-left px-3 py-2 text-xs transition-colors ${isDark ? 'hover:bg-white/5 text-gold-400' : 'hover:bg-amber-50 text-amber-600'}`}
+                        >
+                          {r}
+                        </button>
+                      ))}
+                      <div className={`mx-3 border-t ${th.border} my-1`} />
+                    </div>
+                  )}
+                  {/* Grouped reasons */}
+                  {Object.entries(RETURN_REASONS_GROUPED).map(([group, reasons]) => {
+                    const filtered = reasonSearch
+                      ? reasons.filter(r => r.toLowerCase().includes(reasonSearch.toLowerCase()))
+                      : reasons
+                    if (!filtered.length) return null
+                    return (
+                      <div key={group}>
+                        <div className={`px-3 pt-2 pb-1 text-[9px] font-semibold uppercase tracking-widest ${th.footNote}`}>{group}</div>
+                        {filtered.map(r => (
+                          <button
+                            key={r}
+                            type="button"
+                            onMouseDown={() => { setReturnReason(r); setReasonOpen(false); setReasonSearch('') }}
+                            className={`w-full text-left px-3 py-2 text-xs transition-colors ${r === returnReason ? (isDark ? 'bg-white/8 text-white' : 'bg-slate-100 text-slate-900') : (isDark ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-50 text-slate-700')}`}
+                          >
+                            {r}
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  })}
+                  {reasonSearch && ALL_REASONS.filter(r => r.toLowerCase().includes(reasonSearch.toLowerCase())).length === 0 && (
+                    <div className={`px-3 py-4 text-xs text-center ${th.footNote}`}>No matching reasons</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
             onClick={() => handleAction('RETURN')}
             disabled={!returnReason || !!confirming}
-            className="shrink-0 px-5 py-2 rounded-xl border border-red-500/40 bg-red-500/10 text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+            className="shrink-0 px-5 py-2 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
           >
             {confirming === 'RETURN' ? 'Filing…' : '✕ Return'}
           </button>
+
           <button
             onClick={() => handleAction('CONFIRM')}
             disabled={!!confirming}
-            className="shrink-0 px-5 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30 transition-all disabled:opacity-40 whitespace-nowrap"
+            className={`shrink-0 px-5 py-2 rounded-lg border text-xs font-semibold transition-all whitespace-nowrap ${
+              confirmSecs !== null
+                ? 'bg-amber-400/10 border-amber-400/40 text-amber-300'
+                : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/30'
+            } disabled:opacity-40`}
           >
-            {confirming === 'CONFIRM' ? 'Filing…' : '✓ Confirm'}
+            {confirming === 'CONFIRM' && confirmSecs !== null
+              ? `Confirming in ${confirmSecs}s · Esc`
+              : confirming === 'CONFIRM'
+              ? 'Filing…'
+              : '✓ Confirm'}
           </button>
         </div>
       </div>

@@ -222,23 +222,39 @@ export default function CTSWorkstation() {
             </div>
 
             {/* Session summary footer */}
-            <div className={`px-3 py-3 border-t ${th.footer} space-y-1.5`}>
-              <div className={`text-[9px] ${th.faint} uppercase tracking-widest mb-2`}>This Session</div>
-              <div className="flex justify-between text-[10px]">
-                <span className={th.muted}>STP Confirmed</span>
-                <span className="text-emerald-500 font-mono">{stpStream.filter(s => s.outcome === 'CONFIRM').length}</span>
+            <div className={`px-4 pt-4 pb-4 border-t ${th.footer}`}>
+              <div className={`text-[11px] font-extrabold uppercase tracking-widest mb-4 ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+                This Session
               </div>
-              <div className="flex justify-between text-[10px]">
-                <span className={th.muted}>STP Returned</span>
-                <span className="text-red-500 font-mono">{stpStream.filter(s => s.outcome === 'RETURN').length}</span>
-              </div>
-              <div className="flex justify-between text-[10px]">
-                <span className={th.muted}>Human decisions</span>
-                <span className="text-amber-500 font-mono">{decisions.length}</span>
-              </div>
-              <div className={`mt-2 pt-2 border-t ${th.footer} flex justify-between text-[10px]`}>
-                <span className={th.muted}>Immudb writes</span>
-                <span className={`${th.muted} font-mono`}>{stpStream.length + decisions.length}</span>
+
+              <div className="flex flex-col gap-3.5">
+                <div className="flex items-center justify-between">
+                  <span className={`text-[11px] font-medium ${th.muted}`}>STP Confirmed</span>
+                  <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                    {stpStream.filter(s => s.outcome === 'CONFIRM').length}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className={`text-[11px] font-medium ${th.muted}`}>STP Returned</span>
+                  <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+                    {stpStream.filter(s => s.outcome === 'RETURN').length}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className={`text-[11px] font-medium ${th.muted}`}>Human decisions</span>
+                  <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
+                    {decisions.length}
+                  </span>
+                </div>
+
+                <div className={`flex items-center justify-between pt-3 border-t ${th.divider}`}>
+                  <span className={`text-[11px] font-medium ${th.muted}`}>Immudb writes</span>
+                  <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                    {stpStream.length + decisions.length}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
