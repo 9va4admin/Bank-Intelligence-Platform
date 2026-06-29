@@ -1,32 +1,82 @@
-CTS_NGCH_SUBMITTED:
-  text: "Cheque {instrument_id} successfully filed to NGCH — reference {ngch_ref}."
+# ── Inward NGCH filing (drawee bank) ─────────────────────────────────────────
+CTS_NGCH_FILED_CONFIRM:
+  text: "Cheque {instrument_id} CONFIRMED and filed to NGCH — reference {ngch_ref}."
   severity: INFO
   surface: [AUDIT]
   variables: [instrument_id, ngch_ref]
 
+CTS_NGCH_FILED_RETURN:
+  text: "Cheque {instrument_id} RETURNED and filed to NGCH — reason: {return_reason}, ref {ngch_ref}."
+  severity: WARN
+  surface: [AUDIT]
+  variables: [instrument_id, return_reason, ngch_ref]
+
 CTS_NGCH_SUBMIT_FAILED:
-  text: "NGCH submission failed for {instrument_id} — error: {error_code}. Retrying."
+  text: "NGCH submission failed for {instrument_id} — error {error_code}. Attempt {attempt} of {max_attempts}."
   severity: ERROR
   surface: [UI, AUDIT, NOTIFICATION]
-  variables: [instrument_id, error_code]
+  variables: [instrument_id, error_code, attempt, max_attempts]
+
+CTS_NGCH_SUBMIT_FAILED_TERMINAL:
+  text: "NGCH submission permanently failed for {instrument_id} after {max_attempts} attempts — manual intervention required."
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, max_attempts]
 
 CTS_NGCH_DUPLICATE_DETECTED:
-  text: "Duplicate filing detected for {instrument_id} — NGCH idempotency key matched. Skipped."
+  text: "Duplicate NGCH filing detected for {instrument_id} — idempotency key matched. Skipped safely."
   severity: WARN
   surface: [AUDIT]
   variables: [instrument_id]
 
 CTS_NGCH_IET_EXPIRED:
-  text: "IET window expired for {instrument_id} — filing accepted by NGCH as deemed approval."
+  text: "IET window expired for {instrument_id} — deemed approval in effect. Bank is liable."
   severity: CRITICAL
   surface: [UI, AUDIT, NOTIFICATION]
   variables: [instrument_id]
 
 CTS_NGCH_MAINTENANCE_WINDOW:
-  text: "NGCH is in maintenance window — {instrument_id} queued for filing on reconnect."
+  text: "NGCH in maintenance — {instrument_id} queued for filing on reconnect. IET watchdog active."
   severity: WARN
   surface: [UI, NOTIFICATION]
   variables: [instrument_id]
+
+CTS_NGCH_RATE_LIMITED:
+  text: "NGCH rate limit hit — {pending_count} instruments queued. Retry after {retry_after_seconds}s."
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [pending_count, retry_after_seconds]
+
+CTS_NGCH_AUTH_CERT_EXPIRED:
+  text: "NGCH mTLS certificate expired for {bank_id} — renewing from Vault. Filings paused."
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [bank_id]
+
+CTS_NGCH_AUTH_CERT_RENEWED:
+  text: "NGCH mTLS certificate renewed for {bank_id} — filings resumed."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [bank_id]
+
+CTS_NGCH_TRANSPORT_SWITCHED:
+  text: "NGCH transport switched from {old_transport} to {new_transport} for {bank_id}."
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [old_transport, new_transport, bank_id]
+
+# ── Outward settlement ────────────────────────────────────────────────────────
+CTS_NGCH_SETTLEMENT_REPORT_RECEIVED:
+  text: "NGCH settlement report received for session {session_id} — {total_items} items, value {total_value_range}."
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [session_id, total_items, total_value_range]
+
+CTS_NGCH_RETURN_NOTIFICATION_RECEIVED:
+  text: "NGCH return notification for {instrument_id} — reason: {return_reason}."
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, return_reason]
 
 CTS_NGCH_SESSION_RECONCILED:
   text: "Clearing session {session_id} reconciled — {matched} matched, {exceptions} exceptions."

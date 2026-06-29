@@ -1,0 +1,72 @@
+# Sub-member bank (sponsor routing) messages
+CTS_SMB_INSTRUMENT_RECEIVED:
+  text: "Inward instrument {instrument_id} received from sub-member {smb_name} ({smb_ifsc}) via sponsor {sponsor_ifsc}."
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [instrument_id, smb_name, smb_ifsc, sponsor_ifsc]
+
+CTS_SMB_INSTRUMENT_VALIDATED:
+  text: "Sub-member instrument {instrument_id} passed sponsor bank validation."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id]
+
+CTS_SMB_INSTRUMENT_REJECTED:
+  text: "Sub-member instrument {instrument_id} from {smb_name} rejected — reason: {rejection_reason}."
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, smb_name, rejection_reason]
+
+CTS_SMB_ROUTED_TO_SPONSOR_LOT:
+  text: "Sub-member instrument {instrument_id} routed to sponsor lot {lot_id} for NGCH submission."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, lot_id]
+
+CTS_SMB_FORWARDED_TO_NGCH:
+  text: "Sub-member instrument {instrument_id} forwarded to NGCH under sponsor {sponsor_ifsc}."
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [instrument_id, sponsor_ifsc]
+
+CTS_SMB_RETURNED_TO_SMB:
+  text: "Instrument {instrument_id} returned to sub-member {smb_name} — reason: {return_reason}."
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, smb_name, return_reason]
+
+CTS_SMB_RISK_SHIELD_TRIGGERED:
+  text: "Risk shield triggered for {smb_name} — {instrument_id} held pending review. Trigger: {trigger}."
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [smb_name, instrument_id, trigger]
+
+CTS_SMB_RISK_SHIELD_CLEARED:
+  text: "Risk shield cleared for {instrument_id} from {smb_name} — processing resumed."
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [instrument_id, smb_name]
+
+CTS_SMB_DAILY_LIMIT_APPROACHING:
+  text: "Sub-member {smb_name} at {usage_pct}% of daily submission limit."
+  severity: WARN
+  surface: [UI, NOTIFICATION]
+  variables: [smb_name, usage_pct]
+
+CTS_SMB_DAILY_LIMIT_EXCEEDED:
+  text: "Sub-member {smb_name} has exceeded daily submission limit — further instruments held."
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [smb_name]
+
+CTS_SMB_SMB_OFFLINE:
+  text: "Sub-member {smb_name} ({smb_ifsc}) has not submitted in {hours_since}h — connectivity check advised."
+  severity: WARN
+  surface: [UI, NOTIFICATION]
+  variables: [smb_name, smb_ifsc, hours_since]
+
+CTS_SMB_NOTIFICATION_SENT:
+  text: "Return notification sent to {smb_name} for {return_count} returned instruments from session {session_id}."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [smb_name, return_count, session_id]
