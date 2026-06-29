@@ -89,6 +89,7 @@ const SIDEBAR_MODULES = [
         items: [
           { to: '/admin/users',                  label: 'User Management'   },
           { to: '/cts/schedules',                label: 'Schedules'         },
+          { to: '/cts/config',                   label: 'Configuration'     },
           { to: '/cts/config/sub-member-banks',  label: 'Sub-Member Banks'  },
           { to: '/cts/config/micr-prefixes',     label: 'MICR Prefixes'     },
           { to: '/cts/config/thresholds',        label: 'Thresholds'        },
