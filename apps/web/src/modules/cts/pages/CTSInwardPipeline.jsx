@@ -277,15 +277,15 @@ function FiledTerminus({ total, isDark }) {
 function ActivityLog({ events, isDark }) {
   return (
     <div className={`rounded-xl border overflow-hidden ${isDark ? 'bg-white/2 border-white/6' : 'bg-white border-slate-200'}`}>
-      <div className={`px-4 py-2.5 border-b flex items-center justify-between ${isDark ? 'border-white/6' : 'border-slate-100'}`}>
+      <div className={`px-3 py-2 border-b flex items-center justify-between ${isDark ? 'border-white/6' : 'border-slate-100'}`}>
         <span className={`text-[10px] font-semibold uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Live Activity</span>
-        <span className="flex items-center gap-1.5 text-[10px] text-emerald-500">
+        <span className="flex items-center gap-1 text-[9px] text-emerald-500">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          Processing
+          Live
         </span>
       </div>
       <div className="divide-y" style={{ borderColor: isDark ? 'rgba(255,255,255,0.04)' : '#f1f5f9' }}>
-        {events.slice(0, 8).map((ev, i) => (
+        {events.slice(0, 12).map((ev, i) => (
           <div key={i} className={`flex items-center gap-3 px-4 py-2 text-[10px] ${i === 0 ? (isDark ? 'bg-white/3' : 'bg-slate-50') : ''}`}>
             <span className={`font-mono shrink-0 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{ev.time}</span>
             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ev.outcome === 'CONFIRM' ? 'bg-emerald-400' : ev.outcome === 'RETURN' ? 'bg-red-400' : 'bg-amber-400'}`} />
@@ -494,87 +494,91 @@ export default function CTSInwardPipeline() {
         <div className="flex flex-1 min-h-0 overflow-hidden">
 
           {/* Pipeline canvas */}
-          <div className="flex-1 overflow-auto px-6 py-8 flex flex-col gap-6">
+          <div className="flex-1 overflow-hidden px-5 py-4 flex flex-col gap-4 min-w-0">
 
             {/* Row label */}
-            <div className={`text-[9px] font-semibold uppercase tracking-widest ${th.faint}`}>
+            <div className={`text-[9px] font-semibold uppercase tracking-widest shrink-0 ${th.faint}`}>
               Inward Cheque Processing — One AI Agent Per Cheque — Wall Clock &lt; 600ms
             </div>
 
-            {/* Main pipeline flow */}
-            <div className="flex items-center gap-0 flex-nowrap">
-              {STAGES.map((stage, i) => {
-                const nextStage = STAGES[i + 1]
-                const connColor = nextStage?.color || stage.color
-                return (
-                  <div key={stage.id} className="flex items-center gap-0">
-                    <StageCard
-                      stage={stage}
-                      count={stageCounts[stage.id] || 0}
-                      active={activeStages.has(stage.id)}
-                      isDark={isDark}
-                    />
-                    {i < STAGES.length - 1 && (
-                      <Connector
-                        color={connColor}
-                        active={activeStages.has(stage.id) || activeStages.has(nextStage?.id)}
-                        particles={2}
-                      />
-                    )}
-                  </div>
-                )
-              })}
-
-              {/* Fan-out after Decision */}
-              <DecisionFanout
-                confirms={confirms}
-                returns={returns}
-                humanReview={humanReview}
-                isDark={isDark}
-              />
-
-              {/* Convergence to NGCH Filed */}
-              <FiledTerminus total={total} isDark={isDark} />
-            </div>
-
-            {/* Stage timing bar */}
-            <div className={`rounded-xl border p-4 ${th.card}`}>
-              <div className={`text-[10px] font-semibold uppercase tracking-widest mb-3 ${th.muted}`}>
-                Cumulative Latency Budget — Target &lt; 600ms
-              </div>
-              <div className="flex items-end gap-1 h-12">
-                {STAGES.filter(s => s.avgMs).map((stage, i) => {
-                  const c = COLOR[stage.color]
-                  const pct = (stage.avgMs / 600) * 100
+            {/* Main pipeline flow — horizontally scrollable if viewport too narrow */}
+            <div className="shrink-0 overflow-x-auto overflow-y-visible pb-1">
+              <div className="flex items-center gap-0 flex-nowrap">
+                {STAGES.map((stage, i) => {
+                  const nextStage = STAGES[i + 1]
+                  const connColor = nextStage?.color || stage.color
                   return (
-                    <div key={stage.id} className="flex flex-col items-center gap-1 flex-1">
-                      <div className={`text-[8px] font-mono ${c.text}`}>{stage.avgMs}ms</div>
-                      <div
-                        className={`w-full rounded-t ${c.dot} opacity-70 transition-all duration-500`}
-                        style={{ height: `${Math.max(4, pct * 0.4)}px` }}
+                    <div key={stage.id} className="flex items-center gap-0">
+                      <StageCard
+                        stage={stage}
+                        count={stageCounts[stage.id] || 0}
+                        active={activeStages.has(stage.id)}
+                        isDark={isDark}
                       />
-                      <div className={`text-[8px] truncate w-full text-center ${th.faint}`}>{stage.label}</div>
+                      {i < STAGES.length - 1 && (
+                        <Connector
+                          color={connColor}
+                          active={activeStages.has(stage.id) || activeStages.has(nextStage?.id)}
+                          particles={2}
+                        />
+                      )}
                     </div>
                   )
                 })}
-                <div className="flex flex-col items-center gap-1 flex-1">
-                  <div className="text-[8px] font-mono text-indigo-400">∑ {STAGES.filter(s=>s.avgMs).reduce((a,s)=>a+s.avgMs,0)}ms</div>
-                  <div className="w-full rounded-t bg-indigo-400 opacity-70" style={{ height: '20px' }} />
-                  <div className={`text-[8px] truncate w-full text-center ${th.faint}`}>Total</div>
-                </div>
+
+                {/* Fan-out after Decision */}
+                <DecisionFanout
+                  confirms={confirms}
+                  returns={returns}
+                  humanReview={humanReview}
+                  isDark={isDark}
+                />
+
+                {/* Convergence to NGCH Filed */}
+                <FiledTerminus total={total} isDark={isDark} />
               </div>
             </div>
 
-            {/* IET safety explanation */}
-            <div className={`rounded-xl border px-4 py-3 flex items-start gap-3 ${isDark ? 'bg-amber-900/10 border-amber-700/30' : 'bg-amber-50 border-amber-200'}`}>
-              <span className="text-lg shrink-0">⏱</span>
-              <div>
-                <div className={`text-[11px] font-semibold mb-0.5 ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
-                  IET Watchdog Active — T-30s Emergency Filing
+            {/* Latency + IET banner — side by side to avoid vertical overflow */}
+            <div className="shrink-0 flex gap-3">
+              {/* Stage timing bar */}
+              <div className={`flex-1 rounded-xl border px-3 py-2.5 ${th.card}`}>
+                <div className={`text-[9px] font-semibold uppercase tracking-widest mb-2 ${th.muted}`}>
+                  Latency Budget — &lt; 600ms target
                 </div>
-                <div className={`text-[10px] leading-relaxed ${isDark ? 'text-amber-400/70' : 'text-amber-600/80'}`}>
-                  Each cheque has a parallel IETWatchdogWorkflow. If the main pipeline doesn't complete before T-30s remaining,
-                  the watchdog auto-files to NGCH to prevent deemed approval. Currently {ietMinutes} min left in the clearing window.
+                <div className="flex items-end gap-1 h-10">
+                  {STAGES.filter(s => s.avgMs).map((stage) => {
+                    const c = COLOR[stage.color]
+                    const pct = (stage.avgMs / 600) * 100
+                    return (
+                      <div key={stage.id} className="flex flex-col items-center gap-0.5 flex-1">
+                        <div className={`text-[7px] font-mono ${c.text}`}>{stage.avgMs}ms</div>
+                        <div
+                          className={`w-full rounded-t ${c.dot} opacity-70 transition-all duration-500`}
+                          style={{ height: `${Math.max(3, pct * 0.32)}px` }}
+                        />
+                        <div className={`text-[7px] truncate w-full text-center ${th.faint}`}>{stage.label.split(' ')[0]}</div>
+                      </div>
+                    )
+                  })}
+                  <div className="flex flex-col items-center gap-0.5 flex-1">
+                    <div className="text-[7px] font-mono text-indigo-400">∑ {STAGES.filter(s=>s.avgMs).reduce((a,s)=>a+s.avgMs,0)}ms</div>
+                    <div className="w-full rounded-t bg-indigo-400 opacity-70" style={{ height: '16px' }} />
+                    <div className={`text-[7px] truncate w-full text-center ${th.faint}`}>Total</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* IET watchdog banner */}
+              <div className={`shrink-0 w-72 rounded-xl border px-3 py-2.5 flex items-start gap-2.5 ${isDark ? 'bg-amber-900/10 border-amber-700/30' : 'bg-amber-50 border-amber-200'}`}>
+                <span className="text-base shrink-0 mt-0.5">⏱</span>
+                <div>
+                  <div className={`text-[10px] font-semibold mb-0.5 ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
+                    IET Watchdog — T-30s Emergency Filing
+                  </div>
+                  <div className={`text-[9px] leading-relaxed ${isDark ? 'text-amber-400/70' : 'text-amber-600/80'}`}>
+                    Parallel IETWatchdogWorkflow per cheque. Auto-files to NGCH before IET breach. {ietMinutes}m left in clearing window.
+                  </div>
                 </div>
               </div>
             </div>
