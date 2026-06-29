@@ -1,0 +1,35 @@
+CTS_NGCH_SUBMITTED:
+  text: "Cheque {instrument_id} successfully filed to NGCH — reference {ngch_ref}."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, ngch_ref]
+
+CTS_NGCH_SUBMIT_FAILED:
+  text: "NGCH submission failed for {instrument_id} — error: {error_code}. Retrying."
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, error_code]
+
+CTS_NGCH_DUPLICATE_DETECTED:
+  text: "Duplicate filing detected for {instrument_id} — NGCH idempotency key matched. Skipped."
+  severity: WARN
+  surface: [AUDIT]
+  variables: [instrument_id]
+
+CTS_NGCH_IET_EXPIRED:
+  text: "IET window expired for {instrument_id} — filing accepted by NGCH as deemed approval."
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id]
+
+CTS_NGCH_MAINTENANCE_WINDOW:
+  text: "NGCH is in maintenance window — {instrument_id} queued for filing on reconnect."
+  severity: WARN
+  surface: [UI, NOTIFICATION]
+  variables: [instrument_id]
+
+CTS_NGCH_SESSION_RECONCILED:
+  text: "Clearing session {session_id} reconciled — {matched} matched, {exceptions} exceptions."
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [session_id, matched, exceptions]

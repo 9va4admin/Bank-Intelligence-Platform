@@ -1,0 +1,14 @@
+VAULT_SIGNATURE_LOADED:
+  text: ""
+VAULT_SIGNATURE_STALE:
+  text: ""
+VAULT_PPS_HIT:
+  text: ""
+VAULT_PPS_MISS:
+  text: ""
+VAULT_PPS_AMOUNT_MISMATCH:
+  text: ""
+VAULT_SYNC_COMPLETE:
+  text: ""
+VAULT_SYNC_FAILED:
+  text: ""

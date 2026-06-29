@@ -1,0 +1,35 @@
+PLATFORM_CONFIG_CHANGED:
+  text: "Configuration {config_key} updated from {old_value} to {new_value} by {changed_by}."
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [config_key, old_value, new_value, changed_by]
+
+PLATFORM_POLICY_UPDATED:
+  text: "OPA policy {policy_name} updated to version {version} by {updated_by}."
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [policy_name, version, updated_by]
+
+PLATFORM_CBS_UNREACHABLE:
+  text: "CBS {cbs_type} unreachable for bank {bank_id} — switching to degraded mode."
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [cbs_type, bank_id]
+
+PLATFORM_CBS_RECOVERED:
+  text: "CBS {cbs_type} connection restored for bank {bank_id} after {downtime_minutes} minutes."
+  severity: INFO
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [cbs_type, bank_id, downtime_minutes]
+
+PLATFORM_AUDIT_WRITE_FAILED:
+  text: "Immudb write failed for event {event_type} — retrying. Instrument: {instrument_id}."
+  severity: CRITICAL
+  surface: [AUDIT, NOTIFICATION]
+  variables: [event_type, instrument_id]
+
+PLATFORM_MODEL_DRIFT_ALERT:
+  text: "Model {model_name} drift detected — metric {metric} dropped {drop_pct}% over {window_days} days."
+  severity: WARN
+  surface: [UI, NOTIFICATION]
+  variables: [model_name, metric, drop_pct, window_days]

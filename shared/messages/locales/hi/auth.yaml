@@ -1,0 +1,20 @@
+AUTH_LOGIN_SUCCESS:
+  text: ""
+AUTH_LOGIN_FAILED:
+  text: ""
+AUTH_ACCOUNT_LOCKED:
+  text: ""
+AUTH_SESSION_EXPIRED:
+  text: ""
+AUTH_ACCESS_DENIED:
+  text: ""
+AUTH_TOTP_ENABLED:
+  text: ""
+AUTH_TOTP_FAILED:
+  text: ""
+AUTH_ROLE_CHANGED:
+  text: ""
+AUTH_USER_CREATED:
+  text: ""
+AUTH_USER_DEACTIVATED:
+  text: ""

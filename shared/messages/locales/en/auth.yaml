@@ -1,0 +1,59 @@
+AUTH_LOGIN_SUCCESS:
+  text: "Login successful — {display_name} ({role}) signed in from {ip_display}."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [display_name, role, ip_display]
+
+AUTH_LOGIN_FAILED:
+  text: "Login failed for {username} — invalid credentials. Attempt {attempt} of {max_attempts}."
+  severity: WARN
+  surface: [AUDIT]
+  variables: [username, attempt, max_attempts]
+
+AUTH_ACCOUNT_LOCKED:
+  text: "Account {username} locked after {max_attempts} failed login attempts."
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [username, max_attempts]
+
+AUTH_SESSION_EXPIRED:
+  text: "Session expired for {display_name} — please sign in again."
+  severity: INFO
+  surface: [UI]
+  variables: [display_name]
+
+AUTH_ACCESS_DENIED:
+  text: "Access denied — {role} cannot perform {action} on {resource}."
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [role, action, resource]
+
+AUTH_TOTP_ENABLED:
+  text: "Two-factor authentication enabled for {display_name}."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [display_name]
+
+AUTH_TOTP_FAILED:
+  text: "TOTP verification failed for {display_name} — code invalid or expired."
+  severity: WARN
+  surface: [AUDIT]
+  variables: [display_name]
+
+AUTH_ROLE_CHANGED:
+  text: "Role changed for {target_user} from {old_role} to {new_role} by {changed_by}."
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [target_user, old_role, new_role, changed_by]
+
+AUTH_USER_CREATED:
+  text: "User {display_name} ({role}) created by {created_by}."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [display_name, role, created_by]
+
+AUTH_USER_DEACTIVATED:
+  text: "User {display_name} deactivated by {deactivated_by}."
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [display_name, deactivated_by]

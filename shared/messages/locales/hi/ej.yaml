@@ -1,0 +1,14 @@
+EJ_LOG_INGESTED:
+  text: ""
+EJ_PARSE_COMPLETE:
+  text: ""
+EJ_PARSE_FAILED:
+  text: ""
+EJ_DISPUTE_MATCHED:
+  text: ""
+EJ_DISPUTE_AUTO_RESOLVED:
+  text: ""
+EJ_ATM_HEALTH_DEGRADED:
+  text: ""
+EJ_ATM_HEALTH_CRITICAL:
+  text: ""

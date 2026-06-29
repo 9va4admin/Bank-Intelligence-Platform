@@ -1,0 +1,41 @@
+EJ_LOG_INGESTED:
+  text: "EJ log received from ATM {atm_id} — {transaction_count} transactions, size {size_kb}KB."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [atm_id, transaction_count, size_kb]
+
+EJ_PARSE_COMPLETE:
+  text: "EJ normalisation complete for ATM {atm_id} — {parsed_count} records extracted, OEM: {oem}."
+  severity: INFO
+  surface: [AUDIT]
+  variables: [atm_id, parsed_count, oem]
+
+EJ_PARSE_FAILED:
+  text: "EJ parsing failed for ATM {atm_id} — {failed_count} records below confidence threshold."
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [atm_id, failed_count]
+
+EJ_DISPUTE_MATCHED:
+  text: "Dispute {claim_id} matched to EJ record for ATM {atm_id} — confidence {confidence_pct}%."
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [claim_id, atm_id, confidence_pct]
+
+EJ_DISPUTE_AUTO_RESOLVED:
+  text: "Dispute {claim_id} auto-resolved — {resolution}."
+  severity: INFO
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [claim_id, resolution]
+
+EJ_ATM_HEALTH_DEGRADED:
+  text: "ATM {atm_id} health degraded — {anomaly_type} detected. Predictive alert issued."
+  severity: WARN
+  surface: [UI, NOTIFICATION]
+  variables: [atm_id, anomaly_type]
+
+EJ_ATM_HEALTH_CRITICAL:
+  text: "ATM {atm_id} in critical state — {fault_description}. Immediate attention required."
+  severity: CRITICAL
+  surface: [UI, NOTIFICATION]
+  variables: [atm_id, fault_description]
