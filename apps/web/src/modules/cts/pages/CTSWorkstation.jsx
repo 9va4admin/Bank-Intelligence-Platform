@@ -230,47 +230,49 @@ export default function CTSWorkstation() {
               {/* 2-col stat grid */}
               <div className="grid grid-cols-2 gap-2 mb-2">
                 {/* STP Confirmed */}
-                <div className="rounded-lg px-2.5 py-2" style={{
+                <div className="rounded-xl px-3 py-3" style={{
                   background: isDark ? 'rgba(6,78,59,0.35)' : '#ecfdf5',
                   outline: isDark ? '1px solid rgba(6,78,59,0.6)' : '1px solid #a7f3d0',
                 }}>
-                  <div className="text-2xl font-black leading-none tabular-nums" style={{ color: isDark ? '#34d399' : '#059669' }}>
+                  <div className="text-5xl font-black leading-none tabular-nums" style={{ color: isDark ? '#34d399' : '#059669' }}>
                     {stpStream.filter(s => s.outcome === 'CONFIRM').length}
                   </div>
-                  <div className="text-[9px] mt-1 font-semibold uppercase tracking-wide" style={{ color: isDark ? '#059669' : '#047857' }}>
+                  <div className="text-[9px] mt-2 font-bold uppercase tracking-widest" style={{ color: isDark ? '#059669' : '#047857' }}>
                     Confirmed
                   </div>
                 </div>
 
                 {/* STP Returned */}
-                <div className="rounded-lg px-2.5 py-2" style={{
+                <div className="rounded-xl px-3 py-3" style={{
                   background: isDark ? 'rgba(127,29,29,0.35)' : '#fff1f2',
                   outline: isDark ? '1px solid rgba(127,29,29,0.6)' : '1px solid #fecdd3',
                 }}>
-                  <div className="text-2xl font-black leading-none tabular-nums" style={{ color: isDark ? '#f87171' : '#dc2626' }}>
+                  <div className="text-5xl font-black leading-none tabular-nums" style={{ color: isDark ? '#f87171' : '#dc2626' }}>
                     {stpStream.filter(s => s.outcome === 'RETURN').length}
                   </div>
-                  <div className="text-[9px] mt-1 font-semibold uppercase tracking-wide" style={{ color: isDark ? '#dc2626' : '#b91c1c' }}>
+                  <div className="text-[9px] mt-2 font-bold uppercase tracking-widest" style={{ color: isDark ? '#dc2626' : '#b91c1c' }}>
                     Returned
                   </div>
                 </div>
               </div>
 
               {/* Human decisions — full-width amber card */}
-              <div className="rounded-lg px-2.5 py-2 mb-2 flex items-center justify-between" style={{
+              <div className="rounded-xl px-3 py-3 mb-2 flex items-center justify-between" style={{
                 background: isDark ? 'rgba(120,53,15,0.35)' : '#fffbeb',
                 outline: isDark ? '1px solid rgba(120,53,15,0.6)' : '1px solid #fde68a',
               }}>
-                <span className="text-[10px] font-semibold" style={{ color: isDark ? '#d97706' : '#92400e' }}>Human decisions</span>
-                <span className="text-xl font-black tabular-nums leading-none" style={{ color: isDark ? '#fbbf24' : '#d97706' }}>
-                  {decisions.length}
-                </span>
+                <div>
+                  <div className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: isDark ? '#b45309' : '#92400e' }}>Human decisions</div>
+                  <div className="text-4xl font-black tabular-nums leading-none" style={{ color: isDark ? '#fbbf24' : '#d97706' }}>
+                    {decisions.length}
+                  </div>
+                </div>
               </div>
 
               {/* Immudb writes — quiet divider row */}
               <div className={`flex items-center justify-between px-1 pt-2 border-t ${th.divider}`}>
                 <span className={`text-[10px] ${th.faint}`}>Immudb writes</span>
-                <span className={`text-sm font-bold tabular-nums font-mono ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                <span className={`text-xl font-black tabular-nums font-mono ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                   {stpStream.length + decisions.length}
                 </span>
               </div>
