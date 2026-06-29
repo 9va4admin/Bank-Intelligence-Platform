@@ -31,6 +31,7 @@ import CTSNGCHRouting from './modules/cts/pages/CTSNGCHRouting'
 import CTSSMBRegistry from './modules/cts/pages/CTSSMBRegistry'
 import CTSSMBLedger from './modules/cts/pages/CTSSMBLedger'
 import CTSSMBForwardingLog from './modules/cts/pages/CTSSMBForwardingLog'
+import CTSInwardPipeline from './modules/cts/pages/CTSInwardPipeline'
 import EJSchedules from './modules/ej/pages/EJSchedules'
 import UserManagement from './modules/admin/pages/UserManagement'
 import LoginLog from './modules/admin/pages/LoginLog'
@@ -62,7 +63,7 @@ export default function App() {
         <Route path="/cts/endorsement" element={<CTSEndorsement />} />
         <Route path="/cts/rpc" element={<CTSRPCConsolidation />} />
         <Route path="/cts/sub-member" element={<CTSSubMember />} />
-        <Route path="/cts/pipeline" element={<CTSPipelineVisualizer />} />
+        <Route path="/cts/pipeline" element={<CTSInwardPipeline />} />
         <Route path="/cts/discrepancy" element={<CTSDiscrepancy />} />
         <Route path="/cts/batches" element={<CTSBatches />} />
         <Route path="/cts/analytics" element={<CTSAnalytics />} />
