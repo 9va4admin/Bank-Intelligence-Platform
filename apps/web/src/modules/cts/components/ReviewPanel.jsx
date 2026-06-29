@@ -191,17 +191,6 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
     footNote: isDark ? 'text-slate-600' : 'text-slate-400',
   }
 
-  if (!item) {
-    return (
-      <div className={`flex-1 flex items-center justify-center text-sm ${th.lbl}`}>
-        <div className="text-center">
-          <div className="text-4xl mb-3">📋</div>
-          <div>Select a cheque from the queue to review</div>
-        </div>
-      </div>
-    )
-  }
-
   const handleAction = useCallback((action) => {
     if (action === 'RETURN') {
       if (!returnReason) return
@@ -238,6 +227,17 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
       setTab('overview')
     }, 2000)
   }, [item, returnReason, onDecision])
+
+  if (!item) {
+    return (
+      <div className={`flex-1 flex items-center justify-center text-sm ${th.lbl}`}>
+        <div className="text-center">
+          <div className="text-4xl mb-3">📋</div>
+          <div>Select a cheque from the queue to review</div>
+        </div>
+      </div>
+    )
+  }
 
   const showCheque = () => {
     clearTimeout(hoverTimeout.current)
