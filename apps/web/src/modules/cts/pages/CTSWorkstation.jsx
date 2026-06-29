@@ -222,23 +222,48 @@ export default function CTSWorkstation() {
             </div>
 
             {/* Session summary footer */}
-            <div className={`px-3 py-3 border-t ${th.footer} space-y-1.5`}>
-              <div className={`text-[9px] ${th.faint} uppercase tracking-widest mb-2`}>This Session</div>
-              <div className="flex justify-between text-[10px]">
-                <span className={th.muted}>STP Confirmed</span>
-                <span className="text-emerald-500 font-mono">{stpStream.filter(s => s.outcome === 'CONFIRM').length}</span>
+            <div className={`px-3 pt-3 pb-3 border-t ${th.footer}`}>
+              <div className={`text-[9px] font-bold uppercase tracking-widest mb-3 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                This Session
               </div>
-              <div className="flex justify-between text-[10px]">
-                <span className={th.muted}>STP Returned</span>
-                <span className="text-red-500 font-mono">{stpStream.filter(s => s.outcome === 'RETURN').length}</span>
+
+              {/* 2-col stat grid */}
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                {/* STP Confirmed */}
+                <div className={`rounded-lg px-2.5 py-2 ${isDark ? 'bg-emerald-950/60 ring-1 ring-emerald-800/50' : 'bg-emerald-50 ring-1 ring-emerald-200'}`}>
+                  <div className={`text-2xl font-black leading-none tabular-nums ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                    {stpStream.filter(s => s.outcome === 'CONFIRM').length}
+                  </div>
+                  <div className={`text-[9px] mt-1 font-semibold uppercase tracking-wide ${isDark ? 'text-emerald-600' : 'text-emerald-700'}`}>
+                    Confirmed
+                  </div>
+                </div>
+
+                {/* STP Returned */}
+                <div className={`rounded-lg px-2.5 py-2 ${isDark ? 'bg-red-950/60 ring-1 ring-red-800/50' : 'bg-red-50 ring-1 ring-red-200'}`}>
+                  <div className={`text-2xl font-black leading-none tabular-nums ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+                    {stpStream.filter(s => s.outcome === 'RETURN').length}
+                  </div>
+                  <div className={`text-[9px] mt-1 font-semibold uppercase tracking-wide ${isDark ? 'text-red-600' : 'text-red-700'}`}>
+                    Returned
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between text-[10px]">
-                <span className={th.muted}>Human decisions</span>
-                <span className="text-amber-500 font-mono">{decisions.length}</span>
+
+              {/* Human decisions — full width, amber highlight */}
+              <div className={`rounded-lg px-2.5 py-2 mb-2 flex items-center justify-between ${isDark ? 'bg-amber-950/50 ring-1 ring-amber-800/40' : 'bg-amber-50 ring-1 ring-amber-200'}`}>
+                <span className={`text-[10px] font-semibold ${isDark ? 'text-amber-500' : 'text-amber-700'}`}>Human decisions</span>
+                <span className={`text-xl font-black tabular-nums leading-none ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
+                  {decisions.length}
+                </span>
               </div>
-              <div className={`mt-2 pt-2 border-t ${th.footer} flex justify-between text-[10px]`}>
-                <span className={th.muted}>Immudb writes</span>
-                <span className={`${th.muted} font-mono`}>{stpStream.length + decisions.length}</span>
+
+              {/* Immudb writes — subdued divider row */}
+              <div className={`flex items-center justify-between px-1 pt-2 border-t ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
+                <span className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Immudb writes</span>
+                <span className={`text-sm font-bold tabular-nums font-mono ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                  {stpStream.length + decisions.length}
+                </span>
               </div>
             </div>
           </div>
