@@ -10,7 +10,7 @@
  *   - Per-session cards with drill-down link
  *   - File download buttons (NPCI RRF, MIS CSV, Settlement statement)
  */
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
@@ -29,7 +29,7 @@ function pct(n, d) { return d > 0 ? ((n / d) * 100).toFixed(1) : '0.0' }
 
 // ─── Mock data (matches /v1/cts/sessions/today + /v1/cts/dashboard/ops) ──────
 
-const TODAY = {
+const SB_TODAY = {
   clearing_date: '2026-06-25',
   sessions_count: 4,
   sessions_settled: 2,
@@ -48,14 +48,42 @@ const TODAY = {
   net_settlement_paise: 43_20_00_000,
 }
 
-const SESSIONS = [
-  { id: 'SES-20260625-001', slot: '10:00–12:00', status: 'SETTLED', inward: 1840, inward_val: 42_30_00_000, stp_rate: 86.2, return_rate: 17.8 },
-  { id: 'SES-20260625-002', slot: '12:00–14:00', status: 'FILED',   inward: 2105, inward_val: 53_70_00_000, stp_rate: 84.9, return_rate: 19.1 },
-  { id: 'SES-20260625-003', slot: '14:00–16:00', status: 'OPEN',    inward: 1230, inward_val: 29_80_00_000, stp_rate: 82.4, return_rate: 20.4 },
-  { id: 'SES-20260625-004', slot: '16:00–18:00', status: 'UPCOMING',inward: 0,    inward_val: 0,            stp_rate: 0,    return_rate: 0 },
-]
+const SMB_TODAY = {
+  clearing_date: '2026-06-25',
+  sessions_count: 2,
+  sessions_settled: 1,
+  total_inward: 318,
+  total_inward_value_paise: 8_45_00_000,
+  stp_confirmed: 224,
+  stp_returned: 49,
+  manual_confirmed: 28,
+  manual_returned: 13,
+  pending_review: 4,
+  overall_stp_rate_pct: 85.5,
+  overall_return_rate_pct: 19.5,
+  total_outward: 207,
+  total_outward_value_paise: 5_80_00_000,
+  outward_returned: 18,
+  net_settlement_paise: 2_65_00_000,
+}
 
-const TREND = [
+function makeSessions(bankIfsc, isSMB) {
+  const prefix = `SES-${bankIfsc}-20260625`
+  if (isSMB) {
+    return [
+      { id: `${prefix}-001`, slot: '10:00–12:00', status: 'SETTLED', inward: 143, inward_val: 3_80_00_000, stp_rate: 86.7, return_rate: 18.2 },
+      { id: `${prefix}-002`, slot: '12:00–14:00', status: 'OPEN',    inward: 175, inward_val: 4_65_00_000, stp_rate: 84.6, return_rate: 20.6 },
+    ]
+  }
+  return [
+    { id: `${prefix}-001`, slot: '10:00–12:00', status: 'SETTLED', inward: 1840, inward_val: 42_30_00_000, stp_rate: 86.2, return_rate: 17.8 },
+    { id: `${prefix}-002`, slot: '12:00–14:00', status: 'FILED',   inward: 2105, inward_val: 53_70_00_000, stp_rate: 84.9, return_rate: 19.1 },
+    { id: `${prefix}-003`, slot: '14:00–16:00', status: 'OPEN',    inward: 1230, inward_val: 29_80_00_000, stp_rate: 82.4, return_rate: 20.4 },
+    { id: `${prefix}-004`, slot: '16:00–18:00', status: 'UPCOMING',inward: 0,    inward_val: 0,            stp_rate: 0,    return_rate: 0 },
+  ]
+}
+
+const SB_TREND = [
   { date: 'Jun 19', inward: 4820, return_rate_pct: 18.4, stp_rate_pct: 81.6 },
   { date: 'Jun 20', inward: 0,    return_rate_pct: 0,    stp_rate_pct: 0 },
   { date: 'Jun 21', inward: 0,    return_rate_pct: 0,    stp_rate_pct: 0 },
@@ -63,6 +91,16 @@ const TREND = [
   { date: 'Jun 23', inward: 5640, return_rate_pct: 19.2, stp_rate_pct: 80.8 },
   { date: 'Jun 24', inward: 4980, return_rate_pct: 18.8, stp_rate_pct: 81.2 },
   { date: 'Jun 25', inward: 5175, return_rate_pct: 19.1, stp_rate_pct: 84.9 },
+]
+
+const SMB_TREND = [
+  { date: 'Jun 19', inward: 295, return_rate_pct: 18.6, stp_rate_pct: 81.4 },
+  { date: 'Jun 20', inward: 0,   return_rate_pct: 0,    stp_rate_pct: 0 },
+  { date: 'Jun 21', inward: 0,   return_rate_pct: 0,    stp_rate_pct: 0 },
+  { date: 'Jun 22', inward: 312, return_rate_pct: 18.3, stp_rate_pct: 81.7 },
+  { date: 'Jun 23', inward: 341, return_rate_pct: 19.8, stp_rate_pct: 80.2 },
+  { date: 'Jun 24', inward: 307, return_rate_pct: 19.0, stp_rate_pct: 81.0 },
+  { date: 'Jun 25', inward: 318, return_rate_pct: 19.5, stp_rate_pct: 85.5 },
 ]
 
 const SESSION_STATUS_STYLE = {
@@ -199,7 +237,12 @@ function SessionCard({ s, isDark, onDownload }) {
 
 export default function CTSOpsDashboard() {
   const { isDark } = useTheme()
+  const { bankName, bankIfsc, isSMB } = useBankContext()
   const [downloading, setDownloading] = useState(null)
+
+  const TODAY    = isSMB ? SMB_TODAY : SB_TODAY
+  const SESSIONS = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
+  const TREND    = isSMB ? SMB_TREND : SB_TREND
 
   const th = {
     page:    isDark ? 'bg-navy-950' : 'bg-slate-50',
@@ -231,7 +274,7 @@ export default function CTSOpsDashboard() {
             <div>
               <h1 className={`text-base font-semibold ${th.heading}`}>Clearing Operations Dashboard</h1>
               <p className={`text-[11px] ${th.muted}`}>
-                {TODAY.clearing_date} · {TODAY.sessions_count} sessions · {TODAY.sessions_settled} settled
+                {bankName} · {TODAY.clearing_date} · {TODAY.sessions_count} sessions · {TODAY.sessions_settled} settled
               </p>
             </div>
             <div className="flex items-center gap-2">
