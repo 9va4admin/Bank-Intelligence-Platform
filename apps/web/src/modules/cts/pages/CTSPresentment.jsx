@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 
@@ -546,6 +546,311 @@ function DetailPanel({ item, isDark }) {
   )
 }
 
+// ─── NPCI CTS File Format Reference ──────────────────────────────────────────
+// Presentee submission package per NPCI CTS-2010 spec (circular DPSS.CO.CHD.No.1832):
+//   CXF  (Cheque eXchange File)   — fixed-width text, one record per instrument
+//   CIBF (Cheque Image Block File) — header + binary TIFF blocks, one file per lot
+//   Image folder                   — one B&W TIFF per instrument (200 DPI, 1-bit)
+//   PKI signature file (.sig)      — HSM-signed SHA-256 hash of CXF + CIBF
+//
+// Lot size: max 200 instruments per lot (NGCH operational guideline)
+// Image spec: front face, 200 DPI, 1-bit B&W, TIFF Group 4 compression, ≤100 KB
+// File naming: {IFSC}_{YYYYMMDD}_{SessionID}_{LotSeq}.{ext}
+
+// ─── SMB mock data (instruments they submitted for sponsor-routing) ────────────
+
+const SMB_ORGS = [
+  { id: 'cosmos',    name: 'Cosmos Co-op',        ifsc: 'COSB0000001' },
+  { id: 'abhyudaya', name: 'Abhyudaya Co-op',      ifsc: 'ABHY0065001' },
+  { id: 'shamrao',   name: 'Shamrao Vithal Co-op', ifsc: 'SVCB0000001' },
+  { id: 'tjsb',      name: 'TJSB Sahakari Bank',   ifsc: 'TJSB0000001' },
+  { id: 'janata',    name: 'Janata Sahakari Bank',  ifsc: 'JNSB0000001' },
+]
+
+// ─── Lots & Downloads Panel ───────────────────────────────────────────────────
+
+function LotsDownloadPanel({ batch, isDark, viewMode }) {
+  const [downloadState, setDownloadState] = useState({}) // lotId → 'idle'|'preparing'|'ready'
+  const [expandedLot, setExpandedLot]     = useState(null)
+
+  const th = {
+    card:    isDark ? 'bg-white/3 border-white/8'  : 'bg-white border-slate-200',
+    cardExp: isDark ? 'bg-white/5 border-gold-400/30' : 'bg-amber-50 border-amber-300',
+    head:    isDark ? 'text-white'     : 'text-slate-900',
+    muted:   isDark ? 'text-slate-400' : 'text-slate-500',
+    faint:   isDark ? 'text-slate-600' : 'text-slate-400',
+    divider: isDark ? 'border-white/6' : 'border-slate-100',
+    badge:   isDark ? 'bg-white/6 text-slate-300' : 'bg-slate-100 text-slate-600',
+    row:     isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
+  }
+
+  // Group instruments by lot
+  const lots = useMemo(() => {
+    const byLot = {}
+    batch.forEach(item => {
+      const lotId = item.lot_number
+      if (!byLot[lotId]) byLot[lotId] = { lotId, lotSeq: item.lot_seq, items: [], smb: null }
+      byLot[lotId].items.push(item)
+    })
+    return Object.values(byLot).sort((a, b) => a.lotSeq - b.lotSeq)
+  }, [batch])
+
+  // In SMB view: assign each lot to one of the SMBs
+  const smbLots = useMemo(() => {
+    if (viewMode === 'sb') return null
+    const out = {}
+    lots.forEach((lot, i) => {
+      const smb = SMB_ORGS[i % SMB_ORGS.length]
+      out[lot.lotId] = smb
+    })
+    return out
+  }, [lots, viewMode])
+
+  // Current SMB filter (only relevant for SMB view — user sees their own lots)
+  const [activeSmbId, setActiveSmbId] = useState(SMB_ORGS[0].id)
+  const visibleLots = viewMode === 'sb'
+    ? lots
+    : lots.filter(lot => smbLots?.[lot.lotId]?.id === activeSmbId)
+
+  function lotReadyCount(lot) {
+    return lot.items.filter(i => ['PKI_SIGNED','SUBMITTED','NGCH_ACK'].includes(i.status)).length
+  }
+  function lotStatus(lot) {
+    const items = lot.items
+    if (items.every(i => i.status === 'NGCH_ACK'))     return 'FILED'
+    if (items.some(i => i.status === 'NGCH_REJECT'))    return 'PARTIAL_REJECT'
+    if (items.some(i => ['SUBMITTED','NGCH_ACK'].includes(i.status))) return 'SUBMITTED'
+    if (items.some(i => i.status === 'PKI_SIGNED'))     return 'READY'
+    if (items.some(i => i.status === 'IQA_FAIL'))       return 'HAS_FAILS'
+    return 'IN_PROGRESS'
+  }
+  const LOT_STATUS_META = {
+    FILED:          { label: 'Filed ✓',       color: isDark ? 'text-emerald-400' : 'text-emerald-700',  bg: isDark ? 'bg-emerald-400/10 border-emerald-400/20' : 'bg-emerald-50 border-emerald-200' },
+    SUBMITTED:      { label: 'Submitted',     color: isDark ? 'text-blue-400'    : 'text-blue-700',      bg: isDark ? 'bg-blue-400/10 border-blue-400/20'       : 'bg-blue-50 border-blue-200'       },
+    READY:          { label: 'Ready to send', color: isDark ? 'text-amber-400'   : 'text-amber-700',     bg: isDark ? 'bg-amber-400/10 border-amber-400/20'     : 'bg-amber-50 border-amber-200'     },
+    PARTIAL_REJECT: { label: 'Partial Reject',color: isDark ? 'text-red-400'     : 'text-red-700',       bg: isDark ? 'bg-red-400/10 border-red-400/20'         : 'bg-red-50 border-red-200'         },
+    HAS_FAILS:      { label: 'Has IQA Fails', color: isDark ? 'text-red-400'     : 'text-red-700',       bg: isDark ? 'bg-red-400/10 border-red-400/20'         : 'bg-red-50 border-red-200'         },
+    IN_PROGRESS:    { label: 'Processing',    color: isDark ? 'text-slate-400'   : 'text-slate-500',     bg: isDark ? 'bg-white/4 border-white/8'               : 'bg-white border-slate-200'        },
+  }
+
+  function triggerDownload(lotId, type) {
+    setDownloadState(prev => ({ ...prev, [`${lotId}-${type}`]: 'preparing' }))
+    setTimeout(() => {
+      setDownloadState(prev => ({ ...prev, [`${lotId}-${type}`]: 'ready' }))
+      setTimeout(() => setDownloadState(prev => ({ ...prev, [`${lotId}-${type}`]: 'idle' })), 3000)
+    }, 1200)
+  }
+
+  function DownloadBtn({ lotId, type, label, icon, disabled }) {
+    const key = `${lotId}-${type}`
+    const state = downloadState[key] || 'idle'
+    const baseClass = `flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-semibold transition-all`
+    if (disabled) return (
+      <div className={`${baseClass} ${isDark ? 'border-white/6 text-slate-600 bg-white/2' : 'border-slate-200 text-slate-300 bg-slate-50'} cursor-not-allowed`}>
+        {icon} {label}
+      </div>
+    )
+    if (state === 'preparing') return (
+      <div className={`${baseClass} ${isDark ? 'border-amber-600/30 text-amber-400 bg-amber-900/10' : 'border-amber-300 text-amber-600 bg-amber-50'}`}>
+        <span className="w-3 h-3 rounded-full border border-current border-t-transparent animate-spin" />
+        Preparing…
+      </div>
+    )
+    if (state === 'ready') return (
+      <div className={`${baseClass} ${isDark ? 'border-emerald-600/40 text-emerald-400 bg-emerald-900/10' : 'border-emerald-300 text-emerald-600 bg-emerald-50'}`}>
+        ✓ Ready
+      </div>
+    )
+    return (
+      <button onClick={() => triggerDownload(lotId, type)}
+        className={`${baseClass} ${isDark ? 'border-white/10 text-slate-300 bg-white/4 hover:border-gold-400/30 hover:text-gold-400' : 'border-slate-300 text-slate-600 bg-white hover:border-amber-400 hover:text-amber-600'}`}>
+        {icon} {label}
+      </button>
+    )
+  }
+
+  // Consolidated session-level download (SB view only)
+  function SessionDownloadBar() {
+    if (viewMode !== 'sb') return null
+    const totalItems = batch.length
+    const readyItems = batch.filter(i => ['PKI_SIGNED','SUBMITTED','NGCH_ACK'].includes(i.status)).length
+    const canDownload = readyItems > 0
+    return (
+      <div className={`px-4 py-3 border-b ${th.divider} flex items-center gap-3 flex-wrap`}>
+        <div>
+          <div className={`text-[10px] font-semibold uppercase tracking-widest ${th.muted} mb-0.5`}>Consolidated Session Package</div>
+          <div className={`text-[9px] ${th.faint}`}>
+            {readyItems} of {totalItems} instruments ready · All lots merged · SB view
+          </div>
+        </div>
+        <div className="flex items-center gap-2 ml-auto flex-wrap">
+          <DownloadBtn lotId="session" type="cxf"    label="CXF File"     icon="📄" disabled={!canDownload} />
+          <DownloadBtn lotId="session" type="folder" label="Image Folder"  icon="🗂" disabled={!canDownload} />
+          <DownloadBtn lotId="session" type="sig"    label=".sig (HSM)"   icon="🔐" disabled={!canDownload} />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <SessionDownloadBar />
+
+      {/* SMB selector (SMB view only) */}
+      {viewMode === 'smb' && (
+        <div className={`px-4 py-2 border-b ${th.divider} flex items-center gap-2 flex-wrap`}>
+          <span className={`text-[10px] ${th.muted} mr-1`}>Viewing as:</span>
+          {SMB_ORGS.map(smb => (
+            <button key={smb.id} onClick={() => setActiveSmbId(smb.id)}
+              className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-all
+                ${activeSmbId === smb.id
+                  ? (isDark ? 'border-violet-500/50 bg-violet-900/20 text-violet-300' : 'border-violet-400 bg-violet-50 text-violet-700')
+                  : (isDark ? 'border-white/8 text-slate-400 hover:text-slate-200' : 'border-slate-200 text-slate-500 hover:text-slate-700')
+                }`}
+            >
+              {smb.name}
+            </button>
+          ))}
+          <span className={`ml-auto text-[9px] font-mono ${th.faint}`}>
+            {SMB_ORGS.find(s => s.id === activeSmbId)?.ifsc}
+          </span>
+        </div>
+      )}
+
+      {/* Format spec banner */}
+      <div className={`px-4 py-2 border-b ${th.divider} flex items-center gap-4 flex-wrap`}>
+        {[
+          { tag: 'CXF',  desc: 'Cheque eXchange File — fixed-width text per NPCI CTS-2010' },
+          { tag: 'CIBF', desc: 'Cheque Image Block File — TIFF blocks, one per lot' },
+          { tag: 'TIFF', desc: '200 DPI · 1-bit B&W · Group 4 · ≤100 KB per image' },
+          { tag: 'PKI',  desc: 'HSM SHA-256 signature — FIPS 140-2 L3' },
+        ].map(f => (
+          <div key={f.tag} className="flex items-baseline gap-1.5">
+            <span className={`text-[9px] font-bold font-mono px-1.5 py-0.5 rounded ${isDark ? 'bg-white/8 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>{f.tag}</span>
+            <span className={`text-[9px] ${th.faint}`}>{f.desc}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Lot rows */}
+      {visibleLots.length === 0 && (
+        <div className={`py-16 text-center text-sm ${th.faint}`}>No lots for this sub-member yet</div>
+      )}
+      {visibleLots.map(lot => {
+        const st      = lotStatus(lot)
+        const stMeta  = LOT_STATUS_META[st]
+        const ready   = lotReadyCount(lot)
+        const total   = lot.items.length
+        const canDl   = ready > 0
+        const smb     = smbLots?.[lot.lotId]
+        const isOpen  = expandedLot === lot.lotId
+        // Derive filename from lot number (NGCH convention)
+        const sb_ifsc = 'SRCB0000001'
+        const fname   = `${smb?.ifsc ?? sb_ifsc}_20260619_SES-0619-001_LOT${String(lot.lotSeq).padStart(2,'0')}`
+
+        return (
+          <div key={lot.lotId} className={`border-b ${th.divider}`}>
+            {/* Lot header */}
+            <button
+              onClick={() => setExpandedLot(isOpen ? null : lot.lotId)}
+              className={`w-full flex items-center gap-4 px-4 py-3 text-left transition-colors
+                ${isOpen
+                  ? (isDark ? 'bg-white/4' : 'bg-slate-50')
+                  : (isDark ? 'hover:bg-white/2' : 'hover:bg-slate-50/60')
+                }`}
+            >
+              {/* Expand indicator */}
+              <span className={`text-[10px] transition-transform ${isOpen ? 'rotate-90' : ''} ${th.faint}`}>▶</span>
+
+              {/* Lot identity */}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className={`text-[11px] font-semibold font-mono ${th.head}`}>
+                    LOT {String(lot.lotSeq).padStart(2,'0')}
+                  </span>
+                  {smb && (
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${isDark ? 'bg-violet-900/30 text-violet-300' : 'bg-violet-50 text-violet-700'}`}>
+                      {smb.name}
+                    </span>
+                  )}
+                  <span className={`text-[9px] font-mono ${th.faint}`}>{fname}</span>
+                </div>
+                <div className="flex items-center gap-3 mt-0.5">
+                  <span className={`text-[9px] ${th.faint}`}>{total} instruments</span>
+                  <span className={`text-[9px] ${th.faint}`}>{ready} PKI-ready</span>
+                  <div className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-semibold ${stMeta.bg} ${stMeta.color}`}>
+                    {stMeta.label}
+                  </div>
+                </div>
+              </div>
+
+              {/* Download buttons — always visible on lot row */}
+              <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
+                <DownloadBtn lotId={lot.lotId} type="cxf"    label="CXF"    icon="📄" disabled={!canDl} />
+                <DownloadBtn lotId={lot.lotId} type="folder" label="Images"  icon="🗂" disabled={!canDl} />
+                <DownloadBtn lotId={lot.lotId} type="sig"    label=".sig"   icon="🔐" disabled={!canDl} />
+              </div>
+            </button>
+
+            {/* Expanded: image manifest + CXF preview */}
+            {isOpen && (
+              <div className={`px-4 pb-4 pt-2 space-y-3 ${isDark ? 'bg-white/2' : 'bg-slate-50/60'}`}>
+
+                {/* CXF file preview (NPCI format) */}
+                <div>
+                  <div className={`text-[9px] font-semibold uppercase tracking-widest mb-1.5 ${th.muted}`}>
+                    CXF File Preview — {fname}.CXF
+                  </div>
+                  <div className={`rounded-lg border font-mono text-[9px] overflow-x-auto p-3 leading-relaxed
+                    ${isDark ? 'bg-black/40 border-white/8 text-slate-400' : 'bg-slate-900 border-slate-700 text-slate-300'}`}>
+                    <div className="text-emerald-400">{`# NPCI CTS-2010 Presentee File · ${fname}.CXF`}</div>
+                    <div className="text-slate-500">{`# Format: Fixed-width · SRCB0000001 → NGCH Mumbai`}</div>
+                    <div>{`HDR|SRCB0000001|20260619|SES-0619-001|LOT${String(lot.lotSeq).padStart(2,'0')}|${String(total).padStart(6,'0')}|CTS2010`}</div>
+                    {lot.items.slice(0, 3).map((item, i) => (
+                      <div key={i} className="text-slate-300">
+                        {`DTL|${String(i+1).padStart(6,'0')}|${item.micr}|${item.account_display}|${item.amount.replace('₹','').replace(',','')}|${item.date_on_cheque.replace(/-/g,'')}|${fname}_${String(i+1).padStart(4,'0')}.TIF`}
+                      </div>
+                    ))}
+                    {total > 3 && <div className="text-slate-600">{`... ${total - 3} more records ...`}</div>}
+                    <div>{`TRL|${String(total).padStart(6,'0')}|${lot.items.reduce((_,item) => _ + parseInt(item.amount.replace(/[^0-9]/g,''),10), 0).toLocaleString()}`}</div>
+                  </div>
+                </div>
+
+                {/* Image folder manifest */}
+                <div>
+                  <div className={`text-[9px] font-semibold uppercase tracking-widest mb-1.5 ${th.muted}`}>
+                    Image Folder — {fname}/ · {total} B&W TIFF files
+                  </div>
+                  <div className={`rounded-lg border overflow-hidden ${isDark ? 'bg-white/2 border-white/6' : 'bg-white border-slate-200'}`}>
+                    <div className={`grid grid-cols-3 px-3 py-1.5 border-b ${th.divider} ${isDark ? 'bg-white/3' : 'bg-slate-50'}`}>
+                      <span className={`text-[8px] uppercase tracking-wider ${th.faint}`}>Filename</span>
+                      <span className={`text-[8px] uppercase tracking-wider ${th.faint}`}>Spec</span>
+                      <span className={`text-[8px] uppercase tracking-wider ${th.faint}`}>Size</span>
+                    </div>
+                    {lot.items.slice(0, 5).map((item, i) => (
+                      <div key={i} className={`grid grid-cols-3 px-3 py-1.5 border-b ${th.divider} text-[9px]`}>
+                        <span className={`font-mono ${th.head}`}>{fname}_{String(i+1).padStart(4,'0')}.TIF</span>
+                        <span className={th.faint}>200DPI · 1-bit B&W · G4</span>
+                        <span className={`font-mono ${th.faint}`}>{(42 + Math.floor(Math.random()*40))}KB</span>
+                      </div>
+                    ))}
+                    {total > 5 && (
+                      <div className={`px-3 py-1.5 text-[9px] ${th.faint}`}>
+                        + {total - 5} more images in folder
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CTSPresentment() {
@@ -556,6 +861,8 @@ export default function CTSPresentment() {
   const [filterStatus, setFilterStatus] = useState('ALL')
   const [filterLot, setFilterLot]       = useState('ALL')
   const [search, setSearch] = useState('')
+  const [mainTab, setMainTab] = useState('instruments') // 'instruments' | 'lots'
+  const [viewMode, setViewMode] = useState('sb') // 'sb' | 'smb'
 
   const addedRef = useRef(42)
 
@@ -643,8 +950,47 @@ export default function CTSPresentment() {
         {/* Pipeline progress */}
         <PipelineLane batch={batch} isDark={isDark} />
 
+        {/* Tab bar + SB/SMB toggle */}
+        <div className={`shrink-0 border-b ${th.divider} px-4 flex items-center gap-0`}>
+          {[
+            { id: 'instruments', label: 'Instruments' },
+            { id: 'lots',        label: 'Lots & Downloads' },
+          ].map(tab => (
+            <button key={tab.id} onClick={() => setMainTab(tab.id)}
+              className={`px-4 py-2.5 text-[11px] font-semibold border-b-2 transition-colors
+                ${mainTab === tab.id
+                  ? (isDark ? 'border-gold-400 text-gold-400' : 'border-amber-500 text-amber-600')
+                  : `border-transparent ${th.lbl} ${isDark ? 'hover:text-slate-300' : 'hover:text-slate-600'}`
+                }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+          <div className={`ml-auto flex items-center gap-1 p-1 rounded-lg border ${isDark ? 'border-white/8 bg-white/3' : 'border-slate-200 bg-slate-50'}`}>
+            {[
+              { id: 'sb',  label: 'Sponsor Bank' },
+              { id: 'smb', label: 'Sub-Members' },
+            ].map(v => (
+              <button key={v.id} onClick={() => setViewMode(v.id)}
+                className={`px-3 py-1 rounded-md text-[10px] font-semibold transition-all
+                  ${viewMode === v.id
+                    ? (isDark ? 'bg-gold-400/15 text-gold-400 border border-gold-400/30' : 'bg-amber-50 text-amber-700 border border-amber-300')
+                    : `border border-transparent ${th.lbl} ${isDark ? 'hover:text-slate-300' : 'hover:text-slate-600'}`
+                  }`}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Lots & Downloads tab */}
+        {mainTab === 'lots' && (
+          <LotsDownloadPanel batch={batch} isDark={isDark} viewMode={viewMode} />
+        )}
+
         {/* Main body: list + detail */}
-        <div className="flex flex-1 min-h-0">
+        {mainTab === 'instruments' && <div className="flex flex-1 min-h-0">
           {/* Batch list */}
           <div className={`w-[480px] shrink-0 border-r ${th.divider} flex flex-col`}>
             {/* Toolbar */}
@@ -696,7 +1042,7 @@ export default function CTSPresentment() {
           <div className="flex-1 min-w-0">
             <DetailPanel item={selected} isDark={isDark} />
           </div>
-        </div>
+        </div>}
       </div>
     </AppShell>
   )
