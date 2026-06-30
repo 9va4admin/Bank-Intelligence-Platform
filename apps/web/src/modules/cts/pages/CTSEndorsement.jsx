@@ -5,12 +5,7 @@ import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 
 // ── Mock batch ────────────────────────────────────────────────────────────────
-const TEMPLATE = {
-  bank_name: 'South View Co-operative Bank',
-  branch_name: 'Fort Branch',
-  bank_ifsc: 'SVCB0000001',
-  endorsement_text: "Payee's Account Credited. Received for Collection.",
-}
+// TEMPLATE built inside component from bankContext
 
 const INSTRUMENTS = [
   // LOT-01
@@ -44,12 +39,18 @@ const LOTS = ['LOT-01', 'LOT-02', 'LOT-03', 'LOT-04']
 const PRESENTATION_DATE = '2026-06-19'
 const MAX_ENDORSEMENT_TEXT_LEN = 120
 
-function buildQrData(instr) {
-  return `ASTRA-ENDORSE|${TEMPLATE.bank_ifsc}|${instr.id}|${instr.suffix}|${PRESENTATION_DATE}`
+function buildQrData(instr, ifsc) {
+  return `ASTRA-ENDORSE|${ifsc}|${instr.id}|${instr.suffix}|${PRESENTATION_DATE}`
 }
 
 export default function CTSEndorsement() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const TEMPLATE = {
+    bank_name: bankName || 'South View Co-operative Bank',
+    branch_name: 'Fort Branch',
+    bank_ifsc: bankIfsc || 'SVCB0000001',
+    endorsement_text: "Payee's Account Credited. Received for Collection.",
+  }
   const { isDark } = useTheme()
 
   const th = {
@@ -354,7 +355,7 @@ export default function CTSEndorsement() {
                 isDark ? 'bg-white/10 text-slate-400' : 'bg-slate-50 text-slate-500'
               }`}>
                 <div className={`text-[9px] uppercase tracking-wider ${th.faint} mb-1`}>QR Data</div>
-                {buildQrData(selected)}
+                {buildQrData(selected, TEMPLATE.bank_ifsc)}
               </div>
             </div>
           </div>
