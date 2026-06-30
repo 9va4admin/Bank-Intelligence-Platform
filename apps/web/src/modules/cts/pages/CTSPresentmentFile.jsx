@@ -336,7 +336,7 @@ export default function CTSPresentmentFile() {
   const [batchCounter, setBatchCounter] = useState(1)
   const [expandSuccess, setExpandSuccess] = useState(true)
   const [expandReject, setExpandReject]   = useState(true)
-  const seqRef = useRef(INITIAL_BATCH.nextSeq)
+  const seqRef = useRef(currentBatch.nextSeq)
 
   // Simulate Kafka listener: instruments arrive and get appended to current batch
   useEffect(() => {
