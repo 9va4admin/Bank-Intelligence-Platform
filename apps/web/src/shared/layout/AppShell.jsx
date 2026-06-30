@@ -39,22 +39,33 @@ const SIDEBAR_MODULES = [
     Icon: CtsIcon,
     sections: [
       {
+        label: 'Dashboard',
+        items: [
+          { to: '/cts/ops-dashboard', label: 'Ops Dashboard', end: true },
+        ],
+      },
+      {
         label: 'Presentation Process',
         items: [
           { to: '/cts/outward',            label: 'DBC Processing'    },
           { to: '/cts/presentment-file',   label: 'Presentment File'  },
           { to: '/cts/rf-drawee',          label: 'RF — Drawee Bank'  },
-          { to: '/cts/pipeline',           label: 'Inward Pipeline'   },
-          { to: '/cts/inward-pipeline',    label: 'Pipeline (Animated)' },
         ],
       },
       {
         label: 'Drawee Process',
         items: [
-          { to: '/cts',               label: 'Inward Queue',     end: true },
-          { to: '/cts/ops-dashboard', label: 'Ops Dashboard'   },
-          { to: '/cts/drawee',        label: 'Drawee Position'  },
-          { to: '/cts/settlement',    label: 'Settlement'       },
+          { to: '/cts',                    label: 'Inward Queue',        end: true },
+          { to: '/cts/drawee',             label: 'Drawee Position'      },
+          { to: '/cts/pipeline',           label: 'Inward Pipeline'      },
+          { to: '/cts/inward-pipeline',    label: 'Pipeline (Animated)'  },
+          { to: '/cts/recall',             label: 'Recall'               },
+        ],
+      },
+      {
+        label: 'Settlement',
+        items: [
+          { to: '/cts/settlement',         label: 'Settlement'           },
         ],
       },
       {
@@ -130,11 +141,12 @@ const ROUTE_LABELS = {
   '/cts/iqa':           ['Processing', 'Image Quality Assessment'],
   '/cts/scanner':       ['Processing', 'Scanner SDK'],
   '/cts/rpc':           ['Processing', 'RPC Consolidation'],
-  '/cts/pipeline':          ['CTS', 'Inward Pipeline — AI View'],
-  '/cts/inward-pipeline':   ['CTS', 'Inward Pipeline — Animated'],
-  '/cts/ops-dashboard':   ['CTS', 'Ops Dashboard'],
-  '/cts/drawee':          ['CTS', 'Drawee & Outward Position'],
-  '/cts/settlement':      ['CTS', 'Settlement Lifecycle'],
+  '/cts/pipeline':          ['Drawee Process', 'Inward Pipeline — AI View'],
+  '/cts/inward-pipeline':   ['Drawee Process', 'Inward Pipeline — Animated'],
+  '/cts/recall':            ['Drawee Process', 'Recall'],
+  '/cts/ops-dashboard':     ['Dashboard', 'Ops Dashboard'],
+  '/cts/drawee':            ['Drawee Process', 'Drawee Position'],
+  '/cts/settlement':        ['Settlement', 'Settlement Lifecycle'],
   '/cts/batches':         ['Processing', 'Batches'],
   '/cts/discrepancy':     ['Reports', 'Discrepancy'],
   '/admin/users':         ['Admin', 'User Management'],
