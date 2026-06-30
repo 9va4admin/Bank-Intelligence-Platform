@@ -72,7 +72,7 @@ function makeBatch(batchNo, seedCount = 12, sbIfsc = '', sessionId = 'SES-0619-0
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function BatchHeader({ batch, onClose, isDark }) {
+function BatchHeader({ batch, onClose, isDark, sessionId }) {
   const th = {
     bar:    isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
     label:  isDark ? 'text-slate-400' : 'text-slate-500',
@@ -116,7 +116,7 @@ function BatchHeader({ batch, onClose, isDark }) {
         </div>
         <div>
           <div className={`text-[9px] uppercase tracking-wider ${th.muted}`}>Session</div>
-          <div className={`text-[11px] font-mono ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{SESSION_ID}</div>
+          <div className={`text-[11px] font-mono ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{sessionId}</div>
         </div>
       </div>
 
@@ -181,7 +181,7 @@ function DownloadBtn({ label, icon, filename, disabled, isDark }) {
   )
 }
 
-function CxfPreview({ items, filename, isDark, type }) {
+function CxfPreview({ items, filename, isDark, type, sessionId, sbName, sbIfsc }) {
   const passed  = items.filter(i => i.passed)
   const failed  = items.filter(i => !i.passed)
   const rows    = type === 'success' ? passed : failed
@@ -196,8 +196,8 @@ function CxfPreview({ items, filename, isDark, type }) {
       <div className={`rounded-lg border font-mono text-[9px] overflow-x-auto p-3 leading-relaxed
         ${isDark ? 'bg-black/40 border-white/8 text-slate-400' : 'bg-slate-900 border-slate-700 text-slate-300'}`}>
         <div className="text-emerald-400">{`# NPCI CTS-2010 · ${type === 'success' ? 'Presentment' : 'Rejected'} File`}</div>
-        <div className="text-slate-500">{`# Presenting Bank: ${SB_NAME} (${SB_IFSC}) · Date: ${DATE_STR}`}</div>
-        <div>{`HDR|${SB_IFSC}|${DATE_STR}|${SESSION_ID}|${String(total).padStart(6,'0')}|CTS2010`}</div>
+        <div className="text-slate-500">{`# Presenting Bank: ${sbName} (${sbIfsc}) · Date: ${DATE_STR}`}</div>
+        <div>{`HDR|${sbIfsc}|${DATE_STR}|${sessionId}|${String(total).padStart(6,'0')}|CTS2010`}</div>
         {rows.slice(0, 4).map((item, i) => (
           <div key={i} className={type === 'success' ? 'text-slate-300' : 'text-red-400/80'}>
             {type === 'success'
@@ -382,7 +382,7 @@ export default function CTSPresentmentFile() {
       <div className={`flex flex-col h-full ${th.page}`}>
 
         {/* Batch header bar */}
-        <BatchHeader batch={currentBatch} onClose={handleCloseBatch} isDark={isDark} />
+        <BatchHeader batch={currentBatch} onClose={handleCloseBatch} isDark={isDark} sessionId={SESSION_ID} />
 
         {/* Format spec strip */}
         <div className={`shrink-0 border-b ${th.divider} px-5 py-2 flex items-center gap-5 flex-wrap`}>
@@ -487,7 +487,7 @@ export default function CTSPresentmentFile() {
 
                 {/* CXF preview */}
                 {passed.length > 0 && (
-                  <CxfPreview items={currentBatch.items} filename={currentBatch.cxfFile} isDark={isDark} type="success" />
+                  <CxfPreview items={currentBatch.items} filename={currentBatch.cxfFile} isDark={isDark} type="success" sessionId={SESSION_ID} sbName={SB_NAME} sbIfsc={SB_IFSC} />
                 )}
 
                 {/* Image manifest */}
@@ -578,7 +578,7 @@ export default function CTSPresentmentFile() {
 
                 {/* CXF preview */}
                 {failed.length > 0 && (
-                  <CxfPreview items={currentBatch.items} filename={currentBatch.rejFile} isDark={isDark} type="rejected" />
+                  <CxfPreview items={currentBatch.items} filename={currentBatch.rejFile} isDark={isDark} type="rejected" sessionId={SESSION_ID} sbName={SB_NAME} sbIfsc={SB_IFSC} />
                 )}
 
                 {/* Image manifest */}
