@@ -435,7 +435,7 @@
           <a href="#phase1-deepdive" onclick="navigateTo('phase1-deepdive',event)">6 · Phase 1: AI at Bank End</a>
           <a href="#phase2-rest" onclick="navigateTo('phase2-rest',event)">7 · Phase 2: REST API + Webhook</a>
           <a href="#phase3-mcp" onclick="navigateTo('phase3-mcp',event)">8 · Phase 3: MCP Architecture</a>
-          <a href="#phase4-mobile" onclick="navigateTo('phase4-mobile',event)">9 · Phase 4: Mobile-First</a>
+          <a href="#phase4-mobile" onclick="navigateTo('phase4-mobile',event)">9 · Phase 4.1/4.2: Mobile-First</a>
         </div>
       </div>
       <!-- Group 3: Technical -->
@@ -554,7 +554,7 @@
       <div class="toc-item"><span class="toc-num">§6</span><a class="toc-link" href="#phase1-deepdive">Phase 1 Deep-Dive <span class="toc-tag p1">Jan 2027</span></a></div>
       <div class="toc-item"><span class="toc-num">§7</span><a class="toc-link" href="#phase2-rest">Phase 2 — REST API <span class="toc-tag p2">Sep 2027</span></a></div>
       <div class="toc-item"><span class="toc-num">§8</span><a class="toc-link" href="#phase3-mcp">Phase 3 — MCP Native <span class="toc-tag p3">Jan 2028</span></a></div>
-      <div class="toc-item"><span class="toc-num">§9</span><a class="toc-link" href="#phase4-mobile">Phase 4 — Mobile-First <span class="toc-tag p4">Jan 2029</span></a></div>
+      <div class="toc-item"><span class="toc-num">§9</span><a class="toc-link" href="#phase4-mobile">Phase 4.1 &amp; 4.2 — Mobile-First <span class="toc-tag p4">Jan 2029</span></a></div>
       <div class="toc-item"><span class="toc-num">§10</span><a class="toc-link" href="#data-dictionary">Data Dictionary</a></div>
       <div class="toc-item"><span class="toc-num">§11</span><a class="toc-link" href="#er-diagram">Entity-Relationship Diagram</a></div>
       <div class="toc-item"><span class="toc-num">§12</span><a class="toc-link" href="#auth-mechanism">Authentication — 3-Layer</a></div>
@@ -1503,19 +1503,20 @@
      ══════════════════════════════════════════════════════ -->
 <div id="phase4-mobile" class="sec-header">
   <div class="sec-num amber">9</div>
-  <div class="sec-header-text">Phase 4 Deep-Dive — Mobile-First Clearing with Lien-Mark Mechanism</div>
-  <div class="sec-header-sub">Go Live: September 2028 · Drawer Mobile App · UPI-Like Experience · 30-Min Settlement</div>
+  <div class="sec-header-text">Phase 4 Deep-Dive — Mobile-First Clearing: Physical &amp; Digital (e-Cheque)</div>
+  <div class="sec-header-sub">Go Live: September 2028 · Phase 4.1: Physical Cheque · Phase 4.2: Digital e-Cheque · 30-Min Settlement</div>
 </div>
 <div class="sec-body">
   <div class="callout amber">
-    <p><strong>Phase 4 Principle:</strong> The drawer becomes a digital participant for the first time. They upload a cheque scan via their bank's mobile app, fill in beneficiary details. NPCI routes in real time. Drawee bank lien-marks the amount on confirmation — funds reserved, overdraft prevented. Settlement at next 30-minute batch. Physical cheque path (Phase 1-3) continues in parallel. Phase 3 and Phase 4 co-exist during transition.</p>
+    <p><strong>Phase 4 Principle:</strong> The drawer becomes a digital participant for the first time. Phase 4 has two sub-variants that share the same clearing, risk, and settlement pipeline. <strong>Phase 4.1</strong> covers the physical cheque path — drawer scans a paper cheque via mobile app and submits digitally. <strong>Phase 4.2</strong> introduces the Digital Cheque (e-Cheque) — a bank-issued digital cheque leaf, legally equivalent to a physical cheque, that the drawer fills and authorises entirely within the mobile app with no paper involved. Both sub-variants follow the same 9-step NPCI lifecycle and lien-mark mechanism. Physical cheque path (Phases 1–3) continues in parallel. Phases 3 and 4 co-exist during transition.</p>
   </div>
   <div class="callout red" style="margin-top:8px;">
     <p><strong>Regulatory Prerequisite:</strong> Phase 4 requires RBI regulatory sandbox engagement to clarify legal standing of mobile-originated instruments under the Negotiable Instruments Act, 1881. Lien-mark mechanism requires RBI approval of hold/release framework. NPCI must engage RBI from Q1 2027 for Phase 4 to go live on schedule in September 2028.</p>
   </div>
   <div class="spacer"></div>
 
-  <p style="font-size:11px;font-weight:700;color:#0f2044;margin-bottom:8px;">PHASE 4 — FULL 9-STEP MOBILE CLEARING LIFECYCLE</p>
+  <p style="font-size:13px;font-weight:800;color:#7c3aed;margin-bottom:4px;letter-spacing:0.5px;">PHASE 4.1 — PHYSICAL CHEQUE</p>
+  <p style="font-size:11px;font-weight:700;color:#0f2044;margin-bottom:8px;">FULL 9-STEP MOBILE CLEARING LIFECYCLE</p>
   <div class="flow-steps">
     <div class="flow-step">
       <div class="flow-step-num purple">1</div>
@@ -1609,7 +1610,80 @@
 
   <div class="spacer"></div>
   <div class="callout green">
-    <p><strong>Same-Bank Instruments in Phase 4:</strong> When drawer and payee are at the same bank, the cheque never reaches NPCI. Bank processes internally: validate drawer, lien-mark, confirm payee account, convert lien to debit at next internal settlement. Typically completes in &lt;5 minutes. Mobile experience is identical — the routing difference is invisible to the user.</p>
+    <p><strong>Same-Bank Instruments in Phase 4.1:</strong> When drawer and payee are at the same bank, the cheque never reaches NPCI. Bank processes internally: validate drawer, lien-mark, confirm payee account, convert lien to debit at next internal settlement. Typically completes in &lt;5 minutes. Mobile experience is identical — the routing difference is invisible to the user.</p>
+  </div>
+
+  <!-- ── PHASE 4.2 ── -->
+  <div class="spacer"></div>
+  <div style="border-top:2px solid #7c3aed;padding-top:16px;">
+    <p style="font-size:13px;font-weight:800;color:#7c3aed;margin-bottom:4px;letter-spacing:0.5px;">PHASE 4.2 — DIGITAL CHEQUE (e-CHEQUE)</p>
+    <p style="font-size:11px;font-weight:700;color:#0f2044;margin-bottom:8px;">BANK-ISSUED DIGITAL CHEQUE LEAF · NO PAPER · SAME CLEARING PIPELINE AS 4.1</p>
+  </div>
+
+  <div class="callout" style="border-left-color:#7c3aed;margin-bottom:12px;">
+    <p><strong>Phase 4.2 — Digital Cheque (e-Cheque) Clearing Lifecycle:</strong> Building on the same clearing framework as Phase 4.1, this sub-phase introduces a fully digital cheque (e-Cheque) that carries the same legal and operational validity as a physical cheque, including controlled issuance through numbered cheque leaves. Instead of writing a paper cheque, the drawer initiates an e-Cheque from the bank's mobile banking application by selecting an unused cheque leaf, entering the beneficiary and payment details, and digitally authorising the transaction. Thereafter, the clearing, risk management, validation, and settlement lifecycle follows the same principles as Phase 4.1. This evolution aligns with the objectives of the RBI Payments Vision 2028, enabling cheque payments to become faster, more secure, and fully digital while preserving the trust, controls, and familiarity of the existing CTS ecosystem.</p>
+  </div>
+
+  <div class="callout red" style="margin-top:8px;margin-bottom:12px;">
+    <p><strong>Regulatory Prerequisite for e-Cheque:</strong> Digital cheque leaves require RBI and Ministry of Finance to amend the Negotiable Instruments Act, 1881 to formally recognise e-Cheque as a legal instrument equivalent to a physical cheque. A controlled pilot under the RBI Regulatory Sandbox is recommended before full rollout. NPCI must engage relevant stakeholders from Q2 2027 for Phase 4.2 readiness by early 2029.</p>
+  </div>
+
+  <p style="font-size:11px;font-weight:700;color:#0f2044;margin-bottom:8px;">PHASE 4.2 — E-CHEQUE INITIATION STEPS (BEFORE THE PHASE 4.1 PIPELINE)</p>
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="flow-step-num purple">1</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">Drawer Requests a Digital Cheque Book (e-Cheque Book)</div>
+        <div class="flow-step-desc">The drawer applies for a digital cheque book through their bank's mobile app or branch. The bank issues an e-Cheque book with a controlled set of numbered digital cheque leaves — each leaf pre-assigned a unique cheque number, MICR code, and bank account details, exactly as a physical cheque book but stored digitally in the drawer's banking app. Each leaf is a bank-authenticated instrument. The number of leaves per book (10, 25, 50) is determined by the bank's policy, equivalent to physical cheque book issuance.</div>
+        <div class="flow-step-actors"><span class="actor-tag drawer">Drawer (Mobile App)</span><span class="actor-tag drawee">Drawee Bank CBS</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num purple">2</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">Drawer Picks Latest Available Cheque Leaf and Keys in Beneficiary Details</div>
+        <div class="flow-step-desc">Drawer opens the bank's mobile app, navigates to "Issue e-Cheque", and selects the next unused cheque leaf from their digital cheque book. The cheque leaf number, account number, IFSC, and bank details are pre-filled from the leaf record. The drawer enters: payee name, payee account number, payee bank IFSC, amount in figures, amount in words, and date. Drawer reviews all details and authenticates with mobile PIN or biometric (fingerprint / face ID). No physical scan is required — all data is structured and entered directly.</div>
+        <div class="flow-step-actors"><span class="actor-tag drawer">Drawer (Mobile App)</span><span class="actor-tag drawee">Drawee Bank</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num purple">3</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">Bank Generates CTS-2010 Compliant Digital Cheque Image</div>
+        <div class="flow-step-desc">No scan is needed. The bank's system auto-generates a CTS-2010 compliant cheque image from the structured data entered by the drawer. MICR line fields (cheque number, MICR code, account details) are auto-populated from the digital leaf record and rendered into the image. Image quality is guaranteed at source — no DPI or resolution issues as with scanned paper. The digital image is cryptographically signed by the bank before submission. The leaf is marked as "used" and cannot be reused.</div>
+        <div class="flow-step-actors"><span class="actor-tag drawee">Drawee Bank ASTRA</span><span class="actor-tag npci">CTS-2010 Compliant Image</span></div>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num green">4–9</div>
+      <div class="flow-step-body">
+        <div class="flow-step-title">Processing Continues as Phase 4.1 — Steps 2 through 9 Apply Without Change</div>
+        <div class="flow-step-desc">From this point, the clearing lifecycle is identical to Phase 4.1. Drawee bank validates and submits to NPCI (Step 2). NPCI routes to presentee bank in real time (Step 3). Drawee bank places a lien mark on the drawer's account (Step 4). Presentee bank confirms or rejects (Step 5). NPCI sends final decision to drawee bank (Step 6). Drawee bank releases or converts the lien (Step 7). 30-minute net settlement via RBI e-Kuber (Step 8). Beneficiary credited and both parties notified (Step 9). The only difference between Phase 4.1 and 4.2 is the origination step — no scan vs scan. Once submitted to NPCI, NPCI and all downstream systems are unaware of the distinction.</div>
+        <div class="flow-step-actors"><span class="actor-tag drawee">Drawee Bank ASTRA</span><span class="actor-tag npci">NPCI / NGCH</span><span class="actor-tag presentee">Presentee Bank</span><span class="actor-tag rbi">RBI e-Kuber</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+  <p style="font-size:11px;font-weight:700;color:#0f2044;margin-bottom:8px;">E-CHEQUE LIFECYCLE — FROM LEAF SELECTION TO FINAL CREDIT</p>
+  <div class="lien-flow">
+    <div class="lien-step blue"><strong>Request Book</strong>Bank issues digital cheque book with numbered leaves</div>
+    <div class="lien-step blue"><strong>Pick Leaf</strong>Drawer selects next unused leaf in banking app</div>
+    <div class="lien-step blue"><strong>Fill Details</strong>Payee, account, IFSC, amount — no paper, no scan</div>
+    <div class="lien-step amber"><strong>Generate Image</strong>Bank renders CTS-2010 image, signs it — leaf marked used</div>
+    <div class="lien-step"><strong>→ Phase 4.1</strong>Steps 2–9 apply without change from this point</div>
+    <div class="lien-step green"><strong>Settle</strong>30-min batch — RBI net settlement</div>
+    <div class="lien-step green"><strong>Credit</strong>Payee credited — lien converted to debit</div>
+  </div>
+
+  <div style="display:flex;gap:12px;margin-top:8px;">
+    <div style="flex:1;background:#f3e8ff;border:1px solid #d8b4fe;border-radius:3px;padding:8px 12px;font-size:10px;color:#6b21a8;font-weight:600;">e-Cheque vs Physical: Only the origination differs. Once in the clearing pipeline, NPCI, presentee bank, and RBI settlement treat both identically.</div>
+    <div style="flex:1;background:#dcfce7;border:1px solid #bbf7d0;border-radius:3px;padding:8px 12px;font-size:10px;color:#166534;font-weight:600;">Same-Bank e-Cheque: Never reaches NPCI. Bank processes internally — lien → debit at next internal settlement. Typically under 5 minutes.</div>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="callout green">
+    <p><strong>Same-Bank Instruments in Phase 4.2:</strong> When drawer and payee are at the same bank, the e-Cheque never reaches NPCI. Bank processes internally: validate the digital leaf, lien-mark the drawer's account, confirm payee account, convert lien to debit at next internal settlement. Typically completes in under 5 minutes. The user experience in the banking app is identical whether the payee is at the same bank or a different bank — the routing difference is invisible to the drawer.</p>
   </div>
 </div>
 
