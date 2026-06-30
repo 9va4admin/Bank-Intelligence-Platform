@@ -39,13 +39,20 @@ const SIDEBAR_MODULES = [
     Icon: CtsIcon,
     sections: [
       {
-        label: 'Operations',
+        label: 'Presentation Process',
+        items: [
+          { to: '/cts/outward',            label: 'DBC Processing'    },
+          { to: '/cts/presentment-file',   label: 'Presentment File'  },
+          { to: '/cts/rf-drawee',          label: 'RF — Drawee Bank'  },
+          { to: '/cts/pipeline',           label: 'Inward Pipeline'   },
+          { to: '/cts/inward-pipeline',    label: 'Pipeline (Animated)' },
+        ],
+      },
+      {
+        label: 'Drawee Process',
         items: [
           { to: '/cts',               label: 'Inward Queue',     end: true },
           { to: '/cts/ops-dashboard', label: 'Ops Dashboard'   },
-          { to: '/cts/pipeline',         label: 'Inward Pipeline'  },
-          { to: '/cts/inward-pipeline',  label: 'Pipeline (Animated)' },
-          { to: '/cts/outward',       label: 'Outward'          },
           { to: '/cts/drawee',        label: 'Drawee Position'  },
           { to: '/cts/settlement',    label: 'Settlement'       },
         ],
@@ -108,7 +115,9 @@ const PROFILE_MENU = [
 
 const ROUTE_LABELS = {
   '/cts':               ['CTS', 'Inward Queue — Human Review'],
-  '/cts/outward':       ['CTS', 'Outward'],
+  '/cts/outward':            ['Presentation Process', 'DBC Processing'],
+  '/cts/presentment-file':  ['Presentation Process', 'Presentment File'],
+  '/cts/rf-drawee':         ['Presentation Process', 'RF — Drawee Bank'],
   '/cts/vault':         ['CTS', 'Vault Status'],
   '/cts/vault-sync':    ['Processing', 'Positive Pay & Stop Cheque'],
   '/cts/decisions':     ['Reports', 'Decisions Log'],
