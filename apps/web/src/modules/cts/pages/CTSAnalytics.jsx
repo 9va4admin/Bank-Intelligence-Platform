@@ -3,31 +3,58 @@ import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 
-const DAILY = [
-  { date: 'Jun 13', total: 487, stp_confirm: 401, stp_return: 62, human: 24, avg_ms: 389 },
-  { date: 'Jun 14', total: 512, stp_confirm: 423, stp_return: 71, human: 18, avg_ms: 372 },
-  { date: 'Jun 15', total: 498, stp_confirm: 411, stp_return: 68, human: 19, avg_ms: 401 },
-  { date: 'Jun 16', total: 531, stp_confirm: 444, stp_return: 74, human: 13, avg_ms: 358 },
-  { date: 'Jun 17', total: 474, stp_confirm: 388, stp_return: 63, human: 23, avg_ms: 413 },
-  { date: 'Jun 18', total: 543, stp_confirm: 456, stp_return: 71, human: 16, avg_ms: 344 },
-  { date: 'Jun 19', total: 127, stp_confirm: 104, stp_return: 17, human:  6, avg_ms: 361 },
+const SB_DAILY = [
+  { date: 'Jun 13', total: 4820, stp_confirm: 3921, stp_return: 641, human: 258, avg_ms: 389 },
+  { date: 'Jun 14', total: 5210, stp_confirm: 4281, stp_return: 721, human: 208, avg_ms: 372 },
+  { date: 'Jun 15', total: 4980, stp_confirm: 4101, stp_return: 681, human: 198, avg_ms: 401 },
+  { date: 'Jun 16', total: 5310, stp_confirm: 4441, stp_return: 741, human: 128, avg_ms: 358 },
+  { date: 'Jun 17', total: 4740, stp_confirm: 3881, stp_return: 631, human: 228, avg_ms: 413 },
+  { date: 'Jun 18', total: 5430, stp_confirm: 4561, stp_return: 711, human: 158, avg_ms: 344 },
+  { date: 'Jun 19', total: 1230, stp_confirm: 1041, stp_return: 171, human:  18, avg_ms: 361 },
 ]
 
-const FRAUD_DIST = [
-  { range: '0–10%',   count: 312 },
-  { range: '10–30%',  count: 89  },
-  { range: '30–50%',  count: 41  },
-  { range: '50–70%',  count: 28  },
-  { range: '70–90%',  count: 31  },
-  { range: '90–100%', count: 44  },
+const SMB_DAILY = [
+  { date: 'Jun 13', total: 295, stp_confirm: 243, stp_return: 38, human: 14, avg_ms: 391 },
+  { date: 'Jun 14', total: 312, stp_confirm: 258, stp_return: 41, human: 13, avg_ms: 374 },
+  { date: 'Jun 15', total: 298, stp_confirm: 247, stp_return: 38, human: 13, avg_ms: 403 },
+  { date: 'Jun 16', total: 321, stp_confirm: 268, stp_return: 42, human: 11, avg_ms: 360 },
+  { date: 'Jun 17', total: 287, stp_confirm: 235, stp_return: 38, human: 14, avg_ms: 415 },
+  { date: 'Jun 18', total: 331, stp_confirm: 275, stp_return: 43, human: 13, avg_ms: 346 },
+  { date: 'Jun 19', total:  79, stp_confirm:  65, stp_return: 10, human:  4, avg_ms: 363 },
 ]
 
-const RETURN_REASONS = [
-  { reason: 'FRAUD_RISK',   count: 44 },
-  { reason: 'SIG_MISMATCH', count: 31 },
-  { reason: 'ALTERATION',   count: 18 },
-  { reason: 'FUNDS_SHORT',  count: 9  },
-  { reason: 'OTHER',        count: 4  },
+const SB_FRAUD_DIST = [
+  { range: '0–10%',   count: 3120 },
+  { range: '10–30%',  count: 890  },
+  { range: '30–50%',  count: 410  },
+  { range: '50–70%',  count: 280  },
+  { range: '70–90%',  count: 310  },
+  { range: '90–100%', count: 440  },
+]
+
+const SMB_FRAUD_DIST = [
+  { range: '0–10%',   count: 189 },
+  { range: '10–30%',  count: 54  },
+  { range: '30–50%',  count: 25  },
+  { range: '50–70%',  count: 17  },
+  { range: '70–90%',  count: 18  },
+  { range: '90–100%', count: 27  },
+]
+
+const SB_RETURN_REASONS = [
+  { reason: 'FRAUD_RISK',   count: 440 },
+  { reason: 'SIG_MISMATCH', count: 310 },
+  { reason: 'ALTERATION',   count: 180 },
+  { reason: 'FUNDS_SHORT',  count: 90  },
+  { reason: 'OTHER',        count: 40  },
+]
+
+const SMB_RETURN_REASONS = [
+  { reason: 'FRAUD_RISK',   count: 27 },
+  { reason: 'SIG_MISMATCH', count: 18 },
+  { reason: 'ALTERATION',   count: 11 },
+  { reason: 'FUNDS_SHORT',  count: 5  },
+  { reason: 'OTHER',        count: 2  },
 ]
 
 const MODEL_PERF = [
@@ -47,9 +74,7 @@ const IET_TREND = [
   { date: 'Jun 19', nearBreach: 0 },
 ]
 
-const maxFraud   = Math.max(...FRAUD_DIST.map(d => d.count))
-const maxReturn  = Math.max(...RETURN_REASONS.map(d => d.count))
-const maxTotal   = Math.max(...DAILY.map(d => d.total))
+// derived below inside component (bank-scoped)
 const maxNearBreach = Math.max(...IET_TREND.map(d => d.nearBreach), 1)
 
 const MODEL_STATUS_COLOR = {
@@ -66,6 +91,14 @@ const MODEL_STATUS_COLOR_L = {
 export default function CTSAnalytics() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
+
+  const DAILY          = isSMB ? SMB_DAILY          : SB_DAILY
+  const FRAUD_DIST     = isSMB ? SMB_FRAUD_DIST     : SB_FRAUD_DIST
+  const RETURN_REASONS = isSMB ? SMB_RETURN_REASONS : SB_RETURN_REASONS
+
+  const maxFraud  = Math.max(...FRAUD_DIST.map(d => d.count))
+  const maxReturn = Math.max(...RETURN_REASONS.map(d => d.count))
+  const maxTotal  = Math.max(...DAILY.map(d => d.total))
 
   const weekTotal   = DAILY.reduce((s, d) => s + d.total, 0)
   const weekConfirm = DAILY.reduce((s, d) => s + d.stp_confirm, 0)
