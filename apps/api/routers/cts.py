@@ -693,6 +693,9 @@ async def update_schedule(
     Uses Temporal schedule handle update — in-place, never delete/recreate.
     Requires bank_it_admin role (enforced by RBAC in production).
     """
+    # Verify the schedule belongs to the caller's bank — prevents cross-bank tampering
+    if bank_id not in schedule_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Schedule does not belong to your bank")
     temporal_client = getattr(request.app.state, "temporal_client", None)
     if temporal_client is not None:
         try:
@@ -731,6 +734,8 @@ async def pause_schedule(
     bank_id: str = Depends(get_current_bank_id),
 ) -> ScheduleUpdateResponse:
     """Pause a Temporal Schedule — future runs are suppressed."""
+    if bank_id not in schedule_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Schedule does not belong to your bank")
     temporal_client = getattr(request.app.state, "temporal_client", None)
     if temporal_client is not None:
         try:
@@ -762,6 +767,8 @@ async def resume_schedule(
     bank_id: str = Depends(get_current_bank_id),
 ) -> ScheduleUpdateResponse:
     """Resume a paused Temporal Schedule."""
+    if bank_id not in schedule_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Schedule does not belong to your bank")
     temporal_client = getattr(request.app.state, "temporal_client", None)
     if temporal_client is not None:
         try:
