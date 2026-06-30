@@ -3,9 +3,14 @@ import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 
-const VAULT_DATA = [
-  { label: 'Signature Vault', keys: 18_432, hitRate: 99.2, lastSync: '2026-06-19 06:00', status: 'HEALTHY',  redis: 'redis-cts', missAction: 'HUMAN_REVIEW' },
-  { label: 'PPS Vault',       keys: 12_817, hitRate: 98.7, lastSync: '2026-06-19 06:00', status: 'HEALTHY',  redis: 'redis-cts', missAction: 'HUMAN_REVIEW' },
+const SB_VAULT_DATA = [
+  { label: 'Signature Vault', keys: 18_432, hitRate: 99.2, lastSync: '2026-06-19 06:00', status: 'HEALTHY', redis: 'redis-cts', missAction: 'HUMAN_REVIEW' },
+  { label: 'PPS Vault',       keys: 12_817, hitRate: 98.7, lastSync: '2026-06-19 06:00', status: 'HEALTHY', redis: 'redis-cts', missAction: 'HUMAN_REVIEW' },
+]
+
+const SMB_VAULT_DATA = [
+  { label: 'Signature Vault', keys: 2_841, hitRate: 99.1, lastSync: '2026-06-19 06:00', status: 'HEALTHY', redis: 'redis-cts', missAction: 'HUMAN_REVIEW' },
+  { label: 'PPS Vault',       keys: 1_924, hitRate: 98.5, lastSync: '2026-06-19 06:00', status: 'HEALTHY', redis: 'redis-cts', missAction: 'HUMAN_REVIEW' },
 ]
 
 const VAULT_METRICS = [
@@ -36,14 +41,24 @@ const RECENT_MISSES = [
   { time: '07:22:03', instrument: 'CHQ-2026-001630', vault: 'PPS',       account: '****4499', reason: 'Cheque series mismatch',          routed: 'HUMAN_REVIEW' },
 ]
 
-const SYNC_LOG = [
-  { time: 'Jun 19 06:00:03', event: 'VaultSyncWorkflow completed',       signatures: 18_432, pps: 12_817, duration: '4m 12s', status: 'OK' },
-  { time: 'Jun 18 06:00:07', event: 'VaultSyncWorkflow completed',       signatures: 18_401, pps: 12_790, duration: '4m 08s', status: 'OK' },
-  { time: 'Jun 17 06:00:11', event: 'VaultSyncWorkflow completed',       signatures: 18_388, pps: 12_774, duration: '4m 21s', status: 'OK' },
-  { time: 'Jun 16 06:00:02', event: 'VaultSyncWorkflow completed',       signatures: 18_362, pps: 12_751, duration: '4m 05s', status: 'OK' },
+const SB_SYNC_LOG = [
+  { time: 'Jun 19 06:00:03', event: 'VaultSyncWorkflow completed',        signatures: 18_432, pps: 12_817, duration: '4m 12s', status: 'OK' },
+  { time: 'Jun 18 06:00:07', event: 'VaultSyncWorkflow completed',        signatures: 18_401, pps: 12_790, duration: '4m 08s', status: 'OK' },
+  { time: 'Jun 17 06:00:11', event: 'VaultSyncWorkflow completed',        signatures: 18_388, pps: 12_774, duration: '4m 21s', status: 'OK' },
+  { time: 'Jun 16 06:00:02', event: 'VaultSyncWorkflow completed',        signatures: 18_362, pps: 12_751, duration: '4m 05s', status: 'OK' },
   { time: 'Jun 15 06:03:45', event: 'VaultSyncWorkflow retried (CBS lag)',signatures: 18_341, pps: 12_730, duration: '6m 38s', status: 'WARN' },
-  { time: 'Jun 14 06:00:09', event: 'VaultSyncWorkflow completed',       signatures: 18_320, pps: 12_715, duration: '4m 11s', status: 'OK' },
-  { time: 'Jun 13 06:00:04', event: 'VaultSyncWorkflow completed',       signatures: 18_298, pps: 12_698, duration: '4m 02s', status: 'OK' },
+  { time: 'Jun 14 06:00:09', event: 'VaultSyncWorkflow completed',        signatures: 18_320, pps: 12_715, duration: '4m 11s', status: 'OK' },
+  { time: 'Jun 13 06:00:04', event: 'VaultSyncWorkflow completed',        signatures: 18_298, pps: 12_698, duration: '4m 02s', status: 'OK' },
+]
+
+const SMB_SYNC_LOG = [
+  { time: 'Jun 19 06:00:05', event: 'VaultSyncWorkflow completed',        signatures: 2_841,  pps: 1_924,  duration: '0m 48s', status: 'OK' },
+  { time: 'Jun 18 06:00:09', event: 'VaultSyncWorkflow completed',        signatures: 2_838,  pps: 1_921,  duration: '0m 46s', status: 'OK' },
+  { time: 'Jun 17 06:00:08', event: 'VaultSyncWorkflow completed',        signatures: 2_831,  pps: 1_918,  duration: '0m 47s', status: 'OK' },
+  { time: 'Jun 16 06:00:04', event: 'VaultSyncWorkflow completed',        signatures: 2_829,  pps: 1_915,  duration: '0m 45s', status: 'OK' },
+  { time: 'Jun 15 06:01:12', event: 'VaultSyncWorkflow retried (CBS lag)',signatures: 2_822,  pps: 1_911,  duration: '1m 03s', status: 'WARN' },
+  { time: 'Jun 14 06:00:06', event: 'VaultSyncWorkflow completed',        signatures: 2_817,  pps: 1_908,  duration: '0m 44s', status: 'OK' },
+  { time: 'Jun 13 06:00:03', event: 'VaultSyncWorkflow completed',        signatures: 2_810,  pps: 1_903,  duration: '0m 43s', status: 'OK' },
 ]
 
 const STATUS_COLOR = { HEALTHY: 'text-emerald-500', DEGRADED: 'text-amber-500', DOWN: 'text-red-500' }
@@ -59,6 +74,9 @@ function hitPct(val) {
 export default function CTSVaultStatus() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
+
+  const VAULT_DATA = isSMB ? SMB_VAULT_DATA : SB_VAULT_DATA
+  const SYNC_LOG   = isSMB ? SMB_SYNC_LOG   : SB_SYNC_LOG
 
   const th = {
     page:      isDark ? 'bg-navy-950 text-white'                      : 'bg-slate-50 text-slate-900',
