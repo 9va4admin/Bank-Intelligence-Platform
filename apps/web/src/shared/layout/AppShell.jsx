@@ -3,6 +3,7 @@ import { NavLink, Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../theme/ThemeContext'
 import { PageHeaderCtx } from './PageHeaderContext'
 import ChequeSearchBar from './ChequeSearchBar'
+import { useBankContext } from '../context/BankContext'
 
 // ── Sidebar navigation structure ────────────────────────────────────────────
 
@@ -74,10 +75,10 @@ const SIDEBAR_MODULES = [
           { to: '/cts/batches',       label: 'Batches'          },
           { to: '/cts/vault',         label: 'Vault'            },
           { to: '/cts/vault-sync',    label: 'PPS & Stop Cheque'},
-          { to: '/cts/sub-member',    label: 'Sub-Member'       },
-          { to: '/cts/smb/registry',      label: 'SMB Registry'     },
-          { to: '/cts/smb/ledger',        label: 'SMB Ledger'       },
-          { to: '/cts/smb/forwarding-log',label: 'SMB Fwd Log'      },
+          { to: '/cts/sub-member',    label: 'Sub-Member',       sbOnly: true },
+          { to: '/cts/smb/registry',  label: 'SMB Registry',     sbOnly: true },
+          { to: '/cts/smb/ledger',    label: 'SMB Ledger',       sbOnly: true },
+          { to: '/cts/smb/forwarding-log', label: 'SMB Fwd Log', sbOnly: true },
           { to: '/cts/endorsement',   label: 'Endorsement'      },
           { to: '/cts/exceptions',    label: 'Exceptions'       },
           { to: '/cts/iqa',           label: 'Image Quality'    },
@@ -180,6 +181,7 @@ export default function AppShell({ children }) {
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const { bankType, bankName, bankIfsc, isSB, isDemoMode, toggleBankType } = useBankContext()
 
   const [section, page] = useBreadcrumb(location.pathname)
   const currentModule = activeModuleId(location.pathname)
@@ -252,49 +254,76 @@ export default function AppShell({ children }) {
               isDark={isDark}
               isActiveModule={currentModule === mod.id}
               location={location}
+              isSB={isSB}
             />
           ))}
         </nav>
 
-        {/* Bottom: user info */}
-        <div className={`shrink-0 border-t px-2 py-2 ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
-          <div className="relative">
-            <button
-              onClick={() => setProfileOpen((v) => !v)}
-              className={`w-full flex items-center gap-2 rounded-lg px-1.5 py-1.5 transition-all ${isDark ? 'hover:bg-white/8' : 'hover:bg-slate-100'}`}
-            >
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${isDark ? 'bg-gold-400/20 text-gold-400' : 'bg-amber-100 text-amber-700'}`}>R</div>
-              {!collapsed && (
-                <div className="text-left min-w-0 flex-1">
-                  <div className={`text-[11px] font-medium leading-tight truncate ${isDark ? 'text-white' : 'text-slate-700'}`}>Rahul S.</div>
-                  <div className={`text-[10px] leading-tight truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>ops_reviewer</div>
-                </div>
-              )}
-            </button>
+        {/* Bottom: bank identity + demo toggle + user */}
+        <div className={`shrink-0 border-t ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
 
-            {profileOpen && (
-              <div
-                className={`absolute bottom-full mb-2 ${collapsed ? 'left-full ml-2' : 'left-0'} w-48 z-50 rounded-xl border py-2 shadow-2xl ${isDark ? 'bg-[#0e1654]/98 backdrop-blur-xl border-white/10 shadow-black/60' : 'bg-white border-slate-200 shadow-slate-400/30'}`}
-                style={{ minWidth: '160px' }}
+          {/* Bank identity pill */}
+          {!collapsed && (
+            <div className={`mx-2 mt-2 px-2.5 py-2 rounded-lg ${isDark ? 'bg-white/4 border border-white/8' : 'bg-slate-50 border border-slate-200'}`}>
+              <div className="flex items-center gap-1.5">
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-mono
+                  ${bankType === 'SB'
+                    ? (isDark ? 'bg-amber-400/15 text-amber-400' : 'bg-amber-100 text-amber-700')
+                    : (isDark ? 'bg-violet-400/15 text-violet-400' : 'bg-violet-100 text-violet-700')
+                  }`}>{bankType}</span>
+                <span className={`text-[10px] font-medium truncate ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{bankName}</span>
+              </div>
+              <div className={`text-[9px] font-mono mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{bankIfsc}</div>
+              {/* Demo toggle — DEMO ONLY, never in production */}
+              {isDemoMode && (
+                <button
+                  onClick={toggleBankType}
+                  className={`mt-1.5 w-full text-[9px] font-semibold px-2 py-1 rounded border transition-all
+                    ${isDark ? 'border-white/10 text-slate-500 hover:text-slate-300 hover:border-white/20' : 'border-slate-200 text-slate-400 hover:text-slate-600'}`}
+                >
+                  ⇄ Switch to {bankType === 'SB' ? 'SMB' : 'SB'} view <span className="opacity-60">(demo)</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* User profile */}
+          <div className="px-2 py-2">
+            <div className="relative">
+              <button
+                onClick={() => setProfileOpen((v) => !v)}
+                className={`w-full flex items-center gap-2 rounded-lg px-1.5 py-1.5 transition-all ${isDark ? 'hover:bg-white/8' : 'hover:bg-slate-100'}`}
               >
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${isDark ? 'bg-gold-400/20 text-gold-400' : 'bg-amber-100 text-amber-700'}`}>R</div>
                 {!collapsed && (
-                  <div className={`px-3 pb-2 mb-1 border-b ${isDark ? 'border-white/8' : 'border-slate-100'}`}>
-                    <div className={`text-[11px] font-semibold ${isDark ? 'text-white' : 'text-slate-700'}`}>Saraswat Co-op Bank</div>
-                    <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Zone: MUMBAI · Finacle</div>
+                  <div className="text-left min-w-0 flex-1">
+                    <div className={`text-[11px] font-medium leading-tight truncate ${isDark ? 'text-white' : 'text-slate-700'}`}>Rahul S.</div>
+                    <div className={`text-[10px] leading-tight truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>ops_reviewer · {bankType}</div>
                   </div>
                 )}
-                {PROFILE_MENU.map((item) => (
-                  <Link
-                    key={item.to} to={item.to}
-                    className={`flex items-center gap-2.5 px-3 py-1.5 text-xs mx-1 my-0.5 rounded-lg transition-colors ${isDark ? 'text-slate-300 hover:text-white hover:bg-white/10' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
-                    onClick={() => setProfileOpen(false)}
-                  >
-                    <span className="w-4 text-center opacity-70">{item.icon}</span>
-                    {item.label}
-                  </Link>
-                ))}
-              </div>
-            )}
+              </button>
+
+              {profileOpen && (
+                <div className={`absolute bottom-full mb-2 ${collapsed ? 'left-full ml-2' : 'left-0'} w-48 z-50 rounded-xl border py-2 shadow-2xl ${isDark ? 'bg-[#0e1654]/98 backdrop-blur-xl border-white/10 shadow-black/60' : 'bg-white border-slate-200 shadow-slate-400/30'}`}>
+                  {!collapsed && (
+                    <div className={`px-3 pb-2 mb-1 border-b ${isDark ? 'border-white/8' : 'border-slate-100'}`}>
+                      <div className={`text-[11px] font-semibold ${isDark ? 'text-white' : 'text-slate-700'}`}>{bankName}</div>
+                      <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{bankIfsc} · {bankType}</div>
+                    </div>
+                  )}
+                  {PROFILE_MENU.map((item) => (
+                    <Link
+                      key={item.to} to={item.to}
+                      className={`flex items-center gap-2.5 px-3 py-1.5 text-xs mx-1 my-0.5 rounded-lg transition-colors ${isDark ? 'text-slate-300 hover:text-white hover:bg-white/10' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      <span className="w-4 text-center opacity-70">{item.icon}</span>
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </aside>
@@ -345,7 +374,7 @@ export default function AppShell({ children }) {
 
 // ── SidebarModule ────────────────────────────────────────────────────────────
 
-function SidebarModule({ mod, collapsed, isDark, isActiveModule, location }) {
+function SidebarModule({ mod, collapsed, isDark, isActiveModule, location, isSB }) {
   const [open, setOpen] = useState(isActiveModule)
   const [expandedSections, setExpandedSections] = useState(() => {
     const set = new Set()
@@ -419,6 +448,7 @@ function SidebarModule({ mod, collapsed, isDark, isActiveModule, location }) {
               showHeader={mod.sections.length > 1}
               expanded={expandedSections.has(sec.label)}
               onToggle={() => toggleSection(sec.label)}
+              isSB={isSB}
             />
           ))}
         </div>
@@ -429,10 +459,15 @@ function SidebarModule({ mod, collapsed, isDark, isActiveModule, location }) {
 
 // ── SidebarSection ───────────────────────────────────────────────────────────
 
-function SidebarSection({ section, isDark, location, showHeader, expanded, onToggle }) {
-  const hasActive = section.items.some(({ to }) =>
+function SidebarSection({ section, isDark, location, showHeader, expanded, onToggle, isSB }) {
+  // Filter items by bank type: sbOnly items only shown to SB users
+  const visibleItems = section.items.filter(item => !item.sbOnly || isSB)
+
+  const hasActive = visibleItems.some(({ to }) =>
     location.pathname === to || location.pathname.startsWith(to + '/')
   )
+
+  if (visibleItems.length === 0) return null
 
   return (
     <div>
@@ -452,7 +487,7 @@ function SidebarSection({ section, isDark, location, showHeader, expanded, onTog
 
       {(expanded || !showHeader) && (
         <ul className="pb-1">
-          {section.items.map(({ to, label, end }) => {
+          {visibleItems.map(({ to, label, end }) => {
             const isActive = end ? location.pathname === to : (location.pathname === to || location.pathname.startsWith(to + '/'))
             return (
               <li key={to}>
