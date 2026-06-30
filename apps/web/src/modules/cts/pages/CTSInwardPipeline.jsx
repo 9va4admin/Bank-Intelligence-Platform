@@ -2,12 +2,10 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 import { getStpStream } from '../data/mockQueue'
 
 // ─── Sub-member bank definitions (mock — live data via Kafka cts.smb.inbound) ─
-
-// Sponsor Bank running ASTRA — shown in header; must NOT appear in SMB list
-const SPONSOR_BANK = { name: 'Saraswat Co-op Bank', ifsc: 'SRCB0000001', city: 'Mumbai' }
 
 // Sub-member UCBs routed through Saraswat as sponsor — smaller UCBs that
 // do not have direct NGCH membership; Saraswat forwards on their behalf
@@ -470,6 +468,8 @@ function ThroughputSparkline({ data, isDark }) {
 const STP_TICK_MS = 2800
 
 export default function CTSInwardPipeline() {
+  const { bankName, bankIfsc, bankCity, isSB, isSMB } = useBankContext()
+  const SPONSOR_BANK = { name: bankName, ifsc: bankIfsc, city: bankCity || '' }
   const { isDark } = useTheme()
   const stpSource   = useRef(getStpStream())
   const stpIndexRef = useRef(0)

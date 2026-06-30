@@ -2,6 +2,7 @@ import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 const SUB_MEMBERS = [
   {
@@ -9,7 +10,7 @@ const SUB_MEMBERS = [
     bank_name: 'Vasavi Co-op Bank',
     ifsc_prefix: 'VASB',
     micr_prefix: '400053',
-    sponsor: 'Saraswat Co-op Bank (Direct)',
+    sponsor: '[SB_NAME] (Direct)',
     session: 'MORNING 2026-06-19',
     total: 124,
     stp_pass: 105,
@@ -251,6 +252,7 @@ function DetailPanel({ smb, onClose, isDark, BUCKET_COLORS }) {
 }
 
 export default function CTSSubMember() {
+  const { bankName, bankIfsc, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [selected, setSelected] = useState(null)
 
@@ -270,15 +272,19 @@ export default function CTSSubMember() {
     input:   isDark ? 'bg-navy-800 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
   }
 
-  const totalInward  = SUB_MEMBERS.reduce((s, m) => s + m.total, 0)
-  const totalReturns = SUB_MEMBERS.reduce((s, m) => s + m.stp_return, 0)
-  const totalEyeball = SUB_MEMBERS.reduce((s, m) => s + m.eyeball, 0)
-  const totalFraud   = SUB_MEMBERS.reduce((s, m) => s + m.fraud_hold, 0)
+  const subMembers = SUB_MEMBERS.map(m => ({
+    ...m,
+    sponsor: m.sponsor.replace('[SB_NAME]', bankName),
+  }))
+  const totalInward  = subMembers.reduce((s, m) => s + m.total, 0)
+  const totalReturns = subMembers.reduce((s, m) => s + m.stp_return, 0)
+  const totalEyeball = subMembers.reduce((s, m) => s + m.eyeball, 0)
+  const totalFraud   = subMembers.reduce((s, m) => s + m.fraud_hold, 0)
   const avgReturnRate = totalInward ? (totalReturns / totalInward * 100).toFixed(1) : '0.0'
-  const softHoldCount = SUB_MEMBERS.filter(m => shieldStatus(m) === 'SOFT_HOLD' || shieldStatus(m) === 'HARD_STOP').length
+  const softHoldCount = subMembers.filter(m => shieldStatus(m) === 'SOFT_HOLD' || shieldStatus(m) === 'HARD_STOP').length
 
   const KPIs = [
-    { label: 'Sub-Member Banks', value: SUB_MEMBERS.length, color: 'text-sky-400' },
+    { label: 'Sub-Member Banks', value: subMembers.length, color: 'text-sky-400' },
     { label: 'Total Inward',     value: totalInward,         color: isDark ? 'text-slate-200' : 'text-slate-900' },
     { label: 'Total Returns',    value: totalReturns,        color: 'text-red-400' },
     { label: 'Avg Return Rate',  value: `${avgReturnRate}%`, color: totalReturns / totalInward > 0.15 ? 'text-red-400' : 'text-emerald-400' },
@@ -290,6 +296,20 @@ export default function CTSSubMember() {
   usePageHeader({
     subtitle: 'Sponsor routing · Bucket classification · Return rate shield · Tier 1/2/3 notifications',
   })
+
+  if (isSMB) {
+    return (
+      <AppShell>
+        <div className={`flex-1 flex items-center justify-center ${th.page}`}>
+          <div className="text-center">
+            <div className="text-4xl mb-4">🏦</div>
+            <div className={`text-lg font-semibold mb-1 ${th.heading}`}>SB-Only Feature</div>
+            <div className={`text-sm ${th.muted}`}>Sub-member routing is managed by the Sponsor Bank. This page is not available for SMB users.</div>
+          </div>
+        </div>
+      </AppShell>
+    )
+  }
 
   return (
     <AppShell>
@@ -308,7 +328,7 @@ export default function CTSSubMember() {
         {/* Detail panel */}
         {selected && (
           <DetailPanel
-            smb={SUB_MEMBERS.find(m => m.id === selected)}
+            smb={subMembers.find(m => m.id === selected)}
             onClose={() => setSelected(null)}
             isDark={isDark}
             BUCKET_COLORS={BUCKET_COLORS}
@@ -317,7 +337,7 @@ export default function CTSSubMember() {
 
         {/* Sub-member cards */}
         <div className="grid grid-cols-2 gap-4 mb-6">
-          {SUB_MEMBERS.map(smb => {
+          {subMembers.map(smb => {
             const rate = smb.stp_return / smb.total
             const status = shieldStatus(smb)
             const isActive = selected === smb.id
@@ -412,7 +432,7 @@ export default function CTSSubMember() {
             </thead>
             <tbody>
               {RETURN_EVENTS.map(e => {
-                const smb = SUB_MEMBERS.find(m => m.id === e.smb)
+                const smb = subMembers.find(m => m.id === e.smb)
                 const bc = BUCKET_COLORS[e.bucket]
                 const tierColor = e.tier === 3
                   ? (isDark ? 'bg-red-900/40 text-red-300 border-red-700/40' : 'bg-red-50 text-red-700 border-red-200')

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 const ROUTING_RULES = [
   {
@@ -108,6 +109,7 @@ const TYPE_COLORS_L = {
 }
 
 export default function CTSNGCHRouting() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [selected, setSelected] = useState(null)
 

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 
@@ -235,6 +236,7 @@ function ForwardingDetailPanel({ item, isDark, onClose }) {
 const ALL_SMBS = ['All SMBs', ...Array.from(new Set(MOCK_LOG.map(l => l.bank_name)))]
 
 export default function CTSSMBForwardingLog() {
+  const { bankName, bankIfsc, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [selected, setSelected] = useState(null)
   const [filterSmb, setFilterSmb] = useState('All SMBs')
@@ -261,6 +263,20 @@ export default function CTSSMBForwardingLog() {
   const completedCount = MOCK_LOG.filter(l => l.forwarding_status === 'COMPLETED').length
   const failedCount    = MOCK_LOG.filter(l => l.forwarding_status === 'FAILED').length
   const inFlightCount  = MOCK_LOG.filter(l => l.forwarding_status === 'FORWARDING').length
+
+  if (isSMB) {
+    return (
+      <AppShell>
+        <div className={`flex-1 flex items-center justify-center ${th.page}`}>
+          <div className="text-center">
+            <div className="text-4xl mb-4">🏦</div>
+            <div className={`text-lg font-semibold mb-1 ${th.heading}`}>SB-Only Feature</div>
+            <div className={`text-sm ${th.muted}`}>The SMB Forwarding Log is managed by your Sponsor Bank. It shows the audit trail of instruments forwarded on your behalf.</div>
+          </div>
+        </div>
+      </AppShell>
+    )
+  }
 
   return (
     <AppShell>

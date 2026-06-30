@@ -14,6 +14,7 @@
  */
 import { useState } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
@@ -88,6 +89,7 @@ function ReturnReasonBar({ reasons, total, isDark }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CTSDraweeView() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [selectedSession, setSelectedSession] = useState(SESSIONS[1])
   const [sortBy, setSortBy] = useState('returned_desc')

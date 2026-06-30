@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 // ── Mock schedule data ──────────────────────────────────────────────────────
 // In production these come from GET /v1/cts/schedules
@@ -191,6 +192,7 @@ function EditScheduleModal({ schedule, isDark, onClose, onSave }) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CTSSchedules() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [schedules, setSchedules] = useState(MOCK_SCHEDULES)
   const [editing, setEditing] = useState(null)

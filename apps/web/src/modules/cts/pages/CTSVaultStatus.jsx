@@ -1,5 +1,6 @@
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 
 const VAULT_DATA = [
@@ -56,6 +57,7 @@ function hitPct(val) {
 }
 
 export default function CTSVaultStatus() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
 
   const th = {

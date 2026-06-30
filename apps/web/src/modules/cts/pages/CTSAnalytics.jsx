@@ -1,6 +1,7 @@
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 const DAILY = [
   { date: 'Jun 13', total: 487, stp_confirm: 401, stp_return: 62, human: 24, avg_ms: 389 },
@@ -63,6 +64,7 @@ const MODEL_STATUS_COLOR_L = {
 }
 
 export default function CTSAnalytics() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
 
   const weekTotal   = DAILY.reduce((s, d) => s + d.total, 0)

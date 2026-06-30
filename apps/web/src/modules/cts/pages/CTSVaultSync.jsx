@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 // ── Mock data ──────────────────────────────────────────────────────────────
 
@@ -74,6 +75,7 @@ function StatusPill({ status }) {
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function CTSVaultSync() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [tab, setTab] = useState('pps')
   const [syncing, setSyncing] = useState(false)

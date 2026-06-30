@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const SB_IFSC    = 'SRCB0000001'
-const SB_NAME    = 'Saraswat Co-op Bank'
 const SESSION_ID = 'SES-0619-001'
 const DATE_STR   = '20260619'
 
@@ -26,7 +25,7 @@ function pickFailReason(seed) {
   return FAIL_REASONS[seed % FAIL_REASONS.length]
 }
 
-function makeInstrument(idx, batchNo) {
+function makeInstrument(idx, batchNo, sbIfsc) {
   const payees   = ['Reliance Ind.', 'HDFC Securities', 'Tata Cons.', 'Infosys Ltd.', 'SBI MF', 'L&T Fin.']
   const amounts  = ['12500', '45000', '200000', '875000', '15000', '350000']
   const fail     = Math.random() < 0.18 // ~18% rejection rate
@@ -43,26 +42,26 @@ function makeInstrument(idx, batchNo) {
     fail_label:      reason?.label ?? null,
     fail_category:   reason?.category ?? null,
     seq_in_batch:    idx,
-    image_bw:        `${SB_IFSC}_${DATE_STR}_${SESSION_ID}_B${String(batchNo).padStart(2,'0')}_${String(idx).padStart(4,'0')}_FRONT_BW.TIF`,
+    image_bw:        `${sbIfsc}_${DATE_STR}_${SESSION_ID}_B${String(batchNo).padStart(2,'0')}_${String(idx).padStart(4,'0')}_FRONT_BW.TIF`,
     images_all:      fail ? [
-      `${SB_IFSC}_${DATE_STR}_${SESSION_ID}_B${String(batchNo).padStart(2,'0')}_${String(idx).padStart(4,'0')}_FRONT_COL.TIF`,
-      `${SB_IFSC}_${DATE_STR}_${SESSION_ID}_B${String(batchNo).padStart(2,'0')}_${String(idx).padStart(4,'0')}_FRONT_BW.TIF`,
-      `${SB_IFSC}_${DATE_STR}_${SESSION_ID}_B${String(batchNo).padStart(2,'0')}_${String(idx).padStart(4,'0')}_BACK_BW.TIF`,
-      `${SB_IFSC}_${DATE_STR}_${SESSION_ID}_B${String(batchNo).padStart(2,'0')}_${String(idx).padStart(4,'0')}_UV.TIF`,
+      `${sbIfsc}_${DATE_STR}_${SESSION_ID}_B${String(batchNo).padStart(2,'0')}_${String(idx).padStart(4,'0')}_FRONT_COL.TIF`,
+      `${sbIfsc}_${DATE_STR}_${SESSION_ID}_B${String(batchNo).padStart(2,'0')}_${String(idx).padStart(4,'0')}_FRONT_BW.TIF`,
+      `${sbIfsc}_${DATE_STR}_${SESSION_ID}_B${String(batchNo).padStart(2,'0')}_${String(idx).padStart(4,'0')}_BACK_BW.TIF`,
+      `${sbIfsc}_${DATE_STR}_${SESSION_ID}_B${String(batchNo).padStart(2,'0')}_${String(idx).padStart(4,'0')}_UV.TIF`,
     ] : [],
     arrived_at: new Date().toISOString(),
   }
 }
 
-function makeBatch(batchNo, seedCount = 12) {
-  const items = Array.from({ length: seedCount }, (_, i) => makeInstrument(i + 1, batchNo))
+function makeBatch(batchNo, seedCount = 12, sbIfsc = '') {
+  const items = Array.from({ length: seedCount }, (_, i) => makeInstrument(i + 1, batchNo, sbIfsc))
   return {
     batchNo,
-    batchId:   `BATCH-${SB_IFSC}-${DATE_STR}-${String(batchNo).padStart(2,'0')}`,
-    cxfFile:   `${SB_IFSC}_${DATE_STR}_${SESSION_ID}_B${String(batchNo).padStart(2,'0')}.CXF`,
-    rejFile:   `${SB_IFSC}_${DATE_STR}_${SESSION_ID}_B${String(batchNo).padStart(2,'0')}_REJ.CXF`,
-    folder:    `${SB_IFSC}_${DATE_STR}_${SESSION_ID}_B${String(batchNo).padStart(2,'0')}/`,
-    rejFolder: `${SB_IFSC}_${DATE_STR}_${SESSION_ID}_B${String(batchNo).padStart(2,'0')}_REJ/`,
+    batchId:   `BATCH-${sbIfsc}-${DATE_STR}-${String(batchNo).padStart(2,'0')}`,
+    cxfFile:   `${sbIfsc}_${DATE_STR}_${SESSION_ID}_B${String(batchNo).padStart(2,'0')}.CXF`,
+    rejFile:   `${sbIfsc}_${DATE_STR}_${SESSION_ID}_B${String(batchNo).padStart(2,'0')}_REJ.CXF`,
+    folder:    `${sbIfsc}_${DATE_STR}_${SESSION_ID}_B${String(batchNo).padStart(2,'0')}/`,
+    rejFolder: `${sbIfsc}_${DATE_STR}_${SESSION_ID}_B${String(batchNo).padStart(2,'0')}_REJ/`,
     status:    'OPEN',   // OPEN | CLOSED
     items,
     openedAt:  new Date().toISOString(),
@@ -70,8 +69,6 @@ function makeBatch(batchNo, seedCount = 12) {
     nextSeq:   seedCount + 1,
   }
 }
-
-const INITIAL_BATCH = makeBatch(1, 14)
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -329,9 +326,12 @@ function HistoryRow({ batch, isDark }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CTSPresentmentFile() {
+  const { bankIfsc, bankName, isSB, isSMB } = useBankContext()
+  const SB_IFSC = bankIfsc
+  const SB_NAME = bankName
   const { isDark } = useTheme()
 
-  const [currentBatch, setCurrentBatch] = useState(INITIAL_BATCH)
+  const [currentBatch, setCurrentBatch] = useState(() => makeBatch(1, 14, bankIfsc))
   const [history, setHistory]           = useState([])
   const [batchCounter, setBatchCounter] = useState(1)
   const [expandSuccess, setExpandSuccess] = useState(true)
@@ -345,7 +345,7 @@ export default function CTSPresentmentFile() {
       if (currentBatch.status !== 'OPEN') return
 
       setCurrentBatch(prev => {
-        const newItem = makeInstrument(seqRef.current, prev.batchNo)
+        const newItem = makeInstrument(seqRef.current, prev.batchNo, SB_IFSC)
         seqRef.current += 1
         return { ...prev, items: [...prev.items, newItem], nextSeq: seqRef.current }
       })
@@ -359,7 +359,7 @@ export default function CTSPresentmentFile() {
     const newBatchNo = batchCounter + 1
     setBatchCounter(newBatchNo)
     seqRef.current = 1
-    setCurrentBatch(makeBatch(newBatchNo, 0))
+    setCurrentBatch(makeBatch(newBatchNo, 0, SB_IFSC))
   }
 
   const th = {

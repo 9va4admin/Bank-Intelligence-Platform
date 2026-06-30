@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 // RBI return reason code mapping — mirrors modules/cts/rrf/models.py RBIReturnCode
 const RBI_CODE_MAP = {
@@ -21,13 +22,8 @@ const RBI_CODE_MAP = {
 }
 function getRbiCode(reason) { return RBI_CODE_MAP[reason] || RBI_CODE_MAP['DEFAULT'] }
 
-const SESSION_META = {
-  bank_ifsc:     'SVCB0000001',
-  bank_name:     'Saraswat Co-op Bank',
-  session_id:    'SES-0619-001',
-  clearing_zone: 'MUMBAI',
-  generated_at:  new Date().toISOString(),
-}
+const SESSION_ID    = 'SES-0619-001'
+const CLEARING_ZONE = 'MUMBAI'
 
 // SHAP feature contributions — positive = raises fraud score, negative = lowers it
 // Values in [-1, +1] range — XGBoost TreeExplainer output
@@ -476,7 +472,15 @@ function RrfModal({ returns, sessionMeta, onClose, isDark }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function CTSDecisionsLog() {
+  const { bankIfsc, bankName, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
+  const sessionMeta = {
+    bank_ifsc:     bankIfsc,
+    bank_name:     bankName,
+    session_id:    SESSION_ID,
+    clearing_zone: CLEARING_ZONE,
+    generated_at:  new Date().toISOString(),
+  }
   const [filter,   setFilter]   = useState('All')
   const [search,   setSearch]   = useState('')
   const [sortCol,  setSortCol]  = useState('immudb_seq')
@@ -539,7 +543,7 @@ export default function CTSDecisionsLog() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
 
   usePageHeader({
-    subtitle: `Session: ${SESSION_META.session_id} · ${SESSION_META.bank_name} · ${SESSION_META.clearing_zone}`,
+    subtitle: `Session: ${sessionMeta.session_id} · ${sessionMeta.bank_name} · ${sessionMeta.clearing_zone}`,
     actions: (
       <div className="flex items-center gap-2">
         {returned.length > 0 && (
@@ -548,7 +552,7 @@ export default function CTSDecisionsLog() {
             <span>📄</span><span>RRF ({returned.length} returns)</span>
           </button>
         )}
-        <button onClick={() => downloadText(buildCsv(rows), `decisions_${SESSION_META.session_id}_${date}.csv`, 'text/csv')}
+        <button onClick={() => downloadText(buildCsv(rows), `decisions_${sessionMeta.session_id}_${date}.csv`, 'text/csv')}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${th.csvBtn}`}>
           ↓ CSV
         </button>
@@ -701,7 +705,7 @@ export default function CTSDecisionsLog() {
 
       {/* RRF Modal */}
       {rrfModal && (
-        <RrfModal returns={modalReturns} sessionMeta={SESSION_META}
+        <RrfModal returns={modalReturns} sessionMeta={sessionMeta}
           onClose={() => setRrfModal(null)} isDark={isDark} />
       )}
     </AppShell>

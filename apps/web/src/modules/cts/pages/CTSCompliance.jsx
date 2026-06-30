@@ -2,6 +2,7 @@ import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 // ── CTS-2010 Standard reference (mirrors Python CTS2010Standard) ─────────────
 const CTS2010 = {
@@ -110,6 +111,7 @@ function downloadXml(xml, filename) {
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function CTSCompliance() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [selectedLot, setSelectedLot] = useState(LOTS[0])
   const [filterResult, setFilterResult] = useState('ALL')

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 const CLEARING_ZONES = ['MUMBAI', 'PUNE', 'DELHI', 'CHENNAI', 'KOLKATA', 'AHMEDABAD', 'HYDERABAD']
 
@@ -59,13 +60,13 @@ function OnboardModal({ isDark, onClose }) {
               <div>
                 <label className={`block mb-1 ${th.label}`}>Bank Name *</label>
                 <input required className={`w-full rounded-lg border px-3 py-2 text-xs ${th.input}`}
-                  placeholder="e.g. Saraswat Co-operative Bank"
+                  placeholder="e.g. Janata Co-operative Bank"
                   value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} />
               </div>
               <div>
                 <label className={`block mb-1 ${th.label}`}>IFSC Prefix *</label>
                 <input required maxLength={4} className={`w-full rounded-lg border px-3 py-2 text-xs font-mono uppercase ${th.input}`}
-                  placeholder="SRCB"
+                  placeholder="e.g. JNCB"
                   value={form.ifsc_prefix} onChange={e => setForm(f => ({...f, ifsc_prefix: e.target.value.toUpperCase()}))} />
               </div>
             </div>
@@ -135,8 +136,8 @@ function OnboardModal({ isDark, onClose }) {
 const MOCK_SUB_MEMBERS = [
   {
     id: 'SMB001',
-    name: 'Saraswat Co-operative Bank',
-    ifsc_prefix: 'SRCB',
+    name: 'Vasavi Co-operative Bank',
+    ifsc_prefix: 'VASB',
     sponsor_account: 'SVCB00000001',
     clearing_zones: ['MUMBAI'],
     status: 'ACTIVE',
@@ -179,6 +180,7 @@ const RISK_COLORS_L = { LOW: 'bg-emerald-100 text-emerald-700 border-emerald-300
 
 export default function CTSSubMemberBanks() {
   const { isDark } = useTheme()
+  const { bankId, bankName, bankIfsc, isSB, isSMB } = useBankContext()
   const [selected, setSelected] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
 
@@ -195,6 +197,20 @@ export default function CTSSubMemberBanks() {
     btn:     isDark ? 'bg-cyan-600 hover:bg-cyan-500 text-white' : 'bg-cyan-600 hover:bg-cyan-700 text-white',
   }
   const RISK = isDark ? RISK_COLORS_D : RISK_COLORS_L
+
+  if (isSMB) {
+    return (
+      <AppShell>
+        <div className={`flex-1 flex items-center justify-center ${th.page}`}>
+          <div className="text-center">
+            <div className="text-4xl mb-4">🏦</div>
+            <div className={`text-lg font-semibold mb-1 ${th.heading}`}>SB-Only Feature</div>
+            <div className={`text-sm ${th.muted}`}>Sub-member onboarding is managed by the Sponsor Bank. This page is not available for SMB users.</div>
+          </div>
+        </div>
+      </AppShell>
+    )
+  }
 
   return (
     <AppShell>

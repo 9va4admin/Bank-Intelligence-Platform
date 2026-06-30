@@ -10,6 +10,7 @@
  */
 import { useState } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
 
 // ─── Mock data ────────────────────────────────────────────────────────────────

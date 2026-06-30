@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 // ── Mock scanner registry ─────────────────────────────────────────────────
 const SCANNERS = [
@@ -34,6 +35,7 @@ function generateScan(idx, scanner) {
 }
 
 export default function CTSScanner() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [scans, setScans]         = useState([])
   const [scanCount, setScanCount] = useState(0)

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 // ── Mock RPC data ─────────────────────────────────────────────────────────────
 const RPCS = [
@@ -55,6 +56,7 @@ const CROSS_CENTRE_ALERTS = [
 
 
 export default function CTSRPCConsolidation() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [selected, setSelected] = useState(null)
 

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 // ── Mock batch ────────────────────────────────────────────────────────────────
 const TEMPLATE = {
@@ -48,6 +49,7 @@ function buildQrData(instr) {
 }
 
 export default function CTSEndorsement() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
 
   const th = {

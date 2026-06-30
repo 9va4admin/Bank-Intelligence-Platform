@@ -2,6 +2,7 @@ import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 import { getReturnReasons, saveReturnReasons, getDefaultReturnReasons } from '../data/returnReasons'
 
 const LAYER3_CONFIG = [
@@ -41,6 +42,7 @@ function nowStr() {
 }
 
 export default function CTSConfig() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [values, setValues] = useState(
     Object.fromEntries(LAYER3_CONFIG.map(c => [c.key, c.value]))
