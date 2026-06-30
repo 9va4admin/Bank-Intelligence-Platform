@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
+import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 // ── CTS-2010 Standard reference (mirrors Python CTS2010Standard) ─────────────
 const CTS2010 = {
@@ -25,22 +27,24 @@ function evalRecord(r) {
   return { ...r, result: reasons.length === 0 ? 'PASS' : 'FAIL', reasons }
 }
 
-const RAW_INSTRUMENTS = [
-  { id:'CHQ-OUT-00001', cheque:'100001', lot:'LOT_SVCB0000001_20260619_SES-0619-001_01', front_dpi:300, front_colour_depth:24, front_file_size_kb:38.2, front_iqa_score:0.94, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:22.5, rear_iqa_score:0.91, micr_band_score:0.96 },
-  { id:'CHQ-OUT-00002', cheque:'100002', lot:'LOT_SVCB0000001_20260619_SES-0619-001_01', front_dpi:300, front_colour_depth:24, front_file_size_kb:41.7, front_iqa_score:0.92, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:19.8, rear_iqa_score:0.88, micr_band_score:0.93 },
-  { id:'CHQ-OUT-00003', cheque:'100003', lot:'LOT_SVCB0000001_20260619_SES-0619-001_01', front_dpi:300, front_colour_depth:24, front_file_size_kb:35.1, front_iqa_score:0.97, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:18.2, rear_iqa_score:0.95, micr_band_score:0.98 },
-  { id:'CHQ-OUT-00004', cheque:'100004', lot:'LOT_SVCB0000001_20260619_SES-0619-001_01', front_dpi:150, front_colour_depth:24, front_file_size_kb:38.2, front_iqa_score:0.94, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:22.5, rear_iqa_score:0.91, micr_band_score:0.96 }, // low DPI
-  { id:'CHQ-OUT-00005', cheque:'100005', lot:'LOT_SVCB0000001_20260619_SES-0619-001_01', front_dpi:300, front_colour_depth:24, front_file_size_kb:38.2, front_iqa_score:0.94, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:22.5, rear_iqa_score:0.91, micr_band_score:0.62 }, // low MICR
-  { id:'CHQ-OUT-00006', cheque:'100006', lot:'LOT_SVCB0000001_20260619_SES-0619-001_01', front_dpi:300, front_colour_depth:24, front_file_size_kb:53.0, front_iqa_score:0.94, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:22.5, rear_iqa_score:0.91, micr_band_score:0.96 }, // large file
-  { id:'CHQ-OUT-00007', cheque:'100007', lot:'LOT_SVCB0000001_20260619_SES-0619-001_01', front_dpi:300, front_colour_depth:24, front_file_size_kb:39.8, front_iqa_score:0.91, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:21.3, rear_iqa_score:0.89, micr_band_score:0.94 },
-  { id:'CHQ-OUT-00008', cheque:'100008', lot:'LOT_SVCB0000001_20260619_SES-0619-001_02', front_dpi:300, front_colour_depth:24, front_file_size_kb:37.5, front_iqa_score:0.96, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:20.1, rear_iqa_score:0.93, micr_band_score:0.97 },
-  { id:'CHQ-OUT-00009', cheque:'100009', lot:'LOT_SVCB0000001_20260619_SES-0619-001_02', front_dpi:300, front_colour_depth:24, front_file_size_kb:40.2, front_iqa_score:0.93, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:23.4, rear_iqa_score:0.90, micr_band_score:0.95 },
-  { id:'CHQ-OUT-00010', cheque:'100010', lot:'LOT_SVCB0000001_20260619_SES-0619-001_02', front_dpi:300, front_colour_depth:24, front_file_size_kb:36.8, front_iqa_score:0.95, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:19.5, rear_iqa_score:0.92, micr_band_score:0.96 },
-]
-
-const INSTRUMENTS = RAW_INSTRUMENTS.map(evalRecord)
-
-const LOTS = [...new Set(INSTRUMENTS.map(i => i.lot))]
+function makeRawInstruments(bankIfsc) {
+  const ifsc = bankIfsc || 'BANK'
+  const lot1 = `LOT_${ifsc}_20260619_SES-${ifsc}-20260619-001_01`
+  const lot2 = `LOT_${ifsc}_20260619_SES-${ifsc}-20260619-001_02`
+  return [
+    { id:'CHQ-OUT-00001', cheque:'100001', lot:lot1, front_dpi:300, front_colour_depth:24, front_file_size_kb:38.2, front_iqa_score:0.94, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:22.5, rear_iqa_score:0.91, micr_band_score:0.96 },
+    { id:'CHQ-OUT-00002', cheque:'100002', lot:lot1, front_dpi:300, front_colour_depth:24, front_file_size_kb:41.7, front_iqa_score:0.92, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:19.8, rear_iqa_score:0.88, micr_band_score:0.93 },
+    { id:'CHQ-OUT-00003', cheque:'100003', lot:lot1, front_dpi:300, front_colour_depth:24, front_file_size_kb:35.1, front_iqa_score:0.97, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:18.2, rear_iqa_score:0.95, micr_band_score:0.98 },
+    { id:'CHQ-OUT-00004', cheque:'100004', lot:lot1, front_dpi:150, front_colour_depth:24, front_file_size_kb:38.2, front_iqa_score:0.94, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:22.5, rear_iqa_score:0.91, micr_band_score:0.96 },
+    { id:'CHQ-OUT-00005', cheque:'100005', lot:lot1, front_dpi:300, front_colour_depth:24, front_file_size_kb:38.2, front_iqa_score:0.94, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:22.5, rear_iqa_score:0.91, micr_band_score:0.62 },
+    { id:'CHQ-OUT-00006', cheque:'100006', lot:lot1, front_dpi:300, front_colour_depth:24, front_file_size_kb:53.0, front_iqa_score:0.94, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:22.5, rear_iqa_score:0.91, micr_band_score:0.96 },
+    { id:'CHQ-OUT-00007', cheque:'100007', lot:lot1, front_dpi:300, front_colour_depth:24, front_file_size_kb:39.8, front_iqa_score:0.91, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:21.3, rear_iqa_score:0.89, micr_band_score:0.94 },
+    { id:'CHQ-OUT-00008', cheque:'100008', lot:lot2, front_dpi:300, front_colour_depth:24, front_file_size_kb:37.5, front_iqa_score:0.96, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:20.1, rear_iqa_score:0.93, micr_band_score:0.97 },
+    { id:'CHQ-OUT-00009', cheque:'100009', lot:lot2, front_dpi:300, front_colour_depth:24, front_file_size_kb:40.2, front_iqa_score:0.93, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:23.4, rear_iqa_score:0.90, micr_band_score:0.95 },
+    { id:'CHQ-OUT-00010', cheque:'100010', lot:lot2, front_dpi:300, front_colour_depth:24, front_file_size_kb:36.8, front_iqa_score:0.95, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:19.5, rear_iqa_score:0.92, micr_band_score:0.96 },
+  ]
+}
+// INSTRUMENTS and LOTS built inside component (depend on bankIfsc)
 
 function buildXml(instruments, lotId, sessionId, ifsc) {
   const date = new Date().toISOString()
@@ -109,7 +113,12 @@ function downloadXml(xml, filename) {
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function CTSCompliance() {
-  const [selectedLot, setSelectedLot] = useState(LOTS[0])
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { isDark } = useTheme()
+  const sessionId   = `SES-${bankIfsc || 'BANK'}-20260619-001`
+  const INSTRUMENTS = useMemo(() => makeRawInstruments(bankIfsc).map(evalRecord), [bankIfsc])
+  const LOTS        = useMemo(() => [...new Set(INSTRUMENTS.map(i => i.lot))], [INSTRUMENTS])
+  const [selectedLot, setSelectedLot] = useState(() => LOTS[0])
   const [filterResult, setFilterResult] = useState('ALL')
 
   const lotItems = INSTRUMENTS.filter(i => i.lot === selectedLot)
@@ -122,39 +131,38 @@ export default function CTSCompliance() {
 
   const lotSeqMatch  = selectedLot.match(/_(\d{2})$/)
   const lotSeq       = lotSeqMatch ? lotSeqMatch[1] : '01'
-  const certFilename = `CTS2010_CERT_SVCB0000001_20260619_SES-0619-001_LOT${lotSeq}.xml`
+  const certFilename = `CTS2010_CERT_${bankIfsc || 'BANK'}_20260619_${sessionId}_LOT${lotSeq}.xml`
 
   const th = {
-    page:    'bg-slate-50 dark:bg-transparent',
-    card:    'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
-    heading: 'text-slate-900 dark:text-white',
-    body:    'text-slate-700 dark:text-slate-300',
-    muted:   'text-slate-500 dark:text-slate-400',
-    faint:   'text-slate-400 dark:text-slate-600',
-    divider: 'border-slate-200 dark:border-white/8',
-    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/4 dark:hover:bg-white/2',
-    select:  'bg-white border-slate-300 text-slate-900 dark:bg-navy-900 dark:border-white/10 dark:text-white',
-    mono:    'text-slate-600 font-mono text-xs dark:text-slate-300 dark:font-mono dark:text-xs',
-    bar:     'bg-slate-100 dark:bg-white/5',
+    page:    isDark ? 'bg-navy-950' : 'bg-slate-50',
+    card:    isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
+    heading: isDark ? 'text-white' : 'text-slate-900',
+    body:    isDark ? 'text-slate-300' : 'text-slate-700',
+    muted:   isDark ? 'text-slate-400' : 'text-slate-500',
+    faint:   isDark ? 'text-slate-600' : 'text-slate-400',
+    divider: isDark ? 'border-white/8' : 'border-slate-200',
+    row:     isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
+    select:  isDark ? 'bg-navy-900 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
+    input:   isDark ? 'bg-navy-800 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
+    mono:    isDark ? 'text-slate-300 font-mono text-xs' : 'text-slate-600 font-mono text-xs',
+    bar:     isDark ? 'bg-white/5' : 'bg-slate-100',
   }
 
   const overallColor = overall === 'PASS'
-    ? ('text-emerald-600 dark:text-emerald-400')
-    : ('text-red-600 dark:text-red-400')
+    ? (isDark ? 'text-emerald-400' : 'text-emerald-600')
+    : (isDark ? 'text-red-400' : 'text-red-600')
 
   function ScoreBar({ value, min, label }) {
     const pct   = Math.min((value / 1.0) * 100, 100)
     const pass  = value >= min
-    const color = pass
-      ? ('bg-emerald-500 dark:bg-emerald-500')
-      : ('bg-red-500 dark:bg-red-500')
+    const color = pass ? 'bg-emerald-500' : 'bg-red-500'
     return (
       <div className="flex items-center gap-2">
         <span className={`text-[10px] w-24 shrink-0 ${th.muted}`}>{label}</span>
         <div className={`flex-1 ${th.bar} rounded-full h-1.5`}>
           <div className={`h-1.5 rounded-full ${color}`} style={{ width: `${pct}%` }} />
         </div>
-        <span className={`text-[10px] w-10 text-right ${pass ? ('text-emerald-600 dark:text-emerald-400') : ('text-red-600 dark:text-red-400')}`}>
+        <span className={`text-[10px] w-10 text-right ${pass ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-red-400' : 'text-red-600')}`}>
           {typeof value === 'number' && value < 10 ? `${value}` : value}
         </span>
       </div>
@@ -175,7 +183,7 @@ export default function CTSCompliance() {
           ))}
         </select>
         <button
-          onClick={() => downloadXml(buildXml(lotItems, selectedLot, 'SES-0619-001', 'SVCB0000001'), certFilename)}
+          onClick={() => downloadXml(buildXml(lotItems, selectedLot, sessionId, bankIfsc || 'BANK'), certFilename)}
           className="flex items-center gap-2 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded-lg px-3 py-1.5"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -195,9 +203,9 @@ export default function CTSCompliance() {
         <div className="grid grid-cols-5 gap-3 mb-6">
           {[
             { label: 'Instruments',   value: lotItems.length, color: th.heading },
-            { label: 'Passed',        value: passed,          color: 'text-emerald-600 dark:text-emerald-400' },
-            { label: 'Failed',        value: failed,          color: failed > 0 ? ('text-red-600 dark:text-red-400') : ('text-emerald-600 dark:text-emerald-400') },
-            { label: 'Pass Rate',     value: `${passRate}%`,  color: parseFloat(passRate) === 100 ? ('text-emerald-600 dark:text-emerald-400') : ('text-amber-600 dark:text-amber-400') },
+            { label: 'Passed',        value: passed,          color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+            { label: 'Failed',        value: failed,          color: failed > 0 ? (isDark ? 'text-red-400' : 'text-red-600') : (isDark ? 'text-emerald-400' : 'text-emerald-600') },
+            { label: 'Pass Rate',     value: `${passRate}%`,  color: parseFloat(passRate) === 100 ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600') },
             { label: 'Overall',       value: overall,         color: overallColor },
           ].map(k => (
             <div key={k.label} className={`border rounded-xl px-4 py-3 ${th.card}`}>
@@ -236,7 +244,9 @@ export default function CTSCompliance() {
               className={`text-xs px-3 py-1 rounded-full border transition-colors ${
                 filterResult === f
                   ? 'bg-violet-600 text-white border-violet-600'
-                  : 'border-slate-200 text-slate-500 hover:text-slate-900 dark:border-white/10 dark:text-slate-400 dark:hover:text-white'
+                  : isDark
+                    ? 'border-white/10 text-slate-400 hover:text-white'
+                    : 'border-slate-200 text-slate-500 hover:text-slate-900'
               }`}
             >
               {f === 'ALL' ? 'All' : f}
@@ -264,7 +274,7 @@ export default function CTSCompliance() {
 
               {/* DPI */}
               <div className="col-span-1 text-center">
-                <span className={`text-xs font-medium ${item.front_dpi >= CTS2010.MIN_DPI ? ('text-emerald-600 dark:text-emerald-400') : ('text-red-600 dark:text-red-400')}`}>
+                <span className={`text-xs font-medium ${item.front_dpi >= CTS2010.MIN_DPI ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-red-400' : 'text-red-600')}`}>
                   {item.front_dpi}
                 </span>
               </div>
@@ -286,7 +296,7 @@ export default function CTSCompliance() {
 
               {/* Result */}
               <div className="col-span-1 text-center">
-                <span className={`text-xs font-bold ${item.result === 'PASS' ? ('text-emerald-600 dark:text-emerald-400') : ('text-red-600 dark:text-red-400')}`}>
+                <span className={`text-xs font-bold ${item.result === 'PASS' ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-red-400' : 'text-red-600')}`}>
                   {item.result === 'PASS' ? '✓' : '✗'} {item.result}
                 </span>
               </div>

@@ -201,3 +201,47 @@ async def test_send_result_includes_channel(dispatcher):
     req = NotificationRequest(channel="email", recipient="a@b.com", template_id="t", context={})
     result = await dispatcher.send(req)
     assert result["channel"] == "email"
+
+
+# ---------------------------------------------------------------------------
+# connect() body — channels stored
+# ---------------------------------------------------------------------------
+
+def test_connect_stores_email_and_whatsapp_channels():
+    d = NotificationDispatcher(bank_id="test-bank")
+    email_ch = MagicMock()
+    wa_ch = MagicMock()
+    d.connect(email_channel=email_ch, whatsapp_channel=wa_ch)
+    assert d._email is email_ch
+    assert d._whatsapp is wa_ch
+
+
+def test_connect_with_no_channels_sets_none():
+    d = NotificationDispatcher(bank_id="test-bank")
+    d.connect()
+    assert d._email is None
+    assert d._whatsapp is None
+
+
+# ---------------------------------------------------------------------------
+# send() — NotificationDeliveryError re-raised directly (line 56)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_send_reraises_delivery_error_unchanged(dispatcher, email_channel):
+    """NotificationDeliveryError from channel must propagate without wrapping."""
+    email_channel.send.side_effect = NotificationDeliveryError("already a delivery error")
+    req = NotificationRequest(channel="email", recipient="ops@bank.com", template_id="t", context={})
+    with pytest.raises(NotificationDeliveryError, match="already a delivery error"):
+        await dispatcher.send(req)
+
+
+# ---------------------------------------------------------------------------
+# _get_channel() — ValueError for unsupported channel (line 94)
+# ---------------------------------------------------------------------------
+
+def test_get_channel_raises_value_error_for_unknown_channel():
+    d = NotificationDispatcher(bank_id="test-bank")
+    d.connect()
+    with pytest.raises(ValueError, match="Unsupported channel"):
+        d._get_channel("fax")

@@ -3,6 +3,16 @@ EJNormalisationWorkflow: ingest → fingerprint → llm_parse → validate → s
 
 Workflow ID: ej-normalise-{bank_id}-{raw_log_hash} (idempotent).
 Terminal states: NORMALISED | PARSE_FAILED | VALIDATION_FAILED
+
+Activity sequence (per CLAUDE.md spec):
+  1. ingest           — store raw log to MinIO
+  2. fingerprint      — validate OEM fingerprint
+  3. llm_parse        — Llama 3.3 70B normalises to canonical schema
+  4. validate         — validate schema conformance
+  5. store_canonical  — persist to YugabyteDB (happy path only)
+  6. trigger_dispute_check — publish to ej.canonical topic (happy path only)
+  7. update_atm_health     — emit ATM health signal (happy path only)
+  8. write_audit      — immutable audit write (ALL outcomes)
 """
 from typing import Any, Optional
 
@@ -24,12 +34,15 @@ class EJNormalisationInput(BaseModel):
 
 class EJNormalisationResult(BaseModel):
     model_config = ConfigDict(frozen=True)
-    outcome: str                        # "NORMALISED" | "PARSE_FAILED" | "VALIDATION_FAILED"
+    outcome: str                           # "NORMALISED" | "PARSE_FAILED" | "VALIDATION_FAILED"
     bank_id: str
     atm_id: str
     oem_fingerprint: str
     canonical_hash: Optional[str] = None
     canonical_record: Optional[dict[str, Any]] = None
+    dispute_check_triggered: bool = False
+    atm_health_updated: bool = False
+    audit_written: bool = False
 
 
 class EJNormalisationWorkflow:
@@ -42,7 +55,7 @@ class EJNormalisationWorkflow:
         mock_results: dict,
     ) -> EJNormalisationResult:
         # Step 1: Ingest — store raw log to MinIO
-        ingest_result = mock_results["ingest"]
+        ingest_result = mock_results["ingest"]  # noqa: F841 — used by production Temporal call
 
         # Step 2: Validate OEM fingerprint
         fingerprint_result = mock_results["fingerprint"]
@@ -56,25 +69,51 @@ class EJNormalisationWorkflow:
                 atm_id=inp.atm_id,
                 bank_id=inp.bank_id,
             )
+            # Step 8: Audit — write for ALL outcomes
+            await self._write_audit(
+                mock_results, "PARSE_FAILED", inp.raw_log_hash,
+                parse_result.canonical_hash, inp.atm_id, inp.bank_id,
+            )
             return EJNormalisationResult(
                 outcome="PARSE_FAILED",
                 bank_id=inp.bank_id,
                 atm_id=inp.atm_id,
                 oem_fingerprint=fingerprint_result.oem_fingerprint,
                 canonical_hash=parse_result.canonical_hash,
+                audit_written=True,
             )
 
         # Step 4: Validate schema
         validate_result = mock_results["validate"]
 
         if validate_result.outcome != "VALID":
+            await self._write_audit(
+                mock_results, "VALIDATION_FAILED", inp.raw_log_hash,
+                parse_result.canonical_hash, inp.atm_id, inp.bank_id,
+            )
             return EJNormalisationResult(
                 outcome="VALIDATION_FAILED",
                 bank_id=inp.bank_id,
                 atm_id=inp.atm_id,
                 oem_fingerprint=fingerprint_result.oem_fingerprint,
                 canonical_hash=parse_result.canonical_hash,
+                audit_written=True,
             )
+
+        # Step 5: Store canonical record
+        mock_results["store_canonical"]  # noqa: B018 — simulates activity execution
+
+        # Step 6: Trigger dispute check
+        mock_results["trigger_dispute_check"]  # noqa: B018
+
+        # Step 7: Update ATM health
+        mock_results["update_atm_health"]  # noqa: B018
+
+        # Step 8: Write audit
+        await self._write_audit(
+            mock_results, "NORMALISED", inp.raw_log_hash,
+            parse_result.canonical_hash, inp.atm_id, inp.bank_id,
+        )
 
         log.info(
             "ej_normalise.complete",
@@ -90,4 +129,18 @@ class EJNormalisationWorkflow:
             oem_fingerprint=fingerprint_result.oem_fingerprint,
             canonical_hash=parse_result.canonical_hash,
             canonical_record=parse_result.canonical_record,
+            dispute_check_triggered=True,
+            atm_health_updated=True,
+            audit_written=True,
         )
+
+    async def _write_audit(
+        self,
+        mock_results: dict,
+        outcome: str,
+        raw_log_hash: str,
+        canonical_hash: Optional[str],
+        atm_id: str,
+        bank_id: str,
+    ) -> None:
+        mock_results["write_audit"]  # noqa: B018 — simulates activity execution

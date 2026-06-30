@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 // ── Sub-member ledger mock data ───────────────────────────────────────────────
 const SMB_LEDGERS = [
@@ -43,13 +44,6 @@ const SMB_LEDGERS = [
   },
 ]
 
-const SHIELD = {
-  SAFE:      'text-emerald-700 bg-emerald-50 border-emerald-300 dark:text-emerald-300 dark:bg-emerald-900/30 dark:border-emerald-700/40',
-  SOFT_HOLD: 'text-amber-700 bg-amber-50 border-amber-300 dark:text-amber-300 dark:bg-amber-900/30 dark:border-amber-700/40',
-  HARD_STOP: 'text-red-700 bg-red-50 border-red-300 dark:text-red-300 dark:bg-red-900/30 dark:border-red-700/40'
-}
-
-
 function buildSmbCsv(ledger) {
   return [
     '# ASTRA CTS — Sub-Member Batch Return Summary',
@@ -71,45 +65,84 @@ function buildSmbCsv(ledger) {
 }
 
 // ── Mock data ────────────────────────────────────────────────────────────────
-const SESSIONS = [
-  { id: 'SES-0619-001', date: '2026-06-19', label: 'Jun 19 — Session 1' },
-  { id: 'SES-0618-001', date: '2026-06-18', label: 'Jun 18 — Session 1' },
-  { id: 'SES-0617-001', date: '2026-06-17', label: 'Jun 17 — Session 1' },
+function makeSessions(bankIfsc, isSMB) {
+  const ifsc = bankIfsc || 'BANK'
+  if (isSMB) {
+    return [
+      { id: `SES-${ifsc}-20260619-001`, date: '2026-06-19', label: 'Jun 19 — Session 1' },
+      { id: `SES-${ifsc}-20260618-001`, date: '2026-06-18', label: 'Jun 18 — Session 1' },
+    ]
+  }
+  return [
+    { id: `SES-${ifsc}-20260619-001`, date: '2026-06-19', label: 'Jun 19 — Session 1' },
+    { id: `SES-${ifsc}-20260618-001`, date: '2026-06-18', label: 'Jun 18 — Session 1' },
+    { id: `SES-${ifsc}-20260617-001`, date: '2026-06-17', label: 'Jun 17 — Session 1' },
+  ]
+}
+
+// SB reconciliation data — full batch scale (~25 rows per session)
+const SB_RECON_DATA_TPL = [
+  { cheque: '100001', suffix: '4521', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100002', suffix: '7832', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[1L-5L]',   cbs_amt: '₹[1L-5L]',   status: 'MATCHED' },
+  { cheque: '100003', suffix: '2291', ngch: 'RETURNED',  cbs: 'REVERSED', ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100004', suffix: '6610', ngch: 'CONFIRMED', cbs: 'PENDING',  ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'PENDING' },
+  { cheque: '100005', suffix: '3347', ngch: 'CONFIRMED', cbs: 'PENDING',  ngch_amt: '₹[1L-5L]',   cbs_amt: '₹[1L-5L]',   status: 'PENDING' },
+  { cheque: '100006', suffix: '9901', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[1L-5L]',   status: 'AMOUNT_MISMATCH' },
+  { cheque: '100007', suffix: '1123', ngch: 'CONFIRMED', cbs: '',         ngch_amt: '₹[<1L]',     cbs_amt: '',            status: 'NGCH_ONLY' },
+  { cheque: '100008', suffix: '5580', ngch: '',          cbs: 'POSTED',   ngch_amt: '',            cbs_amt: '₹[<1L]',     status: 'CBS_ONLY' },
+  { cheque: '100009', suffix: '7744', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100010', suffix: '2256', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[1L-5L]',   cbs_amt: '₹[1L-5L]',   status: 'MATCHED' },
+  { cheque: '100011', suffix: '8832', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100012', suffix: '4419', ngch: 'RETURNED',  cbs: 'REVERSED', ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100013', suffix: '3311', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[5L-10L]',  cbs_amt: '₹[5L-10L]',  status: 'MATCHED' },
+  { cheque: '100014', suffix: '6678', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100015', suffix: '9023', ngch: 'CONFIRMED', cbs: 'PENDING',  ngch_amt: '₹[1L-5L]',   cbs_amt: '₹[1L-5L]',   status: 'PENDING' },
+  { cheque: '100016', suffix: '1190', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100017', suffix: '4457', ngch: 'RETURNED',  cbs: 'REVERSED', ngch_amt: '₹[1L-5L]',   cbs_amt: '₹[1L-5L]',   status: 'MATCHED' },
+  { cheque: '100018', suffix: '7721', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100019', suffix: '3385', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[10L-1Cr]', cbs_amt: '₹[1L-5L]',   status: 'AMOUNT_MISMATCH' },
+  { cheque: '100020', suffix: '8849', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100021', suffix: '2267', ngch: 'CONFIRMED', cbs: 'PENDING',  ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'PENDING' },
+  { cheque: '100022', suffix: '5534', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100023', suffix: '9912', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[1L-5L]',   cbs_amt: '₹[1L-5L]',   status: 'MATCHED' },
+  { cheque: '100024', suffix: '1178', ngch: 'RETURNED',  cbs: 'REVERSED', ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100025', suffix: '6645', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[5L-10L]',  cbs_amt: '₹[5L-10L]',  status: 'MATCHED' },
 ]
 
-const RECON_DATA = {
-  'SES-0619-001': [
-    { id: 'CHQ-IN-00001', cheque: '100001', suffix: '4521', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',   cbs_amt: '₹[<1L]',   status: 'MATCHED' },
-    { id: 'CHQ-IN-00002', cheque: '100002', suffix: '7832', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[1L-5L]', cbs_amt: '₹[1L-5L]', status: 'MATCHED' },
-    { id: 'CHQ-IN-00003', cheque: '100003', suffix: '2291', ngch: 'RETURNED',  cbs: 'REVERSED', ngch_amt: '₹[<1L]',   cbs_amt: '₹[<1L]',   status: 'MATCHED' },
-    { id: 'CHQ-IN-00004', cheque: '100004', suffix: '6610', ngch: 'CONFIRMED', cbs: 'PENDING',  ngch_amt: '₹[<1L]',   cbs_amt: '₹[<1L]',   status: 'PENDING' },
-    { id: 'CHQ-IN-00005', cheque: '100005', suffix: '3347', ngch: 'CONFIRMED', cbs: 'PENDING',  ngch_amt: '₹[1L-5L]', cbs_amt: '₹[1L-5L]', status: 'PENDING' },
-    { id: 'CHQ-IN-00006', cheque: '100006', suffix: '9901', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',   cbs_amt: '₹[1L-5L]', status: 'AMOUNT_MISMATCH' },
-    { id: 'CHQ-IN-00007', cheque: '100007', suffix: '1123', ngch: 'CONFIRMED', cbs: '',         ngch_amt: '₹[<1L]',   cbs_amt: '',          status: 'NGCH_ONLY' },
-    { id: 'CHQ-IN-00008', cheque: '100008', suffix: '5580', ngch: '',          cbs: 'POSTED',   ngch_amt: '',          cbs_amt: '₹[<1L]',   status: 'CBS_ONLY' },
-    { id: 'CHQ-IN-00009', cheque: '100009', suffix: '7744', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',   cbs_amt: '₹[<1L]',   status: 'MATCHED' },
-    { id: 'CHQ-IN-00010', cheque: '100010', suffix: '2256', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[1L-5L]', cbs_amt: '₹[1L-5L]', status: 'MATCHED' },
-    { id: 'CHQ-IN-00011', cheque: '100011', suffix: '8832', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',   cbs_amt: '₹[<1L]',   status: 'MATCHED' },
-    { id: 'CHQ-IN-00012', cheque: '100012', suffix: '4419', ngch: 'RETURNED',  cbs: 'REVERSED', ngch_amt: '₹[<1L]',   cbs_amt: '₹[<1L]',   status: 'MATCHED' },
-  ],
-  'SES-0618-001': [
-    { id: 'CHQ-IN-00501', cheque: '200001', suffix: '1122', ngch: 'CONFIRMED', cbs: 'POSTED',  ngch_amt: '₹[<1L]',   cbs_amt: '₹[<1L]',   status: 'MATCHED' },
-    { id: 'CHQ-IN-00502', cheque: '200002', suffix: '3344', ngch: 'CONFIRMED', cbs: 'POSTED',  ngch_amt: '₹[<1L]',   cbs_amt: '₹[<1L]',   status: 'MATCHED' },
-    { id: 'CHQ-IN-00503', cheque: '200003', suffix: '5566', ngch: 'CONFIRMED', cbs: 'PENDING', ngch_amt: '₹[1L-5L]', cbs_amt: '₹[1L-5L]', status: 'PENDING' },
-  ],
-  'SES-0617-001': [
-    { id: 'CHQ-IN-00701', cheque: '300001', suffix: '9988', ngch: 'CONFIRMED', cbs: 'POSTED', ngch_amt: '₹[<1L]', cbs_amt: '₹[<1L]', status: 'MATCHED' },
-    { id: 'CHQ-IN-00702', cheque: '300002', suffix: '7766', ngch: 'RETURNED',  cbs: 'REVERSED', ngch_amt: '₹[<1L]', cbs_amt: '₹[<1L]', status: 'MATCHED' },
-  ],
+// SMB reconciliation data — smaller sub-member scale (~8 rows per session)
+const SMB_RECON_DATA_TPL = [
+  { cheque: '110001', suffix: '3812', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',   cbs_amt: '₹[<1L]',   status: 'MATCHED' },
+  { cheque: '110002', suffix: '9274', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[1L-5L]', cbs_amt: '₹[1L-5L]', status: 'MATCHED' },
+  { cheque: '110003', suffix: '4401', ngch: 'RETURNED',  cbs: 'REVERSED', ngch_amt: '₹[<1L]',   cbs_amt: '₹[<1L]',   status: 'MATCHED' },
+  { cheque: '110004', suffix: '6187', ngch: 'CONFIRMED', cbs: 'PENDING',  ngch_amt: '₹[<1L]',   cbs_amt: '₹[<1L]',   status: 'PENDING' },
+  { cheque: '110005', suffix: '2239', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',   cbs_amt: '₹[1L-5L]', status: 'AMOUNT_MISMATCH' },
+  { cheque: '110006', suffix: '7703', ngch: 'CONFIRMED', cbs: '',         ngch_amt: '₹[<1L]',   cbs_amt: '',          status: 'NGCH_ONLY' },
+  { cheque: '110007', suffix: '5548', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',   cbs_amt: '₹[<1L]',   status: 'MATCHED' },
+  { cheque: '110008', suffix: '1190', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[1L-5L]', cbs_amt: '₹[1L-5L]', status: 'MATCHED' },
+]
+
+function makeReconData(sessions, isSMB) {
+  const tpl = isSMB ? SMB_RECON_DATA_TPL : SB_RECON_DATA_TPL
+  const result = {}
+  sessions.forEach((s, si) => {
+    const prefix = si === 0 ? '' : si === 1 ? '5' : '7'
+    result[s.id] = tpl.map((row, idx) => ({
+      ...row,
+      id: `CHQ-IN-${String(parseInt(prefix + '0', 10) + idx + 1).padStart(5, '0')}`,
+    }))
+  })
+  return result
 }
 
 const STATUS_META = {
-  MATCHED:         { label: 'Matched',        icon: '✓' },
-  PENDING:         { label: 'Pending',        icon: '⏳' },
-  AMOUNT_MISMATCH: { label: 'Amt Mismatch',   icon: '≠' },
-  NGCH_ONLY:       { label: 'NGCH Only',      icon: '!' },
-  CBS_ONLY:        { label: 'CBS Only',       icon: '!' },
+  MATCHED:         { label: 'Matched',      icon: '✓' },
+  PENDING:         { label: 'Pending',      icon: '⏳' },
+  AMOUNT_MISMATCH: { label: 'Amt Mismatch', icon: '≠' },
+  NGCH_ONLY:       { label: 'NGCH Only',    icon: '!' },
+  CBS_ONLY:        { label: 'CBS Only',     icon: '!' },
 }
+
+const EXCEPTION_STATUSES = new Set(['AMOUNT_MISMATCH', 'NGCH_ONLY', 'CBS_ONLY'])
 
 function buildCsv(items, session) {
   const header = [
@@ -121,7 +154,7 @@ function buildCsv(items, session) {
     [i.id, i.cheque, `****${i.suffix}`, i.ngch, i.cbs, i.ngch_amt, i.cbs_amt, i.status].join(',')
   )
   const matched   = items.filter(i => i.status === 'MATCHED').length
-  const unmatched = items.filter(i => !['MATCHED','PENDING'].includes(i.status)).length
+  const unmatched = items.filter(i => !['MATCHED', 'PENDING'].includes(i.status)).length
   const pending   = items.filter(i => i.status === 'PENDING').length
   const rate      = items.length ? ((matched / items.length) * 100).toFixed(1) : '0.0'
   const summary = [
@@ -145,44 +178,102 @@ function downloadCsv(csv, filename) {
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function CTSReconciliation() {
-  const [sessionIdx, setSessionIdx] = useState(0)
-  const [filterStatus, setFilterStatus] = useState('ALL')
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { isDark } = useTheme()
+  const [sessionIdx, setSessionIdx]         = useState(0)
+  const [filterStatus, setFilterStatus]     = useState('ALL')
+  const [raisedExceptions, setRaisedExceptions] = useState({})
 
-  const session = SESSIONS[sessionIdx]
+  const SESSIONS   = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
+  const RECON_DATA = useMemo(() => makeReconData(SESSIONS, isSMB), [SESSIONS, isSMB])
+
+  useEffect(() => { setSessionIdx(0); setFilterStatus('ALL') }, [isSMB])
+
+  const session = SESSIONS[Math.min(sessionIdx, SESSIONS.length - 1)]
   const items   = RECON_DATA[session.id] || []
 
-  const matched   = items.filter(i => i.status === 'MATCHED').length
-  const pending   = items.filter(i => i.status === 'PENDING').length
-  const unmatched = items.filter(i => !['MATCHED','PENDING'].includes(i.status)).length
-  const matchRate = items.length ? ((matched / items.length) * 100).toFixed(1) : '0.0'
+  const matched    = items.filter(i => i.status === 'MATCHED').length
+  const pending    = items.filter(i => i.status === 'PENDING').length
+  const exceptions = items.filter(i => EXCEPTION_STATUSES.has(i.status)).length
+  const matchRate  = items.length ? ((matched / items.length) * 100).toFixed(1) : '0.0'
 
   const visible = filterStatus === 'ALL' ? items : items.filter(i => i.status === filterStatus)
 
+  // ── Theme helpers ──────────────────────────────────────────────────────────
   const th = {
-    page:    'bg-slate-50 dark:bg-transparent',
-    card:    'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
-    heading: 'text-slate-900 dark:text-white',
-    body:    'text-slate-700 dark:text-slate-300',
-    muted:   'text-slate-500 dark:text-slate-400',
-    faint:   'text-slate-400 dark:text-slate-600',
-    divider: 'border-slate-200 dark:border-white/8',
-    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/4 dark:hover:bg-white/2',
-    select:  'bg-white border-slate-300 text-slate-900 dark:bg-navy-900 dark:border-white/10 dark:text-white',
-    mono:    'text-slate-600 font-mono text-xs dark:text-slate-300 dark:font-mono dark:text-xs',
+    page:    isDark ? 'bg-navy-950'        : 'bg-slate-50',
+    card:    isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
+    heading: isDark ? 'text-white'         : 'text-slate-900',
+    body:    isDark ? 'text-slate-300'     : 'text-slate-700',
+    muted:   isDark ? 'text-slate-400'     : 'text-slate-500',
+    faint:   isDark ? 'text-slate-600'     : 'text-slate-400',
+    divider: isDark ? 'border-white/8'     : 'border-slate-200',
+    row:     isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
+    select:  isDark ? 'bg-navy-900 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
+    mono:    isDark ? 'text-slate-300 font-mono text-xs' : 'text-slate-600 font-mono text-xs',
+    bucket:  isDark ? 'bg-white/5' : 'bg-slate-50',
+    bar:     isDark ? 'bg-white/5' : 'bg-slate-100',
+    filterInactive: isDark
+      ? 'border-white/10 text-slate-400 hover:text-white'
+      : 'border-slate-200 text-slate-500 hover:text-slate-900',
+    csvBtn: isDark
+      ? 'border-white/10 text-slate-400 hover:text-white hover:border-white/20'
+      : 'border-slate-200 text-slate-500 hover:text-slate-800',
   }
 
-  const ST = {
-  MATCHED:         'bg-emerald-50  text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700/40',
-  PENDING:         'bg-amber-50    text-amber-700   border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700/40',
-  AMOUNT_MISMATCH: 'bg-orange-50   text-orange-700  border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-700/40',
-  NGCH_ONLY:       'bg-red-50      text-red-700     border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700/40',
-  CBS_ONLY:        'bg-purple-50   text-purple-700  border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-700/40'
-}
+  // ── Status badge classes ──────────────────────────────────────────────────
+  const ST_D = {
+    MATCHED:         'bg-emerald-900/40 text-emerald-300 border-emerald-700/40',
+    PENDING:         'bg-amber-900/40 text-amber-300 border-amber-700/40',
+    AMOUNT_MISMATCH: 'bg-orange-900/40 text-orange-300 border-orange-700/40',
+    NGCH_ONLY:       'bg-red-900/40 text-red-300 border-red-700/40',
+    CBS_ONLY:        'bg-purple-900/40 text-purple-300 border-purple-700/40',
+  }
+  const ST_L = {
+    MATCHED:         'bg-emerald-50 text-emerald-700 border-emerald-200',
+    PENDING:         'bg-amber-50 text-amber-700 border-amber-200',
+    AMOUNT_MISMATCH: 'bg-orange-50 text-orange-700 border-orange-200',
+    NGCH_ONLY:       'bg-red-50 text-red-700 border-red-200',
+    CBS_ONLY:        'bg-purple-50 text-purple-700 border-purple-200',
+  }
+  const ST = isDark ? ST_D : ST_L
+
+  // ── Shield badge classes ──────────────────────────────────────────────────
+  const SHIELD_D = {
+    SAFE:      'text-emerald-300 bg-emerald-900/30 border-emerald-700/40',
+    SOFT_HOLD: 'text-amber-300 bg-amber-900/30 border-amber-700/40',
+    HARD_STOP: 'text-red-300 bg-red-900/30 border-red-700/40',
+  }
+  const SHIELD_L = {
+    SAFE:      'text-emerald-700 bg-emerald-50 border-emerald-300',
+    SOFT_HOLD: 'text-amber-700 bg-amber-50 border-amber-300',
+    HARD_STOP: 'text-red-700 bg-red-50 border-red-300',
+  }
+  const SHIELD = isDark ? SHIELD_D : SHIELD_L
+
+  // ── NGCH inline status color ──────────────────────────────────────────────
+  function ngchColor(val) {
+    if (val === 'CONFIRMED') return isDark ? 'text-emerald-400' : 'text-emerald-700'
+    if (val === 'RETURNED')  return isDark ? 'text-red-400'     : 'text-red-700'
+    if (val === 'FILED')     return isDark ? 'text-amber-400'   : 'text-amber-700'
+    return th.faint
+  }
+
+  function cbsColor(val) {
+    if (val === 'POSTED')   return isDark ? 'text-emerald-400' : 'text-emerald-700'
+    if (val === 'REVERSED') return isDark ? 'text-red-400'     : 'text-red-700'
+    if (val === 'PENDING')  return isDark ? 'text-amber-400'   : 'text-amber-700'
+    return th.faint
+  }
+
+  function handleRaiseException(id) {
+    setRaisedExceptions(prev => ({ ...prev, [id]: true }))
+  }
 
   function handleDownload() {
     const csv  = buildCsv(items, session)
     const date = session.date.replace(/-/g, '')
-    downloadCsv(csv, `RECON_SVCB0000001_${date}_${session.id}.csv`)
+    downloadCsv(csv, `RECON_${bankIfsc}_${date}_${session.id}.csv`)
   }
 
   usePageHeader({
@@ -213,26 +304,44 @@ export default function CTSReconciliation() {
 
   return (
     <AppShell>
-      <div className={`${th.page} px-6 py-5`}>
+      <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
 
-        {/* KPI Strip */}
-        <div className="grid grid-cols-5 gap-3 mb-6">
-          {[
-            { label: 'Total Items',  value: items.length,  color: th.heading },
-            { label: 'Matched',      value: matched,       color: 'text-emerald-500' },
-            { label: 'Match Rate',   value: `${matchRate}%`, color: matched === items.length ? 'text-emerald-500' : 'text-amber-500' },
-            { label: 'Pending',      value: pending,       color: 'text-amber-500' },
-            { label: 'Unmatched',    value: unmatched,     color: unmatched > 0 ? 'text-red-400' : 'text-emerald-500' },
-          ].map(k => (
-            <div key={k.label} className={`border rounded-xl px-4 py-3 ${th.card}`}>
-              <div className={`text-[10px] ${th.faint} mb-1`}>{k.label}</div>
-              <div className={`text-2xl font-bold ${k.color}`}>{k.value}</div>
+        {/* Reconciliation Summary Bar */}
+        <div className={`border rounded-xl px-5 py-3 mb-5 ${th.card} flex items-center gap-6 flex-wrap`}>
+          <div className="flex items-center gap-2">
+            <span className={`text-[10px] uppercase tracking-wider font-medium ${th.faint}`}>Session</span>
+            <span className={`text-xs font-semibold ${th.heading}`}>{session.id}</span>
+          </div>
+          <div className={`w-px h-5 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`} />
+          <div className="flex items-center gap-1.5">
+            <span className={`text-[10px] uppercase tracking-wider font-medium ${th.faint}`}>Total</span>
+            <span className={`text-sm font-bold ${th.heading}`}>{items.length}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-full bg-emerald-400 shrink-0`} />
+            <span className={`text-[10px] uppercase tracking-wider font-medium ${th.faint}`}>Matched</span>
+            <span className={`text-sm font-bold text-emerald-500`}>{matched}</span>
+            <span className={`text-[10px] ${th.faint}`}>({matchRate}%)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-full bg-amber-400 shrink-0`} />
+            <span className={`text-[10px] uppercase tracking-wider font-medium ${th.faint}`}>Pending</span>
+            <span className={`text-sm font-bold text-amber-400`}>{pending}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-full ${exceptions > 0 ? 'bg-red-400' : 'bg-slate-300'} shrink-0`} />
+            <span className={`text-[10px] uppercase tracking-wider font-medium ${th.faint}`}>Exceptions</span>
+            <span className={`text-sm font-bold ${exceptions > 0 ? 'text-red-400' : th.faint}`}>{exceptions}</span>
+          </div>
+          {exceptions > 0 && (
+            <div className={`ml-auto text-[10px] px-2.5 py-1 rounded-full border ${isDark ? 'bg-red-900/30 text-red-300 border-red-700/40' : 'bg-red-50 text-red-700 border-red-200'}`}>
+              {exceptions} exception{exceptions > 1 ? 's' : ''} require attention
             </div>
-          ))}
+          )}
         </div>
 
         {/* Filter bar */}
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
           <span className={`text-xs ${th.muted}`}>Filter:</span>
           {['ALL', 'MATCHED', 'PENDING', 'AMOUNT_MISMATCH', 'NGCH_ONLY', 'CBS_ONLY'].map(s => (
             <button
@@ -241,7 +350,7 @@ export default function CTSReconciliation() {
               className={`text-xs px-3 py-1 rounded-full border transition-colors ${
                 filterStatus === s
                   ? 'bg-violet-600 text-white border-violet-600'
-                  : 'border-slate-200 text-slate-500 hover:text-slate-900 dark:border-white/10 dark:text-slate-400 dark:hover:text-white'
+                  : th.filterInactive
               }`}
             >
               {s === 'ALL' ? 'All' : (STATUS_META[s]?.label || s)}
@@ -259,7 +368,7 @@ export default function CTSReconciliation() {
             <div className="col-span-1">NGCH</div>
             <div className="col-span-1">CBS</div>
             <div className="col-span-2">Amount Range</div>
-            <div className="col-span-2">Status</div>
+            <div className="col-span-2">Status / Action</div>
           </div>
 
           {visible.length === 0 && (
@@ -267,49 +376,62 @@ export default function CTSReconciliation() {
           )}
 
           {visible.map(item => (
-            <div
-              key={item.id}
-              className={`grid grid-cols-12 gap-2 px-4 py-3 border-b ${th.row} transition-colors`}
-            >
-              <div className={`col-span-3 ${th.mono}`}>{item.id}</div>
-              <div className={`col-span-1 text-xs ${th.body}`}>{item.cheque}</div>
-              <div className={`col-span-2 ${th.mono}`}>****{item.suffix}</div>
+            <div key={item.id}>
+              <div
+                className={`grid grid-cols-12 gap-2 px-4 py-3 border-b ${th.row} transition-colors`}
+              >
+                <div className={`col-span-3 ${th.mono}`}>{item.id}</div>
+                <div className={`col-span-1 text-xs ${th.body}`}>{item.cheque}</div>
+                <div className={`col-span-2 ${th.mono}`}>****{item.suffix}</div>
 
-              {/* NGCH status */}
-              <div className="col-span-1">
-                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                  item.ngch === 'CONFIRMED' ? ('text-emerald-700 dark:text-emerald-400') :
-                  item.ngch === 'RETURNED'  ? ('text-red-700 dark:text-red-400')     :
-                  item.ngch === 'FILED'     ? ('text-amber-700 dark:text-amber-400')   :
-                  th.faint
-                }`}>{item.ngch || '—'}</span>
-              </div>
+                {/* NGCH status */}
+                <div className="col-span-1">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${ngchColor(item.ngch)}`}>
+                    {item.ngch || '—'}
+                  </span>
+                </div>
 
-              {/* CBS status */}
-              <div className="col-span-1">
-                <span className={`text-[10px] font-medium ${
-                  item.cbs === 'POSTED'   ? ('text-emerald-700 dark:text-emerald-400') :
-                  item.cbs === 'REVERSED' ? ('text-red-700 dark:text-red-400')     :
-                  item.cbs === 'PENDING'  ? ('text-amber-700 dark:text-amber-400')   :
-                  th.faint
-                }`}>{item.cbs || '—'}</span>
-              </div>
+                {/* CBS status */}
+                <div className="col-span-1">
+                  <span className={`text-[10px] font-medium ${cbsColor(item.cbs)}`}>
+                    {item.cbs || '—'}
+                  </span>
+                </div>
 
-              {/* Amount ranges */}
-              <div className="col-span-2">
-                <div className={`text-[10px] ${th.muted}`}>
-                  {item.ngch_amt || '—'}
-                  {item.ngch_amt && item.cbs_amt && item.ngch_amt !== item.cbs_amt && (
-                    <span className="text-orange-400 ml-1">≠ {item.cbs_amt}</span>
+                {/* Amount ranges */}
+                <div className="col-span-2">
+                  <div className={`text-[10px] ${th.muted}`}>
+                    {item.ngch_amt || '—'}
+                    {item.ngch_amt && item.cbs_amt && item.ngch_amt !== item.cbs_amt && (
+                      <span className={`ml-1 ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>≠ {item.cbs_amt}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Status badge + exception action */}
+                <div className="col-span-2 flex items-center gap-2 flex-wrap">
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${ST[item.status] || ''}`}>
+                    {STATUS_META[item.status]?.icon} {STATUS_META[item.status]?.label || item.status}
+                  </span>
+                  {EXCEPTION_STATUSES.has(item.status) && (
+                    raisedExceptions[item.id] ? (
+                      <span className={`text-[10px] font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                        Exception raised ✓
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => handleRaiseException(item.id)}
+                        className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+                          isDark
+                            ? 'border-orange-700/50 text-orange-300 hover:bg-orange-900/30'
+                            : 'border-orange-300 text-orange-700 hover:bg-orange-50'
+                        }`}
+                      >
+                        Raise Exception
+                      </button>
+                    )
                   )}
                 </div>
-              </div>
-
-              {/* Reconciliation status badge */}
-              <div className="col-span-2">
-                <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${ST[item.status] || ''}`}>
-                  {STATUS_META[item.status]?.icon} {STATUS_META[item.status]?.label || item.status}
-                </span>
               </div>
             </div>
           ))}
@@ -336,9 +458,9 @@ export default function CTSReconciliation() {
           </div>
         </div>
 
-        {/* Sub-Member Ledger Section */}
-        <div className="mt-6">
-          <div className={`flex items-center justify-between mb-3`}>
+        {/* Sub-Member Ledger Section — SB sponsor banks only */}
+        {isSB && <div className="mt-6">
+          <div className="flex items-center justify-between mb-3">
             <div>
               <h2 className={`text-sm font-semibold ${th.heading}`}>Sub-Member Ledger</h2>
               <p className={`text-[11px] ${th.muted} mt-0.5`}>Per-session clearing breakdown for sub-member banks routed through this sponsor</p>
@@ -347,12 +469,15 @@ export default function CTSReconciliation() {
 
           <div className="space-y-3">
             {SMB_LEDGERS.map(smb => {
-              const shieldCls = SHIELD[smb.shield_status] || SHIELD.SAFE
+              const shieldCls    = SHIELD[smb.shield_status] || SHIELD.SAFE
               const returnBarPct = Math.min(100, (smb.return_rate_pct / smb.return_rate_threshold_pct) * 100)
-              const barColor = smb.shield_status === 'HARD_STOP' ? 'bg-red-400' : smb.shield_status === 'SOFT_HOLD' ? 'bg-amber-400' : 'bg-emerald-400'
+              const barColor     = smb.shield_status === 'HARD_STOP' ? 'bg-red-400' : smb.shield_status === 'SOFT_HOLD' ? 'bg-amber-400' : 'bg-emerald-400'
+              const softHoldBorder = smb.soft_hold_active
+                ? (isDark ? 'border-amber-400/30' : 'border-amber-300')
+                : ''
 
               return (
-                <div key={smb.sub_member_id} className={`border rounded-xl p-4 ${th.card} ${smb.soft_hold_active ? ('border-amber-300 dark:border-amber-400/30') : ''}`}>
+                <div key={smb.sub_member_id} className={`border rounded-xl p-4 ${th.card} ${softHoldBorder}`}>
                   {/* Row 1: Name + shield + CSV */}
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div>
@@ -364,8 +489,8 @@ export default function CTSReconciliation() {
                         {smb.shield_status === 'SAFE' ? '✓ SAFE' : smb.shield_status === 'SOFT_HOLD' ? '⚠ SOFT HOLD' : '✕ HARD STOP'}
                       </span>
                       <button
-                        onClick={() => downloadCsv(buildSmbCsv(smb), `SMB_${smb.sub_member_id}_${session.date.replace(/-/g,'')}.csv`)}
-                        className={`text-[10px] px-2.5 py-1 rounded-lg border flex items-center gap-1 transition-colors ${'border-slate-200 text-slate-500 hover:text-slate-800 dark:border-white/10 dark:text-slate-400 dark:hover:text-white dark:hover:border-white/20'}`}
+                        onClick={() => downloadCsv(buildSmbCsv(smb), `SMB_${smb.sub_member_id}_${session.date.replace(/-/g, '')}.csv`)}
+                        className={`text-[10px] px-2.5 py-1 rounded-lg border flex items-center gap-1 transition-colors ${th.csvBtn}`}
                       >
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -378,14 +503,14 @@ export default function CTSReconciliation() {
                   {/* Row 2: Bucket grid */}
                   <div className="grid grid-cols-6 gap-2 mb-3">
                     {[
-                      { label: 'Total',    value: smb.total_received, color: th.heading },
-                      { label: 'STP Pass', value: smb.stp_pass,       color: 'text-emerald-500' },
-                      { label: 'Return',   value: smb.stp_return,     color: 'text-red-400' },
-                      { label: 'Eyeball',  value: smb.eyeball,        color: 'text-amber-400' },
-                      { label: 'Fraud Hld',value: smb.fraud_hold,     color: 'text-orange-400' },
-                      { label: 'IET Emrg', value: smb.iet_emergency,  color: smb.iet_emergency > 0 ? 'text-red-400' : th.faint },
+                      { label: 'Total',     value: smb.total_received, color: th.heading },
+                      { label: 'STP Pass',  value: smb.stp_pass,       color: 'text-emerald-500' },
+                      { label: 'Return',    value: smb.stp_return,     color: 'text-red-400' },
+                      { label: 'Eyeball',   value: smb.eyeball,        color: 'text-amber-400' },
+                      { label: 'Fraud Hld', value: smb.fraud_hold,     color: 'text-orange-400' },
+                      { label: 'IET Emrg',  value: smb.iet_emergency,  color: smb.iet_emergency > 0 ? 'text-red-400' : th.faint },
                     ].map(b => (
-                      <div key={b.label} className={`rounded-lg px-3 py-2 ${'bg-slate-50 dark:bg-white/3'}`}>
+                      <div key={b.label} className={`rounded-lg px-3 py-2 ${th.bucket}`}>
                         <div className={`text-[9px] ${th.faint} mb-1`}>{b.label}</div>
                         <div className={`text-lg font-bold ${b.color}`}>{b.value}</div>
                       </div>
@@ -397,22 +522,22 @@ export default function CTSReconciliation() {
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-1">
                         <span className={`text-[10px] ${th.faint}`}>Return rate</span>
-                        <span className={`text-[10px] font-semibold ${smb.shield_status !== 'SAFE' ? ('text-amber-700 dark:text-amber-300') : ('text-emerald-700 dark:text-emerald-400')}`}>
+                        <span className={`text-[10px] font-semibold ${smb.shield_status !== 'SAFE' ? (isDark ? 'text-amber-300' : 'text-amber-700') : (isDark ? 'text-emerald-400' : 'text-emerald-700')}`}>
                           {smb.return_rate_pct.toFixed(1)}% / {smb.return_rate_threshold_pct.toFixed(1)}% threshold
                         </span>
                       </div>
-                      <div className={`h-1.5 rounded-full ${'bg-slate-100 dark:bg-white/5'}`}>
+                      <div className={`h-1.5 rounded-full ${th.bar}`}>
                         <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${Math.min(returnBarPct, 100)}%` }} />
                       </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <div className={`text-[10px] ${th.faint}`}>
                         Tier 1 notif:
-                        <span className={`ml-1 font-semibold ${'text-sky-600 dark:text-sky-400'}`}>{smb.tier1_sent} sent</span>
+                        <span className={`ml-1 font-semibold ${isDark ? 'text-sky-400' : 'text-sky-600'}`}>{smb.tier1_sent} sent</span>
                       </div>
                       <div className={`text-[10px] ${th.faint}`}>
                         Tier 2 batch:
-                        <span className={`ml-1 font-semibold ${smb.tier2_sent ? ('text-emerald-700 dark:text-emerald-400') : ('text-slate-400 dark:text-slate-500')}`}>
+                        <span className={`ml-1 font-semibold ${smb.tier2_sent ? (isDark ? 'text-emerald-400' : 'text-emerald-700') : th.faint}`}>
                           {smb.tier2_sent ? 'sent' : 'pending (session active)'}
                         </span>
                       </div>
@@ -423,6 +548,7 @@ export default function CTSReconciliation() {
             })}
           </div>
         </div>
+        }
 
       </div>
     </AppShell>

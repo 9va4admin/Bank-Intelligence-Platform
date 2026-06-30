@@ -273,3 +273,32 @@ class TestHealthRoute:
         client = TestClient(_make_app(role="bank_it_admin"), raise_server_exceptions=False)
         response = client.get("/v1/admin/health")
         assert "overall_status" in response.json()
+
+
+class TestAdminAuthEdgeCases:
+    """Cover lines 45-49: invalid token → 401 in get_current_user."""
+    def test_invalid_token_returns_401(self):
+        from apps.api.routers.admin import router_v1
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        app = FastAPI()
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get(
+            "/v1/admin/users",
+            headers={"Authorization": "Bearer not-a-valid-token"},
+        )
+        assert response.status_code == 401
+
+    def test_valid_test_token_returns_200(self):
+        from apps.api.routers.admin import router_v1
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        app = FastAPI()
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get(
+            "/v1/admin/users",
+            headers={"Authorization": "Bearer test-token-test-bank"},
+        )
+        assert response.status_code == 200

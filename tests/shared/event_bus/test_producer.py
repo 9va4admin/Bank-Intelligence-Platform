@@ -199,3 +199,36 @@ async def test_platform_topic_allowed_from_any_module(producer):
         schema_version="1.0",
     )
     producer._producer.send.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# connect() — success and failure paths
+# ---------------------------------------------------------------------------
+
+def test_connect_success_sets_ready(monkeypatch):
+    """connect() with a mocked KafkaProducer should set _ready=True."""
+    import sys
+
+    fake_producer_instance = MagicMock()
+    fake_kafka_module = MagicMock()
+    fake_kafka_module.KafkaProducer.return_value = fake_producer_instance
+    monkeypatch.setitem(sys.modules, "kafka", fake_kafka_module)
+
+    p = EventProducer(bootstrap_servers="kafka:9092", bank_id="test-bank", module="cts")
+    p.connect()
+
+    assert p._ready is True
+    assert p._producer is fake_producer_instance
+
+
+def test_connect_failure_raises_event_bus_unavailable(monkeypatch):
+    """connect() when KafkaProducer raises must wrap in EventBusUnavailableError."""
+    import sys
+
+    fake_kafka_module = MagicMock()
+    fake_kafka_module.KafkaProducer.side_effect = Exception("broker unavailable")
+    monkeypatch.setitem(sys.modules, "kafka", fake_kafka_module)
+
+    p = EventProducer(bootstrap_servers="kafka:9092", bank_id="test-bank")
+    with pytest.raises(EventBusUnavailableError, match="producer connect failed"):
+        p.connect()

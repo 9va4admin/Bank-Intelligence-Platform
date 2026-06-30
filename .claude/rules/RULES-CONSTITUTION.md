@@ -50,6 +50,7 @@ An empty "Enforced By" cell means the rule file is non-compliant with this const
 | `api.md` | Router structure, auth, rate limits, OTel | CI integration tests (auth failure = test fail), OpenAPI schema lint |
 | `ej.md` | EJ immutability, edge agent, LLM parsing | ej-parser-specialist agent, CI contract tests for MCP server |
 | `frontend.md` | Multi-theme support, `useTheme()` pattern, dark/light class mapping | Semgrep (hardcoded dark wrapper classes), code review (missing `useTheme` import) |
+| `sb-smb-context.md` | SB vs SMB bank type scoping — every page, every data fetch, every download | `security-auditor` agent, Semgrep (hardcoded bank_type), code review (`useBankContext` import check) |
 
 ---
 

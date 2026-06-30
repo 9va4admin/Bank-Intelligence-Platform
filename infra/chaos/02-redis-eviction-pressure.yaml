@@ -1,0 +1,74 @@
+# Chaos Scenario 2: Redis Vault Eviction Under Memory Pressure
+#
+# Simulates: redis-cts cluster under extreme memory pressure causing eviction.
+# Expected behaviour:
+#   - Vault miss events routed to HUMAN_REVIEW (never AUTO_RETURN)
+#   - cts_vault_miss_total metric increases
+#   - Human review queue depth increases (observable in Grafana)
+#   - IETWatchdogWorkflow continues operating — no IET breach
+#   - VaultSyncWorkflow re-warm triggered via alert rule
+#
+# RBI Control: CTS-01 — vault miss must route to HUMAN_REVIEW, never AUTO_RETURN
+# CLAUDE.md Rule: "Vault stale → route ALL to human review (never auto-return on miss)"
+# Duration: 3 minutes (enough to see vault misses, short enough for safe queue drain)
+
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: redis-cts-memory-pressure
+  namespace: chaos-testing
+  labels:
+    scenario: redis-eviction
+    rbi-control: CTS-01
+    severity: high
+    runbook: "docs/runbooks/redis-eviction.md"
+spec:
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      "app.kubernetes.io/name": "redis-cts"
+      "app.kubernetes.io/component": "node"
+  stressors:
+    memory:
+      workers: 4
+      size: "90%"         # Fill to 90% of pod memory limit — triggers maxmemory eviction
+  duration: "3m"
+
+---
+# Companion: NetworkChaos latency on Redis to simulate slow vault responses
+# (tests graceful degradation path: slow Redis = treat as miss = HUMAN_REVIEW)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: redis-cts-latency
+  namespace: chaos-testing
+  labels:
+    scenario: redis-eviction
+    rbi-control: CTS-01
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      "app.kubernetes.io/name": "redis-cts"
+  delay:
+    latency: "200ms"      # Vault lookup SLA is < 5ms — 200ms = effectively a miss
+    correlation: "100"
+    jitter: "50ms"
+  duration: "3m"
+
+---
+# Pass criteria:
+#   1. cts_vault_miss_total increases during chaos window
+#   2. cts_vault_miss_routed_auto_return_total remains ZERO at all times
+#   3. human_review_queue_depth_total increases proportionally
+#   4. Zero IET breaches during the 3-minute window
+#   5. After chaos ends: VaultSyncWorkflow re-warms vault within 5 minutes
+#   6. Vault hit rate returns to > 99% within 10 minutes post-chaos
+#
+# Monitoring: open Grafana → ASTRA CTS Dashboard → Vault Health panel

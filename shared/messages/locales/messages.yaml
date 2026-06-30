@@ -1,0 +1,1655 @@
+# ASTRA Message Taxonomy — single source of truth
+# Format: each key carries metadata + one text entry per locale.
+# Locale text is empty string for untranslated stubs.
+# To add a locale: add a new text field (e.g. 'mr:') for every key.
+# Run: python -m shared.messages.build  →  refreshes Redis + JSON bundles.
+
+# ────────────────────────────────────────────────────────────────────────
+# CTS WORKFLOW
+# ────────────────────────────────────────────────────────────────────────
+
+CTS_WF_CHEQUE_RECEIVED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [instrument_id, bank]
+  en: "Cheque {instrument_id} received from {bank} — queued for processing."
+  hi: ""
+
+CTS_WF_CHEQUE_DUPLICATE:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [instrument_id, session_id]
+  en: "Duplicate instrument {instrument_id} rejected — already processed in session {session_id}."
+  hi: ""
+
+CTS_WF_CHEQUE_STALE:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id, presented_date]
+  en: "Instrument {instrument_id} is stale — presentation date {presented_date} exceeds validity window."
+  hi: ""
+
+CTS_WF_CTS2010_PASS:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id]
+  en: "CTS-2010 image compliance passed for {instrument_id}."
+  hi: ""
+
+CTS_WF_CTS2010_FAIL:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id, violation_count, violations]
+  en: "CTS-2010 compliance failed for {instrument_id} — {violation_count} violations: {violations}."
+  hi: ""
+
+CTS_WF_OCR_COMPLETE:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, confidence_pct]
+  en: "OCR extraction complete for {instrument_id} — confidence {confidence_pct}%."
+  hi: ""
+
+CTS_WF_OCR_LOW_CONFIDENCE:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, confidence_pct]
+  en: "OCR confidence {confidence_pct}% below threshold for {instrument_id} — routed to human review."
+  hi: ""
+
+CTS_WF_OCR_AMOUNT_MISMATCH:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, amount_figures, amount_words]
+  en: "Amount mismatch on {instrument_id} — figures say {amount_figures}, words say {amount_words}."
+  hi: ""
+
+CTS_WF_OCR_MICR_INVALID:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id]
+  en: "MICR line unreadable on {instrument_id} — routed to human review."
+  hi: ""
+
+CTS_WF_OCR_DATE_INVALID:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id, extracted_date]
+  en: "Invalid date on {instrument_id} — extracted value: {extracted_date}."
+  hi: ""
+
+CTS_WF_OCR_PAYEE_BLANK:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id]
+  en: "Payee name blank on {instrument_id} — routed to human review."
+  hi: ""
+
+CTS_WF_ALTERATION_NONE:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id]
+  en: "No alteration detected on {instrument_id}."
+  hi: ""
+
+CTS_WF_ALTERATION_DETECTED:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, field]
+  en: "Alteration detected on {instrument_id} — field: {field}. Routed to human review."
+  hi: ""
+
+CTS_WF_ALTERATION_SUSPECTED:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, field, confidence_pct]
+  en: "Possible alteration on {instrument_id} — field: {field}, confidence {confidence_pct}%. Routed to human review."
+  hi: ""
+
+CTS_WF_SIGNATURE_VERIFIED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [account_display, instrument_id, score_pct]
+  en: "Signature verified for {account_display} on {instrument_id} — match score {score_pct}%."
+  hi: ""
+
+CTS_WF_SIGNATURE_MISMATCH:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [account_display, instrument_id, score_pct]
+  en: "Signature mismatch for {account_display} — {instrument_id} score {score_pct}%, below threshold. Human review."
+  hi: ""
+
+CTS_WF_VAULT_MISS:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [account_display, instrument_id]
+  en: "No signature specimen for {account_display} — {instrument_id} routed to human review."
+  hi: ""
+
+CTS_WF_VAULT_STALE_ROUTING:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [instrument_id]
+  en: "Signature vault stale — {instrument_id} routed to human review as a precaution."
+  hi: ""
+
+CTS_WF_PPS_MATCH:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [account_display, instrument_id]
+  en: "PPS record matched for {account_display} — {instrument_id} amount and series confirmed."
+  hi: ""
+
+CTS_WF_PPS_MISS:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [account_display, instrument_id]
+  en: "No PPS record for {account_display} cheque {instrument_id} — routed to human review."
+  hi: ""
+
+CTS_WF_PPS_AMOUNT_MISMATCH:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, expected_range, presented_range]
+  en: "PPS amount mismatch on {instrument_id} — registered {expected_range}, presented {presented_range}."
+  hi: ""
+
+CTS_WF_PPS_SERIES_MISMATCH:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, presented_series]
+  en: "PPS cheque series mismatch on {instrument_id} — series {presented_series} not registered."
+  hi: ""
+
+CTS_WF_CBS_BALANCE_SUFFICIENT:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [account_display, instrument_id]
+  en: "Balance check passed for {account_display} — {instrument_id} cleared to proceed."
+  hi: ""
+
+CTS_WF_CBS_BALANCE_INSUFFICIENT:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [account_display, instrument_id]
+  en: "Insufficient balance for {account_display} — {instrument_id} to be returned."
+  hi: ""
+
+CTS_WF_CBS_ACCOUNT_FROZEN:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [account_display, instrument_id]
+  en: "Account {account_display} is frozen — {instrument_id} returned immediately."
+  hi: ""
+
+CTS_WF_CBS_ACCOUNT_CLOSED:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [account_display, instrument_id]
+  en: "Account {account_display} is closed — {instrument_id} returned immediately."
+  hi: ""
+
+CTS_WF_CBS_ACCOUNT_DORMANT:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [account_display, instrument_id]
+  en: "Account {account_display} is dormant — {instrument_id} routed to human review."
+  hi: ""
+
+CTS_WF_CBS_UNREACHABLE_DEGRADED:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [instrument_id]
+  en: "CBS unreachable — {instrument_id} proceeding on image-only path. Balance check deferred."
+  hi: ""
+
+CTS_WF_STOP_PAYMENT_HIT:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, account_display]
+  en: "Stop payment instruction active for {instrument_id} on {account_display} — returned immediately."
+  hi: ""
+
+CTS_WF_STOP_PAYMENT_CLEAR:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, account_display]
+  en: "No stop payment on {instrument_id} for {account_display}."
+  hi: ""
+
+CTS_WF_FRAUD_SCORE_LOW:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [score, instrument_id]
+  en: "Fraud score {score} (low risk) for {instrument_id} — STP path eligible."
+  hi: ""
+
+CTS_WF_FRAUD_SCORE_HIGH:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [score, instrument_id]
+  en: "Fraud score {score} exceeds threshold for {instrument_id} — routed to human review."
+  hi: ""
+
+CTS_WF_FRAUD_MODEL_UNAVAILABLE:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [instrument_id]
+  en: "Fraud model unavailable for {instrument_id} — routed to human review as precaution."
+  hi: ""
+
+CTS_WF_FRAUD_HIGH_VALUE:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [instrument_id, amount_range]
+  en: "High-value cheque {instrument_id} ({amount_range}) — mandatory human review regardless of score."
+  hi: ""
+
+CTS_WF_FRAUD_SHAP_STORED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, top_factor]
+  en: "SHAP explanation computed and stored for {instrument_id} — top factor: {top_factor}."
+  hi: ""
+
+CTS_WF_STP_CONFIRMED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [instrument_id]
+  en: "Cheque {instrument_id} auto-confirmed via STP — filed to NGCH."
+  hi: ""
+
+CTS_WF_STP_RETURNED:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, return_reason]
+  en: "Cheque {instrument_id} auto-returned — reason: {return_reason}."
+  hi: ""
+
+CTS_WF_STP_BLOCKED_OPA:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [instrument_id, policy_name]
+  en: "STP blocked for {instrument_id} by policy {policy_name} — routed to human review."
+  hi: ""
+
+CTS_WF_HUMAN_REVIEW_ASSIGNED:
+  severity: INFO
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, reviewer, iet_deadline]
+  en: "Cheque {instrument_id} assigned to {reviewer} — IET deadline {iet_deadline}."
+  hi: ""
+
+CTS_WF_HUMAN_REVIEW_REASSIGNED:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [instrument_id, old_reviewer, new_reviewer, reassigned_by]
+  en: "Cheque {instrument_id} reassigned from {old_reviewer} to {new_reviewer} by {reassigned_by}."
+  hi: ""
+
+CTS_WF_HUMAN_CONFIRMED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [reviewer, instrument_id]
+  en: "Reviewer {reviewer} confirmed cheque {instrument_id} — filed to NGCH."
+  hi: ""
+
+CTS_WF_HUMAN_RETURNED:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [reviewer, instrument_id, return_reason]
+  en: "Reviewer {reviewer} returned cheque {instrument_id} — reason: {return_reason}."
+  hi: ""
+
+CTS_WF_HUMAN_ESCALATED:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [reviewer, instrument_id, escalated_to, note]
+  en: "Reviewer {reviewer} escalated {instrument_id} to {escalated_to} — note: {note}."
+  hi: ""
+
+CTS_WF_REVIEW_TIMEOUT:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, elapsed_minutes]
+  en: "Human review timed out for {instrument_id} after {elapsed_minutes} minutes — auto-returned."
+  hi: ""
+
+CTS_WF_REVIEW_IET_WARNING:
+  severity: WARN
+  surface: [UI, NOTIFICATION]
+  variables: [instrument_id, minutes_remaining]
+  en: "IET warning for {instrument_id} in review queue — {minutes_remaining} minutes remaining."
+  hi: ""
+
+CTS_WF_IET_WATCHDOG_STARTED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, iet_deadline]
+  en: "IET watchdog active for {instrument_id} — deadline {iet_deadline}."
+  hi: ""
+
+CTS_WF_IET_WATCHDOG_FIRED:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, seconds_remaining]
+  en: "IET watchdog triggered for {instrument_id} — emergency filing initiated with {seconds_remaining}s remaining."
+  hi: ""
+
+CTS_WF_IET_SAFE:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id]
+  en: "IET watchdog closed safely for {instrument_id} — filed within window."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# CTS OUTWARD
+# ────────────────────────────────────────────────────────────────────────
+
+CTS_OUT_SCANNER_SESSION_OPENED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [session_id, operator, scanner_id]
+  en: "Scanner session {session_id} opened by {operator} — {scanner_id} active."
+  hi: ""
+
+CTS_OUT_SCANNER_SESSION_CLOSED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [session_id, instrument_count]
+  en: "Scanner session {session_id} closed — {instrument_count} instruments captured."
+  hi: ""
+
+CTS_OUT_SCANNER_OFFLINE:
+  severity: ERROR
+  surface: [UI, NOTIFICATION]
+  variables: [scanner_id, session_id]
+  en: "Scanner {scanner_id} went offline — session {session_id} paused."
+  hi: ""
+
+CTS_OUT_SCANNER_JAM:
+  severity: ERROR
+  surface: [UI, NOTIFICATION]
+  variables: [scanner_id, instrument_id]
+  en: "Paper jam on {scanner_id} — last captured instrument was {instrument_id}."
+  hi: ""
+
+CTS_OUT_IMAGE_CAPTURED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, quality_pct]
+  en: "Front and rear images captured for {instrument_id} — quality score {quality_pct}%."
+  hi: ""
+
+CTS_OUT_IMAGE_QUALITY_FAIL:
+  severity: WARN
+  surface: [UI]
+  variables: [instrument_id, quality_pct]
+  en: "Image quality below threshold for {instrument_id} — score {quality_pct}%. Rescan required."
+  hi: ""
+
+CTS_OUT_IMAGE_SKEW_HIGH:
+  severity: WARN
+  surface: [UI]
+  variables: [instrument_id, skew_degrees]
+  en: "Excessive skew detected on {instrument_id} — {skew_degrees}°. Rescan recommended."
+  hi: ""
+
+CTS_OUT_MICR_EXTRACTED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, drawee_ifsc, account_display]
+  en: "MICR line extracted for {instrument_id} — IFSC {drawee_ifsc}, account {account_display}."
+  hi: ""
+
+CTS_OUT_MICR_UNREADABLE:
+  severity: ERROR
+  surface: [UI]
+  variables: [instrument_id]
+  en: "MICR line unreadable on {instrument_id} — manual entry required."
+  hi: ""
+
+CTS_OUT_CTS2010_PASS:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id]
+  en: "CTS-2010 compliance check passed for outward {instrument_id}."
+  hi: ""
+
+CTS_OUT_CTS2010_FAIL:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id, violation_count, violations]
+  en: "CTS-2010 compliance failed for outward {instrument_id} — {violation_count} violations: {violations}."
+  hi: ""
+
+CTS_OUT_CTS2010_NON_CTS_FORM:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id]
+  en: "Non-CTS cheque form detected for {instrument_id} — not eligible for truncation."
+  hi: ""
+
+CTS_OUT_LOT_CREATED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [lot_id, zone, instrument_count]
+  en: "Lot {lot_id} created for clearing zone {zone} — {instrument_count} instruments."
+  hi: ""
+
+CTS_OUT_LOT_INSTRUMENT_ADDED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, lot_id, lot_total]
+  en: "Instrument {instrument_id} added to lot {lot_id} — lot total: {lot_total}."
+  hi: ""
+
+CTS_OUT_LOT_SEALED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [lot_id, operator, instrument_count, total_value_range]
+  en: "Lot {lot_id} sealed by {operator} — {instrument_count} instruments, value {total_value_range}."
+  hi: ""
+
+CTS_OUT_LOT_SEAL_FAILED:
+  severity: ERROR
+  surface: [UI]
+  variables: [lot_id, reason]
+  en: "Lot {lot_id} seal failed — {reason}. Resolve before submission."
+  hi: ""
+
+CTS_OUT_LOT_INSTRUMENT_REMOVED:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [instrument_id, lot_id, operator, reason]
+  en: "Instrument {instrument_id} removed from lot {lot_id} by {operator} — reason: {reason}."
+  hi: ""
+
+CTS_OUT_ENDORSEMENT_STAMPED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, stamp_ref]
+  en: "Endorsement stamp applied to {instrument_id} — stamp ref {stamp_ref}."
+  hi: ""
+
+CTS_OUT_ENDORSEMENT_BATCH_COMPLETE:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [lot_id, count]
+  en: "Endorsement batch {lot_id} complete — {count} instruments stamped."
+  hi: ""
+
+CTS_OUT_ENDORSEMENT_FAILED:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id, error]
+  en: "Endorsement failed for {instrument_id} — {error}. Retrying."
+  hi: ""
+
+CTS_OUT_NGCH_FILE_BUILT:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [lot_id, instrument_count]
+  en: "NGCH presentation file built for lot {lot_id} — {instrument_count} instruments."
+  hi: ""
+
+CTS_OUT_NGCH_SUBMITTED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [lot_id, ngch_ack_ref]
+  en: "Lot {lot_id} submitted to NGCH — acknowledgement {ngch_ack_ref}."
+  hi: ""
+
+CTS_OUT_NGCH_SUBMISSION_FAILED:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [lot_id, error_code]
+  en: "NGCH outward submission failed for lot {lot_id} — error {error_code}. Retrying."
+  hi: ""
+
+CTS_OUT_NGCH_SESSION_CUTOFF_MISSED:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [lot_id, cutoff_time]
+  en: "Lot {lot_id} missed clearing session cutoff {cutoff_time} — deferred to next session."
+  hi: ""
+
+CTS_OUT_RRF_GENERATED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [session_id, return_count]
+  en: "Return Reason File generated for session {session_id} — {return_count} returns."
+  hi: ""
+
+CTS_OUT_RECONCILIATION_COMPLETE:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [session_id, matched, exceptions, returns]
+  en: "Session {session_id} reconciled — {matched} matched, {exceptions} exceptions, {returns} returns."
+  hi: ""
+
+CTS_OUT_RECONCILIATION_EXCEPTION:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, ngch_status, local_status]
+  en: "Reconciliation exception on {instrument_id} — NGCH status {ngch_status} vs local {local_status}."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# CTS COMPLIANCE
+# ────────────────────────────────────────────────────────────────────────
+
+CTS_COMP_BANK_LOGO_MISSING:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id]
+  en: "CTS-2010 violation on {instrument_id}: bank logo absent or non-UV-reactive."
+  hi: ""
+
+CTS_COMP_WATERMARK_MISSING:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id]
+  en: "CTS-2010 violation on {instrument_id}: CTS-INDIA watermark absent."
+  hi: ""
+
+CTS_COMP_VOID_PANTOGRAPH_MISSING:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id]
+  en: "CTS-2010 violation on {instrument_id}: VOID pantograph not present."
+  hi: ""
+
+CTS_COMP_IFSC_MISSING:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id]
+  en: "CTS-2010 violation on {instrument_id}: IFSC code absent or unreadable."
+  hi: ""
+
+CTS_COMP_MICR_BAND_INVALID:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id]
+  en: "CTS-2010 violation on {instrument_id}: MICR band position or dimensions non-compliant."
+  hi: ""
+
+CTS_COMP_IMAGE_RESOLUTION_LOW:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id, actual_dpi]
+  en: "CTS-2010 violation on {instrument_id}: image resolution {actual_dpi} DPI below required 200 DPI."
+  hi: ""
+
+CTS_COMP_IMAGE_COLOUR_INVALID:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id]
+  en: "CTS-2010 violation on {instrument_id}: front image must be colour (24-bit), rear greyscale."
+  hi: ""
+
+CTS_COMP_INSTRUMENT_SIZE_INVALID:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id, actual_dimensions]
+  en: "CTS-2010 violation on {instrument_id}: physical dimensions {actual_dimensions} outside standard range."
+  hi: ""
+
+CTS_COMP_POST_DATED:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id, cheque_date]
+  en: "Instrument {instrument_id} is post-dated — cheque date {cheque_date} is in the future."
+  hi: ""
+
+CTS_COMP_STALE_DATED:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id, cheque_date, validity_days]
+  en: "Instrument {instrument_id} stale — cheque date {cheque_date} exceeds {validity_days}-day validity."
+  hi: ""
+
+CTS_COMP_AMOUNT_WORDS_BLANK:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id]
+  en: "CTS-2010 violation on {instrument_id}: amount in words is blank."
+  hi: ""
+
+CTS_COMP_PAYEE_BLANK:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id]
+  en: "CTS-2010 violation on {instrument_id}: payee name is blank."
+  hi: ""
+
+CTS_COMP_DRAWEE_BANK_MISMATCH:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id, micr_ifsc, image_bank]
+  en: "CTS-2010 violation on {instrument_id}: drawee IFSC {micr_ifsc} does not match image bank {image_bank}."
+  hi: ""
+
+CTS_COMP_EXCESSIVE_DAMAGE:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id]
+  en: "Instrument {instrument_id} rejected — physical damage exceeds acceptable threshold for truncation."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# CTS NGCH
+# ────────────────────────────────────────────────────────────────────────
+
+CTS_NGCH_FILED_CONFIRM:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, ngch_ref]
+  en: "Cheque {instrument_id} CONFIRMED and filed to NGCH — reference {ngch_ref}."
+  hi: ""
+
+CTS_NGCH_FILED_RETURN:
+  severity: WARN
+  surface: [AUDIT]
+  variables: [instrument_id, return_reason, ngch_ref]
+  en: "Cheque {instrument_id} RETURNED and filed to NGCH — reason: {return_reason}, ref {ngch_ref}."
+  hi: ""
+
+CTS_NGCH_SUBMIT_FAILED:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, error_code, attempt, max_attempts]
+  en: "NGCH submission failed for {instrument_id} — error {error_code}. Attempt {attempt} of {max_attempts}."
+  hi: ""
+
+CTS_NGCH_SUBMIT_FAILED_TERMINAL:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, max_attempts]
+  en: "NGCH submission permanently failed for {instrument_id} after {max_attempts} attempts — manual intervention required."
+  hi: ""
+
+CTS_NGCH_DUPLICATE_DETECTED:
+  severity: WARN
+  surface: [AUDIT]
+  variables: [instrument_id]
+  en: "Duplicate NGCH filing detected for {instrument_id} — idempotency key matched. Skipped safely."
+  hi: ""
+
+CTS_NGCH_IET_EXPIRED:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id]
+  en: "IET window expired for {instrument_id} — deemed approval in effect. Bank is liable."
+  hi: ""
+
+CTS_NGCH_MAINTENANCE_WINDOW:
+  severity: WARN
+  surface: [UI, NOTIFICATION]
+  variables: [instrument_id]
+  en: "NGCH in maintenance — {instrument_id} queued for filing on reconnect. IET watchdog active."
+  hi: ""
+
+CTS_NGCH_RATE_LIMITED:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [pending_count, retry_after_seconds]
+  en: "NGCH rate limit hit — {pending_count} instruments queued. Retry after {retry_after_seconds}s."
+  hi: ""
+
+CTS_NGCH_AUTH_CERT_EXPIRED:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [bank_id]
+  en: "NGCH mTLS certificate expired for {bank_id} — renewing from Vault. Filings paused."
+  hi: ""
+
+CTS_NGCH_AUTH_CERT_RENEWED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [bank_id]
+  en: "NGCH mTLS certificate renewed for {bank_id} — filings resumed."
+  hi: ""
+
+CTS_NGCH_TRANSPORT_SWITCHED:
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [old_transport, new_transport, bank_id]
+  en: "NGCH transport switched from {old_transport} to {new_transport} for {bank_id}."
+  hi: ""
+
+CTS_NGCH_SETTLEMENT_REPORT_RECEIVED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [session_id, total_items, total_value_range]
+  en: "NGCH settlement report received for session {session_id} — {total_items} items, value {total_value_range}."
+  hi: ""
+
+CTS_NGCH_RETURN_NOTIFICATION_RECEIVED:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, return_reason]
+  en: "NGCH return notification for {instrument_id} — reason: {return_reason}."
+  hi: ""
+
+CTS_NGCH_SESSION_RECONCILED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [session_id, matched, exceptions]
+  en: "Clearing session {session_id} reconciled — {matched} matched, {exceptions} exceptions."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# CTS SMB
+# ────────────────────────────────────────────────────────────────────────
+
+CTS_SMB_INSTRUMENT_RECEIVED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [instrument_id, smb_name, smb_ifsc, sponsor_ifsc]
+  en: "Inward instrument {instrument_id} received from sub-member {smb_name} ({smb_ifsc}) via sponsor {sponsor_ifsc}."
+  hi: ""
+
+CTS_SMB_INSTRUMENT_VALIDATED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id]
+  en: "Sub-member instrument {instrument_id} passed sponsor bank validation."
+  hi: ""
+
+CTS_SMB_INSTRUMENT_REJECTED:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, smb_name, rejection_reason]
+  en: "Sub-member instrument {instrument_id} from {smb_name} rejected — reason: {rejection_reason}."
+  hi: ""
+
+CTS_SMB_ROUTED_TO_SPONSOR_LOT:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, lot_id]
+  en: "Sub-member instrument {instrument_id} routed to sponsor lot {lot_id} for NGCH submission."
+  hi: ""
+
+CTS_SMB_FORWARDED_TO_NGCH:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [instrument_id, sponsor_ifsc]
+  en: "Sub-member instrument {instrument_id} forwarded to NGCH under sponsor {sponsor_ifsc}."
+  hi: ""
+
+CTS_SMB_RETURNED_TO_SMB:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, smb_name, return_reason]
+  en: "Instrument {instrument_id} returned to sub-member {smb_name} — reason: {return_reason}."
+  hi: ""
+
+CTS_SMB_RISK_SHIELD_TRIGGERED:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [smb_name, instrument_id, trigger]
+  en: "Risk shield triggered for {smb_name} — {instrument_id} held pending review. Trigger: {trigger}."
+  hi: ""
+
+CTS_SMB_RISK_SHIELD_CLEARED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [instrument_id, smb_name]
+  en: "Risk shield cleared for {instrument_id} from {smb_name} — processing resumed."
+  hi: ""
+
+CTS_SMB_DAILY_LIMIT_APPROACHING:
+  severity: WARN
+  surface: [UI, NOTIFICATION]
+  variables: [smb_name, usage_pct]
+  en: "Sub-member {smb_name} at {usage_pct}% of daily submission limit."
+  hi: ""
+
+CTS_SMB_DAILY_LIMIT_EXCEEDED:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [smb_name]
+  en: "Sub-member {smb_name} has exceeded daily submission limit — further instruments held."
+  hi: ""
+
+CTS_SMB_SMB_OFFLINE:
+  severity: WARN
+  surface: [UI, NOTIFICATION]
+  variables: [smb_name, smb_ifsc, hours_since]
+  en: "Sub-member {smb_name} ({smb_ifsc}) has not submitted in {hours_since}h — connectivity check advised."
+  hi: ""
+
+CTS_SMB_NOTIFICATION_SENT:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [smb_name, return_count, session_id]
+  en: "Return notification sent to {smb_name} for {return_count} returned instruments from session {session_id}."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# CBS
+# ────────────────────────────────────────────────────────────────────────
+
+CBS_BALANCE_CHECK_OK:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [account_display, instrument_id]
+  en: "Balance check passed for {account_display} — {instrument_id} proceeds."
+  hi: ""
+
+CBS_BALANCE_INSUFFICIENT:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [account_display, instrument_id]
+  en: "Insufficient balance for {account_display} — {instrument_id} cannot be honoured."
+  hi: ""
+
+CBS_ACCOUNT_NOT_FOUND:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [account_display, cbs_type, instrument_id]
+  en: "Account {account_display} not found in CBS {cbs_type} — {instrument_id} to human review."
+  hi: ""
+
+CBS_ACCOUNT_FROZEN:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [account_display, instrument_id]
+  en: "Account {account_display} is frozen in CBS — {instrument_id} returned immediately."
+  hi: ""
+
+CBS_ACCOUNT_CLOSED:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [account_display, instrument_id]
+  en: "Account {account_display} is closed in CBS — {instrument_id} returned immediately."
+  hi: ""
+
+CBS_ACCOUNT_DORMANT:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [account_display, instrument_id]
+  en: "Account {account_display} is dormant in CBS — {instrument_id} routed to human review."
+  hi: ""
+
+CBS_ACCOUNT_LIEN_MARKED:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [account_display, instrument_id]
+  en: "Lien marked on {account_display} — {instrument_id} routed to human review for manual balance verification."
+  hi: ""
+
+CBS_STOP_PAYMENT_ACTIVE:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, account_display]
+  en: "Stop payment instruction active for {instrument_id} on {account_display} — returned immediately."
+  hi: ""
+
+CBS_STOP_PAYMENT_CLEAR:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, account_display]
+  en: "No stop payment on record for {instrument_id} / {account_display}."
+  hi: ""
+
+CBS_UNREACHABLE:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [cbs_type, bank_id, timeout_seconds]
+  en: "CBS {cbs_type} unreachable for {bank_id} — timeout after {timeout_seconds}s. Degraded path active."
+  hi: ""
+
+CBS_RECOVERED:
+  severity: INFO
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [cbs_type, bank_id, downtime_minutes]
+  en: "CBS {cbs_type} connection restored for {bank_id} after {downtime_minutes} minutes."
+  hi: ""
+
+CBS_RESPONSE_TIMEOUT:
+  severity: WARN
+  surface: [AUDIT]
+  variables: [cbs_type, bank_id, query_type, attempt]
+  en: "CBS {cbs_type} response timeout for {bank_id} on query type {query_type} — attempt {attempt}."
+  hi: ""
+
+CBS_AUTH_FAILED:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [cbs_type, bank_id]
+  en: "CBS {cbs_type} authentication failure for {bank_id} — credentials may be stale."
+  hi: ""
+
+CBS_VAULT_SYNC_STARTED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [bank_id, cbs_type]
+  en: "CBS vault sync started for {bank_id} — fetching signatures and PPS from {cbs_type}."
+  hi: ""
+
+CBS_VAULT_SYNC_COMPLETE:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [bank_id, sig_count, pps_count]
+  en: "CBS vault sync complete for {bank_id} — {sig_count} signatures, {pps_count} PPS entries loaded."
+  hi: ""
+
+CBS_VAULT_SYNC_FAILED:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [bank_id, error_code]
+  en: "CBS vault sync failed for {bank_id} — error: {error_code}. Retaining existing vault data."
+  hi: ""
+
+CBS_VAULT_PARTIAL_SYNC:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [bank_id, loaded_count, total_count, failed_count]
+  en: "CBS vault partial sync for {bank_id} — {loaded_count} of {total_count} accounts synced. {failed_count} failures."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# VAULT
+# ────────────────────────────────────────────────────────────────────────
+
+VAULT_SIG_HIT:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [account_display]
+  en: "Signature vault hit for {account_display} — specimen found, verification proceeding."
+  hi: ""
+
+VAULT_SIG_MISS:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [account_display, instrument_id]
+  en: "Signature vault miss for {account_display} — no specimen on record. {instrument_id} to human review."
+  hi: ""
+
+VAULT_SIG_STALE:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [bank_id, hours_ago]
+  en: "Signature vault stale for {bank_id} — last sync {hours_ago}h ago. All inward cheques to human review."
+  hi: ""
+
+VAULT_SIG_LOAD_COMPLETE:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [bank_id, count]
+  en: "Signature vault loaded for {bank_id} — {count} specimens ready."
+  hi: ""
+
+VAULT_SIG_LOAD_FAILED:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [bank_id, error]
+  en: "Signature vault load failed for {bank_id} — {error}. Existing data retained."
+  hi: ""
+
+VAULT_SIG_SPECIMEN_UPDATED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [account_display]
+  en: "Signature specimen updated for {account_display} by vault sync — previous version archived."
+  hi: ""
+
+VAULT_SIG_SPECIMEN_REVOKED:
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [account_display]
+  en: "Signature specimen revoked for {account_display} — subsequent cheques will route to human review."
+  hi: ""
+
+VAULT_SIG_MULTI_SIGNATORY:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [account_display, required_sigs, found_sigs]
+  en: "Multi-signatory account {account_display} — {required_sigs} signatures required, {found_sigs} detected."
+  hi: ""
+
+VAULT_SIG_INTEGRITY_FAIL:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [bank_id, corrupt_count]
+  en: "Signature vault integrity check failed for {bank_id} — {corrupt_count} entries corrupted. Resync required."
+  hi: ""
+
+VAULT_PPS_HIT:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [account_display, cheque_series]
+  en: "PPS vault hit for {account_display} — cheque series {cheque_series} registered."
+  hi: ""
+
+VAULT_PPS_MISS:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [account_display, instrument_id]
+  en: "No PPS record for {account_display} / {instrument_id} — routed to human review."
+  hi: ""
+
+VAULT_PPS_AMOUNT_MISMATCH:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, expected_range, presented_range]
+  en: "PPS amount mismatch on {instrument_id} — registered {expected_range}, presented {presented_range}."
+  hi: ""
+
+VAULT_PPS_SERIES_MISMATCH:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, presented_series]
+  en: "PPS series mismatch on {instrument_id} — presented series {presented_series} not registered."
+  hi: ""
+
+VAULT_PPS_PAYEE_MISMATCH:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id]
+  en: "PPS payee mismatch on {instrument_id} — registered payee differs from instrument."
+  hi: ""
+
+VAULT_PPS_LOAD_COMPLETE:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [bank_id, count]
+  en: "PPS vault loaded for {bank_id} — {count} entries ready."
+  hi: ""
+
+VAULT_PPS_LOAD_FAILED:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [bank_id, error]
+  en: "PPS vault load failed for {bank_id} — {error}. Existing data retained."
+  hi: ""
+
+VAULT_PPS_ENTRY_EXPIRED:
+  severity: WARN
+  surface: [AUDIT]
+  variables: [account_display, cheque_series]
+  en: "PPS entry expired for {account_display} cheque series {cheque_series} — no longer valid."
+  hi: ""
+
+VAULT_SYNC_COMPLETE:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [bank_id, sig_count, pps_count]
+  en: "Vault sync complete for {bank_id} — signatures: {sig_count}, PPS entries: {pps_count}."
+  hi: ""
+
+VAULT_SYNC_FAILED:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [bank_id, error_code]
+  en: "Vault sync failed for {bank_id} — error: {error_code}. Retaining existing vault data."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# AUTH
+# ────────────────────────────────────────────────────────────────────────
+
+AUTH_LOGIN_SUCCESS:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [display_name, role, ip_display]
+  en: "Login successful — {display_name} ({role}) signed in from {ip_display}."
+  hi: ""
+
+AUTH_LOGIN_FAILED:
+  severity: WARN
+  surface: [AUDIT]
+  variables: [username, attempt, max_attempts]
+  en: "Login failed for {username} — invalid credentials. Attempt {attempt} of {max_attempts}."
+  hi: ""
+
+AUTH_ACCOUNT_LOCKED:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [username, max_attempts]
+  en: "Account {username} locked after {max_attempts} failed login attempts. Unlock required."
+  hi: ""
+
+AUTH_ACCOUNT_UNLOCKED:
+  severity: INFO
+  surface: [AUDIT, NOTIFICATION]
+  variables: [username, unlocked_by]
+  en: "Account {username} unlocked by {unlocked_by}."
+  hi: ""
+
+AUTH_SESSION_STARTED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [display_name, session_display, expires_at]
+  en: "Session started for {display_name} — session ID {session_display}, expires {expires_at}."
+  hi: ""
+
+AUTH_SESSION_EXPIRED:
+  severity: INFO
+  surface: [UI]
+  variables: [display_name]
+  en: "Session expired for {display_name} — please sign in again."
+  hi: ""
+
+AUTH_SESSION_REVOKED:
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [display_name, revoked_by, reason]
+  en: "Session forcibly revoked for {display_name} by {revoked_by} — reason: {reason}."
+  hi: ""
+
+AUTH_PASSWORD_RESET_INITIATED:
+  severity: WARN
+  surface: [AUDIT]
+  variables: [username, initiated_by]
+  en: "Password reset initiated for {username} by {initiated_by}."
+  hi: ""
+
+AUTH_TOTP_ENABLED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [display_name]
+  en: "Two-factor authentication enabled for {display_name}."
+  hi: ""
+
+AUTH_TOTP_DISABLED:
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [display_name, disabled_by]
+  en: "Two-factor authentication disabled for {display_name} by {disabled_by}."
+  hi: ""
+
+AUTH_TOTP_VERIFIED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [display_name]
+  en: "TOTP verification successful for {display_name}."
+  hi: ""
+
+AUTH_TOTP_FAILED:
+  severity: WARN
+  surface: [AUDIT]
+  variables: [display_name]
+  en: "TOTP verification failed for {display_name} — code invalid or expired."
+  hi: ""
+
+AUTH_TOTP_BYPASS_USED:
+  severity: WARN
+  surface: [AUDIT]
+  variables: [display_name, remaining_count]
+  en: "TOTP backup code used by {display_name} — remaining backup codes: {remaining_count}."
+  hi: ""
+
+AUTH_SAML_ASSERTION_VALID:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [username, idp_entity_id]
+  en: "SAML assertion validated for {username} from IdP {idp_entity_id}."
+  hi: ""
+
+AUTH_SAML_ASSERTION_INVALID:
+  severity: ERROR
+  surface: [AUDIT]
+  variables: [username, error]
+  en: "SAML assertion invalid for {username} — {error}. Login denied."
+  hi: ""
+
+AUTH_SAML_IDP_UNREACHABLE:
+  severity: CRITICAL
+  surface: [UI, NOTIFICATION]
+  variables: [idp_entity_id]
+  en: "Bank IdP {idp_entity_id} unreachable — login blocked. Check IdP connectivity."
+  hi: ""
+
+AUTH_ACCESS_DENIED:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [role, action, resource]
+  en: "Access denied — {role} cannot perform {action} on {resource}."
+  hi: ""
+
+AUTH_ZONE_ACCESS_DENIED:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [display_name, role, zone]
+  en: "Zone access denied — {display_name} ({role}) not authorised for clearing zone {zone}."
+  hi: ""
+
+AUTH_ROLE_CHANGED:
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [target_user, old_role, new_role, changed_by]
+  en: "Role changed for {target_user} from {old_role} to {new_role} by {changed_by}."
+  hi: ""
+
+AUTH_ZONE_SCOPE_CHANGED:
+  severity: WARN
+  surface: [AUDIT]
+  variables: [target_user, new_zones, changed_by]
+  en: "Clearing zone scope updated for {target_user} — zones: {new_zones} (changed by {changed_by})."
+  hi: ""
+
+AUTH_USER_CREATED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [display_name, role, created_by]
+  en: "User {display_name} ({role}) created by {created_by}."
+  hi: ""
+
+AUTH_USER_UPDATED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [display_name, updated_by, changed_fields]
+  en: "User profile updated for {display_name} by {updated_by} — fields: {changed_fields}."
+  hi: ""
+
+AUTH_USER_DEACTIVATED:
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [display_name, deactivated_by]
+  en: "User {display_name} deactivated by {deactivated_by}."
+  hi: ""
+
+AUTH_USER_REACTIVATED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [display_name, reactivated_by]
+  en: "User {display_name} reactivated by {reactivated_by}."
+  hi: ""
+
+AUTH_RBI_ACCESS_GRANTED:
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [examiner_name, scope, valid_until]
+  en: "RBI examiner access granted for {examiner_name} — scope: {scope}, valid until {valid_until}."
+  hi: ""
+
+AUTH_RBI_ACCESS_EXPIRED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [examiner_name, access_duration]
+  en: "RBI examiner access expired for {examiner_name} — {access_duration} day engagement closed."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# EJ
+# ────────────────────────────────────────────────────────────────────────
+
+EJ_LOG_INGESTED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [atm_id, transaction_count, size_kb]
+  en: "EJ log received from ATM {atm_id} — {transaction_count} transactions, {size_kb}KB."
+  hi: ""
+
+EJ_LOG_DUPLICATE:
+  severity: WARN
+  surface: [AUDIT]
+  variables: [atm_id, file_hash]
+  en: "Duplicate EJ log rejected from ATM {atm_id} — hash {file_hash} already ingested."
+  hi: ""
+
+EJ_LOG_CORRUPT:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [atm_id]
+  en: "Corrupt EJ log from ATM {atm_id} — AES-GCM integrity check failed."
+  hi: ""
+
+EJ_EDGE_BUFFER_HIGH:
+  severity: WARN
+  surface: [UI, NOTIFICATION]
+  variables: [atm_id, buffer_pct]
+  en: "Edge buffer for ATM {atm_id} at {buffer_pct}% capacity — central connectivity may be degraded."
+  hi: ""
+
+EJ_EDGE_BUFFER_FULL:
+  severity: CRITICAL
+  surface: [UI, NOTIFICATION]
+  variables: [atm_id]
+  en: "Edge buffer full for ATM {atm_id} — oldest logs being overwritten. Immediate connectivity check required."
+  hi: ""
+
+EJ_OEM_DETECTED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [atm_id, oem, format_version]
+  en: "OEM fingerprint detected for ATM {atm_id} — manufacturer: {oem}, format version: {format_version}."
+  hi: ""
+
+EJ_OEM_UNKNOWN:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [atm_id, score]
+  en: "Unknown OEM format from ATM {atm_id} — fingerprint score {score}. Manual OEM classification required."
+  hi: ""
+
+EJ_OEM_FORMAT_CHANGED:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [atm_id, old_format, new_format]
+  en: "OEM format change detected on ATM {atm_id} — was {old_format}, now {new_format}. Parser may need update."
+  hi: ""
+
+EJ_PARSE_COMPLETE:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [atm_id, parsed_count]
+  en: "EJ normalisation complete for ATM {atm_id} — {parsed_count} records extracted."
+  hi: ""
+
+EJ_PARSE_LOW_CONFIDENCE:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [atm_id, low_count, total_count]
+  en: "EJ low-confidence extraction for ATM {atm_id} — {low_count} of {total_count} fields below threshold."
+  hi: ""
+
+EJ_PARSE_FAILED:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [atm_id, failed_count]
+  en: "EJ parsing failed for ATM {atm_id} — {failed_count} records could not be normalised."
+  hi: ""
+
+EJ_PARSE_MODEL_UNAVAILABLE:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [atm_id]
+  en: "LLM unavailable for EJ parsing — ATM {atm_id} log queued for retry."
+  hi: ""
+
+EJ_CANONICAL_STORED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [atm_id, canonical_hash, record_count]
+  en: "EJ canonical record stored for ATM {atm_id} — hash {canonical_hash}, {record_count} transactions."
+  hi: ""
+
+EJ_SCHEMA_VALID:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [atm_id]
+  en: "EJ canonical schema validation passed for ATM {atm_id} — all required fields present."
+  hi: ""
+
+EJ_SCHEMA_INVALID:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [atm_id, missing_fields]
+  en: "EJ canonical schema validation failed for ATM {atm_id} — missing fields: {missing_fields}."
+  hi: ""
+
+EJ_DISPUTE_RECEIVED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [claim_id, source, atm_id, amount_range]
+  en: "Dispute claim {claim_id} received from {source} for ATM {atm_id} — amount {amount_range}."
+  hi: ""
+
+EJ_DISPUTE_MATCHED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [claim_id, atm_id, confidence_pct]
+  en: "Dispute {claim_id} matched to EJ record for ATM {atm_id} — confidence {confidence_pct}%."
+  hi: ""
+
+EJ_DISPUTE_NO_MATCH:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [claim_id, atm_id]
+  en: "Dispute {claim_id} for ATM {atm_id} — no EJ record match found. Escalated for manual review."
+  hi: ""
+
+EJ_DISPUTE_AUTO_RESOLVED:
+  severity: INFO
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [claim_id, resolution]
+  en: "Dispute {claim_id} auto-resolved — {resolution}. Evidence package filed."
+  hi: ""
+
+EJ_DISPUTE_ESCALATED:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [claim_id, escalation_reason]
+  en: "Dispute {claim_id} escalated to human review — reason: {escalation_reason}."
+  hi: ""
+
+EJ_DISPUTE_CCTV_REQUESTED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [claim_id, atm_id, time_window]
+  en: "CCTV evidence requested for dispute {claim_id} — ATM {atm_id}, window {time_window}."
+  hi: ""
+
+EJ_DISPUTE_CCTV_RETRIEVED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [claim_id, clip_duration, object_key]
+  en: "CCTV clip retrieved for dispute {claim_id} — {clip_duration}s clip stored at {object_key}."
+  hi: ""
+
+EJ_DISPUTE_CCTV_UNAVAILABLE:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [claim_id, atm_id, camera_id]
+  en: "CCTV unavailable for dispute {claim_id} — ATM {atm_id} camera {camera_id} offline or clip overwritten."
+  hi: ""
+
+EJ_ATM_HEALTH_HEALTHY:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [atm_id]
+  en: "ATM {atm_id} health check passed — all metrics within normal range."
+  hi: ""
+
+EJ_ATM_HEALTH_DEGRADED:
+  severity: WARN
+  surface: [UI, NOTIFICATION]
+  variables: [atm_id, anomaly_type]
+  en: "ATM {atm_id} health degraded — {anomaly_type} detected. Predictive alert issued."
+  hi: ""
+
+EJ_ATM_HEALTH_CRITICAL:
+  severity: CRITICAL
+  surface: [UI, NOTIFICATION]
+  variables: [atm_id, fault_description]
+  en: "ATM {atm_id} in critical state — {fault_description}. Immediate attention required."
+  hi: ""
+
+EJ_ATM_CASH_LOW:
+  severity: WARN
+  surface: [UI, NOTIFICATION]
+  variables: [atm_id, remaining_notes, denomination_count]
+  en: "ATM {atm_id} cash level low — {remaining_notes} notes remaining across {denomination_count} denominations."
+  hi: ""
+
+EJ_ATM_DISPENSE_FAILURE_RATE_HIGH:
+  severity: WARN
+  surface: [UI, NOTIFICATION]
+  variables: [atm_id, failure_rate_pct, window_hours]
+  en: "ATM {atm_id} dispense failure rate at {failure_rate_pct}% over last {window_hours}h — hardware check recommended."
+  hi: ""
+
+EJ_ATM_OFFLINE:
+  severity: ERROR
+  surface: [UI, NOTIFICATION]
+  variables: [atm_id, offline_hours, last_log_time]
+  en: "ATM {atm_id} has been offline for {offline_hours}h — last log received {last_log_time}."
+  hi: ""
+
+EJ_ATM_PREDICTED_FAILURE:
+  severity: WARN
+  surface: [UI, NOTIFICATION]
+  variables: [atm_id, predicted_hours]
+  en: "Predictive model indicates ATM {atm_id} may fail within {predicted_hours}h — maintenance recommended."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# PLATFORM
+# ────────────────────────────────────────────────────────────────────────
+
+PLATFORM_CONFIG_CHANGE_SUBMITTED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [submitted_by, config_key, new_value]
+  en: "Config change submitted by {submitted_by} — key: {config_key}, new value: {new_value}. Pending approval."
+  hi: ""
+
+PLATFORM_CONFIG_CHANGE_APPROVED:
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [approved_by, config_key, old_value, new_value]
+  en: "Config change approved by {approved_by} — {config_key} updated from {old_value} to {new_value}."
+  hi: ""
+
+PLATFORM_CONFIG_CHANGE_REJECTED:
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [rejected_by, config_key, reason]
+  en: "Config change rejected by {rejected_by} — {config_key}. Reason: {reason}."
+  hi: ""
+
+PLATFORM_CONFIG_HOT_RELOADED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [bank_id, key_count]
+  en: "Config hot-reload triggered for {bank_id} — {key_count} keys updated from Kafka event."
+  hi: ""
+
+PLATFORM_POLICY_SUBMITTED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [policy_name, version, submitted_by]
+  en: "OPA policy {policy_name} v{version} submitted by {submitted_by} — pending approval."
+  hi: ""
+
+PLATFORM_POLICY_APPROVED:
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [policy_name, version, approved_by]
+  en: "OPA policy {policy_name} v{version} approved by {approved_by} — hot-reload initiated."
+  hi: ""
+
+PLATFORM_POLICY_RELOADED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [policy_name, version]
+  en: "OPA policy {policy_name} v{version} live — all subsequent decisions use new policy."
+  hi: ""
+
+PLATFORM_POLICY_RELOAD_FAILED:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [policy_name, version, error]
+  en: "OPA policy {policy_name} v{version} reload failed — {error}. Previous version retained."
+  hi: ""
+
+PLATFORM_CBS_UNREACHABLE:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [cbs_type, bank_id]
+  en: "CBS {cbs_type} unreachable for {bank_id} — degraded mode active. Balance checks deferred."
+  hi: ""
+
+PLATFORM_CBS_RECOVERED:
+  severity: INFO
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [cbs_type, bank_id, downtime_minutes]
+  en: "CBS {cbs_type} restored for {bank_id} after {downtime_minutes} minutes — normal processing resumed."
+  hi: ""
+
+PLATFORM_AUDIT_WRITE_FAILED:
+  severity: CRITICAL
+  surface: [AUDIT, NOTIFICATION]
+  variables: [event_type, instrument_id, attempt]
+  en: "Immudb write failed for event {event_type} on {instrument_id} — retrying (attempt {attempt})."
+  hi: ""
+
+PLATFORM_AUDIT_TAMPER_DETECTED:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [collection]
+  en: "Immudb Merkle tree inconsistency detected in collection {collection} — security team notified."
+  hi: ""
+
+PLATFORM_AUDIT_INTEGRITY_VERIFIED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [collection, entry_count]
+  en: "Immudb integrity check passed for {collection} — {entry_count} entries verified."
+  hi: ""
+
+PLATFORM_MODEL_DRIFT_WARN:
+  severity: WARN
+  surface: [UI, NOTIFICATION]
+  variables: [model_name, metric, drop_pct, window_days]
+  en: "Model {model_name} drift warning — {metric} dropped {drop_pct}% over {window_days} days."
+  hi: ""
+
+PLATFORM_MODEL_DRIFT_CRITICAL:
+  severity: CRITICAL
+  surface: [UI, NOTIFICATION]
+  variables: [model_name, metric, drop_pct, threshold_pct]
+  en: "Model {model_name} drift critical — {metric} dropped {drop_pct}%, exceeding {threshold_pct}% threshold. Auto-tightening."
+  hi: ""
+
+PLATFORM_MODEL_PULLED:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [model_name, metric]
+  en: "Model {model_name} pulled from production — {metric} degraded beyond safe threshold. Human review mandatory."
+  hi: ""
+
+PLATFORM_MODEL_DEPLOYED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [model_name, version, metric, baseline_value]
+  en: "Model {model_name} v{version} deployed — {metric} baseline: {baseline_value}."
+  hi: ""
+
+PLATFORM_DC_FAILOVER:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [failed_dc, active_dc]
+  en: "DC failover triggered — {failed_dc} offline, {active_dc} handling 100% traffic."
+  hi: ""
+
+PLATFORM_DC_RESTORED:
+  severity: INFO
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [restored_dc]
+  en: "DC {restored_dc} back online — active-active rebalancing in progress."
+  hi: ""
+
+PLATFORM_VAULT_TOKEN_EXPIRING:
+  severity: WARN
+  surface: [UI, NOTIFICATION]
+  variables: [minutes_remaining, service_name]
+  en: "HashiCorp Vault token expiring in {minutes_remaining} minutes for service {service_name}."
+  hi: ""
+
+PLATFORM_VAULT_TOKEN_RENEWED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [service_name, valid_hours]
+  en: "HashiCorp Vault token renewed for {service_name} — valid for {valid_hours}h."
+  hi: ""
+
+PLATFORM_KAFKA_LAG_HIGH:
+  severity: WARN
+  surface: [UI, NOTIFICATION]
+  variables: [topic, lag_count, consumer_group]
+  en: "Kafka consumer lag high on topic {topic} — lag {lag_count}, consumer group {consumer_group}."
+  hi: ""
+
+PLATFORM_SCALING_EVENT:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [service_name, from_pods, to_pods, trigger]
+  en: "KEDA scaling event — {service_name} scaled from {from_pods} to {to_pods} pods. Trigger: {trigger}."
+  hi: ""

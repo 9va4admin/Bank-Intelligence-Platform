@@ -1,0 +1,70 @@
+# saraswat-coop/platform.yaml — Layer 2 overrides for astra-platform chart.
+# Bank: The Saraswat Co-operative Bank Ltd — Pilot Bank #1
+# Onboarded: June 2026 | Charter: Urban Co-operative Bank | Regulator: RBI + MCS
+# ─────────────────────────────────────────────────────────────────────────────
+# Changes require: PR to ASTRA repo → bank_it_admin approval → ArgoCD sync
+# Audit trail: every merged PR triggers Immudb ConfigChangeEvent on apply
+# ─────────────────────────────────────────────────────────────────────────────
+
+bank_id: saraswat-coop             # must match Vault path segment exactly
+
+# ── CBS Connector ────────────────────────────────────────────────────────────
+# Saraswat runs Infosys Finacle core banking
+cbs_connector_type: finacle
+
+# ── Identity Provider ────────────────────────────────────────────────────────
+idp:
+  type: saml2
+  metadata_url: "https://idp.saraswat.co.in/saml/metadata"
+  # Role mapping (bank IdP → ASTRA role):
+  #   saraswat-cts-reviewer  → ops_reviewer  (scoped to MUMBAI zone)
+  #   saraswat-fraud-analyst → fraud_analyst
+  #   saraswat-ops-manager   → ops_manager
+  #   saraswat-it-admin      → bank_it_admin
+  #   saraswat-compliance    → compliance_officer
+
+# ── Data Centers ─────────────────────────────────────────────────────────────
+# Saraswat pilot: single-DC to start; second DC added in Phase 2 (Q4 2026)
+datacenters:
+  dc1:
+    name: "Andheri Data Centre"
+    location: "Mumbai"
+    zone: "dc1"
+  dc2:
+    # DR site — provisioned but not yet active; ArgoCD ApplicationSet
+    # activates this when dc2_active: true is set in a future PR
+    name: "Navi Mumbai DR"
+    location: "Navi Mumbai"
+    zone: "dc2"
+    active: false
+
+# ── NGCH Clearing Zone ───────────────────────────────────────────────────────
+clearing_zones: [MUMBAI]
+
+# ── Notifications ────────────────────────────────────────────────────────────
+notifications:
+  email:
+    from_address: "astra-alerts@saraswat.co.in"
+    smtp_relay: "smtp.saraswat.co.in"
+  whatsapp:
+    # WhatsApp alerts for senior ops — enabled for pilot
+    enabled: true
+    # Phone numbers seeded via Vault at bank onboarding
+    # secret: secret/astra/saraswat-coop/whatsapp/business_api_key
+
+# ── Shared Services Scale (Pilot sizing) ─────────────────────────────────────
+api_gateway:
+  replicas: 2
+audit_service:
+  replicas: 2
+notification_service:
+  replicas: 1
+
+# ── Sub-Member Bank Support ──────────────────────────────────────────────────
+# Saraswat acts as Sponsor Bank for 2 smaller UCBs routing CTS through them
+smb_sponsor_enabled: true
+smb_sponsor_max_sub_members: 5      # initial pilot limit
+
+# ── ASTRA Chart Version ──────────────────────────────────────────────────────
+astra:
+  platform_chart_version: "0.1.0"

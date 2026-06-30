@@ -1,0 +1,75 @@
+# saraswat-coop/cts.yaml — Layer 2 overrides for astra-cts chart.
+# Bank: The Saraswat Co-operative Bank Ltd — Pilot Bank #1
+# Module: CTS (purchased) | EJ: not purchased in pilot phase
+# ─────────────────────────────────────────────────────────────────────────────
+# Layer 3 thresholds (iet_minutes, fraud scores, STP threshold, etc.) are NOT
+# configured here — they are set post-onboarding via Admin UI maker-checker
+# (ops_manager submits → bank_it_admin approves → hot-reload in < 30s).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Clearing ─────────────────────────────────────────────────────────────────
+clearing_zones: [MUMBAI]
+
+# Saraswat pilot volumes: ~8,000 inward cheques/day across 3 clearing sessions
+# Conservative swarm sizing — scale up after 30-day pilot baseline
+max_agent_swarm_size: 150
+
+# ── GPU Profile ──────────────────────────────────────────────────────────────
+gpu_profile: pilot                 # 4×RTX4090 (Qwen2-VL 7B AWQ + Llama 3.1 8B AWQ)
+# Upgrade path: pilot → production (4×A100) after 90-day volume validation
+
+# ── Redis CTS Vault ──────────────────────────────────────────────────────────
+redis_cts:
+  nodes: 6                         # 3+3 across dc1 — dc2 nodes added when dc2 active
+
+# ── AI Model Config ──────────────────────────────────────────────────────────
+ai:
+  models:
+    vision: qwen2-vl-7b-awq        # pilot: 7B fits 4×RTX4090; production: 72B on A100
+    ocr: got-ocr2
+    reasoning: llama-3.1-8b-awq    # pilot: 8B; production: Llama 3.3 70B AWQ
+  timeouts_seconds:
+    vision: 180                    # 7B is slower per image than 72B — generous timeout
+    ocr: 45
+    reasoning: 90
+  # Note: all confidence thresholds are Layer 3 (Admin UI) — not configured here
+
+# ── Vault Sync Schedule ──────────────────────────────────────────────────────
+vault_sync:
+  schedule: "0 6 * * *"           # 6AM daily — before SESSION_1 opens
+  cbs_batch_size: 500             # accounts per CBS pull
+
+# ── Worker Sizing ────────────────────────────────────────────────────────────
+cts_agent_worker:
+  min_replicas: 2                  # always warm — never scale to zero during clearing
+  max_replicas: 150
+  keda_kafka_lag_threshold: 10     # scale up trigger: 10 messages per pod behind
+
+# ── CCTV ─────────────────────────────────────────────────────────────────────
+cctv_enabled: false                # Saraswat branch CCTV integration: Phase 2
+
+# ── Special Cheque Routes ────────────────────────────────────────────────────
+# Configured via OPA Rego (Layer 4) after compliance_officer onboarding
+# Defaults apply until Rego policies are authored by Saraswat compliance team
+special_cheque_routes: []
+
+# ── Sub-Member Banks ─────────────────────────────────────────────────────────
+# Saraswat as Sponsor Bank for SMB routing
+smb:
+  enabled: true
+  # Per-SMB vault namespacing and MICR prefix routing enabled
+  # SMB vault config managed via Admin UI — not stored in Helm values
+  smb_forwarding_worker:
+    min_replicas: 1
+    max_replicas: 10
+    keda_kafka_lag_threshold: 5
+
+# ── NGCH Adapter ─────────────────────────────────────────────────────────────
+ngch:
+  transport: sftp                  # SFTP phase; migrate to REST when NPCI pilot approves
+  # SFTP credentials: secret/astra/saraswat-coop/ngch/sftp_private_key (Vault)
+  # REST base URL (future): secret/astra/saraswat-coop/ngch/rest_base_url (Vault)
+
+# ── ASTRA Chart Version ──────────────────────────────────────────────────────
+astra:
+  cts_chart_version: "0.1.0"

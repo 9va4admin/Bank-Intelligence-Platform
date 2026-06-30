@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
+import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 // ── Mock RPC data ─────────────────────────────────────────────────────────────
 const RPCS = [
@@ -52,31 +54,38 @@ const CROSS_CENTRE_ALERTS = [
     zones: ['HYDERABAD'], ts: '10:57:02' },
 ]
 
-const sev = {
-  HIGH:   'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700/40',
-  MEDIUM: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700/40'
-}
-
-
-const rpcS = {
-  ACTIVE:   'text-emerald-600 dark:text-emerald-400',
-  DEGRADED: 'text-red-600 dark:text-red-400'
-}
-
 
 export default function CTSRPCConsolidation() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { isDark } = useTheme()
   const [selected, setSelected] = useState(null)
 
   const th = {
-    page:    'bg-slate-50 dark:bg-transparent',
-    card:    'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
-    heading: 'text-slate-900 dark:text-white',
-    body:    'text-slate-700 dark:text-slate-300',
-    muted:   'text-slate-500 dark:text-slate-400',
-    faint:   'text-slate-400 dark:text-slate-600',
-    divider: 'border-slate-200 dark:border-white/8',
-    row:     'border-slate-100 hover:bg-slate-50 dark:border-white/4 dark:hover:bg-white/2',
-    mono:    'text-slate-600 font-mono text-xs dark:text-slate-300 dark:font-mono dark:text-xs',
+    page:    isDark ? 'bg-navy-950' : 'bg-slate-50',
+    card:    isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
+    heading: isDark ? 'text-white' : 'text-slate-900',
+    body:    isDark ? 'text-slate-300' : 'text-slate-700',
+    muted:   isDark ? 'text-slate-400' : 'text-slate-500',
+    faint:   isDark ? 'text-slate-600' : 'text-slate-400',
+    divider: isDark ? 'border-white/8' : 'border-slate-200',
+    row:     isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
+    select:  isDark ? 'bg-navy-900 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
+    input:   isDark ? 'bg-navy-800 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
+  }
+
+  const SEV_D = {
+    HIGH:   'bg-red-900/40 text-red-300 border-red-700/40',
+    MEDIUM: 'bg-amber-900/40 text-amber-300 border-amber-700/40',
+  }
+  const SEV_L = {
+    HIGH:   'bg-red-50 text-red-700 border-red-200',
+    MEDIUM: 'bg-amber-50 text-amber-700 border-amber-200',
+  }
+  const sev = isDark ? SEV_D : SEV_L
+
+  const rpcS = {
+    ACTIVE:   isDark ? 'text-emerald-400' : 'text-emerald-600',
+    DEGRADED: isDark ? 'text-red-400' : 'text-red-600',
   }
 
   // Consolidated totals
@@ -89,7 +98,7 @@ export default function CTSRPCConsolidation() {
   usePageHeader({
     subtitle: `Multi-centre clearing view · ${SESSION_DATE} · ${CLEARING_SESSION}`,
     actions: (
-      <div className={`text-xs px-3 py-1.5 rounded-lg border ${'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-700/40 dark:bg-emerald-900/20 dark:text-emerald-300'}`}>
+      <div className={`text-xs px-3 py-1.5 rounded-lg border ${isDark ? 'border-emerald-700/40 bg-emerald-900/20 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
         <span className="w-1.5 h-1.5 inline-block rounded-full bg-emerald-400 mr-1.5 animate-pulse" />
         {RPCS.filter(r => r.status === 'ACTIVE').length}/{RPCS.length} RPCs Active
       </div>
@@ -105,9 +114,9 @@ export default function CTSRPCConsolidation() {
           {[
             { label: 'Total Inward',    value: total_inward.toLocaleString(),  color: th.heading },
             { label: 'Total Outward',   value: total_outward.toLocaleString(), color: th.heading },
-            { label: 'Pending Review',  value: total_pending, color: total_pending > 0 ? ('text-amber-600 dark:text-amber-400') : ('text-emerald-600 dark:text-emerald-400') },
-            { label: 'IET Risk',        value: total_iet,     color: total_iet > 0 ? ('text-red-600 dark:text-red-400') : ('text-emerald-600 dark:text-emerald-400') },
-            { label: 'Avg STP Rate',    value: `${avg_stp}%`, color: 'text-violet-600 dark:text-violet-400' },
+            { label: 'Pending Review',  value: total_pending, color: total_pending > 0 ? (isDark ? 'text-amber-400' : 'text-amber-600') : (isDark ? 'text-emerald-400' : 'text-emerald-600') },
+            { label: 'IET Risk',        value: total_iet,     color: total_iet > 0 ? (isDark ? 'text-red-400' : 'text-red-600') : (isDark ? 'text-emerald-400' : 'text-emerald-600') },
+            { label: 'Avg STP Rate',    value: `${avg_stp}%`, color: isDark ? 'text-violet-400' : 'text-violet-600' },
           ].map(k => (
             <div key={k.label} className={`border rounded-xl px-4 py-3 ${th.card}`}>
               <div className={`text-[10px] ${th.faint} mb-1`}>{k.label}</div>
@@ -124,7 +133,7 @@ export default function CTSRPCConsolidation() {
               onClick={() => setSelected(selected?.id === rpc.id ? null : rpc)}
               className={`text-left border rounded-xl p-3 transition-all ${th.card} ${
                 selected?.id === rpc.id
-                  ? 'ring-2 ring-violet-400 dark:ring-2 dark:ring-violet-500'
+                  ? isDark ? 'ring-2 ring-violet-500' : 'ring-2 ring-violet-400'
                   : ''
               }`}
             >
@@ -141,7 +150,7 @@ export default function CTSRPCConsolidation() {
                 </div>
                 <div className="flex justify-between">
                   <span className={`text-[10px] ${th.faint}`}>STP</span>
-                  <span className={`text-[10px] font-medium ${rpc.stp_rate >= 90 ? ('text-emerald-600 dark:text-emerald-400') : ('text-amber-600 dark:text-amber-400')}`}>{rpc.stp_rate}%</span>
+                  <span className={`text-[10px] font-medium ${rpc.stp_rate >= 90 ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>{rpc.stp_rate}%</span>
                 </div>
                 {rpc.iet_risk > 0 && (
                   <div className="flex justify-between">
@@ -228,10 +237,10 @@ export default function CTSRPCConsolidation() {
               <div className={`col-span-1 ${th.muted}`}>{rpc.zone.slice(0, 3)}</div>
               <div className={`col-span-1 text-right ${th.body}`}>{rpc.inward.toLocaleString()}</div>
               <div className={`col-span-1 text-right ${th.body}`}>{rpc.outward.toLocaleString()}</div>
-              <div className={`col-span-1 text-right ${rpc.pending > 0 ? ('text-amber-600 dark:text-amber-400') : th.faint}`}>{rpc.pending}</div>
-              <div className={`col-span-1 text-right ${rpc.iet_risk > 0 ? ('text-red-600 dark:text-red-400') : th.faint}`}>{rpc.iet_risk > 0 ? `⚠ ${rpc.iet_risk}` : '—'}</div>
-              <div className={`col-span-1 text-right ${rpc.stp_rate >= 90 ? ('text-emerald-600 dark:text-emerald-400') : ('text-amber-600 dark:text-amber-400')}`}>{rpc.stp_rate}</div>
-              <div className={`col-span-1 text-right ${rpc.avg_decision_ms > 500 ? ('text-amber-600 dark:text-amber-400') : th.body}`}>{rpc.avg_decision_ms}</div>
+              <div className={`col-span-1 text-right ${rpc.pending > 0 ? (isDark ? 'text-amber-400' : 'text-amber-600') : th.faint}`}>{rpc.pending}</div>
+              <div className={`col-span-1 text-right ${rpc.iet_risk > 0 ? (isDark ? 'text-red-400' : 'text-red-600') : th.faint}`}>{rpc.iet_risk > 0 ? `⚠ ${rpc.iet_risk}` : '—'}</div>
+              <div className={`col-span-1 text-right ${rpc.stp_rate >= 90 ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>{rpc.stp_rate}</div>
+              <div className={`col-span-1 text-right ${rpc.avg_decision_ms > 500 ? (isDark ? 'text-amber-400' : 'text-amber-600') : th.body}`}>{rpc.avg_decision_ms}</div>
               <div className={`col-span-1 text-right ${th.faint}`}>{rpc.batches}</div>
               <div className={`col-span-1 text-right ${th.faint}`}>{rpc.lots}</div>
               <div className={`col-span-1 text-right ${th.faint} font-mono text-[10px]`}>{rpc.last_sync}</div>
@@ -239,14 +248,14 @@ export default function CTSRPCConsolidation() {
           ))}
 
           {/* Totals row */}
-          <div className={`grid grid-cols-12 gap-2 px-4 py-2.5 text-xs font-medium ${'bg-slate-50 dark:bg-white/3'}`}>
+          <div className={`grid grid-cols-12 gap-2 px-4 py-2.5 text-xs font-medium ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
             <div className={`col-span-2 ${th.heading}`}>All Zones</div>
             <div className="col-span-1" />
             <div className={`col-span-1 text-right ${th.heading}`}>{total_inward.toLocaleString()}</div>
             <div className={`col-span-1 text-right ${th.heading}`}>{total_outward.toLocaleString()}</div>
-            <div className={`col-span-1 text-right ${total_pending > 0 ? ('text-amber-600 dark:text-amber-400') : th.heading}`}>{total_pending}</div>
-            <div className={`col-span-1 text-right ${total_iet > 0 ? ('text-red-600 dark:text-red-400') : th.heading}`}>{total_iet > 0 ? `⚠ ${total_iet}` : '—'}</div>
-            <div className={`col-span-1 text-right ${'text-violet-600 dark:text-violet-400'}`}>{avg_stp}%</div>
+            <div className={`col-span-1 text-right ${total_pending > 0 ? (isDark ? 'text-amber-400' : 'text-amber-600') : th.heading}`}>{total_pending}</div>
+            <div className={`col-span-1 text-right ${total_iet > 0 ? (isDark ? 'text-red-400' : 'text-red-600') : th.heading}`}>{total_iet > 0 ? `⚠ ${total_iet}` : '—'}</div>
+            <div className={`col-span-1 text-right ${isDark ? 'text-violet-400' : 'text-violet-600'}`}>{avg_stp}%</div>
             <div className="col-span-4" />
           </div>
         </div>

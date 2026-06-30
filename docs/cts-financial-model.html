@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASTRA CTS — 60-Month Financial Model</title>
+<script src="chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:        #020817;
+    --surface:   #0f1629;
+    --surface2:  #161f3a;
+    --border:    rgba(255,255,255,0.08);
+    --border2:   rgba(255,255,255,0.12);
+    --text:      #f1f5f9;
+    --muted:     #94a3b8;
+    --faint:     #475569;
+    --gold:      #f59e0b;
+    --emerald:   #34d399;
+    --red:       #f87171;
+    --amber:     #fbbf24;
+    --violet:    #a78bfa;
+    --sky:       #38bdf8;
+    --indigo:    #818cf8;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: 'SF Mono', 'Fira Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; min-height: 100vh; }
+
+  /* ── Layout ── */
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .topbar-title { font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
+  .topbar-title span { color: var(--gold); }
+  .topbar-badge { font-size: 10px; background: rgba(245,158,11,0.12); color: var(--gold); border: 1px solid rgba(245,158,11,0.3); border-radius: 99px; padding: 2px 10px; font-weight: 600; }
+
+  .main { display: grid; grid-template-columns: 340px 1fr; gap: 0; min-height: calc(100vh - 49px); }
+
+  /* ── Input Panel ── */
+  .inputs { background: var(--surface); border-right: 1px solid var(--border); padding: 0; overflow-y: auto; }
+  .input-section { border-bottom: 1px solid var(--border); padding: 16px; }
+  .input-section:last-child { border-bottom: none; }
+  .section-title { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--faint); text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; gap-gap: 6px; }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); margin-left: 8px; display: inline-block; }
+
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+  .field label span { color: var(--faint); font-weight: 400; font-size: 10px; }
+  .field input { width: 100%; background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; padding: 7px 10px; color: var(--text); font-size: 12px; font-family: var(--mono); outline: none; transition: border-color .15s; }
+  .field input:focus { border-color: rgba(167,139,250,0.5); }
+  .field input::-webkit-inner-spin-button { opacity: 0.4; }
+
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .recalc-btn { width: 100%; margin-top: 4px; background: var(--violet); color: #fff; border: none; border-radius: 10px; padding: 10px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s; letter-spacing: 0.2px; }
+  .recalc-btn:hover { background: #7c3aed; }
+
+  .hint { font-size: 10px; color: var(--faint); margin-top: 2px; line-height: 1.4; }
+
+  /* ── Output Panel ── */
+  .output { padding: 20px 24px; overflow-y: auto; }
+
+  /* KPI strip */
+  .kpi-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .kpi-label { font-size: 10px; color: var(--faint); margin-bottom: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+  .kpi-val { font-size: 20px; font-weight: 700; line-height: 1.1; }
+  .kpi-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .kpi.green .kpi-val { color: var(--emerald); }
+  .kpi.amber .kpi-val { color: var(--amber); }
+  .kpi.red .kpi-val   { color: var(--red); }
+  .kpi.violet .kpi-val{ color: var(--violet); }
+  .kpi.sky .kpi-val   { color: var(--sky); }
+
+  /* Breakeven callout */
+  .breakeven-bar { background: var(--surface); border: 1px solid rgba(52,211,153,0.2); border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .be-item { font-size: 11px; color: var(--muted); }
+  .be-item strong { color: var(--emerald); font-size: 13px; }
+  .be-item.warn strong { color: var(--amber); }
+  .be-item.loss strong { color: var(--red); }
+
+  /* Charts */
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .chart-card.wide { grid-column: span 2; }
+  .chart-title { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .chart-wrap { position: relative; height: 200px; }
+  .chart-wrap.tall { height: 240px; }
+
+  /* Revenue mix bars */
+  .mix-bars { margin-top: 8px; }
+  .mix-row { display: flex; align-items: center; gap-gap: 8px; margin-bottom: 6px; font-size: 11px; }
+  .mix-row { display: flex; align-items: center; margin-bottom: 6px; }
+  .mix-label { width: 150px; color: var(--muted); font-size: 10px; flex-shrink: 0; }
+  .mix-bar-wrap { flex: 1; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; margin: 0 8px; }
+  .mix-bar-fill { height: 100%; border-radius: 4px; transition: width .4s ease; }
+  .mix-pct { width: 36px; text-align: right; font-size: 10px; color: var(--faint); font-family: var(--mono); }
+  .mix-amt { width: 70px; text-align: right; font-size: 10px; color: var(--text); font-family: var(--mono); }
+
+  /* Table */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .table-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .table-header span { font-size: 12px; font-weight: 600; color: var(--text); }
+  .table-header small { font-size: 10px; color: var(--faint); }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .tbl thead th { padding: 8px 12px; background: rgba(255,255,255,0.03); text-align: right; font-size: 9px; font-weight: 700; color: var(--faint); text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid var(--border); }
+  .tbl thead th:first-child { text-align: left; }
+  .tbl tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background .1s; }
+  .tbl tbody tr:hover { background: rgba(255,255,255,0.03); }
+  .tbl tbody tr.be-row { background: rgba(52,211,153,0.06); }
+  .tbl tbody tr.fy-boundary { border-top: 1px solid rgba(245,158,11,0.3); }
+  .tbl td { padding: 6px 12px; text-align: right; font-family: var(--mono); color: var(--muted); }
+  .tbl td:first-child { text-align: left; color: var(--text); font-family: var(--font); }
+  .tbl td.pos { color: var(--emerald); }
+  .tbl td.neg { color: var(--red); }
+  .tbl td.amber { color: var(--amber); }
+  .tbl td.be-mark { color: var(--emerald); font-weight: 700; }
+  .tbl tfoot td { font-weight: 700; color: var(--text); border-top: 1px solid var(--border2); background: rgba(255,255,255,0.03); }
+
+  .toggle-table { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; color: var(--muted); font-size: 10px; cursor: pointer; transition: all .15s; }
+  .toggle-table:hover { border-color: var(--violet); color: var(--violet); }
+
+  /* fee type tabs */
+  .fee-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .fee-tab { background: none; border: 1px solid var(--border); border-radius: 99px; padding: 3px 10px; font-size: 10px; color: var(--faint); cursor: pointer; transition: all .15s; }
+  .fee-tab.active { background: rgba(167,139,250,0.12); border-color: rgba(167,139,250,0.4); color: var(--violet); font-weight: 600; }
+
+  /* Sensitivity mini-table */
+  .sens-grid { display: grid; grid-template-columns: auto repeat(4, 1fr); gap: 1px; background: var(--border); border-radius: 8px; overflow: hidden; font-size: 10px; font-family: var(--mono); }
+  .sens-cell { background: var(--surface); padding: 6px 8px; text-align: center; }
+  .sens-cell.hdr { background: var(--surface2); color: var(--faint); font-weight: 700; text-transform: uppercase; font-size: 9px; }
+  .sens-cell.rowlbl { background: var(--surface2); color: var(--muted); text-align: left; font-size: 10px; }
+  .sens-cell.g { background: rgba(52,211,153,0.1); color: var(--emerald); }
+  .sens-cell.y { background: rgba(251,191,36,0.08); color: var(--amber); }
+  .sens-cell.r { background: rgba(248,113,113,0.08); color: var(--red); }
+</style>
+</head>
+<body>
+
+<!-- ── Topbar ── -->
+<div class="topbar">
+  <div>
+    <div class="topbar-title">ASTRA <span>·</span> CTS Financial Model</div>
+    <div style="font-size:10px;color:var(--faint);margin-top:2px;">Cost · Revenue · Net — 60-Month Projection</div>
+  </div>
+  <div class="topbar-badge">FOR INTERNAL USE ONLY · CONFIDENTIAL</div>
+</div>
+
+<div class="main">
+
+  <!-- ══════════════════════════════════════════════
+       INPUT PANEL
+  ══════════════════════════════════════════════ -->
+  <div class="inputs">
+
+    <!-- Bank Profile -->
+    <div class="input-section">
+      <div class="section-title">Bank Profile</div>
+      <div class="field">
+        <label>Cheque Volume <span>(Lakhs / month, at go-live)</span></label>
+        <input type="number" id="i_vol" value="50" min="1" step="5">
+        <div class="hint">e.g. SBI Mumbai zone ≈ 600L/mo · Small co-op ≈ 5L/mo</div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Active Users</label>
+          <input type="number" id="i_users" value="25" min="1">
+        </div>
+        <div class="field">
+          <label>Ramp-up Months</label>
+          <input type="number" id="i_ramp" value="3" min="1" max="12">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>YoY Growth % <span>(vol)</span></label>
+          <input type="number" id="i_yoy" value="15" min="0" max="100">
+        </div>
+        <div class="field">
+          <label>Volume Discount %<span> &gt;500L</span></label>
+          <input type="number" id="i_voldiscount" value="8" min="0" max="50">
+        </div>
+      </div>
+    </div>
+
+    <!-- One-Time Fees -->
+    <div class="input-section">
+      <div class="section-title">One-Time Fees <span style="color:var(--faint);font-size:9px;text-transform:none;letter-spacing:0;font-weight:400">(₹ Lakhs)</span></div>
+      <div class="field">
+        <label>Platform Implementation Fee</label>
+        <input type="number" id="i_impl" value="25" min="0" step="5">
+      </div>
+      <div class="field">
+        <label>Customisation &amp; Integration</label>
+        <input type="number" id="i_custom" value="15" min="0" step="5">
+      </div>
+      <div class="field">
+        <label>Training &amp; Onboarding</label>
+        <input type="number" id="i_training" value="5" min="0" step="1">
+      </div>
+    </div>
+
+    <!-- Recurring Revenue -->
+    <div class="input-section">
+      <div class="section-title">Recurring Revenue</div>
+      <div class="field">
+        <label>Per-Cheque Rate <span>(₹ per cheque)</span></label>
+        <input type="number" id="i_perchq" value="1.20" min="0" step="0.05">
+        <div class="hint">Set to 0 if using Platform Licence model</div>
+      </div>
+      <div class="field">
+        <label>Platform Licence Fee <span>(₹ Lakhs / month)</span></label>
+        <input type="number" id="i_licence" value="0" min="0" step="0.5">
+        <div class="hint">Set to 0 if using Per-Cheque SaaS model</div>
+      </div>
+      <div class="field">
+        <label>User Licence Fee <span>(₹ per user / month)</span></label>
+        <input type="number" id="i_userfee" value="2000" min="0" step="500">
+      </div>
+      <div class="field">
+        <label>Managed AI Retainer <span>(₹ Lakhs / month)</span></label>
+        <input type="number" id="i_airetainer" value="1.5" min="0" step="0.25">
+      </div>
+      <div class="field">
+        <label>Support &amp; SLA Retainer <span>(₹ Lakhs / month)</span></label>
+        <input type="number" id="i_support" value="1.0" min="0" step="0.25">
+        <div class="hint">Billed from Month 2 onwards</div>
+      </div>
+    </div>
+
+    <!-- Cost Base -->
+    <div class="input-section">
+      <div class="section-title">ASTRA Vendor Monthly Costs <span style="color:var(--faint);font-size:9px;text-transform:none;letter-spacing:0;font-weight:400">(₹ Lakhs / month)</span></div>
+      <div class="hint" style="margin-bottom:10px;line-height:1.5">Banks run all infra on-premises (GPU, K8s, Redis, DB). ASTRA has zero infra cost per bank deployment.</div>
+      <div class="field">
+        <label>Engineering Team <span>(6 devs × ₹30L avg CTC)</span></label>
+        <input type="number" id="c_team" value="15" min="0" step="0.5">
+        <div class="hint">Monthly burn = annual CTC ÷ 12</div>
+      </div>
+      <div class="field">
+        <label>Sales &amp; Marketing <span>(2 sales + 1 presales + events)</span></label>
+        <input type="number" id="c_sales" value="10" min="0" step="0.5">
+      </div>
+      <div class="field">
+        <label>Cloud &amp; Tooling <span>(CI/CD, OCI registry, staging)</span></label>
+        <input type="number" id="c_cloud" value="2.5" min="0" step="0.25">
+        <div class="hint">GitLab CI, private Helm OCI registry, upgrade tooling</div>
+      </div>
+      <div class="field">
+        <label>Office &amp; Ops <span>(premises, admin, misc)</span></label>
+        <input type="number" id="c_office" value="2.0" min="0" step="0.25">
+      </div>
+      <div class="field">
+        <label>Per-Bank Onboarding <span>(one-time, ₹ Lakhs)</span></label>
+        <input type="number" id="c_onboard" value="8" min="0" step="1">
+        <div class="hint">Onboarding effort + customisation support per bank</div>
+      </div>
+    </div>
+
+    <!-- Recalculate -->
+    <div class="input-section">
+      <button class="recalc-btn" onclick="recalculate()">⟳ Recalculate 60-Month Model</button>
+    </div>
+
+  </div><!-- /inputs -->
+
+
+  <!-- ══════════════════════════════════════════════
+       OUTPUT PANEL
+  ══════════════════════════════════════════════ -->
+  <div class="output">
+
+    <!-- KPI strip -->
+    <div class="kpi-strip" id="kpi-strip">
+      <div class="kpi green"><div class="kpi-label">Total Revenue (60M)</div><div class="kpi-val" id="k_rev">—</div><div class="kpi-sub" id="k_rev_sub">—</div></div>
+      <div class="kpi amber"><div class="kpi-label">Vendor Cost (60M)</div><div class="kpi-val" id="k_cost">—</div><div class="kpi-sub" id="k_cost_sub">Zero infra COGS</div></div>
+      <div class="kpi" id="kpi_net"><div class="kpi-label">Net Profit (60M)</div><div class="kpi-val" id="k_net">—</div><div class="kpi-sub" id="k_net_sub">—</div></div>
+      <div class="kpi violet"><div class="kpi-label">Break-even Month</div><div class="kpi-val" id="k_be">—</div><div class="kpi-sub" id="k_be_sub">—</div></div>
+      <div class="kpi sky"><div class="kpi-label">Banks to Break Even</div><div class="kpi-val" id="k_banks_be">—</div><div class="kpi-sub" id="k_banks_be_sub">—</div></div>
+    </div>
+
+    <!-- Breakeven detail bar -->
+    <div class="breakeven-bar" id="be-bar">
+      <div class="be-item"><div style="font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Year 1 Net</div><strong id="be_y1">—</strong></div>
+      <div style="width:1px;height:28px;background:var(--border)"></div>
+      <div class="be-item"><div style="font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Year 2 Net</div><strong id="be_y2">—</strong></div>
+      <div style="width:1px;height:28px;background:var(--border)"></div>
+      <div class="be-item"><div style="font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Year 3 Net</div><strong id="be_y3">—</strong></div>
+      <div style="width:1px;height:28px;background:var(--border)"></div>
+      <div class="be-item"><div style="font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Year 4 Net</div><strong id="be_y4">—</strong></div>
+      <div style="width:1px;height:28px;background:var(--border)"></div>
+      <div class="be-item"><div style="font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Year 5 Net</div><strong id="be_y5">—</strong></div>
+      <div style="width:1px;height:28px;background:var(--border)"></div>
+      <div class="be-item"><div style="font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Peak Month Rev</div><strong id="be_peak">—</strong></div>
+      <div style="width:1px;height:28px;background:var(--border)"></div>
+      <div class="be-item"><div style="font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Payback Period</div><strong id="be_payback">—</strong></div>
+    </div>
+
+    <!-- Charts row 1: Cumulative + Monthly Net -->
+    <div class="charts-row">
+      <div class="chart-card wide">
+        <div class="chart-title">Cumulative Revenue vs Cost vs Net Profit — 60 Months</div>
+        <div class="chart-wrap tall"><canvas id="chart_cumulative"></canvas></div>
+      </div>
+    </div>
+    <div class="charts-row" style="margin-bottom:20px">
+      <div class="chart-card">
+        <div class="chart-title">Monthly Revenue Breakdown</div>
+        <div class="chart-wrap"><canvas id="chart_rev_stack"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Monthly Net Profit &amp; Margin %</div>
+        <div class="chart-wrap"><canvas id="chart_net"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Revenue mix -->
+    <div class="chart-card" style="margin-bottom:20px">
+      <div class="chart-title">60-Month Revenue Mix</div>
+      <div class="mix-bars" id="mix-bars">—</div>
+    </div>
+
+    <!-- Pricing sensitivity -->
+    <div class="chart-card" style="margin-bottom:20px">
+      <div class="chart-title">Per-Cheque Rate Sensitivity — 60M Net Profit <span style="color:var(--faint);font-size:9px">(at current cost base)</span></div>
+      <div id="sens-table" style="margin-top:8px">—</div>
+    </div>
+
+    <!-- Monthly table -->
+    <div class="table-wrap">
+      <div class="table-header">
+        <span>Month-by-Month Ledger</span>
+        <button class="toggle-table" onclick="toggleTable()">▾ Show / Hide</button>
+      </div>
+      <div id="tbl-wrap" style="max-height:480px;overflow-y:auto;display:none">
+        <table class="tbl" id="monthly-tbl">
+          <thead>
+            <tr>
+              <th style="text-align:left">Month</th>
+              <th>Vol (L)</th>
+              <th>One-Time</th>
+              <th>Per-Cheque</th>
+              <th>Licence</th>
+              <th>Users</th>
+              <th>Services</th>
+              <th>Total Rev</th>
+              <th>Fixed Cost</th>
+              <th>Var Cost</th>
+              <th>Total Cost</th>
+              <th>Net</th>
+              <th>Cum. Net</th>
+            </tr>
+          </thead>
+          <tbody id="monthly-tbody"></tbody>
+          <tfoot id="monthly-tfoot"></tfoot>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /output -->
+</div><!-- /main -->
+
+<script>
+// ── Chart references ──────────────────────────────────────────────────────────
+let chartCumulative = null
+let chartRevStack   = null
+let chartNet        = null
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function v(id) { return parseFloat(document.getElementById(id).value) || 0 }
+function fL(n) {
+  if (Math.abs(n) < 0.01) return '0'
+  if (Math.abs(n) < 1)    return (n > 0 ? '' : '-') + '₹' + Math.abs(n * 100).toFixed(0) + 'K'
+  if (Math.abs(n) < 100)  return (n > 0 ? '' : '-') + '₹' + Math.abs(n).toFixed(2) + 'L'
+  return (n > 0 ? '' : '-') + '₹' + (Math.abs(n) / 100).toFixed(2) + 'Cr'
+}
+function pct(a,b) { return b === 0 ? '—' : (a/b*100).toFixed(1) + '%' }
+function mo(m) {
+  const yr = Math.ceil(m / 12)
+  const mn = ((m - 1) % 12) + 1
+  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  return `M${String(m).padStart(2,'0')} · Y${yr} ${names[mn-1]}`
+}
+
+// ── Build monthly rows ────────────────────────────────────────────────────────
+// Cost model: ASTRA is a software vendor. Banks run all infra on-premises.
+// ASTRA's costs = team + S&M + cloud tooling + office. Zero infra cost per bank.
+function buildModel() {
+  // inputs
+  const baseVol     = v('i_vol')         // lakhs/month at steady state
+  const users       = v('i_users')
+  const ramp        = Math.max(1, v('i_ramp'))
+  const yoy         = v('i_yoy') / 100
+  const voldis      = v('i_voldiscount') / 100
+  const implFee     = v('i_impl')        // ₹L one-time M1
+  const customFee   = v('i_custom')      // ₹L one-time M1
+  const trainFee    = v('i_training')    // ₹L one-time M1
+  const perChq      = v('i_perchq')      // ₹ per cheque
+  const licenceL    = v('i_licence')     // ₹L/month
+  const userFee     = v('i_userfee')     // ₹ per user/month → /100 for lakhs
+  const aiRetainer  = v('i_airetainer') // ₹L/month
+  const support     = v('i_support')    // ₹L/month from M2
+
+  // ASTRA vendor costs (not bank infra — bank bears all infra)
+  const cTeam       = v('c_team')        // engineering team ₹L/month
+  const cSales      = v('c_sales')       // sales & marketing ₹L/month
+  const cCloud      = v('c_cloud')       // cloud & tooling ₹L/month
+  const cOffice     = v('c_office')      // office & ops ₹L/month
+  const cOnboard    = v('c_onboard')     // per-bank onboarding one-time ₹L
+
+  const fixedCostMo = cTeam + cSales + cCloud + cOffice  // ₹L/month vendor fixed
+
+  const rows = []
+  for (let m = 1; m <= 60; m++) {
+    // Volume: ramp-up + YoY growth
+    const yearNum  = Math.ceil(m / 12)
+    const yoyMult  = Math.pow(1 + yoy, yearNum - 1)
+    const rampMult = m <= ramp ? m / ramp : 1
+    const vol      = baseVol * rampMult * yoyMult  // lakhs this month
+
+    // Revenue components (₹ Lakhs)
+    const oneTime   = m === 1 ? (implFee + customFee + trainFee) : 0
+    // per-cheque revenue with volume discount above 500L
+    let perChqRevL = 0
+    if (perChq > 0) {
+      const discounted = vol > 500 ? (500 * perChq + (vol - 500) * perChq * (1 - voldis)) : vol * perChq
+      perChqRevL = discounted
+      // vol in lakhs (= 100,000 cheques per unit)
+      // Revenue = vol_lakhs × 100000 × perChq (₹) / 100000 = vol_lakhs × perChq (₹L)
+    }
+    const licenceRev  = licenceL
+    const userRevL    = (users * userFee) / 100000  // ₹ → ₹L (÷ 1L)
+    const servicesL   = aiRetainer + (m >= 2 ? support : 0)
+    const totalRev    = oneTime + perChqRevL + licenceRev + userRevL + servicesL
+
+    // Cost (₹ Lakhs) — vendor costs only, no variable compute cost (bank pays for their GPU)
+    // M1 includes per-bank onboarding cost
+    const varCostL    = m === 1 ? cOnboard : 0
+    const totalCost   = fixedCostMo + varCostL
+    const net         = totalRev - totalCost
+
+    rows.push({ m, vol, oneTime, perChqRevL, licenceRev, userRevL, servicesL, totalRev, fixedCostMo, varCostL, totalCost, net })
+  }
+
+  // Cumulative net
+  let cum = 0
+  rows.forEach(r => { cum += r.net; r.cumNet = cum })
+
+  return rows
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function recalculate() {
+  const rows = buildModel()
+
+  // ── KPIs ──
+  const totalRev  = rows.reduce((s,r) => s + r.totalRev,  0)
+  const totalCost = rows.reduce((s,r) => s + r.totalCost, 0)
+  const totalNet  = rows.reduce((s,r) => s + r.net,       0)
+  const beMonth   = rows.find(r => r.cumNet >= 0)
+  const avgMargin = rows.reduce((s,r) => s + (r.totalRev > 0 ? r.net / r.totalRev * 100 : 0), 0) / rows.length
+
+  document.getElementById('k_rev').textContent      = fL(totalRev)
+  document.getElementById('k_rev_sub').textContent  = `₹${(totalRev/100).toFixed(2)} Cr total`
+  document.getElementById('k_cost').textContent     = fL(totalCost)
+  document.getElementById('k_cost_sub').textContent = `₹${(totalCost/100).toFixed(2)} Cr total`
+  document.getElementById('k_net').textContent      = fL(totalNet)
+  document.getElementById('k_net_sub').textContent  = totalNet >= 0 ? 'profitable' : 'net loss'
+  const kpiNet = document.getElementById('kpi_net')
+  kpiNet.className = 'kpi ' + (totalNet >= 0 ? 'green' : 'red')
+
+  if (beMonth) {
+    document.getElementById('k_be').textContent     = `M${beMonth.m}`
+    document.getElementById('k_be_sub').textContent = `Year ${Math.ceil(beMonth.m/12)}`
+  } else {
+    document.getElementById('k_be').textContent     = '>60'
+    document.getElementById('k_be_sub').textContent = 'not within 60 months'
+  }
+  // Banks to break even: how many banks like this one needed to cover ASTRA's monthly fixed costs?
+  const fixedCostMoCalc = v('c_team') + v('c_sales') + v('c_cloud') + v('c_office')
+  // Average monthly revenue from a single bank (steady state = last 12 months avg)
+  const last12Rev = rows.slice(48, 60).reduce((s,r) => s + r.totalRev, 0) / 12
+  const banksBeCalc = last12Rev > 0 ? Math.ceil(fixedCostMoCalc / last12Rev) : Infinity
+  document.getElementById('k_banks_be').textContent     = banksBeCalc <= 200 ? banksBeCalc + ' banks' : '>200'
+  document.getElementById('k_banks_be_sub').textContent = `@ ${fL(last12Rev)}/mo avg per bank`
+
+  // ── Yearly net ──
+  function yearNet(y) { return rows.slice((y-1)*12, y*12).reduce((s,r) => s+r.net,0) }
+  ;[1,2,3,4,5].forEach(y => {
+    const n = yearNet(y); const el = document.getElementById(`be_y${y}`)
+    el.textContent = fL(n)
+    el.parentElement.className = 'be-item' + (n >= 0 ? '' : n > -10 ? ' warn' : ' loss')
+  })
+  const peakRev = Math.max(...rows.map(r=>r.totalRev))
+  document.getElementById('be_peak').textContent = fL(peakRev)
+  document.getElementById('be_payback').textContent = beMonth ? `${beMonth.m} months` : '>60M'
+
+  // ── Charts ──
+  const labels    = rows.map(r => `M${r.m}`)
+  const cumRevArr = []; let cr=0; rows.forEach(r=>{cr+=r.totalRev;cumRevArr.push(+cr.toFixed(2))})
+  const cumCstArr = []; let cc=0; rows.forEach(r=>{cc+=r.totalCost;cumCstArr.push(+cc.toFixed(2))})
+  const cumNetArr = rows.map(r => +r.cumNet.toFixed(2))
+
+  // Cumulative chart
+  if (chartCumulative) chartCumulative.destroy()
+  chartCumulative = new Chart(document.getElementById('chart_cumulative'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Cum Revenue', data: cumRevArr, borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,0.07)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+        { label: 'Cum Cost',    data: cumCstArr, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.05)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+        { label: 'Cum Net',     data: cumNetArr, borderColor: '#818cf8', backgroundColor: 'rgba(129,140,248,0.07)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10 } } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fL(ctx.parsed.y)}` } } },
+      scales: {
+        x: { ticks: { color: '#475569', font: { size: 8 }, maxTicksLimit: 15 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { ticks: { color: '#475569', font: { size: 9 }, callback: v => fL(v) }, grid: { color: 'rgba(255,255,255,0.04)' } }
+      }
+    }
+  })
+
+  // Revenue stacked bar
+  if (chartRevStack) chartRevStack.destroy()
+  chartRevStack = new Chart(document.getElementById('chart_rev_stack'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'One-Time',   data: rows.map(r=>+r.oneTime.toFixed(2)),     backgroundColor: '#f59e0b', stack: 'rev' },
+        { label: 'Per-Cheque', data: rows.map(r=>+r.perChqRevL.toFixed(2)), backgroundColor: '#34d399', stack: 'rev' },
+        { label: 'Licence',    data: rows.map(r=>+r.licenceRev.toFixed(2)),  backgroundColor: '#38bdf8', stack: 'rev' },
+        { label: 'Users',      data: rows.map(r=>+r.userRevL.toFixed(2)),   backgroundColor: '#a78bfa', stack: 'rev' },
+        { label: 'Services',   data: rows.map(r=>+r.servicesL.toFixed(2)),  backgroundColor: '#fb7185', stack: 'rev' },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 }, boxWidth: 10 } } },
+      scales: {
+        x: { stacked: true, ticks: { color: '#475569', font: { size: 7 }, maxTicksLimit: 10 }, grid: { display: false } },
+        y: { stacked: true, ticks: { color: '#475569', font: { size: 9 }, callback: v => fL(v) }, grid: { color: 'rgba(255,255,255,0.04)' } }
+      }
+    }
+  })
+
+  // Net + margin
+  if (chartNet) chartNet.destroy()
+  chartNet = new Chart(document.getElementById('chart_net'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Net Profit', data: rows.map(r=>+r.net.toFixed(2)), backgroundColor: rows.map(r=>r.net>=0?'rgba(52,211,153,0.6)':'rgba(248,113,113,0.6)'), yAxisID: 'y' },
+        { label: 'Margin %',  data: rows.map(r=>r.totalRev>0?(r.net/r.totalRev*100):0), type: 'line', borderColor: '#818cf8', pointRadius: 0, tension: 0.4, yAxisID: 'y2', borderWidth: 1.5 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 }, boxWidth: 10 } } },
+      scales: {
+        x: { ticks: { color: '#475569', font: { size: 7 }, maxTicksLimit: 10 }, grid: { display: false } },
+        y:  { ticks: { color: '#475569', font: { size: 9 }, callback: v => fL(v) }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y2: { position: 'right', ticks: { color: '#818cf8', font: { size: 9 }, callback: v => v.toFixed(0)+'%' }, grid: { display: false } }
+      }
+    }
+  })
+
+  // ── Revenue mix ──
+  const totOT  = rows.reduce((s,r)=>s+r.oneTime,0)
+  const totPC  = rows.reduce((s,r)=>s+r.perChqRevL,0)
+  const totLic = rows.reduce((s,r)=>s+r.licenceRev,0)
+  const totUsr = rows.reduce((s,r)=>s+r.userRevL,0)
+  const totSvc = rows.reduce((s,r)=>s+r.servicesL,0)
+  const mix = [
+    { label: 'Per-Cheque Processing', val: totPC,  color: '#34d399' },
+    { label: 'Platform Licence',      val: totLic, color: '#38bdf8' },
+    { label: 'User Licences',         val: totUsr, color: '#a78bfa' },
+    { label: 'Managed AI Services',   val: totSvc, color: '#fb7185' },
+    { label: 'One-Time Fees',         val: totOT,  color: '#f59e0b' },
+  ].filter(x => x.val > 0)
+  const maxMix = Math.max(...mix.map(x=>x.val))
+  document.getElementById('mix-bars').innerHTML = mix.map(x => `
+    <div class="mix-row">
+      <div class="mix-label">${x.label}</div>
+      <div class="mix-bar-wrap"><div class="mix-bar-fill" style="width:${(x.val/maxMix*100).toFixed(1)}%;background:${x.color}"></div></div>
+      <div class="mix-pct">${pct(x.val,totalRev)}</div>
+      <div class="mix-amt">${fL(x.val)}</div>
+    </div>`).join('')
+
+  // ── Sensitivity ──
+  const basePerChq = v('i_perchq')
+  const rates = [0.60, 0.80, 1.00, 1.20, 1.50, 2.00].filter(r => Math.abs(r - basePerChq) > 0.01 || true)
+  const vols  = [20, 50, 100, 200, 500]
+  let sHtml = `<div class="sens-grid" style="grid-template-columns:auto repeat(${vols.length},1fr)">`
+  sHtml += `<div class="sens-cell hdr">Rate ↓ Vol →</div>`
+  vols.forEach(vv => sHtml += `<div class="sens-cell hdr">${vv}L/mo</div>`)
+  rates.forEach(rate => {
+    sHtml += `<div class="sens-cell rowlbl">₹${rate.toFixed(2)}/chq</div>`
+    vols.forEach(vv => {
+      // Quick 60M net at this rate + volume (keep all other inputs same, just override vol and perChq)
+      let net60 = 0
+      // Inline calc: ASTRA vendor fixed costs only (no infra — bank pays for their own)
+      const fixedC = v('c_team')+v('c_sales')+v('c_cloud')+v('c_office')
+      const vc = 0  // no variable compute cost for ASTRA (bank bears GPU/infra)
+      const yoyR = v('i_yoy')/100
+      const vdR  = v('i_voldiscount')/100
+      const rampMo = Math.max(1,v('i_ramp'))
+      const users2 = v('i_users'); const uf2 = v('i_userfee')
+      const lic2 = v('i_licence'); const air2 = v('i_airetainer'); const sup2 = v('i_support')
+      const ot2  = v('i_impl')+v('i_custom')+v('i_training')
+      for (let mm=1;mm<=60;mm++) {
+        const yn = Math.ceil(mm/12)
+        const ym = Math.pow(1+yoyR,yn-1)
+        const rm = mm<=rampMo?mm/rampMo:1
+        const vol2 = vv*rm*ym
+        const dis2 = vol2>500?(500*rate+(vol2-500)*rate*(1-vdR)):vol2*rate
+        const rev2 = (mm===1?ot2:0) + dis2 + lic2 + (users2*uf2)/100000 + air2 + (mm>=2?sup2:0)
+        // ASTRA vendor cost: fixed only + M1 onboarding (no variable compute — bank bears infra)
+        const cst2 = fixedC + (mm===1?v('c_onboard'):0)
+        net60 += rev2 - cst2
+      }
+      const cls = net60 >= 50 ? 'g' : net60 >= 0 ? 'y' : 'r'
+      sHtml += `<div class="sens-cell ${cls}">${fL(net60)}</div>`
+    })
+  })
+  sHtml += '</div>'
+  document.getElementById('sens-table').innerHTML = sHtml
+
+  // ── Monthly table ──
+  const tbody = document.getElementById('monthly-tbody')
+  tbody.innerHTML = rows.map(r => {
+    const isBe    = beMonth && r.m === beMonth.m
+    const isFyBdry= r.m % 12 === 1 && r.m > 1
+    return `<tr class="${isBe?'be-row':''} ${isFyBdry?'fy-boundary':''}">
+      <td>${mo(r.m)}${isBe?' 🟢':''}</td>
+      <td>${r.vol.toFixed(1)}</td>
+      <td class="${r.oneTime>0?'amber':''}">${r.oneTime>0?fL(r.oneTime):'—'}</td>
+      <td>${fL(r.perChqRevL)}</td>
+      <td>${fL(r.licenceRev)}</td>
+      <td>${fL(r.userRevL)}</td>
+      <td>${fL(r.servicesL)}</td>
+      <td class="${r.totalRev>0?'pos':''}">${fL(r.totalRev)}</td>
+      <td>${fL(r.fixedCostMo)}</td>
+      <td>${fL(r.varCostL)}</td>
+      <td>${fL(r.totalCost)}</td>
+      <td class="${r.net>=0?'pos':'neg'}">${fL(r.net)}</td>
+      <td class="${r.cumNet>=0?'be-mark':'neg'}">${fL(r.cumNet)}</td>
+    </tr>`
+  }).join('')
+
+  const tfoot = document.getElementById('monthly-tfoot')
+  const totFix = rows.reduce((s,r)=>s+r.fixedCostMo,0)
+  const totVar = rows.reduce((s,r)=>s+r.varCostL,0)
+  const totOT2 = rows.reduce((s,r)=>s+r.oneTime,0)
+  const totPC2 = rows.reduce((s,r)=>s+r.perChqRevL,0)
+  const totLic2= rows.reduce((s,r)=>s+r.licenceRev,0)
+  const totUsr2= rows.reduce((s,r)=>s+r.userRevL,0)
+  const totSvc2= rows.reduce((s,r)=>s+r.servicesL,0)
+  tfoot.innerHTML = `<tr>
+    <td>TOTAL (60M)</td><td>—</td>
+    <td>${fL(totOT2)}</td><td>${fL(totPC2)}</td>
+    <td>${fL(totLic2)}</td><td>${fL(totUsr2)}</td><td>${fL(totSvc2)}</td>
+    <td class="pos">${fL(totalRev)}</td>
+    <td>${fL(totFix)}</td><td>${fL(totVar)}</td>
+    <td>${fL(totalCost)}</td>
+    <td class="${totalNet>=0?'pos':'neg'}">${fL(totalNet)}</td>
+    <td class="${totalNet>=0?'be-mark':'neg'}">${fL(rows[59].cumNet)}</td>
+  </tr>`
+}
+
+function toggleTable() {
+  const w = document.getElementById('tbl-wrap')
+  w.style.display = w.style.display === 'none' ? 'block' : 'none'
+}
+
+// ── Auto-recalc on input change ───────────────────────────────────────────────
+document.querySelectorAll('input').forEach(inp => inp.addEventListener('change', recalculate))
+
+// Initial render
+recalculate()
+</script>
+</body>
+</html>

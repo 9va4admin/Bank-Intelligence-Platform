@@ -104,6 +104,15 @@ class _StubCBS(CBSConnector):
     async def get_signature_specimens(self, account_number: str, bank_id: str) -> list[bytes]:
         return [b"specimen1", b"specimen2"]
 
+    async def check_stop_payment(self, account_number: str, cheque_number: str, bank_id: str) -> bool:
+        return False
+
+    async def get_pps_entries(self, account_number: str, bank_id: str):
+        return []
+
+    async def get_cheque_status(self, account_number: str, cheque_number: str, bank_id: str):
+        return None
+
 
 @pytest.mark.asyncio
 async def test_stub_get_account_info_returns_account_info():

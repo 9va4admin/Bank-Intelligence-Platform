@@ -1,13 +1,22 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
+import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
-const SESSIONS = [
-  { id: 'SES-0619-001', window: '10:00–12:00', status: 'ACTIVE',  submitted: 1247, accepted: 1231, rejected: 16,  returned: 4  },
-  { id: 'SES-0619-002', window: '12:00–14:00', status: 'PENDING', submitted: 0,    accepted: 0,    rejected: 0,   returned: 0  },
-  { id: 'SES-0619-003', window: '14:00–16:00', status: 'PENDING', submitted: 0,    accepted: 0,    rejected: 0,   returned: 0  },
-]
+function makeSessions(bankIfsc, isSMB) {
+  const ifsc = bankIfsc || 'BANK'
+  if (isSMB) return [
+    { id: `SES-${ifsc}-20260619-001`, window: '10:00–12:00', status: 'ACTIVE',  submitted: 78, accepted: 76, rejected: 2, returned: 1 },
+    { id: `SES-${ifsc}-20260619-002`, window: '12:00–14:00', status: 'PENDING', submitted: 0,  accepted: 0,  rejected: 0, returned: 0 },
+  ]
+  return [
+    { id: `SES-${ifsc}-20260619-001`, window: '10:00–12:00', status: 'ACTIVE',  submitted: 1247, accepted: 1231, rejected: 16, returned: 4 },
+    { id: `SES-${ifsc}-20260619-002`, window: '12:00–14:00', status: 'PENDING', submitted: 0,    accepted: 0,    rejected: 0,  returned: 0 },
+    { id: `SES-${ifsc}-20260619-003`, window: '14:00–16:00', status: 'PENDING', submitted: 0,    accepted: 0,    rejected: 0,  returned: 0 },
+  ]
+}
 
 const IQA_FAIL_REASONS = [
   'Image too dark — rescan required',
@@ -17,7 +26,7 @@ const IQA_FAIL_REASONS = [
   'Duplicate instrument detected',
 ]
 
-function makeBatch(n, startIdx = 0) {
+function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001') {
   const zones = ['MUMBAI', 'PUNE', 'DELHI', 'CHENNAI']
   const statuses = ['CAPTURED', 'IQA_PASS', 'IQA_FAIL', 'AI_EXTRACTED', 'PKI_SIGNED', 'SUBMITTED', 'NGCH_ACK', 'NGCH_REJECT']
   const weights  = [0.05, 0.08, 0.04, 0.15, 0.12, 0.20, 0.28, 0.08]
@@ -44,7 +53,7 @@ function makeBatch(n, startIdx = 0) {
       zone: zones[idx % zones.length],
       micr: `0${idx % 9}2000${String(idx).padStart(6, '0')}`,
       date_on_cheque: '19-Jun-2026',
-      lot_number: `LOT_SVCB0000001_20260619_SES-0619-001_${String(lotSeq).padStart(2, '0')}`,
+      lot_number: `LOT_${bankIfsc}_20260619_${sessionId}_${String(lotSeq).padStart(2, '0')}`,
       lot_seq: lotSeq,
       status,
       iqa_fail_reason: iqaFail ? IQA_FAIL_REASONS[idx % IQA_FAIL_REASONS.length] : null,
@@ -61,18 +70,30 @@ function makeBatch(n, startIdx = 0) {
   })
 }
 
-const INITIAL_BATCH = makeBatch(42)
+// INITIAL_BATCH built inside component after bank context is known
 
-const STATUS_META = {
-  CAPTURED:     { label: 'Captured',     color: 'text-slate-500 dark:text-slate-400',   bg: 'bg-slate-50 border-slate-300 dark:bg-slate-400/10 dark:border-slate-400/20' },
-  IQA_PASS:     { label: 'IQA Pass',     color: 'text-sky-600 dark:text-sky-400',       bg: 'bg-sky-50 border-sky-300 dark:bg-sky-400/10 dark:border-sky-400/20'         },
-  IQA_FAIL:     { label: 'IQA Fail',     color: 'text-red-600 dark:text-red-400',       bg: 'bg-red-50 border-red-300 dark:bg-red-400/10 dark:border-red-400/25'         },
-  AI_EXTRACTED: { label: 'AI Extracted', color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 border-violet-300 dark:bg-violet-400/10 dark:border-violet-400/20'},
-  PKI_SIGNED:   { label: 'PKI Signed',   color: 'text-amber-600 dark:text-amber-400',   bg: 'bg-amber-50 border-amber-300 dark:bg-amber-400/10 dark:border-amber-400/20' },
-  SUBMITTED:    { label: 'Submitted',    color: 'text-blue-600 dark:text-blue-400',     bg: 'bg-blue-50 border-blue-300 dark:bg-blue-400/10 dark:border-blue-400/20'     },
-  NGCH_ACK:     { label: 'NGCH ACK ✓',  color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 border-emerald-300 dark:bg-emerald-400/10 dark:border-emerald-400/20'},
-  NGCH_REJECT:  { label: 'NGCH Reject',  color: 'text-red-700 dark:text-red-500',       bg: 'bg-red-50 border-red-300 dark:bg-red-500/10 dark:border-red-500/25'         },
+// STATUS_META_D / STATUS_META_L are selected per-render based on isDark
+const STATUS_META_D = {
+  CAPTURED:     { label: 'Captured',     color: 'text-slate-400',    bg: 'bg-slate-400/10 border-slate-400/20'   },
+  IQA_PASS:     { label: 'IQA Pass',     color: 'text-sky-400',      bg: 'bg-sky-400/10 border-sky-400/20'       },
+  IQA_FAIL:     { label: 'IQA Fail',     color: 'text-red-400',      bg: 'bg-red-400/10 border-red-400/25'       },
+  AI_EXTRACTED: { label: 'AI Extracted', color: 'text-violet-400',   bg: 'bg-violet-400/10 border-violet-400/20' },
+  PKI_SIGNED:   { label: 'PKI Signed',   color: 'text-amber-400',    bg: 'bg-amber-400/10 border-amber-400/20'   },
+  SUBMITTED:    { label: 'Submitted',    color: 'text-blue-400',     bg: 'bg-blue-400/10 border-blue-400/20'     },
+  NGCH_ACK:     { label: 'NGCH ACK ✓',  color: 'text-emerald-400',  bg: 'bg-emerald-400/10 border-emerald-400/20'},
+  NGCH_REJECT:  { label: 'NGCH Reject',  color: 'text-red-500',      bg: 'bg-red-500/10 border-red-500/25'       },
 }
+const STATUS_META_L = {
+  CAPTURED:     { label: 'Captured',     color: 'text-slate-500',    bg: 'bg-slate-50 border-slate-300'          },
+  IQA_PASS:     { label: 'IQA Pass',     color: 'text-sky-600',      bg: 'bg-sky-50 border-sky-300'              },
+  IQA_FAIL:     { label: 'IQA Fail',     color: 'text-red-600',      bg: 'bg-red-50 border-red-300'              },
+  AI_EXTRACTED: { label: 'AI Extracted', color: 'text-violet-600',   bg: 'bg-violet-50 border-violet-300'        },
+  PKI_SIGNED:   { label: 'PKI Signed',   color: 'text-amber-600',    bg: 'bg-amber-50 border-amber-300'          },
+  SUBMITTED:    { label: 'Submitted',    color: 'text-blue-600',     bg: 'bg-blue-50 border-blue-300'            },
+  NGCH_ACK:     { label: 'NGCH ACK ✓',  color: 'text-emerald-700',  bg: 'bg-emerald-50 border-emerald-300'      },
+  NGCH_REJECT:  { label: 'NGCH Reject',  color: 'text-red-700',      bg: 'bg-red-50 border-red-300'              },
+}
+// STATUS_META is aliased per-component using isDark (see below)
 
 const PIPELINE_STEPS = [
   { id: 'CAPTURE',   label: 'Scan & Capture',   icon: '📷', desc: 'Scanner feed → TIFF+JPEG'    },
@@ -91,10 +112,14 @@ function pipelinePos(status) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function SessionBar({ sessions, activeIdx, onSelect }) {
+function SessionBar({ sessions, activeIdx, onSelect, isDark }) {
   const th = {
-    bar:    'bg-white border-slate-200 dark:bg-white/4 dark:border-white/8',
-    label:  'text-slate-500 dark:text-slate-400',
+    bar:    isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
+    label:  isDark ? 'text-slate-400' : 'text-slate-500',
+    sessionActive: isDark ? 'border-gold-400/50 bg-gold-400/10 text-gold-400 font-semibold' : 'border-amber-400/60 bg-amber-50 text-amber-700 font-semibold',
+    sessionIdle:   isDark ? 'border-white/10 text-slate-400 hover:text-slate-200 hover:border-white/20' : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300',
+    live:   isDark ? 'text-emerald-400' : 'text-emerald-600',
+    scnFeed: isDark ? 'text-emerald-400' : 'text-emerald-600',
   }
   return (
     <div className={`shrink-0 border-b ${th.bar} px-5 py-2 flex items-center gap-3`}>
@@ -105,13 +130,11 @@ function SessionBar({ sessions, activeIdx, onSelect }) {
         return (
           <button key={s.id} onClick={() => onSelect(i)}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-lg border text-[11px] transition-all ${
-              active
-                ? 'border-amber-400/60 bg-amber-50 text-amber-700 font-semibold dark:border-gold-400/50 dark:bg-gold-400/10 dark:text-gold-400 dark:font-semibold'
-                : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:border-white/8 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:border-white/20'
+              active ? th.sessionActive : th.sessionIdle
             }`}>
             {isLive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
             <span className="font-mono">{s.window}</span>
-            {s.status === 'ACTIVE' && <span className={`text-[9px] font-medium ${'text-emerald-600 dark:text-emerald-400'}`}>LIVE</span>}
+            {s.status === 'ACTIVE' && <span className={`text-[9px] font-medium ${th.live}`}>LIVE</span>}
             {s.status === 'PENDING' && <span className={`text-[9px] ${th.label}`}>Pending</span>}
           </button>
         )
@@ -119,13 +142,13 @@ function SessionBar({ sessions, activeIdx, onSelect }) {
       <div className={`ml-auto flex items-center gap-4 text-[11px] ${th.label}`}>
         <span>📷 <span className="font-mono font-semibold">4</span> scanners</span>
         <span>📁 <span className="font-mono font-semibold">2</span> folders</span>
-        <span className={`font-mono font-semibold ${'text-emerald-600 dark:text-emerald-400'}`}>SCN feed active</span>
+        <span className={`font-mono font-semibold ${th.scnFeed}`}>SCN feed active</span>
       </div>
     </div>
   )
 }
 
-function KpiStrip({ batch, filterStatus, onFilter }) {
+function KpiStrip({ batch, filterStatus, onFilter, isDark }) {
   const total     = batch.length
   const iqaFail   = batch.filter(b => b.status === 'IQA_FAIL').length
   const extracted = batch.filter(b => ['AI_EXTRACTED','PKI_SIGNED','SUBMITTED','NGCH_ACK','NGCH_REJECT'].includes(b.status)).length
@@ -136,24 +159,25 @@ function KpiStrip({ batch, filterStatus, onFilter }) {
   const dateInvalid = batch.filter(b => b.date_valid === false).length
 
   const th = {
-    card:    'bg-white border-slate-200 dark:bg-navy-900/50 dark:border-white/8',
-    cardAct: 'bg-amber-50 border-amber-300 dark:bg-gold-400/10 dark:border-gold-400/40',
-    lbl:     'text-slate-400 dark:text-slate-500',
+    card:    isDark ? 'bg-navy-900/50 border-white/8' : 'bg-white border-slate-200',
+    cardAct: isDark ? 'bg-gold-400/10 border-gold-400/40' : 'bg-amber-50 border-amber-300',
+    lbl:     isDark ? 'text-slate-500' : 'text-slate-400',
+    divider: isDark ? 'border-white/8' : 'border-slate-200',
   }
 
   const tiles = [
-    { key: 'ALL',          label: 'Total Batch',    val: total,       color: 'text-slate-900 dark:text-white' },
-    { key: 'IQA_FAIL',     label: 'IQA Fail',       val: iqaFail,     color: iqaFail > 0 ? 'text-red-400' : 'text-emerald-600 dark:text-emerald-400' },
-    { key: 'AI_EXTRACTED', label: 'AI Extracted',   val: extracted,   color: 'text-violet-600 dark:text-violet-400' },
-    { key: 'SUBMITTED',    label: 'Submitted NGCH', val: submitted,   color: 'text-blue-600 dark:text-blue-400' },
-    { key: 'NGCH_ACK',     label: 'NGCH ACK',       val: acked,       color: 'text-emerald-600 dark:text-emerald-400' },
-    { key: 'NGCH_REJECT',  label: 'NGCH Reject',    val: rejected,    color: rejected > 0 ? 'text-red-400' : 'text-slate-400 dark:text-slate-500' },
-    { key: 'AMT_MISMATCH', label: 'Amt Mismatch',   val: amtMismatch, color: amtMismatch > 0 ? 'text-amber-400' : 'text-slate-400 dark:text-slate-500' },
-    { key: 'DATE_INVALID', label: 'Date Invalid',   val: dateInvalid, color: dateInvalid > 0 ? 'text-amber-400' : 'text-slate-400 dark:text-slate-500' },
+    { key: 'ALL',          label: 'Total Batch',    val: total,       color: isDark ? 'text-white' : 'text-slate-900' },
+    { key: 'IQA_FAIL',     label: 'IQA Fail',       val: iqaFail,     color: iqaFail > 0 ? 'text-red-400' : (isDark ? 'text-emerald-400' : 'text-emerald-600') },
+    { key: 'AI_EXTRACTED', label: 'AI Extracted',   val: extracted,   color: isDark ? 'text-violet-400' : 'text-violet-600' },
+    { key: 'SUBMITTED',    label: 'Submitted NGCH', val: submitted,   color: isDark ? 'text-blue-400' : 'text-blue-600' },
+    { key: 'NGCH_ACK',     label: 'NGCH ACK',       val: acked,       color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+    { key: 'NGCH_REJECT',  label: 'NGCH Reject',    val: rejected,    color: rejected > 0 ? 'text-red-400' : (isDark ? 'text-slate-500' : 'text-slate-400') },
+    { key: 'AMT_MISMATCH', label: 'Amt Mismatch',   val: amtMismatch, color: amtMismatch > 0 ? 'text-amber-400' : (isDark ? 'text-slate-500' : 'text-slate-400') },
+    { key: 'DATE_INVALID', label: 'Date Invalid',   val: dateInvalid, color: dateInvalid > 0 ? 'text-amber-400' : (isDark ? 'text-slate-500' : 'text-slate-400') },
   ]
 
   return (
-    <div className={`shrink-0 border-b ${'border-slate-200 dark:border-white/8'} px-5 py-3`}>
+    <div className={`shrink-0 border-b ${th.divider} px-5 py-3`}>
       <div className="flex gap-4 overflow-x-auto">
         {tiles.map(t => {
           const active = filterStatus === t.key
@@ -161,7 +185,7 @@ function KpiStrip({ batch, filterStatus, onFilter }) {
             <button key={t.key}
               onClick={() => onFilter(active ? 'ALL' : t.key)}
               className={`shrink-0 rounded-xl border px-4 py-2 min-w-[100px] text-left transition-all ${
-                active ? th.cardAct : `${th.card} hover:border-amber-300/50 dark:hover:border-gold-400/20`
+                active ? th.cardAct : `${th.card} ${isDark ? 'hover:border-gold-400/20' : 'hover:border-amber-300/50'}`
               }`}>
               <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-0.5`}>{t.label}</div>
               <div className={`text-2xl font-bold font-mono ${t.color}`}>{t.val}</div>
@@ -173,20 +197,21 @@ function KpiStrip({ batch, filterStatus, onFilter }) {
   )
 }
 
-function PipelineLane({ batch }) {
+function PipelineLane({ batch, isDark }) {
   const counts = {}
   PIPELINE_STEPS.forEach((_, i) => { counts[i] = 0 })
   batch.forEach(b => { const p = pipelinePos(b.status); counts[p] = (counts[p] || 0) + 1 })
   const total = batch.length || 1
 
   const th = {
-    card:  'bg-white border-slate-200 dark:bg-navy-900/50 dark:border-white/8',
-    lbl:   'text-slate-400 dark:text-slate-500',
-    bar:   'bg-slate-100 dark:bg-white/5',
+    lbl:     isDark ? 'text-slate-500' : 'text-slate-400',
+    bar:     isDark ? 'bg-white/5' : 'bg-slate-100',
+    divider: isDark ? 'border-white/8' : 'border-slate-200',
+    cnt:     isDark ? 'text-slate-300' : 'text-slate-700',
   }
 
   return (
-    <div className={`shrink-0 border-b ${'border-slate-200 dark:border-white/8'} px-5 py-3`}>
+    <div className={`shrink-0 border-b ${th.divider} px-5 py-3`}>
       <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>Outward Pipeline — Current Session</div>
       <div className="flex gap-2 items-end">
         {PIPELINE_STEPS.map((step, i) => {
@@ -196,7 +221,7 @@ function PipelineLane({ batch }) {
             <div key={step.id} className="flex-1 min-w-0">
               <div className="flex items-baseline justify-between mb-1">
                 <span className={`text-[10px] ${th.lbl} truncate`}>{step.icon} {step.label}</span>
-                <span className={`text-[10px] font-mono font-bold shrink-0 ml-1 ${'text-slate-700 dark:text-slate-300'}`}>{cnt}</span>
+                <span className={`text-[10px] font-mono font-bold shrink-0 ml-1 ${th.cnt}`}>{cnt}</span>
               </div>
               <div className={`h-1.5 ${th.bar} rounded-full overflow-hidden`}>
                 <div className="h-full bg-gold-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
@@ -210,15 +235,16 @@ function PipelineLane({ batch }) {
   )
 }
 
-function BatchRow({ item, selected, onClick }) {
+function BatchRow({ item, selected, onClick, isDark }) {
+  const STATUS_META = isDark ? STATUS_META_D : STATUS_META_L
   const s = STATUS_META[item.status] || STATUS_META['CAPTURED']
   const th = {
     row:  selected
-      ? 'bg-amber-50 border-amber-300 dark:bg-gold-400/8 dark:border-gold-400/30'
-      : 'border-slate-100 hover:bg-slate-50 dark:border-white/5 dark:hover:bg-white/2',
-    id:   'text-amber-600 dark:text-gold-400',
-    meta: 'text-slate-500 dark:text-slate-400',
-    muted:'text-slate-400 dark:text-slate-500',
+      ? (isDark ? 'bg-gold-400/8 border-gold-400/30' : 'bg-amber-50 border-amber-300')
+      : (isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50'),
+    id:   isDark ? 'text-gold-400' : 'text-amber-600',
+    meta: isDark ? 'text-slate-400' : 'text-slate-500',
+    muted: isDark ? 'text-slate-500' : 'text-slate-400',
   }
 
   return (
@@ -243,7 +269,7 @@ function BatchRow({ item, selected, onClick }) {
           {item.lot_seq && (
             <>
               <span>·</span>
-              <span className={'text-violet-600 font-medium dark:text-violet-400 dark:font-medium'}>
+              <span className={isDark ? 'text-violet-400 font-medium' : 'text-violet-600 font-medium'}>
                 Lot {item.lot_seq}
               </span>
             </>
@@ -375,25 +401,26 @@ function OutwardPipelineViz({ item }) {
   )
 }
 
-function DetailPanel({ item }) {
+function DetailPanel({ item, isDark }) {
   if (!item) return (
-    <div className={`flex-1 flex items-center justify-center ${'text-slate-300 dark:text-slate-600'} text-sm`}>
+    <div className={`flex-1 flex items-center justify-center ${isDark ? 'text-slate-500' : 'text-slate-300'} text-sm`}>
       Select a cheque to inspect
     </div>
   )
+  const STATUS_META = isDark ? STATUS_META_D : STATUS_META_L
   const s  = STATUS_META[item.status] || STATUS_META['CAPTURED']
   const pos = pipelinePos(item.status)
 
   const th = {
-    page:    'bg-slate-50 dark:bg-transparent',
-    card:    'bg-white border-slate-200 dark:bg-navy-900/50 dark:border-white/8',
-    heading: 'text-slate-900 dark:text-white',
-    body:    'text-slate-700 dark:text-slate-300',
-    muted:   'text-slate-500 dark:text-slate-400',
-    lbl:     'text-slate-400 dark:text-slate-500',
-    divider: 'border-slate-200 dark:border-white/8',
-    id:      'text-amber-600 dark:text-gold-400',
-    bar:     'bg-slate-100 dark:bg-white/5',
+    page:    isDark ? 'bg-transparent' : 'bg-slate-50',
+    card:    isDark ? 'bg-navy-900/50 border-white/10' : 'bg-white border-slate-200',
+    heading: isDark ? 'text-white' : 'text-slate-900',
+    body:    isDark ? 'text-slate-300' : 'text-slate-700',
+    muted:   isDark ? 'text-slate-400' : 'text-slate-500',
+    lbl:     isDark ? 'text-slate-500' : 'text-slate-400',
+    divider: isDark ? 'border-white/10' : 'border-slate-200',
+    id:      isDark ? 'text-gold-400' : 'text-amber-600',
+    bar:     isDark ? 'bg-white/5' : 'bg-slate-100',
   }
 
   const fields = [
@@ -480,7 +507,7 @@ function DetailPanel({ item }) {
                   </div>
                   <div className="flex items-center gap-2">
                     {c.val && <span className={`text-[11px] font-mono ${th.body}`}>{c.val}</span>}
-                    <span className={`text-[11px] font-semibold ${c.ok ? ('text-emerald-600 dark:text-emerald-400') : 'text-red-400'}`}>
+                    <span className={`text-[11px] font-semibold ${c.ok ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : 'text-red-400'}`}>
                       {c.ok ? '✓' : '✕'}
                     </span>
                   </div>
@@ -505,7 +532,7 @@ function DetailPanel({ item }) {
               </div>
               <div className="flex items-center justify-between px-4 py-2">
                 <span className={`text-[11px] ${th.muted}`}>HSM signed</span>
-                <span className={`text-[11px] ${'text-emerald-600 dark:text-emerald-400'}`}>✓ FIPS 140-2 L3</span>
+                <span className={`text-[11px] ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>✓ FIPS 140-2 L3</span>
               </div>
               {item.ngch_ack_id && (
                 <div className="flex items-center justify-between px-4 py-2">
@@ -530,20 +557,35 @@ function DetailPanel({ item }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CTSPresentment() {
-  const [batch, setBatch] = useState(INITIAL_BATCH)
-  const [selected, setSelected] = useState(INITIAL_BATCH[0])
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { isDark } = useTheme()
+  const SESSIONS = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
+  const initialBatch = useMemo(() => makeBatch(isSMB ? 8 : 42, 0, bankIfsc || 'BANK', SESSIONS[0]?.id || 'SES-0619-001'), [bankIfsc, isSMB, SESSIONS])
+  const [batch, setBatch] = useState(() => initialBatch)
+  const [selected, setSelected] = useState(() => initialBatch[0])
   const [activeSession, setActiveSession] = useState(0)
   const [filterStatus, setFilterStatus] = useState('ALL')
   const [filterLot, setFilterLot]       = useState('ALL')
   const [search, setSearch] = useState('')
+  const addedRef = useRef(isSMB ? 8 : 42)
 
-  const addedRef = useRef(42)
+  useEffect(() => {
+    const n = isSMB ? 8 : 42
+    addedRef.current = n
+    const b = makeBatch(n, 0, bankIfsc || 'BANK', SESSIONS[0]?.id || 'SES-0619-001')
+    setBatch(b)
+    setSelected(b[0])
+    setActiveSession(0)
+    setFilterStatus('ALL')
+    setFilterLot('ALL')
+    setSearch('')
+  }, [isSMB, bankIfsc]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Simulate incoming captures from scanner feed
   useEffect(() => {
     const timer = setInterval(() => {
       if (Math.random() > 0.35) return
-      const newItem = makeBatch(1, addedRef.current)[0]
+      const newItem = makeBatch(1, addedRef.current, bankIfsc || 'BANK', SESSIONS[0]?.id || 'SES-0619-001')[0]
       addedRef.current += 1
       setBatch(prev => [newItem, ...prev].slice(0, 200))
     }, 2800)
@@ -570,14 +612,20 @@ export default function CTSPresentment() {
     return () => clearInterval(timer)
   }, [])
 
+  const STATUS_META = isDark ? STATUS_META_D : STATUS_META_L
+
   const th = {
-    page:    'bg-slate-50 dark:bg-transparent',
-    divider: 'border-slate-200 dark:border-white/8',
-    heading: 'text-slate-900 dark:text-white',
-    muted:   'text-slate-500 dark:text-slate-400',
-    lbl:     'text-slate-400 dark:text-slate-500',
-    search:  'bg-white border-slate-300 text-slate-700 placeholder:text-slate-400 focus:border-amber-400 dark:bg-white/5 dark:border-white/10 dark:text-slate-300 dark:placeholder:text-slate-600 dark:focus:border-gold-400/40',
-    sel:     'bg-white border-slate-300 text-slate-700 focus:border-amber-400 dark:bg-white/5 dark:border-white/10 dark:text-slate-300 dark:focus:border-gold-400/40',
+    page:    isDark ? 'bg-transparent' : 'bg-slate-50',
+    divider: isDark ? 'border-white/10' : 'border-slate-200',
+    heading: isDark ? 'text-white' : 'text-slate-900',
+    muted:   isDark ? 'text-slate-400' : 'text-slate-500',
+    lbl:     isDark ? 'text-slate-500' : 'text-slate-400',
+    search:  isDark
+      ? 'bg-white/5 border-white/10 text-slate-300 placeholder:text-slate-600 focus:border-gold-400/40'
+      : 'bg-white border-slate-300 text-slate-700 placeholder:text-slate-400 focus:border-amber-400',
+    sel:     isDark
+      ? 'bg-white/5 border-white/10 text-slate-300 focus:border-gold-400/40'
+      : 'bg-white border-slate-300 text-slate-700 focus:border-amber-400',
   }
 
   const allStatuses = ['ALL', ...Object.keys(STATUS_META)]
@@ -612,10 +660,10 @@ export default function CTSPresentment() {
         <SessionBar sessions={SESSIONS} activeIdx={activeSession} onSelect={setActiveSession} />
 
         {/* KPI strip */}
-        <KpiStrip batch={batch} filterStatus={filterStatus} onFilter={setFilterStatus} />
+        <KpiStrip batch={batch} filterStatus={filterStatus} onFilter={setFilterStatus} isDark={isDark} />
 
         {/* Pipeline progress */}
-        <PipelineLane batch={batch} />
+        <PipelineLane batch={batch} isDark={isDark} />
 
         {/* Main body: list + detail */}
         <div className="flex flex-1 min-h-0">
@@ -668,7 +716,7 @@ export default function CTSPresentment() {
 
           {/* Detail panel */}
           <div className="flex-1 min-w-0">
-            <DetailPanel item={selected} />
+            <DetailPanel item={selected} isDark={isDark} />
           </div>
         </div>
       </div>

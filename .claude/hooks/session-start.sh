@@ -23,7 +23,9 @@ pip install \
   pytest-cov \
   anyio \
   "headroom-ai[mcp]" \
-  --quiet --disable-pip-version-check
+  --quiet --disable-pip-version-check \
+  --break-system-packages \
+  --ignore-installed
 
 # ── Python path fix: create apps/__init__.py + apps/ai_server symlink ─────────
 # The directory is named "ai-server" (hyphen) which Python can't import directly.

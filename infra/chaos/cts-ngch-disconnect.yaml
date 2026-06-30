@@ -1,0 +1,73 @@
+# Chaos Mesh Scenario: NGCH Connectivity Loss
+# ─────────────────────────────────────────────────────────────────────────────
+# Purpose : Verify exactly-once NGCH filing guarantee when the NGCH adapter
+#           loses connectivity mid-batch. Temporal retry + idempotency key must
+#           prevent duplicate filings when connectivity restores.
+# NFR     : NEVER: duplicate NGCH filing | NEVER: IET breach (CLAUDE.md §12)
+# When    : Before any NGCH adapter change, network topology change, or transport
+#           migration (SFTP→REST per NPCI readiness plan).
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: cts-ngch-adapter-blackhole
+  namespace: chaos-testing
+  labels:
+    scenario: ngch-disconnect
+    module: cts
+    severity: CRITICAL
+spec:
+  action: loss
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-staging-internal
+    labelSelectors:
+      "app.kubernetes.io/component": "ngch-adapter"
+  loss:
+    loss: "100"       # complete packet loss — hard disconnect
+    correlation: "0"
+  # Disconnect for 90s — long enough to trigger IET watchdog on tight-deadline cheques
+  duration: "90s"
+  scheduler:
+    cron: "@manually"
+---
+# Phase 2: restore with high latency (simulates NPCI SFTP slow reconnect)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: cts-ngch-adapter-high-latency
+  namespace: chaos-testing
+  labels:
+    scenario: ngch-disconnect
+    module: cts
+    phase: restore
+    severity: HIGH
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-staging-internal
+    labelSelectors:
+      "app.kubernetes.io/component": "ngch-adapter"
+  delay:
+    latency: "2000ms"
+    jitter: "500ms"
+  # High-latency window after blackhole recovers — 60s
+  duration: "60s"
+  scheduler:
+    cron: "@manually"
+# ─────────────────────────────────────────────────────────────────────────────
+# Expected observations:
+#   - ngch_filer activity: NGCH_FILING_RETRY policy kicks in (3 attempts, exp backoff)
+#   - Temporal: file_to_ngch activities queue up (visible in Temporal UI)
+#   - IETWatchdogWorkflow: on cheques approaching T-30s, emergency_file_if_30s fires
+#     (same ngch_filer activity — queued behind retry backoff, ABANDON policy ensures
+#     watchdog survives even if parent times out)
+#   - On connectivity restore: Temporal delivers all queued activities
+#   - Idempotency keys: duplicate submission to NGCH returns INSTR_4003 (treated as success)
+#   - Zero duplicate filings confirmed by cts.decisions Kafka topic — one event per instrument_id
+#   - Prometheus alert CTS_NGCH_FILING_QUEUE_DEPTH fires if queue > 50 pending
+#   - Post-drill: audit-queries/standard-reports.sql query #3 shows 0 duplicate submissions
+# ─────────────────────────────────────────────────────────────────────────────

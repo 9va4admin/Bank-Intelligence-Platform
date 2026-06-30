@@ -1,0 +1,81 @@
+# Chaos Scenario 1: DC Network Partition (Active-Active DR Test)
+#
+# Simulates: DC1 loses network connectivity to DC2 (split-brain scenario).
+# Expected behaviour:
+#   - DC2 continues serving 100% of traffic (CTS + EJ) within 30 seconds
+#   - No IET breach during failover window
+#   - Kafka MirrorMaker2 re-routes consumer groups to DC2 topics
+#   - YugabyteDB YSQL remains available via DC2 nodes (quorum maintained)
+#   - Redis EJ and CTS vaults on DC2 remain warm (VaultSyncWorkflow ran at 6AM)
+#
+# RBI Control: DR-01 — RTO < 30s, RPO = 0
+# Run with: chaos-mesh dashboard or kubectl apply -f 01-dc-network-partition.yaml
+# Duration: 5 minutes (safe window for manual observation)
+# Rollback: kubectl delete -f 01-dc-network-partition.yaml (removes chaos injection)
+
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: dc1-network-partition
+  namespace: chaos-testing
+  labels:
+    scenario: dc-failover
+    rbi-control: DR-01
+    severity: critical
+    runbook: "docs/runbooks/dc-failover.md"
+spec:
+  action: partition
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+      - astra-ej-saraswat-coop
+    labelSelectors:
+      "topology.kubernetes.io/zone": "dc1"
+  direction: both
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - astra-cts-saraswat-coop
+        - astra-ej-saraswat-coop
+      labelSelectors:
+        "topology.kubernetes.io/zone": "dc2"
+  duration: "5m"
+
+---
+# Companion: IOChaos to simulate DC1 disk I/O degradation (realistic DC failure)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: IOChaos
+metadata:
+  name: dc1-disk-degradation
+  namespace: chaos-testing
+  labels:
+    scenario: dc-failover
+    rbi-control: DR-01
+spec:
+  action: latency
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      "topology.kubernetes.io/zone": "dc1"
+      "app.kubernetes.io/component": "yugabyte-tserver"
+  volumePath: /var/data/yugabyte
+  delay: "500ms"
+  percent: 80
+  duration: "5m"
+
+---
+# Validation workflow — run after injecting chaos to measure RTO
+# kubectl apply -f 01-dc-network-partition.yaml
+# Then run: kubectl exec -it astra-smoke-test -- python /tests/smoke/test_dc_failover.py
+#
+# Pass criteria:
+#   1. CTS inward endpoint returns 200 within 30 seconds of partition
+#   2. EJNormalisationWorkflow completes successfully during partition window
+#   3. Zero IET breaches in Prometheus metric: cts_iet_breaches_total (DC2 pod selector)
+#   4. YugabyteDB reports no data loss post-partition via checksums
+#   5. Redis vault hit rate stays > 95% on DC2 (VaultSyncWorkflow pre-warmed)

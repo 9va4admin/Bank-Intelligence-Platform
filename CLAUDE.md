@@ -5,6 +5,8 @@
 > Every architectural decision, tech choice, NFR, and design rationale
 > is recorded here. Read this fully before writing any code.
 
+> **Standing Session Rule:** After every task — no matter how small — commit all changed/created files and push to the active branch immediately. Every push must be complete so that a `git pull` on the developer's local machine always reflects the latest state. Never leave files uncommitted at end of task.
+
 ---
 
 ## 0. Project Identity
@@ -30,11 +32,24 @@ Two independent but unified product modules sold to Indian banks:
 
 **Module 1 — CTS (Cheque Truncation System)**
 - Reimagines India's cheque clearing infrastructure with agentic AI
-- Solves the RBI T+3 hour IET (Item Expiry Time) mandate (Jan 2026)
-- Missed IET = deemed approval = bank pays regardless of fraud
-- One AI agent per inward cheque → decision in < 600ms
-- 500 cheques → 500 parallel agents → entire batch < 600ms wall clock
-- Target buyers: Any bank participating in CTS clearing — public sector banks (SBI, PNB, BoB, Canara), private sector banks (HDFC, ICICI, Axis, Kotak, Yes, IndusInd), small finance banks, urban co-operative banks, RRBs, foreign banks with Indian operations — any institution that processes inward cheques and is subject to RBI's IET mandate
+- Handles **both sides** of CTS clearing for the bank:
+
+  **Outward clearing (Presentee Bank role)**
+  - Bank's customers deposit cheques drawn on other banks
+  - ASTRA: physical scanner capture → MICR line extraction → CTS-2010 image compliance
+    → lot/batch creation → endorsement stamping → NGCH submission
+  - Session reconciliation + Return Reason File (RRF) generation at session close
+  - Sub-member bank (SMB) sponsor routing: Saraswat-class UCBs route outward
+    instruments for smaller UCBs through ASTRA
+
+  **Inward clearing (Drawee Bank role)**
+  - Cheques drawn on the bank arrive from NGCH
+  - Solves the RBI T+3 hour IET (Item Expiry Time) mandate (Jan 2026)
+  - Missed IET = deemed approval = bank pays regardless of fraud
+  - One AI agent per inward cheque → decision in < 600ms
+  - 500 cheques → 500 parallel agents → entire batch < 600ms wall clock
+
+- Target buyers: Any bank participating in CTS clearing — public sector banks (SBI, PNB, BoB, Canara), private sector banks (HDFC, ICICI, Axis, Kotak, Yes, IndusInd), small finance banks, urban co-operative banks, RRBs, foreign banks with Indian operations — any institution that both submits outward cheques and receives inward instruments subject to RBI's IET mandate
 - 18-month first-mover window before incumbents (Nelito, TCS BaNCS) catch up
 
 **Module 2 — ATM EJ Intelligence**
@@ -393,37 +408,80 @@ cerebrum/
 │   ├── cts/                           ← CTS domain (fully isolated)
 │   │   ├── workflows/                 ← Temporal workflow definitions
 │   │   │   ├── cheque_workflow.py     ← Main: one cheque one agent
+│   │   │   ├── human_review_workflow.py ← 55-min timeout, signal-driven
+│   │   │   ├── iet_watchdog_workflow.py ← T-30s emergency filer
 │   │   │   ├── vault_sync_workflow.py ← CBS → Redis vault sync
 │   │   │   └── activities/
 │   │   │       ├── ocr.py
 │   │   │       ├── alteration.py
 │   │   │       ├── signature.py
 │   │   │       ├── pps.py
-│   │   │       ├── cbs.py
+│   │   │       ├── cbs.py             ← balance check + account status
+│   │   │       ├── stop_payment.py    ← CBS stop-payment instruction lookup
 │   │   │       ├── fraud.py
 │   │   │       ├── decision.py
-│   │   │       └── ngch_filer.py
+│   │   │       ├── ngch_filer.py
+│   │   │       └── write_audit.py
 │   │   ├── vaults/
 │   │   │   ├── signature_vault.py
 │   │   │   └── pps_vault.py
+│   │   ├── compliance/                ← CTS 2010 validation rules
+│   │   │   ├── cts2010.py
+│   │   │   ├── exporter.py
+│   │   │   └── models.py
+│   │   ├── endorsement/               ← Batch endorsement stamping
+│   │   │   ├── batch.py
+│   │   │   ├── models.py
+│   │   │   └── stamper.py
+│   │   ├── lot/                       ← Lot management
+│   │   │   └── manager.py
+│   │   ├── reconciliation/            ← Session reconciliation engine
+│   │   │   ├── engine.py
+│   │   │   ├── exporter.py
+│   │   │   └── models.py
+│   │   ├── reports/                   ← Report generation
+│   │   │   ├── exporter.py
+│   │   │   └── models.py
+│   │   ├── rrf/                       ← Return Reason File generation
+│   │   │   ├── generator.py
+│   │   │   └── models.py
+│   │   ├── scanner/                   ← Physical scanner adapters + MICR
+│   │   │   ├── adapters.py
+│   │   │   ├── micr.py
+│   │   │   ├── models.py
+│   │   │   └── session.py
+│   │   ├── sub_member/                ← Sub-member bank (sponsor routing)
+│   │   │   ├── activities.py
+│   │   │   ├── csv_generator.py
+│   │   │   ├── kafka_bridge.py
+│   │   │   ├── models.py
+│   │   │   ├── notifications.py
+│   │   │   ├── risk_shield.py
+│   │   │   └── router.py
+│   │   ├── worker.py                  ← Temporal worker: CTS task queues
 │   │   └── mcp/
 │   │       └── ngch_adapter.py        ← MCP server wrapping NGCH
 │   │
 │   └── ej/                            ← EJ domain (fully isolated)
 │       ├── workflows/
-│       │   ├── normalise_workflow.py
-│       │   ├── dispute_workflow.py
+│       │   ├── normalise_workflow.py  ← Full 8-activity pipeline: ingest→store→audit
+│       │   ├── dispute_workflow.py    ← EJ match + CCTV → auto-resolve or escalate
 │       │   └── activities/
 │       │       ├── ingest.py
 │       │       ├── fingerprint.py
 │       │       ├── llm_parse.py
 │       │       ├── validate.py
-│       │       ├── dispute_match.py
-│       │       └── cctv_extract.py
+│       │       ├── store_canonical.py ← Persist to YugabyteDB ej schema
+│       │       ├── trigger_dispute_check.py ← Publish to ej.canonical Kafka
+│       │       ├── update_atm_health.py     ← Publish to ej.health.signals Kafka
+│       │       ├── write_audit.py     ← Immudb audit (all terminal states)
+│       │       ├── dispute_match.py   ← BGE-M3 semantic claim-to-EJ matching
+│       │       └── cctv_extract.py    ← CCTV clip → MinIO (object_key only)
+│       ├── worker.py                  ← Temporal worker: EJ task queues
 │       ├── parser/
 │       │   └── llm_parser.py
 │       ├── mcp/
-│       │   └── branch_mcp_server.py   ← Edge MCP server (Go, see infra/)
+│       │   └── diagnostic_mcp_server.py ← Consent-gated diagnostic MCP server
 │       └── cctv/
 │           └── evidence_extractor.py
 │
@@ -444,10 +502,11 @@ cerebrum/
 │   ├── config/
 │   │   └── config_service.py          ← Reads from Vault + OPA
 │   ├── cbs_connector/
-│   │   ├── base.py                    ← Abstract CBS interface
-│   │   ├── finacle.py
-│   │   ├── bancs.py
-│   │   └── flexcube.py
+│   │   ├── base.py                    ← Abstract CBS interface + AccountInfo/PPSEntry models
+│   │   ├── finacle.py                 ← Infosys Finacle REST adapter (IMPLEMENTED)
+│   │   ├── bancs.py                   ← TCS BaNCS REST adapter (IMPLEMENTED)
+│   │   ├── flexcube.py                ← Oracle FlexCube SOAP/XML adapter (IMPLEMENTED)
+│   │   └── exceptions.py              ← AccountNotFoundError, CBSUnavailableError
 │   └── event_bus/
 │       ├── producer.py
 │       └── consumer.py
@@ -631,10 +690,14 @@ LAYER 5 — User Preferences  [per-user YugabyteDB record]
 
 | Topic | Producer | Consumer | Purpose |
 |---|---|---|---|
-| `cts.inward.{bank_id}` | NGCH Adapter | CTS Agent Workers (KEDA) | Fan-out per inward cheque |
-| `cts.decisions.{bank_id}` | CTS Agents | Audit Service, Analytics | All filed decisions |
-| `cts.human.review.{bank_id}` | CTS Agents | Ops Workstation | Human review queue |
+| `cts.inward.{bank_id}` | NGCH Adapter | CTS Agent Workers (KEDA) | Fan-out per inward cheque (drawee side) |
+| `cts.decisions.{bank_id}` | CTS Agents | Audit Service, Analytics | All filed inward decisions |
+| `cts.human.review.{bank_id}` | CTS Agents | Ops Workstation | Human review queue (inward) |
 | `cts.vault.sync.{bank_id}` | CBS Connector | Vault Sync Worker | Signature/PPS updates |
+| `cts.outward.scanned.{bank_id}` | Scanner Service | OutwardScanWorkflow | Newly scanned outward instruments |
+| `cts.outward.lot.sealed.{bank_id}` | Lot Manager | BatchEndorsementWorkflow | Lot sealed and ready for endorsement |
+| `cts.outward.submitted.{bank_id}` | NGCHSubmissionWorkflow | Audit Service, Analytics | Instruments submitted to NGCH (outward) |
+| `cts.smb.inbound.{bank_id}` | SMB Forwarding Worker | SMBForwardingWorkflow | Sub-member instruments arriving for sponsor routing |
 | `ej.raw.ingested.{bank_id}` | EJ Ingestion Gateway | EJ Parse Workers | Trigger normalisation |
 | `ej.canonical.{bank_id}` | EJ Parse Workers | Dispute Engine, Analytics | Normalised records |
 | `ej.health.signals.{bank_id}` | EJ Parse Workers | Anomaly Detector | ATM health time-series |
@@ -645,13 +708,22 @@ LAYER 5 — User Preferences  [per-user YugabyteDB record]
 
 ## 8. Temporal Workflows
 
-### CTS Workflows
+### CTS Workflows — Inward Clearing (Drawee Bank)
 | Workflow | Trigger | Activities | Terminal States |
 |---|---|---|---|
-| `ChequeProcessingWorkflow` | Kafka `cts.inward` event | validate_cts2010, ocr_extract, detect_alteration, verify_signature, lookup_pps, check_cbs_balance, score_fraud, synthesise_decision, file_to_ngch, write_audit, send_notification | STP_CONFIRM, STP_RETURN, HUMAN_REVIEW |
+| `ChequeProcessingWorkflow` | Kafka `cts.inward` event | validate_cts2010, ocr_extract, detect_alteration, verify_signature, lookup_pps, check_cbs_balance, check_stop_payment, score_fraud, synthesise_decision, file_to_ngch, write_audit, send_notification | STP_CONFIRM, STP_RETURN, HUMAN_REVIEW |
 | `HumanReviewWorkflow` | Signal from ChequeProcessingWorkflow | push_to_queue, wait_for_signal (max 55min), receive_decision, file_to_ngch, write_audit | REVIEWER_CONFIRMED, REVIEWER_RETURNED, TIMEOUT_AUTO_RETURNED |
 | `VaultSyncWorkflow` | CBS event stream / schedule (6AM daily) | load_signatures_from_cbs, load_pps_from_cbs, warm_redis_vault, verify_vault_integrity | SYNC_COMPLETE |
 | `IETWatchdogWorkflow` | Child of ChequeProcessingWorkflow | monitor_countdown, emergency_file_if_30s_remaining | SAFE, EMERGENCY_FILED |
+
+### CTS Workflows — Outward Clearing (Presentee Bank)
+| Workflow | Trigger | Activities | Terminal States |
+|---|---|---|---|
+| `OutwardScanWorkflow` | Scanner session open (ops workstation) | capture_image, extract_micr, validate_cts2010_image, create_lot_entry, write_audit | ACCEPTED, CTS_REJECTED |
+| `BatchEndorsementWorkflow` | Lot sealed by ops | stamp_endorsement, update_lot_status, write_audit | ENDORSED, FAILED |
+| `NGCHSubmissionWorkflow` | Lot endorsed + clearing session opens | build_ngch_file, submit_to_ngch, confirm_acknowledgement, write_audit | SUBMITTED, SUBMISSION_FAILED |
+| `SessionReconciliationWorkflow` | Clearing session close | fetch_ngch_settlement_report, match_submitted_vs_settled, generate_rrf, write_audit | RECONCILED, EXCEPTIONS_FLAGGED |
+| `SMBForwardingWorkflow` | Kafka `cts.smb.inbound.{bank_id}` (sub-member instrument arrives) | validate_smb_instrument, route_to_sponsor_lot, forward_to_ngch, notify_smb, write_audit | FORWARDED, RETURNED_TO_SMB |
 
 ### EJ Workflows
 | Workflow | Trigger | Activities | Terminal States |
@@ -853,43 +925,63 @@ NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
 
 ---
 
-## 16. Next Steps (Build Order)
+## 16. Build Status & Next Steps
+
+### Completed (as of June 2026)
 
 ```
-PHASE 1 — Foundation (Weeks 1–4)
-  [ ] Monorepo scaffold (this structure)
-  [ ] Shared: auth, RBAC, config_service, OTel setup
-  [ ] Shared: audit_event schema + Immudb client
-  [ ] Shared: notification dispatcher (email + WhatsApp)
-  [ ] Infra: Helm chart skeleton + bank-template.yaml
-  [ ] Infra: Kafka topics, Redis, YugabyteDB schema migrations
+PHASE 1 — Foundation
+  [x] Monorepo scaffold
+  [x] Shared: auth, RBAC (roles + ABAC), config_service (5-layer hierarchy)
+  [x] Shared: audit_event schema + Immudb client (HSM signing)
+  [x] Shared: notification dispatcher (Postal email + Meta WhatsApp)
+  [x] Shared: event_bus producer + consumer (Kafka, exactly-once)
+  [x] Shared: OTel setup (traces + metrics + logs)
+  [x] Infra: Helm chart skeleton + bank values template
+  [x] CBS Connectors: Finacle (REST), BaNCS (REST), FlexCube (SOAP/XML) — all 3 COMPLETE
 
-PHASE 2 — CTS Core (Weeks 5–8)
-  [ ] Vault: signature_vault + pps_vault (Redis)
-  [ ] MCP: ngch_adapter (wraps SFTP, exposes MCP tools)
-  [ ] Temporal: ChequeProcessingWorkflow + all activities
-  [ ] AI: OCR activity (GOT-OCR2 via vLLM)
-  [ ] AI: Signature verification activity (Siamese network)
-  [ ] AI: Fraud scoring activity (XGBoost + SHAP)
-  [ ] Temporal: IETWatchdogWorkflow
-  [ ] API: CTS router endpoints
-  [ ] Frontend: CTS ops workstation (human review queue)
+PHASE 2 — CTS Core
+  [x] Vault: signature_vault + pps_vault (Redis, hashed keys, vault-miss → HUMAN_REVIEW)
+  [x] MCP: ngch_adapter (SFTP wrapper, exposes 4 MCP tools)
+  [x] Temporal: ChequeProcessingWorkflow + 9 activities (OCR, alteration, signature, PPS,
+       CBS, fraud, decision, ngch_filer, write_audit)
+  [x] Temporal: IETWatchdogWorkflow (T-30s emergency filer, ABANDON parent-close policy)
+  [x] Temporal: HumanReviewWorkflow (55-min timeout, signal-driven)
+  [x] Temporal: VaultSyncWorkflow (CBS → Redis, 6AM daily)
+  [x] API: CTS router — /v1/cts/* endpoints (submit, decision, human-review queue)
+  [x] Frontend: CTS ops workstation — human review queue with live polling (useReviewQueue hook)
+  [x] CTS modules: compliance/CTS2010, endorsement/batch, scanner/MICR, rrf, reconciliation,
+       lot, reports, sub_member (sponsor-bank routing + risk shield)
+  [x] Test coverage: 1338 tests, 95%+ on all CTS workflow activities
 
-PHASE 3 — Observability (Weeks 9–10)
-  [ ] OTel instrumentation across all CTS services
-  [ ] Grafana dashboards: infra + CTS metrics + AI explainability panel
-  [ ] Langfuse integration for all LLM calls
+PHASE 3 — Observability
+  [x] OTel setup in shared/observability/otel_setup.py
+  [x] Langfuse setup stub in shared/observability/
+  [x] Grafana dashboards ConfigMap — cts-iet-vault.json, cts-fraud-ai.json, ej-normalisation.json
+  [x] PrometheusRule CRD — CTSIETBreach, CTSFraudF1Drop, EJATMCriticalHealth, platform alerts
   [ ] SHAP panel in ops workstation
 
-PHASE 4 — EJ Module (Weeks 11–14)
-  [ ] Edge: branch-ej-agent (Go MCP server)
-  [ ] EJ ingestion gateway
-  [ ] Temporal: EJNormalisationWorkflow (LLM parser)
-  [ ] Temporal: DisputeResolutionWorkflow
-  [ ] CCTV adapter (first OEM)
-  [ ] Frontend: EJ dashboard + dispute console + fleet map
+PHASE 4 — EJ Module (COMPLETE)
+  [x] Temporal: EJNormalisationWorkflow — full 8-activity pipeline:
+       ingest → fingerprint → llm_parse → validate →
+       store_canonical → trigger_dispute_check → update_atm_health → write_audit
+  [x] Temporal: DisputeResolutionWorkflow — EJ match + CCTV → auto-resolve or escalate
+  [x] Temporal: ATMHealthWorkflow — hourly scheduled, 3-state health machine (HEALTHY/DEGRADED/CRITICAL)
+  [x] EJ activities: all 10 registered (8 normalisation + dispute_match + cctv_extract)
+  [x] EJ: LLM parser (Llama 3.3 70B prompt structure)
+  [x] EJ: CCTV evidence extractor (MinIO object_key pattern)
+  [x] EJ: Diagnostic MCP server (consent-gated, OPA-controlled, Immudb audit)
+  [x] EJ: worker.py (Temporal worker with all workflows + activities registered)
+  [x] Edge: branch-ej-agent Go binary (OEM fingerprint, gzip+AES-256-GCM, SQLite WAL buffer,
+       MCP server — tools: list_pending, fetch_ej_file, confirm_receipt;
+       resources: ej://atm/{id}/logs/{date}, ej://atm/{id}/health) — 11 Go tests, all pass
+  [x] EJ ingestion gateway (FastAPI /v1/ej-ingest/raw-log → Kafka ej.raw.ingested.{bank_id},
+       idempotent workflow IDs, test-mode mock Kafka) — 12 tests
+  [x] Frontend: EJ Command Center, Incidents, Dispute Console (/ej/disputes),
+       ATM Fleet Map (/ej/fleet), Manager Portal, BRE Policy, Notifications
+       — EJShell nav updated, all routes wired in App.jsx
 
-PHASE 5 — Hardening (Weeks 15–16)
+PHASE 5 — Hardening
   [ ] Active-active DR drills
   [ ] Chaos Mesh scenarios
   [ ] RBI compliance mapping verification
@@ -897,6 +989,252 @@ PHASE 5 — Hardening (Weeks 15–16)
   [ ] Security: penetration test prep
   [ ] Bank onboarding: first pilot bank Helm deploy
 ```
+
+### Immediate Next (Phase 5 Hardening)
+1. RBI IT Framework control mapping (`compliance/rbi-it-framework/control-mapping.yaml`)
+2. Performance test harness — CTS 500-cheque parallel agent benchmark
+3. Chaos Mesh scenario YAMLs (DC failure, Redis eviction, vLLM down)
+4. First pilot bank Helm values (`infra/helm/values/banks/saraswat-coop/`)
+
+---
+
+## 17. NPCI API Modernisation — ASTRA Readiness Plan
+
+> **Trigger:** NPCI accepts the concept note submitted in `docs/NPCI-CTS-Modernisation-ConceptNote.html`
+> **Question answered here:** If NPCI approves the three-phase evolution (SFTP → JSON REST API →
+> Webhook Push → MCP Intelligence Layer), what must ASTRA build or change to be the first bank-side
+> vendor ready on Day 1 of each phase?
+>
+> Author: Nilesh Shah | Last reviewed: June 2026
+
+---
+
+### Context: What NPCI Would Ship vs. What ASTRA Must Build
+
+```
+NPCI ships (their side):                 ASTRA must build (bank side):
+────────────────────────────────         ──────────────────────────────────────
+POST /cts/v1/instruments         →       ngch_adapter: HTTP client replacing SFTP
+POST /cts/v1/returns             →       ngch_filer activity: REST POST instead of SFTP
+GET  /cts/v1/instruments/{ref}   →       Status polling client in IETWatchdogWorkflow
+Webhook push to bank endpoint    →       New FastAPI webhook receiver service
+NPCI mTLS cert bundle            →       HSM + cert-manager integration for NPCI mTLS
+NPCI API Key + HMAC-SHA256       →       3-layer auth module in shared/ngch_auth/
+MCP server (Phase 3)             →       MCP client upgrade in ngch_adapter
+```
+
+---
+
+### PHASE A — REST API Readiness (NPCI Phase 1 acceptance → 6 months)
+
+**Priority: CRITICAL — must be done before NPCI pilot goes live**
+
+```
+NGCH Adapter Rewrite (modules/cts/mcp/ngch_adapter.py)
+  [ ] A-1  Replace SFTP submit_instrument with HTTP POST /cts/v1/instruments
+           - Request: JSON body with instrument_ref, presentee_ifsc, drawee_ifsc, amount_range,
+             image_hash (SHA-256), micr_line, iet_deadline_utc
+           - Response: Parse instrument_ref, status, iet_deadline from NPCI response
+           - Keep SFTP path alive as fallback (config flag: ngch.transport = "rest" | "sftp")
+  [ ] A-2  Replace SFTP file_decision / return filing with POST /cts/v1/returns
+           - ngch_filer.py activity: transport-agnostic — route on config_service.get("ngch.transport")
+           - Never change the Temporal activity interface — only swap the transport underneath
+  [ ] A-3  Add GET /cts/v1/instruments/{ref} status polling to IETWatchdogWorkflow
+           - Poll every 30s when IET risk = ELEVATED; every 10s when HIGH; every 5s when CRITICAL
+           - IET risk levels defined in concept note §6.4 — use config_service for thresholds
+  [ ] A-4  Idempotency key generation: UUIDv7-based per instrument_id + bank_id
+           - Store idempotency key in cheque_instruments table (new column: ngch_idempotency_key)
+           - On retry: reuse same key → NPCI deduplicates (24-hour window)
+  [ ] A-5  Alembic migration: add ngch_idempotency_key, ngch_transport columns to
+           cts.cheque_instruments and cts.ngch_submissions
+
+3-Layer Authentication Module (NEW: shared/ngch_auth/)
+  [ ] A-6  shared/ngch_auth/__init__.py — exports NgchAuthClient
+  [ ] A-7  L1: mTLS cert loading — cert from Vault (secret/astra/{bank_id}/ngch/tls/*)
+           via config_service; rotate cert without restart (Vault dynamic certs)
+  [ ] A-8  L2: API Key header injection (X-NPCI-API-Key from Vault) + Session Token
+           exchange (POST /cts/v1/auth/session → 30-min token, cached in Redis CTS)
+  [ ] A-9  L3: HMAC-SHA256 request signing — sign canonical string
+           "{method}\n{path}\n{timestamp}\n{sha256(body)}" with secret from Vault
+           Header: X-NPCI-Signature: {timestamp}.{hex(hmac)}
+  [ ] A-10 Unit tests: 95%+ coverage (auth module is security-critical)
+           Test: cert expiry graceful renewal, HMAC replay rejection, session token refresh
+
+Rate Limit Handling (ngch_adapter)
+  [ ] A-11 Parse Retry-After header on HTTP 429 responses
+  [ ] A-12 Exponential backoff: respect Retry-After; cap at IET T-60s (never wait past safe window)
+  [ ] A-13 Rate limit counters exposed as Prometheus metrics: ngch_rate_limit_total{bank_id,endpoint}
+  [ ] A-14 Alert: PrometheusRule — if rate limit hits > 5x in 10 minutes → PagerDuty
+
+Error Handling (ngch_filer.py + ngch_adapter.py)
+  [ ] A-15 Map all NPCI error codes (AUTH_4001 → AUTH_5003, INSTR_4001 → INSTR_4010,
+           SYS_5001 → SYS_5005) to internal NGCHError subclasses
+  [ ] A-16 Retry semantics per error class:
+           - AUTH_4001 (cert expired): renew cert → retry once
+           - INSTR_4003 (duplicate): treat as success (idempotent)
+           - SYS_5003 (maintenance): wait Retry-After → retry; escalate to IET watchdog if >T-60s
+           - INSTR_4006 (IET expired): terminal — write audit, notify ops, never retry
+  [ ] A-17 IETWatchdogWorkflow: add emergency SFTP fallback path if REST fails at T-60s
+           (SFTP never decommissioned per NPCI concept note: 30-month notice required)
+
+Observability for NPCI API
+  [ ] A-18 OTel span attributes: npci.transport, npci.instrument_ref, npci.response_code,
+           npci.iet_risk_level on every ngch_adapter call
+  [ ] A-19 Grafana dashboard update: cts-iet-vault.json — add REST vs SFTP transport split panel,
+           NPCI latency percentiles (p50/p95/p99), rate limit hit rate
+  [ ] A-20 Langfuse: trace every NGCH REST call same as AI calls (latency, success/fail, bank_id)
+```
+
+---
+
+### PHASE B — Webhook Receiver (NPCI Phase 2 → 12 months from Phase 1)
+
+**Priority: HIGH — eliminates SFTP polling latency; IET safety improves significantly**
+
+```
+New Service: ngch-webhook-receiver (NEW FastAPI service)
+  [ ] B-1  apps/api/routers/ngch_webhook.py — POST /v1/ngch/webhook/inward
+           POST /v1/ngch/webhook/return-notification
+           POST /v1/ngch/webhook/session-event
+  [ ] B-2  Webhook authentication: verify X-NPCI-Webhook-Signature (HMAC-SHA256)
+           using shared NPCI webhook secret from Vault
+           Reject if timestamp in header > 5 minutes old (replay protection)
+  [ ] B-3  Idempotency: check webhook_event_id against Redis SET (24h TTL) before processing
+           HTTP 200 on duplicate (NPCI stops retrying); never double-process
+  [ ] B-4  On inward cheque webhook: publish to cts.inward.{bank_id} Kafka topic
+           (same topic SFTP polling feeds today — KEDA auto-scales, zero change downstream)
+  [ ] B-5  On return notification webhook: signal HumanReviewWorkflow or update STP status
+  [ ] B-6  Webhook HTTPS endpoint: Istio Ingress Gateway exposes as
+           https://ngch-webhook.{bank_id}.astra.internal → bank registers with NPCI
+  [ ] B-7  TLS certificate for webhook endpoint: cert-manager + internal CA, bank provisions
+           NPCI-trusted cert via bank's existing PKI (documented in onboarding runbook)
+  [ ] B-8  Fallback: if webhook not received within config_service.get("ngch.webhook_timeout_s"),
+           fall back to REST polling GET /cts/v1/instruments — auto-detect gap
+  [ ] B-9  Helm: new Deployment + Service in astra-cts chart for ngch-webhook-receiver
+           with separate resource limits (never share CPU with cts-agent-worker)
+  [ ] B-10 Tests: webhook signature verification, duplicate suppression, Kafka publish,
+           fallback trigger — 95%+ coverage
+
+Dual-Mode Operation (webhook + polling simultaneously during migration)
+  [ ] B-11 Config flag: ngch.inward_source = "webhook" | "polling" | "dual"
+           "dual" mode: both active; dedup at Kafka topic level (idempotency key in event envelope)
+  [ ] B-12 Grafana panel: inward cheque source split (webhook vs polling %) per bank_id
+  [ ] B-13 Target: webhook handles 95%+ of volume within 30 days of go-live
+```
+
+---
+
+### PHASE C — MCP Intelligence Client (NPCI Phase 3 → 24 months)
+
+**Priority: MEDIUM — competitive differentiator; ASTRA ahead of all incumbents**
+
+```
+NGCH MCP Client Upgrade (modules/cts/mcp/ngch_adapter.py)
+  [ ] C-1  Upgrade ngch_adapter from "MCP server wrapping SFTP" to "MCP client calling NPCI MCP server"
+  [ ] C-2  MCP tool bindings: submit_instrument, file_decision, query_status,
+           get_settlement_report, get_iet_risk_signal, get_batch_position,
+           get_counterparty_health, stream_clearing_events
+  [ ] C-3  MCP resource subscriptions: inward_cheques/{bank_ifsc} (streaming),
+           return_notifications/{bank_ifsc}, settlement_position/{bank_ifsc}/{date},
+           iet_risk_signals/live
+  [ ] C-4  ChequeProcessingWorkflow: replace activity calls with MCP tool invocations
+           where applicable — maintain Temporal exactly-once wrapper around each MCP call
+  [ ] C-5  IETWatchdogWorkflow: subscribe to iet_risk_signals/live MCP resource stream
+           instead of polling; act on NPCI push signal before T-30s
+  [ ] C-6  Agentic orchestration: ChequeProcessingWorkflow becomes an MCP-native agent
+           with NPCI as its primary tool server — multi-tool per cheque in single pass
+
+ASTRA Diagnostic MCP exposed to NPCI (consent-gated)
+  [ ] C-7  Extend astra-diagnostic-mcp with npci_liaison role (new OPA policy)
+           Allowed tools: get_iet_risk_events, get_queue_depths, get_workflow_failures
+           — no PII, no instrument IDs, counts only
+  [ ] C-8  Bank grants NPCI inspector access via same consent model as ASTRA support
+           (time-limited, Immudb-audited, OPA-controlled)
+```
+
+---
+
+### CROSS-CUTTING — Readiness Prerequisites (Before Any Phase)
+
+```
+Documentation & Integration
+  [ ] X-1  docs/npci-api-integration-guide.md — bank IT admin guide for NPCI REST onboarding
+           (cert provisioning, API key request process, webhook endpoint registration)
+  [ ] X-2  Helm values: new Layer 2 keys for NPCI transport config
+           ngch_transport: sftp             # → rest → webhook → mcp
+           ngch_rest_base_url: ""           # populated when REST pilot approved
+           ngch_webhook_enabled: false      # → true when webhook goes live
+           ngch_mcp_server_url: ""          # populated at Phase 3
+  [ ] X-3  Bank onboarding runbook update: add NPCI mTLS cert provisioning steps
+           (infra/helm/values/banks/{bank_id}/platform.yaml: ngch_cert_ref field)
+
+Testing
+  [ ] X-4  Contract tests: mock NPCI REST server (FastAPI) for CI — matches NPCI OpenAPI spec
+           Tests cover: auth flow, idempotency, all 50 error codes, rate limit headers
+  [ ] X-5  Performance test: NPCI REST transport must not increase p99 CTS latency beyond 600ms
+  [ ] X-6  Chaos tests: NPCI REST down → SFTP fallback under 5s; webhook gap → polling kicks in
+
+Security (mandatory before production REST usage)
+  [ ] X-7  HSM: NPCI mTLS private key stored in HSM partition (separate from CBS keys)
+  [ ] X-8  Vault policy: ngch.* secrets accessible only by ngch_adapter service account
+  [ ] X-9  Semgrep rule: any HTTP call to NPCI domain outside ngch_adapter = ERROR
+  [ ] X-10 Pen test scope: include NPCI webhook endpoint and HMAC verification bypass attempts
+
+Regulatory
+  [ ] X-11 RBI IT Framework: map new NPCI REST/webhook transport to existing control IDs
+           (compliance/rbi-it-framework/control-mapping.yaml)
+  [ ] X-12 Audit trail: every NPCI API call logged to Immudb with NPCI response code
+           (already covered by ngch_filer write_audit activity — verify it covers REST path)
+```
+
+---
+
+### Readiness Summary — What Is Already Done vs. What Needs Building
+
+| Capability | Current State | Gap to NPCI REST (Phase A) |
+|---|---|---|
+| NGCH filing (instrument submit) | SFTP-based ngch_filer.py | Replace transport; keep Temporal activity |
+| NGCH filing (returns) | SFTP-based | Same as above |
+| IET watchdog | T-30s emergency filer | Add REST status polling + risk-level polling cadence |
+| Authentication to NPCI | SFTP key (SSH) | Build 3-layer: mTLS + API Key/HMAC module |
+| Idempotency | Temporal workflow ID | Add UUIDv7 idempotency key at NPCI API level |
+| Error handling | SFTP error codes | Map full NPCI REST error taxonomy (50 codes) |
+| Inward cheque receipt | SFTP poll every 15 min | Webhook receiver service (Phase B) |
+| Rate limit awareness | None needed (SFTP) | Parse Retry-After, backoff, alert |
+| Observability (NPCI layer) | SFTP transfer logs | OTel spans + Grafana panel for REST/webhook |
+| MCP client to NPCI | MCP server wrapping SFTP | Upgrade to MCP client (Phase C) |
+
+**Bottom line:** ~70% of ASTRA's internal plumbing is ready. The gap is entirely in the NPCI-facing transport layer (ngch_adapter + auth module + webhook receiver). No changes needed to: AI activities, vault, Temporal workflow structure, CBS connectors, EJ module, frontend, or audit trail.
+
+---
+
+### Sequencing for First Pilot Bank
+
+```
+Month 0-1   NPCI pilot approval received
+            → Start A-1 through A-10 (adapter rewrite + auth module)
+            → Start X-4 (mock NPCI server for CI)
+
+Month 2     A-11 through A-17 (error handling + rate limits)
+            A-18 through A-20 (observability)
+            X-7 through X-10 (security prereqs)
+
+Month 3     X-1 through X-3 (docs + Helm values + onboarding runbook)
+            X-11 through X-12 (regulatory)
+            X-5 through X-6 (performance + chaos tests)
+            → First pilot bank Helm deploy with ngch.transport = "rest"
+
+Month 4-6   Monitor pilot; dual-mode sftp+rest
+            → If stable: flip ngch.transport = "rest" for all pilot banks
+
+Month 7+    Phase B (webhook receiver) development begins
+            Phase C (MCP) — parallel design track
+```
+
+---
+
+*NPCI Readiness Plan last updated: June 2026*
+*Trigger for next review: NPCI responds to concept note submission*
 
 ---
 

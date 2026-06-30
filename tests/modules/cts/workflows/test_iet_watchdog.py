@@ -155,3 +155,19 @@ class TestIETWatchdogParentClosePolicy:
         wf = IETWatchdogWorkflow()
         # Parent close policy is ABANDON — watchdog has its own lifecycle
         assert wf.parent_close_policy == "ABANDON"
+
+
+class TestIETWatchdogSafeNoParent:
+    @pytest.mark.asyncio
+    async def test_safe_when_parent_not_done_and_time_remaining(self):
+        """Covers line 82: parent_completed_at=None but > 30s remaining → SAFE."""
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
+
+        wf = IETWatchdogWorkflow()
+        result = await wf.run_with_mocks(
+            _make_watchdog_input(seconds_remaining=120),
+            parent_completed_at=None,   # parent not done
+            ngch_adapter=None,
+        )
+        assert result.outcome == "SAFE"
+        assert result.emergency_filed is False
