@@ -94,6 +94,24 @@ export default function CTSDraweeView() {
   const [selectedSession, setSelectedSession] = useState(SESSIONS[1])
   const [sortBy, setSortBy] = useState('returned_desc')
 
+  // Outward & Combined Position is SB-only — SMBs present cheques via their sponsor bank
+  if (isSMB) {
+    return (
+      <AppShell>
+        <div className={`flex-1 flex items-center justify-center ${isDark ? 'bg-navy-950' : 'bg-slate-50'}`}>
+          <div className="text-center max-w-sm px-6">
+            <div className="text-4xl mb-4">📤</div>
+            <h2 className={`text-sm font-semibold mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>SB-Only Feature</h2>
+            <p className={`text-[12px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              Outward &amp; Combined Position is managed by your Sponsor Bank.
+              Your outward instruments are submitted through their NGCH lot and reflected in the SMB Forwarding Log.
+            </p>
+          </div>
+        </div>
+      </AppShell>
+    )
+  }
+
   const th = {
     page:    isDark ? 'bg-navy-950' : 'bg-slate-50',
     card:    isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
