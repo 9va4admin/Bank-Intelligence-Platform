@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -127,6 +128,7 @@ function ProgressBar({ lot }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function CTSBatches() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [sessionFilter, setSessionFilter] = useState('ALL')
   const [statusFilter,  setStatusFilter]  = useState('ALL')

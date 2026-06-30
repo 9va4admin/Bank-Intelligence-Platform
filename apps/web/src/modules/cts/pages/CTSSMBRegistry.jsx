@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 
@@ -284,6 +285,7 @@ function SMBDetailPanel({ smb, isDark, onClose, onVaultSync }) {
 // ── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CTSSMBRegistry() {
+  const { bankName, bankIfsc, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [selected, setSelected] = useState(null)
   const [showRegister, setShowRegister] = useState(false)
@@ -309,6 +311,20 @@ export default function CTSSMBRegistry() {
   function handleVaultSync(sub_member_id) {
     setSyncingId(sub_member_id)
     setTimeout(() => setSyncingId(null), 2000)
+  }
+
+  if (isSMB) {
+    return (
+      <AppShell>
+        <div className={`flex-1 flex items-center justify-center ${th.page}`}>
+          <div className="text-center">
+            <div className="text-4xl mb-4">🏦</div>
+            <div className={`text-lg font-semibold mb-1 ${th.heading}`}>SB-Only Feature</div>
+            <div className={`text-sm ${th.muted}`}>The SMB Registry is managed exclusively by Sponsor Banks. Contact your sponsor bank for registry changes.</div>
+          </div>
+        </div>
+      </AppShell>
+    )
   }
 
   return (

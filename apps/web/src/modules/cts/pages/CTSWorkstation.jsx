@@ -7,12 +7,14 @@ import { BATCH_STATS, getStpStream } from '../data/mockQueue'
 import useReviewQueue from '../hooks/useReviewQueue'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 const STP_DELAY_MS = 3200
 const SESSION_START = new Date(new Date().setHours(10, 0, 0, 0))
 const IET_WINDOW_MINS = 180
 
 export default function CTSWorkstation() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   // Token would come from auth context in production; undefined triggers mock fallback in dev
   const { items: liveItems, loading: queueLoading, useMock } = useReviewQueue({ pollEnabled: true })

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -102,6 +103,7 @@ const TYPE_COUNTS = Object.keys(DISC_TYPES_D).map(k => ({
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function CTSDiscrepancy() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [typeFilter,   setTypeFilter]   = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('ALL')

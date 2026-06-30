@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 // ── Sub-member ledger mock data ───────────────────────────────────────────────
 const SMB_LEDGERS = [
@@ -153,6 +154,7 @@ function downloadCsv(csv, filename) {
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function CTSReconciliation() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [sessionIdx, setSessionIdx]         = useState(0)
   const [filterStatus, setFilterStatus]     = useState('ALL')

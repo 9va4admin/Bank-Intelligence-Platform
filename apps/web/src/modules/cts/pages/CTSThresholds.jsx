@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 const THRESHOLDS = [
   {
@@ -118,6 +119,7 @@ const CHANGE_LOG = [
 const CATEGORIES = ['All', 'IET & Timing', 'Fraud Scoring', 'Amount Controls', 'AI Confidence', 'Security']
 
 export default function CTSThresholds() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [cat, setCat] = useState('All')
   const [editing, setEditing] = useState(null)

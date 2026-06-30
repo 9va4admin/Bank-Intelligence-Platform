@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 
 // ─── Mock Data ──────────────────────────────────────────────────────────────
@@ -89,6 +90,7 @@ function buildStats(instruments) {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function CTSImageQuality() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [instruments, setInstruments] = useState(INSTRUMENTS)
   const [selected, setSelected]       = useState(null)

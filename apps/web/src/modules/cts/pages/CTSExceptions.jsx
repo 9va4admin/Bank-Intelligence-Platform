@@ -9,14 +9,13 @@ import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 import { MOCK_QUEUE } from '../data/mockQueue'
 
 // ── Exception data ────────────────────────────────────────────────────────
 
-const SESSION_META = {
+const SESSION_DEFAULTS = {
   session_id:    'SES-0619-001',
-  bank_ifsc:     'SVCB0000001',
-  bank_name:     'Saraswat Co-operative Bank',
   clearing_date: '2026-06-19',
   generated_at:  '2026-06-19T14:30:00Z',
   total_processed: 47,
@@ -197,6 +196,8 @@ function buildPredictiveSignals(queue) {
 // ── Component ─────────────────────────────────────────────────────────────
 
 export default function CTSExceptions() {
+  const { bankIfsc, bankName, isSB, isSMB } = useBankContext()
+  const SESSION_META = { ...SESSION_DEFAULTS, bank_ifsc: bankIfsc, bank_name: bankName }
   const { isDark } = useTheme()
   const [severityFilter, setSeverityFilter] = useState('All')
   const [showResolved, setShowResolved]     = useState(true)

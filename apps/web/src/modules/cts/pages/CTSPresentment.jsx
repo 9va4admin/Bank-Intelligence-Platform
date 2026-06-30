@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -549,6 +550,7 @@ function DetailPanel({ item, isDark }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CTSPresentment() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [batch, setBatch] = useState(INITIAL_BATCH)
   const [selected, setSelected] = useState(INITIAL_BATCH[0])

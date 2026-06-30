@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 
@@ -187,6 +188,7 @@ function LedgerDetailPanel({ row, isDark, onClose }) {
 // ── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CTSSMBLedger() {
+  const { bankName, bankIfsc, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [selected, setSelected] = useState(null)
   const [sessionDate, setSessionDate] = useState('2026-06-26')
@@ -208,6 +210,20 @@ export default function CTSSMBLedger() {
   const totalReturn  = MOCK_LEDGER.reduce((a, r) => a + r.stp_return, 0)
   const totalReview  = MOCK_LEDGER.reduce((a, r) => a + r.human_review, 0)
   const shieldAlerts = MOCK_LEDGER.filter(r => r.shield_status !== 'CLEAR').length
+
+  if (isSMB) {
+    return (
+      <AppShell>
+        <div className={`flex-1 flex items-center justify-center ${th.page}`}>
+          <div className="text-center">
+            <div className="text-4xl mb-4">🏦</div>
+            <div className={`text-lg font-semibold mb-1 ${th.heading}`}>SB-Only Feature</div>
+            <div className={`text-sm ${th.muted}`}>The SMB Batch Ledger is managed by the Sponsor Bank. Contact your sponsor bank for ledger information.</div>
+          </div>
+        </div>
+      </AppShell>
+    )
+  }
 
   return (
     <AppShell>

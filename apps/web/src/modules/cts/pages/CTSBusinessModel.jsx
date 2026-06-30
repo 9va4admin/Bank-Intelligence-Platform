@@ -1,4 +1,5 @@
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 import { useState, useMemo } from 'react'
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -221,6 +222,7 @@ function SectionHeader({ title, isDark }) {
 // ─── Main component ────────────────────────────────────────────────────────
 
 export default function CTSBusinessModel() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark, toggle } = useTheme()
 
   const [tier, setTier] = useState('medium')

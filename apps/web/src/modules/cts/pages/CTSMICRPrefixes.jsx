@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 const MOCK_MICR_PREFIXES = [
   { id: 1, prefix: '400002',  bank: 'State Bank of India',          branch: 'Fort, Mumbai',           zone: 'MUMBAI', grid: 'CTS-MUMBAI', status: 'ACTIVE'   },
@@ -16,6 +17,7 @@ const MOCK_MICR_PREFIXES = [
 const ZONES = ['ALL', 'MUMBAI', 'DELHI', 'CHENNAI']
 
 export default function CTSMICRPrefixes() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [search, setSearch] = useState('')
   const [zone, setZone] = useState('ALL')

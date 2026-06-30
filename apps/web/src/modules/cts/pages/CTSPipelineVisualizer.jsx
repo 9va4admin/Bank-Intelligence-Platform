@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 
 // ─── Stage config ──────────────────────────────────────────────────────────────
 // bank: 'd' = Drawee Bank (all processing stages) · 'g' = NGCH Gateway
@@ -141,7 +142,7 @@ const MOCK_EXCEPTIONS = [
 // ─── Particle factory ──────────────────────────────────────────────────────────
 
 let _pid = 1000
-function makeParticle() {
+function makeParticle(bankName = 'ASTRA Bank') {
   const id = `CHQ-MUM-0${++_pid}`
   const r = Math.random()
   const outcome = r < 0.72 ? 'STP_CONFIRM' : r < 0.88 ? 'STP_RETURN' : 'HUMAN_REVIEW'
@@ -155,7 +156,7 @@ function makeParticle() {
     sig_match_score: +(Math.random() * 0.2 + (outcome === 'STP_CONFIRM' ? 0.78 : 0.6)).toFixed(2),
     amount_range: ['₹[<1L]', '₹[1L-5L]', '₹[5L-10L]', '₹[10L-1Cr]'][Math.floor(Math.random() * 4)],
     account_suffix: `****${String(Math.floor(Math.random() * 9000) + 1000)}`,
-    bank: 'Saraswat Co-op',
+    bank: bankName,
     reason: outcome === 'HUMAN_REVIEW'
       ? ['SIGNATURE_LOW_CONFIDENCE', 'HIGH_VALUE_DUAL_APPROVAL', 'FRAUD_SCORE_HIGH', 'VAULT_MISS', 'PPS_ABSENT'][Math.floor(Math.random() * 5)]
       : outcome === 'STP_RETURN'
@@ -737,7 +738,7 @@ function BatchSummaryBar({ confirmCount, returnCount, reviewCount, onClickStat }
 
 // ─── Main page component ──────────────────────────────────────────────────────
 
-export function PipelineLiveBoard({ fullscreenMode = false }) {
+export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Bank' }) {
   const [running, setRunning] = useState(true)
   const [particles, setParticles] = useState([])
   const [stats] = useState(initStats)
@@ -842,7 +843,7 @@ export function PipelineLiveBoard({ fullscreenMode = false }) {
       if (!runningRef.current) return
       setParticles(prev => {
         if (prev.filter(p => !p.finalized).length >= 18) return prev
-        return [...prev, makeParticle()]
+        return [...prev, makeParticle(bankName)]
       })
     }, 1400)
     return () => clearInterval(spawnRef.current)
@@ -1080,9 +1081,10 @@ export function PipelineLiveBoard({ fullscreenMode = false }) {
 }
 
 export default function CTSPipelineVisualizer() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   return (
     <AppShell>
-      <PipelineLiveBoard />
+      <PipelineLiveBoard bankName={bankName} />
     </AppShell>
   )
 }
