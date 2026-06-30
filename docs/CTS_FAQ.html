@@ -1,0 +1,1611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASTRA CTS — Frequently Asked Questions</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f1f5f9;
+      color: #1e293b;
+      line-height: 1.6;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #4338ca 100%);
+      color: white;
+      padding: 48px 40px 40px;
+      position: relative;
+      overflow: hidden;
+    }
+    .header::before {
+      content: '';
+      position: absolute;
+      top: -80px; right: -80px;
+      width: 320px; height: 320px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.04);
+    }
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: -60px; left: -60px;
+      width: 240px; height: 240px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.03);
+    }
+    .header-inner { max-width: 1100px; margin: 0 auto; position: relative; z-index: 1; }
+    .header-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .header h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+    }
+    .header p {
+      font-size: 1.05rem;
+      color: rgba(255,255,255,0.75);
+      max-width: 700px;
+      margin-bottom: 24px;
+    }
+    .header-meta {
+      display: flex; gap: 24px; flex-wrap: wrap;
+      font-size: 13px; color: rgba(255,255,255,0.6);
+    }
+    .header-meta span { display: flex; align-items: center; gap: 6px; }
+
+    /* ── Audience chips ── */
+    .audience-bar {
+      background: rgba(255,255,255,0.08);
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding: 14px 40px;
+    }
+    .audience-bar-inner {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      font-size: 13px; color: rgba(255,255,255,0.7);
+    }
+    .audience-chip {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 12px;
+      padding: 3px 10px;
+      font-size: 12px; font-weight: 600;
+      color: rgba(255,255,255,0.9);
+    }
+
+    /* ── Search ── */
+    .search-bar {
+      background: white;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 16px 40px;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    }
+    .search-bar-inner {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; gap: 12px; align-items: center;
+    }
+    .search-input {
+      flex: 1;
+      padding: 9px 16px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .search-input:focus { border-color: #4338ca; box-shadow: 0 0 0 3px rgba(67,56,202,0.1); }
+    .search-hint { font-size: 12px; color: #94a3b8; white-space: nowrap; }
+
+    /* ── TOC nav ── */
+    .layout { max-width: 1100px; margin: 0 auto; padding: 32px 40px; display: flex; gap: 32px; }
+    .toc {
+      width: 220px; flex-shrink: 0;
+      position: sticky; top: 70px;
+      max-height: calc(100vh - 80px);
+      overflow-y: auto;
+      align-self: flex-start;
+    }
+    .toc-title { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; margin-bottom: 10px; }
+    .toc a {
+      display: block;
+      padding: 5px 8px;
+      font-size: 13px;
+      color: #475569;
+      text-decoration: none;
+      border-radius: 5px;
+      border-left: 2px solid transparent;
+      transition: all 0.15s;
+      margin-bottom: 2px;
+    }
+    .toc a:hover { background: #f1f5f9; color: #312e81; border-left-color: #4338ca; }
+    .toc a.active { background: #ede9fe; color: #4338ca; border-left-color: #4338ca; font-weight: 600; }
+
+    /* ── Main content ── */
+    .main { flex: 1; min-width: 0; }
+
+    /* ── Section ── */
+    .section { margin-bottom: 40px; }
+    .section-header {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .section-icon {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .section-title { font-size: 1.15rem; font-weight: 700; color: #1e1b4b; }
+    .section-count { font-size: 12px; color: #94a3b8; margin-left: auto; }
+
+    /* ── FAQ card ── */
+    .faq-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      overflow: hidden;
+      transition: box-shadow 0.15s;
+    }
+    .faq-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+    .faq-q {
+      padding: 16px 20px;
+      cursor: pointer;
+      display: flex; align-items: flex-start; gap: 12px;
+      user-select: none;
+    }
+    .faq-q::-webkit-details-marker { display: none; }
+    .faq-chevron {
+      flex-shrink: 0;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: #f1f5f9;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px;
+      margin-top: 1px;
+      transition: transform 0.2s, background 0.15s;
+      color: #64748b;
+    }
+    details[open] .faq-chevron { transform: rotate(180deg); background: #ede9fe; color: #4338ca; }
+    .faq-q-text { font-size: 14px; font-weight: 600; color: #1e293b; flex: 1; line-height: 1.5; }
+    .faq-tags { display: flex; gap: 5px; margin-left: auto; flex-shrink: 0; }
+    .tag {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+      padding: 2px 7px; border-radius: 8px; text-transform: uppercase;
+    }
+    .tag-cto  { background: #ede9fe; color: #5b21b6; }
+    .tag-rbi  { background: #fef3c7; color: #92400e; }
+    .tag-ops  { background: #d1fae5; color: #065f46; }
+    .tag-sec  { background: #fee2e2; color: #991b1b; }
+    .tag-npci { background: #dbeafe; color: #1e40af; }
+    .tag-tech { background: #f0fdf4; color: #166534; }
+
+    .faq-a {
+      padding: 0 20px 18px 52px;
+      font-size: 13.5px;
+      color: #374151;
+      line-height: 1.7;
+    }
+    .faq-a p { margin-bottom: 10px; }
+    .faq-a p:last-child { margin-bottom: 0; }
+    .faq-a ul, .faq-a ol { margin: 8px 0 10px 20px; }
+    .faq-a li { margin-bottom: 5px; }
+    .faq-a strong { color: #1e293b; }
+    .faq-a code {
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      color: #4338ca;
+    }
+    .faq-a .callout {
+      background: #eff6ff;
+      border-left: 3px solid #3b82f6;
+      border-radius: 0 6px 6px 0;
+      padding: 10px 14px;
+      margin: 10px 0;
+      font-size: 13px;
+    }
+    .faq-a .callout.warn {
+      background: #fffbeb;
+      border-left-color: #f59e0b;
+    }
+    .faq-a .callout.critical {
+      background: #fef2f2;
+      border-left-color: #ef4444;
+    }
+    .faq-a .callout.green {
+      background: #f0fdf4;
+      border-left-color: #22c55e;
+    }
+    .faq-a table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin: 10px 0;
+    }
+    .faq-a th {
+      background: #f8fafc;
+      padding: 7px 10px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 12px;
+      color: #64748b;
+      border: 1px solid #e2e8f0;
+    }
+    .faq-a td {
+      padding: 7px 10px;
+      border: 1px solid #e2e8f0;
+      vertical-align: top;
+    }
+    .faq-a tr:nth-child(even) td { background: #f8fafc; }
+
+    .divider { border: none; border-top: 1px solid #f1f5f9; margin: 0; }
+
+    /* ── No results ── */
+    .no-results { text-align: center; padding: 60px 20px; color: #94a3b8; display: none; }
+
+    /* ── Print ── */
+    @media print {
+      .search-bar, .toc, .audience-bar, .faq-chevron, .faq-tags { display: none; }
+      .layout { display: block; padding: 20px; }
+      details { open: true; }
+      details summary { pointer-events: none; }
+      .faq-a { display: block !important; }
+    }
+
+    @media (max-width: 768px) {
+      .header { padding: 32px 20px 28px; }
+      .audience-bar, .search-bar { padding: 12px 20px; }
+      .layout { flex-direction: column; padding: 20px; }
+      .toc { width: 100%; position: static; max-height: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-inner">
+    <div class="header-badge">
+      <span>⬡</span> ASTRA Platform
+    </div>
+    <h1>CTS Module — Frequently Asked Questions</h1>
+    <p>Comprehensive answers for bank leadership, RBI examiners, NPCI liaisons, operations heads, and information security officers on the ASTRA Cheque Truncation System platform.</p>
+    <div class="header-meta">
+      <span>📅 Last updated: June 2026</span>
+      <span>📋 Module: CTS (Cheque Truncation System)</span>
+      <span>🏦 Classification: Confidential — Banking Grade</span>
+    </div>
+  </div>
+</div>
+
+<!-- Audience bar -->
+<div class="audience-bar">
+  <div class="audience-bar-inner">
+    <span>Intended for:</span>
+    <span class="audience-chip">Bank CTO</span>
+    <span class="audience-chip">RBI Examiner</span>
+    <span class="audience-chip">NPCI Liaison</span>
+    <span class="audience-chip">Bank Ops Head</span>
+    <span class="audience-chip">InfoSec / CISO</span>
+    <span class="audience-chip">Bank IT Admin</span>
+    <span class="audience-chip">Compliance Officer</span>
+  </div>
+</div>
+
+<!-- Search -->
+<div class="search-bar">
+  <div class="search-bar-inner">
+    <input class="search-input" type="text" id="searchInput" placeholder="Search questions… e.g. IET, signature vault, SB, RBI, fraud score" />
+    <span class="search-hint" id="searchHint"></span>
+  </div>
+</div>
+
+<!-- Layout -->
+<div class="layout">
+
+  <!-- TOC -->
+  <nav class="toc">
+    <div class="toc-title">Contents</div>
+    <a href="#platform">Platform Overview</a>
+    <a href="#inward">Inward Clearing (Drawee)</a>
+    <a href="#outward">Outward Clearing (Presentee)</a>
+    <a href="#iet">IET Mandate &amp; RBI Compliance</a>
+    <a href="#ai">AI Decision Engine</a>
+    <a href="#sb-smb">SB vs SMB Routing</a>
+    <a href="#vault">Vault &amp; Signatures</a>
+    <a href="#security">Security &amp; Data Protection</a>
+    <a href="#users">User Management &amp; RBAC</a>
+    <a href="#settlement">Settlement &amp; Reconciliation</a>
+    <a href="#integration">CBS / NGCH / NPCI Integration</a>
+    <a href="#deployment">Deployment &amp; Upgrades</a>
+    <a href="#audit">Audit &amp; Compliance</a>
+    <a href="#dr">Disaster Recovery</a>
+    <a href="#commercial">Commercial &amp; Support</a>
+  </nav>
+
+  <!-- Main -->
+  <main class="main" id="main">
+    <div class="no-results" id="noResults">No questions match your search. Try different keywords.</div>
+
+    <!-- ═══════════════════════════════════════════════ 1. PLATFORM OVERVIEW -->
+    <div class="section" id="platform" data-section>
+      <div class="section-header">
+        <div class="section-icon" style="background:#ede9fe;">🏗️</div>
+        <div class="section-title">Platform Overview &amp; Architecture</div>
+        <div class="section-count" id="count-platform"></div>
+      </div>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What is ASTRA CTS and what problem does it solve?</span>
+          <span class="faq-tags"><span class="tag tag-cto">CTO</span><span class="tag tag-rbi">RBI</span></span>
+        </summary>
+        <div class="faq-a">
+          <p><strong>ASTRA CTS (Cheque Truncation System)</strong> is a banking-grade AI platform that automates India's RBI-mandated cheque clearing process end-to-end — both the inward clearing (drawee bank role) and outward clearing (presentee bank role).</p>
+          <p>The primary driver is the <strong>RBI IET (Item Expiry Time) mandate effective January 2026</strong>: a drawee bank has exactly 180 minutes (T+3 hours) from the time a cheque arrives at NGCH to file a decision. A missed IET is a deemed approval — the bank must pay regardless of fraud. With 500+ cheques arriving simultaneously, human processing alone cannot guarantee the deadline. ASTRA deploys one AI agent per inward cheque, running 500 agents in parallel, and delivers each decision in under 600ms wall clock.</p>
+          <p>For outward clearing, ASTRA automates scanner capture → MICR extraction → CTS-2010 image compliance → lot creation → endorsement stamping → NGCH submission → session reconciliation, replacing fragmented manual workflows.</p>
+          <div class="callout green">ASTRA is an on-premises platform. No cheque image, no customer data, and no decision ever leaves the bank's own data centre.</div>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What clearing functions does ASTRA handle — inward only or both?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>ASTRA handles <strong>both sides</strong> of CTS clearing:</p>
+          <table>
+            <tr><th>Role</th><th>Function</th><th>ASTRA Coverage</th></tr>
+            <tr><td><strong>Drawee Bank (Inward)</strong></td><td>Cheques drawn on your bank arrive from NGCH; you must decide honour/return within IET</td><td>Full automation: OCR → signature → fraud → CBS → file to NGCH</td></tr>
+            <tr><td><strong>Presentee Bank (Outward)</strong></td><td>Your customers deposit cheques drawn on other banks; you submit to NGCH</td><td>Scanner capture → MICR → compliance → lot → endorsement → NGCH submission → reconciliation</td></tr>
+          </table>
+          <p>A single ASTRA deployment handles both roles simultaneously. There is no separate module or licence for each side.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">Is ASTRA a SaaS platform or on-premises?</span>
+          <span class="faq-tags"><span class="tag tag-cto">CTO</span><span class="tag tag-sec">InfoSec</span></span>
+        </summary>
+        <div class="faq-a">
+          <p><strong>Strictly on-premises.</strong> ASTRA is deployed inside the bank's own data centre, within the bank's own Kubernetes cluster, using the bank's own servers, network, and storage. There is zero cloud dependency.</p>
+          <ul>
+            <li>No customer data travels outside the bank's perimeter — ever</li>
+            <li>No ASTRA vendor has shell or kubectl access to any bank's production cluster</li>
+            <li>All software updates are pulled by the bank's own ArgoCD from a versioned OCI Helm registry — the bank controls when upgrades apply</li>
+            <li>AI models (Qwen2-VL, Llama 3.3, GOT-OCR2) run on the bank's own GPU servers — no inference call reaches the internet</li>
+          </ul>
+          <div class="callout">This architecture satisfies RBI IT Framework data localisation requirements and SEBI cloud policy constraints for core banking operations.</div>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What is the technology stack? What AI models does ASTRA use?</span>
+          <span class="faq-tags"><span class="tag tag-cto">CTO</span><span class="tag tag-sec">InfoSec</span></span>
+        </summary>
+        <div class="faq-a">
+          <table>
+            <tr><th>Layer</th><th>Technology</th><th>Purpose</th></tr>
+            <tr><td>Container Orchestration</td><td>Kubernetes (on-prem) + Helm</td><td>Per-bank isolated deployment</td></tr>
+            <tr><td>Workflow Engine</td><td>Temporal (self-hosted)</td><td>Exactly-once cheque processing, IET timer</td></tr>
+            <tr><td>Event Bus</td><td>Apache Kafka (Strimzi)</td><td>Fan-out one cheque → one agent</td></tr>
+            <tr><td>Operational DB</td><td>YugabyteDB YSQL</td><td>Active-active, PostgreSQL-compatible</td></tr>
+            <tr><td>In-Memory Vault</td><td>Redis Cluster (6 nodes)</td><td>&lt;5ms signature and PPS lookups</td></tr>
+            <tr><td>Immutable Audit</td><td>Immudb</td><td>Cryptographic append-only audit trail</td></tr>
+            <tr><td>Vision AI (cheque images)</td><td>Qwen2-VL 72B</td><td>Alteration detection, layout analysis</td></tr>
+            <tr><td>OCR (MICR, handwriting)</td><td>GOT-OCR2.0</td><td>MICR line extraction</td></tr>
+            <tr><td>Fraud Synthesis</td><td>Llama 3.3 70B</td><td>Holistic fraud reasoning and explainability</td></tr>
+            <tr><td>Signature Verification</td><td>Siamese Neural Network (PyTorch)</td><td>Trained on each bank's specimen signatures</td></tr>
+            <tr><td>Fraud Scoring</td><td>XGBoost ensemble + SHAP</td><td>Score + human-readable feature impact</td></tr>
+            <tr><td>Secrets</td><td>HashiCorp Vault</td><td>Dynamic secrets, 24-hour rotation</td></tr>
+            <tr><td>HSM</td><td>FIPS 140-2 Level 3</td><td>NGCH PKI signing, key custody</td></tr>
+          </table>
+          <p>All AI models run on the bank's own GPU hardware (minimum: 4× RTX 4090 for pilot; 4–8× A100 80GB for production). No model weights or inference calls leave the bank's network.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">How is ASTRA different from incumbent CTS vendors like Nelito or TCS BaNCS?</span>
+          <span class="faq-tags"><span class="tag tag-cto">CTO</span></span>
+        </summary>
+        <div class="faq-a">
+          <table>
+            <tr><th>Dimension</th><th>Incumbents (Nelito, BaNCS-CTS)</th><th>ASTRA</th></tr>
+            <tr><td>IET compliance approach</td><td>Human review queues; risk of breach during peak batches</td><td>One AI agent per cheque; 500 agents run in parallel; p99 &lt;600ms</td></tr>
+            <tr><td>AI</td><td>Rule-based or no AI</td><td>Vision LLM (alteration), Siamese net (signature), XGBoost+SHAP (fraud)</td></tr>
+            <tr><td>Explainability</td><td>None — black box decision</td><td>SHAP values + LLM narrative for every decision</td></tr>
+            <tr><td>Sub-member routing</td><td>Manual or batch scripts</td><td>Native Temporal workflow; automated sponsor routing for UCBs</td></tr>
+            <tr><td>Audit trail</td><td>Database records (mutable)</td><td>Immudb — cryptographically immutable, Merkle-verified</td></tr>
+            <tr><td>Upgrade model</td><td>Vendor-scheduled, on-site engineers</td><td>GitOps / ArgoCD pull; bank controls upgrade timing; zero vendor access</td></tr>
+            <tr><td>Config changes</td><td>Code change + re-deploy</td><td>Admin UI → hot-reload in &lt;30 seconds; no restart</td></tr>
+          </table>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">Can ASTRA run in a multi-data-centre active-active configuration?</span>
+          <span class="faq-tags"><span class="tag tag-cto">CTO</span><span class="tag tag-rbi">RBI</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>Yes. ASTRA is designed for <strong>active-active across two data centres</strong> — both DCs serve live traffic simultaneously. A third air-gapped DC is used for backup only (not in the traffic path).</p>
+          <ul>
+            <li><strong>RPO = 0</strong> — zero data loss on DC failure (YugabyteDB active-active replication + Kafka MirrorMaker 2 bidirectional sync)</li>
+            <li><strong>RTO &lt; 30 seconds</strong> — automatic failover; no manual intervention</li>
+            <li>If DC1 fails during a clearing session, DC2 picks up all Kafka consumer lag and continues processing in under 30 seconds</li>
+            <li>IETWatchdogWorkflow survives DC failure — the watchdog is durable in Temporal and resumes from checkpoint on the surviving DC</li>
+          </ul>
+          <div class="callout warn">Single-DC deployments are also supported for pilot banks. Active-active is recommended before go-live for production clearing volumes.</div>
+        </div>
+      </details>
+
+    </div><!-- /platform -->
+
+    <!-- ═══════════════════════════════════════════════ 2. INWARD CLEARING -->
+    <div class="section" id="inward" data-section>
+      <div class="section-header">
+        <div class="section-icon" style="background:#dbeafe;">📥</div>
+        <div class="section-title">Inward Clearing (Drawee Bank Role)</div>
+        <div class="section-count" id="count-inward"></div>
+      </div>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">How does ASTRA process an inward cheque from NGCH arrival to decision?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span><span class="tag tag-rbi">RBI</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>The full pipeline runs inside a single <strong>ChequeProcessingWorkflow</strong> (Temporal), executing these activities in sequence:</p>
+          <ol>
+            <li><strong>IET Watchdog spawned first</strong> — a child workflow starts immediately, counting down from T to T-30 seconds; if no decision is filed by T-30s, it files an automatic decision to NGCH before IET breach</li>
+            <li><strong>CTS-2010 Compliance Validation</strong> — image resolution, orientation, MICR band checks</li>
+            <li><strong>OCR Extraction</strong> — GOT-OCR2.0 extracts MICR line (IFSC, account, cheque number, amount)</li>
+            <li><strong>Alteration Detection</strong> — Qwen2-VL 72B analyses image for overwriting, erasure, ink inconsistency</li>
+            <li><strong>Signature Verification</strong> — Siamese network compares live signature against vault specimen</li>
+            <li><strong>PPS Lookup</strong> — Positive Pay System check from Redis vault</li>
+            <li><strong>CBS Balance + Account Status</strong> — live check: account open/frozen/closed, available balance, stop-payment instructions</li>
+            <li><strong>Fraud Scoring</strong> — XGBoost ensemble + SHAP explainer</li>
+            <li><strong>Decision Synthesis</strong> — LLM (Llama 3.3 70B) reviews all signals and produces STP_CONFIRM / STP_RETURN / HUMAN_REVIEW with full rationale</li>
+            <li><strong>File to NGCH</strong> — decision submitted via ngch_filer; idempotency key ensures no duplicate filing</li>
+            <li><strong>Audit Write</strong> — every activity's result written to Immudb (HSM-signed)</li>
+          </ol>
+          <p>Total wall-clock time for 500 simultaneous cheques: <strong>&lt;600ms p99</strong>. Each cheque is an independent workflow; they run fully in parallel.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What happens when a cheque is flagged for human review?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>When the AI decision is HUMAN_REVIEW, a <strong>HumanReviewWorkflow</strong> is triggered:</p>
+          <ul>
+            <li>The cheque appears in the <strong>Ops Workstation review queue</strong> with full context: cheque image, SHAP values, fraud score, OCR output, signature match score, CBS account status, alteration findings</li>
+            <li>The ops_reviewer (authorised by zone) has a <strong>maximum 55-minute window</strong> to decide (Confirm or Return)</li>
+            <li>If no reviewer acts within 55 minutes, the workflow <strong>auto-returns the cheque</strong> — this is a safe conservative default that prevents IET breach while the IETWatchdogWorkflow continues to monitor</li>
+            <li>The reviewer's decision is filed to NGCH immediately via the same ngch_filer activity</li>
+            <li>All reviewer actions are logged to Immudb with reviewer identity, timestamp, and decision rationale</li>
+          </ul>
+          <div class="callout warn">The 55-minute human review window is calibrated against the IET window. Banks with tighter SLAs can reduce this via Admin UI (Layer 3 config) without a code change.</div>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">Can ASTRA process 500 cheques simultaneously? What is the infrastructure requirement?</span>
+          <span class="faq-tags"><span class="tag tag-cto">CTO</span><span class="tag tag-ops">Ops</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>Yes. ASTRA's design principle is <strong>one agent per cheque</strong>. When 500 cheques arrive in a Kafka batch, 500 independent Temporal workflows spawn via KEDA auto-scaling.</p>
+          <p><strong>Scale-up speed:</strong> KEDA triggers on Kafka consumer lag &gt;10 messages. It can scale from 2 to 500 pods in under 2 seconds (aggressive +50 pods/30s policy).</p>
+          <p><strong>GPU minimum for pilot (quantised models):</strong></p>
+          <ul>
+            <li>4× NVIDIA RTX 4090 — runs Qwen2-VL 7B + Llama 3.1 8B quantised (AWQ)</li>
+          </ul>
+          <p><strong>GPU target for production (full-size models):</strong></p>
+          <ul>
+            <li>4–8× NVIDIA A100 80GB — runs Qwen2-VL 72B + Llama 3.3 70B quantised (GPTQ)</li>
+          </ul>
+          <p>CPU-bound activities (PPS vault, CBS check, fraud scoring) scale on standard Kubernetes nodes. GPU is only required for vision and reasoning LLMs.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What are the possible outcomes for an inward cheque?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span><span class="tag tag-rbi">RBI</span></span>
+        </summary>
+        <div class="faq-a">
+          <table>
+            <tr><th>Outcome</th><th>Meaning</th><th>Filed to NGCH?</th></tr>
+            <tr><td><code>STP_CONFIRM</code></td><td>Straight-through processing — AI confirms honour; no human required</td><td>Yes, immediately</td></tr>
+            <tr><td><code>STP_RETURN</code></td><td>AI determines clear return reason (e.g. account frozen, stop payment, PPS mismatch, alteration)</td><td>Yes, with return reason code</td></tr>
+            <tr><td><code>HUMAN_REVIEW</code></td><td>AI is uncertain or rule requires human (high value, government cheque policy)</td><td>Yes, after reviewer decides</td></tr>
+            <tr><td><code>REVIEWER_CONFIRMED</code></td><td>Human reviewer approved after review</td><td>Yes</td></tr>
+            <tr><td><code>REVIEWER_RETURNED</code></td><td>Human reviewer returned after review</td><td>Yes, with return reason</td></tr>
+            <tr><td><code>TIMEOUT_AUTO_RETURNED</code></td><td>No reviewer acted within 55 minutes; auto-returned to protect IET</td><td>Yes, auto-filed</td></tr>
+            <tr><td><code>EMERGENCY_FILED</code></td><td>IET watchdog fired at T-30s as last resort</td><td>Yes, emergency return</td></tr>
+          </table>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What happens if the CBS is unreachable when a cheque arrives?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span><span class="tag tag-cto">CTO</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>ASTRA follows a strict <strong>graceful degradation</strong> policy. If CBS is unreachable:</p>
+          <ul>
+            <li>The <code>check_cbs_balance</code> activity retries 3 times with exponential backoff (2s, 3s, 4.5s)</li>
+            <li>If still unreachable, the activity returns <code>CbsResult(available=None, status="UNREACHABLE")</code> — it does <strong>not</strong> crash the workflow</li>
+            <li>The decision engine proceeds with <strong>image-only processing</strong> (OCR + alteration + signature + PPS)</li>
+            <li>Without balance confirmation, the cheque is routed to <strong>HUMAN_REVIEW</strong> (not auto-confirmed or auto-returned)</li>
+            <li>The IETWatchdogWorkflow continues counting down — the cheque will still be filed before IET breach</li>
+          </ul>
+          <div class="callout critical">ASTRA never silently returns an incorrect value (e.g. balance=0) on CBS timeout. The status is explicitly UNREACHABLE and the degraded path is activated.</div>
+        </div>
+      </details>
+
+    </div><!-- /inward -->
+
+    <!-- ═══════════════════════════════════════════════ 3. OUTWARD CLEARING -->
+    <div class="section" id="outward" data-section>
+      <div class="section-header">
+        <div class="section-icon" style="background:#d1fae5;">📤</div>
+        <div class="section-title">Outward Clearing (Presentee Bank Role)</div>
+        <div class="section-count" id="count-outward"></div>
+      </div>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">How does outward clearing work in ASTRA?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>Outward clearing covers cheques your customers deposit (drawn on other banks). The workflow:</p>
+          <ol>
+            <li><strong>Scanner Capture (OutwardScanWorkflow)</strong> — branch scanner connects to ASTRA; images captured and MICR line extracted in real time</li>
+            <li><strong>CTS-2010 Image Compliance</strong> — image validated for NGCH acceptance (resolution, orientation, MICR band); rejected images flagged for re-scan</li>
+            <li><strong>Lot Creation</strong> — accepted instruments grouped into lots by drawee bank and clearing zone</li>
+            <li><strong>Lot Sealing</strong> — ops manager seals the lot; triggers BatchEndorsementWorkflow</li>
+            <li><strong>Endorsement Stamping (BatchEndorsementWorkflow)</strong> — digital endorsement applied to each instrument in the lot per RBI CTS 2010 spec</li>
+            <li><strong>NGCH Submission (NGCHSubmissionWorkflow)</strong> — endorsed lot submitted to NGCH when clearing session opens; acknowledgement receipt confirmed and logged</li>
+            <li><strong>Session Reconciliation (SessionReconciliationWorkflow)</strong> — at session close, NGCH settlement report matched against submitted instruments; unmatched items flagged; Return Reason File (RRF) generated</li>
+          </ol>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What is the Presentment File / CXF file and how is it generated?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span><span class="tag tag-npci">NPCI</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>The <strong>Presentment File (CXF — CTS eXchange Format)</strong> is the structured file submitted to NGCH containing all outward instruments for a clearing session. ASTRA generates it automatically at the end of the BatchEndorsementWorkflow.</p>
+          <p>Contents: header record (presenting bank IFSC, date, session ID, item count), one detail record per instrument (drawee IFSC, account, cheque number, amount, image hash, MICR line), and a trailer record with control totals.</p>
+          <p>The file is digitally signed using the bank's HSM-held PKI certificate before submission. A separate <strong>Rejected Instruments File</strong> captures CTS-2010 non-compliant items with rejection reason codes.</p>
+          <p>Ops staff can preview both files in the ASTRA workstation UI before submission, and download them for records.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">How does ASTRA handle return reason files (RRF) from NGCH?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>After each clearing session, NGCH sends a <strong>Return Reason File (RRF)</strong> listing instruments that were dishonoured by drawee banks. ASTRA's SessionReconciliationWorkflow:</p>
+          <ul>
+            <li>Downloads the RRF from NGCH (or processes webhook notification in Phase 2 of NGCH modernisation)</li>
+            <li>Matches each returned instrument against the submitted lot</li>
+            <li>Updates instrument status in YugabyteDB</li>
+            <li>Generates a customer-facing return notice (routed through Notification Service — email or WhatsApp depending on bank configuration)</li>
+            <li>Flags unmatched items for ops_manager review</li>
+            <li>Writes full reconciliation outcome to Immudb</li>
+          </ul>
+          <p>Reconciliation results are visible in the Ops Workstation under the "Session Reconciliation" view, with drill-down to individual returned instruments.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">Which physical scanner brands does ASTRA support?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span><span class="tag tag-cto">CTO</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>ASTRA uses a pluggable scanner adapter architecture. The <code>modules/cts/scanner/adapters.py</code> layer abstracts scanner-specific SDKs. Out-of-the-box adapters are provided for all CTS-compliant scanner models certified by NPCI/RBI for CTS-2010 scanning (Canon, Panini, Digital Check, Burroughs-class devices).</p>
+          <p>Adding a new scanner requires implementing the <code>ScannerAdapter</code> base class — typically a 1–2 day integration effort by ASTRA's professional services team. The adapter handles image capture, MICR line reading (E-13B font), and quality pre-check before image reaches ASTRA's compliance engine.</p>
+        </div>
+      </details>
+
+    </div><!-- /outward -->
+
+    <!-- ═══════════════════════════════════════════════ 4. IET -->
+    <div class="section" id="iet" data-section>
+      <div class="section-header">
+        <div class="section-icon" style="background:#fef3c7;">⏱️</div>
+        <div class="section-title">IET Mandate &amp; RBI Compliance</div>
+        <div class="section-count" id="count-iet"></div>
+      </div>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What is the IET mandate and what are the consequences of a breach?</span>
+          <span class="faq-tags"><span class="tag tag-rbi">RBI</span><span class="tag tag-cto">CTO</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>The <strong>Item Expiry Time (IET)</strong> is an RBI mandate (effective January 2026) requiring a drawee bank to file a decision on every inward cheque within <strong>180 minutes (T+3 hours)</strong> of its arrival at NGCH.</p>
+          <p><strong>Consequences of IET breach:</strong></p>
+          <ul>
+            <li>The cheque is treated as a <strong>deemed approval</strong> — NGCH processes it as honoured</li>
+            <li>The bank must pay the cheque amount regardless of fraud, insufficient funds, or stop payment</li>
+            <li>RBI can levy penalties on the bank for systematic IET breach patterns</li>
+            <li>Reputational risk with NPCI / RBI if breach rates are above zero</li>
+          </ul>
+          <div class="callout critical">ASTRA's IET breach target is <strong>0.000%</strong> — not 99.9%, not 99.99%. Zero. This is enforced architecturally, not by SLA language.</div>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">How does ASTRA guarantee zero IET breaches?</span>
+          <span class="faq-tags"><span class="tag tag-rbi">RBI</span><span class="tag tag-cto">CTO</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>IET safety is structural — built into the architecture, not a policy statement:</p>
+          <ol>
+            <li><strong>IETWatchdogWorkflow spawned first</strong> — before any processing activity starts, a child Temporal workflow is spawned with the instrument's IET deadline. Even if the parent workflow crashes, the watchdog continues independently (ParentClosePolicy = ABANDON)</li>
+            <li><strong>T-30 second emergency filer</strong> — at T-30 seconds, if no decision has been filed, the watchdog automatically files a return decision to NGCH. This ensures a decision is always on record before IET</li>
+            <li><strong>Temporal durability</strong> — workflow state persists across pod restarts, DC failures, and network partitions; the countdown resumes from exactly where it left off</li>
+            <li><strong>Active-active DC</strong> — if one DC goes down, the watchdog workflow resumes on the surviving DC within 30 seconds</li>
+            <li><strong>NGCH SFTP fallback</strong> — if the primary NGCH transport is unavailable, the watchdog uses the backup SFTP path; both are always available until NPCI decommissions SFTP (30-month notice required)</li>
+            <li><strong>Exactly-once filing</strong> — idempotency keys prevent duplicate NGCH submissions even if the watchdog and the main workflow both try to file</li>
+          </ol>
+          <p>The 180-minute IET window is configurable per bank via Admin UI (<code>iet_minutes</code>). The watchdog T-30s trigger is a fixed architectural constant — it cannot be turned off by any bank configuration.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">Can RBI examiners view IET compliance records?</span>
+          <span class="faq-tags"><span class="tag tag-rbi">RBI</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>Yes. ASTRA includes an <strong>rbi_examiner</strong> role with read-only, time-scoped access:</p>
+          <ul>
+            <li>Access is provisioned by the bank IT admin for a specific audit engagement period (start date, end date)</li>
+            <li>The examiner can view all IET timing records: arrival timestamp, decision timestamp, filing timestamp, IET window utilised</li>
+            <li>Every cheque's complete processing timeline is available in the Audit Console</li>
+            <li>Immutable audit records in Immudb include cryptographic proof (Merkle tree verification) that records have not been tampered with since creation</li>
+            <li>The examiner cannot modify any data, cannot access customer PII beyond masked displays, and cannot extend their own access period</li>
+          </ul>
+          <p>Access sessions are logged to Immudb — the bank has a complete record of what the examiner viewed and when.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">Does ASTRA comply with RBI IT Framework controls?</span>
+          <span class="faq-tags"><span class="tag tag-rbi">RBI</span><span class="tag tag-sec">InfoSec</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>ASTRA is designed against the <strong>RBI IT Framework for Banks (2011 + 2021 amendments)</strong> and the <strong>RBI Master Direction on IT (2023)</strong>. A detailed control mapping document (<code>compliance/rbi-it-framework/control-mapping.yaml</code>) maps every ASTRA architectural element to the relevant RBI control.</p>
+          <p>Key control areas covered:</p>
+          <ul>
+            <li><strong>Data Localisation</strong> — all data stays within the bank's network; no cloud processing</li>
+            <li><strong>Audit Trail</strong> — Immudb provides tamper-evident, cryptographically verifiable audit logs</li>
+            <li><strong>Access Control</strong> — SAML 2.0 + RBAC + ABAC; no passwords stored by ASTRA; principle of least privilege</li>
+            <li><strong>Encryption</strong> — AES-256 at rest (MinIO SSE-KMS), TLS 1.3 in transit, column-level pgcrypto for PII</li>
+            <li><strong>HSM for PKI</strong> — FIPS 140-2 Level 3 for all NGCH signing keys</li>
+            <li><strong>Business Continuity</strong> — active-active DC, RPO=0, RTO&lt;30s</li>
+            <li><strong>Change Management</strong> — all config changes via maker-checker; Immudb-audited before taking effect</li>
+          </ul>
+        </div>
+      </details>
+
+    </div><!-- /iet -->
+
+    <!-- ═══════════════════════════════════════════════ 5. AI -->
+    <div class="section" id="ai" data-section>
+      <div class="section-header">
+        <div class="section-icon" style="background:#fce7f3;">🤖</div>
+        <div class="section-title">AI Decision Engine</div>
+        <div class="section-count" id="count-ai"></div>
+      </div>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">Is ASTRA's AI a black box? How do we explain a decision to a customer or regulator?</span>
+          <span class="faq-tags"><span class="tag tag-rbi">RBI</span><span class="tag tag-cto">CTO</span><span class="tag tag-sec">InfoSec</span></span>
+        </summary>
+        <div class="faq-a">
+          <p><strong>ASTRA uses fully explainable AI.</strong> Every decision has three layers of explainability:</p>
+          <ol>
+            <li><strong>SHAP values</strong> — each feature's contribution to the fraud score is quantified (e.g. "account_age_days contributed −0.12 to fraud probability; recent_stop_payment contributed +0.31")</li>
+            <li><strong>LLM narrative rationale</strong> — Llama 3.3 70B synthesises all signals into a human-readable decision summary (e.g. "Signature match score 0.91 exceeds threshold. No PPS record on file — routed to human review per bank policy.")</li>
+            <li><strong>Activity-level audit trail</strong> — every activity's input and output is logged to Immudb; an examiner can reconstruct exactly what each AI model saw and what it concluded</li>
+          </ol>
+          <div class="callout critical">No AI decision is ever filed to NGCH without SHAP values computed and stored. This is a platform invariant enforced in code, not a policy.</div>
+          <p>For customer dispute responses, ops_managers can generate a structured decision summary report from the Audit Console that is safe to share (PII masked, decision trail included).</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What accuracy levels does ASTRA's AI achieve?</span>
+          <span class="faq-tags"><span class="tag tag-cto">CTO</span><span class="tag tag-rbi">RBI</span></span>
+        </summary>
+        <div class="faq-a">
+          <table>
+            <tr><th>Model / Task</th><th>Target Metric</th><th>Threshold</th></tr>
+            <tr><td>OCR (MICR line extraction)</td><td>Field accuracy</td><td>&gt;99.0%</td></tr>
+            <tr><td>Signature Verification</td><td>Precision</td><td>&gt;97.0%</td></tr>
+            <tr><td>Fraud Detection</td><td>F1 score</td><td>&gt;0.92</td></tr>
+            <tr><td>Fraud False Positive Rate</td><td>% legitimate cheques flagged as fraud</td><td>&lt;3.0%</td></tr>
+            <tr><td>Fraud False Negative Rate</td><td>% fraudulent cheques not detected</td><td>&lt;1.0%</td></tr>
+            <tr><td>EJ Field Extraction</td><td>Per-field accuracy</td><td>&gt;98.0%</td></tr>
+          </table>
+          <p>Models are monitored continuously via MLflow and Langfuse. If any metric drops &gt;2% over 7 days, an alert fires. If &gt;5%, thresholds auto-tighten. If &gt;8%, the model is automatically pulled from production.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">Are AI thresholds (fraud score, OCR confidence) fixed or can the bank change them?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span><span class="tag tag-cto">CTO</span></span>
+        </summary>
+        <div class="faq-a">
+          <p><strong>All AI thresholds are bank-configurable</strong> via the Admin UI with maker-checker approval. No threshold is hardcoded in ASTRA's source code.</p>
+          <table>
+            <tr><th>Threshold</th><th>Config Key</th><th>Default</th><th>Effect of increasing</th></tr>
+            <tr><td>STP auto-confirm threshold</td><td><code>stp_auto_confirm_threshold</code></td><td>0.92</td><td>Fewer STP confirms; more human review</td></tr>
+            <tr><td>Human review fraud threshold</td><td><code>human_review_fraud_threshold</code></td><td>0.72</td><td>Wider human review net at lower fraud scores</td></tr>
+            <tr><td>OCR minimum confidence</td><td><code>ocr_min_confidence</code></td><td>0.90</td><td>More cheques to human review on OCR uncertainty</td></tr>
+            <tr><td>Signature match minimum</td><td><code>signature_min_match_score</code></td><td>0.85</td><td>Stricter signature verification</td></tr>
+          </table>
+          <p>Changes are applied via Kafka hot-reload to all worker pods within 30 seconds — no restart, no deployment. Every change is logged to Immudb with maker and checker identities before taking effect.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What happens when the AI models are unavailable (GPU server down)?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span><span class="tag tag-cto">CTO</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>ASTRA's graceful degradation hierarchy for AI unavailability:</p>
+          <ol>
+            <li><strong>Retry</strong> — each AI activity retries up to 2× with exponential backoff</li>
+            <li><strong>Rule-based fallback</strong> — if vLLM remains unavailable, the decision engine switches to a deterministic rule-based scorer (no GPU required)</li>
+            <li><strong>Human review escalation</strong> — lower confidence decisions route to the human review queue</li>
+            <li><strong>IET watchdog continues</strong> — even with all AI down, the watchdog ensures every cheque is filed before IET breach; the decision filed may be a conservative return or human-review outcome</li>
+          </ol>
+          <div class="callout critical">ASTRA never silently fails. It never files a random decision. And it never breaches IET because the AI is unavailable.</div>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">How is the signature verification model trained? On whose data?</span>
+          <span class="faq-tags"><span class="tag tag-sec">InfoSec</span><span class="tag tag-cto">CTO</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>The Siamese neural network for signature verification is trained <strong>exclusively on the bank's own specimen signatures</strong> from their CBS/signature card records. No cross-bank training data is used — each bank's model is a separate instance trained on that bank's customer population only.</p>
+          <p>Training process:</p>
+          <ul>
+            <li>Initial training on the bank's existing signature card scans (typically millions of specimens)</li>
+            <li>Fine-tuning on the bank's historical CTS cheque dataset (where available) with verified genuine/forged labels</li>
+            <li>Model is versioned in MLflow; every deployment is tracked with training data hash, training date, and accuracy metrics</li>
+            <li>No customer signature data leaves the bank during training or inference</li>
+          </ul>
+          <p>Signature specimens are stored in the Redis <strong>Signature Vault</strong>, hashed with HMAC-SHA256 using a bank-specific Vault-managed pepper — raw account numbers never appear as vault keys.</p>
+        </div>
+      </details>
+
+    </div><!-- /ai -->
+
+    <!-- ═══════════════════════════════════════════════ 6. SB vs SMB -->
+    <div class="section" id="sb-smb" data-section>
+      <div class="section-header">
+        <div class="section-icon" style="background:#ecfdf5;">🏛️</div>
+        <div class="section-title">SB vs SMB Routing (Sponsor Bank &amp; Sub-Member Banks)</div>
+        <div class="section-count" id="count-sb-smb"></div>
+      </div>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What is the SB / SMB distinction in CTS clearing?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span><span class="tag tag-npci">NPCI</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>In CTS clearing, not all banks are direct members of NGCH. Smaller banks (typically Urban Co-operative Banks, RRBs) participate through a <strong>Sponsor Bank (SB)</strong>:</p>
+          <table>
+            <tr><th>Type</th><th>Full Name</th><th>NGCH Relationship</th><th>Example</th></tr>
+            <tr><td><strong>SB</strong></td><td>Sponsor Bank</td><td>Direct NGCH member; submits for itself AND all its SMBs</td><td>Saraswat Co-operative Bank</td></tr>
+            <tr><td><strong>SMB</strong></td><td>Sub-Member Bank</td><td>Routes instruments through SB; not a direct NGCH member</td><td>A smaller UCB in Maharashtra</td></tr>
+          </table>
+          <p>ASTRA handles both roles natively. A bank deploying ASTRA as an SB gets the full SMBForwardingWorkflow that routes SMB instruments into the SB's lots and submits them to NGCH on behalf of the SMBs. SMBs deploying ASTRA get a scoped view of only their own instruments.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">How does an SMB instrument flow through an SB's ASTRA deployment?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span><span class="tag tag-npci">NPCI</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>When an SMB's instrument arrives at the SB (via the <code>cts.smb.inbound.{bank_id}</code> Kafka topic), the <strong>SMBForwardingWorkflow</strong> executes:</p>
+          <ol>
+            <li><strong>Validate SMB instrument</strong> — CTS-2010 compliance; SMB IFSC verification; risk shield check (stops fraudulent bulk submissions from an SMB)</li>
+            <li><strong>Route to sponsor lot</strong> — the instrument is added to the SB's outward lot for the appropriate clearing zone and drawee bank</li>
+            <li><strong>Forward to NGCH</strong> — submitted as part of the SB's NGCHSubmissionWorkflow; NGCH sees it as the SB's submission</li>
+            <li><strong>Notify SMB</strong> — submission acknowledgement sent back to the SMB bank's ops team</li>
+            <li><strong>Write audit</strong> — full event trail in Immudb with SMB identity, instrument reference, lot assignment</li>
+          </ol>
+          <p>The SB Ops team can view all SMB instruments in a consolidated view, or filter by SMB in the Presentment File screen. Download files can be generated per-SMB for settlement reconciliation.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What does an SMB user see vs an SB user in ASTRA?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span><span class="tag tag-sec">InfoSec</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>Bank type is resolved at login from the JWT/SAML claim and scopes every screen automatically. No manual toggle in production:</p>
+          <table>
+            <tr><th>Feature</th><th>SB User Sees</th><th>SMB User Sees</th></tr>
+            <tr><td>Inward Queue</td><td>Own inward instruments + all SMB inward cheques</td><td>Only own instruments</td></tr>
+            <tr><td>Presentment File</td><td>Own lots + all SMB lots; can filter by SMB</td><td>Only own instruments</td></tr>
+            <tr><td>Settlement</td><td>Own position + SMB-wise breakdowns</td><td>Own position only</td></tr>
+            <tr><td>SMB Registry</td><td>Full list of managed SMBs; can drill into any</td><td>Own record only (read-only)</td></tr>
+            <tr><td>SMB Ledger</td><td>Cross-SMB ledger with balances</td><td>Own ledger only</td></tr>
+            <tr><td>SMB Forwarding Log</td><td>All SMB forwarding history</td><td>Own forwarding history</td></tr>
+            <tr><td>Vault / PPS</td><td>Own accounts + can look up SMB accounts they sponsor</td><td>Own accounts only</td></tr>
+          </table>
+          <div class="callout">The backend enforces this scoping independently of the frontend — an SMB JWT cannot access another bank's data regardless of URL parameters.</div>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">How does ASTRA's Risk Shield protect the SB from fraudulent SMB submissions?</span>
+          <span class="faq-tags"><span class="tag tag-sec">InfoSec</span><span class="tag tag-ops">Ops</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>The <strong>SMB Risk Shield</strong> in <code>modules/cts/sub_member/risk_shield.py</code> protects the SB from liability for fraudulent or erroneous SMB instrument batches:</p>
+          <ul>
+            <li><strong>Volume anomaly detection</strong> — sudden spike in SMB submission volume triggers hold and ops_manager review</li>
+            <li><strong>IFSC verification</strong> — SMB instruments must carry the SMB's own registered IFSC; mismatches are rejected immediately</li>
+            <li><strong>Duplicate detection</strong> — instrument IDs checked against a rolling Redis window; duplicates from an SMB are rejected and logged</li>
+            <li><strong>Risk scoring per SMB</strong> — each SMB has a configurable risk profile; high-risk SMBs require ops_manager sign-off before lot inclusion</li>
+            <li><strong>Automatic quarantine</strong> — if an SMB exceeds anomaly thresholds, all subsequent submissions from that SMB are quarantined pending SB ops_manager review</li>
+          </ul>
+        </div>
+      </details>
+
+    </div><!-- /sb-smb -->
+
+    <!-- ═══════════════════════════════════════════════ 7. VAULT -->
+    <div class="section" id="vault" data-section>
+      <div class="section-header">
+        <div class="section-icon" style="background:#fef9c3;">🔐</div>
+        <div class="section-title">Vault &amp; Signatures</div>
+        <div class="section-count" id="count-vault"></div>
+      </div>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What is the Signature Vault and how is it kept up to date?</span>
+          <span class="faq-tags"><span class="tag tag-sec">InfoSec</span><span class="tag tag-ops">Ops</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>The <strong>Signature Vault</strong> is a Redis cluster (<code>redis-cts</code>) that caches the vector embeddings of every customer's registered specimen signature. When a cheque arrives, the Siamese network compares the live signature against the vault embedding — the lookup takes &lt;5ms.</p>
+          <p><strong>How it stays current:</strong></p>
+          <ul>
+            <li><strong>VaultSyncWorkflow</strong> runs daily at 6AM — pulls all new/updated signature specimens from the CBS and refreshes the Redis vault</li>
+            <li><strong>Real-time events</strong> — the CBS Connector publishes signature change events to the <code>cts.vault.sync.{bank_id}</code> Kafka topic; the vault is updated within seconds of a CBS change (new account, new specimen)</li>
+            <li>Vault entries have no TTL — they persist until explicitly refreshed by the sync workflow</li>
+          </ul>
+          <p><strong>Vault keys never contain raw account numbers.</strong> Keys are formatted as <code>sig:{bank_id}:{HMAC-SHA256(account_number)}</code> using a Vault-managed pepper — the mapping from HMAC to account is not stored in Redis.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What happens when a signature is not found in the vault (vault miss)?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span><span class="tag tag-rbi">RBI</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>A <strong>vault miss</strong> (signature or PPS key not found in Redis) <strong>always routes the cheque to HUMAN_REVIEW</strong>. This is a non-negotiable platform invariant:</p>
+          <div class="callout critical">ASTRA never auto-returns a cheque solely because the vault has no record. A vault miss could mean a new account, a vault sync delay, or a data gap — not necessarily fraud. Human review is the only safe outcome.</div>
+          <p>This is enforced at three levels:</p>
+          <ul>
+            <li>Code: the vault miss handler always returns HUMAN_REVIEW — this path is tested at 95%+ coverage</li>
+            <li>Config: <code>vault_miss_action</code> is locked to HUMAN_REVIEW in Layer 1 (Helm chart) — no bank Admin UI can change this to AUTO_RETURN</li>
+            <li>Audit: every vault miss is logged as a WARN event in Immudb with instrument ID and timestamp</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What is the Positive Pay System (PPS) vault?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>The <strong>PPS Vault</strong> is a Redis cluster entry set per registered Positive Pay instruction. When a customer issues a high-value cheque and registers it via Positive Pay (amount, payee, date, cheque number), the CBS writes a PPS entry. ASTRA checks the arriving inward cheque against this entry:</p>
+          <ul>
+            <li><strong>PPS match</strong> — amount, payee, and cheque number match the registered instruction → one signal in favour of STP_CONFIRM</li>
+            <li><strong>PPS mismatch</strong> — amount or payee differs from the registered instruction → strong signal for STP_RETURN (reason: "PPS mismatch")</li>
+            <li><strong>PPS not registered</strong> (vault miss) → routes to HUMAN_REVIEW if the cheque is above the configured <code>high_value_amount_threshold</code></li>
+          </ul>
+          <p>PPS vault key format: <code>pps:{bank_id}:{HMAC(account_number)}:{cheque_series_start}</code>. TTL = cheque validity period.</p>
+        </div>
+      </details>
+
+    </div><!-- /vault -->
+
+    <!-- ═══════════════════════════════════════════════ 8. SECURITY -->
+    <div class="section" id="security" data-section>
+      <div class="section-header">
+        <div class="section-icon" style="background:#fee2e2;">🛡️</div>
+        <div class="section-title">Security &amp; Data Protection</div>
+        <div class="section-count" id="count-security"></div>
+      </div>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">How does ASTRA protect customer PII — account numbers, names, amounts?</span>
+          <span class="faq-tags"><span class="tag tag-sec">InfoSec</span><span class="tag tag-rbi">RBI</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>ASTRA applies three distinct PII controls depending on context:</p>
+          <table>
+            <tr><th>Data Element</th><th>Storage</th><th>Logs</th><th>API Responses</th></tr>
+            <tr><td>Account number</td><td>HMAC-SHA256 hash as vault key; only last 4 digits stored for display</td><td>Masked: <code>****4521</code></td><td>Masked: <code>****4521</code></td></tr>
+            <tr><td>Customer name</td><td>pgcrypto column-level encryption in YugabyteDB</td><td>Masked: <code>N***</code></td><td>Role-gated; ops_reviewer sees full name</td></tr>
+            <tr><td>Cheque amount</td><td>Range bucket: <code>HIGH_VALUE / STANDARD</code>; exact amount only in encrypted column</td><td>Range bucket: <code>₹[1L-5L]</code></td><td>Range bucket in most contexts</td></tr>
+            <tr><td>Cheque images</td><td>MinIO with SSE-KMS (AES-256); keys in HashiCorp Vault</td><td>MinIO object key only (no image data in logs)</td><td>Pre-signed URL with time-limited access</td></tr>
+          </table>
+          <p>Column-level decryption of customer name and exact amount is gated by the user's RBAC <code>can_view_pii()</code> check — fraud_analysts and RBI examiners cannot see PII; ops_reviewers see it only for cheques in their clearing zone.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">How are secrets (passwords, API keys, certificates) managed?</span>
+          <span class="faq-tags"><span class="tag tag-sec">InfoSec</span></span>
+        </summary>
+        <div class="faq-a">
+          <p><strong>Zero secrets in code or git.</strong> Every credential is managed by <strong>HashiCorp Vault</strong> (on-premises) with these properties:</p>
+          <ul>
+            <li><strong>Dynamic secrets</strong> — database passwords, Redis tokens, and CBS credentials are rotated automatically every 24 hours; old credentials expire and cannot be reused</li>
+            <li><strong>No static credentials</strong> — ASTRA applications never have a "password" that persists; they receive a short-lived dynamic credential from Vault on startup</li>
+            <li><strong>Vault agent sidecar</strong> — each pod receives its Vault token at startup via a Kubernetes sidecar injection; the application code never authenticates to Vault directly</li>
+            <li><strong>HSM for PKI</strong> — NGCH signing keys are held in a FIPS 140-2 Level 3 Hardware Security Module; private keys never exist in software</li>
+            <li><strong>gitleaks enforcement</strong> — pre-commit hooks and CI scan every file for credential patterns; any hardcoded secret blocks the commit and the PR</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What network security controls does ASTRA enforce between services?</span>
+          <span class="faq-tags"><span class="tag tag-sec">InfoSec</span><span class="tag tag-cto">CTO</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>ASTRA uses <strong>Istio service mesh</strong> for zero-trust networking:</p>
+          <ul>
+            <li><strong>mTLS everywhere</strong> — every pod-to-pod communication uses mutual TLS; Istio issues certificates automatically via cert-manager; no service can impersonate another</li>
+            <li><strong>Istio AuthorizationPolicy</strong> — CTS pods cannot call EJ pods directly; EJ pods cannot call CTS pods; only explicitly permitted paths are allowed</li>
+            <li><strong>Namespace isolation</strong> — CTS and EJ run in separate Kubernetes namespaces with ResourceQuotas; a resource exhaustion in one cannot affect the other</li>
+            <li><strong>No direct DB access</strong> — applications connect through pgbouncer connection pools; direct YugabyteDB access from application pods is blocked by NetworkPolicy</li>
+            <li><strong>Istio Ingress Gateway</strong> — all external traffic enters through a single controlled ingress; internal services are never exposed externally</li>
+            <li><strong>TLS 1.3 minimum</strong> — older TLS versions are rejected by Istio configuration; cannot be downgraded by any bank setting</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">Does ASTRA support penetration testing? What is the pen test scope?</span>
+          <span class="faq-tags"><span class="tag tag-sec">InfoSec</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>Yes. ASTRA is designed for bank-commissioned penetration testing and supports it in a dedicated <strong>staging environment</strong> (not production). Recommended pen test scope:</p>
+          <ul>
+            <li>API gateway authentication — JWT forgery, session token manipulation</li>
+            <li>RBAC bypass attempts — accessing data outside role or zone scope</li>
+            <li>NGCH webhook endpoint — HMAC verification bypass, replay attacks</li>
+            <li>SQL/NoSQL injection in API endpoints</li>
+            <li>mTLS bypass attempts at Istio ingress</li>
+            <li>Vault path traversal — attempting to read secrets outside authorised paths</li>
+            <li>Immudb write bypass — attempting to write audit events without HSM signing</li>
+            <li>AI decision manipulation — adversarial image inputs to vision models</li>
+          </ul>
+          <p>A security test harness (OWASP ZAP configuration) is included in the ASTRA release package. Full DAST scan results against the staging environment are required before every production release.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">How does ASTRA's immutable audit trail work?</span>
+          <span class="faq-tags"><span class="tag tag-rbi">RBI</span><span class="tag tag-sec">InfoSec</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>ASTRA uses <strong>Immudb</strong> — a cryptographically tamper-evident database — for all audit events:</p>
+          <ul>
+            <li>Every AuditEvent is <strong>HSM-signed</strong> (FIPS 140-2 Level 3 key) before writing to Immudb</li>
+            <li>Immudb uses a <strong>Merkle tree</strong> structure — any attempt to modify a historical record invalidates the tree hash, making tampering immediately detectable</li>
+            <li>Audit events are also written to MinIO WORM buckets in parallel — compliance-mode object lock ensures they cannot be deleted or overwritten for 10 years</li>
+            <li>An RBI examiner or internal auditor can request a <strong>Merkle consistency proof</strong> for any date range, verifying that the audit trail has not been modified since the initial write</li>
+          </ul>
+          <p>What is audited: every cheque decision (all activities), every vault operation, every configuration change, every user login and action, every NGCH filing, every AI inference result, every diagnostic access session.</p>
+        </div>
+      </details>
+
+    </div><!-- /security -->
+
+    <!-- ═══════════════════════════════════════════════ 9. USERS -->
+    <div class="section" id="users" data-section>
+      <div class="section-header">
+        <div class="section-icon" style="background:#e0e7ff;">👥</div>
+        <div class="section-title">User Management &amp; RBAC</div>
+        <div class="section-count" id="count-users"></div>
+      </div>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What roles exist in ASTRA CTS and what can each role do?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span><span class="tag tag-sec">InfoSec</span></span>
+        </summary>
+        <div class="faq-a">
+          <table>
+            <tr><th>Role</th><th>Primary Access</th><th>Data Access</th><th>Config Access</th></tr>
+            <tr><td><code>ops_reviewer</code></td><td>CTS human review queue; approve/return cheques</td><td>Own clearing zone only; masked PII</td><td>None</td></tr>
+            <tr><td><code>fraud_analyst</code></td><td>CTS + analytics dashboards; SHAP values</td><td>Fraud scores and SHAP; no customer PII</td><td>None</td></tr>
+            <tr><td><code>ops_manager</code></td><td>CTS full ops; lot sealing; SMB management; reports</td><td>Cross-zone reports; maker for config changes</td><td>Layer 3 (maker only)</td></tr>
+            <tr><td><code>bank_it_admin</code></td><td>Admin console; infrastructure view; user provisioning</td><td>Infrastructure metrics; no transaction data</td><td>Layer 2 (PR) + Layer 3 (checker)</td></tr>
+            <tr><td><code>compliance_officer</code></td><td>Audit log; reports; regulatory exports</td><td>Read-only audit trail; masked PII</td><td>Layer 4 (Rego policy author)</td></tr>
+            <tr><td><code>rbi_examiner</code></td><td>Audit console only; time-scoped by bank IT admin</td><td>Read-only; date-scoped; masked PII</td><td>None</td></tr>
+            <tr><td><code>ml_engineer</code></td><td>AI server; MLflow model registry; Langfuse traces</td><td>Inference logs; no customer data</td><td>None</td></tr>
+          </table>
+          <p>All roles are further scoped by <strong>bank_id</strong> (multi-tenancy) and <code>ops_reviewer</code> is additionally scoped by <strong>clearing_zone</strong> attribute (ABAC).</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">Does ASTRA store user passwords? How does authentication work?</span>
+          <span class="faq-tags"><span class="tag tag-sec">InfoSec</span></span>
+        </summary>
+        <div class="faq-a">
+          <p><strong>ASTRA never stores passwords.</strong> Authentication is delegated entirely to the bank's existing Identity Provider (IdP) via <strong>SAML 2.0</strong>:</p>
+          <ul>
+            <li>User logs into the bank's SSO portal (AD FS, Okta, or similar)</li>
+            <li>The bank's IdP issues a SAML assertion containing the user's identity, bank_id, roles, and clearing_zone attributes</li>
+            <li>ASTRA's API gateway validates the SAML assertion and issues a short-lived JWT (15-minute TTL) for internal use</li>
+            <li>The JWT is cached in Redis CTS cluster (not in the bank's IdP) for the session</li>
+          </ul>
+          <p>This means: the bank's existing password policy, MFA requirements, account lockout rules, and session management all apply automatically. ASTRA adds zero new authentication attack surface.</p>
+          <p>RBI examiner accounts are provisioned by the bank IT admin for a specific access period — the bank's IdP governs the actual credential; ASTRA only governs the access scope and audit trail.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">How is maker-checker enforced for configuration changes?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span><span class="tag tag-rbi">RBI</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>All Layer 3 (business rule) configuration changes require dual approval:</p>
+          <ol>
+            <li><strong>Maker (ops_manager)</strong> submits the proposed change in the Admin UI (e.g. "Change STP threshold from 0.92 to 0.94")</li>
+            <li>Change is written to a pending queue in YugabyteDB — <strong>not yet active</strong></li>
+            <li><strong>Checker (bank_it_admin)</strong> reviews and approves or rejects in the Admin UI</li>
+            <li>On approval, the AuditEvent is written to Immudb first (with both maker and checker identities)</li>
+            <li>Only after the Immudb write succeeds does the config publish to the <code>platform.config.changed</code> Kafka topic</li>
+            <li>Worker pods reload the new value within 30 seconds — no restart needed</li>
+          </ol>
+          <div class="callout warn">The maker and checker must be different users. The system enforces this — an ops_manager cannot approve their own submitted change.</div>
+          <p>Layer 4 (OPA Rego policy) changes require compliance_officer to author and bank_it_admin to approve — same dual-approval model, full diff stored in YugabyteDB.</p>
+        </div>
+      </details>
+
+    </div><!-- /users -->
+
+    <!-- ═══════════════════════════════════════════════ 10. SETTLEMENT -->
+    <div class="section" id="settlement" data-section>
+      <div class="section-header">
+        <div class="section-icon" style="background:#f0fdf4;">💰</div>
+        <div class="section-title">Settlement &amp; Reconciliation</div>
+        <div class="section-count" id="count-settlement"></div>
+      </div>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">How does ASTRA handle end-of-day session reconciliation?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>At the close of each clearing session, ASTRA's <strong>SessionReconciliationWorkflow</strong> automatically runs:</p>
+          <ol>
+            <li><strong>Fetch NGCH settlement report</strong> — downloads the session's final settlement file from NGCH</li>
+            <li><strong>Match submitted vs settled</strong> — every instrument submitted in the session is matched against NGCH's settlement confirmation; unmatched items are flagged</li>
+            <li><strong>Generate Return Reason File (RRF)</strong> — instruments returned by drawee banks are compiled into the RRF with standardised reason codes</li>
+            <li><strong>Write audit</strong> — full reconciliation record in Immudb</li>
+            <li><strong>Flag exceptions</strong> — any submitted instrument not found in NGCH's settlement report raises an exception for ops_manager review</li>
+          </ol>
+          <p>Reconciliation results are available in the Ops Workstation under the "Session Reconciliation" tab with per-lot, per-drawee-bank, and per-SMB breakdowns.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">How does ASTRA support multi-centre (multi-city) bank operations?</span>
+          <span class="faq-tags"><span class="tag tag-cto">CTO</span><span class="tag tag-ops">Ops</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>Large banks with <strong>Regional Processing Centres (RPCs)</strong> across multiple clearing zones are natively supported:</p>
+          <ul>
+            <li>Each RPC connects independently to its zone's NGCH grid — no cross-zone consolidation needed at submission time (NPCI handles cross-zone settlement)</li>
+            <li>A <strong>Central Intelligence Hub</strong> aggregates reporting across all RPCs for consolidated dashboards, settlement position, and cross-centre fraud signals</li>
+            <li>Signature vault lookups are hub-and-spoke: RPC checks local Redis → on miss, queries Central Hub → result cached locally for subsequent lookups</li>
+            <li>PPS vault is always hub-and-spoke — PPS instructions can be submitted from any channel (branch, CBS, mobile) and must be consistently available at all RPCs</li>
+          </ul>
+        </div>
+      </details>
+
+    </div><!-- /settlement -->
+
+    <!-- ═══════════════════════════════════════════════ 11. INTEGRATION -->
+    <div class="section" id="integration" data-section>
+      <div class="section-header">
+        <div class="section-icon" style="background:#fef3c7;">🔗</div>
+        <div class="section-title">CBS / NGCH / NPCI Integration</div>
+        <div class="section-count" id="count-integration"></div>
+      </div>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">Which Core Banking Systems does ASTRA integrate with?</span>
+          <span class="faq-tags"><span class="tag tag-cto">CTO</span><span class="tag tag-ops">Ops</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>ASTRA ships with three production-ready CBS connectors:</p>
+          <table>
+            <tr><th>CBS</th><th>Protocol</th><th>Status</th></tr>
+            <tr><td>Infosys Finacle</td><td>REST API</td><td>Production-ready</td></tr>
+            <tr><td>TCS BaNCS</td><td>REST API</td><td>Production-ready</td></tr>
+            <tr><td>Oracle FlexCube</td><td>SOAP/XML</td><td>Production-ready</td></tr>
+          </table>
+          <p>Each connector is selected at deploy time via <code>cbs_connector_type</code> in the bank's Helm values file (Layer 2 config). No code change needed to switch CBS type.</p>
+          <p>The CBS Connector is implemented as an MCP (Model Context Protocol) server with read-only tools: <code>get_balance</code>, <code>get_account_status</code>, <code>get_account_metadata</code>. ASTRA never writes to the CBS — it is a read-only integration.</p>
+          <p>For CBS types not listed above, a custom connector can be built by implementing the abstract <code>CBSConnectorBase</code> class — typically a 2–4 week professional services engagement.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">How does ASTRA connect to NGCH today, and will it support NPCI's upcoming REST API?</span>
+          <span class="faq-tags"><span class="tag tag-npci">NPCI</span><span class="tag tag-cto">CTO</span></span>
+        </summary>
+        <div class="faq-a">
+          <p><strong>Current integration (SFTP-based):</strong> ASTRA's NGCH Adapter wraps the existing SFTP/file-based NGCH interface. All submissions use a digitally signed file format via the bank's NGCH-provisioned SFTP credentials.</p>
+          <p><strong>NPCI Modernisation Readiness:</strong> ASTRA has submitted a concept note to NPCI proposing a three-phase evolution:</p>
+          <ul>
+            <li><strong>Phase A</strong> — REST API (POST /cts/v1/instruments, POST /cts/v1/returns) with 3-layer auth (mTLS + API key + HMAC-SHA256). ASTRA's ngch_adapter will switch transport with a single config flag change; no Temporal workflow changes needed</li>
+            <li><strong>Phase B</strong> — Webhook push (NPCI pushes inward cheques instead of SFTP poll); ASTRA adds a webhook receiver service; inward latency drops from 15-minute poll to real-time</li>
+            <li><strong>Phase C</strong> — MCP Intelligence Layer (NPCI exposes an MCP server; ASTRA becomes an MCP client); deepest integration with real-time IET risk signals</li>
+          </ul>
+          <p>The SFTP path is never decommissioned until NPCI provides 30 months' notice — it remains as a fallback throughout all phases.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">Does ASTRA use NPCI's MCP (Model Context Protocol) integration?</span>
+          <span class="faq-tags"><span class="tag tag-npci">NPCI</span><span class="tag tag-cto">CTO</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>ASTRA is the first CTS platform vendor to propose <strong>MCP (Model Context Protocol)</strong> as an integration standard with NPCI. The concept note submitted to NPCI proposes NGCH as a native MCP server, enabling AI agents to query NPCI tools directly (submit_instrument, file_decision, query_status, stream_clearing_events) with real-time IET risk signals.</p>
+          <p>Internally, ASTRA already uses MCP as its integration standard today:</p>
+          <ul>
+            <li>NGCH Adapter: MCP server wrapping the current SFTP interface</li>
+            <li>CBS Connector: MCP server (read-only CBS tools)</li>
+            <li>Branch EJ Agent: MCP server at branch/ATM controller</li>
+            <li>ASTRA Diagnostic MCP: consent-gated operational signals for support</li>
+          </ul>
+          <p>When NPCI approves the MCP phase, ASTRA's upgrade path is minimal — the ngch_adapter switches from "MCP server wrapping SFTP" to "MCP client calling NPCI's MCP server" with zero changes to Temporal workflow logic.</p>
+        </div>
+      </details>
+
+    </div><!-- /integration -->
+
+    <!-- ═══════════════════════════════════════════════ 12. DEPLOYMENT -->
+    <div class="section" id="deployment" data-section>
+      <div class="section-header">
+        <div class="section-icon" style="background:#e0f2fe;">⚙️</div>
+        <div class="section-title">Deployment &amp; Upgrades</div>
+        <div class="section-count" id="count-deployment"></div>
+      </div>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">How long does initial ASTRA deployment take for a new bank?</span>
+          <span class="faq-tags"><span class="tag tag-cto">CTO</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>A typical first-time deployment for a pilot bank with existing Kubernetes infrastructure:</p>
+          <table>
+            <tr><th>Activity</th><th>Duration</th><th>Who</th></tr>
+            <tr><td>Bank Helm values file creation + CBS connector config</td><td>2–3 days</td><td>ASTRA PS + Bank IT</td></tr>
+            <tr><td>HashiCorp Vault setup + secret provisioning</td><td>1–2 days</td><td>Bank IT + ASTRA PS</td></tr>
+            <tr><td>GPU server setup (pilot: 4× RTX 4090)</td><td>1–3 days</td><td>Bank IT</td></tr>
+            <tr><td>ArgoCD application setup + initial helm deploy</td><td>1 day</td><td>Bank IT</td></tr>
+            <tr><td>CBS connector testing + vault warm-up</td><td>2–3 days</td><td>ASTRA PS + Bank IT</td></tr>
+            <tr><td>Signature model training (on bank's specimen data)</td><td>3–7 days</td><td>ASTRA ML + Bank IT</td></tr>
+            <tr><td>UAT + smoke tests + IET simulation</td><td>5–10 days</td><td>Bank Ops + ASTRA PS</td></tr>
+            <tr><td>Go-live prep + RBI sign-off</td><td>5–10 days</td><td>Bank Compliance</td></tr>
+          </table>
+          <p>Total: approximately <strong>3–5 weeks</strong> from contract to production go-live for a pilot bank.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">How are software upgrades applied? Can we roll back?</span>
+          <span class="faq-tags"><span class="tag tag-cto">CTO</span><span class="tag tag-sec">InfoSec</span></span>
+        </summary>
+        <div class="faq-a">
+          <p><strong>Upgrade process (bank-controlled, zero vendor access):</strong></p>
+          <ol>
+            <li>ASTRA releases a new Helm chart version to the private OCI registry with release notes</li>
+            <li>Bank raises a Change Request (bank's own ITSM), reviews release notes, gets CAB approval</li>
+            <li>Bank IT admin changes <code>targetRevision</code> in ArgoCD from old version to new version</li>
+            <li>Helm pre-upgrade hook runs: Alembic database migration (with dry-run report)</li>
+            <li>Helm upgrade applies: rolling update, zero downtime for stateless services</li>
+            <li>Temporal workers drain existing workflows gracefully before restart</li>
+            <li>Post-upgrade hook runs automated smoke tests (Vault, mTLS, Immudb write)</li>
+          </ol>
+          <p><strong>Rollback:</strong> ArgoCD reverts <code>targetRevision</code> to the previous version. Alembic downgrade migration runs automatically. SLA: rollback complete in &lt;10 minutes. All migrations are backward-compatible for one version — rollback never requires a data migration.</p>
+          <div class="callout green">ASTRA never pushes upgrades to a bank. The bank pulls upgrades on its own schedule. No ASTRA engineer has access to any bank's production cluster.</div>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">Can configuration changes be made without a deployment?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span><span class="tag tag-cto">CTO</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>Yes. ASTRA has a 5-layer configuration hierarchy. Layers 3, 4, and 5 are fully hot-reloadable — no deployment, no pod restart:</p>
+          <table>
+            <tr><th>Layer</th><th>What</th><th>How to Change</th><th>Hot-reload?</th></tr>
+            <tr><td>1 — Platform constraints</td><td>Security baselines (TLS 1.3, audit-on, etc.)</td><td>New ASTRA chart release</td><td>No</td></tr>
+            <tr><td>2 — Deployment topology</td><td>Module flags, CBS type, DC count</td><td>PR to ASTRA repo → ArgoCD sync</td><td>No (Helm upgrade)</td></tr>
+            <tr><td>3 — Business rules</td><td>IET minutes, fraud thresholds, STP threshold</td><td>Admin UI (maker-checker)</td><td><strong>Yes — &lt;30 seconds</strong></td></tr>
+            <tr><td>4 — Policy rules</td><td>OPA Rego: routing, auto-return triggers</td><td>Compliance officer authors → IT admin approves</td><td><strong>Yes — OPA hot-reload</strong></td></tr>
+            <tr><td>5 — User preferences</td><td>Dashboard layout, notifications, locale</td><td>User self-service</td><td>Yes — per-request</td></tr>
+          </table>
+        </div>
+      </details>
+
+    </div><!-- /deployment -->
+
+    <!-- ═══════════════════════════════════════════════ 13. AUDIT -->
+    <div class="section" id="audit" data-section>
+      <div class="section-header">
+        <div class="section-icon" style="background:#ede9fe;">📋</div>
+        <div class="section-title">Audit &amp; Compliance</div>
+        <div class="section-count" id="count-audit"></div>
+      </div>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">How long are records retained? What are the retention tiers?</span>
+          <span class="faq-tags"><span class="tag tag-rbi">RBI</span><span class="tag tag-sec">InfoSec</span></span>
+        </summary>
+        <div class="faq-a">
+          <table>
+            <tr><th>Tier</th><th>Duration</th><th>What</th><th>Storage</th></tr>
+            <tr><td>Hot</td><td>0–90 days</td><td>Active cheque images, EJ records, decisions</td><td>MinIO NVMe/SSD bucket</td></tr>
+            <tr><td>Warm archive</td><td>91 days – 2 years</td><td>All artifacts from cleared sessions</td><td>MinIO HDD bucket</td></tr>
+            <tr><td>Cold regulatory</td><td>2–10 years</td><td>WORM-locked; RBI 7-year regulatory retention</td><td>MinIO COMPLIANCE mode + LTO-9 tape option</td></tr>
+          </table>
+          <p>MinIO ILM policies handle transitions automatically — no manual data migration. After 10 years, deletion requires legal review.</p>
+          <p>Immudb audit records are kept indefinitely by default — Merkle proof remains verifiable even for historical records years later.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">Can ASTRA support an RBI IT inspection or forensic audit?</span>
+          <span class="faq-tags"><span class="tag tag-rbi">RBI</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>Yes. ASTRA provides a dedicated <strong>rbi_examiner</strong> role with read-only, time-scoped access to the Audit Console. For a forensic audit:</p>
+          <ul>
+            <li>The bank provisions examiner access in the Admin UI — access period, scope of data (date ranges, instrument types), and service access are all configurable</li>
+            <li>The examiner can view: complete IET timing records, all AI decision trails, SHAP values, reviewer actions, configuration change history, and Merkle consistency proofs for any period</li>
+            <li>A standard set of audit queries is available in <code>compliance/audit-queries/standard-reports.sql</code> — these can be exported to CSV or PDF</li>
+            <li>All examiner access is itself logged to Immudb — the bank has an immutable record of every query the examiner ran</li>
+            <li>Examiner access auto-expires at the configured end date; the bank can revoke access at any time mid-inspection</li>
+          </ul>
+        </div>
+      </details>
+
+    </div><!-- /audit -->
+
+    <!-- ═══════════════════════════════════════════════ 14. DR -->
+    <div class="section" id="dr" data-section>
+      <div class="section-header">
+        <div class="section-icon" style="background:#fef2f2;">🆘</div>
+        <div class="section-title">Disaster Recovery &amp; Availability</div>
+        <div class="section-count" id="count-dr"></div>
+      </div>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What is ASTRA's availability SLA for the CTS clearing window?</span>
+          <span class="faq-tags"><span class="tag tag-cto">CTO</span><span class="tag tag-rbi">RBI</span></span>
+        </summary>
+        <div class="faq-a">
+          <table>
+            <tr><th>Window</th><th>Target Availability</th></tr>
+            <tr><td>CTS clearing window (10AM–4PM)</td><td>99.999% (5.26 minutes downtime/year)</td></tr>
+            <tr><td>Outside clearing window</td><td>99.99% (52.6 minutes downtime/year)</td></tr>
+          </table>
+          <p>Active-active across 2 DCs is required to meet the 99.999% target during clearing hours. Single-DC deployments can achieve 99.99% with planned maintenance windows outside clearing hours.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What happens to in-flight cheque workflows if a data centre fails mid-clearing?</span>
+          <span class="faq-tags"><span class="tag tag-cto">CTO</span><span class="tag tag-rbi">RBI</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>Temporal's durable workflow execution is the key mechanism:</p>
+          <ul>
+            <li>Workflow state is replicated to both DCs via YugabyteDB active-active replication (RPO=0 — zero data loss)</li>
+            <li>On DC1 failure, Temporal workers on DC2 automatically resume all interrupted workflows from their last durable checkpoint — no manual intervention</li>
+            <li><strong>IETWatchdogWorkflow</strong> continues counting down on DC2 — the IET deadline was already persisted before the DC failed</li>
+            <li>Kafka MirrorMaker 2 replicates all unprocessed inward cheque events bidirectionally — DC2 processes any events that DC1 had not yet consumed</li>
+            <li>Total recovery time: &lt;30 seconds</li>
+          </ul>
+          <p>ASTRA validates this behaviour continuously using <strong>Chaos Mesh</strong> — DC failure scenarios are part of the standard chaos test suite that runs in the staging environment before every production release.</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What is the backup strategy?</span>
+          <span class="faq-tags"><span class="tag tag-sec">InfoSec</span><span class="tag tag-cto">CTO</span></span>
+        </summary>
+        <div class="faq-a">
+          <ul>
+            <li><strong>YugabyteDB</strong> — active-active replication provides real-time backup to the second DC; PITR (point-in-time recovery) snapshots taken every hour; snapshots sent to the air-gapped DC3</li>
+            <li><strong>Kafka</strong> — topic data replicated bidirectionally via MirrorMaker 2; DC3 stores compressed topic snapshots daily</li>
+            <li><strong>MinIO (cheque images, EJ files)</strong> — 3-copy erasure coding within each DC; cross-DC replication to DC2; WORM-locked cold tier in DC3</li>
+            <li><strong>Immudb (audit trail)</strong> — audit events are written to Immudb on both DCs simultaneously; snapshots to DC3 daily</li>
+            <li><strong>Redis (vaults)</strong> — persistence via AOF (append-only file) to NVMe; vault state rebuilt from YugabyteDB on Redis failure; not backed up to DC3 (it's a cache of CBS data)</li>
+          </ul>
+          <p>DC3 is air-gapped — it cannot be reached from either production DC, so a ransomware attack on DC1/DC2 cannot spread to backups.</p>
+        </div>
+      </details>
+
+    </div><!-- /dr -->
+
+    <!-- ═══════════════════════════════════════════════ 15. COMMERCIAL -->
+    <div class="section" id="commercial" data-section>
+      <div class="section-header">
+        <div class="section-icon" style="background:#f0fdf4;">💼</div>
+        <div class="section-title">Commercial &amp; Support</div>
+        <div class="section-count" id="count-commercial"></div>
+      </div>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What commercial model does ASTRA CTS use?</span>
+          <span class="faq-tags"><span class="tag tag-cto">CTO</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>ASTRA CTS is available under three commercial models:</p>
+          <table>
+            <tr><th>Model</th><th>Structure</th><th>Best for</th></tr>
+            <tr><td>Per-cheque SaaS</td><td>₹X per cheque processed (inward + outward); tiered pricing above 10M cheques/month</td><td>Banks wanting opex model; volume risk with ASTRA</td></tr>
+            <tr><td>Platform licence</td><td>Annual licence + maintenance fee; includes unlimited volumes within contracted clearing centres</td><td>Large banks with high volume; predictable opex</td></tr>
+            <tr><td>Managed AI</td><td>Platform licence + ASTRA manages model training, drift monitoring, and retraining cycles</td><td>Banks without in-house ML team</td></tr>
+          </table>
+          <p>All models include: professional services for initial deployment, signature model training, integration testing, and 12 months of standard support. Hardware (GPU servers, storage) is procured by the bank separately.</p>
+          <p>Pricing details are available on request. Contact: <strong>Nilesh Shah</strong> — <em>nilesh@astra.ai</em></p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">What support does ASTRA provide post go-live?</span>
+          <span class="faq-tags"><span class="tag tag-ops">Ops</span><span class="tag tag-cto">CTO</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>Standard support includes:</p>
+          <ul>
+            <li><strong>24×7 P1 support</strong> during clearing hours (IET-related issues are always P1)</li>
+            <li><strong>Business hours support</strong> for P2/P3 issues</li>
+            <li><strong>ASTRA Diagnostic MCP</strong> — bank can grant ASTRA support engineers time-limited, consent-gated diagnostic access to operational signals (no customer data) for faster issue resolution</li>
+            <li>Every diagnostic access session is logged to Immudb with bank IT admin approval — the bank has full visibility of what ASTRA support viewed</li>
+            <li>Quarterly model performance reviews + retraining recommendations</li>
+            <li>Annual IET safety audit — simulate failure scenarios on staging environment</li>
+          </ul>
+          <p>ASTRA support <strong>never has production cluster access</strong>. All debugging uses the Diagnostic MCP server or bank-provided log exports (PII-scrubbed before export).</p>
+        </div>
+      </details>
+
+      <details class="faq-card" data-q>
+        <summary class="faq-q">
+          <span class="faq-chevron">▾</span>
+          <span class="faq-q-text">Is the ASTRA source code available for bank review? What about escrow?</span>
+          <span class="faq-tags"><span class="tag tag-sec">InfoSec</span><span class="tag tag-cto">CTO</span></span>
+        </summary>
+        <div class="faq-a">
+          <p>ASTRA provides two IP access options for banks:</p>
+          <ul>
+            <li><strong>Source code review</strong> — banks may conduct a technical due diligence review of the source code under NDA, typically by the bank's CISO and architecture team, in a vendor-managed environment</li>
+            <li><strong>Source code escrow</strong> — ASTRA deposits the full source code with a third-party escrow agent; the bank can access it in defined business continuity scenarios (ASTRA ceasing operations, failure to support critical security fixes)</li>
+          </ul>
+          <p>The AI model weights (Qwen2-VL, Llama 3.3, GOT-OCR2) are open-weight models from public repositories — the bank's ML team can independently verify, retrain, or replace these models at any time without vendor dependency.</p>
+          <p>The bank's signature verification model is always the bank's own asset — trained on their data, stored on their HSM, and fully portable.</p>
+        </div>
+      </details>
+
+    </div><!-- /commercial -->
+
+  </main>
+</div>
+
+<!-- Footer -->
+<div style="background:#1e1b4b; color:rgba(255,255,255,0.5); text-align:center; padding:24px 40px; font-size:13px; margin-top:20px;">
+  <p>ASTRA — Automated Settlement and Transaction Recognition Architecture</p>
+  <p style="margin-top:4px;">Precision Banking. Zero Compromise. &nbsp;·&nbsp; Classification: Confidential — Banking Grade &nbsp;·&nbsp; © 2026 ASTRA &nbsp;·&nbsp; Author: Nilesh Shah</p>
+</div>
+
+<script>
+  // ── Search ──────────────────────────────────────────────────────────
+  const searchInput = document.getElementById('searchInput');
+  const searchHint  = document.getElementById('searchHint');
+  const noResults   = document.getElementById('noResults');
+  const allCards    = document.querySelectorAll('.faq-card[data-q]');
+
+  searchInput.addEventListener('input', () => {
+    const q = searchInput.value.trim().toLowerCase();
+    let visible = 0;
+
+    allCards.forEach(card => {
+      const text = card.textContent.toLowerCase();
+      const match = !q || text.includes(q);
+      card.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+
+    // Show/hide section headers based on visible cards
+    document.querySelectorAll('.section[data-section]').forEach(section => {
+      const hasVisible = [...section.querySelectorAll('.faq-card[data-q]')].some(c => c.style.display !== 'none');
+      section.style.display = hasVisible ? '' : 'none';
+    });
+
+    searchHint.textContent = q ? `${visible} result${visible !== 1 ? 's' : ''}` : '';
+    noResults.style.display = (q && visible === 0) ? 'block' : 'none';
+  });
+
+  // ── Count questions per section ──────────────────────────────────────
+  document.querySelectorAll('.section[data-section]').forEach(section => {
+    const id    = section.id;
+    const count = section.querySelectorAll('.faq-card[data-q]').length;
+    const el    = section.querySelector('.section-count');
+    if (el) el.textContent = `${count} question${count !== 1 ? 's' : ''}`;
+  });
+
+  // ── TOC active state on scroll ───────────────────────────────────────
+  const tocLinks   = document.querySelectorAll('.toc a');
+  const sections   = document.querySelectorAll('.section[data-section]');
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        tocLinks.forEach(a => {
+          a.classList.toggle('active', a.getAttribute('href') === '#' + entry.target.id);
+        });
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
