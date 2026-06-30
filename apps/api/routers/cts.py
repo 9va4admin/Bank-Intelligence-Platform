@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict
 
 from modules.cts.workflows.cheque_workflow import ChequeWorkflowInput
 from modules.cts.workflows.human_review_workflow import ReviewDecision
+from shared.auth.rbac import BankType, Role, PermissionLevel, RBACPolicy, UserContext
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
 
 log = structlog.get_logger()
@@ -27,33 +28,57 @@ log = structlog.get_logger()
 router_v1 = APIRouter(prefix="/v1/cts", tags=["CTS v1"])
 
 _bearer = HTTPBearer(auto_error=False)
+_policy = RBACPolicy()
 
 
 # ---------------------------------------------------------------------------
 # Auth dependency
 # ---------------------------------------------------------------------------
 
-async def get_current_bank_id(
+async def get_current_user_context(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
-) -> str:
+) -> UserContext:
+    """
+    Decode JWT and return a fully populated UserContext.
+    In production: validate JWT signature, extract all claims.
+    Test tokens: test-token-{bank_id}            → SB context
+                 test-token-smb-{bank_id}         → SMB context
+    """
     if credentials is None or not credentials.credentials:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
     token = credentials.credentials
+    if token.startswith("test-token-smb-"):
+        bank_id = token.removeprefix("test-token-smb-")
+        return UserContext(
+            user_id="smb-user-001",
+            role=Role.SMB_EDITOR,
+            bank_id=bank_id,
+            bank_type=BankType.SMB,
+            permission_level=PermissionLevel.EDIT,
+        )
     if token.startswith("test-token-"):
-        return token.removeprefix("test-token-")
-    # Production: decode JWT, validate signature, extract bank_id claim
+        bank_id = token.removeprefix("test-token-")
+        return UserContext(
+            user_id="reviewer-001",
+            role=Role.OPS_REVIEWER,
+            bank_id=bank_id,
+            bank_type=BankType.SB,
+            permission_level=PermissionLevel.EDIT,
+        )
+    # Production: decode JWT, validate signature, extract all claims
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+
+async def get_current_bank_id(
+    ctx: UserContext = Depends(get_current_user_context),
+) -> str:
+    return ctx.bank_id
 
 
 async def get_current_user_id(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
+    ctx: UserContext = Depends(get_current_user_context),
 ) -> str:
-    if credentials is None or not credentials.credentials:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
-    token = credentials.credentials
-    if token.startswith("test-token-"):
-        return "reviewer-001"
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    return ctx.user_id
 
 
 # ---------------------------------------------------------------------------
@@ -894,14 +919,17 @@ class SMBVaultSyncTriggerResponse(BaseModel):
     response_model=SMBListResponse,
 )
 async def list_sub_members(
-    bank_id: str = Depends(get_current_bank_id),
+    ctx: UserContext = Depends(get_current_user_context),
     active_only: bool = True,
 ) -> SMBListResponse:
     """
     List all Sub-Member Banks registered under this Sponsor Bank.
-    Returns vault sync status and current threshold configuration for each SMB.
+    SB-only — SMB users cannot enumerate peer institutions.
     Production: queries cts.sub_member_banks JOIN cts.smb_vault_config WHERE bank_id = $1.
     """
+    if ctx.bank_type != BankType.SB:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SMB management is an SB-only operation")
+    bank_id = ctx.bank_id
     log.info("smb.list", bank_id=bank_id, active_only=active_only)
     # Production: SELECT sub_member_id, bank_name, micr_prefix, ifsc_prefix,
     #   is_active, return_rate_threshold, soft_hold_threshold,
@@ -918,14 +946,17 @@ async def list_sub_members(
 )
 async def register_sub_member(
     body: SMBRegistration,
-    bank_id: str = Depends(get_current_bank_id),
+    ctx: UserContext = Depends(get_current_user_context),
 ) -> SMBRegistrationResponse:
     """
     Register a new Sub-Member Bank under this Sponsor Bank.
+    SB-only — an SMB cannot register peer institutions.
     Also creates the smb_vault_config and smb_kafka_topics registry rows.
-    Requires smb_it_admin role (enforced by RBAC in production).
     Thresholds are seeded from request body — bank can update via Admin UI (Layer 3).
     """
+    if ctx.bank_type != BankType.SB:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SMB registration is an SB-only operation")
+    bank_id = ctx.bank_id
     if body.return_rate_threshold >= body.soft_hold_threshold:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -959,15 +990,19 @@ async def register_sub_member(
 )
 async def get_smb_session_ledger(
     sub_member_id: str,
-    bank_id: str = Depends(get_current_bank_id),
+    ctx: UserContext = Depends(get_current_user_context),
     session_date: Optional[str] = None,
 ) -> SMBLedgerResponse:
     """
-    Return batch ledger for a Sub-Member Bank across all clearing sessions
-    for a given date (defaults to today).
+    Return batch ledger for a Sub-Member Bank.
+    SB users may view any sub_member_id under their bank_id.
+    SMB users may only view their own sub_member_id — cross-SMB access is denied.
     Production: queries cts.sub_member_batch_ledgers WHERE bank_id = $1 AND sub_member_id = $2
     AND session_date = $3.
     """
+    if ctx.bank_type == BankType.SMB and ctx.bank_id != sub_member_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SMB users can only view their own ledger")
+    bank_id = ctx.bank_id if ctx.bank_type == BankType.SB else ctx.bank_id
     import datetime as _dt
     date_str = session_date or _dt.date.today().isoformat()
     log.info("smb.ledger", bank_id=bank_id, sub_member_id=sub_member_id, date=date_str)
@@ -980,16 +1015,20 @@ async def get_smb_session_ledger(
 )
 async def get_smb_forwarding_log(
     sub_member_id: str,
-    bank_id: str = Depends(get_current_bank_id),
+    ctx: UserContext = Depends(get_current_user_context),
     limit: int = 50,
 ) -> SMBForwardingLogResponse:
     """
     Return recent forwarding log entries for a Sub-Member Bank.
-    Ordered by received_at DESC. Exposes forwarding status and terminal decisions.
+    SB users may view any sub_member_id under their bank_id.
+    SMB users may only view their own forwarding log.
     No raw PII — instrument_id and forwarding_id are opaque references.
     """
+    if ctx.bank_type == BankType.SMB and ctx.bank_id != sub_member_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SMB users can only view their own forwarding log")
     if limit > 100:
         limit = 100
+    bank_id = ctx.bank_id
     log.info("smb.forwarding_log", bank_id=bank_id, sub_member_id=sub_member_id, limit=limit)
     return SMBForwardingLogResponse(items=[], total=0, sub_member_id=sub_member_id)
 
@@ -1002,13 +1041,17 @@ async def get_smb_forwarding_log(
 async def trigger_smb_vault_sync(
     sub_member_id: str,
     request: Request,
-    bank_id: str = Depends(get_current_bank_id),
+    ctx: UserContext = Depends(get_current_user_context),
 ) -> SMBVaultSyncTriggerResponse:
     """
     Trigger VaultSyncWorkflow scoped to a specific Sub-Member Bank.
+    SB-only — SMB cannot trigger vault syncs (they don't own the vault).
     Syncs SMB signature specimens and PPS entries into the sponsor bank's Redis vault
     under the smb_vault_prefix namespace (sig:{sub_member_id}:{hash}).
     """
+    if ctx.bank_type != BankType.SB:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Vault sync trigger is an SB-only operation")
+    bank_id = ctx.bank_id
     import time as _time
     ts = int(_time.time())
     workflow_id = f"cts-smb-vaultsync-{bank_id}-{sub_member_id}-{ts}"
