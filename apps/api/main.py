@@ -22,6 +22,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from apps.api.middleware.rate_limit import RateLimitMiddleware
+from apps.api.middleware.security_violations import SecurityViolationMiddleware
 from apps.api.routers import cts, ej, disputes, audit, admin, notifications
 from apps.api.routers import batch, users
 from shared.config.config_service import config_service
@@ -190,6 +191,10 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT"],
     allow_headers=["Authorization", "Content-Type", "X-Request-Id"],
 )
+
+# Security violations — catches TenantIsolationError / BankIsolationError, suspends user
+# Must be outermost so it catches errors from all inner middleware and route handlers
+app.add_middleware(SecurityViolationMiddleware)
 
 # Rate limiting — Redis sliding window, per-bank per-endpoint
 app.add_middleware(RateLimitMiddleware)

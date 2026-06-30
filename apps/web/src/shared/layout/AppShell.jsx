@@ -5,6 +5,11 @@ import { PageHeaderCtx } from './PageHeaderContext'
 import ChequeSearchBar from './ChequeSearchBar'
 import { useBankContext } from '../context/BankContext'
 
+// Nav item visibility is controlled by two independent gates:
+//   1. sbOnly: true  — SB bank type required (structural — SMB never sees SMB management)
+//   2. perm: 'cts:view_queue' — user's role must have this permission
+// An item with no perm is visible to all authenticated users of the correct bank type.
+
 // ── Sidebar navigation structure ────────────────────────────────────────────
 
 function CtsIcon() {
@@ -42,58 +47,58 @@ const SIDEBAR_MODULES = [
       {
         label: 'Dashboard',
         items: [
-          { to: '/cts/ops-dashboard', label: 'Ops Dashboard', end: true },
+          { to: '/cts/ops-dashboard', label: 'Ops Dashboard', end: true, perm: 'cts:view_queue' },
         ],
       },
       {
         label: 'Presentation Process',
         items: [
-          { to: '/cts/outward',            label: 'DBC Processing'    },
-          { to: '/cts/presentment-file',   label: 'Presentment File'  },
-          { to: '/cts/rf-drawee',          label: 'RF — Drawee Bank'  },
+          { to: '/cts/outward',           label: 'DBC Processing',   perm: 'cts:submit_decision' },
+          { to: '/cts/presentment-file',  label: 'Presentment File', perm: 'cts:view_queue'      },
+          { to: '/cts/rf-drawee',         label: 'RF — Drawee Bank', perm: 'cts:submit_decision' },
         ],
       },
       {
         label: 'Drawee Process',
         items: [
-          { to: '/cts',                    label: 'Inward Queue',        end: true },
-          { to: '/cts/drawee',             label: 'Drawee Position'      },
-          { to: '/cts/pipeline',           label: 'Inward Pipeline'      },
-          { to: '/cts/inward-pipeline',    label: 'Pipeline (Animated)'  },
-          { to: '/cts/recall',             label: 'Recall'               },
+          { to: '/cts',                 label: 'Inward Queue',       end: true, perm: 'cts:view_queue'      },
+          { to: '/cts/drawee',          label: 'Drawee Position',              perm: 'cts:view_queue'      },
+          { to: '/cts/pipeline',        label: 'Inward Pipeline',              perm: 'cts:view_analytics'  },
+          { to: '/cts/inward-pipeline', label: 'Pipeline (Animated)',          perm: 'cts:view_analytics'  },
+          { to: '/cts/recall',          label: 'Recall',                       perm: 'cts:submit_decision' },
         ],
       },
       {
         label: 'Settlement',
         items: [
-          { to: '/cts/settlement',         label: 'Settlement'           },
+          { to: '/cts/settlement', label: 'Settlement', perm: 'smb:view_ledger' },
         ],
       },
       {
         label: 'Processing',
         items: [
-          { to: '/cts/batches',       label: 'Batches'          },
-          { to: '/cts/vault',         label: 'Vault'            },
-          { to: '/cts/vault-sync',    label: 'PPS & Stop Cheque'},
-          { to: '/cts/sub-member',    label: 'Sub-Member',       sbOnly: true },
-          { to: '/cts/smb/registry',  label: 'SMB Registry',     sbOnly: true },
-          { to: '/cts/smb/ledger',    label: 'SMB Ledger',       sbOnly: true },
-          { to: '/cts/smb/forwarding-log', label: 'SMB Fwd Log', sbOnly: true },
-          { to: '/cts/endorsement',   label: 'Endorsement'      },
-          { to: '/cts/exceptions',    label: 'Exceptions'       },
-          { to: '/cts/iqa',           label: 'Image Quality'    },
-          { to: '/cts/scanner',       label: 'Scanner SDK'      },
-          { to: '/cts/rpc',           label: 'RPC Consolidation'},
+          { to: '/cts/batches',            label: 'Batches',          perm: 'cts:submit_decision'                },
+          { to: '/cts/vault',              label: 'Vault',            perm: 'cts:view_queue'                     },
+          { to: '/cts/vault-sync',         label: 'PPS & Stop Cheque',perm: 'cts:view_queue'                     },
+          { to: '/cts/sub-member',         label: 'Sub-Member',       sbOnly: true, perm: 'smb:view_ledger'      },
+          { to: '/cts/smb/registry',       label: 'SMB Registry',     sbOnly: true, perm: 'smb:register'         },
+          { to: '/cts/smb/ledger',         label: 'SMB Ledger',       sbOnly: true, perm: 'smb:view_ledger'      },
+          { to: '/cts/smb/forwarding-log', label: 'SMB Fwd Log',      sbOnly: true, perm: 'smb:view_ledger'      },
+          { to: '/cts/endorsement',        label: 'Endorsement',      perm: 'cts:submit_decision'                },
+          { to: '/cts/exceptions',         label: 'Exceptions',       perm: 'cts:view_queue'                     },
+          { to: '/cts/iqa',               label: 'Image Quality',    perm: 'cts:view_queue'                     },
+          { to: '/cts/scanner',            label: 'Scanner SDK',      perm: 'cts:submit_decision'                },
+          { to: '/cts/rpc',               label: 'RPC Consolidation',perm: 'cts:view_analytics'                 },
         ],
       },
       {
         label: 'Reports',
         items: [
-          { to: '/cts/decisions',      label: 'Decisions Log'   },
-          { to: '/cts/discrepancy',    label: 'Discrepancy'     },
-          { to: '/cts/reconciliation', label: 'Reconciliation'  },
-          { to: '/cts/analytics',      label: 'Analytics'       },
-          { to: '/cts/compliance',     label: 'Compliance Cert' },
+          { to: '/cts/decisions',       label: 'Decisions Log',  perm: 'cts:view_analytics'  },
+          { to: '/cts/discrepancy',     label: 'Discrepancy',    perm: 'cts:view_analytics'  },
+          { to: '/cts/reconciliation',  label: 'Reconciliation', perm: 'smb:view_ledger'     },
+          { to: '/cts/analytics',       label: 'Analytics',      perm: 'cts:view_analytics'  },
+          { to: '/cts/compliance',      label: 'Compliance Cert',perm: 'audit:read'          },
         ],
       },
     ],
@@ -107,13 +112,14 @@ const SIDEBAR_MODULES = [
       {
         label: 'Admin',
         items: [
-          { to: '/admin/users',                  label: 'User Management'   },
-          { to: '/cts/schedules',                label: 'Schedules'         },
-          { to: '/cts/config',                   label: 'Configuration'     },
-          { to: '/cts/config/sub-member-banks',  label: 'Sub-Member Banks'  },
-          { to: '/cts/config/micr-prefixes',     label: 'MICR Prefixes'     },
-          { to: '/cts/config/thresholds',        label: 'Thresholds'        },
-          { to: '/cts/config/ngch-routing',      label: 'NGCH Routing'      },
+          { to: '/admin/users',                  label: 'User Management',  perm: 'user:manage'          },
+          { to: '/cts/schedules',                label: 'Schedules',        perm: 'config:layer3:submit' },
+          { to: '/cts/config',                   label: 'Configuration',    perm: 'config:layer3:submit' },
+          { to: '/cts/config/sub-member-banks',  label: 'Sub-Member Banks', perm: 'smb:config_change'   },
+          { to: '/cts/config/micr-prefixes',     label: 'MICR Prefixes',    perm: 'config:layer2:change' },
+          { to: '/cts/config/thresholds',        label: 'Thresholds',       perm: 'config:layer3:submit' },
+          { to: '/cts/config/ngch-routing',      label: 'NGCH Routing',     perm: 'config:layer2:change' },
+          { to: '/admin/security-violations',    label: 'Security Alerts',  perm: 'admin:console', sbOnly: true },
         ],
       },
     ],
@@ -160,6 +166,7 @@ const ROUTE_LABELS = {
   '/cts/smb/registry':            ['Processing', 'SMB Registry'],
   '/cts/smb/ledger':              ['Processing', 'SMB Clearing Ledger'],
   '/cts/smb/forwarding-log':      ['Processing', 'SMB Forwarding Log'],
+  '/admin/security-violations':   ['Admin', 'Security Violation Log'],
 }
 
 function useBreadcrumb(pathname) {
@@ -181,7 +188,7 @@ export default function AppShell({ children }) {
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
-  const { bankType, bankName, bankIfsc, isSB, isDemoMode, toggleBankType } = useBankContext()
+  const { bankType, bankName, bankIfsc, isSB, isDemoMode, toggleBankType, userRole, hasPermission } = useBankContext()
 
   const [section, page] = useBreadcrumb(location.pathname)
   const currentModule = activeModuleId(location.pathname)
@@ -255,6 +262,7 @@ export default function AppShell({ children }) {
               isActiveModule={currentModule === mod.id}
               location={location}
               isSB={isSB}
+              hasPermission={hasPermission}
             />
           ))}
         </nav>
@@ -298,7 +306,7 @@ export default function AppShell({ children }) {
                 {!collapsed && (
                   <div className="text-left min-w-0 flex-1">
                     <div className={`text-[11px] font-medium leading-tight truncate ${isDark ? 'text-white' : 'text-slate-700'}`}>Rahul S.</div>
-                    <div className={`text-[10px] leading-tight truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>ops_reviewer · {bankType}</div>
+                    <div className={`text-[10px] leading-tight truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{userRole} · {bankType}</div>
                   </div>
                 )}
               </button>
@@ -374,7 +382,7 @@ export default function AppShell({ children }) {
 
 // ── SidebarModule ────────────────────────────────────────────────────────────
 
-function SidebarModule({ mod, collapsed, isDark, isActiveModule, location, isSB }) {
+function SidebarModule({ mod, collapsed, isDark, isActiveModule, location, isSB, hasPermission }) {
   const [open, setOpen] = useState(isActiveModule)
   const [expandedSections, setExpandedSections] = useState(() => {
     const set = new Set()
@@ -449,6 +457,7 @@ function SidebarModule({ mod, collapsed, isDark, isActiveModule, location, isSB 
               expanded={expandedSections.has(sec.label)}
               onToggle={() => toggleSection(sec.label)}
               isSB={isSB}
+              hasPermission={hasPermission}
             />
           ))}
         </div>
@@ -459,9 +468,15 @@ function SidebarModule({ mod, collapsed, isDark, isActiveModule, location, isSB 
 
 // ── SidebarSection ───────────────────────────────────────────────────────────
 
-function SidebarSection({ section, isDark, location, showHeader, expanded, onToggle, isSB }) {
-  // Filter items by bank type: sbOnly items only shown to SB users
-  const visibleItems = section.items.filter(item => !item.sbOnly || isSB)
+function SidebarSection({ section, isDark, location, showHeader, expanded, onToggle, isSB, hasPermission }) {
+  // Two-gate filter:
+  // 1. sbOnly gate  — structural bank-type wall (SMB never sees SB management pages)
+  // 2. perm gate    — role-based permission (user only sees items their role allows)
+  const visibleItems = section.items.filter(item => {
+    if (item.sbOnly && !isSB) return false
+    if (item.perm && !hasPermission(item.perm)) return false
+    return true
+  })
 
   const hasActive = visibleItems.some(({ to }) =>
     location.pathname === to || location.pathname.startsWith(to + '/')

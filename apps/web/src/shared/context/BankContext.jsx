@@ -4,6 +4,33 @@ import { createContext, useContext, useState } from 'react'
 // In production these come from the decoded JWT / SAML assertion.
 // NEVER derive bank identity from URL params or user input.
 
+// Role → permission matrix (mirrors shared/auth/rbac.py _ROLE_PERMISSIONS)
+// Used by AppShell nav filtering — each nav item declares which roles may see it.
+export const ROLE_PERMISSIONS = {
+  ops_reviewer:       ['cts:view_queue', 'cts:submit_decision', 'login_log:read'],
+  fraud_analyst:      ['cts:view_analytics', 'ej:view_dashboard', 'ej:view_disputes', 'login_log:read'],
+  ops_manager:        ['cts:view_queue', 'cts:submit_decision', 'cts:view_analytics',
+                       'ej:view_dashboard', 'ej:view_disputes', 'pii:view',
+                       'config:layer3:submit', 'audit:read', 'smb:view_ledger', 'login_log:read'],
+  bank_it_admin:      ['admin:console', 'config:layer3:approve', 'config:layer2:change',
+                       'audit:read', 'smb:register', 'smb:view_ledger', 'smb:vault_sync',
+                       'smb:config_change', 'user:manage', 'login_log:read'],
+  compliance_officer: ['audit:read', 'pii:view', 'cts:view_analytics',
+                       'ej:view_dashboard', 'smb:view_ledger', 'login_log:read'],
+  rbi_examiner:       ['audit:read', 'login_log:read'],
+  ml_engineer:        ['ai:model_metrics', 'ai:mlflow_access'],
+  smb_it_admin:       ['smb:register', 'smb:view_ledger', 'smb:vault_sync',
+                       'smb:config_change', 'audit:read', 'login_log:read'],
+  smb_admin:          ['cts:view_queue', 'cts:submit_decision', 'smb:view_ledger',
+                       'audit:read', 'user:manage', 'login_log:read'],
+  smb_editor:         ['cts:view_queue', 'cts:submit_decision', 'smb:view_ledger', 'login_log:read'],
+  smb_viewer:         ['cts:view_queue', 'smb:view_ledger', 'login_log:read'],
+}
+
+export function roleHasPermission(role, permission) {
+  return (ROLE_PERMISSIONS[role] ?? []).includes(permission)
+}
+
 const DEMO_SB = {
   bankType:       'SB',
   bankId:         'saraswat-coop',
@@ -12,6 +39,7 @@ const DEMO_SB = {
   bankShortName:  'Saraswat',
   bankCity:       'Mumbai',
   sponsorBankId:  null,
+  userRole:       'ops_manager', // demo: SB user is ops_manager
   // SMBs sponsored by this SB — available only to SB users
   smbs: [
     { id: 'smb-mh-vasavi',  ifsc: 'VASB0000001', name: 'Vasavi Co-op Bank',       shortName: 'Vasavi',   city: 'Mumbai'    },
@@ -31,6 +59,7 @@ const DEMO_SMB = {
   sponsorBankId:  'saraswat-coop',
   sponsorBankName: 'Saraswat Co-operative Bank',
   sponsorBankIfsc: 'SRCB0000001',
+  userRole:       'smb_editor', // demo: SMB user is smb_editor
   smbs: [], // SMB has no sub-members of its own
 }
 
@@ -65,6 +94,8 @@ export function BankProvider({ children }) {
     ? profile.smbs.find(s => s.id === selectedSmbId) ?? null
     : null
 
+  const userPerms = ROLE_PERMISSIONS[profile.userRole] ?? []
+
   const value = {
     ...profile,
     isDemoMode,
@@ -76,6 +107,9 @@ export function BankProvider({ children }) {
     // Convenience
     isSB:  profile.bankType === 'SB',
     isSMB: profile.bankType === 'SMB',
+    // Role-based access
+    userPermissions: userPerms,
+    hasPermission: (perm) => userPerms.includes(perm),
   }
 
   return <BankContext.Provider value={value}>{children}</BankContext.Provider>
