@@ -97,18 +97,21 @@ function Pipeline({ status, isDark }) {
   }
   if (status === 'UPCOMING') return <div className={`text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Not yet opened</div>
   return (
-    <div className="flex items-start w-full overflow-hidden">
-      {PIPELINE_STEPS.map((step, i) => (
-        <div key={step} className={`flex items-center ${i < PIPELINE_STEPS.length - 1 ? 'flex-1' : ''}`}>
-          <div className="flex flex-col items-center shrink-0">
-            <div className={`w-3 h-3 rounded-full border-2 transition-all ${dot(i)}`} />
-            <span className={`text-[9px] mt-1 whitespace-nowrap ${label(i)}`}>{step.replace('_', ' ')}</span>
+    <div className="w-full overflow-hidden">
+      <div className="grid grid-cols-5 w-full relative">
+        {PIPELINE_STEPS.map((step, i) => (
+          <div key={step} className="flex flex-col items-center relative">
+            {i > 0 && (
+              <div className={`absolute top-1.5 right-1/2 left-0 h-0.5 transition-all ${line(i - 1)}`} />
+            )}
+            {i < PIPELINE_STEPS.length - 1 && (
+              <div className={`absolute top-1.5 left-1/2 right-0 h-0.5 transition-all ${line(i)}`} />
+            )}
+            <div className={`w-3 h-3 rounded-full border-2 transition-all relative z-10 ${dot(i)}`} />
+            <span className={`text-[9px] mt-1 text-center leading-tight w-full ${label(i)}`}>{step.replace('_', ' ')}</span>
           </div>
-          {i < PIPELINE_STEPS.length - 1 && (
-            <div className={`h-0.5 flex-1 mx-0.5 mb-3 transition-all ${line(i)}`} />
-          )}
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   )
 }
