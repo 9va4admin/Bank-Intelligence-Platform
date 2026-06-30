@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
@@ -27,22 +27,24 @@ function evalRecord(r) {
   return { ...r, result: reasons.length === 0 ? 'PASS' : 'FAIL', reasons }
 }
 
-const RAW_INSTRUMENTS = [
-  { id:'CHQ-OUT-00001', cheque:'100001', lot:'LOT_SVCB0000001_20260619_SES-0619-001_01', front_dpi:300, front_colour_depth:24, front_file_size_kb:38.2, front_iqa_score:0.94, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:22.5, rear_iqa_score:0.91, micr_band_score:0.96 },
-  { id:'CHQ-OUT-00002', cheque:'100002', lot:'LOT_SVCB0000001_20260619_SES-0619-001_01', front_dpi:300, front_colour_depth:24, front_file_size_kb:41.7, front_iqa_score:0.92, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:19.8, rear_iqa_score:0.88, micr_band_score:0.93 },
-  { id:'CHQ-OUT-00003', cheque:'100003', lot:'LOT_SVCB0000001_20260619_SES-0619-001_01', front_dpi:300, front_colour_depth:24, front_file_size_kb:35.1, front_iqa_score:0.97, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:18.2, rear_iqa_score:0.95, micr_band_score:0.98 },
-  { id:'CHQ-OUT-00004', cheque:'100004', lot:'LOT_SVCB0000001_20260619_SES-0619-001_01', front_dpi:150, front_colour_depth:24, front_file_size_kb:38.2, front_iqa_score:0.94, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:22.5, rear_iqa_score:0.91, micr_band_score:0.96 }, // low DPI
-  { id:'CHQ-OUT-00005', cheque:'100005', lot:'LOT_SVCB0000001_20260619_SES-0619-001_01', front_dpi:300, front_colour_depth:24, front_file_size_kb:38.2, front_iqa_score:0.94, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:22.5, rear_iqa_score:0.91, micr_band_score:0.62 }, // low MICR
-  { id:'CHQ-OUT-00006', cheque:'100006', lot:'LOT_SVCB0000001_20260619_SES-0619-001_01', front_dpi:300, front_colour_depth:24, front_file_size_kb:53.0, front_iqa_score:0.94, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:22.5, rear_iqa_score:0.91, micr_band_score:0.96 }, // large file
-  { id:'CHQ-OUT-00007', cheque:'100007', lot:'LOT_SVCB0000001_20260619_SES-0619-001_01', front_dpi:300, front_colour_depth:24, front_file_size_kb:39.8, front_iqa_score:0.91, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:21.3, rear_iqa_score:0.89, micr_band_score:0.94 },
-  { id:'CHQ-OUT-00008', cheque:'100008', lot:'LOT_SVCB0000001_20260619_SES-0619-001_02', front_dpi:300, front_colour_depth:24, front_file_size_kb:37.5, front_iqa_score:0.96, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:20.1, rear_iqa_score:0.93, micr_band_score:0.97 },
-  { id:'CHQ-OUT-00009', cheque:'100009', lot:'LOT_SVCB0000001_20260619_SES-0619-001_02', front_dpi:300, front_colour_depth:24, front_file_size_kb:40.2, front_iqa_score:0.93, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:23.4, rear_iqa_score:0.90, micr_band_score:0.95 },
-  { id:'CHQ-OUT-00010', cheque:'100010', lot:'LOT_SVCB0000001_20260619_SES-0619-001_02', front_dpi:300, front_colour_depth:24, front_file_size_kb:36.8, front_iqa_score:0.95, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:19.5, rear_iqa_score:0.92, micr_band_score:0.96 },
-]
-
-const INSTRUMENTS = RAW_INSTRUMENTS.map(evalRecord)
-
-const LOTS = [...new Set(INSTRUMENTS.map(i => i.lot))]
+function makeRawInstruments(bankIfsc) {
+  const ifsc = bankIfsc || 'BANK'
+  const lot1 = `LOT_${ifsc}_20260619_SES-${ifsc}-20260619-001_01`
+  const lot2 = `LOT_${ifsc}_20260619_SES-${ifsc}-20260619-001_02`
+  return [
+    { id:'CHQ-OUT-00001', cheque:'100001', lot:lot1, front_dpi:300, front_colour_depth:24, front_file_size_kb:38.2, front_iqa_score:0.94, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:22.5, rear_iqa_score:0.91, micr_band_score:0.96 },
+    { id:'CHQ-OUT-00002', cheque:'100002', lot:lot1, front_dpi:300, front_colour_depth:24, front_file_size_kb:41.7, front_iqa_score:0.92, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:19.8, rear_iqa_score:0.88, micr_band_score:0.93 },
+    { id:'CHQ-OUT-00003', cheque:'100003', lot:lot1, front_dpi:300, front_colour_depth:24, front_file_size_kb:35.1, front_iqa_score:0.97, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:18.2, rear_iqa_score:0.95, micr_band_score:0.98 },
+    { id:'CHQ-OUT-00004', cheque:'100004', lot:lot1, front_dpi:150, front_colour_depth:24, front_file_size_kb:38.2, front_iqa_score:0.94, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:22.5, rear_iqa_score:0.91, micr_band_score:0.96 },
+    { id:'CHQ-OUT-00005', cheque:'100005', lot:lot1, front_dpi:300, front_colour_depth:24, front_file_size_kb:38.2, front_iqa_score:0.94, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:22.5, rear_iqa_score:0.91, micr_band_score:0.62 },
+    { id:'CHQ-OUT-00006', cheque:'100006', lot:lot1, front_dpi:300, front_colour_depth:24, front_file_size_kb:53.0, front_iqa_score:0.94, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:22.5, rear_iqa_score:0.91, micr_band_score:0.96 },
+    { id:'CHQ-OUT-00007', cheque:'100007', lot:lot1, front_dpi:300, front_colour_depth:24, front_file_size_kb:39.8, front_iqa_score:0.91, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:21.3, rear_iqa_score:0.89, micr_band_score:0.94 },
+    { id:'CHQ-OUT-00008', cheque:'100008', lot:lot2, front_dpi:300, front_colour_depth:24, front_file_size_kb:37.5, front_iqa_score:0.96, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:20.1, rear_iqa_score:0.93, micr_band_score:0.97 },
+    { id:'CHQ-OUT-00009', cheque:'100009', lot:lot2, front_dpi:300, front_colour_depth:24, front_file_size_kb:40.2, front_iqa_score:0.93, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:23.4, rear_iqa_score:0.90, micr_band_score:0.95 },
+    { id:'CHQ-OUT-00010', cheque:'100010', lot:lot2, front_dpi:300, front_colour_depth:24, front_file_size_kb:36.8, front_iqa_score:0.95, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:19.5, rear_iqa_score:0.92, micr_band_score:0.96 },
+  ]
+}
+// INSTRUMENTS and LOTS built inside component (depend on bankIfsc)
 
 function buildXml(instruments, lotId, sessionId, ifsc) {
   const date = new Date().toISOString()
@@ -113,7 +115,10 @@ function downloadXml(xml, filename) {
 export default function CTSCompliance() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
-  const [selectedLot, setSelectedLot] = useState(LOTS[0])
+  const sessionId   = `SES-${bankIfsc || 'BANK'}-20260619-001`
+  const INSTRUMENTS = useMemo(() => makeRawInstruments(bankIfsc).map(evalRecord), [bankIfsc])
+  const LOTS        = useMemo(() => [...new Set(INSTRUMENTS.map(i => i.lot))], [INSTRUMENTS])
+  const [selectedLot, setSelectedLot] = useState(() => LOTS[0])
   const [filterResult, setFilterResult] = useState('ALL')
 
   const lotItems = INSTRUMENTS.filter(i => i.lot === selectedLot)
@@ -126,7 +131,7 @@ export default function CTSCompliance() {
 
   const lotSeqMatch  = selectedLot.match(/_(\d{2})$/)
   const lotSeq       = lotSeqMatch ? lotSeqMatch[1] : '01'
-  const certFilename = `CTS2010_CERT_SVCB0000001_20260619_SES-0619-001_LOT${lotSeq}.xml`
+  const certFilename = `CTS2010_CERT_${bankIfsc || 'BANK'}_20260619_${sessionId}_LOT${lotSeq}.xml`
 
   const th = {
     page:    isDark ? 'bg-navy-950' : 'bg-slate-50',
@@ -178,7 +183,7 @@ export default function CTSCompliance() {
           ))}
         </select>
         <button
-          onClick={() => downloadXml(buildXml(lotItems, selectedLot, 'SES-0619-001', 'SVCB0000001'), certFilename)}
+          onClick={() => downloadXml(buildXml(lotItems, selectedLot, sessionId, bankIfsc || 'BANK'), certFilename)}
           className="flex items-center gap-2 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded-lg px-3 py-1.5"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

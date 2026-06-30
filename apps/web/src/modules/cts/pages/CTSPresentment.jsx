@@ -1,15 +1,22 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
-const SESSIONS = [
-  { id: 'SES-0619-001', window: '10:00–12:00', status: 'ACTIVE',  submitted: 1247, accepted: 1231, rejected: 16,  returned: 4  },
-  { id: 'SES-0619-002', window: '12:00–14:00', status: 'PENDING', submitted: 0,    accepted: 0,    rejected: 0,   returned: 0  },
-  { id: 'SES-0619-003', window: '14:00–16:00', status: 'PENDING', submitted: 0,    accepted: 0,    rejected: 0,   returned: 0  },
-]
+function makeSessions(bankIfsc, isSMB) {
+  const ifsc = bankIfsc || 'BANK'
+  if (isSMB) return [
+    { id: `SES-${ifsc}-20260619-001`, window: '10:00–12:00', status: 'ACTIVE',  submitted: 78, accepted: 76, rejected: 2, returned: 1 },
+    { id: `SES-${ifsc}-20260619-002`, window: '12:00–14:00', status: 'PENDING', submitted: 0,  accepted: 0,  rejected: 0, returned: 0 },
+  ]
+  return [
+    { id: `SES-${ifsc}-20260619-001`, window: '10:00–12:00', status: 'ACTIVE',  submitted: 1247, accepted: 1231, rejected: 16, returned: 4 },
+    { id: `SES-${ifsc}-20260619-002`, window: '12:00–14:00', status: 'PENDING', submitted: 0,    accepted: 0,    rejected: 0,  returned: 0 },
+    { id: `SES-${ifsc}-20260619-003`, window: '14:00–16:00', status: 'PENDING', submitted: 0,    accepted: 0,    rejected: 0,  returned: 0 },
+  ]
+}
 
 const IQA_FAIL_REASONS = [
   'Image too dark — rescan required',
@@ -19,7 +26,7 @@ const IQA_FAIL_REASONS = [
   'Duplicate instrument detected',
 ]
 
-function makeBatch(n, startIdx = 0) {
+function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001') {
   const zones = ['MUMBAI', 'PUNE', 'DELHI', 'CHENNAI']
   const statuses = ['CAPTURED', 'IQA_PASS', 'IQA_FAIL', 'AI_EXTRACTED', 'PKI_SIGNED', 'SUBMITTED', 'NGCH_ACK', 'NGCH_REJECT']
   const weights  = [0.05, 0.08, 0.04, 0.15, 0.12, 0.20, 0.28, 0.08]
@@ -46,7 +53,7 @@ function makeBatch(n, startIdx = 0) {
       zone: zones[idx % zones.length],
       micr: `0${idx % 9}2000${String(idx).padStart(6, '0')}`,
       date_on_cheque: '19-Jun-2026',
-      lot_number: `LOT_SVCB0000001_20260619_SES-0619-001_${String(lotSeq).padStart(2, '0')}`,
+      lot_number: `LOT_${bankIfsc}_20260619_${sessionId}_${String(lotSeq).padStart(2, '0')}`,
       lot_seq: lotSeq,
       status,
       iqa_fail_reason: iqaFail ? IQA_FAIL_REASONS[idx % IQA_FAIL_REASONS.length] : null,
@@ -63,7 +70,7 @@ function makeBatch(n, startIdx = 0) {
   })
 }
 
-const INITIAL_BATCH = makeBatch(42)
+// INITIAL_BATCH built inside component after bank context is known
 
 // STATUS_META_D / STATUS_META_L are selected per-render based on isDark
 const STATUS_META_D = {
@@ -552,19 +559,33 @@ function DetailPanel({ item, isDark }) {
 export default function CTSPresentment() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
-  const [batch, setBatch] = useState(INITIAL_BATCH)
-  const [selected, setSelected] = useState(INITIAL_BATCH[0])
+  const SESSIONS = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
+  const initialBatch = useMemo(() => makeBatch(isSMB ? 8 : 42, 0, bankIfsc || 'BANK', SESSIONS[0]?.id || 'SES-0619-001'), [bankIfsc, isSMB, SESSIONS])
+  const [batch, setBatch] = useState(() => initialBatch)
+  const [selected, setSelected] = useState(() => initialBatch[0])
   const [activeSession, setActiveSession] = useState(0)
   const [filterStatus, setFilterStatus] = useState('ALL')
   const [filterLot, setFilterLot]       = useState('ALL')
   const [search, setSearch] = useState('')
-  const addedRef = useRef(42)
+  const addedRef = useRef(isSMB ? 8 : 42)
+
+  useEffect(() => {
+    const n = isSMB ? 8 : 42
+    addedRef.current = n
+    const b = makeBatch(n, 0, bankIfsc || 'BANK', SESSIONS[0]?.id || 'SES-0619-001')
+    setBatch(b)
+    setSelected(b[0])
+    setActiveSession(0)
+    setFilterStatus('ALL')
+    setFilterLot('ALL')
+    setSearch('')
+  }, [isSMB, bankIfsc]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Simulate incoming captures from scanner feed
   useEffect(() => {
     const timer = setInterval(() => {
       if (Math.random() > 0.35) return
-      const newItem = makeBatch(1, addedRef.current)[0]
+      const newItem = makeBatch(1, addedRef.current, bankIfsc || 'BANK', SESSIONS[0]?.id || 'SES-0619-001')[0]
       addedRef.current += 1
       setBatch(prev => [newItem, ...prev].slice(0, 200))
     }, 2800)
