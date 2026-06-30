@@ -34,6 +34,7 @@ import CTSSMBForwardingLog from './modules/cts/pages/CTSSMBForwardingLog'
 import CTSInwardPipeline from './modules/cts/pages/CTSInwardPipeline'
 import CTSPresentmentFile from './modules/cts/pages/CTSPresentmentFile'
 import CTSRFDrawee from './modules/cts/pages/CTSRFDrawee'
+import CTSRecall from './modules/cts/pages/CTSRecall'
 import EJSchedules from './modules/ej/pages/EJSchedules'
 import UserManagement from './modules/admin/pages/UserManagement'
 import LoginLog from './modules/admin/pages/LoginLog'
@@ -69,6 +70,7 @@ export default function App() {
         <Route path="/cts/inward-pipeline" element={<CTSInwardPipeline />} />
         <Route path="/cts/presentment-file" element={<CTSPresentmentFile />} />
         <Route path="/cts/rf-drawee" element={<CTSRFDrawee />} />
+        <Route path="/cts/recall" element={<CTSRecall />} />
         <Route path="/cts/discrepancy" element={<CTSDiscrepancy />} />
         <Route path="/cts/batches" element={<CTSBatches />} />
         <Route path="/cts/analytics" element={<CTSAnalytics />} />
