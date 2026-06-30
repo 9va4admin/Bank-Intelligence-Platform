@@ -1,5 +1,6 @@
 import { HashRouter as BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { PageHeaderProvider } from './shared/layout/PageHeaderContext'
+import { BankProvider } from './shared/context/BankContext'
 import LandingPage from './pages/LandingPage'
 import CTSWorkstation from './modules/cts/pages/CTSWorkstation'
 import CTSVaultStatus from './modules/cts/pages/CTSVaultStatus'
@@ -50,6 +51,7 @@ import './index.css'
 export default function App() {
   return (
     <BrowserRouter>
+      <BankProvider>
       <PageHeaderProvider>
       <Routes>
         <Route path="/" element={<LandingPage />} />
@@ -107,6 +109,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </PageHeaderProvider>
+      </BankProvider>
     </BrowserRouter>
   )
 }
