@@ -468,13 +468,20 @@ function ThroughputSparkline({ data, isDark }) {
 const STP_TICK_MS = 2800
 
 export default function CTSInwardPipeline() {
-  const { bankName, bankIfsc, bankCity, isSB, isSMB } = useBankContext()
+  const { bankName, bankIfsc, bankCity, bankId, isSB, isSMB,
+          sponsorBankName, sponsorBankIfsc } = useBankContext()
   const SPONSOR_BANK = { name: bankName, ifsc: bankIfsc, city: bankCity || '' }
   const { isDark } = useTheme()
   const stpSource   = useRef(getStpStream())
   const stpIndexRef = useRef(0)
 
-  const [view, setView] = useState('sb') // 'sb' | 'smb'
+  // SMB users have no access to the SB pipeline tab — force and lock to 'smb'
+  const [view, setView] = useState(isSMB ? 'smb' : 'sb') // 'sb' | 'smb'
+
+  // Sync when demo toggle switches bank type
+  useEffect(() => {
+    setView(isSMB ? 'smb' : 'sb')
+  }, [isSMB])
 
   const [stageCounts, setStageCounts] = useState(
     Object.fromEntries(STAGES.map(s => [s.id, Math.floor(Math.random() * 80) + 20]))
@@ -605,29 +612,35 @@ export default function CTSInwardPipeline() {
     <AppShell>
       <div className={`flex flex-col h-full overflow-hidden ${th.page}`}>
 
-        {/* ── View tabs ── */}
+        {/* ── View tabs — SMB users see only their own pipeline, never the SB tab ── */}
         <div className={`shrink-0 px-6 border-b ${th.divider} flex items-center gap-0`}>
-          {[
-            { id: 'sb',  label: 'Sponsor Bank Pipeline' },
-            { id: 'smb', label: `Sub-Member Banks (${SMB_LIST.length})` },
-          ].map(tab => (
+          {isSB && (
             <button
-              key={tab.id}
-              onClick={() => setView(tab.id)}
+              onClick={() => setView('sb')}
               className={`px-4 py-2.5 text-[11px] font-semibold border-b-2 transition-colors
-                ${view === tab.id
+                ${view === 'sb'
                   ? `border-violet-500 ${isDark ? 'text-white' : 'text-slate-900'}`
                   : `border-transparent ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`
                 }`}
             >
-              {tab.label}
-              {tab.id === 'smb' && Object.values(smbAlerts).some(a => a > 0) && (
-                <span className="ml-1.5 px-1.5 py-0.5 text-[8px] font-bold rounded-full bg-amber-500/20 text-amber-500">
-                  {Object.values(smbAlerts).reduce((a, b) => a + b, 0)}
-                </span>
-              )}
+              Sponsor Bank Pipeline
             </button>
-          ))}
+          )}
+          <button
+            onClick={() => { if (isSB) setView('smb') }}
+            className={`px-4 py-2.5 text-[11px] font-semibold border-b-2 transition-colors
+              ${view === 'smb'
+                ? `border-violet-500 ${isDark ? 'text-white' : 'text-slate-900'}`
+                : `border-transparent ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`
+              }`}
+          >
+            {isSMB ? 'My Inward Pipeline' : `Sub-Member Banks (${SMB_LIST.length})`}
+            {isSB && Object.values(smbAlerts).some(a => a > 0) && (
+              <span className="ml-1.5 px-1.5 py-0.5 text-[8px] font-bold rounded-full bg-amber-500/20 text-amber-500">
+                {Object.values(smbAlerts).reduce((a, b) => a + b, 0)}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* ── Top KPI strip (SB view) ── */}
@@ -656,16 +669,31 @@ export default function CTSInwardPipeline() {
           <div className="flex flex-1 min-h-0 overflow-hidden">
             {/* SMB list */}
             <div className="flex-1 overflow-y-auto">
-              {/* Sponsor identity banner */}
+              {/* Identity banner — differs for SB vs SMB */}
               <div className={`px-4 py-2 border-b flex items-center gap-2 ${isDark ? 'bg-violet-900/10 border-violet-700/20' : 'bg-violet-50 border-violet-200'}`}>
                 <span className="text-sm">🏦</span>
-                <span className={`text-[10px] ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>
-                  Sponsor Bank: <span className="font-semibold">{SPONSOR_BANK.name}</span>
-                  <span className={`ml-2 font-mono ${isDark ? 'text-violet-400/60' : 'text-violet-500/70'}`}>{SPONSOR_BANK.ifsc}</span>
-                </span>
-                <span className={`ml-auto text-[9px] ${isDark ? 'text-violet-400/50' : 'text-violet-400'}`}>
-                  Forwarding instruments for {SMB_LIST.length} sub-members via SMBForwardingWorkflow
-                </span>
+                {isSB ? (
+                  <>
+                    <span className={`text-[10px] ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>
+                      Sponsor Bank: <span className="font-semibold">{SPONSOR_BANK.name}</span>
+                      <span className={`ml-2 font-mono ${isDark ? 'text-violet-400/60' : 'text-violet-500/70'}`}>{SPONSOR_BANK.ifsc}</span>
+                    </span>
+                    <span className={`ml-auto text-[9px] ${isDark ? 'text-violet-400/50' : 'text-violet-400'}`}>
+                      Forwarding instruments for {SMB_LIST.length} sub-members via SMBForwardingWorkflow
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className={`text-[10px] ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>
+                      <span className="font-semibold">{bankName}</span>
+                      <span className={`ml-2 font-mono ${isDark ? 'text-violet-400/60' : 'text-violet-500/70'}`}>{bankIfsc}</span>
+                    </span>
+                    <span className={`ml-auto text-[9px] ${isDark ? 'text-violet-400/50' : 'text-violet-400'}`}>
+                      Routed through sponsor: <span className="font-semibold">{sponsorBankName}</span>
+                      <span className={`ml-1 font-mono ${isDark ? 'text-violet-400/60' : 'text-violet-500/70'}`}>{sponsorBankIfsc}</span>
+                    </span>
+                  </>
+                )}
               </div>
 
               {/* Header row */}
@@ -688,7 +716,8 @@ export default function CTSInwardPipeline() {
                 </div>
               </div>
 
-              {SMB_LIST.map(smb => (
+              {/* SB sees all its SMBs; SMB sees only its own bank */}
+              {isSB ? SMB_LIST.map(smb => (
                 <SMBLane
                   key={smb.id}
                   smb={smb}
@@ -699,9 +728,21 @@ export default function CTSInwardPipeline() {
                   onSelect={setSelectedSmb}
                   selected={selectedSmb === smb.id}
                 />
-              ))}
+              )) : (
+                // SMB user sees only their own bank's pipeline
+                <SMBLane
+                  smb={{ id: bankId, name: bankName, ifsc: bankIfsc, city: bankCity || '' }}
+                  counts={smbCounts[SMB_LIST[0]?.id] || {}}
+                  activeStage={smbActiveStages[SMB_LIST[0]?.id] || SMB_STAGES[0].id}
+                  alerts={0}
+                  isDark={isDark}
+                  onSelect={setSelectedSmb}
+                  selected={selectedSmb === bankId}
+                />
+              )}
 
-              {/* SMB aggregate footer */}
+              {/* Aggregate footer — SB only */}
+              {isSB && (
               <div className={`px-4 py-3 flex items-center gap-6 border-t ${th.divider} ${isDark ? 'bg-white/2' : 'bg-slate-50'}`}>
                 <span className={`text-[10px] font-semibold ${th.muted}`}>All SMBs combined</span>
                 {['recv','valid','forward','ngch'].map(stage => (
@@ -722,14 +763,19 @@ export default function CTSInwardPipeline() {
                   )}
                 </div>
               </div>
+              )}
             </div>
 
             {/* Right: selected SMB detail or instructions */}
             <div className={`w-72 shrink-0 border-l ${th.divider} flex flex-col`}>
-              {selectedSmb ? (() => {
-                const smb = SMB_LIST.find(s => s.id === selectedSmb)
-                const counts = smbCounts[selectedSmb] || {}
-                const alerts = smbAlerts[selectedSmb] || 0
+              {(selectedSmb || isSMB) ? (() => {
+                // SB clicks a row from SMB_LIST; SMB user's own bank is always "selected"
+                const smb = isSMB
+                  ? { id: bankId, name: bankName, ifsc: bankIfsc, city: bankCity || '' }
+                  : SMB_LIST.find(s => s.id === selectedSmb)
+                const countsKey = isSMB ? (SMB_LIST[0]?.id) : selectedSmb
+                const counts = smbCounts[countsKey] || {}
+                const alerts = isSMB ? 0 : (smbAlerts[selectedSmb] || 0)
                 return (
                   <>
                     <div className={`px-4 py-3 border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
