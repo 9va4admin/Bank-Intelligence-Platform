@@ -306,3 +306,91 @@ async def get_infra_health(
         bank_id=bank_id,
         checked_at=datetime.now(timezone.utc).isoformat(),
     )
+
+
+# ── Security violations ───────────────────────────────────────────────────────
+
+class SecurityViolationEvent(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    id: str
+    timestamp_iso: str
+    violation_type: str
+    suspended: bool
+    user_id: str
+    bank_id: str
+    bank_type: str
+    role: str
+    endpoint: str
+    method: str
+    client_ip: str
+    incident_id: Optional[str] = None
+    request_id: Optional[str] = None
+
+
+class SecurityViolationsResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    violations: list[SecurityViolationEvent]
+    total: int
+    suspended_count: int
+    bank_id: str
+
+
+@router_v1.get("/security-violations", response_model=SecurityViolationsResponse)
+async def list_security_violations(
+    limit: int = Query(default=50, le=100),
+    user: dict = Depends(require_checker_role),
+) -> SecurityViolationsResponse:
+    """
+    Returns recent security violation events visible to this bank's IT admin.
+    Only bank_it_admin may call this endpoint (require_checker_role).
+    SB admin sees all violations where sb_bank_id matches their bank_id.
+    """
+    from apps.api.middleware.security_violations import violation_store, suspension_store
+
+    bank_id = user["bank_id"]
+    raw = violation_store.get_for_bank(sb_bank_id=bank_id, limit=limit)
+
+    # Also include violations where the violating bank_id is this bank (SB seeing own users)
+    own = [e for e in violation_store.get_all(limit=500) if e.get("bank_id") == bank_id]
+    merged = {e["id"]: e for e in [*raw, *own]}.values()
+    events = sorted(merged, key=lambda e: e.get("timestamp", 0), reverse=True)[:limit]
+
+    violations = [
+        SecurityViolationEvent(
+            id=e["id"],
+            timestamp_iso=e.get("timestamp_iso", ""),
+            violation_type=e.get("violation_type", ""),
+            suspended=e.get("suspended", False),
+            user_id=e.get("user_id", ""),
+            bank_id=e.get("bank_id", ""),
+            bank_type=e.get("bank_type", ""),
+            role=e.get("role", ""),
+            endpoint=e.get("endpoint", ""),
+            method=e.get("method", ""),
+            client_ip=e.get("client_ip", ""),
+            request_id=e.get("request_id"),
+        )
+        for e in events
+    ]
+
+    return SecurityViolationsResponse(
+        violations=violations,
+        total=len(violations),
+        suspended_count=len(suspension_store.all_suspended()),
+        bank_id=bank_id,
+    )
+
+
+@router_v1.post("/security-violations/{user_id}/reinstate", response_model=dict)
+async def reinstate_user(
+    user_id: str,
+    user: dict = Depends(require_checker_role),
+) -> dict:
+    """
+    bank_it_admin reinstates a suspended user. Requires a change-management justification
+    in production (audit trail). Here we record the action and clear the suspension.
+    """
+    from apps.api.middleware.security_violations import suspension_store
+    suspension_store.reinstate(user_id)
+    log.info("admin.user_reinstated", target_user=user_id, admin_id=user["user_id"], bank_id=user["bank_id"])
+    return {"reinstated": True, "user_id": user_id}

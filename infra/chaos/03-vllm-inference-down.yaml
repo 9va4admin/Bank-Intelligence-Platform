@@ -1,0 +1,79 @@
+# Chaos Scenario 3: vLLM Inference Server Unavailability
+#
+# Simulates: GPU inference server for CTS vision queue goes down mid-clearing.
+# Expected behaviour:
+#   - OCR / signature activities degrade gracefully → ActivityError caught
+#   - CTS agents route to HUMAN_REVIEW with reason MODEL_UNAVAILABLE
+#   - EJ normalisation worker routes to human review for affected records
+#   - IETWatchdogWorkflow continues; if T-30s fires, watchdog files emergency
+#   - No crashes, no silent failures, no IET breaches
+#   - CTS-OCR queue (GOT-OCR2.0) and CTS-Vision queue (Qwen2-VL) are separate targets
+#
+# RBI Control: AI-02, CTS-01
+# CLAUDE.md Rule: "LLM down → rule-based fallback scorer → all to human review"
+# Duration: 4 minutes (realistic outage window during clearing)
+
+---
+# Kill the CTS vision queue worker pod (Qwen2-VL)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: vllm-cts-vision-down
+  namespace: chaos-testing
+  labels:
+    scenario: vllm-inference-down
+    rbi-control: AI-02
+    severity: high
+    runbook: "docs/runbooks/vllm-degradation.md"
+spec:
+  action: pod-kill
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      "app.kubernetes.io/name": "vllm-worker"
+      "astra.io/queue": "cts-vision"
+  duration: "4m"
+  gracePeriod: 0     # Hard kill — simulates GPU node failure, not graceful shutdown
+
+---
+# Kill the CTS OCR queue worker pod (GOT-OCR2.0)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: vllm-cts-ocr-down
+  namespace: chaos-testing
+  labels:
+    scenario: vllm-inference-down
+    rbi-control: AI-02
+spec:
+  action: pod-kill
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      "app.kubernetes.io/name": "vllm-worker"
+      "astra.io/queue": "cts-ocr"
+  duration: "4m"
+  gracePeriod: 0
+
+---
+# Verify EJ reasoning queue (Llama 3.3 70B) is NOT affected by CTS queue failure
+# This test pod stays alive to prove blast isolation
+# Label: astra.io/queue: ej-reasoning — must NOT be targeted by above chaos
+
+---
+# Pass criteria:
+#   1. CTS cheques continue to be processed (routed to human review) — no workflow crashes
+#   2. human_review_queue_depth increases — all MODEL_UNAVAILABLE cheques queued
+#   3. cts_iet_breaches_total remains ZERO — IETWatchdog handles any near-deadline cheques
+#   4. EJ normalisation workflows continue unaffected (ej-reasoning pod alive)
+#   5. ej_normalisation_completed_total continues incrementing during chaos
+#   6. No cross-queue spillover: cts-vision down does NOT affect ej-reasoning
+#   7. vLLM workers recover automatically when pod restarts after kill
+#
+# Blast isolation proof:
+#   kubectl get pods -n astra-ej-saraswat-coop -l astra.io/queue=ej-reasoning
+#   → All pods should remain Running during the 4-minute chaos window

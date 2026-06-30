@@ -1,0 +1,135 @@
+{
+  "version": "1.0",
+  "generatedAt": "2026-06-29",
+  "project": "ASTRA Bank Intelligence Platform",
+  "register": "product",
+  "northStar": "The Precision Instrument — dense information arranged with authority, every element earns its place",
+
+  "palette": {
+    "navy": {
+      "950": "#03061a",
+      "900": "#060d2e",
+      "800": "#0b1554",
+      "700": "#101d6e",
+      "600": "#1a2d8f"
+    },
+    "gold": {
+      "400": "#f5c842",
+      "500": "#e8b830",
+      "600": "#c99a1a"
+    },
+    "teal": {
+      "400": "#1D9E75",
+      "500": "#178a63",
+      "600": "#116b4d",
+      "800": "#0a3828"
+    },
+    "sky": {
+      "400": "#378ADD",
+      "500": "#2a6ec0"
+    },
+    "amber": {
+      "400": "#fcd34d",
+      "500": "#f59e0b"
+    },
+    "red": {
+      "400": "#fca5a5",
+      "500": "#ef4444",
+      "900": "#7f1d1d"
+    },
+    "cream": {
+      "50": "#fafaf8",
+      "100": "#f5f4f0",
+      "200": "#e8e5e0"
+    }
+  },
+
+  "tonalRamps": {
+    "dark": {
+      "bg":            "#03061a",
+      "surface":       "#060d2e",
+      "surfaceRaised": "#0b1554",
+      "border":        "rgba(255,255,255,0.08)",
+      "borderSubtle":  "rgba(255,255,255,0.04)",
+      "hover":         "rgba(255,255,255,0.02)",
+      "text":          "#e2e8f0",
+      "textMuted":     "#94a3b8",
+      "textFaint":     "#475569"
+    },
+    "light": {
+      "bg":            "#fafaf8",
+      "surface":       "#ffffff",
+      "surfaceRaised": "#f5f4f0",
+      "border":        "#e2e8f0",
+      "borderSubtle":  "#f1f5f9",
+      "hover":         "#f8fafc",
+      "text":          "#0f172a",
+      "textMuted":     "#64748b",
+      "textFaint":     "#94a3b8"
+    }
+  },
+
+  "semantic": {
+    "accent":    "#f5c842",
+    "confirm":   "#1D9E75",
+    "info":      "#378ADD",
+    "warn":      "#f59e0b",
+    "error":     "#ef4444",
+    "neutral":   "#94a3b8"
+  },
+
+  "motion": {
+    "durationFast":   "150ms",
+    "durationBase":   "200ms",
+    "durationSlow":   "400ms",
+    "easeOut":        "cubic-bezier(0.16, 1, 0.3, 1)",
+    "easeIn":         "cubic-bezier(0.4, 0, 1, 1)",
+    "fadeUp":         "fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+    "fadeIn":         "fadeIn 0.4s ease-out forwards",
+    "reducedMotion":  "prefers-reduced-motion: reduce → use opacity crossfade only, 150ms"
+  },
+
+  "components": {
+    "buttonPrimary": {
+      "html": "<button class=\"btn-primary\">Confirm Return</button>",
+      "css": ".btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: #f5c842; color: #03061a; font-size: 0.875rem; font-weight: 500; border: none; border-radius: 6px; cursor: pointer; transition: background 150ms ease; } .btn-primary:hover { background: #e8b830; } .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }"
+    },
+    "buttonSecondary": {
+      "html": "<button class=\"btn-secondary\">View Details</button>",
+      "css": ".btn-secondary { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: rgba(255,255,255,0.08); color: #e2e8f0; font-size: 0.875rem; font-weight: 500; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; cursor: pointer; transition: background 150ms ease; } .btn-secondary:hover { background: rgba(255,255,255,0.14); }"
+    },
+    "statusBadge": {
+      "html": "<span class=\"badge badge-critical\">FRAUD RISK</span><span class=\"badge badge-ok\">CLEARED</span><span class=\"badge badge-warn\">HUMAN REVIEW</span>",
+      "css": ".badge { display: inline-flex; align-items: center; padding: 2px 8px; font-size: 0.75rem; font-weight: 500; border-radius: 9999px; letter-spacing: 0.02em; } .badge-critical { background: rgba(127,29,29,0.8); color: #fca5a5; } .badge-ok { background: rgba(10,56,40,0.8); color: #5eead4; } .badge-warn { background: rgba(120,53,15,0.7); color: #fcd34d; } .badge-info { background: rgba(30,58,138,0.6); color: #93c5fd; } .badge-neutral { background: rgba(255,255,255,0.06); color: #94a3b8; }"
+    },
+    "tableRow": {
+      "html": "<tr class=\"data-row\"><td class=\"font-mono text-xs\">CTS-HDFC-20260629-001</td><td>HDFC Bank</td><td class=\"text-right font-mono\">₹[1L–5L]</td><td><span class=\"badge badge-ok\">CLEARED</span></td></tr>",
+      "css": ".data-row { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 100ms ease; } .data-row:hover { background: rgba(255,255,255,0.02); } .data-row td { padding: 11px 16px; font-size: 0.875rem; color: #e2e8f0; } .data-row td.text-right { text-align: right; } .font-mono { font-family: 'JetBrains Mono', monospace; color: #94a3b8; }"
+    },
+    "formInput": {
+      "html": "<div class=\"field\"><label class=\"field-label\">IFSC Code</label><input class=\"field-input\" placeholder=\"HDFC0001234\" /></div>",
+      "css": ".field { display: flex; flex-direction: column; gap: 6px; } .field-label { font-size: 0.75rem; font-weight: 500; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; } .field-input { height: 36px; padding: 0 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; color: #e2e8f0; font-size: 0.875rem; font-family: inherit; outline: none; transition: border-color 150ms ease; } .field-input:focus { border-color: rgba(245,200,66,0.5); } .field-input::placeholder { color: #475569; }"
+    },
+    "ietClock": {
+      "html": "<div class=\"iet-clock iet-clock--warn\"><span class=\"iet-label\">IET</span><span class=\"iet-time\">01:42:33</span></div>",
+      "css": ".iet-clock { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(252,211,77,0.3); background: rgba(120,53,15,0.25); } .iet-clock--critical { border-color: rgba(239,68,68,0.4); background: rgba(127,29,29,0.25); } .iet-label { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #fcd34d; } .iet-clock--critical .iet-label { color: #fca5a5; } .iet-time { font-family: 'JetBrains Mono', monospace; font-size: 1rem; font-weight: 700; color: #fcd34d; font-variant-numeric: tabular-nums; } .iet-clock--critical .iet-time { color: #fca5a5; }"
+    },
+    "card": {
+      "html": "<div class=\"panel\"><div class=\"panel-header\"><h3 class=\"panel-title\">Inward Queue</h3><span class=\"panel-count\">14</span></div></div>",
+      "css": ".panel { background: #060d2e; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; overflow: hidden; } .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); } .panel-title { font-size: 0.875rem; font-weight: 600; color: #e2e8f0; margin: 0; } .panel-count { font-size: 0.75rem; font-weight: 600; padding: 2px 8px; background: rgba(255,255,255,0.06); border-radius: 9999px; color: #94a3b8; font-family: 'JetBrains Mono', monospace; }"
+    }
+  },
+
+  "antiPatterns": [
+    "gradient-text",
+    "side-stripe-borders",
+    "hero-metric-cards",
+    "identical-card-grids",
+    "eyebrow-kickers-everywhere",
+    "numbered-section-markers",
+    "glassmorphism-on-data-tables",
+    "decorative-motion",
+    "modal-as-first-thought",
+    "softness-over-precision"
+  ]
+}

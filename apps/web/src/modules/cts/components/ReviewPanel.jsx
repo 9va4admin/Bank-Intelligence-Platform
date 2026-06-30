@@ -1,47 +1,46 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import IETTimer from './IETTimer'
 import FraudGauge from './FraudGauge'
 import ShapExplainer from './ShapExplainer'
 import ChequeMockImage from './ChequeMockImage'
+import { getReturnReasons } from '../data/returnReasons'
 
-const RETURN_REASONS = [
-  // Presenting bank
-  'CTS compliance failure',
-  'Date invalid or stale cheque',
-  'Words and figures differ',
-  'Endorsement irregular',
-  'Instrument mutilated / damaged',
-  'Duplicate instrument',
-  // Drawee bank
-  'Account dormant — no txn >2 years',
-  'Account frozen / NPA / closed',
-  'Payment stopped by drawer',
-  'Positive Pay mismatch',
-  'Signature mismatch confirmed',
-  'Amount alteration / overwrite detected',
-  'Payee name discrepancy',
-  'Insufficient funds',
-  'Post-dated cheque',
-  'No specimen on file — cannot verify',
-  'KYC expired — refer to branch',
-  'Legal / court hold on account',
-]
+const RECENT_KEY = 'astra-recent-return-reasons'
+const getRecentReasons = () => {
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') } catch { return [] }
+}
+const saveRecentReason = (reason) => {
+  const updated = [reason, ...getRecentReasons().filter(r => r !== reason)].slice(0, 3)
+  localStorage.setItem(RECENT_KEY, JSON.stringify(updated))
+}
 
-const REASON_COLORS = {
-  SIGNATURE_LOW_CONFIDENCE: 'bg-amber-100 border-amber-400 text-amber-700 dark:bg-amber-400/10 dark:border-amber-400/30 dark:text-amber-300',
-  FRAUD_SCORE_HIGH:         'bg-red-100 border-red-400 text-red-700 dark:bg-red-400/10 dark:border-red-400/30 dark:text-red-300',
-  OCR_LOW_CONFIDENCE:       'bg-orange-100 border-orange-400 text-orange-700 dark:bg-orange-400/10 dark:border-orange-400/30 dark:text-orange-300',
-  VAULT_MISS:               'bg-purple-100 border-purple-400 text-purple-700 dark:bg-purple-400/10 dark:border-purple-400/30 dark:text-purple-300',
-  HIGH_VALUE_DUAL_APPROVAL: 'bg-sky-100 border-sky-400 text-sky-700 dark:bg-sky-400/10 dark:border-sky-400/30 dark:text-sky-300'
+function getReasonColors(isDark) {
+  return {
+    SIGNATURE_LOW_CONFIDENCE: isDark
+      ? 'bg-amber-400/10 border-amber-400/30 text-amber-300'
+      : 'bg-amber-100 border-amber-400 text-amber-700',
+    FRAUD_SCORE_HIGH: isDark
+      ? 'bg-red-400/10 border-red-400/30 text-red-300'
+      : 'bg-red-100 border-red-400 text-red-700',
+    OCR_LOW_CONFIDENCE: isDark
+      ? 'bg-orange-400/10 border-orange-400/30 text-orange-300'
+      : 'bg-orange-100 border-orange-400 text-orange-700',
+    VAULT_MISS: isDark
+      ? 'bg-purple-400/10 border-purple-400/30 text-purple-300'
+      : 'bg-purple-100 border-purple-400 text-purple-700',
+    HIGH_VALUE_DUAL_APPROVAL: isDark
+      ? 'bg-sky-400/10 border-sky-400/30 text-sky-300'
+      : 'bg-sky-100 border-sky-400 text-sky-700',
+  }
 }
 
 
-function SigPanel({ item }) {
-  const muted  = 'text-slate-500 dark:text-slate-400'
-  const note   = 'text-slate-500 dark:text-slate-500'
-  const noteBg = 'bg-slate-50 dark:bg-white/3'
-  const barBg  = 'bg-slate-100 dark:bg-white/5'
-  const tick   = 'text-slate-400 dark:text-slate-600'
+function SigPanel({ item, isDark }) {
+  const muted  = isDark ? 'text-slate-400' : 'text-slate-500'
+  const note   = isDark ? 'text-slate-500' : 'text-slate-500'
+  const noteBg = isDark ? 'bg-white/5' : 'bg-slate-50'
+  const barBg  = isDark ? 'bg-white/5' : 'bg-slate-100'
+  const tick   = isDark ? 'text-slate-600' : 'text-slate-400'
 
   if (!item.sig_specimen_available) {
     return (
@@ -96,28 +95,114 @@ function SigPanel({ item }) {
   )
 }
 
-export default function ReviewPanel({ item, onDecision }) {
+export default function ReviewPanel({ item, onDecision, isDark }) {
   const [tab, setTab] = useState('overview')
   const [returnReason, setReturnReason] = useState('')
   const [confirming, setConfirming] = useState(null)
+  const [reasonSearch, setReasonSearch] = useState('')
+  const RETURN_REASONS_GROUPED = getReturnReasons()
+  const ALL_REASONS = Object.values(RETURN_REASONS_GROUPED).flat().sort()
+  const [reasonOpen, setReasonOpen] = useState(false)
+  const [confirmSecs, setConfirmSecs] = useState(null)
+
+  const [chequeHover, setChequeHover] = useState(false)
+  const hoverTimeout = useRef(null)
+  const confirmTimerRef = useRef(null)
+  const confirmCountRef = useRef(null)
+  const reasonDropdownRef = useRef(null)
+
+  const REASON_COLORS = getReasonColors(isDark)
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        if (confirmSecs !== null) {
+          clearInterval(confirmCountRef.current)
+          clearTimeout(confirmTimerRef.current)
+          setConfirmSecs(null)
+          setConfirming(null)
+        }
+        if (reasonOpen) setReasonOpen(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [confirmSecs, reasonOpen])
+
+  useEffect(() => {
+    if (!reasonOpen) return
+    const onOutside = (e) => {
+      if (reasonDropdownRef.current && !reasonDropdownRef.current.contains(e.target)) {
+        setReasonOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onOutside)
+    return () => document.removeEventListener('mousedown', onOutside)
+  }, [reasonOpen])
+
+  useEffect(() => () => {
+    clearInterval(confirmCountRef.current)
+    clearTimeout(confirmTimerRef.current)
+  }, [])
 
   const th = {
-    border:   'border-slate-200 dark:border-white/8',
-    id:       'text-slate-400 dark:text-slate-500',
-    heading:  'text-slate-900 dark:text-white',
-    dot:      'text-slate-400 dark:text-slate-500',
-    meta:     'text-slate-400 dark:text-slate-500',
-    tabActive: 'bg-slate-100 text-slate-900 border-t border-l border-r border-slate-200 dark:bg-white/6 dark:text-white dark:border-white/10',
-    tabIdle:  'text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300',
-    glass:    'bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border dark:border-white/8',
-    lbl:      'text-slate-400 dark:text-slate-500',
-    val:      'text-slate-800 dark:text-slate-200',
-    barBg:    'bg-slate-100 dark:bg-white/5',
-    foot:     'bg-white dark:bg-navy-950/80',
-    sel:      'bg-white border-slate-300 text-slate-700 focus:border-amber-400 dark:bg-white/4 dark:border-white/8 dark:text-slate-300 dark:focus:border-gold-400/40',
-    selOpt:   'bg-white dark:bg-navy-900',
-    footNote: 'text-slate-400 dark:text-slate-600',
+    border:   isDark ? 'border-white/10' : 'border-slate-200',
+    id:       isDark ? 'text-slate-500' : 'text-slate-400',
+    heading:  isDark ? 'text-white' : 'text-slate-900',
+    dot:      isDark ? 'text-slate-500' : 'text-slate-400',
+    meta:     isDark ? 'text-slate-500' : 'text-slate-400',
+    tabActive: isDark
+      ? 'bg-white/5 text-white border-t border-l border-r border-white/10'
+      : 'bg-slate-100 text-slate-900 border-t border-l border-r border-slate-200',
+    tabIdle:  isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-700',
+    glass:    isDark ? 'bg-white/5 border border-white/10' : 'bg-slate-50 border border-slate-200',
+    lbl:      isDark ? 'text-slate-500' : 'text-slate-400',
+    val:      isDark ? 'text-slate-200' : 'text-slate-800',
+    barBg:    isDark ? 'bg-white/5' : 'bg-slate-100',
+    foot:     isDark ? 'bg-navy-950/80' : 'bg-white',
+    sel:      isDark
+      ? 'bg-white/5 border-white/10 text-slate-300 focus:border-gold-400/40'
+      : 'bg-white border-slate-300 text-slate-700 focus:border-amber-400',
+    selOpt:   isDark ? 'bg-navy-900' : 'bg-white',
+    footNote: isDark ? 'text-slate-600' : 'text-slate-400',
   }
+
+  const handleAction = useCallback((action) => {
+    if (action === 'RETURN') {
+      if (!returnReason) return
+      setConfirming('RETURN')
+      saveRecentReason(returnReason)
+      setTimeout(() => {
+        onDecision(item.instrument_id, 'RETURN', returnReason)
+        setConfirming(null)
+        setReturnReason('')
+        setReasonSearch('')
+        setTab('overview')
+      }, 800)
+      return
+    }
+
+    // CONFIRM — 2-second cancellable countdown
+    setConfirming('CONFIRM')
+    setConfirmSecs(2)
+    confirmCountRef.current = setInterval(() => {
+      setConfirmSecs(s => {
+        if (s <= 1) {
+          clearInterval(confirmCountRef.current)
+          return null
+        }
+        return s - 1
+      })
+    }, 1000)
+    confirmTimerRef.current = setTimeout(() => {
+      onDecision(item.instrument_id, 'CONFIRM', '')
+      setConfirming(null)
+      setConfirmSecs(null)
+      setReturnReason('')
+      setReasonSearch('')
+      setTab('overview')
+    }, 2000)
+  }, [item, returnReason, onDecision])
 
   if (!item) {
     return (
@@ -130,20 +215,6 @@ export default function ReviewPanel({ item, onDecision }) {
     )
   }
 
-  const handleAction = (action) => {
-    if (action === 'RETURN' && !returnReason) return
-    setConfirming(action)
-    setTimeout(() => {
-      onDecision(item.instrument_id, action, returnReason)
-      setConfirming(null)
-      setReturnReason('')
-      setTab('overview')
-    }, 800)
-  }
-
-  const [chequeHover, setChequeHover] = useState(false)
-  const hoverTimeout = useRef(null)
-
   const showCheque = () => {
     clearTimeout(hoverTimeout.current)
     setChequeHover(true)
@@ -153,7 +224,11 @@ export default function ReviewPanel({ item, onDecision }) {
   }
 
   const tabs = ['overview', 'cheque', 'ai analysis', 'passport']
-  const reasonColor = REASON_COLORS[item.reason] || ('bg-slate-100 border-slate-300 text-slate-600 dark:bg-slate-400/10 dark:border-slate-400/20 dark:text-slate-300')
+  const reasonColor = REASON_COLORS[item.reason] || (
+    isDark
+      ? 'bg-slate-400/10 border-slate-400/20 text-slate-300'
+      : 'bg-slate-100 border-slate-300 text-slate-600'
+  )
 
   // D1: Trust Score strip calculations
   const totalIetMs = new Date(item.iet_deadline) - new Date(item.received_at)
@@ -161,11 +236,20 @@ export default function ReviewPanel({ item, onDecision }) {
   const ietPct = Math.max(0, Math.min(1, remainingMs / totalIetMs))
   const minsLeft = Math.max(0, Math.round(remainingMs / 60000))
 
+  const subMemberBanner = isDark
+    ? 'bg-amber-400/5 border-amber-400/20 text-amber-300'
+    : 'bg-amber-50 border-amber-300 text-amber-700'
+
+  const chequePopupBg = isDark ? 'bg-navy-900 border-white/10' : 'bg-white border-slate-200'
+  const instrumentIdColor = isDark
+    ? 'text-gold-400 decoration-gold-400/40'
+    : 'text-amber-600 decoration-amber-400/60'
+
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Sub-member context banner */}
       {item.principal_tag === 'SUB_MEMBER' && (
-        <div className={`px-6 py-2 flex items-center gap-2 border-b text-[11px] font-medium ${'bg-amber-50 border-amber-300 text-amber-700 dark:bg-amber-400/5 dark:border-amber-400/20 dark:text-amber-300'}`}>
+        <div className={`px-6 py-2 flex items-center gap-2 border-b text-[11px] font-medium ${subMemberBanner}`}>
           <span className="font-semibold">SUB-MEMBER CHEQUE</span>
           <span className="opacity-60">·</span>
           <span>{item.sub_member_name}</span>
@@ -180,16 +264,16 @@ export default function ReviewPanel({ item, onDecision }) {
         <div className="flex items-center gap-2 mb-2 flex-wrap">
           {/* Cheque number — hover shows cheque image */}
           <div className="relative" onMouseEnter={showCheque} onMouseLeave={hideCheque}>
-            <span className={`text-[11px] font-mono cursor-default underline decoration-dotted ${'text-amber-600 decoration-amber-400/60 dark:text-gold-400 dark:decoration-gold-400/40'}`}>
+            <span className={`text-[11px] font-mono cursor-default underline decoration-dotted ${instrumentIdColor}`}>
               {item.instrument_id}
             </span>
             {chequeHover && (
               <div
-                className={`absolute left-0 top-6 z-50 w-[480px] rounded-xl shadow-2xl border p-3 ${'bg-white border-slate-200 dark:bg-navy-900 dark:border-white/10'}`}
+                className={`absolute left-0 top-6 z-50 w-[480px] rounded-xl shadow-2xl border p-3 ${chequePopupBg}`}
                 onMouseEnter={showCheque} onMouseLeave={hideCheque}
               >
                 <div className={`text-[9px] ${th.lbl} uppercase tracking-widest mb-2`}>Cheque Image — compare with extracted fields</div>
-                <ChequeMockImage fields={item.ocr_fields} alterations={item.ocr_fields.alterations} />
+                <ChequeMockImage fields={item.ocr_fields} alterations={item.ocr_fields.alterations} isDark={isDark} />
               </div>
             )}
           </div>
@@ -325,12 +409,12 @@ export default function ReviewPanel({ item, onDecision }) {
               </div>
             </div>
 
-            <SigPanel item={item} />
+            <SigPanel item={item} isDark={isDark} />
           </>
         )}
 
         {tab === 'cheque' && (
-          <ChequeMockImage fields={item.ocr_fields} alterations={item.ocr_fields.alterations} accountDisplay={item.account_display} />
+          <ChequeMockImage fields={item.ocr_fields} alterations={item.ocr_fields.alterations} accountDisplay={item.account_display} isDark={isDark} />
         )}
 
         {tab === 'ai analysis' && (
@@ -357,7 +441,7 @@ export default function ReviewPanel({ item, onDecision }) {
               </div>
             </div>
             <div className={`rounded-xl p-4 ${th.glass}`}>
-              <ShapExplainer shapValues={item.shap_values} />
+              <ShapExplainer shapValues={item.shap_values} isDark={isDark} />
             </div>
           </div>
         )}
@@ -452,32 +536,107 @@ export default function ReviewPanel({ item, onDecision }) {
         })()}
       </div>
 
-      {/* Action footer — single row: dropdown + two buttons */}
-      <div className={`shrink-0 border-t ${th.border} px-6 py-3 ${th.foot} backdrop-blur`}>
+      {/* Action footer */}
+      <div className={`relative z-20 shrink-0 border-t ${th.border} px-6 py-3 ${th.foot} backdrop-blur`}>
         <div className="flex items-center gap-2">
-          <select
-            value={returnReason}
-            onChange={(e) => setReturnReason(e.target.value)}
-            className={`flex-1 border rounded-xl px-3 py-2 text-xs focus:outline-none appearance-none cursor-pointer ${th.sel}`}
-          >
-            <option value="" className={th.selOpt}>Select return reason (required to Return)</option>
-            {RETURN_REASONS.map((r) => (
-              <option key={r} value={r} className={th.selOpt}>{r}</option>
-            ))}
-          </select>
+          {/* Searchable grouped return-reason combobox */}
+          <div className="relative flex-1" ref={reasonDropdownRef}>
+            <button
+              type="button"
+              onClick={() => { setReasonOpen(o => !o); setReasonSearch('') }}
+              disabled={!!confirming}
+              className={`w-full flex items-center justify-between border rounded-lg px-3 py-2 text-xs focus:outline-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${th.sel}`}
+            >
+              <span className={returnReason ? th.val : th.footNote}>
+                {returnReason || 'Select return reason (required to Return)'}
+              </span>
+              <span className={`ml-2 shrink-0 ${th.lbl}`}>{reasonOpen ? '▲' : '▼'}</span>
+            </button>
+
+            {reasonOpen && (
+              <div className={`absolute bottom-full mb-1 left-0 right-0 z-50 rounded-lg border shadow-2xl overflow-hidden ${isDark ? 'bg-navy-900 border-white/10' : 'bg-white border-slate-200'}`}>
+                {/* Search */}
+                <div className={`px-3 py-2 border-b ${th.border}`}>
+                  <input
+                    autoFocus
+                    type="text"
+                    value={reasonSearch}
+                    onChange={e => setReasonSearch(e.target.value)}
+                    placeholder="Search reasons…"
+                    className={`w-full text-xs bg-transparent outline-none placeholder:${th.footNote} ${th.val}`}
+                  />
+                </div>
+                <div className="max-h-52 overflow-y-auto">
+                  {/* Recently used */}
+                  {!reasonSearch && getRecentReasons().length > 0 && (
+                    <div>
+                      <div className={`px-3 pt-2 pb-1 text-[9px] font-semibold uppercase tracking-widest ${th.footNote}`}>Recent</div>
+                      {getRecentReasons().map(r => (
+                        <button
+                          key={`recent-${r}`}
+                          type="button"
+                          onMouseDown={() => { setReturnReason(r); setReasonOpen(false); setReasonSearch('') }}
+                          className={`w-full text-left px-3 py-2 text-xs transition-colors ${isDark ? 'hover:bg-white/5 text-gold-400' : 'hover:bg-amber-50 text-amber-600'}`}
+                        >
+                          {r}
+                        </button>
+                      ))}
+                      <div className={`mx-3 border-t ${th.border} my-1`} />
+                    </div>
+                  )}
+                  {/* Grouped reasons — sorted alphabetically within each group */}
+                  {Object.entries(RETURN_REASONS_GROUPED).sort(([a], [b]) => a.localeCompare(b)).map(([group, reasons]) => {
+                    const sorted = [...reasons].sort((a, b) => a.localeCompare(b))
+                    const filtered = reasonSearch
+                      ? sorted.filter(r => r.toLowerCase().includes(reasonSearch.toLowerCase()))
+                      : sorted
+                    if (!filtered.length) return null
+                    return (
+                      <div key={group}>
+                        <div className={`px-3 pt-2 pb-1 text-[9px] font-semibold uppercase tracking-widest ${th.footNote}`}>{group}</div>
+                        {filtered.map(r => (
+                          <button
+                            key={r}
+                            type="button"
+                            onMouseDown={() => { setReturnReason(r); setReasonOpen(false); setReasonSearch('') }}
+                            className={`w-full text-left px-3 py-2 text-xs transition-colors ${r === returnReason ? (isDark ? 'bg-white/8 text-white' : 'bg-slate-100 text-slate-900') : (isDark ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-50 text-slate-700')}`}
+                          >
+                            {r}
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  })}
+                  {reasonSearch && ALL_REASONS.filter(r => r.toLowerCase().includes(reasonSearch.toLowerCase())).length === 0 && (
+                    <div className={`px-3 py-4 text-xs text-center ${th.footNote}`}>No matching reasons</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
             onClick={() => handleAction('RETURN')}
             disabled={!returnReason || !!confirming}
-            className="shrink-0 px-5 py-2 rounded-xl border border-red-500/40 bg-red-500/10 text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+            className="shrink-0 px-5 py-2 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
           >
             {confirming === 'RETURN' ? 'Filing…' : '✕ Return'}
           </button>
+
           <button
             onClick={() => handleAction('CONFIRM')}
             disabled={!!confirming}
-            className="shrink-0 px-5 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30 transition-all disabled:opacity-40 whitespace-nowrap"
+            className={`shrink-0 px-5 py-2 rounded-lg border text-xs font-semibold transition-all whitespace-nowrap ${
+              confirmSecs !== null
+                ? 'bg-amber-400/10 border-amber-400/40 text-amber-300'
+                : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/30'
+            } disabled:opacity-40`}
           >
-            {confirming === 'CONFIRM' ? 'Filing…' : '✓ Confirm'}
+            {confirming === 'CONFIRM' && confirmSecs !== null
+              ? `Confirming in ${confirmSecs}s · Esc`
+              : confirming === 'CONFIRM'
+              ? 'Filing…'
+              : '✓ Confirm'}
           </button>
         </div>
       </div>

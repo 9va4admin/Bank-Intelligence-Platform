@@ -1,8 +1,6 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import EJShell from '../layout/EJShell'
-import { useTheme } from '../../../shared/theme/ThemeContext'
-import { Shield, CheckCircle2, XCircle, Lock, Monitor, MessageSquare, Mail, ChevronRight, AlertTriangle, Clock, FileText, Users } from 'lucide-react'
+import { Shield, CheckCircle2, XCircle, Lock, Monitor, MessageSquare, Mail, AlertTriangle, Clock, FileText, Users } from 'lucide-react'
 import { useBRERules } from '../hooks/useBRERules'
 
 const ROLES = [
@@ -164,22 +162,20 @@ export default function BREPolicyManager() {
   const [sevFilter, setSevFilter] = useState('All')
 
   const th = {
-    pg:      'bg-slate-50 text-slate-900 dark:bg-[#020817] dark:text-white',
-    nav:     'border-slate-200 bg-white dark:border-white/5 dark:bg-black/30',
-    nlnk:    'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
-    h1:      'text-slate-900 dark:text-white',
-    sub:     'text-slate-500 dark:text-slate-400',
-    roleBtn: 'text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300',
-    ctx:     'bg-slate-100 border-slate-200 text-slate-600 dark:bg-white/5 dark:border-white/5 dark:text-slate-400',
-    sel:     'bg-white border-slate-300 text-slate-700 dark:bg-white/5 dark:border-white/10 dark:text-slate-300',
-    selOpt:  'bg-white dark:bg-[#020817]',
-    ruleBtn: 'border-slate-200 bg-white hover:border-slate-300 dark:border-white/5 dark:bg-white/2 dark:hover:border-white/15',
-    ruleName:'text-slate-800 dark:text-slate-200',
-    ruleMeta:'text-slate-400 dark:text-slate-500',
-    detail:  'bg-white border-slate-200 dark:bg-white/5 dark:border-white/5',
+    pg:      'bg-transparent text-white',
+    nav:     'border-white/5 bg-black/30',
+    nlnk:    'text-slate-400 hover:text-white',
+    h1:      'text-white',
+    sub:     'text-slate-400',
+    roleBtn: 'text-slate-500 hover:text-slate-300',
+    ctx:     'bg-white/5 border-white/8 text-slate-400',
+    sel:     'bg-white/5 border-white/10 text-slate-300',
+    selOpt:  'bg-[#0e1654]',
+    ruleBtn: 'border-white/8 bg-white/5 hover:border-white/20 hover:bg-white/8',
+    ruleName:'text-slate-200',
+    ruleMeta:'text-slate-500',
+    detail:  'bg-white/5 border-white/8',
   }
-
-  const role = ROLES.find(r => r.id === activeRole)
 
   const visibleRules = rules.filter(r => {
     if (activeRole === 'branch_manager' && !r.notify_roles.includes('branch_manager')) return false
@@ -192,18 +188,6 @@ export default function BREPolicyManager() {
 
   return (
     <EJShell><div className={`flex flex-col ${th.pg}`}>
-      <nav className={`flex items-center justify-between px-6 py-3 border-b ${th.nav}`}>
-        <Link to="/" className={`text-xs ${th.nlnk}`}>← ASTRA Platform</Link>
-        <div className="flex items-center gap-1 text-xs flex-wrap justify-center">
-          <Link to="/ej" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Command Center</Link>
-          <Link to="/ej/incidents" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Incidents</Link>
-          <Link to="/ej/portal" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Manager Portal</Link>
-          <span className="px-3 py-1.5 rounded bg-violet-600/20 text-violet-300 font-medium border border-violet-500/30">BRE Policy</span>
-          <Link to="/ej/notifications" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Notifications</Link>
-        </div>
-        <span />
-      </nav>
-
       <div className="max-w-7xl w-full mx-auto px-6 py-4 space-y-4 flex-1 flex flex-col">
         <div className="flex items-center justify-between">
           <div>

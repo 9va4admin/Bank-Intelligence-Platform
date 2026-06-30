@@ -8,7 +8,7 @@ import ATMGrid from './components/ATMGrid'
 import EJViewer from './components/EJViewer'
 import TxnVelocityChart from './components/TxnVelocityChart'
 import RiskPanel from './components/RiskPanel'
-import { Link } from 'react-router-dom'
+import EJShell from './layout/EJShell'
 
 const TIME_RANGES = ['Live', '2h', '6h', '24h', '7d', '30d']
 
@@ -18,20 +18,7 @@ export default function EJCommandCenter() {
   const [timeRange, setTimeRange] = useState('Live')
 
   return (
-    <div className="min-h-screen bg-[#020817] text-slate-100 font-sans">
-      {/* Top nav strip */}
-      <div className="border-b border-slate-800 px-6 py-2 flex items-center justify-between">
-        <Link to="/" className="text-xs text-slate-500 hover:text-cyan-400 transition-colors">← ASTRA Platform</Link>
-        <div className="flex items-center gap-1 text-xs">
-          <span className="px-3 py-1.5 rounded bg-cyan-600/20 text-cyan-300 font-medium border border-cyan-500/30">Command Center</span>
-          <Link to="/ej/incidents" className="px-3 py-1.5 rounded text-slate-400 hover:text-white transition-colors">Incidents</Link>
-          <Link to="/ej/portal" className="px-3 py-1.5 rounded text-slate-400 hover:text-white transition-colors">Manager Portal</Link>
-          <Link to="/ej/bre" className="px-3 py-1.5 rounded text-slate-400 hover:text-white transition-colors">BRE Policy</Link>
-          <Link to="/ej/notifications" className="px-3 py-1.5 rounded text-slate-400 hover:text-white transition-colors">Notifications</Link>
-        </div>
-        <span />
-      </div>
-
+    <EJShell>
       <div className="px-4 py-3 space-y-3">
         <CommandHeader kpis={ctx.kpis} tick={ctx.tick} />
         <div className="flex items-center justify-between gap-4">
@@ -101,6 +88,6 @@ export default function EJCommandCenter() {
           </button>
         )}
       </div>
-    </div>
+    </EJShell>
   )
 }

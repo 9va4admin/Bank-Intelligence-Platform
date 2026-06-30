@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASTRA — Project Summary v02</title>
+<style>
+  :root {
+    --navy: #020817;
+    --navy2: #0f1629;
+    --navy3: #1a2540;
+    --white8: rgba(255,255,255,0.08);
+    --white12: rgba(255,255,255,0.12);
+    --white20: rgba(255,255,255,0.20);
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --faint: #475569;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--navy); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.5; }
+
+  /* ── Layout ── */
+  .page { max-width: 1280px; margin: 0 auto; padding: 32px 24px 64px; }
+  .hero { text-align: center; padding: 48px 0 40px; }
+  .hero-logo { font-size: 48px; font-weight: 800; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 40%, #06b6d4 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -2px; }
+  .hero-tagline { color: var(--muted); font-size: 14px; margin-top: 8px; letter-spacing: 2px; text-transform: uppercase; }
+  .hero-desc { max-width: 680px; margin: 16px auto 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+  .version-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3); border-radius: 20px; padding: 4px 14px; font-size: 11px; color: #a5b4fc; margin-top: 12px; }
+
+  /* ── Section headers ── */
+  .section { margin-bottom: 40px; }
+  .section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; color: var(--faint); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--white8); }
+
+  /* ── Module architecture ── */
+  .arch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; }
+  .module-card { background: var(--navy2); border: 1px solid var(--white8); border-radius: 16px; padding: 24px; position: relative; overflow: hidden; }
+  .module-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .module-card.cts::before { background: linear-gradient(90deg, #6366f1, #8b5cf6); }
+  .module-card.ej::before { background: linear-gradient(90deg, #06b6d4, #0891b2); }
+  .module-icon { font-size: 28px; margin-bottom: 12px; }
+  .module-name { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .module-name.cts { color: #a5b4fc; }
+  .module-name.ej { color: #67e8f9; }
+  .module-full { font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+  .module-desc { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
+  .module-stat { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; background: var(--white8); border: 1px solid var(--white12); border-radius: 20px; padding: 4px 10px; margin: 3px 3px 3px 0; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .dot-violet { background: #8b5cf6; }
+  .dot-cyan { background: #06b6d4; }
+  .dot-emerald { background: #10b981; }
+  .dot-amber { background: #f59e0b; }
+
+  /* ── Progress grid ── */
+  .progress-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 40px; }
+  .progress-card { background: var(--navy2); border: 1px solid var(--white8); border-radius: 12px; padding: 16px; }
+  .progress-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: var(--faint); margin-bottom: 8px; }
+  .progress-value { font-size: 32px; font-weight: 800; font-family: 'SF Mono', 'Fira Code', monospace; }
+  .progress-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .bar-track { background: var(--white8); border-radius: 4px; height: 4px; margin-top: 12px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; }
+
+  /* ── Stats row ── */
+  .stats-row { display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; margin-bottom: 40px; }
+  .stat-card { background: var(--navy2); border: 1px solid var(--white8); border-radius: 10px; padding: 14px 10px; text-align: center; }
+  .stat-value { font-size: 22px; font-weight: 800; font-family: 'SF Mono', 'Fira Code', monospace; line-height: 1; margin-bottom: 6px; }
+  .stat-label { font-size: 9px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.8px; line-height: 1.3; }
+
+  /* ── Pages table ── */
+  .pages-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; }
+  .pages-panel { background: var(--navy2); border: 1px solid var(--white8); border-radius: 12px; overflow: hidden; }
+  .pages-header { padding: 12px 16px; border-bottom: 1px solid var(--white8); display: flex; align-items: center; justify-content: space-between; }
+  .pages-header-title { font-size: 12px; font-weight: 600; }
+  .badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+  .badge-violet { background: rgba(139,92,246,0.15); color: #a5b4fc; border: 1px solid rgba(139,92,246,0.3); }
+  .badge-cyan { background: rgba(6,182,212,0.15); color: #67e8f9; border: 1px solid rgba(6,182,212,0.3); }
+  .badge-emerald { background: rgba(16,185,129,0.12); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.25); }
+  .badge-amber { background: rgba(245,158,11,0.12); color: #fcd34d; border: 1px solid rgba(245,158,11,0.25); }
+  .badge-red { background: rgba(239,68,68,0.12); color: #fca5a5; border: 1px solid rgba(239,68,68,0.25); }
+  .page-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 16px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .page-row:last-child { border-bottom: none; }
+  .page-name { font-size: 12px; font-weight: 500; color: var(--text); }
+  .page-desc { font-size: 10px; color: var(--faint); margin-top: 1px; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .status-built { background: #10b981; box-shadow: 0 0 6px rgba(16,185,129,0.4); }
+  .status-partial { background: #f59e0b; }
+  .status-pending { background: #475569; }
+
+  /* ── Kafka/Redis counts table ── */
+  .counts-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 40px; }
+  .counts-panel { background: var(--navy2); border: 1px solid var(--white8); border-radius: 12px; overflow: hidden; }
+  .counts-header { padding: 10px 14px; border-bottom: 1px solid var(--white8); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+  .counts-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 12px; }
+  .counts-row:last-child { border-bottom: none; }
+  .counts-row-label { color: var(--muted); font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; }
+  .counts-row-val { font-weight: 700; font-family: monospace; }
+
+  /* ── Pipeline flow ── */
+  .pipeline { display: flex; align-items: flex-start; gap: 0; margin-bottom: 40px; overflow-x: auto; padding-bottom: 8px; }
+  .pipe-step { flex-shrink: 0; width: 120px; text-align: center; position: relative; }
+  .pipe-step + .pipe-step::before { content: '→'; position: absolute; left: -14px; top: 22px; color: var(--faint); font-size: 14px; }
+  .pipe-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; margin: 0 auto 8px; }
+  .pipe-icon.done { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); }
+  .pipe-icon.partial { background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3); }
+  .pipe-icon.todo { background: var(--white8); border: 1px solid var(--white12); }
+  .pipe-label { font-size: 10px; font-weight: 600; color: var(--text); }
+  .pipe-sub { font-size: 9px; color: var(--faint); margin-top: 2px; }
+
+  /* ── Backend stack ── */
+  .stack-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 40px; }
+  .stack-card { background: var(--navy2); border: 1px solid var(--white8); border-radius: 10px; padding: 14px; }
+  .stack-cat { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: var(--faint); margin-bottom: 8px; }
+  .stack-item { font-size: 11px; color: var(--muted); padding: 3px 0; display: flex; align-items: center; gap: 6px; }
+  .stack-item .dot { flex-shrink: 0; }
+
+  /* ── Timeline ── */
+  .timeline { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 40px; }
+  .phase-card { border-radius: 12px; padding: 16px; border: 1px solid; }
+  .phase-card.done { background: rgba(16,185,129,0.06); border-color: rgba(16,185,129,0.2); }
+  .phase-card.current { background: rgba(139,92,246,0.08); border-color: rgba(139,92,246,0.3); }
+  .phase-card.upcoming { background: var(--navy2); border-color: var(--white8); }
+  .phase-num { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .phase-num.done { color: #6ee7b7; }
+  .phase-num.current { color: #a5b4fc; }
+  .phase-num.upcoming { color: var(--faint); }
+  .phase-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+  .phase-title.done { color: #6ee7b7; }
+  .phase-title.current { color: #a5b4fc; }
+  .phase-title.upcoming { color: var(--muted); }
+  .phase-weeks { font-size: 10px; color: var(--faint); margin-bottom: 10px; }
+  .phase-item { font-size: 10px; color: var(--muted); padding: 2px 0; display: flex; align-items: flex-start; gap: 5px; }
+  .phase-item-check { flex-shrink: 0; margin-top: 1px; }
+  .check-done { color: #10b981; }
+  .check-cur { color: #8b5cf6; }
+  .check-todo { color: var(--faint); }
+
+  /* ── NFR strip ── */
+  .nfr-strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 40px; }
+  .nfr-card { background: var(--navy2); border: 1px solid var(--white8); border-radius: 10px; padding: 12px; text-align: center; }
+  .nfr-value { font-size: 18px; font-weight: 800; font-family: monospace; }
+  .nfr-label { font-size: 9px; color: var(--faint); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+  /* ── Footer ── */
+  .footer { text-align: center; padding-top: 40px; border-top: 1px solid var(--white8); color: var(--faint); font-size: 11px; }
+  .footer strong { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-logo">ASTRA</div>
+    <div class="hero-tagline">Automated Settlement and Transaction Recognition Architecture</div>
+    <div class="hero-desc">
+      Precision banking platform for Indian banks. Two independent AI-powered modules — CTS (Cheque Truncation)
+      and EJ (ATM Electronic Journal) — unified on shared infrastructure. On-premises deployment,
+      zero cloud dependency, RBI compliant.
+    </div>
+    <div style="margin-top:14px">
+      <span class="version-badge">v02 — June 2026 &nbsp;·&nbsp; Phases 1–4 Complete &nbsp;·&nbsp; Phase 5 Hardening</span>
+    </div>
+  </div>
+
+  <!-- NFR Strip -->
+  <div class="section">
+    <div class="section-title">Engineering NFRs</div>
+    <div class="nfr-strip">
+      <div class="nfr-card">
+        <div class="nfr-value" style="color:#10b981">&lt;600ms</div>
+        <div class="nfr-label">Agent Decision p99</div>
+      </div>
+      <div class="nfr-card">
+        <div class="nfr-value" style="color:#10b981">0.000%</div>
+        <div class="nfr-label">IET Breach Rate</div>
+      </div>
+      <div class="nfr-card">
+        <div class="nfr-value" style="color:#6366f1">500</div>
+        <div class="nfr-label">Parallel AI Agents</div>
+      </div>
+      <div class="nfr-card">
+        <div class="nfr-value" style="color:#8b5cf6">&lt;5ms</div>
+        <div class="nfr-label">Vault Lookup p99</div>
+      </div>
+      <div class="nfr-card">
+        <div class="nfr-value" style="color:#f59e0b">&lt;30s</div>
+        <div class="nfr-label">DC Failover RTO</div>
+      </div>
+      <div class="nfr-card">
+        <div class="nfr-value" style="color:#10b981">RPO=0</div>
+        <div class="nfr-label">Active-Active DCs</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Codebase Stats -->
+  <div class="section">
+    <div class="section-title">Codebase Stats — As Built (June 2026)</div>
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-value" style="color:#10b981">1,301</div>
+        <div class="stat-label">Tests<br>(1,290 Python · 11 Go)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color:#6366f1">94</div>
+        <div class="stat-label">Backend Python Files</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color:#06b6d4">30</div>
+        <div class="stat-label">API Endpoints<br>(6 routers, v1)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color:#8b5cf6">21</div>
+        <div class="stat-label">Kafka Topics<br>(9 CTS · 7 EJ · 5 Platform)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color:#f59e0b">18</div>
+        <div class="stat-label">DB Migrations<br>(13 CTS · 5 EJ)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color:#10b981">8</div>
+        <div class="stat-label">Redis Key<br>Namespaces</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color:#a5b4fc">7</div>
+        <div class="stat-label">Temporal<br>Workflows</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color:#67e8f9">7</div>
+        <div class="stat-label">Go Source Files<br>(Edge Agent)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Two-module architecture -->
+  <div class="section">
+    <div class="section-title">Two-Module Architecture</div>
+    <div class="arch-grid">
+      <div class="module-card cts">
+        <div class="module-icon">🏦</div>
+        <div class="module-name cts">CTS Module</div>
+        <div class="module-full">Cheque Truncation System</div>
+        <div class="module-desc">
+          One AI agent per inward cheque. Solves RBI T+3-hour IET mandate (Jan 2026).
+          500 cheques → 500 parallel Temporal workflows → entire batch &lt;600ms wall clock.
+          Vision LLM for alteration detection, Siamese network for signature verification,
+          XGBoost for fraud scoring. Missed IET = deemed approval = bank pays regardless.
+        </div>
+        <div>
+          <span class="module-stat"><span class="dot dot-emerald"></span>₹71L cr / year cleared</span>
+          <span class="module-stat"><span class="dot dot-violet"></span>609M cheques (FY25)</span>
+          <span class="module-stat"><span class="dot dot-amber"></span>18-month first-mover window</span>
+          <span class="module-stat"><span class="dot dot-cyan"></span>IET watchdog at T−30s</span>
+          <span class="module-stat"><span class="dot dot-emerald"></span>Qwen2-VL 72B · GOT-OCR2 · XGBoost</span>
+        </div>
+      </div>
+      <div class="module-card ej">
+        <div class="module-icon">🏧</div>
+        <div class="module-name ej">EJ Module</div>
+        <div class="module-full">ATM Electronic Journal Intelligence</div>
+        <div class="module-desc">
+          AI normalisation of Electronic Journal logs across all ATM OEMs.
+          5+ OEMs (NCR, Diebold, Wincor, Nautilus, GRG), zero standard format —
+          LLM solves this permanently. Dispute resolution with CCTV evidence correlation,
+          fleet observability, predictive maintenance. Cross-sell after CTS foothold.
+        </div>
+        <div>
+          <span class="module-stat"><span class="dot dot-cyan"></span>2.5L+ ATMs deployed</span>
+          <span class="module-stat"><span class="dot dot-emerald"></span>5+ OEMs, zero standard</span>
+          <span class="module-stat"><span class="dot dot-amber"></span>Llama 3.3 70B parser</span>
+          <span class="module-stat"><span class="dot dot-violet"></span>BGE-M3 dispute matching</span>
+          <span class="module-stat"><span class="dot dot-cyan"></span>Go edge agent at branch</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Kafka + Redis + DB counts -->
+  <div class="section">
+    <div class="section-title">Infrastructure Counts — Kafka · Redis · Database</div>
+    <div class="counts-grid">
+
+      <!-- Kafka -->
+      <div class="counts-panel">
+        <div class="counts-header" style="color:#f59e0b">Apache Kafka — 21 Logical Topics</div>
+        <div class="counts-row">
+          <span class="counts-row-label">cts.inward.{bank_id}</span>
+          <span class="counts-row-val" style="color:#a5b4fc">KEDA fan-out</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">cts.decisions.{bank_id}</span>
+          <span class="counts-row-val" style="color:#a5b4fc">audit + analytics</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">cts.human.review.{bank_id}</span>
+          <span class="counts-row-val" style="color:#a5b4fc">ops workstation</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">cts.vault.sync.{bank_id}</span>
+          <span class="counts-row-val" style="color:#a5b4fc">CBS → Redis</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">cts.ngch.submissions.{bank_id}</span>
+          <span class="counts-row-val" style="color:#a5b4fc">exactly-once</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">cts.iet.alerts.{bank_id}</span>
+          <span class="counts-row-val" style="color:#a5b4fc">watchdog alerts</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">cts.fraud.signals.{bank_id}</span>
+          <span class="counts-row-val" style="color:#a5b4fc">ML analytics</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">cts.sub_member.routed.{bank_id}</span>
+          <span class="counts-row-val" style="color:#a5b4fc">sponsor routing</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">cts.reconciliation.{bank_id}</span>
+          <span class="counts-row-val" style="color:#a5b4fc">CBS vs NGCH</span>
+        </div>
+        <div class="counts-row" style="background:rgba(255,255,255,0.02)">
+          <span class="counts-row-label">ej.raw.ingested.{bank_id}</span>
+          <span class="counts-row-val" style="color:#67e8f9">trigger normalise</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">ej.canonical.{bank_id}</span>
+          <span class="counts-row-val" style="color:#67e8f9">dispute + analytics</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">ej.health.signals.{bank_id}</span>
+          <span class="counts-row-val" style="color:#67e8f9">ATM health TS</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">ej.disputes.{bank_id}</span>
+          <span class="counts-row-val" style="color:#67e8f9">NPCI claims</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">ej.dispute.resolutions.{bank_id}</span>
+          <span class="counts-row-val" style="color:#67e8f9">auto/escalate</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">ej.atm.fleet.commands.{bank_id}</span>
+          <span class="counts-row-val" style="color:#67e8f9">ops commands</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">ej.parse.failed.{bank_id}</span>
+          <span class="counts-row-val" style="color:#67e8f9">DLQ / human</span>
+        </div>
+        <div class="counts-row" style="background:rgba(255,255,255,0.02)">
+          <span class="counts-row-label">platform.audit.events</span>
+          <span class="counts-row-val" style="color:#6ee7b7">Immudb writer</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">platform.notifications</span>
+          <span class="counts-row-val" style="color:#6ee7b7">email + WA</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">platform.config.changed</span>
+          <span class="counts-row-val" style="color:#6ee7b7">30s hot-reload</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">platform.cache.invalidation</span>
+          <span class="counts-row-val" style="color:#6ee7b7">Redis DEL</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">platform.bank.onboarding</span>
+          <span class="counts-row-val" style="color:#6ee7b7">provisioning</span>
+        </div>
+      </div>
+
+      <!-- Redis -->
+      <div class="counts-panel">
+        <div class="counts-header" style="color:#06b6d4">Redis — 2 Clusters · 8 Namespaces</div>
+        <div class="counts-row" style="background:rgba(139,92,246,0.05)">
+          <span style="font-size:10px;font-weight:600;color:#a5b4fc">redis-cts (CTS Cluster)</span>
+          <span class="counts-row-val" style="color:#a5b4fc">6 nodes, 3+3 DC</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">sig:{bank_id}:{acct_hash}</span>
+          <span class="counts-row-val" style="color:#a5b4fc">Hash · No TTL</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">pps:{bank_id}:{hash}:{series}</span>
+          <span class="counts-row-val" style="color:#a5b4fc">Hash · TTL=validity</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">ratelimit:{bank_id}:{slug}:{min}</span>
+          <span class="counts-row-val" style="color:#a5b4fc">String · TTL=70s</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">session:{bank_id}:{token_hash}</span>
+          <span class="counts-row-val" style="color:#a5b4fc">String · TTL=900s</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">lock:workflow:{bank_id}:{wf_id}</span>
+          <span class="counts-row-val" style="color:#a5b4fc">String · TTL=60s</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">audit:{bank_id}:stream</span>
+          <span class="counts-row-val" style="color:#a5b4fc">Stream · MAXLEN=1000</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">config:{bank_id}:{key}</span>
+          <span class="counts-row-val" style="color:#a5b4fc">String · TTL=30s</span>
+        </div>
+        <div class="counts-row" style="margin-top:4px; background:rgba(6,182,212,0.05)">
+          <span style="font-size:10px;font-weight:600;color:#67e8f9">redis-ej (EJ Cluster)</span>
+          <span class="counts-row-val" style="color:#67e8f9">6 nodes, 3+3 DC</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">ej:atm:health:{bank_id}:{atm_id}</span>
+          <span class="counts-row-val" style="color:#67e8f9">Hash · TTL=2h</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">ej:canonical:{bank_id}:{atm}:{date}</span>
+          <span class="counts-row-val" style="color:#67e8f9">Hash · TTL=24h</span>
+        </div>
+        <div class="counts-row" style="border-top:1px solid var(--white8); margin-top:8px; padding-top:8px; background:rgba(255,255,255,0.02)">
+          <span class="counts-row-label" style="color:#6ee7b7">KEDA ScaledObjects</span>
+          <span class="counts-row-val" style="color:#6ee7b7">8 total</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">cts-agent-worker</span>
+          <span class="counts-row-val">lag&gt;10 → 0–500 pods</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">cts-vault-sync-worker</span>
+          <span class="counts-row-val">lag&gt;5 → 0–10 pods</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">cts-human-review-worker</span>
+          <span class="counts-row-val">lag&gt;3 → 1–20 pods</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">ej-normalisation-worker</span>
+          <span class="counts-row-val">lag&gt;5 → 0–50 pods</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">ej-dispute-worker</span>
+          <span class="counts-row-val">lag&gt;3 → 0–20 pods</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">audit-service</span>
+          <span class="counts-row-val">lag&gt;100 → 1–5 pods</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">notification-service</span>
+          <span class="counts-row-val">lag&gt;50 → 1–10 pods</span>
+        </div>
+        <div class="counts-row">
+          <span class="counts-row-label">analytics-service</span>
+          <span class="counts-row-val">lag&gt;200 → 1–3 pods</span>
+        </div>
+      </div>
+
+      <!-- DB + API -->
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="counts-panel">
+          <div class="counts-header" style="color:#10b981">Database — YugabyteDB · 18 Migrations</div>
+          <div class="counts-row" style="background:rgba(139,92,246,0.05)">
+            <span style="font-size:10px;font-weight:600;color:#a5b4fc">Schema: cts (13 migrations)</span>
+            <span></span>
+          </div>
+          <div class="counts-row"><span class="counts-row-label">001</span><span class="counts-row-val">cts_schema &amp; master data</span></div>
+          <div class="counts-row"><span class="counts-row-label">002</span><span class="counts-row-val">clearing_sessions &amp; batches</span></div>
+          <div class="counts-row"><span class="counts-row-label">003</span><span class="counts-row-val">cheque_instruments &amp; images</span></div>
+          <div class="counts-row"><span class="counts-row-label">004</span><span class="counts-row-val">clearing_items &amp; returns</span></div>
+          <div class="counts-row"><span class="counts-row-label">005</span><span class="counts-row-val">agent_decisions &amp; review</span></div>
+          <div class="counts-row"><span class="counts-row-label">006</span><span class="counts-row-val">vault_db_entries</span></div>
+          <div class="counts-row"><span class="counts-row-label">007</span><span class="counts-row-val">pps_operations</span></div>
+          <div class="counts-row"><span class="counts-row-label">008</span><span class="counts-row-val">stop_payment</span></div>
+          <div class="counts-row"><span class="counts-row-label">009</span><span class="counts-row-val">ngch_exchange_files</span></div>
+          <div class="counts-row"><span class="counts-row-label">010</span><span class="counts-row-val">notifications &amp; returns</span></div>
+          <div class="counts-row"><span class="counts-row-label">011</span><span class="counts-row-val">reconciliation</span></div>
+          <div class="counts-row"><span class="counts-row-label">012</span><span class="counts-row-val">audit &amp; workflow_state</span></div>
+          <div class="counts-row"><span class="counts-row-label">013</span><span class="counts-row-val">sub_member_banks &amp; ledger</span></div>
+          <div class="counts-row" style="background:rgba(6,182,212,0.05)">
+            <span style="font-size:10px;font-weight:600;color:#67e8f9">Schema: ej (5 migrations)</span>
+            <span></span>
+          </div>
+          <div class="counts-row"><span class="counts-row-label">001</span><span class="counts-row-val">ej_schema &amp; atm_master</span></div>
+          <div class="counts-row"><span class="counts-row-label">002</span><span class="counts-row-val">ej_ingestion &amp; raw_logs</span></div>
+          <div class="counts-row"><span class="counts-row-label">003</span><span class="counts-row-val">ej_canonical &amp; embeddings</span></div>
+          <div class="counts-row"><span class="counts-row-label">004</span><span class="counts-row-val">atm_health</span></div>
+          <div class="counts-row"><span class="counts-row-label">005</span><span class="counts-row-val">disputes &amp; cctv</span></div>
+        </div>
+
+        <div class="counts-panel">
+          <div class="counts-header" style="color:#f59e0b">API Endpoints — 30 total (v1)</div>
+          <div class="counts-row"><span class="counts-row-label">cts.py</span><span class="counts-row-val" style="color:#a5b4fc">4 endpoints</span></div>
+          <div class="counts-row"><span class="counts-row-label">ej.py</span><span class="counts-row-val" style="color:#67e8f9">5 endpoints</span></div>
+          <div class="counts-row"><span class="counts-row-label">disputes.py</span><span class="counts-row-val" style="color:#6ee7b7">6 endpoints</span></div>
+          <div class="counts-row"><span class="counts-row-label">audit.py</span><span class="counts-row-val" style="color:#6ee7b7">4 endpoints</span></div>
+          <div class="counts-row"><span class="counts-row-label">admin.py</span><span class="counts-row-val" style="color:#fcd34d">7 endpoints</span></div>
+          <div class="counts-row"><span class="counts-row-label">notifications.py</span><span class="counts-row-val" style="color:#fcd34d">4 endpoints</span></div>
+        </div>
+
+        <div class="counts-panel">
+          <div class="counts-header" style="color:#8b5cf6">Temporal Workflows — 7</div>
+          <div class="counts-row"><span class="counts-row-label">ChequeProcessingWorkflow</span><span class="counts-row-val" style="color:#a5b4fc">11 activities</span></div>
+          <div class="counts-row"><span class="counts-row-label">IETWatchdogWorkflow</span><span class="counts-row-val" style="color:#a5b4fc">T−30s guard</span></div>
+          <div class="counts-row"><span class="counts-row-label">HumanReviewWorkflow</span><span class="counts-row-val" style="color:#a5b4fc">55-min timeout</span></div>
+          <div class="counts-row"><span class="counts-row-label">VaultSyncWorkflow</span><span class="counts-row-val" style="color:#a5b4fc">6AM daily</span></div>
+          <div class="counts-row"><span class="counts-row-label">EJNormalisationWorkflow</span><span class="counts-row-val" style="color:#67e8f9">8 activities</span></div>
+          <div class="counts-row"><span class="counts-row-label">DisputeResolutionWorkflow</span><span class="counts-row-val" style="color:#67e8f9">7 activities</span></div>
+          <div class="counts-row"><span class="counts-row-label">ATMHealthWorkflow</span><span class="counts-row-val" style="color:#67e8f9">hourly, 3-state</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CTS AI Pipeline Flow -->
+  <div class="section">
+    <div class="section-title">CTS — Cheque Processing AI Pipeline (per instrument)</div>
+    <div class="pipeline">
+      <div class="pipe-step">
+        <div class="pipe-icon done">📥</div>
+        <div class="pipe-label">Inward Receipt</div>
+        <div class="pipe-sub">NGCH → Kafka</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-icon done">🔍</div>
+        <div class="pipe-label">CTS-2010 Validate</div>
+        <div class="pipe-sub">IQA · DPI · MICR</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-icon done">📝</div>
+        <div class="pipe-label">OCR Extract</div>
+        <div class="pipe-sub">GOT-OCR2.0</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-icon done">🖋</div>
+        <div class="pipe-label">Alteration Detect</div>
+        <div class="pipe-sub">Qwen2-VL 72B</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-icon done">✍️</div>
+        <div class="pipe-label">Sig Verify</div>
+        <div class="pipe-sub">Siamese Network</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-icon done">🔐</div>
+        <div class="pipe-label">PPS Lookup</div>
+        <div class="pipe-sub">Redis Vault</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-icon done">🏦</div>
+        <div class="pipe-label">CBS Balance</div>
+        <div class="pipe-sub">Finacle/BaNCS</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-icon done">🎯</div>
+        <div class="pipe-label">Fraud Score</div>
+        <div class="pipe-sub">XGBoost + SHAP</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-icon done">⚖️</div>
+        <div class="pipe-label">Decision</div>
+        <div class="pipe-sub">STP / Human</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-icon done">📤</div>
+        <div class="pipe-label">NGCH File</div>
+        <div class="pipe-sub">Exactly-once</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-icon done">🔒</div>
+        <div class="pipe-label">Immudb Audit</div>
+        <div class="pipe-sub">HSM signed</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Frontend pages built -->
+  <div class="section">
+    <div class="section-title">
+      Frontend Pages — Build Status
+      <span style="margin-left:auto; font-size:10px; display:flex; gap:16px; text-transform:none; letter-spacing:0">
+        <span style="display:flex;align-items:center;gap:5px"><span class="status-dot status-built"></span> Built &amp; themed</span>
+        <span style="display:flex;align-items:center;gap:5px"><span class="status-dot status-partial"></span> Partial</span>
+        <span style="display:flex;align-items:center;gap:5px"><span class="status-dot status-pending"></span> Pending</span>
+      </span>
+    </div>
+    <div class="pages-grid">
+      <!-- CTS Pages -->
+      <div class="pages-panel">
+        <div class="pages-header">
+          <span class="pages-header-title" style="color:#a5b4fc">CTS Workstation Pages</span>
+          <span class="badge badge-violet">18 pages</span>
+        </div>
+        <div class="page-row">
+          <div><div class="page-name">CTSWorkstation</div><div class="page-desc">Live ops: STP stream · Human review queue · Session clock</div></div>
+          <span class="status-dot status-built"></span>
+        </div>
+        <div class="page-row">
+          <div><div class="page-name">CTSScanner</div><div class="page-desc">OEM-agnostic ingestion · Panini · Canon · TWAIN/ISIS</div></div>
+          <span class="status-dot status-built"></span>
+        </div>
+        <div class="page-row">
+          <div><div class="page-name">CTSBatches</div><div class="page-desc">Batch/lot management · Settlement position · Count verification</div></div>
+          <span class="status-dot status-built"></span>
+        </div>
+        <div class="page-row">
+          <div><div class="page-name">CTSEndorsement</div><div class="page-desc">4-lot endorsement · Editable template · Per-lot status</div></div>
+          <span class="status-dot status-built"></span>
+        </div>
+        <div class="page-row">
+          <div><div class="page-name">CTSPresentment</div><div class="page-desc">NGCH presentment · Instrument-level detail · Status tracking</div></div>
+          <span class="status-dot status-built"></span>
+        </div>
+        <div class="page-row">
+          <div><div class="page-name">CTSReconciliation</div><div class="page-desc">CBS vs NGCH · 25 instruments · Exception actions</div></div>
+          <span class="status-dot status-built"></span>
+        </div>
+        <div class="page-row">
+          <div><div class="page-name">CTSCompliance</div><div class="page-desc">CTS-2010 standard · IQA checker · XML certificate download</div></div>
+          <span class="status-dot status-built"></span>
+        </div>
+        <div class="page-row">
+          <div><div class="page-name">CTSDiscrepancy</div><div class="page-desc">9 discrepancy types · Escalate/return/resolve actions</div></div>
+          <span class="status-dot status-built"></span>
+        </div>
+        <div class="page-row">
+          <div><div class="page-name">CTSDecisionsLog</div><div class="page-desc">STP + human decisions audit trail · Filter by outcome</div></div>
+          <span class="status-dot status-built"></span>
+        </div>
+        <div class="page-row">
+          <div><div class="page-name">CTSExceptions</div><div class="page-desc">Exception queue · Priority triage · Exception routing</div></div>
+          <span class="status-dot status-built"></span>
+        </div>
+        <div class="page-row">
+          <div><div class="page-name">CTSImageQuality</div><div class="page-desc">IQA monitoring · MICR band scores · Reject analysis</div></div>
+          <span class="status-dot status-built"></span>
+        </div>
+        <div class="page-row">
+          <div><div class="page-name">CTSVaultStatus</div><div class="page-desc">Sig vault · PPS vault · Hit rates · Sync log · Miss routing</div></div>
+          <span class="status-dot status-built"></span>
+        </div>
+        <div class="page-row">
+          <div><div class="page-name">CTSAnalytics</div><div class="page-desc">AI model metrics · IET safety · Throughput · 7-day trends</div></div>
+          <span class="status-dot status-built"></span>
+        </div>
+        <div class="page-row">
+          <div><div class="page-name">CTSConfig</div><div class="page-desc">Maker-checker · Layer 2/3 config · Change audit log</div></div>
+          <span class="status-dot status-built"></span>
+        </div>
+        <div class="page-row">
+          <div><div class="page-name">CTSSubMember</div><div class="page-desc">Sponsor bank management · Sub-member routing · Settlement</div></div>
+          <span class="status-dot status-built"></span>
+        </div>
+        <div class="page-row">
+          <div><div class="page-name">CTSRPCConsolidation</div><div class="page-desc">5-zone multi-centre view · Cross-centre fraud signals</div></div>
+          <span class="status-dot status-built"></span>
+        </div>
+        <div class="page-row">
+          <div><div class="page-name">CTSPipelineVisualizer</div><div class="page-desc">Live Temporal workflow pipeline · Agent state animation</div></div>
+          <span class="status-dot status-built"></span>
+        </div>
+        <div class="page-row">
+          <div><div class="page-name">CTSBusinessModel</div><div class="page-desc">Vendor P&amp;L · Bank portfolio · 3-year revenue model</div></div>
+          <span class="status-dot status-built"></span>
+        </div>
+      </div>
+
+      <!-- EJ Pages + Backend -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div class="pages-panel">
+          <div class="pages-header">
+            <span class="pages-header-title" style="color:#67e8f9">EJ Intelligence Pages</span>
+            <span class="badge badge-cyan">8 pages</span>
+          </div>
+          <div class="page-row">
+            <div><div class="page-name">EJDashboard</div><div class="page-desc">ATM fleet health · Dispute pipeline · OEM breakdown</div></div>
+            <span class="status-dot status-built"></span>
+          </div>
+          <div class="page-row">
+            <div><div class="page-name">EJCommandCenter</div><div class="page-desc">Ops command centre · Log viewer · Submit &amp; raise dispute</div></div>
+            <span class="status-dot status-built"></span>
+          </div>
+          <div class="page-row">
+            <div><div class="page-name">DisputeConsole</div><div class="page-desc">NPCI claim matching · BGE-M3 similarity · Evidence trail</div></div>
+            <span class="status-dot status-built"></span>
+          </div>
+          <div class="page-row">
+            <div><div class="page-name">ATMFleetMap</div><div class="page-desc">Geographic fleet view · Health overlays · Per-ATM drill-down</div></div>
+            <span class="status-dot status-built"></span>
+          </div>
+          <div class="page-row">
+            <div><div class="page-name">ManagerPortal</div><div class="page-desc">Branch manager view · Cross-ATM analytics · Alerts</div></div>
+            <span class="status-dot status-built"></span>
+          </div>
+          <div class="page-row">
+            <div><div class="page-name">BREPolicyManager</div><div class="page-desc">Business rule editor · OPA Rego policy management</div></div>
+            <span class="status-dot status-built"></span>
+          </div>
+          <div class="page-row">
+            <div><div class="page-name">NotificationCenter</div><div class="page-desc">Email · WhatsApp · Alert routing · Template management</div></div>
+            <span class="status-dot status-built"></span>
+          </div>
+          <div class="page-row">
+            <div><div class="page-name">IncidentManagement</div><div class="page-desc">Incident lifecycle · Severity triage · SLA tracking</div></div>
+            <span class="status-dot status-built"></span>
+          </div>
+        </div>
+
+        <div class="pages-panel">
+          <div class="pages-header">
+            <span class="pages-header-title" style="color:#fcd34d">Backend — Phase 5 Hardening</span>
+            <span class="badge badge-emerald">Largely Complete</span>
+          </div>
+          <div class="page-row">
+            <div><div class="page-name">FastAPI Routers + main.py</div><div class="page-desc">6 routers · 30 endpoints · RateLimitMiddleware · dual Kafka</div></div>
+            <span class="status-dot status-built"></span>
+          </div>
+          <div class="page-row">
+            <div><div class="page-name">Temporal Workflows</div><div class="page-desc">7 workflows: ChequeProcessing · IETWatchdog · VaultSync + EJ</div></div>
+            <span class="status-dot status-built"></span>
+          </div>
+          <div class="page-row">
+            <div><div class="page-name">AI Activities</div><div class="page-desc">OCR · Alteration · Signature · Fraud scoring · SHAP</div></div>
+            <span class="status-dot status-built"></span>
+          </div>
+          <div class="page-row">
+            <div><div class="page-name">Redis Vaults + Patterns</div><div class="page-desc">Sig vault · PPS vault · Rate limit · Session cache · Dist lock · Streams</div></div>
+            <span class="status-dot status-built"></span>
+          </div>
+          <div class="page-row">
+            <div><div class="page-name">NGCH Adapter (MCP)</div><div class="page-desc">SFTP wrapper · submit_instrument · file_decision · 4 tools</div></div>
+            <span class="status-dot status-built"></span>
+          </div>
+          <div class="page-row">
+            <div><div class="page-name">CBS Connectors</div><div class="page-desc">Finacle · BaNCS · FlexCube — all 3 implemented</div></div>
+            <span class="status-dot status-built"></span>
+          </div>
+          <div class="page-row">
+            <div><div class="page-name">EJ Edge Agent (Go)</div><div class="page-desc">OEM fingerprint · gzip+AES · MCP server · 11 tests</div></div>
+            <span class="status-dot status-built"></span>
+          </div>
+          <div class="page-row">
+            <div><div class="page-name">EJ Normalisation Pipeline</div><div class="page-desc">8-activity workflow · Llama 3.3 70B · canonical schema</div></div>
+            <span class="status-dot status-built"></span>
+          </div>
+          <div class="page-row">
+            <div><div class="page-name">Helm Charts (skeleton)</div><div class="page-desc">astra-platform · astra-cts · astra-ej · bank values template</div></div>
+            <span class="status-dot status-partial"></span>
+          </div>
+          <div class="page-row">
+            <div><div class="page-name">Performance · Chaos · Pilot bank</div><div class="page-desc">500-cheque benchmark · Chaos Mesh · saraswat-coop deploy</div></div>
+            <span class="status-dot status-pending"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Build phases timeline -->
+  <div class="section">
+    <div class="section-title">Build Roadmap — 16-Week Plan</div>
+    <div class="timeline">
+      <div class="phase-card done">
+        <div class="phase-num done">Phase 1 ✓</div>
+        <div class="phase-title done">Foundation</div>
+        <div class="phase-weeks">Weeks 1–4</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>Frontend SPA scaffold</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>CTS ops workstation UI</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>EJ intelligence UI</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>Dark/light theming</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>All 18 CTS pages</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>All 8 EJ pages</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>Business model tool</div>
+      </div>
+      <div class="phase-card done">
+        <div class="phase-num done">Phase 2 ✓</div>
+        <div class="phase-title done">CTS Core</div>
+        <div class="phase-weeks">Weeks 5–8</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>Signature vault (Redis)</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>PPS vault (Redis)</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>NGCH adapter (MCP)</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>ChequeProcessingWorkflow</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>IETWatchdogWorkflow</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>OCR activity (GOT-OCR2)</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>Signature activity</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>Fraud scoring (XGBoost)</div>
+      </div>
+      <div class="phase-card done">
+        <div class="phase-num done">Phase 3 ✓</div>
+        <div class="phase-title done">Observability</div>
+        <div class="phase-weeks">Weeks 9–10</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>OTel instrumentation</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>Grafana dashboards</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>Langfuse LLM tracing</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>PrometheusRule CRDs</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>Kafka + Redis arch doc</div>
+        <div class="phase-item"><span class="phase-item-check check-todo">○</span>SHAP explainability panel</div>
+      </div>
+      <div class="phase-card done">
+        <div class="phase-num done">Phase 4 ✓</div>
+        <div class="phase-title done">EJ Module</div>
+        <div class="phase-weeks">Weeks 11–14</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>Go edge agent (branch)</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>EJ ingestion gateway</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>EJNormalisationWorkflow</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>DisputeResolutionWorkflow</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>ATMHealthWorkflow</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>Llama 3.3 70B parser</div>
+        <div class="phase-item"><span class="phase-item-check check-done">✓</span>BGE-M3 embeddings</div>
+      </div>
+      <div class="phase-card current">
+        <div class="phase-num current">Phase 5 →</div>
+        <div class="phase-title current">Hardening</div>
+        <div class="phase-weeks">Weeks 15–16</div>
+        <div class="phase-item"><span class="phase-item-check check-todo">○</span>Active-active DR drills</div>
+        <div class="phase-item"><span class="phase-item-check check-todo">○</span>Chaos Mesh scenarios</div>
+        <div class="phase-item"><span class="phase-item-check check-todo">○</span>RBI compliance mapping</div>
+        <div class="phase-item"><span class="phase-item-check check-todo">○</span>500-cheque perf test</div>
+        <div class="phase-item"><span class="phase-item-check check-todo">○</span>Penetration test prep</div>
+        <div class="phase-item"><span class="phase-item-check check-todo">○</span>Pilot bank Helm deploy</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tech stack -->
+  <div class="section">
+    <div class="section-title">Technology Stack (Locked)</div>
+    <div class="stack-grid">
+      <div class="stack-card">
+        <div class="stack-cat">AI / ML</div>
+        <div class="stack-item"><span class="dot dot-violet"></span>Qwen2-VL 72B — Vision (cheques)</div>
+        <div class="stack-item"><span class="dot dot-violet"></span>GOT-OCR2.0 — MICR / handwriting</div>
+        <div class="stack-item"><span class="dot dot-violet"></span>Llama 3.3 70B — EJ + fraud reason</div>
+        <div class="stack-item"><span class="dot dot-violet"></span>Qwen2.5 72B — Dispute arbitration</div>
+        <div class="stack-item"><span class="dot dot-violet"></span>InternVL2-26B — CCTV frames</div>
+        <div class="stack-item"><span class="dot dot-violet"></span>BGE-M3 — EJ embeddings</div>
+        <div class="stack-item"><span class="dot dot-violet"></span>XGBoost + SHAP — Fraud scoring</div>
+        <div class="stack-item"><span class="dot dot-violet"></span>Siamese Network — Signatures</div>
+        <div class="stack-item"><span class="dot dot-violet"></span>vLLM — On-prem inference server</div>
+        <div class="stack-item"><span class="dot dot-violet"></span>Langfuse — LLM observability</div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-cat">Backend / Workflow</div>
+        <div class="stack-item"><span class="dot dot-cyan"></span>FastAPI (Python) — API gateway</div>
+        <div class="stack-item"><span class="dot dot-cyan"></span>Temporal — Durable workflows</div>
+        <div class="stack-item"><span class="dot dot-cyan"></span>KEDA — Kafka-driven autoscale</div>
+        <div class="stack-item"><span class="dot dot-cyan"></span>Apache Kafka (Strimzi) — Events</div>
+        <div class="stack-item"><span class="dot dot-cyan"></span>OPA (Rego) — Policy engine</div>
+        <div class="stack-item"><span class="dot dot-cyan"></span>MCP — Agent integration layer</div>
+        <div class="stack-item"><span class="dot dot-cyan"></span>Go — Edge agent (branch)</div>
+        <div class="stack-item"><span class="dot dot-cyan"></span>Pydantic v2 — Schema validation</div>
+        <div class="stack-item"><span class="dot dot-cyan"></span>OpenTelemetry — Instrumentation</div>
+        <div class="stack-item"><span class="dot dot-cyan"></span>MLflow — Model registry</div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-cat">Data &amp; Storage</div>
+        <div class="stack-item"><span class="dot dot-emerald"></span>YugabyteDB YSQL — Operational DB</div>
+        <div class="stack-item"><span class="dot dot-emerald"></span>Redis Cluster — 2 clusters, 12 nodes</div>
+        <div class="stack-item"><span class="dot dot-emerald"></span>MinIO — Object store (WORM/ILM)</div>
+        <div class="stack-item"><span class="dot dot-emerald"></span>Immudb — Immutable audit trail</div>
+        <div class="stack-item"><span class="dot dot-emerald"></span>pgbouncer — Connection pooling</div>
+        <div class="stack-item"><span class="dot dot-emerald"></span>Alembic — 18 migrations done</div>
+        <div class="stack-item"><span class="dot dot-emerald"></span>pgvector — BGE-M3 embeddings</div>
+        <div class="stack-item"><span class="dot dot-emerald"></span>MirrorMaker 2 — DC replication</div>
+        <div class="stack-item"><span class="dot dot-emerald"></span>3-tier ILM: Hot/Warm/WORM</div>
+        <div class="stack-item"><span class="dot dot-emerald"></span>10-year regulatory retention</div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-cat">Infra / Security / Frontend</div>
+        <div class="stack-item"><span class="dot dot-amber"></span>Kubernetes (on-prem) + Helm</div>
+        <div class="stack-item"><span class="dot dot-amber"></span>Istio — mTLS + zero-trust mesh</div>
+        <div class="stack-item"><span class="dot dot-amber"></span>ArgoCD — GitOps pull deployment</div>
+        <div class="stack-item"><span class="dot dot-amber"></span>HashiCorp Vault — Dynamic secrets</div>
+        <div class="stack-item"><span class="dot dot-amber"></span>FIPS 140-2 L3 HSM — PKI signing</div>
+        <div class="stack-item"><span class="dot dot-amber"></span>cert-manager — mTLS certs</div>
+        <div class="stack-item"><span class="dot dot-amber"></span>React + Vite — Frontend SPA</div>
+        <div class="stack-item"><span class="dot dot-amber"></span>TailwindCSS + Recharts — UI</div>
+        <div class="stack-item"><span class="dot dot-amber"></span>Prometheus + Grafana + Loki</div>
+        <div class="stack-item"><span class="dot dot-amber"></span>Chaos Mesh — Resilience testing</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Progress summary -->
+  <div class="section">
+    <div class="section-title">Build Progress Summary</div>
+    <div class="progress-grid">
+      <div class="progress-card">
+        <div class="progress-label">CTS Frontend Pages</div>
+        <div class="progress-value" style="color:#10b981">18 / 18</div>
+        <div class="progress-sub">All pages built, themed dark+light</div>
+        <div class="bar-track"><div class="bar-fill" style="width:100%;background:linear-gradient(90deg,#10b981,#059669)"></div></div>
+      </div>
+      <div class="progress-card">
+        <div class="progress-label">EJ Frontend Pages</div>
+        <div class="progress-value" style="color:#10b981">8 / 8</div>
+        <div class="progress-sub">All pages built, themed dark+light</div>
+        <div class="bar-track"><div class="bar-fill" style="width:100%;background:linear-gradient(90deg,#06b6d4,#0891b2)"></div></div>
+      </div>
+      <div class="progress-card">
+        <div class="progress-label">Backend Python Files</div>
+        <div class="progress-value" style="color:#10b981">94</div>
+        <div class="progress-sub">modules/ + shared/ + apps/api + ai-server</div>
+        <div class="bar-track"><div class="bar-fill" style="width:85%;background:linear-gradient(90deg,#10b981,#059669)"></div></div>
+      </div>
+      <div class="progress-card">
+        <div class="progress-label">Temporal Workflows</div>
+        <div class="progress-value" style="color:#10b981">7 / 7</div>
+        <div class="progress-sub">CTS: 4 · EJ: 3 · all activities registered</div>
+        <div class="bar-track"><div class="bar-fill" style="width:100%;background:linear-gradient(90deg,#8b5cf6,#6366f1)"></div></div>
+      </div>
+      <div class="progress-card">
+        <div class="progress-label">DB Migrations</div>
+        <div class="progress-value" style="color:#10b981">18</div>
+        <div class="progress-sub">13 CTS schema · 5 EJ schema · reversible</div>
+        <div class="bar-track"><div class="bar-fill" style="width:100%;background:linear-gradient(90deg,#10b981,#059669)"></div></div>
+      </div>
+      <div class="progress-card">
+        <div class="progress-label">Infrastructure (Helm)</div>
+        <div class="progress-value" style="color:#f59e0b">~35%</div>
+        <div class="progress-sub">Skeletons done · Bank pilot values pending</div>
+        <div class="bar-track"><div class="bar-fill" style="width:35%;background:linear-gradient(90deg,#f59e0b,#d97706)"></div></div>
+      </div>
+      <div class="progress-card">
+        <div class="progress-label">Test Coverage</div>
+        <div class="progress-value" style="color:#10b981">1,301</div>
+        <div class="progress-sub">1,290 Python · 11 Go · 95%+ CTS activities</div>
+        <div class="bar-track"><div class="bar-fill" style="width:95%;background:linear-gradient(90deg,#10b981,#059669)"></div></div>
+      </div>
+      <div class="progress-card">
+        <div class="progress-label">Phase 5 Hardening</div>
+        <div class="progress-value" style="color:#f59e0b">0 / 6</div>
+        <div class="progress-sub">DR drills · Chaos · RBI mapping · Pilot bank</div>
+        <div class="bar-track"><div class="bar-fill" style="width:5%;background:linear-gradient(90deg,#f59e0b,#d97706)"></div></div>
+      </div>
+      <div class="progress-card">
+        <div class="progress-label">API Endpoints</div>
+        <div class="progress-value" style="color:#10b981">30</div>
+        <div class="progress-sub">6 routers · versioned /v1/ · auth + rate-limited</div>
+        <div class="bar-track"><div class="bar-fill" style="width:80%;background:linear-gradient(90deg,#06b6d4,#0891b2)"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deployment model -->
+  <div class="section">
+    <div class="section-title">Deployment Model — On-Premises, Per-Bank, Air-Gapped</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+      <div class="stack-card" style="border-color:rgba(139,92,246,0.25)">
+        <div class="stack-cat" style="color:#a5b4fc">ASTRA Vendor</div>
+        <div class="stack-item"><span class="dot dot-violet"></span>GitLab CI builds charts</div>
+        <div class="stack-item"><span class="dot dot-violet"></span>3 independent Helm charts</div>
+        <div class="stack-item"><span class="dot dot-violet"></span>astra-platform (every bank)</div>
+        <div class="stack-item"><span class="dot dot-violet"></span>astra-cts (CTS purchasers)</div>
+        <div class="stack-item"><span class="dot dot-violet"></span>astra-ej (EJ purchasers)</div>
+        <div class="stack-item"><span class="dot dot-violet"></span>Published to private OCI registry</div>
+        <div class="stack-item" style="color:#475569">No access to bank clusters ever</div>
+      </div>
+      <div class="stack-card" style="border-color:rgba(6,182,212,0.25)">
+        <div class="stack-cat" style="color:#67e8f9">Bank's Premises</div>
+        <div class="stack-item"><span class="dot dot-cyan"></span>ArgoCD watches OCI registry</div>
+        <div class="stack-item"><span class="dot dot-cyan"></span>Bank IT admin controls upgrades</div>
+        <div class="stack-item"><span class="dot dot-cyan"></span>Change Advisory Board approval</div>
+        <div class="stack-item"><span class="dot dot-cyan"></span>Per-bank namespace isolation</div>
+        <div class="stack-item"><span class="dot dot-cyan"></span>Active-active across 2 DCs</div>
+        <div class="stack-item"><span class="dot dot-cyan"></span>Air-gapped DC3 for backups</div>
+        <div class="stack-item"><span class="dot dot-cyan"></span>Bank owns ALL infra (zero COGS)</div>
+      </div>
+      <div class="stack-card" style="border-color:rgba(16,185,129,0.25)">
+        <div class="stack-cat" style="color:#6ee7b7">5-Layer Config Model</div>
+        <div class="stack-item"><span class="dot dot-emerald"></span>L1: Platform constraints (Helm, locked)</div>
+        <div class="stack-item"><span class="dot dot-emerald"></span>L2: Topology (PR + ArgoCD sync)</div>
+        <div class="stack-item"><span class="dot dot-emerald"></span>L3: Thresholds (maker-checker, hot)</div>
+        <div class="stack-item"><span class="dot dot-emerald"></span>L4: OPA Rego policies (hot-reload)</div>
+        <div class="stack-item"><span class="dot dot-emerald"></span>L5: User preferences (per-user)</div>
+        <div class="stack-item"><span class="dot dot-emerald"></span>Every L3/L4 change → Immudb audit</div>
+        <div class="stack-item"><span class="dot dot-emerald"></span>No pod restart for L3/L4 changes</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <strong>ASTRA</strong> — Automated Settlement and Transaction Recognition Architecture &nbsp;·&nbsp;
+    Author: <strong>Nilesh Shah</strong> (Ex-NPCI · Piramal · Fullerton/SMFG) &nbsp;·&nbsp;
+    Classification: <strong>Confidential — Banking Grade</strong> &nbsp;·&nbsp;
+    v02 · June 2026
+  </div>
+</div>
+</body>
+</html>

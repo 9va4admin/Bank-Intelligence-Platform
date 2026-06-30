@@ -1,0 +1,711 @@
+import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
+import { useState, useMemo } from 'react'
+import {
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer, Cell,
+} from 'recharts'
+
+// ─── Formatting helpers ────────────────────────────────────────────────────
+
+function fmtRs(lakhs) {
+  if (lakhs === null || lakhs === undefined || isNaN(lakhs)) return '—'
+  if (Math.abs(lakhs) >= 100) return `₹${(lakhs / 100).toFixed(2)}Cr`
+  if (Math.abs(lakhs) >= 1) return `₹${lakhs.toFixed(1)}L`
+  const thou = lakhs * 100000
+  return `₹${Math.round(thou).toLocaleString('en-IN')}`
+}
+
+function fmtVol(lakhs) {
+  return `${lakhs.toLocaleString('en-IN')}L`
+}
+
+// ─── Core model ────────────────────────────────────────────────────────────
+
+const TIER_DEFAULTS = {
+  small:      200,
+  medium:     800,
+  large:      2000,
+  enterprise: 6000,
+}
+
+// ── ASTRA Vendor Cost Model ────────────────────────────────────────────────
+// Banks run ALL infra on their own premises — GPU, K8s, Redis, YugabyteDB, etc.
+// ASTRA has ZERO infra cost per bank deployment.
+// ASTRA's costs are: software team + vendor-side cloud ops + S&M + office.
+const VENDOR_COSTS_ANNUAL = {
+  engineering:  180,  // 6 devs × ₹30L avg CTC
+  salesMarketing: 120, // 2 sales + 1 presales + events + travel
+  cloud:         30,  // CI/CD, OCI registry, staging env, upgrade tooling
+  office:        24,  // office & ops
+  compliance:    18,  // compliance & legal
+}
+const VENDOR_FIXED_ANNUAL = Object.values(VENDOR_COSTS_ANNUAL).reduce((a, b) => a + b, 0)  // 372L/yr
+const PER_BANK_ONBOARDING = 8   // one-time variable cost per bank onboarded (effort + customisation support)
+
+const IMPL_FEE = 25
+const MANAGED_AI_RETAINER = 18
+const SUPPORT_RETAINER = 12
+
+function calcRevenue(volumeLakhs, pricingModel, year) {
+  const vol = volumeLakhs * 100000
+  const yoyFactor = Math.pow(1.2, year - 1)
+  const adjVol = vol * yoyFactor
+
+  let perChequeRevLakhs = 0
+  let platformRevLakhs = 0
+
+  if (pricingModel === 'saas') {
+    const rate = year === 1 ? 1.20 : 1.10
+    perChequeRevLakhs = (adjVol * rate) / 100000
+  } else if (pricingModel === 'licence') {
+    platformRevLakhs = 75
+    const excessVol = Math.max(0, adjVol - 5000000)
+    perChequeRevLakhs = (excessVol * 0.30) / 100000
+  } else {
+    platformRevLakhs = 40
+    perChequeRevLakhs = (adjVol * 0.80) / 100000
+  }
+
+  const implAmortised = IMPL_FEE / 3
+  const managedAI = MANAGED_AI_RETAINER
+  const support = year >= 2 ? SUPPORT_RETAINER : 0
+  const total = perChequeRevLakhs + platformRevLakhs + implAmortised + managedAI + support
+
+  return { perChequeRevLakhs, platformRevLakhs, implAmortised, managedAI, support, total, adjVol }
+}
+
+function calcCosts(year) {
+  // No variable cost per cheque — bank bears all infra. ASTRA cost is purely vendor-side.
+  // Engineering team grows slightly in year 2–3 as we add more banks.
+  const teamGrowthFactor = year === 1 ? 1.0 : year === 2 ? 1.1 : 1.15
+  const engineering  = VENDOR_COSTS_ANNUAL.engineering * teamGrowthFactor
+  const salesMarketing = VENDOR_COSTS_ANNUAL.salesMarketing
+  const cloud        = VENDOR_COSTS_ANNUAL.cloud
+  const office       = VENDOR_COSTS_ANNUAL.office
+  const compliance   = VENDOR_COSTS_ANNUAL.compliance
+  const total = engineering + salesMarketing + cloud + office + compliance
+  return { engineering, salesMarketing, cloud, office, compliance, total }
+}
+
+function calcModel(volumeLakhs, pricingModel, year) {
+  const rev = calcRevenue(volumeLakhs, pricingModel, year)
+  const cost = calcCosts(year)
+  const grossProfit = rev.total - cost.total
+  const grossMarginPct = rev.total > 0 ? (grossProfit / rev.total) * 100 : 0
+  const implFee = IMPL_FEE
+
+  // Break-even: how many banks needed to cover ASTRA's annual fixed costs?
+  // Average revenue per bank at selected pricing / volume
+  const avgRevPerBank = rev.total  // this IS per-bank revenue for the selected config
+  const banksToBreakeven = avgRevPerBank > 0
+    ? Math.ceil(cost.total / avgRevPerBank)
+    : Infinity
+
+  // Break-even cheque volume for per-cheque model (within a single bank)
+  const perChequeRate = pricingModel === 'saas' ? (year === 1 ? 1.20 : 1.10)
+    : pricingModel === 'licence' ? 0.30 : 0.80
+  const fixedRevenue = rev.platformRevLakhs + rev.implAmortised + rev.managedAI + rev.support
+  // Revenue needed from per-cheque to cover vendor costs (per-bank share at ~10 banks)
+  const vendorSharePerBank = cost.total / 10
+  const breakEvenCheques = perChequeRate > 0
+    ? Math.max(0, (vendorSharePerBank - fixedRevenue) / perChequeRate) * 100000
+    : Infinity
+  const breakEvenLakhs = breakEvenCheques / 100000
+
+  // Bank ROI
+  const avgChequeValue = 45000
+  const manualCostPerCheque = 8
+  const adjVol = volumeLakhs * 100000 * Math.pow(1.2, year - 1)
+  const stpRate = 0.85
+  const ietBreachRate = 0.0005
+  const ietSavingsLakhs = (adjVol * ietBreachRate * avgChequeValue * 0.002) / 100000
+  const fteSavingsLakhs = (adjVol * stpRate * manualCostPerCheque) / 100000
+  const fraudSavingsLakhs = (adjVol * 0.0023 * avgChequeValue * 0.015) / 100000
+  const floatSavingsLakhs = (adjVol * 0.00001 * avgChequeValue) / 100000
+  const auditSavingsLakhs = 8
+  const totalBankSaves = ietSavingsLakhs + fteSavingsLakhs + fraudSavingsLakhs + floatSavingsLakhs + auditSavingsLakhs
+
+  // ARR = annual recurring (excl. one-time)
+  const arr = rev.total - rev.implAmortised
+
+  return {
+    arr, implFee, rev, cost, grossProfit, grossMarginPct, breakEvenLakhs,
+    banksToBreakeven,
+    ietSavingsLakhs, fteSavingsLakhs, fraudSavingsLakhs, floatSavingsLakhs,
+    auditSavingsLakhs, totalBankSaves,
+    paybackMonths: arr > 0 ? Math.max(1, Math.round((implFee / (arr / 12)))) : 99,
+  }
+}
+
+// ─── Sensitivity table — gross profit per bank at various rates/volumes ───────
+// (sensitivity is now: at this rate+volume, what is the margin for one bank?
+//  comparing to the per-bank share of vendor fixed costs at a given bank count)
+
+const SENS_VOLUMES = [100, 500, 1000, 2000]
+const SENS_RATES = [0.80, 1.20, 1.50, 2.00]
+const SENS_BANK_BASE = 10  // assume 10-bank portfolio for per-bank cost share
+
+function calcSensitivity(rate, vol) {
+  const revenue = (vol * 100000 * rate) / 100000 + MANAGED_AI_RETAINER + SUPPORT_RETAINER
+  // Per-bank cost share of vendor fixed costs (at 10 banks)
+  const perBankCostShare = VENDOR_FIXED_ANNUAL / SENS_BANK_BASE
+  return revenue - perBankCostShare
+}
+
+// ─── Colour helpers ─────────────────────────────────────────────────────────
+
+const CHART_COLORS = {
+  revenue: '#34d399',
+  cost:    '#f59e0b',
+  profit:  '#818cf8',
+  infra:   '#f87171',
+  platform:'#60a5fa',
+  services:'#a78bfa',
+}
+
+// Cost slices reflect ASTRA vendor costs (not bank infra — bank bears all infra)
+const COST_SLICES = [
+  { label: 'Engineering Team', pct: 48, color: '#f59e0b', key: 'engineering' },
+  { label: 'Sales & Marketing', pct: 32, color: '#f87171', key: 'salesMarketing' },
+  { label: 'Cloud & Tooling',   pct: 8,  color: '#60a5fa', key: 'cloud' },
+  { label: 'Office & Ops',      pct: 7,  color: '#a78bfa', key: 'office' },
+  { label: 'Compliance & Legal',pct: 5,  color: '#34d399', key: 'compliance' },
+]
+
+// ─── Sub-components ────────────────────────────────────────────────────────
+
+function KpiCard({ label, value, sub, color, isDark }) {
+  const cardBg = isDark ? 'bg-navy-900 border border-white/8' : 'bg-white border border-slate-200'
+  const labelCls = isDark ? 'text-slate-400' : 'text-slate-500'
+  const subCls = isDark ? 'text-slate-500' : 'text-slate-400'
+  return (
+    <div className={`${cardBg} rounded-xl p-4 flex flex-col gap-1`}>
+      <span className={`text-xs font-medium uppercase tracking-wide ${labelCls}`}>{label}</span>
+      <span className={`text-2xl font-bold ${color}`}>{value}</span>
+      {sub && <span className={`text-xs ${subCls}`}>{sub}</span>}
+    </div>
+  )
+}
+
+function PillTabs({ options, value, onChange, isDark }) {
+  return (
+    <div className={`flex rounded-lg p-0.5 gap-0.5 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+      {options.map(o => {
+        const active = o.value === value
+        return (
+          <button
+            key={o.value}
+            onClick={() => onChange(o.value)}
+            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              active
+                ? isDark ? 'bg-amber-500 text-navy-950' : 'bg-amber-500 text-white'
+                : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function SectionHeader({ title, isDark }) {
+  return (
+    <div className={`text-xs font-semibold uppercase tracking-widest mb-3 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+      {title}
+    </div>
+  )
+}
+
+// ─── Main component ────────────────────────────────────────────────────────
+
+export default function CTSBusinessModel() {
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { isDark, toggle } = useTheme()
+
+  const [tier, setTier] = useState('medium')
+  const [volumeLakhs, setVolumeLakhs] = useState(800)
+  const [pricingModel, setPricingModel] = useState('saas')
+  const [year, setYear] = useState(1)
+
+  const th = {
+    page:    isDark ? 'bg-[#020817]'             : 'bg-slate-50',
+    card:    isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
+    heading: isDark ? 'text-white'               : 'text-slate-900',
+    body:    isDark ? 'text-slate-300'           : 'text-slate-700',
+    muted:   isDark ? 'text-slate-400'           : 'text-slate-500',
+    faint:   isDark ? 'text-slate-600'           : 'text-slate-400',
+    divider: isDark ? 'border-white/8'           : 'border-slate-200',
+    row:     isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
+    input:   isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
+    strip:   isDark ? 'bg-navy-900/60 border-white/8' : 'bg-white border-slate-200',
+    thead:   isDark ? 'bg-white/4 text-slate-400' : 'bg-slate-50 text-slate-500',
+  }
+
+  const model = useMemo(
+    () => calcModel(volumeLakhs, pricingModel, year),
+    [volumeLakhs, pricingModel, year]  // eslint-disable-line react-hooks/exhaustive-deps
+  )
+
+  const handleTierChange = (t) => {
+    setTier(t)
+    setVolumeLakhs(TIER_DEFAULTS[t])
+  }
+
+  // 3-year vendor P&L projection data (vendor revenue from bank portfolio vs vendor costs)
+  // Assumes a growing bank portfolio: Y1=3 banks, Y2=8 banks, Y3=15 banks
+  const BANK_PORTFOLIO = { 1: 3, 2: 8, 3: 15 }
+  const projData = [1, 2, 3].map(y => {
+    const r = calcRevenue(volumeLakhs, pricingModel, y)
+    const c = calcCosts(y)
+    const banks = BANK_PORTFOLIO[y]
+    const totalRev = r.total * banks
+    const totalCost = c.total + banks * PER_BANK_ONBOARDING  // fixed vendor costs + onboarding
+    return {
+      name: `Year ${y} (${banks} banks)`,
+      Revenue:  parseFloat(totalRev.toFixed(1)),
+      'Vendor Costs': parseFloat(totalCost.toFixed(1)),
+      'Net Profit': parseFloat((totalRev - totalCost).toFixed(1)),
+    }
+  })
+
+  // Unit economics per bank — how much of vendor cost does one bank need to cover?
+  const adjVol = volumeLakhs * 100000 * Math.pow(1.2, year - 1)
+  const teamC    = (model.cost.engineering / model.rev.total) * model.rev.total
+  const salesC   = (model.cost.salesMarketing / model.rev.total) * model.rev.total
+  const cloudC   = (model.cost.cloud / model.rev.total) * model.rev.total
+  const officeC  = ((model.cost.office + model.cost.compliance) / model.rev.total) * model.rev.total
+  const revU     = model.rev.total
+  const profU    = model.grossProfit
+
+  const unitData = [
+    { name: 'Revenue /bank', value: parseFloat(revU.toFixed(1)), fill: CHART_COLORS.revenue },
+    { name: 'Engineering', value: -parseFloat(model.cost.engineering.toFixed(1)), fill: '#f59e0b' },
+    { name: 'Sales & Mktg', value: -parseFloat(model.cost.salesMarketing.toFixed(1)), fill: '#f87171' },
+    { name: 'Cloud+Office', value: -parseFloat((model.cost.cloud + model.cost.office + model.cost.compliance).toFixed(1)), fill: '#60a5fa' },
+    { name: 'Gross Profit', value: parseFloat(profU.toFixed(1)), fill: CHART_COLORS.profit },
+  ]
+
+  const marginColor = model.grossMarginPct >= 70 ? 'text-emerald-400'
+    : model.grossMarginPct >= 50 ? 'text-amber-400' : 'text-red-400'
+
+  const tooltipStyle = {
+    backgroundColor: isDark ? '#0f172a' : '#ffffff',
+    border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0'}`,
+    borderRadius: 8,
+    color: isDark ? '#e2e8f0' : '#1e293b',
+    fontSize: 12,
+  }
+
+  return (
+    <div className={`flex flex-col h-screen ${th.page}`}>
+      {/* Minimal standalone header */}
+      <header className={`shrink-0 flex items-center justify-between px-6 border-b ${isDark ? 'bg-[#040d2a] border-white/8' : 'bg-white border-slate-200'}`} style={{ height: '52px' }}>
+        <div className="flex items-center gap-3">
+          <div className="relative w-6 h-6 shrink-0">
+            <div className={`absolute inset-0 rounded ${isDark ? 'bg-gold-400/20' : 'bg-amber-100'}`} />
+            <div className="absolute inset-[2px] rounded bg-gold-400 flex items-center justify-center">
+              <span className="text-navy-950 font-mono font-bold text-[10px]">A</span>
+            </div>
+          </div>
+          <span className={`text-xs font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>ASTRA</span>
+          <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>›</span>
+          <span className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Business Model — Cost & Revenue</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-amber-900/40 text-amber-400 border border-amber-700/40' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>Internal Reference</span>
+        </div>
+        <button
+          onClick={toggle}
+          title={isDark ? 'Switch to light' : 'Switch to dark'}
+          className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-500'}`}
+        >
+          {isDark ? '☀' : '🌙'}
+        </button>
+      </header>
+      <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5 space-y-5`}>
+
+        {/* ── Configurator Strip ── */}
+        <div className={`${th.strip} border rounded-xl px-5 py-4 flex flex-wrap items-center gap-6`}>
+          <div className="flex flex-col gap-1.5">
+            <span className={`text-xs font-semibold uppercase tracking-wide ${th.muted}`}>Bank Tier</span>
+            <PillTabs
+              value={tier}
+              onChange={handleTierChange}
+              isDark={isDark}
+              options={[
+                { label: 'Small (<5M)', value: 'small' },
+                { label: 'Medium (5–20M)', value: 'medium' },
+                { label: 'Large (>20M)', value: 'large' },
+                { label: 'Enterprise (>50M)', value: 'enterprise' },
+              ]}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <span className={`text-xs font-semibold uppercase tracking-wide ${th.muted}`}>Volume (Lakhs/yr)</span>
+            <input
+              type="number"
+              value={volumeLakhs}
+              min={10}
+              max={10000}
+              onChange={e => setVolumeLakhs(Math.max(10, Number(e.target.value)))}
+              className={`${th.input} border rounded-lg px-3 py-1.5 text-sm font-mono w-28 focus:outline-none`}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <span className={`text-xs font-semibold uppercase tracking-wide ${th.muted}`}>Pricing Model</span>
+            <PillTabs
+              value={pricingModel}
+              onChange={setPricingModel}
+              isDark={isDark}
+              options={[
+                { label: 'Per-Cheque SaaS', value: 'saas' },
+                { label: 'Platform Licence', value: 'licence' },
+                { label: 'Hybrid', value: 'hybrid' },
+              ]}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <span className={`text-xs font-semibold uppercase tracking-wide ${th.muted}`}>Projection Year</span>
+            <div className="flex items-center gap-3">
+              <input
+                type="range" min={1} max={3} step={1} value={year}
+                onChange={e => setYear(Number(e.target.value))}
+                className="w-24 accent-amber-500"
+              />
+              <span className={`text-sm font-bold ${th.heading}`}>Year {year}</span>
+            </div>
+          </div>
+
+          <div className={`ml-auto text-xs ${th.faint} hidden xl:block`}>
+            Volume: <span className="text-amber-400 font-semibold">{fmtVol(volumeLakhs)}</span> cheques/yr
+            {year > 1 && <span className="ml-2">(YoY +20% → <span className="text-emerald-400 font-semibold">{fmtVol(parseFloat((volumeLakhs * Math.pow(1.2, year - 1)).toFixed(0)))}</span> by Yr{year})</span>}
+          </div>
+        </div>
+
+        {/* ── KPI Row ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4">
+          <KpiCard
+            label="ARR / Bank" isDark={isDark}
+            value={fmtRs(model.arr)} color="text-emerald-400"
+            sub="Annual recurring revenue per bank"
+          />
+          <KpiCard
+            label="Impl. Fee (1-time)" isDark={isDark}
+            value={fmtRs(IMPL_FEE)} color="text-blue-400"
+            sub={`÷3 = ${fmtRs(IMPL_FEE / 3)}/yr amortised`}
+          />
+          <KpiCard
+            label="Vendor Fixed Cost" isDark={isDark}
+            value={fmtRs(model.cost.total)} color="text-amber-400"
+            sub={`${fmtRs(VENDOR_FIXED_ANNUAL)}L/yr total (team+S&M+cloud+office)`}
+          />
+          <KpiCard
+            label="Gross Margin" isDark={isDark}
+            value={`${model.grossMarginPct.toFixed(1)}%`} color={marginColor}
+            sub={`No infra COGS — banks own all hardware`}
+          />
+          <KpiCard
+            label="Banks to Break Even" isDark={isDark}
+            value={isFinite(model.banksToBreakeven) ? `${model.banksToBreakeven} banks` : '—'}
+            color="text-violet-400"
+            sub={`@ ${fmtRs(model.arr)} ARR/bank`}
+          />
+        </div>
+
+        {/* ── Main Two-Column Layout ── */}
+        <div className="grid grid-cols-1 xl:grid-cols-[55%_45%] gap-5">
+
+          {/* ── LEFT COLUMN ── */}
+          <div className="space-y-5">
+
+            {/* 3a. Revenue Breakdown Table */}
+            <div className={`${th.card} border rounded-xl p-5`}>
+              <SectionHeader title={`Revenue Streams — Year ${year}`} isDark={isDark} />
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className={`${th.thead} text-left`}>
+                    {['Stream', 'Unit', 'Rate', 'Volume', '₹ Lakhs', '% Mix'].map(h => (
+                      <th key={h} className="pb-2 pr-3 font-semibold uppercase tracking-wide">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    pricingModel !== 'licence' && {
+                      stream: 'Per-Cheque Processing',
+                      unit: 'per cheque',
+                      rate: `₹${pricingModel === 'saas' ? (year === 1 ? '1.20' : '1.10') : '0.80'}`,
+                      vol: fmtVol(parseFloat((volumeLakhs * Math.pow(1.2, year - 1)).toFixed(0))),
+                      amt: model.rev.perChequeRevLakhs,
+                      mix: model.rev.total > 0 ? (model.rev.perChequeRevLakhs / model.rev.total * 100).toFixed(0) : 0,
+                      color: 'text-emerald-400',
+                    },
+                    (pricingModel === 'licence' || pricingModel === 'hybrid') && {
+                      stream: 'Platform Licence',
+                      unit: 'per year flat',
+                      rate: pricingModel === 'licence' ? '₹75L/yr' : '₹40L/yr',
+                      vol: '1 licence',
+                      amt: model.rev.platformRevLakhs,
+                      mix: model.rev.total > 0 ? (model.rev.platformRevLakhs / model.rev.total * 100).toFixed(0) : 0,
+                      color: 'text-blue-400',
+                    },
+                    {
+                      stream: 'Implementation & Onboarding',
+                      unit: 'one-time ÷3',
+                      rate: `₹${IMPL_FEE}L total`,
+                      vol: 'amortised',
+                      amt: model.rev.implAmortised,
+                      mix: model.rev.total > 0 ? (model.rev.implAmortised / model.rev.total * 100).toFixed(0) : 0,
+                      color: 'text-sky-400',
+                    },
+                    {
+                      stream: 'Managed AI Services',
+                      unit: 'annual retainer',
+                      rate: `₹${MANAGED_AI_RETAINER}L/yr`,
+                      vol: '1 retainer',
+                      amt: model.rev.managedAI,
+                      mix: model.rev.total > 0 ? (model.rev.managedAI / model.rev.total * 100).toFixed(0) : 0,
+                      color: 'text-violet-400',
+                    },
+                    year >= 2 && {
+                      stream: 'Support & SLA (Yr 2+)',
+                      unit: 'annual retainer',
+                      rate: `₹${SUPPORT_RETAINER}L/yr`,
+                      vol: '1 retainer',
+                      amt: model.rev.support,
+                      mix: model.rev.total > 0 ? (model.rev.support / model.rev.total * 100).toFixed(0) : 0,
+                      color: 'text-amber-400',
+                    },
+                  ].filter(Boolean).map((r, i) => (
+                    <tr key={i} className={`border-t ${th.row}`}>
+                      <td className={`py-2 pr-3 ${th.body} font-medium`}>{r.stream}</td>
+                      <td className={`py-2 pr-3 ${th.muted}`}>{r.unit}</td>
+                      <td className={`py-2 pr-3 ${th.muted} font-mono`}>{r.rate}</td>
+                      <td className={`py-2 pr-3 ${th.muted}`}>{r.vol}</td>
+                      <td className={`py-2 pr-3 ${r.color} font-semibold font-mono`}>{fmtRs(r.amt)}</td>
+                      <td className={`py-2 ${th.faint}`}>{r.mix}%</td>
+                    </tr>
+                  ))}
+                  <tr className={`border-t-2 ${isDark ? 'border-white/20' : 'border-slate-300'} font-bold`}>
+                    <td colSpan={4} className={`py-2 pr-3 ${th.heading}`}>Total Revenue</td>
+                    <td className="py-2 pr-3 text-emerald-400 font-mono">{fmtRs(model.rev.total)}</td>
+                    <td className={`py-2 ${th.muted}`}>100%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* 3b. 3-Year Vendor P&L Projection */}
+            <div className={`${th.card} border rounded-xl p-5`}>
+              <SectionHeader title="3-Year Vendor P&L — Bank Portfolio Growth (Y1: 3 banks → Y2: 8 → Y3: 15)" isDark={isDark} />
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={projData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9'} />
+                  <XAxis dataKey="name" tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v}L`} width={60} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v, n) => [`₹${v}L`, n]} />
+                  <Legend wrapperStyle={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b' }} />
+                  <Bar dataKey="Revenue" fill={CHART_COLORS.revenue} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Vendor Costs" fill={CHART_COLORS.cost} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Net Profit" fill={CHART_COLORS.profit} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* 3c. Unit Economics */}
+            <div className={`${th.card} border rounded-xl p-5`}>
+              <SectionHeader title="Unit Economics — Per Bank Revenue vs Vendor Cost Allocation (₹L)" isDark={isDark} />
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={unitData} layout="vertical" margin={{ top: 0, right: 30, left: 90, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9'} />
+                  <XAxis type="number" tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v}`} />
+                  <YAxis type="category" dataKey="name" tick={{ fill: isDark ? '#cbd5e1' : '#475569', fontSize: 11 }} axisLine={false} tickLine={false} width={85} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={v => [`₹${Math.abs(v).toFixed(2)}`, 'per 1k cheques']} />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                    {unitData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* ── RIGHT COLUMN ── */}
+          <div className="space-y-5">
+
+            {/* 3d. Cost Structure */}
+            <div className={`${th.card} border rounded-xl p-5`}>
+              <SectionHeader title={`ASTRA Vendor Costs — ${fmtRs(model.cost.total)}/yr (Year ${year})`} isDark={isDark} />
+              <div className={`text-xs ${th.muted} mb-3`}>Banks own all infra. Zero COGS per deployment. ~88% gross margin.</div>
+              <div className="space-y-2.5 mb-4">
+                {COST_SLICES.map(s => {
+                  const lakhs = model.cost[s.key] ?? 0
+                  const effectivePct = model.cost.total > 0 ? (lakhs / model.cost.total * 100) : s.pct
+                  return (
+                    <div key={s.label}>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className={`text-xs font-medium ${th.body}`}>{s.label}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-mono ${th.muted}`}>{fmtRs(lakhs)}</span>
+                          <span className="text-xs font-semibold" style={{ color: s.color }}>{effectivePct.toFixed(0)}%</span>
+                        </div>
+                      </div>
+                      <div className={`w-full h-2 rounded-full ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                        <div className="h-2 rounded-full transition-all" style={{ width: `${effectivePct}%`, backgroundColor: s.color }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className={`pt-3 border-t ${th.divider} flex items-center justify-between`}>
+                <span className={`text-xs ${th.muted}`}>Per-bank onboarding (variable, one-time)</span>
+                <span className="text-xs font-semibold text-orange-400 font-mono">{fmtRs(PER_BANK_ONBOARDING)} / bank</span>
+              </div>
+            </div>
+
+            {/* 3d2. Bank Portfolio Scale */}
+            <div className={`${th.card} border rounded-xl p-5`}>
+              <SectionHeader title="Bank Portfolio — Revenue &amp; Break-Even at Scale" isDark={isDark} />
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className={`${th.thead} text-left`}>
+                    {['Banks', 'Portfolio Rev/yr', 'Vendor Cost/yr', 'Net Profit', 'Margin'].map(h => (
+                      <th key={h} className="pb-2 pr-2 font-semibold uppercase tracking-wide">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[5, 10, 20, 50].map(banks => {
+                    const portfolioRev = model.arr * banks
+                    const vendorCost = model.cost.total + banks * PER_BANK_ONBOARDING
+                    const net = portfolioRev - vendorCost
+                    const margin = portfolioRev > 0 ? (net / portfolioRev * 100) : 0
+                    const isBreakEven = banks >= model.banksToBreakeven
+                    return (
+                      <tr key={banks} className={`border-t ${th.row} ${isBreakEven && banks === Math.ceil(model.banksToBreakeven) ? (isDark ? 'bg-emerald-900/10' : 'bg-emerald-50') : ''}`}>
+                        <td className={`py-2 pr-2 font-bold ${th.heading}`}>{banks}</td>
+                        <td className="py-2 pr-2 text-emerald-400 font-mono font-semibold">{fmtRs(portfolioRev)}</td>
+                        <td className={`py-2 pr-2 text-amber-400 font-mono`}>{fmtRs(vendorCost)}</td>
+                        <td className={`py-2 pr-2 font-mono font-semibold ${net >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{net >= 0 ? '+' : ''}{fmtRs(net)}</td>
+                        <td className={`py-2 font-semibold ${margin >= 60 ? 'text-emerald-400' : margin >= 30 ? 'text-amber-400' : 'text-red-400'}`}>{margin.toFixed(0)}%</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 3e. Bank ROI Panel */}
+            <div className={`${th.card} border rounded-xl p-5`}>
+              <SectionHeader title="Bank ROI — What the Bank Saves" isDark={isDark} />
+              <div className="space-y-2 mb-4">
+                {[
+                  {
+                    label: 'IET Compliance Savings',
+                    sub: '0.05% breach rate × avg ₹45k × deemed-approval loss',
+                    val: model.ietSavingsLakhs,
+                    icon: '🛡',
+                    color: 'text-emerald-400',
+                  },
+                  {
+                    label: 'FTE Reduction',
+                    sub: '85% STP → manual review drops ~85% · ₹8/cheque saved',
+                    val: model.fteSavingsLakhs,
+                    icon: '👥',
+                    color: 'text-blue-400',
+                  },
+                  {
+                    label: 'Fraud Prevention',
+                    sub: '+2.3% catch rate on high-fraud cheques · ₹45k avg value',
+                    val: model.fraudSavingsLakhs,
+                    icon: '🔍',
+                    color: 'text-violet-400',
+                  },
+                  {
+                    label: 'Float Cost Savings',
+                    sub: '<600ms vs hours → faster clearing = lower float exposure',
+                    val: model.floatSavingsLakhs,
+                    icon: '⚡',
+                    color: 'text-amber-400',
+                  },
+                  {
+                    label: 'Audit Cost Reduction',
+                    sub: 'Automated immutable audit vs manual reconciliation',
+                    val: model.auditSavingsLakhs,
+                    icon: '📋',
+                    color: 'text-sky-400',
+                  },
+                ].map(r => (
+                  <div key={r.label} className={`flex items-center justify-between py-2 border-b ${th.divider} last:border-b-0`}>
+                    <div className="flex-1 min-w-0 mr-3">
+                      <div className={`text-xs font-semibold ${th.body}`}>{r.label}</div>
+                      <div className={`text-xs ${th.faint} truncate`}>{r.sub}</div>
+                    </div>
+                    <span className={`text-sm font-bold font-mono shrink-0 ${r.color}`}>{fmtRs(r.val)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className={`${isDark ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200'} border rounded-lg px-4 py-3 flex items-center justify-between`}>
+                <div>
+                  <div className={`text-xs font-semibold ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>Total Bank Saves</div>
+                  <div className="text-xl font-bold text-emerald-400">{fmtRs(model.totalBankSaves)}<span className="text-sm font-normal ml-1">/year</span></div>
+                </div>
+                <div className={`${isDark ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-amber-100 border-amber-300 text-amber-700'} border rounded-lg px-3 py-2 text-center`}>
+                  <div className="text-xs font-medium">Payback</div>
+                  <div className="text-lg font-bold">{model.paybackMonths}mo</div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3f. Pricing Sensitivity Table */}
+            <div className={`${th.card} border rounded-xl p-5`}>
+              <SectionHeader title="Pricing Sensitivity — Gross Profit (₹ Lakhs)" isDark={isDark} />
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className={th.thead}>
+                      <th className="py-2 pr-3 text-left font-semibold uppercase">₹/cheque</th>
+                      {SENS_VOLUMES.map(v => (
+                        <th key={v} className="py-2 px-2 text-right font-semibold uppercase">{fmtVol(v)}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {SENS_RATES.map(rate => (
+                      <tr key={rate} className={`border-t ${th.row}`}>
+                        <td className={`py-2 pr-3 font-mono font-semibold ${th.heading}`}>₹{rate.toFixed(2)}</td>
+                        {SENS_VOLUMES.map(vol => {
+                          const profit = calcSensitivity(rate, vol)
+                          const margin = profit / ((vol * 100000 * rate) / 100000 + MANAGED_AI_RETAINER + SUPPORT_RETAINER)
+                          const bg = profit < 0
+                            ? (isDark ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-600')
+                            : margin < 0.2
+                              ? (isDark ? 'bg-amber-900/20 text-amber-400' : 'bg-amber-50 text-amber-700')
+                              : (isDark ? 'bg-emerald-900/20 text-emerald-400' : 'bg-emerald-50 text-emerald-700')
+                          return (
+                            <td key={vol} className={`py-2 px-2 text-right font-mono font-semibold rounded ${bg}`}>
+                              {profit >= 0 ? '+' : ''}{fmtRs(profit)}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className={`mt-3 flex items-center gap-4 text-xs ${th.faint}`}>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-red-500/60 inline-block" /> Loss</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-amber-500/60 inline-block" /> &lt;20% margin</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-500/60 inline-block" /> &gt;30% margin</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,76 @@
+# Chaos Scenario 5: Temporal Worker Graceful Drain Under Load
+#
+# Simulates: CTS Temporal worker pods restarting mid-workflow during peak clearing.
+# Expected behaviour:
+#   - Temporal re-dispatches in-progress workflows to surviving workers (sticky execution)
+#   - No workflow is lost — Temporal's durable event history guarantees replay
+#   - IETWatchdogWorkflow (ABANDON close policy) continues on surviving workers
+#   - Human review queue items survive — HumanReviewWorkflow recovers on restart
+#   - Zero IET breaches during worker restart window
+#   - graceful_shutdown_timeout (2 minutes) allows in-flight activities to complete
+#
+# RBI Control: CTS-01, DR-01
+# Temporal guarantee: exactly-once execution via durable workflow history
+# Duration: 3 minutes (worker drain + restart + task redistribution)
+
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: cts-temporal-worker-restart
+  namespace: chaos-testing
+  labels:
+    scenario: temporal-worker-drain
+    rbi-control: CTS-01
+    severity: high
+    runbook: "docs/runbooks/temporal-worker-restart.md"
+spec:
+  action: pod-kill
+  mode: fixed-percent
+  value: "50"         # Kill 50% of workers — surviving 50% must absorb all workflows
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      "app.kubernetes.io/name": "cts-agent-worker"
+      "app.kubernetes.io/component": "temporal-worker"
+  duration: "3m"
+  gracePeriod: 120    # Match graceful_shutdown_timeout — let workers drain before kill
+
+---
+# Companion: Kill EJ normalisation workers simultaneously to test blast isolation
+# CTS worker restart must NOT affect EJ workflows — separate task queues guarantee this
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: ej-temporal-worker-restart
+  namespace: chaos-testing
+  labels:
+    scenario: temporal-worker-drain
+    rbi-control: CTS-01
+    note: "proving CTS↔EJ blast isolation — both restart simultaneously"
+spec:
+  action: pod-kill
+  mode: fixed-percent
+  value: "50"
+  selector:
+    namespaces:
+      - astra-ej-saraswat-coop
+    labelSelectors:
+      "app.kubernetes.io/name": "ej-normalisation-worker"
+  duration: "3m"
+  gracePeriod: 120
+
+---
+# Pass criteria:
+#   1. CTS ChequeProcessingWorkflow: zero workflow failures in Temporal UI
+#   2. EJ EJNormalisationWorkflow: zero workflow failures in Temporal UI
+#   3. Zero IET breaches during the 3-minute window
+#   4. IETWatchdogWorkflow (ABANDON policy): continues on surviving CTS workers
+#   5. After restart: workers rejoin Temporal task queue within 30 seconds
+#   6. No duplicate NGCH submissions — idempotent workflow IDs prevent re-filing
+#   7. Blast isolation: CTS restart does not cause EJ workflow failures and vice versa
+#
+# Verify via Temporal Web UI:
+#   Workflows → filter by status=Failed → expect 0 results
+#   Workflows → filter by status=Running → count stays stable across the restart window

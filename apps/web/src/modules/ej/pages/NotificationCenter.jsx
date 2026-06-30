@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import EJShell from '../layout/EJShell'
-import { Bell, Monitor, MessageSquare, Mail, Lock, CheckCircle2, AlertCircle, Clock, Activity, ChevronRight } from 'lucide-react'
+import { Bell, Monitor, MessageSquare, Mail, Lock, CheckCircle2, AlertCircle, ChevronRight } from 'lucide-react'
 import { BRE_RULES } from '../hooks/useBRERules'
+import { useTheme } from '../../../shared/theme/ThemeContext'
 
 const ROLES_ORDER = ['branch_manager','zonal_manager','regional_head','national_head','ops_reviewer','compliance_officer']
 const ROLE_LABEL = { branch_manager:'Branch Manager', zonal_manager:'Zonal Manager', regional_head:'Regional Head', national_head:'National Head', ops_reviewer:'Ops Reviewer', compliance_officer:'Compliance Officer', fraud_analyst:'Fraud Analyst' }
@@ -35,11 +35,13 @@ function buildMatrix() {
 
 const MATRIX = buildMatrix()
 
-const SEV_PILL = {
-  CRITICAL: 'bg-red-100 text-red-700 border border-red-400 dark:bg-red-500/20 dark:text-red-300 dark:border dark:border-red-500/30',
-  HIGH:     'bg-amber-100 text-amber-700 border border-amber-400 dark:bg-amber-500/20 dark:text-amber-300 dark:border dark:border-amber-500/30',
-  MEDIUM:   'bg-yellow-100 text-yellow-700 border border-yellow-400 dark:bg-yellow-500/20 dark:text-yellow-300 dark:border dark:border-yellow-500/30',
-  LOW:      'bg-slate-100 text-slate-600 border border-slate-300 dark:bg-slate-500/20 dark:text-slate-300 dark:border dark:border-slate-400/20'
+function makeSevPill(isDark) {
+  return {
+    CRITICAL: isDark ? 'bg-red-500/20 text-red-300 border border-red-500/30'   : 'bg-red-100 text-red-700 border border-red-400',
+    HIGH:     isDark ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-amber-100 text-amber-700 border border-amber-400',
+    MEDIUM:   isDark ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' : 'bg-yellow-100 text-yellow-700 border border-yellow-400',
+    LOW:      isDark ? 'bg-slate-500/20 text-slate-300 border border-slate-400/20'   : 'bg-slate-100 text-slate-600 border border-slate-300',
+  }
 }
 
 
@@ -56,19 +58,20 @@ const DELIVERY_LOG = [
   { time:'09:22:44', rule:'EJ Parse Failure', atm:'ATM-CHN-003', channel:'OnScreen', role:'ml_engineer', status:'Delivered' },
 ]
 
-function MatrixTab() {
-  const violet   = 'bg-violet-100 text-violet-700 border border-violet-400 dark:bg-violet-500/20 dark:text-violet-300 dark:border dark:border-violet-500/30'
-  const divider  = 'border-slate-200 dark:border-white/10'
-  const dividerSm = 'border-slate-100 dark:border-white/5'
-  const rowMeta  = 'text-slate-800 dark:text-slate-200'
-  const muted    = 'text-slate-400 dark:text-slate-500'
-  const empty    = 'text-slate-400 dark:text-slate-600'
-  const stepCard = 'border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5'
-  const stepText = 'text-slate-800 dark:text-slate-200'
-  const stepMeta = 'text-slate-500 dark:text-slate-500'
-  const stepChev = 'text-slate-400 dark:text-slate-600'
-  const legend   = 'text-slate-500 dark:text-slate-500'
-  const escalHead= 'text-slate-500 dark:text-slate-400'
+function MatrixTab({ isDark }) {
+  const SEV_PILL = makeSevPill(isDark)
+  const violet    = isDark ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30' : 'bg-violet-100 text-violet-700 border border-violet-400'
+  const divider   = isDark ? 'border-white/10'  : 'border-slate-200'
+  const dividerSm = isDark ? 'border-white/5'   : 'border-slate-100'
+  const rowMeta   = isDark ? 'text-slate-200'   : 'text-slate-800'
+  const muted     = isDark ? 'text-slate-500'   : 'text-slate-400'
+  const empty     = isDark ? 'text-slate-600'   : 'text-slate-400'
+  const stepCard  = isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-slate-50'
+  const stepText  = isDark ? 'text-slate-200'   : 'text-slate-800'
+  const stepMeta  = 'text-slate-500'
+  const stepChev  = isDark ? 'text-slate-600'   : 'text-slate-400'
+  const legend    = 'text-slate-500'
+  const escalHead = isDark ? 'text-slate-400'   : 'text-slate-500'
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm min-w-[700px]">
@@ -156,14 +159,14 @@ function MatrixTab() {
   )
 }
 
-function ChannelHealthTab() {
-  const card    = 'bg-white border border-slate-200 dark:bg-white/5 dark:border dark:border-white/5'
-  const heading = 'text-slate-900 dark:text-white'
-  const lbl     = 'text-slate-500 dark:text-slate-400'
-  const val     = 'text-slate-900 dark:text-white'
-  const note    = 'text-slate-500 dark:text-slate-500'
-  const footer  = 'bg-slate-50 border-slate-200 dark:bg-slate-800/30 dark:border-white/5'
-  const fIcon   = 'text-slate-400 dark:text-slate-600'
+function ChannelHealthTab({ isDark }) {
+  const card    = isDark ? 'bg-white/5 border border-white/8' : 'bg-white border border-slate-200'
+  const heading = isDark ? 'text-white'       : 'text-slate-900'
+  const lbl     = isDark ? 'text-slate-400'   : 'text-slate-500'
+  const val     = isDark ? 'text-white'       : 'text-slate-900'
+  const note    = 'text-slate-500'
+  const footer  = isDark ? 'bg-white/5 border-white/8' : 'bg-slate-50 border-slate-200'
+  const fIcon   = isDark ? 'text-slate-600'   : 'text-slate-400'
   const channels = [
     {
       name: 'On-Screen (Live)',
@@ -242,12 +245,12 @@ function ChannelHealthTab() {
   )
 }
 
-function DeliveryLogTab() {
-  const muted   = 'text-slate-400 dark:text-slate-500'
-  const divider = 'border-slate-100 dark:border-white/5'
-  const body    = 'text-slate-800 dark:text-slate-200'
-  const mono    = 'text-slate-500 dark:text-slate-400'
-  const faint   = 'text-slate-400 dark:text-slate-600'
+function DeliveryLogTab({ isDark }) {
+  const muted   = isDark ? 'text-slate-500' : 'text-slate-400'
+  const divider = isDark ? 'border-white/5' : 'border-slate-100'
+  const body    = isDark ? 'text-slate-200' : 'text-slate-800'
+  const mono    = isDark ? 'text-slate-400' : 'text-slate-500'
+  const faint   = isDark ? 'text-slate-600' : 'text-slate-400'
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -293,32 +296,19 @@ function DeliveryLogTab() {
 
 export default function NotificationCenter() {
   const [tab, setTab] = useState('matrix')
+  const { isDark } = useTheme()
 
   const th = {
-    pg:   'bg-slate-50 text-slate-900 dark:bg-[#020817] dark:text-white',
-    nav:  'border-slate-200 bg-white dark:border-white/5 dark:bg-black/30',
-    nlnk: 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
-    h1:   'text-slate-900 dark:text-white',
-    sub:  'text-slate-500 dark:text-slate-400',
-    tabBorder: 'border-slate-200 dark:border-white/5',
-    tabIdle:   'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
-    card: 'bg-white border-slate-200 dark:bg-white/5 dark:border-white/5',
+    pg:        isDark ? 'bg-transparent text-white'      : 'bg-transparent text-slate-900',
+    h1:        isDark ? 'text-white'                     : 'text-slate-900',
+    sub:       isDark ? 'text-slate-400'                 : 'text-slate-500',
+    tabBorder: isDark ? 'border-white/5'                 : 'border-slate-200',
+    tabIdle:   isDark ? 'text-slate-400 hover:text-white': 'text-slate-500 hover:text-slate-900',
+    card:      isDark ? 'bg-white/5 border-white/8'      : 'bg-white border-slate-200',
   }
 
   return (
     <EJShell><div className={`flex flex-col ${th.pg}`}>
-      <nav className={`flex items-center justify-between px-6 py-3 border-b ${th.nav}`}>
-        <Link to="/" className={`text-xs ${th.nlnk}`}>← ASTRA Platform</Link>
-        <div className="flex items-center gap-1 text-xs flex-wrap justify-center">
-          <Link to="/ej" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Command Center</Link>
-          <Link to="/ej/incidents" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Incidents</Link>
-          <Link to="/ej/portal" className={`px-3 py-1.5 rounded ${th.nlnk}`}>Manager Portal</Link>
-          <Link to="/ej/bre" className={`px-3 py-1.5 rounded ${th.nlnk}`}>BRE Policy</Link>
-          <span className="px-3 py-1.5 rounded bg-violet-600/20 text-violet-300 font-medium border border-violet-500/30">Notifications</span>
-        </div>
-        <span />
-      </nav>
-
       <div className="max-w-7xl w-full mx-auto px-6 py-6 flex-1 space-y-6">
         <div>
           <h1 className={`text-xl font-bold flex items-center gap-2 ${th.h1}`}><Bell size={20} className="text-violet-400"/> Notification Center</h1>
@@ -335,9 +325,9 @@ export default function NotificationCenter() {
         </div>
 
         <div className={`rounded-xl border p-6 ${th.card}`}>
-          {tab === 'matrix' && <MatrixTab />}
-          {tab === 'health' && <ChannelHealthTab />}
-          {tab === 'log'    && <DeliveryLogTab />}
+          {tab === 'matrix' && <MatrixTab isDark={isDark} />}
+          {tab === 'health' && <ChannelHealthTab isDark={isDark} />}
+          {tab === 'log'    && <DeliveryLogTab isDark={isDark} />}
         </div>
       </div>
     </div></EJShell>

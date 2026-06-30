@@ -179,3 +179,32 @@ class TestComplianceSummaryRoute:
         client = TestClient(_make_app(), raise_server_exceptions=False)
         response = client.get("/v1/audit/compliance/summary?date_from=2026-06-01&date_to=2026-06-18")
         assert "immudb_verified" in response.json()
+
+
+class TestAuditAuthEdgeCases:
+    """Cover lines 31-35: real auth paths in get_current_user."""
+    def test_invalid_token_returns_401(self):
+        from apps.api.routers.audit import router_v1
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        app = FastAPI()
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get(
+            "/v1/audit/events",
+            headers={"Authorization": "Bearer bad-token"},
+        )
+        assert response.status_code == 401
+
+    def test_valid_test_token_returns_200(self):
+        from apps.api.routers.audit import router_v1
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        app = FastAPI()
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get(
+            "/v1/audit/events",
+            headers={"Authorization": "Bearer test-token-test-bank"},
+        )
+        assert response.status_code == 200

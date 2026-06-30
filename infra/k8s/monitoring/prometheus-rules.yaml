@@ -1,0 +1,196 @@
+---
+# Prometheus alerting rules for ASTRA
+# Loaded via PrometheusRule CRD (kube-prometheus-stack)
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: astra-alerts
+  namespace: monitoring
+  labels:
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+    # -----------------------------------------------------------------------
+    # CTS IET Alerts
+    # -----------------------------------------------------------------------
+    - name: cts.iet
+      interval: 10s    # tight scrape — IET is safety-critical
+      rules:
+        - alert: CTSIETBreach
+          expr: increase(cts_iet_breach_total[5m]) > 0
+          for: 0s      # fire immediately — no "for" grace period on IET breach
+          labels:
+            severity: critical
+            module: cts
+          annotations:
+            summary: "IET breach detected for bank {{ $labels.bank_id }}"
+            description: "{{ $value }} IET breach(es) in last 5 minutes. SLA: 0.000%. Immediate investigation required."
+
+        - alert: CTSIETNearBreachHigh
+          expr: increase(cts_iet_near_breach_total[10m]) > 10
+          for: 0s
+          labels:
+            severity: warning
+            module: cts
+          annotations:
+            summary: "High rate of near-breach events for bank {{ $labels.bank_id }}"
+            description: "{{ $value }} cheques came within 30s of IET in last 10 minutes. Processing may be too slow."
+
+        - alert: CTSAgentLatencyHigh
+          expr: histogram_quantile(0.99, sum by(le, bank_id) (rate(cts_cheque_processing_duration_seconds_bucket[5m]))) > 0.55
+          for: 2m
+          labels:
+            severity: warning
+            module: cts
+          annotations:
+            summary: "CTS agent p99 latency approaching 600ms SLA for bank {{ $labels.bank_id }}"
+            description: "p99 latency is {{ $value | humanizeDuration }}. SLA limit is 600ms."
+
+        - alert: CTSAgentLatencyCritical
+          expr: histogram_quantile(0.99, sum by(le, bank_id) (rate(cts_cheque_processing_duration_seconds_bucket[5m]))) > 0.58
+          for: 0s
+          labels:
+            severity: critical
+            module: cts
+          annotations:
+            summary: "CTS agent p99 latency critically high for bank {{ $labels.bank_id }}"
+            description: "p99 latency is {{ $value | humanizeDuration }}. Breach imminent. Scale workers immediately."
+
+    # -----------------------------------------------------------------------
+    # CTS Vault Alerts
+    # -----------------------------------------------------------------------
+    - name: cts.vault
+      rules:
+        - alert: CTSVaultHitRateLow
+          expr: |
+            100 * sum by(bank_id) (rate(cts_vault_lookup_total{outcome="HIT"}[5m]))
+            /
+            sum by(bank_id) (rate(cts_vault_lookup_total[5m]))
+            < 95
+          for: 5m
+          labels:
+            severity: warning
+            module: cts
+          annotations:
+            summary: "CTS vault hit rate below 95% for bank {{ $labels.bank_id }}"
+            description: "Vault hit rate is {{ $value | humanize }}%. Many cheques routing to human review due to vault misses."
+
+        - alert: CTSVaultSyncStale
+          expr: time() - cts_vault_last_sync_timestamp_seconds > 86400 + 3600
+          for: 0s
+          labels:
+            severity: warning
+            module: cts
+          annotations:
+            summary: "CTS vault sync overdue for bank {{ $labels.bank_id }}"
+            description: "Last vault sync was {{ $value | humanizeDuration }} ago. Daily sync at 6AM is overdue."
+
+    # -----------------------------------------------------------------------
+    # CTS AI Model Drift Alerts
+    # -----------------------------------------------------------------------
+    - name: cts.ai.drift
+      rules:
+        - alert: CTSOCRAccuracyDrift
+          expr: |
+            abs(cts_ocr_accuracy_ratio - cts_ocr_accuracy_baseline_7d) / cts_ocr_accuracy_baseline_7d > 0.02
+          for: 30m
+          labels:
+            severity: warning
+            module: cts
+            model: got-ocr2
+          annotations:
+            summary: "OCR accuracy drift > 2% for bank {{ $labels.bank_id }}"
+            description: "OCR accuracy changed by {{ $value | humanizePercentage }} over 7-day baseline."
+
+        - alert: CTSFraudF1Drop
+          expr: cts_fraud_f1_score_7d < 0.92
+          for: 1h
+          labels:
+            severity: critical
+            module: cts
+            model: xgboost
+          annotations:
+            summary: "CTS fraud F1 score below minimum threshold for bank {{ $labels.bank_id }}"
+            description: "F1 score is {{ $value }}. Minimum required: 0.92. Pull model from production."
+
+        - alert: CTSFraudFalsePositiveHigh
+          expr: cts_fraud_false_positive_rate > 0.03
+          for: 1h
+          labels:
+            severity: warning
+            module: cts
+          annotations:
+            summary: "CTS fraud false positive rate above 3% for bank {{ $labels.bank_id }}"
+            description: "FP rate is {{ $value | humanizePercentage }}. Maximum: 3%."
+
+    # -----------------------------------------------------------------------
+    # EJ Module Alerts
+    # -----------------------------------------------------------------------
+    - name: ej.normalisation
+      rules:
+        - alert: EJParseFailureRateHigh
+          expr: |
+            sum by(bank_id) (rate(ej_normalisation_total{outcome="PARSE_FAILED"}[15m]))
+            /
+            sum by(bank_id) (rate(ej_normalisation_total[15m]))
+            > 0.10
+          for: 5m
+          labels:
+            severity: warning
+            module: ej
+          annotations:
+            summary: "EJ parse failure rate > 10% for bank {{ $labels.bank_id }}"
+            description: "{{ $value | humanizePercentage }} of EJ logs failing to parse. Check OEM fingerprint patterns or LLM health."
+
+        - alert: EJATMCriticalHealth
+          expr: count by(bank_id) (ej_atm_health_status{status="CRITICAL"} == 1) > 0
+          for: 0s
+          labels:
+            severity: critical
+            module: ej
+          annotations:
+            summary: "{{ $value }} ATM(s) in CRITICAL health for bank {{ $labels.bank_id }}"
+            description: "One or more ATMs have CRITICAL health status. Dispatch engineering team."
+
+        - alert: EJLLMParseLatencyHigh
+          expr: histogram_quantile(0.95, sum by(le, bank_id) (rate(ej_llm_parse_duration_seconds_bucket[5m]))) > 180
+          for: 5m
+          labels:
+            severity: warning
+            module: ej
+          annotations:
+            summary: "EJ LLM parse p95 latency > 180s for bank {{ $labels.bank_id }}"
+            description: "Llama 3.3 70B parse p95 is {{ $value | humanizeDuration }}. Check vLLM queue depth."
+
+    # -----------------------------------------------------------------------
+    # Platform Infrastructure Alerts
+    # -----------------------------------------------------------------------
+    - name: platform.infra
+      rules:
+        - alert: KafkaConsumerLagHigh
+          expr: kafka_consumer_group_lag{topic=~"cts\\..*|ej\\..*"} > 1000
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Kafka consumer lag high on {{ $labels.topic }}"
+            description: "Consumer group {{ $labels.group }} lag is {{ $value }} messages on topic {{ $labels.topic }}."
+
+        - alert: RedisEvictionRateHigh
+          expr: rate(redis_evicted_keys_total{cluster=~"redis-cts|redis-ej"}[5m]) > 10
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Redis eviction rate high on {{ $labels.cluster }}"
+            description: "{{ $value }} keys/s evicted from {{ $labels.cluster }}. Vault entries may be lost."
+
+        - alert: ImmudbWriteFailures
+          expr: increase(platform_immudb_write_failures_total[5m]) > 0
+          for: 0s
+          labels:
+            severity: critical
+          annotations:
+            summary: "Immudb audit write failures detected"
+            description: "{{ $value }} Immudb write failures in last 5 minutes. Audit trail at risk."

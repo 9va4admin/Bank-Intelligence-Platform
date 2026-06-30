@@ -271,3 +271,32 @@ class TestNotificationRetryRoute:
         response = client.post("/v1/notifications/notif-001/retry")
         if response.status_code in (200, 202):
             assert "notification_id" in response.json()
+
+
+class TestNotificationsAuthEdgeCases:
+    """Cover lines 35-39: real auth paths in get_current_user."""
+    def test_invalid_token_returns_401(self):
+        from apps.api.routers.notifications import router_v1
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        app = FastAPI()
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get(
+            "/v1/notifications/",
+            headers={"Authorization": "Bearer totally-wrong-token"},
+        )
+        assert response.status_code == 401
+
+    def test_valid_test_token_returns_200(self):
+        from apps.api.routers.notifications import router_v1
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        app = FastAPI()
+        app.include_router(router_v1)
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get(
+            "/v1/notifications/",
+            headers={"Authorization": "Bearer test-token-test-bank"},
+        )
+        assert response.status_code == 200

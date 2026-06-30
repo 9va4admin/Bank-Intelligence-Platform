@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASTRA — Kafka & Redis Architecture Reference</title>
+<style>
+  :root {
+    --navy: #0a0f1e;
+    --navy2: #0f172a;
+    --navy3: #1e293b;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.04);
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --faint: #64748b;
+    --accent: #3b82f6;
+    --accent2: #6366f1;
+    --green: #10b981;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --violet: #8b5cf6;
+    --cyan: #06b6d4;
+    --orange: #f97316;
+    --pink: #ec4899;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--navy); color: var(--text); font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; }
+  .page-header { background: linear-gradient(135deg, #0a0f1e 0%, #0f172a 50%, #1a1040 100%); border-bottom: 1px solid var(--border); padding: 48px 60px 40px; }
+  .page-header h1 { font-size: 2.2rem; font-weight: 700; letter-spacing: -0.02em; background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .page-header .subtitle { color: var(--muted); font-size: 1rem; margin-top: 8px; }
+  .badges { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  .badge { background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 20px; padding: 4px 14px; font-size: 0.75rem; color: var(--muted); }
+  .badge.blue { background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.3); color: #93c5fd; }
+  .badge.green { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.3); color: #6ee7b7; }
+  .badge.violet { background: rgba(139,92,246,0.12); border-color: rgba(139,92,246,0.3); color: #c4b5fd; }
+
+  .container { max-width: 1400px; margin: 0 auto; padding: 40px 60px; }
+  .section { margin-bottom: 60px; }
+  .section-title { font-size: 1.35rem; font-weight: 700; color: var(--text); margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
+  .section-title .icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0; }
+  .section-subtitle { color: var(--muted); font-size: 0.88rem; margin-bottom: 24px; }
+
+  /* Stats Bar */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 48px; }
+  .stat-card { background: var(--navy2); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; }
+  .stat-card .num { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.03em; }
+  .stat-card .label { color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
+  .stat-card.blue .num { color: #60a5fa; }
+  .stat-card.green .num { color: #34d399; }
+  .stat-card.violet .num { color: #a78bfa; }
+  .stat-card.amber .num { color: #fbbf24; }
+
+  /* Topic table */
+  .topic-grid { display: grid; gap: 2px; }
+  .topic-row { display: grid; grid-template-columns: 280px 1fr 140px 100px; gap: 0; background: var(--border2); }
+  .topic-row:first-child { background: var(--navy3); border-radius: 8px 8px 0 0; }
+  .topic-row:last-child { border-radius: 0 0 8px 8px; }
+  .topic-row > div { padding: 10px 16px; font-size: 0.82rem; }
+  .topic-row.header > div { color: var(--faint); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+  .topic-name { font-family: 'SF Mono', 'Fira Code', monospace; color: #93c5fd; font-size: 0.8rem !important; }
+  .producer-tag { display: inline-block; background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.25); border-radius: 4px; padding: 1px 6px; font-size: 0.7rem; color: #a5b4fc; font-family: monospace; margin-right: 4px; }
+  .consumer-tag { display: inline-block; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25); border-radius: 4px; padding: 1px 6px; font-size: 0.7rem; color: #6ee7b7; font-family: monospace; margin-right: 4px; }
+  .count-badge { background: rgba(255,255,255,0.06); border-radius: 20px; padding: 2px 10px; font-size: 0.75rem; color: var(--muted); text-align: center; }
+
+  /* Module sections */
+  .module-block { background: var(--navy2); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 24px; overflow: hidden; }
+  .module-header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+  .module-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .module-label { font-weight: 700; font-size: 0.95rem; }
+  .module-desc { color: var(--muted); font-size: 0.82rem; margin-left: auto; }
+  .module-body { padding: 0; }
+
+  /* Redis namespace cards */
+  .redis-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .redis-card { background: var(--navy2); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .redis-card-header { padding: 14px 18px 10px; border-bottom: 1px solid var(--border2); }
+  .redis-card-header .namespace { font-family: monospace; font-size: 0.78rem; color: #fbbf24; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.2); border-radius: 6px; padding: 3px 10px; display: inline-block; margin-bottom: 6px; }
+  .redis-card-header .purpose { font-size: 0.82rem; color: var(--text); font-weight: 600; }
+  .redis-card-header .cluster { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+  .redis-card-body { padding: 12px 18px; }
+  .key-entry { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border2); }
+  .key-entry:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  .key-pattern { font-family: monospace; font-size: 0.73rem; color: #93c5fd; background: rgba(59,130,246,0.08); border-radius: 4px; padding: 2px 8px; word-break: break-all; }
+  .key-meta { display: flex; gap: 12px; margin-top: 5px; }
+  .key-meta span { font-size: 0.72rem; color: var(--faint); }
+  .key-meta .ttl { color: #6ee7b7; }
+  .key-meta .type { color: #c4b5fd; }
+  .key-desc { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+
+  /* Flow diagram */
+  .flow-box { background: var(--navy2); border: 1px solid var(--border); border-radius: 14px; padding: 28px; }
+  .flow-step { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
+  .flow-step:last-child { margin-bottom: 0; }
+  .step-num { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-content .title { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+  .step-content .detail { font-size: 0.8rem; color: var(--muted); margin-top: 3px; }
+  .step-content .code { font-family: monospace; font-size: 0.75rem; color: #93c5fd; background: rgba(59,130,246,0.08); border-radius: 4px; padding: 2px 8px; margin-top: 4px; display: inline-block; }
+  .flow-arrow { text-align: center; color: var(--faint); margin: -8px 0 -8px 22px; font-size: 1rem; }
+
+  /* Event types table */
+  .events-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .event-block { background: var(--navy2); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; }
+  .event-block .topic-label { font-family: monospace; font-size: 0.75rem; color: #fbbf24; margin-bottom: 10px; }
+  .event-type { font-family: monospace; font-size: 0.76rem; color: #c4b5fd; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .event-type::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+  /* KEDA section */
+  .keda-table { width: 100%; border-collapse: collapse; background: var(--navy2); border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+  .keda-table th { background: var(--navy3); padding: 10px 16px; text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); border-bottom: 1px solid var(--border); }
+  .keda-table td { padding: 10px 16px; font-size: 0.82rem; border-bottom: 1px solid var(--border2); vertical-align: top; }
+  .keda-table tr:last-child td { border-bottom: none; }
+  .keda-table td:first-child { font-family: monospace; font-size: 0.78rem; color: #93c5fd; }
+  .mono { font-family: monospace; font-size: 0.78rem; }
+
+  /* Two-col layout */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+  /* Principle cards */
+  .principle-card { background: var(--navy2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .principle-card h4 { font-size: 0.9rem; font-weight: 700; margin-bottom: 8px; }
+  .principle-card p { font-size: 0.8rem; color: var(--muted); line-height: 1.7; }
+
+  /* TOC nav */
+  .toc { background: var(--navy2); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 40px; }
+  .toc h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); margin-bottom: 12px; }
+  .toc-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .toc-item { background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; padding: 5px 14px; font-size: 0.8rem; color: var(--muted); cursor: pointer; text-decoration: none; }
+  .toc-item:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+  .tag-group { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .tag { font-family: monospace; font-size: 0.72rem; padding: 2px 8px; border-radius: 4px; }
+  .tag.cts { background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.25); color: #93c5fd; }
+  .tag.ej { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25); color: #6ee7b7; }
+  .tag.platform { background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.25); color: #c4b5fd; }
+
+  .note-box { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); border-radius: 8px; padding: 12px 16px; font-size: 0.8rem; color: #fcd34d; margin-bottom: 16px; }
+  .info-box { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); border-radius: 8px; padding: 12px 16px; font-size: 0.8rem; color: #93c5fd; margin-bottom: 16px; }
+
+  table.detail-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  table.detail-table th { text-align: left; padding: 8px 12px; color: var(--faint); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
+  table.detail-table td { padding: 9px 12px; border-bottom: 1px solid var(--border2); vertical-align: top; }
+  table.detail-table td:first-child { font-family: monospace; font-size: 0.76rem; color: #fbbf24; }
+  table.detail-table tr:last-child td { border-bottom: none; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>ASTRA — Kafka &amp; Redis Architecture Reference</h1>
+  <div class="subtitle">Bank Intelligence Platform · Automated Settlement and Transaction Recognition Architecture</div>
+  <div class="badges">
+    <span class="badge blue">21 Kafka Topics</span>
+    <span class="badge blue">73 Event Types</span>
+    <span class="badge green">8 Redis Namespace Groups</span>
+    <span class="badge green">2 Redis Clusters (CTS · EJ)</span>
+    <span class="badge violet">2 Modules · Blast-Isolated</span>
+    <span class="badge">On-Premises · Air-Gapped · Multi-DC</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- TOC -->
+  <div class="toc">
+    <h3>Contents</h3>
+    <div class="toc-list">
+      <a class="toc-item" href="#overview">1. Architecture Overview</a>
+      <a class="toc-item" href="#kafka-topics">2. Kafka Topics Catalogue</a>
+      <a class="toc-item" href="#event-types">3. Event Type Registry</a>
+      <a class="toc-item" href="#kafka-patterns">4. Kafka Patterns &amp; Config</a>
+      <a class="toc-item" href="#redis-clusters">5. Redis Clusters</a>
+      <a class="toc-item" href="#redis-namespaces">6. Redis Key Namespaces</a>
+      <a class="toc-item" href="#redis-patterns">7. Redis Patterns</a>
+      <a class="toc-item" href="#keda">8. KEDA Autoscaling</a>
+      <a class="toc-item" href="#flows">9. Critical Flows</a>
+      <a class="toc-item" href="#blast-isolation">10. Blast Isolation</a>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card blue">
+      <div class="num">21</div>
+      <div class="label">Kafka Topics (across 3 modules)</div>
+    </div>
+    <div class="stat-card green">
+      <div class="num">73</div>
+      <div class="label">Distinct Event Types</div>
+    </div>
+    <div class="stat-card violet">
+      <div class="num">8</div>
+      <div class="label">Redis Namespace Groups</div>
+    </div>
+    <div class="stat-card amber">
+      <div class="num">2</div>
+      <div class="label">Isolated Redis Clusters</div>
+    </div>
+  </div>
+
+  <!-- Section 1: Overview -->
+  <div class="section" id="overview">
+    <div class="section-title">
+      <div class="icon" style="background:rgba(59,130,246,0.15);">📐</div>
+      1. Architecture Overview
+    </div>
+    <div class="section-subtitle">Design principles governing every Kafka topic and Redis key in ASTRA</div>
+
+    <div class="three-col" style="margin-bottom:24px;">
+      <div class="principle-card">
+        <h4 style="color:#60a5fa;">Blast Isolation First</h4>
+        <p>CTS and EJ never share a Kafka consumer group, Redis cluster, or database connection pool. A CTS surge cannot starve EJ. An EJ Redis failure cannot affect CTS. Hard boundaries, not conventions.</p>
+      </div>
+      <div class="principle-card">
+        <h4 style="color:#34d399;">Exactly-Once Semantics</h4>
+        <p>Every Kafka producer uses <span class="mono">enable.idempotence=true</span> + <span class="mono">acks=all</span>. NGCH filing is deduplicated via Temporal workflow IDs <em>and</em> Redis distributed locks. No cheque is ever filed twice.</p>
+      </div>
+      <div class="principle-card">
+        <h4 style="color:#a78bfa;">IET Safety Above All</h4>
+        <p>IET breach rate target: <strong>0.000%</strong>. Every Redis operation in the CTS path is fail-open. Every Kafka consumer lag is monitored by KEDA and Grafana. An IETWatchdogWorkflow fires at T−30s regardless of any other system state.</p>
+      </div>
+    </div>
+    <div class="three-col">
+      <div class="principle-card">
+        <h4 style="color:#fb923c;">Per-Bank Topic Partitioning</h4>
+        <p>All high-throughput topics use <span class="mono">{bank_id}</span> as the Kafka message key, ensuring ordered processing per bank while enabling parallel processing across banks within a topic.</p>
+      </div>
+      <div class="principle-card">
+        <h4 style="color:#f472b6;">Cache-Aside + Write-Through</h4>
+        <p>Redis vaults use cache-aside for reads and write-through for CBS-synced data. Config cache uses event-driven invalidation (Kafka → Redis DEL). AI outputs are never cached — every cheque is unique.</p>
+      </div>
+      <div class="principle-card">
+        <h4 style="color:#22d3ee;">Kafka as Audit Trigger</h4>
+        <p>Every terminal workflow state publishes to <span class="mono">platform.audit.events</span>. Immudb writes happen via a Redis Streams buffer — absorbing spikes and ensuring HSM signing happens once before append.</p>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Section 2: Kafka Topics -->
+  <div class="section" id="kafka-topics">
+    <div class="section-title">
+      <div class="icon" style="background:rgba(251,191,36,0.15);">📨</div>
+      2. Kafka Topics Catalogue
+    </div>
+    <div class="section-subtitle">21 topics across CTS, EJ, and Platform modules — all on Strimzi (Kafka on Kubernetes)</div>
+
+    <!-- CTS Topics -->
+    <div class="module-block">
+      <div class="module-header">
+        <div class="module-dot" style="background:#3b82f6;"></div>
+        <span class="module-label">CTS Module — Cheque Truncation System</span>
+        <span class="module-desc">9 topics · {bank_id} in topic name for per-bank isolation</span>
+      </div>
+      <div class="module-body">
+        <div style="padding:0 2px;">
+          <div class="topic-row header">
+            <div>Topic Name</div>
+            <div>Producers → Consumers</div>
+            <div>Partitions / Replication</div>
+            <div>Retention</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">cts.inward.{bank_id}</div>
+            <div>
+              <span class="producer-tag">ngch-adapter</span>→
+              <span class="consumer-tag">cts-agent-worker (KEDA)</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">Inbound cheque from NGCH → triggers ChequeProcessingWorkflow. One message per cheque image. KEDA ScaledObject watches lag.</div>
+            </div>
+            <div><span class="count-badge">12 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">4h</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">cts.decisions.{bank_id}</div>
+            <div>
+              <span class="producer-tag">cts-agent-worker</span>→
+              <span class="consumer-tag">audit-service</span>
+              <span class="consumer-tag">analytics-service</span>
+              <span class="consumer-tag">notification-service</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">Filed decisions (STP_CONFIRM, STP_RETURN, HUMAN_REVIEW). Audit trail trigger. Dashboard aggregation source.</div>
+            </div>
+            <div><span class="count-badge">6 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">7d</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">cts.human.review.{bank_id}</div>
+            <div>
+              <span class="producer-tag">cts-agent-worker</span>→
+              <span class="consumer-tag">ops-workstation</span>
+              <span class="consumer-tag">notification-service</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">Escalated cheques with context bundle (image_url, fraud_score, shap_summary, vault_miss_reason). Feeds HumanReviewWorkflow signal queue.</div>
+            </div>
+            <div><span class="count-badge">4 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">4h</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">cts.vault.sync.{bank_id}</div>
+            <div>
+              <span class="producer-tag">cbs-connector</span>→
+              <span class="consumer-tag">vault-sync-service</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">CBS → Redis vault sync events. Triggers VaultSyncWorkflow. Key delta updates (new accounts, signature updates, PPS changes). Daily at 6AM + on-change events.</div>
+            </div>
+            <div><span class="count-badge">3 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">1d</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">cts.ngch.submissions.{bank_id}</div>
+            <div>
+              <span class="producer-tag">cts-agent-worker</span>→
+              <span class="consumer-tag">audit-service</span>
+              <span class="consumer-tag">analytics-service</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">Confirmed NGCH filings with acknowledgement numbers. Immutable record of what was filed. De-duplication cross-check source.</div>
+            </div>
+            <div><span class="count-badge">6 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">30d</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">cts.iet.alerts.{bank_id}</div>
+            <div>
+              <span class="producer-tag">iet-watchdog-worker</span>→
+              <span class="consumer-tag">notification-service</span>
+              <span class="consumer-tag">ops-workstation</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">T−30s near-breach alerts and post-emergency-filing events. Grafana alerting trigger. PrometheusRule: CTSIETBreach.</div>
+            </div>
+            <div><span class="count-badge">2 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">7d</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">cts.fraud.signals.{bank_id}</div>
+            <div>
+              <span class="producer-tag">cts-agent-worker</span>→
+              <span class="consumer-tag">analytics-service</span>
+              <span class="consumer-tag">fraud-ml-trainer</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">Per-cheque fraud feature vectors + SHAP values for model training pipeline. Never contains PII. Feeds MLflow training dataset.</div>
+            </div>
+            <div><span class="count-badge">4 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">90d</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">cts.sub_member.routed.{bank_id}</div>
+            <div>
+              <span class="producer-tag">api-gateway</span>→
+              <span class="consumer-tag">sub-member-bridge</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">Sub-member bank cheques routed via sponsor bank. Contains risk-shield decision and routing metadata. Triggers sponsor-bank processing workflow.</div>
+            </div>
+            <div><span class="count-badge">3 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">4h</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">cts.reconciliation.{bank_id}</div>
+            <div>
+              <span class="producer-tag">cts-agent-worker</span>→
+              <span class="consumer-tag">reconciliation-service</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">Session reconciliation events — lot totals, instrument counts, mismatch flags. Daily reconciliation engine input.</div>
+            </div>
+            <div><span class="count-badge">2 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">7d</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EJ Topics -->
+    <div class="module-block">
+      <div class="module-header">
+        <div class="module-dot" style="background:#10b981;"></div>
+        <span class="module-label">EJ Module — ATM Electronic Journal Intelligence</span>
+        <span class="module-desc">7 topics · {bank_id} + {atm_id} scoping</span>
+      </div>
+      <div class="module-body">
+        <div style="padding:0 2px;">
+          <div class="topic-row header">
+            <div>Topic Name</div>
+            <div>Producers → Consumers</div>
+            <div>Partitions / Replication</div>
+            <div>Retention</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">ej.raw.ingested.{bank_id}</div>
+            <div>
+              <span class="producer-tag">ej-ingestion-gateway</span>→
+              <span class="consumer-tag">ej-normalisation-worker (KEDA)</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">Raw EJ file receipt events — triggers EJNormalisationWorkflow. Contains S3/MinIO object_key, OEM fingerprint hint, atm_id. Never contains raw log content.</div>
+            </div>
+            <div><span class="count-badge">6 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">24h</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">ej.canonical.{bank_id}</div>
+            <div>
+              <span class="producer-tag">ej-normalisation-worker</span>→
+              <span class="consumer-tag">dispute-engine</span>
+              <span class="consumer-tag">analytics-service</span>
+              <span class="consumer-tag">atm-health-aggregator</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">LLM-normalised EJ records — structured per-transaction JSON. Triggers DisputeResolutionWorkflow when claim_id present. Powers fleet analytics.</div>
+            </div>
+            <div><span class="count-badge">6 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">30d</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">ej.health.signals.{bank_id}</div>
+            <div>
+              <span class="producer-tag">ej-normalisation-worker</span>→
+              <span class="consumer-tag">anomaly-detector</span>
+              <span class="consumer-tag">ops-workstation</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">Per-ATM health signals extracted from EJ — error rates, transaction success ratios, hardware fault codes. Feeds ATMHealthWorkflow time-series.</div>
+            </div>
+            <div><span class="count-badge">4 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">7d</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">ej.disputes.{bank_id}</div>
+            <div>
+              <span class="producer-tag">api-gateway</span>
+              <span class="producer-tag">npci-claim-adapter</span>→
+              <span class="consumer-tag">dispute-engine (KEDA)</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">NPCI dispute claims — triggers DisputeResolutionWorkflow. Contains claim_id (idempotent), transaction_ref, dispute_type, claimed_amount. Auto-routing to EJ semantic match.</div>
+            </div>
+            <div><span class="count-badge">4 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">30d</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">ej.dispute.resolutions.{bank_id}</div>
+            <div>
+              <span class="producer-tag">dispute-engine</span>→
+              <span class="consumer-tag">audit-service</span>
+              <span class="consumer-tag">notification-service</span>
+              <span class="consumer-tag">analytics-service</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">Auto-resolved and escalated dispute outcomes. NPCI filing acknowledgements. Feeds dispute resolution SLA dashboard.</div>
+            </div>
+            <div><span class="count-badge">3 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">90d</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">ej.atm.fleet.commands.{bank_id}</div>
+            <div>
+              <span class="producer-tag">ops-workstation</span>
+              <span class="producer-tag">atm-health-worker</span>→
+              <span class="consumer-tag">branch-ej-agent</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">Commands to edge agents — fetch triggers, config updates, OEM fingerprint version pushes. Low-volume, high-priority. TLS encrypted.</div>
+            </div>
+            <div><span class="count-badge">2 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">1d</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">ej.parse.failed.{bank_id}</div>
+            <div>
+              <span class="producer-tag">ej-normalisation-worker</span>→
+              <span class="consumer-tag">ops-workstation</span>
+              <span class="consumer-tag">audit-service</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">LLM parse failures — unknown OEM, low confidence extraction, schema validation fail. Human review queue. Also feeds OEM fingerprint training pipeline.</div>
+            </div>
+            <div><span class="count-badge">2 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">30d</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Platform Topics -->
+    <div class="module-block">
+      <div class="module-header">
+        <div class="module-dot" style="background:#8b5cf6;"></div>
+        <span class="module-label">Platform — Shared Infrastructure Topics</span>
+        <span class="module-desc">5 topics · consumed by all modules</span>
+      </div>
+      <div class="module-body">
+        <div style="padding:0 2px;">
+          <div class="topic-row header">
+            <div>Topic Name</div>
+            <div>Producers → Consumers</div>
+            <div>Partitions / Replication</div>
+            <div>Retention</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">platform.audit.events</div>
+            <div>
+              <span class="producer-tag">all services</span>→
+              <span class="consumer-tag">audit-service</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">All terminal audit events from all modules. HSM-signed before Immudb write. Buffered via Redis Streams to absorb signing latency. Compacted topic with infinite retention.</div>
+            </div>
+            <div><span class="count-badge">12 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">∞ (compacted)</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">platform.notifications</div>
+            <div>
+              <span class="producer-tag">all services</span>→
+              <span class="consumer-tag">notification-service</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">All notification triggers — email, WhatsApp. Separate consumer groups for email and WhatsApp channels. Dead-letter queue: platform.notifications.dlq</div>
+            </div>
+            <div><span class="count-badge">4 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">7d</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">platform.config.changed</div>
+            <div>
+              <span class="producer-tag">config-service</span>→
+              <span class="consumer-tag">cts-agent-worker</span>
+              <span class="consumer-tag">ej-normalisation-worker</span>
+              <span class="consumer-tag">api-gateway (CacheInvalidator)</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">Layer 3 config changes after Admin UI maker-checker approval. Workers reload thresholds within 30 seconds. Cache invalidator deletes stale Redis config keys.</div>
+            </div>
+            <div><span class="count-badge">2 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">1d</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">platform.cache.invalidation</div>
+            <div>
+              <span class="producer-tag">config-service</span>
+              <span class="producer-tag">vault-sync-service</span>→
+              <span class="consumer-tag">api-gateway (CacheInvalidator)</span>
+              <span class="consumer-tag">cts-agent-worker</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">Targeted Redis DEL commands — specific config keys, vault miss markers after sync, session invalidations on logout. More granular than platform.config.changed.</div>
+            </div>
+            <div><span class="count-badge">2 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">1h</div>
+          </div>
+          <div class="topic-row">
+            <div class="topic-name">platform.bank.onboarding</div>
+            <div>
+              <span class="producer-tag">admin-service</span>→
+              <span class="consumer-tag">onboarding-workflow-worker</span>
+              <div style="font-size:0.76rem;color:var(--muted);margin-top:3px;">New bank provisioning events — triggers BankOnboardingWorkflow. Namespace creation, DB schema init, vault warm, NGCH cert registration. One-time per bank.</div>
+            </div>
+            <div><span class="count-badge">1 / 3</span></div>
+            <div style="font-size:0.78rem;color:var(--muted);">30d</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Section 3: Event Types -->
+  <div class="section" id="event-types">
+    <div class="section-title">
+      <div class="icon" style="background:rgba(139,92,246,0.15);">🗂</div>
+      3. Event Type Registry
+    </div>
+    <div class="section-subtitle">73 distinct event_type values used in Kafka message payloads across all topics</div>
+
+    <div class="info-box">Every Kafka message envelope carries: <strong>event_id</strong> (UUIDv7), <strong>schema_version</strong> ("1.0"), <strong>event_type</strong> (enum below), <strong>bank_id</strong>, <strong>timestamp</strong> (ISO-8601), <strong>payload</strong> (event-specific JSON).</div>
+
+    <div class="events-grid">
+      <!-- CTS Inward -->
+      <div class="event-block">
+        <div class="topic-label">cts.inward.{bank_id}</div>
+        <div class="event-type" style="color:#93c5fd;">CTS_INWARD_RECEIVED</div>
+        <div class="event-type" style="color:#93c5fd;">CTS_INWARD_BATCH_OPENED</div>
+        <div class="event-type" style="color:#93c5fd;">CTS_INWARD_BATCH_CLOSED</div>
+        <div class="event-type" style="color:#93c5fd;">CTS_SUBMEMBER_INWARD_RECEIVED</div>
+      </div>
+
+      <!-- CTS Decisions -->
+      <div class="event-block">
+        <div class="topic-label">cts.decisions.{bank_id}</div>
+        <div class="event-type" style="color:#34d399;">CTS_DECISION_STP_CONFIRM</div>
+        <div class="event-type" style="color:#34d399;">CTS_DECISION_STP_RETURN</div>
+        <div class="event-type" style="color:#34d399;">CTS_DECISION_HUMAN_REVIEW</div>
+        <div class="event-type" style="color:#34d399;">CTS_DECISION_EMERGENCY_FILED</div>
+        <div class="event-type" style="color:#34d399;">CTS_DECISION_REVIEWER_CONFIRMED</div>
+        <div class="event-type" style="color:#34d399;">CTS_DECISION_REVIEWER_RETURNED</div>
+        <div class="event-type" style="color:#34d399;">CTS_DECISION_TIMEOUT_AUTO_RETURNED</div>
+        <div class="event-type" style="color:#34d399;">CTS_DECISION_FILED</div>
+      </div>
+
+      <!-- CTS Human Review -->
+      <div class="event-block">
+        <div class="topic-label">cts.human.review.{bank_id}</div>
+        <div class="event-type" style="color:#fbbf24;">CTS_REVIEW_QUEUED</div>
+        <div class="event-type" style="color:#fbbf24;">CTS_REVIEW_ASSIGNED</div>
+        <div class="event-type" style="color:#fbbf24;">CTS_REVIEW_RECALLED</div>
+        <div class="event-type" style="color:#fbbf24;">CTS_VAULT_MISS_REVIEW</div>
+        <div class="event-type" style="color:#fbbf24;">CTS_HIGH_VALUE_REVIEW</div>
+        <div class="event-type" style="color:#fbbf24;">CTS_ALTERATION_REVIEW</div>
+        <div class="event-type" style="color:#fbbf24;">CTS_FRAUD_SCORE_REVIEW</div>
+      </div>
+
+      <!-- CTS Vault Sync -->
+      <div class="event-block">
+        <div class="topic-label">cts.vault.sync.{bank_id}</div>
+        <div class="event-type" style="color:#a78bfa;">CTS_VAULT_SYNC_STARTED</div>
+        <div class="event-type" style="color:#a78bfa;">CTS_VAULT_SYNC_COMPLETE</div>
+        <div class="event-type" style="color:#a78bfa;">CTS_VAULT_SIGNATURE_UPDATED</div>
+        <div class="event-type" style="color:#a78bfa;">CTS_VAULT_PPS_UPDATED</div>
+        <div class="event-type" style="color:#a78bfa;">CTS_VAULT_ACCOUNT_CLOSED</div>
+        <div class="event-type" style="color:#a78bfa;">CTS_VAULT_INTEGRITY_VERIFIED</div>
+      </div>
+
+      <!-- CTS IET Alerts -->
+      <div class="event-block">
+        <div class="topic-label">cts.iet.alerts.{bank_id}</div>
+        <div class="event-type" style="color:#f87171;">CTS_IET_NEAR_BREACH_30S</div>
+        <div class="event-type" style="color:#f87171;">CTS_IET_EMERGENCY_FILED</div>
+        <div class="event-type" style="color:#f87171;">CTS_IET_SAFE_FILED</div>
+        <div class="event-type" style="color:#f87171;">CTS_IET_BATCH_STATS</div>
+      </div>
+
+      <!-- CTS Fraud Signals -->
+      <div class="event-block">
+        <div class="topic-label">cts.fraud.signals.{bank_id}</div>
+        <div class="event-type" style="color:#fb923c;">CTS_FRAUD_FEATURES_LOGGED</div>
+        <div class="event-type" style="color:#fb923c;">CTS_FRAUD_HIGH_SCORE_ALERT</div>
+        <div class="event-type" style="color:#fb923c;">CTS_MODEL_DRIFT_ALERT</div>
+        <div class="event-type" style="color:#fb923c;">CTS_FRAUD_CONFIRMED_BY_REVIEWER</div>
+      </div>
+
+      <!-- EJ Raw -->
+      <div class="event-block">
+        <div class="topic-label">ej.raw.ingested.{bank_id}</div>
+        <div class="event-type" style="color:#34d399;">EJ_RAW_RECEIVED</div>
+        <div class="event-type" style="color:#34d399;">EJ_RAW_DUPLICATE_DETECTED</div>
+        <div class="event-type" style="color:#34d399;">EJ_RAW_EDGE_BUFFERED</div>
+        <div class="event-type" style="color:#34d399;">EJ_RAW_INGESTION_FAILED</div>
+      </div>
+
+      <!-- EJ Canonical -->
+      <div class="event-block">
+        <div class="topic-label">ej.canonical.{bank_id}</div>
+        <div class="event-type" style="color:#22d3ee;">EJ_CANONICAL_STORED</div>
+        <div class="event-type" style="color:#22d3ee;">EJ_TRANSACTION_SUCCESSFUL</div>
+        <div class="event-type" style="color:#22d3ee;">EJ_TRANSACTION_FAILED</div>
+        <div class="event-type" style="color:#22d3ee;">EJ_TRANSACTION_REVERSED</div>
+        <div class="event-type" style="color:#22d3ee;">EJ_CASH_NOT_DISPENSED</div>
+        <div class="event-type" style="color:#22d3ee;">EJ_PARTIAL_DISPENSE</div>
+        <div class="event-type" style="color:#22d3ee;">EJ_CARD_RETAINED</div>
+      </div>
+
+      <!-- EJ Health Signals -->
+      <div class="event-block">
+        <div class="topic-label">ej.health.signals.{bank_id}</div>
+        <div class="event-type" style="color:#6ee7b7;">EJ_ATM_HEALTHY</div>
+        <div class="event-type" style="color:#fbbf24;">EJ_ATM_DEGRADED</div>
+        <div class="event-type" style="color:#f87171;">EJ_ATM_CRITICAL</div>
+        <div class="event-type" style="color:#6ee7b7;">EJ_ATM_HARDWARE_FAULT</div>
+        <div class="event-type" style="color:#6ee7b7;">EJ_ATM_CASH_LOW</div>
+        <div class="event-type" style="color:#6ee7b7;">EJ_ATM_COMM_ERROR</div>
+      </div>
+
+      <!-- EJ Disputes -->
+      <div class="event-block">
+        <div class="topic-label">ej.disputes.{bank_id}</div>
+        <div class="event-type" style="color:#c4b5fd;">EJ_DISPUTE_CLAIM_RECEIVED</div>
+        <div class="event-type" style="color:#c4b5fd;">EJ_DISPUTE_AUTO_RESOLVED</div>
+        <div class="event-type" style="color:#c4b5fd;">EJ_DISPUTE_ESCALATED</div>
+        <div class="event-type" style="color:#c4b5fd;">EJ_DISPUTE_CCTV_REQUESTED</div>
+        <div class="event-type" style="color:#c4b5fd;">EJ_DISPUTE_FILED_TO_NPCI</div>
+        <div class="event-type" style="color:#c4b5fd;">EJ_DISPUTE_EVIDENCE_PACKAGED</div>
+      </div>
+
+      <!-- Platform Audit -->
+      <div class="event-block">
+        <div class="topic-label">platform.audit.events</div>
+        <div class="event-type" style="color:#a78bfa;">AUDIT_CTS_DECISION_FILED</div>
+        <div class="event-type" style="color:#a78bfa;">AUDIT_EJ_CANONICAL_STORED</div>
+        <div class="event-type" style="color:#a78bfa;">AUDIT_DISPUTE_RESOLVED</div>
+        <div class="event-type" style="color:#a78bfa;">AUDIT_VAULT_SYNC_COMPLETE</div>
+        <div class="event-type" style="color:#a78bfa;">AUDIT_CONFIG_CHANGED</div>
+        <div class="event-type" style="color:#a78bfa;">AUDIT_USER_LOGIN</div>
+        <div class="event-type" style="color:#a78bfa;">AUDIT_USER_LOGOUT</div>
+        <div class="event-type" style="color:#a78bfa;">AUDIT_ADMIN_ACTION</div>
+        <div class="event-type" style="color:#a78bfa;">AUDIT_SIGNED</div>
+      </div>
+
+      <!-- Platform Config / Notifications -->
+      <div class="event-block">
+        <div class="topic-label">platform.config.changed + platform.notifications</div>
+        <div class="event-type" style="color:#94a3b8;">CONFIG_THRESHOLD_CHANGED</div>
+        <div class="event-type" style="color:#94a3b8;">CONFIG_POLICY_UPDATED</div>
+        <div class="event-type" style="color:#94a3b8;">CACHE_INVALIDATE</div>
+        <div class="event-type" style="color:#94a3b8;">VAULT_SYNC_COMPLETE</div>
+        <div class="event-type" style="color:#94a3b8;">NOTIFY_EMAIL</div>
+        <div class="event-type" style="color:#94a3b8;">NOTIFY_WHATSAPP</div>
+        <div class="event-type" style="color:#94a3b8;">NOTIFY_OPS_ALERT</div>
+        <div class="event-type" style="color:#94a3b8;">BANK_ONBOARDING_TRIGGERED</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Section 4: Kafka Config -->
+  <div class="section" id="kafka-patterns">
+    <div class="section-title">
+      <div class="icon" style="background:rgba(251,191,36,0.15);">⚙️</div>
+      4. Kafka Configuration &amp; Patterns
+    </div>
+    <div class="section-subtitle">Producer config, consumer groups, exactly-once semantics, and dead-letter handling</div>
+
+    <div class="two-col" style="margin-bottom:24px;">
+      <div>
+        <div class="module-block">
+          <div class="module-header">
+            <div class="module-dot" style="background:#f59e0b;"></div>
+            <span class="module-label">Producer Configuration</span>
+          </div>
+          <div style="padding:20px 24px;">
+            <table class="detail-table">
+              <tr><th>Setting</th><th>Value</th><th>Why</th></tr>
+              <tr><td>acks</td><td>all (-1)</td><td>All ISR replicas must confirm</td></tr>
+              <tr><td>enable.idempotence</td><td>true</td><td>Exactly-once on network retry</td></tr>
+              <tr><td>max.in.flight.requests.per.connection</td><td>5</td><td>Max with idempotence enabled</td></tr>
+              <tr><td>retries</td><td>2147483647</td><td>Kafka handles retries indefinitely</td></tr>
+              <tr><td>retry.backoff.ms</td><td>200</td><td>200ms before retry</td></tr>
+              <tr><td>compression.type</td><td>lz4</td><td>Fast compression for image metadata</td></tr>
+              <tr><td>linger.ms</td><td>5</td><td>Batch small messages for throughput</td></tr>
+              <tr><td>batch.size</td><td>65536</td><td>64KB batch — cheque JSON is small</td></tr>
+              <tr><td>transactional.id</td><td>astra-{service}-{bank_id}</td><td>Per-service-per-bank transaction scope</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="module-block">
+          <div class="module-header">
+            <div class="module-dot" style="background:#6366f1;"></div>
+            <span class="module-label">Consumer Group Registry</span>
+          </div>
+          <div style="padding:20px 24px;">
+            <table class="detail-table">
+              <tr><th>Consumer Group</th><th>Subscribes To</th></tr>
+              <tr><td>cg-cts-agent-{bank_id}</td><td>cts.inward.{bank_id}</td></tr>
+              <tr><td>cg-cts-vault-sync-{bank_id}</td><td>cts.vault.sync.{bank_id}</td></tr>
+              <tr><td>cg-cts-reconcile-{bank_id}</td><td>cts.reconciliation.{bank_id}</td></tr>
+              <tr><td>cg-ej-normalise-{bank_id}</td><td>ej.raw.ingested.{bank_id}</td></tr>
+              <tr><td>cg-ej-dispute-{bank_id}</td><td>ej.disputes.{bank_id}, ej.canonical.{bank_id}</td></tr>
+              <tr><td>cg-ej-health-{bank_id}</td><td>ej.health.signals.{bank_id}</td></tr>
+              <tr><td>cg-audit-immudb</td><td>platform.audit.events</td></tr>
+              <tr><td>cg-notify-email</td><td>platform.notifications</td></tr>
+              <tr><td>cg-notify-whatsapp</td><td>platform.notifications</td></tr>
+              <tr><td>cg-analytics-cts-{bank_id}</td><td>cts.decisions.{bank_id}, cts.fraud.signals.{bank_id}</td></tr>
+              <tr><td>cg-analytics-ej-{bank_id}</td><td>ej.canonical.{bank_id}, ej.health.signals.{bank_id}</td></tr>
+              <tr><td>cg-platform-config-cache-{bank_id}</td><td>platform.config.changed, platform.cache.invalidation</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="module-block">
+      <div class="module-header">
+        <div class="module-dot" style="background:#ef4444;"></div>
+        <span class="module-label">Dead-Letter Queue Strategy</span>
+        <span class="module-desc">Every topic has a corresponding DLQ — no message is silently dropped</span>
+      </div>
+      <div style="padding:20px 24px;">
+        <table class="detail-table">
+          <tr><th>Topic</th><th>DLQ Topic</th><th>DLQ Action</th><th>Alert</th></tr>
+          <tr><td>cts.inward.{bank_id}</td><td>cts.inward.dlq.{bank_id}</td><td>Human review + IETWatchdog still active on original</td><td>PagerDuty: CRITICAL</td></tr>
+          <tr><td>cts.decisions.{bank_id}</td><td>cts.decisions.dlq.{bank_id}</td><td>Replay from Temporal — decision already filed to NGCH</td><td>Grafana: HIGH</td></tr>
+          <tr><td>ej.raw.ingested.{bank_id}</td><td>ej.raw.dlq.{bank_id}</td><td>Manual re-ingest trigger via ops UI</td><td>Grafana: MEDIUM</td></tr>
+          <tr><td>platform.audit.events</td><td>platform.audit.dlq</td><td>Auto-retry via Redis Streams buffer (never lose audit)</td><td>PagerDuty: CRITICAL</td></tr>
+          <tr><td>platform.notifications</td><td>platform.notifications.dlq</td><td>3 retries then log — non-critical</td><td>Grafana: LOW</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Section 5: Redis Clusters -->
+  <div class="section" id="redis-clusters">
+    <div class="section-title">
+      <div class="icon" style="background:rgba(239,68,68,0.15);">🗄</div>
+      5. Redis Clusters — Blast-Isolated
+    </div>
+    <div class="section-subtitle">Two separate Redis Clusters — CTS and EJ cannot share memory, eviction policy, or connection pool</div>
+
+    <div class="two-col">
+      <div class="module-block">
+        <div class="module-header">
+          <div class="module-dot" style="background:#3b82f6;"></div>
+          <span class="module-label">redis-cts Cluster</span>
+          <span class="module-desc">6 nodes (3+3 across 2 DCs)</span>
+        </div>
+        <div style="padding:20px 24px;">
+          <table class="detail-table">
+            <tr><th>Parameter</th><th>Value</th></tr>
+            <tr><td>Cluster</td><td>redis-cts.{bank_id}.internal:6379</td></tr>
+            <tr><td>Nodes</td><td>3 primary + 3 replica (DC1 + DC2)</td></tr>
+            <tr><td>Max Memory</td><td>16 GB per node (configurable per bank)</td></tr>
+            <tr><td>Eviction Policy</td><td>allkeys-lru (vault keys have no TTL — evict oldest)</td></tr>
+            <tr><td>Persistence</td><td>AOF fsync=everysec + RDB snapshot hourly</td></tr>
+            <tr><td>Max Connections</td><td>20 per pod (api-gateway: 20, cts-worker: 50)</td></tr>
+            <tr><td>TLS</td><td>mTLS (Istio sidecar handles)</td></tr>
+            <tr><td>Config Key</td><td>redis.cts.url (via config_service — never hardcoded)</td></tr>
+          </table>
+          <div style="margin-top:16px;">
+            <div style="font-size:0.8rem;color:var(--muted);margin-bottom:8px;">Namespaces hosted:</div>
+            <div class="tag-group">
+              <span class="tag cts">sig:</span>
+              <span class="tag cts">pps:</span>
+              <span class="tag cts">ratelimit:</span>
+              <span class="tag cts">session:</span>
+              <span class="tag cts">lock:workflow:</span>
+              <span class="tag cts">config:</span>
+              <span class="tag cts">audit:{bank_id}:stream</span>
+              <span class="tag cts">dashboard:cts:</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="module-block">
+        <div class="module-header">
+          <div class="module-dot" style="background:#10b981;"></div>
+          <span class="module-label">redis-ej Cluster</span>
+          <span class="module-desc">6 nodes (3+3 across 2 DCs)</span>
+        </div>
+        <div style="padding:20px 24px;">
+          <table class="detail-table">
+            <tr><th>Parameter</th><th>Value</th></tr>
+            <tr><td>Cluster</td><td>redis-ej.{bank_id}.internal:6379</td></tr>
+            <tr><td>Nodes</td><td>3 primary + 3 replica (DC1 + DC2)</td></tr>
+            <tr><td>Max Memory</td><td>8 GB per node (EJ cache smaller than vault)</td></tr>
+            <tr><td>Eviction Policy</td><td>allkeys-lru (canonical cache — evictable)</td></tr>
+            <tr><td>Persistence</td><td>AOF fsync=everysec</td></tr>
+            <tr><td>Max Connections</td><td>10 per pod</td></tr>
+            <tr><td>TLS</td><td>mTLS (Istio sidecar handles)</td></tr>
+            <tr><td>Config Key</td><td>redis.ej.url (via config_service — never hardcoded)</td></tr>
+          </table>
+          <div style="margin-top:16px;">
+            <div style="font-size:0.8rem;color:var(--muted);margin-bottom:8px;">Namespaces hosted:</div>
+            <div class="tag-group">
+              <span class="tag ej">ej:canonical:</span>
+              <span class="tag ej">ej:atm:health:</span>
+              <span class="tag ej">ej:oem:fingerprint:</span>
+              <span class="tag ej">ej:dispute:embed:</span>
+              <span class="tag ej">dashboard:ej:</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Section 6: Redis Key Namespaces -->
+  <div class="section" id="redis-namespaces">
+    <div class="section-title">
+      <div class="icon" style="background:rgba(251,191,36,0.15);">🔑</div>
+      6. Redis Key Namespaces — Complete Reference
+    </div>
+    <div class="section-subtitle">Every Redis key pattern used in ASTRA — with type, TTL, eviction policy, and purpose</div>
+
+    <div class="redis-grid">
+
+      <!-- Signature Vault -->
+      <div class="redis-card">
+        <div class="redis-card-header">
+          <div class="namespace">sig:{bank_id}:{account_hash}</div>
+          <div class="purpose">Signature Vault</div>
+          <div class="cluster">redis-cts · Hash type · No TTL</div>
+        </div>
+        <div class="redis-card-body">
+          <div class="key-entry">
+            <div class="key-pattern">sig:{bank_id}:{hmac_sha256(account_num)}</div>
+            <div class="key-meta"><span class="type">HASH</span><span class="ttl">No TTL (evict on LRU)</span></div>
+            <div class="key-desc">Fields: vector_b64 (Siamese embedding, base64), specimen_count, last_synced_at, account_suffix (last 4 digits for display only). Key uses HMAC-SHA256 with bank-specific pepper from Vault — never raw account number.</div>
+          </div>
+          <div class="key-entry">
+            <div class="key-pattern">sig:miss:{bank_id}:{account_hash}</div>
+            <div class="key-meta"><span class="type">STRING</span><span class="ttl">TTL: 300s</span></div>
+            <div class="key-desc">Vault miss marker — set when CBS lookup also fails. Prevents repeated CBS calls for accounts with no specimen. Cleared by platform.cache.invalidation event after vault sync.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PPS Vault -->
+      <div class="redis-card">
+        <div class="redis-card-header">
+          <div class="namespace">pps:{bank_id}:{account_hash}:{series}</div>
+          <div class="purpose">Positive Pay Vault</div>
+          <div class="cluster">redis-cts · Hash type · TTL = cheque validity</div>
+        </div>
+        <div class="redis-card-body">
+          <div class="key-entry">
+            <div class="key-pattern">pps:{bank_id}:{account_hash}:{series_start}</div>
+            <div class="key-meta"><span class="type">HASH</span><span class="ttl">TTL: 90d (cheque validity)</span></div>
+            <div class="key-desc">Fields: payee_name_enc (pgcrypto encrypted), amount_range, valid_from, valid_until, status (ACTIVE/STALE). Series key enables O(1) lookup per cheque series.</div>
+          </div>
+          <div class="key-entry">
+            <div class="key-pattern">pps:miss:{bank_id}:{account_hash}</div>
+            <div class="key-meta"><span class="type">STRING</span><span class="ttl">TTL: 300s</span></div>
+            <div class="key-desc">PPS vault miss marker — account has no positive pay instruction. Routes to HUMAN_REVIEW. Never routes to AUTO_RETURN. Cleared on vault sync.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rate Limiting -->
+      <div class="redis-card">
+        <div class="redis-card-header">
+          <div class="namespace">ratelimit:{bank_id}:{endpoint}:{minute}</div>
+          <div class="purpose">API Rate Limiting</div>
+          <div class="cluster">redis-cts · String type · TTL = 70s</div>
+        </div>
+        <div class="redis-card-body">
+          <div class="key-entry">
+            <div class="key-pattern">ratelimit:{bank_id}:{endpoint_slug}:{epoch_minute}</div>
+            <div class="key-meta"><span class="type">STRING (counter)</span><span class="ttl">TTL: 70s</span></div>
+            <div class="key-desc">Sliding window counter per bank per endpoint per 60-second window. Atomic INCR + EXPIRE via Redis pipeline. Endpoint slugs: cts_inward_submit (600/min), cts_decisions_get (300/min), ej_inward_log (100/min), admin_config (30/min). Fail-open when Redis unavailable.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session Cache -->
+      <div class="redis-card">
+        <div class="redis-card-header">
+          <div class="namespace">session:{bank_id}:{token_hash}</div>
+          <div class="purpose">JWT Session Cache</div>
+          <div class="cluster">redis-cts · String type · TTL = 900s (sliding)</div>
+        </div>
+        <div class="redis-card-body">
+          <div class="key-entry">
+            <div class="key-pattern">session:{bank_id}:{sha256(jwt_token)}</div>
+            <div class="key-meta"><span class="type">STRING (JSON)</span><span class="ttl">TTL: 900s (refreshed on access)</span></div>
+            <div class="key-desc">Cached JWT claims — bank_id, user_id, roles, expires_at. Avoids repeated crypto verify (expensive SAML assertion check). Token stored as SHA-256 hash only — raw JWT never in Redis. Sliding expiry: EXPIRE reset on each request. DEL on logout.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Distributed Locks -->
+      <div class="redis-card">
+        <div class="redis-card-header">
+          <div class="namespace">lock:workflow:{bank_id}:{workflow_id}</div>
+          <div class="purpose">Distributed Workflow Locks</div>
+          <div class="cluster">redis-cts · String type · TTL = 60s</div>
+        </div>
+        <div class="redis-card-body">
+          <div class="key-entry">
+            <div class="key-pattern">lock:workflow:{bank_id}:{instrument_id}</div>
+            <div class="key-meta"><span class="type">STRING (token)</span><span class="ttl">TTL: 60s (auto-release on crash)</span></div>
+            <div class="key-desc">Idempotency guard — prevents duplicate Temporal workflow submissions for the same instrument. SET NX PX atomic acquire. Lua script atomic check-and-delete release. Unique token per lock instance prevents cross-caller release. Fail-open when Redis None (Temporal handles dedup).</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Audit Stream Buffer -->
+      <div class="redis-card">
+        <div class="redis-card-header">
+          <div class="namespace">audit:{bank_id}:stream</div>
+          <div class="purpose">Audit Event Stream Buffer</div>
+          <div class="cluster">redis-cts · Stream type · MAXLEN 1000</div>
+        </div>
+        <div class="redis-card-body">
+          <div class="key-entry">
+            <div class="key-pattern">audit:{bank_id}:stream</div>
+            <div class="key-meta"><span class="type">STREAM (XADD/XREADGROUP)</span><span class="ttl">MAXLEN 1000 (trimmed)</span></div>
+            <div class="key-desc">Redis Streams buffer between services and Immudb writer. Fields: event_type, entity_id, actor_id, bank_id, payload (JSON), hsm_signed ("true"/"false"). Consumer group: cg-audit-immudb-{bank_id}. XACK after Immudb append. HSM signing happens inside consumer before write. Absorbs burst writes — Immudb receives steady stream.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Config Cache -->
+      <div class="redis-card">
+        <div class="redis-card-header">
+          <div class="namespace">config:{bank_id}:{key}</div>
+          <div class="purpose">Config Service L3 Cache</div>
+          <div class="cluster">redis-cts · String type · TTL = 30s</div>
+        </div>
+        <div class="redis-card-body">
+          <div class="key-entry">
+            <div class="key-pattern">config:{bank_id}:{config_key}</div>
+            <div class="key-meta"><span class="type">STRING</span><span class="ttl">TTL: 30s (event-invalidated)</span></div>
+            <div class="key-desc">Layer 3 config values from YugabyteDB — thresholds, business rules. 30s TTL is the fallback. Primary invalidation: Kafka platform.config.changed → CacheInvalidator → Redis DEL. Workers reload within 30s of Admin UI change. Keys follow dot notation: iet_minutes, stp_auto_confirm_threshold, human_review_fraud_threshold.</div>
+          </div>
+          <div class="key-entry">
+            <div class="key-pattern">config:idempotency:{bank_id}:{request_id}</div>
+            <div class="key-meta"><span class="type">STRING</span><span class="ttl">TTL: 300s</span></div>
+            <div class="key-desc">API-level idempotency keys for cheque submission endpoints. Prevents double-submit from retry storms. Value: workflow_id of created workflow.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dashboard Aggregates -->
+      <div class="redis-card">
+        <div class="redis-card-header">
+          <div class="namespace">dashboard:cts:{bank_id}:*</div>
+          <div class="purpose">CTS Dashboard Aggregates</div>
+          <div class="cluster">redis-cts · Hash / Sorted Set · TTL = 60s</div>
+        </div>
+        <div class="redis-card-body">
+          <div class="key-entry">
+            <div class="key-pattern">dashboard:cts:{bank_id}:session:{date}</div>
+            <div class="key-meta"><span class="type">HASH</span><span class="ttl">TTL: 60s</span></div>
+            <div class="key-desc">Real-time session aggregates: total_inward, stp_confirmed, stp_returned, human_review, iet_near_breach, avg_decision_ms. Updated by analytics-service consumer. Dashboard polls this — never hits YugabyteDB for real-time numbers.</div>
+          </div>
+          <div class="key-entry">
+            <div class="key-pattern">dashboard:cts:{bank_id}:fraud:leaderboard</div>
+            <div class="key-meta"><span class="type">SORTED SET</span><span class="ttl">TTL: 300s</span></div>
+            <div class="key-desc">Top fraud-risk accounts by SHAP score sum (rolling 24h). Sorted set enables O(log N) top-K queries. No PII in keys — account_hash only.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EJ Canonical Cache -->
+      <div class="redis-card">
+        <div class="redis-card-header">
+          <div class="namespace">ej:canonical:{bank_id}:{atm_id}:{date}</div>
+          <div class="purpose">EJ Canonical Cache</div>
+          <div class="cluster">redis-ej · Hash type · TTL = 24h</div>
+        </div>
+        <div class="redis-card-body">
+          <div class="key-entry">
+            <div class="key-pattern">ej:canonical:{bank_id}:{atm_id}:{date}</div>
+            <div class="key-meta"><span class="type">HASH</span><span class="ttl">TTL: 24h</span></div>
+            <div class="key-desc">Today's normalised EJ summary per ATM — transaction counts, success/failure breakdown, cash dispense total. Populated by EJ normalisation worker. Used by ATM fleet dashboard and dispute resolution for quick ATM context lookup.</div>
+          </div>
+          <div class="key-entry">
+            <div class="key-pattern">ej:dedup:{bank_id}:{raw_log_hash}</div>
+            <div class="key-meta"><span class="type">STRING</span><span class="ttl">TTL: 48h</span></div>
+            <div class="key-desc">EJ file deduplication — SHA-256 of raw log content. SET NX on ingest. If exists, duplicate detected → publish EJ_RAW_DUPLICATE_DETECTED, skip processing. Edge agent retries should not cause double-normalisation.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ATM Health -->
+      <div class="redis-card">
+        <div class="redis-card-header">
+          <div class="namespace">ej:atm:health:{bank_id}:{atm_id}</div>
+          <div class="purpose">ATM Health State Cache</div>
+          <div class="cluster">redis-ej · Hash type · TTL = 2h</div>
+        </div>
+        <div class="redis-card-body">
+          <div class="key-entry">
+            <div class="key-pattern">ej:atm:health:{bank_id}:{atm_id}</div>
+            <div class="key-meta"><span class="type">HASH</span><span class="ttl">TTL: 2h</span></div>
+            <div class="key-desc">Current ATM health state: status (HEALTHY/DEGRADED/CRITICAL), error_rate_1h, transaction_success_pct, cash_level_pct, last_ej_received, hw_fault_code. Updated by ATMHealthWorkflow (hourly). ATM Fleet Map reads this — single O(1) lookup per ATM tile.</div>
+          </div>
+          <div class="key-entry">
+            <div class="key-pattern">ej:atm:health:{bank_id}:fleet_summary</div>
+            <div class="key-meta"><span class="type">HASH</span><span class="ttl">TTL: 60s</span></div>
+            <div class="key-desc">Bank-wide fleet health aggregation: total_atms, healthy, degraded, critical, cash_low_count. Refreshed every 60s by analytics-service. Fleet map header stats source.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OEM Fingerprint Cache -->
+      <div class="redis-card">
+        <div class="redis-card-header">
+          <div class="namespace">ej:oem:fingerprint:{version}</div>
+          <div class="purpose">OEM Fingerprint Ruleset Cache</div>
+          <div class="cluster">redis-ej · Hash type · No TTL</div>
+        </div>
+        <div class="redis-card-body">
+          <div class="key-entry">
+            <div class="key-pattern">ej:oem:fingerprint:{version}</div>
+            <div class="key-meta"><span class="type">HASH</span><span class="ttl">No TTL (explicit invalidation)</span></div>
+            <div class="key-desc">OEM fingerprint ruleset — regex patterns, header markers, encoding hints per OEM (NCR, Diebold, Wincor, Nautilus, Hyosung). Loaded from YugabyteDB on startup. Cache busted when new OEM version pushed via ej.atm.fleet.commands. Edge agents get fingerprint updates via command topic.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dispute Embeddings -->
+      <div class="redis-card">
+        <div class="redis-card-header">
+          <div class="namespace">ej:dispute:embed:{bank_id}:{claim_id}</div>
+          <div class="purpose">Dispute BGE-M3 Embeddings</div>
+          <div class="cluster">redis-ej · String type · TTL = 24h</div>
+        </div>
+        <div class="redis-card-body">
+          <div class="key-entry">
+            <div class="key-pattern">ej:dispute:embed:{bank_id}:{claim_id}</div>
+            <div class="key-meta"><span class="type">STRING (base64 vector)</span><span class="ttl">TTL: 24h</span></div>
+            <div class="key-desc">BGE-M3 (1024-dim) embedding of NPCI claim description. Cached to avoid re-embedding on retry. Dispute engine uses cosine similarity against EJ canonical record embeddings stored in YugabyteDB pgvector for semantic match.</div>
+          </div>
+          <div class="key-entry">
+            <div class="key-pattern">ej:dispute:status:{bank_id}:{claim_id}</div>
+            <div class="key-meta"><span class="type">STRING</span><span class="ttl">TTL: 72h</span></div>
+            <div class="key-desc">Dispute resolution status for quick lookup — PENDING, AUTO_RESOLVED, ESCALATED, FILED_TO_NPCI. Read by ops UI for real-time status. Source of truth is YugabyteDB; this is the read cache.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Section 7: Redis Patterns -->
+  <div class="section" id="redis-patterns">
+    <div class="section-title">
+      <div class="icon" style="background:rgba(16,185,129,0.15);">🔄</div>
+      7. Redis Patterns — Implementation Reference
+    </div>
+    <div class="section-subtitle">Reusable patterns used across ASTRA — with rationale and failure behaviour</div>
+
+    <div class="two-col" style="margin-bottom:24px;">
+      <div class="flow-box">
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:16px;color:var(--text);">Pattern: Vault Lookup (Cache-Aside)</div>
+        <div class="flow-step">
+          <div class="step-num" style="background:rgba(59,130,246,0.2);color:#60a5fa;">1</div>
+          <div class="step-content">
+            <div class="title">Redis GET → Cache Hit</div>
+            <div class="detail">Hash lookup in redis-cts. Returns in &lt;5ms. No CBS call.</div>
+            <div class="code">HGET sig:{bank_id}:{account_hash} vector_b64</div>
+          </div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step">
+          <div class="step-num" style="background:rgba(245,158,11,0.2);color:#fbbf24;">2</div>
+          <div class="step-content">
+            <div class="title">Cache Miss → CBS Lookup</div>
+            <div class="detail">Call CBS connector via Temporal activity (CBS_TIMEOUT=10s)</div>
+            <div class="code">check_cbs_balance() activity with CBS_RETRY policy</div>
+          </div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step">
+          <div class="step-num" style="background:rgba(16,185,129,0.2);color:#34d399;">3</div>
+          <div class="step-content">
+            <div class="title">CBS Hit → Write-Through Cache</div>
+            <div class="detail">HMSET vault entry, no TTL (daily sync updates it)</div>
+            <div class="code">HMSET sig:{bank_id}:{hash} vector_b64 ... last_synced ...</div>
+          </div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step">
+          <div class="step-num" style="background:rgba(239,68,68,0.2);color:#f87171;">4</div>
+          <div class="step-content">
+            <div class="title">CBS Miss → Set Miss Marker + HUMAN_REVIEW</div>
+            <div class="detail">SET miss marker with 300s TTL. Route to human review. NEVER auto-return on vault miss.</div>
+            <div class="code">SET sig:miss:{bank_id}:{hash} "" EX 300</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-box">
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:16px;color:var(--text);">Pattern: Rate Limiting (Sliding Window)</div>
+        <div class="flow-step">
+          <div class="step-num" style="background:rgba(59,130,246,0.2);color:#60a5fa;">1</div>
+          <div class="step-content">
+            <div class="title">Extract bank_id from JWT + resolve endpoint slug</div>
+            <div class="detail">SHA-256 token → session cache lookup → bank_id claim. Compute minute window = int(time()) // 60.</div>
+            <div class="code">key = ratelimit:{bank_id}:{slug}:{window}</div>
+          </div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step">
+          <div class="step-num" style="background:rgba(245,158,11,0.2);color:#fbbf24;">2</div>
+          <div class="step-content">
+            <div class="title">Atomic INCR + EXPIRE via Pipeline</div>
+            <div class="detail">Single round-trip: INCR returns new count, EXPIRE sets 70s window. No race condition.</div>
+            <div class="code">PIPELINE: INCR key → EXPIRE key 70 → EXECUTE</div>
+          </div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step">
+          <div class="step-num" style="background:rgba(16,185,129,0.2);color:#34d399;">3a</div>
+          <div class="step-content">
+            <div class="title">count ≤ limit → Pass with headers</div>
+            <div class="detail">Set X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset on response.</div>
+          </div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step">
+          <div class="step-num" style="background:rgba(239,68,68,0.2);color:#f87171;">3b</div>
+          <div class="step-content">
+            <div class="title">count > limit → 429 + Retry-After</div>
+            <div class="detail">JSON: {error_code: RATE_LIMIT_EXCEEDED, retry_after_seconds: ...}</div>
+          </div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step">
+          <div class="step-num" style="background:rgba(100,116,139,0.2);color:#94a3b8;">4</div>
+          <div class="step-content">
+            <div class="title">Redis error → Fail-Open</div>
+            <div class="detail">Rate limiting is DoS protection, not a safety gate. Request passes through.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="flow-box">
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:16px;color:var(--text);">Pattern: Distributed Lock (Workflow Idempotency)</div>
+        <div class="flow-step">
+          <div class="step-num" style="background:rgba(59,130,246,0.2);color:#60a5fa;">1</div>
+          <div class="step-content">
+            <div class="title">Atomic Acquire</div>
+            <div class="code">SET lock:workflow:{bank_id}:{wf_id} {token} NX PX 60000</div>
+            <div class="detail" style="margin-top:4px;">Returns OK (acquired) or nil (already held). Token = uuid4 unique per instance.</div>
+          </div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step">
+          <div class="step-num" style="background:rgba(16,185,129,0.2);color:#34d399;">2</div>
+          <div class="step-content">
+            <div class="title">Start Temporal workflow in context</div>
+            <div class="detail">Lock held during workflow submission only — not for duration of workflow. Temporal handles long-running idempotency via workflow_id.</div>
+          </div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step">
+          <div class="step-num" style="background:rgba(139,92,246,0.2);color:#a78bfa;">3</div>
+          <div class="step-content">
+            <div class="title">Atomic Release (Lua)</div>
+            <div class="code">if GET key == token then DEL key end</div>
+            <div class="detail" style="margin-top:4px;">Lua script: check-and-delete is atomic. Token check prevents cross-caller release (expired lock re-acquired by another caller).</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-box">
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:16px;color:var(--text);">Pattern: Audit Stream Buffer (Redis Streams)</div>
+        <div class="flow-step">
+          <div class="step-num" style="background:rgba(59,130,246,0.2);color:#60a5fa;">1</div>
+          <div class="step-content">
+            <div class="title">Service calls buffer_audit_event()</div>
+            <div class="code">XADD audit:{bank_id}:stream MAXLEN 1000 * event_type ... payload ...</div>
+          </div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step">
+          <div class="step-num" style="background:rgba(245,158,11,0.2);color:#fbbf24;">2</div>
+          <div class="step-content">
+            <div class="title">Audit-service consumer reads batch</div>
+            <div class="code">XREADGROUP GROUP cg-audit-immudb-{bank_id} consumer-1 COUNT 50 STREAMS audit:{bank_id}:stream &gt;</div>
+          </div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step">
+          <div class="step-num" style="background:rgba(139,92,246,0.2);color:#a78bfa;">3</div>
+          <div class="step-content">
+            <div class="title">HSM sign → Immudb append</div>
+            <div class="detail">FIPS 140-2 HSM signs each event. Immudb Merkle tree append. Cryptographically tamper-evident.</div>
+          </div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step">
+          <div class="step-num" style="background:rgba(16,185,129,0.2);color:#34d399;">4</div>
+          <div class="step-content">
+            <div class="title">XACK removes from PEL</div>
+            <div class="code">XACK audit:{bank_id}:stream cg-audit-immudb-{bank_id} {msg_id}</div>
+            <div class="detail" style="margin-top:4px;">Only after Immudb confirms write. Unacked messages redelivered on consumer crash.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Section 8: KEDA -->
+  <div class="section" id="keda">
+    <div class="section-title">
+      <div class="icon" style="background:rgba(6,182,212,0.15);">📈</div>
+      8. KEDA Autoscaling — Kafka Lag → Pod Count
+    </div>
+    <div class="section-subtitle">Every high-throughput Temporal worker scales on Kafka consumer lag — 0 to 500 pods in under 2 seconds</div>
+
+    <div class="note-box">CTS and EJ have completely separate KEDA ScaledObjects — a CTS surge scaling to 500 pods does not trigger any EJ scaling event and cannot consume EJ node resources (separate K8s namespaces with ResourceQuota).</div>
+
+    <table class="keda-table">
+      <thead>
+        <tr>
+          <th>Worker / Service</th>
+          <th>Kafka Topic (lag source)</th>
+          <th>Consumer Group</th>
+          <th>Min Pods</th>
+          <th>Max Pods</th>
+          <th>Lag Threshold</th>
+          <th>Scale-Up Rate</th>
+          <th>Scale-Down Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>cts-agent-worker</td>
+          <td class="mono">cts.inward.{bank_id}</td>
+          <td class="mono">cg-cts-agent-{bank_id}</td>
+          <td>2</td>
+          <td>500</td>
+          <td>lag &gt; 10</td>
+          <td>+50 pods/30s</td>
+          <td>−10 pods/60s</td>
+        </tr>
+        <tr>
+          <td>ej-normalisation-worker</td>
+          <td class="mono">ej.raw.ingested.{bank_id}</td>
+          <td class="mono">cg-ej-normalise-{bank_id}</td>
+          <td>1</td>
+          <td>50</td>
+          <td>lag &gt; 5</td>
+          <td>+5 pods/30s</td>
+          <td>−2 pods/60s</td>
+        </tr>
+        <tr>
+          <td>dispute-engine</td>
+          <td class="mono">ej.disputes.{bank_id}</td>
+          <td class="mono">cg-ej-dispute-{bank_id}</td>
+          <td>1</td>
+          <td>20</td>
+          <td>lag &gt; 3</td>
+          <td>+3 pods/30s</td>
+          <td>−1 pod/60s</td>
+        </tr>
+        <tr>
+          <td>audit-service</td>
+          <td class="mono">platform.audit.events</td>
+          <td class="mono">cg-audit-immudb</td>
+          <td>2</td>
+          <td>10</td>
+          <td>lag &gt; 50</td>
+          <td>+2 pods/30s</td>
+          <td>−1 pod/120s</td>
+        </tr>
+        <tr>
+          <td>notification-service (email)</td>
+          <td class="mono">platform.notifications</td>
+          <td class="mono">cg-notify-email</td>
+          <td>1</td>
+          <td>5</td>
+          <td>lag &gt; 20</td>
+          <td>+1 pod/30s</td>
+          <td>−1 pod/120s</td>
+        </tr>
+        <tr>
+          <td>vault-sync-service</td>
+          <td class="mono">cts.vault.sync.{bank_id}</td>
+          <td class="mono">cg-cts-vault-sync-{bank_id}</td>
+          <td>1</td>
+          <td>5</td>
+          <td>lag &gt; 1</td>
+          <td>+2 pods/30s</td>
+          <td>−1 pod/120s</td>
+        </tr>
+        <tr>
+          <td>analytics-service (CTS)</td>
+          <td class="mono">cts.decisions.{bank_id}</td>
+          <td class="mono">cg-analytics-cts-{bank_id}</td>
+          <td>1</td>
+          <td>10</td>
+          <td>lag &gt; 100</td>
+          <td>+2 pods/60s</td>
+          <td>−1 pod/120s</td>
+        </tr>
+        <tr>
+          <td>analytics-service (EJ)</td>
+          <td class="mono">ej.canonical.{bank_id}</td>
+          <td class="mono">cg-analytics-ej-{bank_id}</td>
+          <td>1</td>
+          <td>10</td>
+          <td>lag &gt; 50</td>
+          <td>+2 pods/60s</td>
+          <td>−1 pod/120s</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Section 9: Critical Flows -->
+  <div class="section" id="flows">
+    <div class="section-title">
+      <div class="icon" style="background:rgba(59,130,246,0.15);">🔀</div>
+      9. Critical End-to-End Flows
+    </div>
+    <div class="section-subtitle">How Kafka and Redis collaborate in the most latency-sensitive paths</div>
+
+    <div class="two-col" style="margin-bottom:24px;">
+      <div>
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:16px;color:var(--text);display:flex;align-items:center;gap:8px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span>
+          Flow 1: Inward Cheque → Decision (&lt;600ms wall clock)
+        </div>
+        <div class="flow-box">
+          <div class="flow-step">
+            <div class="step-num" style="background:rgba(59,130,246,0.2);color:#60a5fa;font-size:0.7rem;">1</div>
+            <div class="step-content">
+              <div class="title">NGCH → Kafka <span style="font-size:0.75rem;color:var(--faint);">(~2ms)</span></div>
+              <div class="code">PRODUCE cts.inward.{bank_id} key={bank_id}</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num" style="background:rgba(59,130,246,0.2);color:#60a5fa;font-size:0.7rem;">2</div>
+            <div class="step-content">
+              <div class="title">KEDA detects lag → scale cts-agent-worker <span style="font-size:0.75rem;color:var(--faint);">(~500ms if cold)</span></div>
+              <div class="detail">Warm pool (min=2 pods) means lag=0 during clearing window. Scale-up only for burst.</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num" style="background:rgba(59,130,246,0.2);color:#60a5fa;font-size:0.7rem;">3</div>
+            <div class="step-content">
+              <div class="title">Temporal workflow starts — IETWatchdog spawned first <span style="font-size:0.75rem;color:var(--faint);">(~5ms)</span></div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num" style="background:rgba(59,130,246,0.2);color:#60a5fa;font-size:0.7rem;">4</div>
+            <div class="step-content">
+              <div class="title">Vault lookup (Redis GET) <span style="font-size:0.75rem;color:var(--faint);">(&lt;5ms)</span></div>
+              <div class="code">HGET sig:{bank_id}:{hash} vector_b64</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num" style="background:rgba(59,130,246,0.2);color:#60a5fa;font-size:0.7rem;">5</div>
+            <div class="step-content">
+              <div class="title">OCR + Signature + Fraud Score in parallel <span style="font-size:0.75rem;color:var(--faint);">(~300ms — GPU)</span></div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num" style="background:rgba(59,130,246,0.2);color:#60a5fa;font-size:0.7rem;">6</div>
+            <div class="step-content">
+              <div class="title">File to NGCH → Publish cts.decisions + platform.audit.events</div>
+              <div class="code">PRODUCE platform.audit.events → Redis Streams buffer</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num" style="background:rgba(16,185,129,0.2);color:#34d399;font-size:0.7rem;">✓</div>
+            <div class="step-content">
+              <div class="title">Total wall clock: &lt;600ms (p99 target)</div>
+              <div class="detail">Redis vaults: &lt;5ms. GPU inference: ~300ms. Kafka produce: ~5ms. NGCH file: ~100ms.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:16px;color:var(--text);display:flex;align-items:center;gap:8px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>
+          Flow 2: Config Change → All Workers Reload (&lt;30s)
+        </div>
+        <div class="flow-box">
+          <div class="flow-step">
+            <div class="step-num" style="background:rgba(16,185,129,0.2);color:#34d399;font-size:0.7rem;">1</div>
+            <div class="step-content">
+              <div class="title">Admin UI maker-checker → config_service.publish()</div>
+              <div class="detail">Layer 3 change approved. config_service writes to YugabyteDB first.</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num" style="background:rgba(16,185,129,0.2);color:#34d399;font-size:0.7rem;">2</div>
+            <div class="step-content">
+              <div class="title">Kafka publish: platform.config.changed</div>
+              <div class="code">PRODUCE platform.config.changed {event_type: CONFIG_THRESHOLD_CHANGED, key: "iet_minutes", bank_id: ...}</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num" style="background:rgba(16,185,129,0.2);color:#34d399;font-size:0.7rem;">3</div>
+            <div class="step-content">
+              <div class="title">CacheInvalidator (api-gateway) consumes → Redis DEL</div>
+              <div class="code">DEL config:{bank_id}:iet_minutes</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num" style="background:rgba(16,185,129,0.2);color:#34d399;font-size:0.7rem;">4</div>
+            <div class="step-content">
+              <div class="title">cts-agent-worker consumes → reload from YugabyteDB</div>
+              <div class="detail">Next config_service.get() call fetches fresh value from DB, caches in Redis with new 30s TTL.</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num" style="background:rgba(16,185,129,0.2);color:#34d399;font-size:0.7rem;">✓</div>
+            <div class="step-content">
+              <div class="title">All workers updated within 30 seconds</div>
+              <div class="detail">No pod restart. No deployment. No ASTRA involvement. Bank ops team makes change, workers react.</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px;font-weight:700;font-size:0.9rem;margin-bottom:12px;color:var(--text);display:flex;align-items:center;gap:8px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#8b5cf6;display:inline-block;"></span>
+          Flow 3: EJ Dispute Resolution
+        </div>
+        <div class="flow-box">
+          <div class="flow-step">
+            <div class="step-num" style="background:rgba(139,92,246,0.2);color:#a78bfa;font-size:0.7rem;">1</div>
+            <div class="step-content">
+              <div class="title">NPCI claim arrives → ej.disputes.{bank_id}</div>
+              <div class="code">PRODUCE ej.disputes.{bank_id} {event_type: EJ_DISPUTE_CLAIM_RECEIVED, claim_id: ...}</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num" style="background:rgba(139,92,246,0.2);color:#a78bfa;font-size:0.7rem;">2</div>
+            <div class="step-content">
+              <div class="title">Dispute engine: Redis cache check for dedup</div>
+              <div class="code">GET ej:dispute:status:{bank_id}:{claim_id}</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num" style="background:rgba(139,92,246,0.2);color:#a78bfa;font-size:0.7rem;">3</div>
+            <div class="step-content">
+              <div class="title">BGE-M3 embedding → YugabyteDB pgvector search</div>
+              <div class="detail">Claim text embedded. Cosine similarity vs EJ canonical records. Top-3 matches returned.</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num" style="background:rgba(139,92,246,0.2);color:#a78bfa;font-size:0.7rem;">4</div>
+            <div class="step-content">
+              <div class="title">Cache result → Redis. Publish resolution</div>
+              <div class="code">SET ej:dispute:status:{bank_id}:{claim_id} AUTO_RESOLVED EX 259200</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Section 10: Blast Isolation -->
+  <div class="section" id="blast-isolation">
+    <div class="section-title">
+      <div class="icon" style="background:rgba(239,68,68,0.15);">🔒</div>
+      10. Blast Isolation — CTS ↔ EJ Hard Boundaries
+    </div>
+    <div class="section-subtitle">What is physically separated and why — zero shared resources between modules</div>
+
+    <div class="module-block">
+      <div class="module-body">
+        <div style="padding:20px 24px;">
+          <table class="detail-table">
+            <tr>
+              <th>Layer</th>
+              <th>CTS Resource</th>
+              <th>EJ Resource</th>
+              <th>Isolation Guarantee</th>
+            </tr>
+            <tr>
+              <td>Kubernetes</td>
+              <td class="mono">namespace: astra-cts-{bank_id}</td>
+              <td class="mono">namespace: astra-ej-{bank_id}</td>
+              <td>ResourceQuota + LimitRange per namespace. CTS cannot consume EJ CPU budget.</td>
+            </tr>
+            <tr>
+              <td>Redis</td>
+              <td class="mono">redis-cts.{bank_id}.internal:6379</td>
+              <td class="mono">redis-ej.{bank_id}.internal:6379</td>
+              <td>Separate Helm releases, separate node pools. CTS eviction pressure cannot evict EJ keys. Separate memory budgets.</td>
+            </tr>
+            <tr>
+              <td>Kafka Topics</td>
+              <td class="mono">cts.* (9 topics)</td>
+              <td class="mono">ej.* (7 topics)</td>
+              <td>Separate consumer groups. CTS workers never subscribe to ej.* topics. KEDA ScaledObjects are independent.</td>
+            </tr>
+            <tr>
+              <td>Temporal</td>
+              <td class="mono">task_queue: cts-processing-{bank_id}</td>
+              <td class="mono">task_queue: ej-normalisation-{bank_id}</td>
+              <td>Separate worker Deployments. A saturated CTS task queue does not delay EJ normalisation.</td>
+            </tr>
+            <tr>
+              <td>Database</td>
+              <td class="mono">pgbouncer-cts (schema: cts)</td>
+              <td class="mono">pgbouncer-ej (schema: ej)</td>
+              <td>Separate connection pools. A CTS connection storm cannot exhaust EJ connections. Schema-level row isolation.</td>
+            </tr>
+            <tr>
+              <td>vLLM / GPU</td>
+              <td class="mono">queue: cts-vision, cts-ocr</td>
+              <td class="mono">queue: ej-reasoning, ej-embeddings</td>
+              <td>Separate vLLM worker processes per queue. CTS vision GPU saturation does not delay EJ LLM parsing.</td>
+            </tr>
+            <tr>
+              <td>Python Imports</td>
+              <td>modules/cts/**</td>
+              <td>modules/ej/**</td>
+              <td>Cross-import is FORBIDDEN. Semgrep CI rule blocks merge. Only shared/ is common ground.</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:20px;padding:20px 24px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:12px;">
+      <div style="font-weight:700;font-size:0.9rem;color:#34d399;margin-bottom:10px;">Shared Services (Allowed Exceptions)</div>
+      <div style="font-size:0.82rem;color:var(--muted);">Three services are intentionally shared but have per-module rate limits and separate logical partitions:</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:12px;">
+        <div style="background:rgba(0,0,0,0.2);border-radius:8px;padding:12px;">
+          <div style="font-weight:600;font-size:0.85rem;color:var(--text);margin-bottom:4px;">audit-service</div>
+          <div style="font-size:0.78rem;color:var(--muted);">Shared, but CTS writes to Immudb collection <span class="mono" style="font-size:0.72rem;">cts_events</span> and EJ writes to <span class="mono" style="font-size:0.72rem;">ej_events</span>. Separate Redis Stream buffers per module.</div>
+        </div>
+        <div style="background:rgba(0,0,0,0.2);border-radius:8px;padding:12px;">
+          <div style="font-weight:600;font-size:0.85rem;color:var(--text);margin-bottom:4px;">notification-service</div>
+          <div style="font-size:0.78rem;color:var(--muted);">Shared, but separate Kafka consumer groups: <span class="mono" style="font-size:0.72rem;">cg-notify-cts</span> and <span class="mono" style="font-size:0.72rem;">cg-notify-ej</span>. Email + WhatsApp channels are stateless.</div>
+        </div>
+        <div style="background:rgba(0,0,0,0.2);border-radius:8px;padding:12px;">
+          <div style="font-weight:600;font-size:0.85rem;color:var(--text);margin-bottom:4px;">analytics-service</div>
+          <div style="font-size:0.78rem;color:var(--muted);">Read-only consumer with separate consumer groups per module. No write path — purely async. Cannot cause write contention between modules.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="border-top:1px solid var(--border);padding:24px 0;margin-top:40px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="font-size:0.8rem;color:var(--faint);">ASTRA — Bank Intelligence Platform · Confidential · Banking Grade</div>
+    <div style="font-size:0.8rem;color:var(--faint);">Author: Nilesh Shah (Ex-NPCI · Piramal · Fullerton/SMFG) · June 2026</div>
+  </div>
+
+</div>
+</body>
+</html>

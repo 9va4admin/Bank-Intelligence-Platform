@@ -1,0 +1,65 @@
+# Chaos Mesh Scenario: Redis CTS Vault Eviction Pressure
+# ─────────────────────────────────────────────────────────────────────────────
+# Purpose : Verify that vault miss under eviction pressure routes to HUMAN_REVIEW,
+#           never AUTO_RETURN. Validate IET watchdog continues firing correctly
+#           even when vault is degraded.
+# NFR     : vault_miss_action = HUMAN_REVIEW (Layer 1, non-overridable)
+# When    : Before any Redis cluster sizing change or eviction policy update.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: cts-redis-memory-pressure
+  namespace: chaos-testing
+  labels:
+    scenario: redis-eviction
+    module: cts
+    severity: HIGH
+spec:
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-staging-internal
+    labelSelectors:
+      "app.kubernetes.io/name": "redis-cts"
+  stressors:
+    memory:
+      workers: 4
+      size: "80%"       # force maxmemory threshold → LRU eviction begins
+  duration: "3m"
+  scheduler:
+    cron: "@manually"
+---
+# Companion: inject latency on Redis connections to simulate slow vault
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: cts-redis-latency
+  namespace: chaos-testing
+  labels:
+    scenario: redis-eviction
+    module: cts
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-staging-internal
+    labelSelectors:
+      "app.kubernetes.io/name": "redis-cts"
+  delay:
+    latency: "50ms"
+    correlation: "25"
+    jitter: "10ms"
+  duration: "3m"
+  scheduler:
+    cron: "@manually"
+# ─────────────────────────────────────────────────────────────────────────────
+# Expected observations:
+#   - Redis vault miss rate rises (Grafana: cts_vault_miss_total)
+#   - ALL missed vault cheques route to human_review queue — zero AUTO_RETURN
+#   - Human review queue depth rises (acceptable — IET watchdog guards deadline)
+#   - No IET breaches — IETWatchdogWorkflow files to NGCH before T-30s on queued items
+#   - After chaos ends: vault warms from CBS (VaultSyncWorkflow triggered)
+#   - Prometheus alert CTS_VAULT_MISS_RATE_HIGH fires within 2 minutes
+# ─────────────────────────────────────────────────────────────────────────────

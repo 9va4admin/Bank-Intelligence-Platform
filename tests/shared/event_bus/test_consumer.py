@@ -172,3 +172,122 @@ def test_assert_ready_raises_if_not_connected():
     )
     with pytest.raises(RuntimeError, match="connect()"):
         c._assert_ready()
+
+
+# ---------------------------------------------------------------------------
+# connect() — success and failure paths
+# ---------------------------------------------------------------------------
+
+def test_connect_success_sets_ready(monkeypatch):
+    """connect() with a mocked KafkaConsumer should set _ready=True."""
+    import sys
+
+    fake_kafka_consumer_instance = MagicMock()
+    fake_kafka_consumer_class = MagicMock(return_value=fake_kafka_consumer_instance)
+    fake_kafka_module = MagicMock()
+    fake_kafka_module.KafkaConsumer = fake_kafka_consumer_class
+    monkeypatch.setitem(sys.modules, "kafka", fake_kafka_module)
+
+    c = EventConsumer(
+        bootstrap_servers="kafka:9092",
+        group_id="cg-cts-test-bank",
+        bank_id="test-bank",
+        topics=["cts.inward.test-bank"],
+    )
+    c.connect()
+
+    assert c._ready is True
+    assert c._consumer is fake_kafka_consumer_instance
+
+
+def test_connect_failure_raises_event_bus_unavailable(monkeypatch):
+    """connect() when KafkaConsumer raises must wrap in EventBusUnavailableError."""
+    import sys
+
+    fake_kafka_module = MagicMock()
+    fake_kafka_module.KafkaConsumer.side_effect = Exception("broker unreachable")
+    monkeypatch.setitem(sys.modules, "kafka", fake_kafka_module)
+
+    c = EventConsumer(
+        bootstrap_servers="kafka:9092",
+        group_id="cg-cts-test-bank",
+        bank_id="test-bank",
+        topics=["cts.inward.test-bank"],
+    )
+    with pytest.raises(EventBusUnavailableError, match="consumer connect failed"):
+        c.connect()
+
+
+# ---------------------------------------------------------------------------
+# run() — poll loop with messages
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_run_dispatches_two_messages(consumer):
+    handler = AsyncMock()
+    consumer.register_handler("CTS_INWARD", handler)
+
+    msg1 = _make_kafka_message({"instrument_id": "instr-001"})
+    msg2 = _make_kafka_message({"instrument_id": "instr-002"})
+    consumer._consumer.__iter__ = MagicMock(return_value=iter([msg1, msg2]))
+
+    await consumer.run()
+
+    assert handler.await_count == 2
+    consumer._consumer.commit.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_run_skips_unknown_schema_version(consumer):
+    """UnknownSchemaVersionError during dispatch must log and continue — not crash."""
+    # Register a handler that raises UnknownSchemaVersionError
+    async def bad_handler(envelope):
+        raise UnknownSchemaVersionError("schema 99.0 unknown")
+
+    consumer.register_handler("CTS_INWARD", bad_handler)
+    msg = _make_kafka_message({"instrument_id": "instr-001"})
+    consumer._consumer.__iter__ = MagicMock(return_value=iter([msg]))
+
+    # Must not raise — the loop handles UnknownSchemaVersionError internally
+    await consumer.run()
+
+
+@pytest.mark.asyncio
+async def test_run_handles_generic_exception_without_crashing(consumer):
+    """A generic Exception during dispatch must log and continue — not crash."""
+    async def failing_handler(envelope):
+        raise RuntimeError("unexpected error")
+
+    consumer.register_handler("CTS_INWARD", failing_handler)
+    msg = _make_kafka_message({"instrument_id": "instr-001"})
+    consumer._consumer.__iter__ = MagicMock(return_value=iter([msg]))
+
+    # Must not raise
+    await consumer.run()
+
+
+@pytest.mark.asyncio
+async def test_run_skips_message_for_different_bank(consumer):
+    """Messages for a different bank_id must be skipped (continue on line 76)."""
+    handler = AsyncMock()
+    consumer.register_handler("CTS_INWARD", handler)
+
+    # Build a message for a different bank
+    wrong_bank_envelope = KafkaEventEnvelope(
+        event_type="CTS_INWARD",
+        bank_id="other-bank",   # consumer is for "test-bank"
+        schema_version="1.0",
+        payload={"instrument_id": "instr-999"},
+    )
+    msg = MagicMock()
+    msg.value = wrong_bank_envelope.model_dump_json().encode()
+    msg.topic = "cts.inward.test-bank"
+    msg.partition = 0
+    msg.offset = 99
+
+    consumer._consumer.__iter__ = MagicMock(return_value=iter([msg]))
+
+    await consumer.run()
+
+    # Handler must NOT have been called — message was skipped
+    handler.assert_not_awaited()

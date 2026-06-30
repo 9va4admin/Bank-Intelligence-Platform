@@ -279,3 +279,211 @@ async def test_raises_if_not_initialised():
     uninitialised = ConfigService()
     with pytest.raises(RuntimeError, match="initialise()"):
         await uninitialised.get_secret("any.key")
+
+
+# ------------------------------------------------------------------
+# initialise() — lines 67-96
+# ------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_initialise_sets_ready():
+    """initialise() with mocked Vault/Redis/DB → _ready=True."""
+    svc = ConfigService()
+
+    mock_vault = MagicMock()
+    mock_vault.is_authenticated.return_value = True
+
+    async def fake_fetch_from_vault(key):
+        if "redis" in key:
+            return "redis://localhost:6379"
+        return "postgresql://localhost/astra"
+
+    mock_redis = AsyncMock()
+    mock_pool = AsyncMock()
+
+    with patch.dict("os.environ", {
+        "BANK_ID": "test-bank",
+        "VAULT_ADDR": "http://vault:8200",
+        "VAULT_TOKEN": "hvs.test",
+    }):
+        with patch("shared.config.config_service.hvac.Client", return_value=mock_vault):
+            with patch("shared.config.config_service.aioredis.from_url", return_value=mock_redis):
+                with patch("shared.config.config_service.asyncpg.create_pool", new_callable=AsyncMock, return_value=mock_pool):
+                    svc._fetch_from_vault = AsyncMock(side_effect=fake_fetch_from_vault)
+                    await svc.initialise()
+
+    assert svc._ready is True
+    assert svc._bank_id == "test-bank"
+
+
+@pytest.mark.asyncio
+async def test_initialise_raises_when_bank_id_missing():
+    """initialise() without BANK_ID env → RuntimeError."""
+    svc = ConfigService()
+    with patch.dict("os.environ", {}, clear=True):
+        with pytest.raises(RuntimeError, match="BANK_ID"):
+            await svc.initialise()
+
+
+@pytest.mark.asyncio
+async def test_initialise_raises_when_vault_addr_missing():
+    """initialise() without VAULT_ADDR → RuntimeError."""
+    svc = ConfigService()
+    with patch.dict("os.environ", {"BANK_ID": "test-bank"}, clear=True):
+        with pytest.raises(RuntimeError, match="VAULT_ADDR"):
+            await svc.initialise()
+
+
+@pytest.mark.asyncio
+async def test_initialise_raises_when_vault_not_authenticated():
+    """initialise() when vault.is_authenticated() is False → VaultUnavailableError."""
+    svc = ConfigService()
+    mock_vault = MagicMock()
+    mock_vault.is_authenticated.return_value = False
+
+    with patch.dict("os.environ", {
+        "BANK_ID": "test-bank",
+        "VAULT_ADDR": "http://vault:8200",
+        "VAULT_TOKEN": "hvs.bad",
+    }):
+        with patch("shared.config.config_service.hvac.Client", return_value=mock_vault):
+            with pytest.raises(VaultUnavailableError):
+                await svc.initialise()
+
+
+# ------------------------------------------------------------------
+# shutdown() — lines 99-103
+# ------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_shutdown_closes_db_and_redis(svc: ConfigService):
+    """shutdown() calls close on DB pool and aclose on Redis."""
+    svc._db_pool.close = AsyncMock()
+    svc._redis.aclose = AsyncMock()
+
+    await svc.shutdown()
+
+    svc._db_pool.close.assert_awaited_once()
+    svc._redis.aclose.assert_awaited_once()
+    assert svc._ready is False
+
+
+@pytest.mark.asyncio
+async def test_shutdown_when_not_initialised():
+    """shutdown() is safe even when _db_pool/_redis are None."""
+    svc = ConfigService()
+    # Should not raise
+    await svc.shutdown()
+    assert svc._ready is False
+
+
+# ------------------------------------------------------------------
+# _parse_db_value — json branch (line 193-195)
+# ------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_get_deserialises_json(svc: ConfigService):
+    """_parse_db_value with vtype='json' → deserialised Python object."""
+    conn = svc._db_pool.acquire.return_value.__aenter__.return_value
+    conn.fetchrow.return_value = {
+        "value": '{"routes": ["GOVERNMENT"]}',
+        "value_type": "json",
+    }
+    svc._redis.get.return_value = None
+
+    result = await svc.get("cts.special_cheque_routes")
+    assert isinstance(result, dict)
+    assert result["routes"] == ["GOVERNMENT"]
+
+
+# ------------------------------------------------------------------
+# OPA exception re-raise (line 260)
+# ------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_evaluate_policy_reraises_opa_unavailable(svc: ConfigService):
+    """If OPAUnavailableError is raised inside the try block it should propagate."""
+    svc._opa_cache = {}
+    with patch("shared.config.config_service.httpx.AsyncClient") as mock_client_cls:
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(side_effect=OPAUnavailableError("already unavailable"))
+        mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+        with pytest.raises(OPAUnavailableError):
+            await svc.evaluate_policy("cts/routing", {"cheque": "test"})
+
+
+# ------------------------------------------------------------------
+# get_user_preference — json parse error branch (lines 288-289)
+# ------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_get_user_preference_returns_raw_string_on_json_error(svc: ConfigService):
+    """If stored value is not valid JSON, returns the raw string."""
+    conn = svc._db_pool.acquire.return_value.__aenter__.return_value
+    conn.fetchrow.return_value = {"value": "plain-string-not-json"}
+
+    result = await svc.get_user_preference("user123", "locale")
+    assert result == "plain-string-not-json"
+
+
+# ------------------------------------------------------------------
+# Convenience helpers — lines 300-336
+# ------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_get_cts_config_returns_all_keys(svc: ConfigService):
+    """get_cts_config() returns a dict with all CTS threshold keys."""
+    # Wire get() to return a dummy float for all keys
+    svc._redis.get.return_value = None
+    conn = svc._db_pool.acquire.return_value.__aenter__.return_value
+    conn.fetchrow.return_value = {"value": "0.92", "value_type": "float"}
+
+    result = await svc.get_cts_config()
+    assert "cts.iet_minutes" in result
+    assert "cts.stp_auto_confirm_threshold" in result
+    assert "cts.vault_miss_action" in result
+
+
+@pytest.mark.asyncio
+async def test_get_ej_config_returns_all_keys(svc: ConfigService):
+    """get_ej_config() returns a dict with all EJ threshold keys."""
+    svc._redis.get.return_value = None
+    conn = svc._db_pool.acquire.return_value.__aenter__.return_value
+    conn.fetchrow.return_value = {"value": "0.85", "value_type": "float"}
+
+    result = await svc.get_ej_config()
+    assert "ej.llm_field_min_confidence" in result
+    assert "ej.pull_schedule" in result
+
+
+@pytest.mark.asyncio
+async def test_get_ai_config_returns_all_keys(svc: ConfigService):
+    """get_ai_config() returns a dict with all AI threshold keys."""
+    svc._redis.get.return_value = None
+    conn = svc._db_pool.acquire.return_value.__aenter__.return_value
+    conn.fetchrow.return_value = {"value": "0.90", "value_type": "float"}
+
+    result = await svc.get_ai_config()
+    assert "ai.ocr.min_confidence" in result
+    assert "ai.drift.pull_from_prod_pct_threshold" in result
+
+
+# ------------------------------------------------------------------
+# bank_id property — line 351
+# ------------------------------------------------------------------
+
+def test_bank_id_property_returns_bank_id(svc: ConfigService):
+    """bank_id property returns _bank_id."""
+    assert svc.bank_id == "test-bank"
+
+
+@pytest.mark.asyncio
+async def test_get_deserialises_string_type(svc: ConfigService):
+    """_parse_db_value with vtype='string' → raw string returned (line 195)."""
+    conn = svc._db_pool.acquire.return_value.__aenter__.return_value
+    conn.fetchrow.return_value = {"value": "finacle", "value_type": "string"}
+    svc._redis.get.return_value = None
+
+    result = await svc.get("cbs.connector.type")
+    assert result == "finacle"
