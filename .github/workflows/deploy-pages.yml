@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - claude/cool-euler-x02gek
+      - claude/drawee-queue-sb-sbm-sync-f536js
     paths:
       - 'apps/web/**'
 
