@@ -14,11 +14,14 @@ import { MOCK_QUEUE } from '../data/mockQueue'
 
 // ── Exception data ────────────────────────────────────────────────────────
 
-const SESSION_DEFAULTS = {
-  session_id:    'SES-0619-001',
-  clearing_date: '2026-06-19',
-  generated_at:  '2026-06-19T14:30:00Z',
-  total_processed: 47,
+function makeSessionMeta(bankIfsc, isSMB) {
+  const ifsc = bankIfsc || 'BANK'
+  return {
+    session_id:      `SES-${ifsc}-20260619-001`,
+    clearing_date:   '2026-06-19',
+    generated_at:    '2026-06-19T14:30:00Z',
+    total_processed: isSMB ? 8 : 47,
+  }
 }
 
 const SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM']
@@ -197,7 +200,7 @@ function buildPredictiveSignals(queue) {
 
 export default function CTSExceptions() {
   const { bankIfsc, bankName, isSB, isSMB } = useBankContext()
-  const SESSION_META = { ...SESSION_DEFAULTS, bank_ifsc: bankIfsc, bank_name: bankName }
+  const SESSION_META = { ...makeSessionMeta(bankIfsc, isSMB), bank_ifsc: bankIfsc, bank_name: bankName }
   const { isDark } = useTheme()
   const [severityFilter, setSeverityFilter] = useState('All')
   const [showResolved, setShowResolved]     = useState(true)

@@ -41,19 +41,20 @@ const STATUS_L = {
   RETURNED:   { label: 'Returned',   cls: 'text-slate-600   bg-slate-100  border-slate-300'   },
 }
 
-const BRANCHES = ['Andheri (W)', 'Bandra (E)', 'Churchgate', 'Dadar', 'Goregaon', 'Kurla', 'Malad', 'Vashi']
-const SESSIONS = ['SES-0619-001 (10:00–12:00)', 'SES-0619-002 (12:00–14:00)']
+const SB_BRANCHES_DISC  = ['Andheri (W)', 'Bandra (E)', 'Churchgate', 'Dadar', 'Goregaon', 'Kurla', 'Malad', 'Vashi']
+const SMB_BRANCHES_DISC = ['Main Branch', 'City Office']
 
-function seed(n) {
+function seed(n, branches, sessions, bankIfsc) {
+  const ifsc    = bankIfsc || 'BANK'
   const types   = Object.keys(DISC_TYPES_D)
   const statuses= Object.keys(STATUS_D)
   const now     = Date.now()
   return Array.from({ length: n }, (_, i) => {
     const type   = types[(i * 7 + 3) % types.length]
     const status = i % 9 === 0 ? 'ESCALATED' : i % 5 === 0 ? 'RESOLVED' : i % 11 === 0 ? 'RETURNED' : 'OPEN'
-    const branch = BRANCHES[i % BRANCHES.length]
-    const session= SESSIONS[i % SESSIONS.length]
-    const lot    = `LOT_SVCB${String(Math.floor(i / 3) + 1).padStart(7, '0')}_20260619`
+    const branch = branches[i % branches.length]
+    const session= sessions[i % sessions.length]
+    const lot    = `LOT_${ifsc}${String(Math.floor(i / 3) + 1).padStart(7, '0')}_20260619`
     const amt1   = 10000 + (i * 13751) % 990000
     const amt2   = type === 'AMOUNT_MISMATCH' ? amt1 + (1 + (i * 37) % 999) : amt1
     const words_amt = type === 'WORDS_FIGURES' ? amt1 + (500 + (i * 23) % 5000) : amt1
@@ -85,20 +86,7 @@ function seed(n) {
   })
 }
 
-const ALL_DISCS = seed(48)
-
-const SUMMARY = {
-  total:       ALL_DISCS.length,
-  open:        ALL_DISCS.filter(d => d.status === 'OPEN').length,
-  escalated:   ALL_DISCS.filter(d => d.status === 'ESCALATED').length,
-  resolved:    ALL_DISCS.filter(d => d.status === 'RESOLVED').length,
-  returned:    ALL_DISCS.filter(d => d.status === 'RETURNED').length,
-}
-
-const TYPE_COUNTS = Object.keys(DISC_TYPES_D).map(k => ({
-  key: k,
-  count: ALL_DISCS.filter(d => d.type === k).length,
-})).sort((a, b) => b.count - a.count)
+// ALL_DISCS, SUMMARY, TYPE_COUNTS built inside component (depend on bank context)
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -113,6 +101,26 @@ export default function CTSDiscrepancy() {
 
   const DISC_TYPES = isDark ? DISC_TYPES_D : DISC_TYPES_L
   const STATUS_META = isDark ? STATUS_D : STATUS_L
+
+  const BRANCHES      = isSMB ? SMB_BRANCHES_DISC : SB_BRANCHES_DISC
+  const SESSIONS_DISC = useMemo(() => {
+    const ifsc = bankIfsc || 'BANK'
+    return isSMB
+      ? [`SES-${ifsc}-20260619-001 (10:00–12:00)`]
+      : [`SES-${ifsc}-20260619-001 (10:00–12:00)`, `SES-${ifsc}-20260619-002 (12:00–14:00)`]
+  }, [bankIfsc, isSMB])
+  const ALL_DISCS  = useMemo(() => seed(isSMB ? 8 : 48, BRANCHES, SESSIONS_DISC, bankIfsc), [isSMB, BRANCHES, SESSIONS_DISC, bankIfsc])
+  const SUMMARY    = useMemo(() => ({
+    total:     ALL_DISCS.length,
+    open:      ALL_DISCS.filter(d => d.status === 'OPEN').length,
+    escalated: ALL_DISCS.filter(d => d.status === 'ESCALATED').length,
+    resolved:  ALL_DISCS.filter(d => d.status === 'RESOLVED').length,
+    returned:  ALL_DISCS.filter(d => d.status === 'RETURNED').length,
+  }), [ALL_DISCS])
+  const TYPE_COUNTS = useMemo(() => Object.keys(DISC_TYPES_D).map(k => ({
+    key: k,
+    count: ALL_DISCS.filter(d => d.type === k).length,
+  })).sort((a, b) => b.count - a.count), [ALL_DISCS])
 
   const th = {
     page:    isDark ? 'bg-[#020817] text-white'          : 'bg-slate-50 text-slate-900',
@@ -138,7 +146,7 @@ export default function CTSDiscrepancy() {
         !d.lot.toLowerCase().includes(search.toLowerCase()) &&
         !d.detail.toLowerCase().includes(search.toLowerCase())) return false
     return true
-  }), [typeFilter, statusFilter, branchFilter, search])
+  }), [ALL_DISCS, typeFilter, statusFilter, branchFilter, search])
 
   const sel = selected ? ALL_DISCS.find(d => d.id === selected) : null
 

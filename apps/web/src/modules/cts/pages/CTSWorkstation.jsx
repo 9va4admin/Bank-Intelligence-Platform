@@ -89,7 +89,7 @@ export default function CTSWorkstation() {
   const sessionElapsedStr = `${String(Math.floor(sessionElapsedSec / 3600)).padStart(2,'0')}:${String(Math.floor((sessionElapsedSec % 3600) / 60)).padStart(2,'0')}:${String(sessionElapsedSec % 60).padStart(2,'0')}`
 
   usePageHeader({
-    subtitle: `AM Clearing · SES-0619-001 · IET Window: ${IET_WINDOW_MINS}min`,
+    subtitle: `AM Clearing · SES-${bankIfsc || 'BANK'}-20260619-001 · IET Window: ${IET_WINDOW_MINS}min`,
     actions: (
       <div className="flex items-center gap-3">
         <div className={`text-[10px] font-mono px-3 py-1.5 rounded-lg border ${isDark ? 'border-white/10 text-slate-300 bg-white/4' : 'border-slate-200 text-slate-600 bg-white'}`}>

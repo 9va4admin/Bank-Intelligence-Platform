@@ -22,7 +22,7 @@ const RBI_CODE_MAP = {
 }
 function getRbiCode(reason) { return RBI_CODE_MAP[reason] || RBI_CODE_MAP['DEFAULT'] }
 
-const SESSION_ID    = 'SES-0619-001'
+// SESSION_ID built dynamically inside component using bankIfsc
 const CLEARING_ZONE = 'MUMBAI'
 
 // SHAP feature contributions — positive = raises fraud score, negative = lowers it
@@ -474,10 +474,11 @@ function RrfModal({ returns, sessionMeta, onClose, isDark }) {
 export default function CTSDecisionsLog() {
   const { bankIfsc, bankName, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
+  const sessionId = `SES-${bankIfsc || 'BANK'}-20260619-001`
   const sessionMeta = {
     bank_ifsc:     bankIfsc,
     bank_name:     bankName,
-    session_id:    SESSION_ID,
+    session_id:    sessionId,
     clearing_zone: CLEARING_ZONE,
     generated_at:  new Date().toISOString(),
   }
