@@ -18,12 +18,21 @@ const LOT_STATUSES = {
 
 const STATUS_ORDER = ['RECEIVED', 'IQA_COMPLETE', 'EXTRACTED', 'PKI_SIGNED', 'SUBMITTED', 'NGCH_ACK', 'SETTLED']
 
-const BRANCHES = ['Andheri (W)', 'Bandra (E)', 'Churchgate', 'Dadar', 'Goregaon', 'Kurla', 'Malad', 'Vashi', 'Borivali', 'Thane']
-const SESSIONS = [
-  { id: 'SES-0619-001', label: '10:00–12:00', status: 'CLOSED'  },
-  { id: 'SES-0619-002', label: '12:00–14:00', status: 'ACTIVE'  },
-  { id: 'SES-0619-003', label: '14:00–16:00', status: 'UPCOMING'},
-]
+const SB_BRANCHES  = ['Andheri (W)', 'Bandra (E)', 'Churchgate', 'Dadar', 'Goregaon', 'Kurla', 'Malad', 'Vashi', 'Borivali', 'Thane']
+const SMB_BRANCHES = ['Main Branch', 'City Office']
+
+function makeSessions(bankIfsc, isSMB) {
+  const ifsc = bankIfsc || 'BANK'
+  if (isSMB) return [
+    { id: `SES-${ifsc}-20260619-001`, label: '10:00–12:00', status: 'CLOSED' },
+    { id: `SES-${ifsc}-20260619-002`, label: '12:00–14:00', status: 'ACTIVE' },
+  ]
+  return [
+    { id: `SES-${ifsc}-20260619-001`, label: '10:00–12:00', status: 'CLOSED'   },
+    { id: `SES-${ifsc}-20260619-002`, label: '12:00–14:00', status: 'ACTIVE'   },
+    { id: `SES-${ifsc}-20260619-003`, label: '14:00–16:00', status: 'UPCOMING' },
+  ]
+}
 
 // ─── Mock generators ──────────────────────────────────────────────────────────
 
@@ -53,18 +62,19 @@ function makeInstruments(lotId, count, baseStatus) {
   })
 }
 
-function makeLots(n) {
+function makeLots(n, sessions, branches, bankIfsc) {
+  const ifsc = bankIfsc || 'BANK'
   const now = Date.now()
   const statusSeq = ['SETTLED','SETTLED','NGCH_ACK','NGCH_ACK','SUBMITTED','PKI_SIGNED','EXTRACTED','IQA_COMPLETE','RECEIVED','PARTIAL_FAIL']
   return Array.from({ length: n }, (_, i) => {
-    const branch  = BRANCHES[i % BRANCHES.length]
-    const session = SESSIONS[i % 2]
+    const branch  = branches[i % branches.length]
+    const session = sessions[i % Math.min(2, sessions.length)]
     const count   = 12 + (i * 7) % 9        // 12–20 instruments per lot
     const status  = statusSeq[i % statusSeq.length]
     const physicalCount = status === 'PARTIAL_FAIL' ? count + 1 : count
     const totalAmt = (count * (50000 + (i * 23751) % 450000))
     const lotNum  = String(i + 1).padStart(7, '0')
-    const lotId   = `LOT_SVCB${lotNum}_20260619_${session.id}`
+    const lotId   = `LOT_${ifsc}${lotNum}_20260619_${session.id}`
     const instruments = makeInstruments(lotId, count, status)
     const confirmed   = instruments.filter(x => x.decision === 'CONFIRM').length
     const returned    = instruments.filter(x => x.decision === 'RETURN').length
@@ -90,17 +100,7 @@ function makeLots(n) {
   })
 }
 
-const ALL_LOTS = makeLots(30)
-
-const SUMMARY = {
-  lots:      ALL_LOTS.length,
-  instruments: ALL_LOTS.reduce((s, l) => s + l.instrument_count, 0),
-  totalAmt:  '₹' + ALL_LOTS.reduce((s, l) => s + l.totalAmtRaw, 0).toLocaleString('en-IN'),
-  settled:   ALL_LOTS.filter(l => l.status === 'SETTLED').length,
-  pending:   ALL_LOTS.filter(l => !['SETTLED','PARTIAL_FAIL'].includes(l.status)).length,
-  failures:  ALL_LOTS.filter(l => l.status === 'PARTIAL_FAIL').length,
-  countMismatch: ALL_LOTS.filter(l => !l.count_match).length,
-}
+// ALL_LOTS and SUMMARY computed inside component (depend on bank context)
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -151,12 +151,25 @@ export default function CTSBatches() {
     panel: isDark ? 'bg-white/2 border-white/8' : 'bg-slate-50 border-slate-200',
   }
 
+  const SESSIONS = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
+  const BRANCHES = isSMB ? SMB_BRANCHES : SB_BRANCHES
+  const ALL_LOTS = useMemo(() => makeLots(isSMB ? 5 : 30, SESSIONS, BRANCHES, bankIfsc), [isSMB, SESSIONS, BRANCHES, bankIfsc])
+  const SUMMARY = useMemo(() => ({
+    lots:      ALL_LOTS.length,
+    instruments: ALL_LOTS.reduce((s, l) => s + l.instrument_count, 0),
+    totalAmt:  '₹' + ALL_LOTS.reduce((s, l) => s + l.totalAmtRaw, 0).toLocaleString('en-IN'),
+    settled:   ALL_LOTS.filter(l => l.status === 'SETTLED').length,
+    pending:   ALL_LOTS.filter(l => !['SETTLED','PARTIAL_FAIL'].includes(l.status)).length,
+    failures:  ALL_LOTS.filter(l => l.status === 'PARTIAL_FAIL').length,
+    countMismatch: ALL_LOTS.filter(l => !l.count_match).length,
+  }), [ALL_LOTS])
+
   const filtered = useMemo(() => ALL_LOTS.filter(l => {
     if (sessionFilter !== 'ALL' && l.session !== sessionFilter) return false
     if (statusFilter  !== 'ALL' && l.status  !== statusFilter)  return false
     if (branchFilter  !== 'ALL' && l.branch  !== branchFilter)  return false
     return true
-  }), [sessionFilter, statusFilter, branchFilter])
+  }), [ALL_LOTS, sessionFilter, statusFilter, branchFilter])
 
   const lot = selectedLot ? ALL_LOTS.find(l => l.id === selectedLot) : null
 
