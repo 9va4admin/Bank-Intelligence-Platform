@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
@@ -65,49 +65,73 @@ function buildSmbCsv(ledger) {
 }
 
 // ── Mock data ────────────────────────────────────────────────────────────────
-const SESSIONS = [
-  { id: 'SES-0619-001', date: '2026-06-19', label: 'Jun 19 — Session 1' },
-  { id: 'SES-0618-001', date: '2026-06-18', label: 'Jun 18 — Session 1' },
-  { id: 'SES-0617-001', date: '2026-06-17', label: 'Jun 17 — Session 1' },
+function makeSessions(bankIfsc, isSMB) {
+  const ifsc = bankIfsc || 'BANK'
+  if (isSMB) {
+    return [
+      { id: `SES-${ifsc}-20260619-001`, date: '2026-06-19', label: 'Jun 19 — Session 1' },
+      { id: `SES-${ifsc}-20260618-001`, date: '2026-06-18', label: 'Jun 18 — Session 1' },
+    ]
+  }
+  return [
+    { id: `SES-${ifsc}-20260619-001`, date: '2026-06-19', label: 'Jun 19 — Session 1' },
+    { id: `SES-${ifsc}-20260618-001`, date: '2026-06-18', label: 'Jun 18 — Session 1' },
+    { id: `SES-${ifsc}-20260617-001`, date: '2026-06-17', label: 'Jun 17 — Session 1' },
+  ]
+}
+
+// SB reconciliation data — full batch scale (~25 rows per session)
+const SB_RECON_DATA_TPL = [
+  { cheque: '100001', suffix: '4521', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100002', suffix: '7832', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[1L-5L]',   cbs_amt: '₹[1L-5L]',   status: 'MATCHED' },
+  { cheque: '100003', suffix: '2291', ngch: 'RETURNED',  cbs: 'REVERSED', ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100004', suffix: '6610', ngch: 'CONFIRMED', cbs: 'PENDING',  ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'PENDING' },
+  { cheque: '100005', suffix: '3347', ngch: 'CONFIRMED', cbs: 'PENDING',  ngch_amt: '₹[1L-5L]',   cbs_amt: '₹[1L-5L]',   status: 'PENDING' },
+  { cheque: '100006', suffix: '9901', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[1L-5L]',   status: 'AMOUNT_MISMATCH' },
+  { cheque: '100007', suffix: '1123', ngch: 'CONFIRMED', cbs: '',         ngch_amt: '₹[<1L]',     cbs_amt: '',            status: 'NGCH_ONLY' },
+  { cheque: '100008', suffix: '5580', ngch: '',          cbs: 'POSTED',   ngch_amt: '',            cbs_amt: '₹[<1L]',     status: 'CBS_ONLY' },
+  { cheque: '100009', suffix: '7744', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100010', suffix: '2256', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[1L-5L]',   cbs_amt: '₹[1L-5L]',   status: 'MATCHED' },
+  { cheque: '100011', suffix: '8832', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100012', suffix: '4419', ngch: 'RETURNED',  cbs: 'REVERSED', ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100013', suffix: '3311', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[5L-10L]',  cbs_amt: '₹[5L-10L]',  status: 'MATCHED' },
+  { cheque: '100014', suffix: '6678', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100015', suffix: '9023', ngch: 'CONFIRMED', cbs: 'PENDING',  ngch_amt: '₹[1L-5L]',   cbs_amt: '₹[1L-5L]',   status: 'PENDING' },
+  { cheque: '100016', suffix: '1190', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100017', suffix: '4457', ngch: 'RETURNED',  cbs: 'REVERSED', ngch_amt: '₹[1L-5L]',   cbs_amt: '₹[1L-5L]',   status: 'MATCHED' },
+  { cheque: '100018', suffix: '7721', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100019', suffix: '3385', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[10L-1Cr]', cbs_amt: '₹[1L-5L]',   status: 'AMOUNT_MISMATCH' },
+  { cheque: '100020', suffix: '8849', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100021', suffix: '2267', ngch: 'CONFIRMED', cbs: 'PENDING',  ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'PENDING' },
+  { cheque: '100022', suffix: '5534', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100023', suffix: '9912', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[1L-5L]',   cbs_amt: '₹[1L-5L]',   status: 'MATCHED' },
+  { cheque: '100024', suffix: '1178', ngch: 'RETURNED',  cbs: 'REVERSED', ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
+  { cheque: '100025', suffix: '6645', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[5L-10L]',  cbs_amt: '₹[5L-10L]',  status: 'MATCHED' },
 ]
 
-const RECON_DATA = {
-  'SES-0619-001': [
-    { id: 'CHQ-IN-00001', cheque: '100001', suffix: '4521', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
-    { id: 'CHQ-IN-00002', cheque: '100002', suffix: '7832', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[1L-5L]',   cbs_amt: '₹[1L-5L]',   status: 'MATCHED' },
-    { id: 'CHQ-IN-00003', cheque: '100003', suffix: '2291', ngch: 'RETURNED',  cbs: 'REVERSED', ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
-    { id: 'CHQ-IN-00004', cheque: '100004', suffix: '6610', ngch: 'CONFIRMED', cbs: 'PENDING',  ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'PENDING' },
-    { id: 'CHQ-IN-00005', cheque: '100005', suffix: '3347', ngch: 'CONFIRMED', cbs: 'PENDING',  ngch_amt: '₹[1L-5L]',   cbs_amt: '₹[1L-5L]',   status: 'PENDING' },
-    { id: 'CHQ-IN-00006', cheque: '100006', suffix: '9901', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[1L-5L]',   status: 'AMOUNT_MISMATCH' },
-    { id: 'CHQ-IN-00007', cheque: '100007', suffix: '1123', ngch: 'CONFIRMED', cbs: '',         ngch_amt: '₹[<1L]',     cbs_amt: '',            status: 'NGCH_ONLY' },
-    { id: 'CHQ-IN-00008', cheque: '100008', suffix: '5580', ngch: '',          cbs: 'POSTED',   ngch_amt: '',            cbs_amt: '₹[<1L]',     status: 'CBS_ONLY' },
-    { id: 'CHQ-IN-00009', cheque: '100009', suffix: '7744', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
-    { id: 'CHQ-IN-00010', cheque: '100010', suffix: '2256', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[1L-5L]',   cbs_amt: '₹[1L-5L]',   status: 'MATCHED' },
-    { id: 'CHQ-IN-00011', cheque: '100011', suffix: '8832', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
-    { id: 'CHQ-IN-00012', cheque: '100012', suffix: '4419', ngch: 'RETURNED',  cbs: 'REVERSED', ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
-    { id: 'CHQ-IN-00013', cheque: '100013', suffix: '3311', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[5L-10L]',  cbs_amt: '₹[5L-10L]',  status: 'MATCHED' },
-    { id: 'CHQ-IN-00014', cheque: '100014', suffix: '6678', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
-    { id: 'CHQ-IN-00015', cheque: '100015', suffix: '9023', ngch: 'CONFIRMED', cbs: 'PENDING',  ngch_amt: '₹[1L-5L]',   cbs_amt: '₹[1L-5L]',   status: 'PENDING' },
-    { id: 'CHQ-IN-00016', cheque: '100016', suffix: '1190', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
-    { id: 'CHQ-IN-00017', cheque: '100017', suffix: '4457', ngch: 'RETURNED',  cbs: 'REVERSED', ngch_amt: '₹[1L-5L]',   cbs_amt: '₹[1L-5L]',   status: 'MATCHED' },
-    { id: 'CHQ-IN-00018', cheque: '100018', suffix: '7721', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
-    { id: 'CHQ-IN-00019', cheque: '100019', suffix: '3385', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[10L-1Cr]', cbs_amt: '₹[1L-5L]',   status: 'AMOUNT_MISMATCH' },
-    { id: 'CHQ-IN-00020', cheque: '100020', suffix: '8849', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
-    { id: 'CHQ-IN-00021', cheque: '100021', suffix: '2267', ngch: 'CONFIRMED', cbs: 'PENDING',  ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'PENDING' },
-    { id: 'CHQ-IN-00022', cheque: '100022', suffix: '5534', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
-    { id: 'CHQ-IN-00023', cheque: '100023', suffix: '9912', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[1L-5L]',   cbs_amt: '₹[1L-5L]',   status: 'MATCHED' },
-    { id: 'CHQ-IN-00024', cheque: '100024', suffix: '1178', ngch: 'RETURNED',  cbs: 'REVERSED', ngch_amt: '₹[<1L]',     cbs_amt: '₹[<1L]',     status: 'MATCHED' },
-    { id: 'CHQ-IN-00025', cheque: '100025', suffix: '6645', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[5L-10L]',  cbs_amt: '₹[5L-10L]',  status: 'MATCHED' },
-  ],
-  'SES-0618-001': [
-    { id: 'CHQ-IN-00501', cheque: '200001', suffix: '1122', ngch: 'CONFIRMED', cbs: 'POSTED',  ngch_amt: '₹[<1L]',   cbs_amt: '₹[<1L]',   status: 'MATCHED' },
-    { id: 'CHQ-IN-00502', cheque: '200002', suffix: '3344', ngch: 'CONFIRMED', cbs: 'POSTED',  ngch_amt: '₹[<1L]',   cbs_amt: '₹[<1L]',   status: 'MATCHED' },
-    { id: 'CHQ-IN-00503', cheque: '200003', suffix: '5566', ngch: 'CONFIRMED', cbs: 'PENDING', ngch_amt: '₹[1L-5L]', cbs_amt: '₹[1L-5L]', status: 'PENDING' },
-  ],
-  'SES-0617-001': [
-    { id: 'CHQ-IN-00701', cheque: '300001', suffix: '9988', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]', cbs_amt: '₹[<1L]', status: 'MATCHED' },
-    { id: 'CHQ-IN-00702', cheque: '300002', suffix: '7766', ngch: 'RETURNED',  cbs: 'REVERSED', ngch_amt: '₹[<1L]', cbs_amt: '₹[<1L]', status: 'MATCHED' },
-  ],
+// SMB reconciliation data — smaller sub-member scale (~8 rows per session)
+const SMB_RECON_DATA_TPL = [
+  { cheque: '110001', suffix: '3812', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',   cbs_amt: '₹[<1L]',   status: 'MATCHED' },
+  { cheque: '110002', suffix: '9274', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[1L-5L]', cbs_amt: '₹[1L-5L]', status: 'MATCHED' },
+  { cheque: '110003', suffix: '4401', ngch: 'RETURNED',  cbs: 'REVERSED', ngch_amt: '₹[<1L]',   cbs_amt: '₹[<1L]',   status: 'MATCHED' },
+  { cheque: '110004', suffix: '6187', ngch: 'CONFIRMED', cbs: 'PENDING',  ngch_amt: '₹[<1L]',   cbs_amt: '₹[<1L]',   status: 'PENDING' },
+  { cheque: '110005', suffix: '2239', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',   cbs_amt: '₹[1L-5L]', status: 'AMOUNT_MISMATCH' },
+  { cheque: '110006', suffix: '7703', ngch: 'CONFIRMED', cbs: '',         ngch_amt: '₹[<1L]',   cbs_amt: '',          status: 'NGCH_ONLY' },
+  { cheque: '110007', suffix: '5548', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[<1L]',   cbs_amt: '₹[<1L]',   status: 'MATCHED' },
+  { cheque: '110008', suffix: '1190', ngch: 'CONFIRMED', cbs: 'POSTED',   ngch_amt: '₹[1L-5L]', cbs_amt: '₹[1L-5L]', status: 'MATCHED' },
+]
+
+function makeReconData(sessions, isSMB) {
+  const tpl = isSMB ? SMB_RECON_DATA_TPL : SB_RECON_DATA_TPL
+  const result = {}
+  sessions.forEach((s, si) => {
+    const prefix = si === 0 ? '' : si === 1 ? '5' : '7'
+    result[s.id] = tpl.map((row, idx) => ({
+      ...row,
+      id: `CHQ-IN-${String(parseInt(prefix + '0', 10) + idx + 1).padStart(5, '0')}`,
+    }))
+  })
+  return result
 }
 
 const STATUS_META = {
@@ -160,7 +184,12 @@ export default function CTSReconciliation() {
   const [filterStatus, setFilterStatus]     = useState('ALL')
   const [raisedExceptions, setRaisedExceptions] = useState({})
 
-  const session = SESSIONS[sessionIdx]
+  const SESSIONS   = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
+  const RECON_DATA = useMemo(() => makeReconData(SESSIONS, isSMB), [SESSIONS, isSMB])
+
+  useEffect(() => { setSessionIdx(0); setFilterStatus('ALL') }, [isSMB])
+
+  const session = SESSIONS[Math.min(sessionIdx, SESSIONS.length - 1)]
   const items   = RECON_DATA[session.id] || []
 
   const matched    = items.filter(i => i.status === 'MATCHED').length
@@ -244,7 +273,7 @@ export default function CTSReconciliation() {
   function handleDownload() {
     const csv  = buildCsv(items, session)
     const date = session.date.replace(/-/g, '')
-    downloadCsv(csv, `RECON_SVCB0000001_${date}_${session.id}.csv`)
+    downloadCsv(csv, `RECON_${bankIfsc}_${date}_${session.id}.csv`)
   }
 
   usePageHeader({
@@ -429,8 +458,8 @@ export default function CTSReconciliation() {
           </div>
         </div>
 
-        {/* Sub-Member Ledger Section */}
-        <div className="mt-6">
+        {/* Sub-Member Ledger Section — SB sponsor banks only */}
+        {isSB && <div className="mt-6">
           <div className="flex items-center justify-between mb-3">
             <div>
               <h2 className={`text-sm font-semibold ${th.heading}`}>Sub-Member Ledger</h2>
@@ -519,6 +548,7 @@ export default function CTSReconciliation() {
             })}
           </div>
         </div>
+        }
 
       </div>
     </AppShell>
