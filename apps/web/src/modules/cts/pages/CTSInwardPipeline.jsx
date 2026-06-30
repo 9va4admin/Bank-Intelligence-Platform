@@ -6,12 +6,17 @@ import { getStpStream } from '../data/mockQueue'
 
 // ─── Sub-member bank definitions (mock — live data via Kafka cts.smb.inbound) ─
 
+// Sponsor Bank running ASTRA — shown in header; must NOT appear in SMB list
+const SPONSOR_BANK = { name: 'Saraswat Co-op Bank', ifsc: 'SRCB0000001', city: 'Mumbai' }
+
+// Sub-member UCBs routed through Saraswat as sponsor — smaller UCBs that
+// do not have direct NGCH membership; Saraswat forwards on their behalf
 const SMB_LIST = [
-  { id: 'saraswat',   name: 'Saraswat Co-op',  ifsc: 'SRCB0000001', city: 'Mumbai'  },
-  { id: 'cosmos',     name: 'Cosmos Co-op',     ifsc: 'COSB0000001', city: 'Pune'    },
-  { id: 'abhyudaya', name: 'Abhyudaya Co-op',  ifsc: 'ABHY0065001', city: 'Mumbai'  },
-  { id: 'shamrao',    name: 'Shamrao Vithal',   ifsc: 'SVCB0000001', city: 'Mumbai'  },
-  { id: 'tjsb',       name: 'TJSB Sahakari',    ifsc: 'TJSB0000001', city: 'Thane'   },
+  { id: 'cosmos',     name: 'Cosmos Co-op',          ifsc: 'COSB0000001', city: 'Pune'      },
+  { id: 'abhyudaya',  name: 'Abhyudaya Co-op',        ifsc: 'ABHY0065001', city: 'Mumbai'    },
+  { id: 'shamrao',    name: 'Shamrao Vithal Co-op',   ifsc: 'SVCB0000001', city: 'Mumbai'    },
+  { id: 'tjsb',       name: 'TJSB Sahakari Bank',     ifsc: 'TJSB0000001', city: 'Thane'     },
+  { id: 'janata',     name: 'Janata Sahakari Bank',   ifsc: 'JNSB0000001', city: 'Pune'      },
 ]
 
 // SMB pipeline has fewer stages — sponsor bank does forwarding, not full AI
@@ -496,7 +501,7 @@ export default function CTSInwardPipeline() {
   const [smbActiveStages, setSmbActiveStages] = useState(() =>
     Object.fromEntries(SMB_LIST.map(smb => [smb.id, SMB_STAGES[Math.floor(Math.random() * SMB_STAGES.length)].id]))
   )
-  const [smbAlerts, setSmbAlerts] = useState({ cosmos: 1, tjsb: 0, saraswat: 0, abhyudaya: 2, shamrao: 0 })
+  const [smbAlerts, setSmbAlerts] = useState({ cosmos: 1, tjsb: 0, janata: 0, abhyudaya: 2, shamrao: 0 })
   const [selectedSmb, setSelectedSmb] = useState(null)
 
   // Clock
@@ -651,6 +656,18 @@ export default function CTSInwardPipeline() {
           <div className="flex flex-1 min-h-0 overflow-hidden">
             {/* SMB list */}
             <div className="flex-1 overflow-y-auto">
+              {/* Sponsor identity banner */}
+              <div className={`px-4 py-2 border-b flex items-center gap-2 ${isDark ? 'bg-violet-900/10 border-violet-700/20' : 'bg-violet-50 border-violet-200'}`}>
+                <span className="text-sm">🏦</span>
+                <span className={`text-[10px] ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>
+                  Sponsor Bank: <span className="font-semibold">{SPONSOR_BANK.name}</span>
+                  <span className={`ml-2 font-mono ${isDark ? 'text-violet-400/60' : 'text-violet-500/70'}`}>{SPONSOR_BANK.ifsc}</span>
+                </span>
+                <span className={`ml-auto text-[9px] ${isDark ? 'text-violet-400/50' : 'text-violet-400'}`}>
+                  Forwarding instruments for {SMB_LIST.length} sub-members via SMBForwardingWorkflow
+                </span>
+              </div>
+
               {/* Header row */}
               <div className={`flex items-center gap-4 px-4 py-2 border-b ${th.divider} sticky top-0 z-10 ${isDark ? 'bg-[#020817]' : 'bg-slate-50'}`}>
                 <div className={`w-36 shrink-0 text-[9px] font-semibold uppercase tracking-widest ${th.muted}`}>Sub-Member Bank</div>
