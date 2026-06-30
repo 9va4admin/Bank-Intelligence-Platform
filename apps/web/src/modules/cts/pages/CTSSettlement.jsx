@@ -8,14 +8,14 @@
  *   - Settlement finality tracker
  *   - Download: settlement position statement
  */
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
-const SESSIONS = [
+const SB_SESSIONS = [
   {
     id: 'SES-20260625-001', slot: '10:00–12:00', status: 'SETTLED',
     inward: 1840, inward_val_cr: 42.3, outward: 1210, outward_val_cr: 28.1,
@@ -42,7 +42,25 @@ const SESSIONS = [
   },
 ]
 
-const COUNTERPARTIES = [
+function makeSmbSessions(bankIfsc) {
+  const p = `SES-${bankIfsc}-20260625`
+  return [
+    {
+      id: `${p}-001`, slot: '10:00–12:00', status: 'SETTLED',
+      inward: 143, inward_val_cr: 3.8, outward: 92, outward_val_cr: 2.1,
+      ngch_ack: '12:05:41', settled_at: '14:24:17',
+      net_cr: 1.7, net_dir: 'RECEIVE',
+    },
+    {
+      id: `${p}-002`, slot: '12:00–14:00', status: 'OPEN',
+      inward: 175, inward_val_cr: 4.65, outward: 115, outward_val_cr: 2.9,
+      ngch_ack: null, settled_at: null,
+      net_cr: 1.75, net_dir: 'RECEIVE',
+    },
+  ]
+}
+
+const SB_COUNTERPARTIES = [
   { ifsc: 'SBIN0000001', name: 'State Bank of India',   ours_cr: 12.3, theirs_cr: 4.1,  net_cr: 8.2,  dir: 'RECEIVE' },
   { ifsc: 'ICIC0000001', name: 'ICICI Bank',            ours_cr: 7.1,  theirs_cr: 9.8,  net_cr: 2.7,  dir: 'PAY' },
   { ifsc: 'UTIB0000001', name: 'Axis Bank',             ours_cr: 5.4,  theirs_cr: 2.1,  net_cr: 3.3,  dir: 'RECEIVE' },
@@ -50,6 +68,11 @@ const COUNTERPARTIES = [
   { ifsc: 'YESB0000001', name: 'Yes Bank',              ours_cr: 3.9,  theirs_cr: 5.6,  net_cr: 1.7,  dir: 'PAY' },
   { ifsc: 'INDB0000001', name: 'IndusInd Bank',         ours_cr: 6.2,  theirs_cr: 2.8,  net_cr: 3.4,  dir: 'RECEIVE' },
   { ifsc: 'PUNB0000001', name: 'Punjab National Bank',  ours_cr: 4.1,  theirs_cr: 1.9,  net_cr: 2.2,  dir: 'RECEIVE' },
+]
+
+// SMB settles through its Sponsor Bank only — single counterparty
+const SMB_COUNTERPARTIES = [
+  { ifsc: 'SRCB0000001', name: 'Saraswat Co-op Bank (Sponsor)', ours_cr: 8.45, theirs_cr: 5.80, net_cr: 2.65, dir: 'RECEIVE' },
 ]
 
 const PIPELINE_STEPS = ['OPEN', 'PROCESSING', 'FILED', 'NGCH_ACK', 'SETTLED']
@@ -94,7 +117,13 @@ function Pipeline({ status, isDark }) {
 
 export default function CTSSettlement() {
   const { isDark } = useTheme()
-  const [selectedSession, setSelectedSession] = useState(SESSIONS[1].id)
+  const { bankName, bankIfsc, isSMB } = useBankContext()
+
+  const SESSIONS      = useMemo(() => isSMB ? makeSmbSessions(bankIfsc) : SB_SESSIONS, [bankIfsc, isSMB])
+  const COUNTERPARTIES = isSMB ? SMB_COUNTERPARTIES : SB_COUNTERPARTIES
+
+  const [selectedSession, setSelectedSession] = useState(null)
+  const activeSessionId = selectedSession ?? SESSIONS[1]?.id ?? SESSIONS[0]?.id
 
   const th = {
     page:    isDark ? 'bg-navy-950' : 'bg-slate-50',
@@ -109,7 +138,7 @@ export default function CTSSettlement() {
       : (isDark ? 'text-slate-400 border-white/8 hover:text-white' : 'text-slate-500 border-slate-200 hover:text-slate-800'),
   }
 
-  const sel = SESSIONS.find(s => s.id === selectedSession) || SESSIONS[0]
+  const sel = SESSIONS.find(s => s.id === activeSessionId) || SESSIONS[0]
   const totalReceive = COUNTERPARTIES.filter(c => c.dir === 'RECEIVE').reduce((s, c) => s + c.net_cr, 0)
   const totalPay     = COUNTERPARTIES.filter(c => c.dir === 'PAY').reduce((s, c) => s + c.net_cr, 0)
 
@@ -121,7 +150,10 @@ export default function CTSSettlement() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className={`text-base font-semibold ${th.heading}`}>Settlement Position</h1>
-              <p className={`text-[11px] ${th.muted}`}>Clearing session lifecycle & net payable/receivable</p>
+              <p className={`text-[11px] ${th.muted}`}>
+                {bankName} · Clearing session lifecycle &amp; net payable/receivable
+                {isSMB && <span className="ml-2 text-amber-400">· settled via Sponsor Bank</span>}
+              </p>
             </div>
             <button className={`text-[11px] px-3 py-1.5 rounded-lg border transition-colors
               ${isDark ? 'border-white/15 text-slate-300 hover:text-white hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}>
@@ -139,7 +171,7 @@ export default function CTSSettlement() {
                 key={s.id}
                 onClick={() => setSelectedSession(s.id)}
                 className={`border rounded-xl p-4 cursor-pointer transition-all ${
-                  selectedSession === s.id
+                  activeSessionId === s.id
                     ? (isDark ? 'border-gold-400/40 bg-gold-400/5' : 'border-amber-400 bg-amber-50')
                     : th.card
                 }`}
