@@ -29,6 +29,9 @@ class AuditEventType(str, Enum):
     DIAGNOSTIC_ACCESS = "DIAGNOSTIC_ACCESS"
     VAULT_SYNC = "VAULT_SYNC"
     BANK_ONBOARDED = "BANK_ONBOARDED"
+    CTS_KILL_SWITCH_ENGAGED = "CTS_KILL_SWITCH_ENGAGED"    # operator activates kill switch
+    CTS_KILL_SWITCH_RELEASED = "CTS_KILL_SWITCH_RELEASED"  # operator deactivates kill switch
+    CTS_KILL_SWITCH_APPLIED = "CTS_KILL_SWITCH_APPLIED"    # per-instrument: KP or KC applied
 
 
 class HSMSigningError(RuntimeError):

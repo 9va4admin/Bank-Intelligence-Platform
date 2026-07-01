@@ -587,6 +587,75 @@
       "instrument_id"
     ]
   },
+  "CTS_KS_ENGAGED": {
+    "text": "Vision AI kill switch engaged — mode={mode} scope={scope} bank={bank_id} by {activated_by}. All affected instruments routed to human review.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "mode",
+      "scope",
+      "bank_id",
+      "activated_by"
+    ]
+  },
+  "CTS_KS_RELEASED": {
+    "text": "Vision AI kill switch released — mode={mode} scope={scope} bank={bank_id} by {released_by}. Normal AI processing resumed.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "mode",
+      "scope",
+      "bank_id",
+      "released_by"
+    ]
+  },
+  "CTS_KS_APPLIED_KC": {
+    "text": "Kill Complete (KC) applied to {instrument_id} — Vision AI bypassed. Instrument queued for human review. Scope: {scope}. Bank: {bank_id}.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "scope"
+    ]
+  },
+  "CTS_KS_APPLIED_KP": {
+    "text": "Kill Partial (KP) applied to {instrument_id} — Vision AI ran but STP suppressed. Instrument queued for human review. Scope: {scope}. Bank: {bank_id}.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "scope"
+    ]
+  },
+  "CTS_KS_BACKSTOP_TRIGGERED": {
+    "text": "Kill-switch backstop triggered at decision stage for {instrument_id} — mode={kill_switch_mode} scope={scope} bank={bank_id}. Mid-flight instrument intercepted before STP.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "kill_switch_mode",
+      "scope"
+    ]
+  },
   "CTS_OUT_SCANNER_SESSION_OPENED": {
     "text": "Scanner session {session_id} opened by {operator} — {scanner_id} active.",
     "severity": "INFO",

@@ -335,6 +335,20 @@ class ConfigService:
         results = await asyncio.gather(*[self.get(k) for k in keys])
         return dict(zip(keys, results))
 
+    def get_vision_ai_kill_switch(self) -> "VisionAIKillSwitch":
+        """
+        Return a VisionAIKillSwitch bound to this config_service instance.
+
+        Usage in CTS workflow:
+            ks = config_service.get_vision_ai_kill_switch()
+            status = await ks.check(bank_id=bank_id, smb_id=smb_id)
+
+        The returned checker resolves kill-switch mode via Layer 3 config (hot-reload,
+        maker-checker, Immudb-audited, <30s propagation via Kafka platform.config.changed).
+        """
+        from modules.cts.kill_switch.vision_ai_kill_switch import VisionAIKillSwitch
+        return VisionAIKillSwitch(self)
+
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------

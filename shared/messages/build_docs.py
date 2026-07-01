@@ -40,6 +40,7 @@ DOMAIN_LABELS = {
     "CTS_COMP": "CTS Compliance / CTS-2010",
     "CTS_NGCH": "CTS NGCH Filing",
     "CTS_SMB":  "CTS Sub-Member Bank",
+    "CTS_KS":   "CTS Kill Switch (RBI Mandate)",
     "CBS":      "CBS Connector",
     "VAULT":    "Signature & PPS Vault",
     "AUTH":     "Authentication & RBAC",
@@ -49,7 +50,7 @@ DOMAIN_LABELS = {
 
 
 def _domain(key: str) -> str:
-    for prefix in ("CTS_WF", "CTS_OUT", "CTS_COMP", "CTS_NGCH", "CTS_SMB",
+    for prefix in ("CTS_WF", "CTS_OUT", "CTS_COMP", "CTS_NGCH", "CTS_SMB", "CTS_KS",
                    "VAULT", "AUTH", "CBS", "EJ", "PLATFORM"):
         if key.startswith(prefix):
             return prefix
@@ -433,8 +434,8 @@ function filterMessages() {{
 """
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(html)
-    print(f"CTS_Msg_Taxonomy.html → {output_path}  ({total} messages)")
+    output_path.write_text(html, encoding="utf-8")
+    print(f"CTS_Msg_Taxonomy.html written: {output_path}  ({total} messages)")
 
 
 if __name__ == "__main__":

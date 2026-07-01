@@ -21,6 +21,8 @@ import structlog
 from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field
 
+from modules.cts.kill_switch.vision_ai_kill_switch import KillMode, KillSwitchStatus
+
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.cts.alteration")
 
@@ -109,6 +111,7 @@ class AlterationActivityInput(BaseModel):
     instrument_id: str
     bank_id: str
     scan_dpi: int = 200   # NPCI CTS 2010 minimum; higher = better fibre detection
+    smb_id: Optional[str] = None  # populated for sub-member bank instruments
 
 
 class AlterationActivityResult(BaseModel):
@@ -126,6 +129,8 @@ class AlterationActivityResult(BaseModel):
     requires_human_review: bool = False
     degraded: bool = False
     model_version: str = "qwen2-vl-72b"
+    kill_switch_mode: str = "NONE"           # "NONE" | "KP" | "KC"
+    kill_switch_scope: Optional[str] = None  # "GLOBAL" | "SB_OWN" | "SMB"
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +243,7 @@ Do NOT assume alteration from amount alone. Physical evidence is the only basis 
 async def detect_alteration(
     inp: AlterationActivityInput,
     vllm_client=None,
+    kill_switch_status: Optional[KillSwitchStatus] = None,
 ) -> AlterationActivityResult:
     """
     Detect physical cheque alterations using Qwen2-VL 72B.
@@ -245,11 +251,59 @@ async def detect_alteration(
     Six detection layers covering ink physics, paper fibre, correction fluid,
     chemical alteration, overwriting, and field content.
     Degrades gracefully on model failure — never assumes alteration without evidence.
+
+    Kill-switch behaviour (RBI mandate):
+      KC (Kill Complete) — Qwen2-VL is NOT called; returns requires_human_review=True.
+      KP (Kill Partial)  — Qwen2-VL runs normally; result carries kill_switch_mode="KP"
+                           so that synthesise_decision can force HUMAN_REVIEW at the
+                           decision backstop (dual-checkpoint pattern).
     """
     with tracer.start_as_current_span("activity.detect_alteration") as span:
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)
         span.set_attribute("scan_dpi", inp.scan_dpi)
+
+        # ── Kill-switch entry checkpoint (KC path) ─────────────────────────
+        # Checked BEFORE any vLLM call. If KC is active, skip Vision AI entirely.
+        # KP is recorded on the result but does not block the AI call here —
+        # the decision backstop enforces HUMAN_REVIEW for KP.
+        resolved_mode = "NONE"
+        resolved_scope: Optional[str] = None
+
+        if kill_switch_status is not None and kill_switch_status.is_active:
+            resolved_mode = kill_switch_status.mode.value
+            resolved_scope = kill_switch_status.scope.value if kill_switch_status.scope else None
+
+            span.set_attribute("kill_switch_mode", resolved_mode)
+            span.set_attribute("kill_switch_scope", resolved_scope or "")
+
+            if kill_switch_status.blocks_vision_ai:  # KC
+                log.warning(
+                    "alteration_activity.kill_switch_kc",
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    smb_id=inp.smb_id,
+                    scope=resolved_scope,
+                )
+                return AlterationActivityResult(
+                    alteration_detected=False,
+                    tamper_risk_score=0.0,
+                    physical_anomaly_score=0.0,
+                    requires_human_review=True,
+                    degraded=False,
+                    kill_switch_mode="KC",
+                    kill_switch_scope=resolved_scope,
+                )
+
+            # KP — log and continue to AI
+            log.info(
+                "alteration_activity.kill_switch_kp",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                smb_id=inp.smb_id,
+                scope=resolved_scope,
+            )
+        # ── End kill-switch entry checkpoint ───────────────────────────────
 
         prompt = _ALTERATION_PROMPT.format(dpi=inp.scan_dpi)
 
@@ -373,6 +427,8 @@ async def detect_alteration(
             correction_fluid_anomalies=fluid_anomalies,
             chemical_alteration_anomalies=chemical_anomalies,
             requires_human_review=alteration_detected,
+            kill_switch_mode=resolved_mode,
+            kill_switch_scope=resolved_scope,
         )
 
 

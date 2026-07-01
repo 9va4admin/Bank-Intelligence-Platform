@@ -4,16 +4,23 @@ Decision activity — synthesise terminal CTS decision from all upstream signals
 Decisions: STP_CONFIRM | STP_RETURN | HUMAN_REVIEW
 
 Priority order (hard gates evaluated first):
-  1. CBS returned RETURN status   → STP_RETURN  (OPA Layer 4 rule)
-  2. Alteration detected          → STP_RETURN
-  3. Fraud score > threshold      → HUMAN_REVIEW
-  4. OCR confidence < threshold   → HUMAN_REVIEW
-  5. Signature match < threshold  → HUMAN_REVIEW
-  6. CBS unavailable              → HUMAN_REVIEW
-  7. PPS miss                     → HUMAN_REVIEW
-  8. CBS HUMAN_REVIEW escalation  → HUMAN_REVIEW
+  0. Kill switch active (KP or KC) → HUMAN_REVIEW  [RBI mandate — supersedes ALL gates]
+  1. CBS returned RETURN status     → STP_RETURN  (OPA Layer 4 rule)
+  2. Alteration detected            → STP_RETURN
+  3. Fraud score > threshold        → HUMAN_REVIEW
+  4. OCR confidence < threshold     → HUMAN_REVIEW
+  5. Signature match < threshold    → HUMAN_REVIEW
+  6. CBS unavailable                → HUMAN_REVIEW
+  7. PPS miss                       → HUMAN_REVIEW
+  8. CBS HUMAN_REVIEW escalation    → HUMAN_REVIEW
   9. All signals clean + fraud_score < (1 - stp_threshold) → STP_CONFIRM
-  else                             → HUMAN_REVIEW
+  else                               → HUMAN_REVIEW
+
+Kill-switch backstop (dual-checkpoint pattern):
+  This activity is checkpoint 2. It re-evaluates kill_switch_status independently,
+  catching the 120s mid-flight race: kill switch activated after detect_alteration
+  started but before decision reached. alteration result may carry kill_switch_mode="NONE"
+  yet decision receives kill_switch_status=KP|KC — backstop catches this case.
 
 All thresholds from config dict — never hardcoded.
 SHAP values passed through from upstream fraud activity.
@@ -23,12 +30,16 @@ from typing import Any, Optional
 import structlog
 from pydantic import BaseModel, ConfigDict
 
+from modules.cts.kill_switch.vision_ai_kill_switch import KillMode, KillSwitchStatus
+
 log = structlog.get_logger()
+
 
 class DecisionInput(BaseModel):
     model_config = ConfigDict(frozen=True)
     instrument_id: str
     bank_id: str
+    smb_id: Optional[str] = None           # populated for sub-member bank instruments
     fraud_score: float
     ocr_confidence: float
     signature_match_score: float
@@ -38,6 +49,8 @@ class DecisionInput(BaseModel):
     available_balance: Optional[float]
     cheque_amount: float
     shap_values: dict[str, Any]  # required — must be computed before decision
+    kill_switch_mode: str = "NONE"          # carried from alteration result
+    kill_switch_scope: Optional[str] = None  # carried from alteration result
 
 
 class DecisionResult(BaseModel):
@@ -46,16 +59,55 @@ class DecisionResult(BaseModel):
     decision: str               # "STP_CONFIRM" | "STP_RETURN" | "HUMAN_REVIEW"
     rationale: str
     shap_values: dict[str, Any]
+    kill_switch_mode: str = "NONE"          # effective mode at decision time
+    kill_switch_scope: Optional[str] = None  # effective scope at decision time
 
 
 async def synthesise_decision(
     inp: DecisionInput,
     config: dict[str, Any],
+    kill_switch_status: Optional[KillSwitchStatus] = None,
 ) -> DecisionResult:
     """
     Synthesise terminal cheque decision from all upstream activity signals.
     All thresholds read from config dict — never hardcoded here.
+
+    kill_switch_status is the freshly-resolved kill switch state at decision time.
+    It acts as a backstop independent of what alteration.py saw — catching the
+    mid-flight race condition where the kill switch was activated during the
+    120-second Qwen2-VL call.
     """
+    # ── Kill-switch backstop (checkpoint 2 — dual-checkpoint pattern) ─────────
+    # Evaluated FIRST — before CBS, alteration, fraud, and all other gates.
+    # RBI mandate: when kill switch is active, every instrument goes to human review.
+    # KP: Vision AI ran but STP is suppressed.
+    # KC: Vision AI was skipped upstream and STP is suppressed.
+    effective_ks_mode = "NONE"
+    effective_ks_scope: Optional[str] = None
+
+    if kill_switch_status is not None and kill_switch_status.is_active:
+        effective_ks_mode = kill_switch_status.mode.value
+        effective_ks_scope = kill_switch_status.scope.value if kill_switch_status.scope else None
+
+        log.warning(
+            "decision_activity.kill_switch_backstop",
+            instrument_id=inp.instrument_id,
+            bank_id=inp.bank_id,
+            smb_id=inp.smb_id,
+            kill_switch_mode=effective_ks_mode,
+            kill_switch_scope=effective_ks_scope,
+            upstream_kill_switch_mode=inp.kill_switch_mode,
+        )
+        return DecisionResult(
+            instrument_id=inp.instrument_id,
+            decision="HUMAN_REVIEW",
+            rationale=f"kill_switch active: mode={effective_ks_mode} scope={effective_ks_scope}",
+            shap_values=inp.shap_values,
+            kill_switch_mode=effective_ks_mode,
+            kill_switch_scope=effective_ks_scope,
+        )
+    # ── End kill-switch backstop ───────────────────────────────────────────────
+
     stp_threshold: float = config["stp_auto_confirm_threshold"]
     fraud_threshold: float = config["human_review_fraud_threshold"]
     ocr_min_confidence: float = config["ocr_min_confidence"]
@@ -66,7 +118,7 @@ async def synthesise_decision(
         return DecisionResult(
             instrument_id=inp.instrument_id,
             decision="STP_RETURN",
-            rationale=f"CBS account status requires immediate return",
+            rationale="CBS account status requires immediate return",
             shap_values=inp.shap_values,
         )
 
