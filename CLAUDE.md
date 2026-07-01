@@ -1462,7 +1462,11 @@ PHASE 5 — Hardening (in progress, July 2026)
        high-value threshold, l2_disabled escape hatch) + wired into alteration.py (cheque_amount →
        cascade, cascade_level in result) + ocr.py (call_ocr cascade, cascade_level in result)
        — 13 new tests (alteration wiring: 7, OCR wiring: 6), 83 total in these three files
-  [ ] Fix B: Delta vault sync (15-min) + Bloom filter — delta_vault_sync_workflow.py
+  [x] Fix B: Delta vault sync (15-min) + Bloom filter — DeltaVaultSyncWorkflow added to
+       delta_vault_sync_workflow.py (fetch_delta_stop_payments, fetch_delta_canceled_leaves,
+       update_bloom_filter activities + DeltaVaultSyncWorkflow orchestrator). CBS degradation
+       tracked inline; audit always fires; Bloom skipped on empty delta. 5 new workflow tests
+       + 12 activity tests = 17 total GREEN.
   [ ] Fix C: HA/DR Helm values — RF=3, min.insync.replicas=2, Temporal dual-cluster
   [ ] Fix D: EJ integrity activity + reconciliation orphan scanner
   [ ] Fix E: Notification debouncer — shared/notifications/debouncer.py
