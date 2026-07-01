@@ -54,6 +54,14 @@ class AuditEventType(str, Enum):
     EJ_ATM_HEALTH_CHANGED = "EJ_ATM_HEALTH_CHANGED"        # HEALTHY→DEGRADED→CRITICAL transition
     EJ_OEM_UNKNOWN = "EJ_OEM_UNKNOWN"                       # fingerprint produced no match
 
+    # ── MCP connection config ──────────────────────────────────────────────────
+    MCP_CONN_CREATED = "MCP_CONN_CREATED"           # new connection configured
+    MCP_CONN_UPDATED = "MCP_CONN_UPDATED"           # endpoint/vendor/secret changed → status PENDING
+    MCP_CONN_DELETED = "MCP_CONN_DELETED"           # connection removed
+    MCP_CONN_TESTED_OK = "MCP_CONN_TESTED_OK"       # test passed → status ACTIVE
+    MCP_CONN_TESTED_FAIL = "MCP_CONN_TESTED_FAIL"   # test failed → status ERROR
+    MCP_CONN_SYNC_TRIGGERED = "MCP_CONN_SYNC_TRIGGERED"  # vault sync workflow started
+
     # ── Platform / infra ───────────────────────────────────────────────────────
     CONFIG_CHANGE = "CONFIG_CHANGE"
     DIAGNOSTIC_ACCESS = "DIAGNOSTIC_ACCESS"

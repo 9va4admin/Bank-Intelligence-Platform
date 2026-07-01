@@ -2952,5 +2952,95 @@
       "bank_id",
       "cert_expiry"
     ]
+  },
+  "MCP_CONN_CREATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_type",
+      "smb_id",
+      "created_by"
+    ]
+  },
+  "MCP_CONN_UPDATED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "updated_by"
+    ]
+  },
+  "MCP_CONN_DELETED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "smb_id",
+      "deleted_by"
+    ]
+  },
+  "MCP_CONN_TESTED_OK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "latency_ms",
+      "tested_by"
+    ]
+  },
+  "MCP_CONN_TESTED_FAIL": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "error",
+      "tested_by"
+    ]
+  },
+  "MCP_CONN_SYNC_TRIGGERED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "workflow_id",
+      "triggered_by"
+    ]
   }
 }

@@ -1746,3 +1746,49 @@ CTS_NGCH_CERT_EXPIRED:
   variables: [bank_id, cert_expiry]
   en: "NGCH mTLS certificate expired for {bank_id} (expired {cert_expiry}). All NGCH filing halted — rotate certificate immediately."
   hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# MCP CONNECTION CONFIG — connect / disconnect events
+# ────────────────────────────────────────────────────────────────────────
+
+MCP_CONN_CREATED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [bank_id, connection_type, smb_id, created_by]
+  en: "MCP connection {connection_type} created for {bank_id} (SMB: {smb_id}) by {created_by}. Status: PENDING — test required before clearing can open."
+  hi: ""
+
+MCP_CONN_UPDATED:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [bank_id, connection_id, connection_type, updated_by]
+  en: "MCP connection {connection_type} ({connection_id}) updated by {updated_by} for {bank_id}. Status reset to PENDING — re-test required."
+  hi: ""
+
+MCP_CONN_DELETED:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [bank_id, connection_id, connection_type, smb_id, deleted_by]
+  en: "MCP connection {connection_type} ({connection_id}) deleted by {deleted_by} for {bank_id} (SMB: {smb_id}). Clearing sessions blocked if no replacement configured."
+  hi: ""
+
+MCP_CONN_TESTED_OK:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [bank_id, connection_id, connection_type, latency_ms, tested_by]
+  en: "MCP connection {connection_type} ({connection_id}) tested OK for {bank_id} — latency {latency_ms} ms. Status: ACTIVE. Tested by {tested_by}."
+  hi: ""
+
+MCP_CONN_TESTED_FAIL:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [bank_id, connection_id, connection_type, error, tested_by]
+  en: "MCP connection {connection_type} ({connection_id}) test FAILED for {bank_id} — {error}. Status: ERROR. Clearing sessions will be blocked. Tested by {tested_by}."
+  hi: ""
+
+MCP_CONN_SYNC_TRIGGERED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [bank_id, connection_id, connection_type, workflow_id, triggered_by]
+  en: "Vault sync triggered for MCP connection {connection_type} ({connection_id}) on {bank_id} — workflow {workflow_id}. Triggered by {triggered_by}."
+  hi: ""

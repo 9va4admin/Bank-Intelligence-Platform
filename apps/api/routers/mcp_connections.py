@@ -20,9 +20,14 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, field_validator
+
+from shared.audit.audit_event import AuditEvent, AuditEventType
+
+log = structlog.get_logger()
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
@@ -84,6 +89,36 @@ _global_store = _ConnectionStore()
 
 def get_store() -> _ConnectionStore:
     return _global_store
+
+
+# ── Audit emit ───────────────────────────────────────────────────────────────
+
+
+async def _emit_audit(event_type: AuditEventType, bank_id: str, payload: dict) -> None:
+    """Emit an MCP connection audit event.
+
+    In production: publishes to platform.audit.events Kafka topic → audit-service
+    writes to Immudb with HSM signature.
+
+    Fire-and-forget from router perspective — failures are logged but do not
+    block the HTTP response (Temporal audit-service handles retries).
+    """
+    try:
+        event = AuditEvent(
+            event_type=event_type,
+            bank_id=bank_id,
+            payload=payload,
+        )
+        # In production: kafka_producer.publish("platform.audit.events", event.to_json())
+        log.info(
+            "mcp_conn.audit_event",
+            event_type=event_type.value,
+            bank_id=bank_id,
+            event_id=event.event_id,
+        )
+    except Exception as exc:
+        # Never let audit failure break the user-facing operation
+        log.error("mcp_conn.audit_emit_failed", event_type=event_type.value, bank_id=bank_id, error=str(exc))
 
 
 # ── Auth dependency ──────────────────────────────────────────────────────────
@@ -402,6 +437,12 @@ async def create_connection(
         "created_by": user["user_id"],
     }
     store.insert(row)
+    await _emit_audit(AuditEventType.MCP_CONN_CREATED, user["bank_id"], {
+        "connection_id": row["id"],
+        "connection_type": body.connection_type,
+        "smb_id": body.smb_id or "—",
+        "created_by": user["user_id"],
+    })
     return _row_to_response(row)
 
 
@@ -441,6 +482,12 @@ async def update_connection(
         updates["smb_name"] = body.smb_name
 
     updated = store.update(connection_id, updates)
+    await _emit_audit(AuditEventType.MCP_CONN_UPDATED, user["bank_id"], {
+        "connection_id": connection_id,
+        "connection_type": row["connection_type"],
+        "updated_by": user["user_id"],
+        "fields_changed": [k for k in updates if k != "status"],
+    })
     return _row_to_response(updated)
 
 
@@ -454,6 +501,12 @@ async def delete_connection(
     if not row or row["bank_id"] != user["bank_id"]:
         raise HTTPException(status_code=404, detail="Connection not found")
     _scope_check(user, row)
+    await _emit_audit(AuditEventType.MCP_CONN_DELETED, user["bank_id"], {
+        "connection_id": connection_id,
+        "connection_type": row["connection_type"],
+        "smb_id": row.get("smb_id") or "—",
+        "deleted_by": user["user_id"],
+    })
     store.delete(connection_id)
 
 
@@ -476,6 +529,15 @@ async def test_connection(
         "last_tested_at": _now(),
         "last_test_latency_ms": latency_ms,
         "error_message": error,
+    })
+
+    audit_type = AuditEventType.MCP_CONN_TESTED_OK if success else AuditEventType.MCP_CONN_TESTED_FAIL
+    await _emit_audit(audit_type, user["bank_id"], {
+        "connection_id": connection_id,
+        "connection_type": row["connection_type"],
+        "latency_ms": latency_ms,
+        "error": error or "—",
+        "tested_by": user["user_id"],
     })
 
     return TestConnectionResponse(
@@ -513,6 +575,12 @@ async def trigger_sync(
     workflow_id = f"cts-vaultsync-{user['bank_id']}-{connection_id[:8]}"
     now = _now()
     store.update(connection_id, {"last_sync_at": now})
+    await _emit_audit(AuditEventType.MCP_CONN_SYNC_TRIGGERED, user["bank_id"], {
+        "connection_id": connection_id,
+        "connection_type": row["connection_type"],
+        "workflow_id": workflow_id,
+        "triggered_by": user["user_id"],
+    })
 
     return TriggerSyncResponse(
         connection_id=connection_id,
