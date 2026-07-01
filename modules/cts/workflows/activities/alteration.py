@@ -23,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from modules.cts.kill_switch.vision_ai_kill_switch import KillMode, KillSwitchStatus
 from shared.audit.audit_event import AuditEvent, AuditEventType
+from shared.ai.model_cascade import CascadeOrchestrator
 
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.cts.alteration")
@@ -113,6 +114,7 @@ class AlterationActivityInput(BaseModel):
     bank_id: str
     scan_dpi: int = 200   # NPCI CTS 2010 minimum; higher = better fibre detection
     smb_id: Optional[str] = None  # populated for sub-member bank instruments
+    cheque_amount: float = 0.0    # forwarded to cascade for high-value L2 routing
 
 
 class AlterationActivityResult(BaseModel):
@@ -130,6 +132,7 @@ class AlterationActivityResult(BaseModel):
     requires_human_review: bool = False
     degraded: bool = False
     model_version: str = "qwen2-vl-72b"
+    cascade_level: int = 2                   # 1 = L1 used (7B fast), 2 = L2 used (72B forensic)
     kill_switch_mode: str = "NONE"           # "NONE" | "KP" | "KC"
     kill_switch_scope: Optional[str] = None  # "GLOBAL" | "SB_OWN" | "SMB"
 
@@ -247,6 +250,7 @@ async def detect_alteration(
     kill_switch_status: Optional[KillSwitchStatus] = None,
     immudb_client: Optional[Any] = None,
     hsm: Optional[Any] = None,
+    orchestrator: Optional[CascadeOrchestrator] = None,
 ) -> AlterationActivityResult:
     """
     Detect physical cheque alterations using Qwen2-VL 72B.
@@ -333,20 +337,33 @@ async def detect_alteration(
 
         prompt = _ALTERATION_PROMPT.format(dpi=inp.scan_dpi)
 
+        resolved_model = "qwen2-vl-72b"
+        resolved_cascade_level = 2
+
         try:
-            response = await vllm_client.chat.completions.create(
-                model="qwen2-vl-72b",
-                messages=[{
-                    "role": "user",
-                    "content": [
-                        {"type": "image_url", "image_url": {"url": inp.image_url}},
-                        {"type": "text", "text": prompt},
-                    ],
-                }],
-                extra_body={"queue": "cts-vision"},
-                timeout=120,
-            )
-            raw_text = response.choices[0].message.content
+            if orchestrator is not None:
+                cascade_result = await orchestrator.call_vision(
+                    image_url=inp.image_url,
+                    prompt=prompt,
+                    cheque_amount=inp.cheque_amount,
+                )
+                raw_text = cascade_result.content
+                resolved_model = cascade_result.model_used
+                resolved_cascade_level = cascade_result.cascade_level
+            else:
+                response = await vllm_client.chat.completions.create(
+                    model="qwen2-vl-72b",
+                    messages=[{
+                        "role": "user",
+                        "content": [
+                            {"type": "image_url", "image_url": {"url": inp.image_url}},
+                            {"type": "text", "text": prompt},
+                        ],
+                    }],
+                    extra_body={"queue": "cts-vision"},
+                    timeout=120,
+                )
+                raw_text = response.choices[0].message.content
 
         except Exception as exc:
             log.warning(
@@ -453,6 +470,8 @@ async def detect_alteration(
             correction_fluid_anomalies=fluid_anomalies,
             chemical_alteration_anomalies=chemical_anomalies,
             requires_human_review=alteration_detected,
+            model_version=resolved_model,
+            cascade_level=resolved_cascade_level,
             kill_switch_mode=resolved_mode,
             kill_switch_scope=resolved_scope,
         )

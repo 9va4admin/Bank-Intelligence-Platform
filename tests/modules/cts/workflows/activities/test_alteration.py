@@ -429,3 +429,138 @@ class TestAlterationDegradation:
         client.chat.completions.create = AsyncMock(side_effect=Exception("down"))
         result = await detect_alteration(_make_input(), vllm_client=client)
         assert result.tamper_risk_score == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Cascade orchestrator wiring (Fix A — Gemini)
+# ---------------------------------------------------------------------------
+
+class TestAlterationCascadeWiring:
+    @pytest.mark.asyncio
+    async def test_cascade_orchestrator_called_when_provided(self):
+        """When orchestrator is passed, call_vision must be invoked (not vllm_client directly)."""
+        from modules.cts.workflows.activities.alteration import detect_alteration
+        from shared.ai.model_cascade import CascadeResult
+
+        cascade_result = CascadeResult(
+            content=json.dumps(_clean_payload()),
+            confidence=0.96,
+            cascade_level=1,
+            model_used="qwen2-vl-7b",
+            escalated=False,
+        )
+        orchestrator = AsyncMock()
+        orchestrator.call_vision = AsyncMock(return_value=cascade_result)
+
+        result = await detect_alteration(_make_input(), orchestrator=orchestrator)
+        orchestrator.call_vision.assert_called_once()
+        assert result.alteration_detected is False
+
+    @pytest.mark.asyncio
+    async def test_cascade_model_used_in_result_model_version(self):
+        """result.model_version must reflect which model the cascade chose."""
+        from modules.cts.workflows.activities.alteration import detect_alteration
+        from shared.ai.model_cascade import CascadeResult
+
+        cascade_result = CascadeResult(
+            content=json.dumps(_clean_payload()),
+            confidence=0.96,
+            cascade_level=1,
+            model_used="qwen2-vl-7b",
+            escalated=False,
+        )
+        orchestrator = AsyncMock()
+        orchestrator.call_vision = AsyncMock(return_value=cascade_result)
+
+        result = await detect_alteration(_make_input(), orchestrator=orchestrator)
+        assert result.model_version == "qwen2-vl-7b"
+
+    @pytest.mark.asyncio
+    async def test_cascade_level_1_reflected_in_result(self):
+        """result.cascade_level == 1 when L1 was sufficient."""
+        from modules.cts.workflows.activities.alteration import detect_alteration
+        from shared.ai.model_cascade import CascadeResult
+
+        cascade_result = CascadeResult(
+            content=json.dumps(_clean_payload()),
+            confidence=0.96,
+            cascade_level=1,
+            model_used="qwen2-vl-7b",
+            escalated=False,
+        )
+        orchestrator = AsyncMock()
+        orchestrator.call_vision = AsyncMock(return_value=cascade_result)
+
+        result = await detect_alteration(_make_input(), orchestrator=orchestrator)
+        assert result.cascade_level == 1
+
+    @pytest.mark.asyncio
+    async def test_cascade_level_2_reflected_in_result(self):
+        """result.cascade_level == 2 when L2 was used (high-value or low L1 confidence)."""
+        from modules.cts.workflows.activities.alteration import detect_alteration
+        from shared.ai.model_cascade import CascadeResult
+
+        cascade_result = CascadeResult(
+            content=json.dumps(_altered_payload()),
+            confidence=0.94,
+            cascade_level=2,
+            model_used="qwen2-vl-72b",
+            escalated=True,
+            escalation_reason="high_value",
+        )
+        orchestrator = AsyncMock()
+        orchestrator.call_vision = AsyncMock(return_value=cascade_result)
+
+        result = await detect_alteration(_make_input(), orchestrator=orchestrator)
+        assert result.cascade_level == 2
+        assert result.model_version == "qwen2-vl-72b"
+        assert result.alteration_detected is True
+
+    @pytest.mark.asyncio
+    async def test_cascade_exception_degrades_gracefully(self):
+        """If both L1 and L2 fail (cascade raises), result must be degraded human review."""
+        from modules.cts.workflows.activities.alteration import detect_alteration
+
+        orchestrator = AsyncMock()
+        orchestrator.call_vision = AsyncMock(side_effect=RuntimeError("All models down"))
+
+        result = await detect_alteration(_make_input(), orchestrator=orchestrator)
+        assert result.degraded is True
+        assert result.requires_human_review is True
+        assert result.alteration_detected is False
+
+    @pytest.mark.asyncio
+    async def test_no_orchestrator_falls_back_to_direct_vllm(self):
+        """Backwards compat: orchestrator=None must work via direct vllm_client."""
+        from modules.cts.workflows.activities.alteration import detect_alteration
+        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_clean_payload()))
+        assert result.alteration_detected is False
+        assert result.degraded is False
+
+    @pytest.mark.asyncio
+    async def test_cheque_amount_passed_to_cascade(self):
+        """cheque_amount from input must be forwarded to orchestrator.call_vision."""
+        from modules.cts.workflows.activities.alteration import detect_alteration, AlterationActivityInput
+        from shared.ai.model_cascade import CascadeResult
+
+        cascade_result = CascadeResult(
+            content=json.dumps(_clean_payload()),
+            confidence=0.96,
+            cascade_level=2,
+            model_used="qwen2-vl-72b",
+            escalated=True,
+            escalation_reason="high_value",
+        )
+        orchestrator = AsyncMock()
+        orchestrator.call_vision = AsyncMock(return_value=cascade_result)
+
+        inp = AlterationActivityInput(
+            image_url="s3://bucket/INST001.jpg",
+            instrument_id="INST001",
+            bank_id="test-bank",
+            cheque_amount=6_000_000.0,  # ₹60L — high value
+        )
+        await detect_alteration(inp, orchestrator=orchestrator)
+        call_kwargs = orchestrator.call_vision.call_args
+        # cheque_amount must reach the orchestrator
+        assert call_kwargs is not None

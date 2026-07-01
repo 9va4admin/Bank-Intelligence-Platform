@@ -261,3 +261,124 @@ class TestRouteMicrException:
             )
         assert tag == "SPONSOR"
         assert smb == "SMB-001"
+
+
+# ---------------------------------------------------------------------------
+# Cascade orchestrator wiring (Fix A — Gemini)
+# ---------------------------------------------------------------------------
+
+import json as _json
+
+
+class TestOCRCascadeWiring:
+    def _make_cascade_content(self, confidence=0.97, micr="123456789012345"):
+        """Build the JSON string a real vLLM OCR model would return."""
+        return _json.dumps({
+            "micr_line": {"value": micr, "confidence": confidence},
+            "amount_figures": {"value": "10000.00", "confidence": confidence},
+            "amount_words": {"value": "Ten Thousand Only", "confidence": confidence},
+            "date": {"value": "17/06/2026", "confidence": confidence},
+            "payee": {"value": "ACME Corp", "confidence": confidence},
+        })
+
+    @pytest.mark.asyncio
+    async def test_cascade_orchestrator_called_when_provided(self):
+        """When orchestrator is passed, call_ocr must be invoked (not vllm_client.extract)."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        from shared.ai.model_cascade import CascadeResult
+
+        cascade_result = CascadeResult(
+            content=self._make_cascade_content(confidence=0.97),
+            confidence=0.97,
+            cascade_level=1,
+            model_used="got-ocr2-7b",
+            escalated=False,
+        )
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=cascade_result)
+
+        result = await ocr_extract(_make_input(), orchestrator=orchestrator, min_confidence=0.85)
+        orchestrator.call_ocr.assert_called_once()
+        assert result.outcome == "PROCEED"
+
+    @pytest.mark.asyncio
+    async def test_cascade_micr_extracted_from_content(self):
+        """MICR line is correctly parsed from the cascade result's JSON content."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        from shared.ai.model_cascade import CascadeResult
+
+        cascade_result = CascadeResult(
+            content=self._make_cascade_content(micr="999888777666555"),
+            confidence=0.97,
+            cascade_level=1,
+            model_used="got-ocr2-7b",
+            escalated=False,
+        )
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=cascade_result)
+
+        result = await ocr_extract(_make_input(), orchestrator=orchestrator, min_confidence=0.85)
+        assert result.micr_line == "999888777666555"
+
+    @pytest.mark.asyncio
+    async def test_cascade_level_in_ocr_result(self):
+        """result.cascade_level reflects which model was used."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        from shared.ai.model_cascade import CascadeResult
+
+        cascade_result = CascadeResult(
+            content=self._make_cascade_content(),
+            confidence=0.97,
+            cascade_level=1,
+            model_used="got-ocr2-7b",
+            escalated=False,
+        )
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=cascade_result)
+
+        result = await ocr_extract(_make_input(), orchestrator=orchestrator, min_confidence=0.85)
+        assert result.cascade_level == 1
+
+    @pytest.mark.asyncio
+    async def test_cascade_l2_level_reflected(self):
+        """When cascade uses L2, result.cascade_level == 2."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        from shared.ai.model_cascade import CascadeResult
+
+        cascade_result = CascadeResult(
+            content=self._make_cascade_content(),
+            confidence=0.96,
+            cascade_level=2,
+            model_used="got-ocr2-full",
+            escalated=True,
+            escalation_reason="low_confidence",
+        )
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=cascade_result)
+
+        result = await ocr_extract(_make_input(), orchestrator=orchestrator, min_confidence=0.85)
+        assert result.cascade_level == 2
+
+    @pytest.mark.asyncio
+    async def test_cascade_exception_degrades_gracefully(self):
+        """If cascade raises (all models down), result is degraded human review."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(side_effect=RuntimeError("All OCR models down"))
+
+        result = await ocr_extract(_make_input(), orchestrator=orchestrator, min_confidence=0.85)
+        assert result.outcome == "HUMAN_REVIEW"
+        assert result.degraded is True
+
+    @pytest.mark.asyncio
+    async def test_no_orchestrator_uses_direct_vllm_client(self):
+        """Backwards compat: orchestrator=None must work via direct vllm_client.extract()."""
+        from modules.cts.workflows.activities.ocr import ocr_extract
+
+        mock_vllm = AsyncMock()
+        mock_vllm.extract = AsyncMock(return_value=_make_vllm_response(confidence=0.97))
+
+        result = await ocr_extract(_make_input(), vllm_client=mock_vllm, min_confidence=0.85)
+        assert result.outcome == "PROCEED"
+        mock_vllm.extract.assert_called_once()

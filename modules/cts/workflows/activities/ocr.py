@@ -5,6 +5,7 @@ Fields: MICR line, amount in figures, amount in words, date, payee, drawer.
 Confidence below min_confidence → HUMAN_REVIEW.
 vLLM unavailable → HUMAN_REVIEW (degraded), never crashes workflow.
 """
+import json
 from typing import Optional
 
 import structlog
@@ -13,6 +14,7 @@ from pydantic import BaseModel, ConfigDict
 from modules.cts.sub_member.models import PrincipalTag
 from modules.cts.sub_member.router import MICRPrefixRouter
 from modules.cts.workflows.activities.amount_words_parser import amounts_match
+from shared.ai.model_cascade import CascadeOrchestrator
 
 log = structlog.get_logger()
 
@@ -22,6 +24,20 @@ class OCRActivityInput(BaseModel):
     image_url: str
     instrument_id: str
     bank_id: str
+
+
+_OCR_PROMPT = """
+Extract all printed fields from this cheque image. Return JSON only, no explanation:
+{
+  "micr_line": {"value": "...", "confidence": 0.0},
+  "amount_figures": {"value": "...", "confidence": 0.0},
+  "amount_words": {"value": "...", "confidence": 0.0},
+  "date": {"value": "...", "confidence": 0.0},
+  "payee": {"value": "...", "confidence": 0.0}
+}
+If a field is illegible, set value to null and confidence to 0.0.
+Confidence range: 0.0 (illegible) to 1.0 (perfectly clear).
+"""
 
 
 class OCRActivityResult(BaseModel):
@@ -35,6 +51,7 @@ class OCRActivityResult(BaseModel):
     overall_confidence: float = 0.0
     low_confidence_reason: Optional[str] = None
     degraded: bool = False
+    cascade_level: int = 2              # 1 = L1 used (7B fast), 2 = L2 used (full model)
     principal_tag: Optional[str] = None   # "DIRECT" | "SUB_MEMBER"
     sub_member_id: Optional[str] = None   # populated when principal_tag == "SUB_MEMBER"
     amount_mismatch: bool = False         # True when figures and words disagree
@@ -45,13 +62,26 @@ async def ocr_extract(
     vllm_client=None,
     min_confidence: float = 0.85,
     routing_table: Optional[dict] = None,
+    orchestrator: Optional[CascadeOrchestrator] = None,
 ) -> OCRActivityResult:
     """
     Extract cheque fields using GOT-OCR2.0.
+    When orchestrator is provided, routes through the L1/L2 cascade.
     Degrades to HUMAN_REVIEW on model failure or low confidence.
     """
+    resolved_cascade_level = 2
+
     try:
-        data = await vllm_client.extract(inp.image_url)
+        if orchestrator is not None:
+            cascade_result = await orchestrator.call_ocr(
+                image_url=inp.image_url,
+                prompt=_OCR_PROMPT,
+                cheque_amount=0.0,  # amount unknown at OCR time — only confidence gate applies
+            )
+            data = json.loads(cascade_result.content)
+            resolved_cascade_level = cascade_result.cascade_level
+        else:
+            data = await vllm_client.extract(inp.image_url)
     except Exception as exc:
         log.warning(
             "ocr_activity.model_unavailable",
@@ -88,6 +118,7 @@ async def ocr_extract(
             amount_figures=data.get("amount_figures", {}).get("value"),
             overall_confidence=overall,
             low_confidence_reason=f"low_confidence_fields: {low_fields}",
+            cascade_level=resolved_cascade_level,
             principal_tag=principal_tag,
             sub_member_id=sub_member_id,
         )
@@ -111,6 +142,7 @@ async def ocr_extract(
             amount_words=amount_words_val,
             overall_confidence=overall,
             low_confidence_reason="amount_figures_words_mismatch",
+            cascade_level=resolved_cascade_level,
             principal_tag=principal_tag,
             sub_member_id=sub_member_id,
             amount_mismatch=True,
@@ -124,6 +156,7 @@ async def ocr_extract(
         date=data.get("date", {}).get("value"),
         payee=data.get("payee", {}).get("value"),
         overall_confidence=overall,
+        cascade_level=resolved_cascade_level,
         principal_tag=principal_tag,
         sub_member_id=sub_member_id,
     )
