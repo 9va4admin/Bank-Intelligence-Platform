@@ -146,3 +146,100 @@ async def update_bloom_filter(
         canceled_leaves=len(canceled_leaf_deltas),
     )
     return {"serials_added": len(serials)}
+
+
+# ---------------------------------------------------------------------------
+# DeltaVaultSyncWorkflow — orchestrator
+# ---------------------------------------------------------------------------
+
+class DeltaVaultSyncWorkflow:
+    """
+    Temporal workflow that orchestrates the 15-minute delta vault sync.
+
+    Designed to run as a testable plain class (no Temporal decorators required
+    for unit tests). When registered with the Temporal worker, the `run` method
+    is decorated externally or via subclass.
+
+    Workflow ID convention: cts-vault-delta-{bank_id}-{yyyymmddhhmm}
+    Task queue: cts-processing-{bank_id}
+
+    Args to run():
+        inp          — DeltaVaultSyncInput (bank_id, sync_window_minutes)
+        cbs_client   — CBS client with get_stop_payment_deltas() and
+                        get_canceled_cheque_leaves() async methods
+        bloom_client — Bloom filter client with add_bulk(serials: list[str])
+        audit_fn     — async callable(bank_id, event_type, details) for Immudb
+    """
+
+    async def run(
+        self,
+        inp: DeltaVaultSyncInput,
+        *,
+        cbs_client: Any,
+        bloom_client: Any,
+        audit_fn: Any,
+    ) -> DeltaVaultSyncResult:
+        cbs_degraded = False
+
+        # Inline CBS calls so we can distinguish "CBS error" from "CBS returned empty".
+        # The activity helper functions (fetch_delta_stop_payments etc.) are used by the
+        # Temporal worker registration — here we track degradation explicitly.
+        stop_payments: list[dict] = []
+        try:
+            raw = await cbs_client.get_stop_payment_deltas(
+                bank_id=inp.bank_id,
+                window_minutes=inp.sync_window_minutes,
+            )
+            stop_payments = raw or []
+            log.info(
+                "delta_sync.stop_payments_fetched",
+                bank_id=inp.bank_id,
+                count=len(stop_payments),
+            )
+        except Exception as exc:
+            log.warning("delta_sync.stop_payments_cbs_degraded", bank_id=inp.bank_id, error=str(exc))
+            cbs_degraded = True
+
+        canceled_leaves: list[dict] = []
+        try:
+            raw = await cbs_client.get_canceled_cheque_leaves(
+                bank_id=inp.bank_id,
+                window_minutes=inp.sync_window_minutes,
+            )
+            canceled_leaves = raw or []
+            log.info(
+                "delta_sync.canceled_leaves_fetched",
+                bank_id=inp.bank_id,
+                count=len(canceled_leaves),
+            )
+        except Exception as exc:
+            log.warning("delta_sync.canceled_leaves_cbs_degraded", bank_id=inp.bank_id, error=str(exc))
+            cbs_degraded = True
+
+        bloom_result = await update_bloom_filter(
+            bank_id=inp.bank_id,
+            stop_payment_deltas=stop_payments,
+            canceled_leaf_deltas=canceled_leaves,
+            bloom_client=bloom_client,
+        )
+
+        result = DeltaVaultSyncResult(
+            bank_id=inp.bank_id,
+            stop_payments_fetched=len(stop_payments),
+            canceled_leaves_fetched=len(canceled_leaves),
+            bloom_serials_added=bloom_result["serials_added"],
+            cbs_degraded=cbs_degraded,
+        )
+
+        await audit_fn(
+            bank_id=inp.bank_id,
+            event_type="VAULT_DELTA_SYNC_COMPLETE",
+            details={
+                "stop_payments_fetched": result.stop_payments_fetched,
+                "canceled_leaves_fetched": result.canceled_leaves_fetched,
+                "bloom_serials_added": result.bloom_serials_added,
+                "cbs_degraded": result.cbs_degraded,
+            },
+        )
+
+        return result

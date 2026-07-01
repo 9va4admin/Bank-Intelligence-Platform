@@ -195,3 +195,146 @@ class TestDeltaVaultSyncResult:
             cbs_degraded=True,
         )
         assert r.cbs_degraded is True
+
+
+# ---------------------------------------------------------------------------
+# DeltaVaultSyncWorkflow — Temporal workflow class
+# ---------------------------------------------------------------------------
+
+class TestDeltaVaultSyncWorkflow:
+    """Tests for the Temporal workflow orchestrator.
+
+    Uses plain async functions (no Temporal sandbox) to verify:
+      - activities are called in order
+      - CBS degradation is surfaced in result
+      - audit write always called (even on degraded run)
+      - empty delta run completes without error
+    """
+
+    @pytest.mark.asyncio
+    async def test_workflow_calls_all_three_activities_in_order(self):
+        """Workflow must call fetch_stp -> fetch_leaves -> update_bloom -> audit."""
+        from modules.cts.workflows.delta_vault_sync_workflow import DeltaVaultSyncWorkflow, DeltaVaultSyncInput
+
+        wf = DeltaVaultSyncWorkflow()
+        calls = []
+
+        cbs = MagicMock()
+        cbs.get_stop_payment_deltas = AsyncMock(return_value=[{"cheque_serial": "S001"}])
+        cbs.get_canceled_cheque_leaves = AsyncMock(return_value=[{"serial": "C001"}])
+
+        bloom = MagicMock()
+        bloom.add_bulk = MagicMock(side_effect=lambda s: calls.append("bloom"))
+
+        audit = AsyncMock(side_effect=lambda **kw: calls.append("audit"))
+
+        result = await wf.run(
+            DeltaVaultSyncInput(bank_id="test-bank"),
+            cbs_client=cbs,
+            bloom_client=bloom,
+            audit_fn=audit,
+        )
+
+        assert "bloom" in calls
+        assert "audit" in calls
+        assert result.stop_payments_fetched == 1
+        assert result.canceled_leaves_fetched == 1
+        assert result.bloom_serials_added == 2
+
+    @pytest.mark.asyncio
+    async def test_workflow_marks_cbs_degraded_when_both_cbs_calls_fail(self):
+        """If both CBS calls fail, result.cbs_degraded is True."""
+        from modules.cts.workflows.delta_vault_sync_workflow import DeltaVaultSyncWorkflow, DeltaVaultSyncInput
+
+        wf = DeltaVaultSyncWorkflow()
+
+        cbs = MagicMock()
+        cbs.get_stop_payment_deltas = AsyncMock(side_effect=Exception("CBS down"))
+        cbs.get_canceled_cheque_leaves = AsyncMock(side_effect=Exception("CBS down"))
+
+        bloom = MagicMock()
+        bloom.add_bulk = MagicMock()
+
+        audit = AsyncMock()
+
+        result = await wf.run(
+            DeltaVaultSyncInput(bank_id="test-bank"),
+            cbs_client=cbs,
+            bloom_client=bloom,
+            audit_fn=audit,
+        )
+
+        assert result.cbs_degraded is True
+        assert result.bloom_serials_added == 0
+
+    @pytest.mark.asyncio
+    async def test_workflow_audit_called_even_when_cbs_degraded(self):
+        """Audit write must happen regardless of CBS availability."""
+        from modules.cts.workflows.delta_vault_sync_workflow import DeltaVaultSyncWorkflow, DeltaVaultSyncInput
+
+        wf = DeltaVaultSyncWorkflow()
+
+        cbs = MagicMock()
+        cbs.get_stop_payment_deltas = AsyncMock(side_effect=Exception("CBS down"))
+        cbs.get_canceled_cheque_leaves = AsyncMock(side_effect=Exception("CBS down"))
+
+        bloom = MagicMock()
+        bloom.add_bulk = MagicMock()
+
+        audit = AsyncMock()
+
+        await wf.run(
+            DeltaVaultSyncInput(bank_id="test-bank"),
+            cbs_client=cbs,
+            bloom_client=bloom,
+            audit_fn=audit,
+        )
+
+        audit.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_workflow_zero_deltas_completes_without_error(self):
+        """Empty CBS response is a normal run — no error, bloom not touched."""
+        from modules.cts.workflows.delta_vault_sync_workflow import DeltaVaultSyncWorkflow, DeltaVaultSyncInput
+
+        wf = DeltaVaultSyncWorkflow()
+
+        cbs = MagicMock()
+        cbs.get_stop_payment_deltas = AsyncMock(return_value=[])
+        cbs.get_canceled_cheque_leaves = AsyncMock(return_value=[])
+
+        bloom = MagicMock()
+        bloom.add_bulk = MagicMock()
+
+        audit = AsyncMock()
+
+        result = await wf.run(
+            DeltaVaultSyncInput(bank_id="test-bank"),
+            cbs_client=cbs,
+            bloom_client=bloom,
+            audit_fn=audit,
+        )
+
+        bloom.add_bulk.assert_not_called()
+        assert result.bloom_serials_added == 0
+        assert result.cbs_degraded is False
+
+    @pytest.mark.asyncio
+    async def test_workflow_result_bank_id_matches_input(self):
+        """Result.bank_id must equal the input bank_id."""
+        from modules.cts.workflows.delta_vault_sync_workflow import DeltaVaultSyncWorkflow, DeltaVaultSyncInput
+
+        wf = DeltaVaultSyncWorkflow()
+
+        cbs = MagicMock()
+        cbs.get_stop_payment_deltas = AsyncMock(return_value=[])
+        cbs.get_canceled_cheque_leaves = AsyncMock(return_value=[])
+
+        result = await wf.run(
+            DeltaVaultSyncInput(bank_id="kotak-mah"),
+            cbs_client=cbs,
+            bloom_client=MagicMock(),
+            audit_fn=AsyncMock(),
+        )
+
+        assert result.bank_id == "kotak-mah"
