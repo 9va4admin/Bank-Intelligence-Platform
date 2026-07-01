@@ -1,0 +1,147 @@
+---
+# Chaos Mesh Scenario 03 — vLLM GPU Node Failure (AI Inference Degradation)
+# RBI Control: DR-02 (Business Continuity Testing)
+#
+# Validates: When the vLLM inference server (GPU node) goes down, ALL cheques
+# degrade gracefully to HUMAN_REVIEW. No AUTO_RETURN fires. IET Watchdog
+# still files decisions before breach using the emergency filer path.
+#
+# This tests the most critical NFR path:
+#   LLM down → rule-based fallback scorer → all to human review
+#   CBS unreachable → image-only processing → file before IET
+#   NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
+#
+# Scenarios covered:
+#   3A — Kill cts-vision (Qwen2-VL) vLLM workers
+#   3B — Kill cts-ocr (GOT-OCR2.0) vLLM workers
+#   3C — Kill ALL vLLM workers simultaneously (worst case)
+#
+# Duration: 5 minutes per scenario
+# Verdict: PASS if all cheques reach terminal state (HUMAN_REVIEW) and IET breach = 0
+---
+# 3A: Kill CTS vision inference workers (Qwen2-VL L1 + L2)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: vllm-cts-vision-kill
+  namespace: astra-cts-saraswat-coop
+  labels:
+    astra.chaos/scenario: vllm-gpu-failure
+    astra.chaos/subscenario: "3A-vision"
+    astra.chaos/bank_id: saraswat-coop
+    astra.chaos/severity: high
+    astra.chaos/runbook: infra/chaos-mesh/runbooks/vllm-failure-runbook.md
+spec:
+  action: pod-kill
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      app.kubernetes.io/name: vllm-worker
+      vllm.queue: cts-vision-l1     # Qwen2-VL 7B workers
+  duration: "5m"
+  scheduler:
+    cron: "@manual"
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: vllm-cts-vision-l2-kill
+  namespace: astra-cts-saraswat-coop
+  labels:
+    astra.chaos/scenario: vllm-gpu-failure
+    astra.chaos/subscenario: "3A-vision"
+    astra.chaos/bank_id: saraswat-coop
+spec:
+  action: pod-kill
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      app.kubernetes.io/name: vllm-worker
+      vllm.queue: cts-vision-l2     # Qwen2-VL 72B workers
+  duration: "5m"
+  scheduler:
+    cron: "@manual"
+---
+# 3B: Kill CTS OCR inference workers (GOT-OCR2.0 L1 + L2)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: vllm-cts-ocr-kill
+  namespace: astra-cts-saraswat-coop
+  labels:
+    astra.chaos/scenario: vllm-gpu-failure
+    astra.chaos/subscenario: "3B-ocr"
+    astra.chaos/bank_id: saraswat-coop
+spec:
+  action: pod-kill
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      app.kubernetes.io/name: vllm-worker
+      vllm.queue: cts-ocr-l1
+  duration: "5m"
+  scheduler:
+    cron: "@manual"
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: vllm-cts-ocr-l2-kill
+  namespace: astra-cts-saraswat-coop
+  labels:
+    astra.chaos/scenario: vllm-gpu-failure
+    astra.chaos/subscenario: "3B-ocr"
+    astra.chaos/bank_id: saraswat-coop
+spec:
+  action: pod-kill
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      app.kubernetes.io/name: vllm-worker
+      vllm.queue: cts-ocr-l2
+  duration: "5m"
+  scheduler:
+    cron: "@manual"
+---
+# 3C: Kill ALL vLLM workers simultaneously (maximum stress)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: vllm-all-workers-kill
+  namespace: astra-cts-saraswat-coop
+  labels:
+    astra.chaos/scenario: vllm-gpu-failure
+    astra.chaos/subscenario: "3C-all"
+    astra.chaos/bank_id: saraswat-coop
+    astra.chaos/severity: critical
+spec:
+  action: pod-kill
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      app.kubernetes.io/name: vllm-worker
+  duration: "5m"
+  scheduler:
+    cron: "@manual"
+---
+# Pass criteria for all 3 sub-scenarios:
+#
+#   1. prometheus: cts_iet_breach_total == 0  (IET Watchdog still files)
+#   2. prometheus: cts_decision_outcome{outcome="HUMAN_REVIEW", reason="MODEL_UNAVAILABLE"} > 0
+#   3. prometheus: cts_decision_outcome{outcome="AUTO_RETURN"} == 0
+#   4. Temporal UI: ChequeProcessingWorkflow reaches HUMAN_REVIEW (not FAILED)
+#   5. IETWatchdogWorkflow: no EMERGENCY_FILED events (cheques should resolve before T-30s)
+#      EXCEPT if total outage lasts > (IET_minutes - 0.5) minutes — emergency filer is expected then.
+#
+# Human review queue: expected to spike significantly during vLLM outage.
+# ops_reviewers must be staffed during any planned chaos test.

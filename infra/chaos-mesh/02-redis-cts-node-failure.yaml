@@ -1,0 +1,98 @@
+---
+# Chaos Mesh Scenario 02 — Redis CTS Cluster Node Failure
+# RBI Control: DR-02 (Business Continuity Testing)
+#
+# Validates: When one Redis CTS node fails, the Bloom filter and vault lookups
+# degrade gracefully — vault misses route to HUMAN_REVIEW, never AUTO_RETURN.
+# The Signature Vault and PPS Vault are cache-aside — a miss is handled safely.
+#
+# What this tests:
+#   - Redis Sentinel promotes a replica within 30s (vault_replication_mode: active-passive)
+#   - During the 30s promotion window: ALL vault lookups degrade to HUMAN_REVIEW
+#   - vault_miss_action is HUMAN_REVIEW (Layer 1 — non-overridable)
+#   - Bloom filter miss (canceled leaf check) also routes to HUMAN_REVIEW
+#   - No AUTO_RETURN fires during Redis degradation window
+#   - IET Watchdog still operates (uses Temporal timer, not Redis)
+#
+# Duration: 3 minutes (covers 1 full sentinel failover + recovery)
+# Run: during off-hours — never during 10AM-4PM clearing window
+# Verdict: PASS if vault_miss_action == HUMAN_REVIEW and auto_return_count == 0
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: redis-cts-primary-kill
+  namespace: astra-cts-saraswat-coop
+  labels:
+    astra.chaos/scenario: redis-cts-node-failure
+    astra.chaos/bank_id: saraswat-coop
+    astra.chaos/severity: high
+    astra.chaos/runbook: infra/chaos-mesh/runbooks/redis-failure-runbook.md
+spec:
+  action: pod-kill
+  mode: one
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      app.kubernetes.io/name: redis-cts
+      redis-role: master         # kill the primary, not a replica
+  duration: "3m"
+  scheduler:
+    cron: "@manual"
+---
+# What the Redis Sentinel failover sequence looks like:
+#
+#   T+0s    — redis-cts primary pod killed by Chaos Mesh
+#   T+0-30s — Sentinel quorum votes; promotes replica to primary
+#             During this window: all vault GET calls miss (key not found or timeout)
+#             cts-agent-worker: every vault miss → HUMAN_REVIEW (see vaults/signature_vault.py)
+#             Bloom filter check: bloom.contains() → ConnectionError → HUMAN_REVIEW
+#   T+30s   — New primary elected; vault reads resume
+#             VaultSyncWorkflow NOT triggered automatically (daily sync is scheduled)
+#             HOWEVER: next 15-min DeltaVaultSyncWorkflow run warms new primary partially
+#             For full signature vault warmth: bank_it_admin triggers manual VaultSyncWorkflow
+#   T+3min  — Chaos ends; original pod restarts as new replica
+#
+# Pass criteria:
+#   1. prometheus: cts_vault_miss_action{action="AUTO_RETURN"} == 0 throughout chaos
+#   2. prometheus: cts_vault_miss_action{action="HUMAN_REVIEW"} > 0 during T+0 to T+30s
+#   3. prometheus: cts_iet_breach_total == 0
+#   4. human review queue depth increased (expected — not a failure)
+#   5. After T+30s: vault hits resume, human review queue drains normally
+---
+# Companion: inject network delay to Redis CTS (slower degradation path)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: redis-cts-latency-spike
+  namespace: astra-cts-saraswat-coop
+  labels:
+    astra.chaos/scenario: redis-cts-node-failure
+    astra.chaos/bank_id: saraswat-coop
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      app.kubernetes.io/name: redis-cts
+  delay:
+    latency: "200ms"
+    correlation: "25"
+    jitter: "50ms"
+  direction: to
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - astra-cts-saraswat-coop
+      labelSelectors:
+        app.kubernetes.io/component: cts-agent-worker
+  duration: "2m"
+  scheduler:
+    cron: "@manual"
+# Purpose: vault lookup latency spike (200ms ± 50ms) should still complete within
+# the 5ms SLA stated in NFRs (p99 < 5ms) — at 200ms the circuit breaker fires
+# and routes to HUMAN_REVIEW. Tests that the latency circuit breaker works.
