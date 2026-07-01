@@ -968,7 +968,7 @@ PHASE 3 — Observability
   [x] Langfuse setup stub in shared/observability/
   [x] Grafana dashboards ConfigMap — cts-iet-vault.json, cts-fraud-ai.json, ej-normalisation.json
   [x] PrometheusRule CRD — CTSIETBreach, CTSFraudF1Drop, EJATMCriticalHealth, platform alerts
-  [ ] SHAP panel in ops workstation
+  [x] SHAP panel in ops workstation — ShapExplainer.jsx renders in ReviewPanel "AI Analysis" tab
 
 PHASE 4 — EJ Module (COMPLETE)
   [x] Temporal: EJNormalisationWorkflow — full 8-activity pipeline:
