@@ -2952,5 +2952,95 @@
       "bank_id",
       "cert_expiry"
     ]
+  },
+  "MCP_CONN_CREATED": {
+    "text": "MCP connection {connection_type} created for {bank_id} (SMB: {smb_id}) by {created_by}. Status: PENDING — test required before clearing can open.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_type",
+      "smb_id",
+      "created_by"
+    ]
+  },
+  "MCP_CONN_UPDATED": {
+    "text": "MCP connection {connection_type} ({connection_id}) updated by {updated_by} for {bank_id}. Status reset to PENDING — re-test required.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "updated_by"
+    ]
+  },
+  "MCP_CONN_DELETED": {
+    "text": "MCP connection {connection_type} ({connection_id}) deleted by {deleted_by} for {bank_id} (SMB: {smb_id}). Clearing sessions blocked if no replacement configured.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "smb_id",
+      "deleted_by"
+    ]
+  },
+  "MCP_CONN_TESTED_OK": {
+    "text": "MCP connection {connection_type} ({connection_id}) tested OK for {bank_id} — latency {latency_ms} ms. Status: ACTIVE. Tested by {tested_by}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "latency_ms",
+      "tested_by"
+    ]
+  },
+  "MCP_CONN_TESTED_FAIL": {
+    "text": "MCP connection {connection_type} ({connection_id}) test FAILED for {bank_id} — {error}. Status: ERROR. Clearing sessions will be blocked. Tested by {tested_by}.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "error",
+      "tested_by"
+    ]
+  },
+  "MCP_CONN_SYNC_TRIGGERED": {
+    "text": "Vault sync triggered for MCP connection {connection_type} ({connection_id}) on {bank_id} — workflow {workflow_id}. Triggered by {triggered_by}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "workflow_id",
+      "triggered_by"
+    ]
   }
 }
