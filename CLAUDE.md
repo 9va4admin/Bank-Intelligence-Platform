@@ -961,7 +961,7 @@ PHASE 2 — CTS Core
        BatchEndorsementWorkflow — lot seal → stamp all instruments → audit
        NGCHSubmissionWorkflow — build NGCH file → submit → ACK confirm → audit
        SessionReconciliationWorkflow — NGCH settlement → match → RRF generation → audit
-  [x] Test coverage: ~1520 tests, 95%+ on all CTS workflow activities
+  [x] Test coverage: ~1533 tests, 95%+ on all CTS workflow activities
 
 PHASE 3 — Observability
   [x] OTel setup in shared/observability/otel_setup.py
@@ -1458,7 +1458,10 @@ notification.debounce.exempt_priorities  default: ["P0"]   # never debounced
 
 ```
 PHASE 5 — Hardening (in progress, July 2026)
-  [ ] Fix A: AI cascade (L1/L2) — shared/ai/model_cascade.py + alteration.py + ocr.py
+  [x] Fix A: AI cascade (L1/L2) — shared/ai/model_cascade.py (CascadeOrchestrator, L1/L2 routing,
+       high-value threshold, l2_disabled escape hatch) + wired into alteration.py (cheque_amount →
+       cascade, cascade_level in result) + ocr.py (call_ocr cascade, cascade_level in result)
+       — 13 new tests (alteration wiring: 7, OCR wiring: 6), 83 total in these three files
   [ ] Fix B: Delta vault sync (15-min) + Bloom filter — delta_vault_sync_workflow.py
   [ ] Fix C: HA/DR Helm values — RF=3, min.insync.replicas=2, Temporal dual-cluster
   [ ] Fix D: EJ integrity activity + reconciliation orphan scanner
