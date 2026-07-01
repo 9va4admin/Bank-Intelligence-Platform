@@ -501,7 +501,8 @@ class TestTriggerSync:
         data = resp.json()
         assert "workflow_id" in data
         assert data["connection_id"] == created["id"]
-        assert "cts-vaultsync" in data["workflow_id"]
+        # Must follow temporal.md convention: cts-vault-delta-{bank_id}-{yyyymmddhhmm}
+        assert data["workflow_id"].startswith("cts-vault-delta-saraswat-coop-")
 
     def test_trigger_sync_on_pending_connection_returns_409(self):
         app, _ = _make_app()
@@ -626,3 +627,172 @@ class TestSecurityInvariants:
         client_b = TestClient(app_b, raise_server_exceptions=False)
         resp = client_b.get("/v1/admin/mcp-connections/")
         assert resp.json()["total"] == 0   # bank-beta cannot see bank-alpha's connections
+
+
+# ── App factory with event + preflight capture ───────────────────────────────
+
+def _make_app_with_captures(role="bank_it_admin", bank_type="SB", smb_id=None, bank_id="saraswat-coop"):
+    """Like _make_app but also captures Kafka events and Redis preflight writes."""
+    from apps.api.routers.mcp_connections import (
+        router_v1, get_current_user, get_connection_tester, get_store,
+        _ConnectionStore, get_event_publisher, get_preflight_writer,
+    )
+    app = FastAPI()
+    app.include_router(router_v1)
+
+    fresh_store = _ConnectionStore()
+    app.dependency_overrides[get_store] = lambda: fresh_store
+    app.dependency_overrides[get_current_user] = lambda: {
+        "bank_id": bank_id, "user_id": f"user-{bank_id}",
+        "role": role, "bank_type": bank_type, "smb_id": smb_id,
+    }
+    async def _mock_tester_success(row):
+        return True, 38, None
+    app.dependency_overrides[get_connection_tester] = lambda: _mock_tester_success
+
+    events_published: list = []
+    async def _mock_event_publisher(topic: str, payload: dict):
+        events_published.append({"topic": topic, "payload": payload})
+    app.dependency_overrides[get_event_publisher] = lambda: _mock_event_publisher
+
+    preflight_updates: list = []
+    async def _mock_preflight_writer(bid: str, clearing_allowed: bool):
+        preflight_updates.append({"bank_id": bid, "clearing_allowed": clearing_allowed})
+    app.dependency_overrides[get_preflight_writer] = lambda: _mock_preflight_writer
+
+    return app, fresh_store, events_published, preflight_updates
+
+
+# ── 12. Kafka event publishing + Redis preflight cache ───────────────────────
+
+class TestKafkaAndRedisIntegration:
+    """Verify that status-changing operations publish the right Kafka events
+    and update the Redis preflight cache key.  These tests use injectable
+    event_publisher and preflight_writer dependencies so no real broker or
+    Redis instance is needed."""
+
+    def test_test_connection_success_publishes_config_changed(self):
+        app, store, events, _ = _make_app_with_captures()
+        client = TestClient(app, raise_server_exceptions=False)
+        created = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
+        client.post(f"/v1/admin/mcp-connections/{created['id']}/test")
+
+        topics = [e["topic"] for e in events]
+        assert "platform.config.changed" in topics
+
+    def test_test_connection_success_no_notification(self):
+        """Success path MUST NOT publish to platform.notifications (not spam)."""
+        app, store, events, _ = _make_app_with_captures()
+        client = TestClient(app, raise_server_exceptions=False)
+        created = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
+        client.post(f"/v1/admin/mcp-connections/{created['id']}/test")
+
+        topics = [e["topic"] for e in events]
+        assert "platform.notifications" not in topics
+
+    def test_test_connection_failure_publishes_notification(self):
+        """Failure path MUST publish to platform.notifications (surface=[NOTIFICATION])."""
+        from apps.api.routers.mcp_connections import (
+            get_current_user, get_connection_tester, get_store, router_v1,
+            _ConnectionStore, get_event_publisher, get_preflight_writer,
+        )
+        app = FastAPI()
+        app.include_router(router_v1)
+        fresh = _ConnectionStore()
+        events: list = []
+        app.dependency_overrides[get_store] = lambda: fresh
+        app.dependency_overrides[get_current_user] = lambda: {
+            "bank_id": "saraswat-coop", "user_id": "admin",
+            "role": "bank_it_admin", "bank_type": "SB", "smb_id": None,
+        }
+        async def _fail(row): return False, None, "CBS unreachable"
+        app.dependency_overrides[get_connection_tester] = lambda: _fail
+        async def _cap(topic, payload): events.append({"topic": topic})
+        app.dependency_overrides[get_event_publisher] = lambda: _cap
+        async def _noop(bid, ca): pass
+        app.dependency_overrides[get_preflight_writer] = lambda: _noop
+
+        client = TestClient(app, raise_server_exceptions=False)
+        created = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
+        client.post(f"/v1/admin/mcp-connections/{created['id']}/test")
+
+        topics = [e["topic"] for e in events]
+        assert "platform.notifications" in topics
+        assert "platform.config.changed" in topics
+
+    def test_delete_publishes_notification(self):
+        """MCP_CONN_DELETED has surface=[NOTIFICATION] — must publish to platform.notifications."""
+        app, store, events, _ = _make_app_with_captures()
+        client = TestClient(app, raise_server_exceptions=False)
+        created = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
+        client.delete(f"/v1/admin/mcp-connections/{created['id']}")
+
+        topics = [e["topic"] for e in events]
+        assert "platform.notifications" in topics
+
+    def test_delete_publishes_config_changed(self):
+        """Deletion makes a connection disappear — workers must see this within 30s."""
+        app, store, events, _ = _make_app_with_captures()
+        client = TestClient(app, raise_server_exceptions=False)
+        created = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
+        client.delete(f"/v1/admin/mcp-connections/{created['id']}")
+
+        topics = [e["topic"] for e in events]
+        assert "platform.config.changed" in topics
+
+    def test_update_publishes_config_changed(self):
+        """Update resets status to PENDING — workers must see this within 30s."""
+        app, store, events, _ = _make_app_with_captures()
+        client = TestClient(app, raise_server_exceptions=False)
+        created = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
+        client.put(f"/v1/admin/mcp-connections/{created['id']}", json={"cbs_vendor": "bancs"})
+
+        topics = [e["topic"] for e in events]
+        assert "platform.config.changed" in topics
+
+    def test_trigger_sync_publishes_vault_delta_kafka(self):
+        """trigger_sync must publish to cts.vault.delta.{bank_id} to fire DeltaVaultSyncWorkflow."""
+        app, store, events, _ = _make_app_with_captures()
+        client = TestClient(app, raise_server_exceptions=False)
+        created = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
+        store.update(created["id"], {"status": "ACTIVE"})
+        client.post(f"/v1/admin/mcp-connections/{created['id']}/sync")
+
+        topics = [e["topic"] for e in events]
+        assert "cts.vault.delta.saraswat-coop" in topics
+
+    def test_trigger_sync_workflow_id_uses_delta_format(self):
+        """workflow_id must follow cts-vault-delta-{bank_id}-{yyyymmddhhmm} convention."""
+        app, store, events, _ = _make_app_with_captures()
+        client = TestClient(app, raise_server_exceptions=False)
+        created = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
+        store.update(created["id"], {"status": "ACTIVE"})
+        resp = client.post(f"/v1/admin/mcp-connections/{created['id']}/sync")
+
+        workflow_id = resp.json()["workflow_id"]
+        # Must start with cts-vault-delta-{bank_id}-, NOT cts-vaultsync-
+        assert workflow_id.startswith("cts-vault-delta-saraswat-coop-")
+        # Timestamp suffix must be 12 digits (yyyymmddhhmm)
+        suffix = workflow_id[len("cts-vault-delta-saraswat-coop-"):]
+        assert len(suffix) == 12
+        assert suffix.isdigit()
+
+    def test_test_connection_updates_preflight_redis(self):
+        """After test, preflight cache in Redis must be refreshed."""
+        app, store, events, preflight_updates = _make_app_with_captures()
+        client = TestClient(app, raise_server_exceptions=False)
+        created = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
+        client.post(f"/v1/admin/mcp-connections/{created['id']}/test")
+
+        assert len(preflight_updates) >= 1
+        assert preflight_updates[-1]["bank_id"] == "saraswat-coop"
+
+    def test_delete_updates_preflight_redis(self):
+        """After delete, preflight cache must be refreshed (one fewer connection)."""
+        app, store, events, preflight_updates = _make_app_with_captures()
+        client = TestClient(app, raise_server_exceptions=False)
+        created = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
+        client.delete(f"/v1/admin/mcp-connections/{created['id']}")
+
+        assert len(preflight_updates) >= 1
+        assert preflight_updates[-1]["bank_id"] == "saraswat-coop"

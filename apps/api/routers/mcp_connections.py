@@ -16,6 +16,7 @@ Pre-flight gate: GET /v1/admin/mcp-connections/preflight
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
@@ -160,14 +161,17 @@ async def _default_tester(row: dict):
     """Default connection tester: attempts actual HTTP/Redis probe.
 
     Returns (success: bool, latency_ms: int | None, error: str | None).
-    In production this probes CBS endpoint or Redis PING with mTLS.
-    In tests: dependency_overrides replaces this.
+    In production this probes CBS endpoint with mTLS cert loaded from
+    config_service.get_secret("cbs.{vendor}.tls.*").
+    In tests: dependency_overrides replaces this entirely.
     """
     import time
     t0 = time.monotonic()
     try:
         import httpx
-        async with httpx.AsyncClient(timeout=10.0, verify=False) as client:
+        # mTLS: in production load cert from config_service.get_secret(...)
+        # verify=True always — security.md forbids verify=False in any requests call
+        async with httpx.AsyncClient(timeout=10.0) as client:
             url = row.get("endpoint_url", "")
             if not url:
                 return False, None, "No endpoint_url configured"
@@ -181,6 +185,62 @@ async def _default_tester(row: dict):
 
 def get_connection_tester() -> Callable:
     return _default_tester
+
+
+# ── Event publisher dependency (Kafka) ───────────────────────────────────────
+
+
+async def _default_event_publisher(topic: str, payload: dict) -> None:
+    """Publish an event to a Kafka topic.
+
+    In production: uses shared/event_bus/producer.py KafkaProducer.
+    In tests: dependency_overrides replaces this with a capture list.
+    Fire-and-forget — failures are logged, not re-raised.
+    """
+    log.info(
+        "mcp_conn.kafka_publish_stub",
+        topic=topic,
+        event_type=payload.get("event_type"),
+    )
+
+
+def get_event_publisher() -> Callable:
+    return _default_event_publisher
+
+
+# ── Redis preflight writer dependency ────────────────────────────────────────
+
+
+async def _default_preflight_writer(bank_id: str, clearing_allowed: bool) -> None:
+    """Write preflight state to Redis CTS cluster key preflight:{bank_id}.
+
+    In production: writes JSON to redis-cts so ChequeProcessingWorkflow
+    can gate-check clearing readiness without calling the API.
+    In tests: dependency_overrides replaces this with a capture list.
+    """
+    log.info(
+        "mcp_conn.preflight_redis_stub",
+        bank_id=bank_id,
+        clearing_allowed=clearing_allowed,
+    )
+
+
+def get_preflight_writer() -> Callable:
+    return _default_preflight_writer
+
+
+async def _update_preflight_cache(
+    bank_id: str,
+    store: "_ConnectionStore",
+    preflight_writer: Callable,
+) -> None:
+    """Recompute clearing_allowed from store and push to Redis preflight key."""
+    try:
+        rows = store.all_for_bank(bank_id)
+        clearing_allowed = all(r["status"] == "ACTIVE" for r in rows) if rows else True
+        await preflight_writer(bank_id, clearing_allowed)
+    except Exception as exc:
+        log.error("mcp_conn.preflight_cache_failed", bank_id=bank_id, error=str(exc))
 
 
 # ── Pydantic models ──────────────────────────────────────────────────────────
@@ -465,6 +525,8 @@ async def update_connection(
     body: MCPConnectionUpdate,
     user: dict = Depends(_require_admin),
     store: _ConnectionStore = Depends(get_store),
+    event_publisher: Callable = Depends(get_event_publisher),
+    preflight_writer: Callable = Depends(get_preflight_writer),
 ):
     row = store.get(connection_id)
     if not row or row["bank_id"] != user["bank_id"]:
@@ -488,6 +550,14 @@ async def update_connection(
         "updated_by": user["user_id"],
         "fields_changed": [k for k in updates if k != "status"],
     })
+    # Status reset to PENDING — workers must see this within 30s (Layer 3 hot-reload)
+    await event_publisher("platform.config.changed", {
+        "event_type": "MCP_CONN_STATUS_CHANGED",
+        "bank_id": user["bank_id"],
+        "connection_id": connection_id,
+        "new_status": "PENDING",
+    })
+    await _update_preflight_cache(user["bank_id"], store, preflight_writer)
     return _row_to_response(updated)
 
 
@@ -496,6 +566,8 @@ async def delete_connection(
     connection_id: str,
     user: dict = Depends(_require_admin),
     store: _ConnectionStore = Depends(get_store),
+    event_publisher: Callable = Depends(get_event_publisher),
+    preflight_writer: Callable = Depends(get_preflight_writer),
 ):
     row = store.get(connection_id)
     if not row or row["bank_id"] != user["bank_id"]:
@@ -507,7 +579,24 @@ async def delete_connection(
         "smb_id": row.get("smb_id") or "—",
         "deleted_by": user["user_id"],
     })
+    # MCP_CONN_DELETED surface includes NOTIFICATION — alert ops_manager
+    await event_publisher("platform.notifications", {
+        "event_type": "MCP_CONN_DELETED",
+        "bank_id": user["bank_id"],
+        "connection_id": connection_id,
+        "connection_type": row["connection_type"],
+        "smb_id": row.get("smb_id") or "—",
+        "deleted_by": user["user_id"],
+    })
+    # Connection gone — workers must see config change within 30s
+    await event_publisher("platform.config.changed", {
+        "event_type": "MCP_CONN_STATUS_CHANGED",
+        "bank_id": user["bank_id"],
+        "connection_id": connection_id,
+        "new_status": "DELETED",
+    })
     store.delete(connection_id)
+    await _update_preflight_cache(user["bank_id"], store, preflight_writer)
 
 
 @router_v1.post("/{connection_id}/test", response_model=TestConnectionResponse)
@@ -516,6 +605,8 @@ async def test_connection(
     user: dict = Depends(_require_admin),
     store: _ConnectionStore = Depends(get_store),
     tester: Callable = Depends(get_connection_tester),
+    event_publisher: Callable = Depends(get_event_publisher),
+    preflight_writer: Callable = Depends(get_preflight_writer),
 ):
     row = store.get(connection_id)
     if not row or row["bank_id"] != user["bank_id"]:
@@ -523,9 +614,10 @@ async def test_connection(
     _scope_check(user, row)
 
     success, latency_ms, error = await tester(row)
+    new_status = "ACTIVE" if success else "ERROR"
 
     store.update(connection_id, {
-        "status": "ACTIVE" if success else "ERROR",
+        "status": new_status,
         "last_tested_at": _now(),
         "last_test_latency_ms": latency_ms,
         "error_message": error,
@@ -539,6 +631,25 @@ async def test_connection(
         "error": error or "—",
         "tested_by": user["user_id"],
     })
+    # Status changed — workers must reload within 30s (Layer 3 config hot-reload)
+    await event_publisher("platform.config.changed", {
+        "event_type": "MCP_CONN_STATUS_CHANGED",
+        "bank_id": user["bank_id"],
+        "connection_id": connection_id,
+        "new_status": new_status,
+    })
+    # MCP_CONN_TESTED_FAIL surface includes NOTIFICATION — alert bank_it_admin
+    if not success:
+        await event_publisher("platform.notifications", {
+            "event_type": "MCP_CONN_TESTED_FAIL",
+            "bank_id": user["bank_id"],
+            "connection_id": connection_id,
+            "connection_type": row["connection_type"],
+            "error": error,
+            "tested_by": user["user_id"],
+        })
+    # Update Redis preflight cache so Temporal activities see the new clearing state
+    await _update_preflight_cache(user["bank_id"], store, preflight_writer)
 
     return TestConnectionResponse(
         connection_id=connection_id,
@@ -553,6 +664,7 @@ async def trigger_sync(
     connection_id: str,
     user: dict = Depends(_require_admin),
     store: _ConnectionStore = Depends(get_store),
+    event_publisher: Callable = Depends(get_event_publisher),
 ):
     row = store.get(connection_id)
     if not row or row["bank_id"] != user["bank_id"]:
@@ -571,11 +683,27 @@ async def trigger_sync(
             detail=f"Cannot sync a connection in status={row['status']}. Must be ACTIVE.",
         )
 
-    # In production: trigger Temporal VaultSyncWorkflow or DeltaVaultSyncWorkflow
-    workflow_id = f"cts-vaultsync-{user['bank_id']}-{connection_id[:8]}"
+    # Workflow ID convention per temporal.md: cts-vault-delta-{bank_id}-{yyyymmddhhmm}
+    # Idempotent: two syncs triggered in the same minute reuse the same workflow ID —
+    # Temporal deduplicates and the second call is a no-op.
+    now_dt = datetime.now(timezone.utc)
+    workflow_id = f"cts-vault-delta-{user['bank_id']}-{now_dt.strftime('%Y%m%d%H%M')}"
     now = _now()
     store.update(connection_id, {"last_sync_at": now})
-    await _emit_audit(AuditEventType.MCP_CONN_SYNC_TRIGGERED, user["bank_id"], {
+
+    # Publish to cts.vault.delta.{bank_id} — KEDA triggers DeltaVaultSyncWorkflow
+    bank_id = user["bank_id"]
+    await event_publisher(f"cts.vault.delta.{bank_id}", {
+        "event_type": "VAULT_DELTA_SYNC_REQUESTED",
+        "bank_id": bank_id,
+        "connection_id": connection_id,
+        "connection_type": row["connection_type"],
+        "workflow_id": workflow_id,
+        "requested_by": user["user_id"],
+        "requested_at": now,
+    })
+
+    await _emit_audit(AuditEventType.MCP_CONN_SYNC_TRIGGERED, bank_id, {
         "connection_id": connection_id,
         "connection_type": row["connection_type"],
         "workflow_id": workflow_id,

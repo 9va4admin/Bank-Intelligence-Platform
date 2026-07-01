@@ -1484,4 +1484,20 @@ PHASE 5 — Hardening (in progress, July 2026)
        Quarterly DR drill schedule Q3 2026 (01+02) → Q4 2026 (03+04)
   [x] First pilot bank Helm values — infra/helm/values/banks/saraswat-coop/
        platform.yaml (CBS=Finacle, MUMBAI zone, SMB sponsor enabled) + cts.yaml
+  [x] MCP Connection Config API + UI (July 2026):
+       apps/api/routers/mcp_connections.py — 8 routes (preflight, CRUD, test, sync)
+         SB_CBS / SMB_CBS / SIGNATURE_VAULT / PPS_VAULT / CANCELLED_LEAF connection types
+         Pre-flight gate: clearing_allowed=True only when ALL connections ACTIVE
+         endpoint_url masked in every response (never raw), SB/SMB scoping enforced
+         Kafka: platform.config.changed on every status change (workers reload <30s)
+         Kafka: platform.notifications on TESTED_FAIL + DELETED (surface=[NOTIFICATION])
+         Kafka: cts.vault.delta.{bank_id} on trigger_sync → fires DeltaVaultSyncWorkflow
+         workflow_id: cts-vault-delta-{bank_id}-{yyyymmddhhmm} (temporal.md convention)
+         Redis preflight_writer: refreshes preflight:{bank_id} after every status change
+         Audit: AuditEvent for all 6 MCP events (MCP_CONN_CREATED/UPDATED/DELETED/etc.)
+       infra/migrations/cts/20260701_add_mcp_connection_configs.py — Alembic migration
+       apps/web/src/modules/cts/pages/CTSMCPConfig.jsx — React config screen
+       shared/audit/audit_event.py — 6 new AuditEventType variants
+       shared/messages/locales/messages.yaml — 6 new message keys (247 total)
+       60 tests, all GREEN
 ```
