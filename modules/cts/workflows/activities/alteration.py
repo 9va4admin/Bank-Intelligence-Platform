@@ -14,7 +14,7 @@ alteration_detected=True + high tamper_risk → STP_RETURN in decision activity.
 Model unavailable → degraded=True, requires_human_review=True (never auto-return).
 """
 
-from typing import Optional
+from typing import Optional, Any
 import json
 
 import structlog
@@ -22,6 +22,7 @@ from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field
 
 from modules.cts.kill_switch.vision_ai_kill_switch import KillMode, KillSwitchStatus
+from shared.audit.audit_event import AuditEvent, AuditEventType
 
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.cts.alteration")
@@ -244,6 +245,8 @@ async def detect_alteration(
     inp: AlterationActivityInput,
     vllm_client=None,
     kill_switch_status: Optional[KillSwitchStatus] = None,
+    immudb_client: Optional[Any] = None,
+    hsm: Optional[Any] = None,
 ) -> AlterationActivityResult:
     """
     Detect physical cheque alterations using Qwen2-VL 72B.
@@ -285,6 +288,29 @@ async def detect_alteration(
                     smb_id=inp.smb_id,
                     scope=resolved_scope,
                 )
+                # Write immutable audit record for per-instrument KC application
+                if immudb_client is not None and hsm is not None:
+                    try:
+                        audit_ev = AuditEvent(
+                            event_type=AuditEventType.CTS_KILL_SWITCH_APPLIED,
+                            bank_id=inp.bank_id,
+                            payload={
+                                "instrument_id": inp.instrument_id,
+                                "kill_switch_mode": "KC",
+                                "kill_switch_scope": resolved_scope,
+                                "smb_id": inp.smb_id,
+                                "checkpoint": "alteration_kc_entry",
+                            },
+                        )
+                        signed = audit_ev.sign(hsm)
+                        await immudb_client.write_event(signed.to_json())
+                    except Exception as exc:
+                        log.error(
+                            "alteration_activity.immudb_write_failed",
+                            instrument_id=inp.instrument_id,
+                            bank_id=inp.bank_id,
+                            error=str(exc),
+                        )
                 return AlterationActivityResult(
                     alteration_detected=False,
                     tamper_risk_score=0.0,

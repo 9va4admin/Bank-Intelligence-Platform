@@ -220,3 +220,154 @@ class TestDecisionInputSchema:
         )
         assert r.kill_switch_mode == "KP"
         assert r.kill_switch_scope == "GLOBAL"
+
+
+# ---------------------------------------------------------------------------
+# Immudb write on decision backstop — per-instrument CTS_KILL_SWITCH_APPLIED
+# ---------------------------------------------------------------------------
+
+class TestDecisionBackstopImmudb:
+    @pytest.mark.asyncio
+    async def test_kp_backstop_writes_to_immudb(self):
+        """KP backstop must write CTS_KILL_SWITCH_APPLIED to Immudb."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        from unittest.mock import AsyncMock, MagicMock
+        immudb = MagicMock()
+        immudb.write_event = AsyncMock(return_value={"tx_id": "tx-kp-001"})
+        hsm = MagicMock()
+        hsm.sign = MagicMock(side_effect=lambda d: b"sig")
+
+        await synthesise_decision(
+            _make_signals(),
+            config=_make_config(),
+            kill_switch_status=_kill_status("KP"),
+            immudb_client=immudb,
+            hsm=hsm,
+        )
+        immudb.write_event.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_kc_backstop_writes_to_immudb(self):
+        """KC backstop must write CTS_KILL_SWITCH_APPLIED to Immudb."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        from unittest.mock import AsyncMock, MagicMock
+        immudb = MagicMock()
+        immudb.write_event = AsyncMock(return_value={"tx_id": "tx-kc-001"})
+        hsm = MagicMock()
+        hsm.sign = MagicMock(side_effect=lambda d: b"sig")
+
+        await synthesise_decision(
+            _make_signals(),
+            config=_make_config(),
+            kill_switch_status=_kill_status("KC"),
+            immudb_client=immudb,
+            hsm=hsm,
+        )
+        immudb.write_event.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_backstop_immudb_event_type_is_applied(self):
+        import json
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        from shared.audit.audit_event import AuditEventType
+        from unittest.mock import AsyncMock, MagicMock
+        immudb = MagicMock()
+        written_bytes = []
+        async def _capture(data):
+            written_bytes.append(data)
+            return {}
+        immudb.write_event = _capture
+        hsm = MagicMock()
+        hsm.sign = MagicMock(side_effect=lambda d: b"sig")
+
+        await synthesise_decision(
+            _make_signals(),
+            config=_make_config(),
+            kill_switch_status=_kill_status("KP"),
+            immudb_client=immudb,
+            hsm=hsm,
+        )
+        assert len(written_bytes) == 1
+        data = json.loads(written_bytes[0])
+        assert data["event_type"] == AuditEventType.CTS_KILL_SWITCH_APPLIED.value
+
+    @pytest.mark.asyncio
+    async def test_backstop_immudb_payload_contains_instrument_id(self):
+        import json
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        from unittest.mock import AsyncMock, MagicMock
+        immudb = MagicMock()
+        written_bytes = []
+        async def _capture(data):
+            written_bytes.append(data)
+            return {}
+        immudb.write_event = _capture
+        hsm = MagicMock()
+        hsm.sign = MagicMock(side_effect=lambda d: b"sig")
+
+        await synthesise_decision(
+            _make_signals(instrument_id="INST-XYZ"),
+            config=_make_config(),
+            kill_switch_status=_kill_status("KP"),
+            immudb_client=immudb,
+            hsm=hsm,
+        )
+        data = json.loads(written_bytes[0])
+        assert data["payload"]["instrument_id"] == "INST-XYZ"
+
+    @pytest.mark.asyncio
+    async def test_backstop_immudb_payload_contains_mode(self):
+        import json
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        from unittest.mock import AsyncMock, MagicMock
+        immudb = MagicMock()
+        written_bytes = []
+        async def _capture(data):
+            written_bytes.append(data)
+            return {}
+        immudb.write_event = _capture
+        hsm = MagicMock()
+        hsm.sign = MagicMock(side_effect=lambda d: b"sig")
+
+        await synthesise_decision(
+            _make_signals(),
+            config=_make_config(),
+            kill_switch_status=_kill_status("KP", scope="SB_OWN"),
+            immudb_client=immudb,
+            hsm=hsm,
+        )
+        data = json.loads(written_bytes[0])
+        assert data["payload"]["kill_switch_mode"] == "KP"
+        assert data["payload"]["kill_switch_scope"] == "SB_OWN"
+
+    @pytest.mark.asyncio
+    async def test_backstop_without_immudb_does_not_raise(self):
+        """Backward compatibility: no immudb_client = no write, no crash."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals(),
+            config=_make_config(),
+            kill_switch_status=_kill_status("KP"),
+            immudb_client=None,
+            hsm=None,
+        )
+        assert result.decision == "HUMAN_REVIEW"
+
+    @pytest.mark.asyncio
+    async def test_none_mode_does_not_write_immudb(self):
+        """NONE mode = no kill switch active = no Immudb write in decision."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        from unittest.mock import AsyncMock, MagicMock
+        immudb = MagicMock()
+        immudb.write_event = AsyncMock()
+        hsm = MagicMock()
+        hsm.sign = MagicMock(side_effect=lambda d: b"sig")
+
+        await synthesise_decision(
+            _make_signals(fraud_score=0.01, ocr_confidence=0.99, signature_match_score=0.99),
+            config=_make_config(),
+            kill_switch_status=_kill_status("NONE"),
+            immudb_client=immudb,
+            hsm=hsm,
+        )
+        immudb.write_event.assert_not_called()

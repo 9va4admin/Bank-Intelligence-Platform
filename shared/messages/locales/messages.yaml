@@ -1692,3 +1692,57 @@ PLATFORM_SCALING_EVENT:
   variables: [service_name, from_pods, to_pods, trigger]
   en: "KEDA scaling event — {service_name} scaled from {from_pods} to {to_pods} pods. Trigger: {trigger}."
   hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# VAULT — additional operational events
+# ────────────────────────────────────────────────────────────────────────
+
+VAULT_STALE:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [bank_id, vault_type, staleness_minutes]
+  en: "Vault data stale for {bank_id} ({vault_type}) — {staleness_minutes} minutes since last sync. All instruments routing to human review."
+  hi: ""
+
+VAULT_INTEGRITY_FAIL:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [bank_id, vault_type, error_detail]
+  en: "Vault integrity check FAILED for {bank_id} ({vault_type}) — {error_detail}. Vault halted, all instruments routed to human review."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# CTS REVIEW — human review queue lifecycle
+# ────────────────────────────────────────────────────────────────────────
+
+CTS_REVIEW_TIMEOUT:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, bank_id, elapsed_minutes]
+  en: "Human review timed out for cheque {instrument_id} ({bank_id}) after {elapsed_minutes} min — auto-returned to NGCH."
+  hi: ""
+
+CTS_REVIEW_ASSIGNED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [instrument_id, bank_id, reviewer_display]
+  en: "Cheque {instrument_id} ({bank_id}) assigned to reviewer {reviewer_display} for human review."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# CTS NGCH — terminal filing failures
+# ────────────────────────────────────────────────────────────────────────
+
+CTS_NGCH_TERMINAL_FAILURE:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, bank_id, error_code, retry_count]
+  en: "NGCH filing FAILED terminally for cheque {instrument_id} ({bank_id}) — error {error_code} after {retry_count} retries. Manual intervention required."
+  hi: ""
+
+CTS_NGCH_CERT_EXPIRED:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [bank_id, cert_expiry]
+  en: "NGCH mTLS certificate expired for {bank_id} (expired {cert_expiry}). All NGCH filing halted — rotate certificate immediately."
+  hi: ""

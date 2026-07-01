@@ -182,3 +182,143 @@ class TestNoneMode:
             smb_id="ucb-999",
         )
         assert inp.smb_id == "ucb-999"
+
+
+# ---------------------------------------------------------------------------
+# Immudb write on KC path — per-instrument CTS_KILL_SWITCH_APPLIED audit record
+# ---------------------------------------------------------------------------
+
+class TestKCImmudbWrite:
+    @pytest.mark.asyncio
+    async def test_kc_writes_to_immudb(self):
+        """KC path must write CTS_KILL_SWITCH_APPLIED to Immudb."""
+        from modules.cts.workflows.activities.alteration import detect_alteration
+        from unittest.mock import AsyncMock, MagicMock
+        immudb = MagicMock()
+        immudb.write_event = AsyncMock(return_value={"tx_id": "tx-kc-001"})
+        hsm = MagicMock()
+        hsm.sign = MagicMock(side_effect=lambda data: b"sig-" + data[:4])
+
+        await detect_alteration(
+            _make_input(),
+            vllm_client=_mock_vllm(),
+            kill_switch_status=_kill_status("KC"),
+            immudb_client=immudb,
+            hsm=hsm,
+        )
+        immudb.write_event.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_kc_immudb_event_type_is_applied(self):
+        """The audit event type written on KC must be CTS_KILL_SWITCH_APPLIED."""
+        import json
+        from modules.cts.workflows.activities.alteration import detect_alteration
+        from shared.audit.audit_event import AuditEventType
+        from unittest.mock import AsyncMock, MagicMock
+        immudb = MagicMock()
+        written_bytes = []
+        async def _capture(data):
+            written_bytes.append(data)
+            return {"tx_id": "tx-001"}
+        immudb.write_event = _capture
+        hsm = MagicMock()
+        hsm.sign = MagicMock(side_effect=lambda d: b"sig")
+
+        await detect_alteration(
+            _make_input(),
+            vllm_client=_mock_vllm(),
+            kill_switch_status=_kill_status("KC"),
+            immudb_client=immudb,
+            hsm=hsm,
+        )
+        assert len(written_bytes) == 1
+        data = json.loads(written_bytes[0])
+        assert data["event_type"] == AuditEventType.CTS_KILL_SWITCH_APPLIED.value
+
+    @pytest.mark.asyncio
+    async def test_kc_immudb_payload_contains_instrument_id(self):
+        """The Immudb payload must include instrument_id for per-instrument tracing."""
+        import json
+        from modules.cts.workflows.activities.alteration import detect_alteration
+        from unittest.mock import AsyncMock, MagicMock
+        immudb = MagicMock()
+        written_bytes = []
+        async def _capture(data):
+            written_bytes.append(data)
+            return {"tx_id": "tx-001"}
+        immudb.write_event = _capture
+        hsm = MagicMock()
+        hsm.sign = MagicMock(side_effect=lambda d: b"sig")
+
+        await detect_alteration(
+            _make_input(),
+            vllm_client=_mock_vllm(),
+            kill_switch_status=_kill_status("KC"),
+            immudb_client=immudb,
+            hsm=hsm,
+        )
+        data = json.loads(written_bytes[0])
+        assert data["payload"]["instrument_id"] == "INST001"
+
+    @pytest.mark.asyncio
+    async def test_kc_immudb_payload_contains_mode(self):
+        import json
+        from modules.cts.workflows.activities.alteration import detect_alteration
+        from unittest.mock import AsyncMock, MagicMock
+        immudb = MagicMock()
+        written_bytes = []
+        async def _capture(data):
+            written_bytes.append(data)
+            return {}
+        immudb.write_event = _capture
+        hsm = MagicMock()
+        hsm.sign = MagicMock(side_effect=lambda d: b"sig")
+
+        await detect_alteration(
+            _make_input(),
+            vllm_client=_mock_vllm(),
+            kill_switch_status=_kill_status("KC"),
+            immudb_client=immudb,
+            hsm=hsm,
+        )
+        data = json.loads(written_bytes[0])
+        assert data["payload"]["kill_switch_mode"] == "KC"
+
+    @pytest.mark.asyncio
+    async def test_kc_without_immudb_does_not_raise(self):
+        """When no immudb_client is passed, KC path must still succeed (backward compat)."""
+        from modules.cts.workflows.activities.alteration import detect_alteration
+        result = await detect_alteration(
+            _make_input(),
+            vllm_client=_mock_vllm(),
+            kill_switch_status=_kill_status("KC"),
+            immudb_client=None,
+            hsm=None,
+        )
+        assert result.kill_switch_mode == "KC"
+
+
+# ---------------------------------------------------------------------------
+# Immudb write on KP backstop (decision.py writes it, not alteration.py)
+# Alteration.py with KP does NOT write — that's decision.py's job
+# ---------------------------------------------------------------------------
+
+class TestKPNoImmudbInAlteration:
+    @pytest.mark.asyncio
+    async def test_kp_does_not_write_to_immudb_in_alteration(self):
+        """KP: alteration.py does NOT write Immudb — decision.py backstop does."""
+        from modules.cts.workflows.activities.alteration import detect_alteration
+        from unittest.mock import AsyncMock, MagicMock
+        immudb = MagicMock()
+        immudb.write_event = AsyncMock()
+        hsm = MagicMock()
+        hsm.sign = MagicMock(side_effect=lambda d: b"sig")
+
+        await detect_alteration(
+            _make_input(),
+            vllm_client=_mock_vllm(),
+            kill_switch_status=_kill_status("KP"),
+            immudb_client=immudb,
+            hsm=hsm,
+        )
+        immudb.write_event.assert_not_called()

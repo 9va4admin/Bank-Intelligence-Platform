@@ -25,14 +25,14 @@ from shared.notifications.exceptions import NotificationDeliveryError
 
 log = structlog.get_logger()
 
-_SUPPORTED_CHANNELS = {"email", "whatsapp"}
+_SUPPORTED_CHANNELS = {"email", "whatsapp", "bell"}
 
 
 class NotificationRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    channel: Literal["email", "whatsapp"]
-    recipient: str
+    channel: Literal["email", "whatsapp", "bell"]
+    recipient: str      # email address | E.164 phone | user_id (bell)
     template_id: str
     context: dict[str, Any]
     notification_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -43,10 +43,12 @@ class NotificationDispatcher:
         self._bank_id = bank_id
         self._email = None
         self._whatsapp = None
+        self._bell = None
 
-    def connect(self, email_channel=None, whatsapp_channel=None) -> None:
+    def connect(self, email_channel=None, whatsapp_channel=None, bell_channel=None) -> None:
         self._email = email_channel
         self._whatsapp = whatsapp_channel
+        self._bell = bell_channel
 
     async def send(self, request: NotificationRequest) -> dict[str, Any]:
         channel = self._get_channel(request.channel)
@@ -91,4 +93,6 @@ class NotificationDispatcher:
             return self._email
         if channel == "whatsapp":
             return self._whatsapp
+        if channel == "bell":
+            return self._bell
         raise ValueError(f"Unsupported channel: {channel}")
