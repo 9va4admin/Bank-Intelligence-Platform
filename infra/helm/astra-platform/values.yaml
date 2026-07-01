@@ -65,3 +65,36 @@ api_gateway:
 migrationLogs:
   storageClass: standard          # override with bank's preferred StorageClass
   storageSize: 5Gi                # ~5 years of migration logs at typical upgrade cadence
+
+# ── High Availability / Disaster Recovery (BANK-CONFIGURABLE, Gemini Fix C) ─
+# Gemini evaluation score for HA/DR was 4/10 (lowest).
+# This section bakes the corrected defaults into every bank deployment.
+# Banks with single-DC pilots may reduce these — documented in upgrade guide.
+ha:
+  yugabyte:
+    replication_factor: 3             # RF=3 across 3 AZs or 3 racks within DC pair
+    min_replica_count: 2              # quorum writes — no data loss on single-node failure
+    # Requires ≥ 3 YugabyteDB nodes. Pilots with 1 node must override to RF=1.
+
+  kafka:
+    replication_factor: 3             # 3 replicas per topic partition
+    min_insync_replicas: 2            # acks=all + min.insync=2 enforced on all cts.* topics
+    # A cheque event is NOT acknowledged until written to at least 2 brokers.
+    # IET safety: if DC1 broker fails, DC2 broker already has the message.
+
+  temporal:
+    dr_cluster_enabled: false         # set true per-bank in platform.yaml for warm DR
+    primary_cluster: dc1              # Temporal cluster handling live traffic
+    dr_cluster: dc2                   # warm DR — workflows replay from history on failover
+    # dr_cluster_enabled: true requires dual Temporal clusters deployed (doubles infra cost).
+    # Enable for: large banks, banks with zero-RPO SLA. Pilots can start with false.
+
+  redis:
+    vault_replication_mode: active-passive   # DC2 redis-cts-replica follows DC1 primary
+    failover_timeout_seconds: 30             # Sentinel triggers failover after 30s of DC1 loss
+    # active-passive: reads always hit DC1; on DC1 loss, DC2 replica promoted in < 30s.
+    # active-active Redis would require CRDT — not supported for Bloom filters (Fix B).
+
+  db:
+    connection_pool_per_module: true  # pgbouncer-cts and pgbouncer-ej are separate
+    # This prevents CTS load from consuming EJ's connection budget (isolation rule §2.5).
