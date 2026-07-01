@@ -22,6 +22,27 @@ log = structlog.get_logger()
 _IET_EMERGENCY_BUFFER_SECONDS = 30
 
 
+# ---------------------------------------------------------------------------
+# Lightweight early-exit decision stubs (used when workflow short-circuits
+# before the main decision activity runs)
+# ---------------------------------------------------------------------------
+
+class _EarlyDecision:
+    def __init__(self, instrument_id: str, decision: str, rationale: str) -> None:
+        self.instrument_id = instrument_id
+        self.decision = decision
+        self.rationale = rationale
+        self.shap_values: dict = {}
+
+
+def _make_early_human_review(instrument_id: str, reason: str) -> _EarlyDecision:
+    return _EarlyDecision(instrument_id, "HUMAN_REVIEW", reason)
+
+
+def _make_early_stp_return(instrument_id: str, reason: str) -> _EarlyDecision:
+    return _EarlyDecision(instrument_id, "STP_RETURN", reason)
+
+
 class ChequeWorkflowInput(BaseModel):
     model_config = ConfigDict(frozen=True)
     instrument_id: str
@@ -76,11 +97,49 @@ class ChequeProcessingWorkflow:
             )
         self._watchdog_spawned = True
 
-        # Step 2: OCR
+        # Step 2: OCR (includes amount figures vs words cross-check)
         if on_ocr_call:
             ocr_result = await on_ocr_call(inp.image_url)
         else:
             ocr_result = mock_results["ocr"]
+
+        # Early-exit on OCR HUMAN_REVIEW (low confidence or amount mismatch)
+        if ocr_result.outcome == "HUMAN_REVIEW":
+            decision_result = mock_results.get("decision") or _make_early_human_review(
+                inp.instrument_id, ocr_result.low_confidence_reason or "OCR_FAILED"
+            )
+            return ChequeWorkflowResult(
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                decision=decision_result.decision,
+                rationale=decision_result.rationale,
+                shap_values=getattr(decision_result, "shap_values", {}),
+            )
+
+        # Step 2b: Bloom filter / stop-payment pre-check
+        # Checks canceled leaf serials (populated every 15 min by DeltaVaultSyncWorkflow).
+        # Bloom hit → HUMAN_REVIEW (probabilistic — may be false positive, never auto-return).
+        # Full CBS stop-payment lookup follows in Step 5b.
+        stop_payment_result = mock_results.get("stop_payment")
+        if stop_payment_result is not None and stop_payment_result.outcome == "STP_RETURN":
+            decision_result = mock_results.get("decision") or _make_early_stp_return(
+                inp.instrument_id, stop_payment_result.stop_reason or "stop_payment_active"
+            )
+            return ChequeWorkflowResult(
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                decision="STP_RETURN",
+                rationale=f"Stop payment: {stop_payment_result.stop_reason}",
+                shap_values={},
+            )
+        if stop_payment_result is not None and stop_payment_result.outcome == "HUMAN_REVIEW":
+            return ChequeWorkflowResult(
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                decision="HUMAN_REVIEW",
+                rationale=f"Stop payment check: {stop_payment_result.stop_reason or 'bloom_hit_or_cbs_unavailable'}",
+                shap_values={},
+            )
 
         # Step 3: Alteration detection
         alteration_result = mock_results["alteration"]

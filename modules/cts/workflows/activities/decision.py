@@ -32,6 +32,7 @@ from pydantic import BaseModel, ConfigDict
 
 from modules.cts.kill_switch.vision_ai_kill_switch import KillMode, KillSwitchStatus
 from shared.audit.audit_event import AuditEvent, AuditEventType
+from shared.opa_client import OPAClient, OPAInput
 
 log = structlog.get_logger()
 
@@ -70,6 +71,7 @@ async def synthesise_decision(
     kill_switch_status: Optional[KillSwitchStatus] = None,
     immudb_client: Optional[Any] = None,
     hsm: Optional[Any] = None,
+    opa_client: Optional[OPAClient] = None,
 ) -> DecisionResult:
     """
     Synthesise terminal cheque decision from all upstream activity signals.
@@ -135,6 +137,50 @@ async def synthesise_decision(
             kill_switch_scope=effective_ks_scope,
         )
     # ── End kill-switch backstop ───────────────────────────────────────────────
+
+    # ── OPA Layer 4 policy evaluation ─────────────────────────────────────────
+    # Evaluates bank-configurable Rego business rules that cannot be expressed
+    # as numeric thresholds: government cheques, court orders, high-value first-day, etc.
+    # OPA unavailable → safe default PROCEED (existing gates below still apply).
+    if opa_client is not None:
+        opa_input = OPAInput(
+            instrument_id=inp.instrument_id,
+            bank_id=inp.bank_id,
+            cheque_type=getattr(inp, "cheque_type", "STANDARD"),
+            amount=inp.cheque_amount,
+            account_status=inp.cbs_outcome,
+            is_first_clearing_day=getattr(inp, "is_first_clearing_day", False),
+            has_government_flag=getattr(inp, "has_government_flag", False),
+            has_court_order_flag=getattr(inp, "has_court_order_flag", False),
+        )
+        opa_result = await opa_client.decide(opa_input)
+        if opa_result.decision == "HUMAN_REVIEW":
+            log.info(
+                "decision_activity.opa_human_review",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                opa_reason=opa_result.reason,
+            )
+            return DecisionResult(
+                instrument_id=inp.instrument_id,
+                decision="HUMAN_REVIEW",
+                rationale=f"OPA policy: {opa_result.reason}",
+                shap_values=inp.shap_values,
+            )
+        if opa_result.decision == "AUTO_RETURN":
+            log.info(
+                "decision_activity.opa_auto_return",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                opa_reason=opa_result.reason,
+            )
+            return DecisionResult(
+                instrument_id=inp.instrument_id,
+                decision="STP_RETURN",
+                rationale=f"OPA policy: {opa_result.reason}",
+                shap_values=inp.shap_values,
+            )
+    # ── End OPA evaluation ────────────────────────────────────────────────────
 
     stp_threshold: float = config["stp_auto_confirm_threshold"]
     fraud_threshold: float = config["human_review_fraud_threshold"]
