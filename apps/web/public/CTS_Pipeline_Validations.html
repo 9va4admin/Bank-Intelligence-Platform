@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASTRA — CTS Pipeline Validations: Presentee vs Drawee</title>
+  <style>
+    :root {
+      --navy:    #0a1628;
+      --navy2:   #0f1f3d;
+      --card:    #132044;
+      --border:  rgba(255,255,255,0.08);
+      --green:   #10b981;
+      --red:     #ef4444;
+      --amber:   #f59e0b;
+      --blue:    #3b82f6;
+      --violet:  #8b5cf6;
+      --slate:   #94a3b8;
+      --white:   #f1f5f9;
+      --muted:   #64748b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--navy);
+      color: var(--white);
+      line-height: 1.6;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    header {
+      background: var(--navy2);
+      border-bottom: 1px solid var(--border);
+      padding: 28px 48px;
+    }
+    .header-meta { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .badge {
+      font-size: 11px; font-weight: 600; padding: 3px 10px;
+      border-radius: 99px; text-transform: uppercase; letter-spacing: .04em;
+    }
+    .badge-conf  { background: rgba(239,68,68,.15); color: #fca5a5; border: 1px solid rgba(239,68,68,.3); }
+    .badge-phase { background: rgba(59,130,246,.15); color: #93c5fd; border: 1px solid rgba(59,130,246,.3); }
+    .badge-date  { background: rgba(148,163,184,.1); color: #94a3b8; border: 1px solid rgba(148,163,184,.2); }
+    h1 { font-size: 26px; font-weight: 700; color: #fff; }
+    h1 span { color: #60a5fa; }
+    .subtitle { color: var(--slate); font-size: 14px; margin-top: 6px; }
+
+    /* ── Legend ─────────────────────────────────────────────────── */
+    .legend {
+      display: flex; flex-wrap: wrap; gap: 18px;
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 20px;
+      margin: 28px 48px 0;
+    }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .dot-green  { background: var(--green); }
+    .dot-red    { background: var(--red); }
+    .dot-amber  { background: var(--amber); }
+    .dot-violet { background: var(--violet); }
+
+    /* ── Alert banner ────────────────────────────────────────────── */
+    .alert-banner {
+      margin: 18px 48px 0;
+      background: rgba(245,158,11,.08);
+      border: 1px solid rgba(245,158,11,.35);
+      border-radius: 10px;
+      padding: 14px 20px;
+      font-size: 13px;
+      color: #fcd34d;
+    }
+    .alert-banner strong { color: #fbbf24; }
+
+    /* ── Main grid ───────────────────────────────────────────────── */
+    main { padding: 28px 48px 60px; }
+    .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+    @media(max-width: 1100px) { .columns { grid-template-columns: 1fr; } }
+
+    /* ── Pipeline card ───────────────────────────────────────────── */
+    .pipeline-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .pipeline-header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .pipeline-header h2 { font-size: 17px; font-weight: 700; }
+    .pipeline-header .role {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .06em; margin-bottom: 4px;
+    }
+    .role-presentee { color: #67e8f9; }
+    .role-drawee    { color: #a78bfa; }
+    .pipeline-header p { font-size: 13px; color: var(--slate); margin-top: 4px; }
+
+    /* ── Steps ───────────────────────────────────────────────────── */
+    .steps { padding: 0; }
+    .step {
+      display: grid;
+      grid-template-columns: 36px 1fr auto;
+      gap: 12px;
+      align-items: start;
+      padding: 14px 20px;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+    }
+    .step:last-child { border-bottom: none; }
+    .step-num {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .step-num-done    { background: rgba(16,185,129,.15); color: #34d399; border: 1px solid rgba(16,185,129,.3); }
+    .step-num-missing { background: rgba(239,68,68,.12); color: #f87171; border: 1px solid rgba(239,68,68,.25); }
+    .step-num-partial { background: rgba(245,158,11,.12); color: #fbbf24; border: 1px solid rgba(245,158,11,.3); }
+    .step-num-module  { background: rgba(139,92,246,.12); color: #c4b5fd; border: 1px solid rgba(139,92,246,.3); }
+
+    .step-body { min-width: 0; }
+    .step-title { font-size: 14px; font-weight: 600; color: #e2e8f0; }
+    .step-desc  { font-size: 12.5px; color: var(--slate); margin-top: 3px; line-height: 1.5; }
+    .step-file  {
+      font-size: 11px; font-family: 'Cascadia Code', 'Fira Code', monospace;
+      color: #60a5fa; margin-top: 5px;
+      background: rgba(59,130,246,.08);
+      display: inline-block; padding: 1px 7px; border-radius: 4px;
+      border: 1px solid rgba(59,130,246,.2);
+    }
+    .step-gap {
+      font-size: 11px; color: #fca5a5;
+      background: rgba(239,68,68,.08);
+      padding: 2px 8px; border-radius: 4px;
+      border: 1px solid rgba(239,68,68,.2);
+      margin-top: 5px; display: inline-block;
+    }
+    .step-partial-note {
+      font-size: 11px; color: #fcd34d;
+      background: rgba(245,158,11,.08);
+      padding: 2px 8px; border-radius: 4px;
+      border: 1px solid rgba(245,158,11,.2);
+      margin-top: 5px; display: inline-block;
+    }
+
+    .status-pill {
+      font-size: 11px; font-weight: 600; white-space: nowrap;
+      padding: 3px 10px; border-radius: 99px;
+      flex-shrink: 0;
+    }
+    .pill-done    { background: rgba(16,185,129,.12); color: #34d399; border: 1px solid rgba(16,185,129,.25); }
+    .pill-missing { background: rgba(239,68,68,.1); color: #f87171; border: 1px solid rgba(239,68,68,.2); }
+    .pill-partial { background: rgba(245,158,11,.1); color: #fbbf24; border: 1px solid rgba(245,158,11,.25); }
+    .pill-module  { background: rgba(139,92,246,.1); color: #c4b5fd; border: 1px solid rgba(139,92,246,.2); }
+
+    /* ── Comparison table ────────────────────────────────────────── */
+    .section-title {
+      font-size: 17px; font-weight: 700;
+      margin: 36px 0 16px;
+      color: #e2e8f0;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .section-title::before {
+      content: ''; display: block;
+      width: 4px; height: 20px; border-radius: 2px;
+      background: linear-gradient(to bottom, #3b82f6, #8b5cf6);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    thead th {
+      background: rgba(255,255,255,.04);
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+      color: var(--slate);
+      border-bottom: 1px solid var(--border);
+    }
+    tbody tr { border-bottom: 1px solid rgba(255,255,255,.04); }
+    tbody tr:hover { background: rgba(255,255,255,.02); }
+    tbody td { padding: 11px 16px; color: var(--slate); vertical-align: middle; }
+    tbody td:first-child { color: #cbd5e1; font-weight: 500; }
+    .check-yes { color: var(--green); font-size: 16px; font-weight: 700; }
+    .check-no  { color: var(--muted); font-size: 16px; }
+    .check-gap { color: var(--red); font-size: 12px; }
+    .check-partial { color: var(--amber); font-size: 13px; }
+
+    /* ── Gaps summary ────────────────────────────────────────────── */
+    .gaps-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media(max-width: 900px) { .gaps-grid { grid-template-columns: 1fr; } }
+
+    .gap-card {
+      background: rgba(239,68,68,.05);
+      border: 1px solid rgba(239,68,68,.2);
+      border-radius: 10px;
+      padding: 16px 18px;
+    }
+    .gap-card.amber {
+      background: rgba(245,158,11,.05);
+      border-color: rgba(245,158,11,.25);
+    }
+    .gap-card.violet {
+      background: rgba(139,92,246,.05);
+      border-color: rgba(139,92,246,.25);
+    }
+    .gap-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+    .gap-card .gap-title { color: #fca5a5; }
+    .gap-card.amber .gap-title { color: #fcd34d; }
+    .gap-card.violet .gap-title { color: #c4b5fd; }
+    .gap-desc { font-size: 12.5px; color: var(--slate); line-height: 1.55; }
+    .gap-file { font-size: 11px; font-family: monospace; color: #94a3b8; margin-top: 6px; }
+
+    /* ── Footer ─────────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 24px;
+      color: var(--muted);
+      font-size: 12px;
+      border-top: 1px solid var(--border);
+    }
+    footer span { color: #3b82f6; }
+
+    /* ── Search ──────────────────────────────────────────────────── */
+    .search-bar {
+      display: flex; align-items: center; gap: 12px;
+      margin: 0 0 20px;
+    }
+    .search-bar input {
+      flex: 1; background: rgba(255,255,255,.05);
+      border: 1px solid var(--border);
+      border-radius: 8px; padding: 9px 14px;
+      color: #e2e8f0; font-size: 13px; outline: none;
+    }
+    .search-bar input:focus { border-color: rgba(59,130,246,.5); }
+    .search-bar input::placeholder { color: var(--muted); }
+    .filter-btn {
+      padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+      border: 1px solid var(--border); background: rgba(255,255,255,.04);
+      color: var(--slate); cursor: pointer; transition: all .15s;
+    }
+    .filter-btn:hover { border-color: rgba(59,130,246,.4); color: #93c5fd; }
+    .filter-btn.active { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.4); color: #60a5fa; }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────────── -->
+<header>
+  <div class="header-meta">
+    <span class="badge badge-conf">Confidential — Banking Grade</span>
+    <span class="badge badge-phase">CTS Architecture</span>
+    <span class="badge badge-date">Code-Verified · July 2026</span>
+  </div>
+  <h1>ASTRA — CTS Pipeline Validations<br><span>Presentee (Outward) vs Drawee (Inward)</span></h1>
+  <p class="subtitle">Code-verified against the actual implementation · Gaps between design spec and current codebase are explicitly flagged</p>
+</header>
+
+<!-- ── Legend ─────────────────────────────────────────────────────────────── -->
+<div class="legend">
+  <div class="legend-item"><div class="dot dot-green"></div> Implemented — code confirmed in repo</div>
+  <div class="legend-item"><div class="dot dot-violet"></div> Module built — domain code exists; Temporal workflow orchestration not yet written</div>
+  <div class="legend-item"><div class="dot dot-amber"></div> Partially implemented — infrastructure built but not wired into the main workflow</div>
+  <div class="legend-item"><div class="dot dot-red"></div> Not implemented — referenced in CLAUDE.md spec but no code found</div>
+</div>
+
+<!-- ── Alert banner ─────────────────────────────────────────────────────── -->
+<div class="alert-banner">
+  <strong>Code Review Finding:</strong>
+  5 items listed in the CLAUDE.md design spec are <strong>not yet implemented</strong> in the actual codebase as of July 2026.
+  All gaps are documented below with exact file references. The Presentee pipeline domain modules are built but
+  the 4 Temporal workflow orchestrators (OutwardScan, BatchEndorsement, NGCHSubmission, SessionReconciliation)
+  do not have <code>.py</code> workflow files yet.
+</div>
+
+<!-- ── Main ────────────────────────────────────────────────────────────────── -->
+<main>
+
+  <!-- ── Pipeline columns ──────────────────────────────────────────────── -->
+  <div class="columns">
+
+    <!-- PRESENTEE -->
+    <div class="pipeline-card">
+      <div class="pipeline-header">
+        <div class="role role-presentee">Presentee Bank · Outward Clearing</div>
+        <h2>Presentee Pipeline — Your customer deposits a cheque drawn on another bank</h2>
+        <p>Bank acts as presenting bank. Flow: scanner → MICR → CTS-2010 compliance → lot → endorsement → NGCH submission → session reconciliation.</p>
+      </div>
+      <div class="steps">
+
+        <div class="step">
+          <div class="step-num step-num-done">1</div>
+          <div class="step-body">
+            <div class="step-title">Physical Scanner Capture</div>
+            <div class="step-desc">OEM adapter (Panini / Canon / Generic) normalises raw scan into <code>ScanResult</code>. Captures: front DPI, rear DPI, front/rear file size KB, colour depth, MICR raw string. Duplicate scan_id guard enforced by ScanSessionManager.</div>
+            <span class="step-file">scanner/adapters.py · scanner/session.py · scanner/models.py</span>
+          </div>
+          <span class="status-pill pill-module">Module ✓</span>
+        </div>
+
+        <div class="step">
+          <div class="step-num step-num-done">2</div>
+          <div class="step-body">
+            <div class="step-title">MICR Line Extraction &amp; Parsing</div>
+            <div class="step-desc">E-13B encoded MICR band parsed: routing number (between ⑆ symbols), cheque number (between ⑆ and ⑈), account number (between ⑈ and ⑉). PII rule: only last 4 digits of account stored — never the full number. Invalid/unparseable MICR → instrument rejected at scan time.</div>
+            <span class="step-file">scanner/micr.py</span>
+          </div>
+          <span class="status-pill pill-module">Module ✓</span>
+        </div>
+
+        <div class="step">
+          <div class="step-num step-num-done">3</div>
+          <div class="step-body">
+            <div class="step-title">CTS-2010 Image Compliance Validation</div>
+            <div class="step-desc">
+              Per RBI CTS-2010 standard (immutable — not bank-configurable):
+              front DPI ≥ 200 · colour depth ≥ 24-bit RGB · rear may be 8-bit grayscale ·
+              file size ≤ 50 KB per side · IQA score ≥ 0.70 · MICR band score ≥ 0.80 ·
+              both front and rear images mandatory.
+              Compliance certificate generated as XML (CTS2010_CERT_{IFSC}_{date}_{lot}.xml).
+            </div>
+            <span class="step-file">compliance/cts2010.py · compliance/exporter.py</span>
+          </div>
+          <span class="status-pill pill-module">Module ✓</span>
+        </div>
+
+        <div class="step">
+          <div class="step-num step-num-done">4</div>
+          <div class="step-body">
+            <div class="step-title">Lot Creation &amp; Instrument Assignment</div>
+            <div class="step-desc">Instruments grouped into lots (LOT_{IFSC}_{date}_{session}_{NN}). Max 200 instruments per lot (NGCH limit, configurable). Auto-assignment fills current open lot before creating a new one. Sub-member MICR prefix → instrument routed to sponsor lot via SMBForwardingWorkflow.</div>
+            <span class="step-file">lot/manager.py · sub_member/router.py</span>
+          </div>
+          <span class="status-pill pill-module">Module ✓</span>
+        </div>
+
+        <div class="step">
+          <div class="step-num step-num-done">5</div>
+          <div class="step-body">
+            <div class="step-title">Endorsement Stamping</div>
+            <div class="step-desc">Bank IFSC, presentation date, lot reference, account suffix (last 4 digits only) stamped onto rear image. QR code encodes: ASTRA-ENDORSE|{IFSC}|{instrument_id}|{acct_suffix}|{date}. Template expiry validated before stamping.</div>
+            <span class="step-file">endorsement/stamper.py · endorsement/models.py</span>
+          </div>
+          <span class="status-pill pill-module">Module ✓</span>
+        </div>
+
+        <div class="step">
+          <div class="step-num step-num-done">6</div>
+          <div class="step-body">
+            <div class="step-title">NGCH Submission &amp; Acknowledgement Validation</div>
+            <div class="step-desc">NGCH adapter (MCP server) submits lot. Exactly-once: UUIDv7 idempotency key per instrument prevents duplicate submissions. NGCH acknowledgement parsed and verified — submission not complete until NGCH confirms. Currently SFTP-based; REST and MCP upgrade paths defined in NPCI Readiness Plan (Section 17).</div>
+            <span class="step-file">mcp/ngch_adapter.py · workflows/activities/ngch_filer.py</span>
+          </div>
+          <span class="status-pill pill-module">Module ✓</span>
+        </div>
+
+        <div class="step">
+          <div class="step-num step-num-done">7</div>
+          <div class="step-body">
+            <div class="step-title">Session Reconciliation (NGCH vs CBS)</div>
+            <div class="step-desc">
+              After clearing session closes: NGCH-filed records crossed against CBS posting confirmations.
+              Per-instrument status: MATCHED · NGCH_ONLY (filed, no CBS posting) · CBS_ONLY (CBS posted, no NGCH record) · AMOUNT_MISMATCH · PENDING (in-flight).
+              RRF (Return Reason File) generated for returned instruments.
+            </div>
+            <span class="step-file">reconciliation/engine.py · rrf/generator.py</span>
+          </div>
+          <span class="status-pill pill-module">Module ✓</span>
+        </div>
+
+        <div class="step">
+          <div class="step-num step-num-missing">!</div>
+          <div class="step-body">
+            <div class="step-title">Temporal Workflow Orchestration</div>
+            <div class="step-desc">All domain modules above are implemented and tested. However, the Temporal workflow files that orchestrate them as activities have not been created.</div>
+            <span class="step-gap">NOT BUILT: OutwardScanWorkflow.py</span><br>
+            <span class="step-gap">NOT BUILT: BatchEndorsementWorkflow.py</span><br>
+            <span class="step-gap">NOT BUILT: NGCHSubmissionWorkflow.py</span><br>
+            <span class="step-gap">NOT BUILT: SessionReconciliationWorkflow.py</span>
+          </div>
+          <span class="status-pill pill-missing">Gap</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- DRAWEE -->
+    <div class="pipeline-card">
+      <div class="pipeline-header">
+        <div class="role role-drawee">Drawee Bank · Inward Clearing</div>
+        <h2>Drawee Pipeline — Cheques drawn on your bank arrive from NGCH</h2>
+        <p>One AI agent per cheque. All validations must complete in &lt; 600ms wall clock. IET breach rate target: 0.000%.</p>
+      </div>
+      <div class="steps">
+
+        <div class="step">
+          <div class="step-num step-num-done">0</div>
+          <div class="step-body">
+            <div class="step-title">IET Watchdog — Spawned First (Always)</div>
+            <div class="step-desc">IETWatchdogWorkflow spawned as FIRST child before any activity. parent_close_policy = ABANDON — watchdog survives parent failure. At T−30 seconds: emergency-files CONFIRM to NGCH via ngch_adapter. Structural guarantee — not configurable.</div>
+            <span class="step-file">workflows/iet_watchdog_workflow.py</span>
+          </div>
+          <span class="status-pill pill-done">Done ✓</span>
+        </div>
+
+        <div class="step">
+          <div class="step-num step-num-done">1</div>
+          <div class="step-body">
+            <div class="step-title">OCR Field Extraction (GOT-OCR2.0)</div>
+            <div class="step-desc">
+              Extracts: MICR line, amount in figures, amount in words, date, payee name, drawer name.
+              Per-field confidence checked against <code>config_service.get("ocr.min_confidence")</code> — low confidence → HUMAN_REVIEW.
+              vLLM unavailable → HUMAN_REVIEW (degraded, never crashes workflow).
+              MICR line used for SMB routing identification (DIRECT vs SUB_MEMBER tag).
+            </div>
+            <span class="step-file">workflows/activities/ocr.py</span>
+            <br><span class="step-gap">GAP: Amount figures vs words cross-check is NOT done — both fields extracted but never compared</span>
+          </div>
+          <span class="status-pill pill-partial">Partial</span>
+        </div>
+
+        <div class="step">
+          <div class="step-num step-num-partial">~</div>
+          <div class="step-body">
+            <div class="step-title">Canceled Leaf Bloom Filter Check</div>
+            <div class="step-desc">
+              <code>CanceledLeafBloom</code> (Redis BF.EXISTS) is fully implemented as a module and populated every 15 minutes by DeltaVaultSyncWorkflow. Design intent: check MICR serial before any vLLM call — Bloom hit → HUMAN_REVIEW, saving ~500ms GPU time.
+            </div>
+            <span class="step-file">vaults/canceled_leaf_bloom.py · workflows/delta_vault_sync_workflow.py</span>
+            <br><span class="step-partial-note">PARTIAL: Bloom filter module built and sync works — but check_serial() is never called in cheque_workflow.py</span>
+          </div>
+          <span class="status-pill pill-partial">Partial</span>
+        </div>
+
+        <div class="step">
+          <div class="step-num step-num-done">2</div>
+          <div class="step-body">
+            <div class="step-title">Alteration Detection (Qwen2-VL Cascade + Kill Switch)</div>
+            <div class="step-desc">
+              <strong>6 detection layers:</strong> field content anomaly · ink physics (pen vs correction fluid) · paper-fibre distortion · correction fluid spectral signature · chemical alteration stain · overwriting brightness differential.
+              <strong>L1/L2 cascade (Gemini Fix A):</strong> L1 = Qwen2-VL 7B (~100ms); escalate to L2 = Qwen2-VL 72B if confidence &lt; threshold OR high-value OR OPA policy override.
+              <strong>Kill Switch checkpoint 1</strong> (KP/KC): if active, Vision AI skipped and flag set for decision backstop.
+              Alteration detected → immediate STP_RETURN (hard gate).
+            </div>
+            <span class="step-file">workflows/activities/alteration.py · kill_switch/vision_ai_kill_switch.py</span>
+          </div>
+          <span class="status-pill pill-done">Done ✓</span>
+        </div>
+
+        <div class="step">
+          <div class="step-num step-num-done">3</div>
+          <div class="step-body">
+            <div class="step-title">Signature Verification (Siamese Network)</div>
+            <div class="step-desc">
+              Specimen retrieved from Signature Vault (Redis, hashed key: <code>sig:{bank_id}:{sha256(account)}</code>).
+              Siamese neural network compares presented signature against all vault specimens; best_match_score used.
+              Vault miss (no specimens on file) → HUMAN_REVIEW — invariant, never auto-return.
+              Match score &lt; <code>config_service.get("signature.min_match_score")</code> → HUMAN_REVIEW.
+              Model unavailable → HUMAN_REVIEW (degraded).
+            </div>
+            <span class="step-file">workflows/activities/signature.py · vaults/signature_vault.py</span>
+          </div>
+          <span class="status-pill pill-done">Done ✓</span>
+        </div>
+
+        <div class="step">
+          <div class="step-num step-num-done">4</div>
+          <div class="step-body">
+            <div class="step-title">PPS (Positive Pay System) Verification</div>
+            <div class="step-desc">
+              Vault lookup by (account_number, bank_id, cheque_number).
+              If registered: amount cross-check (±₹1 tolerance) AND payee name comparison (case-insensitive).
+              PPS vault miss → HUMAN_REVIEW (not auto-return — vault-miss invariant).
+              Amount mismatch → HUMAN_REVIEW. Payee mismatch → HUMAN_REVIEW.
+            </div>
+            <span class="step-file">workflows/activities/pps.py · vaults/pps_vault.py</span>
+          </div>
+          <span class="status-pill pill-done">Done ✓</span>
+        </div>
+
+        <div class="step">
+          <div class="step-num step-num-done">5</div>
+          <div class="step-body">
+            <div class="step-title">CBS Account Status + Balance Check</div>
+            <div class="step-desc">
+              <strong>Account status routing:</strong>
+              FROZEN / CLOSED / NPA → STP_RETURN (hard gate, immediate).
+              DORMANT → HUMAN_REVIEW (ambiguous).
+              AccountNotFoundError → STP_RETURN.
+              ACTIVE → PROCEED with available balance.
+              CBS unreachable (CBSUnavailableError) → CBS_UNAVAILABLE (degraded, image-only path continues).
+              Available balance passed to fraud activity for feature engineering.
+            </div>
+            <span class="step-file">workflows/activities/cbs.py · shared/cbs_connector/</span>
+          </div>
+          <span class="status-pill pill-done">Done ✓</span>
+        </div>
+
+        <div class="step">
+          <div class="step-num step-num-missing">!</div>
+          <div class="step-body">
+            <div class="step-title">Stop Payment Instruction Check</div>
+            <div class="step-desc">CLAUDE.md lists <code>check_stop_payment</code> as a workflow activity and references <code>stop_payment.py</code>. Delta Vault Sync (Fix B) fetches stop-payment deltas from CBS and stores serials in the Bloom filter every 15 minutes.</div>
+            <span class="step-gap">NOT BUILT: No stop_payment.py activity file</span><br>
+            <span class="step-gap">NOT WIRED: Not a step in cheque_workflow.py run_with_mocks()</span><br>
+            <span class="step-partial-note">NOTE: Bloom filter (above) partially covers this — Bloom hit → HUMAN_REVIEW, but the explicit CBS stop-payment lookup activity is absent</span>
+          </div>
+          <span class="status-pill pill-missing">Gap</span>
+        </div>
+
+        <div class="step">
+          <div class="step-num step-num-done">6</div>
+          <div class="step-body">
+            <div class="step-title">Fraud Scoring (XGBoost + SHAP + Optional LLM Rationale)</div>
+            <div class="step-desc">
+              XGBoost ensemble scores: amount, OCR confidence, alteration flag, CBS status, PPS result, signature score.
+              <strong>SHAP values mandatory in every result</strong> — required for audit compliance before NGCH filing.
+              Model unavailable → rule-based fallback (alteration +0.60, low OCR +0.15, very high amount +0.05) — SHAP still populated from rule contributions.
+              Optional: Llama 3.3 70B (queue: cts-reasoning) synthesises 3–5 sentence human-readable rationale from SHAP top-5 + full upstream context, using Headroom compression (~75–82% token reduction).
+            </div>
+            <span class="step-file">workflows/activities/fraud.py</span>
+          </div>
+          <span class="status-pill pill-done">Done ✓</span>
+        </div>
+
+        <div class="step">
+          <div class="step-num step-num-missing">!</div>
+          <div class="step-body">
+            <div class="step-title">OPA Business Policy Evaluation</div>
+            <div class="step-desc">CLAUDE.md Layer 4 defines Rego policies for: government/court-order cheques → always HUMAN_REVIEW · frozen account → immediate return · high-value on first clearing day → dual approval. decision.py comments reference OPA Layer 4 rules.</div>
+            <span class="step-gap">NOT IMPLEMENTED: No OPA.decide() call in cheque_workflow.py or decision.py</span><br>
+            <span class="step-gap">No opa_client in decision activity signature</span><br>
+            <span class="step-partial-note">OPA policies exist in infra/opa/policies/ but are not queried at runtime in the workflow</span>
+          </div>
+          <span class="status-pill pill-missing">Gap</span>
+        </div>
+
+        <div class="step">
+          <div class="step-num step-num-done">7</div>
+          <div class="step-body">
+            <div class="step-title">Decision Synthesis — Priority Gates</div>
+            <div class="step-desc">
+              <strong>Kill Switch backstop (checkpoint 2)</strong> evaluated first — catches mid-flight race (kill switch activated during the 120-second Qwen2-VL call). Then hard gates in order:
+              CBS RETURN → STP_RETURN ·
+              Alteration detected → STP_RETURN ·
+              Fraud score ≥ threshold → HUMAN_REVIEW ·
+              OCR confidence &lt; minimum → HUMAN_REVIEW ·
+              Signature match &lt; minimum → HUMAN_REVIEW ·
+              CBS unavailable → HUMAN_REVIEW ·
+              PPS miss → HUMAN_REVIEW.
+              STP_CONFIRM only when: all gates clear AND combined_confidence (OCR×0.5 + sig×0.5) ≥ stp_auto_confirm_threshold.
+              All thresholds from config_service — never hardcoded.
+            </div>
+            <span class="step-file">workflows/activities/decision.py</span>
+          </div>
+          <span class="status-pill pill-done">Done ✓</span>
+        </div>
+
+        <div class="step">
+          <div class="step-num step-num-done">8</div>
+          <div class="step-body">
+            <div class="step-title">NGCH Filing + Audit Write</div>
+            <div class="step-desc">
+              <code>file_to_ngch</code> is the ONLY place in ASTRA that calls NGCH. Exactly-once: workflow_id is the idempotency key. DuplicateFilingError is non-retryable (prevents double-pay). Decision published to <code>cts.decisions.{bank_id}</code> Kafka topic after filing. Audit event written to Immudb (HSM-signed) for every terminal state.
+            </div>
+            <span class="step-file">workflows/activities/ngch_filer.py · workflows/activities/write_audit.py</span>
+          </div>
+          <span class="status-pill pill-done">Done ✓</span>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Comparison Table ──────────────────────────────────────────────────── -->
+  <div class="section-title">Side-by-Side Validation Comparison</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:36%">Validation</th>
+        <th>Presentee (Outward)</th>
+        <th>Drawee (Inward)</th>
+        <th>Code Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>CTS-2010 image compliance (DPI, colour, file size, IQA)</td>
+        <td><span class="check-yes">✓</span> At scan time</td>
+        <td><span class="check-no">—</span> Not a workflow step</td>
+        <td>Module ✓ · Drawee gap</td>
+      </tr>
+      <tr>
+        <td>MICR line extraction (routing, cheque#, account last-4)</td>
+        <td><span class="check-yes">✓</span> scanner/micr.py</td>
+        <td><span class="check-yes">✓</span> OCR activity</td>
+        <td>Both implemented</td>
+      </tr>
+      <tr>
+        <td>Duplicate scan guard (idempotency)</td>
+        <td><span class="check-yes">✓</span> ScanSessionManager</td>
+        <td><span class="check-yes">✓</span> Workflow ID pattern</td>
+        <td>Both implemented</td>
+      </tr>
+      <tr>
+        <td>Amount in figures vs words cross-check</td>
+        <td><span class="check-no">—</span> N/A (physical deposit)</td>
+        <td><span class="check-gap">✗ GAP</span> Extracted, not compared</td>
+        <td>Drawee gap</td>
+      </tr>
+      <tr>
+        <td>Alteration detection (AI vision, 6 layers)</td>
+        <td><span class="check-no">—</span> N/A</td>
+        <td><span class="check-yes">✓</span> alteration.py</td>
+        <td>Drawee only — implemented</td>
+      </tr>
+      <tr>
+        <td>Kill Switch dual-checkpoint (RBI mandate)</td>
+        <td><span class="check-no">—</span> N/A</td>
+        <td><span class="check-yes">✓</span> alteration.py + decision.py</td>
+        <td>Drawee only — implemented</td>
+      </tr>
+      <tr>
+        <td>Signature verification (Siamese network)</td>
+        <td><span class="check-no">—</span> N/A</td>
+        <td><span class="check-yes">✓</span> signature.py</td>
+        <td>Drawee only — implemented</td>
+      </tr>
+      <tr>
+        <td>PPS amount + payee match</td>
+        <td><span class="check-no">—</span> N/A</td>
+        <td><span class="check-yes">✓</span> pps.py</td>
+        <td>Drawee only — implemented</td>
+      </tr>
+      <tr>
+        <td>CBS account status (frozen/closed/NPA → return)</td>
+        <td><span class="check-no">—</span> N/A</td>
+        <td><span class="check-yes">✓</span> cbs.py</td>
+        <td>Drawee only — implemented</td>
+      </tr>
+      <tr>
+        <td>CBS balance availability check</td>
+        <td><span class="check-no">—</span> N/A</td>
+        <td><span class="check-yes">✓</span> cbs.py (balance passed to fraud)</td>
+        <td>Drawee only — implemented</td>
+      </tr>
+      <tr>
+        <td>Stop payment instruction check</td>
+        <td><span class="check-no">—</span> N/A</td>
+        <td><span class="check-gap">✗ GAP</span> No stop_payment.py</td>
+        <td>Drawee gap — NOT BUILT</td>
+      </tr>
+      <tr>
+        <td>Canceled leaf / stop-payment Bloom filter</td>
+        <td><span class="check-no">—</span> N/A</td>
+        <td><span class="check-partial">~ PARTIAL</span> Built, not wired in workflow</td>
+        <td>Drawee partial gap</td>
+      </tr>
+      <tr>
+        <td>Fraud scoring (XGBoost + SHAP, mandatory)</td>
+        <td><span class="check-no">—</span> N/A</td>
+        <td><span class="check-yes">✓</span> fraud.py</td>
+        <td>Drawee only — implemented</td>
+      </tr>
+      <tr>
+        <td>OPA business policy evaluation (Layer 4)</td>
+        <td><span class="check-no">—</span> N/A</td>
+        <td><span class="check-gap">✗ GAP</span> OPA policies exist, not called</td>
+        <td>Drawee gap — NOT WIRED</td>
+      </tr>
+      <tr>
+        <td>Decision synthesis with priority gates</td>
+        <td><span class="check-no">—</span> N/A</td>
+        <td><span class="check-yes">✓</span> decision.py</td>
+        <td>Drawee only — implemented</td>
+      </tr>
+      <tr>
+        <td>IET Watchdog (T−30s emergency filing)</td>
+        <td><span class="check-no">—</span> N/A</td>
+        <td><span class="check-yes">✓</span> iet_watchdog_workflow.py</td>
+        <td>Drawee only — implemented</td>
+      </tr>
+      <tr>
+        <td>Endorsement stamping (bank IFSC, date, QR)</td>
+        <td><span class="check-yes">✓</span> endorsement/stamper.py</td>
+        <td><span class="check-no">—</span> N/A</td>
+        <td>Presentee only — module ✓</td>
+      </tr>
+      <tr>
+        <td>Lot management (max 200/lot, NGCH limit)</td>
+        <td><span class="check-yes">✓</span> lot/manager.py</td>
+        <td><span class="check-no">—</span> N/A</td>
+        <td>Presentee only — module ✓</td>
+      </tr>
+      <tr>
+        <td>NGCH submission (exactly-once, UUIDv7 idempotency key)</td>
+        <td><span class="check-yes">✓</span> ngch_adapter.py (outward)</td>
+        <td><span class="check-yes">✓</span> ngch_filer.py (inward decision)</td>
+        <td>Both — implemented</td>
+      </tr>
+      <tr>
+        <td>Session reconciliation (NGCH vs CBS)</td>
+        <td><span class="check-yes">✓</span> reconciliation/engine.py</td>
+        <td><span class="check-no">—</span> N/A</td>
+        <td>Presentee only — module ✓</td>
+      </tr>
+      <tr>
+        <td>Return Reason File (RRF) generation</td>
+        <td><span class="check-yes">✓</span> rrf/generator.py</td>
+        <td><span class="check-no">—</span> N/A</td>
+        <td>Presentee only — module ✓</td>
+      </tr>
+      <tr>
+        <td>SMB sub-member routing + sponsor lot</td>
+        <td><span class="check-yes">✓</span> sub_member/router.py</td>
+        <td><span class="check-yes">✓</span> ocr.py (MICR tag), smb_forwarding_workflow.py</td>
+        <td>Both — implemented</td>
+      </tr>
+      <tr>
+        <td>Temporal workflow orchestration</td>
+        <td><span class="check-gap">✗ GAP</span> 4 workflow files missing</td>
+        <td><span class="check-yes">✓</span> cheque_workflow.py + iet_watchdog + human_review</td>
+        <td>Presentee gap · Drawee done</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ── Gap Summary ──────────────────────────────────────────────────────── -->
+  <div class="section-title">Confirmed Gaps — Code vs Design Spec</div>
+
+  <div class="gaps-grid">
+
+    <div class="gap-card">
+      <div class="gap-title">GAP 1 · Stop Payment Activity Missing</div>
+      <div class="gap-desc">
+        CLAUDE.md lists <code>check_stop_payment</code> as an activity in the ChequeProcessingWorkflow
+        and references a <code>stop_payment.py</code> file. Neither exists. The Delta Vault Sync
+        (Fix B) pulls stop-payment serials into the Bloom filter every 15 minutes, which provides
+        partial coverage via <code>BF.EXISTS</code>, but the explicit CBS stop-payment lookup
+        activity is not implemented.
+      </div>
+      <div class="gap-file">Expected: modules/cts/workflows/activities/stop_payment.py — file not found</div>
+    </div>
+
+    <div class="gap-card">
+      <div class="gap-title">GAP 2 · Amount Figures vs Words Cross-Check Missing</div>
+      <div class="gap-desc">
+        OCR activity extracts both <code>amount_figures</code> and <code>amount_words</code>
+        fields from the cheque image. However, there is no step in the workflow (OCR activity,
+        decision activity, or elsewhere) that compares these two values. A cheque where "₹50,000"
+        in figures and "Fifty Thousand Only" in words disagree is a red flag — it is currently
+        not caught.
+      </div>
+      <div class="gap-file">modules/cts/workflows/activities/ocr.py — extracts both, no comparison</div>
+    </div>
+
+    <div class="gap-card amber">
+      <div class="gap-title">GAP 3 · Bloom Filter Check Not Integrated in Main Workflow</div>
+      <div class="gap-desc">
+        <code>CanceledLeafBloom</code> is fully implemented (<code>BF.EXISTS / BF.ADD / BF.MADD</code>).
+        <code>DeltaVaultSyncWorkflow</code> populates it every 15 minutes from CBS. But
+        <code>cheque_workflow.py</code> never calls <code>bloom.check_serial(cheque_number)</code>
+        before the vLLM calls. The intended ~500ms GPU saving and early-exit path for canceled
+        instruments is not active.
+      </div>
+      <div class="gap-file">vaults/canceled_leaf_bloom.py built · cheque_workflow.py does not call it</div>
+    </div>
+
+    <div class="gap-card amber">
+      <div class="gap-title">GAP 4 · OPA Layer 4 Not Called at Runtime</div>
+      <div class="gap-desc">
+        Rego policies exist in <code>infra/opa/policies/</code> and are referenced throughout
+        CLAUDE.md and in comments in <code>decision.py</code>. But no <code>opa_client</code>
+        is injected into the decision activity, and no OPA API call is made at runtime. Government
+        cheques, court-order instruments, and high-value first-clearing-day dual-approval rules
+        are NOT enforced in the current code.
+      </div>
+      <div class="gap-file">infra/opa/policies/cts_routing.rego exists · decision.py does not call OPA</div>
+    </div>
+
+    <div class="gap-card violet">
+      <div class="gap-title">GAP 5 · Presentee Temporal Workflows Not Written</div>
+      <div class="gap-desc">
+        All domain modules for the Presentee pipeline are implemented and unit-tested
+        (scanner, MICR, CTS-2010, lots, endorsement, reconciliation, RRF). The missing piece
+        is the Temporal workflow layer that calls these as activities in sequence.
+        The equivalent for Drawee (ChequeProcessingWorkflow) is complete — Presentee needs the same.
+      </div>
+      <div class="gap-file">
+        Missing: OutwardScanWorkflow · BatchEndorsementWorkflow · NGCHSubmissionWorkflow · SessionReconciliationWorkflow
+      </div>
+    </div>
+
+    <div class="gap-card violet">
+      <div class="gap-title">NOTE · CTS-2010 Inward Re-Validation Not a Workflow Step</div>
+      <div class="gap-desc">
+        CTS-2010 standard constants and the compliance certificate exporter exist for the Presentee
+        path. On the Drawee side, NGCH is supposed to deliver only compliant images, but there
+        is no step in <code>cheque_workflow.py</code> that re-validates the received image against
+        these standards before processing. This may be acceptable (trusting NGCH pre-filter) but
+        is worth a deliberate decision.
+      </div>
+      <div class="gap-file">compliance/cts2010.py exists · not used in drawee workflow</div>
+    </div>
+
+  </div>
+
+</main>
+
+<footer>
+  ASTRA — Automated Settlement and Transaction Recognition Architecture ·
+  <span>Confidential · Nilesh Shah (Ex-NPCI · Piramal · Fullerton/SMFG)</span> ·
+  Generated July 2026 · Code-verified against repo state
+</footer>
+
+<script>
+  // Live search across all step titles and descriptions
+  const input = document.createElement('input');
+  input.placeholder = 'Search validations, files, gaps…';
+  input.style.cssText = 'width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:9px 14px;color:#e2e8f0;font-size:13px;outline:none;margin:0 0 20px;display:block';
+  document.querySelector('main').insertBefore(input, document.querySelector('main').firstChild);
+
+  input.addEventListener('input', () => {
+    const q = input.value.toLowerCase();
+    document.querySelectorAll('.step').forEach(el => {
+      el.style.display = !q || el.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+    document.querySelectorAll('tbody tr').forEach(el => {
+      el.style.display = !q || el.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+    document.querySelectorAll('.gap-card').forEach(el => {
+      el.style.display = !q || el.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+</script>
+
+</body>
+</html>
