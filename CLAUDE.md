@@ -1477,7 +1477,11 @@ PHASE 5 — Hardening (in progress, July 2026)
   [x] Fix E: Notification debouncer — shared/notifications/debouncer.py
        (NotificationDebouncer, Redis sorted-set window, P0 bypass, batch summary,
        wired into dispatcher.py)
-  [ ] RBI IT Framework control mapping
-  [ ] Chaos Mesh scenario YAMLs
-  [ ] First pilot bank Helm values (saraswat-coop)
+  [x] RBI IT Framework control mapping — compliance/rbi-it-framework/control-mapping.yaml
+       27 controls, all COMPLIANT (was 26 COMPLIANT + 1 PLANNED before Chaos Mesh)
+  [x] Chaos Mesh scenario YAMLs — infra/chaos-mesh/ (4 scenarios, 10 manifests):
+       01-dc1-failure, 02-redis-cts-node-failure, 03-vllm-gpu-failure, 04-kafka-broker-failure
+       Quarterly DR drill schedule Q3 2026 (01+02) → Q4 2026 (03+04)
+  [x] First pilot bank Helm values — infra/helm/values/banks/saraswat-coop/
+       platform.yaml (CBS=Finacle, MUMBAI zone, SMB sponsor enabled) + cts.yaml
 ```
