@@ -60,3 +60,29 @@ thresholds:
   alteration_risk_threshold: 0.65      # Qwen2-VL tamper risk threshold
   iet_emergency_buffer_seconds: 30     # watchdog fires 30s before IET — not configurable in spirit, but recorded
   human_review_max_wait_minutes: 55    # HumanReviewWorkflow timeout before auto-return
+
+# ── CTS High Availability (BANK-CONFIGURABLE, Gemini Fix C) ─────────────────
+# CTS-specific HA requirements layered on top of astra-platform ha: section.
+cts_ha:
+  # Kafka producer settings for all cts.* topics — override here if bank broker allows it.
+  kafka_producer:
+    acks: all                           # wait for all in-sync replicas (no data loss)
+    # With min.insync.replicas=2 (from platform ha.kafka): ack only after 2 brokers confirm.
+    # IET implication: a cheque event survives DC1 broker failure without replay from CBS.
+
+  # KEDA CTS agent autoscaler HA settings
+  keda:
+    scale_up_stabilisation_window: 0    # scale up immediately on Kafka lag (IET cannot wait)
+    scale_down_stabilisation_window: 60 # wait 60s before scaling down (avoid thrashing)
+
+  # Vault resilience — CTS vaults must remain available even during Redis leader election
+  vault:
+    read_replica_enabled: false         # enable if bank has Redis replica in DC2
+    stale_vault_action: HUMAN_REVIEW    # ALWAYS — not configurable. Stale vault = review.
+    # Rationale: we never auto-confirm on a stale vault (vault.delta_sync keeps this window to 15min)
+
+  # IET safety during DC failover
+  iet_failover:
+    watchdog_survives_dc_failure: true  # IETWatchdogWorkflow uses ABANDON parent close policy
+    # Temporal replay ensures watchdog re-fires on DC2 if DC1 Temporal cluster is down.
+    # This is structural (code in iet_watchdog_workflow.py) — this value is documentation only.

@@ -1240,3 +1240,220 @@ Month 7+    Phase B (webhook receiver) development begins
 
 *Last updated: June 2026 | Maintained by Claude Code session*
 *All architectural decisions final unless explicitly revised in this file*
+
+---
+
+## 18. Gemini Technical Evaluation — Architecture Hardening (July 2026)
+
+> **Source:** Google Gemini 1.5 Pro evaluation of full ASTRA codebase (1.21 MB, 97 files)
+> **Verdict:** "Generation 3 clearing platform" — 5 gaps identified, all resolved below.
+> **Date:** July 2026
+
+### Evaluation Scores (Gemini)
+| Layer | Score | Status |
+|---|---|---|
+| Workflow Engine | 10/10 | Elite — IET Watchdog is a masterstroke |
+| Kafka Design | 8/10 | Strong — good multi-tenant SMB isolation |
+| Vault Strategy | 8/10 | Strong — vectors offload CBS significantly |
+| Data Integrity | 7/10 | Solid — partitioned FK needs app-level logic |
+| AI Integration | 6/10 | At Risk — 72B models threaten 600ms SLA |
+| HA/DR | 4/10 | Critical — no PR-DR strategy for air-gapped sites |
+
+---
+
+### 18.1 Fix A — Cascaded AI Model (L1 Guard → L2 Escalation)
+
+**Problem:** Qwen2-VL 72B for 500 parallel agents causes VRAM queuing → 600ms SLA breach.
+
+**Decision (Final):**
+- **L1 Guard:** Qwen2-VL 7B (or quantised 7B) — handles ~90% of cheques in < 100ms
+  - vLLM queue: `cts-vision-l1` (separate worker, lighter GPU)
+  - If L1 confidence ≥ `ai.cascade.l1_confidence_threshold` AND amount < `ai.cascade.high_value_threshold` → use L1 result, skip L2
+- **L2 Full:** Qwen2-VL 72B — escalate when:
+  - L1 confidence < `ai.cascade.l1_confidence_threshold` (default: 0.85)
+  - OR cheque amount ≥ `ai.cascade.high_value_threshold` (default: ₹50,00,000)
+  - OR OPA policy overrides (government cheques, court orders always L2)
+  - vLLM queue: `cts-vision-l2` (dedicated A100 GPU nodes)
+- **Same pattern for OCR:** GOT-OCR2.0 7B as L1, GOT-OCR2.0 full as L2
+- **Result:** ~90% of cheques clear in < 100ms (L1); ~10% use L2 within budget
+
+**Config keys (Layer 3 — hot-reload, per bank):**
+```
+ai.cascade.l1_confidence_threshold    default: 0.85
+ai.cascade.high_value_threshold       default: 5000000  (₹50L)
+ai.cascade.l2_escalation_enabled      default: true
+ai.cascade.l1_model_vision            default: "qwen2-vl-7b"
+ai.cascade.l2_model_vision            default: "qwen2-vl-72b"
+ai.cascade.l1_model_ocr               default: "got-ocr2-7b"
+ai.cascade.l2_model_ocr               default: "got-ocr2-full"
+```
+
+**New vLLM queues:**
+- `cts-vision-l1` — Qwen2-VL 7B, RTX 4090 or quantised A100
+- `cts-vision-l2` — Qwen2-VL 72B, dedicated A100 80GB
+- `cts-ocr-l1` — GOT-OCR2.0 7B
+- `cts-ocr-l2` — GOT-OCR2.0 full
+
+**Implementation:** `shared/ai/model_cascade.py` — `CascadeOrchestrator` class
+- `call_vision_cascade(image_url, amount, bank_id, context)` → always returns `CascadeResult` with `model_used`, `cascade_level`, `confidence`
+- Used by `alteration.py` and `ocr.py` activities
+
+---
+
+### 18.2 Fix B — 15-Minute Delta Vault Sync + Canceled Leaf Bloom Filter
+
+**Problem:** Daily 6AM sync means stop-payment instructions filed mid-day are missed → fraud risk window of up to 18 hours.
+
+**Decision (Final):**
+
+**Tiered Sync Strategy:**
+- **Full Sync (6AM daily):** Signatures (heavy — unchanged; full reload acceptable once/day)
+- **Delta Sync (every 15 minutes):** Stop-payment instructions + canceled cheque leaf serials only
+  - Triggered by: `VaultDeltaSyncWorkflow` on KEDA schedule OR CBS push event
+  - Kafka topic: `cts.vault.delta.{bank_id}` (high-priority, separate consumer group)
+  - Workflow ID: `cts-vault-delta-{bank_id}-{yyyymmddhhmm}`
+
+**Canceled Leaf Bloom Filter:**
+- Redis key: `bloom:canceled:{bank_id}` — probabilistic filter for canceled serial numbers
+- Before ANY vLLM call: check MICR serial against Bloom filter
+- Bloom hit → route to HUMAN_REVIEW immediately (skip GPU entirely → saves ~500ms)
+- Bloom false positive rate: < 0.1% (acceptable — results in unnecessary human review, never auto-confirm)
+- Updated by DeltaSyncWorkflow every 15 minutes
+- Redis data type: Bloom filter via RedisBloom module OR manual bitarray in CTS Redis cluster
+
+**New Temporal workflow:** `modules/cts/workflows/delta_vault_sync_workflow.py`
+- `DeltaVaultSyncWorkflow` — activities: `fetch_delta_stop_payments`, `fetch_delta_canceled_leaves`, `update_bloom_filter`, `write_audit`
+- Schedule: every 15 minutes via Temporal schedule (not cron — deterministic, exactly-once)
+- Worker: existing `cts-agent-worker` (same task queue, low priority)
+
+**Config keys (Layer 3):**
+```
+vault.delta_sync_interval_minutes     default: 15
+vault.bloom_false_positive_rate       default: 0.001
+vault.bloom_expected_items            default: 100000  (per bank)
+vault.delta_sync_enabled              default: true
+```
+
+---
+
+### 18.3 Fix C — HA/DR Blueprint (Primary-DR for Air-Gapped Sites)
+
+**Problem:** No explicit PR-DR strategy — DC2 is present but synchronisation mechanism was not specified, leaving "Exactly-Once" at risk during DC1 failure.
+
+**Decision (Final):**
+
+**YugabyteDB (RF=3):**
+- Replication Factor = 3 across 3 availability zones (or 3 physical racks in single DC)
+- `min_replica_count: 2` for writes (quorum write) — no data loss on single-node failure
+- Active-Active reads: any node can serve reads; leader for writes is zone-local
+- Helm value: `yugabyte.replicationFactor: 3` (was previously unspecified)
+
+**Kafka (min.insync.replicas=2):**
+- All CTS topics: `replication.factor=3`, `min.insync.replicas=2`
+- Producer config: `acks=all` (already the case for exactly-once) + `min.insync.replicas=2`
+- A cheque is not acknowledged as "received" until written to ≥ 2 independent Kafka brokers
+- Helm value: `kafka.minInsyncReplicas: 2` in `astra-platform/values.yaml`
+
+**Temporal Dual-Cluster (Warm DR):**
+- DC1 = Primary Temporal cluster (serves all workflows during normal operation)
+- DC2 = Warm Temporal replica (receives replicated history from DC1 via Temporal's cross-cluster replication)
+- On DC1 failure: ArgoCD flips workers to poll DC2 task queues — in-flight workflows resume from last checkpoint
+- RTO for Temporal: < 30 seconds (matches platform RTO SLA)
+- Config: `temporal.primaryCluster: dc1` + `temporal.drCluster: dc2` in platform values
+
+**Redis (active-passive for vaults):**
+- DC1: `redis-cts` primary (active writes + reads)
+- DC2: `redis-cts-replica` (passive — follows DC1 via Redis replication)
+- On DC1 failure: config-service switches `redis.cts.url` to DC2 replica within 30s
+- Vault data is expendable for up to 1 sync cycle — VaultSyncWorkflow re-warms on DC2 after failover
+
+**Helm values updated:**
+- `astra-platform/values.yaml` → `ha.yugabyte.rf: 3`, `ha.kafka.min_insync: 2`
+- `astra-platform/values.yaml` → `ha.temporal.dr_cluster_enabled: false` (enable per bank at Layer 2)
+
+---
+
+### 18.4 Fix D — Software-Defined Foreign Key Integrity (EJ + Reconciliation)
+
+**Problem:** YugabyteDB partitioned tables cannot enforce FK constraints across partitions → orphaned canonical records possible → reconciliation nightmare for RBI auditors.
+
+**Decision (Final):**
+
+**EJ Integrity Activity (new — 9th step in EJNormalisationWorkflow):**
+- After `store_canonical`, before `trigger_dispute_check`: run `verify_canonical_integrity`
+- Checks: canonical record exists in DB, `log_id` → `canonical_record` link valid, `canonical_hash` matches stored value
+- On failure: write `EJ_INTEGRITY_FAIL` AuditEvent to Immudb → halt workflow → alert bank_it_admin
+- Never silently proceed past a failed integrity check
+
+**Reconciliation Orphan Scanner (in SessionReconciliationWorkflow):**
+- New activity: `scan_orphaned_records` — daily pass over EJ canonical records with no parent raw log
+- Alerts via `platform.notifications` Kafka topic → ops_manager + bank_it_admin
+- Never auto-deletes — only alerts (deletion requires compliance_officer sign-off)
+
+**New AuditEventType:** `EJ_INTEGRITY_FAIL` (CRITICAL, surface: [UI, AUDIT, NOTIFICATION])
+
+---
+
+### 18.5 Fix E — Notification Debouncer (Batch & Burst Anti-Spam)
+
+**Problem:** 500 parallel failing agents could generate 500+ WhatsApp messages to an SMB manager in seconds → notification flood → manager ignores all alerts.
+
+**Decision (Final):**
+
+**Batch & Burst Pattern:**
+- Window: 60 seconds per `(bank_id, smb_id, event_category)` triple
+- Threshold: if ≥ `notification.debounce.threshold` (default: 10) notifications arrive in the window → suppress individual alerts
+- On threshold breach: emit one **Batch Summary Alert** with:
+  - Count of suppressed events
+  - Severity of the most critical event in the batch
+  - Dashboard deep-link for the SMB
+  - `event_category` (e.g. "VAULT_MISS", "IET_RISK", "FRAUD_SCORE")
+- After summary sent: reset window (start fresh 60-second window)
+- P0 events (IET breach, kill switch) are NEVER debounced — always immediate
+
+**Implementation:** `shared/notifications/debouncer.py` — `NotificationDebouncer` class
+- Backend: Redis (CTS Redis cluster) — sorted set per window key, TTL = 60 seconds
+- Integrated into `shared/notifications/dispatcher.py` before channel dispatch
+- Config keys (Layer 3, hot-reload):
+```
+notification.debounce.enabled           default: true
+notification.debounce.threshold         default: 10
+notification.debounce.window_seconds    default: 60
+notification.debounce.exempt_priorities  default: ["P0"]   # never debounced
+```
+
+---
+
+### 18.6 Updated Kafka Topics (Fixes A + B)
+
+| Topic | Producer | Consumer | Purpose |
+|---|---|---|---|
+| `cts.vault.delta.{bank_id}` | Delta Sync Trigger / CBS push | DeltaVaultSyncWorkflow | Stop-payment + canceled leaf delta events |
+| `cts.vision.cascade.{bank_id}` | Cascade Orchestrator | L2 vLLM workers | L2 escalation requests from L1-uncertain results |
+
+---
+
+### 18.7 Updated AI Inference Queues (Fix A)
+
+| Queue | Model | Purpose | Module |
+|---|---|---|---|
+| `cts-vision-l1` | Qwen2-VL 7B | Alteration detection — fast path | CTS only |
+| `cts-vision-l2` | Qwen2-VL 72B | Alteration detection — forensic (escalated) | CTS only |
+| `cts-ocr-l1` | GOT-OCR2.0 7B | MICR + handwriting — fast path | CTS only |
+| `cts-ocr-l2` | GOT-OCR2.0 full | MICR + handwriting — forensic | CTS only |
+
+---
+
+### 18.8 Updated Build Status (Phase 5 — Hardening Additions from Gemini)
+
+```
+PHASE 5 — Hardening (in progress, July 2026)
+  [ ] Fix A: AI cascade (L1/L2) — shared/ai/model_cascade.py + alteration.py + ocr.py
+  [ ] Fix B: Delta vault sync (15-min) + Bloom filter — delta_vault_sync_workflow.py
+  [ ] Fix C: HA/DR Helm values — RF=3, min.insync.replicas=2, Temporal dual-cluster
+  [ ] Fix D: EJ integrity activity + reconciliation orphan scanner
+  [ ] Fix E: Notification debouncer — shared/notifications/debouncer.py
+  [ ] RBI IT Framework control mapping
+  [ ] Chaos Mesh scenario YAMLs
+  [ ] First pilot bank Helm values (saraswat-coop)
+```
