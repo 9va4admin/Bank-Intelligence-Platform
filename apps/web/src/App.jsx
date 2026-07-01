@@ -7,6 +7,7 @@ import CTSVaultStatus from './modules/cts/pages/CTSVaultStatus'
 import CTSDecisionsLog from './modules/cts/pages/CTSDecisionsLog'
 import CTSAnalytics from './modules/cts/pages/CTSAnalytics'
 import CTSConfig from './modules/cts/pages/CTSConfig'
+import CTSMCPConfig from './modules/cts/pages/CTSMCPConfig'
 import CTSPresentment from './modules/cts/pages/CTSPresentment'
 import CTSExceptions from './modules/cts/pages/CTSExceptions'
 import CTSReconciliation from './modules/cts/pages/CTSReconciliation'
@@ -79,6 +80,7 @@ export default function App() {
         <Route path="/cts/analytics" element={<CTSAnalytics />} />
         <Route path="/cts/business-model" element={<CTSBusinessModel />} />
         <Route path="/cts/config" element={<CTSConfig />} />
+        <Route path="/cts/config/mcp-connections" element={<CTSMCPConfig />} />
         <Route path="/cts/ops-dashboard" element={<CTSOpsDashboard />} />
         <Route path="/cts/drawee" element={<CTSDraweeView />} />
         <Route path="/cts/settlement" element={<CTSSettlement />} />
