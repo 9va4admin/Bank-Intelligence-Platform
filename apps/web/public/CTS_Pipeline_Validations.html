@@ -422,16 +422,15 @@
         </div>
 
         <div class="step">
-          <div class="step-num step-num-partial">~</div>
+          <div class="step-num step-num-done">1b</div>
           <div class="step-body">
             <div class="step-title">Canceled Leaf Bloom Filter Check</div>
             <div class="step-desc">
-              <code>CanceledLeafBloom</code> (Redis BF.EXISTS) is fully implemented as a module and populated every 15 minutes by DeltaVaultSyncWorkflow. Design intent: check MICR serial before any vLLM call — Bloom hit → HUMAN_REVIEW, saving ~500ms GPU time.
+              <code>CanceledLeafBloom</code> (Redis BF.EXISTS) fully implemented and now active. Populated every 15 minutes by DeltaVaultSyncWorkflow. Called as the first step inside <code>stop_payment.py</code> before CBS lookup — Bloom hit → HUMAN_REVIEW immediately, bypassing all downstream vLLM calls (~500ms GPU saving). False-positive rate &lt; 0.1%: hit routes to human review, never auto-return.
             </div>
-            <span class="step-file">vaults/canceled_leaf_bloom.py · workflows/delta_vault_sync_workflow.py</span>
-            <br><span class="step-partial-note">PARTIAL: Bloom filter module built and sync works — but check_serial() is never called in cheque_workflow.py</span>
+            <span class="step-file">vaults/canceled_leaf_bloom.py · workflows/activities/stop_payment.py · workflows/delta_vault_sync_workflow.py</span>
           </div>
-          <span class="status-pill pill-partial">Partial</span>
+          <span class="status-pill pill-done">Done ✓</span>
         </div>
 
         <div class="step">
