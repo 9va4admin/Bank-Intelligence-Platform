@@ -943,8 +943,8 @@ PHASE 1 — Foundation
 PHASE 2 — CTS Core
   [x] Vault: signature_vault + pps_vault (Redis, hashed keys, vault-miss → HUMAN_REVIEW)
   [x] MCP: ngch_adapter (SFTP wrapper, exposes 4 MCP tools)
-  [x] Temporal: ChequeProcessingWorkflow + 9 activities (OCR, alteration, signature, PPS,
-       CBS, fraud, decision, ngch_filer, write_audit)
+  [x] Temporal: ChequeProcessingWorkflow + 10 activities (OCR, alteration, signature, PPS,
+       CBS balance, CBS stop-payment, fraud, decision, ngch_filer, write_audit)
   [x] Temporal: IETWatchdogWorkflow (T-30s emergency filer, ABANDON parent-close policy)
   [x] Temporal: HumanReviewWorkflow (55-min timeout, signal-driven)
   [x] Temporal: VaultSyncWorkflow (CBS → Redis, 6AM daily)
@@ -952,7 +952,16 @@ PHASE 2 — CTS Core
   [x] Frontend: CTS ops workstation — human review queue with live polling (useReviewQueue hook)
   [x] CTS modules: compliance/CTS2010, endorsement/batch, scanner/MICR, rrf, reconciliation,
        lot, reports, sub_member (sponsor-bank routing + risk shield)
-  [x] Test coverage: 1338 tests, 95%+ on all CTS workflow activities
+  [x] CTS Drawee gaps closed (July 2026):
+       stop_payment.py activity (Bloom pre-check → CBS confirm → HUMAN_REVIEW/STP_RETURN)
+       Amount figures vs words cross-check in ocr.py (Indian parser + mismatch → HUMAN_REVIEW)
+       OPA Layer 4 wired into decision.py (government/court-order/policy gate)
+  [x] Temporal Presentee Workflows (July 2026):
+       OutwardScanWorkflow — scanner → MICR → CTS-2010 → lot assignment → audit
+       BatchEndorsementWorkflow — lot seal → stamp all instruments → audit
+       NGCHSubmissionWorkflow — build NGCH file → submit → ACK confirm → audit
+       SessionReconciliationWorkflow — NGCH settlement → match → RRF generation → audit
+  [x] Test coverage: ~1520 tests, 95%+ on all CTS workflow activities
 
 PHASE 3 — Observability
   [x] OTel setup in shared/observability/otel_setup.py
@@ -995,6 +1004,7 @@ PHASE 5 — Hardening
 2. Performance test harness — CTS 500-cheque parallel agent benchmark
 3. Chaos Mesh scenario YAMLs (DC failure, Redis eviction, vLLM down)
 4. First pilot bank Helm values (`infra/helm/values/banks/saraswat-coop/`)
+5. Gemini-identified fixes A-E (cascade AI, delta vault sync, HA/DR Helm values, EJ integrity, notification debouncer)
 
 ---
 

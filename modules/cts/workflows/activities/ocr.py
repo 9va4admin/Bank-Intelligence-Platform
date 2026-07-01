@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict
 
 from modules.cts.sub_member.models import PrincipalTag
 from modules.cts.sub_member.router import MICRPrefixRouter
+from modules.cts.workflows.activities.amount_words_parser import amounts_match
 
 log = structlog.get_logger()
 
@@ -36,6 +37,7 @@ class OCRActivityResult(BaseModel):
     degraded: bool = False
     principal_tag: Optional[str] = None   # "DIRECT" | "SUB_MEMBER"
     sub_member_id: Optional[str] = None   # populated when principal_tag == "SUB_MEMBER"
+    amount_mismatch: bool = False         # True when figures and words disagree
 
 
 async def ocr_extract(
@@ -90,11 +92,35 @@ async def ocr_extract(
             sub_member_id=sub_member_id,
         )
 
+    amount_figures_val = data.get("amount_figures", {}).get("value")
+    amount_words_val = data.get("amount_words", {}).get("value")
+
+    # Cross-check: amount in figures must match amount in words
+    # None result means words were illegible — treat as unknown, continue to human review
+    match = amounts_match(figures=amount_figures_val, words=amount_words_val)
+    if match is False:
+        log.info(
+            "ocr_activity.amount_mismatch",
+            instrument_id=inp.instrument_id,
+            amount_figures=amount_figures_val,
+        )
+        return OCRActivityResult(
+            outcome="HUMAN_REVIEW",
+            micr_line=micr_line,
+            amount_figures=amount_figures_val,
+            amount_words=amount_words_val,
+            overall_confidence=overall,
+            low_confidence_reason="amount_figures_words_mismatch",
+            principal_tag=principal_tag,
+            sub_member_id=sub_member_id,
+            amount_mismatch=True,
+        )
+
     return OCRActivityResult(
         outcome="PROCEED",
         micr_line=micr_line,
-        amount_figures=data.get("amount_figures", {}).get("value"),
-        amount_words=data.get("amount_words", {}).get("value"),
+        amount_figures=amount_figures_val,
+        amount_words=amount_words_val,
         date=data.get("date", {}).get("value"),
         payee=data.get("payee", {}).get("value"),
         overall_confidence=overall,

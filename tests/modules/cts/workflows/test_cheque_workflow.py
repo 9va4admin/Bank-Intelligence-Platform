@@ -249,6 +249,84 @@ class TestChequeWorkflowResult:
             result.decision = "SOMETHING"
 
 
+# ---------------------------------------------------------------------------
+# Stop payment gate (Gap 1 + Gap 3 — new in this session)
+# ---------------------------------------------------------------------------
+
+class TestStopPaymentGate:
+    @pytest.mark.asyncio
+    async def test_stop_payment_stp_return_short_circuits_workflow(self):
+        """CBS-confirmed stop payment must return STP_RETURN immediately."""
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
+        from modules.cts.workflows.activities.stop_payment import StopPaymentActivityResult
+
+        results = _make_all_proceed_results()
+        results["stop_payment"] = StopPaymentActivityResult(
+            outcome="STP_RETURN", bank_id="test-bank", instrument_id="INST001",
+            stop_reason="Customer instruction", bloom_hit=False,
+        )
+        wf = ChequeProcessingWorkflow()
+        result = await wf.run_with_mocks(_make_workflow_input(), mock_results=results)
+        assert result.decision == "STP_RETURN"
+
+    @pytest.mark.asyncio
+    async def test_bloom_hit_routes_to_human_review_not_return(self):
+        """Bloom filter hit is probabilistic — must route to HUMAN_REVIEW, never STP_RETURN."""
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
+        from modules.cts.workflows.activities.stop_payment import StopPaymentActivityResult
+
+        results = _make_all_proceed_results()
+        results["stop_payment"] = StopPaymentActivityResult(
+            outcome="HUMAN_REVIEW", bank_id="test-bank", instrument_id="INST001",
+            stop_reason="bloom_filter_hit", bloom_hit=True,
+        )
+        wf = ChequeProcessingWorkflow()
+        result = await wf.run_with_mocks(_make_workflow_input(), mock_results=results)
+        assert result.decision == "HUMAN_REVIEW"
+        assert result.decision != "STP_RETURN"
+
+    @pytest.mark.asyncio
+    async def test_cbs_unavailable_stop_payment_routes_to_human_review(self):
+        """CBS unavailable on stop payment check → HUMAN_REVIEW."""
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
+        from modules.cts.workflows.activities.stop_payment import StopPaymentActivityResult
+
+        results = _make_all_proceed_results()
+        results["stop_payment"] = StopPaymentActivityResult(
+            outcome="HUMAN_REVIEW", bank_id="test-bank", instrument_id="INST001",
+            stop_reason="cbs_unavailable", degraded=True,
+        )
+        wf = ChequeProcessingWorkflow()
+        result = await wf.run_with_mocks(_make_workflow_input(), mock_results=results)
+        assert result.decision == "HUMAN_REVIEW"
+
+    @pytest.mark.asyncio
+    async def test_no_stop_payment_result_continues_normally(self):
+        """If stop_payment key absent, workflow continues to alteration/signature/fraud."""
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
+
+        results = _make_all_proceed_results()
+        # No "stop_payment" key — workflow must not crash and must reach STP_CONFIRM
+        wf = ChequeProcessingWorkflow()
+        result = await wf.run_with_mocks(_make_workflow_input(), mock_results=results)
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_stop_payment_proceed_continues_to_full_pipeline(self):
+        """PROCEED from stop_payment means no stop instruction — continue to alteration etc."""
+        from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
+        from modules.cts.workflows.activities.stop_payment import StopPaymentActivityResult
+
+        results = _make_all_proceed_results()
+        results["stop_payment"] = StopPaymentActivityResult(
+            outcome="PROCEED", bank_id="test-bank", instrument_id="INST001",
+        )
+        wf = ChequeProcessingWorkflow()
+        result = await wf.run_with_mocks(_make_workflow_input(), mock_results=results)
+        # Workflow must reach fraud scoring and decision → STP_CONFIRM
+        assert result.decision == "STP_CONFIRM"
+
+
 class TestChequeWorkflowSubMember:
     @pytest.mark.asyncio
     async def test_sub_member_stp_return_triggers_notification(self):

@@ -275,3 +275,123 @@ class TestDecisionOutput:
         result = await synthesise_decision(_make_signals(), config=_make_config())
         with pytest.raises(Exception):
             result.decision = "SOMETHING_ELSE"
+
+
+# ---------------------------------------------------------------------------
+# OPA Layer 4 policy evaluation
+# ---------------------------------------------------------------------------
+
+class TestOPAGate:
+    def _opa_client(self, decision: str, reason: str):
+        """Build a mock OPAClient that returns the given decision."""
+        from shared.opa_client import OPAClient, OPAResult
+        client = MagicMock(spec=OPAClient)
+        client.decide = AsyncMock(return_value=OPAResult(decision=decision, reason=reason))
+        return client
+
+    @pytest.mark.asyncio
+    async def test_government_cheque_routed_to_human_review(self):
+        """OPA HUMAN_REVIEW → synthesise_decision returns HUMAN_REVIEW regardless of clean signals."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        opa = self._opa_client("HUMAN_REVIEW", "government_cheque")
+        result = await synthesise_decision(
+            _make_signals(fraud_score=0.01, ocr_confidence=0.99, signature_match=0.99),
+            config=_make_config(),
+            opa_client=opa,
+        )
+        assert result.decision == "HUMAN_REVIEW"
+        assert "OPA policy" in result.rationale
+        assert "government_cheque" in result.rationale
+
+    @pytest.mark.asyncio
+    async def test_court_order_cheque_routed_to_human_review(self):
+        """Court-order cheques flagged by OPA → HUMAN_REVIEW."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        opa = self._opa_client("HUMAN_REVIEW", "court_order")
+        result = await synthesise_decision(
+            _make_signals(),
+            config=_make_config(),
+            opa_client=opa,
+        )
+        assert result.decision == "HUMAN_REVIEW"
+        assert "court_order" in result.rationale
+
+    @pytest.mark.asyncio
+    async def test_opa_auto_return_maps_to_stp_return(self):
+        """OPA AUTO_RETURN → decision is STP_RETURN (not HUMAN_REVIEW)."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        opa = self._opa_client("AUTO_RETURN", "policy_blocked_category")
+        result = await synthesise_decision(
+            _make_signals(),
+            config=_make_config(),
+            opa_client=opa,
+        )
+        assert result.decision == "STP_RETURN"
+        assert "OPA policy" in result.rationale
+
+    @pytest.mark.asyncio
+    async def test_opa_proceed_falls_through_to_normal_gates_stp_confirm(self):
+        """OPA PROCEED + all signals clean → STP_CONFIRM (OPA doesn't short-circuit normal path)."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        opa = self._opa_client("PROCEED", "no_policy_match")
+        result = await synthesise_decision(
+            _make_signals(fraud_score=0.01, ocr_confidence=0.99, signature_match=0.99),
+            config=_make_config(),
+            opa_client=opa,
+        )
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_opa_proceed_falls_through_to_normal_gates_human_review(self):
+        """OPA PROCEED + high fraud score → HUMAN_REVIEW from existing gate."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        opa = self._opa_client("PROCEED", "no_policy_match")
+        result = await synthesise_decision(
+            _make_signals(fraud_score=0.90),
+            config=_make_config(fraud_threshold=0.72),
+            opa_client=opa,
+        )
+        assert result.decision == "HUMAN_REVIEW"
+
+    @pytest.mark.asyncio
+    async def test_no_opa_client_standard_behavior_unchanged(self):
+        """When opa_client is None, existing behavior is identical to before OPA was added."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals(fraud_score=0.01, ocr_confidence=0.99, signature_match=0.99),
+            config=_make_config(),
+            opa_client=None,
+        )
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_opa_shap_values_preserved_on_human_review(self):
+        """SHAP values must be present even when OPA short-circuits."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        opa = self._opa_client("HUMAN_REVIEW", "government_cheque")
+        result = await synthesise_decision(
+            _make_signals(),
+            config=_make_config(),
+            opa_client=opa,
+        )
+        assert result.shap_values is not None
+        assert len(result.shap_values) > 0
+
+    @pytest.mark.asyncio
+    async def test_opa_human_review_overrides_stp_confirm_quality(self):
+        """Even with perfect OCR/sig/fraud — government cheque goes to human review."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        opa = self._opa_client("HUMAN_REVIEW", "government_cheque_always_review")
+        result = await synthesise_decision(
+            _make_signals(
+                fraud_score=0.0,
+                ocr_confidence=1.0,
+                signature_match=1.0,
+                cbs_outcome="PROCEED",
+                alteration_detected=False,
+                pps_outcome="FOUND",
+            ),
+            config=_make_config(stp_threshold=0.5),  # very low STP bar — still overridden
+            opa_client=opa,
+        )
+        assert result.decision == "HUMAN_REVIEW"
