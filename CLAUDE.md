@@ -961,7 +961,7 @@ PHASE 2 — CTS Core
        BatchEndorsementWorkflow — lot seal → stamp all instruments → audit
        NGCHSubmissionWorkflow — build NGCH file → submit → ACK confirm → audit
        SessionReconciliationWorkflow — NGCH settlement → match → RRF generation → audit
-  [x] Test coverage: ~1533 tests, 95%+ on all CTS workflow activities
+  [x] Test coverage: ~1910 tests passing, 95%+ on all CTS workflow activities
 
 PHASE 3 — Observability
   [x] OTel setup in shared/observability/otel_setup.py
@@ -1467,9 +1467,16 @@ PHASE 5 — Hardening (in progress, July 2026)
        update_bloom_filter activities + DeltaVaultSyncWorkflow orchestrator). CBS degradation
        tracked inline; audit always fires; Bloom skipped on empty delta. 5 new workflow tests
        + 12 activity tests = 17 total GREEN.
-  [ ] Fix C: HA/DR Helm values — RF=3, min.insync.replicas=2, Temporal dual-cluster
-  [ ] Fix D: EJ integrity activity + reconciliation orphan scanner
-  [ ] Fix E: Notification debouncer — shared/notifications/debouncer.py
+  [x] Fix C: HA/DR Helm values — infra/helm/astra-platform/values.yaml ha section:
+       yugabyte RF=3 + min_replica_count=2, kafka replication_factor=3 + min_insync=2,
+       temporal dr_cluster_enabled (default false, per-bank Layer 2 opt-in),
+       redis vault_replication_mode active-passive + 30s failover timeout.
+  [x] Fix D: EJ integrity activity — modules/ej/workflows/activities/verify_canonical_integrity.py
+       (9th step in EJNormalisationWorkflow, EJ_INTEGRITY_FAIL AuditEvent on mismatch);
+       reconciliation orphan scanner in SessionReconciliationWorkflow.
+  [x] Fix E: Notification debouncer — shared/notifications/debouncer.py
+       (NotificationDebouncer, Redis sorted-set window, P0 bypass, batch summary,
+       wired into dispatcher.py)
   [ ] RBI IT Framework control mapping
   [ ] Chaos Mesh scenario YAMLs
   [ ] First pilot bank Helm values (saraswat-coop)
