@@ -31,6 +31,7 @@ import structlog
 from pydantic import BaseModel, ConfigDict
 
 from modules.cts.kill_switch.vision_ai_kill_switch import KillMode, KillSwitchStatus
+from shared.audit.audit_event import AuditEvent, AuditEventType
 
 log = structlog.get_logger()
 
@@ -67,6 +68,8 @@ async def synthesise_decision(
     inp: DecisionInput,
     config: dict[str, Any],
     kill_switch_status: Optional[KillSwitchStatus] = None,
+    immudb_client: Optional[Any] = None,
+    hsm: Optional[Any] = None,
 ) -> DecisionResult:
     """
     Synthesise terminal cheque decision from all upstream activity signals.
@@ -98,6 +101,31 @@ async def synthesise_decision(
             kill_switch_scope=effective_ks_scope,
             upstream_kill_switch_mode=inp.kill_switch_mode,
         )
+
+        # Write immutable per-instrument audit record before returning
+        if immudb_client is not None and hsm is not None:
+            try:
+                audit_ev = AuditEvent(
+                    event_type=AuditEventType.CTS_KILL_SWITCH_APPLIED,
+                    bank_id=inp.bank_id,
+                    payload={
+                        "instrument_id": inp.instrument_id,
+                        "kill_switch_mode": effective_ks_mode,
+                        "kill_switch_scope": effective_ks_scope,
+                        "smb_id": inp.smb_id,
+                        "checkpoint": "decision_backstop",
+                    },
+                )
+                signed = audit_ev.sign(hsm)
+                await immudb_client.write_event(signed.to_json())
+            except Exception as exc:
+                log.error(
+                    "decision_activity.immudb_write_failed",
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    error=str(exc),
+                )
+
         return DecisionResult(
             instrument_id=inp.instrument_id,
             decision="HUMAN_REVIEW",

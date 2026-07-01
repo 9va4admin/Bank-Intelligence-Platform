@@ -17,21 +17,47 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class AuditEventType(str, Enum):
+    # ── CTS Inward ─────────────────────────────────────────────────────────────
     CTS_DECISION = "CTS_DECISION"
     CTS_VAULT_MISS = "CTS_VAULT_MISS"
     CTS_NGCH_FILED = "CTS_NGCH_FILED"
     CTS_HUMAN_REVIEW_ESCALATED = "CTS_HUMAN_REVIEW_ESCALATED"
     CTS_HUMAN_REVIEW_RESOLVED = "CTS_HUMAN_REVIEW_RESOLVED"
-    EJ_PARSED = "EJ_PARSED"
-    EJ_DISPUTE_RESOLVED = "EJ_DISPUTE_RESOLVED"
-    EJ_DISPUTE_ESCALATED = "EJ_DISPUTE_ESCALATED"
-    CONFIG_CHANGE = "CONFIG_CHANGE"
-    DIAGNOSTIC_ACCESS = "DIAGNOSTIC_ACCESS"
-    VAULT_SYNC = "VAULT_SYNC"
-    BANK_ONBOARDED = "BANK_ONBOARDED"
+    CTS_IET_WATCHDOG_FIRED = "CTS_IET_WATCHDOG_FIRED"       # T-30s emergency path fired
+    CTS_REVIEW_TIMEOUT = "CTS_REVIEW_TIMEOUT"               # 55-min human review auto-return
+    CTS_REVIEW_ASSIGNED = "CTS_REVIEW_ASSIGNED"             # instrument pushed to human queue
+
+    # ── CTS NGCH / transport ───────────────────────────────────────────────────
+    CTS_NGCH_TERMINAL_FAILURE = "CTS_NGCH_TERMINAL_FAILURE"  # max retries exhausted
+    CTS_NGCH_CERT_EXPIRED = "CTS_NGCH_CERT_EXPIRED"          # mTLS cert expired
+
+    # ── Kill switch ────────────────────────────────────────────────────────────
     CTS_KILL_SWITCH_ENGAGED = "CTS_KILL_SWITCH_ENGAGED"    # operator activates kill switch
     CTS_KILL_SWITCH_RELEASED = "CTS_KILL_SWITCH_RELEASED"  # operator deactivates kill switch
     CTS_KILL_SWITCH_APPLIED = "CTS_KILL_SWITCH_APPLIED"    # per-instrument: KP or KC applied
+
+    # ── CBS connector ──────────────────────────────────────────────────────────
+    CBS_UNREACHABLE = "CBS_UNREACHABLE"                     # CBS not responding during clearing
+    CBS_AUTH_FAILED = "CBS_AUTH_FAILED"                     # CBS authentication failure
+    CBS_RECOVERED = "CBS_RECOVERED"                         # CBS connectivity restored
+
+    # ── Vault ──────────────────────────────────────────────────────────────────
+    VAULT_STALE = "VAULT_STALE"                             # vault not synced for >24 hrs
+    VAULT_INTEGRITY_FAIL = "VAULT_INTEGRITY_FAIL"           # vault integrity check failed
+    VAULT_SYNC_FAILED = "VAULT_SYNC_FAILED"                 # VaultSyncWorkflow failed
+    VAULT_SYNC = "VAULT_SYNC"                               # successful vault sync (existing)
+
+    # ── EJ module ──────────────────────────────────────────────────────────────
+    EJ_PARSED = "EJ_PARSED"
+    EJ_DISPUTE_RESOLVED = "EJ_DISPUTE_RESOLVED"
+    EJ_DISPUTE_ESCALATED = "EJ_DISPUTE_ESCALATED"
+    EJ_ATM_HEALTH_CHANGED = "EJ_ATM_HEALTH_CHANGED"        # HEALTHY→DEGRADED→CRITICAL transition
+    EJ_OEM_UNKNOWN = "EJ_OEM_UNKNOWN"                       # fingerprint produced no match
+
+    # ── Platform / infra ───────────────────────────────────────────────────────
+    CONFIG_CHANGE = "CONFIG_CHANGE"
+    DIAGNOSTIC_ACCESS = "DIAGNOSTIC_ACCESS"
+    BANK_ONBOARDED = "BANK_ONBOARDED"
 
 
 class HSMSigningError(RuntimeError):

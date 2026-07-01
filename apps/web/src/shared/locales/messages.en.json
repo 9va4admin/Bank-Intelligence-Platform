@@ -2869,5 +2869,88 @@
       "to_pods",
       "trigger"
     ]
+  },
+  "VAULT_STALE": {
+    "text": "Vault data stale for {bank_id} ({vault_type}) — {staleness_minutes} minutes since last sync. All instruments routing to human review.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "vault_type",
+      "staleness_minutes"
+    ]
+  },
+  "VAULT_INTEGRITY_FAIL": {
+    "text": "Vault integrity check FAILED for {bank_id} ({vault_type}) — {error_detail}. Vault halted, all instruments routed to human review.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "vault_type",
+      "error_detail"
+    ]
+  },
+  "CTS_REVIEW_TIMEOUT": {
+    "text": "Human review timed out for cheque {instrument_id} ({bank_id}) after {elapsed_minutes} min — auto-returned to NGCH.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "elapsed_minutes"
+    ]
+  },
+  "CTS_REVIEW_ASSIGNED": {
+    "text": "Cheque {instrument_id} ({bank_id}) assigned to reviewer {reviewer_display} for human review.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "reviewer_display"
+    ]
+  },
+  "CTS_NGCH_TERMINAL_FAILURE": {
+    "text": "NGCH filing FAILED terminally for cheque {instrument_id} ({bank_id}) — error {error_code} after {retry_count} retries. Manual intervention required.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "error_code",
+      "retry_count"
+    ]
+  },
+  "CTS_NGCH_CERT_EXPIRED": {
+    "text": "NGCH mTLS certificate expired for {bank_id} (expired {cert_expiry}). All NGCH filing halted — rotate certificate immediately.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "cert_expiry"
+    ]
   }
 }

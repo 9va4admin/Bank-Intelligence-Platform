@@ -2869,5 +2869,88 @@
       "to_pods",
       "trigger"
     ]
+  },
+  "VAULT_STALE": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "vault_type",
+      "staleness_minutes"
+    ]
+  },
+  "VAULT_INTEGRITY_FAIL": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "vault_type",
+      "error_detail"
+    ]
+  },
+  "CTS_REVIEW_TIMEOUT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "elapsed_minutes"
+    ]
+  },
+  "CTS_REVIEW_ASSIGNED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "reviewer_display"
+    ]
+  },
+  "CTS_NGCH_TERMINAL_FAILURE": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "error_code",
+      "retry_count"
+    ]
+  },
+  "CTS_NGCH_CERT_EXPIRED": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "cert_expiry"
+    ]
   }
 }
