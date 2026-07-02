@@ -24,7 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from apps.api.middleware.rate_limit import RateLimitMiddleware
 from apps.api.middleware.security_violations import SecurityViolationMiddleware
 from apps.api.routers import cts, ej, disputes, audit, admin, notifications
-from apps.api.routers import batch, users, mcp_connections
+from apps.api.routers import batch, users, mcp_connections, demo
 from shared.config.config_service import config_service
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
 from shared.observability.otel_setup import configure_otel
@@ -229,6 +229,7 @@ app.include_router(notifications.router_v1)
 app.include_router(batch.router_v1)
 app.include_router(users.router_v1)
 app.include_router(mcp_connections.router_v1)
+app.include_router(demo.router_v1)
 
 
 # --- Health endpoints (no auth — Kubernetes probes) ---
