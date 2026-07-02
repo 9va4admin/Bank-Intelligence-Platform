@@ -376,8 +376,8 @@ class TestUpdateConnection:
         app, store = _make_app()
         client = TestClient(app, raise_server_exceptions=False)
         created = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
-        # Manually mark ACTIVE
-        store.update(created["id"], {"status": "ACTIVE"})
+        # Drive to ACTIVE via test endpoint (mock tester always succeeds)
+        client.post(f"/v1/admin/mcp-connections/{created['id']}/test")
         resp = client.put(
             f"/v1/admin/mcp-connections/{created['id']}",
             json={"cbs_vendor": "flexcube"},
@@ -489,7 +489,7 @@ class TestTriggerSync:
     def _active_cbs_connection(self, client, store, payload=None):
         payload = payload or _SB_CBS_PAYLOAD
         created = client.post("/v1/admin/mcp-connections/", json=payload).json()
-        store.update(created["id"], {"status": "ACTIVE"})
+        client.post(f"/v1/admin/mcp-connections/{created['id']}/test")  # mock tester → ACTIVE
         return created
 
     def test_trigger_sync_returns_workflow_id(self):
@@ -516,7 +516,7 @@ class TestTriggerSync:
         app, store = _make_app()
         client = TestClient(app, raise_server_exceptions=False)
         created = client.post("/v1/admin/mcp-connections/", json=_SIG_VAULT_PAYLOAD).json()
-        store.update(created["id"], {"status": "ACTIVE"})
+        # connection_type check fires before status check in trigger_sync — no need to set ACTIVE
         resp = client.post(f"/v1/admin/mcp-connections/{created['id']}/sync")
         assert resp.status_code == 422
 
@@ -552,8 +552,8 @@ class TestPreflight:
         client = TestClient(app, raise_server_exceptions=False)
         c1 = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
         c2 = client.post("/v1/admin/mcp-connections/", json=_SIG_VAULT_PAYLOAD).json()
-        store.update(c1["id"], {"status": "ACTIVE"})
-        store.update(c2["id"], {"status": "ACTIVE"})
+        client.post(f"/v1/admin/mcp-connections/{c1['id']}/test")   # → ACTIVE
+        client.post(f"/v1/admin/mcp-connections/{c2['id']}/test")   # → ACTIVE
 
         resp = client.get("/v1/admin/mcp-connections/preflight")
         assert resp.json()["clearing_allowed"] is True
@@ -563,8 +563,8 @@ class TestPreflight:
         app, store = _make_app()
         client = TestClient(app, raise_server_exceptions=False)
         c1 = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
-        store.update(c1["id"], {"status": "ACTIVE"})
-        # Vault connection is PENDING
+        client.post(f"/v1/admin/mcp-connections/{c1['id']}/test")  # → ACTIVE
+        # Vault connection left as PENDING — blocks clearing
         client.post("/v1/admin/mcp-connections/", json=_SIG_VAULT_PAYLOAD)
 
         resp = client.get("/v1/admin/mcp-connections/preflight")
@@ -572,10 +572,14 @@ class TestPreflight:
         assert resp.json()["blocking_count"] >= 1
 
     def test_preflight_error_connection_blocks_clearing(self):
+        from apps.api.routers.mcp_connections import get_connection_tester
         app, store = _make_app()
+        # Override tester to fail → test endpoint sets status to ERROR
+        async def _fail_tester(row): return False, None, "connection refused"
+        app.dependency_overrides[get_connection_tester] = lambda: _fail_tester
         client = TestClient(app, raise_server_exceptions=False)
         c1 = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
-        store.update(c1["id"], {"status": "ERROR"})
+        client.post(f"/v1/admin/mcp-connections/{c1['id']}/test")  # → ERROR
 
         resp = client.get("/v1/admin/mcp-connections/preflight")
         assert resp.json()["clearing_allowed"] is False
@@ -584,7 +588,7 @@ class TestPreflight:
         app, store = _make_app()
         client = TestClient(app, raise_server_exceptions=False)
         c1 = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
-        store.update(c1["id"], {"status": "ACTIVE"})
+        client.post(f"/v1/admin/mcp-connections/{c1['id']}/test")  # → ACTIVE
 
         resp = client.get("/v1/admin/mcp-connections/preflight")
         checks = resp.json()["checks"]
@@ -755,7 +759,7 @@ class TestKafkaAndRedisIntegration:
         app, store, events, _ = _make_app_with_captures()
         client = TestClient(app, raise_server_exceptions=False)
         created = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
-        store.update(created["id"], {"status": "ACTIVE"})
+        client.post(f"/v1/admin/mcp-connections/{created['id']}/test")  # → ACTIVE
         client.post(f"/v1/admin/mcp-connections/{created['id']}/sync")
 
         topics = [e["topic"] for e in events]
@@ -766,7 +770,7 @@ class TestKafkaAndRedisIntegration:
         app, store, events, _ = _make_app_with_captures()
         client = TestClient(app, raise_server_exceptions=False)
         created = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
-        store.update(created["id"], {"status": "ACTIVE"})
+        client.post(f"/v1/admin/mcp-connections/{created['id']}/test")  # → ACTIVE
         resp = client.post(f"/v1/admin/mcp-connections/{created['id']}/sync")
 
         workflow_id = resp.json()["workflow_id"]
