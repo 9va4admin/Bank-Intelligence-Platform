@@ -1495,9 +1495,15 @@ PHASE 5 — Hardening (in progress, July 2026)
          workflow_id: cts-vault-delta-{bank_id}-{yyyymmddhhmm} (temporal.md convention)
          Redis preflight_writer: refreshes preflight:{bank_id} after every status change
          Audit: AuditEvent for all 6 MCP events (MCP_CONN_CREATED/UPDATED/DELETED/etc.)
+         PRODUCTION WIRED (July 2026): YugabyteDBConnectionStore (asyncpg, pgbouncer-cts),
+           real Kafka publisher via app.state.kafka_producer_cts (Request injection),
+           real Redis preflight writer via app.state.redis_cts (5-min TTL),
+           _emit_audit publishes to platform.audit.events when publisher injected,
+           main.py lifespan: asyncpg pool db_pool_cts (min=2, max=10 per pod)
+           All store methods async — in-memory fallback for dev/tests
        infra/migrations/cts/20260701_add_mcp_connection_configs.py — Alembic migration
        apps/web/src/modules/cts/pages/CTSMCPConfig.jsx — React config screen
        shared/audit/audit_event.py — 6 new AuditEventType variants
        shared/messages/locales/messages.yaml — 6 new message keys (247 total)
-       60 tests, all GREEN
+       60 tests, all GREEN (zero warnings)
 ```
