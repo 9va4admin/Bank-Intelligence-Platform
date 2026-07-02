@@ -34,6 +34,7 @@ import CTSSMBRegistry from './modules/cts/pages/CTSSMBRegistry'
 import CTSSMBLedger from './modules/cts/pages/CTSSMBLedger'
 import CTSSMBForwardingLog from './modules/cts/pages/CTSSMBForwardingLog'
 import CTSInwardPipeline from './modules/cts/pages/CTSInwardPipeline'
+import CTSDemoPipeline from './modules/cts/pages/CTSDemoPipeline'
 import CTSPresentmentFile from './modules/cts/pages/CTSPresentmentFile'
 import CTSRFDrawee from './modules/cts/pages/CTSRFDrawee'
 import CTSRecall from './modules/cts/pages/CTSRecall'
@@ -72,6 +73,7 @@ export default function App() {
         <Route path="/cts/sub-member" element={<CTSSubMember />} />
         <Route path="/cts/pipeline" element={<CTSPipelineVisualizer />} />
         <Route path="/cts/inward-pipeline" element={<CTSInwardPipeline />} />
+        <Route path="/cts/demo" element={<CTSDemoPipeline />} />
         <Route path="/cts/presentment-file" element={<CTSPresentmentFile />} />
         <Route path="/cts/rf-drawee" element={<CTSRFDrawee />} />
         <Route path="/cts/recall" element={<CTSRecall />} />
