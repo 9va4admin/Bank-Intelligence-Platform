@@ -1484,6 +1484,27 @@ PHASE 5 — Hardening (in progress, July 2026)
        Quarterly DR drill schedule Q3 2026 (01+02) → Q4 2026 (03+04)
   [x] First pilot bank Helm values — infra/helm/values/banks/saraswat-coop/
        platform.yaml (CBS=Finacle, MUMBAI zone, SMB sponsor enabled) + cts.yaml
+  [x] End-to-End Live Demo Pipeline (July 2026):
+       modules/cts/demo/ — self-contained demo requiring no GPU/Redis/Kafka/DB:
+         models.py (PresentmentStep × 8, DraweeStep × 10 enums + DemoItem/DemoSession)
+         pipeline.py (DemoPipeline: asyncio.Semaphore(5) concurrency, SSE queue,
+           deterministic failure injection by index, NPCI bank grouping)
+         csv_writer.py (write_success_csv presentment+drawee, write_failure_csv)
+       apps/api/routers/demo.py — 8 endpoints:
+         POST /v1/demo/sessions (create + optional filenames)
+         POST /v1/demo/sessions/{id}/upload (drag-drop real files)
+         GET  /v1/demo/sessions/{id}/stream (SSE real-time event stream)
+         POST /v1/demo/sessions/{id}/run-presentment (BackgroundTasks)
+         POST /v1/demo/sessions/{id}/run-drawee (asyncio.create_task)
+         GET  /v1/demo/sessions/{id}/csv/{phase}-{success|failure} (4 CSVs)
+       apps/web/src/modules/cts/pages/CTSDemoPipeline.jsx:
+         5-phase progress bar, drag-and-drop upload zone, "Load 12 Sample Cheques",
+         stage chip grid (8 presentment / 10 drawee) with live pulse animations,
+         left item queue, center live processing table + NPCI routing cards,
+         right real-time SSE event feed + CSV download shortcuts
+         Route: /cts/demo; Sidebar: "⚡ Live Demo" in Drawee Process section
+       37 tests: 26 sync GREEN in 5s; 11 async pass (slower — real sleep delays)
+
   [x] MCP Connection Config API + UI (July 2026):
        apps/api/routers/mcp_connections.py — 8 routes (preflight, CRUD, test, sync)
          SB_CBS / SMB_CBS / SIGNATURE_VAULT / PPS_VAULT / CANCELLED_LEAF connection types
