@@ -26,7 +26,7 @@ from apps.api.middleware.security_violations import SecurityViolationMiddleware
 from apps.api.routers import cts, ej, disputes, audit, admin, notifications
 from apps.api.routers import batch, users, mcp_connections
 from shared.config.config_service import config_service
-from shared.event_bus.producer import KafkaEventProducer
+from shared.event_bus.producer import EventProducer as KafkaEventProducer
 from shared.observability.otel_setup import configure_otel
 
 log = structlog.get_logger()
@@ -111,6 +111,23 @@ async def lifespan(app: FastAPI):
         log.error("api_gateway.kafka_ej_producer_failed", error=str(exc))
         app.state.kafka_producer_ej = None
 
+    # --- YugabyteDB CTS connection pool (pgbouncer-cts endpoint) ---
+    # Used by mcp_connections router (YugabyteDBConnectionStore) and future CTS routers.
+    # Isolated from EJ schema — pgbouncer-cts has access to cts schema only.
+    try:
+        import asyncpg
+        db_cts_dsn = await config_service.get_secret("db.cts.dsn")
+        app.state.db_pool_cts = await asyncpg.create_pool(
+            dsn=db_cts_dsn,
+            min_size=2,
+            max_size=10,  # matches pgbouncer-cts max_connections per pod
+            command_timeout=30,
+        )
+        log.info("api_gateway.db_pool_cts_ready")
+    except Exception as exc:
+        log.error("api_gateway.db_pool_cts_failed", error=str(exc))
+        app.state.db_pool_cts = None
+
     # --- Temporal client ---
     try:
         from temporalio.client import Client as TemporalClient
@@ -162,6 +179,9 @@ async def lifespan(app: FastAPI):
         await app.state.redis_cts.aclose()
     if app.state.redis_ej:
         await app.state.redis_ej.aclose()
+
+    if getattr(app.state, "db_pool_cts", None):
+        await app.state.db_pool_cts.close()
 
     if app.state.kafka_producer_cts:
         app.state.kafka_producer_cts.flush()

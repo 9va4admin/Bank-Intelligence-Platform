@@ -22,11 +22,12 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Security
+from fastapi import APIRouter, Depends, HTTPException, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from shared.audit.audit_event import AuditEvent, AuditEventType
+from shared.event_bus.producer import EventProducer as KafkaEventProducer
 
 log = structlog.get_logger()
 
@@ -43,38 +44,38 @@ bearer = HTTPBearer(auto_error=False)
 
 
 class _ConnectionStore:
-    """Thread-safe in-memory store for MCP connection configs.
+    """In-memory store for MCP connection configs (dev/test fallback).
 
-    Each record keyed by id string. In production: YugabyteDB cts schema.
+    Each record keyed by id string. Production: YugabyteDBConnectionStore below.
     """
 
     def __init__(self):
         self._rows: Dict[str, dict] = {}
 
-    def all_for_bank(self, bank_id: str) -> List[dict]:
+    async def all_for_bank(self, bank_id: str) -> List[dict]:
         return [r for r in self._rows.values() if r["bank_id"] == bank_id]
 
-    def get(self, connection_id: str) -> Optional[dict]:
+    async def get(self, connection_id: str) -> Optional[dict]:
         return self._rows.get(connection_id)
 
-    def insert(self, row: dict) -> dict:
+    async def insert(self, row: dict) -> dict:
         self._rows[row["id"]] = row
         return row
 
-    def update(self, connection_id: str, fields: dict) -> Optional[dict]:
+    async def update(self, connection_id: str, fields: dict) -> Optional[dict]:
         if connection_id not in self._rows:
             return None
         self._rows[connection_id].update(fields)
         self._rows[connection_id]["updated_at"] = _now()
         return self._rows[connection_id]
 
-    def delete(self, connection_id: str) -> bool:
+    async def delete(self, connection_id: str) -> bool:
         if connection_id not in self._rows:
             return False
         del self._rows[connection_id]
         return True
 
-    def exists(self, bank_id: str, connection_type: str, smb_id: Optional[str]) -> bool:
+    async def exists(self, bank_id: str, connection_type: str, smb_id: Optional[str]) -> bool:
         for r in self._rows.values():
             if (
                 r["bank_id"] == bank_id
@@ -85,24 +86,130 @@ class _ConnectionStore:
         return False
 
 
+def _db_record_to_dict(row: Any) -> dict:
+    """Convert asyncpg Record to plain dict; normalise UUID → str, datetime → ISO str."""
+    import uuid as _uuid
+    d = {}
+    for k, v in dict(row).items():
+        if isinstance(v, datetime):
+            d[k] = v.isoformat()
+        elif isinstance(v, _uuid.UUID):
+            d[k] = str(v)
+        else:
+            d[k] = v
+    return d
+
+
+class YugabyteDBConnectionStore:
+    """Production store backed by YugabyteDB cts.mcp_connection_configs table.
+
+    Requires asyncpg pool from app.state.db_pool_cts (pgbouncer-cts endpoint).
+    Schema defined in infra/migrations/cts/20260701_add_mcp_connection_configs.py.
+    """
+
+    _COLS = (
+        "id, bank_id, connection_type, smb_id, smb_name, cbs_vendor, "
+        "endpoint_url, vault_secret_ref, status, last_tested_at, "
+        "last_test_latency_ms, last_sync_at, vault_record_count, "
+        "error_message, created_at, updated_at, created_by"
+    )
+
+    def __init__(self, pool: Any) -> None:
+        self._pool = pool
+
+    async def all_for_bank(self, bank_id: str) -> List[dict]:
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                f"SELECT {self._COLS} FROM cts.mcp_connection_configs "
+                "WHERE bank_id = $1 ORDER BY created_at",
+                bank_id,
+            )
+        return [_db_record_to_dict(r) for r in rows]
+
+    async def get(self, connection_id: str) -> Optional[dict]:
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                f"SELECT {self._COLS} FROM cts.mcp_connection_configs WHERE id = $1",
+                connection_id,
+            )
+        return _db_record_to_dict(row) if row else None
+
+    async def insert(self, row: dict) -> dict:
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO cts.mcp_connection_configs "
+                "(id, bank_id, connection_type, smb_id, smb_name, cbs_vendor, "
+                " endpoint_url, vault_secret_ref, status, created_at, created_by) "
+                "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+                row["id"], row["bank_id"], row["connection_type"],
+                row.get("smb_id"), row.get("smb_name"), row.get("cbs_vendor"),
+                row.get("endpoint_url"), row.get("vault_secret_ref"),
+                row["status"], row["created_at"], row["created_by"],
+            )
+        return row
+
+    async def update(self, connection_id: str, fields: dict) -> Optional[dict]:
+        if not fields:
+            return await self.get(connection_id)
+        set_clauses, values = [], []
+        for i, (k, v) in enumerate(fields.items(), start=1):
+            set_clauses.append(f"{k} = ${i}")
+            values.append(v)
+        # Always stamp updated_at unless caller already set it
+        if "updated_at" not in fields:
+            set_clauses.append(f"updated_at = ${len(values) + 1}")
+            values.append(_now())
+        values.append(connection_id)
+        sql = (
+            f"UPDATE cts.mcp_connection_configs SET {', '.join(set_clauses)} "
+            f"WHERE id = ${len(values)}"
+        )
+        async with self._pool.acquire() as conn:
+            await conn.execute(sql, *values)
+        return await self.get(connection_id)
+
+    async def delete(self, connection_id: str) -> bool:
+        async with self._pool.acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM cts.mcp_connection_configs WHERE id = $1", connection_id
+            )
+        return result == "DELETE 1"
+
+    async def exists(self, bank_id: str, connection_type: str, smb_id: Optional[str]) -> bool:
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT 1 FROM cts.mcp_connection_configs "
+                "WHERE bank_id = $1 AND connection_type = $2 "
+                "AND COALESCE(smb_id, '') = COALESCE($3, '') LIMIT 1",
+                bank_id, connection_type, smb_id,
+            )
+        return row is not None
+
+
 _global_store = _ConnectionStore()
 
 
-def get_store() -> _ConnectionStore:
+def get_store(request: Request) -> Any:
+    """Return YugabyteDB store in production; in-memory store in dev/tests."""
+    pool = getattr(request.app.state, "db_pool_cts", None)
+    if pool is not None:
+        return YugabyteDBConnectionStore(pool)
     return _global_store
 
 
 # ── Audit emit ───────────────────────────────────────────────────────────────
 
 
-async def _emit_audit(event_type: AuditEventType, bank_id: str, payload: dict) -> None:
-    """Emit an MCP connection audit event.
+async def _emit_audit(
+    event_type: AuditEventType,
+    bank_id: str,
+    payload: dict,
+    event_publisher: Optional[Callable] = None,
+) -> None:
+    """Emit an MCP connection audit event to platform.audit.events Kafka topic.
 
-    In production: publishes to platform.audit.events Kafka topic → audit-service
-    writes to Immudb with HSM signature.
-
-    Fire-and-forget from router perspective — failures are logged but do not
-    block the HTTP response (Temporal audit-service handles retries).
+    audit-service consumes and writes to Immudb with HSM signature.
+    Fire-and-forget — failures are logged, never block the HTTP response.
     """
     try:
         event = AuditEvent(
@@ -110,15 +217,21 @@ async def _emit_audit(event_type: AuditEventType, bank_id: str, payload: dict) -
             bank_id=bank_id,
             payload=payload,
         )
-        # In production: kafka_producer.publish("platform.audit.events", event.to_json())
         log.info(
             "mcp_conn.audit_event",
             event_type=event_type.value,
             bank_id=bank_id,
             event_id=event.event_id,
         )
+        if event_publisher is not None:
+            await event_publisher("platform.audit.events", {
+                "event_type": event_type.value,
+                "event_id": event.event_id,
+                "bank_id": bank_id,
+                "timestamp": event.timestamp,
+                **payload,
+            })
     except Exception as exc:
-        # Never let audit failure break the user-facing operation
         log.error("mcp_conn.audit_emit_failed", event_type=event_type.value, bank_id=bank_id, error=str(exc))
 
 
@@ -204,19 +317,40 @@ async def _default_event_publisher(topic: str, payload: dict) -> None:
     )
 
 
-def get_event_publisher() -> Callable:
-    return _default_event_publisher
+def get_event_publisher(request: Request) -> Callable:
+    """Return real Kafka publisher when app.state.kafka_producer_cts is available.
+
+    Falls back to log stub in dev/tests. Tests override via dependency_overrides.
+    CTS producer only — enforces module isolation (cts.* and platform.* topics).
+    """
+    producer: Optional[KafkaEventProducer] = getattr(
+        request.app.state, "kafka_producer_cts", None
+    )
+    if producer is None:
+        return _default_event_publisher
+
+    async def _real_publisher(topic: str, payload: dict) -> None:
+        try:
+            await producer.publish(
+                topic=topic,
+                event_type=payload.get("event_type", "MCP_EVENT"),
+                payload=payload,
+                schema_version="1.0",
+            )
+        except Exception as exc:
+            log.error("mcp_conn.kafka_publish_failed", topic=topic, error=str(exc))
+
+    return _real_publisher
 
 
 # ── Redis preflight writer dependency ────────────────────────────────────────
 
 
 async def _default_preflight_writer(bank_id: str, clearing_allowed: bool) -> None:
-    """Write preflight state to Redis CTS cluster key preflight:{bank_id}.
+    """Preflight writer stub for dev/test — logs only.
 
-    In production: writes JSON to redis-cts so ChequeProcessingWorkflow
-    can gate-check clearing readiness without calling the API.
-    In tests: dependency_overrides replaces this with a capture list.
+    Production: replaced by real Redis writer via get_preflight_writer.
+    Tests: replaced entirely by dependency_overrides capture list.
     """
     log.info(
         "mcp_conn.preflight_redis_stub",
@@ -225,18 +359,38 @@ async def _default_preflight_writer(bank_id: str, clearing_allowed: bool) -> Non
     )
 
 
-def get_preflight_writer() -> Callable:
-    return _default_preflight_writer
+def get_preflight_writer(request: Request) -> Callable:
+    """Return real Redis writer when app.state.redis_cts is available.
+
+    Writes preflight:{bank_id} JSON to redis-cts (5-min TTL) so Temporal activities
+    can gate-check clearing readiness without calling the API.
+    Falls back to log stub in dev/tests.
+    """
+    redis_cts = getattr(request.app.state, "redis_cts", None)
+    if redis_cts is None:
+        return _default_preflight_writer
+
+    async def _real_preflight_writer(bank_id: str, clearing_allowed: bool) -> None:
+        try:
+            await redis_cts.set(
+                f"preflight:{bank_id}",
+                json.dumps({"clearing_allowed": clearing_allowed, "updated_at": _now()}),
+                ex=300,  # 5-min TTL — Temporal activities re-check on stale key
+            )
+        except Exception as exc:
+            log.error("mcp_conn.preflight_redis_failed", bank_id=bank_id, error=str(exc))
+
+    return _real_preflight_writer
 
 
 async def _update_preflight_cache(
     bank_id: str,
-    store: "_ConnectionStore",
+    store: Any,
     preflight_writer: Callable,
 ) -> None:
     """Recompute clearing_allowed from store and push to Redis preflight key."""
     try:
-        rows = store.all_for_bank(bank_id)
+        rows = await store.all_for_bank(bank_id)
         clearing_allowed = all(r["status"] == "ACTIVE" for r in rows) if rows else True
         await preflight_writer(bank_id, clearing_allowed)
     except Exception as exc:
@@ -414,10 +568,10 @@ router_v1 = APIRouter(prefix="/v1/admin/mcp-connections", tags=["MCP Connections
 @router_v1.get("/preflight", response_model=PreflightResponse)
 async def get_preflight(
     user: dict = Depends(_require_admin),
-    store: _ConnectionStore = Depends(get_store),
+    store: Any = Depends(get_store),
 ):
     """Pre-flight gate: returns clearing_allowed=True only if ALL connections are ACTIVE."""
-    rows = store.all_for_bank(user["bank_id"])
+    rows = await store.all_for_bank(user["bank_id"])
     if user["bank_type"] == "SMB":
         rows = [r for r in rows if r.get("smb_id") == user.get("smb_id")]
 
@@ -442,9 +596,9 @@ async def get_preflight(
 @router_v1.get("/", response_model=MCPConnectionListResponse)
 async def list_connections(
     user: dict = Depends(_require_admin),
-    store: _ConnectionStore = Depends(get_store),
+    store: Any = Depends(get_store),
 ):
-    rows = store.all_for_bank(user["bank_id"])
+    rows = await store.all_for_bank(user["bank_id"])
     if user["bank_type"] == "SMB":
         rows = [r for r in rows if r.get("smb_id") == user.get("smb_id")]
     conns = [_row_to_response(r) for r in rows]
@@ -459,7 +613,8 @@ async def list_connections(
 async def create_connection(
     body: MCPConnectionCreate,
     user: dict = Depends(_require_admin),
-    store: _ConnectionStore = Depends(get_store),
+    store: Any = Depends(get_store),
+    event_publisher: Callable = Depends(get_event_publisher),
 ):
     # SMB_CBS must have smb_id
     if body.connection_type == "SMB_CBS" and not body.smb_id:
@@ -471,7 +626,7 @@ async def create_connection(
             raise HTTPException(status_code=403, detail="SMB admin can only configure their own CBS connection")
 
     # Duplicate check: unique on (bank_id, connection_type, smb_id)
-    if store.exists(user["bank_id"], body.connection_type, body.smb_id):
+    if await store.exists(user["bank_id"], body.connection_type, body.smb_id):
         raise HTTPException(
             status_code=409,
             detail=f"Connection {body.connection_type} already exists for this bank/SMB",
@@ -496,13 +651,13 @@ async def create_connection(
         "updated_at": None,
         "created_by": user["user_id"],
     }
-    store.insert(row)
+    await store.insert(row)
     await _emit_audit(AuditEventType.MCP_CONN_CREATED, user["bank_id"], {
         "connection_id": row["id"],
         "connection_type": body.connection_type,
         "smb_id": body.smb_id or "—",
         "created_by": user["user_id"],
-    })
+    }, event_publisher)
     return _row_to_response(row)
 
 
@@ -510,9 +665,9 @@ async def create_connection(
 async def get_connection(
     connection_id: str,
     user: dict = Depends(_require_admin),
-    store: _ConnectionStore = Depends(get_store),
+    store: Any = Depends(get_store),
 ):
-    row = store.get(connection_id)
+    row = await store.get(connection_id)
     if not row or row["bank_id"] != user["bank_id"]:
         raise HTTPException(status_code=404, detail="Connection not found")
     _scope_check(user, row)
@@ -524,11 +679,11 @@ async def update_connection(
     connection_id: str,
     body: MCPConnectionUpdate,
     user: dict = Depends(_require_admin),
-    store: _ConnectionStore = Depends(get_store),
+    store: Any = Depends(get_store),
     event_publisher: Callable = Depends(get_event_publisher),
     preflight_writer: Callable = Depends(get_preflight_writer),
 ):
-    row = store.get(connection_id)
+    row = await store.get(connection_id)
     if not row or row["bank_id"] != user["bank_id"]:
         raise HTTPException(status_code=404, detail="Connection not found")
     _scope_check(user, row)
@@ -543,13 +698,13 @@ async def update_connection(
     if body.smb_name is not None:
         updates["smb_name"] = body.smb_name
 
-    updated = store.update(connection_id, updates)
+    updated = await store.update(connection_id, updates)
     await _emit_audit(AuditEventType.MCP_CONN_UPDATED, user["bank_id"], {
         "connection_id": connection_id,
         "connection_type": row["connection_type"],
         "updated_by": user["user_id"],
         "fields_changed": [k for k in updates if k != "status"],
-    })
+    }, event_publisher)
     # Status reset to PENDING — workers must see this within 30s (Layer 3 hot-reload)
     await event_publisher("platform.config.changed", {
         "event_type": "MCP_CONN_STATUS_CHANGED",
@@ -565,11 +720,11 @@ async def update_connection(
 async def delete_connection(
     connection_id: str,
     user: dict = Depends(_require_admin),
-    store: _ConnectionStore = Depends(get_store),
+    store: Any = Depends(get_store),
     event_publisher: Callable = Depends(get_event_publisher),
     preflight_writer: Callable = Depends(get_preflight_writer),
 ):
-    row = store.get(connection_id)
+    row = await store.get(connection_id)
     if not row or row["bank_id"] != user["bank_id"]:
         raise HTTPException(status_code=404, detail="Connection not found")
     _scope_check(user, row)
@@ -578,7 +733,7 @@ async def delete_connection(
         "connection_type": row["connection_type"],
         "smb_id": row.get("smb_id") or "—",
         "deleted_by": user["user_id"],
-    })
+    }, event_publisher)
     # MCP_CONN_DELETED surface includes NOTIFICATION — alert ops_manager
     await event_publisher("platform.notifications", {
         "event_type": "MCP_CONN_DELETED",
@@ -595,7 +750,7 @@ async def delete_connection(
         "connection_id": connection_id,
         "new_status": "DELETED",
     })
-    store.delete(connection_id)
+    await store.delete(connection_id)
     await _update_preflight_cache(user["bank_id"], store, preflight_writer)
 
 
@@ -603,12 +758,12 @@ async def delete_connection(
 async def test_connection(
     connection_id: str,
     user: dict = Depends(_require_admin),
-    store: _ConnectionStore = Depends(get_store),
+    store: Any = Depends(get_store),
     tester: Callable = Depends(get_connection_tester),
     event_publisher: Callable = Depends(get_event_publisher),
     preflight_writer: Callable = Depends(get_preflight_writer),
 ):
-    row = store.get(connection_id)
+    row = await store.get(connection_id)
     if not row or row["bank_id"] != user["bank_id"]:
         raise HTTPException(status_code=404, detail="Connection not found")
     _scope_check(user, row)
@@ -616,7 +771,7 @@ async def test_connection(
     success, latency_ms, error = await tester(row)
     new_status = "ACTIVE" if success else "ERROR"
 
-    store.update(connection_id, {
+    await store.update(connection_id, {
         "status": new_status,
         "last_tested_at": _now(),
         "last_test_latency_ms": latency_ms,
@@ -630,7 +785,7 @@ async def test_connection(
         "latency_ms": latency_ms,
         "error": error or "—",
         "tested_by": user["user_id"],
-    })
+    }, event_publisher)
     # Status changed — workers must reload within 30s (Layer 3 config hot-reload)
     await event_publisher("platform.config.changed", {
         "event_type": "MCP_CONN_STATUS_CHANGED",
@@ -663,10 +818,10 @@ async def test_connection(
 async def trigger_sync(
     connection_id: str,
     user: dict = Depends(_require_admin),
-    store: _ConnectionStore = Depends(get_store),
+    store: Any = Depends(get_store),
     event_publisher: Callable = Depends(get_event_publisher),
 ):
-    row = store.get(connection_id)
+    row = await store.get(connection_id)
     if not row or row["bank_id"] != user["bank_id"]:
         raise HTTPException(status_code=404, detail="Connection not found")
     _scope_check(user, row)
@@ -689,7 +844,7 @@ async def trigger_sync(
     now_dt = datetime.now(timezone.utc)
     workflow_id = f"cts-vault-delta-{user['bank_id']}-{now_dt.strftime('%Y%m%d%H%M')}"
     now = _now()
-    store.update(connection_id, {"last_sync_at": now})
+    await store.update(connection_id, {"last_sync_at": now})
 
     # Publish to cts.vault.delta.{bank_id} — KEDA triggers DeltaVaultSyncWorkflow
     bank_id = user["bank_id"]
@@ -708,7 +863,7 @@ async def trigger_sync(
         "connection_type": row["connection_type"],
         "workflow_id": workflow_id,
         "triggered_by": user["user_id"],
-    })
+    }, event_publisher)
 
     return TriggerSyncResponse(
         connection_id=connection_id,
