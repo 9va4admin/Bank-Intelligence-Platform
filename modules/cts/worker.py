@@ -81,7 +81,7 @@ from modules.cts.workflows.activities.ocr import ocr_extract
 from modules.cts.workflows.activities.alteration import detect_alteration
 from modules.cts.workflows.activities.signature import verify_signature
 from modules.cts.workflows.activities.pps import lookup_pps
-from modules.cts.workflows.activities.cbs import check_cbs_balance
+from modules.cts.workflows.activities.cbs import check_cbs_balance, check_account_status
 from modules.cts.workflows.activities.fraud import score_fraud
 from modules.cts.workflows.activities.decision import synthesise_decision
 from modules.cts.workflows.activities.ngch_filer import file_to_ngch
@@ -122,6 +122,7 @@ ALL_ACTIVITIES = [
     verify_signature,
     lookup_pps,
     check_cbs_balance,
+    check_account_status,
     score_fraud,
     synthesise_decision,
     file_to_ngch,

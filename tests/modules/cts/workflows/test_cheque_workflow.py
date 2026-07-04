@@ -30,28 +30,39 @@ def _make_workflow_input(instrument_id="INST001", bank_id="test-bank"):
     )
 
 
-def _make_all_proceed_results():
-    """All activities return proceed — happy path."""
-    from modules.cts.workflows.activities.ocr import OCRActivityResult
+def _make_all_proceed_results(instrument_id="INST001"):
+    """All activities return proceed — happy path. Phase 3: no OCR key."""
+    from unittest.mock import MagicMock
     from modules.cts.workflows.activities.alteration import AlterationActivityResult
     from modules.cts.workflows.activities.signature import SignatureActivityResult
     from modules.cts.workflows.activities.pps import PPSActivityResult
     from modules.cts.workflows.activities.cbs import CBSActivityResult
+    from modules.cts.workflows.activities.stop_payment import StopPaymentActivityResult
     from modules.cts.workflows.activities.fraud import FraudActivityResult
     from modules.cts.workflows.activities.decision import DecisionResult
 
+    compliance_mock = MagicMock()
+    compliance_mock.is_compliant = True
+    compliance_mock.violations = []
+
+    account_status_mock = MagicMock()
+    account_status_mock.outcome = "PROCEED"
+    account_status_mock.account_status = "ACTIVE"
+
     return {
-        "ocr": OCRActivityResult(
-            outcome="PROCEED", micr_line="123456789012345",
-            amount_figures="50000.00", overall_confidence=0.97,
-        ),
+        # Phase 3 order: alteration FIRST (no ocr)
         "alteration": AlterationActivityResult(alteration_detected=False, tamper_risk_score=0.02),
-        "signature": SignatureActivityResult(outcome="PROCEED", match_score=0.95),
+        "compliance": compliance_mock,
+        "stop_payment": StopPaymentActivityResult(
+            outcome="PROCEED", bank_id="test-bank", instrument_id=instrument_id,
+        ),
         "pps": PPSActivityResult(outcome="PROCEED"),
-        "cbs": CBSActivityResult(outcome="PROCEED", account_status="ACTIVE", available_balance=200000.0),
+        "signature": SignatureActivityResult(outcome="PROCEED", match_score=0.95),
         "fraud": FraudActivityResult(fraud_score=0.05, shap_values={"amount": 0.01}),
+        "cbs": CBSActivityResult(outcome="PROCEED", account_status="ACTIVE", available_balance=200000.0),
+        "account_status": account_status_mock,
         "decision": DecisionResult(
-            instrument_id="INST001",
+            instrument_id=instrument_id,
             decision="STP_CONFIRM",
             rationale="All signals clean",
             shap_values={"amount": 0.01},
@@ -133,16 +144,15 @@ class TestChequeWorkflowOrchestration:
 
     @pytest.mark.asyncio
     async def test_stp_return_on_frozen_account(self):
+        """Phase 3: frozen account detected via account_status step."""
         from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
-        from modules.cts.workflows.activities.cbs import CBSActivityResult
-        from modules.cts.workflows.activities.decision import DecisionResult
+        from unittest.mock import MagicMock
 
         results = _make_all_proceed_results()
-        results["cbs"] = CBSActivityResult(outcome="RETURN", account_status="FROZEN")
-        results["decision"] = DecisionResult(
-            instrument_id="INST001", decision="STP_RETURN",
-            rationale="CBS frozen", shap_values={},
-        )
+        account_status_mock = MagicMock()
+        account_status_mock.outcome = "RETURN"
+        account_status_mock.account_status = "FROZEN"
+        results["account_status"] = account_status_mock
 
         wf = ChequeProcessingWorkflow()
         result = await wf.run_with_mocks(_make_workflow_input(), mock_results=results)
@@ -199,20 +209,15 @@ class TestChequeWorkflowOrchestration:
         async def track_watchdog(*a, **kw):
             call_order.append("watchdog")
 
-        async def track_ocr(*a, **kw):
-            call_order.append("ocr")
-            return _make_all_proceed_results()["ocr"]
-
         await wf.run_with_mocks(
             _make_workflow_input(),
             mock_results=_make_all_proceed_results(),
             on_watchdog_spawn=track_watchdog,
-            on_ocr_call=track_ocr,
         )
 
-        watchdog_idx = call_order.index("watchdog") if "watchdog" in call_order else -1
-        ocr_idx = call_order.index("ocr") if "ocr" in call_order else 999
-        assert watchdog_idx < ocr_idx
+        # Watchdog must have been called
+        assert "watchdog" in call_order
+        assert wf._watchdog_spawned is True
 
 
 # ---------------------------------------------------------------------------
@@ -302,11 +307,14 @@ class TestStopPaymentGate:
 
     @pytest.mark.asyncio
     async def test_no_stop_payment_result_continues_normally(self):
-        """If stop_payment key absent, workflow continues to alteration/signature/fraud."""
+        """PROCEED stop_payment continues to full pipeline. Phase 3: stop_payment is required."""
         from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
+        from modules.cts.workflows.activities.stop_payment import StopPaymentActivityResult
 
         results = _make_all_proceed_results()
-        # No "stop_payment" key — workflow must not crash and must reach STP_CONFIRM
+        results["stop_payment"] = StopPaymentActivityResult(
+            outcome="PROCEED", bank_id="test-bank", instrument_id="INST001",
+        )
         wf = ChequeProcessingWorkflow()
         result = await wf.run_with_mocks(_make_workflow_input(), mock_results=results)
         assert result.decision == "STP_CONFIRM"
@@ -330,11 +338,12 @@ class TestStopPaymentGate:
 class TestChequeWorkflowSubMember:
     @pytest.mark.asyncio
     async def test_sub_member_stp_return_triggers_notification(self):
-        """Covers lines 110-129: sub_member_id set + STP_RETURN → notify_sub_member_return called."""
+        """sub_member_id set + decision=STP_RETURN → sub_member notified + ledger updated."""
         from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
         from modules.cts.workflows.activities.decision import DecisionResult
 
         results = _make_all_proceed_results()
+        # Reach full decision step with STP_RETURN (all checks pass, decision says return)
         results["decision"] = DecisionResult(
             instrument_id="INST001",
             decision="STP_RETURN",
@@ -348,12 +357,13 @@ class TestChequeWorkflowSubMember:
 
         wf = ChequeProcessingWorkflow()
         result = await wf.run_with_mocks(_make_workflow_input(), mock_results=results)
+        assert result.decision == "STP_RETURN"
         assert result.sub_member_notified is True
         assert result.ledger_updated is True
 
     @pytest.mark.asyncio
     async def test_sub_member_stp_confirm_updates_ledger_not_notified(self):
-        """Covers lines 131-139: sub_member_id + STP_CONFIRM → ledger updated, no notification."""
+        """sub_member_id + STP_CONFIRM → ledger updated, no notification."""
         from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
 
         results = _make_all_proceed_results()
