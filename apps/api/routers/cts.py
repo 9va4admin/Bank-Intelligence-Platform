@@ -384,7 +384,7 @@ async def submit_review_decision(
 )
 async def get_human_review_queue(
     request: Request,
-    bank_id: str = Depends(get_current_bank_id),
+    ctx: UserContext = Depends(get_current_user_context),
     limit: int = 50,
 ) -> QueueResponse:
     """
@@ -392,28 +392,37 @@ async def get_human_review_queue(
     Items are sorted by IET deadline ascending (most urgent first).
     When Temporal is unavailable, returns an empty queue rather than 503
     so the workstation can still load.
+
+    Row-level isolation: SMB users see only their own instruments.
+    smb_instrument_filter() returns (effective_bank_id, smb_id_filter).
     """
     if limit > 100:
         limit = 100
+
+    policy = RBACPolicy()
+    eff_bank_id, smb_id_filter = policy.smb_instrument_filter(ctx)
 
     temporal_client = getattr(request.app.state, "temporal_client", None)
     items: list[QueueItem] = []
 
     if temporal_client is not None:
         try:
-            # Query Temporal for open HumanReviewWorkflow instances for this bank.
-            # Uses Temporal's visibility query API (requires Elasticsearch-backed visibility).
+            # Query Temporal for open HumanReviewWorkflow instances.
+            # SMB users: add SmbId filter to enforce row-level isolation.
             query = (
                 f"WorkflowType = 'HumanReviewWorkflow' "
                 f"AND ExecutionStatus = 'Running' "
-                f"AND BankId = '{bank_id}'"
+                f"AND BankId = '{eff_bank_id}'"
             )
+            if smb_id_filter:
+                query += f" AND SmbId = '{smb_id_filter}'"
+
             async for wf in temporal_client.list_workflows(query=query, page_size=limit):
                 memo = wf.memo or {}
                 items.append(QueueItem(
                     instrument_id=memo.get("instrument_id", wf.id.split("-")[-1]),
                     workflow_id=wf.id,
-                    bank_id=bank_id,
+                    bank_id=eff_bank_id,
                     account_display=memo.get("account_display", "****????"),
                     payee_display=memo.get("payee_display", "?***"),
                     amount_range=memo.get("amount_range", "₹[unknown]"),
@@ -426,14 +435,14 @@ async def get_human_review_queue(
                     sig_match_score=memo.get("sig_match_score"),
                 ))
         except Exception as exc:
-            log.warning("cts.queue_fetch_error", bank_id=bank_id, error=str(exc))
+            log.warning("cts.queue_fetch_error", bank_id=eff_bank_id, error=str(exc))
 
     # Sort by IET deadline ascending — most urgent first
     items.sort(key=lambda x: x.iet_deadline)
 
-    log.info("cts.queue_fetched", bank_id=bank_id, count=len(items))
+    log.info("cts.queue_fetched", bank_id=eff_bank_id, smb_filter=smb_id_filter, count=len(items))
 
-    return QueueResponse(items=items, total=len(items), bank_id=bank_id)
+    return QueueResponse(items=items, total=len(items), bank_id=eff_bank_id)
 
 
 # ---------------------------------------------------------------------------

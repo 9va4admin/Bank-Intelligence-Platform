@@ -213,6 +213,7 @@ class UserContext(BaseModel):
     engagement_expires_at: Optional[float] = None
     engagement_date_from: Optional[str] = None
     engagement_date_to: Optional[str] = None
+    sponsor_bank_id: Optional[str] = None      # SMB users only: the SB they route through
 
 
 def has_permission(user: UserContext, permission: Permission) -> bool:
@@ -328,3 +329,22 @@ class RBACPolicy:
         if user.bank_type == BankType.SB:
             return None
         return user.bank_id
+
+    def smb_instrument_filter(self, user: UserContext) -> tuple[str, Optional[str]]:
+        """
+        Returns (effective_bank_id, smb_id_filter) for instrument queries.
+
+        SB user:  effective_bank_id = user.bank_id, smb_id_filter = None (sees all SMBs)
+        SMB user: effective_bank_id = sponsor_bank_id (or own bank_id if no sponsor),
+                  smb_id_filter = user.bank_id (row-level isolation to this SMB only)
+
+        Usage in SQL:
+          WHERE bank_id = $1 [AND smb_id = $2]   -- $2 only when smb_id_filter is not None
+        Usage in Temporal query:
+          BankId = '{eff_bank}' [AND SmbId = '{smb_filter}']
+        """
+        if user.bank_type == BankType.SB:
+            return (user.bank_id, None)
+        # SMB: instruments are stored under the sponsor SB's bank_id namespace
+        eff_bank = user.sponsor_bank_id if user.sponsor_bank_id else user.bank_id
+        return (eff_bank, user.bank_id)

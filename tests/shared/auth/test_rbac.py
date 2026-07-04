@@ -734,3 +734,65 @@ class TestLoginLogAccess:
                 permission_level=PermissionLevel.ADMIN,
             )
             assert has_permission(user, Permission.LOGIN_LOG_DELETE) is False
+
+
+class TestSMBInstrumentFilter:
+    """Phase 5 — Row-level isolation: smb_instrument_filter() for safe query scoping."""
+
+    def _sb_user(self):
+        return UserContext(
+            user_id="sb-ops-1", role=Role.OPS_MANAGER,
+            bank_id="saraswat-coop", bank_type=BankType.SB,
+            permission_level=PermissionLevel.EDIT,
+        )
+
+    def _smb_user(self, smb_id="cosmos-coop", sponsor="saraswat-coop"):
+        return UserContext(
+            user_id="smb-edit-1", role=Role.SMB_EDITOR,
+            bank_id=smb_id, bank_type=BankType.SMB,
+            permission_level=PermissionLevel.EDIT,
+            sponsor_bank_id=sponsor,
+        )
+
+    def test_sb_filter_returns_own_bank_id_no_smb_restriction(self):
+        """SB user: effective_bank_id = own bank, smb_id_filter = None (sees all SMBs)."""
+        policy = RBACPolicy()
+        eff_bank, smb_filter = policy.smb_instrument_filter(self._sb_user())
+        assert eff_bank == "saraswat-coop"
+        assert smb_filter is None
+
+    def test_smb_filter_returns_sponsor_bank_and_own_smb_id(self):
+        """SMB user: effective_bank_id = sponsor bank, smb_id_filter = own bank_id."""
+        policy = RBACPolicy()
+        eff_bank, smb_filter = policy.smb_instrument_filter(self._smb_user())
+        assert eff_bank == "saraswat-coop"    # query SB's data store
+        assert smb_filter == "cosmos-coop"    # filtered to this SMB only
+
+    def test_smb_filter_without_sponsor_falls_back_to_own_bank(self):
+        """SMB user with no sponsor_bank_id: effective_bank_id falls back to own bank_id."""
+        smb_no_sponsor = UserContext(
+            user_id="smb-ns-1", role=Role.SMB_VIEWER,
+            bank_id="no-sponsor-ucb", bank_type=BankType.SMB,
+            permission_level=PermissionLevel.READ_ONLY,
+            # sponsor_bank_id not set
+        )
+        policy = RBACPolicy()
+        eff_bank, smb_filter = policy.smb_instrument_filter(smb_no_sponsor)
+        assert eff_bank == "no-sponsor-ucb"
+        assert smb_filter == "no-sponsor-ucb"
+
+    def test_sponsor_bank_id_field_defaults_to_none(self):
+        """UserContext backward compat: sponsor_bank_id is optional, defaults None."""
+        user = UserContext(
+            user_id="u", role=Role.OPS_MANAGER,
+            bank_id="b", bank_type=BankType.SB,
+            permission_level=PermissionLevel.EDIT,
+        )
+        assert user.sponsor_bank_id is None
+
+    def test_smb_user_can_set_sponsor_bank_id(self):
+        """SMB UserContext accepts sponsor_bank_id from JWT."""
+        user = self._smb_user(smb_id="cosmos-coop", sponsor="saraswat-coop")
+        assert user.sponsor_bank_id == "saraswat-coop"
+        assert user.bank_id == "cosmos-coop"
+        assert user.bank_type == BankType.SMB
