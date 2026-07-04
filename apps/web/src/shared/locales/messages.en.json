@@ -1517,6 +1517,50 @@
       "session_id"
     ]
   },
+  "CTS_SMB_HUMAN_REVIEW_ASSIGNED": {
+    "text": "Cheque {instrument_id} for {smb_name} assigned to SMB review queue — reason: {reason}. Sponsor bank: {sponsor_bank}. IET deadline: {iet_deadline}.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_name",
+      "instrument_id",
+      "reason",
+      "sponsor_bank",
+      "iet_deadline"
+    ]
+  },
+  "CTS_SMB_DECISION_FILED": {
+    "text": "SMB review decision filed for {instrument_id} ({smb_name}): {decision} by {filed_by}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "smb_name",
+      "instrument_id",
+      "decision",
+      "filed_by"
+    ]
+  },
+  "CTS_SMB_SETTLEMENT_AVAILABLE": {
+    "text": "Settlement report available for {smb_name} — session {session_id}: {instrument_count} instruments settled on {settlement_date}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_name",
+      "session_id",
+      "instrument_count",
+      "settlement_date"
+    ]
+  },
   "CBS_BALANCE_CHECK_OK": {
     "text": "Balance check passed for {account_display} — {instrument_id} proceeds.",
     "severity": "INFO",

@@ -1517,6 +1517,50 @@
       "session_id"
     ]
   },
+  "CTS_SMB_HUMAN_REVIEW_ASSIGNED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_name",
+      "instrument_id",
+      "reason",
+      "sponsor_bank",
+      "iet_deadline"
+    ]
+  },
+  "CTS_SMB_DECISION_FILED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "smb_name",
+      "instrument_id",
+      "decision",
+      "filed_by"
+    ]
+  },
+  "CTS_SMB_SETTLEMENT_AVAILABLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_name",
+      "session_id",
+      "instrument_count",
+      "settlement_date"
+    ]
+  },
   "CBS_BALANCE_CHECK_OK": {
     "text": "",
     "severity": "INFO",
