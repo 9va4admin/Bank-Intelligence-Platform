@@ -7,6 +7,7 @@ const NAV_LINKS = [
   { label: 'EJ Intelligence', href: '#ej' },
   { label: 'Commercial', href: '#commercial' },
   { label: 'Security', href: '#security' },
+  { label: 'CTS FAQ', href: 'CTS_FAQ.html', external: true },
 ]
 
 export default function Navbar() {
@@ -44,10 +45,12 @@ export default function Navbar() {
 
         {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-7">
-          {NAV_LINKS.map(({ label, href }) => (
+          {NAV_LINKS.map(({ label, href, external }) => (
             <a
               key={href}
               href={href}
+              target={external ? '_blank' : undefined}
+              rel={external ? 'noopener noreferrer' : undefined}
               className={`text-sm font-medium transition-colors duration-200 ${
                 scrolled ? 'text-slate-500 hover:text-slate-900' : 'text-slate-300 hover:text-white'
               }`}
@@ -98,10 +101,12 @@ export default function Navbar() {
       {/* Mobile menu */}
       <div className={`md:hidden overflow-hidden transition-all duration-300 ${menuOpen ? 'max-h-96' : 'max-h-0'}`}>
         <div className={`border-b px-6 py-4 flex flex-col gap-3 ${scrolled ? 'bg-white border-slate-200' : 'bg-forest-900 border-white/10'}`}>
-          {NAV_LINKS.map(({ label, href }) => (
+          {NAV_LINKS.map(({ label, href, external }) => (
             <a
               key={href}
               href={href}
+              target={external ? '_blank' : undefined}
+              rel={external ? 'noopener noreferrer' : undefined}
               className={`text-sm py-1.5 ${scrolled ? 'text-slate-600' : 'text-slate-300'}`}
               onClick={() => setMenuOpen(false)}
             >

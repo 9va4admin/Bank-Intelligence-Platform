@@ -38,8 +38,17 @@ export default function Footer() {
                 { label: 'Security & Compliance', href: '#security' },
                 { label: 'Architecture', href: '#architecture' },
                 { label: 'Commercial Model', href: '#commercial' },
-              ].map(({ label, href }) => (
-                <a key={href} href={href} className="block text-sm text-slate-400 hover:text-white transition-colors">{label}</a>
+                { label: 'CTS FAQ', href: 'CTS_FAQ.html', external: true },
+              ].map(({ label, href, external }) => (
+                <a
+                  key={href}
+                  href={href}
+                  target={external ? '_blank' : undefined}
+                  rel={external ? 'noopener noreferrer' : undefined}
+                  className="block text-sm text-slate-400 hover:text-white transition-colors"
+                >
+                  {label}
+                </a>
               ))}
             </div>
           </div>

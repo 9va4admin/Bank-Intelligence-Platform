@@ -1,0 +1,11 @@
+{
+  "df253fb9a4615d2d12f72df7a01536a7": {
+    "instrument_hash": "df253fb9a4615d2d12f72df7a01536a7",
+    "serial_number": "100029",
+    "drawee_account": "40010010900039",
+    "amount_figures": 85000,
+    "first_presented_on": "20-05-2026 09:14",
+    "first_presented_by": "kjsb",
+    "note": "This cheque was already cleared on 20-05-2026. Second presentation is a duplicate."
+  }
+}
