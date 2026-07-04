@@ -38,6 +38,63 @@ class CBSActivityResult(BaseModel):
     degraded: bool = False
 
 
+async def check_account_status(
+    inp: CBSActivityInput,
+    cbs_connector=None,
+) -> CBSActivityResult:
+    """
+    Check account status only — FROZEN/CLOSED/NPA → RETURN, DORMANT → HUMAN_REVIEW.
+    Separated from check_cbs_balance so drawee workflow checks status independently.
+    Degrades gracefully: CBS unavailable → CBS_UNAVAILABLE (caller routes to HUMAN_REVIEW).
+    """
+    try:
+        account_info = await cbs_connector.get_account_info(
+            inp.account_number, inp.bank_id
+        )
+    except AccountNotFoundError:
+        log.info(
+            "cbs_activity.account_status.not_found",
+            account_last4=inp.account_number[-4:],
+            bank_id=inp.bank_id,
+        )
+        return CBSActivityResult(outcome="RETURN", account_status="NOT_FOUND")
+    except CBSUnavailableError as exc:
+        log.warning(
+            "cbs_activity.account_status.cbs_unavailable",
+            instrument_id=inp.instrument_id,
+            bank_id=inp.bank_id,
+            error=str(exc),
+        )
+        return CBSActivityResult(outcome="CBS_UNAVAILABLE", degraded=True)
+    except Exception as exc:
+        log.error(
+            "cbs_activity.account_status.unexpected_error",
+            instrument_id=inp.instrument_id,
+            bank_id=inp.bank_id,
+            error=str(exc),
+        )
+        return CBSActivityResult(outcome="CBS_UNAVAILABLE", degraded=True)
+
+    status = account_info.status
+
+    if status in _RETURN_STATUSES:
+        return CBSActivityResult(
+            outcome="RETURN",
+            account_status=status.value,
+        )
+
+    if status in _HUMAN_REVIEW_STATUSES:
+        return CBSActivityResult(
+            outcome="HUMAN_REVIEW",
+            account_status=status.value,
+        )
+
+    return CBSActivityResult(
+        outcome="PROCEED",
+        account_status=status.value,
+    )
+
+
 async def check_cbs_balance(
     inp: CBSActivityInput,
     cbs_connector=None,
