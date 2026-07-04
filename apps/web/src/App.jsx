@@ -33,6 +33,7 @@ import CTSNGCHRouting from './modules/cts/pages/CTSNGCHRouting'
 import CTSSMBRegistry from './modules/cts/pages/CTSSMBRegistry'
 import CTSSMBLedger from './modules/cts/pages/CTSSMBLedger'
 import CTSSMBForwardingLog from './modules/cts/pages/CTSSMBForwardingLog'
+import CTSSMBDashboard from './modules/cts/pages/CTSSMBDashboard'
 import CTSSMBReviewQueue from './modules/cts/pages/CTSSMBReviewQueue'
 import CTSInwardPipeline from './modules/cts/pages/CTSInwardPipeline'
 import CTSDemoPipeline from './modules/cts/pages/CTSDemoPipeline'
@@ -100,6 +101,7 @@ export default function App() {
         <Route path="/cts/smb/registry" element={<CTSSMBRegistry />} />
         <Route path="/cts/smb/ledger" element={<CTSSMBLedger />} />
         <Route path="/cts/smb/forwarding-log" element={<CTSSMBForwardingLog />} />
+        <Route path="/cts/smb/dashboard" element={<CTSSMBDashboard />} />
         <Route path="/cts/smb/review-queue" element={<CTSSMBReviewQueue />} />
         {/* Branch Portal — EEH branch operator screens */}
         <Route path="/branch" element={<BranchDashboard />} />
