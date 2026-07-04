@@ -61,6 +61,90 @@ thresholds:
   iet_emergency_buffer_seconds: 30     # watchdog fires 30s before IET — not configurable in spirit, but recorded
   human_review_max_wait_minutes: 55    # HumanReviewWorkflow timeout before auto-return
 
+# ── Deployment Mode (BANK-CONFIGURABLE, Phase 2) ────────────────────────────
+# Controls which sub-scenarios are active. All disabled by default — banks opt in
+# by setting the relevant flag in their cts.yaml Layer 2 override.
+deployment_mode: SB_NGCH            # SB_NGCH | AGENCY_SB_RELAY (Phase 5+)
+
+# ── Processing Units (BANK-CONFIGURABLE) ────────────────────────────────────
+# PU IDs for this bank's clearing footprint. Set in bank cts.yaml.
+# Each PU hosts an independent Temporal task queue: cts-processing-{bank_id}-{pu_id}
+pu:
+  ids: []                             # e.g. [MUMBAI-MAIN, MUMBAI-ANDHERI, DELHI-MAIN]
+
+# ── EEH — External Exchange Hub (BANK-CONFIGURABLE) ─────────────────────────
+# Branch-facing gateway: gRPC upload stream + SSE feed + session management.
+# Deployed into astra-cts-{bank_id} namespace with Istio mTLS.
+# Requires: redis-cts (sessions + SSE pub/sub), pgbouncer-cts (session persistence).
+eeh:
+  enabled: false                      # opt-in per bank — set true when branches connect
+  image:
+    repository: registry.astra.internal/astra/eeh-service
+    tag: ""                           # defaults to Chart appVersion
+    pullPolicy: IfNotPresent
+
+  # REST + SSE endpoint (FastAPI, uvicorn)
+  rest_port: 8000
+  # gRPC endpoint (EEHServicer — UploadCheque, SealLot, GetMismatchQueue, etc.)
+  grpc_port: 50051
+
+  # Pod sizing — EEH is steady-state; not KEDA-driven (no Kafka lag queue)
+  replicas: 2                         # min 2 for HA (one per DC if active-active)
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "2000m"
+      memory: "2Gi"
+
+  # Session config (Layer 3 seeds — overridable via Admin UI after onboarding)
+  session_ttl_hours: 4                # EEH session expires 4 hours after open
+  max_concurrent_sessions_per_branch: 1   # one-session-per-branch-per-clearing-date
+
+  # Rate limits (Layer 3 — configurable via Admin UI, no restart needed)
+  rate_limit:
+    uploads_per_branch_per_minute: 50   # EEH enforces in-process; Istio enforces upstream
+
+  # mTLS cert verification — branch certs issued by SB's internal CA
+  mtls:
+    crl_cache_ttl_seconds: 300        # CRL refresh interval; expired cert = refused
+    cert_expiry_warn_days: 30         # EEH_CERT_EXPIRY_WARN message days before expiry
+    cert_expiry_critical_days: 7      # CRITICAL threshold — ops escalation
+
+  # Envoy gRPC-Web proxy (browser clients cannot speak native gRPC2)
+  envoy:
+    enabled: true                     # set false if all clients are native gRPC (scanner bridge)
+    grpc_web_port: 8443               # Envoy listens here; proxies to grpc_port
+    image: envoyproxy/envoy:v1.29-latest   # pinned minor — update on chart release
+
+  # Observability
+  otel:
+    trace_sampling_rate: 1.0          # 100% trace rate for EEH (branch sessions are precious)
+
+# ── IEH — Internal Exchange Hub (BANK-CONFIGURABLE) ─────────────────────────
+# Same codebase as EEH, different Helm values: serves SB's own branches on LAN.
+# Lighter security perimeter (internal network); no Envoy gRPC-Web needed.
+ieh:
+  enabled: false                      # opt-in per bank
+  image:
+    repository: registry.astra.internal/astra/eeh-service   # same image as EEH
+    tag: ""
+    pullPolicy: IfNotPresent
+  rest_port: 8001                     # different port to avoid clash if co-deployed
+  grpc_port: 50052
+  replicas: 2
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+  session_ttl_hours: 4
+  envoy:
+    enabled: false                    # internal branches use native gRPC (scanner bridge)
+
 # ── CTS High Availability (BANK-CONFIGURABLE, Gemini Fix C) ─────────────────
 # CTS-specific HA requirements layered on top of astra-platform ha: section.
 cts_ha:

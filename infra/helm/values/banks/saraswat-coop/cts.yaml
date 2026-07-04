@@ -70,6 +70,56 @@ ngch:
   # SFTP credentials: secret/astra/saraswat-coop/ngch/sftp_private_key (Vault)
   # REST base URL (future): secret/astra/saraswat-coop/ngch/rest_base_url (Vault)
 
+# ── Processing Units ─────────────────────────────────────────────────────────
+# Saraswat pilot: single PU covering Mumbai clearing zone.
+# Expansion to multi-PU (Andheri, Borivali RPCs) after 90-day baseline.
+deployment_mode: SB_NGCH
+pu:
+  ids: [MUMBAI-MAIN]
+
+# ── EEH — External Exchange Hub ──────────────────────────────────────────────
+# Phase 2: Saraswat external branches connect via EEH for outward clearing.
+# Initial rollout: 5 pilot branches (ANDHERI-01, BORIVALI-02, DADAR-01,
+# THANE-01, VASHI-01) connect via branch portal + scanner bridge.
+eeh:
+  enabled: true
+  replicas: 2                          # DC1 + DC2 (active-passive, promote DC2 on DC1 fail)
+  resources:
+    requests:
+      cpu: "200m"                      # pilot: light traffic, scale up post-baseline
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+  session_ttl_hours: 4
+  rate_limit:
+    uploads_per_branch_per_minute: 30  # conservative for pilot; default=50 in chart
+  mtls:
+    crl_cache_ttl_seconds: 300
+    cert_expiry_warn_days: 30
+    cert_expiry_critical_days: 7
+  envoy:
+    enabled: true                      # branch portal uses gRPC-Web (browser client)
+    grpc_web_port: 8443
+  otel:
+    trace_sampling_rate: 1.0           # 100% during pilot for full observability
+
+# IEH: Saraswat's own internal branches — same codebase, internal LAN.
+# Phase 2: 3 internal SB branches (CHURCHGATE, FORT, CST) via IEH.
+ieh:
+  enabled: true
+  replicas: 1                          # pilot: single replica; scale on volume
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  session_ttl_hours: 4
+  envoy:
+    enabled: false                     # internal branches use scanner-bridge native gRPC
+
 # ── ASTRA Chart Version ──────────────────────────────────────────────────────
 astra:
-  cts_chart_version: "0.1.0"
+  cts_chart_version: "0.2.0"          # bumped for EEH/IEH Phase 2 additions

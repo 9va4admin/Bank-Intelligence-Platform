@@ -1,0 +1,129 @@
+{{/*
+EEH / IEH Service definitions
+
+EEH: ClusterIP exposing REST+SSE (8000) and gRPC (50051).
+     Istio Ingress Gateway in the DMZ handles external exposure (MPLS/VPN-gated).
+     Branches connect: VPN → Ingress Gateway → this Service → EEH pod.
+     gRPC-Web via Envoy sidecar (port 8443) if eeh.envoy.enabled=true.
+
+IEH: Identical structure; internal ClusterIP only (no Ingress Gateway exposure).
+     SB's own branches connect on the internal LAN via Kubernetes Service DNS.
+
+ServiceAccount for both hubs (shared Vault role family).
+*/}}
+
+{{- if .Values.eeh.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: eeh-service
+  namespace: {{ printf "astra-cts-%s" .Values.global.bank_id | quote }}
+  labels:
+    app: eeh-service
+    app.kubernetes.io/component: eeh
+    app.kubernetes.io/part-of: astra-cts
+    astra.bank_id: {{ .Values.global.bank_id | quote }}
+  annotations:
+    # Istio: treat gRPC port as HTTP/2 so Envoy picks correct codec
+    # (REST port is auto-detected as HTTP/1.1 by Istio)
+    traffic.sidecar.istio.io/excludeInboundPorts: ""
+spec:
+  type: ClusterIP
+  selector:
+    app: eeh-service
+    astra.bank_id: {{ .Values.global.bank_id | quote }}
+  ports:
+    - name: rest
+      port: {{ .Values.eeh.rest_port }}
+      targetPort: rest
+      protocol: TCP
+    - name: grpc
+      port: {{ .Values.eeh.grpc_port }}
+      targetPort: grpc
+      protocol: TCP
+    {{- if .Values.eeh.envoy.enabled }}
+    - name: grpc-web
+      port: {{ .Values.eeh.envoy.grpc_web_port }}
+      targetPort: grpc-web
+      protocol: TCP
+    {{- end }}
+{{- end }}
+
+---
+
+{{- if .Values.ieh.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: ieh-service
+  namespace: {{ printf "astra-cts-%s" .Values.global.bank_id | quote }}
+  labels:
+    app: ieh-service
+    app.kubernetes.io/component: ieh
+    app.kubernetes.io/part-of: astra-cts
+    astra.bank_id: {{ .Values.global.bank_id | quote }}
+spec:
+  type: ClusterIP
+  selector:
+    app: ieh-service
+    astra.bank_id: {{ .Values.global.bank_id | quote }}
+  ports:
+    - name: rest
+      port: {{ .Values.ieh.rest_port }}
+      targetPort: rest
+      protocol: TCP
+    - name: grpc
+      port: {{ .Values.ieh.grpc_port }}
+      targetPort: grpc
+      protocol: TCP
+{{- end }}
+
+---
+
+{{/*
+Shared ServiceAccount for EEH/IEH pods.
+Created when either hub is enabled.
+Vault Kubernetes auth binds to this SA in the cts namespace.
+*/}}
+{{- if or .Values.eeh.enabled .Values.ieh.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: astra-eeh-sa
+  namespace: {{ printf "astra-cts-%s" .Values.global.bank_id | quote }}
+  labels:
+    app.kubernetes.io/part-of: astra-cts
+    astra.bank_id: {{ .Values.global.bank_id | quote }}
+  annotations:
+    # Vault Kubernetes auth method — binds to role astra-eeh-{bank_id}
+    # Vault policy for this role grants:
+    #   secret/astra/{bank_id}/redis/cts/*  — read
+    #   secret/astra/{bank_id}/db/cts/*     — read
+    #   secret/astra/{bank_id}/eeh/*        — read (CRL keys, HMAC signing key)
+    vault.hashicorp.com/role: {{ printf "astra-eeh-%s" .Values.global.bank_id | quote }}
+automountServiceAccountToken: true   # required for Vault Kubernetes auth TokenReview
+{{- end }}
+
+---
+
+{{/*
+Istio PeerAuthentication — enforce mTLS STRICT for EEH and IEH pods.
+All branch connections terminate TLS at Istio Ingress Gateway; traffic within
+the cluster always uses mTLS (pod-to-pod). This policy makes it explicit for
+the cts namespace so accidental plain-text calls are rejected at the sidecar.
+*/}}
+{{- if or .Values.eeh.enabled .Values.ieh.enabled }}
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: eeh-ieh-mtls-strict
+  namespace: {{ printf "astra-cts-%s" .Values.global.bank_id | quote }}
+  labels:
+    astra.bank_id: {{ .Values.global.bank_id | quote }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: astra-cts
+  mtls:
+    mode: STRICT
+{{- end }}

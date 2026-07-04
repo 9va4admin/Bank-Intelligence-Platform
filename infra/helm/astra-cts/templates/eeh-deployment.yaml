@@ -1,0 +1,283 @@
+{{/*
+EEH Deployment — External Exchange Hub
+
+One Deployment per bank cluster (namespace: astra-cts-{bank_id}).
+Deployed only when eeh.enabled=true (Layer 2 opt-in).
+Same Deployment object serves:
+  - FastAPI REST + SSE (port .Values.eeh.rest_port, default 8000)
+  - gRPC server (port .Values.eeh.grpc_port, default 50051)
+
+IEH (Internal Exchange Hub) is a separate Deployment using the same image
+but with .Values.ieh.* — deployed only when ieh.enabled=true.
+
+Security:
+  - Vault Agent sidecar injects VAULT_TOKEN at pod startup
+  - Istio sidecar (injected by namespace label) enforces mTLS to all other pods
+  - Non-root user (UID 1000) — matches Dockerfile USER astra
+  - readOnlyRootFilesystem = true; /tmp bind-mounted for uvicorn/grpc temp files
+*/}}
+
+{{- if .Values.eeh.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eeh-service
+  namespace: {{ printf "astra-cts-%s" .Values.global.bank_id | quote }}
+  labels:
+    app: eeh-service
+    app.kubernetes.io/component: eeh
+    app.kubernetes.io/part-of: astra-cts
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    astra.bank_id: {{ .Values.global.bank_id | quote }}
+    astra.hub_type: EEH
+  annotations:
+    astra/chart-version: {{ .Chart.Version | quote }}
+    astra/module: cts
+spec:
+  replicas: {{ .Values.eeh.replicas }}
+  selector:
+    matchLabels:
+      app: eeh-service
+      astra.bank_id: {{ .Values.global.bank_id | quote }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0         # zero-downtime — branches must not lose connection mid-clearing
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: eeh-service
+        astra.bank_id: {{ .Values.global.bank_id | quote }}
+        astra.hub_type: EEH
+      annotations:
+        # Vault Agent sidecar injection
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: {{ printf "astra-eeh-%s" .Values.global.bank_id | quote }}
+        vault.hashicorp.com/agent-inject-secret-vault-token: "auth/token/lookup-self"
+        # Prometheus scrape
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.eeh.rest_port | quote }}
+        prometheus.io/path: "/metrics"
+        # Force pod restart when values change (config hash)
+        checksum/eeh-values: {{ .Values.eeh | toYaml | sha256sum | trunc 8 | quote }}
+    spec:
+      serviceAccountName: astra-eeh-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      terminationGracePeriodSeconds: 60   # drain active uploads before shutdown
+      containers:
+        - name: eeh-service
+          image: "{{ .Values.eeh.image.repository }}:{{ .Values.eeh.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.eeh.image.pullPolicy }}
+          ports:
+            - name: rest
+              containerPort: {{ .Values.eeh.rest_port }}
+              protocol: TCP
+            - name: grpc
+              containerPort: {{ .Values.eeh.grpc_port }}
+              protocol: TCP
+          env:
+            - name: SERVICE_NAME
+              value: "eeh-service"
+            - name: VAULT_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: astra-vault-addr
+                  key: addr
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vault-token-eeh
+                  key: token
+            - name: BANK_ID
+              value: {{ .Values.global.bank_id | quote }}
+            - name: HUB_TYPE
+              value: "EEH"
+            - name: REST_PORT
+              value: {{ .Values.eeh.rest_port | quote }}
+            - name: GRPC_PORT
+              value: {{ .Values.eeh.grpc_port | quote }}
+            - name: EEH_SESSION_TTL_HOURS
+              value: {{ .Values.eeh.session_ttl_hours | quote }}
+            - name: EEH_RATE_LIMIT_UPLOADS_PER_MIN
+              value: {{ .Values.eeh.rate_limit.uploads_per_branch_per_minute | quote }}
+            - name: EEH_CRL_CACHE_TTL_SECONDS
+              value: {{ .Values.eeh.mtls.crl_cache_ttl_seconds | quote }}
+            - name: OTEL_TRACE_SAMPLING_RATE
+              value: {{ .Values.eeh.otel.trace_sampling_rate | quote }}
+            - name: OTEL_SERVICE_NAME
+              value: "eeh-service"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector.astra-platform.svc.cluster.local:4317"
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: rest
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: rest
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: rest
+            failureThreshold: 18    # allow 3 minutes for startup (DB pool init)
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: {{ .Values.eeh.resources.requests.cpu | quote }}
+              memory: {{ .Values.eeh.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.eeh.resources.limits.cpu | quote }}
+              memory: {{ .Values.eeh.resources.limits.memory | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
+      affinity:
+        # Spread pods across nodes for HA — one pod per node minimum
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: eeh-service
+                topologyKey: kubernetes.io/hostname
+{{- end }}
+
+---
+
+{{- if .Values.ieh.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ieh-service
+  namespace: {{ printf "astra-cts-%s" .Values.global.bank_id | quote }}
+  labels:
+    app: ieh-service
+    app.kubernetes.io/component: ieh
+    app.kubernetes.io/part-of: astra-cts
+    astra.bank_id: {{ .Values.global.bank_id | quote }}
+    astra.hub_type: IEH
+spec:
+  replicas: {{ .Values.ieh.replicas }}
+  selector:
+    matchLabels:
+      app: ieh-service
+      astra.bank_id: {{ .Values.global.bank_id | quote }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: ieh-service
+        astra.bank_id: {{ .Values.global.bank_id | quote }}
+        astra.hub_type: IEH
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: {{ printf "astra-ieh-%s" .Values.global.bank_id | quote }}
+        vault.hashicorp.com/agent-inject-secret-vault-token: "auth/token/lookup-self"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.ieh.rest_port | quote }}
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: astra-eeh-sa    # shared SA — same Vault role family
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: ieh-service
+          image: "{{ .Values.ieh.image.repository }}:{{ .Values.ieh.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.ieh.image.pullPolicy }}
+          ports:
+            - name: rest
+              containerPort: {{ .Values.ieh.rest_port }}
+              protocol: TCP
+            - name: grpc
+              containerPort: {{ .Values.ieh.grpc_port }}
+              protocol: TCP
+          env:
+            - name: SERVICE_NAME
+              value: "ieh-service"
+            - name: VAULT_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: astra-vault-addr
+                  key: addr
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vault-token-eeh
+                  key: token
+            - name: BANK_ID
+              value: {{ .Values.global.bank_id | quote }}
+            - name: HUB_TYPE
+              value: "IEH"
+            - name: REST_PORT
+              value: {{ .Values.ieh.rest_port | quote }}
+            - name: GRPC_PORT
+              value: {{ .Values.ieh.grpc_port | quote }}
+            - name: EEH_SESSION_TTL_HOURS
+              value: {{ .Values.ieh.session_ttl_hours | quote }}
+            - name: OTEL_SERVICE_NAME
+              value: "ieh-service"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector.astra-platform.svc.cluster.local:4317"
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: rest
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: rest
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: {{ .Values.ieh.resources.requests.cpu | quote }}
+              memory: {{ .Values.ieh.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.ieh.resources.limits.cpu | quote }}
+              memory: {{ .Values.ieh.resources.limits.memory | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
