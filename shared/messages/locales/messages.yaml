@@ -896,6 +896,27 @@ CTS_SMB_NOTIFICATION_SENT:
   en: "Return notification sent to {smb_name} for {return_count} returned instruments from session {session_id}."
   hi: ""
 
+CTS_SMB_HUMAN_REVIEW_ASSIGNED:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [smb_name, instrument_id, reason, sponsor_bank, iet_deadline]
+  en: "Cheque {instrument_id} for {smb_name} assigned to SMB review queue — reason: {reason}. Sponsor bank: {sponsor_bank}. IET deadline: {iet_deadline}."
+  hi: ""
+
+CTS_SMB_DECISION_FILED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [smb_name, instrument_id, decision, filed_by]
+  en: "SMB review decision filed for {instrument_id} ({smb_name}): {decision} by {filed_by}."
+  hi: ""
+
+CTS_SMB_SETTLEMENT_AVAILABLE:
+  severity: INFO
+  surface: [UI, NOTIFICATION]
+  variables: [smb_name, session_id, instrument_count, settlement_date]
+  en: "Settlement report available for {smb_name} — session {session_id}: {instrument_count} instruments settled on {settlement_date}."
+  hi: ""
+
 # ────────────────────────────────────────────────────────────────────────
 # CBS
 # ────────────────────────────────────────────────────────────────────────
