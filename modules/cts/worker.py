@@ -74,6 +74,8 @@ from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
 from modules.cts.workflows.vault_sync_workflow import VaultSyncWorkflow
 from modules.cts.workflows.smb_forwarding_workflow import SMBForwardingWorkflow
 from modules.cts.workflows.smb_cheque_processing_workflow import SMBChequeProcessingWorkflow
+from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
+from modules.cts.workflows.mismatch_resolution_workflow import MismatchResolutionWorkflow
 
 from modules.cts.workflows.activities.ocr import ocr_extract
 from modules.cts.workflows.activities.alteration import detect_alteration
@@ -110,6 +112,8 @@ ALL_WORKFLOWS = [
     VaultSyncWorkflow,
     SMBForwardingWorkflow,
     SMBChequeProcessingWorkflow,
+    OutwardScanWorkflow,
+    MismatchResolutionWorkflow,
 ]
 
 ALL_ACTIVITIES = [
