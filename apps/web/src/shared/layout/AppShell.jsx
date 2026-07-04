@@ -70,6 +70,7 @@ const SIDEBAR_MODULES = [
           { to: '/cts/recall',          label: 'Recall',                       perm: 'cts:submit_decision' },
           { to: '/cts/smb/dashboard',   label: 'SMB Dashboard',              smbOnly: true, perm: 'cts:view_queue' },
           { to: '/cts/smb/review-queue', label: 'SMB Review Queue',           smbOnly: true, perm: 'cts:view_queue' },
+          { to: '/cts/smb/reports',     label: 'SMB Reports',                 smbOnly: true, perm: 'smb:view_ledger' },
         ],
       },
       {
@@ -184,6 +185,7 @@ const ROUTE_LABELS = {
   '/cts/smb/forwarding-log':      ['Processing', 'SMB Forwarding Log'],
   '/cts/smb/dashboard':           ['Drawee Process', 'SMB Dashboard'],
   '/cts/smb/review-queue':        ['Drawee Process', 'SMB Human Review Queue'],
+  '/cts/smb/reports':             ['Drawee Process', 'SMB Reports'],
   '/admin/security-violations':   ['Admin', 'Security Violation Log'],
   '/branch':                      ['Branch Portal', 'Dashboard'],
   '/branch/scan':                 ['Branch Portal', 'Scanner Monitor'],
