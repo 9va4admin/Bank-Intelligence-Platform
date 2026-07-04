@@ -25,7 +25,11 @@ const SMB_STAGES = [
   { id: 'ngch',    label: 'NGCH Filed', icon: '📤', color: 'emerald' },
 ]
 
-// ─── Pipeline stage definitions ───────────────────────────────────────────────
+// ─── Pipeline stage definitions (Phase 3 — drawee inward order) ──────────────
+//
+// Vision LLM is FIRST on inward side: tampered cheques exit before any CBS call.
+// OCR removed: NGCH provides MICR data on inward instruments.
+// account_status merged into cbs stage for display clarity.
 
 const STAGES = [
   {
@@ -37,12 +41,12 @@ const STAGES = [
     avgMs: null,
   },
   {
-    id: 'ocr',
-    label: 'OCR · MICR',
-    sub: 'GOT-OCR2.0',
-    icon: '🔤',
+    id: 'alteration',
+    label: 'Alteration',
+    sub: 'Qwen2-VL · FIRST',
+    icon: '🔍',
     color: 'violet',
-    avgMs: 280,
+    avgMs: 110,
   },
   {
     id: 'cts2010',
@@ -50,23 +54,23 @@ const STAGES = [
     sub: 'Image quality',
     icon: '🖼',
     color: 'blue',
-    avgMs: 140,
+    avgMs: 80,
   },
   {
-    id: 'sig',
-    label: 'Signature',
-    sub: 'Siamese SNN',
+    id: 'stop_pay',
+    label: 'Stop Payment',
+    sub: 'Bloom + CBS',
+    icon: '🛑',
+    color: 'red',
+    avgMs: 50,
+  },
+  {
+    id: 'pps_sig',
+    label: 'PPS · Signature',
+    sub: 'Vault + Siamese',
     icon: '✍',
     color: 'indigo',
-    avgMs: 95,
-  },
-  {
-    id: 'pps',
-    label: 'PPS · CBS',
-    sub: 'Vault + Finacle',
-    icon: '🏦',
-    color: 'cyan',
-    avgMs: 60,
+    avgMs: 125,
   },
   {
     id: 'fraud',
@@ -75,6 +79,14 @@ const STAGES = [
     icon: '🛡',
     color: 'amber',
     avgMs: 45,
+  },
+  {
+    id: 'cbs',
+    label: 'CBS · Account',
+    sub: 'Balance + Status',
+    icon: '🏦',
+    color: 'cyan',
+    avgMs: 60,
   },
   {
     id: 'decision',
@@ -486,7 +498,7 @@ export default function CTSInwardPipeline() {
   const [stageCounts, setStageCounts] = useState(
     Object.fromEntries(STAGES.map(s => [s.id, Math.floor(Math.random() * 80) + 20]))
   )
-  const [activeStages, setActiveStages] = useState(new Set(['ocr', 'sig', 'fraud']))
+  const [activeStages, setActiveStages] = useState(new Set(['alteration', 'pps_sig', 'fraud']))
   const [confirms,    setConfirms]    = useState(312)
   const [returns,     setReturns]     = useState(48)
   const [humanReview, setHumanReview] = useState(17)
@@ -529,14 +541,14 @@ export default function CTSInwardPipeline() {
       stpIndexRef.current++
 
       const outcome = item.outcome
-      const stageSeq = ['ocr','cts2010','sig','pps','fraud','decision']
+      const stageSeq = ['alteration','cts2010','stop_pay','pps_sig','fraud','cbs','decision']
       const activeIdx = Math.floor(Math.random() * stageSeq.length)
 
       // Pulse active stages
       const next = new Set(stageSeq.slice(Math.max(0, activeIdx - 1), activeIdx + 2))
       setActiveStages(next)
 
-      // Increment all stage counters slightly
+      // Increment all stage counters slightly (Phase 3 stage IDs)
       setStageCounts(prev => {
         const updated = { ...prev }
         stageSeq.forEach(s => { updated[s] = (updated[s] || 0) + 1 })
