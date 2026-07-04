@@ -159,6 +159,173 @@ class TestSignatureMatch:
         assert result_fail.outcome == "HUMAN_REVIEW"
 
 
+class TestSignatureSMBProxyRouting:
+    """Phase 4 — when smb_id is set and smb_proxy provided, use proxy instead of vault."""
+
+    def _make_smb_input(self):
+        from modules.cts.workflows.activities.signature import SignatureActivityInput
+        return SignatureActivityInput(
+            instrument_id="INST-SMB-001",
+            bank_id="saraswat-coop",
+            account_number="9876543210",
+            signature_image_url="s3://bucket/INST-SMB-001_sig.jpg",
+            smb_id="cosmos-coop",
+        )
+
+    @pytest.mark.asyncio
+    async def test_smb_proxy_called_when_smb_id_set(self):
+        """Proxy get_signature is called when smb_id is on the input and proxy provided."""
+        from modules.cts.workflows.activities.signature import verify_signature
+        from modules.cts.vaults.signature_vault import VaultResult
+
+        mock_proxy = AsyncMock()
+        mock_proxy.get_signature = AsyncMock(
+            return_value=VaultResult(outcome="FOUND", specimens=[b"smb_specimen"])
+        )
+        mock_model = AsyncMock()
+        mock_model.compare = AsyncMock(return_value={"best_match_score": 0.91})
+        mock_vault = AsyncMock()
+
+        result = await verify_signature(self._make_smb_input(), vault=mock_vault, model=mock_model,
+                                        min_match_score=0.80, smb_proxy=mock_proxy)
+
+        mock_proxy.get_signature.assert_called_once()
+        assert result.outcome == "PROCEED"
+
+    @pytest.mark.asyncio
+    async def test_smb_proxy_call_passes_correct_args(self):
+        """Proxy is called with account_number, bank_id, smb_id from the input."""
+        from modules.cts.workflows.activities.signature import verify_signature
+        from modules.cts.vaults.signature_vault import VaultResult
+
+        mock_proxy = AsyncMock()
+        mock_proxy.get_signature = AsyncMock(
+            return_value=VaultResult(outcome="FOUND", specimens=[b"s"])
+        )
+        mock_model = AsyncMock()
+        mock_model.compare = AsyncMock(return_value={"best_match_score": 0.90})
+
+        inp = self._make_smb_input()
+        await verify_signature(inp, vault=AsyncMock(), model=mock_model,
+                               min_match_score=0.80, smb_proxy=mock_proxy)
+
+        mock_proxy.get_signature.assert_called_once_with(
+            inp.account_number, inp.bank_id, inp.smb_id
+        )
+
+    @pytest.mark.asyncio
+    async def test_vault_not_called_when_smb_proxy_used(self):
+        """Local vault.get_signatures must NOT be called when proxy handles the request."""
+        from modules.cts.workflows.activities.signature import verify_signature
+        from modules.cts.vaults.signature_vault import VaultResult
+
+        mock_proxy = AsyncMock()
+        mock_proxy.get_signature = AsyncMock(
+            return_value=VaultResult(outcome="FOUND", specimens=[b"s"])
+        )
+        mock_model = AsyncMock()
+        mock_model.compare = AsyncMock(return_value={"best_match_score": 0.90})
+        mock_vault = AsyncMock()
+
+        await verify_signature(self._make_smb_input(), vault=mock_vault, model=mock_model,
+                               min_match_score=0.80, smb_proxy=mock_proxy)
+
+        mock_vault.get_signatures.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_vault_used_when_smb_proxy_is_none(self):
+        """When smb_proxy is None, always use local vault regardless of smb_id."""
+        from modules.cts.workflows.activities.signature import verify_signature
+        from modules.cts.vaults.signature_vault import VaultResult
+
+        mock_vault = AsyncMock()
+        mock_vault.get_signatures = AsyncMock(
+            return_value=VaultResult(outcome="FOUND", specimens=[b"s"])
+        )
+        mock_model = AsyncMock()
+        mock_model.compare = AsyncMock(return_value={"best_match_score": 0.90})
+
+        # smb_proxy=None → must use vault even if smb_id is set
+        result = await verify_signature(self._make_smb_input(), vault=mock_vault,
+                                        model=mock_model, min_match_score=0.80, smb_proxy=None)
+
+        mock_vault.get_signatures.assert_called_once()
+        assert result.outcome == "PROCEED"
+
+    @pytest.mark.asyncio
+    async def test_vault_used_when_smb_id_none_even_if_proxy_provided(self):
+        """When smb_id is None (SB instrument), use vault — never call proxy."""
+        from modules.cts.workflows.activities.signature import verify_signature, SignatureActivityInput
+        from modules.cts.vaults.signature_vault import VaultResult
+
+        sb_input = SignatureActivityInput(
+            instrument_id="INST-SB-001",
+            bank_id="saraswat-coop",
+            account_number="1111111111",
+            signature_image_url="s3://bucket/sig.jpg",
+            # smb_id not set → None by default
+        )
+        mock_proxy = AsyncMock()
+        mock_vault = AsyncMock()
+        mock_vault.get_signatures = AsyncMock(
+            return_value=VaultResult(outcome="FOUND", specimens=[b"s"])
+        )
+        mock_model = AsyncMock()
+        mock_model.compare = AsyncMock(return_value={"best_match_score": 0.90})
+
+        await verify_signature(sb_input, vault=mock_vault, model=mock_model,
+                               min_match_score=0.80, smb_proxy=mock_proxy)
+
+        mock_proxy.get_signature.assert_not_called()
+        mock_vault.get_signatures.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_smb_proxy_miss_human_review(self):
+        """Vault invariant applies to proxy: proxy HUMAN_REVIEW → HUMAN_REVIEW outcome."""
+        from modules.cts.workflows.activities.signature import verify_signature
+        from modules.cts.vaults.signature_vault import VaultResult
+
+        mock_proxy = AsyncMock()
+        mock_proxy.get_signature = AsyncMock(
+            return_value=VaultResult(outcome="HUMAN_REVIEW", specimens=[], miss_reason="SMB_NO_SPECIMENS")
+        )
+        mock_model = AsyncMock()
+
+        result = await verify_signature(self._make_smb_input(), vault=AsyncMock(), model=mock_model,
+                                        min_match_score=0.80, smb_proxy=mock_proxy)
+
+        assert result.outcome == "HUMAN_REVIEW"
+        mock_model.compare.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_smb_proxy_unavailable_human_review(self):
+        """Proxy raises exception → HUMAN_REVIEW (degraded, never crash or auto-return)."""
+        from modules.cts.workflows.activities.signature import verify_signature
+
+        mock_proxy = AsyncMock()
+        mock_proxy.get_signature = AsyncMock(side_effect=Exception("MCP proxy unreachable"))
+        mock_model = AsyncMock()
+
+        result = await verify_signature(self._make_smb_input(), vault=AsyncMock(), model=mock_model,
+                                        min_match_score=0.80, smb_proxy=mock_proxy)
+
+        assert result.outcome == "HUMAN_REVIEW"
+        assert result.degraded is True
+
+    @pytest.mark.asyncio
+    async def test_smb_proxy_unavailable_miss_reason(self):
+        """Proxy failure miss_reason contains SMB_PROXY_UNAVAILABLE."""
+        from modules.cts.workflows.activities.signature import verify_signature
+
+        mock_proxy = AsyncMock()
+        mock_proxy.get_signature = AsyncMock(side_effect=TimeoutError("MCP timeout"))
+
+        result = await verify_signature(self._make_smb_input(), vault=AsyncMock(), model=AsyncMock(),
+                                        min_match_score=0.80, smb_proxy=mock_proxy)
+
+        assert "SMB_PROXY_UNAVAILABLE" in result.miss_reason
+
+
 class TestSignatureModelDegradation:
     @pytest.mark.asyncio
     async def test_model_unavailable_outcome_human_review(self):
