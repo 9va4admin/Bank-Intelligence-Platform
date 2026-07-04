@@ -1,0 +1,479 @@
+{
+  "20010010900010": {
+    "account_number": "20010010900010",
+    "bank_id": "vvsb",
+    "status": "ACTIVE",
+    "balance": 245000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "20010010900011": {
+    "account_number": "20010010900011",
+    "bank_id": "vvsb",
+    "status": "ACTIVE",
+    "balance": 1975000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "20010010900012": {
+    "account_number": "20010010900012",
+    "bank_id": "vvsb",
+    "status": "ACTIVE",
+    "balance": 190000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "20010010900013": {
+    "account_number": "20010010900013",
+    "bank_id": "vvsb",
+    "status": "ACTIVE",
+    "balance": 225000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "20010010900014": {
+    "account_number": "20010010900014",
+    "bank_id": "vvsb",
+    "status": "ACTIVE",
+    "balance": 550000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "20010010900015": {
+    "account_number": "20010010900015",
+    "bank_id": "vvsb",
+    "status": "ACTIVE",
+    "balance": 135000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "20010010900016": {
+    "account_number": "20010010900016",
+    "bank_id": "vvsb",
+    "status": "ACTIVE",
+    "balance": 360000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "20010010900017": {
+    "account_number": "20010010900017",
+    "bank_id": "vvsb",
+    "status": "ACTIVE",
+    "balance": 125000,
+    "stop_payment_active": true,
+    "stop_payment_details": {
+      "filed_on": "01-06-2026 14:22",
+      "reason": "Cheque lost / stolen",
+      "valid_until": "31-12-2026",
+      "filed_at": "Vasai Main Branch"
+    },
+    "frozen_reason": null
+  },
+  "20010010900018": {
+    "account_number": "20010010900018",
+    "bank_id": "vvsb",
+    "status": "ACTIVE",
+    "balance": 950000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "20010010900019": {
+    "account_number": "20010010900019",
+    "bank_id": "vvsb",
+    "status": "ACTIVE",
+    "balance": 45000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "30010010900020": {
+    "account_number": "30010010900020",
+    "bank_id": "kjsb",
+    "status": "ACTIVE",
+    "balance": 310000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "30010010900021": {
+    "account_number": "30010010900021",
+    "bank_id": "kjsb",
+    "status": "ACTIVE",
+    "balance": 1325000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "30010010900022": {
+    "account_number": "30010010900022",
+    "bank_id": "kjsb",
+    "status": "ACTIVE",
+    "balance": 145000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "30010010900023": {
+    "account_number": "30010010900023",
+    "bank_id": "kjsb",
+    "status": "ACTIVE",
+    "balance": 300000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "30010010900024": {
+    "account_number": "30010010900024",
+    "bank_id": "kjsb",
+    "status": "ACTIVE",
+    "balance": 420000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "30010010900025": {
+    "account_number": "30010010900025",
+    "bank_id": "kjsb",
+    "status": "ACTIVE",
+    "balance": 160000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "30010010900026": {
+    "account_number": "30010010900026",
+    "bank_id": "kjsb",
+    "status": "ACTIVE",
+    "balance": 175000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "30010010900027": {
+    "account_number": "30010010900027",
+    "bank_id": "kjsb",
+    "status": "ACTIVE",
+    "balance": 230000,
+    "stop_payment_active": true,
+    "stop_payment_details": {
+      "filed_on": "01-06-2026 14:22",
+      "reason": "Cheque lost / stolen",
+      "valid_until": "31-12-2026",
+      "filed_at": "Kalyan Main Branch"
+    },
+    "frozen_reason": null
+  },
+  "30010010900028": {
+    "account_number": "30010010900028",
+    "bank_id": "kjsb",
+    "status": "ACTIVE",
+    "balance": 700000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "30010010900029": {
+    "account_number": "30010010900029",
+    "bank_id": "kjsb",
+    "status": "FROZEN",
+    "balance": null,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": "Court attachment order CO-2026-HC-KJSB-0010",
+    "frozen_date": "14-05-2026"
+  },
+  "40010010900030": {
+    "account_number": "40010010900030",
+    "bank_id": "bcbk",
+    "status": "ACTIVE",
+    "balance": 435000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "40010010900031": {
+    "account_number": "40010010900031",
+    "bank_id": "bcbk",
+    "status": "ACTIVE",
+    "balance": 2375000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "40010010900032": {
+    "account_number": "40010010900032",
+    "bank_id": "bcbk",
+    "status": "ACTIVE",
+    "balance": 180000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "40010010900033": {
+    "account_number": "40010010900033",
+    "bank_id": "bcbk",
+    "status": "ACTIVE",
+    "balance": 250000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "40010010900034": {
+    "account_number": "40010010900034",
+    "bank_id": "bcbk",
+    "status": "ACTIVE",
+    "balance": 850000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "40010010900035": {
+    "account_number": "40010010900035",
+    "bank_id": "bcbk",
+    "status": "ACTIVE",
+    "balance": 142000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "40010010900036": {
+    "account_number": "40010010900036",
+    "bank_id": "bcbk",
+    "status": "ACTIVE",
+    "balance": 530000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "40010010900037": {
+    "account_number": "40010010900037",
+    "bank_id": "bcbk",
+    "status": "ACTIVE",
+    "balance": 160000,
+    "stop_payment_active": true,
+    "stop_payment_details": {
+      "filed_on": "01-06-2026 14:22",
+      "reason": "Cheque lost / stolen",
+      "valid_until": "31-12-2026",
+      "filed_at": "Dadar Branch, Mumbai"
+    },
+    "frozen_reason": null
+  },
+  "40010010900038": {
+    "account_number": "40010010900038",
+    "bank_id": "bcbk",
+    "status": "ACTIVE",
+    "balance": 550000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "40010010900039": {
+    "account_number": "40010010900039",
+    "bank_id": "bcbk",
+    "status": "ACTIVE",
+    "balance": 185000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "50010010900040": {
+    "account_number": "50010010900040",
+    "bank_id": "ducb",
+    "status": "ACTIVE",
+    "balance": 285000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "50010010900041": {
+    "account_number": "50010010900041",
+    "bank_id": "ducb",
+    "status": "ACTIVE",
+    "balance": 1025000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "50010010900042": {
+    "account_number": "50010010900042",
+    "bank_id": "ducb",
+    "status": "ACTIVE",
+    "balance": 155000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "50010010900043": {
+    "account_number": "50010010900043",
+    "bank_id": "ducb",
+    "status": "ACTIVE",
+    "balance": 175000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "50010010900044": {
+    "account_number": "50010010900044",
+    "bank_id": "ducb",
+    "status": "ACTIVE",
+    "balance": 700000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "50010010900045": {
+    "account_number": "50010010900045",
+    "bank_id": "ducb",
+    "status": "ACTIVE",
+    "balance": 138000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "50010010900046": {
+    "account_number": "50010010900046",
+    "bank_id": "ducb",
+    "status": "ACTIVE",
+    "balance": 250000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "50010010900047": {
+    "account_number": "50010010900047",
+    "bank_id": "ducb",
+    "status": "ACTIVE",
+    "balance": 390000,
+    "stop_payment_active": true,
+    "stop_payment_details": {
+      "filed_on": "01-06-2026 14:22",
+      "reason": "Cheque lost / stolen",
+      "valid_until": "31-12-2026",
+      "filed_at": "Pune Main Branch"
+    },
+    "frozen_reason": null
+  },
+  "50010010900048": {
+    "account_number": "50010010900048",
+    "bank_id": "ducb",
+    "status": "ACTIVE",
+    "balance": 450000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "50010010900049": {
+    "account_number": "50010010900049",
+    "bank_id": "ducb",
+    "status": "ACTIVE",
+    "balance": 12000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "10010010900050": {
+    "account_number": "10010010900050",
+    "bank_id": "srcb",
+    "status": "ACTIVE",
+    "balance": 345000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "10010010900051": {
+    "account_number": "10010010900051",
+    "bank_id": "srcb",
+    "status": "ACTIVE",
+    "balance": 1700000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "10010010900052": {
+    "account_number": "10010010900052",
+    "bank_id": "srcb",
+    "status": "ACTIVE",
+    "balance": 135000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "10010010900053": {
+    "account_number": "10010010900053",
+    "bank_id": "srcb",
+    "status": "ACTIVE",
+    "balance": 280000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "10010010900054": {
+    "account_number": "10010010900054",
+    "bank_id": "srcb",
+    "status": "ACTIVE",
+    "balance": 950000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "10010010900055": {
+    "account_number": "10010010900055",
+    "bank_id": "srcb",
+    "status": "ACTIVE",
+    "balance": 152000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "10010010900056": {
+    "account_number": "10010010900056",
+    "bank_id": "srcb",
+    "status": "ACTIVE",
+    "balance": 700000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "10010010900057": {
+    "account_number": "10010010900057",
+    "bank_id": "srcb",
+    "status": "ACTIVE",
+    "balance": 310000,
+    "stop_payment_active": true,
+    "stop_payment_details": {
+      "filed_on": "01-06-2026 14:22",
+      "reason": "Cheque lost / stolen",
+      "valid_until": "31-12-2026",
+      "filed_at": "Fort Branch, Mumbai"
+    },
+    "frozen_reason": null
+  },
+  "10010010900058": {
+    "account_number": "10010010900058",
+    "bank_id": "srcb",
+    "status": "ACTIVE",
+    "balance": 800000,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": null
+  },
+  "10010010900059": {
+    "account_number": "10010010900059",
+    "bank_id": "srcb",
+    "status": "FROZEN",
+    "balance": null,
+    "stop_payment_active": false,
+    "stop_payment_details": null,
+    "frozen_reason": "Court attachment order CO-2026-HC-SRCB-0010",
+    "frozen_date": "14-05-2026"
+  }
+}

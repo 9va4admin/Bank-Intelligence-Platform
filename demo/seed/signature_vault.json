@@ -1,0 +1,802 @@
+{
+  "20010010900010": {
+    "account_number": "20010010900010",
+    "bank_id": "vvsb",
+    "specimens": [
+      {
+        "path": "images/vvsb/20010010900010_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/vvsb/20010010900010_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "20010010900011": {
+    "account_number": "20010010900011",
+    "bank_id": "vvsb",
+    "specimens": [
+      {
+        "path": "images/vvsb/20010010900011_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/vvsb/20010010900011_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "20010010900012": {
+    "account_number": "20010010900012",
+    "bank_id": "vvsb",
+    "specimens": [
+      {
+        "path": "images/vvsb/20010010900012_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/vvsb/20010010900012_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "20010010900013": {
+    "account_number": "20010010900013",
+    "bank_id": "vvsb",
+    "specimens": [
+      {
+        "path": "images/vvsb/20010010900013_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/vvsb/20010010900013_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "20010010900014": {
+    "account_number": "20010010900014",
+    "bank_id": "vvsb",
+    "specimens": [
+      {
+        "path": "images/vvsb/20010010900014_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/vvsb/20010010900014_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "20010010900015": {
+    "account_number": "20010010900015",
+    "bank_id": "vvsb",
+    "specimens": [
+      {
+        "path": "images/vvsb/20010010900015_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/vvsb/20010010900015_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "20010010900016": {
+    "account_number": "20010010900016",
+    "bank_id": "vvsb",
+    "specimens": [
+      {
+        "path": "images/vvsb/20010010900016_specimen_1.jpg",
+        "enrolled_on": "12-03-2024"
+      },
+      {
+        "path": "images/vvsb/20010010900016_specimen_2.jpg",
+        "enrolled_on": "12-03-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Signature mismatch scenario — cheque signature deliberately different from specimens"
+  },
+  "20010010900017": {
+    "account_number": "20010010900017",
+    "bank_id": "vvsb",
+    "specimens": [
+      {
+        "path": "images/vvsb/20010010900017_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/vvsb/20010010900017_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "20010010900018": {
+    "account_number": "20010010900018",
+    "bank_id": "vvsb",
+    "specimens": [
+      {
+        "path": "images/vvsb/20010010900018_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/vvsb/20010010900018_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "20010010900019": {
+    "account_number": "20010010900019",
+    "bank_id": "vvsb",
+    "specimens": [
+      {
+        "path": "images/vvsb/20010010900019_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/vvsb/20010010900019_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "30010010900020": {
+    "account_number": "30010010900020",
+    "bank_id": "kjsb",
+    "specimens": [
+      {
+        "path": "images/kjsb/30010010900020_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/kjsb/30010010900020_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "30010010900021": {
+    "account_number": "30010010900021",
+    "bank_id": "kjsb",
+    "specimens": [
+      {
+        "path": "images/kjsb/30010010900021_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/kjsb/30010010900021_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "30010010900022": {
+    "account_number": "30010010900022",
+    "bank_id": "kjsb",
+    "specimens": [
+      {
+        "path": "images/kjsb/30010010900022_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/kjsb/30010010900022_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "30010010900023": {
+    "account_number": "30010010900023",
+    "bank_id": "kjsb",
+    "specimens": [
+      {
+        "path": "images/kjsb/30010010900023_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/kjsb/30010010900023_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "30010010900024": {
+    "account_number": "30010010900024",
+    "bank_id": "kjsb",
+    "specimens": [
+      {
+        "path": "images/kjsb/30010010900024_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/kjsb/30010010900024_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "30010010900025": {
+    "account_number": "30010010900025",
+    "bank_id": "kjsb",
+    "specimens": [
+      {
+        "path": "images/kjsb/30010010900025_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/kjsb/30010010900025_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "30010010900026": {
+    "account_number": "30010010900026",
+    "bank_id": "kjsb",
+    "specimens": [
+      {
+        "path": "images/kjsb/30010010900026_specimen_1.jpg",
+        "enrolled_on": "12-03-2024"
+      },
+      {
+        "path": "images/kjsb/30010010900026_specimen_2.jpg",
+        "enrolled_on": "12-03-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Signature mismatch scenario — cheque signature deliberately different from specimens"
+  },
+  "30010010900027": {
+    "account_number": "30010010900027",
+    "bank_id": "kjsb",
+    "specimens": [
+      {
+        "path": "images/kjsb/30010010900027_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/kjsb/30010010900027_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "30010010900028": {
+    "account_number": "30010010900028",
+    "bank_id": "kjsb",
+    "specimens": [
+      {
+        "path": "images/kjsb/30010010900028_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/kjsb/30010010900028_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "30010010900029": {
+    "account_number": "30010010900029",
+    "bank_id": "kjsb",
+    "specimens": [
+      {
+        "path": "images/kjsb/30010010900029_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/kjsb/30010010900029_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "40010010900030": {
+    "account_number": "40010010900030",
+    "bank_id": "bcbk",
+    "specimens": [
+      {
+        "path": "images/bcbk/40010010900030_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/bcbk/40010010900030_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "40010010900031": {
+    "account_number": "40010010900031",
+    "bank_id": "bcbk",
+    "specimens": [
+      {
+        "path": "images/bcbk/40010010900031_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/bcbk/40010010900031_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "40010010900032": {
+    "account_number": "40010010900032",
+    "bank_id": "bcbk",
+    "specimens": [
+      {
+        "path": "images/bcbk/40010010900032_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/bcbk/40010010900032_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "40010010900033": {
+    "account_number": "40010010900033",
+    "bank_id": "bcbk",
+    "specimens": [
+      {
+        "path": "images/bcbk/40010010900033_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/bcbk/40010010900033_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "40010010900034": {
+    "account_number": "40010010900034",
+    "bank_id": "bcbk",
+    "specimens": [
+      {
+        "path": "images/bcbk/40010010900034_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/bcbk/40010010900034_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "40010010900035": {
+    "account_number": "40010010900035",
+    "bank_id": "bcbk",
+    "specimens": [
+      {
+        "path": "images/bcbk/40010010900035_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/bcbk/40010010900035_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "40010010900036": {
+    "account_number": "40010010900036",
+    "bank_id": "bcbk",
+    "specimens": [
+      {
+        "path": "images/bcbk/40010010900036_specimen_1.jpg",
+        "enrolled_on": "12-03-2024"
+      },
+      {
+        "path": "images/bcbk/40010010900036_specimen_2.jpg",
+        "enrolled_on": "12-03-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Signature mismatch scenario — cheque signature deliberately different from specimens"
+  },
+  "40010010900037": {
+    "account_number": "40010010900037",
+    "bank_id": "bcbk",
+    "specimens": [
+      {
+        "path": "images/bcbk/40010010900037_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/bcbk/40010010900037_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "40010010900038": {
+    "account_number": "40010010900038",
+    "bank_id": "bcbk",
+    "specimens": [
+      {
+        "path": "images/bcbk/40010010900038_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/bcbk/40010010900038_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "40010010900039": {
+    "account_number": "40010010900039",
+    "bank_id": "bcbk",
+    "specimens": [
+      {
+        "path": "images/bcbk/40010010900039_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/bcbk/40010010900039_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "50010010900040": {
+    "account_number": "50010010900040",
+    "bank_id": "ducb",
+    "specimens": [
+      {
+        "path": "images/ducb/50010010900040_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/ducb/50010010900040_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "50010010900041": {
+    "account_number": "50010010900041",
+    "bank_id": "ducb",
+    "specimens": [
+      {
+        "path": "images/ducb/50010010900041_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/ducb/50010010900041_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "50010010900042": {
+    "account_number": "50010010900042",
+    "bank_id": "ducb",
+    "specimens": [
+      {
+        "path": "images/ducb/50010010900042_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/ducb/50010010900042_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "50010010900043": {
+    "account_number": "50010010900043",
+    "bank_id": "ducb",
+    "specimens": [
+      {
+        "path": "images/ducb/50010010900043_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/ducb/50010010900043_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "50010010900044": {
+    "account_number": "50010010900044",
+    "bank_id": "ducb",
+    "specimens": [
+      {
+        "path": "images/ducb/50010010900044_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/ducb/50010010900044_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "50010010900045": {
+    "account_number": "50010010900045",
+    "bank_id": "ducb",
+    "specimens": [
+      {
+        "path": "images/ducb/50010010900045_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/ducb/50010010900045_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "50010010900046": {
+    "account_number": "50010010900046",
+    "bank_id": "ducb",
+    "specimens": [
+      {
+        "path": "images/ducb/50010010900046_specimen_1.jpg",
+        "enrolled_on": "12-03-2024"
+      },
+      {
+        "path": "images/ducb/50010010900046_specimen_2.jpg",
+        "enrolled_on": "12-03-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Signature mismatch scenario — cheque signature deliberately different from specimens"
+  },
+  "50010010900047": {
+    "account_number": "50010010900047",
+    "bank_id": "ducb",
+    "specimens": [
+      {
+        "path": "images/ducb/50010010900047_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/ducb/50010010900047_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "50010010900048": {
+    "account_number": "50010010900048",
+    "bank_id": "ducb",
+    "specimens": [
+      {
+        "path": "images/ducb/50010010900048_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/ducb/50010010900048_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "50010010900049": {
+    "account_number": "50010010900049",
+    "bank_id": "ducb",
+    "specimens": [
+      {
+        "path": "images/ducb/50010010900049_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/ducb/50010010900049_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "10010010900050": {
+    "account_number": "10010010900050",
+    "bank_id": "srcb",
+    "specimens": [
+      {
+        "path": "images/srcb/10010010900050_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/srcb/10010010900050_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "10010010900051": {
+    "account_number": "10010010900051",
+    "bank_id": "srcb",
+    "specimens": [
+      {
+        "path": "images/srcb/10010010900051_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/srcb/10010010900051_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "10010010900052": {
+    "account_number": "10010010900052",
+    "bank_id": "srcb",
+    "specimens": [
+      {
+        "path": "images/srcb/10010010900052_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/srcb/10010010900052_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "10010010900053": {
+    "account_number": "10010010900053",
+    "bank_id": "srcb",
+    "specimens": [
+      {
+        "path": "images/srcb/10010010900053_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/srcb/10010010900053_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "10010010900054": {
+    "account_number": "10010010900054",
+    "bank_id": "srcb",
+    "specimens": [
+      {
+        "path": "images/srcb/10010010900054_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/srcb/10010010900054_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "10010010900055": {
+    "account_number": "10010010900055",
+    "bank_id": "srcb",
+    "specimens": [
+      {
+        "path": "images/srcb/10010010900055_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/srcb/10010010900055_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "10010010900056": {
+    "account_number": "10010010900056",
+    "bank_id": "srcb",
+    "specimens": [
+      {
+        "path": "images/srcb/10010010900056_specimen_1.jpg",
+        "enrolled_on": "12-03-2024"
+      },
+      {
+        "path": "images/srcb/10010010900056_specimen_2.jpg",
+        "enrolled_on": "12-03-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Signature mismatch scenario — cheque signature deliberately different from specimens"
+  },
+  "10010010900057": {
+    "account_number": "10010010900057",
+    "bank_id": "srcb",
+    "specimens": [
+      {
+        "path": "images/srcb/10010010900057_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/srcb/10010010900057_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "10010010900058": {
+    "account_number": "10010010900058",
+    "bank_id": "srcb",
+    "specimens": [
+      {
+        "path": "images/srcb/10010010900058_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/srcb/10010010900058_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  },
+  "10010010900059": {
+    "account_number": "10010010900059",
+    "bank_id": "srcb",
+    "specimens": [
+      {
+        "path": "images/srcb/10010010900059_specimen_1.jpg",
+        "enrolled_on": "15-01-2024"
+      },
+      {
+        "path": "images/srcb/10010010900059_specimen_2.jpg",
+        "enrolled_on": "15-01-2024"
+      }
+    ],
+    "match_threshold": 0.85,
+    "note": "Regular account — signatures should match"
+  }
+}

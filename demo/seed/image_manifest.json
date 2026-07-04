@@ -1,0 +1,352 @@
+{
+  "CHQ-SRCB-C001-001": {
+    "cheque_image": "images/CHQ-SRCB-C001-001.png",
+    "cheque_image_bw": "images/CHQ-SRCB-C001-001_bw.png",
+    "signature_specimen": "signatures/SRCB-C001.png",
+    "category": "A",
+    "bank_id": "srcb"
+  },
+  "CHQ-SRCB-C002-001": {
+    "cheque_image": "images/CHQ-SRCB-C002-001.png",
+    "cheque_image_bw": "images/CHQ-SRCB-C002-001_bw.png",
+    "signature_specimen": "signatures/SRCB-C002.png",
+    "category": "A",
+    "bank_id": "srcb"
+  },
+  "CHQ-SRCB-C003-001": {
+    "cheque_image": "images/CHQ-SRCB-C003-001.png",
+    "cheque_image_bw": "images/CHQ-SRCB-C003-001_bw.png",
+    "signature_specimen": "signatures/SRCB-C003.png",
+    "category": "C",
+    "bank_id": "srcb"
+  },
+  "CHQ-SRCB-C004-001": {
+    "cheque_image": "images/CHQ-SRCB-C004-001.png",
+    "cheque_image_bw": "images/CHQ-SRCB-C004-001_bw.png",
+    "signature_specimen": "signatures/SRCB-C004.png",
+    "category": "D",
+    "bank_id": "srcb"
+  },
+  "CHQ-SRCB-C005-001": {
+    "cheque_image": "images/CHQ-SRCB-C005-001.png",
+    "cheque_image_bw": "images/CHQ-SRCB-C005-001_bw.png",
+    "signature_specimen": "signatures/SRCB-C005.png",
+    "category": "E",
+    "bank_id": "srcb"
+  },
+  "CHQ-SRCB-C006-001": {
+    "cheque_image": "images/CHQ-SRCB-C006-001.png",
+    "cheque_image_bw": "images/CHQ-SRCB-C006-001_bw.png",
+    "signature_specimen": "signatures/SRCB-C006.png",
+    "category": "B",
+    "bank_id": "srcb"
+  },
+  "CHQ-SRCB-C007-001": {
+    "cheque_image": "images/CHQ-SRCB-C007-001.png",
+    "cheque_image_bw": "images/CHQ-SRCB-C007-001_bw.png",
+    "signature_specimen": "signatures/SRCB-C007.png",
+    "category": "I",
+    "bank_id": "srcb"
+  },
+  "CHQ-SRCB-C008-001": {
+    "cheque_image": "images/CHQ-SRCB-C008-001.png",
+    "cheque_image_bw": "images/CHQ-SRCB-C008-001_bw.png",
+    "signature_specimen": "signatures/SRCB-C008.png",
+    "category": "J",
+    "bank_id": "srcb"
+  },
+  "CHQ-SRCB-C009-001": {
+    "cheque_image": "images/CHQ-SRCB-C009-001.png",
+    "cheque_image_bw": "images/CHQ-SRCB-C009-001_bw.png",
+    "signature_specimen": "signatures/SRCB-C009.png",
+    "category": "L",
+    "bank_id": "srcb"
+  },
+  "CHQ-SRCB-C010-001": {
+    "cheque_image": "images/CHQ-SRCB-C010-001.png",
+    "cheque_image_bw": "images/CHQ-SRCB-C010-001_bw.png",
+    "signature_specimen": "signatures/SRCB-C010.png",
+    "category": "K",
+    "bank_id": "srcb"
+  },
+  "CHQ-VVSB-C001-001": {
+    "cheque_image": "images/CHQ-VVSB-C001-001.png",
+    "cheque_image_bw": "images/CHQ-VVSB-C001-001_bw.png",
+    "signature_specimen": "signatures/VVSB-C001.png",
+    "category": "A",
+    "bank_id": "vvsb"
+  },
+  "CHQ-VVSB-C002-001": {
+    "cheque_image": "images/CHQ-VVSB-C002-001.png",
+    "cheque_image_bw": "images/CHQ-VVSB-C002-001_bw.png",
+    "signature_specimen": "signatures/VVSB-C002.png",
+    "category": "A",
+    "bank_id": "vvsb"
+  },
+  "CHQ-VVSB-C003-001": {
+    "cheque_image": "images/CHQ-VVSB-C003-001.png",
+    "cheque_image_bw": "images/CHQ-VVSB-C003-001_bw.png",
+    "signature_specimen": "signatures/VVSB-C003.png",
+    "category": "C",
+    "bank_id": "vvsb"
+  },
+  "CHQ-VVSB-C004-001": {
+    "cheque_image": "images/CHQ-VVSB-C004-001.png",
+    "cheque_image_bw": "images/CHQ-VVSB-C004-001_bw.png",
+    "signature_specimen": "signatures/VVSB-C004.png",
+    "category": "D",
+    "bank_id": "vvsb"
+  },
+  "CHQ-VVSB-C005-001": {
+    "cheque_image": "images/CHQ-VVSB-C005-001.png",
+    "cheque_image_bw": "images/CHQ-VVSB-C005-001_bw.png",
+    "signature_specimen": "signatures/VVSB-C005.png",
+    "category": "E",
+    "bank_id": "vvsb"
+  },
+  "CHQ-VVSB-C006-001": {
+    "cheque_image": "images/CHQ-VVSB-C006-001.png",
+    "cheque_image_bw": "images/CHQ-VVSB-C006-001_bw.png",
+    "signature_specimen": "signatures/VVSB-C006.png",
+    "category": "B",
+    "bank_id": "vvsb"
+  },
+  "CHQ-VVSB-C007-001": {
+    "cheque_image": "images/CHQ-VVSB-C007-001.png",
+    "cheque_image_bw": "images/CHQ-VVSB-C007-001_bw.png",
+    "signature_specimen": "signatures/VVSB-C007.png",
+    "category": "I",
+    "bank_id": "vvsb"
+  },
+  "CHQ-VVSB-C008-001": {
+    "cheque_image": "images/CHQ-VVSB-C008-001.png",
+    "cheque_image_bw": "images/CHQ-VVSB-C008-001_bw.png",
+    "signature_specimen": "signatures/VVSB-C008.png",
+    "category": "J",
+    "bank_id": "vvsb"
+  },
+  "CHQ-VVSB-C009-001": {
+    "cheque_image": "images/CHQ-VVSB-C009-001.png",
+    "cheque_image_bw": "images/CHQ-VVSB-C009-001_bw.png",
+    "signature_specimen": "signatures/VVSB-C009.png",
+    "category": "L",
+    "bank_id": "vvsb"
+  },
+  "CHQ-VVSB-C010-001": {
+    "cheque_image": "images/CHQ-VVSB-C010-001.png",
+    "cheque_image_bw": "images/CHQ-VVSB-C010-001_bw.png",
+    "signature_specimen": "signatures/VVSB-C010.png",
+    "category": "M",
+    "bank_id": "vvsb"
+  },
+  "CHQ-KJSB-C001-001": {
+    "cheque_image": "images/CHQ-KJSB-C001-001.png",
+    "cheque_image_bw": "images/CHQ-KJSB-C001-001_bw.png",
+    "signature_specimen": "signatures/KJSB-C001.png",
+    "category": "A",
+    "bank_id": "kjsb"
+  },
+  "CHQ-KJSB-C002-001": {
+    "cheque_image": "images/CHQ-KJSB-C002-001.png",
+    "cheque_image_bw": "images/CHQ-KJSB-C002-001_bw.png",
+    "signature_specimen": "signatures/KJSB-C002.png",
+    "category": "A",
+    "bank_id": "kjsb"
+  },
+  "CHQ-KJSB-C003-001": {
+    "cheque_image": "images/CHQ-KJSB-C003-001.png",
+    "cheque_image_bw": "images/CHQ-KJSB-C003-001_bw.png",
+    "signature_specimen": "signatures/KJSB-C003.png",
+    "category": "C",
+    "bank_id": "kjsb"
+  },
+  "CHQ-KJSB-C004-001": {
+    "cheque_image": "images/CHQ-KJSB-C004-001.png",
+    "cheque_image_bw": "images/CHQ-KJSB-C004-001_bw.png",
+    "signature_specimen": "signatures/KJSB-C004.png",
+    "category": "D",
+    "bank_id": "kjsb"
+  },
+  "CHQ-KJSB-C005-001": {
+    "cheque_image": "images/CHQ-KJSB-C005-001.png",
+    "cheque_image_bw": "images/CHQ-KJSB-C005-001_bw.png",
+    "signature_specimen": "signatures/KJSB-C005.png",
+    "category": "E",
+    "bank_id": "kjsb"
+  },
+  "CHQ-KJSB-C006-001": {
+    "cheque_image": "images/CHQ-KJSB-C006-001.png",
+    "cheque_image_bw": "images/CHQ-KJSB-C006-001_bw.png",
+    "signature_specimen": "signatures/KJSB-C006.png",
+    "category": "B",
+    "bank_id": "kjsb"
+  },
+  "CHQ-KJSB-C007-001": {
+    "cheque_image": "images/CHQ-KJSB-C007-001.png",
+    "cheque_image_bw": "images/CHQ-KJSB-C007-001_bw.png",
+    "signature_specimen": "signatures/KJSB-C007.png",
+    "category": "I",
+    "bank_id": "kjsb"
+  },
+  "CHQ-KJSB-C008-001": {
+    "cheque_image": "images/CHQ-KJSB-C008-001.png",
+    "cheque_image_bw": "images/CHQ-KJSB-C008-001_bw.png",
+    "signature_specimen": "signatures/KJSB-C008.png",
+    "category": "J",
+    "bank_id": "kjsb"
+  },
+  "CHQ-KJSB-C009-001": {
+    "cheque_image": "images/CHQ-KJSB-C009-001.png",
+    "cheque_image_bw": "images/CHQ-KJSB-C009-001_bw.png",
+    "signature_specimen": "signatures/KJSB-C009.png",
+    "category": "L",
+    "bank_id": "kjsb"
+  },
+  "CHQ-KJSB-C010-001": {
+    "cheque_image": "images/CHQ-KJSB-C010-001.png",
+    "cheque_image_bw": "images/CHQ-KJSB-C010-001_bw.png",
+    "signature_specimen": "signatures/KJSB-C010.png",
+    "category": "G",
+    "bank_id": "kjsb"
+  },
+  "CHQ-BCBK-C001-001": {
+    "cheque_image": "images/CHQ-BCBK-C001-001.png",
+    "cheque_image_bw": "images/CHQ-BCBK-C001-001_bw.png",
+    "signature_specimen": "signatures/BCBK-C001.png",
+    "category": "A",
+    "bank_id": "bcbk"
+  },
+  "CHQ-BCBK-C002-001": {
+    "cheque_image": "images/CHQ-BCBK-C002-001.png",
+    "cheque_image_bw": "images/CHQ-BCBK-C002-001_bw.png",
+    "signature_specimen": "signatures/BCBK-C002.png",
+    "category": "A",
+    "bank_id": "bcbk"
+  },
+  "CHQ-BCBK-C003-001": {
+    "cheque_image": "images/CHQ-BCBK-C003-001.png",
+    "cheque_image_bw": "images/CHQ-BCBK-C003-001_bw.png",
+    "signature_specimen": "signatures/BCBK-C003.png",
+    "category": "C",
+    "bank_id": "bcbk"
+  },
+  "CHQ-BCBK-C004-001": {
+    "cheque_image": "images/CHQ-BCBK-C004-001.png",
+    "cheque_image_bw": "images/CHQ-BCBK-C004-001_bw.png",
+    "signature_specimen": "signatures/BCBK-C004.png",
+    "category": "D",
+    "bank_id": "bcbk"
+  },
+  "CHQ-BCBK-C005-001": {
+    "cheque_image": "images/CHQ-BCBK-C005-001.png",
+    "cheque_image_bw": "images/CHQ-BCBK-C005-001_bw.png",
+    "signature_specimen": "signatures/BCBK-C005.png",
+    "category": "E",
+    "bank_id": "bcbk"
+  },
+  "CHQ-BCBK-C006-001": {
+    "cheque_image": "images/CHQ-BCBK-C006-001.png",
+    "cheque_image_bw": "images/CHQ-BCBK-C006-001_bw.png",
+    "signature_specimen": "signatures/BCBK-C006.png",
+    "category": "B",
+    "bank_id": "bcbk"
+  },
+  "CHQ-BCBK-C007-001": {
+    "cheque_image": "images/CHQ-BCBK-C007-001.png",
+    "cheque_image_bw": "images/CHQ-BCBK-C007-001_bw.png",
+    "signature_specimen": "signatures/BCBK-C007.png",
+    "category": "I",
+    "bank_id": "bcbk"
+  },
+  "CHQ-BCBK-C008-001": {
+    "cheque_image": "images/CHQ-BCBK-C008-001.png",
+    "cheque_image_bw": "images/CHQ-BCBK-C008-001_bw.png",
+    "signature_specimen": "signatures/BCBK-C008.png",
+    "category": "J",
+    "bank_id": "bcbk"
+  },
+  "CHQ-BCBK-C009-001": {
+    "cheque_image": "images/CHQ-BCBK-C009-001.png",
+    "cheque_image_bw": "images/CHQ-BCBK-C009-001_bw.png",
+    "signature_specimen": "signatures/BCBK-C009.png",
+    "category": "L",
+    "bank_id": "bcbk"
+  },
+  "CHQ-BCBK-C010-001": {
+    "cheque_image": "images/CHQ-BCBK-C010-001.png",
+    "cheque_image_bw": "images/CHQ-BCBK-C010-001_bw.png",
+    "signature_specimen": "signatures/BCBK-C010.png",
+    "category": "K",
+    "bank_id": "bcbk"
+  },
+  "CHQ-DUCB-C001-001": {
+    "cheque_image": "images/CHQ-DUCB-C001-001.png",
+    "cheque_image_bw": "images/CHQ-DUCB-C001-001_bw.png",
+    "signature_specimen": "signatures/DUCB-C001.png",
+    "category": "A",
+    "bank_id": "ducb"
+  },
+  "CHQ-DUCB-C002-001": {
+    "cheque_image": "images/CHQ-DUCB-C002-001.png",
+    "cheque_image_bw": "images/CHQ-DUCB-C002-001_bw.png",
+    "signature_specimen": "signatures/DUCB-C002.png",
+    "category": "A",
+    "bank_id": "ducb"
+  },
+  "CHQ-DUCB-C003-001": {
+    "cheque_image": "images/CHQ-DUCB-C003-001.png",
+    "cheque_image_bw": "images/CHQ-DUCB-C003-001_bw.png",
+    "signature_specimen": "signatures/DUCB-C003.png",
+    "category": "C",
+    "bank_id": "ducb"
+  },
+  "CHQ-DUCB-C004-001": {
+    "cheque_image": "images/CHQ-DUCB-C004-001.png",
+    "cheque_image_bw": "images/CHQ-DUCB-C004-001_bw.png",
+    "signature_specimen": "signatures/DUCB-C004.png",
+    "category": "D",
+    "bank_id": "ducb"
+  },
+  "CHQ-DUCB-C005-001": {
+    "cheque_image": "images/CHQ-DUCB-C005-001.png",
+    "cheque_image_bw": "images/CHQ-DUCB-C005-001_bw.png",
+    "signature_specimen": "signatures/DUCB-C005.png",
+    "category": "E",
+    "bank_id": "ducb"
+  },
+  "CHQ-DUCB-C006-001": {
+    "cheque_image": "images/CHQ-DUCB-C006-001.png",
+    "cheque_image_bw": "images/CHQ-DUCB-C006-001_bw.png",
+    "signature_specimen": "signatures/DUCB-C006.png",
+    "category": "B",
+    "bank_id": "ducb"
+  },
+  "CHQ-DUCB-C007-001": {
+    "cheque_image": "images/CHQ-DUCB-C007-001.png",
+    "cheque_image_bw": "images/CHQ-DUCB-C007-001_bw.png",
+    "signature_specimen": "signatures/DUCB-C007.png",
+    "category": "I",
+    "bank_id": "ducb"
+  },
+  "CHQ-DUCB-C008-001": {
+    "cheque_image": "images/CHQ-DUCB-C008-001.png",
+    "cheque_image_bw": "images/CHQ-DUCB-C008-001_bw.png",
+    "signature_specimen": "signatures/DUCB-C008.png",
+    "category": "J",
+    "bank_id": "ducb"
+  },
+  "CHQ-DUCB-C009-001": {
+    "cheque_image": "images/CHQ-DUCB-C009-001.png",
+    "cheque_image_bw": "images/CHQ-DUCB-C009-001_bw.png",
+    "signature_specimen": "signatures/DUCB-C009.png",
+    "category": "L",
+    "bank_id": "ducb"
+  },
+  "CHQ-DUCB-C010-001": {
+    "cheque_image": "images/CHQ-DUCB-C010-001.png",
+    "cheque_image_bw": "images/CHQ-DUCB-C010-001_bw.png",
+    "signature_specimen": "signatures/DUCB-C010.png",
+    "category": "M",
+    "bank_id": "ducb"
+  }
+}

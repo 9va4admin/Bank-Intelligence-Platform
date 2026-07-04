@@ -1,0 +1,120 @@
+version: "3.9"
+
+# ASTRA Demo - 5-Bank Local Docker Setup
+#
+# One container per bank:
+#   srcb  - Saraswat Co-operative Bank (SB / Sponsor Bank)
+#   vvsb  - Vasai Vikas Sahakari Bank (SMB)
+#   kjsb  - Kalyan Janata Sahakari Bank (SMB)
+#   bcbk  - Bharat Co-operative Bank (SMB)
+#   ducb  - Deccan Urban Co-operative Bank (SMB)
+#
+# Each bank has:
+#   API on port 8001-8005  (FastAPI backend)
+#   UI  on port 3001-3005  (React frontend — served by Vite dev server or Nginx)
+#
+# All containers on bridge network 'astra-demo' so SB can query SMB APIs.
+#
+# Run with:
+#   docker-compose up --build
+#
+# After startup:
+#   SB  Dashboard: http://localhost:3001
+#   SMB Dashboards: http://localhost:3002 ... 3005
+#   SB  API:        http://localhost:8001/docs
+
+networks:
+  astra-demo:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+x-api-common: &api-common
+  build:
+    context: ./backend
+    dockerfile: Dockerfile
+  restart: unless-stopped
+  networks:
+    - astra-demo
+  volumes:
+    - ./seed:/seed:ro
+  environment:
+    - PYTHONUNBUFFERED=1
+
+services:
+
+  # ── Saraswat Co-operative Bank (Sponsor Bank) ────────────────────────── #
+  srcb-api:
+    <<: *api-common
+    container_name: srcb-api
+    hostname: srcb-api
+    ports:
+      - "8001:8000"
+    environment:
+      - BANK_ID=srcb
+      - BASE_URL=http://localhost:8001
+      - PYTHONUNBUFFERED=1
+    networks:
+      astra-demo:
+        ipv4_address: 172.30.0.10
+
+  # ── Vasai Vikas Sahakari Bank (SMB 1) ──────────────────────────────── #
+  vvsb-api:
+    <<: *api-common
+    container_name: vvsb-api
+    hostname: vvsb-api
+    ports:
+      - "8002:8000"
+    environment:
+      - BANK_ID=vvsb
+      - BASE_URL=http://localhost:8002
+      - PYTHONUNBUFFERED=1
+    networks:
+      astra-demo:
+        ipv4_address: 172.30.0.11
+
+  # ── Kalyan Janata Sahakari Bank (SMB 2) ──────────────────────────── #
+  kjsb-api:
+    <<: *api-common
+    container_name: kjsb-api
+    hostname: kjsb-api
+    ports:
+      - "8003:8000"
+    environment:
+      - BANK_ID=kjsb
+      - BASE_URL=http://localhost:8003
+      - PYTHONUNBUFFERED=1
+    networks:
+      astra-demo:
+        ipv4_address: 172.30.0.12
+
+  # ── Bharat Co-operative Bank (SMB 3) ─────────────────────────────── #
+  bcbk-api:
+    <<: *api-common
+    container_name: bcbk-api
+    hostname: bcbk-api
+    ports:
+      - "8004:8000"
+    environment:
+      - BANK_ID=bcbk
+      - BASE_URL=http://localhost:8004
+      - PYTHONUNBUFFERED=1
+    networks:
+      astra-demo:
+        ipv4_address: 172.30.0.13
+
+  # ── Deccan Urban Co-operative Bank (SMB 4) ───────────────────────── #
+  ducb-api:
+    <<: *api-common
+    container_name: ducb-api
+    hostname: ducb-api
+    ports:
+      - "8005:8000"
+    environment:
+      - BANK_ID=ducb
+      - BASE_URL=http://localhost:8005
+      - PYTHONUNBUFFERED=1
+    networks:
+      astra-demo:
+        ipv4_address: 172.30.0.14
