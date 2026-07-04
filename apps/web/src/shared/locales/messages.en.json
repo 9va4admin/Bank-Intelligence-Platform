@@ -982,6 +982,60 @@
       "local_status"
     ]
   },
+  "CTS_OUT_MISMATCH_HELD": {
+    "text": "Instrument {instrument_id} held at branch {branch_id} — scanner vs Vision mismatch on: {mismatch_fields}. Awaiting branch review.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "branch_id",
+      "mismatch_fields"
+    ]
+  },
+  "CTS_OUT_MISMATCH_RESOLVED_GO_AHEAD": {
+    "text": "Branch mismatch on {instrument_id} at {branch_id} resolved as GO_AHEAD by {reviewer} — proceeding to lot.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "branch_id",
+      "reviewer"
+    ]
+  },
+  "CTS_OUT_MISMATCH_RESOLVED_REJECTED": {
+    "text": "Branch mismatch on {instrument_id} at {branch_id} rejected by {reviewer} — instrument withdrawn.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "branch_id",
+      "reviewer"
+    ]
+  },
+  "CTS_OUT_MISMATCH_TIMEOUT_AUTO_REJECTED": {
+    "text": "Mismatch hold on {instrument_id} at branch {branch_id} expired after {timeout_hours}h without resolution — auto-rejected.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "branch_id",
+      "timeout_hours"
+    ]
+  },
   "CTS_COMP_BANK_LOGO_MISSING": {
     "text": "CTS-2010 violation on {instrument_id}: bank logo absent or non-UV-reactive.",
     "severity": "ERROR",

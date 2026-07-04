@@ -982,6 +982,60 @@
       "local_status"
     ]
   },
+  "CTS_OUT_MISMATCH_HELD": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "branch_id",
+      "mismatch_fields"
+    ]
+  },
+  "CTS_OUT_MISMATCH_RESOLVED_GO_AHEAD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "branch_id",
+      "reviewer"
+    ]
+  },
+  "CTS_OUT_MISMATCH_RESOLVED_REJECTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "branch_id",
+      "reviewer"
+    ]
+  },
+  "CTS_OUT_MISMATCH_TIMEOUT_AUTO_REJECTED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "branch_id",
+      "timeout_hours"
+    ]
+  },
   "CTS_COMP_BANK_LOGO_MISSING": {
     "text": "",
     "severity": "ERROR",
