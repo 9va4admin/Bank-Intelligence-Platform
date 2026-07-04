@@ -6,8 +6,9 @@ import ChequeSearchBar from './ChequeSearchBar'
 import { useBankContext } from '../context/BankContext'
 
 // Nav item visibility is controlled by two independent gates:
-//   1. sbOnly: true  — SB bank type required (structural — SMB never sees SMB management)
-//   2. perm: 'cts:view_queue' — user's role must have this permission
+//   1. sbOnly: true  — SB bank type required (structural — SMB never sees SB management pages)
+//   2. smbOnly: true — SMB bank type required (structural — SB never sees SMB-only screens)
+//   3. perm: 'cts:view_queue' — user's role must have this permission
 // An item with no perm is visible to all authenticated users of the correct bank type.
 
 // ── Sidebar navigation structure ────────────────────────────────────────────
@@ -67,6 +68,7 @@ const SIDEBAR_MODULES = [
           { to: '/cts/inward-pipeline', label: 'Pipeline (Animated)',          perm: 'cts:view_analytics'  },
           { to: '/cts/demo',            label: '⚡ Live Demo',                perm: 'cts:view_queue'      },
           { to: '/cts/recall',          label: 'Recall',                       perm: 'cts:submit_decision' },
+          { to: '/cts/smb/review-queue', label: 'SMB Review Queue',           smbOnly: true, perm: 'cts:view_queue' },
         ],
       },
       {
@@ -179,6 +181,7 @@ const ROUTE_LABELS = {
   '/cts/smb/registry':            ['Processing', 'SMB Registry'],
   '/cts/smb/ledger':              ['Processing', 'SMB Clearing Ledger'],
   '/cts/smb/forwarding-log':      ['Processing', 'SMB Forwarding Log'],
+  '/cts/smb/review-queue':        ['Drawee Process', 'SMB Human Review Queue'],
   '/admin/security-violations':   ['Admin', 'Security Violation Log'],
   '/branch':                      ['Branch Portal', 'Dashboard'],
   '/branch/scan':                 ['Branch Portal', 'Scanner Monitor'],
@@ -205,7 +208,7 @@ export default function AppShell({ children }) {
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
-  const { bankType, bankName, bankIfsc, isSB, isDemoMode, toggleBankType, userRole, hasPermission } = useBankContext()
+  const { bankType, bankName, bankIfsc, isSB, isSMB, isDemoMode, toggleBankType, userRole, hasPermission } = useBankContext()
 
   const [section, page] = useBreadcrumb(location.pathname)
   const currentModule = activeModuleId(location.pathname)
@@ -279,6 +282,7 @@ export default function AppShell({ children }) {
               isActiveModule={currentModule === mod.id}
               location={location}
               isSB={isSB}
+              isSMB={isSMB}
               hasPermission={hasPermission}
             />
           ))}
@@ -399,7 +403,7 @@ export default function AppShell({ children }) {
 
 // ── SidebarModule ────────────────────────────────────────────────────────────
 
-function SidebarModule({ mod, collapsed, isDark, isActiveModule, location, isSB, hasPermission }) {
+function SidebarModule({ mod, collapsed, isDark, isActiveModule, location, isSB, isSMB, hasPermission }) {
   const [open, setOpen] = useState(isActiveModule)
   const [expandedSections, setExpandedSections] = useState(() => {
     const set = new Set()
@@ -474,6 +478,7 @@ function SidebarModule({ mod, collapsed, isDark, isActiveModule, location, isSB,
               expanded={expandedSections.has(sec.label)}
               onToggle={() => toggleSection(sec.label)}
               isSB={isSB}
+              isSMB={isSMB}
               hasPermission={hasPermission}
             />
           ))}
@@ -485,12 +490,14 @@ function SidebarModule({ mod, collapsed, isDark, isActiveModule, location, isSB,
 
 // ── SidebarSection ───────────────────────────────────────────────────────────
 
-function SidebarSection({ section, isDark, location, showHeader, expanded, onToggle, isSB, hasPermission }) {
-  // Two-gate filter:
+function SidebarSection({ section, isDark, location, showHeader, expanded, onToggle, isSB, isSMB, hasPermission }) {
+  // Three-gate filter:
   // 1. sbOnly gate  — structural bank-type wall (SMB never sees SB management pages)
-  // 2. perm gate    — role-based permission (user only sees items their role allows)
+  // 2. smbOnly gate — structural bank-type wall (SB never sees SMB-only screens)
+  // 3. perm gate    — role-based permission (user only sees items their role allows)
   const visibleItems = section.items.filter(item => {
     if (item.sbOnly && !isSB) return false
+    if (item.smbOnly && !isSMB) return false
     if (item.perm && !hasPermission(item.perm)) return false
     return true
   })
