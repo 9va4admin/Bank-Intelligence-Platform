@@ -576,6 +576,34 @@ CTS_OUT_RECONCILIATION_EXCEPTION:
   en: "Reconciliation exception on {instrument_id} — NGCH status {ngch_status} vs local {local_status}."
   hi: ""
 
+CTS_OUT_MISMATCH_HELD:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, branch_id, mismatch_fields]
+  en: "Instrument {instrument_id} held at branch {branch_id} — scanner vs Vision mismatch on: {mismatch_fields}. Awaiting branch review."
+  hi: ""
+
+CTS_OUT_MISMATCH_RESOLVED_GO_AHEAD:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [instrument_id, branch_id, reviewer]
+  en: "Branch mismatch on {instrument_id} at {branch_id} resolved as GO_AHEAD by {reviewer} — proceeding to lot."
+  hi: ""
+
+CTS_OUT_MISMATCH_RESOLVED_REJECTED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [instrument_id, branch_id, reviewer]
+  en: "Branch mismatch on {instrument_id} at {branch_id} rejected by {reviewer} — instrument withdrawn."
+  hi: ""
+
+CTS_OUT_MISMATCH_TIMEOUT_AUTO_REJECTED:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, branch_id, timeout_hours]
+  en: "Mismatch hold on {instrument_id} at branch {branch_id} expired after {timeout_hours}h without resolution — auto-rejected."
+  hi: ""
+
 # ────────────────────────────────────────────────────────────────────────
 # CTS COMPLIANCE
 # ────────────────────────────────────────────────────────────────────────
