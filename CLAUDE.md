@@ -1521,4 +1521,40 @@ PHASE 5 — Hardening (in progress, July 2026)
        shared/audit/audit_event.py — 6 new AuditEventType variants
        shared/messages/locales/messages.yaml — 6 new message keys (247 total)
        60 tests, all GREEN (zero warnings)
+
+PHASE 6 — Multi-Scenario CTS Presentment (July 2026, IN PROGRESS)
+  Context: Three deployment scenarios documented in docs/astra-multi-scenario-cts-plan.html
+    Scenario 1: SB+SMB, SMB has own CBS → MCP proxy (smb-cbs-vault-proxy) at SMB premises
+    Scenario 2: Agency+SMB, Agency manages CBS → Agency CC microservice
+    Scenario 3: Agency+SMB, SMB has own CBS → MCP proxy + Agency CC
+    Architecture decisions: ProcessingUnit (PU) as first-class entity; branch→PU is admin mapping
+    (not geographic); Vision LLM LAST for presentment, FIRST for drawee; OCR removed (scanner handles).
+    Drop-folder model: scanner OEM software writes to configured path, ASTRA file-watcher picks up.
+
+  [x] Phase 1 — Foundation (July 2026):
+      docs/astra-multi-scenario-cts-plan.html — full gap analysis + 8-phase plan
+      modules/cts/scanner/mapper.py — ScannerDropFolderMapper (CSV/XML, OEM field mapping,
+        amount/date/account normalisation, image path resolution)
+        ScannerConfig Pydantic model (branch-level OEM config, JSONB field_mapping)
+        ScannedChequeInput dataclass (OEM-blind canonical, path-based, PII hashed)
+        ScannerOEM expanded: DIGITAL_CHECK, MAGTEK, RDM, OPEX added — 30 tests GREEN
+      Alembic migrations (all 9 in plan):
+        20260705_add_processing_units    — PU: clearing_zone, temporal_task_queue, kafka_inward_topic
+        20260705_add_branches            — branch_ifsc UNIQUE, pu_id FK, drop_folder_base_path
+        20260705_add_sb_connections      — Agency mode SB connectors (SFTP_GENERIC, BANCS_API, NELITO_API)
+        20260705_add_clearing_sessions   — OPEN→SEALED→SUBMITTED→RECONCILED lifecycle
+        20260705_add_mismatch_queue      — Vision vs scanner mismatch HELD items
+        20260705_add_eeh_sessions        — mTLS per-branch upload sessions
+        20260705_add_scanner_configs     — JSONB field_mapping + image_naming_pattern per branch
+        20260706_alter_cheque_instruments_add_pu — pu_id, branch_id, clearing_session_id,
+          vision_result JSONB, vision_cascade_level (all nullable first per upgrade policy)
+        20260706_alter_ngch_submissions_add_pu   — pu_id, sb_connection_id, session_id;
+          agent_decisions: pu_id, smb_id, human_review_routed_to
+      modules/cts/crl/service.py — CRLService (IFSC/MICR → BranchResolution)
+        Redis cache crl:{ifsc} → BranchResolution JSON (TTL 5min)
+        MICR secondary index crl_micr:{micr_code} → ifsc_code
+        handle_invalidation_event() — Kafka cts.crl.invalidated consumer handler
+        Malformed events silently dropped (never crash the worker) — 22 tests GREEN
+
+  [ ] Phase 2 — EEH/IEH + Branch Portal UI (next)
 ```
