@@ -102,6 +102,15 @@ const SIDEBAR_MODULES = [
           { to: '/cts/compliance',      label: 'Compliance Cert',perm: 'audit:read'          },
         ],
       },
+      {
+        label: 'Branch Portal',
+        items: [
+          { to: '/branch',          label: 'Branch Dashboard', perm: 'cts:view_queue'      },
+          { to: '/branch/scan',     label: 'Scanner Monitor',  perm: 'cts:submit_decision' },
+          { to: '/branch/mismatch', label: 'Mismatch Queue',   perm: 'cts:submit_decision' },
+          { to: '/branch/history',  label: 'Session History',  perm: 'cts:view_queue'      },
+        ],
+      },
     ],
   },
   {
@@ -171,6 +180,10 @@ const ROUTE_LABELS = {
   '/cts/smb/ledger':              ['Processing', 'SMB Clearing Ledger'],
   '/cts/smb/forwarding-log':      ['Processing', 'SMB Forwarding Log'],
   '/admin/security-violations':   ['Admin', 'Security Violation Log'],
+  '/branch':                      ['Branch Portal', 'Dashboard'],
+  '/branch/scan':                 ['Branch Portal', 'Scanner Monitor'],
+  '/branch/mismatch':             ['Branch Portal', 'Mismatch Queue'],
+  '/branch/history':              ['Branch Portal', 'Session History'],
 }
 
 function useBreadcrumb(pathname) {
@@ -182,7 +195,7 @@ function useBreadcrumb(pathname) {
 
 function activeModuleId(pathname) {
   if (pathname.startsWith('/admin') || pathname.startsWith('/cts/config')) return 'admin'
-  return 'cts'
+  return 'cts'   // /branch/* routes live under the CTS module tab
 }
 
 // ── AppShell ────────────────────────────────────────────────────────────────

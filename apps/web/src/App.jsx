@@ -36,6 +36,10 @@ import CTSSMBForwardingLog from './modules/cts/pages/CTSSMBForwardingLog'
 import CTSInwardPipeline from './modules/cts/pages/CTSInwardPipeline'
 import CTSDemoPipeline from './modules/cts/pages/CTSDemoPipeline'
 import CTSPresentmentFile from './modules/cts/pages/CTSPresentmentFile'
+import BranchDashboard from './modules/cts/pages/branch/BranchDashboard'
+import BranchScanMonitor from './modules/cts/pages/branch/BranchScanMonitor'
+import BranchMismatchQueue from './modules/cts/pages/branch/BranchMismatchQueue'
+import BranchSessionHistory from './modules/cts/pages/branch/BranchSessionHistory'
 import CTSRFDrawee from './modules/cts/pages/CTSRFDrawee'
 import CTSRecall from './modules/cts/pages/CTSRecall'
 import EJSchedules from './modules/ej/pages/EJSchedules'
@@ -95,6 +99,11 @@ export default function App() {
         <Route path="/cts/smb/registry" element={<CTSSMBRegistry />} />
         <Route path="/cts/smb/ledger" element={<CTSSMBLedger />} />
         <Route path="/cts/smb/forwarding-log" element={<CTSSMBForwardingLog />} />
+        {/* Branch Portal — EEH branch operator screens */}
+        <Route path="/branch" element={<BranchDashboard />} />
+        <Route path="/branch/scan" element={<BranchScanMonitor />} />
+        <Route path="/branch/mismatch" element={<BranchMismatchQueue />} />
+        <Route path="/branch/history" element={<BranchSessionHistory />} />
         {/* Admin */}
         <Route path="/admin/users" element={<UserManagement />} />
         <Route path="/admin/security-violations" element={<SecurityViolations />} />
