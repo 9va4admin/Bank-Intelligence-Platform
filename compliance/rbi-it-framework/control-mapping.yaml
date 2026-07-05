@@ -78,18 +78,36 @@ domain_2_information_security:
     requirement: "Data classification with appropriate protection controls per sensitivity"
     status: COMPLIANT
     implementation: |
-      PII fields (account numbers, customer names, cheque amounts):
-        - Account numbers: HMAC-SHA256 hashed, never stored raw
-        - Customer names: pgcrypto column-level encryption (AES-256)
-        - Amounts: stored as range buckets only (STANDARD/HIGH_VALUE/VERY_HIGH_VALUE)
-        - Cheque images: MinIO SSE-KMS (Vault transit engine)
-        - EJ raw logs: AES-256-GCM at edge, gzip compressed before transmission
-      Non-PII operational data: stored plaintext in YugabyteDB
+      Data classification applied by sensitivity:
+
+      HIGH SENSITIVITY — protected at storage level:
+        - Account numbers: HMAC-SHA256 (bank-specific pepper from Vault); raw value
+          never stored anywhere in the system. Vault key: sig:{bank_id}:{hmac(acct)}.
+        - Cheque amounts: stored as range buckets only (₹[<1L] / ₹[1L-5L] / ₹[5L-10L] /
+          ₹[10L-1Cr] / ₹[>1Cr]); exact amounts never persisted in any table.
+        - Cheque images: MinIO SSE-KMS (AES-256, Vault transit engine as KMS).
+        - EJ raw logs: AES-256-GCM encrypted at edge before leaving branch premises.
+
+      STANDARD — no column encryption required, rationale documented:
+        - Payee names / drawer names: these fields appear on the physical cheque face
+          (a negotiable instrument, not a confidential document), are transmitted to NPCI
+          in CTS clearing files, appear in RRFs seen by both presenting and drawee banks,
+          and are not classified as sensitive in RBI's CTS operational guidelines.
+          Protection is provided by: network-layer mTLS, on-premises deployment (no
+          external exposure), RBAC-gated API access, and audit trail on every read.
+          Column-level encryption would add operational cost with no material risk reduction.
+        - Non-PII operational data (workflow state, lot numbers, session IDs):
+          stored plaintext in YugabyteDB.
+
+      Masking in logs and API responses:
+        - All API responses: account numbers masked to ****{last4}; amounts as range buckets.
+        - Structured logging (structlog): masking enforced via shared/utils/masking.py.
+        - Semgrep rule prevents raw PII in log statements (CI SAST gate).
     evidence:
       - ".claude/rules/pii-data-protection.md"
       - "shared/utils/masking.py"
-      - "shared/crypto/pii_cipher.py"
       - "edge/ej-agent/compressor.go — AES-256-GCM implementation"
+      - "modules/cts/vaults/signature_vault.py — HMAC-SHA256 account hashing"
 
   - control_id: IS-02
     title: Access Control — Least Privilege
@@ -119,7 +137,9 @@ domain_2_information_security:
                   mTLS across all pods via Istio service mesh.
                   Edge agent MCP server: TLS 1.3 with mutual certificate auth.
       At rest: MinIO SSE-KMS for all object storage (cheque images, EJ logs, CCTV).
-               YugabyteDB: column-level pgcrypto encryption for PII fields.
+               YugabyteDB: sensitive fields protected by design — account numbers as
+               HMAC-SHA256 (never stored raw), amounts as range buckets (never exact).
+               Payee/drawer names stored plaintext — justified under IS-01 rationale.
                Redis: auth token + TLS in transit; data encrypted at OS level (LUKS).
                Immudb: Merkle-tree protected; tamper-evident by design.
     evidence:
