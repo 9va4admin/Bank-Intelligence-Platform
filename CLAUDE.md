@@ -1601,4 +1601,37 @@ PHASE 6 — Multi-Scenario CTS Presentment (July 2026, COMPLETE)
         05-eeh-session-failure: gateway kill, branch network partition, 8s latency injection
         06-sb-connector-timeout: SFTP stall, BANCS_API 503 + Retry-After, Nelito partition
         07-smb-push-delayed: 18-min delay, gateway kill, malformed CSV injection
+
+PHASE 7 — Pluggable Auth Connector (July 2026, COMPLETE)
+  Context: Every entity level (SB / SMB / Branch / PU) independently configures its auth
+    mechanism via Helm Layer 2 values. Three connectors available: saml | ldap_ad | local.
+    ASTRA never stores passwords for SAML path (IdP authenticates). Local connector
+    (argon2id) is the last-resort for smallest SMBs with no directory service.
+    All connectors produce a uniform ASTRAIdentity — same RBAC path regardless of connector.
+
+  [x] shared/auth/connectors/__init__.py, base.py — ASTRAIdentity (frozen Pydantic, entity_type ∈ {sb,smb,branch,pu},
+       connector_used ∈ {saml,ldap_ad,local}), AuthConnector ABC (authenticate + health_check)
+  [x] shared/auth/connectors/local.py — LocalAuthConnector (argon2id verify, 5-attempt lockout
+       30-min lock, account inactive check, expired-lock bypass, _fetch/_update/_lock hooks)
+  [x] shared/auth/connectors/ldap_ad.py — LDAPADConnector (LDAPS-only enforced at config,
+       _ldap_bind_and_search hook, AD memberOf → first-match group_role_map, LDAPServerUnreachableError)
+       LDAPADConnectorConfig: @field_validator rejects plain ldap:// at construction time
+  [x] shared/auth/connectors/saml.py — SAMLConnector (SAML 2.0 assertion parse hook,
+       name_id + group claim extraction, group_role_map, ASTRA never sees password)
+  [x] shared/auth/connectors/factory.py — AuthConnectorFactory (entity-level routing,
+       SMB default + per-smb_id overrides, connector caching, AuthConnectorConfigError on
+       missing config or unknown entity_type)
+  [x] shared/auth/exceptions.py — added: AuthenticationError, AccountLockedError,
+       AuthorizationError, LDAPServerUnreachableError, AuthConnectorConfigError
+  [x] infra/migrations/platform/20260705_add_local_auth_accounts.py — platform.local_auth_accounts
+       (user_id PK, bank_id, entity_type, entity_id, username UNIQUE per bank, password_hash argon2id,
+       role, clearing_zones[], is_active, failed_attempts, locked_until float, created_at, last_login_at)
+  [x] messages.yaml: 8 new AUTH_* keys (274 total) — AUTH_LDAP_BIND_SUCCESS/FAILED,
+       AUTH_LDAP_GROUP_UNMAPPED, AUTH_LDAP_SERVER_UNREACHABLE (CRITICAL),
+       AUTH_LOCAL_LOGIN_SUCCESS/FAILED, AUTH_LOCAL_ACCOUNT_LOCKED (ERROR),
+       AUTH_CONNECTOR_CONFIG_MISSING (CRITICAL)
+  [x] infra/helm/values/banks/saraswat-coop/platform.yaml — auth: section added:
+       SB → saml (ADFS), branch → ldap_ad (LDAPS port 636), pu → ldap_ad,
+       smb.default → local, smb.overrides → commented example for pune-ucb LDAP
+  [x] 40 tests GREEN (7 base, 11 local, 12 ldap_ad, 10 factory) — ldap3 + argon2-cffi deps
 ```
