@@ -999,12 +999,16 @@ PHASE 5 — Hardening
   [ ] Bank onboarding: first pilot bank Helm deploy
 ```
 
-### Immediate Next (Phase 5 Hardening)
-1. RBI IT Framework control mapping (`compliance/rbi-it-framework/control-mapping.yaml`)
-2. Performance test harness — CTS 500-cheque parallel agent benchmark
-3. Chaos Mesh scenario YAMLs (DC failure, Redis eviction, vLLM down)
-4. First pilot bank Helm values (`infra/helm/values/banks/saraswat-coop/`)
-5. Gemini-identified fixes A-E (cascade AI, delta vault sync, HA/DR Helm values, EJ integrity, notification debouncer)
+### Immediate Next
+**All planned phases complete as of July 2026.** Platform is architecturally complete.
+
+Remaining work (in priority order):
+1. **NPCI API Modernisation Phase A** — REST transport + 3-layer auth module (`shared/ngch_auth/`)
+   Trigger: NPCI responds to concept note. Code can be built now (§17 has full task list).
+2. **Pilot bank deployment validation** — smoke-test `infra/helm/values/banks/saraswat-coop/`
+   against a real Kubernetes cluster; verify pre-upgrade migration job and ArgoCD ApplicationSet.
+3. **Security hardening audit** — full penetration test prep; verify SQL injection, PII at rest,
+   data theft protections are production-grade (OWASP ZAP + manual review).
 
 ---
 
@@ -1522,39 +1526,79 @@ PHASE 5 — Hardening (in progress, July 2026)
        shared/messages/locales/messages.yaml — 6 new message keys (247 total)
        60 tests, all GREEN (zero warnings)
 
-PHASE 6 — Multi-Scenario CTS Presentment (July 2026, IN PROGRESS)
+PHASE 6 — Multi-Scenario CTS Presentment (July 2026, COMPLETE)
   Context: Three deployment scenarios documented in docs/astra-multi-scenario-cts-plan.html
-    Scenario 1: SB+SMB, SMB has own CBS → MCP proxy (smb-cbs-vault-proxy) at SMB premises
-    Scenario 2: Agency+SMB, Agency manages CBS → Agency CC microservice
-    Scenario 3: Agency+SMB, SMB has own CBS → MCP proxy + Agency CC
+    Scenario 1: SB+SMB, SMB has own CBS → SMB CBS push via Agency SFTP (CSV every 15 min)
+    Scenario 2: Agency+SMB, Agency manages CBS → Agency CC microservice, no push needed
+    Scenario 3: Agency+SMB, SMB has own CBS → push + Agency CC relay
     Architecture decisions: ProcessingUnit (PU) as first-class entity; branch→PU is admin mapping
     (not geographic); Vision LLM LAST for presentment, FIRST for drawee; OCR removed (scanner handles).
     Drop-folder model: scanner OEM software writes to configured path, ASTRA file-watcher picks up.
+    SMB CBS proxy: originally planned as Go binary at SMB premises — CHANGED to push model.
+      SMB's existing CBS batch job pushes CSV to Agency SFTP every 15 min. Zero new software at SMB.
 
-  [x] Phase 1 — Foundation (July 2026):
+  [x] Phase 1 — Foundation (commit 0f0443f):
       docs/astra-multi-scenario-cts-plan.html — full gap analysis + 8-phase plan
-      modules/cts/scanner/mapper.py — ScannerDropFolderMapper (CSV/XML, OEM field mapping,
-        amount/date/account normalisation, image path resolution)
-        ScannerConfig Pydantic model (branch-level OEM config, JSONB field_mapping)
-        ScannedChequeInput dataclass (OEM-blind canonical, path-based, PII hashed)
-        ScannerOEM expanded: DIGITAL_CHECK, MAGTEK, RDM, OPEX added — 30 tests GREEN
-      Alembic migrations (all 9 in plan):
-        20260705_add_processing_units    — PU: clearing_zone, temporal_task_queue, kafka_inward_topic
-        20260705_add_branches            — branch_ifsc UNIQUE, pu_id FK, drop_folder_base_path
-        20260705_add_sb_connections      — Agency mode SB connectors (SFTP_GENERIC, BANCS_API, NELITO_API)
-        20260705_add_clearing_sessions   — OPEN→SEALED→SUBMITTED→RECONCILED lifecycle
-        20260705_add_mismatch_queue      — Vision vs scanner mismatch HELD items
-        20260705_add_eeh_sessions        — mTLS per-branch upload sessions
-        20260705_add_scanner_configs     — JSONB field_mapping + image_naming_pattern per branch
-        20260706_alter_cheque_instruments_add_pu — pu_id, branch_id, clearing_session_id,
-          vision_result JSONB, vision_cascade_level (all nullable first per upgrade policy)
-        20260706_alter_ngch_submissions_add_pu   — pu_id, sb_connection_id, session_id;
-          agent_decisions: pu_id, smb_id, human_review_routed_to
-      modules/cts/crl/service.py — CRLService (IFSC/MICR → BranchResolution)
-        Redis cache crl:{ifsc} → BranchResolution JSON (TTL 5min)
-        MICR secondary index crl_micr:{micr_code} → ifsc_code
-        handle_invalidation_event() — Kafka cts.crl.invalidated consumer handler
-        Malformed events silently dropped (never crash the worker) — 22 tests GREEN
+      modules/cts/scanner/mapper.py — ScannerDropFolderMapper, ScannerConfig, ScannedChequeInput
+        ScannerOEM: DIGITAL_CHECK, MAGTEK, RDM, OPEX added — 30 tests GREEN
+      Alembic migrations (all 9): processing_units, branches, sb_connections, clearing_sessions,
+        mismatch_queue, eeh_sessions, scanner_configs, cheque_instruments pu columns,
+        ngch_submissions pu columns
+      modules/cts/crl/service.py — CRLService (IFSC/MICR → BranchResolution, Redis cache) — 22 tests GREEN
 
-  [ ] Phase 2 — EEH/IEH + Branch Portal UI (next)
+  [x] Phase 2 — EEH/IEH + Branch Portal UI (commits f8c15df → c950597):
+      EEH Session Manager, SSE publisher, FastAPI health/session endpoints
+      EEH gRPC servicer + proto definition
+      Branch Portal UI: BranchDashboard, BranchScanMonitor, BranchMismatchQueue, BranchSessionHistory
+      EEH/IEH Helm chart — astra-cts v0.2.0 with Vault sidecar, anti-affinity, mTLS STRICT
+
+  [x] Phase 3 — Presentment Fix: Vision LAST + Mismatch Queue (commit 034f0a9):
+      OutwardScanWorkflow: Vision LLM moved to last step (after lot assignment)
+      MismatchResolutionWorkflow: HOLD state, 4-hour timeout, GO_AHEAD/REJECTED/TIMEOUT_AUTO_REJECTED
+      Kafka: cts.mismatch.{bank_id}.{branch_id} — 21 mismatch tests + 18 outward scan tests GREEN
+      MISMATCH_* message keys in messages.yaml
+
+  [x] Phase 4 — Drawee Fix: Vision FIRST + CBS LAST + SMB Human Review (commits 3886d38, 1c173b6, f71c74b):
+      ChequeProcessingWorkflow reordered: detect_alteration FIRST, ocr_extract REMOVED,
+        validate_cts2010 step 3, check_account_status new step 9 (after cbs_balance)
+      human_review_topic() method: smb-scoped when smb_id set
+      CTSInwardPipeline + CTSPipelineVisualizer updated
+      CTSSMBReviewQueue.jsx at /cts/smb/review-queue — smbOnly gate
+      Signature Verify activity: smb_proxy routing added — 21 tests GREEN
+
+  [x] Phase 5 — SMB Portal (commits fcd2b75, 5d13e37, 8617a39):
+      CTSSMBDashboard.jsx at /cts/smb/dashboard — inward summary, IET countdown, decisions, quick links
+      CTSSMBReports.jsx at /cts/smb/reports — daily summary / RRF / settlement tabs with CSV downloads
+      Row-level isolation: UserContext.sponsor_bank_id, RBACPolicy.smb_instrument_filter()
+      SMB_ADMIN / SMB_EDITOR / SMB_VIEWER RBAC roles — 5 new RBAC tests GREEN (86 total)
+      messages.yaml: CTS_SMB_HUMAN_REVIEW_ASSIGNED / CTS_SMB_DECISION_FILED / CTS_SMB_SETTLEMENT_AVAILABLE
+
+  [x] Phase 6 — Agency Command Center (commit 3c012bc):
+      shared/sb_connector/: base.py, sftp_generic.py, bancs_api.py, nelito_api.py — 35 tests GREEN
+      ClearingSessionWorkflow: SB_NGCH vs AGENCY_SB_RELAY routing, EMPTY_SESSION outcome — 18 tests GREEN
+      AgencyCCWorkflow: build_lot_package → sb_submit → relay Kafka → audit — 26 tests GREEN
+      SBInwardForwardingWorkflow: CRL per instrument → PU fan-out, original_ngch_ts preserved
+      CTSAgencyCC.jsx at /cts/agency-cc — sbOnly gate, useTheme()
+      messages.yaml: 8 CTS_CC_* keys (262 total)
+
+  [x] Phase 7 — SMB CBS Push Ingestion (commit 7d7c8bf):
+      ARCHITECTURE: Go binary at SMB DROPPED → SMB CBS pushes CSV via Agency SFTP every 15 min
+      modules/cts/smb_ingest/: models.py (StopPaymentRecord, PPSEntry, SignatureRecord — PII hashed)
+        parser.py (SMBPushParser — bucket_amount, HMAC-SHA256 account hash)
+      SMBVaultPushWorkflow: parse → update_vault → audit; idempotency via file_hash UNIQUE
+      Alembic: cts.smb_push_sessions (file_hash UNIQUE)
+      CTSAgencyCC.jsx: 4th tab 'SMB Push Sessions'
+      messages.yaml: 4 CTS_SMB_PUSH_* keys (266 total) — 52 tests GREEN
+
+  [x] Phase 8 — Hardening (commit 930d1f9):
+      E2E test harness — 19 tests GREEN:
+        tests/e2e/test_multi_scenario_cts.py — Scenario 1, 2, 3 + cross-scenario invariants
+        Bug discovered + fixed: ClearingSessionWorkflow mock contract — seal_all_lots must be
+        list[dict], relay key is agency_cc (not submit_to_sb)
+      Performance benchmark: tests/performance/test_cts_500_cheque_benchmark.py
+        @pytest.mark.performance — requires staging ASTRA_API_URL; 4 test variants
+      Chaos Mesh 05-07:
+        05-eeh-session-failure: gateway kill, branch network partition, 8s latency injection
+        06-sb-connector-timeout: SFTP stall, BANCS_API 503 + Retry-After, Nelito partition
+        07-smb-push-delayed: 18-min delay, gateway kill, malformed CSV injection
 ```
