@@ -46,6 +46,7 @@ import BranchSessionHistory from './modules/cts/pages/branch/BranchSessionHistor
 import CTSRFDrawee from './modules/cts/pages/CTSRFDrawee'
 import CTSRecall from './modules/cts/pages/CTSRecall'
 import CTSAgencyCC from './modules/cts/pages/CTSAgencyCC'
+import CTSSmokeTest from './modules/cts/pages/CTSSmokeTest'
 import EJSchedules from './modules/ej/pages/EJSchedules'
 import UserManagement from './modules/admin/pages/UserManagement'
 import LoginLog from './modules/admin/pages/LoginLog'
@@ -116,6 +117,7 @@ export default function App() {
         <Route path="/admin/users" element={<UserManagement />} />
         <Route path="/admin/security-violations" element={<SecurityViolations />} />
         <Route path="/admin/login-log" element={<LoginLog />} />
+        <Route path="/admin/smoke-test" element={<CTSSmokeTest />} />
         {/* EJ module — own routes, no overlap with CTS */}
         <Route path="/ej" element={<EJDashboard />} />
         <Route path="/ej/incidents" element={<IncidentManagement />} />
