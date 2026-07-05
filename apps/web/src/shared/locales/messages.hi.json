@@ -3261,5 +3261,63 @@
       "instrument_count",
       "clearing_date"
     ]
+  },
+  "CTS_SMB_PUSH_RECEIVED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "smb_id",
+      "file_type",
+      "agency_id",
+      "file_hash"
+    ]
+  },
+  "CTS_SMB_PUSH_VAULT_UPDATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_id",
+      "file_type",
+      "agency_id",
+      "records_processed"
+    ]
+  },
+  "CTS_SMB_PUSH_PARSE_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_id",
+      "file_type",
+      "agency_id",
+      "failure_reason"
+    ]
+  },
+  "CTS_SMB_PUSH_DUPLICATE": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "smb_id",
+      "file_type",
+      "agency_id",
+      "file_hash"
+    ]
   }
 }

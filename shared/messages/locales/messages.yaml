@@ -1898,3 +1898,31 @@ CTS_CC_SESSION_RECONCILED:
   variables: [agency_id, sb_bank_id, session_id, instrument_count, clearing_date]
   en: "Clearing session {session_id} fully reconciled — {instrument_count} instruments settled with SB {sb_bank_id} on {clearing_date}. Agency: {agency_id}."
   hi: ""
+
+CTS_SMB_PUSH_RECEIVED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [smb_id, file_type, agency_id, file_hash]
+  en: "CBS push file received from SMB {smb_id} — type {file_type}. Agency: {agency_id}. Hash: {file_hash}."
+  hi: ""
+
+CTS_SMB_PUSH_VAULT_UPDATED:
+  severity: INFO
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [smb_id, file_type, agency_id, records_processed]
+  en: "Vault updated from SMB {smb_id} CBS push — {records_processed} {file_type} records applied. Agency: {agency_id}."
+  hi: ""
+
+CTS_SMB_PUSH_PARSE_FAILED:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [smb_id, file_type, agency_id, failure_reason]
+  en: "SMB {smb_id} CBS push file parse failed — {file_type}: {failure_reason}. Agency: {agency_id}. Resend required."
+  hi: ""
+
+CTS_SMB_PUSH_DUPLICATE:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [smb_id, file_type, agency_id, file_hash]
+  en: "Duplicate CBS push file from SMB {smb_id} — {file_type} already processed (hash {file_hash}). Agency: {agency_id}. Skipped."
+  hi: ""
