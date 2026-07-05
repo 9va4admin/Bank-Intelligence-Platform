@@ -1926,3 +1926,59 @@ CTS_SMB_PUSH_DUPLICATE:
   variables: [smb_id, file_type, agency_id, file_hash]
   en: "Duplicate CBS push file from SMB {smb_id} — {file_type} already processed (hash {file_hash}). Agency: {agency_id}. Skipped."
   hi: ""
+
+AUTH_LDAP_BIND_SUCCESS:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [username, entity_type, bank_id]
+  en: "LDAP authentication successful for {username} ({entity_type}) at bank {bank_id}."
+  hi: ""
+
+AUTH_LDAP_BIND_FAILED:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [username, entity_type, bank_id]
+  en: "LDAP authentication failed for {username} ({entity_type}) at bank {bank_id}. Invalid credentials."
+  hi: ""
+
+AUTH_LDAP_GROUP_UNMAPPED:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [username, bank_id, groups]
+  en: "User {username} authenticated via LDAP at bank {bank_id} but has no mapped ASTRA role. AD groups: {groups}. Add group to group_role_map."
+  hi: ""
+
+AUTH_LDAP_SERVER_UNREACHABLE:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [server_url, bank_id, entity_type]
+  en: "LDAP/AD server {server_url} unreachable for {entity_type} auth at bank {bank_id}. Users cannot log in. Check network and LDAPS port 636."
+  hi: ""
+
+AUTH_LOCAL_LOGIN_SUCCESS:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [username, entity_type, bank_id]
+  en: "Local account login successful for {username} ({entity_type}) at bank {bank_id}."
+  hi: ""
+
+AUTH_LOCAL_LOGIN_FAILED:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [username, bank_id, attempts]
+  en: "Local account login failed for {username} at bank {bank_id}. Failed attempts: {attempts}."
+  hi: ""
+
+AUTH_LOCAL_ACCOUNT_LOCKED:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [username, bank_id, locked_until]
+  en: "Local account {username} at bank {bank_id} locked until {locked_until} after repeated failures. Contact bank IT admin."
+  hi: ""
+
+AUTH_CONNECTOR_CONFIG_MISSING:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [entity_type, bank_id]
+  en: "Auth connector configuration missing for {entity_type} at bank {bank_id}. Users cannot log in. Update Helm Layer 2 values."
+  hi: ""

@@ -12,16 +12,75 @@ bank_id: saraswat-coop             # must match Vault path segment exactly
 # Saraswat runs Infosys Finacle core banking
 cbs_connector_type: finacle
 
-# ── Identity Provider ────────────────────────────────────────────────────────
-idp:
-  type: saml2
-  metadata_url: "https://idp.saraswat.co.in/saml/metadata"
-  # Role mapping (bank IdP → ASTRA role):
-  #   saraswat-cts-reviewer  → ops_reviewer  (scoped to MUMBAI zone)
-  #   saraswat-fraud-analyst → fraud_analyst
-  #   saraswat-ops-manager   → ops_manager
-  #   saraswat-it-admin      → bank_it_admin
-  #   saraswat-compliance    → compliance_officer
+# ── Auth Connector Config ────────────────────────────────────────────────────
+# Per-entity-level auth connector. integration_type: saml | ldap_ad | local
+# integration_enabled: false → falls through to local (argon2-hashed accounts)
+auth:
+  # SB staff (Saraswat ops, managers, IT admins) → SAML via ADFS
+  sb:
+    integration_enabled: true
+    integration_type: saml
+    saml:
+      idp_metadata_url_secret: "secret/astra/saraswat-coop/auth/saml/sb/idp_metadata_url"
+      sp_entity_id: "astra-sb-saraswat-coop"
+      acs_url: "https://api.saraswat-coop.astra.internal/v1/auth/saml/acs"
+      group_role_map:
+        "saraswat-cts-reviewer":   ops_reviewer
+        "saraswat-fraud-analyst":  fraud_analyst
+        "saraswat-ops-manager":    ops_manager
+        "saraswat-it-admin":       bank_it_admin
+        "saraswat-compliance":     compliance_officer
+    clearing_zones: [MUMBAI]
+
+  # Branch scanner operators → LDAP-AD (Saraswat AD domain, LDAPS)
+  branch:
+    integration_enabled: true
+    integration_type: ldap_ad
+    ldap_ad:
+      server_url: "ldaps://dc.saraswat-coop.local:636"
+      base_dn: "DC=saraswat-coop,DC=local"
+      user_search_base: "OU=BranchUsers,DC=saraswat-coop,DC=local"
+      group_search_base: "OU=ASTRAGroups,DC=saraswat-coop,DC=local"
+      bind_dn_secret: "secret/astra/saraswat-coop/auth/ldap/bind_dn"
+      bind_pw_secret: "secret/astra/saraswat-coop/auth/ldap/bind_pw"
+      group_role_map:
+        "CN=ASTRA-BranchReviewers,OU=ASTRAGroups,DC=saraswat-coop,DC=local": ops_reviewer
+        "CN=ASTRA-BranchManagers,OU=ASTRAGroups,DC=saraswat-coop,DC=local":  ops_manager
+
+  # Processing Unit (Agency CC) operators → same LDAP-AD
+  pu:
+    integration_enabled: true
+    integration_type: ldap_ad
+    ldap_ad:
+      server_url: "ldaps://dc.saraswat-coop.local:636"
+      base_dn: "DC=saraswat-coop,DC=local"
+      user_search_base: "OU=PUUsers,DC=saraswat-coop,DC=local"
+      group_search_base: "OU=ASTRAGroups,DC=saraswat-coop,DC=local"
+      bind_dn_secret: "secret/astra/saraswat-coop/auth/ldap/bind_dn"
+      bind_pw_secret: "secret/astra/saraswat-coop/auth/ldap/bind_pw"
+      group_role_map:
+        "CN=ASTRA-PUManagers,OU=ASTRAGroups,DC=saraswat-coop,DC=local":  ops_manager
+        "CN=ASTRA-PUEditors,OU=ASTRAGroups,DC=saraswat-coop,DC=local":   ops_reviewer
+
+  # SMBs — default is local (argon2) accounts; per-SMB overrides below
+  smb:
+    default:
+      integration_enabled: false
+      integration_type: local
+    overrides:
+      # Example: Pune UCB has its own AD — enable LDAP for them
+      # pune-ucb:
+      #   integration_enabled: true
+      #   integration_type: ldap_ad
+      #   ldap_ad:
+      #     server_url: "ldaps://dc.pune-ucb.local:636"
+      #     base_dn: "DC=pune-ucb,DC=local"
+      #     user_search_base: "OU=Users,DC=pune-ucb,DC=local"
+      #     group_search_base: "OU=Groups,DC=pune-ucb,DC=local"
+      #     bind_dn_secret: "secret/astra/saraswat-coop/smb/pune-ucb/auth/ldap/bind_dn"
+      #     bind_pw_secret: "secret/astra/saraswat-coop/smb/pune-ucb/auth/ldap/bind_pw"
+      #     group_role_map:
+      #       "CN=ASTRA-SMBAdmins,...": smb_admin
 
 # ── Data Centers ─────────────────────────────────────────────────────────────
 # Saraswat pilot: single-DC to start; second DC added in Phase 2 (Q4 2026)

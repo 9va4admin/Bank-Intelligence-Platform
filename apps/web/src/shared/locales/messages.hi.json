@@ -3319,5 +3319,111 @@
       "agency_id",
       "file_hash"
     ]
+  },
+  "AUTH_LDAP_BIND_SUCCESS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "username",
+      "entity_type",
+      "bank_id"
+    ]
+  },
+  "AUTH_LDAP_BIND_FAILED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "username",
+      "entity_type",
+      "bank_id"
+    ]
+  },
+  "AUTH_LDAP_GROUP_UNMAPPED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "username",
+      "bank_id",
+      "groups"
+    ]
+  },
+  "AUTH_LDAP_SERVER_UNREACHABLE": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "server_url",
+      "bank_id",
+      "entity_type"
+    ]
+  },
+  "AUTH_LOCAL_LOGIN_SUCCESS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "username",
+      "entity_type",
+      "bank_id"
+    ]
+  },
+  "AUTH_LOCAL_LOGIN_FAILED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "username",
+      "bank_id",
+      "attempts"
+    ]
+  },
+  "AUTH_LOCAL_ACCOUNT_LOCKED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "username",
+      "bank_id",
+      "locked_until"
+    ]
+  },
+  "AUTH_CONNECTOR_CONFIG_MISSING": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "entity_type",
+      "bank_id"
+    ]
   }
 }
