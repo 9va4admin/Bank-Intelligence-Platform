@@ -45,6 +45,7 @@ import BranchMismatchQueue from './modules/cts/pages/branch/BranchMismatchQueue'
 import BranchSessionHistory from './modules/cts/pages/branch/BranchSessionHistory'
 import CTSRFDrawee from './modules/cts/pages/CTSRFDrawee'
 import CTSRecall from './modules/cts/pages/CTSRecall'
+import CTSAgencyCC from './modules/cts/pages/CTSAgencyCC'
 import EJSchedules from './modules/ej/pages/EJSchedules'
 import UserManagement from './modules/admin/pages/UserManagement'
 import LoginLog from './modules/admin/pages/LoginLog'
@@ -84,6 +85,7 @@ export default function App() {
         <Route path="/cts/presentment-file" element={<CTSPresentmentFile />} />
         <Route path="/cts/rf-drawee" element={<CTSRFDrawee />} />
         <Route path="/cts/recall" element={<CTSRecall />} />
+        <Route path="/cts/agency-cc" element={<CTSAgencyCC />} />
         <Route path="/cts/discrepancy" element={<CTSDiscrepancy />} />
         <Route path="/cts/batches" element={<CTSBatches />} />
         <Route path="/cts/analytics" element={<CTSAnalytics />} />

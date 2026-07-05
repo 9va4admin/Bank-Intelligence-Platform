@@ -1841,3 +1841,60 @@ MCP_CONN_SYNC_TRIGGERED:
   variables: [bank_id, connection_id, connection_type, workflow_id, triggered_by]
   en: "Vault sync triggered for MCP connection {connection_type} ({connection_id}) on {bank_id} — workflow {workflow_id}. Triggered by {triggered_by}."
   hi: ""
+
+# ── Phase 6: Agency Command Center ──────────────────────────────────────────
+CTS_CC_SESSION_OPENED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [agency_id, session_id, session_type, sb_bank_id, clearing_date]
+  en: "Clearing session {session_id} ({session_type}) opened for agency {agency_id} → SB {sb_bank_id} on {clearing_date}. Awaiting lot sealing from all PUs."
+  hi: ""
+
+CTS_CC_SESSION_SEALED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [agency_id, session_id, lot_count, total_instruments, sb_bank_id]
+  en: "All {lot_count} lots sealed for session {session_id} — {total_instruments} instruments ready for submission to SB {sb_bank_id}. Agency: {agency_id}."
+  hi: ""
+
+CTS_CC_SB_SUBMITTED:
+  severity: INFO
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [agency_id, sb_bank_id, session_id, sb_reference, instrument_count, connector_type]
+  en: "Lot package submitted to SB {sb_bank_id} via {connector_type} — reference {sb_reference}. Session: {session_id}, instruments: {instrument_count}. Agency: {agency_id}."
+  hi: ""
+
+CTS_CC_SB_ACKNOWLEDGED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [agency_id, sb_bank_id, session_id, sb_reference]
+  en: "SB {sb_bank_id} acknowledged receipt of session {session_id} — reference {sb_reference}. Agency: {agency_id}."
+  hi: ""
+
+CTS_CC_INWARD_RECEIVED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [agency_id, sb_bank_id, session_id, instrument_count]
+  en: "Inward relay received from SB {sb_bank_id} — {instrument_count} instruments for session {session_id}. Routing to PUs. Agency: {agency_id}."
+  hi: ""
+
+CTS_CC_INWARD_ROUTED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [agency_id, session_id, routed_count, failed_count]
+  en: "Inward routing complete for session {session_id} — {routed_count} instruments routed to PUs, {failed_count} CRL misses. Agency: {agency_id}."
+  hi: ""
+
+CTS_CC_SB_CONN_FAILED:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [agency_id, sb_bank_id, session_id, error_code, connector_type]
+  en: "SB connector failure for {sb_bank_id} [{connector_type}] — {error_code}. Session {session_id} could not be submitted. Manual intervention required. Agency: {agency_id}."
+  hi: ""
+
+CTS_CC_SESSION_RECONCILED:
+  severity: INFO
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [agency_id, sb_bank_id, session_id, instrument_count, clearing_date]
+  en: "Clearing session {session_id} fully reconciled — {instrument_count} instruments settled with SB {sb_bank_id} on {clearing_date}. Agency: {agency_id}."
+  hi: ""

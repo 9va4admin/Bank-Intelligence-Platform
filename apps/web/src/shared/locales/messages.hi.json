@@ -3140,5 +3140,126 @@
       "workflow_id",
       "triggered_by"
     ]
+  },
+  "CTS_CC_SESSION_OPENED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "session_id",
+      "session_type",
+      "sb_bank_id",
+      "clearing_date"
+    ]
+  },
+  "CTS_CC_SESSION_SEALED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "session_id",
+      "lot_count",
+      "total_instruments",
+      "sb_bank_id"
+    ]
+  },
+  "CTS_CC_SB_SUBMITTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "sb_reference",
+      "instrument_count",
+      "connector_type"
+    ]
+  },
+  "CTS_CC_SB_ACKNOWLEDGED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "sb_reference"
+    ]
+  },
+  "CTS_CC_INWARD_RECEIVED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "instrument_count"
+    ]
+  },
+  "CTS_CC_INWARD_ROUTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "session_id",
+      "routed_count",
+      "failed_count"
+    ]
+  },
+  "CTS_CC_SB_CONN_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "error_code",
+      "connector_type"
+    ]
+  },
+  "CTS_CC_SESSION_RECONCILED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "instrument_count",
+      "clearing_date"
+    ]
   }
 }
