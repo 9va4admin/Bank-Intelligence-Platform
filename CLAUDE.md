@@ -1634,4 +1634,23 @@ PHASE 7 — Pluggable Auth Connector (July 2026, COMPLETE)
        SB → saml (ADFS), branch → ldap_ad (LDAPS port 636), pu → ldap_ad,
        smb.default → local, smb.overrides → commented example for pune-ucb LDAP
   [x] 40 tests GREEN (7 base, 11 local, 12 ldap_ad, 10 factory) — ldap3 + argon2-cffi deps
+
+PHASE 8 — Pre-Live Smoke Test Suite (July 2026, COMPLETE)
+  [x] Backend: apps/api/routers/admin_smoke_test.py
+       GET /v1/admin/smoke-test — run all tests for caller's entity_type
+       GET /v1/admin/smoke-test/{test_id} — single test; 403 on EntityScopeMismatchError
+       SmokeTestStatus: PASS/WARN/FAIL/SKIP — all_clear=True iff fail==0 (WARN advisory)
+       Entity scopes: sb (8 tests), smb (4 tests), branch (3 tests), pu (4 tests)
+       Individual runners are stubs returning SKIP — wire real checks per deployment
+       10 tests GREEN (tests/apps/api/routers/test_admin_smoke_test.py)
+  [x] Frontend: apps/web/src/modules/cts/pages/CTSSmokeTest.jsx at /admin/smoke-test
+       SB IT admin sees all 4 entity tabs (SB/SMB/Branch/PU); SMB sees only SMB tab
+       Run All Tests animates sequentially per test with live status + latency
+       Left-stripe colour encoding: PASS=green, WARN=amber, FAIL=red, RUNNING=violet pulse
+       Summary strip: pass/fail/warn counts + ALL CLEAR or FAILURES banner
+       Download Report → JSON file for bank IT admin's change management ticket
+       Cycles 3 demo scenarios: all-pass → failures → warns on each re-run
+       useTheme() + useBankContext() — fully dual-themed, sbOnly gate on entity tabs
+  [x] AppShell: ✓ Go-Live Test nav item added to Admin section (perm: config:layer2:change)
+  [x] App.jsx: Route /admin/smoke-test wired to CTSSmokeTest
 ```
