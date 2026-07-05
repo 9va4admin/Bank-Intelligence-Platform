@@ -1,0 +1,131 @@
+---
+# Chaos Mesh Scenario 05 — EEH Session Failure (Scanner Upload Disruption)
+# RBI Control: DR-02 (Business Continuity Testing)
+#
+# Validates:
+#   - When the EEH ingestion gateway is unreachable, scanner drop-folder buffering
+#     holds scanned cheques locally (branch never loses an instrument)
+#   - On EEH recovery, the scanner session resumes — no duplicate lot entries
+#   - OutwardScanWorkflow retries with exponential backoff, not a hard failure
+#   - Ops workstation shows branch as DEGRADED (not ERROR) during outage
+#   - Mismatch queue is not contaminated by buffered resubmissions
+#
+# Scenarios covered:
+#   5A — EEH gateway pod killed (session reconnect path)
+#   5B — Network partition between branch scanner and EEH gateway (timeout path)
+#   5C — EEH gateway slow (high latency — tests gRPC timeout handling)
+#
+# Duration: 5A/5B run 3 minutes; 5C runs 5 minutes
+# Verdict: PASS if no scanned cheque is lost and no IET breach occurs
+---
+# 5A: Kill the EEH ingestion gateway pod (gRPC session lost — scanner must reconnect)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: eeh-gateway-pod-kill
+  namespace: astra-cts-saraswat-coop
+  labels:
+    astra.chaos/scenario: eeh-session-failure
+    astra.chaos/subscenario: "5A-gateway-kill"
+    astra.chaos/bank_id: saraswat-coop
+    astra.chaos/severity: high
+    astra.chaos/runbook: infra/chaos-mesh/runbooks/eeh-failure-runbook.md
+spec:
+  action: pod-kill
+  mode: one            # kill the EEH gateway pod (single replica in staging)
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      app.kubernetes.io/name: eeh-ingestion-gateway
+  duration: "3m"
+  scheduler:
+    cron: "@manual"
+---
+# 5B: Network partition between branch namespace and EEH gateway
+# Simulates a branch WAN link flap or firewall rule change
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: eeh-branch-network-partition
+  namespace: astra-cts-saraswat-coop
+  labels:
+    astra.chaos/scenario: eeh-session-failure
+    astra.chaos/subscenario: "5B-network-partition"
+    astra.chaos/bank_id: saraswat-coop
+    astra.chaos/severity: high
+spec:
+  action: partition
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      app.kubernetes.io/name: scanner-drop-folder-watcher
+  direction: to
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - astra-cts-saraswat-coop
+      labelSelectors:
+        app.kubernetes.io/name: eeh-ingestion-gateway
+  duration: "3m"
+  scheduler:
+    cron: "@manual"
+---
+# 5C: EEH gateway high-latency injection (gRPC timeout path)
+# EEH gRPC calls must time out and fall back to retry queue, not block the scanner session
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: eeh-gateway-latency
+  namespace: astra-cts-saraswat-coop
+  labels:
+    astra.chaos/scenario: eeh-session-failure
+    astra.chaos/subscenario: "5C-gateway-latency"
+    astra.chaos/bank_id: saraswat-coop
+    astra.chaos/severity: medium
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      app.kubernetes.io/name: eeh-ingestion-gateway
+  delay:
+    latency: "8000ms"      # 8 second latency — exceeds gRPC timeout (5s default)
+    correlation: "100"     # deterministic — every call affected
+    jitter: "0ms"
+  direction: from           # responses from gateway are delayed
+  duration: "5m"
+  scheduler:
+    cron: "@manual"
+---
+# Pass criteria:
+#
+#   Scenario 5A (EEH gateway pod killed):
+#   1. Scanner drop-folder watcher: queued_pending_count > 0 while gateway is down
+#      (files buffered locally, not dropped)
+#   2. After pod restart + 60s: queued_pending_count returns to 0
+#      (all buffered files uploaded on reconnect)
+#   3. cts.outward.scanned.{bank_id} Kafka topic: message count equals
+#      original scanned instrument count (no duplicates, no drops)
+#   4. cts_lot_entry_duplicate_total == 0 (Temporal workflow dedup holds)
+#   5. Ops workstation: branch card shows RECONNECTING badge, then CONNECTED
+#
+#   Scenario 5B (Network partition):
+#   1. Drop-folder watcher enters BUFFERING mode within 10s of partition
+#   2. Instruments scanned during partition are held in local queue
+#   3. After partition heals: all buffered instruments uploaded, lot entries created
+#   4. OutwardScanWorkflow: no FAILED terminal states due to network (only retries)
+#   5. IET: instruments scanned during partition must still file before deadline
+#      (if IET window < 3min: test must be run with instruments having IET > 10min)
+#
+#   Scenario 5C (High latency):
+#   1. gRPC calls exceed 5s timeout — EEH_UPLOAD_TIMEOUT error code observed in logs
+#   2. Scanner watcher retries with exponential backoff (not tight loop)
+#   3. After latency removed: all instruments delivered, no mismatch_queue contamination
+#   4. prometheus: eeh_upload_retry_total{bank_id} > 0 (retries are happening)
+#   5. prometheus: eeh_upload_timeout_total{bank_id} > 0 (timeouts are counted)
