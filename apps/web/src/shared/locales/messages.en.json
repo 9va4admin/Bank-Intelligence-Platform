@@ -3140,5 +3140,126 @@
       "workflow_id",
       "triggered_by"
     ]
+  },
+  "CTS_CC_SESSION_OPENED": {
+    "text": "Clearing session {session_id} ({session_type}) opened for agency {agency_id} → SB {sb_bank_id} on {clearing_date}. Awaiting lot sealing from all PUs.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "session_id",
+      "session_type",
+      "sb_bank_id",
+      "clearing_date"
+    ]
+  },
+  "CTS_CC_SESSION_SEALED": {
+    "text": "All {lot_count} lots sealed for session {session_id} — {total_instruments} instruments ready for submission to SB {sb_bank_id}. Agency: {agency_id}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "session_id",
+      "lot_count",
+      "total_instruments",
+      "sb_bank_id"
+    ]
+  },
+  "CTS_CC_SB_SUBMITTED": {
+    "text": "Lot package submitted to SB {sb_bank_id} via {connector_type} — reference {sb_reference}. Session: {session_id}, instruments: {instrument_count}. Agency: {agency_id}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "sb_reference",
+      "instrument_count",
+      "connector_type"
+    ]
+  },
+  "CTS_CC_SB_ACKNOWLEDGED": {
+    "text": "SB {sb_bank_id} acknowledged receipt of session {session_id} — reference {sb_reference}. Agency: {agency_id}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "sb_reference"
+    ]
+  },
+  "CTS_CC_INWARD_RECEIVED": {
+    "text": "Inward relay received from SB {sb_bank_id} — {instrument_count} instruments for session {session_id}. Routing to PUs. Agency: {agency_id}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "instrument_count"
+    ]
+  },
+  "CTS_CC_INWARD_ROUTED": {
+    "text": "Inward routing complete for session {session_id} — {routed_count} instruments routed to PUs, {failed_count} CRL misses. Agency: {agency_id}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "session_id",
+      "routed_count",
+      "failed_count"
+    ]
+  },
+  "CTS_CC_SB_CONN_FAILED": {
+    "text": "SB connector failure for {sb_bank_id} [{connector_type}] — {error_code}. Session {session_id} could not be submitted. Manual intervention required. Agency: {agency_id}.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "error_code",
+      "connector_type"
+    ]
+  },
+  "CTS_CC_SESSION_RECONCILED": {
+    "text": "Clearing session {session_id} fully reconciled — {instrument_count} instruments settled with SB {sb_bank_id} on {clearing_date}. Agency: {agency_id}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "instrument_count",
+      "clearing_date"
+    ]
   }
 }

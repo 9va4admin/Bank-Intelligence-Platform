@@ -94,6 +94,7 @@ const SIDEBAR_MODULES = [
           { to: '/cts/iqa',               label: 'Image Quality',    perm: 'cts:view_queue'                     },
           { to: '/cts/scanner',            label: 'Scanner SDK',      perm: 'cts:submit_decision'                },
           { to: '/cts/rpc',               label: 'RPC Consolidation',perm: 'cts:view_analytics', sbOnly: true       },
+          { to: '/cts/agency-cc',         label: 'Agency Cmd Center', perm: 'cts:view_analytics', sbOnly: true      },
         ],
       },
       {
@@ -183,6 +184,7 @@ const ROUTE_LABELS = {
   '/cts/smb/registry':            ['Processing', 'SMB Registry'],
   '/cts/smb/ledger':              ['Processing', 'SMB Clearing Ledger'],
   '/cts/smb/forwarding-log':      ['Processing', 'SMB Forwarding Log'],
+  '/cts/agency-cc':               ['Processing', 'Agency Command Center'],
   '/cts/smb/dashboard':           ['Drawee Process', 'SMB Dashboard'],
   '/cts/smb/review-queue':        ['Drawee Process', 'SMB Human Review Queue'],
   '/cts/smb/reports':             ['Drawee Process', 'SMB Reports'],
