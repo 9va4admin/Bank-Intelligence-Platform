@@ -1,0 +1,142 @@
+---
+# Chaos Mesh Scenario 06 — SB Connector Timeout (Agency Relay Disruption)
+# RBI Control: DR-02 (Business Continuity Testing)
+#
+# Validates:
+#   - When the upstream Sponsor Bank's API/SFTP becomes slow or unreachable,
+#     AgencyCCWorkflow retries correctly without IET breach
+#   - ClearingSessionWorkflow reports SB_UNAVAILABLE (not a crash) and queues
+#     lot packages in Temporal for retry on reconnect
+#   - Notification service fires CTS_CC_SB_UNAVAILABLE alert immediately
+#   - After SB recovers, lot packages are submitted exactly once (no duplicates)
+#   - Affects AGENCY_SB_RELAY deployment mode only — SB_NGCH banks are unaffected
+#
+# Scenarios covered:
+#   6A — SFTP_GENERIC connector: SFTP upload timeout (TCP connection stall)
+#   6B — BANCS_API connector: HTTP 503 from SB API (temporary service unavailable)
+#   6C — NELITO_API connector: Network partition (complete blackout)
+#
+# Duration: All scenarios run 5 minutes
+# Verdict: PASS if all lot packages are eventually submitted and audit trail is complete
+---
+# 6A: Inject latency on SFTP connector outbound connections (SFTP_GENERIC timeout path)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: sb-connector-sftp-timeout
+  namespace: astra-cts-saraswat-coop
+  labels:
+    astra.chaos/scenario: sb-connector-timeout
+    astra.chaos/subscenario: "6A-sftp-generic"
+    astra.chaos/bank_id: saraswat-coop
+    astra.chaos/severity: high
+    astra.chaos/runbook: infra/chaos-mesh/runbooks/sb-connector-runbook.md
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      app.kubernetes.io/name: agency-cc-worker
+      astra.cts/connector-type: sftp-generic
+  delay:
+    latency: "30000ms"     # 30s stall — exceeds SFTP upload timeout (15s configured)
+    correlation: "100"
+    jitter: "0ms"
+  direction: to
+  externalTargets:
+    - "sb-sftp.saraswat-coop.internal"   # upstream SB SFTP host (DNS)
+  duration: "5m"
+  scheduler:
+    cron: "@manual"
+---
+# 6B: HTTP fault injection on BANCS_API connector (503 response from SB API)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: HTTPChaos
+metadata:
+  name: sb-connector-bancs-503
+  namespace: astra-cts-saraswat-coop
+  labels:
+    astra.chaos/scenario: sb-connector-timeout
+    astra.chaos/subscenario: "6B-bancs-api"
+    astra.chaos/bank_id: saraswat-coop
+    astra.chaos/severity: high
+spec:
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      app.kubernetes.io/name: agency-cc-worker
+  target: Response          # intercept responses from the BANCS API
+  port: 8443                # BANCS API mTLS port
+  path: "/api/cts/*"        # scope to CTS submission endpoints only
+  method: "POST"
+  abort: false
+  replace:
+    code: 503               # Temporary Service Unavailable
+    headers:
+      Retry-After: "60"     # SB says retry in 60 seconds
+  duration: "5m"
+  scheduler:
+    cron: "@manual"
+---
+# 6C: Complete network partition to Nelito API (SB_CONNECTOR blackout)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: sb-connector-nelito-partition
+  namespace: astra-cts-saraswat-coop
+  labels:
+    astra.chaos/scenario: sb-connector-timeout
+    astra.chaos/subscenario: "6C-nelito-api"
+    astra.chaos/bank_id: saraswat-coop
+    astra.chaos/severity: critical
+spec:
+  action: partition
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      app.kubernetes.io/name: agency-cc-worker
+      astra.cts/connector-type: nelito-api
+  direction: to
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - astra-cts-saraswat-coop
+      labelSelectors:
+        app.kubernetes.io/name: sb-connector-egress-proxy
+  duration: "5m"
+  scheduler:
+    cron: "@manual"
+---
+# Pass criteria:
+#
+#   Scenario 6A (SFTP timeout):
+#   1. AgencyCCWorkflow: sb_submit activity raises SBConnectorTimeoutError within 15s
+#   2. Temporal retries: 3 attempts with exponential backoff (NGCH_FILING_RETRY policy)
+#   3. After 3 failed attempts: ClearingSessionWorkflow outcome = SB_UNAVAILABLE (not crash)
+#   4. Notification: CTS_CC_SB_UNAVAILABLE sent to ops_manager within 30s of first failure
+#   5. After chaos ends: lot package retry succeeds — outcome SB_SUBMISSION_RETRIED
+#   6. prometheus: cts_sb_connector_timeout_total{connector_type="sftp_generic"} > 0
+#   7. Exactly-once: lot package submitted ONCE after recovery (not on every retry)
+#
+#   Scenario 6B (BANCS_API 503):
+#   1. BANCS connector parses Retry-After: 60 header and waits before retry
+#   2. Temporal retry schedule respects Retry-After (does not retry before 60s)
+#   3. After 5 minutes (chaos window): connector retries and succeeds
+#   4. prometheus: cts_sb_connector_http_error_total{status_code="503"} > 0
+#   5. audit-service: CTS_CC_SB_SUBMISSION_FAILED event written to Immudb during outage
+#   6. audit-service: CTS_CC_SUBMITTED event written after successful retry
+#
+#   Scenario 6C (Nelito partition):
+#   1. Connector: connection refused within 5s (fast-fail on partition)
+#   2. ClearingSessionWorkflow: transitions to QUEUED_PENDING_SB state
+#   3. After partition heals: pending lots drain in order, no duplicates
+#   4. prometheus: cts_outward_pending_sb_submission_count drops to 0 after recovery
+#   5. prometheus: cts_iet_breach_total == 0 throughout
+#      (outward path — IET applies to inward drawee processing, not outward filing)
