@@ -3261,5 +3261,63 @@
       "instrument_count",
       "clearing_date"
     ]
+  },
+  "CTS_SMB_PUSH_RECEIVED": {
+    "text": "CBS push file received from SMB {smb_id} — type {file_type}. Agency: {agency_id}. Hash: {file_hash}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "smb_id",
+      "file_type",
+      "agency_id",
+      "file_hash"
+    ]
+  },
+  "CTS_SMB_PUSH_VAULT_UPDATED": {
+    "text": "Vault updated from SMB {smb_id} CBS push — {records_processed} {file_type} records applied. Agency: {agency_id}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_id",
+      "file_type",
+      "agency_id",
+      "records_processed"
+    ]
+  },
+  "CTS_SMB_PUSH_PARSE_FAILED": {
+    "text": "SMB {smb_id} CBS push file parse failed — {file_type}: {failure_reason}. Agency: {agency_id}. Resend required.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_id",
+      "file_type",
+      "agency_id",
+      "failure_reason"
+    ]
+  },
+  "CTS_SMB_PUSH_DUPLICATE": {
+    "text": "Duplicate CBS push file from SMB {smb_id} — {file_type} already processed (hash {file_hash}). Agency: {agency_id}. Skipped.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "smb_id",
+      "file_type",
+      "agency_id",
+      "file_hash"
+    ]
   }
 }

@@ -105,6 +105,50 @@ const MOCK_INWARD_STATS = {
   last_relay_at: '2026-07-05T11:15:00Z',
 }
 
+const MOCK_PUSH_SESSIONS = [
+  {
+    id: 'push-001',
+    smb_id: 'testucb',
+    smb_name: 'Test UCB',
+    file_type: 'STOP_PAYMENTS',
+    outcome: 'VAULT_UPDATED',
+    records_processed: 12,
+    received_at: '2026-07-05T11:45:00Z',
+    file_hash: 'abc123',
+  },
+  {
+    id: 'push-002',
+    smb_id: 'testucb',
+    smb_name: 'Test UCB',
+    file_type: 'PPS_ENTRIES',
+    outcome: 'VAULT_UPDATED',
+    records_processed: 34,
+    received_at: '2026-07-05T11:45:01Z',
+    file_hash: 'def456',
+  },
+  {
+    id: 'push-003',
+    smb_id: 'cosmos-smb',
+    smb_name: 'Cosmos SMB',
+    file_type: 'SIGNATURES',
+    outcome: 'PARSE_FAILED',
+    records_processed: 0,
+    received_at: '2026-07-05T11:30:00Z',
+    failure_reason: 'MISSING_COLUMN:amount',
+    file_hash: 'ghi789',
+  },
+  {
+    id: 'push-004',
+    smb_id: 'testucb',
+    smb_name: 'Test UCB',
+    file_type: 'STOP_PAYMENTS',
+    outcome: 'DUPLICATE_SKIPPED',
+    records_processed: 0,
+    received_at: '2026-07-05T11:46:00Z',
+    file_hash: 'abc123',
+  },
+]
+
 // ── Constants ──────────────────────────────────────────────────────────────
 const STATUS_D = {
   OPEN:       'bg-slate-700/40 text-slate-300 border-slate-600/40',
@@ -260,7 +304,21 @@ export default function CTSAgencyCC() {
   const exceptionSessions = MOCK_SESSIONS.filter(s => s.status === 'EXCEPTION').length
   const activeSBs = MOCK_SB_CONNECTIONS.filter(c => c.is_active).length
 
-  const TABS = ['SB Connections', 'Clearing Sessions', 'Inward Relay']
+  const TABS = ['SB Connections', 'Clearing Sessions', 'Inward Relay', 'SMB Push Sessions']
+
+  const PUSH_OUTCOME_D = {
+    VAULT_UPDATED:     'bg-emerald-900/40 text-emerald-300 border-emerald-700/40',
+    PARSE_FAILED:      'bg-red-900/50 text-red-300 border-red-700/40',
+    VAULT_UPDATE_FAILED: 'bg-red-900/50 text-red-300 border-red-700/40',
+    DUPLICATE_SKIPPED: 'bg-slate-700/30 text-slate-400 border-slate-600/30',
+  }
+  const PUSH_OUTCOME_L = {
+    VAULT_UPDATED:     'bg-emerald-100 text-emerald-700 border-emerald-300',
+    PARSE_FAILED:      'bg-red-100 text-red-700 border-red-300',
+    VAULT_UPDATE_FAILED: 'bg-red-100 text-red-700 border-red-300',
+    DUPLICATE_SKIPPED: 'bg-slate-50 text-slate-500 border-slate-200',
+  }
+  const PUSH_OUTCOME = isDark ? PUSH_OUTCOME_D : PUSH_OUTCOME_L
 
   return (
     <AppShell>
@@ -425,6 +483,54 @@ export default function CTSAgencyCC() {
               <div className={`mt-4 px-3 py-2 rounded text-xs font-semibold ${isDark ? 'bg-red-950/40 text-red-300 border border-red-800/40' : 'bg-red-50 text-red-700 border border-red-200'}`}>
                 IET breach rate target: 0.000%
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 3 — SMB Push Sessions */}
+        {activeTab === 3 && (
+          <div className="space-y-3">
+            <p className={`text-xs ${th.muted}`}>
+              SMB CBS batch files (stop payments, PPS, signatures) received via SFTP every 15 min.
+              Each file is deduplicated by SHA-256 hash before vault update.
+            </p>
+            <div className={`rounded-lg border ${th.card}`}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className={`border-b ${th.th}`}>
+                      {['SMB', 'File Type', 'Outcome', 'Records', 'Received', 'Failure'].map(h => (
+                        <th key={h} className={`py-2.5 px-3 text-[10px] font-bold uppercase tracking-wider ${th.th}`}>
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {MOCK_PUSH_SESSIONS.map(s => (
+                      <tr key={s.id} className={`border-b ${th.row} transition-colors`}>
+                        <td className={`py-2.5 px-3 text-xs font-medium ${th.body}`}>{s.smb_name}</td>
+                        <td className={`py-2.5 px-3 text-xs font-mono ${th.muted}`}>{s.file_type}</td>
+                        <td className="py-2.5 px-3">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${PUSH_OUTCOME[s.outcome] || ''}`}>
+                            {s.outcome}
+                          </span>
+                        </td>
+                        <td className={`py-2.5 px-3 text-xs tabular-nums text-right ${th.body}`}>
+                          {s.records_processed}
+                        </td>
+                        <td className={`py-2.5 px-3 text-xs ${th.muted}`}>{fmtTime(s.received_at)}</td>
+                        <td className={`py-2.5 px-3 text-xs ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+                          {s.failure_reason || ''}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className={`text-xs ${th.faint}`}>
+              No software deployed at SMB premises — SMBs configure their CBS batch export to push CSV files to Agency SFTP. File format: Finacle CSV · BaNCS fixed-width · generic CSV (auto-detected).
             </div>
           </div>
         )}
