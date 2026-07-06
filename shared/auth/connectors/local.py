@@ -18,6 +18,10 @@ _ph = PasswordHasher()
 _MAX_ATTEMPTS = 5
 _LOCK_DURATION_SECONDS = 1800   # 30 minutes
 
+# Pre-computed hash used to equalize timing between unknown-user and wrong-password paths.
+# Both paths must spend ~200ms in argon2 so response time cannot reveal whether a username exists.
+_TIMING_DUMMY_HASH = _ph.hash("__astra_timing_dummy__")
+
 
 class LocalCredentials(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -43,7 +47,13 @@ class LocalAuthConnector(AuthConnector):
         account = await self._fetch_account(credentials.username)
 
         if account is None:
-            # Constant-time-like: don't short-circuit immediately on unknown user
+            # Timing equalisation: run a real argon2 verify against a dummy hash so that
+            # both "unknown user" and "wrong password" paths take ~200ms. Without this,
+            # an attacker can enumerate valid usernames via response-time difference.
+            try:
+                _ph.verify(_TIMING_DUMMY_HASH, credentials.password)
+            except Exception:
+                pass  # always fails — we only care about spending the time
             log.warn("auth.local.unknown_user", bank_id=self.bank_id)
             raise AuthenticationError("invalid credentials")
 

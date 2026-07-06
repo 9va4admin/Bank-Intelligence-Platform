@@ -17,6 +17,8 @@ from typing import Optional
 import structlog
 from pydantic import BaseModel, ConfigDict
 
+from temporalio import activity
+
 from shared.cbs_connector.exceptions import CBSUnavailableError
 
 log = structlog.get_logger()
@@ -40,6 +42,7 @@ class StopPaymentActivityResult(BaseModel):
     degraded: bool = False
 
 
+@activity.defn
 async def check_stop_payment(
     inp: StopPaymentActivityInput,
     cbs_connector=None,

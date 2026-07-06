@@ -12,6 +12,10 @@ from typing import Optional
 import structlog
 from pydantic import BaseModel, ConfigDict
 
+from temporalio import activity
+
+from shared.utils.masking import mask_amount, mask_customer_name
+
 log = structlog.get_logger()
 
 _AMOUNT_TOLERANCE = 1.0  # ₹1 tolerance for floating-point
@@ -33,6 +37,7 @@ class PPSActivityResult(BaseModel):
     mismatch_reason: Optional[str] = None
 
 
+@activity.defn
 async def lookup_pps(
     inp: PPSActivityInput,
     vault=None,
@@ -58,13 +63,15 @@ async def lookup_pps(
     if registered_amount is not None:
         if abs(inp.presented_amount - float(registered_amount)) > _AMOUNT_TOLERANCE:
             reasons.append(
-                f"amount_mismatch: presented={inp.presented_amount} registered={registered_amount}"
+                f"amount_mismatch: presented={mask_amount(inp.presented_amount)} "
+                f"registered={mask_amount(float(registered_amount))}"
             )
 
     registered_payee = entry.get("payee", "")
     if registered_payee and inp.presented_payee.strip().lower() != registered_payee.strip().lower():
         reasons.append(
-            f"payee_mismatch: presented={inp.presented_payee!r} registered={registered_payee!r}"
+            f"payee_mismatch: presented={mask_customer_name(inp.presented_payee)} "
+            f"registered={mask_customer_name(registered_payee)}"
         )
 
     if reasons:

@@ -11,6 +11,7 @@ from typing import Any, Optional
 
 import structlog
 from pydantic import BaseModel, ConfigDict
+from temporalio import activity
 
 log = structlog.get_logger()
 
@@ -40,6 +41,7 @@ class WriteAuditResult(BaseModel):
     immudb_tx_id: Optional[str] = None
 
 
+@activity.defn
 async def write_audit(
     inp: WriteAuditInput,
     immudb_client=None,

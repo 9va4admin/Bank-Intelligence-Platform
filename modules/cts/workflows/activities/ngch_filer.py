@@ -11,6 +11,8 @@ from typing import Literal, Optional
 import structlog
 from pydantic import BaseModel, ConfigDict
 
+from temporalio import activity
+
 from modules.cts.mcp.ngch_adapter import DuplicateFilingError, NGCHUnavailableError
 
 log = structlog.get_logger()
@@ -31,6 +33,7 @@ class NGCHFilerResult(BaseModel):
     filed_decision: str
 
 
+@activity.defn
 async def file_to_ngch(
     inp: NGCHFilerInput,
     ngch_adapter=None,

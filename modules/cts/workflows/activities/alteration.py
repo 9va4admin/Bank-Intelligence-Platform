@@ -21,6 +21,8 @@ import structlog
 from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field
 
+from temporalio import activity
+
 from modules.cts.kill_switch.vision_ai_kill_switch import KillMode, KillSwitchStatus
 from shared.audit.audit_event import AuditEvent, AuditEventType
 from shared.ai.model_cascade import CascadeOrchestrator
@@ -244,6 +246,7 @@ Do NOT assume alteration from amount alone. Physical evidence is the only basis 
 # Activity implementation
 # ---------------------------------------------------------------------------
 
+@activity.defn
 async def detect_alteration(
     inp: AlterationActivityInput,
     vllm_client=None,
@@ -251,6 +254,7 @@ async def detect_alteration(
     immudb_client: Optional[Any] = None,
     hsm: Optional[Any] = None,
     orchestrator: Optional[CascadeOrchestrator] = None,
+    config_service=None,
 ) -> AlterationActivityResult:
     """
     Detect physical cheque alterations using Qwen2-VL 72B.
@@ -269,6 +273,12 @@ async def detect_alteration(
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)
         span.set_attribute("scan_dpi", inp.scan_dpi)
+
+        if config_service is not None:
+            ai_config = await config_service.get_ai_config(inp.bank_id)
+            tamper_risk_threshold = ai_config.get("ai.tamper_risk_threshold", 0.5)
+        else:
+            tamper_risk_threshold = 0.5  # test-only fallback; production must inject config_service
 
         # ── Kill-switch entry checkpoint (KC path) ─────────────────────────
         # Checked BEFORE any vLLM call. If KC is active, skip Vision AI entirely.
@@ -443,7 +453,7 @@ async def detect_alteration(
 
         tamper_risk = float(data.get("overall_tamper_risk", 0.0))
         physical_score = float(data.get("physical_anomaly_score", 0.0))
-        alteration_detected = bool(altered_fields) or tamper_risk >= 0.5
+        alteration_detected = bool(altered_fields) or tamper_risk >= tamper_risk_threshold
 
         span.set_attribute("tamper_risk_score", tamper_risk)
         span.set_attribute("physical_anomaly_score", physical_score)

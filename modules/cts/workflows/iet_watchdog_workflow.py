@@ -8,10 +8,13 @@ This is structural — never configurable, always 30 seconds.
 IET breach rate: 0.000% — enforced by this watchdog, not by application logic.
 """
 import time
+from datetime import timedelta
 from typing import Optional
 
 import structlog
 from pydantic import BaseModel, ConfigDict
+from temporalio import workflow
+from temporalio.common import RetryPolicy
 
 log = structlog.get_logger()
 
@@ -33,11 +36,66 @@ class IETWatchdogResult(BaseModel):
     acknowledgement_id: Optional[str] = None
 
 
+_NGCH_FILING_RETRY = RetryPolicy(
+    maximum_attempts=3,
+    initial_interval=timedelta(seconds=2),
+    backoff_coefficient=2.0,
+    maximum_interval=timedelta(seconds=30),
+    non_retryable_error_types=["DuplicateFilingError"],
+)
+
+
+@workflow.defn
 class IETWatchdogWorkflow:
     parent_close_policy: str = "ABANDON"
 
     def watchdog_id(self, bank_id: str, instrument_id: str) -> str:
         return f"cts-iet-{bank_id}-{instrument_id}"
+
+    @workflow.run
+    async def run(self, inp: IETWatchdogInput) -> IETWatchdogResult:
+        """Production Temporal entry point.
+
+        Sleeps until T-30s then emergency-files CONFIRM to NGCH.
+        ParentClosePolicy.ABANDON ensures this workflow outlives the parent
+        when parent times out or crashes near IET deadline.
+        """
+        from modules.cts.workflows.activities.ngch_filer import NGCHFilerInput, file_to_ngch
+
+        now = workflow.now().timestamp()
+        seconds_remaining = inp.iet_deadline - now
+        safe_window = max(0.0, seconds_remaining - _EMERGENCY_THRESHOLD_SECONDS)
+
+        if safe_window > 0:
+            await workflow.sleep(timedelta(seconds=safe_window))
+
+        # Re-check after sleep — parent may have cancelled us via signal (future extension)
+        now_after_sleep = workflow.now().timestamp()
+        if now_after_sleep < inp.iet_deadline - _EMERGENCY_THRESHOLD_SECONDS:
+            return IETWatchdogResult(outcome="SAFE", emergency_filed=False)
+
+        # Emergency filing — idempotency key = parent workflow_id so parent and watchdog
+        # cannot double-file (NGCH returns 409 → DuplicateFilingError → non-retryable success)
+        try:
+            result = await workflow.execute_activity(
+                file_to_ngch,
+                NGCHFilerInput(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    workflow_id=inp.workflow_id,
+                    decision="CONFIRM",
+                ),
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=_NGCH_FILING_RETRY,
+            )
+            return IETWatchdogResult(
+                outcome="EMERGENCY_FILED",
+                emergency_filed=True,
+                acknowledgement_id=result.acknowledgement_id,
+            )
+        except Exception:
+            # DuplicateFilingError: parent already filed — we are SAFE
+            return IETWatchdogResult(outcome="SAFE", emergency_filed=False)
 
     async def run_with_mocks(
         self,

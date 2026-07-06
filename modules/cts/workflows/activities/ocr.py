@@ -15,6 +15,7 @@ from modules.cts.sub_member.models import PrincipalTag
 from modules.cts.sub_member.router import MICRPrefixRouter
 from modules.cts.workflows.activities.amount_words_parser import amounts_match
 from shared.ai.model_cascade import CascadeOrchestrator
+from shared.utils.masking import mask_amount
 
 log = structlog.get_logger()
 
@@ -60,7 +61,8 @@ class OCRActivityResult(BaseModel):
 async def ocr_extract(
     inp: OCRActivityInput,
     vllm_client=None,
-    min_confidence: float = 0.85,
+    min_confidence: Optional[float] = None,
+    config_service=None,
     routing_table: Optional[dict] = None,
     orchestrator: Optional[CascadeOrchestrator] = None,
 ) -> OCRActivityResult:
@@ -68,7 +70,15 @@ async def ocr_extract(
     Extract cheque fields using GOT-OCR2.0.
     When orchestrator is provided, routes through the L1/L2 cascade.
     Degrades to HUMAN_REVIEW on model failure or low confidence.
+    min_confidence must be passed by caller or fetched via config_service — never hardcoded.
     """
+    if min_confidence is None:
+        if config_service is not None:
+            ai_config = await config_service.get_ai_config(inp.bank_id)
+            min_confidence = ai_config["ocr.min_confidence"]
+        else:
+            min_confidence = 0.85  # test-only fallback; production must inject config_service
+
     resolved_cascade_level = 2
 
     try:
@@ -133,7 +143,6 @@ async def ocr_extract(
         log.info(
             "ocr_activity.amount_mismatch",
             instrument_id=inp.instrument_id,
-            amount_figures=amount_figures_val,
         )
         return OCRActivityResult(
             outcome="HUMAN_REVIEW",

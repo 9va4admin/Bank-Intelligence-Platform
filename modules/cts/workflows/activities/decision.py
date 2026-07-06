@@ -30,6 +30,8 @@ from typing import Any, Optional
 import structlog
 from pydantic import BaseModel, ConfigDict
 
+from temporalio import activity
+
 from modules.cts.kill_switch.vision_ai_kill_switch import KillMode, KillSwitchStatus
 from shared.audit.audit_event import AuditEvent, AuditEventType
 from shared.opa_client import OPAClient, OPAInput
@@ -65,6 +67,7 @@ class DecisionResult(BaseModel):
     kill_switch_scope: Optional[str] = None  # effective scope at decision time
 
 
+@activity.defn
 async def synthesise_decision(
     inp: DecisionInput,
     config: dict[str, Any],
