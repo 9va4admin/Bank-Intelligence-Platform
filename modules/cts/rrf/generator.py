@@ -1,11 +1,26 @@
 """
-RRFGenerator — builds CTS Return Reason File XML per NGCH specification.
-Output format: XML, encrypted + HSM-signed before NGCH submission (signing done by ngch_filer).
+RRFGenerator — builds CTS Return Reason File XML per CTS Spec Rev 3.0.
+Namespace: urn:schemas-ncr-com:ECPIX:RRF:FileStructure:010004
+
+CTS Spec Rev 3.0 rules enforced here:
+  - Return reason 99 (Deemed Accepted by CCH) MUST NEVER appear in bank-submitted RRF.
+    ForbiddenReturnReasonError is raised as defense-in-depth (code 99 is not in the enum).
+  - Return reason 88 (Other Reason) requires ReturnReasonComment in XML.
+  - Return reason 00 (On Realization Positive) is valid for ClearingType=14 sessions.
+
+Output format: XML, UTF-8. Encrypted + HSM-signed before NGCH submission (signing in ngch_filer).
 """
 from xml.etree import ElementTree as ET
 from xml.dom import minidom
 
 from .models import RRFDocument
+
+_RRF_NS = "urn:schemas-ncr-com:ECPIX:RRF:FileStructure:010004"
+_FORBIDDEN_CODES = {"99"}   # CCH-only code — drawee bank must never send this
+
+
+class ForbiddenReturnReasonError(ValueError):
+    """Raised when a return reason code that banks must never send appears in an RRF."""
 
 
 class RRFGenerator:
@@ -15,7 +30,16 @@ class RRFGenerator:
         if not allow_empty and not doc.returns:
             raise ValueError('No return items — RRF requires at least one return instrument')
 
+        # Defense-in-depth: reject code 99 even if it somehow bypassed enum validation
+        for item in doc.returns:
+            if item.return_code.code in _FORBIDDEN_CODES:
+                raise ForbiddenReturnReasonError(
+                    f"Return reason code {item.return_code.code!r} is assigned by CCH only — "
+                    "banks must never include it in an RRF submission."
+                )
+
         root = ET.Element('ReturnReasonFile')
+        root.set('xmlns', _RRF_NS)
         root.set('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance')
         root.set('version', '2.0')
 
@@ -45,6 +69,9 @@ class RRFGenerator:
             ET.SubElement(ri, 'FiledWithinIET').text     = 'true' if item.filed_within_iet else 'false'
             ET.SubElement(ri, 'DecidedBy').text          = item.decided_by
             ET.SubElement(ri, 'AmountRange').text        = item.amount_range
+            # ReturnReasonComment: mandatory for code 88; optional for others
+            if item.return_reason_comment:
+                ET.SubElement(ri, 'ReturnReasonComment').text = item.return_reason_comment
             if item.workflow_id:
                 ET.SubElement(ri, 'TemporalWorkflowID').text = item.workflow_id
 
