@@ -229,7 +229,8 @@ app.include_router(notifications.router_v1)
 app.include_router(batch.router_v1)
 app.include_router(users.router_v1)
 app.include_router(mcp_connections.router_v1)
-app.include_router(demo.router_v1)
+if config_service.get("env") in ("development", "staging"):
+    app.include_router(demo.router_v1)
 
 
 # --- Health endpoints (no auth — Kubernetes probes) ---

@@ -243,6 +243,33 @@ def _build_routing_table() -> dict[AuditEventType, RoutingSpec]:
             ],
         ),
 
+        # ── MCP Connection lifecycle ───────────────────────────────────────────
+        E.MCP_CONN_CREATED: _spec(
+            E.MCP_CONN_CREATED, P.P3, notify=False, create_incident=False,
+        ),
+        E.MCP_CONN_UPDATED: _spec(
+            E.MCP_CONN_UPDATED, P.P3, notify=False, create_incident=False,
+        ),
+        E.MCP_CONN_DELETED: _spec(
+            E.MCP_CONN_DELETED, P.P3, notify=True, create_incident=False,
+            recipients=[
+                _r("BANK_IT_ADMIN", [Ch.EMAIL], "IT_ADMIN"),
+            ],
+        ),
+        E.MCP_CONN_TESTED_OK: _spec(
+            E.MCP_CONN_TESTED_OK, P.P3, notify=False, create_incident=False,
+        ),
+        E.MCP_CONN_TESTED_FAIL: _spec(
+            E.MCP_CONN_TESTED_FAIL, P.P2, notify=True, create_incident=False,
+            recipients=[
+                _r("BANK_IT_ADMIN", [Ch.EMAIL, Ch.BELL], "IT_ADMIN"),
+                _r("OPS_MANAGER",   [Ch.BELL],            "OPS_MGR"),
+            ],
+        ),
+        E.MCP_CONN_SYNC_TRIGGERED: _spec(
+            E.MCP_CONN_SYNC_TRIGGERED, P.P3, notify=False, create_incident=False,
+        ),
+
         # ── Platform / infra ───────────────────────────────────────────────────
         E.CONFIG_CHANGE: _spec(
             E.CONFIG_CHANGE, P.P3, notify=False, create_incident=False,

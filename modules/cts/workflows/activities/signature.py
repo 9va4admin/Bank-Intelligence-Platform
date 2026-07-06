@@ -16,6 +16,7 @@ from typing import Optional
 
 import structlog
 from pydantic import BaseModel, ConfigDict
+from temporalio import activity
 
 log = structlog.get_logger()
 
@@ -56,11 +57,13 @@ async def _fetch_via_proxy(smb_proxy, inp: SignatureActivityInput):
         )
 
 
+@activity.defn
 async def verify_signature(
     inp: SignatureActivityInput,
     vault=None,
     model=None,
-    min_match_score: float = 0.80,
+    min_match_score: Optional[float] = None,
+    config_service=None,
     smb_proxy=None,
 ) -> SignatureActivityResult:
     """
@@ -71,7 +74,15 @@ async def verify_signature(
       2. vault (local SignatureVault) — default for SB instruments
 
     Vault miss and model failure both degrade to HUMAN_REVIEW.
+    min_match_score must come from config_service in production — never hardcoded.
     """
+    if min_match_score is None:
+        if config_service is not None:
+            ai_config = await config_service.get_ai_config(inp.bank_id)
+            min_match_score = ai_config["signature.min_match_score"]
+        else:
+            min_match_score = 0.80  # test-only fallback; production must inject config_service
+
     if smb_proxy is not None and inp.smb_id:
         vault_result = await _fetch_via_proxy(smb_proxy, inp)
     else:

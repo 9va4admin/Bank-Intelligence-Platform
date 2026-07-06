@@ -14,6 +14,8 @@ from typing import Optional
 import structlog
 from pydantic import BaseModel, ConfigDict
 
+from temporalio import activity
+
 from shared.cbs_connector.base import AccountStatus
 from shared.cbs_connector.exceptions import AccountNotFoundError, CBSUnavailableError
 
@@ -38,6 +40,7 @@ class CBSActivityResult(BaseModel):
     degraded: bool = False
 
 
+@activity.defn
 async def check_account_status(
     inp: CBSActivityInput,
     cbs_connector=None,
@@ -95,6 +98,7 @@ async def check_account_status(
     )
 
 
+@activity.defn
 async def check_cbs_balance(
     inp: CBSActivityInput,
     cbs_connector=None,

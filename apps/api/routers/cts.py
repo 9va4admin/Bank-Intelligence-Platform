@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict
 from modules.cts.workflows.cheque_workflow import ChequeWorkflowInput
 from modules.cts.workflows.human_review_workflow import ReviewDecision
 from shared.auth.rbac import BankType, Role, PermissionLevel, RBACPolicy, UserContext
+from shared.config.config_service import config_service
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
 
 log = structlog.get_logger()
@@ -47,7 +48,11 @@ async def get_current_user_context(
     if credentials is None or not credentials.credentials:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
     token = credentials.credentials
-    if token.startswith("test-token-smb-"):
+
+    # Test tokens are accepted ONLY in non-production environments.
+    # Production must validate against the bank's IdP JWKS endpoint.
+    _env = config_service.get("env") if config_service._ready else "production"
+    if _env != "production" and token.startswith("test-token-smb-"):
         bank_id = token.removeprefix("test-token-smb-")
         return UserContext(
             user_id="smb-user-001",
@@ -56,7 +61,7 @@ async def get_current_user_context(
             bank_type=BankType.SMB,
             permission_level=PermissionLevel.EDIT,
         )
-    if token.startswith("test-token-"):
+    if _env != "production" and token.startswith("test-token-"):
         bank_id = token.removeprefix("test-token-")
         return UserContext(
             user_id="reviewer-001",
@@ -65,7 +70,8 @@ async def get_current_user_context(
             bank_type=BankType.SB,
             permission_level=PermissionLevel.EDIT,
         )
-    # Production: decode JWT, validate signature, extract all claims
+    # Production path: validate JWT signature against bank IdP JWKS
+    # TODO (C1 followup): implement PyJWT validation with JWKS endpoint from config_service
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 

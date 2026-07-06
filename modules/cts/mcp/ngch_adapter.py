@@ -4,7 +4,12 @@ NGCHAdapter — MCP server wrapping NGCH (National Grid Cheque Hub) SFTP/API.
 Exposes MCP tools: file_decision, query_status.
 All NGCH submissions go exclusively through this adapter — never direct.
 Exactly-once semantics enforced by idempotency_key = workflow_id.
+mTLS: client cert + key loaded from Vault via config_service on connect().
 """
+import os
+import ssl
+import tempfile
+
 import structlog
 
 log = structlog.get_logger()
@@ -20,6 +25,34 @@ class DuplicateFilingError(RuntimeError):
     """Raised when NGCH rejects a submission as a duplicate (409 Conflict)."""
 
 
+def _build_ssl_context(cert_pem: str, key_pem: str) -> ssl.SSLContext:
+    """Build an SSLContext with a client cert/key for mTLS.
+
+    Python's ssl module requires file paths for load_cert_chain — we write to
+    a NamedTemporaryFile and delete immediately after the context is built.
+    The SSLContext retains the cert in memory; the temp files are ephemeral.
+    """
+    ctx = ssl.create_default_context()
+    cert_fd, cert_path = tempfile.mkstemp(suffix=".pem")
+    key_fd, key_path = tempfile.mkstemp(suffix=".pem")
+    try:
+        os.write(cert_fd, cert_pem.encode())
+        os.close(cert_fd)
+        os.write(key_fd, key_pem.encode())
+        os.close(key_fd)
+        ctx.load_cert_chain(certfile=cert_path, keyfile=key_path)
+    finally:
+        try:
+            os.unlink(cert_path)
+        except OSError:
+            pass
+        try:
+            os.unlink(key_path)
+        except OSError:
+            pass
+    return ctx
+
+
 class NGCHAdapter:
     def __init__(self, bank_id: str, base_url: str) -> None:
         self._bank_id = bank_id
@@ -27,14 +60,40 @@ class NGCHAdapter:
         self._http = None
         self._ready = False
 
-    def connect(self, http_client=None) -> None:
+    async def connect(self, http_client=None, config_service=None) -> None:
+        """Initialise the HTTP client.
+
+        Production callers must inject config_service so that a mTLS SSLContext
+        is built from Vault-held client cert/key.  Test callers inject http_client
+        directly and may omit config_service.
+        """
         if http_client is not None:
             self._http = http_client
         else:
             import httpx  # type: ignore[import]
-            self._http = httpx.AsyncClient(timeout=30.0)
+
+            if config_service is not None:
+                cert_pem = config_service.get_secret("ngch.tls.client_cert")
+                key_pem = config_service.get_secret("ngch.tls.client_key")
+                ssl_ctx = _build_ssl_context(cert_pem, key_pem)
+                self._http = httpx.AsyncClient(timeout=30.0, verify=ssl_ctx)
+                log.info(
+                    "ngch_adapter.connected",
+                    base_url=self._base_url,
+                    bank_id=self._bank_id,
+                    mtls=True,
+                )
+            else:
+                # Test / development path — no mTLS.
+                # Production deployments must always inject config_service.
+                log.warning(
+                    "ngch_adapter.connected_no_mtls",
+                    base_url=self._base_url,
+                    bank_id=self._bank_id,
+                )
+                self._http = httpx.AsyncClient(timeout=30.0)
+
         self._ready = True
-        log.info("ngch_adapter.connected", base_url=self._base_url, bank_id=self._bank_id)
 
     def _assert_ready(self) -> None:
         if not self._ready:
