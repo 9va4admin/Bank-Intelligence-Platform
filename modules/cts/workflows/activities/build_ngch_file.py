@@ -3,11 +3,11 @@ build_ngch_file — Temporal activity that wires IQAEngine + NGCHSigner +
 CIBFAssembler + CXFBuilder into a spec-compliant outward submission bundle.
 
 Pipeline per instrument (synchronous, CPU-bound):
-  1. IQAEngine.run(IQAInput) → IQAResult → user_field (BFG: + 16 codes)
+  1. IQAEngine.run(IQAInput) → IQAResult → 3 user fields (BFB:, BBB:, BFG:)
   2. NGCHSigner.sign_micr(micr_line) → MICRDS (344-char Base64)
   3. NGCHSigner.sign_image(front_bw_bytes) → ImageDS (256-byte raw binary)
   4. CIBFAssembler.assemble(CIBFInput) → CIBFResult (binary bundle)
-  5. Build CXFItem from all of the above
+  5. Build CXFItem (3 IQA user fields per CHI Spec Rev 3.0)
   After all instruments:
   6. CXFBuilder.build(items, session_id=...) → CXF XML bytes
 
@@ -122,7 +122,10 @@ def build_ngch_file(inp: BuildNGCHFileInput, *, hsm: Any) -> BuildNGCHFileResult
                 dpi=instrument.dpi,
                 bit_depth=instrument.bit_depth,
             ))
-            user_field = iqa_result.user_field()
+            # Three IQA user fields per CHI Spec Rev 3.0
+            uf_front_bw   = iqa_result.user_field_front_bw()
+            uf_back_bw    = iqa_result.user_field_back_bw()
+            uf_front_gray = iqa_result.user_field()
 
             # Step 2 — MICRDS (sign MICR line)
             micrds = signer.sign_micr(instrument.micr_line)
@@ -139,12 +142,14 @@ def build_ngch_file(inp: BuildNGCHFileInput, *, hsm: Any) -> BuildNGCHFileResult
             ))
             cibf_map[seq] = cibf_result.cibf_bytes
 
-            # Step 5 — Build CXFItem
+            # Step 5 — Build CXFItem (3 IQA user fields per CHI Spec Rev 3.0)
             cxf_items.append(CXFItem(
                 item_seq_no=seq,
                 micr_line=instrument.micr_line,
                 micrds=micrds,
-                iqa_user_field=user_field,
+                iqa_user_field_front_bw=uf_front_bw,
+                iqa_user_field_back_bw=uf_back_bw,
+                iqa_user_field_front_gray=uf_front_gray,
                 amount_paise=instrument.amount_paise,
                 drawee_ifsc=instrument.drawee_ifsc,
                 drawee_account=instrument.drawee_account,

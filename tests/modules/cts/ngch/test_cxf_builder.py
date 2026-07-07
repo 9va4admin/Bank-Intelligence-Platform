@@ -1,18 +1,15 @@
 """
-Tests for CXF Builder — CXF XML per CTS Spec Rev 3.0.
+Tests for CXF Builder — CXF XML per CTS CHI Spec Rev 3.0.
 
-CXF (Cheque Exchange Format) is the outward clearing file format submitted
-to NGCH by the presentee bank. Each CXF submission covers one lot of cheques.
+CXF (Cheque Exchange Format) is the outward clearing file submitted to NGCH
+by the presentee bank. Each CXF submission covers one lot of cheques.
 
-CTS Spec Rev 3.0 requirements (§CXF):
+CHI Spec Rev 3.0 requirements (§CXF):
   - Namespace: urn:schemas-ncr-com:ECPIX:CXF:FileStructure:010005
-  - <MICRDS> element: RSA-SHA256 over MICR line, Base64-encoded, 344 chars
-  - <ImageViewAnalysis><UserField>: IQA result, "BFG:" + 16 chars
+  - <MICRDS>: RSA-SHA256 over MICR line, Base64-encoded, 344 chars
+  - THREE <ImageViewDetail> blocks per item (Front B/W, Back B/W, Front Gray)
+    each containing <ImageViewAnalysis><UserField> with IQA result (20 chars)
   - Mandatory fields: PresentingBankRoutNo, BatchID, CycleNo, ItemSeqNo, Amount
-
-The CXFBuilder takes a list of CXFItem (one per cheque) and returns UTF-8 bytes.
-
-RED phase: all tests must fail before cxf_builder.py is created.
 """
 import xml.etree.ElementTree as ET
 import pytest
@@ -23,8 +20,10 @@ def _make_cxf_item(**kwargs):
     defaults = {
         "item_seq_no": "00001",
         "micr_line": "000012340050000012100000000005000123456789",
-        "micrds": "A" * 344,   # fake 344-char base64 signature
-        "iqa_user_field": "BFG:0000000000000000",
+        "micrds": "A" * 344,                       # fake 344-char base64 signature
+        "iqa_user_field_front_bw":   "BFB:0000000000000000",   # 20 chars
+        "iqa_user_field_back_bw":    "BBB:0000000000000000",   # 20 chars
+        "iqa_user_field_front_gray": "BFG:0000000000000000",   # 20 chars
         "amount_paise": 5_000_000,
         "drawee_ifsc": "SBIN0000123",
         "drawee_account": "SB12345678901",
@@ -144,22 +143,55 @@ class TestCXFItemElements:
         with pytest.raises((CXFValidationError, ValueError)):
             CXFItem(**_make_cxf_item(micrds="SHORT"))
 
-    def test_iqa_user_field_present(self):
+    def test_iqa_user_fields_all_present(self):
+        """All 3 IQA UserField values (BFB:, BBB:, BFG:) must appear in CXF XML."""
         from modules.cts.ngch.cxf_builder import CXFBuilder, CXFItem
 
         builder = CXFBuilder()
         xml_bytes = builder.build(
-            [CXFItem(**_make_cxf_item(iqa_user_field="BFG:0000000000000000"))],
+            [CXFItem(**_make_cxf_item(
+                iqa_user_field_front_bw="BFB:0000000000000000",
+                iqa_user_field_back_bw="BBB:1111111111111111",
+                iqa_user_field_front_gray="BFG:2222222222222222",
+            ))],
             session_id="S01",
         )
-        assert b"BFG:0000000000000000" in xml_bytes
+        assert b"BFB:0000000000000000" in xml_bytes
+        assert b"BBB:1111111111111111" in xml_bytes
+        assert b"BFG:2222222222222222" in xml_bytes
 
-    def test_iqa_user_field_format_enforced(self):
-        """IQA UserField must start with 'BFG:' and be 20 chars."""
+    def test_three_image_view_detail_blocks_emitted(self):
+        """CHI Spec Rev 3.0: each item must have 3 ImageViewDetail elements."""
+        from modules.cts.ngch.cxf_builder import CXFBuilder, CXFItem
+
+        builder = CXFBuilder()
+        xml_bytes = builder.build([CXFItem(**_make_cxf_item())], session_id="S01")
+        xml_str = xml_bytes.decode("utf-8")
+        assert xml_str.count("ImageViewDetail") >= 3
+        assert "FrontBlackAndWhite" in xml_str
+        assert "BackBlackAndWhite" in xml_str
+        assert "FrontGrayscale" in xml_str
+
+    def test_iqa_front_bw_prefix_enforced(self):
+        """Front B/W field must start with 'BFB:' and be 20 chars."""
         from modules.cts.ngch.cxf_builder import CXFItem, CXFValidationError
 
         with pytest.raises((CXFValidationError, ValueError)):
-            CXFItem(**_make_cxf_item(iqa_user_field="WRONG:FORMAT"))
+            CXFItem(**_make_cxf_item(iqa_user_field_front_bw="WRONG:FORMAT"))
+
+    def test_iqa_back_bw_prefix_enforced(self):
+        """Back B/W field must start with 'BBB:' and be 20 chars."""
+        from modules.cts.ngch.cxf_builder import CXFItem, CXFValidationError
+
+        with pytest.raises((CXFValidationError, ValueError)):
+            CXFItem(**_make_cxf_item(iqa_user_field_back_bw="BFG:wrong_prefix00"))
+
+    def test_iqa_gray_prefix_enforced(self):
+        """Front gray field must start with 'BFG:' and be 20 chars."""
+        from modules.cts.ngch.cxf_builder import CXFItem, CXFValidationError
+
+        with pytest.raises((CXFValidationError, ValueError)):
+            CXFItem(**_make_cxf_item(iqa_user_field_front_gray="BBB:wrong_prefix00"))
 
     def test_amount_in_output(self):
         from modules.cts.ngch.cxf_builder import CXFBuilder, CXFItem

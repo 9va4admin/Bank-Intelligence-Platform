@@ -74,10 +74,20 @@ class IQAResult:
     """Aggregate result of all 16 IQA tests."""
     tests: List[IQATestResult] = field(default_factory=list)
 
+    def _codes(self) -> str:
+        return "".join(t.code for t in self.tests)
+
+    def user_field_front_bw(self) -> str:
+        """Front B/W view result: 'BFB:' + 16 codes (total 20 chars)."""
+        return f"BFB:{self._codes()}"
+
+    def user_field_back_bw(self) -> str:
+        """Back B/W view result: 'BBB:' + 16 codes (total 20 chars)."""
+        return f"BBB:{self._codes()}"
+
     def user_field(self) -> str:
-        """Encode as 'BFG:' + 16 single-char codes (total 20 chars)."""
-        codes = "".join(t.code for t in self.tests)
-        return f"BFG:{codes}"
+        """Front gray view result (primary): 'BFG:' + 16 codes (total 20 chars)."""
+        return f"BFG:{self._codes()}"
 
 
 # --- Engine ---
