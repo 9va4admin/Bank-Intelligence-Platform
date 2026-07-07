@@ -1,16 +1,28 @@
 """
 NGCHAdapter — MCP server wrapping NGCH (National Grid Cheque Hub) SFTP/API.
 
-Exposes MCP tools: file_decision, query_status.
+Exposes MCP tools: file_decision, query_status, get_inward_instruments.
 All NGCH submissions go exclusively through this adapter — never direct.
 Exactly-once semantics enforced by idempotency_key = workflow_id.
 mTLS: client cert + key loaded from Vault via config_service on connect().
+
+Inward parsing:
+  get_inward_instruments(pxf_xml_bytes) — delegates to PXFParser.parse() so that
+  each InwardInstrument carries iet_deadline derived from the per-item ItemExpiryTime
+  field in the PXF XML (IST → UTC Unix timestamp).  Callers must NOT compute
+  iet_deadline from config iet_minutes — the PXF value is authoritative per NPCI spec.
 """
+from __future__ import annotations
+
 import os
 import ssl
 import tempfile
+from typing import TYPE_CHECKING, List
 
 import structlog
+
+if TYPE_CHECKING:
+    from modules.cts.ngch.pxf_parser import InwardInstrument
 
 log = structlog.get_logger()
 
@@ -177,6 +189,24 @@ class NGCHAdapter:
         except Exception as exc:
             log.error("ngch_adapter.query_status.failed", instrument_id=instrument_id, error=str(exc))
             raise NGCHUnavailableError(f"NGCH query_status failed: {exc}") from exc
+
+    def get_inward_instruments(self, pxf_xml_bytes: bytes) -> List["InwardInstrument"]:
+        """Parse a PXF XML payload from NGCH and return per-instrument records.
+
+        Each returned InwardInstrument has iet_deadline set from the per-item
+        ItemExpiryTime field (IST → UTC Unix timestamp) — not from config.
+
+        This is the P0 wiring point: callers receive accurate individual deadlines
+        and must use them as the iet_deadline for ChequeWorkflowInput rather than
+        computing a shared deadline from iet_minutes configuration.
+
+        Raises:
+            PXFParseError: if the XML is malformed, missing mandatory fields, or
+                           contains an unparseable ItemExpiryTime.
+            ValueError: if pxf_xml_bytes is empty.
+        """
+        from modules.cts.ngch.pxf_parser import PXFParser
+        return PXFParser().parse(pxf_xml_bytes)
 
     def list_tools(self) -> list[dict]:
         """Return MCP tool descriptors for this adapter."""
