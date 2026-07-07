@@ -1,18 +1,24 @@
 """
-CXF Builder — Cheque Exchange Format XML per CTS Spec Rev 3.0.
+CXF Builder — Cheque Exchange Format XML per CTS CHI Spec Rev 3.0.
 
 Builds the outward clearing XML submitted to NGCH by the presentee bank.
 Namespace: urn:schemas-ncr-com:ECPIX:CXF:FileStructure:010005
 
+Per CHI Spec Rev 3.0, each item has THREE ImageViewDetail blocks — one per
+image view. Each block contains a UserField with IQA result codes:
+  BFB: + 16 codes  ← Front B/W (ViewType="FrontBlackAndWhite")
+  BBB: + 16 codes  ← Back B/W  (ViewType="BackBlackAndWhite")
+  BFG: + 16 codes  ← Front Gray (ViewType="FrontGrayscale")
+
 Key fields per item:
   <MICRDS>  — RSA-SHA256 over MICR line, Base64-encoded (344 chars)
-  <ImageViewAnalysis><UserField> — IQA result, "BFG:" + 16 codes (20 chars)
+  <ImageViewDetail ViewType="..."><ImageViewAnalysis><UserField> — IQA result (20 chars)
   <AmountPaise>  — cheque amount in paise (integer)
   <ItemSeqNo>    — 5-digit item sequence number within the batch
 
 Input validation enforces:
   - MICRDS must be exactly 344 characters
-  - IQA UserField must start with "BFG:" and be exactly 20 characters
+  - Each of the 3 IQA UserFields must be exactly 20 chars with correct prefix
   - Item list must not be empty
 """
 import xml.etree.ElementTree as ET
@@ -26,7 +32,13 @@ log = structlog.get_logger()
 _CXF_NS = "urn:schemas-ncr-com:ECPIX:CXF:FileStructure:010005"
 _MICRDS_LENGTH = 344
 _IQA_USER_FIELD_LENGTH = 20
-_IQA_USER_FIELD_PREFIX = "BFG:"
+
+# (ViewType attribute value, required prefix)
+_IQA_VIEW_SPECS = [
+    ("FrontBlackAndWhite", "BFB:"),
+    ("BackBlackAndWhite",  "BBB:"),
+    ("FrontGrayscale",     "BFG:"),
+]
 
 
 class CXFValidationError(ValueError):
@@ -35,19 +47,27 @@ class CXFValidationError(ValueError):
 
 @dataclass
 class CXFItem:
-    """One cheque instrument in the CXF outward submission."""
+    """One cheque instrument in the CXF outward submission.
 
-    item_seq_no:            str    # 5 digits
-    micr_line:              str
-    micrds:                 str    # 344-char Base64 RSA-SHA256 signature
-    iqa_user_field:         str    # "BFG:" + 16 codes = 20 chars
-    amount_paise:           int
-    drawee_ifsc:            str
-    drawee_account:         str
-    presenting_bank_rout_no: str
-    cycle_no:               str
-    presentment_date:       str
-    batch_id:               str
+    Three IQA user fields are required per CHI Spec Rev 3.0:
+      iqa_user_field_front_bw  — "BFB:" + 16 codes (Front B/W view)
+      iqa_user_field_back_bw   — "BBB:" + 16 codes (Back B/W view)
+      iqa_user_field_front_gray— "BFG:" + 16 codes (Front Grayscale view)
+    """
+
+    item_seq_no:                str    # 5 digits
+    micr_line:                  str
+    micrds:                     str    # 344-char Base64 RSA-SHA256 signature
+    iqa_user_field_front_bw:    str    # "BFB:" + 16 codes = 20 chars
+    iqa_user_field_back_bw:     str    # "BBB:" + 16 codes = 20 chars
+    iqa_user_field_front_gray:  str    # "BFG:" + 16 codes = 20 chars
+    amount_paise:               int
+    drawee_ifsc:                str
+    drawee_account:             str
+    presenting_bank_rout_no:    str
+    cycle_no:                   str
+    presentment_date:           str
+    batch_id:                   str
 
     def __post_init__(self) -> None:
         if len(self.micrds) != _MICRDS_LENGTH:
@@ -55,14 +75,16 @@ class CXFItem:
                 f"MICRDS must be exactly {_MICRDS_LENGTH} characters, "
                 f"got {len(self.micrds)}"
             )
-        if (
-            len(self.iqa_user_field) != _IQA_USER_FIELD_LENGTH
-            or not self.iqa_user_field.startswith(_IQA_USER_FIELD_PREFIX)
+        for field_name, (view_type, prefix) in zip(
+            ("iqa_user_field_front_bw", "iqa_user_field_back_bw", "iqa_user_field_front_gray"),
+            _IQA_VIEW_SPECS,
         ):
-            raise CXFValidationError(
-                f"IQA UserField must be '{_IQA_USER_FIELD_PREFIX}' + 16 chars "
-                f"(total {_IQA_USER_FIELD_LENGTH}), got: {self.iqa_user_field!r}"
-            )
+            value = getattr(self, field_name)
+            if len(value) != _IQA_USER_FIELD_LENGTH or not value.startswith(prefix):
+                raise CXFValidationError(
+                    f"{field_name} must be '{prefix}' + 16 chars "
+                    f"(total {_IQA_USER_FIELD_LENGTH}), got: {value!r}"
+                )
 
 
 def _sub(parent: ET.Element, tag: str, text: str | None = None) -> ET.Element:
@@ -121,7 +143,11 @@ class CXFBuilder:
         return result
 
     def _add_item(self, batch_group: ET.Element, item: CXFItem) -> None:
-        """Append one <Item> element to <BatchGroup>."""
+        """Append one <Item> element to <BatchGroup>.
+
+        Per CHI Spec Rev 3.0, three <ImageViewDetail> blocks are emitted —
+        one per image view (Front B/W, Back B/W, Front Gray).
+        """
         item_el = _sub(batch_group, "Item")
         _sub(item_el, "ItemSeqNo", item.item_seq_no)
         _sub(item_el, "MICRLine", item.micr_line)
@@ -130,6 +156,14 @@ class CXFBuilder:
         _sub(item_el, "DraweeAccount", item.drawee_account)
         _sub(item_el, "AmountPaise", str(item.amount_paise))
 
-        # IQA result embedded in ImageViewAnalysis
-        iva = _sub(item_el, "ImageViewAnalysis")
-        _sub(iva, "UserField", item.iqa_user_field)
+        # Three ImageViewDetail blocks — one per view type (CHI Spec Rev 3.0)
+        view_fields = [
+            ("FrontBlackAndWhite", item.iqa_user_field_front_bw),
+            ("BackBlackAndWhite",  item.iqa_user_field_back_bw),
+            ("FrontGrayscale",     item.iqa_user_field_front_gray),
+        ]
+        for view_type, user_field in view_fields:
+            ivd = _sub(item_el, "ImageViewDetail")
+            ivd.set("ViewType", view_type)
+            iva = _sub(ivd, "ImageViewAnalysis")
+            _sub(iva, "UserField", user_field)

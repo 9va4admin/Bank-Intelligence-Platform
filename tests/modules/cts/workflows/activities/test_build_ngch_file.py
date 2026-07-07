@@ -32,7 +32,10 @@ _FAKE_FRONT_BW = b"\x00\x01" * 500  # ≥ 768 bytes (IMAGEDS_OFFSET+IMAGEDS_LENG
 _FAKE_BACK_BW  = b"\x00\x02" * 200
 _FAKE_FRONT_GRAY = b"\xFF\xD8\xFF" + b"\x00" * 200  # fake JPEG header
 
-_IQA_USER_FIELD_PASS = "BFG:0000000000000000"  # all 16 tests pass
+# IQA user field prefixes for the 3 views per CHI Spec Rev 3.0
+_IQA_UF_FRONT_BW   = "BFB:0000000000000000"
+_IQA_UF_BACK_BW    = "BBB:0000000000000000"
+_IQA_UF_FRONT_GRAY = "BFG:0000000000000000"
 
 
 def _make_instrument(
@@ -429,5 +432,7 @@ class TestBuildNGCHFileIQACodesInCXF:
             ),
             hsm=_make_mock_hsm(),
         )
-        # IQA UserField must start with "BFG:" in the XML
+        # All 3 IQA UserField prefixes must appear per CHI Spec Rev 3.0
+        assert b"BFB:" in result.cxf_bytes
+        assert b"BBB:" in result.cxf_bytes
         assert b"BFG:" in result.cxf_bytes
