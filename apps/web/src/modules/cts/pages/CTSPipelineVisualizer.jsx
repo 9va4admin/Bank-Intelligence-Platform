@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import ChequeImageViewer from '../components/ChequeImageViewer'
 
 // ─── Stage config ──────────────────────────────────────────────────────────────
 // bank: 'd' = Drawee Bank (all processing stages) · 'g' = NGCH Gateway
@@ -174,7 +175,48 @@ const initStats = () => STAGES.map(s => ({
 
 // ─── Child panel ──────────────────────────────────────────────────────────────
 
+const PROCEED_REASONS = [
+  'Second Signature Verified',
+  'Exception Approved by Manager',
+  'Account Holder Confirmed',
+  'Minor OCR Variance — Accepted',
+  'Risk Accepted',
+  'OPA Override Authorized by Compliance',
+  'IET Constraint — Proceed Before Expiry',
+]
+
+const RETURN_REASON_GROUPS = {
+  'Instrument Defect': [
+    'Date Invalid / Stale',
+    'Amount Words/Figures Mismatch',
+    'Endorsement Irregular',
+    'CTS Compliance Failure',
+    'Alteration / Overwrite Detected',
+  ],
+  'Account / Payment': [
+    'Account Dormant / Inactive',
+    'Payment Stopped by Drawer',
+    'Positive Pay Mismatch',
+    'Signature Mismatch',
+    'Funds Insufficient',
+    'Account Frozen / NPA',
+    'Refer to Drawer',
+  ],
+}
+
 function ChildPanel({ item, onClose, isException }) {
+  const [panelTab,      setPanelTab]      = useState('pipeline')
+  const [selectedReason, setSelectedReason] = useState('')
+  const [reasonOpen,    setReasonOpen]    = useState(false)
+  const reasonRef                         = useRef(null)
+
+  useEffect(() => {
+    if (!reasonOpen) return
+    const fn = (e) => { if (reasonRef.current && !reasonRef.current.contains(e.target)) setReasonOpen(false) }
+    document.addEventListener('mousedown', fn)
+    return () => document.removeEventListener('mousedown', fn)
+  }, [reasonOpen])
+
   const stageCount = Object.keys(item.stageResults).length
   const allStages = STAGES.map((s, i) => {
     const r = item.stageResults[i]
@@ -196,6 +238,24 @@ function ChildPanel({ item, onClose, isException }) {
     done: 'text-emerald-400', warn: 'text-amber-400', error: 'text-red-400', pending: 'text-slate-600',
   }
 
+  // build cheque views for the image viewer
+  const chqViews = [
+    { key: 'BFB', label: 'Front B/W',  url: item.front_bw_url   ?? null, iqaScore: item.iqa_front_bw   ?? null },
+    { key: 'BBB', label: 'Back B/W',   url: item.back_bw_url    ?? null, iqaScore: item.iqa_back_bw    ?? null },
+    { key: 'BFG', label: 'Front Gray', url: item.front_gray_url ?? null, iqaScore: item.iqa_front_gray ?? null },
+  ]
+  const chqFields = {
+    payee:          item.ocr_fields?.payee,
+    date:           item.ocr_fields?.date,
+    amount_figures: item.ocr_fields?.amount_figures,
+    amount_words:   item.ocr_fields?.amount_words,
+    micr:           item.ocr_fields?.micr,
+    alterations:    item.ocr_fields?.alterations,
+  }
+
+  // Reason dropdown label
+  const reasonLabel = selectedReason || 'Select Reason...'
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
@@ -203,15 +263,16 @@ function ChildPanel({ item, onClose, isException }) {
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-5xl mx-4 rounded-2xl border border-white/10 overflow-hidden"
+        className="relative w-full max-w-5xl mx-4 rounded-2xl border border-white/10 overflow-hidden flex flex-col"
         style={{
           background: 'linear-gradient(145deg, #0b1340 0%, #060d2e 100%)',
           boxShadow: '0 0 80px rgba(251,191,36,0.08), 0 40px 80px rgba(0,0,0,0.8)',
+          maxHeight: '90vh',
         }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/8">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/8 shrink-0">
           <div className="flex items-center gap-3 flex-wrap">
             <div className={`w-2 h-2 rounded-full animate-pulse ${isException ? 'bg-red-400' : 'bg-amber-400'}`} />
             <span className="text-white font-mono text-sm font-semibold">{item.id}</span>
@@ -230,124 +291,176 @@ function ChildPanel({ item, onClose, isException }) {
           >×</button>
         </div>
 
-        {/* Swimlane — inward pipeline (drawee bank perspective) */}
-        <div className="p-5">
-          {/* Phase header labels */}
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border" style={{ color: 'rgba(139,92,246,0.7)', borderColor: 'rgba(139,92,246,0.2)', background: 'rgba(139,92,246,0.06)' }}>Drawee Bank</span>
-            <span className="text-slate-700 text-xs">·</span>
-            <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border" style={{ color: 'rgba(6,182,212,0.7)', borderColor: 'rgba(6,182,212,0.2)', background: 'rgba(6,182,212,0.06)' }}>NGCH Gateway</span>
-          </div>
+        {/* Tab bar */}
+        <div className="flex items-center gap-1 px-6 pt-3 pb-0 border-b border-white/8 shrink-0">
+          {[
+            { key: 'pipeline', label: '⚙ Pipeline' },
+            { key: 'chq',      label: '🖼 Chq Images' },
+          ].map(t => (
+            <button
+              key={t.key}
+              onClick={() => setPanelTab(t.key)}
+              className={`px-4 py-2 text-[11px] font-semibold rounded-t-lg border-b-2 transition-colors ${
+                panelTab === t.key
+                  ? 'border-amber-400 text-amber-400 bg-amber-400/8'
+                  : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-white/4'
+              }`}
+            >{t.label}</button>
+          ))}
+        </div>
 
-          <div className="flex items-start gap-0">
-            {allStages.map((s, i) => {
-              const bc = BANK_COLORS[STAGES[i].bank] || BANK_COLORS.p
-              const borderByStatus = {
-                done:    `1px solid rgba(52,211,153,0.35)`,
-                warn:    `1px solid rgba(251,191,36,0.40)`,
-                error:   `1px solid rgba(239,68,68,0.40)`,
-                pending: `1px solid rgba(255,255,255,0.05)`,
-              }
-              const bgByStatus = {
-                done:    'rgba(52,211,153,0.06)',
-                warn:    'rgba(251,191,36,0.06)',
-                error:   'rgba(239,68,68,0.06)',
-                pending: 'rgba(255,255,255,0.015)',
-              }
-              const isNGCH = STAGES[i].bank === 'g'
-              const showSep = i > 0 && STAGES[i].bank !== STAGES[i-1].bank
+        {/* Tab content — scrollable */}
+        <div className="overflow-y-auto flex-1">
 
-              return (
-                <div key={i} className="flex items-center flex-1 min-w-0">
-                  {/* Phase separator */}
-                  {showSep && (
-                    <div className="flex flex-col items-center justify-center shrink-0" style={{ width: 10, height: 88 }}>
-                      <div className="w-px flex-1" style={{ background: `linear-gradient(180deg, transparent, ${bc.idle}, transparent)` }} />
-                    </div>
-                  )}
-                  {/* Stage card */}
-                  <div
-                    className="rounded-lg p-2 flex flex-col gap-1.5 flex-1 min-w-0"
-                    style={{
-                      border: borderByStatus[s.status],
-                      background: bgByStatus[s.status],
-                      boxShadow: s.status === 'done' ? '0 0 10px rgba(52,211,153,0.06)'
-                        : s.status === 'error' ? '0 0 12px rgba(239,68,68,0.10)'
-                        : s.status === 'warn' ? '0 0 12px rgba(251,191,36,0.10)'
-                        : 'none',
-                    }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs">{STAGES[i].icon}</span>
-                      <span className={`text-sm font-bold leading-none ${statusText[s.status]}`}>{statusIcon[s.status]}</span>
-                    </div>
-                    <div>
-                      <div className="text-[10px] font-semibold text-white/80 truncate">{s.label}</div>
-                      <div className={`text-[9px] mt-0.5 ${s.result ? 'text-slate-400' : 'text-slate-700'}`}>
-                        {s.result ? `${s.result.ms}ms` : '—'}
+          {/* ── Pipeline tab ── */}
+          {panelTab === 'pipeline' && (
+            <div className="p-5">
+              {/* Phase header labels */}
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border" style={{ color: 'rgba(139,92,246,0.7)', borderColor: 'rgba(139,92,246,0.2)', background: 'rgba(139,92,246,0.06)' }}>Drawee Bank</span>
+                <span className="text-slate-700 text-xs">·</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border" style={{ color: 'rgba(6,182,212,0.7)', borderColor: 'rgba(6,182,212,0.2)', background: 'rgba(6,182,212,0.06)' }}>NGCH Gateway</span>
+              </div>
+
+              <div className="flex items-start gap-0">
+                {allStages.map((s, i) => {
+                  const bc = BANK_COLORS[STAGES[i].bank] || BANK_COLORS.p
+                  const borderByStatus = {
+                    done:    `1px solid rgba(52,211,153,0.35)`,
+                    warn:    `1px solid rgba(251,191,36,0.40)`,
+                    error:   `1px solid rgba(239,68,68,0.40)`,
+                    pending: `1px solid rgba(255,255,255,0.05)`,
+                  }
+                  const bgByStatus = {
+                    done:    'rgba(52,211,153,0.06)',
+                    warn:    'rgba(251,191,36,0.06)',
+                    error:   'rgba(239,68,68,0.06)',
+                    pending: 'rgba(255,255,255,0.015)',
+                  }
+                  const showSep = i > 0 && STAGES[i].bank !== STAGES[i-1].bank
+
+                  return (
+                    <div key={i} className="flex items-center flex-1 min-w-0">
+                      {showSep && (
+                        <div className="flex flex-col items-center justify-center shrink-0" style={{ width: 10, height: 88 }}>
+                          <div className="w-px flex-1" style={{ background: `linear-gradient(180deg, transparent, ${bc.idle}, transparent)` }} />
+                        </div>
+                      )}
+                      <div
+                        className="rounded-lg p-2 flex flex-col gap-1.5 flex-1 min-w-0"
+                        style={{
+                          border: borderByStatus[s.status],
+                          background: bgByStatus[s.status],
+                          boxShadow: s.status === 'done' ? '0 0 10px rgba(52,211,153,0.06)'
+                            : s.status === 'error' ? '0 0 12px rgba(239,68,68,0.10)'
+                            : s.status === 'warn' ? '0 0 12px rgba(251,191,36,0.10)'
+                            : 'none',
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs">{STAGES[i].icon}</span>
+                          <span className={`text-sm font-bold leading-none ${statusText[s.status]}`}>{statusIcon[s.status]}</span>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-semibold text-white/80 truncate">{s.label}</div>
+                          <div className={`text-[9px] mt-0.5 ${s.result ? 'text-slate-400' : 'text-slate-700'}`}>
+                            {s.result ? `${s.result.ms}ms` : '—'}
+                          </div>
+                        </div>
+                        <div className="text-[9px] text-slate-400 leading-tight border-t border-white/5 pt-1.5" style={{ minHeight: 24 }}>
+                          {s.result ? s.result.detail : 'not reached'}
+                        </div>
                       </div>
+                      {i < allStages.length - 1 && STAGES[i].bank === STAGES[i+1].bank && (
+                        <div className="shrink-0 flex items-center justify-center" style={{ width: 8 }}>
+                          <span className="text-slate-700 text-xs font-bold">›</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-[9px] text-slate-400 leading-tight border-t border-white/5 pt-1.5" style={{ minHeight: 24 }}>
-                      {s.result ? s.result.detail : 'not reached'}
+                  )
+                })}
+              </div>
+
+              {/* Score row */}
+              <div className="mt-4 flex gap-3 flex-wrap">
+                {[
+                  { label: 'Vision Conf',     val: item.vision_confidence, fmt: v => v == null ? 'N/A' : `${(v*100).toFixed(0)}%`, good: v => v != null && v > 0.70 },
+                  { label: 'Signature Match', val: item.sig_match_score,   fmt: v => v == null ? 'N/A' : `${(v*100).toFixed(0)}%`, good: v => v != null && v > 0.85 },
+                  { label: 'Fraud Score',     val: item.fraud_score,       fmt: v => v == null ? 'N/A' : `${(v*100).toFixed(0)}%`, good: v => v != null && v < 0.72 },
+                  { label: 'Amount Range',    val: item.amount_range,      fmt: v => v, good: () => true },
+                  { label: 'PPS Match',       val: item.pps_match,         fmt: v => v == null ? 'N/A' : v ? 'YES' : 'NO', good: v => v === true },
+                  { label: 'Dormant Acct',    val: item.dormant,           fmt: v => v == null ? 'N/A' : v ? 'YES' : 'NO', good: v => v === false },
+                ].map(({ label, val, fmt, good }) => (
+                  <div key={label} className="flex-1 min-w-[90px] bg-white/3 rounded-xl border border-white/6 px-4 py-3">
+                    <div className="text-[10px] text-slate-500 mb-1">{label}</div>
+                    <div className={`text-lg font-bold font-mono ${val == null ? 'text-slate-600' : good(val) ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {fmt(val)}
                     </div>
                   </div>
-                  {/* Arrow connector within same bank */}
-                  {i < allStages.length - 1 && STAGES[i].bank === STAGES[i+1].bank && (
-                    <div className="shrink-0 flex items-center justify-center" style={{ width: 8 }}>
-                      <span className="text-slate-700 text-xs font-bold">›</span>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Score row */}
-          <div className="mt-4 flex gap-3 flex-wrap">
-            {[
-              { label: 'Vision Conf',     val: item.vision_confidence, fmt: v => v == null ? 'N/A' : `${(v*100).toFixed(0)}%`, good: v => v != null && v > 0.70 },
-              { label: 'Signature Match', val: item.sig_match_score, fmt: v => v == null ? 'N/A' : `${(v*100).toFixed(0)}%`, good: v => v != null && v > 0.85 },
-              { label: 'Fraud Score',     val: item.fraud_score,     fmt: v => v == null ? 'N/A' : `${(v*100).toFixed(0)}%`, good: v => v != null && v < 0.72 },
-              { label: 'Amount Range',    val: item.amount_range,    fmt: v => v, good: () => true, isStr: true },
-              { label: 'PPS Match',       val: item.pps_match,       fmt: v => v == null ? 'N/A' : v ? 'YES' : 'NO', good: v => v === true, isStr: false, isBool: true },
-              { label: 'Dormant Acct',    val: item.dormant,         fmt: v => v == null ? 'N/A' : v ? 'YES' : 'NO', good: v => v === false, isStr: false, isBool: true },
-            ].map(({ label, val, fmt, good }) => (
-              <div key={label} className="flex-1 min-w-[90px] bg-white/3 rounded-xl border border-white/6 px-4 py-3">
-                <div className="text-[10px] text-slate-500 mb-1">{label}</div>
-                <div className={`text-lg font-bold font-mono ${val == null ? 'text-slate-600' : good(val) ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {fmt(val)}
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          )}
+
+          {/* ── Chq Images tab ── */}
+          {panelTab === 'chq' && (
+            <div className="p-5">
+              <ChequeImageViewer
+                views={chqViews}
+                fields={chqFields}
+                isDark={true}
+                compact={false}
+                title={item.id}
+              />
+            </div>
+          )}
+
+        </div>{/* end scrollable content */}
 
         {/* Action bar */}
         {heldStage && (
-          <div className="px-6 py-4 border-t border-white/8 flex items-center gap-3 flex-wrap">
+          <div className="px-6 py-4 border-t border-white/8 flex items-center gap-3 flex-wrap shrink-0">
             <div className="flex-1 text-[11px] text-slate-500 min-w-0">
               {isException ? 'Exception review' : 'Human review decision required'}&nbsp;
               <span className="text-amber-400 font-mono">{item.id}</span>
             </div>
-            <select className="text-[11px] bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-slate-300 focus:outline-none focus:border-amber-400/50 cursor-pointer">
-              <option>Select return reason…</option>
-              <optgroup label="Instrument Defect">
-                <option>Date Invalid / Stale</option>
-                <option>Amount Words/Figures Mismatch</option>
-                <option>Endorsement Irregular</option>
-                <option>CTS Compliance Failure</option>
-              </optgroup>
-              <optgroup label="Account / Payment">
-                <option>Account Dormant / Inactive</option>
-                <option>Payment Stopped by Drawer</option>
-                <option>Positive Pay Mismatch</option>
-                <option>Signature Mismatch</option>
-                <option>Amount Alteration / Overwrite</option>
-                <option>Funds Insufficient</option>
-                <option>Account Frozen / NPA</option>
-                <option>Refer to Drawer</option>
-              </optgroup>
-            </select>
+
+            {/* Custom reason dropdown */}
+            <div className="relative" ref={reasonRef}>
+              <button
+                onClick={() => setReasonOpen(o => !o)}
+                className="flex items-center gap-2 text-[11px] bg-white/5 border border-white/12 rounded-lg px-3 py-1.5 text-slate-200 hover:border-amber-400/40 focus:outline-none transition-colors min-w-[200px]"
+              >
+                <span className={`flex-1 text-left truncate ${selectedReason ? 'text-slate-100' : 'text-slate-500'}`}>{reasonLabel}</span>
+                <span className="text-slate-500 text-[10px]">▾</span>
+              </button>
+              {reasonOpen && (
+                <div
+                  className="absolute bottom-full mb-1 left-0 z-20 rounded-xl border border-white/12 shadow-2xl overflow-hidden"
+                  style={{ background: '#111827', minWidth: 240 }}
+                >
+                  {/* Proceed Reason group */}
+                  <div className="px-3 pt-2.5 pb-1 text-[9px] font-bold uppercase tracking-widest text-amber-400/70">Proceed Reason</div>
+                  {PROCEED_REASONS.map(r => (
+                    <button key={r} onClick={() => { setSelectedReason(r); setReasonOpen(false) }}
+                      className={`w-full text-left px-3 py-2 text-[11px] hover:bg-amber-400/10 hover:text-amber-300 transition-colors ${selectedReason === r ? 'text-amber-300 bg-amber-400/8' : 'text-slate-300'}`}
+                    >{r}</button>
+                  ))}
+                  {/* Return Reason groups */}
+                  {Object.entries(RETURN_REASON_GROUPS).map(([group, reasons]) => (
+                    <div key={group}>
+                      <div className="px-3 pt-3 pb-1 text-[9px] font-bold uppercase tracking-widest text-red-400/70">{group}</div>
+                      {reasons.map(r => (
+                        <button key={r} onClick={() => { setSelectedReason(r); setReasonOpen(false) }}
+                          className={`w-full text-left px-3 py-2 text-[11px] hover:bg-red-500/10 hover:text-red-300 transition-colors ${selectedReason === r ? 'text-red-300 bg-red-500/8' : 'text-slate-300'}`}
+                        >{r}</button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <button
               onClick={onClose}
               className="px-4 py-1.5 text-[11px] font-semibold rounded-lg bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 transition-colors"

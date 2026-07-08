@@ -5,6 +5,17 @@ import ShapExplainer from './ShapExplainer'
 import ChequeImageViewer from './ChequeImageViewer'
 import { getReturnReasons } from '../data/returnReasons'
 
+const PROCEED_REASONS_GROUP = 'Proceed Reason'
+const PROCEED_REASONS = [
+  'Second Signature Verified',
+  'Exception Approved by Manager',
+  'Account Holder Confirmed',
+  'Minor OCR Variance — Accepted',
+  'Risk Accepted',
+  'OPA Override Authorized by Compliance',
+  'IET Constraint — Proceed Before Expiry',
+]
+
 const RECENT_KEY = 'astra-recent-return-reasons'
 const getRecentReasons = () => {
   try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') } catch { return [] }
@@ -101,7 +112,7 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
   const [confirming, setConfirming] = useState(null)
   const [reasonSearch, setReasonSearch] = useState('')
   const RETURN_REASONS_GROUPED = getReturnReasons()
-  const ALL_REASONS = Object.values(RETURN_REASONS_GROUPED).flat().sort()
+  const ALL_REASONS = [...PROCEED_REASONS, ...Object.values(RETURN_REASONS_GROUPED).flat()].sort()
   const [reasonOpen, setReasonOpen] = useState(false)
   const [confirmSecs, setConfirmSecs] = useState(null)
 
@@ -581,8 +592,8 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
               disabled={!!confirming}
               className={`w-full flex items-center justify-between border rounded-lg px-3 py-2 text-xs focus:outline-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${th.sel}`}
             >
-              <span className={returnReason ? th.val : th.footNote}>
-                {returnReason || 'Select return reason (required to Return)'}
+              <span className={returnReason ? th.val : th.lbl}>
+                {returnReason || 'Select Reason...'}
               </span>
               <span className={`ml-2 shrink-0 ${th.lbl}`}>{reasonOpen ? '▲' : '▼'}</span>
             </button>
@@ -618,7 +629,30 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
                       <div className={`mx-3 border-t ${th.border} my-1`} />
                     </div>
                   )}
-                  {/* Grouped reasons — sorted alphabetically within each group */}
+                  {/* Proceed Reason group */}
+                  {!reasonSearch && (
+                    <div>
+                      <div className={`px-3 pt-2 pb-1 text-[9px] font-semibold uppercase tracking-widest ${isDark ? 'text-amber-400/70' : 'text-amber-600'}`}>{PROCEED_REASONS_GROUP}</div>
+                      {PROCEED_REASONS.map(r => (
+                        <button
+                          key={`proceed-${r}`}
+                          type="button"
+                          onMouseDown={() => { setReturnReason(r); setReasonOpen(false); setReasonSearch('') }}
+                          className={`w-full text-left px-3 py-2 text-xs transition-colors ${r === returnReason ? (isDark ? 'bg-amber-400/12 text-amber-300' : 'bg-amber-50 text-amber-700') : (isDark ? 'hover:bg-amber-400/8 text-slate-300' : 'hover:bg-amber-50 text-slate-700')}`}
+                        >{r}</button>
+                      ))}
+                      <div className={`mx-3 border-t ${th.border} my-1`} />
+                    </div>
+                  )}
+                  {reasonSearch && PROCEED_REASONS.filter(r => r.toLowerCase().includes(reasonSearch.toLowerCase())).map(r => (
+                    <button
+                      key={`proceed-search-${r}`}
+                      type="button"
+                      onMouseDown={() => { setReturnReason(r); setReasonOpen(false); setReasonSearch('') }}
+                      className={`w-full text-left px-3 py-2 text-xs transition-colors ${r === returnReason ? (isDark ? 'bg-amber-400/12 text-amber-300' : 'bg-amber-50 text-amber-700') : (isDark ? 'hover:bg-amber-400/8 text-slate-300' : 'hover:bg-amber-50 text-slate-700')}`}
+                    >{r}</button>
+                  ))}
+                  {/* Grouped return reasons — sorted alphabetically within each group */}
                   {Object.entries(RETURN_REASONS_GROUPED).sort(([a], [b]) => a.localeCompare(b)).map(([group, reasons]) => {
                     const sorted = [...reasons].sort((a, b) => a.localeCompare(b))
                     const filtered = reasonSearch
