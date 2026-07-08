@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import IETTimer from './IETTimer'
 import FraudGauge from './FraudGauge'
 import ShapExplainer from './ShapExplainer'
-import ChequeMockImage from './ChequeMockImage'
+import ChequeImageViewer from './ChequeImageViewer'
 import { getReturnReasons } from '../data/returnReasons'
 
 const RECENT_KEY = 'astra-recent-return-reasons'
@@ -269,11 +269,28 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
             </span>
             {chequeHover && (
               <div
-                className={`absolute left-0 top-6 z-50 w-[480px] rounded-xl shadow-2xl border p-3 ${chequePopupBg}`}
+                className={`absolute left-0 top-6 z-50 w-[500px] rounded-xl shadow-2xl border p-3 ${chequePopupBg}`}
                 onMouseEnter={showCheque} onMouseLeave={hideCheque}
               >
-                <div className={`text-[9px] ${th.lbl} uppercase tracking-widest mb-2`}>Cheque Image — compare with extracted fields</div>
-                <ChequeMockImage fields={item.ocr_fields} alterations={item.ocr_fields.alterations} isDark={isDark} />
+                <div className={`text-[9px] ${th.lbl} uppercase tracking-widest mb-2`}>Cheque Images — compare with extracted fields</div>
+                <ChequeImageViewer
+                  views={[
+                    { key: 'BFB', label: 'Front B/W',  url: item.front_bw_url   ?? null, iqaScore: item.iqa_front_bw   ?? null },
+                    { key: 'BBB', label: 'Back B/W',   url: item.back_bw_url    ?? null, iqaScore: item.iqa_back_bw    ?? null },
+                    { key: 'BFG', label: 'Front Gray', url: item.front_gray_url ?? null, iqaScore: item.iqa_front_gray ?? null },
+                  ]}
+                  fields={{
+                    payee:          item.ocr_fields?.payee,
+                    date:           item.ocr_fields?.date,
+                    amount_figures: item.ocr_fields?.amount_figures,
+                    amount_words:   item.ocr_fields?.amount_words,
+                    micr:           item.ocr_fields?.micr,
+                    alterations:    item.ocr_fields?.alterations,
+                  }}
+                  isDark={isDark}
+                  compact={true}
+                  title={item.instrument_id}
+                />
               </div>
             )}
           </div>
@@ -414,7 +431,24 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
         )}
 
         {tab === 'cheque' && (
-          <ChequeMockImage fields={item.ocr_fields} alterations={item.ocr_fields.alterations} accountDisplay={item.account_display} isDark={isDark} />
+          <ChequeImageViewer
+            views={[
+              { key: 'BFB', label: 'Front B/W',  url: item.front_bw_url   ?? null, iqaScore: item.iqa_front_bw   ?? null },
+              { key: 'BBB', label: 'Back B/W',   url: item.back_bw_url    ?? null, iqaScore: item.iqa_back_bw    ?? null },
+              { key: 'BFG', label: 'Front Gray', url: item.front_gray_url ?? null, iqaScore: item.iqa_front_gray ?? null },
+            ]}
+            fields={{
+              payee:          item.ocr_fields?.payee,
+              date:           item.ocr_fields?.date,
+              amount_figures: item.ocr_fields?.amount_figures,
+              amount_words:   item.ocr_fields?.amount_words,
+              micr:           item.ocr_fields?.micr,
+              alterations:    item.ocr_fields?.alterations,
+            }}
+            isDark={isDark}
+            compact={false}
+            title={item.instrument_id}
+          />
         )}
 
         {tab === 'ai analysis' && (
