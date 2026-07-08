@@ -436,8 +436,8 @@ function ChildPanel({ item, onClose, isException }) {
               </button>
               {reasonOpen && (
                 <div
-                  className="absolute bottom-full mb-1 left-0 z-20 rounded-xl border border-white/12 shadow-2xl overflow-hidden"
-                  style={{ background: '#111827', minWidth: 240 }}
+                  className="absolute bottom-full mb-1 left-0 z-20 rounded-xl border border-white/12 shadow-2xl overflow-y-auto"
+                  style={{ background: '#111827', minWidth: 240, maxHeight: 320 }}
                 >
                   {/* Proceed Reason group */}
                   <div className="px-3 pt-2.5 pb-1 text-[9px] font-bold uppercase tracking-widest text-amber-400/70">Proceed Reason</div>

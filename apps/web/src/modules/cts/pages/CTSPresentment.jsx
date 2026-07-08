@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import ChequeImageViewer from '../components/ChequeImageViewer'
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -402,6 +403,8 @@ function OutwardPipelineViz({ item }) {
 }
 
 function DetailPanel({ item, isDark }) {
+  const [detailTab, setDetailTab] = useState('pipeline')
+
   if (!item) return (
     <div className={`flex-1 flex items-center justify-center ${isDark ? 'text-slate-500' : 'text-slate-300'} text-sm`}>
       Select a cheque to inspect
@@ -456,13 +459,57 @@ function DetailPanel({ item, isDark }) {
         )}
       </div>
 
-      {/* Pipeline progress */}
-      <div className={`shrink-0 px-5 py-3 border-b ${th.divider}`}>
-        <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>Outward Clearing Pipeline</div>
-        <OutwardPipelineViz item={item} />
+      {/* Tab bar: Pipeline | Chq Images */}
+      <div className={`shrink-0 flex items-center gap-1 px-5 pt-2.5 border-b ${th.divider}`}>
+        {[
+          { key: 'pipeline', label: '⚙ Pipeline' },
+          { key: 'chq',      label: '🖼 Chq Images' },
+        ].map(t => (
+          <button
+            key={t.key}
+            onClick={() => setDetailTab(t.key)}
+            className={`px-4 py-2 text-[11px] font-semibold rounded-t-lg border-b-2 transition-colors ${
+              detailTab === t.key
+                ? (isDark ? 'border-amber-400 text-amber-400 bg-amber-400/8' : 'border-amber-500 text-amber-600 bg-amber-50')
+                : (isDark ? 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50')
+            }`}
+          >{t.label}</button>
+        ))}
       </div>
 
-      <div className="flex-1 px-5 py-4 space-y-4">
+      {/* Pipeline tab */}
+      {detailTab === 'pipeline' && (
+        <div className={`shrink-0 px-5 py-3 border-b ${th.divider}`}>
+          <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>Outward Clearing Pipeline</div>
+          <OutwardPipelineViz item={item} />
+        </div>
+      )}
+
+      {/* Chq Images tab */}
+      {detailTab === 'chq' && (
+        <div className="px-5 py-3">
+          <ChequeImageViewer
+            views={[
+              { key: 'front', label: 'BFB — Front Black',   badge: null,         badgeColor: 'violet' },
+              { key: 'back',  label: 'BBB — Back Black',    badge: null,         badgeColor: 'slate'  },
+              { key: 'grey',  label: 'BFG — Front Grey',    badge: 'IQA',        badgeColor: 'sky'    },
+            ]}
+            fields={{
+              'Instrument ID': item.instrument_id,
+              'Account':       item.account_display,
+              'Amount':        item.amount,
+              'Payee':         item.payee,
+              'Date':          item.date_on_cheque,
+              'MICR':          item.micr,
+            }}
+            isDark={isDark}
+            compact={false}
+            title={item.instrument_id}
+          />
+        </div>
+      )}
+
+      {detailTab === 'pipeline' && <div className="flex-1 px-5 py-4 space-y-4">
         {/* IQA fail alert */}
         {item.iqa_fail_reason && (
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3">
@@ -549,7 +596,7 @@ function DetailPanel({ item, isDark }) {
             </div>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   )
 }

@@ -198,6 +198,19 @@ function StageCard({ stage, count, active, isDark }) {
   )
 }
 
+// ─── Fan-out alignment constants ─────────────────────────────────────────────
+// Card height and gap must be fixed so SVG lines can hit card centers exactly.
+// FANOUT_MID_Y (Human Review center) = stage card center in the row:
+//   stage card is 88px, row height = FANOUT_TOTAL_H = 252px
+//   stage card top = (252-88)/2 = 82, center = 82+44 = 126 = FANOUT_MID_Y ✓
+
+const FANOUT_CARD_H  = 80                                  // arm card fixed height (px)
+const FANOUT_GAP     = 6                                   // gap between arm cards (px)
+const FANOUT_TOTAL_H = FANOUT_CARD_H * 3 + FANOUT_GAP * 2 // 252px
+const FANOUT_TOP_Y   = FANOUT_CARD_H / 2                  // 40  — STP Confirm center
+const FANOUT_MID_Y   = FANOUT_CARD_H + FANOUT_GAP + FANOUT_CARD_H / 2  // 126 — HRQ center
+const FANOUT_BOT_Y   = FANOUT_CARD_H * 2 + FANOUT_GAP * 2 + FANOUT_CARD_H / 2  // 212 — STP Return center
+
 // ─── Fan-out decision branches ────────────────────────────────────────────────
 
 function DecisionFanout({ confirms, returns, humanReview, isDark }) {
@@ -206,100 +219,99 @@ function DecisionFanout({ confirms, returns, humanReview, isDark }) {
   const returnPct   = total ? Math.round(returns     / total * 100) : 0
   const reviewPct   = total ? Math.round(humanReview / total * 100) : 0
 
+  const SVG_W = 64
+
   const Arm = ({ label, count, pct, color, icon }) => {
     const c = COLOR[color]
     return (
-      <div className={`rounded-xl border px-3 py-2.5 w-[100px] transition-all duration-300 ${isDark ? 'bg-white/4 border-white/10' : 'bg-white border-slate-200'}`}
-        style={{ boxShadow: `0 0 14px 0 ${c.glow}22` }}>
-        <div className="text-base mb-1">{icon}</div>
+      <div
+        className={`rounded-xl border px-3 py-2 w-[100px] transition-all duration-300 ${isDark ? 'bg-white/4 border-white/10' : 'bg-white border-slate-200'}`}
+        style={{ boxShadow: `0 0 14px 0 ${c.glow}22`, height: FANOUT_CARD_H, flexShrink: 0 }}
+      >
+        <div className="text-base leading-none mb-0.5">{icon}</div>
         <div className={`text-[10px] font-bold ${c.text} leading-tight`}>{label}</div>
-        <div className={`text-lg font-black font-mono ${c.text} tabular-nums`}>{count}</div>
-        <div className={`text-[9px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{pct}% of total</div>
+        <div className={`text-xl font-black font-mono ${c.text} tabular-nums leading-none mt-0.5`}>{count}</div>
+        <div className={`text-[9px] mt-0.5 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{pct}% of total</div>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col items-center gap-2 shrink-0">
-      {/* Fan lines SVG */}
-      <svg width="80" height="96" viewBox="0 0 80 96" className="shrink-0">
+    <div className="flex shrink-0">
+      {/* Fan-out SVG — height matches card column so lines hit card centers exactly */}
+      <svg width={SVG_W} height={FANOUT_TOTAL_H} viewBox={`0 0 ${SVG_W} ${FANOUT_TOTAL_H}`}>
         <defs>
-          <filter id="glow-fan">
+          <filter id="glow-fanout" x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="1" result="blur"/>
             <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
           </filter>
         </defs>
-        {/* Lines fanning from left to three outputs */}
-        <line x1="0" y1="48" x2="80" y2="16" stroke="#10b981" strokeWidth="1" strokeOpacity="0.4" />
-        <line x1="0" y1="48" x2="80" y2="48" stroke="#f59e0b" strokeWidth="1" strokeOpacity="0.4" />
-        <line x1="0" y1="48" x2="80" y2="80" stroke="#ef4444" strokeWidth="1" strokeOpacity="0.4" />
-        {/* Animated particles */}
-        <circle r="2.5" fill="#10b981" filter="url(#glow-fan)">
-          <animateMotion dur="1.4s" repeatCount="indefinite" calcMode="linear">
-            <mpath href="#fan-confirm"/>
-          </animateMotion>
+        {/* Fan lines: from row-center (FANOUT_MID_Y) to each card center */}
+        <line x1="0" y1={FANOUT_MID_Y} x2={SVG_W} y2={FANOUT_TOP_Y} stroke="#10b981" strokeWidth="1" strokeOpacity="0.45" />
+        <line x1="0" y1={FANOUT_MID_Y} x2={SVG_W} y2={FANOUT_MID_Y} stroke="#f59e0b" strokeWidth="1" strokeOpacity="0.45" />
+        <line x1="0" y1={FANOUT_MID_Y} x2={SVG_W} y2={FANOUT_BOT_Y} stroke="#ef4444" strokeWidth="1" strokeOpacity="0.45" />
+        <circle r="2.5" fill="#10b981" filter="url(#glow-fanout)">
+          <animateMotion dur="1.4s" repeatCount="indefinite" calcMode="linear"><mpath href="#fanout-confirm"/></animateMotion>
         </circle>
-        <circle r="2.5" fill="#f59e0b" filter="url(#glow-fan)">
-          <animateMotion dur="1.8s" begin="0.3s" repeatCount="indefinite" calcMode="linear">
-            <mpath href="#fan-human"/>
-          </animateMotion>
+        <circle r="2.5" fill="#f59e0b" filter="url(#glow-fanout)">
+          <animateMotion dur="1.8s" begin="0.3s" repeatCount="indefinite" calcMode="linear"><mpath href="#fanout-human"/></animateMotion>
         </circle>
-        <circle r="2.5" fill="#ef4444" filter="url(#glow-fan)">
-          <animateMotion dur="2.2s" begin="0.6s" repeatCount="indefinite" calcMode="linear">
-            <mpath href="#fan-return"/>
-          </animateMotion>
+        <circle r="2.5" fill="#ef4444" filter="url(#glow-fanout)">
+          <animateMotion dur="2.2s" begin="0.6s" repeatCount="indefinite" calcMode="linear"><mpath href="#fanout-return"/></animateMotion>
         </circle>
-        <path id="fan-confirm" d="M 0 48 L 80 16" style={{ display: 'none' }} />
-        <path id="fan-human"   d="M 0 48 L 80 48" style={{ display: 'none' }} />
-        <path id="fan-return"  d="M 0 48 L 80 80" style={{ display: 'none' }} />
+        <path id="fanout-confirm" d={`M 0 ${FANOUT_MID_Y} L ${SVG_W} ${FANOUT_TOP_Y}`} style={{ display: 'none' }} />
+        <path id="fanout-human"   d={`M 0 ${FANOUT_MID_Y} L ${SVG_W} ${FANOUT_MID_Y}`} style={{ display: 'none' }} />
+        <path id="fanout-return"  d={`M 0 ${FANOUT_MID_Y} L ${SVG_W} ${FANOUT_BOT_Y}`} style={{ display: 'none' }} />
       </svg>
-      {/* Three arm cards */}
-      <div className="flex flex-col gap-1.5 -mt-10">
-        <Arm label="STP Confirm"   count={confirms}    pct={confirmPct}  color="emerald" icon="✓" />
-        <Arm label="Human Review"  count={humanReview} pct={reviewPct}   color="amber"   icon="👤" />
-        <Arm label="STP Return"    count={returns}     pct={returnPct}   color="red"     icon="✕" />
+      {/* Arm cards — gap matches FANOUT_GAP so card centers hit SVG endpoints */}
+      <div className="flex flex-col" style={{ gap: FANOUT_GAP }}>
+        <Arm label="STP Confirm"  count={confirms}    pct={confirmPct} color="emerald" icon="✓" />
+        <Arm label="Human Review" count={humanReview} pct={reviewPct}  color="amber"   icon="👤" />
+        <Arm label="STP Return"   count={returns}     pct={returnPct}  color="red"     icon="✕" />
       </div>
     </div>
   )
 }
 
 // ─── NGCH Filed terminus ──────────────────────────────────────────────────────
+// Only STP Confirm and STP Return flow immediately to NGCH.
+// Human Review items are pending human decision — not yet filed.
 
 function FiledTerminus({ total, isDark }) {
+  const SVG_W = 54
   return (
-    <div className="flex flex-col items-center gap-2 shrink-0">
-      {/* Converging lines */}
-      <svg width="60" height="96" viewBox="0 0 60 96">
-        <line x1="0" y1="16" x2="60" y2="48" stroke="#6366f1" strokeWidth="1" strokeOpacity="0.35" />
-        <line x1="0" y1="48" x2="60" y2="48" stroke="#6366f1" strokeWidth="1" strokeOpacity="0.35" />
-        <line x1="0" y1="80" x2="60" y2="48" stroke="#6366f1" strokeWidth="1" strokeOpacity="0.35" />
-        <circle r="2" fill="#6366f1">
-          <animateMotion dur="1.6s" repeatCount="indefinite" calcMode="linear">
-            <mpath href="#conv-top"/>
-          </animateMotion>
+    <div className="flex shrink-0">
+      {/* Converging SVG — only Confirm (top) and Return (bottom) → NGCH Filed (center) */}
+      <svg width={SVG_W} height={FANOUT_TOTAL_H} viewBox={`0 0 ${SVG_W} ${FANOUT_TOTAL_H}`}>
+        <defs>
+          <filter id="glow-terminus" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="1" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <line x1="0" y1={FANOUT_TOP_Y} x2={SVG_W} y2={FANOUT_MID_Y} stroke="#6366f1" strokeWidth="1" strokeOpacity="0.4" />
+        <line x1="0" y1={FANOUT_BOT_Y} x2={SVG_W} y2={FANOUT_MID_Y} stroke="#6366f1" strokeWidth="1" strokeOpacity="0.4" />
+        <circle r="2" fill="#6366f1" filter="url(#glow-terminus)">
+          <animateMotion dur="1.6s" repeatCount="indefinite" calcMode="linear"><mpath href="#terminus-top"/></animateMotion>
         </circle>
-        <circle r="2" fill="#6366f1">
-          <animateMotion dur="1.6s" begin="0.5s" repeatCount="indefinite" calcMode="linear">
-            <mpath href="#conv-mid"/>
-          </animateMotion>
+        <circle r="2" fill="#6366f1" filter="url(#glow-terminus)">
+          <animateMotion dur="1.6s" begin="0.8s" repeatCount="indefinite" calcMode="linear"><mpath href="#terminus-bot"/></animateMotion>
         </circle>
-        <circle r="2" fill="#6366f1">
-          <animateMotion dur="1.6s" begin="1s" repeatCount="indefinite" calcMode="linear">
-            <mpath href="#conv-bot"/>
-          </animateMotion>
-        </circle>
-        <path id="conv-top" d="M 0 16 L 60 48" style={{ display: 'none' }} />
-        <path id="conv-mid" d="M 0 48 L 60 48" style={{ display: 'none' }} />
-        <path id="conv-bot" d="M 0 80 L 60 48" style={{ display: 'none' }} />
+        <path id="terminus-top" d={`M 0 ${FANOUT_TOP_Y} L ${SVG_W} ${FANOUT_MID_Y}`} style={{ display: 'none' }} />
+        <path id="terminus-bot" d={`M 0 ${FANOUT_BOT_Y} L ${SVG_W} ${FANOUT_MID_Y}`} style={{ display: 'none' }} />
       </svg>
-      {/* Filed card */}
-      <div className={`-mt-10 rounded-xl border px-3 py-3 w-[100px] ${isDark ? 'bg-indigo-900/20 border-indigo-500/30' : 'bg-indigo-50 border-indigo-200'}`}
-        style={{ boxShadow: '0 0 18px 0 #6366f122' }}>
-        <div className="text-xl mb-1">📤</div>
-        <div className="text-[10px] font-bold text-indigo-400 leading-tight">NGCH Filed</div>
+      {/* Filed card centered vertically at FANOUT_MID_Y */}
+      <div className="flex items-center" style={{ height: FANOUT_TOTAL_H }}>
+        <div
+          className={`rounded-xl border px-3 py-3 w-[100px] ${isDark ? 'bg-indigo-900/20 border-indigo-500/30' : 'bg-indigo-50 border-indigo-200'}`}
+          style={{ boxShadow: '0 0 18px 0 #6366f122' }}
+        >
+          <div className="text-xl mb-1">📤</div>
+          <div className="text-[10px] font-bold text-indigo-400 leading-tight">NGCH Filed</div>
         <div className="text-lg font-black font-mono text-indigo-400 tabular-nums">{total}</div>
         <div className={`text-[9px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>decisions filed</div>
         <div className={`text-[9px] font-mono mt-1 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>Immudb ✓</div>
+        </div>
       </div>
     </div>
   )
@@ -894,7 +906,7 @@ export default function CTSInwardPipeline() {
                 />
 
                 {/* Convergence to NGCH Filed */}
-                <FiledTerminus total={total} isDark={isDark} />
+                <FiledTerminus total={confirms + returns} isDark={isDark} />
               </div>
             </div>
 
