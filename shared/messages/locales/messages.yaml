@@ -1107,6 +1107,34 @@ VAULT_SIG_INTEGRITY_FAIL:
   en: "Signature vault integrity check failed for {bank_id} — {corrupt_count} entries corrupted. Resync required."
   hi: ""
 
+VAULT_SIG_CBS_FALLBACK:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [account_display, instrument_id, specimen_count]
+  en: "Vault miss for {account_display} — CBS fallback triggered for {instrument_id}. {specimen_count} specimen(s) fetched and stored."
+  hi: ""
+
+VAULT_SIG_CBS_STORED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [account_display, specimen_count]
+  en: "CBS specimen(s) stored in signature vault for {account_display} — {specimen_count} image(s) written."
+  hi: ""
+
+VAULT_SIG_NO_SPECIMEN:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [account_display, instrument_id]
+  en: "No signature specimen for {account_display} — vault miss and CBS returned nothing. {instrument_id} to human review."
+  hi: ""
+
+VAULT_SIG_MULTI_DETECTED:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [account_display, instrument_id, sig_count]
+  en: "Multiple signatures detected on {instrument_id} for {account_display} — {sig_count} ink marks found. Human review required."
+  hi: ""
+
 VAULT_PPS_HIT:
   severity: INFO
   surface: [AUDIT]
