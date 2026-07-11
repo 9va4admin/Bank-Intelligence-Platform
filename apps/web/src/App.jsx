@@ -51,6 +51,7 @@ import EJSchedules from './modules/ej/pages/EJSchedules'
 import UserManagement from './modules/admin/pages/UserManagement'
 import LoginLog from './modules/admin/pages/LoginLog'
 import SecurityViolations from './modules/admin/pages/SecurityViolations'
+import LoginPage from './modules/auth/pages/LoginPage'
 import { EJDashboard } from './modules/ej'
 import IncidentManagement from './modules/ej/pages/IncidentManagement'
 import ManagerPortal from './modules/ej/pages/ManagerPortal'
@@ -67,6 +68,7 @@ export default function App() {
       <PageHeaderProvider>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
         {/* CTS module */}
         <Route path="/cts" element={<CTSWorkstation />} />
         <Route path="/cts/outward" element={<CTSPresentment />} />
