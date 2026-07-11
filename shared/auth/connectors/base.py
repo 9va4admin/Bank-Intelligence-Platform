@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -21,6 +21,10 @@ class ASTRAIdentity(BaseModel):
     bank_id: str
     role: str
     clearing_zones: list[str] = []
+    # bank_type / permission_level are optional on the connector output — SAML/LDAP
+    # may not carry them. AuthService derives fail-closed defaults when absent.
+    bank_type: Optional[Literal["SB", "SMB"]] = None
+    permission_level: Optional[Literal["ADMIN", "EDIT", "READ_ONLY"]] = None
     connector_used: Literal["saml", "ldap_ad", "local"]
     authenticated_at: float = 0.0
 
