@@ -6,6 +6,9 @@ import LoginPage from './LoginPage'
 vi.mock('../../../shared/theme/ThemeContext', () => ({
   useTheme: () => ({ isDark: false, toggle: vi.fn() }),
 }))
+vi.mock('../../../shared/context/AuthContext', () => ({
+  useAuth: () => ({ refresh: vi.fn().mockResolvedValue('authenticated') }),
+}))
 
 function renderPage() {
   return render(<MemoryRouter><LoginPage /></MemoryRouter>)
