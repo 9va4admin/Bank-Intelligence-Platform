@@ -13,7 +13,7 @@ from typing import Any
 import structlog
 
 from shared.cbs_connector.base import (
-    AccountInfo, AccountStatus, CBSConnector, PPSEntry, StopPaymentResult,
+    AccountInfo, AccountStatus, CBSConnector, CBSSignatoryData, PPSEntry, StopPaymentResult,
 )
 from shared.cbs_connector.exceptions import AccountNotFoundError, CBSUnavailableError
 
@@ -152,6 +152,57 @@ class FinacleCBSConnector(CBSConnector):
             raise CBSUnavailableError(f"Finacle get_cheque_status failed: {exc}") from exc
 
         return str(data.get("status", "ACTIVE"))
+
+    async def get_signatory_data(
+        self,
+        account_number: str,
+        bank_id: str,
+    ) -> list[CBSSignatoryData]:
+        """
+        Fetch authorized signatories with their specimen images via Finacle REST.
+
+        Endpoint: GET /api/v1/accounts/{account_number}/signatories
+        Response: {"signatories": [{signatoryId, role, nameMasked, operationType,
+                                    specimens: [{imageBase64}]}]}
+
+        Raises AccountNotFoundError on 404.
+        Raises CBSUnavailableError on any other failure.
+        Images returned as decoded bytes — caller embeds immediately and discards.
+        """
+        self._assert_ready()
+        url = f"{self._base_url}/api/v1/accounts/{account_number}/signatories"
+        try:
+            response = await self._http.get(url)
+            if response.status_code == 404:
+                raise AccountNotFoundError(f"Account {account_number[-4:]} not found in Finacle")
+            response.raise_for_status()
+            data = response.json()
+        except AccountNotFoundError:
+            raise
+        except Exception as exc:
+            log.error(
+                "cbs.finacle.get_signatory_data.failed",
+                account_last4=account_number[-4:],
+                bank_id=bank_id,
+                error=str(exc),
+            )
+            raise CBSUnavailableError(f"Finacle get_signatory_data failed: {exc}") from exc
+
+        result: list[CBSSignatoryData] = []
+        for sig in data.get("signatories", []):
+            specimen_images: list[bytes] = []
+            for specimen in sig.get("specimens", []):
+                raw_b64 = specimen.get("imageBase64", "")
+                if raw_b64:
+                    specimen_images.append(base64.b64decode(raw_b64))
+            result.append(CBSSignatoryData(
+                signatory_id=str(sig.get("signatoryId", "")),
+                role=str(sig.get("role", "")),
+                name_masked=str(sig.get("nameMasked", "***")),
+                specimen_images=specimen_images,
+                operation_type=str(sig.get("operationType", "J")),
+            ))
+        return result
 
     def _assert_ready(self) -> None:
         if not self._ready:

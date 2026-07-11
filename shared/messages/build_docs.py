@@ -45,13 +45,14 @@ DOMAIN_LABELS = {
     "VAULT":    "Signature & PPS Vault",
     "AUTH":     "Authentication & RBAC",
     "EJ":       "EJ Intelligence",
+    "MSV":      "Multi-Signature Validation",
     "PLATFORM": "Platform / Infra",
 }
 
 
 def _domain(key: str) -> str:
     for prefix in ("CTS_WF", "CTS_OUT", "CTS_COMP", "CTS_NGCH", "CTS_SMB", "CTS_KS",
-                   "VAULT", "AUTH", "CBS", "EJ", "PLATFORM"):
+                   "VAULT", "AUTH", "CBS", "EJ", "MSV", "PLATFORM"):
         if key.startswith(prefix):
             return prefix
     return "OTHER"

@@ -20,7 +20,7 @@ import xml.etree.ElementTree as ET
 import structlog
 
 from shared.cbs_connector.base import (
-    AccountInfo, AccountStatus, CBSConnector, PPSEntry, StopPaymentResult,
+    AccountInfo, AccountStatus, CBSConnector, CBSSignatoryData, PPSEntry, StopPaymentResult,
 )
 from shared.cbs_connector.exceptions import AccountNotFoundError, CBSUnavailableError
 
@@ -241,6 +241,50 @@ class FlexCubeCBSConnector(CBSConnector):
             raise
 
         return _find_text(root, "CHQ_STATUS") or "ACTIVE"
+
+    async def get_signatory_data(
+        self,
+        account_number: str,
+        bank_id: str,
+    ) -> list[CBSSignatoryData]:
+        """
+        Fetch authorized signatories with specimen BLOB images via FlexCube SOAP.
+
+        SOAP operation: getSignatories
+        Returns response with: .signatories — list of objects with:
+          .signatoryId, .role, .nameMasked, .operationType, .specimenBlobs (list[bytes])
+
+        Raises CBSUnavailableError on SOAP fault or any other exception.
+        """
+        self._assert_ready()
+        try:
+            response = self._soap_client.service.getSignatories(
+                accountId=account_number,
+                bankId=bank_id,
+            )
+        except Exception as exc:
+            log.error(
+                "cbs.flexcube.get_signatory_data.failed",
+                account_last4=account_number[-4:],
+                bank_id=bank_id,
+                error=str(exc),
+            )
+            raise CBSUnavailableError(f"FlexCube get_signatory_data failed: {exc}") from exc
+
+        result: list[CBSSignatoryData] = []
+        for sig in getattr(response, "signatories", []) or []:
+            specimen_images: list[bytes] = []
+            for blob in getattr(sig, "specimenBlobs", []) or []:
+                if blob:
+                    specimen_images.append(bytes(blob))
+            result.append(CBSSignatoryData(
+                signatory_id=str(getattr(sig, "signatoryId", "")),
+                role=str(getattr(sig, "role", "")),
+                name_masked=str(getattr(sig, "nameMasked", "***")),
+                specimen_images=specimen_images,
+                operation_type=str(getattr(sig, "operationType", "J")),
+            ))
+        return result
 
     def _assert_ready(self) -> None:
         if not self._ready:
