@@ -14,6 +14,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useAuth } from '../../../shared/context/AuthContext'
 
 async function postJSON(path, body) {
   const res = await fetch(path, {
@@ -33,6 +34,7 @@ function groupSecret(secret) {
 
 export default function LoginPage() {
   const { isDark, toggle } = useTheme()
+  const { refresh } = useAuth()
   const navigate = useNavigate()
 
   const [step, setStep] = useState('password') // 'password' | 'verify' | 'enrol'
@@ -101,8 +103,9 @@ export default function LoginPage() {
     if (ok) { finish(data) } else setError('That code did not match. Scan the key again and enter the current code.')
   }
 
-  function finish(data) {
+  async function finish(data) {
     if (data && data.csrf_token) sessionStorage.setItem('astra-csrf', data.csrf_token)
+    await refresh()          // re-resolve session so RequireAuth lets us in
     navigate('/')
   }
 

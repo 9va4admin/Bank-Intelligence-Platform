@@ -52,6 +52,8 @@ import UserManagement from './modules/admin/pages/UserManagement'
 import LoginLog from './modules/admin/pages/LoginLog'
 import SecurityViolations from './modules/admin/pages/SecurityViolations'
 import LoginPage from './modules/auth/pages/LoginPage'
+import { AuthProvider } from './shared/context/AuthContext'
+import RequireAuth from './shared/auth/RequireAuth'
 import { EJDashboard } from './modules/ej'
 import IncidentManagement from './modules/ej/pages/IncidentManagement'
 import ManagerPortal from './modules/ej/pages/ManagerPortal'
@@ -64,11 +66,13 @@ import './index.css'
 export default function App() {
   return (
     <BrowserRouter>
+      <AuthProvider>
       <BankProvider>
       <PageHeaderProvider>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route element={<RequireAuth />}>
+        <Route path="/" element={<LandingPage />} />
         {/* CTS module */}
         <Route path="/cts" element={<CTSWorkstation />} />
         <Route path="/cts/outward" element={<CTSPresentment />} />
@@ -134,9 +138,11 @@ export default function App() {
         <Route path="/disputes" element={<EJDashboard defaultTab="disputes" />} />
         <Route path="/audit" element={<ManagerPortal />} />
         <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
       </Routes>
       </PageHeaderProvider>
       </BankProvider>
+      </AuthProvider>
     </BrowserRouter>
   )
 }
