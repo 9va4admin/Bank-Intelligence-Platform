@@ -49,3 +49,25 @@ class LDAPServerUnreachableError(Exception):
 
 class AuthConnectorConfigError(Exception):
     """Invalid or missing auth connector configuration (raised at factory build time)."""
+
+
+# Session / token exceptions
+
+class SessionExpiredError(Exception):
+    """The ASTRA session token has passed its expiry — client must re-authenticate."""
+
+
+class InvalidSessionError(Exception):
+    """Session token failed signature, issuer, structure, or algorithm validation."""
+
+
+class CSRFValidationError(Exception):
+    """CSRF token missing or does not match the session's bound token."""
+
+
+class MFARequiredError(Exception):
+    """Password verified but the session is not yet MFA-authenticated (step-up needed)."""
+
+
+class MFANotEnrolledError(Exception):
+    """User has no TOTP enrolled — enrolment must complete before a full session issues."""
