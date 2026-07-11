@@ -1883,6 +1883,57 @@
       "corrupt_count"
     ]
   },
+  "VAULT_SIG_CBS_FALLBACK": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "account_display",
+      "instrument_id",
+      "specimen_count"
+    ]
+  },
+  "VAULT_SIG_CBS_STORED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "specimen_count"
+    ]
+  },
+  "VAULT_SIG_NO_SPECIMEN": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "account_display",
+      "instrument_id"
+    ]
+  },
+  "VAULT_SIG_MULTI_DETECTED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "instrument_id",
+      "sig_count"
+    ]
+  },
   "VAULT_PPS_HIT": {
     "text": "",
     "severity": "INFO",
@@ -3423,6 +3474,111 @@
     ],
     "variables": [
       "entity_type",
+      "bank_id"
+    ]
+  },
+  "MSV_VALIDATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "outcome",
+      "confidence_pct",
+      "bank_id"
+    ]
+  },
+  "MSV_VALIDATION_DEGRADED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "reason_code",
+      "bank_id"
+    ]
+  },
+  "MSV_ENROLLMENT_COMPLETE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "job_id",
+      "bank_id",
+      "enrolled_count",
+      "total_count"
+    ]
+  },
+  "MSV_ENROLLMENT_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "job_id",
+      "bank_id",
+      "error_summary"
+    ]
+  },
+  "MSV_ENROLLMENT_SKIPPED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "bank_id",
+      "reason_code"
+    ]
+  },
+  "MSV_CBS_SYNC_COMPLETE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "batch_id",
+      "enrolled_count"
+    ]
+  },
+  "MSV_CBS_SYNC_DEGRADED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "batch_id"
+    ]
+  },
+  "MSV_SIGNATORY_REVOKED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "signatory_id",
       "bank_id"
     ]
   }
