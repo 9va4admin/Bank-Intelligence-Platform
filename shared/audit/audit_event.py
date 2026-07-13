@@ -27,6 +27,9 @@ class AuditEventType(str, Enum):
     CTS_REVIEW_TIMEOUT = "CTS_REVIEW_TIMEOUT"               # 55-min human review auto-return
     CTS_REVIEW_ASSIGNED = "CTS_REVIEW_ASSIGNED"             # instrument pushed to human queue
 
+    # ── CTS Outward ────────────────────────────────────────────────────────────
+    CTS_OUTWARD_QUEUE_DECISION = "CTS_OUTWARD_QUEUE_DECISION"  # Outward Q: manual confirm/reject decided
+
     # ── CTS NGCH / transport ───────────────────────────────────────────────────
     CTS_NGCH_TERMINAL_FAILURE = "CTS_NGCH_TERMINAL_FAILURE"  # max retries exhausted
     CTS_NGCH_CERT_EXPIRED = "CTS_NGCH_CERT_EXPIRED"          # mTLS cert expired
