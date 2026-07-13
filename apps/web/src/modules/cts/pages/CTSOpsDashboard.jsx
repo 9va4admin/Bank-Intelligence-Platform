@@ -1,31 +1,70 @@
 /**
- * CTS Ops Dashboard — Morning view for the clearing ops head.
+ * CTS Dashboard — the "Dashboard" nav target for every CTS user.
  *
- * Shows:
- *   - Today's val/vol across all sessions (live)
- *   - STP confirmed / STP returned / Manual confirmed / Manual returned
- *   - Presenting bank (inward) + Drawee bank (outward) positions
- *   - Net settlement position (receive / pay)
- *   - 7-day trend (sparklines)
- *   - Per-session cards with drill-down link
- *   - File download buttons (NPCI RRF, MIS CSV, Settlement statement)
+ * SB users: two tabs.
+ *   My Bank      — this bank's own clearing performance (today's val/vol,
+ *                  STP/manual breakdown, sessions, 7-day trend, downloads).
+ *   SMB Dashboard — the same OpsDashboardBody, fed either the combined total
+ *                  across every sponsored SMB or one SMB's numbers via the
+ *                  filter row (reuses BankContext's selectedSmbId drill-down).
+ * SMB users: no tabs — this page IS their own SMB dashboard
+ *   (SMBDashboardContent, shared with the standalone /cts/smb/dashboard route).
  */
 import { useState, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
+import OpsDashboardBody from '../components/OpsDashboardBody'
+import SMBDashboardContent from '../components/SMBDashboardContent'
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// RPC zones — each is a live, independent connection to NGCH for its clearing
+// zone (CLAUDE.md §2.2). Kept in sync with CTSRPCConsolidation.jsx's RPCS data.
+// Shown first on My Bank: an RPC going DEGRADED is an NPCI-connectivity risk,
+// not a routine stat — it belongs above the fold, not three clicks deep.
+const ZONE_STATUS = [
+  { zone: 'MUMBAI',    status: 'ACTIVE',   pending: 14, iet_risk: 2 },
+  { zone: 'DELHI',     status: 'ACTIVE',   pending: 7,  iet_risk: 0 },
+  { zone: 'CHENNAI',   status: 'ACTIVE',   pending: 4,  iet_risk: 0 },
+  { zone: 'KOLKATA',   status: 'ACTIVE',   pending: 3,  iet_risk: 0 },
+  { zone: 'HYDERABAD', status: 'DEGRADED', pending: 21, iet_risk: 5 },
+]
 
-function fmt(n) {
-  if (n >= 1e7) return `₹${(n / 1e7).toFixed(2)}Cr`
-  if (n >= 1e5) return `₹${(n / 1e5).toFixed(2)}L`
-  return `₹${n.toLocaleString('en-IN')}`
+function ZoneGatewayStrip({ isDark }) {
+  const th = {
+    card: isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
+    label: isDark ? 'text-slate-400' : 'text-slate-500',
+  }
+  const degraded = ZONE_STATUS.filter(z => z.status !== 'ACTIVE')
+  return (
+    <Link to="/cts/rpc" className={`block border rounded-xl px-4 py-3 mb-4 transition-colors hover:border-white/25 ${th.card}`}>
+      <div className="flex items-center justify-between mb-2">
+        <span className={`text-[10px] uppercase tracking-widest font-semibold ${th.label}`}>RPC — NGCH Gateway Status</span>
+        {degraded.length > 0 && (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-400/10 border border-red-400/30 text-red-400">
+            {degraded.length} zone{degraded.length > 1 ? 's' : ''} degraded
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-3 flex-wrap">
+        {ZONE_STATUS.map(z => {
+          const ok = z.status === 'ACTIVE'
+          return (
+            <div key={z.zone} className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg border ${
+              ok
+                ? (isDark ? 'border-emerald-700/30 bg-emerald-900/10 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700')
+                : (isDark ? 'border-red-700/40 bg-red-900/20 text-red-300' : 'border-red-200 bg-red-50 text-red-700')
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${ok ? 'bg-emerald-400' : 'bg-red-400 animate-pulse'}`} />
+              <span className="font-medium">{z.zone}</span>
+              {!ok && <span className="font-mono opacity-80">· {z.iet_risk} IET risk</span>}
+            </div>
+          )
+        })}
+      </div>
+    </Link>
+  )
 }
-
-function fmtPaise(p) { return fmt(p / 100) }
-
-function pct(n, d) { return d > 0 ? ((n / d) * 100).toFixed(1) : '0.0' }
 
 // ─── Mock data (matches /v1/cts/sessions/today + /v1/cts/dashboard/ops) ──────
 
@@ -48,6 +87,8 @@ const SB_TODAY = {
   net_settlement_paise: 43_20_00_000,
 }
 
+// One representative SMB's numbers — reused when the SMB Dashboard tab is
+// filtered down to a single sponsored SMB.
 const SMB_TODAY = {
   clearing_date: '2026-06-25',
   sessions_count: 2,
@@ -67,12 +108,38 @@ const SMB_TODAY = {
   net_settlement_paise: 2_65_00_000,
 }
 
-function makeSessions(bankIfsc, isSMB) {
+// All sponsored SMBs summed — the SMB Dashboard tab's default ("All SMBs") view.
+const SMB_COMBINED_TODAY = {
+  clearing_date: '2026-06-25',
+  sessions_count: 8,
+  sessions_settled: 4,
+  total_inward: 1284,
+  total_inward_value_paise: 34_10_00_000,
+  stp_confirmed: 902,
+  stp_returned: 198,
+  manual_confirmed: 113,
+  manual_returned: 71,
+  pending_review: 15,
+  overall_stp_rate_pct: 84.7,
+  overall_return_rate_pct: 20.9,
+  total_outward: 836,
+  total_outward_value_paise: 23_35_00_000,
+  outward_returned: 74,
+  net_settlement_paise: 10_75_00_000,
+}
+
+function makeSessions(bankIfsc, scale) {
   const prefix = `SES-${bankIfsc}-20260625`
-  if (isSMB) {
+  if (scale === 'smb') {
     return [
       { id: `${prefix}-001`, slot: '10:00–12:00', status: 'SETTLED', inward: 143, inward_val: 3_80_00_000, stp_rate: 86.7, return_rate: 18.2 },
       { id: `${prefix}-002`, slot: '12:00–14:00', status: 'OPEN',    inward: 175, inward_val: 4_65_00_000, stp_rate: 84.6, return_rate: 20.6 },
+    ]
+  }
+  if (scale === 'smb_combined') {
+    return [
+      { id: `${prefix}-001`, slot: '10:00–12:00', status: 'SETTLED', inward: 612, inward_val: 16_20_00_000, stp_rate: 85.9, return_rate: 19.4 },
+      { id: `${prefix}-002`, slot: '12:00–14:00', status: 'OPEN',    inward: 672, inward_val: 17_90_00_000, stp_rate: 83.5, return_rate: 22.3 },
     ]
   }
   return [
@@ -103,132 +170,104 @@ const SMB_TREND = [
   { date: 'Jun 25', inward: 318, return_rate_pct: 19.5, stp_rate_pct: 85.5 },
 ]
 
-const SESSION_STATUS_STYLE = {
-  SETTLED:  'bg-emerald-400/10 text-emerald-400 border-emerald-400/20',
-  FILED:    'bg-blue-400/10 text-blue-400 border-blue-400/20',
-  OPEN:     'bg-amber-400/10 text-amber-400 border-amber-400/20',
-  UPCOMING: 'bg-slate-400/10 text-slate-400 border-slate-400/20',
+const SMB_COMBINED_TREND = [
+  { date: 'Jun 19', inward: 1190, return_rate_pct: 19.9, stp_rate_pct: 80.3 },
+  { date: 'Jun 20', inward: 0,    return_rate_pct: 0,    stp_rate_pct: 0 },
+  { date: 'Jun 21', inward: 0,    return_rate_pct: 0,    stp_rate_pct: 0 },
+  { date: 'Jun 22', inward: 1258, return_rate_pct: 19.5, stp_rate_pct: 80.9 },
+  { date: 'Jun 23', inward: 1341, return_rate_pct: 21.2, stp_rate_pct: 79.4 },
+  { date: 'Jun 24', inward: 1204, return_rate_pct: 20.1, stp_rate_pct: 80.6 },
+  { date: 'Jun 25', inward: 1284, return_rate_pct: 20.9, stp_rate_pct: 84.7 },
+]
+
+// ─── Combine helpers ──────────────────────────────────────────────────────────
+// Counts/values sum directly. Rates are recomputed from the combined raw counts
+// (never summed/averaged directly — two percentages don't add).
+
+function combineToday(sb, smb) {
+  const total_inward = sb.total_inward + smb.total_inward
+  const total_outward = sb.total_outward + smb.total_outward
+  const stp_confirmed = sb.stp_confirmed + smb.stp_confirmed
+  const stp_returned = sb.stp_returned + smb.stp_returned
+  const manual_confirmed = sb.manual_confirmed + smb.manual_confirmed
+  const manual_returned = sb.manual_returned + smb.manual_returned
+  const outward_returned = sb.outward_returned + smb.outward_returned
+  return {
+    clearing_date: sb.clearing_date,
+    sessions_count: sb.sessions_count + smb.sessions_count,
+    sessions_settled: sb.sessions_settled + smb.sessions_settled,
+    total_inward,
+    total_inward_value_paise: sb.total_inward_value_paise + smb.total_inward_value_paise,
+    stp_confirmed,
+    stp_returned,
+    manual_confirmed,
+    manual_returned,
+    pending_review: sb.pending_review + smb.pending_review,
+    overall_stp_rate_pct: total_inward > 0 ? +(((stp_confirmed + stp_returned) / total_inward) * 100).toFixed(1) : 0,
+    overall_return_rate_pct: total_inward > 0 ? +(((stp_returned + manual_returned) / total_inward) * 100).toFixed(1) : 0,
+    total_outward,
+    total_outward_value_paise: sb.total_outward_value_paise + smb.total_outward_value_paise,
+    outward_returned,
+    net_settlement_paise: sb.net_settlement_paise + smb.net_settlement_paise,
+  }
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+function combineTrend(sbTrend, smbTrend) {
+  return sbTrend.map((sbDay, i) => {
+    const smbDay = smbTrend[i]
+    const inward = sbDay.inward + smbDay.inward
+    // Volume-weighted average — the correct way to combine two rates when only
+    // the rate + its own volume are known (no raw counts at the daily-trend level).
+    const weighted = (field) =>
+      inward > 0 ? +(((sbDay[field] * sbDay.inward) + (smbDay[field] * smbDay.inward)) / inward).toFixed(1) : 0
+    return {
+      date: sbDay.date,
+      inward,
+      return_rate_pct: weighted('return_rate_pct'),
+      stp_rate_pct: weighted('stp_rate_pct'),
+    }
+  })
+}
 
-function KPICard({ label, value, sub, color, isDark }) {
-  const card  = isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200'
-  const lbl   = isDark ? 'text-slate-400' : 'text-slate-500'
-  const subC  = isDark ? 'text-slate-500' : 'text-slate-400'
+// ─── Tab bar ──────────────────────────────────────────────────────────────────
+
+function DashboardTabs({ tab, onChange, isDark }) {
   return (
-    <div className={`border rounded-xl p-4 ${card}`}>
-      <div className={`text-[11px] uppercase tracking-wide ${lbl} mb-1`}>{label}</div>
-      <div className={`text-2xl font-bold font-mono ${color}`}>{value}</div>
-      {sub && <div className={`text-[11px] mt-1 ${subC}`}>{sub}</div>}
+    <div className="flex gap-1">
+      {[['mybank', 'My Bank'], ['smb', 'SMB Dashboard']].map(([key, label]) => (
+        <button
+          key={key}
+          onClick={() => onChange(key)}
+          className={`text-xs font-semibold px-4 py-2 rounded-lg border transition-all ${
+            tab === key
+              ? (isDark ? 'bg-white/10 text-white border-white/15' : 'bg-slate-800 text-white border-slate-800')
+              : (isDark ? 'text-slate-400 border-white/8 hover:bg-white/5' : 'text-slate-500 border-slate-200 hover:bg-slate-50')
+          }`}
+        >
+          {label}
+        </button>
+      ))}
     </div>
   )
 }
 
-function DecisionBar({ stp_c, stp_r, man_c, man_r, pend, total, isDark }) {
-  const bg = isDark ? 'bg-white/5' : 'bg-slate-100'
-  const segments = [
-    { w: pct(stp_c,  total), color: 'bg-emerald-500', label: 'STP Confirmed' },
-    { w: pct(stp_r,  total), color: 'bg-red-400',     label: 'STP Returned' },
-    { w: pct(man_c,  total), color: 'bg-blue-400',    label: 'Manual Confirmed' },
-    { w: pct(man_r,  total), color: 'bg-orange-400',  label: 'Manual Returned' },
-    { w: pct(pend,   total), color: 'bg-slate-500',   label: 'Pending' },
-  ]
+function SMBFilterBar({ smbs, selectedSmbId, onSelect, isDark }) {
+  const pills = [{ id: null, shortName: 'All SMBs' }, ...smbs]
   return (
-    <div>
-      <div className={`h-3 rounded-full ${bg} flex overflow-hidden`}>
-        {segments.map((s, i) => (
-          <div key={i} className={`${s.color} h-full transition-all`} style={{ width: `${s.w}%` }} />
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-3 mt-2">
-        {segments.map((s, i) => (
-          <div key={i} className="flex items-center gap-1">
-            <span className={`w-2 h-2 rounded-full ${s.color}`} />
-            <span className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{s.label}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function TrendBar({ days, isDark }) {
-  const max = Math.max(...days.map(d => d.inward), 1)
-  const lbl = isDark ? 'text-slate-500' : 'text-slate-400'
-  const bar = isDark ? 'bg-gold-400/70 hover:bg-gold-400' : 'bg-amber-500/70 hover:bg-amber-500'
-  const hol = isDark ? 'bg-white/5' : 'bg-slate-100'
-  return (
-    <div className="flex items-end gap-1 h-16">
-      {days.map((d, i) => {
-        const h = d.inward > 0 ? Math.max((d.inward / max) * 100, 8) : 0
-        return (
-          <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
-            <div className="w-full flex items-end" style={{ height: '48px' }}>
-              {d.inward > 0
-                ? <div className={`w-full rounded-t transition-all cursor-default ${bar}`} style={{ height: `${h}%` }} title={`${d.date}: ${d.inward} cheques, ${d.return_rate_pct}% return`} />
-                : <div className={`w-full rounded-t ${hol}`} style={{ height: '8%' }} title="Holiday" />
-              }
-            </div>
-            <span className={`text-[9px] ${lbl}`}>{d.date.split(' ')[1]}</span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function SessionCard({ s, isDark, onDownload }) {
-  const card   = isDark ? 'bg-navy-900 border-white/8 hover:border-white/15' : 'bg-white border-slate-200 hover:border-slate-300'
-  const head   = isDark ? 'text-white' : 'text-slate-900'
-  const muted  = isDark ? 'text-slate-400' : 'text-slate-500'
-  return (
-    <div className={`border rounded-xl p-4 transition-colors ${card}`}>
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <div className={`text-sm font-semibold ${head}`}>{s.slot}</div>
-          <div className={`text-[11px] ${muted}`}>{s.id}</div>
-        </div>
-        <span className={`text-[10px] px-2 py-0.5 rounded-full border ${SESSION_STATUS_STYLE[s.status]}`}>
-          {s.status}
-        </span>
-      </div>
-      {s.inward > 0 ? (
-        <>
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            <div>
-              <div className={`text-[10px] ${muted}`}>Inward</div>
-              <div className={`text-sm font-bold font-mono ${head}`}>{s.inward.toLocaleString()}</div>
-            </div>
-            <div>
-              <div className={`text-[10px] ${muted}`}>Value</div>
-              <div className="text-sm font-bold font-mono text-gold-400">{fmtPaise(s.inward_val)}</div>
-            </div>
-            <div>
-              <div className={`text-[10px] ${muted}`}>Return %</div>
-              <div className={`text-sm font-bold font-mono ${s.return_rate > 20 ? 'text-red-400' : 'text-emerald-400'}`}>
-                {s.return_rate.toFixed(1)}%
-              </div>
-            </div>
-          </div>
-          {s.status !== 'UPCOMING' && (
-            <div className="flex gap-1.5 flex-wrap">
-              {['NPCI RRF', 'MIS CSV', 'Settlement'].map(label => (
-                <button
-                  key={label}
-                  onClick={() => onDownload(s.id, label)}
-                  className={`text-[10px] px-2 py-1 rounded border transition-colors
-                    ${isDark ? 'border-white/10 text-slate-400 hover:text-white hover:border-white/25' : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}
-                >
-                  ↓ {label}
-                </button>
-              ))}
-            </div>
-          )}
-        </>
-      ) : (
-        <div className={`text-[11px] ${muted}`}>Session not yet open</div>
-      )}
+    <div className="flex gap-1.5 flex-wrap mb-4">
+      {pills.map(s => (
+        <button
+          key={s.id ?? 'all'}
+          onClick={() => onSelect(s.id)}
+          className={`text-[11px] font-medium px-3 py-1.5 rounded-full border transition-all ${
+            selectedSmbId === s.id
+              ? (isDark ? 'bg-violet-500/20 border-violet-400/40 text-violet-300' : 'bg-violet-100 border-violet-300 text-violet-700')
+              : (isDark ? 'border-white/10 text-slate-400 hover:border-white/25' : 'border-slate-200 text-slate-500 hover:border-slate-300')
+          }`}
+        >
+          {s.id === null ? '◆ ' : ''}{s.shortName}
+        </button>
+      ))}
     </div>
   )
 }
@@ -237,22 +276,16 @@ function SessionCard({ s, isDark, onDownload }) {
 
 export default function CTSOpsDashboard() {
   const { isDark } = useTheme()
-  const { bankName, bankIfsc, isSMB } = useBankContext()
+  const { bankName, bankIfsc, isSMB, smbs, selectedSmbId, setSelectedSmbId, selectedSmb } = useBankContext()
+  const [dashTab, setDashTab] = useState('mybank') // 'mybank' | 'smb' — SB only
+  const [includeSMB, setIncludeSMB] = useState(false) // My Bank tab: combine with sponsored SMBs
   const [downloading, setDownloading] = useState(null)
 
-  const TODAY    = isSMB ? SMB_TODAY : SB_TODAY
-  const SESSIONS = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
-  const TREND    = isSMB ? SMB_TREND : SB_TREND
-
-  const th = {
-    page:    isDark ? 'bg-navy-950' : 'bg-slate-50',
-    card:    isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
-    heading: isDark ? 'text-white' : 'text-slate-900',
-    body:    isDark ? 'text-slate-300' : 'text-slate-700',
-    muted:   isDark ? 'text-slate-400' : 'text-slate-500',
-    divider: isDark ? 'border-white/8' : 'border-slate-200',
-    section: isDark ? 'text-slate-300' : 'text-slate-700',
-  }
+  // All hooks called unconditionally, every render — the isSMB early return
+  // below must never skip a hook that ran on a previous render.
+  const sbSessions = useMemo(() => makeSessions(bankIfsc, 'sb'), [bankIfsc])
+  const smbSessions = useMemo(() => makeSessions(selectedSmb?.ifsc || bankIfsc, 'smb'), [selectedSmb, bankIfsc])
+  const smbCombinedSessions = useMemo(() => makeSessions(bankIfsc, 'smb_combined'), [bankIfsc])
 
   function handleDownload(sessionId, type) {
     const pathMap = { 'NPCI RRF': 'npci', 'MIS CSV': 'mis', 'Settlement': 'settlement' }
@@ -262,22 +295,66 @@ export default function CTSOpsDashboard() {
     setTimeout(() => setDownloading(null), 1200)
   }
 
-  const netDir = TODAY.net_settlement_paise >= 0 ? 'RECEIVE' : 'PAY'
-  const netColor = netDir === 'RECEIVE' ? 'text-emerald-400' : 'text-red-400'
+  const th = {
+    page:    isDark ? 'bg-navy-950' : 'bg-slate-50',
+    heading: isDark ? 'text-white' : 'text-slate-900',
+    muted:   isDark ? 'text-slate-400' : 'text-slate-500',
+    divider: isDark ? 'border-white/8' : 'border-slate-200',
+  }
+
+  // SMB users: this page IS their own dashboard — no tabs, nothing to filter.
+  if (isSMB) {
+    return (
+      <AppShell>
+        <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
+          <SMBDashboardContent />
+        </div>
+      </AppShell>
+    )
+  }
+
+  // Sessions grid stays SB's own regardless of the checkbox — a "session" is a
+  // clearing window scoped to this bank; merging SMB session rows into the same
+  // grid would mix two banks' processing windows in one list.
+  const myBank = includeSMB
+    ? { TODAY: combineToday(SB_TODAY, SMB_COMBINED_TODAY), SESSIONS: sbSessions, TREND: combineTrend(SB_TREND, SMB_COMBINED_TREND) }
+    : { TODAY: SB_TODAY, SESSIONS: sbSessions, TREND: SB_TREND }
+  const smbView = selectedSmbId
+    ? { TODAY: SMB_TODAY, SESSIONS: smbSessions, TREND: SMB_TREND }
+    : { TODAY: SMB_COMBINED_TODAY, SESSIONS: smbCombinedSessions, TREND: SMB_COMBINED_TREND }
+
+  const active = dashTab === 'mybank' ? myBank : smbView
+  const totalSessions = active.TODAY.sessions_count
+  const settledSessions = active.TODAY.sessions_settled
 
   return (
     <AppShell>
       <div className={`flex-1 overflow-y-auto ${th.page}`}>
         {/* Header */}
         <div className={`sticky top-0 z-10 ${isDark ? 'bg-navy-950/95' : 'bg-slate-50/95'} backdrop-blur border-b ${th.divider} px-6 py-3`}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h1 className={`text-base font-semibold ${th.heading}`}>Clearing Operations Dashboard</h1>
               <p className={`text-[11px] ${th.muted}`}>
-                {bankName} · {TODAY.clearing_date} · {TODAY.sessions_count} sessions · {TODAY.sessions_settled} settled
+                {dashTab === 'mybank'
+                  ? (includeSMB ? `${bankName} + ${smbs.length} Sponsored SMBs (combined)` : bankName)
+                  : (selectedSmbId ? selectedSmb?.name : 'All Sponsored SMBs')}
+                {' · '}{active.TODAY.clearing_date} · {totalSessions} sessions · {settledSessions} settled
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              {dashTab === 'mybank' && (
+                <label className={`flex items-center gap-1.5 text-[11px] font-medium cursor-pointer select-none ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                  <input
+                    type="checkbox"
+                    checked={includeSMB}
+                    onChange={(e) => setIncludeSMB(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded accent-violet-500"
+                  />
+                  + SMB
+                </label>
+              )}
+              <DashboardTabs tab={dashTab} onChange={setDashTab} isDark={isDark} />
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/10 border border-emerald-400/20 text-emerald-400">● Live</span>
               <button
                 onClick={() => handleDownload('TODAY', 'MIS CSV')}
@@ -290,91 +367,19 @@ export default function CTSOpsDashboard() {
           </div>
         </div>
 
-        <div className="px-6 py-5 space-y-6 max-w-7xl">
-
-          {/* KPI row — today totals */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
-            <KPICard label="Total Inward"      value={TODAY.total_inward.toLocaleString()} sub={fmtPaise(TODAY.total_inward_value_paise)} color={th.heading} isDark={isDark} />
-            <KPICard label="STP Confirmed"     value={TODAY.stp_confirmed.toLocaleString()} sub={`${pct(TODAY.stp_confirmed, TODAY.total_inward)}%`} color="text-emerald-400" isDark={isDark} />
-            <KPICard label="STP Returned"      value={TODAY.stp_returned.toLocaleString()} sub={`${pct(TODAY.stp_returned, TODAY.total_inward)}%`} color="text-red-400" isDark={isDark} />
-            <KPICard label="Manual Confirmed"  value={TODAY.manual_confirmed.toLocaleString()} sub={`${pct(TODAY.manual_confirmed, TODAY.total_inward)}%`} color="text-blue-400" isDark={isDark} />
-            <KPICard label="Manual Returned"   value={TODAY.manual_returned.toLocaleString()} sub={`${pct(TODAY.manual_returned, TODAY.total_inward)}%`} color="text-orange-400" isDark={isDark} />
-            <KPICard label="Pending Review"    value={TODAY.pending_review} sub="in queue" color="text-amber-400" isDark={isDark} />
-            <KPICard label="Total Outward"     value={TODAY.total_outward.toLocaleString()} sub={fmtPaise(TODAY.total_outward_value_paise)} color={th.muted} isDark={isDark} />
-            <KPICard label={`Net (${netDir})`} value={fmtPaise(Math.abs(TODAY.net_settlement_paise))} sub="settlement position" color={netColor} isDark={isDark} />
-          </div>
-
-          {/* Decision breakdown bar */}
-          <div className={`border rounded-xl p-4 ${th.card}`}>
-            <div className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted} mb-3`}>Decision Breakdown — Inward</div>
-            <DecisionBar
-              stp_c={TODAY.stp_confirmed}
-              stp_r={TODAY.stp_returned}
-              man_c={TODAY.manual_confirmed}
-              man_r={TODAY.manual_returned}
-              pend={TODAY.pending_review}
-              total={TODAY.total_inward}
-              isDark={isDark}
-            />
-            <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t ${th.divider}">
-              <div>
-                <div className={`text-[10px] ${th.muted}`}>STP Rate</div>
-                <div className={`text-lg font-bold font-mono ${TODAY.overall_stp_rate_pct >= 80 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                  {TODAY.overall_stp_rate_pct}%
-                </div>
-              </div>
-              <div>
-                <div className={`text-[10px] ${th.muted}`}>Return Rate</div>
-                <div className={`text-lg font-bold font-mono ${TODAY.overall_return_rate_pct > 22 ? 'text-red-400' : 'text-slate-300'}`}>
-                  {TODAY.overall_return_rate_pct}%
-                </div>
-              </div>
-              <div>
-                <div className={`text-[10px] ${th.muted}`}>Outward Returns</div>
-                <div className="text-lg font-bold font-mono text-orange-400">
-                  {TODAY.outward_returned} ({pct(TODAY.outward_returned, TODAY.total_outward)}%)
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Sessions grid + trend side by side */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Sessions */}
-            <div className="lg:col-span-2">
-              <div className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted} mb-3`}>Today's Sessions</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {SESSIONS.map(s => (
-                  <SessionCard key={s.id} s={s} isDark={isDark} onDownload={handleDownload} />
-                ))}
-              </div>
-            </div>
-
-            {/* 7-day trend */}
-            <div className={`border rounded-xl p-4 ${th.card}`}>
-              <div className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted} mb-3`}>7-Day Trend</div>
-              <TrendBar days={TREND} isDark={isDark} />
-              <div className={`mt-4 pt-3 border-t ${th.divider} space-y-2`}>
-                {TREND.filter(d => d.inward > 0).slice(-3).reverse().map(d => (
-                  <div key={d.date} className="flex items-center justify-between">
-                    <span className={`text-[11px] ${th.muted}`}>{d.date}</span>
-                    <div className="flex items-center gap-3">
-                      <span className={`text-[11px] font-mono ${th.body}`}>{d.inward.toLocaleString()}</span>
-                      <span className={`text-[11px] font-mono ${d.return_rate_pct > 20 ? 'text-red-400' : 'text-emerald-400'}`}>
-                        {d.return_rate_pct}% ret
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {downloading && (
-            <div className="fixed bottom-4 right-4 bg-emerald-500 text-white text-sm px-4 py-2 rounded-lg shadow-lg">
-              Downloading...
-            </div>
+        <div className="px-6 py-5 max-w-7xl">
+          {dashTab === 'mybank' && <ZoneGatewayStrip isDark={isDark} />}
+          {dashTab === 'smb' && (
+            <SMBFilterBar smbs={smbs} selectedSmbId={selectedSmbId} onSelect={setSelectedSmbId} isDark={isDark} />
           )}
+          <OpsDashboardBody
+            TODAY={active.TODAY}
+            SESSIONS={active.SESSIONS}
+            TREND={active.TREND}
+            isDark={isDark}
+            downloading={downloading}
+            onDownload={handleDownload}
+          />
         </div>
       </div>
     </AppShell>
