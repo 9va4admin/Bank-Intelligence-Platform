@@ -86,6 +86,7 @@ from modules.cts.workflows.activities.fraud import score_fraud
 from modules.cts.workflows.activities.decision import synthesise_decision
 from modules.cts.workflows.activities.ngch_filer import file_to_ngch
 from modules.cts.workflows.activities.write_audit import write_audit
+from modules.cts.workflows.activities.kill_switch_lookup import get_kill_switch_status
 from modules.cts.workflows.activities.smb_forwarding_activities import (
     validate_smb_forwarding_window,
     write_forwarding_log_start,
@@ -127,6 +128,7 @@ ALL_ACTIVITIES = [
     synthesise_decision,
     file_to_ngch,
     write_audit,
+    get_kill_switch_status,
     validate_smb_forwarding_window,
     write_forwarding_log_start,
     write_forwarding_log_complete,
