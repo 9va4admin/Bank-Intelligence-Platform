@@ -22,11 +22,12 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request, Security
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from apps.api.dependencies import require_user_context
 from shared.audit.audit_event import AuditEvent, AuditEventType
+from shared.auth.rbac import RBACPolicy, UserContext
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
 
 log = structlog.get_logger()
@@ -38,7 +39,7 @@ _CBS_TYPES = {"SB_CBS", "SMB_CBS"}
 _VALID_TYPES = {"SB_CBS", "SMB_CBS", "SIGNATURE_VAULT", "PPS_VAULT", "CANCELLED_LEAF"}
 _VALID_CBS_VENDORS = {"finacle", "bancs", "flexcube"}
 
-bearer = HTTPBearer(auto_error=False)
+_policy = RBACPolicy()
 
 # ── In-memory store (replaced by YugabyteDB in production) ──────────────────
 
@@ -239,25 +240,26 @@ async def _emit_audit(
 
 
 async def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Security(bearer),
+    ctx: UserContext = Depends(require_user_context),
 ) -> dict:
-    """Validate bearer token and return user context.
-
-    In production: validate JWT from bank IdP (SAML-issued), extract claims.
-    In tests: dependency_overrides replaces this entirely.
     """
-    if not credentials:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    token = credentials.credentials
-    if not token.startswith("test-token-"):
-        raise HTTPException(status_code=401, detail="Invalid token")
-    bank_id = token[len("test-token-"):]
+    Delegates to the central auth chokepoint (apps.api.dependencies), which
+    validates the httpOnly session cookie via AuthenticationMiddleware.
+    Re-shaped to this router's existing dict-based downstream code.
+    No token parsing, no test-token backdoor. ASTRA-01.
+
+    bank_id/smb_id follow the same SB/SMB split as RBACPolicy.smb_instrument_filter:
+    SB caller → bank_id=own bank, smb_id=None (sees/configures all SMBs' connections).
+    SMB caller → bank_id=sponsor SB (connections are stored under the SB's namespace),
+                 smb_id=own bank_id (row-level isolation to this SMB only).
+    """
+    eff_bank_id, smb_id = _policy.smb_instrument_filter(ctx)
     return {
-        "bank_id": bank_id,
-        "user_id": f"user-{bank_id}",
-        "role": "bank_it_admin",
-        "bank_type": "SB",
-        "smb_id": None,
+        "bank_id": eff_bank_id,
+        "user_id": ctx.user_id,
+        "role": ctx.role.value,
+        "bank_type": ctx.bank_type.value,
+        "smb_id": smb_id,
     }
 
 

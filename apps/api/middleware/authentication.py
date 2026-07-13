@@ -34,6 +34,8 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
 
         # Resolve the session once — never raises (absent/invalid -> None).
         request.state.user = self._resolve(request)
+        # RateLimitMiddleware keys per-bank limits off this (falls back to IP if unset).
+        request.state.bank_id = request.state.user.bank_id if request.state.user else None
 
         # CSRF on unsafe methods, once a session exists, outside bootstrap/public.
         if (

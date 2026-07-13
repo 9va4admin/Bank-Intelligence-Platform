@@ -14,29 +14,29 @@ from typing import Any, Literal, Optional
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict
+
+from apps.api.dependencies import require_user_context
+from shared.auth.rbac import UserContext
 
 log = structlog.get_logger()
 
 router_v1 = APIRouter(prefix="/v1/notifications", tags=["Notifications v1"])
-
-_bearer = HTTPBearer(auto_error=False)
 
 _READ_ROLES = {"ops_manager", "bank_it_admin", "compliance_officer"}
 _WRITE_ROLES = {"ops_manager", "bank_it_admin"}
 
 
 async def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
+    ctx: UserContext = Depends(require_user_context),
 ) -> dict[str, Any]:
-    if credentials is None or not credentials.credentials:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
-    token = credentials.credentials
-    if token.startswith("test-token-"):
-        bank_id = token.removeprefix("test-token-")
-        return {"bank_id": bank_id, "user_id": "test-user", "role": "ops_manager"}
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    """
+    Delegates to the central auth chokepoint (apps.api.dependencies), which
+    validates the httpOnly session cookie via AuthenticationMiddleware.
+    Re-shaped to this router's existing dict-based downstream code.
+    No token parsing, no test-token backdoor. ASTRA-01.
+    """
+    return {"bank_id": ctx.bank_id, "user_id": ctx.user_id, "role": ctx.role.value}
 
 
 def require_read_role(user: dict = Depends(get_current_user)) -> dict:

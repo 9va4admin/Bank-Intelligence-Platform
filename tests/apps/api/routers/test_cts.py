@@ -17,6 +17,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from shared.auth.rbac import BankType, PermissionLevel, Role, UserContext
+
 
 def _make_app():
     from apps.api.routers.cts import router_v1
@@ -563,26 +565,55 @@ class TestCTSAuthEdgeCases:
 # ---------------------------------------------------------------------------
 
 class TestCTSDependencyCoverage:
-    """Exercise auth helpers and temporal-client 503 directly."""
+    """Exercise auth helpers and temporal-client 503 directly.
 
-    def test_get_current_user_id_valid_token_returns_reviewer(self):
-        """Calls /review without user_id override so get_current_user_id executes."""
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+    ASTRA-01 fix: get_current_user_context now delegates to the shared,
+    middleware-backed apps.api.dependencies.require_user_context — there is
+    no more per-router token parsing, and no test-token-* backdoor to exercise.
+    These tests now prove (a) the delegation actually wires user_id/bank_id
+    through correctly, and (b) the old backdoor string no longer buys access.
+    """
+
+    def test_get_current_user_id_delegates_to_shared_auth_context(self):
+        """get_current_user_id correctly extracts user_id from the shared,
+        middleware-backed session context — not from a parsed token."""
+        from apps.api.routers.cts import router_v1
+        from apps.api.dependencies import require_user_context
         app = FastAPI()
         app.include_router(router_v1)
-        # Override bank_id only; leave user_id to the real implementation
-        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        app.dependency_overrides[require_user_context] = lambda: UserContext(
+            user_id="reviewer-001", role=Role.OPS_REVIEWER, bank_id="test-bank",
+            bank_type=BankType.SB, permission_level=PermissionLevel.EDIT,
+        )
         client = TestClient(app, raise_server_exceptions=False)
 
         response = client.post(
             "/v1/cts/review/INST001/decide",
             json={"action": "CONFIRM", "reason": "ok"},
-            headers=_auth_headers("test-bank"),  # test-token-test-bank → reviewer-001
         )
         assert response.status_code == 200
 
-    def test_get_current_bank_id_valid_test_token_returns_bank(self):
-        """Exercises the removeprefix return branch (line 41)."""
+    def test_get_current_bank_id_delegates_to_shared_auth_context(self):
+        """get_current_bank_id correctly extracts bank_id from the shared
+        session context — not from removeprefix() on a raw Bearer token."""
+        from apps.api.routers.cts import router_v1
+        from apps.api.dependencies import require_user_context
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[require_user_context] = lambda: UserContext(
+            user_id="u1", role=Role.OPS_REVIEWER, bank_id="mybank",
+            bank_type=BankType.SB, permission_level=PermissionLevel.EDIT,
+        )
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get("/v1/cts/decisions/INST001")
+        assert response.status_code == 200
+
+    def test_test_token_bearer_header_no_longer_grants_access(self):
+        """Regression guard for ASTRA-01: a Bearer test-token-* header, once a
+        universal backdoor, must never grant access again — with no session
+        cookie and no dependency override, every request 401s regardless of
+        what's in the Authorization header."""
         from apps.api.routers.cts import router_v1
         app = FastAPI()
         app.include_router(router_v1)
@@ -590,20 +621,18 @@ class TestCTSDependencyCoverage:
 
         response = client.get(
             "/v1/cts/decisions/INST001",
-            headers={"Authorization": "Bearer test-token-mybank"},
+            headers={"Authorization": "Bearer test-token-any-bank-i-want"},
         )
-        # 200 proves bank_id extraction succeeded (line 41 executed)
-        assert response.status_code == 200
+        assert response.status_code == 401
 
     def test_get_current_user_id_no_token_returns_401(self):
-        """Covers get_current_user_id missing-token path (line 50)."""
+        """No session cookie, no override → 401."""
         from apps.api.routers.cts import router_v1, get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
         app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
         client = TestClient(app, raise_server_exceptions=False)
 
-        # No Authorization header → credentials is None inside get_current_user_id
         response = client.post(
             "/v1/cts/review/INST001/decide",
             json={"action": "CONFIRM", "reason": "ok"},
@@ -611,7 +640,7 @@ class TestCTSDependencyCoverage:
         assert response.status_code == 401
 
     def test_get_current_user_id_invalid_token_returns_401(self):
-        """Covers get_current_user_id invalid-token raise (line 54)."""
+        """A bogus Authorization header (no valid session) → 401."""
         from apps.api.routers.cts import router_v1, get_current_bank_id
         app = FastAPI()
         app.include_router(router_v1)
@@ -670,10 +699,13 @@ class TestCTSDependencyCoverage:
 class TestCTSQueueRoute:
     def test_queue_no_temporal_returns_empty(self):
         """Without Temporal client, returns empty queue with 200."""
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts import router_v1, get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
-        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        app.dependency_overrides[get_current_user_context] = lambda: UserContext(
+            user_id="u1", role=Role.OPS_REVIEWER, bank_id="test-bank",
+            bank_type=BankType.SB, permission_level=PermissionLevel.EDIT,
+        )
         client = TestClient(app, raise_server_exceptions=False)
         response = client.get("/v1/cts/queue", headers=_auth_headers())
         assert response.status_code == 200
@@ -693,10 +725,13 @@ class TestCTSQueueRoute:
 
     def test_queue_limit_capped_at_100(self):
         """limit > 100 is silently capped to 100."""
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts import router_v1, get_current_user_context
         app = FastAPI()
         app.include_router(router_v1)
-        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        app.dependency_overrides[get_current_user_context] = lambda: UserContext(
+            user_id="u1", role=Role.OPS_REVIEWER, bank_id="test-bank",
+            bank_type=BankType.SB, permission_level=PermissionLevel.EDIT,
+        )
         client = TestClient(app, raise_server_exceptions=False)
         # limit=500 should still return 200 (capped internally)
         response = client.get("/v1/cts/queue?limit=500", headers=_auth_headers())
@@ -705,7 +740,7 @@ class TestCTSQueueRoute:
 
     def test_queue_with_temporal_returns_items(self):
         """Temporal client returning workflow list → items populated."""
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts import router_v1, get_current_user_context
         from unittest.mock import MagicMock, AsyncMock
 
         # Build async iterable of workflow stubs
@@ -735,7 +770,10 @@ class TestCTSQueueRoute:
 
         app = FastAPI()
         app.include_router(router_v1)
-        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        app.dependency_overrides[get_current_user_context] = lambda: UserContext(
+            user_id="u1", role=Role.OPS_REVIEWER, bank_id="test-bank",
+            bank_type=BankType.SB, permission_level=PermissionLevel.EDIT,
+        )
         app.state.temporal_client = mock_client
 
         client = TestClient(app, raise_server_exceptions=False)
@@ -751,7 +789,7 @@ class TestCTSQueueRoute:
 
     def test_queue_temporal_error_returns_empty(self):
         """Temporal list_workflows error → empty queue (not 503)."""
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts import router_v1, get_current_user_context
         from unittest.mock import MagicMock
 
         async def _broken_iter():
@@ -763,7 +801,10 @@ class TestCTSQueueRoute:
 
         app = FastAPI()
         app.include_router(router_v1)
-        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        app.dependency_overrides[get_current_user_context] = lambda: UserContext(
+            user_id="u1", role=Role.OPS_REVIEWER, bank_id="test-bank",
+            bank_type=BankType.SB, permission_level=PermissionLevel.EDIT,
+        )
         app.state.temporal_client = mock_client
 
         client = TestClient(app, raise_server_exceptions=False)
@@ -773,7 +814,7 @@ class TestCTSQueueRoute:
 
     def test_queue_sorted_by_iet_deadline_ascending(self):
         """Items are returned sorted by iet_deadline ascending (most urgent first)."""
-        from apps.api.routers.cts import router_v1, get_current_bank_id
+        from apps.api.routers.cts import router_v1, get_current_user_context
         from unittest.mock import MagicMock
 
         def _make_wf(inst_id, iet_deadline):
@@ -805,7 +846,10 @@ class TestCTSQueueRoute:
 
         app = FastAPI()
         app.include_router(router_v1)
-        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        app.dependency_overrides[get_current_user_context] = lambda: UserContext(
+            user_id="u1", role=Role.OPS_REVIEWER, bank_id="test-bank",
+            bank_type=BankType.SB, permission_level=PermissionLevel.EDIT,
+        )
         app.state.temporal_client = mock_client
 
         client = TestClient(app, raise_server_exceptions=False)

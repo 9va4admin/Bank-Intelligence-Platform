@@ -30,13 +30,14 @@ from typing import Literal, Optional
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+from apps.api.dependencies import require_user_context
+from shared.auth.rbac import UserContext
 
 log = structlog.get_logger()
 
 router_v1 = APIRouter(tags=["User Management v1"])
-_bearer = HTTPBearer(auto_error=False)
 
 _SB_ROLES = {
     "ops_reviewer", "fraud_analyst", "ops_manager",
@@ -54,15 +55,15 @@ _VALID_PERMISSION_LEVELS = {"ADMIN", "EDIT", "READ_ONLY"}
 # ---------------------------------------------------------------------------
 
 async def get_admin_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
+    ctx: UserContext = Depends(require_user_context),
 ) -> dict:
-    if credentials is None or not credentials.credentials:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
-    token = credentials.credentials
-    if token.startswith("test-token-"):
-        bank_id = token.removeprefix("test-token-")
-        return {"bank_id": bank_id, "role": "bank_it_admin", "user_id": "admin-001"}
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    """
+    Delegates to the central auth chokepoint (apps.api.dependencies), which
+    validates the httpOnly session cookie via AuthenticationMiddleware.
+    Re-shaped to this router's existing dict-based downstream code.
+    No token parsing, no test-token backdoor. ASTRA-01.
+    """
+    return {"bank_id": ctx.bank_id, "role": ctx.role.value, "user_id": ctx.user_id}
 
 
 def require_it_admin(user: dict = Depends(get_admin_user)) -> dict:
@@ -372,7 +373,7 @@ async def update_user(
 async def deactivate_user(
     user_id: str,
     admin: dict = Depends(require_it_admin),
-) -> None:
+):
     u = _MOCK_USERS.get(user_id)
     if not u or u["bank_id"] != admin["bank_id"]:
         raise HTTPException(status_code=404, detail="User not found")
@@ -435,7 +436,7 @@ async def totp_confirm(
 async def totp_reset(
     user_id: str,
     admin: dict = Depends(require_it_admin),
-) -> None:
+):
     u = _MOCK_USERS.get(user_id)
     if not u or u["bank_id"] != admin["bank_id"]:
         raise HTTPException(status_code=404, detail="User not found")
@@ -500,7 +501,7 @@ async def list_user_sessions(
 async def force_logout_user(
     user_id: str,
     admin: dict = Depends(require_it_admin),
-) -> None:
+):
     u = _MOCK_USERS.get(user_id)
     if not u or u["bank_id"] != admin["bank_id"]:
         raise HTTPException(status_code=404, detail="User not found")

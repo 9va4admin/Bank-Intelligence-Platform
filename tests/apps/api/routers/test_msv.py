@@ -28,6 +28,22 @@ def _auth_headers(bank_id="kotak-mah"):
     return {"Authorization": f"Bearer test-token-{bank_id}"}
 
 
+def test_test_token_bearer_header_no_longer_grants_access():
+    """Regression guard for ASTRA-01: get_current_user_context now delegates
+    to the shared, middleware-backed require_user_context — a bare
+    test-token-* Bearer header (formerly a universal backdoor) must never
+    grant access on its own."""
+    from apps.api.routers.msv import router_v1
+    app = FastAPI()
+    app.include_router(router_v1)
+    client = TestClient(app, raise_server_exceptions=False)
+    response = client.get(
+        "/v1/msv/accounts/1234567890/signatories",
+        headers=_auth_headers("any-bank"),
+    )
+    assert response.status_code == 401
+
+
 class TestMSVValidateRoute:
     def test_unauthenticated_returns_401(self):
         from apps.api.routers.msv import router_v1

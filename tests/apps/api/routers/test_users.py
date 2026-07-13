@@ -3,16 +3,42 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from apps.api.routers.users import router_v1, _MOCK_USERS, _TOTP_SECRETS
+from apps.api.routers.users import router_v1, get_admin_user, _MOCK_USERS, _TOTP_SECRETS
 
 _AUTH = {"Authorization": "Bearer test-token-hdfc-bank"}
 
 
 @pytest.fixture()
 def client():
+    """Authenticated client — get_admin_user overridden with a valid admin.
+
+    get_admin_user now delegates to the shared, middleware-backed
+    require_user_context (ASTRA-01 fix) — there's no more token parsing to
+    fake, so tests that need an authenticated admin override the dependency
+    directly instead of sending a Bearer header."""
+    app = FastAPI()
+    app.include_router(router_v1)
+    app.dependency_overrides[get_admin_user] = lambda: {
+        "bank_id": "hdfc-bank", "role": "bank_it_admin", "user_id": "admin-001",
+    }
+    return TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture()
+def unauthed_client():
+    """No override — exercises the real (now middleware-backed) auth path,
+    for the small number of tests that specifically verify 401 behavior."""
     app = FastAPI()
     app.include_router(router_v1)
     return TestClient(app, raise_server_exceptions=False)
+
+
+def test_test_token_bearer_header_no_longer_grants_access(unauthed_client):
+    """Regression guard for ASTRA-01: users.py minted bank_it_admin — able to
+    create admin users and reset anyone's MFA — from a bare test-token-*
+    Bearer header. That must never work again."""
+    resp = unauthed_client.get("/v1/admin/users", headers=_AUTH)
+    assert resp.status_code == 401
 
 
 class TestListUsers:
@@ -20,8 +46,8 @@ class TestListUsers:
         resp = client.get("/v1/admin/users", headers=_AUTH)
         assert resp.status_code == 200
 
-    def test_requires_auth(self, client):
-        resp = client.get("/v1/admin/users")
+    def test_requires_auth(self, unauthed_client):
+        resp = unauthed_client.get("/v1/admin/users")
         assert resp.status_code == 401
 
     def test_returns_user_list(self, client):
@@ -151,8 +177,8 @@ class TestTOTP:
         # Just check it doesn't 500
         assert resp.status_code in (200, 400)
 
-    def test_setup_requires_admin(self, client):
-        resp = client.post("/v1/admin/users/usr-001/totp/setup")
+    def test_setup_requires_admin(self, unauthed_client):
+        resp = unauthed_client.post("/v1/admin/users/usr-001/totp/setup")
         assert resp.status_code == 401
 
 

@@ -15,9 +15,9 @@ from typing import Optional
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict
 
+from apps.api.dependencies import require_user_context
 from shared.auth.rbac import Role, RBACPolicy, UserContext
 from shared.utils.masking import mask_account_number
 
@@ -25,42 +25,20 @@ log = structlog.get_logger()
 
 router_v1 = APIRouter(prefix="/v1/msv", tags=["MSV v1"])
 
-_bearer = HTTPBearer(auto_error=False)
 _policy = RBACPolicy()
 
 
 # ─── Auth dependency ─────────────────────────────────────────────────────────
 
 async def get_current_user_context(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
+    ctx: UserContext = Depends(require_user_context),
 ) -> UserContext:
     """
-    Decode JWT and return UserContext.
-    Test tokens accepted in non-production.
+    Delegates to the central auth chokepoint (apps.api.dependencies), which
+    validates the httpOnly session cookie via AuthenticationMiddleware.
+    No token parsing, no test-token backdoor. ASTRA-01.
     """
-    if credentials is None or not credentials.credentials:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
-    token = credentials.credentials
-
-    # Lazy import to avoid module-level hvac chain during test collection
-    try:
-        from shared.config.config_service import config_service as _cs
-        _env = _cs.get("env") if _cs._ready else "production"
-    except Exception:
-        _env = "production"
-    if _env != "production" and token.startswith("test-token-"):
-        bank_id = token.removeprefix("test-token-")
-        return UserContext(
-            user_id="test-user-001",
-            role=Role.OPS_MANAGER,
-            bank_id=bank_id,
-            clearing_zone="DEFAULT",
-        )
-
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid or missing authentication token",
-    )
+    return ctx
 
 
 # ─── Request / Response models ────────────────────────────────────────────────
