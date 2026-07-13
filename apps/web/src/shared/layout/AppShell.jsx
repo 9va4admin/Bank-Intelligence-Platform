@@ -47,36 +47,42 @@ const SIDEBAR_MODULES = [
     sections: [
       {
         label: 'Dashboard',
+        directLink: true,
         items: [
           { to: '/cts/ops-dashboard', label: 'Ops Dashboard', end: true, perm: 'cts:view_queue' },
         ],
       },
       {
-        label: 'Presentation Process',
-        items: [
-          { to: '/cts/outward',           label: 'DBC Processing',   perm: 'cts:submit_decision' },
-          { to: '/cts/presentment-file',  label: 'Presentment File', perm: 'cts:view_queue'      },
-          { to: '/cts/rf-drawee',         label: 'RF — Drawee Bank', perm: 'cts:submit_decision' },
-        ],
-      },
-      {
-        label: 'Drawee Process',
-        items: [
-          { to: '/cts',                 label: 'Inward Queue',       end: true, perm: 'cts:view_queue'      },
-          { to: '/cts/drawee',          label: 'Drawee Position',              perm: 'cts:view_queue'      },
-          { to: '/cts/pipeline',        label: 'Inward Pipeline',              perm: 'cts:view_analytics'  },
-          { to: '/cts/inward-pipeline', label: 'Pipeline (Animated)',          perm: 'cts:view_analytics'  },
-          { to: '/cts/demo',            label: '⚡ Live Demo',                perm: 'cts:view_queue'      },
-          { to: '/cts/recall',          label: 'Recall',                       perm: 'cts:submit_decision' },
-          { to: '/cts/smb/dashboard',   label: 'SMB Dashboard',              smbOnly: true, perm: 'cts:view_queue' },
-          { to: '/cts/smb/review-queue', label: 'SMB Review Queue',           smbOnly: true, perm: 'cts:view_queue' },
-          { to: '/cts/smb/reports',     label: 'SMB Reports',                 smbOnly: true, perm: 'smb:view_ledger' },
-        ],
-      },
-      {
         label: 'Settlement',
+        directLink: true,
         items: [
           { to: '/cts/settlement', label: 'Settlement', perm: 'smb:view_ledger' },
+        ],
+      },
+      {
+        label: 'RPC — NGCH Gateway',
+        directLink: true,
+        items: [
+          { to: '/cts/rpc', label: 'RPC — NGCH Gateway', perm: 'cts:view_analytics', sbOnly: true },
+        ],
+      },
+      {
+        label: 'Outward Clearing',
+        items: [
+          { to: '/cts/outward',           label: 'Outward Monitor', end: true, perm: 'cts:view_queue' },
+          { to: '/cts/outward/queue',     label: 'Outward Q',       perm: 'cts:submit_decision' },
+          { to: '/cts/presentment-file',  label: 'outward File',    perm: 'cts:view_queue'      },
+        ],
+      },
+      {
+        label: 'Inward Clearing',
+        items: [
+          { to: '/cts/pipeline',        label: 'Inward Monitor',                perm: 'cts:view_analytics'  },
+          { to: '/cts',                 label: 'Inward Q',           end: true, perm: 'cts:view_queue'      },
+          { to: '/cts/recall',          label: 'Recall',                       perm: 'cts:submit_decision' },
+          // SMB Dashboard removed — "Dashboard" nav item shows it directly to SMB users now
+          { to: '/cts/smb/review-queue', label: 'SMB Review Queue',           smbOnly: true, perm: 'cts:view_queue' },
+          { to: '/cts/smb/reports',     label: 'SMB Reports',                 smbOnly: true, perm: 'smb:view_ledger' },
         ],
       },
       {
@@ -93,8 +99,8 @@ const SIDEBAR_MODULES = [
           { to: '/cts/exceptions',         label: 'Exceptions',       perm: 'cts:view_queue'                     },
           { to: '/cts/iqa',               label: 'Image Quality',    perm: 'cts:view_queue'                     },
           { to: '/cts/scanner',            label: 'Scanner SDK',      perm: 'cts:submit_decision'                },
-          { to: '/cts/rpc',               label: 'RPC Consolidation',perm: 'cts:view_analytics', sbOnly: true       },
           { to: '/cts/agency-cc',         label: 'Agency Cmd Center', perm: 'cts:view_analytics', sbOnly: true      },
+          { to: '/cts/rf-drawee',         label: 'Rejection File - By Drawee Bank', perm: 'cts:submit_decision' },
         ],
       },
       {
@@ -114,6 +120,13 @@ const SIDEBAR_MODULES = [
           { to: '/branch/scan',     label: 'Scanner Monitor',  perm: 'cts:submit_decision' },
           { to: '/branch/mismatch', label: 'Mismatch Queue',   perm: 'cts:submit_decision' },
           { to: '/branch/history',  label: 'Session History',  perm: 'cts:view_queue'      },
+        ],
+      },
+      {
+        label: 'Miscellaneous',
+        items: [
+          { to: '/cts/demo',            label: '⚡ Live Demo',        perm: 'cts:view_queue'     },
+          { to: '/cts/inward-pipeline', label: 'Pipeline (Animated)', perm: 'cts:view_analytics' },
         ],
       },
     ],
@@ -164,7 +177,7 @@ const ROUTE_LABELS = {
   '/cts/endorsement':   ['Processing', 'Endorsement'],
   '/cts/iqa':           ['Processing', 'Image Quality Assessment'],
   '/cts/scanner':       ['Processing', 'Scanner SDK'],
-  '/cts/rpc':           ['Processing', 'RPC Consolidation'],
+  '/cts/rpc':           ['RPC — NGCH Gateway', 'Zone Gateway Status'],
   '/cts/pipeline':          ['Drawee Process', 'Inward Pipeline — AI View'],
   '/cts/inward-pipeline':   ['Drawee Process', 'Inward Pipeline — Animated'],
   '/cts/demo':              ['Demo', 'End-to-End Live Demo — Presentment · NPCI · Drawee'],
@@ -186,9 +199,9 @@ const ROUTE_LABELS = {
   '/cts/smb/ledger':              ['Processing', 'SMB Clearing Ledger'],
   '/cts/smb/forwarding-log':      ['Processing', 'SMB Forwarding Log'],
   '/cts/agency-cc':               ['Processing', 'Agency Command Center'],
-  '/cts/smb/dashboard':           ['Drawee Process', 'SMB Dashboard'],
-  '/cts/smb/review-queue':        ['Drawee Process', 'SMB Human Review Queue'],
-  '/cts/smb/reports':             ['Drawee Process', 'SMB Reports'],
+  '/cts/smb/dashboard':           ['Inward Clearing', 'SMB Dashboard'],
+  '/cts/smb/review-queue':        ['Inward Clearing', 'SMB Human Review Queue'],
+  '/cts/smb/reports':             ['Inward Clearing', 'SMB Reports'],
   '/admin/security-violations':   ['Admin', 'Security Violation Log'],
   '/admin/smoke-test':            ['Admin', 'Pre-Live Smoke Test — Connection & Infrastructure Validation'],
   '/branch':                      ['Branch Portal', 'Dashboard'],
@@ -216,7 +229,7 @@ export default function AppShell({ children }) {
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
-  const { bankType, bankName, bankIfsc, isSB, isSMB, isDemoMode, toggleBankType, userRole, hasPermission } = useBankContext()
+  const { bankType, bankName, bankIfsc, isSB, isSMB, userRole, userName, hasPermission } = useBankContext()
 
   const [section, page] = useBreadcrumb(location.pathname)
   const currentModule = activeModuleId(location.pathname)
@@ -296,58 +309,56 @@ export default function AppShell({ children }) {
           ))}
         </nav>
 
-        {/* Bottom: bank identity + demo toggle + user */}
-        <div className={`shrink-0 border-t ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
+      </aside>
 
-          {/* Bank identity pill */}
-          {!collapsed && (
-            <div className={`mx-2 mt-2 px-2.5 py-2 rounded-lg ${isDark ? 'bg-white/4 border border-white/8' : 'bg-slate-50 border border-slate-200'}`}>
-              <div className="flex items-center gap-1.5">
-                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-mono
-                  ${bankType === 'SB'
-                    ? (isDark ? 'bg-amber-400/15 text-amber-400' : 'bg-amber-100 text-amber-700')
-                    : (isDark ? 'bg-violet-400/15 text-violet-400' : 'bg-violet-100 text-violet-700')
-                  }`}>{bankType}</span>
-                <span className={`text-[10px] font-medium truncate ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{bankName}</span>
-              </div>
-              <div className={`text-[9px] font-mono mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{bankIfsc}</div>
-              {/* Demo toggle — DEMO ONLY, never in production */}
-              {isDemoMode && (
-                <button
-                  onClick={toggleBankType}
-                  className={`mt-1.5 w-full text-[9px] font-semibold px-2 py-1 rounded border transition-all
-                    ${isDark ? 'border-white/10 text-slate-500 hover:text-slate-300 hover:border-white/20' : 'border-slate-200 text-slate-400 hover:text-slate-600'}`}
-                >
-                  ⇄ Switch to {bankType === 'SB' ? 'SMB' : 'SB'} view <span className="opacity-60">(demo)</span>
-                </button>
-              )}
-            </div>
-          )}
+      {/* ── Main area ─────────────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-          {/* User profile */}
-          <div className="px-2 py-2">
+        {/* Topbar */}
+        <header className={`relative z-40 shrink-0 border-b flex items-center px-5 gap-4 ${th.topbar}`} style={{ height: '52px' }}>
+
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <span className={`text-[11px] shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{section}</span>
+            <span className={`text-[11px] opacity-30 shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>›</span>
+            <span className={`text-[13px] font-semibold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{page}</span>
+          </div>
+
+          {/* Search bar */}
+          <ChequeSearchBar isDark={isDark} />
+
+          {/* Right: theme toggle + user menu */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={toggle}
+              title={isDark ? 'Switch to light' : 'Switch to dark'}
+              className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all shrink-0 ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-500'}`}
+            >
+              {isDark ? '☀' : '🌙'}
+            </button>
+
+            {/* User menu — identity + My Profile + Sign Out */}
             <div className="relative">
               <button
                 onClick={() => setProfileOpen((v) => !v)}
-                className={`w-full flex items-center gap-2 rounded-lg px-1.5 py-1.5 transition-all ${isDark ? 'hover:bg-white/8' : 'hover:bg-slate-100'}`}
+                className={`flex items-center gap-2 rounded-lg pl-1.5 pr-2 py-1 transition-all ${isDark ? 'hover:bg-white/8' : 'hover:bg-slate-100'}`}
               >
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${isDark ? 'bg-gold-400/20 text-gold-400' : 'bg-amber-100 text-amber-700'}`}>R</div>
-                {!collapsed && (
-                  <div className="text-left min-w-0 flex-1">
-                    <div className={`text-[11px] font-medium leading-tight truncate ${isDark ? 'text-white' : 'text-slate-700'}`}>Rahul S.</div>
-                    <div className={`text-[10px] leading-tight truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{userRole} · {bankType}</div>
-                  </div>
-                )}
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${isDark ? 'bg-gold-400/20 text-gold-400' : 'bg-amber-100 text-amber-700'}`}>
+                  {(userName || 'U').charAt(0).toUpperCase()}
+                </div>
+                <div className="text-left hidden md:block leading-tight">
+                  <div className={`text-[11px] font-medium truncate max-w-[130px] ${isDark ? 'text-white' : 'text-slate-700'}`}>{userName || 'User'}</div>
+                  <div className={`text-[10px] truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{userRole} · {bankType}</div>
+                </div>
+                <span className={`text-[9px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>▾</span>
               </button>
 
               {profileOpen && (
-                <div className={`absolute bottom-full mb-2 ${collapsed ? 'left-full ml-2' : 'left-0'} w-48 z-50 rounded-xl border py-2 shadow-2xl ${isDark ? 'bg-[#0e1654]/98 backdrop-blur-xl border-white/10 shadow-black/60' : 'bg-white border-slate-200 shadow-slate-400/30'}`}>
-                  {!collapsed && (
-                    <div className={`px-3 pb-2 mb-1 border-b ${isDark ? 'border-white/8' : 'border-slate-100'}`}>
-                      <div className={`text-[11px] font-semibold ${isDark ? 'text-white' : 'text-slate-700'}`}>{bankName}</div>
-                      <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{bankIfsc} · {bankType}</div>
-                    </div>
-                  )}
+                <div className={`absolute right-0 top-full mt-2 w-52 z-[100] rounded-xl border py-2 shadow-2xl ${isDark ? 'bg-[#0e1654] backdrop-blur-xl border-white/10 shadow-black/60' : 'bg-white border-slate-200 shadow-slate-400/30'}`}>
+                  <div className={`px-3 pb-2 mb-1 border-b ${isDark ? 'border-white/8' : 'border-slate-100'}`}>
+                    <div className={`text-[11px] font-semibold ${isDark ? 'text-white' : 'text-slate-700'}`}>{bankName}</div>
+                    <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{bankIfsc} · {bankType}</div>
+                  </div>
                   {PROFILE_MENU.map((item) => (
                     <Link
                       key={item.to} to={item.to}
@@ -361,39 +372,6 @@ export default function AppShell({ children }) {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* ── Main area ─────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-
-        {/* Topbar */}
-        <header className={`shrink-0 border-b flex items-center px-5 gap-4 ${th.topbar}`} style={{ height: '52px' }}>
-
-          {/* Breadcrumb */}
-          <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            <span className={`text-[11px] shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{section}</span>
-            <span className={`text-[11px] opacity-30 shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>›</span>
-            <span className={`text-[13px] font-semibold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{page}</span>
-          </div>
-
-          {/* Search bar */}
-          <ChequeSearchBar isDark={isDark} />
-
-          {/* Right: bank info + theme toggle */}
-          <div className="flex items-center gap-4 shrink-0">
-            <div className="text-right hidden lg:block">
-              <div className={`text-[11px] font-medium leading-tight ${isDark ? 'text-white' : 'text-slate-700'}`}>Saraswat Co-op Bank</div>
-              <div className={`text-[10px] leading-tight ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Zone: MUMBAI · Finacle</div>
-            </div>
-            <button
-              onClick={toggle}
-              title={isDark ? 'Switch to light' : 'Switch to dark'}
-              className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all shrink-0 ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-500'}`}
-            >
-              {isDark ? '☀' : '🌙'}
-            </button>
           </div>
         </header>
 
@@ -414,14 +392,12 @@ export default function AppShell({ children }) {
 function SidebarModule({ mod, collapsed, isDark, isActiveModule, location, isSB, isSMB, hasPermission }) {
   const [open, setOpen] = useState(isActiveModule)
   const [expandedSections, setExpandedSections] = useState(() => {
-    const set = new Set()
-    mod.sections.forEach((sec) => {
-      if (sec.items.some(({ to }) => location.pathname === to || location.pathname.startsWith(to + '/'))) {
-        set.add(sec.label)
-      }
-    })
-    if (set.size === 0 && mod.sections.length > 0) set.add(mod.sections[0].label)
-    return set
+    // Single-open accordion: start with just the active section (or the first).
+    const active = mod.sections.find((sec) =>
+      sec.items.some(({ to }) => location.pathname === to || location.pathname.startsWith(to + '/'))
+    )
+    const label = active?.label ?? mod.sections[0]?.label
+    return new Set(label ? [label] : [])
   })
 
   const hasActiveItem = mod.sections.some((sec) =>
@@ -429,12 +405,8 @@ function SidebarModule({ mod, collapsed, isDark, isActiveModule, location, isSB,
   )
 
   const toggleSection = (label) => {
-    setExpandedSections((prev) => {
-      const next = new Set(prev)
-      if (next.has(label)) next.delete(label)
-      else next.add(label)
-      return next
-    })
+    // Accordion: opening a group collapses the rest; clicking the open one closes it.
+    setExpandedSections((prev) => (prev.has(label) ? new Set() : new Set([label])))
   }
 
   if (collapsed) {
@@ -515,6 +487,28 @@ function SidebarSection({ section, isDark, location, showHeader, expanded, onTog
   )
 
   if (visibleItems.length === 0) return null
+
+  // A single-item section behaves as a direct link — no accordion, no nested
+  // sub-item. Clicking the section label navigates straight to that page.
+  if (showHeader && section.directLink && visibleItems.length >= 1) {
+    const only = visibleItems[0]
+    const active = only.end
+      ? location.pathname === only.to
+      : (location.pathname === only.to || location.pathname.startsWith(only.to + '/'))
+    return (
+      <NavLink
+        to={only.to} end={only.end}
+        className={`w-full flex items-center gap-1.5 px-3 py-1 text-[10px] font-medium uppercase tracking-wider transition-all ${
+          active
+            ? (isDark ? 'text-white' : 'text-slate-800')
+            : (isDark ? 'text-slate-600 hover:text-slate-400' : 'text-slate-400 hover:text-slate-600')
+        }`}
+      >
+        <span className={`w-1 h-1 rounded-full shrink-0 ${active ? (isDark ? 'bg-gold-400' : 'bg-amber-500') : 'bg-transparent'}`} />
+        {section.label}
+      </NavLink>
+    )
+  }
 
   return (
     <div>

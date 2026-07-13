@@ -174,48 +174,10 @@ const initStats = () => STAGES.map(s => ({
 }))
 
 // ─── Child panel ──────────────────────────────────────────────────────────────
-
-const PROCEED_REASONS = [
-  'Second Signature Verified',
-  'Exception Approved by Manager',
-  'Account Holder Confirmed',
-  'Minor OCR Variance — Accepted',
-  'Risk Accepted',
-  'OPA Override Authorized by Compliance',
-  'IET Constraint — Proceed Before Expiry',
-]
-
-const RETURN_REASON_GROUPS = {
-  'Instrument Defect': [
-    'Date Invalid / Stale',
-    'Amount Words/Figures Mismatch',
-    'Endorsement Irregular',
-    'CTS Compliance Failure',
-    'Alteration / Overwrite Detected',
-  ],
-  'Account / Payment': [
-    'Account Dormant / Inactive',
-    'Payment Stopped by Drawer',
-    'Positive Pay Mismatch',
-    'Signature Mismatch',
-    'Funds Insufficient',
-    'Account Frozen / NPA',
-    'Refer to Drawer',
-  ],
-}
+// View-only: decision reasons (Proceed / Return) live in Inward Q, not here.
 
 function ChildPanel({ item, onClose, isException }) {
-  const [panelTab,      setPanelTab]      = useState('pipeline')
-  const [selectedReason, setSelectedReason] = useState('')
-  const [reasonOpen,    setReasonOpen]    = useState(false)
-  const reasonRef                         = useRef(null)
-
-  useEffect(() => {
-    if (!reasonOpen) return
-    const fn = (e) => { if (reasonRef.current && !reasonRef.current.contains(e.target)) setReasonOpen(false) }
-    document.addEventListener('mousedown', fn)
-    return () => document.removeEventListener('mousedown', fn)
-  }, [reasonOpen])
+  const [panelTab, setPanelTab] = useState('pipeline')
 
   const stageCount = Object.keys(item.stageResults).length
   const allStages = STAGES.map((s, i) => {
@@ -252,9 +214,6 @@ function ChildPanel({ item, onClose, isException }) {
     micr:           item.ocr_fields?.micr,
     alterations:    item.ocr_fields?.alterations,
   }
-
-  // Reason dropdown label
-  const reasonLabel = selectedReason || 'Select Reason...'
 
   return (
     <div
@@ -417,58 +376,15 @@ function ChildPanel({ item, onClose, isException }) {
 
         </div>{/* end scrollable content */}
 
-        {/* Action bar */}
+        {/* View-only status banner — Inward Monitor takes no action. Decide in Inward Q. */}
         {heldStage && (
           <div className="px-6 py-4 border-t border-white/8 flex items-center gap-3 flex-wrap shrink-0">
-            <div className="flex-1 text-[11px] text-slate-500 min-w-0">
-              {isException ? 'Exception review' : 'Human review decision required'}&nbsp;
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+            <div className="flex-1 text-[11px] text-slate-400 min-w-0">
+              {isException ? 'Exception — ' : 'Held for human review — '}
               <span className="text-amber-400 font-mono">{item.id}</span>
+              &nbsp;is monitoring-only here. Decide in <span className="text-slate-300 font-medium">Inward Q</span>.
             </div>
-
-            {/* Custom reason dropdown */}
-            <div className="relative" ref={reasonRef}>
-              <button
-                onClick={() => setReasonOpen(o => !o)}
-                className="flex items-center gap-2 text-[11px] bg-white/5 border border-white/12 rounded-lg px-3 py-1.5 text-slate-200 hover:border-amber-400/40 focus:outline-none transition-colors min-w-[200px]"
-              >
-                <span className={`flex-1 text-left truncate ${selectedReason ? 'text-slate-100' : 'text-slate-500'}`}>{reasonLabel}</span>
-                <span className="text-slate-500 text-[10px]">▾</span>
-              </button>
-              {reasonOpen && (
-                <div
-                  className="absolute bottom-full mb-1 left-0 z-20 rounded-xl border border-white/12 shadow-2xl overflow-y-auto"
-                  style={{ background: '#111827', minWidth: 240, maxHeight: 320 }}
-                >
-                  {/* Proceed Reason group */}
-                  <div className="px-3 pt-2.5 pb-1 text-[9px] font-bold uppercase tracking-widest text-amber-400/70">Proceed Reason</div>
-                  {PROCEED_REASONS.map(r => (
-                    <button key={r} onClick={() => { setSelectedReason(r); setReasonOpen(false) }}
-                      className={`w-full text-left px-3 py-2 text-[11px] hover:bg-amber-400/10 hover:text-amber-300 transition-colors ${selectedReason === r ? 'text-amber-300 bg-amber-400/8' : 'text-slate-300'}`}
-                    >{r}</button>
-                  ))}
-                  {/* Return Reason groups */}
-                  {Object.entries(RETURN_REASON_GROUPS).map(([group, reasons]) => (
-                    <div key={group}>
-                      <div className="px-3 pt-3 pb-1 text-[9px] font-bold uppercase tracking-widest text-red-400/70">{group}</div>
-                      {reasons.map(r => (
-                        <button key={r} onClick={() => { setSelectedReason(r); setReasonOpen(false) }}
-                          className={`w-full text-left px-3 py-2 text-[11px] hover:bg-red-500/10 hover:text-red-300 transition-colors ${selectedReason === r ? 'text-red-300 bg-red-500/8' : 'text-slate-300'}`}
-                        >{r}</button>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={onClose}
-              className="px-4 py-1.5 text-[11px] font-semibold rounded-lg bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 transition-colors"
-            >✕ Return</button>
-            <button
-              onClick={onClose}
-              className="px-4 py-1.5 text-[11px] font-semibold rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
-            >✓ Confirm</button>
           </div>
         )}
       </div>
@@ -530,7 +446,7 @@ function PoolListModal({ type, items, baseCount, onSelect, onClose }) {
 
 // ─── IET Timer strip ──────────────────────────────────────────────────────────
 
-function IETTimerStrip({ confirmCount, returnCount, reviewCount, onOpenPool }) {
+function IETTimerStrip({ confirmCount, returnCount, reviewCount, manualConfirmCount = 0, manualRejectCount = 0, onOpenPool }) {
   const [elapsed, setElapsed] = useState(0)
   useEffect(() => {
     const t = setInterval(() => setElapsed(e => e + 1), 1000)
@@ -544,9 +460,11 @@ function IETTimerStrip({ confirmCount, returnCount, reviewCount, onOpenPool }) {
   const barColor = pct < 50 ? '#10b981' : pct < 80 ? '#f59e0b' : '#ef4444'
 
   const pools = [
-    { key: 'confirm', label: 'STP Confirmed', val: confirmCount + 847, color: 'text-emerald-400', hoverCls: 'hover:text-emerald-300 hover:bg-emerald-500/8' },
-    { key: 'return',  label: 'STP Returned',  val: returnCount  + 124, color: 'text-red-400',     hoverCls: 'hover:text-red-300 hover:bg-red-500/8'     },
-    { key: 'review',  label: 'Human Review',  val: reviewCount,         color: 'text-amber-400',   hoverCls: 'hover:text-amber-300 hover:bg-amber-500/8'  },
+    { key: 'confirm',        label: 'STP Confirmed',    val: confirmCount + 847,  color: 'text-emerald-400', hoverCls: 'hover:text-emerald-300 hover:bg-emerald-500/8' },
+    { key: 'return',         label: 'STP Returned',     val: returnCount  + 124,  color: 'text-red-400',     hoverCls: 'hover:text-red-300 hover:bg-red-500/8'     },
+    { key: 'review',         label: 'Human Review',     val: reviewCount,          color: 'text-amber-400',   hoverCls: 'hover:text-amber-300 hover:bg-amber-500/8'  },
+    { key: 'manualConfirm',  label: 'Manual Confirmed', val: manualConfirmCount,   color: 'text-emerald-300', hoverCls: 'hover:text-emerald-200 hover:bg-emerald-500/8', disabled: true },
+    { key: 'manualReject',   label: 'Manual Rejected',  val: manualRejectCount,    color: 'text-red-300',     hoverCls: 'hover:text-red-200 hover:bg-red-500/8',         disabled: true },
   ]
 
   return (
@@ -566,15 +484,16 @@ function IETTimerStrip({ confirmCount, returnCount, reviewCount, onOpenPool }) {
 
       <div className="w-px h-8 bg-white/8 shrink-0" />
 
-      {pools.map(({ key, label, val, color, hoverCls }) => (
+      {pools.map(({ key, label, val, color, hoverCls, disabled }) => (
         <button
           key={key}
-          onClick={() => onOpenPool(key)}
-          className={`flex flex-col items-center shrink-0 rounded-lg px-3 py-1 transition-colors cursor-pointer ${hoverCls}`}
-          title={`View all ${label}`}
+          onClick={disabled ? undefined : () => onOpenPool(key)}
+          disabled={disabled}
+          className={`flex flex-col items-center shrink-0 rounded-lg px-3 py-1 transition-colors ${disabled ? 'cursor-default' : `cursor-pointer ${hoverCls}`}`}
+          title={disabled ? label : `View all ${label}`}
         >
           <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5 whitespace-nowrap">{label}</div>
-          <div className={`font-mono text-xl font-bold underline-offset-2 hover:underline ${color}`}>{val}</div>
+          <div className={`font-mono text-xl font-bold ${disabled ? '' : 'underline-offset-2 hover:underline'} ${color}`}>{val}</div>
         </button>
       ))}
 
@@ -996,6 +915,8 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
             confirmCount={confirmPool.length}
             returnCount={returnPool.length}
             reviewCount={reviewDock.length}
+            manualConfirmCount={53}
+            manualRejectCount={11}
             onOpenPool={setPoolModal}
           />
 

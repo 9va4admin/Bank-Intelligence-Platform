@@ -60,7 +60,7 @@ export default function CTSRPCConsolidation() {
   const { isDark } = useTheme()
   const [selected, setSelected] = useState(null)
 
-  // RPC Consolidation is SB-only — SMBs have no RPCs of their own
+  // RPC — NGCH Gateway is SB-only — SMBs have no RPCs of their own
   if (isSMB) {
     return (
       <AppShell>
@@ -114,7 +114,7 @@ export default function CTSRPCConsolidation() {
   const avg_stp       = (RPCS.reduce((a, r) => a + r.stp_rate, 0) / RPCS.length).toFixed(1)
 
   usePageHeader({
-    subtitle: `Multi-centre clearing view · ${SESSION_DATE} · ${CLEARING_SESSION}`,
+    subtitle: `Live NGCH connectivity, per zone · ${SESSION_DATE} · ${CLEARING_SESSION}`,
     actions: (
       <div className={`text-xs px-3 py-1.5 rounded-lg border ${isDark ? 'border-emerald-700/40 bg-emerald-900/20 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
         <span className="w-1.5 h-1.5 inline-block rounded-full bg-emerald-400 mr-1.5 animate-pulse" />

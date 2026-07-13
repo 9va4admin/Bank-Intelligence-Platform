@@ -4,6 +4,9 @@ const mins = (m) => now + m * 60 * 1000
 export const MOCK_QUEUE = [
   {
     instrument_id: 'CHQ-2026-001847',
+    bank: 'Vasavi Co-operative Bank',
+    branch: 'Andheri (W)',
+    bank_slug: 'smb-mh-vasavi',
     account_display: '****7234',
     payee_display: 'S***',
     amount_range: '₹[10L-1Cr]',
@@ -43,6 +46,9 @@ export const MOCK_QUEUE = [
   },
   {
     instrument_id: 'CHQ-2026-001851',
+    bank: 'Saraswat Co-operative Bank',
+    branch: 'Fort',
+    bank_slug: 'saraswat-coop',
     account_display: '****1092',
     payee_display: 'R***',
     amount_range: '₹[1L-5L]',
@@ -79,6 +85,9 @@ export const MOCK_QUEUE = [
   },
   {
     instrument_id: 'CHQ-2026-001863',
+    bank: 'Saraswat Co-operative Bank',
+    branch: 'Dadar (E)',
+    bank_slug: 'saraswat-coop',
     account_display: '****5518',
     payee_display: 'M***',
     amount_range: '₹[<1L]',
@@ -115,6 +124,9 @@ export const MOCK_QUEUE = [
   },
   {
     instrument_id: 'CHQ-2026-001877',
+    bank: 'Andheri Urban Co-op Bank',
+    branch: 'Andheri (E)',
+    bank_slug: 'smb-mh-andheri',
     account_display: '****3341',
     payee_display: 'P***',
     amount_range: '₹[1L-5L]',
@@ -154,6 +166,9 @@ export const MOCK_QUEUE = [
   },
   {
     instrument_id: 'CHQ-2026-001882',
+    bank: 'Saraswat Co-operative Bank',
+    branch: 'Vashi',
+    bank_slug: 'saraswat-coop',
     account_display: '****9901',
     payee_display: 'G***',
     amount_range: '₹[>1Cr]',
@@ -191,6 +206,9 @@ export const MOCK_QUEUE = [
   },
   {
     instrument_id: 'CHQ-2026-001895',
+    bank: 'Saraswat Co-operative Bank',
+    branch: 'Thane (W)',
+    bank_slug: 'saraswat-coop',
     account_display: '****4471',
     payee_display: 'N***',
     amount_range: '₹[5L-10L]',
