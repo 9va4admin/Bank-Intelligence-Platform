@@ -9,6 +9,7 @@ import CTSAnalytics from './modules/cts/pages/CTSAnalytics'
 import CTSConfig from './modules/cts/pages/CTSConfig'
 import CTSMCPConfig from './modules/cts/pages/CTSMCPConfig'
 import CTSPresentment from './modules/cts/pages/CTSPresentment'
+import CTSOutwardQueue from './modules/cts/pages/CTSOutwardQueue'
 import CTSExceptions from './modules/cts/pages/CTSExceptions'
 import CTSReconciliation from './modules/cts/pages/CTSReconciliation'
 import CTSCompliance from './modules/cts/pages/CTSCompliance'
@@ -52,6 +53,8 @@ import UserManagement from './modules/admin/pages/UserManagement'
 import LoginLog from './modules/admin/pages/LoginLog'
 import SecurityViolations from './modules/admin/pages/SecurityViolations'
 import LoginPage from './modules/auth/pages/LoginPage'
+import Logout from './modules/auth/pages/Logout'
+import Profile from './modules/auth/pages/Profile'
 import { AuthProvider } from './shared/context/AuthContext'
 import RequireAuth from './shared/auth/RequireAuth'
 import { EJDashboard } from './modules/ej'
@@ -70,12 +73,15 @@ export default function App() {
       <BankProvider>
       <PageHeaderProvider>
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route element={<RequireAuth />}>
+        {/* Public: landing + login. Everything else requires a session. */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/logout" element={<Logout />} />
+        <Route element={<RequireAuth />}>
         {/* CTS module */}
         <Route path="/cts" element={<CTSWorkstation />} />
         <Route path="/cts/outward" element={<CTSPresentment />} />
+        <Route path="/cts/outward/queue" element={<CTSOutwardQueue />} />
         <Route path="/cts/vault" element={<CTSVaultStatus />} />
         <Route path="/cts/decisions" element={<CTSDecisionsLog />} />
         <Route path="/cts/exceptions" element={<CTSExceptions />} />
@@ -120,6 +126,7 @@ export default function App() {
         <Route path="/branch/mismatch" element={<BranchMismatchQueue />} />
         <Route path="/branch/history" element={<BranchSessionHistory />} />
         {/* Admin */}
+        <Route path="/profile" element={<Profile />} />
         <Route path="/admin/users" element={<UserManagement />} />
         <Route path="/admin/security-violations" element={<SecurityViolations />} />
         <Route path="/admin/login-log" element={<LoginLog />} />
@@ -137,8 +144,8 @@ export default function App() {
         <Route path="/fleet" element={<EJDashboard defaultTab="fleet" />} />
         <Route path="/disputes" element={<EJDashboard defaultTab="disputes" />} />
         <Route path="/audit" element={<ManagerPortal />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </PageHeaderProvider>
       </BankProvider>

@@ -129,7 +129,8 @@ def _set_session_cookie(response: Response, issued: IssuedSession) -> None:
 
 
 def _clear_session_cookie(response: Response) -> None:
-    response.delete_cookie(key=_COOKIE, path="/")
+    # Match the attributes the cookie was set with so every browser clears it.
+    response.delete_cookie(key=_COOKIE, path="/", secure=True, httponly=True, samesite="strict")
 
 
 def _claims_from_cookie(

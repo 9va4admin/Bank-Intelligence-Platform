@@ -1,19 +1,21 @@
 """ASTRA DEV-ONLY auth server — run local login + TOTP MFA with no Vault/DB/Redis.
 
-Generates an ephemeral RS256 keypair in-process and seeds ONE admin account
-(real argon2 hash). Serves the real /v1/auth/* router so the frontend login flow
-works end-to-end on a laptop. The frontend reaches it via the Vite proxy
-(/v1 -> http://localhost:8000).
+Generates an ephemeral RS256 keypair in-process and seeds THREE accounts (real
+argon2 hashes). Serves the real /v1/auth/* router; the frontend reaches it via the
+Vite proxy (/v1 -> http://localhost:8000).
+
+Real MFA flow — no shortcuts: the FIRST sign-in for each user triggers enrolment
+(scan the QR into an authenticator app), and every sign-in after that requires the
+current 6-digit TOTP code from that app.
 
     uvicorn apps.api.dev_auth_server:app --port 8000
 
-NEVER use in production: keys are ephemeral (sessions die on restart) and there is
-a dev-only endpoint that reveals the current TOTP code so you can sign in without a
-phone. Production wires SessionTokenService keys from Vault and the real connectors.
+NEVER use in production: keys are ephemeral (restart = sessions dropped + re-enrol)
+and accounts are seeded. Production wires SessionTokenService keys from Vault and
+the real connectors + account store.
 """
 from __future__ import annotations
 
-import pyotp
 import structlog
 from argon2 import PasswordHasher
 from cryptography.hazmat.primitives import serialization
@@ -31,9 +33,35 @@ from shared.auth.session_token import SessionTokenService
 
 log = structlog.get_logger()
 
-SEED_USERNAME = "admin"
-SEED_PASSWORD = "astra-dev-admin"   # dev only — printed at startup
-SEED_USER_ID = "usr-admin"
+# username -> account. Users enrol TOTP on first sign-in (scan QR), then supply a
+# code every time. Enrolment lives in memory, so a backend restart means re-enrol.
+SEED_ACCOUNTS: dict[str, dict] = {
+    "admin": {
+        "user_id": "usr-admin", "password": "astra-dev-admin",
+        "display_name": "Anita Rao", "role": "bank_it_admin",
+        "bank_type": "SB", "permission_level": "ADMIN",
+        "entity_type": "sb", "entity_id": "saraswat-coop", "bank_id": "saraswat-coop",
+        "clearing_zones": ["ALL"],
+    },
+    "ops": {
+        "user_id": "usr-ops", "password": "astra-dev-ops",
+        "display_name": "Sunil Mehta", "role": "ops_manager",
+        "bank_type": "SB", "permission_level": "EDIT",
+        "entity_type": "sb", "entity_id": "saraswat-coop", "bank_id": "saraswat-coop",
+        "clearing_zones": ["ALL"],
+    },
+    "smb": {
+        "user_id": "usr-smb", "password": "astra-dev-smb",
+        "display_name": "Vasavi Admin", "role": "smb_admin",
+        "bank_type": "SMB", "permission_level": "ADMIN",
+        "entity_type": "smb", "entity_id": "smb-mh-vasavi", "bank_id": "smb-mh-vasavi",
+        "clearing_zones": ["MUMBAI"],
+    },
+}
+
+_PH = PasswordHasher()
+for _acct in SEED_ACCOUNTS.values():
+    _acct["password_hash"] = _PH.hash(_acct["password"])
 
 
 def _gen_keys() -> tuple[str, str]:
@@ -76,35 +104,26 @@ class _MemAccounts:
 
 
 class _DevConnector:
-    """Verifies the single seeded admin against a real argon2 hash."""
-
-    def __init__(self) -> None:
-        self._ph = PasswordHasher()
-        self._hash = self._ph.hash(SEED_PASSWORD)
+    """Verifies any of the seeded accounts against its real argon2 hash."""
 
     @property
     def connector_type(self) -> str:
         return "local"
 
     async def authenticate(self, credentials: LocalCredentials) -> ASTRAIdentity:
-        if credentials.username != SEED_USERNAME:
+        acct = SEED_ACCOUNTS.get(credentials.username)
+        if acct is None:
             raise AuthenticationError("invalid credentials")
         try:
-            self._ph.verify(self._hash, credentials.password)
+            _PH.verify(acct["password_hash"], credentials.password)
         except Exception:
             raise AuthenticationError("invalid credentials")
         return ASTRAIdentity(
-            user_id=SEED_USER_ID,
-            username=SEED_USERNAME,
-            display_name="Dev Admin",
-            entity_type="sb",
-            entity_id="saraswat-coop",
-            bank_id="saraswat-coop",
-            role="bank_it_admin",
-            clearing_zones=["ALL"],
-            connector_used="local",
-            bank_type="SB",
-            permission_level="ADMIN",
+            user_id=acct["user_id"], username=credentials.username,
+            display_name=acct["display_name"], entity_type=acct["entity_type"],
+            entity_id=acct["entity_id"], bank_id=acct["bank_id"], role=acct["role"],
+            clearing_zones=acct["clearing_zones"], connector_used="local",
+            bank_type=acct["bank_type"], permission_level=acct["permission_level"],
         )
 
     async def health_check(self) -> bool:
@@ -114,23 +133,18 @@ class _DevConnector:
 def build_app() -> FastAPI:
     priv, pub = _gen_keys()
     session_service = SessionTokenService(priv, pub, issuer="astra-auth", ttl_seconds=900)
-    mfa_store = _MemMfaStore()
-    mfa = TOTPMFAService(mfa_store, issuer="ASTRA")
+    mfa = TOTPMFAService(_MemMfaStore(), issuer="ASTRA")
     accounts = _MemAccounts()
     svc = AuthService(
-        connector=_DevConnector(),
-        mfa=mfa,
-        session_service=session_service,
-        account_store=accounts,
+        connector=_DevConnector(), mfa=mfa,
+        session_service=session_service, account_store=accounts,
     )
 
     app = FastAPI(title="ASTRA Dev Auth (local only)")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:4000", "http://localhost:5173"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
     )
     app.state.session_service = session_service
     app.state.auth_service = svc
@@ -140,32 +154,24 @@ def build_app() -> FastAPI:
     async def live():
         return {"status": "ok"}
 
-    @app.get("/v1/auth/dev/otp", include_in_schema=False)
-    async def dev_otp():
-        """DEV ONLY: current TOTP code for the seeded admin, so you can sign in
-        without an authenticator app. The secret exists after the enrol QR shows."""
-        secret = await mfa_store.get(SEED_USER_ID)
-        if not secret:
-            return {"detail": "No TOTP secret yet — start login, reach the setup screen, then refresh."}
-        return {"code": pyotp.TOTP(secret).now(), "secret": secret}
-
     _banner()
     return app
 
 
 def _banner() -> None:
-    line = "=" * 66
+    line = "=" * 68
+    rows = "\n".join(
+        f"    {u:<7} / {a['password']:<16}  ->  {a['role']} ({a['bank_type']})"
+        for u, a in SEED_ACCOUNTS.items()
+    )
     print(
         f"\n{line}\n"
         f"  ASTRA DEV AUTH  |  http://localhost:8000  |  NEVER use in production\n"
         f"{line}\n"
-        f"  Username : {SEED_USERNAME}\n"
-        f"  Password : {SEED_PASSWORD}\n"
-        f"\n"
-        f"  First sign-in triggers MFA enrolment. To get the 6-digit code without\n"
-        f"  a phone, open (after the setup-key screen appears):\n"
-        f"     http://localhost:4000/v1/auth/dev/otp\n"
-        f"  or scan/enter the shown key into any authenticator app.\n"
+        f"  username / password:\n{rows}\n\n"
+        f"  First sign-in = scan the QR with an authenticator app (Google\n"
+        f"  Authenticator / Authy), then enter the 6-digit code. Every sign-in\n"
+        f"  after that asks for the current code from your app.\n"
         f"{line}\n"
     )
 

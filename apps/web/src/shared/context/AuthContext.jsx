@@ -60,3 +60,9 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>')
   return ctx
 }
+
+// Non-throwing variant for providers that may render outside AuthProvider
+// (e.g. BankContext in standalone tests). Returns null when unavailable.
+export function useAuthOptional() {
+  return useContext(AuthContext)
+}
