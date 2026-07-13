@@ -99,7 +99,9 @@ def main() -> int:
     registry.build(output_dir=output_dir, redis_client=redis_client)
 
     redis_status = "pushed to Redis + " if redis_client else ""
-    print(f"Built {key_count} messages × {locale_count} locales → {redis_status}{output_dir}")
+    # ASCII-only: Windows consoles default to cp1252, which cannot encode
+    # U+00D7/U+2192 and crashes print() before the HTML doc regen below runs.
+    print(f"Built {key_count} messages x {locale_count} locales -> {redis_status}{output_dir}")
 
     # Regenerate the taxonomy HTML doc every time the build runs
     from shared.messages.build_docs import build_html

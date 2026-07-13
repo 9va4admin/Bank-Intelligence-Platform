@@ -459,6 +459,18 @@
       "policy_name"
     ]
   },
+  "CTS_WF_HUMAN_REVIEW_QUEUED": {
+    "text": "Cheque {instrument_id} routed to human review — {rationale}. Awaiting reviewer assignment.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "rationale"
+    ]
+  },
   "CTS_WF_HUMAN_REVIEW_ASSIGNED": {
     "text": "Cheque {instrument_id} assigned to {reviewer} — IET deadline {iet_deadline}.",
     "severity": "INFO",

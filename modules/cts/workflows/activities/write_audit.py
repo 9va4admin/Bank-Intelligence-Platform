@@ -16,11 +16,15 @@ from temporalio import activity
 log = structlog.get_logger()
 
 _VALID_EVENT_TYPES = {
-    "CTS_STP_CONFIRM",
-    "CTS_STP_RETURN",
-    "CTS_HUMAN_REVIEW_QUEUED",
-    "CTS_HUMAN_REVIEW_DECIDED",
-    "CTS_IET_EMERGENCY_FILED",
+    # Aligned with shared/messages/locales/messages.yaml — the single source
+    # of truth for severity/surface/notification routing (messages.md).
+    "CTS_NGCH_FILED_CONFIRM",
+    "CTS_NGCH_FILED_RETURN",
+    "CTS_WF_HUMAN_REVIEW_QUEUED",
+    "CTS_WF_HUMAN_CONFIRMED",
+    "CTS_WF_HUMAN_RETURNED",
+    "CTS_WF_REVIEW_TIMEOUT",
+    "CTS_WF_IET_WATCHDOG_FIRED",
     "CTS_NGCH_FILED",
     "CTS_VAULT_SYNC_COMPLETE",
     "CTS_VAULT_SYNC_FAILED",

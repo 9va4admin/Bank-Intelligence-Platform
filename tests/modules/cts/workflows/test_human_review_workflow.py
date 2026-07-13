@@ -275,7 +275,7 @@ class TestAuditWrite:
         )
         audit.write.assert_called_once()
         kwargs = audit.write.call_args.kwargs
-        assert kwargs["event_type"] == "CTS_HUMAN_REVIEW_DECIDED"
+        assert kwargs["event_type"] == "CTS_WF_HUMAN_CONFIRMED"
 
     @pytest.mark.asyncio
     async def test_audit_written_on_timeout(self):
@@ -459,7 +459,7 @@ class TestHumanReviewRealWorkflowRun:
         assert len(_ngch_calls) == 1
         assert _ngch_calls[0]["decision"] == "RETURN"
         assert len(_audit_calls) == 1
-        assert _audit_calls[0]["event_type"] == "CTS_HUMAN_REVIEW_DECIDED"
+        assert _audit_calls[0]["event_type"] == "CTS_WF_HUMAN_RETURNED"
 
     @pytest.mark.asyncio
     async def test_real_run_timeout_auto_returns(self, temporal_env):
@@ -574,4 +574,4 @@ class TestHumanReviewRealWorkflowRun:
 
         assert result.outcome == "REVIEWER_RETURNED"   # workflow completes, doesn't crash
         assert len(_audit_calls) == 1                   # real decision still recorded
-        assert _audit_calls[0]["event_type"] == "CTS_HUMAN_REVIEW_DECIDED"
+        assert _audit_calls[0]["event_type"] == "CTS_WF_HUMAN_RETURNED"

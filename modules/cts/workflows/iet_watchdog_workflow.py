@@ -135,7 +135,7 @@ class IETWatchdogWorkflow:
             await workflow.execute_activity(
                 write_audit,
                 WriteAuditInput(
-                    event_type="CTS_IET_EMERGENCY_FILED",
+                    event_type="CTS_WF_IET_WATCHDOG_FIRED",
                     bank_id=inp.bank_id,
                     instrument_id=inp.instrument_id,
                     payload={
@@ -175,7 +175,7 @@ class IETWatchdogWorkflow:
             await workflow.execute_activity(
                 write_audit,
                 WriteAuditInput(
-                    event_type="CTS_IET_EMERGENCY_FILED",
+                    event_type="CTS_WF_IET_WATCHDOG_FIRED",
                     bank_id=inp.bank_id,
                     instrument_id=inp.instrument_id,
                     payload={
@@ -208,7 +208,7 @@ class IETWatchdogWorkflow:
             HumanReviewWorkflow) reached before filing completed — mirrors the
             decision_ready() signal. Only falls back to CONFIRM when None, i.e.
             no decision was ever reached before the emergency window closed.
-        audit_writer: if set, CTS_IET_EMERGENCY_FILED is written on emergency filing —
+        audit_writer: if set, CTS_WF_IET_WATCHDOG_FIRED is written on emergency filing —
             mirrors the write_audit activity call in the real run().
         """
         now = current_time or time.time()
@@ -236,7 +236,7 @@ class IETWatchdogWorkflow:
             )
             if audit_writer is not None:
                 await audit_writer.write(
-                    event_type="CTS_IET_EMERGENCY_FILED",
+                    event_type="CTS_WF_IET_WATCHDOG_FIRED",
                     bank_id=inp.bank_id,
                     payload={
                         "instrument_id": inp.instrument_id,

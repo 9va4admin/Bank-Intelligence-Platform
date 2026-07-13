@@ -274,6 +274,13 @@ CTS_WF_STP_BLOCKED_OPA:
   en: "STP blocked for {instrument_id} by policy {policy_name} — routed to human review."
   hi: ""
 
+CTS_WF_HUMAN_REVIEW_QUEUED:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [instrument_id, rationale]
+  en: "Cheque {instrument_id} routed to human review — {rationale}. Awaiting reviewer assignment."
+  hi: ""
+
 CTS_WF_HUMAN_REVIEW_ASSIGNED:
   severity: INFO
   surface: [UI, AUDIT, NOTIFICATION]

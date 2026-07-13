@@ -459,6 +459,18 @@
       "policy_name"
     ]
   },
+  "CTS_WF_HUMAN_REVIEW_QUEUED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "rationale"
+    ]
+  },
   "CTS_WF_HUMAN_REVIEW_ASSIGNED": {
     "text": "",
     "severity": "INFO",

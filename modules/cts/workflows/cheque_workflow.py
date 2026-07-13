@@ -263,7 +263,7 @@ class ChequeProcessingWorkflow:
                         instrument_id=inp.instrument_id, error=str(exc),
                     )
 
-                event_type = "CTS_STP_CONFIRM" if decision == "STP_CONFIRM" else "CTS_STP_RETURN"
+                event_type = "CTS_NGCH_FILED_CONFIRM" if decision == "STP_CONFIRM" else "CTS_NGCH_FILED_RETURN"
                 await workflow.execute_activity(
                     write_audit,
                     WriteAuditInput(
@@ -287,7 +287,7 @@ class ChequeProcessingWorkflow:
                 await workflow.execute_activity(
                     write_audit,
                     WriteAuditInput(
-                        event_type="CTS_HUMAN_REVIEW_QUEUED", bank_id=inp.bank_id,
+                        event_type="CTS_WF_HUMAN_REVIEW_QUEUED", bank_id=inp.bank_id,
                         instrument_id=inp.instrument_id,
                         payload={"rationale": rationale, **(context_extra or {})},
                     ),
