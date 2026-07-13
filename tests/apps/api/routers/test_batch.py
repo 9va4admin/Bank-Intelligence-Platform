@@ -3,13 +3,24 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from apps.api.routers.batch import router_v1
+from apps.api.routers.batch import get_current_bank_id, get_current_role, router_v1
 
 _AUTH = {"Authorization": "Bearer test-token-hdfc-bank"}
 
 
 @pytest.fixture()
 def client():
+    """Authenticated client — auth deps overridden with a valid ops_manager session."""
+    app = FastAPI()
+    app.include_router(router_v1)
+    app.dependency_overrides[get_current_bank_id] = lambda: "hdfc-bank"
+    app.dependency_overrides[get_current_role] = lambda: "ops_manager"
+    return TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture()
+def unauthed_client():
+    """No override — exercises the real (middleware-backed) auth path."""
     app = FastAPI()
     app.include_router(router_v1)
     return TestClient(app, raise_server_exceptions=False)
@@ -20,8 +31,8 @@ class TestSessionList:
         resp = client.get("/v1/cts/sessions", headers=_AUTH)
         assert resp.status_code == 200
 
-    def test_requires_auth(self, client):
-        resp = client.get("/v1/cts/sessions")
+    def test_requires_auth(self, unauthed_client):
+        resp = unauthed_client.get("/v1/cts/sessions")
         assert resp.status_code == 401
 
     def test_returns_sessions_list(self, client):
@@ -138,9 +149,9 @@ class TestFileDownloads:
         assert resp.status_code == 200
         assert "text/csv" in resp.headers["content-type"]
 
-    def test_downloads_require_auth(self, client):
+    def test_downloads_require_auth(self, unauthed_client):
         for path in ["npci", "mis", "settlement"]:
-            resp = client.get(f"/v1/cts/sessions/X/download/{path}")
+            resp = unauthed_client.get(f"/v1/cts/sessions/X/download/{path}")
             assert resp.status_code == 401
 
 
@@ -154,3 +165,16 @@ class TestOpsDashboard:
     def test_trend_length_respects_days_param(self, client):
         data = client.get("/v1/cts/dashboard/ops?days=3", headers=_AUTH).json()
         assert len(data["trend"]) <= 3
+
+
+class TestBatchAuthEdgeCases:
+    """get_current_bank_id / get_current_role delegate to the shared,
+    middleware-backed require_user_context — no per-router token parsing,
+    no test-token backdoor."""
+
+    def test_test_token_bearer_header_no_longer_grants_access(self, unauthed_client):
+        """Regression guard for ASTRA-01: batch.py minted bank_id='hdfc-bank'
+        and role='ops_manager' (full val/vol dashboard + file downloads) from
+        a bare test-token-* Bearer header. That must never work again."""
+        resp = unauthed_client.get("/v1/cts/sessions", headers=_AUTH)
+        assert resp.status_code == 401

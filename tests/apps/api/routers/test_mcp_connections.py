@@ -107,6 +107,17 @@ class TestAuthentication:
         client = TestClient(_unauthed_app(), raise_server_exceptions=False)
         assert client.get("/v1/admin/mcp-connections/preflight").status_code == 401
 
+    def test_test_token_bearer_header_no_longer_grants_access(self):
+        """Regression guard for ASTRA-01: mcp_connections.py minted bank_it_admin
+        (full CBS/vault connection config — including secret_ref values) from a
+        bare test-token-* Bearer header. That must never work again."""
+        client = TestClient(_unauthed_app(), raise_server_exceptions=False)
+        response = client.get(
+            "/v1/admin/mcp-connections/",
+            headers={"Authorization": "Bearer test-token-saraswat-coop"},
+        )
+        assert response.status_code == 401
+
 
 # ── 2. Role-based access ─────────────────────────────────────────────────────
 

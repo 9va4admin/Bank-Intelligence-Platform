@@ -306,7 +306,9 @@ class TestDisputeIngestRoute:
 
 
 class TestDisputesAuthEdgeCases:
-    """Cover lines 39-43: real auth paths in get_current_user."""
+    """get_current_user delegates to the shared, middleware-backed
+    require_user_context — no per-router token parsing, no test-token backdoor."""
+
     def test_invalid_token_returns_401(self):
         from apps.api.routers.disputes import router_v1
         from fastapi import FastAPI
@@ -320,7 +322,9 @@ class TestDisputesAuthEdgeCases:
         )
         assert response.status_code == 401
 
-    def test_valid_test_token_returns_200(self):
+    def test_test_token_bearer_header_no_longer_grants_access(self):
+        """Regression guard for ASTRA-01: disputes.py minted ops_manager from
+        a bare test-token-* Bearer header. That must never work again."""
         from apps.api.routers.disputes import router_v1
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
@@ -329,6 +333,6 @@ class TestDisputesAuthEdgeCases:
         client = TestClient(app, raise_server_exceptions=False)
         response = client.get(
             "/v1/disputes/",
-            headers={"Authorization": "Bearer test-token-test-bank"},
+            headers={"Authorization": "Bearer test-token-any-bank-i-want"},
         )
-        assert response.status_code == 200
+        assert response.status_code == 401

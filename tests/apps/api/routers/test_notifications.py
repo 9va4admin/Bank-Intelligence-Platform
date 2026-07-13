@@ -288,7 +288,10 @@ class TestNotificationsAuthEdgeCases:
         )
         assert response.status_code == 401
 
-    def test_valid_test_token_returns_200(self):
+    def test_test_token_bearer_header_no_longer_grants_access(self):
+        """Regression guard for ASTRA-01: notifications.py minted ops_manager
+        (send/list/retry notifications) from a bare test-token-* Bearer
+        header. That must never work again."""
         from apps.api.routers.notifications import router_v1
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
@@ -299,4 +302,4 @@ class TestNotificationsAuthEdgeCases:
             "/v1/notifications/",
             headers={"Authorization": "Bearer test-token-test-bank"},
         )
-        assert response.status_code == 200
+        assert response.status_code == 401

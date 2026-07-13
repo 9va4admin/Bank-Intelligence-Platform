@@ -276,7 +276,9 @@ class TestHealthRoute:
 
 
 class TestAdminAuthEdgeCases:
-    """Cover lines 45-49: invalid token → 401 in get_current_user."""
+    """get_current_user delegates to the shared, middleware-backed
+    require_user_context — no per-router token parsing, no test-token backdoor."""
+
     def test_invalid_token_returns_401(self):
         from apps.api.routers.admin import router_v1
         from fastapi import FastAPI
@@ -290,7 +292,10 @@ class TestAdminAuthEdgeCases:
         )
         assert response.status_code == 401
 
-    def test_valid_test_token_returns_200(self):
+    def test_test_token_bearer_header_no_longer_grants_access(self):
+        """Regression guard for ASTRA-01: admin.py minted bank_it_admin — the
+        most privileged role — from a bare test-token-* Bearer header. That
+        must never work again; only a validated session cookie can."""
         from apps.api.routers.admin import router_v1
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
@@ -299,6 +304,6 @@ class TestAdminAuthEdgeCases:
         client = TestClient(app, raise_server_exceptions=False)
         response = client.get(
             "/v1/admin/users",
-            headers={"Authorization": "Bearer test-token-test-bank"},
+            headers={"Authorization": "Bearer test-token-any-bank-i-want"},
         )
-        assert response.status_code == 200
+        assert response.status_code == 401

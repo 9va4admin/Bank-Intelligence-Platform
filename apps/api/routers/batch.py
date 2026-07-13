@@ -26,14 +26,14 @@ from typing import Literal, Optional
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict
+
+from apps.api.dependencies import require_user_context
+from shared.auth.rbac import UserContext
 
 log = structlog.get_logger()
 
 router_v1 = APIRouter(prefix="/v1/cts", tags=["CTS Batch Ops v1"])
-
-_bearer = HTTPBearer(auto_error=False)
 
 _ALLOWED_ROLES = {
     "ops_reviewer", "ops_manager", "bank_it_admin",
@@ -46,25 +46,25 @@ _ALLOWED_ROLES = {
 # ---------------------------------------------------------------------------
 
 async def get_current_bank_id(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
+    ctx: UserContext = Depends(require_user_context),
 ) -> str:
-    if credentials is None or not credentials.credentials:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
-    token = credentials.credentials
-    if token.startswith("test-token-"):
-        return token.removeprefix("test-token-")
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    """
+    Delegates to the central auth chokepoint (apps.api.dependencies), which
+    validates the httpOnly session cookie via AuthenticationMiddleware.
+    No token parsing, no test-token backdoor. ASTRA-01.
+    """
+    return ctx.bank_id
 
 
 async def get_current_role(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
+    ctx: UserContext = Depends(require_user_context),
 ) -> str:
-    if credentials is None or not credentials.credentials:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
-    token = credentials.credentials
-    if token.startswith("test-token-"):
-        return "ops_manager"
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    """
+    Delegates to the central auth chokepoint (apps.api.dependencies), which
+    validates the httpOnly session cookie via AuthenticationMiddleware.
+    No token parsing, no test-token backdoor. ASTRA-01.
+    """
+    return ctx.role.value
 
 
 def require_ops_role(role: str = Depends(get_current_role)) -> str:

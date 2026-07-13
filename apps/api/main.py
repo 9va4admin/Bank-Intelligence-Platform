@@ -21,6 +21,7 @@ import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from apps.api.middleware.authentication import AuthenticationMiddleware
 from apps.api.middleware.rate_limit import RateLimitMiddleware
 from apps.api.middleware.security_violations import SecurityViolationMiddleware
 from apps.api.routers import cts, ej, disputes, audit, admin, notifications
@@ -28,6 +29,7 @@ from apps.api.routers import batch, users, mcp_connections, demo, cts_outward_qu
 from shared.config.config_service import config_service
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
 from shared.observability.otel_setup import configure_otel
+from shared.auth.session_token import SessionTokenService
 
 log = structlog.get_logger()
 
@@ -51,6 +53,24 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         log.error("api_gateway.config_service_init_failed", error=str(exc))
         raise
+
+    # --- Session service (RS256 keys from Vault) ---
+    # Backs AuthenticationMiddleware: validates the httpOnly session cookie on every
+    # request. Degrades gracefully (never crashes startup) — on Vault/key failure,
+    # session_service stays None and AuthenticationMiddleware resolves every request
+    # as unauthenticated (fail-closed: routes 401 rather than granting access).
+    try:
+        session_private_key = await config_service.get_secret("auth.session.private_key")
+        session_public_key = await config_service.get_secret("auth.session.public_key")
+        app.state.session_service = SessionTokenService(
+            private_key_pem=session_private_key,
+            public_key_pem=session_public_key,
+            issuer="astra-auth",
+        )
+        log.info("api_gateway.session_service_ready")
+    except Exception as exc:
+        log.error("api_gateway.session_service_failed", error=str(exc))
+        app.state.session_service = None
 
     # --- Redis CTS cluster ---
     # Hosts signature vault, PPS vault, session cache, rate limiting, distributed locks,
@@ -219,6 +239,14 @@ app.add_middleware(SecurityViolationMiddleware)
 # Rate limiting — Redis sliding window, per-bank per-endpoint
 app.add_middleware(RateLimitMiddleware)
 
+# Authentication — validates the httpOnly session cookie, sets request.state.user
+# (SessionClaims | None) and request.state.bank_id, enforces CSRF on unsafe methods.
+# Added last so it is outermost of the four and runs before RateLimitMiddleware —
+# rate limiting keys per-bank off request.state.bank_id (see rate_limit.py comment).
+# ASTRA-01: this replaces the forgeable per-router test-token backdoor; routers read
+# identity only via apps.api.dependencies.require_user_context, never by parsing tokens.
+app.add_middleware(AuthenticationMiddleware)
+
 # --- Routers ---
 app.include_router(cts.router_v1)
 app.include_router(ej.router_v1)
@@ -250,6 +278,7 @@ async def readiness():
         "temporal": app.state.temporal_client is not None,
         "kafka_cts": app.state.kafka_producer_cts is not None,
         "kafka_ej": app.state.kafka_producer_ej is not None,
+        "session_service": app.state.session_service is not None,
     }
     # Only config_service and redis_cts are critical — rest degrade gracefully
     critical_healthy = checks["config_service"] and checks["redis_cts"]

@@ -46,6 +46,10 @@ def _build():
     async def act(claims=Depends(require_session)):
         return {"ok": True}
 
+    @app.get("/v1/protected/state-bank-id")
+    async def state_bank_id(request: Request):
+        return {"bank_id": getattr(request.state, "bank_id", "UNSET")}
+
     @app.post("/v1/auth/login")
     async def login():
         return {"ok": "login"}
@@ -129,3 +133,20 @@ def test_auth_bootstrap_login_is_csrf_exempt():
 def test_health_is_public():
     client, _ = _build()
     assert client.get("/health/live").status_code == 200
+
+
+def test_valid_session_sets_state_bank_id():
+    """RateLimitMiddleware keys per-bank limits off request.state.bank_id
+    (falls back to per-IP otherwise) — the auth middleware must set it."""
+    client, ss = _build()
+    _set_cookie(client, _full(ss, bank_id="saraswat-coop").token)
+    r = client.get("/v1/protected/state-bank-id")
+    assert r.status_code == 200
+    assert r.json()["bank_id"] == "saraswat-coop"
+
+
+def test_no_session_leaves_state_bank_id_none():
+    client, _ = _build()
+    r = client.get("/v1/protected/state-bank-id")
+    assert r.status_code == 200
+    assert r.json()["bank_id"] is None

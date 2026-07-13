@@ -15,20 +15,18 @@ from typing import Literal, Optional
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict
 
+from apps.api.dependencies import require_user_context
 from modules.cts.workflows.cheque_workflow import ChequeWorkflowInput
 from modules.cts.workflows.human_review_workflow import ReviewDecision
 from shared.auth.rbac import BankType, Role, PermissionLevel, RBACPolicy, UserContext
-from shared.config.config_service import config_service
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
 
 log = structlog.get_logger()
 
 router_v1 = APIRouter(prefix="/v1/cts", tags=["CTS v1"])
 
-_bearer = HTTPBearer(auto_error=False)
 _policy = RBACPolicy()
 
 
@@ -37,42 +35,18 @@ _policy = RBACPolicy()
 # ---------------------------------------------------------------------------
 
 async def get_current_user_context(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
+    ctx: UserContext = Depends(require_user_context),
 ) -> UserContext:
     """
-    Decode JWT and return a fully populated UserContext.
-    In production: validate JWT signature, extract all claims.
-    Test tokens: test-token-{bank_id}            → SB context
-                 test-token-smb-{bank_id}         → SMB context
-    """
-    if credentials is None or not credentials.credentials:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
-    token = credentials.credentials
+    Delegates to the central auth chokepoint (apps.api.dependencies), which
+    validates the httpOnly session cookie via AuthenticationMiddleware.
 
-    # Test tokens are accepted ONLY in non-production environments.
-    # Production must validate against the bank's IdP JWKS endpoint.
-    _env = config_service.get("env") if config_service._ready else "production"
-    if _env != "production" and token.startswith("test-token-smb-"):
-        bank_id = token.removeprefix("test-token-smb-")
-        return UserContext(
-            user_id="smb-user-001",
-            role=Role.SMB_EDITOR,
-            bank_id=bank_id,
-            bank_type=BankType.SMB,
-            permission_level=PermissionLevel.EDIT,
-        )
-    if _env != "production" and token.startswith("test-token-"):
-        bank_id = token.removeprefix("test-token-")
-        return UserContext(
-            user_id="reviewer-001",
-            role=Role.OPS_REVIEWER,
-            bank_id=bank_id,
-            bank_type=BankType.SB,
-            permission_level=PermissionLevel.EDIT,
-        )
-    # Production path: validate JWT signature against bank IdP JWKS
-    # TODO (C1 followup): implement PyJWT validation with JWKS endpoint from config_service
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    Kept as a thin re-export — not a copy — so the many existing
+    Depends(get_current_user_context) call sites in this router don't need
+    to change. There is no token parsing here anymore: no test-token
+    backdoor, no per-router auth logic. ASTRA-01.
+    """
+    return ctx
 
 
 async def get_current_bank_id(
