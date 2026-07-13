@@ -154,9 +154,28 @@ class ChequeProcessingWorkflow:
         from modules.cts.workflows.activities.write_audit import (
             WriteAuditInput, write_audit,
         )
+        from modules.cts.workflows.activities.kill_switch_lookup import (
+            KillSwitchLookupInput, get_kill_switch_status,
+        )
+        from modules.cts.workflows.human_review_workflow import (
+            HumanReviewInput, HumanReviewWorkflow,
+        )
         from modules.cts.workflows.iet_watchdog_workflow import (
             IETWatchdogInput, IETWatchdogWorkflow,
         )
+        from modules.cts.kill_switch.vision_ai_kill_switch import (
+            KillMode, KillScope, KillSwitchStatus,
+        )
+
+        def _to_kill_switch_status(lookup_result) -> KillSwitchStatus:
+            mode = lookup_result["mode"] if isinstance(lookup_result, dict) else lookup_result.mode
+            scope = lookup_result["scope"] if isinstance(lookup_result, dict) else lookup_result.scope
+            smb_id = lookup_result["smb_id"] if isinstance(lookup_result, dict) else lookup_result.smb_id
+            return KillSwitchStatus(
+                mode=KillMode(mode),
+                scope=KillScope(scope) if scope else None,
+                smb_id=smb_id,
+            )
 
         wf_id = self.workflow_id(inp.bank_id, inp.instrument_id)
 
@@ -174,24 +193,155 @@ class ChequeProcessingWorkflow:
         )
         self._watchdog_spawned = True
 
+        async def finalise(
+            decision: str, rationale: str, shap_values: Optional[dict] = None,
+            context_extra: Optional[dict] = None,
+        ) -> ChequeWorkflowResult:
+            """Every exit point of this workflow routes through here — this is
+            the ASTRA-02 fix: previously every branch just returned a result
+            in-memory, so nothing was ever filed to NGCH or written to the
+            audit trail (file_to_ngch / write_audit were imported but unused).
+
+            STP_CONFIRM / STP_RETURN: file to NGCH directly, signalling the
+            watchdog with the real decision first so a T-30s emergency-fire
+            during a slow filing uses the true decision, not a blind CONFIRM.
+
+            HUMAN_REVIEW: no valid NGCH decision exists yet. Push to the ops
+            review queue and start HumanReviewWorkflow (ABANDON — it outlives
+            this workflow, which returns immediately). HumanReviewWorkflow
+            itself signals the watchdog once a reviewer decides or the 55-min
+            window times out.
+            """
+            if decision in ("STP_CONFIRM", "STP_RETURN"):
+                ngch_decision = "CONFIRM" if decision == "STP_CONFIRM" else "RETURN"
+                try:
+                    await watchdog.signal(IETWatchdogWorkflow.decision_ready, ngch_decision)
+                except Exception as exc:
+                    # No self-healing path recovers from this: if the watchdog
+                    # never learns the real decision, an emergency-fire at T-30s
+                    # falls back to blind CONFIRM — exactly the ASTRA-02 bug.
+                    log.critical(
+                        "cheque_workflow.watchdog_signal_failed",
+                        instrument_id=inp.instrument_id, error=str(exc),
+                    )
+
+                ack_id = None
+                filed_by_watchdog = False
+                try:
+                    ngch_result = await workflow.execute_activity(
+                        file_to_ngch,
+                        NGCHFilerInput(
+                            instrument_id=inp.instrument_id, bank_id=inp.bank_id,
+                            workflow_id=wf_id, decision=ngch_decision,
+                        ),
+                        start_to_close_timeout=timedelta(seconds=30),
+                        retry_policy=_NGCH_FILING_RETRY,
+                    )
+                    ack_id = ngch_result.acknowledgement_id
+                except Exception as exc:
+                    cause = getattr(exc, "cause", None)
+                    if getattr(cause, "type", None) != "DuplicateFilingError":
+                        # Genuine failure (NGCH unavailable, etc.) — not a safe
+                        # race loss. The IET watchdog is still running and will
+                        # emergency-file at T-30s; propagate so Temporal surfaces
+                        # this workflow failure rather than silently losing it.
+                        raise
+                    # The watchdog won the race and already filed this decision.
+                    log.warning(
+                        "cheque_workflow.watchdog_won_filing_race",
+                        instrument_id=inp.instrument_id, decision=ngch_decision,
+                    )
+                    filed_by_watchdog = True
+
+                try:
+                    await watchdog.signal(IETWatchdogWorkflow.filing_complete)
+                except Exception as exc:
+                    # Self-healing: worst case is one redundant NGCH attempt,
+                    # which itself resolves via the same DuplicateFilingError path.
+                    log.warning(
+                        "cheque_workflow.watchdog_stand_down_signal_failed",
+                        instrument_id=inp.instrument_id, error=str(exc),
+                    )
+
+                event_type = "CTS_STP_CONFIRM" if decision == "STP_CONFIRM" else "CTS_STP_RETURN"
+                await workflow.execute_activity(
+                    write_audit,
+                    WriteAuditInput(
+                        event_type=event_type, bank_id=inp.bank_id,
+                        instrument_id=inp.instrument_id,
+                        payload={
+                            "rationale": rationale,
+                            "acknowledgement_id": ack_id,
+                            "filed_by_watchdog": filed_by_watchdog,
+                            **(context_extra or {}),
+                        },
+                    ),
+                    start_to_close_timeout=timedelta(seconds=15),
+                    retry_policy=_AUDIT_RETRY,
+                )
+            else:  # HUMAN_REVIEW
+                # No valid NGCH decision exists yet. write_audit records that this
+                # workflow routed to review; HumanReviewWorkflow itself owns the
+                # push_to_review_queue call (its own Step 1) — calling it again
+                # here would double-publish the same item to the ops Kafka topic.
+                await workflow.execute_activity(
+                    write_audit,
+                    WriteAuditInput(
+                        event_type="CTS_HUMAN_REVIEW_QUEUED", bank_id=inp.bank_id,
+                        instrument_id=inp.instrument_id,
+                        payload={"rationale": rationale, **(context_extra or {})},
+                    ),
+                    start_to_close_timeout=timedelta(seconds=15),
+                    retry_policy=_AUDIT_RETRY,
+                )
+                await workflow.start_child_workflow(
+                    HumanReviewWorkflow.run,
+                    HumanReviewInput(
+                        instrument_id=inp.instrument_id, bank_id=inp.bank_id,
+                        workflow_id=wf_id,
+                        context_bundle={"rationale": rationale, **(context_extra or {})},
+                        iet_deadline=inp.iet_deadline,
+                    ),
+                    id=f"cts-humanreview-{inp.bank_id}-{inp.instrument_id}",
+                    parent_close_policy=ParentClosePolicy.ABANDON,
+                )
+
+            log.info(
+                "cheque_workflow.complete",
+                instrument_id=inp.instrument_id, bank_id=inp.bank_id, decision=decision,
+            )
+            return ChequeWorkflowResult(
+                instrument_id=inp.instrument_id, bank_id=inp.bank_id,
+                decision=decision, rationale=rationale, shap_values=shap_values or {},
+            )
+
         # Step 2: detect_alteration — Vision LLM FIRST on drawee side
+        # Kill-switch checkpoint 1: resolved fresh right before the Vision LLM
+        # call so detect_alteration can skip Qwen2-VL entirely under KC.
+        kc1_lookup = await workflow.execute_activity(
+            get_kill_switch_status,
+            KillSwitchLookupInput(bank_id=inp.bank_id, smb_id=inp.smb_id),
+            start_to_close_timeout=timedelta(seconds=10),
+            retry_policy=_CBS_RETRY,
+        )
         alteration_result = await workflow.execute_activity(
             detect_alteration,
-            AlterationActivityInput(
-                image_url=inp.image_url,
-                instrument_id=inp.instrument_id,
-                bank_id=inp.bank_id,
-                cheque_amount=inp.presented_amount,
-                smb_id=inp.smb_id,
-            ),
+            args=[
+                AlterationActivityInput(
+                    image_url=inp.image_url,
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    cheque_amount=inp.presented_amount,
+                    smb_id=inp.smb_id,
+                ),
+                None,  # vllm_client — worker-level DI, out of this fix's scope
+                _to_kill_switch_status(kc1_lookup),
+            ],
             start_to_close_timeout=timedelta(seconds=120),
             retry_policy=_AI_ACTIVITY_RETRY,
         )
         if alteration_result.alteration_detected:
-            return ChequeWorkflowResult(
-                instrument_id=inp.instrument_id, bank_id=inp.bank_id,
-                decision="HUMAN_REVIEW", rationale="alteration_detected", shap_values={},
-            )
+            return await finalise("HUMAN_REVIEW", "alteration_detected")
 
         # Step 3: check_stop_payment — Bloom pre-check + CBS confirm
         stop_result = await workflow.execute_activity(
@@ -206,17 +356,13 @@ class ChequeProcessingWorkflow:
             retry_policy=_CBS_RETRY,
         )
         if stop_result.outcome == "STP_RETURN":
-            return ChequeWorkflowResult(
-                instrument_id=inp.instrument_id, bank_id=inp.bank_id,
-                decision="STP_RETURN",
-                rationale=f"Stop payment: {stop_result.stop_reason}", shap_values={},
+            return await finalise(
+                "STP_RETURN", f"Stop payment: {stop_result.stop_reason}",
             )
         if stop_result.outcome == "HUMAN_REVIEW":
-            return ChequeWorkflowResult(
-                instrument_id=inp.instrument_id, bank_id=inp.bank_id,
-                decision="HUMAN_REVIEW",
-                rationale=f"Stop payment check: {stop_result.stop_reason or 'bloom_hit'}",
-                shap_values={},
+            return await finalise(
+                "HUMAN_REVIEW",
+                f"Stop payment check: {stop_result.stop_reason or 'bloom_hit'}",
             )
 
         # Step 4: lookup_pps
@@ -276,16 +422,10 @@ class ChequeProcessingWorkflow:
             retry_policy=_CBS_RETRY,
         )
         if cbs_balance_result.outcome == "CBS_UNAVAILABLE":
-            return ChequeWorkflowResult(
-                instrument_id=inp.instrument_id, bank_id=inp.bank_id,
-                decision="HUMAN_REVIEW", rationale="cbs_unavailable_image_only_path",
-                shap_values={},
-            )
+            return await finalise("HUMAN_REVIEW", "cbs_unavailable_image_only_path")
         if cbs_balance_result.outcome == "RETURN":
-            return ChequeWorkflowResult(
-                instrument_id=inp.instrument_id, bank_id=inp.bank_id,
-                decision="STP_RETURN",
-                rationale=f"CBS balance check: {cbs_balance_result.outcome}", shap_values={},
+            return await finalise(
+                "STP_RETURN", f"CBS balance check: {cbs_balance_result.outcome}",
             )
 
         # Step 8: check_account_status
@@ -300,53 +440,54 @@ class ChequeProcessingWorkflow:
             retry_policy=_CBS_RETRY,
         )
         if acct_status_result.outcome == "RETURN":
-            return ChequeWorkflowResult(
-                instrument_id=inp.instrument_id, bank_id=inp.bank_id,
-                decision="STP_RETURN",
-                rationale=f"Account status: {acct_status_result.account_status}", shap_values={},
+            return await finalise(
+                "STP_RETURN", f"Account status: {acct_status_result.account_status}",
             )
         if acct_status_result.outcome == "HUMAN_REVIEW":
-            return ChequeWorkflowResult(
-                instrument_id=inp.instrument_id, bank_id=inp.bank_id,
-                decision="HUMAN_REVIEW",
-                rationale=f"Account status review: {acct_status_result.account_status}",
-                shap_values={},
+            return await finalise(
+                "HUMAN_REVIEW",
+                f"Account status review: {acct_status_result.account_status}",
             )
+
+        # Kill-switch checkpoint 2: re-resolved independently of checkpoint 1 —
+        # this is the backstop that catches an activation during the ~120s
+        # Vision LLM call, which checkpoint 1 (before that call started) cannot see.
+        kc2_lookup = await workflow.execute_activity(
+            get_kill_switch_status,
+            KillSwitchLookupInput(bank_id=inp.bank_id, smb_id=inp.smb_id),
+            start_to_close_timeout=timedelta(seconds=10),
+            retry_policy=_CBS_RETRY,
+        )
 
         # Step 9: synthesise_decision
         decision_result = await workflow.execute_activity(
             synthesise_decision,
-            DecisionInput(
-                instrument_id=inp.instrument_id,
-                bank_id=inp.bank_id,
-                smb_id=inp.smb_id,
-                fraud_score=fraud_result.fraud_score,
-                ocr_confidence=1.0,  # inward side: NGCH guarantees image; no OCR step
-                signature_match_score=sig_result.match_score or 0.0,
-                cbs_outcome=cbs_balance_result.outcome,
-                alteration_detected=alteration_result.alteration_detected,
-                pps_outcome=pps_result.outcome,
-                available_balance=cbs_balance_result.available_balance,
-                cheque_amount=inp.presented_amount,
-                shap_values=fraud_result.shap_values,
-            ),
-            inp.cts_config,
+            args=[
+                DecisionInput(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    smb_id=inp.smb_id,
+                    fraud_score=fraud_result.fraud_score,
+                    ocr_confidence=1.0,  # inward side: NGCH guarantees image; no OCR step
+                    signature_match_score=sig_result.match_score or 0.0,
+                    cbs_outcome=cbs_balance_result.outcome,
+                    alteration_detected=alteration_result.alteration_detected,
+                    pps_outcome=pps_result.outcome,
+                    available_balance=cbs_balance_result.available_balance,
+                    cheque_amount=inp.presented_amount,
+                    shap_values=fraud_result.shap_values,
+                    kill_switch_mode=alteration_result.kill_switch_mode,
+                    kill_switch_scope=alteration_result.kill_switch_scope,
+                ),
+                inp.cts_config,
+                _to_kill_switch_status(kc2_lookup),
+            ],
             start_to_close_timeout=timedelta(seconds=15),
             retry_policy=_CBS_RETRY,
         )
 
-        log.info(
-            "cheque_workflow.complete",
-            instrument_id=inp.instrument_id,
-            bank_id=inp.bank_id,
-            decision=decision_result.decision,
-        )
-        return ChequeWorkflowResult(
-            instrument_id=inp.instrument_id,
-            bank_id=inp.bank_id,
-            decision=decision_result.decision,
-            rationale=decision_result.rationale,
-            shap_values=decision_result.shap_values,
+        return await finalise(
+            decision_result.decision, decision_result.rationale, decision_result.shap_values,
         )
 
     async def run_with_mocks(

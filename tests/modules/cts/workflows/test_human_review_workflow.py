@@ -1,7 +1,15 @@
 """Tests for HumanReviewWorkflow — signal path, timeout, audit, NGCH filing."""
 import time
+import uuid
+from datetime import timedelta
+
 import pytest
+import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock
+
+from temporalio import activity
+from temporalio.testing import WorkflowEnvironment
+from temporalio.worker import Worker, UnsandboxedWorkflowRunner
 
 from modules.cts.workflows.human_review_workflow import (
     HumanReviewInput,
@@ -341,3 +349,229 @@ class TestHumanReviewMissingBranches:
         )
         # No decision → treated as timeout path (_decision=None)
         assert result.outcome == "TIMEOUT_AUTO_RETURNED"
+
+
+# --------------------------------------------------------------------------- #
+# Real Temporal environment — exercises the actual @workflow.run entry point.
+# Before this fix, HumanReviewWorkflow had no @workflow.defn at all, so none
+# of this could ever run: apps/api/routers/cts.py already sends a real signal
+# (handle.signal(HumanReviewWorkflow.receive_decision, ...)) to a workflow ID
+# that could never actually be running.
+# --------------------------------------------------------------------------- #
+
+_queue_calls: list[dict] = []
+_ngch_calls: list[dict] = []
+_audit_calls: list[dict] = []
+
+
+def _dget(inp, key):
+    return inp[key] if isinstance(inp, dict) else getattr(inp, key)
+
+
+@activity.defn(name="push_to_review_queue")
+async def _fake_push_to_review_queue(inp):
+    _queue_calls.append({"instrument_id": _dget(inp, "instrument_id")})
+
+
+@activity.defn(name="file_to_ngch")
+async def _fake_file_to_ngch(inp):
+    from modules.cts.workflows.activities.ngch_filer import NGCHFilerResult
+    decision = _dget(inp, "decision")
+    _ngch_calls.append({"decision": decision, "instrument_id": _dget(inp, "instrument_id")})
+    return NGCHFilerResult(acknowledgement_id="TEST-ACK", status="ACCEPTED", filed_decision=decision)
+
+
+@activity.defn(name="file_to_ngch")
+async def _fake_file_to_ngch_watchdog_won_race(inp):
+    from modules.cts.mcp.ngch_adapter import DuplicateFilingError
+    _ngch_calls.append({"decision": _dget(inp, "decision"), "instrument_id": _dget(inp, "instrument_id")})
+    raise DuplicateFilingError("watchdog already filed this decision")
+
+
+@activity.defn(name="write_audit")
+async def _fake_write_audit(inp):
+    from modules.cts.workflows.activities.write_audit import WriteAuditResult
+    _audit_calls.append({
+        "event_type": _dget(inp, "event_type"),
+        "instrument_id": _dget(inp, "instrument_id"),
+    })
+    return WriteAuditResult(success=True, immudb_tx_id="TEST-TX")
+
+
+@pytest_asyncio.fixture()
+async def temporal_env():
+    async with await WorkflowEnvironment.start_time_skipping() as env:
+        yield env
+
+
+@pytest.fixture(autouse=True)
+def _reset_call_logs():
+    _queue_calls.clear()
+    _ngch_calls.clear()
+    _audit_calls.clear()
+    yield
+    _queue_calls.clear()
+    _ngch_calls.clear()
+    _audit_calls.clear()
+
+
+def _real_input(bank_id, instrument_id, deadline_seconds=3600):
+    return HumanReviewInput(
+        instrument_id=instrument_id,
+        bank_id=bank_id,
+        workflow_id=f"cts-{bank_id}-{instrument_id}",
+        context_bundle={"fraud_score": 0.85},
+        iet_deadline=time.time() + deadline_seconds,
+    )
+
+
+class TestHumanReviewRealWorkflowRun:
+    @pytest.mark.asyncio
+    async def test_real_run_files_reviewer_return_decision(self, temporal_env):
+        task_queue = f"tq-{uuid.uuid4()}"
+        bank_id, instrument_id = "test-bank", f"INST-{uuid.uuid4().hex[:8]}"
+
+        async with Worker(
+            temporal_env.client,
+            task_queue=task_queue,
+            workflows=[HumanReviewWorkflow],
+            activities=[_fake_push_to_review_queue, _fake_file_to_ngch, _fake_write_audit],
+            workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            handle = await temporal_env.client.start_workflow(
+                HumanReviewWorkflow.run,
+                _real_input(bank_id, instrument_id),
+                id=f"cts-humanreview-{bank_id}-{instrument_id}",
+                task_queue=task_queue,
+            )
+            await handle.signal(
+                HumanReviewWorkflow.receive_decision,
+                ReviewDecision(
+                    action="RETURN", reason="Signature mismatch confirmed",
+                    reviewer_id="reviewer-007", decided_at=time.time(),
+                ),
+            )
+            result = await handle.result()
+
+        assert result.outcome == "REVIEWER_RETURNED"
+        assert result.timed_out is False
+        assert len(_queue_calls) == 1
+        assert len(_ngch_calls) == 1
+        assert _ngch_calls[0]["decision"] == "RETURN"
+        assert len(_audit_calls) == 1
+        assert _audit_calls[0]["event_type"] == "CTS_HUMAN_REVIEW_DECIDED"
+
+    @pytest.mark.asyncio
+    async def test_real_run_timeout_auto_returns(self, temporal_env):
+        """No signal ever arrives — the real 55-minute timeout fires (time-skipped)."""
+        task_queue = f"tq-{uuid.uuid4()}"
+        bank_id, instrument_id = "test-bank", f"INST-{uuid.uuid4().hex[:8]}"
+
+        async with Worker(
+            temporal_env.client,
+            task_queue=task_queue,
+            workflows=[HumanReviewWorkflow],
+            activities=[_fake_push_to_review_queue, _fake_file_to_ngch, _fake_write_audit],
+            workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            handle = await temporal_env.client.start_workflow(
+                HumanReviewWorkflow.run,
+                _real_input(bank_id, instrument_id),
+                id=f"cts-humanreview-{bank_id}-{instrument_id}",
+                task_queue=task_queue,
+            )
+            result = await handle.result()
+
+        assert result.outcome == "TIMEOUT_AUTO_RETURNED"
+        assert result.timed_out is True
+        assert _ngch_calls[0]["decision"] == "RETURN"
+
+    @pytest.mark.asyncio
+    async def test_real_run_signals_sibling_watchdog_which_stands_down(self, temporal_env):
+        """ASTRA-02 close-the-loop proof: a real IETWatchdogWorkflow sibling,
+        signalled by HumanReviewWorkflow once the reviewer decides, must stand
+        down (SAFE, no emergency file) instead of racing to its own T-30s fire."""
+        from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow, IETWatchdogInput
+
+        task_queue = f"tq-{uuid.uuid4()}"
+        bank_id, instrument_id = "test-bank", f"INST-{uuid.uuid4().hex[:8]}"
+
+        async with Worker(
+            temporal_env.client,
+            task_queue=task_queue,
+            workflows=[HumanReviewWorkflow, IETWatchdogWorkflow],
+            activities=[_fake_push_to_review_queue, _fake_file_to_ngch, _fake_write_audit],
+            workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            now = temporal_env.get_current_time
+            deadline = (await now()).timestamp() + 90
+            watchdog_handle = await temporal_env.client.start_workflow(
+                IETWatchdogWorkflow.run,
+                IETWatchdogInput(
+                    instrument_id=instrument_id, bank_id=bank_id,
+                    iet_deadline=deadline, workflow_id=f"cts-{bank_id}-{instrument_id}",
+                ),
+                id=f"cts-iet-{bank_id}-{instrument_id}",
+                task_queue=task_queue,
+            )
+            review_handle = await temporal_env.client.start_workflow(
+                HumanReviewWorkflow.run,
+                _real_input(bank_id, instrument_id, deadline_seconds=90),
+                id=f"cts-humanreview-{bank_id}-{instrument_id}",
+                task_queue=task_queue,
+            )
+            await review_handle.signal(
+                HumanReviewWorkflow.receive_decision,
+                ReviewDecision(
+                    action="CONFIRM", reason="Branch manager verified",
+                    reviewer_id="reviewer-009", decided_at=time.time(),
+                ),
+            )
+
+            review_result = await review_handle.result()
+            watchdog_result = await watchdog_handle.result()
+
+        assert review_result.outcome == "REVIEWER_CONFIRMED"
+        assert watchdog_result.outcome == "SAFE"
+        assert watchdog_result.emergency_filed is False
+        # Exactly one NGCH filing overall — HumanReviewWorkflow's, never a duplicate
+        # emergency file from the watchdog.
+        assert len(_ngch_calls) == 1
+        assert _ngch_calls[0]["decision"] == "CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_real_run_survives_losing_the_filing_race_to_watchdog(self, temporal_env):
+        """CRITICAL-3 (cts-workflow-reviewer): if the IET watchdog wins the race
+        and files first, HumanReviewWorkflow's own file_to_ngch call gets a 409
+        -> DuplicateFilingError. Before this fix that propagated unhandled and
+        killed the whole workflow BEFORE write_audit ever ran — losing the
+        record of the reviewer's actual decision entirely, even though NGCH
+        itself had exactly one correct filing. The workflow must complete
+        normally and still audit the real decision."""
+        task_queue = f"tq-{uuid.uuid4()}"
+        bank_id, instrument_id = "test-bank", f"INST-{uuid.uuid4().hex[:8]}"
+
+        async with Worker(
+            temporal_env.client, task_queue=task_queue,
+            workflows=[HumanReviewWorkflow],
+            activities=[_fake_push_to_review_queue, _fake_file_to_ngch_watchdog_won_race, _fake_write_audit],
+            workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            handle = await temporal_env.client.start_workflow(
+                HumanReviewWorkflow.run,
+                _real_input(bank_id, instrument_id),
+                id=f"cts-humanreview-{bank_id}-{instrument_id}",
+                task_queue=task_queue,
+            )
+            await handle.signal(
+                HumanReviewWorkflow.receive_decision,
+                ReviewDecision(
+                    action="RETURN", reason="Signature mismatch confirmed",
+                    reviewer_id="reviewer-007", decided_at=time.time(),
+                ),
+            )
+            result = await handle.result()
+
+        assert result.outcome == "REVIEWER_RETURNED"   # workflow completes, doesn't crash
+        assert len(_audit_calls) == 1                   # real decision still recorded
+        assert _audit_calls[0]["event_type"] == "CTS_HUMAN_REVIEW_DECIDED"
