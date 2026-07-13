@@ -316,7 +316,7 @@ class TestIETWatchdogRealWorkflowRun:
         # CRITICAL-2 (cts-workflow-reviewer): emergency filing must be audited —
         # the single highest-stakes action in the platform can't be log-only.
         assert len(_audit_calls) == 1
-        assert _audit_calls[0]["event_type"] == "CTS_IET_EMERGENCY_FILED"
+        assert _audit_calls[0]["event_type"] == "CTS_WF_IET_WATCHDOG_FIRED"
 
     @pytest.mark.asyncio
     async def test_real_run_stands_down_when_filing_complete_signalled(self, temporal_env):
@@ -467,4 +467,4 @@ class TestIETWatchdogEmergencyFilingRace:
                 )
 
         assert len(_audit_calls) == 1
-        assert _audit_calls[0]["event_type"] == "CTS_IET_EMERGENCY_FILED"
+        assert _audit_calls[0]["event_type"] == "CTS_WF_IET_WATCHDOG_FIRED"

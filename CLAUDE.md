@@ -999,15 +999,81 @@ PHASE 5 — Hardening
   [ ] Bank onboarding: first pilot bank Helm deploy
 ```
 
+PHASE 9 — Pre-Pilot Security Remediation (July 2026, IN PROGRESS)
+  Context: White-box pentest (2026-07-11) found 3 CRITICAL blockers before any bank pilot.
+    Findings ASTRA-01/02/03 tracked as: ASTRA-01 = forgeable test-token auth backdoor on
+    every API router; ASTRA-02 = ChequeProcessingWorkflow never actually filed to NGCH or
+    wrote audit trail on its real Temporal entry point (only the mocked test harness did);
+    ASTRA-03 = an unawaited async config_service.get("env") call made a prod/dev env-gate
+    always evaluate true. Full findings in the original pentest report artifact.
+
+  [x] ASTRA-01 — CLOSED for 9/10 routers (commit b726e29, branch claude/auth-local-login-mfa):
+       cts, msv, admin, users, audit, disputes, batch, notifications, mcp_connections all now
+       delegate to apps.api.dependencies.require_user_context (httpOnly session cookie via
+       AuthenticationMiddleware) instead of parsing a forgeable test-token-* Bearer header.
+       AuthenticationMiddleware + a Vault-backed SessionTokenService wired into main.py,
+       fail-closed on Vault failure. Each router has a regression-guard test proving the old
+       backdoor header no longer grants access. ej.py has the identical backdoor — left open,
+       deliberately deferred to a separate session per explicit instruction (EJ module is
+       out of scope unless explicitly requested).
+  [x] ASTRA-02 — CLOSED (commit c145e5c, same branch): ChequeProcessingWorkflow.run(),
+       IETWatchdogWorkflow, and HumanReviewWorkflow all now have working Temporal wiring —
+       every decision reached is filed to NGCH and written to Immudb on every exit path.
+       HumanReviewWorkflow needed adding from scratch (@workflow.defn/@workflow.run/
+       @workflow.signal — it had none, despite apps/api/routers/cts.py already sending it a
+       live signal). IETWatchdogWorkflow no longer hardcodes CONFIRM on emergency-fire — it
+       uses decision_ready()/filing_complete() signals from the parent (or HumanReviewWorkflow)
+       so a T-30s emergency-fire during a slow filing uses the real decision, falling back to
+       CONFIRM only when no decision was ever reached at all. Also fixed, discovered as a
+       blocking prerequisite: synthesise_decision's execute_activity() call passed 3 positional
+       args (only 1 is accepted without args=[...]) — would have crashed every cheque reaching
+       the happy path in real production, independent of ASTRA-02. Kill-switch dual-checkpoint +
+       OPA Layer 4 gate were also completely dark on the real path (kill_switch_status always
+       None) — new modules/cts/workflows/activities/kill_switch_lookup.py activity closes this,
+       called independently at both checkpoints. First real-Temporal-environment test coverage
+       in the project (temporalio.testing.WorkflowEnvironment) — every prior CTS workflow test
+       exercised only the parallel run_with_mocks() harness, never the real @workflow.run.
+       Message taxonomy aligned: write_audit.py's event types now match the pre-existing,
+       richer shared/messages/locales/messages.yaml keys (CTS_NGCH_FILED_CONFIRM/RETURN,
+       CTS_WF_HUMAN_CONFIRMED/RETURNED, CTS_WF_REVIEW_TIMEOUT, CTS_WF_IET_WATCHDOG_FIRED,
+       new CTS_WF_HUMAN_REVIEW_QUEUED) instead of a separate, unregistered ad-hoc set —
+       CTS_WF_IET_WATCHDOG_FIRED already carries CRITICAL severity + NOTIFICATION surface,
+       so the platform's single highest-stakes audit event now has WhatsApp/email routing
+       with no new routing code needed.
+  [ ] ASTRA-03 — the cts.py/msv.py instances are moot (the vulnerable code path was deleted
+       entirely as part of the ASTRA-01 fix, not patched in place). The main.py demo-router-gate
+       instance of the same unawaited-coroutine bug is still present; confirmed fail-safe
+       (demo router never registers, in any env) — low priority, not yet fixed.
+  [ ] Deferred by explicit decision, not yet started: ej.py's ASTRA-01 backdoor;
+       HumanReviewWorkflow's 55-minute timeout is a flat constant decoupled from the actual
+       per-instrument iet_deadline (needs a config-aware redesign); SMB notify/ledger side
+       effects exist in run_with_mocks() but are never called from the real run() (same
+       "mock diverges from real entry point" shape as ASTRA-02 itself, found a second time).
+  [ ] Still open, not investigated this phase: local.py's DB hooks to the real
+       platform.local_auth_accounts table (currently in-memory only); RBAC fail-closed
+       defaults (rbac.py:210-211); 8 of 22 registered CTS activities and 3 of 8 registered
+       CTS workflows still lack @activity.defn/@workflow.defn (worker.py Worker() construction
+       fails today independent of the above — confirmed by direct attribute inspection, not
+       guessed); no temporalio.contrib.pydantic converter in the installed temporalio version,
+       so every Pydantic-typed activity/workflow boundary in the entire codebase deserializes
+       as a plain dict in real Temporal execution, not the typed model; every activity's real
+       dependency (ngch_adapter, immudb_client, cbs_connector, etc.) is a `=None` default with
+       zero injection wired at worker registration.
+
 ### Immediate Next
-**All planned phases complete as of July 2026.** Platform is architecturally complete.
+Pre-pilot security remediation (Phase 9) is in progress — see above for exact status.
 
 Remaining work (in priority order):
-1. **NPCI API Modernisation Phase A** — REST transport + 3-layer auth module (`shared/ngch_auth/`)
+1. **ASTRA-01 on ej.py** — same test-token backdoor fix pattern already proven on 9 other
+   routers, deliberately deferred rather than expanded into EJ module scope without being asked.
+2. **Activity/workflow decorator + DI gaps (Phase 9's "still open" list)** — worker.py cannot
+   construct a real Worker() today; this blocks ANY of modules/cts/workflows/ from running
+   against a real Temporal server, independent of the ASTRA-01/02 fixes already landed.
+3. **NPCI API Modernisation Phase A** — REST transport + 3-layer auth module (`shared/ngch_auth/`)
    Trigger: NPCI responds to concept note. Code can be built now (§17 has full task list).
-2. **Pilot bank deployment validation** — smoke-test `infra/helm/values/banks/saraswat-coop/`
+4. **Pilot bank deployment validation** — smoke-test `infra/helm/values/banks/saraswat-coop/`
    against a real Kubernetes cluster; verify pre-upgrade migration job and ArgoCD ApplicationSet.
-3. **Security hardening audit** — full penetration test prep; verify SQL injection, PII at rest,
+5. **Security hardening audit** — full penetration test prep; verify SQL injection, PII at rest,
    data theft protections are production-grade (OWASP ZAP + manual review).
 
 ---

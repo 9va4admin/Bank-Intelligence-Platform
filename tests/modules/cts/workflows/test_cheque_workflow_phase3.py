@@ -641,7 +641,7 @@ class TestChequeWorkflowRealRun:
     @pytest.mark.asyncio
     async def test_real_run_happy_path_files_confirm_and_audits(self, temporal_env):
         """ASTRA-02 regression guard: the STP_CONFIRM happy path must file
-        CONFIRM to NGCH and write a CTS_STP_CONFIRM audit event — neither ever
+        CONFIRM to NGCH and write a CTS_NGCH_FILED_CONFIRM audit event — neither ever
         happened before this fix."""
         from modules.cts.workflows.cheque_workflow import (
             ChequeProcessingWorkflow, ChequeWorkflowInput,
@@ -676,7 +676,7 @@ class TestChequeWorkflowRealRun:
         assert len(_ngch_calls) == 1
         assert _ngch_calls[0]["decision"] == "CONFIRM"
         assert len(_audit_calls) == 1
-        assert _audit_calls[0]["event_type"] == "CTS_STP_CONFIRM"
+        assert _audit_calls[0]["event_type"] == "CTS_NGCH_FILED_CONFIRM"
         assert len(_queue_calls) == 0   # never queued for human review on this path
 
     @pytest.mark.asyncio
@@ -721,7 +721,7 @@ class TestChequeWorkflowRealRun:
         assert len(_ngch_calls) == 1
         assert _ngch_calls[0]["decision"] == "RETURN"
         assert len(_audit_calls) == 1
-        assert _audit_calls[0]["event_type"] == "CTS_STP_RETURN"
+        assert _audit_calls[0]["event_type"] == "CTS_NGCH_FILED_RETURN"
 
     @pytest.mark.asyncio
     async def test_real_run_alteration_detected_queues_for_human_review(self, temporal_env):
@@ -785,7 +785,7 @@ class TestChequeWorkflowRealRun:
         assert result.decision == "HUMAN_REVIEW"
         assert result.rationale == "alteration_detected"
         assert len(_audit_calls) >= 1
-        assert any(c["event_type"] == "CTS_HUMAN_REVIEW_QUEUED" for c in _audit_calls)
+        assert any(c["event_type"] == "CTS_WF_HUMAN_REVIEW_QUEUED" for c in _audit_calls)
         assert len(_queue_calls) == 1   # HumanReviewWorkflow's own Step 1
         # Full loop closes: reviewer's RETURN gets filed by HumanReviewWorkflow,
         # and the watchdog — signalled by HumanReviewWorkflow, not ChequeProcessingWorkflow

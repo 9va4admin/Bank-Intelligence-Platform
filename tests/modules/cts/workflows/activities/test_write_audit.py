@@ -10,7 +10,7 @@ from modules.cts.workflows.activities.write_audit import (
 )
 
 
-def _make_input(event_type="CTS_STP_CONFIRM", instrument_id="CHQ-001"):
+def _make_input(event_type="CTS_NGCH_FILED_CONFIRM", instrument_id="CHQ-001"):
     return WriteAuditInput(
         event_type=event_type,
         bank_id="test-bank",
@@ -30,7 +30,7 @@ class TestWriteAuditInput:
             inp.event_type = "other"
 
     def test_instrument_id_optional(self):
-        inp = WriteAuditInput(event_type="CTS_STP_CONFIRM", bank_id="b", payload={})
+        inp = WriteAuditInput(event_type="CTS_NGCH_FILED_CONFIRM", bank_id="b", payload={})
         assert inp.instrument_id is None
 
 
@@ -53,9 +53,9 @@ class TestWriteAuditHappyPath:
     async def test_calls_immudb_with_event_type(self):
         immudb = AsyncMock()
         immudb.write.return_value = "TX"
-        await write_audit(_make_input("CTS_STP_RETURN"), immudb_client=immudb)
+        await write_audit(_make_input("CTS_NGCH_FILED_RETURN"), immudb_client=immudb)
         _, kwargs = immudb.write.call_args
-        assert kwargs["event_type"] == "CTS_STP_RETURN"
+        assert kwargs["event_type"] == "CTS_NGCH_FILED_RETURN"
 
     @pytest.mark.asyncio
     async def test_calls_immudb_with_bank_id(self):
@@ -95,14 +95,43 @@ class TestWriteAuditFailure:
 
 
 class TestValidEventTypes:
-    def test_stp_confirm_is_valid(self):
-        assert "CTS_STP_CONFIRM" in _VALID_EVENT_TYPES
+    """Every entry here must also exist in shared/messages/locales/messages.yaml
+    — write_audit's own event types are not a separate taxonomy (messages.md)."""
 
-    def test_stp_return_is_valid(self):
-        assert "CTS_STP_RETURN" in _VALID_EVENT_TYPES
+    def test_ngch_filed_confirm_is_valid(self):
+        assert "CTS_NGCH_FILED_CONFIRM" in _VALID_EVENT_TYPES
 
-    def test_iet_emergency_is_valid(self):
-        assert "CTS_IET_EMERGENCY_FILED" in _VALID_EVENT_TYPES
+    def test_ngch_filed_return_is_valid(self):
+        assert "CTS_NGCH_FILED_RETURN" in _VALID_EVENT_TYPES
 
-    def test_human_review_decided_is_valid(self):
-        assert "CTS_HUMAN_REVIEW_DECIDED" in _VALID_EVENT_TYPES
+    def test_iet_watchdog_fired_is_valid(self):
+        assert "CTS_WF_IET_WATCHDOG_FIRED" in _VALID_EVENT_TYPES
+
+    def test_human_confirmed_is_valid(self):
+        assert "CTS_WF_HUMAN_CONFIRMED" in _VALID_EVENT_TYPES
+
+    def test_human_returned_is_valid(self):
+        assert "CTS_WF_HUMAN_RETURNED" in _VALID_EVENT_TYPES
+
+    def test_review_timeout_is_valid(self):
+        assert "CTS_WF_REVIEW_TIMEOUT" in _VALID_EVENT_TYPES
+
+    def test_human_review_queued_is_valid(self):
+        assert "CTS_WF_HUMAN_REVIEW_QUEUED" in _VALID_EVENT_TYPES
+
+    def test_all_valid_event_types_are_registered_messages(self):
+        """Guard against write_audit.py's event types drifting from the
+        single source of truth in messages.yaml — see messages.md."""
+        import yaml
+        from pathlib import Path
+        messages_path = (
+            Path(__file__).resolve().parents[5]
+            / "shared" / "messages" / "locales" / "messages.yaml"
+        )
+        registered = set(yaml.safe_load(messages_path.read_text(encoding="utf-8")).keys())
+        # CTS_NGCH_FILED / CTS_VAULT_SYNC_* predate this taxonomy alignment and
+        # are used by ngch_filer.py / vault_sync_workflow.py's own event_producer
+        # publishes (Kafka), not write_audit — not required to be in messages.yaml.
+        exempt = {"CTS_NGCH_FILED", "CTS_VAULT_SYNC_COMPLETE", "CTS_VAULT_SYNC_FAILED"}
+        missing = (_VALID_EVENT_TYPES - exempt) - registered
+        assert not missing, f"write_audit event types missing from messages.yaml: {missing}"

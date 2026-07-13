@@ -256,10 +256,18 @@ class HumanReviewWorkflow:
                 error=str(exc),
             )
 
+        # Aligned with shared/messages/locales/messages.yaml — outcome-specific
+        # keys carry the correct severity/notification routing (a timeout is
+        # ERROR + NOTIFICATION; a routine confirm is INFO with none).
+        _outcome_event_type = {
+            "REVIEWER_CONFIRMED": "CTS_WF_HUMAN_CONFIRMED",
+            "REVIEWER_RETURNED": "CTS_WF_HUMAN_RETURNED",
+            "TIMEOUT_AUTO_RETURNED": "CTS_WF_REVIEW_TIMEOUT",
+        }
         await workflow.execute_activity(
             write_audit,
             WriteAuditInput(
-                event_type="CTS_HUMAN_REVIEW_DECIDED",
+                event_type=_outcome_event_type[outcome],
                 bank_id=inp.bank_id,
                 instrument_id=inp.instrument_id,
                 payload={
@@ -359,8 +367,13 @@ class HumanReviewWorkflow:
 
         # Step 5: write audit event
         if audit_writer is not None:
+            _outcome_event_type = {
+                "REVIEWER_CONFIRMED": "CTS_WF_HUMAN_CONFIRMED",
+                "REVIEWER_RETURNED": "CTS_WF_HUMAN_RETURNED",
+                "TIMEOUT_AUTO_RETURNED": "CTS_WF_REVIEW_TIMEOUT",
+            }
             await audit_writer.write(
-                event_type="CTS_HUMAN_REVIEW_DECIDED",
+                event_type=_outcome_event_type[outcome],
                 bank_id=inp.bank_id,
                 payload={
                     "instrument_id": inp.instrument_id,

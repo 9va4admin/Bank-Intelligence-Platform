@@ -236,19 +236,23 @@ STP confirm rate ≥85%. IET breach count = 0. Human review queue draining withi
 - vLLM model unavailable (degraded mode)
 
 #### Timer Logic
-`HumanReviewWorkflow` starts a **55-minute timer**. No action within 55 minutes → auto-return. `IETWatchdogWorkflow` runs in parallel — emergency CONFIRM at T-30 seconds regardless of review status.
+`HumanReviewWorkflow` starts a **55-minute timer**. No action within 55 minutes → auto-return. `IETWatchdogWorkflow` runs in parallel as a safety backstop — see §4.3 for what it actually does when it fires.
 
 #### On CONFIRM
 1. Reviewer clicks CONFIRM → `POST /v1/cts/review/{instrument_id}/decide`
-2. API sends Temporal signal `receive_review_decision` to `HumanReviewWorkflow`
-3. Workflow fires `file_to_ngch` → NGCHAdapter → exactly-once CONFIRM to NGCH
-4. `write_audit` → HSM-signed AuditEvent → Immudb. Status = `REVIEWER_CONFIRMED`
+2. API sends Temporal signal `receive_decision` to `HumanReviewWorkflow`
+3. `HumanReviewWorkflow` first signals `IETWatchdogWorkflow` with the reviewer's real decision (`decision_ready`) — so if the IET deadline hits mid-filing, the watchdog fires *this* decision instead of guessing
+4. Workflow fires `file_to_ngch` → NGCHAdapter → exactly-once CONFIRM to NGCH
+5. Signals `IETWatchdogWorkflow` again (`filing_complete`) so it stands down immediately rather than waiting out the rest of its window
+6. `write_audit` → HSM-signed AuditEvent → Immudb, event type `CTS_WF_HUMAN_CONFIRMED` (or `CTS_WF_HUMAN_RETURNED` on RETURN). Status = `REVIEWER_CONFIRMED`
+
+If the watchdog wins the filing race (fires first because filing was slow), `HumanReviewWorkflow`'s own `file_to_ngch` call gets NGCH's duplicate-filing rejection, which it treats as success — exactly one filing reaches NGCH either way, and the audit trail still records the reviewer's real decision, not just "something was filed."
 
 #### Success
 Queue empties within 30 minutes. No timeout auto-returns. All items actioned before IET deadline.
 
 #### Failure
-**Timeout Auto-Return:** `CTS_WF_HUMAN_REVIEW_TIMEOUT` → WhatsApp + Email to ops_manager. Logged as compliance event in Immudb.
+**Timeout Auto-Return:** `CTS_WF_REVIEW_TIMEOUT` → WhatsApp + Email to ops_manager. Logged as compliance event in Immudb.
 
 ---
 
@@ -261,8 +265,9 @@ Queue empties within 30 minutes. No timeout auto-returns. All items actioned bef
 #### How It Works
 
 1. **Spawned first** — `ChequeProcessingWorkflow` spawns `IETWatchdogWorkflow` with `ParentClosePolicy.ABANDON`. If parent crashes, watchdog survives independently.
-2. **Countdown** — monitors remaining IET time. At T-60 minutes: escalates priority. At T-30 seconds: fires regardless of parent state.
-3. **Emergency CONFIRM** — at T-30 seconds, if no decision filed, watchdog calls `file_to_ngch` directly. Sets flag so parent knows not to re-file (duplicate prevention).
+2. **Countdown** — waits until T-30 seconds *or* a `filing_complete` signal from the parent (or from `HumanReviewWorkflow`, for human-reviewed cheques), whichever comes first.
+3. **Emergency filing** — if it wakes at T-30s with no `filing_complete` signal received, it emergency-files whatever decision was last sent via a `decision_ready` signal (CONFIRM or RETURN — whatever the parent had actually decided, even if it hadn't finished filing yet). **CONFIRM is only used as a last resort**, when no decision was ever signalled at all — this still never makes the outcome worse than doing nothing, since RBI's own deemed-approval default for a missed IET is CONFIRM anyway; the difference is ASTRA now gets an explicit, audited record (`CTS_WF_IET_WATCHDOG_FIRED`) instead of a silent regulatory default.
+4. **Duplicate-safe** — idempotency key = parent workflow ID, so if both the parent and the watchdog attempt to file, NGCH's 409 response resolves the race safely; whichever filed first wins, and it is always audited.
 
 > **IET deadlines come from PXF XML `ItemExpiryTime` field (per-item, IST→UTC)**, NOT from the shared `iet_minutes` config. Per-item precision is critical for multi-instrument batches.
 
@@ -296,7 +301,8 @@ Queue empties within 30 minutes. No timeout auto-returns. All items actioned bef
 
 | # | Activity | Why This Order |
 |---|----------|----------------|
-| 1 | `detect_alteration` | Vision LLM first — tampered cheques skip all other GPU cycles |
+| 1a | `get_kill_switch_status` (checkpoint 1) | Resolved fresh, immediately before the Vision LLM call |
+| 1 | `detect_alteration` | Vision LLM first — tampered cheques skip all other GPU cycles. Under Kill Complete (KC), Qwen2-VL is bypassed entirely per checkpoint 1's result |
 | 2 | `validate_cts2010` | CTS-2010 compliance check before any AI |
 | 3 | `check_stop_payment` | Bloom pre-filter → CBS confirm |
 | 4 | `lookup_pps` | PPS vault Redis lookup |
@@ -304,8 +310,11 @@ Queue empties within 30 minutes. No timeout auto-returns. All items actioned bef
 | 6 | `score_fraud` | XGBoost + SHAP |
 | 7 | `check_cbs_balance` | CBS (Finacle/BaNCS/FlexCube) |
 | 8 | `check_account_status` | Account frozen/closed check |
-| 9 | `synthesise_decision` | OPA Layer 4 policy gate |
+| 8a | `get_kill_switch_status` (checkpoint 2) | Re-resolved independently of checkpoint 1 — catches an activation that happened mid-flight during the ~120s Vision LLM call, which checkpoint 1 cannot see |
+| 9 | `synthesise_decision` | OPA Layer 4 policy gate + kill-switch backstop (checkpoint 2) — forces HUMAN_REVIEW if either is active |
 | 10 | `file_to_ngch` → `write_audit` | Exactly-once via NGCHAdapter + Immudb |
+
+> **Note:** step 2 (`validate_cts2010`) is documented here as originally designed but is not currently invoked by the production workflow — a pre-existing gap, not something introduced by the July 2026 filing/audit fix. Flagged for follow-up.
 
 ---
 
