@@ -13,6 +13,7 @@
  */
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { QRCodeSVG } from 'qrcode.react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useAuth } from '../../../shared/context/AuthContext'
 
@@ -194,13 +195,19 @@ export default function LoginPage() {
           {/* Step: enrol */}
           {step === 'enrol' && enrol && (
             <form onSubmit={submitEnrolConfirm} className="mt-5 space-y-4">
+              <div className="flex flex-col items-center gap-2">
+                <div className="p-3 bg-white rounded-xl border border-slate-200">
+                  <QRCodeSVG value={enrol.otpauth_uri} size={168} />
+                </div>
+                <div className={`text-[11px] ${th.faint}`}>Scan with Google Authenticator or Authy</div>
+              </div>
               <div>
-                <div className={`text-xs font-medium mb-1.5 ${th.label}`}>Setup key (enter manually or scan)</div>
+                <div className={`text-xs font-medium mb-1.5 ${th.label}`}>Can't scan? Enter this key manually</div>
                 <div className={`rounded-lg border px-3 py-3 font-mono text-sm break-all ${th.key}`}>
                   {groupSecret(enrol.secret)}
                 </div>
                 <div className={`mt-1.5 text-[11px] ${th.faint}`}>
-                  Issuer: ASTRA · Algorithm: TOTP · 6 digits · 30s
+                  Issuer: ASTRA · TOTP · 6 digits · 30s
                 </div>
               </div>
               <div className={`border-t ${th.divider} pt-4`}>
