@@ -138,6 +138,11 @@ def _build_routing_table() -> dict[AuditEventType, RoutingSpec]:
             E.CTS_HUMAN_REVIEW_RESOLVED, P.P3, notify=False, create_incident=False,
         ),
 
+        # ── CTS Outward — Outward Q decisions (audit-only) ────────────────────
+        E.CTS_OUTWARD_QUEUE_DECISION: _spec(
+            E.CTS_OUTWARD_QUEUE_DECISION, P.P3, notify=False, create_incident=False,
+        ),
+
         # ── CTS Inward — other decisions (audit-only) ─────────────────────────
         E.CTS_DECISION: _spec(
             E.CTS_DECISION, P.P3, notify=False, create_incident=False,

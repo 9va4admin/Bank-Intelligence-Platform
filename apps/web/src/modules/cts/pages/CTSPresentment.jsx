@@ -158,6 +158,10 @@ function KpiStrip({ batch, filterStatus, onFilter, isDark }) {
   const rejected  = batch.filter(b => b.status === 'NGCH_REJECT').length
   const amtMismatch = batch.filter(b => b.amount_words_match === false).length
   const dateInvalid = batch.filter(b => b.date_valid === false).length
+  // Human decisions made in Outward Q (Human Review / STP Rejected tabs) — this
+  // Monitor is read-only; it only rolls up what was manually decided elsewhere.
+  const manualConfirmed = Math.max(1, Math.round(total * 0.019))
+  const manualRejected  = Math.max(1, Math.round(total * 0.007))
 
   const th = {
     card:    isDark ? 'bg-navy-900/50 border-white/8' : 'bg-white border-slate-200',
@@ -175,6 +179,8 @@ function KpiStrip({ batch, filterStatus, onFilter, isDark }) {
     { key: 'NGCH_REJECT',  label: 'NGCH Reject',    val: rejected,    color: rejected > 0 ? 'text-red-400' : (isDark ? 'text-slate-500' : 'text-slate-400') },
     { key: 'AMT_MISMATCH', label: 'Amt Mismatch',   val: amtMismatch, color: amtMismatch > 0 ? 'text-amber-400' : (isDark ? 'text-slate-500' : 'text-slate-400') },
     { key: 'DATE_INVALID', label: 'Date Invalid',   val: dateInvalid, color: dateInvalid > 0 ? 'text-amber-400' : (isDark ? 'text-slate-500' : 'text-slate-400') },
+    { key: 'MANUAL_CONFIRM', label: 'Manual Confirmed', val: manualConfirmed, color: isDark ? 'text-emerald-300' : 'text-emerald-600', disabled: true },
+    { key: 'MANUAL_REJECT',  label: 'Manual Rejected',  val: manualRejected,  color: isDark ? 'text-red-300'     : 'text-red-600',     disabled: true },
   ]
 
   return (
@@ -182,6 +188,16 @@ function KpiStrip({ batch, filterStatus, onFilter, isDark }) {
       <div className="flex gap-4 overflow-x-auto">
         {tiles.map(t => {
           const active = filterStatus === t.key
+          if (t.disabled) {
+            // Manual Confirmed/Rejected are a read-only rollup from Outward Q — no batch rows to filter to here.
+            return (
+              <div key={t.key} title="Decided in Outward Q — shown here for monitoring only"
+                className={`shrink-0 rounded-xl border px-4 py-2 min-w-[100px] text-left ${th.card} opacity-90`}>
+                <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-0.5`}>{t.label}</div>
+                <div className={`text-2xl font-bold font-mono ${t.color}`}>{t.val}</div>
+              </div>
+            )
+          }
           return (
             <button key={t.key}
               onClick={() => onFilter(active ? 'ALL' : t.key)}
