@@ -85,8 +85,8 @@ class NGCHAdapter:
             import httpx  # type: ignore[import]
 
             if config_service is not None:
-                cert_pem = config_service.get_secret("ngch.tls.client_cert")
-                key_pem = config_service.get_secret("ngch.tls.client_key")
+                cert_pem = await config_service.get_secret("ngch.tls.client_cert")
+                key_pem = await config_service.get_secret("ngch.tls.client_key")
                 ssl_ctx = _build_ssl_context(cert_pem, key_pem)
                 self._http = httpx.AsyncClient(timeout=30.0, verify=ssl_ctx)
                 log.info(

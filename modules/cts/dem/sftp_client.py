@@ -13,6 +13,7 @@ The SFTP client uses paramiko. In tests the _open_sftp() seam is patched.
 """
 from __future__ import annotations
 
+import asyncio
 import io
 import os
 from typing import List
@@ -30,35 +31,40 @@ class DEMSFTPClient:
     """Handles raw SFTP file transfer for the DEM protocol.
 
     Production: opens a real paramiko SSH connection.
-    Tests: patch _open_sftp() with a MagicMock that has putfo/rename/get methods.
+    Tests: patch _open_sftp() with an AsyncMock that has putfo/rename/get methods.
     """
 
     def __init__(self, config: DEMConfig) -> None:
         self._config = config
 
-    def _open_sftp(self, sftp_host: str, sftp_port: int) -> paramiko.SFTPClient:
+    async def _open_sftp(self, sftp_host: str, sftp_port: int) -> paramiko.SFTPClient:
         """Open an authenticated SFTP session.
 
-        Key is loaded from Vault at runtime via config_service.
+        Key is loaded from Vault at runtime via config_service. paramiko is
+        sync-only — the handshake runs in a thread so it never blocks the
+        event loop (this coroutine runs inside a Temporal activity that shares
+        its worker's loop with every other concurrent cheque).
         Tests patch this method.
         """
         from shared.config.config_service import config_service
 
         bank_id = self._config.bank_id
-        private_key_pem = config_service.get_secret(f"banks.{bank_id}.ngch.sftp.private_key")
+        private_key_pem = await config_service.get_secret(f"banks.{bank_id}.ngch.sftp.private_key")
 
-        pkey = paramiko.RSAKey.from_private_key(io.StringIO(private_key_pem))
+        def _connect() -> paramiko.SFTPClient:
+            pkey = paramiko.RSAKey.from_private_key(io.StringIO(private_key_pem))
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
+            ssh.connect(
+                hostname=sftp_host,
+                port=sftp_port,
+                username=self._config.sftp_username,
+                pkey=pkey,
+                timeout=30,
+            )
+            return ssh.open_sftp()
 
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
-        ssh.connect(
-            hostname=sftp_host,
-            port=sftp_port,
-            username=self._config.sftp_username,
-            pkey=pkey,
-            timeout=30,
-        )
-        return ssh.open_sftp()
+        return await asyncio.to_thread(_connect)
 
     async def upload(
         self,
@@ -83,13 +89,17 @@ class DEMSFTPClient:
         with open(backup_path, "wb") as f:
             f.write(data)
 
-        sftp = self._open_sftp(sftp_host, sftp_port)
-        try:
+        sftp = await self._open_sftp(sftp_host, sftp_port)
+
+        def _do_upload() -> None:
             file_obj = io.BytesIO(data)
             sftp.putfo(file_obj, tmp_filename)
             sftp.rename(tmp_filename, filename)
+
+        try:
+            await asyncio.to_thread(_do_upload)
         finally:
-            sftp.close()
+            await asyncio.to_thread(sftp.close)
 
     async def download_batch(
         self,
@@ -107,13 +117,19 @@ class DEMSFTPClient:
         batch = filenames[: self._config.sftp_max_batch_size]
         downloaded: List[str] = []
 
-        sftp = self._open_sftp(sftp_host, sftp_port)
-        try:
+        sftp = await self._open_sftp(sftp_host, sftp_port)
+
+        def _do_download() -> List[str]:
+            paths: List[str] = []
             for remote_filename in batch:
                 local_path = os.path.join(local_dir, remote_filename)
                 sftp.get(remote_filename, local_path)
-                downloaded.append(local_path)
+                paths.append(local_path)
+            return paths
+
+        try:
+            downloaded = await asyncio.to_thread(_do_download)
         finally:
-            sftp.close()
+            await asyncio.to_thread(sftp.close)
 
         return downloaded

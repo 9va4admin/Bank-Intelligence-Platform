@@ -34,10 +34,11 @@ class TestNGCHAdapterInit:
         adapter = NGCHAdapter(bank_id="b", base_url="https://ngch.internal/api")
         assert adapter._ready is False
 
-    def test_connect_sets_ready(self):
+    @pytest.mark.asyncio
+    async def test_connect_sets_ready(self):
         from modules.cts.mcp.ngch_adapter import NGCHAdapter
         adapter = NGCHAdapter(bank_id="b", base_url="https://ngch.internal/api")
-        adapter.connect(http_client=AsyncMock())
+        await adapter.connect(http_client=AsyncMock())
         assert adapter._ready is True
 
     @pytest.mark.asyncio
@@ -258,7 +259,8 @@ class TestMCPTools:
 
 
 class TestNGCHAdapterConnectFallback:
-    def test_connect_without_http_client_imports_httpx(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_connect_without_http_client_imports_httpx(self, monkeypatch):
         """Covers lines 34-35: connect() with no http_client → imports httpx, creates AsyncClient."""
         import sys
         from unittest.mock import MagicMock
@@ -270,8 +272,76 @@ class TestNGCHAdapterConnectFallback:
         monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
 
         adapter = NGCHAdapter(bank_id="test-bank", base_url="https://ngch.internal/api")
-        adapter.connect()
+        await adapter.connect()
 
         assert adapter._ready is True
         fake_httpx.AsyncClient.assert_called_once_with(timeout=30.0)
         assert adapter._http is fake_client
+
+
+# ---------------------------------------------------------------------------
+# connect() with config_service — real Vault-backed mTLS path.
+#
+# This path had zero coverage before: only the http_client-injection path and
+# the no-config_service fallback were tested. That blind spot is exactly how
+# a missing `await` on both get_secret() calls (production bug, now fixed)
+# went unnoticed — the coroutine objects were silently passed to ssl_context
+# building code that never ran in any test.
+# ---------------------------------------------------------------------------
+
+class TestNGCHAdapterConnectWithConfigService:
+    @pytest.mark.asyncio
+    async def test_connect_awaits_cert_and_key_secrets(self, monkeypatch):
+        import sys
+        from unittest.mock import MagicMock
+        from modules.cts.mcp.ngch_adapter import NGCHAdapter
+
+        fake_httpx = MagicMock()
+        fake_client = MagicMock()
+        fake_httpx.AsyncClient.return_value = fake_client
+        monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
+
+        config_service = AsyncMock()
+        config_service.get_secret.side_effect = lambda key: {
+            "ngch.tls.client_cert": "-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----",
+            "ngch.tls.client_key": "-----BEGIN PRIVATE KEY-----\nfake\n-----END PRIVATE KEY-----",
+        }[key]
+
+        built_ssl_ctx = MagicMock()
+        with patch(
+            "modules.cts.mcp.ngch_adapter._build_ssl_context", return_value=built_ssl_ctx
+        ) as mock_build:
+            adapter = NGCHAdapter(bank_id="test-bank", base_url="https://ngch.internal/api")
+            await adapter.connect(config_service=config_service)
+
+        # The whole point: _build_ssl_context must receive real decoded strings,
+        # never an unawaited coroutine object.
+        mock_build.assert_called_once_with(
+            "-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----",
+            "-----BEGIN PRIVATE KEY-----\nfake\n-----END PRIVATE KEY-----",
+        )
+        fake_httpx.AsyncClient.assert_called_once_with(timeout=30.0, verify=built_ssl_ctx)
+        assert adapter._ready is True
+
+    @pytest.mark.asyncio
+    async def test_connect_propagates_vault_unavailable(self, monkeypatch):
+        """If Vault is unreachable, get_secret raises — connect() must not swallow it
+        or silently fall through to the no-mTLS path."""
+        import sys
+        from unittest.mock import MagicMock
+        from modules.cts.mcp.ngch_adapter import NGCHAdapter
+
+        class _VaultUnavailableError(RuntimeError):
+            pass
+
+        fake_httpx = MagicMock()
+        monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
+
+        config_service = AsyncMock()
+        config_service.get_secret.side_effect = _VaultUnavailableError("vault unreachable")
+
+        adapter = NGCHAdapter(bank_id="test-bank", base_url="https://ngch.internal/api")
+        with pytest.raises(_VaultUnavailableError):
+            await adapter.connect(config_service=config_service)
+
+        assert adapter._ready is False

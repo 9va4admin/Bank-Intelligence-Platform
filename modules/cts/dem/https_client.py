@@ -72,8 +72,8 @@ class DEMHTTPSClient:
         from shared.config.config_service import config_service
 
         bank_id = self._config.bank_id
-        tls_cert = config_service.get_secret(f"banks.{bank_id}.ngch.tls.cert")
-        tls_key = config_service.get_secret(f"banks.{bank_id}.ngch.tls.key")
+        tls_cert = await config_service.get_secret(f"banks.{bank_id}.ngch.tls.cert")
+        tls_key = await config_service.get_secret(f"banks.{bank_id}.ngch.tls.key")
 
         async with httpx.AsyncClient(
             cert=(tls_cert, tls_key),
