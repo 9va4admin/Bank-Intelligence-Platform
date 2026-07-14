@@ -72,6 +72,7 @@ from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
 from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
 from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
 from modules.cts.workflows.vault_sync_workflow import VaultSyncWorkflow
+from modules.cts.workflows.delta_vault_sync_workflow import DeltaVaultSyncWorkflow
 from modules.cts.workflows.smb_forwarding_workflow import SMBForwardingWorkflow
 from modules.cts.workflows.smb_cheque_processing_workflow import SMBChequeProcessingWorkflow
 from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
@@ -82,6 +83,7 @@ from modules.cts.workflows.activities.alteration import detect_alteration
 from modules.cts.workflows.activities.signature import verify_signature
 from modules.cts.workflows.activities.pps import lookup_pps
 from modules.cts.workflows.activities.cbs import check_cbs_balance, check_account_status
+from modules.cts.workflows.activities.stop_payment import check_stop_payment
 from modules.cts.workflows.activities.fraud import score_fraud
 from modules.cts.workflows.activities.decision import synthesise_decision
 from modules.cts.workflows.activities.ngch_filer import file_to_ngch
@@ -99,6 +101,11 @@ from modules.cts.workflows.vault_sync_workflow import (
     warm_redis_vault,
     verify_vault_integrity,
 )
+from modules.cts.workflows.delta_vault_sync_workflow import (
+    fetch_delta_stop_payments,
+    fetch_delta_canceled_leaves,
+    update_bloom_filter,
+)
 from modules.cts.workflows.human_review_workflow import push_to_review_queue
 from modules.cts.sub_member.activities import (
     notify_sub_member_return,
@@ -111,6 +118,7 @@ ALL_WORKFLOWS = [
     IETWatchdogWorkflow,
     HumanReviewWorkflow,
     VaultSyncWorkflow,
+    DeltaVaultSyncWorkflow,
     SMBForwardingWorkflow,
     SMBChequeProcessingWorkflow,
     OutwardScanWorkflow,
@@ -124,6 +132,7 @@ ALL_ACTIVITIES = [
     lookup_pps,
     check_cbs_balance,
     check_account_status,
+    check_stop_payment,
     score_fraud,
     synthesise_decision,
     file_to_ngch,
@@ -137,6 +146,9 @@ ALL_ACTIVITIES = [
     load_pps_from_cbs,
     warm_redis_vault,
     verify_vault_integrity,
+    fetch_delta_stop_payments,
+    fetch_delta_canceled_leaves,
+    update_bloom_filter,
     push_to_review_queue,
     notify_sub_member_return,
     emit_batch_ledger_update,
