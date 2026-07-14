@@ -220,3 +220,232 @@ class TestOutwardScanP3MismatchIdGeneration:
             wf.generate_mismatch_id("bank-a", "SCAN-1")
             != wf.generate_mismatch_id("bank-a", "SCAN-2")
         )
+
+
+# ---------------------------------------------------------------------------
+# OutwardScanWorkflow.run() — the real @workflow.run, driven through an
+# actual Temporal Worker + time-skipping test server. Every test above only
+# ever exercised run_with_mocks() (raw dict lookups, no serialization
+# boundary, no real activity dispatch at all) — this proves the
+# @activity.defn/@workflow.defn decorators and workflow.execute_activity()
+# calls added in this fix actually work end to end, including spawning
+# MismatchResolutionWorkflow as a real ABANDON child on a Vision mismatch.
+# ---------------------------------------------------------------------------
+
+import uuid
+from temporalio import activity as _activity
+from temporalio.testing import WorkflowEnvironment
+from temporalio.worker import Worker, UnsandboxedWorkflowRunner
+
+
+def _compliant_input(**overrides):
+    from modules.cts.workflows.outward_scan_workflow import OutwardScanInput
+    defaults = dict(
+        scan_id="SCAN-REAL-001", instrument_id="OUT-REAL-001",
+        bank_id="saraswat-coop", bank_ifsc="SVCB0000001", session_id="SES-001",
+        image_front_url="minio://cts/front/SCAN-REAL-001.tiff",
+        image_rear_url="minio://cts/rear/SCAN-REAL-001.tiff",
+        branch_id="BRANCH-01", cheque_number="000123",
+        front_dpi=203, rear_dpi=203, front_colour_depth=24, rear_colour_depth=24,
+        front_file_size_kb=40.0, rear_file_size_kb=30.0,
+    )
+    defaults.update(overrides)
+    return OutwardScanInput(**defaults)
+
+
+@_activity.defn(name="ocr_extract")
+async def _fake_ocr_matching(inp):
+    from modules.cts.workflows.activities.ocr import OCRActivityResult
+    return OCRActivityResult(
+        outcome="PROCEED", micr_line="123456789", amount_figures="45000.00",
+        overall_confidence=0.95, degraded=False,
+    )
+
+
+@_activity.defn(name="ocr_extract")
+async def _fake_ocr_low_quality(inp):
+    from modules.cts.workflows.activities.ocr import OCRActivityResult
+    return OCRActivityResult(
+        outcome="PROCEED", micr_line="123456789", amount_figures="45000.00",
+        overall_confidence=0.3, degraded=False,
+    )
+
+
+@_activity.defn(name="ocr_extract")
+async def _fake_ocr_degraded(inp):
+    from modules.cts.workflows.activities.ocr import OCRActivityResult
+    return OCRActivityResult(
+        outcome="HUMAN_REVIEW", degraded=True, low_confidence_reason="MODEL_UNAVAILABLE",
+    )
+
+
+@_activity.defn(name="validate_cts2010")
+async def _fake_validate_pass(inp):
+    from modules.cts.workflows.activities.outward_scan_activities import CTS2010ValidationResult
+    return CTS2010ValidationResult(is_compliant=True, violations=[])
+
+
+@_activity.defn(name="create_lot_entry")
+async def _fake_lot(inp):
+    from modules.cts.workflows.activities.outward_scan_activities import LotAssignmentResult
+    return LotAssignmentResult(lot_number="LOT_SVCB0000001_20260714_SES-001_01")
+
+
+@_activity.defn(name="run_vision_presentment_check")
+async def _fake_vision_match(inp):
+    from modules.cts.workflows.activities.outward_scan_activities import VisionPresentmentCheckResult
+    return VisionPresentmentCheckResult(has_mismatch=False, mismatch_fields=[], vision_amount_str="45000.00")
+
+
+@_activity.defn(name="run_vision_presentment_check")
+async def _fake_vision_mismatch(inp):
+    from modules.cts.workflows.activities.outward_scan_activities import VisionPresentmentCheckResult
+    return VisionPresentmentCheckResult(
+        has_mismatch=True, mismatch_fields=["amount_figures"], vision_amount_str="4500.00",
+    )
+
+
+@_activity.defn(name="write_audit")
+async def _fake_write_audit(inp):
+    from modules.cts.workflows.activities.write_audit import WriteAuditResult
+    return WriteAuditResult(success=True, immudb_tx_id="TEST-TX")
+
+
+@_activity.defn(name="publish_mismatch_hold")
+async def _fake_publish_hold(inp):
+    return {"published": True}
+
+
+def _worker(env, task_queue, ocr_fake, vision_fake, compliance_fake=_fake_validate_pass):
+    from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
+    from modules.cts.workflows.mismatch_resolution_workflow import MismatchResolutionWorkflow
+    return Worker(
+        env.client, task_queue=task_queue,
+        workflows=[OutwardScanWorkflow, MismatchResolutionWorkflow],
+        activities=[
+            ocr_fake, compliance_fake, _fake_lot, vision_fake,
+            _fake_write_audit, _fake_publish_hold,
+        ],
+        workflow_runner=UnsandboxedWorkflowRunner(),
+    )
+
+
+class TestOutwardScanWorkflowRealRun:
+    @pytest.mark.asyncio
+    async def test_real_run_accepted_on_vision_match(self):
+        from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
+
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            task_queue = f"tq-{uuid.uuid4()}"
+            async with _worker(env, task_queue, _fake_ocr_matching, _fake_vision_match):
+                result = await env.client.execute_workflow(
+                    OutwardScanWorkflow.run,
+                    _compliant_input(),
+                    id=f"cts-outscan-real-{uuid.uuid4().hex[:8]}",
+                    task_queue=task_queue,
+                )
+
+        assert result.outcome == "ACCEPTED"
+        assert result.micr_line == "123456789"
+        assert result.lot_number == "LOT_SVCB0000001_20260714_SES-001_01"
+        assert result.audit_written is True
+
+    @pytest.mark.asyncio
+    async def test_real_run_cts_rejected_on_missing_metrics(self):
+        """Image metrics deliberately omitted from input — validate_cts2010
+        (the REAL activity, not a fake) must fail closed, not fabricate a
+        pass."""
+        from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
+        from modules.cts.workflows.activities.outward_scan_activities import (
+            validate_cts2010 as real_validate_cts2010,
+        )
+
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            task_queue = f"tq-{uuid.uuid4()}"
+            async with _worker(
+                env, task_queue, _fake_ocr_matching, _fake_vision_match,
+                compliance_fake=real_validate_cts2010,
+            ):
+                result = await env.client.execute_workflow(
+                    OutwardScanWorkflow.run,
+                    _compliant_input(front_dpi=None),
+                    id=f"cts-outscan-real-{uuid.uuid4().hex[:8]}",
+                    task_queue=task_queue,
+                )
+
+        assert result.outcome == "CTS_REJECTED"
+        assert result.violations == ["MISSING_IMAGE_METRICS"]
+        assert result.lot_number is None
+
+    @pytest.mark.asyncio
+    async def test_real_run_mismatch_held_spawns_child_workflow(self):
+        """Vision disagrees with scanner → MISMATCH_HELD, and the child
+        MismatchResolutionWorkflow must actually be reachable/resolvable —
+        proves the ABANDON child spawn is wired for real, not just a
+        log line."""
+        from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
+        from modules.cts.workflows.mismatch_resolution_workflow import (
+            MismatchResolutionWorkflow, MismatchSignal,
+        )
+
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            task_queue = f"tq-{uuid.uuid4()}"
+            async with _worker(env, task_queue, _fake_ocr_matching, _fake_vision_mismatch):
+                result = await env.client.execute_workflow(
+                    OutwardScanWorkflow.run,
+                    _compliant_input(scan_id="SCAN-MM-01", instrument_id="OUT-MM-01"),
+                    id=f"cts-outscan-real-{uuid.uuid4().hex[:8]}",
+                    task_queue=task_queue,
+                )
+                assert result.outcome == "MISMATCH_HELD"
+                assert result.mismatch_id is not None
+
+                # Resolve the spawned child directly, proving it's a real,
+                # independently-addressable workflow (not just referenced).
+                child_id = f"cts-mismatch-saraswat-coop-BRANCH-01-{result.mismatch_id}"
+                child_handle = env.client.get_workflow_handle(child_id)
+                await child_handle.signal(
+                    MismatchResolutionWorkflow.resolve,
+                    MismatchSignal(action="GO_AHEAD", resolved_by="op-test"),
+                )
+                child_result = await child_handle.result()
+
+        # No pydantic converter in this temporalio version (already-documented,
+        # pre-existing, project-wide gap — see project memory): a child
+        # workflow's result comes back as a plain dict, not the typed
+        # MismatchResult, since get_workflow_handle() has no static return
+        # type to reconstruct against. Same class of issue, different call
+        # site, not something this fix can resolve in isolation.
+        outcome = child_result["outcome"] if isinstance(child_result, dict) else child_result.outcome
+        assert outcome == "GO_AHEAD"
+
+    @pytest.mark.asyncio
+    async def test_real_run_ocr_degraded_fails_closed_not_open(self):
+        """A degraded OCR result (model unavailable — the real ocr_extract's
+        own graceful-degradation path, already covered by test_ocr.py) must
+        flow into validate_cts2010's fail-closed MISSING_IMAGE_METRICS path
+        — never a silent ACCEPTED. Uses a fake that reproduces the degraded
+        *shape* rather than the real ocr_extract activity: exercising the
+        real one here would hit the same pre-existing no-pydantic-converter
+        gap as the child-workflow-result case above (unrelated to this
+        workflow's own wiring, already tracked separately)."""
+        from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
+        from modules.cts.workflows.activities.outward_scan_activities import (
+            validate_cts2010 as real_validate_cts2010,
+        )
+
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            task_queue = f"tq-{uuid.uuid4()}"
+            async with _worker(
+                env, task_queue, _fake_ocr_degraded, _fake_vision_match,
+                compliance_fake=real_validate_cts2010,
+            ):
+                result = await env.client.execute_workflow(
+                    OutwardScanWorkflow.run,
+                    _compliant_input(scan_id="SCAN-DEGRADED-01", instrument_id="OUT-DEGRADED-01"),
+                    id=f"cts-outscan-real-{uuid.uuid4().hex[:8]}",
+                    task_queue=task_queue,
+                )
+
+        assert result.outcome == "CTS_REJECTED"
+        assert result.violations == ["MISSING_IMAGE_METRICS"]

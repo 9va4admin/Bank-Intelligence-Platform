@@ -112,6 +112,12 @@ from modules.cts.sub_member.activities import (
     emit_batch_ledger_update,
     check_return_rate_shield,
 )
+from modules.cts.workflows.activities.outward_scan_activities import (
+    validate_cts2010,
+    create_lot_entry,
+    run_vision_presentment_check,
+)
+from modules.cts.workflows.mismatch_resolution_workflow import publish_mismatch_hold
 
 ALL_WORKFLOWS = [
     ChequeProcessingWorkflow,
@@ -153,6 +159,10 @@ ALL_ACTIVITIES = [
     notify_sub_member_return,
     emit_batch_ledger_update,
     check_return_rate_shield,
+    validate_cts2010,
+    create_lot_entry,
+    run_vision_presentment_check,
+    publish_mismatch_hold,
 ]
 
 
