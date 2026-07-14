@@ -55,9 +55,9 @@ class TestReqtypeRU:
         from modules.cts.dem.https_client import DEMHTTPSClient
         return DEMHTTPSClient(config=self.config)
 
-    def test_returns_handshake_result(self):
+    @pytest.mark.asyncio
+    async def test_returns_handshake_result(self):
         from modules.cts.dem.https_client import DEMHTTPSClient
-        import asyncio
         client = self._make_client()
         ru_response = _ok_response(
             SFTPHost="10.1.0.1",
@@ -67,14 +67,12 @@ class TestReqtypeRU:
         )
         with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = ru_response
-            result = asyncio.get_event_loop().run_until_complete(
-                client.reqtype_ru(file_type=DEMFileType.CXF, clearing_type="14")
-            )
+            result = await client.reqtype_ru(file_type=DEMFileType.CXF, clearing_type="14")
         assert result is not None
 
-    def test_sftp_host_in_result(self):
+    @pytest.mark.asyncio
+    async def test_sftp_host_in_result(self):
         from modules.cts.dem.https_client import DEMHTTPSClient
-        import asyncio
         client = self._make_client()
         ru_response = _ok_response(
             SFTPHost="10.1.0.1",
@@ -84,14 +82,12 @@ class TestReqtypeRU:
         )
         with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = ru_response
-            result = asyncio.get_event_loop().run_until_complete(
-                client.reqtype_ru(file_type=DEMFileType.CXF, clearing_type="14")
-            )
+            result = await client.reqtype_ru(file_type=DEMFileType.CXF, clearing_type="14")
         assert result.sftp_host == "10.1.0.1"
 
-    def test_sftp_port_in_result(self):
+    @pytest.mark.asyncio
+    async def test_sftp_port_in_result(self):
         from modules.cts.dem.https_client import DEMHTTPSClient
-        import asyncio
         client = self._make_client()
         ru_response = _ok_response(
             SFTPHost="10.1.0.1",
@@ -101,14 +97,12 @@ class TestReqtypeRU:
         )
         with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = ru_response
-            result = asyncio.get_event_loop().run_until_complete(
-                client.reqtype_ru(file_type=DEMFileType.CXF, clearing_type="14")
-            )
+            result = await client.reqtype_ru(file_type=DEMFileType.CXF, clearing_type="14")
         assert result.sftp_port == 22
 
-    def test_allowed_clearing_types_parsed(self):
+    @pytest.mark.asyncio
+    async def test_allowed_clearing_types_parsed(self):
         from modules.cts.dem.https_client import DEMHTTPSClient
-        import asyncio
         client = self._make_client()
         ru_response = _ok_response(
             SFTPHost="10.1.0.1",
@@ -118,22 +112,18 @@ class TestReqtypeRU:
         )
         with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = ru_response
-            result = asyncio.get_event_loop().run_until_complete(
-                client.reqtype_ru(file_type=DEMFileType.CXF, clearing_type="14")
-            )
+            result = await client.reqtype_ru(file_type=DEMFileType.CXF, clearing_type="14")
         assert FileClearingType.CXF_14 in result.allowed_clearing_types
         assert FileClearingType.CXF_01 in result.allowed_clearing_types
 
-    def test_non_zero_status_raises(self):
+    @pytest.mark.asyncio
+    async def test_non_zero_status_raises(self):
         from modules.cts.dem.https_client import DEMHTTPSClient, DEMHTTPSError
-        import asyncio
         client = self._make_client()
         with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = "StatusCode=99\nStatusDesc=Session limit exceeded\n"
             with pytest.raises(DEMHTTPSError):
-                asyncio.get_event_loop().run_until_complete(
-                    client.reqtype_ru(file_type=DEMFileType.CXF, clearing_type="14")
-                )
+                await client.reqtype_ru(file_type=DEMFileType.CXF, clearing_type="14")
 
 
 # ── DEMHTTPSClient.reqtype_fl ─────────────────────────────────────────────────
@@ -150,9 +140,9 @@ class TestReqtypeFL:
         from modules.cts.dem.https_client import DEMHTTPSClient
         return DEMHTTPSClient(config=self.config)
 
-    def test_returns_list_of_file_info(self):
+    @pytest.mark.asyncio
+    async def test_returns_list_of_file_info(self):
         from modules.cts.dem.https_client import DEMHTTPSClient
-        import asyncio
         client = self._make_client()
         fl_response = _ok_response(
             FileCount="2",
@@ -165,12 +155,12 @@ class TestReqtypeFL:
         )
         with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = fl_response
-            result = asyncio.get_event_loop().run_until_complete(client.reqtype_fl())
+            result = await client.reqtype_fl()
         assert isinstance(result, list)
 
-    def test_file_count_matches_response(self):
+    @pytest.mark.asyncio
+    async def test_file_count_matches_response(self):
         from modules.cts.dem.https_client import DEMHTTPSClient
-        import asyncio
         client = self._make_client()
         fl_response = _ok_response(
             FileCount="2",
@@ -183,22 +173,22 @@ class TestReqtypeFL:
         )
         with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = fl_response
-            result = asyncio.get_event_loop().run_until_complete(client.reqtype_fl())
+            result = await client.reqtype_fl()
         assert len(result) == 2
 
-    def test_empty_file_list_returns_empty(self):
+    @pytest.mark.asyncio
+    async def test_empty_file_list_returns_empty(self):
         from modules.cts.dem.https_client import DEMHTTPSClient
-        import asyncio
         client = self._make_client()
         fl_response = _ok_response(FileCount="0")
         with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = fl_response
-            result = asyncio.get_event_loop().run_until_complete(client.reqtype_fl())
+            result = await client.reqtype_fl()
         assert result == []
 
-    def test_file_type_parsed(self):
+    @pytest.mark.asyncio
+    async def test_file_type_parsed(self):
         from modules.cts.dem.https_client import DEMHTTPSClient
-        import asyncio
         client = self._make_client()
         fl_response = _ok_response(
             FileCount="1",
@@ -208,13 +198,13 @@ class TestReqtypeFL:
         )
         with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = fl_response
-            result = asyncio.get_event_loop().run_until_complete(client.reqtype_fl())
+            result = await client.reqtype_fl()
         assert result[0].file_type == DEMFileType.PXF
 
-    def test_files_sorted_by_priority(self):
+    @pytest.mark.asyncio
+    async def test_files_sorted_by_priority(self):
         """FL result must be sorted by inward download priority (PXF before RF)."""
         from modules.cts.dem.https_client import DEMHTTPSClient
-        import asyncio
         client = self._make_client()
         # RF listed first in response, PXF second — but priority must sort PXF first
         fl_response = _ok_response(
@@ -228,7 +218,7 @@ class TestReqtypeFL:
         )
         with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = fl_response
-            result = asyncio.get_event_loop().run_until_complete(client.reqtype_fl())
+            result = await client.reqtype_fl()
         assert result[0].file_type == DEMFileType.PXF
         assert result[1].file_type == DEMFileType.RF
 
@@ -247,39 +237,101 @@ class TestReqtypeA:
         from modules.cts.dem.https_client import DEMHTTPSClient
         return DEMHTTPSClient(config=self.config)
 
-    def test_ack_success_returns_true(self):
+    @pytest.mark.asyncio
+    async def test_ack_success_returns_true(self):
         from modules.cts.dem.https_client import DEMHTTPSClient
-        import asyncio
         client = self._make_client()
         with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = _ok_response()
-            result = asyncio.get_event_loop().run_until_complete(
-                client.reqtype_a(filename="000550050_PXF_07072026_001.cxf")
-            )
+            result = await client.reqtype_a(filename="000550050_PXF_07072026_001.cxf")
         assert result is True
 
-    def test_ack_failure_raises(self):
+    @pytest.mark.asyncio
+    async def test_ack_failure_raises(self):
         from modules.cts.dem.https_client import DEMHTTPSClient, DEMHTTPSError
-        import asyncio
         client = self._make_client()
         with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = "StatusCode=55\nStatusDesc=File not found\n"
             with pytest.raises(DEMHTTPSError):
-                asyncio.get_event_loop().run_until_complete(
-                    client.reqtype_a(filename="missing.pxf")
-                )
+                await client.reqtype_a(filename="missing.pxf")
 
-    def test_post_called_with_reqtype_a(self):
+    @pytest.mark.asyncio
+    async def test_post_called_with_reqtype_a(self):
         from modules.cts.dem.https_client import DEMHTTPSClient
-        import asyncio
         client = self._make_client()
         with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = _ok_response()
-            asyncio.get_event_loop().run_until_complete(
-                client.reqtype_a(filename="f1.pxf")
-            )
+            await client.reqtype_a(filename="f1.pxf")
         call_args = mock_post.call_args
         assert call_args is not None
         # The payload dict passed to _post must contain Reqtype=A
         payload = call_args[0][0] if call_args[0] else call_args[1].get("payload", {})
         assert payload.get("Reqtype") == "A"
+
+
+# ---------------------------------------------------------------------------
+# _post's real body (not mocked out) — every test above patches _post entirely,
+# which is exactly how a missing `await` on both get_secret() calls (production
+# bug, now fixed) went unnoticed: the coroutine objects were silently passed to
+# httpx.AsyncClient(cert=...) and never actually exercised.
+# ---------------------------------------------------------------------------
+
+class TestDEMHTTPSClientPost:
+    @pytest.mark.asyncio
+    async def test_post_awaits_cert_and_key_secrets(self, monkeypatch):
+        import sys
+        from modules.cts.dem.https_client import DEMHTTPSClient
+
+        config = _dem_config()
+
+        fake_response = MagicMock()
+        fake_response.text = "StatusCode=00\n"
+        fake_response.raise_for_status = MagicMock()
+
+        fake_client_ctx = AsyncMock()
+        fake_client_ctx.__aenter__.return_value = fake_client_ctx
+        fake_client_ctx.post = AsyncMock(return_value=fake_response)
+
+        fake_httpx = MagicMock()
+        fake_httpx.AsyncClient.return_value = fake_client_ctx
+        monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
+
+        fake_config_service = AsyncMock()
+        fake_config_service.get_secret.side_effect = lambda key: {
+            f"banks.{config.bank_id}.ngch.tls.cert": "REAL-CERT-PEM",
+            f"banks.{config.bank_id}.ngch.tls.key": "REAL-KEY-PEM",
+        }[key]
+        # See test_dem_key_manager.py for why sys.modules is patched directly
+        # rather than via `import shared.config.config_service as m`.
+        import shared.config.config_service  # noqa: F401 — ensure sys.modules entry exists
+        real_module = sys.modules["shared.config.config_service"]
+        monkeypatch.setattr(real_module, "config_service", fake_config_service)
+
+        client = DEMHTTPSClient(config=config)
+        body = await client._post({"Reqtype": "FL"})
+
+        assert body == "StatusCode=00\n"
+        fake_httpx.AsyncClient.assert_called_once_with(
+            cert=("REAL-CERT-PEM", "REAL-KEY-PEM"), timeout=30.0
+        )
+
+    @pytest.mark.asyncio
+    async def test_post_propagates_vault_unavailable(self, monkeypatch):
+        import sys
+        from modules.cts.dem.https_client import DEMHTTPSClient
+
+        class _VaultUnavailableError(RuntimeError):
+            pass
+
+        fake_httpx = MagicMock()
+        monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
+
+        fake_config_service = AsyncMock()
+        fake_config_service.get_secret.side_effect = _VaultUnavailableError("vault down")
+        import shared.config.config_service  # noqa: F401 — ensure sys.modules entry exists
+        real_module = sys.modules["shared.config.config_service"]
+        monkeypatch.setattr(real_module, "config_service", fake_config_service)
+
+        client = DEMHTTPSClient(config=_dem_config())
+        with pytest.raises(_VaultUnavailableError):
+            await client._post({"Reqtype": "FL"})

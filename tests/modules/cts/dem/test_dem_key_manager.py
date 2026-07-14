@@ -84,49 +84,49 @@ class TestDEMKeyManagerGetCchKey:
         from modules.cts.dem.key_manager import DEMKeyManager
         return DEMKeyManager(config=self.config)
 
-    def test_get_cch_key_returns_cch_key_bundle(self):
+    @pytest.mark.asyncio
+    async def test_get_cch_key_returns_cch_key_bundle(self):
         from modules.cts.dem.key_manager import DEMKeyManager
         manager = DEMKeyManager(config=self.config)
         with patch.object(manager, "_fetch_from_cch", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = self.response_body
-            import asyncio
-            bundle = asyncio.get_event_loop().run_until_complete(manager.get_cch_key())
+            bundle = await manager.get_cch_key()
         assert isinstance(bundle, CCHKeyBundle)
 
-    def test_bundle_has_correct_modulus(self):
+    @pytest.mark.asyncio
+    async def test_bundle_has_correct_modulus(self):
         from modules.cts.dem.key_manager import DEMKeyManager
         manager = DEMKeyManager(config=self.config)
         with patch.object(manager, "_fetch_from_cch", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = self.response_body
-            import asyncio
-            bundle = asyncio.get_event_loop().run_until_complete(manager.get_cch_key())
+            bundle = await manager.get_cch_key()
         assert bundle.modulus == self.cch_pub.public_numbers().n
 
-    def test_bundle_has_correct_exponent(self):
+    @pytest.mark.asyncio
+    async def test_bundle_has_correct_exponent(self):
         from modules.cts.dem.key_manager import DEMKeyManager
         manager = DEMKeyManager(config=self.config)
         with patch.object(manager, "_fetch_from_cch", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = self.response_body
-            import asyncio
-            bundle = asyncio.get_event_loop().run_until_complete(manager.get_cch_key())
+            bundle = await manager.get_cch_key()
         assert bundle.exponent == self.cch_pub.public_numbers().e
 
-    def test_bundle_has_correct_alias(self):
+    @pytest.mark.asyncio
+    async def test_bundle_has_correct_alias(self):
         from modules.cts.dem.key_manager import DEMKeyManager
         manager = DEMKeyManager(config=self.config)
         with patch.object(manager, "_fetch_from_cch", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = self.response_body
-            import asyncio
-            bundle = asyncio.get_event_loop().run_until_complete(manager.get_cch_key())
+            bundle = await manager.get_cch_key()
         assert bundle.dem_key_alias_name == "CCH-ALIAS-01"
 
-    def test_bundle_valid_dates_stored(self):
+    @pytest.mark.asyncio
+    async def test_bundle_valid_dates_stored(self):
         from modules.cts.dem.key_manager import DEMKeyManager
         manager = DEMKeyManager(config=self.config)
         with patch.object(manager, "_fetch_from_cch", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = self.response_body
-            import asyncio
-            bundle = asyncio.get_event_loop().run_until_complete(manager.get_cch_key())
+            bundle = await manager.get_cch_key()
         assert bundle.valid_from == "01/01/2026"
         assert bundle.valid_to == "31/12/2026"
 
@@ -140,27 +140,25 @@ class TestDEMKeyManagerCaching:
         self._priv, self.cch_pub = _mock_rsa_key_pair()
         self.response_body = _reqtype_w_response(self.cch_pub)
 
-    def test_second_call_uses_cache(self):
+    @pytest.mark.asyncio
+    async def test_second_call_uses_cache(self):
         from modules.cts.dem.key_manager import DEMKeyManager
-        import asyncio
         manager = DEMKeyManager(config=self.config)
         with patch.object(manager, "_fetch_from_cch", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = self.response_body
-            loop = asyncio.get_event_loop()
-            b1 = loop.run_until_complete(manager.get_cch_key())
-            b2 = loop.run_until_complete(manager.get_cch_key())
+            b1 = await manager.get_cch_key()
+            b2 = await manager.get_cch_key()
         assert mock_fetch.call_count == 1
         assert b1 is b2
 
-    def test_expired_cache_triggers_refresh(self):
+    @pytest.mark.asyncio
+    async def test_expired_cache_triggers_refresh(self):
         """When cache is older than key_refresh_interval_hours, re-fetch."""
         from modules.cts.dem.key_manager import DEMKeyManager
-        import asyncio
         manager = DEMKeyManager(config=self.config)
         with patch.object(manager, "_fetch_from_cch", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = self.response_body
-            loop = asyncio.get_event_loop()
-            b1 = loop.run_until_complete(manager.get_cch_key())
+            b1 = await manager.get_cch_key()
             # Manually expire the cache
             manager._cached_bundle = CCHKeyBundle(
                 modulus=b1.modulus,
@@ -170,19 +168,18 @@ class TestDEMKeyManagerCaching:
                 dem_key_alias_name=b1.dem_key_alias_name,
                 retrieved_at=time.time() - (4 * 3600 + 1),  # 4h+1s ago
             )
-            b2 = loop.run_until_complete(manager.get_cch_key())
+            b2 = await manager.get_cch_key()
         assert mock_fetch.call_count == 2
 
-    def test_force_refresh_bypasses_cache(self):
+    @pytest.mark.asyncio
+    async def test_force_refresh_bypasses_cache(self):
         """force_refresh=True must always re-fetch regardless of cache age."""
         from modules.cts.dem.key_manager import DEMKeyManager
-        import asyncio
         manager = DEMKeyManager(config=self.config)
         with patch.object(manager, "_fetch_from_cch", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = self.response_body
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(manager.get_cch_key())
-            loop.run_until_complete(manager.get_cch_key(force_refresh=True))
+            await manager.get_cch_key()
+            await manager.get_cch_key(force_refresh=True)
         assert mock_fetch.call_count == 2
 
 
@@ -193,45 +190,45 @@ class TestDEMKeyManagerErrorHandling:
         self.config = _dem_config()
         self._priv, self.cch_pub = _mock_rsa_key_pair()
 
-    def test_non_zero_status_code_raises(self):
+    @pytest.mark.asyncio
+    async def test_non_zero_status_code_raises(self):
         from modules.cts.dem.key_manager import DEMKeyManager, DEMKeyError
-        import asyncio
         error_response = _reqtype_w_response(self.cch_pub, status="99")
         manager = DEMKeyManager(config=self.config)
         with patch.object(manager, "_fetch_from_cch", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = error_response
             with pytest.raises(DEMKeyError, match="StatusCode"):
-                asyncio.get_event_loop().run_until_complete(manager.get_cch_key())
+                await manager.get_cch_key()
 
-    def test_missing_modulus_raises(self):
+    @pytest.mark.asyncio
+    async def test_missing_modulus_raises(self):
         from modules.cts.dem.key_manager import DEMKeyManager, DEMKeyError
-        import asyncio
         bad_response = "StatusCode=00\nStatusDesc=Success\nExponent=10001\n"
         manager = DEMKeyManager(config=self.config)
         with patch.object(manager, "_fetch_from_cch", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = bad_response
             with pytest.raises(DEMKeyError, match="Modulus"):
-                asyncio.get_event_loop().run_until_complete(manager.get_cch_key())
+                await manager.get_cch_key()
 
-    def test_missing_exponent_raises(self):
+    @pytest.mark.asyncio
+    async def test_missing_exponent_raises(self):
         from modules.cts.dem.key_manager import DEMKeyManager, DEMKeyError
-        import asyncio
         nums = self.cch_pub.public_numbers()
         bad_response = f"StatusCode=00\nStatusDesc=Success\nModulus={hex(nums.n)[2:].upper()}\n"
         manager = DEMKeyManager(config=self.config)
         with patch.object(manager, "_fetch_from_cch", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = bad_response
             with pytest.raises(DEMKeyError, match="Exponent"):
-                asyncio.get_event_loop().run_until_complete(manager.get_cch_key())
+                await manager.get_cch_key()
 
-    def test_network_error_raises_dem_key_error(self):
+    @pytest.mark.asyncio
+    async def test_network_error_raises_dem_key_error(self):
         from modules.cts.dem.key_manager import DEMKeyManager, DEMKeyError
-        import asyncio
         manager = DEMKeyManager(config=self.config)
         with patch.object(manager, "_fetch_from_cch", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.side_effect = ConnectionError("HTTPS connection refused")
             with pytest.raises(DEMKeyError):
-                asyncio.get_event_loop().run_until_complete(manager.get_cch_key())
+                await manager.get_cch_key()
 
 
 class TestDEMKeyManagerParseResponse:
@@ -259,3 +256,79 @@ class TestDEMKeyManagerParseResponse:
         bad = _reqtype_w_response(pub, status="88")
         with pytest.raises(DEMKeyError):
             _parse_w_response(bad)
+
+
+# ---------------------------------------------------------------------------
+# _fetch_from_cch's real body (not mocked out) — every test above patches
+# _fetch_from_cch entirely, which is exactly how a missing `await` on both
+# get_secret() calls (production bug, now fixed) went unnoticed: the coroutine
+# objects were silently passed to httpx.AsyncClient(cert=...) and never
+# actually exercised.
+# ---------------------------------------------------------------------------
+
+class TestDEMKeyManagerFetchFromCCH:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.config = _dem_config()
+
+    @pytest.mark.asyncio
+    async def test_fetch_from_cch_awaits_cert_and_key_secrets(self, monkeypatch):
+        import sys
+        from modules.cts.dem.key_manager import DEMKeyManager
+
+        fake_response = MagicMock()
+        fake_response.text = "StatusCode=00\n"
+        fake_response.raise_for_status = MagicMock()
+
+        fake_client_ctx = AsyncMock()
+        fake_client_ctx.__aenter__.return_value = fake_client_ctx
+        fake_client_ctx.post = AsyncMock(return_value=fake_response)
+
+        fake_httpx = MagicMock()
+        fake_httpx.AsyncClient.return_value = fake_client_ctx
+        monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
+
+        fake_config_service = AsyncMock()
+        fake_config_service.get_secret.side_effect = lambda key: {
+            f"banks.{self.config.bank_id}.ngch.tls.cert": "REAL-CERT-PEM",
+            f"banks.{self.config.bank_id}.ngch.tls.key": "REAL-KEY-PEM",
+        }[key]
+        # shared/config/__init__.py rebinds the "config_service" package attribute
+        # to the singleton instance, so `import shared.config.config_service as m`
+        # resolves to the instance, not the module. Patch via sys.modules directly
+        # instead — that's what the production code's own
+        # `from shared.config.config_service import config_service` resolves through.
+        import shared.config.config_service  # noqa: F401 — ensure sys.modules entry exists
+        real_module = sys.modules["shared.config.config_service"]
+        monkeypatch.setattr(real_module, "config_service", fake_config_service)
+
+        manager = DEMKeyManager(config=self.config)
+        body = await manager._fetch_from_cch()
+
+        assert body == "StatusCode=00\n"
+        # The whole point: httpx.AsyncClient must receive real decoded strings,
+        # never unawaited coroutine objects, as the cert=(cert, key) tuple.
+        fake_httpx.AsyncClient.assert_called_once_with(
+            cert=("REAL-CERT-PEM", "REAL-KEY-PEM"), timeout=30.0
+        )
+
+    @pytest.mark.asyncio
+    async def test_fetch_from_cch_propagates_vault_unavailable(self, monkeypatch):
+        import sys
+        from modules.cts.dem.key_manager import DEMKeyManager
+
+        class _VaultUnavailableError(RuntimeError):
+            pass
+
+        fake_httpx = MagicMock()
+        monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
+
+        fake_config_service = AsyncMock()
+        fake_config_service.get_secret.side_effect = _VaultUnavailableError("vault down")
+        import shared.config.config_service  # noqa: F401 — ensure sys.modules entry exists
+        real_module = sys.modules["shared.config.config_service"]
+        monkeypatch.setattr(real_module, "config_service", fake_config_service)
+
+        manager = DEMKeyManager(config=self.config)
+        with pytest.raises(_VaultUnavailableError):
+            await manager._fetch_from_cch()

@@ -93,7 +93,8 @@ class TestDEMOutwardTransportUpload:
         from modules.cts.dem.transport import DEMOutwardTransport
         assert DEMOutwardTransport is not None
 
-    def test_upload_calls_sign_and_encrypt(self):
+    @pytest.mark.asyncio
+    async def test_upload_calls_sign_and_encrypt(self):
         """Transport must call sign_and_encrypt_file before uploading."""
         from modules.cts.dem.transport import DEMOutwardTransport
         transport = self._make_transport()
@@ -113,22 +114,21 @@ class TestDEMOutwardTransportUpload:
             mock_https.reqtype_r = AsyncMock(return_value="SES-001")
             mock_sftp.return_value = None
 
-            asyncio.get_event_loop().run_until_complete(
-                transport.upload(
-                    file_bytes=self.raw_bytes,
-                    file_type=DEMFileType.CXF,
-                    clearing_type="14",
-                    filename=self.filename,
-                    hsm=self.hsm,
-                    cch_key_bundle=self.bundle,
-                )
+            await transport.upload(
+                file_bytes=self.raw_bytes,
+                file_type=DEMFileType.CXF,
+                clearing_type="14",
+                filename=self.filename,
+                hsm=self.hsm,
+                cch_key_bundle=self.bundle,
             )
 
         mock_pki.assert_called_once()
         call_kwargs = mock_pki.call_args
         assert call_kwargs[0][0] == self.raw_bytes  # first positional = raw_bytes
 
-    def test_upload_calls_reqtype_ru(self):
+    @pytest.mark.asyncio
+    async def test_upload_calls_reqtype_ru(self):
         from modules.cts.dem.transport import DEMOutwardTransport
         transport = self._make_transport()
 
@@ -145,20 +145,19 @@ class TestDEMOutwardTransportUpload:
             mock_https.reqtype_ru = AsyncMock(return_value=handshake)
             mock_https.reqtype_r = AsyncMock(return_value="SES-001")
 
-            asyncio.get_event_loop().run_until_complete(
-                transport.upload(
-                    file_bytes=self.raw_bytes,
-                    file_type=DEMFileType.CXF,
-                    clearing_type="14",
-                    filename=self.filename,
-                    hsm=self.hsm,
-                    cch_key_bundle=self.bundle,
-                )
+            await transport.upload(
+                file_bytes=self.raw_bytes,
+                file_type=DEMFileType.CXF,
+                clearing_type="14",
+                filename=self.filename,
+                hsm=self.hsm,
+                cch_key_bundle=self.bundle,
             )
 
         mock_https.reqtype_ru.assert_called_once()
 
-    def test_upload_calls_sftp_upload(self):
+    @pytest.mark.asyncio
+    async def test_upload_calls_sftp_upload(self):
         from modules.cts.dem.transport import DEMOutwardTransport
         transport = self._make_transport()
 
@@ -175,15 +174,13 @@ class TestDEMOutwardTransportUpload:
             mock_https.reqtype_ru = AsyncMock(return_value=handshake)
             mock_https.reqtype_r = AsyncMock(return_value="SES-001")
 
-            asyncio.get_event_loop().run_until_complete(
-                transport.upload(
-                    file_bytes=self.raw_bytes,
-                    file_type=DEMFileType.CXF,
-                    clearing_type="14",
-                    filename=self.filename,
-                    hsm=self.hsm,
-                    cch_key_bundle=self.bundle,
-                )
+            await transport.upload(
+                file_bytes=self.raw_bytes,
+                file_type=DEMFileType.CXF,
+                clearing_type="14",
+                filename=self.filename,
+                hsm=self.hsm,
+                cch_key_bundle=self.bundle,
             )
 
         mock_sftp.assert_called_once()
@@ -191,7 +188,8 @@ class TestDEMOutwardTransportUpload:
         call_args = mock_sftp.call_args
         assert b"WRAPPED" in call_args[0] or call_args[1].get("data") == b"WRAPPED"
 
-    def test_upload_calls_reqtype_r_after_sftp(self):
+    @pytest.mark.asyncio
+    async def test_upload_calls_reqtype_r_after_sftp(self):
         from modules.cts.dem.transport import DEMOutwardTransport
         transport = self._make_transport()
 
@@ -208,15 +206,13 @@ class TestDEMOutwardTransportUpload:
             mock_https.reqtype_ru = AsyncMock(return_value=handshake)
             mock_https.reqtype_r = AsyncMock(return_value="SES-001")
 
-            asyncio.get_event_loop().run_until_complete(
-                transport.upload(
-                    file_bytes=self.raw_bytes,
-                    file_type=DEMFileType.CXF,
-                    clearing_type="14",
-                    filename=self.filename,
-                    hsm=self.hsm,
-                    cch_key_bundle=self.bundle,
-                )
+            await transport.upload(
+                file_bytes=self.raw_bytes,
+                file_type=DEMFileType.CXF,
+                clearing_type="14",
+                filename=self.filename,
+                hsm=self.hsm,
+                cch_key_bundle=self.bundle,
             )
 
         mock_https.reqtype_r.assert_called_once()
@@ -236,7 +232,8 @@ class TestDEMSFTPClientTmpRename:
         from modules.cts.dem.sftp_client import DEMSFTPClient
         assert DEMSFTPClient is not None
 
-    def test_upload_writes_tmp_file_first(self):
+    @pytest.mark.asyncio
+    async def test_upload_writes_tmp_file_first(self):
         """SFTP upload must write to {filename}.tmp before renaming."""
         from modules.cts.dem.sftp_client import DEMSFTPClient
 
@@ -245,16 +242,14 @@ class TestDEMSFTPClientTmpRename:
         mock_sftp.putfo = MagicMock()
         mock_sftp.rename = MagicMock()
 
-        with patch.object(client, "_open_sftp", return_value=mock_sftp), \
+        with patch.object(client, "_open_sftp", new_callable=AsyncMock, return_value=mock_sftp), \
              patch("builtins.open", MagicMock()), \
              patch("os.makedirs"):
-            asyncio.get_event_loop().run_until_complete(
-                client.upload(
-                    data=b"file content",
-                    filename="test.cxf",
-                    sftp_host="10.1.0.1",
-                    sftp_port=22,
-                )
+            await client.upload(
+                data=b"file content",
+                filename="test.cxf",
+                sftp_host="10.1.0.1",
+                sftp_port=22,
             )
 
         # putfo must have been called with the .tmp filename
@@ -263,7 +258,8 @@ class TestDEMSFTPClientTmpRename:
         tmp_filename = put_args[0][1] if len(put_args[0]) > 1 else put_args[1].get("remotepath", "")
         assert tmp_filename.endswith(".tmp") or "test.cxf.tmp" in str(put_args)
 
-    def test_upload_renames_after_write(self):
+    @pytest.mark.asyncio
+    async def test_upload_renames_after_write(self):
         """After putfo, rename must be called to remove .tmp suffix."""
         from modules.cts.dem.sftp_client import DEMSFTPClient
 
@@ -272,16 +268,14 @@ class TestDEMSFTPClientTmpRename:
         mock_sftp.putfo = MagicMock()
         mock_sftp.rename = MagicMock()
 
-        with patch.object(client, "_open_sftp", return_value=mock_sftp), \
+        with patch.object(client, "_open_sftp", new_callable=AsyncMock, return_value=mock_sftp), \
              patch("builtins.open", MagicMock()), \
              patch("os.makedirs"):
-            asyncio.get_event_loop().run_until_complete(
-                client.upload(
-                    data=b"file content",
-                    filename="test.cxf",
-                    sftp_host="10.1.0.1",
-                    sftp_port=22,
-                )
+            await client.upload(
+                data=b"file content",
+                filename="test.cxf",
+                sftp_host="10.1.0.1",
+                sftp_port=22,
             )
 
         # rename must be called
@@ -291,7 +285,8 @@ class TestDEMSFTPClientTmpRename:
         assert "test.cxf.tmp" in rename_args[0] or rename_args[0].endswith(".tmp")
         assert rename_args[1] == "test.cxf" or "test.cxf" in rename_args[1]
 
-    def test_sftp_upload_saves_local_backup(self):
+    @pytest.mark.asyncio
+    async def test_sftp_upload_saves_local_backup(self):
         """Transport must save raw_bytes to local backup dir for resend capability."""
         from modules.cts.dem.sftp_client import DEMSFTPClient
         import os
@@ -301,16 +296,81 @@ class TestDEMSFTPClientTmpRename:
         mock_sftp.putfo = MagicMock()
         mock_sftp.rename = MagicMock()
 
-        with patch.object(client, "_open_sftp", return_value=mock_sftp), \
+        with patch.object(client, "_open_sftp", new_callable=AsyncMock, return_value=mock_sftp), \
              patch("builtins.open", MagicMock()) as mock_open:
-            asyncio.get_event_loop().run_until_complete(
-                client.upload(
-                    data=b"file content for backup",
-                    filename="test.cxf",
-                    sftp_host="10.1.0.1",
-                    sftp_port=22,
-                )
+            await client.upload(
+                data=b"file content for backup",
+                filename="test.cxf",
+                sftp_host="10.1.0.1",
+                sftp_port=22,
             )
 
         # Local backup open must have been called
         assert mock_open.called
+
+
+# ---------------------------------------------------------------------------
+# _open_sftp's real body (not mocked out) — every test above patches
+# _open_sftp entirely. _open_sftp is the one call site in the whole DEM await
+# sweep that can't just take an `await` — it's a *sync* def calling the async
+# get_secret(), because it wraps paramiko (sync-only). Fix: make it async,
+# await get_secret() directly, and push the blocking paramiko handshake onto
+# a thread so it never stalls the event loop (a Temporal worker's activities
+# all share one loop — a blocking SSH handshake here would stall every other
+# concurrent cheque, not just this one).
+# ---------------------------------------------------------------------------
+
+class TestDEMSFTPClientOpenSftp:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.config = _dem_config()
+
+    @pytest.mark.asyncio
+    async def test_open_sftp_awaits_private_key_secret(self, monkeypatch):
+        from modules.cts.dem.sftp_client import DEMSFTPClient
+
+        fake_config_service = AsyncMock()
+        fake_config_service.get_secret.return_value = "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----"
+        # See test_dem_key_manager.py for why sys.modules is patched directly
+        # rather than via `import shared.config.config_service as m`.
+        import shared.config.config_service  # noqa: F401 — ensure sys.modules entry exists
+        import sys
+        real_module = sys.modules["shared.config.config_service"]
+        monkeypatch.setattr(real_module, "config_service", fake_config_service)
+
+        fake_sftp = MagicMock()
+        fake_pkey = MagicMock()
+        fake_ssh = MagicMock()
+        fake_ssh.open_sftp.return_value = fake_sftp
+
+        with patch("paramiko.RSAKey.from_private_key", return_value=fake_pkey) as mock_from_key, \
+             patch("paramiko.SSHClient", return_value=fake_ssh):
+            client = DEMSFTPClient(config=self.config)
+            result = await client._open_sftp("10.1.0.1", 22)
+
+        assert result is fake_sftp
+        # The whole point: RSAKey.from_private_key must receive the real
+        # awaited PEM string, never an unawaited coroutine object.
+        assert mock_from_key.call_count == 1
+        fake_ssh.connect.assert_called_once_with(
+            hostname="10.1.0.1", port=22, username=self.config.sftp_username,
+            pkey=fake_pkey, timeout=30,
+        )
+
+    @pytest.mark.asyncio
+    async def test_open_sftp_propagates_vault_unavailable(self, monkeypatch):
+        from modules.cts.dem.sftp_client import DEMSFTPClient
+
+        class _VaultUnavailableError(RuntimeError):
+            pass
+
+        fake_config_service = AsyncMock()
+        fake_config_service.get_secret.side_effect = _VaultUnavailableError("vault down")
+        import shared.config.config_service  # noqa: F401 — ensure sys.modules entry exists
+        import sys
+        real_module = sys.modules["shared.config.config_service"]
+        monkeypatch.setattr(real_module, "config_service", fake_config_service)
+
+        client = DEMSFTPClient(config=self.config)
+        with pytest.raises(_VaultUnavailableError):
+            await client._open_sftp("10.1.0.1", 22)

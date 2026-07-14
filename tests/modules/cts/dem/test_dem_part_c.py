@@ -189,7 +189,8 @@ class TestResendHandler:
         filenames = handler.parse_resend_file("")
         assert filenames == []
 
-    def test_resend_reads_from_local_backup(self):
+    @pytest.mark.asyncio
+    async def test_resend_reads_from_local_backup(self):
         """resend() must read file bytes from local backup dir, not transmit raw."""
         from modules.cts.dem.resend_handler import ResendHandler
 
@@ -198,14 +199,13 @@ class TestResendHandler:
 
         with patch("builtins.open", MagicMock(return_value=__import__("io").BytesIO(b"BACKUP"))) as mock_open, \
              patch.object(handler, "_transmit", new_callable=AsyncMock) as mock_tx:
-            asyncio.get_event_loop().run_until_complete(
-                handler.resend(filenames=["000550050_CXF_14_07072026_001.cxf"])
-            )
+            await handler.resend(filenames=["000550050_CXF_14_07072026_001.cxf"])
 
         # transmit must be called with the loaded backup bytes
         mock_tx.assert_called_once()
 
-    def test_resend_missing_backup_raises(self):
+    @pytest.mark.asyncio
+    async def test_resend_missing_backup_raises(self):
         """If backup file not found, ResendHandler raises ResendError, not silent fail."""
         from modules.cts.dem.resend_handler import ResendHandler, ResendError
 
@@ -214,6 +214,4 @@ class TestResendHandler:
 
         with patch("builtins.open", side_effect=FileNotFoundError("backup not found")):
             with pytest.raises(ResendError):
-                asyncio.get_event_loop().run_until_complete(
-                    handler.resend(filenames=["missing_file.cxf"])
-                )
+                await handler.resend(filenames=["missing_file.cxf"])
