@@ -15,12 +15,23 @@ Task queue: cts-processing-{bank_id} (same as main CTS queue, low priority)
 """
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any, Optional
 
 import structlog
 from pydantic import BaseModel, ConfigDict
+from temporalio import activity, workflow
+from temporalio.common import RetryPolicy
 
 log = structlog.get_logger()
+
+# Same shape as _INFRA_RETRY in vault_sync_workflow.py — network-dependent
+# CBS/Redis infra calls, not AI/NGCH/audit-shaped.
+_INFRA_RETRY = RetryPolicy(
+    maximum_attempts=3,
+    initial_interval=timedelta(seconds=2),
+    backoff_coefficient=1.5,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -46,6 +57,7 @@ class DeltaVaultSyncResult(BaseModel):
 # Activities (called by DeltaVaultSyncWorkflow via Temporal)
 # ---------------------------------------------------------------------------
 
+@activity.defn
 async def fetch_delta_stop_payments(
     bank_id: str,
     window_minutes: int,
@@ -77,6 +89,7 @@ async def fetch_delta_stop_payments(
         return []
 
 
+@activity.defn
 async def fetch_delta_canceled_leaves(
     bank_id: str,
     window_minutes: int,
@@ -108,6 +121,7 @@ async def fetch_delta_canceled_leaves(
         return []
 
 
+@activity.defn
 async def update_bloom_filter(
     bank_id: str,
     stop_payment_deltas: list[dict],
@@ -152,26 +166,69 @@ async def update_bloom_filter(
 # DeltaVaultSyncWorkflow — orchestrator
 # ---------------------------------------------------------------------------
 
+@workflow.defn
 class DeltaVaultSyncWorkflow:
     """
     Temporal workflow that orchestrates the 15-minute delta vault sync.
 
-    Designed to run as a testable plain class (no Temporal decorators required
-    for unit tests). When registered with the Temporal worker, the `run` method
-    is decorated externally or via subclass.
-
     Workflow ID convention: cts-vault-delta-{bank_id}-{yyyymmddhhmm}
     Task queue: cts-processing-{bank_id}
-
-    Args to run():
-        inp          — DeltaVaultSyncInput (bank_id, sync_window_minutes)
-        cbs_client   — CBS client with get_stop_payment_deltas() and
-                        get_canceled_cheque_leaves() async methods
-        bloom_client — Bloom filter client with add_bulk(serials: list[str])
-        audit_fn     — async callable(bank_id, event_type, details) for Immudb
     """
 
-    async def run(
+    @workflow.run
+    async def run(self, inp: DeltaVaultSyncInput) -> DeltaVaultSyncResult:
+        """
+        Production Temporal @workflow.run entry point. Dispatches the three
+        activities through workflow.execute_activity() — cbs_client/
+        bloom_client are worker-level DI (out of this fix's scope, same
+        precedent as VaultSyncWorkflow). No audit write on this path: the
+        6AM full VaultSyncWorkflow has no audit step either (by design, see
+        CLAUDE.md's documented activity list), and no messages.yaml key
+        exists yet for delta-sync completion specifically — adding one is a
+        deliberately separate change, not a side effect of wiring decorators.
+        """
+        cbs_degraded = False
+
+        try:
+            stop_payments = await workflow.execute_activity(
+                fetch_delta_stop_payments,
+                args=[inp.bank_id, inp.sync_window_minutes],
+                start_to_close_timeout=timedelta(seconds=60),
+                retry_policy=_INFRA_RETRY,
+            )
+        except Exception as exc:
+            log.warning("delta_sync.stop_payments_cbs_degraded", bank_id=inp.bank_id, error=str(exc))
+            stop_payments = []
+            cbs_degraded = True
+
+        try:
+            canceled_leaves = await workflow.execute_activity(
+                fetch_delta_canceled_leaves,
+                args=[inp.bank_id, inp.sync_window_minutes],
+                start_to_close_timeout=timedelta(seconds=60),
+                retry_policy=_INFRA_RETRY,
+            )
+        except Exception as exc:
+            log.warning("delta_sync.canceled_leaves_cbs_degraded", bank_id=inp.bank_id, error=str(exc))
+            canceled_leaves = []
+            cbs_degraded = True
+
+        bloom_result = await workflow.execute_activity(
+            update_bloom_filter,
+            args=[inp.bank_id, stop_payments, canceled_leaves],
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=_INFRA_RETRY,
+        )
+
+        return DeltaVaultSyncResult(
+            bank_id=inp.bank_id,
+            stop_payments_fetched=len(stop_payments),
+            canceled_leaves_fetched=len(canceled_leaves),
+            bloom_serials_added=bloom_result["serials_added"],
+            cbs_degraded=cbs_degraded,
+        )
+
+    async def run_with_mocks(
         self,
         inp: DeltaVaultSyncInput,
         *,

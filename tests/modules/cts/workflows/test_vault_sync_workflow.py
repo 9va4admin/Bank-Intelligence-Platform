@@ -383,3 +383,129 @@ class TestVaultSyncWorkflowOrchestration:
             sample_accounts=["ACC000"],
         )
         assert result.integrity_check_passed is False
+
+
+# ---------------------------------------------------------------------------
+# VaultSyncWorkflow.run() — the real @workflow.run, driven through an actual
+# Temporal Worker + time-skipping test server. Every test above only ever
+# exercised run_with_mocks() (a plain in-process Python call, no serialization
+# boundary at all) — this is the first proof that the @activity.defn/
+# @workflow.defn decorators added in this fix actually let Temporal dispatch
+# these activities for real, and that data survives the round trip.
+# ---------------------------------------------------------------------------
+
+import uuid
+from temporalio import activity as _activity
+from temporalio.testing import WorkflowEnvironment
+from temporalio.worker import Worker, UnsandboxedWorkflowRunner
+
+
+def _dget(inp, key):
+    return inp[key] if isinstance(inp, dict) else getattr(inp, key)
+
+
+@_activity.defn(name="load_signatures_from_cbs")
+async def _fake_load_signatures(bank_id: str) -> list[SignatureRecord]:
+    return [SignatureRecord(account_number="ACC001", specimens=[b"s1"])]
+
+
+@_activity.defn(name="load_pps_from_cbs")
+async def _fake_load_pps(bank_id: str) -> list[PPSRecord]:
+    return [PPSRecord(account_number="ACC001", cheque_series_start="100001", amount=500.0, payee="Payee")]
+
+
+@_activity.defn(name="warm_redis_vault")
+async def _fake_warm_redis(bank_id, pepper, signature_records, pps_records) -> dict:
+    return {"signatures": len(signature_records), "pps_records": len(pps_records)}
+
+
+@_activity.defn(name="verify_vault_integrity")
+async def _fake_verify_integrity(bank_id, pepper, sample_accounts) -> bool:
+    return True
+
+
+@_activity.defn(name="load_signatures_from_cbs")
+async def _fake_load_signatures_fails(bank_id: str) -> list[SignatureRecord]:
+    raise RuntimeError("CBS genuinely unreachable")
+
+
+class TestSignatureRecordTemporalRoundTrip:
+    """specimens: list[bytes] must survive Temporal's default JSON payload
+    converter — bytes has no native JSON representation, and without a
+    pydantic-aware data converter (not available in this temporalio version),
+    the naive fallback serializes bytes as [int, int, ...] arrays that
+    Pydantic then refuses to parse back as `bytes`. This is exactly the
+    failure that made TestVaultSyncWorkflowRealRun hang (endless workflow-task
+    retry, not a deadlock) before the field_serializer/field_validator fix."""
+
+    def test_specimens_round_trip_through_default_payload_converter(self):
+        from temporalio.converter import default
+
+        conv = default().payload_converter
+        records = [SignatureRecord(account_number="ACC001", specimens=[b"s1", b"s2"])]
+        payloads = conv.to_payloads([records])
+        restored = conv.from_payloads(payloads, [list[SignatureRecord]])
+        assert restored[0][0].specimens == [b"s1", b"s2"]
+
+    def test_direct_construction_unaffected(self):
+        """Application code constructing SignatureRecord directly (not via
+        the Temporal boundary) must still work with plain bytes."""
+        record = SignatureRecord(account_number="ACC001", specimens=[b"raw_bytes"])
+        assert record.specimens == [b"raw_bytes"]
+        assert isinstance(record.specimens[0], bytes)
+
+
+class TestVaultSyncWorkflowRealRun:
+    @pytest.mark.asyncio
+    async def test_real_run_dispatches_all_four_activities(self):
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            task_queue = f"tq-{uuid.uuid4()}"
+            async with Worker(
+                env.client,
+                task_queue=task_queue,
+                workflows=[VaultSyncWorkflow],
+                activities=[
+                    _fake_load_signatures, _fake_load_pps,
+                    _fake_warm_redis, _fake_verify_integrity,
+                ],
+                workflow_runner=UnsandboxedWorkflowRunner(),
+            ):
+                result = await env.client.execute_workflow(
+                    VaultSyncWorkflow.run,
+                    _make_input(),
+                    id=f"cts-vaultsync-{BANK_ID}-real-{uuid.uuid4().hex[:8]}",
+                    task_queue=task_queue,
+                )
+
+        # Proves the real @workflow.run reached all 4 real @activity.defn
+        # dispatches (not run_with_mocks' direct Python calls) and correctly
+        # consumed their Pydantic-model return values across the Temporal
+        # serialization boundary.
+        assert result.outcome == "SYNC_COMPLETE"
+        assert result.signatures_loaded == 1
+        assert result.pps_records_loaded == 1
+        assert result.integrity_check_passed is True
+
+    @pytest.mark.asyncio
+    async def test_real_run_partial_failure_when_signature_activity_raises(self):
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            task_queue = f"tq-{uuid.uuid4()}"
+            async with Worker(
+                env.client,
+                task_queue=task_queue,
+                workflows=[VaultSyncWorkflow],
+                activities=[
+                    _fake_load_signatures_fails, _fake_load_pps,
+                    _fake_warm_redis, _fake_verify_integrity,
+                ],
+                workflow_runner=UnsandboxedWorkflowRunner(),
+            ):
+                result = await env.client.execute_workflow(
+                    VaultSyncWorkflow.run,
+                    _make_input(),
+                    id=f"cts-vaultsync-{BANK_ID}-realfail-{uuid.uuid4().hex[:8]}",
+                    task_queue=task_queue,
+                )
+
+        assert result.outcome == "PARTIAL_FAILURE"
+        assert result.failed_accounts == ["SIGNATURE_LOAD_FAILED"]

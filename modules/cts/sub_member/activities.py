@@ -15,7 +15,10 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from temporalio import activity
 
+
+@activity.defn
 async def notify_sub_member_return(
     instrument_id: str,
     bank_id: str,
@@ -56,6 +59,7 @@ async def notify_sub_member_return(
     }
 
 
+@activity.defn
 async def emit_batch_ledger_update(
     bank_id: str,
     sub_member_id: str,
@@ -87,6 +91,7 @@ async def emit_batch_ledger_update(
     }
 
 
+@activity.defn
 async def check_return_rate_shield(
     bank_id: str,
     sub_member_id: str,

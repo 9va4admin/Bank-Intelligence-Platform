@@ -228,7 +228,7 @@ class TestDeltaVaultSyncWorkflow:
 
         audit = AsyncMock(side_effect=lambda **kw: calls.append("audit"))
 
-        result = await wf.run(
+        result = await wf.run_with_mocks(
             DeltaVaultSyncInput(bank_id="test-bank"),
             cbs_client=cbs,
             bloom_client=bloom,
@@ -257,7 +257,7 @@ class TestDeltaVaultSyncWorkflow:
 
         audit = AsyncMock()
 
-        result = await wf.run(
+        result = await wf.run_with_mocks(
             DeltaVaultSyncInput(bank_id="test-bank"),
             cbs_client=cbs,
             bloom_client=bloom,
@@ -283,7 +283,7 @@ class TestDeltaVaultSyncWorkflow:
 
         audit = AsyncMock()
 
-        await wf.run(
+        await wf.run_with_mocks(
             DeltaVaultSyncInput(bank_id="test-bank"),
             cbs_client=cbs,
             bloom_client=bloom,
@@ -308,7 +308,7 @@ class TestDeltaVaultSyncWorkflow:
 
         audit = AsyncMock()
 
-        result = await wf.run(
+        result = await wf.run_with_mocks(
             DeltaVaultSyncInput(bank_id="test-bank"),
             cbs_client=cbs,
             bloom_client=bloom,
@@ -330,7 +330,7 @@ class TestDeltaVaultSyncWorkflow:
         cbs.get_stop_payment_deltas = AsyncMock(return_value=[])
         cbs.get_canceled_cheque_leaves = AsyncMock(return_value=[])
 
-        result = await wf.run(
+        result = await wf.run_with_mocks(
             DeltaVaultSyncInput(bank_id="kotak-mah"),
             cbs_client=cbs,
             bloom_client=MagicMock(),
@@ -338,3 +338,87 @@ class TestDeltaVaultSyncWorkflow:
         )
 
         assert result.bank_id == "kotak-mah"
+
+
+# ---------------------------------------------------------------------------
+# DeltaVaultSyncWorkflow.run() — the real @workflow.run, driven through an
+# actual Temporal Worker + time-skipping test server. Every test above only
+# ever exercised run_with_mocks() directly — this proves the @activity.defn/
+# @workflow.defn decorators added in this fix actually let Temporal dispatch
+# these activities for real.
+# ---------------------------------------------------------------------------
+
+import uuid
+from temporalio import activity as _activity
+from temporalio.testing import WorkflowEnvironment
+from temporalio.worker import Worker, UnsandboxedWorkflowRunner
+
+
+@_activity.defn(name="fetch_delta_stop_payments")
+async def _fake_fetch_stop_payments(bank_id: str, window_minutes: int) -> list[dict]:
+    return [{"account_number": "12345678", "cheque_serial": "001001", "reason": "LOST"}]
+
+
+@_activity.defn(name="fetch_delta_canceled_leaves")
+async def _fake_fetch_canceled_leaves(bank_id: str, window_minutes: int) -> list[dict]:
+    return [{"serial": "C001001", "account_number": "ACCT001"}]
+
+
+@_activity.defn(name="update_bloom_filter")
+async def _fake_update_bloom(bank_id: str, stop_payment_deltas: list, canceled_leaf_deltas: list) -> dict:
+    return {"serials_added": len(stop_payment_deltas) + len(canceled_leaf_deltas)}
+
+
+@_activity.defn(name="fetch_delta_stop_payments")
+async def _fake_fetch_stop_payments_fails(bank_id: str, window_minutes: int) -> list[dict]:
+    raise RuntimeError("CBS genuinely unreachable")
+
+
+class TestDeltaVaultSyncWorkflowRealRun:
+    @pytest.mark.asyncio
+    async def test_real_run_dispatches_all_three_activities(self):
+        from modules.cts.workflows.delta_vault_sync_workflow import DeltaVaultSyncWorkflow, DeltaVaultSyncInput
+
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            task_queue = f"tq-{uuid.uuid4()}"
+            async with Worker(
+                env.client,
+                task_queue=task_queue,
+                workflows=[DeltaVaultSyncWorkflow],
+                activities=[_fake_fetch_stop_payments, _fake_fetch_canceled_leaves, _fake_update_bloom],
+                workflow_runner=UnsandboxedWorkflowRunner(),
+            ):
+                result = await env.client.execute_workflow(
+                    DeltaVaultSyncWorkflow.run,
+                    DeltaVaultSyncInput(bank_id="test-bank"),
+                    id=f"cts-vault-delta-test-bank-real-{uuid.uuid4().hex[:8]}",
+                    task_queue=task_queue,
+                )
+
+        assert result.stop_payments_fetched == 1
+        assert result.canceled_leaves_fetched == 1
+        assert result.bloom_serials_added == 2
+        assert result.cbs_degraded is False
+
+    @pytest.mark.asyncio
+    async def test_real_run_marks_degraded_when_activity_raises(self):
+        from modules.cts.workflows.delta_vault_sync_workflow import DeltaVaultSyncWorkflow, DeltaVaultSyncInput
+
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            task_queue = f"tq-{uuid.uuid4()}"
+            async with Worker(
+                env.client,
+                task_queue=task_queue,
+                workflows=[DeltaVaultSyncWorkflow],
+                activities=[_fake_fetch_stop_payments_fails, _fake_fetch_canceled_leaves, _fake_update_bloom],
+                workflow_runner=UnsandboxedWorkflowRunner(),
+            ):
+                result = await env.client.execute_workflow(
+                    DeltaVaultSyncWorkflow.run,
+                    DeltaVaultSyncInput(bank_id="test-bank"),
+                    id=f"cts-vault-delta-test-bank-realfail-{uuid.uuid4().hex[:8]}",
+                    task_queue=task_queue,
+                )
+
+        assert result.cbs_degraded is True
+        assert result.stop_payments_fetched == 0

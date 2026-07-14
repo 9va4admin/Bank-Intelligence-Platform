@@ -10,6 +10,7 @@ from typing import Optional
 
 import structlog
 from pydantic import BaseModel, ConfigDict
+from temporalio import activity
 
 from modules.cts.sub_member.models import PrincipalTag
 from modules.cts.sub_member.router import MICRPrefixRouter
@@ -58,6 +59,7 @@ class OCRActivityResult(BaseModel):
     amount_mismatch: bool = False         # True when figures and words disagree
 
 
+@activity.defn
 async def ocr_extract(
     inp: OCRActivityInput,
     vllm_client=None,

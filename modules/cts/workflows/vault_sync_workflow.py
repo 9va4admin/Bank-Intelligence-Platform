@@ -11,15 +11,28 @@ Activities:
 
 Exactly-once: Temporal workflow ID deduplicates concurrent trigger events.
 """
+import base64
 import hashlib
 import hmac
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Optional
 
 import structlog
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
+from temporalio import activity, workflow
+from temporalio.common import RetryPolicy
 
 log = structlog.get_logger()
+
+# Standard retry policy for CBS/Redis-backed infra calls — same shape as
+# _CBS_RETRY in cheque_workflow.py (network-dependent, generous timeout, fast
+# retry). None of these four activities are AI/NGCH/audit-shaped, so the CBS
+# constant is the closest documented fit per .claude/rules/temporal.md.
+_INFRA_RETRY = RetryPolicy(
+    maximum_attempts=3,
+    initial_interval=timedelta(seconds=2),
+    backoff_coefficient=1.5,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -38,6 +51,25 @@ class SignatureRecord(BaseModel):
     model_config = ConfigDict(frozen=True)
     account_number: str
     specimens: list[bytes]   # binary image blobs
+
+    # temporalio 1.7.1 has no pydantic-aware data converter (project-wide gap
+    # — see CLAUDE.md Phase 9 notes), so the default JSON payload converter
+    # handles bytes fields by round-tripping them as [int, int, ...] byte-value
+    # arrays, which Pydantic then refuses to parse back as `bytes`. This
+    # activity's return value crosses a real Temporal activity/workflow
+    # boundary (see VaultSyncWorkflow.run), so it needs an explicit,
+    # converter-agnostic base64 round trip rather than relying on whatever the
+    # default JSON serialization of bytes happens to produce.
+    @field_serializer("specimens")
+    def _serialize_specimens(self, specimens: list[bytes]) -> list[str]:
+        return [base64.b64encode(s).decode("ascii") for s in specimens]
+
+    @field_validator("specimens", mode="before")
+    @classmethod
+    def _deserialize_specimens(cls, value: Any) -> Any:
+        if isinstance(value, list) and all(isinstance(item, str) for item in value):
+            return [base64.b64decode(item) for item in value]
+        return value
 
 
 class PPSRecord(BaseModel):
@@ -64,6 +96,7 @@ class VaultSyncResult(BaseModel):
 # Activity: load_signatures_from_cbs
 # ---------------------------------------------------------------------------
 
+@activity.defn
 async def load_signatures_from_cbs(
     bank_id: str,
     cbs_connector=None,
@@ -104,6 +137,7 @@ async def load_signatures_from_cbs(
 # Activity: load_pps_from_cbs
 # ---------------------------------------------------------------------------
 
+@activity.defn
 async def load_pps_from_cbs(
     bank_id: str,
     cbs_connector=None,
@@ -157,6 +191,7 @@ def _hmac_key(pepper: str, bank_id: str, account_number: str) -> str:
     ).hexdigest()
 
 
+@activity.defn
 async def warm_redis_vault(
     bank_id: str,
     pepper: str,
@@ -213,6 +248,7 @@ async def warm_redis_vault(
 # Activity: verify_vault_integrity
 # ---------------------------------------------------------------------------
 
+@activity.defn
 async def verify_vault_integrity(
     bank_id: str,
     pepper: str,
@@ -263,16 +299,88 @@ async def verify_vault_integrity(
 # VaultSyncWorkflow — orchestrates all four activities
 # ---------------------------------------------------------------------------
 
+@workflow.defn
 class VaultSyncWorkflow:
     def workflow_id(self, bank_id: str, sync_date: str) -> str:
         return f"cts-vaultsync-{bank_id}-{sync_date}"
 
+    @workflow.run
     async def run(self, inp: VaultSyncInput) -> VaultSyncResult:
         """
-        Production Temporal @workflow.run entry point.
-        Delegates to run_with_mocks with no injected deps (Temporal activity stubs resolve them).
+        Production Temporal @workflow.run entry point. Dispatches all four
+        activities through workflow.execute_activity() — cbs_connector/
+        redis_client are deliberately omitted from the args and resolve to
+        their None default; wiring real instances is worker-level DI
+        (out of this fix's scope, same precedent as detect_alteration's
+        vllm_client in cheque_workflow.py).
         """
-        return await self.run_with_mocks(inp)
+        try:
+            sig_records = await workflow.execute_activity(
+                load_signatures_from_cbs,
+                args=[inp.bank_id],
+                start_to_close_timeout=timedelta(seconds=300),
+                retry_policy=_INFRA_RETRY,
+            )
+        except Exception as exc:
+            log.error("vault_sync.signature_load_failed", bank_id=inp.bank_id, error=str(exc))
+            return VaultSyncResult(
+                outcome="PARTIAL_FAILURE",
+                signatures_loaded=0,
+                pps_records_loaded=0,
+                integrity_check_passed=False,
+                failed_accounts=["SIGNATURE_LOAD_FAILED"],
+                triggered_by=inp.triggered_by,
+            )
+
+        try:
+            pps_records = await workflow.execute_activity(
+                load_pps_from_cbs,
+                args=[inp.bank_id],
+                start_to_close_timeout=timedelta(seconds=300),
+                retry_policy=_INFRA_RETRY,
+            )
+        except Exception as exc:
+            log.error("vault_sync.pps_load_failed", bank_id=inp.bank_id, error=str(exc))
+            return VaultSyncResult(
+                outcome="PARTIAL_FAILURE",
+                signatures_loaded=len(sig_records),
+                pps_records_loaded=0,
+                integrity_check_passed=False,
+                failed_accounts=["PPS_LOAD_FAILED"],
+                triggered_by=inp.triggered_by,
+            )
+
+        await workflow.execute_activity(
+            warm_redis_vault,
+            args=[inp.bank_id, inp.pepper, sig_records, pps_records],
+            start_to_close_timeout=timedelta(seconds=120),
+            retry_policy=_INFRA_RETRY,
+        )
+
+        accounts_to_sample = [r.account_number for r in sig_records[:10]]
+        integrity_ok = await workflow.execute_activity(
+            verify_vault_integrity,
+            args=[inp.bank_id, inp.pepper, accounts_to_sample],
+            start_to_close_timeout=timedelta(seconds=60),
+            retry_policy=_INFRA_RETRY,
+        )
+
+        log.info(
+            "vault_sync.workflow_complete",
+            bank_id=inp.bank_id,
+            sync_date=inp.sync_date,
+            signatures=len(sig_records),
+            pps=len(pps_records),
+            integrity=integrity_ok,
+        )
+
+        return VaultSyncResult(
+            outcome="SYNC_COMPLETE",
+            signatures_loaded=len(sig_records),
+            pps_records_loaded=len(pps_records),
+            integrity_check_passed=integrity_ok,
+            triggered_by=inp.triggered_by,
+        )
 
     async def run_with_mocks(
         self,
