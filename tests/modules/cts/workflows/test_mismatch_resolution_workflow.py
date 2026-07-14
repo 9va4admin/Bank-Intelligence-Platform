@@ -266,3 +266,139 @@ class TestMismatchKafkaPublish:
         wf = MismatchResolutionWorkflow()
         topic = wf.mismatch_kafka_topic("bank-a", "BRANCH-B")
         assert topic == "cts.mismatch.bank-a.BRANCH-B"
+
+
+# ---------------------------------------------------------------------------
+# publish_mismatch_hold activity — real body (not mocked)
+# ---------------------------------------------------------------------------
+
+class TestPublishMismatchHold:
+    @pytest.mark.asyncio
+    async def test_publishes_to_correct_topic(self):
+        from modules.cts.workflows.mismatch_resolution_workflow import (
+            publish_mismatch_hold, PublishMismatchHoldInput,
+        )
+        producer = AsyncMock()
+        result = await publish_mismatch_hold(
+            PublishMismatchHoldInput(
+                mismatch_id="MM-001", bank_id="saraswat-coop", branch_id="BRANCH-01",
+                scan_id="SC-001", instrument_id="OUT-001",
+                scanner_amount_str="45000.00", vision_amount_str="4500.00",
+                mismatch_fields=["amount_figures"], payee_display="R***",
+                session_id="SESS-001",
+            ),
+            event_producer=producer,
+        )
+        assert result.published is True
+        producer.publish.assert_called_once()
+        call_kwargs = producer.publish.call_args.kwargs
+        assert call_kwargs["topic"] == "cts.mismatch.saraswat-coop.BRANCH-01"
+        assert call_kwargs["event_type"] == "CTS_OUT_MISMATCH_HELD"
+        assert call_kwargs["payload"]["mismatch_id"] == "MM-001"
+
+
+# ---------------------------------------------------------------------------
+# MismatchResolutionWorkflow.run() — the real @workflow.run, driven through
+# an actual Temporal Worker + time-skipping test server.
+# ---------------------------------------------------------------------------
+
+import uuid
+from temporalio import activity as _activity
+from temporalio.testing import WorkflowEnvironment
+from temporalio.worker import Worker, UnsandboxedWorkflowRunner
+
+
+@_activity.defn(name="publish_mismatch_hold")
+async def _fake_publish_hold(inp) -> dict:
+    return {"published": True}
+
+
+@_activity.defn(name="write_audit")
+async def _fake_write_audit(inp):
+    from modules.cts.workflows.activities.write_audit import WriteAuditResult
+    return WriteAuditResult(success=True, immudb_tx_id="TEST-TX")
+
+
+class TestMismatchResolutionWorkflowRealRun:
+    @pytest.mark.asyncio
+    async def test_real_run_go_ahead_via_signal(self):
+        from modules.cts.workflows.mismatch_resolution_workflow import (
+            MismatchResolutionWorkflow, MismatchSignal,
+        )
+
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            task_queue = f"tq-{uuid.uuid4()}"
+            async with Worker(
+                env.client, task_queue=task_queue,
+                workflows=[MismatchResolutionWorkflow],
+                activities=[_fake_publish_hold, _fake_write_audit],
+                workflow_runner=UnsandboxedWorkflowRunner(),
+            ):
+                handle = await env.client.start_workflow(
+                    MismatchResolutionWorkflow.run,
+                    _make_mismatch_input(),
+                    id=f"cts-mismatch-real-{uuid.uuid4().hex[:8]}",
+                    task_queue=task_queue,
+                )
+                await handle.signal(
+                    MismatchResolutionWorkflow.resolve,
+                    MismatchSignal(action="GO_AHEAD", resolved_by="op-mahesh"),
+                )
+                result = await handle.result()
+
+        assert result.outcome == "GO_AHEAD"
+        assert result.resolved_by == "op-mahesh"
+        assert result.audit_written is True
+
+    @pytest.mark.asyncio
+    async def test_real_run_rejected_via_signal(self):
+        from modules.cts.workflows.mismatch_resolution_workflow import (
+            MismatchResolutionWorkflow, MismatchSignal,
+        )
+
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            task_queue = f"tq-{uuid.uuid4()}"
+            async with Worker(
+                env.client, task_queue=task_queue,
+                workflows=[MismatchResolutionWorkflow],
+                activities=[_fake_publish_hold, _fake_write_audit],
+                workflow_runner=UnsandboxedWorkflowRunner(),
+            ):
+                handle = await env.client.start_workflow(
+                    MismatchResolutionWorkflow.run,
+                    _make_mismatch_input(),
+                    id=f"cts-mismatch-real-{uuid.uuid4().hex[:8]}",
+                    task_queue=task_queue,
+                )
+                await handle.signal(
+                    MismatchResolutionWorkflow.resolve,
+                    MismatchSignal(action="REJECTED", resolved_by="op-priya", supervisor_note="wrong amount"),
+                )
+                result = await handle.result()
+
+        assert result.outcome == "REJECTED"
+        assert result.resolved_by == "op-priya"
+
+    @pytest.mark.asyncio
+    async def test_real_run_timeout_auto_rejects(self):
+        from modules.cts.workflows.mismatch_resolution_workflow import MismatchResolutionWorkflow
+
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            task_queue = f"tq-{uuid.uuid4()}"
+            async with Worker(
+                env.client, task_queue=task_queue,
+                workflows=[MismatchResolutionWorkflow],
+                activities=[_fake_publish_hold, _fake_write_audit],
+                workflow_runner=UnsandboxedWorkflowRunner(),
+            ):
+                # No signal sent — time-skipping server fast-forwards through
+                # the 4-hour wait_condition timeout automatically.
+                result = await env.client.execute_workflow(
+                    MismatchResolutionWorkflow.run,
+                    _make_mismatch_input(),
+                    id=f"cts-mismatch-real-{uuid.uuid4().hex[:8]}",
+                    task_queue=task_queue,
+                )
+
+        assert result.outcome == "TIMEOUT_AUTO_REJECTED"
+        assert result.resolved_by is None
