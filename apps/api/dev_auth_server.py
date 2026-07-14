@@ -2,13 +2,13 @@
 
 Generates an ephemeral RS256 keypair in-process and seeds THREE accounts (real
 argon2 hashes). Serves the real /v1/auth/* router; the frontend reaches it via the
-Vite proxy (/v1 -> http://localhost:8000).
+Vite proxy (/v1 -> http://127.0.0.1:8010).
 
 Real MFA flow — no shortcuts: the FIRST sign-in for each user triggers enrolment
 (scan the QR into an authenticator app), and every sign-in after that requires the
 current 6-digit TOTP code from that app.
 
-    uvicorn apps.api.dev_auth_server:app --port 8000
+    uvicorn apps.api.dev_auth_server:app --port 8010
 
 NEVER use in production: keys are ephemeral (restart = sessions dropped + re-enrol)
 and accounts are seeded. Production wires SessionTokenService keys from Vault and
@@ -166,7 +166,7 @@ def _banner() -> None:
     )
     print(
         f"\n{line}\n"
-        f"  ASTRA DEV AUTH  |  http://localhost:8000  |  NEVER use in production\n"
+        f"  ASTRA DEV AUTH  |  http://localhost:8010  |  NEVER use in production\n"
         f"{line}\n"
         f"  username / password:\n{rows}\n\n"
         f"  First sign-in = scan the QR with an authenticator app (Google\n"
