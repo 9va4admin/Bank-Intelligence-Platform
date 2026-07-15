@@ -6,7 +6,7 @@ TDD: written BEFORE the implementation.
 import pytest
 from unittest.mock import AsyncMock
 
-from shared.cbs_connector.base import CBSConnector, AccountInfo, AccountStatus
+from shared.cbs_connector.base import CBSConnector, AccountInfo, AccountStatus, CBSSignatoryData
 from shared.cbs_connector.exceptions import (
     CBSUnavailableError,
     AccountNotFoundError,
@@ -113,6 +113,15 @@ class _StubCBS(CBSConnector):
     async def get_cheque_status(self, account_number: str, cheque_number: str, bank_id: str):
         return None
 
+    async def get_signatory_data(self, account_number: str, bank_id: str) -> list[CBSSignatoryData]:
+        return [CBSSignatoryData(
+            signatory_id="stub-sig-1",
+            role="DIRECTOR",
+            name_masked="S***",
+            specimen_images=[b"stub-specimen"],
+            operation_type="J",
+        )]
+
 
 @pytest.mark.asyncio
 async def test_stub_get_account_info_returns_account_info():
@@ -142,3 +151,12 @@ async def test_stub_get_signature_specimens_returns_bytes_list():
     specimens = await cbs.get_signature_specimens("1234567890", "test-bank")
     assert len(specimens) == 2
     assert all(isinstance(s, bytes) for s in specimens)
+
+
+@pytest.mark.asyncio
+async def test_stub_get_signatory_data_returns_signatory_list():
+    cbs = _StubCBS()
+    signatories = await cbs.get_signatory_data("1234567890", "test-bank")
+    assert len(signatories) == 1
+    assert isinstance(signatories[0], CBSSignatoryData)
+    assert signatories[0].specimen_images == [b"stub-specimen"]
