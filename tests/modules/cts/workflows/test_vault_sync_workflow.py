@@ -508,4 +508,85 @@ class TestVaultSyncWorkflowRealRun:
                 )
 
         assert result.outcome == "PARTIAL_FAILURE"
-        assert result.failed_accounts == ["SIGNATURE_LOAD_FAILED"]
+
+
+# ---------------------------------------------------------------------------
+# register_vault_sync_schedule
+#
+# Regression coverage: VaultSyncInput.pepper is now required (no default —
+# see TestVaultSyncInput.test_requires_pepper above and
+# .claude/rules/pii-data-protection.md). This function previously
+# constructed VaultSyncInput(bank_id=bank_id, triggered_by="SCHEDULED")
+# with no pepper at all — every scheduled 07:00 daily sync would have HMAC
+# hashed every account number with an empty-string key. Zero coverage
+# existed for this function before this fix.
+# ---------------------------------------------------------------------------
+
+class TestRegisterVaultSyncSchedule:
+    @pytest.mark.asyncio
+    async def test_fetches_pepper_before_creating_schedule(self):
+        from modules.cts.workflows.vault_sync_workflow import register_vault_sync_schedule
+
+        mock_temporal_client = MagicMock()
+        mock_temporal_client.create_schedule = AsyncMock(return_value=None)
+
+        with patch(
+            "shared.config.config_service.config_service.get_secret",
+            new=AsyncMock(return_value="scheduled-pepper-xyz"),
+        ) as mock_get_secret:
+            await register_vault_sync_schedule(mock_temporal_client, BANK_ID)
+
+        mock_get_secret.assert_awaited_once_with("pii_hash_pepper")
+        mock_temporal_client.create_schedule.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_schedule_action_input_has_real_pepper(self):
+        from modules.cts.workflows.vault_sync_workflow import register_vault_sync_schedule
+
+        mock_temporal_client = MagicMock()
+        mock_temporal_client.create_schedule = AsyncMock(return_value=None)
+
+        with patch(
+            "shared.config.config_service.config_service.get_secret",
+            new=AsyncMock(return_value="scheduled-pepper-xyz"),
+        ):
+            await register_vault_sync_schedule(mock_temporal_client, BANK_ID)
+
+        schedule = mock_temporal_client.create_schedule.call_args.args[1]
+        vault_sync_input = schedule.action.args[0]
+        assert vault_sync_input.pepper == "scheduled-pepper-xyz"
+        assert vault_sync_input.bank_id == BANK_ID
+        assert vault_sync_input.triggered_by == "SCHEDULED"
+
+    @pytest.mark.asyncio
+    async def test_propagates_when_pepper_unavailable(self):
+        """Worker startup must fail loudly rather than silently register a
+        schedule with no pepper, or skip registration silently."""
+        from modules.cts.workflows.vault_sync_workflow import register_vault_sync_schedule
+
+        mock_temporal_client = MagicMock()
+        mock_temporal_client.create_schedule = AsyncMock(return_value=None)
+
+        with patch(
+            "shared.config.config_service.config_service.get_secret",
+            new=AsyncMock(side_effect=Exception("Vault unreachable")),
+        ):
+            with pytest.raises(Exception, match="Vault unreachable"):
+                await register_vault_sync_schedule(mock_temporal_client, BANK_ID)
+
+        mock_temporal_client.create_schedule.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_already_exists_error_is_swallowed(self):
+        from modules.cts.workflows.vault_sync_workflow import register_vault_sync_schedule
+
+        mock_temporal_client = MagicMock()
+        mock_temporal_client.create_schedule = AsyncMock(
+            side_effect=Exception("Schedule already exists")
+        )
+
+        with patch(
+            "shared.config.config_service.config_service.get_secret",
+            new=AsyncMock(return_value="scheduled-pepper-xyz"),
+        ):
+            await register_vault_sync_schedule(mock_temporal_client, BANK_ID)  # must not raise

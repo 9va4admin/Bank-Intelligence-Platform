@@ -969,6 +969,60 @@ class TestVaultSyncRoutes:
         app.state.temporal_client = mock_client
 
         client = TestClient(app, raise_server_exceptions=False)
-        response = client.post("/v1/cts/vault-sync/trigger", headers={"Authorization": "Bearer test-token-test-bank"})
+        with patch(
+            "shared.config.config_service.config_service.get_secret",
+            new=AsyncMock(return_value="real-pepper-from-vault"),
+        ):
+            response = client.post("/v1/cts/vault-sync/trigger", headers={"Authorization": "Bearer test-token-test-bank"})
         assert response.status_code == 202
         assert response.json()["status"] == "TRIGGERED"
+
+    def test_trigger_fetches_pepper_and_passes_to_vault_sync_input(self):
+        """Regression: VaultSyncInput.pepper has no default (required, see
+        .claude/rules/pii-data-protection.md) — this route must fetch a real
+        pepper via config_service.get_secret() before constructing it, or
+        every trigger fails with a Pydantic validation error."""
+        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts import get_current_bank_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+
+        mock_client = MagicMock()
+        mock_client.start_workflow = AsyncMock(return_value=None)
+        app.state.temporal_client = mock_client
+
+        client = TestClient(app, raise_server_exceptions=False)
+        with patch(
+            "shared.config.config_service.config_service.get_secret",
+            new=AsyncMock(return_value="real-pepper-from-vault"),
+        ) as mock_get_secret:
+            response = client.post("/v1/cts/vault-sync/trigger", headers={"Authorization": "Bearer test-token-test-bank"})
+
+        assert response.status_code == 202
+        mock_get_secret.assert_awaited_once_with("pii_hash_pepper")
+        vault_sync_input = mock_client.start_workflow.call_args.args[1]
+        assert vault_sync_input.pepper == "real-pepper-from-vault"
+
+    def test_trigger_returns_503_when_pepper_unavailable(self):
+        """Vault unreachable -> pepper fetch raises -> route must fail closed
+        (503), never silently trigger a workflow with a missing/empty pepper."""
+        from apps.api.routers.cts import router_v1
+        from apps.api.routers.cts import get_current_bank_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+
+        mock_client = MagicMock()
+        mock_client.start_workflow = AsyncMock(return_value=None)
+        app.state.temporal_client = mock_client
+
+        client = TestClient(app, raise_server_exceptions=False)
+        with patch(
+            "shared.config.config_service.config_service.get_secret",
+            new=AsyncMock(side_effect=Exception("Vault unreachable")),
+        ):
+            response = client.post("/v1/cts/vault-sync/trigger", headers={"Authorization": "Bearer test-token-test-bank"})
+
+        assert response.status_code == 503
+        mock_client.start_workflow.assert_not_called()
