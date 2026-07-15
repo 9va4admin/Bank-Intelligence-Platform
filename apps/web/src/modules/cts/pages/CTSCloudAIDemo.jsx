@@ -53,6 +53,14 @@ async function extractChequeCloud(file, model) {
   return response.json()
 }
 
+function downloadJSON(data, filename) {
+  const blob = new Blob([JSON.stringify(data, null, 4)], { type: 'application/json' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function CTSCloudAIDemo() {
   const { isDark } = useTheme()
   usePageHeader({ subtitle: 'Real Vision AI extraction — cloud-backed demo, temporary' })
@@ -137,13 +145,6 @@ export default function CTSCloudAIDemo() {
               />
             </div>
 
-            {previewUrl && (
-              <div className="mb-3">
-                <p className={`text-xs mb-1 ${th.muted}`}>Preview</p>
-                <img src={previewUrl} alt="Cheque preview" className="rounded-lg border max-h-64 object-contain" />
-              </div>
-            )}
-
             <button
               onClick={handleExtract}
               disabled={!file || loading}
@@ -160,8 +161,19 @@ export default function CTSCloudAIDemo() {
           <div className={`rounded-xl border p-5 ${th.card}`}>
             <h3 className={`text-sm font-semibold mb-3 ${th.heading}`}>📋 Extracted Information</h3>
 
-            {!result && !loading && (
+            {!result && !loading && !previewUrl && (
               <p className={`text-sm ${th.faint}`}>Upload a cheque image and click Extract Information.</p>
+            )}
+
+            {previewUrl && (
+              <div className="mb-4">
+                <p className={`text-xs mb-1 ${th.muted}`}>Uploaded Cheque — compare against extracted fields below</p>
+                <img src={previewUrl} alt="Cheque preview" className="rounded-lg border w-full max-h-72 object-contain" />
+              </div>
+            )}
+
+            {loading && (
+              <p className={`text-sm ${th.faint}`}>Extracting…</p>
             )}
 
             {result?.error && (
@@ -201,7 +213,14 @@ export default function CTSCloudAIDemo() {
                   <p className={`text-sm ${th.muted}`}>⚠ Unable to validate amount</p>
                 )}
 
-                <p className={`text-xs mt-3 ${th.faint}`}>Model: {result.model_used}</p>
+                <p className={`text-xs mt-3 mb-3 ${th.faint}`}>Model: {result.model_used}</p>
+
+                <button
+                  onClick={() => downloadJSON(result, 'cheque_extraction.json')}
+                  className={`w-full h-10 rounded-lg font-semibold text-sm border transition ${isDark ? 'border-white/15 text-white hover:bg-white/5' : 'border-slate-300 text-slate-900 hover:bg-slate-50'}`}
+                >
+                  ⬇ Download JSON
+                </button>
               </div>
             )}
           </div>
