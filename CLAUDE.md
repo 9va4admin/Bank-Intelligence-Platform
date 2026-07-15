@@ -1060,8 +1060,79 @@ PHASE 9 — Pre-Pilot Security Remediation (July 2026, IN PROGRESS)
        dependency (ngch_adapter, immudb_client, cbs_connector, etc.) is a `=None` default with
        zero injection wired at worker registration.
 
+PHASE 10 — Error → Incident Management (July 2026, Phase 1+2 of 5 COMPLETE)
+  Context: "How are we going to manage errors caught by catch blocks — turn them into
+    incidents, what severity/SLA, how is closure managed?" Full design written up first
+    (Artifact: ASTRA — Error → Incident Management Plan), then built. Core driver, stated
+    directly: ASTRA must know about an incident before the end user reports it. 5-phase
+    rollout planned; this session shipped Phase 1 (schema + validation) and Phase 2
+    (signal emission for CRITICAL/safety-boundary keys) for real, not just designed.
+
+  [x] messages.yaml schema extended: new optional `incident:` block per key
+       (incident_class, default_severity P0-P4, escalation_trigger IMMEDIATE|THRESHOLD,
+       threshold{count,window_seconds}, owning_team, regulatory_reportable,
+       auto_close_eligible, runbook_ref) — shared/messages/registry.py IncidentMetadata
+       dataclass, survives the Redis round-trip, deliberately excluded from the browser
+       JSON bundle (ops-only concern, not the frontend's business).
+  [x] registry.validate() extended: incident: block now MANDATORY on every CRITICAL key
+       (30/30 real keys classified — see below), optional-but-must-be-well-formed on
+       WARN/ERROR (Phase 4 will widen this). Hard-coded NEVER-condition allowlist
+       (CTS_WF_IET_WATCHDOG_FIRED, PLATFORM_AUDIT_WRITE_FAILED,
+       PLATFORM_AUDIT_TAMPER_DETECTED) structurally forced to escalation_trigger=
+       IMMEDIATE + regulatory_reportable=true — cannot be misconfigured by hand.
+  [x] shared/incidents/signal.py — emit_incident_signal(key, bank_id) — the one new call
+       site the plan adds to existing catch blocks. No-ops for keys with no incident:
+       block (fire-and-forget, can never break the caller's real workflow). Wired into
+       modules/cts/workflows/activities/write_audit.py — the single choke-point nearly
+       every CTS decision/error already flows through, so this is the highest-leverage
+       integration point without touching dozens of call sites. Also signals
+       PLATFORM_AUDIT_WRITE_FAILED when write_audit's own Immudb write fails — a P0
+       safety-boundary signal in its own right.
+  [x] shared/observability/otel_setup.py extended with a MeterProvider (mirrors the
+       existing TracerProvider setup exactly) — get_meter() alongside get_tracer().
+       In-memory reader by default (dev/test); prometheus_port param lazily imports the
+       OTel Prometheus exporter (same lazy-import pattern as the OTLP trace exporter —
+       package not installed by default, never a hard dependency).
+  [x] shared/messages/build_alerts.py (NEW) — generates
+       infra/k8s/monitoring/generated-incident-alerts.yaml, a real PrometheusRule CRD
+       mechanically derived from every key's incident: block (30 rules from the 30
+       CRITICAL keys today). Grouped by owning_team. Never hand-edited — same
+       "generated, do not edit" contract as CTS_Msg_Taxonomy.html, wired into
+       `python -m shared.messages.build`'s pipeline right alongside it.
+  [x] docs/CTS_Msg_Taxonomy.html generator extended with an Incident Response column
+       (severity pill + owning team) per key — "—" for the ~250 keys not yet classified
+       (honest, not fabricated).
+  [x] All 30 real CRITICAL-severity keys in messages.yaml hand-classified — spans 6
+       owning_team queues (cts_clearing_ops 18, bank_infra 6, cts_ai_platform 2, ej_ops 2,
+       compliance_review 2). Per-cheque terminal decisions that are individually correct
+       (account frozen/closed, stop-payment hit) deliberately set to THRESHOLD not
+       IMMEDIATE — the individual event is expected behaviour, only a volume spike is the
+       real signal (CBS data issue, policy misconfig, or a coordinated fraud pattern).
+  [x] Found + fixed a real, pre-existing UTF-8 encoding bug while building this:
+       shared/messages/registry.py and build_docs.py (both read AND write paths) were
+       calling .read_text()/.write_text() without explicit encoding="utf-8" — on this
+       machine's cp1252 default locale, every em-dash and ₹ symbol in messages.yaml
+       (used throughout real message text) was silently corrupted on load. Affects the
+       real runtime registry, not just doc-generation tooling — fixed all instances,
+       added a regression test.
+  [x] 113 new/updated tests, all GREEN — full existing suite re-run (3301 passed), zero
+       regressions; incidentally fixed one pre-existing flaky test in test_otel_setup.py
+       (asserted against the global OTel provider singleton, which only accepts the first
+       configure_otel() call per process — order-dependent across the full suite, now
+       checks its own return value instead, matching every sibling test in that file).
+
+  Deliberately NOT built this session (Phase 3/5 of the plan — needs real infra or
+  real operational data this dev environment doesn't have):
+  [ ] Phase 3 — Alertmanager → Grafana OnCall wiring, escalation-chain Layer 3 config UI
+       (no live Alertmanager/OnCall in this dev environment to wire against for real)
+  [ ] Phase 4 — widen incident: coverage from CRITICAL-only to all WARN/ERROR keys
+       (~150 keys) once Phase 3's pilot data informs real threshold tuning
+  [ ] Phase 5 — maker-checker closure enforcement, compliance_officer RBI-reportability
+       review workflow, control-mapping.yaml extension
+
 ### Immediate Next
 Pre-pilot security remediation (Phase 9) is in progress — see above for exact status.
+Error → Incident Management (Phase 10) Phase 1+2 shipped this session — see above.
 
 Remaining work (in priority order):
 1. **ASTRA-01 on ej.py** — same test-token backdoor fix pattern already proven on 9 other
@@ -1069,11 +1140,13 @@ Remaining work (in priority order):
 2. **Activity/workflow decorator + DI gaps (Phase 9's "still open" list)** — worker.py cannot
    construct a real Worker() today; this blocks ANY of modules/cts/workflows/ from running
    against a real Temporal server, independent of the ASTRA-01/02 fixes already landed.
-3. **NPCI API Modernisation Phase A** — REST transport + 3-layer auth module (`shared/ngch_auth/`)
+3. **Incident Management Phase 3** — stand up Grafana OnCall (self-hosted), wire Alertmanager
+   routing by owning_team, build the Layer 3 escalation-chain config UI. Needs real infra.
+4. **NPCI API Modernisation Phase A** — REST transport + 3-layer auth module (`shared/ngch_auth/`)
    Trigger: NPCI responds to concept note. Code can be built now (§17 has full task list).
-4. **Pilot bank deployment validation** — smoke-test `infra/helm/values/banks/saraswat-coop/`
+5. **Pilot bank deployment validation** — smoke-test `infra/helm/values/banks/saraswat-coop/`
    against a real Kubernetes cluster; verify pre-upgrade migration job and ArgoCD ApplicationSet.
-5. **Security hardening audit** — full penetration test prep; verify SQL injection, PII at rest,
+6. **Security hardening audit** — full penetration test prep; verify SQL injection, PII at rest,
    data theft protections are production-grade (OWASP ZAP + manual review).
 
 ---

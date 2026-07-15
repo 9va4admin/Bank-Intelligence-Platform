@@ -27,7 +27,7 @@ Single YAML format (messages.yaml):
 import json
 import re
 import structlog
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +42,25 @@ _VALID_SURFACES = {"UI", "AUDIT", "NOTIFICATION"}
 REDIS_LOCALES_KEY = "astra:messages:locales"
 REDIS_MSG_PREFIX = "astra:messages:"
 
+# ── Incident metadata (error → incident linkage — see docs/astra-incident-management-plan) ──
+_VALID_INCIDENT_CLASSES = {
+    "EXPECTED_DEGRADATION", "TRANSIENT_RETRYABLE", "STRUCTURAL", "SAFETY_BOUNDARY", "SECURITY",
+}
+_VALID_INCIDENT_SEVERITIES = {"P0", "P1", "P2", "P3", "P4"}
+_VALID_ESCALATION_TRIGGERS = {"IMMEDIATE", "THRESHOLD"}
+_VALID_OWNING_TEAMS = {
+    "cts_clearing_ops", "cts_ai_platform", "ej_ops", "bank_infra",
+    "compliance_review", "astra_vendor_oncall",
+}
+# Hard-coded safety-boundary allowlist (CLAUDE.md §12 "NEVER" conditions).
+# These keys can never be threshold-gated or made non-reportable, regardless
+# of what messages.yaml says — enforced here, not left to convention.
+_NEVER_CONDITION_KEYS = {
+    "CTS_WF_IET_WATCHDOG_FIRED",
+    "PLATFORM_AUDIT_WRITE_FAILED",
+    "PLATFORM_AUDIT_TAMPER_DETECTED",
+}
+
 
 class UnknownMessageKey(KeyError):
     pass
@@ -52,6 +71,18 @@ class MissingVariable(KeyError):
 
 
 @dataclass(frozen=True)
+class IncidentMetadata:
+    incident_class: str
+    default_severity: str
+    escalation_trigger: str          # "IMMEDIATE" | "THRESHOLD"
+    owning_team: str
+    regulatory_reportable: bool
+    auto_close_eligible: bool
+    runbook_ref: str
+    threshold: dict[str, int] | None = None   # {"count": int, "window_seconds": int}
+
+
+@dataclass(frozen=True)
 class MessageEntry:
     key: str
     text: str
@@ -59,6 +90,7 @@ class MessageEntry:
     surface: list[str]
     variables: list[str]
     locale: str
+    incident: IncidentMetadata | None = None
 
     def format(self, **variables: str) -> str:
         required = set(_TEMPLATE_VAR.findall(self.text))
@@ -72,6 +104,79 @@ class MessageEntry:
         if self.text == "":
             return ""
         return self.text.format(**{k: v for k, v in variables.items() if k in required})
+
+
+def _parse_incident_block(raw: Any) -> IncidentMetadata | None:
+    """Parse a YAML/JSON `incident:` block into IncidentMetadata.
+
+    Deliberately permissive here — malformed values are still captured
+    (as whatever string/type was given) so validate() can report a precise
+    error rather than this function silently dropping a broken block.
+    """
+    if not raw:
+        return None
+    return IncidentMetadata(
+        incident_class=raw.get("incident_class", ""),
+        default_severity=raw.get("default_severity", ""),
+        escalation_trigger=raw.get("escalation_trigger", ""),
+        owning_team=raw.get("owning_team", ""),
+        regulatory_reportable=bool(raw.get("regulatory_reportable", False)),
+        auto_close_eligible=bool(raw.get("auto_close_eligible", False)),
+        runbook_ref=raw.get("runbook_ref", ""),
+        threshold=dict(raw["threshold"]) if raw.get("threshold") else None,
+    )
+
+
+def _validate_incident(key: str, entry: "MessageEntry") -> list[str]:
+    """Validate the incident: block per the error->incident management plan.
+
+    Mandatory only for CRITICAL severity today (Phase 2 scope) — WARN/ERROR
+    keys may carry one, but it's optional until Phase 4 widens coverage.
+    When present, it must always be well-formed regardless of severity.
+    """
+    errors: list[str] = []
+    incident = entry.incident
+
+    if incident is None:
+        if entry.severity == "CRITICAL":
+            errors.append(f"[en] '{key}': CRITICAL severity requires an incident: block")
+        return errors
+
+    if incident.incident_class not in _VALID_INCIDENT_CLASSES:
+        errors.append(f"[en] '{key}': invalid incident.incident_class '{incident.incident_class}'")
+
+    if incident.default_severity not in _VALID_INCIDENT_SEVERITIES:
+        errors.append(f"[en] '{key}': invalid incident.default_severity '{incident.default_severity}'")
+
+    if incident.escalation_trigger not in _VALID_ESCALATION_TRIGGERS:
+        errors.append(f"[en] '{key}': invalid incident.escalation_trigger '{incident.escalation_trigger}'")
+
+    if incident.owning_team not in _VALID_OWNING_TEAMS:
+        errors.append(f"[en] '{key}': invalid incident.owning_team '{incident.owning_team}'")
+
+    if incident.escalation_trigger == "THRESHOLD":
+        t = incident.threshold
+        if not t:
+            errors.append(f"[en] '{key}': incident.escalation_trigger=THRESHOLD requires a threshold block")
+        else:
+            if int(t.get("count", 0)) <= 0:
+                errors.append(f"[en] '{key}': incident.threshold.count must be > 0")
+            if int(t.get("window_seconds", 0)) <= 0:
+                errors.append(f"[en] '{key}': incident.threshold.window_seconds must be > 0")
+
+    if key in _NEVER_CONDITION_KEYS:
+        if incident.escalation_trigger != "IMMEDIATE":
+            errors.append(
+                f"[en] '{key}': safety-boundary NEVER-condition key must have "
+                f"incident.escalation_trigger=IMMEDIATE (never threshold-gated)"
+            )
+        if not incident.regulatory_reportable:
+            errors.append(
+                f"[en] '{key}': safety-boundary NEVER-condition key must have "
+                f"incident.regulatory_reportable=true"
+            )
+
+    return errors
 
 
 class MessageRegistry:
@@ -122,6 +227,7 @@ class MessageRegistry:
                         surface=d["surface"],
                         variables=d["variables"],
                         locale=locale,
+                        incident=_parse_incident_block(d.get("incident")),
                     )
             log.info("messages.loaded_from_redis",
                      locales=list(self._cache.keys()),
@@ -136,7 +242,7 @@ class MessageRegistry:
             log.warning("messages.file_missing", path=str(self._file))
             return
 
-        raw: dict[str, Any] = yaml.safe_load(self._file.read_text()) or {}
+        raw: dict[str, Any] = yaml.safe_load(self._file.read_text(encoding="utf-8")) or {}
         en_entries: dict[str, dict] = {}
 
         # First pass — collect en metadata for all keys
@@ -145,10 +251,11 @@ class MessageRegistry:
                 "severity": entry.get("severity", "INFO"),
                 "surface": list(entry.get("surface", [])),
                 "variables": list(entry.get("variables", [])),
+                "incident": _parse_incident_block(entry.get("incident")),
             }
 
         # Discover locales (all lowercase single-word fields that aren't metadata)
-        _meta = {"severity", "surface", "variables"}
+        _meta = {"severity", "surface", "variables", "incident"}
         sample = next(iter(raw.values()), {}) if raw else {}
         locales = sorted(k for k in sample if k not in _meta)
 
@@ -163,6 +270,7 @@ class MessageRegistry:
                     surface=meta["surface"],
                     variables=meta["variables"],
                     locale=locale,
+                    incident=meta["incident"],
                 )
 
         log.info("messages.loaded_from_yaml",
@@ -185,6 +293,7 @@ class MessageRegistry:
                         "severity": entry.severity,
                         "surface": entry.surface,
                         "variables": entry.variables,
+                        "incident": asdict(entry.incident) if entry.incident else None,
                     }))
             pipe.execute()
             log.info("messages.written_to_redis",
@@ -256,7 +365,7 @@ class MessageRegistry:
                     "variables": en.variables if en else [],
                 }
             out = output_dir / f"messages.{locale}.json"
-            out.write_text(json.dumps(payload, ensure_ascii=False, indent=2))
+            out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
             log.info("messages.json_written", locale=locale, path=str(out), count=len(payload))
 
     # ── Validation ─────────────────────────────────────────────────────────────
@@ -283,6 +392,8 @@ class MessageRegistry:
             bad_surfaces = set(entry.surface) - _VALID_SURFACES
             if bad_surfaces:
                 errors.append(f"[en] '{key}': invalid surface values: {sorted(bad_surfaces)}")
+
+            errors.extend(_validate_incident(key, entry))
 
         for locale, entries in self._cache.items():
             if locale == "en":

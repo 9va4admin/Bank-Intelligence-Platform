@@ -182,6 +182,15 @@ CTS_WF_CBS_ACCOUNT_FROZEN:
   variables: [account_display, instrument_id]
   en: "Account {account_display} is frozen — {instrument_id} returned immediately."
   hi: ""
+  incident:
+    incident_class: SECURITY
+    default_severity: P2
+    escalation_trigger: THRESHOLD
+    threshold: { count: 20, window_seconds: 900 }
+    owning_team: cts_clearing_ops
+    regulatory_reportable: false
+    auto_close_eligible: true
+    runbook_ref: "runbooks/cts/account-frozen-spike.md"
 
 CTS_WF_CBS_ACCOUNT_CLOSED:
   severity: CRITICAL
@@ -189,6 +198,15 @@ CTS_WF_CBS_ACCOUNT_CLOSED:
   variables: [account_display, instrument_id]
   en: "Account {account_display} is closed — {instrument_id} returned immediately."
   hi: ""
+  incident:
+    incident_class: SECURITY
+    default_severity: P2
+    escalation_trigger: THRESHOLD
+    threshold: { count: 20, window_seconds: 900 }
+    owning_team: cts_clearing_ops
+    regulatory_reportable: false
+    auto_close_eligible: true
+    runbook_ref: "runbooks/cts/account-closed-spike.md"
 
 CTS_WF_CBS_ACCOUNT_DORMANT:
   severity: WARN
@@ -210,6 +228,15 @@ CTS_WF_STOP_PAYMENT_HIT:
   variables: [instrument_id, account_display]
   en: "Stop payment instruction active for {instrument_id} on {account_display} — returned immediately."
   hi: ""
+  incident:
+    incident_class: SECURITY
+    default_severity: P2
+    escalation_trigger: THRESHOLD
+    threshold: { count: 20, window_seconds: 900 }
+    owning_team: cts_clearing_ops
+    regulatory_reportable: false
+    auto_close_eligible: true
+    runbook_ref: "runbooks/cts/stop-payment-spike.md"
 
 CTS_WF_STOP_PAYMENT_CLEAR:
   severity: INFO
@@ -343,6 +370,14 @@ CTS_WF_IET_WATCHDOG_FIRED:
   variables: [instrument_id, seconds_remaining]
   en: "IET watchdog triggered for {instrument_id} — emergency filing initiated with {seconds_remaining}s remaining."
   hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P0
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_clearing_ops
+    regulatory_reportable: true
+    auto_close_eligible: false
+    runbook_ref: "runbooks/cts/iet-watchdog-fired.md"
 
 CTS_WF_IET_SAFE:
   severity: INFO
@@ -361,6 +396,14 @@ CTS_KS_ENGAGED:
   variables: [mode, scope, bank_id, activated_by]
   en: "Vision AI kill switch engaged — mode={mode} scope={scope} bank={bank_id} by {activated_by}. All affected instruments routed to human review."
   hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_clearing_ops
+    regulatory_reportable: true
+    auto_close_eligible: false
+    runbook_ref: "runbooks/cts/kill-switch-engaged.md"
 
 CTS_KS_RELEASED:
   severity: WARN
@@ -744,6 +787,14 @@ CTS_NGCH_SUBMIT_FAILED_TERMINAL:
   variables: [instrument_id, max_attempts]
   en: "NGCH submission permanently failed for {instrument_id} after {max_attempts} attempts — manual intervention required."
   hi: ""
+  incident:
+    incident_class: TRANSIENT_RETRYABLE
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_clearing_ops
+    regulatory_reportable: true
+    auto_close_eligible: false
+    runbook_ref: "runbooks/cts/ngch-filing-terminal-failure.md"
 
 CTS_NGCH_DUPLICATE_DETECTED:
   severity: WARN
@@ -758,6 +809,14 @@ CTS_NGCH_IET_EXPIRED:
   variables: [instrument_id]
   en: "IET window expired for {instrument_id} — deemed approval in effect. Bank is liable."
   hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P0
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_clearing_ops
+    regulatory_reportable: true
+    auto_close_eligible: false
+    runbook_ref: "runbooks/cts/iet-expired.md"
 
 CTS_NGCH_MAINTENANCE_WINDOW:
   severity: WARN
@@ -779,6 +838,14 @@ CTS_NGCH_AUTH_CERT_EXPIRED:
   variables: [bank_id]
   en: "NGCH mTLS certificate expired for {bank_id} — renewing from Vault. Filings paused."
   hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P0
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_clearing_ops
+    regulatory_reportable: true
+    auto_close_eligible: false
+    runbook_ref: "runbooks/cts/ngch-cert-expired.md"
 
 CTS_NGCH_AUTH_CERT_RENEWED:
   severity: INFO
@@ -955,6 +1022,15 @@ CBS_ACCOUNT_FROZEN:
   variables: [account_display, instrument_id]
   en: "Account {account_display} is frozen in CBS — {instrument_id} returned immediately."
   hi: ""
+  incident:
+    incident_class: SECURITY
+    default_severity: P2
+    escalation_trigger: THRESHOLD
+    threshold: { count: 20, window_seconds: 900 }
+    owning_team: cts_clearing_ops
+    regulatory_reportable: false
+    auto_close_eligible: true
+    runbook_ref: "runbooks/cts/account-frozen-spike.md"
 
 CBS_ACCOUNT_CLOSED:
   severity: CRITICAL
@@ -962,6 +1038,15 @@ CBS_ACCOUNT_CLOSED:
   variables: [account_display, instrument_id]
   en: "Account {account_display} is closed in CBS — {instrument_id} returned immediately."
   hi: ""
+  incident:
+    incident_class: SECURITY
+    default_severity: P2
+    escalation_trigger: THRESHOLD
+    threshold: { count: 20, window_seconds: 900 }
+    owning_team: cts_clearing_ops
+    regulatory_reportable: false
+    auto_close_eligible: true
+    runbook_ref: "runbooks/cts/account-closed-spike.md"
 
 CBS_ACCOUNT_DORMANT:
   severity: WARN
@@ -983,6 +1068,15 @@ CBS_STOP_PAYMENT_ACTIVE:
   variables: [instrument_id, account_display]
   en: "Stop payment instruction active for {instrument_id} on {account_display} — returned immediately."
   hi: ""
+  incident:
+    incident_class: SECURITY
+    default_severity: P2
+    escalation_trigger: THRESHOLD
+    threshold: { count: 20, window_seconds: 900 }
+    owning_team: cts_clearing_ops
+    regulatory_reportable: false
+    auto_close_eligible: true
+    runbook_ref: "runbooks/cts/stop-payment-spike.md"
 
 CBS_STOP_PAYMENT_CLEAR:
   severity: INFO
@@ -1018,6 +1112,14 @@ CBS_AUTH_FAILED:
   variables: [cbs_type, bank_id]
   en: "CBS {cbs_type} authentication failure for {bank_id} — credentials may be stale."
   hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: bank_infra
+    regulatory_reportable: false
+    auto_close_eligible: false
+    runbook_ref: "runbooks/cts/cbs-auth-failed.md"
 
 CBS_VAULT_SYNC_STARTED:
   severity: INFO
@@ -1071,6 +1173,14 @@ VAULT_SIG_STALE:
   variables: [bank_id, hours_ago]
   en: "Signature vault stale for {bank_id} — last sync {hours_ago}h ago. All inward cheques to human review."
   hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_clearing_ops
+    regulatory_reportable: false
+    auto_close_eligible: false
+    runbook_ref: "runbooks/cts/vault-stale.md"
 
 VAULT_SIG_LOAD_COMPLETE:
   severity: INFO
@@ -1113,6 +1223,14 @@ VAULT_SIG_INTEGRITY_FAIL:
   variables: [bank_id, corrupt_count]
   en: "Signature vault integrity check failed for {bank_id} — {corrupt_count} entries corrupted. Resync required."
   hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P0
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_clearing_ops
+    regulatory_reportable: true
+    auto_close_eligible: false
+    runbook_ref: "runbooks/cts/vault-integrity-fail.md"
 
 VAULT_SIG_CBS_FALLBACK:
   severity: WARN
@@ -1327,6 +1445,14 @@ AUTH_SAML_IDP_UNREACHABLE:
   variables: [idp_entity_id]
   en: "Bank IdP {idp_entity_id} unreachable — login blocked. Check IdP connectivity."
   hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: bank_infra
+    regulatory_reportable: false
+    auto_close_eligible: false
+    runbook_ref: "runbooks/auth/idp-unreachable.md"
 
 AUTH_ACCESS_DENIED:
   severity: WARN
@@ -1436,6 +1562,14 @@ EJ_EDGE_BUFFER_FULL:
   variables: [atm_id]
   en: "Edge buffer full for ATM {atm_id} — oldest logs being overwritten. Immediate connectivity check required."
   hi: ""
+  incident:
+    incident_class: EXPECTED_DEGRADATION
+    default_severity: P2
+    escalation_trigger: IMMEDIATE
+    owning_team: ej_ops
+    regulatory_reportable: false
+    auto_close_eligible: true
+    runbook_ref: "runbooks/ej/edge-buffer-full.md"
 
 EJ_OEM_DETECTED:
   severity: INFO
@@ -1583,6 +1717,14 @@ EJ_ATM_HEALTH_CRITICAL:
   variables: [atm_id, fault_description]
   en: "ATM {atm_id} in critical state — {fault_description}. Immediate attention required."
   hi: ""
+  incident:
+    incident_class: STRUCTURAL
+    default_severity: P2
+    escalation_trigger: IMMEDIATE
+    owning_team: ej_ops
+    regulatory_reportable: false
+    auto_close_eligible: true
+    runbook_ref: "runbooks/ej/atm-health-critical.md"
 
 EJ_ATM_CASH_LOW:
   severity: WARN
@@ -1671,6 +1813,14 @@ PLATFORM_POLICY_RELOAD_FAILED:
   variables: [policy_name, version, error]
   en: "OPA policy {policy_name} v{version} reload failed — {error}. Previous version retained."
   hi: ""
+  incident:
+    incident_class: EXPECTED_DEGRADATION
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: bank_infra
+    regulatory_reportable: false
+    auto_close_eligible: false
+    runbook_ref: "runbooks/platform/opa-policy-reload-failed.md"
 
 PLATFORM_CBS_UNREACHABLE:
   severity: CRITICAL
@@ -1678,6 +1828,14 @@ PLATFORM_CBS_UNREACHABLE:
   variables: [cbs_type, bank_id]
   en: "CBS {cbs_type} unreachable for {bank_id} — degraded mode active. Balance checks deferred."
   hi: ""
+  incident:
+    incident_class: EXPECTED_DEGRADATION
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_clearing_ops
+    regulatory_reportable: false
+    auto_close_eligible: false
+    runbook_ref: "runbooks/platform/cbs-unreachable.md"
 
 PLATFORM_CBS_RECOVERED:
   severity: INFO
@@ -1692,6 +1850,14 @@ PLATFORM_AUDIT_WRITE_FAILED:
   variables: [event_type, instrument_id, attempt]
   en: "Immudb write failed for event {event_type} on {instrument_id} — retrying (attempt {attempt})."
   hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P0
+    escalation_trigger: IMMEDIATE
+    owning_team: compliance_review
+    regulatory_reportable: true
+    auto_close_eligible: false
+    runbook_ref: "runbooks/platform/audit-write-failed.md"
 
 PLATFORM_AUDIT_TAMPER_DETECTED:
   severity: CRITICAL
@@ -1699,6 +1865,14 @@ PLATFORM_AUDIT_TAMPER_DETECTED:
   variables: [collection]
   en: "Immudb Merkle tree inconsistency detected in collection {collection} — security team notified."
   hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P0
+    escalation_trigger: IMMEDIATE
+    owning_team: compliance_review
+    regulatory_reportable: true
+    auto_close_eligible: false
+    runbook_ref: "runbooks/platform/audit-tamper-detected.md"
 
 PLATFORM_AUDIT_INTEGRITY_VERIFIED:
   severity: INFO
@@ -1720,6 +1894,14 @@ PLATFORM_MODEL_DRIFT_CRITICAL:
   variables: [model_name, metric, drop_pct, threshold_pct]
   en: "Model {model_name} drift critical — {metric} dropped {drop_pct}%, exceeding {threshold_pct}% threshold. Auto-tightening."
   hi: ""
+  incident:
+    incident_class: EXPECTED_DEGRADATION
+    default_severity: P2
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_ai_platform
+    regulatory_reportable: false
+    auto_close_eligible: false
+    runbook_ref: "runbooks/platform/model-drift-critical.md"
 
 PLATFORM_MODEL_PULLED:
   severity: CRITICAL
@@ -1727,6 +1909,14 @@ PLATFORM_MODEL_PULLED:
   variables: [model_name, metric]
   en: "Model {model_name} pulled from production — {metric} degraded beyond safe threshold. Human review mandatory."
   hi: ""
+  incident:
+    incident_class: EXPECTED_DEGRADATION
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_ai_platform
+    regulatory_reportable: false
+    auto_close_eligible: false
+    runbook_ref: "runbooks/platform/model-pulled.md"
 
 PLATFORM_MODEL_DEPLOYED:
   severity: INFO
@@ -1741,6 +1931,14 @@ PLATFORM_DC_FAILOVER:
   variables: [failed_dc, active_dc]
   en: "DC failover triggered — {failed_dc} offline, {active_dc} handling 100% traffic."
   hi: ""
+  incident:
+    incident_class: EXPECTED_DEGRADATION
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: bank_infra
+    regulatory_reportable: true
+    auto_close_eligible: false
+    runbook_ref: "runbooks/platform/dc-failover.md"
 
 PLATFORM_DC_RESTORED:
   severity: INFO
@@ -1787,6 +1985,14 @@ VAULT_STALE:
   variables: [bank_id, vault_type, staleness_minutes]
   en: "Vault data stale for {bank_id} ({vault_type}) — {staleness_minutes} minutes since last sync. All instruments routing to human review."
   hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_clearing_ops
+    regulatory_reportable: false
+    auto_close_eligible: false
+    runbook_ref: "runbooks/cts/vault-stale.md"
 
 VAULT_INTEGRITY_FAIL:
   severity: CRITICAL
@@ -1794,6 +2000,14 @@ VAULT_INTEGRITY_FAIL:
   variables: [bank_id, vault_type, error_detail]
   en: "Vault integrity check FAILED for {bank_id} ({vault_type}) — {error_detail}. Vault halted, all instruments routed to human review."
   hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P0
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_clearing_ops
+    regulatory_reportable: true
+    auto_close_eligible: false
+    runbook_ref: "runbooks/cts/vault-integrity-fail.md"
 
 # ────────────────────────────────────────────────────────────────────────
 # CTS REVIEW — human review queue lifecycle
@@ -1823,6 +2037,14 @@ CTS_NGCH_TERMINAL_FAILURE:
   variables: [instrument_id, bank_id, error_code, retry_count]
   en: "NGCH filing FAILED terminally for cheque {instrument_id} ({bank_id}) — error {error_code} after {retry_count} retries. Manual intervention required."
   hi: ""
+  incident:
+    incident_class: TRANSIENT_RETRYABLE
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_clearing_ops
+    regulatory_reportable: true
+    auto_close_eligible: false
+    runbook_ref: "runbooks/cts/ngch-filing-terminal-failure.md"
 
 CTS_NGCH_CERT_EXPIRED:
   severity: CRITICAL
@@ -1830,6 +2052,14 @@ CTS_NGCH_CERT_EXPIRED:
   variables: [bank_id, cert_expiry]
   en: "NGCH mTLS certificate expired for {bank_id} (expired {cert_expiry}). All NGCH filing halted — rotate certificate immediately."
   hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P0
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_clearing_ops
+    regulatory_reportable: true
+    auto_close_eligible: false
+    runbook_ref: "runbooks/cts/ngch-cert-expired.md"
 
 # ────────────────────────────────────────────────────────────────────────
 # MCP CONNECTION CONFIG — connect / disconnect events
@@ -1989,6 +2219,14 @@ AUTH_LDAP_SERVER_UNREACHABLE:
   variables: [server_url, bank_id, entity_type]
   en: "LDAP/AD server {server_url} unreachable for {entity_type} auth at bank {bank_id}. Users cannot log in. Check network and LDAPS port 636."
   hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: bank_infra
+    regulatory_reportable: false
+    auto_close_eligible: false
+    runbook_ref: "runbooks/auth/ldap-unreachable.md"
 
 AUTH_LOCAL_LOGIN_SUCCESS:
   severity: INFO
@@ -2017,6 +2255,14 @@ AUTH_CONNECTOR_CONFIG_MISSING:
   variables: [entity_type, bank_id]
   en: "Auth connector configuration missing for {entity_type} at bank {bank_id}. Users cannot log in. Update Helm Layer 2 values."
   hi: ""
+  incident:
+    incident_class: STRUCTURAL
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: bank_infra
+    regulatory_reportable: false
+    auto_close_eligible: false
+    runbook_ref: "runbooks/auth/connector-config-missing.md"
 
 # ────────────────────────────────────────────────────────────────────────
 # MSV — MULTI-SIGNATURE VALIDATION

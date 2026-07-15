@@ -107,6 +107,11 @@ def main() -> int:
     from shared.messages.build_docs import build_html
     build_html(yaml_path=Path(args.messages_file))
 
+    # Regenerate the incident PrometheusRule CRD every time the build runs --
+    # same "never hand-edited, always derived from messages.yaml" contract.
+    from shared.messages.build_alerts import build_alert_rules
+    build_alert_rules(yaml_path=Path(args.messages_file))
+
     return 0
 
 

@@ -13,6 +13,8 @@ import structlog
 from pydantic import BaseModel, ConfigDict
 from temporalio import activity
 
+from shared.incidents.signal import emit_incident_signal
+
 log = structlog.get_logger()
 
 _VALID_EVENT_TYPES = {
@@ -86,6 +88,10 @@ async def write_audit(
             bank_id=inp.bank_id,
             error=str(exc),
         )
+        # The audit pipeline itself just failed — a P0 safety-boundary signal
+        # in its own right (see docs/astra-incident-management-plan §08),
+        # independent of whatever event_type failed to get written.
+        emit_incident_signal("PLATFORM_AUDIT_WRITE_FAILED", bank_id=inp.bank_id)
         raise   # re-raise so Temporal retries with AUDIT_RETRY policy
 
     log.info(
@@ -95,4 +101,5 @@ async def write_audit(
         bank_id=inp.bank_id,
         immudb_tx_id=tx_id,
     )
+    emit_incident_signal(inp.event_type, bank_id=inp.bank_id)
     return WriteAuditResult(success=True, immudb_tx_id=tx_id)
