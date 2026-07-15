@@ -23,11 +23,13 @@ reference this prompt was adapted from, handles it, which is fine for a
 throwaway local script but not for anything reachable from the real app).
 """
 import base64
+import io
 import json
 from typing import Optional
 
 import structlog
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
+from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, ConfigDict
 
 from apps.api.dependencies import require_user_context
@@ -164,6 +166,40 @@ def _clean_json_response(raw_text: str) -> str:
     return cleaned.strip()
 
 
+def _convert_to_png_bytes(raw_bytes: bytes) -> bytes:
+    """
+    Normalises any Pillow-readable source (TIFF, BMP, JPEG, PNG, ...) to PNG.
+
+    Scanned cheques are commonly TIFF (CTS-2010 archival scans use it) — no
+    mainstream browser can decode TIFF inside an <img> tag, and vision LLM
+    providers are not guaranteed to accept it either despite the raw bytes
+    being "valid image data". Converting once, server-side, makes the browser
+    preview and the bytes sent to the model the same guaranteed-decodable PNG.
+    """
+    try:
+        with Image.open(io.BytesIO(raw_bytes)) as img:
+            if img.mode not in ("RGB", "L"):
+                img = img.convert("RGB")
+            buffer = io.BytesIO()
+            img.save(buffer, format="PNG")
+            return buffer.getvalue()
+    except UnidentifiedImageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Uploaded file isn't a readable image.",
+        ) from exc
+
+
+@router_v1.post("/preview")
+async def cloud_extract_preview(
+    file: UploadFile = File(...),
+    ctx: UserContext = Depends(require_user_context),
+) -> Response:
+    raw_bytes = await file.read()
+    png_bytes = _convert_to_png_bytes(raw_bytes)
+    return Response(content=png_bytes, media_type="image/png")
+
+
 @router_v1.post("", response_model=CloudExtractResponse)
 async def cloud_extract_cheque(
     file: UploadFile = File(...),
@@ -188,8 +224,9 @@ async def cloud_extract_cheque(
             ),
         )
 
-    image_bytes = await file.read()
-    image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+    raw_bytes = await file.read()
+    png_bytes = _convert_to_png_bytes(raw_bytes)
+    image_b64 = base64.b64encode(png_bytes).decode("utf-8")
 
     client = AsyncOpenAI(base_url=_HF_BASE_URL, api_key=hf_token)
     model_id = _MODEL_MAPPING[model]
