@@ -1,4 +1,5 @@
-"""ASTRA DEV-ONLY auth server — run local login + TOTP MFA with no Vault/DB/Redis.
+"""ASTRA DEV-ONLY auth server — local login + TOTP MFA with no Vault/DB/Redis,
+plus AuthenticationMiddleware so session-gated routes work against it too.
 
 Generates an ephemeral RS256 keypair in-process and seeds THREE accounts (real
 argon2 hashes). Serves the real /v1/auth/* router; the frontend reaches it via the
@@ -13,6 +14,14 @@ current 6-digit TOTP code from that app.
 NEVER use in production: keys are ephemeral (restart = sessions dropped + re-enrol)
 and accounts are seeded. Production wires SessionTokenService keys from Vault and
 the real connectors + account store.
+
+Routers registered here beyond auth are deliberately limited to ones with no
+Vault/DB/Redis/Kafka dependency of their own — this stays a login+one-router dev
+tool, not a second copy of apps/api/main.py. demo_cloud_extract qualifies: its
+only external dependency (config_service.get_secret for the HF token) already
+degrades to a clean 503 when config_service isn't initialised, which it isn't
+here. AuthenticationMiddleware itself needs only app.state.session_service,
+which this file already constructs for the login flow — no new dependency.
 """
 from __future__ import annotations
 
@@ -23,7 +32,9 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from apps.api.middleware.authentication import AuthenticationMiddleware
 from apps.api.routers import auth as auth_router
+from apps.api.routers import demo_cloud_extract
 from shared.auth.auth_service import AuthService
 from shared.auth.connectors.base import ASTRAIdentity
 from shared.auth.connectors.local import LocalCredentials
@@ -146,9 +157,14 @@ def build_app() -> FastAPI:
         allow_origins=["http://localhost:4000", "http://localhost:5173"],
         allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
     )
+    # Reads only request.app.state.session_service (set right below) — no
+    # Vault/DB dependency, safe to add here unlike most of main.py's stack.
+    app.add_middleware(AuthenticationMiddleware)
+
     app.state.session_service = session_service
     app.state.auth_service = svc
     app.include_router(auth_router.router_v1)
+    app.include_router(demo_cloud_extract.router_v1)
 
     @app.get("/health/live", include_in_schema=False)
     async def live():

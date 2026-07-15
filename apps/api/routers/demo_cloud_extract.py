@@ -122,6 +122,33 @@ class CloudExtractResponse(BaseModel):
     raw_response: Optional[str] = None
 
 
+async def _resolve_hf_token(bank_id: str) -> Optional[str]:
+    """
+    Vault first (the correct, real path — matches every other secret in
+    this codebase). Falls back to the ASTRA_DEMO_HF_TOKEN environment
+    variable only when Vault genuinely isn't reachable — this repo has no
+    Vault running in bare local dev (see dev_auth_server.py's own
+    no-Vault/DB/Redis design for the same constraint applied to auth).
+    This is the one deliberate os.environ read in this already-exceptional
+    file; every other secret access in the codebase goes through
+    config_service exclusively, and this fallback never fires once a real
+    Vault + demo.hf_token secret exists.
+    """
+    from shared.config.config_service import config_service
+
+    try:
+        return await config_service.get_secret("demo.hf_token")
+    except Exception as exc:
+        log.warning("demo.cloud_extract.vault_hf_token_unavailable", bank_id=bank_id, error=str(exc))
+
+    import os
+    env_token = os.environ.get("ASTRA_DEMO_HF_TOKEN")
+    if env_token:
+        log.info("demo.cloud_extract.using_env_hf_token_fallback", bank_id=bank_id)
+        return env_token
+    return None
+
+
 def _clean_json_response(raw_text: str) -> str:
     cleaned = raw_text.strip()
     if cleaned.startswith("```json"):
@@ -145,17 +172,17 @@ async def cloud_extract_cheque(
             detail=f"Unknown model '{model}'. Must be one of {list(_MODEL_MAPPING)}.",
         )
 
-    from shared.config.config_service import config_service
     from openai import AsyncOpenAI
 
-    try:
-        hf_token = await config_service.get_secret("demo.hf_token")
-    except Exception as exc:
-        log.error("demo.cloud_extract.hf_token_unavailable", bank_id=ctx.bank_id, error=str(exc))
+    hf_token = await _resolve_hf_token(ctx.bank_id)
+    if hf_token is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Cloud AI demo token not configured — set demo.hf_token in Vault.",
-        ) from exc
+            detail=(
+                "Cloud AI demo token not configured — set demo.hf_token in Vault, "
+                "or ASTRA_DEMO_HF_TOKEN in the environment for local dev without Vault."
+            ),
+        )
 
     image_bytes = await file.read()
     image_b64 = base64.b64encode(image_bytes).decode("utf-8")
