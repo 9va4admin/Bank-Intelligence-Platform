@@ -122,6 +122,12 @@ async def validate_cts2010(inp: CTS2010ValidationInput) -> CTS2010ValidationResu
 class LotAssignmentInput(BaseModel):
     model_config = ConfigDict(frozen=True)
     instrument_id: str
+    # Needed so worker-level DI can select the correct per-session LotManager
+    # instance out of a registry (see BoundCTSActivities.create_lot_entry) —
+    # a fresh LotManager per activity call would never produce sequential lot
+    # numbers across a real session's many instruments.
+    bank_ifsc: str = ""
+    session_id: str = ""
 
 
 class LotAssignmentResult(BaseModel):
@@ -134,13 +140,12 @@ async def create_lot_entry(inp: LotAssignmentInput, lot_manager: Any = None) -> 
     """
     Assigns instrument_id to a lot via LotManager.auto_assign().
 
-    lot_manager is worker-level DI (out of this fix's scope, same precedent as
-    cbs_connector/redis_client elsewhere): LotManager (modules/cts/lot/manager.py)
-    is a stateful, in-memory, per-clearing-session object — a fresh instance
-    per activity call would never produce sequential lot numbers across a real
-    session's many instruments, so the real deployment must inject one
-    persistent instance per (bank_ifsc, session_id) into the worker, not
-    construct one here.
+    lot_manager is worker-level DI: LotManager (modules/cts/lot/manager.py) is
+    a stateful, in-memory, per-clearing-session object — a fresh instance per
+    activity call would never produce sequential lot numbers across a real
+    session's many instruments. BoundCTSActivities.create_lot_entry
+    (modules/cts/worker_activities.py) selects the correct persistent
+    instance per (bank_ifsc, session_id) from a registry before calling this.
     """
     lot_number = lot_manager.auto_assign(inp.instrument_id)
     log.info(

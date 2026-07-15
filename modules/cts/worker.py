@@ -118,6 +118,7 @@ from modules.cts.workflows.activities.outward_scan_activities import (
     run_vision_presentment_check,
 )
 from modules.cts.workflows.mismatch_resolution_workflow import publish_mismatch_hold
+from modules.cts.worker_activities import build_bound_activities
 
 ALL_WORKFLOWS = [
     ChequeProcessingWorkflow,
@@ -131,6 +132,13 @@ ALL_WORKFLOWS = [
     MismatchResolutionWorkflow,
 ]
 
+# Every registered CTS activity name, for reference/introspection. This list
+# is NOT what gets passed to Worker() — see run_worker(), which combines
+# NO_DI_ACTIVITIES (below, bare functions) with a BoundCTSActivities
+# instance's DI-wired bound methods (modules/cts/worker_activities.py) built
+# fresh per run_worker() call, since real dependency construction is async
+# and needs a resolved bank_id + config_service that don't exist at import
+# time.
 ALL_ACTIVITIES = [
     ocr_extract,
     detect_alteration,
@@ -163,6 +171,24 @@ ALL_ACTIVITIES = [
     create_lot_entry,
     run_vision_presentment_check,
     publish_mismatch_hold,
+]
+
+# Activities that take no injectable external dependency — either pure
+# computation (validate_cts2010 wraps InstrumentComplianceRecord, no I/O) or
+# still-stub bodies with no client parameter at all (the 7 SMB-forwarding /
+# sub-member activities — see modules/cts/worker_activities.py's module
+# docstring: real DB/Kafka/Immudb wiring for these is a separate, larger,
+# not-yet-designed task, flagged but not silently expanded into DI wiring).
+# Registered directly as bare functions — never wrapped in BoundCTSActivities.
+NO_DI_ACTIVITIES = [
+    validate_smb_forwarding_window,
+    write_forwarding_log_start,
+    write_forwarding_log_complete,
+    write_smb_forwarding_audit,
+    notify_sub_member_return,
+    emit_batch_ledger_update,
+    check_return_rate_shield,
+    validate_cts2010,
 ]
 
 
@@ -198,6 +224,13 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
         temporal_address=temporal_address,
     )
 
+    # Real dependency construction (CBS/Redis/Immudb/Kafka/NGCH/OPA/vLLM) is
+    # async and per-bank — cannot happen at module import time. Each
+    # dependency degrades independently to None on failure; see
+    # modules/cts/worker_activities.py's module docstring.
+    bound_activities = await build_bound_activities(bank_id, config_service)
+    worker_activities = NO_DI_ACTIVITIES + bound_activities.activity_list()
+
     client = await Client.connect(
         temporal_address,
         namespace=temporal_namespace,
@@ -207,7 +240,7 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
         client,
         task_queue=task_queue,
         workflows=ALL_WORKFLOWS,
-        activities=ALL_ACTIVITIES,
+        activities=worker_activities,
         max_concurrent_workflow_tasks=100,
         max_concurrent_activities=200,
         graceful_shutdown_timeout=timedelta(minutes=2),
@@ -220,8 +253,15 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
         shutdown_event.set()
 
     loop = asyncio.get_event_loop()
-    loop.add_signal_handler(signal.SIGTERM, _handle_signal)
-    loop.add_signal_handler(signal.SIGINT, _handle_signal)
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(sig, _handle_signal)
+        except NotImplementedError:
+            # ProactorEventLoop (Windows) never implements add_signal_handler —
+            # production runs on Linux K8s pods where the loop-native path
+            # above always succeeds; this fallback only serves local Windows
+            # dev/test runs so graceful shutdown still works there too.
+            signal.signal(sig, lambda *_: _handle_signal())
 
     async with worker:
         log.info("worker.ready", bank_id=bank_id, task_queue=task_queue)
