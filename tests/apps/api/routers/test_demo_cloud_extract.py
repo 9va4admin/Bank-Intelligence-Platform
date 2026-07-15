@@ -206,6 +206,41 @@ class TestHfCallFailure:
 
         assert response.status_code == 502
 
+    def test_provider_rejection_surfaces_real_reason(self):
+        """Regression: a model whose inference provider the account isn't
+        authorized for (e.g. Qwen 72B routes through ovhcloud; a token valid
+        for featherless-ai can still be rejected there) must not collapse
+        into a generic 'unreachable' message -- the real HF rejection reason
+        is exactly what a user needs to self-diagnose this."""
+        import httpx
+        import openai
+
+        client = _authed_client()
+        with patch(
+            "shared.config.config_service.config_service.get_secret",
+            new=AsyncMock(return_value="hf_fake_token"),
+        ), patch("openai.AsyncOpenAI") as mock_openai_cls:
+            resp = httpx.Response(
+                400, request=httpx.Request("POST", "https://router.huggingface.co/v1"),
+                json={"error": "Not allowed to POST /ovhcloud/v1/chat/completions for provider ovhcloud"},
+            )
+            api_error = openai.APIStatusError(
+                "Error code: 400 - {'error': 'Not allowed to POST /ovhcloud/v1/chat/completions for provider ovhcloud'}",
+                response=resp, body=None,
+            )
+            client_inst = AsyncMock()
+            client_inst.chat.completions.create = AsyncMock(side_effect=api_error)
+            mock_openai_cls.return_value = client_inst
+
+            response = client.post(
+                "/v1/cts/demo/cloud-extract", files=_fake_image_file(), params={"model": "qwen-72b"},
+            )
+
+        assert response.status_code == 502
+        detail = response.json()["detail"]
+        assert "qwen-72b" in detail
+        assert "ovhcloud" in detail
+
 
 class TestInvalidJsonResponse:
     def test_degrades_gracefully_never_crashes(self):

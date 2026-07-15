@@ -190,6 +190,8 @@ async def cloud_extract_cheque(
     client = AsyncOpenAI(base_url=_HF_BASE_URL, api_key=hf_token)
     model_id = _MODEL_MAPPING[model]
 
+    import openai as openai_module
+
     try:
         response = await client.chat.completions.create(
             model=model_id,
@@ -202,6 +204,20 @@ async def cloud_extract_cheque(
             }],
             temperature=0,
         )
+    except openai_module.APIStatusError as exc:
+        # HF answered, but rejected the request — most commonly the account
+        # isn't authorized for this model's specific inference provider
+        # (Qwen 72B routes through ovhcloud; Qwen 32B / Gemma 27B through
+        # featherless-ai — a token can be valid for one and rejected by the
+        # other). Surface the real reason instead of a generic "unreachable".
+        log.error(
+            "demo.cloud_extract.hf_rejected",
+            bank_id=ctx.bank_id, model=model, status_code=exc.response.status_code, error=str(exc),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Hugging Face rejected the request for model '{model}': {exc.message}",
+        ) from exc
     except Exception as exc:
         log.error("demo.cloud_extract.hf_call_failed", bank_id=ctx.bank_id, model=model, error=str(exc))
         raise HTTPException(
