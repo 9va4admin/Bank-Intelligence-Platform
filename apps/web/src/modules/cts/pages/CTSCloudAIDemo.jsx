@@ -156,20 +156,20 @@ export default function CTSCloudAIDemo() {
             {error && (
               <p className="mt-3 text-sm text-red-500">{error}</p>
             )}
+
+            {previewUrl && (
+              <div className="mt-4">
+                <p className={`text-xs mb-1 ${th.muted}`}>Uploaded Cheque — compare against extracted fields</p>
+                <img src={previewUrl} alt="Cheque preview" className="rounded-lg border w-full max-h-72 object-contain" />
+              </div>
+            )}
           </div>
 
           <div className={`rounded-xl border p-5 ${th.card}`}>
             <h3 className={`text-sm font-semibold mb-3 ${th.heading}`}>📋 Extracted Information</h3>
 
-            {!result && !loading && !previewUrl && (
+            {!result && !loading && (
               <p className={`text-sm ${th.faint}`}>Upload a cheque image and click Extract Information.</p>
-            )}
-
-            {previewUrl && (
-              <div className="mb-4">
-                <p className={`text-xs mb-1 ${th.muted}`}>Uploaded Cheque — compare against extracted fields below</p>
-                <img src={previewUrl} alt="Cheque preview" className="rounded-lg border w-full max-h-72 object-contain" />
-              </div>
             )}
 
             {loading && (
