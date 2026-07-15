@@ -53,6 +53,27 @@ async function extractChequeCloud(file, model) {
   return response.json()
 }
 
+async function fetchChequePreview(file) {
+  const form = new FormData()
+  form.append('file', file)
+
+  const response = await fetch('/v1/cts/demo/cloud-extract/preview', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'X-CSRF-Token': sessionStorage.getItem('astra-csrf') || '',
+    },
+    body: form,
+  })
+
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}))
+    throw new Error(detail.detail || `HTTP ${response.status}`)
+  }
+  const blob = await response.blob()
+  return URL.createObjectURL(blob)
+}
+
 function downloadJSON(data, filename) {
   const blob = new Blob([JSON.stringify(data, null, 4)], { type: 'application/json' })
   const url  = URL.createObjectURL(blob)
@@ -77,23 +98,31 @@ export default function CTSCloudAIDemo() {
     select:  isDark ? 'bg-navy-900 border-white/15 text-white' : 'bg-white border-slate-300 text-slate-900',
   }
 
-  const [file, setFile]           = useState(null)
-  const [previewUrl, setPreview]  = useState(null)
-  const [model, setModel]         = useState('qwen-72b')
-  const [loading, setLoading]     = useState(false)
-  const [result, setResult]       = useState(null)
-  const [error, setError]         = useState(null)
+  const [file, setFile]                 = useState(null)
+  const [previewUrl, setPreview]        = useState(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [model, setModel]               = useState('qwen-72b')
+  const [loading, setLoading]           = useState(false)
+  const [result, setResult]             = useState(null)
+  const [error, setError]               = useState(null)
 
-  function handleFileChange(e) {
+  async function handleFileChange(e) {
     const f = e.target.files?.[0]
     if (!f) return
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
     setFile(f)
+    setPreview(null)
     setResult(null)
     setError(null)
-
-    const reader = new FileReader()
-    reader.onload = () => setPreview(reader.result)
-    reader.readAsDataURL(f)
+    setPreviewLoading(true)
+    try {
+      const url = await fetchChequePreview(f)
+      setPreview(url)
+    } catch (err) {
+      setError(err.message || 'Preview generation failed')
+    } finally {
+      setPreviewLoading(false)
+    }
   }
 
   async function handleExtract() {
@@ -160,7 +189,13 @@ export default function CTSCloudAIDemo() {
               <p className="mt-3 text-sm text-red-500">{error}</p>
             )}
 
-            {previewUrl && (
+            {previewLoading && (
+              <div className={`mt-4 rounded-lg border flex items-center justify-center text-sm ${th.faint}`} style={{ minHeight: '8rem' }}>
+                Generating preview…
+              </div>
+            )}
+
+            {previewUrl && !previewLoading && (
               <div className="mt-4">
                 <p className={`text-xs mb-1 ${th.muted}`}>Uploaded Cheque — compare against extracted fields</p>
                 <img
