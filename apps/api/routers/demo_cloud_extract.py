@@ -41,7 +41,11 @@ _HF_BASE_URL = "https://router.huggingface.co/v1"
 
 _MODEL_MAPPING = {
     "qwen-32b": "Qwen/Qwen3-VL-32B-Instruct:featherless-ai",
-    "qwen-72b": "Qwen/Qwen2.5-VL-72B-Instruct:ovhcloud",
+    # ovhcloud's hosting of this model is in HF's own inferenceProviderMapping
+    # "error" state (confirmed via https://huggingface.co/api/models/Qwen/Qwen2.5-VL-72B-Instruct
+    # ?expand[]=inferenceProviderMapping) -- featherless-ai is the only "live"
+    # provider for it, not an account-authorization gap.
+    "qwen-72b": "Qwen/Qwen2.5-VL-72B-Instruct:featherless-ai",
     "gemma-27b": "google/gemma-3-27b-it:featherless-ai",
 }
 
@@ -205,11 +209,10 @@ async def cloud_extract_cheque(
             temperature=0,
         )
     except openai_module.APIStatusError as exc:
-        # HF answered, but rejected the request — most commonly the account
-        # isn't authorized for this model's specific inference provider
-        # (Qwen 72B routes through ovhcloud; Qwen 32B / Gemma 27B through
-        # featherless-ai — a token can be valid for one and rejected by the
-        # other). Surface the real reason instead of a generic "unreachable".
+        # HF answered, but rejected the request — either an account/provider
+        # authorization gap, or (as seen with ovhcloud + Qwen2.5-VL-72B) the
+        # provider's own hosting of this model is degraded on HF's side.
+        # Surface the real reason instead of a generic "unreachable".
         log.error(
             "demo.cloud_extract.hf_rejected",
             bank_id=ctx.bank_id, model=model, status_code=exc.response.status_code, error=str(exc),
