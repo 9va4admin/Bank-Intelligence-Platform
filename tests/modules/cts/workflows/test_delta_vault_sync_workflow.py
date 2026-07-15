@@ -166,6 +166,37 @@ class TestUpdateBloomFilter:
         )
         assert result["serials_added"] == 3
 
+    @pytest.mark.asyncio
+    async def test_degrades_gracefully_when_bloom_client_unavailable(self):
+        """bloom_client=None (Bloom construction failed at worker startup) must
+        degrade like every other CTS dependency — never crash the activity.
+        Regression: previously raised AttributeError on 'NoneType'.add_bulk,
+        which would fail all 3 _INFRA_RETRY attempts and crash
+        DeltaVaultSyncWorkflow.run() outright whenever Redis/Bloom was down
+        but CBS still had real delta records to report."""
+        from modules.cts.workflows.delta_vault_sync_workflow import update_bloom_filter
+
+        result = await update_bloom_filter(
+            bank_id="test-bank",
+            stop_payment_deltas=[{"cheque_serial": "S001"}],
+            canceled_leaf_deltas=[],
+            bloom_client=None,
+        )
+        assert result["serials_added"] == 0
+        assert result["degraded"] is True
+
+    @pytest.mark.asyncio
+    async def test_empty_deltas_with_no_bloom_client_still_safe(self):
+        from modules.cts.workflows.delta_vault_sync_workflow import update_bloom_filter
+
+        result = await update_bloom_filter(
+            bank_id="test-bank",
+            stop_payment_deltas=[],
+            canceled_leaf_deltas=[],
+            bloom_client=None,
+        )
+        assert result["serials_added"] == 0
+
 
 # ---------------------------------------------------------------------------
 # DeltaVaultSyncResult model

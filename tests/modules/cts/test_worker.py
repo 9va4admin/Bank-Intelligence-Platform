@@ -35,16 +35,35 @@ def _stub_temporalio():
 
 class TestWorkerModuleConstants:
     def test_all_workflows_list_is_non_empty(self):
-        """ALL_WORKFLOWS contains the four expected workflow classes."""
+        """ALL_WORKFLOWS contains all 9 registered CTS workflow classes."""
         _stub_temporalio()
         from modules.cts.worker import ALL_WORKFLOWS
-        assert len(ALL_WORKFLOWS) == 4
+        assert len(ALL_WORKFLOWS) == 9
 
     def test_all_activities_list_is_non_empty(self):
         """ALL_ACTIVITIES contains the expected activity functions."""
         _stub_temporalio()
         from modules.cts.worker import ALL_ACTIVITIES
         assert len(ALL_ACTIVITIES) >= 10
+
+    def test_no_di_activities_plus_bound_activity_list_matches_all_activities(self):
+        """Regression guard: every activity registered in ALL_ACTIVITIES must be
+        reachable through exactly one of the two paths run_worker() actually
+        uses — NO_DI_ACTIVITIES (bare functions) or BoundCTSActivities.activity_list()
+        (DI-wired bound methods). If someone adds a new activity to ALL_ACTIVITIES
+        without adding it to one of these two, run_worker() silently drops it from
+        the real Worker() registration — this test catches that drift."""
+        _stub_temporalio()
+        from modules.cts.worker import ALL_ACTIVITIES, NO_DI_ACTIVITIES
+        from modules.cts.worker_activities import BoundCTSActivities
+
+        bound = BoundCTSActivities(bank_id="test-bank")
+        bound_names = {m.__name__ for m in bound.activity_list()}
+        no_di_names = {f.__name__ for f in NO_DI_ACTIVITIES}
+        all_names = {f.__name__ for f in ALL_ACTIVITIES}
+
+        assert bound_names | no_di_names == all_names
+        assert bound_names & no_di_names == set()  # no activity double-registered
 
     def test_temporal_available_flag_when_stubbed(self):
         """_TEMPORAL_AVAILABLE is True when temporalio is importable."""

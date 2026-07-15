@@ -191,7 +191,11 @@ class OutwardScanWorkflow:
         # Step 4: Lot assignment
         lot_result = await workflow.execute_activity(
             create_lot_entry,
-            LotAssignmentInput(instrument_id=inp.instrument_id),
+            LotAssignmentInput(
+                instrument_id=inp.instrument_id,
+                bank_ifsc=inp.bank_ifsc,
+                session_id=inp.session_id,
+            ),
             start_to_close_timeout=timedelta(seconds=10),
             retry_policy=_INFRA_RETRY,
         )

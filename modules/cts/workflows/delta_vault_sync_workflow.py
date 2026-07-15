@@ -150,6 +150,18 @@ async def update_bloom_filter(
         log.info("delta_sync.bloom_no_update_needed", bank_id=bank_id)
         return {"serials_added": 0}
 
+    if bloom_client is None:
+        # Bloom filter unavailable (e.g. Redis down at worker startup) while
+        # CBS still had real delta records — degrade like the two fetch_*
+        # activities above rather than crash the workflow. The filter
+        # simply misses this window's serials; the next 15-min sync retries.
+        log.warning(
+            "delta_sync.bloom_client_unavailable",
+            bank_id=bank_id,
+            serials_pending=len(serials),
+        )
+        return {"serials_added": 0, "degraded": True}
+
     bloom_client.add_bulk(serials)
 
     log.info(
