@@ -88,9 +88,12 @@ export default function CTSCloudAIDemo() {
     const f = e.target.files?.[0]
     if (!f) return
     setFile(f)
-    setPreview(URL.createObjectURL(f))
     setResult(null)
     setError(null)
+
+    const reader = new FileReader()
+    reader.onload = () => setPreview(reader.result)
+    reader.readAsDataURL(f)
   }
 
   async function handleExtract() {
@@ -160,7 +163,13 @@ export default function CTSCloudAIDemo() {
             {previewUrl && (
               <div className="mt-4">
                 <p className={`text-xs mb-1 ${th.muted}`}>Uploaded Cheque — compare against extracted fields</p>
-                <img src={previewUrl} alt="Cheque preview" className="rounded-lg border w-full max-h-72 object-contain" />
+                <img
+                  src={previewUrl}
+                  alt="Cheque preview"
+                  className="rounded-lg border w-full max-h-72 object-contain bg-white"
+                  style={{ minHeight: '8rem' }}
+                  onError={() => setError('Preview failed to render — try re-selecting the file.')}
+                />
               </div>
             )}
           </div>
