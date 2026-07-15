@@ -25,7 +25,17 @@ from openai import AsyncOpenAI
 
 # Headroom compresses messages before they hit vLLM
 # 'headroom-ai[ml]' extra provides the local Kompress-base model
-from headroom import compress as headroom_compress
+try:
+    from headroom import compress as headroom_compress
+except ImportError:
+    # Optional dependency — headroom-ai[ml] requires a Rust toolchain to
+    # build from source and isn't installed everywhere. chat() already
+    # degrades to uncompressed messages on any headroom_compress failure
+    # (see the try/except around its call below); this extends the same
+    # degrade-on-failure behaviour to cover import-time absence too,
+    # rather than the whole module failing to import.
+    def headroom_compress(messages: list[dict], model: str | None = None) -> list[dict]:
+        return messages
 
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.ai.headroom")

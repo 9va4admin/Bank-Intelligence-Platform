@@ -395,7 +395,7 @@ cerebrum/
 │   │   ├── middleware/                ← Auth, RBAC, rate limit, tracing
 │   │   └── dependencies/
 │   │
-│   └── ai-server/                     ← vLLM wrapper + model routing
+│   └── ai_server/                     ← vLLM wrapper + model routing
 │       ├── models/
 │       │   ├── vision.py              ← Qwen2-VL calls
 │       │   ├── reasoning.py           ← Llama calls

@@ -31,7 +31,7 @@ variables:
 lint-python:
   stage: lint
   script:
-    - ruff check modules/ shared/ apps/api/ apps/ai-server/ --select E,F,W,I
+    - ruff check modules/ shared/ apps/api/ apps/ai_server/ --select E,F,W,I
     - ruff format --check modules/ shared/ apps/
   rules:
     - changes: ["**/*.py"]
@@ -134,7 +134,7 @@ build-images:
       - SERVICE: ej-normalisation-worker
         CONTEXT: modules/ej
       - SERVICE: ai-inference-server
-        CONTEXT: apps/ai-server
+        CONTEXT: apps/ai_server
       - SERVICE: branch-ej-agent    # Go binary
         CONTEXT: edge/ej-agent
   script:

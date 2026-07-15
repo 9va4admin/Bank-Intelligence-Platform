@@ -30,6 +30,9 @@ class AuditEventType(str, Enum):
     # ── CTS Outward ────────────────────────────────────────────────────────────
     CTS_OUTWARD_QUEUE_DECISION = "CTS_OUTWARD_QUEUE_DECISION"  # Outward Q: manual confirm/reject decided
 
+    # ── CTS Sub-Member Bank forwarding ──────────────────────────────────────────
+    CTS_SMB_CHEQUE_FORWARDED = "CTS_SMB_CHEQUE_FORWARDED"  # forwarding hop terminal state written
+
     # ── CTS NGCH / transport ───────────────────────────────────────────────────
     CTS_NGCH_TERMINAL_FAILURE = "CTS_NGCH_TERMINAL_FAILURE"  # max retries exhausted
     CTS_NGCH_CERT_EXPIRED = "CTS_NGCH_CERT_EXPIRED"          # mTLS cert expired
