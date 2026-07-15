@@ -25,7 +25,7 @@ from apps.api.middleware.authentication import AuthenticationMiddleware
 from apps.api.middleware.rate_limit import RateLimitMiddleware
 from apps.api.middleware.security_violations import SecurityViolationMiddleware
 from apps.api.routers import cts, ej, disputes, audit, admin, notifications
-from apps.api.routers import batch, users, mcp_connections, demo, cts_outward_queue
+from apps.api.routers import batch, users, mcp_connections, demo, cts_outward_queue, demo_cloud_extract
 from shared.config.config_service import config_service
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
 from shared.observability.otel_setup import configure_otel
@@ -258,6 +258,7 @@ app.include_router(batch.router_v1)
 app.include_router(users.router_v1)
 app.include_router(mcp_connections.router_v1)
 app.include_router(cts_outward_queue.router_v1)
+app.include_router(demo_cloud_extract.router_v1)
 if config_service.get("env") in ("development", "staging"):
     app.include_router(demo.router_v1)
 
