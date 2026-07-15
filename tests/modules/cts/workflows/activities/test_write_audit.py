@@ -1,6 +1,6 @@
 """Tests for write_audit activity."""
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from modules.cts.workflows.activities.write_audit import (
     WriteAuditInput,
@@ -72,6 +72,44 @@ class TestWriteAuditHappyPath:
         await write_audit(_make_input(), immudb_client=immudb)
         _, kwargs = immudb.write.call_args
         assert "cts_" in kwargs["collection"]
+
+
+class TestIncidentSignalEmission:
+    """The 'know before the end user tells us' path — see
+    docs/astra-incident-management-plan §06/§09. write_audit is the single
+    choke-point almost every CTS decision/error already flows through, so
+    it's the highest-leverage place to wire emit_incident_signal()."""
+
+    @pytest.mark.asyncio
+    async def test_emits_signal_for_the_written_event_type_on_success(self):
+        immudb = AsyncMock()
+        immudb.write.return_value = "TX"
+        with patch("modules.cts.workflows.activities.write_audit.emit_incident_signal") as mock_emit:
+            await write_audit(_make_input("CTS_WF_IET_WATCHDOG_FIRED"), immudb_client=immudb)
+        mock_emit.assert_any_call("CTS_WF_IET_WATCHDOG_FIRED", bank_id="test-bank")
+
+    @pytest.mark.asyncio
+    async def test_emits_platform_audit_write_failed_signal_on_immudb_error(self):
+        immudb = AsyncMock()
+        immudb.write.side_effect = Exception("Immudb unavailable")
+        with patch("modules.cts.workflows.activities.write_audit.emit_incident_signal") as mock_emit:
+            with pytest.raises(Exception, match="Immudb unavailable"):
+                await write_audit(_make_input(), immudb_client=immudb)
+        mock_emit.assert_any_call("PLATFORM_AUDIT_WRITE_FAILED", bank_id="test-bank")
+
+    @pytest.mark.asyncio
+    async def test_does_not_emit_the_written_event_signal_when_immudb_fails(self):
+        """On failure, the event that FAILED to write was never actually
+        recorded — only the meta-signal (the audit pipeline itself broke)
+        should fire, not a signal claiming the original event happened."""
+        immudb = AsyncMock()
+        immudb.write.side_effect = Exception("boom")
+        with patch("modules.cts.workflows.activities.write_audit.emit_incident_signal") as mock_emit:
+            with pytest.raises(Exception):
+                await write_audit(_make_input("CTS_WF_IET_WATCHDOG_FIRED"), immudb_client=immudb)
+        calls = [c.args[0] for c in mock_emit.call_args_list]
+        assert "CTS_WF_IET_WATCHDOG_FIRED" not in calls
+        assert "PLATFORM_AUDIT_WRITE_FAILED" in calls
 
 
 class TestWriteAuditFailure:

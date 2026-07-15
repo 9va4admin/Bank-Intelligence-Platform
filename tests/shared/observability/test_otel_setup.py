@@ -7,7 +7,7 @@ TDD: written BEFORE the implementation.
 from unittest.mock import MagicMock, patch, call
 import pytest
 
-from shared.observability.otel_setup import configure_otel, get_tracer
+from shared.observability.otel_setup import configure_otel, get_tracer, get_meter
 
 
 # ---------------------------------------------------------------------------
@@ -36,10 +36,14 @@ def test_configure_otel_includes_bank_id_in_resource():
 
 
 def test_configure_otel_without_bank_id_omits_attribute():
-    from opentelemetry import trace
-
-    configure_otel(service_name="cts-agent-worker", service_version="1.0.0")
-    provider = trace.get_tracer_provider()
+    """Checks the object configure_otel() returns directly, not the global
+    trace.get_tracer_provider() registry -- that registry only accepts the
+    first set_tracer_provider() call per process (OTel's own "first config
+    wins" behaviour), so asserting against it is order-dependent on
+    whichever test across the *entire* suite happens to configure OTel
+    first. Every other resource-attribute test in this file already checks
+    the local return value for the same reason."""
+    provider = configure_otel(service_name="cts-agent-worker", service_version="1.0.0")
 
     resource = provider.resource
     # bank.id should be absent or empty — not "None" string
@@ -119,4 +123,65 @@ def test_configure_otel_with_otlp_endpoint_adds_span_processor():
     mock_exporter_cls.assert_called_once_with(
         endpoint="http://tempo.astra.internal:4317", insecure=True
     )
+    assert provider is not None
+
+
+# ---------------------------------------------------------------------------
+# Metrics — MeterProvider setup (mirrors the TracerProvider tests above)
+# ---------------------------------------------------------------------------
+
+def test_configure_otel_sets_global_meter_provider():
+    from opentelemetry import metrics as otel_metrics
+
+    configure_otel(service_name="cts-agent-worker", service_version="1.0.0")
+    provider = otel_metrics.get_meter_provider()
+    assert provider is not None
+
+
+def test_get_meter_returns_meter():
+    configure_otel(service_name="test-svc", service_version="0.1")
+    meter = get_meter("astra.incidents")
+    assert meter is not None
+
+
+def test_get_meter_can_create_a_counter_instrument():
+    """Full data-recording round-trip (does a value actually land in a
+    reader) is deliberately NOT tested here: OTel's global MeterProvider
+    can only be configured once per process ("first config wins", by
+    design) — re-configuring it mid-suite to attach an inspectable reader
+    is inherently order-dependent. shared/incidents/signal.py's own tests
+    inject a counter directly instead, which sidesteps this constraint."""
+    configure_otel(service_name="test-svc", service_version="0.1")
+    meter = get_meter("astra.test")
+    counter = meter.create_counter("astra_test_counter_total")
+    counter.add(1, {"foo": "bar"})  # no exception = pass
+
+
+def test_configure_otel_without_prometheus_port_still_yields_usable_meter():
+    """Default (dev/test) path — no Prometheus exporter package required."""
+    configure_otel(service_name="test-svc", service_version="0.1")
+    meter = get_meter("astra.default")
+    counter = meter.create_counter("astra_default_counter_total")
+    counter.add(1)  # no exception = pass
+
+
+def test_configure_otel_with_prometheus_port_uses_prometheus_reader():
+    """When prometheus_port is provided, the OTel Prometheus exporter is
+    lazily imported (same pattern as the OTLP trace exporter above) so the
+    package isn't a hard dependency for services that don't enable it."""
+    mock_reader_instance = MagicMock()
+    mock_reader_cls = MagicMock(return_value=mock_reader_instance)
+
+    with patch.dict("sys.modules", {
+        "opentelemetry.exporter.prometheus": MagicMock(
+            PrometheusMetricReader=mock_reader_cls
+        )
+    }):
+        provider = configure_otel(
+            service_name="cts-agent-worker",
+            service_version="1.0.0",
+            prometheus_port=9464,
+        )
+
+    mock_reader_cls.assert_called_once_with()
     assert provider is not None

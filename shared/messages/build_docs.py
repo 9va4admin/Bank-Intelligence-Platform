@@ -34,6 +34,14 @@ SURFACE_COLOR = {
     "NOTIFICATION": ("#fef3c7", "#78350f"),
 }
 
+INCIDENT_SEV_COLOR = {
+    "P0": ("#fde4e4", "#b3261e", "#f3b9b9"),
+    "P1": ("#fde8d4", "#a15a0a", "#f2caa0"),
+    "P2": ("#fdf0c8", "#8a6c07", "#edd985"),
+    "P3": ("#dfeafd", "#1c5b96", "#b8d6f7"),
+    "P4": ("#e7e9ef", "#4a5268", "#ccd1de"),
+}
+
 DOMAIN_LABELS = {
     "CTS_WF":   "CTS Workflow (Inward)",
     "CTS_OUT":  "CTS Outward Clearing",
@@ -78,6 +86,24 @@ def _surface_chips(surfaces: list) -> str:
     return "".join(parts)
 
 
+def _incident_chip(incident: dict | None) -> str:
+    """Renders the incident: block's severity + owning team, or a dash for
+    the (currently most) keys that haven't been classified yet — see the
+    phased rollout in docs/astra-incident-management-plan: only CRITICAL
+    keys are mandatory today, everything else is opt-in until Phase 4."""
+    if not incident:
+        return '<span style="color:#94a3b8;font-size:11px">—</span>'
+    sev = incident.get("default_severity", "")
+    bg, fg, border = INCIDENT_SEV_COLOR.get(sev, ("#f1f5f9", "#1e293b", "#cbd5e1"))
+    team = incident.get("owning_team", "")
+    return (
+        f'<span style="background:{bg};color:{fg};border:1px solid {border};'
+        f'padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;'
+        f'margin-right:4px;white-space:nowrap">{sev}</span>'
+        f'<span style="color:#64748b;font-size:11px">{team}</span>'
+    )
+
+
 def _var_chips(variables: list) -> str:
     if not variables:
         return '<span style="color:#94a3b8;font-size:11px">—</span>'
@@ -92,7 +118,7 @@ def _var_chips(variables: list) -> str:
 
 
 def build_html(yaml_path: Path = _DEFAULT_YAML, output_path: Path = _DEFAULT_OUTPUT) -> None:
-    raw = yaml.safe_load(yaml_path.read_text()) or {}
+    raw = yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
     generated_at = datetime.now(timezone.utc).strftime("%d %b %Y %H:%M UTC")
 
     # Bucket by domain
@@ -108,6 +134,7 @@ def build_html(yaml_path: Path = _DEFAULT_YAML, output_path: Path = _DEFAULT_OUT
         surfaces = entry.get("surface", [])
         variables = entry.get("variables", [])
         en_text = entry.get("en", "")
+        incident = entry.get("incident")
 
         sev_counts[sev] = sev_counts.get(sev, 0) + 1
         for s in surfaces:
@@ -120,6 +147,7 @@ def build_html(yaml_path: Path = _DEFAULT_YAML, output_path: Path = _DEFAULT_OUT
             "surfaces": surfaces,
             "variables": variables,
             "en": en_text,
+            "incident": incident,
         })
 
     total = sum(len(v) for v in domains.values())
@@ -163,6 +191,7 @@ def build_html(yaml_path: Path = _DEFAULT_YAML, output_path: Path = _DEFAULT_OUT
                 f'<td style="padding:8px 12px;font-size:13px;color:#1e293b;max-width:440px">'
                 f'{m["en"]}</td>'
                 f'<td style="padding:8px 12px">{_var_chips(m["variables"])}</td>'
+                f'<td style="padding:8px 12px;white-space:nowrap">{_incident_chip(m["incident"])}</td>'
                 f'</tr>\n'
             )
         detail_sections += f"""
@@ -187,6 +216,8 @@ def build_html(yaml_path: Path = _DEFAULT_YAML, output_path: Path = _DEFAULT_OUT
                    text-transform:uppercase;letter-spacing:.05em">English Text</th>
         <th style="text-align:left;padding:8px 12px;color:#475569;font-size:11px;
                    text-transform:uppercase;letter-spacing:.05em">Variables</th>
+        <th style="text-align:left;padding:8px 12px;color:#475569;font-size:11px;
+                   text-transform:uppercase;letter-spacing:.05em">Incident</th>
       </tr>
     </thead>
     <tbody>
