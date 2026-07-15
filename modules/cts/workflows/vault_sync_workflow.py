@@ -42,8 +42,12 @@ _INFRA_RETRY = RetryPolicy(
 class VaultSyncInput(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id: str
+    pepper: str                 # HMAC pepper from Vault (not logged) — required:
+                                 # an empty pepper would HMAC-hash every account
+                                 # number with a predictable key, defeating the
+                                 # whole point of a bank-specific pepper (see
+                                 # .claude/rules/pii-data-protection.md Rule 1)
     sync_date: str = ""         # ISO date "YYYY-MM-DD" — part of idempotent workflow ID
-    pepper: str = ""            # HMAC pepper from Vault (not logged)
     triggered_by: str = "SCHEDULED"   # SCHEDULED | MANUAL
 
 
@@ -494,8 +498,17 @@ async def register_vault_sync_schedule(temporal_client, bank_id: str) -> None:
     )
     from temporalio.common import RetryPolicy
     from datetime import timedelta
+    from shared.config.config_service import config_service
 
     schedule_id = f"cts-vaultsync-schedule-{bank_id}"
+
+    # Fetched once at schedule-registration time (bank onboarding / worker
+    # startup), not per-fire: Temporal Schedules serialize the workflow input
+    # once and replay it on every trigger. This is correct for a pepper —
+    # unlike session tokens/API keys, an account-hashing pepper must stay
+    # stable (rotating it would invalidate every existing vault key overnight)
+    # so baking it into the schedule's fixed input is the right lifetime.
+    pepper = await config_service.get_secret("pii_hash_pepper")
 
     try:
         await temporal_client.create_schedule(
@@ -503,7 +516,7 @@ async def register_vault_sync_schedule(temporal_client, bank_id: str) -> None:
             Schedule(
                 action=ScheduleActionStartWorkflow(
                     VaultSyncWorkflow.run,
-                    VaultSyncInput(bank_id=bank_id, triggered_by="SCHEDULED"),
+                    VaultSyncInput(bank_id=bank_id, pepper=pepper, triggered_by="SCHEDULED"),
                     id=f"cts-vaultsync-{bank_id}-scheduled",
                     task_queue=f"cts-processing-{bank_id}",
                     retry_policy=RetryPolicy(

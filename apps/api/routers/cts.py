@@ -557,9 +557,11 @@ async def trigger_vault_sync(
     if temporal_client is not None:
         try:
             from modules.cts.workflows.vault_sync_workflow import VaultSyncWorkflow, VaultSyncInput
+            from shared.config.config_service import config_service
+            pepper = await config_service.get_secret("pii_hash_pepper")
             await temporal_client.start_workflow(
                 VaultSyncWorkflow.run,
-                VaultSyncInput(bank_id=bank_id, triggered_by="MANUAL"),
+                VaultSyncInput(bank_id=bank_id, pepper=pepper, triggered_by="MANUAL"),
                 id=workflow_id,
                 task_queue=f"cts-processing-{bank_id}",
             )
@@ -1049,10 +1051,19 @@ async def trigger_smb_vault_sync(
     if temporal_client is not None:
         try:
             from modules.cts.workflows.vault_sync_workflow import VaultSyncWorkflow, VaultSyncInput
+            from shared.config.config_service import config_service
+            pepper = await config_service.get_secret("pii_hash_pepper")
             await temporal_client.start_workflow(
                 VaultSyncWorkflow.run,
+                # NOTE: sub_member_id is not a VaultSyncInput field today — this
+                # call already raised a Pydantic "extra inputs not permitted"
+                # error on every invocation, independent of this pepper fix.
+                # Pre-existing, separate bug (SMB-scoped vault sync routing is
+                # undesigned — VaultSyncInput/warm_redis_vault have no
+                # sub_member_id-aware Redis key namespacing yet), not fixed here.
                 VaultSyncInput(
                     bank_id=bank_id,
+                    pepper=pepper,
                     triggered_by="MANUAL_SMB",
                     sub_member_id=sub_member_id,
                 ),
