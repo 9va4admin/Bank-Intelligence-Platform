@@ -81,10 +81,12 @@ class FlexCubeCBSConnector(CBSConnector):
         self._http = None
         self._ready = False
 
-    def connect(self, http_client=None) -> None:
+    def connect(self, http_client=None, soap_client=None) -> None:
         """
-        Initialise the SOAP HTTP client.
-        http_client is injected in tests; production creates an httpx.AsyncClient.
+        Initialise the SOAP-over-HTTP client (manual XML, used by every method
+        except get_signatory_data) and the WSDL-based SOAP client (zeep, used
+        only by get_signatory_data — see its docstring for why).
+        Both are injected in tests; production creates real clients.
         """
         if http_client is not None:
             self._http = http_client
@@ -94,8 +96,49 @@ class FlexCubeCBSConnector(CBSConnector):
                 timeout=15.0,
                 headers={"Content-Type": "text/xml; charset=utf-8"},
             )
+
+        if soap_client is not None:
+            self._soap_client = soap_client
+        else:
+            self._soap_client = self._build_soap_client()
+
         self._ready = True
         log.info("cbs.flexcube.connected", base_url=self._base_url, bank_id=self._bank_id)
+
+    def _build_soap_client(self):
+        """
+        Real zeep.Client for the WSDL-based getSignatories operation, derived
+        from self._base_url the same way _call() derives its own endpoint
+        (fixed suffix, not a separate config key) — FCUBSSignatoryService
+        mirrors the FCUBSAccService naming already used by every other
+        operation in this file.
+
+        Degrades to None on any failure (zeep not installed, WSDL
+        unreachable, malformed WSDL) — get_signatory_data already raises
+        CBSUnavailableError when self._soap_client is None (AttributeError
+        on the None access is caught by its own try/except), matching every
+        other method in this class's degrade-on-failure behaviour. A 10s
+        transport timeout ensures a slow/unreachable WSDL endpoint fails
+        fast rather than blocking worker startup indefinitely.
+        """
+        try:
+            import zeep
+            from zeep.transports import Transport
+            from requests import Session
+
+            wsdl_url = f"{self._base_url}/FCJNeoWS/FCUBSSignatoryService?wsdl"
+            session = Session()
+            transport = Transport(session=session, timeout=10, operation_timeout=10)
+            client = zeep.Client(wsdl=wsdl_url, transport=transport)
+            log.info("cbs.flexcube.soap_client_ready", wsdl_url=wsdl_url, bank_id=self._bank_id)
+            return client
+        except Exception as exc:
+            log.warning(
+                "cbs.flexcube.soap_client_unavailable",
+                bank_id=self._bank_id,
+                error=str(exc),
+            )
+            return None
 
     async def _call(self, operation: str, body_xml: str) -> ET.Element:
         """Send a SOAP request and return the parsed XML root."""
