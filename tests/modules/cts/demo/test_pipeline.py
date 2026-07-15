@@ -131,9 +131,18 @@ async def test_run_presentment_emits_events(pipeline, session_id):
     async def collect():
         async for line in pipeline.events(session_id):
             if line.startswith("event:"):
-                et = line.split(":", 1)[1].strip()
+                # Each SSE chunk is "event: X\ndata: {...}\n\n" — split on the
+                # first newline before the colon-split, or et ends up as
+                # "X\ndata: {...}" (str.strip() only trims the edges, not the
+                # embedded newline+data line in the middle) and never equals
+                # any plain event-name string being compared against.
+                et = line.split("\n", 1)[0].split(":", 1)[1].strip()
                 event_types.append(et)
-                if et == "done":
+                # run_presentment() alone never sends the queue's closing
+                # None sentinel (only run_drawee(), a later phase, does) —
+                # so "done" never fires here. presentment_complete is the
+                # actual last event this phase emits.
+                if et == "presentment_complete":
                     break
 
     await asyncio.gather(
