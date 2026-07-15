@@ -127,6 +127,7 @@ const SIDEBAR_MODULES = [
         items: [
           { to: '/cts/demo',            label: '⚡ Live Demo',        perm: 'cts:view_queue'     },
           { to: '/cts/inward-pipeline', label: 'Pipeline (Animated)', perm: 'cts:view_analytics' },
+          { to: '/cts/cloud-ai-demo',   label: '☁️ Cloud AI Extract', perm: 'cts:view_queue'     },
         ],
       },
     ],
@@ -181,6 +182,7 @@ const ROUTE_LABELS = {
   '/cts/pipeline':          ['Drawee Process', 'Inward Pipeline — AI View'],
   '/cts/inward-pipeline':   ['Drawee Process', 'Inward Pipeline — Animated'],
   '/cts/demo':              ['Demo', 'End-to-End Live Demo — Presentment · NPCI · Drawee'],
+  '/cts/cloud-ai-demo':     ['Demo', 'Cloud AI Cheque Extraction (temporary)'],
   '/cts/recall':            ['Drawee Process', 'Recall'],
   '/cts/ops-dashboard':     ['Dashboard', 'Ops Dashboard'],
   '/cts/drawee':            ['Drawee Process', 'Drawee Position'],

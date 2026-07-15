@@ -39,6 +39,7 @@ import CTSSMBReports from './modules/cts/pages/CTSSMBReports'
 import CTSSMBReviewQueue from './modules/cts/pages/CTSSMBReviewQueue'
 import CTSInwardPipeline from './modules/cts/pages/CTSInwardPipeline'
 import CTSDemoPipeline from './modules/cts/pages/CTSDemoPipeline'
+import CTSCloudAIDemo from './modules/cts/pages/CTSCloudAIDemo'
 import CTSPresentmentFile from './modules/cts/pages/CTSPresentmentFile'
 import BranchDashboard from './modules/cts/pages/branch/BranchDashboard'
 import BranchScanMonitor from './modules/cts/pages/branch/BranchScanMonitor'
@@ -95,6 +96,7 @@ export default function App() {
         <Route path="/cts/pipeline" element={<CTSPipelineVisualizer />} />
         <Route path="/cts/inward-pipeline" element={<CTSInwardPipeline />} />
         <Route path="/cts/demo" element={<CTSDemoPipeline />} />
+        <Route path="/cts/cloud-ai-demo" element={<CTSCloudAIDemo />} />
         <Route path="/cts/presentment-file" element={<CTSPresentmentFile />} />
         <Route path="/cts/rf-drawee" element={<CTSRFDrawee />} />
         <Route path="/cts/recall" element={<CTSRecall />} />
