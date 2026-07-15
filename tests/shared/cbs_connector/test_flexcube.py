@@ -6,7 +6,7 @@ The connector wraps the SOAP calls and translates to the canonical AccountInfo m
 """
 import base64
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock, patch
 
 from shared.cbs_connector.flexcube import FlexCubeCBSConnector
 from shared.cbs_connector.base import AccountStatus, StopPaymentResult, PPSEntry
@@ -170,6 +170,58 @@ def test_connect_sets_ready(connector):
 def test_connect_with_http_client_sets_ready(connector):
     connector.connect(http_client=_make_soap_mock(""))
     assert connector._ready is True
+
+
+# ---------------------------------------------------------------------------
+# connect() — _soap_client wiring (get_signatory_data's WSDL-based client)
+#
+# Regression coverage for the bug where connect() never assigned
+# _soap_client at all, so get_signatory_data() always raised AttributeError
+# in real production regardless of connectivity. connect() must now always
+# leave _soap_client set to *something* (a real client or None on graceful
+# degradation) — never simply absent.
+# ---------------------------------------------------------------------------
+
+def test_connect_without_injection_sets_soap_client_attribute(connector):
+    """The original bug: _soap_client was never assigned by connect() at
+    all, so accessing it raised AttributeError rather than being None.
+    hasattr must be True even though base_url here is unreachable (WSDL
+    fetch fails and degrades to None) — the attribute must exist either way."""
+    connector.connect()
+    assert hasattr(connector, "_soap_client")
+
+
+def test_connect_without_injection_degrades_to_none_on_unreachable_wsdl(connector):
+    connector.connect()
+    assert connector._soap_client is None
+
+
+def test_connect_with_soap_client_injection_uses_injected_instance(connector):
+    fake_soap_client = MagicMock()
+    connector.connect(soap_client=fake_soap_client)
+    assert connector._soap_client is fake_soap_client
+
+
+def test_connect_builds_real_zeep_client_when_wsdl_reachable(connector):
+    """When zeep.Client construction succeeds, _build_soap_client must return
+    it (not silently discard it) and derive the WSDL URL from base_url with
+    the FCUBSSignatoryService suffix, mirroring FCUBSAccService's pattern."""
+    fake_zeep_client = MagicMock()
+    with patch("zeep.Client", return_value=fake_zeep_client) as mock_zeep_client:
+        connector.connect()
+    assert connector._soap_client is fake_zeep_client
+    called_kwargs = mock_zeep_client.call_args.kwargs
+    assert called_kwargs["wsdl"] == "http://flexcube.bank.internal:8080/FCJNeoWS/FCUBSSignatoryService?wsdl"
+
+
+@pytest.mark.asyncio
+async def test_get_signatory_data_raises_cbs_unavailable_not_attribute_error_when_degraded(connector):
+    """End-to-end regression for the original bug report: calling
+    get_signatory_data() after a real connect() (no injection, unreachable
+    WSDL) must raise CBSUnavailableError — never a raw AttributeError."""
+    connector.connect()  # no soap_client injected; WSDL unreachable -> degrades to None
+    with pytest.raises(CBSUnavailableError):
+        await connector.get_signatory_data("ACC001", "test-bank")
 
 
 # ---------------------------------------------------------------------------
