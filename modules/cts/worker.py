@@ -173,21 +173,10 @@ ALL_ACTIVITIES = [
     publish_mismatch_hold,
 ]
 
-# Activities that take no injectable external dependency — either pure
-# computation (validate_cts2010 wraps InstrumentComplianceRecord, no I/O) or
-# still-stub bodies with no client parameter at all (the 7 SMB-forwarding /
-# sub-member activities — see modules/cts/worker_activities.py's module
-# docstring: real DB/Kafka/Immudb wiring for these is a separate, larger,
-# not-yet-designed task, flagged but not silently expanded into DI wiring).
-# Registered directly as bare functions — never wrapped in BoundCTSActivities.
+# Activities that take no injectable external dependency — pure computation
+# (validate_cts2010 wraps InstrumentComplianceRecord, no I/O). Registered
+# directly as a bare function — never wrapped in BoundCTSActivities.
 NO_DI_ACTIVITIES = [
-    validate_smb_forwarding_window,
-    write_forwarding_log_start,
-    write_forwarding_log_complete,
-    write_smb_forwarding_audit,
-    notify_sub_member_return,
-    emit_batch_ledger_update,
-    check_return_rate_shield,
     validate_cts2010,
 ]
 

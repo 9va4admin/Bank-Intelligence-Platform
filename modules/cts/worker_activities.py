@@ -74,6 +74,7 @@ class BoundCTSActivities:
         orchestrator: Any = None,
         fraud_vllm_client: Any = None,
         config_service: Any = None,
+        db_pool: Any = None,
     ) -> None:
         self._bank_id = bank_id
         self._cbs_connector = cbs_connector
@@ -88,6 +89,7 @@ class BoundCTSActivities:
         self._orchestrator = orchestrator
         self._fraud_vllm_client = fraud_vllm_client
         self._config_service = config_service
+        self._db_pool = db_pool
         # LotManager is stateful/in-memory per clearing session (see
         # modules/cts/lot/manager.py) — cached by (bank_ifsc, session_id) so
         # sequential lot numbers are correct across a session's many
@@ -290,15 +292,85 @@ class BoundCTSActivities:
         return await _real(inp, config_service=self._config_service)
 
     # ------------------------------------------------------------------
+    # SMB forwarding hop (cts.smb_forwarding_log, cts.sub_member_banks)
+    # ------------------------------------------------------------------
+
+    @activity.defn(name="validate_smb_forwarding_window")
+    async def validate_smb_forwarding_window(self, instrument_id, bank_id, sub_member_id, iet_deadline_utc):
+        from modules.cts.workflows.activities.smb_forwarding_activities import (
+            validate_smb_forwarding_window as _real,
+        )
+        return await _real(instrument_id, bank_id, sub_member_id, iet_deadline_utc, db=self._db_pool)
+
+    @activity.defn(name="write_forwarding_log_start")
+    async def write_forwarding_log_start(
+        self, forwarding_id, instrument_id, bank_id, sub_member_id, micr_prefix_matched, iet_deadline_utc,
+    ):
+        from modules.cts.workflows.activities.smb_forwarding_activities import (
+            write_forwarding_log_start as _real,
+        )
+        return await _real(
+            forwarding_id, instrument_id, bank_id, sub_member_id, micr_prefix_matched,
+            iet_deadline_utc, db=self._db_pool,
+        )
+
+    @activity.defn(name="write_forwarding_log_complete")
+    async def write_forwarding_log_complete(self, forwarding_id, bank_id, terminal_decision, smb_workflow_id):
+        from modules.cts.workflows.activities.smb_forwarding_activities import (
+            write_forwarding_log_complete as _real,
+        )
+        return await _real(forwarding_id, bank_id, terminal_decision, smb_workflow_id, db=self._db_pool)
+
+    @activity.defn(name="write_smb_forwarding_audit")
+    async def write_smb_forwarding_audit(self, forwarding_id, bank_id, terminal_decision, completion_type):
+        from modules.cts.workflows.activities.smb_forwarding_activities import (
+            write_smb_forwarding_audit as _real,
+        )
+        return await _real(
+            forwarding_id, bank_id, terminal_decision, completion_type,
+            immudb_client=self._immudb_client,
+        )
+
+    # ------------------------------------------------------------------
+    # Sub-Member Bank notifications / risk shield (sub_member_batch_ledgers)
+    # ------------------------------------------------------------------
+
+    @activity.defn(name="notify_sub_member_return")
+    async def notify_sub_member_return(
+        self, instrument_id, bank_id, sub_member_id, return_reason, bucket, amount_range, cheque_number_suffix,
+    ):
+        from modules.cts.sub_member.activities import notify_sub_member_return as _real
+        return await _real(
+            instrument_id, bank_id, sub_member_id, return_reason, bucket, amount_range,
+            cheque_number_suffix, event_producer=self._event_producer,
+        )
+
+    @activity.defn(name="emit_batch_ledger_update")
+    async def emit_batch_ledger_update(self, bank_id, sub_member_id, session_date, clearing_session, bucket):
+        from modules.cts.sub_member.activities import emit_batch_ledger_update as _real
+        return await _real(bank_id, sub_member_id, session_date, clearing_session, bucket, db=self._db_pool)
+
+    @activity.defn(name="check_return_rate_shield")
+    async def check_return_rate_shield(
+        self, bank_id, sub_member_id, session_date, clearing_session, mock_shield_status=None,
+    ):
+        from modules.cts.sub_member.activities import check_return_rate_shield as _real
+        return await _real(
+            bank_id, sub_member_id, session_date, clearing_session,
+            mock_shield_status=mock_shield_status,
+            db=self._db_pool, event_producer=self._event_producer, immudb_client=self._immudb_client,
+        )
+
+    # ------------------------------------------------------------------
     # Registration list — every bound method Worker() should dispatch to.
     # ------------------------------------------------------------------
 
     def activity_list(self) -> list:
-        """All 23 DI-needing activities as bound methods, ready for
-        Worker(activities=...). The remaining 8 registered CTS activities
-        (validate_cts2010 + 7 SMB-forwarding/sub-member stubs) take no
-        injectable dependency and are registered directly from worker.py
-        as bare functions — see NO_DI_ACTIVITIES there."""
+        """All 30 DI-needing activities as bound methods, ready for
+        Worker(activities=...). The one remaining registered CTS activity
+        (validate_cts2010) takes no injectable dependency and is registered
+        directly from worker.py as a bare function — see NO_DI_ACTIVITIES
+        there."""
         return [
             self.check_cbs_balance,
             self.check_account_status,
@@ -323,6 +395,13 @@ class BoundCTSActivities:
             self.publish_mismatch_hold,
             self.create_lot_entry,
             self.get_kill_switch_status,
+            self.validate_smb_forwarding_window,
+            self.write_forwarding_log_start,
+            self.write_forwarding_log_complete,
+            self.write_smb_forwarding_audit,
+            self.notify_sub_member_return,
+            self.emit_batch_ledger_update,
+            self.check_return_rate_shield,
         ]
 
 
@@ -348,6 +427,7 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
     opa_client = await _build_opa_client(config_service)
     orchestrator = await _build_cascade_orchestrator(config_service, bank_id)
     fraud_vllm_client = await _build_fraud_vllm_client(config_service)
+    db_pool = await _build_db_pool(config_service)
 
     pepper = await _get_pii_pepper(config_service, bank_id)
     signature_vault = _build_signature_vault(bank_id, pepper, redis_client)
@@ -368,7 +448,23 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
         orchestrator=orchestrator,
         fraud_vllm_client=fraud_vllm_client,
         config_service=config_service,
+        db_pool=db_pool,
     )
+
+
+async def _build_db_pool(config_service: Any) -> Any:
+    """asyncpg pool for cts schema tables (sub_member_banks, smb_forwarding_log,
+    sub_member_batch_ledgers) — same DSN key and pool sizing convention as
+    apps/api/main.py's db_pool_cts and modules/cts/crl/service.py's CRLService."""
+    try:
+        import asyncpg
+        dsn = await config_service.get_secret("db.cts.dsn")
+        pool = await asyncpg.create_pool(dsn=dsn, min_size=2, max_size=10, command_timeout=30)
+        log.info("worker_activities.db_pool_ready")
+        return pool
+    except Exception as exc:
+        log.warning("worker_activities.db_pool_unavailable", error=str(exc))
+        return None
 
 
 async def _build_cbs_connector(config_service: Any, bank_id: str) -> Any:
@@ -492,17 +588,20 @@ async def _build_fraud_vllm_client(config_service: Any) -> Any:
     language rationale (Llama 3.3 70B, cts-reasoning queue) — separate
     from the L1/L2 vision/OCR cascade and from the XGBoost score itself.
 
-    apps/ai-server/ is a hyphenated directory on disk (matches CLAUDE.md's
-    documented monorepo layout and cicd.md's Docker build-context table),
-    which means it has never been import-able via a normal dotted
-    `apps.ai_server` path — confirmed by running
-    tests/apps/ai-server/test_headroom_client.py directly: all 3 tests
-    already fail today with AttributeError, independent of this fix. A
-    real fix is either a coordinated directory rename (touches the Docker
-    build context) or a namespace-package shim — a separate, larger
-    change, not silently patched here. Until then this import always
-    fails and score_fraud degrades to its rule-based fallback, which is
-    the existing, correct, safe behaviour.
+    apps/ai-server/ was a hyphenated directory on disk with a broken,
+    Windows-incompatible git symlink at apps/ai_server (see git history:
+    "chore: track apps/ai_server symlink for Python import compatibility")
+    — someone already hit this and worked around it with a symlink that
+    doesn't survive checkout on filesystems/configs without symlink
+    support, silently falling back to a placeholder text file instead.
+    Fixed for real: apps/ai_server is now the one real underscored
+    directory (git mv, no symlink), with cicd.md's lint path and Docker
+    build context updated to match. headroom_client.py's own
+    `from headroom import compress` was also a hard top-level import with
+    no fallback — headroom-ai[ml] needs a Rust toolchain to build and
+    isn't installed here; wrapped in try/except with a passthrough
+    fallback, matching the class's own already-established
+    degrade-on-compression-failure behaviour.
     """
     try:
         from apps.ai_server.headroom_client import HeadroomVLLMClient

@@ -11,7 +11,7 @@ Covers:
     that succeeds must thread real values through to the right builder.
   - The one genuinely stateful piece — per-(bank_ifsc, session_id)
     LotManager caching.
-  - activity_list() completeness: exactly the 23 DI-needing activities,
+  - activity_list() completeness: exactly the 30 DI-needing activities,
     no duplicates, names matching the real @activity.defn registrations.
 """
 import pytest
@@ -34,6 +34,8 @@ from modules.cts.worker_activities import (
 # fails with AttributeError before the submodule has ever been imported once.
 import modules.cts.workflows.delta_vault_sync_workflow  # noqa: F401
 import modules.cts.workflows.mismatch_resolution_workflow  # noqa: F401
+import modules.cts.workflows.activities.smb_forwarding_activities  # noqa: F401
+import modules.cts.sub_member.activities  # noqa: F401
 
 
 def _bound(**overrides):
@@ -137,6 +139,64 @@ class TestBoundMethodDelegation:
         mock_real.assert_awaited_once_with("INPUT", config_service=fake_cfg)
         assert result == "RESULT"
 
+    @pytest.mark.asyncio
+    async def test_validate_smb_forwarding_window_passes_db_pool(self):
+        fake_db = MagicMock()
+        bound = _bound(db_pool=fake_db)
+        with patch(
+            "modules.cts.workflows.activities.smb_forwarding_activities.validate_smb_forwarding_window",
+            new=AsyncMock(return_value="RESULT"),
+        ) as mock_real:
+            result = await bound.validate_smb_forwarding_window("CHQ-001", "sb-bank", "smb-001", "2026-01-01T00:00:00Z")
+        mock_real.assert_awaited_once_with("CHQ-001", "sb-bank", "smb-001", "2026-01-01T00:00:00Z", db=fake_db)
+        assert result == "RESULT"
+
+    @pytest.mark.asyncio
+    async def test_write_smb_forwarding_audit_passes_immudb_client(self):
+        fake_immudb = MagicMock()
+        bound = _bound(immudb_client=fake_immudb)
+        with patch(
+            "modules.cts.workflows.activities.smb_forwarding_activities.write_smb_forwarding_audit",
+            new=AsyncMock(return_value="RESULT"),
+        ) as mock_real:
+            result = await bound.write_smb_forwarding_audit("fwd-1", "sb-bank", "STP_CONFIRM", "COMPLETED")
+        mock_real.assert_awaited_once_with("fwd-1", "sb-bank", "STP_CONFIRM", "COMPLETED", immudb_client=fake_immudb)
+        assert result == "RESULT"
+
+    @pytest.mark.asyncio
+    async def test_notify_sub_member_return_passes_event_producer(self):
+        fake_producer = MagicMock()
+        bound = _bound(event_producer=fake_producer)
+        with patch(
+            "modules.cts.sub_member.activities.notify_sub_member_return",
+            new=AsyncMock(return_value="RESULT"),
+        ) as mock_real:
+            result = await bound.notify_sub_member_return(
+                "CHQ-001", "sb-bank", "smb-001", "SIGNATURE_MISMATCH", "STP_RETURN", "₹[1L-5L]", "0001",
+            )
+        mock_real.assert_awaited_once_with(
+            "CHQ-001", "sb-bank", "smb-001", "SIGNATURE_MISMATCH", "STP_RETURN", "₹[1L-5L]", "0001",
+            event_producer=fake_producer,
+        )
+        assert result == "RESULT"
+
+    @pytest.mark.asyncio
+    async def test_check_return_rate_shield_passes_db_producer_and_immudb(self):
+        fake_db = MagicMock()
+        fake_producer = MagicMock()
+        fake_immudb = MagicMock()
+        bound = _bound(db_pool=fake_db, event_producer=fake_producer, immudb_client=fake_immudb)
+        with patch(
+            "modules.cts.sub_member.activities.check_return_rate_shield",
+            new=AsyncMock(return_value="RESULT"),
+        ) as mock_real:
+            result = await bound.check_return_rate_shield("sb-bank", "smb-001", "2026-01-01", "MORNING")
+        mock_real.assert_awaited_once_with(
+            "sb-bank", "smb-001", "2026-01-01", "MORNING",
+            mock_shield_status=None, db=fake_db, event_producer=fake_producer, immudb_client=fake_immudb,
+        )
+        assert result == "RESULT"
+
 
 class TestLotManagerCaching:
     def test_same_session_returns_same_lot_manager_instance(self):
@@ -178,10 +238,10 @@ class TestLotManagerCaching:
 
 
 class TestActivityListCompleteness:
-    def test_returns_exactly_23_bound_methods(self):
+    def test_returns_exactly_30_bound_methods(self):
         bound = _bound()
         activities = bound.activity_list()
-        assert len(activities) == 23
+        assert len(activities) == 30
 
     def test_no_duplicate_names(self):
         bound = _bound()
@@ -219,6 +279,7 @@ class TestBuildBoundActivitiesGracefulDegradation:
         assert bound._fraud_vllm_client is None
         assert bound._signature_vault is None
         assert bound._pps_vault is None
+        assert bound._db_pool is None
         # Bloom client is constructed even with no Redis backing (its own
         # add_bulk/initialize calls are internally None-safe) — see
         # CanceledLeafBloom.initialize()'s own try/except.
@@ -310,3 +371,31 @@ class TestCBSConnectorSelection:
         fake_connector_cls.assert_called_once_with(base_url="https://cbs.example.internal", bank_id="test-bank")
         fake_connector_instance.connect.assert_called_once_with()  # sync, not awaited
         assert connector is fake_connector_instance
+
+
+class TestBuildDbPool:
+    @pytest.mark.asyncio
+    async def test_degrades_to_none_when_dsn_unavailable(self):
+        from modules.cts.worker_activities import _build_db_pool
+
+        fake_cfg = MagicMock()
+        fake_cfg.get_secret = AsyncMock(side_effect=Exception("Vault unreachable"))
+
+        pool = await _build_db_pool(fake_cfg)
+        assert pool is None
+
+    @pytest.mark.asyncio
+    async def test_creates_pool_with_established_sizing_convention(self):
+        from modules.cts.worker_activities import _build_db_pool
+
+        fake_cfg = MagicMock()
+        fake_cfg.get_secret = AsyncMock(return_value="postgresql://user:pass@host/cts")
+
+        fake_pool = MagicMock()
+        with patch("asyncpg.create_pool", new=AsyncMock(return_value=fake_pool)) as mock_create_pool:
+            pool = await _build_db_pool(fake_cfg)
+
+        mock_create_pool.assert_awaited_once_with(
+            dsn="postgresql://user:pass@host/cts", min_size=2, max_size=10, command_timeout=30,
+        )
+        assert pool is fake_pool
