@@ -64,7 +64,8 @@ class TestUnknownModel:
 
 
 class TestHfTokenUnavailable:
-    def test_returns_503_when_token_fetch_fails(self):
+    def test_returns_503_when_vault_and_env_both_unavailable(self, monkeypatch):
+        monkeypatch.delenv("ASTRA_DEMO_HF_TOKEN", raising=False)
         client = _authed_client()
         with patch(
             "shared.config.config_service.config_service.get_secret",
@@ -72,6 +73,48 @@ class TestHfTokenUnavailable:
         ):
             response = client.post("/v1/cts/demo/cloud-extract", files=_fake_image_file())
         assert response.status_code == 503
+
+
+class TestHfTokenEnvFallback:
+    def test_falls_back_to_env_var_when_vault_unavailable(self, monkeypatch):
+        """Vault isn't running in bare local dev (see dev_auth_server.py) --
+        ASTRA_DEMO_HF_TOKEN lets the demo work anyway. Real Vault is always
+        tried first; this fallback only fires when Vault genuinely fails."""
+        monkeypatch.setenv("ASTRA_DEMO_HF_TOKEN", "hf_env_fallback_token")
+        client = _authed_client()
+        with patch(
+            "shared.config.config_service.config_service.get_secret",
+            new=AsyncMock(side_effect=Exception("Vault unreachable")),
+        ), patch("openai.AsyncOpenAI") as mock_openai_cls:
+            client_inst = AsyncMock()
+            client_inst.chat.completions.create = AsyncMock(
+                return_value=_mock_hf_response(json.dumps({"bank_name": "Env Fallback Bank"}))
+            )
+            mock_openai_cls.return_value = client_inst
+
+            response = client.post("/v1/cts/demo/cloud-extract", files=_fake_image_file())
+
+        assert response.status_code == 200
+        assert response.json()["bank_name"] == "Env Fallback Bank"
+        # Confirm the fallback token was actually the one used.
+        mock_openai_cls.assert_called_once_with(base_url="https://router.huggingface.co/v1", api_key="hf_env_fallback_token")
+
+    def test_vault_token_preferred_over_env_when_both_available(self, monkeypatch):
+        monkeypatch.setenv("ASTRA_DEMO_HF_TOKEN", "hf_env_fallback_token")
+        client = _authed_client()
+        with patch(
+            "shared.config.config_service.config_service.get_secret",
+            new=AsyncMock(return_value="hf_vault_token"),
+        ), patch("openai.AsyncOpenAI") as mock_openai_cls:
+            client_inst = AsyncMock()
+            client_inst.chat.completions.create = AsyncMock(
+                return_value=_mock_hf_response(json.dumps({"bank_name": "X"}))
+            )
+            mock_openai_cls.return_value = client_inst
+
+            client.post("/v1/cts/demo/cloud-extract", files=_fake_image_file())
+
+        mock_openai_cls.assert_called_once_with(base_url="https://router.huggingface.co/v1", api_key="hf_vault_token")
 
 
 class TestHappyPath:
