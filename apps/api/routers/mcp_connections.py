@@ -27,8 +27,10 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 from apps.api.dependencies import require_user_context
 from shared.audit.audit_event import AuditEvent, AuditEventType
+from shared.audit.stream_buffer import buffer_audit_event
 from shared.auth.rbac import RBACPolicy, UserContext
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
+from shared.notifications.routing import NotificationRoutingTable
 
 log = structlog.get_logger()
 
@@ -206,10 +208,19 @@ async def _emit_audit(
     bank_id: str,
     payload: dict,
     event_publisher: Optional[Callable] = None,
+    audit_stream_writer: Optional[Callable] = None,
 ) -> None:
-    """Emit an MCP connection audit event to platform.audit.events Kafka topic.
+    """Emit an MCP connection audit event.
 
-    audit-service consumes and writes to Immudb with HSM signature.
+    Two independent paths, both fire — neither replaces the other:
+      - Kafka platform.audit.events: documented durable-backup path
+        (shared/audit/stream_buffer.py's own module docstring), longer
+        retention, disk-backed. No consumer exists for it today.
+      - Redis Streams (buffer_audit_event): the fast primary path that
+        shared/audit/stream_consumer.py's AuditStreamConsumer actually
+        drains and writes to Immudb. This is what makes MCP_CONN_* events
+        actually reach the audit trail, not just get published into a void.
+
     Fire-and-forget — failures are logged, never block the HTTP response.
     """
     try:
@@ -232,6 +243,19 @@ async def _emit_audit(
                 "timestamp": event.timestamp,
                 **payload,
             })
+        if audit_stream_writer is not None:
+            await audit_stream_writer(
+                bank_id=bank_id,
+                event_type=event_type.value,
+                entity_type="mcp_connection",
+                entity_id=payload.get("connection_id", ""),
+                actor_id=(
+                    payload.get("created_by") or payload.get("updated_by")
+                    or payload.get("deleted_by") or payload.get("tested_by")
+                    or payload.get("triggered_by") or "unknown"
+                ),
+                payload=payload,
+            )
     except Exception as exc:
         log.error("mcp_conn.audit_emit_failed", event_type=event_type.value, bank_id=bank_id, error=str(exc))
 
@@ -343,6 +367,82 @@ def get_event_publisher(request: Request) -> Callable:
             log.error("mcp_conn.kafka_publish_failed", topic=topic, error=str(exc))
 
     return _real_publisher
+
+
+# ── Audit stream writer dependency (Redis Streams -> audit-service) ─────────
+
+
+async def _default_audit_stream_writer(**kwargs: Any) -> None:
+    """Log-only stub for dev/test — no app.state.redis_cts available.
+
+    Tests override via dependency_overrides. Fire-and-forget — failures
+    are logged, not re-raised.
+    """
+    log.info("mcp_conn.audit_stream_stub", event_type=kwargs.get("event_type"))
+
+
+def get_audit_stream_writer(request: Request) -> Callable:
+    """Return the real Redis Streams writer when app.state.redis_cts is
+    available, else the log-only stub.
+
+    This is the producer side of the fast path shared/audit/stream_consumer.py's
+    AuditStreamConsumer actually drains — buffer_audit_event() is fully
+    implemented and tested (shared/audit/stream_buffer.py) but was never
+    called from anywhere in the real app before this.
+    """
+    redis_cts = getattr(request.app.state, "redis_cts", None)
+    if redis_cts is None:
+        return _default_audit_stream_writer
+
+    async def _real_writer(**kwargs: Any) -> None:
+        try:
+            await buffer_audit_event(redis=redis_cts, **kwargs)
+        except Exception as exc:
+            log.error("mcp_conn.audit_stream_failed", event_type=kwargs.get("event_type"), error=str(exc))
+
+    return _real_writer
+
+
+# ── Notification routing (business-rule evaluation) ─────────────────────────
+
+
+async def _route_notification(event_type: AuditEventType, bank_id: str, context: dict) -> None:
+    """Evaluate NotificationRoutingTable's real, tested business rule for
+    event_type and log the outcome.
+
+    NotificationRoutingTable.get_spec() correctly says which events should
+    notify whom, on which channel, at what priority — that part is real.
+    What's missing platform-wide (not just here) is a user directory:
+    build_requests() needs an actual list of users with .role/.email/.phone
+    to turn "notify bank_it_admin" into a real recipient, and nothing in
+    this codebase supplies that yet. Rather than fabricate a fake recipient
+    (which would silently claim delivery that never happened), this logs
+    the routing decision honestly and stops at that boundary.
+    """
+    table = NotificationRoutingTable()
+    try:
+        spec = table.get_spec(event_type)
+    except Exception:
+        log.warning("mcp_conn.notification_routing.no_spec", event_type=event_type.value, bank_id=bank_id)
+        return
+
+    if not spec.notify:
+        return
+
+    log.warning(
+        "mcp_conn.notification_routing.recipients_unresolved",
+        event_type=event_type.value,
+        bank_id=bank_id,
+        priority=spec.priority.value,
+        roles=[r.role for r in spec.recipients],
+        reason="no user directory exists to resolve role -> recipient — see routing spec for who SHOULD be notified",
+    )
+
+
+def get_notification_router(request: Request) -> Callable:
+    """DI seam matching get_event_publisher/get_audit_stream_writer's shape,
+    for tests that want to override notification routing entirely."""
+    return _route_notification
 
 
 # ── Redis preflight writer dependency ────────────────────────────────────────
@@ -617,6 +717,7 @@ async def create_connection(
     user: dict = Depends(_require_admin),
     store: Any = Depends(get_store),
     event_publisher: Callable = Depends(get_event_publisher),
+    audit_stream_writer: Callable = Depends(get_audit_stream_writer),
 ):
     # SMB_CBS must have smb_id
     if body.connection_type == "SMB_CBS" and not body.smb_id:
@@ -659,7 +760,7 @@ async def create_connection(
         "connection_type": body.connection_type,
         "smb_id": body.smb_id or "—",
         "created_by": user["user_id"],
-    }, event_publisher)
+    }, event_publisher, audit_stream_writer)
     return _row_to_response(row)
 
 
@@ -683,6 +784,7 @@ async def update_connection(
     user: dict = Depends(_require_admin),
     store: Any = Depends(get_store),
     event_publisher: Callable = Depends(get_event_publisher),
+    audit_stream_writer: Callable = Depends(get_audit_stream_writer),
     preflight_writer: Callable = Depends(get_preflight_writer),
 ):
     row = await store.get(connection_id)
@@ -706,7 +808,7 @@ async def update_connection(
         "connection_type": row["connection_type"],
         "updated_by": user["user_id"],
         "fields_changed": [k for k in updates if k != "status"],
-    }, event_publisher)
+    }, event_publisher, audit_stream_writer)
     # Status reset to PENDING — workers must see this within 30s (Layer 3 hot-reload)
     await event_publisher("platform.config.changed", {
         "event_type": "MCP_CONN_STATUS_CHANGED",
@@ -724,6 +826,7 @@ async def delete_connection(
     user: dict = Depends(_require_admin),
     store: Any = Depends(get_store),
     event_publisher: Callable = Depends(get_event_publisher),
+    audit_stream_writer: Callable = Depends(get_audit_stream_writer),
     preflight_writer: Callable = Depends(get_preflight_writer),
 ):
     row = await store.get(connection_id)
@@ -735,7 +838,7 @@ async def delete_connection(
         "connection_type": row["connection_type"],
         "smb_id": row.get("smb_id") or "—",
         "deleted_by": user["user_id"],
-    }, event_publisher)
+    }, event_publisher, audit_stream_writer)
     # MCP_CONN_DELETED surface includes NOTIFICATION — alert ops_manager
     await event_publisher("platform.notifications", {
         "event_type": "MCP_CONN_DELETED",
@@ -745,6 +848,10 @@ async def delete_connection(
         "smb_id": row.get("smb_id") or "—",
         "deleted_by": user["user_id"],
     })
+    await _route_notification(
+        AuditEventType.MCP_CONN_DELETED, user["bank_id"],
+        {"connection_id": connection_id, "connection_type": row["connection_type"]},
+    )
     # Connection gone — workers must see config change within 30s
     await event_publisher("platform.config.changed", {
         "event_type": "MCP_CONN_STATUS_CHANGED",
@@ -763,6 +870,7 @@ async def test_connection(
     store: Any = Depends(get_store),
     tester: Callable = Depends(get_connection_tester),
     event_publisher: Callable = Depends(get_event_publisher),
+    audit_stream_writer: Callable = Depends(get_audit_stream_writer),
     preflight_writer: Callable = Depends(get_preflight_writer),
 ):
     row = await store.get(connection_id)
@@ -787,7 +895,7 @@ async def test_connection(
         "latency_ms": latency_ms,
         "error": error or "—",
         "tested_by": user["user_id"],
-    }, event_publisher)
+    }, event_publisher, audit_stream_writer)
     # Status changed — workers must reload within 30s (Layer 3 config hot-reload)
     await event_publisher("platform.config.changed", {
         "event_type": "MCP_CONN_STATUS_CHANGED",
@@ -805,6 +913,10 @@ async def test_connection(
             "error": error,
             "tested_by": user["user_id"],
         })
+        await _route_notification(
+            AuditEventType.MCP_CONN_TESTED_FAIL, user["bank_id"],
+            {"connection_id": connection_id, "connection_type": row["connection_type"], "error": error},
+        )
     # Update Redis preflight cache so Temporal activities see the new clearing state
     await _update_preflight_cache(user["bank_id"], store, preflight_writer)
 
@@ -822,6 +934,7 @@ async def trigger_sync(
     user: dict = Depends(_require_admin),
     store: Any = Depends(get_store),
     event_publisher: Callable = Depends(get_event_publisher),
+    audit_stream_writer: Callable = Depends(get_audit_stream_writer),
 ):
     row = await store.get(connection_id)
     if not row or row["bank_id"] != user["bank_id"]:
@@ -865,7 +978,7 @@ async def trigger_sync(
         "connection_type": row["connection_type"],
         "workflow_id": workflow_id,
         "triggered_by": user["user_id"],
-    }, event_publisher)
+    }, event_publisher, audit_stream_writer)
 
     return TriggerSyncResponse(
         connection_id=connection_id,

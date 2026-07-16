@@ -399,3 +399,58 @@ class TestBuildDbPool:
             dsn="postgresql://user:pass@host/cts", min_size=2, max_size=10, command_timeout=30,
         )
         assert pool is fake_pool
+
+
+class TestBuildImmudbClient:
+    """Regression: the real ImmudbClient only exposes a sync write_event()
+    with collection fixed at connect-time; every activity that receives
+    immudb_client (write_audit.py, etc.) calls an async
+    .write(collection=, event_type=, bank_id=, ...) -- _build_immudb_client
+    must return something with that shape, not the raw sync client."""
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_connect_failure(self):
+        from modules.cts.worker_activities import _build_immudb_client
+
+        fake_cfg = MagicMock()
+        fake_cfg.get_platform = MagicMock(side_effect=Exception("not configured"))
+
+        client = await _build_immudb_client(fake_cfg, "test-bank")
+        assert client is None
+
+    @pytest.mark.asyncio
+    async def test_returns_object_with_async_write_method(self):
+        from modules.cts.worker_activities import _build_immudb_client
+        from shared.audit.immudb_writer import AsyncImmudbWriter
+
+        fake_cfg = MagicMock()
+        fake_cfg.get_platform = MagicMock(side_effect=lambda k: {
+            "immudb.host": "immudb.internal", "immudb.port": "3322",
+        }[k])
+
+        with patch("shared.audit.immudb_client.ImmudbClient.connect", return_value=None):
+            client = await _build_immudb_client(fake_cfg, "test-bank")
+
+        assert isinstance(client, AsyncImmudbWriter)
+
+    @pytest.mark.asyncio
+    async def test_wrapped_client_write_is_awaitable_and_matches_write_audit_contract(self):
+        """End-to-end shape check: exactly the call write_audit.py makes."""
+        from modules.cts.worker_activities import _build_immudb_client
+
+        fake_cfg = MagicMock()
+        fake_cfg.get_platform = MagicMock(side_effect=lambda k: {
+            "immudb.host": "immudb.internal", "immudb.port": "3322",
+        }[k])
+
+        with patch("shared.audit.immudb_client.ImmudbClient.connect", return_value=None), \
+             patch("shared.audit.immudb_client.ImmudbClient.write_event",
+                   return_value={"tx_id": 99}) as mock_write_event:
+            client = await _build_immudb_client(fake_cfg, "test-bank")
+            tx_id = await client.write(
+                collection="cts_test-bank", event_type="CTS_NGCH_FILED_CONFIRM",
+                bank_id="test-bank", instrument_id="CHQ-1", payload={"decision": "CONFIRM"},
+            )
+
+        assert tx_id == "99"
+        mock_write_event.assert_called_once()
