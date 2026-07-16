@@ -509,12 +509,18 @@ async def _build_redis_client(config_service: Any) -> Any:
 async def _build_immudb_client(config_service: Any, bank_id: str) -> Any:
     try:
         from shared.audit.immudb_client import ImmudbClient
+        from shared.audit.immudb_writer import AsyncImmudbWriter
         host = config_service.get_platform("immudb.host")
         port = int(config_service.get_platform("immudb.port"))
         client = ImmudbClient()
         client.connect(host=host, port=port, bank_id=bank_id)  # sync — immudb-py is sync
         log.info("worker_activities.immudb_client_ready")
-        return client
+        # write_audit.py (and every other caller) expects an async
+        # .write(collection=, event_type=, bank_id=, ...) — the raw client
+        # only has a sync write_event() with collection fixed at connect
+        # time. Wrap it so the interface every activity already calls
+        # actually exists.
+        return AsyncImmudbWriter(client)
     except Exception as exc:
         log.warning("worker_activities.immudb_client_unavailable", bank_id=bank_id, error=str(exc))
         return None

@@ -1130,9 +1130,87 @@ PHASE 10 — Error → Incident Management (July 2026, Phase 1+2 of 5 COMPLETE)
   [ ] Phase 5 — maker-checker closure enforcement, compliance_officer RBI-reportability
        review workflow, control-mapping.yaml extension
 
+PHASE 11 — Audit/Notification Producer-Consumer Gap Closure (July 2026, COMPLETE)
+  Context: Live audit of the platform.audit.events and platform.notifications Kafka
+    topics (triggered by a direct question — "so many places we have producer but
+    consumer is not written?") found the claim was true, but split into two very
+    different categories: most "unconsumed" topics (cts.inward, ej.raw.ingested,
+    cts.human.review, ej.health.signals, cts.decisions) turned out to have safe,
+    working direct fallbacks already (Temporal start_workflow called inline, or
+    Temporal visibility queries, or direct Redis writes) — the Kafka publish was
+    always a KEDA-lag-metric / theoretical-analytics side channel, not the real
+    mechanism. Two subsystems had no fallback at all: MCP connection audit events
+    and MCP connection notifications, both fire-and-forget into Kafka topics with
+    zero consumers anywhere in the codebase, on the explicit documented assumption
+    that an "audit-service" would exist. It never did — only the producer side of
+    shared/audit/stream_buffer.py's Redis Streams design existed either (fully
+    built and unit-tested, but never called from any real code path on either end).
+
+  [x] Found and fixed a second, independent bug while investigating: the real
+       ImmudbClient (shared/audit/immudb_client.py) only exposes a sync
+       write_event(payload_dict) with collection fixed at connect-time, but
+       modules/cts/workflows/activities/write_audit.py — CTS's own, previously
+       assumed-safe direct-write audit path — calls an async .write(collection=,
+       event_type=, bank_id=, instrument_id=, payload=). Every existing test
+       mocked this away with an AsyncMock; the real class was never exercised.
+       The first real Temporal execution to reach Immudb would have crashed with
+       AttributeError. Fixed with shared/audit/immudb_writer.py's AsyncImmudbWriter
+       (asyncio.to_thread() adapter, matching shared/storage/minio_client.py's
+       established pattern; set_collection()+write_event() run inside the SAME
+       to_thread() call so concurrent writes to different collections on one
+       ImmudbClient instance can't interleave). worker_activities._build_immudb_client
+       now returns the wrapped adapter — zero changes needed to write_audit.py itself,
+       since its existing (correct) call shape was always the target contract.
+  [x] shared/audit/stream_consumer.py (NEW) — AuditStreamConsumer, the "audit-service
+       consumer" stream_buffer.py's own docstring names but never implements. Modelled
+       on shared/config/cache_invalidator.py's CacheInvalidator (start/stop lifecycle,
+       background asyncio task, per-message handler kept separately testable from the
+       poll loop). Per-message failure isolation: one bad message (malformed JSON,
+       Immudb write failure) is left un-acked and redelivered next poll; the rest of
+       the batch still writes and acks. HSM is optional — writes UNSIGNED with a loud
+       warning when unavailable (HSM itself is a separate, already-tracked, not-yet-
+       built decision — Vault Transit vs PKCS11) rather than skipping the write
+       entirely, which is what modules/cts/workflows/activities/decision.py's existing
+       hsm-is-None handling does. Deliberately different: skipping every write until
+       HSM lands would mean this consumer never populates the audit trail in the
+       meantime, reproducing the exact "wired but does nothing" problem it exists to
+       fix. 13 tests GREEN.
+  [x] apps/audit_service/main.py (NEW) — runnable worker entrypoint, one per bank
+       (matches the per-bank K8s namespace isolation model). FastAPI app with only
+       /health/live + /health/ready (microservices.md's mandatory K8s-probe surface)
+       — no business-logic endpoints, the consumer runs as a lifespan background task.
+       Graceful degradation throughout: missing Redis or Immudb → consumer simply
+       doesn't start, readiness reports degraded, liveness still passes. 6 tests GREEN.
+  [x] apps/api/routers/mcp_connections.py: _emit_audit() now calls BOTH the existing
+       Kafka publish (kept — it's the documented durable-backup path, not removed) AND
+       a new buffer_audit_event() call via a new get_audit_stream_writer dependency
+       (same DI shape as the existing get_event_publisher/get_preflight_writer — real
+       Redis-backed writer when app.state.redis_cts exists, log-only stub otherwise).
+       This is the change that actually closes the loop: MCP_CONN_CREATED/UPDATED/
+       DELETED/TESTED_OK/TESTED_FAIL/SYNC_TRIGGERED events now reach Immudb via
+       AuditStreamConsumer, not just Kafka topics nobody reads.
+  [x] Notification gap: investigated whether the same fix pattern applied to
+       platform.notifications and found a bigger, genuinely separate problem —
+       NotificationRoutingTable.get_spec() (shared/notifications/routing.py) is real,
+       tested, and correctly says MCP_CONN_DELETED/TESTED_FAIL should notify — but
+       build_requests() needs a `users` list resolving role → real recipients, and
+       no user directory exists anywhere in this codebase for any feature, not just
+       this one. Did not fabricate a fake recipient (would silently claim delivery
+       that never happens, which is worse than the honest gap). Added
+       _route_notification() — evaluates the real routing spec, logs the
+       unresolved-recipient boundary explicitly (roles that SHOULD be notified,
+       priority, reason) — wired into both NOTIFICATION-surface call sites
+       (MCP_CONN_DELETED, MCP_CONN_TESTED_FAIL). The existing platform.notifications
+       Kafka publish is unchanged. User directory / recipient resolution is a new,
+       distinct, not-yet-scoped gap, flagged but not started.
+  [x] 30 new/updated tests across the MCP router, all GREEN (71 total in that file).
+       Full suite re-run: 3340 passed, same 7 pre-existing unrelated failures as
+       before this session, zero new regressions.
+
 ### Immediate Next
 Pre-pilot security remediation (Phase 9) is in progress — see above for exact status.
 Error → Incident Management (Phase 10) Phase 1+2 shipped this session — see above.
+Audit/Notification Producer-Consumer Gap Closure (Phase 11) shipped this session.
 
 Remaining work (in priority order):
 1. **ASTRA-01 on ej.py** — same test-token backdoor fix pattern already proven on 9 other
@@ -1142,11 +1220,15 @@ Remaining work (in priority order):
    against a real Temporal server, independent of the ASTRA-01/02 fixes already landed.
 3. **Incident Management Phase 3** — stand up Grafana OnCall (self-hosted), wire Alertmanager
    routing by owning_team, build the Layer 3 escalation-chain config UI. Needs real infra.
-4. **NPCI API Modernisation Phase A** — REST transport + 3-layer auth module (`shared/ngch_auth/`)
+4. **User directory / notification recipient resolution** — Phase 11 found this is a real,
+   platform-wide gap (not MCP-specific): no code anywhere resolves "role X at bank Y" to an
+   actual email/phone/user_id. Needed before NotificationRoutingTable's business rules can
+   ever actually deliver anything, for any feature.
+5. **NPCI API Modernisation Phase A** — REST transport + 3-layer auth module (`shared/ngch_auth/`)
    Trigger: NPCI responds to concept note. Code can be built now (§17 has full task list).
-5. **Pilot bank deployment validation** — smoke-test `infra/helm/values/banks/saraswat-coop/`
+6. **Pilot bank deployment validation** — smoke-test `infra/helm/values/banks/saraswat-coop/`
    against a real Kubernetes cluster; verify pre-upgrade migration job and ArgoCD ApplicationSet.
-6. **Security hardening audit** — full penetration test prep; verify SQL injection, PII at rest,
+7. **Security hardening audit** — full penetration test prep; verify SQL injection, PII at rest,
    data theft protections are production-grade (OWASP ZAP + manual review).
 
 ---

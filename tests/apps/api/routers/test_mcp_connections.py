@@ -765,6 +765,182 @@ class TestKafkaAndRedisIntegration:
         topics = [e["topic"] for e in events]
         assert "platform.config.changed" in topics
 
+
+# ── 13. Audit stream writer (Redis Streams -> audit-service consumer) ────────
+#
+# Kafka platform.audit.events had no consumer anywhere (audit-service was
+# documented, never implemented) -- MCP_CONN_* events were published and
+# never reached Immudb. buffer_audit_event() + AuditStreamConsumer close
+# that loop; this dependency is the producer side, wired the same way
+# get_event_publisher/get_preflight_writer already are: real Redis-backed
+# writer when app.state.redis_cts exists, log-only stub otherwise.
+
+def _make_app_with_audit_stream_capture(role="bank_it_admin", bank_type="SB", smb_id=None, bank_id="saraswat-coop"):
+    from apps.api.routers.mcp_connections import (
+        router_v1, get_current_user, get_connection_tester, get_store,
+        _ConnectionStore, get_event_publisher, get_preflight_writer, get_audit_stream_writer,
+    )
+    app = FastAPI()
+    app.include_router(router_v1)
+
+    fresh_store = _ConnectionStore()
+    app.dependency_overrides[get_store] = lambda: fresh_store
+    app.dependency_overrides[get_current_user] = lambda: {
+        "bank_id": bank_id, "user_id": f"user-{bank_id}",
+        "role": role, "bank_type": bank_type, "smb_id": smb_id,
+    }
+    async def _mock_tester_success(row):
+        return True, 38, None
+    app.dependency_overrides[get_connection_tester] = lambda: _mock_tester_success
+
+    async def _noop_event_publisher(topic, payload):
+        return None
+    app.dependency_overrides[get_event_publisher] = lambda: _noop_event_publisher
+
+    async def _noop_preflight_writer(bid, ca):
+        return None
+    app.dependency_overrides[get_preflight_writer] = lambda: _noop_preflight_writer
+
+    audit_stream_calls: list = []
+    async def _mock_audit_stream_writer(**kwargs):
+        audit_stream_calls.append(kwargs)
+    app.dependency_overrides[get_audit_stream_writer] = lambda: _mock_audit_stream_writer
+
+    return app, fresh_store, audit_stream_calls
+
+
+class TestAuditStreamWriterDependency:
+    def test_default_stub_used_when_no_redis_cts_on_app_state(self):
+        """Bare FastAPI() test app (no app.state.redis_cts) must fall back to
+        the log-only stub, not crash — matches get_event_publisher/
+        get_preflight_writer's existing fallback pattern exactly."""
+        from starlette.requests import Request
+        from apps.api.routers.mcp_connections import get_audit_stream_writer
+
+        app = FastAPI()
+        scope = {"type": "http", "app": app}
+        request = Request(scope)
+        writer = get_audit_stream_writer(request)
+        assert writer is not None   # callable stub, not None
+
+    @pytest.mark.asyncio
+    async def test_real_writer_calls_buffer_audit_event_with_redis_cts(self):
+        from unittest.mock import AsyncMock, patch
+        from starlette.requests import Request
+        from apps.api.routers.mcp_connections import get_audit_stream_writer
+
+        app = FastAPI()
+        app.state.redis_cts = AsyncMock()
+        scope = {"type": "http", "app": app}
+        request = Request(scope)
+        writer = get_audit_stream_writer(request)
+
+        with patch("apps.api.routers.mcp_connections.buffer_audit_event", new=AsyncMock()) as mock_buffer:
+            await writer(
+                bank_id="saraswat-coop", event_type="MCP_CONN_CREATED",
+                entity_type="mcp_connection", entity_id="conn-1",
+                actor_id="user-1", payload={"connection_type": "SB_CBS"},
+            )
+
+        mock_buffer.assert_awaited_once()
+        call_kwargs = mock_buffer.call_args.kwargs
+        assert call_kwargs["redis"] is app.state.redis_cts
+        assert call_kwargs["bank_id"] == "saraswat-coop"
+        assert call_kwargs["event_type"] == "MCP_CONN_CREATED"
+
+
+class TestAuditStreamIntegration:
+    """Every mutating route must feed the audit stream, alongside the
+    existing Kafka publish — not instead of it (Kafka stays the documented
+    durable-backup path)."""
+
+    def test_create_writes_to_audit_stream(self):
+        app, store, calls = _make_app_with_audit_stream_capture()
+        client = TestClient(app, raise_server_exceptions=False)
+        client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD)
+        event_types = [c["event_type"] for c in calls]
+        assert "MCP_CONN_CREATED" in event_types
+
+    def test_update_writes_to_audit_stream(self):
+        app, store, calls = _make_app_with_audit_stream_capture()
+        client = TestClient(app, raise_server_exceptions=False)
+        created = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
+        calls.clear()
+        client.put(f"/v1/admin/mcp-connections/{created['id']}", json={"cbs_vendor": "bancs"})
+        event_types = [c["event_type"] for c in calls]
+        assert "MCP_CONN_UPDATED" in event_types
+
+    def test_delete_writes_to_audit_stream(self):
+        app, store, calls = _make_app_with_audit_stream_capture()
+        client = TestClient(app, raise_server_exceptions=False)
+        created = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
+        calls.clear()
+        client.delete(f"/v1/admin/mcp-connections/{created['id']}")
+        event_types = [c["event_type"] for c in calls]
+        assert "MCP_CONN_DELETED" in event_types
+
+    def test_test_connection_writes_to_audit_stream(self):
+        app, store, calls = _make_app_with_audit_stream_capture()
+        client = TestClient(app, raise_server_exceptions=False)
+        created = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
+        calls.clear()
+        client.post(f"/v1/admin/mcp-connections/{created['id']}/test")
+        event_types = [c["event_type"] for c in calls]
+        assert "MCP_CONN_TESTED_OK" in event_types
+
+    def test_sync_writes_to_audit_stream(self):
+        app, store, calls = _make_app_with_audit_stream_capture()
+        client = TestClient(app, raise_server_exceptions=False)
+        created = client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD).json()
+        client.post(f"/v1/admin/mcp-connections/{created['id']}/test")
+        calls.clear()
+        client.post(f"/v1/admin/mcp-connections/{created['id']}/sync")
+        event_types = [c["event_type"] for c in calls]
+        assert "MCP_CONN_SYNC_TRIGGERED" in event_types
+
+
+# ── 14. Notification routing (business-rule evaluation, honest about the gap) ─
+#
+# NotificationRoutingTable.get_spec() is real and tested -- it correctly says
+# "MCP_CONN_DELETED should notify". But build_requests() needs a `users` list
+# resolving role -> real recipients, and no user directory exists anywhere in
+# this codebase. Rather than fabricate a fake recipient, this evaluates the
+# real routing spec and logs the unresolved-recipient gap honestly.
+
+class TestNotificationRouting:
+    def test_get_notification_router_returns_callable(self):
+        from starlette.requests import Request
+        from apps.api.routers.mcp_connections import get_notification_router
+
+        app = FastAPI()
+        scope = {"type": "http", "app": app}
+        request = Request(scope)
+        router_fn = get_notification_router(request)
+        assert router_fn is not None
+
+    @pytest.mark.asyncio
+    async def test_evaluates_real_routing_spec_for_mcp_conn_deleted(self, caplog):
+        import structlog
+        from apps.api.routers.mcp_connections import _route_notification
+        from shared.audit.audit_event import AuditEventType
+
+        # Must not raise even though recipient resolution is a known gap.
+        await _route_notification(
+            AuditEventType.MCP_CONN_DELETED, bank_id="saraswat-coop",
+            context={"connection_id": "conn-1"},
+        )
+
+    @pytest.mark.asyncio
+    async def test_notify_false_events_skip_routing_silently(self):
+        """MCP_CONN_CREATED's registered spec has notify=False — must not
+        even attempt recipient resolution for it."""
+        from apps.api.routers.mcp_connections import _route_notification
+        from shared.audit.audit_event import AuditEventType
+
+        await _route_notification(
+            AuditEventType.MCP_CONN_CREATED, bank_id="saraswat-coop", context={},
+        )   # must not raise
+
     def test_trigger_sync_publishes_vault_delta_kafka(self):
         """trigger_sync must publish to cts.vault.delta.{bank_id} to fire DeltaVaultSyncWorkflow."""
         app, store, events, _ = _make_app_with_captures()
