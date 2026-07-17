@@ -1,4 +1,27 @@
 """Tests for FastAPI application lifespan and health endpoints."""
+# ---------------------------------------------------------------------------
+# Auth router registration — verifies app.include_router(auth.router_v1) exists
+# ---------------------------------------------------------------------------
+
+def test_auth_login_route_registered_on_real_app():
+    """The real ASTRA app must include the auth router — /v1/auth/login must exist."""
+    # Import triggers module-level code including include_router() calls.
+    # We only check the route table; lifespan (Vault, Redis, DB) is not triggered here.
+    from apps.api.main import app
+    routes = {r.path for r in app.routes if hasattr(r, "path")}
+    assert "/v1/auth/login" in routes, (
+        "POST /v1/auth/login not found in app.routes — "
+        "add app.include_router(auth.router_v1) to apps/api/main.py"
+    )
+
+
+def test_auth_session_route_registered_on_real_app():
+    from apps.api.main import app
+    routes = {r.path for r in app.routes if hasattr(r, "path")}
+    assert "/v1/auth/session" in routes
+
+
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
