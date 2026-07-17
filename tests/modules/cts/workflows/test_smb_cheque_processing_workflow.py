@@ -65,15 +65,24 @@ class TestRetryPolicies:
 
 class TestDesignInvariants:
     def test_no_iet_watchdog_import(self):
-        """SMBChequeProcessingWorkflow must NOT import IETWatchdogWorkflow.
-        Sponsor's watchdog is already running — spawning a second one causes duplicate NGCH filing."""
+        """SMBChequeProcessingWorkflow must NOT import or call IETWatchdogWorkflow.
+        Sponsor's watchdog is already running — spawning a second one causes duplicate NGCH filing.
+        Uses AST so docstring/comment mentions are ignored; only actual code nodes are checked."""
         import ast, inspect
         from modules.cts.workflows import smb_cheque_processing_workflow
         source = inspect.getsource(smb_cheque_processing_workflow)
-        assert "IETWatchdogWorkflow" not in source, (
-            "SMBChequeProcessingWorkflow must not reference IETWatchdogWorkflow — "
-            "the sponsor bank's watchdog is already running."
-        )
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name) and node.id == "IETWatchdogWorkflow":
+                raise AssertionError(
+                    "SMBChequeProcessingWorkflow must not reference IETWatchdogWorkflow in code "
+                    "(found at line %d) — the sponsor bank's watchdog is already running." % node.lineno
+                )
+            if isinstance(node, ast.Attribute) and node.attr == "IETWatchdogWorkflow":
+                raise AssertionError(
+                    "SMBChequeProcessingWorkflow must not reference IETWatchdogWorkflow in code "
+                    "(found at line %d) — the sponsor bank's watchdog is already running." % node.lineno
+                )
 
     def test_forwarding_id_passed_to_ngch(self):
         """forwarding_id must be threaded through to file_to_ngch for sponsor correlation."""
