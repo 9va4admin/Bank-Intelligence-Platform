@@ -40,7 +40,7 @@ class PPSActivityResult(BaseModel):
 @activity.defn
 async def lookup_pps(
     inp: PPSActivityInput,
-    vault=None,
+    vault,
 ) -> PPSActivityResult:
     """
     Look up cheque in PPS vault and verify amount + payee match.

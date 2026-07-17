@@ -10,6 +10,13 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 
+def _mock_config(min_match_score=0.80):
+    """Return a config_service mock satisfying verify_signature's get_ai_config call."""
+    config = AsyncMock()
+    config.get_ai_config = AsyncMock(return_value={"ai.signature.min_match_score": min_match_score})
+    return config
+
+
 def _make_input(instrument_id="INST001", bank_id="test-bank", account_number="1234567890"):
     from modules.cts.workflows.activities.signature import SignatureActivityInput
     return SignatureActivityInput(
@@ -45,7 +52,7 @@ class TestSignatureVaultMiss:
         )
         mock_model = AsyncMock()
 
-        result = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, min_match_score=0.80)
+        result = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, config_service=_mock_config(0.80))
         assert result.outcome == "HUMAN_REVIEW"
 
     @pytest.mark.asyncio
@@ -60,7 +67,7 @@ class TestSignatureVaultMiss:
         )
         mock_model = AsyncMock()
 
-        await verify_signature(_make_input(), vault=mock_vault, model=mock_model, min_match_score=0.80)
+        await verify_signature(_make_input(), vault=mock_vault, model=mock_model, config_service=_mock_config(0.80))
         mock_model.compare.assert_not_called()
 
     @pytest.mark.asyncio
@@ -74,7 +81,7 @@ class TestSignatureVaultMiss:
         )
         mock_model = AsyncMock()
 
-        result = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, min_match_score=0.80)
+        result = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, config_service=_mock_config(0.80))
         assert "VAULT_MISS" in result.miss_reason
 
     @pytest.mark.asyncio
@@ -88,7 +95,7 @@ class TestSignatureVaultMiss:
         )
         mock_model = AsyncMock()
 
-        result = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, min_match_score=0.80)
+        result = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, config_service=_mock_config(0.80))
         assert result.outcome == "HUMAN_REVIEW"
 
 
@@ -105,7 +112,7 @@ class TestSignatureMatch:
         mock_model = AsyncMock()
         mock_model.compare = AsyncMock(return_value={"best_match_score": 0.96, "scores": [0.96, 0.94]})
 
-        result = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, min_match_score=0.80)
+        result = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, config_service=_mock_config(0.80))
         assert result.outcome == "PROCEED"
 
     @pytest.mark.asyncio
@@ -120,7 +127,7 @@ class TestSignatureMatch:
         mock_model = AsyncMock()
         mock_model.compare = AsyncMock(return_value={"best_match_score": 0.93, "scores": [0.93]})
 
-        result = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, min_match_score=0.80)
+        result = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, config_service=_mock_config(0.80))
         assert result.match_score == 0.93
 
     @pytest.mark.asyncio
@@ -135,7 +142,7 @@ class TestSignatureMatch:
         mock_model = AsyncMock()
         mock_model.compare = AsyncMock(return_value={"best_match_score": 0.55, "scores": [0.55]})
 
-        result = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, min_match_score=0.80)
+        result = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, config_service=_mock_config(0.80))
         assert result.outcome == "HUMAN_REVIEW"
 
     @pytest.mark.asyncio
@@ -151,9 +158,9 @@ class TestSignatureMatch:
         mock_model = AsyncMock()
         mock_model.compare = AsyncMock(return_value={"best_match_score": 0.75, "scores": [0.75]})
 
-        result_pass = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, min_match_score=0.70)
+        result_pass = await verify_signature(_make_input(), vault=mock_vault, config_service=_mock_config(0.70), model=mock_model)
         mock_model.compare = AsyncMock(return_value={"best_match_score": 0.75, "scores": [0.75]})
-        result_fail = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, min_match_score=0.80)
+        result_fail = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, config_service=_mock_config(0.80))
 
         assert result_pass.outcome == "PROCEED"
         assert result_fail.outcome == "HUMAN_REVIEW"
@@ -187,7 +194,7 @@ class TestSignatureSMBProxyRouting:
         mock_vault = AsyncMock()
 
         result = await verify_signature(self._make_smb_input(), vault=mock_vault, model=mock_model,
-                                        min_match_score=0.80, smb_proxy=mock_proxy)
+                                        config_service=_mock_config(0.80), smb_proxy=mock_proxy)
 
         mock_proxy.get_signature.assert_called_once()
         assert result.outcome == "PROCEED"
@@ -207,7 +214,7 @@ class TestSignatureSMBProxyRouting:
 
         inp = self._make_smb_input()
         await verify_signature(inp, vault=AsyncMock(), model=mock_model,
-                               min_match_score=0.80, smb_proxy=mock_proxy)
+                               config_service=_mock_config(0.80), smb_proxy=mock_proxy)
 
         mock_proxy.get_signature.assert_called_once_with(
             inp.account_number, inp.bank_id, inp.smb_id
@@ -228,7 +235,7 @@ class TestSignatureSMBProxyRouting:
         mock_vault = AsyncMock()
 
         await verify_signature(self._make_smb_input(), vault=mock_vault, model=mock_model,
-                               min_match_score=0.80, smb_proxy=mock_proxy)
+                               config_service=_mock_config(0.80), smb_proxy=mock_proxy)
 
         mock_vault.get_signatures.assert_not_called()
 
@@ -247,7 +254,7 @@ class TestSignatureSMBProxyRouting:
 
         # smb_proxy=None → must use vault even if smb_id is set
         result = await verify_signature(self._make_smb_input(), vault=mock_vault,
-                                        model=mock_model, min_match_score=0.80, smb_proxy=None)
+                                        model=mock_model, config_service=_mock_config(0.80), smb_proxy=None)
 
         mock_vault.get_signatures.assert_called_once()
         assert result.outcome == "PROCEED"
@@ -274,7 +281,7 @@ class TestSignatureSMBProxyRouting:
         mock_model.compare = AsyncMock(return_value={"best_match_score": 0.90})
 
         await verify_signature(sb_input, vault=mock_vault, model=mock_model,
-                               min_match_score=0.80, smb_proxy=mock_proxy)
+                               config_service=_mock_config(0.80), smb_proxy=mock_proxy)
 
         mock_proxy.get_signature.assert_not_called()
         mock_vault.get_signatures.assert_called_once()
@@ -292,7 +299,7 @@ class TestSignatureSMBProxyRouting:
         mock_model = AsyncMock()
 
         result = await verify_signature(self._make_smb_input(), vault=AsyncMock(), model=mock_model,
-                                        min_match_score=0.80, smb_proxy=mock_proxy)
+                                        config_service=_mock_config(0.80), smb_proxy=mock_proxy)
 
         assert result.outcome == "HUMAN_REVIEW"
         mock_model.compare.assert_not_called()
@@ -307,7 +314,7 @@ class TestSignatureSMBProxyRouting:
         mock_model = AsyncMock()
 
         result = await verify_signature(self._make_smb_input(), vault=AsyncMock(), model=mock_model,
-                                        min_match_score=0.80, smb_proxy=mock_proxy)
+                                        config_service=_mock_config(0.80), smb_proxy=mock_proxy)
 
         assert result.outcome == "HUMAN_REVIEW"
         assert result.degraded is True
@@ -321,7 +328,7 @@ class TestSignatureSMBProxyRouting:
         mock_proxy.get_signature = AsyncMock(side_effect=TimeoutError("MCP timeout"))
 
         result = await verify_signature(self._make_smb_input(), vault=AsyncMock(), model=AsyncMock(),
-                                        min_match_score=0.80, smb_proxy=mock_proxy)
+                                        config_service=_mock_config(0.80), smb_proxy=mock_proxy)
 
         assert "SMB_PROXY_UNAVAILABLE" in result.miss_reason
 
@@ -339,7 +346,7 @@ class TestSignatureModelDegradation:
         mock_model = AsyncMock()
         mock_model.compare = AsyncMock(side_effect=Exception("Siamese model unavailable"))
 
-        result = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, min_match_score=0.80)
+        result = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, config_service=_mock_config(0.80))
         assert result.outcome == "HUMAN_REVIEW"
 
     @pytest.mark.asyncio
@@ -354,7 +361,7 @@ class TestSignatureModelDegradation:
         mock_model = AsyncMock()
         mock_model.compare = AsyncMock(side_effect=TimeoutError("GPU timeout"))
 
-        result = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, min_match_score=0.80)
+        result = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, config_service=_mock_config(0.80))
         assert result is not None
 
     @pytest.mark.asyncio
@@ -369,7 +376,7 @@ class TestSignatureModelDegradation:
         mock_model = AsyncMock()
         mock_model.compare = AsyncMock(side_effect=RuntimeError("CUDA OOM"))
 
-        result = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, min_match_score=0.80)
+        result = await verify_signature(_make_input(), vault=mock_vault, model=mock_model, config_service=_mock_config(0.80))
         assert result.degraded is True
 
 
@@ -403,7 +410,7 @@ class TestSignatureMultiSigDetected:
         mock_model.compare = AsyncMock(return_value={"best_match_score": 0.92})
 
         result = await verify_signature(
-            _make_input_with_sig_count(1), vault=mock_vault, model=mock_model, min_match_score=0.80
+            _make_input_with_sig_count(1), vault=mock_vault, model=mock_model, config_service=_mock_config(0.80)
         )
         mock_vault.get_signatures.assert_called_once()
         assert result.outcome == "PROCEED"
@@ -417,7 +424,7 @@ class TestSignatureMultiSigDetected:
         mock_model = AsyncMock()
 
         result = await verify_signature(
-            _make_input_with_sig_count(2), vault=mock_vault, model=mock_model, min_match_score=0.80
+            _make_input_with_sig_count(2), vault=mock_vault, model=mock_model, config_service=_mock_config(0.80)
         )
         assert result.outcome == "HUMAN_REVIEW"
 
@@ -427,7 +434,7 @@ class TestSignatureMultiSigDetected:
         from modules.cts.workflows.activities.signature import verify_signature
 
         result = await verify_signature(
-            _make_input_with_sig_count(3), vault=AsyncMock(), model=AsyncMock(), min_match_score=0.80
+            _make_input_with_sig_count(3), vault=AsyncMock(), model=AsyncMock(), config_service=_mock_config(0.80)
         )
         assert result.outcome == "HUMAN_REVIEW"
 
@@ -437,7 +444,7 @@ class TestSignatureMultiSigDetected:
         from modules.cts.workflows.activities.signature import verify_signature
 
         result = await verify_signature(
-            _make_input_with_sig_count(2), vault=AsyncMock(), model=AsyncMock(), min_match_score=0.80
+            _make_input_with_sig_count(2), vault=AsyncMock(), model=AsyncMock(), config_service=_mock_config(0.80)
         )
         assert "MULTI_SIGNATURE_DETECTED" in result.miss_reason
 
@@ -448,7 +455,7 @@ class TestSignatureMultiSigDetected:
 
         mock_vault = AsyncMock()
         await verify_signature(
-            _make_input_with_sig_count(2), vault=mock_vault, model=AsyncMock(), min_match_score=0.80
+            _make_input_with_sig_count(2), vault=mock_vault, model=AsyncMock(), config_service=_mock_config(0.80)
         )
         mock_vault.get_signatures.assert_not_called()
 
@@ -459,7 +466,7 @@ class TestSignatureMultiSigDetected:
 
         mock_model = AsyncMock()
         await verify_signature(
-            _make_input_with_sig_count(2), vault=AsyncMock(), model=mock_model, min_match_score=0.80
+            _make_input_with_sig_count(2), vault=AsyncMock(), model=mock_model, config_service=_mock_config(0.80)
         )
         mock_model.compare.assert_not_called()
 
@@ -492,7 +499,7 @@ class TestSignatureCBSFallback:
 
         await verify_signature(
             _make_input(), vault=mock_vault, model=mock_model,
-            min_match_score=0.80, cbs_connector=mock_cbs
+            config_service=_mock_config(0.80), cbs_connector=mock_cbs
         )
         mock_cbs.get_signature_specimens.assert_called_once()
 
@@ -507,7 +514,7 @@ class TestSignatureCBSFallback:
 
         await verify_signature(
             _make_input(), vault=mock_vault, model=AsyncMock(),
-            min_match_score=0.80, cbs_connector=mock_cbs
+            config_service=_mock_config(0.80), cbs_connector=mock_cbs
         )
         mock_cbs.get_signature_specimens.assert_not_called()
 
@@ -521,7 +528,7 @@ class TestSignatureCBSFallback:
 
         result = await verify_signature(
             _make_input(), vault=mock_vault, model=AsyncMock(),
-            min_match_score=0.80, cbs_connector=None
+            config_service=_mock_config(0.80), cbs_connector=None
         )
         assert result.outcome == "HUMAN_REVIEW"
 
@@ -540,7 +547,7 @@ class TestSignatureCBSFallback:
 
         await verify_signature(
             _make_input(), vault=mock_vault, model=mock_model,
-            min_match_score=0.80, cbs_connector=mock_cbs
+            config_service=_mock_config(0.80), cbs_connector=mock_cbs
         )
         mock_vault.store_signatures.assert_called_once()
         stored_specimens = mock_vault.store_signatures.call_args[0][1]
@@ -561,7 +568,7 @@ class TestSignatureCBSFallback:
 
         result = await verify_signature(
             _make_input(), vault=mock_vault, model=mock_model,
-            min_match_score=0.80, cbs_connector=mock_cbs
+            config_service=_mock_config(0.80), cbs_connector=mock_cbs
         )
         assert result.outcome == "PROCEED"
 
@@ -577,7 +584,7 @@ class TestSignatureCBSFallback:
 
         result = await verify_signature(
             _make_input(), vault=mock_vault, model=AsyncMock(),
-            min_match_score=0.80, cbs_connector=mock_cbs
+            config_service=_mock_config(0.80), cbs_connector=mock_cbs
         )
         assert result.outcome == "HUMAN_REVIEW"
         assert "NO_SIGNATURE_IN_VAULT" in result.miss_reason
@@ -594,7 +601,7 @@ class TestSignatureCBSFallback:
 
         result = await verify_signature(
             _make_input(), vault=mock_vault, model=AsyncMock(),
-            min_match_score=0.80, cbs_connector=mock_cbs
+            config_service=_mock_config(0.80), cbs_connector=mock_cbs
         )
         assert result.outcome == "HUMAN_REVIEW"
         assert result.degraded is True
@@ -614,7 +621,7 @@ class TestSignatureCBSFallback:
 
         result = await verify_signature(
             _make_input(), vault=mock_vault, model=mock_model,
-            min_match_score=0.80, cbs_connector=mock_cbs
+            config_service=_mock_config(0.80), cbs_connector=mock_cbs
         )
         assert result.cbs_fallback_used is True
 
@@ -632,6 +639,6 @@ class TestSignatureCBSFallback:
         mock_model.compare = AsyncMock(return_value={"best_match_score": 0.94})
 
         result = await verify_signature(
-            _make_input(), vault=mock_vault, model=mock_model, min_match_score=0.80
+            _make_input(), vault=mock_vault, model=mock_model, config_service=_mock_config(0.80)
         )
         assert result.cbs_fallback_used is False

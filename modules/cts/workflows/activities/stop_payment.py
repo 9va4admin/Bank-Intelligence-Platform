@@ -45,7 +45,7 @@ class StopPaymentActivityResult(BaseModel):
 @activity.defn
 async def check_stop_payment(
     inp: StopPaymentActivityInput,
-    cbs_connector=None,
+    cbs_connector,
     bloom_client=None,
 ) -> StopPaymentActivityResult:
     """

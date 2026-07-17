@@ -1,7 +1,7 @@
 """
 Tests for modules/cts/workflows/activities/alteration.py
 
-Six-layer physical anomaly detection via Qwen2-VL 72B:
+Six-layer physical anomaly detection via Qwen2-VL via the cascade orchestrator:
   1. Field content (overwriting, erasure)
   2. Ink-physics (pen-pressure, flow, bleed)
   3. Paper-fibre distortion (mechanical erasure at 200 DPI)
@@ -9,8 +9,8 @@ Six-layer physical anomaly detection via Qwen2-VL 72B:
   5. Chemical alteration stain (solvent halo)
   6. Overwriting brightness
 
-vLLM unavailable / JSON parse failure → graceful degradation to HUMAN_REVIEW.
-alteration_detected=True → requires_human_review=True.
+Orchestrator (CascadeOrchestrator) unavailable / JSON parse failure → graceful degradation
+to HUMAN_REVIEW. alteration_detected=True → requires_human_review=True.
 """
 import json
 from unittest.mock import AsyncMock, MagicMock
@@ -28,13 +28,26 @@ def _make_input(**kwargs):
     return AlterationActivityInput(**defaults)
 
 
-def _mock_vllm(payload: dict):
-    """Return a vllm_client mock whose chat.completions.create returns JSON payload."""
-    response = MagicMock()
-    response.choices[0].message.content = json.dumps(payload)
-    client = AsyncMock()
-    client.chat.completions.create = AsyncMock(return_value=response)
-    return client
+def _mock_orchestrator(payload: dict):
+    """Return a CascadeOrchestrator mock whose call_vision returns JSON payload."""
+    from shared.ai.model_cascade import CascadeResult
+    cascade_result = CascadeResult(
+        content=json.dumps(payload),
+        confidence=0.96,
+        cascade_level=1,
+        model_used="qwen2-vl-7b",
+        escalated=False,
+    )
+    orchestrator = AsyncMock()
+    orchestrator.call_vision = AsyncMock(return_value=cascade_result)
+    return orchestrator
+
+
+def _mock_config():
+    """Return a config_service mock satisfying detect_alteration's config.get() call."""
+    config = AsyncMock()
+    config.get = AsyncMock(return_value=0.5)  # ai.tamper_risk_threshold default
+    return config
 
 
 def _clean_payload():
@@ -165,43 +178,43 @@ class TestAlterationClean:
     @pytest.mark.asyncio
     async def test_clean_alteration_not_detected(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_clean_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_clean_payload()), config_service=_mock_config())
         assert result.alteration_detected is False
 
     @pytest.mark.asyncio
     async def test_clean_risk_score_low(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_clean_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_clean_payload()), config_service=_mock_config())
         assert result.tamper_risk_score < 0.5
 
     @pytest.mark.asyncio
     async def test_clean_no_altered_fields(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_clean_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_clean_payload()), config_service=_mock_config())
         assert result.altered_fields == []
 
     @pytest.mark.asyncio
     async def test_clean_not_degraded(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_clean_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_clean_payload()), config_service=_mock_config())
         assert result.degraded is False
 
     @pytest.mark.asyncio
     async def test_clean_human_review_not_required(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_clean_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_clean_payload()), config_service=_mock_config())
         assert result.requires_human_review is False
 
     @pytest.mark.asyncio
     async def test_clean_physical_anomaly_score_low(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_clean_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_clean_payload()), config_service=_mock_config())
         assert result.physical_anomaly_score < 0.5
 
     @pytest.mark.asyncio
     async def test_clean_returns_field_details(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_clean_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_clean_payload()), config_service=_mock_config())
         assert len(result.field_details) == 2
 
 
@@ -213,51 +226,51 @@ class TestInkPhysicsAlteration:
     @pytest.mark.asyncio
     async def test_alteration_detected_flag(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_altered_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_altered_payload()), config_service=_mock_config())
         assert result.alteration_detected is True
 
     @pytest.mark.asyncio
     async def test_tamper_risk_high(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_altered_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_altered_payload()), config_service=_mock_config())
         assert result.tamper_risk_score > 0.5
 
     @pytest.mark.asyncio
     async def test_physical_anomaly_score_set(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_altered_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_altered_payload()), config_service=_mock_config())
         assert result.physical_anomaly_score > 0.5
 
     @pytest.mark.asyncio
     async def test_amount_figures_in_altered_fields(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_altered_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_altered_payload()), config_service=_mock_config())
         assert "amount_figures" in result.altered_fields
 
     @pytest.mark.asyncio
     async def test_ink_physics_anomaly_populated(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_altered_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_altered_payload()), config_service=_mock_config())
         assert len(result.ink_physics_anomalies) >= 1
 
     @pytest.mark.asyncio
     async def test_ink_pressure_inconsistency_flag(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_altered_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_altered_payload()), config_service=_mock_config())
         ink = result.ink_physics_anomalies[0]
         assert ink.pressure_inconsistency is True
 
     @pytest.mark.asyncio
     async def test_ink_bleed_anomaly_flag(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_altered_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_altered_payload()), config_service=_mock_config())
         ink = result.ink_physics_anomalies[0]
         assert ink.bleed_anomaly is True
 
     @pytest.mark.asyncio
     async def test_bbox_populated(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_altered_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_altered_payload()), config_service=_mock_config())
         ink = result.ink_physics_anomalies[0]
         assert ink.bbox is not None
         assert ink.bbox.x == 120
@@ -266,13 +279,13 @@ class TestInkPhysicsAlteration:
     @pytest.mark.asyncio
     async def test_requires_human_review_on_alteration(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_altered_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_altered_payload()), config_service=_mock_config())
         assert result.requires_human_review is True
 
     @pytest.mark.asyncio
     async def test_original_value_in_field_detail(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_altered_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_altered_payload()), config_service=_mock_config())
         detail = next(d for d in result.field_details if d.field_name == "amount_figures")
         assert detail.original_value_legible == "50000"
 
@@ -285,20 +298,20 @@ class TestCorrectionFluid:
     @pytest.mark.asyncio
     async def test_correction_fluid_anomaly_detected(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_correction_fluid_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_correction_fluid_payload()), config_service=_mock_config())
         assert len(result.correction_fluid_anomalies) >= 1
 
     @pytest.mark.asyncio
     async def test_luminance_spike_flagged(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_correction_fluid_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_correction_fluid_payload()), config_service=_mock_config())
         fluid = result.correction_fluid_anomalies[0]
         assert fluid.luminance_spike_detected is True
 
     @pytest.mark.asyncio
     async def test_edge_sharpness_ratio_present(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_correction_fluid_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_correction_fluid_payload()), config_service=_mock_config())
         fluid = result.correction_fluid_anomalies[0]
         assert fluid.edge_sharpness_ratio is not None
         assert fluid.edge_sharpness_ratio > 1.0
@@ -306,13 +319,13 @@ class TestCorrectionFluid:
     @pytest.mark.asyncio
     async def test_date_in_altered_fields_for_fluid(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_correction_fluid_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_correction_fluid_payload()), config_service=_mock_config())
         assert "date" in result.altered_fields
 
     @pytest.mark.asyncio
     async def test_alteration_detected_for_fluid(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_correction_fluid_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_correction_fluid_payload()), config_service=_mock_config())
         assert result.alteration_detected is True
 
 
@@ -324,27 +337,27 @@ class TestChemicalAlteration:
     @pytest.mark.asyncio
     async def test_paper_fibre_anomaly_detected(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_chemical_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_chemical_payload()), config_service=_mock_config())
         assert len(result.paper_fibre_anomalies) >= 1
 
     @pytest.mark.asyncio
     async def test_fibre_distortion_flagged(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_chemical_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_chemical_payload()), config_service=_mock_config())
         paper = result.paper_fibre_anomalies[0]
         assert paper.fibre_distortion_detected is True
 
     @pytest.mark.asyncio
     async def test_gloss_patch_flagged(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_chemical_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_chemical_payload()), config_service=_mock_config())
         paper = result.paper_fibre_anomalies[0]
         assert paper.gloss_patch_detected is True
 
     @pytest.mark.asyncio
     async def test_chemical_halo_detected(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_chemical_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_chemical_payload()), config_service=_mock_config())
         assert len(result.chemical_alteration_anomalies) >= 1
         chem = result.chemical_alteration_anomalies[0]
         assert chem.halo_detected is True
@@ -352,14 +365,14 @@ class TestChemicalAlteration:
     @pytest.mark.asyncio
     async def test_colour_shift_flagged(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_chemical_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_chemical_payload()), config_service=_mock_config())
         chem = result.chemical_alteration_anomalies[0]
         assert chem.colour_shift_detected is True
 
     @pytest.mark.asyncio
     async def test_payee_in_altered_fields_for_chemical(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_chemical_payload()))
+        result = await detect_alteration(_make_input(), orchestrator=_mock_orchestrator(_chemical_payload()), config_service=_mock_config())
         assert "payee_name" in result.altered_fields
 
 
@@ -369,47 +382,53 @@ class TestChemicalAlteration:
 
 class TestAlterationDegradation:
     @pytest.mark.asyncio
-    async def test_vllm_unavailable_does_not_raise(self):
+    async def test_model_unavailable_does_not_raise(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        client = AsyncMock()
-        client.chat.completions.create = AsyncMock(side_effect=Exception("vLLM down"))
-        result = await detect_alteration(_make_input(), vllm_client=client)
+        orchestrator = AsyncMock()
+        orchestrator.call_vision = AsyncMock(side_effect=Exception("vLLM down"))
+        result = await detect_alteration(_make_input(), orchestrator=orchestrator, config_service=_mock_config())
         assert result is not None
 
     @pytest.mark.asyncio
-    async def test_vllm_unavailable_degraded_flag(self):
+    async def test_model_unavailable_degraded_flag(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        client = AsyncMock()
-        client.chat.completions.create = AsyncMock(side_effect=ConnectionError("GPU unreachable"))
-        result = await detect_alteration(_make_input(), vllm_client=client)
+        orchestrator = AsyncMock()
+        orchestrator.call_vision = AsyncMock(side_effect=ConnectionError("GPU unreachable"))
+        result = await detect_alteration(_make_input(), orchestrator=orchestrator, config_service=_mock_config())
         assert result.degraded is True
 
     @pytest.mark.asyncio
-    async def test_vllm_unavailable_not_detected(self):
+    async def test_model_unavailable_not_detected(self):
         """Model failure must NOT assume alteration — escalate to human instead."""
         from modules.cts.workflows.activities.alteration import detect_alteration
-        client = AsyncMock()
-        client.chat.completions.create = AsyncMock(side_effect=TimeoutError("timeout"))
-        result = await detect_alteration(_make_input(), vllm_client=client)
+        orchestrator = AsyncMock()
+        orchestrator.call_vision = AsyncMock(side_effect=TimeoutError("timeout"))
+        result = await detect_alteration(_make_input(), orchestrator=orchestrator, config_service=_mock_config())
         assert result.alteration_detected is False
 
     @pytest.mark.asyncio
-    async def test_vllm_unavailable_human_review(self):
+    async def test_model_unavailable_human_review(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        client = AsyncMock()
-        client.chat.completions.create = AsyncMock(side_effect=RuntimeError("model error"))
-        result = await detect_alteration(_make_input(), vllm_client=client)
+        orchestrator = AsyncMock()
+        orchestrator.call_vision = AsyncMock(side_effect=RuntimeError("model error"))
+        result = await detect_alteration(_make_input(), orchestrator=orchestrator, config_service=_mock_config())
         assert result.requires_human_review is True
 
     @pytest.mark.asyncio
     async def test_json_parse_failure_degraded(self):
         """Non-JSON model response → degraded, human review."""
         from modules.cts.workflows.activities.alteration import detect_alteration
-        response = MagicMock()
-        response.choices[0].message.content = "I cannot analyse this image."
-        client = AsyncMock()
-        client.chat.completions.create = AsyncMock(return_value=response)
-        result = await detect_alteration(_make_input(), vllm_client=client)
+        from shared.ai.model_cascade import CascadeResult
+        bad_result = CascadeResult(
+            content="I cannot analyse this image.",
+            confidence=0.1,
+            cascade_level=1,
+            model_used="qwen2-vl-7b",
+            escalated=False,
+        )
+        orchestrator = AsyncMock()
+        orchestrator.call_vision = AsyncMock(return_value=bad_result)
+        result = await detect_alteration(_make_input(), orchestrator=orchestrator, config_service=_mock_config())
         assert result.degraded is True
         assert result.requires_human_review is True
         assert result.alteration_detected is False
@@ -417,17 +436,17 @@ class TestAlterationDegradation:
     @pytest.mark.asyncio
     async def test_degraded_no_ink_anomalies(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        client = AsyncMock()
-        client.chat.completions.create = AsyncMock(side_effect=Exception("down"))
-        result = await detect_alteration(_make_input(), vllm_client=client)
+        orchestrator = AsyncMock()
+        orchestrator.call_vision = AsyncMock(side_effect=Exception("down"))
+        result = await detect_alteration(_make_input(), orchestrator=orchestrator, config_service=_mock_config())
         assert result.ink_physics_anomalies == []
 
     @pytest.mark.asyncio
     async def test_degraded_tamper_risk_zero(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        client = AsyncMock()
-        client.chat.completions.create = AsyncMock(side_effect=Exception("down"))
-        result = await detect_alteration(_make_input(), vllm_client=client)
+        orchestrator = AsyncMock()
+        orchestrator.call_vision = AsyncMock(side_effect=Exception("down"))
+        result = await detect_alteration(_make_input(), orchestrator=orchestrator, config_service=_mock_config())
         assert result.tamper_risk_score == 0.0
 
 
@@ -452,7 +471,7 @@ class TestAlterationCascadeWiring:
         orchestrator = AsyncMock()
         orchestrator.call_vision = AsyncMock(return_value=cascade_result)
 
-        result = await detect_alteration(_make_input(), orchestrator=orchestrator)
+        result = await detect_alteration(_make_input(), orchestrator=orchestrator, config_service=_mock_config())
         orchestrator.call_vision.assert_called_once()
         assert result.alteration_detected is False
 
@@ -472,7 +491,7 @@ class TestAlterationCascadeWiring:
         orchestrator = AsyncMock()
         orchestrator.call_vision = AsyncMock(return_value=cascade_result)
 
-        result = await detect_alteration(_make_input(), orchestrator=orchestrator)
+        result = await detect_alteration(_make_input(), orchestrator=orchestrator, config_service=_mock_config())
         assert result.model_version == "qwen2-vl-7b"
 
     @pytest.mark.asyncio
@@ -491,7 +510,7 @@ class TestAlterationCascadeWiring:
         orchestrator = AsyncMock()
         orchestrator.call_vision = AsyncMock(return_value=cascade_result)
 
-        result = await detect_alteration(_make_input(), orchestrator=orchestrator)
+        result = await detect_alteration(_make_input(), orchestrator=orchestrator, config_service=_mock_config())
         assert result.cascade_level == 1
 
     @pytest.mark.asyncio
@@ -511,7 +530,7 @@ class TestAlterationCascadeWiring:
         orchestrator = AsyncMock()
         orchestrator.call_vision = AsyncMock(return_value=cascade_result)
 
-        result = await detect_alteration(_make_input(), orchestrator=orchestrator)
+        result = await detect_alteration(_make_input(), orchestrator=orchestrator, config_service=_mock_config())
         assert result.cascade_level == 2
         assert result.model_version == "qwen2-vl-72b"
         assert result.alteration_detected is True
@@ -524,16 +543,18 @@ class TestAlterationCascadeWiring:
         orchestrator = AsyncMock()
         orchestrator.call_vision = AsyncMock(side_effect=RuntimeError("All models down"))
 
-        result = await detect_alteration(_make_input(), orchestrator=orchestrator)
+        result = await detect_alteration(_make_input(), orchestrator=orchestrator, config_service=_mock_config())
         assert result.degraded is True
         assert result.requires_human_review is True
         assert result.alteration_detected is False
 
     @pytest.mark.asyncio
-    async def test_no_orchestrator_falls_back_to_direct_vllm(self):
-        """Backwards compat: orchestrator=None must work via direct vllm_client."""
+    async def test_orchestrator_call_vision_is_always_used(self):
+        """Orchestrator is the only inference path — call_vision must be invoked exactly once."""
         from modules.cts.workflows.activities.alteration import detect_alteration
-        result = await detect_alteration(_make_input(), vllm_client=_mock_vllm(_clean_payload()))
+        orchestrator = _mock_orchestrator(_clean_payload())
+        result = await detect_alteration(_make_input(), orchestrator=orchestrator, config_service=_mock_config())
+        orchestrator.call_vision.assert_called_once()
         assert result.alteration_detected is False
         assert result.degraded is False
 
@@ -560,7 +581,7 @@ class TestAlterationCascadeWiring:
             bank_id="test-bank",
             cheque_amount=6_000_000.0,  # ₹60L — high value
         )
-        await detect_alteration(inp, orchestrator=orchestrator)
+        await detect_alteration(inp, orchestrator=orchestrator, config_service=_mock_config())
         call_kwargs = orchestrator.call_vision.call_args
         # cheque_amount must reach the orchestrator
         assert call_kwargs is not None

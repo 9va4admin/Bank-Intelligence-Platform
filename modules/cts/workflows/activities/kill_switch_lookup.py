@@ -35,7 +35,7 @@ class KillSwitchLookupResult(BaseModel):
 @activity.defn
 async def get_kill_switch_status(
     inp: KillSwitchLookupInput,
-    config_service=None,
+    config_service,
 ) -> KillSwitchLookupResult:
     """
     Resolve the effective RBI kill-switch mode for this instrument.
