@@ -39,17 +39,31 @@ def _kill_status(mode: str, scope: str = "GLOBAL", smb_id: str | None = None):
     )
 
 
-def _mock_vllm(payload: dict | None = None):
+def _mock_orchestrator(payload: dict | None = None):
+    """Return a CascadeOrchestrator mock whose call_vision returns the given payload."""
+    from shared.ai.model_cascade import CascadeResult
     payload = payload or {
         "fields": [{"field_name": "amount_figures", "altered": False, "confidence": 0.97, "current_value": "50000"}],
         "overall_tamper_risk": 0.02,
         "physical_anomaly_score": 0.01,
     }
-    response = MagicMock()
-    response.choices[0].message.content = json.dumps(payload)
-    client = AsyncMock()
-    client.chat.completions.create = AsyncMock(return_value=response)
-    return client
+    cascade_result = CascadeResult(
+        content=json.dumps(payload),
+        confidence=0.97,
+        cascade_level=1,
+        model_used="qwen2-vl-7b",
+        escalated=False,
+    )
+    orchestrator = AsyncMock()
+    orchestrator.call_vision = AsyncMock(return_value=cascade_result)
+    return orchestrator
+
+
+def _mock_config():
+    """Return a config_service mock satisfying detect_alteration's config.get call."""
+    config = AsyncMock()
+    config.get = AsyncMock(return_value=0.5)  # ai.tamper_risk_threshold
+    return config
 
 
 # ---------------------------------------------------------------------------
@@ -59,17 +73,25 @@ def _mock_vllm(payload: dict | None = None):
 class TestKCCheckpoint:
     @pytest.mark.asyncio
     async def test_kc_skips_vllm_call_entirely(self):
-        """When KC is active, vLLM must not be called at all."""
+        """When KC is active, orchestrator.call_vision must not be called at all."""
         from modules.cts.workflows.activities.alteration import detect_alteration
-        vllm = _mock_vllm()
-        await detect_alteration(_make_input(), vllm_client=vllm, kill_switch_status=_kill_status("KC"))
-        vllm.chat.completions.create.assert_not_called()
+        orchestrator = _mock_orchestrator()
+        await detect_alteration(
+            _make_input(),
+            orchestrator=orchestrator,
+            config_service=_mock_config(),
+            kill_switch_status=_kill_status("KC"),
+        )
+        orchestrator.call_vision.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_kc_returns_kill_switch_mode_kc(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
         result = await detect_alteration(
-            _make_input(), vllm_client=_mock_vllm(), kill_switch_status=_kill_status("KC")
+            _make_input(),
+            orchestrator=_mock_orchestrator(),
+            config_service=_mock_config(),
+            kill_switch_status=_kill_status("KC"),
         )
         assert result.kill_switch_mode == "KC"
 
@@ -77,7 +99,10 @@ class TestKCCheckpoint:
     async def test_kc_sets_requires_human_review(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
         result = await detect_alteration(
-            _make_input(), vllm_client=_mock_vllm(), kill_switch_status=_kill_status("KC")
+            _make_input(),
+            orchestrator=_mock_orchestrator(),
+            config_service=_mock_config(),
+            kill_switch_status=_kill_status("KC"),
         )
         assert result.requires_human_review is True
 
@@ -86,7 +111,10 @@ class TestKCCheckpoint:
         """KC is deliberate — it's not a degradation. degraded must be False."""
         from modules.cts.workflows.activities.alteration import detect_alteration
         result = await detect_alteration(
-            _make_input(), vllm_client=_mock_vllm(), kill_switch_status=_kill_status("KC")
+            _make_input(),
+            orchestrator=_mock_orchestrator(),
+            config_service=_mock_config(),
+            kill_switch_status=_kill_status("KC"),
         )
         assert result.degraded is False
 
@@ -95,7 +123,8 @@ class TestKCCheckpoint:
         from modules.cts.workflows.activities.alteration import detect_alteration
         result = await detect_alteration(
             _make_input(smb_id="ucb-001"),
-            vllm_client=_mock_vllm(),
+            orchestrator=_mock_orchestrator(),
+            config_service=_mock_config(),
             kill_switch_status=_kill_status("KC", scope="SMB", smb_id="ucb-001"),
         )
         assert result.kill_switch_scope == "SMB"
@@ -105,7 +134,10 @@ class TestKCCheckpoint:
         """KC skips AI — alteration_detected must be False (undetermined, not tampered)."""
         from modules.cts.workflows.activities.alteration import detect_alteration
         result = await detect_alteration(
-            _make_input(), vllm_client=_mock_vllm(), kill_switch_status=_kill_status("KC")
+            _make_input(),
+            orchestrator=_mock_orchestrator(),
+            config_service=_mock_config(),
+            kill_switch_status=_kill_status("KC"),
         )
         assert result.alteration_detected is False
 
@@ -117,18 +149,26 @@ class TestKCCheckpoint:
 class TestKPCheckpoint:
     @pytest.mark.asyncio
     async def test_kp_still_calls_vllm(self):
-        """KP does not block Vision AI — Qwen2-VL must be called."""
+        """KP does not block Vision AI — orchestrator.call_vision must be called."""
         from modules.cts.workflows.activities.alteration import detect_alteration
-        vllm = _mock_vllm()
-        await detect_alteration(_make_input(), vllm_client=vllm, kill_switch_status=_kill_status("KP"))
-        vllm.chat.completions.create.assert_called_once()
+        orchestrator = _mock_orchestrator()
+        await detect_alteration(
+            _make_input(),
+            orchestrator=orchestrator,
+            config_service=_mock_config(),
+            kill_switch_status=_kill_status("KP"),
+        )
+        orchestrator.call_vision.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_kp_records_kill_switch_mode_on_result(self):
         """Result must carry kill_switch_mode='KP' so decision backstop can act."""
         from modules.cts.workflows.activities.alteration import detect_alteration
         result = await detect_alteration(
-            _make_input(), vllm_client=_mock_vllm(), kill_switch_status=_kill_status("KP")
+            _make_input(),
+            orchestrator=_mock_orchestrator(),
+            config_service=_mock_config(),
+            kill_switch_status=_kill_status("KP"),
         )
         assert result.kill_switch_mode == "KP"
 
@@ -136,7 +176,9 @@ class TestKPCheckpoint:
     async def test_kp_records_scope_on_result(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
         result = await detect_alteration(
-            _make_input(), vllm_client=_mock_vllm(),
+            _make_input(),
+            orchestrator=_mock_orchestrator(),
+            config_service=_mock_config(),
             kill_switch_status=_kill_status("KP", scope="SB_OWN"),
         )
         assert result.kill_switch_scope == "SB_OWN"
@@ -150,15 +192,23 @@ class TestNoneMode:
     @pytest.mark.asyncio
     async def test_none_mode_calls_vllm(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
-        vllm = _mock_vllm()
-        await detect_alteration(_make_input(), vllm_client=vllm, kill_switch_status=_kill_status("NONE"))
-        vllm.chat.completions.create.assert_called_once()
+        orchestrator = _mock_orchestrator()
+        await detect_alteration(
+            _make_input(),
+            orchestrator=orchestrator,
+            config_service=_mock_config(),
+            kill_switch_status=_kill_status("NONE"),
+        )
+        orchestrator.call_vision.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_none_mode_kill_switch_mode_is_none_string(self):
         from modules.cts.workflows.activities.alteration import detect_alteration
         result = await detect_alteration(
-            _make_input(), vllm_client=_mock_vllm(), kill_switch_status=_kill_status("NONE")
+            _make_input(),
+            orchestrator=_mock_orchestrator(),
+            config_service=_mock_config(),
+            kill_switch_status=_kill_status("NONE"),
         )
         assert result.kill_switch_mode == "NONE"
 
@@ -166,9 +216,13 @@ class TestNoneMode:
     async def test_no_kill_switch_status_passed_is_treated_as_none(self):
         """Callers that don't pass kill_switch_status get normal processing."""
         from modules.cts.workflows.activities.alteration import detect_alteration
-        vllm = _mock_vllm()
-        result = await detect_alteration(_make_input(), vllm_client=vllm)
-        vllm.chat.completions.create.assert_called_once()
+        orchestrator = _mock_orchestrator()
+        result = await detect_alteration(
+            _make_input(),
+            orchestrator=orchestrator,
+            config_service=_mock_config(),
+        )
+        orchestrator.call_vision.assert_called_once()
         assert result.kill_switch_mode == "NONE"
 
     @pytest.mark.asyncio
@@ -193,7 +247,6 @@ class TestKCImmudbWrite:
     async def test_kc_writes_to_immudb(self):
         """KC path must write CTS_KILL_SWITCH_APPLIED to Immudb."""
         from modules.cts.workflows.activities.alteration import detect_alteration
-        from unittest.mock import AsyncMock, MagicMock
         immudb = MagicMock()
         immudb.write_event = AsyncMock(return_value={"tx_id": "tx-kc-001"})
         hsm = MagicMock()
@@ -201,7 +254,8 @@ class TestKCImmudbWrite:
 
         await detect_alteration(
             _make_input(),
-            vllm_client=_mock_vllm(),
+            orchestrator=_mock_orchestrator(),
+            config_service=_mock_config(),
             kill_switch_status=_kill_status("KC"),
             immudb_client=immudb,
             hsm=hsm,
@@ -214,7 +268,6 @@ class TestKCImmudbWrite:
         import json
         from modules.cts.workflows.activities.alteration import detect_alteration
         from shared.audit.audit_event import AuditEventType
-        from unittest.mock import AsyncMock, MagicMock
         immudb = MagicMock()
         written_bytes = []
         async def _capture(data):
@@ -226,7 +279,8 @@ class TestKCImmudbWrite:
 
         await detect_alteration(
             _make_input(),
-            vllm_client=_mock_vllm(),
+            orchestrator=_mock_orchestrator(),
+            config_service=_mock_config(),
             kill_switch_status=_kill_status("KC"),
             immudb_client=immudb,
             hsm=hsm,
@@ -240,7 +294,6 @@ class TestKCImmudbWrite:
         """The Immudb payload must include instrument_id for per-instrument tracing."""
         import json
         from modules.cts.workflows.activities.alteration import detect_alteration
-        from unittest.mock import AsyncMock, MagicMock
         immudb = MagicMock()
         written_bytes = []
         async def _capture(data):
@@ -252,7 +305,8 @@ class TestKCImmudbWrite:
 
         await detect_alteration(
             _make_input(),
-            vllm_client=_mock_vllm(),
+            orchestrator=_mock_orchestrator(),
+            config_service=_mock_config(),
             kill_switch_status=_kill_status("KC"),
             immudb_client=immudb,
             hsm=hsm,
@@ -264,7 +318,6 @@ class TestKCImmudbWrite:
     async def test_kc_immudb_payload_contains_mode(self):
         import json
         from modules.cts.workflows.activities.alteration import detect_alteration
-        from unittest.mock import AsyncMock, MagicMock
         immudb = MagicMock()
         written_bytes = []
         async def _capture(data):
@@ -276,7 +329,8 @@ class TestKCImmudbWrite:
 
         await detect_alteration(
             _make_input(),
-            vllm_client=_mock_vllm(),
+            orchestrator=_mock_orchestrator(),
+            config_service=_mock_config(),
             kill_switch_status=_kill_status("KC"),
             immudb_client=immudb,
             hsm=hsm,
@@ -286,11 +340,12 @@ class TestKCImmudbWrite:
 
     @pytest.mark.asyncio
     async def test_kc_without_immudb_does_not_raise(self):
-        """When no immudb_client is passed, KC path must still succeed (backward compat)."""
+        """When no immudb_client is passed, KC path must still succeed."""
         from modules.cts.workflows.activities.alteration import detect_alteration
         result = await detect_alteration(
             _make_input(),
-            vllm_client=_mock_vllm(),
+            orchestrator=_mock_orchestrator(),
+            config_service=_mock_config(),
             kill_switch_status=_kill_status("KC"),
             immudb_client=None,
             hsm=None,
@@ -308,7 +363,6 @@ class TestKPNoImmudbInAlteration:
     async def test_kp_does_not_write_to_immudb_in_alteration(self):
         """KP: alteration.py does NOT write Immudb — decision.py backstop does."""
         from modules.cts.workflows.activities.alteration import detect_alteration
-        from unittest.mock import AsyncMock, MagicMock
         immudb = MagicMock()
         immudb.write_event = AsyncMock()
         hsm = MagicMock()
@@ -316,7 +370,8 @@ class TestKPNoImmudbInAlteration:
 
         await detect_alteration(
             _make_input(),
-            vllm_client=_mock_vllm(),
+            orchestrator=_mock_orchestrator(),
+            config_service=_mock_config(),
             kill_switch_status=_kill_status("KP"),
             immudb_client=immudb,
             hsm=hsm,

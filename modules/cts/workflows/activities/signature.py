@@ -147,10 +147,9 @@ async def _try_cbs_fallback(
 @activity.defn
 async def verify_signature(
     inp: SignatureActivityInput,
-    vault=None,
+    vault,
+    config_service,
     model=None,
-    min_match_score: Optional[float] = None,
-    config_service=None,
     smb_proxy=None,
     cbs_connector=None,
 ) -> SignatureActivityResult:
@@ -164,14 +163,9 @@ async def verify_signature(
          └─ on VAULT_MISS + cbs_connector → CBS fallback
 
     Vault error (Redis down) does NOT trigger CBS fallback.
-    min_match_score must come from config_service in production — never hardcoded.
     """
-    if min_match_score is None:
-        if config_service is not None:
-            ai_config = await config_service.get_ai_config(inp.bank_id)
-            min_match_score = ai_config["signature.min_match_score"]
-        else:
-            min_match_score = 0.80  # test-only fallback; production must inject config_service
+    ai_config = await config_service.get_ai_config(inp.bank_id)
+    min_match_score = ai_config["ai.signature.min_match_score"]
 
     # Gate 1 — multiple ink signatures detected on the cheque image
     if inp.sig_count > 1:

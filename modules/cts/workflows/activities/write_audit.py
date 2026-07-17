@@ -56,7 +56,7 @@ class WriteAuditResult(BaseModel):
 @activity.defn
 async def write_audit(
     inp: WriteAuditInput,
-    immudb_client=None,
+    immudb_client,
 ) -> WriteAuditResult:
     """
     Write a CTS audit event to Immudb.

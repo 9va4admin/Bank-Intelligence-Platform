@@ -76,10 +76,10 @@ def _rule_based_score(
 @activity.defn
 async def score_fraud(
     inp: FraudActivityInput,
+    config_service,
     model=None,
     explainer=None,
-    vllm_client=None,         # HeadroomVLLMClient — injected for testability
-    config_service=None,      # injected — fetches thresholds for rule-based fallback
+    vllm_client=None,         # HeadroomVLLMClient — optional LLM rationale enrichment
 ) -> FraudActivityResult:
     """
     Score cheque fraud risk using XGBoost.
@@ -87,14 +87,9 @@ async def score_fraud(
     SHAP values always populated in result.
     Optionally synthesises LLM rationale when upstream context is provided.
     """
-    if config_service is not None:
-        thresholds = await config_service.get_module_config("cts", inp.bank_id)
-        _ocr_low_conf = thresholds.get("ocr.min_confidence", 0.70)
-        _high_value = thresholds.get("high_value_amount_threshold", 5_000_000)
-    else:
-        # test-only fallback; production must inject config_service
-        _ocr_low_conf = 0.70
-        _high_value = 5_000_000
+    thresholds = await config_service.get_cts_config(inp.bank_id)
+    _ocr_low_conf = thresholds["cts.ocr_min_confidence"]
+    _high_value = thresholds["cts.high_value_amount_threshold"]
 
     features = [inp.amount, inp.ocr_confidence, 1.0 if inp.alteration_detected else 0.0]
     feature_names = getattr(model, "feature_names", ["amount", "ocr_confidence", "alteration_flag"])

@@ -36,8 +36,8 @@ class NGCHFilerResult(BaseModel):
 @activity.defn
 async def file_to_ngch(
     inp: NGCHFilerInput,
-    ngch_adapter=None,
-    event_producer=None,
+    ngch_adapter,
+    event_producer,
 ) -> NGCHFilerResult:
     """
     File cheque decision to NGCH. Exactly-once via idempotency_key = workflow_id.

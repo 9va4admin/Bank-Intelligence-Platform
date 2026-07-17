@@ -249,12 +249,11 @@ Do NOT assume alteration from amount alone. Physical evidence is the only basis 
 @activity.defn
 async def detect_alteration(
     inp: AlterationActivityInput,
-    vllm_client=None,
+    orchestrator: CascadeOrchestrator,
+    config_service,
     kill_switch_status: Optional[KillSwitchStatus] = None,
     immudb_client: Optional[Any] = None,
     hsm: Optional[Any] = None,
-    orchestrator: Optional[CascadeOrchestrator] = None,
-    config_service=None,
 ) -> AlterationActivityResult:
     """
     Detect physical cheque alterations using Qwen2-VL 72B.
@@ -274,11 +273,7 @@ async def detect_alteration(
         span.set_attribute("instrument_id", inp.instrument_id)
         span.set_attribute("scan_dpi", inp.scan_dpi)
 
-        if config_service is not None:
-            ai_config = await config_service.get_ai_config(inp.bank_id)
-            tamper_risk_threshold = ai_config.get("ai.tamper_risk_threshold", 0.5)
-        else:
-            tamper_risk_threshold = 0.5  # test-only fallback; production must inject config_service
+        tamper_risk_threshold = await config_service.get("ai.tamper_risk_threshold")
 
         # ── Kill-switch entry checkpoint (KC path) ─────────────────────────
         # Checked BEFORE any vLLM call. If KC is active, skip Vision AI entirely.
@@ -351,29 +346,14 @@ async def detect_alteration(
         resolved_cascade_level = 2
 
         try:
-            if orchestrator is not None:
-                cascade_result = await orchestrator.call_vision(
-                    image_url=inp.image_url,
-                    prompt=prompt,
-                    cheque_amount=inp.cheque_amount,
-                )
-                raw_text = cascade_result.content
-                resolved_model = cascade_result.model_used
-                resolved_cascade_level = cascade_result.cascade_level
-            else:
-                response = await vllm_client.chat.completions.create(
-                    model="qwen2-vl-72b",
-                    messages=[{
-                        "role": "user",
-                        "content": [
-                            {"type": "image_url", "image_url": {"url": inp.image_url}},
-                            {"type": "text", "text": prompt},
-                        ],
-                    }],
-                    extra_body={"queue": "cts-vision"},
-                    timeout=120,
-                )
-                raw_text = response.choices[0].message.content
+            cascade_result = await orchestrator.call_vision(
+                image_url=inp.image_url,
+                prompt=prompt,
+                cheque_amount=inp.cheque_amount,
+            )
+            raw_text = cascade_result.content
+            resolved_model = cascade_result.model_used
+            resolved_cascade_level = cascade_result.cascade_level
 
         except Exception as exc:
             log.warning(

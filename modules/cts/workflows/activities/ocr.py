@@ -62,38 +62,27 @@ class OCRActivityResult(BaseModel):
 @activity.defn
 async def ocr_extract(
     inp: OCRActivityInput,
-    vllm_client=None,
-    min_confidence: Optional[float] = None,
-    config_service=None,
+    orchestrator: CascadeOrchestrator,
+    config_service,
     routing_table: Optional[dict] = None,
-    orchestrator: Optional[CascadeOrchestrator] = None,
 ) -> OCRActivityResult:
     """
-    Extract cheque fields using GOT-OCR2.0.
-    When orchestrator is provided, routes through the L1/L2 cascade.
+    Extract cheque fields using GOT-OCR2.0 via the L1/L2 cascade orchestrator.
     Degrades to HUMAN_REVIEW on model failure or low confidence.
-    min_confidence must be passed by caller or fetched via config_service — never hardcoded.
     """
-    if min_confidence is None:
-        if config_service is not None:
-            ai_config = await config_service.get_ai_config(inp.bank_id)
-            min_confidence = ai_config["ocr.min_confidence"]
-        else:
-            min_confidence = 0.85  # test-only fallback; production must inject config_service
+    ai_config = await config_service.get_ai_config(inp.bank_id)
+    min_confidence = ai_config["ai.ocr.min_confidence"]
 
     resolved_cascade_level = 2
 
     try:
-        if orchestrator is not None:
-            cascade_result = await orchestrator.call_ocr(
-                image_url=inp.image_url,
-                prompt=_OCR_PROMPT,
-                cheque_amount=0.0,  # amount unknown at OCR time — only confidence gate applies
-            )
-            data = json.loads(cascade_result.content)
-            resolved_cascade_level = cascade_result.cascade_level
-        else:
-            data = await vllm_client.extract(inp.image_url)
+        cascade_result = await orchestrator.call_ocr(
+            image_url=inp.image_url,
+            prompt=_OCR_PROMPT,
+            cheque_amount=0.0,  # amount unknown at OCR time — only confidence gate applies
+        )
+        data = json.loads(cascade_result.content)
+        resolved_cascade_level = cascade_result.cascade_level
     except Exception as exc:
         log.warning(
             "ocr_activity.model_unavailable",

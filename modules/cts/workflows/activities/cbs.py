@@ -43,7 +43,7 @@ class CBSActivityResult(BaseModel):
 @activity.defn
 async def check_account_status(
     inp: CBSActivityInput,
-    cbs_connector=None,
+    cbs_connector,
 ) -> CBSActivityResult:
     """
     Check account status only — FROZEN/CLOSED/NPA → RETURN, DORMANT → HUMAN_REVIEW.
@@ -101,7 +101,7 @@ async def check_account_status(
 @activity.defn
 async def check_cbs_balance(
     inp: CBSActivityInput,
-    cbs_connector=None,
+    cbs_connector,
 ) -> CBSActivityResult:
     """
     Fetch account status and balance from CBS.
