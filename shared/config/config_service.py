@@ -2,11 +2,16 @@
 ConfigService — single gateway to all configuration and secrets in ASTRA.
 
 Layer mapping:
-  get_secret()         → Layer 5: HashiCorp Vault (hvac, KV v2)
+  get_secret()         → Layer 5: pluggable SecretBackend (Vault / K8s Secrets / env vars)
   get()                → Layer 3: YugabyteDB config table (Redis-cached, Kafka-invalidated)
   get_platform()       → Layer 1+2: Helm-injected environment variables (immutable at runtime)
   evaluate_policy()    → Layer 4: OPA decision API (hot-reloaded Rego bundle)
   get_user_preference()→ Layer 5: YugabyteDB user_preferences table (per-request, no cache)
+
+Secret backend is selected at startup via ASTRA_SECRETS_BACKEND env var:
+  vault        → HashiCorp Vault KV v2 (default, for mid/large banks)
+  env          → ASTRA_SECRET_* environment variables (dev/CI only)
+  k8s_secrets  → Kubernetes Secret volume mount (smallest UCBs with no Vault)
 
 No other file in the codebase may read os.environ, call hvac, or query the config
 table directly. Import the singleton: from shared.config.config_service import config_service
@@ -20,7 +25,6 @@ from typing import Any
 
 import asyncpg
 import httpx
-import hvac
 import redis.asyncio as aioredis
 import structlog
 from opentelemetry import trace
@@ -30,11 +34,17 @@ from shared.config.exceptions import (
     OPAUnavailableError,
     VaultUnavailableError,
 )
+from shared.config.secret_backends import (
+    EnvSecretBackend,
+    K8sSecretBackend,
+    SecretBackend,
+    VaultSecretBackend,
+)
 
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.config")
 
-_VAULT_CACHE_TTL_SECONDS = 30
+_SECRET_CACHE_TTL_SECONDS = 30
 _CONFIG_CACHE_TTL_SECONDS = 30
 _OPA_CACHE_TTL_SECONDS = 1
 
@@ -43,13 +53,13 @@ class ConfigService:
     def __init__(self) -> None:
         # Populated by initialise() — not usable until then
         self._bank_id: str = ""
-        self._vault: hvac.Client | None = None
+        self._secret_backend: SecretBackend | None = None
         self._redis: aioredis.Redis | None = None
         self._db_pool: asyncpg.Pool | None = None
         self._opa_url: str = ""
 
-        # In-process caches (Vault secrets never go to Redis)
-        self._vault_cache: dict[str, tuple[str, float]] = {}   # key → (value, fetched_at)
+        # In-process caches (secrets never go to Redis)
+        self._secret_cache: dict[str, tuple[str, float]] = {}  # key → (value, fetched_at)
         self._opa_cache: dict[str, tuple[dict, float]] = {}    # input_hash → (result, fetched_at)
 
         self._ready = False
@@ -61,57 +71,69 @@ class ConfigService:
     async def initialise(self) -> None:
         """
         Called once at pod startup (in FastAPI lifespan or Temporal worker main).
-        Reads VAULT_ADDR, VAULT_TOKEN, BANK_ID from env — the only place in the
-        entire codebase where os.environ is accessed directly.
+
+        Reads BANK_ID and ASTRA_SECRETS_BACKEND from env — the only place in the
+        entire codebase where os.environ is accessed directly (for bootstrap only).
         """
         with tracer.start_as_current_span("config_service.initialise"):
             bank_id = os.environ.get("BANK_ID", "")
-            vault_addr = os.environ.get("VAULT_ADDR", "")
-            vault_token = os.environ.get("VAULT_TOKEN", "")
-
             if not bank_id:
                 raise RuntimeError("BANK_ID env var not set — check Helm values")
-            if not vault_addr or not vault_token:
-                raise RuntimeError("VAULT_ADDR / VAULT_TOKEN not set — Vault agent sidecar not running")
-
             self._bank_id = bank_id
 
-            # Layer 5: Vault
-            self._vault = hvac.Client(url=vault_addr, token=vault_token)
-            if not self._vault.is_authenticated():
-                raise VaultUnavailableError(f"Vault auth failed at {vault_addr}")
+            # Resolve and initialise the secret backend.
+            # Dict is built here (not at module level) so that patching the class
+            # names in tests intercepts the lookup correctly.
+            backend_name = os.environ.get("ASTRA_SECRETS_BACKEND", "vault").lower()
+            known_backends = {
+                "vault": VaultSecretBackend,
+                "env": EnvSecretBackend,
+                "k8s_secrets": K8sSecretBackend,
+            }
+            backend_cls = known_backends.get(backend_name)
+            if backend_cls is None:
+                raise RuntimeError(
+                    f"Unknown ASTRA_SECRETS_BACKEND='{backend_name}'. "
+                    f"Valid values: {', '.join(known_backends)}."
+                )
+            self._secret_backend = backend_cls()
+            await self._secret_backend.initialise(bank_id)
 
-            # Layer 3: Redis cache (URL itself comes from Vault)
-            redis_url = await self._fetch_from_vault("redis.config.url")
+            # Layer 3: Redis cache URL (from secret backend — same key for all backends)
+            redis_url = await self._secret_backend.get("redis.config.url")
             self._redis = aioredis.from_url(redis_url, decode_responses=True)
 
-            # Layer 3: YugabyteDB pool (DSN from Vault)
-            db_dsn = await self._fetch_from_vault("db.config.dsn")
+            # Layer 3: YugabyteDB pool DSN (from secret backend)
+            db_dsn = await self._secret_backend.get("db.config.dsn")
             self._db_pool = await asyncpg.create_pool(db_dsn, min_size=1, max_size=5)
 
-            # Layer 4: OPA URL from platform env (not secret — just a cluster-internal address)
+            # Layer 4: OPA URL from platform env (not secret — cluster-internal address)
             self._opa_url = os.environ.get("OPA_URL", "http://opa.astra-platform.svc.cluster.local:8181")
 
             self._ready = True
-            log.info("config_service.ready", bank_id=self._bank_id, vault=vault_addr)
+            log.info("config_service.ready", bank_id=self._bank_id, backend=backend_name)
 
     async def shutdown(self) -> None:
         if self._db_pool:
             await self._db_pool.close()
         if self._redis:
             await self._redis.aclose()
+        if self._secret_backend:
+            await self._secret_backend.shutdown()
         self._ready = False
 
     # ------------------------------------------------------------------
-    # Layer 5 — Vault secrets
+    # Layer 5 — Secret backend (Vault / K8s / env)
     # ------------------------------------------------------------------
 
     async def get_secret(self, key: str) -> str:
         """
-        Fetch a secret from HashiCorp Vault.
+        Fetch a secret from the configured backend.
 
-        key format:  "db.cts.password"
-        vault path:  secret/astra/{bank_id}/db/cts/password
+        key format:   "db.cts.password"
+        vault path:   secret/astra/{bank_id}/db/cts/password  (Vault backend)
+        env var:      ASTRA_SECRET_DB_CTS_PASSWORD             (env backend)
+        file path:    /var/run/secrets/astra/db.cts.password   (K8s backend)
 
         Cached in-process for 30 seconds. Never cached to Redis.
         Raises VaultUnavailableError — callers must handle, never silently default.
@@ -121,24 +143,13 @@ class ConfigService:
             span.set_attribute("secret_key", key)
             span.set_attribute("bank_id", self._bank_id)
 
-            cached_value, fetched_at = self._vault_cache.get(key, (None, 0.0))
-            if cached_value is not None and (time.monotonic() - fetched_at) < _VAULT_CACHE_TTL_SECONDS:
+            cached_value, fetched_at = self._secret_cache.get(key, (None, 0.0))
+            if cached_value is not None and (time.monotonic() - fetched_at) < _SECRET_CACHE_TTL_SECONDS:
                 return cached_value
 
-            value = await self._fetch_from_vault(key)
-            self._vault_cache[key] = (value, time.monotonic())
+            value = await self._secret_backend.get(key)
+            self._secret_cache[key] = (value, time.monotonic())
             return value
-
-    async def _fetch_from_vault(self, key: str) -> str:
-        vault_path = f"secret/astra/{self._bank_id}/{key.replace('.', '/')}"
-        try:
-            response = self._vault.secrets.kv.v2.read_secret_version(
-                path=vault_path, raise_on_deleted_version=True
-            )
-            return response["data"]["data"]["value"]
-        except Exception as exc:
-            log.error("config.vault.fetch_failed", key=key, error=str(exc))
-            raise VaultUnavailableError(f"Vault fetch failed for key '{key}': {exc}") from exc
 
     # ------------------------------------------------------------------
     # Layer 3 — YugabyteDB config table (Redis-cached)
