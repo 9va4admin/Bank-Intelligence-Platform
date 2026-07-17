@@ -512,8 +512,10 @@ async def _build_immudb_client(config_service: Any, bank_id: str) -> Any:
         from shared.audit.immudb_writer import AsyncImmudbWriter
         host = config_service.get_platform("immudb.host")
         port = int(config_service.get_platform("immudb.port"))
+        username = await config_service.get_secret("immudb.username")
+        password = await config_service.get_secret("immudb.password")
         client = ImmudbClient()
-        client.connect(host=host, port=port, bank_id=bank_id)  # sync — immudb-py is sync
+        client.connect(host=host, port=port, bank_id=bank_id, username=username, password=password)  # sync — immudb-py is sync
         log.info("worker_activities.immudb_client_ready")
         # write_audit.py (and every other caller) expects an async
         # .write(collection=, event_type=, bank_id=, ...) — the raw client

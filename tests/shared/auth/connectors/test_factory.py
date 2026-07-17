@@ -174,3 +174,55 @@ def test_all_local_config_works():
         assert isinstance(connector, LocalAuthConnector), f"{entity_type} should be local"
     smb_connector = factory.get_connector(entity_type="smb", entity_id="any-smb")
     assert isinstance(smb_connector, LocalAuthConnector)
+
+
+# ── db_pool wiring — closes the "bare LocalAuthConnector, every hook raises
+#    NotImplementedError" gap. Every test above constructs the factory with
+#    no db_pool (the default), so they keep exercising the same fallback
+#    they always did — this section covers the new, real path.
+
+LOCAL_ONLY_CONFIG = {
+    "auth": {
+        "sb": {"integration_enabled": False, "integration_type": "local"},
+    }
+}
+
+
+def test_no_db_pool_still_returns_bare_local_connector():
+    """Backward compatible: factory built without db_pool= behaves exactly
+    as it always did (every existing test above relies on this)."""
+    from shared.auth.connectors.local import YugabyteDBLocalAuthConnector
+    factory = _make_factory(LOCAL_ONLY_CONFIG)
+    connector = factory.get_connector(entity_type="sb", entity_id="saraswat-coop")
+    assert isinstance(connector, LocalAuthConnector)
+    assert not isinstance(connector, YugabyteDBLocalAuthConnector)
+
+
+def test_db_pool_provided_returns_real_yugabytedb_connector():
+    from shared.auth.connectors.local import YugabyteDBLocalAuthConnector
+
+    mock_config_service = MagicMock()
+    mock_config_service.get.side_effect = lambda key: LOCAL_ONLY_CONFIG
+    fake_pool = MagicMock()
+    factory = AuthConnectorFactory(
+        bank_id="saraswat-coop", config_service=mock_config_service, db_pool=fake_pool,
+    )
+
+    connector = factory.get_connector(entity_type="sb", entity_id="saraswat-coop")
+
+    assert isinstance(connector, YugabyteDBLocalAuthConnector)
+
+
+def test_db_pool_forwarded_to_the_connector():
+    from shared.auth.connectors.local import YugabyteDBLocalAuthConnector
+
+    mock_config_service = MagicMock()
+    mock_config_service.get.side_effect = lambda key: LOCAL_ONLY_CONFIG
+    fake_pool = MagicMock()
+    factory = AuthConnectorFactory(
+        bank_id="saraswat-coop", config_service=mock_config_service, db_pool=fake_pool,
+    )
+
+    connector = factory.get_connector(entity_type="sb", entity_id="saraswat-coop")
+
+    assert connector._pool is fake_pool

@@ -52,8 +52,10 @@ async def _build_immudb_writer(cfg: Any, bank_id: str) -> Optional[Any]:
         from shared.audit.immudb_writer import AsyncImmudbWriter
         host = cfg.get_platform("immudb.host")
         port = int(cfg.get_platform("immudb.port"))
+        username = await cfg.get_secret("immudb.username")
+        password = await cfg.get_secret("immudb.password")
         client = ImmudbClient()
-        client.connect(host=host, port=port, bank_id=bank_id)
+        client.connect(host=host, port=port, bank_id=bank_id, username=username, password=password)
         log.info("audit_service.immudb_ready")
         return AsyncImmudbWriter(client)
     except Exception as exc:

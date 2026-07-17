@@ -23,9 +23,10 @@ class AuthConnectorFactory:
     Config is read from config_service keyed at 'auth' (Layer 2 Helm values).
     """
 
-    def __init__(self, bank_id: str, config_service: Any) -> None:
+    def __init__(self, bank_id: str, config_service: Any, db_pool: Any = None) -> None:
         self.bank_id = bank_id
         self._config_service = config_service
+        self._db_pool = db_pool
         self._cache: dict[tuple[str, str], AuthConnector] = {}
 
     def get_connector(self, entity_type: str, entity_id: str) -> AuthConnector:
@@ -94,8 +95,17 @@ class AuthConnectorFactory:
         return smb_root.get("default", {})
 
     def _build_local(self, entity_type: str, entity_id: str) -> AuthConnector:
+        if self._db_pool is not None:
+            from shared.auth.connectors.local import YugabyteDBLocalAuthConnector
+            log.info("auth.factory.local_db", bank_id=self.bank_id, entity_type=entity_type, entity_id=entity_id)
+            return YugabyteDBLocalAuthConnector(bank_id=self.bank_id, db_pool=self._db_pool)
+
         from shared.auth.connectors.local import LocalAuthConnector
-        log.info("auth.factory.local", bank_id=self.bank_id, entity_type=entity_type, entity_id=entity_id)
+        log.warning(
+            "auth.factory.local_no_db_pool",
+            bank_id=self.bank_id, entity_type=entity_type, entity_id=entity_id,
+            reason="no db_pool injected — every login against this connector will raise NotImplementedError",
+        )
         return LocalAuthConnector(bank_id=self.bank_id)
 
     def _build_saml(

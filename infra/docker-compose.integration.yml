@@ -1,0 +1,116 @@
+# ASTRA Integration Test Stack — real Redis, YugabyteDB, Immudb, Kafka, MinIO.
+#
+# Purpose: this repo's ~3,300+ tests have only ever run against mocked I/O
+# boundaries — nothing has ever verified the real connector code against the
+# real services it's built for. This stack exists to close that gap.
+# tests/integration/ runs against these containers, not mocks.
+#
+# All ports and container/network names are deliberately distinct from any
+# other project's local infra (checked against `docker ps` on this machine
+# before picking them — do not reuse a port just because it looks free).
+#
+# Usage:
+#   docker compose -f infra/docker-compose.integration.yml up -d
+#   docker compose -f infra/docker-compose.integration.yml down -v   # wipe state
+#
+# Same file is used by CI (.github/workflows/backend-ci.yml) — one source of
+# truth for "what does the integration environment look like," not a second
+# config that can drift from what runs locally.
+
+networks:
+  astra-integration:
+    driver: bridge
+
+services:
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: astra-it-redis
+    hostname: astra-it-redis
+    networks: [astra-integration]
+    ports:
+      - "6389:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  yugabyte:
+    image: yugabytedb/yugabyte:2.20.1.0-b97
+    container_name: astra-it-yugabyte
+    hostname: astra-it-yugabyte
+    networks: [astra-integration]
+    command: bin/yugabyted start --daemon=false --background=false
+    ports:
+      - "5443:5433"   # YSQL
+      - "7002:7000"   # master UI
+      - "9002:9000"   # tserver UI
+    healthcheck:
+      # Confirmed via `docker exec astra-it-yugabyte which pg_isready` — the binary
+      # is not on PATH, it lives at this absolute path inside the image.
+      test: ["CMD-SHELL", "/home/yugabyte/postgres/bin/pg_isready -h localhost -p 5433 -U yugabyte"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 30s
+
+  immudb:
+    image: codenotary/immudb:1.9.5
+    container_name: astra-it-immudb
+    hostname: astra-it-immudb
+    networks: [astra-integration]
+    command: ["--dir", "/var/lib/immudb", "--admin-password", "astra-it-immudb-pw"]
+    ports:
+      - "3332:3322"   # gRPC
+      - "9498:9497"   # metrics
+      - "8091:8080"   # web console
+    # No Docker healthcheck: codenotary/immudb is a scratch/distroless image —
+    # confirmed via `docker exec astra-it-immudb ls` that there is no shell, no
+    # nc, no ls, nothing on PATH except the immudb binary itself. Any CMD/CMD-SHELL
+    # healthcheck fails to even exec, regardless of whether immudb is healthy.
+    # Real readiness is verified by actually logging in (see tests/integration/
+    # test_immudb_integration.py), not a container-level probe.
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: astra-it-kafka
+    hostname: astra-it-kafka
+    networks: [astra-integration]
+    ports:
+      - "9093:9093"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://astra-it-kafka:29092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@astra-it-kafka:29093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CLUSTER_ID: "l5u_8M69RWOuI9vo9F29ug"   # base64url 16-byte UUID — KRaft requires this exact format
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:29092"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
+  minio:
+    image: minio/minio:RELEASE.2024-05-01T01-11-10Z
+    container_name: astra-it-minio
+    hostname: astra-it-minio
+    networks: [astra-integration]
+    command: server /data --console-address ":9021"
+    ports:
+      - "9020:9000"
+      - "9021:9021"
+    environment:
+      MINIO_ROOT_USER: astra-it-admin
+      MINIO_ROOT_PASSWORD: astra-it-password
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 20

@@ -51,7 +51,7 @@ def upgrade() -> None:
         sa.Column("channel", sa.Text, nullable=False),
         # WHATSAPP | EMAIL | SMS
 
-        sa.Column("language", sa.Text, nullable=False, server_default="'en'"),
+        sa.Column("language", sa.Text, nullable=False, server_default="en"),
         # ISO 639-1 language code
 
         # WhatsApp-specific
@@ -120,7 +120,7 @@ def upgrade() -> None:
                   sa.ForeignKey("platform.notification_templates.template_id"), nullable=True),
 
         # Delivery status
-        sa.Column("status", sa.Text, nullable=False, server_default="'PENDING'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="PENDING"),
         # PENDING | SENT | DELIVERED | READ | FAILED | OPTED_OUT
         sa.Column("sent_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("delivered_at", sa.DateTime(timezone=True), nullable=True),

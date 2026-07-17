@@ -49,7 +49,7 @@ def upgrade() -> None:
         # INTERNET_BANKING | MOBILE_APP | BRANCH | API | CBS_BATCH
 
         # Validation and NPCI submission
-        sa.Column("validation_status", sa.Text, nullable=False, server_default="'PENDING'"),
+        sa.Column("validation_status", sa.Text, nullable=False, server_default="PENDING"),
         # PENDING | VALID | INVALID (bank-side validation before NPCI)
         sa.Column("validation_errors", JSONB, nullable=True),
 
@@ -91,7 +91,7 @@ def upgrade() -> None:
 
         # NPCI confirmation submission
         sa.Column("npci_confirmation_ref", sa.Text, nullable=True),
-        sa.Column("status", sa.Text, nullable=False, server_default="'PENDING'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="PENDING"),
         # PENDING | SUBMITTED | CONFIRMED | FAILED
         sa.Column("submitted_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("confirmed_at", sa.DateTime(timezone=True), nullable=True),
@@ -158,7 +158,7 @@ def upgrade() -> None:
 
         sa.Column("received_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("processed_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("status", sa.Text, nullable=False, server_default="'RECEIVED'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="RECEIVED"),
         # RECEIVED | PROCESSING | PROCESSED | FAILED
 
         sa.Column("error_detail", sa.Text, nullable=True),

@@ -68,6 +68,7 @@ class TestBuildImmudbWriter:
         fake_cfg.get_platform = MagicMock(side_effect=lambda k: {
             "immudb.host": "immudb.internal", "immudb.port": "3322",
         }[k])
+        fake_cfg.get_secret = AsyncMock(return_value="dummy-credential")
 
         with patch("shared.audit.immudb_client.ImmudbClient.connect", return_value=None):
             writer = await _build_immudb_writer(fake_cfg, "test-bank")

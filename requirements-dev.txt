@@ -1,0 +1,10 @@
+# ASTRA dev/CI-only dependencies -- linting and testing tools.
+# Not needed at runtime; installed on top of requirements.txt in CI and for
+# local development. See .github/workflows/backend-ci.yml and
+# .claude/rules/cicd.md (lint + test stages).
+-r requirements.txt
+
+pytest==9.1.0
+pytest-asyncio==1.4.0
+pytest-cov==7.1.0
+ruff==0.15.22

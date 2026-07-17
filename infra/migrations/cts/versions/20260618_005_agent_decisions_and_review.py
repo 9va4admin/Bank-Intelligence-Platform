@@ -116,7 +116,7 @@ def upgrade() -> None:
 
         # NGCH response
         sa.Column("ngch_ref", sa.Text, nullable=True),     # NGCH-assigned reference on ack
-        sa.Column("status", sa.Text, nullable=False, server_default="'PENDING'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="PENDING"),
         # PENDING | SUBMITTED | ACKNOWLEDGED | REJECTED | DUPLICATE_REJECTED
 
         sa.Column("submitted_at", sa.DateTime(timezone=True), nullable=True),
@@ -184,7 +184,7 @@ def upgrade() -> None:
         sa.Column("assigned_at", sa.DateTime(timezone=True), nullable=True),
 
         # Outcome
-        sa.Column("status", sa.Text, nullable=False, server_default="'PENDING'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="PENDING"),
         # PENDING | IN_REVIEW | REVIEWER_CONFIRMED | REVIEWER_RETURNED | TIMEOUT_AUTO_RETURNED
         sa.Column("reviewer_decision", sa.Text, nullable=True),   # CONFIRM | RETURN
         sa.Column("reviewer_notes", sa.Text, nullable=True),

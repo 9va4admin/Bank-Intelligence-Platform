@@ -1,7 +1,15 @@
 """
 Tests for ImmudbClient — covers write, verify, HSM signing, and error paths.
 
-TDD: this file is written BEFORE the implementation.
+Regression: this fixture previously mocked a `.immudb_database.set()` /
+`.immudb_database.verified_get()` interface that does not exist anywhere on
+the real immudb-py SDK — methods are directly on the client (`.set()`,
+`.verifiedGet()`, `.login()`). Every test here passed against that wrong
+mock for as long as it existed, because nothing ever ran this against the
+real SDK or a real immudb instance. Confirmed against the installed
+`immudb` package's real ImmudbClient before rewriting this file — see
+infra/docker-compose.integration.yml + tests/integration/test_immudb_integration.py
+for the real-instance proof.
 """
 import hashlib
 import time
@@ -29,9 +37,8 @@ def client() -> ImmudbClient:
     c._ready = True
 
     stub = MagicMock()
-    stub.immudb_database = MagicMock()
-    stub.immudb_database.set = MagicMock(return_value=MagicMock(id=42, verified=True))
-    stub.immudb_database.verified_get = MagicMock(
+    stub.verifiedSet = MagicMock(return_value=MagicMock(id=42, verified=True))
+    stub.verifiedGet = MagicMock(
         return_value=MagicMock(verified=True, value=b'{"event_type":"TEST"}')
     )
     c._stub = stub
@@ -48,7 +55,7 @@ def test_write_event_calls_immudb(client: ImmudbClient):
 
     assert result["tx_id"] == 42
     assert result["verified"] is True
-    client._stub.immudb_database.set.assert_called_once()
+    client._stub.verifiedSet.assert_called_once()
 
 
 def test_write_event_returns_tx_metadata(client: ImmudbClient):
@@ -66,7 +73,7 @@ def test_write_event_key_includes_bank_id_and_hash(client: ImmudbClient):
     payload = {"event_type": "AUDIT_WRITE", "bank_id": "test-bank"}
     client.write_event(payload)
 
-    call_args = client._stub.immudb_database.set.call_args
+    call_args = client._stub.verifiedSet.call_args
     # Key passed to immudb must contain bank_id prefix
     key_used = call_args[0][0] if call_args[0] else call_args[1].get("key", b"")
     assert b"test-bank" in key_used
@@ -78,7 +85,7 @@ def test_write_event_value_is_json_bytes(client: ImmudbClient):
     payload = {"event_type": "CONFIG_CHANGE", "bank_id": "test-bank", "key": "iet_minutes"}
     client.write_event(payload)
 
-    call_args = client._stub.immudb_database.set.call_args
+    call_args = client._stub.verifiedSet.call_args
     value_used = call_args[0][1] if call_args[0] else call_args[1].get("value", b"")
     parsed = json.loads(value_used)
     assert parsed["event_type"] == "CONFIG_CHANGE"
@@ -89,7 +96,7 @@ def test_write_event_value_is_json_bytes(client: ImmudbClient):
 # ---------------------------------------------------------------------------
 
 def test_write_event_raises_on_immudb_unavailable(client: ImmudbClient):
-    client._stub.immudb_database.set.side_effect = Exception("connection refused")
+    client._stub.verifiedSet.side_effect = Exception("connection refused")
 
     with pytest.raises(ImmudbUnavailableError, match="write failed"):
         client.write_event({"event_type": "TEST", "bank_id": "test-bank"})
@@ -116,14 +123,14 @@ def test_verify_event_returns_true_on_valid_tx(client: ImmudbClient):
 
 
 def test_verify_event_raises_on_tampered_record(client: ImmudbClient):
-    client._stub.immudb_database.verified_get.return_value = MagicMock(verified=False)
+    client._stub.verifiedGet.return_value = MagicMock(verified=False)
 
     with pytest.raises(ImmudbVerificationError):
         client.verify_event(key=b"test-bank:tampered-hash")
 
 
 def test_verify_event_raises_on_immudb_unavailable(client: ImmudbClient):
-    client._stub.immudb_database.verified_get.side_effect = Exception("grpc error")
+    client._stub.verifiedGet.side_effect = Exception("grpc error")
 
     with pytest.raises(ImmudbUnavailableError, match="verify failed"):
         client.verify_event(key=b"test-bank:any-hash")
@@ -173,38 +180,54 @@ def test_make_key_differs_by_collection(client: ImmudbClient):
 
 
 # ---------------------------------------------------------------------------
-# connect() — lines 48-57
+# connect() — real SDK shape: construct, then login() (auth is mandatory —
+# .set()/.get() calls fail without it). username/password are required, no
+# default — Vault-sourced in production (security.md: no hardcoded creds).
 # ---------------------------------------------------------------------------
 
 def test_connect_success_sets_ready():
-    """connect() with a stubbed SDK → _ready=True."""
     from shared.audit.immudb_client import ImmudbClient
     from unittest.mock import MagicMock, patch
 
-    stub_sdk = MagicMock()
+    stub_instance = MagicMock()
+    stub_sdk = MagicMock(return_value=stub_instance)
     with patch.dict(
         "sys.modules",
         {"immudb": MagicMock(ImmudbClient=stub_sdk)},
     ):
         c = ImmudbClient()
-        c.connect("localhost", 3322, "test-bank", "cts_events")
+        c.connect("localhost", 3322, "test-bank", username="immudb", password="immudb", collection="cts_events")
     assert c._ready is True
     assert c._bank_id == "test-bank"
     assert c._collection == "cts_events"
+
+
+def test_connect_calls_login_with_credentials():
+    from shared.audit.immudb_client import ImmudbClient
+    from unittest.mock import MagicMock, patch
+
+    stub_instance = MagicMock()
+    stub_sdk = MagicMock(return_value=stub_instance)
+    with patch.dict("sys.modules", {"immudb": MagicMock(ImmudbClient=stub_sdk)}):
+        c = ImmudbClient()
+        c.connect("localhost", 3322, "test-bank", username="svc-user", password="s3cr3t")
+
+    stub_instance.login.assert_called_once()
+    call_args = stub_instance.login.call_args[0]
+    assert call_args[0] == "svc-user"
+    assert call_args[1] == "s3cr3t"
 
 
 def test_connect_failure_raises_immudb_unavailable():
     """connect() when SDK import raises → ImmudbUnavailableError."""
     from shared.audit.immudb_client import ImmudbClient, ImmudbUnavailableError
     from unittest.mock import patch
-    import sys
+    import pytest
 
-    # Make immudb module raise on import
     with patch.dict("sys.modules", {"immudb": None}):
         c = ImmudbClient()
-        import pytest
         with pytest.raises(ImmudbUnavailableError):
-            c.connect("localhost", 3322, "test-bank")
+            c.connect("localhost", 3322, "test-bank", username="immudb", password="immudb")
 
 
 def test_connect_sdk_constructor_raises_immudb_unavailable():
@@ -218,4 +241,20 @@ def test_connect_sdk_constructor_raises_immudb_unavailable():
     with patch.dict("sys.modules", {"immudb": mock_module}):
         c = ImmudbClient()
         with pytest.raises(ImmudbUnavailableError):
-            c.connect("localhost", 3322, "test-bank")
+            c.connect("localhost", 3322, "test-bank", username="immudb", password="immudb")
+
+
+def test_connect_login_failure_raises_immudb_unavailable():
+    """Constructor succeeds but login() rejects credentials → ImmudbUnavailableError,
+    not a raw exception leaking out of connect()."""
+    from shared.audit.immudb_client import ImmudbClient, ImmudbUnavailableError
+    from unittest.mock import MagicMock, patch
+    import pytest
+
+    stub_instance = MagicMock()
+    stub_instance.login = MagicMock(side_effect=Exception("invalid credentials"))
+    stub_sdk = MagicMock(return_value=stub_instance)
+    with patch.dict("sys.modules", {"immudb": MagicMock(ImmudbClient=stub_sdk)}):
+        c = ImmudbClient()
+        with pytest.raises(ImmudbUnavailableError):
+            c.connect("localhost", 3322, "test-bank", username="immudb", password="wrong")
