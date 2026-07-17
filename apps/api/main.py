@@ -26,6 +26,7 @@ from apps.api.middleware.rate_limit import RateLimitMiddleware
 from apps.api.middleware.security_violations import SecurityViolationMiddleware
 from apps.api.routers import cts, ej, disputes, audit, admin, notifications
 from apps.api.routers import batch, users, mcp_connections, demo, cts_outward_queue, demo_cloud_extract
+from apps.api.routers import auth as auth_router
 from shared.config.config_service import config_service
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
 from shared.observability.otel_setup import configure_otel
@@ -158,6 +159,57 @@ async def lifespan(app: FastAPI):
         log.error("api_gateway.temporal_failed", error=str(exc))
         app.state.temporal_client = None
 
+    # --- Auth service (local login → MFA → session) ---
+    # Wires AuthService so POST /v1/auth/login is functional in production.
+    # YugabyteDBLocalAuthConnector handles ALL entity types (SB/SMB/branch/PU)
+    # because platform.local_auth_accounts scopes by bank_id+username, not entity_type.
+    # SAML/LDAP connectors are a separate gap (they need their own factory wiring).
+    # VaultTOTPSecretStore writes TOTP enrollment secrets to Vault KV v2; falls back
+    # to InMemoryTOTPSecretStore if Vault env vars are absent (dev/CI — warns loudly).
+    try:
+        from shared.auth.connectors.local import YugabyteDBLocalAuthConnector
+        from shared.auth.enrollment_store import YugabyteDBAccountEnrollmentStore
+        from shared.auth.mfa import TOTPMFAService
+        from shared.auth.mfa_stores import InMemoryTOTPSecretStore, VaultTOTPSecretStore
+        from shared.auth.auth_service import AuthService
+
+        _bank_id = config_service.bank_id
+
+        if app.state.db_pool_cts is not None:
+            _connector = YugabyteDBLocalAuthConnector(
+                bank_id=_bank_id,
+                db_pool=app.state.db_pool_cts,
+            )
+            _enrollment_store = YugabyteDBAccountEnrollmentStore(app.state.db_pool_cts)
+        else:
+            # DB pool unavailable — auth service cannot be built
+            raise RuntimeError("db_pool_cts not available; cannot build AuthService")
+
+        # TOTP secrets go to Vault; fall back to in-memory if Vault env vars absent
+        try:
+            _totp_store = VaultTOTPSecretStore(bank_id=_bank_id)
+            _totp_store._ensure_client()  # verify Vault is reachable at startup
+        except RuntimeError as _vault_err:
+            log.warning(
+                "api_gateway.auth.vault_totp_unavailable",
+                error=str(_vault_err),
+                fallback="InMemoryTOTPSecretStore — TOTP secrets NOT persisted across restarts",
+            )
+            _totp_store = InMemoryTOTPSecretStore()
+
+        _mfa = TOTPMFAService(store=_totp_store, issuer="ASTRA")
+
+        app.state.auth_service = AuthService(
+            connector=_connector,
+            mfa=_mfa,
+            session_service=app.state.session_service,
+            account_store=_enrollment_store,
+        )
+        log.info("api_gateway.auth_service_ready", bank_id=_bank_id)
+    except Exception as exc:
+        log.error("api_gateway.auth_service_failed", error=str(exc))
+        app.state.auth_service = None
+
     # --- Cache invalidation consumer (platform.config.changed → Redis DEL) ---
     # Runs in background — Kafka consumer that deletes stale config cache entries
     cache_invalidator_task = None
@@ -248,6 +300,7 @@ app.add_middleware(RateLimitMiddleware)
 app.add_middleware(AuthenticationMiddleware)
 
 # --- Routers ---
+app.include_router(auth_router.router_v1)
 app.include_router(cts.router_v1)
 app.include_router(ej.router_v1)
 app.include_router(disputes.router_v1)
