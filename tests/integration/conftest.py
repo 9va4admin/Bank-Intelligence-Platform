@@ -57,6 +57,9 @@ MINIO_ENDPOINT = "localhost:9020"
 MINIO_ACCESS_KEY = "astra-it-admin"
 MINIO_SECRET_KEY = "astra-it-password"
 
+TEMPORAL_HOST = "localhost"
+TEMPORAL_PORT = 7234
+
 
 def _port_open(host: str, port: int, timeout: float = 1.5) -> bool:
     try:
@@ -97,6 +100,11 @@ def require_kafka() -> None:
 @pytest.fixture(scope="session")
 def require_minio() -> None:
     _require("localhost", 9020, "MinIO")
+
+
+@pytest.fixture(scope="session")
+def require_temporal() -> None:
+    _require(TEMPORAL_HOST, TEMPORAL_PORT, "Temporal")
 
 
 @pytest_asyncio.fixture

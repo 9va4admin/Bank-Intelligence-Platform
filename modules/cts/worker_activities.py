@@ -54,6 +54,28 @@ from typing import Any, Optional
 import structlog
 from temporalio import activity
 
+# Input/result types imported at module level so Temporal's get_type_hints()
+# can resolve the string annotations produced by `from __future__ import
+# annotations` — TYPE_CHECKING imports would be invisible at runtime and
+# cause Temporal to fall back to plain-dict deserialization.
+from modules.cts.workflows.activities.alteration import AlterationActivityInput
+from modules.cts.workflows.activities.cbs import CBSActivityInput
+from modules.cts.workflows.activities.decision import DecisionInput
+from modules.cts.workflows.activities.fraud import FraudActivityInput
+from modules.cts.workflows.activities.kill_switch_lookup import KillSwitchLookupInput
+from modules.cts.workflows.activities.ngch_filer import NGCHFilerInput
+from modules.cts.workflows.activities.ocr import OCRActivityInput
+from modules.cts.workflows.activities.outward_scan_activities import (
+    LotAssignmentInput,
+    VisionPresentmentCheckInput,
+)
+from modules.cts.workflows.activities.pps import PPSActivityInput
+from modules.cts.workflows.activities.signature import SignatureActivityInput
+from modules.cts.workflows.activities.stop_payment import StopPaymentActivityInput
+from modules.cts.workflows.activities.write_audit import WriteAuditInput
+from modules.cts.workflows.human_review_workflow import HumanReviewInput
+from modules.cts.workflows.mismatch_resolution_workflow import PublishMismatchHoldInput
+
 log = structlog.get_logger()
 
 
@@ -115,12 +137,12 @@ class BoundCTSActivities:
     # ------------------------------------------------------------------
 
     @activity.defn(name="check_cbs_balance")
-    async def check_cbs_balance(self, inp):
+    async def check_cbs_balance(self, inp: CBSActivityInput):
         from modules.cts.workflows.activities.cbs import check_cbs_balance as _real
         return await _real(inp, cbs_connector=self._cbs_connector)
 
     @activity.defn(name="check_account_status")
-    async def check_account_status(self, inp):
+    async def check_account_status(self, inp: CBSActivityInput):
         from modules.cts.workflows.activities.cbs import check_account_status as _real
         return await _real(inp, cbs_connector=self._cbs_connector)
 
@@ -139,12 +161,12 @@ class BoundCTSActivities:
     # ------------------------------------------------------------------
 
     @activity.defn(name="lookup_pps")
-    async def lookup_pps(self, inp):
+    async def lookup_pps(self, inp: PPSActivityInput):
         from modules.cts.workflows.activities.pps import lookup_pps as _real
         return await _real(inp, vault=self._pps_vault)
 
     @activity.defn(name="verify_signature")
-    async def verify_signature(self, inp):
+    async def verify_signature(self, inp: SignatureActivityInput):
         from modules.cts.workflows.activities.signature import verify_signature as _real
         # smb_proxy intentionally omitted — external service, not built in
         # this repo yet (see module docstring). model intentionally
@@ -175,7 +197,7 @@ class BoundCTSActivities:
     # ------------------------------------------------------------------
 
     @activity.defn(name="check_stop_payment")
-    async def check_stop_payment(self, inp):
+    async def check_stop_payment(self, inp: StopPaymentActivityInput):
         from modules.cts.workflows.activities.stop_payment import check_stop_payment as _real
         return await _real(inp, cbs_connector=self._cbs_connector, bloom_client=self._bloom_client)
 
@@ -203,12 +225,12 @@ class BoundCTSActivities:
     # ------------------------------------------------------------------
 
     @activity.defn(name="ocr_extract")
-    async def ocr_extract(self, inp):
+    async def ocr_extract(self, inp: OCRActivityInput):
         from modules.cts.workflows.activities.ocr import ocr_extract as _real
         return await _real(inp, config_service=self._config_service, orchestrator=self._orchestrator)
 
     @activity.defn(name="detect_alteration")
-    async def detect_alteration(self, inp, kill_switch_status=None):
+    async def detect_alteration(self, inp: AlterationActivityInput, kill_switch_status=None):
         from modules.cts.workflows.activities.alteration import detect_alteration as _real
         # hsm intentionally omitted — no real implementation exists yet.
         return await _real(
@@ -220,14 +242,14 @@ class BoundCTSActivities:
         )
 
     @activity.defn(name="score_fraud")
-    async def score_fraud(self, inp):
+    async def score_fraud(self, inp: FraudActivityInput):
         from modules.cts.workflows.activities.fraud import score_fraud as _real
         # model/explainer intentionally omitted — no trained artifact
         # exists; the activity's own rule-based fallback handles this.
         return await _real(inp, vllm_client=self._fraud_vllm_client, config_service=self._config_service)
 
     @activity.defn(name="run_vision_presentment_check")
-    async def run_vision_presentment_check(self, inp):
+    async def run_vision_presentment_check(self, inp: VisionPresentmentCheckInput):
         from modules.cts.workflows.activities.outward_scan_activities import (
             run_vision_presentment_check as _real,
         )
@@ -238,7 +260,7 @@ class BoundCTSActivities:
     # ------------------------------------------------------------------
 
     @activity.defn(name="synthesise_decision")
-    async def synthesise_decision(self, inp, config, kill_switch_status=None):
+    async def synthesise_decision(self, inp: DecisionInput, config: dict, kill_switch_status=None):
         from modules.cts.workflows.activities.decision import synthesise_decision as _real
         # hsm intentionally omitted — no real implementation exists yet.
         return await _real(
@@ -249,12 +271,12 @@ class BoundCTSActivities:
         )
 
     @activity.defn(name="write_audit")
-    async def write_audit(self, inp):
+    async def write_audit(self, inp: WriteAuditInput):
         from modules.cts.workflows.activities.write_audit import write_audit as _real
         return await _real(inp, immudb_client=self._immudb_client)
 
     @activity.defn(name="file_to_ngch")
-    async def file_to_ngch(self, inp):
+    async def file_to_ngch(self, inp: NGCHFilerInput):
         from modules.cts.workflows.activities.ngch_filer import file_to_ngch as _real
         return await _real(inp, ngch_adapter=self._ngch_adapter, event_producer=self._event_producer)
 
@@ -263,12 +285,12 @@ class BoundCTSActivities:
     # ------------------------------------------------------------------
 
     @activity.defn(name="push_to_review_queue")
-    async def push_to_review_queue(self, inp):
+    async def push_to_review_queue(self, inp: HumanReviewInput):
         from modules.cts.workflows.human_review_workflow import push_to_review_queue as _real
         return await _real(inp, event_producer=self._event_producer)
 
     @activity.defn(name="publish_mismatch_hold")
-    async def publish_mismatch_hold(self, inp):
+    async def publish_mismatch_hold(self, inp: PublishMismatchHoldInput):
         from modules.cts.workflows.mismatch_resolution_workflow import publish_mismatch_hold as _real
         return await _real(inp, event_producer=self._event_producer)
 
@@ -277,7 +299,7 @@ class BoundCTSActivities:
     # ------------------------------------------------------------------
 
     @activity.defn(name="create_lot_entry")
-    async def create_lot_entry(self, inp):
+    async def create_lot_entry(self, inp: LotAssignmentInput):
         from modules.cts.workflows.activities.outward_scan_activities import create_lot_entry as _real
         lot_manager = self._get_or_create_lot_manager(inp.bank_ifsc, inp.session_id)
         return await _real(inp, lot_manager=lot_manager)
@@ -287,7 +309,7 @@ class BoundCTSActivities:
     # ------------------------------------------------------------------
 
     @activity.defn(name="get_kill_switch_status")
-    async def get_kill_switch_status(self, inp):
+    async def get_kill_switch_status(self, inp: KillSwitchLookupInput):
         from modules.cts.workflows.activities.kill_switch_lookup import get_kill_switch_status as _real
         return await _real(inp, config_service=self._config_service)
 

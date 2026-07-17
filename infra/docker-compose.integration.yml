@@ -97,6 +97,21 @@ services:
       retries: 30
       start_period: 15s
 
+  temporal:
+    image: temporalio/auto-setup:1.24.2
+    container_name: astra-it-temporal
+    hostname: astra-it-temporal
+    networks: [astra-integration]
+    ports:
+      - "7234:7233"   # gRPC — Temporal SDK connects here
+    environment:
+      - DB=sqlite
+      - DEFAULT_NAMESPACE=default
+      - DEFAULT_NAMESPACE_RETENTION=1
+    # No Docker HEALTHCHECK: temporalio/auto-setup is a minimal image —
+    # same approach as Immudb above. Real readiness is verified by the
+    # port-open check in conftest.py + Client.connect() in the test itself.
+
   minio:
     image: minio/minio:RELEASE.2024-05-01T01-11-10Z
     container_name: astra-it-minio
