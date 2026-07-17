@@ -427,6 +427,7 @@ class TestBuildImmudbClient:
         fake_cfg.get_platform = MagicMock(side_effect=lambda k: {
             "immudb.host": "immudb.internal", "immudb.port": "3322",
         }[k])
+        fake_cfg.get_secret = AsyncMock(return_value="dummy-credential")
 
         with patch("shared.audit.immudb_client.ImmudbClient.connect", return_value=None):
             client = await _build_immudb_client(fake_cfg, "test-bank")
@@ -442,6 +443,7 @@ class TestBuildImmudbClient:
         fake_cfg.get_platform = MagicMock(side_effect=lambda k: {
             "immudb.host": "immudb.internal", "immudb.port": "3322",
         }[k])
+        fake_cfg.get_secret = AsyncMock(return_value="dummy-credential")
 
         with patch("shared.audit.immudb_client.ImmudbClient.connect", return_value=None), \
              patch("shared.audit.immudb_client.ImmudbClient.write_event",

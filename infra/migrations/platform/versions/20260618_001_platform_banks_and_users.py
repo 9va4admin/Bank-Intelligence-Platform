@@ -46,7 +46,7 @@ def upgrade() -> None:
         sa.Column("ngch_member_code", sa.Text, nullable=True),          # NGCH clearing member code
 
         # Bank type (governs which NPCI rules apply)
-        sa.Column("bank_type", sa.Text, nullable=False, server_default="'PRIVATE'"),
+        sa.Column("bank_type", sa.Text, nullable=False, server_default="PRIVATE"),
         # PRIVATE | PUBLIC | RRB | UCB | COOPERATIVE | PAYMENTS | SMALL_FINANCE
 
         sa.Column("is_active", sa.Boolean, nullable=False, server_default="true"),

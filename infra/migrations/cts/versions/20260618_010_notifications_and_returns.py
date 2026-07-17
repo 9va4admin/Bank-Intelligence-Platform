@@ -42,7 +42,7 @@ def upgrade() -> None:
         # WHATSAPP | EMAIL | SMS | PUSH
 
         # Delivery
-        sa.Column("status", sa.Text, nullable=False, server_default="'PENDING'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="PENDING"),
         # PENDING | SENT | DELIVERED | FAILED | OPTED_OUT
 
         sa.Column("template_id", sa.Text, nullable=True),   # WhatsApp approved template ID
@@ -94,7 +94,7 @@ def upgrade() -> None:
         # Return memo document in MinIO
         sa.Column("memo_document_key", sa.Text, nullable=True),
 
-        sa.Column("status", sa.Text, nullable=False, server_default="'PENDING'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="PENDING"),
         # PENDING | SENT_TO_NGCH | ACKNOWLEDGED | DRAWER_NOTIFIED | COMPLETE
 
         sa.Column("issued_at", sa.DateTime(timezone=True), nullable=False,

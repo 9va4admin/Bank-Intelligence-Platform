@@ -135,7 +135,7 @@ def upgrade() -> None:
         # THRESHOLD_TIGHTENED | MODEL_PULLED | ALERT_SENT | NONE
 
         # Resolution
-        sa.Column("status", sa.Text, nullable=False, server_default="'OPEN'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="OPEN"),
         # OPEN | ACKNOWLEDGED | INVESTIGATING | RESOLVED | AUTO_RESOLVED
         sa.Column("acknowledged_by", UUID(as_uuid=True),
                   sa.ForeignKey("platform.users.user_id"), nullable=True),

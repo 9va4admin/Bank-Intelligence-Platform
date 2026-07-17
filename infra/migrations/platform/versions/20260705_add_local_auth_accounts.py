@@ -1,7 +1,15 @@
 """Add platform.local_auth_accounts — for entities with no SAML/LDAP directory.
 
+Regression: this file previously lived directly in infra/migrations/platform/
+(not platform/versions/, which is what alembic.ini's version_locations
+actually points at) with down_revision=None. Both mistakes made it an orphan
+that `alembic upgrade head` silently never picked up — confirmed via
+`alembic history` against the real chain, which stopped at 20260627_p_006
+with no trace of this revision at all. Moved into versions/ and chained onto
+the real head below.
+
 Revision ID: 20260705_local_auth
-Revises: previous
+Revises: 20260627_p_006
 Create Date: 2026-07-05
 """
 from alembic import op
@@ -9,7 +17,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import ARRAY, TEXT
 
 revision = "20260705_local_auth"
-down_revision = None   # set to previous revision ID when chaining
+down_revision = "20260627_p_006"
 branch_labels = None
 depends_on = None
 

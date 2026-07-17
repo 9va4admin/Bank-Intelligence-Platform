@@ -1207,6 +1207,41 @@ PHASE 11 — Audit/Notification Producer-Consumer Gap Closure (July 2026, COMPLE
        Full suite re-run: 3340 passed, same 7 pre-existing unrelated failures as
        before this session, zero new regressions.
 
+  Follow-up, same session: user pushed back on "no user directory exists" — asked
+  specifically whether an entire User Management / RBAC / audit system should be
+  built from scratch. Investigated first rather than agreeing outright: RBAC, audit
+  trail, and maker-checker guardrails already exist and work; the real gap is
+  narrower (notification recipient resolution), and a from-scratch user directory
+  would actually contradict the existing "ASTRA never stores passwords, bank's IdP
+  is the identity source of truth" principle for SAML/LDAP-backed banks. Found the
+  three connector types are genuinely different problems (LDAP: buildable via
+  existing service-account group search; SAML: no "list all users" capability by
+  protocol design, needs a cache or the bank's own SCIM; local: ASTRA already owns
+  this data — closed this one this session):
+  [x] infra/migrations/platform/20260716_add_local_auth_contact_info.py — additive,
+       nullable email/phone columns on platform.local_auth_accounts.
+  [x] shared/auth/connectors/local.py: YugabyteDBLocalAuthConnector — the real,
+       previously entirely-missing implementation of LocalAuthConnector's five DB
+       hooks (asyncpg, explicit column list including email/phone, never SELECT *
+       per database.md). Found while building it: AuthConnectorFactory._build_local()
+       was constructing the bare LocalAuthConnector base class with every hook still
+       raising NotImplementedError — the first real login against any bank
+       configured for local auth (the documented path for "smallest SMBs with no
+       directory service") would have crashed outright. 21 tests GREEN, including
+       a full authenticate() run against the real hooks (not mocked) to prove the
+       base class's login logic and the new DB-backed hooks actually fit together.
+  [x] shared/auth/connectors/factory.py — AuthConnectorFactory takes an optional
+       db_pool now; _build_local() returns the real YugabyteDBLocalAuthConnector
+       when one's injected, warns loudly and falls back to the inert base class
+       when it isn't (never silent). Backward compatible — every existing factory
+       test still passes with no db_pool, unchanged.
+  [x] 5 new factory tests GREEN (53 total across shared/auth/connectors/).
+  Not done: AuthConnectorFactory itself is still never constructed anywhere in the
+  real app (dev_auth_server.py and main.py both use their own bespoke auth,
+  entirely bypassing the connector system) — SAML and LDAP connectors have the
+  identical "hooks never implemented" gap this closed for local. Both are separate,
+  larger pieces of work, not started.
+
 ### Immediate Next
 Pre-pilot security remediation (Phase 9) is in progress — see above for exact status.
 Error → Incident Management (Phase 10) Phase 1+2 shipped this session — see above.
@@ -1220,15 +1255,23 @@ Remaining work (in priority order):
    against a real Temporal server, independent of the ASTRA-01/02 fixes already landed.
 3. **Incident Management Phase 3** — stand up Grafana OnCall (self-hosted), wire Alertmanager
    routing by owning_team, build the Layer 3 escalation-chain config UI. Needs real infra.
-4. **User directory / notification recipient resolution** — Phase 11 found this is a real,
-   platform-wide gap (not MCP-specific): no code anywhere resolves "role X at bank Y" to an
-   actual email/phone/user_id. Needed before NotificationRoutingTable's business rules can
-   ever actually deliver anything, for any feature.
-5. **NPCI API Modernisation Phase A** — REST transport + 3-layer auth module (`shared/ngch_auth/`)
+4. **User directory / notification recipient resolution — local auth closed, SAML/LDAP open.**
+   Local-auth entities now have a real, DB-backed connector with email/phone (this session).
+   Still missing: SAML has no "list all users" capability by protocol design (needs a login-
+   time cache or the bank's own SCIM feed — a real architecture decision, not just code);
+   LDAP/AD *is* buildable (the existing service-account bind can do a group-membership search)
+   but hasn't been built. Needed before NotificationRoutingTable's business rules can actually
+   deliver anything for SAML/LDAP-backed banks.
+5. **Wire AuthConnectorFactory into the real login flow** — found this session: the factory is
+   never constructed anywhere in the real app. dev_auth_server.py and main.py both use their
+   own bespoke auth, entirely bypassing the SAML/LDAP/local connector system. SAML and LDAP
+   connectors also still have the same "hooks never implemented" gap local auth had before
+   this session's fix.
+6. **NPCI API Modernisation Phase A** — REST transport + 3-layer auth module (`shared/ngch_auth/`)
    Trigger: NPCI responds to concept note. Code can be built now (§17 has full task list).
-6. **Pilot bank deployment validation** — smoke-test `infra/helm/values/banks/saraswat-coop/`
+7. **Pilot bank deployment validation** — smoke-test `infra/helm/values/banks/saraswat-coop/`
    against a real Kubernetes cluster; verify pre-upgrade migration job and ArgoCD ApplicationSet.
-7. **Security hardening audit** — full penetration test prep; verify SQL injection, PII at rest,
+8. **Security hardening audit** — full penetration test prep; verify SQL injection, PII at rest,
    data theft protections are production-grade (OWASP ZAP + manual review).
 
 ---

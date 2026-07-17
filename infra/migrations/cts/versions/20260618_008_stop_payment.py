@@ -56,7 +56,7 @@ def upgrade() -> None:
         sa.Column("reason_notes", sa.Text, nullable=True),
 
         # Lifecycle
-        sa.Column("status", sa.Text, nullable=False, server_default="'ACTIVE'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="ACTIVE"),
         # ACTIVE | REVOKED | EXPIRED | PAYMENT_PROCESSED
         sa.Column("effective_from", sa.DateTime(timezone=True), nullable=False),
         sa.Column("effective_until", sa.Date, nullable=True),  # NULL = indefinite

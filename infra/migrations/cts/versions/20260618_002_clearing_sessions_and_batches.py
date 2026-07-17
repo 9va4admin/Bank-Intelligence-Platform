@@ -33,7 +33,7 @@ def upgrade() -> None:
         sa.Column("presentation_close_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("confirmation_deadline", sa.DateTime(timezone=True), nullable=True),
         sa.Column("settlement_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("status", sa.Text, nullable=False, server_default="'OPEN'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="OPEN"),
         # "OPEN" | "SUBMITTED" | "SETTLED" | "RECONCILED"
         sa.Column("ngch_session_ref", sa.Text, nullable=True),         # NGCH-assigned reference
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False,
@@ -60,7 +60,7 @@ def upgrade() -> None:
         sa.Column("total_amount_paise", sa.BigInteger, nullable=False, server_default="0"),
         sa.Column("ngch_batch_ref", sa.Text, nullable=True),          # NGCH batch reference
         sa.Column("file_hash", sa.Text, nullable=True),               # SHA-256 of exchange file
-        sa.Column("status", sa.Text, nullable=False, server_default="'PENDING'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="PENDING"),
         # "PENDING" | "SUBMITTED" | "ACKNOWLEDGED" | "REJECTED"
         sa.Column("submitted_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("acknowledged_at", sa.DateTime(timezone=True), nullable=True),
