@@ -26,10 +26,10 @@ def svc() -> ConfigService:
     service._opa_url = "http://opa:8181"
     service._ready = True
 
-    # Mock Vault
-    vault_mock = MagicMock()
-    vault_mock.is_authenticated.return_value = True
-    service._vault = vault_mock
+    # Mock secret backend (replaces the old _vault mock)
+    backend_mock = AsyncMock()
+    backend_mock.get = AsyncMock(return_value="test-secret-value")
+    service._secret_backend = backend_mock
 
     # Mock Redis
     redis_mock = AsyncMock()
@@ -48,72 +48,60 @@ def svc() -> ConfigService:
 
 
 # ------------------------------------------------------------------
-# Layer 5 — Vault
+# Layer 5 — Secret backend
 # ------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_get_secret_calls_vault(svc: ConfigService):
-    svc._vault.secrets.kv.v2.read_secret_version.return_value = {
-        "data": {"data": {"value": "super-secret-password"}}
-    }
+async def test_get_secret_delegates_to_backend(svc: ConfigService):
+    svc._secret_backend.get = AsyncMock(return_value="super-secret-password")
 
     result = await svc.get_secret("db.cts.password")
 
     assert result == "super-secret-password"
-    svc._vault.secrets.kv.v2.read_secret_version.assert_called_once_with(
-        path="secret/astra/test-bank/db/cts/password",
-        raise_on_deleted_version=True,
-    )
+    svc._secret_backend.get.assert_awaited_once_with("db.cts.password")
 
 
 @pytest.mark.asyncio
 async def test_get_secret_uses_cache_within_ttl(svc: ConfigService):
-    svc._vault.secrets.kv.v2.read_secret_version.return_value = {
-        "data": {"data": {"value": "cached-value"}}
-    }
+    svc._secret_backend.get = AsyncMock(return_value="cached-value")
 
     await svc.get_secret("db.cts.password")
     await svc.get_secret("db.cts.password")
 
-    # Vault called only once — second call served from in-process cache
-    assert svc._vault.secrets.kv.v2.read_secret_version.call_count == 1
+    # Backend called only once — second call served from in-process cache
+    assert svc._secret_backend.get.call_count == 1
 
 
 @pytest.mark.asyncio
 async def test_get_secret_re_fetches_after_ttl(svc: ConfigService):
-    svc._vault.secrets.kv.v2.read_secret_version.return_value = {
-        "data": {"data": {"value": "v1"}}
-    }
+    svc._secret_backend.get = AsyncMock(return_value="v1")
     await svc.get_secret("some.key")
 
     # Artificially expire the cache entry
-    svc._vault_cache["some.key"] = ("v1", time.monotonic() - 35)
+    svc._secret_cache["some.key"] = ("v1", time.monotonic() - 35)
 
-    svc._vault.secrets.kv.v2.read_secret_version.return_value = {
-        "data": {"data": {"value": "v2"}}
-    }
+    svc._secret_backend.get = AsyncMock(return_value="v2")
     result = await svc.get_secret("some.key")
 
     assert result == "v2"
-    assert svc._vault.secrets.kv.v2.read_secret_version.call_count == 2
+    assert svc._secret_backend.get.call_count == 1
 
 
 @pytest.mark.asyncio
-async def test_get_secret_raises_on_vault_error(svc: ConfigService):
-    svc._vault.secrets.kv.v2.read_secret_version.side_effect = Exception("connection refused")
+async def test_get_secret_raises_on_backend_error(svc: ConfigService):
+    svc._secret_backend.get = AsyncMock(side_effect=VaultUnavailableError("connection refused"))
 
-    with pytest.raises(VaultUnavailableError, match="db.cts.password"):
+    with pytest.raises(VaultUnavailableError, match="connection refused"):
         await svc.get_secret("db.cts.password")
 
 
 @pytest.mark.asyncio
 async def test_get_secret_never_returns_default_on_failure(svc: ConfigService):
-    """Critical: vault miss must raise, never silently return a fallback."""
-    svc._vault.secrets.kv.v2.read_secret_version.side_effect = Exception("timeout")
+    """Critical: backend error must raise, never silently return a fallback."""
+    svc._secret_backend.get = AsyncMock(side_effect=VaultUnavailableError("timeout"))
 
     with pytest.raises(VaultUnavailableError):
         await svc.get_secret("ngch.api_key")
-    # If this reaches here without raising, the test fails as expected
 
 
 # ------------------------------------------------------------------
@@ -282,34 +270,30 @@ async def test_raises_if_not_initialised():
 
 
 # ------------------------------------------------------------------
-# initialise() — lines 67-96
+# initialise() — backend selection
 # ------------------------------------------------------------------
 
 @pytest.mark.asyncio
 async def test_initialise_sets_ready():
-    """initialise() with mocked Vault/Redis/DB → _ready=True."""
+    """initialise() with mocked backend/Redis/DB → _ready=True."""
     svc = ConfigService()
 
-    mock_vault = MagicMock()
-    mock_vault.is_authenticated.return_value = True
-
-    async def fake_fetch_from_vault(key):
-        if "redis" in key:
-            return "redis://localhost:6379"
-        return "postgresql://localhost/astra"
+    mock_backend = AsyncMock()
+    mock_backend.initialise = AsyncMock()
+    mock_backend.get = AsyncMock(side_effect=lambda key:
+        "redis://localhost:6379" if "redis" in key else "postgresql://localhost/astra"
+    )
 
     mock_redis = AsyncMock()
     mock_pool = AsyncMock()
 
     with patch.dict("os.environ", {
         "BANK_ID": "test-bank",
-        "VAULT_ADDR": "http://vault:8200",
-        "VAULT_TOKEN": "hvs.test",
+        "ASTRA_SECRETS_BACKEND": "vault",
     }):
-        with patch("shared.config.config_service.hvac.Client", return_value=mock_vault):
+        with patch("shared.config.config_service.VaultSecretBackend", return_value=mock_backend):
             with patch("shared.config.config_service.aioredis.from_url", return_value=mock_redis):
                 with patch("shared.config.config_service.asyncpg.create_pool", new_callable=AsyncMock, return_value=mock_pool):
-                    svc._fetch_from_vault = AsyncMock(side_effect=fake_fetch_from_vault)
                     await svc.initialise()
 
     assert svc._ready is True
@@ -327,7 +311,7 @@ async def test_initialise_raises_when_bank_id_missing():
 
 @pytest.mark.asyncio
 async def test_initialise_raises_when_vault_addr_missing():
-    """initialise() without VAULT_ADDR → RuntimeError."""
+    """Default (vault) backend raises RuntimeError when VAULT_ADDR not set."""
     svc = ConfigService()
     with patch.dict("os.environ", {"BANK_ID": "test-bank"}, clear=True):
         with pytest.raises(RuntimeError, match="VAULT_ADDR"):
@@ -338,21 +322,77 @@ async def test_initialise_raises_when_vault_addr_missing():
 async def test_initialise_raises_when_vault_not_authenticated():
     """initialise() when vault.is_authenticated() is False → VaultUnavailableError."""
     svc = ConfigService()
-    mock_vault = MagicMock()
-    mock_vault.is_authenticated.return_value = False
+    mock_backend = AsyncMock()
+    mock_backend.initialise = AsyncMock(side_effect=VaultUnavailableError("auth failed"))
 
     with patch.dict("os.environ", {
         "BANK_ID": "test-bank",
         "VAULT_ADDR": "http://vault:8200",
         "VAULT_TOKEN": "hvs.bad",
     }):
-        with patch("shared.config.config_service.hvac.Client", return_value=mock_vault):
+        with patch("shared.config.config_service.VaultSecretBackend", return_value=mock_backend):
             with pytest.raises(VaultUnavailableError):
                 await svc.initialise()
 
 
+@pytest.mark.asyncio
+async def test_initialise_uses_env_backend_when_configured():
+    """ASTRA_SECRETS_BACKEND=env → EnvSecretBackend instantiated."""
+    svc = ConfigService()
+    mock_backend = AsyncMock()
+    mock_backend.initialise = AsyncMock()
+    mock_backend.get = AsyncMock(side_effect=lambda key:
+        "redis://localhost:6379" if "redis" in key else "postgresql://localhost/astra"
+    )
+
+    with patch.dict("os.environ", {
+        "BANK_ID": "test-bank",
+        "ASTRA_SECRETS_BACKEND": "env",
+    }):
+        with patch("shared.config.config_service.EnvSecretBackend", return_value=mock_backend):
+            with patch("shared.config.config_service.aioredis.from_url", return_value=AsyncMock()):
+                with patch("shared.config.config_service.asyncpg.create_pool", new_callable=AsyncMock, return_value=AsyncMock()):
+                    await svc.initialise()
+
+    assert svc._ready is True
+
+
+@pytest.mark.asyncio
+async def test_initialise_uses_k8s_backend_when_configured():
+    """ASTRA_SECRETS_BACKEND=k8s_secrets → K8sSecretBackend instantiated."""
+    svc = ConfigService()
+    mock_backend = AsyncMock()
+    mock_backend.initialise = AsyncMock()
+    mock_backend.get = AsyncMock(side_effect=lambda key:
+        "redis://localhost:6379" if "redis" in key else "postgresql://localhost/astra"
+    )
+
+    with patch.dict("os.environ", {
+        "BANK_ID": "test-bank",
+        "ASTRA_SECRETS_BACKEND": "k8s_secrets",
+    }):
+        with patch("shared.config.config_service.K8sSecretBackend", return_value=mock_backend):
+            with patch("shared.config.config_service.aioredis.from_url", return_value=AsyncMock()):
+                with patch("shared.config.config_service.asyncpg.create_pool", new_callable=AsyncMock, return_value=AsyncMock()):
+                    await svc.initialise()
+
+    assert svc._ready is True
+
+
+@pytest.mark.asyncio
+async def test_initialise_raises_on_unknown_backend():
+    """Unknown ASTRA_SECRETS_BACKEND value → RuntimeError with available values."""
+    svc = ConfigService()
+    with patch.dict("os.environ", {
+        "BANK_ID": "test-bank",
+        "ASTRA_SECRETS_BACKEND": "aws_secrets_manager",
+    }):
+        with pytest.raises(RuntimeError, match="aws_secrets_manager"):
+            await svc.initialise()
+
+
 # ------------------------------------------------------------------
-# shutdown() — lines 99-103
+# shutdown() — lines 112-118
 # ------------------------------------------------------------------
 
 @pytest.mark.asyncio
@@ -360,17 +400,19 @@ async def test_shutdown_closes_db_and_redis(svc: ConfigService):
     """shutdown() calls close on DB pool and aclose on Redis."""
     svc._db_pool.close = AsyncMock()
     svc._redis.aclose = AsyncMock()
+    svc._secret_backend.shutdown = AsyncMock()
 
     await svc.shutdown()
 
     svc._db_pool.close.assert_awaited_once()
     svc._redis.aclose.assert_awaited_once()
+    svc._secret_backend.shutdown.assert_awaited_once()
     assert svc._ready is False
 
 
 @pytest.mark.asyncio
 async def test_shutdown_when_not_initialised():
-    """shutdown() is safe even when _db_pool/_redis are None."""
+    """shutdown() is safe even when _db_pool/_redis/_secret_backend are None."""
     svc = ConfigService()
     # Should not raise
     await svc.shutdown()
@@ -378,7 +420,7 @@ async def test_shutdown_when_not_initialised():
 
 
 # ------------------------------------------------------------------
-# _parse_db_value — json branch (line 193-195)
+# _parse_db_value — json branch
 # ------------------------------------------------------------------
 
 @pytest.mark.asyncio
@@ -397,7 +439,7 @@ async def test_get_deserialises_json(svc: ConfigService):
 
 
 # ------------------------------------------------------------------
-# OPA exception re-raise (line 260)
+# OPA exception re-raise
 # ------------------------------------------------------------------
 
 @pytest.mark.asyncio
@@ -414,7 +456,7 @@ async def test_evaluate_policy_reraises_opa_unavailable(svc: ConfigService):
 
 
 # ------------------------------------------------------------------
-# get_user_preference — json parse error branch (lines 288-289)
+# get_user_preference — json parse error branch
 # ------------------------------------------------------------------
 
 @pytest.mark.asyncio
@@ -428,13 +470,12 @@ async def test_get_user_preference_returns_raw_string_on_json_error(svc: ConfigS
 
 
 # ------------------------------------------------------------------
-# Convenience helpers — lines 300-336
+# Convenience helpers
 # ------------------------------------------------------------------
 
 @pytest.mark.asyncio
 async def test_get_cts_config_returns_all_keys(svc: ConfigService):
     """get_cts_config() returns a dict with all CTS threshold keys."""
-    # Wire get() to return a dummy float for all keys
     svc._redis.get.return_value = None
     conn = svc._db_pool.acquire.return_value.__aenter__.return_value
     conn.fetchrow.return_value = {"value": "0.92", "value_type": "float"}
@@ -470,7 +511,7 @@ async def test_get_ai_config_returns_all_keys(svc: ConfigService):
 
 
 # ------------------------------------------------------------------
-# bank_id property — line 351
+# bank_id property
 # ------------------------------------------------------------------
 
 def test_bank_id_property_returns_bank_id(svc: ConfigService):
@@ -480,7 +521,7 @@ def test_bank_id_property_returns_bank_id(svc: ConfigService):
 
 @pytest.mark.asyncio
 async def test_get_deserialises_string_type(svc: ConfigService):
-    """_parse_db_value with vtype='string' → raw string returned (line 195)."""
+    """_parse_db_value with vtype='string' → raw string returned."""
     conn = svc._db_pool.acquire.return_value.__aenter__.return_value
     conn.fetchrow.return_value = {"value": "finacle", "value_type": "string"}
     svc._redis.get.return_value = None
