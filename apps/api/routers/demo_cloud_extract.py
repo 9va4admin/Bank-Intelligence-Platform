@@ -39,7 +39,7 @@ log = structlog.get_logger()
 
 router_v1 = APIRouter(prefix="/v1/cts/demo/cloud-extract", tags=["Demo — Cloud AI (temporary)"])
 
-_HF_BASE_URL = "https://router.huggingface.co/v1"
+_HF_BASE_URL_FALLBACK = "https://router.huggingface.co/v1"
 
 _MODEL_MAPPING = {
     "qwen-32b": "Qwen/Qwen3-VL-32B-Instruct:featherless-ai",
@@ -126,6 +126,21 @@ class CloudExtractResponse(BaseModel):
     signature_name: Optional[str] = None
     error: Optional[str] = None
     raw_response: Optional[str] = None
+
+
+async def _resolve_hf_base_url(bank_id: str) -> str:
+    """Resolve Hugging Face Inference Router base URL.
+
+    config_service first, ASTRA_DEMO_HF_BASE_URL env var second,
+    hardcoded fallback last — matching _resolve_hf_token()'s pattern.
+    """
+    from shared.config.config_service import config_service
+    try:
+        return await config_service.get_secret("demo.hf_base_url")
+    except Exception:
+        pass
+    import os
+    return os.environ.get("ASTRA_DEMO_HF_BASE_URL", _HF_BASE_URL_FALLBACK)
 
 
 async def _resolve_hf_token(bank_id: str) -> Optional[str]:
@@ -224,11 +239,12 @@ async def cloud_extract_cheque(
             ),
         )
 
+    hf_base_url = await _resolve_hf_base_url(ctx.bank_id)
     raw_bytes = await file.read()
     png_bytes = _convert_to_png_bytes(raw_bytes)
     image_b64 = base64.b64encode(png_bytes).decode("utf-8")
 
-    client = AsyncOpenAI(base_url=_HF_BASE_URL, api_key=hf_token)
+    client = AsyncOpenAI(base_url=hf_base_url, api_key=hf_token)
     model_id = _MODEL_MAPPING[model]
 
     import openai as openai_module

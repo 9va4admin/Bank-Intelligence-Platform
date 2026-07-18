@@ -462,28 +462,50 @@ cerebrum/
 │   │   └── mcp/
 │   │       └── ngch_adapter.py        ← MCP server wrapping NGCH
 │   │
-│   └── ej/                            ← EJ domain (fully isolated)
+│   ├── ej/                            ← EJ domain (fully isolated)
+│   │   ├── workflows/
+│   │   │   ├── normalise_workflow.py  ← Full 8-activity pipeline: ingest→store→audit
+│   │   │   ├── dispute_workflow.py    ← EJ match + CCTV → auto-resolve or escalate
+│   │   │   └── activities/
+│   │   │       ├── ingest.py
+│   │   │       ├── fingerprint.py
+│   │   │       ├── llm_parse.py
+│   │   │       ├── validate.py
+│   │   │       ├── store_canonical.py ← Persist to YugabyteDB ej schema
+│   │   │       ├── trigger_dispute_check.py ← Publish to ej.canonical Kafka
+│   │   │       ├── update_atm_health.py     ← Publish to ej.health.signals Kafka
+│   │   │       ├── write_audit.py     ← Immudb audit (all terminal states)
+│   │   │       ├── dispute_match.py   ← BGE-M3 semantic claim-to-EJ matching
+│   │   │       └── cctv_extract.py    ← CCTV clip → MinIO (object_key only)
+│   │   ├── worker.py                  ← Temporal worker: EJ task queues
+│   │   ├── parser/
+│   │   │   └── llm_parser.py
+│   │   ├── mcp/
+│   │   │   └── diagnostic_mcp_server.py ← Consent-gated diagnostic MCP server
+│   │   └── cctv/
+│   │       └── evidence_extractor.py
+│   │
+│   └── msv/                           ← Multi-Signature Validation (fully isolated)
+│       ├── orchestrator.py            ← MSV orchestration entry point
 │       ├── workflows/
-│       │   ├── normalise_workflow.py  ← Full 8-activity pipeline: ingest→store→audit
-│       │   ├── dispute_workflow.py    ← EJ match + CCTV → auto-resolve or escalate
+│       │   ├── msv_workflow.py        ← Temporal workflow: multi-signatory mandate check
 │       │   └── activities/
-│       │       ├── ingest.py
-│       │       ├── fingerprint.py
-│       │       ├── llm_parse.py
-│       │       ├── validate.py
-│       │       ├── store_canonical.py ← Persist to YugabyteDB ej schema
-│       │       ├── trigger_dispute_check.py ← Publish to ej.canonical Kafka
-│       │       ├── update_atm_health.py     ← Publish to ej.health.signals Kafka
-│       │       ├── write_audit.py     ← Immudb audit (all terminal states)
-│       │       ├── dispute_match.py   ← BGE-M3 semantic claim-to-EJ matching
-│       │       └── cctv_extract.py    ← CCTV clip → MinIO (object_key only)
-│       ├── worker.py                  ← Temporal worker: EJ task queues
-│       ├── parser/
-│       │   └── llm_parser.py
-│       ├── mcp/
-│       │   └── diagnostic_mcp_server.py ← Consent-gated diagnostic MCP server
-│       └── cctv/
-│           └── evidence_extractor.py
+│       │       ├── cbs_sync.py        ← Sync mandate data from CBS
+│       │       └── write_audit.py     ← Immudb audit for MSV decisions
+│       ├── mandates/
+│       │   ├── models.py              ← Mandate and signatory Pydantic models
+│       │   ├── bre_engine.py          ← Business Rule Engine: AND/OR/majority rules
+│       │   └── assignment.py          ← Signatory assignment and routing logic
+│       ├── vaults/
+│       │   └── signatory_registry.py  ← Redis-backed signatory vault
+│       ├── ai/
+│       │   ├── signature_detector.py  ← Vision model wrapper for signature detection
+│       │   └── embedding_model.py     ← Embedding model for signature matching
+│       └── enrollment/
+│           ├── account_enroller.py    ← Enroll accounts into MSV mandate system
+│           ├── bulk_enrollment.py     ← Bulk CSV enrollment for existing accounts
+│           ├── progress_tracker.py    ← Track enrollment progress per bank
+│           └── file_watcher.py        ← Watch drop-folder for enrollment CSVs
 │
 ├── shared/
 │   ├── audit/
@@ -498,9 +520,20 @@ cerebrum/
 │   │   └── langfuse_setup.py
 │   ├── auth/
 │   │   ├── rbac.py                    ← Role definitions + ABAC
-│   │   └── saml_handler.py
+│   │   ├── saml_handler.py
+│   │   ├── auth_service.py            ← AuthService: login + MFA + session (production login)
+│   │   ├── session_token.py           ← RS256 JWT session token service
+│   │   ├── mfa.py                     ← TOTPMFAService: enroll, verify, bypass logic
+│   │   ├── mfa_stores.py              ← InMemoryTOTPSecretStore + VaultTOTPSecretStore
+│   │   ├── enrollment_store.py        ← YugabyteDB MFA enrollment state store
+│   │   └── connectors/
+│   │       ├── base.py                ← AuthConnector ABC + ASTRAIdentity
+│   │       ├── local.py               ← YugabyteDBLocalAuthConnector (argon2id)
+│   │       ├── ldap_ad.py             ← LDAPADConnector (LDAPS-only enforced)
+│   │       ├── saml.py                ← SAMLConnector (assertion parse, no password stored)
+│   │       └── factory.py             ← AuthConnectorFactory (entity-level routing)
 │   ├── config/
-│   │   └── config_service.py          ← Reads from Vault + OPA
+│   │   └── config_service.py          ← Reads from Vault + OPA; get_vault_client() for DI
 │   ├── cbs_connector/
 │   │   ├── base.py                    ← Abstract CBS interface + AccountInfo/PPSEntry models
 │   │   ├── finacle.py                 ← Infosys Finacle REST adapter (IMPLEMENTED)
@@ -509,7 +542,8 @@ cerebrum/
 │   │   └── exceptions.py              ← AccountNotFoundError, CBSUnavailableError
 │   └── event_bus/
 │       ├── producer.py
-│       └── consumer.py
+│       ├── consumer.py
+│       └── topics.py                  ← Kafka topic name constants (single source of truth)
 │
 ├── edge/
 │   └── ej-agent/                      ← Go binary: branch MCP server
@@ -881,6 +915,7 @@ NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
 | `user-service` | Python | SAML, RBAC, session management |
 | `analytics-service` | Python | Aggregations for dashboards |
 | `branch-ej-agent` | **Go** | Edge MCP server at branch (lightweight) |
+| `msv-worker` | Python | Multi-Signature Validation: mandate checks, signatory vault |
 
 ---
 
@@ -1040,25 +1075,35 @@ PHASE 9 — Pre-Pilot Security Remediation (July 2026, IN PROGRESS)
        CTS_WF_IET_WATCHDOG_FIRED already carries CRITICAL severity + NOTIFICATION surface,
        so the platform's single highest-stakes audit event now has WhatsApp/email routing
        with no new routing code needed.
-  [ ] ASTRA-03 — the cts.py/msv.py instances are moot (the vulnerable code path was deleted
-       entirely as part of the ASTRA-01 fix, not patched in place). The main.py demo-router-gate
-       instance of the same unawaited-coroutine bug is still present; confirmed fail-safe
-       (demo router never registers, in any env) — low priority, not yet fixed.
+  [x] ASTRA-03 — CLOSED (July 2026): the cts.py/msv.py instances were moot (deleted with
+       ASTRA-01). The main.py demo-router-gate instance is now fixed: `config_service.get("env")`
+       (async, never awaited at module level → coroutine always truthy → demo router always
+       registered) replaced with synchronous `config_service.get_platform("env")` (reads
+       Helm-injected env var, no async, no initialise() required). CORS allowed_origins
+       likewise moved from hardcoded `["https://ops.astra.internal"]` to `get_platform()`.
+       Demo router now correctly registers only in development/staging envs as intended.
   [ ] Deferred by explicit decision, not yet started: ej.py's ASTRA-01 backdoor;
        HumanReviewWorkflow's 55-minute timeout is a flat constant decoupled from the actual
        per-instrument iet_deadline (needs a config-aware redesign); SMB notify/ledger side
        effects exist in run_with_mocks() but are never called from the real run() (same
        "mock diverges from real entry point" shape as ASTRA-02 itself, found a second time).
-  [ ] Still open, not investigated this phase: local.py's DB hooks to the real
-       platform.local_auth_accounts table (currently in-memory only); RBAC fail-closed
-       defaults (rbac.py:210-211); 8 of 22 registered CTS activities and 3 of 8 registered
-       CTS workflows still lack @activity.defn/@workflow.defn (worker.py Worker() construction
-       fails today independent of the above — confirmed by direct attribute inspection, not
-       guessed); no temporalio.contrib.pydantic converter in the installed temporalio version,
-       so every Pydantic-typed activity/workflow boundary in the entire codebase deserializes
-       as a plain dict in real Temporal execution, not the typed model; every activity's real
-       dependency (ngch_adapter, immudb_client, cbs_connector, etc.) is a `=None` default with
-       zero injection wired at worker registration.
+  [x] Worker un-awaited async bug — FOUND + FIXED (July 2026, same session as audit):
+       modules/cts/worker.py called config_service.get() (async) without await AND never
+       called initialise() — three Layer-2 values (temporal.address, temporal.namespace,
+       platform.version) would crash every real worker startup with coroutine-is-not-str.
+       Fixed: switch to synchronous get_platform() (reads Helm env vars, no async needed)
+       with ConfigKeyNotFoundError fallbacks; add await config_service.initialise() when
+       constructing a new ConfigService instance. Same fix applied to modules/ej/worker.py
+       which had hardcoded "localhost:7233" with no config_service usage at all.
+  [ ] Still open, not investigated this phase: RBAC fail-closed defaults (rbac.py:210-211);
+       8 of 22 registered CTS activities and 3 of 8 registered CTS workflows still lack
+       @activity.defn/@workflow.defn (worker.py Worker() construction fails today independent
+       of the above — confirmed by direct attribute inspection, not guessed); no
+       temporalio.contrib.pydantic converter in the installed temporalio version, so every
+       Pydantic-typed activity/workflow boundary in the entire codebase deserializes as a
+       plain dict in real Temporal execution, not the typed model; every activity's real
+       dependency (ngch_adapter, immudb_client, cbs_connector, etc.) is a `=None` default
+       with zero injection wired at worker registration.
 
 PHASE 10 — Error → Incident Management (July 2026, Phase 1+2 of 5 COMPLETE)
   Context: "How are we going to manage errors caught by catch blocks — turn them into
@@ -1242,10 +1287,65 @@ PHASE 11 — Audit/Notification Producer-Consumer Gap Closure (July 2026, COMPLE
   identical "hooks never implemented" gap this closed for local. Both are separate,
   larger pieces of work, not started.
 
+PHASE 12 — TOTP/MFA System + MSV Module + Hardcoded-Value Audit (July 2026, COMPLETE)
+  Context: Full codebase audit for hardcoded values + undocumented modules. Three categories
+    found: (1) production-crashing async misuse in workers; (2) hardcoded literals that
+    should be config_service calls; (3) undocumented modules (MSV, TOTP/MFA) that existed in
+    code but had zero entries in CLAUDE.md.
+
+  [x] TOTP/MFA system (built same session) — full second-factor authentication pipeline:
+       shared/auth/mfa.py — TOTPMFAService (enroll, verify, bypass, revoke; pyotp backend)
+       shared/auth/mfa_stores.py — InMemoryTOTPSecretStore (dev/CI) + VaultTOTPSecretStore
+         (KV v2; accepts injected vault_client from config_service.get_vault_client() to
+         avoid opening a second Vault connection from the same env vars)
+       shared/auth/enrollment_store.py — YugabyteDBAccountEnrollmentStore (MFA enrollment
+         state: enrolled/not/bypassed per user; asyncpg, never SELECT *)
+       shared/auth/auth_service.py — AuthService (login → MFA decision → session issue;
+         wired into apps/api/main.py lifespan)
+       infra/migrations/platform/20260717_add_totp_enrolled.py — additive TOTP columns
+         on platform.local_auth_accounts (totp_secret_ref, totp_enrolled_at, bypass_until)
+       apps/api/routers/auth.py — /v1/auth/login + /v1/auth/mfa/verify + /v1/auth/logout
+       messages.yaml: AUTH_LOGIN_SUCCESS/FAILED + AUTH_TOTP_ENABLED/DISABLED/VERIFIED/
+         FAILED/BYPASS_USED — 287 total keys (was 274 after Phase 7)
+       VaultTOTPSecretStore.vault_client injection: avoids double Vault bootstrap (second
+         independent hvac.Client reading VAULT_ADDR/VAULT_TOKEN was an env-var leak that
+         violated the "config_service is the only env reader" rule — fixed)
+
+  [x] MSV module — Multi-Signature Validation (built in a prior session, documented now):
+       modules/msv/ — Temporal-driven mandate processing: mandate models, BRE engine
+         (AND/OR/majority rules), signatory vault (Redis-backed), CBS sync activity,
+         signature detector (Vision LLM wrapper), embedding model, bulk enrollment,
+         file watcher for drop-folder CSVs
+       apps/api/routers/msv.py — /v1/msv/* endpoints
+       infra/migrations/msv/ — Alembic migrations for MSV schema
+
+  [x] Hardcoded-value fixes (production-safety audit):
+       modules/cts/worker.py — 3 un-awaited config_service.get() calls + missing
+         initialise(); switched to synchronous get_platform() with ConfigKeyNotFoundError
+         fallbacks (temporal.address, temporal.namespace, platform.version)
+       modules/ej/worker.py — hardcoded "localhost:7233" Temporal default; now uses
+         get_platform() pattern identical to CTS worker
+       modules/cts/workflows/activities/fraud.py — 500_000 (high-value threshold) and
+         180.0 (LLM timeout) literals now pulled from config_service.get()
+       apps/api/main.py — os.environ.get("ENV") (ASTRA-03, CLOSED) + hardcoded CORS
+         origin both replaced with config_service.get_platform() at module level
+       apps/api/routers/demo_cloud_extract.py — hardcoded HF base URL extracted to
+         config_service.get_secret("demo.hf_base_url") with env-var fallback pattern
+       shared/config/config_service.py — get_vault_client() method added; returns the
+         already-authenticated hvac.Client when VaultSecretBackend is active, enabling
+         other subsystems to reuse the existing connection instead of bootstrapping a new one
+
+  [x] shared/event_bus/topics.py (NEW) — Kafka topic name constants registry:
+       All 15 topics defined as module-level constants (PLATFORM_AUDIT_EVENTS,
+       CTS_INWARD, EJ_RAW_INGESTED, etc.); bank-scoped topics are f-strings, caller
+       calls .format(bank_id=bank_id). Single source of truth — no more scattered
+       string literals for topic names across producers and consumers.
+
 ### Immediate Next
-Pre-pilot security remediation (Phase 9) is in progress — see above for exact status.
-Error → Incident Management (Phase 10) Phase 1+2 shipped this session — see above.
-Audit/Notification Producer-Consumer Gap Closure (Phase 11) shipped this session.
+Phase 9 (ASTRA-01/02/03): ASTRA-01 closed for 9/10 routers, ASTRA-02 closed, ASTRA-03 closed.
+Phase 10 (Error → Incident Management): Phase 1+2 shipped; Phase 3 needs live Grafana OnCall.
+Phase 11 (Audit/Notification Gap Closure): COMPLETE.
+Phase 12 (TOTP/MFA + MSV + hardcoded audit): COMPLETE.
 
 Remaining work (in priority order):
 1. **ASTRA-01 on ej.py** — same test-token backdoor fix pattern already proven on 9 other
@@ -1890,10 +1990,11 @@ PHASE 7 — Pluggable Auth Connector (July 2026, COMPLETE)
   [x] infra/migrations/platform/20260705_add_local_auth_accounts.py — platform.local_auth_accounts
        (user_id PK, bank_id, entity_type, entity_id, username UNIQUE per bank, password_hash argon2id,
        role, clearing_zones[], is_active, failed_attempts, locked_until float, created_at, last_login_at)
-  [x] messages.yaml: 8 new AUTH_* keys (274 total) — AUTH_LDAP_BIND_SUCCESS/FAILED,
-       AUTH_LDAP_GROUP_UNMAPPED, AUTH_LDAP_SERVER_UNREACHABLE (CRITICAL),
-       AUTH_LOCAL_LOGIN_SUCCESS/FAILED, AUTH_LOCAL_ACCOUNT_LOCKED (ERROR),
-       AUTH_CONNECTOR_CONFIG_MISSING (CRITICAL)
+  [x] messages.yaml: 8 new AUTH_* keys + 13 new TOTP/MFA + MSV keys (287 total) —
+       AUTH_LDAP_BIND_SUCCESS/FAILED, AUTH_LDAP_GROUP_UNMAPPED,
+       AUTH_LDAP_SERVER_UNREACHABLE (CRITICAL), AUTH_LOCAL_LOGIN_SUCCESS/FAILED,
+       AUTH_LOCAL_ACCOUNT_LOCKED (ERROR), AUTH_CONNECTOR_CONFIG_MISSING (CRITICAL),
+       AUTH_LOGIN_SUCCESS/FAILED, AUTH_TOTP_ENABLED/DISABLED/VERIFIED/FAILED/BYPASS_USED
   [x] infra/helm/values/banks/saraswat-coop/platform.yaml — auth: section added:
        SB → saml (ADFS), branch → ldap_ad (LDAPS port 636), pu → ldap_ad,
        smb.default → local, smb.overrides → commented example for pune-ucb LDAP

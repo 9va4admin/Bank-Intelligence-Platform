@@ -28,6 +28,7 @@ from apps.api.routers import cts, ej, disputes, audit, admin, notifications
 from apps.api.routers import batch, users, mcp_connections, demo, cts_outward_queue, demo_cloud_extract
 from apps.api.routers import auth as auth_router
 from shared.config.config_service import config_service
+from shared.config.exceptions import ConfigKeyNotFoundError
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
 from shared.observability.otel_setup import configure_otel
 from shared.auth.session_token import SessionTokenService
@@ -185,11 +186,12 @@ async def lifespan(app: FastAPI):
             # DB pool unavailable — auth service cannot be built
             raise RuntimeError("db_pool_cts not available; cannot build AuthService")
 
-        # TOTP secrets go to Vault; fall back to in-memory if Vault env vars absent
+        # TOTP secrets go to Vault — reuse config_service's shared hvac client
+        # so we don't open a second Vault connection from the same env vars.
         try:
-            _totp_store = VaultTOTPSecretStore(bank_id=_bank_id)
-            _totp_store._ensure_client()  # verify Vault is reachable at startup
-        except RuntimeError as _vault_err:
+            _vault_client = config_service.get_vault_client()
+            _totp_store = VaultTOTPSecretStore(bank_id=_bank_id, vault_client=_vault_client)
+        except Exception as _vault_err:
             log.warning(
                 "api_gateway.auth.vault_totp_unavailable",
                 error=str(_vault_err),
@@ -264,11 +266,23 @@ async def lifespan(app: FastAPI):
     log.info("api_gateway.stopped")
 
 
+# Layer 2 values read synchronously at module load (get_platform reads Helm-injected
+# env vars — no DB, no async, no initialise() required).
+try:
+    _env = config_service.get_platform("env")
+except ConfigKeyNotFoundError:
+    _env = "production"
+
+try:
+    _cors_origins = config_service.get_platform("cors.allowed_origins").split(",")
+except ConfigKeyNotFoundError:
+    _cors_origins = ["https://ops.astra.internal"]
+
 app = FastAPI(
     title="ASTRA Bank Intelligence Platform",
     version="1.0.0",
     description="Automated Settlement and Transaction Recognition Architecture",
-    docs_url="/docs" if os.environ.get("ENV") == "development" else None,
+    docs_url="/docs" if _env in ("development", "staging") else None,
     redoc_url=None,
     lifespan=lifespan,
 )
@@ -278,7 +292,7 @@ app = FastAPI(
 # CORS — internal ops workstation only (not public internet)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://ops.astra.internal"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT"],
     allow_headers=["Authorization", "Content-Type", "X-Request-Id"],
@@ -312,7 +326,7 @@ app.include_router(users.router_v1)
 app.include_router(mcp_connections.router_v1)
 app.include_router(cts_outward_queue.router_v1)
 app.include_router(demo_cloud_extract.router_v1)
-if config_service.get("env") in ("development", "staging"):
+if _env in ("development", "staging"):
     app.include_router(demo.router_v1)
 
 

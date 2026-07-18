@@ -346,6 +346,25 @@ class ConfigService:
         results = await asyncio.gather(*[self.get(k) for k in keys])
         return dict(zip(keys, results))
 
+    def get_vault_client(self):
+        """Return the underlying hvac.Client (VaultSecretBackend only).
+
+        Use this to share the already-authenticated Vault client with subsystems
+        (e.g. VaultTOTPSecretStore) instead of having them create a second client
+        from the same VAULT_ADDR / VAULT_TOKEN env vars.
+
+        Raises RuntimeError if the active backend is not Vault.
+        """
+        from shared.config.secret_backends.vault_backend import VaultSecretBackend
+        self._assert_ready()
+        if not isinstance(self._secret_backend, VaultSecretBackend):
+            raise RuntimeError(
+                "get_vault_client() is only available when "
+                "ASTRA_SECRETS_BACKEND=vault is active. "
+                f"Current backend: {type(self._secret_backend).__name__}"
+            )
+        return self._secret_backend._vault
+
     def get_vision_ai_kill_switch(self) -> "VisionAIKillSwitch":
         """
         Return a VisionAIKillSwitch bound to this config_service instance.

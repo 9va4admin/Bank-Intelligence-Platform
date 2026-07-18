@@ -16,6 +16,9 @@ from typing import Optional
 
 import structlog
 
+from shared.config.config_service import ConfigService
+from shared.config.exceptions import ConfigKeyNotFoundError
+
 log = structlog.get_logger()
 
 TASK_QUEUE_PREFIX = "ej-normalisation"
@@ -74,8 +77,9 @@ ALL_ACTIVITIES = [
 
 async def run_worker(
     bank_id: str,
-    temporal_address: str = "localhost:7233",
-    temporal_namespace: str = "default",
+    config_service: Optional[ConfigService] = None,
+    temporal_address: Optional[str] = None,
+    temporal_namespace: Optional[str] = None,
 ) -> None:
     if not _TEMPORAL_AVAILABLE:
         log.error("worker.temporal_not_installed", bank_id=bank_id)
@@ -83,6 +87,23 @@ async def run_worker(
             "temporalio package not installed. "
             "Run: pip install temporalio"
         )
+
+    if config_service is None:
+        config_service = ConfigService()
+        await config_service.initialise()
+
+    if temporal_address is None:
+        try:
+            temporal_address = config_service.get_platform("temporal.address")
+        except ConfigKeyNotFoundError:
+            temporal_address = "localhost:7233"
+            log.warning("worker.temporal_address_not_configured", fallback=temporal_address)
+
+    if temporal_namespace is None:
+        try:
+            temporal_namespace = config_service.get_platform("temporal.namespace")
+        except ConfigKeyNotFoundError:
+            temporal_namespace = "default"
 
     task_queue = f"{TASK_QUEUE_PREFIX}-{bank_id}"
 
@@ -131,8 +152,8 @@ def main() -> None:
     parser.add_argument("--bank-id", required=True, help="Bank identifier (e.g. saraswat-coop)")
     parser.add_argument(
         "--temporal-address",
-        default="localhost:7233",
-        help="Temporal server address",
+        default=None,
+        help="Temporal server address (default: TEMPORAL_ADDRESS env var, then localhost:7233)",
     )
     args = parser.parse_args()
 
