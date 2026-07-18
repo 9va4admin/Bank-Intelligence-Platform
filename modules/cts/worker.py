@@ -18,6 +18,7 @@ from typing import Optional
 import structlog
 
 from shared.config.config_service import ConfigService
+from shared.config.exceptions import ConfigKeyNotFoundError
 from shared.observability.otel_setup import configure_otel
 
 log = structlog.get_logger()
@@ -195,14 +196,31 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
 
     if config_service is None:
         config_service = ConfigService()
+        await config_service.initialise()
 
-    temporal_address = config_service.get("temporal.address")
-    temporal_namespace = config_service.get("temporal.namespace")
+    # temporal.address and temporal.namespace are Layer 2 (Helm-injected
+    # deployment topology) — synchronous get_platform(), no DB round-trip.
+    try:
+        temporal_address = config_service.get_platform("temporal.address")
+    except ConfigKeyNotFoundError:
+        temporal_address = "localhost:7233"
+        log.warning("worker.temporal_address_not_configured", fallback=temporal_address)
+
+    try:
+        temporal_namespace = config_service.get_platform("temporal.namespace")
+    except ConfigKeyNotFoundError:
+        temporal_namespace = "default"
+
+    try:
+        platform_version = config_service.get_platform("platform.version")
+    except ConfigKeyNotFoundError:
+        platform_version = "dev"
+
     task_queue = f"cts-processing-{bank_id}"
 
     configure_otel(
         service_name="cts-agent-worker",
-        service_version=config_service.get("platform.version"),
+        service_version=platform_version,
         bank_id=bank_id,
     )
 

@@ -108,11 +108,14 @@ async def score_fraud(
         rationale = None
         headroom_reduction_pct = None
         if vllm_client and inp.ocr_result is not None:
+            llm_timeout = float(await config_service.get("ai.llm_request_timeout_s"))
             rationale, headroom_reduction_pct = await _synthesise_rationale(
                 inp=inp,
                 fraud_score=fraud_score,
                 shap_values=shap_values,
                 vllm_client=vllm_client,
+                high_value_threshold=_high_value,
+                llm_timeout=llm_timeout,
             )
 
         return FraudActivityResult(
@@ -143,6 +146,8 @@ async def _synthesise_rationale(
     fraud_score: float,
     shap_values: dict,
     vllm_client,
+    high_value_threshold: float = 500_000.0,
+    llm_timeout: float = 180.0,
 ) -> tuple[str, float]:
     """
     Call Llama 3.3 70B to synthesise a human-readable fraud rationale.
@@ -176,7 +181,7 @@ async def _synthesise_rationale(
                 "signature_result":       inp.sig_result,
                 "pps_match":              inp.pps_result,
                 "cbs_account_status":     inp.cbs_result,
-                "is_high_value":          inp.amount >= 500_000,  # display only; threshold from config
+                "is_high_value":          inp.amount >= high_value_threshold,
             }, ensure_ascii=False, indent=2),
         },
     ]
@@ -187,7 +192,7 @@ async def _synthesise_rationale(
         messages=messages,
         max_tokens=300,
         temperature=0.1,
-        timeout=180.0,
+        timeout=llm_timeout,
     )
 
     log.info(

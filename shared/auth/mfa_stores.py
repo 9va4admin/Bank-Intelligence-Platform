@@ -42,17 +42,17 @@ class VaultTOTPSecretStore:
 
     Stores per-user TOTP secrets at path:
         astra/{bank_id}/mfa/{user_id}
-    using the same VAULT_ADDR / VAULT_TOKEN environment variables as
-    VaultSecretBackend. The Vault agent sidecar injects these at pod startup.
 
-    The hvac client is constructed lazily on the first call — if Vault is
-    unavailable when put/get/delete is called, the caller receives a clear
-    RuntimeError rather than a silent failure.
+    Preferred construction: pass the shared hvac client from
+    config_service.get_vault_client() so the pod only creates one Vault
+    connection. Lazy-init fallback (reading VAULT_ADDR / VAULT_TOKEN from
+    env) is retained for test/dev scenarios where config_service is not yet
+    initialised.
     """
 
-    def __init__(self, bank_id: str) -> None:
+    def __init__(self, bank_id: str, vault_client=None) -> None:
         self._bank_id = bank_id
-        self._vault = None
+        self._vault = vault_client  # pre-injected from config_service when available
 
     def _ensure_client(self):
         if self._vault is None:
@@ -62,6 +62,7 @@ class VaultTOTPSecretStore:
             if not vault_addr or not vault_token:
                 raise RuntimeError(
                     "VAULT_ADDR / VAULT_TOKEN not set — Vault agent sidecar not running. "
+                    "Pass vault_client=config_service.get_vault_client() to avoid this. "
                     "For dev/CI use ASTRA_SECRETS_BACKEND=env and the in-memory fallback."
                 )
             self._vault = hvac.Client(url=vault_addr, token=vault_token)
