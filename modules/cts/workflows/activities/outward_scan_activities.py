@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict
 from temporalio import activity
 
 from modules.cts.compliance.models import InstrumentComplianceRecord
+from modules.cts.workflows.activities.amount_words_parser import amounts_match
 from shared.ai.model_cascade import CascadeOrchestrator
 
 log = structlog.get_logger()
@@ -242,4 +243,237 @@ async def run_vision_presentment_check(
         has_mismatch=has_mismatch,
         mismatch_fields=["amount_figures"] if has_mismatch else [],
         vision_amount_str=vision_amount_str,
+    )
+
+
+# ---------------------------------------------------------------------------
+# vision_extract_and_check  (CR-120 path — replaces ocr_extract + run_vision_presentment_check)
+# ---------------------------------------------------------------------------
+
+def _build_outward_vision_prompt(micr_hardware_raw: Optional[str]) -> str:
+    """
+    Single Qwen2-VL prompt that extracts all cheque fields AND checks for
+    alteration in one pass. If the scanner provided a hardware MICR reading,
+    include it so the model can cross-validate its visual MICR read against
+    the hardware reading (MICR band visible in image anyway).
+    """
+    micr_section = ""
+    if micr_hardware_raw:
+        micr_section = f"""
+Additionally, visually read the MICR band at the bottom of the cheque.
+The hardware MICR reader reports: {micr_hardware_raw}
+Compare your visual reading against this hardware reading and report any discrepancy.
+Add these fields to your response:
+  "micr_visual": {{"value": "...", "confidence": 0.0}},
+  "micr_matches_hardware": true
+"""
+
+    return f"""Analyse this cheque image. Extract all printed fields and check for alteration.
+
+Examine:
+- amount_figures: amount in digits (e.g. "1,25,000.00")
+- amount_words: amount written in words (e.g. "One Lakh Twenty Five Thousand Only")
+- payee: name on "Pay" line
+- date: date on cheque (DD/MM/YYYY preferred)
+- alteration_detected: any overwriting, erasure, correction fluid, or ink difference on any field
+- alteration_risk: overall tamper risk (0.0 = clean, 1.0 = definite tamper)
+- tampered_fields: list of field names that appear tampered
+{micr_section}
+Return JSON only, no explanation:
+{{
+  "amount_figures": {{"value": "...", "confidence": 0.0}},
+  "amount_words": {{"value": "...", "confidence": 0.0}},
+  "payee": {{"value": "...", "confidence": 0.0}},
+  "date": {{"value": "...", "confidence": 0.0}},
+  "alteration_detected": false,
+  "alteration_risk": 0.0,
+  "tampered_fields": []
+}}
+
+Confidence: 0.0 (illegible) to 1.0 (perfectly clear).
+Set value to null and confidence to 0.0 for any illegible field.
+"""
+
+
+class VisionExtractAndCheckInput(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    image_front_url: str
+    bank_id: str
+    micr_hardware_raw: Optional[str] = None   # from CR-120 hardware MICR reader
+
+
+class VisionExtractAndCheckResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    outcome: str                           # "PROCEED" | "HUMAN_REVIEW" | "MISMATCH"
+    amount_figures: Optional[str] = None
+    amount_words: Optional[str] = None
+    payee: Optional[str] = None
+    date: Optional[str] = None
+    alteration_detected: bool = False
+    alteration_risk: float = 0.0
+    tampered_fields: list[str] = []
+    micr_validated: bool = False           # hardware MICR matched visual read
+    micr_mismatch: bool = False            # hardware MICR disagreed with visual read
+    mismatch_fields: list[str] = []        # for MismatchResolutionWorkflow compatibility
+    overall_confidence: float = 0.0
+    degraded: bool = False
+
+
+@activity.defn
+async def vision_extract_and_check(
+    inp: VisionExtractAndCheckInput,
+    orchestrator: Optional[CascadeOrchestrator] = None,
+    config_service=None,
+) -> VisionExtractAndCheckResult:
+    """
+    CR-120 outward path: single Qwen2-VL call that extracts all cheque fields
+    and checks for alteration in one pass.
+
+    Replaces the separate ocr_extract (GOT-OCR2) + run_vision_presentment_check
+    (Qwen2-VL) steps on the outward workflow. On the inward path, ocr_extract
+    is unchanged — the IET 600ms constraint still benefits from the L1/L2 cascade.
+
+    Cross-checks performed:
+    1. amount_figures vs amount_words — classic fraud indicator if they disagree
+    2. hardware MICR vs visual MICR read — flags tampering of MICR band
+    3. alteration_detected — any field showing signs of physical tampering
+
+    Outcome routing:
+    - PROCEED       → all checks pass, lot assignment can proceed
+    - MISMATCH      → amount figures/words disagree → MismatchResolutionWorkflow
+    - HUMAN_REVIEW  → low confidence, model unavailable, or alteration detected
+    """
+    import json
+
+    ai_config = await config_service.get_ai_config(inp.bank_id) if config_service else {}
+    min_confidence: float = ai_config.get("ai.ocr.min_confidence", 0.85)
+    alteration_threshold: float = ai_config.get("ai.alteration.risk_threshold", 0.60)
+
+    prompt = _build_outward_vision_prompt(inp.micr_hardware_raw)
+
+    try:
+        cascade_result = await orchestrator.call_vision(
+            image_url=inp.image_front_url,
+            prompt=prompt,
+            cheque_amount=0.0,
+        )
+        data = json.loads(cascade_result.content)
+    except Exception as exc:
+        log.warning(
+            "vision_extract_and_check.model_unavailable",
+            instrument_id=inp.instrument_id,
+            error=str(exc),
+        )
+        return VisionExtractAndCheckResult(outcome="HUMAN_REVIEW", degraded=True)
+
+    # Extract fields
+    amount_figures = (data.get("amount_figures") or {}).get("value")
+    amount_words   = (data.get("amount_words")   or {}).get("value")
+    payee          = (data.get("payee")          or {}).get("value")
+    date           = (data.get("date")           or {}).get("value")
+
+    confidences = [
+        v["confidence"]
+        for v in data.values()
+        if isinstance(v, dict) and "confidence" in v
+    ]
+    overall = sum(confidences) / len(confidences) if confidences else 0.0
+
+    low_fields = [
+        k for k, v in data.items()
+        if isinstance(v, dict) and v.get("confidence", 1.0) < min_confidence
+    ]
+    if low_fields:
+        log.info(
+            "vision_extract_and_check.low_confidence",
+            instrument_id=inp.instrument_id,
+            low_fields=low_fields,
+        )
+        return VisionExtractAndCheckResult(
+            outcome="HUMAN_REVIEW",
+            amount_figures=amount_figures,
+            amount_words=amount_words,
+            payee=payee,
+            date=date,
+            overall_confidence=overall,
+        )
+
+    # Alteration check
+    alteration_detected: bool  = bool(data.get("alteration_detected", False))
+    alteration_risk: float     = float(data.get("alteration_risk", 0.0))
+    tampered_fields: list[str] = list(data.get("tampered_fields", []))
+
+    if alteration_detected or alteration_risk >= alteration_threshold:
+        log.info(
+            "vision_extract_and_check.alteration",
+            instrument_id=inp.instrument_id,
+            alteration_risk=alteration_risk,
+            tampered_fields=tampered_fields,
+        )
+        return VisionExtractAndCheckResult(
+            outcome="HUMAN_REVIEW",
+            amount_figures=amount_figures,
+            amount_words=amount_words,
+            payee=payee,
+            date=date,
+            alteration_detected=True,
+            alteration_risk=alteration_risk,
+            tampered_fields=tampered_fields,
+            overall_confidence=overall,
+        )
+
+    # Hardware MICR cross-validation (when scanner provided MICR)
+    micr_validated = False
+    micr_mismatch  = False
+    if inp.micr_hardware_raw and "micr_visual" in data:
+        micr_validated = True
+        micr_mismatch  = not bool(data.get("micr_matches_hardware", True))
+        if micr_mismatch:
+            log.info(
+                "vision_extract_and_check.micr_mismatch",
+                instrument_id=inp.instrument_id,
+            )
+            return VisionExtractAndCheckResult(
+                outcome="HUMAN_REVIEW",
+                amount_figures=amount_figures,
+                amount_words=amount_words,
+                payee=payee,
+                date=date,
+                micr_validated=micr_validated,
+                micr_mismatch=True,
+                overall_confidence=overall,
+            )
+
+    # Figures vs words cross-check
+    match = amounts_match(figures=amount_figures, words=amount_words)
+    if match is False:
+        log.info(
+            "vision_extract_and_check.amount_mismatch",
+            instrument_id=inp.instrument_id,
+        )
+        return VisionExtractAndCheckResult(
+            outcome="MISMATCH",
+            amount_figures=amount_figures,
+            amount_words=amount_words,
+            payee=payee,
+            date=date,
+            mismatch_fields=["amount_figures", "amount_words"],
+            micr_validated=micr_validated,
+            overall_confidence=overall,
+        )
+
+    return VisionExtractAndCheckResult(
+        outcome="PROCEED",
+        amount_figures=amount_figures,
+        amount_words=amount_words,
+        payee=payee,
+        date=date,
+        alteration_detected=False,
+        alteration_risk=alteration_risk,
+        tampered_fields=[],
+        micr_validated=micr_validated,
+        micr_mismatch=False,
+        mismatch_fields=[],
+        overall_confidence=overall,
     )

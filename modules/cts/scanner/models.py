@@ -37,6 +37,12 @@ class ScanResult:
     bank_id:             str
     operator_id:         str
 
+    # CR-120 hardware-specific fields (populated when scanner provides them directly)
+    micr_hardware_raw:    Optional[str]   = None  # E13B from hardware MICR reader — never log in full
+    uv_image:             Optional[bytes] = None  # UV scan (CR-120 UV variant only)
+    imprinter_stamped:    bool            = False  # endorsement stamped during document pass-through
+    double_feed_detected: bool            = False  # ultrasonic double-feed signal
+
     @property
     def has_front_image(self) -> bool:
         return len(self.front_image) > 0
@@ -44,3 +50,7 @@ class ScanResult:
     @property
     def has_rear_image(self) -> bool:
         return len(self.rear_image) > 0
+
+    @property
+    def has_hardware_micr(self) -> bool:
+        return bool(self.micr_hardware_raw)

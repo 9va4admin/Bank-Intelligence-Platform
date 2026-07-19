@@ -235,3 +235,278 @@ class TestRunVisionPresentmentCheck:
         )
         assert result.has_mismatch is False
         assert result.vision_amount_str is None
+
+
+# ---------------------------------------------------------------------------
+# vision_extract_and_check  (CR-120 single-pass Qwen2-VL path)
+# ---------------------------------------------------------------------------
+
+def _make_vision_orchestrator(payload: dict):
+    """Build a mock CascadeOrchestrator whose call_vision() returns JSON payload."""
+    import json
+    orch = MagicMock()
+    cascade_result = MagicMock(content=json.dumps(payload), cascade_level=1)
+    orch.call_vision = AsyncMock(return_value=cascade_result)
+    return orch
+
+
+def _clean_payload(
+    *,
+    amount_figures: str = "45000.00",
+    amount_words: str = "Forty Five Thousand",
+    confidence: float = 0.95,
+    alteration_detected: bool = False,
+    alteration_risk: float = 0.02,
+    micr_visual: str | None = None,
+    micr_matches_hardware: bool = True,
+) -> dict:
+    """Build a typical all-clear model response payload."""
+    payload: dict = {
+        "amount_figures": {"value": amount_figures, "confidence": confidence, "altered": False},
+        "amount_words":   {"value": amount_words,   "confidence": confidence, "altered": False},
+        "payee":          {"value": "RAMESH KUMAR",  "confidence": confidence, "altered": False},
+        "date":           {"value": "2026-07-15",    "confidence": confidence, "altered": False},
+        "alteration_detected": alteration_detected,
+        "alteration_risk": alteration_risk,
+        "tampered_fields": [],
+    }
+    if micr_visual is not None:
+        payload["micr_visual"] = micr_visual
+        payload["micr_matches_hardware"] = micr_matches_hardware
+    return payload
+
+
+def _make_config(min_confidence: float = 0.85, alteration_threshold: float = 0.60):
+    cfg = MagicMock()
+    # get_ai_config is async — must be AsyncMock
+    cfg.get_ai_config = AsyncMock(return_value={
+        "ai.ocr.min_confidence": min_confidence,
+        "ai.alteration.risk_threshold": alteration_threshold,
+    })
+    return cfg
+
+
+class TestVisionExtractAndCheck:
+    @pytest.mark.asyncio
+    async def test_proceed_clean_cheque(self):
+        """All-clear: high confidence, no alteration, matching amounts → PROCEED."""
+        from modules.cts.workflows.activities.outward_scan_activities import (
+            vision_extract_and_check, VisionExtractAndCheckInput,
+        )
+        orch = _make_vision_orchestrator(_clean_payload())
+        result = await vision_extract_and_check(
+            VisionExtractAndCheckInput(
+                instrument_id="OUT-001", image_front_url="minio://front.tiff", bank_id="test-bank",
+            ),
+            orchestrator=orch,
+            config_service=_make_config(),
+        )
+        assert result.outcome == "PROCEED"
+        assert result.amount_figures == "45000.00"
+        assert result.alteration_detected is False
+        assert result.micr_validated is False   # no hardware MICR provided
+
+    @pytest.mark.asyncio
+    async def test_proceed_with_hardware_micr_validated(self):
+        """CR-120 path: hardware MICR matches visual MICR → PROCEED, micr_validated=True."""
+        from modules.cts.workflows.activities.outward_scan_activities import (
+            vision_extract_and_check, VisionExtractAndCheckInput,
+        )
+        orch = _make_vision_orchestrator(_clean_payload(
+            micr_visual="000100001234  45000 123456789",
+            micr_matches_hardware=True,
+        ))
+        result = await vision_extract_and_check(
+            VisionExtractAndCheckInput(
+                instrument_id="OUT-002", image_front_url="minio://front.tiff", bank_id="test-bank",
+                micr_hardware_raw="000100001234  45000 123456789",
+            ),
+            orchestrator=orch,
+            config_service=_make_config(),
+        )
+        assert result.outcome == "PROCEED"
+        assert result.micr_validated is True
+        assert result.micr_mismatch is False
+
+    @pytest.mark.asyncio
+    async def test_human_review_low_confidence_field(self):
+        """One field below min_confidence threshold → HUMAN_REVIEW."""
+        from modules.cts.workflows.activities.outward_scan_activities import (
+            vision_extract_and_check, VisionExtractAndCheckInput,
+        )
+        payload = _clean_payload()
+        payload["amount_figures"]["confidence"] = 0.70   # below 0.85 threshold
+        orch = _make_vision_orchestrator(payload)
+        result = await vision_extract_and_check(
+            VisionExtractAndCheckInput(
+                instrument_id="OUT-003", image_front_url="minio://front.tiff", bank_id="test-bank",
+            ),
+            orchestrator=orch,
+            config_service=_make_config(min_confidence=0.85),
+        )
+        assert result.outcome == "HUMAN_REVIEW"
+        assert result.degraded is False   # model responded — this is not a degraded path
+
+    @pytest.mark.asyncio
+    async def test_human_review_alteration_detected(self):
+        """alteration_detected=True in model response → HUMAN_REVIEW."""
+        from modules.cts.workflows.activities.outward_scan_activities import (
+            vision_extract_and_check, VisionExtractAndCheckInput,
+        )
+        payload = _clean_payload(alteration_detected=True, alteration_risk=0.85)
+        payload["tampered_fields"] = ["amount_figures"]
+        orch = _make_vision_orchestrator(payload)
+        result = await vision_extract_and_check(
+            VisionExtractAndCheckInput(
+                instrument_id="OUT-004", image_front_url="minio://front.tiff", bank_id="test-bank",
+            ),
+            orchestrator=orch,
+            config_service=_make_config(),
+        )
+        assert result.outcome == "HUMAN_REVIEW"
+        assert result.alteration_detected is True
+
+    @pytest.mark.asyncio
+    async def test_human_review_high_alteration_risk_even_without_flag(self):
+        """alteration_risk >= threshold with alteration_detected=False still routes to HUMAN_REVIEW."""
+        from modules.cts.workflows.activities.outward_scan_activities import (
+            vision_extract_and_check, VisionExtractAndCheckInput,
+        )
+        payload = _clean_payload(alteration_detected=False, alteration_risk=0.75)
+        orch = _make_vision_orchestrator(payload)
+        result = await vision_extract_and_check(
+            VisionExtractAndCheckInput(
+                instrument_id="OUT-005", image_front_url="minio://front.tiff", bank_id="test-bank",
+            ),
+            orchestrator=orch,
+            config_service=_make_config(alteration_threshold=0.60),
+        )
+        assert result.outcome == "HUMAN_REVIEW"
+        assert result.alteration_detected is True   # activity sets True when risk >= threshold
+
+    @pytest.mark.asyncio
+    async def test_human_review_micr_mismatch(self):
+        """Visual MICR doesn't match hardware MICR → HUMAN_REVIEW, micr_mismatch=True."""
+        from modules.cts.workflows.activities.outward_scan_activities import (
+            vision_extract_and_check, VisionExtractAndCheckInput,
+        )
+        payload = _clean_payload(
+            micr_visual="000100009999  45000 123456789",   # different account digits
+            micr_matches_hardware=False,
+        )
+        orch = _make_vision_orchestrator(payload)
+        result = await vision_extract_and_check(
+            VisionExtractAndCheckInput(
+                instrument_id="OUT-006", image_front_url="minio://front.tiff", bank_id="test-bank",
+                micr_hardware_raw="000100001234  45000 123456789",
+            ),
+            orchestrator=orch,
+            config_service=_make_config(),
+        )
+        assert result.outcome == "HUMAN_REVIEW"
+        assert result.micr_mismatch is True
+        assert result.micr_validated is True
+
+    @pytest.mark.asyncio
+    async def test_mismatch_amount_figures_vs_words(self):
+        """amount_figures and amount_words carry different values → MISMATCH."""
+        from modules.cts.workflows.activities.outward_scan_activities import (
+            vision_extract_and_check, VisionExtractAndCheckInput,
+        )
+        payload = _clean_payload(
+            amount_figures="45000.00",
+            amount_words="Four Thousand Five Hundred",   # clearly different amount
+        )
+        orch = _make_vision_orchestrator(payload)
+        result = await vision_extract_and_check(
+            VisionExtractAndCheckInput(
+                instrument_id="OUT-007", image_front_url="minio://front.tiff", bank_id="test-bank",
+            ),
+            orchestrator=orch,
+            config_service=_make_config(),
+        )
+        assert result.outcome == "MISMATCH"
+        assert "amount_figures" in result.mismatch_fields
+        assert "amount_words" in result.mismatch_fields
+
+    @pytest.mark.asyncio
+    async def test_human_review_model_unavailable(self):
+        """vLLM down → orchestrator raises → graceful degradation HUMAN_REVIEW, degraded=True."""
+        from modules.cts.workflows.activities.outward_scan_activities import (
+            vision_extract_and_check, VisionExtractAndCheckInput,
+        )
+        orch = MagicMock()
+        orch.call_vision = AsyncMock(side_effect=RuntimeError("vLLM unavailable"))
+        result = await vision_extract_and_check(
+            VisionExtractAndCheckInput(
+                instrument_id="OUT-008", image_front_url="minio://front.tiff", bank_id="test-bank",
+            ),
+            orchestrator=orch,
+            config_service=_make_config(),
+        )
+        assert result.outcome == "HUMAN_REVIEW"
+        assert result.degraded is True
+
+    @pytest.mark.asyncio
+    async def test_no_micr_validation_when_no_hardware_micr_provided(self):
+        """Without micr_hardware_raw, micr_validated must remain False even if model returns micr_visual."""
+        from modules.cts.workflows.activities.outward_scan_activities import (
+            vision_extract_and_check, VisionExtractAndCheckInput,
+        )
+        payload = _clean_payload(micr_visual="somevalue", micr_matches_hardware=True)
+        orch = _make_vision_orchestrator(payload)
+        result = await vision_extract_and_check(
+            VisionExtractAndCheckInput(
+                instrument_id="OUT-009", image_front_url="minio://front.tiff", bank_id="test-bank",
+                micr_hardware_raw=None,   # explicitly absent
+            ),
+            orchestrator=orch,
+            config_service=_make_config(),
+        )
+        assert result.outcome == "PROCEED"
+        assert result.micr_validated is False   # no hardware MICR to validate against
+
+    @pytest.mark.asyncio
+    async def test_thresholds_come_from_config_not_hardcoded(self):
+        """Bank-specific thresholds must be read from config_service, not hardcoded."""
+        from modules.cts.workflows.activities.outward_scan_activities import (
+            vision_extract_and_check, VisionExtractAndCheckInput,
+        )
+        # Use a non-default threshold (0.99) — would catch fields at 0.95 if correctly applied
+        cfg = _make_config(min_confidence=0.99)
+        payload = _clean_payload(confidence=0.96)   # high but below 0.99 custom threshold
+        orch = _make_vision_orchestrator(payload)
+        result = await vision_extract_and_check(
+            VisionExtractAndCheckInput(
+                instrument_id="OUT-010", image_front_url="minio://front.tiff", bank_id="test-bank",
+            ),
+            orchestrator=orch,
+            config_service=cfg,
+        )
+        # If hardcoded 0.85 were used, outcome would be PROCEED.
+        # If config_service 0.99 is correctly applied, outcome must be HUMAN_REVIEW.
+        assert result.outcome == "HUMAN_REVIEW", (
+            "threshold must come from config_service, not hardcoded — "
+            "0.96 confidence should fail at 0.99 threshold"
+        )
+
+    @pytest.mark.asyncio
+    async def test_all_fields_present_in_proceed_result(self):
+        """PROCEED result must populate all extracted field values."""
+        from modules.cts.workflows.activities.outward_scan_activities import (
+            vision_extract_and_check, VisionExtractAndCheckInput,
+        )
+        orch = _make_vision_orchestrator(_clean_payload())
+        result = await vision_extract_and_check(
+            VisionExtractAndCheckInput(
+                instrument_id="OUT-011", image_front_url="minio://front.tiff", bank_id="test-bank",
+            ),
+            orchestrator=orch,
+            config_service=_make_config(),
+        )
+        assert result.outcome == "PROCEED"
+        assert result.amount_figures is not None
+        assert result.amount_words is not None
+        assert result.payee is not None
+        assert result.date is not None
+        assert result.overall_confidence > 0.0
