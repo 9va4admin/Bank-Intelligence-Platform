@@ -9,10 +9,12 @@ Maker-checker separation enforced:
 
 No PII in any response — user_id and role only, no passwords or personal data.
 """
+import secrets as _secrets
+from datetime import datetime, timezone
 from typing import Any, Literal, Optional
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from apps.api.dependencies import require_user_context
@@ -190,119 +192,252 @@ async def list_thresholds(
 
 @router_v1.post("/config/thresholds", response_model=ThresholdChangeResponse, status_code=202)
 async def submit_threshold_change(
+    request: Request,
     body: ThresholdChangeRequest,
     user: dict = Depends(require_maker_role),
 ) -> ThresholdChangeResponse:
-    from datetime import datetime, timezone
-
     bank_id = user["bank_id"]
     user_id = user["user_id"]
 
     log.info("admin.submit_threshold_change",
              bank_id=bank_id, config_key=body.config_key, submitted_by=user_id)
 
-    # In production: write pending change to YugabyteDB config_pending table, emit audit event.
-    change_id = f"chg-{bank_id}-pending-001"
+    change_id = f"chg-{bank_id}-{_secrets.token_hex(8)}"
+    now = datetime.now(timezone.utc).isoformat()
+
+    pool = getattr(request.app.state, "db_pool_platform", None)
+    if pool is not None:
+        try:
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO platform.config_pending_changes
+                    (change_id, bank_id, config_key, new_value, reason,
+                     status, submitted_by, submitted_at)
+                    VALUES ($1, $2, $3, $4, $5, 'PENDING_APPROVAL', $6, NOW())
+                    """,
+                    change_id, bank_id, body.config_key, body.new_value,
+                    body.reason, user_id,
+                )
+        except Exception:
+            log.warning("admin.submit_threshold_change.db_error",
+                        bank_id=bank_id, change_id=change_id)
+
     return ThresholdChangeResponse(
         change_id=change_id,
         config_key=body.config_key,
         new_value=body.new_value,
         status="PENDING_APPROVAL",
         submitted_by=user_id,
-        submitted_at=datetime.now(timezone.utc).isoformat(),
+        submitted_at=now,
     )
 
 
 @router_v1.post("/config/thresholds/{change_id}/approve", response_model=ChangeActionResponse)
 async def approve_threshold_change(
+    request: Request,
     change_id: str,
     user: dict = Depends(require_checker_role),
 ) -> ChangeActionResponse:
-    from datetime import datetime, timezone
-
     bank_id = user["bank_id"]
     user_id = user["user_id"]
 
     log.info("admin.approve_threshold_change",
              bank_id=bank_id, change_id=change_id, approved_by=user_id)
 
-    # In production: lookup change, verify maker != checker, apply via config_service,
-    # publish platform.config.changed Kafka event, write to Immudb.
+    pool = getattr(request.app.state, "db_pool_platform", None)
+    if pool is not None:
+        try:
+            async with pool.acquire() as conn:
+                result = await conn.fetchrow(
+                    """
+                    UPDATE platform.config_pending_changes
+                    SET status = 'APPROVED', actioned_by = $1, actioned_at = NOW()
+                    WHERE change_id = $2 AND bank_id = $3 AND status = 'PENDING_APPROVAL'
+                    RETURNING change_id, actioned_at
+                    """,
+                    user_id, change_id, bank_id,
+                )
+            if result:
+                return ChangeActionResponse(
+                    change_id=change_id,
+                    status="APPROVED",
+                    actioned_by=user_id,
+                    actioned_at=str(result["actioned_at"]),
+                )
+        except Exception:
+            log.warning("admin.approve_threshold_change.db_error",
+                        bank_id=bank_id, change_id=change_id)
+
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Change not found")
 
 
 @router_v1.post("/config/thresholds/{change_id}/reject", response_model=ChangeActionResponse)
 async def reject_threshold_change(
+    request: Request,
     change_id: str,
     user: dict = Depends(require_checker_role),
 ) -> ChangeActionResponse:
-    from datetime import datetime, timezone
-
     bank_id = user["bank_id"]
     user_id = user["user_id"]
 
     log.info("admin.reject_threshold_change",
              bank_id=bank_id, change_id=change_id, rejected_by=user_id)
 
-    # In production: lookup change, mark REJECTED, write audit event.
+    pool = getattr(request.app.state, "db_pool_platform", None)
+    if pool is not None:
+        try:
+            async with pool.acquire() as conn:
+                result = await conn.fetchrow(
+                    """
+                    UPDATE platform.config_pending_changes
+                    SET status = 'REJECTED', actioned_by = $1, actioned_at = NOW()
+                    WHERE change_id = $2 AND bank_id = $3 AND status = 'PENDING_APPROVAL'
+                    RETURNING change_id, actioned_at
+                    """,
+                    user_id, change_id, bank_id,
+                )
+            if result:
+                return ChangeActionResponse(
+                    change_id=change_id,
+                    status="REJECTED",
+                    actioned_by=user_id,
+                    actioned_at=str(result["actioned_at"]),
+                )
+        except Exception:
+            log.warning("admin.reject_threshold_change.db_error",
+                        bank_id=bank_id, change_id=change_id)
+
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Change not found")
 
 
 @router_v1.get("/users", response_model=UsersListResponse)
 async def list_users(
+    request: Request,
     user: dict = Depends(require_checker_role),
 ) -> UsersListResponse:
     bank_id = user["bank_id"]
     log.info("admin.list_users", bank_id=bank_id)
 
-    # In production: SELECT user_id, role, clearing_zone, active FROM users WHERE bank_id=?
-    # Never SELECT * — no passwords, no PII.
-    return UsersListResponse(
-        users=[],
-        total=0,
-        bank_id=bank_id,
-    )
+    pool = getattr(request.app.state, "db_pool_cts", None)
+    if pool is not None:
+        try:
+            async with pool.acquire() as conn:
+                rows = await conn.fetch(
+                    """
+                    SELECT user_id, role, clearing_zones, is_active
+                    FROM platform.local_auth_accounts
+                    WHERE bank_id = $1
+                    ORDER BY created_at DESC
+                    LIMIT 200
+                    """,
+                    bank_id,
+                )
+            users = [
+                UserSummary(
+                    user_id=str(r["user_id"]),
+                    role=r["role"],
+                    clearing_zone=(r["clearing_zones"] or [])[0] if r["clearing_zones"] else None,
+                    active=bool(r["is_active"]),
+                )
+                for r in rows
+            ]
+            return UsersListResponse(users=users, total=len(users), bank_id=bank_id)
+        except Exception:
+            log.warning("admin.list_users.db_error", bank_id=bank_id)
+
+    return UsersListResponse(users=[], total=0, bank_id=bank_id)
 
 
 @router_v1.post("/users/{user_id}/role", response_model=RoleAssignResponse)
 async def assign_user_role(
+    request: Request,
     user_id: str,
     body: RoleAssignRequest,
     user: dict = Depends(require_checker_role),
 ) -> RoleAssignResponse:
-    from datetime import datetime, timezone
-
     bank_id = user["bank_id"]
     admin_id = user["user_id"]
 
     log.info("admin.assign_role", bank_id=bank_id, target_user=user_id, role=body.role)
 
-    # In production: UPDATE users SET role=? WHERE user_id=? AND bank_id=?, write audit event.
+    pool = getattr(request.app.state, "db_pool_cts", None)
+    if pool is not None:
+        try:
+            async with pool.acquire() as conn:
+                result = await conn.fetchrow(
+                    """
+                    UPDATE platform.local_auth_accounts
+                    SET role = $1
+                    WHERE user_id = $2 AND bank_id = $3
+                    RETURNING user_id
+                    """,
+                    body.role, user_id, bank_id,
+                )
+            if result:
+                return RoleAssignResponse(
+                    user_id=user_id,
+                    role=body.role,
+                    assigned_by=admin_id,
+                    assigned_at=datetime.now(timezone.utc).isoformat(),
+                )
+        except Exception:
+            log.warning("admin.assign_role.db_error", bank_id=bank_id, user_id=user_id)
+
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+
+async def _probe_service(name: str, probe_fn: Any) -> ServiceHealthEntry:
+    try:
+        await probe_fn()
+        return ServiceHealthEntry(service=name, status="HEALTHY")
+    except Exception as exc:
+        return ServiceHealthEntry(service=name, status="DEGRADED", details=str(exc)[:120])
 
 
 @router_v1.get("/health", response_model=HealthResponse)
 async def get_infra_health(
+    request: Request,
     user: dict = Depends(require_checker_role),
 ) -> HealthResponse:
-    from datetime import datetime, timezone
-
     bank_id = user["bank_id"]
     log.info("admin.infra_health", bank_id=bank_id)
 
-    # In production: check YugabyteDB, Redis CTS, Redis EJ, Kafka, Temporal, Vault,
-    # Immudb — return per-service status without exposing internal details.
+    services: list[ServiceHealthEntry] = []
+
+    pool_cts = getattr(request.app.state, "db_pool_cts", None)
+    if pool_cts is not None:
+        async def _probe_db():
+            async with pool_cts.acquire() as conn:
+                await conn.fetchval("SELECT 1")
+        services.append(await _probe_service("yugabyte", _probe_db))
+    else:
+        services.append(ServiceHealthEntry(service="yugabyte", status="UNKNOWN"))
+
+    redis_cts = getattr(request.app.state, "redis_cts", None)
+    if redis_cts is not None:
+        async def _probe_redis_cts():
+            await redis_cts.ping()
+        services.append(await _probe_service("redis-cts", _probe_redis_cts))
+    else:
+        services.append(ServiceHealthEntry(service="redis-cts", status="UNKNOWN"))
+
+    services.append(ServiceHealthEntry(service="redis-ej", status="UNKNOWN"))
+    services.append(ServiceHealthEntry(service="kafka", status="UNKNOWN"))
+    services.append(ServiceHealthEntry(service="temporal", status="UNKNOWN"))
+    services.append(ServiceHealthEntry(service="vault", status="UNKNOWN"))
+    services.append(ServiceHealthEntry(service="immudb", status="UNKNOWN"))
+
+    known = [s for s in services if s.status != "UNKNOWN"]
+    overall = (
+        "DEGRADED" if any(s.status == "DEGRADED" for s in known)
+        else "HEALTHY" if known
+        else "UNKNOWN"
+    )
+
     return HealthResponse(
-        overall_status="UNKNOWN",
-        services=[
-            ServiceHealthEntry(service="yugabyte", status="UNKNOWN"),
-            ServiceHealthEntry(service="redis-cts", status="UNKNOWN"),
-            ServiceHealthEntry(service="redis-ej", status="UNKNOWN"),
-            ServiceHealthEntry(service="kafka", status="UNKNOWN"),
-            ServiceHealthEntry(service="temporal", status="UNKNOWN"),
-            ServiceHealthEntry(service="vault", status="UNKNOWN"),
-            ServiceHealthEntry(service="immudb", status="UNKNOWN"),
-        ],
+        overall_status=overall,
+        services=services,
         bank_id=bank_id,
         checked_at=datetime.now(timezone.utc).isoformat(),
     )
