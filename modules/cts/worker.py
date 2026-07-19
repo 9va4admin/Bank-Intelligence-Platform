@@ -288,9 +288,47 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
             # dev/test runs so graceful shutdown still works there too.
             signal.signal(sig, lambda *_: _handle_signal())
 
+    # OutwardScanTrigger bridges cts.outward.scanned.{bank_id} Kafka topic to
+    # OutwardScanWorkflow. Gracefully skipped when Kafka is not yet configured.
+    trigger = None
+    try:
+        kafka_bootstrap = config_service.get_platform("kafka.bootstrap_servers")
+        from modules.cts.scanner.outward_scan_trigger import OutwardScanTrigger
+        trigger = OutwardScanTrigger(
+            bank_id=bank_id,
+            bootstrap_servers=kafka_bootstrap,
+            temporal_client=client,
+            task_queue=task_queue,
+        )
+    except ConfigKeyNotFoundError:
+        log.warning(
+            "worker.outward_scan_trigger_skipped",
+            bank_id=bank_id,
+            reason="kafka.bootstrap_servers not configured",
+        )
+    except ImportError:
+        log.warning(
+            "worker.outward_scan_trigger_skipped",
+            bank_id=bank_id,
+            reason="OutwardScanTrigger module unavailable",
+        )
+
+    trigger_task = None
     async with worker:
+        if trigger is not None:
+            trigger_task = asyncio.create_task(trigger.run())
+            log.info("worker.outward_scan_trigger_started", bank_id=bank_id)
+
         log.info("worker.ready", bank_id=bank_id, task_queue=task_queue)
         await shutdown_event.wait()
+
+        if trigger is not None:
+            trigger.stop()
+        if trigger_task is not None:
+            try:
+                await asyncio.wait_for(trigger_task, timeout=5.0)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                pass
 
     log.info("worker.stopped", bank_id=bank_id)
 

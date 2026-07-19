@@ -133,10 +133,14 @@ class EEHServicer:
         session_manager: Any,
         sse_publisher: Any,
         db: Any,
+        kafka_producer: Optional[Any] = None,
+        minio_store: Optional[Any] = None,
     ) -> None:
         self._session_manager = session_manager
         self._sse = sse_publisher
         self._db = db
+        self._kafka_producer = kafka_producer
+        self._minio_store = minio_store
 
     # ── SealLot ───────────────────────────────────────────────────────────────
 
@@ -328,6 +332,71 @@ class EEHServicer:
 
             # Publish to cts.outward.scanned.{bank_id} — OutwardScanWorkflow picks it up
             bank_id: str = row["bank_id"]
+            branch_id: str = row.get("branch_id", "")
+
+            # Upload images to MinIO (if store injected) — graceful degradation on failure
+            image_front_url = ""
+            image_rear_url = ""
+            if self._minio_store is not None:
+                image_front = getattr(payload, "image_front", b"") or b""
+                image_rear = getattr(payload, "image_rear", b"") or b""
+                bucket = "cts-cheques"
+                prefix = f"{bank_id}/outward/{scan_id}"
+                try:
+                    if image_front:
+                        front_key = await self._minio_store.upload_bytes(
+                            bucket, f"{prefix}/front.tif", image_front, "image/tiff"
+                        )
+                        image_front_url = f"minio://{bucket}/{front_key}"
+                    if image_rear:
+                        rear_key = await self._minio_store.upload_bytes(
+                            bucket, f"{prefix}/rear.tif", image_rear, "image/tiff"
+                        )
+                        image_rear_url = f"minio://{bucket}/{rear_key}"
+                except Exception as exc:
+                    log.warning(
+                        "eeh.upload.minio_failed",
+                        scan_id=scan_id,
+                        bank_id=bank_id,
+                        error=str(exc),
+                    )
+
+            # Publish BatchScannedEvent to Kafka (if producer injected)
+            if self._kafka_producer is not None:
+                import json as _json
+                import uuid as _uuid
+                kafka_topic = f"cts.outward.scanned.{bank_id}"
+                scan_entry: dict = {"scan_id": scan_id}
+                if image_front_url:
+                    scan_entry["image_front_url"] = image_front_url
+                if image_rear_url:
+                    scan_entry["image_rear_url"] = image_rear_url
+                event_payload = _json.dumps({
+                    "schema_version": "1.0",
+                    "event_id": f"EEH-{_uuid.uuid4().hex[:12].upper()}",
+                    "bank_id": bank_id,
+                    "branch_id": branch_id,
+                    "pu_id": "",
+                    "batch_id": session_id,
+                    "instrument_count": 1,
+                    "scan_ids": [scan_id],
+                    "oem": "EEH_GRPC",
+                    "per_scan_data": [scan_entry],
+                })
+                try:
+                    await self._kafka_producer.send(
+                        kafka_topic,
+                        value=event_payload.encode("utf-8"),
+                        key=f"{bank_id}:{branch_id}".encode("utf-8"),
+                    )
+                except Exception as exc:
+                    log.warning(
+                        "eeh.upload.kafka_failed",
+                        scan_id=scan_id,
+                        bank_id=bank_id,
+                        error=str(exc),
+                    )
+
             try:
                 if self._sse is not None:
                     await self._sse.publish(
@@ -337,7 +406,7 @@ class EEHServicer:
                             "scan_id": scan_id,
                             "session_id": session_id,
                             "lot_id": lot_id,
-                            "branch_id": row.get("branch_id", ""),
+                            "branch_id": branch_id,
                         },
                     )
             except Exception as exc:

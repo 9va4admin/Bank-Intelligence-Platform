@@ -441,3 +441,147 @@ def test_kafka_payload_does_not_include_micr_or_account():
     payload = evt.to_kafka_payload()
     assert "micr" not in payload.lower()
     assert "account_number" not in payload.lower()
+
+
+# ── 7. MinIO image upload ──────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_process_file_uploads_images_to_minio_when_store_injected(tmp_path):
+    """When minio_store is injected, drop folder watcher uploads cheque images."""
+    from modules.cts.scanner.file_watcher import DropFolderWatcher, WatcherConfig
+    from modules.cts.scanner.mapper import ScannedChequeInput, ScannerOEM
+    from datetime import datetime, timezone
+
+    drop = tmp_path / "drop"
+    drop.mkdir()
+    img = drop / "scan001.tif"
+    img.write_bytes(b"\x00\x01\x02\x03")  # dummy TIFF bytes
+
+    f = drop / "batch005.dat"
+    f.write_text("x", encoding="utf-8")
+
+    cheque = ScannedChequeInput(
+        scan_id="SCAN-MINIO-001", branch_id="b1", oem=ScannerOEM.PANINI,
+        scanner_model="Vision X", micr_line="0001234000019876543210",
+        account_number_hash="abc123", account_suffix="3210",
+        amount_figures=Decimal("10000.00"), amount_words="Ten thousand",
+        payee_masked="R***", cheque_date=date(2026, 7, 5),
+        image_color_path=img, image_grey_path=img, image_rear_path=img,
+        scan_timestamp=datetime.now(tz=timezone.utc),
+        batch_id="batch005", sequence_in_batch=1, oem_confidence=None,
+    )
+
+    mock_minio = AsyncMock()
+    mock_minio.upload_bytes = AsyncMock(return_value="some-key")
+
+    watcher_cfg = WatcherConfig(
+        bank_id="sb1", branch_id="b1", pu_id="pu1",
+        drop_folder=drop, metadata_glob="*.dat",
+        stability_wait_seconds=0,
+        kafka_topic="cts.outward.scanned.sb1.pu1",
+        minio_store=mock_minio,
+    )
+
+    mock_mapper = MagicMock()
+    mock_mapper.parse_metadata_file = MagicMock(return_value=[cheque])
+    mock_kafka = AsyncMock()
+
+    watcher = DropFolderWatcher(
+        config=watcher_cfg,
+        mapper=mock_mapper,
+        kafka_producer=mock_kafka,
+    )
+    await watcher.process_file(f)
+
+    # MinIO should be called at least once (front image minimum)
+    assert mock_minio.upload_bytes.await_count >= 1
+
+
+def test_batch_scanned_event_has_per_scan_data_field():
+    """BatchScannedEvent must have a per_scan_data field for image URLs."""
+    from modules.cts.scanner.file_watcher import BatchScannedEvent
+    from modules.cts.scanner.mapper import ScannerOEM
+
+    evt = BatchScannedEvent(
+        event_id="EVT-001", bank_id="sb1", branch_id="b1", pu_id="pu1",
+        batch_id="BATCH001", instrument_count=1,
+        kafka_topic="cts.outward.scanned.sb1.pu1",
+        scan_ids=["S1"], oem=ScannerOEM.PANINI,
+        per_scan_data=[{
+            "scan_id": "S1",
+            "image_front_url": "minio://cts-cheques/sb1/outward/S1/front.tif",
+        }],
+    )
+    assert len(evt.per_scan_data) == 1
+    assert evt.per_scan_data[0]["scan_id"] == "S1"
+
+
+def test_batch_scanned_event_per_scan_data_in_kafka_payload():
+    """per_scan_data must appear in the Kafka JSON payload."""
+    from modules.cts.scanner.file_watcher import BatchScannedEvent
+    from modules.cts.scanner.mapper import ScannerOEM
+
+    evt = BatchScannedEvent(
+        event_id="EVT-002", bank_id="sb1", branch_id="b1", pu_id="pu1",
+        batch_id="BATCH002", instrument_count=1,
+        kafka_topic="cts.outward.scanned.sb1.pu1",
+        scan_ids=["S2"], oem=ScannerOEM.MAGTEK,
+        per_scan_data=[{
+            "scan_id": "S2",
+            "image_front_url": "minio://cts-cheques/sb1/outward/S2/front.tif",
+            "image_rear_url": "minio://cts-cheques/sb1/outward/S2/rear.tif",
+        }],
+    )
+    payload = json.loads(evt.to_kafka_payload())
+    assert "per_scan_data" in payload
+    assert payload["per_scan_data"][0]["image_front_url"] == "minio://cts-cheques/sb1/outward/S2/front.tif"
+
+
+@pytest.mark.asyncio
+async def test_process_file_degrades_gracefully_without_minio_store(tmp_path):
+    """Without minio_store, Kafka publish still happens (no image URLs in per_scan_data)."""
+    from modules.cts.scanner.file_watcher import DropFolderWatcher, WatcherConfig
+    from modules.cts.scanner.mapper import ScannedChequeInput, ScannerOEM
+    from datetime import datetime, timezone
+
+    drop = tmp_path / "drop"
+    drop.mkdir()
+    img = drop / "scan002.tif"
+    img.write_bytes(b"\x00\x01")
+    f = drop / "batch006.dat"
+    f.write_text("x", encoding="utf-8")
+
+    cheque = ScannedChequeInput(
+        scan_id="SCAN-NOMINIO-001", branch_id="b1", oem=ScannerOEM.PANINI,
+        scanner_model="Vision X", micr_line="0001234000019876543210",
+        account_number_hash="abc123", account_suffix="3210",
+        amount_figures=Decimal("5000.00"), amount_words="Five thousand",
+        payee_masked="A***", cheque_date=date(2026, 7, 5),
+        image_color_path=img, image_grey_path=img, image_rear_path=img,
+        scan_timestamp=datetime.now(tz=timezone.utc),
+        batch_id="batch006", sequence_in_batch=1, oem_confidence=None,
+    )
+
+    watcher_cfg = WatcherConfig(
+        bank_id="sb1", branch_id="b1", pu_id="pu1",
+        drop_folder=drop, metadata_glob="*.dat",
+        stability_wait_seconds=0,
+        kafka_topic="cts.outward.scanned.sb1.pu1",
+        # minio_store intentionally absent
+    )
+
+    mock_mapper = MagicMock()
+    mock_mapper.parse_metadata_file = MagicMock(return_value=[cheque])
+    mock_kafka = AsyncMock()
+
+    watcher = DropFolderWatcher(
+        config=watcher_cfg, mapper=mock_mapper, kafka_producer=mock_kafka,
+    )
+    await watcher.process_file(f)
+
+    # Kafka publish still happened
+    mock_kafka.send.assert_awaited_once()
+    # per_scan_data in the event payload should still be present (no URLs)
+    call_kwargs = mock_kafka.send.await_args
+    payload = json.loads(call_kwargs[1]["value"].decode("utf-8"))
+    assert "per_scan_data" in payload
