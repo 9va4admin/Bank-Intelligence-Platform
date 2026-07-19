@@ -881,6 +881,19 @@
       "stamp_ref"
     ]
   },
+  "CTS_OUT_ENDORSED": {
+    "text": "Lot {lot_number} for bank {bank_id} endorsed — {endorsed_count} instruments stamped.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "lot_number",
+      "bank_id",
+      "endorsed_count"
+    ]
+  },
   "CTS_OUT_ENDORSEMENT_BATCH_COMPLETE": {
     "text": "Endorsement batch {lot_id} complete — {count} instruments stamped.",
     "severity": "INFO",

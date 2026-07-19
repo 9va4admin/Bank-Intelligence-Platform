@@ -139,3 +139,100 @@ class TestNGCHSubmissionIdempotency:
         from modules.cts.workflows.ngch_submission_workflow import NGCHSubmissionWorkflow
         wf = NGCHSubmissionWorkflow()
         assert wf.workflow_id("bank-a", "LOT-1") != wf.workflow_id("bank-a", "LOT-2")
+
+
+# ---------------------------------------------------------------------------
+# Temporal decorator presence tests (new — verify real Temporal wiring)
+# ---------------------------------------------------------------------------
+
+class TestNGCHSubmissionTemporalDecorators:
+    def test_workflow_defn_decorator(self):
+        """@workflow.defn must be present for Temporal worker registration."""
+        from modules.cts.workflows.ngch_submission_workflow import NGCHSubmissionWorkflow
+        assert hasattr(NGCHSubmissionWorkflow, "__temporal_workflow_definition")
+
+    def test_run_method_exists(self):
+        from modules.cts.workflows.ngch_submission_workflow import NGCHSubmissionWorkflow
+        assert callable(getattr(NGCHSubmissionWorkflow, "run", None))
+
+
+class TestNGCHSubmissionWriteAuditEvents:
+    def test_ngch_submitted_event_type_registered(self):
+        from modules.cts.workflows.activities.write_audit import _VALID_EVENT_TYPES
+        assert "CTS_OUT_NGCH_SUBMITTED" in _VALID_EVENT_TYPES
+
+    def test_ngch_submission_failed_event_type_registered(self):
+        from modules.cts.workflows.activities.write_audit import _VALID_EVENT_TYPES
+        assert "CTS_OUT_NGCH_SUBMISSION_FAILED" in _VALID_EVENT_TYPES
+
+
+# ---------------------------------------------------------------------------
+# NGCH submission activities tests
+# ---------------------------------------------------------------------------
+
+class TestNGCHSubmissionActivities:
+    @pytest.mark.asyncio
+    async def test_build_ngch_file_no_lot_store(self):
+        from modules.cts.workflows.activities.ngch_submission_activities import (
+            BuildNGCHFileInput,
+            build_ngch_file,
+        )
+        inp = BuildNGCHFileInput(
+            lot_number="LOT-001",
+            bank_id="srcb",
+            bank_ifsc="SRCB0000001",
+            session_id="SES-001",
+            clearing_date="2026-07-19",
+            instrument_count=5,
+        )
+        result = await build_ngch_file(inp, lot_store=None)
+        assert result.instrument_count == 5
+        assert "LOT-001" in result.file_path
+
+    @pytest.mark.asyncio
+    async def test_submit_to_ngch_no_client(self):
+        from modules.cts.workflows.activities.ngch_submission_activities import (
+            SubmitToNGCHInput,
+            submit_to_ngch,
+        )
+        inp = SubmitToNGCHInput(
+            lot_number="LOT-001",
+            bank_id="srcb",
+            bank_ifsc="SRCB0000001",
+            file_path="cts/ngch/srcb/LOT-001/file.xml",
+            checksum_sha256="abc",
+            instrument_count=5,
+        )
+        result = await submit_to_ngch(inp, ngch_client=None)
+        assert result.submitted is False
+        assert result.failure_reason == "NGCH_CLIENT_UNAVAILABLE"
+
+    @pytest.mark.asyncio
+    async def test_confirm_acknowledgement_no_reference(self):
+        from modules.cts.workflows.activities.ngch_submission_activities import (
+            ConfirmAcknowledgementInput,
+            confirm_acknowledgement,
+        )
+        inp = ConfirmAcknowledgementInput(
+            lot_number="LOT-001",
+            bank_id="srcb",
+            ngch_reference=None,
+        )
+        result = await confirm_acknowledgement(inp, ngch_client=None)
+        assert result.acknowledged is False
+        assert result.reason == "NO_NGCH_REFERENCE"
+
+    @pytest.mark.asyncio
+    async def test_confirm_acknowledgement_no_client(self):
+        from modules.cts.workflows.activities.ngch_submission_activities import (
+            ConfirmAcknowledgementInput,
+            confirm_acknowledgement,
+        )
+        inp = ConfirmAcknowledgementInput(
+            lot_number="LOT-001",
+            bank_id="srcb",
+            ngch_reference="NGCH-REF-001",
+        )
+        result = await confirm_acknowledgement(inp, ngch_client=None)
+        assert result.acknowledged is False
+        assert result.reason == "NGCH_CLIENT_UNAVAILABLE"

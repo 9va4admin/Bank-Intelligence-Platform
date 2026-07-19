@@ -46,6 +46,26 @@ cts_agent_worker:
   min_replicas: 2                   # always 2 warm — never scale to 0
   keda_kafka_lag_threshold: 10      # scale up when Kafka lag > 10
 
+# ── KEDA ScaledObjects — Outward Clearing (BANK-CONFIGURABLE) ───────────────
+# Each outward topic gets its own ScaledObject so bursts are independent.
+# Inward KEDA (cts.inward) lives in astra-platform chart.
+keda:
+  outward_scanned:
+    enabled: true
+    min_replicas: 1
+    max_replicas: 20
+    lag_threshold: "10"
+  outward_lot_sealed:
+    enabled: true
+    min_replicas: 1
+    max_replicas: 10
+    lag_threshold: "5"
+  smb_inbound:
+    enabled: false                  # opt-in for SB banks with sub-members
+    min_replicas: 1
+    max_replicas: 50
+    lag_threshold: "10"
+
 # ── Layer 3 Threshold Seeds (HOT-RELOAD after onboarding) ───────────────────
 # These values are written to YugabyteDB at bank onboarding. Banks then adjust
 # via Admin UI maker-checker. These defaults represent ASTRA's recommended baseline.

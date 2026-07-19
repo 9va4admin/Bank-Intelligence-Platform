@@ -563,6 +563,13 @@ CTS_OUT_ENDORSEMENT_STAMPED:
   en: "Endorsement stamp applied to {instrument_id} — stamp ref {stamp_ref}."
   hi: ""
 
+CTS_OUT_ENDORSED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [lot_number, bank_id, endorsed_count]
+  en: "Lot {lot_number} for bank {bank_id} endorsed — {endorsed_count} instruments stamped."
+  hi: ""
+
 CTS_OUT_ENDORSEMENT_BATCH_COMPLETE:
   severity: INFO
   surface: [UI, AUDIT]
