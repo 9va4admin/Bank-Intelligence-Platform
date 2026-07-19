@@ -54,7 +54,7 @@ try:
     )
 
     AUDIT_RETRY = RetryPolicy(
-        maximum_attempts=None,
+        maximum_attempts=0,
         initial_interval=timedelta(seconds=1),
         maximum_interval=timedelta(minutes=5),
     )
