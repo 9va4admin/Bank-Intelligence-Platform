@@ -881,6 +881,19 @@
       "stamp_ref"
     ]
   },
+  "CTS_OUT_ENDORSED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "lot_number",
+      "bank_id",
+      "endorsed_count"
+    ]
+  },
   "CTS_OUT_ENDORSEMENT_BATCH_COMPLETE": {
     "text": "",
     "severity": "INFO",

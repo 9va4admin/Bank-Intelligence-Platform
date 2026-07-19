@@ -190,11 +190,13 @@ class TestRunWorkerHappyPath:
 
         # Mock config_service
         mock_cfg = MagicMock()
-        mock_cfg.get = MagicMock(side_effect=lambda k: {
+        _platform_values = {
             "temporal.address": "localhost:7233",
             "temporal.namespace": "default",
             "platform.version": "1.0.0",
-        }.get(k, "mock-value"))
+        }
+        mock_cfg.get = MagicMock(side_effect=lambda k: _platform_values.get(k, "mock-value"))
+        mock_cfg.get_platform = MagicMock(side_effect=lambda k: _platform_values.get(k, "mock-value"))
 
         # Mock Client.connect to return a mock client
         mock_client = MagicMock()

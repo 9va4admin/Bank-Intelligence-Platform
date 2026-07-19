@@ -78,6 +78,8 @@ from modules.cts.workflows.smb_forwarding_workflow import SMBForwardingWorkflow
 from modules.cts.workflows.smb_cheque_processing_workflow import SMBChequeProcessingWorkflow
 from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
 from modules.cts.workflows.mismatch_resolution_workflow import MismatchResolutionWorkflow
+from modules.cts.workflows.batch_endorsement_workflow import BatchEndorsementWorkflow
+from modules.cts.workflows.ngch_submission_workflow import NGCHSubmissionWorkflow
 
 from modules.cts.workflows.activities.ocr import ocr_extract
 from modules.cts.workflows.activities.alteration import detect_alteration
@@ -119,6 +121,15 @@ from modules.cts.workflows.activities.outward_scan_activities import (
     run_vision_presentment_check,
 )
 from modules.cts.workflows.mismatch_resolution_workflow import publish_mismatch_hold
+from modules.cts.workflows.activities.batch_endorsement_activities import (
+    stamp_endorsement,
+    update_lot_status,
+)
+from modules.cts.workflows.activities.ngch_submission_activities import (
+    build_ngch_file,
+    submit_to_ngch,
+    confirm_acknowledgement,
+)
 from modules.cts.worker_activities import build_bound_activities
 
 ALL_WORKFLOWS = [
@@ -131,6 +142,8 @@ ALL_WORKFLOWS = [
     SMBChequeProcessingWorkflow,
     OutwardScanWorkflow,
     MismatchResolutionWorkflow,
+    BatchEndorsementWorkflow,
+    NGCHSubmissionWorkflow,
 ]
 
 # Every registered CTS activity name, for reference/introspection. This list
@@ -172,6 +185,11 @@ ALL_ACTIVITIES = [
     create_lot_entry,
     run_vision_presentment_check,
     publish_mismatch_hold,
+    stamp_endorsement,
+    update_lot_status,
+    build_ngch_file,
+    submit_to_ngch,
+    confirm_acknowledgement,
 ]
 
 # Activities that take no injectable external dependency — pure computation

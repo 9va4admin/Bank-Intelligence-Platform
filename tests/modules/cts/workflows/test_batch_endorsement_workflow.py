@@ -103,6 +103,87 @@ class TestBatchEndorsementHappyPath:
         assert result.failed_count == 0
 
 
+class TestBatchEndorsementTemporalDecorators:
+    def test_workflow_defn_decorator(self):
+        """@workflow.defn must be present for Temporal worker registration."""
+        from modules.cts.workflows.batch_endorsement_workflow import BatchEndorsementWorkflow
+        assert hasattr(BatchEndorsementWorkflow, "__temporal_workflow_definition")
+
+    def test_run_method_exists(self):
+        from modules.cts.workflows.batch_endorsement_workflow import BatchEndorsementWorkflow
+        assert callable(getattr(BatchEndorsementWorkflow, "run", None))
+
+
+class TestBatchEndorsementWriteAuditEvents:
+    def test_endorsed_event_type_registered(self):
+        from modules.cts.workflows.activities.write_audit import _VALID_EVENT_TYPES
+        assert "CTS_OUT_ENDORSED" in _VALID_EVENT_TYPES
+
+    def test_endorsement_failed_event_type_registered(self):
+        from modules.cts.workflows.activities.write_audit import _VALID_EVENT_TYPES
+        assert "CTS_OUT_ENDORSEMENT_FAILED" in _VALID_EVENT_TYPES
+
+
+class TestBatchEndorsementActivities:
+    @pytest.mark.asyncio
+    async def test_stamp_endorsement_no_lot_store(self):
+        from modules.cts.workflows.activities.batch_endorsement_activities import (
+            StampEndorsementInput,
+            stamp_endorsement,
+        )
+        inp = StampEndorsementInput(
+            lot_number="LOT-001",
+            bank_id="srcb",
+            bank_ifsc="SRCB0000001",
+            instrument_ids=["INS-001", "INS-002"],
+        )
+        result = await stamp_endorsement(inp, lot_store=None)
+        assert result.endorsed_count == 0
+        assert result.failed_count == 2
+
+    @pytest.mark.asyncio
+    async def test_update_lot_status_no_db(self):
+        from modules.cts.workflows.activities.batch_endorsement_activities import (
+            UpdateLotStatusInput,
+            update_lot_status,
+        )
+        inp = UpdateLotStatusInput(
+            lot_number="LOT-001",
+            bank_id="srcb",
+            outcome="ENDORSED",
+            endorsed_count=3,
+            failed_count=0,
+        )
+        result = await update_lot_status(inp, db_pool=None)
+        assert result.updated is False
+        assert result.outcome == "ENDORSED"
+
+    @pytest.mark.asyncio
+    async def test_update_lot_status_with_db(self):
+        from unittest.mock import AsyncMock, MagicMock
+        from modules.cts.workflows.activities.batch_endorsement_activities import (
+            UpdateLotStatusInput,
+            update_lot_status,
+        )
+        mock_conn = AsyncMock()
+        mock_pool = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        inp = UpdateLotStatusInput(
+            lot_number="LOT-001",
+            bank_id="srcb",
+            outcome="ENDORSED",
+            endorsed_count=3,
+            failed_count=0,
+        )
+        result = await update_lot_status(inp, db_pool=mock_pool)
+        assert result.updated is True
+        mock_conn.execute.assert_awaited_once()
+        call_args = mock_conn.execute.call_args[0]
+        assert "srcb" in call_args
+
+
 class TestBatchEndorsementFailedPath:
     @pytest.mark.asyncio
     async def test_endorsement_failed_when_stamp_fails(self):

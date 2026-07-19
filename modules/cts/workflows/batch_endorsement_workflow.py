@@ -14,10 +14,32 @@ Workflow ID: cts-endorse-{bank_id}-{lot_number}  (idempotent)
 """
 from __future__ import annotations
 
+from datetime import timedelta
+from typing import Optional
+
 import structlog
 from pydantic import BaseModel, ConfigDict
+from temporalio import workflow
+from temporalio.common import RetryPolicy
 
 log = structlog.get_logger()
+
+_ENDORSEMENT_RETRY = RetryPolicy(
+    maximum_attempts=2,
+    initial_interval=timedelta(seconds=2),
+    backoff_coefficient=1.5,
+    non_retryable_error_types=["ValidationError"],
+)
+_AUDIT_RETRY = RetryPolicy(
+    maximum_attempts=0,  # unlimited
+    initial_interval=timedelta(seconds=1),
+    maximum_interval=timedelta(minutes=5),
+)
+_LOT_UPDATE_RETRY = RetryPolicy(
+    maximum_attempts=3,
+    initial_interval=timedelta(seconds=2),
+    backoff_coefficient=2.0,
+)
 
 
 class BatchEndorsementInput(BaseModel):
@@ -39,20 +61,102 @@ class BatchEndorsementResult(BaseModel):
     audit_written: bool = False
 
 
+@workflow.defn
 class BatchEndorsementWorkflow:
     def workflow_id(self, bank_id: str, lot_number: str) -> str:
         return f"cts-endorse-{bank_id}-{lot_number}"
+
+    @workflow.run
+    async def run(self, inp: BatchEndorsementInput) -> BatchEndorsementResult:
+        from modules.cts.workflows.activities.batch_endorsement_activities import (
+            StampEndorsementInput,
+            UpdateLotStatusInput,
+            stamp_endorsement,
+            update_lot_status,
+        )
+        from modules.cts.workflows.activities.write_audit import WriteAuditInput, write_audit
+
+        # Step 1: Stamp endorsement on all instruments in the lot
+        stamp_result = await workflow.execute_activity(
+            stamp_endorsement,
+            StampEndorsementInput(
+                lot_number=inp.lot_number,
+                bank_id=inp.bank_id,
+                bank_ifsc=inp.bank_ifsc,
+                instrument_ids=inp.instrument_ids,
+            ),
+            start_to_close_timeout=timedelta(seconds=120),
+            retry_policy=_ENDORSEMENT_RETRY,
+        )
+
+        outcome = (
+            "ENDORSED" if stamp_result.failed_count == 0 else "ENDORSEMENT_FAILED"
+        )
+
+        # Step 2: Update lot status in YugabyteDB
+        await workflow.execute_activity(
+            update_lot_status,
+            UpdateLotStatusInput(
+                lot_number=inp.lot_number,
+                bank_id=inp.bank_id,
+                outcome=outcome,
+                endorsed_count=stamp_result.endorsed_count,
+                failed_count=stamp_result.failed_count,
+            ),
+            start_to_close_timeout=timedelta(seconds=15),
+            retry_policy=_LOT_UPDATE_RETRY,
+        )
+
+        # Step 3: Audit — written for ALL outcomes
+        event_type = (
+            "CTS_OUT_ENDORSED" if outcome == "ENDORSED" else "CTS_OUT_ENDORSEMENT_FAILED"
+        )
+        await workflow.execute_activity(
+            write_audit,
+            WriteAuditInput(
+                event_type=event_type,
+                bank_id=inp.bank_id,
+                instrument_id=inp.lot_number,  # lot_number as correlation key
+                payload={
+                    "lot_number": inp.lot_number,
+                    "bank_ifsc": inp.bank_ifsc,
+                    "session_id": inp.session_id,
+                    "outcome": outcome,
+                    "endorsed_count": stamp_result.endorsed_count,
+                    "failed_count": stamp_result.failed_count,
+                    "failed_instrument_ids": stamp_result.failed_instrument_ids,
+                },
+            ),
+            start_to_close_timeout=timedelta(seconds=15),
+            retry_policy=_AUDIT_RETRY,
+        )
+
+        log.info(
+            "batch_endorsement_workflow.complete",
+            lot_number=inp.lot_number,
+            bank_id=inp.bank_id,
+            outcome=outcome,
+            endorsed_count=stamp_result.endorsed_count,
+            failed_count=stamp_result.failed_count,
+        )
+
+        return BatchEndorsementResult(
+            outcome=outcome,
+            lot_number=inp.lot_number,
+            bank_id=inp.bank_id,
+            endorsed_count=stamp_result.endorsed_count,
+            failed_count=stamp_result.failed_count,
+            audit_written=True,
+        )
 
     async def run_with_mocks(
         self,
         inp: BatchEndorsementInput,
         mock_results: dict,
     ) -> BatchEndorsementResult:
-        # Step 1: Endorsement stamping
         endorsement_result = mock_results["endorsement"]
         failed_count = getattr(endorsement_result, "failed_count", 0)
 
-        # Step 2: Lot status update
         lot_status = mock_results["lot_status"]
         outcome = getattr(lot_status, "outcome", "ENDORSED")
 
@@ -67,7 +171,6 @@ class BatchEndorsementWorkflow:
             failed_count=failed_count,
         )
 
-        # Step 3: Audit — write for ALL outcomes
         await self._write_audit(mock_results, outcome, inp)
 
         return BatchEndorsementResult(

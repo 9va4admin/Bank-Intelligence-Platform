@@ -28,6 +28,7 @@ from apps.eeh.session import (
     SessionNotFoundError,
 )
 from apps.eeh.sse import SSEPublisher, branch_sse_stream
+from apps.eeh.mismatch_bridge import MismatchKafkaBridge
 
 log = structlog.get_logger()
 
@@ -38,6 +39,7 @@ SERVICE_NAME = "eeh-service"
 
 session_manager: Optional[EEHSessionManager] = None
 sse_publisher: Optional[SSEPublisher] = None
+_mismatch_bridge: Optional[MismatchKafkaBridge] = None
 _redis = None
 _db = None
 
@@ -50,7 +52,7 @@ async def lifespan(app: FastAPI):
     Connect Redis and DB on startup; initialise session manager and SSE publisher.
     Tear down connections on shutdown.
     """
-    global session_manager, sse_publisher, _redis, _db
+    global session_manager, sse_publisher, _mismatch_bridge, _redis, _db
 
     log.info("eeh.starting", service=SERVICE_NAME)
 
@@ -84,9 +86,30 @@ async def lifespan(app: FastAPI):
         session_manager = EEHSessionManager(redis=_redis, db=_db)
         sse_publisher = SSEPublisher(redis=_redis)
 
+    # Mismatch bridge: consume cts.mismatch.* Kafka events and relay to Redis
+    # Pub/Sub so the branch SSE feed picks them up in real-time.
+    # Runs independently of session_manager — mismatch events must reach branches
+    # even if EEH session infra partially degrades.
+    if _redis is not None:
+        try:
+            from shared.config.config_service import config_service
+            bank_id = config_service.get_platform("bank_id")
+            _mismatch_bridge = MismatchKafkaBridge(
+                redis=_redis,
+                bank_id=bank_id,
+                sse_publisher=sse_publisher,
+            )
+            await _mismatch_bridge.start()
+            log.info("eeh.mismatch_bridge_started", bank_id=bank_id)
+        except Exception as exc:
+            log.warning("eeh.mismatch_bridge_failed", error=str(exc))
+            _mismatch_bridge = None
+
     yield
 
     log.info("eeh.shutting_down", service=SERVICE_NAME)
+    if _mismatch_bridge is not None:
+        await _mismatch_bridge.stop()
     if _db is not None:
         await _db.close()
     if _redis is not None:
