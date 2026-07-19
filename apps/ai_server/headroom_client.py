@@ -15,7 +15,6 @@ CCR (reversible compression) caches originals for retrieval if LLM needs detail.
 
 from __future__ import annotations
 
-import os
 import time
 import httpx
 import structlog
@@ -50,13 +49,15 @@ class HeadroomVLLMClient:
         result = await client.chat(queue="cts-vision", model="qwen2-vl-72b", messages=msgs)
     """
 
-    def __init__(self, base_url: str):
+    def __init__(self, base_url: str, api_key: str = "x-istio"):
         self._base_url = base_url
         # vLLM speaks OpenAI protocol — auth goes through Istio mTLS.
-        # SDK validates api_key is non-empty; we set a placeholder via env.
-        os.environ.setdefault("OPENAI_API_KEY", "x-istio")
+        # SDK validates api_key is non-empty; pass placeholder directly
+        # rather than polluting os.environ. Production callers should inject
+        # config_service.get_secret("vllm.api_key") if the cluster needs auth.
         self._client = AsyncOpenAI(
             base_url=base_url,
+            api_key=api_key,
             http_client=httpx.AsyncClient(verify=True),
         )
 

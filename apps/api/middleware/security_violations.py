@@ -14,6 +14,8 @@ Production extension points (annotated, not implemented here):
   - Replace SuspensionStore._suspended with a YugabyteDB UPDATE users SET suspended = true
   - The GET /v1/admin/security-violations endpoint reads from ViolationStore
 """
+import asyncio
+import json
 import time
 import uuid
 from collections import deque
@@ -30,6 +32,7 @@ from shared.auth.exceptions import (
     EngagementExpiredError,
     TenantIsolationError,
 )
+from shared.event_bus.topics import PLATFORM_NOTIFICATIONS
 
 log = structlog.get_logger()
 
@@ -174,8 +177,8 @@ class SecurityViolationMiddleware(BaseHTTPMiddleware):
                 request_id=request_id,
             )
 
-        # TODO (production): publish to platform.notifications Kafka topic so the
-        # notification-service delivers WhatsApp/email alert to bank_it_admin users.
+        # Publish to platform.notifications so bank_it_admin receives WhatsApp/email alert.
+        await self._publish_violation_alert(request, event, is_suspension_event)
 
         error_code = "SECURITY_VIOLATION" if is_suspension_event else "ACCESS_DENIED"
         message = (
@@ -196,9 +199,89 @@ class SecurityViolationMiddleware(BaseHTTPMiddleware):
         )
 
 
+    async def _publish_violation_alert(
+        self,
+        request: Request,
+        event: dict,
+        is_suspension: bool,
+    ) -> None:
+        """
+        Fire-and-forget: publish a security violation notification to Kafka and
+        persist the event to YugabyteDB (platform.security_violations).
+        Never raises — violation handling must never fail silently just because
+        the Kafka producer or DB pool is unavailable.
+        """
+        # 1. Kafka publish → platform.notifications topic
+        producer = getattr(request.app.state, "kafka_producer", None)
+        if producer is not None:
+            try:
+                notification = {
+                    "notification_id": event["id"],
+                    "bank_id": event["bank_id"],
+                    "sb_bank_id": event["sb_bank_id"],
+                    "channel": "whatsapp",
+                    "template_id": (
+                        "security.isolation_violation" if is_suspension
+                        else "security.access_denied"
+                    ),
+                    "priority": "P0" if is_suspension else "P1",
+                    "recipient_role": "bank_it_admin",
+                    "context": {
+                        "violation_type": event["violation_type"],
+                        "user_id": event["user_id"],
+                        "endpoint": event["endpoint"],
+                        "incident_id": event["id"],
+                        "suspended": is_suspension,
+                    },
+                    "schema_version": "1.0",
+                }
+                await producer.send_and_wait(
+                    PLATFORM_NOTIFICATIONS,
+                    value=json.dumps(notification).encode(),
+                    key=event["id"].encode(),
+                )
+            except Exception as exc:
+                log.warning("security.alert.kafka_failed", incident_id=event["id"], error=str(exc))
+
+        # 2. YugabyteDB persist — platform.security_violations table
+        pool = getattr(request.app.state, "db_pool_platform", None)
+        if pool is not None:
+            try:
+                async with pool.acquire() as conn:
+                    await conn.execute(
+                        """
+                        INSERT INTO platform.security_violations (
+                            violation_id, bank_id, sb_bank_id, user_id, role,
+                            bank_type, violation_type, suspended, endpoint, method,
+                            client_ip, detail, request_id, occurred_at
+                        ) VALUES (
+                            $1, $2, $3, $4, $5,
+                            $6, $7, $8, $9, $10,
+                            $11, $12, $13, NOW()
+                        )
+                        ON CONFLICT (violation_id) DO NOTHING
+                        """,
+                        event["id"],
+                        event["bank_id"],
+                        event["sb_bank_id"],
+                        event["user_id"],
+                        event["role"],
+                        event["bank_type"],
+                        event["violation_type"],
+                        event["suspended"],
+                        event["endpoint"],
+                        event["method"],
+                        event["client_ip"],
+                        event["detail"][:512],
+                        event["request_id"],
+                    )
+            except Exception as exc:
+                log.warning("security.alert.db_failed", incident_id=event["id"], error=str(exc))
+
+
 def _iso_now() -> str:
-    import datetime
-    return datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
 def _resolve_sb_bank_id(user_ctx) -> str:

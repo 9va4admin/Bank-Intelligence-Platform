@@ -127,9 +127,47 @@ async def validate_signatures(
         user_id=ctx.user_id,
     )
 
-    # In production: get orchestrator from app.state, run MSVValidationWorkflow
-    # For now: return a stub AMBER response (orchestrator not wired into DI yet)
-    # The workflow integration is done in worker.py + Temporal client
+    # Start MSVValidationWorkflow via Temporal client when available.
+    temporal_client = getattr(request.app.state, "temporal_client", None)
+    if temporal_client is not None:
+        try:
+            from modules.msv.workflows.msv_workflow import MSVValidationWorkflow, MSVWorkflowInput
+            workflow_id = f"msv-{body.bank_id}-{body.instrument_id}"
+            handle = await temporal_client.start_workflow(
+                MSVValidationWorkflow.run,
+                MSVWorkflowInput(
+                    instrument_id=body.instrument_id,
+                    bank_id=body.bank_id,
+                    account_number=body.account_number,
+                    cheque_image_url=body.cheque_image_url,
+                ),
+                id=workflow_id,
+                task_queue=f"msv-processing-{body.bank_id}",
+            )
+            log.info(
+                "msv.workflow.started",
+                workflow_id=workflow_id,
+                instrument_id=body.instrument_id,
+            )
+            return MSVValidateResponse(
+                instrument_id=body.instrument_id,
+                outcome="AMBER",
+                confidence=0.0,
+                reason_code="WORKFLOW_STARTED",
+                reason_message=(
+                    f"MSV workflow {workflow_id} started. "
+                    "Poll /v1/msv/status/{instrument_id} for result."
+                ),
+                matched_signatories=[],
+                detected_sig_count=0,
+                mandate_rule_type="UNKNOWN",
+                audit_tx_id=None,
+                request_id=request_id,
+            )
+        except Exception as exc:
+            log.error("msv.workflow.start_failed", instrument_id=body.instrument_id, error=str(exc))
+
+    # Temporal not available — return pending stub so the caller knows to poll
     return MSVValidateResponse(
         instrument_id=body.instrument_id,
         outcome="AMBER",
