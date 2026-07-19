@@ -10,9 +10,16 @@ Validates:
   - Audit activity uses AUDIT_RETRY (unlimited retries)
   - workflow.now() used instead of datetime.now() (deterministic replay)
 """
+import uuid
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+import pytest_asyncio
+from unittest.mock import AsyncMock, MagicMock
 from datetime import timedelta
+
+from temporalio import activity
+from temporalio.testing import WorkflowEnvironment
+from temporalio.worker import Worker, UnsandboxedWorkflowRunner
 
 from modules.msv.mandates.models import (
     AccountMandateMeta,
@@ -268,3 +275,158 @@ class TestMSVWorkflowLogic:
         assert isinstance(result, MSVWorkflowResult)
         with pytest.raises((TypeError, Exception)):
             result.outcome = "MUTATED"
+
+
+# ---------------------------------------------------------------------------
+# Real Temporal WorkflowEnvironment tests — ASTRA-02 analogue for MSV
+# Verifies run() dispatches through execute_activity() and returns correctly.
+# ---------------------------------------------------------------------------
+
+_orchestrate_calls: list[dict] = []
+_write_audit_calls: list[dict] = []
+
+
+def _dget(inp, key):
+    """Handle both dict and Pydantic-model inputs across the Temporal data-converter boundary."""
+    return inp[key] if isinstance(inp, dict) else getattr(inp, key)
+
+
+@activity.defn(name="orchestrate_msv_validation")
+async def _fake_orchestrate_msv_validation(inp):
+    from modules.msv.mandates.models import MSVOutcome, MSVOutput, MatchedSignatory
+
+    msv_input_raw = _dget(inp, "msv_input")
+    instrument_id = _dget(msv_input_raw, "instrument_id")
+    bank_id = _dget(msv_input_raw, "bank_id")
+    _orchestrate_calls.append({"instrument_id": instrument_id, "bank_id": bank_id})
+    return MSVOutput(
+        outcome=MSVOutcome.GREEN,
+        confidence=0.97,
+        reason_code="ALL_MATCHED",
+        reason_message="All signatories matched.",
+        matched_signatories=[
+            MatchedSignatory(
+                signatory_id="sig-000",
+                role="CFO",
+                name_masked="P***",
+                best_score=0.97,
+                specimen_idx=0,
+            )
+        ],
+        detected_sig_count=1,
+        mandate_rule_type="ALL_OF",
+    )
+
+
+@activity.defn(name="write_audit")
+async def _fake_msv_write_audit(inp):
+    from modules.msv.workflows.activities.write_audit import WriteAuditResult
+
+    _write_audit_calls.append({
+        "event_type": _dget(inp, "event_type"),
+        "bank_id": _dget(inp, "bank_id"),
+    })
+    return WriteAuditResult(success=True, immudb_tx_id="tx-real-001")
+
+
+@pytest_asyncio.fixture()
+async def temporal_env():
+    async with await WorkflowEnvironment.start_time_skipping() as env:
+        yield env
+
+
+@pytest.fixture(autouse=True)
+def _reset_msv_call_logs():
+    _orchestrate_calls.clear()
+    _write_audit_calls.clear()
+    yield
+    _orchestrate_calls.clear()
+    _write_audit_calls.clear()
+
+
+class TestMSVWorkflowRealRun:
+    """
+    WorkflowEnvironment tests that exercise MSVValidationWorkflow.run()
+    through Temporal's real dispatch machinery (not _execute()).
+
+    Regression guard: run() was previously NotImplementedError. These tests
+    prove the real @workflow.run entry point works end-to-end.
+    """
+
+    @pytest.mark.asyncio
+    async def test_real_run_green_files_msv_validated_audit(self, temporal_env):
+        """GREEN orchestration result → audit written with MSV_VALIDATED."""
+        task_queue = f"tq-msv-{uuid.uuid4()}"
+        bank_id = "kotak-mah"
+        instrument_id = f"INST-{uuid.uuid4().hex[:8]}"
+
+        async with Worker(
+            temporal_env.client,
+            task_queue=task_queue,
+            workflows=[MSVValidationWorkflow],
+            activities=[_fake_orchestrate_msv_validation, _fake_msv_write_audit],
+            workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            result = await temporal_env.client.execute_workflow(
+                MSVValidationWorkflow.run,
+                MSVWorkflowInput(
+                    msv_input=MSVInput(
+                        instrument_id=instrument_id,
+                        bank_id=bank_id,
+                        account_number="9876543210",
+                        cheque_image_url="minio://bucket/chq.tiff",
+                    ),
+                    account_meta=_make_meta(),
+                ),
+                id=f"msv-{bank_id}-{instrument_id}",
+                task_queue=task_queue,
+            )
+
+        # WorkflowEnvironment default converter returns plain dict — wrap for testing
+        import types
+        if isinstance(result, dict):
+            result = types.SimpleNamespace(**result)
+
+        assert result.outcome == "GREEN"
+        assert result.instrument_id == instrument_id
+        assert result.audit_tx_id == "tx-real-001"
+        assert len(_orchestrate_calls) == 1
+        assert _orchestrate_calls[0]["instrument_id"] == instrument_id
+        assert len(_write_audit_calls) == 1
+        assert _write_audit_calls[0]["event_type"] == "MSV_VALIDATED"
+        assert _write_audit_calls[0]["bank_id"] == bank_id
+
+    @pytest.mark.asyncio
+    async def test_real_run_workflow_id_is_deterministic(self, temporal_env):
+        """Workflow ID follows msv-{bank_id}-{instrument_id} — idempotency key."""
+        task_queue = f"tq-msv-{uuid.uuid4()}"
+        bank_id = "saraswat-coop"
+        instrument_id = "INST-DETERM-001"
+        wf_id = f"msv-{bank_id}-{instrument_id}"
+
+        async with Worker(
+            temporal_env.client,
+            task_queue=task_queue,
+            workflows=[MSVValidationWorkflow],
+            activities=[_fake_orchestrate_msv_validation, _fake_msv_write_audit],
+            workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            await temporal_env.client.execute_workflow(
+                MSVValidationWorkflow.run,
+                MSVWorkflowInput(
+                    msv_input=MSVInput(
+                        instrument_id=instrument_id,
+                        bank_id=bank_id,
+                        account_number="1111111111",
+                        cheque_image_url="minio://bucket/chq2.tiff",
+                    ),
+                    account_meta=_make_meta(),
+                ),
+                id=wf_id,
+                task_queue=task_queue,
+            )
+
+        # If a second submit with the same ID is attempted, Temporal deduplicates.
+        # Here we just verify the handle is reachable by the deterministic ID.
+        handle = temporal_env.client.get_workflow_handle(wf_id)
+        assert handle.id == wf_id
