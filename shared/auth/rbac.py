@@ -208,7 +208,7 @@ class UserContext(BaseModel):
     role: Role
     bank_id: str
     bank_type: BankType = BankType.SB           # default SB for backward compat
-    permission_level: PermissionLevel = PermissionLevel.EDIT  # default EDIT for backward compat
+    permission_level: PermissionLevel = PermissionLevel.READ_ONLY  # least-privilege default
     clearing_zones: list[str] = Field(default_factory=list)
     engagement_expires_at: Optional[float] = None
     engagement_date_from: Optional[str] = None
