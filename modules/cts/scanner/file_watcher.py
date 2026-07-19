@@ -71,6 +71,8 @@ class WatcherConfig:
     kafka_topic:              str          # cts.outward.scanned.{bank_id}.{pu_id}
     archive_dir:              Optional[Path] = None   # defaults to drop_folder/processed
     error_dir:                Optional[Path] = None   # defaults to drop_folder/error
+    minio_store:              Optional[Any] = None    # MinioObjectStore; None → no upload
+    minio_bucket:             str = "cts-cheques"    # MinIO bucket for cheque images
 
     def __post_init__(self) -> None:
         if self.archive_dir is None:
@@ -104,6 +106,7 @@ class BatchScannedEvent:
     scan_ids:          list[str]
     oem:               ScannerOEM
     scanned_at:        datetime = field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    per_scan_data:     list[dict] = field(default_factory=list)
 
     def to_kafka_payload(self) -> str:
         return json.dumps({
@@ -117,6 +120,7 @@ class BatchScannedEvent:
             "scan_ids": self.scan_ids,
             "oem": self.oem.value,
             "scanned_at": self.scanned_at.isoformat(),
+            "per_scan_data": self.per_scan_data,
         })
 
 
@@ -223,6 +227,7 @@ class DropFolderWatcher:
         source_path: Path,
     ) -> None:
         batch_id = instruments[0].batch_id if instruments else source_path.stem
+        per_scan_data = await self._upload_images(instruments)
         event = BatchScannedEvent(
             event_id=f"BSE-{uuid.uuid4().hex[:12].upper()}",
             bank_id=self._cfg.bank_id,
@@ -233,12 +238,65 @@ class DropFolderWatcher:
             kafka_topic=self._cfg.kafka_topic,
             scan_ids=[i.scan_id for i in instruments],
             oem=instruments[0].oem if instruments else ScannerOEM.GENERIC,
+            per_scan_data=per_scan_data,
         )
         await self._kafka.send(
             self._cfg.kafka_topic,
             value=event.to_kafka_payload().encode("utf-8"),
             key=f"{self._cfg.bank_id}:{self._cfg.branch_id}".encode("utf-8"),
         )
+
+    async def _upload_images(
+        self, instruments: list[ScannedChequeInput]
+    ) -> list[dict]:
+        """
+        Upload front/rear TIFF images to MinIO for each instrument.
+
+        Returns per_scan_data list regardless of whether MinIO is configured:
+          - With MinIO: includes image_front_url and image_rear_url
+          - Without MinIO: includes only scan_id (graceful degradation)
+
+        The minio:// URL scheme is a logical reference understood by
+        OutwardScanWorkflow and OutwardScanTrigger — the bucket + object_key
+        composite. Actual HTTP presigned URLs are generated at display time.
+        """
+        per_scan_data: list[dict] = []
+
+        for instrument in instruments:
+            entry: dict = {"scan_id": instrument.scan_id}
+
+            if self._cfg.minio_store is not None:
+                bucket = self._cfg.minio_bucket
+                prefix = (
+                    f"{self._cfg.bank_id}/outward/"
+                    f"{self._cfg.pu_id}/{instrument.scan_id}"
+                )
+                try:
+                    if instrument.image_color_path and instrument.image_color_path.exists():
+                        front_data = instrument.image_color_path.read_bytes()
+                        front_key = await self._cfg.minio_store.upload_bytes(
+                            bucket, f"{prefix}/front.tif", front_data, "image/tiff"
+                        )
+                        entry["image_front_url"] = f"minio://{bucket}/{front_key}"
+
+                    if instrument.image_rear_path and instrument.image_rear_path.exists():
+                        rear_data = instrument.image_rear_path.read_bytes()
+                        rear_key = await self._cfg.minio_store.upload_bytes(
+                            bucket, f"{prefix}/rear.tif", rear_data, "image/tiff"
+                        )
+                        entry["image_rear_url"] = f"minio://{bucket}/{rear_key}"
+
+                except Exception as exc:
+                    log.warning(
+                        "drop_folder.minio_upload_failed",
+                        scan_id=instrument.scan_id,
+                        bank_id=self._cfg.bank_id,
+                        error=str(exc),
+                    )
+
+            per_scan_data.append(entry)
+
+        return per_scan_data
 
     # ── Internal: file management ─────────────────────────────────────────────
 

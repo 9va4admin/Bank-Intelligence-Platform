@@ -257,3 +257,148 @@ def test_create_grpc_server_returns_server():
         port=50051,
     )
     assert server is not None
+
+
+# ── 7. UploadCheque — MinIO + Kafka wiring (RED: these pass once wired) ───────
+
+def test_eeh_servicer_accepts_kafka_producer_kwarg():
+    """EEHServicer must accept kafka_producer as optional kwarg."""
+    from apps.eeh.grpc_server import EEHServicer
+    from apps.eeh.session import EEHSessionManager
+
+    svc = EEHServicer(
+        session_manager=MagicMock(spec=EEHSessionManager),
+        sse_publisher=MagicMock(),
+        db=AsyncMock(),
+        kafka_producer=MagicMock(),
+    )
+    assert svc is not None
+
+
+def test_eeh_servicer_accepts_minio_store_kwarg():
+    """EEHServicer must accept minio_store as optional kwarg."""
+    from apps.eeh.grpc_server import EEHServicer
+    from apps.eeh.session import EEHSessionManager
+
+    svc = EEHServicer(
+        session_manager=MagicMock(spec=EEHSessionManager),
+        sse_publisher=MagicMock(),
+        db=AsyncMock(),
+        minio_store=AsyncMock(),
+    )
+    assert svc is not None
+
+
+def _make_session_db_mock(bank_id: str = "sb1") -> AsyncMock:
+    """Returns a db mock with fetchrow returning a valid ACTIVE session row."""
+    mock_db = AsyncMock()
+    mock_db.fetchrow = AsyncMock(return_value={
+        "session_id": "sess-001",
+        "bank_id": bank_id,
+        "branch_id": "b1",
+        "operator_id": "op1",
+        "cert_fingerprint": "fp1",
+        "hub_type": "EEH",
+        "status": "ACTIVE",
+        "clearing_date": "2026-07-19",
+        "opened_at": "2026-07-19T10:00:00+00:00",
+        "expires_at": "2026-07-19T16:00:00+00:00",
+        "total_uploaded": 0,
+        "total_accepted": 0,
+        "total_rejected": 0,
+    })
+    return mock_db
+
+
+@pytest.mark.asyncio
+async def test_upload_cheque_publishes_to_kafka_when_producer_injected():
+    """UploadCheque must publish to cts.outward.scanned.{bank_id} when kafka_producer given."""
+    from apps.eeh.grpc_server import EEHServicer
+
+    mock_kafka = MagicMock()
+    mock_kafka.send = AsyncMock(return_value=None)
+
+    svc = EEHServicer(
+        session_manager=AsyncMock(),
+        sse_publisher=AsyncMock(),
+        db=_make_session_db_mock(),
+        kafka_producer=mock_kafka,
+    )
+
+    mock_request = MagicMock()
+    mock_request.session_id = "sess-001"
+    mock_request.scan_id = "S1"
+    mock_request.image_front = b"\xff\xd8\xff"
+    mock_request.image_rear = b"\xff\xd8\xff"
+
+    async def mock_request_iter():
+        yield mock_request
+
+    acks = []
+    async for ack in svc.UploadCheque(mock_request_iter(), MagicMock()):
+        acks.append(ack)
+
+    assert len(acks) == 1
+    assert acks[0].status == "ACCEPTED"
+    mock_kafka.send.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_upload_cheque_uploads_to_minio_when_store_injected():
+    """UploadCheque must upload front/rear images to MinIO when minio_store given."""
+    from apps.eeh.grpc_server import EEHServicer
+
+    mock_minio = AsyncMock()
+    mock_minio.upload_bytes = AsyncMock(return_value="sb1/outward/S1/front.tif")
+
+    svc = EEHServicer(
+        session_manager=AsyncMock(),
+        sse_publisher=AsyncMock(),
+        db=_make_session_db_mock(),
+        minio_store=mock_minio,
+    )
+
+    mock_request = MagicMock()
+    mock_request.session_id = "sess-001"
+    mock_request.scan_id = "S1"
+    mock_request.image_front = b"\xff\xd8\xff"
+    mock_request.image_rear = b"\xff\xd8\xff"
+
+    async def mock_request_iter():
+        yield mock_request
+
+    acks = []
+    async for ack in svc.UploadCheque(mock_request_iter(), MagicMock()):
+        acks.append(ack)
+
+    assert acks[0].status == "ACCEPTED"
+    mock_minio.upload_bytes.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_upload_cheque_still_accepts_without_kafka_or_minio():
+    """UploadCheque must not crash when neither kafka_producer nor minio_store are injected."""
+    from apps.eeh.grpc_server import EEHServicer
+
+    svc = EEHServicer(
+        session_manager=AsyncMock(),
+        sse_publisher=AsyncMock(),
+        db=_make_session_db_mock(),
+        # no kafka_producer, no minio_store
+    )
+
+    mock_request = MagicMock()
+    mock_request.session_id = "sess-001"
+    mock_request.scan_id = "S1"
+    mock_request.image_front = b"\xff\xd8\xff"
+    mock_request.image_rear = b"\xff\xd8\xff"
+
+    async def mock_request_iter():
+        yield mock_request
+
+    acks = []
+    async for ack in svc.UploadCheque(mock_request_iter(), MagicMock()):
+        acks.append(ack)
+
+    assert len(acks) == 1
+    assert acks[0].status == "ACCEPTED"
