@@ -4,9 +4,12 @@ NotificationDispatcher — routes notification requests to the correct channel.
 Supported channels: email (Postal SMTP), whatsapp (Meta Business API).
 Channel implementations are injected at startup — dispatcher is channel-agnostic.
 
+Debouncer (optional): wire in a NotificationDebouncer to prevent storms.
+P0 events are never debounced regardless of config.
+
 Usage:
     dispatcher = NotificationDispatcher(bank_id=bank_id)
-    dispatcher.connect(email_config=..., whatsapp_config=...)
+    dispatcher.connect(email_channel=..., whatsapp_channel=..., debouncer=debouncer)
     await dispatcher.send(NotificationRequest(
         channel="email",
         recipient="ops@bank.com",
@@ -14,12 +17,11 @@ Usage:
         context={"instrument_id": "instr-001"},
     ))
 """
-import asyncio
 import uuid
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 import structlog
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from shared.notifications.exceptions import NotificationDeliveryError
 
@@ -36,6 +38,10 @@ class NotificationRequest(BaseModel):
     template_id: str
     context: dict[str, Any]
     notification_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    # Debounce attributes — set by caller when event comes from the notification pipeline
+    smb_id: Optional[str] = None
+    event_category: Optional[str] = None
+    priority: str = "P2"                # P0 = never debounced; P1/P2/P3 subject to debounce
 
 
 class NotificationDispatcher:
@@ -44,13 +50,60 @@ class NotificationDispatcher:
         self._email = None
         self._whatsapp = None
         self._bell = None
+        self._debouncer = None
 
-    def connect(self, email_channel=None, whatsapp_channel=None, bell_channel=None) -> None:
+    def connect(
+        self,
+        email_channel=None,
+        whatsapp_channel=None,
+        bell_channel=None,
+        debouncer=None,
+    ) -> None:
         self._email = email_channel
         self._whatsapp = whatsapp_channel
         self._bell = bell_channel
+        self._debouncer = debouncer
 
     async def send(self, request: NotificationRequest) -> dict[str, Any]:
+        # ── Debounce check (Gemini Fix E) ────────────────────────────────────
+        if self._debouncer is not None and request.event_category:
+            from shared.notifications.debouncer import NotificationEvent
+
+            decision = self._debouncer.check_and_record(
+                NotificationEvent(
+                    bank_id=self._bank_id,
+                    smb_id=request.smb_id,
+                    event_category=request.event_category,
+                    priority=request.priority,
+                    payload=request.context,
+                )
+            )
+            if decision.action == "SUPPRESS":
+                log.debug(
+                    "notification.debounced",
+                    event_category=request.event_category,
+                    bank_id=self._bank_id,
+                    suppressed_count=decision.suppressed_count,
+                )
+                return {
+                    "notification_id": request.notification_id,
+                    "channel": request.channel,
+                    "status": "suppressed",
+                    "debounce_action": "SUPPRESS",
+                }
+            if decision.action == "EMIT_SUMMARY" and decision.summary_payload:
+                log.info(
+                    "notification.debounce_summary",
+                    event_category=request.event_category,
+                    bank_id=self._bank_id,
+                    count=decision.suppressed_count,
+                )
+                # Replace the individual notification context with the summary payload
+                request = request.model_copy(
+                    update={"context": decision.summary_payload}
+                )
+
+        # ── Dispatch to channel ───────────────────────────────────────────────
         channel = self._get_channel(request.channel)
         try:
             result = await channel.send(request)

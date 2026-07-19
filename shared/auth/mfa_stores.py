@@ -7,7 +7,6 @@ Both implement the TOTPSecretStore protocol from shared.auth.mfa.
 """
 from __future__ import annotations
 
-import os
 from typing import Optional
 
 import structlog
@@ -56,16 +55,12 @@ class VaultTOTPSecretStore:
 
     def _ensure_client(self):
         if self._vault is None:
-            import hvac
-            vault_addr = os.environ.get("VAULT_ADDR", "")
-            vault_token = os.environ.get("VAULT_TOKEN", "")
-            if not vault_addr or not vault_token:
-                raise RuntimeError(
-                    "VAULT_ADDR / VAULT_TOKEN not set — Vault agent sidecar not running. "
-                    "Pass vault_client=config_service.get_vault_client() to avoid this. "
-                    "For dev/CI use ASTRA_SECRETS_BACKEND=env and the in-memory fallback."
-                )
-            self._vault = hvac.Client(url=vault_addr, token=vault_token)
+            raise RuntimeError(
+                "VaultTOTPSecretStore requires a Vault client — "
+                "pass vault_client=config_service.get_vault_client() at construction time. "
+                "Only shared/config/config_service.py may read VAULT_ADDR / VAULT_TOKEN. "
+                "For dev/CI, use InMemoryTOTPSecretStore instead."
+            )
         return self._vault
 
     def _path(self, user_id: str) -> str:

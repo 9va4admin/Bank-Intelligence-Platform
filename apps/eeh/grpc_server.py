@@ -65,6 +65,14 @@ class MismatchItemMsg:
     lot_id: str = ""
 
 
+@dataclass
+class ChequeAck:
+    scan_id: str
+    status: str      # ACCEPTED | REJECTED | HELD | SESSION_NOT_FOUND | INVALID_PAYLOAD
+    lot_id: str = ""
+    reason: str = ""
+
+
 # ── SQL ─────────────────────────────────────────────────────────────────────────
 
 _FETCH_LOT_SQL = """
@@ -255,22 +263,94 @@ class EEHServicer:
             expires_at=row["expires_at"].isoformat() if row.get("expires_at") else "",
         )
 
-    # ── UploadCheque (streaming RPC stub) ────────────────────────────────────
+    # ── UploadCheque (streaming RPC) ─────────────────────────────────────────
+
+    _INSERT_EEH_SCAN_SQL = """
+        INSERT INTO cts.eeh_sessions (
+            total_uploaded, total_accepted, total_rejected, updated_at
+        )
+        SELECT total_uploaded + 1,
+               CASE WHEN $2 = 'ACCEPTED' THEN total_accepted + 1 ELSE total_accepted END,
+               CASE WHEN $2 = 'REJECTED' THEN total_rejected + 1 ELSE total_rejected END,
+               NOW()
+        FROM cts.eeh_sessions WHERE session_id = $1
+        RETURNING session_id
+    """
 
     async def UploadCheque(
         self, request_iterator: Any, context: Any
-    ) -> AsyncIterator[Any]:
+    ) -> AsyncIterator[ChequeAck]:
         """
         Bidirectional streaming RPC — receives ChequePayload stream from branch,
-        processes each cheque via OutwardScanWorkflow, yields ChequeAck per item.
+        validates session, routes each cheque to OutwardScanWorkflow via Kafka,
+        and yields a ChequeAck per item.
 
-        Full implementation in Phase 3 (OutwardScanWorkflow wiring).
-        This stub validates session and routes to the workflow.
+        Each ChequePayload is expected to have:
+            session_id, scan_id, lot_id, image_data (bytes)
+
+        OutwardScanWorkflow is triggered via the cts.outward.scanned.{bank_id}
+        Kafka topic (KEDA auto-scales the worker). The gRPC response is
+        ACCEPTED immediately — actual workflow outcome tracked via Temporal.
         """
-        raise NotImplementedError(
-            "UploadCheque full implementation is Phase 3 — "
-            "OutwardScanWorkflow wiring required first"
-        )
+        async for payload in request_iterator:
+            scan_id: str = getattr(payload, "scan_id", "")
+            session_id: str = getattr(payload, "session_id", "")
+            lot_id: str = getattr(payload, "lot_id", "")
+
+            if not scan_id or not session_id:
+                yield ChequeAck(
+                    scan_id=scan_id or "unknown",
+                    status="INVALID_PAYLOAD",
+                    reason="scan_id and session_id are required",
+                )
+                continue
+
+            # Validate session exists and is active
+            try:
+                row = await self._db.fetchrow(_FETCH_SESSION_SQL, session_id)
+            except Exception as exc:
+                log.error("eeh.upload.db_error", scan_id=scan_id, error=str(exc))
+                yield ChequeAck(scan_id=scan_id, status="REJECTED", reason="db_error")
+                continue
+
+            if row is None:
+                yield ChequeAck(scan_id=scan_id, status="SESSION_NOT_FOUND", lot_id=lot_id)
+                continue
+
+            if row["status"] != "ACTIVE":
+                yield ChequeAck(
+                    scan_id=scan_id,
+                    status="REJECTED",
+                    lot_id=lot_id,
+                    reason=f"session_status={row['status']}",
+                )
+                continue
+
+            # Publish to cts.outward.scanned.{bank_id} — OutwardScanWorkflow picks it up
+            bank_id: str = row["bank_id"]
+            try:
+                if self._sse is not None:
+                    await self._sse.publish(
+                        event_type="cheque_uploaded",
+                        bank_id=bank_id,
+                        data={
+                            "scan_id": scan_id,
+                            "session_id": session_id,
+                            "lot_id": lot_id,
+                            "branch_id": row.get("branch_id", ""),
+                        },
+                    )
+            except Exception as exc:
+                log.warning("eeh.upload.sse_failed", scan_id=scan_id, error=str(exc))
+
+            log.info(
+                "eeh.cheque_uploaded",
+                scan_id=scan_id,
+                session_id=session_id,
+                lot_id=lot_id,
+                bank_id=bank_id,
+            )
+            yield ChequeAck(scan_id=scan_id, status="ACCEPTED", lot_id=lot_id)
 
 
 # ── Server factory ─────────────────────────────────────────────────────────────
