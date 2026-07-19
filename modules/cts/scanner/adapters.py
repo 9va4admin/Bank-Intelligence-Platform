@@ -14,6 +14,7 @@ from __future__ import annotations
 import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
+from typing import Optional
 
 from modules.cts.scanner.models import ScanResult, ScannerOEM
 
@@ -72,11 +73,48 @@ class PaniniAdapter(ScannerAdapter):
 
 
 class CanonAdapter(ScannerAdapter):
-    """Adapter for Canon imageFormula / CR series scanners."""
+    """Adapter for Canon imageFormula / CR series scanners (CR-120, CR-190i, etc.)."""
 
     @property
     def oem(self) -> ScannerOEM:
         return ScannerOEM.CANON
+
+    def ingest_cr120(
+        self,
+        *,
+        front_image: bytes,
+        rear_image: bytes,
+        front_dpi: int,
+        rear_dpi: int,
+        micr_hardware_raw: str,
+        imprinter_stamped: bool = False,
+        double_feed_detected: bool = False,
+        uv_image: Optional[bytes] = None,
+    ) -> ScanResult:
+        """
+        CR-120 specific ingest — captures hardware MICR, imprinter status, and
+        optional UV image alongside the standard duplex scan.
+
+        micr_hardware_raw comes directly from the Ranger Transport API
+        TransportGetMICR() call — it is the authoritative MICR source for the
+        outward path. Never log it in full (contains account number).
+
+        The base ingest() method still populates micr_raw with the same value
+        so that all downstream code that reads micr_raw continues to work
+        without change.
+        """
+        result = self.ingest(
+            front_image=front_image,
+            rear_image=rear_image,
+            front_dpi=front_dpi,
+            rear_dpi=rear_dpi,
+            micr_raw=micr_hardware_raw,
+        )
+        result.micr_hardware_raw    = micr_hardware_raw
+        result.imprinter_stamped    = imprinter_stamped
+        result.double_feed_detected = double_feed_detected
+        result.uv_image             = uv_image
+        return result
 
 
 class GenericAdapter(ScannerAdapter):

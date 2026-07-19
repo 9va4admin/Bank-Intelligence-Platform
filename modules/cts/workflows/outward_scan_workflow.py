@@ -76,6 +76,10 @@ class OutwardScanInput(BaseModel):
     front_file_size_kb: Optional[float] = None
     rear_file_size_kb: Optional[float] = None
 
+    # CR-120 hardware MICR — when present, triggers the new single-pass
+    # vision_extract_and_check path (no GOT-OCR2 call on outward side).
+    micr_hardware_raw: Optional[str] = None
+
 
 class OutwardScanResult(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -117,13 +121,26 @@ class OutwardScanWorkflow:
             validate_cts2010, CTS2010ValidationInput,
             create_lot_entry, LotAssignmentInput,
             run_vision_presentment_check, VisionPresentmentCheckInput,
+            vision_extract_and_check, VisionExtractAndCheckInput,
         )
         from modules.cts.workflows.activities.write_audit import WriteAuditInput, write_audit
         from modules.cts.workflows.mismatch_resolution_workflow import (
             MismatchResolutionWorkflow, MismatchInput,
         )
 
-        # Step 1+2: MICR + amount extraction (capture already happened upstream)
+        # ---------------------------------------------------------------------------
+        # CR-120 path: hardware MICR present — skip GOT-OCR2, use single Qwen2-VL call
+        # Legacy path: no hardware MICR — keep original ocr_extract → vision flow
+        # ---------------------------------------------------------------------------
+        if inp.micr_hardware_raw:
+            return await self._run_cr120_path(inp, validate_cts2010, CTS2010ValidationInput,
+                                               create_lot_entry, LotAssignmentInput,
+                                               vision_extract_and_check, VisionExtractAndCheckInput,
+                                               write_audit, WriteAuditInput,
+                                               MismatchResolutionWorkflow, MismatchInput)
+
+        # --- Legacy path (drop-folder / no hardware MICR) ---
+        # Step 1+2: MICR + amount extraction via GOT-OCR2
         ocr_result = await workflow.execute_activity(
             ocr_extract,
             OCRActivityInput(
@@ -136,14 +153,9 @@ class OutwardScanWorkflow:
         )
         micr_line = ocr_result.micr_line
         scanner_amount_str = ocr_result.amount_figures
-        # OCR confidence doubles as the image-quality/MICR-legibility proxy
-        # for CTS-2010 validation when the workflow doesn't separately track
-        # front_iqa_score/rear_iqa_score/micr_band_score (see
-        # outward_scan_activities.py module docstring). None when OCR
-        # degraded — validate_cts2010 then correctly fails closed.
         quality_score = None if ocr_result.degraded else ocr_result.overall_confidence
 
-        # Step 3: CTS-2010 compliance validation
+        # Step 3: CTS-2010 compliance
         compliance_result = await workflow.execute_activity(
             validate_cts2010,
             CTS2010ValidationInput(
@@ -164,131 +176,233 @@ class OutwardScanWorkflow:
         )
 
         if not compliance_result.is_compliant:
-            log.info(
-                "outward_scan_workflow.cts_rejected",
-                scan_id=inp.scan_id, bank_id=inp.bank_id,
-                violations=compliance_result.violations,
-            )
+            log.info("outward_scan_workflow.cts_rejected",
+                     scan_id=inp.scan_id, bank_id=inp.bank_id,
+                     violations=compliance_result.violations)
             await workflow.execute_activity(
                 write_audit,
-                WriteAuditInput(
-                    event_type="CTS_OUT_CTS2010_FAIL",
-                    bank_id=inp.bank_id,
-                    instrument_id=inp.instrument_id,
-                    payload={"violations": compliance_result.violations, "scan_id": inp.scan_id},
-                ),
-                start_to_close_timeout=timedelta(seconds=15),
-                retry_policy=_AUDIT_RETRY,
+                WriteAuditInput(event_type="CTS_OUT_CTS2010_FAIL", bank_id=inp.bank_id,
+                                instrument_id=inp.instrument_id,
+                                payload={"violations": compliance_result.violations,
+                                         "scan_id": inp.scan_id}),
+                start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
             )
             return OutwardScanResult(
-                outcome="CTS_REJECTED",
-                scan_id=inp.scan_id, bank_id=inp.bank_id, instrument_id=inp.instrument_id,
-                micr_line=micr_line, lot_number=None,
-                violations=list(compliance_result.violations),
-                audit_written=True, pu_id=inp.pu_id,
+                outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
+                violations=list(compliance_result.violations), audit_written=True, pu_id=inp.pu_id,
             )
 
         # Step 4: Lot assignment
         lot_result = await workflow.execute_activity(
             create_lot_entry,
-            LotAssignmentInput(
-                instrument_id=inp.instrument_id,
-                bank_ifsc=inp.bank_ifsc,
-                session_id=inp.session_id,
-            ),
-            start_to_close_timeout=timedelta(seconds=10),
-            retry_policy=_INFRA_RETRY,
+            LotAssignmentInput(instrument_id=inp.instrument_id,
+                               bank_ifsc=inp.bank_ifsc, session_id=inp.session_id),
+            start_to_close_timeout=timedelta(seconds=10), retry_policy=_INFRA_RETRY,
         )
         lot_number = lot_result.lot_number
 
-        # Step 5: Vision LLM sanity cross-check (LAST — after lot assignment)
+        # Step 5: Vision cross-check
         vision_result = None
         if scanner_amount_str is not None:
             vision_result = await workflow.execute_activity(
                 run_vision_presentment_check,
                 VisionPresentmentCheckInput(
-                    instrument_id=inp.instrument_id,
-                    image_front_url=inp.image_front_url,
-                    scanner_amount_str=scanner_amount_str,
-                    cheque_amount=float(scanner_amount_str),
+                    instrument_id=inp.instrument_id, image_front_url=inp.image_front_url,
+                    scanner_amount_str=scanner_amount_str, cheque_amount=float(scanner_amount_str),
                     bank_id=inp.bank_id,
                 ),
-                start_to_close_timeout=timedelta(seconds=120),
-                retry_policy=_AI_RETRY,
+                start_to_close_timeout=timedelta(seconds=120), retry_policy=_AI_RETRY,
             )
 
         if vision_result is not None and vision_result.has_mismatch:
-            mismatch_id = self.generate_mismatch_id(inp.bank_id, inp.scan_id)
-            log.info(
-                "outward_scan_workflow.mismatch_held",
-                scan_id=inp.scan_id, bank_id=inp.bank_id, mismatch_id=mismatch_id,
-                mismatch_fields=vision_result.mismatch_fields, lot_number=lot_number,
-            )
-            # Spawn MismatchResolutionWorkflow as an ABANDON child — it must
-            # persist independently of this workflow's own lifecycle; the
-            # branch supervisor resolution can take up to 4 hours.
-            await workflow.start_child_workflow(
-                MismatchResolutionWorkflow.run,
-                MismatchInput(
-                    mismatch_id=mismatch_id,
-                    bank_id=inp.bank_id,
-                    branch_id=inp.branch_id or "",
-                    scan_id=inp.scan_id,
-                    instrument_id=inp.instrument_id,
-                    pu_id=inp.pu_id or "",
-                    scanner_amount_str=scanner_amount_str or "",
-                    vision_amount_str=vision_result.vision_amount_str or "",
-                    mismatch_fields=vision_result.mismatch_fields,
-                    payee_display="",
-                    session_id=inp.session_id,
-                ),
-                id=f"cts-mismatch-{inp.bank_id}-{inp.branch_id or 'NA'}-{mismatch_id}",
-                parent_close_policy=ParentClosePolicy.ABANDON,
-            )
-            await workflow.execute_activity(
-                write_audit,
-                WriteAuditInput(
-                    event_type="CTS_OUT_MISMATCH_HELD",
-                    bank_id=inp.bank_id,
-                    instrument_id=inp.instrument_id,
-                    payload={
-                        "mismatch_id": mismatch_id,
-                        "mismatch_fields": vision_result.mismatch_fields,
-                        "lot_number": lot_number,
-                    },
-                ),
-                start_to_close_timeout=timedelta(seconds=15),
-                retry_policy=_AUDIT_RETRY,
-            )
-            return OutwardScanResult(
-                outcome="MISMATCH_HELD",
-                scan_id=inp.scan_id, bank_id=inp.bank_id, instrument_id=inp.instrument_id,
-                micr_line=micr_line, lot_number=lot_number, violations=None,
-                audit_written=True, pu_id=inp.pu_id,
-                mismatch_id=mismatch_id, mismatch_fields=list(vision_result.mismatch_fields),
+            return await self._spawn_mismatch(
+                inp, lot_number, micr_line,
+                scanner_amount_str or "", vision_result.vision_amount_str or "",
+                vision_result.mismatch_fields,
+                write_audit, WriteAuditInput, MismatchResolutionWorkflow, MismatchInput,
             )
 
-        # Vision matched (or unreadable/unavailable) → ACCEPTED
-        log.info(
-            "outward_scan_workflow.accepted",
-            scan_id=inp.scan_id, bank_id=inp.bank_id, lot_number=lot_number,
+        log.info("outward_scan_workflow.accepted",
+                 scan_id=inp.scan_id, bank_id=inp.bank_id, lot_number=lot_number)
+        await workflow.execute_activity(
+            write_audit,
+            WriteAuditInput(event_type="CTS_OUT_LOT_INSTRUMENT_ADDED", bank_id=inp.bank_id,
+                            instrument_id=inp.instrument_id,
+                            payload={"lot_number": lot_number, "scan_id": inp.scan_id}),
+            start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
+        )
+        return OutwardScanResult(
+            outcome="ACCEPTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
+            instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=lot_number,
+            violations=None, audit_written=True, pu_id=inp.pu_id,
+        )
+
+    async def _run_cr120_path(
+        self, inp: "OutwardScanInput",
+        validate_cts2010, CTS2010ValidationInput,
+        create_lot_entry, LotAssignmentInput,
+        vision_extract_and_check, VisionExtractAndCheckInput,
+        write_audit, WriteAuditInput,
+        MismatchResolutionWorkflow, MismatchInput,
+    ) -> "OutwardScanResult":
+        """
+        CR-120 path: hardware MICR provided by scanner agent.
+
+        Step 1 — validate_cts2010 (DPI/colour from OutwardScanInput; IQA defaults
+                  to 1.0 because the scanner's double-feed detection and hardware
+                  capture already guarantee image quality).
+        Step 2 — create_lot_entry (only on compliant images).
+        Step 3 — vision_extract_and_check (single Qwen2-VL call: field extraction
+                  + alteration check + optional hardware MICR cross-validation).
+        """
+        # CR-120 hardware guarantees image quality at capture — use 1.0 as IQA default
+        # when scanner-provided metric fields are absent from OutwardScanInput.
+        iqa_default = 1.0
+        compliance_result = await workflow.execute_activity(
+            validate_cts2010,
+            CTS2010ValidationInput(
+                instrument_id=inp.instrument_id,
+                cheque_number=inp.cheque_number,
+                front_dpi=inp.front_dpi,
+                rear_dpi=inp.rear_dpi,
+                front_colour_depth=inp.front_colour_depth,
+                rear_colour_depth=inp.rear_colour_depth,
+                front_file_size_kb=inp.front_file_size_kb,
+                rear_file_size_kb=inp.rear_file_size_kb,
+                front_iqa_score=iqa_default,
+                rear_iqa_score=iqa_default,
+                micr_band_score=iqa_default,
+            ),
+            start_to_close_timeout=timedelta(seconds=10),
+            retry_policy=_INFRA_RETRY,
+        )
+
+        if not compliance_result.is_compliant:
+            log.info("outward_scan_workflow.cr120.cts_rejected",
+                     scan_id=inp.scan_id, bank_id=inp.bank_id,
+                     violations=compliance_result.violations)
+            await workflow.execute_activity(
+                write_audit,
+                WriteAuditInput(event_type="CTS_OUT_CTS2010_FAIL", bank_id=inp.bank_id,
+                                instrument_id=inp.instrument_id,
+                                payload={"violations": compliance_result.violations,
+                                         "scan_id": inp.scan_id, "path": "cr120"}),
+                start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
+            )
+            return OutwardScanResult(
+                outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                instrument_id=inp.instrument_id, micr_line=inp.micr_hardware_raw,
+                lot_number=None, violations=list(compliance_result.violations),
+                audit_written=True, pu_id=inp.pu_id,
+            )
+
+        lot_result = await workflow.execute_activity(
+            create_lot_entry,
+            LotAssignmentInput(instrument_id=inp.instrument_id,
+                               bank_ifsc=inp.bank_ifsc, session_id=inp.session_id),
+            start_to_close_timeout=timedelta(seconds=10), retry_policy=_INFRA_RETRY,
+        )
+        lot_number = lot_result.lot_number
+
+        vision_result = await workflow.execute_activity(
+            vision_extract_and_check,
+            VisionExtractAndCheckInput(
+                instrument_id=inp.instrument_id,
+                image_front_url=inp.image_front_url,
+                bank_id=inp.bank_id,
+                micr_hardware_raw=inp.micr_hardware_raw,
+            ),
+            start_to_close_timeout=timedelta(seconds=120),
+            retry_policy=_AI_RETRY,
+        )
+
+        if vision_result.outcome == "HUMAN_REVIEW":
+            log.info("outward_scan_workflow.cr120.human_review",
+                     scan_id=inp.scan_id, bank_id=inp.bank_id,
+                     micr_mismatch=vision_result.micr_mismatch,
+                     alteration=vision_result.alteration_detected)
+            await workflow.execute_activity(
+                write_audit,
+                WriteAuditInput(event_type="CTS_OUT_HUMAN_REVIEW", bank_id=inp.bank_id,
+                                instrument_id=inp.instrument_id,
+                                payload={"lot_number": lot_number, "scan_id": inp.scan_id,
+                                         "micr_mismatch": vision_result.micr_mismatch,
+                                         "alteration_detected": vision_result.alteration_detected}),
+                start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
+            )
+            return OutwardScanResult(
+                outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                instrument_id=inp.instrument_id, micr_line=inp.micr_hardware_raw,
+                lot_number=lot_number, violations=None, audit_written=True, pu_id=inp.pu_id,
+                mismatch_fields=vision_result.mismatch_fields or [],
+            )
+
+        if vision_result.outcome == "MISMATCH":
+            mismatch_id = self.generate_mismatch_id(inp.bank_id, inp.scan_id)
+            return await self._spawn_mismatch(
+                inp, lot_number, inp.micr_hardware_raw,
+                vision_result.amount_figures or "",
+                vision_result.amount_words or "",
+                vision_result.mismatch_fields,
+                write_audit, WriteAuditInput, MismatchResolutionWorkflow, MismatchInput,
+            )
+
+        # PROCEED — accepted
+        log.info("outward_scan_workflow.cr120.accepted",
+                 scan_id=inp.scan_id, bank_id=inp.bank_id, lot_number=lot_number,
+                 micr_validated=vision_result.micr_validated)
+        await workflow.execute_activity(
+            write_audit,
+            WriteAuditInput(event_type="CTS_OUT_LOT_INSTRUMENT_ADDED", bank_id=inp.bank_id,
+                            instrument_id=inp.instrument_id,
+                            payload={"lot_number": lot_number, "scan_id": inp.scan_id,
+                                     "micr_validated": vision_result.micr_validated, "path": "cr120"}),
+            start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
+        )
+        return OutwardScanResult(
+            outcome="ACCEPTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
+            instrument_id=inp.instrument_id, micr_line=inp.micr_hardware_raw,
+            lot_number=lot_number, violations=None, audit_written=True, pu_id=inp.pu_id,
+        )
+
+    async def _spawn_mismatch(
+        self, inp, lot_number, micr_line,
+        scanner_amount_str, vision_amount_str, mismatch_fields,
+        write_audit, WriteAuditInput, MismatchResolutionWorkflow, MismatchInput,
+    ) -> "OutwardScanResult":
+        mismatch_id = self.generate_mismatch_id(inp.bank_id, inp.scan_id)
+        log.info("outward_scan_workflow.mismatch_held",
+                 scan_id=inp.scan_id, bank_id=inp.bank_id, mismatch_id=mismatch_id,
+                 mismatch_fields=mismatch_fields, lot_number=lot_number)
+        await workflow.start_child_workflow(
+            MismatchResolutionWorkflow.run,
+            MismatchInput(
+                mismatch_id=mismatch_id, bank_id=inp.bank_id,
+                branch_id=inp.branch_id or "", scan_id=inp.scan_id,
+                instrument_id=inp.instrument_id, pu_id=inp.pu_id or "",
+                scanner_amount_str=scanner_amount_str,
+                vision_amount_str=vision_amount_str,
+                mismatch_fields=mismatch_fields, payee_display="",
+                session_id=inp.session_id,
+            ),
+            id=f"cts-mismatch-{inp.bank_id}-{inp.branch_id or 'NA'}-{mismatch_id}",
+            parent_close_policy=ParentClosePolicy.ABANDON,
         )
         await workflow.execute_activity(
             write_audit,
-            WriteAuditInput(
-                event_type="CTS_OUT_LOT_INSTRUMENT_ADDED",
-                bank_id=inp.bank_id,
-                instrument_id=inp.instrument_id,
-                payload={"lot_number": lot_number, "scan_id": inp.scan_id},
-            ),
-            start_to_close_timeout=timedelta(seconds=15),
-            retry_policy=_AUDIT_RETRY,
+            WriteAuditInput(event_type="CTS_OUT_MISMATCH_HELD", bank_id=inp.bank_id,
+                            instrument_id=inp.instrument_id,
+                            payload={"mismatch_id": mismatch_id,
+                                     "mismatch_fields": mismatch_fields,
+                                     "lot_number": lot_number}),
+            start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
         )
         return OutwardScanResult(
-            outcome="ACCEPTED",
-            scan_id=inp.scan_id, bank_id=inp.bank_id, instrument_id=inp.instrument_id,
-            micr_line=micr_line, lot_number=lot_number, violations=None,
-            audit_written=True, pu_id=inp.pu_id,
+            outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
+            instrument_id=inp.instrument_id, micr_line=micr_line,
+            lot_number=lot_number, violations=None, audit_written=True, pu_id=inp.pu_id,
+            mismatch_id=mismatch_id, mismatch_fields=list(mismatch_fields),
         )
 
     async def run_with_mocks(
