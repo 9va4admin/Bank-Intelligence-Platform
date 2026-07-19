@@ -21,10 +21,10 @@ from __future__ import annotations
 import csv
 import io
 from datetime import date, datetime, timezone
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict
 
@@ -265,15 +265,114 @@ def _session_id(template: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# DB → API mapping helpers
+# ---------------------------------------------------------------------------
+
+_STATUS_MAP: dict[str, str] = {
+    "OPEN":        "OPEN",
+    "SEALED":      "PROCESSING",
+    "SUBMITTED":   "FILED",
+    "RECONCILED":  "SETTLED",
+    "EXCEPTION":   "FAILED",
+}
+
+_SLOT_MAP: dict[str, str] = {
+    "MORNING":   "10:00–12:00",
+    "AFTERNOON": "12:00–14:00",
+    "EVENING":   "14:00–16:00",
+}
+
+
+def _row_to_session_status(row: dict) -> SessionStatus:
+    db_status = row.get("status", "OPEN")
+    api_status = _STATUS_MAP.get(db_status, "OPEN")
+    slot = _SLOT_MAP.get(row.get("session_type", "MORNING"), "10:00–12:00")
+    closed_at = row.get("submitted_at") or row.get("reconciled_at")
+    ngch_ack_at = row.get("reconciled_at") if db_status == "RECONCILED" else None
+    cleared = row.get("clearing_date")
+    if isinstance(cleared, str):
+        cleared = date.fromisoformat(cleared)
+    return SessionStatus(
+        session_id=row["session_id"],
+        clearing_date=cleared or date.today(),
+        session_slot=slot,
+        status=api_status,
+        opened_at=row.get("opened_at"),
+        closed_at=closed_at,
+        ngch_ack_at=ngch_ack_at,
+    )
+
+
+async def _db_list_sessions(pool: Any, bank_id: str, clearing_date: Optional[date]) -> list[SessionStatus]:
+    async with pool.acquire() as conn:
+        if clearing_date:
+            rows = await conn.fetch(
+                """
+                SELECT session_id, bank_id, session_type, status, clearing_date,
+                       opened_at, sealed_at, submitted_at, reconciled_at, npci_ack_ref
+                FROM cts.clearing_sessions
+                WHERE bank_id = $1 AND clearing_date = $2
+                ORDER BY session_type
+                """,
+                bank_id, clearing_date,
+            )
+        else:
+            rows = await conn.fetch(
+                """
+                SELECT session_id, bank_id, session_type, status, clearing_date,
+                       opened_at, sealed_at, submitted_at, reconciled_at, npci_ack_ref
+                FROM cts.clearing_sessions
+                WHERE bank_id = $1
+                ORDER BY clearing_date DESC, session_type
+                LIMIT 50
+                """,
+                bank_id,
+            )
+    return [_row_to_session_status(dict(r)) for r in rows]
+
+
+async def _db_today_summary(pool: Any, bank_id: str) -> Optional[dict]:
+    """Returns aggregate row from clearing_sessions for today, or None if no sessions."""
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT session_id, status, total_instruments, session_type,
+                   opened_at, submitted_at, reconciled_at
+            FROM cts.clearing_sessions
+            WHERE bank_id = $1 AND clearing_date = CURRENT_DATE
+            ORDER BY session_type
+            """,
+            bank_id,
+        )
+    if not rows:
+        return None
+    total_in = sum(r["total_instruments"] or 0 for r in rows)
+    settled = sum(1 for r in rows if r["status"] == "RECONCILED")
+    return {
+        "sessions_count": len(rows),
+        "sessions_settled": settled,
+        "total_instruments": total_in,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Routes — Session list
 # ---------------------------------------------------------------------------
 
 @router_v1.get("/sessions", response_model=SessionListResponse)
 async def list_sessions(
+    request: Request,
     clearing_date: Optional[date] = Query(None),
     bank_id: str = Depends(get_current_bank_id),
     _role: str = Depends(require_ops_role),
 ) -> SessionListResponse:
+    pool = getattr(request.app.state, "db_pool_cts", None)
+    if pool is not None:
+        try:
+            sessions = await _db_list_sessions(pool, bank_id, clearing_date)
+            return SessionListResponse(bank_id=bank_id, sessions=sessions, total=len(sessions))
+        except Exception:
+            log.warning("batch.list_sessions.db_error", bank_id=bank_id)
     sessions = [
         _mock_session(_session_id(sid), slot, st)
         for sid, slot, st, *_ in _SESSIONS
@@ -287,9 +386,18 @@ async def list_sessions(
 
 @router_v1.get("/sessions/today", response_model=TodaySummaryResponse)
 async def today_summary(
+    request: Request,
     bank_id: str = Depends(get_current_bank_id),
     _role: str = Depends(require_ops_role),
 ) -> TodaySummaryResponse:
+    pool = getattr(request.app.state, "db_pool_cts", None)
+    db_agg: Optional[dict] = None
+    if pool is not None:
+        try:
+            db_agg = await _db_today_summary(pool, bank_id)
+        except Exception:
+            log.warning("batch.today_summary.db_error", bank_id=bank_id)
+
     active = [s for s in _SESSIONS if s[2] not in ("UPCOMING",)]
     total_in = sum(s[3] for s in active)
     total_val_in = sum(s[4] for s in active)
@@ -309,12 +417,16 @@ async def today_summary(
         {"date": "2026-06-23", "inward": 5210, "outward": 3540, "return_rate_pct": 17.9},
         {"date": "2026-06-24", "inward": 5640, "outward": 3810, "return_rate_pct": 19.2},
     ]
+    sessions_count_real = db_agg["sessions_count"] if db_agg else len(active)
+    sessions_settled_real = db_agg["sessions_settled"] if db_agg else sum(1 for s in active if s[2] == "SETTLED")
+    total_in_real = db_agg["total_instruments"] if db_agg else total_in
+
     return TodaySummaryResponse(
         bank_id=bank_id,
         clearing_date=date.today(),
-        sessions_count=len(active),
-        sessions_settled=sum(1 for s in active if s[2] == "SETTLED"),
-        total_inward=total_in,
+        sessions_count=sessions_count_real,
+        sessions_settled=sessions_settled_real,
+        total_inward=total_in_real,
         total_inward_value_paise=int(total_val_in * 1e7),
         stp_confirmed=stp_c,
         stp_returned=stp_r,
