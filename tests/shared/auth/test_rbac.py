@@ -425,13 +425,14 @@ class TestUserContextBankTypeAndPermissionLevel:
         )
         assert user.bank_type == BankType.SB
 
-    def test_default_permission_level_is_edit_for_backward_compat(self):
+    def test_default_permission_level_is_read_only_least_privilege(self):
+        # Least-privilege default: omitting permission_level gives READ_ONLY, not EDIT.
         user = UserContext(
             user_id="u-old",
             role=Role.OPS_REVIEWER,
             bank_id="test-bank",
         )
-        assert user.permission_level == PermissionLevel.EDIT
+        assert user.permission_level == PermissionLevel.READ_ONLY
 
 
 # ===========================================================================
