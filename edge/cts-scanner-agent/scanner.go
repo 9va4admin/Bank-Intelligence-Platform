@@ -109,6 +109,20 @@ func (s *ScanSession) runLoop(ctx context.Context) error {
 			continue
 		}
 
+		// Hardware endorsement stamp — called while the cheque is still inside
+		// the scanner transport path, before it exits to the output pocket.
+		// Must happen immediately after ReadItem, before the next cheque is fed.
+		if s.cfg.EnableImprinter {
+			if printErr := s.transport.PrintItem(s.cfg.EndorsementText); printErr != nil {
+				s.logger.Error("imprinter hardware fault — cheque not stamped",
+					"session_id", s.sessionID, "error", printErr)
+				// Non-fatal: log and continue. The item's ImprinterStamped remains false,
+				// so ASTRA knows this cheque needs a manual re-stamp before lodgement.
+			} else {
+				item.ImprinterStamped = true
+			}
+		}
+
 		if err := s.handleItem(ctx, item); err != nil {
 			// Log and continue — one bad cheque must not kill the session
 			s.logger.Error("item processing failed",

@@ -110,6 +110,11 @@ class TestValidateCTS2010:
 # ---------------------------------------------------------------------------
 
 class TestCreateLotEntry:
+    """
+    create_lot_entry is used by ClearingSessionWorkflow (not OutwardScanWorkflow).
+    LotManager is now clearing-slot-aware: LOT_{IFSC}_{YYYYMMDD}_{SLOT}_{NN}.
+    """
+
     @pytest.mark.asyncio
     async def test_assigns_to_new_lot(self):
         from modules.cts.workflows.activities.outward_scan_activities import (
@@ -118,9 +123,14 @@ class TestCreateLotEntry:
         from modules.cts.lot.manager import LotManager
         import datetime
 
-        mgr = LotManager(bank_ifsc="SVCB0000001", session_id="SES-001", session_date=datetime.datetime(2026, 7, 14))
+        mgr = LotManager(
+            bank_ifsc="SVCB0000001",
+            clearing_date=datetime.datetime(2026, 7, 14),
+            clearing_slot="AM",
+        )
         result = await create_lot_entry(LotAssignmentInput(instrument_id="OUT-001"), lot_manager=mgr)
         assert result.lot_number.startswith("LOT_SVCB0000001_")
+        assert "_AM_" in result.lot_number
 
     @pytest.mark.asyncio
     async def test_second_instrument_joins_same_lot_until_full(self):
@@ -130,7 +140,11 @@ class TestCreateLotEntry:
         from modules.cts.lot.manager import LotManager
         import datetime
 
-        mgr = LotManager(bank_ifsc="SVCB0000001", session_id="SES-001", session_date=datetime.datetime(2026, 7, 14))
+        mgr = LotManager(
+            bank_ifsc="SVCB0000001",
+            clearing_date=datetime.datetime(2026, 7, 14),
+            clearing_slot="AM",
+        )
         r1 = await create_lot_entry(LotAssignmentInput(instrument_id="OUT-001"), lot_manager=mgr)
         r2 = await create_lot_entry(LotAssignmentInput(instrument_id="OUT-002"), lot_manager=mgr)
         assert r1.lot_number == r2.lot_number
@@ -144,8 +158,10 @@ class TestCreateLotEntry:
         import datetime
 
         mgr = LotManager(
-            bank_ifsc="SVCB0000001", session_id="SES-001",
-            session_date=datetime.datetime(2026, 7, 14), max_instruments_per_lot=1,
+            bank_ifsc="SVCB0000001",
+            clearing_date=datetime.datetime(2026, 7, 14),
+            clearing_slot="PM",
+            max_instruments_per_lot=1,
         )
         r1 = await create_lot_entry(LotAssignmentInput(instrument_id="OUT-001"), lot_manager=mgr)
         r2 = await create_lot_entry(LotAssignmentInput(instrument_id="OUT-002"), lot_manager=mgr)

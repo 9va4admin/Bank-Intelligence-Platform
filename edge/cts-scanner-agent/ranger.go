@@ -61,6 +61,13 @@ type Transport interface {
 	// ended normally (EndJob was called while waiting).
 	ReadItem() (*ScannedItem, error)
 
+	// PrintItem stamps the endorsement text on the cheque that is still in the
+	// scanner transport path immediately after ReadItem returned it. Must be
+	// called before the next ReadItem. On the Canon CR-120 this maps to
+	// TransportPrintItem() in the Ranger COM SDK.
+	// Returns an error if the imprinter mechanism reports a hardware fault.
+	PrintItem(text string) error
+
 	// EndJob stops the scan session. Outstanding ReadItem calls return nil, nil.
 	EndJob() error
 

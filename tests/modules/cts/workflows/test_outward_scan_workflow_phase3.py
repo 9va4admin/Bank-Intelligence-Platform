@@ -165,15 +165,16 @@ class TestOutwardScanP3VisionMismatch:
         assert result.mismatch_fields == ["amount_figures", "amount_words"]
 
     @pytest.mark.asyncio
-    async def test_lot_number_preserved_on_mismatch(self):
-        """Lot assignment happens before vision — lot_number should be in result."""
+    async def test_lot_number_none_on_mismatch(self):
+        """Scan workflow no longer assigns lots — lot_number is None even on MISMATCH_HELD.
+        Lot assignment is deferred to ClearingSessionWorkflow."""
         from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
         wf = OutwardScanWorkflow()
         result = await wf.run_with_mocks(
             _make_p3_input(),
-            mock_results=_make_p3_mocks(lot_number="LOT-0007", vision_match=False),
+            mock_results=_make_p3_mocks(vision_match=False),
         )
-        assert result.lot_number == "LOT-0007"
+        assert result.lot_number is None
 
     @pytest.mark.asyncio
     async def test_audit_written_on_mismatch_held(self):
@@ -347,7 +348,7 @@ class TestOutwardScanWorkflowRealRun:
 
         assert result.outcome == "ACCEPTED"
         assert result.micr_line == "123456789"
-        assert result.lot_number == "LOT_SVCB0000001_20260714_SES-001_01"
+        assert result.lot_number is None   # lot assigned later by ClearingSessionWorkflow
         assert result.audit_written is True
 
     @pytest.mark.asyncio
