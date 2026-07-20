@@ -4,7 +4,7 @@ bank's pre-registered cheque registry stored in PPSVault.
 
 5-flag NPCI decision tree (Karnataka Bank Section 8, universal NPCI mandate):
   P — Positive match → PROCEED
-  D — Duplicate presentation → AUTO_RETURN (URRBCH code 14, not customer fault)
+  D — Duplicate presentation → AUTO_RETURN (URRBCH code 41, not customer fault)
   Y — Financial mismatch → HUMAN_REVIEW (financial reason outranks PPS reason)
   Z — Data not available → check pps_mandatory_threshold from config:
        amount >= threshold → HUMAN_REVIEW (PPS_MANDATORY_MISSING)
@@ -99,7 +99,7 @@ async def lookup_pps(
         return PPSActivityResult(outcome="PROCEED", npci_flag="P")
 
     if npci_flag == "D":
-        code = "14"
+        code = "41"
         return PPSActivityResult(
             outcome="AUTO_RETURN",
             npci_flag="D",

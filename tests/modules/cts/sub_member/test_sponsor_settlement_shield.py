@@ -5,8 +5,8 @@ Karnataka Bank CCP Section 9 + PNB Section 7:
   Before forwarding an SMB batch to NGCH via the sponsor bank, verify the SMB's
   settlement account at the sponsor bank has sufficient funds to cover the batch.
 
-  Insufficient → BLOCK the batch, return all instruments with URRBCH code 25
-                 (SMB_SPONSOR_FUNDS_INSUFFICIENT), not customer fault.
+  Insufficient → BLOCK the batch, return all instruments with URRBCH code 72
+                 (SMB_SPONSOR_FUNDS_INSUFFICIENT, Citibank/NPCI numbering), not customer fault.
   CBS unavailable → ESCALATE (human review) — never silently proceed.
   Sufficient → PROCEED with batch forwarding.
 """
@@ -75,7 +75,7 @@ class TestSponsorSettlementShieldSufficient:
 class TestSponsorSettlementShieldInsufficient:
     @pytest.mark.asyncio
     async def test_balance_below_batch_total_blocks(self):
-        """SMB balance ₹50K < batch ₹1.5L → BLOCK, code 25."""
+        """SMB balance ₹50K < batch ₹1.5L → BLOCK, code 72 (URRBCH SMB sponsor funds insufficient)."""
         from modules.cts.sub_member.risk_shield import SponsorSettlementShield
         shield = SponsorSettlementShield()
         result = await shield.check(
@@ -83,7 +83,7 @@ class TestSponsorSettlementShieldInsufficient:
             cbs=_cbs_with_balance(50000.0),
         )
         assert result.status == "BLOCK"
-        assert result.return_reason_code == "25"
+        assert result.return_reason_code == "72"
 
     @pytest.mark.asyncio
     async def test_zero_balance_blocks(self):
@@ -94,10 +94,10 @@ class TestSponsorSettlementShieldInsufficient:
             cbs=_cbs_with_balance(0.0),
         )
         assert result.status == "BLOCK"
-        assert result.return_reason_code == "25"
+        assert result.return_reason_code == "72"
 
     @pytest.mark.asyncio
-    async def test_code_25_is_not_customer_fault(self):
+    async def test_code_72_is_not_customer_fault(self):
         """SMB settlement failure is bank-side — drawee customer not at fault."""
         from modules.cts.sub_member.risk_shield import SponsorSettlementShield
         shield = SponsorSettlementShield()
@@ -162,9 +162,9 @@ class TestSettlementShieldResultModel:
         r = SettlementShieldResult(
             status="BLOCK",
             sub_member_id="smb-01",
-            return_reason_code="25",
+            return_reason_code="72",
             is_customer_fault=False,
         )
         assert r.status == "BLOCK"
-        assert r.return_reason_code == "25"
+        assert r.return_reason_code == "72"
         assert r.is_customer_fault is False

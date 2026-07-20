@@ -26,7 +26,7 @@ class SettlementShieldResult:
     """Result of the settlement position check."""
     status: str                           # "PROCEED" | "BLOCK" | "ESCALATE"
     sub_member_id: str = ""
-    return_reason_code: Optional[str] = None   # "25" on BLOCK; None otherwise
+    return_reason_code: Optional[str] = None   # "72" on BLOCK; None otherwise
     is_customer_fault: Optional[bool] = None   # False on BLOCK; None on PROCEED/ESCALATE
 
 
@@ -35,9 +35,9 @@ class SponsorSettlementShield:
     Checks whether an SMB's settlement account at the sponsor bank has sufficient
     funds before forwarding the SMB batch to NGCH.
 
-    URRBCH code 25: SMB_SPONSOR_FUNDS_INSUFFICIENT
+    URRBCH code 72: SMB_SPONSOR_FUNDS_INSUFFICIENT (Citibank/NPCI numbering; CBI uses 71)
       - Not customer fault (bank-side settlement failure)
-      - Instruments must be returned to the presenting bank with code 25
+      - Instruments must be returned to the presenting bank with code 72
       - Per Karnataka Bank CCP Section 9, PNB Section 7
 
     Outcomes:
@@ -81,8 +81,8 @@ class SponsorSettlementShield:
             return SettlementShieldResult(
                 status="BLOCK",
                 sub_member_id=batch.sub_member_id,
-                return_reason_code="25",
-                is_customer_fault=_is_customer_fault("25"),
+                return_reason_code="72",
+                is_customer_fault=_is_customer_fault("72"),
             )
 
         return SettlementShieldResult(

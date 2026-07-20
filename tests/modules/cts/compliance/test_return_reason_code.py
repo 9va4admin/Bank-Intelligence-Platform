@@ -47,17 +47,17 @@ class TestReturnReasonCodeEnum:
         from modules.cts.compliance.models import ReturnReasonCode
         assert ReturnReasonCode.ALTERATION_CTS.value == "85"
 
-    def test_code_14_item_listed_twice_exists(self):
+    def test_code_41_item_listed_twice_exists(self):
         from modules.cts.compliance.models import ReturnReasonCode
-        assert ReturnReasonCode.ITEM_LISTED_TWICE.value == "14"
+        assert ReturnReasonCode.ITEM_LISTED_TWICE.value == "41"
 
-    def test_code_25_smb_sponsor_funds_insufficient_exists(self):
+    def test_code_72_smb_sponsor_funds_insufficient_exists(self):
         from modules.cts.compliance.models import ReturnReasonCode
-        assert ReturnReasonCode.SMB_SPONSOR_FUNDS_INSUFFICIENT.value == "25"
+        assert ReturnReasonCode.SMB_SPONSOR_FUNDS_INSUFFICIENT.value == "72"
 
-    def test_code_10_account_closed_exists(self):
+    def test_code_50_account_closed_exists(self):
         from modules.cts.compliance.models import ReturnReasonCode
-        assert ReturnReasonCode.ACCOUNT_CLOSED.value == "10"
+        assert ReturnReasonCode.ACCOUNT_CLOSED.value == "50"
 
     def test_code_55_account_frozen_exists(self):
         from modules.cts.compliance.models import ReturnReasonCode
@@ -81,7 +81,7 @@ class TestCustomerFaultClassification:
 
     def test_non_customer_fault_codes_contains_item_listed_twice(self):
         from modules.cts.compliance.models import NON_CUSTOMER_FAULT_CODES
-        assert "14" in NON_CUSTOMER_FAULT_CODES
+        assert "41" in NON_CUSTOMER_FAULT_CODES
 
     def test_non_customer_fault_codes_contains_account_frozen(self):
         """Account frozen is bank/legal action — not customer fault per RBI."""
@@ -112,9 +112,9 @@ class TestCustomerFaultClassification:
         assert "39" in RE_PRESENTATION_CODES
 
     def test_requires_re_presentation_item_listed_twice_not_in(self):
-        """Code 14 is duplicate — re-present would be wrong."""
+        """Code 41 is duplicate presentation — re-present would be wrong."""
         from modules.cts.compliance.models import RE_PRESENTATION_CODES
-        assert "14" not in RE_PRESENTATION_CODES
+        assert "41" not in RE_PRESENTATION_CODES
 
     def test_requires_re_presentation_code_85_not_in(self):
         """CTS alteration is a financial return — no re-presentation."""
