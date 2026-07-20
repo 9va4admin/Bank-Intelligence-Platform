@@ -535,6 +535,13 @@ CTS_OUT_LOT_INSTRUMENT_ADDED:
   en: "Instrument {instrument_id} added to lot {lot_id} — lot total: {lot_total}."
   hi: ""
 
+CTS_OUT_INSTRUMENT_PENDING:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [instrument_id, scan_id]
+  en: "Instrument {instrument_id} (scan {scan_id}) accepted — awaiting lot assignment at clearing session open."
+  hi: ""
+
 CTS_OUT_LOT_SEALED:
   severity: INFO
   surface: [UI, AUDIT]

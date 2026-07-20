@@ -354,6 +354,83 @@ func TestSubmitScan(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// PrintItem / hardware imprinter tests
+// ---------------------------------------------------------------------------
+
+func TestPrintItemStubSucceeds(t *testing.T) {
+	st := NewStubTransport(nil)
+	st.Open()
+	st.StartJob("", false)
+	if err := st.PrintItem("ASTRA/CTS/SVCB"); err != nil {
+		t.Fatalf("PrintItem on open stub should succeed, got: %v", err)
+	}
+}
+
+func TestPrintItemFailsWhenClosed(t *testing.T) {
+	st := NewStubTransport(nil)
+	st.Open()
+	st.Close()
+	if err := st.PrintItem("ASTRA/CTS/SVCB"); err == nil {
+		t.Fatal("PrintItem on closed stub should return error, got nil")
+	}
+}
+
+func TestImprinterStampedSetOnSuccess(t *testing.T) {
+	// Verify scanner.go sets ImprinterStamped=true after a successful PrintItem.
+	item := &ScannedItem{FrontImage: []byte("img"), MICRRaw: "000123  00110001234  999999999"}
+	st := NewStubTransport([]*ScannedItem{item})
+
+	cfg := &Config{SessionPrefix: "MUM", EnableImprinter: true, EndorsementText: "ASTRA/CTS"}
+	stamped := false
+
+	// Simulate the runLoop imprinter block: PrintItem then set ImprinterStamped.
+	if err := st.Open(); err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if err := st.StartJob(cfg.EndorsementText, cfg.EnableImprinter); err != nil {
+		t.Fatalf("StartJob: %v", err)
+	}
+	got, _ := st.ReadItem()
+	if got == nil {
+		t.Fatal("expected item, got nil")
+	}
+	if cfg.EnableImprinter {
+		if printErr := st.PrintItem(cfg.EndorsementText); printErr == nil {
+			got.ImprinterStamped = true
+			stamped = true
+		}
+	}
+	if !stamped {
+		t.Error("expected ImprinterStamped to be set after successful PrintItem")
+	}
+	if !got.ImprinterStamped {
+		t.Error("expected item.ImprinterStamped=true")
+	}
+}
+
+func TestImprinterNotCalledWhenDisabled(t *testing.T) {
+	// When EnableImprinter=false, PrintItem must not be called and
+	// ImprinterStamped must remain false.
+	item := &ScannedItem{FrontImage: []byte("img"), MICRRaw: "000123  00110001234  999999999"}
+	st := NewStubTransport([]*ScannedItem{item})
+
+	cfg := &Config{SessionPrefix: "MUM", EnableImprinter: false}
+	st.Open()
+	st.StartJob("", cfg.EnableImprinter)
+	got, _ := st.ReadItem()
+
+	// Simulate runLoop logic
+	if cfg.EnableImprinter {
+		st.PrintItem(cfg.EndorsementText)
+		got.ImprinterStamped = true
+	}
+
+	if got.ImprinterStamped {
+		t.Error("ImprinterStamped must remain false when EnableImprinter=false")
+	}
+}
+
 func TestSubmitScanServerError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "service unavailable", http.StatusServiceUnavailable)

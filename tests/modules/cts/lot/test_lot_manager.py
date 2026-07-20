@@ -1,9 +1,11 @@
 """
 Tests for CTS Lot / Batch Number Manager.
-RED phase — all tests must fail before implementation.
 
-Lot numbering: NGCH standard format LOT_{IFSC}_{YYYYMMDD}_{SessionID}_{NN}
-where NN is the lot sequence within the session (01, 02, 03...).
+Lots are NGCH clearing submission units — they are scoped to a clearing session
+slot (AM / PM / EVE on a given date), NOT to a scan session.
+
+Lot number format: LOT_{IFSC}_{YYYYMMDD}_{SLOT}_{NN}
+  e.g.  LOT_SVCB0000001_20260720_AM_01
 Max instruments per lot: configurable, default 200 (NGCH limit).
 """
 import pytest
@@ -14,23 +16,37 @@ def test_lot_number_format():
     from modules.cts.lot.manager import LotManager
     mgr = LotManager(
         bank_ifsc='SVCB0000001',
-        session_id='SES-0619-001',
-        session_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_slot='AM',
         max_instruments_per_lot=200,
     )
     lot = mgr.create_lot()
     assert lot.lot_number.startswith('LOT_SVCB0000001_')
     assert '20260619' in lot.lot_number
-    assert 'SES-0619-001' in lot.lot_number
+    assert '_AM_' in lot.lot_number
     assert lot.lot_number.endswith('_01')
+
+
+def test_lot_number_does_not_contain_session_id():
+    """Lot number must not embed a scan session ID — that coupling is removed."""
+    from modules.cts.lot.manager import LotManager
+    mgr = LotManager(
+        bank_ifsc='SVCB0000001',
+        clearing_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_slot='AM',
+        max_instruments_per_lot=200,
+    )
+    lot = mgr.create_lot()
+    # Old format contained 'SES-' — new format must not
+    assert 'SES-' not in lot.lot_number
 
 
 def test_second_lot_has_sequence_02():
     from modules.cts.lot.manager import LotManager
     mgr = LotManager(
         bank_ifsc='SVCB0000001',
-        session_id='SES-0619-001',
-        session_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_slot='AM',
         max_instruments_per_lot=200,
     )
     mgr.create_lot()
@@ -42,8 +58,8 @@ def test_lot_starts_empty():
     from modules.cts.lot.manager import LotManager
     mgr = LotManager(
         bank_ifsc='SVCB0000001',
-        session_id='SES-0619-001',
-        session_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_slot='AM',
         max_instruments_per_lot=200,
     )
     lot = mgr.create_lot()
@@ -55,8 +71,8 @@ def test_assign_instrument_to_lot():
     from modules.cts.lot.manager import LotManager
     mgr = LotManager(
         bank_ifsc='SVCB0000001',
-        session_id='SES-0619-001',
-        session_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_slot='PM',
         max_instruments_per_lot=5,
     )
     lot = mgr.create_lot()
@@ -69,8 +85,8 @@ def test_lot_is_full_at_max():
     from modules.cts.lot.manager import LotManager
     mgr = LotManager(
         bank_ifsc='SVCB0000001',
-        session_id='SES-0619-001',
-        session_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_slot='AM',
         max_instruments_per_lot=3,
     )
     lot = mgr.create_lot()
@@ -83,8 +99,8 @@ def test_assign_to_unknown_lot_raises():
     from modules.cts.lot.manager import LotManager
     mgr = LotManager(
         bank_ifsc='SVCB0000001',
-        session_id='SES-0619-001',
-        session_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_slot='AM',
         max_instruments_per_lot=200,
     )
     with pytest.raises(KeyError):
@@ -95,8 +111,8 @@ def test_get_lot_for_instrument():
     from modules.cts.lot.manager import LotManager
     mgr = LotManager(
         bank_ifsc='SVCB0000001',
-        session_id='SES-0619-001',
-        session_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_slot='EVE',
         max_instruments_per_lot=200,
     )
     lot = mgr.create_lot()
@@ -109,8 +125,8 @@ def test_get_lot_for_unassigned_instrument_returns_none():
     from modules.cts.lot.manager import LotManager
     mgr = LotManager(
         bank_ifsc='SVCB0000001',
-        session_id='SES-0619-001',
-        session_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_slot='AM',
         max_instruments_per_lot=200,
     )
     mgr.create_lot()
@@ -123,8 +139,8 @@ def test_auto_assign_fills_lots_sequentially():
     from modules.cts.lot.manager import LotManager
     mgr = LotManager(
         bank_ifsc='SVCB0000001',
-        session_id='SES-0619-001',
-        session_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_slot='AM',
         max_instruments_per_lot=2,
     )
     lot_nums = [mgr.auto_assign(f'CHQ-OUT-{i:05d}') for i in range(5)]
@@ -139,8 +155,8 @@ def test_list_lots_returns_all_created():
     from modules.cts.lot.manager import LotManager
     mgr = LotManager(
         bank_ifsc='SVCB0000001',
-        session_id='SES-0619-001',
-        session_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_slot='AM',
         max_instruments_per_lot=200,
     )
     mgr.create_lot()
@@ -154,8 +170,8 @@ def test_lot_summary_counts():
     from modules.cts.lot.manager import LotManager
     mgr = LotManager(
         bank_ifsc='SVCB0000001',
-        session_id='SES-0619-001',
-        session_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_date=datetime(2026, 6, 19, tzinfo=timezone.utc),
+        clearing_slot='PM',
         max_instruments_per_lot=10,
     )
     for i in range(7):
@@ -164,3 +180,29 @@ def test_lot_summary_counts():
     assert summary['total_lots'] == 1
     assert summary['total_assigned'] == 7
     assert summary['unassigned'] == 0
+
+
+def test_different_clearing_slots_same_date():
+    """AM and PM slots on the same date produce different lot numbers."""
+    from modules.cts.lot.manager import LotManager
+    date = datetime(2026, 7, 20, tzinfo=timezone.utc)
+    am_mgr = LotManager(bank_ifsc='SVCB0000001', clearing_date=date, clearing_slot='AM')
+    pm_mgr = LotManager(bank_ifsc='SVCB0000001', clearing_date=date, clearing_slot='PM')
+    am_lot = am_mgr.create_lot()
+    pm_lot = pm_mgr.create_lot()
+    assert '_AM_' in am_lot.lot_number
+    assert '_PM_' in pm_lot.lot_number
+    assert am_lot.lot_number != pm_lot.lot_number
+
+
+def test_lot_number_format_eve_slot():
+    """Evening slot produces correct lot number format."""
+    from modules.cts.lot.manager import LotManager
+    mgr = LotManager(
+        bank_ifsc='HDFC0000001',
+        clearing_date=datetime(2026, 7, 20, tzinfo=timezone.utc),
+        clearing_slot='EVE',
+        max_instruments_per_lot=200,
+    )
+    lot = mgr.create_lot()
+    assert lot.lot_number == 'LOT_HDFC0000001_20260720_EVE_01'

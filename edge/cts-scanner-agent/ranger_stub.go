@@ -65,6 +65,16 @@ func (s *StubTransport) ReadItem() (*ScannedItem, error) {
 	return nil, nil
 }
 
+// PrintItem is a no-op on the stub — the caller sets ImprinterStamped on the item.
+func (s *StubTransport) PrintItem(_ string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return errors.New("stub: closed")
+	}
+	return nil
+}
+
 func (s *StubTransport) EndJob() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

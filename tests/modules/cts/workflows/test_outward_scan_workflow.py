@@ -103,14 +103,16 @@ class TestOutwardScanHappyPath:
         assert result.micr_line == "999888777"
 
     @pytest.mark.asyncio
-    async def test_lot_number_propagated_to_result(self):
+    async def test_lot_number_none_on_accepted(self):
+        """Scan workflow no longer assigns lots — lot_number is always None on ACCEPTED.
+        Lot assignment happens later in ClearingSessionWorkflow."""
         from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
         wf = OutwardScanWorkflow()
         result = await wf.run_with_mocks(
             _make_input(),
-            mock_results=_make_scan_result(lot_number="LOT_SVCB_20240619_S01_01"),
+            mock_results=_make_scan_result(),
         )
-        assert result.lot_number == "LOT_SVCB_20240619_S01_01"
+        assert result.lot_number is None
 
     @pytest.mark.asyncio
     async def test_audit_written_on_accepted(self):
