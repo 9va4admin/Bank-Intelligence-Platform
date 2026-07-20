@@ -98,3 +98,20 @@ ha:
   db:
     connection_pool_per_module: true  # pgbouncer-cts and pgbouncer-ej are separate
     # This prevents CTS load from consuming EJ's connection budget (isolation rule §2.5).
+
+# ── Object Storage (NON-OVERRIDABLE) ────────────────────────────────────────
+# MinIO WORM configuration for regulatory preservation.
+# RBI IT Framework + Karnataka Bank/PNB CCPs require 10-year retention.
+# COMPLIANCE mode (not GOVERNANCE): cannot be overridden even by bank administrators.
+# GOVERNANCE mode would allow privileged deletion — not acceptable for clearing records.
+minio:
+  object_lock:
+    enabled: true
+    mode: COMPLIANCE             # COMPLIANCE (not GOVERNANCE) — 10-year regulatory hold
+    default_retention_years: 10  # instruments, EJ logs, audit exports
+    # ILM tiering handled separately (hot→warm→cold); object lock applies to all tiers.
+    # Banks cannot disable or shorten object lock — this is a Layer 1 constraint.
+  sse:
+    enabled: true
+    type: SSE-KMS
+    # kms_key_id resolved per bank: vault-transit://astra/{bank_id}/minio-key

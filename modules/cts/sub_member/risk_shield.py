@@ -1,6 +1,94 @@
+from dataclasses import dataclass
 from enum import Enum
+from typing import Optional
 
+import structlog
+
+from modules.cts.compliance.models import is_customer_fault as _is_customer_fault
 from .models import SubMemberBank, SubMemberBatchLedger
+
+log = structlog.get_logger()
+
+
+# ── Sponsor settlement position models ────────────────────────────────────────
+
+@dataclass(frozen=True)
+class SponsorBatchInfo:
+    """Batch summary passed to SponsorSettlementShield before forwarding to NGCH."""
+    sub_member_id: str
+    sponsor_bank_id: str
+    batch_total_amount: float
+    instrument_count: int
+
+
+@dataclass(frozen=True)
+class SettlementShieldResult:
+    """Result of the settlement position check."""
+    status: str                           # "PROCEED" | "BLOCK" | "ESCALATE"
+    sub_member_id: str = ""
+    return_reason_code: Optional[str] = None   # "25" on BLOCK; None otherwise
+    is_customer_fault: Optional[bool] = None   # False on BLOCK; None on PROCEED/ESCALATE
+
+
+class SponsorSettlementShield:
+    """
+    Checks whether an SMB's settlement account at the sponsor bank has sufficient
+    funds before forwarding the SMB batch to NGCH.
+
+    URRBCH code 25: SMB_SPONSOR_FUNDS_INSUFFICIENT
+      - Not customer fault (bank-side settlement failure)
+      - Instruments must be returned to the presenting bank with code 25
+      - Per Karnataka Bank CCP Section 9, PNB Section 7
+
+    Outcomes:
+      PROCEED   — balance >= batch total; batch forwarding may continue
+      BLOCK     — balance <  batch total; all instruments returned with code 25
+      ESCALATE  — CBS unavailable; hand to ops for manual resolution
+    """
+
+    async def check(
+        self,
+        batch: SponsorBatchInfo,
+        cbs,
+    ) -> SettlementShieldResult:
+        """
+        Query CBS for SMB's settlement account balance at the sponsor bank.
+        CBS connector must expose get_smb_settlement_balance(sub_member_id, sponsor_bank_id).
+        """
+        try:
+            balance: float = await cbs.get_smb_settlement_balance(
+                batch.sub_member_id,
+                batch.sponsor_bank_id,
+            )
+        except Exception as exc:
+            log.warning(
+                "sponsor_settlement_shield.cbs_unavailable",
+                sub_member_id=batch.sub_member_id,
+                sponsor_bank_id=batch.sponsor_bank_id,
+                error=str(exc),
+            )
+            return SettlementShieldResult(
+                status="ESCALATE",
+                sub_member_id=batch.sub_member_id,
+            )
+
+        if balance < batch.batch_total_amount:
+            log.warning(
+                "sponsor_settlement_shield.insufficient",
+                sub_member_id=batch.sub_member_id,
+                instrument_count=batch.instrument_count,
+            )
+            return SettlementShieldResult(
+                status="BLOCK",
+                sub_member_id=batch.sub_member_id,
+                return_reason_code="25",
+                is_customer_fault=_is_customer_fault("25"),
+            )
+
+        return SettlementShieldResult(
+            status="PROCEED",
+            sub_member_id=batch.sub_member_id,
+        )
 
 
 class ShieldStatus(Enum):

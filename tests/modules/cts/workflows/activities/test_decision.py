@@ -8,6 +8,7 @@ All thresholds come from config_service — never hardcoded.
 SHAP values must be present in output (required before NGCH filing).
 """
 import pytest
+from datetime import date
 from unittest.mock import AsyncMock, MagicMock
 
 
@@ -34,10 +35,12 @@ def _make_signals(
         signature_match_score=signature_match,
         cbs_outcome=cbs_outcome,
         alteration_detected=alteration_detected,
+        altered_fields=[],
         pps_outcome=pps_outcome,
         available_balance=available_balance,
         cheque_amount=amount,
         shap_values={"amount_feature": 0.1, "drawer_history": -0.05},
+        cheque_date=date.today(),   # valid date — tests focus on other gates
     )
 
 
@@ -52,6 +55,7 @@ def _make_config(
         "human_review_fraud_threshold": fraud_threshold,
         "ocr_min_confidence": ocr_min_confidence,
         "sig_min_match_score": sig_min_match,
+        "cheque_validity_days": 90,
     }
 
 
@@ -129,13 +133,27 @@ class TestSTPReturn:
         assert result.decision == "STP_RETURN"
 
     @pytest.mark.asyncio
-    async def test_alteration_detected_gives_return(self):
-        from modules.cts.workflows.activities.decision import synthesise_decision
-        result = await synthesise_decision(
-            _make_signals(alteration_detected=True),
-            config=_make_config(),
+    async def test_alteration_detected_non_date_field_gives_return(self):
+        """CTS rule: non-date alteration detected → STP_RETURN code 85."""
+        from modules.cts.workflows.activities.decision import synthesise_decision, DecisionInput
+        inp = DecisionInput(
+            instrument_id="INST001",
+            bank_id="test-bank",
+            fraud_score=0.05,
+            ocr_confidence=0.97,
+            signature_match_score=0.95,
+            cbs_outcome="PROCEED",
+            alteration_detected=True,
+            altered_fields=["amount_figures"],   # non-date field → code 85
+            pps_outcome="FOUND",
+            available_balance=100000.0,
+            cheque_amount=50000.0,
+            shap_values={"f": 0.1},
+            cheque_date=date.today(),
         )
+        result = await synthesise_decision(inp, config=_make_config())
         assert result.decision == "STP_RETURN"
+        assert result.return_reason_code == "85"
 
     @pytest.mark.asyncio
     async def test_return_has_shap_values(self):

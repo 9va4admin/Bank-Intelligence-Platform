@@ -2337,3 +2337,85 @@ MSV_SIGNATORY_REVOKED:
   variables: [account_display, signatory_id, bank_id]
   en: "MSV signatory {signatory_id} revoked for account {account_display} at bank {bank_id}."
   hi: ""
+
+# ── CCP Compliance — Return Reason Codes (URRBCH) ────────────────────────────
+# Added Phase 7 — CCP compliance plan (Karnataka Bank / PNB / IDBI / SBI CCPs).
+# All return codes per RBI/NPCI URRBCH taxonomy — universal, not bank-specific.
+
+CTS_WF_CHEQUE_POSTDATED:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id, cheque_date]
+  en: "Instrument {instrument_id} is post-dated (cheque date: {cheque_date}) — returned immediately (URRBCH code 30)."
+  hi: ""
+
+CTS_WF_CHEQUE_UNDATED:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id]
+  en: "Instrument {instrument_id} has no date — returned immediately (URRBCH code 32)."
+  hi: ""
+
+CTS_WF_ALTERATION_CTS_CODE85:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, altered_fields]
+  en: "CTS-2010 alteration in non-date fields on {instrument_id} — fields: {altered_fields}. Auto-returned (URRBCH code 85)."
+  hi: ""
+
+CTS_WF_ALTERATION_DATE_ONLY_REVIEW:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [instrument_id]
+  en: "Date-field alteration detected on {instrument_id} — routed to human review for bank officer decision."
+  hi: ""
+
+CTS_WF_PPS_FLAG_D_DUPLICATE:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, account_display]
+  en: "PPS flag D on {instrument_id} for {account_display} — duplicate presentation detected. Auto-returned (URRBCH code 14)."
+  hi: ""
+
+CTS_WF_PPS_FLAG_Y_MISMATCH:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, account_display]
+  en: "PPS flag Y on {instrument_id} for {account_display} — financial mismatch. Routed to human review."
+  hi: ""
+
+CTS_WF_PPS_MANDATORY_MISSING:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [instrument_id, account_display, amount_range]
+  en: "No PPS record for {account_display} on {instrument_id} (amount {amount_range}) — above mandatory threshold. Human review required."
+  hi: ""
+
+CTS_WF_RETURN_CHARGE_EXEMPT:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [instrument_id, return_reason_code]
+  en: "Instrument {instrument_id} returned with code {return_reason_code} — bank must NOT levy return charges (non-customer-fault code per URRBCH)."
+  hi: ""
+
+CTS_SMB_SPONSOR_SETTLEMENT_INSUFFICIENT:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [sub_member_id, sponsor_bank_id, instrument_count]
+  en: "SMB {sub_member_id} settlement funds insufficient at {sponsor_bank_id} — batch of {instrument_count} instruments blocked. URRBCH code 25 applied."
+  hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P2
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_clearing_ops
+    regulatory_reportable: true
+    auto_close_eligible: false
+    runbook_ref: "runbooks/cts/smb-settlement-insufficient.md"
+
+CTS_SMB_SPONSOR_SETTLEMENT_CBS_UNAVAILABLE:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [sub_member_id, sponsor_bank_id]
+  en: "CBS unavailable to verify SMB {sub_member_id} settlement position at {sponsor_bank_id} — batch escalated to human review."
+  hi: ""

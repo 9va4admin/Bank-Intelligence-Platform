@@ -416,6 +416,21 @@ spec:
           }}
         description: 'NGCH mTLS certificate expired for {bank_id} (expired {cert_expiry}).
           All NGCH filing halted — rotate certificate immediately. Runbook: runbooks/cts/ngch-cert-expired.md'
+    - alert: CTSSMBSPONSORSETTLEMENTINSUFFICIENT
+      expr: increase(astra_incident_signal_total{message_key="CTS_SMB_SPONSOR_SETTLEMENT_INSUFFICIENT"}[5m])
+        > 0
+      for: 0s
+      labels:
+        severity: warning
+        module: cts
+        owning_team: cts_clearing_ops
+        incident_class: SAFETY_BOUNDARY
+      annotations:
+        summary: CTS_SMB_SPONSOR_SETTLEMENT_INSUFFICIENT — incident signal fired for
+          bank {{ $labels.bank_id }}
+        description: 'SMB {sub_member_id} settlement funds insufficient at {sponsor_bank_id}
+          — batch of {instrument_count} instruments blocked. URRBCH code 25 applied.
+          Runbook: runbooks/cts/smb-settlement-insufficient.md'
   - name: ej_ops
     rules:
     - alert: EJEDGEBUFFERFULL

@@ -3,7 +3,7 @@ import IETTimer from './IETTimer'
 import FraudGauge from './FraudGauge'
 import ShapExplainer from './ShapExplainer'
 import ChequeImageViewer from './ChequeImageViewer'
-import { getReturnReasons } from '../data/returnReasons'
+import { getReturnReasons, getReasonByLabel } from '../data/returnReasons'
 
 const PROCEED_REASONS_GROUP = 'Proceed Reason'
 const PROCEED_REASONS = [
@@ -113,6 +113,9 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
   const [reasonSearch, setReasonSearch] = useState('')
   const RETURN_REASONS_GROUPED = getReturnReasons()
   const ALL_REASONS = [...PROCEED_REASONS, ...Object.values(RETURN_REASONS_GROUPED).flat()].sort()
+
+  // Derived: URRBCH entry for the selected return reason (null for proceed reasons)
+  const selectedReason = getReasonByLabel(returnReason)
   const [reasonOpen, setReasonOpen] = useState(false)
   const [confirmSecs, setConfirmSecs] = useState(null)
 
@@ -184,7 +187,11 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
       setConfirming('RETURN')
       saveRecentReason(returnReason)
       setTimeout(() => {
-        onDecision(item.instrument_id, 'RETURN', returnReason)
+        onDecision(item.instrument_id, 'RETURN', {
+          label: returnReason,
+          urrbch_code: selectedReason?.code ?? null,
+          customer_fault: selectedReason?.customerFault ?? null,
+        })
         setConfirming(null)
         setReturnReason('')
         setReasonSearch('')
@@ -583,6 +590,16 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
 
       {/* Action footer */}
       <div className={`relative z-20 shrink-0 border-t ${th.border} px-6 py-3 ${th.foot} backdrop-blur`}>
+        {/* Non-customer-fault notice — RBI mandates no return charge for these codes */}
+        {selectedReason && !selectedReason.customerFault && (
+          <div className={`flex items-center gap-2 mb-2 px-3 py-1.5 rounded-lg text-[10px] ${
+            isDark ? 'bg-sky-900/30 border border-sky-700/40 text-sky-300' : 'bg-sky-50 border border-sky-200 text-sky-700'
+          }`}>
+            <span className="font-bold font-mono">Code {selectedReason.code}</span>
+            <span>·</span>
+            <span>Non-customer fault — no return charge may be levied (RBI/NPCI mandate)</span>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           {/* Searchable grouped return-reason combobox */}
           <div className="relative flex-1" ref={reasonDropdownRef}>
@@ -592,8 +609,17 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
               disabled={!!confirming}
               className={`w-full flex items-center justify-between border rounded-lg px-3 py-2 text-xs focus:outline-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${th.sel}`}
             >
-              <span className={returnReason ? th.val : th.lbl}>
-                {returnReason || 'Select Reason...'}
+              <span className={`flex items-center gap-2 min-w-0 ${returnReason ? th.val : th.lbl}`}>
+                <span className="truncate">{returnReason || 'Select Reason...'}</span>
+                {selectedReason && (
+                  <span className={`shrink-0 text-[9px] font-bold font-mono px-1.5 py-0.5 rounded border ${
+                    selectedReason.customerFault
+                      ? (isDark ? 'bg-red-900/40 border-red-700/50 text-red-300' : 'bg-red-100 border-red-300 text-red-700')
+                      : (isDark ? 'bg-sky-900/40 border-sky-700/50 text-sky-300' : 'bg-sky-100 border-sky-300 text-sky-700')
+                  }`}>
+                    {selectedReason.code}
+                  </span>
+                )}
               </span>
               <span className={`ml-2 shrink-0 ${th.lbl}`}>{reasonOpen ? '▲' : '▼'}</span>
             </button>
@@ -616,16 +642,26 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
                   {!reasonSearch && getRecentReasons().length > 0 && (
                     <div>
                       <div className={`px-3 pt-2 pb-1 text-[9px] font-semibold uppercase tracking-widest ${th.footNote}`}>Recent</div>
-                      {getRecentReasons().map(r => (
-                        <button
-                          key={`recent-${r}`}
-                          type="button"
-                          onMouseDown={() => { setReturnReason(r); setReasonOpen(false); setReasonSearch('') }}
-                          className={`w-full text-left px-3 py-2 text-xs transition-colors ${isDark ? 'hover:bg-white/5 text-gold-400' : 'hover:bg-amber-50 text-amber-600'}`}
-                        >
-                          {r}
-                        </button>
-                      ))}
+                      {getRecentReasons().map(r => {
+                        const entry = getReasonByLabel(r)
+                        return (
+                          <button
+                            key={`recent-${r}`}
+                            type="button"
+                            onMouseDown={() => { setReturnReason(r); setReasonOpen(false); setReasonSearch('') }}
+                            className={`w-full text-left px-3 py-2 text-xs transition-colors flex items-center justify-between gap-2 ${isDark ? 'hover:bg-white/5 text-gold-400' : 'hover:bg-amber-50 text-amber-600'}`}
+                          >
+                            <span className="truncate">{r}</span>
+                            {entry && (
+                              <span className={`shrink-0 text-[9px] font-mono font-bold px-1 rounded ${
+                                entry.customerFault
+                                  ? (isDark ? 'text-red-400' : 'text-red-600')
+                                  : (isDark ? 'text-sky-400' : 'text-sky-600')
+                              }`}>{entry.code}</span>
+                            )}
+                          </button>
+                        )
+                      })}
                       <div className={`mx-3 border-t ${th.border} my-1`} />
                     </div>
                   )}
@@ -662,16 +698,26 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
                     return (
                       <div key={group}>
                         <div className={`px-3 pt-2 pb-1 text-[9px] font-semibold uppercase tracking-widest ${th.footNote}`}>{group}</div>
-                        {filtered.map(r => (
-                          <button
-                            key={r}
-                            type="button"
-                            onMouseDown={() => { setReturnReason(r); setReasonOpen(false); setReasonSearch('') }}
-                            className={`w-full text-left px-3 py-2 text-xs transition-colors ${r === returnReason ? (isDark ? 'bg-white/8 text-white' : 'bg-slate-100 text-slate-900') : (isDark ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-50 text-slate-700')}`}
-                          >
-                            {r}
-                          </button>
-                        ))}
+                        {filtered.map(r => {
+                          const entry = getReasonByLabel(r)
+                          return (
+                            <button
+                              key={r}
+                              type="button"
+                              onMouseDown={() => { setReturnReason(r); setReasonOpen(false); setReasonSearch('') }}
+                              className={`w-full text-left px-3 py-2 text-xs transition-colors flex items-center justify-between gap-2 ${r === returnReason ? (isDark ? 'bg-white/8 text-white' : 'bg-slate-100 text-slate-900') : (isDark ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-50 text-slate-700')}`}
+                            >
+                              <span className="truncate">{r}</span>
+                              {entry && (
+                                <span className={`shrink-0 text-[9px] font-mono font-bold px-1 rounded ${
+                                  entry.customerFault
+                                    ? (isDark ? 'text-red-400' : 'text-red-600')
+                                    : (isDark ? 'text-sky-400' : 'text-sky-600')
+                                }`}>{entry.code}</span>
+                              )}
+                            </button>
+                          )
+                        })}
                       </div>
                     )
                   })}
@@ -688,7 +734,11 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
             disabled={!returnReason || !!confirming}
             className="shrink-0 px-5 py-2 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
           >
-            {confirming === 'RETURN' ? 'Filing…' : '✕ Return'}
+            {confirming === 'RETURN'
+              ? 'Filing…'
+              : selectedReason
+              ? `✕ Return (${selectedReason.code})`
+              : '✕ Return'}
           </button>
 
           <button
