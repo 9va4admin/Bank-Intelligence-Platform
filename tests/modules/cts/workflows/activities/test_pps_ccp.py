@@ -3,7 +3,7 @@ CCP-compliance tests for PPS — 5-flag NPCI decision tree.
 
 Karnataka Bank Section 8 documents 5 NPCI flags with explicit actions:
   P — Positive match → PROCEED
-  D — Duplicate presentation → AUTO_RETURN (code 14)
+  D — Duplicate presentation → AUTO_RETURN (code 41, URRBCH: Item listed twice)
   Y — Financial mismatch (amount/payee) → HUMAN_REVIEW; financial reason outranks PPS
   Z — Data not available → check mandatory threshold; HUMAN_REVIEW if above it
   N — Not registered → PROCEED (issuer opted out)
@@ -93,7 +93,7 @@ class TestPPSFlagP:
 class TestPPSFlagD:
     @pytest.mark.asyncio
     async def test_flag_d_duplicate_gives_auto_return(self):
-        """Flag D = duplicate presentation → AUTO_RETURN, code 14."""
+        """Flag D = duplicate presentation → AUTO_RETURN, code 41 (URRBCH: Item listed twice)."""
         from modules.cts.workflows.activities.pps import lookup_pps
         result = await lookup_pps(
             _make_input(),
@@ -101,11 +101,11 @@ class TestPPSFlagD:
             config=_config(),
         )
         assert result.outcome == "AUTO_RETURN"
-        assert result.return_reason_code == "14"
+        assert result.return_reason_code == "41"
 
     @pytest.mark.asyncio
     async def test_flag_d_is_not_customer_fault(self):
-        """Duplicate presentation is a bank/system error — code 14 not customer fault."""
+        """Duplicate presentation is a bank/system error — code 41 not customer fault."""
         from modules.cts.workflows.activities.pps import lookup_pps
         result = await lookup_pps(
             _make_input(),
@@ -228,10 +228,10 @@ class TestPPSResultModel:
         r = PPSActivityResult(
             outcome="AUTO_RETURN",
             npci_flag="D",
-            return_reason_code="14",
+            return_reason_code="41",
             is_customer_fault=False,
         )
-        assert r.return_reason_code == "14"
+        assert r.return_reason_code == "41"
 
     def test_result_has_financial_reason_takes_priority(self):
         from modules.cts.workflows.activities.pps import PPSActivityResult

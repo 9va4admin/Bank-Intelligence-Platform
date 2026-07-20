@@ -50,20 +50,20 @@ log = structlog.get_logger()
 # CBS connectors (Finacle/BaNCS/FlexCube) report bank-internal reason strings;
 # this mapping normalises them to the universal NPCI clearing codes.
 _CBS_REASON_TO_RETURN_CODE: dict[str, str] = {
-    "NSF":                  "01",  # insufficient funds
+    "NSF":                  "01",  # URRBCH 1: Funds insufficient
     "INSUFFICIENT_FUNDS":   "01",
-    "EXCEEDS_ARRANGEMENT":  "02",
-    "STOP_PAYMENT":         "20",
-    "PAYMENT_STOPPED":      "05",
-    "ACCOUNT_CLOSED":       "10",
-    "ACCOUNT_DOES_NOT_EXIST": "11",
-    "ACCOUNT_TRANSFERRED":  "09",
-    "ACCOUNT_FROZEN":       "55",
-    "ACCOUNT_BLOCKED":      "55",
-    "DRAWER_DECEASED":      "07",
-    "INSOLVENCY":           "08",
+    "EXCEEDS_ARRANGEMENT":  "02",  # URRBCH 2
+    "STOP_PAYMENT":         "20",  # URRBCH 20: Payment stopped by drawer
+    "PAYMENT_STOPPED":      "20",  # URRBCH 20 (same as STOP_PAYMENT)
+    "ACCOUNT_CLOSED":       "50",  # URRBCH 50
+    "ACCOUNT_DOES_NOT_EXIST": "52",  # URRBCH 52
+    "ACCOUNT_TRANSFERRED":  "51",  # URRBCH 51
+    "ACCOUNT_FROZEN":       "55",  # URRBCH 55
+    "ACCOUNT_BLOCKED":      "55",  # URRBCH 55
+    "DRAWER_DECEASED":      "23",  # URRBCH 23: Withdrawal stopped — death
+    "INSOLVENCY":           "25",  # URRBCH 25: Withdrawal stopped — insolvency
 }
-_DEFAULT_CBS_RETURN_CODE = "01"  # insufficient funds as safe fallback
+_DEFAULT_CBS_RETURN_CODE = "01"  # URRBCH 1: insufficient funds as safe fallback
 
 
 def _cbs_reason_to_return_code(cbs_reason: Optional[str]) -> str:
