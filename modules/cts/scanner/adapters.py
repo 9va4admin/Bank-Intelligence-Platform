@@ -30,18 +30,15 @@ import structlog
 from pydantic import BaseModel, ConfigDict
 
 from modules.cts.scanner.models import IntegrationMode, ScanResult, ScannerOEM
+from modules.cts.scanner.drivers import (
+    ScannerUnavailableError,   # noqa: F401 — re-exported; callers import from adapters
+    ScannerConfigNotFoundError,  # noqa: F401
+)
+from modules.cts.scanner.drivers.ranger_transport import RangerTransportClient, RangerScanResult
+from modules.cts.scanner.drivers.panini_sdk import PaniniSDKDriver, PaniniScanResult
+from modules.cts.scanner.drivers.dcc_api import DCCAPIDriver, DCCScanResult
 
 log = structlog.get_logger()
-
-
-# ── Exceptions ────────────────────────────────────────────────────────────────
-
-class ScannerUnavailableError(Exception):
-    """Raised when the physical scanner cannot be reached (network, USB, timeout)."""
-
-
-class ScannerConfigNotFoundError(Exception):
-    """Raised when no scanner config exists for the requested branch or bank."""
 
 
 # ── Branch-level scanner configuration ───────────────────────────────────────
@@ -252,6 +249,32 @@ class PaniniVisionXAdapter(ScannerAdapter):
     def oem(self) -> ScannerOEM:
         return ScannerOEM.PANINI
 
+    def scan_via_sdk(
+        self, dll_search_path: Optional[str] = None, capture_uv: bool = True
+    ) -> ScanResult:
+        """
+        Trigger a live scan via the Panini SDK DLL.
+
+        When panini64.dll (or panini.dll) is placed in dll_search_path (or bin/),
+        this calls into the physical scanner automatically — no other setup needed.
+
+        Raises ScannerDriverNotFoundError if the DLL is not found.
+        Raises ScannerUnavailableError on hardware error.
+        """
+        driver = PaniniSDKDriver(
+            dll_search_path=dll_search_path,
+            scanner_model=self.scanner_model,
+        )
+        result: PaniniScanResult = driver.scan(capture_uv=capture_uv)
+        return self.ingest(
+            front_image=result.front_image,
+            rear_image=result.rear_image,
+            front_dpi=200,
+            rear_dpi=200,
+            micr_raw=result.micr,
+            uv_image=result.uv_image,
+        )
+
 
 # ── Canon adapters ────────────────────────────────────────────────────────────
 
@@ -297,6 +320,48 @@ class CanonCR120UVAdapter(ScannerAdapter):
     @property
     def ranger_port(self) -> Optional[int]:
         return self._cfg.ranger_port
+
+    async def scan_via_ranger(self) -> ScanResult:
+        """
+        Trigger a live scan over the Canon Ranger Transport TCP protocol.
+
+        Connects to ranger_host:ranger_port, sends SCAN command, reads back
+        front/rear/UV images and MICR. When the Ranger daemon is running on the
+        branch LAN, this works automatically with no driver install required.
+
+        Raises ScannerUnavailableError if the Ranger daemon is unreachable.
+        """
+        if not self._cfg.ranger_host or not self._cfg.ranger_port:
+            raise ScannerUnavailableError(
+                f"Canon Ranger Transport not configured for branch "
+                f"'{self._cfg.branch_id}'. Set ranger_host and ranger_port."
+            )
+        try:
+            async with RangerTransportClient(
+                host=self._cfg.ranger_host,
+                port=self._cfg.ranger_port,
+            ) as client:
+                result: RangerScanResult = await client.scan()
+        except ScannerUnavailableError:
+            log.warning(
+                "scanner.ranger_unavailable",
+                scanner_model=self.scanner_model,
+                bank_id=self.bank_id,
+                ranger_host=self._cfg.ranger_host,
+                ranger_port=self._cfg.ranger_port,
+            )
+            raise
+
+        return self.ingest(
+            front_image=result.front_image,
+            rear_image=result.rear_image,
+            front_dpi=result.dpi,
+            rear_dpi=result.dpi,
+            micr_raw=result.micr,
+            uv_image=result.uv_image,
+            imprinter_stamped=result.imprinter_stamped,
+            double_feed_detected=result.double_feed_detected,
+        )
 
 
 # ── Digital Check adapters ────────────────────────────────────────────────────
@@ -391,6 +456,30 @@ class DigitalCheckTS240UVAdapter(DigitalCheckAdapter):
                 f"{self.scanner_model} at {self._cfg.securelink_url} is unreachable"
             )
         return self._parse_securelink_response(data)
+
+    def scan_via_dcc_api(
+        self, dll_search_path: Optional[str] = None, capture_uv: bool = True
+    ) -> ScanResult:
+        """
+        Trigger a live scan via the Digital Check DCC API (USB mode).
+
+        When usd.dll is placed in dll_search_path (or bin/), this calls into
+        the physical TS240-UV automatically — no network or SecureLink required.
+        Use this in single-teller kiosk deployments where USB is preferred.
+
+        Raises ScannerDriverNotFoundError if usd.dll is not found.
+        Raises ScannerUnavailableError on hardware error.
+        """
+        driver = DCCAPIDriver(dll_search_path=dll_search_path)
+        result: DCCScanResult = driver.scan_item(capture_uv=capture_uv)
+        return self.ingest(
+            front_image=result.front_image,
+            rear_image=result.rear_image,
+            front_dpi=200,
+            rear_dpi=200,
+            micr_raw=result.micr,
+            uv_image=result.uv_image,
+        )
 
 
 class DigitalCheckTS250Adapter(DigitalCheckAdapter):
