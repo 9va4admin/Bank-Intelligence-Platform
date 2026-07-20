@@ -24,23 +24,14 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
-from enum import Enum
 from pathlib import Path
 from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, field_validator
 
-
-# ── OEM enum ──────────────────────────────────────────────────────────────────
-
-class ScannerOEM(str, Enum):
-    PANINI        = "PANINI"
-    DIGITAL_CHECK = "DIGITAL_CHECK"
-    MAGTEK        = "MAGTEK"
-    RDM           = "RDM"
-    OPEX          = "OPEX"
-    CANON         = "CANON"
-    GENERIC       = "GENERIC"
+# ScannerOEM is the single source of truth in models.py — re-exported here for
+# backward compatibility (file_watcher.py and tests import it from mapper).
+from modules.cts.scanner.models import ScannerOEM  # noqa: F401
 
 
 # ── Exception ─────────────────────────────────────────────────────────────────
