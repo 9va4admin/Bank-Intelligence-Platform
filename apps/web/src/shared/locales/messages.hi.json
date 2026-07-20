@@ -831,6 +831,18 @@
       "lot_total"
     ]
   },
+  "CTS_OUT_INSTRUMENT_PENDING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "scan_id"
+    ]
+  },
   "CTS_OUT_LOT_SEALED": {
     "text": "",
     "severity": "INFO",
@@ -3605,6 +3617,131 @@
       "account_display",
       "signatory_id",
       "bank_id"
+    ]
+  },
+  "CTS_WF_CHEQUE_POSTDATED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "cheque_date"
+    ]
+  },
+  "CTS_WF_CHEQUE_UNDATED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_WF_ALTERATION_CTS_CODE85": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "altered_fields"
+    ]
+  },
+  "CTS_WF_ALTERATION_DATE_ONLY_REVIEW": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_WF_PPS_FLAG_D_DUPLICATE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "account_display"
+    ]
+  },
+  "CTS_WF_PPS_FLAG_Y_MISMATCH": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "account_display"
+    ]
+  },
+  "CTS_WF_PPS_MANDATORY_MISSING": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "account_display",
+      "amount_range"
+    ]
+  },
+  "CTS_WF_RETURN_CHARGE_EXEMPT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code"
+    ]
+  },
+  "CTS_SMB_SPONSOR_SETTLEMENT_INSUFFICIENT": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "sub_member_id",
+      "sponsor_bank_id",
+      "instrument_count"
+    ]
+  },
+  "CTS_SMB_SPONSOR_SETTLEMENT_CBS_UNAVAILABLE": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "sub_member_id",
+      "sponsor_bank_id"
     ]
   }
 }

@@ -24,6 +24,10 @@ class NGCHFilerInput(BaseModel):
     bank_id: str
     workflow_id: str
     decision: Literal["CONFIRM", "RETURN"]
+    # URRBCH return reason code — required when decision == "RETURN"
+    return_reason_code: Optional[str] = None
+    # False = CBS must suppress return charge for this instrument
+    is_customer_fault: Optional[bool] = None
 
 
 class NGCHFilerResult(BaseModel):

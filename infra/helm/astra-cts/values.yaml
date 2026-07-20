@@ -81,6 +81,22 @@ thresholds:
   iet_emergency_buffer_seconds: 30     # watchdog fires 30s before IET — not configurable in spirit, but recorded
   human_review_max_wait_minutes: 55    # HumanReviewWorkflow timeout before auto-return
 
+  # ── CCP-compliance Layer 3 defaults (added Phase 7) ─────────────────────
+  # Cheque validity per RBI circular (1 January 2012): 3 months = 90 days.
+  # Banks may request RBI dispensation to reduce (not increase) the window.
+  cheque_validity_days: 90              # 3-month validity per RBI — adjust only with RBI approval
+
+  # PPS mandatory threshold: cheques >= this amount must have a PPS record;
+  # flag Z or vault miss above this amount → HUMAN_REVIEW (not PROCEED).
+  # Per PNB CCP Section 8: ₹5,00,000 is the recommended mandatory threshold.
+  # Adjustable per bank via Admin UI maker-checker (min ₹1L, max ₹50L).
+  pps_mandatory_threshold: 500000      # ₹5,00,000 — PPS mandatory above this
+
+  # Shadow credit release window: how long the drawee bank waits before
+  # releasing the provisional credit extended to the presenting bank.
+  # Per CCPs: equal to the return clearing window (typically 2 sessions = ~4h).
+  shadow_credit_release_hours: 4       # release after 2 return clearing sessions
+
 # ── Deployment Mode (BANK-CONFIGURABLE, Phase 2) ────────────────────────────
 # Controls which sub-scenarios are active. All disabled by default — banks opt in
 # by setting the relevant flag in their cts.yaml Layer 2 override.

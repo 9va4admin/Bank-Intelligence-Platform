@@ -831,6 +831,18 @@
       "lot_total"
     ]
   },
+  "CTS_OUT_INSTRUMENT_PENDING": {
+    "text": "Instrument {instrument_id} (scan {scan_id}) accepted — awaiting lot assignment at clearing session open.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "scan_id"
+    ]
+  },
   "CTS_OUT_LOT_SEALED": {
     "text": "Lot {lot_id} sealed by {operator} — {instrument_count} instruments, value {total_value_range}.",
     "severity": "INFO",
@@ -3605,6 +3617,131 @@
       "account_display",
       "signatory_id",
       "bank_id"
+    ]
+  },
+  "CTS_WF_CHEQUE_POSTDATED": {
+    "text": "Instrument {instrument_id} is post-dated (cheque date: {cheque_date}) — returned immediately (URRBCH code 30).",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "cheque_date"
+    ]
+  },
+  "CTS_WF_CHEQUE_UNDATED": {
+    "text": "Instrument {instrument_id} has no date — returned immediately (URRBCH code 32).",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_WF_ALTERATION_CTS_CODE85": {
+    "text": "CTS-2010 alteration in non-date fields on {instrument_id} — fields: {altered_fields}. Auto-returned (URRBCH code 85).",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "altered_fields"
+    ]
+  },
+  "CTS_WF_ALTERATION_DATE_ONLY_REVIEW": {
+    "text": "Date-field alteration detected on {instrument_id} — routed to human review for bank officer decision.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_WF_PPS_FLAG_D_DUPLICATE": {
+    "text": "PPS flag D on {instrument_id} for {account_display} — duplicate presentation detected. Auto-returned (URRBCH code 14).",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "account_display"
+    ]
+  },
+  "CTS_WF_PPS_FLAG_Y_MISMATCH": {
+    "text": "PPS flag Y on {instrument_id} for {account_display} — financial mismatch. Routed to human review.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "account_display"
+    ]
+  },
+  "CTS_WF_PPS_MANDATORY_MISSING": {
+    "text": "No PPS record for {account_display} on {instrument_id} (amount {amount_range}) — above mandatory threshold. Human review required.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "account_display",
+      "amount_range"
+    ]
+  },
+  "CTS_WF_RETURN_CHARGE_EXEMPT": {
+    "text": "Instrument {instrument_id} returned with code {return_reason_code} — bank must NOT levy return charges (non-customer-fault code per URRBCH).",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code"
+    ]
+  },
+  "CTS_SMB_SPONSOR_SETTLEMENT_INSUFFICIENT": {
+    "text": "SMB {sub_member_id} settlement funds insufficient at {sponsor_bank_id} — batch of {instrument_count} instruments blocked. URRBCH code 25 applied.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "sub_member_id",
+      "sponsor_bank_id",
+      "instrument_count"
+    ]
+  },
+  "CTS_SMB_SPONSOR_SETTLEMENT_CBS_UNAVAILABLE": {
+    "text": "CBS unavailable to verify SMB {sub_member_id} settlement position at {sponsor_bank_id} — batch escalated to human review.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "sub_member_id",
+      "sponsor_bank_id"
     ]
   }
 }
