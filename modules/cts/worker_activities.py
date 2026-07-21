@@ -36,9 +36,6 @@ dependency that fails to construct is logged at WARNING and left None —
 never silent, never a startup crash.
 
 Explicitly NOT wired here (flagged, not faked — see project memory):
-  - hsm: no real implementation exists anywhere in the codebase yet.
-    Needs an architecture decision (Vault Transit vs raw PKCS11) before
-    it can be built.
   - model/explainer (score_fraud's XGBoost + SHAP) and model
     (verify_signature's Siamese network): no trained model artifact or
     loader exists anywhere in the repo. This is a data-science delivery
@@ -97,6 +94,7 @@ class BoundCTSActivities:
         fraud_vllm_client: Any = None,
         config_service: Any = None,
         db_pool: Any = None,
+        hsm_signer: Any = None,
     ) -> None:
         self._bank_id = bank_id
         self._cbs_connector = cbs_connector
@@ -112,6 +110,7 @@ class BoundCTSActivities:
         self._fraud_vllm_client = fraud_vllm_client
         self._config_service = config_service
         self._db_pool = db_pool
+        self._hsm_signer = hsm_signer
         # LotManager is stateful/in-memory per clearing session (see
         # modules/cts/lot/manager.py) — cached by (bank_ifsc, session_id) so
         # sequential lot numbers are correct across a session's many
@@ -273,7 +272,7 @@ class BoundCTSActivities:
     @activity.defn(name="write_audit")
     async def write_audit(self, inp: WriteAuditInput):
         from modules.cts.workflows.activities.write_audit import write_audit as _real
-        return await _real(inp, immudb_client=self._immudb_client)
+        return await _real(inp, immudb_client=self._immudb_client, hsm=self._hsm_signer)
 
     @activity.defn(name="file_to_ngch")
     async def file_to_ngch(self, inp: NGCHFilerInput):
@@ -450,6 +449,7 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
     orchestrator = await _build_cascade_orchestrator(config_service, bank_id)
     fraud_vllm_client = await _build_fraud_vllm_client(config_service)
     db_pool = await _build_db_pool(config_service)
+    hsm_signer = _build_hsm_signer(config_service, bank_id)
 
     pepper = await _get_pii_pepper(config_service, bank_id)
     signature_vault = _build_signature_vault(bank_id, pepper, redis_client)
@@ -471,6 +471,7 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
         fraud_vllm_client=fraud_vllm_client,
         config_service=config_service,
         db_pool=db_pool,
+        hsm_signer=hsm_signer,
     )
 
 
@@ -679,6 +680,30 @@ def _build_pps_vault(bank_id: str, pepper: str, redis_client: Any) -> Any:
         return vault
     except Exception as exc:
         log.warning("worker_activities.pps_vault_unavailable", bank_id=bank_id, error=str(exc))
+        return None
+
+
+def _build_hsm_signer(config_service: Any, bank_id: str) -> Any:
+    """
+    Construct VaultTransitSigner for HSM-signing audit events before Immudb write.
+
+    Uses Vault Transit engine so the signing key never leaves Vault — satisfying
+    CLAUDE.md §11 "no software-held private keys". In production, Vault's backend
+    is a FIPS 140-2 Level 3 HSM.
+
+    Key name read from config_service (hsm.transit_key_name) so banks can use
+    their own Vault Transit key without a code change. VAULT_ADDR and VAULT_TOKEN
+    are the only two env vars allowed in application code (secrets-vault.md §IV) —
+    they are injected by the Vault agent sidecar at pod startup.
+    """
+    try:
+        from shared.hsm.vault_transit_signer import VaultTransitSigner
+        key_name = config_service.get_platform("hsm.transit_key_name")
+        signer = VaultTransitSigner.from_env(key_name=key_name)
+        log.info("worker_activities.hsm_signer_ready", bank_id=bank_id, key_name=key_name)
+        return signer
+    except Exception as exc:
+        log.warning("worker_activities.hsm_signer_unavailable", bank_id=bank_id, error=str(exc))
         return None
 
 

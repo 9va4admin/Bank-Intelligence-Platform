@@ -151,6 +151,29 @@ async def lifespan(app: FastAPI):
         log.error("api_gateway.db_pool_cts_failed", error=str(exc))
         app.state.db_pool_cts = None
 
+    # --- MinIO object store ---
+    # Cheque images (front/rear TIFFs), EJ files, and CCTV clips are stored in
+    # MinIO. The API uses this client to generate presigned download URLs for the
+    # human review UI. SSE-KMS encryption is enforced at the bucket level (Helm
+    # non-overridable). Degrades gracefully — image preview unavailable, all other
+    # routes unaffected.
+    try:
+        from shared.storage.minio_client import MinioObjectStore
+        minio_endpoint = config_service.get_platform("minio.endpoint")
+        minio_access_key = await config_service.get_secret("minio.access_key")
+        minio_secret_key = await config_service.get_secret("minio.secret_key")
+        minio_secure = config_service.get_platform("minio.secure") in ("true", "True", "1", True)
+        app.state.minio_store = MinioObjectStore(
+            endpoint=minio_endpoint,
+            access_key=minio_access_key,
+            secret_key=minio_secret_key,
+            secure=minio_secure,
+        )
+        log.info("api_gateway.minio_store_ready", endpoint=minio_endpoint)
+    except Exception as exc:
+        log.error("api_gateway.minio_store_failed", error=str(exc))
+        app.state.minio_store = None
+
     # --- Temporal client ---
     try:
         from temporalio.client import Client as TemporalClient
