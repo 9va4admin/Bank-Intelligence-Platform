@@ -7,6 +7,26 @@
 # (ops_manager submits → bank_it_admin approves → hot-reload in < 30s).
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ── Identity (REQUIRED — read by ArgoCD CTS ApplicationSet generator AND by Helm templates) ─
+# bank_id: read by ArgoCD git file generator ({{ .bank_id }} in ApplicationSet template).
+# global.bank_id: read by Helm templates ({{ .Values.global.bank_id }}).
+# global.registry: Docker image registry for all CTS service images.
+# These MUST match the values in platform.yaml — duplication is intentional
+# (astra-cts is a separate ArgoCD Application with its own valueFiles only).
+bank_id: saraswat-coop
+global:
+  bank_id: saraswat-coop
+  registry: registry.astra.internal
+
+# ── Kafka Bootstrap Servers (REQUIRED — used by all KEDA ScaledObjects) ──────
+# Points to the Strimzi Kafka cluster deployed in the platform namespace.
+# Three broker addresses for HA — all three must be reachable from astra-cts namespace.
+kafka:
+  bootstrap_servers: >-
+    kafka-broker-0.kafka-broker-headless.astra-platform-saraswat-coop.svc.cluster.local:9092,
+    kafka-broker-1.kafka-broker-headless.astra-platform-saraswat-coop.svc.cluster.local:9092,
+    kafka-broker-2.kafka-broker-headless.astra-platform-saraswat-coop.svc.cluster.local:9092
+
 # ── Clearing ─────────────────────────────────────────────────────────────────
 clearing_zones: [MUMBAI]
 
@@ -63,6 +83,17 @@ smb:
     min_replicas: 1
     max_replicas: 10
     keda_kafka_lag_threshold: 5
+
+# ── KEDA — SMB inbound scaler (must match smb.enabled above) ─────────────────
+# keda.smb_inbound.enabled defaults to false in chart values (most banks are
+# not SBs). Saraswat IS an SB — override to true so the cts.smb.inbound KEDA
+# ScaledObject is created and SMBForwardingWorkflow consumers scale on lag.
+keda:
+  smb_inbound:
+    enabled: true
+    min_replicas: 1
+    max_replicas: 10
+    lag_threshold: "5"
 
 # ── NGCH Adapter ─────────────────────────────────────────────────────────────
 ngch:

@@ -7,9 +7,28 @@
 #   Banks override in infra/helm/values/banks/{bank_id}/platform.yaml
 # ─────────────────────────────────────────────────────────────────────────────────────
 
+# ── Global (REQUIRED — set in every bank values file) ───────────────────────
+# global.bank_id: "" must be overridden in banks/{bank_id}/platform.yaml.
+# global.registry is the internal OCI registry hosting all ASTRA images.
+# Both fields are used across multiple templates — must be set before install.
+global:
+  bank_id: ""                           # REQUIRED: e.g. saraswat-coop
+  registry: ""                          # REQUIRED: e.g. registry.astra.internal
+
 platform:
   name: astra
   version: "{{ .Chart.Version }}"
+
+# ── Module Flags (REQUIRED per bank — controls migration Job and KEDA) ───────
+# Set true for each module the bank has purchased. Controls:
+#   - which Alembic migration chains run in the pre-upgrade Job
+#   - which Temporal task queue workers are deployed
+#   - which KEDA ScaledObjects are created
+modules:
+  cts:
+    enabled: false                      # override to true in cts-purchasing bank's platform.yaml
+  ej:
+    enabled: false                      # override to true in ej-purchasing bank's platform.yaml
 
 # ── Security (NON-OVERRIDABLE) ──────────────────────────────────────────────
 security:
@@ -105,6 +124,14 @@ ha:
 # COMPLIANCE mode (not GOVERNANCE): cannot be overridden even by bank administrators.
 # GOVERNANCE mode would allow privileged deletion — not acceptable for clearing records.
 minio:
+  # ── Connection (BANK-CONFIGURABLE — set in bank platform.yaml) ─────────────
+  # endpoint: internal Kubernetes Service DNS — never a public URL.
+  # Format: {service}.{namespace}.svc.cluster.local:{port}
+  # Example: minio.astra-platform-saraswat-coop.svc.cluster.local:9000
+  endpoint: ""                          # REQUIRED per bank
+  secure: false                         # false = Istio mTLS handles encryption in-cluster
+
+  # ── Object Lock (NON-OVERRIDABLE) ─────────────────────────────────────────
   object_lock:
     enabled: true
     mode: COMPLIANCE             # COMPLIANCE (not GOVERNANCE) — 10-year regulatory hold
@@ -115,3 +142,12 @@ minio:
     enabled: true
     type: SSE-KMS
     # kms_key_id resolved per bank: vault-transit://astra/{bank_id}/minio-key
+
+# ── HSM (BANK-CONFIGURABLE) ─────────────────────────────────────────────────
+# Vault Transit engine used for signing audit events before Immudb write.
+# key_name is the Vault Transit key provisioned at bank onboarding:
+#   vault write -f transit/keys/astra-audit-key-{bank_id} type=rsa-4096
+# Each bank gets an isolated signing key — cross-bank signature verification
+# is impossible by design (keys never shared or exported).
+hsm:
+  transit_key_name: "astra-audit-key"  # default; banks override with astra-audit-key-{bank_id}
