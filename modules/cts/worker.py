@@ -155,6 +155,12 @@ from modules.cts.workflows.activities.smb_vault_push_activities import (
     parse_and_validate_smb_push,
     update_smb_vault,
 )
+from modules.cts.workflows.activities.platform_health_activities import (
+    check_iet_risk_for_alert,
+    check_human_review_for_alert,
+    dispatch_platform_alert,
+)
+from modules.cts.workflows.platform_health_check_workflow import PlatformHealthCheckWorkflow
 from modules.cts.worker_activities import build_bound_activities
 
 ALL_WORKFLOWS = [
@@ -174,6 +180,7 @@ ALL_WORKFLOWS = [
     SBInwardForwardingWorkflow,
     SMBVaultPushWorkflow,
     AgencyCCWorkflow,
+    PlatformHealthCheckWorkflow,
 ]
 
 # Every registered CTS activity name, for reference/introspection. This list
@@ -232,6 +239,9 @@ ALL_ACTIVITIES = [
     publish_relay_event,
     parse_and_validate_smb_push,
     update_smb_vault,
+    check_iet_risk_for_alert,
+    check_human_review_for_alert,
+    dispatch_platform_alert,
 ]
 
 # Activities registered directly as bare functions.  Includes:
@@ -266,6 +276,10 @@ NO_DI_ACTIVITIES = [
     # SMB vault push (SMBVaultPushWorkflow)
     parse_and_validate_smb_push,
     update_smb_vault,
+    # Platform health check alert engine (PlatformHealthCheckWorkflow)
+    check_iet_risk_for_alert,
+    check_human_review_for_alert,
+    dispatch_platform_alert,
 ]
 
 
