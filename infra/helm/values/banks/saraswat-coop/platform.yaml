@@ -6,7 +6,21 @@
 # Audit trail: every merged PR triggers Immudb ConfigChangeEvent on apply
 # ─────────────────────────────────────────────────────────────────────────────
 
-bank_id: saraswat-coop             # must match Vault path segment exactly
+bank_id: saraswat-coop             # for ArgoCD platform ApplicationSet generator ({{ .bank_id }})
+
+# ── Global (for Helm templates — .Values.global.*) ───────────────────────────
+# Duplicates bank_id for Helm template access (.Values.global.bank_id).
+# registry: internal OCI registry hosting all ASTRA service images.
+global:
+  bank_id: saraswat-coop
+  registry: registry.astra.internal
+
+# ── Module Flags (controls migration Job + KEDA + Temporal workers) ──────────
+modules:
+  cts:
+    enabled: true                      # Saraswat has purchased CTS module
+  ej:
+    enabled: false                     # EJ not purchased in pilot phase
 
 # ── CBS Connector ────────────────────────────────────────────────────────────
 # Saraswat runs Infosys Finacle core banking
@@ -123,6 +137,22 @@ notification_service:
 # Saraswat acts as Sponsor Bank for 2 smaller UCBs routing CTS through them
 smb_sponsor_enabled: true
 smb_sponsor_max_sub_members: 5      # initial pilot limit
+
+# ── MinIO Object Store (REQUIRED per bank) ───────────────────────────────────
+# Internal Kubernetes Service DNS — never a public endpoint.
+# secure: false — mTLS is handled by Istio in-cluster; MinIO endpoint is internal.
+# The astra-platform chart deploys MinIO in the platform namespace as a StatefulSet.
+minio:
+  endpoint: "minio.astra-platform-saraswat-coop.svc.cluster.local:9000"
+  secure: false
+
+# ── HSM — Vault Transit Key ──────────────────────────────────────────────────
+# Bank-specific Vault Transit key for signing audit events before Immudb write.
+# Provisioned at bank onboarding:
+#   vault write -f transit/keys/astra-audit-key-saraswat-coop type=rsa-4096
+# Key name must match the value configured in _build_hsm_signer() at worker startup.
+hsm:
+  transit_key_name: "astra-audit-key-saraswat-coop"
 
 # ── ASTRA Chart Version ──────────────────────────────────────────────────────
 astra:

@@ -4,7 +4,28 @@
 # Changes require: PR to ASTRA repo → bank_it_admin approval → ArgoCD sync
 # ─────────────────────────────────────────────────────────────────────────────
 
-bank_id: example-bank             # lowercase, hyphenated — must match Vault path segment
+bank_id: example-bank             # for ArgoCD platform ApplicationSet generator ({{ .bank_id }})
+
+# ── Global (for Helm templates — .Values.global.*) ───────────────────────────
+global:
+  bank_id: example-bank
+  registry: registry.astra.internal
+
+# ── Module Flags ──────────────────────────────────────────────────────────────
+modules:
+  cts:
+    enabled: true
+  ej:
+    enabled: true
+
+# ── MinIO Object Store ────────────────────────────────────────────────────────
+minio:
+  endpoint: "minio.astra-platform-example-bank.svc.cluster.local:9000"
+  secure: false
+
+# ── HSM ──────────────────────────────────────────────────────────────────────
+hsm:
+  transit_key_name: "astra-audit-key-example-bank"
 
 # ── CBS Connector ────────────────────────────────────────────────────────────
 cbs_connector_type: finacle        # finacle | bancs | flexcube

@@ -9,6 +9,21 @@
 #   After onboarding, banks change these via Admin UI maker-checker — no Helm upgrade.
 # ─────────────────────────────────────────────────────────────────────────────────────
 
+# ── Global (REQUIRED — set in every bank cts.yaml) ──────────────────────────
+# These must match the values in the bank's platform.yaml — they're duplicated
+# here because astra-cts is rendered as a SEPARATE ArgoCD Application with its
+# own valueFiles; it does not inherit platform.yaml values at render time.
+global:
+  bank_id: ""                           # REQUIRED: e.g. saraswat-coop
+  registry: ""                          # REQUIRED: e.g. registry.astra.internal
+
+# ── Kafka (REQUIRED — for KEDA ScaledObjects) ────────────────────────────────
+# Bootstrap servers for the bank's Kafka cluster. Used by all KEDA triggers in
+# this chart. Format: host:port,host:port (comma-separated broker list).
+# Set per bank — points to the Kafka StatefulSet in the platform namespace.
+kafka:
+  bootstrap_servers: ""                 # REQUIRED per bank
+
 # ── Workflow Safety (NON-OVERRIDABLE) ───────────────────────────────────────
 workflow:
   iet_watchdog_enabled: true        # structural — cannot be disabled by any bank
