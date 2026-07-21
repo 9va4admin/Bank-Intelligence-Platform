@@ -39,6 +39,10 @@ CTS_MISMATCH = "cts.mismatch.{bank_id}.{branch_id}"
 # CTS — sub-member bank routing
 CTS_SMB_INBOUND = "cts.smb.inbound.{bank_id}"
 
+# CTS — SB relay (agency CC mode)
+CTS_SB_RELAY_INWARD  = "cts.sb.relay.inward.{agency_id}.{sb_bank_id}"
+CTS_SB_RELAY_OUTWARD = "cts.sb.relay.outward.{agency_id}.{sb_bank_id}"
+
 # ---------------------------------------------------------------------------
 # EJ — ATM Electronic Journal
 # ---------------------------------------------------------------------------

@@ -23,10 +23,25 @@ uses this as the IET start time, not the time of relay receipt.
 """
 from __future__ import annotations
 
+from datetime import timedelta
+
 import structlog
 from pydantic import BaseModel, ConfigDict
+from temporalio import workflow
+from temporalio.common import RetryPolicy
 
 log = structlog.get_logger()
+
+_CBS_RETRY = RetryPolicy(
+    maximum_attempts=3,
+    initial_interval=timedelta(seconds=2),
+    backoff_coefficient=1.5,
+)
+_AUDIT_RETRY = RetryPolicy(
+    maximum_attempts=0,
+    initial_interval=timedelta(seconds=1),
+    maximum_interval=timedelta(minutes=5),
+)
 
 
 class SBInwardForwardingInput(BaseModel):
@@ -49,10 +64,98 @@ class SBInwardForwardingResult(BaseModel):
     audit_written: bool = False
 
 
+@workflow.defn
 class SBInwardForwardingWorkflow:
 
     def workflow_id(self, agency_id: str, sb_bank_id: str, session_id: str) -> str:
         return f"cts-sbinward-{agency_id}-{sb_bank_id}-{session_id}"
+
+    @workflow.run
+    async def run(self, inp: SBInwardForwardingInput) -> SBInwardForwardingResult:
+        from modules.cts.workflows.activities.sb_relay_activities import (
+            CRLBatchInput,
+            PublishToPUInput,
+            publish_to_pu_queues,
+            resolve_crl_batch,
+        )
+        from modules.cts.workflows.activities.write_audit import WriteAuditInput, write_audit
+
+        if not inp.instruments:
+            await workflow.execute_activity(
+                write_audit,
+                WriteAuditInput(
+                    event_type="CTS_SB_INWARD_EMPTY",
+                    bank_id=inp.agency_id,
+                    payload={"session_id": inp.session_id, "outcome": "EMPTY"},
+                ),
+                start_to_close_timeout=timedelta(seconds=15),
+                retry_policy=_AUDIT_RETRY,
+            )
+            return SBInwardForwardingResult(
+                outcome="EMPTY",
+                agency_id=inp.agency_id,
+                session_id=inp.session_id,
+                routed_count=0,
+                failed_count=0,
+                audit_written=True,
+            )
+
+        # Step 1: Resolve IFSC → PU IDs
+        crl_result = await workflow.execute_activity(
+            resolve_crl_batch,
+            CRLBatchInput(
+                agency_id=inp.agency_id,
+                instruments=inp.instruments,
+            ),
+            start_to_close_timeout=timedelta(seconds=60),
+            retry_policy=_CBS_RETRY,
+        )
+
+        resolved = crl_result.resolved
+        routed_count = sum(1 for r in resolved if r.get("success"))
+        failed_count = sum(1 for r in resolved if not r.get("success"))
+
+        # Step 2: Publish to PU inward queues
+        await workflow.execute_activity(
+            publish_to_pu_queues,
+            PublishToPUInput(
+                agency_id=inp.agency_id,
+                resolved_instruments=resolved,
+            ),
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=_CBS_RETRY,
+        )
+
+        outcome = "ROUTED" if failed_count == 0 else (
+            "FAILED" if routed_count == 0 else "PARTIAL_FAILURE"
+        )
+
+        # Step 3: Audit — always written
+        await workflow.execute_activity(
+            write_audit,
+            WriteAuditInput(
+                event_type=f"CTS_SB_INWARD_{outcome}",
+                bank_id=inp.agency_id,
+                payload={
+                    "session_id": inp.session_id,
+                    "sb_bank_id": inp.sb_bank_id,
+                    "outcome": outcome,
+                    "routed_count": routed_count,
+                    "failed_count": failed_count,
+                },
+            ),
+            start_to_close_timeout=timedelta(seconds=15),
+            retry_policy=_AUDIT_RETRY,
+        )
+
+        return SBInwardForwardingResult(
+            outcome=outcome,
+            agency_id=inp.agency_id,
+            session_id=inp.session_id,
+            routed_count=routed_count,
+            failed_count=failed_count,
+            audit_written=True,
+        )
 
     async def run_with_mocks(
         self,

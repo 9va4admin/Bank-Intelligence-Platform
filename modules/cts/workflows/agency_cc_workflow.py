@@ -16,12 +16,26 @@ Workflow ID: cts-agencycc-{agency_id}-{sb_bank_id}-{session_id}
 """
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Optional
 
 import structlog
 from pydantic import BaseModel, ConfigDict
+from temporalio import workflow
+from temporalio.common import RetryPolicy
 
 log = structlog.get_logger()
+
+_CBS_RETRY = RetryPolicy(
+    maximum_attempts=3,
+    initial_interval=timedelta(seconds=2),
+    backoff_coefficient=1.5,
+)
+_AUDIT_RETRY = RetryPolicy(
+    maximum_attempts=0,
+    initial_interval=timedelta(seconds=1),
+    maximum_interval=timedelta(minutes=5),
+)
 
 
 class AgencyCCInput(BaseModel):
@@ -49,10 +63,147 @@ class AgencyCCResult(BaseModel):
     audit_written: bool = False
 
 
+@workflow.defn
 class AgencyCCWorkflow:
 
     def workflow_id(self, agency_id: str, sb_bank_id: str, session_id: str) -> str:
         return f"cts-agencycc-{agency_id}-{sb_bank_id}-{session_id}"
+
+    @workflow.run
+    async def run(self, inp: AgencyCCInput) -> AgencyCCResult:
+        from modules.cts.workflows.activities.sb_relay_activities import (
+            BuildLotPackageInput,
+            PublishRelayInput,
+            SBSubmitInput,
+            build_lot_package,
+            publish_relay_event,
+            sb_submit_lot,
+        )
+        from modules.cts.workflows.activities.write_audit import WriteAuditInput, write_audit
+
+        # Step 1: Build lot package for transmission to SB
+        package = await workflow.execute_activity(
+            build_lot_package,
+            BuildLotPackageInput(
+                agency_id=inp.agency_id,
+                sb_bank_id=inp.sb_bank_id,
+                session_id=inp.session_id,
+                lot_numbers=inp.lot_numbers,
+                instrument_count=inp.instrument_count,
+            ),
+            start_to_close_timeout=timedelta(seconds=120),
+            retry_policy=_CBS_RETRY,
+        )
+
+        if package.error or not package.package_path:
+            failure = package.error or "PACKAGE_BUILD_FAILED"
+            await workflow.execute_activity(
+                write_audit,
+                WriteAuditInput(
+                    event_type="CTS_AGENCY_CC_REJECTED",
+                    bank_id=inp.agency_id,
+                    payload={
+                        "sb_bank_id": inp.sb_bank_id,
+                        "session_id": inp.session_id,
+                        "failure_reason": failure,
+                    },
+                ),
+                start_to_close_timeout=timedelta(seconds=15),
+                retry_policy=_AUDIT_RETRY,
+            )
+            return AgencyCCResult(
+                outcome="SB_REJECTED",
+                agency_id=inp.agency_id,
+                sb_bank_id=inp.sb_bank_id,
+                session_id=inp.session_id,
+                instrument_count=inp.instrument_count,
+                failure_reason=failure,
+                audit_written=True,
+            )
+
+        # Step 2: Submit to SB
+        submit = await workflow.execute_activity(
+            sb_submit_lot,
+            SBSubmitInput(
+                agency_id=inp.agency_id,
+                sb_bank_id=inp.sb_bank_id,
+                session_id=inp.session_id,
+                package_path=package.package_path,
+                instrument_count=inp.instrument_count,
+                connector_type=inp.connector_type,
+            ),
+            start_to_close_timeout=timedelta(seconds=60),
+            retry_policy=_CBS_RETRY,
+        )
+
+        if not submit.success:
+            error_code = submit.error_code or "SB_SUBMIT_FAILED"
+            await workflow.execute_activity(
+                write_audit,
+                WriteAuditInput(
+                    event_type="CTS_AGENCY_CC_REJECTED",
+                    bank_id=inp.agency_id,
+                    payload={
+                        "sb_bank_id": inp.sb_bank_id,
+                        "session_id": inp.session_id,
+                        "failure_reason": error_code,
+                    },
+                ),
+                start_to_close_timeout=timedelta(seconds=15),
+                retry_policy=_AUDIT_RETRY,
+            )
+            return AgencyCCResult(
+                outcome="SB_REJECTED",
+                agency_id=inp.agency_id,
+                sb_bank_id=inp.sb_bank_id,
+                session_id=inp.session_id,
+                instrument_count=inp.instrument_count,
+                failure_reason=error_code,
+                audit_written=True,
+            )
+
+        sb_reference = submit.reference_number
+
+        # Step 3: Publish relay event to Kafka (non-critical)
+        await workflow.execute_activity(
+            publish_relay_event,
+            PublishRelayInput(
+                agency_id=inp.agency_id,
+                sb_bank_id=inp.sb_bank_id,
+                session_id=inp.session_id,
+                sb_reference=sb_reference or "",
+                instrument_count=inp.instrument_count,
+            ),
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=_CBS_RETRY,
+        )
+
+        # Step 4: Audit
+        await workflow.execute_activity(
+            write_audit,
+            WriteAuditInput(
+                event_type="CTS_AGENCY_CC_SUBMITTED",
+                bank_id=inp.agency_id,
+                payload={
+                    "sb_bank_id": inp.sb_bank_id,
+                    "session_id": inp.session_id,
+                    "sb_reference": sb_reference,
+                    "instrument_count": inp.instrument_count,
+                },
+            ),
+            start_to_close_timeout=timedelta(seconds=15),
+            retry_policy=_AUDIT_RETRY,
+        )
+
+        return AgencyCCResult(
+            outcome="SUBMITTED_TO_SB",
+            agency_id=inp.agency_id,
+            sb_bank_id=inp.sb_bank_id,
+            session_id=inp.session_id,
+            instrument_count=inp.instrument_count,
+            sb_reference=sb_reference,
+            audit_written=True,
+        )
 
     async def run_with_mocks(
         self,

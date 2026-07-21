@@ -21,13 +21,27 @@ Workflow ID:
 """
 from __future__ import annotations
 
+from datetime import timedelta
 from enum import Enum
 from typing import Optional
 
 import structlog
 from pydantic import BaseModel, ConfigDict
+from temporalio import workflow
+from temporalio.common import RetryPolicy
 
 log = structlog.get_logger()
+
+_CBS_RETRY = RetryPolicy(
+    maximum_attempts=3,
+    initial_interval=timedelta(seconds=2),
+    backoff_coefficient=1.5,
+)
+_AUDIT_RETRY = RetryPolicy(
+    maximum_attempts=0,
+    initial_interval=timedelta(seconds=1),
+    maximum_interval=timedelta(minutes=5),
+)
 
 
 class DeploymentMode(str, Enum):
@@ -68,6 +82,7 @@ class ClearingSessionResult(BaseModel):
     audit_written: bool = False
 
 
+@workflow.defn
 class ClearingSessionWorkflow:
 
     def workflow_id(
@@ -80,6 +95,139 @@ class ClearingSessionWorkflow:
         if sb_bank_id:
             return f"cts-clearsess-{bank_id}-{sb_bank_id}-{clearing_date}-{session_type}"
         return f"cts-clearsess-{bank_id}-{clearing_date}-{session_type}"
+
+    @workflow.run
+    async def run(self, inp: ClearingSessionInput) -> ClearingSessionResult:
+        from modules.cts.workflows.activities.clearing_session_activities import (
+            SealAllLotsInput,
+            UpdateSessionStatusInput,
+            seal_all_lots,
+            update_session_status,
+        )
+        from modules.cts.workflows.activities.write_audit import WriteAuditInput, write_audit
+
+        # Step 1: Collect sealed lots from all PUs
+        seal_result = await workflow.execute_activity(
+            seal_all_lots,
+            SealAllLotsInput(
+                session_id=inp.session_id,
+                bank_id=inp.bank_id,
+                pu_ids=inp.pu_ids,
+                clearing_date=inp.clearing_date,
+            ),
+            start_to_close_timeout=timedelta(seconds=60),
+            retry_policy=_CBS_RETRY,
+        )
+        sealed_lots = seal_result.sealed_lots
+        total_instruments = sum(lot.get("instrument_count", 0) for lot in sealed_lots)
+
+        if not sealed_lots:
+            await workflow.execute_activity(
+                write_audit,
+                WriteAuditInput(
+                    event_type="CTS_OUT_SESSION_EMPTY",
+                    bank_id=inp.bank_id,
+                    payload={"session_id": inp.session_id, "outcome": "EMPTY_SESSION"},
+                ),
+                start_to_close_timeout=timedelta(seconds=15),
+                retry_policy=_AUDIT_RETRY,
+            )
+            return ClearingSessionResult(
+                outcome="EMPTY_SESSION",
+                session_id=inp.session_id,
+                bank_id=inp.bank_id,
+                total_instruments=0,
+                audit_written=True,
+            )
+
+        # Step 2: Route to correct submission path
+        if inp.deployment_mode == DeploymentMode.SB_NGCH:
+            from modules.cts.workflows.ngch_submission_workflow import (
+                NGCHSubmissionInput,
+                NGCHSubmissionWorkflow,
+            )
+            ngch_result = await workflow.execute_child_workflow(
+                NGCHSubmissionWorkflow.run,
+                NGCHSubmissionInput(
+                    lot_number=f"{inp.session_id}-consolidated",
+                    bank_id=inp.bank_id,
+                    bank_ifsc="",
+                    session_id=inp.session_id,
+                    clearing_date=inp.clearing_date,
+                    instrument_count=total_instruments,
+                ),
+                id=f"cts-ngchsub-{inp.bank_id}-{inp.session_id}",
+            )
+            outcome = ngch_result.outcome
+            ngch_reference = ngch_result.ngch_reference
+            failure_reason = ngch_result.failure_reason
+        else:
+            from modules.cts.workflows.agency_cc_workflow import (
+                AgencyCCInput,
+                AgencyCCWorkflow,
+            )
+            agency_result = await workflow.execute_child_workflow(
+                AgencyCCWorkflow.run,
+                AgencyCCInput(
+                    agency_id=inp.bank_id,
+                    sb_connection_id=inp.sb_connection_id or "",
+                    sb_bank_id=inp.sb_bank_id or "",
+                    session_id=inp.session_id,
+                    lot_numbers=[lot["lot_number"] for lot in sealed_lots],
+                    instrument_count=total_instruments,
+                    connector_type="SFTP_GENERIC",
+                ),
+                id=f"cts-agencycc-{inp.bank_id}-{inp.session_id}",
+            )
+            if agency_result.outcome == "SUBMITTED_TO_SB":
+                outcome = "SUBMITTED_TO_SB"
+            else:
+                outcome = "EXCEPTION"
+            ngch_reference = agency_result.sb_reference
+            failure_reason = agency_result.failure_reason
+
+        # Step 3: Update session status in DB
+        await workflow.execute_activity(
+            update_session_status,
+            UpdateSessionStatusInput(
+                session_id=inp.session_id,
+                bank_id=inp.bank_id,
+                status=outcome,
+                ngch_reference=ngch_reference,
+                failure_reason=failure_reason,
+            ),
+            start_to_close_timeout=timedelta(seconds=15),
+            retry_policy=_CBS_RETRY,
+        )
+
+        # Step 4: Audit — always written
+        event_type = f"CTS_OUT_SESSION_{outcome}"
+        await workflow.execute_activity(
+            write_audit,
+            WriteAuditInput(
+                event_type=event_type,
+                bank_id=inp.bank_id,
+                payload={
+                    "session_id": inp.session_id,
+                    "outcome": outcome,
+                    "total_instruments": total_instruments,
+                    "ngch_reference": ngch_reference,
+                    "failure_reason": failure_reason,
+                },
+            ),
+            start_to_close_timeout=timedelta(seconds=15),
+            retry_policy=_AUDIT_RETRY,
+        )
+
+        return ClearingSessionResult(
+            outcome=outcome,
+            session_id=inp.session_id,
+            bank_id=inp.bank_id,
+            total_instruments=total_instruments,
+            ngch_reference=ngch_reference,
+            failure_reason=failure_reason,
+            audit_written=True,
+        )
 
     async def run_with_mocks(
         self,
