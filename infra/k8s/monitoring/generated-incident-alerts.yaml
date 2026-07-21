@@ -232,6 +232,21 @@ spec:
         description: 'Vision AI kill switch engaged — mode={mode} scope={scope} bank={bank_id}
           by {activated_by}. All affected instruments routed to human review. Runbook:
           runbooks/cts/kill-switch-engaged.md'
+    - alert: CTSOUTREPRESENTATIONEXPIRED
+      expr: increase(astra_incident_signal_total{message_key="CTS_OUT_REPRESENTATION_EXPIRED"}[5m])
+        > 0
+      for: 0s
+      labels:
+        severity: critical
+        module: cts
+        owning_team: cts_clearing_ops
+        incident_class: SAFETY_BOUNDARY
+      annotations:
+        summary: CTS_OUT_REPRESENTATION_EXPIRED — incident signal fired for bank {{
+          $labels.bank_id }}
+        description: 'Re-presentation window expired for {instrument_id} (code {return_reason_code})
+          — {representation_window_hours}-hour limit breached. Manual action required.
+          Runbook: '
     - alert: CTSNGCHSUBMITFAILEDTERMINAL
       expr: increase(astra_incident_signal_total{message_key="CTS_NGCH_SUBMIT_FAILED_TERMINAL"}[5m])
         > 0

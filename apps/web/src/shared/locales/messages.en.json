@@ -1019,6 +1019,60 @@
       "local_status"
     ]
   },
+  "CTS_OUT_REPRESENTATION_PENDING": {
+    "text": "Instrument {instrument_id} returned (code {return_reason_code}) — fix issue and re-present within {representation_window_hours} hours.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code",
+      "representation_window_hours"
+    ]
+  },
+  "CTS_OUT_REPRESENTATION_SUBMITTED": {
+    "text": "Instrument {instrument_id} (code {return_reason_code}) successfully re-presented — NGCH reference {ngch_reference}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code",
+      "ngch_reference"
+    ]
+  },
+  "CTS_OUT_REPRESENTATION_EXPIRED": {
+    "text": "Re-presentation window expired for {instrument_id} (code {return_reason_code}) — {representation_window_hours}-hour limit breached. Manual action required.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code",
+      "representation_window_hours"
+    ]
+  },
+  "CTS_OUT_REPRESENTATION_FAILED": {
+    "text": "Re-presentation to NGCH failed for {instrument_id} (code {return_reason_code}). Ops intervention required.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code"
+    ]
+  },
   "CTS_OUT_MISMATCH_HELD": {
     "text": "Instrument {instrument_id} held at branch {branch_id} — scanner vs Vision mismatch on: {mismatch_fields}. Awaiting branch review.",
     "severity": "WARN",

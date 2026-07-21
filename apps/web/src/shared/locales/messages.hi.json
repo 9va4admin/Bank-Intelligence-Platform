@@ -1019,6 +1019,60 @@
       "local_status"
     ]
   },
+  "CTS_OUT_REPRESENTATION_PENDING": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code",
+      "representation_window_hours"
+    ]
+  },
+  "CTS_OUT_REPRESENTATION_SUBMITTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code",
+      "ngch_reference"
+    ]
+  },
+  "CTS_OUT_REPRESENTATION_EXPIRED": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code",
+      "representation_window_hours"
+    ]
+  },
+  "CTS_OUT_REPRESENTATION_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code"
+    ]
+  },
   "CTS_OUT_MISMATCH_HELD": {
     "text": "",
     "severity": "WARN",

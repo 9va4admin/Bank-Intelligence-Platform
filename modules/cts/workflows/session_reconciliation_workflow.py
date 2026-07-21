@@ -55,6 +55,7 @@ class SessionReconciliationResult(BaseModel):
     exception_count: int
     rrf_generated: bool = False
     audit_written: bool = False
+    representation_workflows_spawned: int = 0
 
 
 @workflow.defn
@@ -64,6 +65,7 @@ class SessionReconciliationWorkflow:
 
     @workflow.run
     async def run(self, inp: SessionReconciliationInput) -> SessionReconciliationResult:
+        from modules.cts.compliance.models import RE_PRESENTATION_CODES
         from modules.cts.workflows.activities.session_reconciliation_activities import (
             FetchSettlementInput,
             GenerateRRFInput,
@@ -73,6 +75,11 @@ class SessionReconciliationWorkflow:
             match_submitted_vs_settled,
         )
         from modules.cts.workflows.activities.write_audit import WriteAuditInput, write_audit
+        from modules.cts.workflows.representation_workflow import (
+            ChequeRepresentationInput,
+            ChequeRepresentationWorkflow,
+        )
+        from temporalio.workflow import ParentClosePolicy
 
         # Step 1: Fetch NGCH settlement report
         settlement = await workflow.execute_activity(
@@ -114,7 +121,29 @@ class SessionReconciliationWorkflow:
             retry_policy=_CBS_RETRY,
         )
 
-        # Step 4: Audit — always written
+        # Step 4: Spawn ChequeRepresentationWorkflow for any returned instrument
+        # whose reason code mandates re-presentation (RBI/NPCI rule — max 24 hours).
+        # ABANDON policy: re-presentation must survive parent completion.
+        representation_spawned = 0
+        for exc in recon.exception_instruments:
+            reason_code = exc.get("reason_code", "")
+            if reason_code in RE_PRESENTATION_CODES:
+                await workflow.start_child_workflow(
+                    ChequeRepresentationWorkflow.run,
+                    args=[ChequeRepresentationInput(
+                        instrument_id=exc["instrument_id"],
+                        bank_id=inp.bank_id,
+                        bank_ifsc=inp.bank_ifsc,
+                        return_reason_code=reason_code,
+                        original_session_id=inp.session_id,
+                        clearing_date=inp.clearing_date,
+                    )],
+                    id=f"cts-represent-{inp.bank_id}-{exc['instrument_id']}",
+                    parent_close_policy=ParentClosePolicy.ABANDON,
+                )
+                representation_spawned += 1
+
+        # Step 5: Audit — always written
         event_type = (
             "CTS_OUT_RECON_COMPLETE" if recon.outcome == "RECONCILED"
             else "CTS_OUT_RECON_EXCEPTIONS"
@@ -131,6 +160,7 @@ class SessionReconciliationWorkflow:
                     "exception_count": recon.exception_count,
                     "rrf_generated": rrf.generated,
                     "rrf_path": rrf.rrf_path,
+                    "representation_workflows_spawned": representation_spawned,
                 },
             ),
             start_to_close_timeout=timedelta(seconds=15),
@@ -145,6 +175,7 @@ class SessionReconciliationWorkflow:
             exception_count=recon.exception_count,
             rrf_generated=rrf.generated,
             audit_written=True,
+            representation_workflows_spawned=representation_spawned,
         )
 
     async def run_with_mocks(
@@ -152,6 +183,8 @@ class SessionReconciliationWorkflow:
         inp: SessionReconciliationInput,
         mock_results: dict,
     ) -> SessionReconciliationResult:
+        from modules.cts.compliance.models import RE_PRESENTATION_CODES
+
         # Step 1: Fetch NGCH settlement report
         settlement_report = mock_results["settlement_report"]  # noqa: F841
 
@@ -160,10 +193,17 @@ class SessionReconciliationWorkflow:
         matched_count = getattr(recon, "matched_count", 0)
         exception_count = getattr(recon, "exception_count", 0)
         outcome = getattr(recon, "outcome", "RECONCILED")
+        exception_instruments = getattr(recon, "exception_instruments", [])
 
         # Step 3: Generate RRF (only if returns/exceptions exist)
         rrf = mock_results["rrf"]
         rrf_generated = getattr(rrf, "generated", False)
+
+        # Step 4: Count representation workflows that would be spawned
+        representation_spawned = sum(
+            1 for exc in exception_instruments
+            if exc.get("reason_code", "") in RE_PRESENTATION_CODES
+        )
 
         log.info(
             "session_reconciliation_workflow.complete",
@@ -173,9 +213,10 @@ class SessionReconciliationWorkflow:
             matched_count=matched_count,
             exception_count=exception_count,
             rrf_generated=rrf_generated,
+            representation_workflows_spawned=representation_spawned,
         )
 
-        # Step 4: Audit — write for ALL outcomes
+        # Step 5: Audit — write for ALL outcomes
         await self._write_audit(mock_results, outcome, inp)
 
         return SessionReconciliationResult(
@@ -186,6 +227,7 @@ class SessionReconciliationWorkflow:
             exception_count=exception_count,
             rrf_generated=rrf_generated,
             audit_written=True,
+            representation_workflows_spawned=representation_spawned,
         )
 
     async def _write_audit(self, mock_results: dict, outcome: str, inp: SessionReconciliationInput) -> None:
