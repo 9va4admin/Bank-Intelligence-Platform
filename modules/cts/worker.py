@@ -80,6 +80,11 @@ from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
 from modules.cts.workflows.mismatch_resolution_workflow import MismatchResolutionWorkflow
 from modules.cts.workflows.batch_endorsement_workflow import BatchEndorsementWorkflow
 from modules.cts.workflows.ngch_submission_workflow import NGCHSubmissionWorkflow
+from modules.cts.workflows.clearing_session_workflow import ClearingSessionWorkflow
+from modules.cts.workflows.session_reconciliation_workflow import SessionReconciliationWorkflow
+from modules.cts.workflows.sb_inward_forwarding_workflow import SBInwardForwardingWorkflow
+from modules.cts.workflows.smb_vault_push_workflow import SMBVaultPushWorkflow
+from modules.cts.workflows.agency_cc_workflow import AgencyCCWorkflow
 
 from modules.cts.workflows.activities.ocr import ocr_extract
 from modules.cts.workflows.activities.alteration import detect_alteration
@@ -130,6 +135,26 @@ from modules.cts.workflows.activities.ngch_submission_activities import (
     submit_to_ngch,
     confirm_acknowledgement,
 )
+from modules.cts.workflows.activities.clearing_session_activities import (
+    seal_all_lots,
+    update_session_status,
+)
+from modules.cts.workflows.activities.session_reconciliation_activities import (
+    fetch_ngch_settlement_report,
+    match_submitted_vs_settled,
+    generate_rrf,
+)
+from modules.cts.workflows.activities.sb_relay_activities import (
+    resolve_crl_batch,
+    publish_to_pu_queues,
+    build_lot_package,
+    sb_submit_lot,
+    publish_relay_event,
+)
+from modules.cts.workflows.activities.smb_vault_push_activities import (
+    parse_and_validate_smb_push,
+    update_smb_vault,
+)
 from modules.cts.worker_activities import build_bound_activities
 
 ALL_WORKFLOWS = [
@@ -144,6 +169,11 @@ ALL_WORKFLOWS = [
     MismatchResolutionWorkflow,
     BatchEndorsementWorkflow,
     NGCHSubmissionWorkflow,
+    ClearingSessionWorkflow,
+    SessionReconciliationWorkflow,
+    SBInwardForwardingWorkflow,
+    SMBVaultPushWorkflow,
+    AgencyCCWorkflow,
 ]
 
 # Every registered CTS activity name, for reference/introspection. This list
@@ -190,13 +220,52 @@ ALL_ACTIVITIES = [
     build_ngch_file,
     submit_to_ngch,
     confirm_acknowledgement,
+    seal_all_lots,
+    update_session_status,
+    fetch_ngch_settlement_report,
+    match_submitted_vs_settled,
+    generate_rrf,
+    resolve_crl_batch,
+    publish_to_pu_queues,
+    build_lot_package,
+    sb_submit_lot,
+    publish_relay_event,
+    parse_and_validate_smb_push,
+    update_smb_vault,
 ]
 
-# Activities that take no injectable external dependency — pure computation
-# (validate_cts2010 wraps InstrumentComplianceRecord, no I/O). Registered
-# directly as a bare function — never wrapped in BoundCTSActivities.
+# Activities registered directly as bare functions.  Includes:
+#   a) Pure computation (validate_cts2010 — no I/O)
+#   b) Batch endorsement + NGCH submission activities — have graceful
+#      degradation when their optional DI dependency is None, so they work
+#      without BoundCTSActivities wiring today and gain real DI later.
+#   c) New stub activities for ClearingSession, SessionReconciliation,
+#      SBRelay, SMBVaultPush, and AgencyCC workflows — same pattern.
 NO_DI_ACTIVITIES = [
     validate_cts2010,
+    # Batch endorsement (BatchEndorsementWorkflow)
+    stamp_endorsement,
+    update_lot_status,
+    # NGCH file build + submission (NGCHSubmissionWorkflow)
+    build_ngch_file,
+    submit_to_ngch,
+    confirm_acknowledgement,
+    # Clearing session (ClearingSessionWorkflow)
+    seal_all_lots,
+    update_session_status,
+    # Session reconciliation (SessionReconciliationWorkflow)
+    fetch_ngch_settlement_report,
+    match_submitted_vs_settled,
+    generate_rrf,
+    # SB relay — inward forwarding + agency CC
+    resolve_crl_batch,
+    publish_to_pu_queues,
+    build_lot_package,
+    sb_submit_lot,
+    publish_relay_event,
+    # SMB vault push (SMBVaultPushWorkflow)
+    parse_and_validate_smb_push,
+    update_smb_vault,
 ]
 
 
