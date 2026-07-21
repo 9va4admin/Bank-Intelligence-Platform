@@ -640,6 +640,40 @@ CTS_OUT_RECONCILIATION_EXCEPTION:
   en: "Reconciliation exception on {instrument_id} — NGCH status {ngch_status} vs local {local_status}."
   hi: ""
 
+CTS_OUT_REPRESENTATION_PENDING:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, return_reason_code, representation_window_hours]
+  en: "Instrument {instrument_id} returned (code {return_reason_code}) — fix issue and re-present within {representation_window_hours} hours."
+  hi: ""
+
+CTS_OUT_REPRESENTATION_SUBMITTED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [instrument_id, return_reason_code, ngch_reference]
+  en: "Instrument {instrument_id} (code {return_reason_code}) successfully re-presented — NGCH reference {ngch_reference}."
+  hi: ""
+
+CTS_OUT_REPRESENTATION_EXPIRED:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, return_reason_code, representation_window_hours]
+  en: "Re-presentation window expired for {instrument_id} (code {return_reason_code}) — {representation_window_hours}-hour limit breached. Manual action required."
+  hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_clearing_ops
+    regulatory_reportable: true
+
+CTS_OUT_REPRESENTATION_FAILED:
+  severity: ERROR
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, return_reason_code]
+  en: "Re-presentation to NGCH failed for {instrument_id} (code {return_reason_code}). Ops intervention required."
+  hi: ""
+
 CTS_OUT_MISMATCH_HELD:
   severity: WARN
   surface: [UI, AUDIT, NOTIFICATION]
