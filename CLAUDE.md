@@ -96,6 +96,18 @@ No ASTRA team member ever has shell/kubectl access to any bank's production clus
 
 **Multi-Bank:** Each bank has its own `infra/helm/values/banks/{bank_id}/`. No bank data ever crosses to another bank's environment.
 
+### 2.7 Observability — No Grafana/Prometheus/Loki/Tempo in Mandatory Stack
+
+**Decision (2026-07-21):** Banks deploying ASTRA on-prem face strict CAB approval for every Docker image. Adding 4 OSS observability containers creates a procurement and security-review burden that may block deployment. These tools also surface raw infra metrics — not the contextual operational signals bank operators actually need.
+
+**What replaced them:**
+- **OTel instrumentation stays** — zero Docker cost; library only; spans emitted but not stored in mandatory infra
+- **ASTRA Ops Dashboard** — React pages in the existing web app, consuming operational signals from YugabyteDB + Redis + Temporal SDK + Kafka admin client via `apps/api/routers/observability.py`
+- **Alert engine** — `PlatformHealthCheckWorkflow` (Temporal, 60s cadence) checks thresholds from config_service → `shared/notifications/dispatcher.py` → WhatsApp + email
+- **Optional sidecar chart** — banks that want Grafana/Tempo for developer debugging may install the optional `astra-observability` Helm chart; not shipped by default and not required for production
+
+**Standing rule:** Before adding any new OSS Docker container to the mandatory stack, ask: "Can YugabyteDB + Redis + FastAPI + React handle this well enough?" If yes, build it internally.
+
 ---
 
 ## 3. Technology Stack (Final — Locked)
@@ -147,7 +159,7 @@ No ASTRA team member ever has shell/kubectl access to any bank's production clus
 | HSM | FIPS 140-2 Level 3 (NGCH PKI signing) |
 | Policy Engine | OPA (Rego, business rules) |
 | Identity | Bank IdP via SAML 2.0 |
-| Observability | OpenTelemetry → Prometheus + Grafana + Loki + Tempo |
+| Observability | OpenTelemetry (instrumentation only, zero Docker cost) + ASTRA Ops Dashboard (React) + alert engine → dispatcher.py · Optional: `astra-observability` Helm chart for dev debugging |
 | Notifications | Postal (email) + Meta WhatsApp Business API |
 
 ---
@@ -380,16 +392,15 @@ NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
 
 > Full history: [docs/build-history.md](docs/build-history.md)
 
-**Completed:** Phases 1–12 (Foundation → CTS Core → Observability → EJ → Hardening → Multi-Scenario CTS → Auth Connectors → Smoke Tests → Security Remediation → Incident Management → Audit/Notification Gap Closure → TOTP/MFA + MSV)
+**Completed:** Phases 1–13 (Foundation → CTS Core → Observability → EJ → Hardening → Multi-Scenario CTS → Auth Connectors → Smoke Tests → Security Remediation → Incident Management → Audit/Notification Gap Closure → TOTP/MFA + MSV → @workflow.defn/@activity.defn + DI gaps: all 16 workflows + 35 activities registered in real Worker())
 
 **Immediate Next (priority order):**
 1. **ASTRA-01 on ej.py** — test-token backdoor identical to the 9 already fixed; deliberately deferred
-2. **@activity.defn/@workflow.defn + DI gaps** — 8 activities + 3 workflows missing decorators; `worker.py` cannot build a real `Worker()` today
-3. **Wire AuthConnectorFactory into real login flow** — `dev_auth_server.py` + `main.py` bypass connectors entirely; SAML/LDAP hooks still raise `NotImplementedError`
-4. **Incident Management Phase 3** — Grafana OnCall wiring (needs real infra)
-5. **NPCI API Modernisation Phase A** — trigger: NPCI concept note acceptance; see [docs/npci-readiness-plan.md](docs/npci-readiness-plan.md)
-6. **Pilot bank deployment** — validate `saraswat-coop` Helm values against real K8s cluster
-7. **Security hardening** — OWASP ZAP + pen test prep
+2. **ASTRA Ops Dashboard (React) + alert engine** — replace Grafana/Prometheus/Loki/Tempo; `apps/api/routers/observability.py` + React pages under `web/src/modules/observability/` + `PlatformHealthCheckWorkflow`; see §2.7
+3. **NPCI API Modernisation Phase A** — trigger: NPCI concept note acceptance; see [docs/npci-readiness-plan.md](docs/npci-readiness-plan.md)
+4. **Wire AuthConnectorFactory into real login flow** — `dev_auth_server.py` + `main.py` bypass connectors entirely; SAML/LDAP hooks still raise `NotImplementedError` (deliberately deferred)
+5. **Pilot bank deployment** — validate `saraswat-coop` Helm values against real K8s cluster
+6. **Security hardening** — OWASP ZAP + pen test prep
 
 **Open security findings (not yet fixed):**
 - `ej.py` router: ASTRA-01 backdoor open (conscious deferral)
