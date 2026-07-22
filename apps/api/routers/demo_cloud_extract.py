@@ -85,6 +85,21 @@ FIELD EXTRACTION RULES
 * cheque_number: The 6-digit cheque number printed at the LEFT side of the MICR band. Preserve leading zeros.
 * micr_code: The 9-digit MICR code printed in the MICR band. Preserve leading zeros.
 
+SIGNATURE DETECTION RULES
+* signature_bboxes: Locate every distinct ink handwritten signature on the cheque. For each, return its
+  bounding box as [x1, y1, x2, y2] where each value is a decimal fraction of the image dimensions
+  (0.0 = left/top edge, 1.0 = right/bottom edge). If no signatures found, return [].
+  Include ONLY actual ink signatures — not printed text, stamps, or blank areas.
+* signature_count: Total number of distinct signatures detected (integer).
+* signature_fraud_flags: Examine each signature area for tampering indicators. Include any of the
+  following strings that apply:
+    "OVERWRITTEN"   — ink written on top of existing ink or whiteout detected
+    "SMUDGED"       — ink spread or blur suggesting wet-ink tampering
+    "MULTIPLE_INKS" — visibly different ink colours across signature zones
+    "FAINT_INK"     — unusually light stroke suggesting photocopied or printed signature
+    "MISALIGNED"    — signature placed outside the designated signature box
+  Return [] if none detected.
+
 VALIDATION RULES
 1. Never truncate cheque_number or micr_code.
 2. Never remove leading zeros.
@@ -104,7 +119,10 @@ Return ONLY valid JSON:
 "cheque_number": "",
 "micr_code": "",
 "signature_present": true,
-"signature_name": null
+"signature_name": null,
+"signature_count": 1,
+"signature_bboxes": [[0.65, 0.70, 0.95, 0.95]],
+"signature_fraud_flags": []
 }
 """
 
@@ -124,6 +142,10 @@ class CloudExtractResponse(BaseModel):
     micr_code: Optional[str] = None
     signature_present: Optional[bool] = None
     signature_name: Optional[str] = None
+    signature_count: Optional[int] = None
+    signature_bboxes: Optional[list[list[float]]] = None
+    signature_crops: Optional[list[str]] = None   # base64 PNG per detected signature, server-cropped
+    signature_fraud_flags: Optional[list[str]] = None
     error: Optional[str] = None
     raw_response: Optional[str] = None
 
@@ -290,5 +312,52 @@ async def cloud_extract_cheque(
         log.warning("demo.cloud_extract.invalid_json", bank_id=ctx.bank_id, model=model)
         return CloudExtractResponse(model_used=model, error="INVALID_JSON_RETURNED", raw_response=raw_text)
 
-    log.info("demo.cloud_extract.completed", bank_id=ctx.bank_id, model=model)
-    return CloudExtractResponse(model_used=model, **parsed)
+    # Crop signature regions from the PNG using the LLM-returned bboxes.
+    # Bboxes are fractional (0.0–1.0) so crops are resolution-independent.
+    signature_crops: list[str] = []
+    bboxes = parsed.get("signature_bboxes") or []
+    if bboxes:
+        try:
+            with Image.open(io.BytesIO(png_bytes)) as img:
+                if img.mode not in ("RGB", "L"):
+                    img = img.convert("RGB")
+                w, h = img.size
+                for bbox in bboxes:
+                    if not (isinstance(bbox, (list, tuple)) and len(bbox) == 4):
+                        continue
+                    x1_f, y1_f, x2_f, y2_f = bbox
+                    # Clamp to valid range
+                    x1_f, y1_f = max(0.0, x1_f), max(0.0, y1_f)
+                    x2_f, y2_f = min(1.0, x2_f), min(1.0, y2_f)
+                    if x2_f <= x1_f or y2_f <= y1_f:
+                        continue
+                    # Convert to pixels with a small padding border
+                    pad_px = max(4, int(min(w, h) * 0.01))
+                    x1 = max(0, int(x1_f * w) - pad_px)
+                    y1 = max(0, int(y1_f * h) - pad_px)
+                    x2 = min(w, int(x2_f * w) + pad_px)
+                    y2 = min(h, int(y2_f * h) + pad_px)
+                    crop = img.crop((x1, y1, x2, y2))
+                    buf = io.BytesIO()
+                    crop.save(buf, format="PNG")
+                    signature_crops.append(base64.b64encode(buf.getvalue()).decode())
+        except Exception as exc:
+            log.warning("demo.cloud_extract.crop_failed", bank_id=ctx.bank_id, error=str(exc))
+            # Non-fatal — extraction result still returned without crops
+
+    log.info(
+        "demo.cloud_extract.completed",
+        bank_id=ctx.bank_id,
+        model=model,
+        sig_count=parsed.get("signature_count", 0),
+        crops_generated=len(signature_crops),
+    )
+
+    # Remove bbox/count from parsed before spreading into the response model
+    # since we return the server-cropped images instead of raw coordinates.
+    response_fields = {k: v for k, v in parsed.items() if k != "signature_bboxes"}
+    return CloudExtractResponse(
+        model_used=model,
+        signature_crops=signature_crops if signature_crops else None,
+        **response_fields,
+    )
