@@ -270,27 +270,41 @@ def _find_sig_region_by_span(
         gray = zone.convert("L")
         threshold = _ink_threshold(gray)
         ink_mask = gray.point(lambda p: 255 if p < threshold else 0, "L")
+        # Eroded mask: removes 1-px noise; pen strokes (3-8 px) survive.
+        # Do NOT use it for rule detection — MinFilter(3) destroys thin printed
+        # rules (1-2 px), causing rule detection to silently fail.
         eroded = ink_mask.filter(ImageFilter.MinFilter(3))
-        e_data = list(eroded.getdata())
+        orig_data = list(ink_mask.getdata())   # rule detection: thin line survives
+        e_data    = list(eroded.getdata())      # sig candidate rows: noise removed
 
         MIN_SPAN  = max(8, int(zw * 0.28))   # min span for a sig candidate row
         RULE_SPAN = int(zw * 0.70)            # min span to classify a row as the printed rule
+        RULE_FILL = 0.35                       # min fill ratio: real rule is dense, cursive is sparse
         MAX_GAP   = 2                          # max gap rows allowed inside one cluster
         MIN_ROWS  = 3                          # minimum rows for a cluster to qualify
 
-        sig_rows: list[tuple[int, int, int]] = []  # (y, x_left, x_right)
-
+        # Pass 1: locate the first horizontal rule using the ORIGINAL (non-eroded) mask.
+        first_rule_y: Optional[int] = None
         for y in range(zh):
+            ink_xs = [x for x in range(zw) if orig_data[y * zw + x] > 128]
+            if not ink_xs:
+                continue
+            span = max(ink_xs) - min(ink_xs)
+            fill = len(ink_xs) / span if span > 0 else 0
+            # Wide AND dense → printed horizontal rule (not a sparse cursive stroke).
+            if span >= RULE_SPAN and fill >= RULE_FILL:
+                first_rule_y = y
+                break
+
+        # Pass 2: collect sig candidate rows from eroded mask, stopping at the rule.
+        sig_rows: list[tuple[int, int, int]] = []
+        y_limit = first_rule_y if first_rule_y is not None else zh
+        for y in range(y_limit):
             ink_xs = [x for x in range(zw) if e_data[y * zw + x] > 128]
             if not ink_xs:
                 continue
             span = max(ink_xs) - min(ink_xs)
-
-            if span >= RULE_SPAN:
-                # Horizontal printed rule found — signature is everything above this.
-                # Stop collecting; rows below the rule are the printed name.
-                break
-            elif span >= MIN_SPAN:
+            if span >= MIN_SPAN:
                 sig_rows.append((y, min(ink_xs), max(ink_xs)))
 
         if not sig_rows:
