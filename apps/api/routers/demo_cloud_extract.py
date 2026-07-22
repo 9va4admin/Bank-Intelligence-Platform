@@ -235,34 +235,28 @@ def _find_sig_region_by_span(
     zone: Image.Image,
 ) -> Optional[tuple[int, int, int, int]]:
     """
-    Locate the handwritten signature within a zone image using horizontal ink-span
-    analysis, with a light morphological erosion pre-pass.
+    Locate the handwritten signature within a zone image.
 
-    PHYSICAL BASIS
-    --------------
-    A cursive signature stroke sweeps the pen across a WIDE fraction of the zone
-    horizontally — the ink spans 30-80 % of zone width per stroke.
-    Printed text (bank name, account holder name, instruction text) is NARROW —
-    each letter is a few pixels wide.  Even a long word like "ANKIT KUMAR" in a
-    standard bank font spans only 15-25 % of the zone width at typical cheque
-    print sizes and scan resolutions.
+    THREE-LAYER STRATEGY
+    --------------------
+    Layer 1 — horizontal rule detection:
+        The printed underline in the cheque's signature box spans ≥ 70 % of the
+        zone width (it goes edge-to-edge of the signature field).  Cursive strokes
+        span 28–65 % typically.  The first row that hits the 70 % threshold is
+        treated as the separator between the signature (above) and the printed
+        account-holder name (below).  All rows at or below that rule are ignored.
 
-    The algorithm classifies each row by its horizontal ink span:
-        span ≥ 28 % of zone width  →  "signature row"
-        span <  28 %               →  printed text (ignored)
+    Layer 2 — span filter:
+        Rows with ink spanning 28–70 % of zone width are "sig candidate rows";
+        rows narrower than 28 % (individual printed characters) are ignored.
 
-    Rows are then grouped into contiguous clusters (allowing gaps ≤ 6 rows for
-    ink breaks between cursive strokes).  The cluster with the MOST rows wins —
-    that is the signature.  A bounding box is returned in zone-local coordinates.
+    Layer 3 — topmost qualifying cluster:
+        Candidate rows above the rule are clustered (MAX_GAP=2).  The topmost
+        cluster with ≥ 3 rows is selected — the signature always appears above
+        the printed name in this zone, so "topmost" beats "largest".
 
-    If no cluster is found (compact or very narrow signature), returns None and
-    the caller falls back to the full zone image.
-
-    EROSION PRE-PASS
-    ----------------
-    MinFilter(3) (3×3 erosion) removes single-pixel noise before span analysis.
-    It does NOT remove pen strokes (which are 3-8 px wide at 200 DPI) — only
-    stray pixels and JPEG/scan artefacts.
+    If no horizontal rule is found, layers 2 and 3 still apply to all candidate
+    rows, with the topmost cluster selected.
 
     Always returns a valid tuple or None — never throws.
     """
@@ -276,33 +270,33 @@ def _find_sig_region_by_span(
         gray = zone.convert("L")
         threshold = _ink_threshold(gray)
         ink_mask = gray.point(lambda p: 255 if p < threshold else 0, "L")
-
-        # Light erosion: removes 1-px noise/artefacts; pen strokes survive intact.
         eroded = ink_mask.filter(ImageFilter.MinFilter(3))
         e_data = list(eroded.getdata())
 
-        # A row is a "signature row" when its ink spans ≥ 28 % of zone width.
-        MIN_SPAN = max(8, int(zw * 0.28))
-        # Two consecutive sig-row clusters separated by ≤ MAX_GAP rows merge into one.
-        # Keep this SMALL (2): internal cursive stroke gaps are 1-2 rows; the gap
-        # between the signature underline and the printed name below it is typically
-        # 4-6 rows.  MAX_GAP=2 keeps the signature together while splitting the
-        # name into its own cluster so "largest cluster" selects the signature.
-        MAX_GAP = 2
+        MIN_SPAN  = max(8, int(zw * 0.28))   # min span for a sig candidate row
+        RULE_SPAN = int(zw * 0.70)            # min span to classify a row as the printed rule
+        MAX_GAP   = 2                          # max gap rows allowed inside one cluster
+        MIN_ROWS  = 3                          # minimum rows for a cluster to qualify
 
         sig_rows: list[tuple[int, int, int]] = []  # (y, x_left, x_right)
+
         for y in range(zh):
             ink_xs = [x for x in range(zw) if e_data[y * zw + x] > 128]
             if not ink_xs:
                 continue
             span = max(ink_xs) - min(ink_xs)
-            if span >= MIN_SPAN:
+
+            if span >= RULE_SPAN:
+                # Horizontal printed rule found — signature is everything above this.
+                # Stop collecting; rows below the rule are the printed name.
+                break
+            elif span >= MIN_SPAN:
                 sig_rows.append((y, min(ink_xs), max(ink_xs)))
 
         if not sig_rows:
-            return None  # caller uses full zone as fallback
+            return None
 
-        # Cluster consecutive sig_rows with small gaps allowed.
+        # Cluster consecutive sig rows (MAX_GAP allows internal cursive stroke gaps).
         clusters: list[list[tuple[int, int, int]]] = []
         cur: list[tuple[int, int, int]] = [sig_rows[0]]
         for i in range(1, len(sig_rows)):
@@ -313,8 +307,9 @@ def _find_sig_region_by_span(
                 cur = [sig_rows[i]]
         clusters.append(cur)
 
-        # Largest cluster = the signature (printed text lines are much shorter).
-        best = max(clusters, key=len)
+        # Topmost qualifying cluster = the signature (it appears above the name).
+        qualifying = [c for c in clusters if len(c) >= MIN_ROWS]
+        best = qualifying[0] if qualifying else max(clusters, key=len)
 
         return (
             min(r[1] for r in best),  # x1
