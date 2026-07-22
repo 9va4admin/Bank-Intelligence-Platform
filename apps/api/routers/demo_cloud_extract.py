@@ -235,29 +235,8 @@ def _find_sig_region_by_span(
     zone: Image.Image,
 ) -> Optional[tuple[int, int, int, int]]:
     """
-    Locate the handwritten signature within a zone image.
-
-    THREE-LAYER STRATEGY
-    --------------------
-    Layer 1 — horizontal rule detection:
-        The printed underline in the cheque's signature box spans ≥ 70 % of the
-        zone width (it goes edge-to-edge of the signature field).  Cursive strokes
-        span 28–65 % typically.  The first row that hits the 70 % threshold is
-        treated as the separator between the signature (above) and the printed
-        account-holder name (below).  All rows at or below that rule are ignored.
-
-    Layer 2 — span filter:
-        Rows with ink spanning 28–70 % of zone width are "sig candidate rows";
-        rows narrower than 28 % (individual printed characters) are ignored.
-
-    Layer 3 — topmost qualifying cluster:
-        Candidate rows above the rule are clustered (MAX_GAP=2).  The topmost
-        cluster with ≥ 3 rows is selected — the signature always appears above
-        the printed name in this zone, so "topmost" beats "largest".
-
-    If no horizontal rule is found, layers 2 and 3 still apply to all candidate
-    rows, with the topmost cluster selected.
-
+    Locate handwritten signature strokes within a zone that the caller has
+    already trimmed to exclude printed text below.  Simple span + cluster.
     Always returns a valid tuple or None — never throws.
     """
     try:
@@ -270,54 +249,25 @@ def _find_sig_region_by_span(
         gray = zone.convert("L")
         threshold = _ink_threshold(gray)
         ink_mask = gray.point(lambda p: 255 if p < threshold else 0, "L")
-        # Eroded mask: removes 1-px noise; pen strokes (3-8 px) survive.
-        # Do NOT use it for rule detection — MinFilter(3) destroys thin printed
-        # rules (1-2 px), causing rule detection to silently fail.
         eroded = ink_mask.filter(ImageFilter.MinFilter(3))
-        orig_data = list(ink_mask.getdata())   # rule detection: thin line survives
-        e_data    = list(eroded.getdata())      # sig candidate rows: noise removed
+        e_data = list(eroded.getdata())
 
-        MIN_SPAN  = max(8, int(zw * 0.28))   # min span for a sig candidate row
-        RULE_SPAN = int(zw * 0.70)            # min span to classify a row as the printed rule
-        RULE_FILL = 0.35                       # min fill ratio: real rule is dense, cursive is sparse
-        MAX_GAP   = 2                          # max gap rows allowed inside one cluster
-        MIN_ROWS  = 3                          # minimum rows for a cluster to qualify
+        MIN_SPAN = max(8, int(zw * 0.28))
+        MAX_GAP  = 2
+        MIN_ROWS = 3
 
-        # Pass 1: locate the LOWEST horizontal rule scanning BOTTOM-UP.
-        # The cheque has multiple horizontal lines (amount box border near the top
-        # of our zone, signature box rule lower down).  Scanning top-down hits the
-        # amount box border first and excludes the entire signature.  Scanning
-        # bottom-up finds the signature box rule (the separator between the
-        # handwritten strokes and the printed name) and ignores everything above.
-        sig_rule_y: Optional[int] = None
-        for y in range(zh - 1, -1, -1):
-            ink_xs = [x for x in range(zw) if orig_data[y * zw + x] > 128]
-            if not ink_xs:
-                continue
-            span = max(ink_xs) - min(ink_xs)
-            fill = len(ink_xs) / span if span > 0 else 0
-            # Wide AND dense → printed horizontal rule.
-            if span >= RULE_SPAN and fill >= RULE_FILL:
-                sig_rule_y = y
-                break
-
-        # Pass 2: collect sig candidate rows up to (not including) the rule.
-        # Exclude rule-wide rows (span >= RULE_SPAN) from sig candidates so
-        # amount box borders don't sneak in as false signature rows.
         sig_rows: list[tuple[int, int, int]] = []
-        y_limit = sig_rule_y if sig_rule_y is not None else zh
-        for y in range(y_limit):
+        for y in range(zh):
             ink_xs = [x for x in range(zw) if e_data[y * zw + x] > 128]
             if not ink_xs:
                 continue
             span = max(ink_xs) - min(ink_xs)
-            if MIN_SPAN <= span < RULE_SPAN:   # sig candidate: wide but not a rule line
+            if span >= MIN_SPAN:
                 sig_rows.append((y, min(ink_xs), max(ink_xs)))
 
         if not sig_rows:
             return None
 
-        # Cluster consecutive sig rows (MAX_GAP allows internal cursive stroke gaps).
         clusters: list[list[tuple[int, int, int]]] = []
         cur: list[tuple[int, int, int]] = [sig_rows[0]]
         for i in range(1, len(sig_rows)):
@@ -328,7 +278,6 @@ def _find_sig_region_by_span(
                 cur = [sig_rows[i]]
         clusters.append(cur)
 
-        # Topmost qualifying cluster = the signature (it appears above the name).
         qualifying = [c for c in clusters if len(c) >= MIN_ROWS]
         best = qualifying[0] if qualifying else max(clusters, key=len)
 
@@ -356,16 +305,20 @@ def _sig_zone_from_image(img: Image.Image) -> Image.Image:
     return img.crop((int(w * 0.40), int(h * 0.48), w, int(h * 0.82)))
 
 
-_SIG_FOCUS_PROMPT = """This image is the signature area of an Indian bank cheque.
-It may contain handwritten ink strokes AND printed text (account name, "Please sign above", a horizontal line, bank labels).
+_SIG_EXCLUDE_PROMPT = """This image is the signature zone of an Indian bank cheque.
+
+Below the handwritten cursive signature there may be printed text in BLOCK CAPITAL LETTERS
+(the account holder name, e.g. "ANKIT KUMAR").
+
+Find where that printed capital-letter text BEGINS vertically in this image.
 
 Return ONLY this JSON — no other text:
-{"bbox": [x1, y1, x2, y2]}
+{"name_top_y": 0.68}
 
-x1 y1 x2 y2 are decimal fractions of THIS image (0.0 = left/top edge, 1.0 = right/bottom edge).
-Box ONLY the cursive handwritten ink strokes a human hand drew.
-Exclude all printed text, horizontal rules, and blank space.
-If no handwritten signature is visible return: {"bbox": []}"""
+name_top_y = decimal fraction of this image height where the printed capital letters start.
+  0.0 = very top of image  |  1.0 = very bottom
+If there is NO printed capital-letter text below the signature, return:
+{"name_top_y": null}"""
 
 
 async def _focused_sig_crop(
@@ -375,36 +328,20 @@ async def _focused_sig_crop(
     bank_id: str,
 ) -> Image.Image:
     """
-    Extract the handwritten signature from the pre-cropped zone.
+    Two-step extraction:
+    1. Ask the LLM where the printed name STARTS (easy visual task for the model).
+       Trim the zone to exclude everything at or below that y position.
+    2. Run the span classifier on the trimmed zone (now name-free) to find the
+       signature cluster precisely.
 
-    PRIMARY — span classifier:  clusters rows where ink sweeps ≥ 28 % of zone
-    width (cursive strokes), with MAX_GAP=2.  The gap between the signature
-    underline and the printed account-holder name below is typically 4-6 rows,
-    which exceeds MAX_GAP, so the two split into separate clusters and the
-    largest cluster wins — the signature.  This is the reliable path.
-
-    FALLBACK — focused LLM call:  used only when the span classifier finds
-    nothing (e.g. a compact or unusually faint signature that falls below the
-    span threshold).  The LLM receives only the zone image and is asked to
-    locate the handwritten strokes.
-
+    The LLM is NOT asked to find the signature — it's asked to find the printed
+    block capitals below it.  That is a simpler, unambiguous visual question.
     Always returns a valid Image — never throws.
     """
     zw, zh = zone.size
 
-    # PRIMARY: span-based cluster analysis
-    span_bbox = _find_sig_region_by_span(zone)
-    if span_bbox:
-        bx1, by1, bx2, by2 = span_bbox
-        pad_h = max(6, int(zw * 0.04))
-        log.info("demo.cloud_extract.span_classifier_used", bank_id=bank_id,
-                 bx1=bx1, by1=by1, bx2=bx2, by2=by2)
-        return zone.crop((
-            max(0, bx1 - pad_h), max(0, by1 - 4),
-            min(zw, bx2 + pad_h), min(zh, by2 + 4),
-        ))
-
-    # FALLBACK: focused LLM call when span classifier finds nothing
+    # Step 1: ask LLM where the printed name below the signature starts.
+    name_top_y: Optional[float] = None
     try:
         buf = io.BytesIO()
         zone.save(buf, format="PNG")
@@ -415,40 +352,41 @@ async def _focused_sig_crop(
             messages=[{
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": _SIG_FOCUS_PROMPT},
+                    {"type": "text", "text": _SIG_EXCLUDE_PROMPT},
                     {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{zone_b64}"}},
                 ],
             }],
             temperature=0,
             timeout=30,
         )
-
         raw = resp.choices[0].message.content
-        cleaned = _clean_json_response(raw)
-        data = json.loads(cleaned)
-        bbox = data.get("bbox") or []
-
-        if not (isinstance(bbox, (list, tuple)) and len(bbox) == 4):
-            log.warning("demo.cloud_extract.focused_sig_no_bbox", bank_id=bank_id)
-            return zone
-
-        x1_f, y1_f, x2_f, y2_f = [float(v) for v in bbox]
-        if x2_f <= x1_f or y2_f <= y1_f or x1_f < 0 or y1_f < 0:
-            log.warning("demo.cloud_extract.focused_sig_invalid_bbox", bank_id=bank_id, bbox=bbox)
-            return zone
-
-        pad = max(4, int(min(zw, zh) * 0.03))
-        x1 = max(0, int(x1_f * zw) - pad)
-        y1 = max(0, int(y1_f * zh) - pad)
-        x2 = min(zw, int(x2_f * zw) + pad)
-        y2 = min(zh, int(y2_f * zh) + pad)
-        log.info("demo.cloud_extract.focused_llm_used", bank_id=bank_id,
-                 x1_f=round(x1_f, 3), y1_f=round(y1_f, 3), x2_f=round(x2_f, 3), y2_f=round(y2_f, 3))
-        return zone.crop((x1, y1, x2, y2))
-
+        data = json.loads(_clean_json_response(raw))
+        v = data.get("name_top_y")
+        if v is not None:
+            name_top_y = float(v)
+            log.info("demo.cloud_extract.name_top_y_found", bank_id=bank_id,
+                     name_top_y=round(name_top_y, 3))
     except Exception as exc:
-        log.warning("demo.cloud_extract.focused_sig_failed", bank_id=bank_id, error=str(exc))
-        return zone
+        log.warning("demo.cloud_extract.name_top_y_failed", bank_id=bank_id, error=str(exc))
+
+    # Step 2: trim zone above the printed name, then apply span classifier.
+    if name_top_y is not None and 0.10 < name_top_y < 0.95:
+        y_cut = max(4, int(name_top_y * zh) - 4)
+        work_zone = zone.crop((0, 0, zw, y_cut))
+    else:
+        work_zone = zone  # no name found — use full zone
+
+    span_bbox = _find_sig_region_by_span(work_zone)
+    if span_bbox:
+        ww, wh = work_zone.size
+        bx1, by1, bx2, by2 = span_bbox
+        pad_h = max(6, int(ww * 0.04))
+        return work_zone.crop((
+            max(0, bx1 - pad_h), max(0, by1 - 4),
+            min(ww, bx2 + pad_h), min(wh, by2 + 4),
+        ))
+
+    return work_zone
 
 
 def _convert_to_png(raw_bytes: bytes) -> tuple[bytes, Image.Image]:
