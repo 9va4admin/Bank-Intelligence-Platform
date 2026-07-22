@@ -333,6 +333,11 @@ def _sig_crop_from_zone(zone: Image.Image) -> Image.Image:
     _find_sig_region_by_span.  Falls back to the full zone if no wide-span
     cluster is found (very compact or faint signature).
 
+    Padding is intentionally asymmetric: generous on left/right (signature
+    strokes can touch the bbox edge), minimal top/bottom (printed elements
+    — account name above, instruction text below — can sit as close as 5-7
+    rows away from the cluster boundary; a large pad would include them).
+
     Always returns a valid Image — never throws.
     """
     try:
@@ -340,12 +345,13 @@ def _sig_crop_from_zone(zone: Image.Image) -> Image.Image:
         sig_bbox = _find_sig_region_by_span(zone)
         if sig_bbox:
             bx1, by1, bx2, by2 = sig_bbox
-            pad = max(8, int(min(zw, zh) * 0.06))
+            pad_h = max(8, int(zw * 0.05))   # left/right: generous
+            pad_v = 4                          # top/bottom: tight (avoids nearby text)
             return zone.crop((
-                max(0, bx1 - pad),
-                max(0, by1 - pad),
-                min(zw, bx2 + pad),
-                min(zh, by2 + pad),
+                max(0, bx1 - pad_h),
+                max(0, by1 - pad_v),
+                min(zw, bx2 + pad_h),
+                min(zh, by2 + pad_v),
             ))
         return zone
     except Exception:
