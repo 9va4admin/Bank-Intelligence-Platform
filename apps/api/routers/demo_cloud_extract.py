@@ -354,6 +354,55 @@ def _find_sig_region_by_span(
         return None
 
 
+def _whiteout_printed_text(crop: Image.Image) -> Image.Image:
+    """
+    Paint a white rectangle over the printed text below the handwritten
+    signature (account holder name + 'please sign above' instruction).
+
+    Strategy: find the first sustained blank gap (>= 4 consecutive empty rows)
+    in the lower portion of the crop — that gap is the separator between
+    ink strokes and the printed name.  Everything from the gap downward is
+    filled white.  Gaps inside cursive strokes are 1-3 rows; the sig-to-name
+    separator is typically 4-10 rows, so the threshold is reliable.
+    """
+    from PIL import ImageDraw
+
+    cw, ch = crop.size
+    if ch < 20:
+        return crop
+
+    gray = crop.convert("L")
+    threshold = _ink_threshold(gray)
+    o_data = list(gray.point(lambda p: 255 if p < threshold else 0, "L").getdata())
+    row_ink = [any(o_data[y * cw + x] > 128 for x in range(cw)) for y in range(ch)]
+
+    # Search from the upper-third mark so we don't trigger on tiny gaps
+    # near the very top of the crop (ascenders, pen lift between strokes).
+    whiteout_y = None
+    y = ch // 3
+    while y < ch - 5:
+        if not row_ink[y]:
+            gap_end = y
+            while gap_end < ch and not row_ink[gap_end]:
+                gap_end += 1
+            if gap_end - y >= 4:        # sustained gap = sig / name boundary
+                whiteout_y = y
+                break
+            y = gap_end                 # skip past short gap, keep searching
+        else:
+            y += 1
+
+    if whiteout_y is None or whiteout_y >= ch - 3:
+        return crop                     # no clear gap found — leave intact
+
+    result = crop.copy()
+    ImageDraw.Draw(result).rectangle(
+        [(0, whiteout_y), (cw - 1, ch - 1)],
+        fill=(255, 255, 255),
+    )
+    return result
+
+
 def _sig_zone_from_image(img: Image.Image) -> Image.Image:
     """
     Pre-crop the full cheque to the rough signature zone.
@@ -743,6 +792,7 @@ async def cloud_extract_cheque(
                 crop = pil_img.crop((cx1, cy1, cx2, cy2))
             else:
                 crop = _sig_zone_from_image(pil_img)
+            crop = _whiteout_printed_text(crop)
             buf = io.BytesIO()
             crop.save(buf, format="PNG")
             signature_crops.append(base64.b64encode(buf.getvalue()).decode())
