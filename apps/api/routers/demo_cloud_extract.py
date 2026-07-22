@@ -369,21 +369,22 @@ def _sig_zone_from_image(img: Image.Image) -> Image.Image:
     return img.crop((int(w * 0.40), int(h * 0.62), w, int(h * 0.80)))
 
 
-_SIG_NAME_X_PROMPT = """This image is the signature area of an Indian bank cheque.
-It contains handwritten cursive signature strokes. There may also be a pre-printed
-account holder name in BLOCK CAPITAL LETTERS to the right of the signature
-(e.g. "ANKIT KUMAR", "RAHUL SHARMA").
+_SIG_HANDWRITING_BBOX_PROMPT = """This image is the signature area of an Indian bank cheque.
+It contains handwritten cursive pen strokes AND may also contain pre-printed block
+capital text (account holder name such as "ANKIT KUMAR").
 
-If you see printed BLOCK CAPITAL text (the account holder name), return the
-x-position where that printed text STARTS as a fraction of this image's width:
-  0.0 = very left edge   |   1.0 = very right edge
+Your task: return the bounding box of ONLY the handwritten cursive pen strokes.
+Do NOT include any printed or typed text in the bounding box.
 
-Return null if there is NO printed block capital text in this image.
+Coordinates are fractions of this image's size:
+  0.0, 0.0 = top-left corner
+  1.0, 1.0 = bottom-right corner
 
 Respond with ONLY this JSON — no other text:
-{"name_x": 0.65}
-or
-{"name_x": null}"""
+{"sig_x1": 0.02, "sig_y1": 0.05, "sig_x2": 0.55, "sig_y2": 0.90}
+
+If you cannot reliably separate handwriting from printed text, respond:
+{"sig_x1": null, "sig_y1": null, "sig_x2": null, "sig_y2": null}"""
 
 
 async def _focused_sig_crop(
@@ -393,31 +394,17 @@ async def _focused_sig_crop(
     bank_id: str,
 ) -> Image.Image:
     """
-    Two-step extraction:
+    Ask the LLM to locate ONLY the handwritten strokes within the (now tight,
+    clean) zone built from the main extraction's signature_bboxes.  The model
+    sees just the sig area — no amount box, no payee field — and returns the
+    exact bbox of the cursive pen marks excluding any printed name.
 
-    Step 1 — Span classifier with ink-run filter (_find_sig_region_by_span)
-      Finds qualifying handwriting rows (low run count) and clusters them.
-      Returns sig_bbox.
-
-    Step 2 — LLM x-boundary trim
-      The zone is now clean (built from the LLM's own signature_bboxes, so no
-      amount-field noise). A single focused question — "where does the printed
-      name start horizontally?" — lets the model identify the x-boundary between
-      the cursive signature strokes on the LEFT and "ANKIT KUMAR" on the RIGHT.
-      bx2 is trimmed to that boundary before cropping.
-
-    If either step fails the function degrades gracefully — never throws.
+    Span classifier is the fallback when the LLM call fails or returns null.
+    Never throws.
     """
     zw, zh = zone.size
 
-    span_bbox = _find_sig_region_by_span(zone)
-    if not span_bbox:
-        return zone
-    bx1, by1, bx2, by2 = span_bbox
-
-    # ── LLM x-boundary: trim right edge to exclude printed name ─────────────
-    # Ask once, on the tight zone (LLM bbox + small padding), so the model sees
-    # only sig strokes + name — no other cheque fields to confuse it.
+    # ── Primary: LLM handwriting bbox ───────────────────────────────────────
     if client is not None:
         try:
             buf = io.BytesIO()
@@ -429,7 +416,7 @@ async def _focused_sig_crop(
                 messages=[{
                     "role": "user",
                     "content": [
-                        {"type": "text",      "text": _SIG_NAME_X_PROMPT},
+                        {"type": "text",      "text": _SIG_HANDWRITING_BBOX_PROMPT},
                         {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{zone_b64}"}},
                     ],
                 }],
@@ -438,24 +425,42 @@ async def _focused_sig_crop(
             )
             raw  = resp.choices[0].message.content
             data = json.loads(_clean_json_response(raw))
-            v    = data.get("name_x")
-            if v is not None:
-                frac = float(v)
-                # Sanity: must leave at least 10 % of the zone for the signature
-                name_x_px = int(frac * zw)
-                if name_x_px > bx1 + max(10, int(zw * 0.10)):
-                    log.info("demo.cloud_extract.name_x_found",
-                             bank_id=bank_id, name_x=round(frac, 3))
-                    bx2 = min(bx2, name_x_px)
+
+            sx1 = data.get("sig_x1")
+            sy1 = data.get("sig_y1")
+            sx2 = data.get("sig_x2")
+            sy2 = data.get("sig_y2")
+
+            if sx1 is not None and sy1 is not None and sx2 is not None and sy2 is not None:
+                lbx1 = int(float(sx1) * zw)
+                lby1 = int(float(sy1) * zh)
+                lbx2 = int(float(sx2) * zw)
+                lby2 = int(float(sy2) * zh)
+                # Sanity: bbox must be non-degenerate
+                if lbx2 > lbx1 + 5 and lby2 > lby1 + 3:
+                    log.info("demo.cloud_extract.sig_bbox_from_llm",
+                             bank_id=bank_id,
+                             bbox=[round(float(sx1),3), round(float(sy1),3),
+                                   round(float(sx2),3), round(float(sy2),3)])
+                    return zone.crop((
+                        max(0, lbx1), max(0, lby1),
+                        min(zw, lbx2), min(zh, lby2),
+                    ))
         except Exception as exc:
-            log.warning("demo.cloud_extract.name_x_failed",
+            log.warning("demo.cloud_extract.sig_bbox_llm_failed",
                         bank_id=bank_id, error=str(exc))
 
-    pad_h = max(6, int(zw * 0.04))
-    return zone.crop((
-        max(0, bx1 - pad_h), max(0, by1 - 4),
-        min(zw, bx2),        min(zh, by2 + 4),   # no right-pad: name is flush
-    ))
+    # ── Fallback: span classifier ────────────────────────────────────────────
+    span_bbox = _find_sig_region_by_span(zone)
+    if span_bbox:
+        bx1, by1, bx2, by2 = span_bbox
+        pad_h = max(6, int(zw * 0.04))
+        return zone.crop((
+            max(0, bx1 - pad_h), max(0, by1 - 4),
+            min(zw, bx2 + pad_h), min(zh, by2 + 4),
+        ))
+
+    return zone
 
 
 def _convert_to_png(raw_bytes: bytes) -> tuple[bytes, Image.Image]:
