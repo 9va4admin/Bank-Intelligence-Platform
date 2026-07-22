@@ -144,7 +144,8 @@ class CloudExtractResponse(BaseModel):
     signature_name: Optional[str] = None
     signature_count: Optional[int] = None
     signature_bboxes: Optional[list[list[float]]] = None
-    signature_crops: Optional[list[str]] = None   # base64 PNG per detected signature, server-cropped
+    signature_crops: Optional[list[str]] = None            # base64 PNG per detected signature, server-cropped
+    signature_crops_estimated: Optional[bool] = None       # True when PIL ink-detect fallback was used
     signature_fraud_flags: Optional[list[str]] = None
     error: Optional[str] = None
     raw_response: Optional[str] = None
@@ -201,6 +202,45 @@ def _clean_json_response(raw_text: str) -> str:
     if cleaned.endswith("```"):
         cleaned = cleaned[:-3]
     return cleaned.strip()
+
+
+def _ink_detect_signature_crop(img: Image.Image) -> bytes:
+    """
+    Ink-detection fallback when the LLM confirms a signature but returns no
+    bounding boxes (common with featherless-ai-hosted Qwen/Gemma variants).
+
+    Searches the conventional CTS-2010 signature zone — right ~50%, lower
+    ~35%, above the MICR band — for dark-pixel clusters using PIL only (no
+    OpenCV / numpy dependency).  Always returns a PNG: worst case is the
+    full zone when the scan is too light to threshold reliably.
+    """
+    w, h = img.size
+    # CTS-2010 signature zone: right half, lower third, above MICR band
+    zx1 = int(w * 0.48)
+    zy1 = int(h * 0.55)
+    zy2 = int(h * 0.90)   # stop before MICR band (~bottom 10%)
+    zone = img.crop((zx1, zy1, w, zy2))
+
+    gray = zone.convert("L")
+    # Pixels darker than 180 on 0-255 scale → treat as ink
+    ink_mask = gray.point(lambda p: 255 if p < 180 else 0, "L")
+    bbox = ink_mask.getbbox()   # bounding box of non-zero pixels
+
+    if bbox:
+        bx1, by1, bx2, by2 = bbox
+        pad = max(8, int(min(zone.width, zone.height) * 0.06))
+        crop = zone.crop((
+            max(0, bx1 - pad),
+            max(0, by1 - pad),
+            min(zone.width,  bx2 + pad),
+            min(zone.height, by2 + pad),
+        ))
+    else:
+        crop = zone   # blank zone — return it whole so UI still shows something
+
+    buf = io.BytesIO()
+    crop.save(buf, format="PNG")
+    return buf.getvalue()
 
 
 def _convert_to_png_bytes(raw_bytes: bytes) -> bytes:
@@ -345,12 +385,35 @@ async def cloud_extract_cheque(
             log.warning("demo.cloud_extract.crop_failed", bank_id=ctx.bank_id, error=str(exc))
             # Non-fatal — extraction result still returned without crops
 
+    # If the LLM confirmed a signature but gave no bbox coords (common on
+    # featherless-ai-hosted models), run PIL ink detection on the standard
+    # CTS-2010 signature zone so we always return a usable crop.
+    crops_estimated = False
+    if not signature_crops and parsed.get("signature_present") is True:
+        try:
+            with Image.open(io.BytesIO(png_bytes)) as img:
+                if img.mode not in ("RGB", "L"):
+                    img = img.convert("RGB")
+                fb_bytes = _ink_detect_signature_crop(img)
+                signature_crops.append(base64.b64encode(fb_bytes).decode())
+                crops_estimated = True
+                log.info(
+                    "demo.cloud_extract.ink_detect_fallback_used",
+                    bank_id=ctx.bank_id, model=model,
+                )
+        except Exception as exc:
+            log.warning(
+                "demo.cloud_extract.ink_detect_fallback_failed",
+                bank_id=ctx.bank_id, error=str(exc),
+            )
+
     log.info(
         "demo.cloud_extract.completed",
         bank_id=ctx.bank_id,
         model=model,
         sig_count=parsed.get("signature_count", 0),
         crops_generated=len(signature_crops),
+        crops_estimated=crops_estimated,
     )
 
     # Reconcile: some models return signature_present=True but forget to set
@@ -370,5 +433,6 @@ async def cloud_extract_cheque(
     return CloudExtractResponse(
         model_used=model,
         signature_crops=signature_crops if signature_crops else None,
+        signature_crops_estimated=crops_estimated if crops_estimated else None,
         **response_fields,
     )
