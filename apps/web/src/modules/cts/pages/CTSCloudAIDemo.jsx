@@ -153,7 +153,7 @@ export default function CTSCloudAIDemo() {
         <h1 className={`text-lg font-semibold mb-4 ${th.heading}`}>Cloud AI Cheque Extraction</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <div className={`rounded-xl border p-5 ${th.card}`}>
+          <div className={`rounded-xl border p-5 ${th.card}`} style={{ alignSelf: 'start' }}>
             <div className="mb-3">
               <label className={`block text-xs font-semibold mb-1 ${th.muted}`}>Vision Model</label>
               <select
@@ -269,6 +269,66 @@ export default function CTSCloudAIDemo() {
             )}
           </div>
         </div>
+
+        {/* ── Signature Crops — shown below both columns once extraction completes ── */}
+        {result && !result.error && (
+          <div className={`mt-5 rounded-xl border p-5 ${th.card}`}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className={`text-sm font-semibold ${th.heading}`}>
+                ✍ Extracted Signature{(result.signature_count ?? 0) !== 1 ? 's' : ''}&nbsp;
+                <span className={`text-xs font-normal ${th.muted}`}>
+                  — Vision LLM detected {result.signature_count ?? 0} signature{(result.signature_count ?? 0) !== 1 ? 's' : ''} on this cheque
+                </span>
+              </h3>
+              {result.signature_fraud_flags && result.signature_fraud_flags.length > 0 && (
+                <span className="flex items-center gap-1 text-[11px] font-semibold text-red-600 bg-red-50 border border-red-200 rounded-full px-2.5 py-1">
+                  ⚠ {result.signature_fraud_flags.length} fraud flag{result.signature_fraud_flags.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+
+            {result.signature_crops && result.signature_crops.length > 0 ? (
+              <div className="flex flex-wrap gap-4">
+                {result.signature_crops.map((crop, i) => (
+                  <div
+                    key={i}
+                    className={`rounded-lg border px-3 py-3 flex flex-col items-center gap-2 ${th.infoCard}`}
+                    style={{ minWidth: '10rem' }}
+                  >
+                    <div className={`text-[10px] font-mono font-semibold ${th.muted}`}>
+                      Signature #{i + 1}
+                    </div>
+                    <img
+                      src={`data:image/png;base64,${crop}`}
+                      alt={`Detected signature ${i + 1}`}
+                      className="rounded bg-white max-h-24 max-w-xs object-contain border"
+                      style={{ minHeight: '3rem' }}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className={`text-sm ${th.faint}`}>
+                {result.signature_present
+                  ? 'Signature detected but bounding box could not be resolved — model may not have returned coordinates.'
+                  : 'No signature detected on this cheque.'}
+              </p>
+            )}
+
+            {result.signature_fraud_flags && result.signature_fraud_flags.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {result.signature_fraud_flags.map((flag, i) => (
+                  <span
+                    key={i}
+                    className="text-[11px] font-semibold bg-red-100 text-red-700 border border-red-200 rounded-full px-2.5 py-1"
+                  >
+                    ⚠ {flag.replace(/_/g, ' ')}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </AppShell>
   )
