@@ -218,61 +218,67 @@ def _trim_crop_bottom(crop_img: Image.Image) -> Image.Image:
     gap of empty rows. The FIRST (topmost) band is the signature; all bands
     below are printed text and are discarded.
 
-    Gap and band thresholds are proportional to the crop height so the logic
-    works across low-DPI (96) and high-DPI (300) cheque scans equally.
+    Gap size is fixed at 2 rows (works reliably at 96–300 DPI). Band minimum
+    is 5 ink rows to skip tiny blips.
 
-    Returns unchanged when only one band is found: prefer keeping extra pixels
-    over accidentally cropping part of a signature.
+    Always returns a valid Image — wraps all logic in try/except so a bug
+    here never prevents the crop from appearing in the UI.
     """
-    cw, ch = crop_img.size
-    gray = crop_img.convert("L")
-    stat = ImageStat.Stat(gray)
-    bg_mean = stat.mean[0]
-    threshold = max(40, min(220, bg_mean * 0.78))
-    ink_mask = gray.point(lambda p: 255 if p < threshold else 0, "L")
-    bbox = ink_mask.getbbox()
-    if not bbox:
-        return crop_img
+    try:
+        cw, ch = crop_img.size
+        if cw == 0 or ch == 0:
+            return crop_img
 
-    _, by1, _, by2 = bbox
-    ink_data = list(ink_mask.getdata())
-    row_ink = [
-        sum(1 for x in range(cw) if ink_data[y * cw + x] > 128)
-        for y in range(ch)
-    ]
+        gray = crop_img.convert("L")
+        stat = ImageStat.Stat(gray)
+        bg_mean = stat.mean[0]
+        threshold = max(40, min(220, bg_mean * 0.78))
+        ink_mask = gray.point(lambda p: 255 if p < threshold else 0, "L")
+        bbox = ink_mask.getbbox()
+        if not bbox:
+            return crop_img
 
-    gap_thresh = max(2, int(cw * 0.03))            # < 3% of width = near-empty row
-    min_gap = max(3, int(ch * 0.03))               # proportional gap: 3% of height
-    min_band = max(3, int(ch * 0.04))              # proportional band: 4% of height
+        _, by1, _, by2 = bbox
+        ink_data = list(ink_mask.getdata())
 
-    bands: list[tuple[int, int]] = []              # (start_y, end_y)
-    band_start: Optional[int] = None
-    band_ink_rows = 0
-    gap_run = 0
+        gap_thresh = max(2, int(cw * 0.03))    # < 3% of width = near-empty row
+        MIN_GAP = 2                              # 2 empty rows = band boundary
+        MIN_BAND = 5                             # a real band has >= 5 ink rows
 
-    for y in range(by1, by2 + 1):
-        if row_ink[y] > gap_thresh:
-            if band_start is None:
-                band_start = y
-            band_ink_rows += 1
-            gap_run = 0
-        else:
-            gap_run += 1
-            if band_start is not None and gap_run >= min_gap:
-                if band_ink_rows >= min_band:
-                    bands.append((band_start, y - gap_run))
-                band_start = None
-                band_ink_rows = 0
+        bands = []          # list of (start_y, end_y)
+        band_start = None
+        band_ink_rows = 0
+        gap_run = 0
 
-    if band_start is not None and band_ink_rows >= min_band:
-        bands.append((band_start, by2))
+        for y in range(by1, min(by2 + 1, ch)):
+            row_count = sum(
+                1 for x in range(cw) if ink_data[y * cw + x] > 128
+            )
+            if row_count > gap_thresh:
+                if band_start is None:
+                    band_start = y
+                band_ink_rows += 1
+                gap_run = 0
+            else:
+                gap_run += 1
+                if band_start is not None and gap_run >= MIN_GAP:
+                    if band_ink_rows >= MIN_BAND:
+                        bands.append((band_start, y - gap_run))
+                    band_start = None
+                    band_ink_rows = 0
 
-    if len(bands) <= 1:
-        return crop_img  # single band — can't safely remove anything
+        if band_start is not None and band_ink_rows >= MIN_BAND:
+            bands.append((band_start, by2))
 
-    sig_end = bands[0][1]
-    pad = max(4, int(ch * 0.04))
-    return crop_img.crop((0, 0, cw, min(ch, sig_end + pad)))
+        if len(bands) <= 1:
+            return crop_img  # single band — can't trim safely
+
+        sig_end = bands[0][1]
+        pad = max(4, int(ch * 0.04))
+        return crop_img.crop((0, 0, cw, min(ch, sig_end + pad)))
+
+    except Exception:
+        return crop_img  # if anything goes wrong, return original — never block crop
 
 
 def _ink_detect_signature_crop(img: Image.Image) -> bytes:
@@ -287,10 +293,13 @@ def _ink_detect_signature_crop(img: Image.Image) -> bytes:
     Always returns a PNG — worst case is the full CTS-2010 signature zone.
     """
     w, h = img.size
-    # CTS-2010 signature zone: right ~52%, lower third, above MICR band (~bottom 8%)
+    # CTS-2010 signature zone: right ~52%, rows 52–80% of height.
+    # Stopping at 80% avoids the "Please sign above" instruction text which
+    # sits between the name and the MICR band; the actual signature is always
+    # fully within this window.
     zx1 = int(w * 0.45)
     zy1 = int(h * 0.52)
-    zy2 = int(h * 0.92)
+    zy2 = int(h * 0.80)
     zone = img.crop((zx1, zy1, w, zy2))
 
     gray = zone.convert("L")
