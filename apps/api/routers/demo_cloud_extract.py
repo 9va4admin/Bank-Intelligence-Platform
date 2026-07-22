@@ -235,9 +235,28 @@ def _find_sig_region_by_span(
     zone: Image.Image,
 ) -> Optional[tuple[int, int, int, int]]:
     """
-    Locate handwritten signature strokes within a zone that the caller has
-    already trimmed to exclude printed text below.  Simple span + cluster.
-    Always returns a valid tuple or None — never throws.
+    Locate handwritten signature strokes, excluding printed block-capital text
+    (account-holder name) below the signature. Three independent guards:
+
+    Guard 1 — rule detection (original mask):
+        A horizontal rule separating the sig area from the name shows as a
+        long contiguous ink band covering ≥ 75 % of zone width. Detected in
+        the original (non-eroded) mask because thin rules are erased by erosion.
+        Sets a hard y_limit above which we only search.
+
+    Guard 2 — ink run count (original mask):
+        Each horizontal scan line through "ANKIT KUMAR" (10 caps) crosses
+        12–18 distinct ink segments. A scan line through cursive strokes crosses
+        1–5. Rows with > MAX_RUNS (6) are excluded before clustering.
+        Uses the ORIGINAL mask — erosion can merge adjacent letter strokes and
+        artificially lower the run count for printed text.
+
+    Guard 3 — span check (eroded mask):
+        Still done on the eroded mask to filter out thin horizontal rule
+        lines that were not caught by Guard 1 (e.g. partial or broken rules).
+
+    All three are independent: any one alone should exclude the name; all
+    three together give robust coverage.
     """
     try:
         from PIL import ImageFilter
@@ -248,39 +267,69 @@ def _find_sig_region_by_span(
 
         gray = zone.convert("L")
         threshold = _ink_threshold(gray)
+
+        # Original ink mask (all ink pixels present)
         ink_mask = gray.point(lambda p: 255 if p < threshold else 0, "L")
+        o_data = list(ink_mask.getdata())
+
+        # Eroded mask (thin strokes and rule lines shrink away)
         eroded = ink_mask.filter(ImageFilter.MinFilter(3))
         e_data = list(eroded.getdata())
 
         MIN_SPAN = max(8, int(zw * 0.28))
+        MAX_RUNS = 6     # cursive: 1-5 runs/row; block caps: 12-18 runs/row
         MAX_GAP  = 2
-        MIN_ROWS = 3
-        # A row through printed capitals (e.g. "ANKIT KUMAR") has 8-15 separate
-        # ink runs (one per letter stroke). A row through a cursive signature
-        # has 1-5. Filtering rows with > MAX_RUNS removes the name rows before
-        # clustering, leaving only handwriting.
-        MAX_RUNS = 6
+        MIN_ROWS = 2     # relaxed: run filter may thin the qualifying cluster
 
-        sig_rows: list[tuple[int, int, int]] = []
+        # ── Guard 1: find topmost horizontal rule in ORIGINAL mask ───────────
+        # A rule = any row where the longest contiguous ink run ≥ 75 % of zone.
+        RULE_FRAC  = 0.75
+        RULE_MIN_W = int(zw * RULE_FRAC)
+        y_limit    = zh           # no rule found → search full zone
         for y in range(zh):
-            ink_xs = [x for x in range(zw) if e_data[y * zw + x] > 128]
-            if not ink_xs:
+            row_ink = [x for x in range(zw) if o_data[y * zw + x] > 128]
+            if not row_ink:
                 continue
-            span = max(ink_xs) - min(ink_xs)
+            max_run = cur_run = 1
+            for i in range(1, len(row_ink)):
+                if row_ink[i] - row_ink[i - 1] == 1:
+                    cur_run += 1
+                    if cur_run > max_run:
+                        max_run = cur_run
+                else:
+                    cur_run = 1
+            if max_run >= RULE_MIN_W:
+                y_limit = y     # cut here: everything below is name territory
+                break
+
+        # ── Guards 2 + 3: collect signature rows ─────────────────────────────
+        sig_rows: list[tuple[int, int, int]] = []
+        for y in range(y_limit):
+            # Guard 3: eroded span (filters thin rules and isolated noise)
+            e_xs = [x for x in range(zw) if e_data[y * zw + x] > 128]
+            if not e_xs:
+                continue
+            span = max(e_xs) - min(e_xs)
             if span < MIN_SPAN:
                 continue
-            # Count distinct ink runs on this row (gap > 4 px = new run).
+
+            # Guard 2: ink run count on ORIGINAL mask (gap > 3 px = new run)
+            o_xs = [x for x in range(zw) if o_data[y * zw + x] > 128]
+            if not o_xs:
+                continue
             runs = 1
-            for i in range(1, len(ink_xs)):
-                if ink_xs[i] - ink_xs[i - 1] > 4:
+            for i in range(1, len(o_xs)):
+                if o_xs[i] - o_xs[i - 1] > 3:
                     runs += 1
             if runs > MAX_RUNS:
-                continue   # likely printed text, not a handwritten stroke
-            sig_rows.append((y, min(ink_xs), max(ink_xs)))
+                continue    # 12-18 runs → printed block capitals, not handwriting
+
+            sig_rows.append((y, min(e_xs), max(e_xs)))
 
         if not sig_rows:
             return None
 
+        # ── Cluster and return topmost qualifying cluster ─────────────────────
         clusters: list[list[tuple[int, int, int]]] = []
         cur: list[tuple[int, int, int]] = [sig_rows[0]]
         for i in range(1, len(sig_rows)):
@@ -295,10 +344,10 @@ def _find_sig_region_by_span(
         best = qualifying[0] if qualifying else max(clusters, key=len)
 
         return (
-            min(r[1] for r in best),  # x1
-            min(r[0] for r in best),  # y1
-            max(r[2] for r in best),  # x2
-            max(r[0] for r in best),  # y2
+            min(r[1] for r in best),
+            min(r[0] for r in best),
+            max(r[2] for r in best),
+            max(r[0] for r in best),
         )
 
     except Exception:
