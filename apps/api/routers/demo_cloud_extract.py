@@ -724,20 +724,19 @@ async def cloud_extract_cheque(
     if parsed.get("signature_present") == True and pil_img is not None:
         try:
             sig_bboxes = parsed.get("signature_bboxes") or []
+            iw, ih = pil_img.size
             if sig_bboxes and len(sig_bboxes[0]) == 4:
-                iw, ih = pil_img.size
+                # Raw LLM bbox — no post-processing, no span classifier.
+                # Crop exactly what the model says is the signature area.
                 bx1f, by1f, bx2f, by2f = sig_bboxes[0]
-                # 3 % horizontal pad, 2 % vertical pad — keeps a sliver of
-                # context so the classifier doesn't clip the sig edges.
-                zone = pil_img.crop((
-                    max(0,  int((bx1f - 0.03) * iw)),
-                    max(0,  int((by1f - 0.02) * ih)),
-                    min(iw, int((bx2f + 0.03) * iw)),
-                    min(ih, int((by2f + 0.02) * ih)),
+                crop = pil_img.crop((
+                    max(0,  int(bx1f * iw)),
+                    max(0,  int(by1f * ih)),
+                    min(iw, int(bx2f * iw)),
+                    min(ih, int(by2f * ih)),
                 ))
             else:
-                zone = _sig_zone_from_image(pil_img)
-            crop = await _focused_sig_crop(zone, client, model_id, ctx.bank_id)
+                crop = _sig_zone_from_image(pil_img)
             buf = io.BytesIO()
             crop.save(buf, format="PNG")
             signature_crops.append(base64.b64encode(buf.getvalue()).decode())
