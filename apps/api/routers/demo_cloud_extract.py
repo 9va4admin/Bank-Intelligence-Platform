@@ -432,20 +432,19 @@ def _sig_zone_from_image(img: Image.Image) -> Image.Image:
 _FIND_PRINTED_TEXT_Y_PROMPT = """This image is a close-up of a bank cheque signature area.
 
 Look carefully. You will see:
-1. A handwritten cursive INK SIGNATURE in the upper portion.
-2. A PRINTED BLOCK-CAPITAL ACCOUNT HOLDER NAME (e.g. "ANKIT KUMAR") somewhere below the signature.
+1. A handwritten cursive ink signature in the upper portion.
+2. A PRINTED block-capital account holder name (e.g. "ANKIT KUMAR") below the signature.
 3. Possibly a printed instruction line below the name.
 
-Ignore any horizontal underscore or rule line — that is part of the signature box, not printed text.
+Find the printed account holder name text block. Draw an imaginary tight bounding box around JUST those printed letters.
 
-Return the y-coordinate of the TOP EDGE of the PRINTED ACCOUNT HOLDER NAME TEXT BLOCK (the block-capital letters).
-Express as a fraction of this image's height: 0.0 = very top, 1.0 = very bottom.
+Return the bounding box as fractions of image dimensions (0.0=top-left corner, 1.0=bottom-right corner):
 
 Reply ONLY with this JSON — no other text:
-{"name_y": 0.65}
+{"name_x1": 0.05, "name_y1": 0.60, "name_x2": 0.95, "name_y2": 0.80}
 
-If you see NO printed name text, reply:
-{"name_y": null}"""
+If you see NO printed name, reply:
+{"name_x1": null, "name_y1": null, "name_x2": null, "name_y2": null}"""
 
 
 async def _whiteout_via_llm(
@@ -476,12 +475,11 @@ async def _whiteout_via_llm(
                 timeout=25,
             )
             data = json.loads(_clean_json_response(resp.choices[0].message.content))
-            text_y = data.get("name_y")
-            if text_y is not None:
-                # Subtract 4px so we start the whiteout slightly ABOVE the
-                # name top edge — ensures we cover every pixel of the name
-                # even when the LLM estimate is a couple of rows too low.
-                py = max(4, int(float(text_y) * crop.height) - 4)
+            ny1 = data.get("name_y1")
+            if ny1 is not None:
+                # Paint white from 3px ABOVE the name bbox top to the bottom
+                # of the image — covers name + any instruction text below it.
+                py = max(4, int(float(ny1) * crop.height) - 3)
                 if 4 < py < crop.height - 1:
                     result = crop.copy()
                     ImageDraw.Draw(result).rectangle(
@@ -489,7 +487,7 @@ async def _whiteout_via_llm(
                         fill=(255, 255, 255),
                     )
                     log.info("demo.cloud_extract.whiteout_via_llm",
-                             bank_id=bank_id, printed_text_y=text_y)
+                             bank_id=bank_id, name_y1=ny1, whiteout_y=py)
                     return result
         except Exception as exc:
             log.warning("demo.cloud_extract.whiteout_llm_failed",
