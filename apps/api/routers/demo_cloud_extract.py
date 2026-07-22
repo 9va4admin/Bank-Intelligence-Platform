@@ -357,6 +357,16 @@ def _trim_crop_bottom(crop_img: Image.Image) -> Image.Image:
             bands.append((band_start, by2))
 
         if len(bands) <= 1:
+            # Band detection could not find a clear gap — typically because a long
+            # horizontal underline bridges the signature and the printed name below
+            # into one continuous ink region.  Fall back: keep the top 68% of the
+            # ink bounding box height.  Signature strokes occupy the upper portion;
+            # the printed name sits in the lower 30-40% of the ink span.
+            ink_height = by2 - by1
+            if ink_height > 40:
+                cut_y = by1 + int(ink_height * 0.68)
+                pad = max(4, int(ch * 0.04))
+                return crop_img.crop((0, 0, cw, min(ch, cut_y + pad)))
             return crop_img
 
         sig_end = bands[0][1]
@@ -554,6 +564,20 @@ async def cloud_extract_cheque(
                 x1_f, y1_f = max(0.0, x1_f), max(0.0, y1_f)
                 x2_f, y2_f = min(1.0, x2_f), min(1.0, y2_f)
                 if x2_f <= x1_f or y2_f <= y1_f:
+                    continue
+                # Reject bboxes outside the expected signature zone.
+                # Standard CTS-2010 cheque: signature is always in the lower-right
+                # (y > ~40%, x > ~28%).  A centroid in the top half means the LLM
+                # mapped to a different field (e.g. "FC BANK LTD" header) — skip it
+                # and let the ink-detect fallback produce the correct crop instead.
+                y_center_f = (y1_f + y2_f) / 2
+                x_center_f = (x1_f + x2_f) / 2
+                if y_center_f < 0.42 or x_center_f < 0.28:
+                    log.warning(
+                        "demo.cloud_extract.bbox_outside_sig_zone",
+                        bank_id=ctx.bank_id, model=model,
+                        y_center=round(y_center_f, 3), x_center=round(x_center_f, 3),
+                    )
                     continue
                 pad_px = max(4, int(min(w, h) * 0.01))
                 x1 = max(0, int(x1_f * w) - pad_px)
