@@ -376,22 +376,27 @@ def _whiteout_printed_text(crop: Image.Image) -> Image.Image:
     o_data = list(gray.point(lambda p: 255 if p < threshold else 0, "L").getdata())
     row_ink = [any(o_data[y * cw + x] > 128 for x in range(cw)) for y in range(ch)]
 
-    # Search from the midpoint — by then we're below the signature ascenders,
-    # so pen-lift gaps within cursive strokes (0-1 rows) won't trigger.
-    # The sig/name separator is typically 2-5 blank rows; threshold = 2.
+    # Walk top-to-bottom. Fire on the FIRST 2+-row blank gap that comes
+    # after at least 10 ink rows have accumulated — that gap is the
+    # sig/name boundary.  Requiring 10 prior ink rows stops us from
+    # triggering on pen-lift gaps at the very top of the ascenders.
+    total_ink_rows = 0
     whiteout_y = None
-    y = ch // 2
-    while y < ch - 5:
-        if not row_ink[y]:
+    y = 0
+    while y < ch - 4:
+        if row_ink[y]:
+            total_ink_rows += 1
+            y += 1
+        elif total_ink_rows >= 10:
             gap_end = y
             while gap_end < ch and not row_ink[gap_end]:
                 gap_end += 1
-            if gap_end - y >= 2:        # 2-row gap = sig / name boundary
+            if gap_end - y >= 2:        # 2+-row gap after sig body = boundary
                 whiteout_y = y
                 break
-            y = gap_end                 # skip past 1-row gap, keep searching
+            y = gap_end                 # 1-row gap — inside sig, keep going
         else:
-            y += 1
+            y += 1                      # not enough ink context yet
 
     if whiteout_y is None or whiteout_y >= ch - 3:
         return crop                     # no clear gap found — leave intact
