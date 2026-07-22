@@ -92,6 +92,7 @@ class BoundCTSActivities:
         bloom_client: Any = None,
         orchestrator: Any = None,
         fraud_vllm_client: Any = None,
+        vision_vllm_client: Any = None,
         config_service: Any = None,
         db_pool: Any = None,
         hsm_signer: Any = None,
@@ -108,6 +109,7 @@ class BoundCTSActivities:
         self._bloom_client = bloom_client
         self._orchestrator = orchestrator
         self._fraud_vllm_client = fraud_vllm_client
+        self._vllm_client = vision_vllm_client
         self._config_service = config_service
         self._db_pool = db_pool
         self._hsm_signer = hsm_signer
@@ -163,6 +165,13 @@ class BoundCTSActivities:
     async def lookup_pps(self, inp: PPSActivityInput):
         from modules.cts.workflows.activities.pps import lookup_pps as _real
         return await _real(inp, vault=self._pps_vault)
+
+    @activity.defn(name="detect_signatures")
+    async def detect_signatures(self, inp):
+        from modules.cts.workflows.activities.detect_signatures import (
+            detect_signatures as _real, DetectSignaturesInput,
+        )
+        return await _real(inp, vllm_client=self._vllm_client)
 
     @activity.defn(name="verify_signature")
     async def verify_signature(self, inp: SignatureActivityInput):
@@ -398,6 +407,7 @@ class BoundCTSActivities:
             self.load_signatures_from_cbs,
             self.load_pps_from_cbs,
             self.lookup_pps,
+            self.detect_signatures,
             self.verify_signature,
             self.warm_redis_vault,
             self.verify_vault_integrity,
@@ -448,6 +458,7 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
     opa_client = await _build_opa_client(config_service)
     orchestrator = await _build_cascade_orchestrator(config_service, bank_id)
     fraud_vllm_client = await _build_fraud_vllm_client(config_service)
+    vision_vllm_client = await _build_vision_vllm_client(config_service)
     db_pool = await _build_db_pool(config_service)
     hsm_signer = _build_hsm_signer(config_service, bank_id)
 
@@ -469,6 +480,7 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
         bloom_client=bloom_client,
         orchestrator=orchestrator,
         fraud_vllm_client=fraud_vllm_client,
+        vision_vllm_client=vision_vllm_client,
         config_service=config_service,
         db_pool=db_pool,
         hsm_signer=hsm_signer,
@@ -642,6 +654,21 @@ async def _build_fraud_vllm_client(config_service: Any) -> Any:
         return client
     except Exception as exc:
         log.warning("worker_activities.fraud_vllm_client_unavailable", error=str(exc))
+        return None
+
+
+async def _build_vision_vllm_client(config_service: Any) -> Any:
+    """detect_signatures uses this client for the cts-vision-l1 queue
+    (Qwen2-VL 7B — fast L1 pass).  Same HeadroomVLLMClient as the fraud
+    client; the queue is specified per-call in extra_body, not here."""
+    try:
+        from apps.ai_server.headroom_client import HeadroomVLLMClient
+        base_url = await config_service.get("vllm.url")
+        client = HeadroomVLLMClient(base_url=base_url)
+        log.info("worker_activities.vision_vllm_client_ready")
+        return client
+    except Exception as exc:
+        log.warning("worker_activities.vision_vllm_client_unavailable", error=str(exc))
         return None
 
 

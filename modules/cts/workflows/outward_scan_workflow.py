@@ -196,6 +196,38 @@ class OutwardScanWorkflow:
                 violations=list(compliance_result.violations), audit_written=True, pu_id=inp.pu_id,
             )
 
+        # Step 3.5: detect_signatures — presence check only (outward never validates vs vault)
+        from modules.cts.workflows.activities.detect_signatures import (
+            detect_signatures, DetectSignaturesInput,
+        )
+        sig_detect = await workflow.execute_activity(
+            detect_signatures,
+            DetectSignaturesInput(
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                image_url=inp.image_front_url,
+            ),
+            start_to_close_timeout=timedelta(seconds=60),
+            retry_policy=_AI_RETRY,
+        )
+        if sig_detect.outcome == "ABSENT":
+            log.info("outward_scan_workflow.signature_absent",
+                     scan_id=inp.scan_id, bank_id=inp.bank_id)
+            await workflow.execute_activity(
+                write_audit,
+                WriteAuditInput(event_type="CTS_OUT_SIGNATURE_ABSENT", bank_id=inp.bank_id,
+                                instrument_id=inp.instrument_id,
+                                payload={"scan_id": inp.scan_id, "violation": "SIGNATURE_ABSENT"}),
+                start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
+            )
+            return OutwardScanResult(
+                outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
+                violations=["SIGNATURE_ABSENT"], audit_written=True, pu_id=inp.pu_id,
+            )
+        # DEGRADED → proceed optimistically; do not block lot on AI failure.
+        # Fraud flags → outward bank does not validate signatures; logged by drawee inward.
+
         # Step 4: Vision cross-check (lot assignment deferred to ClearingSessionWorkflow)
         vision_result = None
         if scanner_amount_str is not None:
@@ -289,6 +321,38 @@ class OutwardScanWorkflow:
                 instrument_id=inp.instrument_id, micr_line=inp.micr_hardware_raw,
                 lot_number=None, violations=list(compliance_result.violations),
                 audit_written=True, pu_id=inp.pu_id,
+            )
+
+        # Step 1.5 (CR-120): detect_signatures — presence only, same as legacy path
+        from modules.cts.workflows.activities.detect_signatures import (
+            detect_signatures, DetectSignaturesInput,
+        )
+        sig_detect_cr = await workflow.execute_activity(
+            detect_signatures,
+            DetectSignaturesInput(
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                image_url=inp.image_front_url,
+            ),
+            start_to_close_timeout=timedelta(seconds=60),
+            retry_policy=_AI_RETRY,
+        )
+        if sig_detect_cr.outcome == "ABSENT":
+            log.info("outward_scan_workflow.cr120.signature_absent",
+                     scan_id=inp.scan_id, bank_id=inp.bank_id)
+            await workflow.execute_activity(
+                write_audit,
+                WriteAuditInput(event_type="CTS_OUT_SIGNATURE_ABSENT", bank_id=inp.bank_id,
+                                instrument_id=inp.instrument_id,
+                                payload={"scan_id": inp.scan_id, "path": "cr120",
+                                         "violation": "SIGNATURE_ABSENT"}),
+                start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
+            )
+            return OutwardScanResult(
+                outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                instrument_id=inp.instrument_id, micr_line=inp.micr_hardware_raw,
+                lot_number=None, violations=["SIGNATURE_ABSENT"], audit_written=True,
+                pu_id=inp.pu_id,
             )
 
         vision_result = await workflow.execute_activity(
