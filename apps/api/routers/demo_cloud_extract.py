@@ -231,198 +231,150 @@ def _ink_threshold(gray_img: Image.Image) -> int:
     return max(50, min(100, p10 + 28))
 
 
-def _trim_crop_right(crop_img: Image.Image) -> Image.Image:
+def _find_sig_region_by_span(
+    zone: Image.Image,
+) -> Optional[tuple[int, int, int, int]]:
     """
-    Remove the printed account holder name that sits to the RIGHT of the
-    handwritten signature at the same vertical level (standard CTS-2010 layout).
+    Locate the handwritten signature within a zone image using horizontal ink-span
+    analysis, with a light morphological erosion pre-pass.
 
-    Uses a tight ink threshold (10th-percentile based) so the security
-    background pattern is excluded from the ink mask.  Scans columns
-    left-to-right: after seeing MIN_SIG_COLS ink columns (the signature body),
-    the first run of MIN_GAP_COLS near-empty columns is the gap before the
-    printed name — everything from that gap onward is discarded.
+    PHYSICAL BASIS
+    --------------
+    A cursive signature stroke sweeps the pen across a WIDE fraction of the zone
+    horizontally — the ink spans 30-80 % of zone width per stroke.
+    Printed text (bank name, account holder name, instruction text) is NARROW —
+    each letter is a few pixels wide.  Even a long word like "ANKIT KUMAR" in a
+    standard bank font spans only 15-25 % of the zone width at typical cheque
+    print sizes and scan resolutions.
 
-    If no clear column gap is found (e.g. signature and name are touching),
-    falls back to keeping the left 65% of the ink span.
+    The algorithm classifies each row by its horizontal ink span:
+        span ≥ 28 % of zone width  →  "signature row"
+        span <  28 %               →  printed text (ignored)
+
+    Rows are then grouped into contiguous clusters (allowing gaps ≤ 6 rows for
+    ink breaks between cursive strokes).  The cluster with the MOST rows wins —
+    that is the signature.  A bounding box is returned in zone-local coordinates.
+
+    If no cluster is found (compact or very narrow signature), returns None and
+    the caller falls back to the full zone image.
+
+    EROSION PRE-PASS
+    ----------------
+    MinFilter(3) (3×3 erosion) removes single-pixel noise before span analysis.
+    It does NOT remove pen strokes (which are 3-8 px wide at 200 DPI) — only
+    stray pixels and JPEG/scan artefacts.
+
+    Always returns a valid tuple or None — never throws.
+    """
+    try:
+        from PIL import ImageFilter
+
+        zw, zh = zone.size
+        if zw < 20 or zh < 20:
+            return None
+
+        gray = zone.convert("L")
+        threshold = _ink_threshold(gray)
+        ink_mask = gray.point(lambda p: 255 if p < threshold else 0, "L")
+
+        # Light erosion: removes 1-px noise/artefacts; pen strokes survive intact.
+        eroded = ink_mask.filter(ImageFilter.MinFilter(3))
+        e_data = list(eroded.getdata())
+
+        # A row is a "signature row" when its ink spans ≥ 28 % of zone width.
+        MIN_SPAN = max(8, int(zw * 0.28))
+        # Two consecutive sig-row clusters separated by ≤ MAX_GAP rows merge into one.
+        MAX_GAP = 6
+
+        sig_rows: list[tuple[int, int, int]] = []  # (y, x_left, x_right)
+        for y in range(zh):
+            ink_xs = [x for x in range(zw) if e_data[y * zw + x] > 128]
+            if not ink_xs:
+                continue
+            span = max(ink_xs) - min(ink_xs)
+            if span >= MIN_SPAN:
+                sig_rows.append((y, min(ink_xs), max(ink_xs)))
+
+        if not sig_rows:
+            return None  # caller uses full zone as fallback
+
+        # Cluster consecutive sig_rows with small gaps allowed.
+        clusters: list[list[tuple[int, int, int]]] = []
+        cur: list[tuple[int, int, int]] = [sig_rows[0]]
+        for i in range(1, len(sig_rows)):
+            if sig_rows[i][0] - sig_rows[i - 1][0] <= MAX_GAP:
+                cur.append(sig_rows[i])
+            else:
+                clusters.append(cur)
+                cur = [sig_rows[i]]
+        clusters.append(cur)
+
+        # Largest cluster = the signature (printed text lines are much shorter).
+        best = max(clusters, key=len)
+
+        return (
+            min(r[1] for r in best),  # x1
+            min(r[0] for r in best),  # y1
+            max(r[2] for r in best),  # x2
+            max(r[0] for r in best),  # y2
+        )
+
+    except Exception:
+        return None
+
+
+def _sig_crop_from_zone(zone: Image.Image) -> Image.Image:
+    """
+    Extract the signature crop from a pre-cropped zone image using
+    _find_sig_region_by_span.  Falls back to the full zone if no wide-span
+    cluster is found (very compact or faint signature).
 
     Always returns a valid Image — never throws.
     """
     try:
-        cw, ch = crop_img.size
-        if cw == 0 or ch == 0:
-            return crop_img
-
-        gray = crop_img.convert("L")
-        threshold = _ink_threshold(gray)
-        ink_mask = gray.point(lambda p: 255 if p < threshold else 0, "L")
-        bbox = ink_mask.getbbox()
-        if not bbox:
-            return crop_img
-
-        bx1, _, bx2, _ = bbox
-        ink_span = bx2 - bx1
-        if ink_span < 30:
-            return crop_img
-
-        ink_data = list(ink_mask.getdata())
-        # A column is "ink-bearing" if > 3% of its height has ink pixels.
-        ink_col_thresh = max(1, int(ch * 0.03))
-        MIN_SIG_COLS = max(8, int(ink_span * 0.12))  # need this many sig cols first
-        MIN_GAP_COLS = 3                               # 3 empty cols = name boundary
-
-        sig_cols = 0
-        gap_run = 0
-        cut_x = None
-
-        for x in range(bx1, min(bx2 + 1, cw)):
-            col_ink = sum(1 for y in range(ch) if ink_data[y * cw + x] > 128)
-            if col_ink > ink_col_thresh:
-                sig_cols += 1
-                gap_run = 0
-            else:
-                gap_run += 1
-                if sig_cols >= MIN_SIG_COLS and gap_run >= MIN_GAP_COLS:
-                    cut_x = x - gap_run + 1
-                    break
-
-        if cut_x is not None and cut_x > bx1 + int(ink_span * 0.25):
-            pad = max(4, int(cw * 0.02))
-            return crop_img.crop((0, 0, min(cw, cut_x + pad), ch))
-
-        # Fallback: keep left 65% of ink span
-        fallback_x = bx1 + int(ink_span * 0.65)
-        if fallback_x < cw - 15:
-            return crop_img.crop((0, 0, fallback_x, ch))
-
-        return crop_img
-
+        zw, zh = zone.size
+        sig_bbox = _find_sig_region_by_span(zone)
+        if sig_bbox:
+            bx1, by1, bx2, by2 = sig_bbox
+            pad = max(8, int(min(zw, zh) * 0.06))
+            return zone.crop((
+                max(0, bx1 - pad),
+                max(0, by1 - pad),
+                min(zw, bx2 + pad),
+                min(zh, by2 + pad),
+            ))
+        return zone
     except Exception:
-        return crop_img
-
-
-def _trim_crop_bottom(crop_img: Image.Image) -> Image.Image:
-    """
-    Remove printed text bands (account holder name, instruction lines) that sit
-    BELOW the handwritten signature (handles cheques where the name is under the
-    signature box rather than beside it).
-
-    Uses the same tight ink threshold as _trim_crop_right so the security
-    background is excluded.  Splits remaining ink into vertical bands; keeps
-    only the first (topmost) band.
-
-    Always returns a valid Image — never throws.
-    """
-    try:
-        cw, ch = crop_img.size
-        if cw == 0 or ch == 0:
-            return crop_img
-
-        gray = crop_img.convert("L")
-        threshold = _ink_threshold(gray)
-        ink_mask = gray.point(lambda p: 255 if p < threshold else 0, "L")
-        bbox = ink_mask.getbbox()
-        if not bbox:
-            return crop_img
-
-        _, by1, _, by2 = bbox
-        ink_data = list(ink_mask.getdata())
-
-        row_ink_thresh = max(2, int(cw * 0.03))
-        MIN_GAP = 2
-        MIN_BAND = 5
-
-        bands = []
-        band_start = None
-        band_ink_rows = 0
-        gap_run = 0
-
-        for y in range(by1, min(by2 + 1, ch)):
-            row_count = sum(
-                1 for x in range(cw) if ink_data[y * cw + x] > 128
-            )
-            if row_count > row_ink_thresh:
-                if band_start is None:
-                    band_start = y
-                band_ink_rows += 1
-                gap_run = 0
-            else:
-                gap_run += 1
-                if band_start is not None and gap_run >= MIN_GAP:
-                    if band_ink_rows >= MIN_BAND:
-                        bands.append((band_start, y - gap_run))
-                    band_start = None
-                    band_ink_rows = 0
-
-        if band_start is not None and band_ink_rows >= MIN_BAND:
-            bands.append((band_start, by2))
-
-        if len(bands) <= 1:
-            # Band detection could not find a clear gap — typically because a long
-            # horizontal underline bridges the signature and the printed name below
-            # into one continuous ink region.  Fall back: keep the top 68% of the
-            # ink bounding box height.  Signature strokes occupy the upper portion;
-            # the printed name sits in the lower 30-40% of the ink span.
-            ink_height = by2 - by1
-            if ink_height > 40:
-                cut_y = by1 + int(ink_height * 0.68)
-                pad = max(4, int(ch * 0.04))
-                return crop_img.crop((0, 0, cw, min(ch, cut_y + pad)))
-            return crop_img
-
-        sig_end = bands[0][1]
-        pad = max(4, int(ch * 0.04))
-        return crop_img.crop((0, 0, cw, min(ch, sig_end + pad)))
-
-    except Exception:
-        return crop_img
+        return zone
 
 
 def _ink_detect_signature_crop(img: Image.Image) -> bytes:
     """
-    Ink-detection fallback when the LLM confirms a signature but returns no
-    bounding boxes (common with featherless-ai-hosted Qwen/Gemma variants).
+    Fallback that fires when the LLM confirms a signature but returns no usable
+    bbox coords.
 
-    img must be in RGB mode (caller normalises before passing).
-    Uses an adaptive threshold so it handles both white-background cheques
-    and tinted (blue/pink) backgrounds — a fixed threshold of 180 fails on
-    tinted cheques where ink and background are both below that level.
-    Always returns a PNG — worst case is the full CTS-2010 signature zone.
+    Uses _find_sig_region_by_span to locate the signature inside the CTS-2010
+    zone by horizontal ink span: cursive strokes sweep wide (>28 % of zone width
+    per row); printed text (name, bank label, instruction) is narrow and is
+    excluded automatically.  Falls back to the full zone if the span classifier
+    finds nothing (very compact or light signature).
+
+    Always returns PNG bytes.
     """
     w, h = img.size
-    # CTS-2010 signature zone: columns 45–80%, rows 52–80% of image.
-    # Right boundary at 80%: the printed account holder name lives at the far
-    # right edge (≈80–95%), so stopping here excludes it entirely.
-    # Bottom at 80%: avoids the "Please sign above" instruction text.
-    zx1 = int(w * 0.45)
-    zx2 = int(w * 0.80)
-    zy1 = int(h * 0.52)
-    zy2 = int(h * 0.80)
+    # Zone: columns 42–88 %, rows 50–78 % of image.
+    # 42 % left edge: most signatures start here or right of here.
+    # 88 % right edge: gives room for wide signatures without clipping them —
+    #   the span classifier already excludes the printed name, so a wide right
+    #   boundary does not pollute the crop.
+    # 78 % bottom: stays above the "Please sign above" instruction band.
+    zx1 = int(w * 0.42)
+    zx2 = int(w * 0.88)
+    zy1 = int(h * 0.50)
+    zy2 = int(h * 0.78)
     zone = img.crop((zx1, zy1, zx2, zy2))
 
-    gray = zone.convert("L")
-
-    # Use the 10th-percentile threshold so the security printing pattern on
-    # the cheque (grey lattice/checkered squares) is NOT detected as ink.
-    # The mean-based threshold (bg_mean * 0.78) was too loose — the security
-    # pattern dragged down the mean, making the threshold high enough to
-    # capture pattern pixels and produce a bbox spanning the entire zone.
-    threshold = _ink_threshold(gray)
-
-    ink_mask = gray.point(lambda p: 255 if p < threshold else 0, "L")
-    bbox = ink_mask.getbbox()
-
-    if bbox:
-        bx1, by1, bx2, by2 = bbox
-        pad = max(8, int(min(zone.width, zone.height) * 0.05))
-        raw_crop = zone.crop((
-            max(0, bx1 - pad),
-            max(0, by1 - pad),
-            min(zone.width, bx2 + pad),
-            min(zone.height, by2 + pad),
-        ))
-        crop = _trim_crop_bottom(_trim_crop_right(raw_crop))
-    else:
-        crop = zone  # no ink cluster found — return full zone (very light scan)
+    crop = _sig_crop_from_zone(zone)
 
     buf = io.BytesIO()
     crop.save(buf, format="PNG")
@@ -579,12 +531,19 @@ async def cloud_extract_cheque(
                         y_center=round(y_center_f, 3), x_center=round(x_center_f, 3),
                     )
                     continue
-                pad_px = max(4, int(min(w, h) * 0.01))
-                x1 = max(0, int(x1_f * w) - pad_px)
-                y1 = max(0, int(y1_f * h) - pad_px)
-                x2 = min(w, int(x2_f * w) + pad_px)
-                y2 = min(h, int(y2_f * h) + pad_px)
-                crop = _trim_crop_bottom(_trim_crop_right(pil_img.crop((x1, y1, x2, y2))))
+                # Use the LLM bbox as a coarse zone, then run the span classifier
+                # inside it to locate only the signature strokes — the LLM bbox
+                # often extends too far (includes the printed name or underline).
+                # Adding a margin ensures we don't clip a signature that touches
+                # the bbox edge.
+                mx = max(int(w * 0.04), 10)
+                my = max(int(h * 0.03), 8)
+                zone_x1 = max(0, int(x1_f * w) - mx)
+                zone_y1 = max(0, int(y1_f * h) - my)
+                zone_x2 = min(w, int(x2_f * w) + mx)
+                zone_y2 = min(h, int(y2_f * h) + my)
+                llm_zone = pil_img.crop((zone_x1, zone_y1, zone_x2, zone_y2))
+                crop = _sig_crop_from_zone(llm_zone)
                 buf = io.BytesIO()
                 crop.save(buf, format="PNG")
                 signature_crops.append(base64.b64encode(buf.getvalue()).decode())
