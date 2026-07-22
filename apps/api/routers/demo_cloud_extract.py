@@ -302,23 +302,9 @@ def _sig_zone_from_image(img: Image.Image) -> Image.Image:
     the focused LLM call sees fewer distracting elements.
     """
     w, h = img.size
-    return img.crop((int(w * 0.40), int(h * 0.48), w, int(h * 0.82)))
-
-
-_SIG_EXCLUDE_PROMPT = """This image is the signature zone of an Indian bank cheque.
-
-Below the handwritten cursive signature there may be printed text in BLOCK CAPITAL LETTERS
-(the account holder name, e.g. "ANKIT KUMAR").
-
-Find where that printed capital-letter text BEGINS vertically in this image.
-
-Return ONLY this JSON — no other text:
-{"name_top_y": 0.68}
-
-name_top_y = decimal fraction of this image height where the printed capital letters start.
-  0.0 = very top of image  |  1.0 = very bottom
-If there is NO printed capital-letter text below the signature, return:
-{"name_top_y": null}"""
+    # 62-80 % height: starts below the amount-in-figures box (which sits at
+    # ~48-60 % on most CTS-2010 cheques) and ends above the MICR band.
+    return img.crop((int(w * 0.40), int(h * 0.62), w, int(h * 0.80)))
 
 
 async def _focused_sig_crop(
@@ -328,65 +314,32 @@ async def _focused_sig_crop(
     bank_id: str,
 ) -> Image.Image:
     """
-    Two-step extraction:
-    1. Ask the LLM where the printed name STARTS (easy visual task for the model).
-       Trim the zone to exclude everything at or below that y position.
-    2. Run the span classifier on the trimmed zone (now name-free) to find the
-       signature cluster precisely.
+    Pure span-classifier extraction — no LLM second call.
 
-    The LLM is NOT asked to find the signature — it's asked to find the printed
-    block capitals below it.  That is a simpler, unambiguous visual question.
+    The zone already starts at 62 % of cheque height (below the amount-in-figures
+    field), so all wide-span content in it is either the handwritten signature or
+    the printed account-holder name below it.  The span classifier returns the
+    TOPMOST qualifying cluster, which is always the signature.
+
+    A hard y2 cap at 67 % of zone height prevents a merged sig+name cluster from
+    dragging in the name text at the bottom.
+
     Always returns a valid Image — never throws.
     """
     zw, zh = zone.size
-
-    # Step 1: ask LLM where the printed name below the signature starts.
-    name_top_y: Optional[float] = None
-    try:
-        buf = io.BytesIO()
-        zone.save(buf, format="PNG")
-        zone_b64 = base64.b64encode(buf.getvalue()).decode()
-
-        resp = await client.chat.completions.create(
-            model=model_id,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": _SIG_EXCLUDE_PROMPT},
-                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{zone_b64}"}},
-                ],
-            }],
-            temperature=0,
-            timeout=30,
-        )
-        raw = resp.choices[0].message.content
-        data = json.loads(_clean_json_response(raw))
-        v = data.get("name_top_y")
-        if v is not None:
-            name_top_y = float(v)
-            log.info("demo.cloud_extract.name_top_y_found", bank_id=bank_id,
-                     name_top_y=round(name_top_y, 3))
-    except Exception as exc:
-        log.warning("demo.cloud_extract.name_top_y_failed", bank_id=bank_id, error=str(exc))
-
-    # Step 2: trim zone above the printed name, then apply span classifier.
-    if name_top_y is not None and 0.10 < name_top_y < 0.95:
-        y_cut = max(4, int(name_top_y * zh) - 4)
-        work_zone = zone.crop((0, 0, zw, y_cut))
-    else:
-        work_zone = zone  # no name found — use full zone
-
-    span_bbox = _find_sig_region_by_span(work_zone)
+    span_bbox = _find_sig_region_by_span(zone)
     if span_bbox:
-        ww, wh = work_zone.size
         bx1, by1, bx2, by2 = span_bbox
-        pad_h = max(6, int(ww * 0.04))
-        return work_zone.crop((
+        # Hard cap: name is always in the bottom third of the zone.
+        # 67 % of zone height ≈ 72 % of cheque height — safely above the name.
+        by2 = min(by2, int(zh * 0.67))
+        pad_h = max(6, int(zw * 0.04))
+        return zone.crop((
             max(0, bx1 - pad_h), max(0, by1 - 4),
-            min(ww, bx2 + pad_h), min(wh, by2 + 4),
+            min(zw, bx2 + pad_h), min(zh, by2 + 4),
         ))
 
-    return work_zone
+    return zone
 
 
 def _convert_to_png(raw_bytes: bytes) -> tuple[bytes, Image.Image]:
@@ -526,11 +479,9 @@ async def cloud_extract_cheque(
 
     # pil_img captured at upload time by _convert_to_png() — no second open needed.
 
-    # When the LLM confirms a signature exists, make a second focused call with
-    # only the pre-cropped signature zone.  The Vision model sees a simple image
-    # (3-4 elements) and identifies the handwritten strokes directly — no
-    # computer-vision math needed.  The span classifier is the fallback inside
-    # _focused_sig_crop if the second call fails.
+    # When the LLM confirms a signature exists, crop the signature zone
+    # (62-80 % of cheque height — below the amount field) and run the span
+    # classifier to isolate handwritten strokes from any printed name below.
     signature_crops: list[str] = []
     crops_estimated = False
     if parsed.get("signature_present") == True and pil_img is not None:
