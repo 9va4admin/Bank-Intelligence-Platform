@@ -284,7 +284,11 @@ def _find_sig_region_by_span(
         # A row is a "signature row" when its ink spans ≥ 28 % of zone width.
         MIN_SPAN = max(8, int(zw * 0.28))
         # Two consecutive sig-row clusters separated by ≤ MAX_GAP rows merge into one.
-        MAX_GAP = 6
+        # Keep this SMALL (2): internal cursive stroke gaps are 1-2 rows; the gap
+        # between the signature underline and the printed name below it is typically
+        # 4-6 rows.  MAX_GAP=2 keeps the signature together while splitting the
+        # name into its own cluster so "largest cluster" selects the signature.
+        MAX_GAP = 2
 
         sig_rows: list[tuple[int, int, int]] = []  # (y, x_left, x_right)
         for y in range(zh):
