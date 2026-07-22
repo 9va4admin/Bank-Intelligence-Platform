@@ -359,33 +359,36 @@ async def _focused_sig_crop(
     bank_id: str,
 ) -> Image.Image:
     """
-    Send just the pre-cropped zone to the Vision LLM with a single focused
-    question: where are the handwritten strokes?
+    Extract the handwritten signature from the pre-cropped zone.
 
-    The LLM sees a small, simple image (3-4 elements at most) and only needs
-    to distinguish cursive ink from printed text — a task Vision models handle
-    well without any computer-vision math on our side.
+    PRIMARY — span classifier:  clusters rows where ink sweeps ≥ 28 % of zone
+    width (cursive strokes), with MAX_GAP=2.  The gap between the signature
+    underline and the printed account-holder name below is typically 4-6 rows,
+    which exceeds MAX_GAP, so the two split into separate clusters and the
+    largest cluster wins — the signature.  This is the reliable path.
 
-    Falls back to the span classifier (_find_sig_region_by_span) if the LLM
-    call fails, returns an empty bbox, or returns an out-of-range bbox.
+    FALLBACK — focused LLM call:  used only when the span classifier finds
+    nothing (e.g. a compact or unusually faint signature that falls below the
+    span threshold).  The LLM receives only the zone image and is asked to
+    locate the handwritten strokes.
+
     Always returns a valid Image — never throws.
     """
     zw, zh = zone.size
 
-    def _span_fallback() -> Image.Image:
-        try:
-            sig_bbox = _find_sig_region_by_span(zone)
-            if sig_bbox:
-                bx1, by1, bx2, by2 = sig_bbox
-                pad_h = max(6, int(zw * 0.04))
-                return zone.crop((
-                    max(0, bx1 - pad_h), max(0, by1 - 4),
-                    min(zw, bx2 + pad_h), min(zh, by2 + 4),
-                ))
-        except Exception:
-            pass
-        return zone
+    # PRIMARY: span-based cluster analysis
+    span_bbox = _find_sig_region_by_span(zone)
+    if span_bbox:
+        bx1, by1, bx2, by2 = span_bbox
+        pad_h = max(6, int(zw * 0.04))
+        log.info("demo.cloud_extract.span_classifier_used", bank_id=bank_id,
+                 bx1=bx1, by1=by1, bx2=bx2, by2=by2)
+        return zone.crop((
+            max(0, bx1 - pad_h), max(0, by1 - 4),
+            min(zw, bx2 + pad_h), min(zh, by2 + 4),
+        ))
 
+    # FALLBACK: focused LLM call when span classifier finds nothing
     try:
         buf = io.BytesIO()
         zone.save(buf, format="PNG")
@@ -411,25 +414,25 @@ async def _focused_sig_crop(
 
         if not (isinstance(bbox, (list, tuple)) and len(bbox) == 4):
             log.warning("demo.cloud_extract.focused_sig_no_bbox", bank_id=bank_id)
-            return _span_fallback()
+            return zone
 
         x1_f, y1_f, x2_f, y2_f = [float(v) for v in bbox]
         if x2_f <= x1_f or y2_f <= y1_f or x1_f < 0 or y1_f < 0:
             log.warning("demo.cloud_extract.focused_sig_invalid_bbox", bank_id=bank_id, bbox=bbox)
-            return _span_fallback()
+            return zone
 
         pad = max(4, int(min(zw, zh) * 0.03))
         x1 = max(0, int(x1_f * zw) - pad)
         y1 = max(0, int(y1_f * zh) - pad)
         x2 = min(zw, int(x2_f * zw) + pad)
         y2 = min(zh, int(y2_f * zh) + pad)
-        log.info("demo.cloud_extract.focused_sig_bbox_used", bank_id=bank_id,
+        log.info("demo.cloud_extract.focused_llm_used", bank_id=bank_id,
                  x1_f=round(x1_f, 3), y1_f=round(y1_f, 3), x2_f=round(x2_f, 3), y2_f=round(y2_f, 3))
         return zone.crop((x1, y1, x2, y2))
 
     except Exception as exc:
         log.warning("demo.cloud_extract.focused_sig_failed", bank_id=bank_id, error=str(exc))
-        return _span_fallback()
+        return zone
 
 
 def _convert_to_png(raw_bytes: bytes) -> tuple[bytes, Image.Image]:
