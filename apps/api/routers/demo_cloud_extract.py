@@ -209,6 +209,49 @@ def _clean_json_response(raw_text: str) -> str:
     return cleaned.strip()
 
 
+def _trim_crop_right(crop_img: Image.Image) -> Image.Image:
+    """
+    Remove printed account holder name that sits to the RIGHT of the signature
+    at the same vertical level (common CTS-2010 layout).
+
+    Finds the full ink bounding box, then keeps only the left 68% of the ink
+    span.  The handwritten signature is concentrated in the left portion; the
+    printed name (e.g. "ANKIT KUMAR") occupies the rightmost ~30%.
+
+    Always returns a valid Image — never throws.
+    """
+    try:
+        cw, ch = crop_img.size
+        if cw == 0 or ch == 0:
+            return crop_img
+
+        gray = crop_img.convert("L")
+        stat = ImageStat.Stat(gray)
+        bg_mean = stat.mean[0]
+        threshold = max(40, min(220, bg_mean * 0.78))
+        ink_mask = gray.point(lambda p: 255 if p < threshold else 0, "L")
+        bbox = ink_mask.getbbox()
+        if not bbox:
+            return crop_img
+
+        bx1, _, bx2, _ = bbox
+        ink_span = bx2 - bx1
+        if ink_span < 40:          # crop already narrow — nothing to trim
+            return crop_img
+
+        # Keep the left 68% of the ink span.
+        # Safety: only trim if the cut point is at least 20 px before the edge.
+        cut_x = bx1 + int(ink_span * 0.68)
+        if cut_x >= cw - 20:
+            return crop_img        # name already outside crop — no-op
+
+        pad = max(3, int(cw * 0.02))
+        return crop_img.crop((0, 0, min(cw, cut_x + pad), ch))
+
+    except Exception:
+        return crop_img
+
+
 def _trim_crop_bottom(crop_img: Image.Image) -> Image.Image:
     """
     Remove printed text bands (account holder name, instruction lines) below
@@ -293,14 +336,15 @@ def _ink_detect_signature_crop(img: Image.Image) -> bytes:
     Always returns a PNG — worst case is the full CTS-2010 signature zone.
     """
     w, h = img.size
-    # CTS-2010 signature zone: right ~52%, rows 52–80% of height.
-    # Stopping at 80% avoids the "Please sign above" instruction text which
-    # sits between the name and the MICR band; the actual signature is always
-    # fully within this window.
+    # CTS-2010 signature zone: columns 45–80%, rows 52–80% of image.
+    # Right boundary at 80%: the printed account holder name lives at the far
+    # right edge (≈80–95%), so stopping here excludes it entirely.
+    # Bottom at 80%: avoids the "Please sign above" instruction text.
     zx1 = int(w * 0.45)
+    zx2 = int(w * 0.80)
     zy1 = int(h * 0.52)
     zy2 = int(h * 0.80)
-    zone = img.crop((zx1, zy1, w, zy2))
+    zone = img.crop((zx1, zy1, zx2, zy2))
 
     gray = zone.convert("L")
 
@@ -323,7 +367,7 @@ def _ink_detect_signature_crop(img: Image.Image) -> bytes:
             min(zone.width, bx2 + pad),
             min(zone.height, by2 + pad),
         ))
-        crop = _trim_crop_bottom(raw_crop)
+        crop = _trim_crop_bottom(_trim_crop_right(raw_crop))
     else:
         crop = zone  # no ink cluster found — return full zone (very light scan)
 
@@ -473,7 +517,7 @@ async def cloud_extract_cheque(
                 y1 = max(0, int(y1_f * h) - pad_px)
                 x2 = min(w, int(x2_f * w) + pad_px)
                 y2 = min(h, int(y2_f * h) + pad_px)
-                crop = _trim_crop_bottom(pil_img.crop((x1, y1, x2, y2)))
+                crop = _trim_crop_bottom(_trim_crop_right(pil_img.crop((x1, y1, x2, y2))))
                 buf = io.BytesIO()
                 crop.save(buf, format="PNG")
                 signature_crops.append(base64.b64encode(buf.getvalue()).decode())
