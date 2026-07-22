@@ -86,10 +86,15 @@ FIELD EXTRACTION RULES
 * micr_code: The 9-digit MICR code printed in the MICR band. Preserve leading zeros.
 
 SIGNATURE DETECTION RULES
-* signature_bboxes: Locate every distinct ink handwritten signature on the cheque. For each, return its
+* signature_bboxes: Locate every distinct HANDWRITTEN INK SIGNATURE on the cheque. For each, return its
   bounding box as [x1, y1, x2, y2] where each value is a decimal fraction of the image dimensions
   (0.0 = left/top edge, 1.0 = right/bottom edge). If no signatures found, return [].
-  Include ONLY actual ink signatures — not printed text, stamps, or blank areas.
+  CRITICAL — the bbox must enclose ONLY the actual cursive ink strokes:
+    - DO NOT include the printed account holder name below the signature (e.g. "ANKIT KUMAR")
+    - DO NOT include "Please sign above" or any other printed instruction text
+    - DO NOT include the horizontal signature line/rule
+    - The box must end where the last ink stroke ends — stop BEFORE any printed text below
+  Include ONLY the actual handwriting — not printed text, stamps, or blank areas.
 * signature_count: Total number of distinct signatures detected (integer).
 * signature_fraud_flags: Examine each signature area for tampering indicators. Include any of the
   following strings that apply:
@@ -206,16 +211,18 @@ def _clean_json_response(raw_text: str) -> str:
 
 def _trim_crop_bottom(crop_img: Image.Image) -> Image.Image:
     """
-    Remove printed text (account holder name, instruction lines) from the
-    bottom of a signature crop using vertical row-projection gap detection.
+    Remove printed text bands (account holder name, instruction lines) below
+    the actual handwritten signature.
 
-    Cursive signature strokes are separated from the printed name below by a
-    band of near-empty rows. Walking top-to-bottom, the first gap of ≥3
-    consecutive low-ink rows after seeing ≥6 ink rows is treated as the
-    signature/text boundary — everything below is discarded.
+    Splits the crop into ink bands — runs of ink rows separated by a clear
+    gap of empty rows. The FIRST (topmost) band is the signature; all bands
+    below are printed text and are discarded.
 
-    Returns the image unchanged when no clear gap is found (avoids
-    over-cropping when the signature itself has internal white space).
+    Gap and band thresholds are proportional to the crop height so the logic
+    works across low-DPI (96) and high-DPI (300) cheque scans equally.
+
+    Returns unchanged when only one band is found: prefer keeping extra pixels
+    over accidentally cropping part of a signature.
     """
     cw, ch = crop_img.size
     gray = crop_img.convert("L")
@@ -228,67 +235,44 @@ def _trim_crop_bottom(crop_img: Image.Image) -> Image.Image:
         return crop_img
 
     _, by1, _, by2 = bbox
-
-    # Build per-row ink count AND transition count in one pass.
-    # Transitions = number of background→ink switches per row.
-    # Cursive signature: 1–3 separate strokes per row.
-    # Printed "ANKIT KUMAR": 5–10 separate letter clusters per row.
     ink_data = list(ink_mask.getdata())
-    row_ink = []
-    row_transitions = []
-    for y in range(ch):
-        count = 0
-        trans = 0
-        in_ink = False
-        for x in range(cw):
-            is_ink = ink_data[y * cw + x] > 128
-            if is_ink:
-                count += 1
-                if not in_ink:
-                    trans += 1
-                    in_ink = True
-            else:
-                in_ink = False
-        row_ink.append(count)
-        row_transitions.append(trans)
+    row_ink = [
+        sum(1 for x in range(cw) if ink_data[y * cw + x] > 128)
+        for y in range(ch)
+    ]
 
-    gap_thresh = max(2, int(cw * 0.04))  # < 4% of width = sparse / empty row
-    text_trans_thresh = 4                 # >= 4 separate clusters per row = text-like
+    gap_thresh = max(2, int(cw * 0.03))            # < 3% of width = near-empty row
+    min_gap = max(3, int(ch * 0.03))               # proportional gap: 3% of height
+    min_band = max(3, int(ch * 0.04))              # proportional band: 4% of height
 
-    ink_rows_seen = 0
-    text_run = 0    # consecutive text-like rows (transition-based)
-    sparse_run = 0  # consecutive near-empty rows (gap-based fallback)
-    gap_y = None
+    bands: list[tuple[int, int]] = []              # (start_y, end_y)
+    band_start: Optional[int] = None
+    band_ink_rows = 0
+    gap_run = 0
 
     for y in range(by1, by2 + 1):
-        count = row_ink[y]
-        trans = row_transitions[y]
-
-        if count <= gap_thresh:
-            text_run = 0
-            sparse_run += 1
-            if sparse_run >= 2 and ink_rows_seen >= 10:
-                gap_y = y - sparse_run + 1
-                break
-            continue
-
-        sparse_run = 0
-        ink_rows_seen += 1
-
-        # Primary signal: transition count distinguishes cursive from print
-        if trans >= text_trans_thresh and ink_rows_seen >= 8:
-            text_run += 1
-            if text_run >= 3:
-                gap_y = y - text_run + 1
-                break
+        if row_ink[y] > gap_thresh:
+            if band_start is None:
+                band_start = y
+            band_ink_rows += 1
+            gap_run = 0
         else:
-            text_run = 0
+            gap_run += 1
+            if band_start is not None and gap_run >= min_gap:
+                if band_ink_rows >= min_band:
+                    bands.append((band_start, y - gap_run))
+                band_start = None
+                band_ink_rows = 0
 
-    if gap_y is None or gap_y < ch * 0.12:
-        return crop_img  # no signal, or fired too near top — return unchanged
+    if band_start is not None and band_ink_rows >= min_band:
+        bands.append((band_start, by2))
 
+    if len(bands) <= 1:
+        return crop_img  # single band — can't safely remove anything
+
+    sig_end = bands[0][1]
     pad = max(4, int(ch * 0.04))
-    return crop_img.crop((0, 0, cw, min(ch, gap_y + pad)))
+    return crop_img.crop((0, 0, cw, min(ch, sig_end + pad)))
 
 
 def _ink_detect_signature_crop(img: Image.Image) -> bytes:
