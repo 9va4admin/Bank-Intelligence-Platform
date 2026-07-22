@@ -369,6 +369,23 @@ def _sig_zone_from_image(img: Image.Image) -> Image.Image:
     return img.crop((int(w * 0.40), int(h * 0.62), w, int(h * 0.80)))
 
 
+_SIG_NAME_X_PROMPT = """This image is the signature area of an Indian bank cheque.
+It contains handwritten cursive signature strokes. There may also be a pre-printed
+account holder name in BLOCK CAPITAL LETTERS to the right of the signature
+(e.g. "ANKIT KUMAR", "RAHUL SHARMA").
+
+If you see printed BLOCK CAPITAL text (the account holder name), return the
+x-position where that printed text STARTS as a fraction of this image's width:
+  0.0 = very left edge   |   1.0 = very right edge
+
+Return null if there is NO printed block capital text in this image.
+
+Respond with ONLY this JSON — no other text:
+{"name_x": 0.65}
+or
+{"name_x": null}"""
+
+
 async def _focused_sig_crop(
     zone: Image.Image,
     client,
@@ -376,29 +393,69 @@ async def _focused_sig_crop(
     bank_id: str,
 ) -> Image.Image:
     """
-    Pure span-classifier extraction — no LLM second call.
+    Two-step extraction:
 
-    The zone already starts at 62 % of cheque height (below the amount-in-figures
-    field), so all wide-span content in it is either the handwritten signature or
-    the printed account-holder name below it.  The span classifier returns the
-    TOPMOST qualifying cluster, which is always the signature.
+    Step 1 — Span classifier with ink-run filter (_find_sig_region_by_span)
+      Finds qualifying handwriting rows (low run count) and clusters them.
+      Returns sig_bbox.
 
-    A hard y2 cap at 67 % of zone height prevents a merged sig+name cluster from
-    dragging in the name text at the bottom.
+    Step 2 — LLM x-boundary trim
+      The zone is now clean (built from the LLM's own signature_bboxes, so no
+      amount-field noise). A single focused question — "where does the printed
+      name start horizontally?" — lets the model identify the x-boundary between
+      the cursive signature strokes on the LEFT and "ANKIT KUMAR" on the RIGHT.
+      bx2 is trimmed to that boundary before cropping.
 
-    Always returns a valid Image — never throws.
+    If either step fails the function degrades gracefully — never throws.
     """
     zw, zh = zone.size
-    span_bbox = _find_sig_region_by_span(zone)
-    if span_bbox:
-        bx1, by1, bx2, by2 = span_bbox
-        pad_h = max(6, int(zw * 0.04))
-        return zone.crop((
-            max(0, bx1 - pad_h), max(0, by1 - 4),
-            min(zw, bx2 + pad_h), min(zh, by2 + 4),
-        ))
 
-    return zone
+    span_bbox = _find_sig_region_by_span(zone)
+    if not span_bbox:
+        return zone
+    bx1, by1, bx2, by2 = span_bbox
+
+    # ── LLM x-boundary: trim right edge to exclude printed name ─────────────
+    # Ask once, on the tight zone (LLM bbox + small padding), so the model sees
+    # only sig strokes + name — no other cheque fields to confuse it.
+    if client is not None:
+        try:
+            buf = io.BytesIO()
+            zone.save(buf, format="PNG")
+            zone_b64 = base64.b64encode(buf.getvalue()).decode()
+
+            resp = await client.chat.completions.create(
+                model=model_id,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "text",      "text": _SIG_NAME_X_PROMPT},
+                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{zone_b64}"}},
+                    ],
+                }],
+                temperature=0,
+                timeout=30,
+            )
+            raw  = resp.choices[0].message.content
+            data = json.loads(_clean_json_response(raw))
+            v    = data.get("name_x")
+            if v is not None:
+                frac = float(v)
+                # Sanity: must leave at least 10 % of the zone for the signature
+                name_x_px = int(frac * zw)
+                if name_x_px > bx1 + max(10, int(zw * 0.10)):
+                    log.info("demo.cloud_extract.name_x_found",
+                             bank_id=bank_id, name_x=round(frac, 3))
+                    bx2 = min(bx2, name_x_px)
+        except Exception as exc:
+            log.warning("demo.cloud_extract.name_x_failed",
+                        bank_id=bank_id, error=str(exc))
+
+    pad_h = max(6, int(zw * 0.04))
+    return zone.crop((
+        max(0, bx1 - pad_h), max(0, by1 - 4),
+        min(zw, bx2),        min(zh, by2 + 4),   # no right-pad: name is flush
+    ))
 
 
 def _convert_to_png(raw_bytes: bytes) -> tuple[bytes, Image.Image]:
@@ -653,14 +710,28 @@ async def cloud_extract_cheque(
 
     # pil_img captured at upload time by _convert_to_png() — no second open needed.
 
-    # When the LLM confirms a signature exists, crop the signature zone
-    # (62-80 % of cheque height — below the amount field) and run the span
-    # classifier to isolate handwritten strokes from any printed name below.
+    # When the LLM confirms a signature exists, build the tightest possible
+    # zone from the LLM's own signature_bboxes (preferred) so _focused_sig_crop
+    # sees only the sig area with no surrounding cheque fields.  Fall back to
+    # _sig_zone_from_image when no bbox is available.
     signature_crops: list[str] = []
     crops_estimated = False
     if parsed.get("signature_present") == True and pil_img is not None:
         try:
-            zone = _sig_zone_from_image(pil_img)
+            sig_bboxes = parsed.get("signature_bboxes") or []
+            if sig_bboxes and len(sig_bboxes[0]) == 4:
+                iw, ih = pil_img.size
+                bx1f, by1f, bx2f, by2f = sig_bboxes[0]
+                # 3 % horizontal pad, 2 % vertical pad — keeps a sliver of
+                # context so the classifier doesn't clip the sig edges.
+                zone = pil_img.crop((
+                    max(0,  int((bx1f - 0.03) * iw)),
+                    max(0,  int((by1f - 0.02) * ih)),
+                    min(iw, int((bx2f + 0.03) * iw)),
+                    min(ih, int((by2f + 0.02) * ih)),
+                ))
+            else:
+                zone = _sig_zone_from_image(pil_img)
             crop = await _focused_sig_crop(zone, client, model_id, ctx.bank_id)
             buf = io.BytesIO()
             crop.save(buf, format="PNG")
