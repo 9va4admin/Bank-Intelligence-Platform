@@ -255,6 +255,11 @@ def _find_sig_region_by_span(
         MIN_SPAN = max(8, int(zw * 0.28))
         MAX_GAP  = 2
         MIN_ROWS = 3
+        # A row through printed capitals (e.g. "ANKIT KUMAR") has 8-15 separate
+        # ink runs (one per letter stroke). A row through a cursive signature
+        # has 1-5. Filtering rows with > MAX_RUNS removes the name rows before
+        # clustering, leaving only handwriting.
+        MAX_RUNS = 6
 
         sig_rows: list[tuple[int, int, int]] = []
         for y in range(zh):
@@ -262,8 +267,16 @@ def _find_sig_region_by_span(
             if not ink_xs:
                 continue
             span = max(ink_xs) - min(ink_xs)
-            if span >= MIN_SPAN:
-                sig_rows.append((y, min(ink_xs), max(ink_xs)))
+            if span < MIN_SPAN:
+                continue
+            # Count distinct ink runs on this row (gap > 4 px = new run).
+            runs = 1
+            for i in range(1, len(ink_xs)):
+                if ink_xs[i] - ink_xs[i - 1] > 4:
+                    runs += 1
+            if runs > MAX_RUNS:
+                continue   # likely printed text, not a handwritten stroke
+            sig_rows.append((y, min(ink_xs), max(ink_xs)))
 
         if not sig_rows:
             return None
@@ -330,9 +343,6 @@ async def _focused_sig_crop(
     span_bbox = _find_sig_region_by_span(zone)
     if span_bbox:
         bx1, by1, bx2, by2 = span_bbox
-        # Hard cap: name is always in the bottom third of the zone.
-        # 67 % of zone height ≈ 72 % of cheque height — safely above the name.
-        by2 = min(by2, int(zh * 0.67))
         pad_h = max(6, int(zw * 0.04))
         return zone.crop((
             max(0, bx1 - pad_h), max(0, by1 - 4),
