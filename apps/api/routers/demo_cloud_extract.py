@@ -96,6 +96,9 @@ SIGNATURE DETECTION RULES
     - The box must end where the last ink stroke ends — stop BEFORE any printed text below
   Include ONLY the actual handwriting — not printed text, stamps, or blank areas.
 * signature_count: Total number of distinct signatures detected (integer).
+* signature_stroke_y2: The y-coordinate (0.0–1.0 fraction of full image height) where the
+  handwritten ink strokes END. This is the line below which only printed text exists (name,
+  instruction text). Return as a decimal fraction. null if uncertain.
 * signature_fraud_flags: Examine each signature area for tampering indicators. Include any of the
   following strings that apply:
     "OVERWRITTEN"   — ink written on top of existing ink or whiteout detected
@@ -127,6 +130,7 @@ Return ONLY valid JSON:
 "signature_name": null,
 "signature_count": 1,
 "signature_bboxes": [[0.65, 0.70, 0.95, 0.95]],
+"signature_stroke_y2": 0.72,
 "signature_fraud_flags": []
 }
 """
@@ -149,6 +153,7 @@ class CloudExtractResponse(BaseModel):
     signature_name: Optional[str] = None
     signature_count: Optional[int] = None
     signature_bboxes: Optional[list[list[float]]] = None
+    signature_stroke_y2: Optional[float] = None
     signature_crops: Optional[list[str]] = None            # base64 PNG per detected signature, server-cropped
     signature_crops_estimated: Optional[bool] = None       # True when PIL ink-detect fallback was used
     signature_fraud_flags: Optional[list[str]] = None
@@ -791,14 +796,33 @@ async def cloud_extract_cheque(
 
                 h_pad = 0.02   # 2 % each side — don't clip horizontal strokes
                 b_pad = 0.015  # 1.5 % bottom — ensure full name row is included
-                cx1 = max(0,  int((bx1f - h_pad) * iw))
-                cy1 = max(0,  int((by1f - top_pad) * ih))
-                cx2 = min(iw, int((bx2f + h_pad) * iw))
-                cy2 = min(ih, int((by2f + b_pad) * ih))
-                crop = pil_img.crop((cx1, cy1, cx2, cy2))
+                cx1_px = max(0,  int((bx1f - h_pad) * iw))
+                cy1_px = max(0,  int((by1f - top_pad) * ih))
+                cx2_px = min(iw, int((bx2f + h_pad) * iw))
+                cy2_px = min(ih, int((by2f + b_pad) * ih))
+                crop = pil_img.crop((cx1_px, cy1_px, cx2_px, cy2_px))
             else:
+                cy1_px = int(ih * 0.62)
+                cy2_px = int(ih * 0.80)
                 crop = _sig_zone_from_image(pil_img)
-            crop = _whiteout_printed_text(crop)
+
+            # Use LLM's signature_stroke_y2 (full-image fraction) to paint
+            # white over the printed name + instruction text below the strokes.
+            # This is far more reliable than pixel-gap detection.
+            stroke_y2 = parsed.get("signature_stroke_y2")
+            from PIL import ImageDraw
+            if stroke_y2 is not None:
+                crop_span_px = cy2_px - cy1_px
+                if crop_span_px > 0:
+                    y_in_crop = int(float(stroke_y2) * ih) - cy1_px
+                    whiteout_y = min(crop.height - 1, y_in_crop + 3)
+                    if 4 < whiteout_y < crop.height - 1:
+                        ImageDraw.Draw(crop).rectangle(
+                            [(0, whiteout_y), (crop.width - 1, crop.height - 1)],
+                            fill=(255, 255, 255),
+                        )
+            else:
+                crop = _whiteout_printed_text(crop)
             buf = io.BytesIO()
             crop.save(buf, format="PNG")
             signature_crops.append(base64.b64encode(buf.getvalue()).decode())
