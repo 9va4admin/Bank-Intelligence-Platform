@@ -380,7 +380,35 @@ class ChequeProcessingWorkflow:
             retry_policy=_CBS_RETRY,
         )
 
-        # Step 5: verify_signature
+        # Step 4.5: detect_signatures — count ink signatures, check fraud patterns
+        from modules.cts.workflows.activities.detect_signatures import (
+            detect_signatures, DetectSignaturesInput,
+        )
+        sig_detect = await workflow.execute_activity(
+            detect_signatures,
+            DetectSignaturesInput(
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                image_url=inp.image_url,
+            ),
+            start_to_close_timeout=timedelta(seconds=60),
+            retry_policy=_AI_ACTIVITY_RETRY,
+        )
+
+        if sig_detect.outcome == "ABSENT":
+            return await finalise("HUMAN_REVIEW", "no_signature_on_cheque")
+
+        if sig_detect.outcome == "DEGRADED":
+            # vLLM down — cannot confirm signature; route to human review
+            return await finalise("HUMAN_REVIEW", "signature_detection_degraded")
+
+        if sig_detect.fraud_flags:
+            flags_str = ",".join(sig_detect.fraud_flags)
+            return await finalise("HUMAN_REVIEW", f"signature_fraud_suspected:{flags_str}")
+
+        # Step 5: verify_signature — S-SVS (count=1) or M-SVS gate (count≥2)
+        # sig_count>1 triggers MULTI_SIGNATURE_DETECTED inside verify_signature;
+        # full M-SVS routing will replace that gate once MSV is wired here.
         sig_result = await workflow.execute_activity(
             verify_signature,
             SignatureActivityInput(
@@ -388,6 +416,7 @@ class ChequeProcessingWorkflow:
                 bank_id=inp.bank_id,
                 account_number=inp.account_number,
                 signature_image_url=inp.image_url,
+                sig_count=sig_detect.sig_count,
                 smb_id=inp.smb_id,
             ),
             start_to_close_timeout=timedelta(seconds=15),

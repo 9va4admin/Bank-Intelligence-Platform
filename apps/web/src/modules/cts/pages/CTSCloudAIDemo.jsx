@@ -275,10 +275,17 @@ export default function CTSCloudAIDemo() {
           <div className={`mt-5 rounded-xl border p-5 ${th.card}`}>
             <div className="flex items-center justify-between mb-3">
               <h3 className={`text-sm font-semibold ${th.heading}`}>
-                ✍ Extracted Signature{(result.signature_count ?? 0) !== 1 ? 's' : ''}&nbsp;
-                <span className={`text-xs font-normal ${th.muted}`}>
-                  — Vision LLM detected {result.signature_count ?? 0} signature{(result.signature_count ?? 0) !== 1 ? 's' : ''} on this cheque
-                </span>
+                {(() => {
+                  const count = result.signature_count ?? (result.signature_present ? 1 : 0)
+                  return (
+                    <>
+                      ✍ Extracted Signature{count !== 1 ? 's' : ''}&nbsp;
+                      <span className={`text-xs font-normal ${th.muted}`}>
+                        — {count} signature{count !== 1 ? 's' : ''} detected on this cheque
+                      </span>
+                    </>
+                  )
+                })()}
               </h3>
               {result.signature_fraud_flags && result.signature_fraud_flags.length > 0 && (
                 <span className="flex items-center gap-1 text-[11px] font-semibold text-red-600 bg-red-50 border border-red-200 rounded-full px-2.5 py-1">
@@ -310,7 +317,7 @@ export default function CTSCloudAIDemo() {
             ) : (
               <p className={`text-sm ${th.faint}`}>
                 {result.signature_present
-                  ? 'Signature detected but bounding box could not be resolved — model may not have returned coordinates.'
+                  ? 'Signature confirmed present · visual crop unavailable — this model did not return region coordinates. Switching to Qwen 72B may improve crop detection.'
                   : 'No signature detected on this cheque.'}
               </p>
             )}

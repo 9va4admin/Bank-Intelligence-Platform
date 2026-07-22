@@ -353,8 +353,19 @@ async def cloud_extract_cheque(
         crops_generated=len(signature_crops),
     )
 
-    # Remove bbox/count from parsed before spreading into the response model
-    # since we return the server-cropped images instead of raw coordinates.
+    # Reconcile: some models return signature_present=True but forget to set
+    # signature_count (or set it to 0). Trust the presence flag as a fallback
+    # so the UI count is always consistent with what the model says about presence.
+    if parsed.get("signature_present") is True and not parsed.get("signature_count"):
+        parsed["signature_count"] = 1
+        log.info(
+            "demo.cloud_extract.sig_count_reconciled",
+            bank_id=ctx.bank_id,
+            model=model,
+            reason="signature_present=True but signature_count missing/0 — set to 1",
+        )
+
+    # Remove raw bboxes from parsed — we return server-cropped images instead.
     response_fields = {k: v for k, v in parsed.items() if k != "signature_bboxes"}
     return CloudExtractResponse(
         model_used=model,
