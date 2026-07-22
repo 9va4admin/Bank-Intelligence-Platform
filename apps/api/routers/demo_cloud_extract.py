@@ -738,17 +738,7 @@ async def cloud_extract_cheque(
                 cy1 = max(0,  int((by1f - top_pad) * ih))
                 cx2 = min(iw, int(bx2f * iw))
                 cy2 = min(ih, int(by2f * ih))
-                zone = pil_img.crop((cx1, cy1, cx2, cy2))
-
-                # Try to trim printed name from the bottom: span classifier
-                # returns y2 = last row of cursive-like ink.  Everything below
-                # that (the name) gets dropped.  If classifier fails, keep full zone.
-                span_bbox = _find_sig_region_by_span(zone)
-                if span_bbox:
-                    _, _, _, sb_y2 = span_bbox
-                    zone = zone.crop((0, 0, zone.width, min(zone.height, sb_y2 + 8)))
-
-                crop = zone
+                crop = pil_img.crop((cx1, cy1, cx2, cy2))
             else:
                 crop = _sig_zone_from_image(pil_img)
             buf = io.BytesIO()
