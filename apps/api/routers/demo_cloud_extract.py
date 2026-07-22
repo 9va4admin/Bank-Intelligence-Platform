@@ -204,6 +204,58 @@ def _clean_json_response(raw_text: str) -> str:
     return cleaned.strip()
 
 
+def _trim_crop_bottom(crop_img: Image.Image) -> Image.Image:
+    """
+    Remove printed text (account holder name, instruction lines) from the
+    bottom of a signature crop using vertical row-projection gap detection.
+
+    Cursive signature strokes are separated from the printed name below by a
+    band of near-empty rows. Walking top-to-bottom, the first gap of ≥3
+    consecutive low-ink rows after seeing ≥6 ink rows is treated as the
+    signature/text boundary — everything below is discarded.
+
+    Returns the image unchanged when no clear gap is found (avoids
+    over-cropping when the signature itself has internal white space).
+    """
+    cw, ch = crop_img.size
+    gray = crop_img.convert("L")
+    stat = ImageStat.Stat(gray)
+    bg_mean = stat.mean[0]
+    threshold = max(40, min(220, bg_mean * 0.78))
+    ink_mask = gray.point(lambda p: 255 if p < threshold else 0, "L")
+    bbox = ink_mask.getbbox()
+    if not bbox:
+        return crop_img
+
+    _, by1, _, by2 = bbox
+    ink_data = list(ink_mask.getdata())
+    row_ink = [
+        sum(1 for x in range(cw) if ink_data[y * cw + x] > 128)
+        for y in range(ch)
+    ]
+
+    gap_thresh = max(2, int(cw * 0.04))  # < 4% of width = sparse / empty row
+    sparse_run = 0
+    ink_rows_seen = 0
+    gap_y = None
+
+    for y in range(by1, by2 + 1):
+        if row_ink[y] > gap_thresh:
+            ink_rows_seen += 1
+            sparse_run = 0
+        else:
+            sparse_run += 1
+            if sparse_run >= 3 and ink_rows_seen >= 6:
+                gap_y = y - sparse_run + 1
+                break
+
+    if gap_y is None or gap_y < ch * 0.15:
+        return crop_img  # no clear gap, or gap too near top — return unchanged
+
+    pad = max(4, int(ch * 0.04))
+    return crop_img.crop((0, 0, cw, min(ch, gap_y + pad)))
+
+
 def _ink_detect_signature_crop(img: Image.Image) -> bytes:
     """
     Ink-detection fallback when the LLM confirms a signature but returns no
@@ -236,13 +288,14 @@ def _ink_detect_signature_crop(img: Image.Image) -> bytes:
 
     if bbox:
         bx1, by1, bx2, by2 = bbox
-        pad = max(10, int(min(zone.width, zone.height) * 0.07))
-        crop = zone.crop((
+        pad = max(8, int(min(zone.width, zone.height) * 0.05))
+        raw_crop = zone.crop((
             max(0, bx1 - pad),
             max(0, by1 - pad),
             min(zone.width, bx2 + pad),
             min(zone.height, by2 + pad),
         ))
+        crop = _trim_crop_bottom(raw_crop)
     else:
         crop = zone  # no ink cluster found — return full zone (very light scan)
 
@@ -392,7 +445,7 @@ async def cloud_extract_cheque(
                 y1 = max(0, int(y1_f * h) - pad_px)
                 x2 = min(w, int(x2_f * w) + pad_px)
                 y2 = min(h, int(y2_f * h) + pad_px)
-                crop = pil_img.crop((x1, y1, x2, y2))
+                crop = _trim_crop_bottom(pil_img.crop((x1, y1, x2, y2)))
                 buf = io.BytesIO()
                 crop.save(buf, format="PNG")
                 signature_crops.append(base64.b64encode(buf.getvalue()).decode())
