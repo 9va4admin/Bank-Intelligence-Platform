@@ -327,68 +327,109 @@ def _find_sig_region_by_span(
         return None
 
 
-def _sig_crop_from_zone(zone: Image.Image) -> Image.Image:
+def _sig_zone_from_image(img: Image.Image) -> Image.Image:
     """
-    Extract the signature crop from a pre-cropped zone image using
-    _find_sig_region_by_span.  Falls back to the full zone if no wide-span
-    cluster is found (very compact or faint signature).
+    Pre-crop the full cheque to the rough signature zone.
 
-    Padding is intentionally asymmetric: generous on left/right (signature
-    strokes can touch the bbox edge), minimal top/bottom (printed elements
-    — account name above, instruction text below — can sit as close as 5-7
-    rows away from the cluster boundary; a large pad would include them).
-
-    Always returns a valid Image — never throws.
-    """
-    try:
-        zw, zh = zone.size
-        sig_bbox = _find_sig_region_by_span(zone)
-        if sig_bbox:
-            bx1, by1, bx2, by2 = sig_bbox
-            pad_h = max(8, int(zw * 0.05))   # left/right: generous
-            pad_v = 4                          # top/bottom: tight (avoids nearby text)
-            return zone.crop((
-                max(0, bx1 - pad_h),
-                max(0, by1 - pad_v),
-                min(zw, bx2 + pad_h),
-                min(zh, by2 + pad_v),
-            ))
-        return zone
-    except Exception:
-        return zone
-
-
-def _ink_detect_signature_crop(img: Image.Image) -> bytes:
-    """
-    Fallback that fires when the LLM confirms a signature but returns no usable
-    bbox coords.
-
-    Uses _find_sig_region_by_span to locate the signature inside the CTS-2010
-    zone by horizontal ink span: cursive strokes sweep wide (>28 % of zone width
-    per row); printed text (name, bank label, instruction) is narrow and is
-    excluded automatically.  Falls back to the full zone if the span classifier
-    finds nothing (very compact or light signature).
-
-    Always returns PNG bytes.
+    The only assumption required: on any Indian CTS-2010 cheque the signature
+    is in the lower-right quadrant.  This is a coarse, generous crop — we are
+    NOT trying to isolate the signature here, just narrow the field of view so
+    the focused LLM call sees fewer distracting elements.
     """
     w, h = img.size
-    # Zone: columns 42–88 %, rows 50–78 % of image.
-    # 42 % left edge: most signatures start here or right of here.
-    # 88 % right edge: gives room for wide signatures without clipping them —
-    #   the span classifier already excludes the printed name, so a wide right
-    #   boundary does not pollute the crop.
-    # 78 % bottom: stays above the "Please sign above" instruction band.
-    zx1 = int(w * 0.42)
-    zx2 = int(w * 0.88)
-    zy1 = int(h * 0.50)
-    zy2 = int(h * 0.78)
-    zone = img.crop((zx1, zy1, zx2, zy2))
+    return img.crop((int(w * 0.40), int(h * 0.48), w, int(h * 0.82)))
 
-    crop = _sig_crop_from_zone(zone)
 
-    buf = io.BytesIO()
-    crop.save(buf, format="PNG")
-    return buf.getvalue()
+_SIG_FOCUS_PROMPT = """This image is the signature area of an Indian bank cheque.
+It may contain handwritten ink strokes AND printed text (account name, "Please sign above", a horizontal line, bank labels).
+
+Return ONLY this JSON — no other text:
+{"bbox": [x1, y1, x2, y2]}
+
+x1 y1 x2 y2 are decimal fractions of THIS image (0.0 = left/top edge, 1.0 = right/bottom edge).
+Box ONLY the cursive handwritten ink strokes a human hand drew.
+Exclude all printed text, horizontal rules, and blank space.
+If no handwritten signature is visible return: {"bbox": []}"""
+
+
+async def _focused_sig_crop(
+    zone: Image.Image,
+    client,
+    model_id: str,
+    bank_id: str,
+) -> Image.Image:
+    """
+    Send just the pre-cropped zone to the Vision LLM with a single focused
+    question: where are the handwritten strokes?
+
+    The LLM sees a small, simple image (3-4 elements at most) and only needs
+    to distinguish cursive ink from printed text — a task Vision models handle
+    well without any computer-vision math on our side.
+
+    Falls back to the span classifier (_find_sig_region_by_span) if the LLM
+    call fails, returns an empty bbox, or returns an out-of-range bbox.
+    Always returns a valid Image — never throws.
+    """
+    zw, zh = zone.size
+
+    def _span_fallback() -> Image.Image:
+        try:
+            sig_bbox = _find_sig_region_by_span(zone)
+            if sig_bbox:
+                bx1, by1, bx2, by2 = sig_bbox
+                pad_h = max(6, int(zw * 0.04))
+                return zone.crop((
+                    max(0, bx1 - pad_h), max(0, by1 - 4),
+                    min(zw, bx2 + pad_h), min(zh, by2 + 4),
+                ))
+        except Exception:
+            pass
+        return zone
+
+    try:
+        buf = io.BytesIO()
+        zone.save(buf, format="PNG")
+        zone_b64 = base64.b64encode(buf.getvalue()).decode()
+
+        resp = await client.chat.completions.create(
+            model=model_id,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": _SIG_FOCUS_PROMPT},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{zone_b64}"}},
+                ],
+            }],
+            temperature=0,
+            timeout=30,
+        )
+
+        raw = resp.choices[0].message.content
+        cleaned = _clean_json_response(raw)
+        data = json.loads(cleaned)
+        bbox = data.get("bbox") or []
+
+        if not (isinstance(bbox, (list, tuple)) and len(bbox) == 4):
+            log.warning("demo.cloud_extract.focused_sig_no_bbox", bank_id=bank_id)
+            return _span_fallback()
+
+        x1_f, y1_f, x2_f, y2_f = [float(v) for v in bbox]
+        if x2_f <= x1_f or y2_f <= y1_f or x1_f < 0 or y1_f < 0:
+            log.warning("demo.cloud_extract.focused_sig_invalid_bbox", bank_id=bank_id, bbox=bbox)
+            return _span_fallback()
+
+        pad = max(4, int(min(zw, zh) * 0.03))
+        x1 = max(0, int(x1_f * zw) - pad)
+        y1 = max(0, int(y1_f * zh) - pad)
+        x2 = min(zw, int(x2_f * zw) + pad)
+        y2 = min(zh, int(y2_f * zh) + pad)
+        log.info("demo.cloud_extract.focused_sig_bbox_used", bank_id=bank_id,
+                 x1_f=round(x1_f, 3), y1_f=round(y1_f, 3), x2_f=round(x2_f, 3), y2_f=round(y2_f, 3))
+        return zone.crop((x1, y1, x2, y2))
+
+    except Exception as exc:
+        log.warning("demo.cloud_extract.focused_sig_failed", bank_id=bank_id, error=str(exc))
+        return _span_fallback()
 
 
 def _convert_to_png(raw_bytes: bytes) -> tuple[bytes, Image.Image]:
@@ -513,66 +554,22 @@ async def cloud_extract_cheque(
 
     # pil_img captured at upload time by _convert_to_png() — no second open needed.
 
-    # Crop signature regions from LLM-returned bboxes (fractional 0.0–1.0).
+    # When the LLM confirms a signature exists, make a second focused call with
+    # only the pre-cropped signature zone.  The Vision model sees a simple image
+    # (3-4 elements) and identifies the handwritten strokes directly — no
+    # computer-vision math needed.  The span classifier is the fallback inside
+    # _focused_sig_crop if the second call fails.
     signature_crops: list[str] = []
-    bboxes = parsed.get("signature_bboxes") or []
-    if bboxes and pil_img is not None:
-        try:
-            w, h = pil_img.size
-            for bbox in bboxes:
-                if not (isinstance(bbox, (list, tuple)) and len(bbox) == 4):
-                    continue
-                x1_f, y1_f, x2_f, y2_f = bbox
-                x1_f, y1_f = max(0.0, x1_f), max(0.0, y1_f)
-                x2_f, y2_f = min(1.0, x2_f), min(1.0, y2_f)
-                if x2_f <= x1_f or y2_f <= y1_f:
-                    continue
-                # Reject bboxes outside the expected signature zone.
-                # Standard CTS-2010 cheque: signature is always in the lower-right
-                # (y > ~40%, x > ~28%).  A centroid in the top half means the LLM
-                # mapped to a different field (e.g. "FC BANK LTD" header) — skip it
-                # and let the ink-detect fallback produce the correct crop instead.
-                y_center_f = (y1_f + y2_f) / 2
-                x_center_f = (x1_f + x2_f) / 2
-                if y_center_f < 0.42 or x_center_f < 0.28:
-                    log.warning(
-                        "demo.cloud_extract.bbox_outside_sig_zone",
-                        bank_id=ctx.bank_id, model=model,
-                        y_center=round(y_center_f, 3), x_center=round(x_center_f, 3),
-                    )
-                    continue
-                # Use the LLM bbox as a coarse zone, then run the span classifier
-                # inside it to locate only the signature strokes — the LLM bbox
-                # often extends too far (includes the printed name or underline).
-                # Adding a margin ensures we don't clip a signature that touches
-                # the bbox edge.
-                mx = max(int(w * 0.04), 10)
-                my = max(int(h * 0.03), 8)
-                zone_x1 = max(0, int(x1_f * w) - mx)
-                zone_y1 = max(0, int(y1_f * h) - my)
-                zone_x2 = min(w, int(x2_f * w) + mx)
-                zone_y2 = min(h, int(y2_f * h) + my)
-                llm_zone = pil_img.crop((zone_x1, zone_y1, zone_x2, zone_y2))
-                crop = _sig_crop_from_zone(llm_zone)
-                buf = io.BytesIO()
-                crop.save(buf, format="PNG")
-                signature_crops.append(base64.b64encode(buf.getvalue()).decode())
-        except Exception as exc:
-            log.warning("demo.cloud_extract.crop_failed", bank_id=ctx.bank_id, error=str(exc))
-
-    # PIL ink-detection fallback — fires when the LLM confirmed a signature
-    # but returned no bbox coords (featherless-ai-hosted models do this).
-    # Adaptive threshold handles tinted cheques; always returns at least the
-    # CTS-2010 signature zone so the UI always shows something.
     crops_estimated = False
-    if not signature_crops and parsed.get("signature_present") == True and pil_img is not None:
+    if parsed.get("signature_present") == True and pil_img is not None:
         try:
-            fb_bytes = _ink_detect_signature_crop(pil_img)
-            signature_crops.append(base64.b64encode(fb_bytes).decode())
-            crops_estimated = True
-            log.info("demo.cloud_extract.ink_detect_fallback_used", bank_id=ctx.bank_id, model=model)
+            zone = _sig_zone_from_image(pil_img)
+            crop = await _focused_sig_crop(zone, client, model_id, ctx.bank_id)
+            buf = io.BytesIO()
+            crop.save(buf, format="PNG")
+            signature_crops.append(base64.b64encode(buf.getvalue()).decode())
         except Exception as exc:
-            log.warning("demo.cloud_extract.ink_detect_fallback_failed", bank_id=ctx.bank_id, error=str(exc))
+            log.warning("demo.cloud_extract.sig_crop_failed", bank_id=ctx.bank_id, error=str(exc))
 
     log.info(
         "demo.cloud_extract.completed",
