@@ -228,29 +228,64 @@ def _trim_crop_bottom(crop_img: Image.Image) -> Image.Image:
         return crop_img
 
     _, by1, _, by2 = bbox
+
+    # Build per-row ink count AND transition count in one pass.
+    # Transitions = number of background→ink switches per row.
+    # Cursive signature: 1–3 separate strokes per row.
+    # Printed "ANKIT KUMAR": 5–10 separate letter clusters per row.
     ink_data = list(ink_mask.getdata())
-    row_ink = [
-        sum(1 for x in range(cw) if ink_data[y * cw + x] > 128)
-        for y in range(ch)
-    ]
+    row_ink = []
+    row_transitions = []
+    for y in range(ch):
+        count = 0
+        trans = 0
+        in_ink = False
+        for x in range(cw):
+            is_ink = ink_data[y * cw + x] > 128
+            if is_ink:
+                count += 1
+                if not in_ink:
+                    trans += 1
+                    in_ink = True
+            else:
+                in_ink = False
+        row_ink.append(count)
+        row_transitions.append(trans)
 
     gap_thresh = max(2, int(cw * 0.04))  # < 4% of width = sparse / empty row
-    sparse_run = 0
+    text_trans_thresh = 4                 # >= 4 separate clusters per row = text-like
+
     ink_rows_seen = 0
+    text_run = 0    # consecutive text-like rows (transition-based)
+    sparse_run = 0  # consecutive near-empty rows (gap-based fallback)
     gap_y = None
 
     for y in range(by1, by2 + 1):
-        if row_ink[y] > gap_thresh:
-            ink_rows_seen += 1
-            sparse_run = 0
-        else:
+        count = row_ink[y]
+        trans = row_transitions[y]
+
+        if count <= gap_thresh:
+            text_run = 0
             sparse_run += 1
-            if sparse_run >= 3 and ink_rows_seen >= 6:
+            if sparse_run >= 2 and ink_rows_seen >= 10:
                 gap_y = y - sparse_run + 1
                 break
+            continue
 
-    if gap_y is None or gap_y < ch * 0.15:
-        return crop_img  # no clear gap, or gap too near top — return unchanged
+        sparse_run = 0
+        ink_rows_seen += 1
+
+        # Primary signal: transition count distinguishes cursive from print
+        if trans >= text_trans_thresh and ink_rows_seen >= 8:
+            text_run += 1
+            if text_run >= 3:
+                gap_y = y - text_run + 1
+                break
+        else:
+            text_run = 0
+
+    if gap_y is None or gap_y < ch * 0.12:
+        return crop_img  # no signal, or fired too near top — return unchanged
 
     pad = max(4, int(ch * 0.04))
     return crop_img.crop((0, 0, cw, min(ch, gap_y + pad)))
