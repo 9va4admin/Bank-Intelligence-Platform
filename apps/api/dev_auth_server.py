@@ -25,6 +25,13 @@ which this file already constructs for the login flow — no new dependency.
 """
 from __future__ import annotations
 
+# Load .env.local (gitignored) at import time so ASTRA_DEMO_HF_TOKEN and any
+# other local dev secrets are available before the app starts. Never affects
+# production — dev_auth_server is never run there.
+from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parents[2] / ".env.local", override=False)
+
 import structlog
 from argon2 import PasswordHasher
 from cryptography.hazmat.primitives import serialization
