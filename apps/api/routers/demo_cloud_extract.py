@@ -435,7 +435,9 @@ async def cloud_extract_cheque(
         )
 
     # Strip fields we emit explicitly so they don't collide as duplicate kwargs.
-    _STRIP = {"signature_bboxes", "signature_crops", "signature_crops_estimated"}
+    # signature_bboxes is kept — returned as-is from the model so the caller
+    # can inspect whether the LLM returned coordinates (diagnostic visibility).
+    _STRIP = {"signature_crops", "signature_crops_estimated"}
     response_fields = {k: v for k, v in parsed.items() if k not in _STRIP}
     return CloudExtractResponse(
         model_used=model,
