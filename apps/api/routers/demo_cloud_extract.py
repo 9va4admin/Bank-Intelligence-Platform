@@ -432,6 +432,21 @@ async def cloud_extract_preview(
     return Response(content=png_bytes, media_type="image/png")
 
 
+@router_v1.post("/debug-zone")
+async def cloud_extract_debug_zone(
+    file: UploadFile = File(...),
+    ctx: UserContext = Depends(require_user_context),
+) -> Response:
+    """Return the raw sig zone crop — no processing — so we can see what the
+    algorithm is working with before any classifier or LLM call runs."""
+    raw_bytes = await file.read()
+    _, pil_img = _convert_to_png(raw_bytes)
+    zone = _sig_zone_from_image(pil_img)
+    buf = io.BytesIO()
+    zone.save(buf, format="PNG")
+    return Response(content=buf.getvalue(), media_type="image/png")
+
+
 @router_v1.post("", response_model=CloudExtractResponse)
 async def cloud_extract_cheque(
     file: UploadFile = File(...),
