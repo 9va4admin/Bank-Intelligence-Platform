@@ -726,15 +726,29 @@ async def cloud_extract_cheque(
             sig_bboxes = parsed.get("signature_bboxes") or []
             iw, ih = pil_img.size
             if sig_bboxes and len(sig_bboxes[0]) == 4:
-                # Raw LLM bbox — no post-processing, no span classifier.
-                # Crop exactly what the model says is the signature area.
                 bx1f, by1f, bx2f, by2f = sig_bboxes[0]
-                crop = pil_img.crop((
-                    max(0,  int(bx1f * iw)),
-                    max(0,  int(by1f * ih)),
-                    min(iw, int(bx2f * iw)),
-                    min(ih, int(by2f * ih)),
-                ))
+                bbox_h_frac = by2f - by1f
+
+                # LLM anchors its bbox to the middle/body of the strokes and
+                # consistently misses the ascenders at the top.  Pad upward by
+                # at least half the bbox height so the full signature is visible.
+                top_pad = max(0.04, bbox_h_frac * 0.5)
+
+                cx1 = max(0,  int(bx1f * iw))
+                cy1 = max(0,  int((by1f - top_pad) * ih))
+                cx2 = min(iw, int(bx2f * iw))
+                cy2 = min(ih, int(by2f * ih))
+                zone = pil_img.crop((cx1, cy1, cx2, cy2))
+
+                # Try to trim printed name from the bottom: span classifier
+                # returns y2 = last row of cursive-like ink.  Everything below
+                # that (the name) gets dropped.  If classifier fails, keep full zone.
+                span_bbox = _find_sig_region_by_span(zone)
+                if span_bbox:
+                    _, _, _, sb_y2 = span_bbox
+                    zone = zone.crop((0, 0, zone.width, min(zone.height, sb_y2 + 8)))
+
+                crop = zone
             else:
                 crop = _sig_zone_from_image(pil_img)
             buf = io.BytesIO()
