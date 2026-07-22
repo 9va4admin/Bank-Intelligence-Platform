@@ -429,6 +429,66 @@ def _sig_zone_from_image(img: Image.Image) -> Image.Image:
     return img.crop((int(w * 0.40), int(h * 0.62), w, int(h * 0.80)))
 
 
+_FIND_PRINTED_TEXT_Y_PROMPT = """This image is a close-up of a bank cheque signature area.
+The UPPER portion contains a handwritten cursive ink signature.
+The LOWER portion contains PRINTED text — an account holder name (e.g. "ANKIT KUMAR") and possibly a printed instruction line.
+
+At what fraction of this image's HEIGHT (0.0 = very top, 1.0 = very bottom) does the FIRST line of PRINTED text begin?
+
+Reply ONLY with this JSON, no other text:
+{"printed_text_y": 0.62}
+
+If there is NO printed text visible below the signature, reply:
+{"printed_text_y": null}"""
+
+
+async def _whiteout_via_llm(
+    crop: Image.Image,
+    client,
+    model_id: str,
+    bank_id: str,
+) -> Image.Image:
+    """
+    Send the crop to the LLM and ask where printed text starts.
+    Paint white from that y-fraction to the bottom.
+    Falls back to pixel-gap detector if the LLM call fails.
+    """
+    from PIL import ImageDraw
+
+    if client is not None:
+        try:
+            buf = io.BytesIO()
+            crop.save(buf, format="PNG")
+            b64 = base64.b64encode(buf.getvalue()).decode()
+            resp = await client.chat.completions.create(
+                model=model_id,
+                messages=[{"role": "user", "content": [
+                    {"type": "text",      "text": _FIND_PRINTED_TEXT_Y_PROMPT},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
+                ]}],
+                temperature=0,
+                timeout=25,
+            )
+            data = json.loads(_clean_json_response(resp.choices[0].message.content))
+            text_y = data.get("printed_text_y")
+            if text_y is not None:
+                py = int(float(text_y) * crop.height)
+                if 4 < py < crop.height - 1:
+                    result = crop.copy()
+                    ImageDraw.Draw(result).rectangle(
+                        [(0, py), (crop.width - 1, crop.height - 1)],
+                        fill=(255, 255, 255),
+                    )
+                    log.info("demo.cloud_extract.whiteout_via_llm",
+                             bank_id=bank_id, printed_text_y=text_y)
+                    return result
+        except Exception as exc:
+            log.warning("demo.cloud_extract.whiteout_llm_failed",
+                        bank_id=bank_id, error=str(exc))
+
+    return _whiteout_printed_text(crop)
+
+
 _SIG_HANDWRITING_BBOX_PROMPT = """This image is the signature area of an Indian bank cheque.
 It contains handwritten cursive pen strokes AND may also contain pre-printed block
 capital text (account holder name such as "ANKIT KUMAR").
@@ -806,23 +866,8 @@ async def cloud_extract_cheque(
                 cy2_px = int(ih * 0.80)
                 crop = _sig_zone_from_image(pil_img)
 
-            # Use LLM's signature_stroke_y2 (full-image fraction) to paint
-            # white over the printed name + instruction text below the strokes.
-            # This is far more reliable than pixel-gap detection.
-            stroke_y2 = parsed.get("signature_stroke_y2")
-            from PIL import ImageDraw
-            if stroke_y2 is not None:
-                crop_span_px = cy2_px - cy1_px
-                if crop_span_px > 0:
-                    y_in_crop = int(float(stroke_y2) * ih) - cy1_px
-                    whiteout_y = min(crop.height - 1, y_in_crop + 3)
-                    if 4 < whiteout_y < crop.height - 1:
-                        ImageDraw.Draw(crop).rectangle(
-                            [(0, whiteout_y), (crop.width - 1, crop.height - 1)],
-                            fill=(255, 255, 255),
-                        )
-            else:
-                crop = _whiteout_printed_text(crop)
+            # Send the crop to the LLM and ask where printed text starts.
+            crop = await _whiteout_via_llm(crop, client, model_id, ctx.bank_id)
             buf = io.BytesIO()
             crop.save(buf, format="PNG")
             signature_crops.append(base64.b64encode(buf.getvalue()).decode())
