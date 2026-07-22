@@ -209,14 +209,41 @@ def _clean_json_response(raw_text: str) -> str:
     return cleaned.strip()
 
 
+def _ink_threshold(gray_img: Image.Image) -> int:
+    """
+    Returns an intensity threshold that isolates actual dark ink strokes from
+    both white backgrounds AND security printing patterns (the grey checkered/
+    lattice patterns on CTS-2010 cheques).
+
+    Uses the 10th-percentile pixel intensity + a small buffer.  The darkest
+    ~10% of pixels in the signature zone are actual ink strokes; the threshold
+    lands just above that range, so the security pattern (which is lighter than
+    pen ink) is excluded.
+
+    Clamped to [50, 100] — never so tight that light ink is missed, never so
+    loose that the security pattern registers as ink.
+    """
+    data = sorted(gray_img.getdata())
+    n = len(data)
+    if n == 0:
+        return 80
+    p10 = data[max(0, n // 10)]
+    return max(50, min(100, p10 + 28))
+
+
 def _trim_crop_right(crop_img: Image.Image) -> Image.Image:
     """
-    Remove printed account holder name that sits to the RIGHT of the signature
-    at the same vertical level (common CTS-2010 layout).
+    Remove the printed account holder name that sits to the RIGHT of the
+    handwritten signature at the same vertical level (standard CTS-2010 layout).
 
-    Finds the full ink bounding box, then keeps only the left 68% of the ink
-    span.  The handwritten signature is concentrated in the left portion; the
-    printed name (e.g. "ANKIT KUMAR") occupies the rightmost ~30%.
+    Uses a tight ink threshold (10th-percentile based) so the security
+    background pattern is excluded from the ink mask.  Scans columns
+    left-to-right: after seeing MIN_SIG_COLS ink columns (the signature body),
+    the first run of MIN_GAP_COLS near-empty columns is the gap before the
+    printed name — everything from that gap onward is discarded.
+
+    If no clear column gap is found (e.g. signature and name are touching),
+    falls back to keeping the left 65% of the ink span.
 
     Always returns a valid Image — never throws.
     """
@@ -226,9 +253,7 @@ def _trim_crop_right(crop_img: Image.Image) -> Image.Image:
             return crop_img
 
         gray = crop_img.convert("L")
-        stat = ImageStat.Stat(gray)
-        bg_mean = stat.mean[0]
-        threshold = max(40, min(220, bg_mean * 0.78))
+        threshold = _ink_threshold(gray)
         ink_mask = gray.point(lambda p: 255 if p < threshold else 0, "L")
         bbox = ink_mask.getbbox()
         if not bbox:
@@ -236,17 +261,40 @@ def _trim_crop_right(crop_img: Image.Image) -> Image.Image:
 
         bx1, _, bx2, _ = bbox
         ink_span = bx2 - bx1
-        if ink_span < 40:          # crop already narrow — nothing to trim
+        if ink_span < 30:
             return crop_img
 
-        # Keep the left 68% of the ink span.
-        # Safety: only trim if the cut point is at least 20 px before the edge.
-        cut_x = bx1 + int(ink_span * 0.68)
-        if cut_x >= cw - 20:
-            return crop_img        # name already outside crop — no-op
+        ink_data = list(ink_mask.getdata())
+        # A column is "ink-bearing" if > 3% of its height has ink pixels.
+        ink_col_thresh = max(1, int(ch * 0.03))
+        MIN_SIG_COLS = max(8, int(ink_span * 0.12))  # need this many sig cols first
+        MIN_GAP_COLS = 3                               # 3 empty cols = name boundary
 
-        pad = max(3, int(cw * 0.02))
-        return crop_img.crop((0, 0, min(cw, cut_x + pad), ch))
+        sig_cols = 0
+        gap_run = 0
+        cut_x = None
+
+        for x in range(bx1, min(bx2 + 1, cw)):
+            col_ink = sum(1 for y in range(ch) if ink_data[y * cw + x] > 128)
+            if col_ink > ink_col_thresh:
+                sig_cols += 1
+                gap_run = 0
+            else:
+                gap_run += 1
+                if sig_cols >= MIN_SIG_COLS and gap_run >= MIN_GAP_COLS:
+                    cut_x = x - gap_run + 1
+                    break
+
+        if cut_x is not None and cut_x > bx1 + int(ink_span * 0.25):
+            pad = max(4, int(cw * 0.02))
+            return crop_img.crop((0, 0, min(cw, cut_x + pad), ch))
+
+        # Fallback: keep left 65% of ink span
+        fallback_x = bx1 + int(ink_span * 0.65)
+        if fallback_x < cw - 15:
+            return crop_img.crop((0, 0, fallback_x, ch))
+
+        return crop_img
 
     except Exception:
         return crop_img
@@ -254,18 +302,15 @@ def _trim_crop_right(crop_img: Image.Image) -> Image.Image:
 
 def _trim_crop_bottom(crop_img: Image.Image) -> Image.Image:
     """
-    Remove printed text bands (account holder name, instruction lines) below
-    the actual handwritten signature.
+    Remove printed text bands (account holder name, instruction lines) that sit
+    BELOW the handwritten signature (handles cheques where the name is under the
+    signature box rather than beside it).
 
-    Splits the crop into ink bands — runs of ink rows separated by a clear
-    gap of empty rows. The FIRST (topmost) band is the signature; all bands
-    below are printed text and are discarded.
+    Uses the same tight ink threshold as _trim_crop_right so the security
+    background is excluded.  Splits remaining ink into vertical bands; keeps
+    only the first (topmost) band.
 
-    Gap size is fixed at 2 rows (works reliably at 96–300 DPI). Band minimum
-    is 5 ink rows to skip tiny blips.
-
-    Always returns a valid Image — wraps all logic in try/except so a bug
-    here never prevents the crop from appearing in the UI.
+    Always returns a valid Image — never throws.
     """
     try:
         cw, ch = crop_img.size
@@ -273,9 +318,7 @@ def _trim_crop_bottom(crop_img: Image.Image) -> Image.Image:
             return crop_img
 
         gray = crop_img.convert("L")
-        stat = ImageStat.Stat(gray)
-        bg_mean = stat.mean[0]
-        threshold = max(40, min(220, bg_mean * 0.78))
+        threshold = _ink_threshold(gray)
         ink_mask = gray.point(lambda p: 255 if p < threshold else 0, "L")
         bbox = ink_mask.getbbox()
         if not bbox:
@@ -284,11 +327,11 @@ def _trim_crop_bottom(crop_img: Image.Image) -> Image.Image:
         _, by1, _, by2 = bbox
         ink_data = list(ink_mask.getdata())
 
-        gap_thresh = max(2, int(cw * 0.03))    # < 3% of width = near-empty row
-        MIN_GAP = 2                              # 2 empty rows = band boundary
-        MIN_BAND = 5                             # a real band has >= 5 ink rows
+        row_ink_thresh = max(2, int(cw * 0.03))
+        MIN_GAP = 2
+        MIN_BAND = 5
 
-        bands = []          # list of (start_y, end_y)
+        bands = []
         band_start = None
         band_ink_rows = 0
         gap_run = 0
@@ -297,7 +340,7 @@ def _trim_crop_bottom(crop_img: Image.Image) -> Image.Image:
             row_count = sum(
                 1 for x in range(cw) if ink_data[y * cw + x] > 128
             )
-            if row_count > gap_thresh:
+            if row_count > row_ink_thresh:
                 if band_start is None:
                     band_start = y
                 band_ink_rows += 1
@@ -314,14 +357,14 @@ def _trim_crop_bottom(crop_img: Image.Image) -> Image.Image:
             bands.append((band_start, by2))
 
         if len(bands) <= 1:
-            return crop_img  # single band — can't trim safely
+            return crop_img
 
         sig_end = bands[0][1]
         pad = max(4, int(ch * 0.04))
         return crop_img.crop((0, 0, cw, min(ch, sig_end + pad)))
 
     except Exception:
-        return crop_img  # if anything goes wrong, return original — never block crop
+        return crop_img
 
 
 def _ink_detect_signature_crop(img: Image.Image) -> bytes:
@@ -348,12 +391,12 @@ def _ink_detect_signature_crop(img: Image.Image) -> bytes:
 
     gray = zone.convert("L")
 
-    # Adaptive threshold — 22% darker than zone mean.
-    # On a white cheque: bg_mean ≈ 235, threshold ≈ 183 → ink only.
-    # On a blue cheque:  bg_mean ≈ 160, threshold ≈ 125 → ink only, not tint.
-    stat = ImageStat.Stat(gray)
-    bg_mean = stat.mean[0]
-    threshold = max(40, min(220, bg_mean * 0.78))
+    # Use the 10th-percentile threshold so the security printing pattern on
+    # the cheque (grey lattice/checkered squares) is NOT detected as ink.
+    # The mean-based threshold (bg_mean * 0.78) was too loose — the security
+    # pattern dragged down the mean, making the threshold high enough to
+    # capture pattern pixels and produce a bbox spanning the entire zone.
+    threshold = _ink_threshold(gray)
 
     ink_mask = gray.point(lambda p: 255 if p < threshold else 0, "L")
     bbox = ink_mask.getbbox()
