@@ -251,28 +251,37 @@ def _ink_detect_signature_crop(img: Image.Image) -> bytes:
     return buf.getvalue()
 
 
-def _convert_to_png_bytes(raw_bytes: bytes) -> bytes:
+def _convert_to_png(raw_bytes: bytes) -> tuple[bytes, Image.Image]:
     """
-    Normalises any Pillow-readable source (TIFF, BMP, JPEG, PNG, ...) to PNG.
+    Normalises any Pillow-readable source to PNG, returning both the PNG
+    bytes and the already-loaded RGB PIL image.
 
-    Scanned cheques are commonly TIFF (CTS-2010 archival scans use it) — no
-    mainstream browser can decode TIFF inside an <img> tag, and vision LLM
-    providers are not guaranteed to accept it either despite the raw bytes
-    being "valid image data". Converting once, server-side, makes the browser
-    preview and the bytes sent to the model the same guaranteed-decodable PNG.
+    Returning the PIL image avoids opening it a second time later in the
+    request (re-opening can fail on some image modes / Windows PIL builds
+    when the BytesIO wrapper is GC'd between calls).
+
+    Scanned cheques are commonly TIFF — no mainstream browser can decode
+    TIFF inside an <img> tag, and HF vision LLM providers may reject it too.
+    Converting once server-side makes preview and LLM input identical.
     """
     try:
-        with Image.open(io.BytesIO(raw_bytes)) as img:
-            if img.mode not in ("RGB", "L"):
-                img = img.convert("RGB")
-            buffer = io.BytesIO()
-            img.save(buffer, format="PNG")
-            return buffer.getvalue()
+        img = Image.open(io.BytesIO(raw_bytes))
+        img.load()                   # force full pixel load into memory now
+        img = img.convert("RGB")     # normalise mode — handles P, RGBA, CMYK, etc.
+        buffer = io.BytesIO()
+        img.save(buffer, format="PNG")
+        return buffer.getvalue(), img
     except UnidentifiedImageError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Uploaded file isn't a readable image.",
         ) from exc
+
+
+def _convert_to_png_bytes(raw_bytes: bytes) -> bytes:
+    """Thin wrapper for the /preview endpoint which only needs the bytes."""
+    png_bytes, _ = _convert_to_png(raw_bytes)
+    return png_bytes
 
 
 @router_v1.post("/preview")
@@ -311,7 +320,9 @@ async def cloud_extract_cheque(
 
     hf_base_url = await _resolve_hf_base_url(ctx.bank_id)
     raw_bytes = await file.read()
-    png_bytes = _convert_to_png_bytes(raw_bytes)
+    # _convert_to_png returns both PNG bytes (for LLM and preview) AND the
+    # already-loaded RGB PIL image (reused below for crops — no second open).
+    png_bytes, pil_img = _convert_to_png(raw_bytes)
     image_b64 = base64.b64encode(png_bytes).decode("utf-8")
 
     client = AsyncOpenAI(base_url=hf_base_url, api_key=hf_token)
@@ -360,16 +371,7 @@ async def cloud_extract_cheque(
         log.warning("demo.cloud_extract.invalid_json", bank_id=ctx.bank_id, model=model)
         return CloudExtractResponse(model_used=model, error="INVALID_JSON_RETURNED", raw_response=raw_text)
 
-    # Load PIL image ONCE — normalise to RGB so all downstream crop/detect
-    # logic works regardless of source mode (P, RGBA, CMYK, L, etc.).
-    # force .load() so all pixel data is in memory before the BytesIO closes.
-    pil_img: Optional[Image.Image] = None
-    try:
-        _raw = Image.open(io.BytesIO(png_bytes))
-        _raw.load()
-        pil_img = _raw.convert("RGB")
-    except Exception as exc:
-        log.warning("demo.cloud_extract.pil_load_failed", bank_id=ctx.bank_id, error=str(exc))
+    # pil_img captured at upload time by _convert_to_png() — no second open needed.
 
     # Crop signature regions from LLM-returned bboxes (fractional 0.0–1.0).
     signature_crops: list[str] = []
@@ -432,8 +434,9 @@ async def cloud_extract_cheque(
             reason="signature_present=True but signature_count missing/0 — set to 1",
         )
 
-    # Remove raw bboxes from parsed — we return server-cropped images instead.
-    response_fields = {k: v for k, v in parsed.items() if k != "signature_bboxes"}
+    # Strip fields we emit explicitly so they don't collide as duplicate kwargs.
+    _STRIP = {"signature_bboxes", "signature_crops", "signature_crops_estimated"}
+    response_fields = {k: v for k, v in parsed.items() if k not in _STRIP}
     return CloudExtractResponse(
         model_used=model,
         signature_crops=signature_crops if signature_crops else None,
