@@ -475,11 +475,13 @@ async def _whiteout_via_llm(
                 timeout=25,
             )
             data = json.loads(_clean_json_response(resp.choices[0].message.content))
-            ny1 = data.get("name_y1")
+            # Accept whatever key the model chooses to use
+            ny1 = (data.get("name_y1") or data.get("name_y")
+                   or data.get("printed_text_y") or data.get("text_y1"))
             if ny1 is not None:
-                # Paint white from 3px ABOVE the name bbox top to the bottom
-                # of the image — covers name + any instruction text below it.
-                py = max(4, int(float(ny1) * crop.height) - 3)
+                # LLM consistently lands 6-7px below the real name top; use
+                # -8px to ensure we paint over every row of the name.
+                py = max(4, int(float(ny1) * crop.height) - 8)
                 if 4 < py < crop.height - 1:
                     result = crop.copy()
                     ImageDraw.Draw(result).rectangle(
@@ -493,7 +495,12 @@ async def _whiteout_via_llm(
             log.warning("demo.cloud_extract.whiteout_llm_failed",
                         bank_id=bank_id, error=str(exc))
 
-    return _whiteout_printed_text(crop)
+    # Geometric fallback: the printed name always lives in the bottom ~38% of
+    # the crop region.  Trim there so nothing needs painting at all.
+    trim_h = max(15, int(crop.height * 0.62))
+    log.info("demo.cloud_extract.whiteout_geometric_trim",
+             bank_id=bank_id, original_h=crop.height, trim_h=trim_h)
+    return crop.crop((0, 0, crop.width, trim_h))
 
 
 _SIG_HANDWRITING_BBOX_PROMPT = """This image is the signature area of an Indian bank cheque.
