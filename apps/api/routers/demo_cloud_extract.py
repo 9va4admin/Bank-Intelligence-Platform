@@ -283,28 +283,35 @@ def _find_sig_region_by_span(
         MAX_GAP   = 2                          # max gap rows allowed inside one cluster
         MIN_ROWS  = 3                          # minimum rows for a cluster to qualify
 
-        # Pass 1: locate the first horizontal rule using the ORIGINAL (non-eroded) mask.
-        first_rule_y: Optional[int] = None
-        for y in range(zh):
+        # Pass 1: locate the LOWEST horizontal rule scanning BOTTOM-UP.
+        # The cheque has multiple horizontal lines (amount box border near the top
+        # of our zone, signature box rule lower down).  Scanning top-down hits the
+        # amount box border first and excludes the entire signature.  Scanning
+        # bottom-up finds the signature box rule (the separator between the
+        # handwritten strokes and the printed name) and ignores everything above.
+        sig_rule_y: Optional[int] = None
+        for y in range(zh - 1, -1, -1):
             ink_xs = [x for x in range(zw) if orig_data[y * zw + x] > 128]
             if not ink_xs:
                 continue
             span = max(ink_xs) - min(ink_xs)
             fill = len(ink_xs) / span if span > 0 else 0
-            # Wide AND dense → printed horizontal rule (not a sparse cursive stroke).
+            # Wide AND dense → printed horizontal rule.
             if span >= RULE_SPAN and fill >= RULE_FILL:
-                first_rule_y = y
+                sig_rule_y = y
                 break
 
-        # Pass 2: collect sig candidate rows from eroded mask, stopping at the rule.
+        # Pass 2: collect sig candidate rows up to (not including) the rule.
+        # Exclude rule-wide rows (span >= RULE_SPAN) from sig candidates so
+        # amount box borders don't sneak in as false signature rows.
         sig_rows: list[tuple[int, int, int]] = []
-        y_limit = first_rule_y if first_rule_y is not None else zh
+        y_limit = sig_rule_y if sig_rule_y is not None else zh
         for y in range(y_limit):
             ink_xs = [x for x in range(zw) if e_data[y * zw + x] > 128]
             if not ink_xs:
                 continue
             span = max(ink_xs) - min(ink_xs)
-            if span >= MIN_SPAN:
+            if MIN_SPAN <= span < RULE_SPAN:   # sig candidate: wide but not a rule line
                 sig_rows.append((y, min(ink_xs), max(ink_xs)))
 
         if not sig_rows:
