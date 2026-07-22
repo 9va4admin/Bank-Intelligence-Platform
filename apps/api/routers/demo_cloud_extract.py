@@ -734,10 +734,12 @@ async def cloud_extract_cheque(
                 # at least half the bbox height so the full signature is visible.
                 top_pad = max(0.04, bbox_h_frac * 0.5)
 
-                cx1 = max(0,  int(bx1f * iw))
+                h_pad = 0.02   # 2 % each side — don't clip horizontal strokes
+                b_pad = 0.015  # 1.5 % bottom — ensure full name row is included
+                cx1 = max(0,  int((bx1f - h_pad) * iw))
                 cy1 = max(0,  int((by1f - top_pad) * ih))
-                cx2 = min(iw, int(bx2f * iw))
-                cy2 = min(ih, int(by2f * ih))
+                cx2 = min(iw, int((bx2f + h_pad) * iw))
+                cy2 = min(ih, int((by2f + b_pad) * ih))
                 crop = pil_img.crop((cx1, cy1, cx2, cy2))
             else:
                 crop = _sig_zone_from_image(pil_img)
