@@ -417,6 +417,7 @@ class ChequeProcessingWorkflow:
                 account_number=inp.account_number,
                 signature_image_url=inp.image_url,
                 sig_count=sig_detect.sig_count,
+                sig_bboxes=sig_detect.sig_bboxes,
                 smb_id=inp.smb_id,
             ),
             start_to_close_timeout=timedelta(seconds=15),

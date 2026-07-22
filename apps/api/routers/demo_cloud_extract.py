@@ -29,7 +29,7 @@ from typing import Optional
 
 import structlog
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageStat, UnidentifiedImageError
 from pydantic import BaseModel, ConfigDict
 
 from apps.api.dependencies import require_user_context
@@ -209,34 +209,42 @@ def _ink_detect_signature_crop(img: Image.Image) -> bytes:
     Ink-detection fallback when the LLM confirms a signature but returns no
     bounding boxes (common with featherless-ai-hosted Qwen/Gemma variants).
 
-    Searches the conventional CTS-2010 signature zone — right ~50%, lower
-    ~35%, above the MICR band — for dark-pixel clusters using PIL only (no
-    OpenCV / numpy dependency).  Always returns a PNG: worst case is the
-    full zone when the scan is too light to threshold reliably.
+    img must be in RGB mode (caller normalises before passing).
+    Uses an adaptive threshold so it handles both white-background cheques
+    and tinted (blue/pink) backgrounds — a fixed threshold of 180 fails on
+    tinted cheques where ink and background are both below that level.
+    Always returns a PNG — worst case is the full CTS-2010 signature zone.
     """
     w, h = img.size
-    # CTS-2010 signature zone: right half, lower third, above MICR band
-    zx1 = int(w * 0.48)
-    zy1 = int(h * 0.55)
-    zy2 = int(h * 0.90)   # stop before MICR band (~bottom 10%)
+    # CTS-2010 signature zone: right ~52%, lower third, above MICR band (~bottom 8%)
+    zx1 = int(w * 0.45)
+    zy1 = int(h * 0.52)
+    zy2 = int(h * 0.92)
     zone = img.crop((zx1, zy1, w, zy2))
 
     gray = zone.convert("L")
-    # Pixels darker than 180 on 0-255 scale → treat as ink
-    ink_mask = gray.point(lambda p: 255 if p < 180 else 0, "L")
-    bbox = ink_mask.getbbox()   # bounding box of non-zero pixels
+
+    # Adaptive threshold — 22% darker than zone mean.
+    # On a white cheque: bg_mean ≈ 235, threshold ≈ 183 → ink only.
+    # On a blue cheque:  bg_mean ≈ 160, threshold ≈ 125 → ink only, not tint.
+    stat = ImageStat.Stat(gray)
+    bg_mean = stat.mean[0]
+    threshold = max(40, min(220, bg_mean * 0.78))
+
+    ink_mask = gray.point(lambda p: 255 if p < threshold else 0, "L")
+    bbox = ink_mask.getbbox()
 
     if bbox:
         bx1, by1, bx2, by2 = bbox
-        pad = max(8, int(min(zone.width, zone.height) * 0.06))
+        pad = max(10, int(min(zone.width, zone.height) * 0.07))
         crop = zone.crop((
             max(0, bx1 - pad),
             max(0, by1 - pad),
-            min(zone.width,  bx2 + pad),
+            min(zone.width, bx2 + pad),
             min(zone.height, by2 + pad),
         ))
     else:
-        crop = zone   # blank zone — return it whole so UI still shows something
+        crop = zone  # no ink cluster found — return full zone (very light scan)
 
     buf = io.BytesIO()
     crop.save(buf, format="PNG")
@@ -352,60 +360,56 @@ async def cloud_extract_cheque(
         log.warning("demo.cloud_extract.invalid_json", bank_id=ctx.bank_id, model=model)
         return CloudExtractResponse(model_used=model, error="INVALID_JSON_RETURNED", raw_response=raw_text)
 
-    # Crop signature regions from the PNG using the LLM-returned bboxes.
-    # Bboxes are fractional (0.0–1.0) so crops are resolution-independent.
+    # Load PIL image ONCE — normalise to RGB so all downstream crop/detect
+    # logic works regardless of source mode (P, RGBA, CMYK, L, etc.).
+    # force .load() so all pixel data is in memory before the BytesIO closes.
+    pil_img: Optional[Image.Image] = None
+    try:
+        _raw = Image.open(io.BytesIO(png_bytes))
+        _raw.load()
+        pil_img = _raw.convert("RGB")
+    except Exception as exc:
+        log.warning("demo.cloud_extract.pil_load_failed", bank_id=ctx.bank_id, error=str(exc))
+
+    # Crop signature regions from LLM-returned bboxes (fractional 0.0–1.0).
     signature_crops: list[str] = []
     bboxes = parsed.get("signature_bboxes") or []
-    if bboxes:
+    if bboxes and pil_img is not None:
         try:
-            with Image.open(io.BytesIO(png_bytes)) as img:
-                if img.mode not in ("RGB", "L"):
-                    img = img.convert("RGB")
-                w, h = img.size
-                for bbox in bboxes:
-                    if not (isinstance(bbox, (list, tuple)) and len(bbox) == 4):
-                        continue
-                    x1_f, y1_f, x2_f, y2_f = bbox
-                    # Clamp to valid range
-                    x1_f, y1_f = max(0.0, x1_f), max(0.0, y1_f)
-                    x2_f, y2_f = min(1.0, x2_f), min(1.0, y2_f)
-                    if x2_f <= x1_f or y2_f <= y1_f:
-                        continue
-                    # Convert to pixels with a small padding border
-                    pad_px = max(4, int(min(w, h) * 0.01))
-                    x1 = max(0, int(x1_f * w) - pad_px)
-                    y1 = max(0, int(y1_f * h) - pad_px)
-                    x2 = min(w, int(x2_f * w) + pad_px)
-                    y2 = min(h, int(y2_f * h) + pad_px)
-                    crop = img.crop((x1, y1, x2, y2))
-                    buf = io.BytesIO()
-                    crop.save(buf, format="PNG")
-                    signature_crops.append(base64.b64encode(buf.getvalue()).decode())
+            w, h = pil_img.size
+            for bbox in bboxes:
+                if not (isinstance(bbox, (list, tuple)) and len(bbox) == 4):
+                    continue
+                x1_f, y1_f, x2_f, y2_f = bbox
+                x1_f, y1_f = max(0.0, x1_f), max(0.0, y1_f)
+                x2_f, y2_f = min(1.0, x2_f), min(1.0, y2_f)
+                if x2_f <= x1_f or y2_f <= y1_f:
+                    continue
+                pad_px = max(4, int(min(w, h) * 0.01))
+                x1 = max(0, int(x1_f * w) - pad_px)
+                y1 = max(0, int(y1_f * h) - pad_px)
+                x2 = min(w, int(x2_f * w) + pad_px)
+                y2 = min(h, int(y2_f * h) + pad_px)
+                crop = pil_img.crop((x1, y1, x2, y2))
+                buf = io.BytesIO()
+                crop.save(buf, format="PNG")
+                signature_crops.append(base64.b64encode(buf.getvalue()).decode())
         except Exception as exc:
             log.warning("demo.cloud_extract.crop_failed", bank_id=ctx.bank_id, error=str(exc))
-            # Non-fatal — extraction result still returned without crops
 
-    # If the LLM confirmed a signature but gave no bbox coords (common on
-    # featherless-ai-hosted models), run PIL ink detection on the standard
-    # CTS-2010 signature zone so we always return a usable crop.
+    # PIL ink-detection fallback — fires when the LLM confirmed a signature
+    # but returned no bbox coords (featherless-ai-hosted models do this).
+    # Adaptive threshold handles tinted cheques; always returns at least the
+    # CTS-2010 signature zone so the UI always shows something.
     crops_estimated = False
-    if not signature_crops and parsed.get("signature_present") is True:
+    if not signature_crops and parsed.get("signature_present") == True and pil_img is not None:
         try:
-            with Image.open(io.BytesIO(png_bytes)) as img:
-                if img.mode not in ("RGB", "L"):
-                    img = img.convert("RGB")
-                fb_bytes = _ink_detect_signature_crop(img)
-                signature_crops.append(base64.b64encode(fb_bytes).decode())
-                crops_estimated = True
-                log.info(
-                    "demo.cloud_extract.ink_detect_fallback_used",
-                    bank_id=ctx.bank_id, model=model,
-                )
+            fb_bytes = _ink_detect_signature_crop(pil_img)
+            signature_crops.append(base64.b64encode(fb_bytes).decode())
+            crops_estimated = True
+            log.info("demo.cloud_extract.ink_detect_fallback_used", bank_id=ctx.bank_id, model=model)
         except Exception as exc:
-            log.warning(
-                "demo.cloud_extract.ink_detect_fallback_failed",
-                bank_id=ctx.bank_id, error=str(exc),
-            )
+            log.warning("demo.cloud_extract.ink_detect_fallback_failed", bank_id=ctx.bank_id, error=str(exc))
 
     log.info(
         "demo.cloud_extract.completed",
@@ -419,7 +423,7 @@ async def cloud_extract_cheque(
     # Reconcile: some models return signature_present=True but forget to set
     # signature_count (or set it to 0). Trust the presence flag as a fallback
     # so the UI count is always consistent with what the model says about presence.
-    if parsed.get("signature_present") is True and not parsed.get("signature_count"):
+    if parsed.get("signature_present") == True and not parsed.get("signature_count"):
         parsed["signature_count"] = 1
         log.info(
             "demo.cloud_extract.sig_count_reconciled",
