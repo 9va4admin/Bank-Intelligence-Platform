@@ -430,16 +430,22 @@ def _sig_zone_from_image(img: Image.Image) -> Image.Image:
 
 
 _FIND_PRINTED_TEXT_Y_PROMPT = """This image is a close-up of a bank cheque signature area.
-The UPPER portion contains a handwritten cursive ink signature.
-The LOWER portion contains PRINTED text — an account holder name (e.g. "ANKIT KUMAR") and possibly a printed instruction line.
 
-At what fraction of this image's HEIGHT (0.0 = very top, 1.0 = very bottom) does the FIRST line of PRINTED text begin?
+Look carefully. You will see:
+1. A handwritten cursive INK SIGNATURE in the upper portion.
+2. A PRINTED BLOCK-CAPITAL ACCOUNT HOLDER NAME (e.g. "ANKIT KUMAR") somewhere below the signature.
+3. Possibly a printed instruction line below the name.
 
-Reply ONLY with this JSON, no other text:
-{"printed_text_y": 0.62}
+Ignore any horizontal underscore or rule line — that is part of the signature box, not printed text.
 
-If there is NO printed text visible below the signature, reply:
-{"printed_text_y": null}"""
+Return the y-coordinate of the TOP EDGE of the PRINTED ACCOUNT HOLDER NAME TEXT BLOCK (the block-capital letters).
+Express as a fraction of this image's height: 0.0 = very top, 1.0 = very bottom.
+
+Reply ONLY with this JSON — no other text:
+{"name_y": 0.65}
+
+If you see NO printed name text, reply:
+{"name_y": null}"""
 
 
 async def _whiteout_via_llm(
@@ -470,9 +476,12 @@ async def _whiteout_via_llm(
                 timeout=25,
             )
             data = json.loads(_clean_json_response(resp.choices[0].message.content))
-            text_y = data.get("printed_text_y")
+            text_y = data.get("name_y")
             if text_y is not None:
-                py = int(float(text_y) * crop.height)
+                # Subtract 4px so we start the whiteout slightly ABOVE the
+                # name top edge — ensures we cover every pixel of the name
+                # even when the LLM estimate is a couple of rows too low.
+                py = max(4, int(float(text_y) * crop.height) - 4)
                 if 4 < py < crop.height - 1:
                     result = crop.copy()
                     ImageDraw.Draw(result).rectangle(
