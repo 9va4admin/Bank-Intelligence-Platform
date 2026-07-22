@@ -56,6 +56,7 @@ class TestDetectSignaturesPresent:
 
         assert result.outcome == "PRESENT"
         assert result.sig_count == 1
+        assert result.sig_bboxes == [[0.6, 0.7, 0.95, 0.9]]
         assert result.fraud_flags == []
         assert result.degraded is False
 
@@ -88,6 +89,7 @@ class TestDetectSignaturesPresent:
 
         assert result.outcome == "ABSENT"
         assert result.sig_count == 0
+        assert result.sig_bboxes == []
         assert result.degraded is False
 
 
@@ -151,6 +153,7 @@ class TestDetectSignaturesDegradation:
         assert result.outcome == "DEGRADED"
         assert result.degraded is True
         assert result.sig_count == 0
+        assert result.sig_bboxes == []
 
     @pytest.mark.asyncio
     async def test_invalid_json_returns_degraded(self):
@@ -216,3 +219,77 @@ class TestDetectSignaturesVllmCall:
         call_kwargs = client.chat.completions.create.call_args.kwargs
         assert "timeout" in call_kwargs
         assert call_kwargs["timeout"] > 0
+
+
+class TestDetectSignaturesBboxes:
+    @pytest.mark.asyncio
+    async def test_bboxes_returned_in_result(self):
+        """sig_bboxes in result matches the vLLM-returned coordinates."""
+        from modules.cts.workflows.activities.detect_signatures import detect_signatures
+
+        bboxes = [[0.6, 0.7, 0.95, 0.9]]
+        client = AsyncMock()
+        client.chat.completions.create = AsyncMock(
+            return_value=_make_vllm_response(1, bboxes, [])
+        )
+
+        result = await detect_signatures(_make_input(), vllm_client=client)
+
+        assert result.sig_bboxes == bboxes
+
+    @pytest.mark.asyncio
+    async def test_multiple_bboxes_returned(self):
+        """Two signatures → two bbox entries in result."""
+        from modules.cts.workflows.activities.detect_signatures import detect_signatures
+
+        bboxes = [[0.1, 0.7, 0.4, 0.9], [0.6, 0.7, 0.9, 0.9]]
+        client = AsyncMock()
+        client.chat.completions.create = AsyncMock(
+            return_value=_make_vllm_response(2, bboxes, [])
+        )
+
+        result = await detect_signatures(_make_input(), vllm_client=client)
+
+        assert len(result.sig_bboxes) == 2
+        assert result.sig_bboxes == bboxes
+
+    @pytest.mark.asyncio
+    async def test_malformed_bbox_entries_skipped(self):
+        """Bbox entries that aren't 4-element lists are silently dropped."""
+        from modules.cts.workflows.activities.detect_signatures import detect_signatures
+
+        bboxes = [[0.6, 0.7, 0.95, 0.9], [0.1, 0.2], "bad"]   # 2 malformed
+        client = AsyncMock()
+        client.chat.completions.create = AsyncMock(
+            return_value=_make_vllm_response(1, bboxes, [])
+        )
+
+        result = await detect_signatures(_make_input(), vllm_client=client)
+
+        assert result.sig_bboxes == [[0.6, 0.7, 0.95, 0.9]]
+
+    @pytest.mark.asyncio
+    async def test_bboxes_empty_on_no_signature(self):
+        """No signatures → sig_bboxes is empty list."""
+        from modules.cts.workflows.activities.detect_signatures import detect_signatures
+
+        client = AsyncMock()
+        client.chat.completions.create = AsyncMock(
+            return_value=_make_vllm_response(0, [], [])
+        )
+
+        result = await detect_signatures(_make_input(), vllm_client=client)
+
+        assert result.sig_bboxes == []
+
+    @pytest.mark.asyncio
+    async def test_bboxes_empty_on_degraded(self):
+        """vLLM failure → sig_bboxes is empty list, no partial data."""
+        from modules.cts.workflows.activities.detect_signatures import detect_signatures
+
+        client = AsyncMock()
+        client.chat.completions.create = AsyncMock(side_effect=Exception("timeout"))
+
+        result = await detect_signatures(_make_input(), vllm_client=client)
+
+        assert result.sig_bboxes == []

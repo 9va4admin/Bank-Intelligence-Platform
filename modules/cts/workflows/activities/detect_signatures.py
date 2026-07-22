@@ -73,6 +73,7 @@ class DetectSignaturesResult(BaseModel):
     model_config = ConfigDict(frozen=True)
     outcome: str                        # "PRESENT" | "ABSENT" | "DEGRADED"
     sig_count: int
+    sig_bboxes: list[list[float]]       # fractional [x1,y1,x2,y2] per detected signature
     fraud_flags: list[str]
     degraded: bool = False
 
@@ -102,7 +103,7 @@ async def detect_signatures(
             )
             span.set_attribute("degraded", True)
             return DetectSignaturesResult(
-                outcome="DEGRADED", sig_count=0, fraud_flags=[], degraded=True
+                outcome="DEGRADED", sig_count=0, sig_bboxes=[], fraud_flags=[], degraded=True
             )
 
         try:
@@ -131,7 +132,7 @@ async def detect_signatures(
             )
             span.set_attribute("degraded", True)
             return DetectSignaturesResult(
-                outcome="DEGRADED", sig_count=0, fraud_flags=[], degraded=True
+                outcome="DEGRADED", sig_count=0, sig_bboxes=[], fraud_flags=[], degraded=True
             )
         except Exception as exc:
             log.warning(
@@ -142,14 +143,21 @@ async def detect_signatures(
             )
             span.set_attribute("degraded", True)
             return DetectSignaturesResult(
-                outcome="DEGRADED", sig_count=0, fraud_flags=[], degraded=True
+                outcome="DEGRADED", sig_count=0, sig_bboxes=[], fraud_flags=[], degraded=True
             )
 
         sig_count = int(parsed.get("signature_count", 0))
         fraud_flags = list(parsed.get("signature_fraud_flags", []))
+        # Validate and normalise bboxes — LLM occasionally returns malformed entries
+        sig_bboxes = [
+            [float(v) for v in bbox]
+            for bbox in (parsed.get("signature_bboxes") or [])
+            if isinstance(bbox, (list, tuple)) and len(bbox) == 4
+        ]
         outcome = "PRESENT" if sig_count > 0 else "ABSENT"
 
         span.set_attribute("sig_count", sig_count)
+        span.set_attribute("bbox_count", len(sig_bboxes))
         span.set_attribute("fraud_flag_count", len(fraud_flags))
 
         log.info(
@@ -157,6 +165,7 @@ async def detect_signatures(
             instrument_id=inp.instrument_id,
             bank_id=inp.bank_id,
             sig_count=sig_count,
+            bbox_count=len(sig_bboxes),
             outcome=outcome,
             fraud_flags=fraud_flags,
         )
@@ -164,6 +173,7 @@ async def detect_signatures(
         return DetectSignaturesResult(
             outcome=outcome,
             sig_count=sig_count,
+            sig_bboxes=sig_bboxes,
             fraud_flags=fraud_flags,
             degraded=False,
         )
