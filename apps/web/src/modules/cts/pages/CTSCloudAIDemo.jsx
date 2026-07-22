@@ -295,29 +295,36 @@ export default function CTSCloudAIDemo() {
             </div>
 
             {result.signature_crops && result.signature_crops.length > 0 ? (
-              <div className="flex flex-wrap gap-4">
-                {result.signature_crops.map((crop, i) => (
-                  <div
-                    key={i}
-                    className={`rounded-lg border px-3 py-3 flex flex-col items-center gap-2 ${th.infoCard}`}
-                    style={{ minWidth: '10rem' }}
-                  >
-                    <div className={`text-[10px] font-mono font-semibold ${th.muted}`}>
-                      Signature #{i + 1}
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap gap-4">
+                  {result.signature_crops.map((crop, i) => (
+                    <div
+                      key={i}
+                      className={`rounded-lg border px-3 py-3 flex flex-col items-center gap-2 ${th.infoCard}`}
+                      style={{ minWidth: '10rem' }}
+                    >
+                      <div className={`text-[10px] font-mono font-semibold ${th.muted}`}>
+                        Signature #{i + 1}
+                      </div>
+                      <img
+                        src={`data:image/png;base64,${crop}`}
+                        alt={`Detected signature ${i + 1}`}
+                        className="rounded bg-white max-h-24 max-w-xs object-contain border"
+                        style={{ minHeight: '3rem' }}
+                      />
                     </div>
-                    <img
-                      src={`data:image/png;base64,${crop}`}
-                      alt={`Detected signature ${i + 1}`}
-                      className="rounded bg-white max-h-24 max-w-xs object-contain border"
-                      style={{ minHeight: '3rem' }}
-                    />
-                  </div>
-                ))}
+                  ))}
+                </div>
+                {result.signature_crops_estimated && (
+                  <p className={`text-[11px] ${th.muted}`}>
+                    ⚠ Region estimated via ink-detection — model returned no coordinates. Crop covers the standard CTS-2010 signature zone.
+                  </p>
+                )}
               </div>
             ) : (
               <p className={`text-sm ${th.faint}`}>
                 {result.signature_present
-                  ? 'Signature confirmed present · visual crop unavailable — this model did not return region coordinates. Switching to Qwen 72B may improve crop detection.'
+                  ? 'Signature present · region could not be isolated from this scan.'
                   : 'No signature detected on this cheque.'}
               </p>
             )}
