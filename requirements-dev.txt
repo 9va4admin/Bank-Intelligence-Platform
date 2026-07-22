@@ -8,3 +8,4 @@ pytest==9.1.0
 pytest-asyncio==1.4.0
 pytest-cov==7.1.0
 ruff==0.15.22
+python-dotenv>=1.0.0   # dev_auth_server auto-loads .env.local for local secrets
