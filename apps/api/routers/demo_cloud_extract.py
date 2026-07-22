@@ -459,6 +459,121 @@ async def cloud_extract_debug_zone(
     return Response(content=buf.getvalue(), media_type="image/png")
 
 
+@router_v1.post("/debug-ink")
+async def cloud_extract_debug_ink(
+    file: UploadFile = File(...),
+    ctx: UserContext = Depends(require_user_context),
+) -> dict:
+    """
+    Return per-row ink statistics for the signature zone so thresholds in
+    _find_sig_region_by_span can be tuned against real pixel data.
+
+    Response fields:
+      zone_size         — [width, height] of the cropped zone in pixels
+      rule_detected_at  — row y where a horizontal rule was found, or null
+      rows              — one entry per zone row that has ANY ink after
+                          thresholding, with:
+            y           — row index (0 = top of zone)
+            eroded_span — max(x) - min(x) of eroded ink pixels (Guard 3)
+            orig_runs   — number of distinct ink runs in original mask (Guard 2)
+            orig_ink_px — total ink pixels in original mask on this row
+            orig_span   — span of original ink pixels
+            orig_density— orig_ink_px / orig_span (0-1)
+            verdict     — "SIG" (would be included) or "SKIP" (filtered out)
+      sig_bbox          — [x1,y1,x2,y2] that _find_sig_region_by_span returns,
+                          or null if nothing qualified
+    """
+    from PIL import ImageFilter
+
+    raw_bytes = await file.read()
+    _, pil_img = _convert_to_png(raw_bytes)
+    zone = _sig_zone_from_image(pil_img)
+    zw, zh = zone.size
+
+    gray = zone.convert("L")
+    threshold = _ink_threshold(gray)
+    ink_mask = gray.point(lambda p: 255 if p < threshold else 0, "L")
+    o_data = list(ink_mask.getdata())
+    eroded = ink_mask.filter(ImageFilter.MinFilter(3))
+    e_data = list(eroded.getdata())
+
+    MIN_SPAN  = max(8, int(zw * 0.28))
+    MAX_RUNS  = 6
+    RULE_FRAC = 0.75
+    RULE_MIN_W = int(zw * RULE_FRAC)
+
+    # Guard 1: rule detection
+    rule_y: Optional[int] = None
+    for y in range(zh):
+        row_ink = [x for x in range(zw) if o_data[y * zw + x] > 128]
+        if not row_ink:
+            continue
+        max_run = cur_run = 1
+        for i in range(1, len(row_ink)):
+            if row_ink[i] - row_ink[i - 1] == 1:
+                cur_run += 1
+                if cur_run > max_run:
+                    max_run = cur_run
+            else:
+                cur_run = 1
+        if max_run >= RULE_MIN_W:
+            rule_y = y
+            break
+    y_limit = rule_y if rule_y is not None else zh
+
+    # Per-row statistics
+    row_stats = []
+    for y in range(zh):
+        o_xs = [x for x in range(zw) if o_data[y * zw + x] > 128]
+        e_xs = [x for x in range(zw) if e_data[y * zw + x] > 128]
+        if not o_xs and not e_xs:
+            continue  # completely empty row — omit from output
+
+        eroded_span = (max(e_xs) - min(e_xs)) if e_xs else 0
+        orig_span   = (max(o_xs) - min(o_xs)) if o_xs else 0
+        orig_ink_px = len(o_xs)
+        orig_density = round(orig_ink_px / orig_span, 3) if orig_span > 0 else 0.0
+
+        runs = 0
+        if o_xs:
+            runs = 1
+            for i in range(1, len(o_xs)):
+                if o_xs[i] - o_xs[i - 1] > 3:
+                    runs += 1
+
+        # Reproduce Guard logic to assign verdict
+        if y >= y_limit:
+            verdict = "BELOW_RULE"
+        elif eroded_span < MIN_SPAN:
+            verdict = "SKIP_SPAN"
+        elif runs > MAX_RUNS:
+            verdict = "SKIP_RUNS"
+        else:
+            verdict = "SIG"
+
+        row_stats.append({
+            "y": y,
+            "eroded_span": eroded_span,
+            "orig_runs": runs,
+            "orig_ink_px": orig_ink_px,
+            "orig_span": orig_span,
+            "orig_density": orig_density,
+            "verdict": verdict,
+        })
+
+    sig_bbox = _find_sig_region_by_span(zone)
+
+    return {
+        "zone_size": [zw, zh],
+        "ink_threshold": threshold,
+        "min_span": MIN_SPAN,
+        "max_runs": MAX_RUNS,
+        "rule_detected_at": rule_y,
+        "rows": row_stats,
+        "sig_bbox": list(sig_bbox) if sig_bbox else None,
+    }
+
+
 @router_v1.post("", response_model=CloudExtractResponse)
 async def cloud_extract_cheque(
     file: UploadFile = File(...),
