@@ -686,6 +686,97 @@ def _convert_to_png_bytes(raw_bytes: bytes) -> bytes:
     return png_bytes
 
 
+@router_v1.get("/batch-ui", include_in_schema=False)
+async def batch_sig_test_ui() -> Response:
+    """Standalone batch signature test page — upload up to 5 cheques, see crop or No-Sign-Present."""
+    html = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ASTRA · Sig Batch Test</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:ui-monospace,monospace;background:#0f172a;color:#e2e8f0;padding:28px;min-height:100vh}
+h1{color:#a78bfa;font-size:17px;margin-bottom:4px}
+.sub{color:#64748b;font-size:12px;margin-bottom:24px}
+.drop{border:2px dashed #334155;border-radius:10px;padding:36px 24px;text-align:center;cursor:pointer;transition:border-color .2s}
+.drop:hover,.drop.over{border-color:#7c3aed}
+.drop input{display:none}
+.hint{color:#94a3b8;font-size:13px}
+.flist{margin-top:12px;font-size:11px;color:#94a3b8;line-height:1.8}
+.btn{margin-top:16px;background:#7c3aed;color:#fff;border:none;padding:10px 36px;border-radius:6px;cursor:pointer;font-size:14px;font-family:inherit}
+.btn:disabled{background:#1e293b;color:#475569;cursor:not-allowed}
+.grid{display:flex;flex-wrap:wrap;gap:16px;margin-top:28px}
+.card{background:#1e293b;border-radius:8px;padding:14px;width:220px;flex-shrink:0}
+.fname{font-size:10px;color:#64748b;margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card img{width:100%;border:1px solid #334155;border-radius:4px;background:#fff;display:block}
+.nosig{color:#f87171;font-size:14px;font-weight:700;text-align:center;padding:44px 0}
+.spin{color:#94a3b8;font-size:11px;text-align:center;padding:44px 0}
+.err{color:#f87171;font-size:11px;text-align:center;padding:20px 0}
+</style>
+</head>
+<body>
+<h1>ASTRA · Signature Batch Test</h1>
+<p class="sub">Upload up to 5 cheque images &mdash; model: yolov8-sig-only</p>
+
+<div class="drop" id="dz" onclick="document.getElementById('fi').click()">
+  <div class="hint">Click or drag &amp; drop up to 5 cheque images (jpg/png/tif)</div>
+  <input type="file" id="fi" accept="image/*" multiple>
+  <div class="flist" id="fl"></div>
+</div>
+<button class="btn" id="btn" disabled onclick="run()">&#9654;&nbsp; Extract Signatures</button>
+<div class="grid" id="grid"></div>
+
+<script>
+const MAX=5;let files=[];
+const dz=document.getElementById('dz'),fi=document.getElementById('fi'),
+      fl=document.getElementById('fl'),btn=document.getElementById('btn'),
+      grid=document.getElementById('grid');
+
+fi.onchange=e=>pick(Array.from(e.target.files));
+dz.ondragover=e=>{e.preventDefault();dz.classList.add('over')};
+dz.ondragleave=()=>dz.classList.remove('over');
+dz.ondrop=e=>{e.preventDefault();dz.classList.remove('over');
+  pick(Array.from(e.dataTransfer.files).filter(f=>f.type.startsWith('image/')));};
+
+function pick(f){
+  files=f.slice(0,MAX);
+  fl.innerHTML=files.map(f=>`&#10003; ${f.name}`).join('<br>');
+  btn.disabled=!files.length;grid.innerHTML='';
+}
+
+async function run(){
+  btn.disabled=true;grid.innerHTML='';
+  const cards=files.map((f,i)=>{
+    const c=document.createElement('div');c.className='card';
+    c.innerHTML=`<div class="fname" title="${f.name}">${f.name}</div><div class="spin" id="s${i}">processing&hellip;</div>`;
+    grid.appendChild(c);return c;
+  });
+
+  await Promise.all(files.map(async(file,i)=>{
+    const s=document.getElementById('s'+i);
+    try{
+      const fd=new FormData();fd.append('file',file);
+      const r=await fetch('/v1/cts/demo/cloud-extract?model=yolov8-sig-only',
+        {method:'POST',body:fd,credentials:'include'});
+      if(r.status===401){s.className='err';s.textContent='401 – log into ASTRA portal first';return}
+      if(!r.ok){s.className='err';s.textContent='Error '+r.status;return}
+      const d=await r.json();
+      if(d.signature_present&&d.signature_crops&&d.signature_crops.length){
+        s.outerHTML=`<img src="data:image/png;base64,${d.signature_crops[0]}" alt="sig">`;
+      }else{
+        s.className='nosig';s.textContent='No-Sign-Present';
+      }
+    }catch(e){s.className='err';s.textContent=e.message;}
+  }));
+  btn.disabled=false;
+}
+</script>
+</body>
+</html>"""
+    return Response(content=html, media_type="text/html")
+
+
 @router_v1.post("/preview")
 async def cloud_extract_preview(
     file: UploadFile = File(...),
