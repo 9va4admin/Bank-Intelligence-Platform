@@ -516,6 +516,183 @@ async def list_security_violations(
     )
 
 
+# ---------------------------------------------------------------------------
+# Vault management dependencies (injectable for testing)
+# ---------------------------------------------------------------------------
+
+async def get_vault_db_pool():
+    """Returns the CTS DB pool. Overridden in tests."""
+    from shared.config.config_service import config_service
+    import asyncpg
+    dsn = config_service.get("db.cts.dsn")
+    return await asyncpg.create_pool(dsn, min_size=1, max_size=3)
+
+
+def get_vault_redis():
+    """Returns the CTS Redis client. Overridden in tests."""
+    from shared.config.config_service import config_service
+    import redis as _redis
+    return _redis.Redis.from_url(config_service.get("redis.cts.url"))
+
+
+def get_vault_warm_trigger():
+    """Returns an async callable that triggers warm_redis_from_db. Overridden in tests."""
+    async def _trigger(bank_id: str) -> dict:
+        from temporalio.client import Client
+        from modules.cts.workflows.vault_sync_workflow import warm_redis_from_db
+        from shared.config.config_service import config_service
+        from datetime import datetime, timezone
+
+        temporal_url = config_service.get("temporal.server_url")
+        client = await Client.connect(temporal_url)
+        workflow_id = f"cts-warmredis-{bank_id}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}"
+        await client.execute_workflow(
+            "WarmRedisRecoveryWorkflow",
+            args=[bank_id],
+            id=workflow_id,
+            task_queue=f"cts-processing-{bank_id}",
+        )
+        return {"workflow_id": workflow_id, "status": "TRIGGERED"}
+
+    return _trigger
+
+
+# ---------------------------------------------------------------------------
+# Vault response models
+# ---------------------------------------------------------------------------
+
+class VaultSigSyncStatusResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    yugabyte_accounts: int
+    yugabyte_specimens: int
+    redis_sig_keys: int
+    coverage_pct: float
+    gap_accounts: int
+    last_sync_at: Optional[str] = None
+    request_id: str
+
+
+class VaultWarmRedisResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    workflow_id: str
+    status: str
+    triggered_at: str
+    request_id: str
+
+
+# ---------------------------------------------------------------------------
+# GET /v1/admin/vault/sig-sync-status
+# ---------------------------------------------------------------------------
+
+@router_v1.get("/vault/sig-sync-status", response_model=VaultSigSyncStatusResponse)
+async def get_vault_sig_sync_status(
+    request: Request,
+    user: dict = Depends(require_admin_role),
+    db_pool=Depends(get_vault_db_pool),
+    redis_client=Depends(get_vault_redis),
+) -> VaultSigSyncStatusResponse:
+    """
+    Returns the current sync state of the signature vault:
+      - How many distinct accounts are stored in YugabyteDB (durable)
+      - How many signature keys are in Redis (hot cache)
+      - Coverage percentage and gap count
+
+    Accessible by both bank_it_admin and ops_manager.
+    Use gap_accounts > 0 as the trigger signal for POST /vault/warm-redis.
+    """
+    bank_id = user["bank_id"]
+    request_id = request.headers.get("X-Request-Id", _secrets.token_hex(8))
+
+    # YugabyteDB counts
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT
+                COUNT(DISTINCT account_hash) AS accounts,
+                COUNT(*)                     AS specimens
+            FROM cts.signature_embeddings
+            WHERE bank_id = $1
+            """,
+            bank_id,
+        )
+        last_sync_at_row = await conn.fetchval(
+            """
+            SELECT MAX(updated_at) FROM cts.signature_embeddings WHERE bank_id = $1
+            """,
+            bank_id,
+        )
+
+    yugabyte_accounts = int(row["accounts"] or 0)
+    yugabyte_specimens = int(row["specimens"] or 0)
+    last_sync_at = last_sync_at_row.isoformat() if last_sync_at_row else None
+
+    # Redis key count — scan for sig:{bank_id}:* keys only
+    redis_sig_keys = sum(1 for _ in redis_client.scan_iter(match=f"sig:{bank_id}:*", count=1000))
+
+    coverage_pct = round(
+        min(100.0, (redis_sig_keys / yugabyte_accounts * 100)) if yugabyte_accounts > 0 else 100.0,
+        2,
+    )
+    gap_accounts = max(0, yugabyte_accounts - redis_sig_keys)
+
+    log.info(
+        "admin.vault_sync_status_queried",
+        bank_id=bank_id,
+        yugabyte_accounts=yugabyte_accounts,
+        redis_sig_keys=redis_sig_keys,
+        coverage_pct=coverage_pct,
+    )
+
+    return VaultSigSyncStatusResponse(
+        yugabyte_accounts=yugabyte_accounts,
+        yugabyte_specimens=yugabyte_specimens,
+        redis_sig_keys=redis_sig_keys,
+        coverage_pct=coverage_pct,
+        gap_accounts=gap_accounts,
+        last_sync_at=last_sync_at,
+        request_id=request_id,
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /v1/admin/vault/warm-redis
+# ---------------------------------------------------------------------------
+
+@router_v1.post("/vault/warm-redis", response_model=VaultWarmRedisResponse, status_code=202)
+async def trigger_vault_warm_redis(
+    request: Request,
+    user: dict = Depends(require_maker_role),
+    trigger_fn=Depends(get_vault_warm_trigger),
+) -> VaultWarmRedisResponse:
+    """
+    Triggers warm_redis_from_db: reads cts.signature_embeddings from YugabyteDB
+    and pipeline-writes packed float32 embeddings into Redis.
+
+    Use after a Redis cold restart when sig-sync-status shows gap_accounts > 0.
+    Returns immediately with a workflow_id — warm runs asynchronously.
+
+    Accessible by ops_manager only (maker action).
+    """
+    bank_id = user["bank_id"]
+    request_id = request.headers.get("X-Request-Id", _secrets.token_hex(8))
+
+    result = await trigger_fn(bank_id)
+
+    log.info(
+        "admin.vault_warm_redis_triggered",
+        bank_id=bank_id,
+        workflow_id=result["workflow_id"],
+        triggered_by=user["user_id"],
+    )
+
+    return VaultWarmRedisResponse(
+        workflow_id=result["workflow_id"],
+        status=result["status"],
+        triggered_at=datetime.now(timezone.utc).isoformat(),
+        request_id=request_id,
+    )
+
+
 @router_v1.post("/security-violations/{user_id}/reinstate", response_model=dict)
 async def reinstate_user(
     user_id: str,
