@@ -93,9 +93,11 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     iw, ih = img.size
 
     # ── 1. Crop to the CTS-2010 signature zone ───────────────────────────
+    # x starts at 52% (not 38%) to avoid bottom-left bank name text that
+    # sits in the lower-left corner of CTS-2010 cheques.
     zy1 = int(ih * 0.52)
     zy2 = int(ih * 0.90)
-    zx1 = int(iw * 0.38)
+    zx1 = int(iw * 0.52)
     zx2 = iw
     zone = img.crop((zx1, zy1, zx2, zy2))
     zw, zh = zone.size

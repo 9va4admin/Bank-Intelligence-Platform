@@ -822,6 +822,80 @@ async def cloud_extract_debug_ink(
     }
 
 
+def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
+    """
+    Remove printed text (ANKIT KUMAR, "Please sign above", bank name etc.)
+    from a signature crop using OpenCV connected-component filtering.
+
+    Signature cursive strokes form large, sprawling ink blobs (typically
+    500–8 000+ pixels of connected area). Printed characters form small,
+    isolated blobs (50–350 px each). We keep only blobs whose area >= 15 %
+    of the largest stroke blob, adapting automatically to the pen weight
+    and image resolution. A floor of 150 px prevents sub-pixel noise from
+    being retained regardless of the adaptive threshold.
+
+    Horizontal rules (width > 50 % of crop, height < 8 px) are always
+    discarded — they are the "please sign above" underline, not ink strokes.
+
+    cv2 is bundled with opencv-python which is already installed in the
+    main API service (confirmed cv2 5.0.0). Graceful degradation: if cv2
+    is unavailable for any reason the original crop is returned unchanged.
+    """
+    try:
+        import cv2
+        import numpy as np
+
+        arr    = np.array(crop.convert("RGB"))
+        gray   = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
+
+        # Otsu binarisation — ink → 255, background → 0
+        _, binary = cv2.threshold(
+            gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+        )
+
+        num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
+            binary, connectivity=8
+        )
+
+        cw = crop.width
+
+        # ── Pass 1: find the largest non-rule blob area ───────────────────
+        max_area = 0
+        for i in range(1, num_labels):   # label 0 = background
+            area   = int(stats[i, cv2.CC_STAT_AREA])
+            comp_w = int(stats[i, cv2.CC_STAT_WIDTH])
+            comp_h = int(stats[i, cv2.CC_STAT_HEIGHT])
+            if comp_w > cw * 0.50 and comp_h < 8:
+                continue   # horizontal rule / underline — skip
+            if area > max_area:
+                max_area = area
+
+        # Adaptive keep threshold: ≥ 15 % of dominant stroke, floor 150 px
+        keep_min = max(150, int(max_area * 0.15))
+
+        # ── Pass 2: build clean white canvas, paste only large blobs ─────
+        output = np.full_like(arr, 255)
+        for i in range(1, num_labels):
+            area   = int(stats[i, cv2.CC_STAT_AREA])
+            comp_w = int(stats[i, cv2.CC_STAT_WIDTH])
+            comp_h = int(stats[i, cv2.CC_STAT_HEIGHT])
+            if comp_w > cw * 0.50 and comp_h < 8:
+                continue   # horizontal rule — discard
+            if area >= keep_min:
+                mask = labels == i
+                output[mask] = arr[mask]
+
+        result = Image.fromarray(output.astype(np.uint8))
+        log.info("demo.cloud_extract.denoise_done",
+                 max_blob=max_area, keep_min=keep_min,
+                 blobs_total=num_labels - 1)
+        return result
+
+    except Exception as exc:
+        log.warning("demo.cloud_extract.denoise_failed", error=str(exc))
+        return crop   # graceful degradation — return crop unchanged
+
+
 async def _extract_yolov8_sig(
     file: UploadFile, ctx
 ) -> CloudExtractResponse:
@@ -934,6 +1008,9 @@ async def _extract_yolov8_sig(
         cx2 = min(iw, int((x2 + pad_x) * iw))
         cy2 = min(ih, int((y2 + pad_y) * ih))
         crop = pil_img.crop((cx1, cy1, cx2, cy2))
+        # Remove printed text (name, instructions) via connected-component
+        # filtering — keeps only large ink blobs (signature strokes).
+        crop = _denoise_sig_crop(crop)
         buf = io.BytesIO()
         crop.save(buf, format="PNG")
         signature_crops.append(base64.b64encode(buf.getvalue()).decode())
