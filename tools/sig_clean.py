@@ -45,24 +45,25 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     row_density = ink.sum(axis=1) / zw
     ink_rows    = row_density > 0.01
 
-    best_start = best_len = 0
-    cur_start  = cur_len  = 0
-    in_gap = False
-    for y, has_ink in enumerate(ink_rows):
-        if not has_ink:
-            if not in_gap:
-                cur_start, cur_len, in_gap = y, 0, True
-            cur_len += 1
-            if cur_len > best_len:
-                best_len, best_start = cur_len, cur_start
-        else:
-            in_gap = False
+    # First gap >= 5 blank rows after >= 4 ink rows (not the longest)
+    ink_rows_seen2 = 0
+    gap_start2     = None
+    gap_len2       = 0
+    sig_bottom     = zh
 
-    sig_bottom = zh
-    if best_len >= 1:
-        ink_above = ink_rows[:best_start].sum()
-        if ink_above >= 6:
-            sig_bottom = best_start
+    for y, has_ink in enumerate(ink_rows):
+        if has_ink:
+            ink_rows_seen2 += 1
+            gap_start2 = None
+            gap_len2   = 0
+        else:
+            if gap_start2 is None:
+                gap_start2 = y
+                gap_len2   = 0
+            gap_len2 += 1
+            if ink_rows_seen2 >= 4 and gap_len2 >= 5:
+                sig_bottom = gap_start2
+                break
 
     ink_above = ink[:sig_bottom, :]
     coords = np.argwhere(ink_above)
@@ -96,36 +97,37 @@ def _denoise(crop: Image.Image, verbose: bool = True) -> Image.Image:
     row_density = ink_mask.sum(axis=1) / max(cw, 1)
     ink_rows    = row_density > 0.005
 
-    best_gap_start = ch
-    best_gap_len   = 0
-    cur_start = cur_len = 0
-    in_gap = False
+    # First gap >= 5 blank rows after >= 4 ink rows  (not the longest gap)
+    ink_rows_seen = 0
+    gap_start_cur = None
+    gap_len_cur   = 0
+    cut_row       = ch
 
     for y, has_ink in enumerate(ink_rows):
-        if not has_ink:
-            if not in_gap:
-                cur_start, cur_len, in_gap = y, 0, True
-            cur_len += 1
-            if cur_len > best_gap_len:
-                best_gap_len   = cur_len
-                best_gap_start = cur_start
+        if has_ink:
+            ink_rows_seen += 1
+            gap_start_cur = None
+            gap_len_cur   = 0
         else:
-            in_gap = False
+            if gap_start_cur is None:
+                gap_start_cur = y
+                gap_len_cur   = 0
+            gap_len_cur += 1
+            if ink_rows_seen >= 4 and gap_len_cur >= 5:
+                cut_row = gap_start_cur
+                break
 
-    gap_cut = False
-    if best_gap_len >= 3:
-        ink_above = int(ink_rows[:best_gap_start].sum())
-        if ink_above >= 4:
-            arr[best_gap_start:, :] = 255
-            gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
-            gap_cut = True
+    gap_cut = cut_row < ch
+    if gap_cut:
+        arr[cut_row:, :] = 255
+        gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
 
     if verbose:
         print(f"\n  Crop size : {cw} x {ch} px")
         if gap_cut:
-            print(f"  Gap detected  : row {best_gap_start} (len {best_gap_len}) — blanked below")
+            print(f"  Gap detected  : row {cut_row} (len {gap_len_cur}) — blanked below")
         else:
-            print(f"  Gap detection : no clear gap found (gap_len={best_gap_len}), using component filter only")
+            print(f"  Gap detection : no clear gap found, using component filter only")
 
     # ── Stage 2: connected-component noise filter ─────────────────────────
     _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)

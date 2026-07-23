@@ -111,37 +111,29 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
 
     ink_rows = row_density > 0.01          # rows with meaningful ink
 
-    # ── 3. Find the largest blank gap in the ink profile ─────────────────
-    # We scan for consecutive non-ink rows; the longest such run is the
-    # boundary between the signature strokes (above) and the printed name.
-    best_gap_start = best_gap_len = 0
-    cur_start = cur_len = 0
-    in_gap = False
+    # ── 3. Find the gap between signature strokes and printed name ───────
+    # Strategy: take the FIRST gap ≥ 5 blank rows that is preceded by
+    # ≥ 4 ink rows.  "First" (not "longest") is critical: the largest
+    # blank run on most cheques is the empty space BELOW the printed name,
+    # not the small gap separating signature from name.
+    ink_rows_seen  = 0
+    gap_start_cur  = None
+    gap_len_cur    = 0
+    sig_bottom_zone = zh   # default: no cut, take full zone
 
     for y, has_ink in enumerate(ink_rows):
-        if not has_ink:
-            if not in_gap:
-                cur_start = y
-                cur_len   = 0
-                in_gap    = True
-            cur_len += 1
-            if cur_len > best_gap_len:
-                best_gap_len   = cur_len
-                best_gap_start = cur_start
+        if has_ink:
+            ink_rows_seen += 1
+            gap_start_cur = None
+            gap_len_cur   = 0
         else:
-            in_gap = False
-
-    # Cut at the top of the best gap if it's at least 1 row wide and is
-    # preceded by at least 6 rows of ink (the signature itself).
-    # If no real gap found, take the full zone.
-    if best_gap_len >= 1:
-        ink_above = ink_rows[:best_gap_start].sum()
-        if ink_above >= 6:
-            sig_bottom_zone = best_gap_start   # exclusive, zone-relative
-        else:
-            sig_bottom_zone = zh
-    else:
-        sig_bottom_zone = zh
+            if gap_start_cur is None:
+                gap_start_cur = y
+                gap_len_cur   = 0
+            gap_len_cur += 1
+            if ink_rows_seen >= 4 and gap_len_cur >= 5:
+                sig_bottom_zone = gap_start_cur
+                break   # first qualifying gap — stop here
 
     # ── 4. Find tight bbox of ink ABOVE the cut ──────────────────────────
     ink_above = ink[:sig_bottom_zone, :]

@@ -874,29 +874,33 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
         row_density = ink_mask.sum(axis=1) / max(cw, 1)
         ink_rows    = row_density > 0.005   # row has at least 0.5 % ink coverage
 
-        best_gap_start = ch   # row index of best gap top; default = no cut
-        best_gap_len   = 0
-        cur_start = cur_len = 0
-        in_gap = False
+        # Find the FIRST gap ≥ 5 blank rows that follows ≥ 4 ink rows.
+        # Using "first" (not "longest") is critical: on cheques the longest
+        # gap is the large empty zone BELOW the printed name, not the small
+        # gap between the signature strokes and the name.
+        ink_rows_seen  = 0
+        gap_start      = None
+        gap_len        = 0
+        cut_row        = ch   # default: no cut
 
         for y, has_ink in enumerate(ink_rows):
-            if not has_ink:
-                if not in_gap:
-                    cur_start, cur_len, in_gap = y, 0, True
-                cur_len += 1
-                if cur_len > best_gap_len:
-                    best_gap_len   = cur_len
-                    best_gap_start = cur_start
+            if has_ink:
+                ink_rows_seen += 1
+                gap_start = None
+                gap_len   = 0
             else:
-                in_gap = False
+                if gap_start is None:
+                    gap_start = y
+                    gap_len   = 0
+                gap_len += 1
+                if ink_rows_seen >= 4 and gap_len >= 5:
+                    cut_row = gap_start
+                    break   # first qualifying gap — stop here
 
-        gap_cut_applied = False
-        if best_gap_len >= 3:
-            ink_above = int(ink_rows[:best_gap_start].sum())
-            if ink_above >= 4:
-                arr[best_gap_start:, :] = 255   # hard-blank everything below the gap
-                gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
-                gap_cut_applied = True
+        gap_cut_applied = cut_row < ch
+        if gap_cut_applied:
+            arr[cut_row:, :] = 255   # hard-blank everything below the gap
+            gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
 
         # ── Stage 2: connected-component noise filter ─────────────────────
         _, binary = cv2.threshold(
@@ -930,7 +934,7 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
                 output[mask] = arr[mask]
 
         log.info("demo.cloud_extract.denoise_done",
-                 gap_cut=gap_cut_applied, gap_row=best_gap_start, gap_len=best_gap_len,
+                 gap_cut=gap_cut_applied, gap_row=cut_row, gap_len=gap_len,
                  max_blob=max_area, keep_min=keep_min, blobs_total=num_labels - 1)
         return Image.fromarray(output.astype(np.uint8))
 
