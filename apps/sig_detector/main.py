@@ -78,42 +78,64 @@ def _ink_threshold(arr: np.ndarray) -> int:
     return max(60, min(150, p10 + 28))
 
 
+def _smooth_profile(profile: np.ndarray, window: int = 5) -> np.ndarray:
+    """
+    Moving-average smoothing over a 1-D row-density profile.
+    Merges tiny intra-signature gaps (1–4 rows) so they don't register as
+    the "largest gap", leaving only the true gap between signature and text.
+    """
+    kernel = np.ones(window) / window
+    return np.convolve(profile, kernel, mode="same")
+
+
 def _detect_pixel(img: Image.Image) -> list[dict]:
     """
     Find the signature region in a cheque image using ink-row profiling.
 
     CTS-2010 layout assumed:
-      - Signature zone: y ∈ [52%, 90%] of image height, x ∈ [38%, 100%]
+      - Signature zone: y ∈ [55%, 90%] of image height, x ∈ [52%, 100%]
       - Within that zone: signature strokes on top, printed name below
       - A blank (or near-blank) gap separates them
+
+    Denoising steps (tuned to exclude printed-name text from crop):
+      1. MedianFilter(3) on zone greyscale — removes salt-and-pepper noise
+      2. 5-row moving average on the ink-density profile — merges tiny
+         internal signature gaps so only the true sig/text gap dominates
+      3. Minimum gap of 3 blank rows required for a valid cut
 
     Returns a list with one detection dict (bbox normalised, confidence 0.80)
     or [] when no ink is found.
     """
+    from PIL import ImageFilter  # local import keeps top-level imports unchanged
+
     iw, ih = img.size
 
     # ── 1. Crop to the CTS-2010 signature zone ───────────────────────────
-    # x starts at 52% (not 38%) to avoid bottom-left bank name text that
-    # sits in the lower-left corner of CTS-2010 cheques.
-    zy1 = int(ih * 0.52)
+    # y starts at 55% (was 52%) to skip the amount-in-figures row that
+    # sometimes lands at ~52–54% and introduces stray ink near the zone top.
+    zy1 = int(ih * 0.55)
     zy2 = int(ih * 0.90)
     zx1 = int(iw * 0.52)
     zx2 = iw
     zone = img.crop((zx1, zy1, zx2, zy2))
     zw, zh = zone.size
 
-    gray = np.array(zone.convert("L"))
+    # ── 2. Denoise: MedianFilter removes isolated noise pixels ───────────
+    gray_img = zone.convert("L").filter(ImageFilter.MedianFilter(size=3))
+    gray = np.array(gray_img)
     thr  = _ink_threshold(gray)
     ink  = (gray < thr).astype(np.uint8)   # 1 = ink pixel
 
-    # ── 2. Per-row ink density profile ───────────────────────────────────
-    row_density = ink.sum(axis=1) / zw     # fraction of ink pixels per row
+    # ── 3. Per-row ink density profile with smoothing ────────────────────
+    raw_density  = ink.sum(axis=1) / zw        # raw fraction of ink pixels per row
+    row_density  = _smooth_profile(raw_density, window=5)  # merge tiny intra-sig gaps
+    ink_rows     = row_density > 0.01           # rows with meaningful ink (post-smooth)
 
-    ink_rows = row_density > 0.01          # rows with meaningful ink
-
-    # ── 3. Find the largest blank gap in the ink profile ─────────────────
-    # We scan for consecutive non-ink rows; the longest such run is the
-    # boundary between the signature strokes (above) and the printed name.
+    # ── 4. Find the largest blank gap in the smoothed ink profile ────────
+    # A gap of ≥ 3 consecutive blank rows is required to count as the
+    # separator between the cursive signature and the printed name below.
+    # Gaps of 1–2 rows (typical within cursive letterforms) are now
+    # invisible after smoothing.
     best_gap_start = best_gap_len = 0
     cur_start = cur_len = 0
     in_gap = False
@@ -131,19 +153,21 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
         else:
             in_gap = False
 
-    # Cut at the top of the best gap if it's at least 1 row wide and is
-    # preceded by at least 6 rows of ink (the signature itself).
-    # If no real gap found, take the full zone.
-    if best_gap_len >= 1:
-        ink_above = ink_rows[:best_gap_start].sum()
-        if ink_above >= 6:
+    # Cut at the top of the best gap when:
+    #   • the gap is at least 3 rows (was 1) to avoid cutting inside signature
+    #   • there are at least 8 ink rows above it (the signature itself)
+    if best_gap_len >= 3:
+        ink_above_count = ink_rows[:best_gap_start].sum()
+        if ink_above_count >= 8:
             sig_bottom_zone = best_gap_start   # exclusive, zone-relative
         else:
             sig_bottom_zone = zh
     else:
         sig_bottom_zone = zh
 
-    # ── 4. Find tight bbox of ink ABOVE the cut ──────────────────────────
+    # ── 5. Find tight bbox of ink ABOVE the cut (using RAW ink mask) ─────
+    # Use the original non-smoothed mask for the tight box so we don't
+    # artificially enlarge or shrink the signature region.
     ink_above = ink[:sig_bottom_zone, :]
     ink_coords = np.argwhere(ink_above)
     if ink_coords.size == 0:
@@ -157,7 +181,7 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     if bottom - top < 5 or right - left < 10:
         return []
 
-    # ── 5. Convert to full-image normalised coords ───────────────────────
+    # ── 6. Convert to full-image normalised coords ───────────────────────
     abs_x1 = (zx1 + left)   / iw
     abs_y1 = (zy1 + top)    / ih
     abs_x2 = (zx1 + right)  / iw
@@ -166,6 +190,77 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     return [{"bbox": [round(abs_x1, 4), round(abs_y1, 4),
                       round(abs_x2, 4), round(abs_y2, 4)],
              "confidence": 0.80}]
+
+
+# ── Post-detection refinement ─────────────────────────────────────────────────
+
+def _refine_with_pixel(img: Image.Image, bbox: list[float]) -> list[float] | None:
+    """
+    Tighten a coarse bounding box by running pixel gap-detection INSIDE
+    the detected region.  Removes the printed-name rows at the bottom.
+
+    Returns a tightened [x1, y1, x2, y2] (normalised) or None to discard
+    the detection if it contains no real signature ink after refinement.
+    """
+    from PIL import ImageFilter
+
+    iw, ih = img.size
+    x1, y1, x2, y2 = bbox
+    px1, py1 = int(x1 * iw), int(y1 * ih)
+    px2, py2 = int(x2 * iw), int(y2 * ih)
+
+    if px2 - px1 < 10 or py2 - py1 < 5:
+        return None
+
+    crop = img.crop((px1, py1, px2, py2))
+    cw, ch = crop.size
+
+    gray = np.array(crop.convert("L").filter(ImageFilter.MedianFilter(size=3)))
+    thr  = _ink_threshold(gray)
+    ink  = (gray < thr).astype(np.uint8)
+
+    raw_density = ink.sum(axis=1) / cw
+    row_density = _smooth_profile(raw_density, window=5)
+    ink_rows    = row_density > 0.01
+
+    # Find the largest gap of ≥ 3 blank rows — signature / text boundary
+    best_gap_start = best_gap_len = 0
+    cur_start = cur_len = 0
+    in_gap = False
+    for y, has_ink in enumerate(ink_rows):
+        if not has_ink:
+            if not in_gap:
+                cur_start, cur_len, in_gap = y, 0, True
+            cur_len += 1
+            if cur_len > best_gap_len:
+                best_gap_len, best_gap_start = cur_len, cur_start
+        else:
+            in_gap = False
+
+    if best_gap_len >= 3 and ink_rows[:best_gap_start].sum() >= 6:
+        sig_bottom = best_gap_start
+    else:
+        sig_bottom = ch   # no clean gap — keep full crop
+
+    ink_region = ink[:sig_bottom, :]
+    ink_coords = np.argwhere(ink_region)
+    if ink_coords.size == 0:
+        return None
+
+    top    = int(ink_coords[:, 0].min())
+    bottom = int(ink_coords[:, 0].max()) + 1
+    left   = int(ink_coords[:, 1].min())
+    right  = int(ink_coords[:, 1].max()) + 1
+
+    if bottom - top < 5 or right - left < 8:
+        return None
+
+    return [
+        round((px1 + left)   / iw, 4),
+        round((py1 + top)    / ih, 4),
+        round((px1 + right)  / iw, 4),
+        round((py1 + bottom) / ih, 4),
+    ]
 
 
 # ── YOLOv8 detector ───────────────────────────────────────────────────────────
@@ -180,8 +275,12 @@ def _detect_yolo(img: Image.Image) -> list[dict]:
             continue
         for box, conf in zip(r.boxes.xyxyn.tolist(), r.boxes.conf.tolist()):
             x1, y1, x2, y2 = box
-            detections.append({"bbox": [round(x1, 4), round(y1, 4),
-                                        round(x2, 4), round(y2, 4)],
+            # Refine the coarse COCO bbox using pixel gap-detection inside
+            # the region — removes printed-name rows that bleed into the crop.
+            refined = _refine_with_pixel(img, [x1, y1, x2, y2])
+            if refined is None:
+                continue
+            detections.append({"bbox": refined,
                                 "confidence": round(float(conf), 4)})
     detections.sort(key=lambda d: d["confidence"], reverse=True)
     return detections
