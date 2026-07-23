@@ -223,12 +223,12 @@ async def _resolve_sig_detector_url(bank_id: str) -> str:
 
 async def _call_sig_detector(
     pil_img: Image.Image, bank_id: str
-) -> list[dict]:
+) -> tuple[list[dict], bool]:
     """POST the image to the YOLOv8 sig detector service.
 
-    Returns a list of dicts with keys ``bbox`` ([x1,y1,x2,y2] normalised)
-    and ``confidence`` (float).  Returns [] on any error so the caller can
-    gracefully fall back to VLM-based detection.
+    Returns ``(detections, service_available)``.
+    ``service_available=False`` means the service could not be reached —
+    the caller should surface this as an error, not silently fall back.
     """
     import httpx
 
@@ -248,11 +248,11 @@ async def _call_sig_detector(
             detections = data.get("detections", [])
             log.info("demo.cloud_extract.yolo_detections",
                      bank_id=bank_id, count=len(detections))
-            return detections
+            return detections, True
     except Exception as exc:
         log.warning("demo.cloud_extract.sig_detector_unreachable",
                     bank_id=bank_id, url=url, error=str(exc))
-        return []
+        return [], False
 
 
 def _clean_json_response(raw_text: str) -> str:
@@ -884,10 +884,27 @@ async def _extract_yolov8_sig(
             detail=f"Field extraction via Qwen 32B failed: {fields_resp}",
         )
 
+    # Unpack (detections, service_available) tuple from _call_sig_detector
     if isinstance(yolo_detections, Exception):
+        # asyncio.gather captured an unhandled exception from the task itself
         log.warning("demo.cloud_extract.yolo_task_error",
                     bank_id=ctx.bank_id, error=str(yolo_detections))
-        yolo_detections = []
+        yolo_detections, yolo_available = [], False
+    else:
+        yolo_detections, yolo_available = yolo_detections
+
+    # Hard stop when service is down — do NOT silently produce a VLM result
+    # under the yolov8-sig label. The user picked this model deliberately.
+    if not yolo_available:
+        sig_url = await _resolve_sig_detector_url(ctx.bank_id)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                f"YOLOv8 sig detector is not running at {sig_url}. "
+                "Start it with:  cd apps/sig_detector && python main.py  "
+                "(or:  docker run -p 8020:8020 astra-sig-detector)"
+            ),
+        )
 
     raw_text = fields_resp.choices[0].message.content
     cleaned  = _clean_json_response(raw_text)
@@ -904,50 +921,28 @@ async def _extract_yolov8_sig(
     signature_crops: list[str] = []
     sig_bboxes_out: list[list[float]] = []
 
-    if yolo_detections:
-        # YOLOv8 returns tight stroke-only bboxes — crop directly, no whiteout.
-        for det in yolo_detections:
-            bbox = det.get("bbox", [])
-            if len(bbox) != 4:
-                continue
-            x1, y1, x2, y2 = bbox
-            pad_x = 0.01
-            pad_y = 0.008
-            cx1 = max(0,  int((x1 - pad_x) * iw))
-            cy1 = max(0,  int((y1 - pad_y) * ih))
-            cx2 = min(iw, int((x2 + pad_x) * iw))
-            cy2 = min(ih, int((y2 + pad_y) * ih))
-            crop = pil_img.crop((cx1, cy1, cx2, cy2))
-            buf = io.BytesIO()
-            crop.save(buf, format="PNG")
-            signature_crops.append(base64.b64encode(buf.getvalue()).decode())
-            sig_bboxes_out.append([round(v, 4) for v in bbox])
+    # YOLOv8 returns tight stroke-only bboxes — crop directly, no whiteout.
+    for det in yolo_detections:
+        bbox = det.get("bbox", [])
+        if len(bbox) != 4:
+            continue
+        x1, y1, x2, y2 = bbox
+        pad_x = 0.01
+        pad_y = 0.008
+        cx1 = max(0,  int((x1 - pad_x) * iw))
+        cy1 = max(0,  int((y1 - pad_y) * ih))
+        cx2 = min(iw, int((x2 + pad_x) * iw))
+        cy2 = min(ih, int((y2 + pad_y) * ih))
+        crop = pil_img.crop((cx1, cy1, cx2, cy2))
+        buf = io.BytesIO()
+        crop.save(buf, format="PNG")
+        signature_crops.append(base64.b64encode(buf.getvalue()).decode())
+        sig_bboxes_out.append([round(v, 4) for v in bbox])
 
+    if sig_bboxes_out:
         parsed["signature_present"]  = True
-        parsed["signature_count"]    = len(yolo_detections)
+        parsed["signature_count"]    = len(sig_bboxes_out)
         parsed["signature_bboxes"]   = sig_bboxes_out
-    else:
-        # Sig detector unreachable — fall back to VLM bbox + whiteout
-        log.info("demo.cloud_extract.yolo_fallback_to_vlm_bbox", bank_id=ctx.bank_id)
-        if parsed.get("signature_present") and pil_img is not None:
-            try:
-                sig_bboxes = parsed.get("signature_bboxes") or []
-                if sig_bboxes and len(sig_bboxes[0]) == 4:
-                    bx1f, by1f, bx2f, by2f = sig_bboxes[0]
-                    bbox_h_frac = by2f - by1f
-                    top_pad = max(0.04, bbox_h_frac * 0.5)
-                    cx1_px = max(0,  int((bx1f - 0.02) * iw))
-                    cy1_px = max(0,  int((by1f - top_pad) * ih))
-                    cx2_px = min(iw, int((bx2f + 0.02) * iw))
-                    cy2_px = min(ih, int((by2f + 0.015) * ih))
-                    crop = pil_img.crop((cx1_px, cy1_px, cx2_px, cy2_px))
-                    crop = await _whiteout_via_llm(crop, client, field_model_id, ctx.bank_id)
-                    buf = io.BytesIO()
-                    crop.save(buf, format="PNG")
-                    signature_crops.append(base64.b64encode(buf.getvalue()).decode())
-            except Exception as exc:
-                log.warning("demo.cloud_extract.yolo_vlm_fallback_crop_failed",
-                            bank_id=ctx.bank_id, error=str(exc))
 
     if parsed.get("signature_present") and not parsed.get("signature_count"):
         parsed["signature_count"] = 1
