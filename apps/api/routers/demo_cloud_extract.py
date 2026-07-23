@@ -696,21 +696,6 @@ async def cloud_extract_preview(
     return Response(content=png_bytes, media_type="image/png")
 
 
-@router_v1.post("/debug-denoise")
-async def cloud_extract_debug_denoise(
-    file: UploadFile = File(...),
-    ctx: UserContext = Depends(require_user_context),
-) -> Response:
-    """Upload ANY image (full cheque OR just a sig crop) — returns the denoised PNG.
-    No HF token. Use this to verify the denoiser works on a specific image."""
-    raw_bytes = await file.read()
-    _, img = _convert_to_png(raw_bytes)
-    cleaned = _denoise_sig_crop(img)
-    buf = io.BytesIO()
-    cleaned.save(buf, format="PNG")
-    return Response(content=buf.getvalue(), media_type="image/png")
-
-
 @router_v1.post("/debug-zone")
 async def cloud_extract_debug_zone(
     file: UploadFile = File(...),
@@ -843,37 +828,85 @@ async def cloud_extract_debug_ink(
 
 def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
     """
-    Remove printed text (account name, "Please sign above", etc.) from a
-    signature crop.  Two-stage approach:
+    Remove printed text (ANKIT KUMAR, UMAR, "Please sign above", bank name etc.)
+    from a signature crop using OpenCV connected-component filtering.
 
-    Noise filter: removes tiny isolated blobs (dust, JPEG artefacts,
-    faint dots) that survived the sig detector's bbox crop.
+    Two-zone strategy:
+      Upper zone (y < 72 % of crop height) — signature body:
+        Keep blobs ≥ 15 % of the largest stroke blob (floor 150 px).
+      Lower zone (y ≥ 72 %) — name / instruction area:
+        Keep only blobs ≥ 45 % of largest — only major sig loops that
+        dip very low survive; printed name characters (typically 10–30 %
+        of stroke area) are always removed.
 
-    The sig detector already cuts the bbox above the printed name using
-    row-density gap detection, so the crop arriving here should contain
-    only signature strokes.  This function just cleans residual noise —
-    it does NOT attempt a second gap cut (doing so reliably inside the
-    crop is impossible without a trained model because cursive signatures
-    have large inter-stroke blank areas that look identical to the
-    sig-to-name gap).
+    Centroid y is used (not bbox top) so that blobs straddling the
+    boundary are classified by where most of their ink sits.
 
-    Only blobs smaller than 8 % of the largest stroke blob are removed
-    (floor: 25 px).  Horizontal rules (width > 50 % crop, height < 6 px)
-    are always discarded.
+    Horizontal rules (width > 50 % of crop, height < 8 px) are always
+    discarded — the "please sign above" underline is not a stroke.
+
+    cv2 5.0.0 confirmed installed. Graceful degradation: returns crop
+    unchanged if cv2 is unavailable for any reason.
     """
-    # DEBUG PASSTHROUGH — return raw crop to diagnose blank-image issue.
-    # Remove this once we confirm the sig detector bbox is correct.
     try:
+        import cv2
         import numpy as np
-        arr  = np.array(crop.convert("L"))
-        min_gray = int(arr.min())
+
+        arr  = np.array(crop.convert("RGB"))
+        gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
+
+        # Otsu binarisation — ink → 255, background → 0
+        _, binary = cv2.threshold(
+            gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+        )
+
+        # centroids is the 4th output: shape (num_labels, 2) — (cx, cy)
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+            binary, connectivity=8
+        )
+
         cw, ch = crop.width, crop.height
-        log.info("demo.cloud_extract.denoise_passthrough",
-                 crop_w=cw, crop_h=ch, min_gray=min_gray,
-                 note="passthrough mode — no filtering")
-    except Exception:
-        pass
-    return crop
+        name_zone_y = ch * 0.72   # blobs whose centroid sits below this = name zone
+
+        # ── Pass 1: largest non-rule blob area ───────────────────────────
+        max_area = 0
+        for i in range(1, num_labels):
+            area   = int(stats[i, cv2.CC_STAT_AREA])
+            comp_w = int(stats[i, cv2.CC_STAT_WIDTH])
+            comp_h = int(stats[i, cv2.CC_STAT_HEIGHT])
+            if comp_w > cw * 0.50 and comp_h < 8:
+                continue   # horizontal rule
+            if area > max_area:
+                max_area = area
+
+        # Upper zone threshold: ≥ 15 % of dominant stroke, floor 150 px
+        keep_upper = max(150, int(max_area * 0.15))
+        # Lower (name) zone: require ≥ 45 % — only deep-dipping sig strokes survive
+        keep_lower = max(150, int(max_area * 0.45))
+
+        # ── Pass 2: white canvas, paste qualifying blobs ──────────────────
+        output = np.full_like(arr, 255)
+        for i in range(1, num_labels):
+            area   = int(stats[i, cv2.CC_STAT_AREA])
+            comp_w = int(stats[i, cv2.CC_STAT_WIDTH])
+            comp_h = int(stats[i, cv2.CC_STAT_HEIGHT])
+            if comp_w > cw * 0.50 and comp_h < 8:
+                continue   # horizontal rule — always discard
+            centroid_y = float(centroids[i][1])
+            threshold  = keep_lower if centroid_y >= name_zone_y else keep_upper
+            if area >= threshold:
+                mask = labels == i
+                output[mask] = arr[mask]
+
+        result = Image.fromarray(output.astype(np.uint8))
+        log.info("demo.cloud_extract.denoise_done",
+                 max_blob=max_area, keep_upper=keep_upper, keep_lower=keep_lower,
+                 blobs_total=num_labels - 1)
+        return result
+
+    except Exception as exc:
+        log.warning("demo.cloud_extract.denoise_failed", error=str(exc))
+        return crop   # graceful degradation
 
 
 async def _extract_yolov8_sig(
@@ -1052,10 +1085,6 @@ async def _extract_yolov8_sig_only(
         cy1 = max(0,  int((y1 - 0.008) * ih))
         cx2 = min(iw, int((x2 + 0.01) * iw))
         cy2 = min(ih, int((y2 + 0.008) * ih))
-        log.info("demo.cloud_extract.crop_debug",
-                 bbox_norm=[round(v,3) for v in [x1,y1,x2,y2]],
-                 crop_px=[cx1, cy1, cx2, cy2],
-                 image_px=[iw, ih])
         crop = pil_img.crop((cx1, cy1, cx2, cy2))
         crop = _denoise_sig_crop(crop)
         buf = io.BytesIO()
