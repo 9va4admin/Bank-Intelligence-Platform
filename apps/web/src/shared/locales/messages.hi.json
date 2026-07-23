@@ -3797,5 +3797,59 @@
       "sub_member_id",
       "sponsor_bank_id"
     ]
+  },
+  "VAULT_REDIS_WARM_TRIGGERED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "workflow_id",
+      "triggered_by"
+    ]
+  },
+  "VAULT_REDIS_WARM_COMPLETE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "accounts_warmed",
+      "duration_seconds"
+    ]
+  },
+  "VAULT_REDIS_COLD_DETECTED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "gap_accounts",
+      "coverage_pct"
+    ]
+  },
+  "VAULT_SIG_SYNC_STATUS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bank_id",
+      "yugabyte_accounts",
+      "redis_sig_keys",
+      "coverage_pct"
+    ]
   }
 }

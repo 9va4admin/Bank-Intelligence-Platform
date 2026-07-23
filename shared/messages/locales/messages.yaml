@@ -2453,3 +2453,32 @@ CTS_SMB_SPONSOR_SETTLEMENT_CBS_UNAVAILABLE:
   variables: [sub_member_id, sponsor_bank_id]
   en: "CBS unavailable to verify SMB {sub_member_id} settlement position at {sponsor_bank_id} — batch escalated to human review."
   hi: ""
+
+# VAULT REDIS WARM RECOVERY
+VAULT_REDIS_WARM_TRIGGERED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [bank_id, workflow_id, triggered_by]
+  en: "Redis signature vault warm triggered for {bank_id} — workflow {workflow_id} started by {triggered_by}. Redis will serve full-speed lookups once warm completes."
+  hi: ""
+
+VAULT_REDIS_WARM_COMPLETE:
+  severity: INFO
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [bank_id, accounts_warmed, duration_seconds]
+  en: "Redis signature vault warm complete for {bank_id} — {accounts_warmed} accounts loaded in {duration_seconds}s. Coverage restored to 100%."
+  hi: ""
+
+VAULT_REDIS_COLD_DETECTED:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [bank_id, gap_accounts, coverage_pct]
+  en: "Redis signature vault cold for {bank_id} — {gap_accounts} accounts missing from Redis ({coverage_pct}% coverage). Trigger POST /v1/admin/vault/warm-redis to restore."
+  hi: ""
+
+VAULT_SIG_SYNC_STATUS:
+  severity: INFO
+  surface: [UI]
+  variables: [bank_id, yugabyte_accounts, redis_sig_keys, coverage_pct]
+  en: "Vault sync status for {bank_id}: {yugabyte_accounts} accounts in YugabyteDB, {redis_sig_keys} in Redis ({coverage_pct}% coverage)."
+  hi: ""
