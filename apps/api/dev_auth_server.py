@@ -30,7 +30,7 @@ from __future__ import annotations
 # production — dev_auth_server is never run there.
 from pathlib import Path
 from dotenv import load_dotenv
-load_dotenv(Path(__file__).resolve().parents[2] / ".env.local", override=False)
+load_dotenv(Path(__file__).resolve().parents[2] / ".env.local", override=True)
 
 import structlog
 from argon2 import PasswordHasher
