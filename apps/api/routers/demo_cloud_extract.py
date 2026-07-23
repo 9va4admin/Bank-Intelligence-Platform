@@ -904,6 +904,11 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
                 removed += 1
                 continue
 
+            # Always discard vertical border lines (signature box sides)
+            if comp_h > ch * 0.50 and comp_w < 8:
+                removed += 1
+                continue
+
             # Pass 2: solidity check for printed uppercase chars
             if cy / ch > 0.55 and comp_h < ch * 0.20:
                 blob_mask = (labels == i).astype(np.uint8) * 255
