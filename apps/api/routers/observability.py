@@ -63,12 +63,22 @@ class HumanReviewPanel(BaseModel):
     degraded: bool = False
 
 
+class VaultCoveragePanel(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    yugabyte_accounts: int = 0
+    redis_sig_keys: int = 0
+    coverage_pct: float = 100.0
+    gap_accounts: int = 0
+    degraded: bool = False
+
+
 class DashboardResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id: str
     as_of: str
     iet_risk: IETRiskPanel
     human_review: HumanReviewPanel
+    vault_sig_coverage: VaultCoveragePanel = VaultCoveragePanel()
     degraded: bool = False
 
 
@@ -185,6 +195,44 @@ async def _fetch_dashboard_panels(
             IETRiskPanel(degraded=True),
             HumanReviewPanel(degraded=True),
         )
+
+
+async def _fetch_vault_coverage(
+    bank_id: str,
+    db_pool: Any,
+    redis_cts: Any,
+) -> VaultCoveragePanel:
+    """
+    Compare signature embedding count in YugabyteDB vs Redis.
+    Used by the dashboard to show vault cold-start status at a glance.
+    """
+    if db_pool is None or redis_cts is None:
+        return VaultCoveragePanel(degraded=True)
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT COUNT(DISTINCT account_hash) AS accounts "
+                "FROM cts.signature_embeddings WHERE bank_id = $1",
+                bank_id,
+            )
+        yugabyte_accounts = int(row["accounts"] or 0)
+        redis_sig_keys = sum(
+            1 for _ in redis_cts.scan_iter(match=f"sig:{bank_id}:*", count=1000)
+        )
+        if yugabyte_accounts > 0:
+            coverage_pct = min(100.0, redis_sig_keys / yugabyte_accounts * 100)
+        else:
+            coverage_pct = 100.0
+        gap_accounts = max(0, yugabyte_accounts - redis_sig_keys)
+        return VaultCoveragePanel(
+            yugabyte_accounts=yugabyte_accounts,
+            redis_sig_keys=redis_sig_keys,
+            coverage_pct=round(coverage_pct, 1),
+            gap_accounts=gap_accounts,
+        )
+    except Exception as exc:
+        log.warning("ops.dashboard.vault_coverage_error", bank_id=bank_id, error=str(exc))
+        return VaultCoveragePanel(degraded=True)
 
 
 _MODEL_CONFIGS = [
@@ -337,15 +385,18 @@ async def get_dashboard(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
 
     db_pool = getattr(request.app.state, "db_pool_cts", None)
+    redis_cts = getattr(request.app.state, "redis_cts", None)
     iet_panel, review_panel = await _fetch_dashboard_panels(bank_id, db_pool)
+    vault_panel = await _fetch_vault_coverage(bank_id, db_pool, redis_cts)
 
-    degraded = iet_panel.degraded or review_panel.degraded
+    degraded = iet_panel.degraded or review_panel.degraded or vault_panel.degraded
     log.info("ops.dashboard.served", bank_id=bank_id, degraded=degraded)
     return DashboardResponse(
         bank_id=bank_id,
         as_of=_now_iso(),
         iet_risk=iet_panel,
         human_review=review_panel,
+        vault_sig_coverage=vault_panel,
         degraded=degraded,
     )
 

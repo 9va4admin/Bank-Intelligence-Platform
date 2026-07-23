@@ -75,6 +75,24 @@ class DispatchAlertResult(BaseModel):
     degraded: bool = False
 
 
+class CheckVaultCoverageInput(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    min_coverage_pct: float  # alert when Redis coverage drops below this (e.g. 95.0)
+
+
+class VaultCoverageCheckResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str = ""
+    yugabyte_accounts: int = 0
+    redis_sig_keys: int = 0
+    coverage_pct: float = 100.0
+    gap_accounts: int = 0
+    needs_alert: bool = False
+    alert_severity: str = "WARN"
+    degraded: bool = False
+
+
 # ---------------------------------------------------------------------------
 # Activities
 # ---------------------------------------------------------------------------
@@ -246,3 +264,72 @@ async def dispatch_platform_alert(
             error=str(exc),
         )
         return DispatchAlertResult(sent=False, degraded=False)
+
+
+@activity.defn
+async def check_vault_redis_coverage_for_alert(
+    inp: CheckVaultCoverageInput,
+    db_pool=None,
+    redis_client=None,
+) -> VaultCoverageCheckResult:
+    """
+    Compare signature embedding count in YugabyteDB vs Redis.
+    A Redis cold restart leaves Redis empty while YugabyteDB retains all embeddings.
+    Fires a WARN/P1 alert when coverage_pct < inp.min_coverage_pct.
+    Degrades gracefully when db_pool or redis_client is None.
+    """
+    if db_pool is None or redis_client is None:
+        log.warning(
+            "check_vault_redis_coverage_for_alert.degraded",
+            bank_id=inp.bank_id,
+            reason="db_pool_none" if db_pool is None else "redis_client_none",
+        )
+        return VaultCoverageCheckResult(bank_id=inp.bank_id, degraded=True)
+
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT COUNT(DISTINCT account_hash) AS accounts "
+                "FROM cts.signature_embeddings WHERE bank_id = $1",
+                inp.bank_id,
+            )
+        yugabyte_accounts = int(row["accounts"] or 0)
+
+        redis_sig_keys = sum(
+            1 for _ in redis_client.scan_iter(match=f"sig:{inp.bank_id}:*", count=1000)
+        )
+
+        if yugabyte_accounts > 0:
+            coverage_pct = min(100.0, redis_sig_keys / yugabyte_accounts * 100)
+        else:
+            coverage_pct = 100.0  # no accounts in DB → nothing to warm → healthy
+
+        gap_accounts = max(0, yugabyte_accounts - redis_sig_keys)
+        needs_alert = coverage_pct < inp.min_coverage_pct
+
+        log.info(
+            "check_vault_redis_coverage_for_alert.done",
+            bank_id=inp.bank_id,
+            yugabyte_accounts=yugabyte_accounts,
+            redis_sig_keys=redis_sig_keys,
+            coverage_pct=round(coverage_pct, 1),
+            gap_accounts=gap_accounts,
+            needs_alert=needs_alert,
+        )
+        return VaultCoverageCheckResult(
+            bank_id=inp.bank_id,
+            yugabyte_accounts=yugabyte_accounts,
+            redis_sig_keys=redis_sig_keys,
+            coverage_pct=coverage_pct,
+            gap_accounts=gap_accounts,
+            needs_alert=needs_alert,
+            alert_severity="WARN",
+            degraded=False,
+        )
+    except Exception as exc:
+        log.warning(
+            "check_vault_redis_coverage_for_alert.error",
+            bank_id=inp.bank_id,
+            error=str(exc),
+        )
+        return VaultCoverageCheckResult(bank_id=inp.bank_id, degraded=True)

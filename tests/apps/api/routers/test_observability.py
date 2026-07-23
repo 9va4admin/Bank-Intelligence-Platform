@@ -111,6 +111,27 @@ class TestDashboardEndpoint:
         assert data["iet_risk"]["near_breach_count"] >= 0
         assert data["human_review"]["queue_depth"] >= 0
 
+    def test_vault_sig_coverage_panel_present(self):
+        client = TestClient(_make_app(), raise_server_exceptions=False)
+        data = client.get("/v1/ops/dashboard").json()
+        assert "vault_sig_coverage" in data, "vault_sig_coverage panel missing from dashboard"
+
+    def test_vault_sig_coverage_schema(self):
+        client = TestClient(_make_app(), raise_server_exceptions=False)
+        cov = client.get("/v1/ops/dashboard").json()["vault_sig_coverage"]
+        for field in ("yugabyte_accounts", "redis_sig_keys", "coverage_pct", "gap_accounts", "degraded"):
+            assert field in cov, f"Missing field: {field}"
+        assert isinstance(cov["yugabyte_accounts"], int)
+        assert isinstance(cov["redis_sig_keys"], int)
+        assert isinstance(cov["coverage_pct"], float)
+        assert isinstance(cov["gap_accounts"], int)
+
+    def test_vault_sig_coverage_degraded_when_no_deps(self):
+        client = TestClient(_make_app(db_pool=None, redis_cts=None), raise_server_exceptions=False)
+        data = client.get("/v1/ops/dashboard").json()
+        assert data["vault_sig_coverage"]["degraded"] is True
+        assert data["degraded"] is True
+
 
 # ── /v1/ops/model-health ──────────────────────────────────────────────────────
 
