@@ -89,17 +89,48 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
 def _denoise(crop: Image.Image, verbose: bool = True) -> Image.Image:
     arr  = np.array(crop.convert("RGB"))
     gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
-    _, binary = cv2.threshold(gray, 0, 255,
-                               cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-
-    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
-        binary, connectivity=8
-    )
-
     cw, ch = crop.width, crop.height
-    name_zone_y = ch * 0.72
 
-    # Pass 1: largest non-rule blob
+    # ── Stage 1: row-density gap detection (hard cut) ────────────────────
+    ink_mask    = (gray < 180).astype(np.uint8)
+    row_density = ink_mask.sum(axis=1) / max(cw, 1)
+    ink_rows    = row_density > 0.005
+
+    best_gap_start = ch
+    best_gap_len   = 0
+    cur_start = cur_len = 0
+    in_gap = False
+
+    for y, has_ink in enumerate(ink_rows):
+        if not has_ink:
+            if not in_gap:
+                cur_start, cur_len, in_gap = y, 0, True
+            cur_len += 1
+            if cur_len > best_gap_len:
+                best_gap_len   = cur_len
+                best_gap_start = cur_start
+        else:
+            in_gap = False
+
+    gap_cut = False
+    if best_gap_len >= 3:
+        ink_above = int(ink_rows[:best_gap_start].sum())
+        if ink_above >= 4:
+            arr[best_gap_start:, :] = 255
+            gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
+            gap_cut = True
+
+    if verbose:
+        print(f"\n  Crop size : {cw} x {ch} px")
+        if gap_cut:
+            print(f"  Gap detected  : row {best_gap_start} (len {best_gap_len}) — blanked below")
+        else:
+            print(f"  Gap detection : no clear gap found (gap_len={best_gap_len}), using component filter only")
+
+    # ── Stage 2: connected-component noise filter ─────────────────────────
+    _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary, connectivity=8)
+
     max_area = 0
     for i in range(1, num_labels):
         area   = int(stats[i, cv2.CC_STAT_AREA])
@@ -110,38 +141,30 @@ def _denoise(crop: Image.Image, verbose: bool = True) -> Image.Image:
         if area > max_area:
             max_area = area
 
-    keep_upper = max(150, int(max_area * 0.15))
-    keep_lower = max(150, int(max_area * 0.45))
+    keep_min = max(80, int(max_area * 0.12))
 
     if verbose:
-        print(f"\n  Crop size : {cw} x {ch} px")
-        print(f"  name_zone_y boundary : y >= {name_zone_y:.1f} px")
-        print(f"  Largest blob : {max_area} px")
-        print(f"  keep_upper (y<{name_zone_y:.0f}) : >= {keep_upper} px")
-        print(f"  keep_lower (y>={name_zone_y:.0f}) : >= {keep_lower} px")
-        print(f"\n  {'Blob':>4}  {'area':>6}  {'centroid_y':>10}  {'zone':>8}  {'threshold':>10}  {'action':>8}")
-        print(f"  {'----':>4}  {'------':>6}  {'----------':>10}  {'--------':>8}  {'----------':>10}  {'--------':>8}")
+        print(f"  Largest blob : {max_area} px  |  keep_min : >= {keep_min} px")
+        print(f"\n  {'Blob':>4}  {'area':>6}  {'centroid_y':>10}  {'action':>8}")
+        print(f"  {'----':>4}  {'------':>6}  {'----------':>10}  {'--------':>8}")
 
     output = np.full_like(arr, 255)
     for i in range(1, num_labels):
-        area      = int(stats[i, cv2.CC_STAT_AREA])
-        comp_w    = int(stats[i, cv2.CC_STAT_WIDTH])
-        comp_h    = int(stats[i, cv2.CC_STAT_HEIGHT])
-        cy        = float(centroids[i][1])
+        area   = int(stats[i, cv2.CC_STAT_AREA])
+        comp_w = int(stats[i, cv2.CC_STAT_WIDTH])
+        comp_h = int(stats[i, cv2.CC_STAT_HEIGHT])
+        cy     = float(centroids[i][1])
 
         if comp_w > cw * 0.50 and comp_h < 8:
             if verbose:
-                print(f"  {i:>4}  {area:>6}  {cy:>10.1f}  {'RULE':>8}  {'—':>10}  {'DISCARD':>8}")
+                print(f"  {i:>4}  {area:>6}  {cy:>10.1f}  {'RULE/DISCARD':>8}")
             continue
 
-        zone_name = "lower" if cy >= name_zone_y else "upper"
-        threshold = keep_lower if cy >= name_zone_y else keep_upper
-        action    = "KEEP" if area >= threshold else "REMOVE"
-
+        action = "KEEP" if area >= keep_min else "REMOVE"
         if verbose:
-            print(f"  {i:>4}  {area:>6}  {cy:>10.1f}  {zone_name:>8}  {threshold:>10}  {action:>8}")
+            print(f"  {i:>4}  {area:>6}  {cy:>10.1f}  {action:>8}")
 
-        if area >= threshold:
+        if area >= keep_min:
             mask = labels == i
             output[mask] = arr[mask]
 

@@ -696,6 +696,21 @@ async def cloud_extract_preview(
     return Response(content=png_bytes, media_type="image/png")
 
 
+@router_v1.post("/debug-denoise")
+async def cloud_extract_debug_denoise(
+    file: UploadFile = File(...),
+    ctx: UserContext = Depends(require_user_context),
+) -> Response:
+    """Upload ANY image (full cheque OR just a sig crop) — returns the denoised PNG.
+    No HF token. Use this to verify the denoiser works on a specific image."""
+    raw_bytes = await file.read()
+    _, img = _convert_to_png(raw_bytes)
+    cleaned = _denoise_sig_crop(img)
+    buf = io.BytesIO()
+    cleaned.save(buf, format="PNG")
+    return Response(content=buf.getvalue(), media_type="image/png")
+
+
 @router_v1.post("/debug-zone")
 async def cloud_extract_debug_zone(
     file: UploadFile = File(...),
@@ -828,25 +843,21 @@ async def cloud_extract_debug_ink(
 
 def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
     """
-    Remove printed text (ANKIT KUMAR, UMAR, "Please sign above", bank name etc.)
-    from a signature crop using OpenCV connected-component filtering.
+    Remove printed text (account name, "Please sign above", etc.) from a
+    signature crop.  Two-stage approach:
 
-    Two-zone strategy:
-      Upper zone (y < 72 % of crop height) — signature body:
-        Keep blobs ≥ 15 % of the largest stroke blob (floor 150 px).
-      Lower zone (y ≥ 72 %) — name / instruction area:
-        Keep only blobs ≥ 45 % of largest — only major sig loops that
-        dip very low survive; printed name characters (typically 10–30 %
-        of stroke area) are always removed.
+    Stage 1 — Gap detection (hard cut):
+      Re-runs the same row-density profiling used by the sig detector.
+      If a blank gap of ≥ 3 rows is found AND ≥ 4 ink rows sit above it,
+      every row at or below the gap is blanked white.  This eliminates
+      the printed name regardless of how small or large its characters are.
 
-    Centroid y is used (not bbox top) so that blobs straddling the
-    boundary are classified by where most of their ink sits.
-
-    Horizontal rules (width > 50 % of crop, height < 8 px) are always
-    discarded — the "please sign above" underline is not a stroke.
-
-    cv2 5.0.0 confirmed installed. Graceful degradation: returns crop
-    unchanged if cv2 is unavailable for any reason.
+    Stage 2 — Connected-component noise filter:
+      After the hard cut, small isolated blobs (dots, compression artefacts,
+      remnant descenders that crossed the gap) are removed.  Only blobs
+      ≥ 12 % of the largest stroke blob are kept (floor: 80 px).
+      Horizontal rules wider than 50 % of the crop and thinner than 8 px
+      are always discarded.
     """
     try:
         import cv2
@@ -854,37 +865,59 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
 
         arr  = np.array(crop.convert("RGB"))
         gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
+        cw, ch = crop.width, crop.height
 
-        # Otsu binarisation — ink → 255, background → 0
+        # ── Stage 1: row-density gap detection ───────────────────────────
+        # Crude threshold (not Otsu) — intentionally lenient so any ink
+        # registers as "ink", even faint printed text.
+        ink_mask = (gray < 180).astype(np.uint8)
+        row_density = ink_mask.sum(axis=1) / max(cw, 1)
+        ink_rows    = row_density > 0.005   # row has at least 0.5 % ink coverage
+
+        best_gap_start = ch   # row index of best gap top; default = no cut
+        best_gap_len   = 0
+        cur_start = cur_len = 0
+        in_gap = False
+
+        for y, has_ink in enumerate(ink_rows):
+            if not has_ink:
+                if not in_gap:
+                    cur_start, cur_len, in_gap = y, 0, True
+                cur_len += 1
+                if cur_len > best_gap_len:
+                    best_gap_len   = cur_len
+                    best_gap_start = cur_start
+            else:
+                in_gap = False
+
+        gap_cut_applied = False
+        if best_gap_len >= 3:
+            ink_above = int(ink_rows[:best_gap_start].sum())
+            if ink_above >= 4:
+                arr[best_gap_start:, :] = 255   # hard-blank everything below the gap
+                gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
+                gap_cut_applied = True
+
+        # ── Stage 2: connected-component noise filter ─────────────────────
         _, binary = cv2.threshold(
             gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
         )
-
-        # centroids is the 4th output: shape (num_labels, 2) — (cx, cy)
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
             binary, connectivity=8
         )
 
-        cw, ch = crop.width, crop.height
-        name_zone_y = ch * 0.72   # blobs whose centroid sits below this = name zone
-
-        # ── Pass 1: largest non-rule blob area ───────────────────────────
         max_area = 0
         for i in range(1, num_labels):
             area   = int(stats[i, cv2.CC_STAT_AREA])
             comp_w = int(stats[i, cv2.CC_STAT_WIDTH])
             comp_h = int(stats[i, cv2.CC_STAT_HEIGHT])
             if comp_w > cw * 0.50 and comp_h < 8:
-                continue   # horizontal rule
+                continue   # horizontal rule — skip when finding max
             if area > max_area:
                 max_area = area
 
-        # Upper zone threshold: ≥ 15 % of dominant stroke, floor 150 px
-        keep_upper = max(150, int(max_area * 0.15))
-        # Lower (name) zone: require ≥ 45 % — only deep-dipping sig strokes survive
-        keep_lower = max(150, int(max_area * 0.45))
+        keep_min = max(80, int(max_area * 0.12))
 
-        # ── Pass 2: white canvas, paste qualifying blobs ──────────────────
         output = np.full_like(arr, 255)
         for i in range(1, num_labels):
             area   = int(stats[i, cv2.CC_STAT_AREA])
@@ -892,17 +925,14 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
             comp_h = int(stats[i, cv2.CC_STAT_HEIGHT])
             if comp_w > cw * 0.50 and comp_h < 8:
                 continue   # horizontal rule — always discard
-            centroid_y = float(centroids[i][1])
-            threshold  = keep_lower if centroid_y >= name_zone_y else keep_upper
-            if area >= threshold:
+            if area >= keep_min:
                 mask = labels == i
                 output[mask] = arr[mask]
 
-        result = Image.fromarray(output.astype(np.uint8))
         log.info("demo.cloud_extract.denoise_done",
-                 max_blob=max_area, keep_upper=keep_upper, keep_lower=keep_lower,
-                 blobs_total=num_labels - 1)
-        return result
+                 gap_cut=gap_cut_applied, gap_row=best_gap_start, gap_len=best_gap_len,
+                 max_blob=max_area, keep_min=keep_min, blobs_total=num_labels - 1)
+        return Image.fromarray(output.astype(np.uint8))
 
     except Exception as exc:
         log.warning("demo.cloud_extract.denoise_failed", error=str(exc))
