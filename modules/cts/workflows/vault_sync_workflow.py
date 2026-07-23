@@ -1,19 +1,26 @@
 """
-VaultSyncWorkflow — syncs CBS account data into Redis vaults.
+VaultSyncWorkflow — syncs CBS account data into Redis + YugabyteDB vaults.
 
 Triggered: CBS event stream OR schedule (daily at 6AM).
 Workflow ID: cts-vaultsync-{bank_id}-{date}  (idempotent per bank per day).
+
 Activities:
-  1. load_signatures_from_cbs  — pull all signature specimens from CBS
-  2. load_pps_from_cbs         — pull active positive-pay records
-  3. warm_redis_vault          — pipeline-write to Redis (batch SET)
-  4. verify_vault_integrity    — sample N random keys, assert Redis has them
+  1. load_signatures_from_cbs  — pull all signature specimens from CBS (raw image bytes)
+  2. embed_and_store_signatures — embed each raw specimen → store in vault (YugabyteDB + Redis)
+  3. load_pps_from_cbs         — pull active positive-pay records
+  4. warm_redis_vault          — pipeline-write PPS records to Redis
+  5. verify_vault_integrity    — sample N random keys, assert Redis has them
+
+Cold-restart recovery (Redis only — embeddings already in YugabyteDB):
+  warm_redis_from_db — reads cts.signature_embeddings → pipeline-writes packed float32 to Redis.
+  No embedding model required. Wired by DeltaVaultSyncWorkflow or a dedicated recovery job.
 
 Exactly-once: Temporal workflow ID deduplicates concurrent trigger events.
 """
 import base64
 import hashlib
 import hmac
+from collections import defaultdict
 from datetime import date, timedelta
 from typing import Any, Optional
 
@@ -24,10 +31,6 @@ from temporalio.common import RetryPolicy
 
 log = structlog.get_logger()
 
-# Standard retry policy for CBS/Redis-backed infra calls — same shape as
-# _CBS_RETRY in cheque_workflow.py (network-dependent, generous timeout, fast
-# retry). None of these four activities are AI/NGCH/audit-shaped, so the CBS
-# constant is the closest documented fit per .claude/rules/temporal.md.
 _INFRA_RETRY = RetryPolicy(
     maximum_attempts=3,
     initial_interval=timedelta(seconds=2),
@@ -42,28 +45,16 @@ _INFRA_RETRY = RetryPolicy(
 class VaultSyncInput(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id: str
-    pepper: str                 # HMAC pepper from Vault (not logged) — required:
-                                 # an empty pepper would HMAC-hash every account
-                                 # number with a predictable key, defeating the
-                                 # whole point of a bank-specific pepper (see
-                                 # .claude/rules/pii-data-protection.md Rule 1)
-    sync_date: str = ""         # ISO date "YYYY-MM-DD" — part of idempotent workflow ID
-    triggered_by: str = "SCHEDULED"   # SCHEDULED | MANUAL
+    pepper: str
+    sync_date: str = ""
+    triggered_by: str = "SCHEDULED"
 
 
 class SignatureRecord(BaseModel):
     model_config = ConfigDict(frozen=True)
     account_number: str
-    specimens: list[bytes]   # binary image blobs
+    specimens: list[bytes]
 
-    # temporalio 1.7.1 has no pydantic-aware data converter (project-wide gap
-    # — see CLAUDE.md Phase 9 notes), so the default JSON payload converter
-    # handles bytes fields by round-tripping them as [int, int, ...] byte-value
-    # arrays, which Pydantic then refuses to parse back as `bytes`. This
-    # activity's return value crosses a real Temporal activity/workflow
-    # boundary (see VaultSyncWorkflow.run), so it needs an explicit,
-    # converter-agnostic base64 round trip rather than relying on whatever the
-    # default JSON serialization of bytes happens to produce.
     @field_serializer("specimens")
     def _serialize_specimens(self, specimens: list[bytes]) -> list[str]:
         return [base64.b64encode(s).decode("ascii") for s in specimens]
@@ -87,8 +78,9 @@ class PPSRecord(BaseModel):
 
 class VaultSyncResult(BaseModel):
     model_config = ConfigDict(frozen=True)
-    outcome: str                       # "SYNC_COMPLETE" | "PARTIAL_FAILURE"
+    outcome: str                            # "SYNC_COMPLETE" | "PARTIAL_FAILURE"
     signatures_loaded: int
+    signatures_embedded: int = 0            # subset of signatures_loaded successfully embedded
     pps_records_loaded: int
     stop_records_loaded: int = 0
     integrity_check_passed: bool
@@ -97,7 +89,7 @@ class VaultSyncResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Activity: load_signatures_from_cbs
+# Activity 1: load_signatures_from_cbs
 # ---------------------------------------------------------------------------
 
 @activity.defn
@@ -105,40 +97,106 @@ async def load_signatures_from_cbs(
     bank_id: str,
     cbs_connector=None,
 ) -> list[SignatureRecord]:
-    """
-    Fetch all signature specimens from CBS for this bank.
-    Returns list of SignatureRecord — each account may have multiple specimens.
-    CBS unavailability raises CBSUnavailableError (Temporal retries with CBS_RETRY policy).
-    """
+    """Fetch all signature specimens from CBS. Returns raw image bytes per account."""
     raw_records = await cbs_connector.list_signature_specimens(bank_id)
 
     records = []
     for raw in raw_records:
         account_number = raw.get("account_number", "")
-        specimens_b64 = raw.get("specimens", [])
-        if not account_number or not specimens_b64:
+        specimens_raw = raw.get("specimens", [])
+        if not account_number or not specimens_raw:
             log.warning(
                 "vault_sync.invalid_signature_record",
                 bank_id=bank_id,
                 account_last4=account_number[-4:] if account_number else "????",
             )
             continue
-        specimens = [
-            s if isinstance(s, bytes) else s.encode()
-            for s in specimens_b64
-        ]
+        specimens = [s if isinstance(s, bytes) else s.encode() for s in specimens_raw]
         records.append(SignatureRecord(account_number=account_number, specimens=specimens))
 
-    log.info(
-        "vault_sync.signatures_loaded_from_cbs",
-        bank_id=bank_id,
-        count=len(records),
-    )
+    log.info("vault_sync.signatures_loaded_from_cbs", bank_id=bank_id, count=len(records))
     return records
 
 
 # ---------------------------------------------------------------------------
-# Activity: load_pps_from_cbs
+# Activity 2: embed_and_store_signatures (NEW)
+# ---------------------------------------------------------------------------
+
+@activity.defn
+async def embed_and_store_signatures(
+    bank_id: str,
+    signature_records: list[SignatureRecord],
+    vault=None,
+    embedding_model=None,
+) -> dict[str, int]:
+    """
+    Embed CBS signature specimens and store in vault (YugabyteDB + Redis).
+
+    For each SignatureRecord: embed each raw specimen via embedding_model →
+    call vault.store_embeddings() which durably writes YugabyteDB and then
+    warms Redis. No re-embedding is needed on Redis cold restart — warm from
+    YugabyteDB directly via warm_redis_from_db.
+
+    Returns:
+        {"embedded": <accounts successfully embedded>, "failed": <accounts skipped>}
+    """
+    if not signature_records:
+        return {"embedded": 0, "failed": 0}
+
+    if embedding_model is None or vault is None:
+        log.warning(
+            "vault_sync.embed_skipped_no_model_or_vault",
+            bank_id=bank_id,
+            record_count=len(signature_records),
+        )
+        return {"embedded": 0, "failed": len(signature_records)}
+
+    from shared.ai.signature_embedding import EmbeddingModelUnavailableError
+
+    embedded = 0
+    failed = 0
+
+    for rec in signature_records:
+        specimen_embeddings: list[list[float]] = []
+        for raw in rec.specimens:
+            try:
+                emb = await embedding_model.embed(raw, bank_id=bank_id)
+                specimen_embeddings.append(emb)
+            except (EmbeddingModelUnavailableError, Exception) as exc:
+                log.warning(
+                    "vault_sync.specimen_embed_failed",
+                    bank_id=bank_id,
+                    account_last4=rec.account_number[-4:],
+                    error=str(exc),
+                )
+
+        if not specimen_embeddings:
+            failed += 1
+            continue
+
+        try:
+            await vault.store_embeddings(rec.account_number, specimen_embeddings, source="CBS")
+            embedded += 1
+        except Exception as exc:
+            log.error(
+                "vault_sync.store_embeddings_failed",
+                bank_id=bank_id,
+                account_last4=rec.account_number[-4:],
+                error=str(exc),
+            )
+            failed += 1
+
+    log.info(
+        "vault_sync.embed_complete",
+        bank_id=bank_id,
+        embedded=embedded,
+        failed=failed,
+    )
+    return {"embedded": embedded, "failed": failed}
+
+
+# ---------------------------------------------------------------------------
+# Activity 3: load_pps_from_cbs
 # ---------------------------------------------------------------------------
 
 @activity.defn
@@ -146,10 +204,7 @@ async def load_pps_from_cbs(
     bank_id: str,
     cbs_connector=None,
 ) -> list[PPSRecord]:
-    """
-    Fetch all active Positive Pay records from CBS.
-    Returns list of PPSRecord.
-    """
+    """Fetch all active Positive Pay records from CBS."""
     raw_records = await cbs_connector.list_positive_pay_records(bank_id)
 
     records = []
@@ -175,16 +230,12 @@ async def load_pps_from_cbs(
             ttl_seconds=raw.get("ttl_seconds"),
         ))
 
-    log.info(
-        "vault_sync.pps_loaded_from_cbs",
-        bank_id=bank_id,
-        count=len(records),
-    )
+    log.info("vault_sync.pps_loaded_from_cbs", bank_id=bank_id, count=len(records))
     return records
 
 
 # ---------------------------------------------------------------------------
-# Activity: warm_redis_vault
+# Activity 4: warm_redis_vault (PPS only)
 # ---------------------------------------------------------------------------
 
 def _hmac_key(pepper: str, bank_id: str, account_number: str) -> str:
@@ -199,31 +250,18 @@ def _hmac_key(pepper: str, bank_id: str, account_number: str) -> str:
 async def warm_redis_vault(
     bank_id: str,
     pepper: str,
-    signature_records: list[SignatureRecord],
     pps_records: list[PPSRecord],
     redis_client=None,
 ) -> dict[str, int]:
     """
-    Pipeline-write all vault records to Redis.
-    Uses Redis pipeline for bulk writes — O(1) round trips per batch.
-    Returns counts of successfully written records.
+    Pipeline-write PPS records to Redis.
+
+    Signature warm is no longer done here — embed_and_store_signatures handles
+    that by writing through vault.store_embeddings() which writes packed float32
+    embeddings to Redis directly.  This activity only handles PPS.
     """
-    sig_count = 0
     pps_count = 0
 
-    # Signature vault writes
-    if signature_records:
-        pipe = redis_client.pipeline()
-        for rec in signature_records:
-            digest = _hmac_key(pepper, bank_id, rec.account_number)
-            key = f"sig:{bank_id}:{digest}"
-            pipe.delete(key)
-            for specimen in rec.specimens:
-                pipe.rpush(key, specimen)
-        pipe.execute()
-        sig_count = len(signature_records)
-
-    # PPS vault writes
     if pps_records:
         pipe = redis_client.pipeline()
         for rec in pps_records:
@@ -239,17 +277,12 @@ async def warm_redis_vault(
         pipe.execute()
         pps_count = len(pps_records)
 
-    log.info(
-        "vault_sync.warm_complete",
-        bank_id=bank_id,
-        signatures=sig_count,
-        pps_records=pps_count,
-    )
-    return {"signatures": sig_count, "pps_records": pps_count}
+    log.info("vault_sync.pps_warm_complete", bank_id=bank_id, pps_records=pps_count)
+    return {"pps_records": pps_count}
 
 
 # ---------------------------------------------------------------------------
-# Activity: verify_vault_integrity
+# Activity 5: verify_vault_integrity
 # ---------------------------------------------------------------------------
 
 @activity.defn
@@ -259,11 +292,7 @@ async def verify_vault_integrity(
     sample_accounts: list[str],
     redis_client=None,
 ) -> bool:
-    """
-    Spot-check N random accounts to confirm Redis actually has their vault entries.
-    Returns True if all sampled accounts are present in Redis.
-    Logs any missing accounts at WARNING level.
-    """
+    """Spot-check N random accounts to confirm Redis has their signature vault entries."""
     missing = []
     for account_number in sample_accounts:
         digest = _hmac_key(pepper, bank_id, account_number)
@@ -281,26 +310,67 @@ async def verify_vault_integrity(
             continue
 
         if count == 0:
-            log.warning(
-                "vault_sync.integrity_miss",
-                bank_id=bank_id,
-                account_last4=account_number[-4:],
-            )
+            log.warning("vault_sync.integrity_miss", bank_id=bank_id, account_last4=account_number[-4:])
             missing.append(account_number[-4:])
 
     passed = len(missing) == 0
-    log.info(
-        "vault_sync.integrity_check",
-        bank_id=bank_id,
-        sampled=len(sample_accounts),
-        missing=len(missing),
-        passed=passed,
-    )
+    log.info("vault_sync.integrity_check", bank_id=bank_id, sampled=len(sample_accounts),
+             missing=len(missing), passed=passed)
     return passed
 
 
 # ---------------------------------------------------------------------------
-# VaultSyncWorkflow — orchestrates all four activities
+# Recovery activity: warm_redis_from_db (cold-restart Redis warm)
+# ---------------------------------------------------------------------------
+
+@activity.defn
+async def warm_redis_from_db(
+    bank_id: str,
+    db_pool=None,
+    redis_client=None,
+) -> dict[str, int]:
+    """
+    Bulk-reads cts.signature_embeddings from YugabyteDB and pipeline-writes
+    packed float32 embeddings to Redis.  No embedding model required.
+
+    Used when Redis restarts cold — avoids re-embedding 5M+ customers from CBS.
+    Wired by DeltaVaultSyncWorkflow or a dedicated cold-start recovery job.
+    """
+    if db_pool is None or redis_client is None:
+        log.warning("vault_sync.warm_from_db_skipped", bank_id=bank_id,
+                    reason="no_db_pool_or_redis")
+        return {"accounts": 0}
+
+    async with db_pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT account_hash, specimen_index, embedding
+            FROM cts.signature_embeddings
+            WHERE bank_id = $1
+            ORDER BY account_hash, specimen_index
+            """,
+            bank_id,
+        )
+
+    by_account: dict[str, list[bytes]] = defaultdict(list)
+    for row in rows:
+        by_account[row["account_hash"]].append(bytes(row["embedding"]))
+
+    pipe = redis_client.pipeline()
+    for account_hash, packed_list in by_account.items():
+        key = f"sig:{bank_id}:{account_hash}"
+        pipe.delete(key)
+        for packed in packed_list:
+            pipe.rpush(key, packed)
+    pipe.execute()
+
+    count = len(by_account)
+    log.info("vault_sync.warm_from_db_complete", bank_id=bank_id, accounts=count)
+    return {"accounts": count}
+
+
+# ---------------------------------------------------------------------------
+# VaultSyncWorkflow — orchestrates 5 activities
 # ---------------------------------------------------------------------------
 
 @workflow.defn
@@ -311,13 +381,11 @@ class VaultSyncWorkflow:
     @workflow.run
     async def run(self, inp: VaultSyncInput) -> VaultSyncResult:
         """
-        Production Temporal @workflow.run entry point. Dispatches all four
-        activities through workflow.execute_activity() — cbs_connector/
-        redis_client are deliberately omitted from the args and resolve to
-        their None default; wiring real instances is worker-level DI
-        (out of this fix's scope, same precedent as detect_alteration's
-        vllm_client in cheque_workflow.py).
+        Temporal @workflow.run. Activities receive vault/embedding_model/redis_client
+        via worker-level DI (same precedent as other activities in this codebase).
+        Args passed here are only serialisable Temporal payloads.
         """
+        # Step 1: Load raw specimen images from CBS
         try:
             sig_records = await workflow.execute_activity(
                 load_signatures_from_cbs,
@@ -336,6 +404,15 @@ class VaultSyncWorkflow:
                 triggered_by=inp.triggered_by,
             )
 
+        # Step 2: Embed specimens and store in vault (YugabyteDB + Redis)
+        embed_result = await workflow.execute_activity(
+            embed_and_store_signatures,
+            args=[inp.bank_id, sig_records],
+            start_to_close_timeout=timedelta(seconds=600),
+            retry_policy=_INFRA_RETRY,
+        )
+
+        # Step 3: Load PPS records from CBS
         try:
             pps_records = await workflow.execute_activity(
                 load_pps_from_cbs,
@@ -348,19 +425,22 @@ class VaultSyncWorkflow:
             return VaultSyncResult(
                 outcome="PARTIAL_FAILURE",
                 signatures_loaded=len(sig_records),
+                signatures_embedded=embed_result.get("embedded", 0),
                 pps_records_loaded=0,
                 integrity_check_passed=False,
                 failed_accounts=["PPS_LOAD_FAILED"],
                 triggered_by=inp.triggered_by,
             )
 
+        # Step 4: Warm Redis with PPS records
         await workflow.execute_activity(
             warm_redis_vault,
-            args=[inp.bank_id, inp.pepper, sig_records, pps_records],
+            args=[inp.bank_id, inp.pepper, pps_records],
             start_to_close_timeout=timedelta(seconds=120),
             retry_policy=_INFRA_RETRY,
         )
 
+        # Step 5: Integrity check on signature keys
         accounts_to_sample = [r.account_number for r in sig_records[:10]]
         integrity_ok = await workflow.execute_activity(
             verify_vault_integrity,
@@ -374,6 +454,7 @@ class VaultSyncWorkflow:
             bank_id=inp.bank_id,
             sync_date=inp.sync_date,
             signatures=len(sig_records),
+            embedded=embed_result.get("embedded", 0),
             pps=len(pps_records),
             integrity=integrity_ok,
         )
@@ -381,6 +462,7 @@ class VaultSyncWorkflow:
         return VaultSyncResult(
             outcome="SYNC_COMPLETE",
             signatures_loaded=len(sig_records),
+            signatures_embedded=embed_result.get("embedded", 0),
             pps_records_loaded=len(pps_records),
             integrity_check_passed=integrity_ok,
             triggered_by=inp.triggered_by,
@@ -391,23 +473,19 @@ class VaultSyncWorkflow:
         inp: VaultSyncInput,
         cbs_connector=None,
         redis_client=None,
+        vault=None,
+        embedding_model=None,
         sample_accounts: Optional[list[str]] = None,
     ) -> VaultSyncResult:
-        """
-        Testable orchestration. Production Temporal @workflow.run wraps this.
-        """
-        # Activity 1: Load signatures from CBS
+        """Testable orchestration — same logic as run(), direct Python calls."""
+        # Step 1
         try:
             sig_records = await load_signatures_from_cbs(
                 bank_id=inp.bank_id,
                 cbs_connector=cbs_connector,
             )
         except Exception as exc:
-            log.error(
-                "vault_sync.signature_load_failed",
-                bank_id=inp.bank_id,
-                error=str(exc),
-            )
+            log.error("vault_sync.signature_load_failed", bank_id=inp.bank_id, error=str(exc))
             return VaultSyncResult(
                 outcome="PARTIAL_FAILURE",
                 signatures_loaded=0,
@@ -416,37 +494,43 @@ class VaultSyncWorkflow:
                 failed_accounts=["SIGNATURE_LOAD_FAILED"],
             )
 
-        # Activity 2: Load PPS records from CBS
+        # Step 2
+        embed_result = await embed_and_store_signatures(
+            bank_id=inp.bank_id,
+            signature_records=sig_records,
+            vault=vault,
+            embedding_model=embedding_model,
+        )
+
+        # Step 3
         try:
             pps_records = await load_pps_from_cbs(
                 bank_id=inp.bank_id,
                 cbs_connector=cbs_connector,
             )
         except Exception as exc:
-            log.error(
-                "vault_sync.pps_load_failed",
-                bank_id=inp.bank_id,
-                error=str(exc),
-            )
+            log.error("vault_sync.pps_load_failed", bank_id=inp.bank_id, error=str(exc))
             return VaultSyncResult(
                 outcome="PARTIAL_FAILURE",
                 signatures_loaded=len(sig_records),
+                signatures_embedded=embed_result.get("embedded", 0),
                 pps_records_loaded=0,
                 integrity_check_passed=False,
                 failed_accounts=["PPS_LOAD_FAILED"],
             )
 
-        # Activity 3: Write to Redis vaults
+        # Step 4 — PPS only
         await warm_redis_vault(
             bank_id=inp.bank_id,
             pepper=inp.pepper,
-            signature_records=sig_records,
             pps_records=pps_records,
             redis_client=redis_client,
         )
 
-        # Activity 4: Spot-check integrity
-        accounts_to_sample = sample_accounts or [r.account_number for r in sig_records[:10]]
+        # Step 5
+        accounts_to_sample = sample_accounts if sample_accounts is not None else [
+            r.account_number for r in sig_records[:10]
+        ]
         integrity_ok = await verify_vault_integrity(
             bank_id=inp.bank_id,
             pepper=inp.pepper,
@@ -459,6 +543,7 @@ class VaultSyncWorkflow:
             bank_id=inp.bank_id,
             sync_date=inp.sync_date,
             signatures=len(sig_records),
+            embedded=embed_result.get("embedded", 0),
             pps=len(pps_records),
             integrity=integrity_ok,
         )
@@ -466,6 +551,7 @@ class VaultSyncWorkflow:
         return VaultSyncResult(
             outcome="SYNC_COMPLETE",
             signatures_loaded=len(sig_records),
+            signatures_embedded=embed_result.get("embedded", 0),
             pps_records_loaded=len(pps_records),
             integrity_check_passed=integrity_ok,
             triggered_by=inp.triggered_by,
@@ -477,37 +563,16 @@ class VaultSyncWorkflow:
 # ---------------------------------------------------------------------------
 
 async def register_vault_sync_schedule(temporal_client, bank_id: str) -> None:
-    """
-    Register (or update) a Temporal Schedule that triggers VaultSyncWorkflow
-    every day at 07:00 AM.
-
-    Schedule ID: cts-vaultsync-schedule-{bank_id}
-    If the schedule already exists it is left unchanged (idempotent).
-
-    Call this from the CTS worker startup coroutine after the Temporal client
-    is ready:
-
-        await register_vault_sync_schedule(client, bank_id)
-    """
     from temporalio.client import (
         Schedule,
         ScheduleActionStartWorkflow,
         ScheduleIntervalSpec,
         ScheduleSpec,
-        ScheduleAlreadyRunningError,
     )
     from temporalio.common import RetryPolicy
-    from datetime import timedelta
     from shared.config.config_service import config_service
 
     schedule_id = f"cts-vaultsync-schedule-{bank_id}"
-
-    # Fetched once at schedule-registration time (bank onboarding / worker
-    # startup), not per-fire: Temporal Schedules serialize the workflow input
-    # once and replay it on every trigger. This is correct for a pepper —
-    # unlike session tokens/API keys, an account-hashing pepper must stay
-    # stable (rotating it would invalidate every existing vault key overnight)
-    # so baking it into the schedule's fixed input is the right lifetime.
     pepper = await config_service.get_secret("pii_hash_pepper")
 
     try:
@@ -525,14 +590,12 @@ async def register_vault_sync_schedule(temporal_client, bank_id: str) -> None:
                     ),
                 ),
                 spec=ScheduleSpec(
-                    # "0 7 * * *" — every day at 07:00 AM
                     cron_expressions=["0 7 * * *"],
                 ),
             ),
         )
         log.info("vault_sync.schedule_registered", bank_id=bank_id, schedule_id=schedule_id)
     except Exception as exc:
-        # Schedule already exists — no action needed
         if "already exists" in str(exc).lower() or "already registered" in str(exc).lower():
             log.info("vault_sync.schedule_exists", bank_id=bank_id, schedule_id=schedule_id)
         else:
