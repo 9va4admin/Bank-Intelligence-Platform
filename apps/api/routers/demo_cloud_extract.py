@@ -1080,6 +1080,7 @@ async def cloud_extract_cheque(
     model: str = "qwen-72b",
     ctx: UserContext = Depends(require_user_context),
 ) -> CloudExtractResponse:
+    raise HTTPException(status_code=500, detail=f"ROUTE_HIT_db1d3db model={model}")
     _all_valid = set(_MODEL_MAPPING) | _YOLO_SIG_MODELS | _YOLO_SIG_ONLY_MODELS
     if model not in _all_valid:
         raise HTTPException(
