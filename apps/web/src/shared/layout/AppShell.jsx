@@ -128,6 +128,7 @@ const SIDEBAR_MODULES = [
           { to: '/cts/demo',            label: '⚡ Live Demo',        perm: 'cts:view_queue'     },
           { to: '/cts/inward-pipeline', label: 'Pipeline (Animated)', perm: 'cts:view_analytics' },
           { to: '/cts/cloud-ai-demo',   label: '☁️ Cloud AI Extract', perm: 'cts:view_queue'     },
+          { to: '/cts/sig-batch-test',  label: '🖊️ Sig Batch Test',   perm: 'cts:view_queue'     },
         ],
       },
     ],
