@@ -349,7 +349,7 @@ class TestRunWithMocks:
             },
         )
         assert len(dispatched) == 0
-        assert result.checks_run == 2
+        assert result.checks_run == 3
 
     @pytest.mark.asyncio
     async def test_iet_breach_sends_p0_alert(self):
@@ -417,4 +417,213 @@ class TestRunWithMocks:
                 "dispatched":  [],
             },
         )
-        assert result.checks_run == 2
+        assert result.checks_run == 3
+
+    @pytest.mark.asyncio
+    async def test_vault_cold_sends_warn_alert(self):
+        from modules.cts.workflows.platform_health_check_workflow import (
+            PlatformHealthCheckWorkflow, PlatformHealthInput,
+        )
+        wf = PlatformHealthCheckWorkflow()
+        dispatched = []
+        result = await wf.run_with_mocks(
+            PlatformHealthInput(bank_id="test-bank", max_hr_depth=50, max_hr_wait_minutes=45.0,
+                                min_vault_coverage_pct=95.0),
+            mock_results={
+                "iet_risk":      {"needs_alert": False, "degraded": False},
+                "human_review":  {"needs_alert": False, "degraded": False},
+                "vault_coverage": {
+                    "needs_alert": True,
+                    "coverage_pct": 40.0,
+                    "gap_accounts": 600,
+                    "degraded": False,
+                },
+                "dispatched": dispatched,
+            },
+        )
+        assert any(d["event_type"] == "VAULT_REDIS_COLD_DETECTED" for d in dispatched)
+        assert any(d["severity"] == "WARN" for d in dispatched)
+        assert any(d["priority"] == "P1" for d in dispatched)
+        assert result.alerts_sent == 1
+
+    @pytest.mark.asyncio
+    async def test_vault_coverage_key_absent_defaults_no_alert(self):
+        from modules.cts.workflows.platform_health_check_workflow import (
+            PlatformHealthCheckWorkflow, PlatformHealthInput,
+        )
+        wf = PlatformHealthCheckWorkflow()
+        dispatched = []
+        result = await wf.run_with_mocks(
+            PlatformHealthInput(bank_id="test-bank", max_hr_depth=50, max_hr_wait_minutes=45.0),
+            mock_results={
+                "iet_risk":    {"needs_alert": False, "degraded": False},
+                "human_review": {"needs_alert": False, "degraded": False},
+                "dispatched":  dispatched,
+                # vault_coverage intentionally absent — should default to no-alert
+            },
+        )
+        assert all(d["event_type"] != "VAULT_REDIS_COLD_DETECTED" for d in dispatched)
+        assert result.checks_run == 3
+
+
+# ── Activity: check_vault_redis_coverage_for_alert ───────────────────────────
+
+class TestCheckVaultCoverage:
+
+    def test_import(self):
+        from modules.cts.workflows.activities.platform_health_activities import (
+            check_vault_redis_coverage_for_alert,
+        )
+        assert callable(check_vault_redis_coverage_for_alert)
+
+    @pytest.mark.asyncio
+    async def test_degraded_when_db_none(self):
+        from modules.cts.workflows.activities.platform_health_activities import (
+            CheckVaultCoverageInput, check_vault_redis_coverage_for_alert,
+        )
+        mock_redis = MagicMock()
+        result = await check_vault_redis_coverage_for_alert(
+            CheckVaultCoverageInput(bank_id="test-bank", min_coverage_pct=95.0),
+            db_pool=None,
+            redis_client=mock_redis,
+        )
+        assert result.degraded is True
+        assert result.needs_alert is False
+        assert result.coverage_pct == 100.0  # safe default
+
+    @pytest.mark.asyncio
+    async def test_degraded_when_redis_none(self):
+        from modules.cts.workflows.activities.platform_health_activities import (
+            CheckVaultCoverageInput, check_vault_redis_coverage_for_alert,
+        )
+        mock_pool = AsyncMock()
+        result = await check_vault_redis_coverage_for_alert(
+            CheckVaultCoverageInput(bank_id="test-bank", min_coverage_pct=95.0),
+            db_pool=mock_pool,
+            redis_client=None,
+        )
+        assert result.degraded is True
+        assert result.needs_alert is False
+
+    @pytest.mark.asyncio
+    async def test_full_coverage_no_alert(self):
+        from modules.cts.workflows.activities.platform_health_activities import (
+            CheckVaultCoverageInput, check_vault_redis_coverage_for_alert,
+        )
+        mock_conn = AsyncMock()
+        mock_conn.fetchrow = AsyncMock(return_value={"accounts": 1000})
+        mock_pool = AsyncMock()
+        mock_pool.acquire = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_conn),
+            __aexit__=AsyncMock(return_value=False),
+        ))
+        mock_redis = MagicMock()
+        mock_redis.scan_iter = MagicMock(
+            return_value=iter([f"sig:test-bank:hash{i}" for i in range(1000)])
+        )
+        result = await check_vault_redis_coverage_for_alert(
+            CheckVaultCoverageInput(bank_id="test-bank", min_coverage_pct=95.0),
+            db_pool=mock_pool,
+            redis_client=mock_redis,
+        )
+        assert result.needs_alert is False
+        assert result.coverage_pct == 100.0
+        assert result.gap_accounts == 0
+        assert result.yugabyte_accounts == 1000
+        assert result.redis_sig_keys == 1000
+        assert result.degraded is False
+
+    @pytest.mark.asyncio
+    async def test_low_coverage_triggers_warn(self):
+        from modules.cts.workflows.activities.platform_health_activities import (
+            CheckVaultCoverageInput, check_vault_redis_coverage_for_alert,
+        )
+        mock_conn = AsyncMock()
+        mock_conn.fetchrow = AsyncMock(return_value={"accounts": 1000})
+        mock_pool = AsyncMock()
+        mock_pool.acquire = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_conn),
+            __aexit__=AsyncMock(return_value=False),
+        ))
+        mock_redis = MagicMock()
+        # Only 400 keys in Redis — 40% coverage
+        mock_redis.scan_iter = MagicMock(
+            return_value=iter([f"sig:test-bank:hash{i}" for i in range(400)])
+        )
+        result = await check_vault_redis_coverage_for_alert(
+            CheckVaultCoverageInput(bank_id="test-bank", min_coverage_pct=95.0),
+            db_pool=mock_pool,
+            redis_client=mock_redis,
+        )
+        assert result.needs_alert is True
+        assert result.alert_severity == "WARN"
+        assert result.coverage_pct == pytest.approx(40.0, rel=1e-3)
+        assert result.gap_accounts == 600
+
+    @pytest.mark.asyncio
+    async def test_gap_accounts_and_redis_keys_correct(self):
+        from modules.cts.workflows.activities.platform_health_activities import (
+            CheckVaultCoverageInput, check_vault_redis_coverage_for_alert,
+        )
+        mock_conn = AsyncMock()
+        mock_conn.fetchrow = AsyncMock(return_value={"accounts": 500})
+        mock_pool = AsyncMock()
+        mock_pool.acquire = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_conn),
+            __aexit__=AsyncMock(return_value=False),
+        ))
+        mock_redis = MagicMock()
+        mock_redis.scan_iter = MagicMock(
+            return_value=iter([f"sig:test-bank:h{i}" for i in range(300)])
+        )
+        result = await check_vault_redis_coverage_for_alert(
+            CheckVaultCoverageInput(bank_id="test-bank", min_coverage_pct=95.0),
+            db_pool=mock_pool,
+            redis_client=mock_redis,
+        )
+        assert result.yugabyte_accounts == 500
+        assert result.redis_sig_keys == 300
+        assert result.gap_accounts == 200
+        assert result.coverage_pct == pytest.approx(60.0, rel=1e-3)
+
+    @pytest.mark.asyncio
+    async def test_zero_yugabyte_accounts_full_coverage_no_alert(self):
+        """No accounts in DB means nothing to warm — coverage is 100%."""
+        from modules.cts.workflows.activities.platform_health_activities import (
+            CheckVaultCoverageInput, check_vault_redis_coverage_for_alert,
+        )
+        mock_conn = AsyncMock()
+        mock_conn.fetchrow = AsyncMock(return_value={"accounts": 0})
+        mock_pool = AsyncMock()
+        mock_pool.acquire = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_conn),
+            __aexit__=AsyncMock(return_value=False),
+        ))
+        mock_redis = MagicMock()
+        mock_redis.scan_iter = MagicMock(return_value=iter([]))
+        result = await check_vault_redis_coverage_for_alert(
+            CheckVaultCoverageInput(bank_id="test-bank", min_coverage_pct=95.0),
+            db_pool=mock_pool,
+            redis_client=mock_redis,
+        )
+        assert result.needs_alert is False
+        assert result.coverage_pct == 100.0
+
+    @pytest.mark.asyncio
+    async def test_db_error_degrades_gracefully(self):
+        from modules.cts.workflows.activities.platform_health_activities import (
+            CheckVaultCoverageInput, check_vault_redis_coverage_for_alert,
+        )
+        mock_pool = AsyncMock()
+        mock_pool.acquire = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(side_effect=Exception("YugabyteDB timeout")),
+            __aexit__=AsyncMock(return_value=False),
+        ))
+        mock_redis = MagicMock()
+        result = await check_vault_redis_coverage_for_alert(
+            CheckVaultCoverageInput(bank_id="test-bank", min_coverage_pct=95.0),
+            db_pool=mock_pool,
+            redis_client=mock_redis,
+        )
+        assert result.degraded is True
+        assert result.needs_alert is False
