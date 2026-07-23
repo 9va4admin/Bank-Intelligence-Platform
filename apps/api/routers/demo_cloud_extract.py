@@ -874,10 +874,13 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
         row_density = ink_mask.sum(axis=1) / max(cw, 1)
         ink_rows    = row_density > 0.005   # row has at least 0.5 % ink coverage
 
-        # Find the FIRST gap ≥ 5 blank rows that follows ≥ 4 ink rows.
-        # Using "first" (not "longest") is critical: on cheques the longest
-        # gap is the large empty zone BELOW the printed name, not the small
-        # gap between the signature strokes and the name.
+        # Find the gap between signature strokes and printed name.
+        # Condition: gap >= 5 blank rows AND < 30% of total ink remains below.
+        # A gap INSIDE the signature has lots of ink below (rest of the sig +
+        # the name), so the 30% check skips it and keeps scanning.
+        # The sig-to-name gap has only a few ink rows below (the name itself),
+        # so the 30% check passes and we cut there.
+        total_ink = max(1, int(ink_rows.sum()))
         ink_rows_seen  = 0
         gap_start      = None
         gap_len        = 0
@@ -894,8 +897,10 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
                     gap_len   = 0
                 gap_len += 1
                 if ink_rows_seen >= 4 and gap_len >= 5:
-                    cut_row = gap_start
-                    break   # first qualifying gap — stop here
+                    ink_below = int(ink_rows[y + 1:].sum())
+                    if ink_below / total_ink < 0.30:   # < 30 % of ink is below
+                        cut_row = gap_start
+                        break
 
         gap_cut_applied = cut_row < ch
         if gap_cut_applied:

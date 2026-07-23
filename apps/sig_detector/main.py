@@ -112,13 +112,14 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     ink_rows = row_density > 0.01          # rows with meaningful ink
 
     # ── 3. Find the gap between signature strokes and printed name ───────
-    # Strategy: take the FIRST gap ≥ 5 blank rows that is preceded by
-    # ≥ 4 ink rows.  "First" (not "longest") is critical: the largest
-    # blank run on most cheques is the empty space BELOW the printed name,
-    # not the small gap separating signature from name.
-    ink_rows_seen  = 0
-    gap_start_cur  = None
-    gap_len_cur    = 0
+    # Condition: gap >= 5 blank rows AND < 30% of total ink rows remain
+    # below the gap.  Gaps inside the signature have lots of ink below
+    # (rest of sig + name) so the 30% check skips them.  The sig-to-name
+    # gap has only a few ink rows below (the name), so it passes.
+    total_ink = max(1, int(ink_rows.sum()))
+    ink_rows_seen   = 0
+    gap_start_cur   = None
+    gap_len_cur     = 0
     sig_bottom_zone = zh   # default: no cut, take full zone
 
     for y, has_ink in enumerate(ink_rows):
@@ -132,8 +133,10 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
                 gap_len_cur   = 0
             gap_len_cur += 1
             if ink_rows_seen >= 4 and gap_len_cur >= 5:
-                sig_bottom_zone = gap_start_cur
-                break   # first qualifying gap — stop here
+                ink_below = int(ink_rows[y + 1:].sum())
+                if ink_below / total_ink < 0.30:
+                    sig_bottom_zone = gap_start_cur
+                    break
 
     # ── 4. Find tight bbox of ink ABOVE the cut ──────────────────────────
     ink_above = ink[:sig_bottom_zone, :]
