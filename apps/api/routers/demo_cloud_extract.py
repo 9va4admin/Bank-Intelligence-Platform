@@ -826,6 +826,13 @@ async def cloud_extract_debug_ink(
     }
 
 
+def _sig_ink_fraction(img: Image.Image) -> float:
+    """Return fraction of pixels darker than 180 (ink pixels) in the image."""
+    import numpy as np
+    arr = np.array(img.convert("L"))
+    return float((arr < 180).sum()) / max(arr.size, 1)
+
+
 def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
     """
     Remove printed uppercase name ("ANKIT KUMAR", "UMAR" etc.) and security
@@ -1015,9 +1022,11 @@ async def _extract_yolov8_sig(
         cx2 = min(iw, int((x2 + pad_x) * iw))
         cy2 = min(ih, int((y2 + pad_y) * ih))
         crop = pil_img.crop((cx1, cy1, cx2, cy2))
-        # Remove printed text (name, instructions) via connected-component
-        # filtering — keeps only large ink blobs (signature strokes).
         crop = _denoise_sig_crop(crop)
+        # Skip if denoised crop is nearly empty — no real handwritten signature
+        if _sig_ink_fraction(crop) < 0.005:
+            log.info("demo.cloud_extract.no_sig_after_denoise", bbox=bbox)
+            continue
         buf = io.BytesIO()
         crop.save(buf, format="PNG")
         signature_crops.append(base64.b64encode(buf.getvalue()).decode())
@@ -1081,6 +1090,10 @@ async def _extract_yolov8_sig_only(
         cy2 = min(ih, int((y2 + 0.008) * ih))
         crop = pil_img.crop((cx1, cy1, cx2, cy2))
         crop = _denoise_sig_crop(crop)
+        # Skip if denoised crop is nearly empty — no real handwritten signature
+        if _sig_ink_fraction(crop) < 0.005:
+            log.info("demo.cloud_extract.no_sig_after_denoise", bbox=bbox)
+            continue
         buf = io.BytesIO()
         crop.save(buf, format="PNG")
         signature_crops.append(base64.b64encode(buf.getvalue()).decode())
