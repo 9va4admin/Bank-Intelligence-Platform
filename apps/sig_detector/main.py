@@ -79,13 +79,37 @@ def _ink_threshold(arr: np.ndarray) -> int:
 
 
 def _smooth_profile(profile: np.ndarray, window: int = 5) -> np.ndarray:
-    """
-    Moving-average smoothing over a 1-D row-density profile.
-    Merges tiny intra-signature gaps (1–4 rows) so they don't register as
-    the "largest gap", leaving only the true gap between signature and text.
-    """
+    """Moving-average smoothing over a 1-D row-density profile."""
     kernel = np.ones(window) / window
     return np.convolve(profile, kernel, mode="same")
+
+
+def _remove_noise_pixels(ink: np.ndarray) -> np.ndarray:
+    """
+    Remove completely isolated ink pixels (no cardinal neighbour).
+    Keeps connected strokes; eliminates salt-and-pepper noise.
+    """
+    zh, zw = ink.shape
+    has_neighbor = (
+        np.vstack([np.zeros((1, zw), dtype=np.uint8), ink[:-1, :]]) |
+        np.vstack([ink[1:, :], np.zeros((1, zw), dtype=np.uint8)]) |
+        np.hstack([np.zeros((zh, 1), dtype=np.uint8), ink[:, :-1]]) |
+        np.hstack([ink[:, 1:], np.zeros((zh, 1), dtype=np.uint8)])
+    ).astype(np.uint8)
+    return (ink & has_neighbor).astype(np.uint8)
+
+
+def _suppress_ruled_lines(ink: np.ndarray, density_thr: float = 0.40) -> np.ndarray:
+    """
+    Zero out rows whose ink density exceeds density_thr.
+    Pre-printed ruling lines span >40% of the zone width; cursive strokes
+    never do.  Removing them lets gap-detection see the true blank space
+    between the signature and the text below.
+    """
+    row_density = ink.sum(axis=1) / ink.shape[1]
+    out = ink.copy()
+    out[row_density > density_thr, :] = 0
+    return out
 
 
 def _detect_pixel(img: Image.Image) -> list[dict]:
@@ -120,55 +144,42 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     zone = img.crop((zx1, zy1, zx2, zy2))
     zw, zh = zone.size
 
-    # ── 2. Denoise: MedianFilter removes isolated noise pixels ───────────
+    # ── 2. Denoise ───────────────────────────────────────────────────────
     gray_img = zone.convert("L").filter(ImageFilter.MedianFilter(size=3))
     gray = np.array(gray_img)
     thr  = _ink_threshold(gray)
-    ink  = (gray < thr).astype(np.uint8)   # 1 = ink pixel
+    ink  = (gray < thr).astype(np.uint8)
 
-    # ── 3. Per-row ink density profile with smoothing ────────────────────
-    raw_density  = ink.sum(axis=1) / zw        # raw fraction of ink pixels per row
-    row_density  = _smooth_profile(raw_density, window=5)  # merge tiny intra-sig gaps
-    ink_rows     = row_density > 0.01           # rows with meaningful ink (post-smooth)
+    ink_clean    = _remove_noise_pixels(ink)           # remove isolated pixels
+    ink_no_rules = _suppress_ruled_lines(ink_clean)    # remove pre-printed lines (>40% density)
 
-    # ── 4. Find the largest blank gap in the smoothed ink profile ────────
-    # A gap of ≥ 3 consecutive blank rows is required to count as the
-    # separator between the cursive signature and the printed name below.
-    # Gaps of 1–2 rows (typical within cursive letterforms) are now
-    # invisible after smoothing.
+    # ── 3. Gap detection on ruled-line-free mask ─────────────────────────
+    raw_density = ink_no_rules.sum(axis=1) / zw
+    row_density = _smooth_profile(raw_density, window=5)
+    ink_rows    = row_density > 0.005
+
     best_gap_start = best_gap_len = 0
     cur_start = cur_len = 0
     in_gap = False
-
     for y, has_ink in enumerate(ink_rows):
         if not has_ink:
             if not in_gap:
-                cur_start = y
-                cur_len   = 0
-                in_gap    = True
+                cur_start, cur_len, in_gap = y, 0, True
             cur_len += 1
             if cur_len > best_gap_len:
-                best_gap_len   = cur_len
-                best_gap_start = cur_start
+                best_gap_len, best_gap_start = cur_len, cur_start
         else:
             in_gap = False
 
-    # Cut at the top of the best gap when:
-    #   • the gap is at least 3 rows (was 1) to avoid cutting inside signature
-    #   • there are at least 8 ink rows above it (the signature itself)
-    if best_gap_len >= 3:
-        ink_above_count = ink_rows[:best_gap_start].sum()
-        if ink_above_count >= 8:
-            sig_bottom_zone = best_gap_start   # exclusive, zone-relative
-        else:
-            sig_bottom_zone = zh
+    if best_gap_len >= 3 and ink_rows[:best_gap_start].sum() >= 6:
+        sig_bottom_zone = best_gap_start
     else:
         sig_bottom_zone = zh
 
-    # ── 5. Find tight bbox of ink ABOVE the cut (using RAW ink mask) ─────
-    # Use the original non-smoothed mask for the tight box so we don't
-    # artificially enlarge or shrink the signature region.
-    ink_above = ink[:sig_bottom_zone, :]
+    # ── 4. Tight bbox from the cleaned (ruled-line-free) ink mask ────────
+    # Using ink_no_rules for the bbox excludes the pre-printed ruling lines
+    # from the extracted crop, leaving only the cursive strokes.
+    ink_above = ink_no_rules[:sig_bottom_zone, :]
     ink_coords = np.argwhere(ink_above)
     if ink_coords.size == 0:
         return []
@@ -219,11 +230,13 @@ def _refine_with_pixel(img: Image.Image, bbox: list[float]) -> list[float] | Non
     thr  = _ink_threshold(gray)
     ink  = (gray < thr).astype(np.uint8)
 
-    raw_density = ink.sum(axis=1) / cw
-    row_density = _smooth_profile(raw_density, window=5)
-    ink_rows    = row_density > 0.01
+    ink_clean    = _remove_noise_pixels(ink)
+    ink_no_rules = _suppress_ruled_lines(ink_clean)
 
-    # Find the largest gap of ≥ 3 blank rows — signature / text boundary
+    raw_density = ink_no_rules.sum(axis=1) / cw
+    row_density = _smooth_profile(raw_density, window=5)
+    ink_rows    = row_density > 0.005
+
     best_gap_start = best_gap_len = 0
     cur_start = cur_len = 0
     in_gap = False
@@ -240,9 +253,9 @@ def _refine_with_pixel(img: Image.Image, bbox: list[float]) -> list[float] | Non
     if best_gap_len >= 3 and ink_rows[:best_gap_start].sum() >= 6:
         sig_bottom = best_gap_start
     else:
-        sig_bottom = ch   # no clean gap — keep full crop
+        sig_bottom = ch
 
-    ink_region = ink[:sig_bottom, :]
+    ink_region = ink_no_rules[:sig_bottom, :]
     ink_coords = np.argwhere(ink_region)
     if ink_coords.size == 0:
         return None
