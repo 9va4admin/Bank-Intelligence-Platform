@@ -915,11 +915,18 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
                 removed += 1
                 continue
 
-            # Pass 2: solidity check for printed text anywhere in crop
+            # Bottom-strip filter: very bottom of crop (lowest 25%) with small blobs
+            # are instruction text ("Please sig above!") — discard regardless of solidity.
+            if cy / ch > 0.75 and area < 800:
+                removed += 1
+                continue
+
+            # Pass 2: solidity check for printed text anywhere in crop.
             # Applies to small-medium blobs only — large blobs are signature strokes.
             # Printed chars (caps, lowercase, instructions) are compact (solidity > 0.45).
             # Cursive strokes are open/spidery (solidity < 0.35) or large (area > 3000).
-            if area < 3000 and comp_h < ch * 0.25:
+            # comp_h cap raised to 35%: accounts for shallow crops where letters are tall %.
+            if area < 3000 and comp_h < ch * 0.35:
                 blob_mask = (labels == i).astype(np.uint8) * 255
                 contours, _ = cv2.findContours(
                     blob_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
