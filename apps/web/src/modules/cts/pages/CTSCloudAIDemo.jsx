@@ -170,7 +170,7 @@ export default function CTSCloudAIDemo() {
                 <p className={`mt-1.5 text-[11px] leading-snug ${th.muted}`}>
                   Sig crop via dedicated YOLOv8 detector (runs locally on CPU).
                   All text fields extracted via Qwen 32B cloud call as usual.
-                  Start <code className="font-mono">apps/sig_detector</code> before using.
+                  Start first: <code className="font-mono">cd apps/sig_detector; python main.py</code>
                 </p>
               )}
             </div>

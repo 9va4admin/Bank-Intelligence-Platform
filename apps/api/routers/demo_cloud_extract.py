@@ -901,8 +901,8 @@ async def _extract_yolov8_sig(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
                 f"YOLOv8 sig detector is not running at {sig_url}. "
-                "Start it with:  cd apps/sig_detector && python main.py  "
-                "(or:  docker run -p 8020:8020 astra-sig-detector)"
+                "Start it with:  cd apps/sig_detector; python main.py  "
+                "(or Docker:  docker run -p 8020:8020 astra-sig-detector)"
             ),
         )
 
