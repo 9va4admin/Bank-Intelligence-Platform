@@ -55,6 +55,10 @@ _MODEL_MAPPING = {
 # Field extraction (amount, payee, etc.) still runs via the cloud VLM.
 _YOLO_SIG_MODELS = {"yolov8-sig"}
 
+# Sig-only mode: runs the local detector + denoising, NEVER calls HF.
+# Useful for iterating on crop quality without burning HF quota.
+_YOLO_SIG_ONLY_MODELS = {"yolov8-sig-only"}
+
 # Fallback URL for the sig detector microservice in local dev without Docker.
 _SIG_DETECTOR_URL_FALLBACK = "http://localhost:8020"
 
@@ -824,76 +828,85 @@ async def cloud_extract_debug_ink(
 
 def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
     """
-    Remove printed text (ANKIT KUMAR, "Please sign above", bank name etc.)
+    Remove printed text (ANKIT KUMAR, UMAR, "Please sign above", bank name etc.)
     from a signature crop using OpenCV connected-component filtering.
 
-    Signature cursive strokes form large, sprawling ink blobs (typically
-    500–8 000+ pixels of connected area). Printed characters form small,
-    isolated blobs (50–350 px each). We keep only blobs whose area >= 15 %
-    of the largest stroke blob, adapting automatically to the pen weight
-    and image resolution. A floor of 150 px prevents sub-pixel noise from
-    being retained regardless of the adaptive threshold.
+    Two-zone strategy:
+      Upper zone (y < 72 % of crop height) — signature body:
+        Keep blobs ≥ 15 % of the largest stroke blob (floor 150 px).
+      Lower zone (y ≥ 72 %) — name / instruction area:
+        Keep only blobs ≥ 45 % of largest — only major sig loops that
+        dip very low survive; printed name characters (typically 10–30 %
+        of stroke area) are always removed.
+
+    Centroid y is used (not bbox top) so that blobs straddling the
+    boundary are classified by where most of their ink sits.
 
     Horizontal rules (width > 50 % of crop, height < 8 px) are always
-    discarded — they are the "please sign above" underline, not ink strokes.
+    discarded — the "please sign above" underline is not a stroke.
 
-    cv2 is bundled with opencv-python which is already installed in the
-    main API service (confirmed cv2 5.0.0). Graceful degradation: if cv2
-    is unavailable for any reason the original crop is returned unchanged.
+    cv2 5.0.0 confirmed installed. Graceful degradation: returns crop
+    unchanged if cv2 is unavailable for any reason.
     """
     try:
         import cv2
         import numpy as np
 
-        arr    = np.array(crop.convert("RGB"))
-        gray   = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
+        arr  = np.array(crop.convert("RGB"))
+        gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
 
         # Otsu binarisation — ink → 255, background → 0
         _, binary = cv2.threshold(
             gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
         )
 
-        num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
+        # centroids is the 4th output: shape (num_labels, 2) — (cx, cy)
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
             binary, connectivity=8
         )
 
-        cw = crop.width
+        cw, ch = crop.width, crop.height
+        name_zone_y = ch * 0.72   # blobs whose centroid sits below this = name zone
 
-        # ── Pass 1: find the largest non-rule blob area ───────────────────
+        # ── Pass 1: largest non-rule blob area ───────────────────────────
         max_area = 0
-        for i in range(1, num_labels):   # label 0 = background
+        for i in range(1, num_labels):
             area   = int(stats[i, cv2.CC_STAT_AREA])
             comp_w = int(stats[i, cv2.CC_STAT_WIDTH])
             comp_h = int(stats[i, cv2.CC_STAT_HEIGHT])
             if comp_w > cw * 0.50 and comp_h < 8:
-                continue   # horizontal rule / underline — skip
+                continue   # horizontal rule
             if area > max_area:
                 max_area = area
 
-        # Adaptive keep threshold: ≥ 15 % of dominant stroke, floor 150 px
-        keep_min = max(150, int(max_area * 0.15))
+        # Upper zone threshold: ≥ 15 % of dominant stroke, floor 150 px
+        keep_upper = max(150, int(max_area * 0.15))
+        # Lower (name) zone: require ≥ 45 % — only deep-dipping sig strokes survive
+        keep_lower = max(150, int(max_area * 0.45))
 
-        # ── Pass 2: build clean white canvas, paste only large blobs ─────
+        # ── Pass 2: white canvas, paste qualifying blobs ──────────────────
         output = np.full_like(arr, 255)
         for i in range(1, num_labels):
             area   = int(stats[i, cv2.CC_STAT_AREA])
             comp_w = int(stats[i, cv2.CC_STAT_WIDTH])
             comp_h = int(stats[i, cv2.CC_STAT_HEIGHT])
             if comp_w > cw * 0.50 and comp_h < 8:
-                continue   # horizontal rule — discard
-            if area >= keep_min:
+                continue   # horizontal rule — always discard
+            centroid_y = float(centroids[i][1])
+            threshold  = keep_lower if centroid_y >= name_zone_y else keep_upper
+            if area >= threshold:
                 mask = labels == i
                 output[mask] = arr[mask]
 
         result = Image.fromarray(output.astype(np.uint8))
         log.info("demo.cloud_extract.denoise_done",
-                 max_blob=max_area, keep_min=keep_min,
+                 max_blob=max_area, keep_upper=keep_upper, keep_lower=keep_lower,
                  blobs_total=num_labels - 1)
         return result
 
     except Exception as exc:
         log.warning("demo.cloud_extract.denoise_failed", error=str(exc))
-        return crop   # graceful degradation — return crop unchanged
+        return crop   # graceful degradation
 
 
 async def _extract_yolov8_sig(
@@ -1034,21 +1047,82 @@ async def _extract_yolov8_sig(
     )
 
 
+async def _extract_yolov8_sig_only(
+    file: UploadFile, ctx
+) -> CloudExtractResponse:
+    """
+    Local-only path: run the YOLOv8 pixel detector → crop → denoise.
+    No HF token required, no cloud call.  Returns only the signature crops
+    (all text fields are null).  Use this dropdown option when you want to
+    iterate on sig crop quality without burning HF inference quota.
+    """
+    raw_bytes = await file.read()
+    _, pil_img = _convert_to_png(raw_bytes)
+    iw, ih = pil_img.size
+
+    yolo_detections, yolo_available = await _call_sig_detector(pil_img, ctx.bank_id)
+
+    if not yolo_available:
+        sig_url = await _resolve_sig_detector_url(ctx.bank_id)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                f"YOLOv8 sig detector is not running at {sig_url}. "
+                "Start it with:  cd apps/sig_detector; python main.py  "
+                "(or Docker:  docker run -p 8020:8020 astra-sig-detector)"
+            ),
+        )
+
+    signature_crops: list[str] = []
+    sig_bboxes_out: list[list[float]] = []
+
+    for det in yolo_detections:
+        bbox = det.get("bbox", [])
+        if len(bbox) != 4:
+            continue
+        x1, y1, x2, y2 = bbox
+        cx1 = max(0,  int((x1 - 0.01) * iw))
+        cy1 = max(0,  int((y1 - 0.008) * ih))
+        cx2 = min(iw, int((x2 + 0.01) * iw))
+        cy2 = min(ih, int((y2 + 0.008) * ih))
+        crop = pil_img.crop((cx1, cy1, cx2, cy2))
+        crop = _denoise_sig_crop(crop)
+        buf = io.BytesIO()
+        crop.save(buf, format="PNG")
+        signature_crops.append(base64.b64encode(buf.getvalue()).decode())
+        sig_bboxes_out.append([round(v, 4) for v in bbox])
+
+    log.info("demo.cloud_extract.yolo_only_done",
+             bank_id=ctx.bank_id, crops=len(signature_crops))
+
+    return CloudExtractResponse(
+        model_used="yolov8-sig-only",
+        signature_present=len(sig_bboxes_out) > 0,
+        signature_count=len(sig_bboxes_out) if sig_bboxes_out else None,
+        signature_bboxes=sig_bboxes_out if sig_bboxes_out else None,
+        signature_crops=signature_crops if signature_crops else None,
+        signature_crops_estimated=False,
+    )
+
+
 @router_v1.post("", response_model=CloudExtractResponse)
 async def cloud_extract_cheque(
     file: UploadFile = File(...),
     model: str = "qwen-72b",
     ctx: UserContext = Depends(require_user_context),
 ) -> CloudExtractResponse:
-    _all_valid = set(_MODEL_MAPPING) | _YOLO_SIG_MODELS
+    _all_valid = set(_MODEL_MAPPING) | _YOLO_SIG_MODELS | _YOLO_SIG_ONLY_MODELS
     if model not in _all_valid:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Unknown model '{model}'. Must be one of {sorted(_all_valid)}.",
         )
 
-    # ── YOLOv8 path ──────────────────────────────────────────────────────────
-    # YOLOv8 sig detector handles the crop; Qwen 32B handles all text fields.
+    # ── YOLOv8 sig-only (local, no HF call) ──────────────────────────────────
+    if model in _YOLO_SIG_ONLY_MODELS:
+        return await _extract_yolov8_sig_only(file, ctx)
+
+    # ── YOLOv8 + Qwen 32B fields ─────────────────────────────────────────────
     if model in _YOLO_SIG_MODELS:
         return await _extract_yolov8_sig(file, ctx)
 
