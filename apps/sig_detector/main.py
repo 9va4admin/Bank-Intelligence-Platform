@@ -112,6 +112,48 @@ def _suppress_ruled_lines(ink: np.ndarray, density_thr: float = 0.40) -> np.ndar
     return out
 
 
+def _trim_isolated_right_text(ink_above: np.ndarray) -> np.ndarray:
+    """
+    Remove capital letter text (KUMAR, NKIT, etc.) isolated on the right side
+    of the extracted sig crop.  These printed words sit in a narrow column band
+    separated from the cursive signature mass by blank columns.
+
+    Scans the right 40% of the crop for the leftmost column gap ≥ 3 wide that
+    has ink beyond it (confirming isolated text exists, not just the right edge).
+    When found, zeroes everything from the gap start onwards.
+    """
+    zh, zw = ink_above.shape
+    if zw < 20:
+        return ink_above
+
+    col_density = ink_above.sum(axis=0) / max(1, zh)
+    col_has = _smooth_profile(col_density, window=3) > 0.003
+
+    scan_from = zw * 6 // 10   # only right 40% — avoids cutting inside signature
+    best_len = best_start = 0
+    g_start = g_len = 0
+    in_gap = False
+
+    for c in range(scan_from, zw):
+        if not col_has[c]:
+            if not in_gap:
+                g_start, g_len, in_gap = c, 0, True
+            g_len += 1
+            if g_len > best_len:
+                best_len, best_start = g_len, g_start
+        else:
+            in_gap = False
+
+    g_end = best_start + best_len
+    # Only trim when: meaningful blank gap AND ink exists beyond it (confirms isolated text)
+    if best_len >= 3 and g_end + 3 <= zw and col_has[g_end : g_end + 3].any():
+        result = ink_above.copy()
+        result[:, best_start:] = 0
+        return result
+
+    return ink_above
+
+
 def _detect_pixel(img: Image.Image) -> list[dict]:
     """
     Find the signature region in a cheque image using ink-row profiling.
@@ -177,9 +219,8 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
         sig_bottom_zone = zh
 
     # ── 4. Tight bbox from the cleaned (ruled-line-free) ink mask ────────
-    # Using ink_no_rules for the bbox excludes the pre-printed ruling lines
-    # from the extracted crop, leaving only the cursive strokes.
     ink_above = ink_no_rules[:sig_bottom_zone, :]
+    ink_above = _trim_isolated_right_text(ink_above)
     ink_coords = np.argwhere(ink_above)
     if ink_coords.size == 0:
         return []
@@ -256,6 +297,7 @@ def _refine_with_pixel(img: Image.Image, bbox: list[float]) -> list[float] | Non
         sig_bottom = ch
 
     ink_region = ink_no_rules[:sig_bottom, :]
+    ink_region = _trim_isolated_right_text(ink_region)
     ink_coords = np.argwhere(ink_region)
     if ink_coords.size == 0:
         return None
