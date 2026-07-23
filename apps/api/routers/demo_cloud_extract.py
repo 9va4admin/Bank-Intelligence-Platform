@@ -915,8 +915,11 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
                 removed += 1
                 continue
 
-            # Pass 2: solidity check for printed uppercase chars
-            if cy / ch > 0.55 and comp_h < ch * 0.20:
+            # Pass 2: solidity check for printed text anywhere in crop
+            # Applies to small-medium blobs only — large blobs are signature strokes.
+            # Printed chars (caps, lowercase, instructions) are compact (solidity > 0.45).
+            # Cursive strokes are open/spidery (solidity < 0.35) or large (area > 3000).
+            if area < 3000 and comp_h < ch * 0.25:
                 blob_mask = (labels == i).astype(np.uint8) * 255
                 contours, _ = cv2.findContours(
                     blob_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
@@ -925,7 +928,7 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
                     hull_area = cv2.contourArea(cv2.convexHull(contours[0]))
                     if hull_area > 0 and (area / hull_area) > 0.45:
                         removed += 1
-                        continue   # printed uppercase char -> discard
+                        continue   # printed text -> discard
 
             # Keep this blob
             mask = labels == i
