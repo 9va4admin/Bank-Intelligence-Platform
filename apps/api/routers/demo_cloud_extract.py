@@ -881,11 +881,19 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
         cw, ch = crop.width, crop.height
 
         _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+        # Erode by 2px before connected-component analysis.
+        # Arrow shafts (1-3px wide) that connect printed labels to the signature
+        # are severed by erosion, making the label blobs separate components.
+        # We dilate the kept-component mask back at the end to restore stroke thickness.
+        ker2 = np.ones((2, 2), np.uint8)
+        binary_eroded = cv2.erode(binary, ker2, iterations=1)
+
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
-            binary, connectivity=8
+            binary_eroded, connectivity=8
         )
 
-        output = np.full_like(arr, 255)
+        keep_mask = np.zeros(binary.shape, dtype=np.uint8)
         kept = removed = 0
 
         for i in range(1, num_labels):
@@ -894,8 +902,8 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
             comp_h = int(stats[i, cv2.CC_STAT_HEIGHT])
             cy     = float(centroids[i][1])
 
-            # Pass 1: mesh / halftone dots
-            if area < 30:
+            # Pass 1: mesh / halftone dots (eroded area — threshold stays at 20)
+            if area < 20:
                 removed += 1
                 continue
 
@@ -915,17 +923,14 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
                 removed += 1
                 continue
 
-            # Bottom-strip filter: very bottom of crop (lowest 25%) with small blobs
-            # are instruction text ("Please sig above!") — discard regardless of solidity.
-            if cy / ch > 0.75 and area < 800:
+            # Bottom-strip filter: lowest 30% of crop, small blobs → instruction text
+            if cy / ch > 0.70 and area < 1000:
                 removed += 1
                 continue
 
             # Pass 2: solidity check for printed text anywhere in crop.
-            # Applies to small-medium blobs only — large blobs are signature strokes.
-            # Printed chars (caps, lowercase, instructions) are compact (solidity > 0.45).
-            # Cursive strokes are open/spidery (solidity < 0.35) or large (area > 3000).
-            # comp_h cap raised to 35%: accounts for shallow crops where letters are tall %.
+            # Printed chars are compact (solidity > 0.45); cursive strokes are open
+            # (solidity < 0.35) or large (area > 3000 even after erosion).
             if area < 3000 and comp_h < ch * 0.35:
                 blob_mask = (labels == i).astype(np.uint8) * 255
                 contours, _ = cv2.findContours(
@@ -937,10 +942,14 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
                         removed += 1
                         continue   # printed text -> discard
 
-            # Keep this blob
-            mask = labels == i
-            output[mask] = arr[mask]
+            # Mark this blob as kept
+            keep_mask[labels == i] = 1
             kept += 1
+
+        # Dilate keep_mask to restore pixels lost to erosion, then paint onto output
+        keep_mask_dilated = cv2.dilate(keep_mask, ker2, iterations=1)
+        output = np.full_like(arr, 255)
+        output[keep_mask_dilated > 0] = arr[keep_mask_dilated > 0]
 
         log.info("demo.cloud_extract.denoise_done",
                  crop_w=cw, crop_h=ch, kept=kept, removed=removed)
