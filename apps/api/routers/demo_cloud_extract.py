@@ -1023,8 +1023,6 @@ async def _extract_yolov8_sig_only(
     (all text fields are null).  Use this dropdown option when you want to
     iterate on sig crop quality without burning HF inference quota.
     """
-    raise HTTPException(status_code=500, detail="CODE_LOADED_OK_v46e63c8")
-
     raw_bytes = await file.read()
     _, pil_img = _convert_to_png(raw_bytes)
     iw, ih = pil_img.size
@@ -1054,6 +1052,10 @@ async def _extract_yolov8_sig_only(
         cy1 = max(0,  int((y1 - 0.008) * ih))
         cx2 = min(iw, int((x2 + 0.01) * iw))
         cy2 = min(ih, int((y2 + 0.008) * ih))
+        log.info("demo.cloud_extract.crop_debug",
+                 bbox_norm=[round(v,3) for v in [x1,y1,x2,y2]],
+                 crop_px=[cx1, cy1, cx2, cy2],
+                 image_px=[iw, ih])
         crop = pil_img.crop((cx1, cy1, cx2, cy2))
         crop = _denoise_sig_crop(crop)
         buf = io.BytesIO()
@@ -1080,7 +1082,6 @@ async def cloud_extract_cheque(
     model: str = "qwen-72b",
     ctx: UserContext = Depends(require_user_context),
 ) -> CloudExtractResponse:
-    raise HTTPException(status_code=500, detail=f"ROUTE_HIT_db1d3db model={model}")
     _all_valid = set(_MODEL_MAPPING) | _YOLO_SIG_MODELS | _YOLO_SIG_ONLY_MODELS
     if model not in _all_valid:
         raise HTTPException(
