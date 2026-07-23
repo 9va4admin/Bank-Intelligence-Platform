@@ -45,7 +45,8 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     row_density = ink.sum(axis=1) / zw
     ink_rows    = row_density > 0.01
 
-    # First gap >= 5 blank rows after >= 4 ink rows (not the longest)
+    # Gap >= 5 blank rows where < 30% of total ink remains below.
+    total_ink2    = max(1, int(ink_rows.sum()))
     ink_rows_seen2 = 0
     gap_start2     = None
     gap_len2       = 0
@@ -62,8 +63,10 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
                 gap_len2   = 0
             gap_len2 += 1
             if ink_rows_seen2 >= 4 and gap_len2 >= 5:
-                sig_bottom = gap_start2
-                break
+                ink_below2 = int(ink_rows[y + 1:].sum())
+                if ink_below2 / total_ink2 < 0.30:
+                    sig_bottom = gap_start2
+                    break
 
     ink_above = ink[:sig_bottom, :]
     coords = np.argwhere(ink_above)
@@ -97,7 +100,8 @@ def _denoise(crop: Image.Image, verbose: bool = True) -> Image.Image:
     row_density = ink_mask.sum(axis=1) / max(cw, 1)
     ink_rows    = row_density > 0.005
 
-    # First gap >= 5 blank rows after >= 4 ink rows  (not the longest gap)
+    # Gap >= 5 blank rows where < 30% of total ink remains below.
+    total_ink = max(1, int(ink_rows.sum()))
     ink_rows_seen = 0
     gap_start_cur = None
     gap_len_cur   = 0
@@ -114,8 +118,10 @@ def _denoise(crop: Image.Image, verbose: bool = True) -> Image.Image:
                 gap_len_cur   = 0
             gap_len_cur += 1
             if ink_rows_seen >= 4 and gap_len_cur >= 5:
-                cut_row = gap_start_cur
-                break
+                ink_below = int(ink_rows[y + 1:].sum())
+                if ink_below / total_ink < 0.30:
+                    cut_row = gap_start_cur
+                    break
 
     gap_cut = cut_row < ch
     if gap_cut:
