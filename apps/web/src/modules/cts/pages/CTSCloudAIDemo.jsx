@@ -15,10 +15,11 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
 const MODEL_OPTIONS = [
-  { value: 'qwen-72b',    label: 'Qwen 72B  (cloud VLM)' },
-  { value: 'qwen-32b',    label: 'Qwen 32B  (cloud VLM)' },
-  { value: 'gemma-27b',   label: 'Gemma 27B (cloud VLM)' },
-  { value: 'yolov8-sig',  label: '🔍 YOLOv8 Sig Detector  +  Qwen 32B fields' },
+  { value: 'qwen-72b',         label: 'Qwen 72B  (cloud VLM)' },
+  { value: 'qwen-32b',         label: 'Qwen 32B  (cloud VLM)' },
+  { value: 'gemma-27b',        label: 'Gemma 27B (cloud VLM)' },
+  { value: 'yolov8-sig',       label: '🔍 YOLOv8 Sig Detector  +  Qwen 32B fields' },
+  { value: 'yolov8-sig-only',  label: '🔍 YOLOv8 Sig Only  (local — no HF token needed)' },
 ]
 
 const FIELD_ROWS = [
@@ -168,9 +169,17 @@ export default function CTSCloudAIDemo() {
               </select>
               {model === 'yolov8-sig' && (
                 <p className={`mt-1.5 text-[11px] leading-snug ${th.muted}`}>
-                  Sig crop via dedicated YOLOv8 detector (runs locally on CPU).
-                  All text fields extracted via Qwen 32B cloud call as usual.
-                  Start first: <code className="font-mono">cd apps/sig_detector; python main.py</code>
+                  Sig crop via local YOLOv8 pixel detector + connected-component denoising.
+                  All text fields extracted via Qwen 32B (HF token required).
+                  Start detector first: <code className="font-mono">cd apps/sig_detector; python main.py</code>
+                </p>
+              )}
+              {model === 'yolov8-sig-only' && (
+                <p className={`mt-1.5 text-[11px] leading-snug ${th.muted}`}>
+                  Local-only mode — runs the pixel sig detector + denoising, returns the clean
+                  signature crop. <strong>No HF token needed, no cloud call.</strong> Use this
+                  to test sig crop quality without burning HF quota.
+                  Start detector first: <code className="font-mono">cd apps/sig_detector; python main.py</code>
                 </p>
               )}
             </div>
@@ -237,44 +246,59 @@ export default function CTSCloudAIDemo() {
               </div>
             )}
 
-            {result && !result.error && (
-              <div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
-                  {FIELD_ROWS.map(([key, label]) => (
-                    <div key={key} className={`rounded-lg border px-3 py-2 ${th.infoCard}`}>
-                      <div className={`text-[11px] font-semibold ${th.muted}`}>{label}</div>
-                      <div className={`text-sm font-semibold break-words ${th.heading}`}>{result[key] ?? '-'}</div>
+            {result && !result.error && (() => {
+              const isSigOnly = result.model_used === 'yolov8-sig-only'
+              return (
+                <div>
+                  {isSigOnly ? (
+                    <div className={`rounded-lg border px-4 py-3 mb-3 ${isDark ? 'bg-indigo-900/30 border-indigo-700/40 text-indigo-200' : 'bg-indigo-50 border-indigo-200 text-indigo-800'}`}>
+                      <p className="text-xs font-semibold mb-0.5">🔍 Sig-only mode</p>
+                      <p className="text-[11px] leading-snug">
+                        Only the signature crop is returned — no field extraction was run
+                        (no HF call made). See the signature panel below for the denoised crop.
+                      </p>
                     </div>
-                  ))}
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                        {FIELD_ROWS.map(([key, label]) => (
+                          <div key={key} className={`rounded-lg border px-3 py-2 ${th.infoCard}`}>
+                            <div className={`text-[11px] font-semibold ${th.muted}`}>{label}</div>
+                            <div className={`text-sm font-semibold break-words ${th.heading}`}>{result[key] ?? '-'}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className={`rounded-lg border px-3 py-2 mb-2 ${th.infoCard}`}>
+                        <div className={`text-[11px] font-semibold ${th.muted}`}>✍ Signature</div>
+                        <div className={`text-sm font-semibold ${th.heading}`}>
+                          {result.signature_present ? 'Present' : 'Not Found'}
+                        </div>
+                      </div>
+
+                      {result.is_amount_matching === true && (
+                        <p className="text-sm text-emerald-500">✅ Amount in Words matches Amount in Figures</p>
+                      )}
+                      {result.is_amount_matching === false && (
+                        <p className="text-sm text-red-500">❌ Amount in Words DOES NOT match Amount in Figures</p>
+                      )}
+                      {result.is_amount_matching == null && (
+                        <p className={`text-sm ${th.muted}`}>⚠ Unable to validate amount</p>
+                      )}
+                    </>
+                  )}
+
+                  <p className={`text-xs mt-3 mb-3 ${th.faint}`}>Model: {result.model_used}</p>
+
+                  <button
+                    onClick={() => downloadJSON(result, 'cheque_extraction.json')}
+                    className={`w-full h-10 rounded-lg font-semibold text-sm border transition ${isDark ? 'border-white/15 text-white hover:bg-white/5' : 'border-slate-300 text-slate-900 hover:bg-slate-50'}`}
+                  >
+                    ⬇ Download JSON
+                  </button>
                 </div>
-
-                <div className={`rounded-lg border px-3 py-2 mb-2 ${th.infoCard}`}>
-                  <div className={`text-[11px] font-semibold ${th.muted}`}>✍ Signature</div>
-                  <div className={`text-sm font-semibold ${th.heading}`}>
-                    {result.signature_present ? 'Present' : 'Not Found'}
-                  </div>
-                </div>
-
-                {result.is_amount_matching === true && (
-                  <p className="text-sm text-emerald-500">✅ Amount in Words matches Amount in Figures</p>
-                )}
-                {result.is_amount_matching === false && (
-                  <p className="text-sm text-red-500">❌ Amount in Words DOES NOT match Amount in Figures</p>
-                )}
-                {result.is_amount_matching == null && (
-                  <p className={`text-sm ${th.muted}`}>⚠ Unable to validate amount</p>
-                )}
-
-                <p className={`text-xs mt-3 mb-3 ${th.faint}`}>Model: {result.model_used}</p>
-
-                <button
-                  onClick={() => downloadJSON(result, 'cheque_extraction.json')}
-                  className={`w-full h-10 rounded-lg font-semibold text-sm border transition ${isDark ? 'border-white/15 text-white hover:bg-white/5' : 'border-slate-300 text-slate-900 hover:bg-slate-50'}`}
-                >
-                  ⬇ Download JSON
-                </button>
-              </div>
-            )}
+              )
+            })()}
           </div>
         </div>
 
