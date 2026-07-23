@@ -5,17 +5,32 @@ Accepts a cheque image (multipart POST /detect), returns normalised bounding
 boxes of every detected handwritten signature.  Runs on CPU — YOLOv8s is
 small enough that inference completes in < 200ms on a modern core.
 
-Model: keremberke/yolov8s-signature-detection (public HF model, no gating)
-Fallback: set SIG_DETECTOR_MODEL env var to a local .pt/.onnx path or any
-other HF model ID that ultralytics can load.
+Model: tech4humans/yolov8s-signature-detector (HF, requires token)
+Override: set SIG_DETECTOR_MODEL to a local .pt/.onnx path or another HF ID.
 
-Port: 8020 (local dev).  In K8s: deployed as astra-sig-detector in the
-astra-cts-{bank_id} namespace, reachable at http://sig-detector:8020.
+Token: reads ASTRA_DEMO_HF_TOKEN from .env.local (same as dev_auth_server.py)
+and bridges it to HF_TOKEN which ultralytics uses for model downloads.
+
+Port: 8020 (local dev). In K8s: astra-sig-detector in astra-cts-{bank_id}.
 """
 from __future__ import annotations
 
 import io
 import os
+from pathlib import Path
+
+# Load .env.local so ASTRA_DEMO_HF_TOKEN is available without the user
+# having to set it manually — same pattern as dev_auth_server.py.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parents[2] / ".env.local", override=False)
+except ImportError:
+    pass  # python-dotenv not installed — token must come from the shell env
+
+# Bridge ASTRA_DEMO_HF_TOKEN → HF_TOKEN, which ultralytics uses when pulling
+# models from HuggingFace Hub.  No-op if HF_TOKEN is already set.
+if not os.environ.get("HF_TOKEN") and os.environ.get("ASTRA_DEMO_HF_TOKEN"):
+    os.environ["HF_TOKEN"] = os.environ["ASTRA_DEMO_HF_TOKEN"]
 
 import structlog
 import uvicorn
@@ -42,7 +57,7 @@ async def _load_model() -> None:
     from ultralytics import YOLO
 
     model_src = os.environ.get(
-        "SIG_DETECTOR_MODEL", "keremberke/yolov8s-signature-detection"
+        "SIG_DETECTOR_MODEL", "tech4humans/yolov8s-signature-detector"
     )
     log.info("sig_detector.loading", model=model_src)
     try:
@@ -94,7 +109,6 @@ async def detect_signatures(file: UploadFile = File(...)) -> DetectResponse:
                 confidence=round(float(conf), 4),
             ))
 
-    # Sort by confidence descending
     detections.sort(key=lambda d: d.confidence, reverse=True)
 
     log.info("sig_detector.detected", count=len(detections), model=_model_name)
