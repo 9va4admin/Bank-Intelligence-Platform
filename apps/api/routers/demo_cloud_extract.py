@@ -1023,6 +1023,8 @@ async def _extract_yolov8_sig_only(
     (all text fields are null).  Use this dropdown option when you want to
     iterate on sig crop quality without burning HF inference quota.
     """
+    raise HTTPException(status_code=500, detail="CODE_LOADED_OK_v46e63c8")
+
     raw_bytes = await file.read()
     _, pil_img = _convert_to_png(raw_bytes)
     iw, ih = pil_img.size
