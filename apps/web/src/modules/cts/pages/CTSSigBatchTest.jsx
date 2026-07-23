@@ -5,6 +5,20 @@ import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
 const MAX = 5
 
+async function fetchPreview(file) {
+  const fd = new FormData()
+  fd.append('file', file)
+  const r = await fetch('/v1/cts/demo/cloud-extract/preview', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'X-CSRF-Token': sessionStorage.getItem('astra-csrf') || '' },
+    body: fd,
+  })
+  if (!r.ok) throw new Error(`preview HTTP ${r.status}`)
+  const blob = await r.blob()
+  return URL.createObjectURL(blob)
+}
+
 async function extractSig(file) {
   const fd = new FormData()
   fd.append('file', file)
@@ -32,12 +46,14 @@ function ResultCard({ file, isDark }) {
     err:     'text-red-400 text-xs text-center py-6',
   }
 
-  // Original image object URL — revoked on unmount
+  // Original image — fetched via /preview so TIFF/BMP etc. are converted to PNG
   const [origUrl, setOrigUrl] = useState(null)
   useEffect(() => {
-    const url = URL.createObjectURL(file)
-    setOrigUrl(url)
-    return () => URL.revokeObjectURL(url)
+    let objectUrl = null
+    fetchPreview(file)
+      .then(url => { objectUrl = url; setOrigUrl(url) })
+      .catch(() => {})
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl) }
   }, [file])
 
   // Extraction result
