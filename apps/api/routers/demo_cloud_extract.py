@@ -905,7 +905,13 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
                 continue
 
             # Always discard vertical border lines (signature box sides)
-            if comp_h > ch * 0.50 and comp_w < 8:
+            if comp_h > ch * 0.30 and comp_w < 8:
+                removed += 1
+                continue
+
+            # Discard narrow blobs hugging the left/right crop edge — border artifacts
+            cx_left = int(stats[i, cv2.CC_STAT_LEFT])
+            if comp_w < 12 and (cx_left <= 4 or cx_left + comp_w >= cw - 4):
                 removed += 1
                 continue
 
@@ -1040,11 +1046,10 @@ async def _extract_yolov8_sig(
         if len(bbox) != 4:
             continue
         x1, y1, x2, y2 = bbox
-        pad_x = 0.01
         pad_y = 0.008
-        cx1 = max(0,  int((x1 - pad_x) * iw))
+        cx1 = max(0,  int((x1 - 0.005) * iw))   # small left pad only
         cy1 = max(0,  int((y1 - pad_y) * ih))
-        cx2 = min(iw, int((x2 + pad_x) * iw))
+        cx2 = min(iw, int(x2 * iw))              # no right pad — avoids signature box border
         cy2 = min(ih, int((y2 + pad_y) * ih))
         crop = pil_img.crop((cx1, cy1, cx2, cy2))
         crop = _denoise_sig_crop(crop)
@@ -1109,9 +1114,9 @@ async def _extract_yolov8_sig_only(
         if len(bbox) != 4:
             continue
         x1, y1, x2, y2 = bbox
-        cx1 = max(0,  int((x1 - 0.01) * iw))
+        cx1 = max(0,  int((x1 - 0.005) * iw))   # small left pad only
         cy1 = max(0,  int((y1 - 0.008) * ih))
-        cx2 = min(iw, int((x2 + 0.01) * iw))
+        cx2 = min(iw, int(x2 * iw))              # no right pad — avoids signature box border
         cy2 = min(ih, int((y2 + 0.008) * ih))
         crop = pil_img.crop((cx1, cy1, cx2, cy2))
         crop = _denoise_sig_crop(crop)
