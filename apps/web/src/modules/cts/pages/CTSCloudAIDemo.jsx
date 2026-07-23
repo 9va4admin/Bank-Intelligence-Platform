@@ -15,9 +15,10 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
 const MODEL_OPTIONS = [
-  { value: 'qwen-72b',  label: 'Qwen 72B' },
-  { value: 'qwen-32b',  label: 'Qwen 32B' },
-  { value: 'gemma-27b', label: 'Gemma 27B' },
+  { value: 'qwen-72b',    label: 'Qwen 72B  (cloud VLM)' },
+  { value: 'qwen-32b',    label: 'Qwen 32B  (cloud VLM)' },
+  { value: 'gemma-27b',   label: 'Gemma 27B (cloud VLM)' },
+  { value: 'yolov8-sig',  label: '🔍 YOLOv8 Sig Detector  +  Qwen 32B fields' },
 ]
 
 const FIELD_ROWS = [
@@ -165,6 +166,13 @@ export default function CTSCloudAIDemo() {
                   <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
               </select>
+              {model === 'yolov8-sig' && (
+                <p className={`mt-1.5 text-[11px] leading-snug ${th.muted}`}>
+                  Sig crop via dedicated YOLOv8 detector (runs locally on CPU).
+                  All text fields extracted via Qwen 32B cloud call as usual.
+                  Start <code className="font-mono">apps/sig_detector</code> before using.
+                </p>
+              )}
             </div>
 
             <div className="mb-3">

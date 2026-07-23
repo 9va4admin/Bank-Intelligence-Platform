@@ -51,6 +51,13 @@ _MODEL_MAPPING = {
     "gemma-27b": "google/gemma-3-27b-it:featherless-ai",
 }
 
+# Models that use the local YOLOv8 sig detector instead of VLM bbox guessing.
+# Field extraction (amount, payee, etc.) still runs via the cloud VLM.
+_YOLO_SIG_MODELS = {"yolov8-sig"}
+
+# Fallback URL for the sig detector microservice in local dev without Docker.
+_SIG_DETECTOR_URL_FALLBACK = "http://localhost:8020"
+
 # Adapted from ImageScanUtility/prompt.py (already validated against real
 # cheque images in that standalone tool) — kept here as ASTRA's own prompt
 # constant rather than importing across the reference-folder boundary,
@@ -201,6 +208,51 @@ async def _resolve_hf_token(bank_id: str) -> Optional[str]:
         log.info("demo.cloud_extract.using_env_hf_token_fallback", bank_id=bank_id)
         return env_token
     return None
+
+
+async def _resolve_sig_detector_url(bank_id: str) -> str:
+    """Config service → env var → localhost fallback."""
+    from shared.config.config_service import config_service
+    try:
+        return await config_service.get_secret("demo.sig_detector_url")
+    except Exception:
+        pass
+    import os
+    return os.environ.get("ASTRA_SIG_DETECTOR_URL", _SIG_DETECTOR_URL_FALLBACK)
+
+
+async def _call_sig_detector(
+    pil_img: Image.Image, bank_id: str
+) -> list[dict]:
+    """POST the image to the YOLOv8 sig detector service.
+
+    Returns a list of dicts with keys ``bbox`` ([x1,y1,x2,y2] normalised)
+    and ``confidence`` (float).  Returns [] on any error so the caller can
+    gracefully fall back to VLM-based detection.
+    """
+    import httpx
+
+    url = await _resolve_sig_detector_url(bank_id)
+    buf = io.BytesIO()
+    pil_img.save(buf, format="PNG")
+    buf.seek(0)
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as hc:
+            resp = await hc.post(
+                f"{url}/detect",
+                files={"file": ("cheque.png", buf, "image/png")},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            detections = data.get("detections", [])
+            log.info("demo.cloud_extract.yolo_detections",
+                     bank_id=bank_id, count=len(detections))
+            return detections
+    except Exception as exc:
+        log.warning("demo.cloud_extract.sig_detector_unreachable",
+                    bank_id=bank_id, url=url, error=str(exc))
+        return []
 
 
 def _clean_json_response(raw_text: str) -> str:
@@ -770,17 +822,163 @@ async def cloud_extract_debug_ink(
     }
 
 
+async def _extract_yolov8_sig(
+    file: UploadFile, ctx
+) -> CloudExtractResponse:
+    """
+    Two-model orchestration:
+      1. YOLOv8 sig detector  → tight sig bboxes (no name included)
+      2. Qwen 32B (cloud VLM) → all text fields (amount, payee, MICR…)
+
+    YOLOv8 bbox is trusted directly for cropping — no whiteout needed because
+    a dedicated detector trained on handwriting strokes excludes printed text.
+    Falls back to VLM bbox if the detector service is unreachable.
+    """
+    from openai import AsyncOpenAI
+
+    hf_token = await _resolve_hf_token(ctx.bank_id)
+    if hf_token is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Cloud AI demo token not configured — set demo.hf_token in Vault "
+                "or ASTRA_DEMO_HF_TOKEN in the environment for local dev."
+            ),
+        )
+
+    hf_base_url = await _resolve_hf_base_url(ctx.bank_id)
+    raw_bytes = await file.read()
+    png_bytes, pil_img = _convert_to_png(raw_bytes)
+    iw, ih = pil_img.size
+    image_b64 = base64.b64encode(png_bytes).decode("utf-8")
+
+    # ── Step 1: YOLOv8 sig detection (parallel with field extraction) ─────
+    # Run both calls concurrently — sig detector and Qwen 32B are independent.
+    import asyncio
+    from openai import AsyncOpenAI as _OAI
+
+    client = _OAI(base_url=hf_base_url, api_key=hf_token)
+    field_model_id = _MODEL_MAPPING["qwen-32b"]
+
+    async def _field_extract():
+        return await client.chat.completions.create(
+            model=field_model_id,
+            messages=[{"role": "user", "content": [
+                {"type": "text",      "text": CLOUD_EXTRACT_PROMPT},
+                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}"}},
+            ]}],
+            temperature=0,
+        )
+
+    yolo_task   = asyncio.create_task(_call_sig_detector(pil_img, ctx.bank_id))
+    fields_task = asyncio.create_task(_field_extract())
+    yolo_detections, fields_resp = await asyncio.gather(yolo_task, fields_task,
+                                                        return_exceptions=True)
+
+    # Handle field extraction failure
+    if isinstance(fields_resp, Exception):
+        log.error("demo.cloud_extract.yolo_field_extract_failed",
+                  bank_id=ctx.bank_id, error=str(fields_resp))
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Field extraction via Qwen 32B failed: {fields_resp}",
+        )
+
+    if isinstance(yolo_detections, Exception):
+        log.warning("demo.cloud_extract.yolo_task_error",
+                    bank_id=ctx.bank_id, error=str(yolo_detections))
+        yolo_detections = []
+
+    raw_text = fields_resp.choices[0].message.content
+    cleaned  = _clean_json_response(raw_text)
+    try:
+        parsed = json.loads(cleaned)
+    except json.JSONDecodeError:
+        return CloudExtractResponse(
+            model_used="yolov8-sig + qwen-32b",
+            error="INVALID_JSON_RETURNED",
+            raw_response=raw_text,
+        )
+
+    # ── Step 2: build sig crop from YOLOv8 bboxes ────────────────────────
+    signature_crops: list[str] = []
+    sig_bboxes_out: list[list[float]] = []
+
+    if yolo_detections:
+        # YOLOv8 returns tight stroke-only bboxes — crop directly, no whiteout.
+        for det in yolo_detections:
+            bbox = det.get("bbox", [])
+            if len(bbox) != 4:
+                continue
+            x1, y1, x2, y2 = bbox
+            pad_x = 0.01
+            pad_y = 0.008
+            cx1 = max(0,  int((x1 - pad_x) * iw))
+            cy1 = max(0,  int((y1 - pad_y) * ih))
+            cx2 = min(iw, int((x2 + pad_x) * iw))
+            cy2 = min(ih, int((y2 + pad_y) * ih))
+            crop = pil_img.crop((cx1, cy1, cx2, cy2))
+            buf = io.BytesIO()
+            crop.save(buf, format="PNG")
+            signature_crops.append(base64.b64encode(buf.getvalue()).decode())
+            sig_bboxes_out.append([round(v, 4) for v in bbox])
+
+        parsed["signature_present"]  = True
+        parsed["signature_count"]    = len(yolo_detections)
+        parsed["signature_bboxes"]   = sig_bboxes_out
+    else:
+        # Sig detector unreachable — fall back to VLM bbox + whiteout
+        log.info("demo.cloud_extract.yolo_fallback_to_vlm_bbox", bank_id=ctx.bank_id)
+        if parsed.get("signature_present") and pil_img is not None:
+            try:
+                sig_bboxes = parsed.get("signature_bboxes") or []
+                if sig_bboxes and len(sig_bboxes[0]) == 4:
+                    bx1f, by1f, bx2f, by2f = sig_bboxes[0]
+                    bbox_h_frac = by2f - by1f
+                    top_pad = max(0.04, bbox_h_frac * 0.5)
+                    cx1_px = max(0,  int((bx1f - 0.02) * iw))
+                    cy1_px = max(0,  int((by1f - top_pad) * ih))
+                    cx2_px = min(iw, int((bx2f + 0.02) * iw))
+                    cy2_px = min(ih, int((by2f + 0.015) * ih))
+                    crop = pil_img.crop((cx1_px, cy1_px, cx2_px, cy2_px))
+                    crop = await _whiteout_via_llm(crop, client, field_model_id, ctx.bank_id)
+                    buf = io.BytesIO()
+                    crop.save(buf, format="PNG")
+                    signature_crops.append(base64.b64encode(buf.getvalue()).decode())
+            except Exception as exc:
+                log.warning("demo.cloud_extract.yolo_vlm_fallback_crop_failed",
+                            bank_id=ctx.bank_id, error=str(exc))
+
+    if parsed.get("signature_present") and not parsed.get("signature_count"):
+        parsed["signature_count"] = 1
+
+    _STRIP = {"signature_crops", "signature_crops_estimated"}
+    response_fields = {k: v for k, v in parsed.items() if k not in _STRIP}
+    return CloudExtractResponse(
+        model_used="yolov8-sig + qwen-32b",
+        signature_crops=signature_crops if signature_crops else None,
+        signature_crops_estimated=False,
+        **response_fields,
+    )
+
+
 @router_v1.post("", response_model=CloudExtractResponse)
 async def cloud_extract_cheque(
     file: UploadFile = File(...),
     model: str = "qwen-72b",
     ctx: UserContext = Depends(require_user_context),
 ) -> CloudExtractResponse:
-    if model not in _MODEL_MAPPING:
+    _all_valid = set(_MODEL_MAPPING) | _YOLO_SIG_MODELS
+    if model not in _all_valid:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Unknown model '{model}'. Must be one of {list(_MODEL_MAPPING)}.",
+            detail=f"Unknown model '{model}'. Must be one of {sorted(_all_valid)}.",
         )
+
+    # ── YOLOv8 path ──────────────────────────────────────────────────────────
+    # YOLOv8 sig detector handles the crop; Qwen 32B handles all text fields.
+    if model in _YOLO_SIG_MODELS:
+        return await _extract_yolov8_sig(file, ctx)
 
     from openai import AsyncOpenAI
 
