@@ -861,52 +861,19 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
     (floor: 25 px).  Horizontal rules (width > 50 % crop, height < 6 px)
     are always discarded.
     """
+    # DEBUG PASSTHROUGH — return raw crop to diagnose blank-image issue.
+    # Remove this once we confirm the sig detector bbox is correct.
     try:
-        import cv2
         import numpy as np
-
-        arr  = np.array(crop.convert("RGB"))
-        gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
+        arr  = np.array(crop.convert("L"))
+        min_gray = int(arr.min())
         cw, ch = crop.width, crop.height
-
-        # ── Connected-component noise filter ─────────────────────────────
-        _, binary = cv2.threshold(
-            gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
-        )
-        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
-            binary, connectivity=8
-        )
-
-        max_area = 0
-        for i in range(1, num_labels):
-            area   = int(stats[i, cv2.CC_STAT_AREA])
-            comp_w = int(stats[i, cv2.CC_STAT_WIDTH])
-            comp_h = int(stats[i, cv2.CC_STAT_HEIGHT])
-            if comp_w > cw * 0.50 and comp_h < 8:
-                continue   # horizontal rule — skip when finding max
-            if area > max_area:
-                max_area = area
-
-        keep_min = max(25, int(max_area * 0.08))
-
-        output = np.full_like(arr, 255)
-        for i in range(1, num_labels):
-            area   = int(stats[i, cv2.CC_STAT_AREA])
-            comp_w = int(stats[i, cv2.CC_STAT_WIDTH])
-            comp_h = int(stats[i, cv2.CC_STAT_HEIGHT])
-            if comp_w > cw * 0.50 and comp_h < 6:
-                continue   # horizontal rule — always discard
-            if area >= keep_min:
-                mask = labels == i
-                output[mask] = arr[mask]
-
-        log.info("demo.cloud_extract.denoise_done",
-                 max_blob=max_area, keep_min=keep_min, blobs_total=num_labels - 1)
-        return Image.fromarray(output.astype(np.uint8))
-
-    except Exception as exc:
-        log.warning("demo.cloud_extract.denoise_failed", error=str(exc))
-        return crop   # graceful degradation
+        log.info("demo.cloud_extract.denoise_passthrough",
+                 crop_w=cw, crop_h=ch, min_gray=min_gray,
+                 note="passthrough mode — no filtering")
+    except Exception:
+        pass
+    return crop
 
 
 async def _extract_yolov8_sig(
