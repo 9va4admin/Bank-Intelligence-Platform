@@ -89,53 +89,19 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
 
 
 # ── 2. Denoiser (mirrors apps/api/routers/demo_cloud_extract.py) ───────────
+#
+# No Stage 1 gap detection here — the sig detector already cuts the bbox
+# above the printed name.  Stage 2 just removes tiny noise blobs.
 
 def _denoise(crop: Image.Image, verbose: bool = True) -> Image.Image:
     arr  = np.array(crop.convert("RGB"))
     gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
     cw, ch = crop.width, crop.height
 
-    # ── Stage 1: row-density gap detection (hard cut) ────────────────────
-    ink_mask    = (gray < 180).astype(np.uint8)
-    row_density = ink_mask.sum(axis=1) / max(cw, 1)
-    ink_rows    = row_density > 0.005
-
-    # Gap >= 5 blank rows where < 30% of total ink remains below.
-    total_ink = max(1, int(ink_rows.sum()))
-    ink_rows_seen = 0
-    gap_start_cur = None
-    gap_len_cur   = 0
-    cut_row       = ch
-
-    for y, has_ink in enumerate(ink_rows):
-        if has_ink:
-            ink_rows_seen += 1
-            gap_start_cur = None
-            gap_len_cur   = 0
-        else:
-            if gap_start_cur is None:
-                gap_start_cur = y
-                gap_len_cur   = 0
-            gap_len_cur += 1
-            if ink_rows_seen >= 4 and gap_len_cur >= 5:
-                ink_below = int(ink_rows[y + 1:].sum())
-                if ink_below / total_ink < 0.30:
-                    cut_row = gap_start_cur
-                    break
-
-    gap_cut = cut_row < ch
-    if gap_cut:
-        arr[cut_row:, :] = 255
-        gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
-
     if verbose:
         print(f"\n  Crop size : {cw} x {ch} px")
-        if gap_cut:
-            print(f"  Gap detected  : row {cut_row} (len {gap_len_cur}) — blanked below")
-        else:
-            print(f"  Gap detection : no clear gap found, using component filter only")
 
-    # ── Stage 2: connected-component noise filter ─────────────────────────
+    # ── Connected-component noise filter ─────────────────────────────────
     _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary, connectivity=8)
 
@@ -144,12 +110,12 @@ def _denoise(crop: Image.Image, verbose: bool = True) -> Image.Image:
         area   = int(stats[i, cv2.CC_STAT_AREA])
         comp_w = int(stats[i, cv2.CC_STAT_WIDTH])
         comp_h = int(stats[i, cv2.CC_STAT_HEIGHT])
-        if comp_w > cw * 0.50 and comp_h < 8:
-            continue
+        if comp_w > cw * 0.50 and comp_h < 6:
+            continue   # horizontal rule
         if area > max_area:
             max_area = area
 
-    keep_min = max(80, int(max_area * 0.12))
+    keep_min = max(25, int(max_area * 0.08))
 
     if verbose:
         print(f"  Largest blob : {max_area} px  |  keep_min : >= {keep_min} px")
@@ -163,7 +129,7 @@ def _denoise(crop: Image.Image, verbose: bool = True) -> Image.Image:
         comp_h = int(stats[i, cv2.CC_STAT_HEIGHT])
         cy     = float(centroids[i][1])
 
-        if comp_w > cw * 0.50 and comp_h < 8:
+        if comp_w > cw * 0.50 and comp_h < 6:
             if verbose:
                 print(f"  {i:>4}  {area:>6}  {cy:>10.1f}  {'RULE/DISCARD':>8}")
             continue
@@ -215,8 +181,8 @@ def main():
     crop.save(raw_out)
     print(f"\nRaw crop saved : {raw_out}")
 
-    # Denoise
-    print("\nRunning denoiser...")
+    # Denoise (noise-blob filter only — gap cut is handled by the sig detector)
+    print("\nRunning denoiser (noise filter)...")
     clean = _denoise(crop, verbose=True)
 
     out = src.parent / "sig_clean.png"

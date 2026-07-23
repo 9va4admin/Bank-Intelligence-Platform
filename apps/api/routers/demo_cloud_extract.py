@@ -846,18 +846,20 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
     Remove printed text (account name, "Please sign above", etc.) from a
     signature crop.  Two-stage approach:
 
-    Stage 1 — Gap detection (hard cut):
-      Re-runs the same row-density profiling used by the sig detector.
-      If a blank gap of ≥ 3 rows is found AND ≥ 4 ink rows sit above it,
-      every row at or below the gap is blanked white.  This eliminates
-      the printed name regardless of how small or large its characters are.
+    Noise filter: removes tiny isolated blobs (dust, JPEG artefacts,
+    faint dots) that survived the sig detector's bbox crop.
 
-    Stage 2 — Connected-component noise filter:
-      After the hard cut, small isolated blobs (dots, compression artefacts,
-      remnant descenders that crossed the gap) are removed.  Only blobs
-      ≥ 12 % of the largest stroke blob are kept (floor: 80 px).
-      Horizontal rules wider than 50 % of the crop and thinner than 8 px
-      are always discarded.
+    The sig detector already cuts the bbox above the printed name using
+    row-density gap detection, so the crop arriving here should contain
+    only signature strokes.  This function just cleans residual noise —
+    it does NOT attempt a second gap cut (doing so reliably inside the
+    crop is impossible without a trained model because cursive signatures
+    have large inter-stroke blank areas that look identical to the
+    sig-to-name gap).
+
+    Only blobs smaller than 8 % of the largest stroke blob are removed
+    (floor: 25 px).  Horizontal rules (width > 50 % crop, height < 6 px)
+    are always discarded.
     """
     try:
         import cv2
@@ -867,47 +869,7 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
         gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
         cw, ch = crop.width, crop.height
 
-        # ── Stage 1: row-density gap detection ───────────────────────────
-        # Crude threshold (not Otsu) — intentionally lenient so any ink
-        # registers as "ink", even faint printed text.
-        ink_mask = (gray < 180).astype(np.uint8)
-        row_density = ink_mask.sum(axis=1) / max(cw, 1)
-        ink_rows    = row_density > 0.005   # row has at least 0.5 % ink coverage
-
-        # Find the gap between signature strokes and printed name.
-        # Condition: gap >= 5 blank rows AND < 30% of total ink remains below.
-        # A gap INSIDE the signature has lots of ink below (rest of the sig +
-        # the name), so the 30% check skips it and keeps scanning.
-        # The sig-to-name gap has only a few ink rows below (the name itself),
-        # so the 30% check passes and we cut there.
-        total_ink = max(1, int(ink_rows.sum()))
-        ink_rows_seen  = 0
-        gap_start      = None
-        gap_len        = 0
-        cut_row        = ch   # default: no cut
-
-        for y, has_ink in enumerate(ink_rows):
-            if has_ink:
-                ink_rows_seen += 1
-                gap_start = None
-                gap_len   = 0
-            else:
-                if gap_start is None:
-                    gap_start = y
-                    gap_len   = 0
-                gap_len += 1
-                if ink_rows_seen >= 4 and gap_len >= 5:
-                    ink_below = int(ink_rows[y + 1:].sum())
-                    if ink_below / total_ink < 0.30:   # < 30 % of ink is below
-                        cut_row = gap_start
-                        break
-
-        gap_cut_applied = cut_row < ch
-        if gap_cut_applied:
-            arr[cut_row:, :] = 255   # hard-blank everything below the gap
-            gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
-
-        # ── Stage 2: connected-component noise filter ─────────────────────
+        # ── Connected-component noise filter ─────────────────────────────
         _, binary = cv2.threshold(
             gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
         )
@@ -925,21 +887,20 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
             if area > max_area:
                 max_area = area
 
-        keep_min = max(80, int(max_area * 0.12))
+        keep_min = max(25, int(max_area * 0.08))
 
         output = np.full_like(arr, 255)
         for i in range(1, num_labels):
             area   = int(stats[i, cv2.CC_STAT_AREA])
             comp_w = int(stats[i, cv2.CC_STAT_WIDTH])
             comp_h = int(stats[i, cv2.CC_STAT_HEIGHT])
-            if comp_w > cw * 0.50 and comp_h < 8:
+            if comp_w > cw * 0.50 and comp_h < 6:
                 continue   # horizontal rule — always discard
             if area >= keep_min:
                 mask = labels == i
                 output[mask] = arr[mask]
 
         log.info("demo.cloud_extract.denoise_done",
-                 gap_cut=gap_cut_applied, gap_row=cut_row, gap_len=gap_len,
                  max_blob=max_area, keep_min=keep_min, blobs_total=num_labels - 1)
         return Image.fromarray(output.astype(np.uint8))
 
