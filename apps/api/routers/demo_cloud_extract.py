@@ -828,25 +828,22 @@ async def cloud_extract_debug_ink(
 
 def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
     """
-    Remove printed text (ANKIT KUMAR, UMAR, "Please sign above", bank name etc.)
-    from a signature crop using OpenCV connected-component filtering.
+    Remove printed uppercase name ("ANKIT KUMAR", "UMAR" etc.) and security
+    mesh dots from a signature crop, preserving cursive ink strokes.
 
-    Two-zone strategy:
-      Upper zone (y < 72 % of crop height) — signature body:
-        Keep blobs ≥ 15 % of the largest stroke blob (floor 150 px).
-      Lower zone (y ≥ 72 %) — name / instruction area:
-        Keep only blobs ≥ 45 % of largest — only major sig loops that
-        dip very low survive; printed name characters (typically 10–30 %
-        of stroke area) are always removed.
+    Two-pass connected-component filter:
 
-    Centroid y is used (not bbox top) so that blobs straddling the
-    boundary are classified by where most of their ink sits.
+    Pass 1 — size: blobs < 30 px are security-mesh / halftone dots -> discard.
 
-    Horizontal rules (width > 50 % of crop, height < 8 px) are always
-    discarded — the "please sign above" underline is not a stroke.
+    Pass 2 — solidity in lower crop:
+        solidity = blob_area / convex_hull_area
+        Printed uppercase letters are compact, blocky shapes: solidity > 0.45.
+        Cursive strokes are open, spidery shapes: solidity < 0.35.
+        Only applied when centroid_y > 55 % of crop (name is below sig body)
+        AND blob height < 20 % of crop (caps are short relative to the crop).
 
-    cv2 5.0.0 confirmed installed. Graceful degradation: returns crop
-    unchanged if cv2 is unavailable for any reason.
+    Horizontal rules (width > 50 % of crop, height < 8 px) always discarded.
+    Graceful degradation: returns original crop on any exception.
     """
     try:
         import cv2
@@ -854,59 +851,56 @@ def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
 
         arr  = np.array(crop.convert("RGB"))
         gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
+        cw, ch = crop.width, crop.height
 
-        # Otsu binarisation — ink → 255, background → 0
-        _, binary = cv2.threshold(
-            gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
-        )
-
-        # centroids is the 4th output: shape (num_labels, 2) — (cx, cy)
+        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
             binary, connectivity=8
         )
 
-        cw, ch = crop.width, crop.height
-        name_zone_y = ch * 0.72   # blobs whose centroid sits below this = name zone
-
-        # ── Pass 1: largest non-rule blob area ───────────────────────────
-        max_area = 0
-        for i in range(1, num_labels):
-            area   = int(stats[i, cv2.CC_STAT_AREA])
-            comp_w = int(stats[i, cv2.CC_STAT_WIDTH])
-            comp_h = int(stats[i, cv2.CC_STAT_HEIGHT])
-            if comp_w > cw * 0.50 and comp_h < 8:
-                continue   # horizontal rule
-            if area > max_area:
-                max_area = area
-
-        # Upper zone threshold: ≥ 15 % of dominant stroke, floor 150 px
-        keep_upper = max(150, int(max_area * 0.15))
-        # Lower (name) zone: require ≥ 45 % — only deep-dipping sig strokes survive
-        keep_lower = max(150, int(max_area * 0.45))
-
-        # ── Pass 2: white canvas, paste qualifying blobs ──────────────────
         output = np.full_like(arr, 255)
+        kept = removed = 0
+
         for i in range(1, num_labels):
             area   = int(stats[i, cv2.CC_STAT_AREA])
             comp_w = int(stats[i, cv2.CC_STAT_WIDTH])
             comp_h = int(stats[i, cv2.CC_STAT_HEIGHT])
-            if comp_w > cw * 0.50 and comp_h < 8:
-                continue   # horizontal rule — always discard
-            centroid_y = float(centroids[i][1])
-            threshold  = keep_lower if centroid_y >= name_zone_y else keep_upper
-            if area >= threshold:
-                mask = labels == i
-                output[mask] = arr[mask]
+            cy     = float(centroids[i][1])
 
-        result = Image.fromarray(output.astype(np.uint8))
+            # Pass 1: mesh / halftone dots
+            if area < 30:
+                removed += 1
+                continue
+
+            # Always discard horizontal underline rules
+            if comp_w > cw * 0.50 and comp_h < 8:
+                removed += 1
+                continue
+
+            # Pass 2: solidity check for printed uppercase chars
+            if cy / ch > 0.55 and comp_h < ch * 0.20:
+                blob_mask = (labels == i).astype(np.uint8) * 255
+                contours, _ = cv2.findContours(
+                    blob_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+                )
+                if contours:
+                    hull_area = cv2.contourArea(cv2.convexHull(contours[0]))
+                    if hull_area > 0 and (area / hull_area) > 0.45:
+                        removed += 1
+                        continue   # printed uppercase char -> discard
+
+            # Keep this blob
+            mask = labels == i
+            output[mask] = arr[mask]
+            kept += 1
+
         log.info("demo.cloud_extract.denoise_done",
-                 max_blob=max_area, keep_upper=keep_upper, keep_lower=keep_lower,
-                 blobs_total=num_labels - 1)
-        return result
+                 crop_w=cw, crop_h=ch, kept=kept, removed=removed)
+        return Image.fromarray(output.astype(np.uint8))
 
     except Exception as exc:
         log.warning("demo.cloud_extract.denoise_failed", error=str(exc))
-        return crop   # graceful degradation
+        return crop
 
 
 async def _extract_yolov8_sig(
