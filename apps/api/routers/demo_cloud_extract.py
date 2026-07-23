@@ -826,11 +826,31 @@ async def cloud_extract_debug_ink(
     }
 
 
-def _sig_ink_fraction(img: Image.Image) -> float:
-    """Return fraction of pixels darker than 180 (ink pixels) in the image."""
-    import numpy as np
-    arr = np.array(img.convert("L"))
-    return float((arr < 180).sum()) / max(arr.size, 1)
+def _has_real_signature(img: Image.Image) -> bool:
+    """
+    Return True only if the denoised crop contains a real handwritten signature.
+
+    Two conditions must BOTH hold:
+      1. Ink fraction > 1 %  — enough total ink to be a signature
+      2. Largest connected blob > 400 px — at least one substantial stroke exists
+
+    Scattered dots or micro-marks (surviving mesh, faint prints) have very small
+    blobs and low ink fractions — they fail condition 2 and/or 1.
+    A real cursive signature always produces at least one blob of several hundred
+    pixels.
+    """
+    try:
+        import cv2, numpy as np
+        arr  = np.array(img.convert("L"))
+        ink_fraction = float((arr < 180).sum()) / max(arr.size, 1)
+        if ink_fraction < 0.01:
+            return False
+        _, binary = cv2.threshold(arr, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        _, _, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
+        max_blob = int(stats[1:, cv2.CC_STAT_AREA].max()) if len(stats) > 1 else 0
+        return max_blob >= 400
+    except Exception:
+        return True  # on any error, don't suppress the crop
 
 
 def _denoise_sig_crop(crop: Image.Image) -> Image.Image:
@@ -1024,7 +1044,7 @@ async def _extract_yolov8_sig(
         crop = pil_img.crop((cx1, cy1, cx2, cy2))
         crop = _denoise_sig_crop(crop)
         # Skip if denoised crop is nearly empty — no real handwritten signature
-        if _sig_ink_fraction(crop) < 0.005:
+        if not _has_real_signature(crop):
             log.info("demo.cloud_extract.no_sig_after_denoise", bbox=bbox)
             continue
         buf = io.BytesIO()
@@ -1091,7 +1111,7 @@ async def _extract_yolov8_sig_only(
         crop = pil_img.crop((cx1, cy1, cx2, cy2))
         crop = _denoise_sig_crop(crop)
         # Skip if denoised crop is nearly empty — no real handwritten signature
-        if _sig_ink_fraction(crop) < 0.005:
+        if not _has_real_signature(crop):
             log.info("demo.cloud_extract.no_sig_after_denoise", bbox=bbox)
             continue
         buf = io.BytesIO()
