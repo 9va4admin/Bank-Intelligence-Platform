@@ -56,8 +56,21 @@ _MODEL_MAPPING = {
 _YOLO_SIG_MODELS = {"yolov8-sig"}
 
 # Sig-only mode: runs the local detector + denoising, NEVER calls HF.
-# Useful for iterating on crop quality without burning HF quota.
 _YOLO_SIG_ONLY_MODELS = {"yolov8-sig-only"}
+
+# Qwen2-VL sig-only: calls HF Qwen2-VL with a signature-focused prompt.
+# Handles multiple signatures, ignores stamps/printed text naturally.
+_QWEN_SIG_MODELS = {"qwen2vl-sig"}
+
+SIG_DETECT_PROMPT = (
+    "You are a cheque processing system. "
+    "Find every handwritten signature in this cheque image. "
+    "Ignore pre-printed text, bank stamps, account holder names, amounts, and any annotations. "
+    "For each signature, return its bounding box as normalised coordinates (0.0–1.0, top-left origin). "
+    'Respond with ONLY valid JSON — no markdown: '
+    '{"signatures":[{"x1":0.0,"y1":0.0,"x2":1.0,"y2":1.0,"confidence":0.95}]}'
+    " Return an empty list if no handwritten signature is present."
+)
 
 # Fallback URL for the sig detector microservice in local dev without Docker.
 _SIG_DETECTOR_URL_FALLBACK = "http://localhost:8020"
@@ -1252,26 +1265,89 @@ async def _extract_yolov8_sig_only(
     )
 
 
+async def _extract_qwen2vl_sig(file: UploadFile, ctx) -> CloudExtractResponse:
+    """Call HF Qwen2-VL with a signature-only prompt — supports multiple signatures."""
+    from openai import AsyncOpenAI
+    import json as _json
+
+    hf_token = await _resolve_hf_token(ctx.bank_id)
+    if hf_token is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            detail="HF token not configured.")
+
+    hf_base_url  = await _resolve_hf_base_url(ctx.bank_id)
+    raw_bytes    = await file.read()
+    png_bytes, pil_img = _convert_to_png(raw_bytes)
+    iw, ih       = pil_img.size
+    image_b64    = base64.b64encode(png_bytes).decode()
+
+    client    = AsyncOpenAI(base_url=hf_base_url, api_key=hf_token)
+    model_id  = _MODEL_MAPPING["qwen-72b"]   # Qwen2.5-VL-72B
+
+    resp = await client.chat.completions.create(
+        model=model_id,
+        messages=[{"role": "user", "content": [
+            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}"}},
+            {"type": "text", "text": SIG_DETECT_PROMPT},
+        ]}],
+        temperature=0,
+    )
+    content = resp.choices[0].message.content.strip()
+    if content.startswith("```"):
+        content = content.split("```")[1]
+        if content.startswith("json"):
+            content = content[4:]
+    try:
+        parsed = _json.loads(content)
+        sigs   = parsed.get("signatures", [])
+    except Exception:
+        sigs = []
+
+    crops: list[str] = []
+    for sig in sigs:
+        try:
+            x1 = max(0, int(float(sig["x1"]) * iw))
+            y1 = max(0, int(float(sig["y1"]) * ih))
+            x2 = min(iw, int(float(sig["x2"]) * iw))
+            y2 = min(ih, int(float(sig["y2"]) * ih))
+            if x2 > x1 and y2 > y1:
+                crop = pil_img.crop((x1, y1, x2, y2))
+                buf  = io.BytesIO()
+                crop.save(buf, format="PNG")
+                crops.append(base64.b64encode(buf.getvalue()).decode())
+        except Exception:
+            continue
+
+    return CloudExtractResponse(
+        model_used="qwen2vl-sig",
+        signature_crops=crops if crops else None,
+        signature_crops_estimated=False,
+        raw_response=content,
+    )
+
+
 @router_v1.post("", response_model=CloudExtractResponse)
 async def cloud_extract_cheque(
     file: UploadFile = File(...),
     model: str = "qwen-72b",
     ctx: UserContext = Depends(require_user_context),
 ) -> CloudExtractResponse:
-    _all_valid = set(_MODEL_MAPPING) | _YOLO_SIG_MODELS | _YOLO_SIG_ONLY_MODELS
+    _all_valid = set(_MODEL_MAPPING) | _YOLO_SIG_MODELS | _YOLO_SIG_ONLY_MODELS | _QWEN_SIG_MODELS
     if model not in _all_valid:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Unknown model '{model}'. Must be one of {sorted(_all_valid)}.",
         )
 
-    # ── YOLOv8 sig-only (local, no HF call) ──────────────────────────────────
     if model in _YOLO_SIG_ONLY_MODELS:
         return await _extract_yolov8_sig_only(file, ctx)
 
-    # ── YOLOv8 + Qwen 32B fields ─────────────────────────────────────────────
     if model in _YOLO_SIG_MODELS:
         return await _extract_yolov8_sig(file, ctx)
+
+    # ── Qwen2-VL sig-only (multi-signature via HF) ───────────────────────────
+    if model in _QWEN_SIG_MODELS:
+        return await _extract_qwen2vl_sig(file, ctx)
 
     from openai import AsyncOpenAI
 
