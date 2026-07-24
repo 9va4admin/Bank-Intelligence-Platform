@@ -48,13 +48,20 @@ app = FastAPI(
     redoc_url=None,
 )
 
-_yolo_model = None   # loaded only when SIG_DETECTOR_LOCAL_PATH is set
+_yolo_model = None
 _mode: str = "pixel"
+_vision_url: str = ""   # vLLM endpoint for Qwen2-VL mode
 
 
 @app.on_event("startup")
 async def _startup() -> None:
-    global _yolo_model, _mode
+    global _yolo_model, _mode, _vision_url
+    vision_url = os.environ.get("SIG_DETECTOR_VISION_URL", "").strip()
+    if vision_url:
+        _vision_url = vision_url
+        _mode = "qwen2vl"
+        log.info("sig_detector.ready", mode="qwen2vl", url=vision_url)
+        return
     local_path = os.environ.get("SIG_DETECTOR_LOCAL_PATH", "").strip()
     if local_path:
         try:
@@ -66,8 +73,7 @@ async def _startup() -> None:
             log.warning("sig_detector.yolo_load_failed", path=local_path, error=str(exc))
             log.info("sig_detector.ready", mode="pixel")
     else:
-        log.info("sig_detector.ready", mode="pixel",
-                 note="Set SIG_DETECTOR_LOCAL_PATH to a .pt file to enable YOLOv8")
+        log.info("sig_detector.ready", mode="pixel")
 
 
 # ── Pixel-based detector ──────────────────────────────────────────────────────
@@ -286,6 +292,76 @@ def _detect_yolo(img: Image.Image) -> list[dict]:
     return detections
 
 
+# ── Qwen2-VL vision detector ─────────────────────────────────────────────────
+
+def _detect_qwen2vl(img: Image.Image) -> list[dict]:
+    """
+    Use Qwen2-VL (via vLLM) to locate all handwritten signatures in a cheque.
+    Returns normalised [x1,y1,x2,y2] bboxes for every signature found.
+    Falls back to [] on any error (pixel mode used as fallback at call site).
+
+    Env: SIG_DETECTOR_VISION_URL   — vLLM base URL (e.g. http://vllm-cts:8000)
+         SIG_DETECTOR_VISION_MODEL — model name (default: Qwen/Qwen2-VL-72B-Instruct)
+    """
+    import base64, json, httpx
+
+    iw, ih = img.size
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=92)
+    b64 = base64.b64encode(buf.getvalue()).decode()
+
+    model = os.environ.get("SIG_DETECTOR_VISION_MODEL", "Qwen/Qwen2-VL-72B-Instruct")
+    prompt = (
+        "You are a cheque processing system. "
+        "Identify every handwritten signature in this cheque image. "
+        "Ignore pre-printed text, stamps, bank names, amounts, and annotations. "
+        "For each signature found, output its bounding box as normalised coordinates "
+        "(values 0.0–1.0, origin top-left). "
+        'Respond with ONLY valid JSON: {"signatures": [{"x1":f,"y1":f,"x2":f,"y2":f,"confidence":f}, ...]}'
+        " — no other text."
+    )
+
+    payload = {
+        "model": model,
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
+                {"type": "text", "text": prompt},
+            ],
+        }],
+        "max_tokens": 512,
+        "temperature": 0.0,
+        "extra_body": {"queue": "cts-vision"},
+    }
+
+    try:
+        with httpx.Client(timeout=60.0) as client:
+            r = client.post(f"{_vision_url}/v1/chat/completions", json=payload)
+            r.raise_for_status()
+        content = r.json()["choices"][0]["message"]["content"].strip()
+        # strip markdown fences if model wraps in ```json ... ```
+        if content.startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+        parsed = json.loads(content)
+        detections = []
+        for sig in parsed.get("signatures", []):
+            x1, y1 = max(0.0, float(sig["x1"])), max(0.0, float(sig["y1"]))
+            x2, y2 = min(1.0, float(sig["x2"])), min(1.0, float(sig["y2"]))
+            if x2 > x1 and y2 > y1:
+                detections.append({
+                    "bbox": [round(x1,4), round(y1,4), round(x2,4), round(y2,4)],
+                    "confidence": round(float(sig.get("confidence", 0.90)), 4),
+                })
+        log.info("sig_detector.qwen2vl.done", count=len(detections))
+        return detections
+    except Exception as exc:
+        log.warning("sig_detector.qwen2vl.error", error=str(exc))
+        return []
+
+
 # ── API ───────────────────────────────────────────────────────────────────────
 
 class Detection(BaseModel):
@@ -295,7 +371,7 @@ class Detection(BaseModel):
 
 class DetectResponse(BaseModel):
     detections: list[Detection]
-    mode: str           # "yolov8" or "pixel"
+    mode: str           # "qwen2vl" | "yolov8" | "pixel"
     image_size: list[int]
 
 
@@ -308,7 +384,12 @@ async def detect_signatures(file: UploadFile = File(...)) -> DetectResponse:
         raise HTTPException(status_code=400, detail=f"Invalid image: {exc}") from exc
 
     iw, ih = img.size
-    raw = _detect_yolo(img) if _mode == "yolov8" else _detect_pixel(img)
+    if _mode == "qwen2vl":
+        raw = _detect_qwen2vl(img) or _detect_pixel(img)   # pixel fallback on error
+    elif _mode == "yolov8":
+        raw = _detect_yolo(img)
+    else:
+        raw = _detect_pixel(img)
     detections = [Detection(bbox=d["bbox"], confidence=d["confidence"]) for d in raw]
 
     log.info("sig_detector.detected", count=len(detections), mode=_mode)
