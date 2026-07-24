@@ -112,46 +112,61 @@ def _suppress_ruled_lines(ink: np.ndarray, density_thr: float = 0.40) -> np.ndar
     return out
 
 
-def _trim_isolated_right_text(ink_above: np.ndarray) -> np.ndarray:
+def _remove_outlier_components(ink: np.ndarray) -> np.ndarray:
     """
-    Remove capital letter text (KUMAR, NKIT, etc.) isolated on the right side
-    of the extracted sig crop.  These printed words sit in a narrow column band
-    separated from the cursive signature mass by blank columns.
+    Remove ink blobs (connected components) that are both small AND far from
+    the main signature mass.  Eliminates pre-printed capital letter annotations
+    like KUMAR and NKIT that land inside the signature zone crop.
 
-    Scans the right 40% of the crop for the leftmost column gap ≥ 3 wide that
-    has ink beyond it (confirming isolated text exists, not just the right edge).
-    When found, zeroes everything from the gap start onwards.
+    Keep rule: component is kept if it has ≥ 3 % of total ink pixels OR its
+    centroid is within 38 % of the zone diagonal from the overall ink centroid.
+    Anything smaller AND further away is considered an annotation blob.
     """
-    zh, zw = ink_above.shape
-    if zw < 20:
-        return ink_above
+    from collections import deque
 
-    col_density = ink_above.sum(axis=0) / max(1, zh)
-    col_has = _smooth_profile(col_density, window=3) > 0.003
+    total_ink = int(ink.sum())
+    if total_ink < 30:
+        return ink
 
-    scan_from = zw * 6 // 10   # only right 40% — avoids cutting inside signature
-    best_len = best_start = 0
-    g_start = g_len = 0
-    in_gap = False
+    zh, zw = ink.shape
+    visited = np.zeros(ink.shape, dtype=bool)
+    components: list = []
 
-    for c in range(scan_from, zw):
-        if not col_has[c]:
-            if not in_gap:
-                g_start, g_len, in_gap = c, 0, True
-            g_len += 1
-            if g_len > best_len:
-                best_len, best_start = g_len, g_start
-        else:
-            in_gap = False
+    for sy in range(zh):
+        for sx in range(zw):
+            if ink[sy, sx] and not visited[sy, sx]:
+                pixels: list = []
+                q: deque = deque()
+                q.append((sy, sx))
+                visited[sy, sx] = True
+                while q:
+                    y, x = q.popleft()
+                    pixels.append((y, x))
+                    for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                        ny, nx = y + dy, x + dx
+                        if 0 <= ny < zh and 0 <= nx < zw and ink[ny, nx] and not visited[ny, nx]:
+                            visited[ny, nx] = True
+                            q.append((ny, nx))
+                pys = [p[0] for p in pixels]
+                pxs = [p[1] for p in pixels]
+                components.append((len(pixels), float(sum(pys) / len(pys)), float(sum(pxs) / len(pxs)), pixels))
 
-    g_end = best_start + best_len
-    # Only trim when: meaningful blank gap AND ink exists beyond it (confirms isolated text)
-    if best_len >= 3 and g_end + 3 <= zw and col_has[g_end : g_end + 3].any():
-        result = ink_above.copy()
-        result[:, best_start:] = 0
-        return result
+    if not components:
+        return ink
 
-    return ink_above
+    ys_all, xs_all = np.where(ink)
+    cy, cx = float(ys_all.mean()), float(xs_all.mean())
+
+    min_keep = max(20, int(total_ink * 0.03))
+    max_dist  = 0.38 * (zh ** 2 + zw ** 2) ** 0.5
+
+    result = np.zeros_like(ink)
+    for size, comp_cy, comp_cx, pixels in components:
+        dist = ((comp_cy - cy) ** 2 + (comp_cx - cx) ** 2) ** 0.5
+        if size >= min_keep or dist <= max_dist:
+            for y, x in pixels:
+                result[y, x] = 1
+    return result
 
 
 def _detect_pixel(img: Image.Image) -> list[dict]:
@@ -192,11 +207,12 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     thr  = _ink_threshold(gray)
     ink  = (gray < thr).astype(np.uint8)
 
-    ink_clean    = _remove_noise_pixels(ink)           # remove isolated pixels
-    ink_no_rules = _suppress_ruled_lines(ink_clean)    # remove pre-printed lines (>40% density)
+    ink_clean    = _remove_noise_pixels(ink)
+    ink_no_rules = _suppress_ruled_lines(ink_clean)
+    ink_sig      = _remove_outlier_components(ink_no_rules)   # drop KUMAR/NKIT blobs
 
-    # ── 3. Gap detection on ruled-line-free mask ─────────────────────────
-    raw_density = ink_no_rules.sum(axis=1) / zw
+    # ── 3. Gap detection on cleaned mask ─────────────────────────────────
+    raw_density = ink_sig.sum(axis=1) / zw
     row_density = _smooth_profile(raw_density, window=5)
     ink_rows    = row_density > 0.005
 
@@ -218,9 +234,8 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     else:
         sig_bottom_zone = zh
 
-    # ── 4. Tight bbox from the cleaned (ruled-line-free) ink mask ────────
-    ink_above = ink_no_rules[:sig_bottom_zone, :]
-    ink_above = _trim_isolated_right_text(ink_above)
+    # ── 4. Tight bbox ────────────────────────────────────────────────────
+    ink_above  = ink_sig[:sig_bottom_zone, :]
     ink_coords = np.argwhere(ink_above)
     if ink_coords.size == 0:
         return []
@@ -273,8 +288,9 @@ def _refine_with_pixel(img: Image.Image, bbox: list[float]) -> list[float] | Non
 
     ink_clean    = _remove_noise_pixels(ink)
     ink_no_rules = _suppress_ruled_lines(ink_clean)
+    ink_sig      = _remove_outlier_components(ink_no_rules)
 
-    raw_density = ink_no_rules.sum(axis=1) / cw
+    raw_density = ink_sig.sum(axis=1) / cw
     row_density = _smooth_profile(raw_density, window=5)
     ink_rows    = row_density > 0.005
 
@@ -296,8 +312,7 @@ def _refine_with_pixel(img: Image.Image, bbox: list[float]) -> list[float] | Non
     else:
         sig_bottom = ch
 
-    ink_region = ink_no_rules[:sig_bottom, :]
-    ink_region = _trim_isolated_right_text(ink_region)
+    ink_region = ink_sig[:sig_bottom, :]
     ink_coords = np.argwhere(ink_region)
     if ink_coords.size == 0:
         return None
