@@ -79,94 +79,13 @@ def _ink_threshold(arr: np.ndarray) -> int:
 
 
 def _smooth_profile(profile: np.ndarray, window: int = 5) -> np.ndarray:
-    """Moving-average smoothing over a 1-D row-density profile."""
+    """
+    Moving-average smoothing over a 1-D row-density profile.
+    Merges tiny intra-signature gaps (1–4 rows) so they don't register as
+    the "largest gap", leaving only the true gap between signature and text.
+    """
     kernel = np.ones(window) / window
     return np.convolve(profile, kernel, mode="same")
-
-
-def _remove_noise_pixels(ink: np.ndarray) -> np.ndarray:
-    """
-    Remove completely isolated ink pixels (no cardinal neighbour).
-    Keeps connected strokes; eliminates salt-and-pepper noise.
-    """
-    zh, zw = ink.shape
-    has_neighbor = (
-        np.vstack([np.zeros((1, zw), dtype=np.uint8), ink[:-1, :]]) |
-        np.vstack([ink[1:, :], np.zeros((1, zw), dtype=np.uint8)]) |
-        np.hstack([np.zeros((zh, 1), dtype=np.uint8), ink[:, :-1]]) |
-        np.hstack([ink[:, 1:], np.zeros((zh, 1), dtype=np.uint8)])
-    ).astype(np.uint8)
-    return (ink & has_neighbor).astype(np.uint8)
-
-
-def _suppress_ruled_lines(ink: np.ndarray, density_thr: float = 0.40) -> np.ndarray:
-    """
-    Zero out rows whose ink density exceeds density_thr.
-    Pre-printed ruling lines span >40% of the zone width; cursive strokes
-    never do.  Removing them lets gap-detection see the true blank space
-    between the signature and the text below.
-    """
-    row_density = ink.sum(axis=1) / ink.shape[1]
-    out = ink.copy()
-    out[row_density > density_thr, :] = 0
-    return out
-
-
-def _remove_outlier_components(ink: np.ndarray) -> np.ndarray:
-    """
-    Remove ink blobs (connected components) that are both small AND far from
-    the main signature mass.  Eliminates pre-printed capital letter annotations
-    like KUMAR and NKIT that land inside the signature zone crop.
-
-    Keep rule: component is kept if it has ≥ 3 % of total ink pixels OR its
-    centroid is within 38 % of the zone diagonal from the overall ink centroid.
-    Anything smaller AND further away is considered an annotation blob.
-    """
-    from collections import deque
-
-    total_ink = int(ink.sum())
-    if total_ink < 30:
-        return ink
-
-    zh, zw = ink.shape
-    visited = np.zeros(ink.shape, dtype=bool)
-    components: list = []
-
-    for sy in range(zh):
-        for sx in range(zw):
-            if ink[sy, sx] and not visited[sy, sx]:
-                pixels: list = []
-                q: deque = deque()
-                q.append((sy, sx))
-                visited[sy, sx] = True
-                while q:
-                    y, x = q.popleft()
-                    pixels.append((y, x))
-                    for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-                        ny, nx = y + dy, x + dx
-                        if 0 <= ny < zh and 0 <= nx < zw and ink[ny, nx] and not visited[ny, nx]:
-                            visited[ny, nx] = True
-                            q.append((ny, nx))
-                pys = [p[0] for p in pixels]
-                pxs = [p[1] for p in pixels]
-                components.append((len(pixels), float(sum(pys) / len(pys)), float(sum(pxs) / len(pxs)), pixels))
-
-    if not components:
-        return ink
-
-    ys_all, xs_all = np.where(ink)
-    cy, cx = float(ys_all.mean()), float(xs_all.mean())
-
-    min_keep = max(20, int(total_ink * 0.03))
-    max_dist  = 0.38 * (zh ** 2 + zw ** 2) ** 0.5
-
-    result = np.zeros_like(ink)
-    for size, comp_cy, comp_cx, pixels in components:
-        dist = ((comp_cy - cy) ** 2 + (comp_cx - cx) ** 2) ** 0.5
-        if size >= min_keep or dist <= max_dist:
-            for y, x in pixels:
-                result[y, x] = 1
-    return result
 
 
 def _detect_pixel(img: Image.Image) -> list[dict]:
@@ -201,41 +120,69 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     zone = img.crop((zx1, zy1, zx2, zy2))
     zw, zh = zone.size
 
-    # ── 2. Denoise ───────────────────────────────────────────────────────
+    # ── 2. Denoise: MedianFilter removes isolated noise pixels ───────────
     gray_img = zone.convert("L").filter(ImageFilter.MedianFilter(size=3))
     gray = np.array(gray_img)
     thr  = _ink_threshold(gray)
-    ink  = (gray < thr).astype(np.uint8)
+    ink  = (gray < thr).astype(np.uint8)   # 1 = ink pixel
 
-    ink_clean    = _remove_noise_pixels(ink)
-    ink_no_rules = _suppress_ruled_lines(ink_clean)
-    ink_sig      = _remove_outlier_components(ink_no_rules)   # drop KUMAR/NKIT blobs
+    # ── 3. Per-row ink density profile with smoothing ────────────────────
+    raw_density  = ink.sum(axis=1) / zw        # raw fraction of ink pixels per row
+    row_density  = _smooth_profile(raw_density, window=5)  # merge tiny intra-sig gaps
+    ink_rows     = row_density > 0.01           # rows with meaningful ink (post-smooth)
 
-    # ── 3. Gap detection on cleaned mask ─────────────────────────────────
-    raw_density = ink_sig.sum(axis=1) / zw
-    row_density = _smooth_profile(raw_density, window=5)
-    ink_rows    = row_density > 0.005
+    # ── 4. Top-gap: strip annotations above the signature (NKIT, KUMAR stamps) ──
+    # Find the FIRST row gap from the top where ink below is ≥ 3× ink above.
+    # That means: small annotation at top, main signature below.
+    sig_top_zone = 0
+    y = 0
+    while y < zh - 1:
+        if not ink_rows[y]:
+            y += 1
+            continue
+        sec_end = y
+        while sec_end < zh and ink_rows[sec_end]:
+            sec_end += 1
+        gap_end = sec_end
+        while gap_end < zh and not ink_rows[gap_end]:
+            gap_end += 1
+        gap_len = gap_end - sec_end
+        if gap_len >= 2:
+            ink_before = int(ink_rows[:sec_end].sum())
+            ink_after  = int(ink_rows[gap_end:].sum())
+            if ink_before > 0 and ink_after >= ink_before * 3:
+                sig_top_zone = gap_end
+        break
 
+    # ── 5. Bottom-gap: separate signature from text below ─────────────────
     best_gap_start = best_gap_len = 0
     cur_start = cur_len = 0
     in_gap = False
+
     for y, has_ink in enumerate(ink_rows):
         if not has_ink:
             if not in_gap:
-                cur_start, cur_len, in_gap = y, 0, True
+                cur_start = y
+                cur_len   = 0
+                in_gap    = True
             cur_len += 1
             if cur_len > best_gap_len:
-                best_gap_len, best_gap_start = cur_len, cur_start
+                best_gap_len   = cur_len
+                best_gap_start = cur_start
         else:
             in_gap = False
 
-    if best_gap_len >= 3 and ink_rows[:best_gap_start].sum() >= 6:
-        sig_bottom_zone = best_gap_start
+    if best_gap_len >= 3:
+        ink_above_count = ink_rows[sig_top_zone:best_gap_start].sum()
+        if ink_above_count >= 6:
+            sig_bottom_zone = best_gap_start
+        else:
+            sig_bottom_zone = zh
     else:
         sig_bottom_zone = zh
 
-    # ── 4. Tight bbox ────────────────────────────────────────────────────
-    ink_above  = ink_sig[:sig_bottom_zone, :]
+    # ── 6. Tight bbox from raw ink between top and bottom cuts ────────────
+    ink_above = ink[sig_top_zone:sig_bottom_zone, :]
     ink_coords = np.argwhere(ink_above)
     if ink_coords.size == 0:
         return []
@@ -248,11 +195,10 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     if bottom - top < 5 or right - left < 10:
         return []
 
-    # ── 6. Convert to full-image normalised coords ───────────────────────
-    abs_x1 = (zx1 + left)   / iw
-    abs_y1 = (zy1 + top)    / ih
-    abs_x2 = (zx1 + right)  / iw
-    abs_y2 = (zy1 + bottom) / ih
+    abs_x1 = (zx1 + left)              / iw
+    abs_y1 = (zy1 + sig_top_zone + top) / ih
+    abs_x2 = (zx1 + right)             / iw
+    abs_y2 = (zy1 + sig_top_zone + bottom) / ih
 
     return [{"bbox": [round(abs_x1, 4), round(abs_y1, 4),
                       round(abs_x2, 4), round(abs_y2, 4)],
@@ -286,14 +232,32 @@ def _refine_with_pixel(img: Image.Image, bbox: list[float]) -> list[float] | Non
     thr  = _ink_threshold(gray)
     ink  = (gray < thr).astype(np.uint8)
 
-    ink_clean    = _remove_noise_pixels(ink)
-    ink_no_rules = _suppress_ruled_lines(ink_clean)
-    ink_sig      = _remove_outlier_components(ink_no_rules)
-
-    raw_density = ink_sig.sum(axis=1) / cw
+    raw_density = ink.sum(axis=1) / cw
     row_density = _smooth_profile(raw_density, window=5)
-    ink_rows    = row_density > 0.005
+    ink_rows    = row_density > 0.01
 
+    # Top-gap: annotation above sig (same logic as _detect_pixel)
+    sig_top = 0
+    y = 0
+    while y < ch - 1:
+        if not ink_rows[y]:
+            y += 1
+            continue
+        sec_end = y
+        while sec_end < ch and ink_rows[sec_end]:
+            sec_end += 1
+        gap_end = sec_end
+        while gap_end < ch and not ink_rows[gap_end]:
+            gap_end += 1
+        gap_len = gap_end - sec_end
+        if gap_len >= 2:
+            ink_before = int(ink_rows[:sec_end].sum())
+            ink_after  = int(ink_rows[gap_end:].sum())
+            if ink_before > 0 and ink_after >= ink_before * 3:
+                sig_top = gap_end
+        break
+
+    # Bottom-gap: text below sig
     best_gap_start = best_gap_len = 0
     cur_start = cur_len = 0
     in_gap = False
@@ -307,12 +271,12 @@ def _refine_with_pixel(img: Image.Image, bbox: list[float]) -> list[float] | Non
         else:
             in_gap = False
 
-    if best_gap_len >= 3 and ink_rows[:best_gap_start].sum() >= 6:
+    if best_gap_len >= 3 and ink_rows[sig_top:best_gap_start].sum() >= 6:
         sig_bottom = best_gap_start
     else:
         sig_bottom = ch
 
-    ink_region = ink_sig[:sig_bottom, :]
+    ink_region = ink[sig_top:sig_bottom, :]
     ink_coords = np.argwhere(ink_region)
     if ink_coords.size == 0:
         return None
@@ -326,10 +290,10 @@ def _refine_with_pixel(img: Image.Image, bbox: list[float]) -> list[float] | Non
         return None
 
     return [
-        round((px1 + left)   / iw, 4),
-        round((py1 + top)    / ih, 4),
-        round((px1 + right)  / iw, 4),
-        round((py1 + bottom) / ih, 4),
+        round((px1 + left)              / iw, 4),
+        round((py1 + sig_top + top)     / ih, 4),
+        round((px1 + right)             / iw, 4),
+        round((py1 + sig_top + bottom)  / ih, 4),
     ]
 
 
