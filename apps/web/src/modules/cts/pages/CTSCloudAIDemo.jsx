@@ -18,6 +18,7 @@ const MODEL_OPTIONS = [
   { value: 'qwen-72b',         label: 'Qwen 72B  (cloud VLM)' },
   { value: 'qwen-32b',         label: 'Qwen 32B  (cloud VLM)' },
   { value: 'gemma-27b',        label: 'Gemma 27B (cloud VLM)' },
+  { value: 'qwen2vl-sig',      label: '✍️ Qwen2-VL Sig Extract  (multi-signature, cloud)' },
   { value: 'yolov8-sig',       label: '🔍 YOLOv8 Sig Detector  +  Qwen 32B fields' },
   { value: 'yolov8-sig-only',  label: '🔍 YOLOv8 Sig Only  (local — no HF token needed)' },
 ]
