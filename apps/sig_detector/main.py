@@ -131,30 +131,11 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     row_density  = _smooth_profile(raw_density, window=5)  # merge tiny intra-sig gaps
     ink_rows     = row_density > 0.01           # rows with meaningful ink (post-smooth)
 
-    # ── 4. Top-gap: strip annotations above the signature (NKIT, KUMAR stamps) ──
-    # Find the FIRST row gap from the top where ink below is ≥ 3× ink above.
-    # That means: small annotation at top, main signature below.
-    sig_top_zone = 0
-    y = 0
-    while y < zh - 1:
-        if not ink_rows[y]:
-            y += 1
-            continue
-        sec_end = y
-        while sec_end < zh and ink_rows[sec_end]:
-            sec_end += 1
-        gap_end = sec_end
-        while gap_end < zh and not ink_rows[gap_end]:
-            gap_end += 1
-        gap_len = gap_end - sec_end
-        if gap_len >= 2:
-            ink_before = int(ink_rows[:sec_end].sum())
-            ink_after  = int(ink_rows[gap_end:].sum())
-            if ink_before > 0 and ink_after >= ink_before * 3:
-                sig_top_zone = gap_end
-        break
-
-    # ── 5. Bottom-gap: separate signature from text below ─────────────────
+    # ── 4. Find the largest blank gap in the smoothed ink profile ────────
+    # A gap of ≥ 3 consecutive blank rows is required to count as the
+    # separator between the cursive signature and the printed name below.
+    # Gaps of 1–2 rows (typical within cursive letterforms) are now
+    # invisible after smoothing.
     best_gap_start = best_gap_len = 0
     cur_start = cur_len = 0
     in_gap = False
@@ -172,17 +153,22 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
         else:
             in_gap = False
 
+    # Cut at the top of the best gap when:
+    #   • the gap is at least 3 rows (was 1) to avoid cutting inside signature
+    #   • there are at least 8 ink rows above it (the signature itself)
     if best_gap_len >= 3:
-        ink_above_count = ink_rows[sig_top_zone:best_gap_start].sum()
-        if ink_above_count >= 6:
-            sig_bottom_zone = best_gap_start
+        ink_above_count = ink_rows[:best_gap_start].sum()
+        if ink_above_count >= 8:
+            sig_bottom_zone = best_gap_start   # exclusive, zone-relative
         else:
             sig_bottom_zone = zh
     else:
         sig_bottom_zone = zh
 
-    # ── 6. Tight bbox from raw ink between top and bottom cuts ────────────
-    ink_above = ink[sig_top_zone:sig_bottom_zone, :]
+    # ── 5. Find tight bbox of ink ABOVE the cut (using RAW ink mask) ─────
+    # Use the original non-smoothed mask for the tight box so we don't
+    # artificially enlarge or shrink the signature region.
+    ink_above = ink[:sig_bottom_zone, :]
     ink_coords = np.argwhere(ink_above)
     if ink_coords.size == 0:
         return []
@@ -195,10 +181,11 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     if bottom - top < 5 or right - left < 10:
         return []
 
-    abs_x1 = (zx1 + left)              / iw
-    abs_y1 = (zy1 + sig_top_zone + top) / ih
-    abs_x2 = (zx1 + right)             / iw
-    abs_y2 = (zy1 + sig_top_zone + bottom) / ih
+    # ── 6. Convert to full-image normalised coords ───────────────────────
+    abs_x1 = (zx1 + left)   / iw
+    abs_y1 = (zy1 + top)    / ih
+    abs_x2 = (zx1 + right)  / iw
+    abs_y2 = (zy1 + bottom) / ih
 
     return [{"bbox": [round(abs_x1, 4), round(abs_y1, 4),
                       round(abs_x2, 4), round(abs_y2, 4)],
@@ -236,28 +223,7 @@ def _refine_with_pixel(img: Image.Image, bbox: list[float]) -> list[float] | Non
     row_density = _smooth_profile(raw_density, window=5)
     ink_rows    = row_density > 0.01
 
-    # Top-gap: annotation above sig (same logic as _detect_pixel)
-    sig_top = 0
-    y = 0
-    while y < ch - 1:
-        if not ink_rows[y]:
-            y += 1
-            continue
-        sec_end = y
-        while sec_end < ch and ink_rows[sec_end]:
-            sec_end += 1
-        gap_end = sec_end
-        while gap_end < ch and not ink_rows[gap_end]:
-            gap_end += 1
-        gap_len = gap_end - sec_end
-        if gap_len >= 2:
-            ink_before = int(ink_rows[:sec_end].sum())
-            ink_after  = int(ink_rows[gap_end:].sum())
-            if ink_before > 0 and ink_after >= ink_before * 3:
-                sig_top = gap_end
-        break
-
-    # Bottom-gap: text below sig
+    # Find the largest gap of ≥ 3 blank rows — signature / text boundary
     best_gap_start = best_gap_len = 0
     cur_start = cur_len = 0
     in_gap = False
@@ -271,12 +237,12 @@ def _refine_with_pixel(img: Image.Image, bbox: list[float]) -> list[float] | Non
         else:
             in_gap = False
 
-    if best_gap_len >= 3 and ink_rows[sig_top:best_gap_start].sum() >= 6:
+    if best_gap_len >= 3 and ink_rows[:best_gap_start].sum() >= 6:
         sig_bottom = best_gap_start
     else:
-        sig_bottom = ch
+        sig_bottom = ch   # no clean gap — keep full crop
 
-    ink_region = ink[sig_top:sig_bottom, :]
+    ink_region = ink[:sig_bottom, :]
     ink_coords = np.argwhere(ink_region)
     if ink_coords.size == 0:
         return None
@@ -290,10 +256,10 @@ def _refine_with_pixel(img: Image.Image, bbox: list[float]) -> list[float] | Non
         return None
 
     return [
-        round((px1 + left)              / iw, 4),
-        round((py1 + sig_top + top)     / ih, 4),
-        round((px1 + right)             / iw, 4),
-        round((py1 + sig_top + bottom)  / ih, 4),
+        round((px1 + left)   / iw, 4),
+        round((py1 + top)    / ih, 4),
+        round((px1 + right)  / iw, 4),
+        round((py1 + bottom) / ih, 4),
     ]
 
 
