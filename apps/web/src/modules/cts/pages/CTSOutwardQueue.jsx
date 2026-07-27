@@ -23,6 +23,8 @@ import OutwardReviewPanel from '../components/OutwardReviewPanel'
 // ─── Mock data ──────────────────────────────────────────────────────────────
 // bank_slug mirrors Inward Q's convention: SMB sees only its own bank's rows.
 // pu / branch: tagged pre-NGCH, same as the backend CRL resolution.
+// bank / branch / pu = presenting bank (Saraswat or SMB that scanned the cheque).
+// ocr_fields.bank_name etc. = drawee bank (the bank on which the cheque is drawn).
 
 function ocrFields(over = {}) {
   return {
@@ -30,6 +32,26 @@ function ocrFields(over = {}) {
     amount_words: over.amount_words ?? '', micr: '400160002' + Math.floor(Math.random() * 900 + 100),
     alterations: over.alterations ?? false, ...over,
   }
+}
+
+// Build fields_meta from ocr_fields + per-field confidence overrides.
+// This models the extracted_value (immutable AI output) vs actual_value (what goes to NGCH).
+function makeFieldsMeta(ocr, confidences = {}) {
+  const defaults = { date: 0.97, payee: 0.95, amount_figures: 0.93, amount_words: 0.88, micr: 0.99, alterations: 0.99 }
+  const out = {}
+  Object.keys(defaults).forEach(k => {
+    const conf = confidences[k] ?? defaults[k]
+    out[k] = {
+      extracted_value:      ocr[k] ?? '',
+      extracted_confidence: conf,
+      extracted_by:         'GOT-OCR2.0',
+      actual_value:         ocr[k] ?? '',
+      source:               conf >= 0.90 ? 'STP' : 'MANUAL',
+      corrected_by:         null,
+      corrected_at:         null,
+    }
+  })
+  return out
 }
 
 const MOCK_HUMAN_REVIEW = [
@@ -41,7 +63,11 @@ const MOCK_HUMAN_REVIEW = [
     scanner_id: 'SCN-FORT-02', lot_number: 'LOT_SRCB0000001_20260619_01',
     ocr_confidence: 0.91, vision_compliance: 0.97, micr_confidence: 0.99,
     checks: { amount_words_match: false, date_valid: true, cts_valid: true },
-    ocr_fields: ocrFields({ payee: 'Kiran Traders', amount_figures: '₹7,40,000', amount_words: 'Seven lakhs fourteen thousand only', alterations: false }),
+    ocr_fields: ocrFields({
+      payee: 'Kiran Traders', amount_figures: '₹7,40,000', amount_words: 'Seven lakhs fourteen thousand only', alterations: false,
+      bank_name: 'HDFC Bank Ltd.', bank_branch: 'Fort Branch, Mumbai', bank_ifsc: 'HDFC0000060', bank_micr: '400240060',
+    }),
+    get fields_meta() { return makeFieldsMeta(this.ocr_fields, { amount_words: 0.74, amount_figures: 0.91 }) },
   },
   {
     instrument_id: 'CHQ-OUT-00519', account_display: '****9021', payee_display: 'Om Enterprises',
@@ -51,7 +77,11 @@ const MOCK_HUMAN_REVIEW = [
     scanner_id: 'SCN-VASH-01', lot_number: 'LOT_SRCB0000001_20260619_02',
     ocr_confidence: 0.95, vision_compliance: 0.88, micr_confidence: 0.98,
     checks: { amount_words_match: true, date_valid: true, cts_valid: false },
-    ocr_fields: ocrFields({ payee: 'Om Enterprises', amount_figures: '₹2,15,000', amount_words: 'Two lakhs fifteen thousand only' }),
+    ocr_fields: ocrFields({
+      payee: 'Om Enterprises', amount_figures: '₹2,15,000', amount_words: 'Two lakhs fifteen thousand only',
+      bank_name: 'ICICI Bank Ltd.', bank_branch: 'Nariman Point, Mumbai', bank_ifsc: 'ICIC0000001', bank_micr: '400229001',
+    }),
+    get fields_meta() { return makeFieldsMeta(this.ocr_fields) },
   },
   {
     instrument_id: 'CHQ-OUT-00527', account_display: '****3308', payee_display: 'Deshmukh & Co.',
@@ -61,7 +91,11 @@ const MOCK_HUMAN_REVIEW = [
     scanner_id: 'SCN-ANDH-03', lot_number: 'LOT_VASB0000001_20260619_01',
     ocr_confidence: 0.98, vision_compliance: 0.99, micr_confidence: 0.99,
     checks: { amount_words_match: true, date_valid: true, cts_valid: true },
-    ocr_fields: ocrFields({ payee: 'Deshmukh & Co.', amount_figures: '₹42,00,000', amount_words: 'Forty two lakhs only' }),
+    ocr_fields: ocrFields({
+      payee: 'Deshmukh & Co.', amount_figures: '₹42,00,000', amount_words: 'Forty two lakhs only',
+      bank_name: 'State Bank of India', bank_branch: 'Fort Branch, Mumbai', bank_ifsc: 'SBIN0000300', bank_micr: '400002003',
+    }),
+    get fields_meta() { return makeFieldsMeta(this.ocr_fields, { date: 0.99, payee: 0.99, amount_figures: 0.99, amount_words: 0.98, micr: 0.99 }) },
     opa_rule: 'cts_routing.rego · rule: high_value_dual_approval',
   },
 ]
@@ -75,7 +109,11 @@ const MOCK_STP_REJECTED = [
     scanner_id: 'SCN-DADR-01', lot_number: 'LOT_SRCB0000001_20260619_01',
     ocr_confidence: 0.86, vision_compliance: 0.61, micr_confidence: 0.94,
     checks: { amount_words_match: true, date_valid: true, cts_valid: false },
-    ocr_fields: ocrFields({ payee: 'Bhagwati Steels', amount_figures: '₹1,88,000', amount_words: 'One lakh eighty eight thousand only' }),
+    ocr_fields: ocrFields({
+      payee: 'Bhagwati Steels', amount_figures: '₹1,88,000', amount_words: 'One lakh eighty eight thousand only',
+      bank_name: 'Axis Bank Ltd.', bank_branch: 'Andheri West, Mumbai', bank_ifsc: 'UTIB0000067', bank_micr: '400211067',
+    }),
+    get fields_meta() { return makeFieldsMeta(this.ocr_fields, { payee: 0.86, amount_figures: 0.88 }) },
     stp_decision: {
       engine: 'CTS-2010 Compliance Validator', rule: 'crossing_lines_missing',
       confidence: 0.61, threshold: 0.85, decided_at: '10:58:41 AM',
@@ -90,7 +128,11 @@ const MOCK_STP_REJECTED = [
     scanner_id: 'SCN-ANDE-02', lot_number: 'LOT_VASB0000001_20260619_02',
     ocr_confidence: 0.93, vision_compliance: 0.95, micr_confidence: 0.97,
     checks: { amount_words_match: true, date_valid: false, cts_valid: true },
-    ocr_fields: ocrFields({ payee: 'Shree Ambika Traders', amount_figures: '₹42,500', amount_words: 'Forty two thousand five hundred only', date: '02-Jan-2026' }),
+    ocr_fields: ocrFields({
+      payee: 'Shree Ambika Traders', amount_figures: '₹42,500', amount_words: 'Forty two thousand five hundred only', date: '02-Jan-2026',
+      bank_name: 'Bank of Baroda', bank_branch: 'Churchgate, Mumbai', bank_ifsc: 'BARB0CHURCH', bank_micr: '400012009',
+    }),
+    get fields_meta() { return makeFieldsMeta(this.ocr_fields, { date: 0.97 }) },
     stp_decision: {
       engine: 'CTS-2010 Compliance Validator', rule: 'stale_instrument_date',
       confidence: 0.97, threshold: 0.90, decided_at: '11:05:18 AM',

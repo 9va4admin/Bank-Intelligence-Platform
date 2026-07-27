@@ -18,18 +18,31 @@ import { useState, useEffect, useCallback } from 'react'
 // ── SVG placeholder generator ─────────────────────────────────────────────────
 
 function _svgFront(fields = {}, gray = false) {
-  const payee    = fields.payee          || 'Sample Payee Name'
-  const date     = fields.date           || '07/07/2026'
-  const figStr   = (fields.amount_figures || '₹50,000').replace('₹', '').trim()
-  const words    = fields.amount_words   || 'Fifty Thousand Only'
-  const micr     = fields.micr           || '000012340050000012100000000005000123456789'
-  const altered  = fields.alterations    || false
+  const payee      = fields.payee          || 'Sample Payee Name'
+  const date       = fields.date           || '07/07/2026'
+  const figStr     = (fields.amount_figures || '₹50,000').replace('₹', '').trim()
+  const words      = fields.amount_words   || 'Fifty Thousand Only'
+  const micr       = fields.micr           || '000012340050000012100000000005000123456789'
+  const altered    = fields.alterations    || false
+  const bankName   = fields.bank_name      || 'SARASWAT CO-OP. BANK LTD.'
+  const bankBranch = fields.bank_branch    || 'Fort Branch, Mumbai — 400 001'
+  const bankIfsc   = fields.bank_ifsc      || 'SRCB0000001'
+  const bankMicr   = fields.bank_micr      || '400015002'
 
   const bg      = gray ? '#f0f0f0' : '#ffffff'
   const ink     = '#111111'
   const light   = gray ? '#666666' : '#444444'
   const micrBg  = gray ? '#e4e4e4' : '#f2f2f2'
   const altClr  = altered ? '#cc2200' : ink
+
+  // Pick one of 3 signature styles based on payee first char — consistent per payee
+  const sigSeed = payee.charCodeAt(0) % 3
+  const sigPaths = [
+    `<path d="M518,207 C526,197 536,194 543,200 C550,206 556,192 566,188 C576,184 586,192 595,188 C604,184 614,190 624,186 C632,183 641,189 650,186 L655,207" stroke="${ink}" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M518,211 C528,209 538,212 548,210" stroke="${ink}" stroke-width="0.9" fill="none" stroke-linecap="round"/>`,
+    `<path d="M520,210 C529,201 537,197 544,202 S560,196 570,203 C577,208 586,198 596,194 S615,189 625,195 C632,199 641,192 650,195 C657,197 663,202 668,209" stroke="${ink}" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`,
+    `<path d="M522,209 C530,200 536,196 542,201 C548,206 552,194 560,190 C568,186 576,193 584,189 C592,185 601,191 610,188 C619,185 628,191 637,188 L644,208 M522,213 C530,211 538,214 546,211" stroke="${ink}" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`,
+  ]
+  const sig = sigPaths[sigSeed]
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 320">
   <rect width="760" height="320" fill="${bg}"/>
@@ -39,9 +52,9 @@ function _svgFront(fields = {}, gray = false) {
   <line x1="47" y1="2" x2="47" y2="80" stroke="${ink}" stroke-width="1.2"/>
   <text x="18" y="54" font-size="7.5" fill="${ink}" font-family="sans-serif" transform="rotate(0)">A/C</text>
   <text x="16" y="65" font-size="7.5" fill="${ink}" font-family="sans-serif">PAYEE</text>
-  <!-- Bank header -->
-  <text x="58" y="23" font-size="13" font-weight="bold" fill="${ink}" font-family="sans-serif">SARASWAT CO-OP. BANK LTD.</text>
-  <text x="58" y="38" font-size="8.5" fill="${light}" font-family="sans-serif">Fort Branch, Mumbai — 400 001  |  CTS-2010 Compliant</text>
+  <!-- Bank header (drawee bank — the bank on which this cheque is drawn) -->
+  <text x="58" y="23" font-size="13" font-weight="bold" fill="${ink}" font-family="sans-serif">${bankName}</text>
+  <text x="58" y="38" font-size="8.5" fill="${light}" font-family="sans-serif">${bankBranch}  |  CTS-2010 Compliant</text>
   <!-- Date -->
   <text x="596" y="20" font-size="9" fill="${light}" font-family="sans-serif">Date</text>
   <line x1="620" y1="20" x2="748" y2="20" stroke="${ink}" stroke-width="0.7"/>
@@ -66,8 +79,10 @@ function _svgFront(fields = {}, gray = false) {
   <text x="58" y="113" font-size="11" fill="${ink}" font-family="sans-serif">${words}</text>
   <line x1="14" y1="133" x2="748" y2="133" stroke="${ink}" stroke-width="0.7"/>
   <!-- Bank details -->
-  <text x="14" y="160" font-size="8.5" fill="${light}" font-family="sans-serif">Branch: Fort Branch, Mumbai – 400 001</text>
-  <text x="14" y="173" font-size="8.5" fill="${light}" font-family="sans-serif">IFSC: SRCB0000001   MICR: 400015002</text>
+  <text x="14" y="160" font-size="8.5" fill="${light}" font-family="sans-serif">Branch: ${bankBranch}</text>
+  <text x="14" y="173" font-size="8.5" fill="${light}" font-family="sans-serif">IFSC: ${bankIfsc}   MICR: ${bankMicr}</text>
+  <!-- Signature -->
+  ${sig}
   <!-- Sig line -->
   <line x1="515" y1="218" x2="748" y2="218" stroke="${ink}" stroke-width="0.7"/>
   <text x="578" y="230" font-size="8.5" fill="${light}" font-family="sans-serif">Authorised Signatory</text>
