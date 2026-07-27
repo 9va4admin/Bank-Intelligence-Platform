@@ -219,10 +219,20 @@ function _svgFront(fields = {}, gray = false) {
 }
 
 function _svgBack(fields = {}) {
-  const micr   = fields.micr || '000012340050000012100000000005000123456789'
+  const micr     = fields.micr || '000012340050000012100000000005000123456789'
+  const bankMicr = fields.bank_micr || '400015002'
+  const payee    = fields.payee || 'Sample Payee Name'
   const ink    = '#111111'
   const light  = '#444444'
   const micrBg = '#f2f2f2'
+
+  // Construct MICR line identical to _svgFront
+  const routing  = bankMicr.replace(/\D/g, '').padStart(9, '0').slice(0, 9)
+  const chqSeed  = (payee.charCodeAt(0) * 7 + payee.charCodeAt(1 % payee.length) * 3) % 900000
+  const micrChq  = String(chqSeed).padStart(6, '0')
+  const micrAcct = routing.slice(0, 3) + routing.slice(3, 6) + routing.slice(6) + String(chqSeed % 10000).padStart(4, '0')
+  const T        = '‟'
+  const micrLine = `${T}${micrChq}${T}  ${routing}:  ${micrAcct}${T}  31`
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 320">
   <rect width="760" height="320" fill="#ffffff"/>

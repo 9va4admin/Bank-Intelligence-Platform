@@ -300,6 +300,19 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
   )
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+// Threshold comes from bank config (GET /v1/config/cts → high_value_amount_threshold).
+// ₹5,00,000 is the default shipped in Helm values; each bank overrides via Admin UI.
+const MOCK_HV_THRESHOLD_SQ = 500000
+
+function parseAmt(amtStr) {
+  return parseInt((amtStr || '').replace(/[₹,\s]/g, ''), 10) || 0
+}
+function isHV(inst, threshold = MOCK_HV_THRESHOLD_SQ) {
+  return parseAmt(inst.amount_figures) >= threshold
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function CTSSubmissionQueue({ mode = 'outward' }) {
@@ -309,6 +322,7 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
 
   const [instruments, setInstruments] = useState(BASE)
   const [selected, setSelected]       = useState(BASE[0]?.instrument_id ?? null)
+  const [filter, setFilter]           = useState('ALL')
 
   const th = {
     page:    isDark ? 'bg-navy-950'       : 'bg-slate-50',
@@ -321,6 +335,13 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
     selRow:  isDark ? 'bg-white/6 border-l-2 border-amber-400' : 'bg-amber-50 border-l-2 border-amber-500',
   }
 
+  const filtered = instruments.filter(i => {
+    if (filter === 'STP')        return i.source_stage === 'STP'
+    if (filter === 'VERIFIED')   return i.source_stage === 'VERIFIED'
+    if (filter === 'HIGH_VALUE') return isHV(i)
+    return true
+  })
+  const hvCount      = instruments.filter(i => isHV(i)).length
   const selectedItem = instruments.find(i => i.instrument_id === selected)
 
   function handleConfirm(instrumentId) {
@@ -355,7 +376,27 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
           <div className={`ml-auto text-[10px] px-3 py-1 rounded-lg border font-medium ${isDark ? 'bg-violet-400/5 border-violet-400/20 text-violet-400' : 'bg-violet-50 border-violet-300 text-violet-700'}`}>
             Stage 3 of 3 — Submission
           </div>
-          <div className={`text-[11px] font-semibold ${th.heading}`}>{instruments.length} pending</div>
+          {/* Filter buttons */}
+          <div className="flex items-center gap-1">
+            {[
+              ['ALL',        'All'],
+              ['STP',        'STP'],
+              ['VERIFIED',   'Verified'],
+              ['HIGH_VALUE', `HV ≥₹${(MOCK_HV_THRESHOLD_SQ / 100000).toFixed(0)}L`],
+            ].map(([val, lbl]) => (
+              <button key={val} onClick={() => setFilter(val)}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all ${filter === val
+                  ? val === 'HIGH_VALUE'
+                    ? (isDark ? 'bg-red-500/20 text-red-300' : 'bg-red-600 text-white')
+                    : (isDark ? 'bg-white/15 text-white' : 'bg-slate-800 text-white')
+                  : val === 'HIGH_VALUE'
+                    ? (isDark ? 'text-red-400/70 hover:bg-red-500/10' : 'text-red-600 hover:bg-red-50')
+                    : (isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100')
+                }`}
+              >{lbl}{val === 'HIGH_VALUE' && hvCount > 0 ? ` (${hvCount})` : ''}</button>
+            ))}
+          </div>
+          <div className={`text-[11px] font-semibold ${th.heading}`}>{filtered.length} pending</div>
         </div>
 
         {/* Split layout */}
@@ -369,7 +410,7 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
                   <div className="text-sm">Queue empty</div>
                   <div className="text-[11px]">All instruments filed</div>
                 </div>
-              ) : instruments.map(inst => {
+              ) : filtered.map(inst => {
                 const isSel = inst.instrument_id === selected
                 const minsLeft = inst.iet_deadline ? Math.max(0, Math.round((new Date(inst.iet_deadline) - Date.now()) / 60000)) : null
                 const urgent = minsLeft != null && minsLeft < 30
@@ -393,7 +434,12 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
                         IET {minsLeft}m {urgent ? '⚠' : ''}
                       </div>
                     )}
-                    <div className={`text-[11px] ${th.muted} mt-0.5`}>{inst.amount_figures}</div>
+                    <div className={`text-[11px] mt-0.5 flex items-center gap-1.5`}>
+                      <span className={th.muted}>{inst.amount_figures}</span>
+                      {isHV(inst) && (
+                        <span className={`text-[8px] font-bold px-1 py-0.5 rounded border ${isDark ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-red-50 border-red-300 text-red-600'}`}>HV</span>
+                      )}
+                    </div>
                     {inst.manual_fields?.length > 0 && (
                       <div className={`text-[9px] mt-0.5 ${isDark ? 'text-amber-400/60' : 'text-amber-600/60'}`}>
                         {inst.manual_fields.length} MANUAL field{inst.manual_fields.length > 1 ? 's' : ''}
