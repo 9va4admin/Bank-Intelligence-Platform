@@ -217,6 +217,20 @@ function SBadge({ source, isDark }) {
   )
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+// In production this value comes from bank config:
+//   GET /v1/config/cts → { high_value_amount_threshold: <bank-specific> }
+// Hardcoding is forbidden per CLAUDE.md — this mock constant is UI-only.
+const MOCK_HV_THRESHOLD = 500000   // ₹5,00,000 default; real value = bank config
+
+function parseAmtNum(amtStr) {
+  return parseInt((amtStr || '').replace(/[₹,\s]/g, ''), 10) || 0
+}
+function isHighValue(inst, threshold = MOCK_HV_THRESHOLD) {
+  return parseAmtNum(inst.fields_meta?.amount_figures?.actual_value) >= threshold
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function CTSValidationQueue({ mode = 'outward' }) {
@@ -240,14 +254,16 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
   }
 
   const filtered = instruments.filter(i => {
-    if (filter === 'STP')      return i.source_stage === 'STP'
-    if (filter === 'VERIFIED') return i.source_stage === 'VERIFIED'
+    if (filter === 'STP')        return i.source_stage === 'STP'
+    if (filter === 'VERIFIED')   return i.source_stage === 'VERIFIED'
+    if (filter === 'HIGH_VALUE') return isHighValue(i)
     return true
   })
 
   const stpCount      = instruments.filter(i => i.source_stage === 'STP').length
   const verifiedCount = instruments.filter(i => i.source_stage === 'VERIFIED').length
   const editedCount   = instruments.filter(i => Object.keys(i.edits).length > 0).length
+  const hvCount       = instruments.filter(i => isHighValue(i)).length
   const chequeInst    = chequeViewId ? instruments.find(i => i.instrument_id === chequeViewId) : null
 
   function handleEdit(instrumentId, fieldKey, value) {
@@ -323,6 +339,7 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
               { label: 'STP Auto',       val: stpCount,           color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
               { label: 'Human Verified', val: verifiedCount,      color: isDark ? 'text-sky-400' : 'text-sky-600' },
               { label: 'Edited',         val: editedCount,        color: isDark ? 'text-amber-400' : 'text-amber-600' },
+              { label: 'High Value',     val: hvCount,            color: isDark ? 'text-red-400' : 'text-red-600' },
             ].map(({ label, val, color }) => (
               <div key={label} className="flex items-center gap-1.5">
                 <span className={`text-2xl font-bold font-mono ${color}`}>{val}</span>
@@ -330,11 +347,20 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
               </div>
             ))}
             <div className="ml-auto flex items-center gap-1">
-              {[['ALL', 'All'], ['STP', 'STP'], ['VERIFIED', 'Verified']].map(([val, lbl]) => (
+              {[
+                ['ALL',        'All'],
+                ['STP',        'STP'],
+                ['VERIFIED',   'Verified'],
+                ['HIGH_VALUE', `High Value ≥₹${(MOCK_HV_THRESHOLD/100000).toFixed(0)}L`],
+              ].map(([val, lbl]) => (
                 <button key={val} onClick={() => setFilter(val)}
                   className={`px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${filter === val
-                    ? (isDark ? 'bg-white/15 text-white' : 'bg-slate-800 text-white')
-                    : (isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100')
+                    ? val === 'HIGH_VALUE'
+                      ? (isDark ? 'bg-red-500/20 text-red-300' : 'bg-red-600 text-white')
+                      : (isDark ? 'bg-white/15 text-white' : 'bg-slate-800 text-white')
+                    : val === 'HIGH_VALUE'
+                      ? (isDark ? 'text-red-400/70 hover:bg-red-500/10' : 'text-red-600 hover:bg-red-50')
+                      : (isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100')
                   }`}
                 >{lbl}</button>
               ))}
