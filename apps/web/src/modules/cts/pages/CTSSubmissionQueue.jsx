@@ -12,17 +12,17 @@ import { getReasonByLabel, getReturnReasons } from '../data/returnReasons'
 const MOCK_OUTWARD = [
   {
     instrument_id: 'CHQ-OUT-S001', drawee_bank: 'State Bank of India', drawee_branch: 'Andheri East', source_stage: 'STP',
-    date: '15/07/2026', payee: 'Reliance Industries Ltd', amount_figures: '₹12,50,000', amount_words: 'Twelve Lakh Fifty Thousand Only', micr: '400002123',
+    date: '15/07/2026', payee: 'Rajesh Kumar Verma', amount_figures: '₹12,50,000', amount_words: 'Twelve Lakh Fifty Thousand Only', micr: '400002123',
     alterations: false, manual_fields: [], ocr_score: 0.98, fraud_score: 0.03, sig_score: 0.96, iqa_score: 0.99,
   },
   {
     instrument_id: 'CHQ-OUT-S002', drawee_bank: 'HDFC Bank', drawee_branch: 'Bandra West', source_stage: 'VERIFIED',
-    date: '14/07/2026', payee: 'Kiran Traders', amount_figures: '₹2,40,000', amount_words: 'Two Lakh Forty Thousand Only', micr: '400001234',
+    date: '14/07/2026', payee: 'Sunita P. Joshi', amount_figures: '₹2,40,000', amount_words: 'Two Lakh Forty Thousand Only', micr: '400001234',
     alterations: false, manual_fields: ['payee', 'amount_words'], ocr_score: 0.88, fraud_score: 0.07, sig_score: 0.91, iqa_score: 0.97,
   },
   {
     instrument_id: 'CHQ-OUT-S003', drawee_bank: 'Bank of Baroda', drawee_branch: 'Fort', source_stage: 'VERIFIED',
-    date: '15/07/2026', payee: 'Sunrise Exports', amount_figures: '₹3,80,500', amount_words: 'Three Lakh Eighty Thousand Five Hundred Only', micr: '400008901',
+    date: '15/07/2026', payee: 'Kavita R. Desai', amount_figures: '₹3,80,500', amount_words: 'Three Lakh Eighty Thousand Five Hundred Only', micr: '400008901',
     alterations: false, manual_fields: ['payee', 'amount_figures', 'amount_words'], ocr_score: 0.85, fraud_score: 0.11, sig_score: 0.88, iqa_score: 0.96,
   },
 ]
@@ -51,67 +51,101 @@ const MOCK_INWARD = [
 // ── Mock cheque images ────────────────────────────────────────────────────────
 
 function MockChequeFront({ item }) {
+  const bank    = item.drawee_bank    || 'HDFC Bank'
+  const branch  = item.drawee_branch  || 'Main Branch'
+  const date    = item.date           || ''
+  const payee   = item.payee          || '—'
+  const amtFig  = (item.amount_figures || '').replace('₹', '').trim()
+  const amtWrd  = item.amount_words   || '—'
+  const micr    = item.micr           || '000000000'
+  const account = item.account_display || '●●●●●●●'
+  const chqNo   = item.instrument_id?.replace(/\D/g, '').slice(-6).padStart(6, '0') || '000001'
+
+  const parts   = date.split('/')
+  const dd      = (parts[0] || '').padStart(2, ' ')
+  const mm      = (parts[1] || '').padStart(2, ' ')
+  const yyyy    = (parts[2] || '').padStart(4, ' ')
+  const dDigits = [...dd, ...mm, ...yyyy]
+
   return (
-    <div style={{
-      width: '100%', maxWidth: '520px', aspectRatio: '2.38/1',
-      background: 'linear-gradient(160deg, #fffef7 0%, #fdf8e8 100%)',
-      border: '1.5px solid #b8953a', borderRadius: '8px',
-      fontFamily: 'serif', position: 'relative', overflow: 'hidden',
-      boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-    }}>
-      <div style={{ position: 'absolute', inset: '4px', border: '0.5px dashed #c8a84b44', borderRadius: '5px', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.04, fontSize: '44px', fontWeight: 900, color: '#7a5c10', letterSpacing: 6, pointerEvents: 'none', userSelect: 'none' }}>CTS-2010</div>
+    <div style={{ width: '100%', maxWidth: '560px', aspectRatio: '2.45/1', background: '#fefefe', border: '1.5px solid #aaa', borderRadius: '3px', position: 'relative', overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.22)', userSelect: 'none' }}>
+      {/* Left security strip */}
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '16px', background: 'repeating-linear-gradient(45deg,#d8e8f0,#d8e8f0 1.5px,#f5f8fc 1.5px,#f5f8fc 6px)', borderRight: '1px solid #bcd' }} />
+      <div style={{ position: 'absolute', left: '3px', top: '50%', transform: 'translateY(-50%) rotate(-90deg)', fontSize: '5px', color: '#aab', whiteSpace: 'nowrap', letterSpacing: '1px', fontFamily: 'Arial,sans-serif' }}>CTS-2010 • CLEARING SYSTEM</div>
+      {/* Watermark */}
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.025, fontSize: '52px', fontWeight: 900, color: '#000', letterSpacing: 8, fontFamily: 'Arial Black,sans-serif', pointerEvents: 'none' }}>ORIGINAL</div>
 
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 14px 4px' }}>
-        <div>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#1a3a6e', letterSpacing: '0.5px' }}>{item.drawee_bank}</div>
-          <div style={{ fontSize: '8px', color: '#4a6a9e', marginTop: '1px' }}>{item.drawee_branch} Branch</div>
+      <div style={{ marginLeft: '18px', height: '100%', display: 'flex', flexDirection: 'column', padding: '5px 8px 2px 6px', boxSizing: 'border-box', fontFamily: 'Arial,sans-serif' }}>
+        {/* Header: bank + date */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '3px' }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: '12px', color: '#003087' }}>{bank}</div>
+            <div style={{ fontSize: '7px', color: '#444', marginTop: '1px' }}>{branch} Branch</div>
+            <div style={{ fontSize: '6.5px', color: '#666' }}>RTGS / NEFT IFSC : {bank.replace(/\s/g,'').slice(0,4).toUpperCase()}0{micr.slice(0,6)}</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '6px', color: '#777', marginBottom: '2px' }}>VALID FOR THREE MONTHS FROM DATE OF ISSUE</div>
+            <div style={{ display: 'flex', gap: '1.5px', justifyContent: 'flex-end', alignItems: 'center' }}>
+              <span style={{ fontSize: '7px', color: '#555', marginRight: '3px', lineHeight: 1.3 }}>दिनांक<br/>Date</span>
+              {dDigits.map((d, i) => (
+                <span key={i} style={{ display: 'inline-flex', width: '14px', height: '17px', border: '1px solid #555', justifyContent: 'center', alignItems: 'center', fontFamily: 'monospace', fontWeight: 'bold', fontSize: '11px', background: '#fff', marginLeft: (i === 2 || i === 4) ? '3px' : '0' }}>{d?.trim() || ''}</span>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: '1.5px', justifyContent: 'flex-end', marginTop: '1px', paddingLeft: '28px' }}>
+              <span style={{ fontSize: '5.5px', color: '#999', width: '30px', textAlign: 'center' }}>D D</span>
+              <span style={{ fontSize: '5.5px', color: '#999', width: '30px', textAlign: 'center', marginLeft: '3px' }}>M M</span>
+              <span style={{ fontSize: '5.5px', color: '#999', width: '58px', textAlign: 'center', marginLeft: '3px' }}>Y Y Y Y</span>
+            </div>
+          </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '7px', color: '#888', marginBottom: '2px' }}>Date</div>
-          <div style={{ fontSize: '10px', fontFamily: 'monospace', fontWeight: 700, color: '#1a1a1a', border: '0.5px solid #aaa', padding: '2px 6px', borderRadius: '3px', background: '#fff8', letterSpacing: '1px' }}>{item.date}</div>
-        </div>
-      </div>
 
-      {/* Pay to */}
-      <div style={{ padding: '2px 14px 0' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', borderBottom: '0.5px solid #b8953a55' }}>
-          <span style={{ fontSize: '7.5px', color: '#555', whiteSpace: 'nowrap' }}>Pay to</span>
-          <span style={{ flex: 1, fontSize: '10px', fontWeight: 600, color: '#0a0a0a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.payee}</span>
-          <span style={{ fontSize: '7px', color: '#666', whiteSpace: 'nowrap' }}>or bearer</span>
+        {/* Pay line */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px', borderBottom: '0.8px solid #222', paddingBottom: '1px', marginBottom: '2px' }}>
+          <span style={{ fontSize: '8.5px', fontWeight: 'bold', minWidth: '20px' }}>Pay</span>
+          <span style={{ flex: 1, fontFamily: 'Georgia,serif', fontStyle: 'italic', fontSize: '13px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payee}</span>
+          <span style={{ fontSize: '7.5px', color: '#111', whiteSpace: 'nowrap' }}>या धारक को Or Bearer</span>
         </div>
-      </div>
 
-      {/* Amount words */}
-      <div style={{ padding: '3px 14px 0' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', borderBottom: '0.5px solid #b8953a55' }}>
-          <span style={{ fontSize: '7.5px', color: '#555', whiteSpace: 'nowrap' }}>Rupees</span>
-          <span style={{ flex: 1, fontSize: '9px', color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.amount_words}</span>
+        {/* Rupees + amount box */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '4px' }}>
+          <div style={{ flex: 1, borderBottom: '0.8px solid #222', paddingBottom: '1px', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+            <span style={{ fontSize: '8px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Rupees रुपये</span>
+            <span style={{ flex: 1, fontFamily: 'Georgia,serif', fontStyle: 'italic', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{amtWrd}</span>
+          </div>
+          <div style={{ display: 'flex', border: '1.5px solid #333', borderRadius: '2px', height: '30px', minWidth: '130px', overflow: 'hidden', flexShrink: 0 }}>
+            <div style={{ padding: '1px 4px', borderRight: '1px solid #555', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: '#f2f2ec', width: '40px', flexShrink: 0, textAlign: 'center' }}>
+              <span style={{ fontSize: '5.5px', color: '#555' }}>अदा करें</span>
+              <span style={{ fontSize: '12px', fontWeight: 'bold' }}>₹</span>
+            </div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px' }}>
+              <span style={{ fontFamily: 'Georgia,serif', fontStyle: 'italic', fontSize: '14px', fontWeight: 700, whiteSpace: 'nowrap' }}>{amtFig}</span>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Amount box */}
-      <div style={{ padding: '5px 14px 0', display: 'flex', justifyContent: 'flex-end' }}>
-        <div style={{ border: '1px solid #b8953a', borderRadius: '4px', padding: '3px 10px', background: '#fff8', minWidth: '110px', textAlign: 'center' }}>
-          <div style={{ fontSize: '7px', color: '#888' }}>₹</div>
-          <div style={{ fontSize: '13px', fontFamily: 'monospace', fontWeight: 700, color: '#1a1a1a', letterSpacing: '0.5px' }}>{item.amount_figures.replace('₹', '')}</div>
+        {/* Account No */}
+        <div style={{ marginBottom: '2px' }}>
+          <div style={{ display: 'inline-flex', border: '1px solid #888', borderRadius: '2px', padding: '1px 8px' }}>
+            <div>
+              <div style={{ fontSize: '6px', color: '#666' }}>खाता सं. A/c No.</div>
+              <div style={{ fontFamily: 'monospace', fontSize: '11px', fontWeight: 'bold', letterSpacing: '0.5px' }}>{account}</div>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Bottom strip */}
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 14px 6px', borderTop: '0.5px solid #b8953a44', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-        <div>
-          <div style={{ fontSize: '7px', color: '#888' }}>A/c No.</div>
-          <div style={{ fontSize: '8px', fontFamily: 'monospace', color: '#333' }}>{item.account_display || '●●●●●●●'}</div>
+        {/* Payable at par + signature */}
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div style={{ fontSize: '6px', color: '#888' }}>Payable at par through clearing/transfer at all branches</div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ width: '110px', borderTop: '1px solid #111', marginBottom: '1px' }} />
+            <div style={{ fontSize: '7.5px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.3px' }}>{payee}</div>
+            <div style={{ fontSize: '6px', color: '#666' }}>Please sign above / कृपया ऊपर हस्ताक्षर करें</div>
+          </div>
         </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '7px', color: '#999', marginBottom: '2px' }}>MICR</div>
-          <div style={{ fontSize: '10px', fontFamily: 'monospace', color: '#1a1a1a', letterSpacing: '2px', background: '#0001', padding: '2px 6px', borderRadius: '2px' }}>⑆{item.micr}⑆</div>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ width: '90px', borderTop: '0.5px solid #555', marginBottom: '2px' }} />
-          <div style={{ fontSize: '7px', color: '#888' }}>Authorised Signatory</div>
+
+        {/* MICR line */}
+        <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: '8.5px', color: '#111', letterSpacing: '1.5px', borderTop: '0.5px solid #ddd', paddingTop: '2px', marginTop: '1px' }}>
+          ⑆{chqNo}⑆{'  '}⑆{micr}⑆{'  '}{account.replace(/[●*]/g,'0').slice(0,12)}⑆{'  '}31
         </div>
       </div>
     </div>

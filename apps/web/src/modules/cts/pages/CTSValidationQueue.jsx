@@ -19,7 +19,7 @@ const BASE_INSTRUMENTS_OUTWARD = [
   {
     instrument_id: 'CHQ-OUT-V001', source_stage: 'STP', drawee_bank: 'State Bank of India', drawee_branch: 'Andheri East',
     fields_meta: {
-      date: makeMeta('15/07/2026', 0.99), payee: makeMeta('Reliance Industries Ltd', 0.97),
+      date: makeMeta('15/07/2026', 0.99), payee: makeMeta('Rajesh Kumar Verma', 0.97),
       amount_figures: makeMeta('₹12,50,000', 0.98), amount_words: makeMeta('Twelve Lakh Fifty Thousand Only', 0.95),
       micr: makeMeta('400002123', 0.99), alterations: { ...makeMeta(false, 0.99), source: 'STP' },
     },
@@ -27,7 +27,7 @@ const BASE_INSTRUMENTS_OUTWARD = [
   {
     instrument_id: 'CHQ-OUT-V002', source_stage: 'VERIFIED', drawee_bank: 'HDFC Bank', drawee_branch: 'Bandra West',
     fields_meta: {
-      date: makeMeta('14/07/2026', 0.97), payee: makeMeta('Kiran Traders', 0.74),
+      date: makeMeta('14/07/2026', 0.97), payee: makeMeta('Sunita P. Joshi', 0.74),
       amount_figures: makeMeta('₹2,40,000', 0.91), amount_words: makeMeta('Two Lakh Forty Thousand Only', 0.88),
       micr: makeMeta('400001234', 0.99), alterations: { ...makeMeta(false, 0.99), source: 'STP' },
     },
@@ -35,7 +35,7 @@ const BASE_INSTRUMENTS_OUTWARD = [
   {
     instrument_id: 'CHQ-OUT-V003', source_stage: 'STP', drawee_bank: 'ICICI Bank', drawee_branch: 'Powai',
     fields_meta: {
-      date: makeMeta('16/07/2026', 0.99), payee: makeMeta('TechMahindra Solutions', 0.96),
+      date: makeMeta('16/07/2026', 0.99), payee: makeMeta('Amol Vilas Kulkarni', 0.96),
       amount_figures: makeMeta('₹75,000', 0.95), amount_words: makeMeta('Seventy Five Thousand Only', 0.93),
       micr: makeMeta('400004567', 0.99), alterations: { ...makeMeta(false, 0.99), source: 'STP' },
     },
@@ -43,7 +43,7 @@ const BASE_INSTRUMENTS_OUTWARD = [
   {
     instrument_id: 'CHQ-OUT-V004', source_stage: 'VERIFIED', drawee_bank: 'Bank of Baroda', drawee_branch: 'Fort',
     fields_meta: {
-      date: makeMeta('15/07/2026', 0.98), payee: makeMeta('Sunrise Exports', 0.85),
+      date: makeMeta('15/07/2026', 0.98), payee: makeMeta('Kavita R. Desai', 0.85),
       amount_figures: makeMeta('₹3,80,500', 0.87), amount_words: makeMeta('Three Lakh Eighty Thousand Five Hundred Only', 0.82),
       micr: makeMeta('400008901', 0.99), alterations: { ...makeMeta(false, 0.99), source: 'STP' },
     },
@@ -51,7 +51,7 @@ const BASE_INSTRUMENTS_OUTWARD = [
   {
     instrument_id: 'CHQ-OUT-V005', source_stage: 'STP', drawee_bank: 'Axis Bank', drawee_branch: 'Goregaon',
     fields_meta: {
-      date: makeMeta('16/07/2026', 0.99), payee: makeMeta('Future Enterprises Pvt Ltd', 0.99),
+      date: makeMeta('16/07/2026', 0.99), payee: makeMeta('Nikhil Santosh Pawar', 0.99),
       amount_figures: makeMeta('₹1,25,50,000', 0.99), amount_words: makeMeta('One Crore Twenty Five Lakh Fifty Thousand Only', 0.98),
       micr: makeMeta('400002345', 0.99), alterations: { ...makeMeta(false, 0.99), source: 'STP' },
     },
@@ -63,7 +63,7 @@ const BASE_INSTRUMENTS_INWARD = [
     instrument_id: 'CHQ-IN-V001', source_stage: 'STP', account_display: '****4521', iet_deadline: new Date(Date.now() + 72 * 60000).toISOString(),
     drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Dadar',
     fields_meta: {
-      date: makeMeta('15/07/2026', 0.99), payee: makeMeta('Ramesh Traders', 0.97),
+      date: makeMeta('15/07/2026', 0.99), payee: makeMeta('Ramesh N. Rao', 0.97),
       amount_figures: makeMeta('₹45,000', 0.98), amount_words: makeMeta('Forty Five Thousand Only', 0.95),
       micr: makeMeta('400005678', 0.99), alterations: { ...makeMeta(false, 0.99), source: 'STP' },
     },
@@ -72,7 +72,7 @@ const BASE_INSTRUMENTS_INWARD = [
     instrument_id: 'CHQ-IN-V002', source_stage: 'VERIFIED', account_display: '****8912', iet_deadline: new Date(Date.now() + 28 * 60000).toISOString(),
     drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Vile Parle',
     fields_meta: {
-      date: makeMeta('14/07/2026', 0.96), payee: makeMeta('Mumbai Steel', 0.82),
+      date: makeMeta('14/07/2026', 0.96), payee: makeMeta('Meena S. Sharma', 0.82),
       amount_figures: makeMeta('₹3,20,000', 0.88), amount_words: makeMeta('Three Lakh Twenty Thousand Only', 0.79),
       micr: makeMeta('400009012', 0.99), alterations: { ...makeMeta(false, 0.99), source: 'STP' },
     },
@@ -81,7 +81,7 @@ const BASE_INSTRUMENTS_INWARD = [
     instrument_id: 'CHQ-IN-V003', source_stage: 'STP', account_display: '****2234', iet_deadline: new Date(Date.now() + 115 * 60000).toISOString(),
     drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Pune Main',
     fields_meta: {
-      date: makeMeta('16/07/2026', 0.99), payee: makeMeta('Priya Enterprises', 0.96),
+      date: makeMeta('16/07/2026', 0.99), payee: makeMeta('Priya R. Nair', 0.96),
       amount_figures: makeMeta('₹8,000', 0.97), amount_words: makeMeta('Eight Thousand Only', 0.94),
       micr: makeMeta('400003456', 0.99), alterations: { ...makeMeta(false, 0.99), source: 'STP' },
     },
@@ -90,7 +90,7 @@ const BASE_INSTRUMENTS_INWARD = [
     instrument_id: 'CHQ-IN-V004', source_stage: 'VERIFIED', account_display: '****6677', iet_deadline: new Date(Date.now() + 54 * 60000).toISOString(),
     drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Borivali',
     fields_meta: {
-      date: makeMeta('15/07/2026', 0.98), payee: makeMeta('Sharma & Sons', 0.86),
+      date: makeMeta('15/07/2026', 0.98), payee: makeMeta('Suresh B. Agarwal', 0.86),
       amount_figures: makeMeta('₹1,10,000', 0.89), amount_words: makeMeta('One Lakh Ten Thousand Only', 0.84),
       micr: makeMeta('400007890', 0.99), alterations: { ...makeMeta(false, 0.99), source: 'STP' },
     },
@@ -100,64 +100,102 @@ const BASE_INSTRUMENTS_INWARD = [
 // ── Mock cheque images ────────────────────────────────────────────────────────
 
 function MockChequeFront({ inst }) {
-  const fm = inst.fields_meta || {}
-  const date   = fm.date?.actual_value           || '—'
-  const payee  = fm.payee?.actual_value          || '—'
-  const amtFig = fm.amount_figures?.actual_value  || '—'
-  const amtWrd = fm.amount_words?.actual_value    || '—'
-  const micr   = fm.micr?.actual_value            || '—'
+  const fm      = inst.fields_meta || {}
+  const bank    = inst.drawee_bank                 || 'HDFC Bank'
+  const branch  = inst.drawee_branch               || 'Main Branch'
+  const date    = fm.date?.actual_value            || ''
+  const payee   = fm.payee?.actual_value           || '—'
+  const amtFig  = (fm.amount_figures?.actual_value || '').replace('₹', '').trim()
+  const amtWrd  = fm.amount_words?.actual_value    || '—'
+  const micr    = fm.micr?.actual_value            || '000000000'
+  const account = inst.account_display             || '●●●●●●●'
+  const chqNo   = inst.instrument_id?.replace(/\D/g, '').slice(-6).padStart(6, '0') || '000001'
+
+  const parts   = date.split('/')
+  const dd      = (parts[0] || '').padStart(2, ' ')
+  const mm      = (parts[1] || '').padStart(2, ' ')
+  const yyyy    = (parts[2] || '').padStart(4, ' ')
+  const dDigits = [...dd, ...mm, ...yyyy]
 
   return (
-    <div style={{
-      width: '100%', maxWidth: '520px', aspectRatio: '2.38/1',
-      background: 'linear-gradient(160deg, #fffef7 0%, #fdf8e8 100%)',
-      border: '1.5px solid #b8953a', borderRadius: '8px',
-      fontFamily: 'serif', position: 'relative', overflow: 'hidden',
-      boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-    }}>
-      <div style={{ position: 'absolute', inset: '4px', border: '0.5px dashed #c8a84b44', borderRadius: '5px', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.04, fontSize: '44px', fontWeight: 900, color: '#7a5c10', letterSpacing: 6, pointerEvents: 'none', userSelect: 'none' }}>CTS-2010</div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 14px 4px' }}>
-        <div>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#1a3a6e' }}>{inst.drawee_bank}</div>
-          <div style={{ fontSize: '8px', color: '#4a6a9e', marginTop: '1px' }}>{inst.drawee_branch} Branch</div>
+    <div style={{ width: '100%', maxWidth: '560px', aspectRatio: '2.45/1', background: '#fefefe', border: '1.5px solid #aaa', borderRadius: '3px', position: 'relative', overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.22)', userSelect: 'none' }}>
+      {/* Left security strip */}
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '16px', background: 'repeating-linear-gradient(45deg,#d8e8f0,#d8e8f0 1.5px,#f5f8fc 1.5px,#f5f8fc 6px)', borderRight: '1px solid #bcd' }} />
+      <div style={{ position: 'absolute', left: '3px', top: '50%', transform: 'translateY(-50%) rotate(-90deg)', fontSize: '5px', color: '#aab', whiteSpace: 'nowrap', letterSpacing: '1px', fontFamily: 'Arial,sans-serif' }}>CTS-2010 • CLEARING SYSTEM</div>
+      {/* Watermark */}
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.025, fontSize: '52px', fontWeight: 900, color: '#000', letterSpacing: 8, fontFamily: 'Arial Black,sans-serif', pointerEvents: 'none' }}>ORIGINAL</div>
+
+      <div style={{ marginLeft: '18px', height: '100%', display: 'flex', flexDirection: 'column', padding: '5px 8px 2px 6px', boxSizing: 'border-box', fontFamily: 'Arial,sans-serif' }}>
+        {/* Header: bank + date */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '3px' }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: '12px', color: '#003087' }}>{bank}</div>
+            <div style={{ fontSize: '7px', color: '#444', marginTop: '1px' }}>{branch} Branch</div>
+            <div style={{ fontSize: '6.5px', color: '#666' }}>RTGS / NEFT IFSC : {bank.replace(/\s/g,'').slice(0,4).toUpperCase()}0{micr.slice(0,6)}</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '6px', color: '#777', marginBottom: '2px' }}>VALID FOR THREE MONTHS FROM DATE OF ISSUE</div>
+            <div style={{ display: 'flex', gap: '1.5px', justifyContent: 'flex-end', alignItems: 'center' }}>
+              <span style={{ fontSize: '7px', color: '#555', marginRight: '3px', lineHeight: 1.3, fontFamily: 'Arial,sans-serif' }}>दिनांक<br/>Date</span>
+              {dDigits.map((d, i) => (
+                <span key={i} style={{ display: 'inline-flex', width: '14px', height: '17px', border: '1px solid #555', justifyContent: 'center', alignItems: 'center', fontFamily: 'monospace', fontWeight: 'bold', fontSize: '11px', background: '#fff', marginLeft: (i === 2 || i === 4) ? '3px' : '0' }}>{d?.trim() || ''}</span>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: '1.5px', justifyContent: 'flex-end', marginTop: '1px', paddingLeft: '28px' }}>
+              <span style={{ fontSize: '5.5px', color: '#999', width: '30px', textAlign: 'center' }}>D D</span>
+              <span style={{ fontSize: '5.5px', color: '#999', width: '30px', textAlign: 'center', marginLeft: '3px' }}>M M</span>
+              <span style={{ fontSize: '5.5px', color: '#999', width: '58px', textAlign: 'center', marginLeft: '3px' }}>Y Y Y Y</span>
+            </div>
+          </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '7px', color: '#888', marginBottom: '2px' }}>Date</div>
-          <div style={{ fontSize: '10px', fontFamily: 'monospace', fontWeight: 700, color: '#1a1a1a', border: '0.5px solid #aaa', padding: '2px 6px', borderRadius: '3px', background: '#fff8', letterSpacing: '1px' }}>{date}</div>
+
+        {/* Pay line */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px', borderBottom: '0.8px solid #222', paddingBottom: '1px', marginBottom: '2px' }}>
+          <span style={{ fontSize: '8.5px', fontWeight: 'bold', minWidth: '20px' }}>Pay</span>
+          <span style={{ flex: 1, fontFamily: 'Georgia,serif', fontStyle: 'italic', fontSize: '13px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payee}</span>
+          <span style={{ fontSize: '7.5px', color: '#111', whiteSpace: 'nowrap' }}>या धारक को Or Bearer</span>
         </div>
-      </div>
-      <div style={{ padding: '2px 14px 0' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', borderBottom: '0.5px solid #b8953a55' }}>
-          <span style={{ fontSize: '7.5px', color: '#555', whiteSpace: 'nowrap' }}>Pay to</span>
-          <span style={{ flex: 1, fontSize: '10px', fontWeight: 600, color: '#0a0a0a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payee}</span>
-          <span style={{ fontSize: '7px', color: '#666', whiteSpace: 'nowrap' }}>or bearer</span>
+
+        {/* Rupees + amount box */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '4px' }}>
+          <div style={{ flex: 1, borderBottom: '0.8px solid #222', paddingBottom: '1px', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+            <span style={{ fontSize: '8px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Rupees रुपये</span>
+            <span style={{ flex: 1, fontFamily: 'Georgia,serif', fontStyle: 'italic', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{amtWrd}</span>
+          </div>
+          <div style={{ display: 'flex', border: '1.5px solid #333', borderRadius: '2px', height: '30px', minWidth: '130px', overflow: 'hidden', flexShrink: 0 }}>
+            <div style={{ padding: '1px 4px', borderRight: '1px solid #555', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: '#f2f2ec', width: '40px', flexShrink: 0, textAlign: 'center' }}>
+              <span style={{ fontSize: '5.5px', color: '#555' }}>अदा करें</span>
+              <span style={{ fontSize: '12px', fontWeight: 'bold' }}>₹</span>
+            </div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px' }}>
+              <span style={{ fontFamily: 'Georgia,serif', fontStyle: 'italic', fontSize: '14px', fontWeight: 700, whiteSpace: 'nowrap' }}>{amtFig}</span>
+            </div>
+          </div>
         </div>
-      </div>
-      <div style={{ padding: '3px 14px 0' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', borderBottom: '0.5px solid #b8953a55' }}>
-          <span style={{ fontSize: '7.5px', color: '#555', whiteSpace: 'nowrap' }}>Rupees</span>
-          <span style={{ flex: 1, fontSize: '9px', color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{amtWrd}</span>
+
+        {/* Account No */}
+        <div style={{ marginBottom: '2px' }}>
+          <div style={{ display: 'inline-flex', border: '1px solid #888', borderRadius: '2px', padding: '1px 8px' }}>
+            <div>
+              <div style={{ fontSize: '6px', color: '#666' }}>खाता सं. A/c No.</div>
+              <div style={{ fontFamily: 'monospace', fontSize: '11px', fontWeight: 'bold', letterSpacing: '0.5px' }}>{account}</div>
+            </div>
+          </div>
         </div>
-      </div>
-      <div style={{ padding: '5px 14px 0', display: 'flex', justifyContent: 'flex-end' }}>
-        <div style={{ border: '1px solid #b8953a', borderRadius: '4px', padding: '3px 10px', background: '#fff8', minWidth: '110px', textAlign: 'center' }}>
-          <div style={{ fontSize: '7px', color: '#888' }}>₹</div>
-          <div style={{ fontSize: '13px', fontFamily: 'monospace', fontWeight: 700, color: '#1a1a1a' }}>{amtFig.replace('₹', '')}</div>
+
+        {/* Payable at par + signature */}
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div style={{ fontSize: '6px', color: '#888' }}>Payable at par through clearing/transfer at all branches</div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ width: '110px', borderTop: '1px solid #111', marginBottom: '1px' }} />
+            <div style={{ fontSize: '7.5px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.3px' }}>{payee}</div>
+            <div style={{ fontSize: '6px', color: '#666' }}>Please sign above / कृपया ऊपर हस्ताक्षर करें</div>
+          </div>
         </div>
-      </div>
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 14px 6px', borderTop: '0.5px solid #b8953a44', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-        <div>
-          <div style={{ fontSize: '7px', color: '#888' }}>A/c No.</div>
-          <div style={{ fontSize: '8px', fontFamily: 'monospace', color: '#333' }}>{inst.account_display || '●●●●●●●'}</div>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '7px', color: '#999', marginBottom: '2px' }}>MICR</div>
-          <div style={{ fontSize: '10px', fontFamily: 'monospace', color: '#1a1a1a', letterSpacing: '2px', background: '#0001', padding: '2px 6px', borderRadius: '2px' }}>⑆{micr}⑆</div>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ width: '90px', borderTop: '0.5px solid #555', marginBottom: '2px' }} />
-          <div style={{ fontSize: '7px', color: '#888' }}>Authorised Signatory</div>
+
+        {/* MICR line */}
+        <div style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: '8.5px', color: '#111', letterSpacing: '1.5px', borderTop: '0.5px solid #ddd', paddingTop: '2px', marginTop: '1px' }}>
+          ⑆{chqNo}⑆{'  '}⑆{micr}⑆{'  '}{account.replace(/[●*]/g,'0').slice(0,12)}⑆{'  '}31
         </div>
       </div>
     </div>
