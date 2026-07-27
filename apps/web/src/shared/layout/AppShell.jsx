@@ -69,20 +69,24 @@ const SIDEBAR_MODULES = [
       {
         label: 'Outward Clearing',
         items: [
-          { to: '/cts/outward',           label: 'Outward Monitor', end: true, perm: 'cts:view_queue' },
-          { to: '/cts/outward/queue',     label: 'Outward Q',       perm: 'cts:submit_decision' },
-          { to: '/cts/presentment-file',  label: 'outward File',    perm: 'cts:view_queue'      },
+          { to: '/cts/outward',                label: 'Outward Monitor',   end: true, perm: 'cts:view_queue'      },
+          { to: '/cts/outward/verification',   label: 'Verification OQ',             perm: 'cts:view_queue'      },
+          { to: '/cts/outward/queue',          label: 'Validation OQ',               perm: 'cts:submit_decision' },
+          { to: '/cts/outward/submission',     label: 'Submission OQ',               perm: 'cts:submit_decision' },
+          { to: '/cts/presentment-file',       label: 'Outward File',                perm: 'cts:view_queue'      },
         ],
       },
       {
         label: 'Inward Clearing',
         items: [
-          { to: '/cts/pipeline',        label: 'Inward Monitor',                perm: 'cts:view_analytics'  },
-          { to: '/cts',                 label: 'Inward Q',           end: true, perm: 'cts:view_queue'      },
-          { to: '/cts/recall',          label: 'Recall',                       perm: 'cts:submit_decision' },
+          { to: '/cts/pipeline',               label: 'Inward Monitor',              perm: 'cts:view_analytics'  },
+          { to: '/cts/inward/verification',    label: 'Verification IQ',             perm: 'cts:view_queue'      },
+          { to: '/cts',                        label: 'Validation IQ',  end: true,   perm: 'cts:view_queue'      },
+          { to: '/cts/inward/submission',      label: 'Submission IQ',               perm: 'cts:submit_decision' },
+          { to: '/cts/recall',                 label: 'Recall',                      perm: 'cts:submit_decision' },
           // SMB Dashboard removed — "Dashboard" nav item shows it directly to SMB users now
-          { to: '/cts/smb/review-queue', label: 'SMB Review Queue',           smbOnly: true, perm: 'cts:view_queue' },
-          { to: '/cts/smb/reports',     label: 'SMB Reports',                 smbOnly: true, perm: 'smb:view_ledger' },
+          { to: '/cts/smb/review-queue',       label: 'SMB Review Queue',           smbOnly: true, perm: 'cts:view_queue'   },
+          { to: '/cts/smb/reports',            label: 'SMB Reports',                smbOnly: true, perm: 'smb:view_ledger'  },
         ],
       },
       {
@@ -164,9 +168,14 @@ const PROFILE_MENU = [
 ]
 
 const ROUTE_LABELS = {
-  '/cts':               ['CTS', 'Inward Queue — Human Review'],
-  '/cts/outward':            ['Presentation Process', 'DBC Processing'],
-  '/cts/presentment-file':  ['Presentation Process', 'Presentment File'],
+  '/cts':                       ['Inward Clearing', 'Validation IQ — Human Review'],
+  '/cts/inward/verification':  ['Inward Clearing', 'Verification IQ — Stage 1 Review Queue'],
+  '/cts/inward/submission':    ['Inward Clearing', 'Submission IQ — Stage 3 Confirm / Return'],
+  '/cts/outward':              ['Outward Clearing', 'Outward Monitor'],
+  '/cts/outward/verification': ['Outward Clearing', 'Verification OQ — Stage 1 IQA / MICR Review'],
+  '/cts/outward/queue':        ['Outward Clearing', 'Validation OQ — Stage 2 OCR Validation'],
+  '/cts/outward/submission':   ['Outward Clearing', 'Submission OQ — Stage 3 NGCH Submission'],
+  '/cts/presentment-file':     ['Presentation Process', 'Presentment File'],
   '/cts/rf-drawee':         ['Presentation Process', 'RF — Drawee Bank'],
   '/cts/vault':         ['CTS', 'Vault Status'],
   '/cts/vault-sync':    ['Processing', 'Positive Pay & Stop Cheque'],
