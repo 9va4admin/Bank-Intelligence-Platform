@@ -10,6 +10,8 @@ import CTSConfig from './modules/cts/pages/CTSConfig'
 import CTSMCPConfig from './modules/cts/pages/CTSMCPConfig'
 import CTSPresentment from './modules/cts/pages/CTSPresentment'
 import CTSOutwardQueue from './modules/cts/pages/CTSOutwardQueue'
+import CTSValidationQueue from './modules/cts/pages/CTSValidationQueue'
+import CTSSubmissionQueue from './modules/cts/pages/CTSSubmissionQueue'
 import CTSExceptions from './modules/cts/pages/CTSExceptions'
 import CTSReconciliation from './modules/cts/pages/CTSReconciliation'
 import CTSCompliance from './modules/cts/pages/CTSCompliance'
@@ -85,13 +87,15 @@ export default function App() {
         <Route path="/logout" element={<Logout />} />
         <Route element={<RequireAuth />}>
         {/* CTS module */}
-        <Route path="/cts" element={<CTSWorkstation />} />
-        <Route path="/cts/inward/verification" element={<CTSWorkstation defaultStage="Verification" />} />
-        <Route path="/cts/inward/submission"   element={<CTSWorkstation defaultStage="Submission" />} />
-        <Route path="/cts/outward" element={<CTSPresentment />} />
-        <Route path="/cts/outward/queue"         element={<CTSOutwardQueue />} />
-        <Route path="/cts/outward/verification"  element={<CTSOutwardQueue defaultStage="Verification" />} />
-        <Route path="/cts/outward/submission"    element={<CTSOutwardQueue defaultStage="Submission" />} />
+        {/* Inward 3-stage pipeline */}
+        <Route path="/cts/inward/verification" element={<CTSWorkstation />} />
+        <Route path="/cts"                     element={<CTSValidationQueue mode="inward" />} />
+        <Route path="/cts/inward/submission"   element={<CTSSubmissionQueue mode="inward" />} />
+        {/* Outward 3-stage pipeline */}
+        <Route path="/cts/outward"             element={<CTSPresentment />} />
+        <Route path="/cts/outward/verification" element={<CTSOutwardQueue />} />
+        <Route path="/cts/outward/queue"        element={<CTSValidationQueue mode="outward" />} />
+        <Route path="/cts/outward/submission"   element={<CTSSubmissionQueue mode="outward" />} />
         <Route path="/cts/vault" element={<CTSVaultStatus />} />
         <Route path="/cts/decisions" element={<CTSDecisionsLog />} />
         <Route path="/cts/exceptions" element={<CTSExceptions />} />
