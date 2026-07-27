@@ -14,10 +14,21 @@
 
 // ── HDFC / private-bank style ─────────────────────────────────────────────────
 
+const MON_MAP = { Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',
+                  Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12' }
+function parseDMY(date) {
+  if (!date) return { dd:'01', mm:'01', yyyy:'2026' }
+  const sep = date.includes('/') ? '/' : '-'
+  const p   = date.split(sep)
+  return {
+    dd:   (p[0] || '01').padStart(2, '0'),
+    mm:   MON_MAP[p[1]] || (p[1] || '01').padStart(2, '0'),
+    yyyy: (p[2] || '2026').padStart(4, '0'),
+  }
+}
+
 function HDFCStyleFront({ bank, branch, date, payee, amtFig, amtWrd, micr, account, chqNo }) {
-  const dd   = (date.split('/')[0] || '').padStart(2, '0')
-  const mm   = (date.split('/')[1] || '').padStart(2, '0')
-  const yyyy = (date.split('/')[2] || '').padStart(4, '0')
+  const { dd, mm, yyyy } = parseDMY(date)
 
   return (
     <div style={{ width: '100%', maxWidth: '580px', aspectRatio: '2.55/1', background: '#fff', border: '1px solid #888', borderRadius: '2px', position: 'relative', overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.2)', userSelect: 'none' }}>
@@ -155,10 +166,7 @@ function HDFCStyleFront({ bank, branch, date, payee, amtFig, amtWrd, micr, accou
 // ── PSB / co-op bank style (NKGSB, SBI, Saraswat …) ─────────────────────────
 
 function PSBStyleFront({ bank, branch, date, payee, amtFig, amtWrd, micr, account, chqNo }) {
-  const parts   = date.split('/')
-  const dd      = (parts[0] || '').padStart(2, ' ')
-  const mm      = (parts[1] || '').padStart(2, ' ')
-  const yyyy    = (parts[2] || '').padStart(4, ' ')
+  const { dd, mm, yyyy } = parseDMY(date)
   const dDigits = [...dd, ...mm, ...yyyy]
 
   return (
