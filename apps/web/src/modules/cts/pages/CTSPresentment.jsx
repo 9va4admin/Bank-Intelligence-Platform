@@ -19,6 +19,18 @@ function makeSessions(bankIfsc, isSMB) {
   ]
 }
 
+// Drawee banks — cheques in Saraswat's outward batch are drawn on these banks
+const DRAWEE_BANKS = [
+  { name: 'State Bank of India',  branch: 'Fort Branch, Mumbai',    ifsc: 'SBIN0000300', micr: '400002003' },
+  { name: 'HDFC Bank Ltd.',       branch: 'Fort Branch, Mumbai',    ifsc: 'HDFC0000060', micr: '400240060' },
+  { name: 'ICICI Bank Ltd.',      branch: 'Nariman Point, Mumbai',  ifsc: 'ICIC0000001', micr: '400229001' },
+  { name: 'Bank of Baroda',       branch: 'Churchgate, Mumbai',     ifsc: 'BARB0CHURCH', micr: '400012009' },
+  { name: 'Axis Bank Ltd.',       branch: 'Andheri West, Mumbai',   ifsc: 'UTIB0000067', micr: '400211067' },
+  { name: 'Union Bank of India',  branch: 'Mumbai Main Branch',     ifsc: 'UBIN0531847', micr: '400026003' },
+  { name: 'Punjab National Bank', branch: 'Fort Mumbai Branch',     ifsc: 'PUNB0048400', micr: '400024011' },
+  { name: 'Canara Bank',          branch: 'Fort Branch, Mumbai',    ifsc: 'CNRB0000014', micr: '400015014' },
+]
+
 const IQA_FAIL_REASONS = [
   'Image too dark — rescan required',
   'MICR band not readable',
@@ -46,6 +58,7 @@ function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001
     const payees = ['Reliance Ind.', 'HDFC Securities', 'Tata Cons.', 'Infosys Ltd.', 'SBI MF']
     const iqaFail = status === 'IQA_FAIL'
     const lotSeq  = Math.floor(idx / LOT_SIZE) + 1
+    const drawee  = DRAWEE_BANKS[idx % DRAWEE_BANKS.length]
     return {
       instrument_id: `CHQ-OUT-${String(idx + 1).padStart(5, '0')}`,
       account_display: `****${1000 + ((idx * 37) % 9000)}`,
@@ -57,6 +70,10 @@ function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001
       lot_number: `LOT_${bankIfsc}_20260619_${sessionId}_${String(lotSeq).padStart(2, '0')}`,
       lot_seq: lotSeq,
       status,
+      drawee_bank_name: drawee.name,
+      drawee_branch:    drawee.branch,
+      drawee_ifsc:      drawee.ifsc,
+      drawee_micr:      drawee.micr,
       iqa_fail_reason: iqaFail ? IQA_FAIL_REASONS[idx % IQA_FAIL_REASONS.length] : null,
       ocr_confidence: iqaFail ? null : (0.72 + Math.random() * 0.27).toFixed(2),
       sig_score: iqaFail ? null : (0.74 + Math.random() * 0.25).toFixed(2),
@@ -506,17 +523,21 @@ function DetailPanel({ item, isDark }) {
         <div className="px-5 py-3">
           <ChequeImageViewer
             views={[
-              { key: 'front', label: 'BFB — Front Black',   badge: null,         badgeColor: 'violet' },
-              { key: 'back',  label: 'BBB — Back Black',    badge: null,         badgeColor: 'slate'  },
-              { key: 'grey',  label: 'BFG — Front Grey',    badge: 'IQA',        badgeColor: 'sky'    },
+              { key: 'BFB', label: 'BFB — Front Black', url: null },
+              { key: 'BBB', label: 'BBB — Back Black',  url: null },
+              { key: 'BFG', label: 'BFG — Front Grey',  url: null },
             ]}
             fields={{
-              'Instrument ID': item.instrument_id,
-              'Account':       item.account_display,
-              'Amount':        item.amount,
-              'Payee':         item.payee,
-              'Date':          item.date_on_cheque,
-              'MICR':          item.micr,
+              payee:          item.payee,
+              date:           item.date_on_cheque,
+              amount_figures: item.amount,
+              amount_words:   '',
+              micr:           item.micr,
+              alterations:    false,
+              bank_name:      item.drawee_bank_name,
+              bank_branch:    item.drawee_branch,
+              bank_ifsc:      item.drawee_ifsc,
+              bank_micr:      item.drawee_micr,
             }}
             isDark={isDark}
             compact={false}
