@@ -86,8 +86,12 @@ export default function App() {
         <Route element={<RequireAuth />}>
         {/* CTS module */}
         <Route path="/cts" element={<CTSWorkstation />} />
+        <Route path="/cts/inward/verification" element={<CTSWorkstation defaultStage="Verification" />} />
+        <Route path="/cts/inward/submission"   element={<CTSWorkstation defaultStage="Submission" />} />
         <Route path="/cts/outward" element={<CTSPresentment />} />
-        <Route path="/cts/outward/queue" element={<CTSOutwardQueue />} />
+        <Route path="/cts/outward/queue"         element={<CTSOutwardQueue />} />
+        <Route path="/cts/outward/verification"  element={<CTSOutwardQueue defaultStage="Verification" />} />
+        <Route path="/cts/outward/submission"    element={<CTSOutwardQueue defaultStage="Submission" />} />
         <Route path="/cts/vault" element={<CTSVaultStatus />} />
         <Route path="/cts/decisions" element={<CTSDecisionsLog />} />
         <Route path="/cts/exceptions" element={<CTSExceptions />} />
