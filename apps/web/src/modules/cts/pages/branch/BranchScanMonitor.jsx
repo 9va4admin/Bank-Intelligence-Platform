@@ -17,14 +17,14 @@ import AppShell from '../../../../shared/layout/AppShell'
 // ─── Mock SSE feed (simulates ChequeAck events arriving over time) ───────────
 
 const MOCK_INSTRUMENTS = [
-  { scan_id: 'SC-001247', idempotency_key: 'br01:sess01:247', micr_suffix: '4521', payee: 'N***', amount_range: '₹[1L-5L]', status: 'ACCEPTED', lot_id: 'LOT-0007', ts: '10:43:51' },
-  { scan_id: 'SC-001246', idempotency_key: 'br01:sess01:246', micr_suffix: '8873', payee: 'M***', amount_range: '₹[<1L]',    status: 'ACCEPTED', lot_id: 'LOT-0007', ts: '10:43:49' },
-  { scan_id: 'SC-001245', idempotency_key: 'br01:sess01:245', micr_suffix: '2211', payee: 'R***', amount_range: '₹[1L-5L]', status: 'HELD',     lot_id: '',         ts: '10:43:47', mismatch_id: 'MM-001', mismatch_fields: ['amount_figures'] },
-  { scan_id: 'SC-001244', idempotency_key: 'br01:sess01:244', micr_suffix: '6699', payee: 'A***', amount_range: '₹[<1L]',    status: 'REJECTED', lot_id: '',         ts: '10:43:44', reason: 'CTS_IMAGE_QUALITY' },
-  { scan_id: 'SC-001243', idempotency_key: 'br01:sess01:243', micr_suffix: '3312', payee: 'S***', amount_range: '₹[5L-10L]', status: 'ACCEPTED', lot_id: 'LOT-0007', ts: '10:43:42' },
-  { scan_id: 'SC-001242', idempotency_key: 'br01:sess01:242', micr_suffix: '7741', payee: 'K***', amount_range: '₹[1L-5L]', status: 'ACCEPTED', lot_id: 'LOT-0007', ts: '10:43:40' },
-  { scan_id: 'SC-001241', idempotency_key: 'br01:sess01:241', micr_suffix: '0023', payee: 'P***', amount_range: '₹[<1L]',    status: 'ACCEPTED', lot_id: 'LOT-0007', ts: '10:43:38' },
-  { scan_id: 'SC-001240', idempotency_key: 'br01:sess01:240', micr_suffix: '9988', payee: 'V***', amount_range: '₹[1L-5L]', status: 'ACCEPTED', lot_id: 'LOT-0006', ts: '10:43:35' },
+  { scan_id: 'SC-001247', idempotency_key: 'br01:sess01:247', micr_suffix: '4521', payee: 'Nandini Joshi',        amount_range: '₹[1L-5L]',  status: 'ACCEPTED', lot_id: 'LOT-0007', ts: '10:43:51' },
+  { scan_id: 'SC-001246', idempotency_key: 'br01:sess01:246', micr_suffix: '8873', payee: 'Mahesh Kumar',         amount_range: '₹[<1L]',    status: 'ACCEPTED', lot_id: 'LOT-0007', ts: '10:43:49' },
+  { scan_id: 'SC-001245', idempotency_key: 'br01:sess01:245', micr_suffix: '2211', payee: 'Rajesh Kulkarni',      amount_range: '₹[1L-5L]',  status: 'HELD',     lot_id: '',         ts: '10:43:47', mismatch_id: 'MM-001', mismatch_fields: ['amount_figures'] },
+  { scan_id: 'SC-001244', idempotency_key: 'br01:sess01:244', micr_suffix: '6699', payee: 'Anita Sharma',         amount_range: '₹[<1L]',    status: 'REJECTED', lot_id: '',         ts: '10:43:44', reason: 'CTS_IMAGE_QUALITY' },
+  { scan_id: 'SC-001243', idempotency_key: 'br01:sess01:243', micr_suffix: '3312', payee: 'Sunil Enterprises',    amount_range: '₹[5L-10L]', status: 'ACCEPTED', lot_id: 'LOT-0007', ts: '10:43:42' },
+  { scan_id: 'SC-001242', idempotency_key: 'br01:sess01:242', micr_suffix: '7741', payee: 'Kishore Mehta',        amount_range: '₹[1L-5L]',  status: 'ACCEPTED', lot_id: 'LOT-0007', ts: '10:43:40' },
+  { scan_id: 'SC-001241', idempotency_key: 'br01:sess01:241', micr_suffix: '0023', payee: 'Priya Deshmukh',       amount_range: '₹[<1L]',    status: 'ACCEPTED', lot_id: 'LOT-0007', ts: '10:43:38' },
+  { scan_id: 'SC-001240', idempotency_key: 'br01:sess01:240', micr_suffix: '9988', payee: 'Vinod Apte',           amount_range: '₹[1L-5L]',  status: 'ACCEPTED', lot_id: 'LOT-0006', ts: '10:43:35' },
 ]
 
 const STATUS_CFG = {
