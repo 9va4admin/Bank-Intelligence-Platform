@@ -26,7 +26,7 @@ function pickFailReason(seed) {
 }
 
 function makeInstrument(idx, batchNo, sbIfsc, sessionId = 'SES-0619-001') {
-  const payees   = ['Reliance Ind.', 'HDFC Securities', 'Tata Cons.', 'Infosys Ltd.', 'SBI MF', 'L&T Fin.']
+  const payees   = ['Rajesh Kumar Verma', 'Sunita P. Joshi', 'Amol Vilas Kulkarni', 'Kavita R. Desai', 'Nikhil Santosh Pawar', 'Meena S. Sharma']
   const amounts  = ['12500', '45000', '200000', '875000', '15000', '350000']
   const fail     = Math.random() < 0.18 // ~18% rejection rate
   const reason   = fail ? pickFailReason(idx) : null

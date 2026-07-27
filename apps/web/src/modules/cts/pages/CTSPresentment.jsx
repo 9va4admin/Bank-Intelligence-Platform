@@ -55,7 +55,7 @@ function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001
     const idx = startIdx + i
     const status = pick()
     const amts   = ['₹12,500', '₹45,000', '₹2,00,000', '₹8,75,000', '₹15,000', '₹3,50,000']
-    const payees = ['Reliance Ind.', 'HDFC Securities', 'Tata Cons.', 'Infosys Ltd.', 'SBI MF']
+    const payees = ['Rajesh Kumar Verma', 'Sunita P. Joshi', 'Amol Vilas Kulkarni', 'Kavita R. Desai', 'Nikhil Santosh Pawar']
     const iqaFail = status === 'IQA_FAIL'
     const lotSeq  = Math.floor(idx / LOT_SIZE) + 1
     const drawee  = DRAWEE_BANKS[idx % DRAWEE_BANKS.length]

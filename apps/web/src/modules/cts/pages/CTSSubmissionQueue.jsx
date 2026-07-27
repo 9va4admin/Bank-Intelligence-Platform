@@ -31,19 +31,19 @@ const MOCK_INWARD = [
   {
     instrument_id: 'CHQ-IN-S001', account_display: '****4521', drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Dadar', source_stage: 'STP',
     iet_deadline: new Date(Date.now() + 68 * 60000).toISOString(),
-    date: '15/07/2026', payee: 'R***', amount_figures: '₹45,000', amount_words: 'Forty Five Thousand Only', micr: '400005678',
+    date: '15/07/2026', payee: 'Ramesh N. Rao', amount_figures: '₹45,000', amount_words: 'Forty Five Thousand Only', micr: '400005678',
     alterations: false, manual_fields: [], ocr_score: 0.99, fraud_score: 0.02, sig_score: 0.98, iqa_score: 0.99,
   },
   {
     instrument_id: 'CHQ-IN-S002', account_display: '****8912', drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Vile Parle', source_stage: 'VERIFIED',
     iet_deadline: new Date(Date.now() + 22 * 60000).toISOString(),
-    date: '14/07/2026', payee: 'M***', amount_figures: '₹3,20,000', amount_words: 'Three Lakh Twenty Thousand Only', micr: '400009012',
+    date: '14/07/2026', payee: 'Meena S. Sharma', amount_figures: '₹3,20,000', amount_words: 'Three Lakh Twenty Thousand Only', micr: '400009012',
     alterations: false, manual_fields: ['payee', 'amount_words'], ocr_score: 0.88, fraud_score: 0.09, sig_score: 0.92, iqa_score: 0.97,
   },
   {
     instrument_id: 'CHQ-IN-S003', account_display: '****6677', drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Borivali', source_stage: 'VERIFIED',
     iet_deadline: new Date(Date.now() + 51 * 60000).toISOString(),
-    date: '15/07/2026', payee: 'S***', amount_figures: '₹1,10,000', amount_words: 'One Lakh Ten Thousand Only', micr: '400007890',
+    date: '15/07/2026', payee: 'Suresh B. Agarwal', amount_figures: '₹1,10,000', amount_words: 'One Lakh Ten Thousand Only', micr: '400007890',
     alterations: false, manual_fields: ['payee'], ocr_score: 0.89, fraud_score: 0.07, sig_score: 0.93, iqa_score: 0.97,
   },
 ]
