@@ -58,6 +58,15 @@ function _svgFront(fields = {}, gray = false) {
 
   const isPrivate = /hdfc|icici|axis|kotak|yes\s*bank/i.test(bankName)
 
+  // Construct MICR line: ‟CHQNO‟  9-DIGIT-ROUTING:  ACCOUNT‟  31
+  // bankMicr = 9-digit routing code (city+bank+branch), e.g. '400160002'
+  const routing  = bankMicr.replace(/\D/g, '').padStart(9, '0').slice(0, 9)
+  const chqSeed  = (payee.charCodeAt(0) * 7 + payee.charCodeAt(1 % payee.length) * 3) % 900000
+  const micrChq  = String(chqSeed).padStart(6, '0')
+  const micrAcct = routing.slice(0, 3) + routing.slice(3, 6) + routing.slice(6) + String(chqSeed % 10000).padStart(4, '0')
+  const T        = '‟'  // ‟ MICR transit symbol
+  const micrLine = `${T}${micrChq}${T}  ${routing}:  ${micrAcct}${T}  31`
+
   // ── HDFC / private bank SVG ──────────────────────────────────────────────────
   if (isPrivate) {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 320">
@@ -130,7 +139,7 @@ function _svgFront(fields = {}, gray = false) {
   <!-- MICR band -->
   <rect x="0" y="282" width="760" height="38" fill="${micrBg}"/>
   <line x1="0" y1="282" x2="760" y2="282" stroke="${ink}" stroke-width="0.5"/>
-  <text x="18" y="307" font-size="13.5" fill="${ink}" font-family="'Courier New',monospace" letter-spacing="2.5">${micr}</text>
+  <text x="18" y="307" font-size="13.5" fill="${ink}" font-family="'Courier New',monospace" letter-spacing="2.5">${micrLine}</text>
 </svg>`
   }
 
@@ -205,7 +214,7 @@ function _svgFront(fields = {}, gray = false) {
   <!-- MICR band -->
   <rect x="0" y="280" width="760" height="40" fill="${micrBg}"/>
   <line x1="0" y1="280" x2="760" y2="280" stroke="${ink}" stroke-width="0.5"/>
-  <text x="18" y="306" font-size="13.5" fill="${ink}" font-family="'Courier New',monospace" letter-spacing="2.5">${micr}</text>
+  <text x="18" y="306" font-size="13.5" fill="${ink}" font-family="'Courier New',monospace" letter-spacing="2.5">${micrLine}</text>
 </svg>`
 }
 
@@ -240,7 +249,7 @@ function _svgBack(fields = {}) {
   <!-- MICR band -->
   <rect x="0" y="258" width="760" height="62" fill="${micrBg}"/>
   <line x1="0" y1="258" x2="760" y2="258" stroke="${ink}" stroke-width="0.5"/>
-  <text x="18" y="295" font-size="13.5" fill="${ink}" font-family="'Courier New',monospace" letter-spacing="2.5">${micr}</text>
+  <text x="18" y="295" font-size="13.5" fill="${ink}" font-family="'Courier New',monospace" letter-spacing="2.5">${micrLine}</text>
 </svg>`
 }
 
