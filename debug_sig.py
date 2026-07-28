@@ -23,7 +23,7 @@ from apps.sig_detector.main import _detect_pixel
 
 CONTRAST_THRESH  = 35   # local-contrast threshold (coloured-background mode)
 BLUR_RADIUS      = 15
-ABS_INK_DENSITY_LIMIT = 0.30   # if abs-threshold classifies >30% of zone → use local contrast
+ABS_INK_DENSITY_LIMIT = 0.05   # if abs-threshold classifies >5% of zone → use local contrast
 
 MAX_W = 1400           # max output image width (keeps file sizes small)
 
@@ -56,7 +56,8 @@ def debug(img_path: str) -> None:
     abs_thr  = _ink_threshold(gray_raw)
     ink_abs  = (gray_raw < abs_thr).astype(np.uint8)
     abs_density = ink_abs.mean()
-    if abs_density > ABS_INK_DENSITY_LIMIT:
+    use_local_contrast = abs_density > ABS_INK_DENSITY_LIMIT
+    if use_local_contrast:
         blurred  = np.array(zone.convert("L").filter(ImageFilter.GaussianBlur(radius=BLUR_RADIUS)))
         contrast = blurred.astype(int) - gray_raw.astype(int)
         ink = (contrast > CONTRAST_THRESH).astype(np.uint8)
@@ -78,6 +79,7 @@ def debug(img_path: str) -> None:
     MAX_RUNS    = 15
     MERGE_GAP   = 10
     MIN_ROWS    = 2
+    MIN_SPAN_DENSITY = 0.05 if use_local_contrast else 0.08  # Guard D: stricter for abs threshold
     RIGHT_FRINGE = max(4, int(zw * 0.08))   # Guard E: rightmost 8% = barcode fringe
 
     sig_rows = []
@@ -99,11 +101,9 @@ def debug(img_path: str) -> None:
         if runs > MAX_RUNS:
             reject_runs += 1; continue
 
-        # Guard D: ink must be DENSE within its span (security print letters
-        # scatter a few blobs across 1100 px → 2-4 % span density; signature
-        # strokes are concentrated → 15-50 % span density)
+        # Guard D: ink must be concentrated within its span
         span_density = len(o_xs) / (span + 1)
-        if span_density < 0.05:
+        if span_density < MIN_SPAN_DENSITY:
             continue
 
         # Guard E: clip barcode / right-margin ink from the right end of every row.

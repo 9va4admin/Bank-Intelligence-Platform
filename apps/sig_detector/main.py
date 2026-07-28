@@ -202,9 +202,15 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     gray_raw = np.array(zone.convert("L"))
     abs_thr  = _ink_threshold(gray_raw)
     ink_abs  = (gray_raw < abs_thr).astype(np.uint8)
-    if ink_abs.mean() > 0.30:
-        # Background is being heavily classified → coloured-background cheque
-        # (e.g. Canara Bank).  Switch to local-contrast mode.
+    # Threshold at 5 %: Canara Bank blue security-print background classifies
+    # ~7 % of the zone as ink (background pixels near abs_thr) even though the
+    # zone appears mostly blue.  That 7 % creates run-count noise that rejects
+    # the actual signature rows.  Switch to local-contrast which is
+    # background-agnostic.  White/cream cheques (Syndicate, Axis, SBI) sit at
+    # 1-3 % and stay on absolute threshold, which correctly excludes printed
+    # form labels and KUMAR/NKIT rubber-stamp rows.
+    _use_local_contrast = ink_abs.mean() > 0.05
+    if _use_local_contrast:
         blurred = np.array(zone.convert("L").filter(ImageFilter.GaussianBlur(radius=15)))
         ink = ((blurred.astype(int) - gray_raw.astype(int)) > 35).astype(np.uint8)
     else:
@@ -222,6 +228,11 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     MERGE_GAP   = 10                        # Canara security-print lines are ~15px apart;
     #                                         keep gap < that so they stay as tiny clusters
     MIN_ROWS    = 2                         # cluster needs ≥ 2 qualifying rows
+    # Guard D span-density threshold: stricter for absolute-threshold mode (0.08)
+    # so rubber-stamp annotations (KUMAR/NKIT, span_density ~5-7%) are rejected;
+    # permissive for local-contrast mode (0.05) so thin signature strokes on
+    # coloured backgrounds still qualify.
+    MIN_SPAN_DENSITY = 0.05 if _use_local_contrast else 0.08
     # Guard E boundary: rightmost 8 % of zone is the barcode / right-margin fringe
     RIGHT_FRINGE = max(4, int(zw * 0.08))
 
@@ -257,7 +268,7 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
         # 50-200 ink pixels → span_density 15-50 %.  Threshold 8 % separates
         # them with a comfortable margin.
         span_density = len(o_xs) / (span + 1)
-        if span_density < 0.05:
+        if span_density < MIN_SPAN_DENSITY:
             continue
 
         # Guard E: clip barcode / right-margin ink from the right end of every row.
