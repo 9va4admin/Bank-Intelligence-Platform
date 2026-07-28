@@ -58,6 +58,7 @@ function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001
     const amtWords = ['Twelve Thousand Five Hundred Only', 'Forty Five Thousand Only', 'Two Lakhs Only',
                       'Eight Lakhs Seventy Five Thousand Only', 'Fifteen Thousand Only', 'Three Lakhs Fifty Thousand Only']
     const payees   = ['Rajesh Kumar Verma', 'Sunita P. Joshi', 'Amol Vilas Kulkarni', 'Kavita R. Desai', 'Nikhil Santosh Pawar']
+    const CHANNELS = ['PAY_IN_SLIP', 'BACK_ANNOTATION', 'KIOSK']
     const iqaFail = status === 'IQA_FAIL'
     const lotSeq  = Math.floor(idx / LOT_SIZE) + 1
     const drawee  = DRAWEE_BANKS[idx % DRAWEE_BANKS.length]
@@ -67,6 +68,18 @@ function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001
       payee: payees[idx % payees.length],
       amount: amts[idx % amts.length],
       amount_words: amtWords[idx % amts.length],
+      deposit_channel: CHANNELS[idx % 3],
+      deposit_data: (() => {
+        const ch    = CHANNELS[idx % 3]
+        const acct  = `****${1000 + ((idx * 37) % 9000)}`
+        const payee = payees[idx % payees.length]
+        const amt   = amts[idx % amts.length]
+        const date  = '19/06/2026'
+        const drawee = DRAWEE_BANKS[idx % DRAWEE_BANKS.length]
+        if (ch === 'PAY_IN_SLIP')     return { depositor_name: payee, depositor_account: acct, deposit_amount: amt, counter_token: `T-${String((idx % 99) + 1).padStart(4, '0')}`, date, branch: drawee.branch }
+        if (ch === 'BACK_ANNOTATION') return { extracted_account: acct, extracted_mobile: `98${String(((idx * 13) % 100000000) + 10000000).slice(0, 8)}`, ocr_confidence: 0.78 + (idx % 5) * 0.04 }
+        return { name: payee, account: acct, txn_id: `CDM-${String(idx).padStart(3, '0')}-20260619`, timestamp: `09:${String((idx * 7) % 60).padStart(2, '0')} AM  19/06/2026` }
+      })(),
       zone: zones[idx % zones.length],
       micr: `0${idx % 9}2000${String(idx).padStart(6, '0')}`,
       date_on_cheque: '19-Jun-2026',
@@ -205,27 +218,26 @@ function KpiStrip({ batch, filterStatus, onFilter, isDark }) {
 
   return (
     <div className={`shrink-0 border-b ${th.divider} px-5 py-3`}>
-      <div className="flex gap-4 overflow-x-auto">
+      <div className="flex gap-2">
         {tiles.map(t => {
           const active = filterStatus === t.key
           if (t.disabled) {
-            // Manual Confirmed/Rejected are a read-only rollup from Outward Q — no batch rows to filter to here.
             return (
               <div key={t.key} title="Decided in Outward Q — shown here for monitoring only"
-                className={`shrink-0 rounded-xl border px-4 py-2 min-w-[100px] text-left ${th.card} opacity-90`}>
-                <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-0.5`}>{t.label}</div>
-                <div className={`text-2xl font-bold font-mono ${t.color}`}>{t.val}</div>
+                className={`flex-1 rounded-xl border px-3 py-2 text-left ${th.card} opacity-90`}>
+                <div className={`text-[9px] uppercase tracking-widest ${th.lbl} mb-0.5 truncate`}>{t.label}</div>
+                <div className={`text-xl font-bold font-mono ${t.color}`}>{t.val}</div>
               </div>
             )
           }
           return (
             <button key={t.key}
               onClick={() => onFilter(active ? 'ALL' : t.key)}
-              className={`shrink-0 rounded-xl border px-4 py-2 min-w-[100px] text-left transition-all ${
+              className={`flex-1 rounded-xl border px-3 py-2 text-left transition-all ${
                 active ? th.cardAct : `${th.card} ${isDark ? 'hover:border-gold-400/20' : 'hover:border-amber-300/50'}`
               }`}>
-              <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-0.5`}>{t.label}</div>
-              <div className={`text-2xl font-bold font-mono ${t.color}`}>{t.val}</div>
+              <div className={`text-[9px] uppercase tracking-widest ${th.lbl} mb-0.5 truncate`}>{t.label}</div>
+              <div className={`text-xl font-bold font-mono ${t.color}`}>{t.val}</div>
             </button>
           )
         })}
@@ -545,6 +557,7 @@ function DetailPanel({ item, isDark }) {
             isDark={isDark}
             compact={false}
             title={item.instrument_id}
+            depositInfo={item.deposit_channel ? { channel: item.deposit_channel, data: item.deposit_data } : null}
           />
         </div>
       )}
