@@ -21,8 +21,9 @@ from PIL import Image, ImageDraw, ImageFilter
 sys.path.insert(0, str(Path(__file__).parent))
 from apps.sig_detector.main import _detect_pixel
 
-CONTRAST_THRESH = 35   # must match _detect_pixel in main.py
-BLUR_RADIUS     = 15   # must match _detect_pixel in main.py
+CONTRAST_THRESH  = 35   # local-contrast threshold (coloured-background mode)
+BLUR_RADIUS      = 15
+ABS_INK_DENSITY_LIMIT = 0.30   # if abs-threshold classifies >30% of zone → use local contrast
 
 MAX_W = 1400           # max output image width (keeps file sizes small)
 
@@ -49,18 +50,27 @@ def debug(img_path: str) -> None:
     _save(zone, "debug_zone.jpg")
     print(f"Zone:  x=[{zx1},{zx2}]  y=[{zy1},{zy2}]  size={zw}×{zh}")
 
-    # Local-contrast ink mask (mirrors _detect_pixel in main.py)
+    # Adaptive ink mask (mirrors _detect_pixel in main.py)
     gray_raw = np.array(zone.convert("L"))
-    blurred  = np.array(zone.convert("L").filter(ImageFilter.GaussianBlur(radius=BLUR_RADIUS)))
-    contrast = blurred.astype(int) - gray_raw.astype(int)
-    ink = (contrast > CONTRAST_THRESH).astype(np.uint8)
+    from apps.sig_detector.main import _ink_threshold
+    abs_thr  = _ink_threshold(gray_raw)
+    ink_abs  = (gray_raw < abs_thr).astype(np.uint8)
+    abs_density = ink_abs.mean()
+    if abs_density > ABS_INK_DENSITY_LIMIT:
+        blurred  = np.array(zone.convert("L").filter(ImageFilter.GaussianBlur(radius=BLUR_RADIUS)))
+        contrast = blurred.astype(int) - gray_raw.astype(int)
+        ink = (contrast > CONTRAST_THRESH).astype(np.uint8)
+        mode_str = f"local-contrast (abs_density={abs_density:.2f} > {ABS_INK_DENSITY_LIMIT})"
+    else:
+        ink = ink_abs
+        contrast = np.zeros_like(gray_raw, dtype=int)
+        mode_str = f"absolute (thr={abs_thr}, abs_density={abs_density:.2f})"
 
-    # For display: show contrast as a grey image (clamp 0-80 → 0-255)
-    contrast_vis = np.clip(contrast, 0, 80) * 3
+    print(f"Ink mask mode: {mode_str}")
+
+    # For display: show ink mask
+    contrast_vis = ink * 255
     _save(Image.fromarray(contrast_vis.astype(np.uint8), mode="L"), "debug_ink.jpg")
-
-    mean_contrast = contrast[contrast > 0].mean() if (contrast > 0).any() else 0
-    print(f"Contrast thresh={CONTRAST_THRESH}  mean(positive)={mean_contrast:.1f}")
 
     # Qualifying rows (mirrors main.py guards)
     MIN_SPAN    = max(8, int(zw * 0.05))
@@ -93,7 +103,7 @@ def debug(img_path: str) -> None:
         # scatter a few blobs across 1100 px → 2-4 % span density; signature
         # strokes are concentrated → 15-50 % span density)
         span_density = len(o_xs) / (span + 1)
-        if span_density < 0.08:
+        if span_density < 0.05:
             continue
 
         # Guard E: clip barcode / right-margin ink from the right end of every row.
@@ -136,7 +146,7 @@ def debug(img_path: str) -> None:
     qualifying = [c for c in clusters if len(c) >= MIN_ROWS]
     if not qualifying:
         qualifying = [max(clusters, key=len)]
-        print(f"⚠ No cluster with ≥{MIN_ROWS} rows — using largest ({len(qualifying[0])} rows)")
+        print(f"No cluster with >={MIN_ROWS} rows -- using largest ({len(qualifying[0])} rows)")
 
     print(f"Clusters: {len(clusters)}  qualifying: {len(qualifying)}")
     best = max(qualifying, key=len)
@@ -153,7 +163,7 @@ def debug(img_path: str) -> None:
             max_gap, gap_idx = g, i + 1
     left = lefts_s[gap_idx] if (len(lefts_s) >= 4 and max_gap > gap_thresh) else lefts_s[0]
     if len(lefts_s) >= 4 and max_gap > gap_thresh:
-        print(f"  ↳ left trimmed: largest gap={max_gap}px at idx={gap_idx}  "
+        print(f"  -> left trimmed: largest gap={max_gap}px at idx={gap_idx}  "
               f"raw_min={lefts_s[0]}  trimmed_left={left}")
 
     # Trim far-right outlier rows (barcode stripes at zone right edge)
@@ -167,7 +177,7 @@ def debug(img_path: str) -> None:
     if (len(rights_s) >= 4 and r_max_gap > r_gap_thresh
             and r_max_gap_idx > len(rights_s) // 2):
         right = rights_s[r_max_gap_idx - 1]
-        print(f"  ↳ right trimmed: largest gap={r_max_gap}px at idx={r_max_gap_idx}  "
+        print(f"  -> right trimmed: largest gap={r_max_gap}px at idx={r_max_gap_idx}  "
               f"raw_max={rights_s[-1]}  trimmed_right={right}")
     else:
         right = rights_s[-1]
