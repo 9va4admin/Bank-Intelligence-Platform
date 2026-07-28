@@ -319,11 +319,41 @@ export function MockChequeFront({ inst, item }) {
   return isPrivate ? <HDFCStyleFront {...props} /> : <PSBStyleFront {...props} />
 }
 
-export function MockChequeBack() {
+// depositChannel: 'PAY_IN_SLIP' | 'BACK_ANNOTATION' | 'KIOSK' | undefined (inward — clean)
+export function MockChequeBack({ depositChannel, item, inst }) {
+  const payee   = item?.payee   || inst?.fields_meta?.payee?.actual_value   || ''
+  const account = item?.account_display || inst?.account_display || '****0000'
+  const acctNum = account.replace(/[*●]/g, '0')
+
   return (
     <div style={{ width: '100%', maxWidth: '580px', aspectRatio: '2.55/1', background: '#f8f8f5', border: '1px solid #999', borderRadius: '2px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontFamily: 'Arial,sans-serif', position: 'relative', overflow: 'hidden' }}>
       <div style={{ padding: '14px 20px' }}>
         <div style={{ fontSize: '7px', color: '#aaa', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>Endorsement / पृष्ठांकन</div>
+
+        {/* BACK_ANNOTATION — customer handwrote A/c + mobile on the back */}
+        {depositChannel === 'BACK_ANNOTATION' && (
+          <div style={{ marginBottom: '8px', padding: '6px 8px', background: 'rgba(255,255,200,0.5)', border: '0.5px solid #bbb', borderRadius: '2px' }}>
+            <div style={{ fontFamily: 'cursive', fontSize: '11px', color: '#222', lineHeight: 1.8 }}>
+              A/c No: {acctNum.padStart(12, '0').slice(0, 12)}<br />
+              {payee && <span>Name: {payee}<br /></span>}
+              Mob: 98{String(parseInt(acctNum.slice(-4) || '0000', 10) % 100000000).padStart(8, '2')}
+            </div>
+          </div>
+        )}
+
+        {/* KIOSK — printed adhesive label affixed by CDM/kiosk */}
+        {depositChannel === 'KIOSK' && (
+          <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#fff', border: '1px dashed #888', borderRadius: '2px', display: 'inline-block' }}>
+            <div style={{ fontSize: '6px', color: '#888', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '3px' }}>CDM DEPOSIT LABEL</div>
+            <div style={{ fontFamily: 'monospace', fontSize: '9px', color: '#111', lineHeight: 1.7 }}>
+              A/C: {acctNum.padStart(12, '0').slice(0, 12)}<br />
+              {payee && <span>NAME: {payee.toUpperCase()}<br /></span>}
+              TXN: CDM-{acctNum.slice(-4).padStart(6, '0')}-{new Date().toISOString().slice(2, 10).replace(/-/g, '')}
+            </div>
+            <div style={{ fontSize: '5.5px', color: '#aaa', marginTop: '3px' }}>Kiosk-captured · System-verified</div>
+          </div>
+        )}
+
         {[0, 1, 2].map(i => (
           <div key={i} style={{ borderBottom: '0.5px solid #ccc', marginBottom: i < 2 ? '22px' : 0 }} />
         ))}

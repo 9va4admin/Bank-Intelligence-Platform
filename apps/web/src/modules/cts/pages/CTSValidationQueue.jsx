@@ -8,7 +8,7 @@ import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { getReasonByLabel, getReturnReasons } from '../data/returnReasons'
-import { MockChequeFront, MockChequeBack, MockPayinSlip } from '../components/MockCheque'
+import { MockChequeFront, MockChequeBack } from '../components/MockCheque'
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -102,7 +102,7 @@ const BASE_INSTRUMENTS_INWARD = [
 
 function ChequePanel({ inst, isDark, onClose }) {
   const [tab, setTab] = useState('front')
-  const tabs = [{ id: 'front', label: '▣ Front' }, { id: 'back', label: '▣ Back' }, { id: 'payinslip', label: '🧾 Pay-in Slip' }]
+  const tabs = [{ id: 'front', label: '▣ Front' }, { id: 'back', label: '▣ Back' }]
 
   return (
     <div className={`flex flex-col border-l h-full shrink-0 ${isDark ? 'bg-navy-900 border-white/10' : 'bg-white border-slate-200'}`} style={{ width: '400px' }}>
@@ -121,13 +121,11 @@ function ChequePanel({ inst, isDark, onClose }) {
         ))}
       </div>
       <div className="flex-1 overflow-auto flex flex-col items-center justify-center p-5 gap-3">
-        {tab === 'front'     && <MockChequeFront inst={inst} />}
-        {tab === 'back'      && <MockChequeBack />}
-        {tab === 'payinslip' && <MockPayinSlip inst={inst} />}
+        {tab === 'front' && <MockChequeFront inst={inst} />}
+        {tab === 'back'  && <MockChequeBack />}
         <div className={`text-[9px] ${isDark ? 'text-slate-600' : 'text-slate-400'} text-center`}>
-          {tab === 'front'     && 'CTS-2010 · Front — colour scan'}
-          {tab === 'back'      && 'CTS-2010 · Back — endorsement area'}
-          {tab === 'payinslip' && 'Pay-in / deposit slip — branch capture'}
+          {tab === 'front' && 'CTS-2010 · Front — colour scan'}
+          {tab === 'back'  && 'CTS-2010 · Back — endorsement area'}
         </div>
       </div>
     </div>
