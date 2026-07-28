@@ -64,7 +64,7 @@ const MOCK_HUMAN_REVIEW = [
     ocr_confidence: 0.91, vision_compliance: 0.97, micr_confidence: 0.99,
     checks: { amount_words_match: false, date_valid: true, cts_valid: true },
     ocr_fields: ocrFields({
-      payee: 'Kiran Traders', amount_figures: '₹7,40,000', amount_words: 'Seven lakhs fourteen thousand only', alterations: false,
+      payee: 'Kiran Traders', amount_figures: '₹7,40,000', amount_words: 'Seven lakhs fifty thousand only', alterations: false,
       bank_name: 'HDFC Bank Ltd.', bank_branch: 'Fort Branch, Mumbai', bank_ifsc: 'HDFC0000060', bank_micr: '400240060',
     }),
     get fields_meta() { return makeFieldsMeta(this.ocr_fields, { amount_words: 0.74, amount_figures: 0.91 }) },
