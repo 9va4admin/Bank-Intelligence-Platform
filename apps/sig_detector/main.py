@@ -79,46 +79,56 @@ async def _startup() -> None:
 # ── Pixel-based detector ──────────────────────────────────────────────────────
 
 def _ink_threshold(arr: np.ndarray) -> int:
-    """10th-percentile intensity + 28, clamped to [60, 150]."""
-    p10 = int(np.percentile(arr.flatten(), 10))
-    return max(60, min(150, p10 + 28))
+    """
+    3rd-percentile intensity + 45, clamped to [60, 185].
+
+    p3 anchors to the darkest 3% of zone pixels (actual ink strokes).
+    Adding 45 lifts the threshold to catch light blue pen ink (gray 150-175).
+    The upper clamp of 185 prevents a nearly-blank zone from classifying
+    most of the background as ink.
+
+    Natural Canara Bank protection: dense diagonal security print drives p3
+    down to ~50-80 → threshold = 95-125 → security print (gray 120-150)
+    falls ABOVE the threshold and is excluded automatically.
+    Axis Bank (mostly white zone): p3 ≈ 140 → threshold = 185 → blue ink
+    (gray 150-175) is included.
+    """
+    p3 = int(np.percentile(arr.flatten(), 3))
+    return max(60, min(185, p3 + 45))
 
 
 def _smooth_profile(profile: np.ndarray, window: int = 5) -> np.ndarray:
-    """
-    Moving-average smoothing over a 1-D row-density profile.
-    Merges tiny intra-signature gaps (1–4 rows) so they don't register as
-    the "largest gap", leaving only the true gap between signature and text.
-    """
     kernel = np.ones(window) / window
     return np.convolve(profile, kernel, mode="same")
 
 
 def _detect_pixel(img: Image.Image) -> list[dict]:
     """
-    Find the signature region in a cheque image using ink-row profiling.
+    Find the signature region using per-row cluster analysis.
 
-    CTS-2010 layout assumed:
-      - Signature zone: y ∈ [55%, 90%] of image height, x ∈ [52%, 100%]
-      - Within that zone: signature strokes on top, printed name below
-      - A blank (or near-blank) gap separates them
+    Previous gap-detection approach failed whenever the largest blank gap in
+    the zone was ABOVE the signature (e.g. the empty area between the account
+    number box and the sig area) rather than below it — causing oversized bboxes
+    and false "No-Sign-Present" results.
 
-    Denoising steps (tuned to exclude printed-name text from crop):
-      1. MedianFilter(3) on zone greyscale — removes salt-and-pepper noise
-      2. 5-row moving average on the ink-density profile — merges tiny
-         internal signature gaps so only the true sig/text gap dominates
-      3. Minimum gap of 3 blank rows required for a valid cut
-
-    Returns a list with one detection dict (bbox normalised, confidence 0.80)
-    or [] when no ink is found.
+    New strategy:
+      1. Build a tight ink mask (threshold capped at 110) that excludes
+         security-print patterns (Canara Bank diagonal CANARA BANK text,
+         which is typically gray > 110).
+      2. For each row in the zone check TWO guards:
+           Guard A — eroded span ≥ 18 % of zone width  (filters isolated dots)
+           Guard B — original run count ≤ 6             (cursive: 1–5 runs/row;
+                                                          printed block caps: 8–18)
+      3. Cluster qualifying rows (merge gaps ≤ 4 rows).
+      4. Pick the BOTTOMMOST qualifying cluster — signatures are always the
+         lowest ink element on a CTS-2010 cheque.
+      5. Return the tight pixel bbox of that cluster.
     """
-    from PIL import ImageFilter  # local import keeps top-level imports unchanged
+    from PIL import ImageFilter
 
     iw, ih = img.size
 
     # ── 1. Crop to the CTS-2010 signature zone ───────────────────────────
-    # y starts at 55% (was 52%) to skip the amount-in-figures row that
-    # sometimes lands at ~52–54% and introduces stray ink near the zone top.
     zy1 = int(ih * 0.55)
     zy2 = int(ih * 0.90)
     zx1 = int(iw * 0.52)
@@ -126,68 +136,85 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     zone = img.crop((zx1, zy1, zx2, zy2))
     zw, zh = zone.size
 
-    # ── 2. Denoise: MedianFilter removes isolated noise pixels ───────────
+    # ── 2. Build ink mask ─────────────────────────────────────────────────
     gray_img = zone.convert("L").filter(ImageFilter.MedianFilter(size=3))
-    gray = np.array(gray_img)
-    thr  = _ink_threshold(gray)
-    ink  = (gray < thr).astype(np.uint8)   # 1 = ink pixel
+    gray     = np.array(gray_img)
+    thr      = _ink_threshold(gray)
+    ink      = (gray < thr).astype(np.uint8)
 
-    # ── 3. Per-row ink density profile with smoothing ────────────────────
-    raw_density  = ink.sum(axis=1) / zw        # raw fraction of ink pixels per row
-    row_density  = _smooth_profile(raw_density, window=5)  # merge tiny intra-sig gaps
-    ink_rows     = row_density > 0.01           # rows with meaningful ink (post-smooth)
+    # ── 3. Collect qualifying rows ─────────────────────────────────────────
+    # Guard A — span ≥ 5 % of zone width (was 10 % — too wide for compact sigs)
+    # Guard B — density < 40 %: rejects solid horizontal rule lines
+    # Guard C — runs ≤ 15: at high resolution (2365 px wide) disconnected
+    #           cursive strokes produce up to 12 runs/row; security print
+    #           (Canara Bank diagonal) produces 20+ runs/row
+    MIN_SPAN    = max(8, int(zw * 0.05))   # 5 % of zone width
+    MAX_DENSITY = 0.40                      # solid fill / rule line
+    MAX_RUNS    = 15                        # cursive at high-res: ≤ 12; Canara: 20+
+    MERGE_GAP   = 15                        # rows ≤ 15 apart → same cluster
+    MIN_ROWS    = 2                         # cluster needs ≥ 2 qualifying rows
 
-    # ── 4. Find the largest blank gap in the smoothed ink profile ────────
-    # A gap of ≥ 3 consecutive blank rows is required to count as the
-    # separator between the cursive signature and the printed name below.
-    # Gaps of 1–2 rows (typical within cursive letterforms) are now
-    # invisible after smoothing.
-    best_gap_start = best_gap_len = 0
-    cur_start = cur_len = 0
-    in_gap = False
+    sig_rows: list[tuple[int, int, int]] = []   # (y, left_x, right_x)
 
-    for y, has_ink in enumerate(ink_rows):
-        if not has_ink:
-            if not in_gap:
-                cur_start = y
-                cur_len   = 0
-                in_gap    = True
-            cur_len += 1
-            if cur_len > best_gap_len:
-                best_gap_len   = cur_len
-                best_gap_start = cur_start
-        else:
-            in_gap = False
+    for y in range(zh):
+        o_xs = np.where(ink[y])[0]
+        if len(o_xs) == 0:
+            continue
 
-    # Cut at the top of the best gap when:
-    #   • the gap is at least 3 rows (was 1) to avoid cutting inside signature
-    #   • there are at least 8 ink rows above it (the signature itself)
-    if best_gap_len >= 3:
-        ink_above_count = ink_rows[:best_gap_start].sum()
-        if ink_above_count >= 8:
-            sig_bottom_zone = best_gap_start   # exclusive, zone-relative
-        else:
-            sig_bottom_zone = zh
-    else:
-        sig_bottom_zone = zh
+        # Guard A: horizontal span
+        span = int(o_xs[-1]) - int(o_xs[0])
+        if span < MIN_SPAN:
+            continue
 
-    # ── 5. Find tight bbox of ink ABOVE the cut (using RAW ink mask) ─────
-    # Use the original non-smoothed mask for the tight box so we don't
-    # artificially enlarge or shrink the signature region.
-    ink_above = ink[:sig_bottom_zone, :]
-    ink_coords = np.argwhere(ink_above)
-    if ink_coords.size == 0:
+        # Guard B: density — reject solid fill / horizontal rule lines
+        density = len(o_xs) / zw
+        if density > MAX_DENSITY:
+            continue
+
+        # Guard C: run count (gap > 3 px = new run)
+        runs = 1
+        for i in range(1, len(o_xs)):
+            if int(o_xs[i]) - int(o_xs[i - 1]) > 3:
+                runs += 1
+        if runs > MAX_RUNS:
+            continue
+
+        sig_rows.append((y, int(o_xs[0]), int(o_xs[-1])))
+
+    if not sig_rows:
         return []
 
-    top    = int(ink_coords[:, 0].min())
-    bottom = int(ink_coords[:, 0].max()) + 1
-    left   = int(ink_coords[:, 1].min())
-    right  = int(ink_coords[:, 1].max()) + 1
+    # ── 4. Cluster qualifying rows ─────────────────────────────────────────
+    clusters: list[list[tuple[int, int, int]]] = []
+    cur: list[tuple[int, int, int]] = [sig_rows[0]]
+    for i in range(1, len(sig_rows)):
+        if sig_rows[i][0] - sig_rows[i - 1][0] <= MERGE_GAP:
+            cur.append(sig_rows[i])
+        else:
+            clusters.append(cur)
+            cur = [sig_rows[i]]
+    clusters.append(cur)
 
-    if bottom - top < 5 or right - left < 10:
+    qualifying = [c for c in clusters if len(c) >= MIN_ROWS]
+    if not qualifying:
+        qualifying = [max(clusters, key=len)]
+
+    # Take the LARGEST qualifying cluster.
+    # The signature is the most ink-dense handwritten element and always
+    # produces more qualifying rows than horizontal rules (2-5 rows) or
+    # isolated printed labels (5-8 rows). "Bottommost" fails when a form
+    # line (e.g. "Payable at par...") sits below the signature in the zone.
+    best = max(qualifying, key=len)
+
+    left   = min(r[1] for r in best)
+    top    = min(r[0] for r in best)
+    right  = max(r[2] for r in best)
+    bottom = max(r[0] for r in best) + 1
+
+    if bottom - top < 2 or right - left < 8:
         return []
 
-    # ── 6. Convert to full-image normalised coords ───────────────────────
+    # ── 5. Convert to full-image normalised coords ───────────────────────
     abs_x1 = (zx1 + left)   / iw
     abs_y1 = (zy1 + top)    / ih
     abs_x2 = (zx1 + right)  / iw
