@@ -321,7 +321,14 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-5 py-4">
         {tab === 'images' && (
-          <ChequeImageViewer views={views} fields={item.ocr_fields} isDark={isDark} compact={false} title={item.instrument_id} />
+          <ChequeImageViewer
+            views={views}
+            fields={{ ...item.ocr_fields, deposit_channel: item.deposit_channel, deposit_data: item.deposit_data }}
+            isDark={isDark}
+            compact={false}
+            title={item.instrument_id}
+            depositInfo={item.deposit_channel ? { channel: item.deposit_channel, data: item.deposit_data } : null}
+          />
         )}
 
         {tab === 'ocr fields' && (

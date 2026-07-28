@@ -19,6 +19,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import OutwardReviewPanel from '../components/OutwardReviewPanel'
+import { demoChequeUrl } from '../demoImages'
 
 // ─── Mock data ──────────────────────────────────────────────────────────────
 // bank_slug mirrors Inward Q's convention: SMB sees only its own bank's rows.
@@ -54,15 +55,23 @@ function makeFieldsMeta(ocr, confidences = {}) {
   return out
 }
 
+const DEPOSIT_CHANNEL_CFG = {
+  PAY_IN_SLIP:     { label: 'Pay-in Slip', icon: '🧾', clr: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30', clrL: 'text-emerald-700 bg-emerald-50 border-emerald-400' },
+  BACK_ANNOTATION: { label: 'Back Note',   icon: '✍️',  clr: 'text-sky-400 bg-sky-500/10 border-sky-500/30',             clrL: 'text-sky-700 bg-sky-50 border-sky-400'             },
+  KIOSK:           { label: 'Kiosk/CDM',   icon: '🏧',  clr: 'text-violet-400 bg-violet-500/10 border-violet-500/30',    clrL: 'text-violet-700 bg-violet-50 border-violet-400'    },
+}
+
 const MOCK_HUMAN_REVIEW = [
   {
-    instrument_id: 'CHQ-OUT-00512', account_display: '****4471', payee_display: 'Kiran Traders',
+    instrument_id: 'CHQ-OUT-00512', front_bw_url: demoChequeUrl(54), front_gray_url: demoChequeUrl(55), account_display: '****4471', payee_display: 'Kiran Traders',
     amount_range: '₹[5L-10L]', micr: '400160002841', bank: 'Saraswat Co-operative Bank',
     branch: 'Fort', pu: 'PU-MUM-01', bank_slug: 'saraswat-coop',
     reason: 'AMOUNT_MISMATCH', reason_label: 'Amount words/figures variance', received_at: '11:42 AM',
     scanner_id: 'SCN-FORT-02', lot_number: 'LOT_SRCB0000001_20260619_01',
     ocr_confidence: 0.91, vision_compliance: 0.97, micr_confidence: 0.99,
     checks: { amount_words_match: false, date_valid: true, cts_valid: true },
+    deposit_channel: 'BACK_ANNOTATION',
+    deposit_data: { extracted_account: '4000123471', extracted_mobile: '9876543210', ocr_confidence: 0.91 },
     ocr_fields: ocrFields({
       payee: 'Kiran Traders', amount_figures: '₹7,40,000', amount_words: 'Seven lakhs fifty thousand only', alterations: false,
       bank_name: 'HDFC Bank Ltd.', bank_branch: 'Fort Branch, Mumbai', bank_ifsc: 'HDFC0000060', bank_micr: '400240060',
@@ -70,13 +79,15 @@ const MOCK_HUMAN_REVIEW = [
     get fields_meta() { return makeFieldsMeta(this.ocr_fields, { amount_words: 0.74, amount_figures: 0.91 }) },
   },
   {
-    instrument_id: 'CHQ-OUT-00519', account_display: '****9021', payee_display: 'Om Enterprises',
+    instrument_id: 'CHQ-OUT-00519', front_bw_url: demoChequeUrl(56), front_gray_url: demoChequeUrl(57), account_display: '****9021', payee_display: 'Om Enterprises',
     amount_range: '₹[1L-5L]', micr: '400160002855', bank: 'Saraswat Co-operative Bank',
     branch: 'Vashi', pu: 'PU-MUM-02', bank_slug: 'saraswat-coop',
     reason: 'ENDORSEMENT_IRREGULAR', reason_label: 'Endorsement irregular', received_at: '11:47 AM',
     scanner_id: 'SCN-VASH-01', lot_number: 'LOT_SRCB0000001_20260619_02',
     ocr_confidence: 0.95, vision_compliance: 0.88, micr_confidence: 0.98,
     checks: { amount_words_match: true, date_valid: true, cts_valid: false },
+    deposit_channel: 'PAY_IN_SLIP',
+    deposit_data: { depositor_name: 'Om Enterprises', depositor_account: '4000295021', deposit_amount: '₹2,15,000', counter_token: 'T-0019', date: '19/06/2026', branch: 'Nariman Point, Mumbai' },
     ocr_fields: ocrFields({
       payee: 'Om Enterprises', amount_figures: '₹2,15,000', amount_words: 'Two lakhs fifteen thousand only',
       bank_name: 'ICICI Bank Ltd.', bank_branch: 'Nariman Point, Mumbai', bank_ifsc: 'ICIC0000001', bank_micr: '400229001',
@@ -84,13 +95,15 @@ const MOCK_HUMAN_REVIEW = [
     get fields_meta() { return makeFieldsMeta(this.ocr_fields) },
   },
   {
-    instrument_id: 'CHQ-OUT-00527', account_display: '****3308', payee_display: 'Deshmukh & Co.',
+    instrument_id: 'CHQ-OUT-00527', front_bw_url: demoChequeUrl(58), front_gray_url: demoChequeUrl(59), account_display: '****3308', payee_display: 'Deshmukh & Co.',
     amount_range: '₹[10L-1Cr]', micr: '400160002863', bank: 'Vasavi Co-operative Bank',
     branch: 'Andheri (W)', pu: 'PU-MUM-03', bank_slug: 'smb-mh-vasavi',
     reason: 'HIGH_VALUE_DUAL_APPROVAL', reason_label: 'High value — dual approval', received_at: '11:53 AM',
     scanner_id: 'SCN-ANDH-03', lot_number: 'LOT_VASB0000001_20260619_01',
     ocr_confidence: 0.98, vision_compliance: 0.99, micr_confidence: 0.99,
     checks: { amount_words_match: true, date_valid: true, cts_valid: true },
+    deposit_channel: 'KIOSK',
+    deposit_data: { name: 'Deshmukh & Co.', account: '4000273308', txn_id: 'CDM-027-20260619', timestamp: '10:47 AM  19/06/2026' },
     ocr_fields: ocrFields({
       payee: 'Deshmukh & Co.', amount_figures: '₹42,00,000', amount_words: 'Forty two lakhs only',
       bank_name: 'State Bank of India', bank_branch: 'Fort Branch, Mumbai', bank_ifsc: 'SBIN0000300', bank_micr: '400002003',
@@ -102,13 +115,15 @@ const MOCK_HUMAN_REVIEW = [
 
 const MOCK_STP_REJECTED = [
   {
-    instrument_id: 'CHQ-OUT-00488', account_display: '****7712', payee_display: 'Bhagwati Steels',
+    instrument_id: 'CHQ-OUT-00488', front_bw_url: demoChequeUrl(60), front_gray_url: demoChequeUrl(61), account_display: '****7712', payee_display: 'Bhagwati Steels',
     amount_range: '₹[1L-5L]', micr: '400160002771', bank: 'Saraswat Co-operative Bank',
     branch: 'Dadar (E)', pu: 'PU-MUM-01', bank_slug: 'saraswat-coop',
     reason: 'CTS_COMPLIANCE_FAILURE', reason_label: 'CTS compliance failure — auto-rejected', received_at: '10:58 AM',
     scanner_id: 'SCN-DADR-01', lot_number: 'LOT_SRCB0000001_20260619_01',
     ocr_confidence: 0.86, vision_compliance: 0.61, micr_confidence: 0.94,
     checks: { amount_words_match: true, date_valid: true, cts_valid: false },
+    deposit_channel: 'PAY_IN_SLIP',
+    deposit_data: { depositor_name: 'Bhagwati Steels', depositor_account: '4000187712', deposit_amount: '₹1,88,000', counter_token: 'T-0088', date: '19/06/2026', branch: 'Dadar (E)' },
     ocr_fields: ocrFields({
       payee: 'Bhagwati Steels', amount_figures: '₹1,88,000', amount_words: 'One lakh eighty eight thousand only',
       bank_name: 'Axis Bank Ltd.', bank_branch: 'Andheri West, Mumbai', bank_ifsc: 'UTIB0000067', bank_micr: '400211067',
@@ -121,13 +136,15 @@ const MOCK_STP_REJECTED = [
     },
   },
   {
-    instrument_id: 'CHQ-OUT-00495', account_display: '****2245', payee_display: 'Shree Ambika Traders',
+    instrument_id: 'CHQ-OUT-00495', front_bw_url: demoChequeUrl(62), front_gray_url: demoChequeUrl(63), account_display: '****2245', payee_display: 'Shree Ambika Traders',
     amount_range: '₹[<1L]', micr: '400160002788', bank: 'Andheri Urban Co-op Bank',
     branch: 'Andheri (E)', pu: 'PU-MUM-04', bank_slug: 'smb-mh-andheri',
     reason: 'DATE_INVALID', reason_label: 'Date invalid / stale — auto-rejected', received_at: '11:05 AM',
     scanner_id: 'SCN-ANDE-02', lot_number: 'LOT_VASB0000001_20260619_02',
     ocr_confidence: 0.93, vision_compliance: 0.95, micr_confidence: 0.97,
     checks: { amount_words_match: true, date_valid: false, cts_valid: true },
+    deposit_channel: 'BACK_ANNOTATION',
+    deposit_data: { extracted_account: '4000272245', extracted_mobile: '9765432100', ocr_confidence: 0.87 },
     ocr_fields: ocrFields({
       payee: 'Shree Ambika Traders', amount_figures: '₹42,500', amount_words: 'Forty two thousand five hundred only', date: '02-Jan-2026',
       bank_name: 'Bank of Baroda', bank_branch: 'Churchgate, Mumbai', bank_ifsc: 'BARB0CHURCH', bank_micr: '400012009',
@@ -162,6 +179,14 @@ function OutwardRow({ item, isDark, selected, onClick }) {
         <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${isDark ? 'text-amber-300 bg-amber-400/10 border-amber-400/20' : 'text-amber-700 bg-amber-100 border-amber-400'}`}>
           {item.reason_label}
         </span>
+        {item.deposit_channel && (() => {
+          const ch = DEPOSIT_CHANNEL_CFG[item.deposit_channel]
+          return ch ? (
+            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border inline-flex items-center gap-1 ${isDark ? ch.clr : ch.clrL}`}>
+              {ch.icon} {ch.label}
+            </span>
+          ) : null
+        })()}
         <span className={`text-[10px] ml-auto ${th.sub}`}>{item.amount_range}</span>
       </div>
     </button>
