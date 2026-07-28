@@ -182,21 +182,33 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     zone = img.crop((zx1, zy1, zx2, zy2))
     zw, zh = zone.size
 
-    # ── 2. Local-contrast ink mask ────────────────────────────────────────
-    # Absolute-threshold detection fails on coloured backgrounds: the high
-    # threshold needed to catch light blue ballpoint ink on white (Axis Bank)
-    # also classifies Canara Bank's light-blue security print as ink.
-    # Local-contrast approach: a pixel is "ink" when it is substantially
-    # DARKER than its local neighbourhood. Background-agnostic — works on
-    # white, cream, and blue backgrounds without tuning.
+    # ── 2. Adaptive ink mask ─────────────────────────────────────────────────
+    # Strategy: try absolute threshold first (p3+45 anchored to darkest ink).
+    # For most cheques (white/cream/green background) this correctly separates
+    # ink from background and is conservative enough not to classify printed
+    # labels as ink.
     #
-    # Security-print text (≈20-28 contrast) → excluded by threshold 35 ✓
-    # Dark ballpoint on white/cream (≈150-200 contrast) → included ✓
-    # Light blue ink on cream (Axis Bank, ≈60-80 contrast) → included ✓
-    # Uniform background pixels (≈0-5 contrast) → excluded ✓
+    # Canara Bank exception: the dense blue security print drives p3 UP (the
+    # entire zone is a medium-dark blue), so threshold reaches 165-185 and
+    # classifies the blue background as ink → abs_ink_density > 30 %.
+    # In that case we fall back to local-contrast which is background-agnostic.
+    #
+    # Local-contrast: pixel is ink when substantially DARKER than its local
+    # neighbourhood (GaussianBlur radius=15).  Security-print (contrast ≈20-28)
+    # → excluded.  Dark ballpoint (≈150-200) → included.  Light blue ink like
+    # Axis Bank (≈60-80) → included.  This mode is NOT used for normal cheques
+    # because it also classifies printed labels (contrast ≈80-150) as ink,
+    # producing over-sized bboxes.
     gray_raw = np.array(zone.convert("L"))
-    blurred  = np.array(zone.convert("L").filter(ImageFilter.GaussianBlur(radius=15)))
-    ink = ((blurred.astype(int) - gray_raw.astype(int)) > 35).astype(np.uint8)
+    abs_thr  = _ink_threshold(gray_raw)
+    ink_abs  = (gray_raw < abs_thr).astype(np.uint8)
+    if ink_abs.mean() > 0.30:
+        # Background is being heavily classified → coloured-background cheque
+        # (e.g. Canara Bank).  Switch to local-contrast mode.
+        blurred = np.array(zone.convert("L").filter(ImageFilter.GaussianBlur(radius=15)))
+        ink = ((blurred.astype(int) - gray_raw.astype(int)) > 35).astype(np.uint8)
+    else:
+        ink = ink_abs
 
     # ── 3. Collect qualifying rows ─────────────────────────────────────────
     # Guard A — span ≥ 5 % of zone width (was 10 % — too wide for compact sigs)
@@ -245,7 +257,7 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
         # 50-200 ink pixels → span_density 15-50 %.  Threshold 8 % separates
         # them with a comfortable margin.
         span_density = len(o_xs) / (span + 1)
-        if span_density < 0.08:
+        if span_density < 0.05:
             continue
 
         # Guard E: clip barcode / right-margin ink from the right end of every row.
