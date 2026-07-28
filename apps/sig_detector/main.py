@@ -102,6 +102,52 @@ def _smooth_profile(profile: np.ndarray, window: int = 5) -> np.ndarray:
     return np.convolve(profile, kernel, mode="same")
 
 
+def _trim_left(rows: list[tuple[int, int, int]], zw: int) -> int:
+    """
+    Robust left boundary for the signature cluster.
+
+    Background noise (border lines, scattered watermark text) creates rows
+    with very small left_x values that pull min(left_x) to the zone edge.
+    We look for the largest gap in the sorted left_x distribution:
+    if it exceeds 15 % of the zone width we treat everything LEFT of that
+    gap as noise and start the bbox from the right side of the gap.
+    """
+    lefts = sorted(r[1] for r in rows)
+    if len(lefts) < 4:
+        return lefts[0]
+    gap_thresh = int(zw * 0.15)
+    max_gap = gap_idx = 0
+    for i in range(len(lefts) - 1):
+        g = lefts[i + 1] - lefts[i]
+        if g > max_gap:
+            max_gap, gap_idx = g, i + 1
+    return lefts[gap_idx] if max_gap > gap_thresh else lefts[0]
+
+
+def _trim_right(rows: list[tuple[int, int, int]], zw: int) -> int:
+    """
+    Robust right boundary for the signature cluster.
+
+    Barcode stripes (e.g. Axis Bank 1D barcode at zone right edge) create rows
+    with right_x ≈ zone_width that pull max(right_x) to the zone boundary.
+    We look for the largest gap in the sorted right_x distribution:
+    if it exceeds 15 % of the zone width AND falls in the right half of the
+    distribution, everything to the RIGHT of that gap is noise.
+    """
+    rights = sorted(r[2] for r in rows)
+    if len(rights) < 4:
+        return rights[-1]
+    gap_thresh = int(zw * 0.15)
+    max_gap = max_gap_idx = 0
+    for i in range(len(rights) - 1):
+        g = rights[i + 1] - rights[i]
+        if g > max_gap:
+            max_gap, max_gap_idx = g, i + 1
+    if max_gap > gap_thresh and max_gap_idx > len(rights) // 2:
+        return rights[max_gap_idx - 1]
+    return rights[-1]
+
+
 def _detect_pixel(img: Image.Image) -> list[dict]:
     """
     Find the signature region using per-row cluster analysis.
@@ -136,11 +182,21 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     zone = img.crop((zx1, zy1, zx2, zy2))
     zw, zh = zone.size
 
-    # ── 2. Build ink mask ─────────────────────────────────────────────────
-    gray_img = zone.convert("L").filter(ImageFilter.MedianFilter(size=3))
-    gray     = np.array(gray_img)
-    thr      = _ink_threshold(gray)
-    ink      = (gray < thr).astype(np.uint8)
+    # ── 2. Local-contrast ink mask ────────────────────────────────────────
+    # Absolute-threshold detection fails on coloured backgrounds: the high
+    # threshold needed to catch light blue ballpoint ink on white (Axis Bank)
+    # also classifies Canara Bank's light-blue security print as ink.
+    # Local-contrast approach: a pixel is "ink" when it is substantially
+    # DARKER than its local neighbourhood. Background-agnostic — works on
+    # white, cream, and blue backgrounds without tuning.
+    #
+    # Security-print text (≈20-28 contrast) → excluded by threshold 35 ✓
+    # Dark ballpoint on white/cream (≈150-200 contrast) → included ✓
+    # Light blue ink on cream (Axis Bank, ≈60-80 contrast) → included ✓
+    # Uniform background pixels (≈0-5 contrast) → excluded ✓
+    gray_raw = np.array(zone.convert("L"))
+    blurred  = np.array(zone.convert("L").filter(ImageFilter.GaussianBlur(radius=15)))
+    ink = ((blurred.astype(int) - gray_raw.astype(int)) > 35).astype(np.uint8)
 
     # ── 3. Collect qualifying rows ─────────────────────────────────────────
     # Guard A — span ≥ 5 % of zone width (was 10 % — too wide for compact sigs)
@@ -151,8 +207,11 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     MIN_SPAN    = max(8, int(zw * 0.05))   # 5 % of zone width
     MAX_DENSITY = 0.40                      # solid fill / rule line
     MAX_RUNS    = 15                        # cursive at high-res: ≤ 12; Canara: 20+
-    MERGE_GAP   = 15                        # rows ≤ 15 apart → same cluster
+    MERGE_GAP   = 10                        # Canara security-print lines are ~15px apart;
+    #                                         keep gap < that so they stay as tiny clusters
     MIN_ROWS    = 2                         # cluster needs ≥ 2 qualifying rows
+    # Guard E boundary: rightmost 8 % of zone is the barcode / right-margin fringe
+    RIGHT_FRINGE = max(4, int(zw * 0.08))
 
     sig_rows: list[tuple[int, int, int]] = []   # (y, left_x, right_x)
 
@@ -179,7 +238,29 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
         if runs > MAX_RUNS:
             continue
 
-        sig_rows.append((y, int(o_xs[0]), int(o_xs[-1])))
+        # Guard D: ink pixels must be densely concentrated within their span.
+        # Canara Bank security-print rows pass A/B/C but scatter a few letters
+        # across the full zone width → span ≈ 1100 px, ink_pixels ≈ 20-40
+        # → span_density ≈ 2-4 %.  Signature strokes: span 200-400 px with
+        # 50-200 ink pixels → span_density 15-50 %.  Threshold 8 % separates
+        # them with a comfortable margin.
+        span_density = len(o_xs) / (span + 1)
+        if span_density < 0.08:
+            continue
+
+        # Guard E: clip barcode / right-margin ink from the right end of every row.
+        # 1-D barcode stripes (Axis Bank) overlap signature y-positions, so
+        # a single row can have ink at the signature location AND at the barcode
+        # location.  np.where() returns all ink pixels in the row, so right_x
+        # is pulled all the way to the barcode (zone right edge).
+        # Solution: discard any ink that sits in the rightmost RIGHT_FRINGE
+        # pixels (the barcode fringe) when recording right_x.
+        fringe_boundary = zw - RIGHT_FRINGE
+        o_xs_core = o_xs[o_xs < fringe_boundary]
+        if len(o_xs_core) == 0:
+            continue   # entire row is barcode / fringe — skip
+
+        sig_rows.append((y, int(o_xs[0]), int(o_xs_core[-1])))
 
     if not sig_rows:
         return []
@@ -206,9 +287,9 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     # line (e.g. "Payable at par...") sits below the signature in the zone.
     best = max(qualifying, key=len)
 
-    left   = min(r[1] for r in best)
+    left   = _trim_left(best, zw)
+    right  = _trim_right(best, zw)
     top    = min(r[0] for r in best)
-    right  = max(r[2] for r in best)
     bottom = max(r[0] for r in best) + 1
 
     if bottom - top < 2 or right - left < 8:
