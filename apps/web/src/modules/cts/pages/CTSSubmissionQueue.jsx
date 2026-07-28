@@ -10,21 +10,28 @@ import { MockChequeFront, MockChequeBack, MockPayinSlip } from '../components/Mo
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
+// deposit_channel: how the customer submitted this cheque at the presenting branch
+//   PAY_IN_SLIP     — customer filled a physical pay-in / deposit slip
+//   BACK_ANNOTATION — customer wrote A/c number + mobile on the back of the cheque
+//   KIOSK           — customer deposited via CDM / kiosk (details captured digitally)
 const MOCK_OUTWARD = [
   {
     instrument_id: 'CHQ-OUT-S001', drawee_bank: 'State Bank of India', drawee_branch: 'Andheri East', source_stage: 'STP',
     date: '15/07/2026', payee: 'Rajesh Kumar Verma', amount_figures: '₹12,50,000', amount_words: 'Twelve Lakh Fifty Thousand Only', micr: '400002123',
     alterations: false, manual_fields: [], ocr_score: 0.98, fraud_score: 0.03, sig_score: 0.96, iqa_score: 0.99,
+    deposit_channel: 'PAY_IN_SLIP',
   },
   {
     instrument_id: 'CHQ-OUT-S002', drawee_bank: 'HDFC Bank', drawee_branch: 'Bandra West', source_stage: 'VERIFIED',
     date: '14/07/2026', payee: 'Sunita P. Joshi', amount_figures: '₹2,40,000', amount_words: 'Two Lakh Forty Thousand Only', micr: '400001234',
     alterations: false, manual_fields: ['payee', 'amount_words'], ocr_score: 0.88, fraud_score: 0.07, sig_score: 0.91, iqa_score: 0.97,
+    deposit_channel: 'BACK_ANNOTATION',
   },
   {
     instrument_id: 'CHQ-OUT-S003', drawee_bank: 'Bank of Baroda', drawee_branch: 'Fort', source_stage: 'VERIFIED',
     date: '15/07/2026', payee: 'Kavita R. Desai', amount_figures: '₹3,80,500', amount_words: 'Three Lakh Eighty Thousand Five Hundred Only', micr: '400008901',
     alterations: false, manual_fields: ['payee', 'amount_figures', 'amount_words'], ocr_score: 0.85, fraud_score: 0.11, sig_score: 0.88, iqa_score: 0.96,
+    deposit_channel: 'KIOSK',
   },
 ]
 
@@ -156,14 +163,15 @@ function ConfirmCountdown({ onConfirm, onCancel, isDark }) {
   )
 }
 
-// ── Detail panel ──────────────────────────────────────────────────────────────
+// ── Deposit channel config (outward only) ────────────────────────────────────
 
-const IMG_TABS = [
-  { id: 'front',      label: '▣ Front' },
-  { id: 'back',       label: '▣ Back' },
-  { id: 'payinslip',  label: '🧾 Pay-in Slip' },
-  { id: 'fields',     label: '📋 Fields' },
-]
+const DEPOSIT_CHANNEL_CFG = {
+  PAY_IN_SLIP:     { label: 'Pay-in Slip', icon: '🧾', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30', colorL: 'text-emerald-700 bg-emerald-50 border-emerald-400' },
+  BACK_ANNOTATION: { label: 'Back Note',   icon: '✍️',  color: 'text-sky-400 bg-sky-500/10 border-sky-500/30',             colorL: 'text-sky-700 bg-sky-50 border-sky-400'             },
+  KIOSK:           { label: 'Kiosk/CDM',   icon: '🏧',  color: 'text-violet-400 bg-violet-500/10 border-violet-500/30',    colorL: 'text-violet-700 bg-violet-50 border-violet-400'    },
+}
+
+// ── Detail panel ──────────────────────────────────────────────────────────────
 
 function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
   const [imgTab, setImgTab] = useState('front')
@@ -177,6 +185,16 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
     muted:   isDark ? 'text-slate-400' : 'text-slate-500',
     divider: isDark ? 'border-white/8' : 'border-slate-200',
   }
+
+  // Tabs: inward never has pay-in slip; outward shows it only when deposit_channel === PAY_IN_SLIP
+  const imgTabs = [
+    { id: 'front',  label: '▣ Front' },
+    { id: 'back',   label: '▣ Back'  },
+    ...(!isInward && item.deposit_channel === 'PAY_IN_SLIP'
+      ? [{ id: 'payinslip', label: '🧾 Pay-in Slip' }]
+      : []),
+    { id: 'fields', label: '📋 Fields' },
+  ]
 
   function handleConfirm() { setSubmitted(true); onConfirm(item.instrument_id) }
 
@@ -226,7 +244,7 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
 
       {/* Image / fields tabs */}
       <div className={`flex border-b ${th.divider} shrink-0`}>
-        {IMG_TABS.map(t => (
+        {imgTabs.map(t => (
           <button key={t.id} type="button" onClick={() => setImgTab(t.id)}
             className={`px-3 py-2 text-[11px] font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${imgTab === t.id
               ? (isDark ? 'border-amber-400 text-amber-300' : 'border-amber-500 text-amber-700')
@@ -246,8 +264,12 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
         )}
         {imgTab === 'back' && (
           <div className="flex flex-col items-center justify-center p-5 gap-2 min-h-full">
-            <MockChequeBack />
-            <div className={`text-[9px] ${th.lbl}`}>CTS-2010 · Back of cheque — endorsement area</div>
+            <MockChequeBack depositChannel={isInward ? undefined : item.deposit_channel} item={item} />
+            <div className={`text-[9px] ${th.lbl}`}>
+              {item.deposit_channel === 'BACK_ANNOTATION' ? 'Customer handwrote A/c + mobile on back' :
+               item.deposit_channel === 'KIOSK'           ? 'CDM kiosk label affixed — details system-captured' :
+               'CTS-2010 · Back of cheque — endorsement area'}
+            </div>
           </div>
         )}
         {imgTab === 'payinslip' && (
@@ -426,6 +448,14 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
                           : (isDark ? 'bg-sky-500/10 border-sky-500/30 text-sky-400' : 'bg-sky-50 border-sky-400 text-sky-700')
                       }`}>{inst.source_stage}</span>
                     </div>
+                    {!isInward && inst.deposit_channel && (() => {
+                      const ch = DEPOSIT_CHANNEL_CFG[inst.deposit_channel]
+                      return ch ? (
+                        <div className={`inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded border mt-0.5 ${isDark ? ch.color : ch.colorL}`}>
+                          <span>{ch.icon}</span><span>{ch.label}</span>
+                        </div>
+                      ) : null
+                    })()}
                     <div className={`text-[11px] ${th.muted} mt-0.5 truncate`}>
                       {isInward ? `Acct ${inst.account_display}` : inst.drawee_bank}
                     </div>
