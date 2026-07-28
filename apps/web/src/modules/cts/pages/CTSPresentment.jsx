@@ -54,8 +54,10 @@ function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001
   return Array.from({ length: n }, (_, i) => {
     const idx = startIdx + i
     const status = pick()
-    const amts   = ['₹12,500', '₹45,000', '₹2,00,000', '₹8,75,000', '₹15,000', '₹3,50,000']
-    const payees = ['Rajesh Kumar Verma', 'Sunita P. Joshi', 'Amol Vilas Kulkarni', 'Kavita R. Desai', 'Nikhil Santosh Pawar']
+    const amts     = ['₹12,500', '₹45,000', '₹2,00,000', '₹8,75,000', '₹15,000', '₹3,50,000']
+    const amtWords = ['Twelve Thousand Five Hundred Only', 'Forty Five Thousand Only', 'Two Lakhs Only',
+                      'Eight Lakhs Seventy Five Thousand Only', 'Fifteen Thousand Only', 'Three Lakhs Fifty Thousand Only']
+    const payees   = ['Rajesh Kumar Verma', 'Sunita P. Joshi', 'Amol Vilas Kulkarni', 'Kavita R. Desai', 'Nikhil Santosh Pawar']
     const iqaFail = status === 'IQA_FAIL'
     const lotSeq  = Math.floor(idx / LOT_SIZE) + 1
     const drawee  = DRAWEE_BANKS[idx % DRAWEE_BANKS.length]
@@ -64,6 +66,7 @@ function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001
       account_display: `****${1000 + ((idx * 37) % 9000)}`,
       payee: payees[idx % payees.length],
       amount: amts[idx % amts.length],
+      amount_words: amtWords[idx % amts.length],
       zone: zones[idx % zones.length],
       micr: `0${idx % 9}2000${String(idx).padStart(6, '0')}`,
       date_on_cheque: '19-Jun-2026',
@@ -531,7 +534,7 @@ function DetailPanel({ item, isDark }) {
               payee:          item.payee,
               date:           item.date_on_cheque,
               amount_figures: item.amount,
-              amount_words:   '',
+              amount_words:   item.amount_words,
               micr:           item.micr,
               alterations:    false,
               bank_name:      item.drawee_bank_name,

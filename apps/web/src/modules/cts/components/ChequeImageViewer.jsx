@@ -58,14 +58,16 @@ function _svgFront(fields = {}, gray = false) {
 
   const isPrivate = /hdfc|icici|axis|kotak|yes\s*bank/i.test(bankName)
 
-  // Construct MICR line: ‟CHQNO‟  9-DIGIT-ROUTING:  ACCOUNT‟  31
+  // Construct MICR line: ‟CHQNO‟  9-DIGIT-ROUTING⑆  ACCOUNT‟  31
+  // Real format from CTS-2010 cheques: "000008"  110240031⁚  028717"  31
   // bankMicr = 9-digit routing code (city+bank+branch), e.g. '400160002'
   const routing  = bankMicr.replace(/\D/g, '').padStart(9, '0').slice(0, 9)
   const chqSeed  = (payee.charCodeAt(0) * 7 + payee.charCodeAt(1 % payee.length) * 3) % 900000
   const micrChq  = String(chqSeed).padStart(6, '0')
-  const micrAcct = routing.slice(0, 3) + routing.slice(3, 6) + routing.slice(6) + String(chqSeed % 10000).padStart(4, '0')
-  const T        = '‟'  // ‟ MICR transit symbol
-  const micrLine = `${T}${micrChq}${T}  ${routing}:  ${micrAcct}${T}  31`
+  const micrAcct = String(chqSeed % 900000 + 100000).padStart(6, '0')  // 6-digit account
+  const T        = '‟'   // MICR on-us symbol
+  const R        = '⑆'   // MICR routing symbol
+  const micrLine = `${T}${micrChq}${T}  ${routing}${R}  ${micrAcct}${T}  31`
 
   // ── HDFC / private bank SVG ──────────────────────────────────────────────────
   if (isPrivate) {
@@ -230,9 +232,10 @@ function _svgBack(fields = {}) {
   const routing  = bankMicr.replace(/\D/g, '').padStart(9, '0').slice(0, 9)
   const chqSeed  = (payee.charCodeAt(0) * 7 + payee.charCodeAt(1 % payee.length) * 3) % 900000
   const micrChq  = String(chqSeed).padStart(6, '0')
-  const micrAcct = routing.slice(0, 3) + routing.slice(3, 6) + routing.slice(6) + String(chqSeed % 10000).padStart(4, '0')
+  const micrAcct = String(chqSeed % 900000 + 100000).padStart(6, '0')
   const T        = '‟'
-  const micrLine = `${T}${micrChq}${T}  ${routing}:  ${micrAcct}${T}  31`
+  const R        = '⑆'
+  const micrLine = `${T}${micrChq}${T}  ${routing}${R}  ${micrAcct}${T}  31`
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 320">
   <rect width="760" height="320" fill="#ffffff"/>
