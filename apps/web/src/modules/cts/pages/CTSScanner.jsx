@@ -4,6 +4,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import ChequeImageViewer from '../components/ChequeImageViewer'
+import { demoChequeUrl } from '../demoImages'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -72,9 +73,9 @@ function mkScan(idx) {
     outcome,
     lot_id:        `LOT-${String(Math.floor(idx / 25) + 1).padStart(4, '0')}`,
     ts:            new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-    front_bw_url:  null,
-    back_bw_url:   null,
-    front_gray_url: null,
+    front_bw_url:   demoChequeUrl(idx * 2),
+    back_bw_url:    null,
+    front_gray_url: demoChequeUrl(idx * 2 + 1),
   }
 }
 

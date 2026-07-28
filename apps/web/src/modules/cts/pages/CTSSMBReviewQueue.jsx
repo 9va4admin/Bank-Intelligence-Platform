@@ -6,6 +6,7 @@ import useReviewQueue from '../hooks/useReviewQueue'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { demoChequeUrl } from '../demoImages'
 
 const SESSION_START = new Date(new Date().setHours(10, 0, 0, 0))
 const IET_WINDOW_MINS = 180
@@ -14,6 +15,7 @@ const IET_WINDOW_MINS = 180
 const SMB_MOCK_ITEMS = [
   {
     instrument_id: 'CHQ-SMB-001847',
+    front_bw_url: demoChequeUrl(64), front_gray_url: demoChequeUrl(65),
     workflow_id: 'wf-smb-001847',
     bank_id: 'saraswat-coop',
     smb_id: 'cosmos-coop',
@@ -31,6 +33,7 @@ const SMB_MOCK_ITEMS = [
   },
   {
     instrument_id: 'CHQ-SMB-001901',
+    front_bw_url: demoChequeUrl(66), front_gray_url: demoChequeUrl(67),
     workflow_id: 'wf-smb-001901',
     bank_id: 'saraswat-coop',
     smb_id: 'cosmos-coop',
@@ -48,6 +51,7 @@ const SMB_MOCK_ITEMS = [
   },
   {
     instrument_id: 'CHQ-SMB-001733',
+    front_bw_url: demoChequeUrl(68), front_gray_url: demoChequeUrl(69),
     workflow_id: 'wf-smb-001733',
     bank_id: 'saraswat-coop',
     smb_id: 'cosmos-coop',

@@ -3,6 +3,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import ChequeImageViewer from '../components/ChequeImageViewer'
+import { demoChequeUrl } from '../demoImages'
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -70,15 +71,15 @@ function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001
       amount_words: amtWords[idx % amts.length],
       deposit_channel: CHANNELS[idx % 3],
       deposit_data: (() => {
-        const ch    = CHANNELS[idx % 3]
-        const acct  = `****${1000 + ((idx * 37) % 9000)}`
-        const payee = payees[idx % payees.length]
-        const amt   = amts[idx % amts.length]
-        const date  = '19/06/2026'
-        const drawee = DRAWEE_BANKS[idx % DRAWEE_BANKS.length]
-        if (ch === 'PAY_IN_SLIP')     return { depositor_name: payee, depositor_account: acct, deposit_amount: amt, counter_token: `T-${String((idx % 99) + 1).padStart(4, '0')}`, date, branch: drawee.branch }
-        if (ch === 'BACK_ANNOTATION') return { extracted_account: acct, extracted_mobile: `98${String(((idx * 13) % 100000000) + 10000000).slice(0, 8)}`, ocr_confidence: 0.78 + (idx % 5) * 0.04 }
-        return { name: payee, account: acct, txn_id: `CDM-${String(idx).padStart(3, '0')}-20260619`, timestamp: `09:${String((idx * 7) % 60).padStart(2, '0')} AM  19/06/2026` }
+        const ch      = CHANNELS[idx % 3]
+        const fullAcct = `4000${String((idx * 37 + 10000) % 1000000).padStart(6, '0')}`
+        const payee   = payees[idx % payees.length]
+        const amt     = amts[idx % amts.length]
+        const date    = '19/06/2026'
+        const draweeD = DRAWEE_BANKS[idx % DRAWEE_BANKS.length]
+        if (ch === 'PAY_IN_SLIP')     return { depositor_name: payee, depositor_account: fullAcct, deposit_amount: amt, counter_token: `T-${String((idx % 99) + 1).padStart(4, '0')}`, date, branch: draweeD.branch }
+        if (ch === 'BACK_ANNOTATION') return { extracted_account: fullAcct, extracted_mobile: `98${String(((idx * 13) % 100000000) + 10000000).slice(0, 8)}`, ocr_confidence: 0.78 + (idx % 5) * 0.04 }
+        return { name: payee, account: fullAcct, txn_id: `CDM-${String(idx).padStart(3, '0')}-20260619`, timestamp: `09:${String((idx * 7) % 60).padStart(2, '0')} AM  19/06/2026` }
       })(),
       zone: zones[idx % zones.length],
       micr: `0${idx % 9}2000${String(idx).padStart(6, '0')}`,
@@ -96,6 +97,8 @@ function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001
       amount_words_match: iqaFail ? null : Math.random() > 0.04,
       date_valid: iqaFail ? null : Math.random() > 0.02,
       cts_valid: iqaFail ? null : Math.random() > 0.01,
+      front_bw_url:   demoChequeUrl(idx * 2),
+      front_gray_url: demoChequeUrl(idx * 2 + 1),
       scanner_id: `SCN-${String((idx % 4) + 1).padStart(2, '0')}`,
       captured_at: new Date(Date.now() - (n - idx) * 4200).toISOString(),
       ngch_ack_id: ['NGCH_ACK', 'NGCH_REJECT'].includes(status)
@@ -538,21 +541,23 @@ function DetailPanel({ item, isDark }) {
         <div className="px-5 py-3">
           <ChequeImageViewer
             views={[
-              { key: 'BFB', label: 'BFB — Front Black', url: null },
+              { key: 'BFB', label: 'BFB — Front Black', url: item.front_bw_url   ?? null },
               { key: 'BBB', label: 'BBB — Back Black',  url: null },
-              { key: 'BFG', label: 'BFG — Front Grey',  url: null },
+              { key: 'BFG', label: 'BFG — Front Grey',  url: item.front_gray_url ?? null },
             ]}
             fields={{
-              payee:          item.payee,
-              date:           item.date_on_cheque,
-              amount_figures: item.amount,
-              amount_words:   item.amount_words,
-              micr:           item.micr,
-              alterations:    false,
-              bank_name:      item.drawee_bank_name,
-              bank_branch:    item.drawee_branch,
-              bank_ifsc:      item.drawee_ifsc,
-              bank_micr:      item.drawee_micr,
+              payee:           item.payee,
+              date:            item.date_on_cheque,
+              amount_figures:  item.amount,
+              amount_words:    item.amount_words,
+              micr:            item.micr,
+              alterations:     false,
+              bank_name:       item.drawee_bank_name,
+              bank_branch:     item.drawee_branch,
+              bank_ifsc:       item.drawee_ifsc,
+              bank_micr:       item.drawee_micr,
+              deposit_channel: item.deposit_channel,
+              deposit_data:    item.deposit_data,
             }}
             isDark={isDark}
             compact={false}

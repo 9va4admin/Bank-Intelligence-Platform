@@ -19,6 +19,8 @@ import { useState, useEffect, useCallback } from 'react'
 
 function _svgFront(fields = {}, gray = false) {
   const payee      = fields.payee          || 'Sample Payee Name'
+  // drawer_name is the bank pre-printed account holder name — never falls back to payee
+  const drawerName = fields.drawer_name    || ''
   const date       = fields.date           || '07/07/2026'
   const figStr     = (fields.amount_figures || '₹50,000').replace('₹', '').trim()
   const words      = fields.amount_words   || 'Fifty Thousand Only'
@@ -118,7 +120,7 @@ function _svgFront(fields = {}, gray = false) {
   <line x1="68" y1="184" x2="68" y2="210" stroke="#aaaaaa" stroke-width="0.7"/>
   <text x="22" y="196" font-size="7" fill="#666666" font-family="Arial,sans-serif">A/c No.</text>
   <text x="22" y="207" font-size="7" fill="#666666" font-family="Arial,sans-serif">खाता सं.</text>
-  <text x="74" y="202" font-size="11" fill="${ink}" font-family="Courier New,monospace" font-weight="bold">${bankMicr.slice(0, 4)}XXXXXX${bankMicr.slice(-4)}</text>
+  <text x="74" y="202" font-size="11" fill="${ink}" font-family="Courier New,monospace" font-weight="bold">${fields.account_display || (bankMicr.slice(0,4) + 'XXXXXX' + bankMicr.slice(-4))}</text>
   <text x="314" y="196" font-size="7.5" fill="#666666" font-family="Arial,sans-serif">Brn: ${bankMicr.slice(0,4)}  Pdt: 100</text>
   <text x="314" y="207" font-size="7.5" fill="#666666" font-family="Arial,sans-serif">SB A/C</text>
   <!-- Payable at par -->
@@ -131,11 +133,13 @@ function _svgFront(fields = {}, gray = false) {
     <path d="M18,262 C55,248 95,276 135,262 C175,248 215,276 255,262 C285,252 310,268 335,262" fill="none" stroke="${ink}" stroke-width="1"/>
     <path d="M18,269 C55,255 95,283 135,269 C175,255 215,283 255,269 C285,259 310,275 335,269" fill="none" stroke="${ink}" stroke-width="0.7"/>
   </g>
-  <!-- Signature (shifted down by 45px vs baseline y≈207 → y≈252) -->
-  <g transform="translate(0 45)">${sig}</g>
-  <!-- Sig line -->
-  <line x1="515" y1="262" x2="748" y2="262" stroke="${ink}" stroke-width="0.7"/>
-  <text x="528" y="272" font-size="7.5" fill="${light}" font-family="Arial,sans-serif">Please sign above / कृपया ऊपर हस्ताक्षर करें</text>
+  <!-- Cursive signature above the line (translate shifts paths from y≈185-213 down to y≈197-225) -->
+  <g transform="translate(0 12)">${sig}</g>
+  <!-- Sig line below the cursive strokes -->
+  <line x1="515" y1="230" x2="748" y2="230" stroke="${ink}" stroke-width="0.7"/>
+  <!-- Bank pre-printed drawer name below the sig line -->
+  ${drawerName ? `<text x="528" y="244" font-size="8" fill="${ink}" font-family="Arial,sans-serif" font-weight="bold">${drawerName.toUpperCase()}</text>` : ''}
+  <text x="528" y="257" font-size="7.5" fill="${light}" font-family="Arial,sans-serif">Please sign above / कृपया ऊपर हस्ताक्षर करें</text>
   <!-- Rule above MICR -->
   <line x1="8" y1="280" x2="752" y2="280" stroke="${ink}" stroke-width="0.6"/>
   <!-- MICR band -->
@@ -202,15 +206,17 @@ function _svgFront(fields = {}, gray = false) {
   <line x1="100" y1="148" x2="100" y2="174" stroke="#aaaaaa" stroke-width="0.7"/>
   <text x="56" y="160" font-size="7" fill="#666666" font-family="Arial,sans-serif">खाता सं.</text>
   <text x="56" y="171" font-size="7" fill="#666666" font-family="Arial,sans-serif">A/c No.</text>
-  <text x="106" y="167" font-size="11" fill="${ink}" font-family="Courier New,monospace" font-weight="bold">${bankMicr.slice(0,4)}XXXXXX${bankMicr.slice(-4)}</text>
+  <text x="106" y="167" font-size="11" fill="${ink}" font-family="Courier New,monospace" font-weight="bold">${fields.account_display || (bankMicr.slice(0,4) + 'XXXXXX' + bankMicr.slice(-4))}</text>
   <!-- Payable at par + bank details -->
   <text x="52" y="196" font-size="8" fill="#888888" font-family="Arial,sans-serif">Payable at par at all branches   ${bankMicr}</text>
   <text x="52" y="210" font-size="8" fill="${light}" font-family="Arial,sans-serif">Branch: ${bankBranch}   IFSC: ${bankIfsc}   MICR: ${bankMicr}</text>
-  <!-- Signature (shifted down by 40px) -->
-  <g transform="translate(0 40)">${sig}</g>
-  <!-- Sig line -->
-  <line x1="515" y1="258" x2="748" y2="258" stroke="${ink}" stroke-width="0.7"/>
-  <text x="578" y="268" font-size="8.5" fill="${light}" font-family="Arial,sans-serif">Please sign above</text>
+  <!-- Cursive signature above the line (translate shifts paths from y≈185-213 down to y≈197-225) -->
+  <g transform="translate(0 12)">${sig}</g>
+  <!-- Sig line below the cursive strokes -->
+  <line x1="515" y1="230" x2="748" y2="230" stroke="${ink}" stroke-width="0.7"/>
+  <!-- Bank pre-printed drawer name below the sig line -->
+  ${drawerName ? `<text x="530" y="244" font-size="8" fill="${ink}" font-family="Arial,sans-serif" font-weight="bold">${drawerName.toUpperCase()}</text>` : ''}
+  <text x="530" y="257" font-size="7.5" fill="${light}" font-family="Arial,sans-serif">Please sign above / कृपया ऊपर हस्ताक्षर करें</text>
   <!-- Rule above MICR -->
   <line x1="8" y1="278" x2="752" y2="278" stroke="${ink}" stroke-width="0.6"/>
   <!-- MICR band -->
@@ -237,6 +243,16 @@ function _svgBack(fields = {}) {
   const R        = '⑆'
   const micrLine = `${T}${micrChq}${T}  ${routing}${R}  ${micrAcct}${T}  31`
 
+  // Handwritten annotation block (BACK_ANNOTATION deposit channel)
+  const dd = fields.deposit_channel === 'BACK_ANNOTATION' && fields.deposit_data ? fields.deposit_data : null
+  const handwritten = dd ? `
+  <!-- Handwritten customer annotation — A/c + mobile written on back -->
+  <text x="72" y="72" font-size="15" fill="#1a3a5c" font-family="cursive,Georgia,serif"
+        transform="rotate(-1.5 72 72)" opacity="0.85">A/c No: ${dd.extracted_account || ''}</text>
+  <text x="72" y="107" font-size="14" fill="#1a3a5c" font-family="cursive,Georgia,serif"
+        transform="rotate(-1 72 107)" opacity="0.85">Mob: ${dd.extracted_mobile || ''}</text>
+  ` : ''
+
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 320">
   <rect width="760" height="320" fill="#ffffff"/>
   <rect x="2" y="2" width="756" height="316" rx="3" fill="none" stroke="${ink}" stroke-width="1.5"/>
@@ -250,6 +266,7 @@ function _svgBack(fields = {}) {
   <line x1="68" y1="55"  x2="748" y2="55"  stroke="${ink}" stroke-width="0.6"/>
   <line x1="68" y1="90"  x2="748" y2="90"  stroke="${ink}" stroke-width="0.6"/>
   <line x1="68" y1="125" x2="748" y2="125" stroke="${ink}" stroke-width="0.6"/>
+  ${handwritten}
   <!-- Credit area -->
   <text x="68" y="175" font-size="10" fill="${light}" font-family="sans-serif">FOR THE CREDIT OF A/C</text>
   <line x1="68" y1="188" x2="748" y2="188" stroke="${ink}" stroke-width="0.6"/>
