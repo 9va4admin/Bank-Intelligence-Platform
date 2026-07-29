@@ -17,25 +17,54 @@ import { useState, useEffect, useCallback } from 'react'
 
 // ── SVG placeholder generator ─────────────────────────────────────────────────
 
-function _svgFront(fields = {}, gray = false) {
-  const payee      = fields.payee          || 'Sample Payee Name'
-  // drawer_name is the bank pre-printed account holder name — never falls back to payee
-  const drawerName = fields.drawer_name    || ''
-  const date       = fields.date           || '07/07/2026'
-  const figStr     = (fields.amount_figures || '₹50,000').replace('₹', '').trim()
-  const words      = fields.amount_words   || 'Fifty Thousand Only'
-  const micr       = fields.micr           || '000012340050000012100000000005000123456789'
-  const altered    = fields.alterations    || false
-  const bankName   = fields.bank_name      || 'SARASWAT CO-OP. BANK LTD.'
-  const bankBranch = fields.bank_branch    || 'Fort Branch, Mumbai — 400 001'
-  const bankIfsc   = fields.bank_ifsc      || 'SRCB0000001'
-  const bankMicr   = fields.bank_micr      || '400015002'
+// SVG is parsed as strict XML in <img> tags — & < > must be escaped
+function _x(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
 
-  const bg     = gray ? '#f0f0f0' : '#ffffff'
-  const ink    = '#111111'
-  const light  = gray ? '#666666' : '#444444'
-  const micrBg = gray ? '#e4e4e4' : '#f2f2f2'
+function _svgFront(fields = {}, gray = false, iqaFailReason = null) {
+  const payee      = _x(fields.payee          || 'Sample Payee Name')
+  // drawer_name is the bank pre-printed account holder name — never falls back to payee
+  const drawerName = _x(fields.drawer_name    || '')
+  const date       = fields.date               || '07/07/2026'
+  const figStr     = _x((fields.amount_figures || '₹50,000').replace('₹', '').trim())
+  const words      = _x(fields.amount_words   || 'Fifty Thousand Only')
+  const micr       = fields.micr               || '000012340050000012100000000005000123456789'
+  const altered    = fields.alterations        || false
+  const bankName   = _x(fields.bank_name      || 'SARASWAT CO-OP. BANK LTD.')
+  const bankBranch = _x(fields.bank_branch    || 'Fort Branch, Mumbai — 400 001')
+  const bankIfsc   = _x(fields.bank_ifsc      || 'SRCB0000001')
+  const bankMicr   = (fields.bank_micr        || '400015002').replace(/\D/g, '') || '400015002'
+
+  // IQA failure visual effects — each reason produces a distinct artifact
+  const iqaR    = (iqaFailReason || '').toLowerCase()
+  const iqaDark = iqaR.includes('dark')       // too-dark scan: near-black background
+  const iqaSkew = iqaR.includes('skew')       // skewed: content rotated 2.5°
+  const iqaDupe = iqaR.includes('duplicate')  // duplicate: red DUPLICATE watermark
+  const iqaMicr = iqaR.includes('micr')       // MICR unreadable: band smeared out
+  const iqaTorn = iqaR.includes('torn')       // torn corner: black clipped triangle
+
+  const bg     = iqaDark ? '#181818' : (gray ? '#f0f0f0' : '#ffffff')
+  const ink    = iqaDark ? '#2d2d2d' : '#111111'
+  const light  = iqaDark ? '#222222' : (gray ? '#666666' : '#444444')
+  const micrBg = iqaDark ? '#0e0e0e' : (gray ? '#e4e4e4' : '#f2f2f2')
   const altClr = altered ? '#cc2200' : ink
+
+  // Skew: wrap all content (except the fill rect) in a rotate group
+  const skewOpen  = iqaSkew ? '<g transform="rotate(2.5 380 160)">' : ''
+  const skewClose = iqaSkew ? '</g>' : ''
+
+  // Overlays appended inside the skew group, before it closes
+  const iqaOverlay = [
+    iqaDupe ? `<text x="380" y="196" font-size="78" font-weight="bold" fill="#cc0000" fill-opacity="0.20"
+      font-family="Arial,sans-serif" text-anchor="middle" transform="rotate(-32 380 196)" letter-spacing="4">DUPLICATE</text>
+    <rect x="2" y="2" width="756" height="316" fill="none" stroke="#cc0000" stroke-width="3" stroke-dasharray="12 4"/>` : '',
+    iqaMicr ? `<rect x="0" y="275" width="760" height="45" fill="#707070" fill-opacity="0.72"/>
+    <text x="380" y="302" font-size="11" font-weight="bold" fill="#ffffff" font-family="Arial,sans-serif"
+          text-anchor="middle" letter-spacing="2">— MICR BAND UNREADABLE —</text>` : '',
+    iqaTorn ? `<polygon points="690,2 756,2 756,72" fill="${iqaDark ? '#000000' : '#1e1e1e'}"/>
+    <line x1="690" y1="2" x2="756" y2="72" stroke="#cc2200" stroke-width="2.5"/>` : '',
+  ].filter(Boolean).join('\n  ')
 
   // Parse DD MM YYYY from any common format: DD/MM/YYYY or DD-MM-YYYY or DD-Mon-YYYY
   const MON = { Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',
@@ -75,6 +104,7 @@ function _svgFront(fields = {}, gray = false) {
   if (isPrivate) {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 320">
   <rect width="760" height="320" fill="${bg}"/>
+  ${skewOpen}
   <rect x="2" y="2" width="756" height="316" fill="none" stroke="${ink}" stroke-width="1.5"/>
   <!-- Left fine security lines -->
   <line x1="4"  y1="2" x2="4"  y2="318" stroke="#e0e0e0" stroke-width="0.9"/>
@@ -146,6 +176,8 @@ function _svgFront(fields = {}, gray = false) {
   <rect x="0" y="282" width="760" height="38" fill="${micrBg}"/>
   <line x1="0" y1="282" x2="760" y2="282" stroke="${ink}" stroke-width="0.5"/>
   <text x="18" y="307" font-size="13.5" fill="${ink}" font-family="'Courier New',monospace" letter-spacing="2.5">${micrLine}</text>
+  ${iqaOverlay}
+  ${skewClose}
 </svg>`
   }
 
@@ -161,6 +193,7 @@ function _svgFront(fields = {}, gray = false) {
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 320">
   <rect width="760" height="320" fill="${bg}"/>
+  ${skewOpen}
   <rect x="2" y="2" width="756" height="316" fill="none" stroke="${ink}" stroke-width="1.5"/>
   <!-- Left CTS-2010 strip -->
   <rect x="2" y="2" width="13" height="316" fill="#f0f0f0"/>
@@ -223,6 +256,8 @@ function _svgFront(fields = {}, gray = false) {
   <rect x="0" y="280" width="760" height="40" fill="${micrBg}"/>
   <line x1="0" y1="280" x2="760" y2="280" stroke="${ink}" stroke-width="0.5"/>
   <text x="18" y="306" font-size="13.5" fill="${ink}" font-family="'Courier New',monospace" letter-spacing="2.5">${micrLine}</text>
+  ${iqaOverlay}
+  ${skewClose}
 </svg>`
 }
 
@@ -288,7 +323,7 @@ function makePlaceholderDataUrl(viewKey, fields) {
   if (viewKey === 'BBB') {
     svg = _svgBack(fields)
   } else {
-    svg = _svgFront(fields, viewKey === 'BFG')
+    svg = _svgFront(fields, viewKey === 'BFG', fields.iqa_fail_reason ?? null)
   }
   // btoa with UTF-8 safe encoding
   const encoded = btoa(unescape(encodeURIComponent(svg)))
