@@ -102,7 +102,7 @@ def _smooth_profile(profile: np.ndarray, window: int = 5) -> np.ndarray:
     return np.convolve(profile, kernel, mode="same")
 
 
-def _trim_left(rows: list[tuple[int, int, int]], zw: int) -> int:
+def _trim_left(rows: list[tuple], zw: int) -> int:
     """
     Robust left boundary for the signature cluster.
 
@@ -124,7 +124,7 @@ def _trim_left(rows: list[tuple[int, int, int]], zw: int) -> int:
     return lefts[gap_idx] if max_gap > gap_thresh else lefts[0]
 
 
-def _trim_right(rows: list[tuple[int, int, int]], zw: int) -> int:
+def _trim_right(rows: list[tuple], zw: int) -> int:
     """
     Robust right boundary for the signature cluster.
 
@@ -236,7 +236,7 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     # Guard E boundary: rightmost 8 % of zone is the barcode / right-margin fringe
     RIGHT_FRINGE = max(4, int(zw * 0.08))
 
-    sig_rows: list[tuple[int, int, int]] = []   # (y, left_x, right_x)
+    sig_rows: list[tuple] = []   # (y, left_x, right_x, span_density)
 
     for y in range(zh):
         o_xs = np.where(ink[y])[0]
@@ -283,14 +283,14 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
         if len(o_xs_core) == 0:
             continue   # entire row is barcode / fringe — skip
 
-        sig_rows.append((y, int(o_xs[0]), int(o_xs_core[-1])))
+        sig_rows.append((y, int(o_xs[0]), int(o_xs_core[-1]), span_density))
 
     if not sig_rows:
         return []
 
     # ── 4. Cluster qualifying rows ─────────────────────────────────────────
-    clusters: list[list[tuple[int, int, int]]] = []
-    cur: list[tuple[int, int, int]] = [sig_rows[0]]
+    clusters: list[list[tuple]] = []
+    cur: list[tuple] = [sig_rows[0]]
     for i in range(1, len(sig_rows)):
         if sig_rows[i][0] - sig_rows[i - 1][0] <= MERGE_GAP:
             cur.append(sig_rows[i])
@@ -310,21 +310,17 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     # line (e.g. "Payable at par...") sits below the signature in the zone.
     best = max(qualifying, key=len)
 
-    # Trim leading / trailing annotation clusters (KUMAR/NKIT stamp, form text)
-    # that merged into the signature cluster via MERGE_GAP=10.
-    # Strategy: re-cluster with TIGHT_GAP=5 and drop any HEAD sub-cluster whose
-    # row count is < 15 % of the TAIL (main body).  The tail is always the
-    # signature; rubber-stamp annotations that sit 6-10 px above have a row count
-    # well below 25 % of the signature.  We do NOT drop the tail — only the head —
-    # so form-text rows below the signature that also merged are handled by the
-    # existing "largest qualifying cluster" logic (form text: 2-5 rows << signature).
-    # Guard: only apply when the head is small relative to the tail AND the gap
-    # between head and tail is > 5 rows (avoids splitting signatures with natural
-    # internal gaps — those sub-clusters are similar in size).
-    TIGHT_GAP = 5
+    # Trim leading annotation text (e.g. "ANKIT KUMAR" / "NKIT" pre-printed in
+    # the signature box) that merged into the signature cluster under MERGE_GAP=10.
+    # Re-cluster at TIGHT_GAP=1 (adjacent rows only) to find fine-grain sub-clusters.
+    # Two cases:
+    #   small gap (<=3 px): annotation touches signature — drop head if compact
+    #     block (>=10 rows) AND < 25% of tail (pen-stroke fragments are 2-5 rows)
+    #   large gap (>3 px): disconnected fragment — drop head if < 15% of tail
+    TIGHT_GAP = 1
     if len(best) > 10:
-        sub_clusters: list[list[tuple[int, int, int]]] = []
-        sub_cur: list[tuple[int, int, int]] = [best[0]]
+        sub_clusters: list[list[tuple]] = []
+        sub_cur: list[tuple] = [best[0]]
         for i in range(1, len(best)):
             if best[i][0] - best[i - 1][0] <= TIGHT_GAP:
                 sub_cur.append(best[i])
@@ -335,10 +331,17 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
         if len(sub_clusters) >= 2:
             head = sub_clusters[0]
             tail_rows = sum(len(s) for s in sub_clusters[1:])
-            # Drop head only if it is < 15 % of the tail (clearly an annotation,
-            # not a signature fragment separated by a natural ink gap)
-            if len(head) < tail_rows * 0.15:
-                best = [r for s in sub_clusters[1:] for r in s]
+            if tail_rows > 0:
+                gap = sub_clusters[1][0][0] - head[-1][0]
+                ratio = len(head) / tail_rows
+                head_avg_sd = sum(r[3] for r in head) / len(head)
+                first_tail_len = len(sub_clusters[1])
+                if (gap <= 3 and len(head) >= 10
+                        and ratio < 0.25 and head_avg_sd > 0.28
+                        and first_tail_len > len(head) * 1.5):
+                    best = [r for s in sub_clusters[1:] for r in s]
+                elif gap > 3 and len(head) < 5:
+                    best = [r for s in sub_clusters[1:] for r in s]
 
     left   = _trim_left(best, zw)
     right  = _trim_right(best, zw)

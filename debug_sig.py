@@ -115,7 +115,7 @@ def debug(img_path: str) -> None:
         if len(o_xs_core) == 0:
             reject_fringe += 1; continue   # entire row is fringe/barcode
 
-        sig_rows.append((y, int(o_xs[0]), int(o_xs_core[-1])))
+        sig_rows.append((y, int(o_xs[0]), int(o_xs_core[-1]), span_density))
 
     print(f"Rows with ink: {(ink.sum(axis=1)>0).sum()}")
     print(f"Qualifying rows: {len(sig_rows)}  "
@@ -125,7 +125,7 @@ def debug(img_path: str) -> None:
     # Draw qualifying rows on zone
     zone_dbg = zone.copy()
     draw = ImageDraw.Draw(zone_dbg)
-    for (y, lx, rx) in sig_rows:
+    for (y, lx, rx, *_) in sig_rows:
         draw.line([(lx, y), (rx, y)], fill=(0, 220, 0), width=1)
     _save(zone_dbg, "debug_rows.jpg")
 
@@ -153,9 +153,8 @@ def debug(img_path: str) -> None:
     print(f"Best cluster: rows {best[0][0]}-{best[-1][0]}  "
           f"({len(best)} rows)  y_zone={best[-1][0]}/{zh} ({best[-1][0]/zh*100:.0f}%)")
 
-    # Head-trim: drop leading annotation cluster (KUMAR/NKIT) if it merged
-    # under MERGE_GAP=10 but is < 25% of the tail body
-    TIGHT_GAP = 5
+    # Head-trim: drop leading annotation text (ANKIT KUMAR / NKIT) merged into cluster
+    TIGHT_GAP = 1
     if len(best) > 10:
         sub_clusters = []
         sub_cur = [best[0]]
@@ -170,13 +169,29 @@ def debug(img_path: str) -> None:
             head = sub_clusters[0]
             tail_rows = sum(len(s) for s in sub_clusters[1:])
             sizes = [len(s) for s in sub_clusters]
-            if len(head) < tail_rows * 0.15:
-                print(f"  Head-trim: {len(head)} head rows < 15% of {tail_rows} tail rows "
-                      f"(sizes: {sizes}) -- dropping head annotation cluster")
-                best = [r for s in sub_clusters[1:] for r in s]
-            else:
-                print(f"  No head-trim: head={len(head)} >= 15% of tail={tail_rows} "
-                      f"(sizes: {sizes}) -- keeping as signature fragment")
+            if tail_rows > 0:
+                gap = sub_clusters[1][0][0] - head[-1][0]
+                ratio = len(head) / tail_rows
+                trimmed = False
+                head_avg_sd = sum(r[3] for r in head) / len(head)
+                first_tail_len = len(sub_clusters[1])
+                if (gap <= 3 and len(head) >= 10
+                        and ratio < 0.25 and head_avg_sd > 0.28
+                        and first_tail_len > len(head) * 1.5):
+                    print(f"  Head-trim (small-gap): head={len(head)} rows, gap={gap}, "
+                          f"ratio={ratio:.1%}, avg_sd={head_avg_sd:.2f}, "
+                          f"first_tail={first_tail_len} > {len(head)*1.5:.0f} "
+                          f"(sizes: {sizes}) -- dropping dense annotation")
+                    best = [r for s in sub_clusters[1:] for r in s]
+                    trimmed = True
+                elif gap > 3 and len(head) < 5:
+                    print(f"  Head-trim (large-gap): head={len(head)} rows, gap={gap} "
+                          f"(sizes: {sizes}) -- dropping orphan fragment")
+                    best = [r for s in sub_clusters[1:] for r in s]
+                    trimmed = True
+                if not trimmed:
+                    print(f"  No head-trim: head={len(head)}, gap={gap}, ratio={ratio:.1%}  "
+                          f"(sizes: {sizes})")
 
     # Trim far-left outlier rows (border lines, background text)
     lefts_s = sorted(r[1] for r in best)
