@@ -41,9 +41,10 @@ function ResultCard({ file, isDark }) {
     fname:   isDark ? 'text-slate-300 font-medium'          : 'text-slate-700 font-medium',
     label:   isDark ? 'text-slate-500 text-[10px] uppercase tracking-widest' : 'text-slate-400 text-[10px] uppercase tracking-widest',
     divider: isDark ? 'border-white/8' : 'border-slate-100',
-    nosig:   'text-red-400 font-bold text-sm text-center py-8',
+    nosig:   isDark ? 'text-slate-500 text-xs text-center py-8' : 'text-slate-400 text-xs text-center py-8',
     spin:    isDark ? 'text-slate-500 text-xs text-center py-8' : 'text-slate-400 text-xs text-center py-8',
-    err:     'text-red-400 text-xs text-center py-6',
+    err:     isDark ? 'text-red-400 text-xs text-center py-6' : 'text-red-500 text-xs text-center py-6',
+    offline: isDark ? 'text-amber-400 text-xs text-center py-6 px-2 leading-snug' : 'text-amber-600 text-xs text-center py-6 px-2 leading-snug',
   }
 
   // Original image — fetched via /preview so TIFF/BMP etc. are converted to PNG
@@ -56,7 +57,7 @@ function ResultCard({ file, isDark }) {
     return () => { if (objectUrl) URL.revokeObjectURL(objectUrl) }
   }, [file])
 
-  // Extraction result
+  // state: 'loading' | 'sig' | 'nosig' | 'offline' | 'error'
   const [state, setState] = useState('loading')
   const [b64,   setB64]   = useState(null)
   const [errMsg, setErr]  = useState('')
@@ -66,7 +67,10 @@ function ResultCard({ file, isDark }) {
     ran.current = true
     extractSig(file)
       .then(d => {
-        if (d.signature_present && d.signature_crops?.length) {
+        if (d.error?.startsWith('SIG_DETECTOR_OFFLINE')) {
+          setErr('Sig detector offline — start it with:\ncd apps/sig_detector; python main.py')
+          setState('offline')
+        } else if (d.signature_present && d.signature_crops?.length) {
           setB64(d.signature_crops[0]); setState('sig')
         } else {
           setState('nosig')
@@ -93,8 +97,8 @@ function ResultCard({ file, isDark }) {
 
       {/* Extracted signature */}
       <p className={`mb-1 ${th.label}`}>Extracted Signature</p>
-      {state === 'loading' && <p className={th.spin}>processing…</p>}
-      {state === 'sig'     && (
+      {state === 'loading'  && <p className={th.spin}>processing…</p>}
+      {state === 'sig'      && (
         <img
           src={`data:image/png;base64,${b64}`}
           alt="signature"
@@ -102,8 +106,9 @@ function ResultCard({ file, isDark }) {
           style={{ maxHeight: 100 }}
         />
       )}
-      {state === 'nosig'   && <p className={th.nosig}>No-Sign-Present</p>}
-      {state === 'error'   && <p className={th.err}>{errMsg}</p>}
+      {state === 'nosig'    && <p className={th.nosig}>No signature found</p>}
+      {state === 'offline'  && <p className={th.offline} style={{ whiteSpace: 'pre-line' }}>⚠ {errMsg}</p>}
+      {state === 'error'    && <p className={th.err}>{errMsg}</p>}
 
     </div>
   )
