@@ -393,6 +393,44 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
                   <span className={`font-mono ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{value}</span>
                 </div>
               ))}
+              {/* Deposit channel section (outward only) */}
+              {!isInward && item.deposit_channel && (() => {
+                const DCFG = {
+                  PAY_IN_SLIP:     { label: 'Pay-in Slip', icon: '🧾' },
+                  BACK_ANNOTATION: { label: 'Back Note',   icon: '✍️' },
+                  KIOSK:           { label: 'Kiosk / CDM', icon: '🏧' },
+                }
+                const dd = item.deposit_data ?? {}
+                const depositRows =
+                  item.deposit_channel === 'PAY_IN_SLIP' ? [
+                    { label: 'Depositor',    value: dd.depositor_name    },
+                    { label: 'Dep. Account', value: dd.depositor_account },
+                    { label: 'Deposit Amt',  value: dd.deposit_amount    },
+                    { label: 'Token',        value: dd.counter_token     },
+                    { label: 'Dep. Branch',  value: dd.branch            },
+                  ] : item.deposit_channel === 'BACK_ANNOTATION' ? [
+                    { label: 'Ext. Account', value: dd.extracted_account },
+                    { label: 'Ext. Mobile',  value: dd.extracted_mobile  },
+                  ] : item.deposit_channel === 'KIOSK' ? [
+                    { label: 'Depositor',    value: dd.name      },
+                    { label: 'CDM Account',  value: dd.account   },
+                    { label: 'Txn ID',       value: dd.txn_id    },
+                    { label: 'Timestamp',    value: dd.timestamp },
+                  ] : []
+                return (
+                  <>
+                    <div className={`px-4 py-1.5 text-[9px] font-semibold uppercase tracking-wider ${isDark ? 'bg-white/2 text-slate-500' : 'bg-slate-50 text-slate-400'}`}>
+                      {DCFG[item.deposit_channel]?.icon} {DCFG[item.deposit_channel]?.label ?? item.deposit_channel}
+                    </div>
+                    {depositRows.filter(r => r.value).map(({ label, value }) => (
+                      <div key={label} className="flex items-start gap-3 px-4 py-2">
+                        <span className={`w-28 shrink-0 ${th.lbl}`}>{label}</span>
+                        <span className={`font-mono ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{value}</span>
+                      </div>
+                    ))}
+                  </>
+                )
+              })()}
               {/* IET footer (inward only) */}
               {isInward && item.iet_deadline && (
                 <div className={`flex items-center justify-between px-4 py-2.5 ${isDark ? 'bg-white/2' : 'bg-slate-50'}`}>

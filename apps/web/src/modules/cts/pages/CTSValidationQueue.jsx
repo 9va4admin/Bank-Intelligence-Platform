@@ -22,6 +22,7 @@ const BASE_INSTRUMENTS_OUTWARD = [
     instrument_id: 'CHQ-OUT-V001', source_stage: 'STP', front_bw_url: null, front_gray_url: null, drawee_bank: 'State Bank of India', drawee_branch: 'Andheri East',
     drawee_ifsc: 'SBIN0000300', drawee_micr: '400002003',
     drawer_name: 'Krishnamurthy P. Iyer', account_display: '31994023456',
+    ocr_score: 0.97, sig_score: 0.96, fraud_score: 0.04, iqa_score: 0.99,
     deposit_channel: 'PAY_IN_SLIP',
     deposit_data: { depositor_name: 'Rajesh Kumar Verma', depositor_account: '4000401001', deposit_amount: '₹12,50,000', counter_token: 'T-0001', date: '15/07/2026', branch: 'Andheri East' },
     name_match: 'FULL_MATCH', name_match_cbs_name: 'Rajesh Kumar Verma',
@@ -35,6 +36,7 @@ const BASE_INSTRUMENTS_OUTWARD = [
     instrument_id: 'CHQ-OUT-V002', source_stage: 'VERIFIED', front_bw_url: null, front_gray_url: null, drawee_bank: 'HDFC Bank', drawee_branch: 'Bandra West',
     drawee_ifsc: 'HDFC0000060', drawee_micr: '400240060',
     drawer_name: 'Anand R. Mehta', account_display: '50100042378901',
+    ocr_score: 0.85, sig_score: 0.83, fraud_score: 0.11, iqa_score: 0.97,
     deposit_channel: 'BACK_ANNOTATION',
     deposit_data: { extracted_account: '4000512347', extracted_mobile: '9876543210', ocr_confidence: 0.82 },
     name_match: 'PARTIAL_MATCH', name_match_cbs_name: 'Sunita Joshi',
@@ -48,6 +50,7 @@ const BASE_INSTRUMENTS_OUTWARD = [
     instrument_id: 'CHQ-OUT-V003', source_stage: 'STP', front_bw_url: null, front_gray_url: null, drawee_bank: 'ICICI Bank', drawee_branch: 'Powai',
     drawee_ifsc: 'ICIC0000001', drawee_micr: '400229001',
     drawer_name: 'Pradeep S. Nair', account_display: '022601510783',
+    ocr_score: 0.95, sig_score: 0.95, fraud_score: 0.02, iqa_score: 0.99,
     deposit_channel: 'KIOSK',
     deposit_data: { name: 'Amol Vilas Kulkarni', account: '4000623003', txn_id: 'CDM-003-20260716', timestamp: '09:30 AM  16/07/2026' },
     name_match: 'FULL_MATCH', name_match_cbs_name: 'Amol Vilas Kulkarni',
@@ -61,6 +64,7 @@ const BASE_INSTRUMENTS_OUTWARD = [
     instrument_id: 'CHQ-OUT-V004', source_stage: 'VERIFIED', front_bw_url: null, front_gray_url: null, drawee_bank: 'Bank of Baroda', drawee_branch: 'Fort',
     drawee_ifsc: 'BARB0CHURCH', drawee_micr: '400012009',
     drawer_name: 'Ramesh D. Shah', account_display: '05520010078341',
+    ocr_score: 0.88, sig_score: 0.68, fraud_score: 0.24, iqa_score: 0.96,
     deposit_channel: 'PAY_IN_SLIP',
     deposit_data: { depositor_name: 'Kavita R. Desai', depositor_account: '4000734004', deposit_amount: '₹3,80,500', counter_token: 'T-0004', date: '15/07/2026', branch: 'Fort' },
     name_match: 'NO_MATCH', name_match_cbs_name: 'Vikram S. Patil',
@@ -74,6 +78,7 @@ const BASE_INSTRUMENTS_OUTWARD = [
     instrument_id: 'CHQ-OUT-V005', source_stage: 'STP', front_bw_url: null, front_gray_url: null, drawee_bank: 'Axis Bank', drawee_branch: 'Goregaon',
     drawee_ifsc: 'UTIB0000067', drawee_micr: '400211067',
     drawer_name: 'Suresh V. Rao', account_display: '914010019234781',
+    ocr_score: 0.98, sig_score: 0.88, fraud_score: 0.06, iqa_score: 0.99,
     deposit_channel: 'BACK_ANNOTATION',
     deposit_data: { extracted_account: '4000845005', extracted_mobile: '9123456780', ocr_confidence: 0.94 },
     name_match: 'ACCOUNT_NOT_FOUND', name_match_cbs_name: null,
@@ -92,6 +97,7 @@ const BASE_INSTRUMENTS_INWARD = [
     account_display: '00000000004521', iet_deadline: new Date(Date.now() + 72 * 60000).toISOString(),
     drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Dadar',
     drawer_name: 'Suresh B. Patkar',
+    ocr_score: 0.97, sig_score: 0.96, fraud_score: 0.03, iqa_score: 0.99,
     name_match: 'FULL_MATCH', name_match_cbs_name: 'Suresh B. Patkar',
     fields_meta: {
       date: makeMeta('15/07/2026', 0.99), payee: makeMeta('Ramesh N. Rao', 0.97),
@@ -105,6 +111,7 @@ const BASE_INSTRUMENTS_INWARD = [
     account_display: '00000000008912', iet_deadline: new Date(Date.now() + 28 * 60000).toISOString(),
     drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Vile Parle',
     drawer_name: 'Prakash V. Rane',
+    ocr_score: 0.86, sig_score: 0.84, fraud_score: 0.09, iqa_score: 0.97,
     name_match: 'PARTIAL_MATCH', name_match_cbs_name: 'Prakash Rane',
     fields_meta: {
       date: makeMeta('14/07/2026', 0.96), payee: makeMeta('Meena S. Sharma', 0.82),
@@ -118,6 +125,7 @@ const BASE_INSTRUMENTS_INWARD = [
     account_display: '00000000002234', iet_deadline: new Date(Date.now() + 115 * 60000).toISOString(),
     drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Pune Main',
     drawer_name: 'Anand M. Kulkarni',
+    ocr_score: 0.96, sig_score: 0.95, fraud_score: 0.02, iqa_score: 0.99,
     name_match: 'FULL_MATCH', name_match_cbs_name: 'Anand M. Kulkarni',
     fields_meta: {
       date: makeMeta('16/07/2026', 0.99), payee: makeMeta('Priya R. Nair', 0.96),
@@ -131,6 +139,7 @@ const BASE_INSTRUMENTS_INWARD = [
     account_display: '00000000006677', iet_deadline: new Date(Date.now() + 54 * 60000).toISOString(),
     drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Borivali',
     drawer_name: 'Deepak R. Joshi',
+    ocr_score: 0.88, sig_score: 0.71, fraud_score: 0.21, iqa_score: 0.96,
     name_match: 'NO_MATCH', name_match_cbs_name: 'Ramesh T. Mehta',
     fields_meta: {
       date: makeMeta('15/07/2026', 0.98), payee: makeMeta('Suresh B. Agarwal', 0.86),
@@ -139,6 +148,24 @@ const BASE_INSTRUMENTS_INWARD = [
     },
   },
 ]
+
+// ── Score pill (AI confidence card) ──────────────────────────────────────────
+
+function ScorePill({ label, value, isDark }) {
+  const pct = Math.round((value ?? 0) * 100)
+  const color = (value ?? 0) >= 0.95 ? 'emerald' : (value ?? 0) >= 0.85 ? 'amber' : 'red'
+  const colors = {
+    emerald: isDark ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' : 'text-emerald-700 bg-emerald-50 border-emerald-300',
+    amber:   isDark ? 'text-amber-400 bg-amber-500/10 border-amber-500/30'       : 'text-amber-700 bg-amber-50 border-amber-300',
+    red:     isDark ? 'text-red-400 bg-red-500/10 border-red-500/30'             : 'text-red-700 bg-red-50 border-red-300',
+  }
+  return (
+    <div className={`flex flex-col items-center px-3 py-2 rounded-lg border text-center ${colors[color]}`}>
+      <span className="text-xs font-bold">{pct}%</span>
+      <span className="text-[9px] font-medium">{label}</span>
+    </div>
+  )
+}
 
 // ── Cheque slide-in panel ─────────────────────────────────────────────────────
 
@@ -222,9 +249,20 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
 
         {panelTab === 'ai_analysis' && (
           <div className="px-4 py-4 space-y-5">
+            {/* Aggregate score pills */}
+            <div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2.5 ${th.lbl}`}>AI Confidence</div>
+              <div className="grid grid-cols-2 gap-2">
+                <ScorePill label="OCR Accuracy"    value={inst.ocr_score}             isDark={isDark} />
+                <ScorePill label="Signature Match"  value={inst.sig_score}             isDark={isDark} />
+                <ScorePill label="Fraud Clean"      value={1 - (inst.fraud_score ?? 0)} isDark={isDark} />
+                <ScorePill label="Image IQA"        value={inst.iqa_score}             isDark={isDark} />
+              </div>
+            </div>
+
             {/* Per-field OCR confidence */}
             <div>
-              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2.5 ${th.lbl}`}>OCR Field Confidence</div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2.5 ${th.lbl}`}>Field Confidence</div>
               <div className={`rounded-lg border overflow-hidden text-[11px] ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
                 {Object.entries(fm).map(([key, meta]) => {
                   if (!meta || meta.extracted_confidence == null) return null
@@ -245,6 +283,28 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
               </div>
             </div>
 
+            {/* Risk signals */}
+            <div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>Risk Signals</div>
+              <div className={`rounded-lg border p-3 space-y-2 text-[11px] ${
+                (inst.fraud_score ?? 0) > 0.12
+                  ? (isDark ? 'bg-red-500/8 border-red-500/25' : 'bg-red-50 border-red-300')
+                  : (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-200')
+              }`}>
+                {[
+                  { label: 'Fraud score',         val: `${((inst.fraud_score ?? 0) * 100).toFixed(1)}%`, warn: (inst.fraud_score ?? 0) > 0.12 },
+                  { label: 'Alteration detected', val: fm.alterations?.actual_value ? '⚠ Yes' : '✓ None', warn: !!fm.alterations?.actual_value },
+                  { label: 'Signature match',     val: `${((inst.sig_score ?? 0) * 100).toFixed(0)}%`,    warn: (inst.sig_score ?? 0) < 0.88  },
+                  { label: 'Image quality',       val: `${((inst.iqa_score ?? 0) * 100).toFixed(0)}%`,    warn: (inst.iqa_score ?? 0) < 0.90  },
+                ].map(({ label, val, warn }) => (
+                  <div key={label} className="flex items-center justify-between">
+                    <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{label}</span>
+                    <span className={`font-mono font-semibold ${warn ? (isDark ? 'text-red-400' : 'text-red-700') : (isDark ? 'text-emerald-400' : 'text-emerald-700')}`}>{val}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Name match */}
             <div>
               <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>CBS Name Verification</div>
@@ -256,9 +316,10 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
               <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>Model Attribution</div>
               <div className="space-y-1.5 text-[11px]">
                 {[
-                  { task: 'OCR / MICR',     model: 'GOT-OCR2.0'   },
-                  { task: 'Signature',       model: 'Siamese Net v2' },
-                  { task: 'Vision / layout', model: 'Qwen2-VL 72B'  },
+                  { task: 'OCR / MICR',     model: 'GOT-OCR2.0'     },
+                  { task: 'Signature',       model: 'Siamese Net v2'  },
+                  { task: 'Fraud scoring',   model: 'XGBoost + SHAP'  },
+                  { task: 'Vision / layout', model: 'Qwen2-VL 72B'   },
                 ].map(({ task, model }) => (
                   <div key={task} className="flex items-center justify-between">
                     <span className={th.lbl}>{task}</span>
@@ -283,7 +344,7 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
                     : (isDark ? 'border-sky-500/40 bg-sky-500/10 text-sky-400' : 'border-sky-400 bg-sky-50 text-sky-700')
                 }`}>{inst.source_stage}</span>
               </div>
-              {/* Fields */}
+              {/* Cheque fields */}
               {[
                 { label: 'Payee',          value: fm.payee?.actual_value         },
                 { label: 'Drawer',         value: inst.drawer_name               },
@@ -300,7 +361,45 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
                   <span className={`font-mono ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{value}</span>
                 </div>
               ))}
-              {/* IET */}
+              {/* Deposit channel section (outward only) */}
+              {!isInward && inst.deposit_channel && (() => {
+                const DCFG = {
+                  PAY_IN_SLIP:     { label: 'Pay-in Slip', icon: '🧾' },
+                  BACK_ANNOTATION: { label: 'Back Note',   icon: '✍️' },
+                  KIOSK:           { label: 'Kiosk / CDM', icon: '🏧' },
+                }
+                const dd = inst.deposit_data ?? {}
+                const depositRows =
+                  inst.deposit_channel === 'PAY_IN_SLIP' ? [
+                    { label: 'Depositor',    value: dd.depositor_name    },
+                    { label: 'Dep. Account', value: dd.depositor_account },
+                    { label: 'Deposit Amt',  value: dd.deposit_amount    },
+                    { label: 'Token',        value: dd.counter_token     },
+                    { label: 'Dep. Branch',  value: dd.branch            },
+                  ] : inst.deposit_channel === 'BACK_ANNOTATION' ? [
+                    { label: 'Ext. Account', value: dd.extracted_account },
+                    { label: 'Ext. Mobile',  value: dd.extracted_mobile  },
+                  ] : inst.deposit_channel === 'KIOSK' ? [
+                    { label: 'Depositor',    value: dd.name      },
+                    { label: 'CDM Account',  value: dd.account   },
+                    { label: 'Txn ID',       value: dd.txn_id    },
+                    { label: 'Timestamp',    value: dd.timestamp },
+                  ] : []
+                return (
+                  <>
+                    <div className={`px-4 py-1.5 text-[9px] font-semibold uppercase tracking-wider ${isDark ? 'bg-white/2 text-slate-500' : 'bg-slate-50 text-slate-400'}`}>
+                      {DCFG[inst.deposit_channel]?.icon} {DCFG[inst.deposit_channel]?.label ?? inst.deposit_channel}
+                    </div>
+                    {depositRows.filter(r => r.value).map(({ label, value }) => (
+                      <div key={label} className="flex items-start gap-3 px-4 py-2">
+                        <span className={`w-28 shrink-0 ${th.lbl}`}>{label}</span>
+                        <span className={`font-mono ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{value}</span>
+                      </div>
+                    ))}
+                  </>
+                )
+              })()}
+              {/* IET (inward only) */}
               {isInward && inst.iet_deadline && (() => {
                 const minsLeft = Math.max(0, Math.round((new Date(inst.iet_deadline) - Date.now()) / 60000))
                 const urgent = minsLeft < 45
