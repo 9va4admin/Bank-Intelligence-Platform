@@ -205,14 +205,15 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
     divider: isDark ? 'border-white/8' : 'border-slate-200',
   }
 
-  // Tabs: inward never has pay-in slip; outward shows it only when deposit_channel === PAY_IN_SLIP
   const imgTabs = [
-    { id: 'front',  label: '▣ Front' },
-    { id: 'back',   label: '▣ Back'  },
+    { id: 'front',       label: '▣ Front'       },
+    { id: 'back',        label: '▣ Back'         },
     ...(!isInward && item.deposit_channel === 'PAY_IN_SLIP'
-      ? [{ id: 'payinslip', label: '🧾 Pay-in Slip' }]
+      ? [{ id: 'payinslip', label: '🧾 Slip' }]
       : []),
-    { id: 'fields', label: '📋 Fields' },
+    { id: 'fields',      label: '📋 Fields'      },
+    { id: 'ai_analysis', label: '🤖 AI Analysis' },
+    { id: 'passport',    label: '🪪 Passport'    },
   ]
 
   function handleConfirm() { setSubmitted(true); onConfirm(item.instrument_id) }
@@ -250,18 +251,7 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
         </div>
       </div>
 
-      {/* AI scores */}
-      <div className={`px-5 py-3 border-b ${th.divider} shrink-0`}>
-        <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>AI Scores</div>
-        <div className="grid grid-cols-4 gap-2">
-          <ScorePill label="OCR"   value={item.ocr_score}         isDark={isDark} />
-          <ScorePill label="Sig"   value={item.sig_score}         isDark={isDark} />
-          <ScorePill label="Fraud" value={1 - item.fraud_score}   isDark={isDark} />
-          <ScorePill label="IQA"   value={item.iqa_score}         isDark={isDark} />
-        </div>
-      </div>
-
-      {/* Image / fields tabs */}
+      {/* Image / fields / AI / Passport tabs */}
       <div className={`flex border-b ${th.divider} shrink-0`}>
         {imgTabs.map(t => (
           <button key={t.id} type="button" onClick={() => setImgTab(t.id)}
@@ -307,12 +297,110 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
                 </span>
               )}
             </div>
-            <FieldRow label="Date"           value={item.date}           isDark={isDark} />
-            <FieldRow label="Payee"          value={item.payee}          isDark={isDark} isManual={item.manual_fields?.includes('payee')} />
+            <FieldRow label="Date"           value={item.date}            isDark={isDark} />
+            <FieldRow label="Payee"          value={item.payee}           isDark={isDark} isManual={item.manual_fields?.includes('payee')} />
             <FieldRow label="Amount"         value={item.amount_figures}  isDark={isDark} isManual={item.manual_fields?.includes('amount_figures')} />
             <FieldRow label="Amount (words)" value={item.amount_words}    isDark={isDark} isManual={item.manual_fields?.includes('amount_words')} />
             <FieldRow label="MICR"           value={item.micr}            isDark={isDark} />
             <FieldRow label="Alterations"    value={item.alterations ? '⚠ Detected' : '✓ None'} isDark={isDark} />
+          </div>
+        )}
+
+        {imgTab === 'ai_analysis' && (
+          <div className="px-5 py-4 space-y-5">
+            {/* Aggregate confidence scores */}
+            <div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2.5 ${th.lbl}`}>AI Confidence</div>
+              <div className="grid grid-cols-2 gap-2">
+                <ScorePill label="OCR Accuracy"   value={item.ocr_score}       isDark={isDark} />
+                <ScorePill label="Signature Match" value={item.sig_score}       isDark={isDark} />
+                <ScorePill label="Fraud Clean"     value={1 - item.fraud_score} isDark={isDark} />
+                <ScorePill label="Image IQA"       value={item.iqa_score}       isDark={isDark} />
+              </div>
+            </div>
+
+            {/* Risk signals */}
+            <div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>Risk Signals</div>
+              <div className={`rounded-lg border p-3 space-y-2 text-[11px] ${
+                item.fraud_score > 0.12
+                  ? (isDark ? 'bg-red-500/8 border-red-500/25' : 'bg-red-50 border-red-300')
+                  : (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-200')
+              }`}>
+                {[
+                  { label: 'Fraud score',         val: `${(item.fraud_score * 100).toFixed(1)}%`, warn: item.fraud_score > 0.12 },
+                  { label: 'Alteration detected', val: item.alterations ? '⚠ Yes' : '✓ None',     warn: item.alterations       },
+                  { label: 'Signature match',      val: `${(item.sig_score * 100).toFixed(0)}%`,   warn: item.sig_score < 0.88  },
+                  { label: 'Image quality',        val: `${(item.iqa_score * 100).toFixed(0)}%`,   warn: item.iqa_score < 0.90  },
+                  { label: 'Manually corrected',   val: `${item.manual_fields?.length ?? 0} field(s)`, warn: (item.manual_fields?.length ?? 0) > 0 },
+                ].map(({ label, val, warn }) => (
+                  <div key={label} className="flex items-center justify-between">
+                    <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{label}</span>
+                    <span className={`font-mono font-semibold ${warn ? (isDark ? 'text-red-400' : 'text-red-700') : (isDark ? 'text-emerald-400' : 'text-emerald-700')}`}>{val}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Model attribution */}
+            <div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>Model Attribution</div>
+              <div className={`space-y-1.5 text-[11px]`}>
+                {[
+                  { task: 'OCR / MICR',     model: 'GOT-OCR2.0'          },
+                  { task: 'Signature',       model: 'Siamese Net v2'       },
+                  { task: 'Fraud scoring',   model: 'XGBoost + SHAP'       },
+                  { task: 'Risk narrative',  model: 'Llama 3.3 70B'        },
+                  { task: 'Vision / layout', model: 'Qwen2-VL 72B'         },
+                ].map(({ task, model }) => (
+                  <div key={task} className="flex items-center justify-between">
+                    <span className={th.lbl}>{task}</span>
+                    <span className={`font-mono ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{model}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {imgTab === 'passport' && (
+          <div className="px-5 py-4">
+            <div className={`text-[10px] font-semibold uppercase tracking-wider mb-3 ${th.lbl}`}>Cheque Passport</div>
+            <div className={`rounded-xl border divide-y text-xs ${isDark ? 'border-white/10 divide-white/5' : 'border-slate-200 divide-slate-100'}`}>
+              {/* Header row */}
+              <div className={`flex items-center justify-between px-4 py-2.5 ${isDark ? 'bg-white/3' : 'bg-slate-50'}`}>
+                <span className={`font-mono text-sm font-bold ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>{item.instrument_id}</span>
+                <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${
+                  item.source_stage === 'STP'
+                    ? (isDark ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400' : 'border-emerald-400 bg-emerald-50 text-emerald-700')
+                    : (isDark ? 'border-sky-500/40 bg-sky-500/10 text-sky-400' : 'border-sky-400 bg-sky-50 text-sky-700')
+                }`}>{item.source_stage}</span>
+              </div>
+              {/* Field rows */}
+              {[
+                { label: 'Payee',          value: item.payee          },
+                { label: 'Drawer',         value: item.drawer_name    },
+                { label: 'Amount',         value: item.amount_figures },
+                { label: 'Amount (words)', value: item.amount_words   },
+                { label: 'Date',           value: item.date           },
+                { label: 'MICR',           value: item.micr           },
+                { label: 'Account',        value: item.account_display },
+                { label: 'Drawee Bank',    value: item.drawee_bank    },
+                { label: 'Branch',         value: item.drawee_branch  },
+              ].filter(r => r.value).map(({ label, value }) => (
+                <div key={label} className="flex items-start gap-3 px-4 py-2">
+                  <span className={`w-28 shrink-0 ${th.lbl}`}>{label}</span>
+                  <span className={`font-mono ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{value}</span>
+                </div>
+              ))}
+              {/* IET footer (inward only) */}
+              {isInward && item.iet_deadline && (
+                <div className={`flex items-center justify-between px-4 py-2.5 ${isDark ? 'bg-white/2' : 'bg-slate-50'}`}>
+                  <span className={th.lbl}>IET Deadline</span>
+                  <IETMini deadline={item.iet_deadline} isDark={isDark} />
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

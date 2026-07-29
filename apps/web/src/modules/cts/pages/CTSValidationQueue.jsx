@@ -143,6 +143,7 @@ const BASE_INSTRUMENTS_INWARD = [
 // ── Cheque slide-in panel ─────────────────────────────────────────────────────
 
 function ChequePanel({ inst, isInward, isDark, onClose }) {
+  const [panelTab, setPanelTab] = useState('images')
   const fm = inst.fields_meta ?? {}
   const fields = {
     payee:           fm.payee?.actual_value          ?? '',
@@ -160,26 +161,162 @@ function ChequePanel({ inst, isInward, isDark, onClose }) {
     deposit_channel: !isInward ? inst.deposit_channel : undefined,
     deposit_data:    !isInward ? inst.deposit_data    : undefined,
   }
+
+  const th = {
+    lbl:     isDark ? 'text-slate-500' : 'text-slate-400',
+    muted:   isDark ? 'text-slate-400' : 'text-slate-500',
+    divider: isDark ? 'border-white/8' : 'border-slate-200',
+  }
+
+  const CONF_COLOR = (c) =>
+    c >= 0.95 ? (isDark ? 'text-emerald-400' : 'text-emerald-700')
+    : c >= 0.85 ? (isDark ? 'text-amber-400' : 'text-amber-700')
+    : (isDark ? 'text-red-400' : 'text-red-700')
+
+  const panelTabs = [
+    { id: 'images',      label: '▣ Images'       },
+    { id: 'ai_analysis', label: '🤖 AI Analysis' },
+    { id: 'passport',    label: '🪪 Passport'    },
+  ]
+
   return (
-    <div className={`flex flex-col border-l h-full shrink-0 ${isDark ? 'bg-navy-900 border-white/10' : 'bg-white border-slate-200'}`} style={{ width: '440px' }}>
+    <div className={`flex flex-col border-l h-full shrink-0 ${isDark ? 'bg-navy-900 border-white/10' : 'bg-white border-slate-200'}`} style={{ width: '460px' }}>
+      {/* Header */}
       <div className={`flex items-center gap-2 px-4 py-3 border-b shrink-0 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
         <span className={`font-mono text-[11px] font-bold ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>{inst.instrument_id}</span>
         <button type="button" onClick={onClose} className={`ml-auto text-lg leading-none ${isDark ? 'text-slate-500 hover:text-white' : 'text-slate-400 hover:text-slate-800'}`}>×</button>
       </div>
-      <div className="flex-1 overflow-auto p-3">
-        <NameMatchCard inst={inst} isInward={isInward} isDark={isDark} />
-        <ChequeImageViewer
-          views={[
-            { key: 'BFB', label: 'BFB — Front Black', url: inst.front_bw_url   ?? null },
-            { key: 'BBB', label: 'BBB — Back Black',  url: null },
-            { key: 'BFG', label: 'BFG — Front Grey',  url: inst.front_gray_url ?? null },
-          ]}
-          fields={fields}
-          isDark={isDark}
-          compact={false}
-          title={inst.instrument_id}
-          depositInfo={!isInward && inst.deposit_channel ? { channel: inst.deposit_channel, data: inst.deposit_data } : null}
-        />
+
+      {/* Tab bar */}
+      <div className={`flex border-b shrink-0 ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
+        {panelTabs.map(t => (
+          <button key={t.id} type="button" onClick={() => setPanelTab(t.id)}
+            className={`px-3 py-2 text-[11px] font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${panelTab === t.id
+              ? (isDark ? 'border-amber-400 text-amber-300' : 'border-amber-500 text-amber-700')
+              : (isDark ? 'border-transparent text-slate-500 hover:text-slate-300' : 'border-transparent text-slate-400 hover:text-slate-600')
+            }`}
+          >{t.label}</button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-auto">
+
+        {panelTab === 'images' && (
+          <div className="p-3 space-y-3">
+            <NameMatchCard inst={inst} isInward={isInward} isDark={isDark} />
+            <ChequeImageViewer
+              views={[
+                { key: 'BFB', label: 'BFB — Front Black', url: inst.front_bw_url   ?? null },
+                { key: 'BBB', label: 'BBB — Back Black',  url: null },
+                { key: 'BFG', label: 'BFG — Front Grey',  url: inst.front_gray_url ?? null },
+              ]}
+              fields={fields}
+              isDark={isDark}
+              compact={false}
+              title={inst.instrument_id}
+              depositInfo={!isInward && inst.deposit_channel ? { channel: inst.deposit_channel, data: inst.deposit_data } : null}
+            />
+          </div>
+        )}
+
+        {panelTab === 'ai_analysis' && (
+          <div className="px-4 py-4 space-y-5">
+            {/* Per-field OCR confidence */}
+            <div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2.5 ${th.lbl}`}>OCR Field Confidence</div>
+              <div className={`rounded-lg border overflow-hidden text-[11px] ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                {Object.entries(fm).map(([key, meta]) => {
+                  if (!meta || meta.extracted_confidence == null) return null
+                  const label = { date: 'Date', payee: 'Payee', amount_figures: 'Amount', amount_words: 'Amount (words)', micr: 'MICR', alterations: 'Alterations' }[key] ?? key
+                  const conf = meta.extracted_confidence
+                  const pct = Math.round(conf * 100)
+                  return (
+                    <div key={key} className={`flex items-center gap-3 px-3 py-2 border-b last:border-b-0 ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+                      <span className={`w-28 shrink-0 ${th.lbl}`}>{label}</span>
+                      <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-200'}`}>
+                        <div className={`h-full rounded-full ${conf >= 0.95 ? 'bg-emerald-500' : conf >= 0.85 ? 'bg-amber-400' : 'bg-red-500'}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className={`w-10 text-right font-mono font-semibold ${CONF_COLOR(conf)}`}>{pct}%</span>
+                      <span className={`w-14 text-right text-[9px] font-bold ${meta.source === 'STP' ? (isDark ? 'text-emerald-400' : 'text-emerald-700') : (isDark ? 'text-amber-400' : 'text-amber-700')}`}>{meta.source}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Name match */}
+            <div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>CBS Name Verification</div>
+              <NameMatchCard inst={inst} isInward={isInward} isDark={isDark} />
+            </div>
+
+            {/* Model attribution */}
+            <div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>Model Attribution</div>
+              <div className="space-y-1.5 text-[11px]">
+                {[
+                  { task: 'OCR / MICR',     model: 'GOT-OCR2.0'   },
+                  { task: 'Signature',       model: 'Siamese Net v2' },
+                  { task: 'Vision / layout', model: 'Qwen2-VL 72B'  },
+                ].map(({ task, model }) => (
+                  <div key={task} className="flex items-center justify-between">
+                    <span className={th.lbl}>{task}</span>
+                    <span className={`font-mono ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{model}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {panelTab === 'passport' && (
+          <div className="px-4 py-4">
+            <div className={`text-[10px] font-semibold uppercase tracking-wider mb-3 ${th.lbl}`}>Cheque Passport</div>
+            <div className={`rounded-xl border divide-y text-xs ${isDark ? 'border-white/10 divide-white/5' : 'border-slate-200 divide-slate-100'}`}>
+              {/* Header */}
+              <div className={`flex items-center justify-between px-4 py-2.5 ${isDark ? 'bg-white/3' : 'bg-slate-50'}`}>
+                <span className={`font-mono text-sm font-bold ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>{inst.instrument_id}</span>
+                <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${
+                  inst.source_stage === 'STP'
+                    ? (isDark ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400' : 'border-emerald-400 bg-emerald-50 text-emerald-700')
+                    : (isDark ? 'border-sky-500/40 bg-sky-500/10 text-sky-400' : 'border-sky-400 bg-sky-50 text-sky-700')
+                }`}>{inst.source_stage}</span>
+              </div>
+              {/* Fields */}
+              {[
+                { label: 'Payee',          value: fm.payee?.actual_value         },
+                { label: 'Drawer',         value: inst.drawer_name               },
+                { label: 'Amount',         value: fm.amount_figures?.actual_value },
+                { label: 'Amount (words)', value: fm.amount_words?.actual_value  },
+                { label: 'Date',           value: fm.date?.actual_value          },
+                { label: 'MICR',           value: fm.micr?.actual_value          },
+                { label: 'Account',        value: inst.account_display           },
+                { label: 'Drawee Bank',    value: inst.drawee_bank               },
+                { label: 'Branch',         value: inst.drawee_branch             },
+              ].filter(r => r.value).map(({ label, value }) => (
+                <div key={label} className="flex items-start gap-3 px-4 py-2">
+                  <span className={`w-28 shrink-0 ${th.lbl}`}>{label}</span>
+                  <span className={`font-mono ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{value}</span>
+                </div>
+              ))}
+              {/* IET */}
+              {isInward && inst.iet_deadline && (() => {
+                const minsLeft = Math.max(0, Math.round((new Date(inst.iet_deadline) - Date.now()) / 60000))
+                const urgent = minsLeft < 45
+                return (
+                  <div className={`flex items-center justify-between px-4 py-2.5 ${isDark ? 'bg-white/2' : 'bg-slate-50'}`}>
+                    <span className={th.lbl}>IET Remaining</span>
+                    <span className={`font-mono font-semibold text-[11px] ${urgent ? 'text-red-400 animate-pulse' : (isDark ? 'text-sky-400' : 'text-sky-600')}`}>
+                      {minsLeft}m {urgent ? '⚠' : ''}
+                    </span>
+                  </div>
+                )
+              })()}
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   )
