@@ -62,6 +62,10 @@ _YOLO_SIG_ONLY_MODELS = {"yolov8-sig-only"}
 # Handles multiple signatures, ignores stamps/printed text naturally.
 _QWEN_SIG_MODELS = {"qwen2vl-sig"}
 
+# Devanagari mode: local IndicOCR (port 8021) for text fields + YOLO for sig.
+# No HF token required. Stage 1 — Hindi/Marathi/Sanskrit only.
+_INDIC_DEVANAGARI_MODELS = {"indic-devanagari"}
+
 SIG_DETECT_PROMPT = (
     "You are a cheque processing system. "
     "Find every handwritten signature in this cheque image. "
@@ -74,6 +78,9 @@ SIG_DETECT_PROMPT = (
 
 # Fallback URL for the sig detector microservice in local dev without Docker.
 _SIG_DETECTOR_URL_FALLBACK = "http://localhost:8020"
+
+# Fallback URL for the IndicOCR Devanagari microservice.
+_INDIC_OCR_URL_FALLBACK = "http://localhost:8021"
 
 # Adapted from ImageScanUtility/prompt.py (already validated against real
 # cheque images in that standalone tool) — kept here as ASTRA's own prompt
@@ -236,6 +243,55 @@ async def _resolve_sig_detector_url(bank_id: str) -> str:
         pass
     import os
     return os.environ.get("ASTRA_SIG_DETECTOR_URL", _SIG_DETECTOR_URL_FALLBACK)
+
+
+async def _resolve_indic_ocr_url(bank_id: str) -> str:
+    """Config service → env var → localhost fallback."""
+    from shared.config.config_service import config_service
+    try:
+        return await config_service.get_secret("demo.indic_ocr_url")
+    except Exception:
+        pass
+    import os
+    return os.environ.get("ASTRA_INDIC_OCR_URL", _INDIC_OCR_URL_FALLBACK)
+
+
+async def _call_indic_ocr_zones(
+    pil_img: Image.Image, bank_id: str
+) -> tuple[dict, bool]:
+    """POST the full cheque to the IndicOCR service for Devanagari zone extraction.
+
+    Returns ``(field_dict, service_available)``.
+    field_dict has keys: bank_name, date, payee_name, amount_words.
+    """
+    import httpx
+
+    url = await _resolve_indic_ocr_url(bank_id)
+    buf = io.BytesIO()
+    pil_img.save(buf, format="PNG")
+    buf.seek(0)
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as hc:
+            resp = await hc.post(
+                f"{url}/ocr_zones",
+                files={"file": ("cheque.png", buf, "image/png")},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            fields = {
+                "bank_name":    data.get("bank_name"),
+                "date":         data.get("date"),
+                "payee_name":   data.get("payee_name"),
+                "amount_words": data.get("amount_words"),
+            }
+            log.info("demo.cloud_extract.indic_ocr_done",
+                     bank_id=bank_id, fields_found=sum(v is not None for v in fields.values()))
+            return fields, True
+    except Exception as exc:
+        log.warning("demo.cloud_extract.indic_ocr_unreachable",
+                    bank_id=bank_id, url=url, error=str(exc))
+        return {}, False
 
 
 async def _call_sig_detector(
@@ -1265,6 +1321,103 @@ async def _extract_yolov8_sig_only(
     )
 
 
+async def _extract_indic_devanagari(
+    file: UploadFile, ctx
+) -> CloudExtractResponse:
+    """
+    Local-only Devanagari extraction — no HF token required:
+      1. IndicOCR (port 8021) — Devanagari text fields via CTS-2010 zone crops
+      2. YOLOv8 sig detector (port 8020) — signature bbox + clean crop
+
+    Both calls run concurrently.  Each service failing independently is
+    surfaced as a distinct error rather than silently returning partial data.
+    MICR, cheque number, account number, and IFSC are NOT extracted here —
+    those are English numerals/text and are outside Stage 1 scope.
+    """
+    import asyncio
+
+    raw_bytes = await file.read()
+    _, pil_img = _convert_to_png(raw_bytes)
+    iw, ih = pil_img.size
+
+    yolo_task  = asyncio.create_task(_call_sig_detector(pil_img, ctx.bank_id))
+    indic_task = asyncio.create_task(_call_indic_ocr_zones(pil_img, ctx.bank_id))
+    yolo_result, indic_result = await asyncio.gather(
+        yolo_task, indic_task, return_exceptions=True
+    )
+
+    # Unpack YOLO result
+    if isinstance(yolo_result, Exception):
+        yolo_detections, yolo_available = [], False
+    else:
+        yolo_detections, yolo_available = yolo_result
+
+    # Unpack IndicOCR result
+    if isinstance(indic_result, Exception):
+        indic_fields, indic_available = {}, False
+    else:
+        indic_fields, indic_available = indic_result
+
+    if not yolo_available and not indic_available:
+        sig_url   = await _resolve_sig_detector_url(ctx.bank_id)
+        indic_url = await _resolve_indic_ocr_url(ctx.bank_id)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                f"Both local services are unreachable. "
+                f"Start sig detector: cd apps/sig_detector; python main.py  "
+                f"(expected at {sig_url}). "
+                f"Start IndicOCR: cd apps/indic_ocr; python main.py  "
+                f"(expected at {indic_url})."
+            ),
+        )
+
+    # Build sig crops from YOLO detections
+    signature_crops: list[str] = []
+    sig_bboxes_out: list[list[float]] = []
+
+    for det in yolo_detections:
+        bbox = det.get("bbox", [])
+        if len(bbox) != 4:
+            continue
+        x1, y1, x2, y2 = bbox
+        cx1 = max(0,  int((x1 - 0.005) * iw))
+        cy1 = max(0,  int((y1 - 0.008) * ih))
+        cx2 = min(iw, int(x2 * iw))
+        cy2 = min(ih, int((y2 + 0.008) * ih))
+        crop = pil_img.crop((cx1, cy1, cx2, cy2))
+        crop = _denoise_sig_crop(crop)
+        if not _has_real_signature(crop):
+            log.info("demo.cloud_extract.indic_no_sig_after_denoise",
+                     bank_id=ctx.bank_id, bbox=bbox)
+            continue
+        buf = io.BytesIO()
+        crop.save(buf, format="PNG")
+        signature_crops.append(base64.b64encode(buf.getvalue()).decode())
+        sig_bboxes_out.append([round(v, 4) for v in bbox])
+
+    log.info(
+        "demo.cloud_extract.indic_devanagari_done",
+        bank_id=ctx.bank_id,
+        indic_available=indic_available,
+        yolo_available=yolo_available,
+        sig_crops=len(signature_crops),
+    )
+
+    return CloudExtractResponse(
+        model_used="indic-devanagari",
+        bank_name=indic_fields.get("bank_name"),
+        date=indic_fields.get("date"),
+        payee_name=indic_fields.get("payee_name"),
+        amount_words=indic_fields.get("amount_words"),
+        signature_present=len(sig_bboxes_out) > 0,
+        signature_count=len(sig_bboxes_out) if sig_bboxes_out else None,
+        signature_bboxes=sig_bboxes_out if sig_bboxes_out else None,
+        signature_crops=signature_crops if signature_crops else None,
+        signature_crops_estimated=False,
+    )
+
+
 async def _extract_qwen2vl_sig(file: UploadFile, ctx) -> CloudExtractResponse:
     """Call HF Qwen2-VL with a signature-only prompt — supports multiple signatures."""
     from openai import AsyncOpenAI
@@ -1332,7 +1485,13 @@ async def cloud_extract_cheque(
     model: str = "qwen-72b",
     ctx: UserContext = Depends(require_user_context),
 ) -> CloudExtractResponse:
-    _all_valid = set(_MODEL_MAPPING) | _YOLO_SIG_MODELS | _YOLO_SIG_ONLY_MODELS | _QWEN_SIG_MODELS
+    _all_valid = (
+        set(_MODEL_MAPPING)
+        | _YOLO_SIG_MODELS
+        | _YOLO_SIG_ONLY_MODELS
+        | _QWEN_SIG_MODELS
+        | _INDIC_DEVANAGARI_MODELS
+    )
     if model not in _all_valid:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -1348,6 +1507,10 @@ async def cloud_extract_cheque(
     # ── Qwen2-VL sig-only (multi-signature via HF) ───────────────────────────
     if model in _QWEN_SIG_MODELS:
         return await _extract_qwen2vl_sig(file, ctx)
+
+    # ── IndicOCR Devanagari + YOLO sig (local, no HF token) ─────────────────
+    if model in _INDIC_DEVANAGARI_MODELS:
+        return await _extract_indic_devanagari(file, ctx)
 
     from openai import AsyncOpenAI
 
