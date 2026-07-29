@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import QueueCard from '../components/QueueCard'
 import ReviewPanel from '../components/ReviewPanel'
@@ -15,7 +15,7 @@ const IET_WINDOW_MINS = 180
 const SMB_MOCK_ITEMS = [
   {
     instrument_id: 'CHQ-SMB-001847',
-    front_bw_url: demoChequeUrl(64), front_gray_url: demoChequeUrl(64),
+    front_bw_url: null, front_gray_url: null,
     workflow_id: 'wf-smb-001847',
     bank_id: 'saraswat-coop',
     smb_id: 'cosmos-coop',
@@ -33,7 +33,7 @@ const SMB_MOCK_ITEMS = [
   },
   {
     instrument_id: 'CHQ-SMB-001901',
-    front_bw_url: demoChequeUrl(66), front_gray_url: demoChequeUrl(66),
+    front_bw_url: null, front_gray_url: null,
     workflow_id: 'wf-smb-001901',
     bank_id: 'saraswat-coop',
     smb_id: 'cosmos-coop',
@@ -51,7 +51,7 @@ const SMB_MOCK_ITEMS = [
   },
   {
     instrument_id: 'CHQ-SMB-001733',
-    front_bw_url: demoChequeUrl(68), front_gray_url: demoChequeUrl(68),
+    front_bw_url: null, front_gray_url: null,
     workflow_id: 'wf-smb-001733',
     bank_id: 'saraswat-coop',
     smb_id: 'cosmos-coop',

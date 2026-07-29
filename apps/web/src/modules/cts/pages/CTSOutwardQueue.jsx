@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CTSOutwardQueue — "Outward Q". Actionable, unlike Outward Monitor (view-only).
  *
  * Two tabs:
@@ -63,7 +63,7 @@ const DEPOSIT_CHANNEL_CFG = {
 
 const MOCK_HUMAN_REVIEW = [
   {
-    instrument_id: 'CHQ-OUT-00512', front_bw_url: demoChequeUrl(54), front_gray_url: demoChequeUrl(54), account_display: '****4471', payee_display: 'Kiran Traders',
+    instrument_id: 'CHQ-OUT-00512', front_bw_url: null, front_gray_url: null, account_display: '****4471', payee_display: 'Kiran Traders',
     amount_range: '₹[5L-10L]', micr: '400160002841', bank: 'Saraswat Co-operative Bank',
     branch: 'Fort', pu: 'PU-MUM-01', bank_slug: 'saraswat-coop',
     reason: 'AMOUNT_MISMATCH', reason_label: 'Amount words/figures variance', received_at: '11:42 AM',
@@ -79,7 +79,7 @@ const MOCK_HUMAN_REVIEW = [
     get fields_meta() { return makeFieldsMeta(this.ocr_fields, { amount_words: 0.74, amount_figures: 0.91 }) },
   },
   {
-    instrument_id: 'CHQ-OUT-00519', front_bw_url: demoChequeUrl(56), front_gray_url: demoChequeUrl(56), account_display: '****9021', payee_display: 'Om Enterprises',
+    instrument_id: 'CHQ-OUT-00519', front_bw_url: null, front_gray_url: null, account_display: '****9021', payee_display: 'Om Enterprises',
     amount_range: '₹[1L-5L]', micr: '400160002855', bank: 'Saraswat Co-operative Bank',
     branch: 'Vashi', pu: 'PU-MUM-02', bank_slug: 'saraswat-coop',
     reason: 'ENDORSEMENT_IRREGULAR', reason_label: 'Endorsement irregular', received_at: '11:47 AM',
@@ -95,7 +95,7 @@ const MOCK_HUMAN_REVIEW = [
     get fields_meta() { return makeFieldsMeta(this.ocr_fields) },
   },
   {
-    instrument_id: 'CHQ-OUT-00527', front_bw_url: demoChequeUrl(58), front_gray_url: demoChequeUrl(58), account_display: '****3308', payee_display: 'Deshmukh & Co.',
+    instrument_id: 'CHQ-OUT-00527', front_bw_url: null, front_gray_url: null, account_display: '****3308', payee_display: 'Deshmukh & Co.',
     amount_range: '₹[10L-1Cr]', micr: '400160002863', bank: 'Vasavi Co-operative Bank',
     branch: 'Andheri (W)', pu: 'PU-MUM-03', bank_slug: 'smb-mh-vasavi',
     reason: 'HIGH_VALUE_DUAL_APPROVAL', reason_label: 'High value — dual approval', received_at: '11:53 AM',
@@ -115,7 +115,7 @@ const MOCK_HUMAN_REVIEW = [
 
 const MOCK_STP_REJECTED = [
   {
-    instrument_id: 'CHQ-OUT-00488', front_bw_url: demoChequeUrl(60), front_gray_url: demoChequeUrl(60), account_display: '****7712', payee_display: 'Bhagwati Steels',
+    instrument_id: 'CHQ-OUT-00488', front_bw_url: null, front_gray_url: null, account_display: '****7712', payee_display: 'Bhagwati Steels',
     amount_range: '₹[1L-5L]', micr: '400160002771', bank: 'Saraswat Co-operative Bank',
     branch: 'Dadar (E)', pu: 'PU-MUM-01', bank_slug: 'saraswat-coop',
     reason: 'CTS_COMPLIANCE_FAILURE', reason_label: 'CTS compliance failure — auto-rejected', received_at: '10:58 AM',
@@ -136,7 +136,7 @@ const MOCK_STP_REJECTED = [
     },
   },
   {
-    instrument_id: 'CHQ-OUT-00495', front_bw_url: demoChequeUrl(62), front_gray_url: demoChequeUrl(62), account_display: '****2245', payee_display: 'Shree Ambika Traders',
+    instrument_id: 'CHQ-OUT-00495', front_bw_url: null, front_gray_url: null, account_display: '****2245', payee_display: 'Shree Ambika Traders',
     amount_range: '₹[<1L]', micr: '400160002788', bank: 'Andheri Urban Co-op Bank',
     branch: 'Andheri (E)', pu: 'PU-MUM-04', bank_slug: 'smb-mh-andheri',
     reason: 'DATE_INVALID', reason_label: 'Date invalid / stale — auto-rejected', received_at: '11:05 AM',

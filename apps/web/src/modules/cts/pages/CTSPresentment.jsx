@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+﻿import { useState, useEffect, useRef, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
@@ -97,8 +97,8 @@ function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001
       amount_words_match: iqaFail ? null : Math.random() > 0.04,
       date_valid: iqaFail ? null : Math.random() > 0.02,
       cts_valid: iqaFail ? null : Math.random() > 0.01,
-      front_bw_url:   demoChequeUrl(idx),
-      front_gray_url: demoChequeUrl(idx),
+      front_bw_url: null,
+      front_gray_url: null,
       scanner_id: `SCN-${String((idx % 4) + 1).padStart(2, '0')}`,
       captured_at: new Date(Date.now() - (n - idx) * 4200).toISOString(),
       ngch_ack_id: ['NGCH_ACK', 'NGCH_REJECT'].includes(status)

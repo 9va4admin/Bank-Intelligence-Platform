@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CTSValidationQueue — Validation stage grid (Stage 2 of 3).
  *
  * Source column removed — instrument cell left-border colour codes STP (emerald) vs VERIFIED (sky).
@@ -19,7 +19,7 @@ function makeMeta(val, conf, by = 'GOT-OCR2.0') {
 
 const BASE_INSTRUMENTS_OUTWARD = [
   {
-    instrument_id: 'CHQ-OUT-V001', source_stage: 'STP', front_bw_url: demoChequeUrl(0), front_gray_url: demoChequeUrl(0), drawee_bank: 'State Bank of India', drawee_branch: 'Andheri East',
+    instrument_id: 'CHQ-OUT-V001', source_stage: 'STP', front_bw_url: null, front_gray_url: null, drawee_bank: 'State Bank of India', drawee_branch: 'Andheri East',
     drawee_ifsc: 'SBIN0000300', drawee_micr: '400002003',
     drawer_name: 'Krishnamurthy P. Iyer', account_display: '31994023456',
     deposit_channel: 'PAY_IN_SLIP',
@@ -32,7 +32,7 @@ const BASE_INSTRUMENTS_OUTWARD = [
     },
   },
   {
-    instrument_id: 'CHQ-OUT-V002', source_stage: 'VERIFIED', front_bw_url: demoChequeUrl(2), front_gray_url: demoChequeUrl(2), drawee_bank: 'HDFC Bank', drawee_branch: 'Bandra West',
+    instrument_id: 'CHQ-OUT-V002', source_stage: 'VERIFIED', front_bw_url: null, front_gray_url: null, drawee_bank: 'HDFC Bank', drawee_branch: 'Bandra West',
     drawee_ifsc: 'HDFC0000060', drawee_micr: '400240060',
     drawer_name: 'Anand R. Mehta', account_display: '50100042378901',
     deposit_channel: 'BACK_ANNOTATION',
@@ -45,7 +45,7 @@ const BASE_INSTRUMENTS_OUTWARD = [
     },
   },
   {
-    instrument_id: 'CHQ-OUT-V003', source_stage: 'STP', front_bw_url: demoChequeUrl(4), front_gray_url: demoChequeUrl(4), drawee_bank: 'ICICI Bank', drawee_branch: 'Powai',
+    instrument_id: 'CHQ-OUT-V003', source_stage: 'STP', front_bw_url: null, front_gray_url: null, drawee_bank: 'ICICI Bank', drawee_branch: 'Powai',
     drawee_ifsc: 'ICIC0000001', drawee_micr: '400229001',
     drawer_name: 'Pradeep S. Nair', account_display: '022601510783',
     deposit_channel: 'KIOSK',
@@ -58,7 +58,7 @@ const BASE_INSTRUMENTS_OUTWARD = [
     },
   },
   {
-    instrument_id: 'CHQ-OUT-V004', source_stage: 'VERIFIED', front_bw_url: demoChequeUrl(6), front_gray_url: demoChequeUrl(6), drawee_bank: 'Bank of Baroda', drawee_branch: 'Fort',
+    instrument_id: 'CHQ-OUT-V004', source_stage: 'VERIFIED', front_bw_url: null, front_gray_url: null, drawee_bank: 'Bank of Baroda', drawee_branch: 'Fort',
     drawee_ifsc: 'BARB0CHURCH', drawee_micr: '400012009',
     drawer_name: 'Ramesh D. Shah', account_display: '05520010078341',
     deposit_channel: 'PAY_IN_SLIP',
@@ -71,7 +71,7 @@ const BASE_INSTRUMENTS_OUTWARD = [
     },
   },
   {
-    instrument_id: 'CHQ-OUT-V005', source_stage: 'STP', front_bw_url: demoChequeUrl(8), front_gray_url: demoChequeUrl(8), drawee_bank: 'Axis Bank', drawee_branch: 'Goregaon',
+    instrument_id: 'CHQ-OUT-V005', source_stage: 'STP', front_bw_url: null, front_gray_url: null, drawee_bank: 'Axis Bank', drawee_branch: 'Goregaon',
     drawee_ifsc: 'UTIB0000067', drawee_micr: '400211067',
     drawer_name: 'Suresh V. Rao', account_display: '914010019234781',
     deposit_channel: 'BACK_ANNOTATION',
@@ -88,7 +88,7 @@ const BASE_INSTRUMENTS_OUTWARD = [
 const BASE_INSTRUMENTS_INWARD = [
   {
     // Payer (drawer): Suresh B. Patkar — Saraswat customer; Payee: Ramesh N. Rao — received at presenting bank
-    instrument_id: 'CHQ-IN-V001', source_stage: 'STP', front_bw_url: demoChequeUrl(10), front_gray_url: demoChequeUrl(10),
+    instrument_id: 'CHQ-IN-V001', source_stage: 'STP', front_bw_url: null, front_gray_url: null,
     account_display: '00000000004521', iet_deadline: new Date(Date.now() + 72 * 60000).toISOString(),
     drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Dadar',
     drawer_name: 'Suresh B. Patkar',
@@ -101,7 +101,7 @@ const BASE_INSTRUMENTS_INWARD = [
   },
   {
     // Payer (drawer): Prakash V. Rane — Saraswat customer; Payee: Meena S. Sharma
-    instrument_id: 'CHQ-IN-V002', source_stage: 'VERIFIED', front_bw_url: demoChequeUrl(12), front_gray_url: demoChequeUrl(12),
+    instrument_id: 'CHQ-IN-V002', source_stage: 'VERIFIED', front_bw_url: null, front_gray_url: null,
     account_display: '00000000008912', iet_deadline: new Date(Date.now() + 28 * 60000).toISOString(),
     drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Vile Parle',
     drawer_name: 'Prakash V. Rane',
@@ -114,7 +114,7 @@ const BASE_INSTRUMENTS_INWARD = [
   },
   {
     // Payer (drawer): Anand M. Kulkarni — Saraswat customer; Payee: Priya R. Nair
-    instrument_id: 'CHQ-IN-V003', source_stage: 'STP', front_bw_url: demoChequeUrl(14), front_gray_url: demoChequeUrl(14),
+    instrument_id: 'CHQ-IN-V003', source_stage: 'STP', front_bw_url: null, front_gray_url: null,
     account_display: '00000000002234', iet_deadline: new Date(Date.now() + 115 * 60000).toISOString(),
     drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Pune Main',
     drawer_name: 'Anand M. Kulkarni',
@@ -127,7 +127,7 @@ const BASE_INSTRUMENTS_INWARD = [
   },
   {
     // Payer (drawer): Deepak R. Joshi — but CBS shows this account belongs to Ramesh T. Mehta — mismatch
-    instrument_id: 'CHQ-IN-V004', source_stage: 'VERIFIED', front_bw_url: demoChequeUrl(16), front_gray_url: demoChequeUrl(16),
+    instrument_id: 'CHQ-IN-V004', source_stage: 'VERIFIED', front_bw_url: null, front_gray_url: null,
     account_display: '00000000006677', iet_deadline: new Date(Date.now() + 54 * 60000).toISOString(),
     drawee_bank: 'Saraswat Co-op Bank', drawee_branch: 'Borivali',
     drawer_name: 'Deepak R. Joshi',

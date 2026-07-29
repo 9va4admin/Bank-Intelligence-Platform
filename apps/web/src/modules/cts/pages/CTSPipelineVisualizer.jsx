@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
@@ -29,7 +29,7 @@ const STAGES = [
 const MOCK_QUEUE = [
   {
     id: 'CHQ-MUM-001847',
-    front_bw_url: demoChequeUrl(20), front_gray_url: demoChequeUrl(20),
+    front_bw_url: null, front_gray_url: null,
     fraud_score: 0.81,
     sig_match_score: 0.61,
     vision_confidence: 0.97,
@@ -53,7 +53,7 @@ const MOCK_QUEUE = [
   },
   {
     id: 'CHQ-MUM-001901',
-    front_bw_url: demoChequeUrl(22), front_gray_url: demoChequeUrl(22),
+    front_bw_url: null, front_gray_url: null,
     fraud_score: 0.77,
     sig_match_score: 0.88,
     vision_confidence: 0.95,
@@ -76,7 +76,7 @@ const MOCK_QUEUE = [
   },
   {
     id: 'CHQ-MUM-001733',
-    front_bw_url: demoChequeUrl(24), front_gray_url: demoChequeUrl(24),
+    front_bw_url: null, front_gray_url: null,
     fraud_score: null,
     sig_match_score: null,
     vision_confidence: 0.09,
@@ -96,7 +96,7 @@ const MOCK_QUEUE = [
 const MOCK_EXCEPTIONS = [
   {
     id: 'CHQ-MUM-001654',
-    front_bw_url: demoChequeUrl(26), front_gray_url: demoChequeUrl(26),
+    front_bw_url: null, front_gray_url: null,
     reason: 'VAULT_MISS',
     fraud_score: null,
     sig_match_score: null,
@@ -116,7 +116,7 @@ const MOCK_EXCEPTIONS = [
   },
   {
     id: 'CHQ-MUM-001712',
-    front_bw_url: demoChequeUrl(28), front_gray_url: demoChequeUrl(28),
+    front_bw_url: null, front_gray_url: null,
     reason: 'DORMANT_ACCOUNT',
     fraud_score: null,
     sig_match_score: 0.91,
@@ -166,8 +166,8 @@ function makeParticle(bankName = 'ASTRA Bank') {
     dormant: Math.random() < 0.06,
     pps_match: Math.random() > 0.1,
     kyc_expired: Math.random() < 0.05,
-    front_bw_url:   demoChequeUrl(_pid),
-    front_gray_url: demoChequeUrl(_pid),
+    front_bw_url: null,
+    front_gray_url: null,
     speed: 0.008 + Math.random() * 0.006,
     stageResults: {},
     finalized: false,
