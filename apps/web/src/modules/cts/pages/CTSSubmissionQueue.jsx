@@ -252,7 +252,7 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
       </div>
 
       {/* Image / fields / AI / Passport tabs */}
-      <div className={`flex border-b ${th.divider} shrink-0`}>
+      <div className={`flex border-b ${th.divider} shrink-0 overflow-x-auto`}>
         {imgTabs.map(t => (
           <button key={t.id} type="button" onClick={() => setImgTab(t.id)}
             className={`px-3 py-2 text-[11px] font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${imgTab === t.id
