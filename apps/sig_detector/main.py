@@ -310,6 +310,36 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
     # line (e.g. "Payable at par...") sits below the signature in the zone.
     best = max(qualifying, key=len)
 
+    # Trim leading / trailing annotation clusters (KUMAR/NKIT stamp, form text)
+    # that merged into the signature cluster via MERGE_GAP=10.
+    # Strategy: re-cluster with TIGHT_GAP=5 and drop any HEAD sub-cluster whose
+    # row count is < 15 % of the TAIL (main body).  The tail is always the
+    # signature; rubber-stamp annotations that sit 6-10 px above have a row count
+    # well below 25 % of the signature.  We do NOT drop the tail — only the head —
+    # so form-text rows below the signature that also merged are handled by the
+    # existing "largest qualifying cluster" logic (form text: 2-5 rows << signature).
+    # Guard: only apply when the head is small relative to the tail AND the gap
+    # between head and tail is > 5 rows (avoids splitting signatures with natural
+    # internal gaps — those sub-clusters are similar in size).
+    TIGHT_GAP = 5
+    if len(best) > 10:
+        sub_clusters: list[list[tuple[int, int, int]]] = []
+        sub_cur: list[tuple[int, int, int]] = [best[0]]
+        for i in range(1, len(best)):
+            if best[i][0] - best[i - 1][0] <= TIGHT_GAP:
+                sub_cur.append(best[i])
+            else:
+                sub_clusters.append(sub_cur)
+                sub_cur = [best[i]]
+        sub_clusters.append(sub_cur)
+        if len(sub_clusters) >= 2:
+            head = sub_clusters[0]
+            tail_rows = sum(len(s) for s in sub_clusters[1:])
+            # Drop head only if it is < 15 % of the tail (clearly an annotation,
+            # not a signature fragment separated by a natural ink gap)
+            if len(head) < tail_rows * 0.15:
+                best = [r for s in sub_clusters[1:] for r in s]
+
     left   = _trim_left(best, zw)
     right  = _trim_right(best, zw)
     top    = min(r[0] for r in best)
