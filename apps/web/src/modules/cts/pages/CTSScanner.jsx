@@ -73,9 +73,9 @@ function mkScan(idx) {
     outcome,
     lot_id:        `LOT-${String(Math.floor(idx / 25) + 1).padStart(4, '0')}`,
     ts:            new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-    front_bw_url:   demoChequeUrl(idx * 2),
+    front_bw_url:   demoChequeUrl(idx),
     back_bw_url:    null,
-    front_gray_url: demoChequeUrl(idx * 2 + 1),
+    front_gray_url: demoChequeUrl(idx),
   }
 }
 
