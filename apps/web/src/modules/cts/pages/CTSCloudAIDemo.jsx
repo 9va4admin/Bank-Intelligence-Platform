@@ -15,12 +15,13 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
 const MODEL_OPTIONS = [
-  { value: 'qwen-72b',         label: 'Qwen 72B  (cloud VLM)' },
-  { value: 'qwen-32b',         label: 'Qwen 32B  (cloud VLM)' },
-  { value: 'gemma-27b',        label: 'Gemma 27B (cloud VLM)' },
-  { value: 'qwen2vl-sig',      label: '✍️ Qwen2-VL Sig Extract  (multi-signature, cloud)' },
-  { value: 'yolov8-sig',       label: '🔍 YOLOv8 Sig Detector  +  Qwen 32B fields' },
-  { value: 'yolov8-sig-only',  label: '🔍 YOLOv8 Sig Only  (local — no HF token needed)' },
+  { value: 'qwen-72b',          label: 'Qwen 72B  (cloud VLM)' },
+  { value: 'qwen-32b',          label: 'Qwen 32B  (cloud VLM)' },
+  { value: 'gemma-27b',         label: 'Gemma 27B (cloud VLM)' },
+  { value: 'qwen2vl-sig',       label: '✍️ Qwen2-VL Sig Extract  (multi-signature, cloud)' },
+  { value: 'yolov8-sig',        label: '🔍 YOLOv8 Sig Detector  +  Qwen 32B fields' },
+  { value: 'yolov8-sig-only',   label: '🔍 YOLOv8 Sig Only  (local — no HF token needed)' },
+  { value: 'indic-devanagari',  label: '🇮🇳 IndicOCR Devanagari  +  YOLO Sig  (local)' },
 ]
 
 const FIELD_ROWS = [
@@ -183,6 +184,18 @@ export default function CTSCloudAIDemo() {
                   Start detector first: <code className="font-mono">cd apps/sig_detector; python main.py</code>
                 </p>
               )}
+              {model === 'indic-devanagari' && (
+                <p className={`mt-1.5 text-[11px] leading-snug ${th.muted}`}>
+                  <strong>Stage 1 — Devanagari script only</strong> (Hindi, Marathi, Sanskrit).
+                  Payee name, amount in words, date, and bank name extracted via{' '}
+                  <strong>EasyOCR hi-lang pack</strong> (AI4Bharat-class local model, ~100 MB, no GPU required).
+                  Signature detected via local <strong>YOLOv8 pixel detector</strong>.{' '}
+                  <strong>No HF token needed.</strong> Start both services first:{' '}
+                  <code className="font-mono">cd apps/sig_detector; python main.py</code>
+                  {' '}and{' '}
+                  <code className="font-mono">cd apps/indic_ocr; python main.py</code>
+                </p>
+              )}
             </div>
 
             <div className="mb-3">
@@ -248,7 +261,8 @@ export default function CTSCloudAIDemo() {
             )}
 
             {result && !result.error && (() => {
-              const isSigOnly = result.model_used === 'yolov8-sig-only'
+              const isSigOnly       = result.model_used === 'yolov8-sig-only'
+              const isIndicDevanagari = result.model_used === 'indic-devanagari'
               return (
                 <div>
                   {isSigOnly ? (
@@ -261,6 +275,17 @@ export default function CTSCloudAIDemo() {
                     </div>
                   ) : (
                     <>
+                      {isIndicDevanagari && (
+                        <div className={`rounded-lg border px-4 py-3 mb-3 ${isDark ? 'bg-emerald-900/25 border-emerald-700/40 text-emerald-200' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`}>
+                          <p className="text-xs font-semibold mb-0.5">🇮🇳 IndicOCR Devanagari — Stage 1</p>
+                          <p className="text-[11px] leading-snug">
+                            Payee, amount in words, date &amp; bank name extracted via local EasyOCR Hindi pack.
+                            MICR, IFSC, cheque number &amp; account number are printed in English and are
+                            not extracted in Stage 1 — they will show as —.
+                            Signature detected via local YOLOv8 pixel detector.
+                          </p>
+                        </div>
+                      )}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
                         {FIELD_ROWS.map(([key, label]) => (
                           <div key={key} className={`rounded-lg border px-3 py-2 ${th.infoCard}`}>
