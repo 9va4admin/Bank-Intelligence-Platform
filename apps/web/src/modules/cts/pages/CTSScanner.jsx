@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
@@ -73,9 +73,9 @@ function mkScan(idx) {
     outcome,
     lot_id:        `LOT-${String(Math.floor(idx / 25) + 1).padStart(4, '0')}`,
     ts:            new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-    front_bw_url:   demoChequeUrl(idx),
+    front_bw_url: null,
     back_bw_url:    null,
-    front_gray_url: demoChequeUrl(idx),
+    front_gray_url: null,
   }
 }
 

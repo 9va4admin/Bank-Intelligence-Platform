@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CTSSubmissionQueue — Submission stage (Stage 3).
  * Cheque image visible in the detail panel via tabs: Front | Back | Pay-in Slip | Fields.
  */
@@ -21,7 +21,7 @@ const MOCK_OUTWARD = [
     date: '15/07/2026', payee: 'Rajesh Kumar Verma', drawer_name: 'Vikram P. Joshi', account_display: '32119478125',
     amount_figures: '₹12,50,000', amount_words: 'Twelve Lakh Fifty Thousand Only', micr: '400002123',
     alterations: false, manual_fields: [], ocr_score: 0.98, fraud_score: 0.03, sig_score: 0.96, iqa_score: 0.99,
-    front_bw_url: demoChequeUrl(30), front_gray_url: demoChequeUrl(30),
+    front_bw_url: null, front_gray_url: null,
     deposit_channel: 'PAY_IN_SLIP',
     deposit_data: { depositor_name: 'Rajesh Kumar Verma', depositor_account: '4000401231', deposit_amount: '₹12,50,000', counter_token: 'T-0001', date: '15/07/2026', branch: 'Andheri East' },
   },
@@ -30,7 +30,7 @@ const MOCK_OUTWARD = [
     date: '14/07/2026', payee: 'Sunita P. Joshi', drawer_name: 'Anand R. Mehta', account_display: '50100238012901',
     amount_figures: '₹2,40,000', amount_words: 'Two Lakh Forty Thousand Only', micr: '400001234',
     alterations: false, manual_fields: ['payee', 'amount_words'], ocr_score: 0.88, fraud_score: 0.07, sig_score: 0.91, iqa_score: 0.97,
-    front_bw_url: demoChequeUrl(32), front_gray_url: demoChequeUrl(32),
+    front_bw_url: null, front_gray_url: null,
     deposit_channel: 'BACK_ANNOTATION',
     deposit_data: { extracted_account: '4000512347', extracted_mobile: '9876501234', ocr_confidence: 0.88 },
   },
@@ -39,7 +39,7 @@ const MOCK_OUTWARD = [
     date: '15/07/2026', payee: 'Kavita R. Desai', drawer_name: 'Ramesh D. Shah', account_display: '05520023456789',
     amount_figures: '₹3,80,500', amount_words: 'Three Lakh Eighty Thousand Five Hundred Only', micr: '400008901',
     alterations: false, manual_fields: ['payee', 'amount_figures', 'amount_words'], ocr_score: 0.85, fraud_score: 0.11, sig_score: 0.88, iqa_score: 0.96,
-    front_bw_url: demoChequeUrl(34), front_gray_url: demoChequeUrl(34),
+    front_bw_url: null, front_gray_url: null,
     deposit_channel: 'KIOSK',
     deposit_data: { name: 'Kavita R. Desai', account: '4000623458', txn_id: 'CDM-003-20260715', timestamp: '11:25 AM  15/07/2026' },
   },
@@ -53,7 +53,7 @@ const MOCK_INWARD = [
     date: '15/07/2026', payee: 'Ramesh N. Rao', drawer_name: 'Girish V. Naik',
     amount_figures: '₹45,000', amount_words: 'Forty Five Thousand Only', micr: '400005678',
     alterations: false, manual_fields: [], ocr_score: 0.99, fraud_score: 0.02, sig_score: 0.98, iqa_score: 0.99,
-    front_bw_url: demoChequeUrl(36), front_gray_url: demoChequeUrl(36),
+    front_bw_url: null, front_gray_url: null,
   },
   {
     // Payer (drawer): Kavita P. Shah — Saraswat customer; Payee: Meena S. Sharma — received at other bank
@@ -62,7 +62,7 @@ const MOCK_INWARD = [
     date: '14/07/2026', payee: 'Meena S. Sharma', drawer_name: 'Kavita P. Shah',
     amount_figures: '₹3,20,000', amount_words: 'Three Lakh Twenty Thousand Only', micr: '400009012',
     alterations: false, manual_fields: ['payee', 'amount_words'], ocr_score: 0.88, fraud_score: 0.09, sig_score: 0.92, iqa_score: 0.97,
-    front_bw_url: demoChequeUrl(38), front_gray_url: demoChequeUrl(38),
+    front_bw_url: null, front_gray_url: null,
   },
   {
     // Payer (drawer): Rohit D. Kulkarni — Saraswat customer; Payee: Suresh B. Agarwal — received at other bank
@@ -71,7 +71,7 @@ const MOCK_INWARD = [
     date: '15/07/2026', payee: 'Suresh B. Agarwal', drawer_name: 'Rohit D. Kulkarni',
     amount_figures: '₹1,10,000', amount_words: 'One Lakh Ten Thousand Only', micr: '400007890',
     alterations: false, manual_fields: ['payee'], ocr_score: 0.89, fraud_score: 0.07, sig_score: 0.93, iqa_score: 0.97,
-    front_bw_url: demoChequeUrl(40), front_gray_url: demoChequeUrl(40),
+    front_bw_url: null, front_gray_url: null,
   },
 ]
 
