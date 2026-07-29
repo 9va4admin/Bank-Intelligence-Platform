@@ -68,6 +68,9 @@ class AuditEventType(str, Enum):
     MCP_CONN_TESTED_FAIL = "MCP_CONN_TESTED_FAIL"   # test failed → status ERROR
     MCP_CONN_SYNC_TRIGGERED = "MCP_CONN_SYNC_TRIGGERED"  # vault sync workflow started
 
+    # ── Instrument Passport ────────────────────────────────────────────────────
+    CTS_INSTRUMENT_PASSPORT = "CTS_INSTRUMENT_PASSPORT"   # per-instrument full analysis record
+
     # ── Platform / infra ───────────────────────────────────────────────────────
     CONFIG_CHANGE = "CONFIG_CHANGE"
     DIAGNOSTIC_ACCESS = "DIAGNOSTIC_ACCESS"

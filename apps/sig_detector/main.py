@@ -19,9 +19,15 @@ Port: 8020 (local dev). In K8s: astra-sig-detector in astra-cts-{bank_id}.
 """
 from __future__ import annotations
 
+import base64
 import io
+import json
 import os
+import uuid
+from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
+from typing import Optional
 
 try:
     from dotenv import load_dotenv
@@ -35,10 +41,10 @@ if not os.environ.get("HF_TOKEN") and os.environ.get("ASTRA_DEMO_HF_TOKEN"):
 import numpy as np
 import structlog
 import uvicorn
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from PIL import Image
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 log = structlog.get_logger()
 
@@ -50,30 +56,53 @@ app = FastAPI(
 
 _yolo_model = None
 _mode: str = "pixel"
-_vision_url: str = ""   # vLLM endpoint for Qwen2-VL mode
+_vision_url: str = ""           # vLLM endpoint for Qwen2-VL mode
+_immudb_client = None           # shared.audit.ImmudbClient, set at startup if IMMUDB_HOST set
 
 
 @app.on_event("startup")
 async def _startup() -> None:
-    global _yolo_model, _mode, _vision_url
+    global _yolo_model, _mode, _vision_url, _immudb_client
+
     vision_url = os.environ.get("SIG_DETECTOR_VISION_URL", "").strip()
     if vision_url:
         _vision_url = vision_url
         _mode = "qwen2vl"
         log.info("sig_detector.ready", mode="qwen2vl", url=vision_url)
-        return
-    local_path = os.environ.get("SIG_DETECTOR_LOCAL_PATH", "").strip()
-    if local_path:
-        try:
-            from ultralytics import YOLO
-            _yolo_model = YOLO(local_path)
-            _mode = "yolov8"
-            log.info("sig_detector.ready", mode="yolov8", model=local_path)
-        except Exception as exc:
-            log.warning("sig_detector.yolo_load_failed", path=local_path, error=str(exc))
-            log.info("sig_detector.ready", mode="pixel")
     else:
-        log.info("sig_detector.ready", mode="pixel")
+        local_path = os.environ.get("SIG_DETECTOR_LOCAL_PATH", "").strip()
+        if local_path:
+            try:
+                from ultralytics import YOLO
+                _yolo_model = YOLO(local_path)
+                _mode = "yolov8"
+                log.info("sig_detector.ready", mode="yolov8", model=local_path)
+            except Exception as exc:
+                log.warning("sig_detector.yolo_load_failed", path=local_path, error=str(exc))
+                log.info("sig_detector.ready", mode="pixel")
+        else:
+            log.info("sig_detector.ready", mode="pixel")
+
+    # ImmuDB — optional; /inspect still runs without it, immudb_tx_id stays null
+    immudb_host = os.environ.get("IMMUDB_HOST", "").strip()
+    if immudb_host:
+        try:
+            import sys, pathlib
+            sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+            from shared.audit.immudb_client import ImmudbClient as _SDK
+            _immudb_client = _SDK()
+            _immudb_client.connect(
+                host=immudb_host,
+                port=int(os.environ.get("IMMUDB_PORT", "3322")),
+                bank_id=os.environ.get("IMMUDB_BANK_ID", "demo"),
+                collection="cts_events",
+                username=os.environ.get("IMMUDB_USER", "immudb"),
+                password=os.environ.get("IMMUDB_PASS", ""),
+            )
+            log.info("sig_detector.immudb.connected", host=immudb_host)
+        except Exception as exc:
+            log.warning("sig_detector.immudb.unavailable", error=str(exc))
+            _immudb_client = None
 
 
 # ── Pixel-based detector ──────────────────────────────────────────────────────
@@ -148,6 +177,247 @@ def _trim_right(rows: list[tuple], zw: int) -> int:
     return rights[-1]
 
 
+# ── Instrument Passport models ────────────────────────────────────────────────
+
+class CheckStatus(str, Enum):
+    PASS          = "PASS"
+    FAIL          = "FAIL"
+    DETECTED      = "DETECTED"
+    NOT_DETECTED  = "NOT_DETECTED"
+    INCONCLUSIVE  = "INCONCLUSIVE"
+    SKIPPED       = "SKIPPED"
+
+
+class GuardResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    guard: str
+    rows_rejected: int
+    description: str
+
+
+class PixelAnalysis(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    ink_mask_mode: str                      # "absolute" | "local-contrast"
+    abs_ink_density: float                  # fraction of zone classified as ink in abs mode
+    total_rows_with_ink: int
+    qualifying_rows: int
+    guard_results: list[GuardResult]        # one entry per guard A-E
+    clusters_found: int
+    head_trim_applied: bool
+    head_trim_reason: Optional[str] = None
+    signature_detected: bool
+    bbox: Optional[list[float]] = None     # normalised [x1,y1,x2,y2]
+    confidence: float = 0.0
+
+
+class VisionCheck(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    name: str
+    status: CheckStatus
+    confidence: float = 0.0
+    affected_fields: list[str] = []
+    detail: Optional[str] = None
+
+
+class VisionAnalysis(BaseModel):
+    model_config = ConfigDict(frozen=True, protected_namespaces=())
+    checks: list[VisionCheck]
+    overall_tamper_risk: float = 0.0
+    physical_anomaly_score: float = 0.0
+    model_used: str = ""
+    degraded: bool = False
+
+
+class SummaryCheck(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    check: str
+    status: CheckStatus
+    confidence: float = 0.0
+    detail: Optional[str] = None
+
+
+class InstrumentPassport(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    passport_id: str
+    instrument_id: str
+    bank_id: str
+    timestamp: str
+    pixel_analysis: PixelAnalysis
+    vision_analysis: Optional[VisionAnalysis] = None
+    summary: list[SummaryCheck]
+    overall_status: str                    # "CLEAN" | "SUSPECT" | "REVIEW_REQUIRED"
+    immudb_tx_id: Optional[int] = None
+    immudb_key: Optional[str] = None
+
+
+# ── Detailed pixel analysis (returns stats alongside detections) ──────────────
+
+def _detect_pixel_detailed(img: Image.Image) -> tuple[list[dict], PixelAnalysis]:
+    """
+    Identical logic to _detect_pixel but also returns per-guard rejection counts
+    and full analysis metadata for the Instrument Passport.
+    """
+    from PIL import ImageFilter
+
+    iw, ih = img.size
+    zy1 = int(ih * 0.55); zy2 = int(ih * 0.90)
+    zx1 = int(iw * 0.52); zx2 = iw
+    zone = img.crop((zx1, zy1, zx2, zy2))
+    zw, zh = zone.size
+
+    gray_raw = np.array(zone.convert("L"))
+    abs_thr  = _ink_threshold(gray_raw)
+    ink_abs  = (gray_raw < abs_thr).astype(np.uint8)
+    abs_ink_density = float(ink_abs.mean())
+    _use_local_contrast = abs_ink_density > 0.05
+    if _use_local_contrast:
+        blurred = np.array(zone.convert("L").filter(ImageFilter.GaussianBlur(radius=15)))
+        ink = ((blurred.astype(int) - gray_raw.astype(int)) > 35).astype(np.uint8)
+        ink_mask_mode = "local-contrast"
+    else:
+        ink = ink_abs
+        ink_mask_mode = "absolute"
+
+    total_rows_with_ink = int((ink.sum(axis=1) > 0).sum())
+
+    MIN_SPAN         = max(8, int(zw * 0.05))
+    MAX_DENSITY      = 0.40
+    MAX_RUNS         = 15
+    MERGE_GAP        = 10
+    MIN_ROWS         = 2
+    MIN_SPAN_DENSITY = 0.05 if _use_local_contrast else 0.08
+    RIGHT_FRINGE     = max(4, int(zw * 0.08))
+
+    reject_a = reject_b = reject_c = reject_d = reject_e = 0
+    sig_rows: list[tuple] = []
+
+    for y in range(zh):
+        o_xs = np.where(ink[y])[0]
+        if len(o_xs) == 0:
+            continue
+        span = int(o_xs[-1]) - int(o_xs[0])
+        if span < MIN_SPAN:
+            reject_a += 1; continue
+        density = len(o_xs) / zw
+        if density > MAX_DENSITY:
+            reject_b += 1; continue
+        runs = 1
+        for i in range(1, len(o_xs)):
+            if int(o_xs[i]) - int(o_xs[i - 1]) > 3: runs += 1
+        if runs > MAX_RUNS:
+            reject_c += 1; continue
+        span_density = len(o_xs) / (span + 1)
+        if span_density < MIN_SPAN_DENSITY:
+            reject_d += 1; continue
+        fringe_boundary = zw - RIGHT_FRINGE
+        o_xs_core = o_xs[o_xs < fringe_boundary]
+        if len(o_xs_core) == 0:
+            reject_e += 1; continue
+        sig_rows.append((y, int(o_xs[0]), int(o_xs_core[-1]), span_density))
+
+    guard_results = [
+        GuardResult(guard="A", rows_rejected=reject_a,
+                    description=f"span < {MIN_SPAN}px — isolated dots/specks"),
+        GuardResult(guard="B", rows_rejected=reject_b,
+                    description="density > 40% — solid horizontal rule lines"),
+        GuardResult(guard="C", rows_rejected=reject_c,
+                    description="runs > 15 — security-print diagonal patterns"),
+        GuardResult(guard="D", rows_rejected=reject_d,
+                    description=f"span-density < {MIN_SPAN_DENSITY:.0%} — sparse rubber-stamp rows"),
+        GuardResult(guard="E", rows_rejected=reject_e,
+                    description="right-fringe only — barcode stripe rows"),
+    ]
+
+    def _make_analysis(sig_det: bool, bbox: Optional[list[float]],
+                       clusters: int, head_trim: bool,
+                       trim_reason: Optional[str]) -> PixelAnalysis:
+        return PixelAnalysis(
+            ink_mask_mode=ink_mask_mode,
+            abs_ink_density=round(abs_ink_density, 4),
+            total_rows_with_ink=total_rows_with_ink,
+            qualifying_rows=len(sig_rows),
+            guard_results=guard_results,
+            clusters_found=clusters,
+            head_trim_applied=head_trim,
+            head_trim_reason=trim_reason,
+            signature_detected=sig_det,
+            bbox=bbox,
+            confidence=0.80 if sig_det else 0.0,
+        )
+
+    if not sig_rows:
+        return [], _make_analysis(False, None, 0, False, None)
+
+    clusters: list[list[tuple]] = []
+    cur: list[tuple] = [sig_rows[0]]
+    for i in range(1, len(sig_rows)):
+        if sig_rows[i][0] - sig_rows[i - 1][0] <= MERGE_GAP:
+            cur.append(sig_rows[i])
+        else:
+            clusters.append(cur); cur = [sig_rows[i]]
+    clusters.append(cur)
+
+    qualifying = [c for c in clusters if len(c) >= MIN_ROWS]
+    if not qualifying:
+        qualifying = [max(clusters, key=len)]
+    best = max(qualifying, key=len)
+
+    TIGHT_GAP = 1
+    head_trim_applied = False
+    head_trim_reason: Optional[str] = None
+    if len(best) > 10:
+        sub_clusters: list[list[tuple]] = []
+        sub_cur: list[tuple] = [best[0]]
+        for i in range(1, len(best)):
+            if best[i][0] - best[i - 1][0] <= TIGHT_GAP:
+                sub_cur.append(best[i])
+            else:
+                sub_clusters.append(sub_cur); sub_cur = [best[i]]
+        sub_clusters.append(sub_cur)
+        if len(sub_clusters) >= 2:
+            head = sub_clusters[0]
+            tail_rows = sum(len(s) for s in sub_clusters[1:])
+            if tail_rows > 0:
+                gap = sub_clusters[1][0][0] - head[-1][0]
+                ratio = len(head) / tail_rows
+                head_avg_sd = sum(r[3] for r in head) / len(head)
+                first_tail_len = len(sub_clusters[1])
+                if (gap <= 3 and len(head) >= 10
+                        and ratio < 0.25 and head_avg_sd > 0.28
+                        and first_tail_len > len(head) * 1.5):
+                    best = [r for s in sub_clusters[1:] for r in s]
+                    head_trim_applied = True
+                    head_trim_reason = (
+                        f"small-gap annotation stripped: head={len(head)} rows, "
+                        f"ratio={ratio:.1%}, avg_sd={head_avg_sd:.2f}, gap={gap}px"
+                    )
+                elif gap > 3 and len(head) < 5:
+                    best = [r for s in sub_clusters[1:] for r in s]
+                    head_trim_applied = True
+                    head_trim_reason = (
+                        f"large-gap orphan fragment dropped: head={len(head)} rows, gap={gap}px"
+                    )
+
+    left   = _trim_left(best, zw)
+    right  = _trim_right(best, zw)
+    top    = min(r[0] for r in best)
+    bottom = max(r[0] for r in best) + 1
+
+    if bottom - top < 2 or right - left < 8:
+        return [], _make_analysis(False, None, len(clusters), head_trim_applied, head_trim_reason)
+
+    abs_x1 = (zx1 + left)   / iw
+    abs_y1 = (zy1 + top)    / ih
+    abs_x2 = (zx1 + right)  / iw
+    abs_y2 = (zy1 + bottom) / ih
+    bbox   = [round(abs_x1,4), round(abs_y1,4), round(abs_x2,4), round(abs_y2,4)]
+
+    return (
+        [{"bbox": bbox, "confidence": 0.80}],
+        _make_analysis(True, bbox, len(clusters), head_trim_applied, head_trim_reason),
+    )
+
+
 def _detect_pixel(img: Image.Image) -> list[dict]:
     """
     Find the signature region using per-row cluster analysis.
@@ -170,196 +440,8 @@ def _detect_pixel(img: Image.Image) -> list[dict]:
          lowest ink element on a CTS-2010 cheque.
       5. Return the tight pixel bbox of that cluster.
     """
-    from PIL import ImageFilter
-
-    iw, ih = img.size
-
-    # ── 1. Crop to the CTS-2010 signature zone ───────────────────────────
-    zy1 = int(ih * 0.55)
-    zy2 = int(ih * 0.90)
-    zx1 = int(iw * 0.52)
-    zx2 = iw
-    zone = img.crop((zx1, zy1, zx2, zy2))
-    zw, zh = zone.size
-
-    # ── 2. Adaptive ink mask ─────────────────────────────────────────────────
-    # Strategy: try absolute threshold first (p3+45 anchored to darkest ink).
-    # For most cheques (white/cream/green background) this correctly separates
-    # ink from background and is conservative enough not to classify printed
-    # labels as ink.
-    #
-    # Canara Bank exception: the dense blue security print drives p3 UP (the
-    # entire zone is a medium-dark blue), so threshold reaches 165-185 and
-    # classifies the blue background as ink → abs_ink_density > 30 %.
-    # In that case we fall back to local-contrast which is background-agnostic.
-    #
-    # Local-contrast: pixel is ink when substantially DARKER than its local
-    # neighbourhood (GaussianBlur radius=15).  Security-print (contrast ≈20-28)
-    # → excluded.  Dark ballpoint (≈150-200) → included.  Light blue ink like
-    # Axis Bank (≈60-80) → included.  This mode is NOT used for normal cheques
-    # because it also classifies printed labels (contrast ≈80-150) as ink,
-    # producing over-sized bboxes.
-    gray_raw = np.array(zone.convert("L"))
-    abs_thr  = _ink_threshold(gray_raw)
-    ink_abs  = (gray_raw < abs_thr).astype(np.uint8)
-    # Threshold at 5 %: Canara Bank blue security-print background classifies
-    # ~7 % of the zone as ink (background pixels near abs_thr) even though the
-    # zone appears mostly blue.  That 7 % creates run-count noise that rejects
-    # the actual signature rows.  Switch to local-contrast which is
-    # background-agnostic.  White/cream cheques (Syndicate, Axis, SBI) sit at
-    # 1-3 % and stay on absolute threshold, which correctly excludes printed
-    # form labels and KUMAR/NKIT rubber-stamp rows.
-    _use_local_contrast = ink_abs.mean() > 0.05
-    if _use_local_contrast:
-        blurred = np.array(zone.convert("L").filter(ImageFilter.GaussianBlur(radius=15)))
-        ink = ((blurred.astype(int) - gray_raw.astype(int)) > 35).astype(np.uint8)
-    else:
-        ink = ink_abs
-
-    # ── 3. Collect qualifying rows ─────────────────────────────────────────
-    # Guard A — span ≥ 5 % of zone width (was 10 % — too wide for compact sigs)
-    # Guard B — density < 40 %: rejects solid horizontal rule lines
-    # Guard C — runs ≤ 15: at high resolution (2365 px wide) disconnected
-    #           cursive strokes produce up to 12 runs/row; security print
-    #           (Canara Bank diagonal) produces 20+ runs/row
-    MIN_SPAN    = max(8, int(zw * 0.05))   # 5 % of zone width
-    MAX_DENSITY = 0.40                      # solid fill / rule line
-    MAX_RUNS    = 15                        # cursive at high-res: ≤ 12; Canara: 20+
-    MERGE_GAP   = 10                        # Canara security-print lines are ~15px apart;
-    #                                         keep gap < that so they stay as tiny clusters
-    MIN_ROWS    = 2                         # cluster needs ≥ 2 qualifying rows
-    # Guard D span-density threshold: stricter for absolute-threshold mode (0.08)
-    # so rubber-stamp annotations (KUMAR/NKIT, span_density ~5-7%) are rejected;
-    # permissive for local-contrast mode (0.05) so thin signature strokes on
-    # coloured backgrounds still qualify.
-    MIN_SPAN_DENSITY = 0.05 if _use_local_contrast else 0.08
-    # Guard E boundary: rightmost 8 % of zone is the barcode / right-margin fringe
-    RIGHT_FRINGE = max(4, int(zw * 0.08))
-
-    sig_rows: list[tuple] = []   # (y, left_x, right_x, span_density)
-
-    for y in range(zh):
-        o_xs = np.where(ink[y])[0]
-        if len(o_xs) == 0:
-            continue
-
-        # Guard A: horizontal span
-        span = int(o_xs[-1]) - int(o_xs[0])
-        if span < MIN_SPAN:
-            continue
-
-        # Guard B: density — reject solid fill / horizontal rule lines
-        density = len(o_xs) / zw
-        if density > MAX_DENSITY:
-            continue
-
-        # Guard C: run count (gap > 3 px = new run)
-        runs = 1
-        for i in range(1, len(o_xs)):
-            if int(o_xs[i]) - int(o_xs[i - 1]) > 3:
-                runs += 1
-        if runs > MAX_RUNS:
-            continue
-
-        # Guard D: ink pixels must be densely concentrated within their span.
-        # Canara Bank security-print rows pass A/B/C but scatter a few letters
-        # across the full zone width → span ≈ 1100 px, ink_pixels ≈ 20-40
-        # → span_density ≈ 2-4 %.  Signature strokes: span 200-400 px with
-        # 50-200 ink pixels → span_density 15-50 %.  Threshold 8 % separates
-        # them with a comfortable margin.
-        span_density = len(o_xs) / (span + 1)
-        if span_density < MIN_SPAN_DENSITY:
-            continue
-
-        # Guard E: clip barcode / right-margin ink from the right end of every row.
-        # 1-D barcode stripes (Axis Bank) overlap signature y-positions, so
-        # a single row can have ink at the signature location AND at the barcode
-        # location.  np.where() returns all ink pixels in the row, so right_x
-        # is pulled all the way to the barcode (zone right edge).
-        # Solution: discard any ink that sits in the rightmost RIGHT_FRINGE
-        # pixels (the barcode fringe) when recording right_x.
-        fringe_boundary = zw - RIGHT_FRINGE
-        o_xs_core = o_xs[o_xs < fringe_boundary]
-        if len(o_xs_core) == 0:
-            continue   # entire row is barcode / fringe — skip
-
-        sig_rows.append((y, int(o_xs[0]), int(o_xs_core[-1]), span_density))
-
-    if not sig_rows:
-        return []
-
-    # ── 4. Cluster qualifying rows ─────────────────────────────────────────
-    clusters: list[list[tuple]] = []
-    cur: list[tuple] = [sig_rows[0]]
-    for i in range(1, len(sig_rows)):
-        if sig_rows[i][0] - sig_rows[i - 1][0] <= MERGE_GAP:
-            cur.append(sig_rows[i])
-        else:
-            clusters.append(cur)
-            cur = [sig_rows[i]]
-    clusters.append(cur)
-
-    qualifying = [c for c in clusters if len(c) >= MIN_ROWS]
-    if not qualifying:
-        qualifying = [max(clusters, key=len)]
-
-    # Take the LARGEST qualifying cluster.
-    # The signature is the most ink-dense handwritten element and always
-    # produces more qualifying rows than horizontal rules (2-5 rows) or
-    # isolated printed labels (5-8 rows). "Bottommost" fails when a form
-    # line (e.g. "Payable at par...") sits below the signature in the zone.
-    best = max(qualifying, key=len)
-
-    # Trim leading annotation text (e.g. "ANKIT KUMAR" / "NKIT" pre-printed in
-    # the signature box) that merged into the signature cluster under MERGE_GAP=10.
-    # Re-cluster at TIGHT_GAP=1 (adjacent rows only) to find fine-grain sub-clusters.
-    # Two cases:
-    #   small gap (<=3 px): annotation touches signature — drop head if compact
-    #     block (>=10 rows) AND < 25% of tail (pen-stroke fragments are 2-5 rows)
-    #   large gap (>3 px): disconnected fragment — drop head if < 15% of tail
-    TIGHT_GAP = 1
-    if len(best) > 10:
-        sub_clusters: list[list[tuple]] = []
-        sub_cur: list[tuple] = [best[0]]
-        for i in range(1, len(best)):
-            if best[i][0] - best[i - 1][0] <= TIGHT_GAP:
-                sub_cur.append(best[i])
-            else:
-                sub_clusters.append(sub_cur)
-                sub_cur = [best[i]]
-        sub_clusters.append(sub_cur)
-        if len(sub_clusters) >= 2:
-            head = sub_clusters[0]
-            tail_rows = sum(len(s) for s in sub_clusters[1:])
-            if tail_rows > 0:
-                gap = sub_clusters[1][0][0] - head[-1][0]
-                ratio = len(head) / tail_rows
-                head_avg_sd = sum(r[3] for r in head) / len(head)
-                first_tail_len = len(sub_clusters[1])
-                if (gap <= 3 and len(head) >= 10
-                        and ratio < 0.25 and head_avg_sd > 0.28
-                        and first_tail_len > len(head) * 1.5):
-                    best = [r for s in sub_clusters[1:] for r in s]
-                elif gap > 3 and len(head) < 5:
-                    best = [r for s in sub_clusters[1:] for r in s]
-
-    left   = _trim_left(best, zw)
-    right  = _trim_right(best, zw)
-    top    = min(r[0] for r in best)
-    bottom = max(r[0] for r in best) + 1
-
-    if bottom - top < 2 or right - left < 8:
-        return []
-
-    # ── 5. Convert to full-image normalised coords ───────────────────────
-    abs_x1 = (zx1 + left)   / iw
-    abs_y1 = (zy1 + top)    / ih
-    abs_x2 = (zx1 + right)  / iw
-    abs_y2 = (zy1 + bottom) / ih
-
-    return [{"bbox": [round(abs_x1, 4), round(abs_y1, 4),
-                      round(abs_x2, 4), round(abs_y2, 4)],
-             "confidence": 0.80}]
+    detections, _ = _detect_pixel_detailed(img)
+    return detections
 
 
 # ── Post-detection refinement ─────────────────────────────────────────────────
@@ -467,7 +549,7 @@ def _detect_qwen2vl(img: Image.Image) -> list[dict]:
     Env: SIG_DETECTOR_VISION_URL   — vLLM base URL (e.g. http://vllm-cts:8000)
          SIG_DETECTOR_VISION_MODEL — model name (default: Qwen/Qwen2-VL-72B-Instruct)
     """
-    import base64, json, httpx
+    import httpx
 
     iw, ih = img.size
     buf = io.BytesIO()
@@ -526,6 +608,164 @@ def _detect_qwen2vl(img: Image.Image) -> list[dict]:
         return []
 
 
+# ── Qwen2-VL comprehensive integrity check ───────────────────────────────────
+
+_INTEGRITY_PROMPT = """
+You are a forensic cheque examiner. Inspect this cheque image for integrity issues.
+
+Analyze FOUR areas:
+
+1. WHITE_INK_CANCELLATION
+   Bright-white patch with unnaturally sharp edges (correction fluid / whitener) over
+   the signature zone, amount field, payee name, or date. Luminance spike well above
+   surrounding paper + crisp edge boundary = correction fluid.
+
+2. SIGNATURE_CANCELLATION
+   Pen strokes crossing through the signature area in a visually distinct ink or colour —
+   diagonal lines, horizontal strikes, or a CANCELLED / VOID rubber stamp over the
+   signature zone.
+
+3. FIELD_ALTERATION
+   Overwriting or erasure on any of: amount_figures, amount_words, date, payee_name.
+   Evidence: ink layer on ink layer, paper-fibre distortion, chemical halo/ring,
+   colour temperature shift around the altered region.
+
+4. SIGNATURE_PRESENCE
+   Handwritten signature in the lower-right zone (roughly y=55%-90%, x=52%-100%).
+   Count signatures (0 = absent, 1 = single, 2 = joint account).
+   Quality: clear | partial | smudged | absent.
+
+Respond in EXACTLY this JSON — no prose, no markdown fences:
+{
+  "white_ink_cancellation": {
+    "detected": true,
+    "confidence": 0.00,
+    "location": "signature_zone|amount_field|payee_field|date_field|null",
+    "detail": "string or null"
+  },
+  "signature_cancellation": {
+    "detected": false,
+    "confidence": 0.00,
+    "method": "cross_through|stamp|null",
+    "detail": "string or null"
+  },
+  "field_alteration": {
+    "detected": false,
+    "confidence": 0.00,
+    "affected_fields": [],
+    "alteration_type": "overwriting|erasure|chemical|correction_fluid|null"
+  },
+  "signature_presence": {
+    "count": 1,
+    "confidence": 0.00,
+    "quality": "clear|partial|smudged|absent"
+  },
+  "overall_tamper_risk": 0.00,
+  "physical_anomaly_score": 0.00
+}
+"""
+
+
+def _inspect_qwen2vl(img: Image.Image) -> Optional[VisionAnalysis]:
+    """
+    Comprehensive cheque integrity check via Qwen2-VL.
+
+    Covers what pixel detection cannot see:
+      - White ink / correction fluid (lighter than background — invisible to ink mask)
+      - Signature cancellation (different-color cross-through or CANCELLED stamp)
+      - Field alteration (overwriting, chemical erasure, paper-fibre distortion)
+      - Signature presence and quality
+
+    Returns None if vLLM is not configured (IMMUDB_HOST or SIG_DETECTOR_VISION_URL unset).
+    Returns VisionAnalysis with degraded=True on any vLLM error (never raises).
+    """
+    if not _vision_url:
+        return None
+
+    import httpx
+
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=92)
+    b64 = base64.b64encode(buf.getvalue()).decode()
+
+    model = os.environ.get("SIG_DETECTOR_VISION_MODEL", "Qwen/Qwen2-VL-72B-Instruct")
+    payload = {
+        "model": model,
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
+                {"type": "text", "text": _INTEGRITY_PROMPT},
+            ],
+        }],
+        "max_tokens": 1024,
+        "temperature": 0.0,
+        "extra_body": {"queue": "cts-vision"},
+    }
+
+    try:
+        with httpx.Client(timeout=90.0) as client:
+            r = client.post(f"{_vision_url}/v1/chat/completions", json=payload)
+            r.raise_for_status()
+        content = r.json()["choices"][0]["message"]["content"].strip()
+        if content.startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+        data = json.loads(content)
+    except Exception as exc:
+        log.warning("sig_detector.inspect.vision_error", error=str(exc))
+        return VisionAnalysis(checks=[], model_used=model, degraded=True)
+
+    checks: list[VisionCheck] = []
+
+    wic = data.get("white_ink_cancellation", {})
+    checks.append(VisionCheck(
+        name="white_ink_cancellation",
+        status=CheckStatus.DETECTED if wic.get("detected") else CheckStatus.NOT_DETECTED,
+        confidence=round(float(wic.get("confidence", 0.0)), 3),
+        detail=wic.get("detail") or (f"location: {wic['location']}" if wic.get("location") else None),
+    ))
+
+    sc = data.get("signature_cancellation", {})
+    checks.append(VisionCheck(
+        name="signature_cancellation",
+        status=CheckStatus.DETECTED if sc.get("detected") else CheckStatus.NOT_DETECTED,
+        confidence=round(float(sc.get("confidence", 0.0)), 3),
+        detail=sc.get("detail") or sc.get("method"),
+    ))
+
+    fa = data.get("field_alteration", {})
+    checks.append(VisionCheck(
+        name="field_alteration",
+        status=CheckStatus.DETECTED if fa.get("detected") else CheckStatus.NOT_DETECTED,
+        confidence=round(float(fa.get("confidence", 0.0)), 3),
+        affected_fields=fa.get("affected_fields", []),
+        detail=fa.get("alteration_type"),
+    ))
+
+    sp = data.get("signature_presence", {})
+    count = int(sp.get("count", 0))
+    checks.append(VisionCheck(
+        name="signature_presence",
+        status=CheckStatus.DETECTED if count > 0 else CheckStatus.NOT_DETECTED,
+        confidence=round(float(sp.get("confidence", 0.0)), 3),
+        detail=f"count={count}, quality={sp.get('quality', 'unknown')}",
+    ))
+
+    log.info("sig_detector.inspect.vision_done",
+             tamper_risk=data.get("overall_tamper_risk", 0),
+             checks={c.name: c.status for c in checks})
+
+    return VisionAnalysis(
+        checks=checks,
+        overall_tamper_risk=round(float(data.get("overall_tamper_risk", 0.0)), 3),
+        physical_anomaly_score=round(float(data.get("physical_anomaly_score", 0.0)), 3),
+        model_used=model,
+        degraded=False,
+    )
+
+
 # ── API ───────────────────────────────────────────────────────────────────────
 
 class Detection(BaseModel):
@@ -558,6 +798,198 @@ async def detect_signatures(file: UploadFile = File(...)) -> DetectResponse:
 
     log.info("sig_detector.detected", count=len(detections), mode=_mode)
     return DetectResponse(detections=detections, mode=_mode, image_size=[iw, ih])
+
+
+@app.post("/inspect", response_model=InstrumentPassport)
+async def inspect_instrument(
+    file: UploadFile = File(...),
+    instrument_id: str = Form(default=""),
+    bank_id: str = Form(default="demo"),
+) -> InstrumentPassport:
+    """
+    Full per-instrument passport: pixel analysis (guards A-E, head-trim) +
+    Qwen2-VL integrity check (white ink, cancellation, alteration, signature quality)
+    + ImmuDB audit write.
+
+    Every check result is explicit — DETECTED / NOT_DETECTED / SKIPPED — so the
+    passport is a complete evidence record regardless of what was found.
+    """
+    raw_data = await file.read()
+    try:
+        img = Image.open(io.BytesIO(raw_data)).convert("RGB")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid image: {exc}") from exc
+
+    passport_id = str(uuid.uuid4())
+    if not instrument_id:
+        instrument_id = f"INSP-{passport_id[:8].upper()}"
+    timestamp = datetime.now(timezone.utc).isoformat()
+
+    # ── 1. Pixel analysis (always runs — zero dependencies) ───────────────
+    _, pixel_analysis = _detect_pixel_detailed(img)
+
+    # ── 2. Vision integrity check (only if vLLM is configured) ───────────
+    vision_analysis: Optional[VisionAnalysis] = None
+    if _vision_url:
+        vision_analysis = _inspect_qwen2vl(img)
+
+    # ── 3. Build consolidated summary ─────────────────────────────────────
+    summary: list[SummaryCheck] = []
+
+    # Pixel guard results
+    for g in pixel_analysis.guard_results:
+        summary.append(SummaryCheck(
+            check=f"pixel_guard_{g.guard}",
+            status=CheckStatus.PASS if g.rows_rejected == 0 else CheckStatus.FAIL,
+            confidence=1.0,
+            detail=f"{g.rows_rejected} rows rejected — {g.description}",
+        ))
+
+    summary.append(SummaryCheck(
+        check="pixel_ink_mode",
+        status=CheckStatus.PASS,
+        confidence=1.0,
+        detail=(f"mode={pixel_analysis.ink_mask_mode}, "
+                f"abs_density={pixel_analysis.abs_ink_density:.3f}, "
+                f"qualifying={pixel_analysis.qualifying_rows}/{pixel_analysis.total_rows_with_ink} rows"),
+    ))
+
+    summary.append(SummaryCheck(
+        check="pixel_signature_detected",
+        status=CheckStatus.DETECTED if pixel_analysis.signature_detected else CheckStatus.NOT_DETECTED,
+        confidence=pixel_analysis.confidence,
+        detail=str(pixel_analysis.bbox) if pixel_analysis.bbox else "no qualifying cluster",
+    ))
+
+    if pixel_analysis.head_trim_applied:
+        summary.append(SummaryCheck(
+            check="pixel_annotation_stripped",
+            status=CheckStatus.DETECTED,
+            confidence=1.0,
+            detail=pixel_analysis.head_trim_reason,
+        ))
+
+    # Vision checks or SKIPPED markers
+    if vision_analysis and not vision_analysis.degraded:
+        for vc in vision_analysis.checks:
+            summary.append(SummaryCheck(
+                check=f"vision_{vc.name}",
+                status=vc.status,
+                confidence=vc.confidence,
+                detail=vc.detail,
+            ))
+        summary.append(SummaryCheck(
+            check="vision_tamper_risk",
+            status=(CheckStatus.FAIL if vision_analysis.overall_tamper_risk > 0.4
+                    else CheckStatus.PASS),
+            confidence=vision_analysis.overall_tamper_risk,
+            detail=(f"tamper_risk={vision_analysis.overall_tamper_risk:.3f}, "
+                    f"physical_anomaly={vision_analysis.physical_anomaly_score:.3f}"),
+        ))
+    elif vision_analysis and vision_analysis.degraded:
+        for name in ("white_ink_cancellation", "signature_cancellation",
+                     "field_alteration", "signature_presence"):
+            summary.append(SummaryCheck(
+                check=f"vision_{name}",
+                status=CheckStatus.INCONCLUSIVE,
+                detail="vLLM returned error — result inconclusive",
+            ))
+    else:
+        for name in ("white_ink_cancellation", "signature_cancellation",
+                     "field_alteration", "signature_presence"):
+            summary.append(SummaryCheck(
+                check=f"vision_{name}",
+                status=CheckStatus.SKIPPED,
+                detail="SIG_DETECTOR_VISION_URL not configured",
+            ))
+
+    # ── 4. Overall status ─────────────────────────────────────────────────
+    vision_alert = (
+        vision_analysis is not None
+        and not vision_analysis.degraded
+        and (
+            vision_analysis.overall_tamper_risk > 0.6
+            or any(
+                c.status == CheckStatus.DETECTED
+                for c in vision_analysis.checks
+                if c.name in ("white_ink_cancellation", "signature_cancellation", "field_alteration")
+            )
+        )
+    )
+    if vision_alert:
+        overall_status = "REVIEW_REQUIRED"
+    elif not pixel_analysis.signature_detected:
+        overall_status = "SUSPECT"
+    elif vision_analysis and not vision_analysis.degraded and vision_analysis.overall_tamper_risk > 0.25:
+        overall_status = "SUSPECT"
+    else:
+        overall_status = "CLEAN"
+
+    # ── 5. ImmuDB audit write ─────────────────────────────────────────────
+    immudb_tx_id: Optional[int] = None
+    immudb_key: Optional[str] = None
+    if _immudb_client is not None:
+        try:
+            payload: dict = {
+                "event_type": "CTS_INSTRUMENT_PASSPORT",
+                "bank_id": bank_id,
+                "event_id": passport_id,
+                "instrument_id": instrument_id,
+                "timestamp": timestamp,
+                "overall_status": overall_status,
+                "pixel": {
+                    "ink_mask_mode": pixel_analysis.ink_mask_mode,
+                    "abs_ink_density": pixel_analysis.abs_ink_density,
+                    "qualifying_rows": pixel_analysis.qualifying_rows,
+                    "signature_detected": pixel_analysis.signature_detected,
+                    "bbox": pixel_analysis.bbox,
+                    "head_trim_applied": pixel_analysis.head_trim_applied,
+                    "head_trim_reason": pixel_analysis.head_trim_reason,
+                    "guard_rejections": {g.guard: g.rows_rejected
+                                         for g in pixel_analysis.guard_results},
+                },
+                "vision": (
+                    {
+                        "overall_tamper_risk": vision_analysis.overall_tamper_risk,
+                        "physical_anomaly_score": vision_analysis.physical_anomaly_score,
+                        "model_used": vision_analysis.model_used,
+                        "degraded": vision_analysis.degraded,
+                        "checks": {
+                            c.name: {
+                                "status": c.status.value,
+                                "confidence": c.confidence,
+                                "detail": c.detail,
+                                "affected_fields": c.affected_fields,
+                            }
+                            for c in vision_analysis.checks
+                        },
+                    }
+                    if vision_analysis else None
+                ),
+            }
+            result = _immudb_client.write_event(payload)
+            immudb_tx_id = result.get("tx_id")
+            raw_key = result.get("key", "")
+            immudb_key = raw_key.decode() if isinstance(raw_key, bytes) else str(raw_key)
+            log.info("sig_detector.passport.written",
+                     tx_id=immudb_tx_id, instrument_id=instrument_id,
+                     bank_id=bank_id, status=overall_status)
+        except Exception as exc:
+            log.error("sig_detector.passport.immudb_failed",
+                      instrument_id=instrument_id, error=str(exc))
+
+    return InstrumentPassport(
+        passport_id=passport_id,
+        instrument_id=instrument_id,
+        bank_id=bank_id,
+        timestamp=timestamp,
+        pixel_analysis=pixel_analysis,
+        vision_analysis=vision_analysis,
+        summary=summary,
+        overall_status=overall_status,
+        immudb_tx_id=immudb_tx_id,
+        immudb_key=immudb_key,
+    )
 
 
 @app.get("/health/live", include_in_schema=False)
