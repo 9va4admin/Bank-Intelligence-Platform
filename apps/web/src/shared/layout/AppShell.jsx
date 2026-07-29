@@ -222,6 +222,12 @@ const ROUTE_LABELS = {
   '/branch/history':              ['Branch Portal', 'Session History'],
 }
 
+// Mirrors NavLink's `end` prop: when end=true, only exact match is active.
+// Without this, { to: '/cts', end: true } would match /cts/demo via startsWith.
+function itemMatches({ to, end }, pathname) {
+  return end ? pathname === to : (pathname === to || pathname.startsWith(to + '/'))
+}
+
 function useBreadcrumb(pathname) {
   const matched = Object.entries(ROUTE_LABELS)
     .filter(([key]) => pathname === key || pathname.startsWith(key + '/'))
@@ -417,23 +423,24 @@ function SidebarModule({ mod, collapsed, isDark, isActiveModule, open, onToggle,
   const [expandedSections, setExpandedSections] = useState(() => {
     // Single-open accordion: start with the active section (or the first).
     const active = mod.sections.find((sec) =>
-      sec.items.some(({ to }) => location.pathname === to || location.pathname.startsWith(to + '/'))
+      sec.items.some((item) => itemMatches(item, location.pathname))
     )
     const label = active?.label ?? mod.sections[0]?.label
     return new Set(label ? [label] : [])
   })
 
-  // When navigating to a page inside this module (e.g. via browser back or a
-  // direct link), expand its section so the active item is always visible.
+  // When navigating to a page inside this module, expand its section so the
+  // active item is always visible. itemMatches() respects `end: true` so that
+  // { to: '/cts', end: true } does not falsely match /cts/demo etc.
   useEffect(() => {
     const active = mod.sections.find((sec) =>
-      sec.items.some(({ to }) => location.pathname === to || location.pathname.startsWith(to + '/'))
+      sec.items.some((item) => itemMatches(item, location.pathname))
     )
     if (active) setExpandedSections(new Set([active.label]))
   }, [location.pathname])
 
   const hasActiveItem = mod.sections.some((sec) =>
-    sec.items.some(({ to }) => location.pathname === to || location.pathname.startsWith(to + '/'))
+    sec.items.some((item) => itemMatches(item, location.pathname))
   )
 
   const toggleSection = (label) => {
@@ -514,9 +521,7 @@ function SidebarSection({ section, isDark, location, showHeader, expanded, onTog
     return true
   })
 
-  const hasActive = visibleItems.some(({ to }) =>
-    location.pathname === to || location.pathname.startsWith(to + '/')
-  )
+  const hasActive = visibleItems.some((item) => itemMatches(item, location.pathname))
 
   if (visibleItems.length === 0) return null
 

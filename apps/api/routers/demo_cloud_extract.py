@@ -1231,7 +1231,7 @@ async def _extract_yolov8_sig(
         cx1 = max(0,  int((x1 - 0.008) * iw))    # 0.8 % left
         cy1 = max(0,  int((y1 - 0.025) * ih))     # 2.5 % top  — captures thin ascender hairlines
         cx2 = min(iw, int((x2 + 0.015) * iw))     # 1.5 % right — captures trailing horizontal strokes
-        cy2 = min(ih, int((y2 + 0.015) * ih))     # 1.5 % bottom — denoiser removes printed name
+        cy2 = min(ih, int((y2 + 0.035) * ih))     # 3.5 % bottom — captures descending curvature; denoiser removes printed name
         crop = pil_img.crop((cx1, cy1, cx2, cy2))
         crop = _denoise_sig_crop(crop)
         # Skip if denoised crop is nearly empty — no real handwritten signature
@@ -1298,7 +1298,7 @@ async def _extract_yolov8_sig_only(
         cx1 = max(0,  int((x1 - 0.008) * iw))    # 0.8 % left
         cy1 = max(0,  int((y1 - 0.025) * ih))     # 2.5 % top  — captures thin ascender hairlines
         cx2 = min(iw, int((x2 + 0.015) * iw))     # 1.5 % right — captures trailing horizontal strokes
-        cy2 = min(ih, int((y2 + 0.015) * ih))     # 1.5 % bottom — denoiser removes printed name
+        cy2 = min(ih, int((y2 + 0.035) * ih))     # 3.5 % bottom — captures descending curvature; denoiser removes printed name
         crop = pil_img.crop((cx1, cy1, cx2, cy2))
         crop = _denoise_sig_crop(crop)
         # Skip if denoised crop is nearly empty — no real handwritten signature
@@ -1386,7 +1386,7 @@ async def _extract_indic_devanagari(
         cx1 = max(0,  int((x1 - 0.008) * iw))    # 0.8 % left
         cy1 = max(0,  int((y1 - 0.025) * ih))     # 2.5 % top  — captures thin ascender hairlines
         cx2 = min(iw, int((x2 + 0.015) * iw))     # 1.5 % right — captures trailing horizontal strokes
-        cy2 = min(ih, int((y2 + 0.015) * ih))     # 1.5 % bottom — denoiser removes printed name
+        cy2 = min(ih, int((y2 + 0.035) * ih))     # 3.5 % bottom — captures descending curvature; denoiser removes printed name
         crop = pil_img.crop((cx1, cy1, cx2, cy2))
         crop = _denoise_sig_crop(crop)
         if not _has_real_signature(crop):
