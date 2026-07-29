@@ -251,7 +251,7 @@ export default function CTSCloudAIDemo() {
               <p className={`text-sm ${th.faint}`}>Extracting…</p>
             )}
 
-            {result?.error && (
+            {result?.error && !result.error.startsWith('SIG_DETECTOR_OFFLINE') && (
               <div>
                 <p className="text-sm text-red-500 mb-2">{result.error}</p>
                 {result.raw_response && (
@@ -260,12 +260,24 @@ export default function CTSCloudAIDemo() {
               </div>
             )}
 
-            {result && !result.error && (() => {
-              const isSigOnly       = result.model_used === 'yolov8-sig-only'
+            {result && (!result.error || result.error.startsWith('SIG_DETECTOR_OFFLINE')) && (() => {
+              const isSigOnly         = result.model_used === 'yolov8-sig-only'
               const isIndicDevanagari = result.model_used === 'indic-devanagari'
+              const sigOffline        = result.error?.startsWith('SIG_DETECTOR_OFFLINE')
               return (
                 <div>
-                  {isSigOnly ? (
+                  {sigOffline && (
+                    <div className={`rounded-lg border px-4 py-3 mb-3 ${isDark ? 'bg-amber-900/30 border-amber-700/40 text-amber-200' : 'bg-amber-50 border-amber-300 text-amber-800'}`}>
+                      <p className="text-xs font-semibold mb-0.5">⚠ Sig detector offline</p>
+                      <p className="text-[11px] leading-snug">
+                        Field extraction succeeded. Signature crop unavailable — start the local detector:
+                        {' '}<code className="font-mono">cd apps/sig_detector; python main.py</code>
+                      </p>
+                    </div>
+                  )}
+                  {isSigOnly && sigOffline ? (
+                    null  /* sig-only + offline: banner above is the only output */
+                  ) : isSigOnly ? (
                     <div className={`rounded-lg border px-4 py-3 mb-3 ${isDark ? 'bg-indigo-900/30 border-indigo-700/40 text-indigo-200' : 'bg-indigo-50 border-indigo-200 text-indigo-800'}`}>
                       <p className="text-xs font-semibold mb-0.5">🔍 Sig-only mode</p>
                       <p className="text-[11px] leading-snug">
@@ -329,7 +341,7 @@ export default function CTSCloudAIDemo() {
         </div>
 
         {/* ── Signature Crops — shown below both columns once extraction completes ── */}
-        {result && !result.error && (
+        {result && (!result.error || result.error.startsWith('SIG_DETECTOR_OFFLINE')) && (
           <div className={`mt-5 rounded-xl border p-5 ${th.card}`}>
             <div className="flex items-center justify-between mb-3">
               <h3 className={`text-sm font-semibold ${th.heading}`}>
@@ -381,9 +393,11 @@ export default function CTSCloudAIDemo() {
               </div>
             ) : (
               <p className={`text-sm ${th.faint}`}>
-                {result.signature_present
-                  ? 'Signature present · region could not be isolated from this scan.'
-                  : 'No signature detected on this cheque.'}
+                {result.error?.startsWith('SIG_DETECTOR_OFFLINE')
+                  ? 'Sig detector offline — start it with: cd apps/sig_detector; python main.py'
+                  : result.signature_present
+                    ? 'Signature present · region could not be isolated from this scan.'
+                    : 'No signature detected on this cheque.'}
               </p>
             )}
 

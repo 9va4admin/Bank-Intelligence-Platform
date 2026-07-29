@@ -1191,18 +1191,18 @@ async def _extract_yolov8_sig(
     else:
         yolo_detections, yolo_available = yolo_detections
 
-    # Hard stop when service is down — do NOT silently produce a VLM result
-    # under the yolov8-sig label. The user picked this model deliberately.
+    # Sig detector offline: degrade gracefully — Qwen already extracted fields,
+    # so return those results with an offline warning instead of failing the
+    # whole request. Signature crop section will be empty.
+    sig_offline_error: Optional[str] = None
     if not yolo_available:
         sig_url = await _resolve_sig_detector_url(ctx.bank_id)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                f"YOLOv8 sig detector is not running at {sig_url}. "
-                "Start it with:  cd apps/sig_detector; python main.py  "
-                "(or Docker:  docker run -p 8020:8020 astra-sig-detector)"
-            ),
+        sig_offline_error = (
+            f"SIG_DETECTOR_OFFLINE — start with: "
+            f"cd apps/sig_detector; python main.py  (expected at {sig_url})"
         )
+        log.warning("demo.cloud_extract.sig_detector_offline_degraded",
+                    bank_id=ctx.bank_id, url=sig_url)
 
     raw_text = fields_resp.choices[0].message.content
     cleaned  = _clean_json_response(raw_text)
@@ -1257,6 +1257,7 @@ async def _extract_yolov8_sig(
         model_used="yolov8-sig + qwen-32b",
         signature_crops=signature_crops if signature_crops else None,
         signature_crops_estimated=False,
+        error=sig_offline_error,
         **response_fields,
     )
 
@@ -1278,12 +1279,14 @@ async def _extract_yolov8_sig_only(
 
     if not yolo_available:
         sig_url = await _resolve_sig_detector_url(ctx.bank_id)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                f"YOLOv8 sig detector is not running at {sig_url}. "
-                "Start it with:  cd apps/sig_detector; python main.py  "
-                "(or Docker:  docker run -p 8020:8020 astra-sig-detector)"
+        log.warning("demo.cloud_extract.sig_only_detector_offline",
+                    bank_id=ctx.bank_id, url=sig_url)
+        return CloudExtractResponse(
+            model_used="yolov8-sig-only",
+            signature_present=False,
+            error=(
+                f"SIG_DETECTOR_OFFLINE — start with: "
+                f"cd apps/sig_detector; python main.py  (expected at {sig_url})"
             ),
         )
 
@@ -1360,6 +1363,7 @@ async def _extract_indic_devanagari(
     else:
         indic_fields, indic_available = indic_result
 
+    # Both services down — nothing useful to return
     if not yolo_available and not indic_available:
         sig_url   = await _resolve_sig_detector_url(ctx.bank_id)
         indic_url = await _resolve_indic_ocr_url(ctx.bank_id)
@@ -1373,6 +1377,17 @@ async def _extract_indic_devanagari(
                 f"(expected at {indic_url})."
             ),
         )
+
+    # Only YOLO down — IndicOCR fields still available; note the partial degradation
+    indic_sig_offline_error: Optional[str] = None
+    if not yolo_available:
+        sig_url = await _resolve_sig_detector_url(ctx.bank_id)
+        indic_sig_offline_error = (
+            f"SIG_DETECTOR_OFFLINE — start with: "
+            f"cd apps/sig_detector; python main.py  (expected at {sig_url})"
+        )
+        log.warning("demo.cloud_extract.indic_sig_detector_offline",
+                    bank_id=ctx.bank_id, url=sig_url)
 
     # Build sig crops from YOLO detections
     signature_crops: list[str] = []
@@ -1417,6 +1432,7 @@ async def _extract_indic_devanagari(
         signature_bboxes=sig_bboxes_out if sig_bboxes_out else None,
         signature_crops=signature_crops if signature_crops else None,
         signature_crops_estimated=False,
+        error=indic_sig_offline_error,
     )
 
 
