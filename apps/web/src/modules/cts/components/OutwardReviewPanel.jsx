@@ -114,6 +114,24 @@ function buildFallbackMeta(ocr) {
   return out
 }
 
+// ── Score pill (AI confidence card) ──────────────────────────────────────────
+
+function ScorePill({ label, value, isDark }) {
+  const pct = Math.round((value ?? 0) * 100)
+  const color = (value ?? 0) >= 0.95 ? 'emerald' : (value ?? 0) >= 0.85 ? 'amber' : 'red'
+  const colors = {
+    emerald: isDark ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' : 'text-emerald-700 bg-emerald-50 border-emerald-300',
+    amber:   isDark ? 'text-amber-400 bg-amber-500/10 border-amber-500/30'       : 'text-amber-700 bg-amber-50 border-amber-300',
+    red:     isDark ? 'text-red-400 bg-red-500/10 border-red-500/30'             : 'text-red-700 bg-red-50 border-red-300',
+  }
+  return (
+    <div className={`flex flex-col items-center px-3 py-2 rounded-lg border text-center ${colors[color]}`}>
+      <span className="text-xs font-bold">{pct}%</span>
+      <span className="text-[9px] font-medium">{label}</span>
+    </div>
+  )
+}
+
 // ── IQA score card ────────────────────────────────────────────────────────────
 
 function IQACard({ label, score, isDark }) {
@@ -309,10 +327,10 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1">
-          {['images', 'ocr fields', 'cts-2010'].map(t => (
+        <div className="flex gap-1 overflow-x-auto">
+          {['images', 'ocr fields', 'cts-2010', 'ai analysis', 'passport'].map(t => (
             <button key={t} onClick={() => setTab(t)}
-              className={`px-4 py-1.5 text-xs font-medium rounded-t-lg capitalize transition-colors ${tab === t ? th.tabActive : th.tabIdle}`}
+              className={`px-4 py-1.5 text-xs font-medium rounded-t-lg capitalize transition-colors whitespace-nowrap ${tab === t ? th.tabActive : th.tabIdle}`}
             >{t}</button>
           ))}
         </div>
@@ -386,6 +404,156 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
             ))}
           </div>
         )}
+
+        {tab === 'ai analysis' && (
+          <div className="space-y-5">
+            {/* Score pills */}
+            <div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2.5 ${th.lbl}`}>AI Confidence</div>
+              <div className="grid grid-cols-2 gap-2">
+                <ScorePill label="OCR Accuracy"    value={item.ocr_confidence}     isDark={isDark} />
+                <ScorePill label="Vision / CTS-10" value={item.vision_compliance}  isDark={isDark} />
+                <ScorePill label="MICR Confidence" value={item.micr_confidence}    isDark={isDark} />
+                <ScorePill label="IQA Overall"     value={overallIqa > 0 ? overallIqa : null} isDark={isDark} />
+              </div>
+            </div>
+
+            {/* Field confidence */}
+            <div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2.5 ${th.lbl}`}>Field Confidence</div>
+              <div className={`rounded-lg border overflow-hidden text-[11px] ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                {Object.entries(meta).map(([key, m]) => {
+                  if (!m || m.extracted_confidence == null) return null
+                  const label = { date: 'Date', payee: 'Payee', amount_figures: 'Amount', amount_words: 'Amount (words)', micr: 'MICR', alterations: 'Alterations' }[key] ?? key
+                  const conf = m.extracted_confidence
+                  const pct = Math.round(conf * 100)
+                  const confColor = conf >= 0.95 ? (isDark ? 'text-emerald-400' : 'text-emerald-700') : conf >= 0.85 ? (isDark ? 'text-amber-400' : 'text-amber-700') : (isDark ? 'text-red-400' : 'text-red-700')
+                  return (
+                    <div key={key} className={`flex items-center gap-3 px-3 py-2 border-b last:border-b-0 ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+                      <span className={`w-28 shrink-0 ${th.lbl}`}>{label}</span>
+                      <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-200'}`}>
+                        <div className={`h-full rounded-full ${conf >= 0.95 ? 'bg-emerald-500' : conf >= 0.85 ? 'bg-amber-400' : 'bg-red-500'}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className={`w-10 text-right font-mono font-semibold ${confColor}`}>{pct}%</span>
+                      <span className={`w-14 text-right text-[9px] font-bold ${m.source === 'STP' ? (isDark ? 'text-emerald-400' : 'text-emerald-700') : (isDark ? 'text-amber-400' : 'text-amber-700')}`}>{m.source}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Risk signals */}
+            <div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>Risk Signals</div>
+              <div className={`rounded-lg border p-3 space-y-2 text-[11px] ${
+                (!item.checks?.cts_valid || !item.checks?.date_valid)
+                  ? (isDark ? 'bg-red-500/8 border-red-500/25' : 'bg-red-50 border-red-300')
+                  : (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-200')
+              }`}>
+                {[
+                  { label: 'Amount words match', val: item.checks?.amount_words_match ? '✓ Match' : '⚠ Mismatch', warn: !item.checks?.amount_words_match },
+                  { label: 'Date valid',          val: item.checks?.date_valid         ? '✓ Valid'  : '⚠ Invalid',  warn: !item.checks?.date_valid         },
+                  { label: 'CTS-2010 compliant',  val: item.checks?.cts_valid          ? '✓ Pass'   : '⚠ Fail',     warn: !item.checks?.cts_valid          },
+                  { label: 'Alteration detected', val: item.ocr_fields?.alterations    ? '⚠ Yes'    : '✓ None',     warn: !!item.ocr_fields?.alterations   },
+                ].map(({ label, val, warn }) => (
+                  <div key={label} className="flex items-center justify-between">
+                    <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{label}</span>
+                    <span className={`font-mono font-semibold ${warn ? (isDark ? 'text-red-400' : 'text-red-700') : (isDark ? 'text-emerald-400' : 'text-emerald-700')}`}>{val}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Model attribution */}
+            <div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>Model Attribution</div>
+              <div className="space-y-1.5 text-[11px]">
+                {[
+                  { task: 'OCR / MICR',        model: 'GOT-OCR2.0'            },
+                  { task: 'Vision / CTS-2010',  model: 'Qwen2-VL 72B'          },
+                  { task: 'Compliance check',   model: 'CTS-2010 Validator v3' },
+                ].map(({ task, model }) => (
+                  <div key={task} className="flex items-center justify-between">
+                    <span className={th.lbl}>{task}</span>
+                    <span className={`font-mono ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{model}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'passport' && (() => {
+          const ocr = item.ocr_fields ?? {}
+          const DCFG = {
+            PAY_IN_SLIP:     { label: 'Pay-in Slip', icon: '🧾' },
+            BACK_ANNOTATION: { label: 'Back Note',   icon: '✍️' },
+            KIOSK:           { label: 'Kiosk / CDM', icon: '🏧' },
+          }
+          const dd = item.deposit_data ?? {}
+          const depositRows =
+            item.deposit_channel === 'PAY_IN_SLIP' ? [
+              { label: 'Depositor',    value: dd.depositor_name    },
+              { label: 'Dep. Account', value: dd.depositor_account },
+              { label: 'Deposit Amt',  value: dd.deposit_amount    },
+              { label: 'Token',        value: dd.counter_token     },
+              { label: 'Dep. Branch',  value: dd.branch            },
+            ] : item.deposit_channel === 'BACK_ANNOTATION' ? [
+              { label: 'Ext. Account', value: dd.extracted_account },
+              { label: 'Ext. Mobile',  value: dd.extracted_mobile  },
+            ] : item.deposit_channel === 'KIOSK' ? [
+              { label: 'Depositor',    value: dd.name      },
+              { label: 'CDM Account',  value: dd.account   },
+              { label: 'Txn ID',       value: dd.txn_id    },
+              { label: 'Timestamp',    value: dd.timestamp },
+            ] : []
+
+          return (
+            <div>
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-3 ${th.lbl}`}>Cheque Passport</div>
+              <div className={`rounded-xl border divide-y text-xs ${isDark ? 'border-white/10 divide-white/5' : 'border-slate-200 divide-slate-100'}`}>
+                {/* Header */}
+                <div className={`flex items-center justify-between px-4 py-2.5 ${isDark ? 'bg-white/3' : 'bg-slate-50'}`}>
+                  <span className={`font-mono text-sm font-bold ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>{item.instrument_id}</span>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${isDark ? 'border-amber-500/40 bg-amber-500/10 text-amber-400' : 'border-amber-400 bg-amber-50 text-amber-700'}`}>
+                    {item.reason_label ?? item.reason}
+                  </span>
+                </div>
+                {/* Cheque fields */}
+                {[
+                  { label: 'Payee',          value: ocr.payee           },
+                  { label: 'Amount',         value: ocr.amount_figures  },
+                  { label: 'Amount (words)', value: ocr.amount_words    },
+                  { label: 'Date',           value: ocr.date            },
+                  { label: 'MICR',           value: ocr.micr            },
+                  { label: 'Account',        value: item.account_display },
+                  { label: 'Drawee Bank',    value: ocr.bank_name       },
+                  { label: 'Branch',         value: ocr.bank_branch     },
+                  { label: 'IFSC',           value: ocr.bank_ifsc       },
+                ].filter(r => r.value).map(({ label, value }) => (
+                  <div key={label} className="flex items-start gap-3 px-4 py-2">
+                    <span className={`w-28 shrink-0 ${th.lbl}`}>{label}</span>
+                    <span className={`font-mono ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{value}</span>
+                  </div>
+                ))}
+                {/* Deposit channel section */}
+                {item.deposit_channel && depositRows.length > 0 && (
+                  <>
+                    <div className={`px-4 py-1.5 text-[9px] font-semibold uppercase tracking-wider ${isDark ? 'bg-white/2 text-slate-500' : 'bg-slate-50 text-slate-400'}`}>
+                      {DCFG[item.deposit_channel]?.icon} {DCFG[item.deposit_channel]?.label ?? item.deposit_channel}
+                    </div>
+                    {depositRows.filter(r => r.value).map(({ label, value }) => (
+                      <div key={label} className="flex items-start gap-3 px-4 py-2">
+                        <span className={`w-28 shrink-0 ${th.lbl}`}>{label}</span>
+                        <span className={`font-mono ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{value}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Footer */}
