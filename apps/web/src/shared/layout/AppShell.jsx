@@ -1,4 +1,4 @@
-import { useState, useContext } from 'react'
+import { useState, useContext, useEffect } from 'react'
 import { NavLink, Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../theme/ThemeContext'
 import { PageHeaderCtx } from './PageHeaderContext'
@@ -246,6 +246,16 @@ export default function AppShell({ children }) {
   const [section, page] = useBreadcrumb(location.pathname)
   const currentModule = activeModuleId(location.pathname)
 
+  // Single-open accordion: track which top-level module is expanded.
+  // Initialise to the active module so the correct panel opens on load.
+  const [openModuleId, setOpenModuleId] = useState(currentModule)
+
+  // When the user navigates to a page in a different module (e.g. via a
+  // direct link or browser back), auto-expand that module and collapse the rest.
+  useEffect(() => {
+    setOpenModuleId(currentModule)
+  }, [currentModule])
+
   const darkGradient = 'linear-gradient(145deg, #020917 0%, #0e1654 38%, #060d2e 65%, #03061a 100%)'
 
   const th = {
@@ -313,6 +323,8 @@ export default function AppShell({ children }) {
               collapsed={collapsed}
               isDark={isDark}
               isActiveModule={currentModule === mod.id}
+              open={openModuleId === mod.id}
+              onToggle={() => setOpenModuleId((id) => (id === mod.id ? null : mod.id))}
               location={location}
               isSB={isSB}
               isSMB={isSMB}
@@ -401,16 +413,24 @@ export default function AppShell({ children }) {
 
 // ── SidebarModule ────────────────────────────────────────────────────────────
 
-function SidebarModule({ mod, collapsed, isDark, isActiveModule, location, isSB, isSMB, hasPermission }) {
-  const [open, setOpen] = useState(isActiveModule)
+function SidebarModule({ mod, collapsed, isDark, isActiveModule, open, onToggle, location, isSB, isSMB, hasPermission }) {
   const [expandedSections, setExpandedSections] = useState(() => {
-    // Single-open accordion: start with just the active section (or the first).
+    // Single-open accordion: start with the active section (or the first).
     const active = mod.sections.find((sec) =>
       sec.items.some(({ to }) => location.pathname === to || location.pathname.startsWith(to + '/'))
     )
     const label = active?.label ?? mod.sections[0]?.label
     return new Set(label ? [label] : [])
   })
+
+  // When navigating to a page inside this module (e.g. via browser back or a
+  // direct link), expand its section so the active item is always visible.
+  useEffect(() => {
+    const active = mod.sections.find((sec) =>
+      sec.items.some(({ to }) => location.pathname === to || location.pathname.startsWith(to + '/'))
+    )
+    if (active) setExpandedSections(new Set([active.label]))
+  }, [location.pathname])
 
   const hasActiveItem = mod.sections.some((sec) =>
     sec.items.some(({ to }) => location.pathname === to || location.pathname.startsWith(to + '/'))
@@ -443,7 +463,7 @@ function SidebarModule({ mod, collapsed, isDark, isActiveModule, location, isSB,
     <div className="mb-1">
       {/* Module header */}
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={onToggle}
         className={`w-full flex items-center gap-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-widest transition-all ${
           hasActiveItem
             ? (isDark ? 'text-gold-400' : 'text-amber-600')
