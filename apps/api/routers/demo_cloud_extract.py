@@ -1219,17 +1219,19 @@ async def _extract_yolov8_sig(
     signature_crops: list[str] = []
     sig_bboxes_out: list[list[float]] = []
 
-    # YOLOv8 returns tight stroke-only bboxes — crop directly, no whiteout.
+    # YOLOv8 returns tight stroke-only bboxes — crop with generous padding so
+    # thin hairline ascenders (top) and trailing horizontal strokes (right/bottom)
+    # are not clipped.  The denoiser removes any printed name that falls in the
+    # expanded bottom strip.
     for det in yolo_detections:
         bbox = det.get("bbox", [])
         if len(bbox) != 4:
             continue
         x1, y1, x2, y2 = bbox
-        pad_y = 0.008
-        cx1 = max(0,  int((x1 - 0.005) * iw))   # small left pad only
-        cy1 = max(0,  int((y1 - pad_y) * ih))
-        cx2 = min(iw, int(x2 * iw))              # no right pad — avoids signature box border
-        cy2 = min(ih, int((y2 + pad_y) * ih))
+        cx1 = max(0,  int((x1 - 0.008) * iw))    # 0.8 % left
+        cy1 = max(0,  int((y1 - 0.025) * ih))     # 2.5 % top  — captures thin ascender hairlines
+        cx2 = min(iw, int((x2 + 0.015) * iw))     # 1.5 % right — captures trailing horizontal strokes
+        cy2 = min(ih, int((y2 + 0.015) * ih))     # 1.5 % bottom — denoiser removes printed name
         crop = pil_img.crop((cx1, cy1, cx2, cy2))
         crop = _denoise_sig_crop(crop)
         # Skip if denoised crop is nearly empty — no real handwritten signature
@@ -1293,10 +1295,10 @@ async def _extract_yolov8_sig_only(
         if len(bbox) != 4:
             continue
         x1, y1, x2, y2 = bbox
-        cx1 = max(0,  int((x1 - 0.005) * iw))   # small left pad only
-        cy1 = max(0,  int((y1 - 0.008) * ih))
-        cx2 = min(iw, int(x2 * iw))              # no right pad — avoids signature box border
-        cy2 = min(ih, int((y2 + 0.008) * ih))
+        cx1 = max(0,  int((x1 - 0.008) * iw))    # 0.8 % left
+        cy1 = max(0,  int((y1 - 0.025) * ih))     # 2.5 % top  — captures thin ascender hairlines
+        cx2 = min(iw, int((x2 + 0.015) * iw))     # 1.5 % right — captures trailing horizontal strokes
+        cy2 = min(ih, int((y2 + 0.015) * ih))     # 1.5 % bottom — denoiser removes printed name
         crop = pil_img.crop((cx1, cy1, cx2, cy2))
         crop = _denoise_sig_crop(crop)
         # Skip if denoised crop is nearly empty — no real handwritten signature
@@ -1381,10 +1383,10 @@ async def _extract_indic_devanagari(
         if len(bbox) != 4:
             continue
         x1, y1, x2, y2 = bbox
-        cx1 = max(0,  int((x1 - 0.005) * iw))
-        cy1 = max(0,  int((y1 - 0.008) * ih))
-        cx2 = min(iw, int(x2 * iw))
-        cy2 = min(ih, int((y2 + 0.008) * ih))
+        cx1 = max(0,  int((x1 - 0.008) * iw))    # 0.8 % left
+        cy1 = max(0,  int((y1 - 0.025) * ih))     # 2.5 % top  — captures thin ascender hairlines
+        cx2 = min(iw, int((x2 + 0.015) * iw))     # 1.5 % right — captures trailing horizontal strokes
+        cy2 = min(ih, int((y2 + 0.015) * ih))     # 1.5 % bottom — denoiser removes printed name
         crop = pil_img.crop((cx1, cy1, cx2, cy2))
         crop = _denoise_sig_crop(crop)
         if not _has_real_signature(crop):
