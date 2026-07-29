@@ -150,8 +150,33 @@ def debug(img_path: str) -> None:
 
     print(f"Clusters: {len(clusters)}  qualifying: {len(qualifying)}")
     best = max(qualifying, key=len)
-    print(f"Best cluster: rows {best[0][0]}–{best[-1][0]}  "
+    print(f"Best cluster: rows {best[0][0]}-{best[-1][0]}  "
           f"({len(best)} rows)  y_zone={best[-1][0]}/{zh} ({best[-1][0]/zh*100:.0f}%)")
+
+    # Head-trim: drop leading annotation cluster (KUMAR/NKIT) if it merged
+    # under MERGE_GAP=10 but is < 25% of the tail body
+    TIGHT_GAP = 5
+    if len(best) > 10:
+        sub_clusters = []
+        sub_cur = [best[0]]
+        for i in range(1, len(best)):
+            if best[i][0] - best[i-1][0] <= TIGHT_GAP:
+                sub_cur.append(best[i])
+            else:
+                sub_clusters.append(sub_cur)
+                sub_cur = [best[i]]
+        sub_clusters.append(sub_cur)
+        if len(sub_clusters) >= 2:
+            head = sub_clusters[0]
+            tail_rows = sum(len(s) for s in sub_clusters[1:])
+            sizes = [len(s) for s in sub_clusters]
+            if len(head) < tail_rows * 0.15:
+                print(f"  Head-trim: {len(head)} head rows < 15% of {tail_rows} tail rows "
+                      f"(sizes: {sizes}) -- dropping head annotation cluster")
+                best = [r for s in sub_clusters[1:] for r in s]
+            else:
+                print(f"  No head-trim: head={len(head)} >= 15% of tail={tail_rows} "
+                      f"(sizes: {sizes}) -- keeping as signature fragment")
 
     # Trim far-left outlier rows (border lines, background text)
     lefts_s = sorted(r[1] for r in best)
