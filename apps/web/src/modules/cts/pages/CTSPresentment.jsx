@@ -558,6 +558,7 @@ function DetailPanel({ item, isDark }) {
               bank_micr:       item.drawee_micr,
               deposit_channel: item.deposit_channel,
               deposit_data:    item.deposit_data,
+              iqa_fail_reason: item.iqa_fail_reason ?? null,
             }}
             isDark={isDark}
             compact={false}
