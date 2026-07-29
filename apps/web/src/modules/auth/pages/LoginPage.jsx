@@ -107,7 +107,7 @@ export default function LoginPage() {
   async function finish(data) {
     if (data && data.csrf_token) sessionStorage.setItem('astra-csrf', data.csrf_token)
     await refresh()          // re-resolve session so RequireAuth lets us in
-    navigate('/')
+    navigate('/cts/ops-dashboard')
   }
 
   return (
