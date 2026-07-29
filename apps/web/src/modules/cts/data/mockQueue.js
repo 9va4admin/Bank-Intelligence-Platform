@@ -6,7 +6,7 @@ const mins = (m) => now + m * 60 * 1000
 export const MOCK_QUEUE = [
   {
     instrument_id: 'CHQ-2026-001847',
-    front_bw_url: demoChequeUrl(42), front_gray_url: demoChequeUrl(43),
+    front_bw_url: demoChequeUrl(42), front_gray_url: demoChequeUrl(42),
     bank: 'Vasavi Co-operative Bank',
     branch: 'Andheri (W)',
     bank_slug: 'smb-mh-vasavi',
@@ -49,7 +49,7 @@ export const MOCK_QUEUE = [
   },
   {
     instrument_id: 'CHQ-2026-001851',
-    front_bw_url: demoChequeUrl(44), front_gray_url: demoChequeUrl(45),
+    front_bw_url: demoChequeUrl(44), front_gray_url: demoChequeUrl(44),
     bank: 'Saraswat Co-operative Bank',
     branch: 'Fort',
     bank_slug: 'saraswat-coop',
@@ -89,7 +89,7 @@ export const MOCK_QUEUE = [
   },
   {
     instrument_id: 'CHQ-2026-001863',
-    front_bw_url: demoChequeUrl(46), front_gray_url: demoChequeUrl(47),
+    front_bw_url: demoChequeUrl(46), front_gray_url: demoChequeUrl(46),
     bank: 'Saraswat Co-operative Bank',
     branch: 'Dadar (E)',
     bank_slug: 'saraswat-coop',
@@ -129,7 +129,7 @@ export const MOCK_QUEUE = [
   },
   {
     instrument_id: 'CHQ-2026-001877',
-    front_bw_url: demoChequeUrl(48), front_gray_url: demoChequeUrl(49),
+    front_bw_url: demoChequeUrl(48), front_gray_url: demoChequeUrl(48),
     bank: 'Andheri Urban Co-op Bank',
     branch: 'Andheri (E)',
     bank_slug: 'smb-mh-andheri',
@@ -172,7 +172,7 @@ export const MOCK_QUEUE = [
   },
   {
     instrument_id: 'CHQ-2026-001882',
-    front_bw_url: demoChequeUrl(50), front_gray_url: demoChequeUrl(51),
+    front_bw_url: demoChequeUrl(50), front_gray_url: demoChequeUrl(50),
     bank: 'Saraswat Co-operative Bank',
     branch: 'Vashi',
     bank_slug: 'saraswat-coop',
@@ -213,7 +213,7 @@ export const MOCK_QUEUE = [
   },
   {
     instrument_id: 'CHQ-2026-001895',
-    front_bw_url: demoChequeUrl(52), front_gray_url: demoChequeUrl(53),
+    front_bw_url: demoChequeUrl(52), front_gray_url: demoChequeUrl(52),
     bank: 'Saraswat Co-operative Bank',
     branch: 'Thane (W)',
     bank_slug: 'saraswat-coop',

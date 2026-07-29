@@ -97,8 +97,8 @@ function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001
       amount_words_match: iqaFail ? null : Math.random() > 0.04,
       date_valid: iqaFail ? null : Math.random() > 0.02,
       cts_valid: iqaFail ? null : Math.random() > 0.01,
-      front_bw_url:   demoChequeUrl(idx * 2),
-      front_gray_url: demoChequeUrl(idx * 2 + 1),
+      front_bw_url:   demoChequeUrl(idx),
+      front_gray_url: demoChequeUrl(idx),
       scanner_id: `SCN-${String((idx % 4) + 1).padStart(2, '0')}`,
       captured_at: new Date(Date.now() - (n - idx) * 4200).toISOString(),
       ngch_ack_id: ['NGCH_ACK', 'NGCH_REJECT'].includes(status)
