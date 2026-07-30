@@ -1238,3 +1238,122 @@ async def submit_outward_scan(
         status="ACCEPTED",
         path=path,
     )
+
+
+# ---------------------------------------------------------------------------
+# IFSC Registry — CRUD routes
+# ---------------------------------------------------------------------------
+# Maker-checker model:
+#   ops_manager  — POST (create, status=PENDING)
+#   bank_it_admin — PUT /{id}/approve (activate) and DELETE /{id} (deactivate)
+#   Any authenticated user — GET list / GET by ID
+# ---------------------------------------------------------------------------
+
+from modules.cts.ifsc.models import IFSCCreateRequest, IFSCEntry, IFSCListResponse
+from modules.cts.ifsc.repository import IFSCDuplicateError
+
+
+def _get_ifsc_repo(request: Request):
+    repo = getattr(request.app.state, "ifsc_repo", None)
+    if repo is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="IFSC registry unavailable",
+        )
+    return repo
+
+
+@router_v1.get("/ifsc-registry", response_model=IFSCListResponse)
+async def list_ifsc_registry(
+    request: Request,
+    bank_type: Optional[str] = None,
+    smb_id: Optional[str] = None,
+    active_only: bool = True,
+    limit: int = 50,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> IFSCListResponse:
+    """List IFSC entries for the authenticated bank. Optionally filter by bank_type or smb_id."""
+    repo = _get_ifsc_repo(request)
+    entries = await repo.list_ifsc(
+        ctx.bank_id,
+        bank_type=bank_type,
+        smb_id=smb_id,
+        active_only=active_only,
+        limit=min(limit, 100),
+    )
+    return IFSCListResponse(items=entries, total=len(entries), bank_id=ctx.bank_id)
+
+
+@router_v1.get("/ifsc-registry/{entry_id}", response_model=IFSCEntry)
+async def get_ifsc_by_id(
+    entry_id: str,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> IFSCEntry:
+    """Fetch a single IFSC registry entry by UUID."""
+    repo = _get_ifsc_repo(request)
+    entry = await repo.get_ifsc_by_id(entry_id)
+    if entry is None or entry.bank_id != ctx.bank_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="IFSC entry not found")
+    return entry
+
+
+@router_v1.post("/ifsc-registry", response_model=IFSCEntry, status_code=status.HTTP_201_CREATED)
+async def create_ifsc(
+    body: IFSCCreateRequest,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> IFSCEntry:
+    """
+    Create a new IFSC entry (status=PENDING, maker step).
+    Requires ops_manager role.
+    """
+    if ctx.role.value not in ("ops_manager", "bank_it_admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="ops_manager role required")
+    repo = _get_ifsc_repo(request)
+    try:
+        entry = await repo.create_ifsc(ctx.bank_id, body, created_by=ctx.user_id)
+    except IFSCDuplicateError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    log.info("ifsc_registry.created", ifsc_code=body.ifsc_code, bank_id=ctx.bank_id, created_by=ctx.user_id)
+    return entry
+
+
+@router_v1.put("/ifsc-registry/{entry_id}/approve", response_model=IFSCEntry)
+async def approve_ifsc(
+    entry_id: str,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> IFSCEntry:
+    """
+    Approve a PENDING IFSC entry → ACTIVE (checker step).
+    Requires bank_it_admin role.
+    """
+    if ctx.role.value != "bank_it_admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="bank_it_admin role required")
+    repo = _get_ifsc_repo(request)
+    entry = await repo.approve_ifsc(entry_id, approved_by=ctx.user_id)
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="IFSC entry not found")
+    log.info("ifsc_registry.approved", entry_id=entry_id, bank_id=ctx.bank_id, approved_by=ctx.user_id)
+    return entry
+
+
+@router_v1.delete("/ifsc-registry/{entry_id}", response_model=IFSCEntry)
+async def deactivate_ifsc(
+    entry_id: str,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> IFSCEntry:
+    """
+    Deactivate an ACTIVE IFSC entry → INACTIVE (soft delete, never hard delete).
+    Requires bank_it_admin role.
+    """
+    if ctx.role.value != "bank_it_admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="bank_it_admin role required")
+    repo = _get_ifsc_repo(request)
+    entry = await repo.deactivate_ifsc(entry_id, updated_by=ctx.user_id)
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="IFSC entry not found")
+    log.info("ifsc_registry.deactivated", entry_id=entry_id, bank_id=ctx.bank_id, updated_by=ctx.user_id)
+    return entry
