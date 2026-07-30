@@ -366,6 +366,31 @@ class ChequeProcessingWorkflow:
                 f"Stop payment check: {stop_result.stop_reason or 'bloom_hit'}",
             )
 
+        # Step 3a: validate_ifsc — confirm presentment IFSC belongs to this bank / SMB
+        from modules.cts.workflows.activities.ifsc_validator import (
+            IFSCValidatorInput, validate_ifsc,
+        )
+        if inp.ngch_ifsc:
+            ifsc_result = await workflow.execute_activity(
+                validate_ifsc,
+                args=[
+                    IFSCValidatorInput(
+                        instrument_id=inp.instrument_id,
+                        bank_id=inp.bank_id,
+                        ifsc_to_validate=inp.ngch_ifsc,
+                        smb_id=inp.smb_id,
+                    ),
+                    None,  # repo — worker-level DI
+                ],
+                start_to_close_timeout=timedelta(seconds=10),
+                retry_policy=_CBS_RETRY,
+            )
+            if ifsc_result.outcome == "HUMAN_REVIEW":
+                return await finalise(
+                    "HUMAN_REVIEW",
+                    f"IFSC registry: {ifsc_result.reason or 'IFSC_NOT_IN_REGISTRY'}",
+                )
+
         # Step 3b: validate_cheque_series — CBS check for lost/stolen/cancelled/used leaves
         from modules.cts.workflows.activities.cheque_series import (
             ChequeSeriesActivityInput, validate_cheque_series,
@@ -628,6 +653,17 @@ class ChequeProcessingWorkflow:
                 bank_id=inp.bank_id,
                 decision="HUMAN_REVIEW",
                 rationale=f"Stop payment check: {stop_payment_result.stop_reason or 'bloom_hit_or_cbs_unavailable'}",
+                shap_values={},
+            )
+
+        # Step 4a: IFSC registry validation
+        ifsc_result = mock_results.get("ifsc")
+        if ifsc_result is not None and ifsc_result.outcome == "HUMAN_REVIEW":
+            return ChequeWorkflowResult(
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                decision="HUMAN_REVIEW",
+                rationale=f"IFSC registry: {ifsc_result.reason or 'IFSC_NOT_IN_REGISTRY'}",
                 shap_values={},
             )
 
