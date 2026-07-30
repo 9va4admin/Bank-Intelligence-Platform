@@ -1,35 +1,38 @@
 """
 IndicOCR Microservice — Devanagari OCR for Indian cheque field zones.
 
-Two backends, both kept available at runtime:
+Three backends (select via INDIC_OCR_BACKEND env var or ?backend= per request):
 
-  ai4bharat  (default) — AI4Bharat ilocr; trained on Indian scripts; higher
-                          accuracy on printed Devanagari bank fonts.
-                          Install: pip install ilocr
-                          Downloads ~150 MB model to ~/.ilocr/ on first run.
+  paddle      (default) — PaddleOCR with Hindi model.  Pip-installable, offline,
+                          better accuracy than EasyOCR on printed Indian bank fonts.
+                          Install: pip install paddlepaddle paddleocr
+                          GPU:     pip install paddlepaddle-gpu paddleocr
+                          Downloads ~80 MB Hindi model to ~/.paddleocr/ on first run.
 
-  easyocr              — EasyOCR 'hi' language pack; general-purpose;
-                          useful as a quick fallback or for comparison.
+  ai4bharat             — AI4Bharat IndicOCR (CRNN weights). Highest accuracy on
+                          Indian document/cheque Devanagari. NOT pip-installable.
+                          Requires manual setup — see _get_ai4bharat_reader() below.
+                          Once weights are in place, set INDIC_OCR_BACKEND=ai4bharat.
+
+  easyocr               — EasyOCR 'hi' pack. Simplest fallback; lower accuracy on
+                          printed bank fonts but zero extra setup if already installed.
                           Install: pip install easyocr
-                          Downloads ~100 MB to ~/.EasyOCR/ on first run.
 
 Configuration:
-  INDIC_OCR_BACKEND=ai4bharat   # service-wide default (env var)
-  ?backend=easyocr              # per-request override (query param)
+  INDIC_OCR_BACKEND=paddle     # service-wide default (env var)
+  ?backend=easyocr             # per-request override (query param)
 
 Start:
     cd apps/indic_ocr && python main.py
-    # or
     uvicorn apps.indic_ocr.main:app --port 8021
 
-CTS-2010 field zones (hardcoded approximate fractions):
-  bank_name, date, payee_name, amount_words.
-  MICR / cheque number / account number are English numerics — not extracted here.
+CTS-2010 field zones: bank_name, date, payee_name, amount_words.
+MICR / cheque number / account number are English numerics — not extracted here.
 """
 
 import io
 import os
-from typing import Any, Literal, Optional
+from typing import Any, Optional
 
 import numpy as np
 import structlog
@@ -42,19 +45,19 @@ log = structlog.get_logger()
 
 # ── Backend constants ─────────────────────────────────────────────────────────
 
-BACKEND_AI4BHARAT = "ai4bharat"
-BACKEND_EASYOCR   = "easyocr"
-_VALID_BACKENDS   = {BACKEND_AI4BHARAT, BACKEND_EASYOCR}
+BACKEND_PADDLE     = "paddle"
+BACKEND_AI4BHARAT  = "ai4bharat"
+BACKEND_EASYOCR    = "easyocr"
+_VALID_BACKENDS    = {BACKEND_PADDLE, BACKEND_AI4BHARAT, BACKEND_EASYOCR}
 
-_SERVICE_DEFAULT: str = os.environ.get("INDIC_OCR_BACKEND", BACKEND_AI4BHARAT).lower()
+_SERVICE_DEFAULT: str = os.environ.get("INDIC_OCR_BACKEND", BACKEND_PADDLE).lower()
 if _SERVICE_DEFAULT not in _VALID_BACKENDS:
     log.warning("indic_ocr.invalid_backend_env",
-                value=_SERVICE_DEFAULT, fallback=BACKEND_AI4BHARAT)
-    _SERVICE_DEFAULT = BACKEND_AI4BHARAT
+                value=_SERVICE_DEFAULT, fallback=BACKEND_PADDLE)
+    _SERVICE_DEFAULT = BACKEND_PADDLE
 
 # ── CTS-2010 field zones ──────────────────────────────────────────────────────
 
-# (x1_frac, y1_frac, x2_frac, y2_frac) of the full cheque image.
 _CTS_ZONES: dict[str, tuple[float, float, float, float]] = {
     "bank_name":    (0.00, 0.00, 0.65, 0.20),
     "date":         (0.62, 0.00, 1.00, 0.22),
@@ -62,26 +65,49 @@ _CTS_ZONES: dict[str, tuple[float, float, float, float]] = {
     "amount_words": (0.05, 0.44, 0.88, 0.63),
 }
 
-# ── Lazy singletons — one per backend ────────────────────────────────────────
+# ── Lazy singletons ───────────────────────────────────────────────────────────
 
-_ai4bharat_reader: Optional[Any] = None
+_paddle_ocr:       Optional[Any] = None
 _easyocr_reader:   Optional[Any] = None
 
 
-def _get_ai4bharat_reader() -> Any:
-    global _ai4bharat_reader
-    if _ai4bharat_reader is None:
+def _get_paddle_ocr() -> Any:
+    global _paddle_ocr
+    if _paddle_ocr is None:
         try:
-            from ilocr import OCR  # pip install ilocr
+            from paddleocr import PaddleOCR  # pip install paddlepaddle paddleocr
         except ImportError as exc:
             raise RuntimeError(
-                "AI4Bharat ilocr not installed. Run: pip install ilocr"
+                "PaddleOCR not installed.\n"
+                "CPU:  pip install paddlepaddle paddleocr\n"
+                "GPU:  pip install paddlepaddle-gpu paddleocr"
             ) from exc
-        # lang='Hindi' covers Devanagari (Hindi, Marathi, Sanskrit).
-        # PyTorch detects CUDA automatically — no gpu flag needed.
-        _ai4bharat_reader = OCR(lang="Hindi")
-        log.info("indic_ocr.ai4bharat_loaded", lang="Hindi")
-    return _ai4bharat_reader
+        # use_angle_cls=True handles rotated text (cheque backs, stamps).
+        # show_log=False suppresses PaddlePaddle's verbose download logs.
+        _paddle_ocr = PaddleOCR(use_angle_cls=True, lang="hi", show_log=False)
+        log.info("indic_ocr.paddle_loaded", lang="hi")
+    return _paddle_ocr
+
+
+def _get_ai4bharat_reader() -> Any:
+    """
+    AI4Bharat IndicOCR — manual setup required (not pip-installable).
+
+    Setup steps:
+      1. git clone https://github.com/AI4Bharat/IndicOCR  apps/indic_ocr/ai4bharat_src
+      2. Download Devanagari CRNN weights from their GitHub releases page and place at:
+             apps/indic_ocr/weights/ai4bharat/devanagari_crnn.pth
+      3. pip install -r apps/indic_ocr/ai4bharat_src/requirements.txt
+      4. Implement the loader below using their inference API.
+      5. Set INDIC_OCR_BACKEND=ai4bharat to activate.
+
+    Reference: https://github.com/AI4Bharat/IndicOCR
+    """
+    raise NotImplementedError(
+        "AI4Bharat IndicOCR backend is not yet set up on this instance.\n"
+        "See _get_ai4bharat_reader() in apps/indic_ocr/main.py for setup steps.\n"
+        "Use INDIC_OCR_BACKEND=paddle (default) or INDIC_OCR_BACKEND=easyocr in the meantime."
+    )
 
 
 def _get_easyocr_reader() -> Any:
@@ -101,35 +127,36 @@ def _get_easyocr_reader() -> Any:
 def _run_ocr(arr: np.ndarray, backend: str) -> list[tuple[str, float]]:
     """
     Run OCR on a (H, W, 3) uint8 numpy array.
-    Returns a list of (text, confidence) tuples — same contract regardless of backend.
+    Returns [(text, confidence)] regardless of backend.
     """
-    if backend == BACKEND_AI4BHARAT:
-        reader = _get_ai4bharat_reader()
-        raw = reader.predict(arr) or []
+    if backend == BACKEND_PADDLE:
+        ocr    = _get_paddle_ocr()
+        result = ocr.ocr(arr, cls=True)
+        # PaddleOCR returns: list-per-image → list-of-lines
+        # Each line: [[bbox_points], [text, confidence]]
         pairs: list[tuple[str, float]] = []
-        for r in raw:
-            if isinstance(r, dict):
-                text = r.get("text", "")
-                conf = float(r.get("confidence", r.get("score", 1.0)))
-            elif isinstance(r, (list, tuple)) and len(r) >= 2:
-                # Some ilocr versions return [bbox, text, conf] like easyocr
-                text = r[-2] if len(r) >= 3 else str(r[0])
-                conf = float(r[-1])
-            else:
-                continue
-            if text:
-                pairs.append((text, conf))
+        if result and result[0]:
+            for line in result[0]:
+                if line and len(line) >= 2:
+                    text = line[1][0]
+                    conf = float(line[1][1])
+                    if text:
+                        pairs.append((text, conf))
         return pairs
+
+    elif backend == BACKEND_AI4BHARAT:
+        # Raises NotImplementedError until weights are installed.
+        _get_ai4bharat_reader()
+        return []  # unreachable — kept for type checker
 
     else:  # EASYOCR
         reader = _get_easyocr_reader()
-        raw = reader.readtext(arr, detail=1) or []
-        # easyocr returns [bbox, text, confidence]
+        raw    = reader.readtext(arr, detail=1) or []
+        # easyocr: [bbox, text, confidence]
         return [(r[1], float(r[2])) for r in raw if r[1]]
 
 
 def _resolve_backend(override: Optional[str]) -> str:
-    """Return the backend to use: per-request override beats service default."""
     if override:
         b = override.lower()
         if b not in _VALID_BACKENDS:
@@ -147,21 +174,22 @@ app = FastAPI(
     title="ASTRA IndicOCR",
     description=(
         "Devanagari OCR for Indian cheque fields. "
-        "Default backend: AI4Bharat ilocr. "
-        "Fallback: EasyOCR. Both available at runtime via ?backend= param."
+        "Default: PaddleOCR (paddle). "
+        "Planned: AI4Bharat IndicOCR (ai4bharat, manual setup). "
+        "Fallback: EasyOCR (easyocr)."
     ),
-    version="2.0.0",
+    version="2.1.0",
     docs_url="/docs" if os.environ.get("ASTRA_ENV", "dev") == "dev" else None,
     redoc_url=None,
 )
 
-# ── Models ────────────────────────────────────────────────────────────────────
+# ── Response models ───────────────────────────────────────────────────────────
 
 class OcrResult(BaseModel):
     model_config = ConfigDict(frozen=True)
-    text:     str
+    text:       str
     confidence: float
-    backend:  str
+    backend:    str
 
 
 class ZoneOcrResult(BaseModel):
@@ -176,12 +204,13 @@ class ZoneOcrResult(BaseModel):
 
 class BackendInfo(BaseModel):
     model_config = ConfigDict(frozen=True)
-    service_default: str
-    valid_backends:  list[str]
-    loaded:          dict[str, bool]  # backend → whether singleton is initialised
+    service_default:  str
+    valid_backends:   list[str]
+    loaded:           dict[str, bool]
+    ai4bharat_status: str
 
 
-# ── Health + info endpoints ───────────────────────────────────────────────────
+# ── Health + info ─────────────────────────────────────────────────────────────
 
 @app.get("/health/live", include_in_schema=False)
 async def liveness():
@@ -190,9 +219,18 @@ async def liveness():
 
 @app.get("/health/ready", include_in_schema=False)
 async def readiness():
+    if _SERVICE_DEFAULT == BACKEND_AI4BHARAT:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "degraded",
+                "backend": BACKEND_AI4BHARAT,
+                "error": "AI4Bharat backend requires manual setup. See /info.",
+            },
+        )
     try:
-        if _SERVICE_DEFAULT == BACKEND_AI4BHARAT:
-            _get_ai4bharat_reader()
+        if _SERVICE_DEFAULT == BACKEND_PADDLE:
+            _get_paddle_ocr()
         else:
             _get_easyocr_reader()
         return {"status": "ready", "backend": _SERVICE_DEFAULT}
@@ -205,14 +243,20 @@ async def readiness():
 
 @app.get("/info", response_model=BackendInfo)
 async def info() -> BackendInfo:
-    """Return which backend is the service default and which are already loaded."""
     return BackendInfo(
-        service_default=_SERVICE_DEFAULT,
-        valid_backends=sorted(_VALID_BACKENDS),
-        loaded={
-            BACKEND_AI4BHARAT: _ai4bharat_reader is not None,
-            BACKEND_EASYOCR:   _easyocr_reader   is not None,
+        service_default  = _SERVICE_DEFAULT,
+        valid_backends   = sorted(_VALID_BACKENDS),
+        loaded           = {
+            BACKEND_PADDLE:    _paddle_ocr     is not None,
+            BACKEND_AI4BHARAT: False,           # never loaded until manual setup
+            BACKEND_EASYOCR:   _easyocr_reader is not None,
         },
+        ai4bharat_status = (
+            "NOT_IMPLEMENTED — clone https://github.com/AI4Bharat/IndicOCR, "
+            "download Devanagari CRNN weights → apps/indic_ocr/weights/ai4bharat/, "
+            "implement loader in _get_ai4bharat_reader(), "
+            "then set INDIC_OCR_BACKEND=ai4bharat"
+        ),
     )
 
 
@@ -223,7 +267,7 @@ async def ocr_image(
     file:    UploadFile = File(...),
     backend: Optional[str] = Query(
         default=None,
-        description="Backend override: 'ai4bharat' or 'easyocr'. Omit to use service default.",
+        description="Backend override: 'paddle', 'ai4bharat', or 'easyocr'. Omit to use service default.",
     ),
 ) -> OcrResult:
     """Run Devanagari OCR on the entire uploaded image. Returns concatenated text."""
@@ -234,17 +278,17 @@ async def ocr_image(
     except UnidentifiedImageError:
         raise HTTPException(status_code=422, detail="Unreadable image.")
 
-    arr = np.array(img)
+    arr   = np.array(img)
     pairs = _run_ocr(arr, b)
 
     if not pairs:
         return OcrResult(text="", confidence=0.0, backend=b)
 
-    texts  = [p[0] for p in pairs]
-    confs  = [p[1] for p in pairs]
-    avg    = sum(confs) / len(confs)
-    log.info("indic_ocr.full_ocr_done", backend=b, text_preview=" ".join(texts)[:80],
-             confidence=round(avg, 4))
+    texts = [p[0] for p in pairs]
+    confs = [p[1] for p in pairs]
+    avg   = sum(confs) / len(confs)
+    log.info("indic_ocr.full_ocr_done", backend=b,
+             text_preview=" ".join(texts)[:80], confidence=round(avg, 4))
     return OcrResult(text=" ".join(texts), confidence=round(avg, 4), backend=b)
 
 
@@ -253,14 +297,14 @@ async def ocr_zones(
     file:    UploadFile = File(...),
     backend: Optional[str] = Query(
         default=None,
-        description="Backend override: 'ai4bharat' or 'easyocr'. Omit to use service default.",
+        description="Backend override: 'paddle', 'ai4bharat', or 'easyocr'. Omit to use service default.",
     ),
 ) -> ZoneOcrResult:
     """
     Crop CTS-2010 field zones from the full cheque image and run Devanagari OCR
     on each zone independently.
 
-    Returns per-field Devanagari text: payee_name, amount_words, date, bank_name.
+    Returns: payee_name, amount_words, date, bank_name.
     MICR / cheque number / account number are English numerics — not extracted here.
     """
     b = _resolve_backend(backend)
@@ -270,18 +314,18 @@ async def ocr_zones(
     except UnidentifiedImageError:
         raise HTTPException(status_code=422, detail="Unreadable image.")
 
-    iw, ih = img.size
-    raw_results:  dict[str, list] = {}
+    iw, ih       = img.size
+    raw_results:  dict[str, list]          = {}
     field_text:   dict[str, Optional[str]] = {}
 
     for field, (x1f, y1f, x2f, y2f) in _CTS_ZONES.items():
-        x1 = max(0, int(x1f * iw))
-        y1 = max(0, int(y1f * ih))
+        x1 = max(0,  int(x1f * iw))
+        y1 = max(0,  int(y1f * ih))
         x2 = min(iw, int(x2f * iw))
         y2 = min(ih, int(y2f * ih))
         if x2 <= x1 or y2 <= y1:
-            field_text[field]   = None
-            raw_results[field]  = []
+            field_text[field]  = None
+            raw_results[field] = []
             continue
 
         zone  = img.crop((x1, y1, x2, y2))

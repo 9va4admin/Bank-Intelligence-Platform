@@ -188,8 +188,8 @@ export default function CTSCloudAIDemo() {
                 <p className={`mt-1.5 text-[11px] leading-snug ${th.muted}`}>
                   <strong>Stage 1 — Devanagari script only</strong> (Hindi, Marathi, Sanskrit).
                   Payee name, amount in words, date, and bank name extracted via{' '}
-                  <strong>AI4Bharat ilocr</strong> (default) or <strong>EasyOCR hi-pack</strong> (fallback) —
-                  controlled by <code className="font-mono">INDIC_OCR_BACKEND</code> env var on the IndicOCR service.
+                  <strong>PaddleOCR hi</strong> (default) · <strong>AI4Bharat IndicOCR</strong> (manual setup required) · <strong>EasyOCR hi-pack</strong> (fallback) —
+                  set <code className="font-mono">INDIC_OCR_BACKEND=paddle|ai4bharat|easyocr</code> on the IndicOCR service.
                   Signature detected via local <strong>YOLOv8 pixel detector</strong>.{' '}
                   <strong>No HF token needed.</strong> Start both services first:{' '}
                   <code className="font-mono">cd apps/sig_detector; python main.py</code>
@@ -294,13 +294,13 @@ export default function CTSCloudAIDemo() {
                             🇮🇳 IndicOCR Devanagari — Stage 1
                             {result.indic_backend && (
                               <span className={`ml-2 text-[9px] font-bold px-1.5 py-0.5 rounded border ${isDark ? 'border-emerald-600/50 bg-emerald-800/40' : 'border-emerald-300 bg-emerald-100'}`}>
-                                {result.indic_backend === 'ai4bharat' ? 'AI4Bharat ilocr' : 'EasyOCR hi-pack'}
+                                {{ paddle: 'PaddleOCR hi', ai4bharat: 'AI4Bharat IndicOCR', easyocr: 'EasyOCR hi-pack' }[result.indic_backend] ?? result.indic_backend}
                               </span>
                             )}
                           </p>
                           <p className="text-[11px] leading-snug">
                             Payee, amount in words, date &amp; bank name extracted via{' '}
-                            {result.indic_backend === 'easyocr' ? 'EasyOCR Hindi pack' : 'AI4Bharat ilocr (default)'}.
+                            {{ paddle: 'PaddleOCR Hindi model (default)', ai4bharat: 'AI4Bharat IndicOCR', easyocr: 'EasyOCR Hindi pack' }[result.indic_backend] ?? 'local IndicOCR'}.
                             MICR, IFSC, cheque number &amp; account number are printed in English and are
                             not extracted in Stage 1 — they will show as —.
                             Signature detected via local YOLOv8 pixel detector.
