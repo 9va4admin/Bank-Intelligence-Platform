@@ -69,7 +69,7 @@ const MOCK_HUMAN_REVIEW = [
     reason: 'AMOUNT_MISMATCH', reason_label: 'Amount words/figures variance', received_at: '11:42 AM',
     scanner_id: 'SCN-FORT-02', lot_number: 'LOT_SRCB0000001_20260619_01',
     ocr_confidence: 0.91, vision_compliance: 0.97, micr_confidence: 0.99,
-    checks: { amount_words_match: false, date_valid: true, cts_valid: true },
+    checks: { signature_present: true, amount_words_match: false, date_valid: true, cts_valid: true },
     deposit_channel: 'BACK_ANNOTATION',
     deposit_data: { extracted_account: '4000123471', extracted_mobile: '9876543210', ocr_confidence: 0.91 },
     ocr_fields: ocrFields({
@@ -85,7 +85,7 @@ const MOCK_HUMAN_REVIEW = [
     reason: 'ENDORSEMENT_IRREGULAR', reason_label: 'Endorsement irregular', received_at: '11:47 AM',
     scanner_id: 'SCN-VASH-01', lot_number: 'LOT_SRCB0000001_20260619_02',
     ocr_confidence: 0.95, vision_compliance: 0.88, micr_confidence: 0.98,
-    checks: { amount_words_match: true, date_valid: true, cts_valid: false },
+    checks: { signature_present: true, amount_words_match: true, date_valid: true, cts_valid: false },
     deposit_channel: 'PAY_IN_SLIP',
     deposit_data: { depositor_name: 'Om Enterprises', depositor_account: '4000295021', deposit_amount: '₹2,15,000', counter_token: 'T-0019', date: '19/06/2026', branch: 'Nariman Point, Mumbai' },
     ocr_fields: ocrFields({
@@ -101,7 +101,7 @@ const MOCK_HUMAN_REVIEW = [
     reason: 'HIGH_VALUE_DUAL_APPROVAL', reason_label: 'High value — dual approval', received_at: '11:53 AM',
     scanner_id: 'SCN-ANDH-03', lot_number: 'LOT_VASB0000001_20260619_01',
     ocr_confidence: 0.98, vision_compliance: 0.99, micr_confidence: 0.99,
-    checks: { amount_words_match: true, date_valid: true, cts_valid: true },
+    checks: { signature_present: true, amount_words_match: true, date_valid: true, cts_valid: true },
     deposit_channel: 'KIOSK',
     deposit_data: { name: 'Deshmukh & Co.', account: '4000273308', txn_id: 'CDM-027-20260619', timestamp: '10:47 AM  19/06/2026' },
     ocr_fields: ocrFields({
@@ -121,7 +121,7 @@ const MOCK_STP_REJECTED = [
     reason: 'CTS_COMPLIANCE_FAILURE', reason_label: 'CTS compliance failure — auto-rejected', received_at: '10:58 AM',
     scanner_id: 'SCN-DADR-01', lot_number: 'LOT_SRCB0000001_20260619_01',
     ocr_confidence: 0.86, vision_compliance: 0.61, micr_confidence: 0.94,
-    checks: { amount_words_match: true, date_valid: true, cts_valid: false },
+    checks: { signature_present: true, amount_words_match: true, date_valid: true, cts_valid: false },
     deposit_channel: 'PAY_IN_SLIP',
     deposit_data: { depositor_name: 'Bhagwati Steels', depositor_account: '4000187712', deposit_amount: '₹1,88,000', counter_token: 'T-0088', date: '19/06/2026', branch: 'Dadar (E)' },
     ocr_fields: ocrFields({
@@ -142,7 +142,7 @@ const MOCK_STP_REJECTED = [
     reason: 'DATE_INVALID', reason_label: 'Date invalid / stale — auto-rejected', received_at: '11:05 AM',
     scanner_id: 'SCN-ANDE-02', lot_number: 'LOT_VASB0000001_20260619_02',
     ocr_confidence: 0.93, vision_compliance: 0.95, micr_confidence: 0.97,
-    checks: { amount_words_match: true, date_valid: false, cts_valid: true },
+    checks: { signature_present: true, amount_words_match: true, date_valid: false, cts_valid: true },
     deposit_channel: 'BACK_ANNOTATION',
     deposit_data: { extracted_account: '4000272245', extracted_mobile: '9765432100', ocr_confidence: 0.87 },
     ocr_fields: ocrFields({

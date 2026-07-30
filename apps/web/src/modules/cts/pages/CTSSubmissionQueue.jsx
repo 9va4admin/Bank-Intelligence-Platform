@@ -15,12 +15,16 @@ import { demoChequeUrl } from '../demoImages'
 //   PAY_IN_SLIP     — customer filled a physical pay-in / deposit slip
 //   BACK_ANNOTATION — customer wrote A/c number + mobile on the back of the cheque
 //   KIOSK           — customer deposited via CDM / kiosk (details captured digitally)
+// Outward instruments: presenting bank's scores only — OCR, vision/CTS-2010, MICR, IQA.
+// Presenter does NOT compute fraud score or signature match (drawee bank's responsibility).
 const MOCK_OUTWARD = [
   {
     instrument_id: 'CHQ-OUT-S001', drawee_bank: 'State Bank of India', drawee_branch: 'Andheri East', source_stage: 'STP',
     date: '15/07/2026', payee: 'Rajesh Kumar Verma', drawer_name: 'Vikram P. Joshi', account_display: '32119478125',
     amount_figures: '₹12,50,000', amount_words: 'Twelve Lakh Fifty Thousand Only', micr: '400002123',
-    alterations: false, manual_fields: [], ocr_score: 0.98, fraud_score: 0.03, sig_score: 0.96, iqa_score: 0.99,
+    alterations: false, manual_fields: [],
+    ocr_score: 0.98, vision_compliance: 0.97, micr_confidence: 0.99, iqa_score: 0.99,
+    checks: { amount_words_match: true, date_valid: true, cts_valid: true, signature_present: true },
     front_bw_url: null, front_gray_url: null,
     deposit_channel: 'PAY_IN_SLIP',
     deposit_data: { depositor_name: 'Rajesh Kumar Verma', depositor_account: '4000401231', deposit_amount: '₹12,50,000', counter_token: 'T-0001', date: '15/07/2026', branch: 'Andheri East' },
@@ -29,7 +33,9 @@ const MOCK_OUTWARD = [
     instrument_id: 'CHQ-OUT-S002', drawee_bank: 'HDFC Bank', drawee_branch: 'Bandra West', source_stage: 'VERIFIED',
     date: '14/07/2026', payee: 'Sunita P. Joshi', drawer_name: 'Anand R. Mehta', account_display: '50100238012901',
     amount_figures: '₹2,40,000', amount_words: 'Two Lakh Forty Thousand Only', micr: '400001234',
-    alterations: false, manual_fields: ['payee', 'amount_words'], ocr_score: 0.88, fraud_score: 0.07, sig_score: 0.91, iqa_score: 0.97,
+    alterations: false, manual_fields: ['payee', 'amount_words'],
+    ocr_score: 0.88, vision_compliance: 0.91, micr_confidence: 0.98, iqa_score: 0.97,
+    checks: { amount_words_match: false, date_valid: true, cts_valid: true, signature_present: true },
     front_bw_url: null, front_gray_url: null,
     deposit_channel: 'BACK_ANNOTATION',
     deposit_data: { extracted_account: '4000512347', extracted_mobile: '9876501234', ocr_confidence: 0.88 },
@@ -38,7 +44,9 @@ const MOCK_OUTWARD = [
     instrument_id: 'CHQ-OUT-S003', drawee_bank: 'Bank of Baroda', drawee_branch: 'Fort', source_stage: 'VERIFIED',
     date: '15/07/2026', payee: 'Kavita R. Desai', drawer_name: 'Ramesh D. Shah', account_display: '05520023456789',
     amount_figures: '₹3,80,500', amount_words: 'Three Lakh Eighty Thousand Five Hundred Only', micr: '400008901',
-    alterations: false, manual_fields: ['payee', 'amount_figures', 'amount_words'], ocr_score: 0.85, fraud_score: 0.11, sig_score: 0.88, iqa_score: 0.96,
+    alterations: false, manual_fields: ['payee', 'amount_figures', 'amount_words'],
+    ocr_score: 0.85, vision_compliance: 0.88, micr_confidence: 0.97, iqa_score: 0.96,
+    checks: { amount_words_match: true, date_valid: true, cts_valid: false, signature_present: true },
     front_bw_url: null, front_gray_url: null,
     deposit_channel: 'KIOSK',
     deposit_data: { name: 'Kavita R. Desai', account: '4000623458', txn_id: 'CDM-003-20260715', timestamp: '11:25 AM  15/07/2026' },
@@ -308,51 +316,86 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
 
         {imgTab === 'ai_analysis' && (
           <div className="px-5 py-4 space-y-5">
-            {/* Aggregate confidence scores */}
+            {/* Score pills — inward: OCR/Sig/Fraud/IQA; outward: OCR/Vision/MICR/IQA */}
             <div>
               <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2.5 ${th.lbl}`}>AI Confidence</div>
               <div className="grid grid-cols-2 gap-2">
-                <ScorePill label="OCR Accuracy"   value={item.ocr_score}       isDark={isDark} />
-                <ScorePill label="Signature Match" value={item.sig_score}       isDark={isDark} />
-                <ScorePill label="Fraud Clean"     value={1 - item.fraud_score} isDark={isDark} />
-                <ScorePill label="Image IQA"       value={item.iqa_score}       isDark={isDark} />
+                <ScorePill label="OCR Accuracy" value={item.ocr_score} isDark={isDark} />
+                {isInward ? (
+                  <>
+                    <ScorePill label="Signature Match" value={item.sig_score}             isDark={isDark} />
+                    <ScorePill label="Fraud Clean"      value={1 - item.fraud_score}       isDark={isDark} />
+                  </>
+                ) : (
+                  <>
+                    <ScorePill label="Vision / CTS-10"  value={item.vision_compliance}    isDark={isDark} />
+                    <ScorePill label="MICR Confidence"  value={item.micr_confidence}       isDark={isDark} />
+                  </>
+                )}
+                <ScorePill label="Image IQA" value={item.iqa_score} isDark={isDark} />
               </div>
             </div>
 
-            {/* Risk signals */}
+            {/* Risk signals — different for inward vs outward */}
             <div>
               <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>Risk Signals</div>
-              <div className={`rounded-lg border p-3 space-y-2 text-[11px] ${
-                item.fraud_score > 0.12
-                  ? (isDark ? 'bg-red-500/8 border-red-500/25' : 'bg-red-50 border-red-300')
-                  : (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-200')
-              }`}>
-                {[
-                  { label: 'Fraud score',         val: `${(item.fraud_score * 100).toFixed(1)}%`, warn: item.fraud_score > 0.12 },
-                  { label: 'Alteration detected', val: item.alterations ? '⚠ Yes' : '✓ None',     warn: item.alterations       },
-                  { label: 'Signature match',      val: `${(item.sig_score * 100).toFixed(0)}%`,   warn: item.sig_score < 0.88  },
-                  { label: 'Image quality',        val: `${(item.iqa_score * 100).toFixed(0)}%`,   warn: item.iqa_score < 0.90  },
-                  { label: 'Manually corrected',   val: `${item.manual_fields?.length ?? 0} field(s)`, warn: (item.manual_fields?.length ?? 0) > 0 },
-                ].map(({ label, val, warn }) => (
-                  <div key={label} className="flex items-center justify-between">
-                    <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{label}</span>
-                    <span className={`font-mono font-semibold ${warn ? (isDark ? 'text-red-400' : 'text-red-700') : (isDark ? 'text-emerald-400' : 'text-emerald-700')}`}>{val}</span>
-                  </div>
-                ))}
-              </div>
+              {isInward ? (
+                <div className={`rounded-lg border p-3 space-y-2 text-[11px] ${
+                  item.fraud_score > 0.12
+                    ? (isDark ? 'bg-red-500/8 border-red-500/25' : 'bg-red-50 border-red-300')
+                    : (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-200')
+                }`}>
+                  {[
+                    { label: 'Fraud score',         val: `${(item.fraud_score * 100).toFixed(1)}%`,    warn: item.fraud_score > 0.12 },
+                    { label: 'Alteration detected', val: item.alterations ? '⚠ Yes' : '✓ None',        warn: item.alterations        },
+                    { label: 'Signature match',     val: `${(item.sig_score * 100).toFixed(0)}%`,       warn: item.sig_score < 0.88   },
+                    { label: 'Image quality',       val: `${(item.iqa_score * 100).toFixed(0)}%`,       warn: item.iqa_score < 0.90   },
+                    { label: 'Manually corrected',  val: `${item.manual_fields?.length ?? 0} field(s)`, warn: (item.manual_fields?.length ?? 0) > 0 },
+                  ].map(({ label, val, warn }) => (
+                    <div key={label} className="flex items-center justify-between">
+                      <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{label}</span>
+                      <span className={`font-mono font-semibold ${warn ? (isDark ? 'text-red-400' : 'text-red-700') : (isDark ? 'text-emerald-400' : 'text-emerald-700')}`}>{val}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className={`rounded-lg border p-3 space-y-2 text-[11px] ${
+                  (!item.checks?.cts_valid || !item.checks?.date_valid || !item.checks?.signature_present)
+                    ? (isDark ? 'bg-red-500/8 border-red-500/25' : 'bg-red-50 border-red-300')
+                    : (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-200')
+                }`}>
+                  {[
+                    { label: 'Signature present',   val: item.checks?.signature_present   ? '✓ Detected' : '⚠ Missing', warn: !item.checks?.signature_present   },
+                    { label: 'Amount words match',   val: item.checks?.amount_words_match  ? '✓ Match'    : '⚠ Mismatch', warn: !item.checks?.amount_words_match  },
+                    { label: 'Date valid',            val: item.checks?.date_valid          ? '✓ Valid'    : '⚠ Invalid',  warn: !item.checks?.date_valid           },
+                    { label: 'CTS-2010 compliant',    val: item.checks?.cts_valid           ? '✓ Pass'     : '⚠ Fail',     warn: !item.checks?.cts_valid            },
+                    { label: 'Alteration detected',   val: item.alterations ? '⚠ Yes' : '✓ None',                         warn: !!item.alterations                 },
+                    { label: 'Manually corrected',    val: `${item.manual_fields?.length ?? 0} field(s)`,                  warn: (item.manual_fields?.length ?? 0) > 0 },
+                  ].map(({ label, val, warn }) => (
+                    <div key={label} className="flex items-center justify-between">
+                      <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{label}</span>
+                      <span className={`font-mono font-semibold ${warn ? (isDark ? 'text-red-400' : 'text-red-700') : (isDark ? 'text-emerald-400' : 'text-emerald-700')}`}>{val}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Model attribution */}
+            {/* Model attribution — different for inward vs outward */}
             <div>
               <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>Model Attribution</div>
-              <div className={`space-y-1.5 text-[11px]`}>
-                {[
-                  { task: 'OCR / MICR',     model: 'GOT-OCR2.0'          },
-                  { task: 'Signature',       model: 'Siamese Net v2'       },
-                  { task: 'Fraud scoring',   model: 'XGBoost + SHAP'       },
-                  { task: 'Risk narrative',  model: 'Llama 3.3 70B'        },
-                  { task: 'Vision / layout', model: 'Qwen2-VL 72B'         },
-                ].map(({ task, model }) => (
+              <div className="space-y-1.5 text-[11px]">
+                {(isInward ? [
+                  { task: 'OCR / MICR',     model: 'GOT-OCR2.0'     },
+                  { task: 'Signature',       model: 'Siamese Net v2'  },
+                  { task: 'Fraud scoring',   model: 'XGBoost + SHAP'  },
+                  { task: 'Risk narrative',  model: 'Llama 3.3 70B'   },
+                  { task: 'Vision / layout', model: 'Qwen2-VL 72B'   },
+                ] : [
+                  { task: 'OCR / MICR',       model: 'GOT-OCR2.0'            },
+                  { task: 'Vision / CTS-2010', model: 'Qwen2-VL 72B'          },
+                  { task: 'Compliance check',  model: 'CTS-2010 Validator v3' },
+                ]).map(({ task, model }) => (
                   <div key={task} className="flex items-center justify-between">
                     <span className={th.lbl}>{task}</span>
                     <span className={`font-mono ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{model}</span>

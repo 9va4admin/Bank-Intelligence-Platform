@@ -446,15 +446,16 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
             <div>
               <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>Risk Signals</div>
               <div className={`rounded-lg border p-3 space-y-2 text-[11px] ${
-                (!item.checks?.cts_valid || !item.checks?.date_valid)
+                (!item.checks?.cts_valid || !item.checks?.date_valid || !item.checks?.signature_present)
                   ? (isDark ? 'bg-red-500/8 border-red-500/25' : 'bg-red-50 border-red-300')
                   : (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-200')
               }`}>
                 {[
-                  { label: 'Amount words match', val: item.checks?.amount_words_match ? '✓ Match' : '⚠ Mismatch', warn: !item.checks?.amount_words_match },
-                  { label: 'Date valid',          val: item.checks?.date_valid         ? '✓ Valid'  : '⚠ Invalid',  warn: !item.checks?.date_valid         },
-                  { label: 'CTS-2010 compliant',  val: item.checks?.cts_valid          ? '✓ Pass'   : '⚠ Fail',     warn: !item.checks?.cts_valid          },
-                  { label: 'Alteration detected', val: item.ocr_fields?.alterations    ? '⚠ Yes'    : '✓ None',     warn: !!item.ocr_fields?.alterations   },
+                  { label: 'Signature present',   val: item.checks?.signature_present  ? '✓ Detected' : '⚠ Missing', warn: !item.checks?.signature_present  },
+                  { label: 'Amount words match',   val: item.checks?.amount_words_match ? '✓ Match'    : '⚠ Mismatch', warn: !item.checks?.amount_words_match },
+                  { label: 'Date valid',            val: item.checks?.date_valid         ? '✓ Valid'    : '⚠ Invalid',  warn: !item.checks?.date_valid         },
+                  { label: 'CTS-2010 compliant',    val: item.checks?.cts_valid          ? '✓ Pass'     : '⚠ Fail',     warn: !item.checks?.cts_valid          },
+                  { label: 'Alteration detected',   val: item.ocr_fields?.alterations    ? '⚠ Yes'      : '✓ None',     warn: !!item.ocr_fields?.alterations   },
                 ].map(({ label, val, warn }) => (
                   <div key={label} className="flex items-center justify-between">
                     <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{label}</span>
