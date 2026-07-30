@@ -93,6 +93,11 @@ class DecisionInput(BaseModel):
     amount_words: Optional[str] = None      # amount in words text (OCR extracted)
     kill_switch_mode: str = "NONE"          # carried from alteration result
     kill_switch_scope: Optional[str] = None  # carried from alteration result
+    # Item 4: payee gate — None means payee not captured on this processing path (gate skipped)
+    payee_name: Optional[str] = None
+    # Item 3: IFSC cross-check — both must be non-None for the gate to activate
+    ngch_ifsc: Optional[str] = None        # IFSC from NGCH presentment metadata
+    ocr_ifsc: Optional[str] = None         # IFSC extracted from cheque image by OCR
 
 
 class DecisionResult(BaseModel):
@@ -234,6 +239,50 @@ async def synthesise_decision(
     ocr_min_confidence: float = config["ocr_min_confidence"]
     sig_min_match: float = config["sig_min_match_score"]
     validity_days: int = int(config.get("cheque_validity_days", 90))
+
+    # ── Gate -2: Payee name presence (CTS-2010 mandatory field) ───────────
+    # payee_name=None means the field was not captured on this processing path
+    # (e.g. inward drawee where NGCH provides metadata but payee isn't forwarded).
+    # Gate only activates when payee_name is an empty or whitespace-only string —
+    # a blank payee makes the cheque an open-bearer instrument requiring human review.
+    if inp.payee_name is not None and not inp.payee_name.strip():
+        log.info(
+            "decision_activity.blank_payee",
+            instrument_id=inp.instrument_id,
+            bank_id=inp.bank_id,
+        )
+        return DecisionResult(
+            instrument_id=inp.instrument_id,
+            decision="HUMAN_REVIEW",
+            rationale="Payee name blank or missing — open-bearer instrument requires review",
+            shap_values=inp.shap_values,
+        )
+
+    # ── Gate -1: IFSC cross-check ─────────────────────────────────────────
+    # Cross-checks the IFSC printed on the cheque face (ocr_ifsc, extracted by
+    # GOT-OCR2.0) against the IFSC provided by NGCH in the presentment metadata
+    # (ngch_ifsc). A mismatch indicates either a routing error or fraudulent
+    # cheque stock (wrong bank's pre-printed leaf). Both must be present and
+    # non-empty for the gate to activate; None on either side skips the check
+    # (e.g. inward path where OCR doesn't run, or NGCH omitted the field).
+    if inp.ngch_ifsc and inp.ocr_ifsc:
+        if inp.ngch_ifsc.strip().upper() != inp.ocr_ifsc.strip().upper():
+            log.warning(
+                "decision_activity.ifsc_mismatch",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                ngch_ifsc=inp.ngch_ifsc,
+                ocr_ifsc=inp.ocr_ifsc,
+            )
+            return DecisionResult(
+                instrument_id=inp.instrument_id,
+                decision="HUMAN_REVIEW",
+                rationale=(
+                    f"IFSC mismatch: NGCH presentment={inp.ngch_ifsc.strip().upper()} "
+                    f"vs cheque face={inp.ocr_ifsc.strip().upper()}"
+                ),
+                shap_values=inp.shap_values,
+            )
 
     # ── Hard gate 0: Cheque date validity ─────────────────────────────────
     # Evaluated before CBS / alteration — objective date facts need no AI.

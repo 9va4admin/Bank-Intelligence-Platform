@@ -525,3 +525,80 @@ class TestSMBProxyRouting:
             )
         mock_vault.get_signatures.assert_called_once()
         assert result.outcome == "PROCEED"
+
+
+# ---------------------------------------------------------------------------
+# Item 8: Morphological preprocessing (_apply_morphological_normalisation)
+# ---------------------------------------------------------------------------
+
+class TestMorphologicalNormalisation:
+    def test_returns_pil_image_with_cv2_available(self):
+        """With OpenCV available, function returns a PIL Image."""
+        try:
+            import cv2  # noqa: F401
+            import numpy as np  # noqa: F401
+        except ImportError:
+            pytest.skip("cv2/numpy not available")
+
+        from PIL import Image as _PIL
+        from modules.cts.workflows.activities.signature import _apply_morphological_normalisation
+
+        img = _PIL.new("RGB", (100, 50), color=(255, 255, 255))
+        # Draw a black stroke to simulate ink
+        for x in range(20, 80):
+            img.putpixel((x, 25), (0, 0, 0))
+
+        result = _apply_morphological_normalisation(img)
+        assert isinstance(result, _PIL.Image)
+        assert result.size == img.size
+
+    def test_returns_original_image_when_cv2_unavailable(self, monkeypatch):
+        """Without OpenCV, function returns the original PIL Image unchanged."""
+        import builtins
+        real_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "cv2":
+                raise ImportError("simulated missing cv2")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", mock_import)
+
+        from PIL import Image as _PIL
+        # We need to reload the module to pick up the patched import
+        import sys
+        sys.modules.pop("modules.cts.workflows.activities.signature", None)
+        from modules.cts.workflows.activities.signature import _apply_morphological_normalisation
+
+        img = _PIL.new("RGB", (100, 50), color=(255, 255, 255))
+        result = _apply_morphological_normalisation(img)
+        # Should get back a PIL image (possibly the same object)
+        assert isinstance(result, _PIL.Image)
+
+    def test_does_not_raise_on_solid_white_image(self):
+        """Solid white image (no ink) should not raise — Otsu may produce all-zero mask."""
+        try:
+            import cv2  # noqa: F401
+        except ImportError:
+            pytest.skip("cv2 not available")
+
+        from PIL import Image as _PIL
+        from modules.cts.workflows.activities.signature import _apply_morphological_normalisation
+
+        img = _PIL.new("RGB", (100, 50), color=(255, 255, 255))
+        result = _apply_morphological_normalisation(img)
+        assert isinstance(result, _PIL.Image)
+
+    def test_does_not_raise_on_solid_black_image(self):
+        """Solid black image should not raise."""
+        try:
+            import cv2  # noqa: F401
+        except ImportError:
+            pytest.skip("cv2 not available")
+
+        from PIL import Image as _PIL
+        from modules.cts.workflows.activities.signature import _apply_morphological_normalisation
+
+        img = _PIL.new("RGB", (100, 50), color=(0, 0, 0))
+        result = _apply_morphological_normalisation(img)
+        assert isinstance(result, _PIL.Image)

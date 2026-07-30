@@ -92,6 +92,7 @@ class ChequeWorkflowInput(BaseModel):
     presented_payee: str
     iet_deadline: float            # Unix timestamp
     smb_id: Optional[str] = None  # Phase 3: set when instrument is tagged to a sub-member bank
+    ngch_ifsc: Optional[str] = None  # IFSC from NGCH presentment metadata (item 3 IFSC cross-check)
     cts_config: dict = Field(default_factory=dict)  # Layer 3 thresholds forwarded to decision
 
 
@@ -365,6 +366,35 @@ class ChequeProcessingWorkflow:
                 f"Stop payment check: {stop_result.stop_reason or 'bloom_hit'}",
             )
 
+        # Step 3b: validate_cheque_series — CBS check for lost/stolen/cancelled/used leaves
+        from modules.cts.workflows.activities.cheque_series import (
+            ChequeSeriesActivityInput, validate_cheque_series,
+        )
+        cheque_series_result = await workflow.execute_activity(
+            validate_cheque_series,
+            args=[
+                ChequeSeriesActivityInput(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    account_number=inp.account_number,
+                    cheque_number=inp.cheque_number,
+                ),
+                None,  # cbs_connector — worker-level DI
+            ],
+            start_to_close_timeout=timedelta(seconds=10),
+            retry_policy=_CBS_RETRY,
+        )
+        if cheque_series_result.outcome == "STP_RETURN":
+            return await finalise(
+                "STP_RETURN",
+                f"Cheque series: {cheque_series_result.reason} ({cheque_series_result.return_reason_code})",
+            )
+        if cheque_series_result.outcome == "HUMAN_REVIEW":
+            return await finalise(
+                "HUMAN_REVIEW",
+                f"Cheque series: {cheque_series_result.reason or 'CBS_UNAVAILABLE'}",
+            )
+
         # Step 4: lookup_pps
         pps_result = await workflow.execute_activity(
             lookup_pps,
@@ -508,6 +538,9 @@ class ChequeProcessingWorkflow:
                     shap_values=fraud_result.shap_values,
                     kill_switch_mode=alteration_result.kill_switch_mode,
                     kill_switch_scope=alteration_result.kill_switch_scope,
+                    payee_name=inp.presented_payee,
+                    ngch_ifsc=inp.ngch_ifsc,
+                    # ocr_ifsc remains None — no OCR on inward drawee path
                 ),
                 inp.cts_config,
                 _to_kill_switch_status(kc2_lookup),
@@ -597,6 +630,26 @@ class ChequeProcessingWorkflow:
                 rationale=f"Stop payment check: {stop_payment_result.stop_reason or 'bloom_hit_or_cbs_unavailable'}",
                 shap_values={},
             )
+
+        # Step 4b: Cheque series validity (CBS — lost/stolen/cancelled/used)
+        cheque_series_result = mock_results.get("cheque_series")
+        if cheque_series_result is not None:
+            if cheque_series_result.outcome == "STP_RETURN":
+                return ChequeWorkflowResult(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    decision="STP_RETURN",
+                    rationale=f"Cheque series: {cheque_series_result.reason} ({cheque_series_result.return_reason_code})",
+                    shap_values={},
+                )
+            if cheque_series_result.outcome == "HUMAN_REVIEW":
+                return ChequeWorkflowResult(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    decision="HUMAN_REVIEW",
+                    rationale=f"Cheque series: {cheque_series_result.reason or 'CBS_UNAVAILABLE'}",
+                    shap_values={},
+                )
 
         # Step 5: PPS lookup
         pps_result = mock_results["pps"]

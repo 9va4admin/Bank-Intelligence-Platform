@@ -413,3 +413,167 @@ class TestOPAGate:
             opa_client=opa,
         )
         assert result.decision == "HUMAN_REVIEW"
+
+
+# ---------------------------------------------------------------------------
+# Item 4: Payee name gate (CTS-2010 mandatory field)
+# ---------------------------------------------------------------------------
+
+def _make_signals_with_payee(payee_name, **kwargs):
+    from modules.cts.workflows.activities.decision import DecisionInput
+    base = _make_signals(**kwargs)
+    return DecisionInput(
+        **{k: v for k, v in base.model_dump().items() if k != "payee_name"},
+        payee_name=payee_name,
+    )
+
+
+class TestPayeeNameGate:
+    @pytest.mark.asyncio
+    async def test_blank_payee_routes_to_human_review(self):
+        """Empty string payee → HUMAN_REVIEW."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_payee(""),
+            config=_make_config(),
+        )
+        assert result.decision == "HUMAN_REVIEW"
+        assert "payee" in result.rationale.lower()
+
+    @pytest.mark.asyncio
+    async def test_whitespace_only_payee_routes_to_human_review(self):
+        """Whitespace-only payee → HUMAN_REVIEW."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_payee("   "),
+            config=_make_config(),
+        )
+        assert result.decision == "HUMAN_REVIEW"
+
+    @pytest.mark.asyncio
+    async def test_none_payee_skips_gate(self):
+        """payee_name=None means field was not captured on this path — gate skipped."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_payee(None),
+            config=_make_config(),
+        )
+        # Should reach normal STP_CONFIRM since all other signals are clean
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_valid_payee_proceeds_normally(self):
+        """A filled payee name does not trigger the gate."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_payee("Rajesh Kumar"),
+            config=_make_config(),
+        )
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_blank_payee_has_shap_values(self):
+        """Even on early-exit from payee gate, shap_values must be present."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_payee(""),
+            config=_make_config(),
+        )
+        assert result.shap_values is not None
+
+
+# ---------------------------------------------------------------------------
+# Item 3: IFSC cross-check gate
+# ---------------------------------------------------------------------------
+
+def _make_signals_with_ifsc(ngch_ifsc=None, ocr_ifsc=None, **kwargs):
+    from modules.cts.workflows.activities.decision import DecisionInput
+    base = _make_signals(**kwargs)
+    return DecisionInput(
+        **{k: v for k, v in base.model_dump().items()
+           if k not in ("ngch_ifsc", "ocr_ifsc")},
+        ngch_ifsc=ngch_ifsc,
+        ocr_ifsc=ocr_ifsc,
+    )
+
+
+class TestIFSCCrossCheckGate:
+    @pytest.mark.asyncio
+    async def test_matching_ifsc_proceeds_normally(self):
+        """NGCH IFSC == OCR IFSC → gate is satisfied, processing continues."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_ifsc(ngch_ifsc="SBIN0001234", ocr_ifsc="SBIN0001234"),
+            config=_make_config(),
+        )
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_mismatched_ifsc_routes_to_human_review(self):
+        """NGCH IFSC != OCR IFSC → HUMAN_REVIEW (routing error or fraud)."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_ifsc(ngch_ifsc="SBIN0001234", ocr_ifsc="HDFC0009876"),
+            config=_make_config(),
+        )
+        assert result.decision == "HUMAN_REVIEW"
+        assert "IFSC" in result.rationale
+
+    @pytest.mark.asyncio
+    async def test_ifsc_comparison_is_case_insensitive(self):
+        """IFSC comparison normalises to uppercase — mixed-case should match."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_ifsc(ngch_ifsc="SBIN0001234", ocr_ifsc="sbin0001234"),
+            config=_make_config(),
+        )
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_ifsc_comparison_strips_whitespace(self):
+        """Trailing/leading whitespace in either IFSC value is stripped before compare."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_ifsc(ngch_ifsc="SBIN0001234 ", ocr_ifsc=" SBIN0001234"),
+            config=_make_config(),
+        )
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_no_ocr_ifsc_skips_gate(self):
+        """ocr_ifsc=None (no OCR ran on this path) → gate is skipped."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_ifsc(ngch_ifsc="SBIN0001234", ocr_ifsc=None),
+            config=_make_config(),
+        )
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_no_ngch_ifsc_skips_gate(self):
+        """ngch_ifsc=None (NGCH didn't provide IFSC) → gate is skipped."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_ifsc(ngch_ifsc=None, ocr_ifsc="SBIN0001234"),
+            config=_make_config(),
+        )
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_both_none_skips_gate(self):
+        """Both None → gate skipped, normal processing."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_ifsc(ngch_ifsc=None, ocr_ifsc=None),
+            config=_make_config(),
+        )
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_mismatch_has_shap_values(self):
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_ifsc(ngch_ifsc="SBIN0001234", ocr_ifsc="HDFC0009876"),
+            config=_make_config(),
+        )
+        assert result.shap_values is not None
