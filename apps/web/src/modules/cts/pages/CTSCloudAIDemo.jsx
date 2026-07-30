@@ -188,7 +188,8 @@ export default function CTSCloudAIDemo() {
                 <p className={`mt-1.5 text-[11px] leading-snug ${th.muted}`}>
                   <strong>Stage 1 — Devanagari script only</strong> (Hindi, Marathi, Sanskrit).
                   Payee name, amount in words, date, and bank name extracted via{' '}
-                  <strong>EasyOCR hi-lang pack</strong> (AI4Bharat-class local model, ~100 MB, no GPU required).
+                  <strong>AI4Bharat ilocr</strong> (default) or <strong>EasyOCR hi-pack</strong> (fallback) —
+                  controlled by <code className="font-mono">INDIC_OCR_BACKEND</code> env var on the IndicOCR service.
                   Signature detected via local <strong>YOLOv8 pixel detector</strong>.{' '}
                   <strong>No HF token needed.</strong> Start both services first:{' '}
                   <code className="font-mono">cd apps/sig_detector; python main.py</code>
@@ -289,9 +290,17 @@ export default function CTSCloudAIDemo() {
                     <>
                       {isIndicDevanagari && (
                         <div className={`rounded-lg border px-4 py-3 mb-3 ${isDark ? 'bg-emerald-900/25 border-emerald-700/40 text-emerald-200' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`}>
-                          <p className="text-xs font-semibold mb-0.5">🇮🇳 IndicOCR Devanagari — Stage 1</p>
+                          <p className="text-xs font-semibold mb-0.5">
+                            🇮🇳 IndicOCR Devanagari — Stage 1
+                            {result.indic_backend && (
+                              <span className={`ml-2 text-[9px] font-bold px-1.5 py-0.5 rounded border ${isDark ? 'border-emerald-600/50 bg-emerald-800/40' : 'border-emerald-300 bg-emerald-100'}`}>
+                                {result.indic_backend === 'ai4bharat' ? 'AI4Bharat ilocr' : 'EasyOCR hi-pack'}
+                              </span>
+                            )}
+                          </p>
                           <p className="text-[11px] leading-snug">
-                            Payee, amount in words, date &amp; bank name extracted via local EasyOCR Hindi pack.
+                            Payee, amount in words, date &amp; bank name extracted via{' '}
+                            {result.indic_backend === 'easyocr' ? 'EasyOCR Hindi pack' : 'AI4Bharat ilocr (default)'}.
                             MICR, IFSC, cheque number &amp; account number are printed in English and are
                             not extracted in Stage 1 — they will show as —.
                             Signature detected via local YOLOv8 pixel detector.
