@@ -35,10 +35,12 @@ Extract all printed fields from this cheque image. Return JSON only, no explanat
   "amount_figures": {"value": "...", "confidence": 0.0},
   "amount_words": {"value": "...", "confidence": 0.0},
   "date": {"value": "...", "confidence": 0.0},
-  "payee": {"value": "...", "confidence": 0.0}
+  "payee": {"value": "...", "confidence": 0.0},
+  "ifsc_code": {"value": "...", "confidence": 0.0}
 }
-If a field is illegible, set value to null and confidence to 0.0.
+If a field is illegible or not present, set value to null and confidence to 0.0.
 Confidence range: 0.0 (illegible) to 1.0 (perfectly clear).
+ifsc_code: the bank IFSC code printed on the cheque face (e.g. "SBIN0001234").
 """
 
 
@@ -50,6 +52,7 @@ class OCRActivityResult(BaseModel):
     amount_words: Optional[str] = None
     date: Optional[str] = None
     payee: Optional[str] = None
+    ifsc_code: Optional[str] = None     # IFSC printed on cheque face (item 3 — IFSC cross-check)
     overall_confidence: float = 0.0
     low_confidence_reason: Optional[str] = None
     degraded: bool = False
@@ -95,14 +98,19 @@ async def ocr_extract(
             low_confidence_reason="MODEL_UNAVAILABLE",
         )
 
+    # ifsc_code is an auxiliary cross-check field — excluded from primary confidence gate.
+    # Low-confidence IFSC is simply dropped (set to None later); it does not trigger HUMAN_REVIEW.
+    _PRIMARY_FIELDS = {"micr_line", "amount_figures", "amount_words", "date", "payee"}
+    primary_data = {k: v for k, v in data.items() if k in _PRIMARY_FIELDS}
+
     confidences = [
         v["confidence"]
-        for v in data.values()
+        for v in primary_data.values()
         if isinstance(v, dict) and "confidence" in v
     ]
     overall = sum(confidences) / len(confidences) if confidences else 0.0
 
-    low_fields = [k for k, v in data.items() if isinstance(v, dict) and v.get("confidence", 1.0) < min_confidence]
+    low_fields = [k for k, v in primary_data.items() if isinstance(v, dict) and v.get("confidence", 1.0) < min_confidence]
 
     micr_line = data.get("micr_line", {}).get("value")
     principal_tag, sub_member_id = _route_micr(micr_line, routing_table, inp.instrument_id)
@@ -148,6 +156,16 @@ async def ocr_extract(
             amount_mismatch=True,
         )
 
+    ifsc_entry = data.get("ifsc_code", {})
+    ifsc_raw = ifsc_entry.get("value") if isinstance(ifsc_entry, dict) else None
+    ifsc_conf = ifsc_entry.get("confidence", 0.0) if isinstance(ifsc_entry, dict) else 0.0
+    # Accept IFSC only when above a basic legibility threshold (0.3); below that it's noise
+    ifsc_code = (
+        ifsc_raw.strip().upper()
+        if isinstance(ifsc_raw, str) and ifsc_raw and ifsc_conf >= 0.3
+        else None
+    )
+
     return OCRActivityResult(
         outcome="PROCEED",
         micr_line=micr_line,
@@ -155,6 +173,7 @@ async def ocr_extract(
         amount_words=amount_words_val,
         date=data.get("date", {}).get("value"),
         payee=data.get("payee", {}).get("value"),
+        ifsc_code=ifsc_code,
         overall_confidence=overall,
         cascade_level=resolved_cascade_level,
         principal_tag=principal_tag,

@@ -399,3 +399,87 @@ class TestOCRCascadeWiring:
         result = await ocr_extract(_make_input(), orchestrator=orchestrator, config_service=_mock_config())
         orchestrator.call_ocr.assert_called_once()
         assert result.outcome == "PROCEED"
+
+
+# ---------------------------------------------------------------------------
+# Item 3: IFSC code extraction
+# ---------------------------------------------------------------------------
+
+def _make_vllm_response_with_ifsc(confidence=0.97, ifsc="SBIN0001234"):
+    return {
+        "micr_line": {"value": "123456789012345", "confidence": confidence},
+        "amount_figures": {"value": "10000.00", "confidence": confidence},
+        "amount_words": {"value": "Ten Thousand Only", "confidence": confidence},
+        "date": {"value": "17/06/2026", "confidence": confidence},
+        "payee": {"value": "ACME Corp", "confidence": confidence},
+        "ifsc_code": {"value": ifsc, "confidence": confidence},
+    }
+
+
+class TestOCRIFSCExtraction:
+    @pytest.mark.asyncio
+    async def test_ifsc_extracted_in_successful_result(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        from shared.ai.model_cascade import CascadeResult
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=CascadeResult(
+            content=json.dumps(_make_vllm_response_with_ifsc(ifsc="SBIN0001234")),
+            confidence=0.97, cascade_level=1, model_used="got-ocr2-7b", escalated=False,
+        ))
+        result = await ocr_extract(_make_input(), orchestrator=orchestrator, config_service=_mock_config())
+        assert result.outcome == "PROCEED"
+        assert result.ifsc_code == "SBIN0001234"
+
+    @pytest.mark.asyncio
+    async def test_ifsc_none_when_field_absent(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        from shared.ai.model_cascade import CascadeResult
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=CascadeResult(
+            content=json.dumps(_make_vllm_response(confidence=0.97)),
+            confidence=0.97, cascade_level=1, model_used="got-ocr2-7b", escalated=False,
+        ))
+        result = await ocr_extract(_make_input(), orchestrator=orchestrator, config_service=_mock_config())
+        assert result.outcome == "PROCEED"
+        assert result.ifsc_code is None
+
+    @pytest.mark.asyncio
+    async def test_ifsc_low_confidence_still_extracted(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        from shared.ai.model_cascade import CascadeResult
+        payload = {
+            "micr_line": {"value": "123456789012345", "confidence": 0.97},
+            "amount_figures": {"value": "10000.00", "confidence": 0.97},
+            "amount_words": {"value": "Ten Thousand Only", "confidence": 0.97},
+            "date": {"value": "17/06/2026", "confidence": 0.97},
+            "payee": {"value": "ACME Corp", "confidence": 0.97},
+            "ifsc_code": {"value": "SBIN0001234", "confidence": 0.40},
+        }
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=CascadeResult(
+            content=json.dumps(payload), confidence=0.97, cascade_level=1,
+            model_used="got-ocr2-7b", escalated=False,
+        ))
+        result = await ocr_extract(_make_input(), orchestrator=orchestrator, config_service=_mock_config())
+        assert result.outcome == "PROCEED"
+        assert result.ifsc_code == "SBIN0001234"
+
+    @pytest.mark.asyncio
+    async def test_ifsc_null_value_returns_none(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        from shared.ai.model_cascade import CascadeResult
+        payload = {
+            "micr_line": {"value": "123456789012345", "confidence": 0.97},
+            "amount_figures": {"value": "10000.00", "confidence": 0.97},
+            "amount_words": {"value": "Ten Thousand Only", "confidence": 0.97},
+            "date": {"value": "17/06/2026", "confidence": 0.97},
+            "payee": {"value": "ACME Corp", "confidence": 0.97},
+            "ifsc_code": {"value": None, "confidence": 0.0},
+        }
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=CascadeResult(
+            content=json.dumps(payload), confidence=0.97, cascade_level=1,
+            model_used="got-ocr2-7b", escalated=False,
+        ))
+        result = await ocr_extract(_make_input(), orchestrator=orchestrator, config_service=_mock_config())
+        assert result.ifsc_code is None

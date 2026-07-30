@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import io as _io
-from typing import Optional
+from typing import Any, Optional
 
 import structlog
 from pydantic import BaseModel, ConfigDict
@@ -59,11 +59,49 @@ class SignatureActivityResult(BaseModel):
     cbs_fallback_used: bool = False        # True when CBS was queried to backfill vault miss
 
 
+def _apply_morphological_normalisation(crop: "Any") -> "Any":
+    """
+    Otsu binarisation + morphological thinning on a PIL signature crop.
+
+    Produces a cleaner image for the Siamese embedding model by removing
+    scanner background noise and reducing ink strokes to single-pixel width.
+    This improves cosine similarity accuracy for faded or light-ink signatures.
+
+    Falls back to the original crop PIL image if opencv or numpy is unavailable.
+    The embedding model accepts both colour and grayscale inputs, so the output
+    is white-background / black-ink RGB to preserve format consistency.
+    """
+    try:
+        import cv2
+        import numpy as np
+        from PIL import Image as _PIL
+    except ImportError:
+        return crop
+
+    try:
+        gray = cv2.cvtColor(np.array(crop), cv2.COLOR_RGB2GRAY)
+        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+        # Morphological thinning — opencv-contrib (cv2.ximgproc); graceful skip if absent
+        try:
+            thinned = cv2.ximgproc.thinning(binary, thinningType=cv2.ximgproc.THINNING_ZHANGSUEN)
+        except AttributeError:
+            thinned = binary
+
+        # White background, black ink — convert back to RGB for embedding model input
+        rgb_arr = cv2.cvtColor(cv2.bitwise_not(thinned), cv2.COLOR_GRAY2RGB)
+        return _PIL.fromarray(rgb_arr)
+    except Exception:
+        return crop
+
+
 def _sync_crop_signature(image_url: str, bbox: list[float]) -> bytes:
     """Download full cheque image and crop to the signature bbox.
 
     Sync helper — called via asyncio.to_thread so the event loop stays free.
-    Returns PNG bytes of the cropped signature region with a small padding border.
+    Applies morphological normalisation (Otsu + thinning) after cropping to
+    produce cleaner input for the Siamese embedding model.
+    Returns PNG bytes of the processed signature region with a small padding border.
     """
     import urllib.request
     from PIL import Image as _PIL
@@ -82,6 +120,7 @@ def _sync_crop_signature(image_url: str, bbox: list[float]) -> bytes:
         min(w, int(x2_f * w) + pad),
         min(h, int(y2_f * h) + pad),
     ))
+    crop = _apply_morphological_normalisation(crop)
     buf = _io.BytesIO()
     crop.save(buf, format="PNG")
     return buf.getvalue()
