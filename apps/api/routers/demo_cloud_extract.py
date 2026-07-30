@@ -188,6 +188,7 @@ class CloudExtractResponse(BaseModel):
     signature_crops: Optional[list[str]] = None            # base64 PNG per detected signature, server-cropped
     signature_crops_estimated: Optional[bool] = None       # True when PIL ink-detect fallback was used
     signature_fraud_flags: Optional[list[str]] = None
+    indic_backend: Optional[str] = None     # 'ai4bharat' | 'easyocr' — set for indic-devanagari mode
     error: Optional[str] = None
     raw_response: Optional[str] = None
 
@@ -257,12 +258,17 @@ async def _resolve_indic_ocr_url(bank_id: str) -> str:
 
 
 async def _call_indic_ocr_zones(
-    pil_img: Image.Image, bank_id: str
+    pil_img: Image.Image,
+    bank_id: str,
+    backend: str | None = None,
 ) -> tuple[dict, bool]:
     """POST the full cheque to the IndicOCR service for Devanagari zone extraction.
 
     Returns ``(field_dict, service_available)``.
-    field_dict has keys: bank_name, date, payee_name, amount_words.
+    field_dict has keys: bank_name, date, payee_name, amount_words, backend.
+
+    ``backend`` overrides the service-level INDIC_OCR_BACKEND default when supplied.
+    Omit (None) to let the microservice use its configured default (AI4Bharat).
     """
     import httpx
 
@@ -271,11 +277,14 @@ async def _call_indic_ocr_zones(
     pil_img.save(buf, format="PNG")
     buf.seek(0)
 
+    params = {"backend": backend} if backend else {}
+
     try:
         async with httpx.AsyncClient(timeout=30.0) as hc:
             resp = await hc.post(
                 f"{url}/ocr_zones",
                 files={"file": ("cheque.png", buf, "image/png")},
+                params=params,
             )
             resp.raise_for_status()
             data = resp.json()
@@ -284,9 +293,12 @@ async def _call_indic_ocr_zones(
                 "date":         data.get("date"),
                 "payee_name":   data.get("payee_name"),
                 "amount_words": data.get("amount_words"),
+                "backend":      data.get("backend", "ai4bharat"),
             }
             log.info("demo.cloud_extract.indic_ocr_done",
-                     bank_id=bank_id, fields_found=sum(v is not None for v in fields.values()))
+                     bank_id=bank_id,
+                     backend=fields["backend"],
+                     fields_found=sum(v is not None for v in fields.values()) - 1)
             return fields, True
     except Exception as exc:
         log.warning("demo.cloud_extract.indic_ocr_unreachable",
@@ -1432,6 +1444,7 @@ async def _extract_indic_devanagari(
         signature_bboxes=sig_bboxes_out if sig_bboxes_out else None,
         signature_crops=signature_crops if signature_crops else None,
         signature_crops_estimated=False,
+        indic_backend=indic_fields.get("backend", "ai4bharat"),
         error=indic_sig_offline_error,
     )
 
