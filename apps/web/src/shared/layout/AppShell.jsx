@@ -69,6 +69,7 @@ const SIDEBAR_MODULES = [
       {
         label: 'Outward Clearing',
         items: [
+          { to: '/cts/hub',                    label: 'Hub Manager',                  perm: 'cts:submit_decision', sbOnly: true },
           { to: '/cts/outward',                label: 'Outward Monitor',   end: true, perm: 'cts:view_queue'      },
           { to: '/cts/outward/verification',   label: 'Verification OQ',             perm: 'cts:view_queue'      },
           { to: '/cts/outward/queue',          label: 'Validation OQ',               perm: 'cts:submit_decision' },

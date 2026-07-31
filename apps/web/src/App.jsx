@@ -44,6 +44,7 @@ import CTSDemoPipeline from './modules/cts/pages/CTSDemoPipeline'
 import CTSCloudAIDemo from './modules/cts/pages/CTSCloudAIDemo'
 import CTSSigBatchTest from './modules/cts/pages/CTSSigBatchTest'
 import CTSPresentmentFile from './modules/cts/pages/CTSPresentmentFile'
+import CTSHubDashboard from './modules/cts/pages/CTSHubDashboard'
 import BranchDashboard from './modules/cts/pages/branch/BranchDashboard'
 import BranchScanMonitor from './modules/cts/pages/branch/BranchScanMonitor'
 import BranchMismatchQueue from './modules/cts/pages/branch/BranchMismatchQueue'
@@ -136,6 +137,8 @@ export default function App() {
         <Route path="/cts/smb/dashboard" element={<CTSSMBDashboard />} />
         <Route path="/cts/smb/review-queue" element={<CTSSMBReviewQueue />} />
         <Route path="/cts/smb/reports" element={<CTSSMBReports />} />
+        {/* Hub Manager — SB clearing hub command centre */}
+        <Route path="/cts/hub" element={<CTSHubDashboard />} />
         {/* Branch Portal — EEH branch operator screens */}
         <Route path="/branch" element={<BranchDashboard />} />
         <Route path="/branch/scan" element={<BranchScanMonitor />} />
