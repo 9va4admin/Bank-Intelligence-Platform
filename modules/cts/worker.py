@@ -125,6 +125,7 @@ from modules.cts.workflows.activities.outward_scan_activities import (
     create_lot_entry,
     run_vision_presentment_check,
 )
+from modules.cts.workflows.activities.security_features import check_security_features
 from modules.cts.workflows.mismatch_resolution_workflow import publish_mismatch_hold
 from modules.cts.workflows.activities.batch_endorsement_activities import (
     stamp_endorsement,
@@ -221,6 +222,7 @@ ALL_ACTIVITIES = [
     validate_cts2010,
     create_lot_entry,
     run_vision_presentment_check,
+    check_security_features,
     publish_mismatch_hold,
     stamp_endorsement,
     update_lot_status,

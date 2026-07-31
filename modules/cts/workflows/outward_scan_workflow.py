@@ -228,6 +228,52 @@ class OutwardScanWorkflow:
         # DEGRADED → proceed optimistically; do not block lot on AI failure.
         # Fraud flags → outward bank does not validate signatures; logged by drawee inward.
 
+        # Step 3.6: CTS-2010 security feature presence (void pantograph, ₹ symbol, micro-lettering)
+        from modules.cts.workflows.activities.security_features import (
+            check_security_features, SecurityFeaturesInput,
+        )
+        sec_result = await workflow.execute_activity(
+            check_security_features,
+            args=[
+                SecurityFeaturesInput(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    image_url=inp.image_front_url,
+                    smb_id=inp.smb_id if hasattr(inp, "smb_id") else None,
+                ),
+                None,   # vllm_client — worker-level DI
+                None,   # config_service — worker-level DI
+                None,   # langfuse — worker-level DI
+            ],
+            start_to_close_timeout=timedelta(seconds=120),
+            retry_policy=_AI_RETRY,
+        )
+        if sec_result.outcome == "HUMAN_REVIEW":
+            log.info(
+                "outward_scan_workflow.security_features_missing",
+                scan_id=inp.scan_id, bank_id=inp.bank_id,
+                missing=sec_result.missing_features,
+            )
+            await workflow.execute_activity(
+                write_audit,
+                WriteAuditInput(
+                    event_type="CTS_OUT_SECURITY_FEATURES_MISSING",
+                    bank_id=inp.bank_id, instrument_id=inp.instrument_id,
+                    payload={
+                        "scan_id": inp.scan_id,
+                        "missing_features": sec_result.missing_features,
+                    },
+                ),
+                start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
+            )
+            return OutwardScanResult(
+                outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
+                violations=[f"SECURITY_FEATURE_ABSENT:{f}" for f in sec_result.missing_features],
+                audit_written=True, pu_id=inp.pu_id,
+            )
+        # DEGRADED → proceed optimistically (AI failure never blocks physical clearing)
+
         # Step 4: Vision cross-check (lot assignment deferred to ClearingSessionWorkflow)
         vision_result = None
         if scanner_amount_str is not None:
