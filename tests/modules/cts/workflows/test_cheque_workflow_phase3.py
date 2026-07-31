@@ -612,12 +612,23 @@ async def _fake_detect_signatures(inp):
     return DetectSignaturesResult(outcome="PRESENT", sig_count=1, sig_bboxes=[[0.1, 0.7, 0.9, 0.95]], fraud_flags=[])
 
 
+@activity.defn(name="check_security_features")
+async def _fake_check_security_features(inp, vllm_client=None, config_service=None, langfuse=None):
+    from modules.cts.workflows.activities.security_features import SecurityFeaturesResult
+    return SecurityFeaturesResult(
+        outcome="PROCEED",
+        features_detected={"void_pantograph": True, "rupee_symbol": True, "micro_lettering": True, "printer_name_cts2010": True},
+        missing_features=[],
+    )
+
+
 _HAPPY_PATH_ACTIVITIES = [
     _fake_detect_alteration, _fake_get_kill_switch_status, _fake_check_stop_payment_proceed,
     _fake_validate_ifsc, _fake_validate_cheque_series,
     _fake_lookup_pps, _fake_detect_signatures, _fake_verify_signature, _fake_score_fraud,
     _fake_check_cbs_balance, _fake_check_account_status, _fake_synthesise_decision,
     _fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue,
+    _fake_check_security_features,
 ]
 
 
@@ -713,6 +724,7 @@ class TestChequeWorkflowRealRun:
         bank_id, instrument_id = "saraswat-coop", f"INST-{uuid.uuid4().hex[:8]}"
         activities = [
             _fake_detect_alteration, _fake_get_kill_switch_status, _fake_check_stop_payment_return,
+            _fake_check_security_features,
             _fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue,
         ]
 
@@ -874,6 +886,7 @@ class TestChequeWorkflowKillSwitchWiring:
 
         activities = [
             _kc_active_lookup, _detect_alteration_captures_kill_switch,
+            _fake_check_security_features,
             _fake_check_stop_payment_proceed, _fake_validate_ifsc, _fake_validate_cheque_series,
             _fake_lookup_pps, _fake_detect_signatures, _fake_verify_signature,
             _fake_score_fraud, _fake_check_cbs_balance, _fake_check_account_status,

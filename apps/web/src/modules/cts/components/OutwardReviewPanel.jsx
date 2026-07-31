@@ -386,22 +386,56 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
         )}
 
         {tab === 'cts-2010' && (
-          <div className="space-y-2">
-            {[
-              { label: 'Image Quality ≥ 85%',     ok: overallIqa >= 0.85 },
-              { label: 'MICR Line Extracted',      ok: !!item.ocr_fields?.micr },
-              { label: 'Date Present + Parseable', ok: !!item.ocr_fields?.date },
-              { label: 'Payee Name Present',       ok: !!item.ocr_fields?.payee },
-              { label: 'Amount in Figures',        ok: !!item.ocr_fields?.amount_figures },
-              { label: 'Amount in Words',          ok: !!item.ocr_fields?.amount_words },
-              { label: 'Alteration Check',         ok: !item.ocr_fields?.alterations },
-              { label: 'Endorsement Stamp',        ok: item.has_endorsement !== false },
-            ].map(({ label, ok }) => (
-              <div key={label} className={`flex items-center justify-between px-4 py-2.5 rounded-lg ${ok ? (isDark ? 'bg-emerald-500/5 border border-emerald-500/15' : 'bg-emerald-50 border border-emerald-200') : (isDark ? 'bg-red-500/5 border border-red-500/15' : 'bg-red-50 border border-red-200')}`}>
-                <span className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{label}</span>
-                <span className={`text-sm ${ok ? 'text-emerald-400' : 'text-red-400'}`}>{ok ? '✓' : '✗'}</span>
+          <div className="space-y-4">
+            {/* Image + content checks */}
+            <div className="space-y-2">
+              {[
+                { label: 'Image Quality ≥ 85%',     ok: overallIqa >= 0.85 },
+                { label: 'MICR Line Extracted',      ok: !!item.ocr_fields?.micr },
+                { label: 'Date Present + Parseable', ok: !!item.ocr_fields?.date },
+                { label: 'Payee Name Present',       ok: !!item.ocr_fields?.payee },
+                { label: 'Amount in Figures',        ok: !!item.ocr_fields?.amount_figures },
+                { label: 'Amount in Words',          ok: !!item.ocr_fields?.amount_words },
+                { label: 'Alteration Check',         ok: !item.ocr_fields?.alterations },
+                { label: 'Endorsement Stamp',        ok: item.has_endorsement !== false },
+              ].map(({ label, ok }) => (
+                <div key={label} className={`flex items-center justify-between px-4 py-2.5 rounded-lg ${ok ? (isDark ? 'bg-emerald-500/5 border border-emerald-500/15' : 'bg-emerald-50 border border-emerald-200') : (isDark ? 'bg-red-500/5 border border-red-500/15' : 'bg-red-50 border border-red-200')}`}>
+                  <span className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{label}</span>
+                  <span className={`text-sm ${ok ? 'text-emerald-400' : 'text-red-400'}`}>{ok ? '✓' : '✗'}</span>
+                </div>
+              ))}
+            </div>
+            {/* Security print features (Qwen2-VL) */}
+            <div>
+              <div className={`text-[9px] font-semibold uppercase tracking-widest mb-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Security Print Features</div>
+              <div className="space-y-2">
+                {[
+                  { label: 'Void Pantograph',       key: 'void_pantograph'      },
+                  { label: '₹ Symbol',              key: 'rupee_symbol'         },
+                  { label: 'Micro-lettering',       key: 'micro_lettering'      },
+                  { label: 'Printer Name CTS-2010', key: 'printer_name_cts2010' },
+                ].map(({ label, key }) => {
+                  const sf = item.security_features
+                  const detected = sf ? sf[key] === true : null
+                  const ok = detected !== false  // null = not checked yet → neutral
+                  const isChecked = sf != null
+                  return (
+                    <div key={key} className={`flex items-center justify-between px-4 py-2.5 rounded-lg ${
+                      !isChecked
+                        ? (isDark ? 'bg-white/3 border border-white/8' : 'bg-slate-50 border border-slate-200')
+                        : ok
+                          ? (isDark ? 'bg-emerald-500/5 border border-emerald-500/15' : 'bg-emerald-50 border border-emerald-200')
+                          : (isDark ? 'bg-red-500/5 border border-red-500/15' : 'bg-red-50 border border-red-200')
+                    }`}>
+                      <span className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{label}</span>
+                      <span className={`text-sm ${!isChecked ? (isDark ? 'text-slate-600' : 'text-slate-400') : ok ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {!isChecked ? '—' : ok ? '✓' : '✗'}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
-            ))}
+            </div>
           </div>
         )}
 
@@ -464,6 +498,35 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
                 ))}
               </div>
             </div>
+
+            {/* Security print features */}
+            {item.security_features && (
+              <div>
+                <div className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${th.lbl}`}>Security Print</div>
+                <div className={`rounded-lg border p-3 space-y-2 text-[11px] ${
+                  (item.security_features.missing ?? []).length > 0
+                    ? (isDark ? 'bg-red-500/8 border-red-500/25' : 'bg-red-50 border-red-300')
+                    : (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-200')
+                }`}>
+                  {[
+                    { label: 'Void Pantograph',       key: 'void_pantograph'      },
+                    { label: '₹ Symbol',              key: 'rupee_symbol'         },
+                    { label: 'Micro-lettering',       key: 'micro_lettering'      },
+                    { label: 'Printer CTS-2010',      key: 'printer_name_cts2010' },
+                  ].map(({ label, key }) => {
+                    const ok = item.security_features[key] === true
+                    return (
+                      <div key={key} className="flex items-center justify-between">
+                        <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{label}</span>
+                        <span className={`font-mono font-semibold ${ok ? (isDark ? 'text-emerald-400' : 'text-emerald-700') : (isDark ? 'text-red-400' : 'text-red-700')}`}>
+                          {ok ? '✓ Present' : '⚠ Missing'}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Model attribution */}
             <div>
