@@ -323,6 +323,12 @@ async def _fake_detect_signatures_outward(inp):
     return DetectSignaturesResult(outcome="PRESENT", sig_count=1, sig_bboxes=[[0.1, 0.7, 0.9, 0.95]], fraud_flags=[])
 
 
+@_activity.defn(name="cross_check_ngch_metadata")
+async def _fake_cross_check(inp):
+    from modules.cts.workflows.activities.ngch_metadata_cross_check import NGCHMetadataCrossCheckResult
+    return NGCHMetadataCrossCheckResult(outcome="PROCEED", mismatch_fields=[], details={})
+
+
 @_activity.defn(name="check_security_features")
 async def _fake_check_security_features(inp, vllm_client=None, config_service=None, langfuse=None):
     from modules.cts.workflows.activities.security_features import SecurityFeaturesResult
@@ -342,7 +348,7 @@ def _worker(env, task_queue, ocr_fake, vision_fake, compliance_fake=_fake_valida
         activities=[
             ocr_fake, compliance_fake, _fake_lot, vision_fake,
             _fake_write_audit, _fake_publish_hold, _fake_detect_signatures_outward,
-            _fake_check_security_features,
+            _fake_check_security_features, _fake_cross_check,
         ],
         workflow_runner=UnsandboxedWorkflowRunner(),
     )

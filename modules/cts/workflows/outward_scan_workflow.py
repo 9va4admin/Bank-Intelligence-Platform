@@ -85,6 +85,11 @@ class OutwardScanInput(BaseModel):
     # vision_extract_and_check path (no GOT-OCR2 call on outward side).
     micr_hardware_raw: Optional[str] = None
 
+    # NGCH metadata cross-check fields (Item 6) — filled at deposit registration.
+    # Optional and additive: if absent, cross-check degrades gracefully to PROCEED.
+    registered_drawee_ifsc: Optional[str] = None   # IFSC of drawee bank (from teller entry)
+    registered_amount_str: Optional[str] = None    # amount entered at deposit (decimal string)
+
 
 class OutwardScanResult(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -157,6 +162,51 @@ class OutwardScanWorkflow:
         micr_line = ocr_result.micr_line
         scanner_amount_str = ocr_result.amount_figures
         quality_score = None if ocr_result.degraded else ocr_result.overall_confidence
+
+        # Step 2.5: NGCH metadata cross-check — MICR band vs registered instrument metadata
+        from modules.cts.workflows.activities.ngch_metadata_cross_check import (
+            cross_check_ngch_metadata, NGCHMetadataCrossCheckInput,
+        )
+        xcheck_result = await workflow.execute_activity(
+            cross_check_ngch_metadata,
+            NGCHMetadataCrossCheckInput(
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                micr_line=micr_line,
+                registered_cheque_number=inp.cheque_number or None,
+                ifsc_from_ocr=ocr_result.ifsc_code,
+                registered_drawee_ifsc=inp.registered_drawee_ifsc,
+                registered_amount_str=inp.registered_amount_str,
+                amount_from_ocr=scanner_amount_str,
+            ),
+            start_to_close_timeout=timedelta(seconds=5),
+            retry_policy=_INFRA_RETRY,
+        )
+        if xcheck_result.outcome == "HUMAN_REVIEW":
+            log.info(
+                "outward_scan_workflow.ngch_metadata_mismatch",
+                scan_id=inp.scan_id, bank_id=inp.bank_id,
+                mismatches=xcheck_result.mismatch_fields,
+            )
+            await workflow.execute_activity(
+                write_audit,
+                WriteAuditInput(
+                    event_type="CTS_OUT_NGCH_METADATA_MISMATCH",
+                    bank_id=inp.bank_id, instrument_id=inp.instrument_id,
+                    payload={
+                        "scan_id": inp.scan_id,
+                        "mismatch_fields": xcheck_result.mismatch_fields,
+                    },
+                ),
+                start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
+            )
+            return OutwardScanResult(
+                outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
+                violations=[f"NGCH_METADATA_MISMATCH:{f}" for f in xcheck_result.mismatch_fields],
+                audit_written=True, pu_id=inp.pu_id,
+            )
+        # DEGRADED → proceed optimistically (MICR parse failure is not clearing-blocking)
 
         # Step 3: CTS-2010 compliance
         compliance_result = await workflow.execute_activity(
@@ -520,6 +570,22 @@ class OutwardScanWorkflow:
         # Step 1+2: MICR extraction (capture + extract combined in mock)
         micr_result = mock_results["micr"]
         micr_line = getattr(micr_result, "micr_line", None)
+
+        # Step 2.5: NGCH metadata cross-check (optional mock — defaults to PROCEED)
+        xcheck_result = mock_results.get("cross_check")
+        if xcheck_result is not None and getattr(xcheck_result, "outcome", "PROCEED") == "HUMAN_REVIEW":
+            await self._write_audit(mock_results, "CTS_REJECTED", inp)
+            return OutwardScanResult(
+                outcome="CTS_REJECTED",
+                scan_id=inp.scan_id,
+                bank_id=inp.bank_id,
+                instrument_id=inp.instrument_id,
+                micr_line=micr_line,
+                lot_number=None,
+                violations=[f"NGCH_METADATA_MISMATCH:{f}" for f in getattr(xcheck_result, "mismatch_fields", [])],
+                audit_written=True,
+                pu_id=inp.pu_id,
+            )
 
         # Step 3: CTS-2010 compliance validation
         compliance_result = mock_results["compliance"]

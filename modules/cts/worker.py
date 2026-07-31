@@ -126,6 +126,7 @@ from modules.cts.workflows.activities.outward_scan_activities import (
     run_vision_presentment_check,
 )
 from modules.cts.workflows.activities.security_features import check_security_features
+from modules.cts.workflows.activities.ngch_metadata_cross_check import cross_check_ngch_metadata
 from modules.cts.workflows.mismatch_resolution_workflow import publish_mismatch_hold
 from modules.cts.workflows.activities.batch_endorsement_activities import (
     stamp_endorsement,
@@ -255,6 +256,7 @@ ALL_ACTIVITIES = [
 #      SBRelay, SMBVaultPush, and AgencyCC workflows — same pattern.
 NO_DI_ACTIVITIES = [
     validate_cts2010,
+    cross_check_ngch_metadata,
     # Batch endorsement (BatchEndorsementWorkflow)
     stamp_endorsement,
     update_lot_status,
