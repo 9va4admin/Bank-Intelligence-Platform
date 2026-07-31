@@ -402,3 +402,264 @@ async def test_upload_cheque_still_accepts_without_kafka_or_minio():
 
     assert len(acks) == 1
     assert acks[0].status == "ACCEPTED"
+
+
+# ── 8. SealLot — Hub Manager RBAC guard ──────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_seal_lot_rejected_for_branch_operator_role():
+    """Branch operators must NOT be able to seal lots — SealLot returns UNAUTHORIZED."""
+    from apps.eeh.grpc_server import EEHServicer
+
+    mock_db = AsyncMock()
+    mock_db.fetchrow = AsyncMock(return_value={
+        "lot_id": "LOT-05",
+        "status": "OPEN",
+        "instrument_count": 8,
+        "clearing_session_id": "sess-clear-01",
+    })
+
+    svc = EEHServicer(
+        session_manager=AsyncMock(),
+        sse_publisher=AsyncMock(),
+        db=mock_db,
+    )
+
+    request = MagicMock()
+    request.lot_id = "LOT-05"
+    request.sealed_by = "op-mahesh"
+    request.requester_role = "BRANCH_OPERATOR"
+
+    ack = await svc.SealLot(request, MagicMock())
+    assert ack.status == "UNAUTHORIZED"
+    # DB must NOT have been updated
+    mock_db.execute.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_seal_lot_allowed_for_hub_manager_role():
+    """Hub Manager must be able to seal lots."""
+    from apps.eeh.grpc_server import EEHServicer
+
+    mock_db = AsyncMock()
+    mock_db.fetchrow = AsyncMock(return_value={
+        "lot_id": "LOT-05",
+        "status": "OPEN",
+        "instrument_count": 8,
+        "clearing_session_id": "sess-clear-01",
+    })
+    mock_db.execute = AsyncMock()
+
+    svc = EEHServicer(
+        session_manager=AsyncMock(),
+        sse_publisher=AsyncMock(),
+        db=mock_db,
+    )
+
+    request = MagicMock()
+    request.lot_id = "LOT-05"
+    request.sealed_by = "hub-manager-01"
+    request.requester_role = "HUB_MANAGER"
+
+    ack = await svc.SealLot(request, MagicMock())
+    assert ack.status == "SEALED"
+    mock_db.execute.assert_awaited()
+
+
+# ── 9. UploadCheque — auto-open session on first scan ────────────────────────
+
+def _make_auto_open_session():
+    """Returns an EEHSession as returned by get_or_create_session."""
+    from apps.eeh.session import EEHSession
+    return EEHSession(
+        session_id="sess-auto-001",
+        bank_id="sb1",
+        branch_id="b-auto",
+        operator_id="AUTO_FIRST_SCAN",
+        cert_fingerprint="FP-AUTO",
+        hub_type="EEH",
+        clearing_date=date(2026, 7, 31),
+        expires_at=datetime(2026, 7, 31, 18, 0, tzinfo=timezone.utc),
+    )
+
+
+@pytest.mark.asyncio
+async def test_upload_cheque_auto_opens_session_when_no_session_id():
+    """
+    When payload has no session_id, UploadCheque must call get_or_create_session
+    and accept the cheque using the auto-opened session.
+    """
+    from apps.eeh.grpc_server import EEHServicer
+
+    auto_session = _make_auto_open_session()
+    mock_mgr = AsyncMock()
+    mock_mgr.get_or_create_session = AsyncMock(return_value=(auto_session, True))
+
+    # DB returns None for session_id lookup (no session yet)
+    mock_db = AsyncMock()
+    mock_db.fetchrow = AsyncMock(return_value=None)
+
+    svc = EEHServicer(
+        session_manager=mock_mgr,
+        sse_publisher=AsyncMock(),
+        db=mock_db,
+    )
+
+    payload = MagicMock()
+    payload.session_id = ""          # no session_id yet
+    payload.scan_id = "SCAN-FIRST"
+    payload.bank_id = "sb1"
+    payload.branch_id = "b-auto"
+    payload.branch_name = "Auto Branch"
+    payload.hub_type = "EEH"
+    payload.cert_fingerprint = "FP-AUTO"
+    payload.image_front = b""
+    payload.image_rear = b""
+
+    async def payload_iter():
+        yield payload
+
+    acks = []
+    async for ack in svc.UploadCheque(payload_iter(), MagicMock()):
+        acks.append(ack)
+
+    assert len(acks) == 1
+    assert acks[0].status == "ACCEPTED"
+    mock_mgr.get_or_create_session.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_upload_cheque_auto_open_returns_session_id_in_ack():
+    """The ChequeAck for the first scan must carry the auto-opened session_id."""
+    from apps.eeh.grpc_server import EEHServicer
+
+    auto_session = _make_auto_open_session()
+    mock_mgr = AsyncMock()
+    mock_mgr.get_or_create_session = AsyncMock(return_value=(auto_session, True))
+
+    mock_db = AsyncMock()
+    mock_db.fetchrow = AsyncMock(return_value=None)
+
+    svc = EEHServicer(
+        session_manager=mock_mgr,
+        sse_publisher=AsyncMock(),
+        db=mock_db,
+    )
+
+    payload = MagicMock()
+    payload.session_id = ""
+    payload.scan_id = "SCAN-FIRST"
+    payload.bank_id = "sb1"
+    payload.branch_id = "b-auto"
+    payload.branch_name = "Auto Branch"
+    payload.hub_type = "EEH"
+    payload.cert_fingerprint = "FP-AUTO"
+    payload.image_front = b""
+    payload.image_rear = b""
+
+    async def payload_iter():
+        yield payload
+
+    acks = []
+    async for ack in svc.UploadCheque(payload_iter(), MagicMock()):
+        acks.append(ack)
+
+    assert acks[0].session_id == "sess-auto-001"
+
+
+@pytest.mark.asyncio
+async def test_upload_cheque_rejects_revoked_cert_on_auto_open():
+    """Revoked cert during auto-open must return REJECTED, not crash."""
+    from apps.eeh.grpc_server import EEHServicer
+    from apps.eeh.session import CertRevokedError
+
+    mock_mgr = AsyncMock()
+    mock_mgr.get_or_create_session = AsyncMock(side_effect=CertRevokedError("revoked"))
+
+    mock_db = AsyncMock()
+    mock_db.fetchrow = AsyncMock(return_value=None)
+
+    svc = EEHServicer(
+        session_manager=mock_mgr,
+        sse_publisher=AsyncMock(),
+        db=mock_db,
+    )
+
+    payload = MagicMock()
+    payload.session_id = ""
+    payload.scan_id = "SCAN-BAD"
+    payload.bank_id = "sb1"
+    payload.branch_id = "b-bad"
+    payload.branch_name = ""
+    payload.hub_type = "EEH"
+    payload.cert_fingerprint = "FP-REVOKED"
+    payload.image_front = b""
+    payload.image_rear = b""
+
+    async def payload_iter():
+        yield payload
+
+    acks = []
+    async for ack in svc.UploadCheque(payload_iter(), MagicMock()):
+        acks.append(ack)
+
+    assert acks[0].status == "REJECTED"
+    assert "revoked" in acks[0].reason.lower()
+
+
+@pytest.mark.asyncio
+async def test_eeh_servicer_accepts_immudb_client_kwarg():
+    """EEHServicer must accept immudb_client as optional kwarg for session audit writes."""
+    from apps.eeh.grpc_server import EEHServicer
+
+    svc = EEHServicer(
+        session_manager=AsyncMock(),
+        sse_publisher=AsyncMock(),
+        db=AsyncMock(),
+        immudb_client=AsyncMock(),
+    )
+    assert svc is not None
+
+
+@pytest.mark.asyncio
+async def test_upload_cheque_writes_immudb_audit_on_auto_open():
+    """When a session is auto-opened, an Immudb audit event must be written."""
+    from apps.eeh.grpc_server import EEHServicer
+
+    auto_session = _make_auto_open_session()
+    mock_mgr = AsyncMock()
+    mock_mgr.get_or_create_session = AsyncMock(return_value=(auto_session, True))
+
+    mock_db = AsyncMock()
+    mock_db.fetchrow = AsyncMock(return_value=None)
+
+    mock_immudb = AsyncMock()
+
+    svc = EEHServicer(
+        session_manager=mock_mgr,
+        sse_publisher=AsyncMock(),
+        db=mock_db,
+        immudb_client=mock_immudb,
+    )
+
+    payload = MagicMock()
+    payload.session_id = ""
+    payload.scan_id = "SCAN-IMMUDB"
+    payload.bank_id = "sb1"
+    payload.branch_id = "b-auto"
+    payload.branch_name = "Auto Branch"
+    payload.hub_type = "EEH"
+    payload.cert_fingerprint = "FP-AUTO"
+    payload.image_front = b""
+    payload.image_rear = b""
+
+    async def payload_iter():
+        yield payload
+
+    async for _ in svc.UploadCheque(payload_iter(), MagicMock()):
+        pass
+
+    mock_immudb.write.assert_awaited_once()
+    call_args = mock_immudb.write.call_args[0][0]
+    assert call_args["event_type"] == "BRANCH_SESSION_AUTO_OPENED"
+    assert call_args["branch_id"] == "b-auto"

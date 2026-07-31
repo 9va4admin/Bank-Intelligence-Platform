@@ -260,6 +260,46 @@ class EEHSessionManager:
 
         log.info("eeh.session.closed", session_id=session_id, status=status)
 
+    # ── Get-or-create (auto-open on first scan) ───────────────────────────────
+
+    async def get_or_create_session(
+        self,
+        *,
+        cert_fingerprint: str,
+        bank_id: str,
+        branch_id: str,
+        branch_name: str = "",
+        hub_type: str = "EEH",
+        clearing_date: date,
+        session_ttl_seconds: int,
+    ) -> tuple["EEHSession", bool]:
+        """
+        Returns the active session for this cert fingerprint, or creates one.
+        Called by UploadCheque on the first scan from a branch — no manual session
+        open required.
+
+        Returns (session, was_newly_created).
+        Raises CertRevokedError if the cert belongs to a revoked session.
+        """
+        try:
+            session = await self.resolve_by_cert(cert_fingerprint)
+            return session, False
+        except CertRevokedError:
+            raise
+        except SessionNotFoundError:
+            pass
+
+        session = await self.open_session(
+            bank_id=bank_id,
+            branch_id=branch_id,
+            operator_id="AUTO_FIRST_SCAN",
+            cert_fingerprint=cert_fingerprint,
+            hub_type=hub_type,
+            clearing_date=clearing_date,
+            session_ttl_seconds=session_ttl_seconds,
+        )
+        return session, True
+
     # ── Counters ──────────────────────────────────────────────────────────────
 
     async def record_batch_result(
