@@ -129,3 +129,136 @@ class TestValidateChequeSeries:
         from modules.cts.workflows.activities.cheque_series import validate_cheque_series
         result = await validate_cheque_series(_make_input(), cbs_connector=_mock_cbs("UNKNOWN_STATUS"))
         assert result.outcome == "HUMAN_REVIEW"
+
+
+# ---------------------------------------------------------------------------
+# Vault mode tests
+# ---------------------------------------------------------------------------
+
+def _mock_vault(outcome: str, status: str = None, degraded: bool = False):
+    """Build an async-capable vault mock returning a ChequeLeafVaultResult."""
+    from modules.cts.vaults.cheque_leaf_vault import ChequeLeafVaultResult
+    from unittest.mock import AsyncMock
+    v = AsyncMock()
+    v.lookup = AsyncMock(return_value=ChequeLeafVaultResult(
+        outcome=outcome,
+        status=status,
+        degraded=degraded,
+    ))
+    return v
+
+
+def _mock_config(mode: str = "VAULT"):
+    from unittest.mock import AsyncMock
+    cfg = AsyncMock()
+    cfg.get_cts_config = AsyncMock(return_value={"cheque_series.source": mode})
+    return cfg
+
+
+class TestValidateChequeSeriesVaultMode:
+    """validate_cheque_series in VAULT mode (ChequeLeafVault path)."""
+
+    @pytest.mark.asyncio
+    async def test_vault_active_returns_proceed(self):
+        from modules.cts.workflows.activities.cheque_series import validate_cheque_series
+        result = await validate_cheque_series(
+            _make_input(),
+            cheque_leaf_vault=_mock_vault("FOUND", "ACTIVE"),
+            config_service=_mock_config("VAULT"),
+        )
+        assert result.outcome == "PROCEED"
+        assert result.return_reason_code is None
+
+    @pytest.mark.asyncio
+    async def test_vault_lost_returns_stp_return_code_86(self):
+        from modules.cts.workflows.activities.cheque_series import validate_cheque_series
+        result = await validate_cheque_series(
+            _make_input(),
+            cheque_leaf_vault=_mock_vault("FOUND", "LOST"),
+            config_service=_mock_config("VAULT"),
+        )
+        assert result.outcome == "STP_RETURN"
+        assert result.return_reason_code == "86"
+        assert result.reason == "CHEQUE_LOST"
+
+    @pytest.mark.asyncio
+    async def test_vault_stolen_returns_stp_return_code_86(self):
+        from modules.cts.workflows.activities.cheque_series import validate_cheque_series
+        result = await validate_cheque_series(
+            _make_input(),
+            cheque_leaf_vault=_mock_vault("FOUND", "STOLEN"),
+            config_service=_mock_config("VAULT"),
+        )
+        assert result.outcome == "STP_RETURN"
+        assert result.return_reason_code == "86"
+        assert result.reason == "CHEQUE_STOLEN"
+
+    @pytest.mark.asyncio
+    async def test_vault_cancelled_returns_stp_return_code_20(self):
+        from modules.cts.workflows.activities.cheque_series import validate_cheque_series
+        result = await validate_cheque_series(
+            _make_input(),
+            cheque_leaf_vault=_mock_vault("FOUND", "CANCELLED"),
+            config_service=_mock_config("VAULT"),
+        )
+        assert result.outcome == "STP_RETURN"
+        assert result.return_reason_code == "20"
+        assert result.reason == "CHEQUE_CANCELLED"
+
+    @pytest.mark.asyncio
+    async def test_vault_used_routes_to_human_review(self):
+        from modules.cts.workflows.activities.cheque_series import validate_cheque_series
+        result = await validate_cheque_series(
+            _make_input(),
+            cheque_leaf_vault=_mock_vault("FOUND", "USED"),
+            config_service=_mock_config("VAULT"),
+        )
+        assert result.outcome == "HUMAN_REVIEW"
+        assert result.reason == "CHEQUE_ALREADY_USED"
+
+    @pytest.mark.asyncio
+    async def test_vault_miss_routes_to_human_review(self):
+        from modules.cts.workflows.activities.cheque_series import validate_cheque_series
+        result = await validate_cheque_series(
+            _make_input(),
+            cheque_leaf_vault=_mock_vault("NOT_FOUND"),
+            config_service=_mock_config("VAULT"),
+        )
+        assert result.outcome == "HUMAN_REVIEW"
+        assert result.reason == "LEAF_NOT_IN_VAULT"
+
+    @pytest.mark.asyncio
+    async def test_vault_error_routes_to_human_review_degraded(self):
+        from modules.cts.workflows.activities.cheque_series import validate_cheque_series
+        result = await validate_cheque_series(
+            _make_input(),
+            cheque_leaf_vault=_mock_vault("ERROR", degraded=True),
+            config_service=_mock_config("VAULT"),
+        )
+        assert result.outcome == "HUMAN_REVIEW"
+        assert result.reason == "VAULT_ERROR"
+        assert result.degraded is True
+
+    @pytest.mark.asyncio
+    async def test_vault_mode_no_vault_wired_falls_back_to_cbs(self):
+        """VAULT mode but vault=None → falls back to CBS (degraded, not silent fail)."""
+        from modules.cts.workflows.activities.cheque_series import validate_cheque_series
+        result = await validate_cheque_series(
+            _make_input(),
+            cbs_connector=_mock_cbs("ACTIVE"),
+            cheque_leaf_vault=None,
+            config_service=_mock_config("VAULT"),
+        )
+        assert result.outcome == "PROCEED"
+
+    @pytest.mark.asyncio
+    async def test_cbs_mode_uses_cbs_directly(self):
+        """Explicit CBS mode → CBS call, vault is irrelevant."""
+        from modules.cts.workflows.activities.cheque_series import validate_cheque_series
+        result = await validate_cheque_series(
+            _make_input(),
+            cbs_connector=_mock_cbs("ACTIVE"),
+            cheque_leaf_vault=_mock_vault("FOUND", "LOST"),  # vault says LOST but CBS says ACTIVE
+            config_service=_mock_config("CBS"),
+        )
+        assert result.outcome == "PROCEED"   # CBS wins in CBS mode

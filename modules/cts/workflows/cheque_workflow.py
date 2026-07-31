@@ -419,35 +419,6 @@ class ChequeProcessingWorkflow:
                     f"IFSC registry: {ifsc_result.reason or 'IFSC_NOT_IN_REGISTRY'}",
                 )
 
-        # Step 3b: validate_cheque_series — CBS check for lost/stolen/cancelled/used leaves
-        from modules.cts.workflows.activities.cheque_series import (
-            ChequeSeriesActivityInput, validate_cheque_series,
-        )
-        cheque_series_result = await workflow.execute_activity(
-            validate_cheque_series,
-            args=[
-                ChequeSeriesActivityInput(
-                    instrument_id=inp.instrument_id,
-                    bank_id=inp.bank_id,
-                    account_number=inp.account_number,
-                    cheque_number=inp.cheque_number,
-                ),
-                None,  # cbs_connector — worker-level DI
-            ],
-            start_to_close_timeout=timedelta(seconds=10),
-            retry_policy=_CBS_RETRY,
-        )
-        if cheque_series_result.outcome == "STP_RETURN":
-            return await finalise(
-                "STP_RETURN",
-                f"Cheque series: {cheque_series_result.reason} ({cheque_series_result.return_reason_code})",
-            )
-        if cheque_series_result.outcome == "HUMAN_REVIEW":
-            return await finalise(
-                "HUMAN_REVIEW",
-                f"Cheque series: {cheque_series_result.reason or 'CBS_UNAVAILABLE'}",
-            )
-
         # Step 4: lookup_pps
         pps_result = await workflow.execute_activity(
             lookup_pps,
@@ -572,7 +543,38 @@ class ChequeProcessingWorkflow:
             retry_policy=_AI_ACTIVITY_RETRY,
         )
 
-        # Step 7: check_cbs_balance
+        # Stage D — Step 7.0: validate_cheque_series (vault mode default → Redis < 5ms; CBS mode → live call)
+        from modules.cts.workflows.activities.cheque_series import (
+            ChequeSeriesActivityInput, validate_cheque_series,
+        )
+        cheque_series_result = await workflow.execute_activity(
+            validate_cheque_series,
+            args=[
+                ChequeSeriesActivityInput(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    account_number=inp.account_number,
+                    cheque_number=inp.cheque_number,
+                ),
+                None,   # cbs_connector — worker-level DI
+                None,   # cheque_leaf_vault — worker-level DI
+                None,   # config_service — worker-level DI
+            ],
+            start_to_close_timeout=timedelta(seconds=10),
+            retry_policy=_CBS_RETRY,
+        )
+        if cheque_series_result.outcome == "STP_RETURN":
+            return await finalise(
+                "STP_RETURN",
+                f"Cheque series: {cheque_series_result.reason} ({cheque_series_result.return_reason_code})",
+            )
+        if cheque_series_result.outcome == "HUMAN_REVIEW":
+            return await finalise(
+                "HUMAN_REVIEW",
+                f"Cheque series: {cheque_series_result.reason or 'CBS_UNAVAILABLE'}",
+            )
+
+        # Stage D — Step 7: check_cbs_balance
         cbs_balance_result = await workflow.execute_activity(
             check_cbs_balance,
             CBSActivityInput(
@@ -755,26 +757,6 @@ class ChequeProcessingWorkflow:
                 shap_values={},
             )
 
-        # Step 4b: Cheque series validity (CBS — lost/stolen/cancelled/used)
-        cheque_series_result = mock_results.get("cheque_series")
-        if cheque_series_result is not None:
-            if cheque_series_result.outcome == "STP_RETURN":
-                return ChequeWorkflowResult(
-                    instrument_id=inp.instrument_id,
-                    bank_id=inp.bank_id,
-                    decision="STP_RETURN",
-                    rationale=f"Cheque series: {cheque_series_result.reason} ({cheque_series_result.return_reason_code})",
-                    shap_values={},
-                )
-            if cheque_series_result.outcome == "HUMAN_REVIEW":
-                return ChequeWorkflowResult(
-                    instrument_id=inp.instrument_id,
-                    bank_id=inp.bank_id,
-                    decision="HUMAN_REVIEW",
-                    rationale=f"Cheque series: {cheque_series_result.reason or 'CBS_UNAVAILABLE'}",
-                    shap_values={},
-                )
-
         # Step 5: PPS lookup
         pps_result = mock_results["pps"]
 
@@ -808,7 +790,27 @@ class ChequeProcessingWorkflow:
         # Step 7: Fraud scoring (always includes SHAP)
         fraud_result = mock_results["fraud"]
 
-        # Step 8: CBS balance check — degrade gracefully on CBS unavailability
+        # Stage D — Step 7.0: Cheque series validity (vault default → Redis; CBS mode → live call)
+        cheque_series_result = mock_results.get("cheque_series")
+        if cheque_series_result is not None:
+            if cheque_series_result.outcome == "STP_RETURN":
+                return ChequeWorkflowResult(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    decision="STP_RETURN",
+                    rationale=f"Cheque series: {cheque_series_result.reason} ({cheque_series_result.return_reason_code})",
+                    shap_values={},
+                )
+            if cheque_series_result.outcome == "HUMAN_REVIEW":
+                return ChequeWorkflowResult(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    decision="HUMAN_REVIEW",
+                    rationale=f"Cheque series: {cheque_series_result.reason or 'CBS_UNAVAILABLE'}",
+                    shap_values={},
+                )
+
+        # Stage D — Step 8: CBS balance check — degrade gracefully on CBS unavailability
         cbs_result = mock_results["cbs"]
         if cbs_result.outcome == "CBS_UNAVAILABLE":
             log.warning(

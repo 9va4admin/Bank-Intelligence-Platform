@@ -285,6 +285,9 @@ class FlexCubeCBSConnector(CBSConnector):
 
         return _find_text(root, "CHQ_STATUS") or "ACTIVE"
 
+    async def list_issued_leaves(self, bank_id: str) -> list[dict]:
+        raise NotImplementedError("FlexCube list_issued_leaves not yet implemented")
+
     async def get_signatory_data(
         self,
         account_number: str,
