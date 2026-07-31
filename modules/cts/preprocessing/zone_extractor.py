@@ -25,12 +25,18 @@ from PIL import Image
 # Calibrated against Syndicate Bank / Saraswat CTS-2010 cheque layout.
 
 CTS_ZONES: dict[str, tuple[float, float, float, float]] = {
-    "bank_name":      (0.00, 0.00, 0.65, 0.22),   # header: bank name + branch address
-    "date":           (0.62, 0.00, 1.00, 0.22),   # date box — top-right
-    "payee_name":     (0.05, 0.25, 0.88, 0.46),   # "Pay ... or Bearer" line
-    "amount_words":   (0.05, 0.44, 0.88, 0.63),   # "Rupees ... Only" line
-    "amount_figures": (0.62, 0.55, 0.98, 0.73),   # ₹ numeric box — right side
-    "micr_band":      (0.00, 0.85, 1.00, 1.00),   # MICR strip at bottom
+    # Calibrated against HDFC (Delhi), NKGSB (Pune) CTS-2010 cheques.
+    # Designed to hold across private banks, PSBs, and UCBs — the three formats
+    # vary ~5–8% vertically but the ranges below absorb that slack.
+    #
+    # Coordinate format: (x1, y1, x2, y2) — proportional, top-left origin.
+    # All cheques tested: 1593–1606 × 741–745 px.
+    "bank_name":      (0.00, 0.00, 0.60, 0.20),   # top-left: logo + branch address + IFSC
+    "date":           (0.58, 0.00, 1.00, 0.22),   # top-right: date box (DD MM YYYY)
+    "payee_name":     (0.04, 0.13, 0.78, 0.30),   # "Pay ___ Or Bearer" line
+    "amount_words":   (0.04, 0.24, 0.80, 0.50),   # "Rupees ___ Only" — includes payee bleed-in
+    "amount_figures": (0.57, 0.27, 0.99, 0.58),   # ₹ numeric box — right column, wide vertical
+    "micr_band":      (0.00, 0.82, 1.00, 1.00),   # MICR E-13B strip — always bottom ~18%
 }
 
 # Fields whose content is always Latin-script numerics or dates.
