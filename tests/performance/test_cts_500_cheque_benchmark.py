@@ -224,6 +224,7 @@ async def test_single_cheque_baseline(api_url, auth_headers, bank_id):
 
 
 @pytest.mark.performance
+@pytest.mark.asyncio
 async def test_iet_watchdog_fires_before_deadline(api_url, auth_headers, bank_id):
     """
     IET safety benchmark: submit a cheque with a tight 45-second IET deadline.

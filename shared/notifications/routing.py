@@ -155,6 +155,9 @@ def _build_routing_table() -> dict[AuditEventType, RoutingSpec]:
         E.CTS_VAULT_MISS: _spec(
             E.CTS_VAULT_MISS, P.P3, notify=False, create_incident=False,
         ),
+        E.CTS_INSTRUMENT_PASSPORT: _spec(
+            E.CTS_INSTRUMENT_PASSPORT, P.P3, notify=False, create_incident=False,
+        ),
 
         # ── CTS NGCH / transport ──────────────────────────────────────────────
         E.CTS_NGCH_FILED: _spec(
