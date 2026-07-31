@@ -3,9 +3,10 @@ CTS-2010 security feature presence activity — Vision LLM check.
 
 Item 5: Detect whether the scanned cheque carries the mandatory RBI CTS-2010
 security features:
-  1. void_pantograph — latent anti-photocopy "VOID" pattern
-  2. rupee_symbol    — ₹ symbol security print / watermark
-  3. micro_lettering — micro-text (fine repeated text, typically "CTS" / bank name)
+  1. void_pantograph      — latent anti-photocopy "VOID" pattern
+  2. rupee_symbol         — ₹ symbol security print / watermark
+  3. micro_lettering      — micro-text (fine repeated text, typically "CTS" / bank name)
+  4. printer_name_cts2010 — "CTS-2010" or NPCI-approved printer name printed on cheque
 
 Applied primarily on the outward (presentee) path where the physical cheque is
 available. Inward (drawee) path may also run this check but against the
@@ -40,21 +41,28 @@ from temporalio import activity
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.cts.security_features")
 
-_MANDATORY_FEATURES = ("void_pantograph", "rupee_symbol", "micro_lettering")
+_MANDATORY_FEATURES = (
+    "void_pantograph",
+    "rupee_symbol",
+    "micro_lettering",
+    "printer_name_cts2010",
+)
 
 _VISION_PROMPT = """You are analysing an Indian bank cheque image for RBI CTS-2010 mandatory security features.
 
-Examine the cheque carefully and report whether each of these three security features is present:
+Examine the cheque carefully and report whether each of these four security features is present:
 
-1. void_pantograph — a latent anti-photocopy pattern (usually shows "VOID" when photocopied, subtle on the original)
+1. void_pantograph — a latent anti-photocopy pattern (usually shows "VOID" when photocopied, subtle on the original; look for a fine dot/line lattice background)
 2. rupee_symbol — a ₹ (Rupee) symbol printed as a security element or watermark on the cheque
 3. micro_lettering — very fine micro-text, often repeating "CTS" or the bank name, visible under magnification
+4. printer_name_cts2010 — the text "CTS-2010" or the name of a NPCI-approved security printer printed on the cheque (commonly at the bottom-left or on the back; indicates the cheque was produced by a certified printer)
 
 Respond ONLY with this exact JSON (no markdown, no explanation):
 {
   "void_pantograph": {"present": true_or_false, "confidence": 0.0_to_1.0},
   "rupee_symbol": {"present": true_or_false, "confidence": 0.0_to_1.0},
-  "micro_lettering": {"present": true_or_false, "confidence": 0.0_to_1.0}
+  "micro_lettering": {"present": true_or_false, "confidence": 0.0_to_1.0},
+  "printer_name_cts2010": {"present": true_or_false, "confidence": 0.0_to_1.0}
 }
 
 Set "present" to true only if the feature is clearly visible. Set "confidence" to reflect how certain you are.
