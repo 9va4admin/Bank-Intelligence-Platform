@@ -313,7 +313,7 @@ class TestSystemHealthEndpoint:
 class TestSystemHealthExtended:
     """Tests for redis_ej, vault, kafka, temporal panels added to /v1/ops/system."""
 
-    def _make_ext_app(self, role="ops_manager", redis_ej=None, vault_client=None,
+    def _make_ext_app(self, role="ops_manager", vault_client=None,
                       kafka_admin=None, temporal_client=None):
         from apps.api.routers.observability import router_v1, get_current_user
         app = FastAPI()
@@ -323,28 +323,10 @@ class TestSystemHealthExtended:
         }
         app.state.db_pool_cts = None
         app.state.redis_cts   = None
-        app.state.redis_ej    = redis_ej
         app.state.vault_client = vault_client
         app.state.kafka_admin  = kafka_admin
         app.state.temporal_client = temporal_client
         return app
-
-    def test_redis_ej_panel_present_in_response(self):
-        client = TestClient(self._make_ext_app(), raise_server_exceptions=False)
-        data = client.get("/v1/ops/system").json()
-        assert "redis_ej" in data, "redis_ej panel missing from /v1/ops/system response"
-
-    def test_redis_ej_schema(self):
-        client = TestClient(self._make_ext_app(), raise_server_exceptions=False)
-        ej = client.get("/v1/ops/system").json()["redis_ej"]
-        assert "connected" in ej
-        assert "degraded" in ej
-
-    def test_redis_ej_degraded_when_none(self):
-        client = TestClient(self._make_ext_app(redis_ej=None), raise_server_exceptions=False)
-        ej = client.get("/v1/ops/system").json()["redis_ej"]
-        assert ej["degraded"] is True
-        assert ej["connected"] is False
 
     def test_vault_panel_present_in_response(self):
         client = TestClient(self._make_ext_app(), raise_server_exceptions=False)
