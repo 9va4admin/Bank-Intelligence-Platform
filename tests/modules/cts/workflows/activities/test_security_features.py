@@ -1,15 +1,16 @@
 """
 Tests for CTS-2010 security feature presence activity.
 
-Item 5: Detect void pantograph, ₹ symbol, micro-lettering via Vision LLM.
+Item 5: Detect void pantograph, ₹ symbol, micro-lettering, and
+printer_name_cts2010 via Vision LLM.
 
 Outcomes:
-  PROCEED   — all mandatory features detected above min_confidence
+  PROCEED      — all mandatory features detected above min_confidence
   HUMAN_REVIEW — one or more features absent or below confidence
-  DEGRADED  — vLLM unavailable (graceful degradation — never blocks clearing)
+  DEGRADED     — vLLM unavailable (graceful degradation — never blocks clearing)
 
-Tests cover: happy path, each missing feature, all missing, model down,
-Langfuse lifecycle, no hardcoded thresholds (config_service used).
+Tests cover: happy path, each missing feature (including printer_name_cts2010),
+all missing, model down, Langfuse lifecycle, no hardcoded thresholds.
 """
 import json
 import pytest
@@ -33,12 +34,14 @@ def _make_vllm_response(
     void_present=True, void_conf=0.92,
     rupee_present=True, rupee_conf=0.95,
     micro_present=True, micro_conf=0.88,
+    printer_present=True, printer_conf=0.91,
 ):
-    """Build a fake vLLM response with structured JSON for the three features."""
+    """Build a fake vLLM response with structured JSON for all four features."""
     payload = {
         "void_pantograph": {"present": void_present, "confidence": void_conf},
         "rupee_symbol": {"present": rupee_present, "confidence": rupee_conf},
         "micro_lettering": {"present": micro_present, "confidence": micro_conf},
+        "printer_name_cts2010": {"present": printer_present, "confidence": printer_conf},
     }
     msg = MagicMock()
     msg.content = json.dumps(payload)
@@ -88,6 +91,7 @@ class TestSecurityFeaturesHappyPath:
         assert result.features_detected["void_pantograph"] is True
         assert result.features_detected["rupee_symbol"] is True
         assert result.features_detected["micro_lettering"] is True
+        assert result.features_detected["printer_name_cts2010"] is True
 
     @pytest.mark.asyncio
     async def test_langfuse_generation_end_always_called(self):
@@ -186,6 +190,21 @@ class TestMissingFeatures:
         assert "void_pantograph" in result.missing_features
 
     @pytest.mark.asyncio
+    async def test_printer_name_absent_routes_human_review(self):
+        """printer_name_cts2010 missing → HUMAN_REVIEW."""
+        from modules.cts.workflows.activities.security_features import check_security_features
+
+        vllm = _make_vllm_client(_make_vllm_response(printer_present=False, printer_conf=0.90))
+        config_service = MagicMock()
+        config_service.get_ai_config = AsyncMock(return_value=_ai_config())
+        langfuse = MagicMock()
+        langfuse.trace = MagicMock(return_value=MagicMock(generation=MagicMock(return_value=MagicMock(end=MagicMock()))))
+
+        result = await check_security_features(_make_inp(), vllm_client=vllm, config_service=config_service, langfuse=langfuse)
+        assert result.outcome == "HUMAN_REVIEW"
+        assert "printer_name_cts2010" in result.missing_features
+
+    @pytest.mark.asyncio
     async def test_all_features_missing_human_review_with_all_in_missing(self):
         from modules.cts.workflows.activities.security_features import check_security_features
 
@@ -194,6 +213,7 @@ class TestMissingFeatures:
                 void_present=False, void_conf=0.95,
                 rupee_present=False, rupee_conf=0.92,
                 micro_present=False, micro_conf=0.89,
+                printer_present=False, printer_conf=0.91,
             )
         )
         config_service = MagicMock()
@@ -203,7 +223,9 @@ class TestMissingFeatures:
 
         result = await check_security_features(_make_inp(), vllm_client=vllm, config_service=config_service, langfuse=langfuse)
         assert result.outcome == "HUMAN_REVIEW"
-        assert set(result.missing_features) == {"void_pantograph", "rupee_symbol", "micro_lettering"}
+        assert set(result.missing_features) == {
+            "void_pantograph", "rupee_symbol", "micro_lettering", "printer_name_cts2010"
+        }
 
 
 # ── degradation paths ─────────────────────────────────────────────────────────
