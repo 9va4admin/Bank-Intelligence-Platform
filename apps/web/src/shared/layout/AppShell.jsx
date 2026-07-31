@@ -22,6 +22,14 @@ function CtsIcon() {
     </svg>
   )
 }
+function OpsIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-4 h-4">
+      <path d="M3 14l4-5 3 3 4-6 3 3" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="2" y="3" width="16" height="14" rx="1.5" />
+    </svg>
+  )
+}
 function AdminIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-4 h-4">
@@ -139,6 +147,23 @@ const SIDEBAR_MODULES = [
     ],
   },
   {
+    id: 'ops',
+    label: 'Ops',
+    fullLabel: 'Platform Operations',
+    Icon: OpsIcon,
+    sections: [
+      {
+        label: 'ASTRA Ops Dashboard',
+        items: [
+          { to: '/ops/dashboard',    label: 'Ops Overview',  perm: 'cts:view_analytics' },
+          { to: '/ops/model-health', label: 'Model Health',  perm: 'cts:view_analytics' },
+          { to: '/ops/alerts',       label: 'Alert Log',     perm: 'cts:view_analytics' },
+          { to: '/ops/system',       label: 'System Health', perm: 'cts:view_analytics' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'admin',
     label: 'Admin',
     fullLabel: 'Administration',
@@ -221,6 +246,11 @@ const ROUTE_LABELS = {
   '/branch/scan':                 ['Branch Portal', 'Scanner Monitor'],
   '/branch/mismatch':             ['Branch Portal', 'Mismatch Queue'],
   '/branch/history':              ['Branch Portal', 'Session History'],
+  '/cts/hub':                     ['Outward Clearing', 'Hub Manager — Branch Sessions & Lot Sealing'],
+  '/ops/dashboard':               ['Platform Ops', 'ASTRA Ops Overview'],
+  '/ops/model-health':            ['Platform Ops', 'AI Model Health — 7-Day Drift'],
+  '/ops/alerts':                  ['Platform Ops', 'Alert Log — CRITICAL/ERROR (24h)'],
+  '/ops/system':                  ['Platform Ops', 'System Health — Infrastructure Connectivity'],
 }
 
 // Mirrors NavLink's `end` prop: when end=true, only exact match is active.
@@ -238,7 +268,8 @@ function useBreadcrumb(pathname) {
 
 function activeModuleId(pathname) {
   if (pathname.startsWith('/admin') || pathname.startsWith('/cts/config')) return 'admin'
-  return 'cts'   // /branch/* routes live under the CTS module tab
+  if (pathname.startsWith('/ops')) return 'ops'
+  return 'cts'   // /branch/* and /cts/* routes live under the CTS module tab
 }
 
 // ── AppShell ────────────────────────────────────────────────────────────────

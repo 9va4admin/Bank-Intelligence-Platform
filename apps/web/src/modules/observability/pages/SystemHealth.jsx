@@ -1,8 +1,11 @@
 /**
- * ASTRA System Health — Redis CTS + YugabyteDB pool status.
+ * ASTRA System Health — infrastructure connectivity at a glance.
+ *
+ * Panels: Redis CTS, Redis EJ, YugabyteDB, HashiCorp Vault,
+ *         Kafka consumer lag, Temporal workers.
  *
  * Access: ops_manager, bank_it_admin.
- * No PII. Degrade gracefully when deps are None.
+ * No PII. All panels degrade gracefully (200 + degraded=true when dep unavailable).
  */
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
@@ -43,37 +46,98 @@ function useSystemHealth(bankId) {
   return { data, loading, error, lastFetch, reload: load }
 }
 
-function StatusDot({ ok, isDark }) {
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function StatusDot({ ok }) {
   return (
     <span className={`w-2 h-2 rounded-full flex-shrink-0 ${ok ? 'bg-emerald-400' : 'bg-red-400 animate-pulse'}`} />
   )
 }
 
-function HealthCard({ title, children, isDark }) {
+function HealthCard({ title, icon, children, isDark, alert }) {
   const th = {
     card:    isDark ? 'bg-navy-900 border-white/8'  : 'bg-white border-slate-200',
     heading: isDark ? 'text-white'                  : 'text-slate-900',
   }
+  const ring = alert === 'critical'
+    ? 'ring-2 ring-red-500/50'
+    : alert === 'warn'
+    ? 'ring-2 ring-amber-500/40'
+    : ''
   return (
-    <div className={`rounded-xl border px-6 py-5 ${th.card}`}>
-      <h2 className={`text-sm font-semibold mb-4 ${th.heading}`}>{title}</h2>
+    <div className={`rounded-xl border px-5 py-4 ${th.card} ${ring}`}>
+      <div className="flex items-center gap-2 mb-4">
+        {icon && <span className="text-base">{icon}</span>}
+        <h2 className={`text-sm font-semibold ${th.heading}`}>{title}</h2>
+      </div>
       {children}
     </div>
   )
 }
 
-function Row({ label, value, isDark }) {
+function ConnRow({ label, ok, value, isDark }) {
   const th = {
     label: isDark ? 'text-slate-400' : 'text-slate-500',
     value: isDark ? 'text-white'     : 'text-slate-900',
+    divider: isDark ? 'border-white/5' : 'border-slate-100',
   }
   return (
-    <div className="flex items-center justify-between py-2">
+    <div className={`flex items-center justify-between py-2 border-b last:border-0 ${th.divider}`}>
       <span className={`text-xs ${th.label}`}>{label}</span>
-      <span className={`text-sm font-medium tabular-nums ${th.value}`}>{value}</span>
+      {value !== undefined
+        ? <span className={`text-sm font-medium tabular-nums ${th.value}`}>{value}</span>
+        : <span className={`text-sm font-medium ${ok
+            ? (isDark ? 'text-emerald-300' : 'text-emerald-700')
+            : (isDark ? 'text-red-300'     : 'text-red-700')
+          }`}>{ok ? 'Yes' : 'No'}</span>
+      }
     </div>
   )
 }
+
+function DegradedNote({ isDark }) {
+  return (
+    <p className={`text-xs italic ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+      Client unavailable — signal degraded
+    </p>
+  )
+}
+
+function HitRateBar({ pct, isDark }) {
+  const color = pct >= 95 ? 'bg-emerald-400' : pct >= 80 ? 'bg-amber-400' : 'bg-red-400'
+  return (
+    <div className="mt-3">
+      <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/8' : 'bg-slate-100'}`}>
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <p className={`text-[10px] mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+        Vault hit rate — target: &gt;95%
+      </p>
+    </div>
+  )
+}
+
+function KafkaGroupRow({ group, isDark }) {
+  const th = {
+    muted:   isDark ? 'text-slate-400' : 'text-slate-500',
+    heading: isDark ? 'text-white'     : 'text-slate-900',
+    badge:   isDark ? 'bg-white/8 text-slate-300' : 'bg-slate-100 text-slate-600',
+    lag:     group.total_lag > 1000 ? 'text-red-400' : group.total_lag > 100 ? 'text-amber-400' : (isDark ? 'text-emerald-300' : 'text-emerald-700'),
+  }
+  return (
+    <div className={`flex items-center justify-between py-1.5 border-b last:border-0 ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+      <div className="min-w-0 flex items-center gap-2">
+        <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${th.badge}`}>{group.topic_prefix}</span>
+        <span className={`text-xs truncate ${th.muted}`}>{group.group_id}</span>
+      </div>
+      <span className={`text-xs font-semibold tabular-nums ml-2 ${th.lag}`}>
+        {group.total_lag.toLocaleString('en-IN')}
+      </span>
+    </div>
+  )
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function SystemHealth() {
   const { isDark } = useTheme()
@@ -84,15 +148,25 @@ export default function SystemHealth() {
     page:    isDark ? 'bg-navy-950'                 : 'bg-slate-50',
     heading: isDark ? 'text-white'                  : 'text-slate-900',
     muted:   isDark ? 'text-slate-400'              : 'text-slate-500',
+    label:   isDark ? 'text-slate-400'              : 'text-slate-500',
+    value:   isDark ? 'text-white'                  : 'text-slate-900',
     divider: isDark ? 'border-white/8'              : 'border-slate-100',
   }
 
-  const redis = data?.redis_cts ?? { connected: false, hit_rate_pct: 0, degraded: true }
-  const yb    = data?.yugabyte  ?? { connected: false, pool_size: 0, active_connections: 0, degraded: true }
+  const redisCts  = data?.redis_cts  ?? { connected: false, hit_rate_pct: 0, degraded: true }
+  const redisEj   = data?.redis_ej   ?? { connected: false, hit_rate_pct: 0, degraded: true }
+  const yb        = data?.yugabyte   ?? { connected: false, pool_size: 0, active_connections: 0, degraded: true }
+  const vault     = data?.vault      ?? { connected: false, seal_status: 'UNKNOWN', degraded: true }
+  const kafka     = data?.kafka      ?? { connected: false, groups: [], total_lag: 0, degraded: true }
+  const temporal  = data?.temporal   ?? { connected: false, degraded: true }
+
+  const vaultAlert = vault.connected && vault.seal_status === 'sealed' ? 'critical' : undefined
+  const kafkaAlert = kafka.total_lag > 1000 ? 'warn' : undefined
 
   return (
     <AppShell>
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
+
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
@@ -103,7 +177,7 @@ export default function SystemHealth() {
             </div>
             <h1 className={`text-lg font-semibold ${th.heading}`}>System Health</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              {lastFetch ? `Updated ${lastFetch.toLocaleTimeString()}` : 'Loading…'}&nbsp;·&nbsp;Auto-refresh 60s
+              {lastFetch ? `Updated ${lastFetch.toLocaleTimeString()}` : 'Loading…'} · Auto-refresh 60s
             </p>
           </div>
           <button
@@ -123,65 +197,158 @@ export default function SystemHealth() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Infrastructure grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-4">
 
           {/* Redis CTS */}
-          <HealthCard title="Redis CTS" isDark={isDark}>
-            <div className="flex items-center gap-2 mb-4">
-              <StatusDot ok={redis.connected} isDark={isDark} />
-              <span className={`text-sm font-medium ${redis.connected
+          <HealthCard title="Redis CTS" icon="🟥" isDark={isDark}>
+            <div className="flex items-center gap-2 mb-3">
+              <StatusDot ok={redisCts.connected} />
+              <span className={`text-sm font-medium ${redisCts.connected
                 ? (isDark ? 'text-emerald-300' : 'text-emerald-700')
                 : (isDark ? 'text-red-300'     : 'text-red-700')
               }`}>
-                {redis.degraded ? 'Degraded / Unreachable' : redis.connected ? 'Connected' : 'Disconnected'}
+                {redisCts.degraded ? 'Unavailable' : redisCts.connected ? 'Connected' : 'Disconnected'}
               </span>
             </div>
-            {!redis.degraded && (
+            {redisCts.degraded ? <DegradedNote isDark={isDark} /> : (
               <>
-                <div className={`border-t ${th.divider} pt-3`}>
-                  <Row label="Hit rate" value={`${redis.hit_rate_pct.toFixed(1)}%`} isDark={isDark} />
-                </div>
-                <div className="mt-2">
-                  <div className={`h-2 rounded-full overflow-hidden ${isDark ? 'bg-white/8' : 'bg-slate-100'}`}>
-                    <div
-                      className={`h-full rounded-full transition-all ${redis.hit_rate_pct >= 95 ? 'bg-emerald-400' : redis.hit_rate_pct >= 80 ? 'bg-amber-400' : 'bg-red-400'}`}
-                      style={{ width: `${redis.hit_rate_pct}%` }}
-                    />
-                  </div>
-                  <p className={`text-[10px] mt-1 ${th.muted}`}>Vault hit rate — target: &gt;95%</p>
-                </div>
+                <ConnRow label="Hit rate" value={`${redisCts.hit_rate_pct.toFixed(1)}%`} isDark={isDark} />
+                <HitRateBar pct={redisCts.hit_rate_pct} isDark={isDark} />
+              </>
+            )}
+          </HealthCard>
+
+          {/* Redis EJ */}
+          <HealthCard title="Redis EJ" icon="🟦" isDark={isDark}>
+            <div className="flex items-center gap-2 mb-3">
+              <StatusDot ok={redisEj.connected} />
+              <span className={`text-sm font-medium ${redisEj.connected
+                ? (isDark ? 'text-emerald-300' : 'text-emerald-700')
+                : (isDark ? 'text-red-300'     : 'text-red-700')
+              }`}>
+                {redisEj.degraded ? 'Unavailable' : redisEj.connected ? 'Connected' : 'Disconnected'}
+              </span>
+            </div>
+            {redisEj.degraded ? <DegradedNote isDark={isDark} /> : (
+              <>
+                <ConnRow label="Hit rate" value={`${redisEj.hit_rate_pct.toFixed(1)}%`} isDark={isDark} />
+                <HitRateBar pct={redisEj.hit_rate_pct} isDark={isDark} />
               </>
             )}
           </HealthCard>
 
           {/* YugabyteDB */}
-          <HealthCard title="YugabyteDB (CTS pool)" isDark={isDark}>
-            <div className="flex items-center gap-2 mb-4">
-              <StatusDot ok={yb.connected} isDark={isDark} />
+          <HealthCard title="YugabyteDB (CTS pool)" icon="🐘" isDark={isDark}>
+            <div className="flex items-center gap-2 mb-3">
+              <StatusDot ok={yb.connected} />
               <span className={`text-sm font-medium ${yb.connected
                 ? (isDark ? 'text-emerald-300' : 'text-emerald-700')
                 : (isDark ? 'text-red-300'     : 'text-red-700')
               }`}>
-                {yb.degraded ? 'Degraded / Unreachable' : yb.connected ? 'Connected' : 'Disconnected'}
+                {yb.degraded ? 'Unavailable' : yb.connected ? 'Connected' : 'Disconnected'}
               </span>
             </div>
-            {!yb.degraded && (
+            {yb.degraded ? <DegradedNote isDark={isDark} /> : (
               <div className={`border-t ${th.divider} pt-3`}>
-                <Row label="Pool size"    value={yb.pool_size}           isDark={isDark} />
-                <Row label="Active conns" value={yb.active_connections}  isDark={isDark} />
-                <Row label="Idle conns"   value={Math.max(0, yb.pool_size - yb.active_connections)} isDark={isDark} />
+                <ConnRow label="Pool size"    value={yb.pool_size}           isDark={isDark} />
+                <ConnRow label="Active conns" value={yb.active_connections}  isDark={isDark} />
+                <ConnRow label="Idle conns"   value={Math.max(0, yb.pool_size - yb.active_connections)} isDark={isDark} />
+              </div>
+            )}
+          </HealthCard>
+
+          {/* HashiCorp Vault */}
+          <HealthCard title="HashiCorp Vault" icon="🔐" isDark={isDark} alert={vaultAlert}>
+            <div className="flex items-center gap-2 mb-3">
+              <StatusDot ok={vault.connected && vault.seal_status === 'unsealed'} />
+              <span className={`text-sm font-medium ${
+                vault.degraded ? (isDark ? 'text-slate-400' : 'text-slate-500')
+                : vault.seal_status === 'sealed' ? 'text-red-400'
+                : (isDark ? 'text-emerald-300' : 'text-emerald-700')
+              }`}>
+                {vault.degraded
+                  ? 'Unavailable'
+                  : vault.seal_status === 'unsealed' ? 'Unsealed'
+                  : vault.seal_status === 'sealed'   ? 'SEALED — action required'
+                  : 'Unknown state'
+                }
+              </span>
+            </div>
+            {vault.degraded ? <DegradedNote isDark={isDark} /> : (
+              <div className={`border-t ${th.divider} pt-3`}>
+                <ConnRow label="Seal status" value={vault.seal_status} isDark={isDark} />
+              </div>
+            )}
+            {!vault.degraded && vault.seal_status === 'sealed' && (
+              <p className="text-xs text-red-400 mt-2">
+                All secrets unavailable. Unseal Vault immediately — processing halted.
+              </p>
+            )}
+          </HealthCard>
+
+          {/* Kafka consumer groups */}
+          <HealthCard title="Kafka Consumer Groups" icon="📨" isDark={isDark} alert={kafkaAlert}>
+            <div className="flex items-center gap-2 mb-3">
+              <StatusDot ok={kafka.connected && kafka.total_lag < 1000} />
+              <span className={`text-sm font-medium ${kafka.connected
+                ? kafka.total_lag > 1000
+                  ? 'text-amber-400'
+                  : (isDark ? 'text-emerald-300' : 'text-emerald-700')
+                : (isDark ? 'text-red-300' : 'text-red-700')
+              }`}>
+                {kafka.degraded
+                  ? 'Unavailable'
+                  : kafka.connected
+                  ? `Connected · total lag ${kafka.total_lag.toLocaleString('en-IN')}`
+                  : 'Disconnected'
+                }
+              </span>
+            </div>
+            {kafka.degraded ? <DegradedNote isDark={isDark} /> : (
+              <div className={`border-t ${th.divider} pt-3 space-y-0`}>
+                {kafka.groups.length === 0 ? (
+                  <p className={`text-xs ${th.muted}`}>No consumer groups registered yet</p>
+                ) : (
+                  kafka.groups.map(g => (
+                    <KafkaGroupRow key={g.group_id} group={g} isDark={isDark} />
+                  ))
+                )}
+              </div>
+            )}
+          </HealthCard>
+
+          {/* Temporal */}
+          <HealthCard title="Temporal Workflow Engine" icon="⏱" isDark={isDark}>
+            <div className="flex items-center gap-2 mb-3">
+              <StatusDot ok={temporal.connected} />
+              <span className={`text-sm font-medium ${temporal.connected
+                ? (isDark ? 'text-emerald-300' : 'text-emerald-700')
+                : (isDark ? 'text-red-300'     : 'text-red-700')
+              }`}>
+                {temporal.degraded ? 'Unavailable' : temporal.connected ? 'Connected' : 'Disconnected'}
+              </span>
+            </div>
+            {temporal.degraded ? <DegradedNote isDark={isDark} /> : (
+              <div className={`border-t ${th.divider} pt-3`}>
+                <ConnRow label="Namespace" value="default"       isDark={isDark} />
+                <ConnRow label="Reachable" ok={temporal.connected} isDark={isDark} />
               </div>
             )}
           </HealthCard>
 
         </div>
 
-        <p className={`text-xs mt-6 ${th.muted}`}>
-          OTel instrumentation running in all pods (zero Docker overhead).
-          For developer-level distributed traces, install the optional
-          <code className="mx-1 px-1.5 py-0.5 rounded text-[10px] bg-white/8">astra-observability</code>
+        {/* Footer note */}
+        <p className={`text-xs mt-2 ${th.muted}`}>
+          OTel instrumentation active in all pods (zero Docker overhead).
+          For distributed traces, install the optional{' '}
+          <code className={`mx-1 px-1.5 py-0.5 rounded text-[10px] ${isDark ? 'bg-white/8' : 'bg-slate-100'}`}>
+            astra-observability
+          </code>
           Helm chart.
         </p>
+
       </div>
     </AppShell>
   )
