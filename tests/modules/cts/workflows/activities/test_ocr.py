@@ -7,9 +7,11 @@ words, date, and payee name from cheque image.
 Thresholds from config_service. Low confidence → HUMAN_REVIEW.
 Orchestrator unavailable → graceful degradation, never crashes workflow.
 """
+import io
 import json
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
+from PIL import Image
 
 
 def _make_input(image_url="s3://bucket/INST001.jpg", instrument_id="INST001", bank_id="test-bank"):
@@ -48,6 +50,64 @@ def _mock_config(min_confidence=0.85):
     config = AsyncMock()
     config.get_ai_config = AsyncMock(return_value={"ai.ocr.min_confidence": min_confidence})
     return config
+
+
+def _mock_config_partial(min_confidence=0.85, indic_ocr_url="http://indic-ocr-test:8021"):
+    """Config mock with PARTIAL_IMAGE mode enabled."""
+    config = AsyncMock()
+    config.get_ai_config = AsyncMock(return_value={
+        "ai.ocr.min_confidence": min_confidence,
+        "ocr.mode": "PARTIAL_IMAGE",
+        "services.indic_ocr.url": indic_ocr_url,
+        "ai.ocr.min_indic_confidence": 0.60,
+    })
+    return config
+
+
+def _make_fake_jpeg_bytes(w: int = 1400, h: int = 600) -> bytes:
+    """Minimal synthetic cheque image as JPEG bytes for HTTP-fetch mocking."""
+    img = Image.new("RGB", (w, h), color=(200, 220, 200))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    return buf.getvalue()
+
+
+def _mock_httpx(image_bytes: bytes, indic_text: str = "", indic_conf: float = 0.0):
+    """
+    Build an httpx.AsyncClient mock for PARTIAL_IMAGE tests.
+    GET → returns image_bytes.
+    POST → returns IndicOCR payload {text, confidence, backend}.
+    """
+    get_resp = MagicMock()
+    get_resp.raise_for_status = MagicMock()
+    get_resp.content = image_bytes
+
+    post_resp = MagicMock()
+    post_resp.raise_for_status = MagicMock()
+    post_resp.json = MagicMock(return_value={
+        "text": indic_text,
+        "confidence": indic_conf,
+        "backend": "paddle",
+    })
+
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=get_resp)
+    client.post = AsyncMock(return_value=post_resp)
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+    return MagicMock(return_value=client)
+
+
+def _zone_cascade_result(value: str, confidence: float = 0.95):
+    """Single-field CascadeResult as returned by GOT-OCR2 zone calls."""
+    from shared.ai.model_cascade import CascadeResult
+    return CascadeResult(
+        content=json.dumps({"value": value, "confidence": confidence}),
+        confidence=confidence,
+        cascade_level=1,
+        model_used="got-ocr2-7b",
+        escalated=False,
+    )
 
 
 class TestOCRInput:
@@ -483,3 +543,201 @@ class TestOCRIFSCExtraction:
         ))
         result = await ocr_extract(_make_input(), orchestrator=orchestrator, config_service=_mock_config())
         assert result.ifsc_code is None
+
+
+# ── PARTIAL_IMAGE mode tests ───────────────────────────────────────────────────
+
+class TestOCRPartialImageMode:
+    """
+    PARTIAL_IMAGE mode: zone extraction → script detection → route to
+    IndicOCR (Indic script) or GOT-OCR2/vLLM (Latin script).
+    All tests mock httpx to avoid real HTTP calls.
+    """
+
+    @pytest.mark.asyncio
+    async def test_full_image_mode_is_default_when_key_absent(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        with patch("modules.cts.workflows.activities.ocr.httpx") as mock_httpx_mod:
+            result = await ocr_extract(
+                _make_input(),
+                orchestrator=_mock_orchestrator(_make_vllm_response()),
+                config_service=_mock_config(),
+            )
+        mock_httpx_mod.AsyncClient.assert_not_called()
+        assert result.outcome == "PROCEED"
+
+    @pytest.mark.asyncio
+    async def test_partial_image_mode_fetches_image_via_httpx(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        fake_bytes = _make_fake_jpeg_bytes()
+        mock_client_cls = _mock_httpx(fake_bytes, indic_text="", indic_conf=0.0)
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("mock", 0.95))
+
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+            await ocr_extract(
+                _make_input(image_url="http://minio/bucket/cheque.jpg"),
+                orchestrator=orchestrator,
+                config_service=_mock_config_partial(),
+            )
+
+        client = mock_client_cls.return_value
+        client.get.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_image_fetch_failure_returns_human_review_degraded(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        client = AsyncMock()
+        client.get = AsyncMock(side_effect=Exception("connection refused"))
+        client.__aenter__ = AsyncMock(return_value=client)
+        client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", MagicMock(return_value=client)):
+            result = await ocr_extract(
+                _make_input(),
+                orchestrator=AsyncMock(),
+                config_service=_mock_config_partial(),
+            )
+
+        assert result.outcome == "HUMAN_REVIEW"
+        assert result.degraded is True
+        assert "IMAGE_FETCH_FAILED" in (result.low_confidence_reason or "")
+
+    @pytest.mark.asyncio
+    async def test_date_zone_routed_to_got_ocr_not_indic_ocr(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        fake_bytes = _make_fake_jpeg_bytes()
+        mock_client_cls = _mock_httpx(fake_bytes, indic_text="", indic_conf=0.0)
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("08/01/2013", 0.97))
+
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+            await ocr_extract(
+                _make_input(),
+                orchestrator=orchestrator,
+                config_service=_mock_config_partial(),
+            )
+
+        orchestrator.call_ocr.assert_called()
+        # All image_urls for zone calls must be data URIs — not the original S3 URL
+        for call in orchestrator.call_ocr.call_args_list:
+            img_url = call.kwargs.get("image_url") or (call.args[0] if call.args else "")
+            assert img_url.startswith("data:image/")
+
+    @pytest.mark.asyncio
+    async def test_devanagari_payee_uses_indic_ocr_result(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        fake_bytes = _make_fake_jpeg_bytes()
+        hindi_payee = "अभिलाष रेड्डी"
+        mock_client_cls = _mock_httpx(fake_bytes, indic_text=hindi_payee, indic_conf=0.88)
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("fallback-got", 0.95))
+
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+            result = await ocr_extract(
+                _make_input(),
+                orchestrator=orchestrator,
+                config_service=_mock_config_partial(),
+            )
+
+        assert result.payee == hindi_payee
+
+    @pytest.mark.asyncio
+    async def test_latin_payee_falls_back_to_got_ocr2(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        fake_bytes = _make_fake_jpeg_bytes()
+        mock_client_cls = _mock_httpx(fake_bytes, indic_text="Abhilash Reddy", indic_conf=0.85)
+        got_payee = "Abhilash Reddy"
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result(got_payee, 0.95))
+
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+            result = await ocr_extract(
+                _make_input(),
+                orchestrator=orchestrator,
+                config_service=_mock_config_partial(),
+            )
+
+        orchestrator.call_ocr.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_devanagari_amount_words_uses_indic_ocr(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        fake_bytes = _make_fake_jpeg_bytes()
+        hindi_amount = "बीस लाख पचास हजार"
+        mock_client_cls = _mock_httpx(fake_bytes, indic_text=hindi_amount, indic_conf=0.82)
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("fallback", 0.90))
+
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+            result = await ocr_extract(
+                _make_input(),
+                orchestrator=orchestrator,
+                config_service=_mock_config_partial(),
+            )
+
+        assert result.amount_words == hindi_amount
+
+    @pytest.mark.asyncio
+    async def test_indic_ocr_down_falls_back_to_got_ocr2(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        fake_bytes = _make_fake_jpeg_bytes()
+        get_resp = MagicMock()
+        get_resp.raise_for_status = MagicMock()
+        get_resp.content = fake_bytes
+
+        client = AsyncMock()
+        client.get = AsyncMock(return_value=get_resp)
+        client.post = AsyncMock(side_effect=Exception("IndicOCR service unavailable"))
+        client.__aenter__ = AsyncMock(return_value=client)
+        client.__aexit__ = AsyncMock(return_value=None)
+
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("Abhilash Reddy", 0.94))
+
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", MagicMock(return_value=client)):
+            result = await ocr_extract(
+                _make_input(),
+                orchestrator=orchestrator,
+                config_service=_mock_config_partial(),
+            )
+
+        orchestrator.call_ocr.assert_called()
+        assert result.outcome in ("PROCEED", "HUMAN_REVIEW")
+        assert result.degraded is False
+
+    @pytest.mark.asyncio
+    async def test_low_confidence_zone_triggers_human_review(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        fake_bytes = _make_fake_jpeg_bytes()
+        mock_client_cls = _mock_httpx(fake_bytes, indic_text="", indic_conf=0.0)
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("unclear", 0.40))
+
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+            result = await ocr_extract(
+                _make_input(),
+                orchestrator=orchestrator,
+                config_service=_mock_config_partial(min_confidence=0.85),
+            )
+
+        assert result.outcome == "HUMAN_REVIEW"
+
+    @pytest.mark.asyncio
+    async def test_indic_low_confidence_falls_back_to_got_ocr(self):
+        from modules.cts.workflows.activities.ocr import ocr_extract
+        fake_bytes = _make_fake_jpeg_bytes()
+        # Devanagari text but below min_indic_confidence threshold
+        mock_client_cls = _mock_httpx(fake_bytes, indic_text="अभिलाष", indic_conf=0.30)
+        orchestrator = AsyncMock()
+        orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("Abhilash", 0.94))
+
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
+            result = await ocr_extract(
+                _make_input(),
+                orchestrator=orchestrator,
+                config_service=_mock_config_partial(),
+            )
+
+        # GOT-OCR2 must have been called as fallback for the low-confidence IndicOCR
+        orchestrator.call_ocr.assert_called()
