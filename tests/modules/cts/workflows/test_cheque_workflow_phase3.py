@@ -594,10 +594,29 @@ async def _fake_synthesise_decision(inp, cts_config=None, kill_switch_status=Non
     )
 
 
+@activity.defn(name="validate_ifsc")
+async def _fake_validate_ifsc(inp, repo=None):
+    from modules.cts.workflows.activities.ifsc_validator import IFSCValidatorResult
+    return IFSCValidatorResult(outcome="PROCEED")
+
+
+@activity.defn(name="validate_cheque_series")
+async def _fake_validate_cheque_series(inp, cbs_connector=None):
+    from modules.cts.workflows.activities.cheque_series import ChequeSeriesActivityResult
+    return ChequeSeriesActivityResult(outcome="PROCEED")
+
+
+@activity.defn(name="detect_signatures")
+async def _fake_detect_signatures(inp):
+    from modules.cts.workflows.activities.detect_signatures import DetectSignaturesResult
+    return DetectSignaturesResult(outcome="PRESENT", sig_count=1, sig_bboxes=[[0.1, 0.7, 0.9, 0.95]], fraud_flags=[])
+
+
 _HAPPY_PATH_ACTIVITIES = [
     _fake_detect_alteration, _fake_get_kill_switch_status, _fake_check_stop_payment_proceed,
-    _fake_lookup_pps, _fake_verify_signature, _fake_score_fraud, _fake_check_cbs_balance,
-    _fake_check_account_status, _fake_synthesise_decision,
+    _fake_validate_ifsc, _fake_validate_cheque_series,
+    _fake_lookup_pps, _fake_detect_signatures, _fake_verify_signature, _fake_score_fraud,
+    _fake_check_cbs_balance, _fake_check_account_status, _fake_synthesise_decision,
     _fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue,
 ]
 
@@ -855,7 +874,8 @@ class TestChequeWorkflowKillSwitchWiring:
 
         activities = [
             _kc_active_lookup, _detect_alteration_captures_kill_switch,
-            _fake_check_stop_payment_proceed, _fake_lookup_pps, _fake_verify_signature,
+            _fake_check_stop_payment_proceed, _fake_validate_ifsc, _fake_validate_cheque_series,
+            _fake_lookup_pps, _fake_detect_signatures, _fake_verify_signature,
             _fake_score_fraud, _fake_check_cbs_balance, _fake_check_account_status,
             _synthesise_decision_forces_human_review_under_kc,
             _fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue,
