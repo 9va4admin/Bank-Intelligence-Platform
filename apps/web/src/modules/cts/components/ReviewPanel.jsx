@@ -423,6 +423,29 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
             <div className={`rounded-xl p-4 ${th.glass}`}>
               <ShapExplainer shapValues={item.shap_values} isDark={isDark} />
             </div>
+            {item.security_features && (
+              <div className={`rounded-xl p-4 ${th.glass}`}>
+                <div className={`text-[10px] ${th.lbl} uppercase tracking-widest mb-3`}>Security Print Features</div>
+                <div className="space-y-2">
+                  {[
+                    { label: 'Void Pantograph',       key: 'void_pantograph'      },
+                    { label: '₹ Symbol',              key: 'rupee_symbol'         },
+                    { label: 'Micro-lettering',       key: 'micro_lettering'      },
+                    { label: 'Printer CTS-2010',      key: 'printer_name_cts2010' },
+                  ].map(({ label, key }) => {
+                    const ok = item.security_features[key] === true
+                    return (
+                      <div key={key} className="flex items-center justify-between text-[11px]">
+                        <span className={th.lbl}>{label}</span>
+                        <span className={`font-mono font-semibold ${ok ? (isDark ? 'text-emerald-400' : 'text-emerald-700') : (isDark ? 'text-red-400' : 'text-red-700')}`}>
+                          {ok ? '✓ Present' : '⚠ Missing'}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

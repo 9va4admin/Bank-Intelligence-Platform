@@ -344,6 +344,34 @@ class ChequeProcessingWorkflow:
         if alteration_result.alteration_detected:
             return await finalise("HUMAN_REVIEW", "alteration_detected")
 
+        # Step 2.5: check_security_features — CTS-2010 mandatory security print
+        # DEGRADED on any AI/scanner failure → never blocks clearing; log and continue.
+        from modules.cts.workflows.activities.security_features import (
+            SecurityFeaturesInput, check_security_features,
+        )
+        sec_result = await workflow.execute_activity(
+            check_security_features,
+            args=[
+                SecurityFeaturesInput(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    image_url=inp.image_url,
+                    smb_id=inp.smb_id,
+                ),
+                None,   # vllm_client — worker-level DI
+                None,   # config_service — worker-level DI
+                None,   # langfuse — worker-level DI
+            ],
+            start_to_close_timeout=timedelta(seconds=90),
+            retry_policy=_AI_ACTIVITY_RETRY,
+        )
+        if sec_result.outcome == "HUMAN_REVIEW":
+            return await finalise(
+                "HUMAN_REVIEW",
+                f"security_features_missing: {sec_result.missing_features}",
+            )
+        # DEGRADED → proceed (AI unavailable is not a reason to block clearing)
+
         # Step 3: check_stop_payment — Bloom pre-check + CBS confirm
         stop_result = await workflow.execute_activity(
             check_stop_payment,
@@ -665,6 +693,17 @@ class ChequeProcessingWorkflow:
                 bank_id=inp.bank_id,
                 decision="HUMAN_REVIEW",
                 rationale="alteration_detected",
+                shap_values={},
+            )
+
+        # Step 2.5: check_security_features (optional — DEGRADED = proceed)
+        _sec_mock = mock_results.get("security_features")
+        if _sec_mock is not None and getattr(_sec_mock, "outcome", "PROCEED") == "HUMAN_REVIEW":
+            return ChequeWorkflowResult(
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                decision="HUMAN_REVIEW",
+                rationale=f"security_features_missing: {getattr(_sec_mock, 'missing_features', [])}",
                 shap_values={},
             )
 

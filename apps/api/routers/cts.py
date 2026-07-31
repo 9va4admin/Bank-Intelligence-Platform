@@ -140,6 +140,7 @@ class QueueItem(BaseModel):
     fraud_score: Optional[float] = None
     ocr_confidence: Optional[float] = None
     sig_match_score: Optional[float] = None
+    security_features: Optional[dict] = None   # {"void_pantograph": bool, "rupee_symbol": bool, ...}
 
 
 class QueueResponse(BaseModel):
@@ -413,6 +414,7 @@ async def get_human_review_queue(
                     fraud_score=memo.get("fraud_score"),
                     ocr_confidence=memo.get("ocr_confidence"),
                     sig_match_score=memo.get("sig_match_score"),
+                    security_features=memo.get("security_features"),
                 ))
         except Exception as exc:
             log.warning("cts.queue_fetch_error", bank_id=eff_bank_id, error=str(exc))
