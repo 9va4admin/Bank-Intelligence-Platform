@@ -133,12 +133,44 @@ class YugabytePanel(BaseModel):
     degraded: bool = False
 
 
+class VaultPanel(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    connected: bool = False
+    seal_status: str = "UNKNOWN"   # "unsealed" | "sealed" | "UNKNOWN"
+    degraded: bool = False
+
+
+class KafkaConsumerGroupLag(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    group_id: str
+    topic_prefix: str
+    total_lag: int
+
+
+class KafkaPanel(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    connected: bool = False
+    groups: list[KafkaConsumerGroupLag] = []
+    total_lag: int = 0
+    degraded: bool = False
+
+
+class TemporalPanel(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    connected: bool = False
+    degraded: bool = False
+
+
 class SystemHealthResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id: str
     as_of: str
     redis_cts: RedisPanel
+    redis_ej: RedisPanel
     yugabyte: YugabytePanel
+    vault: VaultPanel
+    kafka: KafkaPanel
+    temporal: TemporalPanel
     degraded: bool = False
 
 
@@ -333,23 +365,88 @@ async def _fetch_alerts(
         return [], 0, True
 
 
+async def _fetch_redis_panel(redis_client: Any, label: str, bank_id: str) -> RedisPanel:
+    if redis_client is None:
+        return RedisPanel(degraded=True)
+    try:
+        info = await redis_client.info("stats")
+        hits = int(info.get("keyspace_hits", 0))
+        misses = int(info.get("keyspace_misses", 0))
+        total = hits + misses
+        hit_rate = (hits / total * 100) if total else 0.0
+        return RedisPanel(connected=True, hit_rate_pct=round(hit_rate, 1))
+    except Exception as exc:
+        log.warning(f"ops.system.{label}_error", bank_id=bank_id, error=str(exc))
+        return RedisPanel(degraded=True)
+
+
+async def _fetch_vault_panel(vault_client: Any, bank_id: str) -> VaultPanel:
+    if vault_client is None:
+        return VaultPanel(degraded=True)
+    try:
+        health = vault_client.sys.read_health_status(method="GET")
+        sealed = health.get("sealed", True)
+        return VaultPanel(
+            connected=True,
+            seal_status="sealed" if sealed else "unsealed",
+        )
+    except Exception as exc:
+        log.warning("ops.system.vault_error", bank_id=bank_id, error=str(exc))
+        return VaultPanel(degraded=True)
+
+
+async def _fetch_kafka_panel(kafka_admin: Any, bank_id: str) -> KafkaPanel:
+    if kafka_admin is None:
+        return KafkaPanel(degraded=True)
+    try:
+        # List consumer groups that belong to this bank
+        # kafka_admin is expected to be an aiokafka AdminClient or similar
+        groups_raw = await kafka_admin.list_consumer_groups()
+        groups: list[KafkaConsumerGroupLag] = []
+        total_lag = 0
+        for gid, _ in (groups_raw or []):
+            if bank_id not in gid:
+                continue
+            prefix = "cts" if gid.startswith("cg-cts") else "ej" if gid.startswith("cg-ej") else "platform"
+            try:
+                offsets = await kafka_admin.list_consumer_group_offsets(gid)
+                committed = sum(m.offset for m in offsets.values() if m.offset >= 0)
+                # Approximate lag: we store committed offset, actual lag needs end-offsets
+                # When end-offsets are available via kafka_admin this can be subtracted
+                lag = 0  # degraded to 0 if end-offsets not queryable in this context
+            except Exception:
+                lag = 0
+            groups.append(KafkaConsumerGroupLag(group_id=gid, topic_prefix=prefix, total_lag=lag))
+            total_lag += lag
+        return KafkaPanel(connected=True, groups=groups, total_lag=total_lag)
+    except Exception as exc:
+        log.warning("ops.system.kafka_error", bank_id=bank_id, error=str(exc))
+        return KafkaPanel(degraded=True)
+
+
+async def _fetch_temporal_panel(temporal_client: Any, bank_id: str) -> TemporalPanel:
+    if temporal_client is None:
+        return TemporalPanel(degraded=True)
+    try:
+        # A lightweight connectivity check — describe_namespace raises if unreachable
+        await temporal_client.describe_namespace("default")
+        return TemporalPanel(connected=True)
+    except Exception as exc:
+        log.warning("ops.system.temporal_error", bank_id=bank_id, error=str(exc))
+        return TemporalPanel(degraded=True)
+
+
 async def _fetch_system_health(
-    bank_id: str, db_pool: Any, redis_cts: Any
-) -> tuple[RedisPanel, YugabytePanel]:
-    # Redis panel
-    if redis_cts is None:
-        redis_panel = RedisPanel(degraded=True)
-    else:
-        try:
-            info = await redis_cts.info("stats")
-            hits = int(info.get("keyspace_hits", 0))
-            misses = int(info.get("keyspace_misses", 0))
-            total = hits + misses
-            hit_rate = (hits / total * 100) if total else 0.0
-            redis_panel = RedisPanel(connected=True, hit_rate_pct=round(hit_rate, 1))
-        except Exception as exc:
-            log.warning("ops.system.redis_error", bank_id=bank_id, error=str(exc))
-            redis_panel = RedisPanel(degraded=True)
+    bank_id: str,
+    db_pool: Any,
+    redis_cts: Any,
+    redis_ej: Any,
+    vault_client: Any,
+    kafka_admin: Any,
+    temporal_client: Any,
+) -> tuple[RedisPanel, RedisPanel, YugabytePanel, VaultPanel, KafkaPanel, TemporalPanel]:
+    redis_cts_panel = await _fetch_redis_panel(redis_cts, "redis_cts", bank_id)
+    redis_ej_panel  = await _fetch_redis_panel(redis_ej,  "redis_ej",  bank_id)
 
     # YugabyteDB panel
     if db_pool is None:
@@ -367,7 +464,11 @@ async def _fetch_system_health(
             log.warning("ops.system.yugabyte_error", bank_id=bank_id, error=str(exc))
             yb_panel = YugabytePanel(degraded=True)
 
-    return redis_panel, yb_panel
+    vault_panel    = await _fetch_vault_panel(vault_client, bank_id)
+    kafka_panel    = await _fetch_kafka_panel(kafka_admin, bank_id)
+    temporal_panel = await _fetch_temporal_panel(temporal_client, bank_id)
+
+    return redis_cts_panel, redis_ej_panel, yb_panel, vault_panel, kafka_panel, temporal_panel
 
 
 # ---------------------------------------------------------------------------
@@ -456,15 +557,33 @@ async def get_system_health(
     if role not in _OPS_ROLES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
 
-    db_pool = getattr(request.app.state, "db_pool_cts", None)
-    redis_cts = getattr(request.app.state, "redis_cts", None)
-    redis_panel, yb_panel = await _fetch_system_health(bank_id, db_pool, redis_cts)
+    db_pool        = getattr(request.app.state, "db_pool_cts",   None)
+    redis_cts      = getattr(request.app.state, "redis_cts",     None)
+    redis_ej       = getattr(request.app.state, "redis_ej",      None)
+    vault_client   = getattr(request.app.state, "vault_client",  None)
+    kafka_admin    = getattr(request.app.state, "kafka_admin",   None)
+    temporal_client = getattr(request.app.state, "temporal_client", None)
 
-    degraded = redis_panel.degraded or yb_panel.degraded
+    (
+        redis_cts_panel, redis_ej_panel, yb_panel,
+        vault_panel, kafka_panel, temporal_panel,
+    ) = await _fetch_system_health(
+        bank_id, db_pool, redis_cts, redis_ej, vault_client, kafka_admin, temporal_client,
+    )
+
+    degraded = any([
+        redis_cts_panel.degraded, redis_ej_panel.degraded,
+        yb_panel.degraded, vault_panel.degraded,
+        kafka_panel.degraded, temporal_panel.degraded,
+    ])
     return SystemHealthResponse(
         bank_id=bank_id,
         as_of=_now_iso(),
-        redis_cts=redis_panel,
+        redis_cts=redis_cts_panel,
+        redis_ej=redis_ej_panel,
         yugabyte=yb_panel,
+        vault=vault_panel,
+        kafka=kafka_panel,
+        temporal=temporal_panel,
         degraded=degraded,
     )

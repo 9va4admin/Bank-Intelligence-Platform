@@ -306,3 +306,104 @@ class TestSystemHealthEndpoint:
         text = client.get("/v1/ops/system").text
         for pii in ("account_number", "instrument_id", "payee_name"):
             assert pii not in text
+
+
+# ── /v1/ops/system — extended panels ──────────────────────────────────────────
+
+class TestSystemHealthExtended:
+    """Tests for redis_ej, vault, kafka, temporal panels added to /v1/ops/system."""
+
+    def _make_ext_app(self, role="ops_manager", redis_ej=None, vault_client=None,
+                      kafka_admin=None, temporal_client=None):
+        from apps.api.routers.observability import router_v1, get_current_user
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_user] = lambda: {
+            "bank_id": "test-bank", "user_id": "u1", "role": role,
+        }
+        app.state.db_pool_cts = None
+        app.state.redis_cts   = None
+        app.state.redis_ej    = redis_ej
+        app.state.vault_client = vault_client
+        app.state.kafka_admin  = kafka_admin
+        app.state.temporal_client = temporal_client
+        return app
+
+    def test_redis_ej_panel_present_in_response(self):
+        client = TestClient(self._make_ext_app(), raise_server_exceptions=False)
+        data = client.get("/v1/ops/system").json()
+        assert "redis_ej" in data, "redis_ej panel missing from /v1/ops/system response"
+
+    def test_redis_ej_schema(self):
+        client = TestClient(self._make_ext_app(), raise_server_exceptions=False)
+        ej = client.get("/v1/ops/system").json()["redis_ej"]
+        assert "connected" in ej
+        assert "degraded" in ej
+
+    def test_redis_ej_degraded_when_none(self):
+        client = TestClient(self._make_ext_app(redis_ej=None), raise_server_exceptions=False)
+        ej = client.get("/v1/ops/system").json()["redis_ej"]
+        assert ej["degraded"] is True
+        assert ej["connected"] is False
+
+    def test_vault_panel_present_in_response(self):
+        client = TestClient(self._make_ext_app(), raise_server_exceptions=False)
+        data = client.get("/v1/ops/system").json()
+        assert "vault" in data, "vault panel missing from /v1/ops/system response"
+
+    def test_vault_panel_schema(self):
+        client = TestClient(self._make_ext_app(), raise_server_exceptions=False)
+        v = client.get("/v1/ops/system").json()["vault"]
+        assert "connected" in v
+        assert "seal_status" in v
+        assert "degraded" in v
+
+    def test_vault_degraded_when_client_none(self):
+        client = TestClient(self._make_ext_app(vault_client=None), raise_server_exceptions=False)
+        v = client.get("/v1/ops/system").json()["vault"]
+        assert v["degraded"] is True
+        assert v["connected"] is False
+
+    def test_kafka_panel_present_in_response(self):
+        client = TestClient(self._make_ext_app(), raise_server_exceptions=False)
+        data = client.get("/v1/ops/system").json()
+        assert "kafka" in data, "kafka panel missing from /v1/ops/system response"
+
+    def test_kafka_panel_schema(self):
+        client = TestClient(self._make_ext_app(), raise_server_exceptions=False)
+        k = client.get("/v1/ops/system").json()["kafka"]
+        assert "connected" in k
+        assert "total_lag" in k
+        assert "groups" in k
+        assert "degraded" in k
+        assert isinstance(k["groups"], list)
+
+    def test_kafka_degraded_when_admin_none(self):
+        client = TestClient(self._make_ext_app(kafka_admin=None), raise_server_exceptions=False)
+        k = client.get("/v1/ops/system").json()["kafka"]
+        assert k["degraded"] is True
+        assert k["connected"] is False
+        assert k["total_lag"] == 0
+
+    def test_temporal_panel_present_in_response(self):
+        client = TestClient(self._make_ext_app(), raise_server_exceptions=False)
+        data = client.get("/v1/ops/system").json()
+        assert "temporal" in data, "temporal panel missing from /v1/ops/system response"
+
+    def test_temporal_panel_schema(self):
+        client = TestClient(self._make_ext_app(), raise_server_exceptions=False)
+        t = client.get("/v1/ops/system").json()["temporal"]
+        assert "connected" in t
+        assert "degraded" in t
+
+    def test_temporal_degraded_when_client_none(self):
+        client = TestClient(self._make_ext_app(temporal_client=None), raise_server_exceptions=False)
+        t = client.get("/v1/ops/system").json()["temporal"]
+        assert t["degraded"] is True
+        assert t["connected"] is False
+
+    def test_no_pii_in_extended_system_health(self):
+        client = TestClient(self._make_ext_app(), raise_server_exceptions=False)
+        text = client.get("/v1/ops/system").text
+        for pii in ("account_number", "instrument_id", "payee_name"):
+            assert pii not in text, f"PII field '{pii}' found in system health response"
