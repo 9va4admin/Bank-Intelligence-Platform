@@ -317,6 +317,12 @@ async def _fake_publish_hold(inp):
     return {"published": True}
 
 
+@_activity.defn(name="detect_signatures")
+async def _fake_detect_signatures_outward(inp):
+    from modules.cts.workflows.activities.detect_signatures import DetectSignaturesResult
+    return DetectSignaturesResult(outcome="PRESENT", sig_count=1, sig_bboxes=[[0.1, 0.7, 0.9, 0.95]], fraud_flags=[])
+
+
 def _worker(env, task_queue, ocr_fake, vision_fake, compliance_fake=_fake_validate_pass):
     from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
     from modules.cts.workflows.mismatch_resolution_workflow import MismatchResolutionWorkflow
@@ -325,7 +331,7 @@ def _worker(env, task_queue, ocr_fake, vision_fake, compliance_fake=_fake_valida
         workflows=[OutwardScanWorkflow, MismatchResolutionWorkflow],
         activities=[
             ocr_fake, compliance_fake, _fake_lot, vision_fake,
-            _fake_write_audit, _fake_publish_hold,
+            _fake_write_audit, _fake_publish_hold, _fake_detect_signatures_outward,
         ],
         workflow_runner=UnsandboxedWorkflowRunner(),
     )

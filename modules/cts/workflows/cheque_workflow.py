@@ -461,23 +461,72 @@ class ChequeProcessingWorkflow:
             flags_str = ",".join(sig_detect.fraud_flags)
             return await finalise("HUMAN_REVIEW", f"signature_fraud_suspected:{flags_str}")
 
-        # Step 5: verify_signature — S-SVS (count=1) or M-SVS gate (count≥2)
-        # sig_count>1 triggers MULTI_SIGNATURE_DETECTED inside verify_signature;
-        # full M-SVS routing will replace that gate once MSV is wired here.
-        sig_result = await workflow.execute_activity(
-            verify_signature,
-            SignatureActivityInput(
-                instrument_id=inp.instrument_id,
-                bank_id=inp.bank_id,
-                account_number=inp.account_number,
-                signature_image_url=inp.image_url,
-                sig_count=sig_detect.sig_count,
-                sig_bboxes=sig_detect.sig_bboxes,
-                smb_id=inp.smb_id,
-            ),
-            start_to_close_timeout=timedelta(seconds=15),
-            retry_policy=_AI_ACTIVITY_RETRY,
-        )
+        # Step 5: verify_signature (single-sig) or MSV child workflow (multi-sig)
+        if sig_detect.sig_count > 1:
+            from modules.msv.workflows.msv_workflow import (
+                MSVValidationWorkflow, MSVWorkflowInput, MSVWorkflowResult,
+            )
+            from modules.msv.mandates.models import (
+                MSVInput as _MSVInput,
+                AccountMandateMeta,
+                MandateRule,
+                MandateRuleType,
+            )
+            msv_handle = await workflow.start_child_workflow(
+                MSVValidationWorkflow.run,
+                MSVWorkflowInput(
+                    msv_input=_MSVInput(
+                        instrument_id=inp.instrument_id,
+                        bank_id=inp.bank_id,
+                        account_number=inp.account_number,
+                        cheque_image_url=inp.image_url,
+                    ),
+                    account_meta=AccountMandateMeta(
+                        account_hash="",          # orchestrator loads from MSV registry
+                        bank_id=inp.bank_id,
+                        operation_type="J",       # default multi-sig; BRE validates
+                        mandate=MandateRule(
+                            rule_type=MandateRuleType.ANY_N_OF,
+                            required_count=sig_detect.sig_count,
+                            min_score=0.80,
+                        ),
+                        signatories=[],           # orchestrator loads from MSV registry
+                    ),
+                ),
+                id=f"msv-{inp.bank_id}-{inp.instrument_id}",
+                task_queue=f"msv-validation-{inp.bank_id}",
+                parent_close_policy=ParentClosePolicy.TERMINATE,
+            )
+            msv_raw = await msv_handle
+            msv_result = (
+                MSVWorkflowResult.model_validate(msv_raw)
+                if isinstance(msv_raw, dict)
+                else msv_raw
+            )
+            if msv_result.outcome != "GREEN":
+                return await finalise(
+                    "HUMAN_REVIEW",
+                    f"msv_{msv_result.reason_code.lower()}",
+                )
+            sig_result = SignatureActivityResult(
+                outcome="PROCEED",
+                match_score=msv_result.confidence,
+            )
+        else:
+            sig_result = await workflow.execute_activity(
+                verify_signature,
+                SignatureActivityInput(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    account_number=inp.account_number,
+                    signature_image_url=inp.image_url,
+                    sig_count=sig_detect.sig_count,
+                    sig_bboxes=sig_detect.sig_bboxes,
+                    smb_id=inp.smb_id,
+                ),
+                start_to_close_timeout=timedelta(seconds=15),
+                retry_policy=_AI_ACTIVITY_RETRY,
+            )
 
         # Step 6: score_fraud
         fraud_result = await workflow.execute_activity(
@@ -690,8 +739,32 @@ class ChequeProcessingWorkflow:
         # Step 5: PPS lookup
         pps_result = mock_results["pps"]
 
-        # Step 6: Signature verification
-        sig_result = mock_results["signature"]
+        # Step 5.5: Signature path — single-sig or multi-sig (MSV)
+        sig_count = mock_results.get("sig_count", 1)
+        if sig_count > 1:
+            # Multi-sig path: MSV result drives routing
+            msv_result = mock_results.get("msv")
+            if msv_result is None or msv_result.outcome != "GREEN":
+                reason_code = (
+                    msv_result.reason_code.lower()
+                    if msv_result is not None
+                    else "not_configured"
+                )
+                return ChequeWorkflowResult(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    decision="HUMAN_REVIEW",
+                    rationale=f"msv_{reason_code}",
+                    shap_values={},
+                )
+            from modules.cts.workflows.activities.signature import SignatureActivityResult
+            sig_result = SignatureActivityResult(
+                outcome="PROCEED",
+                match_score=msv_result.confidence,
+            )
+        else:
+            # Step 6: Signature verification (single sig)
+            sig_result = mock_results["signature"]
 
         # Step 7: Fraud scoring (always includes SHAP)
         fraud_result = mock_results["fraud"]
