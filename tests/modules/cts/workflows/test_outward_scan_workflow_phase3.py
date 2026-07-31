@@ -323,6 +323,16 @@ async def _fake_detect_signatures_outward(inp):
     return DetectSignaturesResult(outcome="PRESENT", sig_count=1, sig_bboxes=[[0.1, 0.7, 0.9, 0.95]], fraud_flags=[])
 
 
+@_activity.defn(name="check_security_features")
+async def _fake_check_security_features(inp, vllm_client=None, config_service=None, langfuse=None):
+    from modules.cts.workflows.activities.security_features import SecurityFeaturesResult
+    return SecurityFeaturesResult(
+        outcome="PROCEED",
+        features_detected={"void_pantograph": True, "rupee_symbol": True, "micro_lettering": True},
+        missing_features=[],
+    )
+
+
 def _worker(env, task_queue, ocr_fake, vision_fake, compliance_fake=_fake_validate_pass):
     from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
     from modules.cts.workflows.mismatch_resolution_workflow import MismatchResolutionWorkflow
@@ -332,6 +342,7 @@ def _worker(env, task_queue, ocr_fake, vision_fake, compliance_fake=_fake_valida
         activities=[
             ocr_fake, compliance_fake, _fake_lot, vision_fake,
             _fake_write_audit, _fake_publish_hold, _fake_detect_signatures_outward,
+            _fake_check_security_features,
         ],
         workflow_runner=UnsandboxedWorkflowRunner(),
     )
