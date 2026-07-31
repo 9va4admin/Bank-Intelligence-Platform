@@ -287,3 +287,92 @@ def test_session_redis_key_by_id():
     from apps.eeh.session import session_id_key
     key = session_id_key("sess-01")
     assert key == "eeh:sess:sess-01"
+
+
+# ── 8. get_or_create_session ──────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_get_or_create_returns_existing_active_session():
+    """When an active session exists for this cert, return it without creating."""
+    from apps.eeh.session import EEHSessionManager, EEHSession
+
+    active = EEHSession(
+        session_id="s-existing", bank_id="sb1", branch_id="b1",
+        operator_id="AUTO_FIRST_SCAN", cert_fingerprint="FP-EXIST",
+        hub_type="EEH", clearing_date=date(2026, 7, 31),
+        expires_at=datetime(2026, 7, 31, 18, 0, tzinfo=timezone.utc),
+    )
+    mock_redis = AsyncMock()
+    mock_redis.get = AsyncMock(return_value=json.dumps(active.to_dict()))
+
+    mgr = EEHSessionManager(redis=mock_redis, db=AsyncMock())
+    session, was_created = await mgr.get_or_create_session(
+        cert_fingerprint="FP-EXIST",
+        bank_id="sb1",
+        branch_id="b1",
+        branch_name="Test Branch",
+        hub_type="EEH",
+        clearing_date=date(2026, 7, 31),
+        session_ttl_seconds=3600,
+    )
+
+    assert session.session_id == "s-existing"
+    assert was_created is False
+
+
+@pytest.mark.asyncio
+async def test_get_or_create_creates_session_when_none_exists():
+    """When no active session exists, auto-open one and return was_created=True."""
+    from apps.eeh.session import EEHSessionManager
+
+    mock_redis = AsyncMock()
+    mock_redis.get = AsyncMock(return_value=None)
+    mock_db = AsyncMock()
+    mock_db.fetchrow = AsyncMock(return_value=None)  # no existing session in DB either
+
+    mgr = EEHSessionManager(redis=mock_redis, db=mock_db)
+    session, was_created = await mgr.get_or_create_session(
+        cert_fingerprint="FP-NEW",
+        bank_id="sb1",
+        branch_id="b-new",
+        branch_name="New Branch",
+        hub_type="EEH",
+        clearing_date=date(2026, 7, 31),
+        session_ttl_seconds=3600,
+    )
+
+    assert session.bank_id == "sb1"
+    assert session.branch_id == "b-new"
+    assert session.status == "ACTIVE"
+    assert was_created is True
+    # DB write must have happened
+    mock_db.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_get_or_create_reraises_cert_revoked():
+    """Revoked cert must NOT auto-open a new session — must raise CertRevokedError."""
+    from apps.eeh.session import EEHSessionManager, EEHSession, CertRevokedError
+
+    revoked = EEHSession(
+        session_id="s-rev", bank_id="sb1", branch_id="b1",
+        operator_id="op1", cert_fingerprint="FP-REVOKED",
+        hub_type="EEH", clearing_date=date(2026, 7, 31),
+        expires_at=datetime(2026, 7, 31, 18, 0, tzinfo=timezone.utc),
+        status="REVOKED",
+    )
+    mock_redis = AsyncMock()
+    mock_redis.get = AsyncMock(return_value=json.dumps(revoked.to_dict()))
+
+    mgr = EEHSessionManager(redis=mock_redis, db=AsyncMock())
+
+    with pytest.raises(CertRevokedError):
+        await mgr.get_or_create_session(
+            cert_fingerprint="FP-REVOKED",
+            bank_id="sb1",
+            branch_id="b1",
+            branch_name="Branch",
+            hub_type="EEH",
+            clearing_date=date(2026, 7, 31),
+            session_ttl_seconds=3600,
+        )

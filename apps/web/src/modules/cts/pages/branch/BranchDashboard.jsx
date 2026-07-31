@@ -12,16 +12,17 @@ import { useBankContext } from '../../../../shared/context/BankContext'
 import AppShell from '../../../../shared/layout/AppShell'
 
 // ─── Mock state (replaced by SSE + REST hooks in production) ─────────────────
+// Set SESSION_MOCK to null to simulate the no-session / pre-first-scan state.
 
 const SESSION_MOCK = {
   session_id: 'sess-branch-01-2026-07-04',
   branch_id: 'BRANCH-ANDHERI-01',
   branch_name: 'Andheri (W) Branch',
-  operator_id: 'op-mahesh',
+  operator_id: 'AUTO_FIRST_SCAN',
   hub_type: 'EEH',
   clearing_date: '2026-07-04',
   status: 'ACTIVE',
-  expires_at: '2026-07-04T18:00:00Z',
+  session_opened_at: '2026-07-04T09:14:32Z',   // auto-opened on first scan
   total_uploaded: 247,
   total_accepted: 241,
   total_rejected: 4,
@@ -81,14 +82,13 @@ export default function BranchDashboard() {
   const [eehHealth] = useState(EEH_HEALTH)
   const [elapsed, setElapsed] = useState(0)
 
-  // Live clock for session age
   useEffect(() => {
     const t = setInterval(() => setElapsed(e => e + 1), 1000)
     return () => clearInterval(t)
   }, [])
 
-  const sessionAge = Math.floor(elapsed / 60)
-  const rejectRate = session.total_uploaded > 0
+  const hasSession = session !== null && session.status === 'ACTIVE'
+  const rejectRate = hasSession && session.total_uploaded > 0
     ? ((session.total_rejected / session.total_uploaded) * 100).toFixed(1)
     : '0.0'
 
@@ -101,14 +101,17 @@ export default function BranchDashboard() {
     divider: isDark ? 'border-white/8' : 'border-slate-200',
   }
 
+  const branchLabel = hasSession ? `${session.branch_name} · ${session.clearing_date}` : 'Branch Portal'
+
   return (
     <AppShell>
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
+
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
             <h1 className={`text-lg font-semibold ${th.heading}`}>Branch Portal</h1>
-            <p className={`text-sm ${th.muted}`}>{session.branch_name} · {session.clearing_date}</p>
+            <p className={`text-sm ${th.muted}`}>{branchLabel}</p>
           </div>
           <div className={`flex items-center gap-3 text-sm ${th.muted}`}>
             <span className="flex items-center">
@@ -124,54 +127,75 @@ export default function BranchDashboard() {
           </div>
         </div>
 
-        {/* Session status bar */}
-        <div className={`rounded-lg border px-4 py-3 mb-5 ${th.card} flex items-center justify-between`}>
-          <div className="flex items-center gap-4">
-            <span className="flex items-center text-sm font-medium">
-              <StatusDot status={session.status} />
-              <span className={th.heading}>Session Active</span>
+        {/* No-session state — shown before first cheque is scanned */}
+        {!hasSession && (
+          <div className={`rounded-lg border px-5 py-8 mb-5 ${th.card} text-center`}>
+            <div className="text-3xl mb-3">📡</div>
+            <p className={`text-sm font-semibold ${th.heading} mb-1`}>Waiting for first scan</p>
+            <p className={`text-xs ${th.muted}`}>
+              Scan your first cheque to automatically start today's clearing session.
+              No manual action needed.
+            </p>
+            <p className={`text-xs mt-3 ${th.muted}`}>
+              EEH is <span className="text-emerald-400 font-medium">{eehHealth.status}</span> · {eehHealth.latency_ms}ms
+            </p>
+          </div>
+        )}
+
+        {/* Session status bar — shown only when session is active */}
+        {hasSession && (
+          <div className={`rounded-lg border px-4 py-3 mb-5 ${th.card} flex items-center justify-between`}>
+            <div className="flex items-center gap-4">
+              <span className="flex items-center text-sm font-medium">
+                <StatusDot status="ACTIVE" />
+                <span className={th.heading}>Session Active</span>
+              </span>
+              <span className={`text-xs ${th.muted}`}>ID: {session.session_id.slice(-8)}</span>
+              <span className={`text-xs ${th.muted}`}>Hub: {session.hub_type}</span>
+              {session.session_opened_at && (
+                <span className={`text-xs ${th.muted}`}>
+                  Started {session.session_opened_at.slice(11, 16)} · auto
+                </span>
+              )}
+            </div>
+            <span className={`text-xs ${th.muted}`}>
+              Closes at clearing window end
             </span>
-            <span className={`text-xs ${th.muted}`}>ID: {session.session_id.slice(-8)}</span>
-            <span className={`text-xs ${th.muted}`}>Operator: {session.operator_id}</span>
-            <span className={`text-xs ${th.muted}`}>Hub: {session.hub_type}</span>
           </div>
-          <div className="flex items-center gap-3">
-            <span className={`text-xs ${th.muted}`}>Expires {session.expires_at.slice(11, 16)}</span>
-            <button className={`text-xs px-2.5 py-1 border rounded ${th.divider} ${th.muted} hover:text-red-400 transition-colors`}>
-              Close Session
-            </button>
-          </div>
-        </div>
+        )}
 
-        {/* Stat cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-          <StatCard label="Uploaded" value={session.total_uploaded} sub="today" isDark={isDark} />
-          <StatCard label="Accepted" value={session.total_accepted}
-            accent="text-emerald-400" sub={`${((session.total_accepted / session.total_uploaded) * 100).toFixed(1)}%`} isDark={isDark} />
-          <StatCard label="Rejected" value={session.total_rejected}
-            accent={session.total_rejected > 0 ? 'text-red-400' : undefined}
-            sub={`${rejectRate}% reject rate`} isDark={isDark} />
-          <StatCard label="On Hold" value={session.total_held}
-            accent={session.total_held > 0 ? 'text-amber-400' : undefined}
-            sub="pending supervisor" isDark={isDark} />
-        </div>
+        {/* Stat cards — shown only when session is active */}
+        {hasSession && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+            <StatCard label="Uploaded" value={session.total_uploaded} sub="today" isDark={isDark} />
+            <StatCard label="Accepted" value={session.total_accepted}
+              accent="text-emerald-400"
+              sub={session.total_uploaded > 0 ? `${((session.total_accepted / session.total_uploaded) * 100).toFixed(1)}%` : '—'}
+              isDark={isDark} />
+            <StatCard label="Rejected" value={session.total_rejected}
+              accent={session.total_rejected > 0 ? 'text-red-400' : undefined}
+              sub={`${rejectRate}% reject rate`} isDark={isDark} />
+            <StatCard label="On Hold" value={session.total_held}
+              accent={session.total_held > 0 ? 'text-amber-400' : undefined}
+              sub="pending review" isDark={isDark} />
+          </div>
+        )}
 
-        {/* Current lot */}
-        <div className={`rounded-lg border p-4 mb-5 ${th.card}`}>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className={`text-sm font-semibold ${th.heading}`}>Current Lot</h2>
-            <span className={`text-xs font-mono ${th.muted}`}>{session.current_lot_id}</span>
+        {/* Current lot — shown only when session is active */}
+        {hasSession && (
+          <div className={`rounded-lg border p-4 mb-5 ${th.card}`}>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className={`text-sm font-semibold ${th.heading}`}>Current Lot</h2>
+              <span className={`text-xs font-mono ${th.muted}`}>{session.current_lot_id}</span>
+            </div>
+            <LotProgress filled={session.lot_instrument_count} target={session.lot_target} isDark={isDark} />
+            <div className="mt-3 flex gap-2">
+              <button className={`text-xs px-3 py-1.5 border rounded ${th.divider} ${th.muted} transition-colors hover:text-white`}>
+                View Lot Detail
+              </button>
+            </div>
           </div>
-          <LotProgress filled={session.lot_instrument_count} target={session.lot_target} isDark={isDark} />
-          <div className="mt-3 flex gap-2">
-            <button className={`text-xs px-3 py-1.5 border rounded ${th.divider} ${th.muted} transition-colors hover:text-white`}>
-              View Lot Detail
-            </button>
-            <button className="text-xs px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors">
-              Seal Lot
-            </button>
-          </div>
-        </div>
+        )}
 
         {/* Quick links */}
         <div className="grid grid-cols-2 gap-3">
@@ -182,13 +206,13 @@ export default function BranchDashboard() {
           <Link to="/branch/mismatch" className={`rounded-lg border p-4 ${th.card} hover:border-amber-500/50 transition-colors group`}>
             <p className={`text-sm font-medium ${th.heading} group-hover:text-amber-400`}>
               Mismatch Queue
-              {session.total_held > 0 && (
+              {hasSession && session.total_held > 0 && (
                 <span className="ml-2 text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded px-1.5 py-0.5">
                   {session.total_held}
                 </span>
               )}
             </p>
-            <p className={`text-xs mt-0.5 ${th.muted}`}>Resolve held items for supervisor</p>
+            <p className={`text-xs mt-0.5 ${th.muted}`}>Resolve held items</p>
           </Link>
           <Link to="/branch/history" className={`rounded-lg border p-4 ${th.card} hover:border-slate-500/50 transition-colors group`}>
             <p className={`text-sm font-medium ${th.heading} group-hover:text-slate-300`}>Session History</p>
@@ -197,10 +221,11 @@ export default function BranchDashboard() {
           <div className={`rounded-lg border p-4 ${th.card}`}>
             <p className={`text-sm font-medium ${th.heading}`}>EEH Status</p>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              Connected · {eehHealth.latency_ms}ms · Last ping {eehHealth.last_ping.slice(11, 16)}
+              {eehHealth.status} · {eehHealth.latency_ms}ms · Last ping {eehHealth.last_ping.slice(11, 16)}
             </p>
           </div>
         </div>
+
       </div>
     </AppShell>
   )

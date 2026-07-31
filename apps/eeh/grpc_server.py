@@ -68,9 +68,10 @@ class MismatchItemMsg:
 @dataclass
 class ChequeAck:
     scan_id: str
-    status: str      # ACCEPTED | REJECTED | HELD | SESSION_NOT_FOUND | INVALID_PAYLOAD
+    status: str        # ACCEPTED | REJECTED | HELD | SESSION_NOT_FOUND | INVALID_PAYLOAD | UNAUTHORIZED
     lot_id: str = ""
     reason: str = ""
+    session_id: str = ""  # echoed back so scanner bridge caches the resolved session_id
 
 
 # ── SQL ─────────────────────────────────────────────────────────────────────────
@@ -117,6 +118,26 @@ WHERE session_id = $1
 """
 
 
+# ── Helpers ──────────────────────────────────────────────────────────────────────
+
+def _extract_cert_fingerprint(context: Any) -> str:
+    """
+    Extract TLS client cert fingerprint from gRPC context (mTLS production path).
+    Returns empty string if not available (test environments without real gRPC).
+    """
+    if context is None:
+        return ""
+    try:
+        auth = context.auth_context() if callable(getattr(context, "auth_context", None)) else {}
+        for key, vals in (auth or {}).items():
+            if vals and ("common_name" in key.lower() or "fingerprint" in key.lower()):
+                v = vals[0]
+                return v.decode() if isinstance(v, bytes) else str(v)
+    except Exception:
+        pass
+    return ""
+
+
 # ── EEHServicer ─────────────────────────────────────────────────────────────────
 
 class EEHServicer:
@@ -135,20 +156,30 @@ class EEHServicer:
         db: Any,
         kafka_producer: Optional[Any] = None,
         minio_store: Optional[Any] = None,
+        immudb_client: Optional[Any] = None,
     ) -> None:
         self._session_manager = session_manager
         self._sse = sse_publisher
         self._db = db
         self._kafka_producer = kafka_producer
         self._minio_store = minio_store
+        self._immudb = immudb_client
 
     # ── SealLot ───────────────────────────────────────────────────────────────
 
     async def SealLot(self, request: Any, context: Any) -> LotSealAck:
         """
-        Supervisor seals a lot, preventing further instrument additions.
+        Hub Manager seals a lot, preventing further instrument additions.
+        Branch operators cannot seal lots — only HUB_MANAGER role is permitted.
         Triggers BatchEndorsementWorkflow via the Kafka cts.outward.lot.sealed topic.
         """
+        requester_role = getattr(request, "requester_role", "") or ""
+        if requester_role == "BRANCH_OPERATOR":
+            log.warning("eeh.seal_lot.unauthorized", lot_id=request.lot_id,
+                        sealed_by=getattr(request, "sealed_by", ""),
+                        role=requester_role)
+            return LotSealAck(lot_id=request.lot_id, status="UNAUTHORIZED")
+
         row = await self._db.fetchrow(_FETCH_LOT_SQL, request.lot_id)
         if row is None:
             return LotSealAck(lot_id=request.lot_id, status="LOT_NOT_FOUND")
@@ -301,27 +332,27 @@ class EEHServicer:
             session_id: str = getattr(payload, "session_id", "")
             lot_id: str = getattr(payload, "lot_id", "")
 
-            if not scan_id or not session_id:
+            if not scan_id:
                 yield ChequeAck(
-                    scan_id=scan_id or "unknown",
+                    scan_id="unknown",
                     status="INVALID_PAYLOAD",
-                    reason="scan_id and session_id are required",
+                    reason="scan_id is required",
                 )
                 continue
 
-            # Validate session exists and is active
+            # Resolve session — try explicit session_id first, then auto-open
+            bank_id: str = ""
+            branch_id: str = ""
+            resolved_session_id: str = session_id
+
             try:
-                row = await self._db.fetchrow(_FETCH_SESSION_SQL, session_id)
+                row = await self._db.fetchrow(_FETCH_SESSION_SQL, session_id) if session_id else None
             except Exception as exc:
                 log.error("eeh.upload.db_error", scan_id=scan_id, error=str(exc))
                 yield ChequeAck(scan_id=scan_id, status="REJECTED", reason="db_error")
                 continue
 
-            if row is None:
-                yield ChequeAck(scan_id=scan_id, status="SESSION_NOT_FOUND", lot_id=lot_id)
-                continue
-
-            if row["status"] != "ACTIVE":
+            if row is not None and row["status"] != "ACTIVE":
                 yield ChequeAck(
                     scan_id=scan_id,
                     status="REJECTED",
@@ -330,9 +361,72 @@ class EEHServicer:
                 )
                 continue
 
-            # Publish to cts.outward.scanned.{bank_id} — OutwardScanWorkflow picks it up
-            bank_id: str = row["bank_id"]
-            branch_id: str = row.get("branch_id", "")
+            if row is None:
+                # Auto-open: first scan from this branch today — no manual session needed
+                cert_fp: str = (
+                    _extract_cert_fingerprint(context)
+                    or getattr(payload, "cert_fingerprint", "")
+                    or ""
+                )
+                bank_id_hint: str = getattr(payload, "bank_id", "") or ""
+                branch_id_hint: str = getattr(payload, "branch_id", "") or ""
+                branch_name_hint: str = getattr(payload, "branch_name", "") or ""
+                hub_type_hint: str = getattr(payload, "hub_type", "EEH") or "EEH"
+
+                if not cert_fp or not bank_id_hint or not branch_id_hint:
+                    yield ChequeAck(
+                        scan_id=scan_id,
+                        status="SESSION_NOT_FOUND",
+                        lot_id=lot_id,
+                        reason="no_session_and_missing_cert_or_bank_hint",
+                    )
+                    continue
+
+                from datetime import date as _date
+                try:
+                    auto_session, was_created = await self._session_manager.get_or_create_session(
+                        cert_fingerprint=cert_fp,
+                        bank_id=bank_id_hint,
+                        branch_id=branch_id_hint,
+                        branch_name=branch_name_hint,
+                        hub_type=hub_type_hint,
+                        clearing_date=_date.today(),
+                        session_ttl_seconds=86400,
+                    )
+                except Exception as exc:
+                    reason = "cert_revoked" if "revoked" in str(exc).lower() else "auto_open_failed"
+                    log.error("eeh.upload.auto_open_failed", scan_id=scan_id, error=str(exc))
+                    yield ChequeAck(scan_id=scan_id, status="REJECTED", lot_id=lot_id, reason=reason)
+                    continue
+
+                if was_created and self._immudb is not None:
+                    try:
+                        await self._immudb.write({
+                            "event_type": "BRANCH_SESSION_AUTO_OPENED",
+                            "branch_id": auto_session.branch_id,
+                            "branch_name": branch_name_hint,
+                            "bank_id": auto_session.bank_id,
+                            "clearing_date": auto_session.clearing_date.isoformat(),
+                            "session_id": auto_session.session_id,
+                            "session_start_time": auto_session.opened_at.isoformat(),
+                            "triggered_by": "AUTO_FIRST_SCAN",
+                            "first_scan_id": scan_id,
+                        })
+                    except Exception as exc:
+                        log.warning("eeh.upload.immudb_failed", scan_id=scan_id, error=str(exc))
+
+                bank_id = auto_session.bank_id
+                branch_id = auto_session.branch_id
+                resolved_session_id = auto_session.session_id
+                log.info(
+                    "eeh.session.auto_opened" if was_created else "eeh.session.auto_resolved",
+                    session_id=resolved_session_id,
+                    branch_id=branch_id,
+                    scan_id=scan_id,
+                )
+            else:
+                bank_id = row["bank_id"]
+                branch_id = row.get("branch_id", "")
 
             # Upload images to MinIO (if store injected) — graceful degradation on failure
             image_front_url = ""
@@ -377,7 +471,7 @@ class EEHServicer:
                     "bank_id": bank_id,
                     "branch_id": branch_id,
                     "pu_id": "",
-                    "batch_id": session_id,
+                    "batch_id": resolved_session_id,
                     "instrument_count": 1,
                     "scan_ids": [scan_id],
                     "oem": "EEH_GRPC",
@@ -404,7 +498,7 @@ class EEHServicer:
                         bank_id=bank_id,
                         data={
                             "scan_id": scan_id,
-                            "session_id": session_id,
+                            "session_id": resolved_session_id,
                             "lot_id": lot_id,
                             "branch_id": branch_id,
                         },
@@ -415,11 +509,16 @@ class EEHServicer:
             log.info(
                 "eeh.cheque_uploaded",
                 scan_id=scan_id,
-                session_id=session_id,
+                session_id=resolved_session_id,
                 lot_id=lot_id,
                 bank_id=bank_id,
             )
-            yield ChequeAck(scan_id=scan_id, status="ACCEPTED", lot_id=lot_id)
+            yield ChequeAck(
+                scan_id=scan_id,
+                status="ACCEPTED",
+                lot_id=lot_id,
+                session_id=resolved_session_id,
+            )
 
 
 # ── Server factory ─────────────────────────────────────────────────────────────
