@@ -183,3 +183,78 @@ class TestAmountCrossCheck:
     def test_none_words_returns_none(self):
         from modules.cts.workflows.activities.amount_words_parser import amounts_match
         assert amounts_match(figures="50000", words=None) is None
+
+
+class TestFiguresNormalisation:
+    """
+    Indian cheque writers add a terminating stroke after the amount to prevent
+    alteration — e.g. "1,00,000/-" or "1,00,000/". OCR may read the trailing
+    characters verbatim. The amounts_match() normaliser must strip these before
+    parsing so a correctly written cheque never triggers a false mismatch.
+
+    Real cheques tested (demo/112/1-4.tiff):
+      Cheque 1 HDFC  : figures="1,00,000/-"  words="one lacs"
+      Cheque 2 HDFC  : figures="1000/-"      words="one thousand Rs only"
+      Cheque 3 HDFC  : figures="10,000/"     words="Ten Thousand"
+      Cheque 4 NKGSB : figures="5000/-"      words="Five Thousand only"
+    """
+
+    def test_slash_terminator(self):
+        from modules.cts.workflows.activities.amount_words_parser import amounts_match
+        assert amounts_match(figures="1,00,000/", words="one lacs") is True
+
+    def test_slash_hyphen_terminator(self):
+        from modules.cts.workflows.activities.amount_words_parser import amounts_match
+        assert amounts_match(figures="1,00,000/-", words="one lacs") is True
+
+    def test_slash_em_dash_terminator(self):
+        from modules.cts.workflows.activities.amount_words_parser import amounts_match
+        assert amounts_match(figures="1,00,000/–", words="one lacs") is True
+
+    def test_trailing_hyphen_only(self):
+        from modules.cts.workflows.activities.amount_words_parser import amounts_match
+        assert amounts_match(figures="1000-", words="one thousand Rs only") is True
+
+    def test_trailing_equals(self):
+        # Some cheques use "=" as tamper-prevention stroke
+        from modules.cts.workflows.activities.amount_words_parser import amounts_match
+        assert amounts_match(figures="50000=", words="Fifty Thousand Only") is True
+
+    def test_rupee_symbol_prefix(self):
+        from modules.cts.workflows.activities.amount_words_parser import amounts_match
+        assert amounts_match(figures="₹1,00,000/-", words="one lacs") is True
+
+    def test_rs_prefix(self):
+        from modules.cts.workflows.activities.amount_words_parser import amounts_match
+        assert amounts_match(figures="Rs.1,00,000/-", words="one lacs") is True
+
+    def test_rs_space_prefix(self):
+        from modules.cts.workflows.activities.amount_words_parser import amounts_match
+        assert amounts_match(figures="Rs 1000/-", words="one thousand Rs only") is True
+
+    # --- Real cheque ground truth ---
+
+    def test_real_cheque_1_one_lakh(self):
+        from modules.cts.workflows.activities.amount_words_parser import amounts_match
+        assert amounts_match(figures="1,00,000/-", words="one lacs") is True
+
+    def test_real_cheque_2_one_thousand(self):
+        from modules.cts.workflows.activities.amount_words_parser import amounts_match
+        assert amounts_match(figures="1000/-", words="one thousand Rs only") is True
+
+    def test_real_cheque_3_ten_thousand(self):
+        from modules.cts.workflows.activities.amount_words_parser import amounts_match
+        assert amounts_match(figures="10,000/", words="Ten Thousand") is True
+
+    def test_real_cheque_4_five_thousand(self):
+        from modules.cts.workflows.activities.amount_words_parser import amounts_match
+        assert amounts_match(figures="5000/-", words="Five Thousand only") is True
+
+    def test_terminator_does_not_mask_real_mismatch(self):
+        # Strip terminators then compare — mismatch must still be detected
+        from modules.cts.workflows.activities.amount_words_parser import amounts_match
+        assert amounts_match(figures="2,00,000/-", words="one lacs") is False
+
+    def test_whitespace_around_figures_handled(self):
+        from modules.cts.workflows.activities.amount_words_parser import amounts_match
+        assert amounts_match(figures="  1000/-  ", words="one thousand Rs only") is True
