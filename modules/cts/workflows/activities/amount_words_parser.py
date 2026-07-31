@@ -31,12 +31,36 @@ _SCALES = [
     ("lakh", 100_000),
     ("lakhs", 100_000),
     ("lac", 100_000),
+    ("lacs", 100_000),   # plural variant used on many printed cheque forms
     ("thousand", 1_000),
     ("hundred", 100),
 ]
+
+_LAKH_TOKENS = frozenset({"lakh", "lakhs", "lac", "lacs"})
 _NOISE_PATTERNS = re.compile(
     r"\b(rupees?|rs\.?|only|paisa|paise|and|/-)\b", re.IGNORECASE
 )
+
+# Prefix: ₹, Rs., Rs, INR — optionally followed by whitespace
+_FIGURES_PREFIX = re.compile(r"^(₹|Rs\.?|INR)\s*", re.IGNORECASE)
+# Suffix: any combination of /, -, –, —, = that terminates the amount
+# Indian convention: drawer draws a line/stroke after amount to prevent alteration
+_FIGURES_SUFFIX = re.compile(r"[/\-–—=]+$")
+
+
+def _clean_figures(text: str) -> str:
+    """
+    Normalise the figures string from OCR before float conversion.
+
+    Strips:
+      - Leading whitespace and currency prefix (₹, Rs., INR)
+      - Trailing tamper-prevention strokes (/, /-, /–, -, =, etc.)
+      - Indian-style comma grouping (1,00,000 → 100000)
+    """
+    t = text.strip()
+    t = _FIGURES_PREFIX.sub("", t)
+    t = _FIGURES_SUFFIX.sub("", t)
+    return t.replace(",", "").strip()
 
 
 def parse_amount_words(text: Optional[str]) -> Optional[float]:
@@ -71,7 +95,7 @@ def amounts_match(
         return None
 
     try:
-        fig_value = float(figures.replace(",", ""))
+        fig_value = float(_clean_figures(figures))
     except (ValueError, AttributeError):
         return None
 
@@ -101,7 +125,8 @@ def _parse(text: str) -> Optional[float]:
         if (
             token not in _ONES
             and token not in _TENS
-            and token not in {"hundred", "thousand", "lakh", "lakhs", "lac", "crore", "crores"}
+            and token not in {"hundred", "thousand", "crore", "crores"}
+            and token not in _LAKH_TOKENS
         ):
             return None
 
@@ -134,7 +159,7 @@ def _parse_tokens(tokens: list[str]) -> Optional[int]:
                 current = 1
             result += current * 1_000
             current = 0
-        elif token in ("lakh", "lakhs", "lac"):
+        elif token in _LAKH_TOKENS:
             if current == 0:
                 current = 1
             result += current * 100_000
