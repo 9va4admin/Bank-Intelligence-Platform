@@ -122,6 +122,9 @@ class _StubCBS(CBSConnector):
             operation_type="J",
         )]
 
+    async def list_issued_leaves(self, bank_id: str) -> list[dict]:
+        return []
+
 
 @pytest.mark.asyncio
 async def test_stub_get_account_info_returns_account_info():
