@@ -166,7 +166,6 @@ class SystemHealthResponse(BaseModel):
     bank_id: str
     as_of: str
     redis_cts: RedisPanel
-    redis_ej: RedisPanel
     yugabyte: YugabytePanel
     vault: VaultPanel
     kafka: KafkaPanel
@@ -440,13 +439,11 @@ async def _fetch_system_health(
     bank_id: str,
     db_pool: Any,
     redis_cts: Any,
-    redis_ej: Any,
     vault_client: Any,
     kafka_admin: Any,
     temporal_client: Any,
-) -> tuple[RedisPanel, RedisPanel, YugabytePanel, VaultPanel, KafkaPanel, TemporalPanel]:
+) -> tuple[RedisPanel, YugabytePanel, VaultPanel, KafkaPanel, TemporalPanel]:
     redis_cts_panel = await _fetch_redis_panel(redis_cts, "redis_cts", bank_id)
-    redis_ej_panel  = await _fetch_redis_panel(redis_ej,  "redis_ej",  bank_id)
 
     # YugabyteDB panel
     if db_pool is None:
@@ -468,7 +465,7 @@ async def _fetch_system_health(
     kafka_panel    = await _fetch_kafka_panel(kafka_admin, bank_id)
     temporal_panel = await _fetch_temporal_panel(temporal_client, bank_id)
 
-    return redis_cts_panel, redis_ej_panel, yb_panel, vault_panel, kafka_panel, temporal_panel
+    return redis_cts_panel, yb_panel, vault_panel, kafka_panel, temporal_panel
 
 
 # ---------------------------------------------------------------------------
@@ -559,28 +556,25 @@ async def get_system_health(
 
     db_pool        = getattr(request.app.state, "db_pool_cts",   None)
     redis_cts      = getattr(request.app.state, "redis_cts",     None)
-    redis_ej       = getattr(request.app.state, "redis_ej",      None)
     vault_client   = getattr(request.app.state, "vault_client",  None)
     kafka_admin    = getattr(request.app.state, "kafka_admin",   None)
     temporal_client = getattr(request.app.state, "temporal_client", None)
 
     (
-        redis_cts_panel, redis_ej_panel, yb_panel,
+        redis_cts_panel, yb_panel,
         vault_panel, kafka_panel, temporal_panel,
     ) = await _fetch_system_health(
-        bank_id, db_pool, redis_cts, redis_ej, vault_client, kafka_admin, temporal_client,
+        bank_id, db_pool, redis_cts, vault_client, kafka_admin, temporal_client,
     )
 
     degraded = any([
-        redis_cts_panel.degraded, redis_ej_panel.degraded,
-        yb_panel.degraded, vault_panel.degraded,
-        kafka_panel.degraded, temporal_panel.degraded,
+        redis_cts_panel.degraded, yb_panel.degraded,
+        vault_panel.degraded, kafka_panel.degraded, temporal_panel.degraded,
     ])
     return SystemHealthResponse(
         bank_id=bank_id,
         as_of=_now_iso(),
         redis_cts=redis_cts_panel,
-        redis_ej=redis_ej_panel,
         yugabyte=yb_panel,
         vault=vault_panel,
         kafka=kafka_panel,

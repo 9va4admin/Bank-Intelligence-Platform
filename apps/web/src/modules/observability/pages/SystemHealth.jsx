@@ -154,7 +154,6 @@ export default function SystemHealth() {
   }
 
   const redisCts  = data?.redis_cts  ?? { connected: false, hit_rate_pct: 0, degraded: true }
-  const redisEj   = data?.redis_ej   ?? { connected: false, hit_rate_pct: 0, degraded: true }
   const yb        = data?.yugabyte   ?? { connected: false, pool_size: 0, active_connections: 0, degraded: true }
   const vault     = data?.vault      ?? { connected: false, seal_status: 'UNKNOWN', degraded: true }
   const kafka     = data?.kafka      ?? { connected: false, groups: [], total_lag: 0, degraded: true }
@@ -215,25 +214,6 @@ export default function SystemHealth() {
               <>
                 <ConnRow label="Hit rate" value={`${redisCts.hit_rate_pct.toFixed(1)}%`} isDark={isDark} />
                 <HitRateBar pct={redisCts.hit_rate_pct} isDark={isDark} />
-              </>
-            )}
-          </HealthCard>
-
-          {/* Redis EJ */}
-          <HealthCard title="Redis EJ" icon="🟦" isDark={isDark}>
-            <div className="flex items-center gap-2 mb-3">
-              <StatusDot ok={redisEj.connected} />
-              <span className={`text-sm font-medium ${redisEj.connected
-                ? (isDark ? 'text-emerald-300' : 'text-emerald-700')
-                : (isDark ? 'text-red-300'     : 'text-red-700')
-              }`}>
-                {redisEj.degraded ? 'Unavailable' : redisEj.connected ? 'Connected' : 'Disconnected'}
-              </span>
-            </div>
-            {redisEj.degraded ? <DegradedNote isDark={isDark} /> : (
-              <>
-                <ConnRow label="Hit rate" value={`${redisEj.hit_rate_pct.toFixed(1)}%`} isDark={isDark} />
-                <HitRateBar pct={redisEj.hit_rate_pct} isDark={isDark} />
               </>
             )}
           </HealthCard>
