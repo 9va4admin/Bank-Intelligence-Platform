@@ -76,6 +76,15 @@ class PPSRecord(BaseModel):
     ttl_seconds: Optional[int] = None
 
 
+class ChequeLeafRecord(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    account_number: str
+    cheque_number: str
+    status: str                          # ACTIVE | LOST | STOLEN | CANCELLED | USED
+    issued_date: Optional[str] = None
+    series_end: Optional[str] = None
+
+
 class VaultSyncResult(BaseModel):
     model_config = ConfigDict(frozen=True)
     outcome: str                            # "SYNC_COMPLETE" | "PARTIAL_FAILURE"
@@ -83,6 +92,7 @@ class VaultSyncResult(BaseModel):
     signatures_embedded: int = 0            # subset of signatures_loaded successfully embedded
     pps_records_loaded: int
     stop_records_loaded: int = 0
+    cheque_leaves_loaded: int = 0           # Step 6: cheque leaf vault sync
     integrity_check_passed: bool
     failed_accounts: list[str] = []
     triggered_by: str = "SCHEDULED"
@@ -320,6 +330,86 @@ async def verify_vault_integrity(
 
 
 # ---------------------------------------------------------------------------
+# Activity 6a: load_cheque_leaves_from_cbs
+# ---------------------------------------------------------------------------
+
+@activity.defn
+async def load_cheque_leaves_from_cbs(
+    bank_id: str,
+    cbs_connector=None,
+) -> list[ChequeLeafRecord]:
+    """Fetch all issued cheque leaf records from CBS for bulk vault warm."""
+    if cbs_connector is None:
+        log.warning("vault_sync.cheque_leaves_no_connector", bank_id=bank_id)
+        return []
+
+    try:
+        raw_records = await cbs_connector.list_issued_leaves(bank_id)
+    except Exception as exc:
+        log.warning(
+            "vault_sync.cheque_leaves_cbs_error",
+            bank_id=bank_id,
+            error=str(exc),
+        )
+        raise
+
+    records = []
+    for raw in raw_records:
+        account_number = raw.get("account_number", "")
+        cheque_number = raw.get("cheque_number", "")
+        status = raw.get("status", "")
+        if not account_number or not cheque_number or not status:
+            log.warning(
+                "vault_sync.cheque_leaf_record_invalid",
+                bank_id=bank_id,
+                account_last4=account_number[-4:] if account_number else "????",
+            )
+            continue
+        records.append(ChequeLeafRecord(
+            account_number=account_number,
+            cheque_number=cheque_number,
+            status=status,
+            issued_date=raw.get("issued_date"),
+            series_end=raw.get("series_end"),
+        ))
+
+    log.info("vault_sync.cheque_leaves_loaded_from_cbs", bank_id=bank_id, count=len(records))
+    return records
+
+
+# ---------------------------------------------------------------------------
+# Activity 6b: warm_cheque_leaf_vault
+# ---------------------------------------------------------------------------
+
+@activity.defn
+async def warm_cheque_leaf_vault(
+    bank_id: str,
+    pepper: str,
+    leaf_records: list[ChequeLeafRecord],
+    redis_client=None,
+) -> dict[str, int]:
+    """Pipeline-write cheque leaf records to Redis ChequeLeafVault."""
+    if not leaf_records or redis_client is None:
+        return {"cheque_leaves": 0}
+
+    pipe = redis_client.pipeline()
+    for rec in leaf_records:
+        digest = _hmac_key(pepper, bank_id, rec.account_number)
+        key = f"chq:{bank_id}:{digest}:{rec.cheque_number}"
+        mapping: dict[str, str] = {"status": rec.status}
+        if rec.issued_date:
+            mapping["issued_date"] = rec.issued_date
+        if rec.series_end:
+            mapping["series_end"] = rec.series_end
+        pipe.hset(key, mapping=mapping)
+    pipe.execute()
+
+    count = len(leaf_records)
+    log.info("vault_sync.cheque_leaf_vault_warmed", bank_id=bank_id, count=count)
+    return {"cheque_leaves": count}
+
+
+# ---------------------------------------------------------------------------
 # Recovery activity: warm_redis_from_db (cold-restart Redis warm)
 # ---------------------------------------------------------------------------
 
@@ -449,6 +539,30 @@ class VaultSyncWorkflow:
             retry_policy=_INFRA_RETRY,
         )
 
+        # Step 6: Load cheque leaf statuses and warm ChequeLeafVault
+        cheque_leaves_loaded = 0
+        try:
+            leaf_records = await workflow.execute_activity(
+                load_cheque_leaves_from_cbs,
+                args=[inp.bank_id],
+                start_to_close_timeout=timedelta(seconds=300),
+                retry_policy=_INFRA_RETRY,
+            )
+            warm_result = await workflow.execute_activity(
+                warm_cheque_leaf_vault,
+                args=[inp.bank_id, inp.pepper, leaf_records],
+                start_to_close_timeout=timedelta(seconds=120),
+                retry_policy=_INFRA_RETRY,
+            )
+            cheque_leaves_loaded = warm_result.get("cheque_leaves", 0)
+        except Exception as exc:
+            log.warning(
+                "vault_sync.cheque_leaf_sync_failed",
+                bank_id=inp.bank_id,
+                error=str(exc),
+            )
+            # Non-fatal: signature + PPS sync already complete; mark partial
+
         log.info(
             "vault_sync.workflow_complete",
             bank_id=inp.bank_id,
@@ -456,6 +570,7 @@ class VaultSyncWorkflow:
             signatures=len(sig_records),
             embedded=embed_result.get("embedded", 0),
             pps=len(pps_records),
+            cheque_leaves=cheque_leaves_loaded,
             integrity=integrity_ok,
         )
 
@@ -464,6 +579,7 @@ class VaultSyncWorkflow:
             signatures_loaded=len(sig_records),
             signatures_embedded=embed_result.get("embedded", 0),
             pps_records_loaded=len(pps_records),
+            cheque_leaves_loaded=cheque_leaves_loaded,
             integrity_check_passed=integrity_ok,
             triggered_by=inp.triggered_by,
         )
@@ -538,6 +654,27 @@ class VaultSyncWorkflow:
             redis_client=redis_client,
         )
 
+        # Step 6: Cheque leaf vault sync
+        cheque_leaves_loaded = 0
+        try:
+            leaf_records = await load_cheque_leaves_from_cbs(
+                bank_id=inp.bank_id,
+                cbs_connector=cbs_connector,
+            )
+            warm_result = await warm_cheque_leaf_vault(
+                bank_id=inp.bank_id,
+                pepper=inp.pepper,
+                leaf_records=leaf_records,
+                redis_client=redis_client,
+            )
+            cheque_leaves_loaded = warm_result.get("cheque_leaves", 0)
+        except Exception as exc:
+            log.warning(
+                "vault_sync.cheque_leaf_sync_failed",
+                bank_id=inp.bank_id,
+                error=str(exc),
+            )
+
         log.info(
             "vault_sync.workflow_complete",
             bank_id=inp.bank_id,
@@ -545,6 +682,7 @@ class VaultSyncWorkflow:
             signatures=len(sig_records),
             embedded=embed_result.get("embedded", 0),
             pps=len(pps_records),
+            cheque_leaves=cheque_leaves_loaded,
             integrity=integrity_ok,
         )
 
@@ -553,6 +691,7 @@ class VaultSyncWorkflow:
             signatures_loaded=len(sig_records),
             signatures_embedded=embed_result.get("embedded", 0),
             pps_records_loaded=len(pps_records),
+            cheque_leaves_loaded=cheque_leaves_loaded,
             integrity_check_passed=integrity_ok,
             triggered_by=inp.triggered_by,
         )

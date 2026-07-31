@@ -124,6 +124,19 @@ class CBSConnector(ABC):
         ).hexdigest()
 
     @abstractmethod
+    async def list_issued_leaves(self, bank_id: str) -> list[dict]:
+        """
+        List all issued cheque leaves for bulk vault sync.
+
+        Each dict must have: account_number, cheque_number, status.
+        Optional: issued_date (str), series_end (str).
+        Status values: ACTIVE | LOST | STOLEN | CANCELLED | USED.
+
+        Raises CBSUnavailableError on connection failure.
+        Used only by VaultSyncWorkflow.sync_cheque_leaves.
+        """
+
+    @abstractmethod
     async def get_signatory_data(
         self,
         account_number: str,

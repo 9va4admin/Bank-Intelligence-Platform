@@ -601,7 +601,7 @@ async def _fake_validate_ifsc(inp, repo=None):
 
 
 @activity.defn(name="validate_cheque_series")
-async def _fake_validate_cheque_series(inp, cbs_connector=None):
+async def _fake_validate_cheque_series(inp, cbs_connector=None, cheque_leaf_vault=None, config_service=None):
     from modules.cts.workflows.activities.cheque_series import ChequeSeriesActivityResult
     return ChequeSeriesActivityResult(outcome="PROCEED")
 

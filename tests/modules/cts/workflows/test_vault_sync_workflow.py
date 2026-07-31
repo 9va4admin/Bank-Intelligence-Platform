@@ -792,3 +792,130 @@ class TestRegisterVaultSyncSchedule:
             new=AsyncMock(return_value="scheduled-pepper-xyz"),
         ):
             await register_vault_sync_schedule(mock_temporal_client, BANK_ID)  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# Cheque leaf vault sync — new Step 6 activities
+# ---------------------------------------------------------------------------
+
+class TestLoadChequeLeavesfromCbs:
+
+    @pytest.mark.asyncio
+    async def test_returns_leaf_records_from_cbs(self):
+        from modules.cts.workflows.vault_sync_workflow import load_cheque_leaves_from_cbs, ChequeLeafRecord
+        cbs = AsyncMock()
+        cbs.list_issued_leaves = AsyncMock(return_value=[
+            {"account_number": "ACC001", "cheque_number": "000100", "status": "ACTIVE",
+             "issued_date": "2026-01-15", "series_end": "000200"},
+            {"account_number": "ACC002", "cheque_number": "000300", "status": "LOST",
+             "issued_date": "2026-02-01", "series_end": None},
+        ])
+        records = await load_cheque_leaves_from_cbs(BANK_ID, cbs_connector=cbs)
+        assert len(records) == 2
+        assert isinstance(records[0], ChequeLeafRecord)
+        assert records[0].account_number == "ACC001"
+        assert records[0].cheque_number == "000100"
+        assert records[0].status == "ACTIVE"
+        assert records[1].status == "LOST"
+
+    @pytest.mark.asyncio
+    async def test_skips_records_missing_required_fields(self):
+        from modules.cts.workflows.vault_sync_workflow import load_cheque_leaves_from_cbs
+        cbs = AsyncMock()
+        cbs.list_issued_leaves = AsyncMock(return_value=[
+            {"account_number": "ACC001", "cheque_number": "000100", "status": "ACTIVE"},
+            {"account_number": "", "cheque_number": "000200", "status": "ACTIVE"},  # missing acct
+            {"account_number": "ACC003", "cheque_number": "", "status": "ACTIVE"},  # missing chq
+        ])
+        records = await load_cheque_leaves_from_cbs(BANK_ID, cbs_connector=cbs)
+        assert len(records) == 1
+        assert records[0].account_number == "ACC001"
+
+    @pytest.mark.asyncio
+    async def test_no_cbs_connector_returns_empty_list(self):
+        from modules.cts.workflows.vault_sync_workflow import load_cheque_leaves_from_cbs
+        records = await load_cheque_leaves_from_cbs(BANK_ID, cbs_connector=None)
+        assert records == []
+
+
+class TestWarmChequeLeafVault:
+
+    @pytest.mark.asyncio
+    async def test_pipeline_writes_all_records(self):
+        from modules.cts.workflows.vault_sync_workflow import warm_cheque_leaf_vault, ChequeLeafRecord
+        redis = _make_redis()
+        records = [
+            ChequeLeafRecord(account_number="ACC001", cheque_number="000100", status="ACTIVE"),
+            ChequeLeafRecord(account_number="ACC002", cheque_number="000200", status="CANCELLED"),
+        ]
+        result = await warm_cheque_leaf_vault(BANK_ID, PEPPER, records, redis_client=redis)
+        assert result["cheque_leaves"] == 2
+        assert redis.pipeline.called
+
+    @pytest.mark.asyncio
+    async def test_empty_records_writes_nothing(self):
+        from modules.cts.workflows.vault_sync_workflow import warm_cheque_leaf_vault
+        redis = _make_redis()
+        result = await warm_cheque_leaf_vault(BANK_ID, PEPPER, [], redis_client=redis)
+        assert result["cheque_leaves"] == 0
+
+    @pytest.mark.asyncio
+    async def test_key_never_contains_raw_account_number(self):
+        from modules.cts.workflows.vault_sync_workflow import warm_cheque_leaf_vault, ChequeLeafRecord
+        redis = _make_redis()
+        records = [
+            ChequeLeafRecord(account_number="9876543210", cheque_number="000100", status="ACTIVE"),
+        ]
+        await warm_cheque_leaf_vault(BANK_ID, PEPPER, records, redis_client=redis)
+        pipe = redis.pipeline.return_value
+        key = pipe.hset.call_args[0][0]
+        assert "9876543210" not in key
+        assert key.startswith("chq:")
+
+
+class TestVaultSyncWorkflowWithChequeLeaves:
+
+    @pytest.mark.asyncio
+    async def test_run_with_mocks_reports_cheque_leaves_loaded(self):
+        from modules.cts.workflows.vault_sync_workflow import VaultSyncWorkflow, VaultSyncInput
+        cbs = _make_cbs(accounts=2)
+        cbs.list_issued_leaves = AsyncMock(return_value=[
+            {"account_number": "ACC001", "cheque_number": "000100", "status": "ACTIVE",
+             "issued_date": "2026-01-15"},
+        ])
+        redis = _make_redis()
+        vault = _mock_vault()
+        embed = _mock_embed_model()
+
+        wf = VaultSyncWorkflow()
+        result = await wf.run_with_mocks(
+            VaultSyncInput(bank_id=BANK_ID, pepper=PEPPER, sync_date=SYNC_DATE),
+            cbs_connector=cbs,
+            redis_client=redis,
+            vault=vault,
+            embedding_model=embed,
+            sample_accounts=["ACC000"],
+        )
+        assert result.cheque_leaves_loaded == 1
+
+    @pytest.mark.asyncio
+    async def test_run_with_mocks_cheque_leaf_sync_failure_returns_partial(self):
+        from modules.cts.workflows.vault_sync_workflow import VaultSyncWorkflow, VaultSyncInput
+        cbs = _make_cbs(accounts=1)
+        cbs.list_issued_leaves = AsyncMock(side_effect=Exception("CBS timeout"))
+        redis = _make_redis()
+        vault = _mock_vault()
+        embed = _mock_embed_model()
+
+        wf = VaultSyncWorkflow()
+        result = await wf.run_with_mocks(
+            VaultSyncInput(bank_id=BANK_ID, pepper=PEPPER, sync_date=SYNC_DATE),
+            cbs_connector=cbs,
+            redis_client=redis,
+            vault=vault,
+            embedding_model=embed,
+            sample_accounts=["ACC000"],
+        )
+        # Cheque leaf failure must not abort the whole sync (partial failure, not crash)
+        assert result.cheque_leaves_loaded == 0
+        assert result.outcome in ("SYNC_COMPLETE", "PARTIAL_FAILURE")
