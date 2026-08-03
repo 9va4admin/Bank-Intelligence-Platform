@@ -63,6 +63,8 @@ import EJSchedules from './modules/ej/pages/EJSchedules'
 import UserManagement from './modules/admin/pages/UserManagement'
 import LoginLog from './modules/admin/pages/LoginLog'
 import SecurityViolations from './modules/admin/pages/SecurityViolations'
+import OperationsConfig from './modules/admin/pages/OperationsConfig'
+import PlatformConfig from './modules/admin/pages/PlatformConfig'
 import LoginPage from './modules/auth/pages/LoginPage'
 import Logout from './modules/auth/pages/Logout'
 import Profile from './modules/auth/pages/Profile'
@@ -155,6 +157,8 @@ export default function App() {
         <Route path="/admin/security-violations" element={<SecurityViolations />} />
         <Route path="/admin/login-log" element={<LoginLog />} />
         <Route path="/admin/smoke-test" element={<CTSSmokeTest />} />
+        <Route path="/admin/config/operations" element={<OperationsConfig />} />
+        <Route path="/admin/config/platform" element={<PlatformConfig />} />
         {/* ASTRA Ops Dashboard — replaces Grafana for ops_manager + bank_it_admin */}
         <Route path="/ops/dashboard"    element={<OpsDashboard />} />
         <Route path="/ops/model-health" element={<ModelHealth />} />
