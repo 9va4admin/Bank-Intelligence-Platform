@@ -13,6 +13,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import InfoTooltip from '../../../shared/components/InfoTooltip'
 
 // ─── UI metadata schema (labels, types, options — not from API) ───────────────
 
@@ -298,6 +299,7 @@ export default function OperationsConfig() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`font-medium text-sm ${th.heading}`}>{cfg.label}</span>
+                        <InfoTooltip text={cfg.desc} isDark={isDark} />
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
                           Layer {cfg.layer}
                         </span>
@@ -315,7 +317,6 @@ export default function OperationsConfig() {
                           </span>
                         )}
                       </div>
-                      <p className={`text-xs mt-1 leading-relaxed ${th.muted}`}>{cfg.desc}</p>
                     </div>
 
                     <div className="flex items-center gap-3 shrink-0">

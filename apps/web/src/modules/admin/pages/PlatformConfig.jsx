@@ -18,6 +18,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import InfoTooltip from '../../../shared/components/InfoTooltip'
 
 // ─── Layer 2 config schema (UI metadata — values are from last Helm deploy) ─────
 
@@ -261,6 +262,7 @@ export default function PlatformConfig() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`font-medium text-sm ${th.heading}`}>{cfg.label}</span>
+                        <InfoTooltip text={cfg.desc} isDark={isDark} />
                         {cfg.layer1 ? (
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${isDark ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-600'}`}>Layer 1</span>
                         ) : (
@@ -275,7 +277,6 @@ export default function PlatformConfig() {
                           </span>
                         )}
                       </div>
-                      <p className={`text-xs mt-1 leading-relaxed ${th.muted}`}>{cfg.desc}</p>
                       <p className={`text-[11px] mt-0.5 font-mono ${th.faint}`}>{cfg.key}</p>
                     </div>
 
