@@ -47,6 +47,7 @@ import CTSSigBatchTest from './modules/cts/pages/CTSSigBatchTest'
 import CTSPresentmentFile from './modules/cts/pages/CTSPresentmentFile'
 import CTSHubDashboard from './modules/cts/pages/CTSHubDashboard'
 import CTSHoldQueue from './modules/cts/pages/CTSHoldQueue'
+import CTSInwardReviewQueue from './modules/cts/pages/CTSInwardReviewQueue'
 import BranchDashboard from './modules/cts/pages/branch/BranchDashboard'
 import BranchScanMonitor from './modules/cts/pages/branch/BranchScanMonitor'
 import BranchMismatchQueue from './modules/cts/pages/branch/BranchMismatchQueue'
@@ -146,6 +147,8 @@ export default function App() {
         <Route path="/cts/hub" element={<CTSHubDashboard />} />
         {/* Hold Queue — ops_manager view of all holds */}
         <Route path="/cts/hold-queue" element={<CTSHoldQueue />} />
+        {/* Inward Human Review Queue — CLAIM / HOLD / CONFIRM / RETURN */}
+        <Route path="/cts/inward/review-queue" element={<CTSInwardReviewQueue />} />
         {/* Branch Portal — EEH branch operator screens */}
         <Route path="/branch" element={<BranchDashboard />} />
         <Route path="/branch/scan" element={<BranchScanMonitor />} />
