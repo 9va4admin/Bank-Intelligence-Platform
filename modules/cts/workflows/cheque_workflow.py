@@ -174,6 +174,7 @@ class ChequeProcessingWorkflow:
         from modules.cts.kill_switch.vision_ai_kill_switch import (
             KillMode, KillScope, KillSwitchStatus,
         )
+        from modules.cts.queue_tier import humanreview_task_queue_for_tier
 
         def _to_kill_switch_status(lookup_result) -> KillSwitchStatus:
             mode = lookup_result["mode"] if isinstance(lookup_result, dict) else lookup_result.mode
@@ -319,6 +320,7 @@ class ChequeProcessingWorkflow:
                         review_timeout_minutes=review_timeout_minutes,
                     ),
                     id=f"cts-humanreview-{inp.bank_id}-{inp.instrument_id}",
+                    task_queue=humanreview_task_queue_for_tier(inp.bank_id, inp.queue_tier),
                     parent_close_policy=ParentClosePolicy.ABANDON,
                 )
 

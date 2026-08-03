@@ -82,3 +82,32 @@ def task_queue_for_tier(bank_id: str, tier: str) -> str:
         )
     suffix = _TASK_QUEUE_SUFFIXES[tier]
     return f"cts-processing-{bank_id}-{suffix}"
+
+
+def humanreview_task_queue_for_tier(bank_id: str, tier: str) -> str:
+    """Return the Temporal task queue name for human review workers for a given tier.
+
+    Standard-tier reviews use the base human review queue.
+    High-value and very-high get dedicated queues so a burst of standard-value
+    returns never starves a high-value review with a ticking IET clock.
+
+    Args:
+        bank_id: the bank's identifier
+        tier: "standard" | "high_value" | "very_high"
+
+    Returns:
+        e.g. "cts-humanreview-highvalue-saraswat-coop"
+
+    Raises:
+        ValueError: if tier is not one of the three valid tiers
+    """
+    if tier not in _VALID_TIERS:
+        raise ValueError(
+            f"Unknown queue tier {tier!r}. Valid tiers: {_VALID_TIERS}"
+        )
+    _HR_SUFFIXES = {
+        "standard":   "standard",
+        "high_value": "highvalue",
+        "very_high":  "veryhigh",
+    }
+    return f"cts-humanreview-{_HR_SUFFIXES[tier]}-{bank_id}"
