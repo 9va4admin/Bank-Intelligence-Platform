@@ -118,7 +118,7 @@ class TestNotifySubMemberReturn:
         )
         mock_producer.publish.assert_awaited_once()
         call_kwargs = mock_producer.publish.call_args.kwargs
-        assert call_kwargs["topic"] == "cts.sub_member.return_notification"
+        assert call_kwargs["topic"] == "platform.notifications"
         assert call_kwargs["payload"]["notification_id"] == result["notification_id"]
         assert result["status"] == "QUEUED"
 
