@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
@@ -94,13 +95,32 @@ export default function CTSVaultSync() {
     input:   isDark ? 'bg-white/8 border-white/10 text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400',
   }
 
-  const handleManualSync = async () => {
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/v1/cts/vault-sync/trigger', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      if (!res.ok) throw new Error('Trigger failed')
+      return res.json()
+    },
+    onSuccess: (data) => {
+      setSyncing(false)
+      setSyncMsg({
+        type: 'success',
+        text: `Vault sync triggered (workflow: ${data.workflow_id}). PPS & Stop Cheque data will refresh within ~45 seconds.`,
+      })
+    },
+    onError: () => {
+      setSyncing(false)
+      setSyncMsg({ type: 'error', text: 'Failed to trigger vault sync. Please retry.' })
+    },
+  })
+
+  const handleManualSync = () => {
     setSyncing(true)
     setSyncMsg(null)
-    // In production: POST /v1/admin/vault-sync/trigger
-    await new Promise((r) => setTimeout(r, 2200))
-    setSyncing(false)
-    setSyncMsg({ type: 'success', text: 'Vault sync triggered. Temporal workflow started — PPS & Stop Cheque data will refresh within ~45 seconds.' })
+    syncMutation.mutate()
   }
 
   const filteredPPS = MOCK_PPS.filter((r) =>

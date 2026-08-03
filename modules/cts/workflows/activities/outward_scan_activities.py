@@ -477,3 +477,50 @@ async def vision_extract_and_check(
         mismatch_fields=[],
         overall_confidence=overall,
     )
+
+
+# ── Scan event recorder ────────────────────────────────────────────────────────
+
+class RecordScanEventInput(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    scan_id: str
+    instrument_id: Optional[str] = None
+    branch_id: Optional[str] = None
+    session_id: Optional[str] = None
+    micr_suffix: Optional[str] = None
+    payee_display: Optional[str] = None
+    amount_range: Optional[str] = None
+    outcome: str
+    lot_id: Optional[str] = None
+    mismatch_id: Optional[str] = None
+    mismatch_fields: Optional[list[str]] = None
+    reject_reason: Optional[str] = None
+
+
+@activity.defn(name="record_outward_scan_event")
+async def record_outward_scan_event(inp: RecordScanEventInput) -> None:
+    from shared.config.config_service import config_service
+    dsn = config_service.get("db.cts.dsn")
+
+    import asyncpg
+    try:
+        conn = await asyncpg.connect(dsn)
+        try:
+            await conn.execute(
+                """
+                INSERT INTO cts.outward_scan_events
+                    (bank_id, branch_id, session_id, scan_id, instrument_id,
+                     micr_suffix, payee_display, amount_range, outcome,
+                     lot_id, mismatch_id, mismatch_fields, reject_reason)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                """,
+                inp.bank_id, inp.branch_id, inp.session_id, inp.scan_id,
+                inp.instrument_id, inp.micr_suffix, inp.payee_display,
+                inp.amount_range, inp.outcome, inp.lot_id, inp.mismatch_id,
+                inp.mismatch_fields, inp.reject_reason,
+            )
+        finally:
+            await conn.close()
+    except Exception as exc:
+        log.warning("record_outward_scan_event.db_unavailable", scan_id=inp.scan_id, error=str(exc))

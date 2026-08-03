@@ -1,52 +1,21 @@
 /**
  * Branch Portal — Mismatch Queue (/branch/mismatch)
  *
- * Supervisor-only screen. Lists cheques currently HELD due to Vision LLM ↔
- * scanner data mismatch. Supervisor can GO_AHEAD (proceed to lot) or REJECT
- * (return to drawer). Calls EEH ResolveMismatch RPC.
- *
- * In Phase 3, mismatches are created by OutwardScanWorkflow when Vision LLM
- * returns different amount/fields from scanner OCR. Until Phase 3, this screen
- * shows the schema and mock data.
+ * Branch manager / supervisor screen. Lists outward instruments HELD due to
+ * Vision LLM ↔ scanner data mismatch. Supervisor can GO_AHEAD (proceed to lot)
+ * or REJECT (return to drawer). Sends Temporal signal to MismatchResolutionWorkflow.
  */
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTheme } from '../../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../../shared/context/BankContext'
 import AppShell from '../../../../shared/layout/AppShell'
 
-// ─── Mock mismatch data ───────────────────────────────────────────────────────
+// ─── Mismatch card ────────────────────────────────────────────────────────────
 
-const MOCK_MISMATCHES = [
-  {
-    mismatch_id: 'MM-001',
-    scan_id: 'SC-001245',
-    branch_id: 'BRANCH-ANDHERI-01',
-    held_at: '10:43:47',
-    mismatch_fields: ['amount_figures'],
-    scanner_amount: '₹45,000',
-    vision_amount: '₹4,500',
-    payee_display: 'Rajesh Kulkarni',
-    lot_id: '',
-    status: 'HELD',
-  },
-  {
-    mismatch_id: 'MM-002',
-    scan_id: 'SC-001239',
-    branch_id: 'BRANCH-ANDHERI-01',
-    held_at: '10:41:22',
-    mismatch_fields: ['amount_words', 'amount_figures'],
-    scanner_amount: '₹1,25,000',
-    vision_amount: '₹12,500',
-    payee_display: 'Bhavesh Mehta',
-    lot_id: '',
-    status: 'HELD',
-  },
-]
-
-function MismatchCard({ item, onResolve, isDark }) {
+function MismatchCard({ item, isDark, onResolve, isResolving }) {
   const [note, setNote] = useState('')
-  const [loading, setLoading] = useState(false)
 
   const th = {
     card:    isDark ? 'bg-navy-900 border-amber-500/30' : 'bg-white border-amber-300',
@@ -56,20 +25,13 @@ function MismatchCard({ item, onResolve, isDark }) {
                     : 'bg-slate-50 border-slate-200 text-slate-700 placeholder-slate-400',
   }
 
-  async function handleResolve(action) {
-    setLoading(true)
-    await new Promise(r => setTimeout(r, 400))   // mock API call
-    onResolve(item.mismatch_id, action, note)
-    setLoading(false)
-  }
-
   return (
     <div className={`rounded-lg border p-4 mb-3 ${th.card}`}>
       <div className="flex items-start justify-between mb-3">
         <div>
           <span className={`text-xs font-mono ${th.muted}`}>{item.mismatch_id}</span>
           <span className="mx-2 text-amber-400">·</span>
-          <span className={`text-xs font-mono ${th.muted}`}>{item.scan_id}</span>
+          <span className={`text-xs font-mono ${th.muted}`}>{item.instrument_id}</span>
           <span className="mx-2 text-amber-400">·</span>
           <span className={`text-xs ${th.muted}`}>Held {item.held_at}</span>
         </div>
@@ -84,19 +46,22 @@ function MismatchCard({ item, onResolve, isDark }) {
           <p className={`text-xs font-medium uppercase tracking-wider mb-1 ${th.muted}`}>
             Scanner Read
           </p>
-          <p className={`text-lg font-bold tabular-nums text-white`}>{item.scanner_amount}</p>
+          <p className={`text-lg font-bold tabular-nums ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            {item.scanner_amount}
+          </p>
           <p className={`text-xs mt-0.5 ${th.muted}`}>
-            Fields: {item.mismatch_fields.join(', ')}
+            Fields: {(item.mismatch_fields ?? []).join(', ')}
           </p>
         </div>
         <div>
           <p className={`text-xs font-medium uppercase tracking-wider mb-1 ${th.muted}`}>
             Vision LLM Read
           </p>
-          <p className={`text-lg font-bold tabular-nums text-red-400`}>{item.vision_amount}</p>
+          <p className="text-lg font-bold tabular-nums text-red-400">{item.vision_amount}</p>
           <p className={`text-xs mt-0.5 ${th.muted}`}>Mismatch detected</p>
         </div>
       </div>
+
       <div className="mb-3 text-xs">
         <span className={th.muted}>Payee: </span>
         <span className={`font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
@@ -116,44 +81,71 @@ function MismatchCard({ item, onResolve, isDark }) {
       {/* Resolution buttons */}
       <div className="flex gap-2">
         <button
-          onClick={() => handleResolve('GO_AHEAD')}
-          disabled={loading}
+          onClick={() => onResolve(item.mismatch_id, 'GO_AHEAD', note)}
+          disabled={isResolving}
           className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-medium rounded transition-colors"
         >
-          {loading ? '…' : 'Go Ahead (trust scanner)'}
+          {isResolving ? '…' : 'Go Ahead (trust scanner)'}
         </button>
         <button
-          onClick={() => handleResolve('REJECTED')}
-          disabled={loading}
+          onClick={() => onResolve(item.mismatch_id, 'REJECTED', note)}
+          disabled={isResolving}
           className="flex-1 py-1.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-medium rounded transition-colors"
         >
-          {loading ? '…' : 'Reject (return to drawer)'}
+          {isResolving ? '…' : 'Reject (return to drawer)'}
         </button>
       </div>
     </div>
   )
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BranchMismatchQueue() {
   const { isDark } = useTheme()
   const { bankId } = useBankContext()
-  const [mismatches, setMismatches] = useState(MOCK_MISMATCHES)
+  const queryClient = useQueryClient()
   const [resolved, setResolved] = useState([])
-
-  function handleResolve(mismatch_id, action, note) {
-    setResolved(prev => [...prev, { mismatch_id, action, note, resolved_at: new Date().toLocaleTimeString() }])
-    setMismatches(prev => prev.filter(m => m.mismatch_id !== mismatch_id))
-  }
 
   const th = {
     page:    isDark ? 'bg-navy-950'  : 'bg-slate-50',
     heading: isDark ? 'text-white'   : 'text-slate-900',
     muted:   isDark ? 'text-slate-400' : 'text-slate-500',
-    divider: isDark ? 'border-white/8' : 'border-slate-200',
     card:    isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
   }
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['branch-mismatches', bankId],
+    queryFn: async () => {
+      const res = await fetch('/api/v1/cts/mismatches', { credentials: 'include' })
+      if (!res.ok) throw new Error('Failed to load mismatches')
+      return res.json()
+    },
+    refetchInterval: 15_000,
+  })
+
+  const mismatches = (data?.items ?? []).filter(m => !resolved.find(r => r.mismatch_id === m.mismatch_id))
+
+  const resolveMutation = useMutation({
+    mutationFn: async ({ mismatchId, action, note }) => {
+      const res = await fetch(`/api/v1/cts/mismatches/${mismatchId}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action, note }),
+      })
+      if (!res.ok) throw new Error('Failed to resolve mismatch')
+      return res.json()
+    },
+    onSuccess: (data, { mismatchId, action }) => {
+      setResolved(prev => [...prev, {
+        mismatch_id: mismatchId,
+        action,
+        resolved_at: new Date().toLocaleTimeString(),
+      }])
+      queryClient.invalidateQueries({ queryKey: ['branch-mismatches', bankId] })
+    },
+  })
 
   return (
     <AppShell>
@@ -163,14 +155,22 @@ export default function BranchMismatchQueue() {
             ← Dashboard
           </Link>
           <h1 className={`text-lg font-semibold ${th.heading}`}>Mismatch Queue</h1>
-          {mismatches.length > 0 && (
+          {!isLoading && mismatches.length > 0 && (
             <span className="text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded px-2 py-0.5">
               {mismatches.length} pending
             </span>
           )}
         </div>
 
-        {mismatches.length === 0 && resolved.length === 0 && (
+        {isLoading && (
+          <div className={`text-center py-12 ${th.muted} text-sm`}>Loading…</div>
+        )}
+
+        {isError && (
+          <div className="text-center py-12 text-red-400 text-sm">Failed to load mismatch queue.</div>
+        )}
+
+        {!isLoading && !isError && mismatches.length === 0 && resolved.length === 0 && (
           <div className={`text-center py-12 ${th.muted} text-sm`}>
             No held items. All mismatches resolved.
           </div>
@@ -180,8 +180,11 @@ export default function BranchMismatchQueue() {
           <MismatchCard
             key={item.mismatch_id}
             item={item}
-            onResolve={handleResolve}
             isDark={isDark}
+            isResolving={resolveMutation.isPending && resolveMutation.variables?.mismatchId === item.mismatch_id}
+            onResolve={(mismatchId, action, note) =>
+              resolveMutation.mutate({ mismatchId, action, note })
+            }
           />
         ))}
 
@@ -197,7 +200,6 @@ export default function BranchMismatchQueue() {
                   </span>
                   <span className={th.muted}>{r.resolved_at}</span>
                 </div>
-                {r.note && <p className={`text-xs mt-1 ${th.muted}`}>{r.note}</p>}
               </div>
             ))}
           </div>

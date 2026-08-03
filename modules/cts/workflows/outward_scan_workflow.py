@@ -119,8 +119,40 @@ class OutwardScanWorkflow:
 
     @workflow.run
     async def run(self, inp: OutwardScanInput) -> OutwardScanResult:
+        """Production Temporal @workflow.run entry point."""
+        from modules.cts.workflows.activities.outward_scan_activities import (
+            record_outward_scan_event, RecordScanEventInput,
+        )
+        result = await self._run_impl(inp)
+        # Record scan event for branch monitor (best-effort — never fail workflow for this)
+        try:
+            micr_suffix = (result.micr_line or "")[-4:] or None
+            await workflow.execute_activity(
+                record_outward_scan_event,
+                RecordScanEventInput(
+                    bank_id=inp.bank_id,
+                    scan_id=inp.scan_id,
+                    instrument_id=inp.instrument_id,
+                    branch_id=getattr(inp, "branch_id", None),
+                    session_id=getattr(inp, "session_id", None),
+                    micr_suffix=micr_suffix if micr_suffix else None,
+                    amount_range=None,
+                    outcome=result.outcome,
+                    lot_id=result.lot_number,
+                    mismatch_id=result.mismatch_id,
+                    mismatch_fields=result.mismatch_fields,
+                    reject_reason=(result.violations[0] if result.violations else None),
+                ),
+                start_to_close_timeout=timedelta(seconds=10),
+                retry_policy=_INFRA_RETRY,
+            )
+        except Exception:
+            pass  # non-critical — never fail scan for event recording
+        return result
+
+    async def _run_impl(self, inp: OutwardScanInput) -> OutwardScanResult:
         """
-        Production Temporal @workflow.run entry point.
+        Core scan logic — delegated from run() so event recording wraps all paths.
 
         capture_image / drop-folder parsing / MinIO upload happen upstream of
         this workflow (see module docstring) — image_front_url/image_rear_url

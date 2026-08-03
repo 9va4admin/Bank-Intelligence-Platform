@@ -11,6 +11,7 @@
  *   (SMBDashboardContent, shared with the standalone /cts/smb/dashboard route).
  */
 import { useState, useMemo } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
@@ -287,12 +288,32 @@ export default function CTSOpsDashboard() {
   const smbSessions = useMemo(() => makeSessions(selectedSmb?.ifsc || bankIfsc, 'smb'), [selectedSmb, bankIfsc])
   const smbCombinedSessions = useMemo(() => makeSessions(bankIfsc, 'smb_combined'), [bankIfsc])
 
+  const downloadMutation = useMutation({
+    mutationFn: async ({ sessionId, path }) => {
+      const res = await fetch(
+        `/api/v1/cts/sessions/${encodeURIComponent(sessionId)}/download/${path}`,
+        { credentials: 'include' },
+      )
+      if (!res.ok) throw new Error('Download URL request failed')
+      return res.json()
+    },
+    onSuccess: (data, { sessionId, path }) => {
+      const a = document.createElement('a')
+      a.href = data.download_url
+      a.download = `${sessionId}-${path}`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setDownloading(null)
+    },
+    onError: (_, { sessionId, path }) => { setDownloading(null) },
+  })
+
   function handleDownload(sessionId, type) {
     const pathMap = { 'NPCI RRF': 'npci', 'MIS CSV': 'mis', 'Settlement': 'settlement' }
     const path = pathMap[type]
     setDownloading(`${sessionId}-${path}`)
-    // In production: call /v1/cts/sessions/{id}/download/{path}
-    setTimeout(() => setDownloading(null), 1200)
+    downloadMutation.mutate({ sessionId, path })
   }
 
   const th = {

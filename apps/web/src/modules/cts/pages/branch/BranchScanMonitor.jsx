@@ -9,6 +9,7 @@
  * This UI subscribes to the SSE stream and shows per-item results.
  */
 import { useState, useEffect, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../../shared/context/BankContext'
@@ -77,25 +78,56 @@ export default function BranchScanMonitor() {
   const { isDark } = useTheme()
   const { bankId } = useBankContext()
 
-  // SSE connection state
-  const [sseStatus, setSseStatus] = useState('CONNECTING')
-  const [instruments, setInstruments] = useState(MOCK_INSTRUMENTS)
   const [autoScroll, setAutoScroll] = useState(true)
-  const [rateCps, setRateCps] = useState(0.8)   // cheques per second (mock)
   const tableRef = useRef(null)
+  const prevCountRef = useRef(0)
 
-  // Simulate SSE connection on mount
-  useEffect(() => {
-    const t = setTimeout(() => setSseStatus('CONNECTED'), 600)
-    return () => clearTimeout(t)
-  }, [])
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['scan-monitor', bankId],
+    queryFn: async () => {
+      const res = await fetch('/api/v1/cts/scan-monitor/recent?limit=50', { credentials: 'include' })
+      if (!res.ok) throw new Error('Failed to load scan events')
+      return res.json()
+    },
+    refetchInterval: 3_000,
+    staleTime: 0,
+  })
+
+  const rawEvents = data?.events ?? MOCK_INSTRUMENTS
+  const instruments = rawEvents.map(e => ({
+    scan_id:        e.scan_id,
+    micr_suffix:    e.micr_suffix ?? '****',
+    payee:          e.payee_display ?? '—',
+    amount_range:   e.amount_range ?? '—',
+    status:         e.outcome === 'ACCEPTED' ? 'ACCEPTED'
+                  : e.outcome === 'CTS_REJECTED' ? 'REJECTED'
+                  : e.outcome === 'MISMATCH_HELD' ? 'HELD'
+                  : e.outcome,
+    lot_id:         e.lot_id ?? '',
+    mismatch_id:    e.mismatch_id ?? null,
+    mismatch_fields: e.mismatch_fields ?? null,
+    reason:         e.reject_reason ?? null,
+    ts:             e.scanned_at ? new Date(e.scanned_at).toLocaleTimeString('en-IN', { hour12: false }) : '',
+  }))
+
+  const sseStatus = isError ? 'ERROR' : isLoading ? 'CONNECTING' : 'LIVE'
+
+  const rateCps = (() => {
+    if (instruments.length < 2) return 0
+    const first = new Date(rawEvents[rawEvents.length - 1]?.scanned_at)
+    const last  = new Date(rawEvents[0]?.scanned_at)
+    const secs  = (last - first) / 1000
+    return secs > 0 ? (instruments.length / secs).toFixed(1) : 0
+  })()
 
   // Auto-scroll to top (newest item) when new instruments arrive
   useEffect(() => {
-    if (autoScroll && tableRef.current) {
+    const count = instruments.length
+    if (autoScroll && tableRef.current && count > prevCountRef.current) {
       tableRef.current.scrollTop = 0
     }
-  }, [instruments, autoScroll])
+    prevCountRef.current = count
+  }, [instruments.length, autoScroll])
 
   const th = {
     page:    isDark ? 'bg-navy-950'  : 'bg-slate-50',
@@ -124,10 +156,14 @@ export default function BranchScanMonitor() {
           </div>
           <div className="flex items-center gap-4 text-xs">
             <span className={`flex items-center gap-1.5 ${th.muted}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${sseStatus === 'CONNECTED' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
-              SSE {sseStatus}
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                sseStatus === 'LIVE' ? 'bg-emerald-400 animate-pulse'
+                : sseStatus === 'ERROR' ? 'bg-red-400'
+                : 'bg-slate-500'
+              }`} />
+              {sseStatus}
             </span>
-            <span className={th.muted}>{rateCps.toFixed(1)} c/s</span>
+            <span className={th.muted}>{rateCps} c/s</span>
             <label className={`flex items-center gap-1.5 ${th.muted} cursor-pointer`}>
               <input
                 type="checkbox"

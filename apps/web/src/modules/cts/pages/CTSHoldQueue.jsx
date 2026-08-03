@@ -11,61 +11,15 @@
  *  - CRITICAL: IET countdown shown in red when < 30 minutes remaining
  */
 import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
-// ─── Demo data ────────────────────────────────────────────────────────────────
+// ─── IET Countdown ────────────────────────────────────────────────────────────
 
 const _now = () => Date.now() / 1000
-
-const DEMO_HOLDS = [
-  {
-    instrument_id:          'INST-2026-001847',
-    bank_id:                'saraswat-coop',
-    held_by:                'reviewer.priya@saraswat',
-    held_at:                _now() - 18 * 60,        // held 18 min ago
-    iet_deadline:           _now() + 42 * 60,        // 42 min remaining
-    hold_reason:            'Signature looks different from CBS record — branch asked to confirm drawer identity',
-    branch_notified_at:     _now() - 17 * 60,
-    branch_recommendation:  null,
-    amount_display:         '₹[1L–5L]',
-    payee_display:          'R***',
-    account_display:        '****4521',
-    queue_tier:             'high_value',
-  },
-  {
-    instrument_id:          'INST-2026-001855',
-    bank_id:                'saraswat-coop',
-    held_by:                'reviewer.rahul@saraswat',
-    held_at:                _now() - 5 * 60,
-    iet_deadline:           _now() + 22 * 60,        // 22 min — approaching IET
-    hold_reason:            'Account shows stop payment in CBS but customer claims it was cancelled — branch verifying',
-    branch_notified_at:     _now() - 4.5 * 60,
-    branch_recommendation:  'RETURN',
-    amount_display:         '₹[<1L]',
-    payee_display:          'M***',
-    account_display:        '****8812',
-    queue_tier:             'standard',
-  },
-  {
-    instrument_id:          'INST-2026-001862',
-    bank_id:                'saraswat-coop',
-    held_by:                'reviewer.anita@saraswat',
-    held_at:                _now() - 45 * 60,
-    iet_deadline:           _now() + 105 * 60,
-    hold_reason:            'High-value instrument — branch manager sign-off required per policy',
-    branch_notified_at:     _now() - 44 * 60,
-    branch_recommendation:  'CONFIRM',
-    amount_display:         '₹[>1Cr]',
-    payee_display:          'A***',
-    account_display:        '****0071',
-    queue_tier:             'very_high',
-  },
-]
-
-// ─── IET Countdown ────────────────────────────────────────────────────────────
 
 function useCountdown(deadlines) {
   const [remaining, setRemaining] = useState(() =>
@@ -108,8 +62,6 @@ const TIER_BADGE_L = {
 }
 const TIER_LABEL = { standard: 'Standard', high_value: 'High Value', very_high: 'Very High' }
 
-// ─── Recommendation badge ─────────────────────────────────────────────────────
-
 function RecBadge({ rec, isDark }) {
   if (!rec) return <span className={isDark ? 'text-slate-500 text-xs' : 'text-slate-400 text-xs'}>Awaiting…</span>
   const cls = rec === 'CONFIRM'
@@ -126,18 +78,13 @@ function RecBadge({ rec, isDark }) {
 
 export default function CTSHoldQueue() {
   const { isDark } = useTheme()
-  const { bankId, bankName, hasPermission } = useBankContext()
+  const { bankId } = useBankContext()
   const { setHeader } = usePageHeader?.() ?? {}
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     setHeader?.({ title: 'Inward Hold Queue', subtitle: 'Instruments awaiting branch confirmation — IET clock running' })
   }, [])
-
-  const [holds, setHolds] = useState(DEMO_HOLDS)
-  const [releasing, setReleasing] = useState(null)
-
-  const deadlines = holds.map(h => [h.instrument_id, h.iet_deadline])
-  const remaining = useCountdown(deadlines)
 
   const th = {
     page:    isDark ? 'bg-navy-950'        : 'bg-slate-50',
@@ -147,19 +94,42 @@ export default function CTSHoldQueue() {
     muted:   isDark ? 'text-slate-400'     : 'text-slate-500',
     faint:   isDark ? 'text-slate-600'     : 'text-slate-400',
     divider: isDark ? 'border-white/8'     : 'border-slate-200',
-    row:     isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
-    input:   isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400',
   }
 
-  function releaseHold(instrumentId) {
-    setReleasing(instrumentId)
-    setTimeout(() => {
-      setHolds(prev => prev.filter(h => h.instrument_id !== instrumentId))
-      setReleasing(null)
-    }, 800)
-  }
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['cts-holds', bankId],
+    queryFn: async () => {
+      const res = await fetch('/api/v1/cts/holds', { credentials: 'include' })
+      if (!res.ok) throw new Error('Failed to load holds')
+      return res.json()
+    },
+    refetchInterval: 15_000,
+  })
 
-  const sortedHolds = [...holds].sort((a, b) => remaining[a.instrument_id] - remaining[b.instrument_id])
+  const holds = data?.items ?? []
+
+  const releaseMutation = useMutation({
+    mutationFn: async (instrumentId) => {
+      const res = await fetch(`/api/v1/cts/holds/${instrumentId}/release`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      })
+      if (!res.ok) throw new Error('Failed to release hold')
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cts-holds', bankId] })
+    },
+  })
+
+  const deadlines = holds.map(h => [h.instrument_id, h.iet_deadline])
+  const remaining = useCountdown(deadlines)
+
+  const sortedHolds = [...holds].sort((a, b) =>
+    (remaining[a.instrument_id] ?? 0) - (remaining[b.instrument_id] ?? 0)
+  )
 
   return (
     <AppShell>
@@ -169,7 +139,7 @@ export default function CTSHoldQueue() {
           <div>
             <h1 className={`text-lg font-semibold ${th.heading}`}>Inward Hold Queue</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              {holds.length} instrument{holds.length !== 1 ? 's' : ''} on hold — IET countdown active on all
+              {isLoading ? 'Loading…' : `${holds.length} instrument${holds.length !== 1 ? 's' : ''} on hold — IET countdown active on all`}
             </p>
           </div>
           <div className={`text-xs px-3 py-1 rounded-full border ${isDark ? 'border-amber-700/40 bg-amber-900/30 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
@@ -177,15 +147,26 @@ export default function CTSHoldQueue() {
           </div>
         </div>
 
-        {holds.length === 0 ? (
+        {isLoading && (
+          <div className={`text-center py-16 ${th.muted}`}>Loading hold queue…</div>
+        )}
+
+        {isError && (
+          <div className={`text-center py-16 text-red-400`}>Failed to load hold queue. Retry in 15s.</div>
+        )}
+
+        {!isLoading && !isError && holds.length === 0 && (
           <div className={`text-center py-16 ${th.muted}`}>
             No instruments currently on hold.
           </div>
-        ) : (
+        )}
+
+        {!isLoading && !isError && holds.length > 0 && (
           <div className="space-y-3">
             {sortedHolds.map(hold => {
               const secs = remaining[hold.instrument_id] ?? 0
               const tierBadge = isDark ? TIER_BADGE[hold.queue_tier] : TIER_BADGE_L[hold.queue_tier]
+              const isReleasing = releaseMutation.isPending && releaseMutation.variables === hold.instrument_id
               return (
                 <div
                   key={hold.instrument_id}
@@ -198,11 +179,10 @@ export default function CTSHoldQueue() {
                         {hold.instrument_id}
                       </span>
                       <span className={`text-xs px-2 py-0.5 rounded border font-medium ${tierBadge}`}>
-                        {TIER_LABEL[hold.queue_tier]}
+                        {TIER_LABEL[hold.queue_tier] ?? hold.queue_tier}
                       </span>
                       <RecBadge rec={hold.branch_recommendation} isDark={isDark} />
                     </div>
-                    {/* IET countdown */}
                     <div className="flex items-center gap-2">
                       <span className={`text-xs ${th.muted}`}>IET</span>
                       <span className={`font-mono text-sm tabular-nums ${countdownColor(secs, isDark)}`}>
@@ -240,15 +220,15 @@ export default function CTSHoldQueue() {
                   {/* Actions */}
                   <div className="mt-3 flex gap-2 flex-wrap">
                     <button
-                      onClick={() => releaseHold(hold.instrument_id)}
-                      disabled={releasing === hold.instrument_id}
+                      onClick={() => releaseMutation.mutate(hold.instrument_id)}
+                      disabled={isReleasing}
                       className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors
-                        ${releasing === hold.instrument_id
+                        ${isReleasing
                           ? (isDark ? 'opacity-50 bg-white/10 text-slate-400' : 'opacity-50 bg-slate-100 text-slate-400')
                           : (isDark ? 'bg-violet-600 hover:bg-violet-500 text-white' : 'bg-violet-600 hover:bg-violet-700 text-white')
                         }`}
                     >
-                      {releasing === hold.instrument_id ? 'Releasing…' : 'Release Hold'}
+                      {isReleasing ? 'Releasing…' : 'Release Hold'}
                     </button>
                     {hold.branch_recommendation === 'RETURN' && (
                       <span className={`text-xs px-3 py-1.5 rounded-lg border font-medium ${isDark ? 'border-red-700/40 text-red-400 bg-red-900/20' : 'border-red-200 text-red-600 bg-red-50'}`}>

@@ -124,6 +124,7 @@ from modules.cts.workflows.activities.outward_scan_activities import (
     validate_cts2010,
     create_lot_entry,
     run_vision_presentment_check,
+    record_outward_scan_event,
 )
 from modules.cts.workflows.activities.security_features import check_security_features
 from modules.cts.workflows.activities.ngch_metadata_cross_check import cross_check_ngch_metadata
@@ -284,6 +285,8 @@ NO_DI_ACTIVITIES = [
     check_iet_risk_for_alert,
     check_human_review_for_alert,
     dispatch_platform_alert,
+    # Scan event recorder (OutwardScanWorkflow — branch monitor feed)
+    record_outward_scan_event,
 ]
 
 
