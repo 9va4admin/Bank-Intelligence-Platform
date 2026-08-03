@@ -460,6 +460,148 @@ async def warm_redis_from_db(
 
 
 # ---------------------------------------------------------------------------
+# AccountProfile record (for account vault sync)
+# ---------------------------------------------------------------------------
+
+class AccountProfileRecord(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    account_number: str
+    account_type: str = "UNKNOWN"
+    branch_code: str = ""
+
+
+# ---------------------------------------------------------------------------
+# Activity 7a: load_account_profiles_from_cbs
+# ---------------------------------------------------------------------------
+
+@activity.defn
+async def load_account_profiles_from_cbs(
+    bank_id: str,
+    cbs_connector=None,
+) -> list[AccountProfileRecord]:
+    """
+    Fetch all account profiles from CBS to populate the Account Vault.
+
+    Returns list of AccountProfileRecord — one per account, carrying
+    branch_code so the next activity can deduplicate branch contact lookups.
+    """
+    if cbs_connector is None:
+        log.warning("vault_sync.account_profiles_no_connector", bank_id=bank_id)
+        return []
+
+    try:
+        raw_records = await cbs_connector.list_account_profiles(bank_id)
+    except Exception as exc:
+        log.warning(
+            "vault_sync.account_profiles_cbs_error",
+            bank_id=bank_id,
+            error=str(exc),
+        )
+        raise
+
+    records = []
+    for raw in raw_records:
+        account_number = raw.get("account_number", "")
+        if not account_number:
+            continue
+        records.append(AccountProfileRecord(
+            account_number=account_number,
+            account_type=raw.get("account_type", "UNKNOWN"),
+            branch_code=raw.get("branch_code", ""),
+        ))
+
+    log.info("vault_sync.account_profiles_loaded", bank_id=bank_id, count=len(records))
+    return records
+
+
+# ---------------------------------------------------------------------------
+# Activity 7b: warm_account_vault
+# ---------------------------------------------------------------------------
+
+@activity.defn
+async def warm_account_vault(
+    bank_id: str,
+    pepper: str,
+    account_records: list[AccountProfileRecord],
+    cbs_connector=None,
+    account_vault=None,
+) -> dict[str, int]:
+    """
+    For each account profile, look up branch contacts from CBS (deduplicated by
+    branch_code — one CBS call per branch, not per account), then store the
+    merged profile in AccountVault (YugabyteDB + Redis).
+
+    Deduplication: branch contact is fetched once per unique branch_code and
+    reused for all accounts at that branch.
+    """
+    if not account_records or account_vault is None:
+        return {"accounts_warmed": 0, "branches_fetched": 0, "failed": 0}
+
+    branch_contacts: dict[str, Any] = {}
+    warmed = 0
+    failed = 0
+
+    for rec in account_records:
+        branch_code = rec.branch_code
+
+        if branch_code and branch_code not in branch_contacts:
+            if cbs_connector is not None:
+                try:
+                    contact = await cbs_connector.get_branch_contacts(branch_code, bank_id)
+                    branch_contacts[branch_code] = contact
+                except Exception as exc:
+                    log.warning(
+                        "vault_sync.branch_contact_fetch_failed",
+                        bank_id=bank_id,
+                        branch_code=branch_code,
+                        error=str(exc),
+                    )
+                    branch_contacts[branch_code] = None
+            else:
+                branch_contacts[branch_code] = None
+
+        contact = branch_contacts.get(branch_code)
+
+        profile: dict[str, str] = {
+            "account_number_last4": rec.account_number[-4:],
+            "account_type": rec.account_type,
+            "branch_code": branch_code,
+            "branch_name": contact.branch_name if contact else "",
+            "branch_ifsc": contact.branch_ifsc if contact else "",
+            "branch_manager_email": contact.branch_manager_email if contact else "",
+            "branch_contact_email": contact.branch_contact_email if contact else "",
+            "branch_contact_phone": contact.branch_contact_phone if contact else "",
+            "last_synced_at": str(date.today().isoformat()),
+        }
+
+        try:
+            await account_vault.store_profile(
+                account_number=rec.account_number,
+                profile=profile,
+                source="VaultSyncWorkflow",
+            )
+            warmed += 1
+        except Exception as exc:
+            log.error(
+                "vault_sync.account_vault_store_failed",
+                bank_id=bank_id,
+                account_last4=rec.account_number[-4:],
+                error=str(exc),
+            )
+            failed += 1
+
+    branches_fetched = sum(1 for v in branch_contacts.values() if v is not None)
+    log.info(
+        "vault_sync.account_vault_warmed",
+        bank_id=bank_id,
+        accounts_warmed=warmed,
+        branches_fetched=branches_fetched,
+        failed=failed,
+    )
+    return {"accounts_warmed": warmed, "branches_fetched": branches_fetched, "failed": failed}
+
+
+# ---------------------------------------------------------------------------
 # VaultSyncWorkflow — orchestrates 5 activities
 # ---------------------------------------------------------------------------
 
@@ -563,6 +705,29 @@ class VaultSyncWorkflow:
             )
             # Non-fatal: signature + PPS sync already complete; mark partial
 
+        # Step 7: Load account profiles from CBS and warm Account Vault
+        accounts_warmed = 0
+        try:
+            account_records = await workflow.execute_activity(
+                load_account_profiles_from_cbs,
+                args=[inp.bank_id],
+                start_to_close_timeout=timedelta(seconds=300),
+                retry_policy=_INFRA_RETRY,
+            )
+            acct_result = await workflow.execute_activity(
+                warm_account_vault,
+                args=[inp.bank_id, inp.pepper, account_records],
+                start_to_close_timeout=timedelta(seconds=300),
+                retry_policy=_INFRA_RETRY,
+            )
+            accounts_warmed = acct_result.get("accounts_warmed", 0)
+        except Exception as exc:
+            log.warning(
+                "vault_sync.account_vault_sync_failed",
+                bank_id=inp.bank_id,
+                error=str(exc),
+            )
+
         log.info(
             "vault_sync.workflow_complete",
             bank_id=inp.bank_id,
@@ -571,6 +736,7 @@ class VaultSyncWorkflow:
             embedded=embed_result.get("embedded", 0),
             pps=len(pps_records),
             cheque_leaves=cheque_leaves_loaded,
+            accounts_warmed=accounts_warmed,
             integrity=integrity_ok,
         )
 
@@ -592,6 +758,8 @@ class VaultSyncWorkflow:
         vault=None,
         embedding_model=None,
         sample_accounts: Optional[list[str]] = None,
+        account_vault=None,
+        **kwargs,
     ) -> VaultSyncResult:
         """Testable orchestration — same logic as run(), direct Python calls."""
         # Step 1
@@ -675,6 +843,28 @@ class VaultSyncWorkflow:
                 error=str(exc),
             )
 
+        # Step 7: Account Vault warm
+        accounts_warmed = 0
+        try:
+            account_records = await load_account_profiles_from_cbs(
+                bank_id=inp.bank_id,
+                cbs_connector=cbs_connector,
+            )
+            acct_result = await warm_account_vault(
+                bank_id=inp.bank_id,
+                pepper=inp.pepper,
+                account_records=account_records,
+                cbs_connector=cbs_connector,
+                account_vault=account_vault,
+            )
+            accounts_warmed = acct_result.get("accounts_warmed", 0)
+        except Exception as exc:
+            log.warning(
+                "vault_sync.account_vault_sync_failed",
+                bank_id=inp.bank_id,
+                error=str(exc),
+            )
+
         log.info(
             "vault_sync.workflow_complete",
             bank_id=inp.bank_id,
@@ -683,6 +873,7 @@ class VaultSyncWorkflow:
             embedded=embed_result.get("embedded", 0),
             pps=len(pps_records),
             cheque_leaves=cheque_leaves_loaded,
+            accounts_warmed=accounts_warmed,
             integrity=integrity_ok,
         )
 

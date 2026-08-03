@@ -14,7 +14,8 @@ from typing import Any
 import structlog
 
 from shared.cbs_connector.base import (
-    AccountInfo, AccountStatus, CBSConnector, CBSSignatoryData, PPSEntry, StopPaymentResult,
+    AccountInfo, AccountStatus, BranchContactProfile, CBSConnector,
+    CBSSignatoryData, PPSEntry, StopPaymentResult,
 )
 from shared.cbs_connector.exceptions import AccountNotFoundError, CBSUnavailableError
 
@@ -214,6 +215,33 @@ class BaNCSCBSConnector(CBSConnector):
                 operation_type=str(sig.get("opType", "J")),
             ))
         return result
+
+    async def get_branch_contacts(
+        self,
+        branch_code: str,
+        bank_id: str,
+    ) -> BranchContactProfile:
+        self._assert_ready()
+        url = f"{self._base_url}/api/v1/branch/{branch_code}"
+        try:
+            response = await self._http.get(url)
+            response.raise_for_status()
+            data = response.json()
+        except Exception as exc:
+            log.error("cbs.bancs.get_branch_contacts.failed",
+                      branch_code=branch_code, bank_id=bank_id, error=str(exc))
+            raise CBSUnavailableError(f"BaNCS get_branch_contacts failed: {exc}") from exc
+
+        return BranchContactProfile(
+            branch_code=branch_code,
+            branch_name=data.get("branch_name", ""),
+            branch_ifsc=data.get("ifsc_code", ""),
+            branch_manager_name=data.get("mgr_name_masked", "***"),
+            branch_manager_email=data.get("mgr_email", ""),
+            branch_contact_email=data.get("ops_email", ""),
+            branch_contact_phone=data.get("ops_phone", ""),
+            last_updated_in_cbs=data.get("last_updated", ""),
+        )
 
     def _assert_ready(self) -> None:
         if not self._ready:
