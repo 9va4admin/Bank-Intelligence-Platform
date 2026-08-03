@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
@@ -79,39 +80,58 @@ export default function CTSEndorsement() {
   const [statuses, setStatuses] = useState(() =>
     Object.fromEntries(INSTRUMENTS.map(i => [i.id, 'PENDING']))
   )
-  const [endorsing, setEndorsing]           = useState(false)
   const [endorsingLot, setEndorsingLot]     = useState(null)
   const [selected, setSelected]             = useState(null)
   const [endorsementText, setEndorsementText] = useState(TEMPLATE.endorsement_text)
 
   const endorsed = Object.values(statuses).filter(s => s === 'ENDORSED').length
   const pending  = Object.values(statuses).filter(s => s === 'PENDING').length
+  const endorsing = endorsingLot === '__ALL__'
 
   const lotsComplete = LOTS.filter(lot =>
     INSTRUMENTS.filter(i => i.lot === lot).every(i => statuses[i.id] === 'ENDORSED')
   ).length
 
-  function endorseIds(ids, onDone) {
-    const pendingIds = ids.filter(id => statuses[id] === 'PENDING')
-    if (pendingIds.length === 0) { onDone?.(); return }
-    pendingIds.forEach((id, idx) => {
-      setTimeout(() => {
-        setStatuses(prev => ({ ...prev, [id]: 'ENDORSED' }))
-        if (idx === pendingIds.length - 1) onDone?.()
-      }, (idx + 1) * 200)
-    })
-  }
+  const endorseMutation = useMutation({
+    mutationFn: async ({ lot, ids }) => {
+      const res = await fetch('/api/v1/cts/endorsement/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          lot_number: lot,
+          instrument_ids: ids,
+          bank_ifsc: bankIfsc || TEMPLATE.bank_ifsc,
+        }),
+      })
+      if (!res.ok) throw new Error('Endorsement failed')
+      return res.json()
+    },
+    onSuccess: (_, { lot, ids }) => {
+      setStatuses(prev => {
+        const next = { ...prev }
+        ids.forEach(id => { next[id] = 'ENDORSED' })
+        return next
+      })
+      setEndorsingLot(null)
+    },
+    onError: () => {
+      setEndorsingLot(null)
+    },
+  })
 
   function endorseAll() {
-    setEndorsing(true)
     const ids = INSTRUMENTS.filter(i => statuses[i.id] === 'PENDING').map(i => i.id)
-    endorseIds(ids, () => setEndorsing(false))
+    if (ids.length === 0) return
+    setEndorsingLot('__ALL__')
+    endorseMutation.mutate({ lot: 'ALL', ids })
   }
 
   function endorseLot(lot) {
-    setEndorsingLot(lot)
     const ids = INSTRUMENTS.filter(i => i.lot === lot && statuses[i.id] === 'PENDING').map(i => i.id)
-    endorseIds(ids, () => setEndorsingLot(null))
+    if (ids.length === 0) return
+    setEndorsingLot(lot)
+    endorseMutation.mutate({ lot, ids })
   }
 
   usePageHeader({

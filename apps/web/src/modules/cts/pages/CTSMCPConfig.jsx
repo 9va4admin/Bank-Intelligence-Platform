@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
@@ -543,9 +544,7 @@ function PreflightBanner({ connections, isDark }) {
 export default function CTSMCPConfig() {
   const { isDark } = useTheme()
   const { bankId, bankName, isSB } = useBankContext()
-  const [connections, setConnections] = useState(
-    isSB ? MOCK_CONNECTIONS : MOCK_CONNECTIONS.filter(c => c.connection_type === 'SMB_CBS')
-  )
+  const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editRow, setEditRow] = useState(null)
   const [testing, setTesting] = useState({})
@@ -566,92 +565,119 @@ export default function CTSMCPConfig() {
     divider: isDark ? 'border-white/8' : 'border-slate-200',
   }
 
-  function handleSave(form) {
-    return new Promise(resolve => {
-      if (editRow) {
-        setConnections(cs => cs.map(c =>
-          c.id === editRow.id
-            ? { ...c, cbs_vendor: form.cbs_vendor || c.cbs_vendor, smb_name: form.smb_name || c.smb_name, status: 'PENDING' }
-            : c
-        ))
-        showToast('Connection updated — status reset to PENDING. Run Test to activate.', 'info')
-      } else {
-        const newConn = {
-          id: 'conn-' + Date.now(),
-          connection_type: form.connection_type,
-          smb_id: form.smb_id || null,
-          smb_name: form.smb_name || null,
-          cbs_vendor: form.cbs_vendor || null,
-          endpoint_url_masked: form.endpoint_url
-            ? (() => { try { const u = new URL(form.endpoint_url); return `${u.protocol}//${u.hostname}/***` } catch { return '***' } })()
-            : null,
-          vault_secret_ref: form.vault_secret_ref || null,
-          status: 'PENDING',
-          last_tested_at: null,
-          last_test_latency_ms: null,
-          last_sync_at: null,
-          vault_record_count: null,
-          error_message: null,
-          created_at: new Date().toISOString(),
-          created_by: 'itadmin@' + bankId,
-        }
-        setConnections(cs => [...cs, newConn])
-        showToast('Connection added. Run Test to verify connectivity and activate.', 'info')
-      }
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['mcp-connections', bankId] })
+
+  const { data: connData, isLoading: connLoading } = useQuery({
+    queryKey: ['mcp-connections', bankId],
+    queryFn: async () => {
+      const res = await fetch('/api/v1/admin/mcp-connections/', { credentials: 'include' })
+      if (!res.ok) throw new Error('Failed to load connections')
+      return res.json()
+    },
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+  })
+  const allConns = connData?.connections ?? (isSB ? MOCK_CONNECTIONS : MOCK_CONNECTIONS.filter(c => c.connection_type === 'SMB_CBS'))
+
+  const saveMutation = useMutation({
+    mutationFn: async (form) => {
+      const url = editRow
+        ? `/api/v1/admin/mcp-connections/${encodeURIComponent(editRow.id)}`
+        : '/api/v1/admin/mcp-connections/'
+      const res = await fetch(url, {
+        method: editRow ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(form),
+      })
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'Save failed') }
+      return res.json()
+    },
+    onSuccess: () => {
+      invalidate()
+      showToast(editRow ? 'Connection updated — status reset to PENDING. Run Test to activate.' : 'Connection added. Run Test to verify connectivity and activate.', 'info')
       setShowForm(false)
       setEditRow(null)
-      resolve()
-    })
+    },
+    onError: (err) => showToast(err.message || 'Save failed', 'error'),
+  })
+
+  function handleSave(form) {
+    return saveMutation.mutateAsync(form)
   }
+
+  const testMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await fetch(`/api/v1/admin/mcp-connections/${encodeURIComponent(id)}/test`, {
+        method: 'POST', credentials: 'include',
+      })
+      if (!res.ok) throw new Error('Test request failed')
+      return res.json()
+    },
+    onSuccess: (data) => {
+      invalidate()
+      setTesting(t => ({ ...t, [data.connection_id]: false }))
+      showToast(
+        data.success
+          ? `Connection tested successfully (${data.latency_ms} ms)`
+          : `Connection test failed — ${data.error || 'check endpoint and credentials'}`,
+        data.success ? 'success' : 'error',
+      )
+    },
+    onError: (_, id) => {
+      setTesting(t => ({ ...t, [id]: false }))
+      showToast('Connection test request failed', 'error')
+    },
+  })
 
   function handleTest(id) {
     setTesting(t => ({ ...t, [id]: true }))
-    // Simulate API call: POST /v1/admin/mcp-connections/{id}/test
-    setTimeout(() => {
-      const success = Math.random() > 0.2
-      const latency = Math.floor(Math.random() * 80) + 10
-      setConnections(cs => cs.map(c =>
-        c.id === id
-          ? {
-              ...c,
-              status: success ? 'ACTIVE' : 'ERROR',
-              last_tested_at: new Date().toISOString(),
-              last_test_latency_ms: success ? latency : null,
-              error_message: success ? null : 'Connection refused: CBS endpoint unreachable',
-            }
-          : c
-      ))
-      setTesting(t => ({ ...t, [id]: false }))
-      showToast(
-        success ? `Connection tested successfully (${latency} ms)` : 'Connection test failed — check endpoint and credentials',
-        success ? 'success' : 'error'
-      )
-    }, 1400)
+    testMutation.mutate(id)
   }
+
+  const syncMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await fetch(`/api/v1/admin/mcp-connections/${encodeURIComponent(id)}/sync`, {
+        method: 'POST', credentials: 'include',
+      })
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'Sync trigger failed') }
+      return res.json()
+    },
+    onSuccess: (data) => {
+      invalidate()
+      setSyncing(s => ({ ...s, [data.connection_id]: false }))
+      showToast(`Vault sync triggered — workflow ${data.workflow_id}`, 'success')
+    },
+    onError: (err, id) => {
+      setSyncing(s => ({ ...s, [id]: false }))
+      showToast(err.message || 'Sync trigger failed', 'error')
+    },
+  })
 
   function handleSync(id) {
     setSyncing(s => ({ ...s, [id]: true }))
-    // Simulate API call: POST /v1/admin/mcp-connections/{id}/sync
-    setTimeout(() => {
-      const wfId = `cts-vaultsync-${bankId}-${id.slice(-8)}`
-      setConnections(cs => cs.map(c =>
-        c.id === id ? { ...c, last_sync_at: new Date().toISOString() } : c
-      ))
-      setSyncing(s => ({ ...s, [id]: false }))
-      showToast(`Vault sync triggered — workflow ${wfId}`, 'success')
-    }, 1200)
+    syncMutation.mutate(id)
   }
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await fetch(`/api/v1/admin/mcp-connections/${encodeURIComponent(id)}`, {
+        method: 'DELETE', credentials: 'include',
+      })
+      if (!res.ok) throw new Error('Delete failed')
+    },
+    onSuccess: () => { invalidate(); showToast('Connection removed', 'info') },
+    onError: () => showToast('Failed to remove connection', 'error'),
+  })
 
   function handleEdit(conn) {
     setEditRow(conn)
     setShowForm(true)
   }
 
-  function handleDelete(id) {
-    setConnections(cs => cs.filter(c => c.id !== id))
-    showToast('Connection removed', 'info')
-  }
+  function handleDelete(id) { deleteMutation.mutate(id) }
 
+  const connections = allConns
   // Group connections for display
   const cbsConns = connections.filter(c => c.connection_type.endsWith('CBS'))
   const vaultConns = connections.filter(c => !c.connection_type.endsWith('CBS'))

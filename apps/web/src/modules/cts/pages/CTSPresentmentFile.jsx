@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
@@ -142,13 +143,32 @@ function BatchHeader({ batch, onClose, isDark, sessionId }) {
 function DownloadBtn({ label, icon, filename, disabled, isDark }) {
   const [state, setState] = useState('idle') // idle | busy | done
 
+  const downloadMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(
+        `/api/v1/cts/outward/files/${encodeURIComponent(filename)}/download-url`,
+        { credentials: 'include' }
+      )
+      if (!res.ok) throw new Error('File not available')
+      return res.json()
+    },
+    onSuccess: ({ download_url }) => {
+      const a = document.createElement('a')
+      a.href = download_url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setState('done')
+      setTimeout(() => setState('idle'), 3000)
+    },
+    onError: () => setState('idle'),
+  })
+
   function handleClick() {
     if (disabled || state !== 'idle') return
     setState('busy')
-    setTimeout(() => {
-      setState('done')
-      setTimeout(() => setState('idle'), 3000)
-    }, 900)
+    downloadMutation.mutate()
   }
 
   const base = `flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-semibold transition-all`

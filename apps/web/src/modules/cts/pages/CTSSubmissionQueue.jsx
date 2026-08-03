@@ -3,6 +3,7 @@
  * Cheque image visible in the detail panel via tabs: Front | Back | Pay-in Slip | Fields.
  */
 import { useState, useEffect, useRef } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { getReasonByLabel, getReturnReasons } from '../data/returnReasons'
@@ -554,22 +555,52 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
   const hvCount      = instruments.filter(i => isHV(i)).length
   const selectedItem = instruments.find(i => i.instrument_id === selected)
 
-  function handleConfirm(instrumentId) {
-    setTimeout(() => {
+  const confirmMutation = useMutation({
+    mutationFn: async (instrumentId) => {
+      const res = await fetch(`/api/v1/cts/review/${encodeURIComponent(instrumentId)}/decide`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'CONFIRM', reason: 'Ops reviewer confirmed — all checks passed' }),
+      })
+      if (!res.ok) throw new Error('Confirm failed')
+      return res.json()
+    },
+    onSuccess: (_, instrumentId) => {
       setInstruments(prev => {
         const next = prev.filter(i => i.instrument_id !== instrumentId)
         setSelected(next[0]?.instrument_id ?? null)
         return next
       })
-    }, 1200)
+    },
+  })
+
+  const returnMutation = useMutation({
+    mutationFn: async ({ instrumentId, reason }) => {
+      const res = await fetch(`/api/v1/cts/review/${encodeURIComponent(instrumentId)}/decide`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'RETURN', reason: reason || 'Return requested by ops reviewer' }),
+      })
+      if (!res.ok) throw new Error('Return failed')
+      return res.json()
+    },
+    onSuccess: (_, { instrumentId }) => {
+      setInstruments(prev => {
+        const next = prev.filter(i => i.instrument_id !== instrumentId)
+        setSelected(next[0]?.instrument_id ?? null)
+        return next
+      })
+    },
+  })
+
+  function handleConfirm(instrumentId) {
+    confirmMutation.mutate(instrumentId)
   }
 
-  function handleReturn(instrumentId) {
-    setInstruments(prev => {
-      const next = prev.filter(i => i.instrument_id !== instrumentId)
-      setSelected(next[0]?.instrument_id ?? null)
-      return next
-    })
+  function handleReturn(instrumentId, reason) {
+    returnMutation.mutate({ instrumentId, reason })
   }
 
   return (
