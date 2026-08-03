@@ -2823,7 +2823,8 @@
     "severity": "INFO",
     "surface": [
       "UI",
-      "AUDIT"
+      "AUDIT",
+      "NOTIFICATION"
     ],
     "variables": [
       "submitted_by",
@@ -2841,7 +2842,6 @@
     "variables": [
       "approved_by",
       "config_key",
-      "old_value",
       "new_value"
     ]
   },
@@ -2855,7 +2855,7 @@
     "variables": [
       "rejected_by",
       "config_key",
-      "reason"
+      "rejection_reason"
     ]
   },
   "PLATFORM_CONFIG_HOT_RELOADED": {

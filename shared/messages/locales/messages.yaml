@@ -1808,23 +1808,23 @@ EJ_ATM_PREDICTED_FAILURE:
 
 PLATFORM_CONFIG_CHANGE_SUBMITTED:
   severity: INFO
-  surface: [UI, AUDIT]
+  surface: [UI, AUDIT, NOTIFICATION]
   variables: [submitted_by, config_key, new_value]
-  en: "Config change submitted by {submitted_by} — key: {config_key}, new value: {new_value}. Pending approval."
+  en: "Config change submitted by {submitted_by} — key: {config_key}, new value: {new_value}. Pending bank_it_admin approval."
   hi: ""
 
 PLATFORM_CONFIG_CHANGE_APPROVED:
   severity: WARN
   surface: [AUDIT, NOTIFICATION]
-  variables: [approved_by, config_key, old_value, new_value]
-  en: "Config change approved by {approved_by} — {config_key} updated from {old_value} to {new_value}."
+  variables: [approved_by, config_key, new_value]
+  en: "Config change approved by {approved_by} — {config_key} updated to {new_value}. Live within 30 seconds via hot-reload."
   hi: ""
 
 PLATFORM_CONFIG_CHANGE_REJECTED:
   severity: WARN
   surface: [AUDIT, NOTIFICATION]
-  variables: [rejected_by, config_key, reason]
-  en: "Config change rejected by {rejected_by} — {config_key}. Reason: {reason}."
+  variables: [rejected_by, config_key, rejection_reason]
+  en: "Config change rejected by {rejected_by} — {config_key}. Reason: {rejection_reason}."
   hi: ""
 
 PLATFORM_CONFIG_HOT_RELOADED:

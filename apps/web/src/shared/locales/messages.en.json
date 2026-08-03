@@ -2819,11 +2819,12 @@
     ]
   },
   "PLATFORM_CONFIG_CHANGE_SUBMITTED": {
-    "text": "Config change submitted by {submitted_by} — key: {config_key}, new value: {new_value}. Pending approval.",
+    "text": "Config change submitted by {submitted_by} — key: {config_key}, new value: {new_value}. Pending bank_it_admin approval.",
     "severity": "INFO",
     "surface": [
       "UI",
-      "AUDIT"
+      "AUDIT",
+      "NOTIFICATION"
     ],
     "variables": [
       "submitted_by",
@@ -2832,7 +2833,7 @@
     ]
   },
   "PLATFORM_CONFIG_CHANGE_APPROVED": {
-    "text": "Config change approved by {approved_by} — {config_key} updated from {old_value} to {new_value}.",
+    "text": "Config change approved by {approved_by} — {config_key} updated to {new_value}. Live within 30 seconds via hot-reload.",
     "severity": "WARN",
     "surface": [
       "AUDIT",
@@ -2841,12 +2842,11 @@
     "variables": [
       "approved_by",
       "config_key",
-      "old_value",
       "new_value"
     ]
   },
   "PLATFORM_CONFIG_CHANGE_REJECTED": {
-    "text": "Config change rejected by {rejected_by} — {config_key}. Reason: {reason}.",
+    "text": "Config change rejected by {rejected_by} — {config_key}. Reason: {rejection_reason}.",
     "severity": "WARN",
     "surface": [
       "AUDIT",
@@ -2855,7 +2855,7 @@
     "variables": [
       "rejected_by",
       "config_key",
-      "reason"
+      "rejection_reason"
     ]
   },
   "PLATFORM_CONFIG_HOT_RELOADED": {
