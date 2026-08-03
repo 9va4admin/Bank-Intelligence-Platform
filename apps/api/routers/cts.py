@@ -1390,6 +1390,23 @@ class HoldListResponse(BaseModel):
     bank_id: str
 
 
+class PlaceHoldRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    hold_reason: str
+    iet_deadline: float      # forwarded from the HumanReview record in the caller
+    branch_email: Optional[str] = None    # if None, looked up from branch contact registry
+    branch_phone: Optional[str] = None
+
+
+class PlaceHoldResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    hold_id: str
+    held_at: float
+    iet_remaining_seconds: float
+    branch_notified: bool
+
+
 class HoldReleaseRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
     branch_note: Optional[str] = None
@@ -1401,6 +1418,8 @@ class HoldReleaseResponse(BaseModel):
     instrument_id: str
     hold_id: str
     released: bool
+    hold_duration_seconds: Optional[float] = None
+    iet_remaining_at_release: Optional[float] = None
 
 
 class HoldRecommendationRequest(BaseModel):
@@ -1414,6 +1433,131 @@ class HoldRecommendationResponse(BaseModel):
     instrument_id: str
     hold_id: str
     updated: bool
+
+
+@router_v1.post(
+    "/holds/{instrument_id}",
+    response_model=PlaceHoldResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def place_hold(
+    instrument_id: str,
+    body: PlaceHoldRequest,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> PlaceHoldResponse:
+    """
+    Place a hold on an instrument — pauses it in the review queue while the
+    branch is consulted. IET clock NEVER pauses.
+    Calls HoldService.place_hold() which: persists IET timing fields, sends
+    branch email/WhatsApp notification, and writes CTS_WF_HOLD_PLACED to Immudb.
+    Roles: ops_reviewer, ops_manager.
+    """
+    import time as _time
+    bank_id = ctx.bank_id
+    reviewer_id = ctx.user_id
+    if ctx.role.value not in ("ops_reviewer", "ops_manager"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    pool = getattr(request.app.state, "db_pool_cts", None)
+    dispatcher = getattr(request.app.state, "notification_dispatcher", None)
+    audit_writer_raw = getattr(request.app.state, "audit_stream_writer", None)
+
+    # Wrap audit_writer in the interface HoldService expects: audit.write(event_type, bank_id, payload)
+    class _AuditWriterAdapter:
+        def __init__(self, writer):
+            self._writer = writer
+        async def write(self, event_type, bank_id, payload):
+            if self._writer is None:
+                return
+            from shared.audit.audit_event import AuditEvent, AuditEventType
+            await self._writer(AuditEvent(
+                event_type=getattr(AuditEventType, event_type, AuditEventType.CTS_HOLD_PLACED),
+                bank_id=bank_id,
+                user_id=reviewer_id,
+                payload=payload,
+            ))
+
+    # Build a thin DB adapter that HoldService can call .execute() on
+    class _DBAdapter:
+        def __init__(self, pool):
+            self._pool = pool
+        async def execute(self, query, *args):
+            if self._pool is None:
+                return
+            async with self._pool.acquire() as conn:
+                await conn.execute(query, *args)
+
+    branch_contact = {}
+    if body.branch_email:
+        branch_contact["email"] = body.branch_email
+    if body.branch_phone:
+        branch_contact["phone"] = body.branch_phone
+
+    from modules.cts.hold.hold_service import HoldService
+    hold_svc = HoldService(
+        db_pool=_DBAdapter(pool),
+        dispatcher=dispatcher,
+        audit_writer=_AuditWriterAdapter(audit_writer_raw),
+    )
+
+    record = await hold_svc.place_hold(
+        instrument_id=instrument_id,
+        bank_id=bank_id,
+        reviewer_id=reviewer_id,
+        hold_reason=body.hold_reason,
+        iet_deadline=body.iet_deadline,
+        branch_contact=branch_contact,
+    )
+
+    # Derive hold_id from the DB insert (HoldService doesn't return it; query it back)
+    hold_id = instrument_id  # fallback
+    if pool is not None:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT hold_id FROM cts.instrument_holds WHERE instrument_id = $1 AND bank_id = $2 AND released_at IS NULL ORDER BY held_at DESC LIMIT 1",
+                instrument_id, bank_id,
+            )
+            if row:
+                hold_id = row["hold_id"]
+
+    iet_remaining = max(0.0, body.iet_deadline - _time.time())
+
+    # Start the escalation chain: 30-min reminder → T-60min CRITICAL → T-5min P0
+    try:
+        from temporalio.client import Client as TemporalClient
+        from modules.cts.workflows.hold_escalation_workflow import (
+            HoldEscalationWorkflow, HoldEscalationInput,
+        )
+        temporal_address = await config_service.get("temporal.address")
+        temporal_client = await TemporalClient.connect(temporal_address)
+        escalation_input = HoldEscalationInput(
+            instrument_id=instrument_id,
+            bank_id=bank_id,
+            reviewer_id=reviewer_id,
+            iet_deadline=body.iet_deadline,
+            held_at=record.held_at,
+            branch_email=body.branch_email,
+        )
+        await temporal_client.start_workflow(
+            HoldEscalationWorkflow.run,
+            escalation_input,
+            id=f"cts-hold-escalation-{bank_id}-{instrument_id}",
+            task_queue=f"cts-processing-{bank_id}",
+        )
+    except Exception as _exc:
+        # Escalation workflow failure MUST NOT block the hold response — log and continue
+        log.warning("hold.escalation.start_failed", instrument_id=instrument_id,
+                    bank_id=bank_id, error=str(_exc))
+
+    log.info("cts.hold.placed", instrument_id=instrument_id, bank_id=bank_id, reviewer_id=reviewer_id)
+    return PlaceHoldResponse(
+        instrument_id=instrument_id,
+        hold_id=hold_id,
+        held_at=record.held_at,
+        iet_remaining_seconds=iet_remaining,
+        branch_notified=record.branch_notified_at is not None,
+    )
 
 
 @router_v1.get(
@@ -1556,6 +1700,22 @@ async def release_hold(
             await audit_writer(audit_event)
 
     hold_id = hold_id or instrument_id
+
+    # Signal the escalation workflow to stop — hold is resolved
+    try:
+        from temporalio.client import Client as TemporalClient
+        from modules.cts.workflows.hold_escalation_workflow import HoldEscalationWorkflow
+        temporal_address = await config_service.get("temporal.address")
+        temporal_client = await TemporalClient.connect(temporal_address)
+        handle = temporal_client.get_workflow_handle(
+            f"cts-hold-escalation-{bank_id}-{instrument_id}"
+        )
+        await handle.signal(HoldEscalationWorkflow.released)
+    except Exception as _exc:
+        # Non-fatal — escalation workflow may have already completed or never started
+        log.warning("hold.escalation.signal_failed", instrument_id=instrument_id,
+                    bank_id=bank_id, error=str(_exc))
+
     log.info("cts.hold.released", instrument_id=instrument_id, bank_id=bank_id, released_by=reviewer_id)
     return HoldReleaseResponse(instrument_id=instrument_id, hold_id=hold_id, released=True)
 

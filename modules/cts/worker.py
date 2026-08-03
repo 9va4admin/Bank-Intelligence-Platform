@@ -166,6 +166,12 @@ from modules.cts.workflows.activities.platform_health_activities import (
 )
 from modules.cts.workflows.platform_health_check_workflow import PlatformHealthCheckWorkflow
 from modules.cts.worker_activities import build_bound_activities
+from modules.cts.workflows.hold_escalation_workflow import HoldEscalationWorkflow
+from modules.cts.workflows.activities.hold_escalation import (
+    send_hold_reminder,
+    send_hold_critical_alert,
+    send_hold_p0_alert,
+)
 
 ALL_WORKFLOWS = [
     ChequeProcessingWorkflow,
@@ -185,6 +191,7 @@ ALL_WORKFLOWS = [
     SMBVaultPushWorkflow,
     AgencyCCWorkflow,
     PlatformHealthCheckWorkflow,
+    HoldEscalationWorkflow,
 ]
 
 # Every registered CTS activity name, for reference/introspection. This list
@@ -247,6 +254,9 @@ ALL_ACTIVITIES = [
     check_iet_risk_for_alert,
     check_human_review_for_alert,
     dispatch_platform_alert,
+    send_hold_reminder,
+    send_hold_critical_alert,
+    send_hold_p0_alert,
 ]
 
 # Activities registered directly as bare functions.  Includes:
@@ -288,6 +298,10 @@ NO_DI_ACTIVITIES = [
     dispatch_platform_alert,
     # Scan event recorder (OutwardScanWorkflow — branch monitor feed)
     record_outward_scan_event,
+    # Hold escalation (HoldEscalationWorkflow) — notification-only, no NGCH touch
+    send_hold_reminder,
+    send_hold_critical_alert,
+    send_hold_p0_alert,
 ]
 
 
