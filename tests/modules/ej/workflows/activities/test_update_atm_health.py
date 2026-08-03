@@ -13,13 +13,17 @@ from modules.ej.workflows.activities.update_atm_health import (
 
 class TestEJUpdateATMHealthResult:
     def test_result_fields(self):
-        r = EJUpdateATMHealthResult(outcome="UPDATED", atm_id="ATM001", bank_id="test-bank")
+        r = EJUpdateATMHealthResult(
+            outcome="UPDATED", atm_id="ATM001", bank_id="test-bank", health_status="HEALTHY"
+        )
         assert r.outcome == "UPDATED"
         assert r.atm_id == "ATM001"
         assert r.bank_id == "test-bank"
 
     def test_result_is_frozen(self):
-        r = EJUpdateATMHealthResult(outcome="UPDATED", atm_id="ATM001", bank_id="test-bank")
+        r = EJUpdateATMHealthResult(
+            outcome="UPDATED", atm_id="ATM001", bank_id="test-bank", health_status="HEALTHY"
+        )
         with pytest.raises(Exception):
             r.outcome = "other"
 

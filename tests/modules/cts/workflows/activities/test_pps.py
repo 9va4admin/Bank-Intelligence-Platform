@@ -47,8 +47,9 @@ class TestPPSInput:
 
 class TestPPSVaultMiss:
     @pytest.mark.asyncio
-    async def test_vault_miss_outcome_human_review(self):
-        """CRITICAL: PPS miss → HUMAN_REVIEW, never auto-return."""
+    async def test_vault_miss_above_threshold_human_review(self):
+        """CRITICAL: PPS miss on high-value cheque (≥ pps_mandatory_threshold) → HUMAN_REVIEW.
+        CCP compliance: PPS is mandatory above the threshold; missing record blocks STP."""
         from modules.cts.workflows.activities.pps import lookup_pps
         from modules.cts.vaults.pps_vault import PPSResult
 
@@ -57,8 +58,33 @@ class TestPPSVaultMiss:
             return_value=PPSResult(outcome="HUMAN_REVIEW", pps_entry=None, miss_reason="PPS_MISS")
         )
 
-        result = await lookup_pps(_make_input(), vault=mock_vault)
+        # ₹6,00,000 — above the default pps_mandatory_threshold of ₹5,00,000
+        result = await lookup_pps(
+            _make_input(presented_amount=600000.0),
+            vault=mock_vault,
+            config={"pps_mandatory_threshold": 500000.0},
+        )
         assert result.outcome == "HUMAN_REVIEW"
+
+    @pytest.mark.asyncio
+    async def test_vault_miss_below_threshold_proceeds(self):
+        """CCP compliance: PPS is optional below the threshold.
+        Vault miss on a low-value cheque does NOT block STP — PROCEED."""
+        from modules.cts.workflows.activities.pps import lookup_pps
+        from modules.cts.vaults.pps_vault import PPSResult
+
+        mock_vault = AsyncMock()
+        mock_vault.lookup = AsyncMock(
+            return_value=PPSResult(outcome="HUMAN_REVIEW", pps_entry=None, miss_reason="PPS_MISS")
+        )
+
+        # ₹50,000 — below the default pps_mandatory_threshold of ₹5,00,000
+        result = await lookup_pps(
+            _make_input(presented_amount=50000.0),
+            vault=mock_vault,
+            config={"pps_mandatory_threshold": 500000.0},
+        )
+        assert result.outcome == "PROCEED"
 
     @pytest.mark.asyncio
     async def test_vault_miss_outcome_never_auto_return(self):
@@ -70,11 +96,15 @@ class TestPPSVaultMiss:
             return_value=PPSResult(outcome="HUMAN_REVIEW", pps_entry=None, miss_reason="PPS_MISS")
         )
 
-        result = await lookup_pps(_make_input(), vault=mock_vault)
+        result = await lookup_pps(
+            _make_input(presented_amount=600000.0),
+            vault=mock_vault,
+            config={"pps_mandatory_threshold": 500000.0},
+        )
         assert result.outcome != "AUTO_RETURN"
 
     @pytest.mark.asyncio
-    async def test_vault_error_outcome_human_review(self):
+    async def test_vault_error_above_threshold_human_review(self):
         from modules.cts.workflows.activities.pps import lookup_pps
         from modules.cts.vaults.pps_vault import PPSResult
 
@@ -83,7 +113,11 @@ class TestPPSVaultMiss:
             return_value=PPSResult(outcome="HUMAN_REVIEW", pps_entry=None, miss_reason="VAULT_ERROR")
         )
 
-        result = await lookup_pps(_make_input(), vault=mock_vault)
+        result = await lookup_pps(
+            _make_input(presented_amount=600000.0),
+            vault=mock_vault,
+            config={"pps_mandatory_threshold": 500000.0},
+        )
         assert result.outcome == "HUMAN_REVIEW"
 
 

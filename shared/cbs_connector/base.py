@@ -122,3 +122,49 @@ class CBSConnector(ABC):
             account_number.encode(),
             hashlib.sha256,
         ).hexdigest()
+
+    @abstractmethod
+    async def list_issued_leaves(self, bank_id: str) -> list[dict]:
+        """
+        List all issued cheque leaves for bulk vault sync.
+
+        Each dict must have: account_number, cheque_number, status.
+        Optional: issued_date (str), series_end (str).
+        Status values: ACTIVE | LOST | STOLEN | CANCELLED | USED.
+
+        Raises CBSUnavailableError on connection failure.
+        Used only by VaultSyncWorkflow.sync_cheque_leaves.
+        """
+
+    @abstractmethod
+    async def get_signatory_data(
+        self,
+        account_number: str,
+        bank_id: str,
+    ) -> list["CBSSignatoryData"]:
+        """
+        Return all authorized signatories for the account with their specimen images.
+
+        CBSSignatoryData.specimen_images is a list[bytes], one per specimen image.
+        The MSV enrollment pipeline embeds these immediately and discards the bytes.
+
+        Raises AccountNotFoundError if account does not exist.
+        Raises CBSUnavailableError if CBS is unreachable.
+        """
+
+
+class CBSSignatoryData(BaseModel):
+    """
+    Raw signatory data from CBS — thin transfer object for MSV enrollment.
+
+    specimen_images: list[bytes] of raw image bytes (JPEG/PNG), one per specimen.
+    Images are transient — caller (AccountEnroller) embeds them immediately and discards.
+    name_masked must already be masked (P*** format) before reaching this model.
+    """
+    model_config = ConfigDict(frozen=True)
+
+    signatory_id: str
+    role: str
+    name_masked: str                   # "P***" — never full name
+    specimen_images: list[bytes]       # raw image bytes, one per specimen
+    operation_type: str

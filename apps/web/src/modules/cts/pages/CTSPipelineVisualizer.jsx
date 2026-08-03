@@ -1,27 +1,27 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import ChequeImageViewer from '../components/ChequeImageViewer'
+import { demoChequeUrl } from '../demoImages'
 
 // ─── Stage config ──────────────────────────────────────────────────────────────
 // bank: 'd' = Drawee Bank (all processing stages) · 'g' = NGCH Gateway
 // This visualizer shows the INWARD clearing pipeline (drawee bank role).
-// ASTRA also runs the OUTWARD pipeline (presentee bank role) — scanner capture,
-// lot management, endorsement, NGCH submission, session reconciliation — those
-// are separate workflows not shown here.
+// Phase 3 order: Vision FIRST (early tamper discard), OCR removed (NGCH provides MICR),
+// Account/CBS moved to after Fraud (status check at end, not at start).
 
 const STAGES = [
   { id: 0, label: 'Ingest',      icon: '📥', shortLabel: 'Ingest',   avgMs: 3,   bank: 'd' },
-  { id: 1, label: 'MICR / OCR',  icon: '🔢', shortLabel: 'MICR/OCR', avgMs: 55,  bank: 'd' },
-  { id: 2, label: 'Compliance',  icon: '✅', shortLabel: 'Comply',   avgMs: 68,  bank: 'd' },
-  { id: 3,  label: 'Account',    icon: '🏦', shortLabel: 'Account',  avgMs: 97,  bank: 'd' },
-  { id: 4,  label: 'Stop Pay',   icon: '🚫', shortLabel: 'StopPay',  avgMs: 108, bank: 'd' },
-  { id: 5,  label: 'Pos Pay',    icon: '📋', shortLabel: 'PPS',      avgMs: 120, bank: 'd' },
-  { id: 6,  label: 'Vision',     icon: '🔍', shortLabel: 'Vision',   avgMs: 158, bank: 'd' },
-  { id: 7,  label: 'Signature',  icon: '✍️', shortLabel: 'Sig',      avgMs: 200, bank: 'd' },
-  { id: 8,  label: 'Fraud',      icon: '🛡️', shortLabel: 'Fraud',    avgMs: 240, bank: 'd' },
-  { id: 9,  label: 'Decision',   icon: '⚖️', shortLabel: 'Decide',   avgMs: 260, bank: 'd' },
-  { id: 10, label: 'NGCH',       icon: '🌐', shortLabel: 'NGCH',     avgMs: 320, bank: 'g' },
+  { id: 1, label: 'Vision',      icon: '🔍', shortLabel: 'Vision',   avgMs: 110, bank: 'd' },
+  { id: 2, label: 'Compliance',  icon: '✅', shortLabel: 'Comply',   avgMs: 80,  bank: 'd' },
+  { id: 3, label: 'Stop Pay',    icon: '🛑', shortLabel: 'StopPay',  avgMs: 50,  bank: 'd' },
+  { id: 4, label: 'Pos Pay',     icon: '📋', shortLabel: 'PPS',      avgMs: 30,  bank: 'd' },
+  { id: 5, label: 'Signature',   icon: '✍️', shortLabel: 'Sig',      avgMs: 95,  bank: 'd' },
+  { id: 6, label: 'Fraud',       icon: '🛡️', shortLabel: 'Fraud',    avgMs: 45,  bank: 'd' },
+  { id: 7, label: 'CBS · Acct',  icon: '🏦', shortLabel: 'CBS',      avgMs: 60,  bank: 'd' },
+  { id: 8, label: 'Decision',    icon: '⚖️', shortLabel: 'Decide',   avgMs: 12,  bank: 'd' },
+  { id: 9, label: 'NGCH',        icon: '🌐', shortLabel: 'NGCH',     avgMs: 485, bank: 'g' },
 ]
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
@@ -29,71 +29,66 @@ const STAGES = [
 const MOCK_QUEUE = [
   {
     id: 'CHQ-MUM-001847',
+    front_bw_url: null, front_gray_url: null,
     fraud_score: 0.81,
     sig_match_score: 0.61,
-    ocr_confidence: 0.94,
+    vision_confidence: 0.97,
     reason: 'SIGNATURE_LOW_CONFIDENCE',
     amount_range: '₹[5L-10L]',
     account_suffix: '****7823',
     bank: 'State Bank of India',
     stop_payment: false, dormant: false, pps_match: true, kyc_expired: false,
+    // Phase 3 stage order: Vision(1) FIRST → Comply(2) → StopPay(3) → PPS(4) → Sig(5) → Fraud(6) → CBS(7) → Decision(8)
     stageResults: {
-      0: { ms: 3,   ok: true,  detail: 'IQA passed · CTS-2010 validated' },
-      1: { ms: 11,  ok: true,  detail: 'MICR: 001847 · IFSC: HDFC0001234 · OCR conf 0.94' },
-      2: { ms: 49,  ok: true,  detail: 'Date valid · ₹ figures/words match · Crossing ✓' },
-      3: { ms: 97,  ok: true,  detail: 'Account active · KYC valid · No legal hold' },
-      4: { ms: 106, ok: true,  detail: 'No stop payment instruction on record' },
-      5: { ms: 120, ok: true,  detail: 'PPS record found · Amount ₹[5L-10L] matches' },
-      6: { ms: 158, ok: true,  detail: 'No alteration detected on amount or date fields' },
-      7: { ms: 200, ok: false, detail: 'Match score 0.61 < threshold 0.85 — MISMATCH' },
-      8: { ms: 240, ok: false, detail: 'Fraud score 0.81 · SHAP: sig_mismatch=0.44' },
-      9: { ms: 260, ok: false, detail: 'HELD — awaiting reviewer decision' },
+      0: { ms: 3,   ok: true,  detail: 'IQA passed · instrument accepted from NGCH' },
+      1: { ms: 30,  ok: true,  detail: 'No alteration detected on amount or date fields · tamper_risk 0.04' },
+      2: { ms: 60,  ok: true,  detail: 'Date valid · ₹ figures/words match · Crossing ✓' },
+      3: { ms: 80,  ok: true,  detail: 'No stop payment instruction on record' },
+      4: { ms: 110, ok: true,  detail: 'PPS record found · Amount ₹[5L-10L] matches' },
+      5: { ms: 205, ok: false, detail: 'Match score 0.61 < threshold 0.85 — MISMATCH' },
+      6: { ms: 250, ok: false, detail: 'Fraud score 0.81 · SHAP: sig_mismatch=0.44' },
+      7: { ms: 310, ok: true,  detail: 'Account ACTIVE · Balance sufficient · No legal hold' },
+      8: { ms: 320, ok: false, detail: 'HELD — awaiting reviewer decision' },
     },
   },
   {
     id: 'CHQ-MUM-001901',
+    front_bw_url: null, front_gray_url: null,
     fraud_score: 0.77,
     sig_match_score: 0.88,
-    ocr_confidence: 0.91,
+    vision_confidence: 0.95,
     reason: 'HIGH_VALUE_DUAL_APPROVAL',
     amount_range: '₹[>1Cr]',
     account_suffix: '****3341',
     bank: 'HDFC Bank',
     stop_payment: false, dormant: false, pps_match: true, kyc_expired: false,
     stageResults: {
-      0: { ms: 2,   ok: true,  detail: 'IQA passed · CTS-2010 validated' },
-      1: { ms: 9,   ok: true,  detail: 'MICR: 001901 · IFSC: UTIB0000112 · OCR conf 0.91' },
-      2: { ms: 53,  ok: true,  detail: 'Date valid · ₹ figures/words match · Crossing ✓' },
-      3: { ms: 97,  ok: true,  detail: 'Account active · KYC valid · No legal hold' },
-      4: { ms: 106, ok: true,  detail: 'No stop payment instruction on record' },
-      5: { ms: 120, ok: true,  detail: 'PPS record found · Amount ₹[>1Cr] matches' },
-      6: { ms: 158, ok: true,  detail: 'No alteration detected on amount or date fields' },
-      7: { ms: 200, ok: true,  detail: 'Match score 0.88 ✓' },
-      8: { ms: 240, ok: false, detail: 'Fraud 0.77 · SHAP: high_value=0.51 · OPA rule fired' },
-      9: { ms: 260, ok: false, detail: 'HELD — dual approval required >₹1Cr' },
+      0: { ms: 2,   ok: true,  detail: 'IQA passed · instrument accepted from NGCH' },
+      1: { ms: 28,  ok: true,  detail: 'No alteration detected · tamper_risk 0.02' },
+      2: { ms: 55,  ok: true,  detail: 'Date valid · ₹ figures/words match · Crossing ✓' },
+      3: { ms: 78,  ok: true,  detail: 'No stop payment instruction on record' },
+      4: { ms: 108, ok: true,  detail: 'PPS record found · Amount ₹[>1Cr] matches' },
+      5: { ms: 203, ok: true,  detail: 'Match score 0.88 ✓' },
+      6: { ms: 248, ok: false, detail: 'Fraud 0.77 · SHAP: high_value=0.51 · OPA rule fired' },
+      7: { ms: 308, ok: true,  detail: 'Account ACTIVE · Balance sufficient' },
+      8: { ms: 318, ok: false, detail: 'HELD — dual approval required >₹1Cr' },
     },
   },
   {
     id: 'CHQ-MUM-001733',
-    fraud_score: 0.74,
-    sig_match_score: 0.79,
-    ocr_confidence: 0.88,
-    reason: 'OCR_FIELD_MISMATCH',
+    front_bw_url: null, front_gray_url: null,
+    fraud_score: null,
+    sig_match_score: null,
+    vision_confidence: 0.09,
+    reason: 'ALTERATION_DETECTED',
     amount_range: '₹[1L-5L]',
     account_suffix: '****5512',
     bank: 'ICICI Bank',
     stop_payment: false, dormant: false, pps_match: false, kyc_expired: false,
+    // Vision FIRST: tamper detected at step 1 — downstream stages not reached
     stageResults: {
-      0: { ms: 4,   ok: true,  detail: 'IQA passed · CTS-2010 validated' },
-      1: { ms: 13,  ok: false, detail: 'MICR conf 0.88 · Amount words/figures MISMATCH' },
-      2: { ms: 58,  ok: false, detail: 'Amount mismatch flagged for drawee check' },
-      3: { ms: 97,  ok: true,  detail: 'Account active · KYC valid' },
-      4: { ms: 108, ok: true,  detail: 'No stop payment instruction on record' },
-      5: { ms: 120, ok: false, detail: 'PPS not registered — >₹50K without PPS' },
-      6: { ms: 158, ok: true,  detail: 'No alteration detected on amount or date fields' },
-      7: { ms: 200, ok: true,  detail: 'Match score 0.79 ✓' },
-      8: { ms: 240, ok: false, detail: 'Fraud score 0.74 · SHAP: ocr_mismatch=0.38' },
-      9: { ms: 260, ok: false, detail: 'HELD — words/figures mismatch + PPS absent' },
+      0: { ms: 4,   ok: true,  detail: 'IQA passed · instrument accepted from NGCH' },
+      1: { ms: 108, ok: false, detail: 'ALTERATION detected — amount field rewrite suspected · tamper_risk 0.91' },
     },
   },
 ]
@@ -101,40 +96,45 @@ const MOCK_QUEUE = [
 const MOCK_EXCEPTIONS = [
   {
     id: 'CHQ-MUM-001654',
+    front_bw_url: null, front_gray_url: null,
     reason: 'VAULT_MISS',
     fraud_score: null,
     sig_match_score: null,
-    ocr_confidence: 0.96,
+    vision_confidence: 0.98,
     amount_range: '₹[5L-10L]',
     account_suffix: '****9904',
     bank: 'Thane Janata → SBI',
     stop_payment: false, dormant: false, pps_match: true, kyc_expired: false,
     stageResults: {
-      0: { ms: 3,   ok: true,  detail: 'IQA passed · CTS-2010 validated' },
-      1: { ms: 10,  ok: true,  detail: 'MICR: 001654 · IFSC: SBIN0040001 · OCR conf 0.96' },
-      2: { ms: 47,  ok: true,  detail: 'Date valid · figures/words match' },
-      3: { ms: 97,  ok: true,  detail: 'Account active · KYC valid' },
-      4: { ms: 106, ok: true,  detail: 'No stop payment instruction on record' },
-      5: { ms: 120, ok: true,  detail: 'PPS matched ✓' },
-      6: { ms: 152, ok: true,  detail: 'No alteration detected on amount or date fields' },
-      7: { ms: 158, ok: false, detail: 'VAULT MISS — no signature specimen on file' },
+      0: { ms: 3,   ok: true,  detail: 'IQA passed · instrument accepted from NGCH' },
+      1: { ms: 28,  ok: true,  detail: 'No alteration detected · tamper_risk 0.03' },
+      2: { ms: 52,  ok: true,  detail: 'Date valid · figures/words match' },
+      3: { ms: 78,  ok: true,  detail: 'No stop payment instruction on record' },
+      4: { ms: 110, ok: true,  detail: 'PPS matched ✓' },
+      5: { ms: 162, ok: false, detail: 'VAULT MISS — no signature specimen on file · HUMAN_REVIEW' },
     },
   },
   {
     id: 'CHQ-MUM-001712',
+    front_bw_url: null, front_gray_url: null,
     reason: 'DORMANT_ACCOUNT',
     fraud_score: null,
     sig_match_score: 0.91,
-    ocr_confidence: 0.93,
+    vision_confidence: 0.96,
     amount_range: '₹[1L-5L]',
     account_suffix: '****2278',
     bank: 'Bharat Co-op → PNB',
     stop_payment: false, dormant: true, pps_match: false, kyc_expired: true,
+    // Account status check is step 7 (after fraud) in Phase 3
     stageResults: {
-      0: { ms: 2,   ok: true,  detail: 'IQA passed · CTS-2010 validated' },
-      1: { ms: 8,   ok: true,  detail: 'MICR: 001712 · IFSC: PUNB0120000 · OCR conf 0.93' },
-      2: { ms: 44,  ok: true,  detail: 'Date valid · figures/words match' },
-      3: { ms: 91,  ok: false, detail: 'DORMANT — no txn 28 months · RBI rule: return' },
+      0: { ms: 2,   ok: true,  detail: 'IQA passed · instrument accepted from NGCH' },
+      1: { ms: 27,  ok: true,  detail: 'No alteration detected · tamper_risk 0.03' },
+      2: { ms: 48,  ok: true,  detail: 'Date valid · figures/words match' },
+      3: { ms: 74,  ok: true,  detail: 'No stop payment instruction on record' },
+      4: { ms: 98,  ok: false, detail: 'PPS not registered — amount ₹[1L-5L] without PPS' },
+      5: { ms: 193, ok: true,  detail: 'Match score 0.91 ✓' },
+      6: { ms: 238, ok: true,  detail: 'Fraud score 0.21 — clean' },
+      7: { ms: 295, ok: false, detail: 'DORMANT — no txn 28 months · RBI rule: HUMAN_REVIEW' },
     },
   },
 ]
@@ -152,7 +152,7 @@ function makeParticle(bankName = 'ASTRA Bank') {
     stageProgress: 0,
     outcome,
     fraud_score: +(Math.random() * 0.5 + (outcome === 'STP_CONFIRM' ? 0.1 : 0.5)).toFixed(2),
-    ocr_confidence: +(Math.random() * 0.1 + 0.88).toFixed(2),
+    vision_confidence: +(Math.random() * 0.1 + 0.88).toFixed(2),
     sig_match_score: +(Math.random() * 0.2 + (outcome === 'STP_CONFIRM' ? 0.78 : 0.6)).toFixed(2),
     amount_range: ['₹[<1L]', '₹[1L-5L]', '₹[5L-10L]', '₹[10L-1Cr]'][Math.floor(Math.random() * 4)],
     account_suffix: `****${String(Math.floor(Math.random() * 9000) + 1000)}`,
@@ -160,12 +160,14 @@ function makeParticle(bankName = 'ASTRA Bank') {
     reason: outcome === 'HUMAN_REVIEW'
       ? ['SIGNATURE_LOW_CONFIDENCE', 'HIGH_VALUE_DUAL_APPROVAL', 'FRAUD_SCORE_HIGH', 'VAULT_MISS', 'PPS_ABSENT'][Math.floor(Math.random() * 5)]
       : outcome === 'STP_RETURN'
-      ? ['DORMANT_ACCOUNT', 'STOP_PAYMENT', 'FUNDS_INSUFFICIENT', 'OCR_FIELD_MISMATCH'][Math.floor(Math.random() * 4)]
+      ? ['DORMANT_ACCOUNT', 'STOP_PAYMENT', 'FUNDS_INSUFFICIENT', 'ALTERATION_DETECTED'][Math.floor(Math.random() * 4)]
       : null,
     stop_payment: Math.random() < 0.04,
     dormant: Math.random() < 0.06,
     pps_match: Math.random() > 0.1,
     kyc_expired: Math.random() < 0.05,
+    front_bw_url: null,
+    front_gray_url: null,
     speed: 0.008 + Math.random() * 0.006,
     stageResults: {},
     finalized: false,
@@ -180,8 +182,11 @@ const initStats = () => STAGES.map(s => ({
 }))
 
 // ─── Child panel ──────────────────────────────────────────────────────────────
+// View-only: decision reasons (Proceed / Return) live in Inward Q, not here.
 
 function ChildPanel({ item, onClose, isException }) {
+  const [panelTab, setPanelTab] = useState('pipeline')
+
   const stageCount = Object.keys(item.stageResults).length
   const allStages = STAGES.map((s, i) => {
     const r = item.stageResults[i]
@@ -203,6 +208,21 @@ function ChildPanel({ item, onClose, isException }) {
     done: 'text-emerald-400', warn: 'text-amber-400', error: 'text-red-400', pending: 'text-slate-600',
   }
 
+  // build cheque views for the image viewer
+  const chqViews = [
+    { key: 'BFB', label: 'Front B/W',  url: item.front_bw_url   ?? null, iqaScore: item.iqa_front_bw   ?? null },
+    { key: 'BBB', label: 'Back B/W',   url: item.back_bw_url    ?? null, iqaScore: item.iqa_back_bw    ?? null },
+    { key: 'BFG', label: 'Front Gray', url: item.front_gray_url ?? null, iqaScore: item.iqa_front_gray ?? null },
+  ]
+  const chqFields = {
+    payee:          item.ocr_fields?.payee,
+    date:           item.ocr_fields?.date,
+    amount_figures: item.ocr_fields?.amount_figures,
+    amount_words:   item.ocr_fields?.amount_words,
+    micr:           item.ocr_fields?.micr,
+    alterations:    item.ocr_fields?.alterations,
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
@@ -210,15 +230,16 @@ function ChildPanel({ item, onClose, isException }) {
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-5xl mx-4 rounded-2xl border border-white/10 overflow-hidden"
+        className="relative w-full max-w-5xl mx-4 rounded-2xl border border-white/10 overflow-hidden flex flex-col"
         style={{
           background: 'linear-gradient(145deg, #0b1340 0%, #060d2e 100%)',
           boxShadow: '0 0 80px rgba(251,191,36,0.08), 0 40px 80px rgba(0,0,0,0.8)',
+          maxHeight: '90vh',
         }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/8">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/8 shrink-0">
           <div className="flex items-center gap-3 flex-wrap">
             <div className={`w-2 h-2 rounded-full animate-pulse ${isException ? 'bg-red-400' : 'bg-amber-400'}`} />
             <span className="text-white font-mono text-sm font-semibold">{item.id}</span>
@@ -237,132 +258,141 @@ function ChildPanel({ item, onClose, isException }) {
           >×</button>
         </div>
 
-        {/* Swimlane — inward pipeline (drawee bank perspective) */}
-        <div className="p-5">
-          {/* Phase header labels */}
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border" style={{ color: 'rgba(139,92,246,0.7)', borderColor: 'rgba(139,92,246,0.2)', background: 'rgba(139,92,246,0.06)' }}>Drawee Bank</span>
-            <span className="text-slate-700 text-xs">·</span>
-            <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border" style={{ color: 'rgba(6,182,212,0.7)', borderColor: 'rgba(6,182,212,0.2)', background: 'rgba(6,182,212,0.06)' }}>NGCH Gateway</span>
-          </div>
-
-          <div className="flex items-start gap-0">
-            {allStages.map((s, i) => {
-              const bc = BANK_COLORS[STAGES[i].bank] || BANK_COLORS.p
-              const borderByStatus = {
-                done:    `1px solid rgba(52,211,153,0.35)`,
-                warn:    `1px solid rgba(251,191,36,0.40)`,
-                error:   `1px solid rgba(239,68,68,0.40)`,
-                pending: `1px solid rgba(255,255,255,0.05)`,
-              }
-              const bgByStatus = {
-                done:    'rgba(52,211,153,0.06)',
-                warn:    'rgba(251,191,36,0.06)',
-                error:   'rgba(239,68,68,0.06)',
-                pending: 'rgba(255,255,255,0.015)',
-              }
-              const isNGCH = STAGES[i].bank === 'g'
-              const showSep = i > 0 && STAGES[i].bank !== STAGES[i-1].bank
-
-              return (
-                <div key={i} className="flex items-center flex-1 min-w-0">
-                  {/* Phase separator */}
-                  {showSep && (
-                    <div className="flex flex-col items-center justify-center shrink-0" style={{ width: 10, height: 88 }}>
-                      <div className="w-px flex-1" style={{ background: `linear-gradient(180deg, transparent, ${bc.idle}, transparent)` }} />
-                    </div>
-                  )}
-                  {/* Stage card */}
-                  <div
-                    className="rounded-lg p-2 flex flex-col gap-1.5 flex-1 min-w-0"
-                    style={{
-                      border: borderByStatus[s.status],
-                      background: bgByStatus[s.status],
-                      boxShadow: s.status === 'done' ? '0 0 10px rgba(52,211,153,0.06)'
-                        : s.status === 'error' ? '0 0 12px rgba(239,68,68,0.10)'
-                        : s.status === 'warn' ? '0 0 12px rgba(251,191,36,0.10)'
-                        : 'none',
-                    }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs">{STAGES[i].icon}</span>
-                      <span className={`text-sm font-bold leading-none ${statusText[s.status]}`}>{statusIcon[s.status]}</span>
-                    </div>
-                    <div>
-                      <div className="text-[10px] font-semibold text-white/80 truncate">{s.label}</div>
-                      <div className={`text-[9px] mt-0.5 ${s.result ? 'text-slate-400' : 'text-slate-700'}`}>
-                        {s.result ? `${s.result.ms}ms` : '—'}
-                      </div>
-                    </div>
-                    <div className="text-[9px] text-slate-400 leading-tight border-t border-white/5 pt-1.5" style={{ minHeight: 24 }}>
-                      {s.result ? s.result.detail : 'not reached'}
-                    </div>
-                  </div>
-                  {/* Arrow connector within same bank */}
-                  {i < allStages.length - 1 && STAGES[i].bank === STAGES[i+1].bank && (
-                    <div className="shrink-0 flex items-center justify-center" style={{ width: 8 }}>
-                      <span className="text-slate-700 text-xs font-bold">›</span>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Score row */}
-          <div className="mt-4 flex gap-3 flex-wrap">
-            {[
-              { label: 'OCR Confidence',  val: item.ocr_confidence,  fmt: v => `${(v*100).toFixed(0)}%`, good: v => v > 0.90 },
-              { label: 'Signature Match', val: item.sig_match_score, fmt: v => v == null ? 'N/A' : `${(v*100).toFixed(0)}%`, good: v => v != null && v > 0.85 },
-              { label: 'Fraud Score',     val: item.fraud_score,     fmt: v => v == null ? 'N/A' : `${(v*100).toFixed(0)}%`, good: v => v != null && v < 0.72 },
-              { label: 'Amount Range',    val: item.amount_range,    fmt: v => v, good: () => true, isStr: true },
-              { label: 'PPS Match',       val: item.pps_match,       fmt: v => v == null ? 'N/A' : v ? 'YES' : 'NO', good: v => v === true, isStr: false, isBool: true },
-              { label: 'Dormant Acct',    val: item.dormant,         fmt: v => v == null ? 'N/A' : v ? 'YES' : 'NO', good: v => v === false, isStr: false, isBool: true },
-            ].map(({ label, val, fmt, good }) => (
-              <div key={label} className="flex-1 min-w-[90px] bg-white/3 rounded-xl border border-white/6 px-4 py-3">
-                <div className="text-[10px] text-slate-500 mb-1">{label}</div>
-                <div className={`text-lg font-bold font-mono ${val == null ? 'text-slate-600' : good(val) ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {fmt(val)}
-                </div>
-              </div>
-            ))}
-          </div>
+        {/* Tab bar */}
+        <div className="flex items-center gap-1 px-6 pt-3 pb-0 border-b border-white/8 shrink-0">
+          {[
+            { key: 'pipeline', label: '⚙ Pipeline' },
+            { key: 'chq',      label: '🖼 Chq Images' },
+          ].map(t => (
+            <button
+              key={t.key}
+              onClick={() => setPanelTab(t.key)}
+              className={`px-4 py-2 text-[11px] font-semibold rounded-t-lg border-b-2 transition-colors ${
+                panelTab === t.key
+                  ? 'border-amber-400 text-amber-400 bg-amber-400/8'
+                  : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-white/4'
+              }`}
+            >{t.label}</button>
+          ))}
         </div>
 
-        {/* Action bar */}
-        {heldStage && (
-          <div className="px-6 py-4 border-t border-white/8 flex items-center gap-3 flex-wrap">
-            <div className="flex-1 text-[11px] text-slate-500 min-w-0">
-              {isException ? 'Exception review' : 'Human review decision required'}&nbsp;
-              <span className="text-amber-400 font-mono">{item.id}</span>
+        {/* Tab content — scrollable */}
+        <div className="overflow-y-auto flex-1">
+
+          {/* ── Pipeline tab ── */}
+          {panelTab === 'pipeline' && (
+            <div className="p-5">
+              {/* Phase header labels */}
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border" style={{ color: 'rgba(139,92,246,0.7)', borderColor: 'rgba(139,92,246,0.2)', background: 'rgba(139,92,246,0.06)' }}>Drawee Bank</span>
+                <span className="text-slate-700 text-xs">·</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border" style={{ color: 'rgba(6,182,212,0.7)', borderColor: 'rgba(6,182,212,0.2)', background: 'rgba(6,182,212,0.06)' }}>NGCH Gateway</span>
+              </div>
+
+              <div className="flex items-start gap-0">
+                {allStages.map((s, i) => {
+                  const bc = BANK_COLORS[STAGES[i].bank] || BANK_COLORS.p
+                  const borderByStatus = {
+                    done:    `1px solid rgba(52,211,153,0.35)`,
+                    warn:    `1px solid rgba(251,191,36,0.40)`,
+                    error:   `1px solid rgba(239,68,68,0.40)`,
+                    pending: `1px solid rgba(255,255,255,0.05)`,
+                  }
+                  const bgByStatus = {
+                    done:    'rgba(52,211,153,0.06)',
+                    warn:    'rgba(251,191,36,0.06)',
+                    error:   'rgba(239,68,68,0.06)',
+                    pending: 'rgba(255,255,255,0.015)',
+                  }
+                  const showSep = i > 0 && STAGES[i].bank !== STAGES[i-1].bank
+
+                  return (
+                    <div key={i} className="flex items-center flex-1 min-w-0">
+                      {showSep && (
+                        <div className="flex flex-col items-center justify-center shrink-0" style={{ width: 10, height: 88 }}>
+                          <div className="w-px flex-1" style={{ background: `linear-gradient(180deg, transparent, ${bc.idle}, transparent)` }} />
+                        </div>
+                      )}
+                      <div
+                        className="rounded-lg p-2 flex flex-col gap-1.5 flex-1 min-w-0"
+                        style={{
+                          border: borderByStatus[s.status],
+                          background: bgByStatus[s.status],
+                          boxShadow: s.status === 'done' ? '0 0 10px rgba(52,211,153,0.06)'
+                            : s.status === 'error' ? '0 0 12px rgba(239,68,68,0.10)'
+                            : s.status === 'warn' ? '0 0 12px rgba(251,191,36,0.10)'
+                            : 'none',
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs">{STAGES[i].icon}</span>
+                          <span className={`text-sm font-bold leading-none ${statusText[s.status]}`}>{statusIcon[s.status]}</span>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-semibold text-white/80 truncate">{s.label}</div>
+                          <div className={`text-[9px] mt-0.5 ${s.result ? 'text-slate-400' : 'text-slate-700'}`}>
+                            {s.result ? `${s.result.ms}ms` : '—'}
+                          </div>
+                        </div>
+                        <div className="text-[9px] text-slate-400 leading-tight border-t border-white/5 pt-1.5" style={{ minHeight: 24 }}>
+                          {s.result ? s.result.detail : 'not reached'}
+                        </div>
+                      </div>
+                      {i < allStages.length - 1 && STAGES[i].bank === STAGES[i+1].bank && (
+                        <div className="shrink-0 flex items-center justify-center" style={{ width: 8 }}>
+                          <span className="text-slate-700 text-xs font-bold">›</span>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Score row */}
+              <div className="mt-4 flex gap-3 flex-wrap">
+                {[
+                  { label: 'Vision Conf',     val: item.vision_confidence, fmt: v => v == null ? 'N/A' : `${(v*100).toFixed(0)}%`, good: v => v != null && v > 0.70 },
+                  { label: 'Signature Match', val: item.sig_match_score,   fmt: v => v == null ? 'N/A' : `${(v*100).toFixed(0)}%`, good: v => v != null && v > 0.85 },
+                  { label: 'Fraud Score',     val: item.fraud_score,       fmt: v => v == null ? 'N/A' : `${(v*100).toFixed(0)}%`, good: v => v != null && v < 0.72 },
+                  { label: 'Amount Range',    val: item.amount_range,      fmt: v => v, good: () => true },
+                  { label: 'PPS Match',       val: item.pps_match,         fmt: v => v == null ? 'N/A' : v ? 'YES' : 'NO', good: v => v === true },
+                  { label: 'Dormant Acct',    val: item.dormant,           fmt: v => v == null ? 'N/A' : v ? 'YES' : 'NO', good: v => v === false },
+                ].map(({ label, val, fmt, good }) => (
+                  <div key={label} className="flex-1 min-w-[90px] bg-white/3 rounded-xl border border-white/6 px-4 py-3">
+                    <div className="text-[10px] text-slate-500 mb-1">{label}</div>
+                    <div className={`text-lg font-bold font-mono ${val == null ? 'text-slate-600' : good(val) ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {fmt(val)}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <select className="text-[11px] bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-slate-300 focus:outline-none focus:border-amber-400/50 cursor-pointer">
-              <option>Select return reason…</option>
-              <optgroup label="Instrument Defect">
-                <option>Date Invalid / Stale</option>
-                <option>Amount Words/Figures Mismatch</option>
-                <option>Endorsement Irregular</option>
-                <option>CTS Compliance Failure</option>
-              </optgroup>
-              <optgroup label="Account / Payment">
-                <option>Account Dormant / Inactive</option>
-                <option>Payment Stopped by Drawer</option>
-                <option>Positive Pay Mismatch</option>
-                <option>Signature Mismatch</option>
-                <option>Amount Alteration / Overwrite</option>
-                <option>Funds Insufficient</option>
-                <option>Account Frozen / NPA</option>
-                <option>Refer to Drawer</option>
-              </optgroup>
-            </select>
-            <button
-              onClick={onClose}
-              className="px-4 py-1.5 text-[11px] font-semibold rounded-lg bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 transition-colors"
-            >✕ Return</button>
-            <button
-              onClick={onClose}
-              className="px-4 py-1.5 text-[11px] font-semibold rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
-            >✓ Confirm</button>
+          )}
+
+          {/* ── Chq Images tab ── */}
+          {panelTab === 'chq' && (
+            <div className="p-5">
+              <ChequeImageViewer
+                views={chqViews}
+                fields={chqFields}
+                isDark={true}
+                compact={false}
+                title={item.id}
+              />
+            </div>
+          )}
+
+        </div>{/* end scrollable content */}
+
+        {/* View-only status banner — Inward Monitor takes no action. Decide in Inward Q. */}
+        {heldStage && (
+          <div className="px-6 py-4 border-t border-white/8 flex items-center gap-3 flex-wrap shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+            <div className="flex-1 text-[11px] text-slate-400 min-w-0">
+              {isException ? 'Exception — ' : 'Held for human review — '}
+              <span className="text-amber-400 font-mono">{item.id}</span>
+              &nbsp;is monitoring-only here. Decide in <span className="text-slate-300 font-medium">Inward Q</span>.
+            </div>
           </div>
         )}
       </div>
@@ -424,7 +454,7 @@ function PoolListModal({ type, items, baseCount, onSelect, onClose }) {
 
 // ─── IET Timer strip ──────────────────────────────────────────────────────────
 
-function IETTimerStrip({ confirmCount, returnCount, reviewCount, onOpenPool }) {
+function IETTimerStrip({ confirmCount, returnCount, reviewCount, manualConfirmCount = 0, manualRejectCount = 0, onOpenPool }) {
   const [elapsed, setElapsed] = useState(0)
   useEffect(() => {
     const t = setInterval(() => setElapsed(e => e + 1), 1000)
@@ -438,9 +468,11 @@ function IETTimerStrip({ confirmCount, returnCount, reviewCount, onOpenPool }) {
   const barColor = pct < 50 ? '#10b981' : pct < 80 ? '#f59e0b' : '#ef4444'
 
   const pools = [
-    { key: 'confirm', label: 'STP Confirmed', val: confirmCount + 847, color: 'text-emerald-400', hoverCls: 'hover:text-emerald-300 hover:bg-emerald-500/8' },
-    { key: 'return',  label: 'STP Returned',  val: returnCount  + 124, color: 'text-red-400',     hoverCls: 'hover:text-red-300 hover:bg-red-500/8'     },
-    { key: 'review',  label: 'Human Review',  val: reviewCount,         color: 'text-amber-400',   hoverCls: 'hover:text-amber-300 hover:bg-amber-500/8'  },
+    { key: 'confirm',        label: 'STP Confirmed',    val: confirmCount + 847,  color: 'text-emerald-400', hoverCls: 'hover:text-emerald-300 hover:bg-emerald-500/8' },
+    { key: 'return',         label: 'STP Returned',     val: returnCount  + 124,  color: 'text-red-400',     hoverCls: 'hover:text-red-300 hover:bg-red-500/8'     },
+    { key: 'review',         label: 'Human Review',     val: reviewCount,          color: 'text-amber-400',   hoverCls: 'hover:text-amber-300 hover:bg-amber-500/8'  },
+    { key: 'manualConfirm',  label: 'Manual Confirmed', val: manualConfirmCount,   color: 'text-emerald-300', hoverCls: 'hover:text-emerald-200 hover:bg-emerald-500/8', disabled: true },
+    { key: 'manualReject',   label: 'Manual Rejected',  val: manualRejectCount,    color: 'text-red-300',     hoverCls: 'hover:text-red-200 hover:bg-red-500/8',         disabled: true },
   ]
 
   return (
@@ -460,15 +492,16 @@ function IETTimerStrip({ confirmCount, returnCount, reviewCount, onOpenPool }) {
 
       <div className="w-px h-8 bg-white/8 shrink-0" />
 
-      {pools.map(({ key, label, val, color, hoverCls }) => (
+      {pools.map(({ key, label, val, color, hoverCls, disabled }) => (
         <button
           key={key}
-          onClick={() => onOpenPool(key)}
-          className={`flex flex-col items-center shrink-0 rounded-lg px-3 py-1 transition-colors cursor-pointer ${hoverCls}`}
-          title={`View all ${label}`}
+          onClick={disabled ? undefined : () => onOpenPool(key)}
+          disabled={disabled}
+          className={`flex flex-col items-center shrink-0 rounded-lg px-3 py-1 transition-colors ${disabled ? 'cursor-default' : `cursor-pointer ${hoverCls}`}`}
+          title={disabled ? label : `View all ${label}`}
         >
           <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5 whitespace-nowrap">{label}</div>
-          <div className={`font-mono text-xl font-bold underline-offset-2 hover:underline ${color}`}>{val}</div>
+          <div className={`font-mono text-xl font-bold ${disabled ? '' : 'underline-offset-2 hover:underline'} ${color}`}>{val}</div>
         </button>
       ))}
 
@@ -806,7 +839,7 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
                   id: np.id,
                   fraud_score: np.fraud_score,
                   sig_match_score: np.sig_match_score,
-                  ocr_confidence: np.ocr_confidence,
+                  vision_confidence: np.vision_confidence,
                   reason: np.reason,
                   amount_range: np.amount_range,
                   account_suffix: np.account_suffix,
@@ -890,6 +923,8 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
             confirmCount={confirmPool.length}
             returnCount={returnPool.length}
             reviewCount={reviewDock.length}
+            manualConfirmCount={53}
+            manualRejectCount={11}
             onOpenPool={setPoolModal}
           />
 

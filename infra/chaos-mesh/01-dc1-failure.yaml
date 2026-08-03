@@ -1,0 +1,84 @@
+---
+# Chaos Mesh Scenario 01 — DC1 Complete Failure
+# RBI Control: DR-02 (Business Continuity Testing)
+#
+# Validates: When DC1 loses all network connectivity, DC2 automatically handles
+# 100% of inward clearing traffic within RTO = 30 seconds.
+#
+# What this tests:
+#   - Istio failover from DC1 pod endpoints to DC2 replicas
+#   - Temporal worker reconnection to DC2 cluster (warm DR)
+#   - Kafka MirrorMaker2 topic availability from DC2 brokers
+#   - YugabyteDB quorum writes still succeed with DC1 down (RF=3, min_replica=2)
+#   - IET Watchdog timers survive DC failover without breach
+#
+# Duration: 10 minutes (long enough to process at least 2 clearing sessions)
+# Run: during off-hours only — never during 10AM-4PM clearing window
+# Verdict: PASS if IET breach count = 0 and decisions still filed within 600ms p99
+#
+# Schedule: Quarterly DR drill — first drill June 2026
+# Run by: bank_it_admin + ASTRA support (consent-gated diagnostic MCP)
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: dc1-network-partition
+  namespace: astra-cts-saraswat-coop
+  labels:
+    astra.chaos/scenario: dc1-failure
+    astra.chaos/bank_id: saraswat-coop
+    astra.chaos/severity: critical
+    astra.chaos/runbook: infra/chaos-mesh/runbooks/dc1-failure-runbook.md
+spec:
+  action: partition
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+      - astra-ej-saraswat-coop
+    labelSelectors:
+      topology.kubernetes.io/zone: dc1
+  direction: both
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - astra-cts-saraswat-coop
+        - astra-ej-saraswat-coop
+      labelSelectors:
+        topology.kubernetes.io/zone: dc2
+  duration: "10m"
+  scheduler:
+    cron: "@manual"   # never auto-run — triggered manually for DR drills
+---
+# Companion: Kill all DC1 pods to simulate hard DC failure (not just partition)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: dc1-pod-kill
+  namespace: astra-cts-saraswat-coop
+  labels:
+    astra.chaos/scenario: dc1-failure
+    astra.chaos/bank_id: saraswat-coop
+spec:
+  action: pod-kill
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+      - astra-ej-saraswat-coop
+    labelSelectors:
+      topology.kubernetes.io/zone: dc1
+  duration: "10m"
+  scheduler:
+    cron: "@manual"
+---
+# Workflow: apply dc1-network-partition first (30s), then dc1-pod-kill
+# This simulates network loss before pod kill — matches real DC power failure sequence.
+#
+# Pass criteria (verified by post-chaos smoke test):
+#   1. kubectl get pods -n astra-cts-saraswat-coop -l zone=dc2 → all Running
+#   2. prometheus query: cts_iet_breach_total == 0
+#   3. prometheus query: cts_decision_latency_p99 < 600ms (measured on DC2 pods)
+#   4. Temporal UI: no WORKFLOW_EXECUTION_TIMED_OUT workflows during chaos window
+#   5. YugabyteDB: all_tablets_quorum_reached == true (DC2 quorum with 2 of 3 replicas)

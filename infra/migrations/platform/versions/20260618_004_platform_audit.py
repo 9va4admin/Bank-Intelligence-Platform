@@ -51,7 +51,7 @@ def upgrade() -> None:
         #           BANK_ONBOARDING_STEP | MODULE_ACTIVATED | MODULE_DEACTIVATED
         # CTS/EJ: cross-links to module audit tables via subject_id
 
-        sa.Column("severity", sa.Text, nullable=False, server_default="'INFO'"),
+        sa.Column("severity", sa.Text, nullable=False, server_default="INFO"),
         # INFO | WARN | CRITICAL
 
         # Actor
@@ -68,7 +68,7 @@ def upgrade() -> None:
         # The relevant ID (user_id, config_key, policy_name, etc.) as TEXT
 
         # Event payload (non-PII)
-        sa.Column("event_data", JSONB, nullable=False, server_default="'{}'"),
+        sa.Column("event_data", JSONB, nullable=False, server_default="{}"),
         # Example for USER_LOGIN: {"ip_hash": "abc123", "user_agent": "Chrome/..."}
         # Example for CONFIG_CHANGE_APPLIED: {"key": "iet_minutes", "old": "180", "new": "165"}
         # NEVER include: account numbers, names, amounts, JWT tokens, Vault tokens

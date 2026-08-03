@@ -1,5 +1,6 @@
-"""Tests for Sub-Member Temporal activity stubs."""
+"""Tests for Sub-Member Temporal activities."""
 import pytest
+from unittest.mock import AsyncMock
 
 from modules.cts.sub_member.activities import (
     notify_sub_member_return,
@@ -102,6 +103,42 @@ class TestNotifySubMemberReturn:
         assert result["bank_id"] == "BANK-XYZ"
         assert result["sub_member_id"] == "SMB-ABC"
 
+    @pytest.mark.asyncio
+    async def test_publishes_via_injected_event_producer(self):
+        mock_producer = AsyncMock()
+        result = await notify_sub_member_return(
+            instrument_id="CHQ-001",
+            bank_id="BANK-001",
+            sub_member_id="SMB-001",
+            return_reason="SIGNATURE_MISMATCH",
+            bucket="STP_RETURN",
+            amount_range="₹[1L-5L]",
+            cheque_number_suffix="7890",
+            event_producer=mock_producer,
+        )
+        mock_producer.publish.assert_awaited_once()
+        call_kwargs = mock_producer.publish.call_args.kwargs
+        assert call_kwargs["topic"] == "cts.sub_member.return_notification"
+        assert call_kwargs["payload"]["notification_id"] == result["notification_id"]
+        assert result["status"] == "QUEUED"
+
+    @pytest.mark.asyncio
+    async def test_degrades_when_publish_fails(self):
+        mock_producer = AsyncMock()
+        mock_producer.publish = AsyncMock(side_effect=Exception("Kafka unreachable"))
+        result = await notify_sub_member_return(
+            instrument_id="CHQ-001",
+            bank_id="BANK-001",
+            sub_member_id="SMB-001",
+            return_reason="SIGNATURE_MISMATCH",
+            bucket="STP_RETURN",
+            amount_range="₹[1L-5L]",
+            cheque_number_suffix="7890",
+            event_producer=mock_producer,
+        )
+        assert result["status"] == "PUBLISH_DEGRADED"
+        assert result["notification_id"]  # still constructed
+
 
 class TestEmitBatchLedgerUpdate:
     @pytest.mark.asyncio
@@ -160,6 +197,38 @@ class TestEmitBatchLedgerUpdate:
             bucket="STP_RETURN",
         )
         assert "updated_at" in result
+
+    @pytest.mark.asyncio
+    async def test_upserts_via_injected_db(self):
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock(return_value=None)
+        result = await emit_batch_ledger_update(
+            bank_id="BANK-001",
+            sub_member_id="SMB-001",
+            session_date="2026-06-19",
+            clearing_session="MORNING",
+            bucket="STP_PASS",
+            db=mock_db,
+        )
+        mock_db.execute.assert_awaited_once()
+        sql, *params = mock_db.execute.call_args.args
+        assert "stp_pass" in sql  # bucket-column allowlist resolved correctly
+        assert params[0] == "BANK-001"
+        assert result["status"] == "LEDGER_UPDATED"
+
+    @pytest.mark.asyncio
+    async def test_degrades_when_db_upsert_fails(self):
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock(side_effect=Exception("DB unreachable"))
+        result = await emit_batch_ledger_update(
+            bank_id="BANK-001",
+            sub_member_id="SMB-001",
+            session_date="2026-06-19",
+            clearing_session="MORNING",
+            bucket="STP_PASS",
+            db=mock_db,
+        )
+        assert result["status"] == "LEDGER_UPDATE_DEGRADED"
 
 
 class TestCheckReturnRateShield:

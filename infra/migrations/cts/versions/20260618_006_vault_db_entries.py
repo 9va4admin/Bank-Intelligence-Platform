@@ -109,7 +109,7 @@ def upgrade() -> None:
         sa.Column("payee_name_enc", sa.LargeBinary, nullable=True),  # pgp_sym_encrypt
 
         # PPS lifecycle
-        sa.Column("status", sa.Text, nullable=False, server_default="'REGISTERED'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="REGISTERED"),
         # REGISTERED | CONFIRMED_PAID | EXPIRED | CANCELLED
         sa.Column("registered_at", sa.DateTime(timezone=True), nullable=False,
                   server_default=sa.text("NOW()")),

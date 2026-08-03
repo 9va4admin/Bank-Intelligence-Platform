@@ -62,6 +62,9 @@ export default function QueueCard({ item, selected, onClick, isDark = true }) {
           <div className={`text-sm font-semibold ${nameC} mt-0.5`}>
             {item.account_display} · {item.payee_display}
           </div>
+          <div className={`text-[10px] mt-0.5 truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            {item.bank ?? 'Saraswat Co-operative Bank'} · {item.branch ?? '—'}
+          </div>
         </div>
         <IETTimer deadline={item.iet_deadline} compact />
       </div>

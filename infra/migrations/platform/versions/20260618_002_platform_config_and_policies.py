@@ -52,7 +52,7 @@ def upgrade() -> None:
         # Human-readable description for Admin UI
 
         # Approval state
-        sa.Column("status", sa.Text, nullable=False, server_default="'ACTIVE'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="ACTIVE"),
         # PENDING_APPROVAL | ACTIVE | SUPERSEDED | REVERTED
         sa.Column("effective_from", sa.DateTime(timezone=True), nullable=True),
         sa.Column("effective_until", sa.DateTime(timezone=True), nullable=True),
@@ -99,7 +99,7 @@ def upgrade() -> None:
         sa.Column("rejected_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("rejection_reason", sa.Text, nullable=True),
 
-        sa.Column("status", sa.Text, nullable=False, server_default="'PENDING'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="PENDING"),
         # PENDING | APPROVED | APPLIED | REJECTED | REVERTED
 
         # Immudb reference (tamper-evident proof this change was recorded)
@@ -150,7 +150,7 @@ def upgrade() -> None:
                   sa.ForeignKey("platform.users.user_id"), nullable=True),
         sa.Column("approved_at", sa.DateTime(timezone=True), nullable=True),
 
-        sa.Column("status", sa.Text, nullable=False, server_default="'DRAFT'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="DRAFT"),
         # DRAFT | PENDING_APPROVAL | ACTIVE | SUPERSEDED | REVERTED
         sa.Column("activated_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("superseded_at", sa.DateTime(timezone=True), nullable=True),

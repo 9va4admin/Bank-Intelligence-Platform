@@ -1,0 +1,130 @@
+---
+# Chaos Mesh Scenario 04 — Kafka Broker Failure (MirrorMaker2 Failover)
+# RBI Control: DR-02 (Business Continuity Testing)
+#
+# Validates:
+#   - When 1 of 3 Kafka brokers goes down, producer/consumer continues
+#     (replication.factor=3, min.insync.replicas=2 — loss of 1 broker is safe)
+#   - cts.inward.{bank_id} events are not lost (still on 2 remaining brokers)
+#   - MirrorMaker2 DC1→DC2 replication continues from the surviving brokers
+#   - KEDA ScaledObject recovers consumer lag after broker rejoins
+#   - No Kafka event is processed twice (exactly-once — Temporal idempotency)
+#
+# Scenarios covered:
+#   4A — Kill 1 broker (normal operations continue, min.insync satisfied)
+#   4B — Kill 2 brokers (min.insync breached — producers pause, IETWatchdog queues)
+#
+# Duration: 4A runs 5 minutes; 4B runs 2 minutes (extreme — short window)
+# Verdict: 4A PASS if zero message loss and zero IET breach
+#          4B PASS if IETWatchdog queues correctly and flushes after broker recovery
+---
+# 4A: Kill 1 Kafka broker (safe zone — min.insync still met)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: kafka-single-broker-kill
+  namespace: astra-platform-saraswat-coop
+  labels:
+    astra.chaos/scenario: kafka-broker-failure
+    astra.chaos/subscenario: "4A-single-broker"
+    astra.chaos/bank_id: saraswat-coop
+    astra.chaos/severity: high
+    astra.chaos/runbook: infra/chaos-mesh/runbooks/kafka-failure-runbook.md
+spec:
+  action: pod-kill
+  mode: one          # kill exactly 1 broker (random selection)
+  selector:
+    namespaces:
+      - astra-platform-saraswat-coop
+    labelSelectors:
+      app.kubernetes.io/name: kafka
+      strimzi.io/kind: Kafka
+  duration: "5m"
+  scheduler:
+    cron: "@manual"
+---
+# 4B: Kill 2 Kafka brokers (min.insync breached — stress test)
+# WARNING: This will cause producer LEADER_NOT_AVAILABLE errors.
+# CTS agents will buffer in-flight decisions; IETWatchdog escalates timing.
+# Run ONLY during off-hours with zero active clearing sessions.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: kafka-dual-broker-kill
+  namespace: astra-platform-saraswat-coop
+  labels:
+    astra.chaos/scenario: kafka-broker-failure
+    astra.chaos/subscenario: "4B-dual-broker"
+    astra.chaos/bank_id: saraswat-coop
+    astra.chaos/severity: critical
+    astra.chaos/warning: "min.insync.replicas breached — producers WILL pause"
+spec:
+  action: pod-kill
+  mode: fixed
+  value: "2"         # kill exactly 2 of 3 brokers
+  selector:
+    namespaces:
+      - astra-platform-saraswat-coop
+    labelSelectors:
+      app.kubernetes.io/name: kafka
+      strimzi.io/kind: Kafka
+  duration: "2m"     # short window — recovery must happen within IET budget
+  scheduler:
+    cron: "@manual"
+---
+# MirrorMaker2 failover companion — inject DC1 network delay to force MM2 rerouting
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: kafka-mirrormaker2-reroute
+  namespace: astra-platform-saraswat-coop
+  labels:
+    astra.chaos/scenario: kafka-broker-failure
+    astra.chaos/subscenario: "4C-mirrormaker2"
+    astra.chaos/bank_id: saraswat-coop
+spec:
+  action: loss
+  mode: all
+  selector:
+    namespaces:
+      - astra-platform-saraswat-coop
+    labelSelectors:
+      strimzi.io/component: mirrormaker2
+  loss:
+    loss: "30"        # 30% packet loss on MirrorMaker2 → DC1 path
+    correlation: "25"
+  direction: to
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - astra-platform-saraswat-coop
+      labelSelectors:
+        topology.kubernetes.io/zone: dc1
+        app.kubernetes.io/name: kafka
+  duration: "5m"
+  scheduler:
+    cron: "@manual"
+---
+# Pass criteria:
+#
+#   Scenario 4A (1 broker killed):
+#   1. kafka consumer lag on cts.inward.{bank_id}: recovers to 0 within 60s of broker restart
+#   2. prometheus: kafka_topic_partitions_offline == 0 (partitions re-elect leaders)
+#   3. prometheus: cts_iet_breach_total == 0 throughout
+#   4. kafka_offset_commit_total: no gaps (no messages skipped or double-processed)
+#   5. MirrorMaker2 DC1→DC2 replication lag: < 5 seconds during broker disruption
+#
+#   Scenario 4B (2 brokers killed):
+#   1. prometheus: kafka_producer_request_error_total{error="NOT_ENOUGH_REPLICAS"} > 0
+#      (expected — confirms min.insync enforcement is working)
+#   2. Temporal: ChequeProcessingWorkflows queued (not failed) during Kafka outage
+#   3. After broker recovery (T+2min): message queue drains, all cheques decide
+#   4. prometheus: cts_iet_breach_total == 0
+#      (acceptable ONLY if IET deadline is > 2min away when chaos fires)
+#      If IET would breach: IETWatchdogWorkflow must have filed via emergency path
+#
+#   Scenario 4C (MirrorMaker2 30% packet loss):
+#   1. MM2 replication lag remains < 30 seconds (MM2 has retry logic)
+#   2. DC2 topics remain consistent after chaos window
+#   3. On DC1 failover: no re-processing of already-decided cheques

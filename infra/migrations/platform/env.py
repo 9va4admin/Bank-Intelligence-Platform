@@ -6,6 +6,7 @@ This is the mandatory foundation layer: banks, users, config, notifications, aud
 import os
 from logging.config import fileConfig
 
+import sqlalchemy as sa
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
@@ -45,6 +46,16 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
+        # alembic creates its own version_table_schema="platform" bookkeeping
+        # table before running any migration — but "platform" schema itself is
+        # only created inside the first migration's upgrade(). Confirmed via a
+        # real run against a fresh YugabyteDB: alembic._ensure_version_table()
+        # fails with InvalidSchemaName on a brand-new bank/database, before a
+        # single migration script executes. This is the bootstrap this ordering
+        # needs — idempotent, safe on every invocation.
+        connection.execute(sa.text("CREATE SCHEMA IF NOT EXISTS platform"))
+        connection.commit()
+
         context.configure(
             connection=connection,
             target_metadata=None,

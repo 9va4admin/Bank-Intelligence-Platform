@@ -110,7 +110,7 @@ def upgrade() -> None:
 
         # NGCH submission outcome
         sa.Column("ngch_item_ref", sa.Text, nullable=True),      # assigned by NGCH on receipt
-        sa.Column("status", sa.Text, nullable=False, server_default="'PENDING'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="PENDING"),
         # PENDING | SUBMITTED | ACKNOWLEDGED | RETURNED_BY_DRAWEE | SETTLED
 
         sa.Column("submitted_at", sa.DateTime(timezone=True), nullable=True),
@@ -165,7 +165,7 @@ def upgrade() -> None:
         sa.Column("return_deadline_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("return_deadline_breached", sa.Boolean, nullable=False, server_default="false"),
         sa.Column("filed_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("status", sa.Text, nullable=False, server_default="'PENDING'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="PENDING"),
         # PENDING | FILED | ACKNOWLEDGED | SETTLED
 
         # Memo image in MinIO (scanned return memo)

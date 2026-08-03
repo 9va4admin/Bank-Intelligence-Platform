@@ -21,13 +21,18 @@ import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from apps.api.middleware.authentication import AuthenticationMiddleware
 from apps.api.middleware.rate_limit import RateLimitMiddleware
 from apps.api.middleware.security_violations import SecurityViolationMiddleware
 from apps.api.routers import cts, ej, disputes, audit, admin, notifications
-from apps.api.routers import batch, users
+from apps.api.routers import batch, users, mcp_connections, demo, cts_outward_queue, demo_cloud_extract
+from apps.api.routers import auth as auth_router
+from apps.api.routers import observability
 from shared.config.config_service import config_service
-from shared.event_bus.producer import KafkaEventProducer
+from shared.config.exceptions import ConfigKeyNotFoundError
+from shared.event_bus.producer import EventProducer as KafkaEventProducer
 from shared.observability.otel_setup import configure_otel
+from shared.auth.session_token import SessionTokenService
 
 log = structlog.get_logger()
 
@@ -51,6 +56,24 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         log.error("api_gateway.config_service_init_failed", error=str(exc))
         raise
+
+    # --- Session service (RS256 keys from Vault) ---
+    # Backs AuthenticationMiddleware: validates the httpOnly session cookie on every
+    # request. Degrades gracefully (never crashes startup) — on Vault/key failure,
+    # session_service stays None and AuthenticationMiddleware resolves every request
+    # as unauthenticated (fail-closed: routes 401 rather than granting access).
+    try:
+        session_private_key = await config_service.get_secret("auth.session.private_key")
+        session_public_key = await config_service.get_secret("auth.session.public_key")
+        app.state.session_service = SessionTokenService(
+            private_key_pem=session_private_key,
+            public_key_pem=session_public_key,
+            issuer="astra-auth",
+        )
+        log.info("api_gateway.session_service_ready")
+    except Exception as exc:
+        log.error("api_gateway.session_service_failed", error=str(exc))
+        app.state.session_service = None
 
     # --- Redis CTS cluster ---
     # Hosts signature vault, PPS vault, session cache, rate limiting, distributed locks,
@@ -111,6 +134,46 @@ async def lifespan(app: FastAPI):
         log.error("api_gateway.kafka_ej_producer_failed", error=str(exc))
         app.state.kafka_producer_ej = None
 
+    # --- YugabyteDB CTS connection pool (pgbouncer-cts endpoint) ---
+    # Used by mcp_connections router (YugabyteDBConnectionStore) and future CTS routers.
+    # Isolated from EJ schema — pgbouncer-cts has access to cts schema only.
+    try:
+        import asyncpg
+        db_cts_dsn = await config_service.get_secret("db.cts.dsn")
+        app.state.db_pool_cts = await asyncpg.create_pool(
+            dsn=db_cts_dsn,
+            min_size=2,
+            max_size=10,  # matches pgbouncer-cts max_connections per pod
+            command_timeout=30,
+        )
+        log.info("api_gateway.db_pool_cts_ready")
+    except Exception as exc:
+        log.error("api_gateway.db_pool_cts_failed", error=str(exc))
+        app.state.db_pool_cts = None
+
+    # --- MinIO object store ---
+    # Cheque images (front/rear TIFFs), EJ files, and CCTV clips are stored in
+    # MinIO. The API uses this client to generate presigned download URLs for the
+    # human review UI. SSE-KMS encryption is enforced at the bucket level (Helm
+    # non-overridable). Degrades gracefully — image preview unavailable, all other
+    # routes unaffected.
+    try:
+        from shared.storage.minio_client import MinioObjectStore
+        minio_endpoint = config_service.get_platform("minio.endpoint")
+        minio_access_key = await config_service.get_secret("minio.access_key")
+        minio_secret_key = await config_service.get_secret("minio.secret_key")
+        minio_secure = config_service.get_platform("minio.secure") in ("true", "True", "1", True)
+        app.state.minio_store = MinioObjectStore(
+            endpoint=minio_endpoint,
+            access_key=minio_access_key,
+            secret_key=minio_secret_key,
+            secure=minio_secure,
+        )
+        log.info("api_gateway.minio_store_ready", endpoint=minio_endpoint)
+    except Exception as exc:
+        log.error("api_gateway.minio_store_failed", error=str(exc))
+        app.state.minio_store = None
+
     # --- Temporal client ---
     try:
         from temporalio.client import Client as TemporalClient
@@ -120,6 +183,58 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         log.error("api_gateway.temporal_failed", error=str(exc))
         app.state.temporal_client = None
+
+    # --- Auth service (local login → MFA → session) ---
+    # Wires AuthService so POST /v1/auth/login is functional in production.
+    # YugabyteDBLocalAuthConnector handles ALL entity types (SB/SMB/branch/PU)
+    # because platform.local_auth_accounts scopes by bank_id+username, not entity_type.
+    # SAML/LDAP connectors are a separate gap (they need their own factory wiring).
+    # VaultTOTPSecretStore writes TOTP enrollment secrets to Vault KV v2; falls back
+    # to InMemoryTOTPSecretStore if Vault env vars are absent (dev/CI — warns loudly).
+    try:
+        from shared.auth.connectors.local import YugabyteDBLocalAuthConnector
+        from shared.auth.enrollment_store import YugabyteDBAccountEnrollmentStore
+        from shared.auth.mfa import TOTPMFAService
+        from shared.auth.mfa_stores import InMemoryTOTPSecretStore, VaultTOTPSecretStore
+        from shared.auth.auth_service import AuthService
+
+        _bank_id = config_service.bank_id
+
+        if app.state.db_pool_cts is not None:
+            _connector = YugabyteDBLocalAuthConnector(
+                bank_id=_bank_id,
+                db_pool=app.state.db_pool_cts,
+            )
+            _enrollment_store = YugabyteDBAccountEnrollmentStore(app.state.db_pool_cts)
+        else:
+            # DB pool unavailable — auth service cannot be built
+            raise RuntimeError("db_pool_cts not available; cannot build AuthService")
+
+        # TOTP secrets go to Vault — reuse config_service's shared hvac client
+        # so we don't open a second Vault connection from the same env vars.
+        try:
+            _vault_client = config_service.get_vault_client()
+            _totp_store = VaultTOTPSecretStore(bank_id=_bank_id, vault_client=_vault_client)
+        except Exception as _vault_err:
+            log.warning(
+                "api_gateway.auth.vault_totp_unavailable",
+                error=str(_vault_err),
+                fallback="InMemoryTOTPSecretStore — TOTP secrets NOT persisted across restarts",
+            )
+            _totp_store = InMemoryTOTPSecretStore()
+
+        _mfa = TOTPMFAService(store=_totp_store, issuer="ASTRA")
+
+        app.state.auth_service = AuthService(
+            connector=_connector,
+            mfa=_mfa,
+            session_service=app.state.session_service,
+            account_store=_enrollment_store,
+        )
+        log.info("api_gateway.auth_service_ready", bank_id=_bank_id)
+    except Exception as exc:
+        log.error("api_gateway.auth_service_failed", error=str(exc))
+        app.state.auth_service = None
 
     # --- Cache invalidation consumer (platform.config.changed → Redis DEL) ---
     # Runs in background — Kafka consumer that deletes stale config cache entries
@@ -163,6 +278,9 @@ async def lifespan(app: FastAPI):
     if app.state.redis_ej:
         await app.state.redis_ej.aclose()
 
+    if getattr(app.state, "db_pool_cts", None):
+        await app.state.db_pool_cts.close()
+
     if app.state.kafka_producer_cts:
         app.state.kafka_producer_cts.flush()
     if app.state.kafka_producer_ej:
@@ -172,11 +290,23 @@ async def lifespan(app: FastAPI):
     log.info("api_gateway.stopped")
 
 
+# Layer 2 values read synchronously at module load (get_platform reads Helm-injected
+# env vars — no DB, no async, no initialise() required).
+try:
+    _env = config_service.get_platform("env")
+except ConfigKeyNotFoundError:
+    _env = "production"
+
+try:
+    _cors_origins = config_service.get_platform("cors.allowed_origins").split(",")
+except ConfigKeyNotFoundError:
+    _cors_origins = ["https://ops.astra.internal"]
+
 app = FastAPI(
     title="ASTRA Bank Intelligence Platform",
     version="1.0.0",
     description="Automated Settlement and Transaction Recognition Architecture",
-    docs_url="/docs" if os.environ.get("ENV") == "development" else None,
+    docs_url="/docs" if _env in ("development", "staging") else None,
     redoc_url=None,
     lifespan=lifespan,
 )
@@ -186,7 +316,7 @@ app = FastAPI(
 # CORS — internal ops workstation only (not public internet)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://ops.astra.internal"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT"],
     allow_headers=["Authorization", "Content-Type", "X-Request-Id"],
@@ -199,7 +329,16 @@ app.add_middleware(SecurityViolationMiddleware)
 # Rate limiting — Redis sliding window, per-bank per-endpoint
 app.add_middleware(RateLimitMiddleware)
 
+# Authentication — validates the httpOnly session cookie, sets request.state.user
+# (SessionClaims | None) and request.state.bank_id, enforces CSRF on unsafe methods.
+# Added last so it is outermost of the four and runs before RateLimitMiddleware —
+# rate limiting keys per-bank off request.state.bank_id (see rate_limit.py comment).
+# ASTRA-01: this replaces the forgeable per-router test-token backdoor; routers read
+# identity only via apps.api.dependencies.require_user_context, never by parsing tokens.
+app.add_middleware(AuthenticationMiddleware)
+
 # --- Routers ---
+app.include_router(auth_router.router_v1)
 app.include_router(cts.router_v1)
 app.include_router(ej.router_v1)
 app.include_router(disputes.router_v1)
@@ -208,6 +347,12 @@ app.include_router(admin.router_v1)
 app.include_router(notifications.router_v1)
 app.include_router(batch.router_v1)
 app.include_router(users.router_v1)
+app.include_router(mcp_connections.router_v1)
+app.include_router(cts_outward_queue.router_v1)
+app.include_router(demo_cloud_extract.router_v1)
+app.include_router(observability.router_v1)
+if _env in ("development", "staging"):
+    app.include_router(demo.router_v1)
 
 
 # --- Health endpoints (no auth — Kubernetes probes) ---
@@ -226,6 +371,7 @@ async def readiness():
         "temporal": app.state.temporal_client is not None,
         "kafka_cts": app.state.kafka_producer_cts is not None,
         "kafka_ej": app.state.kafka_producer_ej is not None,
+        "session_service": app.state.session_service is not None,
     }
     # Only config_service and redis_cts are critical — rest degrade gracefully
     critical_healthy = checks["config_service"] and checks["redis_cts"]

@@ -11,6 +11,8 @@ from typing import Literal, Optional
 import structlog
 from pydantic import BaseModel, ConfigDict
 
+from temporalio import activity
+
 from modules.cts.mcp.ngch_adapter import DuplicateFilingError, NGCHUnavailableError
 
 log = structlog.get_logger()
@@ -22,6 +24,10 @@ class NGCHFilerInput(BaseModel):
     bank_id: str
     workflow_id: str
     decision: Literal["CONFIRM", "RETURN"]
+    # URRBCH return reason code — required when decision == "RETURN"
+    return_reason_code: Optional[str] = None
+    # False = CBS must suppress return charge for this instrument
+    is_customer_fault: Optional[bool] = None
 
 
 class NGCHFilerResult(BaseModel):
@@ -31,10 +37,11 @@ class NGCHFilerResult(BaseModel):
     filed_decision: str
 
 
+@activity.defn
 async def file_to_ngch(
     inp: NGCHFilerInput,
-    ngch_adapter=None,
-    event_producer=None,
+    ngch_adapter,
+    event_producer,
 ) -> NGCHFilerResult:
     """
     File cheque decision to NGCH. Exactly-once via idempotency_key = workflow_id.

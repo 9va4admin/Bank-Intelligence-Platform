@@ -25,7 +25,7 @@ const IQA_FAIL_REASONS = {
 
 function makeInstruments(n) {
   const entries = Object.entries(IQA_FAIL_REASONS)
-  const payees  = ['Reliance Ind.', 'HDFC Sec.', 'Tata Cons.', 'Infosys', 'SBI MF', 'Kotak AMC']
+  const payees  = ['Rajesh Kumar Verma', 'Sunita P. Joshi', 'Amol Vilas Kulkarni', 'Kavita R. Desai', 'Nikhil Santosh Pawar', 'Priya R. Nair']
   const amts    = ['₹12,500', '₹45,000', '₹2,00,000', '₹8,75,000', '₹15,000', '₹3,50,000']
   return Array.from({ length: n }, (_, i) => {
     const scnId  = `SCN-0${(i % 4) + 1}`

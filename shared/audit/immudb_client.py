@@ -40,14 +40,31 @@ class ImmudbClient:
     # Startup
     # ------------------------------------------------------------------
 
-    def connect(self, host: str, port: int, bank_id: str, collection: str = "cts_events") -> None:
+    def connect(
+        self,
+        host: str,
+        port: int,
+        bank_id: str,
+        collection: str = "cts_events",
+        *,
+        username: str,
+        password: str,
+        database: str = "defaultdb",
+    ) -> None:
         """
-        Establish gRPC connection to immudb.
+        Establish gRPC connection to immudb and authenticate.
+
         Called once at service startup — not async because immudb-py is synchronous.
+        username/password are required (no default) — Vault-sourced in production,
+        matching security.md's no-hardcoded-credentials rule. immudb requires an
+        authenticated session before any set()/get() call succeeds; the real SDK
+        manages the resulting token internally after login(), so this only needs
+        to run once per connection, not per call.
         """
         try:
             from immudb import ImmudbClient as _SDK  # type: ignore[import]
             self._stub = _SDK(f"{host}:{port}")
+            self._stub.login(username, password, database=database.encode())
         except Exception as exc:
             raise ImmudbUnavailableError(f"immudb connect failed at {host}:{port}: {exc}") from exc
 
@@ -86,7 +103,7 @@ class ImmudbClient:
         value = json.dumps(payload, default=str).encode()
 
         try:
-            response = self._stub.immudb_database.set(key, value)
+            response = self._stub.verifiedSet(key, value)
         except Exception as exc:
             log.error("immudb.write_failed", event_type=payload.get("event_type"), error=str(exc))
             raise ImmudbUnavailableError(f"immudb write failed: {exc}") from exc
@@ -117,7 +134,7 @@ class ImmudbClient:
         """
         self._assert_ready()
         try:
-            response = self._stub.immudb_database.verified_get(key)
+            response = self._stub.verifiedGet(key)
         except Exception as exc:
             raise ImmudbUnavailableError(f"immudb verify failed: {exc}") from exc
 

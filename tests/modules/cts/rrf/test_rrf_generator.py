@@ -7,6 +7,10 @@ import pytest
 from datetime import datetime, timezone
 from xml.etree import ElementTree as ET
 
+# CTS Spec Rev 3.0 — RRF root element namespace
+_RRF_NS = "urn:schemas-ncr-com:ECPIX:RRF:FileStructure:010004"
+_N = f"{{{_RRF_NS}}}"   # shorthand: _N + "Header" == "{urn:...}Header"
+
 
 # ── Tests for RBIReturnCode ─────────────────────────────────────────────────
 
@@ -186,7 +190,7 @@ def test_generator_xml_has_correct_root_element():
     )
     xml_str = RRFGenerator.to_xml(doc)
     root = ET.fromstring(xml_str)
-    assert root.tag == 'ReturnReasonFile'
+    assert root.tag == f'{_N}ReturnReasonFile'
 
 
 def test_generator_xml_header_contains_bank_and_session():
@@ -214,12 +218,12 @@ def test_generator_xml_header_contains_bank_and_session():
     )
     xml_str = RRFGenerator.to_xml(doc)
     root = ET.fromstring(xml_str)
-    header = root.find('Header')
+    header = root.find(f'{_N}Header')
     assert header is not None
-    assert header.find('BankIFSC').text == 'SVCB0000001'
-    assert header.find('SessionID').text == 'SES-0619-001'
-    assert header.find('TotalReturns').text == '1'
-    assert header.find('ClearingZone').text == 'MUMBAI'
+    assert header.find(f'{_N}BankIFSC').text == 'SVCB0000001'
+    assert header.find(f'{_N}SessionID').text == 'SES-0619-001'
+    assert header.find(f'{_N}TotalReturns').text == '1'
+    assert header.find(f'{_N}ClearingZone').text == 'MUMBAI'
 
 
 def test_generator_xml_return_item_has_all_required_fields():
@@ -247,15 +251,15 @@ def test_generator_xml_return_item_has_all_required_fields():
     )
     xml_str = RRFGenerator.to_xml(doc)
     root = ET.fromstring(xml_str)
-    ret = root.find('Returns/ReturnItem')
+    ret = root.find(f'{_N}Returns/{_N}ReturnItem')
     assert ret is not None
-    assert ret.find('InstrumentID').text == 'CHQ-2026-001847'
-    assert ret.find('MICRCode').text == '400160001847'
-    assert ret.find('ReturnReasonCode').text == '06'
-    assert ret.find('DraweeIFSC').text == 'SVCB0000001'
-    assert ret.find('PresentingIFSC').text == 'HDFC0001234'
-    assert ret.find('FiledWithinIET').text == 'true'
-    assert ret.find('DecidedBy').text == 'ops_reviewer'
+    assert ret.find(f'{_N}InstrumentID').text == 'CHQ-2026-001847'
+    assert ret.find(f'{_N}MICRCode').text == '400160001847'
+    assert ret.find(f'{_N}ReturnReasonCode').text == '06'
+    assert ret.find(f'{_N}DraweeIFSC').text == 'SVCB0000001'
+    assert ret.find(f'{_N}PresentingIFSC').text == 'HDFC0001234'
+    assert ret.find(f'{_N}FiledWithinIET').text == 'true'
+    assert ret.find(f'{_N}DecidedBy').text == 'ops_reviewer'
 
 
 def test_generator_xml_multiple_items():
@@ -286,8 +290,8 @@ def test_generator_xml_multiple_items():
     )
     xml_str = RRFGenerator.to_xml(doc)
     root = ET.fromstring(xml_str)
-    assert len(root.findall('Returns/ReturnItem')) == 5
-    assert root.find('Header/TotalReturns').text == '5'
+    assert len(root.findall(f'{_N}Returns/{_N}ReturnItem')) == 5
+    assert root.find(f'{_N}Header/{_N}TotalReturns').text == '5'
 
 
 def test_generator_filename_follows_ngch_convention():

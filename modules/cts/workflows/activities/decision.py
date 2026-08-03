@@ -4,40 +4,100 @@ Decision activity — synthesise terminal CTS decision from all upstream signals
 Decisions: STP_CONFIRM | STP_RETURN | HUMAN_REVIEW
 
 Priority order (hard gates evaluated first):
-  1. CBS returned RETURN status   → STP_RETURN  (OPA Layer 4 rule)
-  2. Alteration detected          → STP_RETURN
-  3. Fraud score > threshold      → HUMAN_REVIEW
-  4. OCR confidence < threshold   → HUMAN_REVIEW
-  5. Signature match < threshold  → HUMAN_REVIEW
-  6. CBS unavailable              → HUMAN_REVIEW
-  7. PPS miss                     → HUMAN_REVIEW
-  8. CBS HUMAN_REVIEW escalation  → HUMAN_REVIEW
+  0. Kill switch active (KP or KC) → HUMAN_REVIEW  [RBI mandate — supersedes ALL gates]
+  1. CBS returned RETURN status     → STP_RETURN  (OPA Layer 4 rule)
+  2. Alteration detected            → STP_RETURN
+  3. Fraud score > threshold        → HUMAN_REVIEW
+  4. OCR confidence < threshold     → HUMAN_REVIEW
+  5. Signature match < threshold    → HUMAN_REVIEW
+  6. CBS unavailable                → HUMAN_REVIEW
+  7. PPS miss                       → HUMAN_REVIEW
+  8. CBS HUMAN_REVIEW escalation    → HUMAN_REVIEW
   9. All signals clean + fraud_score < (1 - stp_threshold) → STP_CONFIRM
-  else                             → HUMAN_REVIEW
+  else                               → HUMAN_REVIEW
+
+Kill-switch backstop (dual-checkpoint pattern):
+  This activity is checkpoint 2. It re-evaluates kill_switch_status independently,
+  catching the 120s mid-flight race: kill switch activated after detect_alteration
+  started but before decision reached. alteration result may carry kill_switch_mode="NONE"
+  yet decision receives kill_switch_status=KP|KC — backstop catches this case.
 
 All thresholds from config dict — never hardcoded.
 SHAP values passed through from upstream fraud activity.
 """
+from datetime import date
 from typing import Any, Optional
 
 import structlog
 from pydantic import BaseModel, ConfigDict
 
+from temporalio import activity
+
+from modules.cts.compliance.models import (
+    NON_CUSTOMER_FAULT_CODES,
+    RE_PRESENTATION_CODES,
+    is_customer_fault,
+)
+from modules.cts.workflows.activities.amount_words_parser import parse_amount_words
+from shared.utils.masking import mask_amount
+from modules.cts.kill_switch.vision_ai_kill_switch import KillMode, KillSwitchStatus
+from shared.audit.audit_event import AuditEvent, AuditEventType
+from shared.opa_client import OPAClient, OPAInput
+
 log = structlog.get_logger()
+
+# Maps CBS-reported return reasons to URRBCH codes.
+# CBS connectors (Finacle/BaNCS/FlexCube) report bank-internal reason strings;
+# this mapping normalises them to the universal NPCI clearing codes.
+_CBS_REASON_TO_RETURN_CODE: dict[str, str] = {
+    "NSF":                  "01",  # URRBCH 1: Funds insufficient
+    "INSUFFICIENT_FUNDS":   "01",
+    "EXCEEDS_ARRANGEMENT":  "02",  # URRBCH 2
+    "STOP_PAYMENT":         "20",  # URRBCH 20: Payment stopped by drawer
+    "PAYMENT_STOPPED":      "20",  # URRBCH 20 (same as STOP_PAYMENT)
+    "ACCOUNT_CLOSED":       "50",  # URRBCH 50
+    "ACCOUNT_DOES_NOT_EXIST": "52",  # URRBCH 52
+    "ACCOUNT_TRANSFERRED":  "51",  # URRBCH 51
+    "ACCOUNT_FROZEN":       "55",  # URRBCH 55
+    "ACCOUNT_BLOCKED":      "55",  # URRBCH 55
+    "DRAWER_DECEASED":      "23",  # URRBCH 23: Withdrawal stopped — death
+    "INSOLVENCY":           "25",  # URRBCH 25: Withdrawal stopped — insolvency
+}
+_DEFAULT_CBS_RETURN_CODE = "01"  # URRBCH 1: insufficient funds as safe fallback
+
+
+def _cbs_reason_to_return_code(cbs_reason: Optional[str]) -> str:
+    if not cbs_reason:
+        return _DEFAULT_CBS_RETURN_CODE
+    return _CBS_REASON_TO_RETURN_CODE.get(cbs_reason.upper(), _DEFAULT_CBS_RETURN_CODE)
+
 
 class DecisionInput(BaseModel):
     model_config = ConfigDict(frozen=True)
     instrument_id: str
     bank_id: str
+    smb_id: Optional[str] = None           # populated for sub-member bank instruments
     fraud_score: float
     ocr_confidence: float
     signature_match_score: float
     cbs_outcome: str            # "PROCEED" | "RETURN" | "HUMAN_REVIEW" | "CBS_UNAVAILABLE"
+    cbs_return_reason: Optional[str] = None  # "NSF" | "STOP_PAYMENT" | "ACCOUNT_FROZEN" | etc.
     alteration_detected: bool
+    altered_fields: list[str] = []          # which fields were altered (from alteration activity)
     pps_outcome: str            # "FOUND" | "HUMAN_REVIEW"
     available_balance: Optional[float]
     cheque_amount: float
     shap_values: dict[str, Any]  # required — must be computed before decision
+    cheque_date: Optional[date] = None      # extracted by OCR; None = undated cheque
+    amount_figures: Optional[float] = None  # amount as numeric digits (OCR extracted)
+    amount_words: Optional[str] = None      # amount in words text (OCR extracted)
+    kill_switch_mode: str = "NONE"          # carried from alteration result
+    kill_switch_scope: Optional[str] = None  # carried from alteration result
+    # Item 4: payee gate — None means payee not captured on this processing path (gate skipped)
+    payee_name: Optional[str] = None
+    # Item 3: IFSC cross-check — both must be non-None for the gate to activate
+    ngch_ifsc: Optional[str] = None        # IFSC from NGCH presentment metadata
+    ocr_ifsc: Optional[str] = None         # IFSC extracted from cheque image by OCR
 
 
 class DecisionResult(BaseModel):
@@ -46,41 +106,266 @@ class DecisionResult(BaseModel):
     decision: str               # "STP_CONFIRM" | "STP_RETURN" | "HUMAN_REVIEW"
     rationale: str
     shap_values: dict[str, Any]
+    kill_switch_mode: str = "NONE"          # effective mode at decision time
+    kill_switch_scope: Optional[str] = None  # effective scope at decision time
+    # URRBCH return reason (set only on STP_RETURN — None for CONFIRM/HUMAN_REVIEW)
+    return_reason_code: Optional[str] = None
+    # False = bank must NOT levy return charges (non-customer-fault codes per RBI/NPCI)
+    is_customer_fault: Optional[bool] = None
+    # True = re-present in next clearing within 24h (technical returns per CCPs)
+    requires_re_presentation: bool = False
 
 
+@activity.defn
 async def synthesise_decision(
     inp: DecisionInput,
     config: dict[str, Any],
+    kill_switch_status: Optional[KillSwitchStatus] = None,
+    immudb_client: Optional[Any] = None,
+    hsm: Optional[Any] = None,
+    opa_client: Optional[OPAClient] = None,
 ) -> DecisionResult:
     """
     Synthesise terminal cheque decision from all upstream activity signals.
     All thresholds read from config dict — never hardcoded here.
+
+    kill_switch_status is the freshly-resolved kill switch state at decision time.
+    It acts as a backstop independent of what alteration.py saw — catching the
+    mid-flight race condition where the kill switch was activated during the
+    120-second Qwen2-VL call.
     """
+    # ── Kill-switch backstop (checkpoint 2 — dual-checkpoint pattern) ─────────
+    # Evaluated FIRST — before CBS, alteration, fraud, and all other gates.
+    # RBI mandate: when kill switch is active, every instrument goes to human review.
+    # KP: Vision AI ran but STP is suppressed.
+    # KC: Vision AI was skipped upstream and STP is suppressed.
+    effective_ks_mode = "NONE"
+    effective_ks_scope: Optional[str] = None
+
+    if kill_switch_status is not None and kill_switch_status.is_active:
+        effective_ks_mode = kill_switch_status.mode.value
+        effective_ks_scope = kill_switch_status.scope.value if kill_switch_status.scope else None
+
+        log.warning(
+            "decision_activity.kill_switch_backstop",
+            instrument_id=inp.instrument_id,
+            bank_id=inp.bank_id,
+            smb_id=inp.smb_id,
+            kill_switch_mode=effective_ks_mode,
+            kill_switch_scope=effective_ks_scope,
+            upstream_kill_switch_mode=inp.kill_switch_mode,
+        )
+
+        # Write immutable per-instrument audit record before returning
+        if immudb_client is not None and hsm is not None:
+            try:
+                audit_ev = AuditEvent(
+                    event_type=AuditEventType.CTS_KILL_SWITCH_APPLIED,
+                    bank_id=inp.bank_id,
+                    payload={
+                        "instrument_id": inp.instrument_id,
+                        "kill_switch_mode": effective_ks_mode,
+                        "kill_switch_scope": effective_ks_scope,
+                        "smb_id": inp.smb_id,
+                        "checkpoint": "decision_backstop",
+                    },
+                )
+                signed = audit_ev.sign(hsm)
+                await immudb_client.write_event(signed.to_json())
+            except Exception as exc:
+                log.error(
+                    "decision_activity.immudb_write_failed",
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    error=str(exc),
+                )
+
+        return DecisionResult(
+            instrument_id=inp.instrument_id,
+            decision="HUMAN_REVIEW",
+            rationale=f"kill_switch active: mode={effective_ks_mode} scope={effective_ks_scope}",
+            shap_values=inp.shap_values,
+            kill_switch_mode=effective_ks_mode,
+            kill_switch_scope=effective_ks_scope,
+        )
+    # ── End kill-switch backstop ───────────────────────────────────────────────
+
+    # ── OPA Layer 4 policy evaluation ─────────────────────────────────────────
+    # Evaluates bank-configurable Rego business rules that cannot be expressed
+    # as numeric thresholds: government cheques, court orders, high-value first-day, etc.
+    # OPA unavailable → safe default PROCEED (existing gates below still apply).
+    if opa_client is not None:
+        opa_input = OPAInput(
+            instrument_id=inp.instrument_id,
+            bank_id=inp.bank_id,
+            cheque_type=getattr(inp, "cheque_type", "STANDARD"),
+            amount=inp.cheque_amount,
+            account_status=inp.cbs_outcome,
+            is_first_clearing_day=getattr(inp, "is_first_clearing_day", False),
+            has_government_flag=getattr(inp, "has_government_flag", False),
+            has_court_order_flag=getattr(inp, "has_court_order_flag", False),
+        )
+        opa_result = await opa_client.decide(opa_input)
+        if opa_result.decision == "HUMAN_REVIEW":
+            log.info(
+                "decision_activity.opa_human_review",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                opa_reason=opa_result.reason,
+            )
+            return DecisionResult(
+                instrument_id=inp.instrument_id,
+                decision="HUMAN_REVIEW",
+                rationale=f"OPA policy: {opa_result.reason}",
+                shap_values=inp.shap_values,
+            )
+        if opa_result.decision == "AUTO_RETURN":
+            log.info(
+                "decision_activity.opa_auto_return",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                opa_reason=opa_result.reason,
+            )
+            return DecisionResult(
+                instrument_id=inp.instrument_id,
+                decision="STP_RETURN",
+                rationale=f"OPA policy: {opa_result.reason}",
+                shap_values=inp.shap_values,
+            )
+    # ── End OPA evaluation ────────────────────────────────────────────────────
+
     stp_threshold: float = config["stp_auto_confirm_threshold"]
     fraud_threshold: float = config["human_review_fraud_threshold"]
     ocr_min_confidence: float = config["ocr_min_confidence"]
     sig_min_match: float = config["sig_min_match_score"]
+    validity_days: int = int(config.get("cheque_validity_days", 90))
 
-    # Hard gate 1: CBS says return immediately
+    # ── Gate -2: Payee name presence (CTS-2010 mandatory field) ───────────
+    # payee_name=None means the field was not captured on this processing path
+    # (e.g. inward drawee where NGCH provides metadata but payee isn't forwarded).
+    # Gate only activates when payee_name is an empty or whitespace-only string —
+    # a blank payee makes the cheque an open-bearer instrument requiring human review.
+    if inp.payee_name is not None and not inp.payee_name.strip():
+        log.info(
+            "decision_activity.blank_payee",
+            instrument_id=inp.instrument_id,
+            bank_id=inp.bank_id,
+        )
+        return DecisionResult(
+            instrument_id=inp.instrument_id,
+            decision="HUMAN_REVIEW",
+            rationale="Payee name blank or missing — open-bearer instrument requires review",
+            shap_values=inp.shap_values,
+        )
+
+    # ── Gate -1: IFSC cross-check ─────────────────────────────────────────
+    # Cross-checks the IFSC printed on the cheque face (ocr_ifsc, extracted by
+    # GOT-OCR2.0) against the IFSC provided by NGCH in the presentment metadata
+    # (ngch_ifsc). A mismatch indicates either a routing error or fraudulent
+    # cheque stock (wrong bank's pre-printed leaf). Both must be present and
+    # non-empty for the gate to activate; None on either side skips the check
+    # (e.g. inward path where OCR doesn't run, or NGCH omitted the field).
+    if inp.ngch_ifsc and inp.ocr_ifsc:
+        if inp.ngch_ifsc.strip().upper() != inp.ocr_ifsc.strip().upper():
+            log.warning(
+                "decision_activity.ifsc_mismatch",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                ngch_ifsc=inp.ngch_ifsc,
+                ocr_ifsc=inp.ocr_ifsc,
+            )
+            return DecisionResult(
+                instrument_id=inp.instrument_id,
+                decision="HUMAN_REVIEW",
+                rationale=(
+                    f"IFSC mismatch: NGCH presentment={inp.ngch_ifsc.strip().upper()} "
+                    f"vs cheque face={inp.ocr_ifsc.strip().upper()}"
+                ),
+                shap_values=inp.shap_values,
+            )
+
+    # ── Hard gate 0: Cheque date validity ─────────────────────────────────
+    # Evaluated before CBS / alteration — objective date facts need no AI.
+    # All three CCP provisions: post-dated=30, stale=31, undated=32.
+    today = date.today()
+    if inp.cheque_date is None:
+        return DecisionResult(
+            instrument_id=inp.instrument_id,
+            decision="STP_RETURN",
+            rationale="Undated cheque",
+            shap_values=inp.shap_values,
+            return_reason_code="32",
+            is_customer_fault=is_customer_fault("32"),
+        )
+    if inp.cheque_date > today:
+        return DecisionResult(
+            instrument_id=inp.instrument_id,
+            decision="STP_RETURN",
+            rationale=f"Post-dated cheque — cheque date {inp.cheque_date} is in the future",
+            shap_values=inp.shap_values,
+            return_reason_code="30",
+            is_customer_fault=is_customer_fault("30"),
+        )
+    if (today - inp.cheque_date).days > validity_days:
+        return DecisionResult(
+            instrument_id=inp.instrument_id,
+            decision="STP_RETURN",
+            rationale=f"Stale cheque — {(today - inp.cheque_date).days} days old (limit {validity_days})",
+            shap_values=inp.shap_values,
+            return_reason_code="31",
+            is_customer_fault=is_customer_fault("31"),
+        )
+
+    # ── Hard gate 0.5: Amount in words vs figures cross-check ─────────────
+    # Applies when OCR extracted both fields. Mismatch = URRBCH code 34.
+    if inp.amount_words and inp.amount_figures is not None:
+        parsed_words_amount = parse_amount_words(inp.amount_words)
+        if parsed_words_amount is not None:
+            tolerance = 1.0  # ₹1 floating-point tolerance
+            if abs(parsed_words_amount - inp.amount_figures) > tolerance:
+                return DecisionResult(
+                    instrument_id=inp.instrument_id,
+                    decision="STP_RETURN",
+                    rationale=(
+                        f"Amount in words/figures differ: "
+                        f"words={mask_amount(parsed_words_amount)} "
+                        f"figures={mask_amount(inp.amount_figures)}"
+                    ),
+                    shap_values=inp.shap_values,
+                    return_reason_code="34",
+                    is_customer_fault=is_customer_fault("34"),
+                )
+
+    # ── Hard gate 1: CBS says return immediately ───────────────────────────
     if inp.cbs_outcome == "RETURN":
+        rrc = _cbs_reason_to_return_code(inp.cbs_return_reason)
         return DecisionResult(
             instrument_id=inp.instrument_id,
             decision="STP_RETURN",
-            rationale=f"CBS account status requires immediate return",
+            rationale=f"CBS account status requires return: {inp.cbs_return_reason or 'unspecified'}",
             shap_values=inp.shap_values,
+            return_reason_code=rrc,
+            is_customer_fault=is_customer_fault(rrc),
         )
 
-    # Hard gate 2: alteration detected
-    if inp.alteration_detected:
+    # ── Hard gate 2: CTS alteration specificity ────────────────────────────
+    # Non-date field alterations = CTS code 85 (auto-return, no human review needed).
+    # Date-field only = human review (bank policy decision per CCPs).
+    non_date_altered = [f for f in inp.altered_fields if f != "date"]
+    if non_date_altered:
         return DecisionResult(
             instrument_id=inp.instrument_id,
             decision="STP_RETURN",
-            rationale="Cheque alteration detected — returning instrument",
+            rationale=f"CTS alteration in non-date fields: {non_date_altered}",
             shap_values=inp.shap_values,
+            return_reason_code="85",
+            is_customer_fault=is_customer_fault("85"),
         )
-
     # Soft gates → HUMAN_REVIEW
     human_review_reasons = []
+
+    if inp.alteration_detected and not non_date_altered:
+        human_review_reasons.append("date_field_alteration_detected")
 
     if inp.fraud_score >= fraud_threshold:
         human_review_reasons.append(f"fraud_score={inp.fraud_score:.3f} >= threshold={fraud_threshold}")

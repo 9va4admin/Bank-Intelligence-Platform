@@ -1,0 +1,130 @@
+syntax = "proto3";
+package astra.cts.eeh;
+
+option python_out = "apps/eeh/generated";
+
+// EEHService — branch cheque upload gateway.
+//
+// Browser clients connect via gRPC-Web through an Envoy proxy.
+// Each RPC is authenticated via mTLS (branch cert) + operator JWT (metadata).
+// All messages carry session_id from EEHSessionManager.
+service EEHService {
+  // Branch uploads cheques one-by-one; server acks each in real-time
+  rpc UploadCheque(stream ChequePayload) returns (stream ChequeAck);
+
+  // Supervisor seals the lot when scanning is done
+  rpc SealLot(LotSealRequest) returns (LotSealAck);
+
+  // Branch polls its held / mismatched items queue
+  rpc GetMismatchQueue(BranchQueueRequest) returns (stream MismatchItem);
+
+  // Branch resolves a held item: GO_AHEAD or REJECTED
+  rpc ResolveMismatch(MismatchResolution) returns (ResolutionAck);
+
+  // Session status for branch dashboard
+  rpc GetSessionStatus(SessionStatusRequest) returns (SessionStatus);
+}
+
+// ── Upload ─────────────────────────────────────────────────────────────────────
+
+message ChequePayload {
+  string session_id       = 1;
+  string idempotency_key  = 2;   // branch_id:session_id:seq_no
+  string micr_line        = 3;   // full MICR from scanner
+  string amount_figures   = 4;   // scanner OCR output
+  string amount_words     = 5;   // scanner OCR output
+  string payee_display    = 6;   // masked payee (N***)
+  bytes  image_color      = 7;   // TIFF front colour
+  bytes  image_grey       = 8;   // TIFF front greyscale
+  bytes  image_rear       = 9;   // TIFF rear / endorsement
+  string scan_timestamp   = 10;  // ISO-8601
+}
+
+message ChequeAck {
+  string idempotency_key  = 1;
+  string scan_id          = 2;   // ASTRA-assigned scan ID for tracking
+  AckStatus status        = 3;
+  string reason           = 4;   // rejection or hold reason
+  string lot_id           = 5;   // lot this instrument was assigned to
+  string mismatch_id      = 6;   // present when status = HELD
+}
+
+enum AckStatus {
+  ACCEPTED = 0;
+  REJECTED = 1;
+  HELD     = 2;   // awaiting supervisor resolution (mismatch)
+  DUPLICATE = 3;  // idempotency_key already processed
+}
+
+// ── Lot seal ───────────────────────────────────────────────────────────────────
+
+message LotSealRequest {
+  string session_id    = 1;
+  string lot_id        = 2;
+  string sealed_by     = 3;  // operator_id
+}
+
+message LotSealAck {
+  string lot_id             = 1;
+  string status             = 2;  // SEALED | ALREADY_SEALED | LOT_NOT_FOUND
+  int32  instrument_count   = 3;
+  string clearing_session   = 4;  // clearing session this lot was assigned to
+}
+
+// ── Mismatch queue ─────────────────────────────────────────────────────────────
+
+message BranchQueueRequest {
+  string session_id  = 1;
+  string branch_id   = 2;
+  string status      = 3;   // HELD (default) | RESOLVED
+}
+
+message MismatchItem {
+  string mismatch_id        = 1;
+  string scan_id            = 2;
+  string held_at            = 3;   // ISO-8601
+  repeated string mismatch_fields = 4;  // ["amount_figures", "amount_words"]
+  string scanner_amount     = 5;   // what scanner reported (display safe)
+  string vision_amount      = 6;   // what Vision LLM read (display safe)
+  string lot_id             = 7;
+}
+
+// ── Mismatch resolution ────────────────────────────────────────────────────────
+
+message MismatchResolution {
+  string mismatch_id   = 1;
+  string session_id    = 2;
+  string resolved_by   = 3;   // operator_id (supervisor only)
+  ResolutionAction action = 4;
+  string notes         = 5;   // optional supervisor note
+}
+
+enum ResolutionAction {
+  GO_AHEAD = 0;   // trust scanner data, proceed to lot
+  REJECTED = 1;   // return instrument to drawer
+}
+
+message ResolutionAck {
+  string mismatch_id  = 1;
+  string status       = 2;   // RESOLVED | NOT_FOUND | ALREADY_RESOLVED
+  string scan_id      = 3;
+}
+
+// ── Session status ─────────────────────────────────────────────────────────────
+
+message SessionStatusRequest {
+  string session_id  = 1;
+}
+
+message SessionStatus {
+  string session_id      = 1;
+  string branch_id       = 2;
+  string status          = 3;   // ACTIVE | CLOSED | EXPIRED
+  string clearing_date   = 4;
+  int32  total_uploaded  = 5;
+  int32  total_accepted  = 6;
+  int32  total_rejected  = 7;
+  int32  total_held      = 8;
+  string current_lot_id  = 9;
+  string expires_at      = 10;
+}

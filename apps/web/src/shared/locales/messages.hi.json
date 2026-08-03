@@ -459,6 +459,18 @@
       "policy_name"
     ]
   },
+  "CTS_WF_HUMAN_REVIEW_QUEUED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "rationale"
+    ]
+  },
   "CTS_WF_HUMAN_REVIEW_ASSIGNED": {
     "text": "",
     "severity": "INFO",
@@ -585,6 +597,75 @@
     ],
     "variables": [
       "instrument_id"
+    ]
+  },
+  "CTS_KS_ENGAGED": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "mode",
+      "scope",
+      "bank_id",
+      "activated_by"
+    ]
+  },
+  "CTS_KS_RELEASED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "mode",
+      "scope",
+      "bank_id",
+      "released_by"
+    ]
+  },
+  "CTS_KS_APPLIED_KC": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "scope"
+    ]
+  },
+  "CTS_KS_APPLIED_KP": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "scope"
+    ]
+  },
+  "CTS_KS_BACKSTOP_TRIGGERED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "kill_switch_mode",
+      "scope"
     ]
   },
   "CTS_OUT_SCANNER_SESSION_OPENED": {
@@ -750,6 +831,18 @@
       "lot_total"
     ]
   },
+  "CTS_OUT_INSTRUMENT_PENDING": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "scan_id"
+    ]
+  },
   "CTS_OUT_LOT_SEALED": {
     "text": "",
     "severity": "INFO",
@@ -798,6 +891,19 @@
     "variables": [
       "instrument_id",
       "stamp_ref"
+    ]
+  },
+  "CTS_OUT_ENDORSED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "lot_number",
+      "bank_id",
+      "endorsed_count"
     ]
   },
   "CTS_OUT_ENDORSEMENT_BATCH_COMPLETE": {
@@ -911,6 +1017,114 @@
       "instrument_id",
       "ngch_status",
       "local_status"
+    ]
+  },
+  "CTS_OUT_REPRESENTATION_PENDING": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code",
+      "representation_window_hours"
+    ]
+  },
+  "CTS_OUT_REPRESENTATION_SUBMITTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code",
+      "ngch_reference"
+    ]
+  },
+  "CTS_OUT_REPRESENTATION_EXPIRED": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code",
+      "representation_window_hours"
+    ]
+  },
+  "CTS_OUT_REPRESENTATION_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code"
+    ]
+  },
+  "CTS_OUT_MISMATCH_HELD": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "branch_id",
+      "mismatch_fields"
+    ]
+  },
+  "CTS_OUT_MISMATCH_RESOLVED_GO_AHEAD": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "branch_id",
+      "reviewer"
+    ]
+  },
+  "CTS_OUT_MISMATCH_RESOLVED_REJECTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "branch_id",
+      "reviewer"
+    ]
+  },
+  "CTS_OUT_MISMATCH_TIMEOUT_AUTO_REJECTED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "branch_id",
+      "timeout_hours"
     ]
   },
   "CTS_COMP_BANK_LOGO_MISSING": {
@@ -1394,6 +1608,50 @@
       "session_id"
     ]
   },
+  "CTS_SMB_HUMAN_REVIEW_ASSIGNED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_name",
+      "instrument_id",
+      "reason",
+      "sponsor_bank",
+      "iet_deadline"
+    ]
+  },
+  "CTS_SMB_DECISION_FILED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "smb_name",
+      "instrument_id",
+      "decision",
+      "filed_by"
+    ]
+  },
+  "CTS_SMB_SETTLEMENT_AVAILABLE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_name",
+      "session_id",
+      "instrument_count",
+      "settlement_date"
+    ]
+  },
   "CBS_BALANCE_CHECK_OK": {
     "text": "",
     "severity": "INFO",
@@ -1714,6 +1972,57 @@
     "variables": [
       "bank_id",
       "corrupt_count"
+    ]
+  },
+  "VAULT_SIG_CBS_FALLBACK": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "account_display",
+      "instrument_id",
+      "specimen_count"
+    ]
+  },
+  "VAULT_SIG_CBS_STORED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "specimen_count"
+    ]
+  },
+  "VAULT_SIG_NO_SPECIMEN": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "account_display",
+      "instrument_id"
+    ]
+  },
+  "VAULT_SIG_MULTI_DETECTED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "instrument_id",
+      "sig_count"
     ]
   },
   "VAULT_PPS_HIT": {
@@ -2799,6 +3108,748 @@
       "from_pods",
       "to_pods",
       "trigger"
+    ]
+  },
+  "VAULT_STALE": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "vault_type",
+      "staleness_minutes"
+    ]
+  },
+  "VAULT_INTEGRITY_FAIL": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "vault_type",
+      "error_detail"
+    ]
+  },
+  "CTS_REVIEW_TIMEOUT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "elapsed_minutes"
+    ]
+  },
+  "CTS_REVIEW_ASSIGNED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "reviewer_display"
+    ]
+  },
+  "CTS_NGCH_TERMINAL_FAILURE": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "error_code",
+      "retry_count"
+    ]
+  },
+  "CTS_NGCH_CERT_EXPIRED": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "cert_expiry"
+    ]
+  },
+  "MCP_CONN_CREATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_type",
+      "smb_id",
+      "created_by"
+    ]
+  },
+  "MCP_CONN_UPDATED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "updated_by"
+    ]
+  },
+  "MCP_CONN_DELETED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "smb_id",
+      "deleted_by"
+    ]
+  },
+  "MCP_CONN_TESTED_OK": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "latency_ms",
+      "tested_by"
+    ]
+  },
+  "MCP_CONN_TESTED_FAIL": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "error",
+      "tested_by"
+    ]
+  },
+  "MCP_CONN_SYNC_TRIGGERED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "workflow_id",
+      "triggered_by"
+    ]
+  },
+  "CTS_CC_SESSION_OPENED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "session_id",
+      "session_type",
+      "sb_bank_id",
+      "clearing_date"
+    ]
+  },
+  "CTS_CC_SESSION_SEALED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "session_id",
+      "lot_count",
+      "total_instruments",
+      "sb_bank_id"
+    ]
+  },
+  "CTS_CC_SB_SUBMITTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "sb_reference",
+      "instrument_count",
+      "connector_type"
+    ]
+  },
+  "CTS_CC_SB_ACKNOWLEDGED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "sb_reference"
+    ]
+  },
+  "CTS_CC_INWARD_RECEIVED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "instrument_count"
+    ]
+  },
+  "CTS_CC_INWARD_ROUTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "session_id",
+      "routed_count",
+      "failed_count"
+    ]
+  },
+  "CTS_CC_SB_CONN_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "error_code",
+      "connector_type"
+    ]
+  },
+  "CTS_CC_SESSION_RECONCILED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "instrument_count",
+      "clearing_date"
+    ]
+  },
+  "CTS_SMB_PUSH_RECEIVED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "smb_id",
+      "file_type",
+      "agency_id",
+      "file_hash"
+    ]
+  },
+  "CTS_SMB_PUSH_VAULT_UPDATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_id",
+      "file_type",
+      "agency_id",
+      "records_processed"
+    ]
+  },
+  "CTS_SMB_PUSH_PARSE_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_id",
+      "file_type",
+      "agency_id",
+      "failure_reason"
+    ]
+  },
+  "CTS_SMB_PUSH_DUPLICATE": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "smb_id",
+      "file_type",
+      "agency_id",
+      "file_hash"
+    ]
+  },
+  "AUTH_LDAP_BIND_SUCCESS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "username",
+      "entity_type",
+      "bank_id"
+    ]
+  },
+  "AUTH_LDAP_BIND_FAILED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "username",
+      "entity_type",
+      "bank_id"
+    ]
+  },
+  "AUTH_LDAP_GROUP_UNMAPPED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "username",
+      "bank_id",
+      "groups"
+    ]
+  },
+  "AUTH_LDAP_SERVER_UNREACHABLE": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "server_url",
+      "bank_id",
+      "entity_type"
+    ]
+  },
+  "AUTH_LOCAL_LOGIN_SUCCESS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "username",
+      "entity_type",
+      "bank_id"
+    ]
+  },
+  "AUTH_LOCAL_LOGIN_FAILED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "username",
+      "bank_id",
+      "attempts"
+    ]
+  },
+  "AUTH_LOCAL_ACCOUNT_LOCKED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "username",
+      "bank_id",
+      "locked_until"
+    ]
+  },
+  "AUTH_CONNECTOR_CONFIG_MISSING": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "entity_type",
+      "bank_id"
+    ]
+  },
+  "MSV_VALIDATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "outcome",
+      "confidence_pct",
+      "bank_id"
+    ]
+  },
+  "MSV_VALIDATION_DEGRADED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "reason_code",
+      "bank_id"
+    ]
+  },
+  "MSV_ENROLLMENT_COMPLETE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "job_id",
+      "bank_id",
+      "enrolled_count",
+      "total_count"
+    ]
+  },
+  "MSV_ENROLLMENT_FAILED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "job_id",
+      "bank_id",
+      "error_summary"
+    ]
+  },
+  "MSV_ENROLLMENT_SKIPPED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "bank_id",
+      "reason_code"
+    ]
+  },
+  "MSV_CBS_SYNC_COMPLETE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "batch_id",
+      "enrolled_count"
+    ]
+  },
+  "MSV_CBS_SYNC_DEGRADED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "batch_id"
+    ]
+  },
+  "MSV_SIGNATORY_REVOKED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "signatory_id",
+      "bank_id"
+    ]
+  },
+  "CTS_WF_CHEQUE_POSTDATED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "cheque_date"
+    ]
+  },
+  "CTS_WF_CHEQUE_UNDATED": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_WF_ALTERATION_CTS_CODE85": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "altered_fields"
+    ]
+  },
+  "CTS_WF_ALTERATION_DATE_ONLY_REVIEW": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_WF_PPS_FLAG_D_DUPLICATE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "account_display"
+    ]
+  },
+  "CTS_WF_PPS_FLAG_Y_MISMATCH": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "account_display"
+    ]
+  },
+  "CTS_WF_PPS_MANDATORY_MISSING": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "account_display",
+      "amount_range"
+    ]
+  },
+  "CTS_WF_RETURN_CHARGE_EXEMPT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code"
+    ]
+  },
+  "CTS_SMB_SPONSOR_SETTLEMENT_INSUFFICIENT": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "sub_member_id",
+      "sponsor_bank_id",
+      "instrument_count"
+    ]
+  },
+  "CTS_SMB_SPONSOR_SETTLEMENT_CBS_UNAVAILABLE": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "sub_member_id",
+      "sponsor_bank_id"
+    ]
+  },
+  "VAULT_REDIS_WARM_TRIGGERED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "workflow_id",
+      "triggered_by"
+    ]
+  },
+  "VAULT_REDIS_WARM_COMPLETE": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "accounts_warmed",
+      "duration_seconds"
+    ]
+  },
+  "VAULT_REDIS_COLD_DETECTED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "gap_accounts",
+      "coverage_pct"
+    ]
+  },
+  "VAULT_SIG_SYNC_STATUS": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bank_id",
+      "yugabyte_accounts",
+      "redis_sig_keys",
+      "coverage_pct"
     ]
   }
 }

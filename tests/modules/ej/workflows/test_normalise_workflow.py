@@ -27,6 +27,7 @@ def _make_activity_results(outcome="NORMALISED"):
     from modules.ej.workflows.activities.llm_parse import EJLLMParseActivityResult
     from modules.ej.workflows.activities.validate import EJValidateResult
     from modules.ej.workflows.activities.store_canonical import EJStoreCanonicalResult
+    from modules.ej.workflows.activities.verify_canonical_integrity import EJIntegrityResult
     from modules.ej.workflows.activities.trigger_dispute_check import EJTriggerDisputeCheckResult
     from modules.ej.workflows.activities.update_atm_health import EJUpdateATMHealthResult
     from modules.ej.workflows.activities.write_audit import EJWriteAuditResult
@@ -59,6 +60,13 @@ def _make_activity_results(outcome="NORMALISED"):
             canonical_hash="d" * 64,
             bank_id="test-bank",
         ),
+        # Fix D: integrity check between store_canonical and trigger_dispute_check
+        "verify_canonical_integrity": EJIntegrityResult(
+            outcome="INTEGRITY_OK",
+            canonical_hash="d" * 64,
+            raw_log_hash="abc123",
+            bank_id="test-bank",
+        ),
         "trigger_dispute_check": EJTriggerDisputeCheckResult(
             outcome="TRIGGERED",
             bank_id="test-bank",
@@ -67,6 +75,7 @@ def _make_activity_results(outcome="NORMALISED"):
             outcome="UPDATED",
             atm_id="ATM001",
             bank_id="test-bank",
+            health_status="HEALTHY",   # required field — pre-existing omission fixed
         ),
         "write_audit": EJWriteAuditResult(
             outcome="WRITTEN",

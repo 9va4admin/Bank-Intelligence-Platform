@@ -41,7 +41,7 @@ def upgrade() -> None:
         # HUMAN_REVIEW_ESCALATED | HUMAN_REVIEW_DECIDED | RETURN_FILED |
         # VAULT_SYNC_COMPLETE | CONFIG_CHANGED | STOP_PAYMENT_ACTIVATED
 
-        sa.Column("severity", sa.Text, nullable=False, server_default="'INFO'"),
+        sa.Column("severity", sa.Text, nullable=False, server_default="INFO"),
         # INFO | WARN | CRITICAL
 
         # Source
@@ -168,7 +168,7 @@ def upgrade() -> None:
         sa.Column("final_decision", sa.Text, nullable=True),  # CONFIRM | RETURN
         sa.Column("finalized_at", sa.DateTime(timezone=True), nullable=True),
 
-        sa.Column("status", sa.Text, nullable=False, server_default="'AWAITING_FIRST'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="AWAITING_FIRST"),
         # AWAITING_FIRST | AWAITING_SECOND | CONFLICT | FINALIZED
 
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False,

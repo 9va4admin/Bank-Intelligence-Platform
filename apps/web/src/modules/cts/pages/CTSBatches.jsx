@@ -42,7 +42,7 @@ function makeInstruments(lotId, count, baseStatus) {
                         baseStatus === 'EXTRACTED' ? ['AI_EXTRACTED', 'IQA_FAIL'] :
                         baseStatus === 'PKI_SIGNED' ? ['PKI_SIGNED'] :
                         ['NGCH_ACK', 'NGCH_REJECT', 'PKI_SIGNED']
-  const payees = ['Reliance Ind.','HDFC Securities','Tata Cons.','Infosys Ltd.','SBI MF','ICICI Pru.','Bajaj Fin.']
+  const payees = ['Rajesh Kumar Verma','Sunita P. Joshi','Amol Vilas Kulkarni','Kavita R. Desai','Nikhil Santosh Pawar','Ramesh N. Rao','Suresh B. Agarwal']
   return Array.from({ length: count }, (_, i) => {
     const st = instStatuses[(i * 3) % instStatuses.length]
     const amt = 10000 + ((i + lotId.length) * 13751) % 990000

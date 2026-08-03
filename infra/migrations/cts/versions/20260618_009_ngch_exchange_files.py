@@ -58,7 +58,7 @@ def upgrade() -> None:
         # SFTP transfer status
         sa.Column("direction", sa.Text, nullable=False),
         # OUTBOUND | INBOUND
-        sa.Column("transfer_status", sa.Text, nullable=False, server_default="'PENDING'"),
+        sa.Column("transfer_status", sa.Text, nullable=False, server_default="PENDING"),
         # PENDING | IN_PROGRESS | TRANSFERRED | TRANSFER_FAILED | RECEIVED | PROCESSED
 
         sa.Column("transfer_started_at", sa.DateTime(timezone=True), nullable=True),

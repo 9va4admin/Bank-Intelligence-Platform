@@ -14,12 +14,18 @@ alteration_detected=True + high tamper_risk → STP_RETURN in decision activity.
 Model unavailable → degraded=True, requires_human_review=True (never auto-return).
 """
 
-from typing import Optional
+from typing import Optional, Any
 import json
 
 import structlog
 from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field
+
+from temporalio import activity
+
+from modules.cts.kill_switch.vision_ai_kill_switch import KillMode, KillSwitchStatus
+from shared.audit.audit_event import AuditEvent, AuditEventType
+from shared.ai.model_cascade import CascadeOrchestrator
 
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.cts.alteration")
@@ -109,6 +115,8 @@ class AlterationActivityInput(BaseModel):
     instrument_id: str
     bank_id: str
     scan_dpi: int = 200   # NPCI CTS 2010 minimum; higher = better fibre detection
+    smb_id: Optional[str] = None  # populated for sub-member bank instruments
+    cheque_amount: float = 0.0    # forwarded to cascade for high-value L2 routing
 
 
 class AlterationActivityResult(BaseModel):
@@ -126,6 +134,9 @@ class AlterationActivityResult(BaseModel):
     requires_human_review: bool = False
     degraded: bool = False
     model_version: str = "qwen2-vl-72b"
+    cascade_level: int = 2                   # 1 = L1 used (7B fast), 2 = L2 used (72B forensic)
+    kill_switch_mode: str = "NONE"           # "NONE" | "KP" | "KC"
+    kill_switch_scope: Optional[str] = None  # "GLOBAL" | "SB_OWN" | "SMB"
 
 
 # ---------------------------------------------------------------------------
@@ -235,9 +246,14 @@ Do NOT assume alteration from amount alone. Physical evidence is the only basis 
 # Activity implementation
 # ---------------------------------------------------------------------------
 
+@activity.defn
 async def detect_alteration(
     inp: AlterationActivityInput,
-    vllm_client=None,
+    orchestrator: CascadeOrchestrator,
+    config_service,
+    kill_switch_status: Optional[KillSwitchStatus] = None,
+    immudb_client: Optional[Any] = None,
+    hsm: Optional[Any] = None,
 ) -> AlterationActivityResult:
     """
     Detect physical cheque alterations using Qwen2-VL 72B.
@@ -245,28 +261,99 @@ async def detect_alteration(
     Six detection layers covering ink physics, paper fibre, correction fluid,
     chemical alteration, overwriting, and field content.
     Degrades gracefully on model failure — never assumes alteration without evidence.
+
+    Kill-switch behaviour (RBI mandate):
+      KC (Kill Complete) — Qwen2-VL is NOT called; returns requires_human_review=True.
+      KP (Kill Partial)  — Qwen2-VL runs normally; result carries kill_switch_mode="KP"
+                           so that synthesise_decision can force HUMAN_REVIEW at the
+                           decision backstop (dual-checkpoint pattern).
     """
     with tracer.start_as_current_span("activity.detect_alteration") as span:
         span.set_attribute("bank_id", inp.bank_id)
         span.set_attribute("instrument_id", inp.instrument_id)
         span.set_attribute("scan_dpi", inp.scan_dpi)
 
+        tamper_risk_threshold = await config_service.get("ai.tamper_risk_threshold")
+
+        # ── Kill-switch entry checkpoint (KC path) ─────────────────────────
+        # Checked BEFORE any vLLM call. If KC is active, skip Vision AI entirely.
+        # KP is recorded on the result but does not block the AI call here —
+        # the decision backstop enforces HUMAN_REVIEW for KP.
+        resolved_mode = "NONE"
+        resolved_scope: Optional[str] = None
+
+        if kill_switch_status is not None and kill_switch_status.is_active:
+            resolved_mode = kill_switch_status.mode.value
+            resolved_scope = kill_switch_status.scope.value if kill_switch_status.scope else None
+
+            span.set_attribute("kill_switch_mode", resolved_mode)
+            span.set_attribute("kill_switch_scope", resolved_scope or "")
+
+            if kill_switch_status.blocks_vision_ai:  # KC
+                log.warning(
+                    "alteration_activity.kill_switch_kc",
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    smb_id=inp.smb_id,
+                    scope=resolved_scope,
+                )
+                # Write immutable audit record for per-instrument KC application
+                if immudb_client is not None and hsm is not None:
+                    try:
+                        audit_ev = AuditEvent(
+                            event_type=AuditEventType.CTS_KILL_SWITCH_APPLIED,
+                            bank_id=inp.bank_id,
+                            payload={
+                                "instrument_id": inp.instrument_id,
+                                "kill_switch_mode": "KC",
+                                "kill_switch_scope": resolved_scope,
+                                "smb_id": inp.smb_id,
+                                "checkpoint": "alteration_kc_entry",
+                            },
+                        )
+                        signed = audit_ev.sign(hsm)
+                        await immudb_client.write_event(signed.to_json())
+                    except Exception as exc:
+                        log.error(
+                            "alteration_activity.immudb_write_failed",
+                            instrument_id=inp.instrument_id,
+                            bank_id=inp.bank_id,
+                            error=str(exc),
+                        )
+                return AlterationActivityResult(
+                    alteration_detected=False,
+                    tamper_risk_score=0.0,
+                    physical_anomaly_score=0.0,
+                    requires_human_review=True,
+                    degraded=False,
+                    kill_switch_mode="KC",
+                    kill_switch_scope=resolved_scope,
+                )
+
+            # KP — log and continue to AI
+            log.info(
+                "alteration_activity.kill_switch_kp",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                smb_id=inp.smb_id,
+                scope=resolved_scope,
+            )
+        # ── End kill-switch entry checkpoint ───────────────────────────────
+
         prompt = _ALTERATION_PROMPT.format(dpi=inp.scan_dpi)
 
+        resolved_model = "qwen2-vl-72b"
+        resolved_cascade_level = 2
+
         try:
-            response = await vllm_client.chat.completions.create(
-                model="qwen2-vl-72b",
-                messages=[{
-                    "role": "user",
-                    "content": [
-                        {"type": "image_url", "image_url": {"url": inp.image_url}},
-                        {"type": "text", "text": prompt},
-                    ],
-                }],
-                extra_body={"queue": "cts-vision"},
-                timeout=120,
+            cascade_result = await orchestrator.call_vision(
+                image_url=inp.image_url,
+                prompt=prompt,
+                cheque_amount=inp.cheque_amount,
             )
-            raw_text = response.choices[0].message.content
+            raw_text = cascade_result.content
+            resolved_model = cascade_result.model_used
+            resolved_cascade_level = cascade_result.cascade_level
 
         except Exception as exc:
             log.warning(
@@ -346,7 +433,7 @@ async def detect_alteration(
 
         tamper_risk = float(data.get("overall_tamper_risk", 0.0))
         physical_score = float(data.get("physical_anomaly_score", 0.0))
-        alteration_detected = bool(altered_fields) or tamper_risk >= 0.5
+        alteration_detected = bool(altered_fields) or tamper_risk >= tamper_risk_threshold
 
         span.set_attribute("tamper_risk_score", tamper_risk)
         span.set_attribute("physical_anomaly_score", physical_score)
@@ -373,6 +460,10 @@ async def detect_alteration(
             correction_fluid_anomalies=fluid_anomalies,
             chemical_alteration_anomalies=chemical_anomalies,
             requires_human_review=alteration_detected,
+            model_version=resolved_model,
+            cascade_level=resolved_cascade_level,
+            kill_switch_mode=resolved_mode,
+            kill_switch_scope=resolved_scope,
         )
 
 

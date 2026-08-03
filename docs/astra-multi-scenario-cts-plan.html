@@ -1,0 +1,1302 @@
+<!doctype html>
+<title>ASTRA — Multi-Scenario CTS: Gap Analysis & Development Plan</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg:       #0d1117;
+  --surface:  #161b22;
+  --surface2: #1c2128;
+  --border:   #30363d;
+  --border2:  #21262d;
+  --text:     #e6edf3;
+  --muted:    #8b949e;
+  --faint:    #484f58;
+  --gold:     #c9a227;
+  --gold-dim: #8b6d14;
+  --blue:     #388bfd;
+  --green:    #3fb950;
+  --amber:    #d29922;
+  --red:      #f85149;
+  --purple:   #a371f7;
+  --teal:     #39c5cf;
+  --radius:   4px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg:       #f6f8fa;
+    --surface:  #ffffff;
+    --surface2: #f0f3f6;
+    --border:   #d0d7de;
+    --border2:  #e1e4e8;
+    --text:     #1f2328;
+    --muted:    #57606a;
+    --faint:    #afb8c1;
+    --gold:     #9a6f00;
+    --gold-dim: #c9a227;
+    --blue:     #0969da;
+    --green:    #1a7f37;
+    --amber:    #9a6700;
+    --red:      #cf222e;
+    --purple:   #6639ba;
+    --teal:     #1b7c83;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:#0d1117;--surface:#161b22;--surface2:#1c2128;--border:#30363d;--border2:#21262d;
+  --text:#e6edf3;--muted:#8b949e;--faint:#484f58;
+  --gold:#c9a227;--gold-dim:#8b6d14;--blue:#388bfd;--green:#3fb950;
+  --amber:#d29922;--red:#f85149;--purple:#a371f7;--teal:#39c5cf;
+}
+:root[data-theme="light"] {
+  --bg:#f6f8fa;--surface:#ffffff;--surface2:#f0f3f6;--border:#d0d7de;--border2:#e1e4e8;
+  --text:#1f2328;--muted:#57606a;--faint:#afb8c1;
+  --gold:#9a6f00;--gold-dim:#c9a227;--blue:#0969da;--green:#1a7f37;
+  --amber:#9a6700;--red:#cf222e;--purple:#6639ba;--teal:#1b7c83;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  background: var(--bg);
+  color: var(--text);
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+}
+
+/* ── TOP BAR ── */
+.topbar {
+  grid-column: 1 / -1;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.topbar-left { display: flex; align-items: baseline; gap: 12px; }
+.topbar-title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.topbar-sub { font-size: 12px; color: var(--muted); }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.theme-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: var(--radius);
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.theme-btn:hover { color: var(--text); border-color: var(--gold); }
+.doc-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: var(--gold-dim);
+  color: var(--gold);
+  padding: 2px 8px;
+  border-radius: 2px;
+}
+
+/* ── SIDEBAR ── */
+nav {
+  position: sticky;
+  top: 45px;
+  height: calc(100vh - 45px);
+  overflow-y: auto;
+  border-right: 1px solid var(--border2);
+  padding: 20px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.nav-group { margin-bottom: 20px; }
+.nav-group-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding: 0 16px 6px;
+}
+nav a {
+  display: block;
+  padding: 5px 16px;
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  transition: color 0.1s, border-color 0.1s;
+}
+nav a:hover { color: var(--text); border-left-color: var(--gold); }
+
+/* ── MAIN CONTENT ── */
+main {
+  padding: 32px 40px 80px;
+  max-width: 940px;
+  min-width: 0;
+}
+
+/* ── SECTION ── */
+section { margin-bottom: 56px; }
+.section-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 6px;
+}
+h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border2);
+  text-wrap: balance;
+}
+h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 24px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+h4 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin: 16px 0 8px;
+}
+p { color: var(--muted); margin-bottom: 12px; line-height: 1.65; }
+p strong { color: var(--text); }
+
+/* ── STATUS PILLS ── */
+.pill {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 2px;
+  white-space: nowrap;
+  font-family: 'Courier New', monospace;
+}
+.pill-new    { background: color-mix(in srgb, var(--blue) 15%, transparent);   color: var(--blue);   border: 1px solid color-mix(in srgb, var(--blue) 30%, transparent); }
+.pill-mod    { background: color-mix(in srgb, var(--amber) 15%, transparent);  color: var(--amber);  border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent); }
+.pill-exists { background: color-mix(in srgb, var(--green) 12%, transparent);  color: var(--green);  border: 1px solid color-mix(in srgb, var(--green) 25%, transparent); }
+.pill-del    { background: color-mix(in srgb, var(--red) 12%, transparent);    color: var(--red);    border: 1px solid color-mix(in srgb, var(--red) 25%, transparent); }
+.pill-sb     { background: color-mix(in srgb, var(--purple) 15%, transparent); color: var(--purple); border: 1px solid color-mix(in srgb, var(--purple) 30%, transparent); }
+.pill-phase  { background: color-mix(in srgb, var(--teal) 15%, transparent);   color: var(--teal);   border: 1px solid color-mix(in srgb, var(--teal) 30%, transparent); }
+
+/* ── TABLES ── */
+.tbl-wrap { overflow-x: auto; margin: 12px 0 24px; border: 1px solid var(--border); border-radius: 6px; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+thead { background: var(--surface2); }
+th {
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border2);
+  color: var(--text);
+  vertical-align: top;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: color-mix(in srgb, var(--gold) 3%, transparent); }
+td.mono, th.mono { font-family: 'Courier New', Consolas, monospace; font-size: 11.5px; }
+td.muted { color: var(--muted); }
+
+/* ── CODE BLOCKS ── */
+pre, .code-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 14px 16px;
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text);
+  overflow-x: auto;
+  margin: 10px 0 20px;
+  white-space: pre;
+}
+.code-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 4px;
+}
+code {
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: var(--teal);
+}
+
+/* ── SCENARIO CARDS ── */
+.scenario-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin: 12px 0 24px; }
+.scenario-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px;
+}
+.scenario-card .sc-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 6px;
+}
+.scenario-card .sc-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+.scenario-card ul { list-style: none; }
+.scenario-card ul li { font-size: 12px; color: var(--muted); padding: 3px 0; padding-left: 14px; position: relative; }
+.scenario-card ul li::before { content: '·'; position: absolute; left: 0; color: var(--gold); }
+
+/* ── FLOW DIAGRAMS ── */
+.flow {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px 20px;
+  margin: 12px 0 20px;
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.9;
+  color: var(--muted);
+  overflow-x: auto;
+  white-space: pre;
+}
+.flow .hl  { color: var(--text); font-weight: 600; }
+.flow .gl  { color: var(--green); }
+.flow .al  { color: var(--amber); }
+.flow .rl  { color: var(--red); }
+.flow .bl  { color: var(--blue); }
+.flow .pl  { color: var(--purple); }
+.flow .tl  { color: var(--teal); }
+
+/* ── CALLOUT ── */
+.callout {
+  border-left: 3px solid var(--gold);
+  background: color-mix(in srgb, var(--gold) 6%, transparent);
+  padding: 10px 14px;
+  border-radius: 0 4px 4px 0;
+  margin: 12px 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.callout strong { color: var(--text); }
+.callout.warn { border-left-color: var(--amber); background: color-mix(in srgb, var(--amber) 6%, transparent); }
+.callout.info { border-left-color: var(--blue); background: color-mix(in srgb, var(--blue) 6%, transparent); }
+
+/* ── PHASE CARDS ── */
+.phases { display: grid; gap: 12px; margin: 12px 0; }
+.phase-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  overflow: hidden;
+}
+.phase-num {
+  background: var(--surface2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 8px;
+  gap: 4px;
+}
+.phase-num .pn { font-size: 22px; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
+.phase-num .pl { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+.phase-body { padding: 14px 16px; }
+.phase-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.phase-items { list-style: none; }
+.phase-items li { font-size: 12px; color: var(--muted); padding: 2px 0 2px 16px; position: relative; }
+.phase-items li::before { content: '→'; position: absolute; left: 0; color: var(--faint); font-size: 11px; }
+
+/* ── DIVIDER ── */
+.divider { border: none; border-top: 1px solid var(--border2); margin: 32px 0; }
+
+/* ── INLINE STATUS ROW ── */
+.status-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border2); }
+.status-row:last-child { border-bottom: none; }
+.status-row .sr-name { flex: 1; font-size: 12.5px; font-family: 'Courier New', Consolas, monospace; color: var(--text); }
+.status-row .sr-note { font-size: 12px; color: var(--muted); flex: 2; }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+@media (max-width: 768px) {
+  body { grid-template-columns: 1fr; }
+  nav { display: none; }
+  main { padding: 20px 16px 60px; }
+}
+</style>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-title">ASTRA CTS</span>
+    <span class="topbar-sub">Multi-Scenario Architecture — Gap Analysis & Development Plan</span>
+  </div>
+  <div class="topbar-right">
+    <span class="doc-badge">CONFIDENTIAL</span>
+    <button class="theme-btn" onclick="toggle()">Toggle Theme</button>
+  </div>
+</div>
+
+<nav>
+  <div class="nav-group">
+    <div class="nav-group-label">Context</div>
+    <a href="#decisions">Locked Decisions</a>
+    <a href="#scenarios">3 Scenarios</a>
+    <a href="#sequences">Processing Sequences</a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Gap Analysis</div>
+    <a href="#entities">Entities & Schema</a>
+    <a href="#scanner-config">Scanner Config</a>
+    <a href="#services">Services</a>
+    <a href="#workflows">Workflows</a>
+    <a href="#kafka">Kafka Topics</a>
+    <a href="#redis">Redis Structures</a>
+    <a href="#grpc">gRPC Services</a>
+    <a href="#mcp">MCP Servers</a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Product</div>
+    <a href="#ui">UI Screens</a>
+    <a href="#config">Configuration</a>
+    <a href="#messages">Messages</a>
+    <a href="#security">Security</a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Delivery</div>
+    <a href="#phases">Development Phases</a>
+  </div>
+</nav>
+
+<main>
+
+<!-- ══════════════════════════════════ DECISIONS ══════════════════════════════════ -->
+<section id="decisions">
+  <div class="section-eyebrow">Architecture</div>
+  <h2>Locked Decisions</h2>
+  <p>These decisions are final as of this deep-dive session. No code should be written that contradicts them.</p>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Decision</th><th>What was settled</th></tr></thead>
+      <tbody>
+        <tr><td><strong>One binary</strong></td><td class="muted">Configuration-driven deployment. Same codebase for all scenarios. RBI compliance certified once. Features gate via Helm Layer 2.</td></tr>
+        <tr><td><strong>Branch → PU mapping</strong></td><td class="muted">Base entity, mandatory in all scenarios. Administrative decision by SB — not geographic. A Pune branch may map to Mumbai PU.</td></tr>
+        <tr><td><strong>ProcessingUnit</strong></td><td class="muted">First-class entity. All Kafka topics and Temporal task queues are PU-scoped, not just bank-scoped.</td></tr>
+        <tr><td><strong>Command Center</strong></td><td class="muted">Logical layer for SB (thin, within existing workflows). New microservice for Agency (substantive routing across multiple SBs).</td></tr>
+        <tr><td><strong>Session cut-off</strong></td><td class="muted">NPCI-mandated and uniform across all banks. No per-SB cut-off. Agency's effective cut-off = NPCI cut-off − per-SB submission buffer (config).</td></tr>
+        <tr><td><strong>Clearing session granularity</strong></td><td class="muted">One clearing session per SB (groups all SMBs routing through that SB).</td></tr>
+        <tr><td><strong>OCR eliminated</strong></td><td class="muted">Scanner hardware handles MICR (magnetic head) and field OCR. GOT-OCR2.0 is removed entirely. Vision LLM validates, does not extract.</td></tr>
+        <tr><td><strong>Vision ordering — Presentment</strong></td><td class="muted">Vision LLM is the LAST step before lot seal. Scanner → CTS-2010 → Lot → Vision → seal or HOLD.</td></tr>
+        <tr><td><strong>Vision ordering — Drawee</strong></td><td class="muted">Vision LLM is FIRST. CBS is LAST. Fail fast before expensive external calls.</td></tr>
+        <tr><td><strong>Human Review — Drawee</strong></td><td class="muted">Always routed to SMB, regardless of where Vision LLM ran. SMB reviewer owns the decision.</td></tr>
+        <tr><td><strong>Signature Vault location</strong></td><td class="muted">At SMB level when SMB has own CBS. At Agency level when Agency manages CBS. Always co-located with CBS.</td></tr>
+        <tr><td><strong>SMB with own CBS</strong></td><td class="muted">Full ASTRA deployed at SMB. Vision LLM optional (depends on SMB GPU capability). If no Vision LLM at SMB — Vision runs at PU, results returned.</td></tr>
+        <tr><td><strong>EEH</strong></td><td class="muted">New microservice. Browser-based (gRPC-Web + Envoy proxy). Separate from API Gateway. Serves SMB/external branches.</td></tr>
+        <tr><td><strong>Branch client</strong></td><td class="muted">Browser-based. Requires local scanner bridge agent (tray app on branch workstation) to bridge browser ↔ hardware scanner.</td></tr>
+        <tr><td><strong>Mismatch resolution</strong></td><td class="muted">PU status: HOLD. Branch sees held queue in UI. Actions: Go-Ahead (proceed) or Rejected (discard). Branch decides based on physical examination.</td></tr>
+        <tr><td><strong>CTS Miniature DB</strong></td><td class="muted">Stop Payment and PPS live in ASTRA's own DB (synced from CBS). CBS live calls are only: get_balance, get_account_status, get_signatures.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════ SCENARIOS ══════════════════════════════════ -->
+<section id="scenarios">
+  <div class="section-eyebrow">Deployment</div>
+  <h2>Three Deployment Scenarios</h2>
+
+  <div class="scenario-grid">
+    <div class="scenario-card">
+      <div class="sc-label">Scenario 1</div>
+      <div class="sc-title">SB + SMB — SMB CBS on-prem</div>
+      <ul>
+        <li>ASTRA deployed at SB</li>
+        <li>ASTRA also deployed at SMB (CBS concern)</li>
+        <li>CBS proxy MCP agent at SMB</li>
+        <li>Signature vault at SMB level</li>
+        <li>Vision LLM at SB PU (if SMB has no GPU)</li>
+        <li>Human review queue at SMB portal</li>
+        <li>CC = logical layer → NPCI</li>
+        <li><code>deployment_mode: SB_NGCH</code></li>
+      </ul>
+    </div>
+    <div class="scenario-card">
+      <div class="sc-label">Scenario 2</div>
+      <div class="sc-title">Agency + SMB — Managed CBS</div>
+      <ul>
+        <li>ASTRA at Agency only</li>
+        <li>Agency manages CBS for all SMBs</li>
+        <li>Signature vault at Agency level</li>
+        <li>Vision LLM at Agency PU</li>
+        <li>CC = new microservice → multiple SBs</li>
+        <li>One SB connector per SB relationship</li>
+        <li>One clearing session per SB</li>
+        <li><code>deployment_mode: AGENCY_SB_RELAY</code></li>
+      </ul>
+    </div>
+    <div class="scenario-card">
+      <div class="sc-label">Scenario 3</div>
+      <div class="sc-title">Agency + SMB — SMB CBS on-prem</div>
+      <ul>
+        <li>ASTRA at Agency + at each SMB</li>
+        <li>CBS proxy MCP agent at each SMB</li>
+        <li>Signature vault at each SMB level</li>
+        <li>Vision LLM optional at SMB</li>
+        <li>CC = new microservice → multiple SBs</li>
+        <li>Most complex; all isolation enforced</li>
+        <li><code>deployment_mode: AGENCY_SB_RELAY</code></li>
+        <li><code>smb_cbs_proxy.enabled: true</code></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout warn">
+    <strong>Implication:</strong> Scenarios 2 and 3 share the same <code>deployment_mode: AGENCY_SB_RELAY</code>. The difference is <code>smb_cbs_proxy.enabled</code>. The agency-cc-service microservice is active in both.
+  </div>
+</section>
+
+<!-- ══════════════════════════════════ SEQUENCES ══════════════════════════════════ -->
+<section id="sequences">
+  <div class="section-eyebrow">Processing</div>
+  <h2>Processing Sequences (Settled)</h2>
+
+  <h3>Outward — Presentment (Vision LAST)</h3>
+  <div class="flow"><span class="tl">Scanner hardware</span>
+  MICR (magnetic head) — most reliable, no AI needed
+  Built-in OCR → amount, payee, date, cheque serial
+  Images → color front, grayscale front, rear
+         ↓  <span class="muted">upload to EEH via gRPC streaming</span>
+<span class="hl">CTS-2010 compliance check</span>  <span class="muted">← image format, DPI, dimensions</span>
+  FAIL → reject immediately, notify branch
+         ↓
+<span class="hl">Lot assignment</span>  <span class="muted">← PU-level, branch → PU via CRL</span>
+         ↓
+<span class="gl">Vision LLM ← LAST</span>  <span class="muted">validate scanner data vs image, figures vs words, alteration</span>
+  <span class="gl">MATCH</span>  → lot sealed → endorsement → NGCH / SB
+  <span class="rl">MISMATCH</span> → PU status: <span class="al">HOLD</span> → push to branch queue
+              Branch: <span class="gl">Go-Ahead</span> (proceed) | <span class="rl">Rejected</span> (discard)</div>
+
+  <h3>Inward — Drawee (Vision FIRST, CBS LAST)</h3>
+  <div class="flow">NGCH → SB → Command Center → PU
+         ↓
+<span class="gl">Vision LLM ← FIRST</span>  <span class="muted">early filter — alteration? image clear? readable?</span>
+  FAIL → <span class="rl">STP_RETURN</span> immediately, no further processing
+         ↓
+<span class="hl">CTS checks</span>  <span class="muted">MICR validation, amount cross-check, CTS-2010</span>
+         ↓
+<span class="hl">Stop Payment check</span>  <span class="muted">← ASTRA miniature DB (Redis vault)</span>
+         ↓
+<span class="hl">PPS check</span>  <span class="muted">← ASTRA miniature DB (Redis vault)</span>
+         ↓
+<span class="hl">Signature Verify</span>  <span class="muted">← vault at SMB level or Agency level (Redis)</span>
+         ↓
+<span class="hl">Fraud Score</span>  <span class="muted">← XGBoost — synthesises all signals above + SHAP</span>
+         ↓
+<span class="al">CBS ← LAST</span>  <span class="muted">get_balance, get_account_status — most expensive, earned by passing all above</span>
+         ↓
+<span class="gl">STP_CONFIRM</span> | <span class="rl">STP_RETURN</span> | <span class="al">HUMAN_REVIEW → SMB portal always</span></div>
+</section>
+
+<!-- ══════════════════════════════════ ENTITIES ══════════════════════════════════ -->
+<section id="entities">
+  <div class="section-eyebrow">Database</div>
+  <h2>New Entities & Schema Changes</h2>
+
+  <h3><span class="pill pill-new">NEW</span> ProcessingUnit</h3>
+  <pre>cts.processing_units
+  pu_id               UUID PRIMARY KEY
+  bank_id             TEXT NOT NULL            -- the NGCH member (always SB)
+  pu_name             TEXT NOT NULL            -- e.g. "MUMBAI_CENTRAL"
+  clearing_zone       TEXT                     -- informational only, not routing
+  ngch_submission_ifsc TEXT                   -- IFSC this PU files under (SB_NGCH mode)
+  sb_submission_id    UUID REFERENCES sb_connections  -- AGENCY_SB_RELAY mode
+  is_active           BOOLEAN DEFAULT true
+  created_at          TIMESTAMPTZ DEFAULT now()</pre>
+
+  <h3><span class="pill pill-new">NEW</span> Branch</h3>
+  <pre>cts.branches
+  branch_id           UUID PRIMARY KEY
+  owning_bank_id      TEXT NOT NULL            -- SB or SMB bank_id
+  owning_bank_type    TEXT NOT NULL            -- SB_OWN | SMB_SPONSORED
+  ifsc_code           TEXT NOT NULL UNIQUE     -- routing key for CRL
+  micr_code           TEXT NOT NULL            -- MICR city+bank+branch
+  pu_id               UUID REFERENCES cts.processing_units  -- THE KEY MAPPING
+  sponsor_bank_id     TEXT                     -- null if SB_OWN
+  branch_name         TEXT NOT NULL
+  network_type        TEXT NOT NULL            -- MPLS | VPN | SFTP_FALLBACK
+  is_active           BOOLEAN DEFAULT true
+  created_at          TIMESTAMPTZ DEFAULT now()</pre>
+
+  <h3 id="scanner-config"><span class="pill pill-new">NEW</span> ScannerConfig</h3>
+  <p>Branch-level configuration that tells ASTRA how to parse the OEM scanner software's drop-folder output. Every scanner OEM produces a different metadata file format (CSV dialect, XML, fixed-width) with different field names. This config is the mapper — the rest of the pipeline is OEM-blind once mapping is applied.</p>
+  <pre>cts.scanner_configs
+  scanner_config_id   UUID PRIMARY KEY
+  bank_id             TEXT NOT NULL
+  branch_id           UUID REFERENCES cts.branches   -- null = bank-wide default
+  scanner_oem         TEXT NOT NULL            -- PANINI | DIGITAL_CHECK | MAGTEK | RDM | OPEX | GENERIC
+  scanner_model       TEXT NOT NULL            -- e.g. "Panini Vision X", "TS240"
+  output_format       TEXT NOT NULL            -- CSV_COMMA | CSV_PIPE | CSV_TAB | XML | FIXED_WIDTH
+  date_format         TEXT NOT NULL            -- strptime pattern, e.g. "%%d%%m%%Y"
+  amount_format       TEXT NOT NULL            -- DECIMAL_DOT | DECIMAL_COMMA | INTEGER_PAISE
+  field_mapping       JSONB NOT NULL           -- OEM field name → canonical field name
+  image_naming_pattern TEXT NOT NULL           -- e.g. "{batch_id}_{seq:04d}_{side}.tif"
+  image_side_mapping  JSONB NOT NULL           -- OEM side codes → color_front | grey_front | rear
+  drop_folder_path    TEXT NOT NULL            -- local path or sftp://host/path
+  is_active           BOOLEAN DEFAULT true
+  created_at          TIMESTAMPTZ DEFAULT now()</pre>
+  <div class="callout info">
+    <strong>Pattern identical to EJ OEM fingerprinting:</strong> EJ uses dynamic detection (fingerprint the file). Scanner uses explicit config per branch (bank knows their hardware). Both converge to a canonical model — the downstream pipeline is OEM-blind in both cases.
+  </div>
+
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>OEM</th><th>Format</th><th>Typical metadata file</th><th>Amount style</th></tr></thead>
+    <tbody>
+      <tr><td>Panini Vision X / I:Deal</td><td class="mono muted">CSV_PIPE</td><td class="mono muted">{batch}.dat or {batch}.txt</td><td class="muted">DECIMAL_COMMA</td></tr>
+      <tr><td>Digital Check TS240 / CX30</td><td class="mono muted">XML</td><td class="mono muted">{batch}.xml</td><td class="muted">DECIMAL_DOT</td></tr>
+      <tr><td>Magtek Excella / Versa</td><td class="mono muted">CSV_COMMA</td><td class="mono muted">{batch}.csv</td><td class="muted">INTEGER_PAISE</td></tr>
+      <tr><td>RDM EC7000i</td><td class="mono muted">FIXED_WIDTH</td><td class="mono muted">{batch}.trn</td><td class="muted">DECIMAL_DOT</td></tr>
+      <tr><td>OPEX / generic</td><td class="mono muted">CSV_TAB</td><td class="mono muted">{batch}.txt</td><td class="muted">DECIMAL_DOT</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="code-label">Canonical output model — ScannedChequeInput (OEM-blind from here on)</div>
+  <pre>ScannedChequeInput:
+  scan_id              str      # SCAN-{YYYYMMDD}-{UUID4[:8]}
+  branch_id            str
+  oem                  ScannerOEM
+  micr_line            str      # full MICR line (not logged in full)
+  cheque_serial        str      # from MICR
+  account_number_hash  str      # HMAC-SHA256 — never plain
+  account_suffix       str      # last 4 digits for display: ****4521
+  amount_figures       Decimal  # parsed from OEM field, Indian format normalised
+  amount_words         str      # as printed
+  payee_masked         str      # first initial + *** — never full name
+  cheque_date          date
+  image_color_path     Path     # path in drop folder before MinIO upload
+  image_grey_path      Path
+  image_rear_path      Path
+  scan_timestamp       datetime
+  batch_id             str
+  sequence_in_batch    int
+  oem_confidence       float | None   # scanner's own OCR confidence, if provided</pre>
+
+  <h3><span class="pill pill-new">NEW</span> ClearingSession</h3>
+  <pre>cts.clearing_sessions
+  session_id          UUID PRIMARY KEY
+  bank_id             TEXT NOT NULL            -- SB bank_id
+  sb_connection_id    UUID                     -- AGENCY mode: which SB
+  clearing_date       DATE NOT NULL
+  session_type        TEXT NOT NULL            -- MORNING | AFTERNOON | EVENING
+  status              TEXT NOT NULL            -- OPEN | SEALED | SUBMITTED | RECONCILED
+  opened_at           TIMESTAMPTZ
+  sealed_at           TIMESTAMPTZ
+  submitted_at        TIMESTAMPTZ
+  npci_ack_ref        TEXT                     -- NGCH acknowledgement
+  total_instruments   INT DEFAULT 0
+  total_amount_range  TEXT                     -- bucketed, never exact</pre>
+
+  <h3><span class="pill pill-new">NEW</span> SBConnection (Agency mode)</h3>
+  <pre>cts.sb_connections
+  sb_connection_id    UUID PRIMARY KEY
+  agency_id           TEXT NOT NULL            -- the agency's bank_id
+  sb_bank_id          TEXT NOT NULL            -- the Sponsor Bank's bank_id
+  sb_name             TEXT NOT NULL
+  connector_type      TEXT NOT NULL            -- SFTP_GENERIC | BANCS_API | NELITO_API
+  endpoint_ref        TEXT NOT NULL            -- masked; actual URL in Vault
+  smb_ids             TEXT[]                   -- SMBs routed through this SB
+  submission_buffer_minutes INT DEFAULT 30     -- NPCI cut-off minus this
+  is_active           BOOLEAN DEFAULT true
+  last_tested_at      TIMESTAMPTZ</pre>
+
+  <h3><span class="pill pill-new">NEW</span> MismatchQueue</h3>
+  <pre>cts.mismatch_queue
+  mismatch_id         UUID PRIMARY KEY
+  instrument_id       UUID NOT NULL
+  branch_id           UUID REFERENCES cts.branches
+  pu_id               UUID REFERENCES cts.processing_units
+  vision_finding      JSONB NOT NULL           -- what Vision LLM flagged
+  scanner_data        JSONB NOT NULL           -- what scanner reported
+  status              TEXT NOT NULL            -- HELD | GO_AHEAD | REJECTED
+  held_at             TIMESTAMPTZ DEFAULT now()
+  resolved_at         TIMESTAMPTZ
+  resolved_by         TEXT                     -- operator_id
+  resolution_note     TEXT</pre>
+
+  <h3><span class="pill pill-mod">MODIFIED</span> Existing Tables</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Table</th><th>New Columns</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="mono">cts.cheque_instruments</td>
+          <td class="mono muted">pu_id UUID, branch_id UUID, clearing_session_id UUID, vision_result JSONB, vision_cascade_level TEXT</td>
+        </tr>
+        <tr>
+          <td class="mono">cts.ngch_submissions</td>
+          <td class="mono muted">pu_id UUID, sb_connection_id UUID, session_id UUID</td>
+        </tr>
+        <tr>
+          <td class="mono">cts.agent_decisions</td>
+          <td class="mono muted">pu_id UUID, smb_id TEXT, human_review_routed_to TEXT</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3><span class="pill pill-new">NEW</span> Alembic Migrations Required</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Migration file</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td class="mono">20260705_add_processing_units</td><td class="muted">New table, no FK dependencies yet</td></tr>
+        <tr><td>2</td><td class="mono">20260705_add_branches</td><td class="muted">FK to processing_units</td></tr>
+        <tr><td>3</td><td class="mono">20260705_add_sb_connections</td><td class="muted">Agency mode only; nullable in SB mode</td></tr>
+        <tr><td>4</td><td class="mono">20260705_add_clearing_sessions</td><td class="muted">FK to sb_connections (nullable)</td></tr>
+        <tr><td>5</td><td class="mono">20260705_add_mismatch_queue</td><td class="muted">FK to branches, processing_units</td></tr>
+        <tr><td>6</td><td class="mono">20260705_add_eeh_sessions</td><td class="muted">EEH upload session tracking</td></tr>
+        <tr><td>7</td><td class="mono">20260706_alter_cheque_instruments_add_pu</td><td class="muted">Nullable initially; NOT NULL in next release</td></tr>
+        <tr><td>8</td><td class="mono">20260706_alter_ngch_submissions_add_pu</td><td class="muted">Same pattern</td></tr>
+        <tr><td>9</td><td class="mono">20260705_add_scanner_configs</td><td class="muted">No FK dependencies — can run before branches</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════ SERVICES ══════════════════════════════════ -->
+<section id="services">
+  <div class="section-eyebrow">Microservices</div>
+  <h2>New & Modified Services</h2>
+
+  <h3><span class="pill pill-new">NEW</span> eeh-service — External Exchange Hub</h3>
+  <p>Serves SMB and external SB branches. Browser-based clients connect via gRPC-Web through an Envoy proxy. Separate deployment from api-gateway.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Attribute</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>Language</td><td class="muted">Python (FastAPI for health/metrics) + gRPC server (grpcio)</td></tr>
+      <tr><td>Protocol</td><td class="muted">gRPC-Web (browser → Envoy → gRPC) + SSE for status feed</td></tr>
+      <tr><td>Temporal task queue</td><td class="mono muted">eeh-processing-{bank_id}</td></tr>
+      <tr><td>Kafka produces to</td><td class="mono muted">cts.outward.scanned.{bank_id}.{pu_id}</td></tr>
+      <tr><td>Kafka produces to</td><td class="mono muted">cts.mismatch.{bank_id}.{branch_id}</td></tr>
+      <tr><td>Redis reads</td><td class="mono muted">crl:{ifsc_code} — branch → PU routing cache</td></tr>
+      <tr><td>Security</td><td class="muted">mTLS per branch cert + operator JWT + HMAC-SHA256 request signing</td></tr>
+      <tr><td>Namespace</td><td class="mono muted">astra-cts-{bank_id} (same as CTS)</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3><span class="pill pill-new">NEW</span> ieh-service — Internal Exchange Hub</h3>
+  <p>Same capabilities as EEH but serves SB's own branches on the internal network. Lighter security perimeter (internal LAN), same downstream processing.</p>
+
+  <h3><span class="pill pill-new">NEW</span> agency-cc-service — Agency Command Center</h3>
+  <p>Active only when <code>deployment_mode: AGENCY_SB_RELAY</code>. Aggregates sealed lots from all PUs, groups by SB, submits to each SB via its connector, receives returns, demuxes back to PUs.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Attribute</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>Language</td><td class="muted">Python</td></tr>
+      <tr><td>Temporal task queue</td><td class="mono muted">cc-agency-{agency_id}</td></tr>
+      <tr><td>Kafka consumes</td><td class="mono muted">cts.outward.lot.sealed.{bank_id}.{pu_id} (all PUs)</td></tr>
+      <tr><td>Kafka produces</td><td class="mono muted">cts.sb.relay.outward.{agency_id}.{sb_id}</td></tr>
+      <tr><td>Kafka consumes</td><td class="mono muted">cts.sb.relay.inward.{agency_id}.{sb_id} (all SBs)</td></tr>
+      <tr><td>SB adapters</td><td class="muted">shared/sb_connector/ — SFTP_GENERIC, BANCS_API, NELITO_API</td></tr>
+      <tr><td>Session management</td><td class="muted">One clearing session per SB per clearing day</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3><span class="pill pill-new">NEW</span> scanner-bridge — Local Branch Agent</h3>
+  <p>Lightweight tray/background application installed on the branch workstation. Bridges browser (which cannot access USB/TWAIN hardware) to the physical scanner. Exposes a local WebSocket on <code>localhost:7431</code> that the branch web app connects to.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Attribute</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>Language</td><td class="muted">Go (minimal footprint, no runtime dependency)</td></tr>
+      <tr><td>Scanner protocol</td><td class="muted">TWAIN (Windows) / SANE (Linux)</td></tr>
+      <tr><td>Local interface</td><td class="mono muted">ws://localhost:7431 — browser connects to this</td></tr>
+      <tr><td>Outputs</td><td class="muted">TIFF images + MICR data from scanner driver</td></tr>
+      <tr><td>Distribution</td><td class="muted">MSI installer (Windows) / deb package (Linux)</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3><span class="pill pill-new">NEW</span> smb-cbs-vault-proxy — SMB Edge Agent</h3>
+  <p>Go binary deployed at SMB premises. Serves as MCP server exposing CBS and vault data to SB/Agency PU. Only deployed in Scenarios 1 and 3 (SMB with own CBS).</p>
+
+  <h3>Modified Existing Services</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Service</th><th>What changes</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">cts-agent-worker</td><td class="muted">Drawee workflow reordered (Vision FIRST, CBS LAST). Human review routed to SMB-specific topic. PU context added to all activities.</td></tr>
+      <tr><td class="mono">ai-inference-server</td><td class="muted">GOT-OCR2.0 queue removed. cts-ocr-l1 and cts-ocr-l2 queues retired. Vision LLM queues remain.</td></tr>
+      <tr><td class="mono">api-gateway</td><td class="muted">New routes for PU management, branch admin, clearing session, SB connection config.</td></tr>
+      <tr><td class="mono">vault-sync-service</td><td class="muted">SMB-scoped sync in Scenario 1/3 (syncs to SMB's local vault via MCP proxy).</td></tr>
+      <tr><td class="mono">fraud-scoring-service</td><td class="muted">Receives Vision LLM result as additional input feature. Signature mismatch fed in explicitly.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ══════════════════════════════════ WORKFLOWS ══════════════════════════════════ -->
+<section id="workflows">
+  <div class="section-eyebrow">Temporal</div>
+  <h2>Temporal Workflows</h2>
+
+  <h3><span class="pill pill-new">NEW</span> New Workflows</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Workflow</th><th>Trigger</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="mono">ClearingSessionWorkflow</td>
+        <td class="muted">Scheduled (NPCI session open event) or ops trigger</td>
+        <td class="muted">Manages one clearing session per SB. Waits for all PUs to seal lots, aggregates, triggers submission. SB_NGCH → NGCHSubmissionWorkflow. AGENCY_SB_RELAY → AgencyCCWorkflow.</td>
+      </tr>
+      <tr>
+        <td class="mono">MismatchResolutionWorkflow</td>
+        <td class="muted">Vision LLM MISMATCH signal from OutwardScanWorkflow</td>
+        <td class="muted">Holds instrument at PU. Publishes to branch queue. Waits for branch signal (GO_AHEAD or REJECTED). 4-hour timeout → auto-reject. Resumes OutwardScanWorkflow on signal.</td>
+      </tr>
+      <tr>
+        <td class="mono">AgencyCCWorkflow</td>
+        <td class="muted">ClearingSessionWorkflow in AGENCY_SB_RELAY mode</td>
+        <td class="muted">Groups sealed lots by SB. Submits to each SB via sb_connector. Tracks per-SB submission status. Receives returns. Demuxes back to PU inward queues.</td>
+      </tr>
+      <tr>
+        <td class="mono">SBInwardForwardingWorkflow</td>
+        <td class="muted">Kafka: cts.sb.relay.inward.{agency_id}.{sb_id}</td>
+        <td class="muted">Agency mode only. Receives inward instruments forwarded by SB-side agent. Routes to correct PU via CRL. Preserves original_ngch_ts for IET.</td>
+      </tr>
+    </tbody>
+  </table></div>
+
+  <h3><span class="pill pill-mod">MODIFIED</span> Modified Workflows</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Workflow</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="mono">OutwardScanWorkflow</td>
+        <td class="muted">PU context added. Vision LLM moved from N/A to LAST step (after lot assignment). On MISMATCH → spawns MismatchResolutionWorkflow as child (ABANDON policy).</td>
+      </tr>
+      <tr>
+        <td class="mono">ChequeProcessingWorkflow</td>
+        <td class="muted">Activity reorder: validate_cts2010 → ocr_extract REMOVED → detect_alteration moved to FIRST → check_stop_payment → lookup_pps → verify_signature → score_fraud → check_cbs_balance → check_account_status → synthesise_decision. Human review topic now smb-scoped.</td>
+      </tr>
+      <tr>
+        <td class="mono">NGCHSubmissionWorkflow</td>
+        <td class="muted">Now PU-aware. Only active in SB_NGCH mode. Called by ClearingSessionWorkflow, not triggered directly.</td>
+      </tr>
+      <tr>
+        <td class="mono">SessionReconciliationWorkflow</td>
+        <td class="muted">Multi-PU aware. Aggregates RRF across PUs. In AGENCY_SB_RELAY mode, splits settlement by SMB before distributing.</td>
+      </tr>
+      <tr>
+        <td class="mono">VaultSyncWorkflow</td>
+        <td class="muted">SMB-scoped in Scenarios 1/3 — syncs to SMB's local Redis via MCP proxy endpoint.</td>
+      </tr>
+      <tr>
+        <td class="mono">DeltaVaultSyncWorkflow</td>
+        <td class="muted">Same scoping as VaultSyncWorkflow. MCP proxy handles the SMB-side write.</td>
+      </tr>
+    </tbody>
+  </table></div>
+
+  <div class="callout">
+    <strong>Workflow ID convention update:</strong> All CTS workflow IDs now include PU: <code>cts-{bank_id}-{pu_id}-{instrument_id}</code>. Clearing sessions: <code>cts-session-{bank_id}-{sb_id}-{date}-{session_type}</code>.
+  </div>
+</section>
+
+<!-- ══════════════════════════════════ KAFKA ══════════════════════════════════ -->
+<section id="kafka">
+  <div class="section-eyebrow">Messaging</div>
+  <h2>Kafka Topics</h2>
+
+  <h3><span class="pill pill-mod">MODIFIED</span> PU-scoped (replacing bank-only topics)</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Was</th><th>Now</th><th>Reason</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">cts.inward.{bank_id}</td><td class="mono">cts.inward.{bank_id}.{pu_id}</td><td class="muted">Route directly to correct PU's worker pool</td></tr>
+      <tr><td class="mono">cts.outward.scanned.{bank_id}</td><td class="mono">cts.outward.scanned.{bank_id}.{pu_id}</td><td class="muted">PU-level lot management</td></tr>
+      <tr><td class="mono">cts.outward.lot.sealed.{bank_id}</td><td class="mono">cts.outward.lot.sealed.{bank_id}.{pu_id}</td><td class="muted">PU completes its lot independently</td></tr>
+      <tr><td class="mono">cts.human.review.{bank_id}</td><td class="mono">cts.human.review.{bank_id}.{smb_id}</td><td class="muted">Human review always routed to SMB</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3><span class="pill pill-new">NEW</span> New Topics</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Topic</th><th>Producer</th><th>Consumer</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">cts.mismatch.{bank_id}.{branch_id}</td><td class="muted">EEH service (Vision MISMATCH)</td><td class="muted">Branch portal SSE feed</td><td class="muted">PU → branch HOLD notification</td></tr>
+      <tr><td class="mono">cts.mismatch.resolved.{bank_id}</td><td class="muted">Branch portal (Go-Ahead/Reject)</td><td class="muted">MismatchResolutionWorkflow</td><td class="muted">Branch decision signal</td></tr>
+      <tr><td class="mono">cts.session.events.{bank_id}.{sb_id}</td><td class="muted">ClearingSessionWorkflow</td><td class="muted">Agency CC, Audit, Analytics</td><td class="muted">Session lifecycle (open/seal/submit/reconciled)</td></tr>
+      <tr><td class="mono">cts.sb.relay.outward.{agency_id}.{sb_id}</td><td class="muted">AgencyCCWorkflow</td><td class="muted">SB-Side Forwarder (at SB)</td><td class="muted">Agency → SB: outward lot transfer</td></tr>
+      <tr><td class="mono">cts.sb.relay.inward.{agency_id}.{sb_id}</td><td class="muted">SB-Side Forwarder (at SB)</td><td class="muted">SBInwardForwardingWorkflow</td><td class="muted">SB → Agency: inward instruments with original_ngch_ts</td></tr>
+      <tr><td class="mono">cts.crl.invalidated</td><td class="muted">Branch admin UI (PU remapping)</td><td class="muted">CRL service (cache invalidation)</td><td class="muted">Branch→PU mapping change propagation</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3><span class="pill pill-del">REMOVED</span> Retired Topics</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Topic</th><th>Reason</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">cts.vault.sync.{bank_id}</td><td class="muted">Replaced by PU-scoped vault sync (vault sync is now bank+SMB aware, not generic)</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ══════════════════════════════════ REDIS ══════════════════════════════════ -->
+<section id="redis">
+  <div class="section-eyebrow">Cache</div>
+  <h2>Redis Structures</h2>
+
+  <p>All new keys in <code>redis-cts</code> cluster. No new keys in <code>redis-ej</code>. Module isolation maintained.</p>
+
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Key pattern</th><th>Type</th><th>TTL</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">crl:{ifsc_code}</td><td class="muted">String (JSON)</td><td class="muted">5 min</td><td class="muted">IFSC → {branch_id, pu_id, bank_id} routing cache. Invalidated on branch remapping.</td></tr>
+      <tr><td class="mono">pu:config:{bank_id}:{pu_id}</td><td class="muted">Hash</td><td class="muted">30 min</td><td class="muted">PU metadata: name, worker count, queue depth, session status.</td></tr>
+      <tr><td class="mono">eeh:session:{session_id}</td><td class="muted">Hash</td><td class="muted">4 hours</td><td class="muted">Active EEH upload session: branch_id, operator_id, items_uploaded, lot_id, status.</td></tr>
+      <tr><td class="mono">mismatch:branch:{bank_id}:{branch_id}</td><td class="muted">Sorted Set</td><td class="muted">8 hours</td><td class="muted">Held instrument IDs, scored by hold timestamp. Branch UI reads this set.</td></tr>
+      <tr><td class="mono">cc:session:{bank_id}:{sb_id}:{date}</td><td class="muted">Hash</td><td class="muted">24 hours</td><td class="muted">Clearing session state: pu_lots_sealed, lots_submitted, returns_received, status.</td></tr>
+      <tr><td class="mono">sb:conn:health:{agency_id}:{sb_id}</td><td class="muted">String (JSON)</td><td class="muted">2 min</td><td class="muted">SB connector health: last_ping, latency_ms, status. Agency CC dashboard reads.</td></tr>
+      <tr><td class="mono">branch:cert:{branch_id}</td><td class="muted">Hash</td><td class="muted">None</td><td class="muted">Branch mTLS cert metadata: thumbprint, expiry, issuer. Checked on every EEH connect.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ══════════════════════════════════ GRPC ══════════════════════════════════ -->
+<section id="grpc">
+  <div class="section-eyebrow">Protocol</div>
+  <h2>gRPC Service Definitions</h2>
+
+  <h3><span class="pill pill-new">NEW</span> EEHService</h3>
+  <pre>service EEHService {
+  // Branch uploads cheques one-by-one; server acks each in real-time
+  rpc UploadCheque(stream ChequePayload) returns (stream ChequeAck);
+
+  // Supervisor seals the lot when scanning is done
+  rpc SealLot(LotSealRequest) returns (LotSealAck);
+
+  // Branch polls its held/mismatched items queue
+  rpc GetMismatchQueue(BranchQueueRequest) returns (stream MismatchItem);
+
+  // Branch resolves a held item: GO_AHEAD or REJECTED
+  rpc ResolveMismatch(MismatchResolution) returns (ResolutionAck);
+
+  // Session status (for branch dashboard)
+  rpc GetSessionStatus(SessionStatusRequest) returns (SessionStatus);
+}
+
+message ChequePayload {
+  string branch_id      = 1;
+  string session_id     = 2;
+  string idempotency_key = 3;   // branch_id + session_id + seq_no
+  string micr_line      = 4;    // from scanner
+  string amount_figures = 5;    // from scanner OCR
+  string amount_words   = 6;    // from scanner OCR
+  string payee_display  = 7;    // masked
+  bytes  image_color    = 8;    // TIFF front color
+  bytes  image_grey     = 9;    // TIFF front grayscale
+  bytes  image_rear     = 10;   // TIFF rear / endorsement
+  string scan_timestamp = 11;   // ISO-8601
+}</pre>
+
+  <h3><span class="pill pill-new">NEW</span> SBConnectorService (Agency → SB)</h3>
+  <pre>service SBConnectorService {
+  // Submit grouped lot to SB platform
+  rpc SubmitLot(LotSubmissionRequest) returns (SubmissionAck);
+
+  // Receive inward instruments SB forwards to agency
+  rpc PollInward(PollInwardRequest) returns (stream InwardInstrument);
+
+  // Receive returns and RRF after session
+  rpc PollReturns(PollReturnsRequest) returns (stream ReturnItem);
+
+  // Get settlement position for agency's SMBs
+  rpc GetSettlement(SettlementRequest) returns (SettlementReport);
+}</pre>
+
+  <h3><span class="pill pill-new">NEW</span> CRLService (internal)</h3>
+  <pre>service CRLService {
+  // Resolve IFSC → PU (used by EEH, IEH, ChequeProcessingWorkflow)
+  rpc ResolveBranch(ResolveRequest) returns (BranchResolution);
+
+  // Invalidate cache on branch remapping
+  rpc InvalidateCache(InvalidateCacheRequest) returns (InvalidateCacheAck);
+}</pre>
+</section>
+
+<!-- ══════════════════════════════════ MCP ══════════════════════════════════ -->
+<section id="mcp">
+  <div class="section-eyebrow">Integration</div>
+  <h2>MCP Servers</h2>
+
+  <h3><span class="pill pill-new">NEW</span> smb-cbs-vault-proxy</h3>
+  <p>Go binary at SMB premises. Deployed only in Scenarios 1 and 3. Establishes outbound mTLS connection to SB/Agency ASTRA. SMB never opens inbound firewall rules.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Tool</th><th>Data source</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">get_balance</td><td class="muted">SMB CBS (live)</td><td class="muted">Account balance for drawee check</td></tr>
+      <tr><td class="mono">get_account_status</td><td class="muted">SMB CBS (live)</td><td class="muted">Frozen / dormant / closed check</td></tr>
+      <tr><td class="mono">get_signature</td><td class="muted">SMB CBS (live) or SMB vault</td><td class="muted">Signature specimen for verification</td></tr>
+      <tr><td class="mono">get_stop_payment</td><td class="muted">ASTRA miniature DB at SMB</td><td class="muted">Stop payment instructions</td></tr>
+      <tr><td class="mono">get_pps_entry</td><td class="muted">ASTRA miniature DB at SMB</td><td class="muted">Positive Pay System entry</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3><span class="pill pill-mod">MODIFIED</span> Existing MCP Servers</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Server</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">ngch-adapter</td><td class="muted">No change for SB_NGCH mode. Not active in AGENCY_SB_RELAY mode (Agency submits to SB, not NPCI directly).</td></tr>
+      <tr><td class="mono">astra-diagnostic-mcp</td><td class="muted">New tools: get_pu_health, get_clearing_session_status, get_mismatch_queue_depth. New resources: diag://pu/{pu_id}/metrics.</td></tr>
+      <tr><td class="mono">cbs-connector</td><td class="muted">In Scenario 1/3: routes live CBS calls through smb-cbs-vault-proxy MCP client instead of direct CBS connection.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ══════════════════════════════════ UI ══════════════════════════════════ -->
+<section id="ui">
+  <div class="section-eyebrow">Frontend</div>
+  <h2>UI Screens</h2>
+
+  <h3><span class="pill pill-new">NEW</span> Branch Portal</h3>
+  <p>Browser-based. Accessed by branch operators and supervisors. Connects to EEH via gRPC-Web for uploads; SSE for real-time feedback. Requires scanner-bridge running on workstation.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Screen</th><th>Route</th><th>Who</th><th>Key function</th></tr></thead>
+    <tbody>
+      <tr><td>Branch Dashboard</td><td class="mono">/branch</td><td class="muted">Operator</td><td class="muted">Session status, items scanned today, upload rate, open lot status</td></tr>
+      <tr><td>Scanner Upload</td><td class="mono">/branch/scan</td><td class="muted">Operator</td><td class="muted">Live scanner feed from bridge agent, per-cheque accept/reject feedback via SSE</td></tr>
+      <tr><td>Mismatch Queue</td><td class="mono">/branch/mismatch</td><td class="muted">Supervisor</td><td class="muted">Held items with Vision finding, scanner data, physical cheque view. Go-Ahead / Rejected actions.</td></tr>
+      <tr><td>Session History</td><td class="mono">/branch/history</td><td class="muted">Supervisor</td><td class="muted">Past sessions, lot status, submission confirmation</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3><span class="pill pill-new">NEW</span> SMB Portal (tenant-scoped)</h3>
+  <p>Each SMB sees only their own data. Hosted within the SB/Agency ASTRA instance but row-level isolated. Human Review queue is the critical screen.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Screen</th><th>Route</th><th>Key function</th></tr></thead>
+    <tbody>
+      <tr><td>SMB Dashboard</td><td class="mono">/smb</td><td class="muted">Inward pipeline summary, today's clearing position, pending decisions</td></tr>
+      <tr><td>Human Review Queue</td><td class="mono">/smb/review</td><td class="muted">Drawee instruments routed to SMB reviewer. Decision: CONFIRM or RETURN with reason. 55-min timeout visible.</td></tr>
+      <tr><td>Inward Pipeline</td><td class="mono">/smb/inward</td><td class="muted">Live view of instruments in processing at PU — Vision → CTS → Fraud → CBS → Decision</td></tr>
+      <tr><td>Settlement View</td><td class="mono">/smb/settlement</td><td class="muted">SMB's clearing position for the day, split by session</td></tr>
+      <tr><td>Reports</td><td class="mono">/smb/reports</td><td class="muted">RRF (own instruments only), reconciliation, return reasons</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3><span class="pill pill-new">NEW</span> PU Management (SB / Agency ops)</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Screen</th><th>Route</th><th>Key function</th></tr></thead>
+    <tbody>
+      <tr><td>PU Overview</td><td class="mono">/cts/pu</td><td class="muted">Per-PU: queue depths, items processed, error rate, session state</td></tr>
+      <tr><td>Branch Mapping</td><td class="mono">/cts/pu/branches</td><td class="muted">Admin: assign branch IFSC to PU. Changes require maker-checker. Triggers CRL cache invalidation.</td></tr>
+      <tr><td>Clearing Sessions</td><td class="mono">/cts/pu/sessions</td><td class="muted">Open / close sessions. View per-SB session status. Submission buffers visible.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3><span class="pill pill-new">NEW</span> Agency Command Center</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Screen</th><th>Route</th><th>Key function</th></tr></thead>
+    <tbody>
+      <tr><td>CC Overview</td><td class="mono">/cts/cc</td><td class="muted">All PUs + all SB connections. Session progress per SB. NPCI cut-off countdown.</td></tr>
+      <tr><td>SB Connections</td><td class="mono">/cts/cc/sb-connections</td><td class="muted">Health, latency, last submission time per SB. Manual test trigger.</td></tr>
+      <tr><td>Lot Routing</td><td class="mono">/cts/cc/routing</td><td class="muted">Which SMB lots are grouped under which SB for current session.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3><span class="pill pill-mod">MODIFIED</span> Existing Screens</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Screen</th><th>What changes</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">CTSWorkstation</td><td class="muted">Add PU context selector (ops_reviewer scoped to PU). Queue shows PU-filtered view.</td></tr>
+      <tr><td class="mono">CTSDraweeView</td><td class="muted">Processing step visualisation reordered: Vision → CTS → Stop Pmt → PPS → Signature → Fraud → CBS → Decision.</td></tr>
+      <tr><td class="mono">CTSSettlement</td><td class="muted">Multi-PU breakdown. Agency mode: settlement split by SMB.</td></tr>
+      <tr><td class="mono">CTSReconciliation</td><td class="muted">Cross-PU consolidation. Per-PU drill-down available.</td></tr>
+      <tr><td class="mono">CTSSMBRegistry</td><td class="muted">Add PU assignment column. Branch→PU mapping visible per SMB.</td></tr>
+      <tr><td class="mono">CTSMCPConfig</td><td class="muted">Add smb-cbs-vault-proxy connection type. Agency mode: SB connector config per SB relationship.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ══════════════════════════════════ CONFIG ══════════════════════════════════ -->
+<section id="config">
+  <div class="section-eyebrow">Configuration</div>
+  <h2>Configuration — New & Modified Keys</h2>
+
+  <h4>Layer 2 — Helm (requires chart upgrade)</h4>
+  <pre>deployment_mode: SB_NGCH              # SB_NGCH | AGENCY_SB_RELAY
+command_center.mode: LOGICAL_LAYER    # LOGICAL_LAYER | MICROSERVICE
+eeh.enabled: true                     # External Exchange Hub
+ieh.enabled: true                     # Internal Exchange Hub
+smb_cbs_proxy.enabled: false          # true for Scenarios 1 and 3
+vision_llm.location: central          # central | smb
+ocr_service.enabled: false            # REMOVED — scanner hardware handles OCR
+scanner_bridge.port: 7431             # local WebSocket port
+agency.sb_connection_ids: []          # populated in AGENCY_SB_RELAY mode
+pu.ids: []                            # list of PU IDs for this deployment</pre>
+
+  <h4>Layer 3 — Admin UI (hot-reload, no restart)</h4>
+  <pre>crl.cache_ttl_seconds: 300
+eeh.max_upload_rate_per_branch: 50          # cheques per minute
+eeh.session_timeout_minutes: 120
+eeh.mismatch_resolution_timeout_hours: 4    # after this: auto-rejected
+clearing_session.sb_submission_buffer_minutes: 30
+pu.cheque_processing_concurrency: 100       # per PU worker
+smb.human_review_timeout_minutes: 55        # same as before, now SMB-scoped
+vision.presentment_confidence_threshold: 0.85
+vision.drawee_early_reject_threshold: 0.30  # below this: instant return</pre>
+
+  <h4>Layer 3 — SB Connection config (Agency mode, hot-reload)</h4>
+  <pre>agency.sb_connections:
+  - sb_id: saraswat
+    connector_type: SFTP_GENERIC
+    smb_ids: [ucb-a, ucb-b, ucb-c]
+    submission_buffer_minutes: 25
+  - sb_id: cosmos
+    connector_type: BANCS_API
+    smb_ids: [ucb-d]
+    submission_buffer_minutes: 35</pre>
+</section>
+
+<!-- ══════════════════════════════════ MESSAGES ══════════════════════════════════ -->
+<section id="messages">
+  <div class="section-eyebrow">Message Taxonomy</div>
+  <h2>New Message Keys Required</h2>
+  <p>All keys added to <code>shared/messages/locales/messages.yaml</code>. Run build after adding. Commit with updated <code>docs/CTS_Msg_Taxonomy.html</code>.</p>
+
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Domain</th><th>Example keys</th><th>Severity</th><th>Surface</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">BRANCH_*</td><td class="mono muted">BRANCH_SESSION_OPENED, BRANCH_UPLOAD_ACCEPTED, BRANCH_UPLOAD_REJECTED, BRANCH_SESSION_SEALED</td><td class="muted">INFO</td><td class="muted">UI, AUDIT</td></tr>
+      <tr><td class="mono">MISMATCH_*</td><td class="mono muted">MISMATCH_HELD, MISMATCH_GO_AHEAD, MISMATCH_REJECTED, MISMATCH_TIMEOUT_AUTO_REJECT</td><td class="muted">WARN / ERROR</td><td class="muted">UI, AUDIT, NOTIFICATION</td></tr>
+      <tr><td class="mono">PU_*</td><td class="mono muted">PU_SESSION_STARTED, PU_LOT_SEALED, PU_QUEUE_DEPTH_HIGH, PU_WORKER_DEGRADED</td><td class="muted">INFO / WARN</td><td class="muted">UI, AUDIT</td></tr>
+      <tr><td class="mono">CC_*</td><td class="mono muted">CC_SESSION_OPEN, CC_SB_SUBMITTED, CC_SB_TIMEOUT, CC_SESSION_RECONCILED</td><td class="muted">INFO / ERROR</td><td class="muted">UI, AUDIT, NOTIFICATION</td></tr>
+      <tr><td class="mono">EEH_*</td><td class="mono muted">EEH_BRANCH_CONNECTED, EEH_CERT_EXPIRY_WARN, EEH_RATE_LIMIT_HIT</td><td class="muted">INFO / WARN</td><td class="muted">AUDIT, NOTIFICATION</td></tr>
+      <tr><td class="mono">SMB_*</td><td class="mono muted">SMB_HUMAN_REVIEW_ASSIGNED, SMB_DECISION_FILED, SMB_SETTLEMENT_AVAILABLE</td><td class="muted">INFO</td><td class="muted">UI, NOTIFICATION</td></tr>
+      <tr><td class="mono">SB_CONN_*</td><td class="mono muted">SB_CONN_HEALTHY, SB_CONN_DEGRADED, SB_CONN_TIMEOUT, SB_CONN_SUBMISSION_BUFFER_BREACH</td><td class="muted">WARN / CRITICAL</td><td class="muted">UI, AUDIT, NOTIFICATION</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ══════════════════════════════════ SECURITY ══════════════════════════════════ -->
+<section id="security">
+  <div class="section-eyebrow">Security</div>
+  <h2>Security Additions</h2>
+
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Component</th><th>Security requirement</th></tr></thead>
+    <tbody>
+      <tr><td><strong>EEH — Branch identity</strong></td><td class="muted">mTLS client certificate per branch, issued by SB's internal CA. Certificate encodes branch_id, bank_id, validity. Revocation via CRL distributed to EEH on every connect.</td></tr>
+      <tr><td><strong>EEH — Operator identity</strong></td><td class="muted">Operator JWT via SAML (branch IdP). Scoped: branch_id, operator_id, role, session_id, pu_id. 1-hour expiry + refresh. Separate from branch mTLS cert.</td></tr>
+      <tr><td><strong>EEH — Request integrity</strong></td><td class="muted">HMAC-SHA256 per gRPC message. Key from branch's local Vault agent. Header: X-ASTRA-Sig: {timestamp}.{hex(hmac)}. ±5 min window for replay protection.</td></tr>
+      <tr><td><strong>Network — EEH exposure</strong></td><td class="muted">EEH only accessible via MPLS or IPSec/WireGuard VPN. Not on public internet. Istio Ingress Gateway in DMZ. Source IP allowlist per branch (static IPs or VPN pool).</td></tr>
+      <tr><td><strong>Scanner bridge</strong></td><td class="muted">Bridge listens on localhost:7431 only. Signed binary (code signing certificate). Communicates only with the ASTRA branch portal origin (CORS).</td></tr>
+      <tr><td><strong>SMB CBS proxy</strong></td><td class="muted">Go binary connects outbound (SMB never opens inbound). mTLS. Token scoped to: smb_id, allowed_tools only. Every call logged at SMB side. SMB can revoke token from their admin.</td></tr>
+      <tr><td><strong>Agency SB connector</strong></td><td class="muted">Credentials in Vault: secret/astra/{agency_id}/sb/{sb_id}/. Separate key slot per SB. SFTP: RSA-4096 key. API: API key + HMAC. Rotated per SB's policy.</td></tr>
+      <tr><td><strong>Branch cert lifecycle</strong></td><td class="muted">EEH_CERT_EXPIRY_WARN message 30 days before expiry. CRITICAL at 7 days. Expired cert = EEH connection refused. Renewal process in branch onboarding runbook.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════════ PHASES ══════════════════════════════════ -->
+<section id="phases">
+  <div class="section-eyebrow">Delivery</div>
+  <h2>Development Phases</h2>
+  <p>Ordered by dependency. Each phase produces working, testable software. No phase begins until the previous is merged and tested.</p>
+
+  <div class="phases">
+
+    <div class="phase-card">
+      <div class="phase-num"><div class="pn">1</div><div class="pl">Foundation</div></div>
+      <div class="phase-body">
+        <div class="phase-title">Base Entities & Routing <span class="pill pill-phase">prerequisite for all</span></div>
+        <ul class="phase-items">
+          <li>Alembic migrations 1–9: ProcessingUnit, Branch, ScannerConfig, ClearingSession, SBConnection, MismatchQueue, EEHSession + alter existing tables</li>
+          <li>CRL service: IFSC/MICR → Branch → PU lookup + Redis cache + Kafka invalidation</li>
+          <li>Kafka topics renamed to PU-scoped (backwards compatible: old topics kept alive for 1 release)</li>
+          <li>Temporal task queues updated to <code>cts-processing-{bank_id}-{pu_id}</code></li>
+          <li>ScannerConfig entity + mapper (<code>modules/cts/scanner/mapper.py</code>) — OEM drop-folder → canonical ScannedChequeInput</li>
+          <li>ScannerOEM enum expanded: DIGITAL_CHECK, MAGTEK, RDM, OPEX added</li>
+          <li>Branch → PU mapping admin UI (<code>/cts/pu/branches</code>) — maker-checker enforced</li>
+          <li>Alembic migrations 7–8: alter existing tables (nullable first)</li>
+          <li>PU Overview dashboard (<code>/cts/pu</code>) — read-only initially</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase-card">
+      <div class="phase-num"><div class="pn">2</div><div class="pl">Exchange Hub</div></div>
+      <div class="phase-body">
+        <div class="phase-title">EEH / IEH + Branch Portal + Scanner Bridge</div>
+        <ul class="phase-items">
+          <li>eeh-service: gRPC server + Envoy proxy (gRPC-Web) + SSE status feed</li>
+          <li>ieh-service: same codebase, different Helm values (internal network profile)</li>
+          <li>scanner-bridge: Go tray agent, TWAIN/SANE → WebSocket localhost:7431</li>
+          <li>Branch portal UI: Scanner Upload screen, per-cheque real-time feedback</li>
+          <li>EEH security: mTLS per-branch cert infra, operator JWT, request signing</li>
+          <li>EEHSession tracking in Redis and YugabyteDB</li>
+          <li>95%+ test coverage: gRPC upload flow, cert verification, rate limiting</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase-card">
+      <div class="phase-num"><div class="pn">3</div><div class="pl">Presentment Fix</div></div>
+      <div class="phase-body">
+        <div class="phase-title">Vision LAST + Mismatch Queue</div>
+        <ul class="phase-items">
+          <li>OutwardScanWorkflow: Vision LLM moved to last step (after lot assignment)</li>
+          <li>MismatchResolutionWorkflow: HOLD state, waits for branch signal, 4-hour timeout</li>
+          <li>Kafka topics: <code>cts.mismatch.{bank_id}.{branch_id}</code>, <code>cts.mismatch.resolved.{bank_id}</code></li>
+          <li>Redis: mismatch sorted set per branch</li>
+          <li>Branch portal: Mismatch Queue screen — Go-Ahead / Rejected actions</li>
+          <li>Message taxonomy: MISMATCH_* keys</li>
+          <li>GOT-OCR2.0 removed from pipeline. cts-ocr-l1 and cts-ocr-l2 vLLM queues retired.</li>
+          <li>95%+ coverage: mismatch timeout, go-ahead resume, reject audit trail</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase-card">
+      <div class="phase-num"><div class="pn">4</div><div class="pl">Drawee Fix</div></div>
+      <div class="phase-body">
+        <div class="phase-title">Vision FIRST + CBS LAST + SMB Human Review</div>
+        <ul class="phase-items">
+          <li>ChequeProcessingWorkflow reordered: Vision → CTS → StopPmt → PPS → Signature → Fraud → CBS</li>
+          <li>Human review topic now <code>cts.human.review.{bank_id}.{smb_id}</code></li>
+          <li>CTSDraweeView UI: reordered step visualisation</li>
+          <li>SMB Portal: Human Review Queue screen — SMB reviewer sees only their instruments</li>
+          <li>SMB Portal: Inward Pipeline screen</li>
+          <li>Signature Verify activity: routes to smb-cbs-vault-proxy MCP if SMB has own CBS; otherwise local vault</li>
+          <li>95%+ coverage: all 7 activity steps, each early-exit path, SMB review routing</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase-card">
+      <div class="phase-num"><div class="pn">5</div><div class="pl">SMB Portal</div></div>
+      <div class="phase-body">
+        <div class="phase-title">Tenant-Scoped SMB Experience</div>
+        <ul class="phase-items">
+          <li>SMB Dashboard, Settlement View, Reports screens</li>
+          <li>Row-level isolation enforced: all SMB queries include smb_id in WHERE clause</li>
+          <li>SMB-scoped RRF and reconciliation</li>
+          <li>Notification: SMB_HUMAN_REVIEW_ASSIGNED, SMB_DECISION_FILED, SMB_SETTLEMENT_AVAILABLE</li>
+          <li>RBAC: new <code>smb_reviewer</code> role scoped to smb_id</li>
+          <li>Security audit: data isolation checklist for every new SMB query</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase-card">
+      <div class="phase-num"><div class="pn">6</div><div class="pl">Command Center</div></div>
+      <div class="phase-body">
+        <div class="phase-title">Clearing Session + Agency CC Microservice</div>
+        <ul class="phase-items">
+          <li>ClearingSessionWorkflow: multi-PU aggregation, one per SB, NPCI-aligned timing</li>
+          <li>shared/sb_connector/: base.py, sftp_generic.py, bancs_api.py, nelito_api.py</li>
+          <li>agency-cc-service: new microservice (AGENCY_SB_RELAY mode only)</li>
+          <li>AgencyCCWorkflow: group by SB, submit, receive returns, demux to PUs</li>
+          <li>SBInwardForwardingWorkflow: inward from SB → PU routing</li>
+          <li>Kafka: cts.sb.relay.outward.*, cts.sb.relay.inward.*</li>
+          <li>Agency CC UI: Command Center overview, SB connection health, lot routing</li>
+          <li>Clearing session admin UI: open/close, per-SB status, submission buffers</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase-card">
+      <div class="phase-num"><div class="pn">7</div><div class="pl">SMB CBS Proxy</div></div>
+      <div class="phase-body">
+        <div class="phase-title">Scenarios 1 &amp; 3 — SMB with own CBS</div>
+        <ul class="phase-items">
+          <li>smb-cbs-vault-proxy Go binary: 5 MCP tools (get_balance, get_account_status, get_signature, get_stop_payment, get_pps_entry)</li>
+          <li>Outbound mTLS connection from SMB → SB/Agency ASTRA</li>
+          <li>VaultSyncWorkflow and DeltaVaultSyncWorkflow: SMB-scoped sync via MCP proxy</li>
+          <li>CBS connector: routes live calls through proxy when smb_cbs_proxy.enabled</li>
+          <li>CTSMCPConfig UI: smb-cbs-vault-proxy connection type and status</li>
+          <li>Audit: every proxy tool call logged at SMB side + Immudb at SB/Agency</li>
+          <li>11 Go tests (mirrors branch-ej-agent pattern)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase-card">
+      <div class="phase-num"><div class="pn">8</div><div class="pl">Hardening</div></div>
+      <div class="phase-body">
+        <div class="phase-title">Multi-Scenario Testing &amp; Cutover</div>
+        <ul class="phase-items">
+          <li>End-to-end test harness: Scenario 1, 2, and 3 on staging bank configs</li>
+          <li>Performance: 500 cheques in &lt;600ms with Vision FIRST on drawee path</li>
+          <li>Chaos Mesh: EEH down (branch buffers), SB connector timeout (Agency CC fallback), SMB proxy unreachable (HUMAN_REVIEW default)</li>
+          <li>Old bank-only Kafka topics decommissioned (after zero-traffic confirmed)</li>
+          <li>RBI IT Framework: control-mapping.yaml updated for EEH, SMB proxy, Agency CC</li>
+          <li>Branch onboarding runbook: mTLS cert provisioning, scanner-bridge install, EEH endpoint registration</li>
+          <li>Helm chart versions bumped for astra-cts, astra-platform</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="callout info" style="margin-top:24px">
+    <strong>Phases 1–4</strong> are viable for Scenario 1 (SB + SMB, SMB CBS on-prem with Vision at SB PU). Phases 5–6 complete Scenario 2 (Agency). Phase 7 completes Scenario 3. Phase 8 certifies all three.
+  </div>
+</section>
+
+</main>
+
+<script>
+function toggle() {
+  const root = document.documentElement;
+  const current = root.getAttribute('data-theme');
+  if (!current) {
+    const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    root.setAttribute('data-theme', sysDark ? 'light' : 'dark');
+  } else {
+    root.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+  }
+}
+</script>

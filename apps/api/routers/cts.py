@@ -15,9 +15,9 @@ from typing import Literal, Optional
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict
 
+from apps.api.dependencies import require_user_context
 from modules.cts.workflows.cheque_workflow import ChequeWorkflowInput
 from modules.cts.workflows.human_review_workflow import ReviewDecision
 from shared.auth.rbac import BankType, Role, PermissionLevel, RBACPolicy, UserContext
@@ -27,7 +27,6 @@ log = structlog.get_logger()
 
 router_v1 = APIRouter(prefix="/v1/cts", tags=["CTS v1"])
 
-_bearer = HTTPBearer(auto_error=False)
 _policy = RBACPolicy()
 
 
@@ -36,37 +35,18 @@ _policy = RBACPolicy()
 # ---------------------------------------------------------------------------
 
 async def get_current_user_context(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
+    ctx: UserContext = Depends(require_user_context),
 ) -> UserContext:
     """
-    Decode JWT and return a fully populated UserContext.
-    In production: validate JWT signature, extract all claims.
-    Test tokens: test-token-{bank_id}            → SB context
-                 test-token-smb-{bank_id}         → SMB context
+    Delegates to the central auth chokepoint (apps.api.dependencies), which
+    validates the httpOnly session cookie via AuthenticationMiddleware.
+
+    Kept as a thin re-export — not a copy — so the many existing
+    Depends(get_current_user_context) call sites in this router don't need
+    to change. There is no token parsing here anymore: no test-token
+    backdoor, no per-router auth logic. ASTRA-01.
     """
-    if credentials is None or not credentials.credentials:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
-    token = credentials.credentials
-    if token.startswith("test-token-smb-"):
-        bank_id = token.removeprefix("test-token-smb-")
-        return UserContext(
-            user_id="smb-user-001",
-            role=Role.SMB_EDITOR,
-            bank_id=bank_id,
-            bank_type=BankType.SMB,
-            permission_level=PermissionLevel.EDIT,
-        )
-    if token.startswith("test-token-"):
-        bank_id = token.removeprefix("test-token-")
-        return UserContext(
-            user_id="reviewer-001",
-            role=Role.OPS_REVIEWER,
-            bank_id=bank_id,
-            bank_type=BankType.SB,
-            permission_level=PermissionLevel.EDIT,
-        )
-    # Production: decode JWT, validate signature, extract all claims
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    return ctx
 
 
 async def get_current_bank_id(
@@ -160,6 +140,7 @@ class QueueItem(BaseModel):
     fraud_score: Optional[float] = None
     ocr_confidence: Optional[float] = None
     sig_match_score: Optional[float] = None
+    security_features: Optional[dict] = None   # {"void_pantograph": bool, "rupee_symbol": bool, ...}
 
 
 class QueueResponse(BaseModel):
@@ -384,7 +365,7 @@ async def submit_review_decision(
 )
 async def get_human_review_queue(
     request: Request,
-    bank_id: str = Depends(get_current_bank_id),
+    ctx: UserContext = Depends(get_current_user_context),
     limit: int = 50,
 ) -> QueueResponse:
     """
@@ -392,28 +373,37 @@ async def get_human_review_queue(
     Items are sorted by IET deadline ascending (most urgent first).
     When Temporal is unavailable, returns an empty queue rather than 503
     so the workstation can still load.
+
+    Row-level isolation: SMB users see only their own instruments.
+    smb_instrument_filter() returns (effective_bank_id, smb_id_filter).
     """
     if limit > 100:
         limit = 100
+
+    policy = RBACPolicy()
+    eff_bank_id, smb_id_filter = policy.smb_instrument_filter(ctx)
 
     temporal_client = getattr(request.app.state, "temporal_client", None)
     items: list[QueueItem] = []
 
     if temporal_client is not None:
         try:
-            # Query Temporal for open HumanReviewWorkflow instances for this bank.
-            # Uses Temporal's visibility query API (requires Elasticsearch-backed visibility).
+            # Query Temporal for open HumanReviewWorkflow instances.
+            # SMB users: add SmbId filter to enforce row-level isolation.
             query = (
                 f"WorkflowType = 'HumanReviewWorkflow' "
                 f"AND ExecutionStatus = 'Running' "
-                f"AND BankId = '{bank_id}'"
+                f"AND BankId = '{eff_bank_id}'"
             )
+            if smb_id_filter:
+                query += f" AND SmbId = '{smb_id_filter}'"
+
             async for wf in temporal_client.list_workflows(query=query, page_size=limit):
                 memo = wf.memo or {}
                 items.append(QueueItem(
                     instrument_id=memo.get("instrument_id", wf.id.split("-")[-1]),
                     workflow_id=wf.id,
-                    bank_id=bank_id,
+                    bank_id=eff_bank_id,
                     account_display=memo.get("account_display", "****????"),
                     payee_display=memo.get("payee_display", "?***"),
                     amount_range=memo.get("amount_range", "₹[unknown]"),
@@ -424,16 +414,17 @@ async def get_human_review_queue(
                     fraud_score=memo.get("fraud_score"),
                     ocr_confidence=memo.get("ocr_confidence"),
                     sig_match_score=memo.get("sig_match_score"),
+                    security_features=memo.get("security_features"),
                 ))
         except Exception as exc:
-            log.warning("cts.queue_fetch_error", bank_id=bank_id, error=str(exc))
+            log.warning("cts.queue_fetch_error", bank_id=eff_bank_id, error=str(exc))
 
     # Sort by IET deadline ascending — most urgent first
     items.sort(key=lambda x: x.iet_deadline)
 
-    log.info("cts.queue_fetched", bank_id=bank_id, count=len(items))
+    log.info("cts.queue_fetched", bank_id=eff_bank_id, smb_filter=smb_id_filter, count=len(items))
 
-    return QueueResponse(items=items, total=len(items), bank_id=bank_id)
+    return QueueResponse(items=items, total=len(items), bank_id=eff_bank_id)
 
 
 # ---------------------------------------------------------------------------
@@ -568,9 +559,11 @@ async def trigger_vault_sync(
     if temporal_client is not None:
         try:
             from modules.cts.workflows.vault_sync_workflow import VaultSyncWorkflow, VaultSyncInput
+            from shared.config.config_service import config_service
+            pepper = await config_service.get_secret("pii_hash_pepper")
             await temporal_client.start_workflow(
                 VaultSyncWorkflow.run,
-                VaultSyncInput(bank_id=bank_id, triggered_by="MANUAL"),
+                VaultSyncInput(bank_id=bank_id, pepper=pepper, triggered_by="MANUAL"),
                 id=workflow_id,
                 task_queue=f"cts-processing-{bank_id}",
             )
@@ -1060,10 +1053,19 @@ async def trigger_smb_vault_sync(
     if temporal_client is not None:
         try:
             from modules.cts.workflows.vault_sync_workflow import VaultSyncWorkflow, VaultSyncInput
+            from shared.config.config_service import config_service
+            pepper = await config_service.get_secret("pii_hash_pepper")
             await temporal_client.start_workflow(
                 VaultSyncWorkflow.run,
+                # NOTE: sub_member_id is not a VaultSyncInput field today — this
+                # call already raised a Pydantic "extra inputs not permitted"
+                # error on every invocation, independent of this pepper fix.
+                # Pre-existing, separate bug (SMB-scoped vault sync routing is
+                # undesigned — VaultSyncInput/warm_redis_vault have no
+                # sub_member_id-aware Redis key namespacing yet), not fixed here.
                 VaultSyncInput(
                     bank_id=bank_id,
+                    pepper=pepper,
                     triggered_by="MANUAL_SMB",
                     sub_member_id=sub_member_id,
                 ),
@@ -1098,3 +1100,262 @@ async def trigger_smb_vault_sync(
             f"sig:{sub_member_id}:* within ~60 seconds."
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# Outward scan — /v1/cts/outward/scan/submit
+# Called by the local scanner agent (edge/cts-scanner-agent/) running on the
+# teller PC after it has uploaded images to MinIO and extracted hardware MICR.
+# ---------------------------------------------------------------------------
+
+class OutwardScanSubmitRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    scan_id: str                    # generated by scanner agent: SCAN-{date}-{uuid8}
+    instrument_id: str              # pre-assigned by scanner agent: INS-{scan_id}
+    bank_ifsc: str                  # teller's branch IFSC — determines lot assignment zone
+    session_id: str                 # clearing session open on this teller terminal
+
+    image_front_url: str            # s3://cts-images/{bank_id}/outward/{scan_id}/front.tiff
+    image_rear_url: str             # s3://cts-images/{bank_id}/outward/{scan_id}/rear.tiff
+
+    cheque_number: str = ""
+
+    # CTS-2010 image metrics (populated by scanner agent from OEM SDK callback)
+    front_dpi: Optional[int] = None
+    rear_dpi: Optional[int] = None
+    front_colour_depth: Optional[int] = None
+    rear_colour_depth: Optional[int] = None
+    front_file_size_kb: Optional[float] = None
+    rear_file_size_kb: Optional[float] = None
+
+    # Hardware MICR from Ranger Transport API TransportGetMICR() — present on CR-120 path.
+    # When provided, OutwardScanWorkflow skips GOT-OCR2 and uses a single Qwen2-VL call.
+    micr_hardware_raw: Optional[str] = None
+
+    pu_id: Optional[str] = None     # processing unit identifier (multi-PU teller desks)
+    branch_id: Optional[str] = None
+
+
+class OutwardScanSubmitResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    scan_id: str
+    instrument_id: str
+    workflow_id: str
+    status: Literal["ACCEPTED"]
+    path: str                       # "CR120" | "LEGACY" — which pipeline was selected
+
+
+@router_v1.post(
+    "/outward/scan/submit",
+    response_model=OutwardScanSubmitResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def submit_outward_scan(
+    body: OutwardScanSubmitRequest,
+    request: Request,
+    response: Response,
+    bank_id: str = Depends(get_current_bank_id),
+) -> OutwardScanSubmitResponse:
+    """
+    Accept a scanned outward instrument from the local scanner agent.
+
+    The scanner agent (edge/cts-scanner-agent/) calls this endpoint after:
+      1. Capturing front + rear TIFF images via Ranger Transport API
+      2. Reading hardware MICR via TransportGetMICR()
+      3. Uploading images to MinIO (already done before this call)
+
+    This endpoint launches OutwardScanWorkflow on the CTS Temporal task queue.
+    The workflow ID is deterministic — duplicate submissions are idempotent.
+
+    When micr_hardware_raw is present, the CR-120 path is taken:
+      validate_cts2010 → create_lot_entry → vision_extract_and_check (single Qwen2-VL)
+
+    When micr_hardware_raw is absent, the legacy path is taken:
+      ocr_extract (GOT-OCR2) → validate_cts2010 → create_lot_entry → run_vision_presentment_check
+    """
+    workflow_id = f"cts-outscan-{bank_id}-{body.scan_id}"
+    if body.pu_id:
+        workflow_id = f"cts-outscan-{bank_id}-{body.pu_id}-{body.scan_id}"
+
+    from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow, OutwardScanInput
+
+    workflow_input = OutwardScanInput(
+        scan_id=body.scan_id,
+        instrument_id=body.instrument_id,
+        bank_id=bank_id,
+        bank_ifsc=body.bank_ifsc,
+        session_id=body.session_id,
+        image_front_url=body.image_front_url,
+        image_rear_url=body.image_rear_url,
+        cheque_number=body.cheque_number,
+        front_dpi=body.front_dpi,
+        rear_dpi=body.rear_dpi,
+        front_colour_depth=body.front_colour_depth,
+        rear_colour_depth=body.rear_colour_depth,
+        front_file_size_kb=body.front_file_size_kb,
+        rear_file_size_kb=body.rear_file_size_kb,
+        micr_hardware_raw=body.micr_hardware_raw,
+        pu_id=body.pu_id,
+        branch_id=body.branch_id,
+    )
+
+    temporal_client = getattr(request.app.state, "temporal_client", None)
+    if temporal_client is not None:
+        try:
+            from temporalio.client import WorkflowAlreadyStartedError
+            await temporal_client.start_workflow(
+                OutwardScanWorkflow.run,
+                workflow_input,
+                id=workflow_id,
+                task_queue=f"cts-processing-{bank_id}",
+            )
+        except Exception as exc:
+            if "already started" not in str(exc).lower():
+                log.error(
+                    "cts.outward_scan_workflow_error",
+                    scan_id=body.scan_id,
+                    bank_id=bank_id,
+                    error=str(exc),
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Failed to start OutwardScanWorkflow",
+                ) from exc
+
+    path = "CR120" if body.micr_hardware_raw else "LEGACY"
+    log.info(
+        "cts.outward_scan_submitted",
+        scan_id=body.scan_id,
+        instrument_id=body.instrument_id,
+        bank_id=bank_id,
+        workflow_id=workflow_id,
+        path=path,
+    )
+
+    response.headers["X-Workflow-Id"] = workflow_id
+    return OutwardScanSubmitResponse(
+        scan_id=body.scan_id,
+        instrument_id=body.instrument_id,
+        workflow_id=workflow_id,
+        status="ACCEPTED",
+        path=path,
+    )
+
+
+# ---------------------------------------------------------------------------
+# IFSC Registry — CRUD routes
+# ---------------------------------------------------------------------------
+# Maker-checker model:
+#   ops_manager  — POST (create, status=PENDING)
+#   bank_it_admin — PUT /{id}/approve (activate) and DELETE /{id} (deactivate)
+#   Any authenticated user — GET list / GET by ID
+# ---------------------------------------------------------------------------
+
+from modules.cts.ifsc.models import IFSCCreateRequest, IFSCEntry, IFSCListResponse
+from modules.cts.ifsc.repository import IFSCDuplicateError
+
+
+def _get_ifsc_repo(request: Request):
+    repo = getattr(request.app.state, "ifsc_repo", None)
+    if repo is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="IFSC registry unavailable",
+        )
+    return repo
+
+
+@router_v1.get("/ifsc-registry", response_model=IFSCListResponse)
+async def list_ifsc_registry(
+    request: Request,
+    bank_type: Optional[str] = None,
+    smb_id: Optional[str] = None,
+    active_only: bool = True,
+    limit: int = 50,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> IFSCListResponse:
+    """List IFSC entries for the authenticated bank. Optionally filter by bank_type or smb_id."""
+    repo = _get_ifsc_repo(request)
+    entries = await repo.list_ifsc(
+        ctx.bank_id,
+        bank_type=bank_type,
+        smb_id=smb_id,
+        active_only=active_only,
+        limit=min(limit, 100),
+    )
+    return IFSCListResponse(items=entries, total=len(entries), bank_id=ctx.bank_id)
+
+
+@router_v1.get("/ifsc-registry/{entry_id}", response_model=IFSCEntry)
+async def get_ifsc_by_id(
+    entry_id: str,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> IFSCEntry:
+    """Fetch a single IFSC registry entry by UUID."""
+    repo = _get_ifsc_repo(request)
+    entry = await repo.get_ifsc_by_id(entry_id)
+    if entry is None or entry.bank_id != ctx.bank_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="IFSC entry not found")
+    return entry
+
+
+@router_v1.post("/ifsc-registry", response_model=IFSCEntry, status_code=status.HTTP_201_CREATED)
+async def create_ifsc(
+    body: IFSCCreateRequest,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> IFSCEntry:
+    """
+    Create a new IFSC entry (status=PENDING, maker step).
+    Requires ops_manager role.
+    """
+    if ctx.role.value not in ("ops_manager", "bank_it_admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="ops_manager role required")
+    repo = _get_ifsc_repo(request)
+    try:
+        entry = await repo.create_ifsc(ctx.bank_id, body, created_by=ctx.user_id)
+    except IFSCDuplicateError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    log.info("ifsc_registry.created", ifsc_code=body.ifsc_code, bank_id=ctx.bank_id, created_by=ctx.user_id)
+    return entry
+
+
+@router_v1.put("/ifsc-registry/{entry_id}/approve", response_model=IFSCEntry)
+async def approve_ifsc(
+    entry_id: str,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> IFSCEntry:
+    """
+    Approve a PENDING IFSC entry → ACTIVE (checker step).
+    Requires bank_it_admin role.
+    """
+    if ctx.role.value != "bank_it_admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="bank_it_admin role required")
+    repo = _get_ifsc_repo(request)
+    entry = await repo.approve_ifsc(entry_id, approved_by=ctx.user_id)
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="IFSC entry not found")
+    log.info("ifsc_registry.approved", entry_id=entry_id, bank_id=ctx.bank_id, approved_by=ctx.user_id)
+    return entry
+
+
+@router_v1.delete("/ifsc-registry/{entry_id}", response_model=IFSCEntry)
+async def deactivate_ifsc(
+    entry_id: str,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> IFSCEntry:
+    """
+    Deactivate an ACTIVE IFSC entry → INACTIVE (soft delete, never hard delete).
+    Requires bank_it_admin role.
+    """
+    if ctx.role.value != "bank_it_admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="bank_it_admin role required")
+    repo = _get_ifsc_repo(request)
+    entry = await repo.deactivate_ifsc(entry_id, updated_by=ctx.user_id)
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="IFSC entry not found")
+    log.info("ifsc_registry.deactivated", entry_id=entry_id, bank_id=ctx.bank_id, updated_by=ctx.user_id)
+    return entry

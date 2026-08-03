@@ -1,0 +1,52 @@
+{
+  "20010010900018": {
+    "account_number": "20010010900018",
+    "bank_id": "vvsb",
+    "registered_amount": 500000,
+    "registered_amount_words": "Five Lakh Only",
+    "payee": "Global Pharma Distributors",
+    "registered_on": "10-05-2026",
+    "valid_until": "10-06-2026",
+    "note": "Cheque will present for ₹750,000 but PPS shows ₹500,000 → MISMATCH"
+  },
+  "30010010900028": {
+    "account_number": "30010010900028",
+    "bank_id": "kjsb",
+    "registered_amount": 375000,
+    "registered_amount_words": "Three Lakh Seventy Five Thousand Only",
+    "payee": "Indian Ocean Marine Products",
+    "registered_on": "10-05-2026",
+    "valid_until": "10-06-2026",
+    "note": "Cheque will present for ₹500,000 but PPS shows ₹375,000 → MISMATCH"
+  },
+  "40010010900038": {
+    "account_number": "40010010900038",
+    "bank_id": "bcbk",
+    "registered_amount": 280000,
+    "registered_amount_words": "Two Lakh Eighty Thousand Only",
+    "payee": "M/s Hanuman Traders",
+    "registered_on": "10-05-2026",
+    "valid_until": "10-06-2026",
+    "note": "Cheque will present for ₹350,000 but PPS shows ₹280,000 → MISMATCH"
+  },
+  "50010010900048": {
+    "account_number": "50010010900048",
+    "bank_id": "ducb",
+    "registered_amount": 195000,
+    "registered_amount_words": "One Lakh Ninety Five Thousand Only",
+    "payee": "Rajasthan Gems & Jewellers Ltd.",
+    "registered_on": "10-05-2026",
+    "valid_until": "10-06-2026",
+    "note": "Cheque will present for ₹250,000 but PPS shows ₹195,000 → MISMATCH"
+  },
+  "10010010900058": {
+    "account_number": "10010010900058",
+    "bank_id": "srcb",
+    "registered_amount": 410000,
+    "registered_amount_words": "Four Lakh Ten Thousand Only",
+    "payee": "Karnataka Silk Weavers Co-op",
+    "registered_on": "10-05-2026",
+    "valid_until": "10-06-2026",
+    "note": "Cheque will present for ₹600,000 but PPS shows ₹410,000 → MISMATCH"
+  }
+}

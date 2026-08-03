@@ -1,0 +1,1002 @@
+[
+  {
+    "customer_id": "SRCB-C001",
+    "bank_id": "srcb",
+    "name": "Ramesh Kumar Sharma",
+    "name_initials": "RK",
+    "state": "Uttar Pradesh",
+    "religion": "Hindu",
+    "community": "Brahmin",
+    "account_number": "10010010000001",
+    "account_type": "SAVINGS",
+    "ifsc": "SRCB0000001",
+    "mobile": "90110011",
+    "email": "ramesh.sharma01@email.in",
+    "address": "8/A, Gandhi Nagar, Mumbai",
+    "branch": "Fort Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/srcb/SRCB-C001_specimen_1.jpg",
+      "images/srcb/SRCB-C001_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "SRCB-C002",
+    "bank_id": "srcb",
+    "name": "Priya Subramaniam",
+    "name_initials": "PS",
+    "state": "Tamil Nadu",
+    "religion": "Hindu",
+    "community": "Iyer",
+    "account_number": "10010010000002",
+    "account_type": "CURRENT",
+    "ifsc": "SRCB0000001",
+    "mobile": "90110012",
+    "email": "priya.subramaniam02@email.in",
+    "address": "15/A, Nehru Nagar, Mumbai",
+    "branch": "Fort Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/srcb/SRCB-C002_specimen_1.jpg",
+      "images/srcb/SRCB-C002_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "SRCB-C003",
+    "bank_id": "srcb",
+    "name": "Mohammed Irfan Shaikh",
+    "name_initials": "MI",
+    "state": "Maharashtra",
+    "religion": "Muslim",
+    "community": "Shaikh",
+    "account_number": "10010010000003",
+    "account_type": "SAVINGS",
+    "ifsc": "SRCB0000001",
+    "mobile": "90110013",
+    "email": "mohammed.shaikh03@email.in",
+    "address": "22/A, Shastri Nagar, Mumbai",
+    "branch": "Fort Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/srcb/SRCB-C003_specimen_1.jpg",
+      "images/srcb/SRCB-C003_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "SRCB-C004",
+    "bank_id": "srcb",
+    "name": "Anita Devi Rathore",
+    "name_initials": "AD",
+    "state": "Rajasthan",
+    "religion": "Hindu",
+    "community": "Rajput",
+    "account_number": "10010010000004",
+    "account_type": "SAVINGS",
+    "ifsc": "SRCB0000001",
+    "mobile": "90110014",
+    "email": "anita.rathore04@email.in",
+    "address": "29/A, Gandhi Nagar, Mumbai",
+    "branch": "Fort Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/srcb/SRCB-C004_specimen_1.jpg",
+      "images/srcb/SRCB-C004_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "SRCB-C005",
+    "bank_id": "srcb",
+    "name": "Cyrus Eruch Irani",
+    "name_initials": "CE",
+    "state": "Gujarat",
+    "religion": "Parsi",
+    "community": "Irani",
+    "account_number": "10010010000005",
+    "account_type": "CURRENT",
+    "ifsc": "SRCB0000001",
+    "mobile": "90110015",
+    "email": "cyrus.irani05@email.in",
+    "address": "36/A, Nehru Nagar, Mumbai",
+    "branch": "Fort Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/srcb/SRCB-C005_specimen_1.jpg",
+      "images/srcb/SRCB-C005_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "SRCB-C006",
+    "bank_id": "srcb",
+    "name": "Sunita Ramesh Patil",
+    "name_initials": "SR",
+    "state": "Maharashtra",
+    "religion": "Hindu",
+    "community": "Maratha",
+    "account_number": "10010010000006",
+    "account_type": "SAVINGS",
+    "ifsc": "SRCB0000001",
+    "mobile": "90110016",
+    "email": "sunita.patil06@email.in",
+    "address": "43/A, Shastri Nagar, Mumbai",
+    "branch": "Fort Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/srcb/SRCB-C006_specimen_1.jpg",
+      "images/srcb/SRCB-C006_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "SRCB-C007",
+    "bank_id": "srcb",
+    "name": "Gurpreet Singh Bhatia",
+    "name_initials": "GS",
+    "state": "Punjab",
+    "religion": "Sikh",
+    "community": "Khatri",
+    "account_number": "10010010000007",
+    "account_type": "SAVINGS",
+    "ifsc": "SRCB0000001",
+    "mobile": "90110017",
+    "email": "gurpreet.bhatia07@email.in",
+    "address": "50/A, Gandhi Nagar, Mumbai",
+    "branch": "Fort Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/srcb/SRCB-C007_specimen_1.jpg",
+      "images/srcb/SRCB-C007_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "SRCB-C008",
+    "bank_id": "srcb",
+    "name": "Fatima Bi Hussain Ansari",
+    "name_initials": "FB",
+    "state": "Uttar Pradesh",
+    "religion": "Muslim",
+    "community": "Ansari",
+    "account_number": "10010010000008",
+    "account_type": "SAVINGS",
+    "ifsc": "SRCB0000001",
+    "mobile": "90110018",
+    "email": "fatima.ansari08@email.in",
+    "address": "57/A, Nehru Nagar, Mumbai",
+    "branch": "Fort Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/srcb/SRCB-C008_specimen_1.jpg",
+      "images/srcb/SRCB-C008_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "SRCB-C009",
+    "bank_id": "srcb",
+    "name": "Thomas Varghese Mathew",
+    "name_initials": "TV",
+    "state": "Kerala",
+    "religion": "Christian",
+    "community": "Syrian",
+    "account_number": "10010010000009",
+    "account_type": "CURRENT",
+    "ifsc": "SRCB0000001",
+    "mobile": "90110019",
+    "email": "thomas.mathew09@email.in",
+    "address": "64/A, Shastri Nagar, Mumbai",
+    "branch": "Fort Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/srcb/SRCB-C009_specimen_1.jpg",
+      "images/srcb/SRCB-C009_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "SRCB-C010",
+    "bank_id": "srcb",
+    "name": "Meena Jayshree Patel",
+    "name_initials": "MJ",
+    "state": "Gujarat",
+    "religion": "Hindu",
+    "community": "Patidar",
+    "account_number": "10010010000010",
+    "account_type": "SAVINGS",
+    "ifsc": "SRCB0000001",
+    "mobile": "90110020",
+    "email": "meena.patel10@email.in",
+    "address": "71/A, Gandhi Nagar, Mumbai",
+    "branch": "Fort Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/srcb/SRCB-C010_specimen_1.jpg",
+      "images/srcb/SRCB-C010_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "VVSB-C001",
+    "bank_id": "vvsb",
+    "name": "Arvind Balkrishna Kulkarni",
+    "name_initials": "AB",
+    "state": "Maharashtra",
+    "religion": "Hindu",
+    "community": "CKP",
+    "account_number": "20010010000001",
+    "account_type": "SAVINGS",
+    "ifsc": "VVSB0000001",
+    "mobile": "90110021",
+    "email": "arvind.kulkarni01@email.in",
+    "address": "8/A, Gandhi Nagar, Vasai",
+    "branch": "Vasai Main Branch",
+    "signature_specimen_paths": [
+      "images/vvsb/VVSB-C001_specimen_1.jpg",
+      "images/vvsb/VVSB-C001_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "VVSB-C002",
+    "bank_id": "vvsb",
+    "name": "Sujata Narayan Deshpande",
+    "name_initials": "SN",
+    "state": "Maharashtra",
+    "religion": "Hindu",
+    "community": "Brahmin",
+    "account_number": "20010010000002",
+    "account_type": "CURRENT",
+    "ifsc": "VVSB0000001",
+    "mobile": "90110022",
+    "email": "sujata.deshpande02@email.in",
+    "address": "15/A, Nehru Nagar, Vasai",
+    "branch": "Vasai Main Branch",
+    "signature_specimen_paths": [
+      "images/vvsb/VVSB-C002_specimen_1.jpg",
+      "images/vvsb/VVSB-C002_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "VVSB-C003",
+    "bank_id": "vvsb",
+    "name": "Rashid Ahmed Khan",
+    "name_initials": "RA",
+    "state": "Delhi",
+    "religion": "Muslim",
+    "community": "Pathan",
+    "account_number": "20010010000003",
+    "account_type": "SAVINGS",
+    "ifsc": "VVSB0000001",
+    "mobile": "90110023",
+    "email": "rashid.khan03@email.in",
+    "address": "22/A, Shastri Nagar, Vasai",
+    "branch": "Vasai Main Branch",
+    "signature_specimen_paths": [
+      "images/vvsb/VVSB-C003_specimen_1.jpg",
+      "images/vvsb/VVSB-C003_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "VVSB-C004",
+    "bank_id": "vvsb",
+    "name": "Lakshmi Venkataraman Iyer",
+    "name_initials": "LV",
+    "state": "Tamil Nadu",
+    "religion": "Hindu",
+    "community": "Iyer",
+    "account_number": "20010010000004",
+    "account_type": "SAVINGS",
+    "ifsc": "VVSB0000001",
+    "mobile": "90110024",
+    "email": "lakshmi.iyer04@email.in",
+    "address": "29/A, Gandhi Nagar, Vasai",
+    "branch": "Vasai Main Branch",
+    "signature_specimen_paths": [
+      "images/vvsb/VVSB-C004_specimen_1.jpg",
+      "images/vvsb/VVSB-C004_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "VVSB-C005",
+    "bank_id": "vvsb",
+    "name": "Jaya Shankar Hegde",
+    "name_initials": "JS",
+    "state": "Karnataka",
+    "religion": "Hindu",
+    "community": "GSB",
+    "account_number": "20010010000005",
+    "account_type": "CURRENT",
+    "ifsc": "VVSB0000001",
+    "mobile": "90110025",
+    "email": "jaya.hegde05@email.in",
+    "address": "36/A, Nehru Nagar, Vasai",
+    "branch": "Vasai Main Branch",
+    "signature_specimen_paths": [
+      "images/vvsb/VVSB-C005_specimen_1.jpg",
+      "images/vvsb/VVSB-C005_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "VVSB-C006",
+    "bank_id": "vvsb",
+    "name": "Bipasha Sen Mukherjee",
+    "name_initials": "BS",
+    "state": "West Bengal",
+    "religion": "Hindu",
+    "community": "Kayastha",
+    "account_number": "20010010000006",
+    "account_type": "SAVINGS",
+    "ifsc": "VVSB0000001",
+    "mobile": "90110026",
+    "email": "bipasha.mukherjee06@email.in",
+    "address": "43/A, Shastri Nagar, Vasai",
+    "branch": "Vasai Main Branch",
+    "signature_specimen_paths": [
+      "images/vvsb/VVSB-C006_specimen_1.jpg",
+      "images/vvsb/VVSB-C006_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "VVSB-C007",
+    "bank_id": "vvsb",
+    "name": "Manjit Kaur Grewal",
+    "name_initials": "MK",
+    "state": "Punjab",
+    "religion": "Sikh",
+    "community": "Jat",
+    "account_number": "20010010000007",
+    "account_type": "SAVINGS",
+    "ifsc": "VVSB0000001",
+    "mobile": "90110027",
+    "email": "manjit.grewal07@email.in",
+    "address": "50/A, Gandhi Nagar, Vasai",
+    "branch": "Vasai Main Branch",
+    "signature_specimen_paths": [
+      "images/vvsb/VVSB-C007_specimen_1.jpg",
+      "images/vvsb/VVSB-C007_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "VVSB-C008",
+    "bank_id": "vvsb",
+    "name": "Abdul Razzak Qureshi",
+    "name_initials": "AR",
+    "state": "Uttar Pradesh",
+    "religion": "Muslim",
+    "community": "Qureshi",
+    "account_number": "20010010000008",
+    "account_type": "CURRENT",
+    "ifsc": "VVSB0000001",
+    "mobile": "90110028",
+    "email": "abdul.qureshi08@email.in",
+    "address": "57/A, Nehru Nagar, Vasai",
+    "branch": "Vasai Main Branch",
+    "signature_specimen_paths": [
+      "images/vvsb/VVSB-C008_specimen_1.jpg",
+      "images/vvsb/VVSB-C008_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "VVSB-C009",
+    "bank_id": "vvsb",
+    "name": "Maria Conceicao D'Souza",
+    "name_initials": "MC",
+    "state": "Goa",
+    "religion": "Christian",
+    "community": "Catholic",
+    "account_number": "20010010000009",
+    "account_type": "SAVINGS",
+    "ifsc": "VVSB0000001",
+    "mobile": "90110029",
+    "email": "maria.d'souza09@email.in",
+    "address": "64/A, Shastri Nagar, Vasai",
+    "branch": "Vasai Main Branch",
+    "signature_specimen_paths": [
+      "images/vvsb/VVSB-C009_specimen_1.jpg",
+      "images/vvsb/VVSB-C009_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "VVSB-C010",
+    "bank_id": "vvsb",
+    "name": "Hemant Baldevbhai Desai",
+    "name_initials": "HB",
+    "state": "Gujarat",
+    "religion": "Hindu",
+    "community": "Vaishya",
+    "account_number": "20010010000010",
+    "account_type": "SAVINGS",
+    "ifsc": "VVSB0000001",
+    "mobile": "90110030",
+    "email": "hemant.desai10@email.in",
+    "address": "71/A, Gandhi Nagar, Vasai",
+    "branch": "Vasai Main Branch",
+    "signature_specimen_paths": [
+      "images/vvsb/VVSB-C010_specimen_1.jpg",
+      "images/vvsb/VVSB-C010_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "KJSB-C001",
+    "bank_id": "kjsb",
+    "name": "Vikram Singh Yadav",
+    "name_initials": "VS",
+    "state": "Uttar Pradesh",
+    "religion": "Hindu",
+    "community": "OBC",
+    "account_number": "30010010000001",
+    "account_type": "SAVINGS",
+    "ifsc": "KJSB0000001",
+    "mobile": "90110031",
+    "email": "vikram.yadav01@email.in",
+    "address": "8/A, Gandhi Nagar, Kalyan",
+    "branch": "Kalyan Main Branch",
+    "signature_specimen_paths": [
+      "images/kjsb/KJSB-C001_specimen_1.jpg",
+      "images/kjsb/KJSB-C001_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "KJSB-C002",
+    "bank_id": "kjsb",
+    "name": "Pushpa Ramesh Gowda",
+    "name_initials": "PR",
+    "state": "Karnataka",
+    "religion": "Hindu",
+    "community": "Vokkaliga",
+    "account_number": "30010010000002",
+    "account_type": "CURRENT",
+    "ifsc": "KJSB0000001",
+    "mobile": "90110032",
+    "email": "pushpa.gowda02@email.in",
+    "address": "15/A, Nehru Nagar, Kalyan",
+    "branch": "Kalyan Main Branch",
+    "signature_specimen_paths": [
+      "images/kjsb/KJSB-C002_specimen_1.jpg",
+      "images/kjsb/KJSB-C002_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "KJSB-C003",
+    "bank_id": "kjsb",
+    "name": "Salim Abdul Siddiqui",
+    "name_initials": "SA",
+    "state": "Bihar",
+    "religion": "Muslim",
+    "community": "Siddiqui",
+    "account_number": "30010010000003",
+    "account_type": "SAVINGS",
+    "ifsc": "KJSB0000001",
+    "mobile": "90110033",
+    "email": "salim.siddiqui03@email.in",
+    "address": "22/A, Shastri Nagar, Kalyan",
+    "branch": "Kalyan Main Branch",
+    "signature_specimen_paths": [
+      "images/kjsb/KJSB-C003_specimen_1.jpg",
+      "images/kjsb/KJSB-C003_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "KJSB-C004",
+    "bank_id": "kjsb",
+    "name": "Kamala Krishnaswamy Pillai",
+    "name_initials": "KK",
+    "state": "Kerala",
+    "religion": "Hindu",
+    "community": "Nair",
+    "account_number": "30010010000004",
+    "account_type": "SAVINGS",
+    "ifsc": "KJSB0000001",
+    "mobile": "90110034",
+    "email": "kamala.pillai04@email.in",
+    "address": "29/A, Gandhi Nagar, Kalyan",
+    "branch": "Kalyan Main Branch",
+    "signature_specimen_paths": [
+      "images/kjsb/KJSB-C004_specimen_1.jpg",
+      "images/kjsb/KJSB-C004_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "KJSB-C005",
+    "bank_id": "kjsb",
+    "name": "Boman Sorab Mistry",
+    "name_initials": "BS",
+    "state": "Maharashtra",
+    "religion": "Parsi",
+    "community": "Mistry",
+    "account_number": "30010010000005",
+    "account_type": "CURRENT",
+    "ifsc": "KJSB0000001",
+    "mobile": "90110035",
+    "email": "boman.mistry05@email.in",
+    "address": "36/A, Nehru Nagar, Kalyan",
+    "branch": "Kalyan Main Branch",
+    "signature_specimen_paths": [
+      "images/kjsb/KJSB-C005_specimen_1.jpg",
+      "images/kjsb/KJSB-C005_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "KJSB-C006",
+    "bank_id": "kjsb",
+    "name": "Deepa Suresh Naik",
+    "name_initials": "DS",
+    "state": "Goa",
+    "religion": "Hindu",
+    "community": "Gaud",
+    "account_number": "30010010000006",
+    "account_type": "SAVINGS",
+    "ifsc": "KJSB0000001",
+    "mobile": "90110036",
+    "email": "deepa.naik06@email.in",
+    "address": "43/A, Shastri Nagar, Kalyan",
+    "branch": "Kalyan Main Branch",
+    "signature_specimen_paths": [
+      "images/kjsb/KJSB-C006_specimen_1.jpg",
+      "images/kjsb/KJSB-C006_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "KJSB-C007",
+    "bank_id": "kjsb",
+    "name": "Harinder Singh Sandhu",
+    "name_initials": "HS",
+    "state": "Punjab",
+    "religion": "Sikh",
+    "community": "Jat",
+    "account_number": "30010010000007",
+    "account_type": "CURRENT",
+    "ifsc": "KJSB0000001",
+    "mobile": "90110037",
+    "email": "harinder.sandhu07@email.in",
+    "address": "50/A, Gandhi Nagar, Kalyan",
+    "branch": "Kalyan Main Branch",
+    "signature_specimen_paths": [
+      "images/kjsb/KJSB-C007_specimen_1.jpg",
+      "images/kjsb/KJSB-C007_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "KJSB-C008",
+    "bank_id": "kjsb",
+    "name": "Shabana Hussain Ansari",
+    "name_initials": "SH",
+    "state": "Maharashtra",
+    "religion": "Muslim",
+    "community": "Ansari",
+    "account_number": "30010010000008",
+    "account_type": "SAVINGS",
+    "ifsc": "KJSB0000001",
+    "mobile": "90110038",
+    "email": "shabana.ansari08@email.in",
+    "address": "57/A, Nehru Nagar, Kalyan",
+    "branch": "Kalyan Main Branch",
+    "signature_specimen_paths": [
+      "images/kjsb/KJSB-C008_specimen_1.jpg",
+      "images/kjsb/KJSB-C008_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "KJSB-C009",
+    "bank_id": "kjsb",
+    "name": "George Antony Fernandes",
+    "name_initials": "GA",
+    "state": "Goa",
+    "religion": "Christian",
+    "community": "Catholic",
+    "account_number": "30010010000009",
+    "account_type": "CURRENT",
+    "ifsc": "KJSB0000001",
+    "mobile": "90110039",
+    "email": "george.fernandes09@email.in",
+    "address": "64/A, Shastri Nagar, Kalyan",
+    "branch": "Kalyan Main Branch",
+    "signature_specimen_paths": [
+      "images/kjsb/KJSB-C009_specimen_1.jpg",
+      "images/kjsb/KJSB-C009_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "KJSB-C010",
+    "bank_id": "kjsb",
+    "name": "Savita Prakash Joshi",
+    "name_initials": "SP",
+    "state": "Rajasthan",
+    "religion": "Hindu",
+    "community": "Brahmin",
+    "account_number": "30010010000010",
+    "account_type": "SAVINGS",
+    "ifsc": "KJSB0000001",
+    "mobile": "90110040",
+    "email": "savita.joshi10@email.in",
+    "address": "71/A, Gandhi Nagar, Kalyan",
+    "branch": "Kalyan Main Branch",
+    "signature_specimen_paths": [
+      "images/kjsb/KJSB-C010_specimen_1.jpg",
+      "images/kjsb/KJSB-C010_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "BCBK-C001",
+    "bank_id": "bcbk",
+    "name": "Suresh Baburao Jadhav",
+    "name_initials": "SB",
+    "state": "Maharashtra",
+    "religion": "Hindu",
+    "community": "Maratha",
+    "account_number": "40010010000001",
+    "account_type": "SAVINGS",
+    "ifsc": "BCBK0000001",
+    "mobile": "90110041",
+    "email": "suresh.jadhav01@email.in",
+    "address": "8/A, Gandhi Nagar, Mumbai",
+    "branch": "Dadar Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/bcbk/BCBK-C001_specimen_1.jpg",
+      "images/bcbk/BCBK-C001_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "BCBK-C002",
+    "bank_id": "bcbk",
+    "name": "Radha Krishnan Menon",
+    "name_initials": "RK",
+    "state": "Kerala",
+    "religion": "Hindu",
+    "community": "Nair",
+    "account_number": "40010010000002",
+    "account_type": "CURRENT",
+    "ifsc": "BCBK0000001",
+    "mobile": "90110042",
+    "email": "radha.menon02@email.in",
+    "address": "15/A, Nehru Nagar, Mumbai",
+    "branch": "Dadar Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/bcbk/BCBK-C002_specimen_1.jpg",
+      "images/bcbk/BCBK-C002_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "BCBK-C003",
+    "bank_id": "bcbk",
+    "name": "Imran Farooq Sheikh",
+    "name_initials": "IF",
+    "state": "Jammu & Kashmir",
+    "religion": "Muslim",
+    "community": "Sheikh",
+    "account_number": "40010010000003",
+    "account_type": "SAVINGS",
+    "ifsc": "BCBK0000001",
+    "mobile": "90110043",
+    "email": "imran.sheikh03@email.in",
+    "address": "22/A, Shastri Nagar, Mumbai",
+    "branch": "Dadar Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/bcbk/BCBK-C003_specimen_1.jpg",
+      "images/bcbk/BCBK-C003_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "BCBK-C004",
+    "bank_id": "bcbk",
+    "name": "Padmavathi Rajan Subramaniam",
+    "name_initials": "PR",
+    "state": "Tamil Nadu",
+    "religion": "Hindu",
+    "community": "Brahmin",
+    "account_number": "40010010000004",
+    "account_type": "SAVINGS",
+    "ifsc": "BCBK0000001",
+    "mobile": "90110044",
+    "email": "padmavathi.subramaniam04@email.in",
+    "address": "29/A, Gandhi Nagar, Mumbai",
+    "branch": "Dadar Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/bcbk/BCBK-C004_specimen_1.jpg",
+      "images/bcbk/BCBK-C004_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "BCBK-C005",
+    "bank_id": "bcbk",
+    "name": "Noshir Fali Contractor",
+    "name_initials": "NF",
+    "state": "Maharashtra",
+    "religion": "Parsi",
+    "community": "Contractor",
+    "account_number": "40010010000005",
+    "account_type": "CURRENT",
+    "ifsc": "BCBK0000001",
+    "mobile": "90110045",
+    "email": "noshir.contractor05@email.in",
+    "address": "36/A, Nehru Nagar, Mumbai",
+    "branch": "Dadar Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/bcbk/BCBK-C005_specimen_1.jpg",
+      "images/bcbk/BCBK-C005_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "BCBK-C006",
+    "bank_id": "bcbk",
+    "name": "Rita Mohan Banerjee",
+    "name_initials": "RM",
+    "state": "West Bengal",
+    "religion": "Hindu",
+    "community": "Brahmin",
+    "account_number": "40010010000006",
+    "account_type": "SAVINGS",
+    "ifsc": "BCBK0000001",
+    "mobile": "90110046",
+    "email": "rita.banerjee06@email.in",
+    "address": "43/A, Shastri Nagar, Mumbai",
+    "branch": "Dadar Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/bcbk/BCBK-C006_specimen_1.jpg",
+      "images/bcbk/BCBK-C006_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "BCBK-C007",
+    "bank_id": "bcbk",
+    "name": "Kulwant Singh Dhillon",
+    "name_initials": "KS",
+    "state": "Punjab",
+    "religion": "Sikh",
+    "community": "Jat",
+    "account_number": "40010010000007",
+    "account_type": "SAVINGS",
+    "ifsc": "BCBK0000001",
+    "mobile": "90110047",
+    "email": "kulwant.dhillon07@email.in",
+    "address": "50/A, Gandhi Nagar, Mumbai",
+    "branch": "Dadar Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/bcbk/BCBK-C007_specimen_1.jpg",
+      "images/bcbk/BCBK-C007_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "BCBK-C008",
+    "bank_id": "bcbk",
+    "name": "Nasreen Begum Mirza",
+    "name_initials": "NB",
+    "state": "Uttar Pradesh",
+    "religion": "Muslim",
+    "community": "Mirza",
+    "account_number": "40010010000008",
+    "account_type": "CURRENT",
+    "ifsc": "BCBK0000001",
+    "mobile": "90110048",
+    "email": "nasreen.mirza08@email.in",
+    "address": "57/A, Nehru Nagar, Mumbai",
+    "branch": "Dadar Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/bcbk/BCBK-C008_specimen_1.jpg",
+      "images/bcbk/BCBK-C008_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "BCBK-C009",
+    "bank_id": "bcbk",
+    "name": "Lino Afonso Rodrigues",
+    "name_initials": "LA",
+    "state": "Goa",
+    "religion": "Christian",
+    "community": "Catholic",
+    "account_number": "40010010000009",
+    "account_type": "SAVINGS",
+    "ifsc": "BCBK0000001",
+    "mobile": "90110049",
+    "email": "lino.rodrigues09@email.in",
+    "address": "64/A, Shastri Nagar, Mumbai",
+    "branch": "Dadar Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/bcbk/BCBK-C009_specimen_1.jpg",
+      "images/bcbk/BCBK-C009_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "BCBK-C010",
+    "bank_id": "bcbk",
+    "name": "Geeta Ramchandra Shekhawat",
+    "name_initials": "GR",
+    "state": "Rajasthan",
+    "religion": "Hindu",
+    "community": "Rajput",
+    "account_number": "40010010000010",
+    "account_type": "SAVINGS",
+    "ifsc": "BCBK0000001",
+    "mobile": "90110050",
+    "email": "geeta.shekhawat10@email.in",
+    "address": "71/A, Gandhi Nagar, Mumbai",
+    "branch": "Dadar Branch, Mumbai",
+    "signature_specimen_paths": [
+      "images/bcbk/BCBK-C010_specimen_1.jpg",
+      "images/bcbk/BCBK-C010_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "DUCB-C001",
+    "bank_id": "ducb",
+    "name": "Mahesh Dattatray Kale",
+    "name_initials": "MD",
+    "state": "Maharashtra",
+    "religion": "Hindu",
+    "community": "Mali",
+    "account_number": "50010010000001",
+    "account_type": "SAVINGS",
+    "ifsc": "DUCB0000001",
+    "mobile": "90110051",
+    "email": "mahesh.kale01@email.in",
+    "address": "8/A, Gandhi Nagar, Pune",
+    "branch": "Pune Main Branch",
+    "signature_specimen_paths": [
+      "images/ducb/DUCB-C001_specimen_1.jpg",
+      "images/ducb/DUCB-C001_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "DUCB-C002",
+    "bank_id": "ducb",
+    "name": "Sumitra Gopal Krishnan",
+    "name_initials": "SG",
+    "state": "Tamil Nadu",
+    "religion": "Hindu",
+    "community": "Mudaliar",
+    "account_number": "50010010000002",
+    "account_type": "CURRENT",
+    "ifsc": "DUCB0000001",
+    "mobile": "90110052",
+    "email": "sumitra.krishnan02@email.in",
+    "address": "15/A, Nehru Nagar, Pune",
+    "branch": "Pune Main Branch",
+    "signature_specimen_paths": [
+      "images/ducb/DUCB-C002_specimen_1.jpg",
+      "images/ducb/DUCB-C002_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "DUCB-C003",
+    "bank_id": "ducb",
+    "name": "Wasim Akram Patel",
+    "name_initials": "WA",
+    "state": "Gujarat",
+    "religion": "Muslim",
+    "community": "Patel",
+    "account_number": "50010010000003",
+    "account_type": "SAVINGS",
+    "ifsc": "DUCB0000001",
+    "mobile": "90110053",
+    "email": "wasim.patel03@email.in",
+    "address": "22/A, Shastri Nagar, Pune",
+    "branch": "Pune Main Branch",
+    "signature_specimen_paths": [
+      "images/ducb/DUCB-C003_specimen_1.jpg",
+      "images/ducb/DUCB-C003_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "DUCB-C004",
+    "bank_id": "ducb",
+    "name": "Champa Devi Mishra",
+    "name_initials": "CD",
+    "state": "Uttar Pradesh",
+    "religion": "Hindu",
+    "community": "Brahmin",
+    "account_number": "50010010000004",
+    "account_type": "SAVINGS",
+    "ifsc": "DUCB0000001",
+    "mobile": "90110054",
+    "email": "champa.mishra04@email.in",
+    "address": "29/A, Gandhi Nagar, Pune",
+    "branch": "Pune Main Branch",
+    "signature_specimen_paths": [
+      "images/ducb/DUCB-C004_specimen_1.jpg",
+      "images/ducb/DUCB-C004_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "DUCB-C005",
+    "bank_id": "ducb",
+    "name": "Pervez Hormusji Wadia",
+    "name_initials": "PH",
+    "state": "Maharashtra",
+    "religion": "Parsi",
+    "community": "Wadia",
+    "account_number": "50010010000005",
+    "account_type": "CURRENT",
+    "ifsc": "DUCB0000001",
+    "mobile": "90110055",
+    "email": "pervez.wadia05@email.in",
+    "address": "36/A, Nehru Nagar, Pune",
+    "branch": "Pune Main Branch",
+    "signature_specimen_paths": [
+      "images/ducb/DUCB-C005_specimen_1.jpg",
+      "images/ducb/DUCB-C005_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "DUCB-C006",
+    "bank_id": "ducb",
+    "name": "Aparajita Chowdhury Das",
+    "name_initials": "AC",
+    "state": "West Bengal",
+    "religion": "Hindu",
+    "community": "Kayastha",
+    "account_number": "50010010000006",
+    "account_type": "SAVINGS",
+    "ifsc": "DUCB0000001",
+    "mobile": "90110056",
+    "email": "aparajita.das06@email.in",
+    "address": "43/A, Shastri Nagar, Pune",
+    "branch": "Pune Main Branch",
+    "signature_specimen_paths": [
+      "images/ducb/DUCB-C006_specimen_1.jpg",
+      "images/ducb/DUCB-C006_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "DUCB-C007",
+    "bank_id": "ducb",
+    "name": "Navdeep Kaur Randhawa",
+    "name_initials": "NK",
+    "state": "Punjab",
+    "religion": "Sikh",
+    "community": "Jat",
+    "account_number": "50010010000007",
+    "account_type": "CURRENT",
+    "ifsc": "DUCB0000001",
+    "mobile": "90110057",
+    "email": "navdeep.randhawa07@email.in",
+    "address": "50/A, Gandhi Nagar, Pune",
+    "branch": "Pune Main Branch",
+    "signature_specimen_paths": [
+      "images/ducb/DUCB-C007_specimen_1.jpg",
+      "images/ducb/DUCB-C007_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "DUCB-C008",
+    "bank_id": "ducb",
+    "name": "Zainab Ali Shaikh",
+    "name_initials": "ZA",
+    "state": "Maharashtra",
+    "religion": "Muslim",
+    "community": "Shaikh",
+    "account_number": "50010010000008",
+    "account_type": "SAVINGS",
+    "ifsc": "DUCB0000001",
+    "mobile": "90110058",
+    "email": "zainab.shaikh08@email.in",
+    "address": "57/A, Nehru Nagar, Pune",
+    "branch": "Pune Main Branch",
+    "signature_specimen_paths": [
+      "images/ducb/DUCB-C008_specimen_1.jpg",
+      "images/ducb/DUCB-C008_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "DUCB-C009",
+    "bank_id": "ducb",
+    "name": "Mathew Chacko Thomas",
+    "name_initials": "MC",
+    "state": "Kerala",
+    "religion": "Christian",
+    "community": "Syrian",
+    "account_number": "50010010000009",
+    "account_type": "CURRENT",
+    "ifsc": "DUCB0000001",
+    "mobile": "90110059",
+    "email": "mathew.thomas09@email.in",
+    "address": "64/A, Shastri Nagar, Pune",
+    "branch": "Pune Main Branch",
+    "signature_specimen_paths": [
+      "images/ducb/DUCB-C009_specimen_1.jpg",
+      "images/ducb/DUCB-C009_specimen_2.jpg"
+    ]
+  },
+  {
+    "customer_id": "DUCB-C010",
+    "bank_id": "ducb",
+    "name": "Rajendra Babulal Mehta",
+    "name_initials": "RB",
+    "state": "Gujarat",
+    "religion": "Hindu",
+    "community": "Vaishya",
+    "account_number": "50010010000010",
+    "account_type": "SAVINGS",
+    "ifsc": "DUCB0000001",
+    "mobile": "90110060",
+    "email": "rajendra.mehta10@email.in",
+    "address": "71/A, Gandhi Nagar, Pune",
+    "branch": "Pune Main Branch",
+    "signature_specimen_paths": [
+      "images/ducb/DUCB-C010_specimen_1.jpg",
+      "images/ducb/DUCB-C010_specimen_2.jpg"
+    ]
+  }
+]

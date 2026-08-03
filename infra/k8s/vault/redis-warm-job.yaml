@@ -1,0 +1,162 @@
+---
+# Redis Signature Vault Warm Job
+#
+# Fires automatically when the Redis CTS pod restarts (controlled by a
+# Kubernetes lifecycle hook on the Redis StatefulSet — see below).
+#
+# What it does:
+#   Calls POST /v1/admin/vault/warm-redis via the ASTRA API gateway.
+#   That endpoint triggers warm_redis_from_db (Temporal activity) which
+#   reads cts.signature_embeddings from YugabyteDB and pipeline-writes
+#   packed float32 embeddings back into Redis — no re-embedding needed.
+#
+# Estimated runtime: ~2 min for 5M accounts (bulk pipeline, not per-key).
+# Redis serves vault lookups via YugabyteDB fallback (50ms vs 1ms) until
+# the warm Job completes — no clearing window breach possible.
+#
+# Role used: ops_manager service account (maker role — warm is an action).
+# Token is injected by Vault Agent sidecar from:
+#   secret/astra/{bank_id}/internal/vault-warm-token
+#
+# This Job is created by the Redis StatefulSet postStart lifecycle hook.
+# It is NOT a CronJob — it fires on-demand only when Redis restarts.
+#
+# Template variables: {{ .Values.bankId }}  {{ .Values.namespace.cts }}
+# Rendered by Helm chart astra-platform.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cts-redis-warm-{{ .Values.bankId }}-{{ now | date "20060102T150405" }}
+  namespace: {{ .Values.namespace.cts }}
+  labels:
+    app.kubernetes.io/name: cts-redis-warm
+    app.kubernetes.io/component: vault-recovery
+    astra.io/bank-id: {{ .Values.bankId }}
+  annotations:
+    astra.io/triggered-by: "redis-restart-hook"
+spec:
+  # Run once — no retries needed; warm_redis_from_db is idempotent
+  backoffLimit: 3
+  activeDeadlineSeconds: 900   # 15 min upper bound; alert if exceeded
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cts-redis-warm
+        astra.io/bank-id: {{ .Values.bankId }}
+      annotations:
+        # Vault Agent injects the ops_manager service token
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "astra-vault-warm-{{ .Values.bankId }}"
+        vault.hashicorp.com/agent-inject-secret-warm-token: >
+          secret/astra/{{ .Values.bankId }}/internal/vault-warm-token
+        vault.hashicorp.com/agent-inject-template-warm-token: |
+          {{- with secret "secret/astra/{{ .Values.bankId }}/internal/vault-warm-token" -}}
+          {{ .Data.data.token }}
+          {{- end }}
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: astra-vault-warm-{{ .Values.bankId }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: warm-trigger
+          image: curlimages/curl:8.6.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              TOKEN=$(cat /vault/secrets/warm-token)
+              echo "[vault-warm] Triggering Redis warm for bank {{ .Values.bankId }}"
+              RESPONSE=$(curl -sf \
+                --max-time 30 \
+                -X POST \
+                -H "Content-Type: application/json" \
+                -H "Cookie: astra_session=${TOKEN}" \
+                "http://astra-api-gateway.{{ .Values.namespace.cts }}.svc.cluster.local/v1/admin/vault/warm-redis")
+              echo "[vault-warm] Response: ${RESPONSE}"
+              WORKFLOW_ID=$(echo "${RESPONSE}" | grep -o '"workflow_id":"[^"]*"' | cut -d'"' -f4)
+              echo "[vault-warm] Workflow started: ${WORKFLOW_ID}"
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "32Mi"
+            limits:
+              cpu: "50m"
+              memory: "64Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+
+---
+# Redis StatefulSet postStart hook configuration
+# Merge this into infra/helm/astra-platform/templates/redis-cts-statefulset.yaml
+#
+# The hook fires after the Redis container starts and reaches its readiness
+# probe. It creates the warm Job above. Idempotent: Job name includes
+# timestamp so concurrent restarts create distinct Jobs that both complete.
+#
+# lifecycle:
+#   postStart:
+#     exec:
+#       command:
+#         - /bin/sh
+#         - -c
+#         - |
+#           # Wait until Redis accepts connections (readiness probe has passed
+#           # by the time postStart fires, but give it 2s for propagation)
+#           sleep 2
+#           # Create the warm Job via kubectl (service account has Job create permission)
+#           kubectl create job \
+#             --namespace={{ .Values.namespace.cts }} \
+#             --from=cronjob/cts-redis-warm-template-{{ .Values.bankId }} \
+#             "cts-redis-warm-{{ .Values.bankId }}-$(date +%Y%m%dT%H%M%S)" \
+#           || true   # never fail the pod startup if the Job create races
+#
+# RBAC for this service account: see vault/redis-warm-rbac.yaml
+
+---
+# RBAC — the redis-cts pod needs Job:create permission so its postStart hook
+# can submit the warm Job.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cts-redis-warm-job-creator
+  namespace: {{ .Values.namespace.cts }}
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cts-redis-warm-job-creator
+  namespace: {{ .Values.namespace.cts }}
+subjects:
+  - kind: ServiceAccount
+    name: astra-redis-cts
+    namespace: {{ .Values.namespace.cts }}
+roleRef:
+  kind: Role
+  name: cts-redis-warm-job-creator
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ServiceAccount for the warm Job itself (the curl container)
+# Needs no K8s permissions — it only calls the ASTRA HTTP API.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: astra-vault-warm-{{ .Values.bankId }}
+  namespace: {{ .Values.namespace.cts }}
+  annotations:
+    vault.hashicorp.com/role: "astra-vault-warm-{{ .Values.bankId }}"

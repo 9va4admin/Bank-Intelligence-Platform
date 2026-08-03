@@ -9,12 +9,39 @@ Called by SMBForwardingWorkflow (Sponsor Bank side):
 
 All thresholds (min IET headroom) come from config_service — never hardcoded.
 All PII rules enforced: no full account numbers, no exact amounts, no customer names.
+
+db is worker-level DI (asyncpg pool/connection — see modules/cts/worker_activities.py),
+matching modules/cts/crl/service.py's CRLService convention. immudb_client is likewise
+worker-level DI. Both degrade gracefully when absent: db-dependent activities log a
+warning and skip the real write/read rather than raising, since Temporal's retry policy
+has nothing meaningful to retry against a dependency that was never configured.
 """
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
 from temporalio import activity
+
+import structlog
+
+log = structlog.get_logger()
+
+_SMB_ACTIVE_SQL = """
+SELECT is_active FROM cts.sub_member_banks WHERE sub_member_id = $1 AND bank_id = $2
+"""
+
+_INSERT_FORWARDING_LOG_SQL = """
+INSERT INTO cts.smb_forwarding_log
+    (forwarding_id, bank_id, sponsor_bank_id, sub_member_id, instrument_id,
+     micr_prefix_matched, forwarding_status, iet_deadline_utc)
+VALUES ($1, $2, $2, $3, $4, $5, 'FORWARDING', $6)
+"""
+
+_UPDATE_FORWARDING_LOG_COMPLETE_SQL = """
+UPDATE cts.smb_forwarding_log
+SET forwarding_status = $1, terminal_decision = $2, smb_workflow_id = $3, completed_at = $4
+WHERE forwarding_id = $5 AND bank_id = $6
+"""
 
 
 @activity.defn
@@ -23,6 +50,7 @@ async def validate_smb_forwarding_window(
     bank_id: str,
     sub_member_id: str,
     iet_deadline_utc: str,
+    db: Any = None,
 ) -> dict:
     """
     Validates two things before proceeding with forwarding:
@@ -57,8 +85,15 @@ async def validate_smb_forwarding_window(
             "reason": f"INVALID_IET_DEADLINE: {iet_deadline_utc}",
         }
 
-    # Check minimum headroom
-    min_headroom = config_service.get("cts.smb.min_iet_headroom_s") or 300
+    # Check minimum headroom — config_service.get() raises ConfigKeyNotFoundError
+    # for an unseeded Layer 3 key rather than returning None, so `or 300` alone
+    # would never actually catch the missing-config case; this sits on the
+    # IET-safety-critical path so a missing key must degrade to the
+    # documented default, never crash the whole forwarding decision.
+    try:
+        min_headroom = await config_service.get("cts.smb.min_iet_headroom_s") or 300
+    except Exception:
+        min_headroom = 300
     if iet_seconds_remaining < min_headroom:
         return {
             "forwarding_id": forwarding_id,
@@ -71,9 +106,21 @@ async def validate_smb_forwarding_window(
             ),
         }
 
-    # Production: check cts.sub_member_banks.is_active via DB.
-    # Stub returns active=True — real implementation queries via async YugabyteDB client.
-    smb_active = True
+    smb_active = True  # default when db unavailable — matches pre-DI behaviour;
+    # an outage here must never itself become the reason a live SMB gets
+    # blocked, and IET safety is the higher-priority invariant.
+    if db is not None:
+        try:
+            row = await db.fetchval(_SMB_ACTIVE_SQL, sub_member_id, bank_id)
+            if row is not None:
+                smb_active = bool(row)
+        except Exception as exc:
+            log.warning(
+                "smb_forwarding.active_check_degraded",
+                sub_member_id=sub_member_id,
+                bank_id=bank_id,
+                error=str(exc),
+            )
 
     if not smb_active:
         return {
@@ -101,15 +148,34 @@ async def write_forwarding_log_start(
     sub_member_id: str,
     micr_prefix_matched: str,
     iet_deadline_utc: str,
+    db: Any = None,
 ) -> dict:
     """
     Inserts a row into cts.smb_forwarding_log with status = FORWARDING.
 
-    In production this performs an INSERT via pgbouncer-cts pool (async sqlalchemy).
-    The forwarding_id is the UUID pre-allocated by validate_smb_forwarding_window.
+    sponsor_bank_id is the same value as bank_id here — SMBForwardingWorkflow
+    runs on the sponsor's own task queue and passes input.bank_id, which IS
+    the sponsor bank's ID (see smb_forwarding_workflow.py's SMBChequeInput
+    construction: sponsor_bank_id=input.bank_id).
     """
     now = datetime.now(timezone.utc).isoformat()
-    # Production: INSERT INTO cts.smb_forwarding_log (...) VALUES (...)
+
+    if db is not None:
+        try:
+            deadline = datetime.fromisoformat(iet_deadline_utc.replace("Z", "+00:00"))
+            await db.execute(
+                _INSERT_FORWARDING_LOG_SQL,
+                forwarding_id, bank_id, sub_member_id, instrument_id,
+                micr_prefix_matched, deadline,
+            )
+        except Exception as exc:
+            log.warning(
+                "smb_forwarding.log_start_degraded",
+                forwarding_id=forwarding_id,
+                instrument_id=instrument_id,
+                error=str(exc),
+            )
+
     return {
         "forwarding_id": forwarding_id,
         "instrument_id": instrument_id,
@@ -128,21 +194,34 @@ async def write_forwarding_log_complete(
     bank_id: str,
     terminal_decision: str,
     smb_workflow_id: str,
+    db: Any = None,
 ) -> dict:
     """
     Updates cts.smb_forwarding_log row to COMPLETED (or FAILED on IET_EMERGENCY).
     Sets terminal_decision, smb_workflow_id, completed_at.
     """
     status = "COMPLETED" if terminal_decision != "IET_EMERGENCY" else "FAILED"
-    now = datetime.now(timezone.utc).isoformat()
-    # Production: UPDATE cts.smb_forwarding_log SET forwarding_status=$1,
-    #   terminal_decision=$2, smb_workflow_id=$3, completed_at=$4 WHERE forwarding_id=$5
+    now = datetime.now(timezone.utc)
+
+    if db is not None:
+        try:
+            await db.execute(
+                _UPDATE_FORWARDING_LOG_COMPLETE_SQL,
+                status, terminal_decision, smb_workflow_id, now, forwarding_id, bank_id,
+            )
+        except Exception as exc:
+            log.warning(
+                "smb_forwarding.log_complete_degraded",
+                forwarding_id=forwarding_id,
+                error=str(exc),
+            )
+
     return {
         "forwarding_id": forwarding_id,
         "forwarding_status": status,
         "terminal_decision": terminal_decision,
         "smb_workflow_id": smb_workflow_id,
-        "completed_at": now,
+        "completed_at": now.isoformat(),
     }
 
 
@@ -152,6 +231,7 @@ async def write_smb_forwarding_audit(
     bank_id: str,
     terminal_decision: str,
     completion_type: str,
+    immudb_client: Any = None,
 ) -> dict:
     """
     Writes an Immudb audit event for the SMB forwarding hop.
@@ -162,27 +242,32 @@ async def write_smb_forwarding_audit(
 
     completion_type: COMPLETED | SHORT_CIRCUIT_IET_HEADROOM | FAILED
     """
-    from shared.audit.audit_event import AuditEvent
+    from shared.audit.audit_event import AuditEvent, AuditEventType
 
     event = AuditEvent(
-        event_id=str(uuid.uuid4()),
-        event_type="SMB_CHEQUE_FORWARDED",
+        event_type=AuditEventType.CTS_SMB_CHEQUE_FORWARDED,
         bank_id=bank_id,
-        module="cts",
-        entity_id=forwarding_id,
-        entity_type="smb_forwarding_log",
         payload={
             "forwarding_id": forwarding_id,
             "terminal_decision": terminal_decision,
             "completion_type": completion_type,
         },
-        timestamp=datetime.now(timezone.utc).isoformat(),
     )
 
-    # Production: shared/audit/immudb_client.py.write(event)
-    # HSM signing happens inside immudb_client — this activity never touches keys.
+    written = False
+    if immudb_client is not None:
+        try:
+            immudb_client.write_event(event.model_dump())
+            written = True
+        except Exception as exc:
+            log.warning(
+                "smb_forwarding.audit_write_degraded",
+                forwarding_id=forwarding_id,
+                error=str(exc),
+            )
+
     return {
         "audit_event_id": event.event_id,
         "event_type": event.event_type,
-        "written": True,
+        "written": written,
     }

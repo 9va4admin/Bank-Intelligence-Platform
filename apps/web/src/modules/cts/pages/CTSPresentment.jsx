@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+﻿import { useState, useEffect, useRef, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import ChequeImageViewer from '../components/ChequeImageViewer'
+import { demoChequeUrl } from '../demoImages'
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -17,6 +19,18 @@ function makeSessions(bankIfsc, isSMB) {
     { id: `SES-${ifsc}-20260619-003`, window: '14:00–16:00', status: 'PENDING', submitted: 0,    accepted: 0,    rejected: 0,  returned: 0 },
   ]
 }
+
+// Drawee banks — cheques in Saraswat's outward batch are drawn on these banks
+const DRAWEE_BANKS = [
+  { name: 'State Bank of India',  branch: 'Fort Branch, Mumbai',    ifsc: 'SBIN0000300', micr: '400002003' },
+  { name: 'HDFC Bank Ltd.',       branch: 'Fort Branch, Mumbai',    ifsc: 'HDFC0000060', micr: '400240060' },
+  { name: 'ICICI Bank Ltd.',      branch: 'Nariman Point, Mumbai',  ifsc: 'ICIC0000001', micr: '400229001' },
+  { name: 'Bank of Baroda',       branch: 'Churchgate, Mumbai',     ifsc: 'BARB0CHURCH', micr: '400012009' },
+  { name: 'Axis Bank Ltd.',       branch: 'Andheri West, Mumbai',   ifsc: 'UTIB0000067', micr: '400211067' },
+  { name: 'Union Bank of India',  branch: 'Mumbai Main Branch',     ifsc: 'UBIN0531847', micr: '400026003' },
+  { name: 'Punjab National Bank', branch: 'Fort Mumbai Branch',     ifsc: 'PUNB0048400', micr: '400024011' },
+  { name: 'Canara Bank',          branch: 'Fort Branch, Mumbai',    ifsc: 'CNRB0000014', micr: '400015014' },
+]
 
 const IQA_FAIL_REASONS = [
   'Image too dark — rescan required',
@@ -41,27 +55,50 @@ function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001
   return Array.from({ length: n }, (_, i) => {
     const idx = startIdx + i
     const status = pick()
-    const amts   = ['₹12,500', '₹45,000', '₹2,00,000', '₹8,75,000', '₹15,000', '₹3,50,000']
-    const payees = ['Reliance Ind.', 'HDFC Securities', 'Tata Cons.', 'Infosys Ltd.', 'SBI MF']
+    const amts     = ['₹12,500', '₹45,000', '₹2,00,000', '₹8,75,000', '₹15,000', '₹3,50,000']
+    const amtWords = ['Twelve Thousand Five Hundred Only', 'Forty Five Thousand Only', 'Two Lakhs Only',
+                      'Eight Lakhs Seventy Five Thousand Only', 'Fifteen Thousand Only', 'Three Lakhs Fifty Thousand Only']
+    const payees   = ['Rajesh Kumar Verma', 'Sunita P. Joshi', 'Amol Vilas Kulkarni', 'Kavita R. Desai', 'Nikhil Santosh Pawar']
+    const CHANNELS = ['PAY_IN_SLIP', 'BACK_ANNOTATION', 'KIOSK']
     const iqaFail = status === 'IQA_FAIL'
     const lotSeq  = Math.floor(idx / LOT_SIZE) + 1
+    const drawee  = DRAWEE_BANKS[idx % DRAWEE_BANKS.length]
     return {
       instrument_id: `CHQ-OUT-${String(idx + 1).padStart(5, '0')}`,
       account_display: `****${1000 + ((idx * 37) % 9000)}`,
       payee: payees[idx % payees.length],
       amount: amts[idx % amts.length],
+      amount_words: amtWords[idx % amts.length],
+      deposit_channel: CHANNELS[idx % 3],
+      deposit_data: (() => {
+        const ch      = CHANNELS[idx % 3]
+        const fullAcct = `4000${String((idx * 37 + 10000) % 1000000).padStart(6, '0')}`
+        const payee   = payees[idx % payees.length]
+        const amt     = amts[idx % amts.length]
+        const date    = '19/06/2026'
+        const draweeD = DRAWEE_BANKS[idx % DRAWEE_BANKS.length]
+        if (ch === 'PAY_IN_SLIP')     return { depositor_name: payee, depositor_account: fullAcct, deposit_amount: amt, counter_token: `T-${String((idx % 99) + 1).padStart(4, '0')}`, date, branch: draweeD.branch }
+        if (ch === 'BACK_ANNOTATION') return { extracted_account: fullAcct, extracted_mobile: `98${String(((idx * 13) % 100000000) + 10000000).slice(0, 8)}`, ocr_confidence: 0.78 + (idx % 5) * 0.04 }
+        return { name: payee, account: fullAcct, txn_id: `CDM-${String(idx).padStart(3, '0')}-20260619`, timestamp: `09:${String((idx * 7) % 60).padStart(2, '0')} AM  19/06/2026` }
+      })(),
       zone: zones[idx % zones.length],
       micr: `0${idx % 9}2000${String(idx).padStart(6, '0')}`,
       date_on_cheque: '19-Jun-2026',
       lot_number: `LOT_${bankIfsc}_20260619_${sessionId}_${String(lotSeq).padStart(2, '0')}`,
       lot_seq: lotSeq,
       status,
+      drawee_bank_name: drawee.name,
+      drawee_branch:    drawee.branch,
+      drawee_ifsc:      drawee.ifsc,
+      drawee_micr:      drawee.micr,
       iqa_fail_reason: iqaFail ? IQA_FAIL_REASONS[idx % IQA_FAIL_REASONS.length] : null,
       ocr_confidence: iqaFail ? null : (0.72 + Math.random() * 0.27).toFixed(2),
       sig_score: iqaFail ? null : (0.74 + Math.random() * 0.25).toFixed(2),
       amount_words_match: iqaFail ? null : Math.random() > 0.04,
       date_valid: iqaFail ? null : Math.random() > 0.02,
       cts_valid: iqaFail ? null : Math.random() > 0.01,
+      front_bw_url: null,
+      front_gray_url: null,
       scanner_id: `SCN-${String((idx % 4) + 1).padStart(2, '0')}`,
       captured_at: new Date(Date.now() - (n - idx) * 4200).toISOString(),
       ngch_ack_id: ['NGCH_ACK', 'NGCH_REJECT'].includes(status)
@@ -157,6 +194,10 @@ function KpiStrip({ batch, filterStatus, onFilter, isDark }) {
   const rejected  = batch.filter(b => b.status === 'NGCH_REJECT').length
   const amtMismatch = batch.filter(b => b.amount_words_match === false).length
   const dateInvalid = batch.filter(b => b.date_valid === false).length
+  // Human decisions made in Outward Q (Human Review / STP Rejected tabs) — this
+  // Monitor is read-only; it only rolls up what was manually decided elsewhere.
+  const manualConfirmed = Math.max(1, Math.round(total * 0.019))
+  const manualRejected  = Math.max(1, Math.round(total * 0.007))
 
   const th = {
     card:    isDark ? 'bg-navy-900/50 border-white/8' : 'bg-white border-slate-200',
@@ -174,21 +215,32 @@ function KpiStrip({ batch, filterStatus, onFilter, isDark }) {
     { key: 'NGCH_REJECT',  label: 'NGCH Reject',    val: rejected,    color: rejected > 0 ? 'text-red-400' : (isDark ? 'text-slate-500' : 'text-slate-400') },
     { key: 'AMT_MISMATCH', label: 'Amt Mismatch',   val: amtMismatch, color: amtMismatch > 0 ? 'text-amber-400' : (isDark ? 'text-slate-500' : 'text-slate-400') },
     { key: 'DATE_INVALID', label: 'Date Invalid',   val: dateInvalid, color: dateInvalid > 0 ? 'text-amber-400' : (isDark ? 'text-slate-500' : 'text-slate-400') },
+    { key: 'MANUAL_CONFIRM', label: 'Manual Confirmed', val: manualConfirmed, color: isDark ? 'text-emerald-300' : 'text-emerald-600', disabled: true },
+    { key: 'MANUAL_REJECT',  label: 'Manual Rejected',  val: manualRejected,  color: isDark ? 'text-red-300'     : 'text-red-600',     disabled: true },
   ]
 
   return (
     <div className={`shrink-0 border-b ${th.divider} px-5 py-3`}>
-      <div className="flex gap-4 overflow-x-auto">
+      <div className="flex gap-2">
         {tiles.map(t => {
           const active = filterStatus === t.key
+          if (t.disabled) {
+            return (
+              <div key={t.key} title="Decided in Outward Q — shown here for monitoring only"
+                className={`flex-1 rounded-xl border px-3 py-2 text-left ${th.card} opacity-90`}>
+                <div className={`text-[9px] uppercase tracking-widest ${th.lbl} mb-0.5 truncate`}>{t.label}</div>
+                <div className={`text-xl font-bold font-mono ${t.color}`}>{t.val}</div>
+              </div>
+            )
+          }
           return (
             <button key={t.key}
               onClick={() => onFilter(active ? 'ALL' : t.key)}
-              className={`shrink-0 rounded-xl border px-4 py-2 min-w-[100px] text-left transition-all ${
+              className={`flex-1 rounded-xl border px-3 py-2 text-left transition-all ${
                 active ? th.cardAct : `${th.card} ${isDark ? 'hover:border-gold-400/20' : 'hover:border-amber-300/50'}`
               }`}>
-              <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-0.5`}>{t.label}</div>
-              <div className={`text-2xl font-bold font-mono ${t.color}`}>{t.val}</div>
+              <div className={`text-[9px] uppercase tracking-widest ${th.lbl} mb-0.5 truncate`}>{t.label}</div>
+              <div className={`text-xl font-bold font-mono ${t.color}`}>{t.val}</div>
             </button>
           )
         })}
@@ -402,6 +454,8 @@ function OutwardPipelineViz({ item }) {
 }
 
 function DetailPanel({ item, isDark }) {
+  const [detailTab, setDetailTab] = useState('pipeline')
+
   if (!item) return (
     <div className={`flex-1 flex items-center justify-center ${isDark ? 'text-slate-500' : 'text-slate-300'} text-sm`}>
       Select a cheque to inspect
@@ -456,13 +510,65 @@ function DetailPanel({ item, isDark }) {
         )}
       </div>
 
-      {/* Pipeline progress */}
-      <div className={`shrink-0 px-5 py-3 border-b ${th.divider}`}>
-        <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>Outward Clearing Pipeline</div>
-        <OutwardPipelineViz item={item} />
+      {/* Tab bar: Pipeline | Chq Images */}
+      <div className={`shrink-0 flex items-center gap-1 px-5 pt-2.5 border-b ${th.divider}`}>
+        {[
+          { key: 'pipeline', label: '⚙ Pipeline' },
+          { key: 'chq',      label: '🖼 Chq Images' },
+        ].map(t => (
+          <button
+            key={t.key}
+            onClick={() => setDetailTab(t.key)}
+            className={`px-4 py-2 text-[11px] font-semibold rounded-t-lg border-b-2 transition-colors ${
+              detailTab === t.key
+                ? (isDark ? 'border-amber-400 text-amber-400 bg-amber-400/8' : 'border-amber-500 text-amber-600 bg-amber-50')
+                : (isDark ? 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50')
+            }`}
+          >{t.label}</button>
+        ))}
       </div>
 
-      <div className="flex-1 px-5 py-4 space-y-4">
+      {/* Pipeline tab */}
+      {detailTab === 'pipeline' && (
+        <div className={`shrink-0 px-5 py-3 border-b ${th.divider}`}>
+          <div className={`text-[10px] uppercase tracking-widest ${th.lbl} mb-2`}>Outward Clearing Pipeline</div>
+          <OutwardPipelineViz item={item} />
+        </div>
+      )}
+
+      {/* Chq Images tab */}
+      {detailTab === 'chq' && (
+        <div className="px-5 py-3">
+          <ChequeImageViewer
+            views={[
+              { key: 'BFB', label: 'BFB — Front Black', url: item.front_bw_url   ?? null },
+              { key: 'BBB', label: 'BBB — Back Black',  url: null },
+              { key: 'BFG', label: 'BFG — Front Grey',  url: item.front_gray_url ?? null },
+            ]}
+            fields={{
+              payee:           item.payee,
+              date:            item.date_on_cheque,
+              amount_figures:  item.amount,
+              amount_words:    item.amount_words,
+              micr:            item.micr,
+              alterations:     false,
+              bank_name:       item.drawee_bank_name,
+              bank_branch:     item.drawee_branch,
+              bank_ifsc:       item.drawee_ifsc,
+              bank_micr:       item.drawee_micr,
+              deposit_channel: item.deposit_channel,
+              deposit_data:    item.deposit_data,
+              iqa_fail_reason: item.iqa_fail_reason ?? null,
+            }}
+            isDark={isDark}
+            compact={false}
+            title={item.instrument_id}
+            depositInfo={item.deposit_channel ? { channel: item.deposit_channel, data: item.deposit_data } : null}
+          />
+        </div>
+      )}
+
+      {detailTab === 'pipeline' && <div className="flex-1 px-5 py-4 space-y-4">
         {/* IQA fail alert */}
         {item.iqa_fail_reason && (
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3">
@@ -549,7 +655,7 @@ function DetailPanel({ item, isDark }) {
             </div>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   )
 }

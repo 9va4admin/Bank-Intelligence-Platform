@@ -1,0 +1,120 @@
+{{/*
+KEDA ScaledObjects — CTS Outward Clearing
+
+Drives autoscaling of the cts-agent-worker pods for outward clearing topics.
+Separate ScaledObject per topic so scaling events are independent and a
+burst on one topic cannot starve the other.
+
+Inward-clearing ScaledObjects (cts.inward.{bank_id}) live in the astra-platform
+chart — they are shared infra. These objects are CTS-module-specific.
+
+All ScaledObjects use the same pattern:
+  - Kafka trigger on consumer lag (lagThreshold)
+  - minReplicaCount / maxReplicaCount from chart values
+  - cooldownPeriod = 60s (aggressive down-scale to zero during off-hours)
+  - pollingInterval = 10s (detect bursts quickly)
+*/}}
+
+{{- $bankId := .Values.global.bank_id }}
+
+{{/* ── cts.outward.scanned — OutwardScanWorkflow consumer ─────────────────── */}}
+{{- if .Values.keda.outward_scanned.enabled }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: cts-outward-scanned-scaler
+  namespace: {{ printf "astra-cts-%s" $bankId }}
+  labels:
+    app.kubernetes.io/name: cts-agent-worker
+    app.kubernetes.io/part-of: astra-cts
+    astra.io/bank-id: {{ $bankId | quote }}
+    astra.io/topic: {{ printf "cts.outward.scanned.%s" $bankId | quote }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cts-agent-worker
+  minReplicaCount: {{ .Values.keda.outward_scanned.min_replicas | default 1 }}
+  maxReplicaCount: {{ .Values.keda.outward_scanned.max_replicas | default 20 }}
+  cooldownPeriod: 60
+  pollingInterval: 10
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: {{ .Values.kafka.bootstrap_servers | quote }}
+        consumerGroup: {{ printf "cg-cts-outward-scan-%s" $bankId | quote }}
+        topic: {{ printf "cts.outward.scanned.%s" $bankId | quote }}
+        lagThreshold: {{ .Values.keda.outward_scanned.lag_threshold | default "10" | quote }}
+        offsetResetPolicy: earliest
+      authenticationRef:
+        name: keda-kafka-auth
+{{- end }}
+
+{{/* ── cts.outward.lot.sealed — BatchEndorsementWorkflow consumer ─────────── */}}
+{{- if .Values.keda.outward_lot_sealed.enabled }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: cts-outward-lot-sealed-scaler
+  namespace: {{ printf "astra-cts-%s" $bankId }}
+  labels:
+    app.kubernetes.io/name: cts-agent-worker
+    app.kubernetes.io/part-of: astra-cts
+    astra.io/bank-id: {{ $bankId | quote }}
+    astra.io/topic: {{ printf "cts.outward.lot.sealed.%s" $bankId | quote }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cts-agent-worker
+  minReplicaCount: {{ .Values.keda.outward_lot_sealed.min_replicas | default 1 }}
+  maxReplicaCount: {{ .Values.keda.outward_lot_sealed.max_replicas | default 10 }}
+  cooldownPeriod: 120
+  pollingInterval: 10
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: {{ .Values.kafka.bootstrap_servers | quote }}
+        consumerGroup: {{ printf "cg-cts-batch-endorse-%s" $bankId | quote }}
+        topic: {{ printf "cts.outward.lot.sealed.%s" $bankId | quote }}
+        lagThreshold: {{ .Values.keda.outward_lot_sealed.lag_threshold | default "5" | quote }}
+        offsetResetPolicy: earliest
+      authenticationRef:
+        name: keda-kafka-auth
+{{- end }}
+
+{{/* ── cts.smb.inbound — SMBForwardingWorkflow consumer ──────────────────── */}}
+{{- if .Values.keda.smb_inbound.enabled }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: cts-smb-inbound-scaler
+  namespace: {{ printf "astra-cts-%s" $bankId }}
+  labels:
+    app.kubernetes.io/name: cts-agent-worker
+    app.kubernetes.io/part-of: astra-cts
+    astra.io/bank-id: {{ $bankId | quote }}
+    astra.io/topic: {{ printf "cts.smb.inbound.%s" $bankId | quote }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cts-agent-worker
+  minReplicaCount: {{ .Values.keda.smb_inbound.min_replicas | default 1 }}
+  maxReplicaCount: {{ .Values.keda.smb_inbound.max_replicas | default 50 }}
+  cooldownPeriod: 60
+  pollingInterval: 10
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: {{ .Values.kafka.bootstrap_servers | quote }}
+        consumerGroup: {{ printf "cg-cts-smb-inbound-%s" $bankId | quote }}
+        topic: {{ printf "cts.smb.inbound.%s" $bankId | quote }}
+        lagThreshold: {{ .Values.keda.smb_inbound.lag_threshold | default "10" | quote }}
+        offsetResetPolicy: earliest
+      authenticationRef:
+        name: keda-kafka-auth
+{{- end }}

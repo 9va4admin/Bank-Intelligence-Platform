@@ -5,6 +5,11 @@
 # Layer 3 thresholds configured post-onboarding via Admin UI maker-checker.
 # ─────────────────────────────────────────────────────────────────────────────
 
+bank_id: example-bank
+global:
+  bank_id: example-bank
+  registry: registry.astra.internal
+
 atm_count: 45
 branch_count: 12
 

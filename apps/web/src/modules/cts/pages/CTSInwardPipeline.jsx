@@ -25,7 +25,11 @@ const SMB_STAGES = [
   { id: 'ngch',    label: 'NGCH Filed', icon: '📤', color: 'emerald' },
 ]
 
-// ─── Pipeline stage definitions ───────────────────────────────────────────────
+// ─── Pipeline stage definitions (Phase 3 — drawee inward order) ──────────────
+//
+// Vision LLM is FIRST on inward side: tampered cheques exit before any CBS call.
+// OCR removed: NGCH provides MICR data on inward instruments.
+// account_status merged into cbs stage for display clarity.
 
 const STAGES = [
   {
@@ -37,12 +41,12 @@ const STAGES = [
     avgMs: null,
   },
   {
-    id: 'ocr',
-    label: 'OCR · MICR',
-    sub: 'GOT-OCR2.0',
-    icon: '🔤',
+    id: 'alteration',
+    label: 'Alteration',
+    sub: 'Qwen2-VL · FIRST',
+    icon: '🔍',
     color: 'violet',
-    avgMs: 280,
+    avgMs: 110,
   },
   {
     id: 'cts2010',
@@ -50,23 +54,23 @@ const STAGES = [
     sub: 'Image quality',
     icon: '🖼',
     color: 'blue',
-    avgMs: 140,
+    avgMs: 80,
   },
   {
-    id: 'sig',
-    label: 'Signature',
-    sub: 'Siamese SNN',
+    id: 'stop_pay',
+    label: 'Stop Payment',
+    sub: 'Bloom + CBS',
+    icon: '🛑',
+    color: 'red',
+    avgMs: 50,
+  },
+  {
+    id: 'pps_sig',
+    label: 'PPS · Signature',
+    sub: 'Vault + Siamese',
     icon: '✍',
     color: 'indigo',
-    avgMs: 95,
-  },
-  {
-    id: 'pps',
-    label: 'PPS · CBS',
-    sub: 'Vault + Finacle',
-    icon: '🏦',
-    color: 'cyan',
-    avgMs: 60,
+    avgMs: 125,
   },
   {
     id: 'fraud',
@@ -75,6 +79,14 @@ const STAGES = [
     icon: '🛡',
     color: 'amber',
     avgMs: 45,
+  },
+  {
+    id: 'cbs',
+    label: 'CBS · Account',
+    sub: 'Balance + Status',
+    icon: '🏦',
+    color: 'cyan',
+    avgMs: 60,
   },
   {
     id: 'decision',
@@ -186,6 +198,19 @@ function StageCard({ stage, count, active, isDark }) {
   )
 }
 
+// ─── Fan-out alignment constants ─────────────────────────────────────────────
+// Card height and gap must be fixed so SVG lines can hit card centers exactly.
+// FANOUT_MID_Y (Human Review center) = stage card center in the row:
+//   stage card is 88px, row height = FANOUT_TOTAL_H = 252px
+//   stage card top = (252-88)/2 = 82, center = 82+44 = 126 = FANOUT_MID_Y ✓
+
+const FANOUT_CARD_H  = 80                                  // arm card fixed height (px)
+const FANOUT_GAP     = 6                                   // gap between arm cards (px)
+const FANOUT_TOTAL_H = FANOUT_CARD_H * 3 + FANOUT_GAP * 2 // 252px
+const FANOUT_TOP_Y   = FANOUT_CARD_H / 2                  // 40  — STP Confirm center
+const FANOUT_MID_Y   = FANOUT_CARD_H + FANOUT_GAP + FANOUT_CARD_H / 2  // 126 — HRQ center
+const FANOUT_BOT_Y   = FANOUT_CARD_H * 2 + FANOUT_GAP * 2 + FANOUT_CARD_H / 2  // 212 — STP Return center
+
 // ─── Fan-out decision branches ────────────────────────────────────────────────
 
 function DecisionFanout({ confirms, returns, humanReview, isDark }) {
@@ -194,100 +219,99 @@ function DecisionFanout({ confirms, returns, humanReview, isDark }) {
   const returnPct   = total ? Math.round(returns     / total * 100) : 0
   const reviewPct   = total ? Math.round(humanReview / total * 100) : 0
 
+  const SVG_W = 64
+
   const Arm = ({ label, count, pct, color, icon }) => {
     const c = COLOR[color]
     return (
-      <div className={`rounded-xl border px-3 py-2.5 w-[100px] transition-all duration-300 ${isDark ? 'bg-white/4 border-white/10' : 'bg-white border-slate-200'}`}
-        style={{ boxShadow: `0 0 14px 0 ${c.glow}22` }}>
-        <div className="text-base mb-1">{icon}</div>
+      <div
+        className={`rounded-xl border px-3 py-2 w-[100px] transition-all duration-300 ${isDark ? 'bg-white/4 border-white/10' : 'bg-white border-slate-200'}`}
+        style={{ boxShadow: `0 0 14px 0 ${c.glow}22`, height: FANOUT_CARD_H, flexShrink: 0 }}
+      >
+        <div className="text-base leading-none mb-0.5">{icon}</div>
         <div className={`text-[10px] font-bold ${c.text} leading-tight`}>{label}</div>
-        <div className={`text-lg font-black font-mono ${c.text} tabular-nums`}>{count}</div>
-        <div className={`text-[9px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{pct}% of total</div>
+        <div className={`text-xl font-black font-mono ${c.text} tabular-nums leading-none mt-0.5`}>{count}</div>
+        <div className={`text-[9px] mt-0.5 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{pct}% of total</div>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col items-center gap-2 shrink-0">
-      {/* Fan lines SVG */}
-      <svg width="80" height="96" viewBox="0 0 80 96" className="shrink-0">
+    <div className="flex shrink-0">
+      {/* Fan-out SVG — height matches card column so lines hit card centers exactly */}
+      <svg width={SVG_W} height={FANOUT_TOTAL_H} viewBox={`0 0 ${SVG_W} ${FANOUT_TOTAL_H}`}>
         <defs>
-          <filter id="glow-fan">
+          <filter id="glow-fanout" x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="1" result="blur"/>
             <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
           </filter>
         </defs>
-        {/* Lines fanning from left to three outputs */}
-        <line x1="0" y1="48" x2="80" y2="16" stroke="#10b981" strokeWidth="1" strokeOpacity="0.4" />
-        <line x1="0" y1="48" x2="80" y2="48" stroke="#f59e0b" strokeWidth="1" strokeOpacity="0.4" />
-        <line x1="0" y1="48" x2="80" y2="80" stroke="#ef4444" strokeWidth="1" strokeOpacity="0.4" />
-        {/* Animated particles */}
-        <circle r="2.5" fill="#10b981" filter="url(#glow-fan)">
-          <animateMotion dur="1.4s" repeatCount="indefinite" calcMode="linear">
-            <mpath href="#fan-confirm"/>
-          </animateMotion>
+        {/* Fan lines: from row-center (FANOUT_MID_Y) to each card center */}
+        <line x1="0" y1={FANOUT_MID_Y} x2={SVG_W} y2={FANOUT_TOP_Y} stroke="#10b981" strokeWidth="1" strokeOpacity="0.45" />
+        <line x1="0" y1={FANOUT_MID_Y} x2={SVG_W} y2={FANOUT_MID_Y} stroke="#f59e0b" strokeWidth="1" strokeOpacity="0.45" />
+        <line x1="0" y1={FANOUT_MID_Y} x2={SVG_W} y2={FANOUT_BOT_Y} stroke="#ef4444" strokeWidth="1" strokeOpacity="0.45" />
+        <circle r="2.5" fill="#10b981" filter="url(#glow-fanout)">
+          <animateMotion dur="1.4s" repeatCount="indefinite" calcMode="linear"><mpath href="#fanout-confirm"/></animateMotion>
         </circle>
-        <circle r="2.5" fill="#f59e0b" filter="url(#glow-fan)">
-          <animateMotion dur="1.8s" begin="0.3s" repeatCount="indefinite" calcMode="linear">
-            <mpath href="#fan-human"/>
-          </animateMotion>
+        <circle r="2.5" fill="#f59e0b" filter="url(#glow-fanout)">
+          <animateMotion dur="1.8s" begin="0.3s" repeatCount="indefinite" calcMode="linear"><mpath href="#fanout-human"/></animateMotion>
         </circle>
-        <circle r="2.5" fill="#ef4444" filter="url(#glow-fan)">
-          <animateMotion dur="2.2s" begin="0.6s" repeatCount="indefinite" calcMode="linear">
-            <mpath href="#fan-return"/>
-          </animateMotion>
+        <circle r="2.5" fill="#ef4444" filter="url(#glow-fanout)">
+          <animateMotion dur="2.2s" begin="0.6s" repeatCount="indefinite" calcMode="linear"><mpath href="#fanout-return"/></animateMotion>
         </circle>
-        <path id="fan-confirm" d="M 0 48 L 80 16" style={{ display: 'none' }} />
-        <path id="fan-human"   d="M 0 48 L 80 48" style={{ display: 'none' }} />
-        <path id="fan-return"  d="M 0 48 L 80 80" style={{ display: 'none' }} />
+        <path id="fanout-confirm" d={`M 0 ${FANOUT_MID_Y} L ${SVG_W} ${FANOUT_TOP_Y}`} style={{ display: 'none' }} />
+        <path id="fanout-human"   d={`M 0 ${FANOUT_MID_Y} L ${SVG_W} ${FANOUT_MID_Y}`} style={{ display: 'none' }} />
+        <path id="fanout-return"  d={`M 0 ${FANOUT_MID_Y} L ${SVG_W} ${FANOUT_BOT_Y}`} style={{ display: 'none' }} />
       </svg>
-      {/* Three arm cards */}
-      <div className="flex flex-col gap-1.5 -mt-10">
-        <Arm label="STP Confirm"   count={confirms}    pct={confirmPct}  color="emerald" icon="✓" />
-        <Arm label="Human Review"  count={humanReview} pct={reviewPct}   color="amber"   icon="👤" />
-        <Arm label="STP Return"    count={returns}     pct={returnPct}   color="red"     icon="✕" />
+      {/* Arm cards — gap matches FANOUT_GAP so card centers hit SVG endpoints */}
+      <div className="flex flex-col" style={{ gap: FANOUT_GAP }}>
+        <Arm label="STP Confirm"  count={confirms}    pct={confirmPct} color="emerald" icon="✓" />
+        <Arm label="Human Review" count={humanReview} pct={reviewPct}  color="amber"   icon="👤" />
+        <Arm label="STP Return"   count={returns}     pct={returnPct}  color="red"     icon="✕" />
       </div>
     </div>
   )
 }
 
 // ─── NGCH Filed terminus ──────────────────────────────────────────────────────
+// Only STP Confirm and STP Return flow immediately to NGCH.
+// Human Review items are pending human decision — not yet filed.
 
 function FiledTerminus({ total, isDark }) {
+  const SVG_W = 54
   return (
-    <div className="flex flex-col items-center gap-2 shrink-0">
-      {/* Converging lines */}
-      <svg width="60" height="96" viewBox="0 0 60 96">
-        <line x1="0" y1="16" x2="60" y2="48" stroke="#6366f1" strokeWidth="1" strokeOpacity="0.35" />
-        <line x1="0" y1="48" x2="60" y2="48" stroke="#6366f1" strokeWidth="1" strokeOpacity="0.35" />
-        <line x1="0" y1="80" x2="60" y2="48" stroke="#6366f1" strokeWidth="1" strokeOpacity="0.35" />
-        <circle r="2" fill="#6366f1">
-          <animateMotion dur="1.6s" repeatCount="indefinite" calcMode="linear">
-            <mpath href="#conv-top"/>
-          </animateMotion>
+    <div className="flex shrink-0">
+      {/* Converging SVG — only Confirm (top) and Return (bottom) → NGCH Filed (center) */}
+      <svg width={SVG_W} height={FANOUT_TOTAL_H} viewBox={`0 0 ${SVG_W} ${FANOUT_TOTAL_H}`}>
+        <defs>
+          <filter id="glow-terminus" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="1" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <line x1="0" y1={FANOUT_TOP_Y} x2={SVG_W} y2={FANOUT_MID_Y} stroke="#6366f1" strokeWidth="1" strokeOpacity="0.4" />
+        <line x1="0" y1={FANOUT_BOT_Y} x2={SVG_W} y2={FANOUT_MID_Y} stroke="#6366f1" strokeWidth="1" strokeOpacity="0.4" />
+        <circle r="2" fill="#6366f1" filter="url(#glow-terminus)">
+          <animateMotion dur="1.6s" repeatCount="indefinite" calcMode="linear"><mpath href="#terminus-top"/></animateMotion>
         </circle>
-        <circle r="2" fill="#6366f1">
-          <animateMotion dur="1.6s" begin="0.5s" repeatCount="indefinite" calcMode="linear">
-            <mpath href="#conv-mid"/>
-          </animateMotion>
+        <circle r="2" fill="#6366f1" filter="url(#glow-terminus)">
+          <animateMotion dur="1.6s" begin="0.8s" repeatCount="indefinite" calcMode="linear"><mpath href="#terminus-bot"/></animateMotion>
         </circle>
-        <circle r="2" fill="#6366f1">
-          <animateMotion dur="1.6s" begin="1s" repeatCount="indefinite" calcMode="linear">
-            <mpath href="#conv-bot"/>
-          </animateMotion>
-        </circle>
-        <path id="conv-top" d="M 0 16 L 60 48" style={{ display: 'none' }} />
-        <path id="conv-mid" d="M 0 48 L 60 48" style={{ display: 'none' }} />
-        <path id="conv-bot" d="M 0 80 L 60 48" style={{ display: 'none' }} />
+        <path id="terminus-top" d={`M 0 ${FANOUT_TOP_Y} L ${SVG_W} ${FANOUT_MID_Y}`} style={{ display: 'none' }} />
+        <path id="terminus-bot" d={`M 0 ${FANOUT_BOT_Y} L ${SVG_W} ${FANOUT_MID_Y}`} style={{ display: 'none' }} />
       </svg>
-      {/* Filed card */}
-      <div className={`-mt-10 rounded-xl border px-3 py-3 w-[100px] ${isDark ? 'bg-indigo-900/20 border-indigo-500/30' : 'bg-indigo-50 border-indigo-200'}`}
-        style={{ boxShadow: '0 0 18px 0 #6366f122' }}>
-        <div className="text-xl mb-1">📤</div>
-        <div className="text-[10px] font-bold text-indigo-400 leading-tight">NGCH Filed</div>
+      {/* Filed card centered vertically at FANOUT_MID_Y */}
+      <div className="flex items-center" style={{ height: FANOUT_TOTAL_H }}>
+        <div
+          className={`rounded-xl border px-3 py-3 w-[100px] ${isDark ? 'bg-indigo-900/20 border-indigo-500/30' : 'bg-indigo-50 border-indigo-200'}`}
+          style={{ boxShadow: '0 0 18px 0 #6366f122' }}
+        >
+          <div className="text-xl mb-1">📤</div>
+          <div className="text-[10px] font-bold text-indigo-400 leading-tight">NGCH Filed</div>
         <div className="text-lg font-black font-mono text-indigo-400 tabular-nums">{total}</div>
         <div className={`text-[9px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>decisions filed</div>
         <div className={`text-[9px] font-mono mt-1 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>Immudb ✓</div>
+        </div>
       </div>
     </div>
   )
@@ -468,18 +492,25 @@ function ThroughputSparkline({ data, isDark }) {
 const STP_TICK_MS = 2800
 
 export default function CTSInwardPipeline() {
-  const { bankName, bankIfsc, bankCity, isSB, isSMB } = useBankContext()
+  const { bankName, bankIfsc, bankCity, bankId, isSB, isSMB,
+          sponsorBankName, sponsorBankIfsc } = useBankContext()
   const SPONSOR_BANK = { name: bankName, ifsc: bankIfsc, city: bankCity || '' }
   const { isDark } = useTheme()
   const stpSource   = useRef(getStpStream())
   const stpIndexRef = useRef(0)
 
-  const [view, setView] = useState('sb') // 'sb' | 'smb'
+  // SMB users have no access to the SB pipeline tab — force and lock to 'smb'
+  const [view, setView] = useState(isSMB ? 'smb' : 'sb') // 'sb' | 'smb'
+
+  // Sync when demo toggle switches bank type
+  useEffect(() => {
+    setView(isSMB ? 'smb' : 'sb')
+  }, [isSMB])
 
   const [stageCounts, setStageCounts] = useState(
     Object.fromEntries(STAGES.map(s => [s.id, Math.floor(Math.random() * 80) + 20]))
   )
-  const [activeStages, setActiveStages] = useState(new Set(['ocr', 'sig', 'fraud']))
+  const [activeStages, setActiveStages] = useState(new Set(['alteration', 'pps_sig', 'fraud']))
   const [confirms,    setConfirms]    = useState(312)
   const [returns,     setReturns]     = useState(48)
   const [humanReview, setHumanReview] = useState(17)
@@ -522,14 +553,14 @@ export default function CTSInwardPipeline() {
       stpIndexRef.current++
 
       const outcome = item.outcome
-      const stageSeq = ['ocr','cts2010','sig','pps','fraud','decision']
+      const stageSeq = ['alteration','cts2010','stop_pay','pps_sig','fraud','cbs','decision']
       const activeIdx = Math.floor(Math.random() * stageSeq.length)
 
       // Pulse active stages
       const next = new Set(stageSeq.slice(Math.max(0, activeIdx - 1), activeIdx + 2))
       setActiveStages(next)
 
-      // Increment all stage counters slightly
+      // Increment all stage counters slightly (Phase 3 stage IDs)
       setStageCounts(prev => {
         const updated = { ...prev }
         stageSeq.forEach(s => { updated[s] = (updated[s] || 0) + 1 })
@@ -605,29 +636,35 @@ export default function CTSInwardPipeline() {
     <AppShell>
       <div className={`flex flex-col h-full overflow-hidden ${th.page}`}>
 
-        {/* ── View tabs ── */}
+        {/* ── View tabs — SMB users see only their own pipeline, never the SB tab ── */}
         <div className={`shrink-0 px-6 border-b ${th.divider} flex items-center gap-0`}>
-          {[
-            { id: 'sb',  label: 'Sponsor Bank Pipeline' },
-            { id: 'smb', label: `Sub-Member Banks (${SMB_LIST.length})` },
-          ].map(tab => (
+          {isSB && (
             <button
-              key={tab.id}
-              onClick={() => setView(tab.id)}
+              onClick={() => setView('sb')}
               className={`px-4 py-2.5 text-[11px] font-semibold border-b-2 transition-colors
-                ${view === tab.id
+                ${view === 'sb'
                   ? `border-violet-500 ${isDark ? 'text-white' : 'text-slate-900'}`
                   : `border-transparent ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`
                 }`}
             >
-              {tab.label}
-              {tab.id === 'smb' && Object.values(smbAlerts).some(a => a > 0) && (
-                <span className="ml-1.5 px-1.5 py-0.5 text-[8px] font-bold rounded-full bg-amber-500/20 text-amber-500">
-                  {Object.values(smbAlerts).reduce((a, b) => a + b, 0)}
-                </span>
-              )}
+              Sponsor Bank Pipeline
             </button>
-          ))}
+          )}
+          <button
+            onClick={() => { if (isSB) setView('smb') }}
+            className={`px-4 py-2.5 text-[11px] font-semibold border-b-2 transition-colors
+              ${view === 'smb'
+                ? `border-violet-500 ${isDark ? 'text-white' : 'text-slate-900'}`
+                : `border-transparent ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`
+              }`}
+          >
+            {isSMB ? 'My Inward Pipeline' : `Sub-Member Banks (${SMB_LIST.length})`}
+            {isSB && Object.values(smbAlerts).some(a => a > 0) && (
+              <span className="ml-1.5 px-1.5 py-0.5 text-[8px] font-bold rounded-full bg-amber-500/20 text-amber-500">
+                {Object.values(smbAlerts).reduce((a, b) => a + b, 0)}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* ── Top KPI strip (SB view) ── */}
@@ -656,16 +693,31 @@ export default function CTSInwardPipeline() {
           <div className="flex flex-1 min-h-0 overflow-hidden">
             {/* SMB list */}
             <div className="flex-1 overflow-y-auto">
-              {/* Sponsor identity banner */}
+              {/* Identity banner — differs for SB vs SMB */}
               <div className={`px-4 py-2 border-b flex items-center gap-2 ${isDark ? 'bg-violet-900/10 border-violet-700/20' : 'bg-violet-50 border-violet-200'}`}>
                 <span className="text-sm">🏦</span>
-                <span className={`text-[10px] ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>
-                  Sponsor Bank: <span className="font-semibold">{SPONSOR_BANK.name}</span>
-                  <span className={`ml-2 font-mono ${isDark ? 'text-violet-400/60' : 'text-violet-500/70'}`}>{SPONSOR_BANK.ifsc}</span>
-                </span>
-                <span className={`ml-auto text-[9px] ${isDark ? 'text-violet-400/50' : 'text-violet-400'}`}>
-                  Forwarding instruments for {SMB_LIST.length} sub-members via SMBForwardingWorkflow
-                </span>
+                {isSB ? (
+                  <>
+                    <span className={`text-[10px] ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>
+                      Sponsor Bank: <span className="font-semibold">{SPONSOR_BANK.name}</span>
+                      <span className={`ml-2 font-mono ${isDark ? 'text-violet-400/60' : 'text-violet-500/70'}`}>{SPONSOR_BANK.ifsc}</span>
+                    </span>
+                    <span className={`ml-auto text-[9px] ${isDark ? 'text-violet-400/50' : 'text-violet-400'}`}>
+                      Forwarding instruments for {SMB_LIST.length} sub-members via SMBForwardingWorkflow
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className={`text-[10px] ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>
+                      <span className="font-semibold">{bankName}</span>
+                      <span className={`ml-2 font-mono ${isDark ? 'text-violet-400/60' : 'text-violet-500/70'}`}>{bankIfsc}</span>
+                    </span>
+                    <span className={`ml-auto text-[9px] ${isDark ? 'text-violet-400/50' : 'text-violet-400'}`}>
+                      Routed through sponsor: <span className="font-semibold">{sponsorBankName}</span>
+                      <span className={`ml-1 font-mono ${isDark ? 'text-violet-400/60' : 'text-violet-500/70'}`}>{sponsorBankIfsc}</span>
+                    </span>
+                  </>
+                )}
               </div>
 
               {/* Header row */}
@@ -688,7 +740,8 @@ export default function CTSInwardPipeline() {
                 </div>
               </div>
 
-              {SMB_LIST.map(smb => (
+              {/* SB sees all its SMBs; SMB sees only its own bank */}
+              {isSB ? SMB_LIST.map(smb => (
                 <SMBLane
                   key={smb.id}
                   smb={smb}
@@ -699,9 +752,21 @@ export default function CTSInwardPipeline() {
                   onSelect={setSelectedSmb}
                   selected={selectedSmb === smb.id}
                 />
-              ))}
+              )) : (
+                // SMB user sees only their own bank's pipeline
+                <SMBLane
+                  smb={{ id: bankId, name: bankName, ifsc: bankIfsc, city: bankCity || '' }}
+                  counts={smbCounts[SMB_LIST[0]?.id] || {}}
+                  activeStage={smbActiveStages[SMB_LIST[0]?.id] || SMB_STAGES[0].id}
+                  alerts={0}
+                  isDark={isDark}
+                  onSelect={setSelectedSmb}
+                  selected={selectedSmb === bankId}
+                />
+              )}
 
-              {/* SMB aggregate footer */}
+              {/* Aggregate footer — SB only */}
+              {isSB && (
               <div className={`px-4 py-3 flex items-center gap-6 border-t ${th.divider} ${isDark ? 'bg-white/2' : 'bg-slate-50'}`}>
                 <span className={`text-[10px] font-semibold ${th.muted}`}>All SMBs combined</span>
                 {['recv','valid','forward','ngch'].map(stage => (
@@ -722,14 +787,19 @@ export default function CTSInwardPipeline() {
                   )}
                 </div>
               </div>
+              )}
             </div>
 
             {/* Right: selected SMB detail or instructions */}
             <div className={`w-72 shrink-0 border-l ${th.divider} flex flex-col`}>
-              {selectedSmb ? (() => {
-                const smb = SMB_LIST.find(s => s.id === selectedSmb)
-                const counts = smbCounts[selectedSmb] || {}
-                const alerts = smbAlerts[selectedSmb] || 0
+              {(selectedSmb || isSMB) ? (() => {
+                // SB clicks a row from SMB_LIST; SMB user's own bank is always "selected"
+                const smb = isSMB
+                  ? { id: bankId, name: bankName, ifsc: bankIfsc, city: bankCity || '' }
+                  : SMB_LIST.find(s => s.id === selectedSmb)
+                const countsKey = isSMB ? (SMB_LIST[0]?.id) : selectedSmb
+                const counts = smbCounts[countsKey] || {}
+                const alerts = isSMB ? 0 : (smbAlerts[selectedSmb] || 0)
                 return (
                   <>
                     <div className={`px-4 py-3 border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
@@ -836,7 +906,7 @@ export default function CTSInwardPipeline() {
                 />
 
                 {/* Convergence to NGCH Filed */}
-                <FiledTerminus total={total} isDark={isDark} />
+                <FiledTerminus total={confirms + returns} isDark={isDark} />
               </div>
             </div>
 

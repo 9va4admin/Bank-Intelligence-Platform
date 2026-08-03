@@ -1,4 +1,4 @@
-import { useState, useContext } from 'react'
+import { useState, useContext, useEffect } from 'react'
 import { NavLink, Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../theme/ThemeContext'
 import { PageHeaderCtx } from './PageHeaderContext'
@@ -6,8 +6,9 @@ import ChequeSearchBar from './ChequeSearchBar'
 import { useBankContext } from '../context/BankContext'
 
 // Nav item visibility is controlled by two independent gates:
-//   1. sbOnly: true  — SB bank type required (structural — SMB never sees SMB management)
-//   2. perm: 'cts:view_queue' — user's role must have this permission
+//   1. sbOnly: true  — SB bank type required (structural — SMB never sees SB management pages)
+//   2. smbOnly: true — SMB bank type required (structural — SB never sees SMB-only screens)
+//   3. perm: 'cts:view_queue' — user's role must have this permission
 // An item with no perm is visible to all authenticated users of the correct bank type.
 
 // ── Sidebar navigation structure ────────────────────────────────────────────
@@ -18,6 +19,14 @@ function CtsIcon() {
       <rect x="3" y="5" width="14" height="10" rx="1.5" />
       <path d="M3 8h14" strokeWidth="1.4" />
       <path d="M7 12h2m2 0h2" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  )
+}
+function OpsIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-4 h-4">
+      <path d="M3 14l4-5 3 3 4-6 3 3" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="2" y="3" width="16" height="14" rx="1.5" />
     </svg>
   )
 }
@@ -46,32 +55,47 @@ const SIDEBAR_MODULES = [
     sections: [
       {
         label: 'Dashboard',
+        directLink: true,
         items: [
           { to: '/cts/ops-dashboard', label: 'Ops Dashboard', end: true, perm: 'cts:view_queue' },
         ],
       },
       {
-        label: 'Presentation Process',
-        items: [
-          { to: '/cts/outward',           label: 'DBC Processing',   perm: 'cts:submit_decision' },
-          { to: '/cts/presentment-file',  label: 'Presentment File', perm: 'cts:view_queue'      },
-          { to: '/cts/rf-drawee',         label: 'RF — Drawee Bank', perm: 'cts:submit_decision' },
-        ],
-      },
-      {
-        label: 'Drawee Process',
-        items: [
-          { to: '/cts',                 label: 'Inward Queue',       end: true, perm: 'cts:view_queue'      },
-          { to: '/cts/drawee',          label: 'Drawee Position',              perm: 'cts:view_queue'      },
-          { to: '/cts/pipeline',        label: 'Inward Pipeline',              perm: 'cts:view_analytics'  },
-          { to: '/cts/inward-pipeline', label: 'Pipeline (Animated)',          perm: 'cts:view_analytics'  },
-          { to: '/cts/recall',          label: 'Recall',                       perm: 'cts:submit_decision' },
-        ],
-      },
-      {
         label: 'Settlement',
+        directLink: true,
         items: [
           { to: '/cts/settlement', label: 'Settlement', perm: 'smb:view_ledger' },
+        ],
+      },
+      {
+        label: 'RPC — NGCH Gateway',
+        directLink: true,
+        items: [
+          { to: '/cts/rpc', label: 'RPC — NGCH Gateway', perm: 'cts:view_analytics', sbOnly: true },
+        ],
+      },
+      {
+        label: 'Outward Clearing',
+        items: [
+          { to: '/cts/hub',                    label: 'Hub Manager',                  perm: 'cts:submit_decision', sbOnly: true },
+          { to: '/cts/outward',                label: 'Outward Monitor',   end: true, perm: 'cts:view_queue'      },
+          { to: '/cts/outward/verification',   label: 'Verification OQ',             perm: 'cts:view_queue'      },
+          { to: '/cts/outward/queue',          label: 'Validation OQ',               perm: 'cts:submit_decision' },
+          { to: '/cts/outward/submission',     label: 'Submission OQ',               perm: 'cts:submit_decision' },
+          { to: '/cts/presentment-file',       label: 'Outward File',                perm: 'cts:view_queue'      },
+        ],
+      },
+      {
+        label: 'Inward Clearing',
+        items: [
+          { to: '/cts/pipeline',               label: 'Inward Monitor',              perm: 'cts:view_analytics'  },
+          { to: '/cts/inward/verification',    label: 'Verification IQ',             perm: 'cts:view_queue'      },
+          { to: '/cts',                        label: 'Validation IQ',  end: true,   perm: 'cts:view_queue'      },
+          { to: '/cts/inward/submission',      label: 'Submission IQ',               perm: 'cts:submit_decision' },
+          { to: '/cts/recall',                 label: 'Recall',                      perm: 'cts:submit_decision' },
+          // SMB Dashboard removed — "Dashboard" nav item shows it directly to SMB users now
+          { to: '/cts/smb/review-queue',       label: 'SMB Review Queue',           smbOnly: true, perm: 'cts:view_queue'   },
+          { to: '/cts/smb/reports',            label: 'SMB Reports',                smbOnly: true, perm: 'smb:view_ledger'  },
         ],
       },
       {
@@ -88,7 +112,8 @@ const SIDEBAR_MODULES = [
           { to: '/cts/exceptions',         label: 'Exceptions',       perm: 'cts:view_queue'                     },
           { to: '/cts/iqa',               label: 'Image Quality',    perm: 'cts:view_queue'                     },
           { to: '/cts/scanner',            label: 'Scanner SDK',      perm: 'cts:submit_decision'                },
-          { to: '/cts/rpc',               label: 'RPC Consolidation',perm: 'cts:view_analytics', sbOnly: true       },
+          { to: '/cts/agency-cc',         label: 'Agency Cmd Center', perm: 'cts:view_analytics', sbOnly: true      },
+          { to: '/cts/rf-drawee',         label: 'Rejection File - By Drawee Bank', perm: 'cts:submit_decision' },
         ],
       },
       {
@@ -99,6 +124,41 @@ const SIDEBAR_MODULES = [
           { to: '/cts/reconciliation',  label: 'Reconciliation', perm: 'smb:view_ledger'     },
           { to: '/cts/analytics',       label: 'Analytics',      perm: 'cts:view_analytics'  },
           { to: '/cts/compliance',      label: 'Compliance Cert',perm: 'audit:read'          },
+        ],
+      },
+      {
+        label: 'Branch Portal',
+        items: [
+          { to: '/branch',          label: 'Branch Dashboard', perm: 'cts:view_queue'      },
+          { to: '/branch/scan',     label: 'Scanner Monitor',  perm: 'cts:submit_decision' },
+          { to: '/branch/mismatch', label: 'Mismatch Queue',   perm: 'cts:submit_decision' },
+          { to: '/branch/history',  label: 'Session History',  perm: 'cts:view_queue'      },
+        ],
+      },
+      {
+        label: 'Miscellaneous',
+        items: [
+          { to: '/cts/demo',            label: '⚡ Live Demo',        perm: 'cts:view_queue'     },
+          { to: '/cts/inward-pipeline', label: 'Pipeline (Animated)', perm: 'cts:view_analytics' },
+          { to: '/cts/cloud-ai-demo',   label: '☁️ Cloud AI Extract', perm: 'cts:view_queue'     },
+          { to: '/cts/sig-batch-test',  label: '🖊️ Sig Batch Test',   perm: 'cts:view_queue'     },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'ops',
+    label: 'Ops',
+    fullLabel: 'Platform Operations',
+    Icon: OpsIcon,
+    sections: [
+      {
+        label: 'ASTRA Ops Dashboard',
+        items: [
+          { to: '/ops/dashboard',    label: 'Ops Overview',  perm: 'cts:view_analytics' },
+          { to: '/ops/model-health', label: 'Model Health',  perm: 'cts:view_analytics' },
+          { to: '/ops/alerts',       label: 'Alert Log',     perm: 'cts:view_analytics' },
+          { to: '/ops/system',       label: 'System Health', perm: 'cts:view_analytics' },
         ],
       },
     ],
@@ -119,7 +179,9 @@ const SIDEBAR_MODULES = [
           { to: '/cts/config/micr-prefixes',     label: 'MICR Prefixes',    perm: 'config:layer2:change' },
           { to: '/cts/config/thresholds',        label: 'Thresholds',       perm: 'config:layer3:submit' },
           { to: '/cts/config/ngch-routing',      label: 'NGCH Routing',     perm: 'config:layer2:change', sbOnly: true },
+          { to: '/cts/config/mcp-connections',   label: 'MCP Connections',  perm: 'config:layer2:change' },
           { to: '/admin/security-violations',    label: 'Security Alerts',  perm: 'admin:console', sbOnly: true },
+          { to: '/admin/smoke-test',            label: '✓ Go-Live Test',   perm: 'config:layer2:change' },
         ],
       },
     ],
@@ -132,9 +194,14 @@ const PROFILE_MENU = [
 ]
 
 const ROUTE_LABELS = {
-  '/cts':               ['CTS', 'Inward Queue — Human Review'],
-  '/cts/outward':            ['Presentation Process', 'DBC Processing'],
-  '/cts/presentment-file':  ['Presentation Process', 'Presentment File'],
+  '/cts':                       ['Inward Clearing', 'Validation IQ — Human Review'],
+  '/cts/inward/verification':  ['Inward Clearing', 'Verification IQ — Stage 1 Review Queue'],
+  '/cts/inward/submission':    ['Inward Clearing', 'Submission IQ — Stage 3 Confirm / Return'],
+  '/cts/outward':              ['Outward Clearing', 'Outward Monitor'],
+  '/cts/outward/verification': ['Outward Clearing', 'Verification OQ — Stage 1 IQA / MICR Review'],
+  '/cts/outward/queue':        ['Outward Clearing', 'Validation OQ — Stage 2 OCR Validation'],
+  '/cts/outward/submission':   ['Outward Clearing', 'Submission OQ — Stage 3 NGCH Submission'],
+  '/cts/presentment-file':     ['Presentation Process', 'Presentment File'],
   '/cts/rf-drawee':         ['Presentation Process', 'RF — Drawee Bank'],
   '/cts/vault':         ['CTS', 'Vault Status'],
   '/cts/vault-sync':    ['Processing', 'Positive Pay & Stop Cheque'],
@@ -147,9 +214,11 @@ const ROUTE_LABELS = {
   '/cts/endorsement':   ['Processing', 'Endorsement'],
   '/cts/iqa':           ['Processing', 'Image Quality Assessment'],
   '/cts/scanner':       ['Processing', 'Scanner SDK'],
-  '/cts/rpc':           ['Processing', 'RPC Consolidation'],
+  '/cts/rpc':           ['RPC — NGCH Gateway', 'Zone Gateway Status'],
   '/cts/pipeline':          ['Drawee Process', 'Inward Pipeline — AI View'],
   '/cts/inward-pipeline':   ['Drawee Process', 'Inward Pipeline — Animated'],
+  '/cts/demo':              ['Demo', 'End-to-End Live Demo — Presentment · NPCI · Drawee'],
+  '/cts/cloud-ai-demo':     ['Demo', 'Cloud AI Cheque Extraction (temporary)'],
   '/cts/recall':            ['Drawee Process', 'Recall'],
   '/cts/ops-dashboard':     ['Dashboard', 'Ops Dashboard'],
   '/cts/drawee':            ['Drawee Process', 'Drawee Position'],
@@ -163,10 +232,31 @@ const ROUTE_LABELS = {
   '/cts/config/micr-prefixes':    ['Admin · Config', 'MICR Prefix Table'],
   '/cts/config/thresholds':       ['Admin · Config', 'Thresholds & Rules'],
   '/cts/config/ngch-routing':     ['Admin · Config', 'NGCH Routing'],
+  '/cts/config/mcp-connections':  ['Admin · Config', 'MCP Connection Setup'],
   '/cts/smb/registry':            ['Processing', 'SMB Registry'],
   '/cts/smb/ledger':              ['Processing', 'SMB Clearing Ledger'],
   '/cts/smb/forwarding-log':      ['Processing', 'SMB Forwarding Log'],
+  '/cts/agency-cc':               ['Processing', 'Agency Command Center'],
+  '/cts/smb/dashboard':           ['Inward Clearing', 'SMB Dashboard'],
+  '/cts/smb/review-queue':        ['Inward Clearing', 'SMB Human Review Queue'],
+  '/cts/smb/reports':             ['Inward Clearing', 'SMB Reports'],
   '/admin/security-violations':   ['Admin', 'Security Violation Log'],
+  '/admin/smoke-test':            ['Admin', 'Pre-Live Smoke Test — Connection & Infrastructure Validation'],
+  '/branch':                      ['Branch Portal', 'Dashboard'],
+  '/branch/scan':                 ['Branch Portal', 'Scanner Monitor'],
+  '/branch/mismatch':             ['Branch Portal', 'Mismatch Queue'],
+  '/branch/history':              ['Branch Portal', 'Session History'],
+  '/cts/hub':                     ['Outward Clearing', 'Hub Manager — Branch Sessions & Lot Sealing'],
+  '/ops/dashboard':               ['Platform Ops', 'ASTRA Ops Overview'],
+  '/ops/model-health':            ['Platform Ops', 'AI Model Health — 7-Day Drift'],
+  '/ops/alerts':                  ['Platform Ops', 'Alert Log — CRITICAL/ERROR (24h)'],
+  '/ops/system':                  ['Platform Ops', 'System Health — Infrastructure Connectivity'],
+}
+
+// Mirrors NavLink's `end` prop: when end=true, only exact match is active.
+// Without this, { to: '/cts', end: true } would match /cts/demo via startsWith.
+function itemMatches({ to, end }, pathname) {
+  return end ? pathname === to : (pathname === to || pathname.startsWith(to + '/'))
 }
 
 function useBreadcrumb(pathname) {
@@ -178,7 +268,8 @@ function useBreadcrumb(pathname) {
 
 function activeModuleId(pathname) {
   if (pathname.startsWith('/admin') || pathname.startsWith('/cts/config')) return 'admin'
-  return 'cts'
+  if (pathname.startsWith('/ops')) return 'ops'
+  return 'cts'   // /branch/* and /cts/* routes live under the CTS module tab
 }
 
 // ── AppShell ────────────────────────────────────────────────────────────────
@@ -188,10 +279,20 @@ export default function AppShell({ children }) {
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
-  const { bankType, bankName, bankIfsc, isSB, isDemoMode, toggleBankType, userRole, hasPermission } = useBankContext()
+  const { bankType, bankName, bankIfsc, isSB, isSMB, userRole, userName, hasPermission } = useBankContext()
 
   const [section, page] = useBreadcrumb(location.pathname)
   const currentModule = activeModuleId(location.pathname)
+
+  // Single-open accordion: track which top-level module is expanded.
+  // Initialise to the active module so the correct panel opens on load.
+  const [openModuleId, setOpenModuleId] = useState(currentModule)
+
+  // When the user navigates to a page in a different module (e.g. via a
+  // direct link or browser back), auto-expand that module and collapse the rest.
+  useEffect(() => {
+    setOpenModuleId(currentModule)
+  }, [currentModule])
 
   const darkGradient = 'linear-gradient(145deg, #020917 0%, #0e1654 38%, #060d2e 65%, #03061a 100%)'
 
@@ -260,65 +361,66 @@ export default function AppShell({ children }) {
               collapsed={collapsed}
               isDark={isDark}
               isActiveModule={currentModule === mod.id}
+              open={openModuleId === mod.id}
+              onToggle={() => setOpenModuleId((id) => (id === mod.id ? null : mod.id))}
               location={location}
               isSB={isSB}
+              isSMB={isSMB}
               hasPermission={hasPermission}
             />
           ))}
         </nav>
 
-        {/* Bottom: bank identity + demo toggle + user */}
-        <div className={`shrink-0 border-t ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
+      </aside>
 
-          {/* Bank identity pill */}
-          {!collapsed && (
-            <div className={`mx-2 mt-2 px-2.5 py-2 rounded-lg ${isDark ? 'bg-white/4 border border-white/8' : 'bg-slate-50 border border-slate-200'}`}>
-              <div className="flex items-center gap-1.5">
-                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-mono
-                  ${bankType === 'SB'
-                    ? (isDark ? 'bg-amber-400/15 text-amber-400' : 'bg-amber-100 text-amber-700')
-                    : (isDark ? 'bg-violet-400/15 text-violet-400' : 'bg-violet-100 text-violet-700')
-                  }`}>{bankType}</span>
-                <span className={`text-[10px] font-medium truncate ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{bankName}</span>
-              </div>
-              <div className={`text-[9px] font-mono mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{bankIfsc}</div>
-              {/* Demo toggle — DEMO ONLY, never in production */}
-              {isDemoMode && (
-                <button
-                  onClick={toggleBankType}
-                  className={`mt-1.5 w-full text-[9px] font-semibold px-2 py-1 rounded border transition-all
-                    ${isDark ? 'border-white/10 text-slate-500 hover:text-slate-300 hover:border-white/20' : 'border-slate-200 text-slate-400 hover:text-slate-600'}`}
-                >
-                  ⇄ Switch to {bankType === 'SB' ? 'SMB' : 'SB'} view <span className="opacity-60">(demo)</span>
-                </button>
-              )}
-            </div>
-          )}
+      {/* ── Main area ─────────────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-          {/* User profile */}
-          <div className="px-2 py-2">
+        {/* Topbar */}
+        <header className={`relative z-40 shrink-0 border-b flex items-center px-5 gap-4 ${th.topbar}`} style={{ height: '52px' }}>
+
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <span className={`text-[11px] shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{section}</span>
+            <span className={`text-[11px] opacity-30 shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>›</span>
+            <span className={`text-[13px] font-semibold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{page}</span>
+          </div>
+
+          {/* Search bar */}
+          <ChequeSearchBar isDark={isDark} />
+
+          {/* Right: theme toggle + user menu */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={toggle}
+              title={isDark ? 'Switch to light' : 'Switch to dark'}
+              className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all shrink-0 ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-500'}`}
+            >
+              {isDark ? '☀' : '🌙'}
+            </button>
+
+            {/* User menu — identity + My Profile + Sign Out */}
             <div className="relative">
               <button
                 onClick={() => setProfileOpen((v) => !v)}
-                className={`w-full flex items-center gap-2 rounded-lg px-1.5 py-1.5 transition-all ${isDark ? 'hover:bg-white/8' : 'hover:bg-slate-100'}`}
+                className={`flex items-center gap-2 rounded-lg pl-1.5 pr-2 py-1 transition-all ${isDark ? 'hover:bg-white/8' : 'hover:bg-slate-100'}`}
               >
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${isDark ? 'bg-gold-400/20 text-gold-400' : 'bg-amber-100 text-amber-700'}`}>R</div>
-                {!collapsed && (
-                  <div className="text-left min-w-0 flex-1">
-                    <div className={`text-[11px] font-medium leading-tight truncate ${isDark ? 'text-white' : 'text-slate-700'}`}>Rahul S.</div>
-                    <div className={`text-[10px] leading-tight truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{userRole} · {bankType}</div>
-                  </div>
-                )}
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${isDark ? 'bg-gold-400/20 text-gold-400' : 'bg-amber-100 text-amber-700'}`}>
+                  {(userName || 'U').charAt(0).toUpperCase()}
+                </div>
+                <div className="text-left hidden md:block leading-tight">
+                  <div className={`text-[11px] font-medium truncate max-w-[130px] ${isDark ? 'text-white' : 'text-slate-700'}`}>{userName || 'User'}</div>
+                  <div className={`text-[10px] truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{userRole} · {bankType}</div>
+                </div>
+                <span className={`text-[9px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>▾</span>
               </button>
 
               {profileOpen && (
-                <div className={`absolute bottom-full mb-2 ${collapsed ? 'left-full ml-2' : 'left-0'} w-48 z-50 rounded-xl border py-2 shadow-2xl ${isDark ? 'bg-[#0e1654]/98 backdrop-blur-xl border-white/10 shadow-black/60' : 'bg-white border-slate-200 shadow-slate-400/30'}`}>
-                  {!collapsed && (
-                    <div className={`px-3 pb-2 mb-1 border-b ${isDark ? 'border-white/8' : 'border-slate-100'}`}>
-                      <div className={`text-[11px] font-semibold ${isDark ? 'text-white' : 'text-slate-700'}`}>{bankName}</div>
-                      <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{bankIfsc} · {bankType}</div>
-                    </div>
-                  )}
+                <div className={`absolute right-0 top-full mt-2 w-52 z-[100] rounded-xl border py-2 shadow-2xl ${isDark ? 'bg-[#0e1654] backdrop-blur-xl border-white/10 shadow-black/60' : 'bg-white border-slate-200 shadow-slate-400/30'}`}>
+                  <div className={`px-3 pb-2 mb-1 border-b ${isDark ? 'border-white/8' : 'border-slate-100'}`}>
+                    <div className={`text-[11px] font-semibold ${isDark ? 'text-white' : 'text-slate-700'}`}>{bankName}</div>
+                    <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{bankIfsc} · {bankType}</div>
+                  </div>
                   {PROFILE_MENU.map((item) => (
                     <Link
                       key={item.to} to={item.to}
@@ -332,39 +434,6 @@ export default function AppShell({ children }) {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* ── Main area ─────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-
-        {/* Topbar */}
-        <header className={`shrink-0 border-b flex items-center px-5 gap-4 ${th.topbar}`} style={{ height: '52px' }}>
-
-          {/* Breadcrumb */}
-          <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            <span className={`text-[11px] shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{section}</span>
-            <span className={`text-[11px] opacity-30 shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>›</span>
-            <span className={`text-[13px] font-semibold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{page}</span>
-          </div>
-
-          {/* Search bar */}
-          <ChequeSearchBar isDark={isDark} />
-
-          {/* Right: bank info + theme toggle */}
-          <div className="flex items-center gap-4 shrink-0">
-            <div className="text-right hidden lg:block">
-              <div className={`text-[11px] font-medium leading-tight ${isDark ? 'text-white' : 'text-slate-700'}`}>Saraswat Co-op Bank</div>
-              <div className={`text-[10px] leading-tight ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Zone: MUMBAI · Finacle</div>
-            </div>
-            <button
-              onClick={toggle}
-              title={isDark ? 'Switch to light' : 'Switch to dark'}
-              className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all shrink-0 ${isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-500'}`}
-            >
-              {isDark ? '☀' : '🌙'}
-            </button>
           </div>
         </header>
 
@@ -382,30 +451,33 @@ export default function AppShell({ children }) {
 
 // ── SidebarModule ────────────────────────────────────────────────────────────
 
-function SidebarModule({ mod, collapsed, isDark, isActiveModule, location, isSB, hasPermission }) {
-  const [open, setOpen] = useState(isActiveModule)
+function SidebarModule({ mod, collapsed, isDark, isActiveModule, open, onToggle, location, isSB, isSMB, hasPermission }) {
   const [expandedSections, setExpandedSections] = useState(() => {
-    const set = new Set()
-    mod.sections.forEach((sec) => {
-      if (sec.items.some(({ to }) => location.pathname === to || location.pathname.startsWith(to + '/'))) {
-        set.add(sec.label)
-      }
-    })
-    if (set.size === 0 && mod.sections.length > 0) set.add(mod.sections[0].label)
-    return set
+    // Single-open accordion: start with the active section (or the first).
+    const active = mod.sections.find((sec) =>
+      sec.items.some((item) => itemMatches(item, location.pathname))
+    )
+    const label = active?.label ?? mod.sections[0]?.label
+    return new Set(label ? [label] : [])
   })
 
+  // When navigating to a page inside this module, expand its section so the
+  // active item is always visible. itemMatches() respects `end: true` so that
+  // { to: '/cts', end: true } does not falsely match /cts/demo etc.
+  useEffect(() => {
+    const active = mod.sections.find((sec) =>
+      sec.items.some((item) => itemMatches(item, location.pathname))
+    )
+    if (active) setExpandedSections(new Set([active.label]))
+  }, [location.pathname])
+
   const hasActiveItem = mod.sections.some((sec) =>
-    sec.items.some(({ to }) => location.pathname === to || location.pathname.startsWith(to + '/'))
+    sec.items.some((item) => itemMatches(item, location.pathname))
   )
 
   const toggleSection = (label) => {
-    setExpandedSections((prev) => {
-      const next = new Set(prev)
-      if (next.has(label)) next.delete(label)
-      else next.add(label)
-      return next
-    })
+    // Accordion: opening a group collapses the rest; clicking the open one closes it.
+    setExpandedSections((prev) => (prev.has(label) ? new Set() : new Set([label])))
   }
 
   if (collapsed) {
@@ -430,7 +502,7 @@ function SidebarModule({ mod, collapsed, isDark, isActiveModule, location, isSB,
     <div className="mb-1">
       {/* Module header */}
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={onToggle}
         className={`w-full flex items-center gap-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-widest transition-all ${
           hasActiveItem
             ? (isDark ? 'text-gold-400' : 'text-amber-600')
@@ -457,6 +529,7 @@ function SidebarModule({ mod, collapsed, isDark, isActiveModule, location, isSB,
               expanded={expandedSections.has(sec.label)}
               onToggle={() => toggleSection(sec.label)}
               isSB={isSB}
+              isSMB={isSMB}
               hasPermission={hasPermission}
             />
           ))}
@@ -468,21 +541,43 @@ function SidebarModule({ mod, collapsed, isDark, isActiveModule, location, isSB,
 
 // ── SidebarSection ───────────────────────────────────────────────────────────
 
-function SidebarSection({ section, isDark, location, showHeader, expanded, onToggle, isSB, hasPermission }) {
-  // Two-gate filter:
+function SidebarSection({ section, isDark, location, showHeader, expanded, onToggle, isSB, isSMB, hasPermission }) {
+  // Three-gate filter:
   // 1. sbOnly gate  — structural bank-type wall (SMB never sees SB management pages)
-  // 2. perm gate    — role-based permission (user only sees items their role allows)
+  // 2. smbOnly gate — structural bank-type wall (SB never sees SMB-only screens)
+  // 3. perm gate    — role-based permission (user only sees items their role allows)
   const visibleItems = section.items.filter(item => {
     if (item.sbOnly && !isSB) return false
+    if (item.smbOnly && !isSMB) return false
     if (item.perm && !hasPermission(item.perm)) return false
     return true
   })
 
-  const hasActive = visibleItems.some(({ to }) =>
-    location.pathname === to || location.pathname.startsWith(to + '/')
-  )
+  const hasActive = visibleItems.some((item) => itemMatches(item, location.pathname))
 
   if (visibleItems.length === 0) return null
+
+  // A single-item section behaves as a direct link — no accordion, no nested
+  // sub-item. Clicking the section label navigates straight to that page.
+  if (showHeader && section.directLink && visibleItems.length >= 1) {
+    const only = visibleItems[0]
+    const active = only.end
+      ? location.pathname === only.to
+      : (location.pathname === only.to || location.pathname.startsWith(only.to + '/'))
+    return (
+      <NavLink
+        to={only.to} end={only.end}
+        className={`w-full flex items-center gap-1.5 px-3 py-1 text-[10px] font-medium uppercase tracking-wider transition-all ${
+          active
+            ? (isDark ? 'text-white' : 'text-slate-800')
+            : (isDark ? 'text-slate-600 hover:text-slate-400' : 'text-slate-400 hover:text-slate-600')
+        }`}
+      >
+        <span className={`w-1 h-1 rounded-full shrink-0 ${active ? (isDark ? 'bg-gold-400' : 'bg-amber-500') : 'bg-transparent'}`} />
+        {section.label}
+      </NavLink>
+    )
+  }
 
   return (
     <div>

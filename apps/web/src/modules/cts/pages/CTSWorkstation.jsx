@@ -20,6 +20,7 @@ export default function CTSWorkstation() {
   const { items: liveItems, loading: queueLoading, useMock } = useReviewQueue({ pollEnabled: true })
   const [queue, setQueue] = useState([])
   const [selected, setSelected] = useState(null)
+  const [bankTab, setBankTab] = useState('own')  // SB: 'own' (My Bank) | 'smb' (Sponsored SMBs)
   const [decisions, setDecisions] = useState([])
 
   useEffect(() => {
@@ -69,8 +70,15 @@ export default function CTSWorkstation() {
     return () => clearInterval(timer)
   }, [])
 
-  const pending = queue.filter((q) => q.status === 'PENDING')
-  const decided = queue.filter((q) => q.status !== 'PENDING')
+  // Bank scoping: SMB sees only its own bank; SB gets My-Bank / Sponsored-SMBs tabs.
+  const inScope = (item) => {
+    if (isSMB) return (item.bank_slug ?? 'saraswat-coop') === bankId
+    if (bankTab === 'smb') return item.principal_tag === 'SUB_MEMBER'
+    return (item.principal_tag ?? 'DIRECT') !== 'SUB_MEMBER'
+  }
+  const scoped = queue.filter(inScope)
+  const pending = scoped.filter((q) => q.status === 'PENDING')
+  const decided = scoped.filter((q) => q.status !== 'PENDING')
 
   const handleDecision = (id, action, reason) => {
     setQueue((prev) =>
@@ -140,6 +148,24 @@ export default function CTSWorkstation() {
                 {pending.length} pending
               </span>
             </div>
+
+            {isSB && (
+              <div className="flex gap-1 px-3 pt-2">
+                {[['own', 'My Bank'], ['smb', 'Sponsored SMBs']].map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => { setBankTab(key); setSelected(null) }}
+                    className={`flex-1 text-[10px] font-semibold px-2 py-1.5 rounded-lg border transition-all ${
+                      bankTab === key
+                        ? (isDark ? 'bg-white/10 text-white border-white/15' : 'bg-slate-800 text-white border-slate-800')
+                        : (isDark ? 'text-slate-400 border-white/8 hover:bg-white/5' : 'text-slate-500 border-slate-200 hover:bg-slate-50')
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
               {pending.length === 0 && (
