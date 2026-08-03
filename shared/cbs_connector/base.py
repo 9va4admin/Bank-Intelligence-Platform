@@ -137,6 +137,22 @@ class CBSConnector(ABC):
         """
 
     @abstractmethod
+    async def get_branch_contacts(
+        self,
+        branch_code: str,
+        bank_id: str,
+    ) -> "BranchContactProfile":
+        """
+        Fetch branch contact details from CBS using the branch code.
+
+        Returns BranchContactProfile with branch manager email + ops contact.
+        Called by VaultSyncWorkflow — deduplicated per branch_code, so one call
+        serves all accounts at the same branch.
+
+        Raises CBSUnavailableError on connection failure.
+        """
+
+    @abstractmethod
     async def get_signatory_data(
         self,
         account_number: str,
@@ -151,6 +167,23 @@ class CBSConnector(ABC):
         Raises AccountNotFoundError if account does not exist.
         Raises CBSUnavailableError if CBS is unreachable.
         """
+
+
+class BranchContactProfile(BaseModel):
+    """
+    Branch contact details fetched from CBS — stored in AccountVault.
+    branch_manager_name must already be masked (N*** format) before reaching this model.
+    """
+    model_config = ConfigDict(frozen=True)
+
+    branch_code: str
+    branch_name: str
+    branch_ifsc: str
+    branch_manager_name: str          # "N***" — never full name
+    branch_manager_email: str
+    branch_contact_email: str
+    branch_contact_phone: str
+    last_updated_in_cbs: str          # ISO datetime string
 
 
 class CBSSignatoryData(BaseModel):

@@ -20,7 +20,8 @@ import xml.etree.ElementTree as ET
 import structlog
 
 from shared.cbs_connector.base import (
-    AccountInfo, AccountStatus, CBSConnector, CBSSignatoryData, PPSEntry, StopPaymentResult,
+    AccountInfo, AccountStatus, BranchContactProfile, CBSConnector,
+    CBSSignatoryData, PPSEntry, StopPaymentResult,
 )
 from shared.cbs_connector.exceptions import AccountNotFoundError, CBSUnavailableError
 
@@ -331,6 +332,50 @@ class FlexCubeCBSConnector(CBSConnector):
                 operation_type=str(getattr(sig, "operationType", "J")),
             ))
         return result
+
+    async def get_branch_contacts(
+        self,
+        branch_code: str,
+        bank_id: str,
+    ) -> BranchContactProfile:
+        self._assert_ready()
+        soap_body = f"""
+        <soapenv:Envelope xmlns:soapenv="{_SOAP_ENV}" xmlns:fcc="urn:FCUBSBranchService">
+          <soapenv:Body>
+            <fcc:QueryBranch>
+              <fcc:BRANCH_CODE>{branch_code}</fcc:BRANCH_CODE>
+            </fcc:QueryBranch>
+          </soapenv:Body>
+        </soapenv:Envelope>"""
+        try:
+            response = await self._http.post(
+                self._wsdl_url,
+                content=soap_body,
+                headers={"Content-Type": "text/xml", "SOAPAction": "QueryBranch"},
+            )
+            response.raise_for_status()
+            root = ET.fromstring(response.text)
+            ns = {"fcc": "urn:FCUBSBranchService"}
+            body = root.find(".//fcc:QueryBranchResponse", ns) or root
+        except Exception as exc:
+            log.error("cbs.flexcube.get_branch_contacts.failed",
+                      branch_code=branch_code, bank_id=bank_id, error=str(exc))
+            raise CBSUnavailableError(f"FlexCube get_branch_contacts failed: {exc}") from exc
+
+        def _text(tag: str) -> str:
+            el = body.find(f".//fcc:{tag}", ns)
+            return el.text.strip() if el is not None and el.text else ""
+
+        return BranchContactProfile(
+            branch_code=branch_code,
+            branch_name=_text("BRANCH_NAME"),
+            branch_ifsc=_text("IFSC_CODE"),
+            branch_manager_name=_text("MGR_NAME_MASKED") or "***",
+            branch_manager_email=_text("MGR_EMAIL"),
+            branch_contact_email=_text("OPS_EMAIL"),
+            branch_contact_phone=_text("OPS_PHONE"),
+            last_updated_in_cbs=_text("LAST_UPDATED"),
+        )
 
     def _assert_ready(self) -> None:
         if not self._ready:
