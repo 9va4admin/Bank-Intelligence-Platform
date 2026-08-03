@@ -28,6 +28,7 @@ from apps.api.dependencies import require_user_context
 from shared.audit.audit_event import AuditEvent, AuditEventType
 from shared.auth.rbac import UserContext
 from shared.event_bus.topics import PLATFORM_CONFIG_CHANGED, PLATFORM_NOTIFICATIONS
+from shared.messages import get_message
 
 log = structlog.get_logger()
 
@@ -237,6 +238,11 @@ class ChangeActionResponse(BaseModel):
     actioned_at: str
 
 
+class RejectBody(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    reason: str = Field(default="No reason provided", min_length=1)
+
+
 class Layer2ChangeRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
     config_key: str
@@ -411,7 +417,13 @@ async def submit_threshold_change(
         PLATFORM_NOTIFICATIONS,
         {
             "event_type": "NOTIFICATION_REQUEST",
-            "template_id": "platform.config_change_pending_approval",
+            "template_id": "PLATFORM_CONFIG_CHANGE_SUBMITTED",
+            "message_body": get_message(
+                "PLATFORM_CONFIG_CHANGE_SUBMITTED",
+                submitted_by=user_id,
+                config_key=body.config_key,
+                new_value=body.new_value,
+            ),
             "bank_id": bank_id,
             "recipient_role": "bank_it_admin",
             "context": {
@@ -526,7 +538,13 @@ async def approve_threshold_change(
         PLATFORM_NOTIFICATIONS,
         {
             "event_type": "NOTIFICATION_REQUEST",
-            "template_id": "platform.config_change_approved",
+            "template_id": "PLATFORM_CONFIG_CHANGE_APPROVED",
+            "message_body": get_message(
+                "PLATFORM_CONFIG_CHANGE_APPROVED",
+                approved_by=user_id,
+                config_key=config_key,
+                new_value=new_value,
+            ),
             "bank_id": bank_id,
             "recipient_role": "ops_manager",
             "recipient_user_id": submitted_by,
@@ -551,6 +569,7 @@ async def approve_threshold_change(
 async def reject_threshold_change(
     request: Request,
     change_id: str,
+    body: RejectBody = RejectBody(),
     user: dict = Depends(require_checker_role),
     audit_stream_writer: Callable = Depends(get_audit_stream_writer),
     notification_publisher: Callable = Depends(get_notification_publisher),
@@ -617,7 +636,13 @@ async def reject_threshold_change(
         PLATFORM_NOTIFICATIONS,
         {
             "event_type": "NOTIFICATION_REQUEST",
-            "template_id": "platform.config_change_rejected",
+            "template_id": "PLATFORM_CONFIG_CHANGE_REJECTED",
+            "message_body": get_message(
+                "PLATFORM_CONFIG_CHANGE_REJECTED",
+                rejected_by=user_id,
+                config_key=config_key,
+                rejection_reason=body.reason,
+            ),
             "bank_id": bank_id,
             "recipient_role": "ops_manager",
             "recipient_user_id": submitted_by,
@@ -625,6 +650,7 @@ async def reject_threshold_change(
                 "change_id": change_id,
                 "config_key": config_key,
                 "rejected_by": user_id,
+                "rejection_reason": body.reason,
             },
         },
     )
@@ -772,7 +798,15 @@ async def submit_layer2_change_request(
         PLATFORM_NOTIFICATIONS,
         {
             "event_type": "NOTIFICATION_REQUEST",
-            "template_id": "platform.layer2_change_request_raised",
+            "template_id": "PLATFORM_CONFIG_L2_REQUESTED",
+            "message_body": get_message(
+                "PLATFORM_CONFIG_L2_REQUESTED",
+                requested_by=user_id,
+                config_key=body.config_key,
+                current_value=body.current_value,
+                requested_value=body.requested_value,
+                cab_ticket=body.cab_ticket,
+            ),
             "bank_id": bank_id,
             "recipient_role": "astra_support",
             "context": {
