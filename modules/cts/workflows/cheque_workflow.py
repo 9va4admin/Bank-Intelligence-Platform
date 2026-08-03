@@ -201,10 +201,14 @@ class ChequeProcessingWorkflow:
         )
         self._watchdog_spawned = True
 
+        human_review_timeout = int(
+            inp.cts_config.get("human_review_max_wait_minutes", 55)
+        )
+
         async def finalise(
             decision: str, rationale: str, shap_values: Optional[dict] = None,
             context_extra: Optional[dict] = None,
-            review_timeout_minutes: int = 55,
+            review_timeout_minutes: int = human_review_timeout,
             stp_eligible: bool = False,
             ai_recommendation: Optional[str] = None,
         ) -> ChequeWorkflowResult:
