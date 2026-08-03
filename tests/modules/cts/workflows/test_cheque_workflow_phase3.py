@@ -40,6 +40,7 @@ def _make_p3_input(**kwargs):
         presented_payee="Ramesh Iyer",
         iet_deadline=9999999999.0,
         smb_id=None,
+        cts_config={"stp_mode": "FULL_STP"},  # pre-Phase-C tests expect auto-file behaviour
     )
     defaults.update(kwargs)
     return ChequeWorkflowInput(**defaults)
@@ -696,6 +697,7 @@ class TestChequeWorkflowRealRun:
                     account_number="12340000005678", cheque_number="000012",
                     presented_amount=45000.0, presented_payee="Ramesh Iyer",
                     iet_deadline=time.time() + 3600,
+                    cts_config={"stp_mode": "FULL_STP"},
                 ),
                 id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
             )

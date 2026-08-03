@@ -30,6 +30,7 @@ def _wf_inp(**kwargs):
         presented_amount=50000.0,
         presented_payee="ACME Corp",
         iet_deadline=time.time() + 10800,
+        cts_config={"stp_mode": "FULL_STP"},  # pre-Phase-C tests expect auto-file behaviour
     )
     defaults.update(kwargs)
     return ChequeWorkflowInput(**defaults)

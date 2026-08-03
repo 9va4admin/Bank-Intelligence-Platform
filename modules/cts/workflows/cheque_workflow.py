@@ -106,6 +106,10 @@ class ChequeWorkflowResult(BaseModel):
     emergency_iet_filed: bool = False
     sub_member_notified: bool = False
     ledger_updated: bool = False
+    # STP ramp fields — set when a STP_CONFIRM is downgraded to HUMAN_REVIEW by stp_mode.
+    # The ops workstation uses these to show a quick "Confirm AI Decision" button.
+    stp_eligible: bool = False              # True when AI said CONFIRM but mode forced review
+    ai_recommendation: Optional[str] = None  # "CONFIRM" when stp_eligible
 
 
 @workflow.defn
@@ -197,6 +201,9 @@ class ChequeProcessingWorkflow:
         async def finalise(
             decision: str, rationale: str, shap_values: Optional[dict] = None,
             context_extra: Optional[dict] = None,
+            review_timeout_minutes: int = 55,
+            stp_eligible: bool = False,
+            ai_recommendation: Optional[str] = None,
         ) -> ChequeWorkflowResult:
             """Every exit point of this workflow routes through here — this is
             the ASTRA-02 fix: previously every branch just returned a result
@@ -302,6 +309,7 @@ class ChequeProcessingWorkflow:
                         workflow_id=wf_id,
                         context_bundle={"rationale": rationale, **(context_extra or {})},
                         iet_deadline=inp.iet_deadline,
+                        review_timeout_minutes=review_timeout_minutes,
                     ),
                     id=f"cts-humanreview-{inp.bank_id}-{inp.instrument_id}",
                     parent_close_policy=ParentClosePolicy.ABANDON,
@@ -314,6 +322,8 @@ class ChequeProcessingWorkflow:
             return ChequeWorkflowResult(
                 instrument_id=inp.instrument_id, bank_id=inp.bank_id,
                 decision=decision, rationale=rationale, shap_values=shap_values or {},
+                stp_eligible=stp_eligible,
+                ai_recommendation=ai_recommendation,
             )
 
         # Step 2: detect_alteration — Vision LLM FIRST on drawee side
@@ -653,6 +663,55 @@ class ChequeProcessingWorkflow:
             retry_policy=_CBS_RETRY,
         )
 
+        # STP mode routing — applied only when AI decided STP_CONFIRM.
+        # STP_RETURN and HUMAN_REVIEW are never changed by stp_mode.
+        # Config keys: stp_mode (required), stp_supervised_confirm_threshold (for SELECTIVE).
+        # Default to FULL_MANUAL (conservative) when stp_mode is absent.
+        if decision_result.decision == "STP_CONFIRM":
+            stp_mode = inp.cts_config.get("stp_mode", "FULL_MANUAL")
+            supervised_threshold = inp.cts_config.get("stp_supervised_confirm_threshold", 0.95)
+            supervised_timeout = int(inp.cts_config.get("stp_supervised_review_timeout_minutes", 30))
+
+            if stp_mode == "FULL_STP":
+                pass  # auto-file — fall through to normal finalise
+
+            elif stp_mode == "SELECTIVE":
+                if decision_result.stp_confidence >= supervised_threshold:
+                    pass  # high confidence — auto-file
+                else:
+                    return await finalise(
+                        "HUMAN_REVIEW",
+                        f"stp_selective_threshold_not_met (confidence={decision_result.stp_confidence:.3f})",
+                        decision_result.shap_values,
+                        context_extra={"stp_eligible": True, "ai_recommendation": "CONFIRM",
+                                       "stp_confidence": decision_result.stp_confidence},
+                        stp_eligible=True,
+                        ai_recommendation="CONFIRM",
+                    )
+
+            elif stp_mode == "SUPERVISED":
+                return await finalise(
+                    "HUMAN_REVIEW",
+                    "stp_supervised_mode",
+                    decision_result.shap_values,
+                    context_extra={"stp_eligible": True, "stp_mode": "SUPERVISED",
+                                   "ai_recommendation": "CONFIRM",
+                                   "stp_confidence": decision_result.stp_confidence},
+                    review_timeout_minutes=supervised_timeout,
+                    stp_eligible=True,
+                    ai_recommendation="CONFIRM",
+                )
+
+            else:  # FULL_MANUAL (or unknown mode — default conservative)
+                return await finalise(
+                    "HUMAN_REVIEW",
+                    "stp_mode_full_manual",
+                    decision_result.shap_values,
+                    context_extra={"stp_eligible": True, "ai_recommendation": "CONFIRM"},
+                    stp_eligible=True,
+                    ai_recommendation="CONFIRM",
+                )
+
         return await finalise(
             decision_result.decision, decision_result.rationale, decision_result.shap_values,
         )
@@ -855,6 +914,52 @@ class ChequeProcessingWorkflow:
 
         # Step 10: Synthesise decision
         decision_result = mock_results["decision"]
+
+        # STP mode routing — mirrors the same logic in run().
+        # Applied only to STP_CONFIRM; STP_RETURN and HUMAN_REVIEW are untouched.
+        if decision_result.decision == "STP_CONFIRM":
+            stp_mode = inp.cts_config.get("stp_mode", "FULL_MANUAL")
+            supervised_threshold = inp.cts_config.get("stp_supervised_confirm_threshold", 0.95)
+
+            if stp_mode == "FULL_STP":
+                pass  # auto-file — fall through
+
+            elif stp_mode == "SELECTIVE":
+                stp_conf = getattr(decision_result, "stp_confidence", 0.0)
+                if stp_conf >= supervised_threshold:
+                    pass  # high confidence — auto-file
+                else:
+                    return ChequeWorkflowResult(
+                        instrument_id=inp.instrument_id,
+                        bank_id=inp.bank_id,
+                        decision="HUMAN_REVIEW",
+                        rationale=f"stp_selective_threshold_not_met (confidence={stp_conf:.3f})",
+                        shap_values=decision_result.shap_values,
+                        stp_eligible=True,
+                        ai_recommendation="CONFIRM",
+                    )
+
+            elif stp_mode == "SUPERVISED":
+                return ChequeWorkflowResult(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    decision="HUMAN_REVIEW",
+                    rationale="stp_supervised_mode",
+                    shap_values=decision_result.shap_values,
+                    stp_eligible=True,
+                    ai_recommendation="CONFIRM",
+                )
+
+            else:  # FULL_MANUAL (or unknown — conservative default)
+                return ChequeWorkflowResult(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    decision="HUMAN_REVIEW",
+                    rationale="stp_mode_full_manual",
+                    shap_values=decision_result.shap_values,
+                    stp_eligible=True,
+                    ai_recommendation="CONFIRM",
+                )
 
         # Step 9: Sub-Member Bank activities (only for sub-member-tagged instruments)
         sub_member_id = mock_results.get("sub_member_id")

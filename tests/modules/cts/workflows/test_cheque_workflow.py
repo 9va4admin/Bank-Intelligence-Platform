@@ -27,6 +27,7 @@ def _make_workflow_input(instrument_id="INST001", bank_id="test-bank"):
         presented_amount=50000.0,
         presented_payee="ACME Corp",
         iet_deadline=time.time() + 10800,  # 3 hours from now
+        cts_config={"stp_mode": "FULL_STP"},  # pre-Phase-C tests expect auto-file behaviour
     )
 
 

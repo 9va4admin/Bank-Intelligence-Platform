@@ -114,6 +114,10 @@ class DecisionResult(BaseModel):
     is_customer_fault: Optional[bool] = None
     # True = re-present in next clearing within 24h (technical returns per CCPs)
     requires_re_presentation: bool = False
+    # Composite confidence (ocr * 0.5 + sig * 0.5) — used by SELECTIVE STP mode
+    # to decide whether to auto-file or route to human when confidence is borderline.
+    # Set to combined_confidence when decision=STP_CONFIRM; 0.0 otherwise.
+    stp_confidence: float = 0.0
 
 
 @activity.defn
@@ -405,6 +409,7 @@ async def synthesise_decision(
                 f"combined_confidence={combined_confidence:.3f}"
             ),
             shap_values=inp.shap_values,
+            stp_confidence=combined_confidence,
         )
 
     return DecisionResult(
