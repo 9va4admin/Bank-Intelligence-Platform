@@ -33,8 +33,6 @@ from temporalio.common import RetryPolicy
 
 log = structlog.get_logger()
 
-_TIMEOUT_SECONDS = 55 * 60   # 55 minutes — never configurable (safety margin)
-
 # Standard retry policies (temporal.md) — same values as cheque_workflow.py / iet_watchdog_workflow.py
 _NGCH_FILING_RETRY = RetryPolicy(
     maximum_attempts=3,
