@@ -3977,5 +3977,107 @@
       "deployed_by",
       "cab_ticket"
     ]
+  },
+  "CTS_WF_HOLD_EXPIRED": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "held_by",
+      "iet_deadline"
+    ]
+  },
+  "CTS_HOLD_ESCALATION_30MIN": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "branch_email"
+    ]
+  },
+  "CTS_HOLD_ESCALATION_CRITICAL": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "iet_deadline"
+    ]
+  },
+  "CTS_HOLD_ESCALATION_P0": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "iet_deadline"
+    ]
+  },
+  "CTS_CONFIG_L3_SUBMITTED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "submitted_by",
+      "config_key",
+      "current_value",
+      "new_value"
+    ]
+  },
+  "CTS_CONFIG_L3_APPROVED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "approved_by",
+      "config_key",
+      "new_value"
+    ]
+  },
+  "CTS_CONFIG_L3_REJECTED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "rejected_by",
+      "config_key",
+      "reason"
+    ]
+  },
+  "CTS_QUEUE_TIER_ROUTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "queue_tier",
+      "kafka_topic"
+    ]
   }
 }
