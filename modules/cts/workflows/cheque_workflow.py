@@ -94,6 +94,9 @@ class ChequeWorkflowInput(BaseModel):
     smb_id: Optional[str] = None  # Phase 3: set when instrument is tagged to a sub-member bank
     ngch_ifsc: Optional[str] = None  # IFSC from NGCH presentment metadata (item 3 IFSC cross-check)
     cts_config: dict = Field(default_factory=dict)  # Layer 3 thresholds forwarded to decision
+    # Phase D: resolved by the inward ingestion layer using queue_tier.resolve_queue_tier()
+    # before the workflow is started; drives Temporal task queue selection.
+    queue_tier: str = "standard"  # "standard" | "high_value" | "very_high"
 
 
 class ChequeWorkflowResult(BaseModel):
