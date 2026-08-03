@@ -1,5 +1,5 @@
 """
-Phase D — Queue Segmentation tests (TDD RED first).
+Phase D — Queue Segmentation tests.
 
 Tests:
  1. Kafka topic constants for segmented inward queues exist in topics.py
@@ -7,6 +7,8 @@ Tests:
  3. Tier thresholds come from cts_config, never hardcoded
  4. ChequeWorkflowInput carries a queue_tier field
  5. task_queue_for_tier() produces the correct Temporal queue name
+ 6. humanreview_task_queue_for_tier() produces distinct per-tier HR queue names
+ 7. Human review Kafka topic constants (HV and VHV) exist in topics.py
 """
 import pytest
 
@@ -203,3 +205,89 @@ class TestTaskQueueForTier:
         from modules.cts.queue_tier import task_queue_for_tier
         with pytest.raises((ValueError, KeyError)):
             task_queue_for_tier("test-bank", "platinum")
+
+
+# ---------------------------------------------------------------------------
+# 6. humanreview_task_queue_for_tier() — per-tier HR Temporal queue name
+# ---------------------------------------------------------------------------
+
+class TestHumanReviewTaskQueueForTier:
+    def test_standard_tier_hr_queue_name(self):
+        from modules.cts.queue_tier import humanreview_task_queue_for_tier
+        q = humanreview_task_queue_for_tier("saraswat-coop", "standard")
+        assert "saraswat-coop" in q
+        assert "humanreview" in q
+        assert "standard" in q
+
+    def test_high_value_tier_hr_queue_name(self):
+        from modules.cts.queue_tier import humanreview_task_queue_for_tier
+        q = humanreview_task_queue_for_tier("saraswat-coop", "high_value")
+        assert "saraswat-coop" in q
+        assert "humanreview" in q
+        assert "highvalue" in q
+
+    def test_very_high_tier_hr_queue_name(self):
+        from modules.cts.queue_tier import humanreview_task_queue_for_tier
+        q = humanreview_task_queue_for_tier("saraswat-coop", "very_high")
+        assert "saraswat-coop" in q
+        assert "humanreview" in q
+        assert "veryhigh" in q
+
+    def test_hr_queue_names_are_distinct_per_tier(self):
+        from modules.cts.queue_tier import humanreview_task_queue_for_tier
+        std = humanreview_task_queue_for_tier("test-bank", "standard")
+        hv  = humanreview_task_queue_for_tier("test-bank", "high_value")
+        vh  = humanreview_task_queue_for_tier("test-bank", "very_high")
+        assert std != hv
+        assert hv != vh
+        assert std != vh
+
+    def test_hr_queue_names_are_distinct_per_bank(self):
+        from modules.cts.queue_tier import humanreview_task_queue_for_tier
+        q1 = humanreview_task_queue_for_tier("bank-a", "high_value")
+        q2 = humanreview_task_queue_for_tier("bank-b", "high_value")
+        assert q1 != q2
+
+    def test_hr_queue_names_distinct_from_processing_queues(self):
+        """Human review queues must not collide with the processing task queues."""
+        from modules.cts.queue_tier import task_queue_for_tier, humanreview_task_queue_for_tier
+        for tier in ("standard", "high_value", "very_high"):
+            proc = task_queue_for_tier("test-bank", tier)
+            hr   = humanreview_task_queue_for_tier("test-bank", tier)
+            assert proc != hr, f"Collision on tier={tier}: {proc}"
+
+    def test_unknown_tier_raises(self):
+        from modules.cts.queue_tier import humanreview_task_queue_for_tier
+        with pytest.raises((ValueError, KeyError)):
+            humanreview_task_queue_for_tier("test-bank", "gold")
+
+
+# ---------------------------------------------------------------------------
+# 7. Human review Kafka topic constants (HV and VHV) in topics.py
+# ---------------------------------------------------------------------------
+
+class TestHumanReviewTopicConstants:
+    def test_cts_human_review_hv_exists(self):
+        from shared.event_bus.topics import CTS_HUMAN_REVIEW_HV
+        assert "{bank_id}" in CTS_HUMAN_REVIEW_HV
+        assert "hv" in CTS_HUMAN_REVIEW_HV
+
+    def test_cts_human_review_vhv_exists(self):
+        from shared.event_bus.topics import CTS_HUMAN_REVIEW_VHV
+        assert "{bank_id}" in CTS_HUMAN_REVIEW_VHV
+        assert "vhv" in CTS_HUMAN_REVIEW_VHV
+
+    def test_hr_topics_are_distinct_from_each_other(self):
+        from shared.event_bus.topics import (
+            CTS_HUMAN_REVIEW, CTS_HUMAN_REVIEW_HV, CTS_HUMAN_REVIEW_VHV,
+        )
+        assert CTS_HUMAN_REVIEW != CTS_HUMAN_REVIEW_HV
+        assert CTS_HUMAN_REVIEW_HV != CTS_HUMAN_REVIEW_VHV
+        assert CTS_HUMAN_REVIEW != CTS_HUMAN_REVIEW_VHV
+
+    def test_hr_topics_format_correctly(self):
+        from shared.event_bus.topics import CTS_HUMAN_REVIEW_HV, CTS_HUMAN_REVIEW_VHV
+        hv  = CTS_HUMAN_REVIEW_HV.format(bank_id="saraswat-coop")
+        vhv = CTS_HUMAN_REVIEW_VHV.format(bank_id="saraswat-coop")
+        assert "saraswat-coop" in hv
+        assert "saraswat-coop" in vhv

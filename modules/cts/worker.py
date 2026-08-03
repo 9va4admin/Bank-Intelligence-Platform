@@ -69,6 +69,7 @@ except ImportError:
 # Workflow and activity imports
 # ---------------------------------------------------------------------------
 
+from modules.cts.queue_tier import humanreview_task_queue_for_tier
 from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
 from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
 from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
@@ -351,13 +352,45 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
         namespace=temporal_namespace,
     )
 
-    worker = Worker(
+    # Processing worker — handles ChequeProcessingWorkflow + all other CTS workflows
+    processing_worker = Worker(
         client,
         task_queue=task_queue,
         workflows=ALL_WORKFLOWS,
         activities=worker_activities,
         max_concurrent_workflow_tasks=100,
         max_concurrent_activities=200,
+        graceful_shutdown_timeout=timedelta(minutes=2),
+    )
+
+    # Per-tier human review workers — HumanReviewWorkflow is started on the tier-
+    # specific task queue by ChequeProcessingWorkflow so that high-value reviews
+    # never compete for worker capacity with standard-value volume.
+    hr_standard_worker = Worker(
+        client,
+        task_queue=humanreview_task_queue_for_tier(bank_id, "standard"),
+        workflows=[HumanReviewWorkflow],
+        activities=worker_activities,
+        max_concurrent_workflow_tasks=50,
+        max_concurrent_activities=50,
+        graceful_shutdown_timeout=timedelta(minutes=2),
+    )
+    hr_highvalue_worker = Worker(
+        client,
+        task_queue=humanreview_task_queue_for_tier(bank_id, "high_value"),
+        workflows=[HumanReviewWorkflow],
+        activities=worker_activities,
+        max_concurrent_workflow_tasks=20,
+        max_concurrent_activities=20,
+        graceful_shutdown_timeout=timedelta(minutes=2),
+    )
+    hr_veryhigh_worker = Worker(
+        client,
+        task_queue=humanreview_task_queue_for_tier(bank_id, "very_high"),
+        workflows=[HumanReviewWorkflow],
+        activities=worker_activities,
+        max_concurrent_workflow_tasks=10,
+        max_concurrent_activities=10,
         graceful_shutdown_timeout=timedelta(minutes=2),
     )
 
@@ -404,12 +437,20 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
         )
 
     trigger_task = None
-    async with worker:
+    async with processing_worker, hr_standard_worker, hr_highvalue_worker, hr_veryhigh_worker:
         if trigger is not None:
             trigger_task = asyncio.create_task(trigger.run())
             log.info("worker.outward_scan_trigger_started", bank_id=bank_id)
 
-        log.info("worker.ready", bank_id=bank_id, task_queue=task_queue)
+        log.info(
+            "worker.ready",
+            bank_id=bank_id,
+            task_queue=task_queue,
+            hr_queues=[
+                humanreview_task_queue_for_tier(bank_id, t)
+                for t in ("standard", "high_value", "very_high")
+            ],
+        )
         await shutdown_event.wait()
 
         if trigger is not None:

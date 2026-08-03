@@ -27,6 +27,8 @@ PLATFORM_CACHE_INVALIDATION = "platform.cache.invalidation"
 CTS_INWARD = "cts.inward.{bank_id}"
 CTS_DECISIONS = "cts.decisions.{bank_id}"
 CTS_HUMAN_REVIEW = "cts.human.review.{bank_id}"
+CTS_HUMAN_REVIEW_HV  = "cts.human.review.hv.{bank_id}"
+CTS_HUMAN_REVIEW_VHV = "cts.human.review.vhv.{bank_id}"
 CTS_VAULT_SYNC = "cts.vault.sync.{bank_id}"
 CTS_VAULT_DELTA = "cts.vault.delta.{bank_id}"
 
