@@ -2180,3 +2180,194 @@ async def get_recent_scan_events(
         for r in rows
     ]
     return ScanMonitorResponse(bank_id=bank_id, events=events, total=len(events))
+
+
+# ---------------------------------------------------------------------------
+# Allocation — reviewer claim / unclaim + admin status panel
+# ---------------------------------------------------------------------------
+
+class ClaimResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    claimed: bool
+    reviewer_id: Optional[str] = None
+    held_by: Optional[str] = None   # set when claimed=False and already held by someone else
+    message: str
+
+
+class AllocationStatusItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    reviewer_id: str
+    tier: Optional[str] = None
+    claimed_at: Optional[str] = None  # ISO timestamp from Redis TTL metadata when available
+
+
+class AllocationStatusResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    active_claims: list[AllocationStatusItem]
+    total: int
+
+
+@router_v1.post(
+    "/review/{instrument_id}/claim",
+    response_model=ClaimResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def claim_instrument(
+    instrument_id: str,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> ClaimResponse:
+    """
+    Reviewer manually claims an instrument for review.
+    Works in SELF, HYBRID, and AUTO allocation modes.
+    Writes CTS_ALLOC_CLAIMED AllocationAuditEvent to Immudb.
+    Roles: ops_reviewer, ops_manager.
+    """
+    bank_id = ctx.bank_id
+    reviewer_id = ctx.user_id
+    if ctx.role.value not in ("ops_reviewer", "ops_manager"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    redis = getattr(request.app.state, "redis_cts", None)
+
+    # Build AllocationService with a LockService backed by app-state Redis
+    from modules.cts.allocation.lock_service import LockService
+    from modules.cts.allocation.allocation_service import AllocationService
+    lock_svc = LockService(redis_client=redis)
+    alloc_svc = AllocationService(lock_service=lock_svc)
+
+    # Fetch Layer 3 config for allocation_mode + lock TTL
+    cts_config: dict = {}
+    config_svc = getattr(request.app.state, "config_service", None)
+    if config_svc is not None:
+        try:
+            cts_config = await config_svc.get_cts_config(bank_id)
+        except Exception:
+            pass
+
+    result = await alloc_svc.claim(instrument_id, reviewer_id, cts_config)
+
+    # AllocationAuditEvent → Immudb
+    from shared.audit.audit_event import AuditEvent, AuditEventType
+    audit_writer = getattr(request.app.state, "audit_stream_writer", None)
+    if audit_writer is not None:
+        audit_event = AuditEvent(
+            event_type=AuditEventType.CTS_ALLOC_CLAIMED if result.claimed else AuditEventType.CTS_LOCK_ACQUIRED,
+            bank_id=bank_id,
+            user_id=reviewer_id,
+            payload={
+                "instrument_id": instrument_id,
+                "claimed": result.claimed,
+                "held_by": result.held_by,
+                "allocation_mode": cts_config.get("allocation_mode", "SELF"),
+            },
+        )
+        await audit_writer(audit_event)
+
+    if result.claimed:
+        log.info("cts.alloc.claimed", instrument_id=instrument_id, reviewer_id=reviewer_id, bank_id=bank_id)
+        return ClaimResponse(
+            instrument_id=instrument_id, claimed=True,
+            reviewer_id=reviewer_id, message="Claimed successfully",
+        )
+
+    log.info("cts.alloc.claim_rejected", instrument_id=instrument_id, reviewer_id=reviewer_id, held_by=result.held_by)
+    return ClaimResponse(
+        instrument_id=instrument_id, claimed=False,
+        held_by=result.held_by, message="Already claimed by another reviewer",
+    )
+
+
+@router_v1.delete(
+    "/review/{instrument_id}/claim",
+    response_model=ClaimResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def unclaim_instrument(
+    instrument_id: str,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> ClaimResponse:
+    """
+    Reviewer releases their claim on an instrument.
+    Writes CTS_ALLOC_UNCLAIMED AllocationAuditEvent to Immudb.
+    Roles: ops_reviewer, ops_manager.
+    """
+    bank_id = ctx.bank_id
+    reviewer_id = ctx.user_id
+    if ctx.role.value not in ("ops_reviewer", "ops_manager"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    redis = getattr(request.app.state, "redis_cts", None)
+
+    from modules.cts.allocation.lock_service import LockService
+    from modules.cts.allocation.allocation_service import AllocationService
+    lock_svc = LockService(redis_client=redis)
+    alloc_svc = AllocationService(lock_service=lock_svc)
+
+    await alloc_svc.unclaim(instrument_id, reviewer_id, {})
+
+    from shared.audit.audit_event import AuditEvent, AuditEventType
+    audit_writer = getattr(request.app.state, "audit_stream_writer", None)
+    if audit_writer is not None:
+        audit_event = AuditEvent(
+            event_type=AuditEventType.CTS_ALLOC_UNCLAIMED,
+            bank_id=bank_id,
+            user_id=reviewer_id,
+            payload={"instrument_id": instrument_id, "unclaimed_by": reviewer_id},
+        )
+        await audit_writer(audit_event)
+
+    log.info("cts.alloc.unclaimed", instrument_id=instrument_id, reviewer_id=reviewer_id, bank_id=bank_id)
+    return ClaimResponse(instrument_id=instrument_id, claimed=False, message="Released successfully")
+
+
+@router_v1.get(
+    "/allocation/status",
+    response_model=AllocationStatusResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def get_allocation_status(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> AllocationStatusResponse:
+    """
+    Admin panel: return all active reviewer claims for this bank.
+    Scans Redis for keys matching the LockService key pattern.
+    Roles: ops_manager, bank_it_admin.
+    """
+    bank_id = ctx.bank_id
+    if ctx.role.value not in ("ops_manager", "bank_it_admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    redis = getattr(request.app.state, "redis_cts", None)
+    claims: list[AllocationStatusItem] = []
+
+    if redis is not None:
+        from modules.cts.allocation.lock_service import LockService, LOCK_KEY_PREFIX
+        # Each bank has its own redis-cts cluster — scanning all lock:cts:* keys
+        # returns only this bank's claims (bank isolation is at the cluster level).
+        pattern = f"{LOCK_KEY_PREFIX}*"
+        cursor = 0
+        while True:
+            cursor, keys = await redis.scan(cursor, match=pattern, count=100)
+            for key in keys:
+                raw = await redis.get(key)
+                if raw is None:
+                    continue
+                # Key format: lock:cts:{instrument_id}
+                key_str = key.decode() if isinstance(key, bytes) else key
+                instrument_id = key_str[len(LOCK_KEY_PREFIX):]
+                reviewer_id = raw.decode() if isinstance(raw, bytes) else str(raw)
+                claims.append(AllocationStatusItem(
+                    instrument_id=instrument_id,
+                    reviewer_id=reviewer_id,
+                ))
+            if cursor == 0:
+                break
+
+    log.info("cts.alloc.status", bank_id=bank_id, active_claims=len(claims))
+    return AllocationStatusResponse(bank_id=bank_id, active_claims=claims, total=len(claims))
