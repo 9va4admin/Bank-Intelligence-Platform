@@ -361,3 +361,261 @@ class TestReleaseHold:
         )
         assert released.branch_note == "Account confirmed closed by branch"
         assert released.branch_recommendation == "RETURN"
+
+    @pytest.mark.asyncio
+    async def test_release_hold_updates_db(self):
+        from modules.cts.hold.hold_service import HoldService
+        db = _make_db()
+        svc = HoldService(db_pool=db, dispatcher=_make_dispatcher(), audit_writer=_make_audit_writer())
+        record = await svc.place_hold(
+            instrument_id="INST012", bank_id="test-bank",
+            reviewer_id="reviewer-1", hold_reason="reason",
+            iet_deadline=_now() + 3600,
+            branch_contact={"email": "mgr@branch.com"},
+        )
+        db._updates.clear()
+        await svc.release_hold(
+            instrument_id="INST012",
+            bank_id="test-bank",
+            reviewer_id="reviewer-1",
+            hold_record=record,
+        )
+        assert len(db._updates) >= 1
+
+
+# ---------------------------------------------------------------------------
+# 6. IET timing fields on place_hold and release_hold
+# ---------------------------------------------------------------------------
+
+class TestIETTimingFields:
+    @pytest.mark.asyncio
+    async def test_place_hold_records_iet_remaining_at_hold_start(self):
+        from modules.cts.hold.hold_service import HoldService
+        db = _make_db()
+        svc = HoldService(db_pool=db, dispatcher=_make_dispatcher(), audit_writer=_make_audit_writer())
+        now = _now()
+        iet_deadline = now + 3600
+        record = await svc.place_hold(
+            instrument_id="INST013", bank_id="test-bank",
+            reviewer_id="reviewer-1", hold_reason="reason",
+            iet_deadline=iet_deadline,
+            branch_contact={"email": "mgr@branch.com"},
+        )
+        assert record.iet_remaining_at_hold_start is not None
+        # Should be ~3600 seconds (allow ±2s for test execution time)
+        assert 3598 <= record.iet_remaining_at_hold_start <= 3602
+
+    @pytest.mark.asyncio
+    async def test_place_hold_iet_remaining_is_zero_when_past_deadline(self):
+        from modules.cts.hold.hold_service import HoldService
+        db = _make_db()
+        svc = HoldService(db_pool=db, dispatcher=_make_dispatcher(), audit_writer=_make_audit_writer())
+        past_deadline = _now() - 10  # IET already expired
+        record = await svc.place_hold(
+            instrument_id="INST014", bank_id="test-bank",
+            reviewer_id="reviewer-1", hold_reason="reason",
+            iet_deadline=past_deadline,
+            branch_contact={"email": "mgr@branch.com"},
+        )
+        assert record.iet_remaining_at_hold_start == 0.0
+
+    @pytest.mark.asyncio
+    async def test_release_hold_computes_hold_duration(self):
+        from modules.cts.hold.hold_service import HoldService
+        import time as t
+        db = _make_db()
+        svc = HoldService(db_pool=db, dispatcher=_make_dispatcher(), audit_writer=_make_audit_writer())
+        record = await svc.place_hold(
+            instrument_id="INST015", bank_id="test-bank",
+            reviewer_id="reviewer-1", hold_reason="reason",
+            iet_deadline=_now() + 3600,
+            branch_contact={"email": "mgr@branch.com"},
+        )
+        released = await svc.release_hold(
+            instrument_id="INST015",
+            bank_id="test-bank",
+            reviewer_id="reviewer-1",
+            hold_record=record,
+        )
+        assert released.hold_duration_seconds is not None
+        assert released.hold_duration_seconds >= 0.0
+
+    @pytest.mark.asyncio
+    async def test_release_hold_iet_remaining_at_release_non_negative(self):
+        from modules.cts.hold.hold_service import HoldService
+        db = _make_db()
+        svc = HoldService(db_pool=db, dispatcher=_make_dispatcher(), audit_writer=_make_audit_writer())
+        record = await svc.place_hold(
+            instrument_id="INST016", bank_id="test-bank",
+            reviewer_id="reviewer-1", hold_reason="reason",
+            iet_deadline=_now() + 3600,
+            branch_contact={"email": "mgr@branch.com"},
+        )
+        released = await svc.release_hold(
+            instrument_id="INST016",
+            bank_id="test-bank",
+            reviewer_id="reviewer-1",
+            hold_record=record,
+        )
+        assert released.iet_remaining_at_release is not None
+        assert released.iet_remaining_at_release >= 0.0
+
+    @pytest.mark.asyncio
+    async def test_release_hold_iet_consumed_equals_hold_duration(self):
+        """IET clock never pauses — consumed seconds == hold duration seconds."""
+        from modules.cts.hold.hold_service import HoldService
+        db = _make_db()
+        svc = HoldService(db_pool=db, dispatcher=_make_dispatcher(), audit_writer=_make_audit_writer())
+        record = await svc.place_hold(
+            instrument_id="INST017", bank_id="test-bank",
+            reviewer_id="reviewer-1", hold_reason="reason",
+            iet_deadline=_now() + 3600,
+            branch_contact={"email": "mgr@branch.com"},
+        )
+        released = await svc.release_hold(
+            instrument_id="INST017",
+            bank_id="test-bank",
+            reviewer_id="reviewer-1",
+            hold_record=record,
+        )
+        assert released.iet_consumed_on_hold == pytest.approx(released.hold_duration_seconds)
+
+    @pytest.mark.asyncio
+    async def test_release_hold_timing_in_audit_payload(self):
+        from modules.cts.hold.hold_service import HoldService
+        db = _make_db()
+        audit_writer = _make_audit_writer()
+        svc = HoldService(db_pool=db, dispatcher=_make_dispatcher(), audit_writer=audit_writer)
+        record = await svc.place_hold(
+            instrument_id="INST018", bank_id="test-bank",
+            reviewer_id="reviewer-1", hold_reason="reason",
+            iet_deadline=_now() + 3600,
+            branch_contact={"email": "mgr@branch.com"},
+        )
+        audit_writer._events.clear()
+        await svc.release_hold(
+            instrument_id="INST018",
+            bank_id="test-bank",
+            reviewer_id="reviewer-1",
+            hold_record=record,
+        )
+        release_event = next(e for e in audit_writer._events if e["event_type"] == "CTS_WF_HOLD_RELEASED")
+        assert "hold_duration_seconds" in release_event["payload"]
+        assert "iet_remaining_at_release" in release_event["payload"]
+        assert "iet_consumed_on_hold" in release_event["payload"]
+
+    @pytest.mark.asyncio
+    async def test_place_hold_timing_in_audit_payload(self):
+        from modules.cts.hold.hold_service import HoldService
+        db = _make_db()
+        audit_writer = _make_audit_writer()
+        svc = HoldService(db_pool=db, dispatcher=_make_dispatcher(), audit_writer=audit_writer)
+        await svc.place_hold(
+            instrument_id="INST019", bank_id="test-bank",
+            reviewer_id="reviewer-1", hold_reason="reason",
+            iet_deadline=_now() + 3600,
+            branch_contact={"email": "mgr@branch.com"},
+        )
+        place_event = next(e for e in audit_writer._events if e["event_type"] == "CTS_WF_HOLD_PLACED")
+        assert "iet_remaining_at_hold_start" in place_event["payload"]
+        assert "iet_deadline" in place_event["payload"]
+
+
+# ---------------------------------------------------------------------------
+# 7. HoldEscalationWorkflow — input schema and signal
+# ---------------------------------------------------------------------------
+
+class TestHoldEscalationWorkflow:
+    def test_workflow_importable(self):
+        from modules.cts.workflows.hold_escalation_workflow import HoldEscalationWorkflow
+        assert HoldEscalationWorkflow is not None
+
+    def test_input_importable(self):
+        from modules.cts.workflows.hold_escalation_workflow import HoldEscalationInput
+        assert HoldEscalationInput is not None
+
+    def test_input_required_fields(self):
+        from modules.cts.workflows.hold_escalation_workflow import HoldEscalationInput
+        now = _now()
+        inp = HoldEscalationInput(
+            instrument_id="INST001",
+            bank_id="test-bank",
+            reviewer_id="reviewer-1",
+            iet_deadline=now + 3600,
+            held_at=now,
+        )
+        assert inp.instrument_id == "INST001"
+        assert inp.bank_id == "test-bank"
+        assert inp.iet_deadline == pytest.approx(now + 3600)
+
+    def test_input_optional_fields_default_none(self):
+        from modules.cts.workflows.hold_escalation_workflow import HoldEscalationInput
+        now = _now()
+        inp = HoldEscalationInput(
+            instrument_id="INST001", bank_id="test-bank",
+            reviewer_id="reviewer-1", iet_deadline=now + 3600, held_at=now,
+        )
+        assert inp.branch_email is None
+        assert inp.ops_manager_email is None
+
+    def test_workflow_has_released_signal(self):
+        from modules.cts.workflows.hold_escalation_workflow import HoldEscalationWorkflow
+        # The `released` signal must exist on the class (registered via @workflow.signal)
+        assert hasattr(HoldEscalationWorkflow, "released")
+
+    def test_activities_importable(self):
+        from modules.cts.workflows.activities.hold_escalation import (
+            send_hold_reminder,
+            send_hold_critical_alert,
+            send_hold_p0_alert,
+        )
+        assert send_hold_reminder is not None
+        assert send_hold_critical_alert is not None
+        assert send_hold_p0_alert is not None
+
+    def test_all_three_escalation_activities_are_distinct(self):
+        from modules.cts.workflows.activities.hold_escalation import (
+            send_hold_reminder,
+            send_hold_critical_alert,
+            send_hold_p0_alert,
+        )
+        assert send_hold_reminder is not send_hold_critical_alert
+        assert send_hold_critical_alert is not send_hold_p0_alert
+        assert send_hold_reminder is not send_hold_p0_alert
+
+
+# ---------------------------------------------------------------------------
+# 8. HoldService no-WhatsApp path
+# ---------------------------------------------------------------------------
+
+class TestHoldServiceNoWhatsApp:
+    @pytest.mark.asyncio
+    async def test_place_hold_without_phone_sends_only_email(self):
+        from modules.cts.hold.hold_service import HoldService
+        db = _make_db()
+        dispatcher = _make_dispatcher()
+        svc = HoldService(db_pool=db, dispatcher=dispatcher, audit_writer=_make_audit_writer())
+        await svc.place_hold(
+            instrument_id="INST020", bank_id="test-bank",
+            reviewer_id="reviewer-1", hold_reason="reason",
+            iet_deadline=_now() + 3600,
+            branch_contact={"email": "mgr@branch.com"},  # no phone
+        )
+        email_count = sum(1 for r in dispatcher._sent if getattr(r, "channel", None) == "email")
+        wa_count = sum(1 for r in dispatcher._sent if getattr(r, "channel", None) == "whatsapp")
+        assert email_count >= 1
+        assert wa_count == 0
+
+    @pytest.mark.asyncio
+    async def test_place_hold_without_email_sends_no_notifications(self):
+        from modules.cts.hold.hold_service import HoldService
+        db = _make_db()
+        dispatcher = _make_dispatcher()
+        svc = HoldService(db_pool=db, dispatcher=dispatcher, audit_writer=_make_audit_writer())
+        await svc.place_hold(
+            instrument_id="INST021", bank_id="test-bank",
+            reviewer_id="reviewer-1", hold_reason="reason",
+            iet_deadline=_now() + 3600,
+            branch_contact={},  # no email, no phone
+        )
+        assert len(dispatcher._sent) == 0
