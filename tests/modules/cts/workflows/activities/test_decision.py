@@ -8,6 +8,7 @@ All thresholds come from config_service — never hardcoded.
 SHAP values must be present in output (required before NGCH filing).
 """
 import pytest
+from datetime import date
 from unittest.mock import AsyncMock, MagicMock
 
 
@@ -34,10 +35,12 @@ def _make_signals(
         signature_match_score=signature_match,
         cbs_outcome=cbs_outcome,
         alteration_detected=alteration_detected,
+        altered_fields=[],
         pps_outcome=pps_outcome,
         available_balance=available_balance,
         cheque_amount=amount,
         shap_values={"amount_feature": 0.1, "drawer_history": -0.05},
+        cheque_date=date.today(),   # valid date — tests focus on other gates
     )
 
 
@@ -52,6 +55,7 @@ def _make_config(
         "human_review_fraud_threshold": fraud_threshold,
         "ocr_min_confidence": ocr_min_confidence,
         "sig_min_match_score": sig_min_match,
+        "cheque_validity_days": 90,
     }
 
 
@@ -129,13 +133,27 @@ class TestSTPReturn:
         assert result.decision == "STP_RETURN"
 
     @pytest.mark.asyncio
-    async def test_alteration_detected_gives_return(self):
-        from modules.cts.workflows.activities.decision import synthesise_decision
-        result = await synthesise_decision(
-            _make_signals(alteration_detected=True),
-            config=_make_config(),
+    async def test_alteration_detected_non_date_field_gives_return(self):
+        """CTS rule: non-date alteration detected → STP_RETURN code 85."""
+        from modules.cts.workflows.activities.decision import synthesise_decision, DecisionInput
+        inp = DecisionInput(
+            instrument_id="INST001",
+            bank_id="test-bank",
+            fraud_score=0.05,
+            ocr_confidence=0.97,
+            signature_match_score=0.95,
+            cbs_outcome="PROCEED",
+            alteration_detected=True,
+            altered_fields=["amount_figures"],   # non-date field → code 85
+            pps_outcome="FOUND",
+            available_balance=100000.0,
+            cheque_amount=50000.0,
+            shap_values={"f": 0.1},
+            cheque_date=date.today(),
         )
+        result = await synthesise_decision(inp, config=_make_config())
         assert result.decision == "STP_RETURN"
+        assert result.return_reason_code == "85"
 
     @pytest.mark.asyncio
     async def test_return_has_shap_values(self):
@@ -275,3 +293,287 @@ class TestDecisionOutput:
         result = await synthesise_decision(_make_signals(), config=_make_config())
         with pytest.raises(Exception):
             result.decision = "SOMETHING_ELSE"
+
+
+# ---------------------------------------------------------------------------
+# OPA Layer 4 policy evaluation
+# ---------------------------------------------------------------------------
+
+class TestOPAGate:
+    def _opa_client(self, decision: str, reason: str):
+        """Build a mock OPAClient that returns the given decision."""
+        from shared.opa_client import OPAClient, OPAResult
+        client = MagicMock(spec=OPAClient)
+        client.decide = AsyncMock(return_value=OPAResult(decision=decision, reason=reason))
+        return client
+
+    @pytest.mark.asyncio
+    async def test_government_cheque_routed_to_human_review(self):
+        """OPA HUMAN_REVIEW → synthesise_decision returns HUMAN_REVIEW regardless of clean signals."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        opa = self._opa_client("HUMAN_REVIEW", "government_cheque")
+        result = await synthesise_decision(
+            _make_signals(fraud_score=0.01, ocr_confidence=0.99, signature_match=0.99),
+            config=_make_config(),
+            opa_client=opa,
+        )
+        assert result.decision == "HUMAN_REVIEW"
+        assert "OPA policy" in result.rationale
+        assert "government_cheque" in result.rationale
+
+    @pytest.mark.asyncio
+    async def test_court_order_cheque_routed_to_human_review(self):
+        """Court-order cheques flagged by OPA → HUMAN_REVIEW."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        opa = self._opa_client("HUMAN_REVIEW", "court_order")
+        result = await synthesise_decision(
+            _make_signals(),
+            config=_make_config(),
+            opa_client=opa,
+        )
+        assert result.decision == "HUMAN_REVIEW"
+        assert "court_order" in result.rationale
+
+    @pytest.mark.asyncio
+    async def test_opa_auto_return_maps_to_stp_return(self):
+        """OPA AUTO_RETURN → decision is STP_RETURN (not HUMAN_REVIEW)."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        opa = self._opa_client("AUTO_RETURN", "policy_blocked_category")
+        result = await synthesise_decision(
+            _make_signals(),
+            config=_make_config(),
+            opa_client=opa,
+        )
+        assert result.decision == "STP_RETURN"
+        assert "OPA policy" in result.rationale
+
+    @pytest.mark.asyncio
+    async def test_opa_proceed_falls_through_to_normal_gates_stp_confirm(self):
+        """OPA PROCEED + all signals clean → STP_CONFIRM (OPA doesn't short-circuit normal path)."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        opa = self._opa_client("PROCEED", "no_policy_match")
+        result = await synthesise_decision(
+            _make_signals(fraud_score=0.01, ocr_confidence=0.99, signature_match=0.99),
+            config=_make_config(),
+            opa_client=opa,
+        )
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_opa_proceed_falls_through_to_normal_gates_human_review(self):
+        """OPA PROCEED + high fraud score → HUMAN_REVIEW from existing gate."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        opa = self._opa_client("PROCEED", "no_policy_match")
+        result = await synthesise_decision(
+            _make_signals(fraud_score=0.90),
+            config=_make_config(fraud_threshold=0.72),
+            opa_client=opa,
+        )
+        assert result.decision == "HUMAN_REVIEW"
+
+    @pytest.mark.asyncio
+    async def test_no_opa_client_standard_behavior_unchanged(self):
+        """When opa_client is None, existing behavior is identical to before OPA was added."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals(fraud_score=0.01, ocr_confidence=0.99, signature_match=0.99),
+            config=_make_config(),
+            opa_client=None,
+        )
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_opa_shap_values_preserved_on_human_review(self):
+        """SHAP values must be present even when OPA short-circuits."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        opa = self._opa_client("HUMAN_REVIEW", "government_cheque")
+        result = await synthesise_decision(
+            _make_signals(),
+            config=_make_config(),
+            opa_client=opa,
+        )
+        assert result.shap_values is not None
+        assert len(result.shap_values) > 0
+
+    @pytest.mark.asyncio
+    async def test_opa_human_review_overrides_stp_confirm_quality(self):
+        """Even with perfect OCR/sig/fraud — government cheque goes to human review."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        opa = self._opa_client("HUMAN_REVIEW", "government_cheque_always_review")
+        result = await synthesise_decision(
+            _make_signals(
+                fraud_score=0.0,
+                ocr_confidence=1.0,
+                signature_match=1.0,
+                cbs_outcome="PROCEED",
+                alteration_detected=False,
+                pps_outcome="FOUND",
+            ),
+            config=_make_config(stp_threshold=0.5),  # very low STP bar — still overridden
+            opa_client=opa,
+        )
+        assert result.decision == "HUMAN_REVIEW"
+
+
+# ---------------------------------------------------------------------------
+# Item 4: Payee name gate (CTS-2010 mandatory field)
+# ---------------------------------------------------------------------------
+
+def _make_signals_with_payee(payee_name, **kwargs):
+    from modules.cts.workflows.activities.decision import DecisionInput
+    base = _make_signals(**kwargs)
+    return DecisionInput(
+        **{k: v for k, v in base.model_dump().items() if k != "payee_name"},
+        payee_name=payee_name,
+    )
+
+
+class TestPayeeNameGate:
+    @pytest.mark.asyncio
+    async def test_blank_payee_routes_to_human_review(self):
+        """Empty string payee → HUMAN_REVIEW."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_payee(""),
+            config=_make_config(),
+        )
+        assert result.decision == "HUMAN_REVIEW"
+        assert "payee" in result.rationale.lower()
+
+    @pytest.mark.asyncio
+    async def test_whitespace_only_payee_routes_to_human_review(self):
+        """Whitespace-only payee → HUMAN_REVIEW."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_payee("   "),
+            config=_make_config(),
+        )
+        assert result.decision == "HUMAN_REVIEW"
+
+    @pytest.mark.asyncio
+    async def test_none_payee_skips_gate(self):
+        """payee_name=None means field was not captured on this path — gate skipped."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_payee(None),
+            config=_make_config(),
+        )
+        # Should reach normal STP_CONFIRM since all other signals are clean
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_valid_payee_proceeds_normally(self):
+        """A filled payee name does not trigger the gate."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_payee("Rajesh Kumar"),
+            config=_make_config(),
+        )
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_blank_payee_has_shap_values(self):
+        """Even on early-exit from payee gate, shap_values must be present."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_payee(""),
+            config=_make_config(),
+        )
+        assert result.shap_values is not None
+
+
+# ---------------------------------------------------------------------------
+# Item 3: IFSC cross-check gate
+# ---------------------------------------------------------------------------
+
+def _make_signals_with_ifsc(ngch_ifsc=None, ocr_ifsc=None, **kwargs):
+    from modules.cts.workflows.activities.decision import DecisionInput
+    base = _make_signals(**kwargs)
+    return DecisionInput(
+        **{k: v for k, v in base.model_dump().items()
+           if k not in ("ngch_ifsc", "ocr_ifsc")},
+        ngch_ifsc=ngch_ifsc,
+        ocr_ifsc=ocr_ifsc,
+    )
+
+
+class TestIFSCCrossCheckGate:
+    @pytest.mark.asyncio
+    async def test_matching_ifsc_proceeds_normally(self):
+        """NGCH IFSC == OCR IFSC → gate is satisfied, processing continues."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_ifsc(ngch_ifsc="SBIN0001234", ocr_ifsc="SBIN0001234"),
+            config=_make_config(),
+        )
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_mismatched_ifsc_routes_to_human_review(self):
+        """NGCH IFSC != OCR IFSC → HUMAN_REVIEW (routing error or fraud)."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_ifsc(ngch_ifsc="SBIN0001234", ocr_ifsc="HDFC0009876"),
+            config=_make_config(),
+        )
+        assert result.decision == "HUMAN_REVIEW"
+        assert "IFSC" in result.rationale
+
+    @pytest.mark.asyncio
+    async def test_ifsc_comparison_is_case_insensitive(self):
+        """IFSC comparison normalises to uppercase — mixed-case should match."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_ifsc(ngch_ifsc="SBIN0001234", ocr_ifsc="sbin0001234"),
+            config=_make_config(),
+        )
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_ifsc_comparison_strips_whitespace(self):
+        """Trailing/leading whitespace in either IFSC value is stripped before compare."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_ifsc(ngch_ifsc="SBIN0001234 ", ocr_ifsc=" SBIN0001234"),
+            config=_make_config(),
+        )
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_no_ocr_ifsc_skips_gate(self):
+        """ocr_ifsc=None (no OCR ran on this path) → gate is skipped."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_ifsc(ngch_ifsc="SBIN0001234", ocr_ifsc=None),
+            config=_make_config(),
+        )
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_no_ngch_ifsc_skips_gate(self):
+        """ngch_ifsc=None (NGCH didn't provide IFSC) → gate is skipped."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_ifsc(ngch_ifsc=None, ocr_ifsc="SBIN0001234"),
+            config=_make_config(),
+        )
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_both_none_skips_gate(self):
+        """Both None → gate skipped, normal processing."""
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_ifsc(ngch_ifsc=None, ocr_ifsc=None),
+            config=_make_config(),
+        )
+        assert result.decision == "STP_CONFIRM"
+
+    @pytest.mark.asyncio
+    async def test_mismatch_has_shap_values(self):
+        from modules.cts.workflows.activities.decision import synthesise_decision
+        result = await synthesise_decision(
+            _make_signals_with_ifsc(ngch_ifsc="SBIN0001234", ocr_ifsc="HDFC0009876"),
+            config=_make_config(),
+        )
+        assert result.shap_values is not None

@@ -10,6 +10,16 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 
+def _mock_config():
+    """Return a config_service mock that satisfies score_fraud's get_cts_config call."""
+    config = AsyncMock()
+    config.get_cts_config = AsyncMock(return_value={
+        "cts.ocr_min_confidence": 0.70,
+        "cts.high_value_amount_threshold": 5_000_000,
+    })
+    return config
+
+
 def _make_input(
     instrument_id="INST001",
     bank_id="test-bank",
@@ -59,6 +69,7 @@ class TestFraudScoringHappyPath:
 
         result = await score_fraud(
             _make_input(),
+            config_service=_mock_config(),
             model=mock_model,
             explainer=mock_explainer,
         )
@@ -75,7 +86,7 @@ class TestFraudScoringHappyPath:
         mock_explainer = MagicMock()
         mock_explainer.shap_values = MagicMock(return_value=[[0.01, -0.02, 0.0]])
 
-        result = await score_fraud(_make_input(), model=mock_model, explainer=mock_explainer)
+        result = await score_fraud(_make_input(), config_service=_mock_config(), model=mock_model, explainer=mock_explainer)
         assert result.shap_values is not None
         assert len(result.shap_values) > 0
 
@@ -89,7 +100,7 @@ class TestFraudScoringHappyPath:
         mock_explainer = MagicMock()
         mock_explainer.shap_values = MagicMock(return_value=[[0.05, -0.03, 0.0]])
 
-        result = await score_fraud(_make_input(), model=mock_model, explainer=mock_explainer)
+        result = await score_fraud(_make_input(), config_service=_mock_config(), model=mock_model, explainer=mock_explainer)
         assert "amount" in result.shap_values
         assert "ocr_confidence" in result.shap_values
 
@@ -104,7 +115,7 @@ class TestFraudScoringHappyPath:
         mock_explainer.shap_values = MagicMock(return_value=[[0.4, 0.3]])
 
         result = await score_fraud(_make_input(alteration_detected=True, amount=9000000.0),
-                                   model=mock_model, explainer=mock_explainer)
+                                   config_service=_mock_config(), model=mock_model, explainer=mock_explainer)
         assert result.fraud_score > 0.5
 
     @pytest.mark.asyncio
@@ -117,7 +128,7 @@ class TestFraudScoringHappyPath:
         mock_explainer = MagicMock()
         mock_explainer.shap_values = MagicMock(return_value=[[0.1]])
 
-        result = await score_fraud(_make_input(), model=mock_model, explainer=mock_explainer)
+        result = await score_fraud(_make_input(), config_service=_mock_config(), model=mock_model, explainer=mock_explainer)
         with pytest.raises(Exception):
             result.fraud_score = 0.99
 
@@ -132,7 +143,7 @@ class TestFraudScoringDegradation:
         mock_model.predict_proba = MagicMock(side_effect=Exception("model file missing"))
         mock_explainer = MagicMock()
 
-        result = await score_fraud(_make_input(), model=mock_model, explainer=mock_explainer)
+        result = await score_fraud(_make_input(), config_service=_mock_config(), model=mock_model, explainer=mock_explainer)
         assert result is not None
         assert isinstance(result.fraud_score, float)
 
@@ -144,7 +155,7 @@ class TestFraudScoringDegradation:
         mock_model.predict_proba = MagicMock(side_effect=RuntimeError("CUDA OOM"))
         mock_explainer = MagicMock()
 
-        result = await score_fraud(_make_input(), model=mock_model, explainer=mock_explainer)
+        result = await score_fraud(_make_input(), config_service=_mock_config(), model=mock_model, explainer=mock_explainer)
         assert result.degraded is True
 
     @pytest.mark.asyncio
@@ -156,7 +167,7 @@ class TestFraudScoringDegradation:
         mock_model.predict_proba = MagicMock(side_effect=Exception("down"))
         mock_explainer = MagicMock()
 
-        result = await score_fraud(_make_input(), model=mock_model, explainer=mock_explainer)
+        result = await score_fraud(_make_input(), config_service=_mock_config(), model=mock_model, explainer=mock_explainer)
         assert result.shap_values is not None
 
     @pytest.mark.asyncio
@@ -167,7 +178,7 @@ class TestFraudScoringDegradation:
         mock_model.predict_proba = MagicMock(side_effect=ConnectionError("socket closed"))
         mock_explainer = MagicMock()
 
-        result = await score_fraud(_make_input(), model=mock_model, explainer=mock_explainer)
+        result = await score_fraud(_make_input(), config_service=_mock_config(), model=mock_model, explainer=mock_explainer)
         assert result is not None
 
 
@@ -182,10 +193,10 @@ class TestFraudFallbackRules:
         mock_explainer = MagicMock()
 
         result_clean = await score_fraud(_make_input(alteration_detected=False),
-                                         model=mock_model, explainer=mock_explainer)
+                                         config_service=_mock_config(), model=mock_model, explainer=mock_explainer)
         mock_model.predict_proba = MagicMock(side_effect=Exception("down"))
         result_altered = await score_fraud(_make_input(alteration_detected=True),
-                                           model=mock_model, explainer=mock_explainer)
+                                           config_service=_mock_config(), model=mock_model, explainer=mock_explainer)
 
         assert result_altered.fraud_score > result_clean.fraud_score
 
@@ -200,12 +211,12 @@ class TestFraudFallbackRules:
 
         result_good_ocr = await score_fraud(
             _make_input(ocr_confidence=0.95),
-            model=mock_model, explainer=mock_explainer,
+            config_service=_mock_config(), model=mock_model, explainer=mock_explainer,
         )
         mock_model.predict_proba = MagicMock(side_effect=Exception("down"))
         result_bad_ocr = await score_fraud(
             _make_input(ocr_confidence=0.60),
-            model=mock_model, explainer=mock_explainer,
+            config_service=_mock_config(), model=mock_model, explainer=mock_explainer,
         )
 
         assert result_bad_ocr.fraud_score > result_good_ocr.fraud_score
@@ -221,12 +232,12 @@ class TestFraudFallbackRules:
 
         result_normal = await score_fraud(
             _make_input(amount=50000.0),
-            model=mock_model, explainer=mock_explainer,
+            config_service=_mock_config(), model=mock_model, explainer=mock_explainer,
         )
         mock_model.predict_proba = MagicMock(side_effect=Exception("down"))
         result_huge = await score_fraud(
             _make_input(amount=6_000_000.0),
-            model=mock_model, explainer=mock_explainer,
+            config_service=_mock_config(), model=mock_model, explainer=mock_explainer,
         )
 
         assert result_huge.fraud_score > result_normal.fraud_score
@@ -282,6 +293,7 @@ class TestFraudRationaleSynthesis:
 
         result = await score_fraud(
             self._make_input_with_ocr(),
+            config_service=_mock_config(),
             model=mock_model,
             explainer=mock_explainer,
             vllm_client=vllm_client,
@@ -305,6 +317,7 @@ class TestFraudRationaleSynthesis:
 
         result = await score_fraud(
             self._make_input_with_ocr(),
+            config_service=_mock_config(),
             model=mock_model,
             explainer=mock_explainer,
             vllm_client=vllm_client,
@@ -327,6 +340,7 @@ class TestFraudRationaleSynthesis:
 
         result = await score_fraud(
             _make_input(),  # ocr_result=None by default
+            config_service=_mock_config(),
             model=mock_model,
             explainer=mock_explainer,
             vllm_client=vllm_client,
@@ -350,6 +364,7 @@ class TestFraudRationaleSynthesis:
 
         await score_fraud(
             self._make_input_with_ocr(),
+            config_service=_mock_config(),
             model=mock_model,
             explainer=mock_explainer,
             vllm_client=vllm_client,

@@ -7,7 +7,11 @@ import CTSVaultStatus from './modules/cts/pages/CTSVaultStatus'
 import CTSDecisionsLog from './modules/cts/pages/CTSDecisionsLog'
 import CTSAnalytics from './modules/cts/pages/CTSAnalytics'
 import CTSConfig from './modules/cts/pages/CTSConfig'
+import CTSMCPConfig from './modules/cts/pages/CTSMCPConfig'
 import CTSPresentment from './modules/cts/pages/CTSPresentment'
+import CTSOutwardQueue from './modules/cts/pages/CTSOutwardQueue'
+import CTSValidationQueue from './modules/cts/pages/CTSValidationQueue'
+import CTSSubmissionQueue from './modules/cts/pages/CTSSubmissionQueue'
 import CTSExceptions from './modules/cts/pages/CTSExceptions'
 import CTSReconciliation from './modules/cts/pages/CTSReconciliation'
 import CTSCompliance from './modules/cts/pages/CTSCompliance'
@@ -32,14 +36,36 @@ import CTSNGCHRouting from './modules/cts/pages/CTSNGCHRouting'
 import CTSSMBRegistry from './modules/cts/pages/CTSSMBRegistry'
 import CTSSMBLedger from './modules/cts/pages/CTSSMBLedger'
 import CTSSMBForwardingLog from './modules/cts/pages/CTSSMBForwardingLog'
+import CTSSMBDashboard from './modules/cts/pages/CTSSMBDashboard'
+import CTSSMBReports from './modules/cts/pages/CTSSMBReports'
+import CTSSMBReviewQueue from './modules/cts/pages/CTSSMBReviewQueue'
 import CTSInwardPipeline from './modules/cts/pages/CTSInwardPipeline'
+import CTSDemoPipeline from './modules/cts/pages/CTSDemoPipeline'
+import CTSCloudAIDemo from './modules/cts/pages/CTSCloudAIDemo'
+import CTSSigBatchTest from './modules/cts/pages/CTSSigBatchTest'
 import CTSPresentmentFile from './modules/cts/pages/CTSPresentmentFile'
+import CTSHubDashboard from './modules/cts/pages/CTSHubDashboard'
+import BranchDashboard from './modules/cts/pages/branch/BranchDashboard'
+import BranchScanMonitor from './modules/cts/pages/branch/BranchScanMonitor'
+import BranchMismatchQueue from './modules/cts/pages/branch/BranchMismatchQueue'
+import BranchSessionHistory from './modules/cts/pages/branch/BranchSessionHistory'
 import CTSRFDrawee from './modules/cts/pages/CTSRFDrawee'
 import CTSRecall from './modules/cts/pages/CTSRecall'
+import CTSAgencyCC from './modules/cts/pages/CTSAgencyCC'
+import CTSSmokeTest from './modules/cts/pages/CTSSmokeTest'
+import OpsDashboard from './modules/observability/pages/OpsDashboard'
+import ModelHealth from './modules/observability/pages/ModelHealth'
+import AlertLog from './modules/observability/pages/AlertLog'
+import SystemHealth from './modules/observability/pages/SystemHealth'
 import EJSchedules from './modules/ej/pages/EJSchedules'
 import UserManagement from './modules/admin/pages/UserManagement'
 import LoginLog from './modules/admin/pages/LoginLog'
 import SecurityViolations from './modules/admin/pages/SecurityViolations'
+import LoginPage from './modules/auth/pages/LoginPage'
+import Logout from './modules/auth/pages/Logout'
+import Profile from './modules/auth/pages/Profile'
+import { AuthProvider } from './shared/context/AuthContext'
+import RequireAuth from './shared/auth/RequireAuth'
 import { EJDashboard } from './modules/ej'
 import IncidentManagement from './modules/ej/pages/IncidentManagement'
 import ManagerPortal from './modules/ej/pages/ManagerPortal'
@@ -52,13 +78,25 @@ import './index.css'
 export default function App() {
   return (
     <BrowserRouter>
+      <AuthProvider>
       <BankProvider>
       <PageHeaderProvider>
       <Routes>
+        {/* Public: landing + login. Everything else requires a session. */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/logout" element={<Logout />} />
+        <Route element={<RequireAuth />}>
         {/* CTS module */}
-        <Route path="/cts" element={<CTSWorkstation />} />
-        <Route path="/cts/outward" element={<CTSPresentment />} />
+        {/* Inward 3-stage pipeline */}
+        <Route path="/cts/inward/verification" element={<CTSWorkstation />} />
+        <Route path="/cts"                     element={<CTSValidationQueue mode="inward" />} />
+        <Route path="/cts/inward/submission"   element={<CTSSubmissionQueue mode="inward" />} />
+        {/* Outward 3-stage pipeline */}
+        <Route path="/cts/outward"             element={<CTSPresentment />} />
+        <Route path="/cts/outward/verification" element={<CTSOutwardQueue />} />
+        <Route path="/cts/outward/queue"        element={<CTSValidationQueue mode="outward" />} />
+        <Route path="/cts/outward/submission"   element={<CTSSubmissionQueue mode="outward" />} />
         <Route path="/cts/vault" element={<CTSVaultStatus />} />
         <Route path="/cts/decisions" element={<CTSDecisionsLog />} />
         <Route path="/cts/exceptions" element={<CTSExceptions />} />
@@ -71,14 +109,19 @@ export default function App() {
         <Route path="/cts/sub-member" element={<CTSSubMember />} />
         <Route path="/cts/pipeline" element={<CTSPipelineVisualizer />} />
         <Route path="/cts/inward-pipeline" element={<CTSInwardPipeline />} />
+        <Route path="/cts/demo" element={<CTSDemoPipeline />} />
+        <Route path="/cts/cloud-ai-demo" element={<CTSCloudAIDemo />} />
+        <Route path="/cts/sig-batch-test" element={<CTSSigBatchTest />} />
         <Route path="/cts/presentment-file" element={<CTSPresentmentFile />} />
         <Route path="/cts/rf-drawee" element={<CTSRFDrawee />} />
         <Route path="/cts/recall" element={<CTSRecall />} />
+        <Route path="/cts/agency-cc" element={<CTSAgencyCC />} />
         <Route path="/cts/discrepancy" element={<CTSDiscrepancy />} />
         <Route path="/cts/batches" element={<CTSBatches />} />
         <Route path="/cts/analytics" element={<CTSAnalytics />} />
         <Route path="/cts/business-model" element={<CTSBusinessModel />} />
         <Route path="/cts/config" element={<CTSConfig />} />
+        <Route path="/cts/config/mcp-connections" element={<CTSMCPConfig />} />
         <Route path="/cts/ops-dashboard" element={<CTSOpsDashboard />} />
         <Route path="/cts/drawee" element={<CTSDraweeView />} />
         <Route path="/cts/settlement" element={<CTSSettlement />} />
@@ -91,10 +134,27 @@ export default function App() {
         <Route path="/cts/smb/registry" element={<CTSSMBRegistry />} />
         <Route path="/cts/smb/ledger" element={<CTSSMBLedger />} />
         <Route path="/cts/smb/forwarding-log" element={<CTSSMBForwardingLog />} />
+        <Route path="/cts/smb/dashboard" element={<CTSSMBDashboard />} />
+        <Route path="/cts/smb/review-queue" element={<CTSSMBReviewQueue />} />
+        <Route path="/cts/smb/reports" element={<CTSSMBReports />} />
+        {/* Hub Manager — SB clearing hub command centre */}
+        <Route path="/cts/hub" element={<CTSHubDashboard />} />
+        {/* Branch Portal — EEH branch operator screens */}
+        <Route path="/branch" element={<BranchDashboard />} />
+        <Route path="/branch/scan" element={<BranchScanMonitor />} />
+        <Route path="/branch/mismatch" element={<BranchMismatchQueue />} />
+        <Route path="/branch/history" element={<BranchSessionHistory />} />
         {/* Admin */}
+        <Route path="/profile" element={<Profile />} />
         <Route path="/admin/users" element={<UserManagement />} />
         <Route path="/admin/security-violations" element={<SecurityViolations />} />
         <Route path="/admin/login-log" element={<LoginLog />} />
+        <Route path="/admin/smoke-test" element={<CTSSmokeTest />} />
+        {/* ASTRA Ops Dashboard — replaces Grafana for ops_manager + bank_it_admin */}
+        <Route path="/ops/dashboard"    element={<OpsDashboard />} />
+        <Route path="/ops/model-health" element={<ModelHealth />} />
+        <Route path="/ops/alerts"       element={<AlertLog />} />
+        <Route path="/ops/system"       element={<SystemHealth />} />
         {/* EJ module — own routes, no overlap with CTS */}
         <Route path="/ej" element={<EJDashboard />} />
         <Route path="/ej/incidents" element={<IncidentManagement />} />
@@ -108,10 +168,12 @@ export default function App() {
         <Route path="/fleet" element={<EJDashboard defaultTab="fleet" />} />
         <Route path="/disputes" element={<EJDashboard defaultTab="disputes" />} />
         <Route path="/audit" element={<ManagerPortal />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </PageHeaderProvider>
       </BankProvider>
+      </AuthProvider>
     </BrowserRouter>
   )
 }

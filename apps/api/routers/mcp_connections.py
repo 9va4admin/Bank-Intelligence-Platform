@@ -1,0 +1,987 @@
+"""
+MCP Connections Configuration API
+
+Routes for bank IT admins (SB and SMB) to configure MCP connections to:
+  - SB_CBS           : Sponsor Bank's Core Banking System
+  - SMB_CBS          : Sub-Member Bank's Core Banking System
+  - SIGNATURE_VAULT  : Redis Signature Vault (fed by CBS signature extraction)
+  - PPS_VAULT        : Redis Positive Pay vault
+  - CANCELLED_LEAF   : Redis Bloom Filter for cancelled cheque serials
+
+These connections are prerequisites before a clearing session can open.
+
+Pre-flight gate: GET /v1/admin/mcp-connections/preflight
+  → returns clearing_allowed=True only when all configured connections are ACTIVE.
+"""
+
+from __future__ import annotations
+
+import json
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Callable, Dict, List, Optional
+
+import structlog
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, ConfigDict, field_validator
+
+from apps.api.dependencies import require_user_context
+from shared.audit.audit_event import AuditEvent, AuditEventType
+from shared.audit.stream_buffer import buffer_audit_event
+from shared.auth.rbac import RBACPolicy, UserContext
+from shared.event_bus.producer import EventProducer as KafkaEventProducer
+from shared.notifications.routing import NotificationRoutingTable
+
+log = structlog.get_logger()
+
+# ── Constants ────────────────────────────────────────────────────────────────
+
+_ALLOWED_ROLES = {"bank_it_admin", "ops_manager"}
+_CBS_TYPES = {"SB_CBS", "SMB_CBS"}
+_VALID_TYPES = {"SB_CBS", "SMB_CBS", "SIGNATURE_VAULT", "PPS_VAULT", "CANCELLED_LEAF"}
+_VALID_CBS_VENDORS = {"finacle", "bancs", "flexcube"}
+
+_policy = RBACPolicy()
+
+# ── In-memory store (replaced by YugabyteDB in production) ──────────────────
+
+
+class _ConnectionStore:
+    """In-memory store for MCP connection configs (dev/test fallback).
+
+    Each record keyed by id string. Production: YugabyteDBConnectionStore below.
+    """
+
+    def __init__(self):
+        self._rows: Dict[str, dict] = {}
+
+    async def all_for_bank(self, bank_id: str) -> List[dict]:
+        return [r for r in self._rows.values() if r["bank_id"] == bank_id]
+
+    async def get(self, connection_id: str) -> Optional[dict]:
+        return self._rows.get(connection_id)
+
+    async def insert(self, row: dict) -> dict:
+        self._rows[row["id"]] = row
+        return row
+
+    async def update(self, connection_id: str, fields: dict) -> Optional[dict]:
+        if connection_id not in self._rows:
+            return None
+        self._rows[connection_id].update(fields)
+        self._rows[connection_id]["updated_at"] = _now()
+        return self._rows[connection_id]
+
+    async def delete(self, connection_id: str) -> bool:
+        if connection_id not in self._rows:
+            return False
+        del self._rows[connection_id]
+        return True
+
+    async def exists(self, bank_id: str, connection_type: str, smb_id: Optional[str]) -> bool:
+        for r in self._rows.values():
+            if (
+                r["bank_id"] == bank_id
+                and r["connection_type"] == connection_type
+                and r.get("smb_id") == smb_id
+            ):
+                return True
+        return False
+
+
+def _db_record_to_dict(row: Any) -> dict:
+    """Convert asyncpg Record to plain dict; normalise UUID → str, datetime → ISO str."""
+    import uuid as _uuid
+    d = {}
+    for k, v in dict(row).items():
+        if isinstance(v, datetime):
+            d[k] = v.isoformat()
+        elif isinstance(v, _uuid.UUID):
+            d[k] = str(v)
+        else:
+            d[k] = v
+    return d
+
+
+class YugabyteDBConnectionStore:
+    """Production store backed by YugabyteDB cts.mcp_connection_configs table.
+
+    Requires asyncpg pool from app.state.db_pool_cts (pgbouncer-cts endpoint).
+    Schema defined in infra/migrations/cts/20260701_add_mcp_connection_configs.py.
+    """
+
+    _COLS = (
+        "id, bank_id, connection_type, smb_id, smb_name, cbs_vendor, "
+        "endpoint_url, vault_secret_ref, status, last_tested_at, "
+        "last_test_latency_ms, last_sync_at, vault_record_count, "
+        "error_message, created_at, updated_at, created_by"
+    )
+
+    def __init__(self, pool: Any) -> None:
+        self._pool = pool
+
+    async def all_for_bank(self, bank_id: str) -> List[dict]:
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                f"SELECT {self._COLS} FROM cts.mcp_connection_configs "
+                "WHERE bank_id = $1 ORDER BY created_at",
+                bank_id,
+            )
+        return [_db_record_to_dict(r) for r in rows]
+
+    async def get(self, connection_id: str) -> Optional[dict]:
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                f"SELECT {self._COLS} FROM cts.mcp_connection_configs WHERE id = $1",
+                connection_id,
+            )
+        return _db_record_to_dict(row) if row else None
+
+    async def insert(self, row: dict) -> dict:
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO cts.mcp_connection_configs "
+                "(id, bank_id, connection_type, smb_id, smb_name, cbs_vendor, "
+                " endpoint_url, vault_secret_ref, status, created_at, created_by) "
+                "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+                row["id"], row["bank_id"], row["connection_type"],
+                row.get("smb_id"), row.get("smb_name"), row.get("cbs_vendor"),
+                row.get("endpoint_url"), row.get("vault_secret_ref"),
+                row["status"], row["created_at"], row["created_by"],
+            )
+        return row
+
+    async def update(self, connection_id: str, fields: dict) -> Optional[dict]:
+        if not fields:
+            return await self.get(connection_id)
+        set_clauses, values = [], []
+        for i, (k, v) in enumerate(fields.items(), start=1):
+            set_clauses.append(f"{k} = ${i}")
+            values.append(v)
+        # Always stamp updated_at unless caller already set it
+        if "updated_at" not in fields:
+            set_clauses.append(f"updated_at = ${len(values) + 1}")
+            values.append(_now())
+        values.append(connection_id)
+        sql = (
+            f"UPDATE cts.mcp_connection_configs SET {', '.join(set_clauses)} "
+            f"WHERE id = ${len(values)}"
+        )
+        async with self._pool.acquire() as conn:
+            await conn.execute(sql, *values)
+        return await self.get(connection_id)
+
+    async def delete(self, connection_id: str) -> bool:
+        async with self._pool.acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM cts.mcp_connection_configs WHERE id = $1", connection_id
+            )
+        return result == "DELETE 1"
+
+    async def exists(self, bank_id: str, connection_type: str, smb_id: Optional[str]) -> bool:
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT 1 FROM cts.mcp_connection_configs "
+                "WHERE bank_id = $1 AND connection_type = $2 "
+                "AND COALESCE(smb_id, '') = COALESCE($3, '') LIMIT 1",
+                bank_id, connection_type, smb_id,
+            )
+        return row is not None
+
+
+_global_store = _ConnectionStore()
+
+
+def get_store(request: Request) -> Any:
+    """Return YugabyteDB store in production; in-memory store in dev/tests."""
+    pool = getattr(request.app.state, "db_pool_cts", None)
+    if pool is not None:
+        return YugabyteDBConnectionStore(pool)
+    return _global_store
+
+
+# ── Audit emit ───────────────────────────────────────────────────────────────
+
+
+async def _emit_audit(
+    event_type: AuditEventType,
+    bank_id: str,
+    payload: dict,
+    event_publisher: Optional[Callable] = None,
+    audit_stream_writer: Optional[Callable] = None,
+) -> None:
+    """Emit an MCP connection audit event.
+
+    Two independent paths, both fire — neither replaces the other:
+      - Kafka platform.audit.events: documented durable-backup path
+        (shared/audit/stream_buffer.py's own module docstring), longer
+        retention, disk-backed. No consumer exists for it today.
+      - Redis Streams (buffer_audit_event): the fast primary path that
+        shared/audit/stream_consumer.py's AuditStreamConsumer actually
+        drains and writes to Immudb. This is what makes MCP_CONN_* events
+        actually reach the audit trail, not just get published into a void.
+
+    Fire-and-forget — failures are logged, never block the HTTP response.
+    """
+    try:
+        event = AuditEvent(
+            event_type=event_type,
+            bank_id=bank_id,
+            payload=payload,
+        )
+        log.info(
+            "mcp_conn.audit_event",
+            event_type=event_type.value,
+            bank_id=bank_id,
+            event_id=event.event_id,
+        )
+        if event_publisher is not None:
+            await event_publisher("platform.audit.events", {
+                "event_type": event_type.value,
+                "event_id": event.event_id,
+                "bank_id": bank_id,
+                "timestamp": event.timestamp,
+                **payload,
+            })
+        if audit_stream_writer is not None:
+            await audit_stream_writer(
+                bank_id=bank_id,
+                event_type=event_type.value,
+                entity_type="mcp_connection",
+                entity_id=payload.get("connection_id", ""),
+                actor_id=(
+                    payload.get("created_by") or payload.get("updated_by")
+                    or payload.get("deleted_by") or payload.get("tested_by")
+                    or payload.get("triggered_by") or "unknown"
+                ),
+                payload=payload,
+            )
+    except Exception as exc:
+        log.error("mcp_conn.audit_emit_failed", event_type=event_type.value, bank_id=bank_id, error=str(exc))
+
+
+# ── Auth dependency ──────────────────────────────────────────────────────────
+
+
+async def get_current_user(
+    ctx: UserContext = Depends(require_user_context),
+) -> dict:
+    """
+    Delegates to the central auth chokepoint (apps.api.dependencies), which
+    validates the httpOnly session cookie via AuthenticationMiddleware.
+    Re-shaped to this router's existing dict-based downstream code.
+    No token parsing, no test-token backdoor. ASTRA-01.
+
+    bank_id/smb_id follow the same SB/SMB split as RBACPolicy.smb_instrument_filter:
+    SB caller → bank_id=own bank, smb_id=None (sees/configures all SMBs' connections).
+    SMB caller → bank_id=sponsor SB (connections are stored under the SB's namespace),
+                 smb_id=own bank_id (row-level isolation to this SMB only).
+    """
+    eff_bank_id, smb_id = _policy.smb_instrument_filter(ctx)
+    return {
+        "bank_id": eff_bank_id,
+        "user_id": ctx.user_id,
+        "role": ctx.role.value,
+        "bank_type": ctx.bank_type.value,
+        "smb_id": smb_id,
+    }
+
+
+def _require_admin(user: dict = Depends(get_current_user)) -> dict:
+    if user["role"] not in _ALLOWED_ROLES:
+        raise HTTPException(status_code=403, detail="Insufficient role")
+    return user
+
+
+# ── Connection tester dependency ─────────────────────────────────────────────
+
+
+async def _default_tester(row: dict):
+    """Default connection tester: attempts actual HTTP/Redis probe.
+
+    Returns (success: bool, latency_ms: int | None, error: str | None).
+    In production this probes CBS endpoint with mTLS cert loaded from
+    config_service.get_secret("cbs.{vendor}.tls.*").
+    In tests: dependency_overrides replaces this entirely.
+    """
+    import time
+    t0 = time.monotonic()
+    try:
+        import httpx
+        # mTLS: in production load cert from config_service.get_secret(...)
+        # verify=True always — security.md forbids verify=False in any requests call
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            url = row.get("endpoint_url", "")
+            if not url:
+                return False, None, "No endpoint_url configured"
+            resp = await client.get(url + "/health", timeout=10.0)
+            latency_ms = int((time.monotonic() - t0) * 1000)
+            return resp.status_code < 500, latency_ms, None
+    except Exception as exc:
+        latency_ms = int((time.monotonic() - t0) * 1000)
+        return False, latency_ms, str(exc)
+
+
+def get_connection_tester() -> Callable:
+    return _default_tester
+
+
+# ── Event publisher dependency (Kafka) ───────────────────────────────────────
+
+
+async def _default_event_publisher(topic: str, payload: dict) -> None:
+    """Publish an event to a Kafka topic.
+
+    In production: uses shared/event_bus/producer.py KafkaProducer.
+    In tests: dependency_overrides replaces this with a capture list.
+    Fire-and-forget — failures are logged, not re-raised.
+    """
+    log.info(
+        "mcp_conn.kafka_publish_stub",
+        topic=topic,
+        event_type=payload.get("event_type"),
+    )
+
+
+def get_event_publisher(request: Request) -> Callable:
+    """Return real Kafka publisher when app.state.kafka_producer_cts is available.
+
+    Falls back to log stub in dev/tests. Tests override via dependency_overrides.
+    CTS producer only — enforces module isolation (cts.* and platform.* topics).
+    """
+    producer: Optional[KafkaEventProducer] = getattr(
+        request.app.state, "kafka_producer_cts", None
+    )
+    if producer is None:
+        return _default_event_publisher
+
+    async def _real_publisher(topic: str, payload: dict) -> None:
+        try:
+            await producer.publish(
+                topic=topic,
+                event_type=payload.get("event_type", "MCP_EVENT"),
+                payload=payload,
+                schema_version="1.0",
+            )
+        except Exception as exc:
+            log.error("mcp_conn.kafka_publish_failed", topic=topic, error=str(exc))
+
+    return _real_publisher
+
+
+# ── Audit stream writer dependency (Redis Streams -> audit-service) ─────────
+
+
+async def _default_audit_stream_writer(**kwargs: Any) -> None:
+    """Log-only stub for dev/test — no app.state.redis_cts available.
+
+    Tests override via dependency_overrides. Fire-and-forget — failures
+    are logged, not re-raised.
+    """
+    log.info("mcp_conn.audit_stream_stub", event_type=kwargs.get("event_type"))
+
+
+def get_audit_stream_writer(request: Request) -> Callable:
+    """Return the real Redis Streams writer when app.state.redis_cts is
+    available, else the log-only stub.
+
+    This is the producer side of the fast path shared/audit/stream_consumer.py's
+    AuditStreamConsumer actually drains — buffer_audit_event() is fully
+    implemented and tested (shared/audit/stream_buffer.py) but was never
+    called from anywhere in the real app before this.
+    """
+    redis_cts = getattr(request.app.state, "redis_cts", None)
+    if redis_cts is None:
+        return _default_audit_stream_writer
+
+    async def _real_writer(**kwargs: Any) -> None:
+        try:
+            await buffer_audit_event(redis=redis_cts, **kwargs)
+        except Exception as exc:
+            log.error("mcp_conn.audit_stream_failed", event_type=kwargs.get("event_type"), error=str(exc))
+
+    return _real_writer
+
+
+# ── Notification routing (business-rule evaluation) ─────────────────────────
+
+
+async def _route_notification(event_type: AuditEventType, bank_id: str, context: dict) -> None:
+    """Evaluate NotificationRoutingTable's real, tested business rule for
+    event_type and log the outcome.
+
+    NotificationRoutingTable.get_spec() correctly says which events should
+    notify whom, on which channel, at what priority — that part is real.
+    What's missing platform-wide (not just here) is a user directory:
+    build_requests() needs an actual list of users with .role/.email/.phone
+    to turn "notify bank_it_admin" into a real recipient, and nothing in
+    this codebase supplies that yet. Rather than fabricate a fake recipient
+    (which would silently claim delivery that never happened), this logs
+    the routing decision honestly and stops at that boundary.
+    """
+    table = NotificationRoutingTable()
+    try:
+        spec = table.get_spec(event_type)
+    except Exception:
+        log.warning("mcp_conn.notification_routing.no_spec", event_type=event_type.value, bank_id=bank_id)
+        return
+
+    if not spec.notify:
+        return
+
+    log.warning(
+        "mcp_conn.notification_routing.recipients_unresolved",
+        event_type=event_type.value,
+        bank_id=bank_id,
+        priority=spec.priority.value,
+        roles=[r.role for r in spec.recipients],
+        reason="no user directory exists to resolve role -> recipient — see routing spec for who SHOULD be notified",
+    )
+
+
+def get_notification_router(request: Request) -> Callable:
+    """DI seam matching get_event_publisher/get_audit_stream_writer's shape,
+    for tests that want to override notification routing entirely."""
+    return _route_notification
+
+
+# ── Redis preflight writer dependency ────────────────────────────────────────
+
+
+async def _default_preflight_writer(bank_id: str, clearing_allowed: bool) -> None:
+    """Preflight writer stub for dev/test — logs only.
+
+    Production: replaced by real Redis writer via get_preflight_writer.
+    Tests: replaced entirely by dependency_overrides capture list.
+    """
+    log.info(
+        "mcp_conn.preflight_redis_stub",
+        bank_id=bank_id,
+        clearing_allowed=clearing_allowed,
+    )
+
+
+def get_preflight_writer(request: Request) -> Callable:
+    """Return real Redis writer when app.state.redis_cts is available.
+
+    Writes preflight:{bank_id} JSON to redis-cts (5-min TTL) so Temporal activities
+    can gate-check clearing readiness without calling the API.
+    Falls back to log stub in dev/tests.
+    """
+    redis_cts = getattr(request.app.state, "redis_cts", None)
+    if redis_cts is None:
+        return _default_preflight_writer
+
+    async def _real_preflight_writer(bank_id: str, clearing_allowed: bool) -> None:
+        try:
+            await redis_cts.set(
+                f"preflight:{bank_id}",
+                json.dumps({"clearing_allowed": clearing_allowed, "updated_at": _now()}),
+                ex=300,  # 5-min TTL — Temporal activities re-check on stale key
+            )
+        except Exception as exc:
+            log.error("mcp_conn.preflight_redis_failed", bank_id=bank_id, error=str(exc))
+
+    return _real_preflight_writer
+
+
+async def _update_preflight_cache(
+    bank_id: str,
+    store: Any,
+    preflight_writer: Callable,
+) -> None:
+    """Recompute clearing_allowed from store and push to Redis preflight key."""
+    try:
+        rows = await store.all_for_bank(bank_id)
+        clearing_allowed = all(r["status"] == "ACTIVE" for r in rows) if rows else True
+        await preflight_writer(bank_id, clearing_allowed)
+    except Exception as exc:
+        log.error("mcp_conn.preflight_cache_failed", bank_id=bank_id, error=str(exc))
+
+
+# ── Pydantic models ──────────────────────────────────────────────────────────
+
+
+class MCPConnectionCreate(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    connection_type: str
+    smb_id: Optional[str] = None
+    smb_name: Optional[str] = None
+    cbs_vendor: Optional[str] = None
+    endpoint_url: Optional[str] = None
+    vault_secret_ref: Optional[str] = None
+
+    @field_validator("connection_type")
+    @classmethod
+    def validate_type(cls, v: str) -> str:
+        if v not in _VALID_TYPES:
+            raise ValueError(f"connection_type must be one of {_VALID_TYPES}")
+        return v
+
+    @field_validator("cbs_vendor")
+    @classmethod
+    def validate_vendor(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in _VALID_CBS_VENDORS:
+            raise ValueError(f"cbs_vendor must be one of {_VALID_CBS_VENDORS}")
+        return v
+
+
+class MCPConnectionUpdate(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    cbs_vendor: Optional[str] = None
+    endpoint_url: Optional[str] = None
+    vault_secret_ref: Optional[str] = None
+    smb_name: Optional[str] = None
+
+    @field_validator("cbs_vendor")
+    @classmethod
+    def validate_vendor(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in _VALID_CBS_VENDORS:
+            raise ValueError(f"cbs_vendor must be one of {_VALID_CBS_VENDORS}")
+        return v
+
+
+class MCPConnectionResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    bank_id: str
+    connection_type: str
+    smb_id: Optional[str]
+    smb_name: Optional[str]
+    cbs_vendor: Optional[str]
+    endpoint_url: None = None               # raw URL never returned
+    endpoint_url_masked: Optional[str]
+    vault_secret_ref: Optional[str]
+    status: str
+    last_tested_at: Optional[str]
+    last_test_latency_ms: Optional[int]
+    last_sync_at: Optional[str]
+    vault_record_count: Optional[int]
+    error_message: Optional[str]
+    created_at: str
+    updated_at: Optional[str]
+    created_by: str
+
+
+class MCPConnectionListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    bank_id: str
+    connections: List[MCPConnectionResponse]
+    total: int
+
+
+class TestConnectionResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    connection_id: str
+    success: bool
+    latency_ms: Optional[int]
+    error: Optional[str]
+
+
+class TriggerSyncResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    connection_id: str
+    workflow_id: str
+    started_at: str
+
+
+class PreflightCheck(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    connection_id: str
+    connection_type: str
+    smb_id: Optional[str]
+    status: str
+
+
+class PreflightResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    bank_id: str
+    clearing_allowed: bool
+    blocking_count: int
+    checks: List[PreflightCheck]
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _mask_url(url: Optional[str]) -> Optional[str]:
+    """Return scheme://host/*** — hide path, credentials, and query string."""
+    if not url:
+        return None
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        # Strip credentials from netloc
+        host = parsed.hostname or ""
+        if parsed.port:
+            host = f"{host}:{parsed.port}"
+        return f"{parsed.scheme}://{host}/***"
+    except Exception:
+        return "***"
+
+
+def _row_to_response(row: dict) -> MCPConnectionResponse:
+    return MCPConnectionResponse(
+        id=row["id"],
+        bank_id=row["bank_id"],
+        connection_type=row["connection_type"],
+        smb_id=row.get("smb_id"),
+        smb_name=row.get("smb_name"),
+        cbs_vendor=row.get("cbs_vendor"),
+        endpoint_url=None,
+        endpoint_url_masked=_mask_url(row.get("endpoint_url")),
+        vault_secret_ref=row.get("vault_secret_ref"),
+        status=row["status"],
+        last_tested_at=row.get("last_tested_at"),
+        last_test_latency_ms=row.get("last_test_latency_ms"),
+        last_sync_at=row.get("last_sync_at"),
+        vault_record_count=row.get("vault_record_count"),
+        error_message=row.get("error_message"),
+        created_at=row["created_at"],
+        updated_at=row.get("updated_at"),
+        created_by=row["created_by"],
+    )
+
+
+def _scope_check(user: dict, row: dict):
+    """Raise 403 if SMB user tries to access a row belonging to a different SMB."""
+    if user["bank_type"] == "SMB":
+        if row.get("smb_id") != user.get("smb_id"):
+            raise HTTPException(status_code=403, detail="Access denied: not your SMB connection")
+
+
+# ── Router ───────────────────────────────────────────────────────────────────
+
+router_v1 = APIRouter(prefix="/v1/admin/mcp-connections", tags=["MCP Connections v1"])
+
+
+@router_v1.get("/preflight", response_model=PreflightResponse)
+async def get_preflight(
+    user: dict = Depends(_require_admin),
+    store: Any = Depends(get_store),
+):
+    """Pre-flight gate: returns clearing_allowed=True only if ALL connections are ACTIVE."""
+    rows = await store.all_for_bank(user["bank_id"])
+    if user["bank_type"] == "SMB":
+        rows = [r for r in rows if r.get("smb_id") == user.get("smb_id")]
+
+    blocking = [r for r in rows if r["status"] != "ACTIVE"]
+    checks = [
+        PreflightCheck(
+            connection_id=r["id"],
+            connection_type=r["connection_type"],
+            smb_id=r.get("smb_id"),
+            status=r["status"],
+        )
+        for r in rows
+    ]
+    return PreflightResponse(
+        bank_id=user["bank_id"],
+        clearing_allowed=len(blocking) == 0,
+        blocking_count=len(blocking),
+        checks=checks,
+    )
+
+
+@router_v1.get("/", response_model=MCPConnectionListResponse)
+async def list_connections(
+    user: dict = Depends(_require_admin),
+    store: Any = Depends(get_store),
+):
+    rows = await store.all_for_bank(user["bank_id"])
+    if user["bank_type"] == "SMB":
+        rows = [r for r in rows if r.get("smb_id") == user.get("smb_id")]
+    conns = [_row_to_response(r) for r in rows]
+    return MCPConnectionListResponse(
+        bank_id=user["bank_id"],
+        connections=conns,
+        total=len(conns),
+    )
+
+
+@router_v1.post("/", response_model=MCPConnectionResponse, status_code=201)
+async def create_connection(
+    body: MCPConnectionCreate,
+    user: dict = Depends(_require_admin),
+    store: Any = Depends(get_store),
+    event_publisher: Callable = Depends(get_event_publisher),
+    audit_stream_writer: Callable = Depends(get_audit_stream_writer),
+):
+    # SMB_CBS must have smb_id
+    if body.connection_type == "SMB_CBS" and not body.smb_id:
+        raise HTTPException(status_code=422, detail="smb_id required for SMB_CBS connection")
+
+    # SMB admin can only create for their own smb_id
+    if user["bank_type"] == "SMB":
+        if body.connection_type == "SMB_CBS" and body.smb_id != user.get("smb_id"):
+            raise HTTPException(status_code=403, detail="SMB admin can only configure their own CBS connection")
+
+    # Duplicate check: unique on (bank_id, connection_type, smb_id)
+    if await store.exists(user["bank_id"], body.connection_type, body.smb_id):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Connection {body.connection_type} already exists for this bank/SMB",
+        )
+
+    row = {
+        "id": str(uuid.uuid4()),
+        "bank_id": user["bank_id"],
+        "connection_type": body.connection_type,
+        "smb_id": body.smb_id,
+        "smb_name": body.smb_name,
+        "cbs_vendor": body.cbs_vendor,
+        "endpoint_url": body.endpoint_url,
+        "vault_secret_ref": body.vault_secret_ref,
+        "status": "PENDING",
+        "last_tested_at": None,
+        "last_test_latency_ms": None,
+        "last_sync_at": None,
+        "vault_record_count": None,
+        "error_message": None,
+        "created_at": _now(),
+        "updated_at": None,
+        "created_by": user["user_id"],
+    }
+    await store.insert(row)
+    await _emit_audit(AuditEventType.MCP_CONN_CREATED, user["bank_id"], {
+        "connection_id": row["id"],
+        "connection_type": body.connection_type,
+        "smb_id": body.smb_id or "—",
+        "created_by": user["user_id"],
+    }, event_publisher, audit_stream_writer)
+    return _row_to_response(row)
+
+
+@router_v1.get("/{connection_id}", response_model=MCPConnectionResponse)
+async def get_connection(
+    connection_id: str,
+    user: dict = Depends(_require_admin),
+    store: Any = Depends(get_store),
+):
+    row = await store.get(connection_id)
+    if not row or row["bank_id"] != user["bank_id"]:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    _scope_check(user, row)
+    return _row_to_response(row)
+
+
+@router_v1.put("/{connection_id}", response_model=MCPConnectionResponse)
+async def update_connection(
+    connection_id: str,
+    body: MCPConnectionUpdate,
+    user: dict = Depends(_require_admin),
+    store: Any = Depends(get_store),
+    event_publisher: Callable = Depends(get_event_publisher),
+    audit_stream_writer: Callable = Depends(get_audit_stream_writer),
+    preflight_writer: Callable = Depends(get_preflight_writer),
+):
+    row = await store.get(connection_id)
+    if not row or row["bank_id"] != user["bank_id"]:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    _scope_check(user, row)
+
+    updates: Dict[str, Any] = {"status": "PENDING"}  # reset to PENDING on any edit
+    if body.cbs_vendor is not None:
+        updates["cbs_vendor"] = body.cbs_vendor
+    if body.endpoint_url is not None:
+        updates["endpoint_url"] = body.endpoint_url
+    if body.vault_secret_ref is not None:
+        updates["vault_secret_ref"] = body.vault_secret_ref
+    if body.smb_name is not None:
+        updates["smb_name"] = body.smb_name
+
+    updated = await store.update(connection_id, updates)
+    await _emit_audit(AuditEventType.MCP_CONN_UPDATED, user["bank_id"], {
+        "connection_id": connection_id,
+        "connection_type": row["connection_type"],
+        "updated_by": user["user_id"],
+        "fields_changed": [k for k in updates if k != "status"],
+    }, event_publisher, audit_stream_writer)
+    # Status reset to PENDING — workers must see this within 30s (Layer 3 hot-reload)
+    await event_publisher("platform.config.changed", {
+        "event_type": "MCP_CONN_STATUS_CHANGED",
+        "bank_id": user["bank_id"],
+        "connection_id": connection_id,
+        "new_status": "PENDING",
+    })
+    await _update_preflight_cache(user["bank_id"], store, preflight_writer)
+    return _row_to_response(updated)
+
+
+@router_v1.delete("/{connection_id}", status_code=204)
+async def delete_connection(
+    connection_id: str,
+    user: dict = Depends(_require_admin),
+    store: Any = Depends(get_store),
+    event_publisher: Callable = Depends(get_event_publisher),
+    audit_stream_writer: Callable = Depends(get_audit_stream_writer),
+    preflight_writer: Callable = Depends(get_preflight_writer),
+):
+    row = await store.get(connection_id)
+    if not row or row["bank_id"] != user["bank_id"]:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    _scope_check(user, row)
+    await _emit_audit(AuditEventType.MCP_CONN_DELETED, user["bank_id"], {
+        "connection_id": connection_id,
+        "connection_type": row["connection_type"],
+        "smb_id": row.get("smb_id") or "—",
+        "deleted_by": user["user_id"],
+    }, event_publisher, audit_stream_writer)
+    # MCP_CONN_DELETED surface includes NOTIFICATION — alert ops_manager
+    await event_publisher("platform.notifications", {
+        "event_type": "MCP_CONN_DELETED",
+        "bank_id": user["bank_id"],
+        "connection_id": connection_id,
+        "connection_type": row["connection_type"],
+        "smb_id": row.get("smb_id") or "—",
+        "deleted_by": user["user_id"],
+    })
+    await _route_notification(
+        AuditEventType.MCP_CONN_DELETED, user["bank_id"],
+        {"connection_id": connection_id, "connection_type": row["connection_type"]},
+    )
+    # Connection gone — workers must see config change within 30s
+    await event_publisher("platform.config.changed", {
+        "event_type": "MCP_CONN_STATUS_CHANGED",
+        "bank_id": user["bank_id"],
+        "connection_id": connection_id,
+        "new_status": "DELETED",
+    })
+    await store.delete(connection_id)
+    await _update_preflight_cache(user["bank_id"], store, preflight_writer)
+
+
+@router_v1.post("/{connection_id}/test", response_model=TestConnectionResponse)
+async def test_connection(
+    connection_id: str,
+    user: dict = Depends(_require_admin),
+    store: Any = Depends(get_store),
+    tester: Callable = Depends(get_connection_tester),
+    event_publisher: Callable = Depends(get_event_publisher),
+    audit_stream_writer: Callable = Depends(get_audit_stream_writer),
+    preflight_writer: Callable = Depends(get_preflight_writer),
+):
+    row = await store.get(connection_id)
+    if not row or row["bank_id"] != user["bank_id"]:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    _scope_check(user, row)
+
+    success, latency_ms, error = await tester(row)
+    new_status = "ACTIVE" if success else "ERROR"
+
+    await store.update(connection_id, {
+        "status": new_status,
+        "last_tested_at": _now(),
+        "last_test_latency_ms": latency_ms,
+        "error_message": error,
+    })
+
+    audit_type = AuditEventType.MCP_CONN_TESTED_OK if success else AuditEventType.MCP_CONN_TESTED_FAIL
+    await _emit_audit(audit_type, user["bank_id"], {
+        "connection_id": connection_id,
+        "connection_type": row["connection_type"],
+        "latency_ms": latency_ms,
+        "error": error or "—",
+        "tested_by": user["user_id"],
+    }, event_publisher, audit_stream_writer)
+    # Status changed — workers must reload within 30s (Layer 3 config hot-reload)
+    await event_publisher("platform.config.changed", {
+        "event_type": "MCP_CONN_STATUS_CHANGED",
+        "bank_id": user["bank_id"],
+        "connection_id": connection_id,
+        "new_status": new_status,
+    })
+    # MCP_CONN_TESTED_FAIL surface includes NOTIFICATION — alert bank_it_admin
+    if not success:
+        await event_publisher("platform.notifications", {
+            "event_type": "MCP_CONN_TESTED_FAIL",
+            "bank_id": user["bank_id"],
+            "connection_id": connection_id,
+            "connection_type": row["connection_type"],
+            "error": error,
+            "tested_by": user["user_id"],
+        })
+        await _route_notification(
+            AuditEventType.MCP_CONN_TESTED_FAIL, user["bank_id"],
+            {"connection_id": connection_id, "connection_type": row["connection_type"], "error": error},
+        )
+    # Update Redis preflight cache so Temporal activities see the new clearing state
+    await _update_preflight_cache(user["bank_id"], store, preflight_writer)
+
+    return TestConnectionResponse(
+        connection_id=connection_id,
+        success=success,
+        latency_ms=latency_ms,
+        error=error,
+    )
+
+
+@router_v1.post("/{connection_id}/sync", response_model=TriggerSyncResponse)
+async def trigger_sync(
+    connection_id: str,
+    user: dict = Depends(_require_admin),
+    store: Any = Depends(get_store),
+    event_publisher: Callable = Depends(get_event_publisher),
+    audit_stream_writer: Callable = Depends(get_audit_stream_writer),
+):
+    row = await store.get(connection_id)
+    if not row or row["bank_id"] != user["bank_id"]:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    _scope_check(user, row)
+
+    if row["connection_type"] not in _CBS_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Sync only available for CBS connection types ({_CBS_TYPES}), not {row['connection_type']}",
+        )
+
+    if row["status"] != "ACTIVE":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot sync a connection in status={row['status']}. Must be ACTIVE.",
+        )
+
+    # Workflow ID convention per temporal.md: cts-vault-delta-{bank_id}-{yyyymmddhhmm}
+    # Idempotent: two syncs triggered in the same minute reuse the same workflow ID —
+    # Temporal deduplicates and the second call is a no-op.
+    now_dt = datetime.now(timezone.utc)
+    workflow_id = f"cts-vault-delta-{user['bank_id']}-{now_dt.strftime('%Y%m%d%H%M')}"
+    now = _now()
+    await store.update(connection_id, {"last_sync_at": now})
+
+    # Publish to cts.vault.delta.{bank_id} — KEDA triggers DeltaVaultSyncWorkflow
+    bank_id = user["bank_id"]
+    await event_publisher(f"cts.vault.delta.{bank_id}", {
+        "event_type": "VAULT_DELTA_SYNC_REQUESTED",
+        "bank_id": bank_id,
+        "connection_id": connection_id,
+        "connection_type": row["connection_type"],
+        "workflow_id": workflow_id,
+        "requested_by": user["user_id"],
+        "requested_at": now,
+    })
+
+    await _emit_audit(AuditEventType.MCP_CONN_SYNC_TRIGGERED, bank_id, {
+        "connection_id": connection_id,
+        "connection_type": row["connection_type"],
+        "workflow_id": workflow_id,
+        "triggered_by": user["user_id"],
+    }, event_publisher, audit_stream_writer)
+
+    return TriggerSyncResponse(
+        connection_id=connection_id,
+        workflow_id=workflow_id,
+        started_at=now,
+    )

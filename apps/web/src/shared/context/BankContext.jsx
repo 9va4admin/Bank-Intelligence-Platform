@@ -1,4 +1,5 @@
 import { createContext, useContext, useState } from 'react'
+import { useAuthOptional } from './AuthContext'
 
 // ─── Demo bank profiles ───────────────────────────────────────────────────────
 // In production these come from the decoded JWT / SAML assertion.
@@ -89,15 +90,29 @@ export function BankProvider({ children }) {
     setProfile(next)
   }
 
+  // When a real ASTRA session exists it drives identity (role, bank, type).
+  // With no session (demo / standalone tests) fall back to the demo profile + toggle.
+  const auth = useAuthOptional()
+  const sessionUser = auth && auth.status === 'authenticated' ? auth.user : null
+  const active = sessionUser
+    ? {
+        ...(sessionUser.bank_type === 'SMB' ? DEMO_SMB : DEMO_SB),
+        bankType: sessionUser.bank_type || 'SB',
+        bankId: sessionUser.bank_id,
+        userRole: sessionUser.role,
+        userName: sessionUser.username,
+      }
+    : profile
+
   // The effective SMB context when SB has drilled into one SMB
-  const selectedSmb = profile.bankType === 'SB'
-    ? profile.smbs.find(s => s.id === selectedSmbId) ?? null
+  const selectedSmb = active.bankType === 'SB'
+    ? active.smbs.find(s => s.id === selectedSmbId) ?? null
     : null
 
-  const userPerms = ROLE_PERMISSIONS[profile.userRole] ?? []
+  const userPerms = ROLE_PERMISSIONS[active.userRole] ?? []
 
   const value = {
-    ...profile,
+    ...active,
     isDemoMode,
     toggleBankType,
     // SMB drill-down (SB only)
@@ -105,8 +120,8 @@ export function BankProvider({ children }) {
     setSelectedSmbId,
     selectedSmb,
     // Convenience
-    isSB:  profile.bankType === 'SB',
-    isSMB: profile.bankType === 'SMB',
+    isSB:  active.bankType === 'SB',
+    isSMB: active.bankType === 'SMB',
     // Role-based access
     userPermissions: userPerms,
     hasPermission: (perm) => userPerms.includes(perm),

@@ -20,7 +20,7 @@ import xml.etree.ElementTree as ET
 import structlog
 
 from shared.cbs_connector.base import (
-    AccountInfo, AccountStatus, CBSConnector, PPSEntry, StopPaymentResult,
+    AccountInfo, AccountStatus, CBSConnector, CBSSignatoryData, PPSEntry, StopPaymentResult,
 )
 from shared.cbs_connector.exceptions import AccountNotFoundError, CBSUnavailableError
 
@@ -81,10 +81,12 @@ class FlexCubeCBSConnector(CBSConnector):
         self._http = None
         self._ready = False
 
-    def connect(self, http_client=None) -> None:
+    def connect(self, http_client=None, soap_client=None) -> None:
         """
-        Initialise the SOAP HTTP client.
-        http_client is injected in tests; production creates an httpx.AsyncClient.
+        Initialise the SOAP-over-HTTP client (manual XML, used by every method
+        except get_signatory_data) and the WSDL-based SOAP client (zeep, used
+        only by get_signatory_data — see its docstring for why).
+        Both are injected in tests; production creates real clients.
         """
         if http_client is not None:
             self._http = http_client
@@ -94,8 +96,49 @@ class FlexCubeCBSConnector(CBSConnector):
                 timeout=15.0,
                 headers={"Content-Type": "text/xml; charset=utf-8"},
             )
+
+        if soap_client is not None:
+            self._soap_client = soap_client
+        else:
+            self._soap_client = self._build_soap_client()
+
         self._ready = True
         log.info("cbs.flexcube.connected", base_url=self._base_url, bank_id=self._bank_id)
+
+    def _build_soap_client(self):
+        """
+        Real zeep.Client for the WSDL-based getSignatories operation, derived
+        from self._base_url the same way _call() derives its own endpoint
+        (fixed suffix, not a separate config key) — FCUBSSignatoryService
+        mirrors the FCUBSAccService naming already used by every other
+        operation in this file.
+
+        Degrades to None on any failure (zeep not installed, WSDL
+        unreachable, malformed WSDL) — get_signatory_data already raises
+        CBSUnavailableError when self._soap_client is None (AttributeError
+        on the None access is caught by its own try/except), matching every
+        other method in this class's degrade-on-failure behaviour. A 10s
+        transport timeout ensures a slow/unreachable WSDL endpoint fails
+        fast rather than blocking worker startup indefinitely.
+        """
+        try:
+            import zeep
+            from zeep.transports import Transport
+            from requests import Session
+
+            wsdl_url = f"{self._base_url}/FCJNeoWS/FCUBSSignatoryService?wsdl"
+            session = Session()
+            transport = Transport(session=session, timeout=10, operation_timeout=10)
+            client = zeep.Client(wsdl=wsdl_url, transport=transport)
+            log.info("cbs.flexcube.soap_client_ready", wsdl_url=wsdl_url, bank_id=self._bank_id)
+            return client
+        except Exception as exc:
+            log.warning(
+                "cbs.flexcube.soap_client_unavailable",
+                bank_id=self._bank_id,
+                error=str(exc),
+            )
+            return None
 
     async def _call(self, operation: str, body_xml: str) -> ET.Element:
         """Send a SOAP request and return the parsed XML root."""
@@ -241,6 +284,53 @@ class FlexCubeCBSConnector(CBSConnector):
             raise
 
         return _find_text(root, "CHQ_STATUS") or "ACTIVE"
+
+    async def list_issued_leaves(self, bank_id: str) -> list[dict]:
+        raise NotImplementedError("FlexCube list_issued_leaves not yet implemented")
+
+    async def get_signatory_data(
+        self,
+        account_number: str,
+        bank_id: str,
+    ) -> list[CBSSignatoryData]:
+        """
+        Fetch authorized signatories with specimen BLOB images via FlexCube SOAP.
+
+        SOAP operation: getSignatories
+        Returns response with: .signatories — list of objects with:
+          .signatoryId, .role, .nameMasked, .operationType, .specimenBlobs (list[bytes])
+
+        Raises CBSUnavailableError on SOAP fault or any other exception.
+        """
+        self._assert_ready()
+        try:
+            response = self._soap_client.service.getSignatories(
+                accountId=account_number,
+                bankId=bank_id,
+            )
+        except Exception as exc:
+            log.error(
+                "cbs.flexcube.get_signatory_data.failed",
+                account_last4=account_number[-4:],
+                bank_id=bank_id,
+                error=str(exc),
+            )
+            raise CBSUnavailableError(f"FlexCube get_signatory_data failed: {exc}") from exc
+
+        result: list[CBSSignatoryData] = []
+        for sig in getattr(response, "signatories", []) or []:
+            specimen_images: list[bytes] = []
+            for blob in getattr(sig, "specimenBlobs", []) or []:
+                if blob:
+                    specimen_images.append(bytes(blob))
+            result.append(CBSSignatoryData(
+                signatory_id=str(getattr(sig, "signatoryId", "")),
+                role=str(getattr(sig, "role", "")),
+                name_masked=str(getattr(sig, "nameMasked", "***")),
+                specimen_images=specimen_images,
+                operation_type=str(getattr(sig, "operationType", "J")),
+            ))
+        return result
 
     def _assert_ready(self) -> None:
         if not self._ready:

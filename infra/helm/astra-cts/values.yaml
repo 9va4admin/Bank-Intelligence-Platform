@@ -9,6 +9,21 @@
 #   After onboarding, banks change these via Admin UI maker-checker — no Helm upgrade.
 # ─────────────────────────────────────────────────────────────────────────────────────
 
+# ── Global (REQUIRED — set in every bank cts.yaml) ──────────────────────────
+# These must match the values in the bank's platform.yaml — they're duplicated
+# here because astra-cts is rendered as a SEPARATE ArgoCD Application with its
+# own valueFiles; it does not inherit platform.yaml values at render time.
+global:
+  bank_id: ""                           # REQUIRED: e.g. saraswat-coop
+  registry: ""                          # REQUIRED: e.g. registry.astra.internal
+
+# ── Kafka (REQUIRED — for KEDA ScaledObjects) ────────────────────────────────
+# Bootstrap servers for the bank's Kafka cluster. Used by all KEDA triggers in
+# this chart. Format: host:port,host:port (comma-separated broker list).
+# Set per bank — points to the Kafka StatefulSet in the platform namespace.
+kafka:
+  bootstrap_servers: ""                 # REQUIRED per bank
+
 # ── Workflow Safety (NON-OVERRIDABLE) ───────────────────────────────────────
 workflow:
   iet_watchdog_enabled: true        # structural — cannot be disabled by any bank
@@ -46,6 +61,26 @@ cts_agent_worker:
   min_replicas: 2                   # always 2 warm — never scale to 0
   keda_kafka_lag_threshold: 10      # scale up when Kafka lag > 10
 
+# ── KEDA ScaledObjects — Outward Clearing (BANK-CONFIGURABLE) ───────────────
+# Each outward topic gets its own ScaledObject so bursts are independent.
+# Inward KEDA (cts.inward) lives in astra-platform chart.
+keda:
+  outward_scanned:
+    enabled: true
+    min_replicas: 1
+    max_replicas: 20
+    lag_threshold: "10"
+  outward_lot_sealed:
+    enabled: true
+    min_replicas: 1
+    max_replicas: 10
+    lag_threshold: "5"
+  smb_inbound:
+    enabled: false                  # opt-in for SB banks with sub-members
+    min_replicas: 1
+    max_replicas: 50
+    lag_threshold: "10"
+
 # ── Layer 3 Threshold Seeds (HOT-RELOAD after onboarding) ───────────────────
 # These values are written to YugabyteDB at bank onboarding. Banks then adjust
 # via Admin UI maker-checker. These defaults represent ASTRA's recommended baseline.
@@ -60,3 +95,129 @@ thresholds:
   alteration_risk_threshold: 0.65      # Qwen2-VL tamper risk threshold
   iet_emergency_buffer_seconds: 30     # watchdog fires 30s before IET — not configurable in spirit, but recorded
   human_review_max_wait_minutes: 55    # HumanReviewWorkflow timeout before auto-return
+
+  # ── CCP-compliance Layer 3 defaults (added Phase 7) ─────────────────────
+  # Cheque validity per RBI circular (1 January 2012): 3 months = 90 days.
+  # Banks may request RBI dispensation to reduce (not increase) the window.
+  cheque_validity_days: 90              # 3-month validity per RBI — adjust only with RBI approval
+
+  # PPS mandatory threshold: cheques >= this amount must have a PPS record;
+  # flag Z or vault miss above this amount → HUMAN_REVIEW (not PROCEED).
+  # Per PNB CCP Section 8: ₹5,00,000 is the recommended mandatory threshold.
+  # Adjustable per bank via Admin UI maker-checker (min ₹1L, max ₹50L).
+  pps_mandatory_threshold: 500000      # ₹5,00,000 — PPS mandatory above this
+
+  # Shadow credit release window: how long the drawee bank waits before
+  # releasing the provisional credit extended to the presenting bank.
+  # Per CCPs: equal to the return clearing window (typically 2 sessions = ~4h).
+  shadow_credit_release_hours: 4       # release after 2 return clearing sessions
+
+# ── Deployment Mode (BANK-CONFIGURABLE, Phase 2) ────────────────────────────
+# Controls which sub-scenarios are active. All disabled by default — banks opt in
+# by setting the relevant flag in their cts.yaml Layer 2 override.
+deployment_mode: SB_NGCH            # SB_NGCH | AGENCY_SB_RELAY (Phase 5+)
+
+# ── Processing Units (BANK-CONFIGURABLE) ────────────────────────────────────
+# PU IDs for this bank's clearing footprint. Set in bank cts.yaml.
+# Each PU hosts an independent Temporal task queue: cts-processing-{bank_id}-{pu_id}
+pu:
+  ids: []                             # e.g. [MUMBAI-MAIN, MUMBAI-ANDHERI, DELHI-MAIN]
+
+# ── EEH — External Exchange Hub (BANK-CONFIGURABLE) ─────────────────────────
+# Branch-facing gateway: gRPC upload stream + SSE feed + session management.
+# Deployed into astra-cts-{bank_id} namespace with Istio mTLS.
+# Requires: redis-cts (sessions + SSE pub/sub), pgbouncer-cts (session persistence).
+eeh:
+  enabled: false                      # opt-in per bank — set true when branches connect
+  image:
+    repository: registry.astra.internal/astra/eeh-service
+    tag: ""                           # defaults to Chart appVersion
+    pullPolicy: IfNotPresent
+
+  # REST + SSE endpoint (FastAPI, uvicorn)
+  rest_port: 8000
+  # gRPC endpoint (EEHServicer — UploadCheque, SealLot, GetMismatchQueue, etc.)
+  grpc_port: 50051
+
+  # Pod sizing — EEH is steady-state; not KEDA-driven (no Kafka lag queue)
+  replicas: 2                         # min 2 for HA (one per DC if active-active)
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "2000m"
+      memory: "2Gi"
+
+  # Session config (Layer 3 seeds — overridable via Admin UI after onboarding)
+  session_ttl_hours: 4                # EEH session expires 4 hours after open
+  max_concurrent_sessions_per_branch: 1   # one-session-per-branch-per-clearing-date
+
+  # Rate limits (Layer 3 — configurable via Admin UI, no restart needed)
+  rate_limit:
+    uploads_per_branch_per_minute: 50   # EEH enforces in-process; Istio enforces upstream
+
+  # mTLS cert verification — branch certs issued by SB's internal CA
+  mtls:
+    crl_cache_ttl_seconds: 300        # CRL refresh interval; expired cert = refused
+    cert_expiry_warn_days: 30         # EEH_CERT_EXPIRY_WARN message days before expiry
+    cert_expiry_critical_days: 7      # CRITICAL threshold — ops escalation
+
+  # Envoy gRPC-Web proxy (browser clients cannot speak native gRPC2)
+  envoy:
+    enabled: true                     # set false if all clients are native gRPC (scanner bridge)
+    grpc_web_port: 8443               # Envoy listens here; proxies to grpc_port
+    image: envoyproxy/envoy:v1.29-latest   # pinned minor — update on chart release
+
+  # Observability
+  otel:
+    trace_sampling_rate: 1.0          # 100% trace rate for EEH (branch sessions are precious)
+
+# ── IEH — Internal Exchange Hub (BANK-CONFIGURABLE) ─────────────────────────
+# Same codebase as EEH, different Helm values: serves SB's own branches on LAN.
+# Lighter security perimeter (internal network); no Envoy gRPC-Web needed.
+ieh:
+  enabled: false                      # opt-in per bank
+  image:
+    repository: registry.astra.internal/astra/eeh-service   # same image as EEH
+    tag: ""
+    pullPolicy: IfNotPresent
+  rest_port: 8001                     # different port to avoid clash if co-deployed
+  grpc_port: 50052
+  replicas: 2
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+  session_ttl_hours: 4
+  envoy:
+    enabled: false                    # internal branches use native gRPC (scanner bridge)
+
+# ── CTS High Availability (BANK-CONFIGURABLE, Gemini Fix C) ─────────────────
+# CTS-specific HA requirements layered on top of astra-platform ha: section.
+cts_ha:
+  # Kafka producer settings for all cts.* topics — override here if bank broker allows it.
+  kafka_producer:
+    acks: all                           # wait for all in-sync replicas (no data loss)
+    # With min.insync.replicas=2 (from platform ha.kafka): ack only after 2 brokers confirm.
+    # IET implication: a cheque event survives DC1 broker failure without replay from CBS.
+
+  # KEDA CTS agent autoscaler HA settings
+  keda:
+    scale_up_stabilisation_window: 0    # scale up immediately on Kafka lag (IET cannot wait)
+    scale_down_stabilisation_window: 60 # wait 60s before scaling down (avoid thrashing)
+
+  # Vault resilience — CTS vaults must remain available even during Redis leader election
+  vault:
+    read_replica_enabled: false         # enable if bank has Redis replica in DC2
+    stale_vault_action: HUMAN_REVIEW    # ALWAYS — not configurable. Stale vault = review.
+    # Rationale: we never auto-confirm on a stale vault (vault.delta_sync keeps this window to 15min)
+
+  # IET safety during DC failover
+  iet_failover:
+    watchdog_survives_dc_failure: true  # IETWatchdogWorkflow uses ABANDON parent close policy
+    # Temporal replay ensures watchdog re-fires on DC2 if DC1 Temporal cluster is down.
+    # This is structural (code in iet_watchdog_workflow.py) — this value is documentation only.

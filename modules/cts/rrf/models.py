@@ -2,9 +2,12 @@
 RRF (Return Reason File) domain models.
 RBI/NPCI CTS standard return reason codes — filed to NGCH for returned instruments.
 Reference: CTS-2010 operational guidelines, NPCI circular on IET enforcement Jan 2026.
+CTS Spec Rev 3.0 additions: code 88 (Other Reason) requires ReturnReasonComment;
+code 00 (On Realization Positive) valid for ClearingType=14 sessions only;
+code 99 (Deemed Accepted by CCH) is NEVER sent by a bank — CCH assigns it only.
 """
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Optional
@@ -41,6 +44,14 @@ class RBIReturnCode(Enum):
     CHEQUE_VOID                 = _ReturnCodeMeta('18', 'Cheque Void / Invalid Instrument')
     MICR_INCORRECT              = _ReturnCodeMeta('19', 'MICR Field Incorrect / Unreadable')
     IMAGE_POOR_QUALITY          = _ReturnCodeMeta('20', 'Image Not Received / Poor Quality — Resend')
+
+    # CTS Spec Rev 3.0 additions
+    # Code 88: free-text reason required in ReturnReasonComment (mandatory per spec)
+    OTHER_REASON                = _ReturnCodeMeta('88', 'Other Reason')
+    # Code 00: positive response for On Realization sessions (ClearingType=14) only
+    ON_REALIZATION_POSITIVE     = _ReturnCodeMeta('00', 'On Realization — Positive Confirmation')
+    # Code 99 (Deemed Accepted by CCH) is intentionally absent — drawee bank MUST NOT send it.
+    # CCH assigns code 99 when IET expires; the bank never sends it in an RRF.
 
     @property
     def code(self) -> str:
@@ -94,6 +105,15 @@ class ReturnItem:
     amount_range: str
     bank_id: str
     workflow_id: Optional[str] = None
+    return_reason_comment: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if self.return_code.code == '88':
+            if not self.return_reason_comment or not self.return_reason_comment.strip():
+                raise ValueError(
+                    "ReturnReasonComment is mandatory when ReturnReasonCode is 88 (Other Reason). "
+                    "Provide a non-empty description of the return reason."
+                )
 
     @property
     def filed_within_iet(self) -> bool:

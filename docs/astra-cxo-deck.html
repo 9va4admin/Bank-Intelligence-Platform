@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASTRA — Banking Platform · CXO Deck 2026</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --blue:#1741CC;      --blue-bg:#EEF1FB;   --blue-bd:#C0CAEE;
+  --teal:#0994B4;      --teal-bg:#E8F7FB;   --teal-bd:#B0D8E8;
+  --green:#0C9266;     --green-bg:#E6F7F3;  --green-bd:#A8DDD0;
+  --gold:#B87828;      --gold-bg:#FDF5E4;   --gold-bd:#E8D49A;
+  --violet:#6B31CE;    --violet-bg:#F2EDFC; --violet-bd:#C9BBF0;
+  --indigo:#3D31CE;    --indigo-bg:#E8EAFC; --indigo-bd:#C0BBF0;
+  --red:#C42B2B;       --red-bg:#FEF0F0;
+  --text:#0D1729;      --muted:#546275;     --faint:#8896A8;
+  --bg:#F0F2F7;        --card:#FFFFFF;      --border:#D5DAE8;
+  --cover:#091320;
+}
+
+body{background:var(--bg);font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  display:flex;flex-direction:column;align-items:center;gap:20px;padding:20px 20px 100px}
+
+/* ── SLIDE SHELL ── */
+.slide{width:1280px;height:720px;position:relative;overflow:hidden;
+  border-radius:10px;box-shadow:0 2px 24px rgba(0,0,0,0.12);
+  display:none;background:var(--card)}
+.slide.active{display:block}
+@media print{body{background:#fff;padding:0;gap:0}
+  .slide{display:block!important;border-radius:0;box-shadow:none}
+  .nav-bar{display:none!important}}
+
+/* ── BRAND HEADER (every slide) ── */
+.sbrand{position:absolute;top:0;left:0;right:0;height:34px;
+  display:flex;align-items:center;justify-content:space-between;padding:0 52px;
+  border-bottom:1px solid var(--border);background:rgba(255,255,255,0.97);z-index:10}
+.sbrand-l{font-size:9px;font-weight:800;color:var(--blue);letter-spacing:2.5px;text-transform:uppercase}
+.sbrand-r{font-size:9px;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-weight:600}
+.dark .sbrand{background:rgba(9,19,32,0.82);border-bottom-color:rgba(255,255,255,0.09)}
+.dark .sbrand-l{color:rgba(255,255,255,0.48)}
+.dark .sbrand-r{color:rgba(255,255,255,0.26)}
+
+/* ── WATERMARK + PAGE NUM ── */
+.wm{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
+  font-size:8.5px;font-weight:700;letter-spacing:3.5px;text-transform:uppercase;
+  color:rgba(0,0,0,0.11);white-space:nowrap;pointer-events:none;z-index:20}
+.dark .wm{color:rgba(255,255,255,0.10)}
+.pg{position:absolute;bottom:12px;right:20px;font-size:9.5px;font-weight:600;letter-spacing:0.5px;
+  color:rgba(0,0,0,0.17);z-index:20}
+.dark .pg{color:rgba(255,255,255,0.22)}
+
+/* ── CHIPS ── */
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 12px;
+  border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase}
+.ch-b{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd)}
+.ch-t{background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal-bd)}
+.ch-g{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)}
+.ch-a{background:var(--gold-bg);color:var(--gold);border:1px solid var(--gold-bd)}
+.ch-v{background:var(--violet-bg);color:var(--violet);border:1px solid var(--violet-bd)}
+.ch-i{background:var(--indigo-bg);color:var(--indigo);border:1px solid var(--indigo-bd)}
+
+/* ── SLIDE HEADER (all light slides) ── */
+.sh{position:absolute;top:44px;left:52px;right:52px}
+.sh-title{font-size:24px;font-weight:800;color:var(--text);letter-spacing:-0.4px;
+  margin-top:10px;line-height:1.2;text-wrap:balance}
+.sh-sub{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.48;max-width:900px}
+
+/* ── GRADIENT TEXT ── */
+.g-gold{background:linear-gradient(135deg,#B87828 0%,#E8B94A 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.g-blue{background:linear-gradient(135deg,#1741CC 0%,#4D72F0 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.g-green{background:linear-gradient(135deg,#0C9266 0%,#1EC494 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.g-teal{background:linear-gradient(135deg,#0994B4 0%,#22C4E0 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+/* ── NAV BAR ── */
+.nav-bar{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:10px;
+  background:rgba(9,19,32,0.92);backdrop-filter:blur(10px);
+  border-radius:40px;padding:7px 16px;z-index:1000;border:1px solid rgba(255,255,255,0.08)}
+.nav-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.26);
+  cursor:pointer;transition:all .2s ease;flex-shrink:0}
+.nav-dot.active{background:#60A5FA;width:18px;border-radius:4px}
+.nav-btn{background:none;border:none;color:rgba(255,255,255,0.58);font-size:15px;
+  cursor:pointer;padding:3px 8px;border-radius:5px;transition:all .15s;line-height:1}
+.nav-btn:hover{background:rgba(255,255,255,0.10);color:white}
+.ncount{font-size:10.5px;color:rgba(255,255,255,0.40);font-weight:600;
+  min-width:36px;text-align:center;font-variant-numeric:tabular-nums}
+
+/*═══ SLIDE 1 — COVER ═══*/
+#s1{background:var(--cover);background-image:radial-gradient(rgba(255,255,255,0.055) 1px,transparent 1px);background-size:26px 26px}
+#s1::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 55%,transparent 30%,rgba(0,0,0,0.52) 100%);pointer-events:none;z-index:1}
+.cv-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2;padding:48px;text-align:center}
+.cv-name{font-size:104px;font-weight:900;letter-spacing:-4px;line-height:0.88;margin-top:16px}
+.cv-full{font-size:13.5px;color:rgba(255,255,255,0.42);letter-spacing:1.8px;margin-top:20px;text-transform:uppercase;font-weight:500}
+.cv-tag{font-size:20px;font-weight:300;color:rgba(255,255,255,0.68);margin-top:22px;letter-spacing:0.3px}
+.cv-meta{position:absolute;bottom:38px;left:52px;right:52px;display:flex;align-items:flex-end;justify-content:space-between;z-index:2}
+.cv-founder{color:rgba(255,255,255,0.78)}
+.cvf-name{font-size:14px;font-weight:700;margin-bottom:5px}
+.cvf-creds{font-size:11px;color:rgba(255,255,255,0.40);line-height:1.65}
+.cv-badges{display:flex;gap:10px;align-items:flex-end}
+.cv-badge{background:rgba(255,255,255,0.055);border:1px solid rgba(255,255,255,0.13);border-radius:8px;padding:9px 14px;text-align:right}
+.cvb-lbl{font-size:8.5px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,0.28);margin-bottom:3px}
+.cvb-val{font-size:12px;font-weight:600;color:rgba(255,255,255,0.62)}
+
+/*═══ SLIDE 2 — TOC ═══*/
+#s2{background:#F4F6FC}
+.toc-hd{position:absolute;top:46px;left:0;right:0;text-align:center}
+.toc-eye{font-size:9.5px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+.toc-title{font-size:26px;font-weight:800;color:var(--text);letter-spacing:-0.4px}
+.toc-wrap{position:absolute;top:118px;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center}
+
+/*═══ SLIDE 3 — TEAM ═══*/
+.team-grid{position:absolute;top:148px;left:52px;right:52px;display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.pcard{border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.pcard-top{padding:20px 22px 16px;background:var(--card)}
+.pav{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;color:white;margin-bottom:12px;letter-spacing:-1px}
+.pname{font-size:17px;font-weight:800;color:var(--text);margin-bottom:2px}
+.ptitle{font-size:11px;color:var(--muted);margin-bottom:12px}
+.proles{display:flex;flex-direction:column;gap:6px}
+.prole{display:flex;align-items:flex-start;gap:9px;padding:8px 10px;background:var(--bg);border-radius:7px}
+.prd{width:3px;height:3px;border-radius:50%;background:var(--faint);flex-shrink:0;margin-top:5.5px}
+.prt{font-size:11.5px;font-weight:600;color:var(--text);line-height:1.35}
+.pro{font-size:10px;color:var(--faint);margin-top:1px}
+.pcard-bot{padding:11px 22px;background:var(--bg);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px}
+.pbot-row{display:flex;align-items:center;gap:12px}
+.pbot-lbl{font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--faint);flex-shrink:0;min-width:52px}
+.pbot-val{font-size:12.5px;font-weight:700;color:var(--text)}
+.ptags{display:flex;flex-wrap:wrap;gap:5px}
+.ptag{background:var(--card);border:1px solid var(--border);border-radius:100px;font-size:9.5px;font-weight:600;color:var(--muted);padding:2px 9px}
+
+/*═══ SLIDE 4 — PROBLEM ═══*/
+.stat3{position:absolute;top:148px;left:52px;right:52px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.sbox{border-radius:12px;padding:16px 18px;border:1.5px solid var(--border);background:var(--card);text-align:center}
+.sv{font-size:28px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-0.5px}
+.sl{font-size:10px;font-weight:700;color:var(--muted);margin-top:7px;text-transform:uppercase;letter-spacing:0.07em}
+.ss{font-size:10px;color:var(--faint);margin-top:2px}
+.pains{position:absolute;top:264px;left:52px;right:52px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.pain{border:1px solid var(--border);border-radius:12px;padding:20px 22px;background:var(--card);border-top:3px solid}
+.pain-ico{font-size:24px;margin-bottom:10px}
+.pain-t{font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:7px}
+.pain-b{font-size:11.5px;color:var(--muted);line-height:1.58}
+
+/*═══ SLIDE 5 — PROCESS ═══*/
+.proc-wrap{position:absolute;top:148px;left:52px;right:52px;bottom:40px;display:grid;grid-template-columns:1fr 1px 1fr;gap:24px}
+.proc-col{display:flex;flex-direction:column;overflow:hidden}
+.proc-lbl{font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;padding:4px 12px;border-radius:100px;display:inline-flex;align-items:center;gap:6px;width:fit-content;margin-bottom:12px}
+.proc-div{background:var(--border);border-radius:2px}
+.pf{display:flex;flex-direction:column;gap:6px}
+.pf-step{display:flex;align-items:flex-start;gap:10px;border:1px solid var(--border);border-radius:8px;padding:9px 12px;background:var(--card)}
+.pfn{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;color:white;flex-shrink:0;margin-top:1px}
+.pfl{font-size:12px;font-weight:700;color:var(--text)}
+.pfs{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.4}
+.pf-arrow{padding:2px 0 2px 32px;font-size:11px;color:var(--faint)}
+.proc-note{margin-top:10px;padding:12px 14px;background:var(--green-bg);border-radius:8px;border-left:3px solid var(--green)}
+.pn-t{font-size:11.5px;font-weight:800;color:var(--green);margin-bottom:3px}
+.pn-b{font-size:11px;color:var(--muted);line-height:1.5}
+
+/*═══ SLIDE 6 — SMB ═══*/
+.smb-wrap{position:absolute;top:148px;left:52px;right:52px;bottom:40px;display:grid;grid-template-columns:440px 1fr;gap:28px;align-items:start}
+.smb-bens{display:flex;flex-direction:column;gap:11px;padding-top:4px}
+.sben{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;background:var(--bg);border:1px solid var(--border)}
+.sbi{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.sbt{font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:3px}
+.sbb{font-size:11px;color:var(--muted);line-height:1.5}
+
+/*═══ SLIDE 7 — SOLUTION ═══*/
+.sol-wrap{position:absolute;top:148px;left:52px;right:52px;bottom:40px}
+.sol-hero{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.sol-st{border-radius:12px;padding:20px 14px;text-align:center;border:1.5px solid var(--border);background:var(--card);border-top:3px solid}
+.ssv{font-size:32px;font-weight:900;letter-spacing:-1px;line-height:1;font-variant-numeric:tabular-nums}
+.ssl{font-size:9.5px;font-weight:700;color:var(--muted);margin-top:8px;text-transform:uppercase;letter-spacing:0.07em}
+.sss{font-size:9.5px;color:var(--faint);margin-top:3px;line-height:1.4}
+.sol-feats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.sfeat{display:flex;align-items:flex-start;gap:11px;padding:14px 15px;border:1px solid var(--border);border-radius:10px;background:var(--card)}
+.sfi{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.sft{font-size:12px;font-weight:700;color:var(--text);margin-bottom:3px}
+.sfb{font-size:10.5px;color:var(--muted);line-height:1.5}
+
+/*═══ SLIDE 8 — TRAJECTORY ═══*/
+.traj-wrap{position:absolute;top:148px;left:52px;right:52px;bottom:40px}
+.traj-tl{display:grid;grid-template-columns:repeat(4,1fr);margin-bottom:24px;position:relative}
+.traj-tl::after{content:'';position:absolute;top:15px;left:100px;right:100px;height:2px;background:linear-gradient(90deg,var(--blue),var(--teal));z-index:0;opacity:0.45}
+.ttp{display:flex;flex-direction:column;align-items:center;text-align:center;z-index:1;padding:0 6px}
+.ttd{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;margin-bottom:10px;flex-shrink:0;border:2px solid}
+.ttt{font-size:20px;font-weight:900;letter-spacing:-0.5px;margin-bottom:2px;line-height:1}
+.ttl{font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px}
+.tts{font-size:10px;color:var(--muted);line-height:1.45}
+.traj-section-lbl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:2.5px;color:var(--faint);margin-bottom:10px}
+.traj-pills{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.tpill{border-radius:11px;padding:16px 14px;border:1px solid var(--border);border-top:3px solid;background:var(--card)}
+.tpi{font-size:20px;margin-bottom:9px}
+.tpt{font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:5px}
+.tpb{font-size:10.5px;color:var(--muted);line-height:1.5}
+
+/*═══ SLIDE 9 — COMMERCIAL ═══*/
+.comm-wrap{position:absolute;top:148px;left:52px;right:52px;bottom:40px;display:flex;flex-direction:column;gap:14px}
+.comm-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.ccol{border:1px solid var(--border);border-radius:13px;overflow:hidden;display:flex;flex-direction:column}
+.cch{padding:16px 18px;border-bottom:1px solid var(--border)}
+.ccico{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:10px}
+.ccn{font-size:14.5px;font-weight:800;color:var(--text);margin-bottom:2px}
+.cct{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted)}
+.ccb{padding:13px 18px;flex:1;display:flex;flex-direction:column;gap:7px;background:var(--bg)}
+.cci{display:flex;align-items:flex-start;gap:7px;font-size:11.5px;color:var(--muted);line-height:1.45}
+.ccbul{width:4px;height:4px;border-radius:50%;background:var(--faint);flex-shrink:0;margin-top:5px}
+.ccf{padding:11px 18px;border-top:1px solid var(--border);background:var(--card)}
+.ccfl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--faint);margin-bottom:3px}
+.ccfv{font-size:12.5px;font-weight:700;color:var(--text)}
+.comm-foot{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border:1px solid var(--border);border-radius:11px;background:var(--bg)}
+.cf-text{font-size:12px;color:var(--muted);line-height:1.5;max-width:680px}
+.cf-chips{display:flex;gap:8px;flex-shrink:0}
+
+/*═══ SLIDE 10 — PILOT ═══*/
+.pilot-wrap{position:absolute;top:148px;left:52px;right:52px;bottom:40px;display:grid;grid-template-columns:1fr 290px;gap:24px;align-items:start}
+.pilot-phases{display:flex;flex-direction:column;gap:12px}
+.pph{display:flex;align-items:flex-start;gap:14px;border:1px solid var(--border);border-radius:12px;padding:16px 18px;background:var(--card)}
+.ppn{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:white;flex-shrink:0}
+.ppey{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--faint);margin-bottom:3px}
+.ppt{font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px}
+.ppb{font-size:11.5px;color:var(--muted);line-height:1.5}
+.pilot-r{display:flex;flex-direction:column;gap:12px;padding-top:2px}
+.zdg{background:linear-gradient(135deg,#0C9266 0%,#059669 100%);border-radius:13px;padding:20px 18px;color:white}
+.zdg-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2.5px;opacity:0.62;margin-bottom:5px}
+.zdg-t{font-size:15px;font-weight:800;margin-bottom:7px;line-height:1.2}
+.zdg-b{font-size:11px;opacity:0.82;line-height:1.55}
+.cta-box{border:1px solid var(--blue-bd);border-radius:13px;padding:18px;background:var(--blue-bg);text-align:center}
+.cta-lbl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:5px}
+.cta-email{font-size:15px;font-weight:800;color:var(--blue);margin-bottom:4px}
+.cta-phone{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:2px}
+.cta-hint{font-size:10px;color:var(--faint);line-height:1.4;margin-top:4px}
+.why-box{border:1px solid var(--border);border-radius:11px;padding:14px 16px;background:var(--bg)}
+.why-lbl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--faint);margin-bottom:8px}
+.why-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px}
+.why-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.why-t{font-size:10.5px;color:var(--muted);line-height:1.45}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ SLIDE 1 — COVER ═══════════════════ -->
+<div class="slide dark" id="s1">
+  <div class="sbrand">
+    <span class="sbrand-l">ASTRA — Banking Platform</span>
+    <span class="sbrand-r">admin@9va.in &nbsp;·&nbsp; +91 9819 88 2904 &nbsp;·&nbsp; Confidential 2026</span>
+  </div>
+  <div class="cv-inner">
+    <div class="cv-name g-gold">ASTRA</div>
+    <div class="cv-full">Automated Settlement and Transaction Recognition Architecture</div>
+    <div class="cv-tag">Precision Banking.&nbsp;&nbsp;Zero Compromise.</div>
+  </div>
+  <div class="cv-meta">
+    <div class="cv-founder">
+      <div class="cvf-name">Nilesh Shah</div>
+      <div class="cvf-creds">Head of AI — NPCI &nbsp;·&nbsp; CTO Digital Banking — Fullerton India / SMFG<br>Director BSG — Piramal Finance &nbsp;·&nbsp; +91 9819 88 2904</div>
+    </div>
+    <div class="cv-badges">
+      <div class="cv-badge"><div class="cvb-lbl">Contact</div><div class="cvb-val">admin@9va.in</div></div>
+      <div class="cv-badge"><div class="cvb-lbl">Classification</div><div class="cvb-val">Confidential</div></div>
+    </div>
+  </div>
+  <div class="wm">Confidential — Not for Distribution</div>
+  <div class="pg">1 / 10</div>
+</div>
+
+<!-- ═══════════════════ SLIDE 2 — TOC ═══════════════════ -->
+<div class="slide" id="s2">
+  <div class="sbrand"><span class="sbrand-l">ASTRA — Banking Platform</span><span class="sbrand-r">Confidential · 2026</span></div>
+  <div class="toc-hd">
+    <div class="toc-eye">Navigation</div>
+    <div class="toc-title">What We Cover Today</div>
+  </div>
+  <div class="toc-wrap">
+    <svg width="1020" height="380" viewBox="0 0 1020 380" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M403,54 L452,82 L452,138 L403,166 L354,138 L354,82 Z" fill="#F2EDFC" stroke="#6B31CE" stroke-width="1.5"/>
+      <text x="403" y="100" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" font-weight="800" fill="#6B31CE" letter-spacing="2">01</text>
+      <text x="403" y="119" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#3B1C75">Team</text>
+      <text x="403" y="135" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="#7B5EBF">&amp; Credentials</text>
+
+      <path d="M500,54 L549,82 L549,138 L500,166 L451,138 L451,82 Z" fill="#FDF5E4" stroke="#B87828" stroke-width="1.5"/>
+      <text x="500" y="100" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" font-weight="800" fill="#B87828" letter-spacing="2">02</text>
+      <text x="500" y="119" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#6B4010">Problem</text>
+      <text x="500" y="135" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="#A8803A">&amp; Market</text>
+
+      <path d="M597,54 L646,82 L646,138 L597,166 L548,138 L548,82 Z" fill="#EEF1FB" stroke="#1741CC" stroke-width="1.5"/>
+      <text x="597" y="100" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" font-weight="800" fill="#1741CC" letter-spacing="2">03</text>
+      <text x="597" y="119" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#0D257A">CTS</text>
+      <text x="597" y="135" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="#3D5ABF">Process</text>
+
+      <path d="M452,138 L501,166 L501,222 L452,250 L403,222 L403,166 Z" fill="#E8F7FB" stroke="#0994B4" stroke-width="1.5"/>
+      <text x="452" y="184" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" font-weight="800" fill="#0994B4" letter-spacing="2">04</text>
+      <text x="452" y="203" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#054F66">SMB</text>
+      <text x="452" y="219" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="#3A88A0">Network</text>
+
+      <path d="M549,138 L598,166 L598,222 L549,250 L500,222 L500,166 Z" fill="#E6F7F3" stroke="#0C9266" stroke-width="1.5"/>
+      <text x="549" y="184" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" font-weight="800" fill="#0C9266" letter-spacing="2">05</text>
+      <text x="549" y="203" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#054030">Solution</text>
+      <text x="549" y="219" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="#3A8A6C">Capabilities</text>
+
+      <path d="M403,222 L452,250 L452,306 L403,334 L354,306 L354,250 Z" fill="#E8EAFC" stroke="#3D31CE" stroke-width="1.5"/>
+      <text x="403" y="268" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" font-weight="800" fill="#3D31CE" letter-spacing="2">06</text>
+      <text x="403" y="287" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#1A1066">Trajectory</text>
+      <text x="403" y="303" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="#5B4FBF">&amp; Roadmap</text>
+
+      <path d="M500,222 L549,250 L549,306 L500,334 L451,306 L451,250 Z" fill="#FDF5E4" stroke="#C9862C" stroke-width="1.5"/>
+      <text x="500" y="268" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" font-weight="800" fill="#C9862C" letter-spacing="2">07</text>
+      <text x="500" y="287" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#7A4A08">Commercial</text>
+      <text x="500" y="303" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="#B07022">Model</text>
+
+      <path d="M597,222 L646,250 L646,306 L597,334 L548,306 L548,250 Z" fill="#E6F7F3" stroke="#0C9266" stroke-width="1.5"/>
+      <text x="597" y="268" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" font-weight="800" fill="#0C9266" letter-spacing="2">08</text>
+      <text x="597" y="287" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#054030">90-Day</text>
+      <text x="597" y="303" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="#3A8A6C">Pilot</text>
+    </svg>
+  </div>
+  <div class="wm">Confidential — Not for Distribution</div>
+  <div class="pg">2 / 10</div>
+</div>
+
+<!-- ═══════════════════ SLIDE 3 — TEAM ═══════════════════ -->
+<div class="slide" id="s3">
+  <div class="sbrand"><span class="sbrand-l">ASTRA — Banking Platform</span><span class="sbrand-r">Confidential · 2026</span></div>
+  <div class="sh">
+    <span class="chip ch-v">Team &amp; Credentials</span>
+    <div class="sh-title">Former NPCI. Current Mission.</div>
+    <div class="sh-sub">Two practitioners who built banking infrastructure at scale — and are building it again, from scratch, with AI at the core.</div>
+  </div>
+  <div class="team-grid">
+    <div class="pcard">
+      <div class="pcard-top">
+        <div class="pav" style="background:linear-gradient(135deg,#1741CC,#4D72F0)">NS</div>
+        <div class="pname">Nilesh Shah</div>
+        <div class="ptitle">Co-Founder &amp; Chief Technology Officer</div>
+        <div class="proles">
+          <div class="prole"><div class="prd"></div><div><div class="prt">Head of AI &amp; Advanced Technology</div><div class="pro">National Payments Corporation of India (NPCI)</div></div></div>
+          <div class="prole"><div class="prd"></div><div><div class="prt">CTO — Digital Banking &amp; Transformation</div><div class="pro">Fullerton India Credit Company / SMFG</div></div></div>
+          <div class="prole"><div class="prd"></div><div><div class="prt">Director — Business Solutions Group</div><div class="pro">Piramal Finance</div></div></div>
+        </div>
+      </div>
+      <div class="pcard-bot">
+        <div class="pbot-row"><span class="pbot-lbl">Mobile</span><span class="pbot-val">+91 9819 88 2904</span></div>
+        <div class="pbot-row"><span class="pbot-lbl">Email</span><span class="pbot-val">admin@9va.in</span></div>
+        <div class="pbot-row"><span class="pbot-lbl">Focus</span><div class="ptags"><span class="ptag">CTS Clearing</span><span class="ptag">AI / ML</span><span class="ptag">NPCI Infra</span><span class="ptag">Digital Banking</span></div></div>
+      </div>
+    </div>
+    <div class="pcard">
+      <div class="pcard-top">
+        <div class="pav" style="background:linear-gradient(135deg,#B87828,#E8B94A)">JG</div>
+        <div class="pname">Jitendra Gupta</div>
+        <div class="ptitle">Co-Founder &amp; Banking Strategy Lead</div>
+        <div class="proles">
+          <div class="prole"><div class="prd"></div><div><div class="prt">Chartered Accountant — 25+ Years Banking &amp; Finance</div><div class="pro">Investment Banking &amp; Capital Markets Practice</div></div></div>
+          <div class="prole"><div class="prd"></div><div><div class="prt">Independent Consultant &amp; Advisor</div><div class="pro">Banking Strategy, Treasury &amp; Compliance</div></div></div>
+          <div class="prole"><div class="prd"></div><div><div class="prt">Deep expertise in RBI regulatory frameworks</div><div class="pro">Clearing operations, audit readiness &amp; bank governance</div></div></div>
+        </div>
+      </div>
+      <div class="pcard-bot">
+        <div class="pbot-row"><span class="pbot-lbl">Mobile</span><span class="pbot-val">+91 7021 48 5668</span></div>
+        <div class="pbot-row"><span class="pbot-lbl">Focus</span><div class="ptags"><span class="ptag">Banking Strategy</span><span class="ptag">RBI Compliance</span><span class="ptag">Treasury</span><span class="ptag">Capital Markets</span></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="wm">Confidential — Not for Distribution</div>
+  <div class="pg">3 / 10</div>
+</div>
+
+<!-- ═══════════════════ SLIDE 4 — PROBLEM ═══════════════════ -->
+<div class="slide" id="s4">
+  <div class="sbrand"><span class="sbrand-l">ASTRA — Banking Platform</span><span class="sbrand-r">Confidential · 2026</span></div>
+  <div class="sh">
+    <span class="chip ch-a">Market &amp; Opportunity</span>
+    <div class="sh-title">₹71L Crore. 609 Million Cheques. One 3-Hour Window.</div>
+    <div class="sh-sub">Three operational problems that manual clearing still hasn't solved — at any scale.</div>
+  </div>
+  <div class="stat3">
+    <div class="sbox"><div class="sv g-blue">₹71L Cr</div><div class="sl">Cleared Annually — FY25</div><div class="ss">India CTS clearing volume via NGCH</div></div>
+    <div class="sbox"><div class="sv g-blue">609 M</div><div class="sl">Cheques Per Year</div><div class="ss">Instruments processed through the CTS grid</div></div>
+    <div class="sbox"><div class="sv g-gold">3 Hours</div><div class="sl">IET Window — RBI Jan 2026</div><div class="ss">Inward examination mandate for every drawee bank</div></div>
+  </div>
+  <div class="pains">
+    <div class="pain" style="border-top-color:#1741CC">
+      <div class="pain-ico">⏱</div>
+      <div class="pain-t">Manual Clearing Cannot Keep Pace</div>
+      <div class="pain-b">Staff-driven review of inward cheques takes hours. With NGCH batches arriving continuously, human processing is the binding constraint on clearing speed and cost.</div>
+    </div>
+    <div class="pain" style="border-top-color:#B87828">
+      <div class="pain-ico">🔗</div>
+      <div class="pain-t">Two Sides. No Unified Platform.</div>
+      <div class="pain-b">Outward and inward workflows run on separate systems with no shared data model. Reconciliation, audit, and exception management all require manual bridging today.</div>
+    </div>
+    <div class="pain" style="border-top-color:#C42B2B">
+      <div class="pain-ico">📋</div>
+      <div class="pain-t">Return Decisions Are Unexplainable</div>
+      <div class="pain-b">When a cheque is returned, the reason code rarely carries evidence — creating disputes, regulatory exposure, and eroding trust in the clearing process.</div>
+    </div>
+  </div>
+  <div class="wm">Confidential — Not for Distribution</div>
+  <div class="pg">4 / 10</div>
+</div>
+
+<!-- ═══════════════════ SLIDE 5 — PROCESS ═══════════════════ -->
+<div class="slide" id="s5">
+  <div class="sbrand"><span class="sbrand-l">ASTRA — Banking Platform</span><span class="sbrand-r">Confidential · 2026</span></div>
+  <div class="sh">
+    <span class="chip ch-b">CTS Process</span>
+    <div class="sh-title">Outward: Automated. Inward: Intelligent.</div>
+    <div class="sh-sub">One deployment, shared signature vault, single audit trail — across both sides of the clearing cycle.</div>
+  </div>
+  <div class="proc-wrap">
+    <div class="proc-col">
+      <span class="proc-lbl" style="background:#EEF1FB;color:#1741CC;border:1px solid #C0CAEE">Outward — Presentee Bank</span>
+      <div class="pf">
+        <div class="pf-step"><div class="pfn" style="background:#1741CC">1</div><div><div class="pfl">Branch Scanner Capture</div><div class="pfs">UV + IR dual image · Physical cheque stays at branch</div></div></div>
+        <div class="pf-arrow">↓</div>
+        <div class="pf-step"><div class="pfn" style="background:#1741CC">2</div><div><div class="pfl">MICR Extraction &amp; OCR</div><div class="pfs">GOT-OCR2.0 · Bank / Branch / Account / Serial / Amount</div></div></div>
+        <div class="pf-arrow">↓</div>
+        <div class="pf-step"><div class="pfn" style="background:#1741CC">3</div><div><div class="pfl">CTS-2010 Compliance Check</div><div class="pfs">Security feature validation · Alteration detection · Qwen2-VL</div></div></div>
+        <div class="pf-arrow">↓</div>
+        <div class="pf-step"><div class="pfn" style="background:#1741CC">4</div><div><div class="pfl">Lot / Batch Assembly</div><div class="pfs">Grouped by drawee bank · Presentment file · Session management</div></div></div>
+        <div class="pf-arrow">↓</div>
+        <div class="pf-step"><div class="pfn" style="background:#1741CC">5</div><div><div class="pfl">Endorsement &amp; NGCH Submit</div><div class="pfs">Digital stamp · Secure SFTP to NGCH clearing grid</div></div></div>
+      </div>
+    </div>
+    <div class="proc-div"></div>
+    <div class="proc-col">
+      <span class="proc-lbl" style="background:#E6F7F3;color:#0C9266;border:1px solid #A8DDD0">Inward — Drawee Bank</span>
+      <div class="pf">
+        <div class="pf-step"><div class="pfn" style="background:#0C9266">1</div><div><div class="pfl">NGCH Batch Received</div><div class="pfs">Instruments fan out immediately — one AI agent per cheque</div></div></div>
+        <div class="pf-arrow">↓</div>
+        <div class="pf-step" style="border-color:#0C9266;border-width:1.5px"><div class="pfn" style="background:#0C9266">2</div><div><div class="pfl">500 AI Agents — Fully Parallel</div><div class="pfs">Signature · OCR · Fraud scoring · CBS · PPS · Stop payment</div></div></div>
+        <div class="pf-arrow">↓</div>
+        <div class="pf-step"><div class="pfn" style="background:#0C9266">3</div><div><div class="pfl">Decision Gate</div><div class="pfs">STP Confirm · Human Review · Return — all with SHAP rationale</div></div></div>
+        <div class="pf-arrow">↓</div>
+        <div class="pf-step"><div class="pfn" style="background:#0C9266">4</div><div><div class="pfl">IET Watchdog — Always Active</div><div class="pfs">Fires at T−30 s · Auto-files if processing stalls</div></div></div>
+        <div class="proc-note">
+          <div class="pn-t">500 cheques → 500 agents → entire batch &lt;600 ms (p99)</div>
+          <div class="pn-b">Each Temporal workflow is independent. One slow cheque never delays the batch.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="wm">Confidential — Not for Distribution</div>
+  <div class="pg">5 / 10</div>
+</div>
+
+<!-- ═══════════════════ SLIDE 6 — SMB ═══════════════════ -->
+<div class="slide" id="s6">
+  <div class="sbrand"><span class="sbrand-l">ASTRA — Banking Platform</span><span class="sbrand-r">Confidential · 2026</span></div>
+  <div class="sh">
+    <span class="chip ch-t">SMB Network</span>
+    <div class="sh-title">One Bank Signs. Many Banks Clear.</div>
+    <div class="sh-sub">Sponsor banks route outward instruments for smaller UCBs — one NGCH connection, one ASTRA deployment, full data isolation per member bank.</div>
+  </div>
+  <div class="smb-wrap">
+    <svg width="440" height="400" viewBox="0 0 440 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="320" y="168" width="104" height="46" rx="9" fill="#EEF1FB" stroke="#1741CC" stroke-width="1.5"/>
+      <text x="372" y="188" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11.5" font-weight="800" fill="#1741CC">NGCH</text>
+      <text x="372" y="204" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="#4D72F0">Clearing Grid</text>
+      <rect x="148" y="158" width="136" height="64" rx="11" fill="#1741CC"/>
+      <text x="216" y="184" text-anchor="middle" font-family="system-ui,sans-serif" font-size="12" font-weight="800" fill="white">Sponsor Bank</text>
+      <text x="216" y="199" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="rgba(255,255,255,0.65)">Saraswat-class UCB</text>
+      <text x="216" y="213" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="rgba(255,255,255,0.55)">ASTRA Hub</text>
+      <line x1="284" y1="190" x2="320" y2="190" stroke="#1741CC" stroke-width="2" stroke-dasharray="4,3"/>
+      <polygon points="316,186 324,190 316,194" fill="#1741CC"/>
+      <rect x="8" y="22" width="110" height="42" rx="8" fill="#E8F7FB" stroke="#0994B4" stroke-width="1.5"/>
+      <text x="63" y="40" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" font-weight="700" fill="#054F66">Sub-Member UCB</text>
+      <text x="63" y="56" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" fill="#0994B4">Zone A</text>
+      <line x1="118" y1="43" x2="160" y2="165" stroke="#0994B4" stroke-width="1.2" stroke-dasharray="3,3"/>
+      <rect x="8" y="106" width="110" height="42" rx="8" fill="#E8F7FB" stroke="#0994B4" stroke-width="1.5"/>
+      <text x="63" y="124" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" font-weight="700" fill="#054F66">Sub-Member UCB</text>
+      <text x="63" y="140" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" fill="#0994B4">Zone B</text>
+      <line x1="118" y1="127" x2="150" y2="177" stroke="#0994B4" stroke-width="1.2" stroke-dasharray="3,3"/>
+      <rect x="8" y="190" width="110" height="42" rx="8" fill="#E8F7FB" stroke="#0994B4" stroke-width="1.5"/>
+      <text x="63" y="208" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" font-weight="700" fill="#054F66">Sub-Member UCB</text>
+      <text x="63" y="224" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" fill="#0994B4">Zone C</text>
+      <line x1="118" y1="211" x2="148" y2="206" stroke="#0994B4" stroke-width="1.2" stroke-dasharray="3,3"/>
+      <rect x="8" y="274" width="110" height="42" rx="8" fill="#E8F7FB" stroke="#0994B4" stroke-width="1.5"/>
+      <text x="63" y="292" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" font-weight="700" fill="#054F66">Sub-Member UCB</text>
+      <text x="63" y="308" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" fill="#0994B4">Zone D</text>
+      <line x1="118" y1="295" x2="158" y2="222" stroke="#0994B4" stroke-width="1.2" stroke-dasharray="3,3"/>
+      <rect x="128" y="262" width="82" height="32" rx="7" fill="#F3F5F9" stroke="#D5DAE8"/>
+      <text x="169" y="276" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#546275">Branch</text>
+      <text x="169" y="289" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8.5" fill="#8896A8">Network</text>
+      <rect x="224" y="262" width="82" height="32" rx="7" fill="#F3F5F9" stroke="#D5DAE8"/>
+      <text x="265" y="276" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#546275">Scanner</text>
+      <text x="265" y="289" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8.5" fill="#8896A8">Integration</text>
+      <line x1="216" y1="222" x2="169" y2="262" stroke="#D5DAE8" stroke-width="1"/>
+      <line x1="216" y1="222" x2="265" y2="262" stroke="#D5DAE8" stroke-width="1"/>
+    </svg>
+    <div class="smb-bens">
+      <div class="sben"><div class="sbi" style="background:#E8F7FB">🏦</div><div><div class="sbt">One NGCH Connection for All Members</div><div class="sbb">Sponsor bank submits on behalf of all sub-members. Smaller UCBs gain NGCH access without direct connectivity costs or technical overhead.</div></div></div>
+      <div class="sben"><div class="sbi" style="background:#E6F7F3">🔒</div><div><div class="sbt">Full Data Isolation — By Architecture, Not Policy</div><div class="sbb">Separate Kubernetes namespaces, Redis clusters, and DB pools per bank. No SMB can access another SMB's data — enforced at infrastructure level.</div></div></div>
+      <div class="sben"><div class="sbi" style="background:#FDF5E4">📊</div><div><div class="sbt">Consolidated Reporting for the Sponsor</div><div class="sbb">Sponsor bank gets cross-member dashboards and settlement positions. Each SMB sees only their own data. One deployment, zero data leakage.</div></div></div>
+      <div class="sben"><div class="sbi" style="background:#EEF1FB">⚡</div><div><div class="sbt">Revenue Enabler — Not Just a Cost Centre</div><div class="sbb">Sponsor banks earn correspondent banking fees from sub-members. ASTRA becomes a product you offer, not just a compliance requirement you absorb.</div></div></div>
+    </div>
+  </div>
+  <div class="wm">Confidential — Not for Distribution</div>
+  <div class="pg">6 / 10</div>
+</div>
+
+<!-- ═══════════════════ SLIDE 7 — SOLUTION ═══════════════════ -->
+<div class="slide" id="s7">
+  <div class="sbrand"><span class="sbrand-l">ASTRA — Banking Platform</span><span class="sbrand-r">Confidential · 2026</span></div>
+  <div class="sh">
+    <span class="chip ch-g">ASTRA Capabilities</span>
+    <div class="sh-title">Speed of UPI. Security of a Bank.</div>
+    <div class="sh-sub">Not a target. An architecture — on your premises, your data, your control, with a human-readable rationale on every single AI decision.</div>
+  </div>
+  <div class="sol-wrap">
+    <div class="sol-hero">
+      <div class="sol-st" style="border-top-color:#0C9266"><div class="ssv g-green">100%</div><div class="ssl">IET Compliance Rate</div><div class="sss">Every batch filed within the 3-hour window — by architecture</div></div>
+      <div class="sol-st" style="border-top-color:#1741CC"><div class="ssv g-blue">&lt;600 ms</div><div class="ssl">Decision Latency (p99)</div><div class="sss">End-to-end per cheque, including full AI inference stack</div></div>
+      <div class="sol-st" style="border-top-color:#0994B4"><div class="ssv g-teal">500</div><div class="ssl">Parallel AI Agents</div><div class="sss">One per cheque · Entire batch processed simultaneously</div></div>
+      <div class="sol-st" style="border-top-color:#B87828"><div class="ssv g-gold">100%</div><div class="ssl">On-Premises</div><div class="sss">Zero cloud. Data never leaves the bank's own infrastructure.</div></div>
+    </div>
+    <div class="sol-feats">
+      <div class="sfeat"><div class="sfi" style="background:#EEF1FB">🔍</div><div><div class="sft">Vision LLM — Cheque Image Analysis</div><div class="sfb">Qwen2-VL 72B analyses each image for alteration, layout integrity, and security features. GOT-OCR2.0 extracts MICR and handwriting with &gt;99% accuracy.</div></div></div>
+      <div class="sfeat"><div class="sfi" style="background:#E6F7F3">✍️</div><div><div class="sft">Signature Verification — Siamese Network</div><div class="sfb">Custom-trained PyTorch model compares against your specimen vault. Confidence scored and SHAP-explained. Vault refreshed daily from CBS at 6 AM.</div></div></div>
+      <div class="sfeat"><div class="sfi" style="background:#FDF5E4">🛡️</div><div><div class="sft">Fraud Scoring — XGBoost + SHAP</div><div class="sfb">Ensemble model scores 150+ features per instrument. Every decision ships with human-readable rationale stored in Immudb — audit ready, one query.</div></div></div>
+      <div class="sfeat"><div class="sfi" style="background:#E8F7FB">🏦</div><div><div class="sft">CBS Integration — Real-Time Checks</div><div class="sfb">Live connectivity to Finacle, BaNCS, and FlexCube. Balance, account status, and stop payment checks per instrument — async, inside the 600 ms window.</div></div></div>
+      <div class="sfeat"><div class="sfi" style="background:#E8EAFC">⚖️</div><div><div class="sft">Human Review — 55-Minute Timeout</div><div class="sfb">Borderline cases route to ops with all AI evidence pre-loaded. If no decision in 55 minutes, the IET watchdog files the instrument automatically.</div></div></div>
+      <div class="sfeat"><div class="sfi" style="background:#FEF0F0">📋</div><div><div class="sft">Immutable Audit — Immudb Ledger</div><div class="sfb">Every decision, vault lookup, and filing written to a cryptographically append-only ledger. Tamper-evident. RBI examination answered in one query.</div></div></div>
+    </div>
+  </div>
+  <div class="wm">Confidential — Not for Distribution</div>
+  <div class="pg">7 / 10</div>
+</div>
+
+<!-- ═══════════════════ SLIDE 8 — TRAJECTORY ═══════════════════ -->
+<div class="slide" id="s8">
+  <div class="sbrand"><span class="sbrand-l">ASTRA — Banking Platform</span><span class="sbrand-r">Confidential · 2026</span></div>
+  <div class="sh">
+    <span class="chip ch-i">Technology Trajectory</span>
+    <div class="sh-title">Not a Target. An Architecture.</div>
+    <div class="sh-sub">Clearing intelligence is on an inevitable trajectory. ASTRA is purpose-built for where it is going — and operational today at the stage that matters most.</div>
+  </div>
+  <div class="traj-wrap">
+    <div class="traj-tl">
+      <div class="ttp">
+        <div class="ttd" style="background:#DDE3EE;border-color:#8896A8;font-size:12px">📋</div>
+        <div class="ttt" style="color:#8896A8">3 hrs</div>
+        <div class="ttl" style="color:#8896A8">Manual Clearing</div>
+        <div class="tts">Staff-driven<br>Error-prone</div>
+      </div>
+      <div class="ttp">
+        <div class="ttd" style="background:#1741CC;border-color:#1741CC;font-size:12px">⚡</div>
+        <div class="ttt g-blue">&lt;30 min</div>
+        <div class="ttl">ASTRA — Today</div>
+        <div class="tts">AI + human hybrid<br>IET-safe · Explainable</div>
+      </div>
+      <div class="ttp">
+        <div class="ttd" style="background:#E8F7FB;border-color:#0994B4;font-size:12px">🚀</div>
+        <div class="ttt g-teal">&lt;1 min</div>
+        <div class="ttl">Full Automation</div>
+        <div class="tts">High-STP regime<br>NPCI API phase B</div>
+      </div>
+      <div class="ttp">
+        <div class="ttd" style="background:#E6F7F3;border-color:#0C9266;font-size:12px">✨</div>
+        <div class="ttt g-green">Instant</div>
+        <div class="ttl">E-Cheque Era</div>
+        <div class="tts">Digital instruments<br>NPCI MCP phase C</div>
+      </div>
+    </div>
+    <div class="traj-section-lbl">Four Pillars That Make ASTRA Different</div>
+    <div class="traj-pills">
+      <div class="tpill" style="border-top-color:#1741CC">
+        <div class="tpi">🏛️</div>
+        <div class="tpt">On-Premises Local LLM</div>
+        <div class="tpb">Every AI model runs inside the bank's own data centre. No cheque image, no customer data, no inference result ever leaves. RBI data localisation — architecturally enforced, not policy-dependent.</div>
+      </div>
+      <div class="tpill" style="border-top-color:#0C9266">
+        <div class="tpi">🔬</div>
+        <div class="tpt">Full Explainability — No Black Box</div>
+        <div class="tpb">SHAP values and human-readable rationale on every decision. Audit queries answered in seconds. No black-box AI in a regulated institution — ever. Every return is defensible.</div>
+      </div>
+      <div class="tpill" style="border-top-color:#0994B4">
+        <div class="tpi">📄</div>
+        <div class="tpt">Instrument-Agnostic by Design</div>
+        <div class="tpb">CTS-2010 cheques today. Demand drafts, banker's cheques, digital instruments tomorrow. The AI pipeline adapts without code changes — one architecture, many instruments.</div>
+      </div>
+      <div class="tpill" style="border-top-color:#B87828">
+        <div class="tpi">🗄️</div>
+        <div class="tpt">Vault Architecture — &lt;5 ms Lookup</div>
+        <div class="tpb">Signature specimens and PPS data warm-loaded from CBS into Redis at 6 AM daily. Vault lookup &lt;5 ms p99. Zero CBS calls in the 600 ms critical path — speed without compromise.</div>
+      </div>
+    </div>
+  </div>
+  <div class="wm">Confidential — Not for Distribution</div>
+  <div class="pg">8 / 10</div>
+</div>
+
+<!-- ═══════════════════ SLIDE 9 — COMMERCIAL ═══════════════════ -->
+<div class="slide" id="s9">
+  <div class="sbrand"><span class="sbrand-l">ASTRA — Banking Platform</span><span class="sbrand-r">Confidential · 2026</span></div>
+  <div class="sh">
+    <span class="chip ch-a">Commercial Model</span>
+    <div class="sh-title">Rent the Kit. Pay per Cheque. Own the Outcome.</div>
+    <div class="sh-sub">No hardware capex. No platform licence. SaaS pricing tied directly to your clearing volume — ASTRA succeeds when you do.</div>
+  </div>
+  <div class="comm-wrap">
+    <div class="comm-cols">
+      <div class="ccol">
+        <div class="cch">
+          <div class="ccico" style="background:#EEF1FB">🖨️</div>
+          <div class="ccn">CTS UV Scanner</div>
+          <div class="cct">Hardware · Monthly Rental</div>
+        </div>
+        <div class="ccb">
+          <div class="cci"><div class="ccbul"></div><div>NPCI-approved UV/IR CTS-2010 compliant dual scanner per branch</div></div>
+          <div class="cci"><div class="ccbul"></div><div>Plug-and-play integration with ASTRA agent — zero custom wiring</div></div>
+          <div class="cci"><div class="ccbul"></div><div>Maintenance, support, and hardware replacement included</div></div>
+          <div class="cci"><div class="ccbul"></div><div>No capital expenditure · No depreciation schedules · Monthly billing</div></div>
+          <div class="cci"><div class="ccbul"></div><div>Scales with your branch network — add scanners as you grow</div></div>
+        </div>
+        <div class="ccf"><div class="ccfl">Billing Basis</div><div class="ccfv">₹ / scanner / month</div></div>
+      </div>
+      <div class="ccol">
+        <div class="cch">
+          <div class="ccico" style="background:#E6F7F3">⚙️</div>
+          <div class="ccn">ASTRA Platform</div>
+          <div class="cct">Software · Setup + Per-Cheque SaaS</div>
+        </div>
+        <div class="ccb">
+          <div class="cci"><div class="ccbul"></div><div>One-time setup, onboarding, and integration fee</div></div>
+          <div class="cci"><div class="ccbul"></div><div>Per-cheque processing fee, volume-tiered — lower rate at scale</div></div>
+          <div class="cci"><div class="ccbul"></div><div>Includes CTS Inward · CTS Outward · SMB Routing · Ops Dashboard</div></div>
+          <div class="cci"><div class="ccbul"></div><div>Signature Vault · PPS Vault · Immudb Audit Trail · NGCH Adapter</div></div>
+          <div class="cci"><div class="ccbul"></div><div>Software updates via ArgoCD — zero downtime, zero manual upgrades</div></div>
+        </div>
+        <div class="ccf"><div class="ccfl">Billing Basis</div><div class="ccfv">Setup fee + ₹ / cheque (tiered)</div></div>
+      </div>
+      <div class="ccol">
+        <div class="cch">
+          <div class="ccico" style="background:#FDF5E4">🖥️</div>
+          <div class="ccn">AI Compute Hardware</div>
+          <div class="cct">GPU Infrastructure · Monthly Rental</div>
+        </div>
+        <div class="ccb">
+          <div class="cci"><div class="ccbul"></div><div>Pilot: 4× NVIDIA RTX 4090 (24 GB VRAM each)</div></div>
+          <div class="cci"><div class="ccbul"></div><div>Production: 4–8× NVIDIA A100 80 GB — handles 500 parallel agents</div></div>
+          <div class="cci"><div class="ccbul"></div><div>Deployed inside the bank's own data centre — ASTRA managed</div></div>
+          <div class="cci"><div class="ccbul"></div><div>vLLM serving + Kubernetes orchestration included in rental</div></div>
+          <div class="cci"><div class="ccbul"></div><div>Hardware refresh cycle and support covered under rental terms</div></div>
+        </div>
+        <div class="ccf"><div class="ccfl">Billing Basis</div><div class="ccfv">₹ / GPU node / month</div></div>
+      </div>
+    </div>
+    <div class="comm-foot">
+      <div class="cf-text">ASTRA's commercial interests are directly tied to your clearing uptime. We earn when you process cheques on time — not from a fixed platform licence that accrues regardless of performance. Every component is priced to scale with your actual clearing volume.</div>
+      <div class="cf-chips">
+        <span class="chip ch-g" style="font-size:9.5px;padding:3px 10px">No Capex</span>
+        <span class="chip ch-b" style="font-size:9.5px;padding:3px 10px">Volume SaaS</span>
+        <span class="chip ch-t" style="font-size:9.5px;padding:3px 10px">Fully Managed</span>
+      </div>
+    </div>
+  </div>
+  <div class="wm">Confidential — Not for Distribution</div>
+  <div class="pg">9 / 10</div>
+</div>
+
+<!-- ═══════════════════ SLIDE 10 — PILOT ═══════════════════ -->
+<div class="slide" id="s10">
+  <div class="sbrand"><span class="sbrand-l">ASTRA — Banking Platform</span><span class="sbrand-r">Confidential · 2026</span></div>
+  <div class="sh">
+    <span class="chip ch-g">Proposal</span>
+    <div class="sh-title">90-Day Pilot — Zero Displacement Guarantee</div>
+    <div class="sh-sub">Shadow mode first. Parallel operation second. Decision authority third. No disruption to your current clearing operations at any stage.</div>
+  </div>
+  <div class="pilot-wrap">
+    <div class="pilot-phases">
+      <div class="pph">
+        <div class="ppn" style="background:#1741CC">1</div>
+        <div>
+          <div class="ppey">Phase 1 · Weeks 1–2</div>
+          <div class="ppt">Shadow Mode</div>
+          <div class="ppb">ASTRA observes every inward cheque alongside your existing process. AI decisions generated but not acted upon. Accuracy benchmarked against your team's decisions. Zero change to current workflows — your team works as normal.</div>
+        </div>
+      </div>
+      <div class="pph">
+        <div class="ppn" style="background:#0994B4">2</div>
+        <div>
+          <div class="ppey">Phase 2 · Weeks 3–8</div>
+          <div class="ppt">Parallel Decision</div>
+          <div class="ppb">ASTRA takes live decision authority on high-confidence STP instruments (typically 60–70% of volume). Your team retains authority on all borderline and flagged cases. Side-by-side comparison dashboard throughout.</div>
+        </div>
+      </div>
+      <div class="pph">
+        <div class="ppn" style="background:#0C9266">3</div>
+        <div>
+          <div class="ppey">Phase 3 · Weeks 9–12</div>
+          <div class="ppt">Calibrate &amp; Confirm</div>
+          <div class="ppb">Thresholds tuned to your bank's risk appetite. False-positive and false-negative rates benchmarked against pilot data. Go / no-go with full performance evidence in hand. Production commercial terms confirmed.</div>
+        </div>
+      </div>
+    </div>
+    <div class="pilot-r">
+      <div class="zdg">
+        <div class="zdg-lbl">Our Commitment</div>
+        <div class="zdg-t">Zero Displacement Guarantee</div>
+        <div class="zdg-b">ASTRA runs alongside your clearing team — it never replaces them during the pilot. If we don't demonstrate measurable accuracy improvement over your baseline, the engagement ends at no cost to the bank.</div>
+      </div>
+      <div class="cta-box">
+        <div class="cta-lbl">Start the Conversation</div>
+        <div class="cta-email">admin@9va.in</div>
+        <div class="cta-phone">Nilesh Shah &nbsp;·&nbsp; +91 9819 88 2904</div>
+        <div class="cta-phone">Jitendra Gupta &nbsp;·&nbsp; +91 7021 48 5668</div>
+        <div class="cta-hint">Response within one business day</div>
+      </div>
+      <div class="why-box">
+        <div class="why-lbl">Why Act Now</div>
+        <div class="why-row"><div class="why-dot" style="background:#1741CC"></div><div class="why-t">18-month first-mover window before Nelito and TCS BaNCS ship comparable AI capability</div></div>
+        <div class="why-row"><div class="why-dot" style="background:#0994B4"></div><div class="why-t">RBI IET mandate is already in force — every inward batch is a live compliance event today</div></div>
+        <div class="why-row"><div class="why-dot" style="background:#0C9266"></div><div class="why-t">Pilot cost is a rounding error relative to the exposure on a single late-filed batch</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="wm">Confidential — Not for Distribution</div>
+  <div class="pg">10 / 10</div>
+</div>
+
+<!-- NAV BAR -->
+<nav class="nav-bar">
+  <button class="nav-btn nav-prev" aria-label="Previous">&#8592;</button>
+  <div id="dots" style="display:flex;gap:6px;align-items:center"></div>
+  <span class="ncount" id="counter">1 / 10</span>
+  <button class="nav-btn nav-next" aria-label="Next">&#8594;</button>
+</nav>
+
+<script>
+(function(){
+  var TOTAL=10,cur=0;
+  var slides=document.querySelectorAll('.slide');
+  var dotsEl=document.getElementById('dots');
+  var counter=document.getElementById('counter');
+  var dots=[];
+  for(var i=0;i<TOTAL;i++){
+    var d=document.createElement('div');
+    d.className='nav-dot';
+    d.setAttribute('role','button');d.setAttribute('tabindex','0');
+    (function(idx){
+      d.addEventListener('click',function(){goTo(idx)});
+      d.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' ')goTo(idx)});
+    })(i);
+    dotsEl.appendChild(d);dots.push(d);
+  }
+  function goTo(n){
+    slides[cur].classList.remove('active');dots[cur].classList.remove('active');
+    cur=((n%TOTAL)+TOTAL)%TOTAL;
+    slides[cur].classList.add('active');dots[cur].classList.add('active');
+    counter.textContent=(cur+1)+' / '+TOTAL;
+  }
+  document.querySelector('.nav-prev').addEventListener('click',function(){goTo(cur-1)});
+  document.querySelector('.nav-next').addEventListener('click',function(){goTo(cur+1)});
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowRight'||e.key==='ArrowDown'){e.preventDefault();goTo(cur+1)}
+    if(e.key==='ArrowLeft'||e.key==='ArrowUp'){e.preventDefault();goTo(cur-1)}
+  });
+  var tx=0;
+  document.addEventListener('touchstart',function(e){tx=e.touches[0].clientX},{passive:true});
+  document.addEventListener('touchend',function(e){var dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)>50)goTo(cur+(dx<0?1:-1))});
+  goTo(0);
+})();
+</script>
+</body>
+</html>

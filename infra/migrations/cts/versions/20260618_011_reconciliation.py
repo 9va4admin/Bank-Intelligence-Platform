@@ -51,7 +51,7 @@ def upgrade() -> None:
         sa.Column("ngch_total_amount_paise", sa.BigInteger, nullable=True),
 
         # Reconciliation outcome
-        sa.Column("status", sa.Text, nullable=False, server_default="'RUNNING'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="RUNNING"),
         # RUNNING | RECONCILED | DISCREPANCY_FOUND | FAILED
 
         sa.Column("discrepancy_count", sa.Integer, nullable=False, server_default="0"),
@@ -101,7 +101,7 @@ def upgrade() -> None:
         # Note: amount discrepancies stored as amount_range, not paise
 
         # Resolution
-        sa.Column("status", sa.Text, nullable=False, server_default="'OPEN'"),
+        sa.Column("status", sa.Text, nullable=False, server_default="OPEN"),
         # OPEN | UNDER_INVESTIGATION | RESOLVED | ESCALATED_TO_RBI
 
         sa.Column("resolution_notes", sa.Text, nullable=True),

@@ -1,0 +1,135 @@
+---
+# Chaos Mesh Scenario 07 — SMB CBS Push Delayed (Vault Staleness Under Load)
+# RBI Control: DR-02 (Business Continuity Testing), FR-05 (Data Integrity)
+#
+# Validates:
+#   - When the SMB SFTP push to Agency is delayed, the vault contains stale data
+#   - Stale stop-payment records mean some instruments go to HUMAN_REVIEW instead
+#     of STP_RETURN — this is the correct safe degradation (never auto-confirm a stopped cheque)
+#   - vault_miss_action = HUMAN_REVIEW holds under stale vault conditions
+#   - After the delayed push arrives, DeltaVaultSyncWorkflow updates the vault
+#   - All instruments re-processed after vault update reach correct decisions
+#   - Bloom filter is updated on every successful push (within 15 minutes)
+#
+# Scenarios covered:
+#   7A — SFTP ingest service slow (delayed push arrival — vault staleness window)
+#   7B — SFTP ingest service crash then recovery (missed push — gap in vault data)
+#   7C — Malformed push file arrives (PARSE_FAILED → vault not updated → stale data persists)
+#
+# Duration: 7A runs 20 minutes (full 15-min delta sync cycle + buffer)
+#           7B runs 10 minutes; 7C is an immediate injection (no duration)
+# Verdict: PASS if no stop-payment instrument auto-clears and audit is complete
+---
+# 7A: Network latency on SFTP ingest gateway ingress (delayed push arrival)
+# Simulates a congested SMB network causing the 15-minute CBS batch push to arrive late
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: smb-push-sftp-delay
+  namespace: astra-cts-saraswat-coop
+  labels:
+    astra.chaos/scenario: smb-push-delayed
+    astra.chaos/subscenario: "7A-push-delay"
+    astra.chaos/bank_id: saraswat-coop
+    astra.chaos/severity: medium
+    astra.chaos/runbook: infra/chaos-mesh/runbooks/smb-push-runbook.md
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      app.kubernetes.io/name: smb-sftp-ingest-gateway
+  delay:
+    latency: "18m"         # 18 minutes — SMB push arrives 3 min after expected window
+    correlation: "100"
+    jitter: "0ms"
+  direction: from           # delay files arriving from SMB SFTP clients
+  duration: "20m"
+  scheduler:
+    cron: "@manual"
+---
+# 7B: Kill the SFTP ingest gateway pod (SMB push landing service unavailable)
+# SMB CBS batch job will fail to connect — push is missed entirely for this cycle
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: smb-push-sftp-gateway-kill
+  namespace: astra-cts-saraswat-coop
+  labels:
+    astra.chaos/scenario: smb-push-delayed
+    astra.chaos/subscenario: "7B-gateway-kill"
+    astra.chaos/bank_id: saraswat-coop
+    astra.chaos/severity: high
+spec:
+  action: pod-kill
+  mode: one
+  selector:
+    namespaces:
+      - astra-cts-saraswat-coop
+    labelSelectors:
+      app.kubernetes.io/name: smb-sftp-ingest-gateway
+  duration: "10m"
+  scheduler:
+    cron: "@manual"
+---
+# 7C: Malformed push file injection
+# Directly inject a malformed CSV into the SFTP ingest path via config
+# (Chaos Mesh cannot inject file content — this uses a ConfigMap override
+#  that causes the next SMBVaultPushIngestWorkflow to process a bad file)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chaos-smb-push-bad-file-override
+  namespace: astra-cts-saraswat-coop
+  labels:
+    astra.chaos/scenario: smb-push-delayed
+    astra.chaos/subscenario: "7C-malformed-push"
+    astra.chaos/bank_id: saraswat-coop
+    astra.chaos/severity: medium
+data:
+  override_next_push_file: "true"
+  override_file_type: "STOP_PAYMENTS"
+  override_file_content: |
+    # This CSV is missing the 'amount' column — will trigger PARSE_FAILED
+    account_number,cheque_number,issued_date,reason
+    ACC001,000001,2026-07-05,DRAWER_REQUEST
+    ACC002,000002,2026-07-05,ACCOUNT_CLOSED
+  override_smb_id: "pune-ucb"
+  override_file_hash: "chaos-malformed-sc7c-001"
+---
+# Pass criteria:
+#
+#   Scenario 7A (SFTP push delayed 18 minutes):
+#   1. DeltaVaultSyncWorkflow: at T+15min, vault sync runs with data from LAST successful push
+#      (last cycle's data — 15 minutes stale, not 30 minutes)
+#   2. ChequeProcessingWorkflow: instruments with stop-payments in the STALE window:
+#      - Bloom filter miss (stop-payment not in filter yet) → proceed to CBS check
+#      - CBS confirms stop-payment active → route HUMAN_REVIEW or STP_RETURN per CBS
+#      - NEVER silently auto-confirm a stopped cheque
+#   3. prometheus: vault_bloom_filter_miss_total > 0 during stale window (expected)
+#   4. After push arrives (T+18min): DeltaVaultSyncWorkflow fires within 2 minutes
+#   5. prometheus: vault_delta_sync_last_success_age_seconds drops below 900 (15 min)
+#   6. Bloom filter updated: new stop-payments present in filter within 1 minute of sync
+#
+#   Scenario 7B (SFTP gateway killed — push entirely missed):
+#   1. SMB CBS batch job: connection refused → push fails with SMB_PUSH_GATEWAY_DOWN alert
+#   2. Notification: CTS_SMB_PUSH_PARSE_FAILED (or CTS_SMB_PUSH_GATEWAY_DOWN if key exists)
+#      sent to ops_manager within 5 minutes
+#   3. Vault: stale data from previous successful push — CBS fallback path is the safety net
+#   4. After gateway recovery: SMB CBS batch job retries (SMB controls retry — this is
+#      CBS batch job behavior, not ASTRA's responsibility)
+#   5. DUPLICATE_SKIPPED outcome: if SMB resends the same file_hash, idempotency holds
+#   6. prometheus: smb_push_sessions_by_outcome{outcome="VAULT_UPDATED"} count resumes
+#      after gateway recovers
+#
+#   Scenario 7C (Malformed push file):
+#   1. SMBVaultPushIngestWorkflow: outcome = PARSE_FAILED within 10 seconds
+#   2. Vault: NOT updated — previous vault state preserved (no partial update)
+#   3. audit-service: CTS_SMB_PUSH_PARSE_FAILED event written to Immudb
+#   4. Notification: ops_manager alerted within 30 seconds
+#   5. Next CORRECTLY formatted push: succeeds with VAULT_UPDATED, distinct file_hash
+#   6. Bloom filter: updated only on successful VAULT_UPDATED outcome
+#   7. instruments.vault_miss_action == HUMAN_REVIEW confirmed for all misses during gap
+#      (no auto-return on vault miss — even when cause is a bad push file)

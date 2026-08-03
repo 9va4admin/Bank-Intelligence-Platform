@@ -100,7 +100,46 @@ class TestSubMemberModelsMissingBranches:
 class TestSubMemberActivitiesMissingBranches:
     @pytest.mark.asyncio
     async def test_shield_status_soft_hold_sets_risk_event(self):
-        """Covers lines 133-135: SOFT_HOLD → risk_event_id, immudb_event_written."""
+        """Covers SOFT_HOLD → risk_event_id, immudb_event_written (with a real
+        injected immudb_client — write_event() is only actually attempted, and
+        immudb_event_written only True, when a client is present)."""
+        from unittest.mock import MagicMock
+        from modules.cts.sub_member.activities import check_return_rate_shield
+        mock_immudb = MagicMock()
+        mock_immudb.write_event = MagicMock(return_value={"tx_id": 1})
+        result = await check_return_rate_shield(
+            bank_id="test-bank",
+            sub_member_id="vasavi-coop",
+            session_date="2026-06-24",
+            clearing_session="MORNING",
+            mock_shield_status="SOFT_HOLD",
+            immudb_client=mock_immudb,
+        )
+        assert result["risk_event_id"].startswith("RISK-")
+        assert result["immudb_event_written"] is True
+        assert result["escalation_queued"] is False
+        mock_immudb.write_event.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_shield_status_hard_stop_sets_escalation(self):
+        """Covers HARD_STOP → escalation_queued."""
+        from unittest.mock import MagicMock
+        from modules.cts.sub_member.activities import check_return_rate_shield
+        mock_immudb = MagicMock()
+        mock_immudb.write_event = MagicMock(return_value={"tx_id": 1})
+        result = await check_return_rate_shield(
+            bank_id="test-bank",
+            sub_member_id="vasavi-coop",
+            session_date="2026-06-24",
+            clearing_session="MORNING",
+            mock_shield_status="HARD_STOP",
+            immudb_client=mock_immudb,
+        )
+        assert result["escalation_queued"] is True
+        assert result["immudb_event_written"] is True
+
+    @pytest.mark.asyncio
+    async def test_shield_status_degrades_without_immudb_client(self):
         from modules.cts.sub_member.activities import check_return_rate_shield
         result = await check_return_rate_shield(
             bank_id="test-bank",
@@ -109,20 +148,76 @@ class TestSubMemberActivitiesMissingBranches:
             clearing_session="MORNING",
             mock_shield_status="SOFT_HOLD",
         )
+        assert result["immudb_event_written"] is False
         assert result["risk_event_id"].startswith("RISK-")
-        assert result["immudb_event_written"] is True
-        assert result["escalation_queued"] is False
 
     @pytest.mark.asyncio
-    async def test_shield_status_hard_stop_sets_escalation(self):
-        """Covers lines 137-138: HARD_STOP → escalation_queued."""
+    async def test_shield_status_publishes_risk_event_via_injected_producer(self):
+        from unittest.mock import AsyncMock
         from modules.cts.sub_member.activities import check_return_rate_shield
+        mock_producer = AsyncMock()
         result = await check_return_rate_shield(
             bank_id="test-bank",
             sub_member_id="vasavi-coop",
             session_date="2026-06-24",
             clearing_session="MORNING",
             mock_shield_status="HARD_STOP",
+            event_producer=mock_producer,
         )
-        assert result["escalation_queued"] is True
-        assert result["immudb_event_written"] is True
+        mock_producer.publish.assert_awaited_once()
+        call_kwargs = mock_producer.publish.call_args.kwargs
+        assert call_kwargs["event_type"] == "SUB_MEMBER_RISK_EVENT"
+        assert call_kwargs["payload"]["shield_status"] == "HARD_STOP"
+
+    @pytest.mark.asyncio
+    async def test_safe_status_computed_from_real_db_when_no_mock_override(self):
+        from unittest.mock import AsyncMock
+        from modules.cts.sub_member.activities import check_return_rate_shield
+        mock_db = AsyncMock()
+        mock_db.fetchrow = AsyncMock(side_effect=[
+            {"total_received": 100, "stp_return": 5},   # ledger row -> 5% return rate
+            {"return_rate_threshold": 0.15, "soft_hold_threshold": 0.25},  # thresholds row
+        ])
+        result = await check_return_rate_shield(
+            bank_id="test-bank",
+            sub_member_id="vasavi-coop",
+            session_date="2026-06-24",
+            clearing_session="MORNING",
+            db=mock_db,
+        )
+        assert result["shield_status"] == "SAFE"
+        assert result["return_rate"] == 0.05
+
+    @pytest.mark.asyncio
+    async def test_hard_stop_computed_from_real_db_above_soft_hold_threshold(self):
+        from unittest.mock import AsyncMock
+        from modules.cts.sub_member.activities import check_return_rate_shield
+        mock_db = AsyncMock()
+        mock_db.fetchrow = AsyncMock(side_effect=[
+            {"total_received": 100, "stp_return": 30},  # 30% return rate
+            {"return_rate_threshold": 0.15, "soft_hold_threshold": 0.25},
+        ])
+        result = await check_return_rate_shield(
+            bank_id="test-bank",
+            sub_member_id="vasavi-coop",
+            session_date="2026-06-24",
+            clearing_session="MORNING",
+            db=mock_db,
+        )
+        assert result["shield_status"] == "HARD_STOP"
+
+    @pytest.mark.asyncio
+    async def test_safe_when_db_read_fails(self):
+        """A DB outage must never itself trigger a hold."""
+        from unittest.mock import AsyncMock
+        from modules.cts.sub_member.activities import check_return_rate_shield
+        mock_db = AsyncMock()
+        mock_db.fetchrow = AsyncMock(side_effect=Exception("DB unreachable"))
+        result = await check_return_rate_shield(
+            bank_id="test-bank",
+            sub_member_id="vasavi-coop",
+            session_date="2026-06-24",
+            clearing_session="MORNING",
+            db=mock_db,
+        )
+        assert result["shield_status"] == "SAFE"

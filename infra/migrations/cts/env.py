@@ -2,6 +2,7 @@
 import os
 from logging.config import fileConfig
 
+import sqlalchemy as sa
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
@@ -42,6 +43,12 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
+        # See infra/migrations/platform/env.py for why this bootstrap is required:
+        # alembic's own version_table_schema="cts" bookkeeping table needs the
+        # "cts" schema to exist before the first migration (which creates it) runs.
+        connection.execute(sa.text("CREATE SCHEMA IF NOT EXISTS cts"))
+        connection.commit()
+
         context.configure(
             connection=connection,
             target_metadata=None,

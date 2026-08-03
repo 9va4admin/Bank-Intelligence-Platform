@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASTRA — Notification & Incident Taxonomy</title>
+<style>
+  :root {
+    --bg: #0b0f1a;
+    --bg2: #131928;
+    --bg3: #1c2438;
+    --border: #252d45;
+    --text: #e2e8f0;
+    --muted: #7a8499;
+    --accent: #6366f1;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; padding: 24px; }
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 3px; color: #fff; letter-spacing: -.3px; }
+  .subtitle { color: var(--muted); font-size: 11px; margin-bottom: 20px; }
+  .subtitle b { color: var(--text); }
+
+  /* tabs */
+  .tabs { display: flex; gap: 1px; border-bottom: 1px solid var(--border); margin-bottom: 18px; flex-wrap: wrap; }
+  .tab { padding: 8px 13px; cursor: pointer; font-size: 11px; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; transition: color .12s; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: #fff; border-bottom-color: var(--accent); font-weight: 600; }
+  .tab.ks-tab.active { border-bottom-color: #ef4444; color: #fca5a5; }
+  .panel { display: none; } .panel.active { display: block; }
+
+  /* tables */
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { text-align: left; padding: 7px 8px; background: var(--bg3); font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; font-size: 9px; text-transform: uppercase; letter-spacing: .07em; }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; line-height: 1.55; }
+  tr:hover td { background: var(--bg2); }
+  td.event { font-weight: 500; color: var(--text); min-width: 160px; }
+  td.trigger { color: var(--muted); font-size: 10px; }
+
+  /* badges */
+  .ch { display: inline-block; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 10px; margin: 1px 1px 1px 0; white-space: nowrap; letter-spacing: .03em; }
+  .email  { background: #1e3a5f; color: #93c5fd; }
+  .wa     { background: #14432a; color: #4ade80; }
+  .bell   { background: #3b1f5e; color: #c084fc; }
+  .immudb { background: #1a3040; color: #67e8f9; }
+
+  .p0  { background: #4c1414; color: #fca5a5; font-weight: 700; border: 1px solid #7f1d1d; }
+  .p1  { background: #3b2a14; color: #fcd34d; font-weight: 700; border: 1px solid #78350f; }
+  .p2  { background: #1e3557; color: #93c5fd; font-weight: 700; border: 1px solid #1e40af; }
+  .p3  { background: var(--bg3); color: var(--muted); }
+  .pno { color: var(--muted); font-size: 10px; }
+
+  .sev-crit { color: #fca5a5; font-weight: 700; font-size: 10px; }
+  .sev-err  { color: #fcd34d; font-size: 10px; }
+  .sev-warn { color: #86efac; font-size: 10px; }
+  .sev-info { color: #94a3b8; font-size: 10px; }
+
+  .yes { color: #4ade80; font-weight: 600; }
+  .no  { color: var(--muted); }
+
+  code { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 9.5px; background: var(--bg3); padding: 1px 5px; border-radius: 3px; color: #a5b4fc; }
+
+  /* layout helpers */
+  .section-title { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 14px 0 7px; border-bottom: 1px solid var(--border); margin-bottom: 10px; margin-top: 4px; }
+  .box { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; }
+  .box-title { font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+  .box-body { font-size: 11px; color: var(--muted); line-height: 1.9; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  @media (max-width: 800px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+
+  .cascade-step { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 9px; }
+  .step-num { min-width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .step-text { font-size: 11px; color: var(--muted); line-height: 1.55; }
+  .step-text b { color: var(--text); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; align-items: center; }
+  .legend-label { font-size: 10px; color: var(--muted); margin-right: 4px; }
+
+  /* role matrix */
+  .role-pill { display: inline-block; font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 10px; margin: 1px; }
+  .role-ops-reviewer  { background: #1c3a5e; color: #7dd3fc; }
+  .role-ops-manager   { background: #2a1c5e; color: #c4b5fd; }
+  .role-it-admin      { background: #1c3a2a; color: #6ee7b7; }
+  .role-compliance    { background: #3a2a1c; color: #fcd34d; }
+  .role-fraud-analyst { background: #3a1c2a; color: #f9a8d4; }
+  .role-ml-engineer   { background: #1a1a3a; color: #a5b4fc; }
+  .role-smb-it-admin  { background: #3a3a1c; color: #d4d67e; }
+
+  .ks-banner { background: linear-gradient(135deg, #2d1515, #1a0f0f); border: 1px solid #7f1d1d; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; }
+  .ks-banner-title { color: #fca5a5; font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+  .ks-banner-body  { color: #f87171; font-size: 11px; line-height: 1.7; }
+
+  .stamp { font-size: 10px; color: var(--muted); margin-top: 24px; border-top: 1px solid var(--border); padding-top: 12px; }
+  .tag { display: inline-block; font-size: 9px; background: var(--bg3); color: var(--muted); padding: 1px 6px; border-radius: 10px; margin-left: 6px; vertical-align: middle; }
+
+  /* matrix table special */
+  .mx-role { font-weight: 600; font-size: 11px; }
+  .mx-cell  { text-align: center; }
+  .ck { color: #4ade80; font-size: 14px; }
+  .dash { color: var(--muted); }
+
+  .new-tag { display: inline-block; font-size: 8px; font-weight: 700; background: #3b1f5e; color: #c084fc; padding: 1px 5px; border-radius: 8px; margin-left: 4px; vertical-align: middle; }
+</style>
+</head>
+<body>
+
+<h1>ASTRA &mdash; Notification &amp; Incident Taxonomy</h1>
+<p class="subtitle">
+  <b>Single source of truth</b> for who gets notified &middot; which channel &middot; when &middot; where stored &middot; incident SLAs
+  &nbsp;&nbsp;|&nbsp;&nbsp;Channels: <span class="ch email">Email (Postal)</span> <span class="ch wa">WhatsApp (Meta WA)</span> <span class="ch bell">Bell (In-App)</span>
+  &nbsp;&nbsp;|&nbsp;&nbsp;Last updated: 2026-07-01 &nbsp;&middot;&nbsp; Status: <span style="color:#4ade80;font-weight:700">ACTIVE &mdash; UPDATE ON EVERY FEATURE</span>
+</p>
+
+<div class="tabs">
+  <div class="tab active" onclick="sw('cts-in')">CTS Inward</div>
+  <div class="tab" onclick="sw('cts-out')">CTS Outward</div>
+  <div class="tab ks-tab" onclick="sw('ks')">&#9888; Kill Switch</div>
+  <div class="tab" onclick="sw('ej')">EJ Module</div>
+  <div class="tab" onclick="sw('platform')">Platform</div>
+  <div class="tab" onclick="sw('cascade')">Delivery Cascade</div>
+  <div class="tab" onclick="sw('incident')">Incident Escalation</div>
+  <div class="tab" onclick="sw('storage')">Storage &amp; Audit</div>
+  <div class="tab" onclick="sw('role-matrix')">Role &times; Channel</div>
+  <div class="tab" onclick="sw('templates')">Templates</div>
+</div>
+
+<!-- ═══ CTS INWARD ══════════════════════════════════════════════════════════ -->
+<div id="cts-in" class="panel active">
+  <div class="legend">
+    <span class="legend-label">Priority:</span>
+    <span class="ch p0">P0 30 min</span><span class="ch p1">P1 4 hr</span>
+    <span class="ch p2">P2 24 hr</span><span class="ch p3">P3 no SLA</span>
+    <span class="legend-label" style="margin-left:10px">Channels:</span>
+    <span class="ch email">Email</span><span class="ch wa">WhatsApp</span><span class="ch bell">Bell</span>
+  </div>
+  <table>
+    <tr>
+      <th>Event</th><th>Msg Key / AuditEventType</th><th>Triggered by</th>
+      <th>Recipients &amp; Channels</th>
+      <th>Immudb</th><th>Incident</th><th>SLA</th>
+    </tr>
+    <!-- IET Critical path -->
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>IET watchdog T&#8209;30s fires</td>
+      <td><code>CTS_WF_IET_WATCHDOG_FIRED</code><br><code>CTS_IET_WATCHDOG_FIRED</code></td>
+      <td class="trigger">IETWatchdogWorkflow<br>emergency filing path</td>
+      <td>
+        <span class="role-pill role-ops-reviewer">ops_reviewer</span> <span class="ch bell">Bell</span> <span class="ch wa">WhatsApp</span><br>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch wa">WhatsApp</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p0">P0</span></td>
+      <td>Immediate</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>IET window expired (breach)</td>
+      <td><code>CTS_NGCH_IET_EXPIRED</code><br><code>CTS_NGCH_FILED</code></td>
+      <td class="trigger">ngch_filer activity<br>(post-deadline)</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-compliance">compliance_officer</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p0">P0</span> <small style="color:#fca5a5">NEVER HAPPENS — 0.000% target</small></td>
+      <td>Immediate + RBI report</td>
+    </tr>
+    <!-- Human review -->
+    <tr>
+      <td class="event"><span class="sev-info">&#9679; INFO</span><br>Human review assigned</td>
+      <td><code>CTS_WF_HUMAN_REVIEW_ASSIGNED</code><br><code>CTS_HUMAN_REVIEW_ESCALATED</code></td>
+      <td class="trigger">HumanReviewWorkflow<br>on queue push</td>
+      <td>
+        <span class="role-pill role-ops-reviewer">ops_reviewer</span> <span class="ch bell">Bell</span> <span class="ch wa">WhatsApp</span> <small style="color:var(--muted)">(zone-scoped)</small>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>55-min window starts</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>IET warning in review queue</td>
+      <td><code>CTS_WF_REVIEW_IET_WARNING</code><br><em>inline only</em></td>
+      <td class="trigger">HumanReviewWorkflow<br>timer at T-15 min</td>
+      <td>
+        <span class="role-pill role-ops-reviewer">ops_reviewer</span> <span class="ch bell">Bell</span> <span class="ch wa">WhatsApp</span> <small style="color:var(--muted)">(zone-scoped)</small>
+      </td>
+      <td class="no">NO</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>Human review timed out (55 min)</td>
+      <td><code>CTS_WF_REVIEW_TIMEOUT</code><br><code>CTS_REVIEW_TIMEOUT</code></td>
+      <td class="trigger">HumanReviewWorkflow<br>55-min deadline</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch email">Email</span> <span class="ch wa">WhatsApp</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p1">P1</span></td>
+      <td>4 hr resolve</td>
+    </tr>
+    <!-- NGCH -->
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>NGCH submission failed (retry)</td>
+      <td><code>CTS_NGCH_SUBMIT_FAILED</code><br><code>CTS_NGCH_FILED</code></td>
+      <td class="trigger">ngch_filer activity<br>attempt 1-2 of 3</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>NGCH submission permanently failed</td>
+      <td><code>CTS_NGCH_SUBMIT_FAILED_TERMINAL</code><br><code>CTS_NGCH_TERMINAL_FAILURE</code></td>
+      <td class="trigger">ngch_filer activity<br>max retries exhausted</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch email">Email</span> <span class="ch wa">WhatsApp</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span> <span class="ch wa">WhatsApp</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p0">P0</span></td>
+      <td>Immediate</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>NGCH mTLS cert expired</td>
+      <td><code>CTS_NGCH_AUTH_CERT_EXPIRED</code><br><code>CTS_NGCH_CERT_EXPIRED</code></td>
+      <td class="trigger">ngch_adapter<br>on cert failure</td>
+      <td>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p0">P0</span></td>
+      <td>Immediate</td>
+    </tr>
+    <!-- Workflow decisions (per-instrument, bell only to reviewer) -->
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>Alteration detected</td>
+      <td><code>CTS_WF_ALTERATION_DETECTED</code><br><code>CTS_DECISION</code></td>
+      <td class="trigger">alteration activity<br>detect_alteration()</td>
+      <td>
+        <span class="role-pill role-ops-reviewer">ops_reviewer</span> <span class="ch bell">Bell</span> <small style="color:var(--muted)">(zone-scoped)</small><br>
+        <span class="role-pill role-fraud-analyst">fraud_analyst</span> <span class="ch bell">Bell</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>High fraud score</td>
+      <td><code>CTS_WF_FRAUD_SCORE_HIGH</code><br><code>CTS_DECISION</code></td>
+      <td class="trigger">fraud activity<br>score_fraud()</td>
+      <td>
+        <span class="role-pill role-ops-reviewer">ops_reviewer</span> <span class="ch bell">Bell</span> <small style="color:var(--muted)">(zone-scoped)</small><br>
+        <span class="role-pill role-fraud-analyst">fraud_analyst</span> <span class="ch bell">Bell</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>Signature mismatch</td>
+      <td><code>CTS_WF_SIGNATURE_MISMATCH</code><br><code>CTS_DECISION</code></td>
+      <td class="trigger">signature activity<br>verify_signature()</td>
+      <td>
+        <span class="role-pill role-ops-reviewer">ops_reviewer</span> <span class="ch bell">Bell</span> <small style="color:var(--muted)">(zone-scoped)</small>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>Vault miss &mdash; no signature specimen</td>
+      <td><code>CTS_WF_VAULT_MISS</code><br><code>CTS_VAULT_MISS</code></td>
+      <td class="trigger">signature_vault.py<br>on Redis miss</td>
+      <td>
+        <span class="role-pill role-ops-reviewer">ops_reviewer</span> <span class="ch bell">Bell</span> <small style="color:var(--muted)">(zone-scoped)</small><br>
+        <small style="color:var(--muted)">Batch summary (session close) &rarr; ops_manager email</small>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>Stop payment active</td>
+      <td><code>CTS_WF_STOP_PAYMENT_HIT</code><br><code>CTS_DECISION</code></td>
+      <td class="trigger">stop_payment activity</td>
+      <td>
+        <span class="role-pill role-ops-reviewer">ops_reviewer</span> <span class="ch bell">Bell</span> <small style="color:var(--muted)">(zone-scoped)</small>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>PPS amount or series mismatch</td>
+      <td><code>VAULT_PPS_AMOUNT_MISMATCH</code><br><code>VAULT_PPS_SERIES_MISMATCH</code></td>
+      <td class="trigger">pps activity<br>lookup_pps()</td>
+      <td>
+        <span class="role-pill role-ops-reviewer">ops_reviewer</span> <span class="ch bell">Bell</span> <small style="color:var(--muted)">(zone-scoped)</small>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>Kill switch active (KP or KC) &mdash; see Kill Switch tab</td>
+      <td><code>CTS_KS_ENGAGED</code><br><code>CTS_KILL_SWITCH_ENGAGED</code></td>
+      <td class="trigger">kill_switch_event_handler</td>
+      <td><a href="#" onclick="sw('ks');return false" style="color:#f87171;font-size:10px">&#9888; See Kill Switch tab &rarr;</a></td>
+      <td class="yes">YES</td>
+      <td><span class="ch p0">P0</span></td>
+      <td>30 min</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ═══ CTS OUTWARD ══════════════════════════════════════════════════════════ -->
+<div id="cts-out" class="panel">
+  <table>
+    <tr><th>Event</th><th>Msg Key / AuditEventType</th><th>Triggered by</th><th>Recipients &amp; Channels</th><th>Immudb</th><th>Incident</th><th>SLA</th></tr>
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>Scanner offline</td>
+      <td><code>CTS_OUT_SCANNER_OFFLINE</code><br><em>inline notification</em></td>
+      <td class="trigger">scanner adapter<br>on connectivity loss</td>
+      <td>
+        <span class="role-pill role-ops-reviewer">ops_reviewer</span> <span class="ch bell">Bell</span> <span class="ch wa">WhatsApp</span><br>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span>
+      </td>
+      <td class="no">NO</td>
+      <td><span class="ch p2">P2</span></td>
+      <td>24 hr</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>Paper jam</td>
+      <td><code>CTS_OUT_SCANNER_JAM</code><br><em>inline notification</em></td>
+      <td class="trigger">scanner adapter<br>on jam sensor</td>
+      <td>
+        <span class="role-pill role-ops-reviewer">ops_reviewer</span> <span class="ch bell">Bell</span>
+      </td>
+      <td class="no">NO</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>NGCH outward submission failed</td>
+      <td><code>CTS_OUT_NGCH_SUBMISSION_FAILED</code><br><code>CTS_NGCH_FILED</code></td>
+      <td class="trigger">NGCHSubmissionWorkflow</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch email">Email</span> <span class="ch wa">WhatsApp</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p1">P1</span></td>
+      <td>4 hr</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>Clearing session cutoff missed</td>
+      <td><code>CTS_OUT_NGCH_SESSION_CUTOFF_MISSED</code><br><code>CTS_NGCH_FILED</code></td>
+      <td class="trigger">NGCHSubmissionWorkflow<br>session timer</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch email">Email</span> <span class="ch bell">Bell</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p2">P2</span></td>
+      <td>24 hr</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>Reconciliation exception</td>
+      <td><code>CTS_OUT_RECONCILIATION_EXCEPTION</code><br><code>CTS_DECISION</code></td>
+      <td class="trigger">SessionReconciliationWorkflow</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-compliance">compliance_officer</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p2">P2</span></td>
+      <td>24 hr</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>SMB instrument rejected by sponsor</td>
+      <td><code>CTS_SMB_INSTRUMENT_REJECTED</code><br><code>CTS_DECISION</code></td>
+      <td class="trigger">SMBForwardingWorkflow<br>validate_smb_instrument()</td>
+      <td>
+        <span class="role-pill role-smb-it-admin">smb_it_admin</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>SMB daily submission limit exceeded</td>
+      <td><code>CTS_SMB_DAILY_LIMIT_EXCEEDED</code><br><code>CTS_DECISION</code></td>
+      <td class="trigger">sub_member/risk_shield.py</td>
+      <td>
+        <span class="role-pill role-smb-it-admin">smb_it_admin</span> <span class="ch email">Email</span> <span class="ch wa">WhatsApp</span><br>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p2">P2</span></td>
+      <td>24 hr</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>SMB risk shield triggered</td>
+      <td><code>CTS_SMB_RISK_SHIELD_TRIGGERED</code><br><code>CTS_DECISION</code></td>
+      <td class="trigger">sub_member/risk_shield.py</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-smb-it-admin">smb_it_admin</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ═══ KILL SWITCH ══════════════════════════════════════════════════════════ -->
+<div id="ks" class="panel">
+  <div class="ks-banner">
+    <div class="ks-banner-title">&#9888; RBI IT Framework &mdash; Vision AI Kill Switch</div>
+    <div class="ks-banner-body">
+      RBI mandates an operational kill switch on every AI system. ASTRA implements two modes: <b>KP (Kill Partial)</b> &mdash; Vision AI runs but STP is suppressed; all outcomes &rarr; HUMAN_REVIEW.
+      <b>KC (Kill Complete)</b> &mdash; Qwen2-VL bypassed entirely at <code>detect_alteration</code> entry; no GPU cycles consumed.
+      Three scopes: GLOBAL (all instruments), SB_OWN (sponsor bank instruments only), SMB (one specific sub-member).
+      Most restrictive wins: NONE &lt; KP &lt; KC.
+      <br><br>
+      <b>Config keys (Layer 3 &mdash; maker-checker, hot-reload &lt;30s, Immudb-audited):</b>
+      <code>cts.vision_ai.kill_mode.global</code> &nbsp;
+      <code>cts.vision_ai.kill_mode.sb_own</code> &nbsp;
+      <code>cts.vision_ai.kill_mode.smb.{smb_id}</code>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>Event</th><th>Msg Key / AuditEventType</th><th>Trigger</th><th>Recipients &amp; Channels</th><th>Immudb</th><th>Incident</th><th>SLA</th></tr>
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>Kill switch <b>ENGAGED</b> (KP or KC)</td>
+      <td><code>CTS_KS_ENGAGED</code><br><code>CTS_KILL_SWITCH_ENGAGED</code></td>
+      <td class="trigger">kill_switch_event_handler<br>on platform.config.changed<br>for cts.vision_ai.kill_mode.*</td>
+      <td>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span> <span class="ch wa">WhatsApp</span><br>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch email">Email</span> <span class="ch wa">WhatsApp</span><br>
+        <span class="role-pill role-compliance">compliance_officer</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p0">P0</span></td>
+      <td>30 min</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>Kill switch <b>RELEASED</b></td>
+      <td><code>CTS_KS_RELEASED</code><br><code>CTS_KILL_SWITCH_RELEASED</code></td>
+      <td class="trigger">kill_switch_event_handler<br>on mode change to NONE</td>
+      <td>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-compliance">compliance_officer</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>KC applied &mdash; Vision AI bypassed<br><small style="color:var(--muted)">(per instrument, high volume)</small></td>
+      <td><code>CTS_KS_APPLIED_KC</code><br><code>CTS_KILL_SWITCH_APPLIED</code></td>
+      <td class="trigger">alteration.py<br>detect_alteration() KC exit</td>
+      <td><em style="color:var(--muted)">No notification &mdash; Immudb only</em><br><small style="color:var(--muted)">Volume too high for per-instrument alerts</small></td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>KP backstop &mdash; STP suppressed<br><small style="color:var(--muted)">(per instrument, high volume)</small></td>
+      <td><code>CTS_KS_APPLIED_KP</code> / <code>CTS_KS_BACKSTOP_TRIGGERED</code><br><code>CTS_KILL_SWITCH_APPLIED</code></td>
+      <td class="trigger">decision.py<br>synthesise_decision() backstop</td>
+      <td><em style="color:var(--muted)">No notification &mdash; Immudb only</em></td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+  </table>
+
+  <div class="section-title" style="margin-top:16px">What the bank_it_admin email contains</div>
+  <div class="grid2">
+    <div class="box">
+      <div class="box-title" style="color:#fca5a5">On ENGAGE</div>
+      <div class="box-body">
+        Subject: <b>[CRITICAL] ASTRA Vision AI Kill Switch Engaged &mdash; {bank_id}</b><br>
+        Body: Mode = {KP|KC}, Scope = {GLOBAL|SB_OWN|SMB:{smb_id}}, Activated by = {user}, Time = {timestamp}<br>
+        Impact: All {scope} instruments routed to HUMAN_REVIEW. OCR + MICR + CBS checks still run.<br>
+        Action required: Review RBI IT Framework incident log. Notify RBI if engagement exceeds 24hr.
+      </div>
+    </div>
+    <div class="box">
+      <div class="box-title" style="color:#86efac">On RELEASE</div>
+      <div class="box-body">
+        Subject: <b>[INFO] ASTRA Vision AI Kill Switch Released &mdash; {bank_id}</b><br>
+        Body: Mode returned to NONE, Scope = {previous_scope}, Released by = {user}, Time = {timestamp}<br>
+        Impact: Normal AI-assisted STP processing resumed for all instruments.<br>
+        Action: Verify human review queue is clearing. Monitor fraud F1 for anomaly post-switch.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ EJ MODULE ══════════════════════════════════════════════════════════ -->
+<div id="ej" class="panel">
+  <table>
+    <tr><th>Event</th><th>Msg Key / AuditEventType</th><th>Triggered by</th><th>Recipients &amp; Channels</th><th>Immudb</th><th>Incident</th><th>SLA</th></tr>
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>ATM health &rarr; CRITICAL</td>
+      <td><code>EJ_ATM_HEALTH_CRITICAL</code><br><code>EJ_ATM_HEALTH_CHANGED</code></td>
+      <td class="trigger">ATMHealthWorkflow<br>(hourly scheduled)</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch email">Email</span> <span class="ch wa">WhatsApp</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-ml-engineer">ml_engineer</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p1">P1</span></td>
+      <td>4 hr</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>ATM health &rarr; DEGRADED</td>
+      <td><code>EJ_ATM_HEALTH_DEGRADED</code><br><code>EJ_ATM_HEALTH_CHANGED</code></td>
+      <td class="trigger">ATMHealthWorkflow<br>(hourly scheduled)</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-ml-engineer">ml_engineer</span> <span class="ch bell">Bell</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p2">P2</span></td>
+      <td>24 hr</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>Unknown OEM fingerprint</td>
+      <td><code>EJ_OEM_UNKNOWN</code><br><code>EJ_OEM_UNKNOWN</code></td>
+      <td class="trigger">EJNormalisationWorkflow<br>detect_oem_fingerprint()</td>
+      <td>
+        <span class="role-pill role-ml-engineer">ml_engineer</span> <span class="ch bell">Bell</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p2">P2</span></td>
+      <td>24 hr</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>EJ log corrupt (AES-GCM fail)</td>
+      <td><code>EJ_LOG_CORRUPT</code><br><code>EJ_PARSED</code></td>
+      <td class="trigger">EJNormalisationWorkflow<br>fetch_raw_log()</td>
+      <td>
+        <span class="role-pill role-ml-engineer">ml_engineer</span> <span class="ch bell">Bell</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>Edge buffer FULL</td>
+      <td><code>EJ_EDGE_BUFFER_FULL</code><br><em>inline from edge agent</em></td>
+      <td class="trigger">branch-ej-agent Go binary<br>SQLite WAL buffer check</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch wa">WhatsApp</span>
+      </td>
+      <td class="no">NO <small style="color:var(--muted)">(edge, no Immudb)</small></td>
+      <td><span class="ch p1">P1</span></td>
+      <td>4 hr</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>OEM format change detected</td>
+      <td><code>EJ_OEM_FORMAT_CHANGED</code><br><code>EJ_PARSED</code></td>
+      <td class="trigger">EJNormalisationWorkflow<br>detect_oem_fingerprint()</td>
+      <td>
+        <span class="role-pill role-ml-engineer">ml_engineer</span> <span class="ch bell">Bell</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>Dispute escalated to human</td>
+      <td><code>EJ_DISPUTE_ESCALATED</code><br><code>EJ_DISPUTE_ESCALATED</code></td>
+      <td class="trigger">DisputeResolutionWorkflow<br>auto_resolve_or_escalate()</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-fraud-analyst">fraud_analyst</span> <span class="ch bell">Bell</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>Model drift &gt;8% &mdash; model pulled</td>
+      <td><code>PLATFORM_MODEL_DRIFT_CRITICAL</code><br><code>CONFIG_CHANGE</code></td>
+      <td class="trigger">MLflow drift monitor<br>model_registry.py</td>
+      <td>
+        <span class="role-pill role-ml-engineer">ml_engineer</span> <span class="ch email">Email</span> <span class="ch wa">WhatsApp</span><br>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p1">P1</span></td>
+      <td>4 hr</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ═══ PLATFORM ══════════════════════════════════════════════════════════ -->
+<div id="platform" class="panel">
+  <table>
+    <tr><th>Event</th><th>Msg Key / AuditEventType</th><th>Triggered by</th><th>Recipients &amp; Channels</th><th>Immudb</th><th>Incident</th><th>SLA</th></tr>
+    <!-- CBS -->
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>CBS unreachable (during clearing)</td>
+      <td><code>CBS_UNREACHABLE</code><br><code>CBS_UNREACHABLE</code></td>
+      <td class="trigger">CBS activity<br>check_cbs_balance()</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch wa">WhatsApp</span> <span class="ch bell">Bell</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span> <span class="ch bell">Bell</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p1">P1</span> <small style="color:var(--muted)">if clearing hours</small></td>
+      <td>4 hr</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>CBS authentication failure</td>
+      <td><code>CBS_AUTH_FAILED</code><br><code>CBS_AUTH_FAILED</code></td>
+      <td class="trigger">CBS connector<br>cbs_connector/*.py</td>
+      <td>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch wa">WhatsApp</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p0">P0</span></td>
+      <td>30 min</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-info">&#9679; INFO</span><br>CBS connection restored</td>
+      <td><code>CBS_RECOVERED</code><br><code>CBS_UNREACHABLE</code></td>
+      <td class="trigger">CBS connector<br>on reconnect</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">CLOSE incident</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <!-- Vault -->
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>Signature vault stale (&gt;24hr)</td>
+      <td><code>VAULT_SIG_STALE</code><br><code>VAULT_STALE</code></td>
+      <td class="trigger">VaultSyncWorkflow<br>verify_vault_integrity()</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p0">P0</span></td>
+      <td>30 min</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>Vault integrity check failed</td>
+      <td><code>VAULT_SIG_INTEGRITY_FAIL</code><br><code>VAULT_INTEGRITY_FAIL</code></td>
+      <td class="trigger">VaultSyncWorkflow<br>verify_vault_integrity()</td>
+      <td>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p0">P0</span></td>
+      <td>Immediate</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>Vault sync failed</td>
+      <td><code>VAULT_SYNC_FAILED</code><br><code>VAULT_SYNC_FAILED</code></td>
+      <td class="trigger">VaultSyncWorkflow<br>warm_redis_vault()</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch email">Email</span> <span class="ch wa">WhatsApp</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p1">P1</span></td>
+      <td>4 hr</td>
+    </tr>
+    <!-- Auth -->
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>User account locked</td>
+      <td><code>AUTH_ACCOUNT_LOCKED</code><br><code>CONFIG_CHANGE</code></td>
+      <td class="trigger">SAML handler / login<br>after max failures</td>
+      <td>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch bell">Bell</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>Bank IdP unreachable</td>
+      <td><code>AUTH_SAML_IDP_UNREACHABLE</code><br><em>inline</em></td>
+      <td class="trigger">saml_handler.py</td>
+      <td>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch email">Email</span>
+      </td>
+      <td class="no">NO</td>
+      <td><span class="ch p1">P1</span></td>
+      <td>4 hr</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>Role changed for a user</td>
+      <td><code>AUTH_ROLE_CHANGED</code><br><code>CONFIG_CHANGE</code></td>
+      <td class="trigger">user-service<br>admin role assignment</td>
+      <td>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch bell">Bell</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>RBI examiner access granted</td>
+      <td><code>AUTH_RBI_ACCESS_GRANTED</code><br><code>CONFIG_CHANGE</code></td>
+      <td class="trigger">user-service<br>on rbi_examiner provisioning</td>
+      <td>
+        <span class="role-pill role-compliance">compliance_officer</span> <span class="ch email">Email</span> <span class="ch bell">Bell</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <!-- Config -->
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>Layer 3 config change (maker-checker)</td>
+      <td><code>PLATFORM_CONFIG_CHANGE</code><br><code>CONFIG_CHANGE</code></td>
+      <td class="trigger">config-service<br>after checker approval</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch bell">Bell</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>OPA policy change (Layer 4)</td>
+      <td><code>PLATFORM_CONFIG_CHANGE</code><br><code>CONFIG_CHANGE</code></td>
+      <td class="trigger">OPA config watcher<br>on new policy version</td>
+      <td>
+        <span class="role-pill role-compliance">compliance_officer</span> <span class="ch email">Email</span> <span class="ch bell">Bell</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ═══ DELIVERY CASCADE ══════════════════════════════════════════════════ -->
+<div id="cascade" class="panel">
+  <div class="section-title">Channels in ASTRA (no SMS &mdash; WhatsApp is the urgent channel)</div>
+  <div class="grid3" style="margin-bottom:18px">
+    <div class="box">
+      <div class="box-title"><span class="ch email">Email</span> via Postal SMTP</div>
+      <div class="box-body">Self-hosted MTA. React Email templates. For ops_manager, bank_it_admin, compliance_officer, ml_engineer, fraud_analyst. All P0/P1 events. Delivery tracked in <code>notifications</code> table.</div>
+    </div>
+    <div class="box">
+      <div class="box-title"><span class="ch wa">WhatsApp</span> via Meta WA Business API</div>
+      <div class="box-body">Official pre-approved templates only. Used for P0 and P1 events where immediate human attention is needed. Recipients: ops_reviewer (IET risk), ops_manager, bank_it_admin (P0 only). Never for bulk or informational events.</div>
+    </div>
+    <div class="box">
+      <div class="box-title"><span class="ch bell">Bell</span> In-App (Real-Time)</div>
+      <div class="box-body">WebSocket push to active sessions. On disconnect: persisted to <code>notifications</code> table, shown as badge on next login. Primary channel for ops_reviewer during clearing hours (10AM&ndash;4PM). Never used for P0 as sole channel.</div>
+    </div>
+  </div>
+
+  <div class="section-title">Per-Role Cascade</div>
+  <div class="grid2">
+    <div class="box" style="border-left: 3px solid #7dd3fc">
+      <div class="box-title"><span class="role-pill role-ops-reviewer">ops_reviewer</span> &mdash; Zone-scoped, clearing hours</div>
+      <div class="box-body">
+        <div class="cascade-step"><div class="step-num">1</div><div class="step-text"><b>Platform Bell</b> &mdash; primary; always delivered to active workstation session</div></div>
+        <div class="cascade-step"><div class="step-num">2</div><div class="step-text"><b>WhatsApp</b> &mdash; <em>only</em> for IET risk HIGH or CRITICAL; human review timeout T&ndash;15 min</div></div>
+        <small style="color:var(--muted)">No email &mdash; ops_reviewer works at workstation during clearing window.</small>
+      </div>
+    </div>
+    <div class="box" style="border-left: 3px solid #c4b5fd">
+      <div class="box-title"><span class="role-pill role-ops-manager">ops_manager</span> &mdash; All hours</div>
+      <div class="box-body">
+        <div class="cascade-step"><div class="step-num">1</div><div class="step-text"><b>Platform Bell</b> &mdash; for P3 / informational events</div></div>
+        <div class="cascade-step"><div class="step-num">2</div><div class="step-text"><b>Email (Postal)</b> &mdash; for P1 / P2 events</div></div>
+        <div class="cascade-step"><div class="step-num">3</div><div class="step-text"><b>WhatsApp</b> &mdash; for P0 events only (IET, vault stale, NGCH failure, kill switch)</div></div>
+      </div>
+    </div>
+    <div class="box" style="border-left: 3px solid #6ee7b7">
+      <div class="box-title"><span class="role-pill role-it-admin">bank_it_admin</span> &mdash; Admin console, all hours</div>
+      <div class="box-body">
+        <div class="cascade-step"><div class="step-num">1</div><div class="step-text"><b>Email (Postal)</b> &mdash; primary for all P1+ events</div></div>
+        <div class="cascade-step"><div class="step-num">2</div><div class="step-text"><b>WhatsApp</b> &mdash; only for P0 events (HSM, vault integrity, CBS auth, kill switch, cert expiry)</div></div>
+        <div class="cascade-step"><div class="step-num">3</div><div class="step-text"><b>Platform Bell</b> &mdash; for P3 / admin console events (role changes, config changes)</div></div>
+      </div>
+    </div>
+    <div class="box" style="border-left: 3px solid #fcd34d">
+      <div class="box-title"><span class="role-pill role-compliance">compliance_officer</span></div>
+      <div class="box-body">
+        <div class="cascade-step"><div class="step-num">1</div><div class="step-text"><b>Email (Postal)</b> &mdash; sole notification channel for compliance_officer</div></div>
+        <div class="cascade-step"><div class="step-num">2</div><div class="step-text"><b>Platform Bell</b> &mdash; for events visible in audit trail portal</div></div>
+        <small style="color:var(--muted)">compliance_officer is read-only &mdash; never receives per-instrument Bell spam. Only policy changes, RBI access grants, kill switch engage/release, reconciliation exceptions.</small>
+      </div>
+    </div>
+    <div class="box" style="border-left: 3px solid #f9a8d4">
+      <div class="box-title"><span class="role-pill role-fraud-analyst">fraud_analyst</span></div>
+      <div class="box-body">
+        <div class="cascade-step"><div class="step-num">1</div><div class="step-text"><b>Platform Bell</b> &mdash; for high fraud score batches, alteration detected batches</div></div>
+        <div class="cascade-step"><div class="step-num">2</div><div class="step-text"><b>Email</b> &mdash; for dispute escalated (P1/P2)</div></div>
+        <small style="color:var(--muted)">No WhatsApp &mdash; fraud_analyst reviews analytics dashboards, not time-critical alerts.</small>
+      </div>
+    </div>
+    <div class="box" style="border-left: 3px solid #a5b4fc">
+      <div class="box-title"><span class="role-pill role-ml-engineer">ml_engineer</span></div>
+      <div class="box-body">
+        <div class="cascade-step"><div class="step-num">1</div><div class="step-text"><b>Email (Postal)</b> &mdash; for model drift alerts, OEM unknown, EJ parse failures</div></div>
+        <div class="cascade-step"><div class="step-num">2</div><div class="step-text"><b>WhatsApp</b> &mdash; only for model pulled from production (drift &gt;8%)</div></div>
+        <div class="cascade-step"><div class="step-num">3</div><div class="step-text"><b>Platform Bell</b> &mdash; for informational model metrics</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ INCIDENT ESCALATION ══════════════════════════════════════════════ -->
+<div id="incident" class="panel">
+  <div class="grid2">
+    <div class="box" style="border-left: 3px solid #ef4444">
+      <div class="box-title"><span class="ch p0">P0</span> &mdash; 30 min SLA &mdash; Immediate WhatsApp + Email</div>
+      <div class="box-body">
+        <b>Triggers:</b><br>
+        &bull; IET watchdog T&ndash;30s fired (any instrument)<br>
+        &bull; IET breach occurred (deemed approval in effect)<br>
+        &bull; NGCH submission permanently failed (terminal)<br>
+        &bull; NGCH mTLS certificate expired<br>
+        &bull; Vision AI kill switch engaged (KP or KC)<br>
+        &bull; Signature vault stale (&gt;24hr no sync)<br>
+        &bull; Vault integrity check failed<br>
+        &bull; CBS authentication failure<br>
+        <br>
+        <b>Auto-assigned to:</b> ops_manager + bank_it_admin<br>
+        <b>Notification:</b> WhatsApp + Email instantly. If unresolved at T+30m &rarr; escalate email to bank_it_admin again.<br>
+        <b>Incident record:</b> written to <code>cts.incidents</code> YugabyteDB table.
+      </div>
+    </div>
+    <div class="box" style="border-left: 3px solid #f59e0b">
+      <div class="box-title"><span class="ch p1">P1</span> &mdash; 4 hr SLA &mdash; Email + WhatsApp (ops_manager only)</div>
+      <div class="box-body">
+        <b>Triggers:</b><br>
+        &bull; Human review timed out (55-min auto-return)<br>
+        &bull; NGCH outward submission failed<br>
+        &bull; CBS unreachable during clearing hours<br>
+        &bull; ATM health &rarr; CRITICAL<br>
+        &bull; Edge buffer full (branch connectivity loss)<br>
+        &bull; Model drift &gt;8% (model pulled from prod)<br>
+        &bull; Bank IdP unreachable<br>
+        &bull; Vault sync failed<br>
+        <br>
+        <b>Auto-assigned to:</b> ops_manager (operational) or bank_it_admin (infra)<br>
+        <b>Notification:</b> Email at creation. If unresolved at T+4hr &rarr; WhatsApp escalation.
+      </div>
+    </div>
+    <div class="box" style="border-left: 3px solid #3b82f6">
+      <div class="box-title"><span class="ch p2">P2</span> &mdash; 24 hr SLA &mdash; Email only</div>
+      <div class="box-body">
+        <b>Triggers:</b><br>
+        &bull; Session reconciliation exception<br>
+        &bull; Clearing session cutoff missed<br>
+        &bull; ATM health &rarr; DEGRADED<br>
+        &bull; Unknown OEM fingerprint (new ATM OEM)<br>
+        &bull; SMB daily limit exceeded<br>
+        &bull; Scanner offline<br>
+        <br>
+        <b>Auto-assigned to:</b> ops_manager (operational events)<br>
+        <b>Notification:</b> Email only at creation. No escalation until 24hr mark.
+      </div>
+    </div>
+    <div class="box" style="border-left: 3px solid #475569">
+      <div class="box-title"><span class="ch p3">P3</span> &mdash; No SLA &mdash; Bell only</div>
+      <div class="box-body">
+        <b>Triggers:</b><br>
+        &bull; Alteration detected / suspected (per-instrument)<br>
+        &bull; High fraud score (per-instrument)<br>
+        &bull; Signature mismatch (per-instrument)<br>
+        &bull; Vault miss (per-instrument)<br>
+        &bull; Human review assigned (per-instrument)<br>
+        &bull; Config / policy change (Layer 3/4)<br>
+        &bull; Role change, user deactivated<br>
+        &bull; Dispute auto-resolved (info)<br>
+        <br>
+        <b>No incident created.</b> Visible in platform bell + audit trail.<br>
+        ops_manager can manually escalate to P2 if pattern detected.
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title" style="margin-top:8px">Incident auto-close rules</div>
+  <table style="max-width:700px">
+    <tr><th>Event</th><th>Auto-close trigger</th></tr>
+    <tr><td>CBS unreachable (P1)</td><td><code>CBS_RECOVERED</code> message received &rarr; incident closed automatically</td></tr>
+    <tr><td>Vault stale (P0)</td><td>VaultSyncWorkflow completes successfully &rarr; auto-close after verify_vault_integrity pass</td></tr>
+    <tr><td>IET watchdog fired (P0)</td><td>Emergency filing confirmed by NGCH &rarr; auto-close (RBI notification may still be required)</td></tr>
+    <tr><td>Kill switch engaged (P0)</td><td><em>Not auto-closed.</em> Requires manual review by bank_it_admin + compliance_officer sign-off.</td></tr>
+    <tr><td>NGCH cert expired (P0)</td><td>Vault renews cert &rarr; ngch_adapter reconnects &rarr; auto-close on next successful filing</td></tr>
+    <tr><td>Model pulled (P1)</td><td>ml_engineer deploys replacement model version &rarr; manual close</td></tr>
+  </table>
+</div>
+
+<!-- ═══ STORAGE & AUDIT ══════════════════════════════════════════════════ -->
+<div id="storage" class="panel">
+  <div class="section-title">Storage architecture for notifications and incidents</div>
+  <table>
+    <tr><th>What</th><th>Table / System</th><th>Schema / Collection</th><th>Hot retention</th><th>Who queries</th></tr>
+    <tr>
+      <td>Every notification dispatched</td>
+      <td>YugabyteDB</td>
+      <td><code>platform.notifications</code></td>
+      <td>2 years rolling</td>
+      <td>bank_it_admin, compliance_officer</td>
+    </tr>
+    <tr>
+      <td>Every Immudb-written audit event</td>
+      <td>Immudb (cryptographic append-only)</td>
+      <td><code>cts_events</code> / <code>ej_events</code></td>
+      <td>10 years (regulatory)</td>
+      <td>compliance_officer, rbi_examiner, bank_it_admin</td>
+    </tr>
+    <tr>
+      <td>Incident tickets (P0–P2)</td>
+      <td>YugabyteDB</td>
+      <td><code>platform.incidents</code></td>
+      <td>7 years (legal)</td>
+      <td>ops_manager, bank_it_admin, compliance_officer</td>
+    </tr>
+    <tr>
+      <td>Kill switch engagement/release log</td>
+      <td>Immudb (immutable)</td>
+      <td><code>cts_events</code> &mdash; <code>CTS_KILL_SWITCH_ENGAGED</code> / <code>RELEASED</code></td>
+      <td>10 years (RBI mandate)</td>
+      <td>compliance_officer, rbi_examiner</td>
+    </tr>
+    <tr>
+      <td>Kill switch per-instrument application</td>
+      <td>Immudb (immutable)</td>
+      <td><code>cts_events</code> &mdash; <code>CTS_KILL_SWITCH_APPLIED</code></td>
+      <td>10 years</td>
+      <td>compliance_officer, rbi_examiner</td>
+    </tr>
+    <tr>
+      <td>IET watchdog events</td>
+      <td>Immudb (immutable)</td>
+      <td><code>cts_events</code> &mdash; <code>CTS_IET_WATCHDOG_FIRED</code></td>
+      <td>10 years (RBI mandate)</td>
+      <td>compliance_officer, rbi_examiner</td>
+    </tr>
+    <tr>
+      <td>Delivery status (sent/failed/bounced)</td>
+      <td>YugabyteDB</td>
+      <td><code>platform.notifications.status</code></td>
+      <td>2 years</td>
+      <td>bank_it_admin</td>
+    </tr>
+    <tr>
+      <td>WhatsApp message reference (Meta msg_id)</td>
+      <td>YugabyteDB</td>
+      <td><code>platform.notifications.provider_ref</code></td>
+      <td>2 years</td>
+      <td>bank_it_admin</td>
+    </tr>
+    <tr>
+      <td>Bell notifications (unread)</td>
+      <td>YugabyteDB</td>
+      <td><code>platform.notifications</code> where <code>channel=BELL</code> and <code>read_at IS NULL</code></td>
+      <td>30 days then auto-mark-read</td>
+      <td>Each user (own only)</td>
+    </tr>
+  </table>
+
+  <div class="section-title" style="margin-top:16px">platform.notifications table schema <span class="new-tag">PLANNED</span></div>
+  <div class="box">
+    <div class="box-body" style="font-family:'JetBrains Mono','Fira Code',monospace;font-size:10px;line-height:2">
+      notification_id   UUID PK DEFAULT gen_random_uuid()<br>
+      bank_id           TEXT NOT NULL         &mdash; tenant isolation, always present<br>
+      event_type        TEXT NOT NULL         &mdash; AuditEventType value<br>
+      source_id         UUID                  &mdash; audit_event.event_id or Immudb record ID<br>
+      recipient_user_id UUID NOT NULL         &mdash; users.user_id<br>
+      recipient_role    TEXT NOT NULL         &mdash; Role enum value<br>
+      channel           TEXT NOT NULL         &mdash; EMAIL | WHATSAPP | BELL<br>
+      template_id       TEXT NOT NULL         &mdash; matches templates tab<br>
+      template_context  JSONB                 &mdash; no PII; masked/bucketed values only<br>
+      priority          TEXT NOT NULL         &mdash; P0 | P1 | P2 | P3<br>
+      status            TEXT NOT NULL DEFAULT 'QUEUED'  &mdash; QUEUED | SENT | FAILED | DELIVERED<br>
+      provider_ref      TEXT                  &mdash; Postal message_id or Meta WA msg_id<br>
+      sent_at           TIMESTAMPTZ<br>
+      failed_at         TIMESTAMPTZ<br>
+      read_at           TIMESTAMPTZ           &mdash; Bell channel only<br>
+      retry_count       SMALLINT DEFAULT 0<br>
+      created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()<br>
+      INDEX: (bank_id, recipient_user_id, read_at) &mdash; for Bell badge count<br>
+      INDEX: (bank_id, event_type, created_at)     &mdash; for incident correlation
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ROLE × CHANNEL MATRIX ══════════════════════════════════════════ -->
+<div id="role-matrix" class="panel">
+  <div style="margin-bottom:12px;font-size:11px;color:var(--muted)">
+    &#10003; = receives this channel &nbsp;&nbsp; P0/P1 = only for these priorities &nbsp;&nbsp; &mdash; = never
+  </div>
+  <table>
+    <tr>
+      <th>Role</th>
+      <th>Bell (real-time)</th>
+      <th>Email (Postal)</th>
+      <th>WhatsApp (Meta WA)</th>
+      <th>Notes</th>
+    </tr>
+    <tr>
+      <td class="mx-role"><span class="role-pill role-ops-reviewer">ops_reviewer</span></td>
+      <td class="mx-cell"><span class="ck">&#10003;</span> <small>always (zone-scoped)</small></td>
+      <td class="mx-cell"><span class="dash">&mdash;</span></td>
+      <td class="mx-cell"><span class="ck">&#10003;</span> <small>IET risk HIGH/CRITICAL only</small></td>
+      <td>Workstation-primary role. Bell is enough during clearing hours.</td>
+    </tr>
+    <tr>
+      <td class="mx-role"><span class="role-pill role-ops-manager">ops_manager</span></td>
+      <td class="mx-cell"><span class="ck">&#10003;</span> <small>P3</small></td>
+      <td class="mx-cell"><span class="ck">&#10003;</span> <small>P1, P2</small></td>
+      <td class="mx-cell"><span class="ck">&#10003;</span> <small>P0 only</small></td>
+      <td>Full operational view. WhatsApp only for true P0 (vault stale, IET breach, kill switch).</td>
+    </tr>
+    <tr>
+      <td class="mx-role"><span class="role-pill role-it-admin">bank_it_admin</span></td>
+      <td class="mx-cell"><span class="ck">&#10003;</span> <small>P3 (config changes)</small></td>
+      <td class="mx-cell"><span class="ck">&#10003;</span> <small>P1, P2</small></td>
+      <td class="mx-cell"><span class="ck">&#10003;</span> <small>P0 only</small></td>
+      <td>Infrastructure owner. P0 events always WhatsApp+Email. Config changes Bell only.</td>
+    </tr>
+    <tr>
+      <td class="mx-role"><span class="role-pill role-compliance">compliance_officer</span></td>
+      <td class="mx-cell"><span class="ck">&#10003;</span> <small>policy changes, KS events</small></td>
+      <td class="mx-cell"><span class="ck">&#10003;</span> <small>all events</small></td>
+      <td class="mx-cell"><span class="dash">&mdash;</span></td>
+      <td>Audit / regulatory role. No WhatsApp. Email is sufficient for compliance trail.</td>
+    </tr>
+    <tr>
+      <td class="mx-role"><span class="role-pill role-fraud-analyst">fraud_analyst</span></td>
+      <td class="mx-cell"><span class="ck">&#10003;</span> <small>alteration, high fraud batches</small></td>
+      <td class="mx-cell"><span class="ck">&#10003;</span> <small>P1/P2 only (dispute escalated)</small></td>
+      <td class="mx-cell"><span class="dash">&mdash;</span></td>
+      <td>Analytics role. Reviews dashboards &mdash; Bell is primary. No urgent channels.</td>
+    </tr>
+    <tr>
+      <td class="mx-role"><span class="role-pill role-ml-engineer">ml_engineer</span></td>
+      <td class="mx-cell"><span class="ck">&#10003;</span> <small>informational model metrics</small></td>
+      <td class="mx-cell"><span class="ck">&#10003;</span> <small>model drift, OEM unknown</small></td>
+      <td class="mx-cell"><span class="ck">&#10003;</span> <small>model pulled from prod only</small></td>
+      <td>AI/ML operations role. WhatsApp only when model removed from production.</td>
+    </tr>
+    <tr>
+      <td class="mx-role"><span class="role-pill role-smb-it-admin">smb_it_admin</span></td>
+      <td class="mx-cell"><span class="dash">&mdash;</span></td>
+      <td class="mx-cell"><span class="ck">&#10003;</span> <small>SMB rejection, limit exceeded</small></td>
+      <td class="mx-cell"><span class="ck">&#10003;</span> <small>daily limit exceeded only</small></td>
+      <td>SB-side admin managing SMB registrations. No Bell (no workstation access).</td>
+    </tr>
+    <tr>
+      <td class="mx-role"><em style="color:var(--muted);font-size:10px">rbi_examiner</em></td>
+      <td class="mx-cell"><span class="dash">&mdash;</span></td>
+      <td class="mx-cell"><span class="dash">&mdash;</span></td>
+      <td class="mx-cell"><span class="dash">&mdash;</span></td>
+      <td>Read-only, time-scoped audit access. No notifications &mdash; queries Immudb directly.</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ═══ TEMPLATES ════════════════════════════════════════════════════════ -->
+<div id="templates" class="panel">
+  <div style="font-size:11px;color:var(--muted);margin-bottom:12px">
+    All <code>template_id</code> values used in <code>routing.py NotificationRequest</code>. Email templates rendered via React Email (Postal). WhatsApp templates pre-approved by Meta. Variables must match &mdash; no PII, masked/bucketed values only.
+  </div>
+  <table>
+    <tr><th>template_id</th><th>Event</th><th>Recipient</th><th>Channel</th><th>Variables (no PII)</th></tr>
+    <!-- Kill switch -->
+    <tr><td><code>CTS_KS_ENGAGED_IT_ADMIN</code></td><td>Kill switch engaged</td><td>bank_it_admin</td><td><span class="ch email">Email</span> <span class="ch wa">WhatsApp</span></td><td>mode, scope, bank_id, activated_by, timestamp</td></tr>
+    <tr><td><code>CTS_KS_ENGAGED_OPS_MGR</code></td><td>Kill switch engaged</td><td>ops_manager</td><td><span class="ch email">Email</span> <span class="ch wa">WhatsApp</span></td><td>mode, scope, bank_id, activated_by, timestamp</td></tr>
+    <tr><td><code>CTS_KS_ENGAGED_COMPLIANCE</code></td><td>Kill switch engaged</td><td>compliance_officer</td><td><span class="ch email">Email</span></td><td>mode, scope, bank_id, activated_by, timestamp</td></tr>
+    <tr><td><code>CTS_KS_RELEASED_IT_ADMIN</code></td><td>Kill switch released</td><td>bank_it_admin</td><td><span class="ch email">Email</span></td><td>mode, scope, bank_id, released_by, timestamp</td></tr>
+    <tr><td><code>CTS_KS_RELEASED_OPS_MGR</code></td><td>Kill switch released</td><td>ops_manager</td><td><span class="ch email">Email</span></td><td>mode, scope, bank_id, released_by, timestamp</td></tr>
+    <tr><td><code>CTS_KS_RELEASED_COMPLIANCE</code></td><td>Kill switch released</td><td>compliance_officer</td><td><span class="ch email">Email</span></td><td>mode, scope, bank_id, released_by, timestamp</td></tr>
+    <!-- IET -->
+    <tr><td><code>CTS_IET_WATCHDOG_REVIEWER</code></td><td>IET T&ndash;30s fired</td><td>ops_reviewer</td><td><span class="ch bell">Bell</span> <span class="ch wa">WhatsApp</span></td><td>instrument_id, seconds_remaining, zone</td></tr>
+    <tr><td><code>CTS_IET_WATCHDOG_OPS_MGR</code></td><td>IET T&ndash;30s fired</td><td>ops_manager</td><td><span class="ch bell">Bell</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span></td><td>instrument_id, seconds_remaining, bank_id</td></tr>
+    <tr><td><code>CTS_IET_WATCHDOG_IT_ADMIN</code></td><td>IET T&ndash;30s fired</td><td>bank_it_admin</td><td><span class="ch wa">WhatsApp</span></td><td>instrument_id, bank_id</td></tr>
+    <!-- Human review -->
+    <tr><td><code>CTS_HR_ASSIGNED_REVIEWER</code></td><td>Human review assigned</td><td>ops_reviewer</td><td><span class="ch bell">Bell</span> <span class="ch wa">WhatsApp</span></td><td>instrument_id, iet_deadline, zone</td></tr>
+    <tr><td><code>CTS_HR_IET_WARNING_REVIEWER</code></td><td>IET 15-min warning</td><td>ops_reviewer</td><td><span class="ch bell">Bell</span> <span class="ch wa">WhatsApp</span></td><td>instrument_id, minutes_remaining</td></tr>
+    <tr><td><code>CTS_HR_TIMEOUT_OPS_MGR</code></td><td>55-min timeout auto-return</td><td>ops_manager</td><td><span class="ch email">Email</span> <span class="ch wa">WhatsApp</span></td><td>instrument_id, elapsed_minutes, bank_id</td></tr>
+    <tr><td><code>CTS_HR_TIMEOUT_IT_ADMIN</code></td><td>55-min timeout auto-return</td><td>bank_it_admin</td><td><span class="ch email">Email</span></td><td>instrument_id, bank_id</td></tr>
+    <!-- NGCH -->
+    <tr><td><code>CTS_NGCH_TERMINAL_OPS_MGR</code></td><td>NGCH terminal failure</td><td>ops_manager</td><td><span class="ch email">Email</span> <span class="ch wa">WhatsApp</span></td><td>instrument_id, error_code, max_attempts, bank_id</td></tr>
+    <tr><td><code>CTS_NGCH_TERMINAL_IT_ADMIN</code></td><td>NGCH terminal failure</td><td>bank_it_admin</td><td><span class="ch email">Email</span> <span class="ch wa">WhatsApp</span></td><td>instrument_id, error_code, bank_id</td></tr>
+    <tr><td><code>CTS_NGCH_CERT_IT_ADMIN</code></td><td>NGCH cert expired</td><td>bank_it_admin</td><td><span class="ch email">Email</span> <span class="ch wa">WhatsApp</span></td><td>bank_id, timestamp</td></tr>
+    <tr><td><code>CTS_NGCH_CERT_OPS_MGR</code></td><td>NGCH cert expired</td><td>ops_manager</td><td><span class="ch wa">WhatsApp</span> <span class="ch email">Email</span></td><td>bank_id, timestamp</td></tr>
+    <!-- CBS -->
+    <tr><td><code>CBS_UNREACHABLE_OPS_MGR</code></td><td>CBS unreachable</td><td>ops_manager</td><td><span class="ch wa">WhatsApp</span> <span class="ch bell">Bell</span></td><td>cbs_type, bank_id, timeout_seconds</td></tr>
+    <tr><td><code>CBS_UNREACHABLE_IT_ADMIN</code></td><td>CBS unreachable</td><td>bank_it_admin</td><td><span class="ch email">Email</span> <span class="ch bell">Bell</span></td><td>cbs_type, bank_id, timeout_seconds</td></tr>
+    <tr><td><code>CBS_AUTH_FAILED_IT_ADMIN</code></td><td>CBS auth failure</td><td>bank_it_admin</td><td><span class="ch wa">WhatsApp</span> <span class="ch email">Email</span></td><td>cbs_type, bank_id</td></tr>
+    <tr><td><code>CBS_AUTH_FAILED_OPS_MGR</code></td><td>CBS auth failure</td><td>ops_manager</td><td><span class="ch wa">WhatsApp</span></td><td>cbs_type, bank_id</td></tr>
+    <!-- Vault -->
+    <tr><td><code>VAULT_STALE_OPS_MGR</code></td><td>Vault stale &gt;24hr</td><td>ops_manager</td><td><span class="ch wa">WhatsApp</span> <span class="ch email">Email</span></td><td>bank_id, hours_ago</td></tr>
+    <tr><td><code>VAULT_STALE_IT_ADMIN</code></td><td>Vault stale &gt;24hr</td><td>bank_it_admin</td><td><span class="ch wa">WhatsApp</span> <span class="ch email">Email</span></td><td>bank_id, hours_ago</td></tr>
+    <tr><td><code>VAULT_SYNC_FAILED_OPS_MGR</code></td><td>Vault sync failed</td><td>ops_manager</td><td><span class="ch email">Email</span> <span class="ch wa">WhatsApp</span></td><td>bank_id, error_code</td></tr>
+    <tr><td><code>VAULT_SYNC_FAILED_IT_ADMIN</code></td><td>Vault sync failed</td><td>bank_it_admin</td><td><span class="ch email">Email</span></td><td>bank_id, error_code</td></tr>
+    <tr><td><code>VAULT_INTEGRITY_OPS_MGR</code></td><td>Vault integrity fail</td><td>ops_manager</td><td><span class="ch wa">WhatsApp</span> <span class="ch email">Email</span></td><td>bank_id, corrupt_count</td></tr>
+    <tr><td><code>VAULT_INTEGRITY_IT_ADMIN</code></td><td>Vault integrity fail</td><td>bank_it_admin</td><td><span class="ch wa">WhatsApp</span> <span class="ch email">Email</span></td><td>bank_id, corrupt_count</td></tr>
+    <!-- EJ -->
+    <tr><td><code>EJ_ATM_CRITICAL_OPS_MGR</code></td><td>ATM health CRITICAL</td><td>ops_manager</td><td><span class="ch email">Email</span> <span class="ch wa">WhatsApp</span></td><td>atm_id, bank_id</td></tr>
+    <tr><td><code>EJ_ATM_CRITICAL_IT_ADMIN</code></td><td>ATM health CRITICAL</td><td>bank_it_admin</td><td><span class="ch email">Email</span></td><td>atm_id, bank_id</td></tr>
+    <tr><td><code>EJ_ATM_CRITICAL_ML_ENG</code></td><td>ATM health CRITICAL</td><td>ml_engineer</td><td><span class="ch email">Email</span></td><td>atm_id, bank_id</td></tr>
+    <tr><td><code>EJ_ATM_DEGRADED_OPS_MGR</code></td><td>ATM health DEGRADED</td><td>ops_manager</td><td><span class="ch bell">Bell</span> <span class="ch email">Email</span></td><td>atm_id, bank_id</td></tr>
+    <tr><td><code>EJ_ATM_DEGRADED_ML_ENG</code></td><td>ATM health DEGRADED</td><td>ml_engineer</td><td><span class="ch bell">Bell</span> <span class="ch email">Email</span></td><td>atm_id, bank_id</td></tr>
+    <tr><td><code>EJ_OEM_UNKNOWN_ML_ENG</code></td><td>OEM fingerprint unknown</td><td>ml_engineer</td><td><span class="ch bell">Bell</span> <span class="ch email">Email</span></td><td>atm_id, score, bank_id</td></tr>
+    <tr><td><code>EJ_OEM_UNKNOWN_IT_ADMIN</code></td><td>OEM fingerprint unknown</td><td>bank_it_admin</td><td><span class="ch email">Email</span></td><td>atm_id, bank_id</td></tr>
+    <tr><td><code>EJ_BUFFER_FULL_OPS_MGR</code></td><td>Edge buffer full</td><td>ops_manager</td><td><span class="ch wa">WhatsApp</span> <span class="ch email">Email</span></td><td>atm_id, bank_id</td></tr>
+    <tr><td><code>EJ_BUFFER_FULL_IT_ADMIN</code></td><td>Edge buffer full</td><td>bank_it_admin</td><td><span class="ch wa">WhatsApp</span></td><td>atm_id, bank_id</td></tr>
+  </table>
+  <p style="margin-top:10px;color:var(--muted);font-size:10px">
+    All <code>template_context</code> values are privacy-guarded: account numbers masked to ****4521, amounts as range buckets, customer names as initials only.
+    New templates added here as features are built &mdash; this tab is the canonical list.
+  </p>
+</div>
+
+<p class="stamp">ASTRA Bank Intelligence Platform &middot; docs/ASTRA_Notification_Taxonomy.html &middot; Generated 2026-07-01 &middot; <b>Living document &mdash; update on every new feature</b></p>
+
+<script>
+function sw(id) {
+  const ids = ['cts-in','cts-out','ks','ej','platform','cascade','incident','storage','role-matrix','templates'];
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ids[i] === id));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === id));
+}
+</script>
+</body>
+</html>

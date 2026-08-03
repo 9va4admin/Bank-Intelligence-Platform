@@ -29,7 +29,13 @@ def upgrade() -> None:
             batch_id            UUID            REFERENCES cts.clearing_batches(batch_id),
 
             -- NPCI / NGCH identifiers
-            ngch_instrument_ref TEXT            UNIQUE,
+            -- Not a column-level UNIQUE: Postgres/YugabyteDB reject a unique
+            -- constraint on a partitioned table unless it includes the
+            -- partition key (received_at) — confirmed via a real migration
+            -- run (psycopg2.errors.FeatureNotSupported). Composite constraint
+            -- below satisfies that; global uniqueness of ngch_instrument_ref
+            -- alone would need a separate lookup table if ever required.
+            ngch_instrument_ref TEXT,
             presenting_bank_code TEXT           NOT NULL,
             presenting_ifsc     TEXT            NOT NULL,
             drawee_ifsc         TEXT            NOT NULL,
@@ -70,7 +76,8 @@ def upgrade() -> None:
             -- Temporal workflow reference
             workflow_id         TEXT            NOT NULL,     -- cts-{bank_id}-{instrument_id}
 
-            PRIMARY KEY (instrument_id, received_at)
+            PRIMARY KEY (instrument_id, received_at),
+            CONSTRAINT uq_cheque_instruments_ngch_ref UNIQUE (ngch_instrument_ref, received_at)
         ) PARTITION BY RANGE (received_at)
     """)
 

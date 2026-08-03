@@ -1,0 +1,82 @@
+# ASTRA backend runtime dependencies.
+#
+# Regression: this file did not exist anywhere in the repo before this
+# commit -- confirmed via `find . -iname "requirements*.txt"` (only an
+# unrelated demo/backend/requirements.txt existed). Every package below was
+# resolved by statically scanning every `import`/`from ... import` in
+# modules/, shared/, apps/api/, apps/audit_service/, apps/ai_server/, and
+# infra/migrations/ (ast.walk over every .py file), then pinned to the exact
+# version already installed and verified working end-to-end in this session
+# against real Redis/YugabyteDB/Immudb/Kafka/MinIO containers -- see
+# infra/docker-compose.integration.yml and tests/integration/.
+#
+# Without this file, CI (or any fresh machine) has no way to install what
+# these services actually need -- there was no way to reconstruct that
+# before now except by trial and error against import errors.
+
+# --- Web framework / API ---
+fastapi==0.115.0
+starlette==0.38.6
+uvicorn==0.30.6
+pydantic==2.9.2
+pydantic-settings==2.5.2
+python-multipart==0.0.12
+
+# --- Database / migrations ---
+sqlalchemy==2.0.51
+alembic==1.18.5
+asyncpg==0.29.0
+psycopg2-binary==2.9.12   # sync driver -- required by Alembic's migration runner
+
+# --- Vaults / caching ---
+redis==5.0.8
+
+# --- Audit trail ---
+immudb-py==1.5.0
+
+# --- Event bus ---
+kafka-python==3.0.8
+
+# --- Object storage ---
+minio==7.2.20
+
+# --- Workflow engine ---
+temporalio==1.7.1
+
+# --- Auth ---
+argon2-cffi==23.1.0
+ldap3==2.9.1
+pyjwt==2.9.0
+cryptography==43.0.1
+hvac==2.4.0
+
+# --- CBS connectors (paramiko: SFTP for NGCH/SMB; zeep: FlexCube SOAP) ---
+paramiko==5.0.0
+zeep==4.3.3
+
+# --- HTTP clients ---
+httpx==0.27.2
+requests==2.34.2
+
+# --- AI inference (openai: OpenAI-compatible client against on-prem vLLM,
+#     never the OpenAI cloud API -- see .claude/rules/ai-inference.md) ---
+openai==1.51.0
+pillow==10.4.0
+numpy==2.4.6
+
+# --- MCP servers (modules/ej/mcp/diagnostic_mcp_server.py) ---
+mcp==1.9.4
+
+# --- Observability ---
+structlog==26.1.0
+opentelemetry-api==1.43.0
+opentelemetry-sdk==1.43.0
+
+# --- Config ---
+pyyaml==6.0.3
+
+# NOTE: headroom-ai[ml] (apps/ai_server/headroom_client.py) is deliberately
+# excluded -- it's an optional compression dependency with a working
+# ImportError fallback already built into that module, and needs a Rust
+# toolchain to build from source (not universally available). Install it
+# separately only where GPU inference nodes need the extra compression.

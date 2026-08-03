@@ -103,6 +103,33 @@ class EJNormalisationWorkflow:
         # Step 5: Store canonical record
         mock_results["store_canonical"]  # noqa: B018 — simulates activity execution
 
+        # Step 5b: Verify canonical integrity (Gemini Fix D)
+        # Re-reads the stored record from YugabyteDB to confirm the canonical_hash →
+        # raw_log_hash linkage is intact. Orphaned records or hash mismatches terminate here.
+        integrity_result = mock_results["verify_canonical_integrity"]
+        if integrity_result.outcome != "INTEGRITY_OK":
+            log.error(
+                "ej_normalise.integrity_failed",
+                atm_id=inp.atm_id,
+                bank_id=inp.bank_id,
+                canonical_hash=parse_result.canonical_hash,
+                failure_reason=getattr(integrity_result, "failure_reason", "UNKNOWN"),
+            )
+            await self._write_audit(
+                mock_results, "INTEGRITY_FAILED", inp.raw_log_hash,
+                parse_result.canonical_hash, inp.atm_id, inp.bank_id,
+            )
+            return EJNormalisationResult(
+                outcome="INTEGRITY_FAILED",
+                bank_id=inp.bank_id,
+                atm_id=inp.atm_id,
+                oem_fingerprint=fingerprint_result.oem_fingerprint,
+                canonical_hash=parse_result.canonical_hash,
+                dispute_check_triggered=False,
+                atm_health_updated=False,
+                audit_written=True,
+            )
+
         # Step 6: Trigger dispute check
         mock_results["trigger_dispute_check"]  # noqa: B018
 

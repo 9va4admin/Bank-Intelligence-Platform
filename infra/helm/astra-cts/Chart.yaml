@@ -5,9 +5,11 @@ description: |
   Requires astra-platform to be installed first.
   Includes: cts-agent-worker, ngch-adapter, vault-sync-service, signature-verification-service,
   fraud-scoring-service, YugabyteDB cts schema, Redis CTS cluster, Temporal CTS task queues.
+  v0.2.0 adds: EEH (External Exchange Hub), IEH (Internal Exchange Hub),
+  Processing Unit topology, deployment_mode flag.
 type: application
-version: "0.1.0"
-appVersion: "0.1.0"
+version: "0.2.0"
+appVersion: "0.2.0"
 keywords:
   - banking
   - cts

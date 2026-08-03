@@ -51,3 +51,26 @@ thresholds:
   atm_health_degraded_threshold: 0.70   # ATM health score below → DEGRADED alert
   atm_health_critical_threshold: 0.40   # ATM health score below → CRITICAL alert
   ej_pull_interval_minutes: 15          # frequency of EJ pulls from edge agent
+
+# ── EJ High Availability (BANK-CONFIGURABLE, Gemini Fix C) ──────────────────
+# EJ SLA is 99.9% (not 99.999% like CTS) — HA settings are less aggressive.
+ej_ha:
+  # Edge agent buffering — SQLite WAL ensures EJ files survive central outage
+  edge_agent:
+    local_buffer_max_days: 7           # edge agent buffers up to 7 days if central is down
+    retry_on_resume: true              # auto-upload buffered logs when central comes back
+
+  # EJ normalisation worker resilience
+  ej_normalisation_worker:
+    max_retries_on_llm_failure: 3      # vLLM down → retry 3 times before PARSE_FAILED
+    # On PARSE_FAILED: raw log is preserved in MinIO WORM — can be reprocessed when GPU recovers
+
+  # Dispute resolution resilience
+  dispute_engine:
+    cctv_fetch_timeout_seconds: 30     # if CCTV unreachable → escalate without CCTV evidence
+    # Auto-resolve requires CCTV evidence. On timeout, dispute is always escalated to human.
+
+  # Redis EJ HA (canonical cache and ATM health signals)
+  redis:
+    replication_mode: active-passive   # follows same pattern as redis-cts
+    atm_health_signal_ttl_seconds: 3600  # ATM health signals replicated — 1hr TTL

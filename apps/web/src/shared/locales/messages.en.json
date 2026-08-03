@@ -459,6 +459,18 @@
       "policy_name"
     ]
   },
+  "CTS_WF_HUMAN_REVIEW_QUEUED": {
+    "text": "Cheque {instrument_id} routed to human review — {rationale}. Awaiting reviewer assignment.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "rationale"
+    ]
+  },
   "CTS_WF_HUMAN_REVIEW_ASSIGNED": {
     "text": "Cheque {instrument_id} assigned to {reviewer} — IET deadline {iet_deadline}.",
     "severity": "INFO",
@@ -585,6 +597,75 @@
     ],
     "variables": [
       "instrument_id"
+    ]
+  },
+  "CTS_KS_ENGAGED": {
+    "text": "Vision AI kill switch engaged — mode={mode} scope={scope} bank={bank_id} by {activated_by}. All affected instruments routed to human review.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "mode",
+      "scope",
+      "bank_id",
+      "activated_by"
+    ]
+  },
+  "CTS_KS_RELEASED": {
+    "text": "Vision AI kill switch released — mode={mode} scope={scope} bank={bank_id} by {released_by}. Normal AI processing resumed.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "mode",
+      "scope",
+      "bank_id",
+      "released_by"
+    ]
+  },
+  "CTS_KS_APPLIED_KC": {
+    "text": "Kill Complete (KC) applied to {instrument_id} — Vision AI bypassed. Instrument queued for human review. Scope: {scope}. Bank: {bank_id}.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "scope"
+    ]
+  },
+  "CTS_KS_APPLIED_KP": {
+    "text": "Kill Partial (KP) applied to {instrument_id} — Vision AI ran but STP suppressed. Instrument queued for human review. Scope: {scope}. Bank: {bank_id}.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "scope"
+    ]
+  },
+  "CTS_KS_BACKSTOP_TRIGGERED": {
+    "text": "Kill-switch backstop triggered at decision stage for {instrument_id} — mode={kill_switch_mode} scope={scope} bank={bank_id}. Mid-flight instrument intercepted before STP.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "kill_switch_mode",
+      "scope"
     ]
   },
   "CTS_OUT_SCANNER_SESSION_OPENED": {
@@ -750,6 +831,18 @@
       "lot_total"
     ]
   },
+  "CTS_OUT_INSTRUMENT_PENDING": {
+    "text": "Instrument {instrument_id} (scan {scan_id}) accepted — awaiting lot assignment at clearing session open.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "scan_id"
+    ]
+  },
   "CTS_OUT_LOT_SEALED": {
     "text": "Lot {lot_id} sealed by {operator} — {instrument_count} instruments, value {total_value_range}.",
     "severity": "INFO",
@@ -798,6 +891,19 @@
     "variables": [
       "instrument_id",
       "stamp_ref"
+    ]
+  },
+  "CTS_OUT_ENDORSED": {
+    "text": "Lot {lot_number} for bank {bank_id} endorsed — {endorsed_count} instruments stamped.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "lot_number",
+      "bank_id",
+      "endorsed_count"
     ]
   },
   "CTS_OUT_ENDORSEMENT_BATCH_COMPLETE": {
@@ -911,6 +1017,114 @@
       "instrument_id",
       "ngch_status",
       "local_status"
+    ]
+  },
+  "CTS_OUT_REPRESENTATION_PENDING": {
+    "text": "Instrument {instrument_id} returned (code {return_reason_code}) — fix issue and re-present within {representation_window_hours} hours.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code",
+      "representation_window_hours"
+    ]
+  },
+  "CTS_OUT_REPRESENTATION_SUBMITTED": {
+    "text": "Instrument {instrument_id} (code {return_reason_code}) successfully re-presented — NGCH reference {ngch_reference}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code",
+      "ngch_reference"
+    ]
+  },
+  "CTS_OUT_REPRESENTATION_EXPIRED": {
+    "text": "Re-presentation window expired for {instrument_id} (code {return_reason_code}) — {representation_window_hours}-hour limit breached. Manual action required.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code",
+      "representation_window_hours"
+    ]
+  },
+  "CTS_OUT_REPRESENTATION_FAILED": {
+    "text": "Re-presentation to NGCH failed for {instrument_id} (code {return_reason_code}). Ops intervention required.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code"
+    ]
+  },
+  "CTS_OUT_MISMATCH_HELD": {
+    "text": "Instrument {instrument_id} held at branch {branch_id} — scanner vs Vision mismatch on: {mismatch_fields}. Awaiting branch review.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "branch_id",
+      "mismatch_fields"
+    ]
+  },
+  "CTS_OUT_MISMATCH_RESOLVED_GO_AHEAD": {
+    "text": "Branch mismatch on {instrument_id} at {branch_id} resolved as GO_AHEAD by {reviewer} — proceeding to lot.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "branch_id",
+      "reviewer"
+    ]
+  },
+  "CTS_OUT_MISMATCH_RESOLVED_REJECTED": {
+    "text": "Branch mismatch on {instrument_id} at {branch_id} rejected by {reviewer} — instrument withdrawn.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "branch_id",
+      "reviewer"
+    ]
+  },
+  "CTS_OUT_MISMATCH_TIMEOUT_AUTO_REJECTED": {
+    "text": "Mismatch hold on {instrument_id} at branch {branch_id} expired after {timeout_hours}h without resolution — auto-rejected.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "branch_id",
+      "timeout_hours"
     ]
   },
   "CTS_COMP_BANK_LOGO_MISSING": {
@@ -1394,6 +1608,50 @@
       "session_id"
     ]
   },
+  "CTS_SMB_HUMAN_REVIEW_ASSIGNED": {
+    "text": "Cheque {instrument_id} for {smb_name} assigned to SMB review queue — reason: {reason}. Sponsor bank: {sponsor_bank}. IET deadline: {iet_deadline}.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_name",
+      "instrument_id",
+      "reason",
+      "sponsor_bank",
+      "iet_deadline"
+    ]
+  },
+  "CTS_SMB_DECISION_FILED": {
+    "text": "SMB review decision filed for {instrument_id} ({smb_name}): {decision} by {filed_by}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "smb_name",
+      "instrument_id",
+      "decision",
+      "filed_by"
+    ]
+  },
+  "CTS_SMB_SETTLEMENT_AVAILABLE": {
+    "text": "Settlement report available for {smb_name} — session {session_id}: {instrument_count} instruments settled on {settlement_date}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_name",
+      "session_id",
+      "instrument_count",
+      "settlement_date"
+    ]
+  },
   "CBS_BALANCE_CHECK_OK": {
     "text": "Balance check passed for {account_display} — {instrument_id} proceeds.",
     "severity": "INFO",
@@ -1714,6 +1972,57 @@
     "variables": [
       "bank_id",
       "corrupt_count"
+    ]
+  },
+  "VAULT_SIG_CBS_FALLBACK": {
+    "text": "Vault miss for {account_display} — CBS fallback triggered for {instrument_id}. {specimen_count} specimen(s) fetched and stored.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "account_display",
+      "instrument_id",
+      "specimen_count"
+    ]
+  },
+  "VAULT_SIG_CBS_STORED": {
+    "text": "CBS specimen(s) stored in signature vault for {account_display} — {specimen_count} image(s) written.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "specimen_count"
+    ]
+  },
+  "VAULT_SIG_NO_SPECIMEN": {
+    "text": "No signature specimen for {account_display} — vault miss and CBS returned nothing. {instrument_id} to human review.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "account_display",
+      "instrument_id"
+    ]
+  },
+  "VAULT_SIG_MULTI_DETECTED": {
+    "text": "Multiple signatures detected on {instrument_id} for {account_display} — {sig_count} ink marks found. Human review required.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "instrument_id",
+      "sig_count"
     ]
   },
   "VAULT_PPS_HIT": {
@@ -2799,6 +3108,748 @@
       "from_pods",
       "to_pods",
       "trigger"
+    ]
+  },
+  "VAULT_STALE": {
+    "text": "Vault data stale for {bank_id} ({vault_type}) — {staleness_minutes} minutes since last sync. All instruments routing to human review.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "vault_type",
+      "staleness_minutes"
+    ]
+  },
+  "VAULT_INTEGRITY_FAIL": {
+    "text": "Vault integrity check FAILED for {bank_id} ({vault_type}) — {error_detail}. Vault halted, all instruments routed to human review.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "vault_type",
+      "error_detail"
+    ]
+  },
+  "CTS_REVIEW_TIMEOUT": {
+    "text": "Human review timed out for cheque {instrument_id} ({bank_id}) after {elapsed_minutes} min — auto-returned to NGCH.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "elapsed_minutes"
+    ]
+  },
+  "CTS_REVIEW_ASSIGNED": {
+    "text": "Cheque {instrument_id} ({bank_id}) assigned to reviewer {reviewer_display} for human review.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "reviewer_display"
+    ]
+  },
+  "CTS_NGCH_TERMINAL_FAILURE": {
+    "text": "NGCH filing FAILED terminally for cheque {instrument_id} ({bank_id}) — error {error_code} after {retry_count} retries. Manual intervention required.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "error_code",
+      "retry_count"
+    ]
+  },
+  "CTS_NGCH_CERT_EXPIRED": {
+    "text": "NGCH mTLS certificate expired for {bank_id} (expired {cert_expiry}). All NGCH filing halted — rotate certificate immediately.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "cert_expiry"
+    ]
+  },
+  "MCP_CONN_CREATED": {
+    "text": "MCP connection {connection_type} created for {bank_id} (SMB: {smb_id}) by {created_by}. Status: PENDING — test required before clearing can open.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_type",
+      "smb_id",
+      "created_by"
+    ]
+  },
+  "MCP_CONN_UPDATED": {
+    "text": "MCP connection {connection_type} ({connection_id}) updated by {updated_by} for {bank_id}. Status reset to PENDING — re-test required.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "updated_by"
+    ]
+  },
+  "MCP_CONN_DELETED": {
+    "text": "MCP connection {connection_type} ({connection_id}) deleted by {deleted_by} for {bank_id} (SMB: {smb_id}). Clearing sessions blocked if no replacement configured.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "smb_id",
+      "deleted_by"
+    ]
+  },
+  "MCP_CONN_TESTED_OK": {
+    "text": "MCP connection {connection_type} ({connection_id}) tested OK for {bank_id} — latency {latency_ms} ms. Status: ACTIVE. Tested by {tested_by}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "latency_ms",
+      "tested_by"
+    ]
+  },
+  "MCP_CONN_TESTED_FAIL": {
+    "text": "MCP connection {connection_type} ({connection_id}) test FAILED for {bank_id} — {error}. Status: ERROR. Clearing sessions will be blocked. Tested by {tested_by}.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "error",
+      "tested_by"
+    ]
+  },
+  "MCP_CONN_SYNC_TRIGGERED": {
+    "text": "Vault sync triggered for MCP connection {connection_type} ({connection_id}) on {bank_id} — workflow {workflow_id}. Triggered by {triggered_by}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "connection_id",
+      "connection_type",
+      "workflow_id",
+      "triggered_by"
+    ]
+  },
+  "CTS_CC_SESSION_OPENED": {
+    "text": "Clearing session {session_id} ({session_type}) opened for agency {agency_id} → SB {sb_bank_id} on {clearing_date}. Awaiting lot sealing from all PUs.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "session_id",
+      "session_type",
+      "sb_bank_id",
+      "clearing_date"
+    ]
+  },
+  "CTS_CC_SESSION_SEALED": {
+    "text": "All {lot_count} lots sealed for session {session_id} — {total_instruments} instruments ready for submission to SB {sb_bank_id}. Agency: {agency_id}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "session_id",
+      "lot_count",
+      "total_instruments",
+      "sb_bank_id"
+    ]
+  },
+  "CTS_CC_SB_SUBMITTED": {
+    "text": "Lot package submitted to SB {sb_bank_id} via {connector_type} — reference {sb_reference}. Session: {session_id}, instruments: {instrument_count}. Agency: {agency_id}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "sb_reference",
+      "instrument_count",
+      "connector_type"
+    ]
+  },
+  "CTS_CC_SB_ACKNOWLEDGED": {
+    "text": "SB {sb_bank_id} acknowledged receipt of session {session_id} — reference {sb_reference}. Agency: {agency_id}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "sb_reference"
+    ]
+  },
+  "CTS_CC_INWARD_RECEIVED": {
+    "text": "Inward relay received from SB {sb_bank_id} — {instrument_count} instruments for session {session_id}. Routing to PUs. Agency: {agency_id}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "instrument_count"
+    ]
+  },
+  "CTS_CC_INWARD_ROUTED": {
+    "text": "Inward routing complete for session {session_id} — {routed_count} instruments routed to PUs, {failed_count} CRL misses. Agency: {agency_id}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "agency_id",
+      "session_id",
+      "routed_count",
+      "failed_count"
+    ]
+  },
+  "CTS_CC_SB_CONN_FAILED": {
+    "text": "SB connector failure for {sb_bank_id} [{connector_type}] — {error_code}. Session {session_id} could not be submitted. Manual intervention required. Agency: {agency_id}.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "error_code",
+      "connector_type"
+    ]
+  },
+  "CTS_CC_SESSION_RECONCILED": {
+    "text": "Clearing session {session_id} fully reconciled — {instrument_count} instruments settled with SB {sb_bank_id} on {clearing_date}. Agency: {agency_id}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "agency_id",
+      "sb_bank_id",
+      "session_id",
+      "instrument_count",
+      "clearing_date"
+    ]
+  },
+  "CTS_SMB_PUSH_RECEIVED": {
+    "text": "CBS push file received from SMB {smb_id} — type {file_type}. Agency: {agency_id}. Hash: {file_hash}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "smb_id",
+      "file_type",
+      "agency_id",
+      "file_hash"
+    ]
+  },
+  "CTS_SMB_PUSH_VAULT_UPDATED": {
+    "text": "Vault updated from SMB {smb_id} CBS push — {records_processed} {file_type} records applied. Agency: {agency_id}.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_id",
+      "file_type",
+      "agency_id",
+      "records_processed"
+    ]
+  },
+  "CTS_SMB_PUSH_PARSE_FAILED": {
+    "text": "SMB {smb_id} CBS push file parse failed — {file_type}: {failure_reason}. Agency: {agency_id}. Resend required.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "smb_id",
+      "file_type",
+      "agency_id",
+      "failure_reason"
+    ]
+  },
+  "CTS_SMB_PUSH_DUPLICATE": {
+    "text": "Duplicate CBS push file from SMB {smb_id} — {file_type} already processed (hash {file_hash}). Agency: {agency_id}. Skipped.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "smb_id",
+      "file_type",
+      "agency_id",
+      "file_hash"
+    ]
+  },
+  "AUTH_LDAP_BIND_SUCCESS": {
+    "text": "LDAP authentication successful for {username} ({entity_type}) at bank {bank_id}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "username",
+      "entity_type",
+      "bank_id"
+    ]
+  },
+  "AUTH_LDAP_BIND_FAILED": {
+    "text": "LDAP authentication failed for {username} ({entity_type}) at bank {bank_id}. Invalid credentials.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "username",
+      "entity_type",
+      "bank_id"
+    ]
+  },
+  "AUTH_LDAP_GROUP_UNMAPPED": {
+    "text": "User {username} authenticated via LDAP at bank {bank_id} but has no mapped ASTRA role. AD groups: {groups}. Add group to group_role_map.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "username",
+      "bank_id",
+      "groups"
+    ]
+  },
+  "AUTH_LDAP_SERVER_UNREACHABLE": {
+    "text": "LDAP/AD server {server_url} unreachable for {entity_type} auth at bank {bank_id}. Users cannot log in. Check network and LDAPS port 636.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "server_url",
+      "bank_id",
+      "entity_type"
+    ]
+  },
+  "AUTH_LOCAL_LOGIN_SUCCESS": {
+    "text": "Local account login successful for {username} ({entity_type}) at bank {bank_id}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "username",
+      "entity_type",
+      "bank_id"
+    ]
+  },
+  "AUTH_LOCAL_LOGIN_FAILED": {
+    "text": "Local account login failed for {username} at bank {bank_id}. Failed attempts: {attempts}.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "username",
+      "bank_id",
+      "attempts"
+    ]
+  },
+  "AUTH_LOCAL_ACCOUNT_LOCKED": {
+    "text": "Local account {username} at bank {bank_id} locked until {locked_until} after repeated failures. Contact bank IT admin.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "username",
+      "bank_id",
+      "locked_until"
+    ]
+  },
+  "AUTH_CONNECTOR_CONFIG_MISSING": {
+    "text": "Auth connector configuration missing for {entity_type} at bank {bank_id}. Users cannot log in. Update Helm Layer 2 values.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "entity_type",
+      "bank_id"
+    ]
+  },
+  "MSV_VALIDATED": {
+    "text": "MSV validation complete for instrument {instrument_id} at bank {bank_id}: outcome {outcome}, confidence {confidence_pct}%.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "outcome",
+      "confidence_pct",
+      "bank_id"
+    ]
+  },
+  "MSV_VALIDATION_DEGRADED": {
+    "text": "MSV validation degraded for instrument {instrument_id} at bank {bank_id}: {reason_code}. Routing to human review.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "reason_code",
+      "bank_id"
+    ]
+  },
+  "MSV_ENROLLMENT_COMPLETE": {
+    "text": "MSV bulk enrollment job {job_id} complete at bank {bank_id}: {enrolled_count}/{total_count} accounts enrolled.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "job_id",
+      "bank_id",
+      "enrolled_count",
+      "total_count"
+    ]
+  },
+  "MSV_ENROLLMENT_FAILED": {
+    "text": "MSV enrollment job {job_id} failed at bank {bank_id}: {error_summary}. Retry required.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "job_id",
+      "bank_id",
+      "error_summary"
+    ]
+  },
+  "MSV_ENROLLMENT_SKIPPED": {
+    "text": "MSV enrollment skipped for account {account_display} at bank {bank_id}: {reason_code}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "bank_id",
+      "reason_code"
+    ]
+  },
+  "MSV_CBS_SYNC_COMPLETE": {
+    "text": "MSV CBS sync complete for bank {bank_id} batch {batch_id}: {enrolled_count} signatories enrolled.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "batch_id",
+      "enrolled_count"
+    ]
+  },
+  "MSV_CBS_SYNC_DEGRADED": {
+    "text": "MSV CBS sync degraded for bank {bank_id} batch {batch_id}. CBS unavailable — will retry on next sync cycle.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "batch_id"
+    ]
+  },
+  "MSV_SIGNATORY_REVOKED": {
+    "text": "MSV signatory {signatory_id} revoked for account {account_display} at bank {bank_id}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "account_display",
+      "signatory_id",
+      "bank_id"
+    ]
+  },
+  "CTS_WF_CHEQUE_POSTDATED": {
+    "text": "Instrument {instrument_id} is post-dated (cheque date: {cheque_date}) — returned immediately (URRBCH code 30).",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "cheque_date"
+    ]
+  },
+  "CTS_WF_CHEQUE_UNDATED": {
+    "text": "Instrument {instrument_id} has no date — returned immediately (URRBCH code 32).",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_WF_ALTERATION_CTS_CODE85": {
+    "text": "CTS-2010 alteration in non-date fields on {instrument_id} — fields: {altered_fields}. Auto-returned (URRBCH code 85).",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "altered_fields"
+    ]
+  },
+  "CTS_WF_ALTERATION_DATE_ONLY_REVIEW": {
+    "text": "Date-field alteration detected on {instrument_id} — routed to human review for bank officer decision.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_WF_PPS_FLAG_D_DUPLICATE": {
+    "text": "PPS flag D on {instrument_id} for {account_display} — duplicate presentation detected. Auto-returned (URRBCH code 14).",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "account_display"
+    ]
+  },
+  "CTS_WF_PPS_FLAG_Y_MISMATCH": {
+    "text": "PPS flag Y on {instrument_id} for {account_display} — financial mismatch. Routed to human review.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "account_display"
+    ]
+  },
+  "CTS_WF_PPS_MANDATORY_MISSING": {
+    "text": "No PPS record for {account_display} on {instrument_id} (amount {amount_range}) — above mandatory threshold. Human review required.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "account_display",
+      "amount_range"
+    ]
+  },
+  "CTS_WF_RETURN_CHARGE_EXEMPT": {
+    "text": "Instrument {instrument_id} returned with code {return_reason_code} — bank must NOT levy return charges (non-customer-fault code per URRBCH).",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "return_reason_code"
+    ]
+  },
+  "CTS_SMB_SPONSOR_SETTLEMENT_INSUFFICIENT": {
+    "text": "SMB {sub_member_id} settlement funds insufficient at {sponsor_bank_id} — batch of {instrument_count} instruments blocked. URRBCH code 25 applied.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "sub_member_id",
+      "sponsor_bank_id",
+      "instrument_count"
+    ]
+  },
+  "CTS_SMB_SPONSOR_SETTLEMENT_CBS_UNAVAILABLE": {
+    "text": "CBS unavailable to verify SMB {sub_member_id} settlement position at {sponsor_bank_id} — batch escalated to human review.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "sub_member_id",
+      "sponsor_bank_id"
+    ]
+  },
+  "VAULT_REDIS_WARM_TRIGGERED": {
+    "text": "Redis signature vault warm triggered for {bank_id} — workflow {workflow_id} started by {triggered_by}. Redis will serve full-speed lookups once warm completes.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "bank_id",
+      "workflow_id",
+      "triggered_by"
+    ]
+  },
+  "VAULT_REDIS_WARM_COMPLETE": {
+    "text": "Redis signature vault warm complete for {bank_id} — {accounts_warmed} accounts loaded in {duration_seconds}s. Coverage restored to 100%.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "accounts_warmed",
+      "duration_seconds"
+    ]
+  },
+  "VAULT_REDIS_COLD_DETECTED": {
+    "text": "Redis signature vault cold for {bank_id} — {gap_accounts} accounts missing from Redis ({coverage_pct}% coverage). Trigger POST /v1/admin/vault/warm-redis to restore.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "gap_accounts",
+      "coverage_pct"
+    ]
+  },
+  "VAULT_SIG_SYNC_STATUS": {
+    "text": "Vault sync status for {bank_id}: {yugabyte_accounts} accounts in YugabyteDB, {redis_sig_keys} in Redis ({coverage_pct}% coverage).",
+    "severity": "INFO",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "bank_id",
+      "yugabyte_accounts",
+      "redis_sig_keys",
+      "coverage_pct"
     ]
   }
 }
