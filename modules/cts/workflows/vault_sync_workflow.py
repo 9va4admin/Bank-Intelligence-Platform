@@ -602,6 +602,37 @@ async def warm_account_vault(
 
 
 # ---------------------------------------------------------------------------
+# Activity: publish vault sync completion event
+# ---------------------------------------------------------------------------
+
+@activity.defn
+async def publish_vault_sync_event(
+    bank_id: str,
+    result_data: dict,
+    event_producer=None,
+) -> None:
+    """
+    Publishes CTS_VAULT_SYNC_COMPLETE to cts.vault.sync.{bank_id}.
+    Consumed by vault_sync_consumer which writes stats to Immudb for RBI audit.
+
+    Non-fatal — vault sync has already succeeded before this is called.
+    event_producer is injected at worker startup; if None, degrades with warning.
+    """
+    if event_producer is None:
+        log.warning("publish_vault_sync_event.no_producer", bank_id=bank_id)
+        return
+    try:
+        await event_producer.publish(
+            topic=f"cts.vault.sync.{bank_id}",
+            event_type="CTS_VAULT_SYNC_COMPLETE",
+            payload=result_data,
+            schema_version="1.0",
+        )
+    except Exception as exc:
+        log.error("publish_vault_sync_event.publish_failed", bank_id=bank_id, error=str(exc))
+
+
+# ---------------------------------------------------------------------------
 # VaultSyncWorkflow — orchestrates 5 activities
 # ---------------------------------------------------------------------------
 
@@ -617,6 +648,8 @@ class VaultSyncWorkflow:
         via worker-level DI (same precedent as other activities in this codebase).
         Args passed here are only serialisable Temporal payloads.
         """
+        started_at = workflow.now().isoformat()
+
         # Step 1: Load raw specimen images from CBS
         try:
             sig_records = await workflow.execute_activity(
@@ -740,7 +773,7 @@ class VaultSyncWorkflow:
             integrity=integrity_ok,
         )
 
-        return VaultSyncResult(
+        result = VaultSyncResult(
             outcome="SYNC_COMPLETE",
             signatures_loaded=len(sig_records),
             signatures_embedded=embed_result.get("embedded", 0),
@@ -749,6 +782,34 @@ class VaultSyncWorkflow:
             integrity_check_passed=integrity_ok,
             triggered_by=inp.triggered_by,
         )
+
+        # Publish completion event to cts.vault.sync.{bank_id} so the
+        # vault_sync_consumer can write stats to Immudb for RBI audit.
+        # Non-fatal — vault is already synced; Kafka publish failure is not a reason to fail.
+        try:
+            await workflow.execute_activity(
+                publish_vault_sync_event,
+                args=[inp.bank_id, {
+                    "outcome": result.outcome,
+                    "signatures_loaded": result.signatures_loaded,
+                    "pps_records_loaded": result.pps_records_loaded,
+                    "cheque_leaves_loaded": result.cheque_leaves_loaded,
+                    "integrity_check_passed": result.integrity_check_passed,
+                    "triggered_by": result.triggered_by,
+                    "started_at": started_at,
+                    "completed_at": workflow.now().isoformat(),
+                }],
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=RetryPolicy(maximum_attempts=1),
+            )
+        except Exception as exc:
+            log.warning(
+                "vault_sync.publish_event_failed",
+                bank_id=inp.bank_id,
+                error=str(exc),
+            )
+
+        return result
 
     async def run_with_mocks(
         self,
