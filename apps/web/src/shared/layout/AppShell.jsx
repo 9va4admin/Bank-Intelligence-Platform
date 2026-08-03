@@ -102,6 +102,7 @@ const SIDEBAR_MODULES = [
           { to: '/cts/inward/verification',    label: 'Verification IQ',             perm: 'cts:view_queue'      },
           { to: '/cts',                        label: 'Validation IQ',  end: true,   perm: 'cts:view_queue'      },
           { to: '/cts/inward/submission',      label: 'Submission IQ',               perm: 'cts:submit_decision' },
+          { to: '/cts/inward/review-queue',    label: 'Human Review Queue',          perm: 'cts:view_queue'      },
           { to: '/cts/hold-queue',             label: 'Hold Queue',                  perm: 'cts:view_queue'      },
           { to: '/cts/recall',                 label: 'Recall',                      perm: 'cts:submit_decision' },
           // SMB Dashboard removed — "Dashboard" nav item shows it directly to SMB users now
@@ -279,6 +280,7 @@ const ROUTE_LABELS = {
   '/branch/mismatch':             ['Branch Portal', 'Mismatch Queue'],
   '/branch/history':              ['Branch Portal', 'Session History'],
   '/branch/hold-queue':           ['Branch Operations', 'Inward Hold Queue — Held Instruments'],
+  '/cts/inward/review-queue':     ['Inward Clearing', 'Human Review Queue — Claim · Hold · Confirm · Return'],
   '/cts/hold-queue':              ['Inward Clearing', 'Hold Queue — Instruments Awaiting Branch Confirmation'],
   '/cts/hub':                     ['Outward Clearing', 'Hub Manager — Branch Sessions & Lot Sealing'],
   '/ops/dashboard':               ['Platform Ops', 'ASTRA Ops Overview'],
