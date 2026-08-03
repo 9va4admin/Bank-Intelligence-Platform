@@ -4,3 +4,19 @@ __pycache__/
 node_modules/
 dist/
 *.local
+
+# ML model weights (large binaries — distributed via MLflow, not git)
+apps/sig_detector/weights/
+apps/*/weights/
+
+# Debug and scratch outputs (generated during development)
+debug_*.jpg
+debug_*.png
+_test_*.png
+_test_*.jpg
+
+# Log files
+*.log
+
+# Temp test-build helpers (content already merged into proper test files)
+tests/**/partial_image_tests_append.py
