@@ -3851,5 +3851,131 @@
       "redis_sig_keys",
       "coverage_pct"
     ]
+  },
+  "CTS_WF_HOLD_PLACED": {
+    "text": "Instrument {instrument_id} placed on hold by {held_by} — reason: {hold_reason}. IET deadline: {iet_deadline}. Branch notified.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "held_by",
+      "hold_reason",
+      "iet_deadline"
+    ]
+  },
+  "CTS_WF_HOLD_RELEASED": {
+    "text": "Hold released on {instrument_id} by {released_by}. Branch recommendation: {branch_recommendation}. Instrument returned to review queue.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "released_by",
+      "branch_recommendation"
+    ]
+  },
+  "CTS_LOCK_ACQUIRED": {
+    "text": "Review lock acquired on {instrument_id} by {reviewer_id} — TTL {ttl_minutes} minutes.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "reviewer_id",
+      "ttl_minutes"
+    ]
+  },
+  "CTS_LOCK_RELEASED": {
+    "text": "Review lock released on {instrument_id} by {reviewer_id}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "reviewer_id"
+    ]
+  },
+  "CTS_LOCK_EXPIRED": {
+    "text": "Review lock expired on {instrument_id} — previously held by {reviewer_id}. Instrument is now claimable.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "reviewer_id"
+    ]
+  },
+  "CTS_ALLOC_CLAIMED": {
+    "text": "Instrument {instrument_id} manually claimed by {reviewer_id}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "reviewer_id"
+    ]
+  },
+  "CTS_ALLOC_AUTO_ASSIGNED": {
+    "text": "Instrument {instrument_id} auto-assigned to {reviewer_id} via {allocation_mode} allocation mode.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "reviewer_id",
+      "allocation_mode"
+    ]
+  },
+  "CTS_ALLOC_UNCLAIMED": {
+    "text": "Instrument {instrument_id} unclaimed by {reviewer_id} — returned to queue.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "reviewer_id"
+    ]
+  },
+  "PLATFORM_CONFIG_L2_REQUESTED": {
+    "text": "Layer 2 config change requested by {requested_by} — key: {config_key}, from {current_value} to {requested_value}. CAB ticket: {cab_ticket}. Sent to ASTRA vendor for review.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "requested_by",
+      "config_key",
+      "current_value",
+      "requested_value",
+      "cab_ticket"
+    ]
+  },
+  "PLATFORM_CONFIG_L2_DEPLOYED": {
+    "text": "Layer 2 config change deployed — {config_key} updated to {new_value} by {deployed_by} (CAB: {cab_ticket}). Helm upgrade complete.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "config_key",
+      "new_value",
+      "deployed_by",
+      "cab_ticket"
+    ]
   }
 }

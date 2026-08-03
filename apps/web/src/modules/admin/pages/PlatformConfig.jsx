@@ -2,204 +2,120 @@
  * PlatformConfig — Layer 2 deployment topology config, bank_it_admin only.
  *
  * Route: /admin/config/platform  (permission: config:layer2:change)
- * Role:  bank_it_admin (maker) + bank_it_admin-peer or ASTRA vendor (checker)
+ * Role:  bank_it_admin only (no ops_manager access)
  *
  * Layer 2 lives in infra/helm/values/banks/{bank_id}/*.yaml and requires
  * a Helm upgrade (no hot-reload). Changes go through:
- *   bank_it_admin raises change request → ASTRA vendor reviews → CAB approval
+ *   bank_it_admin raises request → ASTRA vendor reviews → CAB approval
  *   → ArgoCD updates targetRevision → rolling deploy.
  *
- * This page shows current deployed values (read from config_service Layer 2 snapshot)
- * and allows raising a change request to ASTRA. It does NOT allow direct editing.
+ * Submit: POST /v1/admin/config/platform/change-request
+ *   → Immudb (CONFIG_L2_CHANGE_REQUESTED) → notification to ASTRA support
+ * Change Requests: GET /v1/admin/config/platform/change-requests
  */
 import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 
-// ─── Layer 2 config keys (infrastructure / deployment topology) ────────────────
+// ─── Layer 2 config schema (UI metadata — values are from last Helm deploy) ─────
 
-const PLATFORM_CONFIG = [
-  // ── Kubernetes / Namespace ──────────────────────────────────────────────
-  {
-    key: 'cts.namespace',
-    label: 'CTS Namespace',
-    value: 'astra-cts-saraswat-coop',
-    type: 'string',
-    category: 'Kubernetes',
-    desc: 'Kubernetes namespace for all CTS workloads. Follows convention astra-cts-{bank_id}. Separate ResourceQuota and LimitRange enforced.',
-    editable: false,
-  },
-  {
-    key: 'ej.namespace',
-    label: 'EJ Namespace',
-    value: 'astra-ej-saraswat-coop',
-    type: 'string',
-    category: 'Kubernetes',
-    desc: 'Kubernetes namespace for all EJ workloads. Istio AuthorizationPolicy blocks cross-namespace CTS↔EJ traffic.',
-    editable: false,
-  },
-  {
-    key: 'cts.workers.min_replicas',
-    label: 'CTS Worker Min Replicas',
-    value: 2,
-    type: 'integer',
-    category: 'Kubernetes',
-    desc: 'Minimum number of warm CTS agent worker pods. KEDA scales up from this baseline on Kafka lag > 10. Never set to 0 — cold start latency would breach IET.',
-    editable: true,
-  },
-  {
-    key: 'cts.workers.max_replicas',
-    label: 'CTS Worker Max Replicas',
-    value: 500,
-    type: 'integer',
-    category: 'Kubernetes',
-    desc: 'Maximum CTS worker pods KEDA can scale to. Should match expected peak batch size. 500 pods → 500 parallel cheque agents → entire batch < 600ms p99.',
-    editable: true,
-  },
-
-  // ── Redis ───────────────────────────────────────────────────────────────
-  {
-    key: 'redis.cts.cluster_size',
-    label: 'CTS Redis Cluster Size',
-    value: 6,
-    type: 'integer',
-    category: 'Redis',
-    desc: 'Number of Redis nodes in the CTS cluster (Signature Vault + PPS Vault). 6 = 3 primaries + 3 replicas (3+3 across 2 DCs). Must be ≥ 6 for active-active.',
-    editable: false,
-  },
-  {
-    key: 'redis.cts.max_memory_gb',
-    label: 'CTS Redis Max Memory (GB)',
-    value: 32,
-    type: 'integer',
-    category: 'Redis',
-    desc: 'Maximum memory per CTS Redis node. Vault warm size depends on number of active accounts. Raise before VaultSyncWorkflow reports evictions.',
-    editable: true,
-  },
-
-  // ── YugabyteDB ──────────────────────────────────────────────────────────
-  {
-    key: 'yugabyte.replication_factor',
-    label: 'YugabyteDB Replication Factor',
-    value: 3,
-    type: 'integer',
-    category: 'YugabyteDB',
-    desc: 'YSQL replication factor across YugabyteDB nodes. RF=3 means any 1 node can fail without data loss. Minimum for active-active DC setup. Do not lower.',
-    editable: false,
-  },
-  {
-    key: 'yugabyte.pgbouncer_cts_max_connections',
-    label: 'CTS pgbouncer Max Connections',
-    value: 200,
-    type: 'integer',
-    category: 'YugabyteDB',
-    desc: 'Maximum connections pgbouncer-cts pool can hold open. Each CTS worker pod uses up to 10. 500 pods × 10 = 5000 connection requests → pooled to 200 DB connections.',
-    editable: true,
-  },
-
-  // ── Kafka ───────────────────────────────────────────────────────────────
-  {
-    key: 'kafka.min_insync_replicas',
-    label: 'Kafka Min In-Sync Replicas',
-    value: 2,
-    type: 'integer',
-    category: 'Kafka',
-    desc: 'Minimum replicas that must acknowledge before a Kafka write is considered durable. min.insync.replicas=2 with replication-factor=3 means 1 broker can fail without data loss.',
-    editable: false,
-  },
-  {
-    key: 'kafka.cts.retention_hours',
-    label: 'CTS Topic Retention (hours)',
-    value: 48,
-    type: 'integer',
-    category: 'Kafka',
-    desc: 'Message retention on cts.* topics. 48 hours gives a recovery window if the Temporal worker is down during a DC failover. Must be > IET window (3 hours).',
-    editable: true,
-  },
-
-  // ── Temporal ────────────────────────────────────────────────────────────
-  {
-    key: 'temporal.cts.task_queue_partitions',
-    label: 'CTS Task Queue Partitions',
-    value: 4,
-    type: 'integer',
-    category: 'Temporal',
-    desc: 'Number of Temporal task queue partitions for CTS processing. Higher = better parallelism for large batches. Each partition served by dedicated worker threads.',
-    editable: true,
-  },
-  {
-    key: 'temporal.namespace',
-    label: 'Temporal Namespace',
-    value: 'astra-cts-saraswat-coop',
-    type: 'string',
-    category: 'Temporal',
-    desc: 'Temporal namespace for CTS workflows. Isolated from EJ namespace — workflow IDs, history, and schedules do not cross module boundaries.',
-    editable: false,
-  },
-
-  // ── Platform Constraints (Layer 1 — read-only display) ─────────────────
-  {
-    key: 'platform.min_tls_version',
-    label: 'Minimum TLS Version',
-    value: 'TLS 1.3',
-    type: 'string',
-    category: 'Platform Constraints',
-    desc: 'Minimum TLS version for all inter-service and external connections. Layer 1 — LOCKED by ASTRA platform. Cannot be overridden by any bank configuration.',
-    editable: false,
-    layer1: true,
-  },
-  {
-    key: 'platform.audit_trail_enabled',
-    label: 'Audit Trail',
-    value: 'true',
-    type: 'string',
-    category: 'Platform Constraints',
-    desc: 'Immudb cryptographic audit trail. Layer 1 — always on. Cannot be disabled. Tampering is cryptographically detectable via Merkle tree verification.',
-    editable: false,
-    layer1: true,
-  },
-  {
-    key: 'platform.hsm_required',
-    label: 'HSM Required for PKI',
-    value: 'true',
-    type: 'string',
-    category: 'Platform Constraints',
-    desc: 'All NGCH PKI signing must use FIPS 140-2 Level 3 HSM. No software-held private keys permitted. Layer 1 — LOCKED.',
-    editable: false,
-    layer1: true,
-  },
-  {
-    key: 'platform.iet_watchdog_enabled',
-    label: 'IET Watchdog',
-    value: 'true',
-    type: 'string',
-    category: 'Platform Constraints',
-    desc: 'IETWatchdogWorkflow spawned as first child of every ChequeProcessingWorkflow. Fires emergency NGCH filing at T-30s. Layer 1 — LOCKED. Cannot be disabled.',
-    editable: false,
-    layer1: true,
-  },
+const PLATFORM_META = [
+  { key: 'cts.namespace',               label: 'CTS Namespace',                  type: 'string',  category: 'Kubernetes', editable: false,
+    desc: 'Kubernetes namespace for all CTS workloads. Follows convention astra-cts-{bank_id}. Separate ResourceQuota and LimitRange enforced.' },
+  { key: 'ej.namespace',                label: 'EJ Namespace',                   type: 'string',  category: 'Kubernetes', editable: false,
+    desc: 'Kubernetes namespace for all EJ workloads. Istio AuthorizationPolicy blocks cross-namespace CTS↔EJ traffic.' },
+  { key: 'cts.workers.min_replicas',    label: 'CTS Worker Min Replicas',        type: 'integer', category: 'Kubernetes', editable: true,
+    desc: 'Minimum number of warm CTS agent worker pods. KEDA scales up from this baseline on Kafka lag > 10. Never set to 0 — cold start latency would breach IET.' },
+  { key: 'cts.workers.max_replicas',    label: 'CTS Worker Max Replicas',        type: 'integer', category: 'Kubernetes', editable: true,
+    desc: 'Maximum CTS worker pods KEDA can scale to. Should match expected peak batch size. 500 pods → 500 parallel cheque agents → entire batch < 600ms p99.' },
+  { key: 'redis.cts.cluster_size',      label: 'CTS Redis Cluster Size',         type: 'integer', category: 'Redis',      editable: false,
+    desc: 'Number of Redis nodes in the CTS cluster (Signature Vault + PPS Vault). 6 = 3 primaries + 3 replicas (3+3 across 2 DCs). Must be ≥ 6 for active-active.' },
+  { key: 'redis.cts.max_memory_gb',     label: 'CTS Redis Max Memory (GB)',      type: 'integer', category: 'Redis',      editable: true,
+    desc: 'Maximum memory per CTS Redis node. Vault warm size depends on number of active accounts. Raise before VaultSyncWorkflow reports evictions.' },
+  { key: 'yugabyte.replication_factor', label: 'YugabyteDB Replication Factor', type: 'integer', category: 'YugabyteDB', editable: false,
+    desc: 'YSQL replication factor across YugabyteDB nodes. RF=3 means any 1 node can fail without data loss. Minimum for active-active DC setup. Do not lower.' },
+  { key: 'yugabyte.pgbouncer_cts_max_connections', label: 'CTS pgbouncer Max Connections', type: 'integer', category: 'YugabyteDB', editable: true,
+    desc: 'Maximum connections pgbouncer-cts pool can hold open. Each CTS worker pod uses up to 10. 500 pods × 10 = 5000 connection requests → pooled to 200 DB connections.' },
+  { key: 'kafka.min_insync_replicas',   label: 'Kafka Min In-Sync Replicas',    type: 'integer', category: 'Kafka',      editable: false,
+    desc: 'Minimum replicas that must acknowledge before a Kafka write is considered durable. min.insync.replicas=2 with replication-factor=3 means 1 broker can fail without data loss.' },
+  { key: 'kafka.cts.retention_hours',   label: 'CTS Topic Retention (hours)',    type: 'integer', category: 'Kafka',      editable: true,
+    desc: 'Message retention on cts.* topics. 48 hours gives a recovery window if the Temporal worker is down during a DC failover. Must be > IET window (3 hours).' },
+  { key: 'temporal.cts.task_queue_partitions', label: 'CTS Task Queue Partitions', type: 'integer', category: 'Temporal', editable: true,
+    desc: 'Number of Temporal task queue partitions for CTS processing. Higher = better parallelism for large batches. Each partition served by dedicated worker threads.' },
+  { key: 'temporal.namespace',          label: 'Temporal Namespace',             type: 'string',  category: 'Temporal',   editable: false,
+    desc: 'Temporal namespace for CTS workflows. Isolated from EJ namespace — workflow IDs, history, and schedules do not cross module boundaries.' },
+  { key: 'platform.min_tls_version',    label: 'Minimum TLS Version',           type: 'string',  category: 'Platform Constraints', editable: false, layer1: true,
+    desc: 'Minimum TLS version for all inter-service and external connections. Layer 1 — LOCKED by ASTRA platform. Cannot be overridden by any bank configuration.' },
+  { key: 'platform.audit_trail_enabled', label: 'Audit Trail',                  type: 'string',  category: 'Platform Constraints', editable: false, layer1: true,
+    desc: 'Immudb cryptographic audit trail. Layer 1 — always on. Cannot be disabled. Tampering is cryptographically detectable via Merkle tree verification.' },
+  { key: 'platform.hsm_required',       label: 'HSM Required for PKI',          type: 'string',  category: 'Platform Constraints', editable: false, layer1: true,
+    desc: 'All NGCH PKI signing must use FIPS 140-2 Level 3 HSM. No software-held private keys permitted. Layer 1 — LOCKED.' },
+  { key: 'platform.iet_watchdog_enabled', label: 'IET Watchdog',                type: 'string',  category: 'Platform Constraints', editable: false, layer1: true,
+    desc: 'IETWatchdogWorkflow spawned as first child of every ChequeProcessingWorkflow. Fires emergency NGCH filing at T-30s. Layer 1 — LOCKED. Cannot be disabled.' },
 ]
+
+// Default display values (from last Helm deploy — read-only display, actual values in values.yaml)
+const PLATFORM_DEFAULTS = {
+  'cts.namespace':                      'astra-cts-{bank_id}',
+  'ej.namespace':                       'astra-ej-{bank_id}',
+  'cts.workers.min_replicas':           '2',
+  'cts.workers.max_replicas':           '500',
+  'redis.cts.cluster_size':             '6',
+  'redis.cts.max_memory_gb':            '32',
+  'yugabyte.replication_factor':        '3',
+  'yugabyte.pgbouncer_cts_max_connections': '200',
+  'kafka.min_insync_replicas':          '2',
+  'kafka.cts.retention_hours':          '48',
+  'temporal.cts.task_queue_partitions': '4',
+  'temporal.namespace':                 'astra-cts-{bank_id}',
+  'platform.min_tls_version':           'TLS 1.3',
+  'platform.audit_trail_enabled':       'true',
+  'platform.hsm_required':              'true',
+  'platform.iet_watchdog_enabled':      'true',
+}
 
 const CATEGORIES = ['All', 'Kubernetes', 'Redis', 'YugabyteDB', 'Kafka', 'Temporal', 'Platform Constraints']
 
-const CHANGE_REQUESTS = [
-  { key: 'cts.workers.max_replicas', old: '200', new: '500', by: 'itadmin@svcb', astra_reviewer: 'support@astra.in', at: '2026-07-20 11:05', status: 'DEPLOYED', cab_ticket: 'CAB-2026-0847' },
-  { key: 'redis.cts.max_memory_gb',  old: '16',  new: '32',  by: 'itadmin@svcb', astra_reviewer: 'support@astra.in', at: '2026-07-20 11:05', status: 'DEPLOYED', cab_ticket: 'CAB-2026-0847' },
-  { key: 'kafka.cts.retention_hours', old: '24', new: '48',  by: 'itadmin@svcb', astra_reviewer: null,               at: '2026-08-02 16:30', status: 'PENDING_ASTRA_REVIEW', cab_ticket: 'CAB-2026-0921' },
-]
+// ─── API helpers ──────────────────────────────────────────────────────────────
 
-// ─── Component ─────────────────────────────────────────────────────────────────
+async function fetchLayer2Requests() {
+  const res = await fetch('/v1/admin/config/platform/change-requests', { credentials: 'include' })
+  if (!res.ok) return { requests: [] }
+  return res.json()
+}
+
+async function postLayer2Request({ config_key, current_value, requested_value, reason, cab_ticket }) {
+  const res = await fetch('/v1/admin/config/platform/change-request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ config_key, current_value, requested_value, reason, cab_ticket }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.detail || `HTTP ${res.status}`)
+  }
+  return res.json()
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function PlatformConfig() {
   const { isDark } = useTheme()
-  const { bankId, bankName } = useBankContext()
+  const { bankId } = useBankContext()
+  const queryClient = useQueryClient()
+
   const [cat, setCat] = useState('All')
   const [tab, setTab] = useState('config')
   const [requesting, setRequesting] = useState(null)
-  const [reqNote, setReqNote] = useState('')
   const [reqVal, setReqVal] = useState('')
-  const [submitted, setSubmitted] = useState(false)
+  const [reqNote, setReqNote] = useState('')
+  const [cabTicket, setCabTicket] = useState('')
+  const [reasonErr, setReasonErr] = useState('')
+  const [submitted, setSubmitted] = useState(null)
+  const [submitError, setSubmitError] = useState(null)
 
   const th = {
     page:    isDark ? 'bg-transparent' : 'bg-slate-50',
@@ -213,20 +129,64 @@ export default function PlatformConfig() {
     input:   isDark ? 'bg-white/5 border-white/10 text-white focus:border-sky-500' : 'bg-white border-slate-300 text-slate-900 focus:border-sky-500',
   }
 
-  const displayed = PLATFORM_CONFIG.filter(c => cat === 'All' || c.category === cat)
+  // Fetch Layer 2 change requests from DB
+  const { data: requestsData, isLoading: requestsLoading } = useQuery({
+    queryKey: ['admin-layer2-requests', bankId],
+    queryFn: fetchLayer2Requests,
+    enabled: tab === 'change-requests',
+    staleTime: 15_000,
+  })
+
+  // Submit mutation
+  const submitMutation = useMutation({
+    mutationFn: postLayer2Request,
+    onSuccess: (data) => {
+      setSubmitted(data.request_id)
+      setRequesting(null)
+      setReqNote('')
+      setReqVal('')
+      setCabTicket('')
+      setSubmitError(null)
+      queryClient.invalidateQueries({ queryKey: ['admin-layer2-requests', bankId] })
+    },
+    onError: (err) => {
+      setSubmitError(err.message)
+    },
+  })
+
+  const configItems = PLATFORM_META.map(m => ({
+    ...m,
+    value: PLATFORM_DEFAULTS[m.key] ?? '—',
+  }))
+  const displayed = configItems.filter(c => cat === 'All' || c.category === cat)
+  const l2Requests = requestsData?.requests ?? []
 
   function openRequest(cfg) {
     setRequesting(cfg)
     setReqVal(String(cfg.value))
     setReqNote('')
-    setSubmitted(false)
+    setCabTicket('')
+    setReasonErr('')
+    setSubmitError(null)
   }
 
-  function submitRequest() {
-    setTimeout(() => {
-      setSubmitted(true)
-      setRequesting(null)
-    }, 700)
+  function doSubmitRequest() {
+    if (!reqNote.trim() || reqNote.trim().length < 10) {
+      setReasonErr('Reason must be at least 10 characters')
+      return
+    }
+    if (!cabTicket.trim()) {
+      setReasonErr('CAB ticket reference is required')
+      return
+    }
+    setReasonErr('')
+    submitMutation.mutate({
+      config_key: requesting.key,
+      current_value: String(requesting.value),
+      requested_value: reqVal,
+      reason: reqNote.trim(),
+      cab_ticket: cabTicket.trim(),
+    })
   }
 
   return (
@@ -271,7 +231,8 @@ export default function PlatformConfig() {
           <>
             {submitted && (
               <div className={`mb-4 rounded-lg border px-4 py-3 text-xs ${isDark ? 'border-emerald-700/40 bg-emerald-900/20 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
-                Change request raised. ASTRA vendor will review and schedule a maintenance window for the Helm upgrade.
+                Change request raised (ref: {submitted}). ASTRA vendor will review and schedule a maintenance window for the Helm upgrade.
+                Audit record written to Immudb. Notification sent to ASTRA support.
               </div>
             )}
 
@@ -321,13 +282,15 @@ export default function PlatformConfig() {
                     <div className="flex items-center gap-3 shrink-0">
                       <div className="text-right">
                         <div className={`text-xl font-bold tabular-nums ${th.heading}`}>
-                          {typeof cfg.value === 'number' ? cfg.value.toLocaleString('en-IN') : cfg.value}
+                          {cfg.type === 'integer' && !isNaN(parseInt(cfg.value, 10))
+                            ? parseInt(cfg.value, 10).toLocaleString('en-IN')
+                            : cfg.value}
                         </div>
                       </div>
                       {cfg.editable && !cfg.layer1 && (
                         <button
                           onClick={() => openRequest(cfg)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isDark ? 'bg-sky-700/40 text-sky-300 hover:bg-sky-700/60 border border-sky-700/40' : 'bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200'}`}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${isDark ? 'bg-sky-700/40 text-sky-300 hover:bg-sky-700/60 border-sky-700/40' : 'bg-sky-50 text-sky-700 hover:bg-sky-100 border-sky-200'}`}
                         >
                           Request Change
                         </button>
@@ -342,39 +305,48 @@ export default function PlatformConfig() {
 
         {tab === 'change-requests' && (
           <div className={`rounded-xl border overflow-hidden ${th.card}`}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className={`border-b ${th.divider}`}>
-                    {['Config Key', 'Old', 'Requested', 'By', 'ASTRA Reviewer', 'CAB Ticket', 'Timestamp', 'Status'].map(h => (
-                      <th key={h} className={`px-4 py-3 text-left font-medium whitespace-nowrap ${th.muted}`}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {CHANGE_REQUESTS.map((c, i) => (
-                    <tr key={i} className={`border-b transition-colors ${th.row}`}>
-                      <td className={`px-4 py-3 font-mono text-[11px] ${th.body}`}>{c.key}</td>
-                      <td className={`px-4 py-3 ${th.muted} line-through`}>{c.old}</td>
-                      <td className={`px-4 py-3 font-semibold ${isDark ? 'text-sky-300' : 'text-sky-700'}`}>{c.new}</td>
-                      <td className={`px-4 py-3 ${th.body}`}>{c.by}</td>
-                      <td className={`px-4 py-3 ${th.body}`}>{c.astra_reviewer ?? <span className={th.muted}>Unassigned</span>}</td>
-                      <td className={`px-4 py-3 font-mono text-[11px] ${isDark ? 'text-sky-400' : 'text-sky-600'}`}>{c.cab_ticket}</td>
-                      <td className={`px-4 py-3 font-mono text-[11px] whitespace-nowrap ${th.muted}`}>{c.at}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${
-                          c.status === 'DEPLOYED'
-                            ? (isDark ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700')
-                            : (isDark ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700')
-                        }`}>
-                          {c.status === 'PENDING_ASTRA_REVIEW' ? 'PENDING REVIEW' : c.status}
-                        </span>
-                      </td>
+            {requestsLoading ? (
+              <div className={`px-5 py-8 text-xs text-center ${th.muted}`}>Loading change requests…</div>
+            ) : l2Requests.length === 0 ? (
+              <div className={`px-5 py-8 text-xs text-center ${th.muted}`}>No Layer 2 change requests on record.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className={`border-b ${th.divider}`}>
+                      {['Config Key', 'Current', 'Requested', 'By', 'CAB Ticket', 'Submitted At', 'Status'].map(h => (
+                        <th key={h} className={`px-4 py-3 text-left font-medium whitespace-nowrap ${th.muted}`}>{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {l2Requests.map((r, i) => (
+                      <tr key={r.request_id ?? i} className={`border-b transition-colors ${th.row}`}>
+                        <td className={`px-4 py-3 font-mono text-[11px] ${th.body}`}>{r.config_key}</td>
+                        <td className={`px-4 py-3 ${th.muted} line-through`}>{r.current_value}</td>
+                        <td className={`px-4 py-3 font-semibold ${isDark ? 'text-sky-300' : 'text-sky-700'}`}>{r.requested_value}</td>
+                        <td className={`px-4 py-3 ${th.body}`}>{r.submitted_by}</td>
+                        <td className={`px-4 py-3 font-mono text-[11px] ${isDark ? 'text-sky-400' : 'text-sky-600'}`}>{r.cab_ticket}</td>
+                        <td className={`px-4 py-3 font-mono text-[11px] whitespace-nowrap ${th.muted}`}>
+                          {r.submitted_at ? new Date(r.submitted_at).toLocaleString('en-IN') : '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${
+                            r.status === 'DEPLOYED'
+                              ? (isDark ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700')
+                              : r.status === 'REJECTED'
+                                ? (isDark ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700')
+                                : (isDark ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700')
+                          }`}>
+                            {r.status === 'PENDING_ASTRA_REVIEW' ? 'PENDING REVIEW' : r.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -390,7 +362,7 @@ export default function PlatformConfig() {
 
             <p className={`text-xs mb-4 leading-relaxed ${th.muted}`}>{requesting.desc}</p>
 
-            <div className="space-y-3">
+            <div className="space-y-3 mb-4">
               <div>
                 <label className={`text-xs font-medium ${th.muted}`}>Requested value</label>
                 <input
@@ -401,24 +373,41 @@ export default function PlatformConfig() {
                 />
               </div>
               <div>
-                <label className={`text-xs font-medium ${th.muted}`}>Reason / business justification</label>
+                <label className={`text-xs font-medium ${th.muted}`}>CAB ticket reference <span className="text-red-400">*</span></label>
+                <input
+                  type="text"
+                  value={cabTicket}
+                  onChange={e => { setCabTicket(e.target.value); setReasonErr('') }}
+                  placeholder="e.g. CAB-2026-0921"
+                  className={`w-full mt-1 h-9 px-3 rounded-lg border text-sm outline-none transition-colors ${th.input}`}
+                />
+              </div>
+              <div>
+                <label className={`text-xs font-medium ${th.muted}`}>Reason / business justification <span className="text-red-400">*</span></label>
                 <textarea
                   value={reqNote}
-                  onChange={e => setReqNote(e.target.value)}
-                  placeholder="Explain why this change is needed and the impact assessment…"
+                  onChange={e => { setReqNote(e.target.value); setReasonErr('') }}
+                  placeholder="Explain why this change is needed and the impact assessment… (min 10 chars)"
                   rows={3}
                   className={`w-full mt-1 text-xs rounded-lg border px-3 py-2 resize-none outline-none transition-colors ${th.input}`}
                 />
+                {reasonErr && <p className="text-[11px] mt-1 text-red-400">{reasonErr}</p>}
               </div>
             </div>
 
-            <div className={`mt-4 p-3 rounded-lg text-xs leading-relaxed ${isDark ? 'bg-sky-900/20 border border-sky-700/40 text-sky-300' : 'bg-sky-50 border border-sky-200 text-sky-800'}`}>
-              This request will be sent to ASTRA vendor support for review. A maintenance window will be
-              scheduled for the Helm upgrade after CAB approval. Rollback is automatic if post-upgrade
-              smoke tests fail.
+            {submitError && (
+              <div className={`mb-3 rounded-lg border px-3 py-2 text-xs ${isDark ? 'border-red-700/40 bg-red-900/20 text-red-300' : 'border-red-200 bg-red-50 text-red-700'}`}>
+                {submitError}
+              </div>
+            )}
+
+            <div className={`mb-4 p-3 rounded-lg text-xs leading-relaxed ${isDark ? 'bg-sky-900/20 border border-sky-700/40 text-sky-300' : 'bg-sky-50 border border-sky-200 text-sky-800'}`}>
+              This request will be sent to ASTRA vendor support for review and audited in Immudb.
+              A maintenance window will be scheduled for the Helm upgrade after CAB approval.
+              Rollback is automatic if post-upgrade smoke tests fail.
             </div>
 
-            <div className="flex gap-2 mt-4">
+            <div className="flex gap-2">
               <button
                 onClick={() => setRequesting(null)}
                 className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
@@ -426,11 +415,11 @@ export default function PlatformConfig() {
                 Cancel
               </button>
               <button
-                onClick={submitRequest}
-                disabled={!reqNote.trim()}
-                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${!reqNote.trim() ? 'opacity-50 cursor-not-allowed bg-sky-700 text-white' : 'bg-sky-600 hover:bg-sky-500 text-white'}`}
+                onClick={doSubmitRequest}
+                disabled={submitMutation.isPending}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${submitMutation.isPending ? 'opacity-60 cursor-not-allowed bg-sky-700 text-white' : 'bg-sky-600 hover:bg-sky-500 text-white'}`}
               >
-                Raise Change Request
+                {submitMutation.isPending ? 'Raising request…' : 'Raise Change Request'}
               </button>
             </div>
           </div>
