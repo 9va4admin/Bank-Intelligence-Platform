@@ -7,6 +7,7 @@ import CTSVaultStatus from './modules/cts/pages/CTSVaultStatus'
 import CTSDecisionsLog from './modules/cts/pages/CTSDecisionsLog'
 import CTSAnalytics from './modules/cts/pages/CTSAnalytics'
 import CTSConfig from './modules/cts/pages/CTSConfig'
+import CTSAllocationAdmin from './modules/cts/pages/CTSAllocationAdmin'
 import CTSMCPConfig from './modules/cts/pages/CTSMCPConfig'
 import CTSPresentment from './modules/cts/pages/CTSPresentment'
 import CTSOutwardQueue from './modules/cts/pages/CTSOutwardQueue'
@@ -159,6 +160,7 @@ export default function App() {
         <Route path="/admin/smoke-test" element={<CTSSmokeTest />} />
         <Route path="/admin/config/operations" element={<OperationsConfig />} />
         <Route path="/admin/config/platform" element={<PlatformConfig />} />
+        <Route path="/admin/allocation" element={<CTSAllocationAdmin />} />
         {/* ASTRA Ops Dashboard — replaces Grafana for ops_manager + bank_it_admin */}
         <Route path="/ops/dashboard"    element={<OpsDashboard />} />
         <Route path="/ops/model-health" element={<ModelHealth />} />
