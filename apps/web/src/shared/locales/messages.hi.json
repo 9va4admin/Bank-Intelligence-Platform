@@ -3851,5 +3851,131 @@
       "redis_sig_keys",
       "coverage_pct"
     ]
+  },
+  "CTS_WF_HOLD_PLACED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "held_by",
+      "hold_reason",
+      "iet_deadline"
+    ]
+  },
+  "CTS_WF_HOLD_RELEASED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "released_by",
+      "branch_recommendation"
+    ]
+  },
+  "CTS_LOCK_ACQUIRED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "reviewer_id",
+      "ttl_minutes"
+    ]
+  },
+  "CTS_LOCK_RELEASED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "reviewer_id"
+    ]
+  },
+  "CTS_LOCK_EXPIRED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "reviewer_id"
+    ]
+  },
+  "CTS_ALLOC_CLAIMED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "reviewer_id"
+    ]
+  },
+  "CTS_ALLOC_AUTO_ASSIGNED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "reviewer_id",
+      "allocation_mode"
+    ]
+  },
+  "CTS_ALLOC_UNCLAIMED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "reviewer_id"
+    ]
+  },
+  "PLATFORM_CONFIG_L2_REQUESTED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "requested_by",
+      "config_key",
+      "current_value",
+      "requested_value",
+      "cab_ticket"
+    ]
+  },
+  "PLATFORM_CONFIG_L2_DEPLOYED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "config_key",
+      "new_value",
+      "deployed_by",
+      "cab_ticket"
+    ]
   }
 }

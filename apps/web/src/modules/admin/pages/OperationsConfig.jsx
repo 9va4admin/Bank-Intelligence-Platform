@@ -4,208 +4,100 @@
  * Route: /admin/config/operations  (permission: config:layer3:submit)
  * Role:  ops_manager (submit) → bank_it_admin (approve)
  *
- * Covers all Phase C/D/E/F config keys added by the CTS pipeline improvements:
- *  - STP mode (Phase C)
- *  - Queue tier thresholds (Phase D)
- *  - Allocation mode & lock TTL (Phase E)
- *  - Standard AI + IET thresholds
- *
- * All changes are hot-reloaded within 30 seconds of bank_it_admin approval
- * via the platform.config.changed Kafka event → config_service Redis invalidation.
+ * Data: live from GET /v1/admin/config/thresholds
+ * Submit: POST /v1/admin/config/thresholds → Immudb + Kafka + notification
+ * Change log: GET /v1/admin/config/thresholds/changes
  */
 import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 
-// ─── Config schema ─────────────────────────────────────────────────────────────
+// ─── UI metadata schema (labels, types, options — not from API) ───────────────
 
-const OPS_CONFIG = [
-  // ── STP Pipeline (Phase C) ──────────────────────────────────────────────
-  {
-    key: 'stp_mode',
-    label: 'STP Mode',
-    value: 'SUPERVISED',
-    unit: '',
-    type: 'enum',
+const CONFIG_META = {
+  stp_mode: {
+    label: 'STP Mode', unit: '', type: 'enum',
     options: ['FULL_MANUAL', 'SUPERVISED', 'SELECTIVE', 'FULL_STP'],
-    layer: 3,
-    category: 'STP Pipeline',
+    defaultVal: 'SUPERVISED', category: 'STP Pipeline',
     desc: 'Controls when AI STP_CONFIRM decisions auto-file to NGCH. FULL_MANUAL = every cheque goes to human review. SUPERVISED = AI recommends, human confirms. SELECTIVE = AI auto-files low-risk, human reviews the rest. FULL_STP = all STP_CONFIRM decisions auto-file without review.',
-    warn: true,
-    editable: true,
+    warn: true, editable: true,
   },
-  {
-    key: 'stp_auto_confirm_threshold',
-    label: 'STP Auto-Confirm Score',
-    value: 0.92,
-    unit: 'score (0–1)',
-    type: 'float',
-    min: 0.85, max: 0.99,
-    layer: 3,
-    category: 'STP Pipeline',
+  stp_auto_confirm_threshold: {
+    label: 'STP Auto-Confirm Score', unit: 'score (0–1)', type: 'float',
+    min: 0.85, max: 0.99, defaultVal: '0.92', category: 'STP Pipeline',
     desc: 'Fraud probability below this score qualifies a cheque for STP_CONFIRM. Only applies when stp_mode is SELECTIVE or FULL_STP.',
-    warn: false,
-    editable: true,
+    warn: false, editable: true,
   },
-  {
-    key: 'human_review_fraud_threshold',
-    label: 'Human Review Trigger Score',
-    value: 0.72,
-    unit: 'score (0–1)',
-    type: 'float',
-    min: 0.50, max: 0.90,
-    layer: 3,
-    category: 'STP Pipeline',
+  human_review_fraud_threshold: {
+    label: 'Human Review Trigger Score', unit: 'score (0–1)', type: 'float',
+    min: 0.50, max: 0.90, defaultVal: '0.72', category: 'STP Pipeline',
     desc: 'Fraud probability above this score routes the cheque to the ops reviewer queue instead of auto-confirm. Must be lower than STP threshold.',
-    warn: false,
-    editable: true,
+    warn: false, editable: true,
   },
-
-  // ── Queue Segmentation (Phase D) ────────────────────────────────────────
-  {
-    key: 'queue_tier_high_value_threshold',
-    label: 'High-Value Queue Threshold',
-    value: 100000,
-    unit: '₹',
-    type: 'integer',
-    min: 50000, max: 500000,
-    layer: 3,
-    category: 'Queue Segmentation',
-    desc: 'Cheques above this amount are routed to the High Value Kafka topic (cts.inward.{bank_id}.high_value) and a dedicated Temporal task queue, isolating high-value processing from standard throughput.',
-    warn: false,
-    editable: true,
+  queue_tier_high_value_threshold: {
+    label: 'High-Value Queue Threshold', unit: '₹', type: 'integer',
+    min: 50000, max: 500000, defaultVal: '100000', category: 'Queue Segmentation',
+    desc: 'Cheques above this amount are routed to the High Value Kafka topic (cts.inward.{bank_id}.high_value) and a dedicated Temporal task queue.',
+    warn: false, editable: true,
   },
-  {
-    key: 'queue_tier_very_high_threshold',
-    label: 'Very High-Value Queue Threshold',
-    value: 1000000,
-    unit: '₹',
-    type: 'integer',
-    min: 500000, max: 50000000,
-    layer: 3,
-    category: 'Queue Segmentation',
-    desc: 'Cheques above this amount are routed to the Very High Value Kafka topic (cts.inward.{bank_id}.very_high). These instruments get the highest-priority worker pods and dedicated vLLM inference slots.',
-    warn: false,
-    editable: true,
+  queue_tier_very_high_threshold: {
+    label: 'Very High-Value Queue Threshold', unit: '₹', type: 'integer',
+    min: 500000, max: 50000000, defaultVal: '1000000', category: 'Queue Segmentation',
+    desc: 'Cheques above this amount are routed to the Very High Value Kafka topic (cts.inward.{bank_id}.very_high) with highest-priority worker pods.',
+    warn: false, editable: true,
   },
-
-  // ── Allocation (Phase E) ────────────────────────────────────────────────
-  {
-    key: 'allocation_mode',
-    label: 'Reviewer Allocation Mode',
-    value: 'HYBRID',
-    unit: '',
-    type: 'enum',
-    options: ['SELF', 'HYBRID', 'AUTO'],
-    layer: 3,
-    category: 'Allocation',
-    desc: 'Controls how inward cheques are assigned to ops_reviewers. SELF = reviewers manually claim from queue. HYBRID = reviewers can claim manually or system auto-assigns unclaimed items. AUTO = system auto-assigns all using round-robin over available reviewers.',
-    warn: false,
-    editable: true,
+  allocation_mode: {
+    label: 'Reviewer Allocation Mode', unit: '', type: 'enum',
+    options: ['SELF', 'HYBRID', 'AUTO'], defaultVal: 'HYBRID', category: 'Allocation',
+    desc: 'Controls how inward cheques are assigned to ops_reviewers. SELF = reviewers manually claim from queue. HYBRID = reviewers can claim manually or system auto-assigns unclaimed items. AUTO = system auto-assigns all using round-robin.',
+    warn: false, editable: true,
   },
-  {
-    key: 'allocation_lock_ttl_minutes',
-    label: 'Review Lock TTL',
-    value: 10,
-    unit: 'minutes',
-    type: 'integer',
-    min: 5, max: 60,
-    layer: 3,
-    category: 'Allocation',
+  allocation_lock_ttl_minutes: {
+    label: 'Review Lock TTL', unit: 'minutes', type: 'integer',
+    min: 5, max: 60, defaultVal: '10', category: 'Allocation',
     desc: 'Redis lock duration for reviewer-claimed instruments. If a reviewer claims an instrument and does not submit a decision within this window, the lock expires and the instrument becomes claimable again.',
-    warn: false,
-    editable: true,
+    warn: false, editable: true,
   },
-
-  // ── IET & Timing ────────────────────────────────────────────────────────
-  {
-    key: 'iet_minutes',
-    label: 'IET Window',
-    value: 180,
-    unit: 'minutes',
-    type: 'integer',
-    min: 60, max: 240,
-    layer: 3,
-    category: 'IET & Timing',
+  iet_minutes: {
+    label: 'IET Window', unit: 'minutes', type: 'integer',
+    min: 60, max: 240, defaultVal: '180', category: 'IET & Timing',
     desc: 'RBI-mandated Item Expiry Time window. Cheques not decided within this window are deemed approved and must be paid. Default: 180 min (3 hours). Do not lower without verifying operational capacity.',
-    warn: true,
-    editable: true,
+    warn: true, editable: true,
   },
-
-  // ── AI Confidence ───────────────────────────────────────────────────────
-  {
-    key: 'ocr_min_confidence',
-    label: 'OCR Minimum Confidence',
-    value: 0.90,
-    unit: 'score (0–1)',
-    type: 'float',
-    min: 0.80, max: 0.99,
-    layer: 3,
-    category: 'AI Confidence',
+  ocr_min_confidence: {
+    label: 'OCR Minimum Confidence', unit: 'score (0–1)', type: 'float',
+    min: 0.80, max: 0.99, defaultVal: '0.90', category: 'AI Confidence',
     desc: 'GOT-OCR2.0 confidence below this threshold routes the cheque to human review for manual MICR / field verification.',
-    warn: false,
-    editable: true,
+    warn: false, editable: true,
   },
-  {
-    key: 'signature_min_match_score',
-    label: 'Signature Match Minimum',
-    value: 0.87,
-    unit: 'score (0–1)',
-    type: 'float',
-    min: 0.75, max: 0.99,
-    layer: 3,
-    category: 'AI Confidence',
+  signature_min_match_score: {
+    label: 'Signature Match Minimum', unit: 'score (0–1)', type: 'float',
+    min: 0.75, max: 0.99, defaultVal: '0.87', category: 'AI Confidence',
     desc: 'Siamese network match score below this routes to human review for manual signature comparison. Lower = more human review load; higher = more STP risk.',
-    warn: false,
-    editable: true,
+    warn: false, editable: true,
   },
-
-  // ── Amount Controls ─────────────────────────────────────────────────────
-  {
-    key: 'high_value_amount_threshold',
-    label: 'High-Value Dual-Approval Limit',
-    value: 500000,
-    unit: '₹',
-    type: 'integer',
-    min: 100000, max: 10000000,
-    layer: 3,
-    category: 'Amount Controls',
-    desc: 'Cheques above this amount require dual ops_reviewer approval before NGCH filing, regardless of AI confidence score. Aligns with RBI high-value transaction monitoring norms.',
-    warn: false,
-    editable: true,
+  high_value_amount_threshold: {
+    label: 'High-Value Dual-Approval Limit', unit: '₹', type: 'integer',
+    min: 100000, max: 10000000, defaultVal: '500000', category: 'Amount Controls',
+    desc: 'Cheques above this amount require dual ops_reviewer approval before NGCH filing, regardless of AI confidence score.',
+    warn: false, editable: true,
   },
-
-  // ── Security (Locked) ───────────────────────────────────────────────────
-  {
-    key: 'vault_miss_action',
-    label: 'Vault Miss Action',
-    value: 'HUMAN_REVIEW',
-    unit: '',
-    type: 'enum',
-    layer: 1,
-    category: 'Security',
-    desc: 'Action when signature or PPS vault has no record for an account. LOCKED to HUMAN_REVIEW by platform constraint (Layer 1) — cannot be changed to AUTO_RETURN by any role.',
-    warn: true,
-    editable: false,
+  vault_miss_action: {
+    label: 'Vault Miss Action', unit: '', type: 'enum',
+    options: [], defaultVal: 'HUMAN_REVIEW', category: 'Security',
+    desc: 'Action when signature or PPS vault has no record for an account. LOCKED to HUMAN_REVIEW by platform constraint (Layer 1) — cannot be changed by any role.',
+    warn: true, editable: false,
   },
-]
-
-const CHANGE_LOG = [
-  { key: 'stp_mode',              old: 'FULL_MANUAL', new: 'SUPERVISED', by: 'ops_manager@svcb', approved: 'itadmin@svcb', at: '2026-08-01 10:14', status: 'LIVE' },
-  { key: 'allocation_mode',       old: 'SELF',        new: 'HYBRID',     by: 'ops_manager@svcb', approved: 'itadmin@svcb', at: '2026-08-01 10:15', status: 'LIVE' },
-  { key: 'stp_auto_confirm_threshold', old: '0.90',   new: '0.92',       by: 'ops_manager@svcb', approved: 'itadmin@svcb', at: '2026-07-18 14:32', status: 'LIVE' },
-  { key: 'ocr_min_confidence',    old: '0.88',        new: '0.90',       by: 'ops_manager@svcb', approved: null,           at: '2026-08-03 09:20', status: 'PENDING_APPROVAL' },
-]
-
-const CATEGORIES = ['All', 'STP Pipeline', 'Queue Segmentation', 'Allocation', 'IET & Timing', 'AI Confidence', 'Amount Controls', 'Security']
+}
 
 const ENUM_DESCRIPTIONS = {
   stp_mode: {
-    FULL_MANUAL:  'Every cheque goes to human review — AI only recommends',
-    SUPERVISED:   'Human confirms every STP_CONFIRM before filing',
-    SELECTIVE:    'Auto-file high-confidence; human reviews borderline cases',
-    FULL_STP:     'All STP_CONFIRM decisions auto-file without human review',
+    FULL_MANUAL: 'Every cheque goes to human review — AI only recommends',
+    SUPERVISED:  'Human confirms every STP_CONFIRM before filing',
+    SELECTIVE:   'Auto-file high-confidence; human reviews borderline cases',
+    FULL_STP:    'All STP_CONFIRM decisions auto-file without human review',
   },
   allocation_mode: {
     SELF:   'Reviewers manually claim from the queue — no auto-assignment',
@@ -214,17 +106,51 @@ const ENUM_DESCRIPTIONS = {
   },
 }
 
+const CATEGORIES = ['All', 'STP Pipeline', 'Queue Segmentation', 'Allocation', 'IET & Timing', 'AI Confidence', 'Amount Controls', 'Security']
+
+// ─── API helpers ──────────────────────────────────────────────────────────────
+
+async function fetchThresholds() {
+  const res = await fetch('/v1/admin/config/thresholds', { credentials: 'include' })
+  if (!res.ok) throw new Error('Failed to load thresholds')
+  return res.json()
+}
+
+async function fetchChanges() {
+  const res = await fetch('/v1/admin/config/thresholds/changes', { credentials: 'include' })
+  if (!res.ok) return { changes: [] }
+  return res.json()
+}
+
+async function postThresholdChange({ config_key, new_value, reason }) {
+  const res = await fetch('/v1/admin/config/thresholds', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ config_key, new_value, reason }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.detail || `HTTP ${res.status}`)
+  }
+  return res.json()
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function OperationsConfig() {
   const { isDark } = useTheme()
-  const { bankId, bankName } = useBankContext()
+  const { bankId } = useBankContext()
+  const queryClient = useQueryClient()
+
   const [cat, setCat] = useState('All')
   const [tab, setTab] = useState('config')
   const [editing, setEditing] = useState(null)
   const [editVal, setEditVal] = useState('')
-  const [pendingSubmit, setPendingSubmit] = useState(false)
+  const [reason, setReason] = useState('')
+  const [reasonErr, setReasonErr] = useState('')
   const [submitted, setSubmitted] = useState(null)
+  const [submitError, setSubmitError] = useState(null)
 
   const th = {
     page:    isDark ? 'bg-transparent' : 'bg-slate-50',
@@ -239,21 +165,69 @@ export default function OperationsConfig() {
     select:  isDark ? 'bg-[#0e1428] border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
   }
 
-  const displayed = OPS_CONFIG.filter(c => cat === 'All' || c.category === cat)
+  // Live config values from API
+  const { data: thresholdsData, isLoading } = useQuery({
+    queryKey: ['admin-thresholds', bankId],
+    queryFn: fetchThresholds,
+    staleTime: 30_000,
+  })
+
+  // Change log from API (only when tab is active)
+  const { data: changesData, isLoading: changesLoading } = useQuery({
+    queryKey: ['admin-config-changes', bankId],
+    queryFn: fetchChanges,
+    enabled: tab === 'change-log',
+    staleTime: 10_000,
+  })
+
+  // Submit mutation
+  const submitMutation = useMutation({
+    mutationFn: postThresholdChange,
+    onSuccess: (data) => {
+      setSubmitted(data.config_key)
+      setEditing(null)
+      setReason('')
+      setSubmitError(null)
+      queryClient.invalidateQueries({ queryKey: ['admin-config-changes', bankId] })
+    },
+    onError: (err) => {
+      setSubmitError(err.message)
+    },
+  })
+
+  // Merge API values over schema metadata
+  const apiMap = Object.fromEntries(
+    (thresholdsData?.thresholds ?? []).map(t => [t.config_key, t])
+  )
+  const configItems = Object.entries(CONFIG_META).map(([key, meta]) => {
+    const api = apiMap[key]
+    const layerNum = api?.layer === 'LAYER_1' ? 1 : api?.layer === 'LAYER_2' ? 2 : 3
+    return { ...meta, key, value: api?.current_value ?? meta.defaultVal, layer: layerNum }
+  })
+
+  const displayed = configItems.filter(c => cat === 'All' || c.category === cat)
+  const changes = changesData?.changes ?? []
 
   function openEdit(cfg) {
     setEditing(cfg)
     setEditVal(String(cfg.value))
+    setReason('')
+    setReasonErr('')
     setSubmitted(null)
+    setSubmitError(null)
   }
 
   function submitChange() {
-    setPendingSubmit(true)
-    setTimeout(() => {
-      setPendingSubmit(false)
-      setSubmitted(editing.key)
-      setEditing(null)
-    }, 700)
+    if (!reason.trim() || reason.trim().length < 10) {
+      setReasonErr('Reason must be at least 10 characters')
+      return
+    }
+    setReasonErr('')
+    submitMutation.mutate({
+      config_key: editing.key,
+      new_value: editVal,
+      reason: reason.trim(),
+    })
   }
 
   return (
@@ -289,11 +263,14 @@ export default function OperationsConfig() {
 
         {tab === 'config' && (
           <>
-            {/* Submitted toast */}
             {submitted && (
               <div className={`mb-4 rounded-lg border px-4 py-3 text-xs ${isDark ? 'border-emerald-700/40 bg-emerald-900/20 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
-                Change submitted for bank_it_admin approval. It will go live within 30 seconds of approval.
+                Change submitted for bank_it_admin approval. It will go live within 30 seconds of approval via Kafka hot-reload.
               </div>
+            )}
+
+            {isLoading && (
+              <div className={`mb-4 text-xs ${th.muted}`}>Loading live config values…</div>
             )}
 
             {/* Category filter */}
@@ -345,9 +322,9 @@ export default function OperationsConfig() {
                       <div className="text-right">
                         <div className={`text-xl font-bold tabular-nums ${cfg.warn ? (isDark ? 'text-amber-300' : 'text-amber-600') : th.heading}`}>
                           {cfg.type === 'float'
-                            ? Number(cfg.value).toFixed(2)
+                            ? parseFloat(cfg.value).toFixed(2)
                             : cfg.type === 'integer'
-                              ? Number(cfg.value).toLocaleString('en-IN')
+                              ? parseInt(cfg.value, 10).toLocaleString('en-IN')
                               : cfg.value}
                         </div>
                         {cfg.unit && <div className={`text-[10px] ${th.muted}`}>{cfg.unit}</div>}
@@ -369,7 +346,7 @@ export default function OperationsConfig() {
                       <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/8' : 'bg-slate-100'}`}>
                         <div
                           className="h-full bg-violet-500 rounded-full transition-all"
-                          style={{ width: `${((cfg.value - cfg.min) / (cfg.max - cfg.min)) * 100}%` }}
+                          style={{ width: `${Math.min(100, Math.max(0, ((parseFloat(cfg.value) - cfg.min) / (cfg.max - cfg.min)) * 100))}%` }}
                         />
                       </div>
                       <div className={`flex justify-between mt-1 text-[10px] ${th.muted}`}>
@@ -380,7 +357,7 @@ export default function OperationsConfig() {
                   )}
 
                   {/* Enum option pills */}
-                  {cfg.type === 'enum' && cfg.options && (
+                  {cfg.type === 'enum' && cfg.options && cfg.options.length > 0 && (
                     <div className="mt-3 flex gap-2 flex-wrap">
                       {cfg.options.map(opt => (
                         <span
@@ -404,38 +381,48 @@ export default function OperationsConfig() {
 
         {tab === 'change-log' && (
           <div className={`rounded-xl border overflow-hidden ${th.card}`}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className={`border-b ${th.divider}`}>
-                    {['Config Key', 'Old Value', 'New Value', 'Submitted By', 'Approved By', 'Timestamp', 'Status'].map(h => (
-                      <th key={h} className={`px-4 py-3 text-left font-medium whitespace-nowrap ${th.muted}`}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {CHANGE_LOG.map((c, i) => (
-                    <tr key={i} className={`border-b transition-colors ${th.row}`}>
-                      <td className={`px-4 py-3 font-mono text-[11px] ${th.body}`}>{c.key}</td>
-                      <td className={`px-4 py-3 ${th.muted} line-through`}>{c.old}</td>
-                      <td className={`px-4 py-3 font-semibold ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>{c.new}</td>
-                      <td className={`px-4 py-3 ${th.body}`}>{c.by}</td>
-                      <td className={`px-4 py-3 ${th.body}`}>{c.approved ?? <span className={th.muted}>Pending…</span>}</td>
-                      <td className={`px-4 py-3 font-mono text-[11px] whitespace-nowrap ${th.muted}`}>{c.at}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                          c.status === 'LIVE'
-                            ? (isDark ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700')
-                            : (isDark ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700')
-                        }`}>
-                          {c.status === 'PENDING_APPROVAL' ? 'PENDING' : c.status}
-                        </span>
-                      </td>
+            {changesLoading ? (
+              <div className={`px-5 py-8 text-xs text-center ${th.muted}`}>Loading change history…</div>
+            ) : changes.length === 0 ? (
+              <div className={`px-5 py-8 text-xs text-center ${th.muted}`}>No config changes on record.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className={`border-b ${th.divider}`}>
+                      {['Config Key', 'New Value', 'Reason', 'Submitted By', 'Approved By', 'Submitted At', 'Status'].map(h => (
+                        <th key={h} className={`px-4 py-3 text-left font-medium whitespace-nowrap ${th.muted}`}>{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {changes.map((c, i) => (
+                      <tr key={c.change_id ?? i} className={`border-b transition-colors ${th.row}`}>
+                        <td className={`px-4 py-3 font-mono text-[11px] ${th.body}`}>{c.config_key}</td>
+                        <td className={`px-4 py-3 font-semibold ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>{c.new_value}</td>
+                        <td className={`px-4 py-3 max-w-xs truncate ${th.muted}`} title={c.reason}>{c.reason}</td>
+                        <td className={`px-4 py-3 ${th.body}`}>{c.submitted_by}</td>
+                        <td className={`px-4 py-3 ${th.body}`}>{c.actioned_by ?? <span className={th.muted}>Pending…</span>}</td>
+                        <td className={`px-4 py-3 font-mono text-[11px] whitespace-nowrap ${th.muted}`}>
+                          {c.submitted_at ? new Date(c.submitted_at).toLocaleString('en-IN') : '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            c.status === 'APPROVED'
+                              ? (isDark ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700')
+                              : c.status === 'REJECTED'
+                                ? (isDark ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700')
+                                : (isDark ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700')
+                          }`}>
+                            {c.status === 'PENDING_APPROVAL' ? 'PENDING' : c.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -452,7 +439,7 @@ export default function OperationsConfig() {
             <p className={`text-xs mb-4 leading-relaxed ${th.muted}`}>{editing.desc}</p>
 
             {editing.type === 'enum' ? (
-              <div className="space-y-2">
+              <div className="space-y-2 mb-4">
                 <label className={`text-xs font-medium ${th.muted}`}>Select value</label>
                 <select
                   value={editVal}
@@ -470,7 +457,7 @@ export default function OperationsConfig() {
                 )}
               </div>
             ) : (
-              <div>
+              <div className="mb-4">
                 <label className={`text-xs font-medium ${th.muted}`}>New value ({editing.unit})</label>
                 <input
                   type="number"
@@ -489,12 +476,31 @@ export default function OperationsConfig() {
               </div>
             )}
 
-            <div className={`mt-4 p-3 rounded-lg text-xs leading-relaxed ${isDark ? 'bg-amber-900/20 border border-amber-700/40 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
+            {/* Reason — required by maker-checker API */}
+            <div className="mb-4">
+              <label className={`text-xs font-medium ${th.muted}`}>Reason for change <span className="text-red-400">*</span></label>
+              <textarea
+                value={reason}
+                onChange={e => { setReason(e.target.value); setReasonErr('') }}
+                rows={2}
+                placeholder="Why is this change needed? (min 10 characters)"
+                className={`w-full mt-1 px-3 py-2 rounded-lg border text-sm outline-none transition-colors resize-none ${th.input}`}
+              />
+              {reasonErr && <p className="text-[11px] mt-1 text-red-400">{reasonErr}</p>}
+            </div>
+
+            {submitError && (
+              <div className={`mb-3 rounded-lg border px-3 py-2 text-xs ${isDark ? 'border-red-700/40 bg-red-900/20 text-red-300' : 'border-red-200 bg-red-50 text-red-700'}`}>
+                {submitError}
+              </div>
+            )}
+
+            <div className={`mb-4 p-3 rounded-lg text-xs leading-relaxed ${isDark ? 'bg-amber-900/20 border border-amber-700/40 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
               ⚠ This change will be submitted to bank_it_admin for approval (maker-checker).
               It goes live via Kafka hot-reload within 30 seconds of approval.
             </div>
 
-            <div className="flex gap-2 mt-4">
+            <div className="flex gap-2">
               <button
                 onClick={() => setEditing(null)}
                 className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
@@ -503,10 +509,10 @@ export default function OperationsConfig() {
               </button>
               <button
                 onClick={submitChange}
-                disabled={pendingSubmit}
-                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${pendingSubmit ? 'opacity-60 cursor-not-allowed bg-violet-700 text-white' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}
+                disabled={submitMutation.isPending}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${submitMutation.isPending ? 'opacity-60 cursor-not-allowed bg-violet-700 text-white' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}
               >
-                {pendingSubmit ? 'Submitting…' : 'Submit for Approval'}
+                {submitMutation.isPending ? 'Submitting…' : 'Submit for Approval'}
               </button>
             </div>
           </div>

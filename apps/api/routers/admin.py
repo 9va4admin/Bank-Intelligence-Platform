@@ -8,21 +8,61 @@ Maker-checker separation enforced:
   - All other roles: 403
 
 No PII in any response — user_id and role only, no passwords or personal data.
+
+Wiring (every config change):
+  submit  → DB write → Immudb (CONFIG_CHANGE) → notification to bank_it_admin
+  approve → DB write → Immudb (CONFIG_CHANGE) → Kafka platform.config.changed
+            → notification to ops_manager (approved)
+  reject  → DB write → Immudb (CONFIG_CHANGE) → notification to ops_manager (rejected)
+  layer2  → DB write → Immudb (CONFIG_L2_CHANGE_REQUESTED) → notification to ASTRA support
 """
 import secrets as _secrets
 from datetime import datetime, timezone
-from typing import Any, Literal, Optional
+from typing import Any, Callable, Literal, Optional
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from apps.api.dependencies import require_user_context
+from shared.audit.audit_event import AuditEvent, AuditEventType
 from shared.auth.rbac import UserContext
+from shared.event_bus.topics import PLATFORM_CONFIG_CHANGED, PLATFORM_NOTIFICATIONS
 
 log = structlog.get_logger()
 
 router_v1 = APIRouter(prefix="/v1/admin", tags=["Admin v1"])
+
+# ── Layer 3 config schema (canonical — values overlaid from DB/config_service) ──
+# Descriptions, layer, and default values live here.
+# The list_thresholds route returns these with current_value from config_service.
+
+_LAYER3_SCHEMA = [
+    {"config_key": "stp_mode",                     "layer": "LAYER_3", "default": "FULL_MANUAL",
+     "description": "STP mode: FULL_MANUAL | SUPERVISED | SELECTIVE | FULL_STP"},
+    {"config_key": "stp_auto_confirm_threshold",   "layer": "LAYER_3", "default": "0.92",
+     "description": "Fraud score below this auto-confirms (SELECTIVE/FULL_STP modes only)"},
+    {"config_key": "human_review_fraud_threshold", "layer": "LAYER_3", "default": "0.72",
+     "description": "Fraud score above this routes to human review"},
+    {"config_key": "queue_tier_high_value_threshold",  "layer": "LAYER_3", "default": "100000",
+     "description": "Cheques above this go to high_value Kafka topic and task queue"},
+    {"config_key": "queue_tier_very_high_threshold",   "layer": "LAYER_3", "default": "1000000",
+     "description": "Cheques above this go to very_high Kafka topic and task queue"},
+    {"config_key": "allocation_mode",              "layer": "LAYER_3", "default": "HYBRID",
+     "description": "Reviewer allocation: SELF | HYBRID | AUTO"},
+    {"config_key": "allocation_lock_ttl_minutes",  "layer": "LAYER_3", "default": "10",
+     "description": "Redis lock TTL for reviewer-claimed instruments (minutes)"},
+    {"config_key": "iet_minutes",                  "layer": "LAYER_3", "default": "180",
+     "description": "IET window in minutes (RBI mandated). Watchdog fires at T-30s regardless."},
+    {"config_key": "ocr_min_confidence",           "layer": "LAYER_3", "default": "0.90",
+     "description": "GOT-OCR2.0 confidence below this → human review"},
+    {"config_key": "signature_min_match_score",    "layer": "LAYER_3", "default": "0.87",
+     "description": "Siamese network score below this → human review"},
+    {"config_key": "high_value_amount_threshold",  "layer": "LAYER_3", "default": "500000",
+     "description": "Dual-approval threshold for high-value cheques (₹)"},
+    {"config_key": "vault_miss_action",            "layer": "LAYER_1", "default": "HUMAN_REVIEW",
+     "description": "LOCKED — vault miss always routes to human review (Layer 1 constraint)"},
+]
 
 _ADMIN_ROLES = {"bank_it_admin", "ops_manager"}
 _CHECKER_ONLY = {"bank_it_admin"}
@@ -78,13 +118,88 @@ def require_maker_role(user: dict = Depends(get_current_user)) -> dict:
     return user
 
 
+# ── Infrastructure DI (Kafka, Immudb audit stream, notifications) ─────────────
+# Same pattern as mcp_connections.py — stubs in dev/test, real producers in prod.
+# Tests override via app.dependency_overrides.
+
+async def _default_event_publisher(topic: str, payload: dict) -> None:
+    log.info("admin.kafka_stub", topic=topic, event_type=payload.get("event_type"))
+
+
+def get_event_publisher(request: Request) -> Callable:
+    from shared.event_bus.producer import EventProducer as KafkaEventProducer
+    producer: Optional[KafkaEventProducer] = getattr(
+        request.app.state, "kafka_producer_cts", None
+    )
+    if producer is None:
+        return _default_event_publisher
+
+    async def _real(topic: str, payload: dict) -> None:
+        try:
+            await producer.publish(
+                topic=topic,
+                event_type=payload.get("event_type", "CONFIG_EVENT"),
+                payload=payload,
+                schema_version="1.0",
+            )
+        except Exception as exc:
+            log.error("admin.kafka_publish_failed", topic=topic, error=str(exc))
+
+    return _real
+
+
+async def _default_audit_stream_writer(**kwargs: Any) -> None:
+    log.info("admin.audit_stream_stub", event_type=kwargs.get("event_type"))
+
+
+def get_audit_stream_writer(request: Request) -> Callable:
+    redis_cts = getattr(request.app.state, "redis_cts", None)
+    if redis_cts is None:
+        return _default_audit_stream_writer
+
+    async def _real(**kwargs: Any) -> None:
+        try:
+            from shared.audit.stream_buffer import buffer_audit_event
+            await buffer_audit_event(redis=redis_cts, **kwargs)
+        except Exception as exc:
+            log.error("admin.audit_stream_failed", event_type=kwargs.get("event_type"), error=str(exc))
+
+    return _real
+
+
+async def _default_notification_publisher(topic: str, payload: dict) -> None:
+    log.info("admin.notification_stub", topic=topic, template=payload.get("template_id"))
+
+
+def get_notification_publisher(request: Request) -> Callable:
+    from shared.event_bus.producer import EventProducer as KafkaEventProducer
+    producer: Optional[KafkaEventProducer] = getattr(
+        request.app.state, "kafka_producer_cts", None
+    )
+    if producer is None:
+        return _default_notification_publisher
+
+    async def _real(topic: str, payload: dict) -> None:
+        try:
+            await producer.publish(
+                topic=topic,
+                event_type="NOTIFICATION_REQUEST",
+                payload=payload,
+                schema_version="1.0",
+            )
+        except Exception as exc:
+            log.error("admin.notification_publish_failed", topic=topic, error=str(exc))
+
+    return _real
+
+
 # ── Response models ──────────────────────────────────────────────────────────
 
 class ThresholdEntry(BaseModel):
     model_config = ConfigDict(frozen=True)
     config_key: str
     current_value: str
-    layer: Literal["LAYER_2", "LAYER_3"]
+    layer: Literal["LAYER_1", "LAYER_2", "LAYER_3"]
     description: str
     last_changed_at: Optional[str] = None
     last_changed_by: Optional[str] = None
@@ -120,6 +235,26 @@ class ChangeActionResponse(BaseModel):
     status: Literal["APPROVED", "REJECTED"]
     actioned_by: str
     actioned_at: str
+
+
+class Layer2ChangeRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    config_key: str
+    current_value: str
+    requested_value: str
+    reason: str = Field(..., min_length=10)
+    cab_ticket: str
+
+
+class Layer2ChangeResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    request_id: str
+    config_key: str
+    requested_value: str
+    status: Literal["PENDING_ASTRA_REVIEW"]
+    submitted_by: str
+    submitted_at: str
+    cab_ticket: str
 
 
 class UserSummary(BaseModel):
@@ -177,17 +312,44 @@ class HealthResponse(BaseModel):
 
 @router_v1.get("/config/thresholds", response_model=ThresholdsListResponse)
 async def list_thresholds(
+    request: Request,
     user: dict = Depends(require_admin_role),
 ) -> ThresholdsListResponse:
     bank_id = user["bank_id"]
     log.info("admin.list_thresholds", bank_id=bank_id, role=user["role"])
 
-    # In production: query config_service for Layer 3 thresholds from YugabyteDB config table.
-    return ThresholdsListResponse(
-        thresholds=[],
-        total=0,
-        bank_id=bank_id,
+    # Try to overlay live values from the config table; fall back to schema defaults
+    # when the DB is unreachable (test / cold-start paths).
+    live_values: dict[str, str] = {}
+    pool = getattr(request.app.state, "db_pool_platform", None) or getattr(
+        request.app.state, "db_pool_cts", None
     )
+    if pool is not None:
+        try:
+            async with pool.acquire() as conn:
+                rows = await conn.fetch(
+                    """
+                    SELECT config_key, config_value, updated_at, updated_by
+                    FROM platform.config_values
+                    WHERE bank_id = $1
+                    """,
+                    bank_id,
+                )
+            for r in rows:
+                live_values[r["config_key"]] = r["config_value"]
+        except Exception:
+            log.warning("admin.list_thresholds.db_unavailable", bank_id=bank_id)
+
+    thresholds = [
+        ThresholdEntry(
+            config_key=s["config_key"],
+            current_value=live_values.get(s["config_key"], s["default"]),
+            layer=s["layer"],
+            description=s["description"],
+        )
+        for s in _LAYER3_SCHEMA
+    ]
+    return ThresholdsListResponse(thresholds=thresholds, total=len(thresholds), bank_id=bank_id)
 
 
 @router_v1.post("/config/thresholds", response_model=ThresholdChangeResponse, status_code=202)
@@ -195,6 +357,9 @@ async def submit_threshold_change(
     request: Request,
     body: ThresholdChangeRequest,
     user: dict = Depends(require_maker_role),
+    event_publisher: Callable = Depends(get_event_publisher),
+    audit_stream_writer: Callable = Depends(get_audit_stream_writer),
+    notification_publisher: Callable = Depends(get_notification_publisher),
 ) -> ThresholdChangeResponse:
     bank_id = user["bank_id"]
     user_id = user["user_id"]
@@ -205,7 +370,10 @@ async def submit_threshold_change(
     change_id = f"chg-{bank_id}-{_secrets.token_hex(8)}"
     now = datetime.now(timezone.utc).isoformat()
 
-    pool = getattr(request.app.state, "db_pool_platform", None)
+    # 1. Write pending change to DB
+    pool = getattr(request.app.state, "db_pool_platform", None) or getattr(
+        request.app.state, "db_pool_cts", None
+    )
     if pool is not None:
         try:
             async with pool.acquire() as conn:
@@ -223,6 +391,38 @@ async def submit_threshold_change(
             log.warning("admin.submit_threshold_change.db_error",
                         bank_id=bank_id, change_id=change_id)
 
+    # 2. Immudb audit — CONFIG_CHANGE, always fires
+    await audit_stream_writer(
+        event_type=AuditEventType.CONFIG_CHANGE.value,
+        bank_id=bank_id,
+        payload={
+            "action": "SUBMITTED",
+            "change_id": change_id,
+            "config_key": body.config_key,
+            "new_value": body.new_value,
+            "reason": body.reason,
+            "submitted_by": user_id,
+            "submitted_at": now,
+        },
+    )
+
+    # 3. Notify bank_it_admin (checker) that a change is pending their approval
+    await notification_publisher(
+        PLATFORM_NOTIFICATIONS,
+        {
+            "event_type": "NOTIFICATION_REQUEST",
+            "template_id": "platform.config_change_pending_approval",
+            "bank_id": bank_id,
+            "recipient_role": "bank_it_admin",
+            "context": {
+                "change_id": change_id,
+                "config_key": body.config_key,
+                "new_value": body.new_value,
+                "submitted_by": user_id,
+            },
+        },
+    )
+
     return ThresholdChangeResponse(
         change_id=change_id,
         config_key=body.config_key,
@@ -238,14 +438,22 @@ async def approve_threshold_change(
     request: Request,
     change_id: str,
     user: dict = Depends(require_checker_role),
+    event_publisher: Callable = Depends(get_event_publisher),
+    audit_stream_writer: Callable = Depends(get_audit_stream_writer),
+    notification_publisher: Callable = Depends(get_notification_publisher),
 ) -> ChangeActionResponse:
     bank_id = user["bank_id"]
     user_id = user["user_id"]
+    now = datetime.now(timezone.utc).isoformat()
 
     log.info("admin.approve_threshold_change",
              bank_id=bank_id, change_id=change_id, approved_by=user_id)
 
-    pool = getattr(request.app.state, "db_pool_platform", None)
+    # 1. DB update — always attempt, 404 if missing
+    actioned_at = now
+    pool = getattr(request.app.state, "db_pool_platform", None) or getattr(
+        request.app.state, "db_pool_cts", None
+    )
     if pool is not None:
         try:
             async with pool.acquire() as conn:
@@ -254,22 +462,89 @@ async def approve_threshold_change(
                     UPDATE platform.config_pending_changes
                     SET status = 'APPROVED', actioned_by = $1, actioned_at = NOW()
                     WHERE change_id = $2 AND bank_id = $3 AND status = 'PENDING_APPROVAL'
-                    RETURNING change_id, actioned_at
+                    RETURNING change_id, config_key, new_value, submitted_by, actioned_at
                     """,
                     user_id, change_id, bank_id,
                 )
-            if result:
-                return ChangeActionResponse(
-                    change_id=change_id,
-                    status="APPROVED",
-                    actioned_by=user_id,
-                    actioned_at=str(result["actioned_at"]),
+            if result is None:
+                # 2a. Still fire audit on attempt — no silent path
+                await audit_stream_writer(
+                    event_type=AuditEventType.CONFIG_CHANGE.value,
+                    bank_id=bank_id,
+                    payload={"action": "APPROVE_NOT_FOUND", "change_id": change_id,
+                             "approved_by": user_id},
                 )
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                    detail="Change not found or already actioned")
+            config_key = result["config_key"]
+            new_value = result["new_value"]
+            submitted_by = result["submitted_by"]
+            actioned_at = str(result["actioned_at"])
+        except HTTPException:
+            raise
         except Exception:
             log.warning("admin.approve_threshold_change.db_error",
                         bank_id=bank_id, change_id=change_id)
+            config_key = "unknown"
+            new_value = "unknown"
+            submitted_by = "unknown"
+    else:
+        config_key = "unknown"
+        new_value = "unknown"
+        submitted_by = "unknown"
 
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Change not found")
+    # 2. Immudb audit
+    await audit_stream_writer(
+        event_type=AuditEventType.CONFIG_CHANGE.value,
+        bank_id=bank_id,
+        payload={
+            "action": "APPROVED",
+            "change_id": change_id,
+            "config_key": config_key,
+            "new_value": new_value,
+            "approved_by": user_id,
+            "actioned_at": actioned_at,
+        },
+    )
+
+    # 3. Kafka platform.config.changed → config_service Redis invalidation → 30s hot-reload
+    await event_publisher(
+        PLATFORM_CONFIG_CHANGED,
+        {
+            "event_type": "CONFIG_CHANGED",
+            "bank_id": bank_id,
+            "config_key": config_key,
+            "new_value": new_value,
+            "changed_by": user_id,
+            "change_id": change_id,
+            "schema_version": "1.0",
+        },
+    )
+
+    # 4. Notify maker (ops_manager) that their change is live
+    await notification_publisher(
+        PLATFORM_NOTIFICATIONS,
+        {
+            "event_type": "NOTIFICATION_REQUEST",
+            "template_id": "platform.config_change_approved",
+            "bank_id": bank_id,
+            "recipient_role": "ops_manager",
+            "recipient_user_id": submitted_by,
+            "context": {
+                "change_id": change_id,
+                "config_key": config_key,
+                "new_value": new_value,
+                "approved_by": user_id,
+            },
+        },
+    )
+
+    return ChangeActionResponse(
+        change_id=change_id,
+        status="APPROVED",
+        actioned_by=user_id,
+        actioned_at=actioned_at,
+    )
 
 
 @router_v1.post("/config/thresholds/{change_id}/reject", response_model=ChangeActionResponse)
@@ -277,14 +552,23 @@ async def reject_threshold_change(
     request: Request,
     change_id: str,
     user: dict = Depends(require_checker_role),
+    audit_stream_writer: Callable = Depends(get_audit_stream_writer),
+    notification_publisher: Callable = Depends(get_notification_publisher),
 ) -> ChangeActionResponse:
     bank_id = user["bank_id"]
     user_id = user["user_id"]
+    now = datetime.now(timezone.utc).isoformat()
 
     log.info("admin.reject_threshold_change",
              bank_id=bank_id, change_id=change_id, rejected_by=user_id)
 
-    pool = getattr(request.app.state, "db_pool_platform", None)
+    actioned_at = now
+    submitted_by = "unknown"
+    config_key = "unknown"
+
+    pool = getattr(request.app.state, "db_pool_platform", None) or getattr(
+        request.app.state, "db_pool_cts", None
+    )
     if pool is not None:
         try:
             async with pool.acquire() as conn:
@@ -293,22 +577,290 @@ async def reject_threshold_change(
                     UPDATE platform.config_pending_changes
                     SET status = 'REJECTED', actioned_by = $1, actioned_at = NOW()
                     WHERE change_id = $2 AND bank_id = $3 AND status = 'PENDING_APPROVAL'
-                    RETURNING change_id, actioned_at
+                    RETURNING change_id, config_key, submitted_by, actioned_at
                     """,
                     user_id, change_id, bank_id,
                 )
-            if result:
-                return ChangeActionResponse(
-                    change_id=change_id,
-                    status="REJECTED",
-                    actioned_by=user_id,
-                    actioned_at=str(result["actioned_at"]),
+            if result is None:
+                await audit_stream_writer(
+                    event_type=AuditEventType.CONFIG_CHANGE.value,
+                    bank_id=bank_id,
+                    payload={"action": "REJECT_NOT_FOUND", "change_id": change_id,
+                             "rejected_by": user_id},
                 )
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                    detail="Change not found or already actioned")
+            config_key = result["config_key"]
+            submitted_by = result["submitted_by"]
+            actioned_at = str(result["actioned_at"])
+        except HTTPException:
+            raise
         except Exception:
             log.warning("admin.reject_threshold_change.db_error",
                         bank_id=bank_id, change_id=change_id)
 
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Change not found")
+    # Immudb audit
+    await audit_stream_writer(
+        event_type=AuditEventType.CONFIG_CHANGE.value,
+        bank_id=bank_id,
+        payload={
+            "action": "REJECTED",
+            "change_id": change_id,
+            "config_key": config_key,
+            "rejected_by": user_id,
+            "actioned_at": actioned_at,
+        },
+    )
+
+    # Notify maker (ops_manager) that their change was rejected
+    await notification_publisher(
+        PLATFORM_NOTIFICATIONS,
+        {
+            "event_type": "NOTIFICATION_REQUEST",
+            "template_id": "platform.config_change_rejected",
+            "bank_id": bank_id,
+            "recipient_role": "ops_manager",
+            "recipient_user_id": submitted_by,
+            "context": {
+                "change_id": change_id,
+                "config_key": config_key,
+                "rejected_by": user_id,
+            },
+        },
+    )
+
+    return ChangeActionResponse(
+        change_id=change_id,
+        status="REJECTED",
+        actioned_by=user_id,
+        actioned_at=actioned_at,
+    )
+
+
+class ConfigChangeEntry(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    change_id: str
+    config_key: str
+    old_value: Optional[str] = None
+    new_value: str
+    reason: str
+    status: Literal["PENDING_APPROVAL", "APPROVED", "REJECTED"]
+    submitted_by: str
+    submitted_at: str
+    actioned_by: Optional[str] = None
+    actioned_at: Optional[str] = None
+
+
+class ConfigChangesListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    changes: list[ConfigChangeEntry]
+    total: int
+    bank_id: str
+
+
+@router_v1.get("/config/thresholds/changes", response_model=ConfigChangesListResponse)
+async def list_threshold_changes(
+    request: Request,
+    user: dict = Depends(require_admin_role),
+    limit: int = Query(default=50, le=100),
+) -> ConfigChangesListResponse:
+    bank_id = user["bank_id"]
+    pool = getattr(request.app.state, "db_pool_platform", None) or getattr(
+        request.app.state, "db_pool_cts", None
+    )
+    if pool is not None:
+        try:
+            async with pool.acquire() as conn:
+                rows = await conn.fetch(
+                    """
+                    SELECT change_id, config_key, new_value, reason, status,
+                           submitted_by, submitted_at, actioned_by, actioned_at
+                    FROM platform.config_pending_changes
+                    WHERE bank_id = $1
+                    ORDER BY submitted_at DESC
+                    LIMIT $2
+                    """,
+                    bank_id, limit,
+                )
+            changes = [
+                ConfigChangeEntry(
+                    change_id=str(r["change_id"]),
+                    config_key=r["config_key"],
+                    new_value=r["new_value"],
+                    reason=r["reason"],
+                    status=r["status"],
+                    submitted_by=r["submitted_by"],
+                    submitted_at=str(r["submitted_at"]),
+                    actioned_by=r.get("actioned_by"),
+                    actioned_at=str(r["actioned_at"]) if r.get("actioned_at") else None,
+                )
+                for r in rows
+            ]
+            return ConfigChangesListResponse(changes=changes, total=len(changes), bank_id=bank_id)
+        except Exception:
+            log.warning("admin.list_threshold_changes.db_error", bank_id=bank_id)
+
+    return ConfigChangesListResponse(changes=[], total=0, bank_id=bank_id)
+
+
+@router_v1.post(
+    "/config/platform/change-request",
+    response_model=Layer2ChangeResponse,
+    status_code=202,
+)
+async def submit_layer2_change_request(
+    request: Request,
+    body: Layer2ChangeRequest,
+    user: dict = Depends(require_checker_role),
+    audit_stream_writer: Callable = Depends(get_audit_stream_writer),
+    notification_publisher: Callable = Depends(get_notification_publisher),
+) -> Layer2ChangeResponse:
+    """
+    Bank IT admin raises a Layer 2 configuration change request.
+    Layer 2 changes (replicas, connection pool sizes, topology) require a
+    Helm upgrade by ASTRA vendor after CAB approval — they are NOT hot-reloaded.
+    This endpoint records the request, audits it, and notifies ASTRA support.
+    """
+    bank_id = user["bank_id"]
+    user_id = user["user_id"]
+    now = datetime.now(timezone.utc).isoformat()
+    request_id = f"l2req-{bank_id}-{_secrets.token_hex(8)}"
+
+    log.info("admin.layer2_change_request",
+             bank_id=bank_id, config_key=body.config_key, requested_by=user_id,
+             cab_ticket=body.cab_ticket)
+
+    # 1. Write to DB
+    pool = getattr(request.app.state, "db_pool_platform", None) or getattr(
+        request.app.state, "db_pool_cts", None
+    )
+    if pool is not None:
+        try:
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO platform.layer2_change_requests
+                    (request_id, bank_id, config_key, current_value, requested_value,
+                     reason, cab_ticket, status, submitted_by, submitted_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING_ASTRA_REVIEW', $8, NOW())
+                    """,
+                    request_id, bank_id, body.config_key, body.current_value,
+                    body.requested_value, body.reason, body.cab_ticket, user_id,
+                )
+        except Exception:
+            log.warning("admin.layer2_change_request.db_error",
+                        bank_id=bank_id, request_id=request_id)
+
+    # 2. Immudb audit
+    await audit_stream_writer(
+        event_type=AuditEventType.CONFIG_L2_CHANGE_REQUESTED.value,
+        bank_id=bank_id,
+        payload={
+            "request_id": request_id,
+            "config_key": body.config_key,
+            "current_value": body.current_value,
+            "requested_value": body.requested_value,
+            "reason": body.reason,
+            "cab_ticket": body.cab_ticket,
+            "submitted_by": user_id,
+            "submitted_at": now,
+        },
+    )
+
+    # 3. Notify ASTRA support + bank_it_admin (self-notification for audit trail)
+    await notification_publisher(
+        PLATFORM_NOTIFICATIONS,
+        {
+            "event_type": "NOTIFICATION_REQUEST",
+            "template_id": "platform.layer2_change_request_raised",
+            "bank_id": bank_id,
+            "recipient_role": "astra_support",
+            "context": {
+                "request_id": request_id,
+                "bank_id": bank_id,
+                "config_key": body.config_key,
+                "current_value": body.current_value,
+                "requested_value": body.requested_value,
+                "cab_ticket": body.cab_ticket,
+                "submitted_by": user_id,
+            },
+        },
+    )
+
+    return Layer2ChangeResponse(
+        request_id=request_id,
+        config_key=body.config_key,
+        requested_value=body.requested_value,
+        status="PENDING_ASTRA_REVIEW",
+        submitted_by=user_id,
+        submitted_at=now,
+        cab_ticket=body.cab_ticket,
+    )
+
+
+class Layer2ChangeEntry(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    request_id: str
+    config_key: str
+    current_value: str
+    requested_value: str
+    reason: str
+    cab_ticket: str
+    status: str
+    submitted_by: str
+    submitted_at: str
+
+
+class Layer2ChangesListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    requests: list[Layer2ChangeEntry]
+    total: int
+    bank_id: str
+
+
+@router_v1.get("/config/platform/change-requests", response_model=Layer2ChangesListResponse)
+async def list_layer2_change_requests(
+    request: Request,
+    user: dict = Depends(require_checker_role),
+    limit: int = Query(default=50, le=100),
+) -> Layer2ChangesListResponse:
+    bank_id = user["bank_id"]
+    pool = getattr(request.app.state, "db_pool_platform", None) or getattr(
+        request.app.state, "db_pool_cts", None
+    )
+    if pool is not None:
+        try:
+            async with pool.acquire() as conn:
+                rows = await conn.fetch(
+                    """
+                    SELECT request_id, config_key, current_value, requested_value,
+                           reason, cab_ticket, status, submitted_by, submitted_at
+                    FROM platform.layer2_change_requests
+                    WHERE bank_id = $1
+                    ORDER BY submitted_at DESC
+                    LIMIT $2
+                    """,
+                    bank_id, limit,
+                )
+            reqs = [
+                Layer2ChangeEntry(
+                    request_id=str(r["request_id"]),
+                    config_key=r["config_key"],
+                    current_value=r["current_value"],
+                    requested_value=r["requested_value"],
+                    reason=r["reason"],
+                    cab_ticket=r["cab_ticket"],
+                    status=r["status"],
+                    submitted_by=r["submitted_by"],
+                    submitted_at=str(r["submitted_at"]),
+                )
+                for r in rows
+            ]
+            return Layer2ChangesListResponse(requests=reqs, total=len(reqs), bank_id=bank_id)
+        except Exception:
+            log.warning("admin.list_layer2_change_requests.db_error", bank_id=bank_id)
+
+    return Layer2ChangesListResponse(requests=[], total=0, bank_id=bank_id)
 
 
 @router_v1.get("/users", response_model=UsersListResponse)

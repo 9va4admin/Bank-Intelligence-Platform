@@ -71,8 +71,21 @@ class AuditEventType(str, Enum):
     # ── Instrument Passport ────────────────────────────────────────────────────
     CTS_INSTRUMENT_PASSPORT = "CTS_INSTRUMENT_PASSPORT"   # per-instrument full analysis record
 
+    # ── CTS Hold Queue (Phase F) ───────────────────────────────────────────────
+    CTS_HOLD_PLACED = "CTS_HOLD_PLACED"
+    CTS_HOLD_RELEASED = "CTS_HOLD_RELEASED"
+
+    # ── CTS Allocation / Lock (Phase E) ───────────────────────────────────────
+    CTS_LOCK_ACQUIRED = "CTS_LOCK_ACQUIRED"
+    CTS_LOCK_RELEASED = "CTS_LOCK_RELEASED"
+    CTS_LOCK_EXPIRED = "CTS_LOCK_EXPIRED"
+    CTS_ALLOC_CLAIMED = "CTS_ALLOC_CLAIMED"
+    CTS_ALLOC_AUTO_ASSIGNED = "CTS_ALLOC_AUTO_ASSIGNED"
+    CTS_ALLOC_UNCLAIMED = "CTS_ALLOC_UNCLAIMED"
+
     # ── Platform / infra ───────────────────────────────────────────────────────
     CONFIG_CHANGE = "CONFIG_CHANGE"
+    CONFIG_L2_CHANGE_REQUESTED = "CONFIG_L2_CHANGE_REQUESTED"
     DIAGNOSTIC_ACCESS = "DIAGNOSTIC_ACCESS"
     BANK_ONBOARDED = "BANK_ONBOARDED"
 

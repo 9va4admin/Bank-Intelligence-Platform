@@ -2482,3 +2482,85 @@ VAULT_SIG_SYNC_STATUS:
   variables: [bank_id, yugabyte_accounts, redis_sig_keys, coverage_pct]
   en: "Vault sync status for {bank_id}: {yugabyte_accounts} accounts in YugabyteDB, {redis_sig_keys} in Redis ({coverage_pct}% coverage)."
   hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# CTS HOLD QUEUE (Phase F)
+# ────────────────────────────────────────────────────────────────────────
+
+CTS_WF_HOLD_PLACED:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, held_by, hold_reason, iet_deadline]
+  en: "Instrument {instrument_id} placed on hold by {held_by} — reason: {hold_reason}. IET deadline: {iet_deadline}. Branch notified."
+  hi: ""
+
+CTS_WF_HOLD_RELEASED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [instrument_id, released_by, branch_recommendation]
+  en: "Hold released on {instrument_id} by {released_by}. Branch recommendation: {branch_recommendation}. Instrument returned to review queue."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# CTS ALLOCATION / LOCK (Phase E)
+# ────────────────────────────────────────────────────────────────────────
+
+CTS_LOCK_ACQUIRED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, reviewer_id, ttl_minutes]
+  en: "Review lock acquired on {instrument_id} by {reviewer_id} — TTL {ttl_minutes} minutes."
+  hi: ""
+
+CTS_LOCK_RELEASED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, reviewer_id]
+  en: "Review lock released on {instrument_id} by {reviewer_id}."
+  hi: ""
+
+CTS_LOCK_EXPIRED:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [instrument_id, reviewer_id]
+  en: "Review lock expired on {instrument_id} — previously held by {reviewer_id}. Instrument is now claimable."
+  hi: ""
+
+CTS_ALLOC_CLAIMED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, reviewer_id]
+  en: "Instrument {instrument_id} manually claimed by {reviewer_id}."
+  hi: ""
+
+CTS_ALLOC_AUTO_ASSIGNED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, reviewer_id, allocation_mode]
+  en: "Instrument {instrument_id} auto-assigned to {reviewer_id} via {allocation_mode} allocation mode."
+  hi: ""
+
+CTS_ALLOC_UNCLAIMED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, reviewer_id]
+  en: "Instrument {instrument_id} unclaimed by {reviewer_id} — returned to queue."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# PLATFORM CONFIG — LAYER 2 CHANGE REQUESTS
+# ────────────────────────────────────────────────────────────────────────
+
+PLATFORM_CONFIG_L2_REQUESTED:
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [requested_by, config_key, current_value, requested_value, cab_ticket]
+  en: "Layer 2 config change requested by {requested_by} — key: {config_key}, from {current_value} to {requested_value}. CAB ticket: {cab_ticket}. Sent to ASTRA vendor for review."
+  hi: ""
+
+PLATFORM_CONFIG_L2_DEPLOYED:
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [config_key, new_value, deployed_by, cab_ticket]
+  en: "Layer 2 config change deployed — {config_key} updated to {new_value} by {deployed_by} (CAB: {cab_ticket}). Helm upgrade complete."
+  hi: ""
