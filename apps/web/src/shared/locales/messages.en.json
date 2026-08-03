@@ -3977,5 +3977,107 @@
       "deployed_by",
       "cab_ticket"
     ]
+  },
+  "CTS_WF_HOLD_EXPIRED": {
+    "text": "IET expired on instrument {instrument_id} while on hold (held by {held_by}). IET deadline {iet_deadline} was reached. IETWatchdog has filed emergency return to NGCH.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "held_by",
+      "iet_deadline"
+    ]
+  },
+  "CTS_HOLD_ESCALATION_30MIN": {
+    "text": "Hold reminder sent to branch {branch_email} — no response received 30 minutes after hold placed on {instrument_id}. IET clock running.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "branch_email"
+    ]
+  },
+  "CTS_HOLD_ESCALATION_CRITICAL": {
+    "text": "CRITICAL: IET window closing on held instrument {instrument_id} — 60 minutes remaining until {iet_deadline}. Release hold and make decision immediately.",
+    "severity": "CRITICAL",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "iet_deadline"
+    ]
+  },
+  "CTS_HOLD_ESCALATION_P0": {
+    "text": "P0 ALERT: IET breach imminent on {instrument_id} — 5 minutes to {iet_deadline}. IMMEDIATE action required. Release hold and confirm or return now.",
+    "severity": "CRITICAL",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "iet_deadline"
+    ]
+  },
+  "CTS_CONFIG_L3_SUBMITTED": {
+    "text": "Layer 3 config change submitted by {submitted_by} — {config_key} proposed from {current_value} to {new_value}. Pending bank_it_admin approval.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "submitted_by",
+      "config_key",
+      "current_value",
+      "new_value"
+    ]
+  },
+  "CTS_CONFIG_L3_APPROVED": {
+    "text": "Layer 3 config change approved by {approved_by} — {config_key} updated to {new_value}. Hot-reloaded via config_service within 30 seconds.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "approved_by",
+      "config_key",
+      "new_value"
+    ]
+  },
+  "CTS_CONFIG_L3_REJECTED": {
+    "text": "Layer 3 config change rejected by {rejected_by} — {config_key} change denied. Reason: {reason}. No change applied.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "rejected_by",
+      "config_key",
+      "reason"
+    ]
+  },
+  "CTS_QUEUE_TIER_ROUTED": {
+    "text": "Instrument {instrument_id} routed to {queue_tier} queue — Kafka topic {kafka_topic}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "queue_tier",
+      "kafka_topic"
+    ]
   }
 }
