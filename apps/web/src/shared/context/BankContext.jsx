@@ -22,6 +22,7 @@ export const ROLE_PERMISSIONS = {
   ml_engineer:        ['ai:model_metrics', 'ai:mlflow_access'],
   smb_it_admin:       ['smb:register', 'smb:view_ledger', 'smb:vault_sync',
                        'smb:config_change', 'audit:read', 'login_log:read'],
+  branch_manager:     ['cts:view_hold_queue', 'cts:add_hold_note', 'login_log:read'],
   smb_admin:          ['cts:view_queue', 'cts:submit_decision', 'smb:view_ledger',
                        'audit:read', 'user:manage', 'login_log:read'],
   smb_editor:         ['cts:view_queue', 'cts:submit_decision', 'smb:view_ledger', 'login_log:read'],
@@ -64,6 +65,21 @@ const DEMO_SMB = {
   smbs: [], // SMB has no sub-members of its own
 }
 
+// DEMO ONLY — branch_manager sees Branch Operations → Inward Hold Queue only
+const DEMO_BRANCH_MANAGER = {
+  bankType:      'SB',
+  bankId:        'saraswat-coop',
+  bankIfsc:      'SRCB0000001',
+  bankName:      'Saraswat Co-operative Bank',
+  bankShortName: 'Saraswat',
+  bankCity:      'Mumbai',
+  sponsorBankId: null,
+  userRole:      'branch_manager',
+  branchCode:    'SRCB-MUM-001',  // demo branch
+  userName:      'Demo Branch Manager',
+  smbs: [],
+}
+
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 const BankContext = createContext(null)
@@ -76,7 +92,9 @@ export function BankProvider({ children }) {
   const [profile, setProfile] = useState(() => {
     if (!isDemoMode) return DEMO_SB // production always reads from JWT
     const saved = localStorage.getItem('astra-bank-type')
-    return saved === 'SMB' ? DEMO_SMB : DEMO_SB
+    if (saved === 'SMB') return DEMO_SMB
+    if (saved === 'BRANCH') return DEMO_BRANCH_MANAGER
+    return DEMO_SB
   })
 
   // SB can drill into a specific SMB — null means "show all / consolidated"
@@ -84,8 +102,12 @@ export function BankProvider({ children }) {
 
   function toggleBankType() {
     if (!isDemoMode) return
-    const next = profile.bankType === 'SB' ? DEMO_SMB : DEMO_SB
-    localStorage.setItem('astra-bank-type', next.bankType)
+    // Cycle: SB (ops_manager) → SMB (smb_editor) → BRANCH (branch_manager) → SB
+    let next, key
+    if (profile.userRole === 'ops_manager') { next = DEMO_SMB;            key = 'SMB'    }
+    else if (profile.userRole === 'smb_editor')  { next = DEMO_BRANCH_MANAGER; key = 'BRANCH' }
+    else                                          { next = DEMO_SB;             key = 'SB'     }
+    localStorage.setItem('astra-bank-type', key)
     setSelectedSmbId(null)
     setProfile(next)
   }
@@ -97,10 +119,11 @@ export function BankProvider({ children }) {
   const active = sessionUser
     ? {
         ...(sessionUser.bank_type === 'SMB' ? DEMO_SMB : DEMO_SB),
-        bankType: sessionUser.bank_type || 'SB',
-        bankId: sessionUser.bank_id,
-        userRole: sessionUser.role,
-        userName: sessionUser.username,
+        bankType:   sessionUser.bank_type  || 'SB',
+        bankId:     sessionUser.bank_id,
+        userRole:   sessionUser.role,
+        userName:   sessionUser.username,
+        branchCode: sessionUser.branch_code ?? null,  // branch_manager ABAC scope from JWT
       }
     : profile
 

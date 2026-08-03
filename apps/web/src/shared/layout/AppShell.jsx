@@ -38,6 +38,16 @@ function AdminIcon() {
     </svg>
   )
 }
+function BranchIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-4 h-4">
+      <path d="M10 3v14M5 7l5-4 5 4" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="3" y="12" width="4" height="5" rx="1" />
+      <rect x="13" y="12" width="4" height="5" rx="1" />
+      <rect x="8" y="12" width="4" height="5" rx="1" />
+    </svg>
+  )
+}
 function ChevronIcon({ style }) {
   return (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3 shrink-0 transition-transform duration-200" style={style}>
@@ -147,6 +157,21 @@ const SIDEBAR_MODULES = [
     ],
   },
   {
+    id: 'branch-ops',
+    label: 'Branch',
+    fullLabel: 'Branch Operations',
+    Icon: BranchIcon,
+    sections: [
+      {
+        label: 'Hold Queue',
+        directLink: true,
+        items: [
+          { to: '/branch/hold-queue', label: 'Inward Hold Queue', perm: 'cts:view_hold_queue' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'ops',
     label: 'Ops',
     fullLabel: 'Platform Operations',
@@ -246,6 +271,7 @@ const ROUTE_LABELS = {
   '/branch/scan':                 ['Branch Portal', 'Scanner Monitor'],
   '/branch/mismatch':             ['Branch Portal', 'Mismatch Queue'],
   '/branch/history':              ['Branch Portal', 'Session History'],
+  '/branch/hold-queue':           ['Branch Operations', 'Inward Hold Queue — Held Instruments'],
   '/cts/hub':                     ['Outward Clearing', 'Hub Manager — Branch Sessions & Lot Sealing'],
   '/ops/dashboard':               ['Platform Ops', 'ASTRA Ops Overview'],
   '/ops/model-health':            ['Platform Ops', 'AI Model Health — 7-Day Drift'],
@@ -269,7 +295,8 @@ function useBreadcrumb(pathname) {
 function activeModuleId(pathname) {
   if (pathname.startsWith('/admin') || pathname.startsWith('/cts/config')) return 'admin'
   if (pathname.startsWith('/ops')) return 'ops'
-  return 'cts'   // /branch/* and /cts/* routes live under the CTS module tab
+  if (pathname.startsWith('/branch/hold-queue')) return 'branch-ops'
+  return 'cts'   // /cts/* and other /branch/* routes live under the CTS module tab
 }
 
 // ── AppShell ────────────────────────────────────────────────────────────────
@@ -452,6 +479,18 @@ export default function AppShell({ children }) {
 // ── SidebarModule ────────────────────────────────────────────────────────────
 
 function SidebarModule({ mod, collapsed, isDark, isActiveModule, open, onToggle, location, isSB, isSMB, hasPermission }) {
+  // Hide the entire module tab when no items are visible to this user.
+  // This uses the same three-gate filter as SidebarSection so branch-ops
+  // is invisible to all roles except branch_manager.
+  const hasVisibleItems = mod.sections.some(sec =>
+    sec.items.some(item => {
+      if (item.sbOnly && !isSB) return false
+      if (item.smbOnly && !isSMB) return false
+      if (item.perm && !hasPermission(item.perm)) return false
+      return true
+    })
+  )
+
   const [expandedSections, setExpandedSections] = useState(() => {
     // Single-open accordion: start with the active section (or the first).
     const active = mod.sections.find((sec) =>
@@ -479,6 +518,8 @@ function SidebarModule({ mod, collapsed, isDark, isActiveModule, open, onToggle,
     // Accordion: opening a group collapses the rest; clicking the open one closes it.
     setExpandedSections((prev) => (prev.has(label) ? new Set() : new Set([label])))
   }
+
+  if (!hasVisibleItems) return null
 
   if (collapsed) {
     return (
