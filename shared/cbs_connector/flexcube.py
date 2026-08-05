@@ -20,8 +20,8 @@ import xml.etree.ElementTree as ET
 import structlog
 
 from shared.cbs_connector.base import (
-    AccountInfo, AccountStatus, BranchContactProfile, CBSConnector,
-    CBSSignatoryData, PPSEntry, StopPaymentResult,
+    AccountInfo, AccountStatus, BeneficiaryValidationResult, BranchContactProfile,
+    CBSConnector, CBSSignatoryData, PPSEntry, StopPaymentResult,
 )
 from shared.cbs_connector.exceptions import AccountNotFoundError, CBSUnavailableError
 
@@ -288,6 +288,71 @@ class FlexCubeCBSConnector(CBSConnector):
 
     async def list_issued_leaves(self, bank_id: str) -> list[dict]:
         raise NotImplementedError("FlexCube list_issued_leaves not yet implemented")
+
+    async def validate_beneficiary(
+        self,
+        account_number: str,
+        inquiry_name: str,
+        bank_id: str,
+        name_match_threshold: float = 0.80,
+    ) -> BeneficiaryValidationResult:
+        _inactive = {AccountStatus.FROZEN, AccountStatus.CLOSED, AccountStatus.NPA, AccountStatus.DORMANT}
+        self._assert_ready()
+        body = (
+            f"<fcubs:CUSTAC_REQ>"
+            f"<fcubs:ACCOUNT_NO>{account_number}</fcubs:ACCOUNT_NO>"
+            f"</fcubs:CUSTAC_REQ>"
+        )
+        try:
+            root = await self._call("QueryCustAccount", body)
+        except CBSUnavailableError as exc:
+            log.warning("flexcube.validate_beneficiary.unavailable", error=str(exc))
+            return BeneficiaryValidationResult(outcome="CBS_UNAVAILABLE", degraded=True)
+
+        if _is_fault(root):
+            code = _fault_code(root)
+            if "404" in code or "not found" in code.lower():
+                return BeneficiaryValidationResult(outcome="ACCOUNT_NOT_FOUND")
+            log.warning("flexcube.validate_beneficiary.fault", fault_code=code)
+            return BeneficiaryValidationResult(outcome="CBS_UNAVAILABLE", degraded=True)
+
+        raw_status = _find_text(root, "ACCOUNT_STATUS") or "A"
+        if _find_text(root, "AC_STAT_BLOCKED") == "Y":
+            status = AccountStatus.FROZEN
+        elif _find_text(root, "AC_STAT_CLOSED") == "Y":
+            status = AccountStatus.CLOSED
+        elif _find_text(root, "AC_STAT_DORMANT") == "Y":
+            status = AccountStatus.DORMANT
+        else:
+            status = _STATUS_MAP.get(raw_status, AccountStatus.ACTIVE)
+
+        if status in _inactive:
+            holder_name = _find_text(root, "CUST_NAME") or _find_text(root, "CUSTNAME") or ""
+            return BeneficiaryValidationResult(
+                outcome="ACCOUNT_INACTIVE", account_status=status,
+                payee_display=self._payee_display(holder_name),
+            )
+
+        holder_name = _find_text(root, "CUST_NAME") or _find_text(root, "CUSTNAME") or ""
+        if not holder_name:
+            log.warning("flexcube.validate_beneficiary.no_name", account_last4=account_number[-4:])
+            return BeneficiaryValidationResult(outcome="CBS_UNAVAILABLE", degraded=True)
+
+        score = self._name_match_score(inquiry_name, holder_name)
+        display = self._payee_display(holder_name)
+        confidence = "HIGH" if score >= 0.92 else ("MEDIUM" if score >= 0.80 else "LOW")
+
+        if score < name_match_threshold:
+            return BeneficiaryValidationResult(
+                outcome="NAME_MISMATCH", account_status=status,
+                name_match_score=score, name_match_confidence=confidence,
+                payee_display=display,
+            )
+        return BeneficiaryValidationResult(
+            outcome="PROCEED", account_status=status,
+            name_match_score=score, name_match_confidence=confidence,
+            payee_display=display,
+        )
 
     async def get_signatory_data(
         self,
