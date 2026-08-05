@@ -46,7 +46,9 @@ log = structlog.get_logger()
 @dataclass(frozen=True)
 class AccountVaultProfile:
     account_number_last4: str
-    account_type: str
+    account_type: str                        # SA | CA | OD | CC | FD | RD
+    account_status: str                      # ACTIVE | FROZEN | CLOSED | DORMANT | NPA
+    holder_name_display: str                 # "R***" — first initial only; for UI/audit, NOT for matching
     branch_code: str
     branch_name: str
     branch_ifsc: str
@@ -75,6 +77,8 @@ def _profile_from_dict(raw: dict[str, Any]) -> AccountVaultProfile:
     return AccountVaultProfile(
         account_number_last4=_s("account_number_last4"),
         account_type=_s("account_type"),
+        account_status=_s("account_status") or "ACTIVE",
+        holder_name_display=_s("holder_name_display"),
         branch_code=_s("branch_code"),
         branch_name=_s("branch_name"),
         branch_ifsc=_s("branch_ifsc"),
@@ -189,7 +193,8 @@ class AccountVault:
         async with self._db_pool.acquire() as conn:
             row = await conn.fetchrow(
                 """
-                SELECT account_number_last4, account_type,
+                SELECT account_number_last4, account_type, account_status,
+                       holder_name_display,
                        branch_code, branch_name, branch_ifsc,
                        branch_manager_email, branch_contact_email,
                        branch_contact_phone, last_synced_at
@@ -326,13 +331,16 @@ class AccountVault:
                     """
                     INSERT INTO cts.account_vault (
                         bank_id, account_hash, account_number_last4,
-                        account_type, branch_code, branch_name, branch_ifsc,
+                        account_type, account_status, holder_name_display,
+                        branch_code, branch_name, branch_ifsc,
                         branch_manager_email, branch_contact_email,
                         branch_contact_phone, last_synced_at, sync_source
-                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
                     ON CONFLICT (bank_id, account_hash)
                     DO UPDATE SET
                         account_type         = EXCLUDED.account_type,
+                        account_status       = EXCLUDED.account_status,
+                        holder_name_display  = EXCLUDED.holder_name_display,
                         branch_code          = EXCLUDED.branch_code,
                         branch_name          = EXCLUDED.branch_name,
                         branch_ifsc          = EXCLUDED.branch_ifsc,
@@ -347,6 +355,8 @@ class AccountVault:
                     account_hash,
                     profile.get("account_number_last4", account_number[-4:]),
                     profile.get("account_type", "UNKNOWN"),
+                    profile.get("account_status", "ACTIVE"),
+                    profile.get("holder_name_display", "***"),
                     profile.get("branch_code", ""),
                     profile.get("branch_name", ""),
                     profile.get("branch_ifsc", ""),

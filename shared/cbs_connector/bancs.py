@@ -14,8 +14,8 @@ from typing import Any
 import structlog
 
 from shared.cbs_connector.base import (
-    AccountInfo, AccountStatus, BranchContactProfile, CBSConnector,
-    CBSSignatoryData, PPSEntry, StopPaymentResult,
+    AccountInfo, AccountStatus, BeneficiaryValidationResult, BranchContactProfile,
+    CBSConnector, CBSSignatoryData, PPSEntry, StopPaymentResult,
 )
 from shared.cbs_connector.exceptions import AccountNotFoundError, CBSUnavailableError
 
@@ -159,6 +159,53 @@ class BaNCSCBSConnector(CBSConnector):
             raise CBSUnavailableError(f"BaNCS get_cheque_status failed: {exc}") from exc
 
         return str(data.get("chqSts", "ACTIVE"))
+
+    async def validate_beneficiary(
+        self,
+        account_number: str,
+        inquiry_name: str,
+        bank_id: str,
+        name_match_threshold: float = 0.80,
+    ) -> BeneficiaryValidationResult:
+        _inactive = {AccountStatus.FROZEN, AccountStatus.CLOSED, AccountStatus.NPA, AccountStatus.DORMANT}
+        try:
+            # BaNCS GET /api/v1/accounts/{account_number}/details — returns custName field
+            url = f"{self._base_url}/api/v1/accounts/{account_number}/details"
+            response = await self._http.get(url)
+            if response.status_code == 404:
+                raise AccountNotFoundError(account_number)
+            response.raise_for_status()
+            data = response.json()
+        except AccountNotFoundError:
+            return BeneficiaryValidationResult(outcome="ACCOUNT_NOT_FOUND")
+        except Exception as exc:
+            log.warning("bancs.validate_beneficiary.unavailable", error=str(exc))
+            return BeneficiaryValidationResult(outcome="CBS_UNAVAILABLE", degraded=True)
+
+        raw_status = data.get("acctSts", "A")
+        status = _STATUS_MAP.get(raw_status, AccountStatus.ACTIVE)
+        if status in _inactive:
+            return BeneficiaryValidationResult(
+                outcome="ACCOUNT_INACTIVE", account_status=status,
+                payee_display=self._payee_display(data.get("custName", "")),
+            )
+
+        holder_name: str = data.get("custName", "")
+        score = self._name_match_score(inquiry_name, holder_name)
+        display = self._payee_display(holder_name)
+        confidence = "HIGH" if score >= 0.92 else ("MEDIUM" if score >= 0.80 else "LOW")
+
+        if score < name_match_threshold:
+            return BeneficiaryValidationResult(
+                outcome="NAME_MISMATCH", account_status=status,
+                name_match_score=score, name_match_confidence=confidence,
+                payee_display=display,
+            )
+        return BeneficiaryValidationResult(
+            outcome="PROCEED", account_status=status,
+            name_match_score=score, name_match_confidence=confidence,
+            payee_display=display,
+        )
 
     async def list_issued_leaves(self, bank_id: str) -> list[dict]:
         raise NotImplementedError("BaNCS list_issued_leaves not yet implemented")

@@ -479,6 +479,249 @@ async def vision_extract_and_check(
     )
 
 
+# ── Payee / beneficiary account validation (outward) ─────────────────────────
+
+
+class PayeeValidationInput(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    bank_id: str
+    payee_account_number: str           # from deposit slip (kiosk entry / teller counter / rear OCR)
+    payee_name_from_slip: Optional[str] = None   # name customer wrote on slip / back of cheque
+    name_match_threshold: float = 0.80           # default; overridden by config_service in activity
+
+
+class PayeeValidationResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    outcome: str        # PROCEED | ACCOUNT_NOT_FOUND | NAME_MISMATCH | ACCOUNT_INACTIVE | CBS_UNAVAILABLE
+    account_status: Optional[str] = None
+    name_match_score: Optional[float] = None
+    name_match_confidence: str = "UNKNOWN"
+    payee_display: Optional[str] = None   # "R***" — for UI and audit log
+    vault_hit: bool = False               # True if Account Vault had the entry (no CBS call on status check)
+    degraded: bool = False
+
+
+_INACTIVE_STATUSES = {"FROZEN", "CLOSED", "NPA", "DORMANT"}
+
+
+@activity.defn
+async def validate_payee_account(
+    inp: PayeeValidationInput,
+    account_vault=None,     # worker-level DI: AccountVault instance
+    cbs_connector=None,     # worker-level DI: CBSConnector instance
+    config_service=None,    # worker-level DI: ConfigService instance
+) -> PayeeValidationResult:
+    """
+    Outward CTS — validate the payee's (beneficiary's) KBL account before presenting to NGCH.
+
+    Lookup order:
+      1. Account Vault (Redis → YugabyteDB) — existence + status check (sub-millisecond)
+           HIT + INACTIVE  → ACCOUNT_INACTIVE immediately (no CBS call)
+           HIT + ACTIVE    → CBS call for name match only
+           MISS            → CBS full call (existence + status + name)
+      2. CBS — name fuzzy match against account holder name stored in CBS
+           On CBS miss after vault hit: treat as CBS_UNAVAILABLE (vault says account exists)
+      3. On CBS call → cache account_status + holder_name_display into Account Vault
+    """
+    cts_config = await config_service.get_cts_config(inp.bank_id) if config_service else {}
+    threshold: float = float(cts_config.get("payee_name_match_threshold", inp.name_match_threshold))
+
+    # ── Step 1: Account Vault lookup ─────────────────────────────────────────
+    vault_hit = False
+    vault_status: Optional[str] = None
+
+    if account_vault is not None:
+        vault_result = await account_vault.lookup(inp.payee_account_number, inp.bank_id)
+        if vault_result.outcome == "FOUND" and vault_result.profile:
+            vault_hit = True
+            vault_status = vault_result.profile.account_status
+            if vault_status in _INACTIVE_STATUSES:
+                log.info(
+                    "validate_payee_account.vault_inactive",
+                    instrument_id=inp.instrument_id,
+                    account_last4=inp.payee_account_number[-4:],
+                    account_status=vault_status,
+                )
+                return PayeeValidationResult(
+                    outcome="ACCOUNT_INACTIVE",
+                    account_status=vault_status,
+                    payee_display=vault_result.profile.holder_name_display or "***",
+                    vault_hit=True,
+                )
+
+    # ── Step 2: CBS call — name match (and full check on vault miss) ─────────
+    if cbs_connector is None:
+        log.warning(
+            "validate_payee_account.no_cbs_connector",
+            instrument_id=inp.instrument_id,
+        )
+        return PayeeValidationResult(
+            outcome="CBS_UNAVAILABLE", degraded=True, vault_hit=vault_hit,
+        )
+
+    try:
+        from shared.cbs_connector.base import BeneficiaryValidationResult
+        cbs_result: BeneficiaryValidationResult = await cbs_connector.validate_beneficiary(
+            account_number=inp.payee_account_number,
+            inquiry_name=inp.payee_name_from_slip or "",
+            bank_id=inp.bank_id,
+            name_match_threshold=threshold,
+        )
+    except Exception as exc:
+        log.warning(
+            "validate_payee_account.cbs_error",
+            instrument_id=inp.instrument_id,
+            error=str(exc),
+        )
+        if vault_hit:
+            # Vault says account exists (ACTIVE) but CBS is now unavailable — proceed degraded
+            return PayeeValidationResult(
+                outcome="CBS_UNAVAILABLE",
+                account_status=vault_status,
+                payee_display="***",
+                vault_hit=True,
+                degraded=True,
+            )
+        return PayeeValidationResult(outcome="CBS_UNAVAILABLE", degraded=True)
+
+    log.info(
+        "validate_payee_account.cbs_result",
+        instrument_id=inp.instrument_id,
+        account_last4=inp.payee_account_number[-4:],
+        outcome=cbs_result.outcome,
+        name_match_score=cbs_result.name_match_score,
+        vault_hit=vault_hit,
+    )
+
+    # ── Step 3: Cache CBS result into Account Vault ──────────────────────────
+    if account_vault is not None and cbs_result.outcome not in ("ACCOUNT_NOT_FOUND", "CBS_UNAVAILABLE"):
+        try:
+            await account_vault.store_profile(
+                account_number=inp.payee_account_number,
+                profile={
+                    "account_number_last4": inp.payee_account_number[-4:],
+                    "account_type": "UNKNOWN",
+                    "account_status": cbs_result.account_status.value if cbs_result.account_status else "ACTIVE",
+                    "holder_name_display": cbs_result.payee_display or "***",
+                },
+                source="CBS_PAYEE_VALIDATE",
+            )
+        except Exception as exc:
+            log.warning("validate_payee_account.vault_cache_failed", error=str(exc))
+
+    return PayeeValidationResult(
+        outcome=cbs_result.outcome,
+        account_status=cbs_result.account_status.value if cbs_result.account_status else None,
+        name_match_score=cbs_result.name_match_score,
+        name_match_confidence=cbs_result.name_match_confidence,
+        payee_display=cbs_result.payee_display,
+        vault_hit=vault_hit,
+        degraded=cbs_result.degraded,
+    )
+
+
+# ── Rear-image / deposit-slip payee detail extraction ─────────────────────────
+
+
+_REAR_OCR_PROMPT = """This is the REAR (back) of a cheque or a bank deposit slip.
+Extract the depositor's account details written or printed on it.
+
+Look for:
+- account_number: the depositor's bank account number (digits only)
+- ifsc_code: IFSC code (format: 4 letters + 0 + 6 digits, e.g. KARB0000001)
+- depositor_name: the name written by the depositor
+- mobile_number: 10-digit mobile number if present
+
+Return JSON only:
+{
+  "account_number": {"value": "...", "confidence": 0.0},
+  "ifsc_code": {"value": "...", "confidence": 0.0},
+  "depositor_name": {"value": "...", "confidence": 0.0},
+  "mobile_number": {"value": null, "confidence": 0.0}
+}
+Set value to null and confidence to 0.0 for any field not found.
+"""
+
+
+class RearPayeeExtractionInput(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    bank_id: str
+    image_rear_url: str       # rear cheque image or deposit slip scan
+
+
+class RearPayeeExtractionResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    account_number: Optional[str] = None
+    ifsc_code: Optional[str] = None
+    depositor_name: Optional[str] = None
+    mobile_number: Optional[str] = None
+    overall_confidence: float = 0.0
+    degraded: bool = False
+
+
+@activity.defn
+async def extract_rear_payee_details(
+    inp: RearPayeeExtractionInput,
+    orchestrator=None,   # worker-level DI: CascadeOrchestrator
+) -> RearPayeeExtractionResult:
+    """
+    OCR the back of the cheque or the deposit slip image to extract
+    the payee's account number, IFSC, name, and mobile number.
+
+    This replaces manual keyboarding at the teller counter — the customer's
+    handwritten or printed deposit slip is scanned and the fields extracted.
+    On OCR failure, degraded=True is set and the caller falls back to
+    teller manual entry (the instrument is not rejected).
+    """
+    import json
+
+    if orchestrator is None:
+        log.warning("extract_rear_payee_details.no_orchestrator", instrument_id=inp.instrument_id)
+        return RearPayeeExtractionResult(degraded=True)
+
+    try:
+        result = await orchestrator.call_vision(
+            image_url=inp.image_rear_url,
+            prompt=_REAR_OCR_PROMPT,
+            cheque_amount=0.0,
+        )
+        data = json.loads(result.content)
+    except Exception as exc:
+        log.warning(
+            "extract_rear_payee_details.ocr_failed",
+            instrument_id=inp.instrument_id,
+            error=str(exc),
+        )
+        return RearPayeeExtractionResult(degraded=True)
+
+    def _val(field: str) -> Optional[str]:
+        entry = data.get(field) or {}
+        return entry.get("value")
+
+    def _conf(field: str) -> float:
+        entry = data.get(field) or {}
+        return float(entry.get("confidence", 0.0))
+
+    confs = [_conf(f) for f in ("account_number", "ifsc_code", "depositor_name")]
+    overall = sum(confs) / len(confs) if confs else 0.0
+
+    log.info(
+        "extract_rear_payee_details.done",
+        instrument_id=inp.instrument_id,
+        account_last4=(_val("account_number") or "")[-4:],
+        overall_confidence=overall,
+    )
+    return RearPayeeExtractionResult(
+        account_number=_val("account_number"),
+        ifsc_code=_val("ifsc_code"),
+        depositor_name=_val("depositor_name"),
+        mobile_number=_val("mobile_number"),
+        overall_confidence=overall,
+    )
+
+
 # ── Scan event recorder ────────────────────────────────────────────────────────
 
 class RecordScanEventInput(BaseModel):

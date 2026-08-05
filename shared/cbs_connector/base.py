@@ -62,8 +62,48 @@ class PPSEntry(BaseModel):
     is_active: bool
 
 
+class BeneficiaryValidationResult(BaseModel):
+    """
+    Result of outward CTS payee/beneficiary account validation.
+
+    Raw account holder name is NEVER stored here — fuzzy match is done inside
+    the CBS connector where the name is fetched, and only the score + masked
+    display value are returned.
+    """
+    model_config = ConfigDict(frozen=True)
+
+    outcome: str                        # PROCEED | ACCOUNT_NOT_FOUND | NAME_MISMATCH | ACCOUNT_INACTIVE | CBS_UNAVAILABLE
+    account_status: Optional[AccountStatus] = None
+    name_match_score: Optional[float] = None    # 0.0–1.0; token-sort fuzzy ratio
+    name_match_confidence: str = "UNKNOWN"      # HIGH | MEDIUM | LOW | UNKNOWN
+    payee_display: Optional[str] = None         # "R***" — first initial only, for UI / audit
+    degraded: bool = False
+
+
 class CBSConnector(ABC):
     """Abstract interface for CBS adapters. All methods are async."""
+
+    # ── Name-matching helper ──────────────────────────────────────────────────
+
+    @staticmethod
+    def _name_match_score(a: str, b: str) -> float:
+        """
+        Token-sort fuzzy ratio using difflib (stdlib, no extra dep).
+        Sorting tokens handles Indian name order variations:
+          "RAJESH KUMAR" vs "KUMAR RAJESH" → same score as exact match.
+        """
+        from difflib import SequenceMatcher
+        a_norm = " ".join(sorted(a.upper().split()))
+        b_norm = " ".join(sorted(b.upper().split()))
+        return SequenceMatcher(None, a_norm, b_norm).ratio()
+
+    @staticmethod
+    def _payee_display(name: str) -> str:
+        """Mask: first initial + *** (e.g. 'RAJESH KUMAR' → 'R***')."""
+        clean = name.strip()
+        return f"{clean[0]}***" if clean else "***"
+
+    # ── Abstract methods ──────────────────────────────────────────────────────
 
     @abstractmethod
     async def get_account_info(self, account_number: str, bank_id: str) -> AccountInfo:
@@ -112,6 +152,30 @@ class CBSConnector(ABC):
 
         Returns status string: ACTIVE | LOST | STOLEN | USED | CANCELLED.
         Raises CBSUnavailableError on connection failure.
+        """
+
+    @abstractmethod
+    async def validate_beneficiary(
+        self,
+        account_number: str,
+        inquiry_name: str,
+        bank_id: str,
+        name_match_threshold: float = 0.80,
+    ) -> BeneficiaryValidationResult:
+        """
+        Outward CTS — validate the payee's account before presenting to NGCH.
+
+        The CBS connector fetches the account holder name from its CBS API,
+        performs the fuzzy name match internally, and returns only the outcome
+        + score + masked display. Raw account holder name never leaves this method.
+
+        name_match_threshold: minimum token-sort ratio to consider a match.
+        Outcome routing:
+          PROCEED           → account active and name matches above threshold
+          ACCOUNT_NOT_FOUND → account does not exist in this bank's CBS
+          NAME_MISMATCH     → account exists but name confidence below threshold → human review
+          ACCOUNT_INACTIVE  → FROZEN / CLOSED / NPA / DORMANT → reject
+          CBS_UNAVAILABLE   → CBS unreachable → proceed degraded (teller notified)
         """
 
     @staticmethod
