@@ -374,7 +374,7 @@ export default function CTSInwardReviewQueue() {
     },
     refetchInterval: 12_000,
     enabled: !isDemo,  // in DEMO mode serve mock data; real API call only in POC/PROD
-    retry: 1,
+    retry: false,
   })
 
   const items = useMemo(

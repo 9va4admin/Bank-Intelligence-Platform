@@ -155,7 +155,10 @@ export default function CTSBatches() {
   const demoSessions = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
   const SESSIONS = useDemoData(demoSessions)
   const BRANCHES = isSMB ? SMB_BRANCHES : SB_BRANCHES
-  const ALL_LOTS = useMemo(() => makeLots(isSMB ? 5 : 30, SESSIONS, BRANCHES, bankIfsc), [isSMB, SESSIONS, BRANCHES, bankIfsc])
+  const ALL_LOTS = useMemo(
+    () => SESSIONS.length ? makeLots(isSMB ? 5 : 30, SESSIONS, BRANCHES, bankIfsc) : [],
+    [isSMB, SESSIONS, BRANCHES, bankIfsc]
+  )
   const SUMMARY = useMemo(() => ({
     lots:      ALL_LOTS.length,
     instruments: ALL_LOTS.reduce((s, l) => s + l.instrument_count, 0),
