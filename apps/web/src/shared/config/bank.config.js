@@ -31,11 +31,15 @@ const BANK_PRESETS = {
   },
 }
 
-const bankId   = import.meta.env.VITE_BANK_ID   ?? 'saraswat-coop'
-const bankMode = import.meta.env.VITE_BANK_MODE  ?? 'SB_SMB'
+//const bankId   = import.meta.env.VITE_BANK_ID   ?? 'saraswat-coop'
+//const bankMode = import.meta.env.VITE_BANK_MODE  ?? 'SB_SMB'
+
+const bankId   = import.meta.env.VITE_BANK_ID   ?? 'karnataka-bank'
+const bankMode = import.meta.env.VITE_BANK_MODE  ?? 'SB_ONLY'
+
 
 export const BANK_CONFIG = {
-  ...(BANK_PRESETS[bankId] ?? BANK_PRESETS['saraswat-coop']),
+  ...(BANK_PRESETS[bankId] ?? BANK_PRESETS['karnataka-bank']),
   bank_mode:  bankMode,
   api_base:   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000',
   astra_logo: '/logos/astra-logo.png',

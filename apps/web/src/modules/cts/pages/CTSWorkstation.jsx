@@ -14,7 +14,7 @@ const SESSION_START = new Date(new Date().setHours(10, 0, 0, 0))
 const IET_WINDOW_MINS = 180
 
 export default function CTSWorkstation() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, bankMode } = useBankContext()
   const { isDark } = useTheme()
   // Token would come from auth context in production; undefined triggers mock fallback in dev
   const { items: liveItems, loading: queueLoading, useMock } = useReviewQueue({ pollEnabled: true })
@@ -149,7 +149,7 @@ export default function CTSWorkstation() {
               </span>
             </div>
 
-            {isSB && (
+            {isSB && bankMode !== 'SB_ONLY' && (
               <div className="flex gap-1 px-3 pt-2">
                 {[['own', 'My Bank'], ['smb', 'Sponsored SMBs']].map(([key, label]) => (
                   <button
