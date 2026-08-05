@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
@@ -11,25 +11,14 @@ const CONNECTION_TYPES = [
     type: 'SB_CBS',
     label: 'Sponsor Bank CBS',
     icon: '🏦',
-    desc: 'Core Banking System for the Sponsor Bank (Finacle / BaNCS / FlexCube). Feeds Signature Vault and PPS Vault via VaultSyncWorkflow.',
-    sbOnly: true,
+    desc: 'Core Banking System for this bank (Finacle / BaNCS / FlexCube). Feeds Signature Vault and PPS Vault via VaultSyncWorkflow.',
     requiresVendor: true,
-  },
-  {
-    type: 'SMB_CBS',
-    label: 'Sub-Member Bank CBS',
-    icon: '🏛️',
-    desc: 'Core Banking System for a Sub-Member Bank routed through this Sponsor Bank. One entry per SMB.',
-    sbOnly: false,
-    requiresVendor: true,
-    requiresSmb: true,
   },
   {
     type: 'SIGNATURE_VAULT',
     label: 'Signature Vault',
     icon: '✍️',
     desc: 'Redis Cluster endpoint for the Signature Vault (CTS Redis). Warmed by CBS sync every 15 minutes.',
-    sbOnly: true,
     requiresVendor: false,
   },
   {
@@ -37,7 +26,6 @@ const CONNECTION_TYPES = [
     label: 'Positive Pay Vault',
     icon: '🔒',
     desc: 'Redis Cluster endpoint for the PPS Vault. Required for Positive Pay cheque validation before NGCH filing.',
-    sbOnly: true,
     requiresVendor: false,
   },
   {
@@ -45,7 +33,6 @@ const CONNECTION_TYPES = [
     label: 'Cancelled Leaf Filter',
     icon: '🚫',
     desc: 'Redis Bloom Filter fed by DeltaVaultSyncWorkflow every 15 minutes. Catches cancelled cheque serials before GPU inference.',
-    sbOnly: true,
     requiresVendor: false,
   },
 ]
@@ -56,8 +43,6 @@ const MOCK_CONNECTIONS = [
   {
     id: 'conn-001',
     connection_type: 'SB_CBS',
-    smb_id: null,
-    smb_name: null,
     cbs_vendor: 'finacle',
     endpoint_url_masked: 'https://cbs.saraswat.internal/***',
     vault_secret_ref: 'secret/astra/saraswat-coop/cbs/finacle',
@@ -71,44 +56,8 @@ const MOCK_CONNECTIONS = [
     created_by: 'itadmin@saraswat.internal',
   },
   {
-    id: 'conn-002',
-    connection_type: 'SMB_CBS',
-    smb_id: 'smb-ucb-001',
-    smb_name: 'Citizen Urban Co-op Bank',
-    cbs_vendor: 'bancs',
-    endpoint_url_masked: 'https://cbs.citizen-ucb.internal/***',
-    vault_secret_ref: 'secret/astra/saraswat-coop/smb/smb-ucb-001/cbs',
-    status: 'ACTIVE',
-    last_tested_at: '2026-07-01T08:16:00Z',
-    last_test_latency_ms: 52,
-    last_sync_at: '2026-07-01T06:00:00Z',
-    vault_record_count: 18240,
-    error_message: null,
-    created_at: '2026-06-16T11:00:00Z',
-    created_by: 'itadmin@saraswat.internal',
-  },
-  {
-    id: 'conn-003',
-    connection_type: 'SMB_CBS',
-    smb_id: 'smb-ucb-002',
-    smb_name: 'Merchant Co-op Bank',
-    cbs_vendor: 'finacle',
-    endpoint_url_masked: 'https://cbs.merchant-ucb.internal/***',
-    vault_secret_ref: 'secret/astra/saraswat-coop/smb/smb-ucb-002/cbs',
-    status: 'ERROR',
-    last_tested_at: '2026-07-01T07:00:00Z',
-    last_test_latency_ms: null,
-    last_sync_at: null,
-    vault_record_count: null,
-    error_message: 'Connection refused: CBS unreachable at endpoint',
-    created_at: '2026-06-17T09:00:00Z',
-    created_by: 'itadmin@saraswat.internal',
-  },
-  {
     id: 'conn-004',
     connection_type: 'SIGNATURE_VAULT',
-    smb_id: null,
-    smb_name: null,
     cbs_vendor: null,
     endpoint_url_masked: 'redis://redis-cts.astra-cts-saraswat-coop/***',
     vault_secret_ref: 'secret/astra/saraswat-coop/redis/cts/auth_token',
@@ -124,8 +73,6 @@ const MOCK_CONNECTIONS = [
   {
     id: 'conn-005',
     connection_type: 'PPS_VAULT',
-    smb_id: null,
-    smb_name: null,
     cbs_vendor: null,
     endpoint_url_masked: 'redis://redis-cts.astra-cts-saraswat-coop/***',
     vault_secret_ref: 'secret/astra/saraswat-coop/redis/cts/auth_token',
@@ -141,8 +88,6 @@ const MOCK_CONNECTIONS = [
   {
     id: 'conn-006',
     connection_type: 'CANCELLED_LEAF',
-    smb_id: null,
-    smb_name: null,
     cbs_vendor: null,
     endpoint_url_masked: 'redis://redis-cts.astra-cts-saraswat-coop/***',
     vault_secret_ref: 'secret/astra/saraswat-coop/redis/cts/auth_token',
@@ -156,11 +101,6 @@ const MOCK_CONNECTIONS = [
     created_by: 'itadmin@saraswat.internal',
   },
 ]
-
-const MOCK_PREFLIGHT = {
-  clearing_allowed: false,
-  blocking_count: 2,
-}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -212,11 +152,9 @@ function StatusBadge({ status, isDark }) {
 
 // ── Form modal ────────────────────────────────────────────────────────────────
 
-function ConnectionFormModal({ isDark, onClose, onSave, editRow, isSB }) {
+function ConnectionFormModal({ isDark, onClose, onSave, editRow }) {
   const [form, setForm] = useState({
     connection_type: editRow?.connection_type || 'SB_CBS',
-    smb_id: editRow?.smb_id || '',
-    smb_name: editRow?.smb_name || '',
     cbs_vendor: editRow?.cbs_vendor || '',
     endpoint_url: '',
     vault_secret_ref: editRow?.vault_secret_ref || '',
@@ -231,7 +169,6 @@ function ConnectionFormModal({ isDark, onClose, onSave, editRow, isSB }) {
     input:   isDark
       ? 'bg-navy-950 border-white/10 text-white placeholder-slate-500 focus:border-violet-500'
       : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-violet-500',
-    card:    isDark ? 'bg-navy-800 border-white/8' : 'bg-slate-50 border-slate-200',
     heading: isDark ? 'text-white' : 'text-slate-900',
     muted:   isDark ? 'text-slate-400' : 'text-slate-500',
   }
@@ -243,10 +180,6 @@ function ConnectionFormModal({ isDark, onClose, onSave, editRow, isSB }) {
     await onSave(form)
     setSaving(false)
   }
-
-  const availableTypes = isSB
-    ? CONNECTION_TYPES
-    : CONNECTION_TYPES.filter(ct => ct.type === 'SMB_CBS')
 
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center ${th.overlay}`} onClick={onClose}>
@@ -271,7 +204,7 @@ function ConnectionFormModal({ isDark, onClose, onSave, editRow, isSB }) {
                 onChange={e => set('connection_type', e.target.value)}
                 className={`w-full rounded-lg border px-3 py-2 text-sm outline-none ${th.input}`}
               >
-                {availableTypes.map(ct => (
+                {CONNECTION_TYPES.map(ct => (
                   <option key={ct.type} value={ct.type}>{ct.icon} {ct.label}</option>
                 ))}
               </select>
@@ -279,35 +212,8 @@ function ConnectionFormModal({ isDark, onClose, onSave, editRow, isSB }) {
             </div>
           )}
 
-          {/* SMB fields — only for SMB_CBS */}
-          {form.connection_type === 'SMB_CBS' && (
-            <>
-              <div>
-                <label className={`block text-xs font-medium mb-1 ${th.label}`}>SMB ID <span className="text-red-400">*</span></label>
-                <input
-                  type="text"
-                  value={form.smb_id}
-                  onChange={e => set('smb_id', e.target.value)}
-                  placeholder="smb-ucb-001"
-                  disabled={!!editRow}
-                  className={`w-full rounded-lg border px-3 py-2 text-sm outline-none ${th.input} ${editRow ? 'opacity-50 cursor-not-allowed' : ''}`}
-                />
-              </div>
-              <div>
-                <label className={`block text-xs font-medium mb-1 ${th.label}`}>SMB Display Name</label>
-                <input
-                  type="text"
-                  value={form.smb_name}
-                  onChange={e => set('smb_name', e.target.value)}
-                  placeholder="Citizen Urban Co-op Bank"
-                  className={`w-full rounded-lg border px-3 py-2 text-sm outline-none ${th.input}`}
-                />
-              </div>
-            </>
-          )}
-
-          {/* CBS Vendor — only for CBS types */}
-          {(form.connection_type === 'SB_CBS' || form.connection_type === 'SMB_CBS') && (
+          {/* CBS Vendor — only for SB_CBS */}
+          {form.connection_type === 'SB_CBS' && (
             <div>
               <label className={`block text-xs font-medium mb-1 ${th.label}`}>CBS Vendor</label>
               <select
@@ -329,7 +235,7 @@ function ConnectionFormModal({ isDark, onClose, onSave, editRow, isSB }) {
               value={form.endpoint_url}
               onChange={e => set('endpoint_url', e.target.value)}
               placeholder={
-                form.connection_type.endsWith('CBS')
+                form.connection_type === 'SB_CBS'
                   ? 'https://cbs.bank.internal/finacle/api'
                   : 'redis://redis-cts.astra-cts-bank-id:6379'
               }
@@ -386,8 +292,7 @@ function ConnectionCard({ conn, isDark, onTest, onSync, onEdit, onDelete, testin
     mono:    isDark ? 'text-slate-300 bg-white/4' : 'text-slate-700 bg-slate-100',
   }
 
-  const canSync = (conn.connection_type === 'SB_CBS' || conn.connection_type === 'SMB_CBS')
-    && conn.status === 'ACTIVE'
+  const canSync = conn.connection_type === 'SB_CBS' && conn.status === 'ACTIVE'
 
   return (
     <div className={`rounded-xl border p-4 ${th.card}`}>
@@ -396,13 +301,8 @@ function ConnectionCard({ conn, isDark, onTest, onSync, onEdit, onDelete, testin
         <div className="flex items-start gap-3 min-w-0">
           <span className="text-2xl flex-shrink-0 mt-0.5">{typeInfo.icon}</span>
           <div className="min-w-0">
-            <div className={`text-sm font-semibold ${th.heading} flex items-center gap-2 flex-wrap`}>
+            <div className={`text-sm font-semibold ${th.heading}`}>
               {typeInfo.label}
-              {conn.smb_name && (
-                <span className={`text-xs font-normal px-1.5 py-0.5 rounded border ${isDark ? 'border-violet-700/40 text-violet-300 bg-violet-900/30' : 'border-violet-200 text-violet-700 bg-violet-50'}`}>
-                  {conn.smb_name}
-                </span>
-              )}
             </div>
             {conn.cbs_vendor && (
               <div className={`text-xs mt-0.5 ${th.muted}`}>{conn.cbs_vendor.charAt(0).toUpperCase() + conn.cbs_vendor.slice(1)} connector</div>
@@ -449,12 +349,6 @@ function ConnectionCard({ conn, isDark, onTest, onSync, onEdit, onDelete, testin
             <span className={th.muted + ' w-28 flex-shrink-0'}>Vault Path</span>
             <code className={`px-1 rounded text-xs break-all ${th.mono}`}>{conn.vault_secret_ref || '—'}</code>
           </div>
-          {conn.smb_id && (
-            <div className="flex gap-2">
-              <span className={th.muted + ' w-28 flex-shrink-0'}>SMB ID</span>
-              <code className={`px-1 rounded text-xs ${th.mono}`}>{conn.smb_id}</code>
-            </div>
-          )}
           <div className="flex gap-2">
             <span className={th.muted + ' w-28 flex-shrink-0'}>Created</span>
             <span className={th.body}>{fmtDate(conn.created_at)} by {conn.created_by}</span>
@@ -531,7 +425,7 @@ function PreflightBanner({ connections, isDark }) {
         </div>
         {!allActive && (
           <div className={`mt-1 text-xs ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
-            {nonActive.map(c => `${getTypeInfo(c.connection_type).label}${c.smb_name ? ` (${c.smb_name})` : ''}: ${c.status}`).join(' · ')}
+            {nonActive.map(c => `${getTypeInfo(c.connection_type).label}: ${c.status}`).join(' · ')}
           </div>
         )}
       </div>
@@ -543,7 +437,7 @@ function PreflightBanner({ connections, isDark }) {
 
 export default function CTSMCPConfig() {
   const { isDark } = useTheme()
-  const { bankId, bankName, isSB } = useBankContext()
+  const { bankId, bankName } = useBankContext()
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editRow, setEditRow] = useState(null)
@@ -562,12 +456,11 @@ export default function CTSMCPConfig() {
     body:    isDark ? 'text-slate-300' : 'text-slate-700',
     muted:   isDark ? 'text-slate-400' : 'text-slate-500',
     card:    isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200',
-    divider: isDark ? 'border-white/8' : 'border-slate-200',
   }
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['mcp-connections', bankId] })
 
-  const { data: connData, isLoading: connLoading } = useQuery({
+  const { data: connData } = useQuery({
     queryKey: ['mcp-connections', bankId],
     queryFn: async () => {
       const res = await fetch('/api/v1/admin/mcp-connections/', { credentials: 'include' })
@@ -577,7 +470,7 @@ export default function CTSMCPConfig() {
     staleTime: 30_000,
     refetchInterval: 30_000,
   })
-  const allConns = connData?.connections ?? (isSB ? MOCK_CONNECTIONS : MOCK_CONNECTIONS.filter(c => c.connection_type === 'SMB_CBS'))
+  const connections = connData?.connections ?? MOCK_CONNECTIONS
 
   const saveMutation = useMutation({
     mutationFn: async (form) => {
@@ -602,9 +495,7 @@ export default function CTSMCPConfig() {
     onError: (err) => showToast(err.message || 'Save failed', 'error'),
   })
 
-  function handleSave(form) {
-    return saveMutation.mutateAsync(form)
-  }
+  function handleSave(form) { return saveMutation.mutateAsync(form) }
 
   const testMutation = useMutation({
     mutationFn: async (id) => {
@@ -670,17 +561,11 @@ export default function CTSMCPConfig() {
     onError: () => showToast('Failed to remove connection', 'error'),
   })
 
-  function handleEdit(conn) {
-    setEditRow(conn)
-    setShowForm(true)
-  }
-
+  function handleEdit(conn) { setEditRow(conn); setShowForm(true) }
   function handleDelete(id) { deleteMutation.mutate(id) }
 
-  const connections = allConns
-  // Group connections for display
-  const cbsConns = connections.filter(c => c.connection_type.endsWith('CBS'))
-  const vaultConns = connections.filter(c => !c.connection_type.endsWith('CBS'))
+  const cbsConns   = connections.filter(c => c.connection_type === 'SB_CBS')
+  const vaultConns = connections.filter(c => c.connection_type !== 'SB_CBS')
 
   return (
     <AppShell>
@@ -693,14 +578,12 @@ export default function CTSMCPConfig() {
               Configure CBS and vault MCP connections for {bankName || bankId}. All connections must be ACTIVE before clearing sessions can open.
             </p>
           </div>
-          {isSB && (
-            <button
-              onClick={() => { setEditRow(null); setShowForm(true) }}
-              className="flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 hover:bg-violet-700 text-white"
-            >
-              + Add Connection
-            </button>
-          )}
+          <button
+            onClick={() => { setEditRow(null); setShowForm(true) }}
+            className="flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 hover:bg-violet-700 text-white"
+          >
+            + Add Connection
+          </button>
         </div>
 
         {/* Pre-flight banner */}
@@ -712,7 +595,7 @@ export default function CTSMCPConfig() {
         {cbsConns.length > 0 && (
           <div className="mb-6">
             <h2 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${th.muted}`}>
-              CBS Connections — Core Banking Systems
+              CBS Connection — Core Banking System
             </h2>
             <div className="space-y-3">
               {cbsConns.map(conn => (
@@ -764,14 +647,12 @@ export default function CTSMCPConfig() {
             <div className={`text-xs mb-4 ${th.muted}`}>
               Add CBS and vault connections to enable clearing session operations.
             </div>
-            {isSB && (
-              <button
-                onClick={() => { setEditRow(null); setShowForm(true) }}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 hover:bg-violet-700 text-white"
-              >
-                + Add First Connection
-              </button>
-            )}
+            <button
+              onClick={() => { setEditRow(null); setShowForm(true) }}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 hover:bg-violet-700 text-white"
+            >
+              + Add First Connection
+            </button>
           </div>
         )}
 
@@ -779,7 +660,7 @@ export default function CTSMCPConfig() {
         <div className={`mt-6 rounded-xl border p-4 ${th.card}`}>
           <h3 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${th.muted}`}>Setup Guide</h3>
           <div className="grid grid-cols-1 gap-2">
-            {CONNECTION_TYPES.filter(ct => isSB || ct.type === 'SMB_CBS').map((ct, i) => (
+            {CONNECTION_TYPES.map((ct, i) => (
               <div key={ct.type} className="flex items-start gap-2">
                 <span className={`text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${isDark ? 'bg-violet-900/50 text-violet-300' : 'bg-violet-100 text-violet-700'}`}>
                   {i + 1}
@@ -801,7 +682,6 @@ export default function CTSMCPConfig() {
           onClose={() => { setShowForm(false); setEditRow(null) }}
           onSave={handleSave}
           editRow={editRow}
-          isSB={isSB}
         />
       )}
 
