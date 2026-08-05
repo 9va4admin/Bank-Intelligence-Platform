@@ -95,9 +95,10 @@ const NAV = [
     section: 'Admin',
     Icon: AdminIcon,
     items: [
+      { to: '/admin/users',       label: 'User Management' },
+      { to: '/admin/branches',    label: 'Branch Master' },
       { to: '/admin/thresholds',  label: 'Thresholds & Config' },
       { to: '/admin/vault',       label: 'Vault Status' },
-      { to: '/admin/users',       label: 'User Management' },
     ],
   },
 ]
