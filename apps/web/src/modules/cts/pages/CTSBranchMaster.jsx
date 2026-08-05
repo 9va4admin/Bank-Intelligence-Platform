@@ -3,23 +3,47 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 
 const API = import.meta.env.VITE_API_BASE || ''
 // When no backend URL is configured (dev / demo) all mutations use client-side mock logic.
 const USE_MOCK = !import.meta.env.VITE_API_BASE
 
-// ── Mock branch data ──────────────────────────────────────────────────────
+// ── Mock branch data (keyed by bank_id) ──────────────────────────────────
 
-const MOCK_BRANCHES = [
-  { branch_name: 'Mangalore Main',         branch_ifsc: 'KARB0000001', address: '1st Cross, Kodialbail',    city: 'Mangalore',  district: 'Dakshina Kannada', state: 'Karnataka',  pin_code: '575003', phone: '08242440150', is_active: true },
-  { branch_name: 'Bengaluru MG Road',      branch_ifsc: 'KARB0000002', address: '41 MG Road',               city: 'Bengaluru',  district: 'Bengaluru Urban',  state: 'Karnataka',  pin_code: '560001', phone: '08022212000', is_active: true },
-  { branch_name: 'Hubli Main',             branch_ifsc: 'KARB0000003', address: 'Lamington Road',           city: 'Hubli',      district: 'Dharwad',          state: 'Karnataka',  pin_code: '580020', phone: '08362357000', is_active: true },
-  { branch_name: 'Mysuru Sayyaji Rao Rd',  branch_ifsc: 'KARB0000004', address: 'Sayyaji Rao Road',         city: 'Mysuru',     district: 'Mysuru',           state: 'Karnataka',  pin_code: '570001', phone: '08212420000', is_active: true },
-  { branch_name: 'Udupi Town',             branch_ifsc: 'KARB0000005', address: 'Car Street, Udupi',        city: 'Udupi',      district: 'Udupi',            state: 'Karnataka',  pin_code: '576101', phone: '08202529000', is_active: true },
-  { branch_name: 'Kochi Fort Branch',      branch_ifsc: 'KARB0000006', address: 'Fort Kochi, Ernakulam',    city: 'Kochi',      district: 'Ernakulam',        state: 'Kerala',     pin_code: '682001', phone: '04842226000', is_active: true },
-  { branch_name: 'Chennai Anna Salai',     branch_ifsc: 'KARB0000007', address: '56 Anna Salai',            city: 'Chennai',    district: 'Chennai',          state: 'Tamil Nadu', pin_code: '600002', phone: '04428562000', is_active: true },
-  { branch_name: 'Mumbai Fort',            branch_ifsc: 'KARB0000008', address: '12 Horniman Circle',       city: 'Mumbai',     district: 'Mumbai',           state: 'Maharashtra',pin_code: '400001', phone: '02222654000', is_active: false },
-]
+const MOCK_BRANCHES_DB = {
+  'karnataka-bank': [
+    { branch_name: 'Mangalore Main',         branch_ifsc: 'KARB0000001', address: '1st Cross, Kodialbail',     city: 'Mangalore',  district: 'Dakshina Kannada', state: 'Karnataka',   pin_code: '575003', phone: '08242440150', is_active: true  },
+    { branch_name: 'Bengaluru MG Road',      branch_ifsc: 'KARB0000002', address: '41 MG Road',                city: 'Bengaluru',  district: 'Bengaluru Urban',  state: 'Karnataka',   pin_code: '560001', phone: '08022212000', is_active: true  },
+    { branch_name: 'Hubli Main',             branch_ifsc: 'KARB0000003', address: 'Lamington Road',            city: 'Hubli',      district: 'Dharwad',          state: 'Karnataka',   pin_code: '580020', phone: '08362357000', is_active: true  },
+    { branch_name: 'Mysuru Sayyaji Rao Rd',  branch_ifsc: 'KARB0000004', address: 'Sayyaji Rao Road',          city: 'Mysuru',     district: 'Mysuru',           state: 'Karnataka',   pin_code: '570001', phone: '08212420000', is_active: true  },
+    { branch_name: 'Udupi Town',             branch_ifsc: 'KARB0000005', address: 'Car Street, Udupi',         city: 'Udupi',      district: 'Udupi',            state: 'Karnataka',   pin_code: '576101', phone: '08202529000', is_active: true  },
+    { branch_name: 'Kochi Fort Branch',      branch_ifsc: 'KARB0000006', address: 'Fort Kochi, Ernakulam',     city: 'Kochi',      district: 'Ernakulam',        state: 'Kerala',      pin_code: '682001', phone: '04842226000', is_active: true  },
+    { branch_name: 'Chennai Anna Salai',     branch_ifsc: 'KARB0000007', address: '56 Anna Salai',             city: 'Chennai',    district: 'Chennai',          state: 'Tamil Nadu',  pin_code: '600002', phone: '04428562000', is_active: true  },
+    { branch_name: 'Mumbai Fort',            branch_ifsc: 'KARB0000008', address: '12 Horniman Circle',        city: 'Mumbai',     district: 'Mumbai',           state: 'Maharashtra', pin_code: '400001', phone: '02222654000', is_active: false },
+    { branch_name: 'Bengaluru Jayanagar',    branch_ifsc: 'KARB0000009', address: '4th Block, 11th Main',      city: 'Bengaluru',  district: 'Bengaluru Urban',  state: 'Karnataka',   pin_code: '560041', phone: '08026572000', is_active: true  },
+    { branch_name: 'Manipal Campus',         branch_ifsc: 'KARB0000010', address: 'MIT Campus Road',           city: 'Manipal',    district: 'Udupi',            state: 'Karnataka',   pin_code: '576104', phone: '08202577000', is_active: true  },
+    { branch_name: 'Hyderabad Banjara Hills',branch_ifsc: 'KARB0000011', address: 'Road No 2, Banjara Hills',  city: 'Hyderabad',  district: 'Hyderabad',        state: 'Telangana',   pin_code: '500034', phone: '04023554000', is_active: true  },
+    { branch_name: 'Delhi Connaught Place',  branch_ifsc: 'KARB0000012', address: 'Block A, Connaught Place',  city: 'New Delhi',  district: 'New Delhi',        state: 'Delhi',       pin_code: '110001', phone: '01123415000', is_active: true  },
+  ],
+  'saraswat-coop': [
+    { branch_name: 'Saraswat Head Office',   branch_ifsc: 'SRCB0000001', address: 'Erandwane, Karve Road',     city: 'Pune',       district: 'Pune',             state: 'Maharashtra', pin_code: '411004', phone: '02025435000', is_active: true  },
+    { branch_name: 'Mumbai Fort Main',       branch_ifsc: 'SRCB0000002', address: 'DN Road, Fort',             city: 'Mumbai',     district: 'Mumbai',           state: 'Maharashtra', pin_code: '400001', phone: '02222660000', is_active: true  },
+    { branch_name: 'Thane West',             branch_ifsc: 'SRCB0000003', address: 'Gokhale Road, Naupada',     city: 'Thane',      district: 'Thane',            state: 'Maharashtra', pin_code: '400602', phone: '02225414000', is_active: true  },
+    { branch_name: 'Pune Shivajinagar',      branch_ifsc: 'SRCB0000004', address: 'FC Road, Shivajinagar',     city: 'Pune',       district: 'Pune',             state: 'Maharashtra', pin_code: '411005', phone: '02025536000', is_active: true  },
+    { branch_name: 'Nashik Main',            branch_ifsc: 'SRCB0000005', address: 'Mahatma Gandhi Road',       city: 'Nashik',     district: 'Nashik',           state: 'Maharashtra', pin_code: '422001', phone: '02532318000', is_active: true  },
+    { branch_name: 'Aurangabad Nirala Bazar',branch_ifsc: 'SRCB0000006', address: 'Nirala Bazar',              city: 'Aurangabad', district: 'Aurangabad',       state: 'Maharashtra', pin_code: '431001', phone: '02402335000', is_active: true  },
+    { branch_name: 'Navi Mumbai Vashi',      branch_ifsc: 'SRCB0000007', address: 'Sector 17, Vashi',          city: 'Navi Mumbai',district: 'Thane',            state: 'Maharashtra', pin_code: '400703', phone: '02227892000', is_active: true  },
+    { branch_name: 'Goa Panaji',             branch_ifsc: 'SRCB0000008', address: 'Dr Atmaram Borkar Road',    city: 'Panaji',     district: 'North Goa',        state: 'Goa',         pin_code: '403001', phone: '08322425000', is_active: true  },
+    { branch_name: 'Bengaluru Malleswaram',  branch_ifsc: 'SRCB0000009', address: '8th Cross, Malleswaram',    city: 'Bengaluru',  district: 'Bengaluru Urban',  state: 'Karnataka',   pin_code: '560003', phone: '08023565000', is_active: true  },
+    { branch_name: 'Kolhapur Shahupuri',     branch_ifsc: 'SRCB0000010', address: 'Shahupuri 2nd Lane',        city: 'Kolhapur',   district: 'Kolhapur',         state: 'Maharashtra', pin_code: '416001', phone: '02312543000', is_active: true  },
+    { branch_name: 'Mumbai Dadar',           branch_ifsc: 'SRCB0000011', address: 'LJ Cross Road, Dadar West', city: 'Mumbai',     district: 'Mumbai',           state: 'Maharashtra', pin_code: '400028', phone: '02224441000', is_active: false },
+    { branch_name: 'Pune Kothrud',           branch_ifsc: 'SRCB0000012', address: 'Paud Road, Kothrud',        city: 'Pune',       district: 'Pune',             state: 'Maharashtra', pin_code: '411038', phone: '02025462000', is_active: true  },
+  ],
+}
+
+// Pick the mock set for the currently configured bank; fall back to an empty list.
+const ACTIVE_MOCK_BRANCHES = MOCK_BRANCHES_DB[BANK_CONFIG.bank_id] ?? []
 
 // ── Client-side CSV parser (used in mock mode for the import preview) ────
 
@@ -85,7 +109,7 @@ async function apiFetch(path, opts = {}) {
 
 function fetchBranches({ state, city, q, isActive, limit = 50 }) {
   if (USE_MOCK) {
-    let results = [...MOCK_BRANCHES]
+    let results = [...ACTIVE_MOCK_BRANCHES]
     if (q) results = results.filter(b =>
       b.branch_name.toLowerCase().includes(q.toLowerCase()) ||
       b.branch_ifsc.toLowerCase().includes(q.toLowerCase()))
@@ -105,7 +129,7 @@ function fetchBranches({ state, city, q, isActive, limit = 50 }) {
 
 function createBranch(payload) {
   if (USE_MOCK) {
-    MOCK_BRANCHES.push({ ...payload, is_active: true })
+    ACTIVE_MOCK_BRANCHES.push({ ...payload, is_active: true })
     return Promise.resolve({ branch_ifsc: payload.branch_ifsc })
   }
   return apiFetch('/v1/branches', { method: 'POST', body: JSON.stringify(payload) })
@@ -113,8 +137,8 @@ function createBranch(payload) {
 
 function updateBranch(ifsc, payload) {
   if (USE_MOCK) {
-    const idx = MOCK_BRANCHES.findIndex(b => b.branch_ifsc === ifsc)
-    if (idx >= 0) MOCK_BRANCHES[idx] = { ...MOCK_BRANCHES[idx], ...payload }
+    const idx = ACTIVE_MOCK_BRANCHES.findIndex(b => b.branch_ifsc === ifsc)
+    if (idx >= 0) ACTIVE_MOCK_BRANCHES[idx] = { ...ACTIVE_MOCK_BRANCHES[idx], ...payload }
     return Promise.resolve({ branch_ifsc: ifsc })
   }
   return apiFetch(`/v1/branches/${ifsc}`, { method: 'PUT', body: JSON.stringify(payload) })
@@ -122,8 +146,8 @@ function updateBranch(ifsc, payload) {
 
 function deleteBranch(ifsc) {
   if (USE_MOCK) {
-    const idx = MOCK_BRANCHES.findIndex(b => b.branch_ifsc === ifsc)
-    if (idx >= 0) MOCK_BRANCHES[idx].is_active = false
+    const idx = ACTIVE_MOCK_BRANCHES.findIndex(b => b.branch_ifsc === ifsc)
+    if (idx >= 0) ACTIVE_MOCK_BRANCHES[idx].is_active = false
     return Promise.resolve({})
   }
   return apiFetch(`/v1/branches/${ifsc}`, { method: 'DELETE' })
