@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
@@ -779,9 +779,12 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
   const manualConfirm  = useDemoData(53, 0)
   const manualReject   = useDemoData(11, 0)
 
+  const zeroStats = useMemo(() => STAGES.map(() => ({ throughput: 0, avgMs: 0, errRate: 0 })), [])
+  const statsSeed = useDemoData(initStats(), zeroStats)
+
   const [running, setRunning] = useState(true)
   const [particles, setParticles] = useState([])
-  const [stats] = useState(initStats)
+  const [stats] = useState(statsSeed)
   const [stageActive, setStageActive] = useState({})
   const [confirmPool, setConfirmPool] = useState([])
   const [returnPool, setReturnPool] = useState([])
@@ -819,6 +822,7 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
     const tick = () => {
       if (runningRef.current) {
         setParticles(prev => {
+          if (prev.length === 0) return prev   // nothing to animate — skip state update
           const next = []
           const newActive = {}
           const toConfirm = []
