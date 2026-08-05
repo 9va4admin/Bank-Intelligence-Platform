@@ -83,6 +83,12 @@ class AuditEventType(str, Enum):
     CTS_ALLOC_AUTO_ASSIGNED = "CTS_ALLOC_AUTO_ASSIGNED"
     CTS_ALLOC_UNCLAIMED = "CTS_ALLOC_UNCLAIMED"
 
+    # ── Branch Master ──────────────────────────────────────────────────────────
+    BRANCH_CREATED = "BRANCH_CREATED"
+    BRANCH_UPDATED = "BRANCH_UPDATED"
+    BRANCH_DELETED = "BRANCH_DELETED"             # soft-delete (is_active=false)
+    BRANCH_BULK_IMPORTED = "BRANCH_BULK_IMPORTED" # CSV bulk upsert completed
+
     # ── Platform / infra ───────────────────────────────────────────────────────
     CONFIG_CHANGE = "CONFIG_CHANGE"
     CONFIG_L2_CHANGE_REQUESTED = "CONFIG_L2_CHANGE_REQUESTED"

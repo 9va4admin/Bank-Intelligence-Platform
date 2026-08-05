@@ -28,6 +28,7 @@ from apps.api.routers import cts, ej, disputes, audit, admin, notifications
 from apps.api.routers import batch, users, mcp_connections, demo, cts_outward_queue, demo_cloud_extract
 from apps.api.routers import auth as auth_router
 from apps.api.routers import observability
+from apps.api.routers import branches
 from shared.config.config_service import config_service
 from shared.config.exceptions import ConfigKeyNotFoundError
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
@@ -359,6 +360,7 @@ app.include_router(mcp_connections.router_v1)
 app.include_router(cts_outward_queue.router_v1)
 app.include_router(demo_cloud_extract.router_v1)
 app.include_router(observability.router_v1)
+app.include_router(branches.router_v1)
 if _env in ("development", "staging"):
     app.include_router(demo.router_v1)
 

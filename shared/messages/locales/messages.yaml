@@ -2650,3 +2650,49 @@ CTS_QUEUE_TIER_ROUTED:
   variables: [instrument_id, queue_tier, kafka_topic]
   en: "Instrument {instrument_id} routed to {queue_tier} queue — Kafka topic {kafka_topic}."
   hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# BRANCH MASTER (Admin CRUD + CSV bulk import)
+# ────────────────────────────────────────────────────────────────────────
+
+BRANCH_CREATED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [branch_ifsc, branch_name, created_by]
+  en: "Branch {branch_ifsc} ({branch_name}) created by {created_by}."
+  hi: ""
+
+BRANCH_UPDATED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [branch_ifsc, updated_by, changed_fields]
+  en: "Branch {branch_ifsc} updated by {updated_by} — fields changed: {changed_fields}."
+  hi: ""
+
+BRANCH_DELETED:
+  severity: WARN
+  surface: [AUDIT]
+  variables: [branch_ifsc, deleted_by]
+  en: "Branch {branch_ifsc} deactivated by {deleted_by} — is_active set to false."
+  hi: ""
+
+BRANCH_BULK_IMPORTED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [imported_count, skipped_count, error_count, imported_by]
+  en: "Branch bulk import completed by {imported_by} — {imported_count} imported, {skipped_count} skipped, {error_count} errors."
+  hi: ""
+
+BRANCH_NOT_FOUND:
+  severity: WARN
+  surface: [UI]
+  variables: [branch_ifsc]
+  en: "Branch with IFSC {branch_ifsc} not found."
+  hi: ""
+
+BRANCH_IFSC_DUPLICATE:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [branch_ifsc]
+  en: "Branch IFSC {branch_ifsc} already exists — use bulk import to update existing branches."
+  hi: ""
