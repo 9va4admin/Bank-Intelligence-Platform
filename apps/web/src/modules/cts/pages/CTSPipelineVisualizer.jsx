@@ -2,6 +2,8 @@
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
+import useDemoInterval from '../../../shared/hooks/useDemoInterval'
 import ChequeImageViewer from '../components/ChequeImageViewer'
 import { demoChequeUrl } from '../demoImages'
 
@@ -772,14 +774,19 @@ function BatchSummaryBar({ confirmCount, returnCount, reviewCount, onClickStat }
 // ─── Main page component ──────────────────────────────────────────────────────
 
 export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Bank' }) {
+  const reviewDockSeed = useDemoData(MOCK_QUEUE)
+  const exceptionsSeed = useDemoData(MOCK_EXCEPTIONS)
+  const manualConfirm  = useDemoData(53, 0)
+  const manualReject   = useDemoData(11, 0)
+
   const [running, setRunning] = useState(true)
   const [particles, setParticles] = useState([])
   const [stats] = useState(initStats)
   const [stageActive, setStageActive] = useState({})
   const [confirmPool, setConfirmPool] = useState([])
   const [returnPool, setReturnPool] = useState([])
-  const [reviewDock, setReviewDock] = useState(isDemo ? MOCK_QUEUE : [])
-  const [exceptions] = useState(isDemo ? MOCK_EXCEPTIONS : [])
+  const [reviewDock, setReviewDock] = useState(reviewDockSeed)
+  const [exceptions] = useState(exceptionsSeed)
   const [selectedItem, setSelectedItem] = useState(null)
   const [isException, setIsException] = useState(false)
   const [poolModal, setPoolModal] = useState(null)   // 'confirm' | 'return' | 'review' | null
@@ -871,17 +878,13 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
   }, [])
 
   // Spawn interval — only animate in demo mode
-  useEffect(() => {
-    if (!isDemo) return
-    spawnRef.current = setInterval(() => {
-      if (!runningRef.current) return
-      setParticles(prev => {
-        if (prev.filter(p => !p.finalized).length >= 18) return prev
-        return [...prev, makeParticle(bankName)]
-      })
-    }, 1400)
-    return () => clearInterval(spawnRef.current)
-  }, [isDemo])
+  useDemoInterval(() => {
+    if (!runningRef.current) return
+    setParticles(prev => {
+      if (prev.filter(p => !p.finalized).length >= 18) return prev
+      return [...prev, makeParticle(bankName)]
+    })
+  }, 1400)
 
   // Pulse cleanup
   useEffect(() => {
@@ -924,8 +927,8 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
             confirmCount={confirmPool.length}
             returnCount={returnPool.length}
             reviewCount={reviewDock.length}
-            manualConfirmCount={isDemo ? 53 : 0}
-            manualRejectCount={isDemo ? 11 : 0}
+            manualConfirmCount={manualConfirm}
+            manualRejectCount={manualReject}
             onOpenPool={setPoolModal}
           />
 

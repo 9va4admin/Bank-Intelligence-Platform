@@ -4,6 +4,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
 
 // ── Mock batch ────────────────────────────────────────────────────────────────
 // TEMPLATE built inside component from bankContext
@@ -45,7 +46,7 @@ function buildQrData(instr, ifsc) {
 }
 
 export default function CTSEndorsement() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const TEMPLATE = {
     bank_name: bankName || 'South View Co-operative Bank',
     branch_name: 'Fort Branch',
@@ -77,7 +78,7 @@ export default function CTSEndorsement() {
   }
   const STATUS = isDark ? STATUS_D : STATUS_L
 
-  const activeInstruments = isDemo ? INSTRUMENTS : []
+  const activeInstruments = useDemoData(INSTRUMENTS)
   const [statuses, setStatuses] = useState(() =>
     Object.fromEntries(activeInstruments.map(i => [i.id, 'PENDING']))
   )

@@ -7,7 +7,7 @@
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
-import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
 import { getReasonByLabel, getReturnReasons } from '../data/returnReasons'
 import ChequeImageViewer from '../components/ChequeImageViewer'
 import { demoChequeUrl } from '../demoImages'
@@ -623,10 +623,9 @@ function isHighValue(inst, threshold = MOCK_HV_THRESHOLD) {
 
 export default function CTSValidationQueue({ mode = 'outward' }) {
   const { isDark } = useTheme()
-  const { isDemo } = useBankContext()
   const isInward = mode === 'inward'
 
-  const BASE = isDemo ? (isInward ? BASE_INSTRUMENTS_INWARD : BASE_INSTRUMENTS_OUTWARD) : []
+  const BASE = useDemoData(isInward ? BASE_INSTRUMENTS_INWARD : BASE_INSTRUMENTS_OUTWARD)
   const [instruments, setInstruments] = useState(() => BASE.map(i => ({ ...i, edits: {} })))
   const [filter, setFilter]           = useState('ALL')
   const [returnOpenFor, setReturnOpenFor] = useState(null)

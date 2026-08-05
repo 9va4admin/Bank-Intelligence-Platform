@@ -3,6 +3,8 @@ import { useMutation } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
+import useDemoInterval from '../../../shared/hooks/useDemoInterval'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -352,7 +354,8 @@ export default function CTSPresentmentFile() {
   const SESSION_ID = `SES-${bankIfsc || 'BANK'}-20260619-001`
   const { isDark } = useTheme()
 
-  const [currentBatch, setCurrentBatch] = useState(() => isDemo ? makeBatch(1, isSMB ? 4 : 14, bankIfsc, SESSION_ID) : { items: [], status: 'OPEN', nextSeq: 1, batchNo: 0 })
+  const demoBatch = useDemoData(makeBatch(1, isSMB ? 4 : 14, bankIfsc, SESSION_ID), { items: [], status: 'OPEN', nextSeq: 1, batchNo: 0 })
+  const [currentBatch, setCurrentBatch] = useState(demoBatch)
   const [history, setHistory]           = useState([])
   const [batchCounter, setBatchCounter] = useState(1)
   const [expandSuccess, setExpandSuccess] = useState(true)
@@ -360,20 +363,15 @@ export default function CTSPresentmentFile() {
   const seqRef = useRef(currentBatch.nextSeq)
 
   // Simulate Kafka listener: instruments arrive and get appended to current batch
-  useEffect(() => {
-    if (!isDemo) return
-    const timer = setInterval(() => {
-      if (Math.random() > 0.45) return
-      if (currentBatch.status !== 'OPEN') return
-
-      setCurrentBatch(prev => {
-        const newItem = makeInstrument(seqRef.current, prev.batchNo, SB_IFSC, SESSION_ID)
-        seqRef.current += 1
-        return { ...prev, items: [...prev.items, newItem], nextSeq: seqRef.current }
-      })
-    }, 2200)
-    return () => clearInterval(timer)
-  }, [currentBatch.status])
+  useDemoInterval(() => {
+    if (Math.random() > 0.45) return
+    if (currentBatch.status !== 'OPEN') return
+    setCurrentBatch(prev => {
+      const newItem = makeInstrument(seqRef.current, prev.batchNo, SB_IFSC, SESSION_ID)
+      seqRef.current += 1
+      return { ...prev, items: [...prev.items, newItem], nextSeq: seqRef.current }
+    })
+  }, 2200, [currentBatch.status])
 
   function handleCloseBatch() {
     const closed = { ...currentBatch, status: 'CLOSED', closedAt: new Date().toISOString() }

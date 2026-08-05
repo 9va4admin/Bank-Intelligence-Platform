@@ -1,6 +1,7 @@
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 
 const SB_VAULT_DATA = [
@@ -72,11 +73,11 @@ function hitPct(val) {
 }
 
 export default function CTSVaultStatus() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
 
-  const VAULT_DATA = !isDemo ? [] : isSMB ? SMB_VAULT_DATA : SB_VAULT_DATA
-  const SYNC_LOG   = !isDemo ? [] : isSMB ? SMB_SYNC_LOG   : SB_SYNC_LOG
+  const VAULT_DATA = useDemoData(isSMB ? SMB_VAULT_DATA : SB_VAULT_DATA)
+  const SYNC_LOG   = useDemoData(isSMB ? SMB_SYNC_LOG   : SB_SYNC_LOG)
 
   const th = {
     page:      isDark ? 'bg-navy-950 text-white'                      : 'bg-slate-50 text-slate-900',

@@ -15,6 +15,7 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
 import AppShell from '../../../shared/layout/AppShell'
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
@@ -358,8 +359,8 @@ function SealConfirmModal({ branch, lot, onConfirm, onCancel, isDark }) {
 
 export default function CTSHubDashboard() {
   const { isDark } = useTheme()
-  const { bankId, bankName, isDemo } = useBankContext()
-  const [branches, setBranches] = useState(isDemo ? BRANCHES_MOCK : [])
+  const { bankId, bankName } = useBankContext()
+  const [branches, setBranches] = useState(useDemoData(BRANCHES_MOCK))
   const [countdown, setCountdown] = useState(windowCountdown(CLEARING_WINDOW.close_ts))
   const [sealTarget, setSealTarget] = useState(null)   // { branch, lot }
   const [sealAllPending, setSealAllPending] = useState(false)
