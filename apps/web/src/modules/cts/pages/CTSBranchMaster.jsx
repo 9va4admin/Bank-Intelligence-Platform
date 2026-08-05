@@ -5,6 +5,68 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 
 const API = import.meta.env.VITE_API_BASE || ''
+// When no backend URL is configured (dev / demo) all mutations use client-side mock logic.
+const USE_MOCK = !import.meta.env.VITE_API_BASE
+
+// ── Mock branch data ──────────────────────────────────────────────────────
+
+const MOCK_BRANCHES = [
+  { branch_name: 'Mangalore Main',         branch_ifsc: 'KARB0000001', address: '1st Cross, Kodialbail',    city: 'Mangalore',  district: 'Dakshina Kannada', state: 'Karnataka',  pin_code: '575003', phone: '08242440150', is_active: true },
+  { branch_name: 'Bengaluru MG Road',      branch_ifsc: 'KARB0000002', address: '41 MG Road',               city: 'Bengaluru',  district: 'Bengaluru Urban',  state: 'Karnataka',  pin_code: '560001', phone: '08022212000', is_active: true },
+  { branch_name: 'Hubli Main',             branch_ifsc: 'KARB0000003', address: 'Lamington Road',           city: 'Hubli',      district: 'Dharwad',          state: 'Karnataka',  pin_code: '580020', phone: '08362357000', is_active: true },
+  { branch_name: 'Mysuru Sayyaji Rao Rd',  branch_ifsc: 'KARB0000004', address: 'Sayyaji Rao Road',         city: 'Mysuru',     district: 'Mysuru',           state: 'Karnataka',  pin_code: '570001', phone: '08212420000', is_active: true },
+  { branch_name: 'Udupi Town',             branch_ifsc: 'KARB0000005', address: 'Car Street, Udupi',        city: 'Udupi',      district: 'Udupi',            state: 'Karnataka',  pin_code: '576101', phone: '08202529000', is_active: true },
+  { branch_name: 'Kochi Fort Branch',      branch_ifsc: 'KARB0000006', address: 'Fort Kochi, Ernakulam',    city: 'Kochi',      district: 'Ernakulam',        state: 'Kerala',     pin_code: '682001', phone: '04842226000', is_active: true },
+  { branch_name: 'Chennai Anna Salai',     branch_ifsc: 'KARB0000007', address: '56 Anna Salai',            city: 'Chennai',    district: 'Chennai',          state: 'Tamil Nadu', pin_code: '600002', phone: '04428562000', is_active: true },
+  { branch_name: 'Mumbai Fort',            branch_ifsc: 'KARB0000008', address: '12 Horniman Circle',       city: 'Mumbai',     district: 'Mumbai',           state: 'Maharashtra',pin_code: '400001', phone: '02222654000', is_active: false },
+]
+
+// ── Client-side CSV parser (used in mock mode for the import preview) ────
+
+function parseCsvText(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim())
+  if (lines.length < 2) throw new Error('CSV must have a header row and at least one data row.')
+
+  const errors = []
+  let validCount = 0
+  // Skip header row (index 0), data rows start at index 1
+  for (let i = 1; i < lines.length; i++) {
+    const raw = lines[i]
+    // Handle quoted fields — split on commas not inside quotes
+    const cols = raw.match(/(".*?"|[^,]+|(?<=,)(?=,)|(?<=,)$|^(?=,))/g)
+      ?.map(c => c.trim().replace(/^"|"$/g, '')) ?? raw.split(',').map(c => c.trim())
+    const rowNum = i + 1
+
+    if (cols.length < 8) {
+      errors.push({ row: rowNum, error: `Expected 8 columns, found ${cols.length}` })
+      continue
+    }
+    const [branchName, , , , , pinCode, ifsc] = cols
+    if (!branchName?.trim()) {
+      errors.push({ row: rowNum, error: 'Branch Name is empty' })
+      continue
+    }
+    if (!ifsc || ifsc.trim().length !== 11) {
+      errors.push({ row: rowNum, error: `IFSC "${ifsc?.trim()}" must be exactly 11 characters` })
+      continue
+    }
+    if (!/^\d{6}$/.test(pinCode?.trim())) {
+      errors.push({ row: rowNum, error: `PIN Code "${pinCode?.trim()}" must be 6 digits` })
+      continue
+    }
+    validCount++
+  }
+  return { valid_count: validCount, error_count: errors.length, errors }
+}
+
+async function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = e => resolve(e.target.result)
+    r.onerror = () => reject(new Error('Could not read file'))
+    r.readAsText(file)
+  })
+}
 
 // ── API calls ──────────────────────────────────────────────────────────────
 
@@ -22,54 +84,77 @@ async function apiFetch(path, opts = {}) {
 }
 
 function fetchBranches({ state, city, q, isActive, limit = 50 }) {
+  if (USE_MOCK) {
+    let results = [...MOCK_BRANCHES]
+    if (q) results = results.filter(b =>
+      b.branch_name.toLowerCase().includes(q.toLowerCase()) ||
+      b.branch_ifsc.toLowerCase().includes(q.toLowerCase()))
+    if (state) results = results.filter(b => b.state.toLowerCase().includes(state.toLowerCase()))
+    if (city)  results = results.filter(b => b.city.toLowerCase().includes(city.toLowerCase()))
+    if (isActive !== null) results = results.filter(b => b.is_active === (isActive === true || isActive === 'true'))
+    return Promise.resolve({ branches: results, total: results.length })
+  }
   const params = new URLSearchParams()
   if (state) params.set('state', state)
-  if (city) params.set('city', city)
-  if (q) params.set('q', q)
+  if (city)  params.set('city', city)
+  if (q)     params.set('q', q)
   if (isActive !== null) params.set('is_active', isActive)
   params.set('limit', limit)
   return apiFetch(`/v1/branches?${params}`)
 }
 
 function createBranch(payload) {
+  if (USE_MOCK) {
+    MOCK_BRANCHES.push({ ...payload, is_active: true })
+    return Promise.resolve({ branch_ifsc: payload.branch_ifsc })
+  }
   return apiFetch('/v1/branches', { method: 'POST', body: JSON.stringify(payload) })
 }
 
 function updateBranch(ifsc, payload) {
+  if (USE_MOCK) {
+    const idx = MOCK_BRANCHES.findIndex(b => b.branch_ifsc === ifsc)
+    if (idx >= 0) MOCK_BRANCHES[idx] = { ...MOCK_BRANCHES[idx], ...payload }
+    return Promise.resolve({ branch_ifsc: ifsc })
+  }
   return apiFetch(`/v1/branches/${ifsc}`, { method: 'PUT', body: JSON.stringify(payload) })
 }
 
 function deleteBranch(ifsc) {
+  if (USE_MOCK) {
+    const idx = MOCK_BRANCHES.findIndex(b => b.branch_ifsc === ifsc)
+    if (idx >= 0) MOCK_BRANCHES[idx].is_active = false
+    return Promise.resolve({})
+  }
   return apiFetch(`/v1/branches/${ifsc}`, { method: 'DELETE' })
 }
 
 async function previewImport(file) {
+  if (USE_MOCK) {
+    const text = await readFileAsText(file)
+    return parseCsvText(text)
+  }
   const fd = new FormData()
   fd.append('file', file)
   const res = await fetch(`${API}/v1/branches/bulk-import/preview`, {
-    method: 'POST',
-    credentials: 'include',
-    body: fd,
+    method: 'POST', credentials: 'include', body: fd,
   })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.detail || `HTTP ${res.status}`)
-  }
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || `HTTP ${res.status}`) }
   return res.json()
 }
 
 async function confirmImport(file) {
+  if (USE_MOCK) {
+    const text = await readFileAsText(file)
+    const { valid_count, error_count } = parseCsvText(text)
+    return { imported_count: valid_count, skipped_count: 0, error_count }
+  }
   const fd = new FormData()
   fd.append('file', file)
   const res = await fetch(`${API}/v1/branches/bulk-import`, {
-    method: 'POST',
-    credentials: 'include',
-    body: fd,
+    method: 'POST', credentials: 'include', body: fd,
   })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.detail || `HTTP ${res.status}`)
-  }
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || `HTTP ${res.status}`) }
   return res.json()
 }
 
