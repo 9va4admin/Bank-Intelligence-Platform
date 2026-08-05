@@ -346,13 +346,13 @@ function HistoryRow({ batch, isDark }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CTSPresentmentFile() {
-  const { bankIfsc, bankName, isSB, isSMB } = useBankContext()
+  const { bankIfsc, bankName, isSB, isSMB, isDemo } = useBankContext()
   const SB_IFSC = bankIfsc
   const SB_NAME = bankName
   const SESSION_ID = `SES-${bankIfsc || 'BANK'}-20260619-001`
   const { isDark } = useTheme()
 
-  const [currentBatch, setCurrentBatch] = useState(() => makeBatch(1, isSMB ? 4 : 14, bankIfsc, SESSION_ID))
+  const [currentBatch, setCurrentBatch] = useState(() => isDemo ? makeBatch(1, isSMB ? 4 : 14, bankIfsc, SESSION_ID) : { instruments: [], status: 'OPEN', nextSeq: 1 })
   const [history, setHistory]           = useState([])
   const [batchCounter, setBatchCounter] = useState(1)
   const [expandSuccess, setExpandSuccess] = useState(true)
@@ -361,6 +361,7 @@ export default function CTSPresentmentFile() {
 
   // Simulate Kafka listener: instruments arrive and get appended to current batch
   useEffect(() => {
+    if (!isDemo) return
     const timer = setInterval(() => {
       if (Math.random() > 0.45) return
       if (currentBatch.status !== 'OPEN') return

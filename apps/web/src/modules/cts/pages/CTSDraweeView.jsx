@@ -89,9 +89,10 @@ function ReturnReasonBar({ reasons, total, isDark }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CTSDraweeView() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
-  const [selectedSession, setSelectedSession] = useState(SESSIONS[1])
+  const activeSessions = isDemo ? SESSIONS : []
+  const [selectedSession, setSelectedSession] = useState(isDemo ? SESSIONS[1] : null)
   const [sortBy, setSortBy] = useState('returned_desc')
 
   // Outward & Combined Position is SB-only — SMBs present cheques via their sponsor bank
@@ -147,7 +148,7 @@ export default function CTSDraweeView() {
               <p className={`text-[11px] ${th.muted}`}>Presenting + Drawee · {selectedSession}</p>
             </div>
             <div className="flex gap-2">
-              {SESSIONS.map(s => (
+              {activeSessions.map(s => (
                 <button key={s} onClick={() => setSelectedSession(s)}
                   className={`text-[10px] px-2.5 py-1 rounded-lg border transition-colors ${th.tab(selectedSession === s)}`}>
                   {s.split('-')[3] + ':00'}

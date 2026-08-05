@@ -45,7 +45,7 @@ function buildQrData(instr, ifsc) {
 }
 
 export default function CTSEndorsement() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const TEMPLATE = {
     bank_name: bankName || 'South View Co-operative Bank',
     branch_name: 'Fort Branch',
@@ -77,8 +77,9 @@ export default function CTSEndorsement() {
   }
   const STATUS = isDark ? STATUS_D : STATUS_L
 
+  const activeInstruments = isDemo ? INSTRUMENTS : []
   const [statuses, setStatuses] = useState(() =>
-    Object.fromEntries(INSTRUMENTS.map(i => [i.id, 'PENDING']))
+    Object.fromEntries(activeInstruments.map(i => [i.id, 'PENDING']))
   )
   const [endorsingLot, setEndorsingLot]     = useState(null)
   const [selected, setSelected]             = useState(null)
@@ -89,7 +90,7 @@ export default function CTSEndorsement() {
   const endorsing = endorsingLot === '__ALL__'
 
   const lotsComplete = LOTS.filter(lot =>
-    INSTRUMENTS.filter(i => i.lot === lot).every(i => statuses[i.id] === 'ENDORSED')
+    activeInstruments.filter(i => i.lot === lot).every(i => statuses[i.id] === 'ENDORSED')
   ).length
 
   const endorseMutation = useMutation({
@@ -121,14 +122,14 @@ export default function CTSEndorsement() {
   })
 
   function endorseAll() {
-    const ids = INSTRUMENTS.filter(i => statuses[i.id] === 'PENDING').map(i => i.id)
+    const ids = activeInstruments.filter(i => statuses[i.id] === 'PENDING').map(i => i.id)
     if (ids.length === 0) return
     setEndorsingLot('__ALL__')
     endorseMutation.mutate({ lot: 'ALL', ids })
   }
 
   function endorseLot(lot) {
-    const ids = INSTRUMENTS.filter(i => i.lot === lot && statuses[i.id] === 'PENDING').map(i => i.id)
+    const ids = activeInstruments.filter(i => i.lot === lot && statuses[i.id] === 'PENDING').map(i => i.id)
     if (ids.length === 0) return
     setEndorsingLot(lot)
     endorseMutation.mutate({ lot, ids })
@@ -163,7 +164,7 @@ export default function CTSEndorsement() {
           {[
             {
               label: 'Total Instruments',
-              value: INSTRUMENTS.length,
+              value: activeInstruments.length,
               color: th.heading,
             },
             {
@@ -236,7 +237,7 @@ export default function CTSEndorsement() {
 
         {/* Instruments table — grouped by lot */}
         {LOTS.map(lot => {
-          const lotInstruments = INSTRUMENTS.filter(i => i.lot === lot)
+          const lotInstruments = activeInstruments.filter(i => i.lot === lot)
           const lotPending = lotInstruments.filter(i => statuses[i.id] === 'PENDING').length
           const lotEndorsed = lotInstruments.length - lotPending
           const isLotDone = lotPending === 0

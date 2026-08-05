@@ -493,10 +493,10 @@ const STP_TICK_MS = 2800
 
 export default function CTSInwardPipeline() {
   const { bankName, bankIfsc, bankCity, bankId, isSB, isSMB,
-          sponsorBankName, sponsorBankIfsc } = useBankContext()
+          sponsorBankName, sponsorBankIfsc, isDemo } = useBankContext()
   const SPONSOR_BANK = { name: bankName, ifsc: bankIfsc, city: bankCity || '' }
   const { isDark } = useTheme()
-  const stpSource   = useRef(getStpStream())
+  const stpSource   = useRef(isDemo ? getStpStream() : [])
   const stpIndexRef = useRef(0)
 
   // SMB users have no access to the SB pipeline tab — force and lock to 'smb'
@@ -508,31 +508,31 @@ export default function CTSInwardPipeline() {
   }, [isSMB])
 
   const [stageCounts, setStageCounts] = useState(
-    Object.fromEntries(STAGES.map(s => [s.id, Math.floor(Math.random() * 80) + 20]))
+    Object.fromEntries(STAGES.map(s => [s.id, isDemo ? Math.floor(Math.random() * 80) + 20 : 0]))
   )
-  const [activeStages, setActiveStages] = useState(new Set(['alteration', 'pps_sig', 'fraud']))
-  const [confirms,    setConfirms]    = useState(312)
-  const [returns,     setReturns]     = useState(48)
-  const [humanReview, setHumanReview] = useState(17)
+  const [activeStages, setActiveStages] = useState(new Set(isDemo ? ['alteration', 'pps_sig', 'fraud'] : []))
+  const [confirms,    setConfirms]    = useState(isDemo ? 312 : 0)
+  const [returns,     setReturns]     = useState(isDemo ? 48 : 0)
+  const [humanReview, setHumanReview] = useState(isDemo ? 17 : 0)
   const [activityLog, setActivityLog] = useState([])
-  const [throughput,  setThroughput]  = useState(Array.from({ length: 20 }, () => Math.floor(Math.random() * 8) + 2))
-  const [ietMinutes,  setIetMinutes]  = useState(142)
-  const [totalMs,     setTotalMs]     = useState(612)
+  const [throughput,  setThroughput]  = useState(Array.from({ length: 20 }, () => isDemo ? Math.floor(Math.random() * 8) + 2 : 0))
+  const [ietMinutes,  setIetMinutes]  = useState(isDemo ? 142 : 180)
+  const [totalMs,     setTotalMs]     = useState(isDemo ? 612 : 0)
   const [now,         setNow]         = useState(new Date())
 
   // SMB child pipelines state
   const [smbCounts, setSmbCounts] = useState(() =>
     Object.fromEntries(SMB_LIST.map(smb => [smb.id, {
-      recv:    Math.floor(Math.random() * 60) + 10,
-      valid:   Math.floor(Math.random() * 50) + 8,
-      forward: Math.floor(Math.random() * 40) + 6,
-      ngch:    Math.floor(Math.random() * 35) + 5,
+      recv:    isDemo ? Math.floor(Math.random() * 60) + 10 : 0,
+      valid:   isDemo ? Math.floor(Math.random() * 50) + 8  : 0,
+      forward: isDemo ? Math.floor(Math.random() * 40) + 6  : 0,
+      ngch:    isDemo ? Math.floor(Math.random() * 35) + 5  : 0,
     }]))
   )
   const [smbActiveStages, setSmbActiveStages] = useState(() =>
-    Object.fromEntries(SMB_LIST.map(smb => [smb.id, SMB_STAGES[Math.floor(Math.random() * SMB_STAGES.length)].id]))
+    Object.fromEntries(SMB_LIST.map(smb => [smb.id, isDemo ? SMB_STAGES[Math.floor(Math.random() * SMB_STAGES.length)].id : null]))
   )
-  const [smbAlerts, setSmbAlerts] = useState({ cosmos: 1, tjsb: 0, janata: 0, abhyudaya: 2, shamrao: 0 })
+  const [smbAlerts, setSmbAlerts] = useState({ cosmos: 0, tjsb: 0, janata: 0, abhyudaya: 0, shamrao: 0 })
   const [selectedSmb, setSelectedSmb] = useState(null)
 
   // Clock
@@ -544,8 +544,9 @@ export default function CTSInwardPipeline() {
     return () => clearInterval(t)
   }, [])
 
-  // STP tick
+  // STP tick — only in DEMO mode; in POC/PROD real events come from Kafka
   useEffect(() => {
+    if (!isDemo) return
     const timer = setInterval(() => {
       const items = stpSource.current
       if (stpIndexRef.current >= items.length) return
@@ -587,8 +588,9 @@ export default function CTSInwardPipeline() {
     return () => clearInterval(timer)
   }, [])
 
-  // SMB child pipeline tick — slower cadence (each SMB processes fewer cheques)
+  // SMB child pipeline tick — only in DEMO mode
   useEffect(() => {
+    if (!isDemo) return
     const timer = setInterval(() => {
       const smbId = SMB_LIST[Math.floor(Math.random() * SMB_LIST.length)].id
       const stageSeq = SMB_STAGES.map(s => s.id)
