@@ -18,6 +18,9 @@ import csv
 import hashlib
 import hmac
 import io
+import structlog
+
+log = structlog.get_logger()
 import re
 import uuid
 import xml.etree.ElementTree as ET
@@ -34,6 +37,16 @@ from pydantic import BaseModel, field_validator
 from modules.cts.scanner.models import ScannerOEM  # noqa: F401
 
 
+# ── Bundle status ──────────────────────────────────────────────────────────────
+
+from enum import Enum
+
+class BundleStatus(str, Enum):
+    COMPLETE         = "COMPLETE"         # UV + front_bw + front_gray + rear_bw all present
+    PROCESSABLE      = "PROCESSABLE"      # front_bw + front_gray present; UV and/or rear absent
+    INSTRUMENT_HOLD  = "INSTRUMENT_HOLD"  # front_bw or front_gray missing; cannot process
+
+
 # ── Exception ─────────────────────────────────────────────────────────────────
 
 class ScannerMappingError(Exception):
@@ -44,6 +57,13 @@ class ScannerMappingError(Exception):
 
 _VALID_OUTPUT_FORMATS = {"CSV_COMMA", "CSV_PIPE", "CSV_TAB", "XML", "FIXED_WIDTH"}
 _VALID_AMOUNT_FORMATS = {"DECIMAL_DOT", "DECIMAL_COMMA", "INTEGER_PAISE"}
+
+# Canonical image side names.
+# front_bw / front_gray are BOTH mandatory — instrument goes to HOLD if either is missing.
+# rear and uv are optional — their absence degrades gracefully.
+# Legacy aliases color_front / grey_front are accepted for backward compatibility.
+_CANONICAL_MANDATORY = {"front_bw", "front_gray", "color_front", "grey_front"}
+_CANONICAL_OPTIONAL  = {"rear", "uv"}
 
 class ScannerConfig(BaseModel):
     """
@@ -116,14 +136,20 @@ class ScannedChequeInput:
     cheque_date:         date
 
     # Image paths (in drop folder — before MinIO upload)
-    image_color_path:    Path
-    image_grey_path:     Path
-    image_rear_path:     Path
+    # Mandatory: front_bw (image_color_path) + front_gray (image_grey_path)
+    # Optional:  image_rear_path, image_uv_path
+    image_color_path:    Path       # front B&W — mandatory (OCR)
+    image_grey_path:     Path       # front grayscale — mandatory (fraud analysis)
 
     scan_timestamp:      datetime
     batch_id:            str
     sequence_in_batch:   int
-    oem_confidence:      Optional[float]
+
+    # Fields with defaults must come last in a dataclass
+    oem_confidence:      Optional[float] = None
+    image_rear_path:     Optional[Path]  = None   # rear B&W — optional (deposit slip OCR)
+    image_uv_path:       Optional[Path]  = None   # UV scan — optional (security features)
+    bundle_status:       "BundleStatus"  = None   # COMPLETE | PROCESSABLE | INSTRUMENT_HOLD
 
 
 # ── Required canonical fields (mapper validates these are present after mapping) ──
@@ -139,7 +165,8 @@ _REQUIRED_CANONICAL = {
     "account_number",
 }
 
-_SIDE_CANONICAL = {"color_front", "grey_front", "rear"}
+# All canonical image side names (mandatory + optional + legacy aliases).
+_SIDE_CANONICAL = {"color_front", "grey_front", "front_bw", "front_gray", "rear", "uv"}
 
 
 # ── Mapper ────────────────────────────────────────────────────────────────────
@@ -293,59 +320,100 @@ class ScannerDropFolderMapper:
 
     def _resolve_image_paths(
         self, batch_id: str, seq: int
-    ) -> tuple[Path, Path, Path]:
+    ) -> tuple[Path, Path, Optional[Path], Optional[Path], "BundleStatus"]:
         """
-        Resolve the three image paths (color_front, grey_front, rear).
+        Resolve image paths for one instrument.
+
+        Returns (front_bw_path, front_gray_path, rear_path, uv_path, bundle_status).
+
+        front_bw and front_gray are BOTH mandatory — if either is missing, the
+        instrument goes to INSTRUMENT_HOLD (not a fatal error for the batch).
+        rear and uv are optional — their absence produces PROCESSABLE status.
 
         Supports two pattern styles:
-          1. Single pattern with {side} token: "{batch_id}_{seq:04d}_{side}.tif"
-             Side values come from image_side_mapping values (→ color_front/grey_front/rear).
-          2. Triple pattern separated by |: "DCF{seq:06d}.tif|DCG{seq:06d}.tif|DCR{seq:06d}.tif"
-             Order: color_front|grey_front|rear.
+          1. {side} token: "{batch_id}_{seq:04d}_{side}.tif"
+             image_side_mapping maps OEM codes → canonical names.
+             Canonical mandatory: front_bw or color_front (legacy alias),
+                                  front_gray or grey_front (legacy alias).
+             Canonical optional:  rear, uv.
+          2. Pipe-separated: "F{seq}.tif|G{seq}.tif|R{seq}.tif"
+             Order must be: front_bw | front_gray | rear (3 or 4 parts; 4th = uv).
         """
         pattern = self._cfg.image_naming_pattern
+        side_map = self._cfg.image_side_mapping
+        # Build reverse: canonical name → OEM side code
+        canonical_to_oem: dict[str, str] = {v: k for k, v in side_map.items()}
+
+        # Normalise legacy aliases so lookup logic is uniform
+        def _canonical_for(preferred: str, legacy: str) -> Optional[str]:
+            if preferred in canonical_to_oem:
+                return preferred
+            if legacy in canonical_to_oem:
+                return legacy
+            return None
+
+        front_bw_canon  = _canonical_for("front_bw",   "color_front")
+        front_gray_canon = _canonical_for("front_gray", "grey_front")
+        rear_canon  = "rear" if "rear" in canonical_to_oem else None
+        uv_canon    = "uv"   if "uv"   in canonical_to_oem else None
+
+        if front_bw_canon is None or front_gray_canon is None:
+            raise ScannerMappingError(
+                "image_side_mapping must include both a front_bw (or color_front) "
+                "and a front_gray (or grey_front) entry. "
+                f"Got: {list(side_map.values())}"
+            )
 
         if "|" in pattern:
             parts = pattern.split("|")
-            if len(parts) != 3:
+            if len(parts) not in (3, 4):
                 raise ScannerMappingError(
-                    f"Pipe-separated image_naming_pattern must have 3 parts, got {len(parts)}"
+                    f"Pipe-separated image_naming_pattern must have 3 or 4 parts, got {len(parts)}"
                 )
             color_path = self._drop / parts[0].format(seq=seq, batch_id=batch_id)
             grey_path  = self._drop / parts[1].format(seq=seq, batch_id=batch_id)
-            rear_path  = self._drop / parts[2].format(seq=seq, batch_id=batch_id)
+            rear_path_raw = self._drop / parts[2].format(seq=seq, batch_id=batch_id)
+            uv_path_raw   = (self._drop / parts[3].format(seq=seq, batch_id=batch_id)) if len(parts) == 4 else None
         else:
-            # {side} token — need to find which OEM codes map to which canonical side
-            side_map = self._cfg.image_side_mapping
-            # Validate all three canonical sides are covered
-            covered = set(side_map.values())
-            for canonical_side in _SIDE_CANONICAL:
-                if canonical_side not in covered:
-                    raise ScannerMappingError(
-                        f"image_side_mapping missing canonical side {canonical_side!r}. "
-                        f"All three are required: {_SIDE_CANONICAL}"
-                    )
-            # Build reverse: canonical → OEM side code
-            canonical_to_oem_side: dict[str, str] = {v: k for k, v in side_map.items()}
+            def _path_for(canonical: str) -> Path:
+                oem_code = canonical_to_oem[canonical]
+                return self._drop / pattern.format(batch_id=batch_id, seq=seq, side=oem_code)
 
-            def _resolve(canonical_side: str) -> Path:
-                oem_side = canonical_to_oem_side[canonical_side]
-                filename = pattern.format(batch_id=batch_id, seq=seq, side=oem_side)
-                return self._drop / filename
+            color_path    = _path_for(front_bw_canon)
+            grey_path     = _path_for(front_gray_canon)
+            rear_path_raw = _path_for(rear_canon) if rear_canon else None
+            uv_path_raw   = _path_for(uv_canon)   if uv_canon   else None
 
-            color_path = _resolve("color_front")
-            grey_path  = _resolve("grey_front")
-            rear_path  = _resolve("rear")
+        # Mandatory images: INSTRUMENT_HOLD if either is missing
+        missing_mandatory = []
+        if not color_path.exists():
+            missing_mandatory.append(str(color_path))
+        if not grey_path.exists():
+            missing_mandatory.append(str(grey_path))
 
-        # Validate all three exist
-        for p in (color_path, grey_path, rear_path):
-            if not p.exists():
-                raise ScannerMappingError(
-                    f"image file not found: {p}. "
-                    f"Ensure scanner software wrote images before metadata file."
-                )
+        if missing_mandatory:
+            log.warning(
+                "scanner.bundle.mandatory_images_missing",
+                batch_id=batch_id,
+                seq=seq,
+                missing=missing_mandatory,
+            )
+            return (
+                color_path, grey_path,
+                None, None,
+                BundleStatus.INSTRUMENT_HOLD,
+            )
 
-        return color_path, grey_path, rear_path
+        # Optional images: degrade gracefully when absent
+        rear_path = rear_path_raw if (rear_path_raw and rear_path_raw.exists()) else None
+        uv_path   = uv_path_raw   if (uv_path_raw   and uv_path_raw.exists())   else None
+
+        if rear_path and uv_path:
+            status = BundleStatus.COMPLETE
+        else:
+            status = BundleStatus.PROCESSABLE
+
+        return color_path, grey_path, rear_path, uv_path, status
 
     # ── Internal: build canonical record ─────────────────────────────────────
 
@@ -353,15 +421,14 @@ class ScannerDropFolderMapper:
         batch_id = str(mapped["batch_id"])
         seq      = int(mapped["sequence_in_batch"])
 
-        color_path, grey_path, rear_path = self._resolve_image_paths(batch_id, seq)
+        color_path, grey_path, rear_path, uv_path, bundle_status = \
+            self._resolve_image_paths(batch_id, seq)
 
         account_hash, account_suffix = self._process_account(str(mapped["account_number"]))
 
-        # Mask payee: first initial + ***
         payee_raw = str(mapped["payee_name"])
         payee_masked = (payee_raw[0] + "***") if payee_raw else "***"
 
-        # oem_confidence is optional — absent → None
         confidence_raw = mapped.get("oem_confidence")
         oem_confidence = float(confidence_raw) if confidence_raw and confidence_raw != "" else None
 
@@ -382,6 +449,8 @@ class ScannerDropFolderMapper:
             image_color_path=color_path,
             image_grey_path=grey_path,
             image_rear_path=rear_path,
+            image_uv_path=uv_path,
+            bundle_status=bundle_status,
             scan_timestamp=datetime.now(tz=timezone.utc),
             batch_id=batch_id,
             sequence_in_batch=seq,
