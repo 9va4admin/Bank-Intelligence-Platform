@@ -120,10 +120,10 @@ function Pipeline({ status, isDark }) {
 
 export default function CTSSettlement() {
   const { isDark } = useTheme()
-  const { bankName, bankIfsc, isSMB } = useBankContext()
+  const { bankName, bankIfsc, isSMB, isDemo } = useBankContext()
 
-  const SESSIONS      = useMemo(() => isSMB ? makeSmbSessions(bankIfsc) : SB_SESSIONS, [bankIfsc, isSMB])
-  const COUNTERPARTIES = isSMB ? SMB_COUNTERPARTIES : SB_COUNTERPARTIES
+  const SESSIONS       = useMemo(() => !isDemo ? [] : isSMB ? makeSmbSessions(bankIfsc) : SB_SESSIONS, [bankIfsc, isSMB, isDemo])
+  const COUNTERPARTIES = !isDemo ? [] : isSMB ? SMB_COUNTERPARTIES : SB_COUNTERPARTIES
 
   const [selectedSession, setSelectedSession] = useState(null)
   const activeSessionId = selectedSession ?? SESSIONS[1]?.id ?? SESSIONS[0]?.id
@@ -166,6 +166,16 @@ export default function CTSSettlement() {
         </div>
 
         <div className="px-6 py-5 max-w-7xl space-y-5">
+
+          {!isDemo && (
+            <div className={`rounded-xl border px-4 py-3 flex items-center gap-3 ${isDark ? 'border-amber-700/40 bg-amber-900/10 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+              <span className="text-lg">📂</span>
+              <div>
+                <div className="text-xs font-semibold">No clearing sessions yet — POC mode</div>
+                <div className="text-[11px] opacity-70 mt-0.5">Settlement data appears after instruments are processed and a session is reconciled.</div>
+              </div>
+            </div>
+          )}
 
           {/* Session cards with pipeline */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">

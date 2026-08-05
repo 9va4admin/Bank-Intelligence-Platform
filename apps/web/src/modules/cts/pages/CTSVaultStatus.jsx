@@ -72,11 +72,11 @@ function hitPct(val) {
 }
 
 export default function CTSVaultStatus() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
 
-  const VAULT_DATA = isSMB ? SMB_VAULT_DATA : SB_VAULT_DATA
-  const SYNC_LOG   = isSMB ? SMB_SYNC_LOG   : SB_SYNC_LOG
+  const VAULT_DATA = !isDemo ? [] : isSMB ? SMB_VAULT_DATA : SB_VAULT_DATA
+  const SYNC_LOG   = !isDemo ? [] : isSMB ? SMB_SYNC_LOG   : SB_SYNC_LOG
 
   const th = {
     page:      isDark ? 'bg-navy-950 text-white'                      : 'bg-slate-50 text-slate-900',

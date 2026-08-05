@@ -89,12 +89,12 @@ const MODEL_STATUS_COLOR_L = {
 }
 
 export default function CTSAnalytics() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
 
-  const DAILY          = isSMB ? SMB_DAILY          : SB_DAILY
-  const FRAUD_DIST     = isSMB ? SMB_FRAUD_DIST     : SB_FRAUD_DIST
-  const RETURN_REASONS = isSMB ? SMB_RETURN_REASONS : SB_RETURN_REASONS
+  const DAILY          = !isDemo ? [] : isSMB ? SMB_DAILY          : SB_DAILY
+  const FRAUD_DIST     = !isDemo ? [] : isSMB ? SMB_FRAUD_DIST     : SB_FRAUD_DIST
+  const RETURN_REASONS = !isDemo ? [] : isSMB ? SMB_RETURN_REASONS : SB_RETURN_REASONS
 
   const maxFraud  = Math.max(...FRAUD_DIST.map(d => d.count))
   const maxReturn = Math.max(...RETURN_REASONS.map(d => d.count))

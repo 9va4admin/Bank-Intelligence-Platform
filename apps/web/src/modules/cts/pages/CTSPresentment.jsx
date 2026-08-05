@@ -663,12 +663,12 @@ function DetailPanel({ item, isDark }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CTSPresentment() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
-  const SESSIONS = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
-  const initialBatch = useMemo(() => makeBatch(isSMB ? 8 : 42, 0, bankIfsc || 'BANK', SESSIONS[0]?.id || 'SES-0619-001'), [bankIfsc, isSMB, SESSIONS])
+  const SESSIONS = useMemo(() => isDemo ? makeSessions(bankIfsc, isSMB) : [], [bankIfsc, isSMB, isDemo])
+  const initialBatch = useMemo(() => isDemo ? makeBatch(isSMB ? 8 : 42, 0, bankIfsc || 'BANK', SESSIONS[0]?.id || 'SES-0619-001') : [], [bankIfsc, isSMB, SESSIONS, isDemo])
   const [batch, setBatch] = useState(() => initialBatch)
-  const [selected, setSelected] = useState(() => initialBatch[0])
+  const [selected, setSelected] = useState(() => initialBatch[0] ?? null)
   const [activeSession, setActiveSession] = useState(0)
   const [filterStatus, setFilterStatus] = useState('ALL')
   const [filterLot, setFilterLot]       = useState('ALL')
@@ -676,6 +676,7 @@ export default function CTSPresentment() {
   const addedRef = useRef(isSMB ? 8 : 42)
 
   useEffect(() => {
+    if (!isDemo) { setBatch([]); setSelected(null); return }
     const n = isSMB ? 8 : 42
     addedRef.current = n
     const b = makeBatch(n, 0, bankIfsc || 'BANK', SESSIONS[0]?.id || 'SES-0619-001')
@@ -685,10 +686,11 @@ export default function CTSPresentment() {
     setFilterStatus('ALL')
     setFilterLot('ALL')
     setSearch('')
-  }, [isSMB, bankIfsc]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isSMB, bankIfsc, isDemo]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Simulate incoming captures from scanner feed
   useEffect(() => {
+    if (!isDemo) return
     const timer = setInterval(() => {
       if (Math.random() > 0.35) return
       const newItem = makeBatch(1, addedRef.current, bankIfsc || 'BANK', SESSIONS[0]?.id || 'SES-0619-001')[0]

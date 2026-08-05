@@ -178,14 +178,14 @@ function downloadCsv(csv, filename) {
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function CTSReconciliation() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const [sessionIdx, setSessionIdx]         = useState(0)
   const [filterStatus, setFilterStatus]     = useState('ALL')
   const [raisedExceptions, setRaisedExceptions] = useState({})
 
-  const SESSIONS   = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
-  const RECON_DATA = useMemo(() => makeReconData(SESSIONS, isSMB), [SESSIONS, isSMB])
+  const SESSIONS   = useMemo(() => isDemo ? makeSessions(bankIfsc, isSMB) : [], [bankIfsc, isSMB, isDemo])
+  const RECON_DATA = useMemo(() => isDemo ? makeReconData(SESSIONS, isSMB) : [], [SESSIONS, isSMB, isDemo])
 
   useEffect(() => { setSessionIdx(0); setFilterStatus('ALL') }, [isSMB])
 

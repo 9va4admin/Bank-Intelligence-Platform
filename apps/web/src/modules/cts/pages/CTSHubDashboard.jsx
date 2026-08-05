@@ -358,8 +358,8 @@ function SealConfirmModal({ branch, lot, onConfirm, onCancel, isDark }) {
 
 export default function CTSHubDashboard() {
   const { isDark } = useTheme()
-  const { bankId, bankName } = useBankContext()
-  const [branches, setBranches] = useState(BRANCHES_MOCK)
+  const { bankId, bankName, isDemo } = useBankContext()
+  const [branches, setBranches] = useState(isDemo ? BRANCHES_MOCK : [])
   const [countdown, setCountdown] = useState(windowCountdown(CLEARING_WINDOW.close_ts))
   const [sealTarget, setSealTarget] = useState(null)   // { branch, lot }
   const [sealAllPending, setSealAllPending] = useState(false)

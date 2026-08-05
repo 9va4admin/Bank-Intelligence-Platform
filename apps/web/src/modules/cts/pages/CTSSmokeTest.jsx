@@ -417,10 +417,14 @@ function ReadinessPanel({ isDark, isDemo, bankId, deploymentMode }) {
 
 export default function CTSSmokeTest() {
   const { isDark } = useTheme()
-  const { bankId, isSB, isSMB, deploymentMode, isDemo } = useBankContext()
+  const { bankId, isSB, isSMB, bankMode, deploymentMode, isDemo } = useBankContext()
   const sc = isDark ? SC_DARK : SC_LIGHT
 
-  const availableEntities = isSB ? ['sb', 'smb', 'branch', 'pu'] : ['smb']
+  const availableEntities = isSMB
+    ? ['smb']
+    : bankMode === 'SB_ONLY'
+      ? ['sb', 'branch', 'pu']
+      : ['sb', 'smb', 'branch', 'pu']
   const [activeEntity, setActiveEntity] = useState(availableEntities[0])
   const [testStates, setTestStates]     = useState({})
   const [running, setRunning]           = useState(false)
