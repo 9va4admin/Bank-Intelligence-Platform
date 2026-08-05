@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
 import AppShell from '../../../shared/layout/AppShell'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -128,7 +129,7 @@ function ProgressBar({ lot }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function CTSBatches() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [sessionFilter, setSessionFilter] = useState('ALL')
   const [statusFilter,  setStatusFilter]  = useState('ALL')
@@ -151,7 +152,8 @@ export default function CTSBatches() {
     panel: isDark ? 'bg-white/2 border-white/8' : 'bg-slate-50 border-slate-200',
   }
 
-  const SESSIONS = useMemo(() => isDemo ? makeSessions(bankIfsc, isSMB) : [], [bankIfsc, isSMB, isDemo])
+  const demoSessions = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
+  const SESSIONS = useDemoData(demoSessions)
   const BRANCHES = isSMB ? SMB_BRANCHES : SB_BRANCHES
   const ALL_LOTS = useMemo(() => makeLots(isSMB ? 5 : 30, SESSIONS, BRANCHES, bankIfsc), [isSMB, SESSIONS, BRANCHES, bankIfsc])
   const SUMMARY = useMemo(() => ({

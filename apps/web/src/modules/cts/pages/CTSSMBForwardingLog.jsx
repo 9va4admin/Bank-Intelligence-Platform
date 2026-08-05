@@ -2,6 +2,7 @@ import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 
@@ -236,13 +237,13 @@ function ForwardingDetailPanel({ item, isDark, onClose }) {
 const ALL_SMBS = ['All SMBs', ...Array.from(new Set(MOCK_LOG.map(l => l.bank_name)))]
 
 export default function CTSSMBForwardingLog() {
-  const { bankName, bankIfsc, isSB, isSMB, isDemo } = useBankContext()
+  const { bankName, bankIfsc, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [selected, setSelected] = useState(null)
   const [filterSmb, setFilterSmb] = useState('All SMBs')
   const [filterStatus, setFilterStatus] = useState('All')
 
-  const LOG_SOURCE = isDemo ? MOCK_LOG : []
+  const LOG_SOURCE = useDemoData(MOCK_LOG)
 
   const th = {
     page:    isDark ? 'bg-transparent' : 'bg-slate-50',

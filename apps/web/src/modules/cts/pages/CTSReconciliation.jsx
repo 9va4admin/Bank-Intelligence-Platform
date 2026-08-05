@@ -3,6 +3,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
 
 // ── Sub-member ledger mock data ───────────────────────────────────────────────
 const SMB_LEDGERS = [
@@ -178,14 +179,16 @@ function downloadCsv(csv, filename) {
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function CTSReconciliation() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [sessionIdx, setSessionIdx]         = useState(0)
   const [filterStatus, setFilterStatus]     = useState('ALL')
   const [raisedExceptions, setRaisedExceptions] = useState({})
 
-  const SESSIONS   = useMemo(() => isDemo ? makeSessions(bankIfsc, isSMB) : [], [bankIfsc, isSMB, isDemo])
-  const RECON_DATA = useMemo(() => isDemo ? makeReconData(SESSIONS, isSMB) : [], [SESSIONS, isSMB, isDemo])
+  const demoSessions  = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
+  const SESSIONS      = useDemoData(demoSessions)
+  const demoReconData = useMemo(() => makeReconData(SESSIONS, isSMB), [SESSIONS, isSMB])
+  const RECON_DATA    = useDemoData(demoReconData)
 
   useEffect(() => { setSessionIdx(0); setFilterStatus('ALL') }, [isSMB])
 

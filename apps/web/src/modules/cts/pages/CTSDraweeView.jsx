@@ -15,6 +15,7 @@
 import { useState } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
 import AppShell from '../../../shared/layout/AppShell'
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
@@ -89,10 +90,10 @@ function ReturnReasonBar({ reasons, total, isDark }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CTSDraweeView() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
-  const activeSessions = isDemo ? SESSIONS : []
-  const [selectedSession, setSelectedSession] = useState(isDemo ? SESSIONS[1] : null)
+  const activeSessions = useDemoData(SESSIONS)
+  const [selectedSession, setSelectedSession] = useState(useDemoData(SESSIONS[1], null))
   const [sortBy, setSortBy] = useState('returned_desc')
 
   // Outward & Combined Position is SB-only — SMBs present cheques via their sponsor bank

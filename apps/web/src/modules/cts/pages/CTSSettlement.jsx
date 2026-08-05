@@ -11,6 +11,7 @@
 import { useState, useMemo } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
 import AppShell from '../../../shared/layout/AppShell'
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
@@ -120,10 +121,11 @@ function Pipeline({ status, isDark }) {
 
 export default function CTSSettlement() {
   const { isDark } = useTheme()
-  const { bankName, bankIfsc, isSMB, isDemo } = useBankContext()
+  const { bankName, bankIfsc, isSMB } = useBankContext()
 
-  const SESSIONS       = useMemo(() => !isDemo ? [] : isSMB ? makeSmbSessions(bankIfsc) : SB_SESSIONS, [bankIfsc, isSMB, isDemo])
-  const COUNTERPARTIES = !isDemo ? [] : isSMB ? SMB_COUNTERPARTIES : SB_COUNTERPARTIES
+  const demoSessions   = useMemo(() => isSMB ? makeSmbSessions(bankIfsc) : SB_SESSIONS, [bankIfsc, isSMB])
+  const SESSIONS       = useDemoData(demoSessions)
+  const COUNTERPARTIES = useDemoData(isSMB ? SMB_COUNTERPARTIES : SB_COUNTERPARTIES)
 
   const [selectedSession, setSelectedSession] = useState(null)
   const activeSessionId = selectedSession ?? SESSIONS[1]?.id ?? SESSIONS[0]?.id

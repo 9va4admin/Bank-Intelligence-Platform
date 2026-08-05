@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
 
 // ── Mock data ──────────────────────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ function StatusPill({ status }) {
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function CTSVaultSync() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [tab, setTab] = useState('pps')
   const [syncing, setSyncing] = useState(false)
@@ -123,10 +124,10 @@ export default function CTSVaultSync() {
     syncMutation.mutate()
   }
 
-  const ppsSource  = isDemo ? MOCK_PPS  : []
-  const stopSource = isDemo ? MOCK_STOP : []
-  const syncStatus = isDemo ? MOCK_SYNC_STATUS : { cbs_connector: '—', last_run_at: null, triggered_by: '—', pps_records_loaded: 0, stop_cheque_records_loaded: 0, next_scheduled: null }
-  const syncHistory = isDemo ? MOCK_SYNC_HISTORY : []
+  const ppsSource   = useDemoData(MOCK_PPS)
+  const stopSource  = useDemoData(MOCK_STOP)
+  const syncStatus  = useDemoData(MOCK_SYNC_STATUS, { cbs_connector: '—', last_run_at: null, triggered_by: '—', pps_records_loaded: 0, stop_cheque_records_loaded: 0, next_scheduled: null })
+  const syncHistory = useDemoData(MOCK_SYNC_HISTORY)
   const filteredPPS = ppsSource.filter((r) =>
     !ppsSearch || r.account_display.includes(ppsSearch) || r.cheque_series_from.includes(ppsSearch)
   )

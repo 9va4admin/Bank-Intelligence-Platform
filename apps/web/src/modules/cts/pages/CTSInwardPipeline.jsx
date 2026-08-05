@@ -3,6 +3,8 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
+import useDemoInterval from '../../../shared/hooks/useDemoInterval'
 import { getStpStream } from '../data/mockQueue'
 
 // ─── Sub-member bank definitions (mock — live data via Kafka cts.smb.inbound) ─
@@ -496,28 +498,29 @@ export default function CTSInwardPipeline() {
           sponsorBankName, sponsorBankIfsc, isDemo } = useBankContext()
   const SPONSOR_BANK = { name: bankName, ifsc: bankIfsc, city: bankCity || '' }
   const { isDark } = useTheme()
-  const stpSource   = useRef(isDemo ? getStpStream() : [])
+  const stpSource   = useRef(useDemoData(getStpStream(), []))
   const stpIndexRef = useRef(0)
 
-  // SMB users have no access to the SB pipeline tab — force and lock to 'smb'
   const [view, setView] = useState(isSMB ? 'smb' : 'sb') // 'sb' | 'smb'
 
-  // Sync when demo toggle switches bank type
   useEffect(() => {
     setView(isSMB ? 'smb' : 'sb')
   }, [isSMB])
 
   const [stageCounts, setStageCounts] = useState(
-    Object.fromEntries(STAGES.map(s => [s.id, isDemo ? Math.floor(Math.random() * 80) + 20 : 0]))
+    () => Object.fromEntries(STAGES.map(s => [s.id, isDemo ? Math.floor(Math.random() * 80) + 20 : 0]))
   )
-  const [activeStages, setActiveStages] = useState(new Set(isDemo ? ['alteration', 'pps_sig', 'fraud'] : []))
-  const [confirms,    setConfirms]    = useState(isDemo ? 312 : 0)
-  const [returns,     setReturns]     = useState(isDemo ? 48 : 0)
-  const [humanReview, setHumanReview] = useState(isDemo ? 17 : 0)
+  const [activeStages, setActiveStages] = useState(useDemoData(new Set(['alteration', 'pps_sig', 'fraud']), new Set()))
+  const [confirms,    setConfirms]    = useState(useDemoData(312, 0))
+  const [returns,     setReturns]     = useState(useDemoData(48, 0))
+  const [humanReview, setHumanReview] = useState(useDemoData(17, 0))
   const [activityLog, setActivityLog] = useState([])
-  const [throughput,  setThroughput]  = useState(Array.from({ length: 20 }, () => isDemo ? Math.floor(Math.random() * 8) + 2 : 0))
-  const [ietMinutes,  setIetMinutes]  = useState(isDemo ? 142 : 180)
-  const [totalMs,     setTotalMs]     = useState(isDemo ? 612 : 0)
+  const [throughput,  setThroughput]  = useState(useDemoData(
+    Array.from({ length: 20 }, () => Math.floor(Math.random() * 8) + 2),
+    Array.from({ length: 20 }, () => 0)
+  ))
+  const [ietMinutes,  setIetMinutes]  = useState(useDemoData(142, 180))
+  const [totalMs,     setTotalMs]     = useState(useDemoData(612, 0))
   const [now,         setNow]         = useState(new Date())
 
   // SMB child pipelines state
@@ -545,66 +548,46 @@ export default function CTSInwardPipeline() {
   }, [])
 
   // STP tick — only in DEMO mode; in POC/PROD real events come from Kafka
-  useEffect(() => {
-    if (!isDemo) return
-    const timer = setInterval(() => {
-      const items = stpSource.current
-      if (stpIndexRef.current >= items.length) return
-      const item = items[stpIndexRef.current]
-      stpIndexRef.current++
-
-      const outcome = item.outcome
-      const stageSeq = ['alteration','cts2010','stop_pay','pps_sig','fraud','cbs','decision']
-      const activeIdx = Math.floor(Math.random() * stageSeq.length)
-
-      // Pulse active stages
-      const next = new Set(stageSeq.slice(Math.max(0, activeIdx - 1), activeIdx + 2))
-      setActiveStages(next)
-
-      // Increment all stage counters slightly (Phase 3 stage IDs)
-      setStageCounts(prev => {
-        const updated = { ...prev }
-        stageSeq.forEach(s => { updated[s] = (updated[s] || 0) + 1 })
-        updated.inward = (updated.inward || 0) + 1
-        return updated
-      })
-
-      if (outcome === 'CONFIRM') setConfirms(c => c + 1)
-      else if (outcome === 'RETURN') setReturns(r => r + 1)
-      else setHumanReview(h => h + 1)
-
-      const ms = 380 + Math.floor(Math.random() * 220)
-      setTotalMs(ms)
-
-      setActivityLog(prev => [{
-        id: item.id,
-        outcome,
-        ms,
-        time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
-      }, ...prev].slice(0, 40))
-
-      setThroughput(prev => [...prev.slice(1), Math.floor(Math.random() * 10) + 1])
-    }, STP_TICK_MS)
-    return () => clearInterval(timer)
-  }, [])
+  useDemoInterval(() => {
+    const items = stpSource.current
+    if (stpIndexRef.current >= items.length) return
+    const item = items[stpIndexRef.current]
+    stpIndexRef.current++
+    const outcome = item.outcome
+    const stageSeq = ['alteration','cts2010','stop_pay','pps_sig','fraud','cbs','decision']
+    const activeIdx = Math.floor(Math.random() * stageSeq.length)
+    setActiveStages(new Set(stageSeq.slice(Math.max(0, activeIdx - 1), activeIdx + 2)))
+    setStageCounts(prev => {
+      const updated = { ...prev }
+      stageSeq.forEach(s => { updated[s] = (updated[s] || 0) + 1 })
+      updated.inward = (updated.inward || 0) + 1
+      return updated
+    })
+    if (outcome === 'CONFIRM') setConfirms(c => c + 1)
+    else if (outcome === 'RETURN') setReturns(r => r + 1)
+    else setHumanReview(h => h + 1)
+    const ms = 380 + Math.floor(Math.random() * 220)
+    setTotalMs(ms)
+    setActivityLog(prev => [{
+      id: item.id, outcome, ms,
+      time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
+    }, ...prev].slice(0, 40))
+    setThroughput(prev => [...prev.slice(1), Math.floor(Math.random() * 10) + 1])
+  }, STP_TICK_MS)
 
   // SMB child pipeline tick — only in DEMO mode
-  useEffect(() => {
-    if (!isDemo) return
-    const timer = setInterval(() => {
-      const smbId = SMB_LIST[Math.floor(Math.random() * SMB_LIST.length)].id
-      const stageSeq = SMB_STAGES.map(s => s.id)
-      setSmbCounts(prev => {
-        const updated = { ...prev }
-        const smb = { ...updated[smbId] }
-        stageSeq.forEach(s => { smb[s] = (smb[s] || 0) + 1 })
-        updated[smbId] = smb
-        return updated
-      })
-      setSmbActiveStages(prev => ({ ...prev, [smbId]: stageSeq[Math.floor(Math.random() * stageSeq.length)] }))
-    }, STP_TICK_MS * 1.5)
-    return () => clearInterval(timer)
-  }, [])
+  useDemoInterval(() => {
+    const smbId = SMB_LIST[Math.floor(Math.random() * SMB_LIST.length)].id
+    const stageSeq = SMB_STAGES.map(s => s.id)
+    setSmbCounts(prev => {
+      const updated = { ...prev }
+      const smb = { ...updated[smbId] }
+      stageSeq.forEach(s => { smb[s] = (smb[s] || 0) + 1 })
+      updated[smbId] = smb
+      return updated
+    })
+    setSmbActiveStages(prev => ({ ...prev, [smbId]: stageSeq[Math.floor(Math.random() * stageSeq.length)] }))
+  }, STP_TICK_MS * 1.5)
 
   usePageHeader({
     subtitle: 'Inward Processing Pipeline · AI Agent Swarm · Real-time',

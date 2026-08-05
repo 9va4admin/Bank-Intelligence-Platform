@@ -2,6 +2,8 @@
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
+import useDemoInterval from '../../../shared/hooks/useDemoInterval'
 import ChequeImageViewer from '../components/ChequeImageViewer'
 import { demoChequeUrl } from '../demoImages'
 
@@ -665,8 +667,10 @@ function DetailPanel({ item, isDark }) {
 export default function CTSPresentment() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
-  const SESSIONS = useMemo(() => isDemo ? makeSessions(bankIfsc, isSMB) : [], [bankIfsc, isSMB, isDemo])
-  const initialBatch = useMemo(() => isDemo ? makeBatch(isSMB ? 8 : 42, 0, bankIfsc || 'BANK', SESSIONS[0]?.id || 'SES-0619-001') : [], [bankIfsc, isSMB, SESSIONS, isDemo])
+  const demoSessions = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
+  const SESSIONS = useDemoData(demoSessions)
+  const demoInitialBatch = useMemo(() => makeBatch(isSMB ? 8 : 42, 0, bankIfsc || 'BANK', SESSIONS[0]?.id || 'SES-0619-001'), [bankIfsc, isSMB, SESSIONS])
+  const initialBatch = useDemoData(demoInitialBatch)
   const [batch, setBatch] = useState(() => initialBatch)
   const [selected, setSelected] = useState(() => initialBatch[0] ?? null)
   const [activeSession, setActiveSession] = useState(0)
@@ -689,16 +693,12 @@ export default function CTSPresentment() {
   }, [isSMB, bankIfsc, isDemo]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Simulate incoming captures from scanner feed
-  useEffect(() => {
-    if (!isDemo) return
-    const timer = setInterval(() => {
-      if (Math.random() > 0.35) return
-      const newItem = makeBatch(1, addedRef.current, bankIfsc || 'BANK', SESSIONS[0]?.id || 'SES-0619-001')[0]
-      addedRef.current += 1
-      setBatch(prev => [newItem, ...prev].slice(0, 200))
-    }, 2800)
-    return () => clearInterval(timer)
-  }, [])
+  useDemoInterval(() => {
+    if (Math.random() > 0.35) return
+    const newItem = makeBatch(1, addedRef.current, bankIfsc || 'BANK', SESSIONS[0]?.id || 'SES-0619-001')[0]
+    addedRef.current += 1
+    setBatch(prev => [newItem, ...prev].slice(0, 200))
+  }, 2800)
 
   // Simulate status progression
   useEffect(() => {

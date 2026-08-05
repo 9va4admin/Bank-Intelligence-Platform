@@ -8,6 +8,8 @@ import useReviewQueue from '../hooks/useReviewQueue'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
+import useDemoInterval from '../../../shared/hooks/useDemoInterval'
 
 const STP_DELAY_MS = 3200
 const SESSION_START = new Date(new Date().setHours(10, 0, 0, 0))
@@ -17,6 +19,7 @@ export default function CTSWorkstation() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, bankMode, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const { items: liveItems, loading: queueLoading, error: queueError, useMock } = useReviewQueue({ pollEnabled: true, isDemo })
+  const ZERO_BATCH = { total_inward: 0, stp_confirmed: 0, stp_returned: 0, human_review: 0, stp_rate: 0, avg_decision_ms: 0 }
   const [queue, setQueue] = useState([])
   const [selected, setSelected] = useState(null)
   const [bankTab, setBankTab] = useState('own')  // SB: 'own' (My Bank) | 'smb' (Sponsored SMBs)
@@ -41,14 +44,10 @@ export default function CTSWorkstation() {
     }
   }, [liveItems, queueLoading])
 
-  const stpSource   = useRef(isDemo ? getStpStream() : [])
+  const stpSource   = useRef(useDemoData(getStpStream(), []))
   const stpIndexRef = useRef(0)
   const [stpStream, setStpStream]   = useState([])
-  // In POC/PROD start stats at zero — real numbers come from backend polling
-  const [batchStats, setBatchStats] = useState(isDemo ? { ...BATCH_STATS } : {
-    total_inward: 0, stp_confirmed: 0, stp_returned: 0,
-    human_review: 0, stp_rate: 0, avg_decision_ms: 0,
-  })
+  const [batchStats, setBatchStats] = useState(useDemoData({ ...BATCH_STATS }, ZERO_BATCH))
   const [now, setNow] = useState(new Date())
 
   useEffect(() => {
@@ -57,23 +56,19 @@ export default function CTSWorkstation() {
   }, [])
 
   // STP animation only runs in DEMO mode; in POC/PROD the stream comes from real Kafka events
-  useEffect(() => {
-    if (!isDemo) return
-    const timer = setInterval(() => {
-      const items = stpSource.current
-      if (stpIndexRef.current >= items.length) return
-      const item = items[stpIndexRef.current]
-      stpIndexRef.current += 1
-      setStpStream((prev) => [{ ...item, arrivedAt: new Date() }, ...prev].slice(0, 40))
-      setBatchStats((prev) => ({
-        ...prev,
-        stp_confirmed: item.outcome === 'CONFIRM' ? prev.stp_confirmed + 1 : prev.stp_confirmed,
-        stp_returned:  item.outcome === 'RETURN'  ? prev.stp_returned  + 1 : prev.stp_returned,
-        total_inward:  prev.total_inward + 1,
-      }))
-    }, STP_DELAY_MS)
-    return () => clearInterval(timer)
-  }, [isDemo])
+  useDemoInterval(() => {
+    const items = stpSource.current
+    if (stpIndexRef.current >= items.length) return
+    const item = items[stpIndexRef.current]
+    stpIndexRef.current += 1
+    setStpStream((prev) => [{ ...item, arrivedAt: new Date() }, ...prev].slice(0, 40))
+    setBatchStats((prev) => ({
+      ...prev,
+      stp_confirmed: item.outcome === 'CONFIRM' ? prev.stp_confirmed + 1 : prev.stp_confirmed,
+      stp_returned:  item.outcome === 'RETURN'  ? prev.stp_returned  + 1 : prev.stp_returned,
+      total_inward:  prev.total_inward + 1,
+    }))
+  }, STP_DELAY_MS)
 
   // Bank scoping: SMB sees only its own bank; SB gets My-Bank / Sponsored-SMBs tabs.
   const inScope = (item) => {
