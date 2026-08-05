@@ -39,6 +39,43 @@ from temporalio.workflow import ParentClosePolicy
 
 log = structlog.get_logger()
 
+# ── Date validation helpers ───────────────────────────────────────────────────
+
+_DATE_FORMATS = ("%d-%m-%Y", "%d/%m/%Y", "%d.%m.%Y", "%Y-%m-%d")
+_STALE_DAYS = 90   # RBI: cheques older than 3 months cannot be presented
+
+
+def _parse_cheque_date(date_str: str):
+    """Parse cheque date string in common Indian formats. Returns date or None."""
+    from datetime import date as _date
+    for fmt in _DATE_FORMATS:
+        try:
+            return __import__("datetime").datetime.strptime(date_str.strip(), fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _validate_cheque_date(date_str):
+    """
+    Returns (ok: bool, violation: str | None).
+    violation is None when date is valid.
+    Non-string values (e.g. None, or missing attr) → UNDATED_CHEQUE.
+    """
+    from datetime import date as _date
+    if not isinstance(date_str, str) or not date_str.strip():
+        return False, "UNDATED_CHEQUE"
+    parsed = _parse_cheque_date(date_str)
+    if parsed is None:
+        return False, "UNDATED_CHEQUE"
+    today = _date.today()
+    if parsed > today:
+        return False, "POST_DATED_CHEQUE"
+    if (today - parsed).days > _STALE_DAYS:
+        return False, "STALE_CHEQUE"
+    return True, None
+
+
 _AI_RETRY = RetryPolicy(
     maximum_attempts=2,
     initial_interval=timedelta(seconds=1),
@@ -98,6 +135,11 @@ class OutwardScanInput(BaseModel):
     # Optional and additive: if absent, cross-check degrades gracefully to PROCEED.
     registered_drawee_ifsc: Optional[str] = None   # IFSC of drawee bank (from teller entry)
     registered_amount_str: Optional[str] = None    # amount entered at deposit (decimal string)
+
+    # UV scanner image bundle — populated by DropFolderWatcher when scanner has UV lamp.
+    # Both optional: standard non-UV scanners omit them; workflow skips those checks.
+    image_front_gray_url: Optional[str] = None     # front grayscale — alteration detection
+    image_uv_url: Optional[str] = None             # UV wavelength — security feature verification
 
 
 class OutwardScanResult(BaseModel):
@@ -769,6 +811,22 @@ class OutwardScanWorkflow:
         micr_result = mock_results["micr"]
         micr_line = getattr(micr_result, "micr_line", None)
 
+        # Step 1.5: Date validation — stale / post-dated / undated cheques rejected here
+        # OCR extracts the date; we validate before spending AI budget on the rest.
+        date_str = getattr(micr_result, "date", None)
+        date_ok, date_violation = _validate_cheque_date(date_str)
+        if not date_ok:
+            log.info("outward_scan_workflow.date_rejected",
+                     scan_id=inp.scan_id, bank_id=inp.bank_id,
+                     violation=date_violation, date_extracted=date_str)
+            await self._write_audit(mock_results, "CTS_REJECTED", inp)
+            return OutwardScanResult(
+                outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                instrument_id=inp.instrument_id, micr_line=micr_line,
+                lot_number=None, violations=[date_violation], audit_written=True,
+                pu_id=getattr(inp, "pu_id", None),
+            )
+
         # Step 2.5: NGCH metadata cross-check (optional mock — defaults to PROCEED)
         xcheck_result = mock_results.get("cross_check")
         if xcheck_result is not None and getattr(xcheck_result, "outcome", "PROCEED") == "HUMAN_REVIEW":
@@ -808,6 +866,48 @@ class OutwardScanWorkflow:
                 audit_written=True,
                 pu_id=inp.pu_id,
             )
+
+        # Step 3.5: Front-gray alteration detection — only when gray image was captured.
+        # Graceful degradation: model unavailable (degraded=True) → proceed, never block.
+        if inp.image_front_gray_url:
+            alteration_result = mock_results.get("alteration")
+            if alteration_result is not None:
+                if alteration_result.alteration_detected and not alteration_result.degraded:
+                    altered = getattr(alteration_result, "altered_fields", ["unknown"])
+                    log.info("outward_scan_workflow.alteration_detected",
+                             scan_id=inp.scan_id, bank_id=inp.bank_id,
+                             altered_fields=altered)
+                    await self._write_audit(mock_results, "MISMATCH_HELD", inp)
+                    return OutwardScanResult(
+                        outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                        instrument_id=inp.instrument_id, micr_line=micr_line,
+                        lot_number=None,
+                        violations=[f"ALTERATION_DETECTED:{f}" for f in altered],
+                        audit_written=True, pu_id=getattr(inp, "pu_id", None),
+                        mismatch_fields=list(altered),
+                    )
+                # degraded or no alteration → proceed
+
+        # Step 3.6: UV security check — only when UV image was captured by scanner.
+        # Failure (uv_security_passed=False, not degraded) → MISMATCH_HELD for teller review.
+        # Degraded (UV lamp absent/offline) → proceed optimistically.
+        if inp.image_uv_url:
+            uv_result = mock_results.get("uv")
+            if uv_result is not None:
+                if not uv_result.uv_security_passed and not uv_result.degraded:
+                    log.info("outward_scan_workflow.uv_security_failed",
+                             scan_id=inp.scan_id, bank_id=inp.bank_id,
+                             uv_risk_score=getattr(uv_result, "uv_risk_score", None))
+                    await self._write_audit(mock_results, "MISMATCH_HELD", inp)
+                    return OutwardScanResult(
+                        outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                        instrument_id=inp.instrument_id, micr_line=micr_line,
+                        lot_number=None,
+                        violations=["UV_SECURITY_FAILED"],
+                        audit_written=True, pu_id=getattr(inp, "pu_id", None),
+                        mismatch_fields=["uv_security"],
+                    )
+                # degraded or passed → proceed
 
         # Step 4: Vision LLM sanity cross-check (lot assignment deferred to ClearingSessionWorkflow)
         # In production: workflow.execute_activity(run_vision_presentment_check, ...)
