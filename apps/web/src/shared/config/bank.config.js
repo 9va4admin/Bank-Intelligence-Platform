@@ -46,7 +46,7 @@ const bankMode = import.meta.env.VITE_BANK_MODE  ?? 'SB_ONLY'
 //   DEMO  — pre-seeded mock data, no real services required (default)
 //   POC   — full pipeline, real AI/DB/queues, folder-based I/O instead of scanner+NGCH
 //   PROD  — everything live: physical scanner, NGCH, on-prem vLLM, CBS
-const deploymentMode = import.meta.env.VITE_DEPLOYMENT_MODE ?? 'POC'   
+const deploymentMode = import.meta.env.VITE_DEPLOYMENT_MODE ?? 'DEMO'
 
 const base = import.meta.env.BASE_URL ?? '/'
 

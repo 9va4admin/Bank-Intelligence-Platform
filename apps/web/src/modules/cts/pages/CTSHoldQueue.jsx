@@ -10,7 +10,7 @@
  *  - Release Hold button → returns instrument to review queue
  *  - CRITICAL: IET countdown shown in red when < 30 minutes remaining
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
@@ -21,16 +21,31 @@ import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 
 const _now = () => Date.now() / 1000
 
-function useCountdown(deadlines) {
-  const [remaining, setRemaining] = useState(() =>
-    Object.fromEntries(deadlines.map(([id, d]) => [id, Math.max(0, d - _now())]))
-  )
+const _T = (offsetMins) => Math.floor(Date.now() / 1000) + offsetMins * 60
+
+const MOCK_HOLDS = [
+  { instrument_id: 'INS-20260619-00201', queue_tier: 'very_high',  iet_deadline: _T(18),  account_display: '****9210', amount_display: '₹[>1Cr]',   held_by: 'reviewer@saraswat.coop',  held_at: _now() - 720,  hold_reason: 'Stop payment instruction active — pending branch confirmation', branch_recommendation: 'RETURN'  },
+  { instrument_id: 'INS-20260619-00202', queue_tier: 'high_value', iet_deadline: _T(45),  account_display: '****4521', amount_display: '₹[1L–5L]',  held_by: 'reviewer2@saraswat.coop', held_at: _now() - 300,  hold_reason: 'Signature mismatch score 0.62 — branch manager verification required', branch_recommendation: 'CONFIRM' },
+  { instrument_id: 'INS-20260619-00203', queue_tier: 'standard',   iet_deadline: _T(98),  account_display: '****7832', amount_display: '₹[<1L]',    held_by: 'reviewer@saraswat.coop',  held_at: _now() - 180,  hold_reason: 'Alteration suspected in date field — awaiting visual confirmation', branch_recommendation: null     },
+]
+
+function useCountdown(holds) {
+  const [remaining, setRemaining] = useState({})
+  const holdsRef = useRef(holds)
+  holdsRef.current = holds
+
   useEffect(() => {
-    const t = setInterval(() => {
-      setRemaining(Object.fromEntries(deadlines.map(([id, d]) => [id, Math.max(0, d - _now())])))
-    }, 1000)
+    function recompute() {
+      const map = {}
+      for (const h of holdsRef.current) {
+        map[h.instrument_id] = Math.max(0, h.iet_deadline - _now())
+      }
+      setRemaining(map)
+    }
+    recompute()
+    const t = setInterval(recompute, 1000)
     return () => clearInterval(t)
-  }, [deadlines])
+  }, []) // mount-only — reads fresh holds via ref each tick
   return remaining
 }
 
@@ -78,13 +93,9 @@ function RecBadge({ rec, isDark }) {
 
 export default function CTSHoldQueue() {
   const { isDark } = useTheme()
-  const { bankId } = useBankContext()
-  const { setHeader } = usePageHeader?.() ?? {}
+  const { bankId, isDemo } = useBankContext()
+  usePageHeader({ subtitle: 'Instruments awaiting branch confirmation — IET clock running' })
   const queryClient = useQueryClient()
-
-  useEffect(() => {
-    setHeader?.({ title: 'Inward Hold Queue', subtitle: 'Instruments awaiting branch confirmation — IET clock running' })
-  }, [])
 
   const th = {
     page:    isDark ? 'bg-navy-950'        : 'bg-slate-50',
@@ -99,14 +110,19 @@ export default function CTSHoldQueue() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['cts-holds', bankId],
     queryFn: async () => {
-      const res = await fetch('/api/v1/cts/holds', { credentials: 'include' })
+      const res = await fetch(`/v1/cts/holds?bank_id=${bankId}`, { credentials: 'include' })
       if (!res.ok) throw new Error('Failed to load holds')
       return res.json()
     },
-    refetchInterval: 15_000,
+    refetchInterval: isDemo ? false : 15_000,
+    enabled: !isDemo,
+    retry: false,
   })
 
-  const holds = data?.items ?? []
+  const holds = useMemo(
+    () => isDemo ? MOCK_HOLDS : (data?.items ?? []),
+    [isDemo, data]
+  )
 
   const releaseMutation = useMutation({
     mutationFn: async (instrumentId) => {
@@ -124,8 +140,7 @@ export default function CTSHoldQueue() {
     },
   })
 
-  const deadlines = holds.map(h => [h.instrument_id, h.iet_deadline])
-  const remaining = useCountdown(deadlines)
+  const remaining = useCountdown(holds)
 
   const sortedHolds = [...holds].sort((a, b) =>
     (remaining[a.instrument_id] ?? 0) - (remaining[b.instrument_id] ?? 0)
