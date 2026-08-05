@@ -202,10 +202,11 @@ function OutwardRow({ item, isDark, selected, onClick }) {
 
 export default function CTSOutwardQueue() {
   const { isDark } = useTheme()
-  const { bankId, isSMB } = useBankContext()
+  const { bankId, isSMB, isDemo } = useBankContext()
   const [tab, setTab] = useState('review') // 'review' | 'stp_rejected'
-  const [review, setReview] = useState(MOCK_HUMAN_REVIEW)
-  const [rejected, setRejected] = useState(MOCK_STP_REJECTED)
+  // In POC/PROD start empty — real instruments arrive from the folder-watcher pipeline
+  const [review, setReview] = useState(isDemo ? MOCK_HUMAN_REVIEW : [])
+  const [rejected, setRejected] = useState(isDemo ? MOCK_STP_REJECTED : [])
   const [decided, setDecided] = useState([]) // { instrument_id, action, reason, ts }
   const [selected, setSelected] = useState(null)
 
