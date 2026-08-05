@@ -41,7 +41,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from apps.api.middleware.authentication import AuthenticationMiddleware
 from apps.api.routers import auth as auth_router
-from apps.api.routers import demo_cloud_extract
+from apps.api.routers import demo_cloud_extract, observability
 from shared.auth.auth_service import AuthService
 from shared.auth.connectors.base import ASTRAIdentity
 from shared.auth.connectors.local import LocalCredentials
@@ -170,8 +170,15 @@ def build_app() -> FastAPI:
 
     app.state.session_service = session_service
     app.state.auth_service = svc
+    # Observability deps: all None → router degrades gracefully (returns degraded=True, zero values)
+    app.state.db_pool_cts = None
+    app.state.redis_cts = None
+    app.state.vault_client = None
+    app.state.kafka_admin = None
+    app.state.temporal_client = None
     app.include_router(auth_router.router_v1)
     app.include_router(demo_cloud_extract.router_v1)
+    app.include_router(observability.router_v1)
 
     @app.get("/health/live", include_in_schema=False)
     async def live():
