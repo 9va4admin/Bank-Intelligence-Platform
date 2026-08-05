@@ -161,21 +161,6 @@ const SIDEBAR_MODULES = [
     ],
   },
   {
-    id: 'branch-ops',
-    label: 'Branch',
-    fullLabel: 'Branch Operations',
-    Icon: BranchIcon,
-    sections: [
-      {
-        label: 'Hold Queue',
-        directLink: true,
-        items: [
-          { to: '/branch/hold-queue', label: 'Inward Hold Queue', perm: 'cts:view_hold_queue' },
-        ],
-      },
-    ],
-  },
-  {
     id: 'ops',
     label: 'Ops',
     fullLabel: 'Platform Operations',
@@ -309,8 +294,7 @@ function useBreadcrumb(pathname) {
 function activeModuleId(pathname) {
   if (pathname.startsWith('/admin') || pathname.startsWith('/cts/config')) return 'admin'
   if (pathname.startsWith('/ops')) return 'ops'
-  if (pathname.startsWith('/branch/hold-queue')) return 'branch-ops'
-  return 'cts'   // /cts/* and other /branch/* routes live under the CTS module tab
+  return 'cts'   // /cts/* and all /branch/* routes live under the CTS module tab
 }
 
 // ── AppShell ────────────────────────────────────────────────────────────────
