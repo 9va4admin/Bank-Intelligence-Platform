@@ -121,7 +121,7 @@ function Pipeline({ status, isDark }) {
 
 export default function CTSSettlement() {
   const { isDark } = useTheme()
-  const { bankName, bankIfsc, isSMB } = useBankContext()
+  const { bankName, bankIfsc, isSMB, isDemo } = useBankContext()
 
   const demoSessions   = useMemo(() => isSMB ? makeSmbSessions(bankIfsc) : SB_SESSIONS, [bankIfsc, isSMB])
   const SESSIONS       = useDemoData(demoSessions)
