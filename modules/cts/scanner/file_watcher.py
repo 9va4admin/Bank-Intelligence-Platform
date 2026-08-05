@@ -250,20 +250,34 @@ class DropFolderWatcher:
         self, instruments: list[ScannedChequeInput]
     ) -> list[dict]:
         """
-        Upload front/rear TIFF images to MinIO for each instrument.
+        Upload all available image types to MinIO for each instrument.
 
         Returns per_scan_data list regardless of whether MinIO is configured:
-          - With MinIO: includes image_front_url and image_rear_url
-          - Without MinIO: includes only scan_id (graceful degradation)
+          - With MinIO: includes urls for each image type that was uploaded
+          - Without MinIO: includes only scan_id and bundle_status
+
+        Per-instrument hold: if bundle_status is INSTRUMENT_HOLD (mandatory
+        images missing), the entry is flagged — the downstream workflow routes
+        it to an alert queue rather than processing it.
+
+        Image types uploaded (when present):
+          image_front_bw_url   — front B&W (mandatory for OCR)
+          image_front_gray_url — front grayscale (mandatory for fraud analysis)
+          image_rear_url       — rear B&W (optional, deposit slip OCR)
+          image_uv_url         — UV scan (optional, security features)
 
         The minio:// URL scheme is a logical reference understood by
-        OutwardScanWorkflow and OutwardScanTrigger — the bucket + object_key
-        composite. Actual HTTP presigned URLs are generated at display time.
+        OutwardScanWorkflow — presigned HTTP URLs are generated at display time.
         """
+        from modules.cts.scanner.mapper import BundleStatus
         per_scan_data: list[dict] = []
 
         for instrument in instruments:
-            entry: dict = {"scan_id": instrument.scan_id}
+            bundle_status_val = getattr(instrument, "bundle_status", None)
+            entry: dict = {
+                "scan_id": instrument.scan_id,
+                "bundle_status": bundle_status_val.value if bundle_status_val else "PROCESSABLE",
+            }
 
             if self._cfg.minio_store is not None:
                 bucket = self._cfg.minio_bucket
@@ -272,19 +286,38 @@ class DropFolderWatcher:
                     f"{self._cfg.pu_id}/{instrument.scan_id}"
                 )
                 try:
+                    # Front B&W — mandatory
                     if instrument.image_color_path and instrument.image_color_path.exists():
-                        front_data = instrument.image_color_path.read_bytes()
-                        front_key = await self._cfg.minio_store.upload_bytes(
-                            bucket, f"{prefix}/front.tif", front_data, "image/tiff"
+                        data = instrument.image_color_path.read_bytes()
+                        key = await self._cfg.minio_store.upload_bytes(
+                            bucket, f"{prefix}/front_bw.tif", data, "image/tiff"
                         )
-                        entry["image_front_url"] = f"minio://{bucket}/{front_key}"
+                        entry["image_front_bw_url"] = f"minio://{bucket}/{key}"
 
-                    if instrument.image_rear_path and instrument.image_rear_path.exists():
-                        rear_data = instrument.image_rear_path.read_bytes()
-                        rear_key = await self._cfg.minio_store.upload_bytes(
-                            bucket, f"{prefix}/rear.tif", rear_data, "image/tiff"
+                    # Front grayscale — mandatory
+                    if instrument.image_grey_path and instrument.image_grey_path.exists():
+                        data = instrument.image_grey_path.read_bytes()
+                        key = await self._cfg.minio_store.upload_bytes(
+                            bucket, f"{prefix}/front_gray.tif", data, "image/tiff"
                         )
-                        entry["image_rear_url"] = f"minio://{bucket}/{rear_key}"
+                        entry["image_front_gray_url"] = f"minio://{bucket}/{key}"
+
+                    # Rear B&W — optional
+                    if instrument.image_rear_path and instrument.image_rear_path.exists():
+                        data = instrument.image_rear_path.read_bytes()
+                        key = await self._cfg.minio_store.upload_bytes(
+                            bucket, f"{prefix}/rear_bw.tif", data, "image/tiff"
+                        )
+                        entry["image_rear_url"] = f"minio://{bucket}/{key}"
+
+                    # UV — optional
+                    uv_path = getattr(instrument, "image_uv_path", None)
+                    if uv_path and uv_path.exists():
+                        data = uv_path.read_bytes()
+                        key = await self._cfg.minio_store.upload_bytes(
+                            bucket, f"{prefix}/uv.tif", data, "image/tiff"
+                        )
+                        entry["image_uv_url"] = f"minio://{bucket}/{key}"
 
                 except Exception as exc:
                     log.warning(
