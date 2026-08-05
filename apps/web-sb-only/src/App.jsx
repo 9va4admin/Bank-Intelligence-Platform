@@ -56,6 +56,7 @@ import BranchHoldQueue    from './modules/cts/pages/branch/BranchHoldQueue'
 import UserManagement     from './modules/admin/pages/UserManagement'
 import OperationsConfig   from './modules/admin/pages/OperationsConfig'
 import PlatformConfig     from './modules/admin/pages/PlatformConfig'
+import CTSBranchMaster    from './modules/cts/pages/CTSBranchMaster'
 
 const qc = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
@@ -136,6 +137,7 @@ export default function App() {
 
                   {/* ── Admin ── */}
                   <Route path="/admin/users"              element={<UserManagement />} />
+                  <Route path="/admin/branches"           element={<CTSBranchMaster />} />
                   <Route path="/cts/schedules"            element={<CTSSchedules />} />
                   <Route path="/cts/config"               element={<CTSConfig />} />
                   <Route path="/cts/config/micr-prefixes" element={<CTSMICRPrefixes />} />
