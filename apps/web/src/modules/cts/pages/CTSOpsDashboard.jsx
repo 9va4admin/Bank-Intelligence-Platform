@@ -278,9 +278,25 @@ function SMBFilterBar({ smbs, selectedSmbId, onSelect, isDark }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const ZERO_TODAY = {
+  clearing_date: new Date().toISOString().slice(0, 10),
+  sessions_count: 0, sessions_settled: 0,
+  total_inward: 0, total_inward_value_paise: 0,
+  stp_confirmed: 0, stp_returned: 0,
+  manual_confirmed: 0, manual_returned: 0,
+  pending_review: 0, overall_stp_rate_pct: 0, overall_return_rate_pct: 0,
+  total_outward: 0, total_outward_value_paise: 0,
+  outward_returned: 0, net_settlement_paise: 0,
+}
+
+const ZERO_TREND = Array.from({ length: 7 }, (_, i) => {
+  const d = new Date(); d.setDate(d.getDate() - (6 - i))
+  return { date: d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }), inward: 0, return_rate_pct: 0, stp_rate_pct: 0 }
+})
+
 export default function CTSOpsDashboard() {
   const { isDark } = useTheme()
-  const { bankName, bankIfsc, isSMB, smbs, selectedSmbId, setSelectedSmbId, selectedSmb, bankMode } = useBankContext()
+  const { bankName, bankIfsc, isSMB, smbs, selectedSmbId, setSelectedSmbId, selectedSmb, bankMode, isDemo } = useBankContext()
   const [dashTab, setDashTab] = useState('mybank') // 'mybank' | 'smb' — SB only
   const [includeSMB, setIncludeSMB] = useState(false) // My Bank tab: combine with sponsored SMBs
   const [downloading, setDownloading] = useState(null)
@@ -340,12 +356,17 @@ export default function CTSOpsDashboard() {
   // Sessions grid stays SB's own regardless of the checkbox — a "session" is a
   // clearing window scoped to this bank; merging SMB session rows into the same
   // grid would mix two banks' processing windows in one list.
-  const myBank = includeSMB
-    ? { TODAY: combineToday(SB_TODAY, SMB_COMBINED_TODAY), SESSIONS: sbSessions, TREND: combineTrend(SB_TREND, SMB_COMBINED_TREND) }
-    : { TODAY: SB_TODAY, SESSIONS: sbSessions, TREND: SB_TREND }
-  const smbView = selectedSmbId
-    ? { TODAY: SMB_TODAY, SESSIONS: smbSessions, TREND: SMB_TREND }
-    : { TODAY: SMB_COMBINED_TODAY, SESSIONS: smbCombinedSessions, TREND: SMB_COMBINED_TREND }
+  // In POC/PROD: start with zeros — real data comes from backend polling (not yet wired).
+  const myBank = !isDemo
+    ? { TODAY: ZERO_TODAY, SESSIONS: [], TREND: ZERO_TREND }
+    : includeSMB
+      ? { TODAY: combineToday(SB_TODAY, SMB_COMBINED_TODAY), SESSIONS: sbSessions, TREND: combineTrend(SB_TREND, SMB_COMBINED_TREND) }
+      : { TODAY: SB_TODAY, SESSIONS: sbSessions, TREND: SB_TREND }
+  const smbView = !isDemo
+    ? { TODAY: ZERO_TODAY, SESSIONS: [], TREND: ZERO_TREND }
+    : selectedSmbId
+      ? { TODAY: SMB_TODAY, SESSIONS: smbSessions, TREND: SMB_TREND }
+      : { TODAY: SMB_COMBINED_TODAY, SESSIONS: smbCombinedSessions, TREND: SMB_COMBINED_TREND }
 
   const active = dashTab === 'mybank' ? myBank : smbView
   const totalSessions = active.TODAY.sessions_count
@@ -395,6 +416,15 @@ export default function CTSOpsDashboard() {
           {dashTab === 'mybank' && <ZoneGatewayStrip isDark={isDark} />}
           {dashTab === 'smb' && (
             <SMBFilterBar smbs={smbs} selectedSmbId={selectedSmbId} onSelect={setSelectedSmbId} isDark={isDark} />
+          )}
+          {!isDemo && (
+            <div className={`mb-4 rounded-xl border px-4 py-3 flex items-center gap-3 ${isDark ? 'border-amber-700/40 bg-amber-900/10 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+              <span className="text-lg">📂</span>
+              <div>
+                <div className="text-xs font-semibold">No clearing data yet — POC mode</div>
+                <div className="text-[11px] opacity-70 mt-0.5">Drop TIF/JPG files into the inward folder to trigger the pipeline. Stats will update as instruments are processed.</div>
+              </div>
+            </div>
           )}
           <OpsDashboardBody
             TODAY={active.TODAY}

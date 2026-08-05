@@ -14,10 +14,9 @@ const SESSION_START = new Date(new Date().setHours(10, 0, 0, 0))
 const IET_WINDOW_MINS = 180
 
 export default function CTSWorkstation() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, bankMode } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, bankMode, isDemo } = useBankContext()
   const { isDark } = useTheme()
-  // Token would come from auth context in production; undefined triggers mock fallback in dev
-  const { items: liveItems, loading: queueLoading, useMock } = useReviewQueue({ pollEnabled: true })
+  const { items: liveItems, loading: queueLoading, error: queueError, useMock } = useReviewQueue({ pollEnabled: true, isDemo })
   const [queue, setQueue] = useState([])
   const [selected, setSelected] = useState(null)
   const [bankTab, setBankTab] = useState('own')  // SB: 'own' (My Bank) | 'smb' (Sponsored SMBs)
@@ -42,10 +41,14 @@ export default function CTSWorkstation() {
     }
   }, [liveItems, queueLoading])
 
-  const stpSource   = useRef(getStpStream())
+  const stpSource   = useRef(isDemo ? getStpStream() : [])
   const stpIndexRef = useRef(0)
   const [stpStream, setStpStream]   = useState([])
-  const [batchStats, setBatchStats] = useState({ ...BATCH_STATS })
+  // In POC/PROD start stats at zero — real numbers come from backend polling
+  const [batchStats, setBatchStats] = useState(isDemo ? { ...BATCH_STATS } : {
+    total_inward: 0, stp_confirmed: 0, stp_returned: 0,
+    human_review: 0, stp_rate: 0, avg_decision_ms: 0,
+  })
   const [now, setNow] = useState(new Date())
 
   useEffect(() => {
@@ -53,7 +56,9 @@ export default function CTSWorkstation() {
     return () => clearInterval(t)
   }, [])
 
+  // STP animation only runs in DEMO mode; in POC/PROD the stream comes from real Kafka events
   useEffect(() => {
+    if (!isDemo) return
     const timer = setInterval(() => {
       const items = stpSource.current
       if (stpIndexRef.current >= items.length) return
@@ -68,7 +73,7 @@ export default function CTSWorkstation() {
       }))
     }, STP_DELAY_MS)
     return () => clearInterval(timer)
-  }, [])
+  }, [isDemo])
 
   // Bank scoping: SMB sees only its own bank; SB gets My-Bank / Sponsored-SMBs tabs.
   const inScope = (item) => {
@@ -170,8 +175,11 @@ export default function CTSWorkstation() {
             <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
               {pending.length === 0 && (
                 <div className={`text-center ${th.empty} text-sm py-12`}>
-                  <div className="text-3xl mb-2">✓</div>
-                  <div>Queue clear</div>
+                  <div className="text-3xl mb-2">{isDemo || decisions.length > 0 ? '✓' : '📂'}</div>
+                  <div>{isDemo || decisions.length > 0 ? 'Queue clear' : 'No instruments yet'}</div>
+                  {!isDemo && decisions.length === 0 && (
+                    <div className={`text-[10px] mt-1 ${th.empty}`}>Drop files into the inward folder to start</div>
+                  )}
                 </div>
               )}
               {pending.map((item) => (
@@ -220,8 +228,10 @@ export default function CTSWorkstation() {
             <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1.5">
               {stpStream.length === 0 && (
                 <div className={`text-[11px] ${th.empty} text-center pt-8 leading-relaxed`}>
-                  <div className="text-2xl mb-2">⚡</div>
-                  STP agents processing<br />inward cheques…
+                  <div className="text-2xl mb-2">{isDemo ? '⚡' : '📂'}</div>
+                  {isDemo
+                    ? <span>STP agents processing<br />inward cheques…</span>
+                    : <span>Waiting for instruments<br />Drop TIF/JPG into inward folder</span>}
                 </div>
               )}
               {stpStream.map((item, i) => (
