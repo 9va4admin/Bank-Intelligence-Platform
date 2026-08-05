@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 28">
+  <!-- Geometric diamond mark -->
+  <polygon points="10,2 18,14 10,26 2,14" fill="#a855f7" opacity="0.95"/>
+  <polygon points="10,8 15,14 10,20 5,14" fill="white" opacity="0.25"/>
+  <!-- ASTRA wordmark -->
+  <text x="24" y="20" font-family="'Segoe UI',system-ui,sans-serif"
+        font-weight="700" font-size="15" letter-spacing="2.5" fill="white">ASTRA</text>
+</svg>

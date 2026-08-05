@@ -232,10 +232,13 @@ function combineTrend(sbTrend, smbTrend) {
 
 // ─── Tab bar ──────────────────────────────────────────────────────────────────
 
-function DashboardTabs({ tab, onChange, isDark }) {
+function DashboardTabs({ tab, onChange, isDark, bankMode }) {
+  const tabs = bankMode === 'SB_ONLY'
+    ? [['mybank', 'My Bank']]
+    : [['mybank', 'My Bank'], ['smb', 'SMB Dashboard']]
   return (
     <div className="flex gap-1">
-      {[['mybank', 'My Bank'], ['smb', 'SMB Dashboard']].map(([key, label]) => (
+      {tabs.map(([key, label]) => (
         <button
           key={key}
           onClick={() => onChange(key)}
@@ -277,7 +280,7 @@ function SMBFilterBar({ smbs, selectedSmbId, onSelect, isDark }) {
 
 export default function CTSOpsDashboard() {
   const { isDark } = useTheme()
-  const { bankName, bankIfsc, isSMB, smbs, selectedSmbId, setSelectedSmbId, selectedSmb } = useBankContext()
+  const { bankName, bankIfsc, isSMB, smbs, selectedSmbId, setSelectedSmbId, selectedSmb, bankMode } = useBankContext()
   const [dashTab, setDashTab] = useState('mybank') // 'mybank' | 'smb' — SB only
   const [includeSMB, setIncludeSMB] = useState(false) // My Bank tab: combine with sponsored SMBs
   const [downloading, setDownloading] = useState(null)
@@ -358,13 +361,13 @@ export default function CTSOpsDashboard() {
               <h1 className={`text-base font-semibold ${th.heading}`}>Clearing Operations Dashboard</h1>
               <p className={`text-[11px] ${th.muted}`}>
                 {dashTab === 'mybank'
-                  ? (includeSMB ? `${bankName} + ${smbs.length} Sponsored SMBs (combined)` : bankName)
+                  ? (bankMode !== 'SB_ONLY' && includeSMB ? `${bankName} + ${smbs.length} Sponsored SMBs (combined)` : bankName)
                   : (selectedSmbId ? selectedSmb?.name : 'All Sponsored SMBs')}
                 {' · '}{active.TODAY.clearing_date} · {totalSessions} sessions · {settledSessions} settled
               </p>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
-              {dashTab === 'mybank' && (
+              {bankMode !== 'SB_ONLY' && dashTab === 'mybank' && (
                 <label className={`flex items-center gap-1.5 text-[11px] font-medium cursor-pointer select-none ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                   <input
                     type="checkbox"
@@ -375,7 +378,7 @@ export default function CTSOpsDashboard() {
                   + SMB
                 </label>
               )}
-              <DashboardTabs tab={dashTab} onChange={setDashTab} isDark={isDark} />
+              <DashboardTabs tab={dashTab} onChange={setDashTab} isDark={isDark} bankMode={bankMode} />
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/10 border border-emerald-400/20 text-emerald-400">● Live</span>
               <button
                 onClick={() => handleDownload('TODAY', 'MIS CSV')}

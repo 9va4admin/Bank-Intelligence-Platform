@@ -135,6 +135,13 @@ export function BankProvider({ children }) {
 
   const userPerms = ROLE_PERMISSIONS[active.userRole] ?? []
 
+  // Demo mode bypasses permission gating so all nav items are visible during
+  // development. In production (VITE_DEMO_MODE=false) only the role's real
+  // permissions apply.
+  const hasPermission = isDemoMode
+    ? () => true
+    : (perm) => userPerms.includes(perm)
+
   const value = {
     ...active,
     isDemoMode,
@@ -150,7 +157,7 @@ export function BankProvider({ children }) {
     bankMode: BANK_CONFIG.bank_mode,  // 'SB_SMB' | 'SB_ONLY' | 'SMB_ONLY'
     // Role-based access
     userPermissions: userPerms,
-    hasPermission: (perm) => userPerms.includes(perm),
+    hasPermission,
   }
 
   return <BankContext.Provider value={value}>{children}</BankContext.Provider>

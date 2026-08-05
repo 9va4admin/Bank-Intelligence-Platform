@@ -142,10 +142,11 @@ const SIDEBAR_MODULES = [
       {
         label: 'Branch Portal',
         items: [
-          { to: '/branch',          label: 'Branch Dashboard', perm: 'cts:view_queue'      },
-          { to: '/branch/scan',     label: 'Scanner Monitor',  perm: 'cts:submit_decision' },
-          { to: '/branch/mismatch', label: 'Mismatch Queue',   perm: 'cts:submit_decision' },
-          { to: '/branch/history',  label: 'Session History',  perm: 'cts:view_queue'      },
+          { to: '/branch',              label: 'Branch Dashboard',  perm: 'cts:view_queue'      },
+          { to: '/branch/scan',         label: 'Scanner Monitor',   perm: 'cts:submit_decision' },
+          { to: '/branch/mismatch',     label: 'Mismatch Queue',    perm: 'cts:submit_decision' },
+          { to: '/branch/history',      label: 'Session History',   perm: 'cts:view_queue'      },
+          { to: '/branch/hold-queue',   label: 'Inward Hold Queue', perm: 'cts:view_queue'      },
         ],
       },
       {
@@ -282,7 +283,7 @@ const ROUTE_LABELS = {
   '/branch/scan':                 ['Branch Portal', 'Scanner Monitor'],
   '/branch/mismatch':             ['Branch Portal', 'Mismatch Queue'],
   '/branch/history':              ['Branch Portal', 'Session History'],
-  '/branch/hold-queue':           ['Branch Operations', 'Inward Hold Queue — Held Instruments'],
+  '/branch/hold-queue':           ['Branch Portal', 'Inward Hold Queue — Held Instruments'],
   '/cts/inward/review-queue':     ['Inward Clearing', 'Human Review Queue — Claim · Hold · Confirm · Return'],
   '/cts/hold-queue':              ['Inward Clearing', 'Hold Queue — Instruments Awaiting Branch Confirmation'],
   '/cts/hub':                     ['Outward Clearing', 'Hub Manager — Branch Sessions & Lot Sealing'],
