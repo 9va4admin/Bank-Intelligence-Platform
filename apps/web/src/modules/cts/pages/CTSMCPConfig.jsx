@@ -212,7 +212,7 @@ function StatusBadge({ status, isDark }) {
 
 // ── Form modal ────────────────────────────────────────────────────────────────
 
-function ConnectionFormModal({ isDark, onClose, onSave, editRow, isSB }) {
+function ConnectionFormModal({ isDark, onClose, onSave, editRow, isSB, bankMode }) {
   const [form, setForm] = useState({
     connection_type: editRow?.connection_type || 'SB_CBS',
     smb_id: editRow?.smb_id || '',
@@ -244,9 +244,12 @@ function ConnectionFormModal({ isDark, onClose, onSave, editRow, isSB }) {
     setSaving(false)
   }
 
+  const baseTypes = bankMode === 'SB_ONLY'
+    ? CONNECTION_TYPES.filter(ct => ct.type !== 'SMB_CBS')
+    : CONNECTION_TYPES
   const availableTypes = isSB
-    ? CONNECTION_TYPES
-    : CONNECTION_TYPES.filter(ct => ct.type === 'SMB_CBS')
+    ? baseTypes
+    : baseTypes.filter(ct => ct.type === 'SMB_CBS')
 
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center ${th.overlay}`} onClick={onClose}>
@@ -543,7 +546,13 @@ function PreflightBanner({ connections, isDark }) {
 
 export default function CTSMCPConfig() {
   const { isDark } = useTheme()
-  const { bankId, bankName, isSB } = useBankContext()
+  const { bankId, bankName, isSB, bankMode } = useBankContext()
+  const effectiveConnectionTypes = bankMode === 'SB_ONLY'
+    ? CONNECTION_TYPES.filter(ct => ct.type !== 'SMB_CBS')
+    : CONNECTION_TYPES
+  const effectiveMockConns = bankMode === 'SB_ONLY'
+    ? MOCK_CONNECTIONS.filter(c => c.connection_type !== 'SMB_CBS')
+    : MOCK_CONNECTIONS
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editRow, setEditRow] = useState(null)
@@ -577,7 +586,7 @@ export default function CTSMCPConfig() {
     staleTime: 30_000,
     refetchInterval: 30_000,
   })
-  const allConns = connData?.connections ?? (isSB ? MOCK_CONNECTIONS : MOCK_CONNECTIONS.filter(c => c.connection_type === 'SMB_CBS'))
+  const allConns = connData?.connections ?? (isSB ? effectiveMockConns : effectiveMockConns.filter(c => c.connection_type === 'SMB_CBS'))
 
   const saveMutation = useMutation({
     mutationFn: async (form) => {
@@ -779,7 +788,7 @@ export default function CTSMCPConfig() {
         <div className={`mt-6 rounded-xl border p-4 ${th.card}`}>
           <h3 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${th.muted}`}>Setup Guide</h3>
           <div className="grid grid-cols-1 gap-2">
-            {CONNECTION_TYPES.filter(ct => isSB || ct.type === 'SMB_CBS').map((ct, i) => (
+            {effectiveConnectionTypes.filter(ct => isSB || ct.type === 'SMB_CBS').map((ct, i) => (
               <div key={ct.type} className="flex items-start gap-2">
                 <span className={`text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${isDark ? 'bg-violet-900/50 text-violet-300' : 'bg-violet-100 text-violet-700'}`}>
                   {i + 1}
@@ -802,6 +811,7 @@ export default function CTSMCPConfig() {
           onSave={handleSave}
           editRow={editRow}
           isSB={isSB}
+              bankMode={bankMode}
         />
       )}
 

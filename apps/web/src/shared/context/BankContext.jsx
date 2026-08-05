@@ -1,5 +1,6 @@
 import { createContext, useContext, useState } from 'react'
 import { useAuthOptional } from './AuthContext'
+import { BANK_CONFIG } from '../config/bank.config'
 
 // ─── Demo bank profiles ───────────────────────────────────────────────────────
 // In production these come from the decoded JWT / SAML assertion.
@@ -145,6 +146,8 @@ export function BankProvider({ children }) {
     // Convenience
     isSB:  active.bankType === 'SB',
     isSMB: active.bankType === 'SMB',
+    // Deployment mode — from VITE_BANK_MODE env var, not per-user
+    bankMode: BANK_CONFIG.bank_mode,  // 'SB_SMB' | 'SB_ONLY' | 'SMB_ONLY'
     // Role-based access
     userPermissions: userPerms,
     hasPermission: (perm) => userPerms.includes(perm),
