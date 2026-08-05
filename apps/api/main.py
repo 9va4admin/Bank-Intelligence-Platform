@@ -300,7 +300,15 @@ except ConfigKeyNotFoundError:
 try:
     _cors_origins = config_service.get_platform("cors.allowed_origins").split(",")
 except ConfigKeyNotFoundError:
-    _cors_origins = ["https://ops.astra.internal"]
+    if _env in ("development", "staging"):
+        _cors_origins = [
+            "http://localhost:4000",
+            "http://localhost:5173",
+            "http://127.0.0.1:4000",
+            "http://127.0.0.1:5173",
+        ]
+    else:
+        _cors_origins = ["https://ops.astra.internal"]
 
 app = FastAPI(
     title="ASTRA Bank Intelligence Platform",
