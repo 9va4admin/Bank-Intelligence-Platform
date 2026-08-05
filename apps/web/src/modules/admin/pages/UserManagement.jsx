@@ -6,6 +6,7 @@
  */
 import { useState } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -129,7 +130,7 @@ function inputCls(isDark) {
 
 // ─── Create / Edit Modal ──────────────────────────────────────────────────────
 
-function CreateEditModal({ user, isDark, onClose, onSave, defaultBankType }) {
+function CreateEditModal({ user, isDark, onClose, onSave, defaultBankType, bankMode }) {
   const isEdit = !!user
   const [form, setForm] = useState(user ? {
     display_name:     user.display_name,
@@ -168,33 +169,35 @@ function CreateEditModal({ user, isDark, onClose, onSave, defaultBankType }) {
     <Modal title={isEdit ? 'Edit User' : 'Create User'} onClose={onClose} isDark={isDark}>
       <div className="px-6 py-5 space-y-4">
 
-        {/* Bank Type — immutable after creation */}
-        <Field label="Bank Type" isDark={isDark} hint={isEdit ? 'Bank type cannot be changed after user creation.' : 'SB = Sponsor Bank staff · SMB = Sub-Member Bank staff'}>
-          {isEdit ? (
-            <div className={`flex items-center gap-2 text-sm font-medium ${body}`}>
-              <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
-                form.bank_type === 'SB'
-                  ? (isDark ? 'bg-indigo-900/50 text-indigo-300 border-indigo-700/30' : 'bg-indigo-100 text-indigo-700 border-indigo-300')
-                  : (isDark ? 'bg-teal-900/50 text-teal-300 border-teal-700/30' : 'bg-teal-100 text-teal-700 border-teal-300')
-              }`}>{form.bank_type}</span>
-              <span className={`text-[10px] ${muted}`}>(immutable)</span>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              {['SB', 'SMB'].map(bt => (
-                <button
-                  key={bt}
-                  onClick={() => handleBankTypeChange(bt)}
-                  className={`flex-1 py-2 rounded-lg text-[12px] font-semibold border transition-all ${
-                    form.bank_type === bt
-                      ? 'bg-blue-600 border-blue-500 text-white'
-                      : (isDark ? 'bg-navy-950 border-white/10 text-slate-400 hover:border-white/20' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300')
-                  }`}
-                >{bt === 'SB' ? 'SB — Sponsor Bank' : 'SMB — Sub-Member'}</button>
-              ))}
-            </div>
-          )}
-        </Field>
+        {/* Bank Type — hidden in SB_ONLY deployments (always SB); immutable after creation */}
+        {bankMode !== 'SB_ONLY' && (
+          <Field label="Bank Type" isDark={isDark} hint={isEdit ? 'Bank type cannot be changed after user creation.' : 'SB = Sponsor Bank staff · SMB = Sub-Member Bank staff'}>
+            {isEdit ? (
+              <div className={`flex items-center gap-2 text-sm font-medium ${body}`}>
+                <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
+                  form.bank_type === 'SB'
+                    ? (isDark ? 'bg-indigo-900/50 text-indigo-300 border-indigo-700/30' : 'bg-indigo-100 text-indigo-700 border-indigo-300')
+                    : (isDark ? 'bg-teal-900/50 text-teal-300 border-teal-700/30' : 'bg-teal-100 text-teal-700 border-teal-300')
+                }`}>{form.bank_type}</span>
+                <span className={`text-[10px] ${muted}`}>(immutable)</span>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                {['SB', 'SMB'].map(bt => (
+                  <button
+                    key={bt}
+                    onClick={() => handleBankTypeChange(bt)}
+                    className={`flex-1 py-2 rounded-lg text-[12px] font-semibold border transition-all ${
+                      form.bank_type === bt
+                        ? 'bg-blue-600 border-blue-500 text-white'
+                        : (isDark ? 'bg-navy-950 border-white/10 text-slate-400 hover:border-white/20' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300')
+                    }`}
+                  >{bt === 'SB' ? 'SB — Sponsor Bank' : 'SMB — Sub-Member'}</button>
+                ))}
+              </div>
+            )}
+          </Field>
+        )}
 
         <Field label="Display Name" isDark={isDark}>
           <input className={inputCls(isDark)} value={form.display_name} onChange={e => set('display_name', e.target.value)} />
@@ -327,8 +330,10 @@ function ConfirmModal({ title, message, confirmLabel, danger, isDark, onClose, o
 
 export default function UserManagement() {
   const { isDark } = useTheme()
+  const { bankMode } = useBankContext()
   const [users, setUsers] = useState(MOCK_USERS)
-  const [bankTypeTab, setBankTypeTab] = useState('SB')   // 'SB' | 'SMB'
+  // In SB_ONLY mode there are no SMB users — always stay on the SB tab
+  const [bankTypeTab, setBankTypeTab] = useState(bankMode === 'SB_ONLY' ? 'SB' : 'SB')   // 'SB' | 'SMB'
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState(null)
 
@@ -402,33 +407,35 @@ export default function UserManagement() {
 
         <div className="px-6 py-5 max-w-7xl space-y-5">
 
-          {/* SB / SMB tab selector */}
-          <div className={`inline-flex rounded-xl border p-1 gap-1 ${th.card}`}>
-            {[
-              { key: 'SB',  label: 'Sponsor Bank (SB)',       count: sbCount  },
-              { key: 'SMB', label: 'Sub-Member Banks (SMB)',   count: smbCount },
-            ].map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => { setBankTypeTab(tab.key); setSearch('') }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-medium transition-all ${
-                  bankTypeTab === tab.key
-                    ? 'bg-gold-400 text-navy-950'
-                    : (isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700')
-                }`}
-              >
-                {tab.label}
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
-                  bankTypeTab === tab.key
-                    ? 'bg-navy-950/20 text-navy-950'
-                    : (isDark ? 'bg-white/8 text-slate-400' : 'bg-slate-200 text-slate-500')
-                }`}>{tab.count}</span>
-              </button>
-            ))}
-          </div>
+          {/* SB / SMB tab selector — hidden in SB_ONLY deployments */}
+          {bankMode !== 'SB_ONLY' && (
+            <div className={`inline-flex rounded-xl border p-1 gap-1 ${th.card}`}>
+              {[
+                { key: 'SB',  label: 'Sponsor Bank (SB)',       count: sbCount  },
+                { key: 'SMB', label: 'Sub-Member Banks (SMB)',   count: smbCount },
+              ].map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => { setBankTypeTab(tab.key); setSearch('') }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-medium transition-all ${
+                    bankTypeTab === tab.key
+                      ? 'bg-gold-400 text-navy-950'
+                      : (isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700')
+                  }`}
+                >
+                  {tab.label}
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                    bankTypeTab === tab.key
+                      ? 'bg-navy-950/20 text-navy-950'
+                      : (isDark ? 'bg-white/8 text-slate-400' : 'bg-slate-200 text-slate-500')
+                  }`}>{tab.count}</span>
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* SMB context note */}
-          {bankTypeTab === 'SMB' && (
+          {bankMode !== 'SB_ONLY' && bankTypeTab === 'SMB' && (
             <div className={`rounded-xl border px-4 py-3 text-[11px] ${isDark ? 'bg-teal-900/20 border-teal-700/30 text-teal-300' : 'bg-teal-50 border-teal-200 text-teal-700'}`}>
               <strong>SMB Users</strong> — These accounts belong to Sub-Member Banks that route clearing through this sponsor. Each SMB user can only see their own bank's data. Roles: smb_admin · smb_editor · smb_viewer.
             </div>
@@ -540,6 +547,7 @@ export default function UserManagement() {
           onClose={closeModal}
           onSave={handleSave}
           defaultBankType={bankTypeTab}
+          bankMode={bankMode}
         />
       )}
       {modal?.type === 'totp_setup' && <TOTPSetupModal user={modal.user} isDark={isDark} onClose={closeModal} />}
