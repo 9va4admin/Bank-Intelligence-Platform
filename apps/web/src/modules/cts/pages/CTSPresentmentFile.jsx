@@ -352,7 +352,7 @@ export default function CTSPresentmentFile() {
   const SESSION_ID = `SES-${bankIfsc || 'BANK'}-20260619-001`
   const { isDark } = useTheme()
 
-  const [currentBatch, setCurrentBatch] = useState(() => isDemo ? makeBatch(1, isSMB ? 4 : 14, bankIfsc, SESSION_ID) : { instruments: [], status: 'OPEN', nextSeq: 1 })
+  const [currentBatch, setCurrentBatch] = useState(() => isDemo ? makeBatch(1, isSMB ? 4 : 14, bankIfsc, SESSION_ID) : { items: [], status: 'OPEN', nextSeq: 1, batchNo: 0 })
   const [history, setHistory]           = useState([])
   const [batchCounter, setBatchCounter] = useState(1)
   const [expandSuccess, setExpandSuccess] = useState(true)

@@ -778,8 +778,8 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
   const [stageActive, setStageActive] = useState({})
   const [confirmPool, setConfirmPool] = useState([])
   const [returnPool, setReturnPool] = useState([])
-  const [reviewDock, setReviewDock] = useState(MOCK_QUEUE)
-  const [exceptions] = useState(MOCK_EXCEPTIONS)
+  const [reviewDock, setReviewDock] = useState(isDemo ? MOCK_QUEUE : [])
+  const [exceptions] = useState(isDemo ? MOCK_EXCEPTIONS : [])
   const [selectedItem, setSelectedItem] = useState(null)
   const [isException, setIsException] = useState(false)
   const [poolModal, setPoolModal] = useState(null)   // 'confirm' | 'return' | 'review' | null
@@ -870,8 +870,9 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
     return () => cancelAnimationFrame(frameRef.current)
   }, [])
 
-  // Spawn interval
+  // Spawn interval — only animate in demo mode
   useEffect(() => {
+    if (!isDemo) return
     spawnRef.current = setInterval(() => {
       if (!runningRef.current) return
       setParticles(prev => {
@@ -880,7 +881,7 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
       })
     }, 1400)
     return () => clearInterval(spawnRef.current)
-  }, [])
+  }, [isDemo])
 
   // Pulse cleanup
   useEffect(() => {
@@ -923,8 +924,8 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
             confirmCount={confirmPool.length}
             returnCount={returnPool.length}
             reviewCount={reviewDock.length}
-            manualConfirmCount={53}
-            manualRejectCount={11}
+            manualConfirmCount={isDemo ? 53 : 0}
+            manualRejectCount={isDemo ? 11 : 0}
             onOpenPool={setPoolModal}
           />
 
@@ -1116,7 +1117,7 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
 }
 
 export default function CTSPipelineVisualizer() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   return (
     <AppShell>
       <PipelineLiveBoard bankName={bankName} />
