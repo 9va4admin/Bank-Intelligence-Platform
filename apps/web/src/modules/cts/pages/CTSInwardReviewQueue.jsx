@@ -13,7 +13,7 @@
  * Tier filter: All / Standard / High Value / Very High
  * IET countdown live-ticks every second, turns red ≤ 30 min
  */
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
@@ -23,6 +23,15 @@ import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TIERS = ['all', 'standard', 'high_value', 'very_high']
+
+const _T = (offsetMins) => Math.floor(Date.now() / 1000) + offsetMins * 60
+const MOCK_REVIEW_ITEMS = [
+  { instrument_id: 'INS-20260619-00142', queue_tier: 'high_value',  status: 'CLAIMED',  claimed_by: 'reviewer@saraswat.coop', iet_deadline: _T(38), account_display: '****4521', amount_display: '₹[1L–5L]',  payee_display: 'M***', risk_flags: ['HIGH_VALUE', 'ALTERATION_SUSPECTED'], ai_summary: 'Ink inconsistency detected in payee field. Confidence 0.71.' },
+  { instrument_id: 'INS-20260619-00143', queue_tier: 'standard',    status: 'PENDING',  claimed_by: null,                    iet_deadline: _T(102), account_display: '****7832', amount_display: '₹[<1L]',    payee_display: 'P***', risk_flags: [],                                   ai_summary: null },
+  { instrument_id: 'INS-20260619-00144', queue_tier: 'very_high',   status: 'ON_HOLD',  claimed_by: 'reviewer@saraswat.coop', iet_deadline: _T(22),  account_display: '****9210', amount_display: '₹[>1Cr]',   payee_display: 'R***', risk_flags: ['VERY_HIGH_VALUE', 'STOP_PAYMENT'], ai_summary: 'Stop payment instruction found. Routing to ops_manager.' },
+  { instrument_id: 'INS-20260619-00145', queue_tier: 'standard',    status: 'PENDING',  claimed_by: null,                    iet_deadline: _T(145), account_display: '****3301', amount_display: '₹[<1L]',    payee_display: 'K***', risk_flags: [],                                   ai_summary: null },
+  { instrument_id: 'INS-20260619-00146', queue_tier: 'high_value',  status: 'PENDING',  claimed_by: null,                    iet_deadline: _T(55),  account_display: '****6644', amount_display: '₹[5L–10L]', payee_display: 'A***', risk_flags: ['DORMANT_ACCOUNT'],                  ai_summary: 'Account dormant for 14 months. Manual verification required.' },
+]
 const TIER_LABEL = { all: 'All', standard: 'Standard', high_value: 'High Value', very_high: 'Very High' }
 
 const RETURN_REASONS = [
@@ -42,16 +51,21 @@ const _now = () => Date.now() / 1000
 
 function useTickingCountdowns(items) {
   const [remaining, setRemaining] = useState({})
+  const itemsRef = useRef(items)
+  itemsRef.current = items  // always fresh, no stale closure
+
   useEffect(() => {
     function recompute() {
       const map = {}
-      for (const it of items) map[it.instrument_id] = Math.max(0, it.iet_deadline - _now())
+      for (const it of itemsRef.current) {
+        map[it.instrument_id] = Math.max(0, it.iet_deadline - _now())
+      }
       setRemaining(map)
     }
     recompute()
     const t = setInterval(recompute, 1000)
     return () => clearInterval(t)
-  }, [items])
+  }, []) // mount-only — reads fresh items via ref each tick; no dependency on items reference
   return remaining
 }
 
@@ -310,7 +324,7 @@ function ActionRow({ item, onClaim, onHold, onConfirm, onReturn, isDark, loading
 
 export default function CTSInwardReviewQueue() {
   const { isDark } = useTheme()
-  const { bankId } = useBankContext()
+  const { bankId, isDemo } = useBankContext()
   const { setHeader } = usePageHeader?.() ?? {}
   const queryClient = useQueryClient()
 
@@ -359,9 +373,14 @@ export default function CTSInwardReviewQueue() {
       return res.json()
     },
     refetchInterval: 12_000,
+    enabled: !isDemo,  // in DEMO mode serve mock data; real API call only in POC/PROD
+    retry: 1,
   })
 
-  const items = useMemo(() => data?.items ?? [], [data])
+  const items = useMemo(
+    () => isDemo ? MOCK_REVIEW_ITEMS : (data?.items ?? []),
+    [isDemo, data]
+  )
   const remaining = useTickingCountdowns(items)
 
   // Sort by IET deadline ascending (most urgent first)
