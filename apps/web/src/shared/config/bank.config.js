@@ -31,22 +31,30 @@ const BANK_PRESETS = {
   },
 }
 
-//const bankId   = import.meta.env.VITE_BANK_ID   ?? 'saraswat-coop'
-//const bankMode = import.meta.env.VITE_BANK_MODE  ?? 'SB_SMB'
+ const bankId   = import.meta.env.VITE_BANK_ID   ?? 'saraswat-coop'
+ const bankMode = import.meta.env.VITE_BANK_MODE  ?? 'SB_SMB'
 
-const bankId   = import.meta.env.VITE_BANK_ID   ?? 'karnataka-bank'
-const bankMode = import.meta.env.VITE_BANK_MODE  ?? 'SB_ONLY'
+//const bankId   = import.meta.env.VITE_BANK_ID   ?? 'karnataka-bank'
+//const bankMode = import.meta.env.VITE_BANK_MODE  ?? 'SB_ONLY'
 
 // BASE_URL already includes a trailing slash (e.g. '/Bank-Intelligence-Platform/')
 // so we join without a leading slash on the asset path.
+
+// VITE_DEPLOYMENT_MODE controls which integrations are live vs stubbed:
+//   DEMO  — pre-seeded mock data, no real services required (default)
+//   POC   — full pipeline, real AI/DB/queues, folder-based I/O instead of scanner+NGCH
+//   PROD  — everything live: physical scanner, NGCH, on-prem vLLM, CBS
+const deploymentMode = import.meta.env.VITE_DEPLOYMENT_MODE ?? 'DEMO'   // DEMO | POC | PROD
+
 const base = import.meta.env.BASE_URL ?? '/'
 
-const preset = BANK_PRESETS[bankId] ?? BANK_PRESETS['karnataka-bank']
+const preset = BANK_PRESETS[bankId] ?? BANK_PRESETS['saraswat-coop']
 
 export const BANK_CONFIG = {
   ...preset,
-  bank_logo:  `${base}logos/${preset.bank_logo.split('/').pop()}`,
-  bank_mode:  bankMode,
-  api_base:   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000',
-  astra_logo: `${base}logos/astra-logo.png`,
+  bank_logo:        `${base}logos/${preset.bank_logo.split('/').pop()}`,
+  bank_mode:        bankMode,
+  deployment_mode:  deploymentMode,
+  api_base:         import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000',
+  astra_logo:       `${base}logos/astra-logo.png`,
 }

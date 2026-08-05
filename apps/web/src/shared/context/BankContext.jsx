@@ -155,6 +155,11 @@ export function BankProvider({ children }) {
     isSMB: active.bankType === 'SMB',
     // Deployment mode — from VITE_BANK_MODE env var, not per-user
     bankMode: BANK_CONFIG.bank_mode,  // 'SB_SMB' | 'SB_ONLY' | 'SMB_ONLY'
+    // Deployment mode — controls live vs stubbed integrations
+    deploymentMode: BANK_CONFIG.deployment_mode,  // 'DEMO' | 'POC' | 'PROD'
+    isDemo: BANK_CONFIG.deployment_mode === 'DEMO',
+    isPOC:  BANK_CONFIG.deployment_mode === 'POC',
+    isProd: BANK_CONFIG.deployment_mode === 'PROD',
     // Role-based access
     userPermissions: userPerms,
     hasPermission,

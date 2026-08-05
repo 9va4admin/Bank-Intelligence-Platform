@@ -29,6 +29,7 @@ from apps.api.routers import batch, users, mcp_connections, demo, cts_outward_qu
 from apps.api.routers import auth as auth_router
 from apps.api.routers import observability
 from apps.api.routers import branches
+from apps.api.routers import platform as platform_router
 from shared.config.config_service import config_service
 from shared.config.exceptions import ConfigKeyNotFoundError
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
@@ -361,6 +362,7 @@ app.include_router(cts_outward_queue.router_v1)
 app.include_router(demo_cloud_extract.router_v1)
 app.include_router(observability.router_v1)
 app.include_router(branches.router_v1)
+app.include_router(platform_router.router_v1)
 if _env in ("development", "staging"):
     app.include_router(demo.router_v1)
 
