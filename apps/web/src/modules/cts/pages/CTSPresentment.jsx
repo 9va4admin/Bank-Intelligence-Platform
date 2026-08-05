@@ -196,8 +196,8 @@ function KpiStrip({ batch, filterStatus, onFilter, isDark }) {
   const dateInvalid = batch.filter(b => b.date_valid === false).length
   // Human decisions made in Outward Q (Human Review / STP Rejected tabs) — this
   // Monitor is read-only; it only rolls up what was manually decided elsewhere.
-  const manualConfirmed = Math.max(1, Math.round(total * 0.019))
-  const manualRejected  = Math.max(1, Math.round(total * 0.007))
+  const manualConfirmed = total > 0 ? Math.max(1, Math.round(total * 0.019)) : 0
+  const manualRejected  = total > 0 ? Math.max(1, Math.round(total * 0.007)) : 0
 
   const th = {
     card:    isDark ? 'bg-navy-900/50 border-white/8' : 'bg-white border-slate-200',
