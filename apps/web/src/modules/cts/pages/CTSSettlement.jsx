@@ -218,7 +218,12 @@ export default function CTSSettlement() {
           </div>
 
           {/* Settlement detail for selected session */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {!sel && (
+            <div className="border border-amber-500/30 bg-amber-500/5 rounded-xl px-5 py-4 text-amber-400 text-sm">
+              📂 No settlement data yet — no clearing sessions have been processed in POC mode.
+            </div>
+          )}
+          {sel && <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
             {/* Net summary */}
             <div className={`border rounded-xl p-5 ${th.card}`}>
@@ -302,7 +307,7 @@ export default function CTSSettlement() {
                 </tfoot>
               </table>
             </div>
-          </div>
+          </div>}
         </div>
       </div>
     </AppShell>
