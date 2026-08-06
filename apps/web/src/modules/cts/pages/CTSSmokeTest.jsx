@@ -76,6 +76,18 @@ const SERVICES = [
   { id: 'vllm',      label: 'vLLM (AI)',   stateKey: null,        connKey: null,         critical: false },
 ]
 
+// ── Startup sequence (mirrors _STARTUP_SEQUENCE in platform.py) ──────────
+// afterMs = wait before advancing the visual progress indicator to the next tier.
+// These match the _INTER_TIER_SLEEP on the backend (15s) plus startup buffer.
+const STARTUP_TIERS = [
+  { tier: 1, label: 'Foundation',    ids: ['vault', 'redis-cts', 'minio', 'immudb'], afterMs: 18_000 },
+  { tier: 2, label: 'Data Layer',    ids: ['yugabyte', 'kafka'],                      afterMs: 20_000 },
+  { tier: 3, label: 'Orchestration', ids: ['temporal'],                               afterMs: 5_000  },
+  { tier: 4, label: 'AI Inference',  ids: ['vllm'],                                   afterMs: 0      },
+]
+// In POC mode these services run on HuggingFace — no local container, never Down.
+const POC_HF_IDS = new Set(['vllm'])
+
 // ── Demo fallback data (used when deploymentMode === 'DEMO') ──────────────
 
 const DEMO_SYSTEM_HEALTH = {
@@ -197,6 +209,7 @@ async function apiFetch(path, opts = {}) {
 const fetchSystemHealth = () => apiFetch('/v1/ops/system')
 const fetchReadiness    = () => apiFetch('/v1/platform/readiness')
 const postStartService  = (id) => apiFetch(`/v1/platform/services/${id}/start`, { method: 'POST' })
+const postStartAll      = ()   => apiFetch('/v1/platform/services/start-all',    { method: 'POST' })
 const postRunSmokeTests = (entity, bankId) => apiFetch('/v1/platform/smoke-test/run', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
@@ -205,8 +218,7 @@ const postRunSmokeTests = (entity, bankId) => apiFetch('/v1/platform/smoke-test/
 
 // ── ServiceControlPanel ───────────────────────────────────────────────────
 
-function ServiceControlPanel({ isDark, isDemo, bankId }) {
-  const sc = isDark ? SC_DARK : SC_LIGHT
+function ServiceControlPanel({ isDark, isDemo, isPOC, bankId }) {
   const th = {
     card:    isDark ? 'bg-navy-900/60 border-white/8' : 'bg-white border-slate-200',
     heading: isDark ? 'text-white'     : 'text-slate-900',
@@ -214,6 +226,7 @@ function ServiceControlPanel({ isDark, isDemo, bankId }) {
     faint:   isDark ? 'text-slate-600' : 'text-slate-400',
     divider: isDark ? 'border-white/8' : 'border-slate-200',
     secLabel:isDark ? 'text-slate-600' : 'text-slate-400',
+    seqCard: isDark ? 'bg-navy-900/40 border-white/6' : 'bg-slate-50 border-slate-200',
   }
 
   const qc = useQueryClient()
@@ -225,14 +238,66 @@ function ServiceControlPanel({ isDark, isDemo, bankId }) {
     retry: 1,
   })
 
+  // ── Individual service start ──
   const startMut = useMutation({
     mutationFn: postStartService,
     onSuccess: () => setTimeout(() => qc.invalidateQueries(['system-health', bankId]), 3000),
   })
 
+  // ── Start-All sequence state ──
+  // seqState: null | { running: bool, activeTier: number, elapsed: number, results: {[id]: ServiceStartResponse} }
+  const [seqState, setSeqState] = useState(null)
+  const timerRef = useRef(null)
+
+  // Animate elapsed time while start-all is running (used to advance tier indicators visually)
+  useEffect(() => {
+    if (seqState?.running) {
+      timerRef.current = setInterval(
+        () => setSeqState(s => s && s.running ? { ...s, elapsed: (s.elapsed ?? 0) + 1 } : s),
+        1000,
+      )
+    } else {
+      clearInterval(timerRef.current)
+    }
+    return () => clearInterval(timerRef.current)
+  }, [seqState?.running])
+
+  // Derive the visually-active tier from elapsed seconds when waiting for the backend.
+  // Thresholds loosely match _INTER_TIER_SLEEP (15s) + startup buffer on the backend.
+  function estimatedTier(elapsed) {
+    if (elapsed < 20) return 1
+    if (elapsed < 40) return 2
+    if (elapsed < 55) return 3
+    return 4
+  }
+
+  async function handleStartAll() {
+    if (seqState?.running || isDemo) return
+    // Pre-populate HF entries so they show immediately in the sequence panel
+    const initResults = {}
+    if (isPOC) POC_HF_IDS.forEach(id => {
+      initResults[id] = { service: id, success: true, skipped: true, message: 'HF Inference API' }
+    })
+    setSeqState({ running: true, activeTier: 1, elapsed: 0, results: initResults })
+    try {
+      const data = await postStartAll()
+      // Flatten tier results into a map keyed by service id
+      const flatResults = {}
+      for (const tier of (data?.tiers ?? [])) {
+        for (const svc of tier.services) flatResults[svc.service] = svc
+      }
+      setSeqState(s => ({ ...s, running: false, results: { ...s.results, ...flatResults } }))
+    } catch (err) {
+      setSeqState(s => ({ ...s, running: false, error: err.message || 'Backend unreachable' }))
+    }
+    setTimeout(() => qc.invalidateQueries(['system-health', bankId]), 3000)
+  }
+
   const effectiveHealth = isDemo ? DEMO_SYSTEM_HEALTH : health
 
   function svcStatus(svc) {
+    // vLLM is HF-hosted in POC — never shown as DOWN
+    if (isPOC && POC_HF_IDS.has(svc.id)) return { up: true, detail: 'Hugging Face API', hf: true }
     if (!effectiveHealth || !svc.stateKey) return { up: isDemo, detail: isDemo ? 'OK' : '—' }
     const panel = effectiveHealth[svc.stateKey]
     if (!panel) return { up: false, detail: 'not in response' }
@@ -245,13 +310,22 @@ function ServiceControlPanel({ isDark, isDemo, bankId }) {
       if (svc.id === 'temporal')  detail = 'namespace reachable'
       if (svc.id === 'vault')     detail = panel.seal_status ?? 'unsealed'
     }
-    return { up, detail }
+    return { up, detail, hf: false }
   }
 
   const lastRefreshed = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString() : '—'
+  const anyDown = !isDemo && SERVICES.some(svc => !svcStatus(svc).up)
+
+  // When start-all is running, derive active tier from elapsed if backend hasn't
+  // returned yet (gives real-time visual feedback during the blocking API call).
+  const displayTier = seqState?.running
+    ? estimatedTier(seqState.elapsed ?? 0)
+    : (seqState?.activeTier ?? 0)
 
   return (
     <div className={`px-6 pt-4 pb-4 border-b ${th.divider}`}>
+
+      {/* ── Header ── */}
       <div className="flex items-center justify-between mb-3">
         <div className={`text-[10px] font-bold uppercase tracking-widest ${th.secLabel}`}>
           Infrastructure Services
@@ -267,39 +341,65 @@ function ServiceControlPanel({ isDark, isDemo, bankId }) {
               DEMO — simulated
             </span>
           )}
+          {/* Start All — only shown in non-demo mode when at least one service is down */}
+          {!isDemo && anyDown && (
+            <button
+              onClick={handleStartAll}
+              disabled={seqState?.running}
+              title="Start all infra services in dependency order via docker compose"
+              className={`text-[10px] px-2.5 py-1 rounded font-semibold border transition-all ${
+                seqState?.running
+                  ? (isDark ? 'bg-violet-500/10 border-violet-500/20 text-violet-400 cursor-default' : 'bg-violet-50 border-violet-200 text-violet-500 cursor-default')
+                  : (isDark ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100')
+              }`}
+            >
+              {seqState?.running ? `◌ Starting… (${seqState.elapsed ?? 0}s)` : '⬤ Start All Services'}
+            </button>
+          )}
         </div>
       </div>
 
+      {/* ── Service cards grid ── */}
       <div className="grid grid-cols-4 gap-2">
         {SERVICES.map(svc => {
-          const { up, detail } = svcStatus(svc)
+          const { up, detail, hf } = svcStatus(svc)
           const starting = startMut.isPending && startMut.variables === svc.id
 
           return (
             <div key={svc.id} className={`rounded-lg border px-3 py-2.5 ${th.card} transition-all`}>
               <div className="flex items-center justify-between gap-1 mb-1">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <span className={`w-2 h-2 shrink-0 rounded-full ${up ? (isDark ? 'bg-emerald-500' : 'bg-emerald-500') : 'bg-red-500 animate-pulse'}`} />
+                  <span className={`w-2 h-2 shrink-0 rounded-full ${up ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'}`} />
                   <span className={`text-[11px] font-semibold truncate ${th.heading}`}>{svc.label}</span>
                 </div>
-                {!up && !isDemo && (
+                {/* HF badge — for POC-hosted services */}
+                {hf && (
+                  <span className={`shrink-0 text-[8px] px-1.5 py-0.5 rounded font-bold border ${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+                    HF
+                  </span>
+                )}
+                {/* Start button — only for real Docker services that are down */}
+                {!up && !isDemo && !hf && (
                   <button
                     onClick={() => startMut.mutate(svc.id)}
-                    disabled={starting}
+                    disabled={starting || seqState?.running}
                     title={starting ? 'Starting…' : `docker compose up -d ${svc.id}`}
                     className={`shrink-0 text-[9px] px-1.5 py-0.5 rounded font-semibold border transition-all ${
                       starting
                         ? 'bg-violet-500/10 border-violet-500/20 text-violet-400'
                         : (isDark
-                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
-                          : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100')
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-30'
+                          : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 disabled:opacity-30')
                     }`}
                   >
                     {starting ? '◌' : 'Start'}
                   </button>
                 )}
               </div>
-              <div className={`text-[10px] truncate ${up ? th.faint : (isDark ? 'text-red-400' : 'text-red-600')}`}>
+              <div className={`text-[10px] truncate ${
+                hf ? (isDark ? 'text-amber-500/70' : 'text-amber-600/70') :
+                up  ? th.faint : (isDark ? 'text-red-400' : 'text-red-600')
+              }`}>
                 {detail}
               </div>
               {startMut.isSuccess && startMut.variables === svc.id && (
@@ -316,6 +416,95 @@ function ServiceControlPanel({ isDark, isDemo, bankId }) {
           )
         })}
       </div>
+
+      {/* ── Startup sequence progress panel ── */}
+      {seqState && (
+        <div className={`mt-3 rounded-lg border px-4 py-3 ${th.seqCard}`}>
+          <div className="flex items-center justify-between mb-2.5">
+            <div className={`text-[10px] font-bold uppercase tracking-widest ${th.secLabel}`}>
+              Startup Sequence
+              {seqState.running && <span className={`ml-2 font-normal normal-case ${th.faint}`}>— waiting for backend ({seqState.elapsed ?? 0}s)</span>}
+              {!seqState.running && !seqState.error && <span className={`ml-2 font-normal normal-case ${isDark ? 'text-emerald-500' : 'text-emerald-600'}`}>— complete</span>}
+              {seqState.error && <span className={`ml-2 font-normal normal-case text-red-400`}>— {seqState.error}</span>}
+            </div>
+            {!seqState.running && (
+              <button
+                onClick={() => setSeqState(null)}
+                className={`text-[9px] ${th.faint} hover:${th.muted} transition-colors`}
+              >
+                dismiss
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            {STARTUP_TIERS.map(({ tier, label, ids }) => {
+              const isActive = seqState.running && displayTier === tier
+              const isPast   = !seqState.running || displayTier > tier
+              const isFuture = seqState.running && displayTier < tier
+
+              return (
+                <div key={tier} className={`flex items-start gap-2.5 transition-opacity ${isFuture ? 'opacity-30' : ''}`}>
+                  {/* Tier badge */}
+                  <span className={`mt-0.5 shrink-0 text-[8px] w-7 text-center py-0.5 rounded font-mono font-bold ${
+                    isActive ? (isDark ? 'bg-violet-500/20 text-violet-300 ring-1 ring-violet-500/40' : 'bg-violet-100 text-violet-700 ring-1 ring-violet-300') :
+                    isPast   ? (isDark ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-50 text-emerald-700') :
+                               (isDark ? 'bg-slate-700/60 text-slate-500' : 'bg-slate-100 text-slate-400')
+                  }`}>
+                    T{tier}
+                  </span>
+
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-[10px] font-semibold mb-1 ${isActive ? (isDark ? 'text-violet-300' : 'text-violet-700') : th.heading}`}>
+                      {label}
+                      {isActive && <span className={`ml-1.5 font-normal ${th.faint}`}>starting…</span>}
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {ids.map(id => {
+                        const r = seqState.results[id]
+                        const chip = !r
+                          ? { cls: isDark ? 'border-slate-700 text-slate-600 bg-transparent' : 'border-slate-200 text-slate-400 bg-transparent', prefix: '' }
+                          : r.skipped
+                          ? { cls: isDark ? 'border-amber-700/40 text-amber-400 bg-amber-900/15' : 'border-amber-200 text-amber-700 bg-amber-50', prefix: '' }
+                          : r.success
+                          ? { cls: isDark ? 'border-emerald-700/40 text-emerald-400 bg-emerald-900/15' : 'border-emerald-200 text-emerald-700 bg-emerald-50', prefix: '✓ ' }
+                          : { cls: isDark ? 'border-red-700/40 text-red-400 bg-red-900/15' : 'border-red-200 text-red-700 bg-red-50', prefix: '✗ ' }
+                        return (
+                          <span
+                            key={id}
+                            title={r?.message}
+                            className={`text-[9px] px-1.5 py-0.5 rounded border font-mono ${chip.cls}`}
+                          >
+                            {chip.prefix}{id}
+                            {r?.skipped && <span className={`ml-1 text-[8px] ${isDark ? 'text-amber-500/60' : 'text-amber-600/60'}`}>HF</span>}
+                          </span>
+                        )
+                      })}
+                    </div>
+                    {/* Per-service error messages from the backend */}
+                    {ids.map(id => {
+                      const r = seqState.results[id]
+                      if (!r || r.success) return null
+                      return (
+                        <div key={id} className={`mt-0.5 text-[9px] ${isDark ? 'text-red-400' : 'text-red-600'} truncate`}>
+                          {id}: {r.message?.slice(0, 80)}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Compose file hint */}
+          {!seqState.running && (
+            <div className={`mt-2.5 pt-2 border-t ${th.divider} text-[9px] font-mono ${th.faint}`}>
+              docker compose -f infra/docker-compose.dev.yml up -d
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -422,7 +611,7 @@ function ReadinessPanel({ isDark, isDemo, bankId, deploymentMode }) {
 
 export default function CTSSmokeTest() {
   const { isDark } = useTheme()
-  const { bankId, isSB, isSMB, bankMode, deploymentMode, isDemo } = useBankContext()
+  const { bankId, isSB, isSMB, bankMode, deploymentMode, isDemo, isPOC } = useBankContext()
   const sc = isDark ? SC_DARK : SC_LIGHT
 
   const availableEntities = isSMB
@@ -611,7 +800,7 @@ export default function CTSSmokeTest() {
         </div>
 
         {/* ── Section 1: Infrastructure Services ───────────────────── */}
-        <ServiceControlPanel isDark={isDark} isDemo={isDemo} bankId={bankId} />
+        <ServiceControlPanel isDark={isDark} isDemo={isDemo} isPOC={isPOC} bankId={bankId} />
 
         {/* ── Section 2: Master Data Readiness ─────────────────────── */}
         <ReadinessPanel isDark={isDark} isDemo={isDemo} bankId={bankId} deploymentMode={deploymentMode} />
