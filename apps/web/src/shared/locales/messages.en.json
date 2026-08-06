@@ -4079,5 +4079,159 @@
       "queue_tier",
       "kafka_topic"
     ]
+  },
+  "BRANCH_CREATED": {
+    "text": "Branch {branch_ifsc} ({branch_name}) created by {created_by}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "branch_ifsc",
+      "branch_name",
+      "created_by"
+    ]
+  },
+  "BRANCH_UPDATED": {
+    "text": "Branch {branch_ifsc} updated by {updated_by} — fields changed: {changed_fields}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "branch_ifsc",
+      "updated_by",
+      "changed_fields"
+    ]
+  },
+  "BRANCH_DELETED": {
+    "text": "Branch {branch_ifsc} deactivated by {deleted_by} — is_active set to false.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "branch_ifsc",
+      "deleted_by"
+    ]
+  },
+  "BRANCH_BULK_IMPORTED": {
+    "text": "Branch bulk import completed by {imported_by} — {imported_count} imported, {skipped_count} skipped, {error_count} errors.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "imported_count",
+      "skipped_count",
+      "error_count",
+      "imported_by"
+    ]
+  },
+  "BRANCH_NOT_FOUND": {
+    "text": "Branch with IFSC {branch_ifsc} not found.",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "branch_ifsc"
+    ]
+  },
+  "BRANCH_IFSC_DUPLICATE": {
+    "text": "Branch IFSC {branch_ifsc} already exists — use bulk import to update existing branches.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "branch_ifsc"
+    ]
+  },
+  "PU_CREATED": {
+    "text": "Processing Unit {pu_id} ({pu_name}) created for zone {clearing_zone} by {created_by}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "pu_id",
+      "pu_name",
+      "clearing_zone",
+      "created_by"
+    ]
+  },
+  "PU_UPDATED": {
+    "text": "Processing Unit {pu_id} updated by {updated_by} — fields changed: {changed_fields}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "pu_id",
+      "updated_by",
+      "changed_fields"
+    ]
+  },
+  "PU_DEACTIVATED": {
+    "text": "Processing Unit {pu_id} ({pu_name}) deactivated by {deactivated_by} — {branch_count} branch(es) remain mapped to this PU.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "pu_id",
+      "pu_name",
+      "deactivated_by",
+      "branch_count"
+    ]
+  },
+  "PU_NOT_FOUND": {
+    "text": "Processing Unit {pu_id} not found.",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "pu_id"
+    ]
+  },
+  "PU_ZONE_CONFLICT": {
+    "text": "A Processing Unit already exists for zone {clearing_zone} — existing PU: {existing_pu_id}. Only one PU per clearing zone per bank is permitted.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "clearing_zone",
+      "existing_pu_id"
+    ]
+  },
+  "PU_BRANCH_ASSIGNED": {
+    "text": "Branch {branch_ifsc} assigned to Processing Unit {pu_id} by {assigned_by}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "branch_ifsc",
+      "pu_id",
+      "assigned_by"
+    ]
+  },
+  "PU_BRANCH_REASSIGNED": {
+    "text": "Branch {branch_ifsc} reassigned from Processing Unit {from_pu_id} to {to_pu_id} by {reassigned_by} — instruments in-flight on old PU are unaffected.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "branch_ifsc",
+      "from_pu_id",
+      "to_pu_id",
+      "reassigned_by"
+    ]
   }
 }

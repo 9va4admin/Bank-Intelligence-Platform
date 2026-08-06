@@ -2696,3 +2696,56 @@ BRANCH_IFSC_DUPLICATE:
   variables: [branch_ifsc]
   en: "Branch IFSC {branch_ifsc} already exists — use bulk import to update existing branches."
   hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# PROCESSING UNIT (PU) MASTER
+# ────────────────────────────────────────────────────────────────────────
+
+PU_CREATED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [pu_id, pu_name, clearing_zone, created_by]
+  en: "Processing Unit {pu_id} ({pu_name}) created for zone {clearing_zone} by {created_by}."
+  hi: ""
+
+PU_UPDATED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [pu_id, updated_by, changed_fields]
+  en: "Processing Unit {pu_id} updated by {updated_by} — fields changed: {changed_fields}."
+  hi: ""
+
+PU_DEACTIVATED:
+  severity: WARN
+  surface: [AUDIT]
+  variables: [pu_id, pu_name, deactivated_by, branch_count]
+  en: "Processing Unit {pu_id} ({pu_name}) deactivated by {deactivated_by} — {branch_count} branch(es) remain mapped to this PU."
+  hi: ""
+
+PU_NOT_FOUND:
+  severity: WARN
+  surface: [UI]
+  variables: [pu_id]
+  en: "Processing Unit {pu_id} not found."
+  hi: ""
+
+PU_ZONE_CONFLICT:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [clearing_zone, existing_pu_id]
+  en: "A Processing Unit already exists for zone {clearing_zone} — existing PU: {existing_pu_id}. Only one PU per clearing zone per bank is permitted."
+  hi: ""
+
+PU_BRANCH_ASSIGNED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [branch_ifsc, pu_id, assigned_by]
+  en: "Branch {branch_ifsc} assigned to Processing Unit {pu_id} by {assigned_by}."
+  hi: ""
+
+PU_BRANCH_REASSIGNED:
+  severity: WARN
+  surface: [AUDIT]
+  variables: [branch_ifsc, from_pu_id, to_pu_id, reassigned_by]
+  en: "Branch {branch_ifsc} reassigned from Processing Unit {from_pu_id} to {to_pu_id} by {reassigned_by} — instruments in-flight on old PU are unaffected."
+  hi: ""
