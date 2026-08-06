@@ -572,9 +572,25 @@ async def update_branch(
             branch = _BRANCH_STORE.get(ifsc)
             if not branch or branch["bank_id"] != bank_id:
                 raise HTTPException(status_code=404, detail=f"Branch {ifsc} not found")
+            old_pu_id = branch.get("pu_id")
             now = datetime.now(timezone.utc).isoformat()
             branch.update(updates)
             branch["updated_at"] = now
+            new_pu_id = updates.get("pu_id")
+            if new_pu_id is not None and new_pu_id != old_pu_id:
+                if old_pu_id is None:
+                    _write_pu_audit(request, AuditEventType.PU_BRANCH_ASSIGNED, bank_id, {
+                        "branch_ifsc": ifsc,
+                        "pu_id": new_pu_id,
+                        "assigned_by": user["user_id"],
+                    })
+                else:
+                    _write_pu_audit(request, AuditEventType.PU_BRANCH_REASSIGNED, bank_id, {
+                        "branch_ifsc": ifsc,
+                        "from_pu_id": old_pu_id,
+                        "to_pu_id": new_pu_id,
+                        "reassigned_by": user["user_id"],
+                    })
             return _branch_to_response(branch)
 
 
@@ -781,3 +797,20 @@ def _write_audit(
             immudb.write_event(event.to_json())
     except Exception as exc:
         log.error("branches.audit_write_failed", event_type=event_type.value, error=str(exc))
+
+
+def _write_pu_audit(
+    request: Request,
+    event_type: AuditEventType,
+    bank_id: str,
+    payload: dict,
+) -> None:
+    """Fire-and-forget PU assignment audit write. Same pattern as _write_audit."""
+    try:
+        immudb = getattr(getattr(request, "app", None), "state", None) and \
+                 getattr(request.app.state, "immudb_client", None)
+        if immudb:
+            event = AuditEvent(event_type=event_type, bank_id=bank_id, payload=payload)
+            immudb.write_event(event.to_json())
+    except Exception as exc:
+        log.error("branches.pu_audit_write_failed", event_type=event_type.value, error=str(exc))

@@ -4079,5 +4079,159 @@
       "queue_tier",
       "kafka_topic"
     ]
+  },
+  "BRANCH_CREATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "branch_ifsc",
+      "branch_name",
+      "created_by"
+    ]
+  },
+  "BRANCH_UPDATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "branch_ifsc",
+      "updated_by",
+      "changed_fields"
+    ]
+  },
+  "BRANCH_DELETED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "branch_ifsc",
+      "deleted_by"
+    ]
+  },
+  "BRANCH_BULK_IMPORTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "imported_count",
+      "skipped_count",
+      "error_count",
+      "imported_by"
+    ]
+  },
+  "BRANCH_NOT_FOUND": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "branch_ifsc"
+    ]
+  },
+  "BRANCH_IFSC_DUPLICATE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "branch_ifsc"
+    ]
+  },
+  "PU_CREATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "pu_id",
+      "pu_name",
+      "clearing_zone",
+      "created_by"
+    ]
+  },
+  "PU_UPDATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "pu_id",
+      "updated_by",
+      "changed_fields"
+    ]
+  },
+  "PU_DEACTIVATED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "pu_id",
+      "pu_name",
+      "deactivated_by",
+      "branch_count"
+    ]
+  },
+  "PU_NOT_FOUND": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "pu_id"
+    ]
+  },
+  "PU_ZONE_CONFLICT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "clearing_zone",
+      "existing_pu_id"
+    ]
+  },
+  "PU_BRANCH_ASSIGNED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "branch_ifsc",
+      "pu_id",
+      "assigned_by"
+    ]
+  },
+  "PU_BRANCH_REASSIGNED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "branch_ifsc",
+      "from_pu_id",
+      "to_pu_id",
+      "reassigned_by"
+    ]
   }
 }

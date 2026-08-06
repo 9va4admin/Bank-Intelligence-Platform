@@ -89,6 +89,13 @@ class AuditEventType(str, Enum):
     BRANCH_DELETED = "BRANCH_DELETED"             # soft-delete (is_active=false)
     BRANCH_BULK_IMPORTED = "BRANCH_BULK_IMPORTED" # CSV bulk upsert completed
 
+    # ── Processing Unit Master ─────────────────────────────────────────────────
+    PU_CREATED = "PU_CREATED"
+    PU_UPDATED = "PU_UPDATED"
+    PU_DEACTIVATED = "PU_DEACTIVATED"             # soft-deactivate (is_active=false)
+    PU_BRANCH_ASSIGNED = "PU_BRANCH_ASSIGNED"     # branch first-time mapped to a PU
+    PU_BRANCH_REASSIGNED = "PU_BRANCH_REASSIGNED" # branch moved from one PU to another
+
     # ── Platform / infra ───────────────────────────────────────────────────────
     CONFIG_CHANGE = "CONFIG_CHANGE"
     CONFIG_L2_CHANGE_REQUESTED = "CONFIG_L2_CHANGE_REQUESTED"
