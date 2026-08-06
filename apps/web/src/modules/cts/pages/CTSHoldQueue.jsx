@@ -167,7 +167,7 @@ export default function CTSHoldQueue() {
         )}
 
         {isError && (
-          <div className={`text-center py-16 text-red-400`}>Failed to load hold queue. Retry in 15s.</div>
+          <div className={`text-center py-16 text-amber-400/70`}>Backend not reachable — retrying every 15s.</div>
         )}
 
         {!isLoading && !isError && holds.length === 0 && (

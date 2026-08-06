@@ -81,6 +81,24 @@ const DEMO_BRANCH_MANAGER = {
   smbs: [],
 }
 
+// ─── Config-driven SB profile (follows bank.config.js / VITE_BANK_ID) ────────
+// In production this is superseded by the JWT claim. For demo/POC the config
+// determines which bank's identity to show so that KBL shows KBL, Saraswat shows
+// Saraswat, etc.  DEMO_SMB and DEMO_BRANCH_MANAGER remain Saraswat-specific
+// fiction used only when toggling in demo mode.
+const CONFIG_PROFILE = {
+  bankType:      'SB',
+  bankId:        BANK_CONFIG.bank_id,
+  bankIfsc:      `${BANK_CONFIG.ifsc_prefix}0000001`,
+  bankName:      BANK_CONFIG.bank_name,
+  bankShortName: BANK_CONFIG.bank_short_name,
+  bankCity:      '',
+  sponsorBankId: null,
+  userRole:      'ops_manager',
+  userName:      'Demo User',
+  smbs:          [],
+}
+
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 const BankContext = createContext(null)
@@ -91,11 +109,11 @@ export function BankProvider({ children }) {
   const isDemoMode = import.meta.env.VITE_DEMO_MODE !== 'false'
 
   const [profile, setProfile] = useState(() => {
-    if (!isDemoMode) return DEMO_SB // production always reads from JWT
+    if (!isDemoMode) return CONFIG_PROFILE // non-demo: bank identity from bank.config.js until JWT
     const saved = localStorage.getItem('astra-bank-type')
     if (saved === 'SMB') return DEMO_SMB
     if (saved === 'BRANCH') return DEMO_BRANCH_MANAGER
-    return DEMO_SB
+    return CONFIG_PROFILE  // base SB profile from bank.config.js (not hardcoded Saraswat)
   })
 
   // SB can drill into a specific SMB — null means "show all / consolidated"
@@ -107,7 +125,7 @@ export function BankProvider({ children }) {
     let next, key
     if (profile.userRole === 'ops_manager') { next = DEMO_SMB;            key = 'SMB'    }
     else if (profile.userRole === 'smb_editor')  { next = DEMO_BRANCH_MANAGER; key = 'BRANCH' }
-    else                                          { next = DEMO_SB;             key = 'SB'     }
+    else                                          { next = CONFIG_PROFILE;      key = 'SB'     }
     localStorage.setItem('astra-bank-type', key)
     setSelectedSmbId(null)
     setProfile(next)

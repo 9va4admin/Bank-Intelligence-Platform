@@ -100,8 +100,8 @@ export default function CTSVaultStatus() {
   usePageHeader({ subtitle: 'Signature Vault · PPS Vault · VaultSyncWorkflow' })
 
   const totalKeys  = VAULT_DATA.reduce((s, v) => s + v.keys, 0)
-  const avgSigHit  = VAULT_DATA[0].hitRate
-  const avgPpsHit  = VAULT_DATA[1].hitRate
+  const avgSigHit  = VAULT_DATA[0]?.hitRate ?? null
+  const avgPpsHit  = VAULT_DATA[1]?.hitRate ?? null
   const lastSync   = '4m ago'
 
   return (
@@ -112,8 +112,8 @@ export default function CTSVaultStatus() {
         <div className="grid grid-cols-4 gap-3 mb-6">
           {[
             { label: 'Total Vault Keys',  value: totalKeys.toLocaleString(), color: th.heading },
-            { label: 'Sig Hit Rate',      value: `${avgSigHit}%`,            color: 'text-emerald-500' },
-            { label: 'PPS Hit Rate',      value: `${avgPpsHit}%`,            color: 'text-emerald-500' },
+            { label: 'Sig Hit Rate',      value: avgSigHit != null ? `${avgSigHit}%` : '—', color: 'text-emerald-500' },
+            { label: 'PPS Hit Rate',      value: avgPpsHit != null ? `${avgPpsHit}%` : '—', color: 'text-emerald-500' },
             { label: 'Last Sync',         value: lastSync,                   color: th.statVal },
           ].map(k => (
             <div key={k.label} className={`border rounded-xl px-4 py-3 ${th.kpi}`}>

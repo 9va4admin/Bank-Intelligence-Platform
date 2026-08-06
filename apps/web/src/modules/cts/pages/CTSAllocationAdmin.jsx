@@ -33,7 +33,7 @@ function ModeTag({ mode, isDark }) {
 
 export default function CTSAllocationAdmin() {
   const { isDark } = useTheme()
-  const { bankId } = useBankContext()
+  const { bankId, isDemo } = useBankContext()
   const qc = useQueryClient()
 
   const th = {
@@ -57,23 +57,27 @@ export default function CTSAllocationAdmin() {
   const { data: statusData, isLoading, isError, dataUpdatedAt } = useQuery({
     queryKey: ['allocation-status', bankId],
     queryFn: async () => {
-      const res = await fetch('/api/v1/cts/allocation/status', { credentials: 'include' })
+      const res = await fetch(`/v1/cts/allocation/status?bank_id=${bankId}`, { credentials: 'include' })
       if (!res.ok) throw new Error('Failed to load allocation status')
       return res.json()
     },
-    refetchInterval: REFETCH_MS,
+    enabled: !isDemo,
+    refetchInterval: isDemo ? false : REFETCH_MS,
     staleTime: 10_000,
+    retry: false,
   })
 
   // --- config query for current allocation_mode ---
   const { data: cfgData } = useQuery({
     queryKey: ['cts-config-alloc-mode', bankId],
     queryFn: async () => {
-      const res = await fetch('/api/v1/admin/config/keys?prefix=allocation', { credentials: 'include' })
+      const res = await fetch(`/v1/admin/config/keys?prefix=allocation&bank_id=${bankId}`, { credentials: 'include' })
       if (!res.ok) return {}
       return res.json()
     },
+    enabled: !isDemo,
     staleTime: 30_000,
+    retry: false,
   })
 
   const allocationMode = cfgData?.allocation_mode ?? '—'
@@ -81,7 +85,7 @@ export default function CTSAllocationAdmin() {
   // --- force-release mutation ---
   const releaseMutation = useMutation({
     mutationFn: async (instrumentId) => {
-      const res = await fetch(`/api/v1/cts/review/${instrumentId}/claim`, {
+      const res = await fetch(`/v1/cts/review/${instrumentId}/claim`, {
         method: 'DELETE',
         credentials: 'include',
       })

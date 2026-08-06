@@ -76,7 +76,7 @@ function EventRow({ item, isDark }) {
 
 export default function BranchScanMonitor() {
   const { isDark } = useTheme()
-  const { bankId } = useBankContext()
+  const { bankId, isDemo } = useBankContext()
 
   const [autoScroll, setAutoScroll] = useState(true)
   const tableRef = useRef(null)
@@ -85,15 +85,17 @@ export default function BranchScanMonitor() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['scan-monitor', bankId],
     queryFn: async () => {
-      const res = await fetch('/api/v1/cts/scan-monitor/recent?limit=50', { credentials: 'include' })
+      const res = await fetch(`/v1/cts/scan-monitor/recent?limit=50&bank_id=${bankId}`, { credentials: 'include' })
       if (!res.ok) throw new Error('Failed to load scan events')
       return res.json()
     },
-    refetchInterval: 3_000,
+    enabled: !isDemo,
+    refetchInterval: isDemo ? false : 3_000,
     staleTime: 0,
+    retry: false,
   })
 
-  const rawEvents = data?.events ?? MOCK_INSTRUMENTS
+  const rawEvents = data?.events ?? (isDemo ? MOCK_INSTRUMENTS : [])
   const instruments = rawEvents.map(e => ({
     scan_id:        e.scan_id,
     micr_suffix:    e.micr_suffix ?? '****',
