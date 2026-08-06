@@ -12,6 +12,29 @@ import { useTheme } from '../../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../../shared/context/BankContext'
 import AppShell from '../../../../shared/layout/AppShell'
 
+const MOCK_MISMATCHES = [
+  {
+    mismatch_id: 'MISM-20260619-001',
+    instrument_id: 'INS-20260619-00101',
+    held_at: '8m ago',
+    scanner_amount: '₹45,000',
+    vision_amount: '₹45,500',
+    mismatch_fields: ['amount'],
+    payee_display: 'R***',
+    account_display: '****9210',
+  },
+  {
+    mismatch_id: 'MISM-20260619-002',
+    instrument_id: 'INS-20260619-00148',
+    held_at: '14m ago',
+    scanner_amount: '₹1,25,000',
+    vision_amount: '₹1,52,000',
+    mismatch_fields: ['amount', 'date'],
+    payee_display: 'S***',
+    account_display: '****4521',
+  },
+]
+
 // ─── Mismatch card ────────────────────────────────────────────────────────────
 
 function MismatchCard({ item, isDark, onResolve, isResolving }) {
@@ -103,7 +126,7 @@ function MismatchCard({ item, isDark, onResolve, isResolving }) {
 
 export default function BranchMismatchQueue() {
   const { isDark } = useTheme()
-  const { bankId } = useBankContext()
+  const { bankId, isDemo } = useBankContext()
   const queryClient = useQueryClient()
   const [resolved, setResolved] = useState([])
 
@@ -117,18 +140,21 @@ export default function BranchMismatchQueue() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['branch-mismatches', bankId],
     queryFn: async () => {
-      const res = await fetch('/api/v1/cts/mismatches', { credentials: 'include' })
+      const res = await fetch(`/v1/cts/mismatches?bank_id=${bankId}`, { credentials: 'include' })
       if (!res.ok) throw new Error('Failed to load mismatches')
       return res.json()
     },
-    refetchInterval: 15_000,
+    enabled: !isDemo,
+    refetchInterval: isDemo ? false : 15_000,
+    retry: false,
   })
 
-  const mismatches = (data?.items ?? []).filter(m => !resolved.find(r => r.mismatch_id === m.mismatch_id))
+  const raw = isDemo ? MOCK_MISMATCHES : (data?.items ?? [])
+  const mismatches = raw.filter(m => !resolved.find(r => r.mismatch_id === m.mismatch_id))
 
   const resolveMutation = useMutation({
     mutationFn: async ({ mismatchId, action, note }) => {
-      const res = await fetch(`/api/v1/cts/mismatches/${mismatchId}/resolve`, {
+      const res = await fetch(`/v1/cts/mismatches/${mismatchId}/resolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -167,7 +193,7 @@ export default function BranchMismatchQueue() {
         )}
 
         {isError && (
-          <div className="text-center py-12 text-red-400 text-sm">Failed to load mismatch queue.</div>
+          <div className="text-center py-12 text-amber-400/70 text-sm">Backend not reachable — retrying every 15s.</div>
         )}
 
         {!isLoading && !isError && mismatches.length === 0 && resolved.length === 0 && (

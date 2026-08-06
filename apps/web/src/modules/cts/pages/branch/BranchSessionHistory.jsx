@@ -124,8 +124,8 @@ function SessionRow({ sess, isDark, onDownload }) {
 
 export default function BranchSessionHistory() {
   const { isDark } = useTheme()
-  const { bankId } = useBankContext()
-  const [sessions] = useState(MOCK_SESSIONS)
+  const { bankId, isDemo } = useBankContext()
+  const [sessions] = useState(() => isDemo ? MOCK_SESSIONS : [])
 
   const th = {
     page:    isDark ? 'bg-navy-950' : 'bg-slate-50',

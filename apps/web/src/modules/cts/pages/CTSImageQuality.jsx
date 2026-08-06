@@ -91,9 +91,9 @@ function buildStats(instruments) {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function CTSImageQuality() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
-  const [instruments, setInstruments] = useState(INSTRUMENTS)
+  const [instruments, setInstruments] = useState(() => isDemo ? INSTRUMENTS : [])
   const [selected, setSelected]       = useState(null)
   const [filter, setFilter]           = useState('ALL')  // ALL | IQA_FAIL | IQA_PASS | RESCAN_PASS
   const [scannerFilter, setScannerFilter] = useState('ALL')

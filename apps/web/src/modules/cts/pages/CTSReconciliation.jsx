@@ -192,8 +192,8 @@ export default function CTSReconciliation() {
 
   useEffect(() => { setSessionIdx(0); setFilterStatus('ALL') }, [isSMB])
 
-  const session = SESSIONS[Math.min(sessionIdx, SESSIONS.length - 1)]
-  const items   = RECON_DATA[session.id] || []
+  const session = SESSIONS.length ? SESSIONS[Math.min(sessionIdx, SESSIONS.length - 1)] : null
+  const items   = (session && RECON_DATA[session.id]) || []
 
   const matched    = items.filter(i => i.status === 'MATCHED').length
   const pending    = items.filter(i => i.status === 'PENDING').length
@@ -274,13 +274,14 @@ export default function CTSReconciliation() {
   }
 
   function handleDownload() {
+    if (!session) return
     const csv  = buildCsv(items, session)
     const date = session.date.replace(/-/g, '')
     downloadCsv(csv, `RECON_${bankIfsc}_${date}_${session.id}.csv`)
   }
 
   usePageHeader({
-    subtitle: session.label,
+    subtitle: session?.label ?? 'No sessions available',
     actions: (
       <div className="flex items-center gap-3">
         <select
@@ -309,11 +310,17 @@ export default function CTSReconciliation() {
     <AppShell>
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
 
+        {!session && (
+          <div className={`text-center py-24 ${th.muted}`}>
+            No reconciliation sessions — backend not connected.
+          </div>
+        )}
+
         {/* Reconciliation Summary Bar */}
         <div className={`border rounded-xl px-5 py-3 mb-5 ${th.card} flex items-center gap-6 flex-wrap`}>
           <div className="flex items-center gap-2">
             <span className={`text-[10px] uppercase tracking-wider font-medium ${th.faint}`}>Session</span>
-            <span className={`text-xs font-semibold ${th.heading}`}>{session.id}</span>
+            <span className={`text-xs font-semibold ${th.heading}`}>{session?.id ?? '—'}</span>
           </div>
           <div className={`w-px h-5 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`} />
           <div className="flex items-center gap-1.5">
@@ -492,7 +499,7 @@ export default function CTSReconciliation() {
                         {smb.shield_status === 'SAFE' ? '✓ SAFE' : smb.shield_status === 'SOFT_HOLD' ? '⚠ SOFT HOLD' : '✕ HARD STOP'}
                       </span>
                       <button
-                        onClick={() => downloadCsv(buildSmbCsv(smb), `SMB_${smb.sub_member_id}_${session.date.replace(/-/g, '')}.csv`)}
+                        onClick={() => downloadCsv(buildSmbCsv(smb), `SMB_${smb.sub_member_id}_${(session?.date ?? '').replace(/-/g, '')}.csv`)}
                         className={`text-[10px] px-2.5 py-1 rounded-lg border flex items-center gap-1 transition-colors ${th.csvBtn}`}
                       >
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

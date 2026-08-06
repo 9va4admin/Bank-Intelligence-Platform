@@ -459,9 +459,10 @@ function PoolListModal({ type, items, baseCount, onSelect, onClose }) {
 function IETTimerStrip({ confirmCount, returnCount, reviewCount, manualConfirmCount = 0, manualRejectCount = 0, onOpenPool, isDemo }) {
   const [elapsed, setElapsed] = useState(0)
   useEffect(() => {
+    if (!isDemo) return  // no active session in POC/PROD with no backend
     const t = setInterval(() => setElapsed(e => e + 1), 1000)
     return () => clearInterval(t)
-  }, [])
+  }, [isDemo])
   const ietSecs = 180 * 60
   const pct = Math.min((elapsed / ietSecs) * 100, 100)
   const remaining = ietSecs - elapsed

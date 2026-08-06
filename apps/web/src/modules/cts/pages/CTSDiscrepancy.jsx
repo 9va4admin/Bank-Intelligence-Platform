@@ -91,7 +91,7 @@ function seed(n, branches, sessions, bankIfsc) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function CTSDiscrepancy() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const [typeFilter,   setTypeFilter]   = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('ALL')
@@ -109,7 +109,7 @@ export default function CTSDiscrepancy() {
       ? [`SES-${ifsc}-20260619-001 (10:00–12:00)`]
       : [`SES-${ifsc}-20260619-001 (10:00–12:00)`, `SES-${ifsc}-20260619-002 (12:00–14:00)`]
   }, [bankIfsc, isSMB])
-  const ALL_DISCS  = useMemo(() => seed(isSMB ? 8 : 48, BRANCHES, SESSIONS_DISC, bankIfsc), [isSMB, BRANCHES, SESSIONS_DISC, bankIfsc])
+  const ALL_DISCS  = useMemo(() => isDemo ? seed(isSMB ? 8 : 48, BRANCHES, SESSIONS_DISC, bankIfsc) : [], [isDemo, isSMB, BRANCHES, SESSIONS_DISC, bankIfsc])
   const SUMMARY    = useMemo(() => ({
     total:     ALL_DISCS.length,
     open:      ALL_DISCS.filter(d => d.status === 'OPEN').length,

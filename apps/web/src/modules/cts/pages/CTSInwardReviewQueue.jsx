@@ -366,13 +366,13 @@ export default function CTSInwardReviewQueue() {
     queryKey: ['cts-review-queue', bankId, tierFilter],
     queryFn: async () => {
       const url = tierFilter === 'all'
-        ? `/api/v1/cts/review/queue?bank_id=${bankId}`
-        : `/api/v1/cts/review/queue?bank_id=${bankId}&tier=${tierFilter}`
+        ? `/v1/cts/review/queue?bank_id=${bankId}`
+        : `/v1/cts/review/queue?bank_id=${bankId}&tier=${tierFilter}`
       const res = await fetch(url, { credentials: 'include' })
       if (!res.ok) throw new Error('Failed to load review queue')
       return res.json()
     },
-    refetchInterval: 12_000,
+    refetchInterval: 15_000,
     enabled: !isDemo,  // in DEMO mode serve mock data; real API call only in POC/PROD
     retry: false,
   })
@@ -529,7 +529,7 @@ export default function CTSInwardReviewQueue() {
 
         {/* States */}
         {isLoading && <div className={`text-center py-16 ${th.muted}`}>Loading queue…</div>}
-        {isError && <div className="text-center py-16 text-red-400">Failed to load queue. Refreshing in 12s.</div>}
+        {isError && <div className="text-center py-16 text-amber-400/70">Backend not reachable — retrying every 15s.</div>}
         {!isLoading && !isError && items.length === 0 && (
           <div className={`text-center py-16 ${th.muted}`}>No instruments in review queue for this tier.</div>
         )}

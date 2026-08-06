@@ -10,7 +10,7 @@
  *
  * The final pay/return decision rests with the drawee bank's ops_reviewer.
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../../shared/layout/AppShell'
 import { useTheme } from '../../../../shared/theme/ThemeContext'
@@ -21,16 +21,22 @@ const _now = () => Date.now() / 1000
 
 // ─── IET countdown hook ───────────────────────────────────────────────────────
 
-function useCountdown(deadlines) {
-  const [remaining, setRemaining] = useState(() =>
-    Object.fromEntries(deadlines.map(([id, d]) => [id, Math.max(0, d - _now())]))
-  )
+function useCountdown(holds) {
+  const [remaining, setRemaining] = useState({})
+  const holdsRef = useRef(holds)
+  holdsRef.current = holds
   useEffect(() => {
-    const t = setInterval(() => {
-      setRemaining(Object.fromEntries(deadlines.map(([id, d]) => [id, Math.max(0, d - _now())])))
-    }, 1000)
+    function recompute() {
+      const map = {}
+      for (const [id, deadline] of holdsRef.current) {
+        map[id] = Math.max(0, deadline - _now())
+      }
+      setRemaining(map)
+    }
+    recompute()
+    const t = setInterval(recompute, 1000)
     return () => clearInterval(t)
-  }, [deadlines])
+  }, []) // mount-only — reads fresh deadlines via ref each tick
   return remaining
 }
 
@@ -141,13 +147,9 @@ function RecommendationPanel({ hold, isDark, th, onSubmit, isSubmitting }) {
 
 export default function BranchHoldQueue() {
   const { isDark } = useTheme()
-  const { bankId, branchCode } = useBankContext()
-  const { setHeader } = usePageHeader?.() ?? {}
+  const { bankId, branchCode, isDemo } = useBankContext()
+  usePageHeader({ subtitle: 'Instruments awaiting your branch confirmation' })
   const queryClient = useQueryClient()
-
-  useEffect(() => {
-    setHeader?.({ title: 'Inward Hold Queue', subtitle: 'Instruments awaiting your branch confirmation' })
-  }, [])
 
   const th = {
     page:    isDark ? 'bg-navy-950'        : 'bg-slate-50',
@@ -163,18 +165,20 @@ export default function BranchHoldQueue() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['branch-holds', bankId],
     queryFn: async () => {
-      const res = await fetch('/api/v1/cts/holds', { credentials: 'include' })
+      const res = await fetch(`/v1/cts/holds?bank_id=${bankId}`, { credentials: 'include' })
       if (!res.ok) throw new Error('Failed to load holds')
       return res.json()
     },
-    refetchInterval: 20_000,
+    enabled: !isDemo,
+    refetchInterval: isDemo ? false : 20_000,
+    retry: false,
   })
 
   const holds = data?.items ?? []
 
   const recMutation = useMutation({
     mutationFn: async ({ instrumentId, note, rec }) => {
-      const res = await fetch(`/api/v1/cts/holds/${instrumentId}/recommendation`, {
+      const res = await fetch(`/v1/cts/holds/${instrumentId}/recommendation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -215,7 +219,7 @@ export default function BranchHoldQueue() {
         )}
 
         {isError && (
-          <div className={`text-center py-16 text-red-400`}>Failed to load hold queue. Retry in 20s.</div>
+          <div className={`text-center py-16 text-amber-400/70`}>Backend not reachable — retrying every 20s.</div>
         )}
 
         {!isLoading && !isError && holds.length === 0 && (

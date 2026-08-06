@@ -359,18 +359,19 @@ function SealConfirmModal({ branch, lot, onConfirm, onCancel, isDark }) {
 
 export default function CTSHubDashboard() {
   const { isDark } = useTheme()
-  const { bankId, bankName } = useBankContext()
+  const { bankId, bankName, isDemo } = useBankContext()
   const [branches, setBranches] = useState(useDemoData(BRANCHES_MOCK))
-  const [countdown, setCountdown] = useState(windowCountdown(CLEARING_WINDOW.close_ts))
+  const [countdown, setCountdown] = useState(isDemo ? windowCountdown(CLEARING_WINDOW.close_ts) : '—:—:—')
   const [sealTarget, setSealTarget] = useState(null)   // { branch, lot }
   const [sealAllPending, setSealAllPending] = useState(false)
   const [toast, setToast] = useState(null)
 
-  // Live countdown
+  // Live countdown — only in DEMO mode; real clearing session comes from backend in POC/PROD
   useEffect(() => {
+    if (!isDemo) return
     const t = setInterval(() => setCountdown(windowCountdown(CLEARING_WINDOW.close_ts)), 1000)
     return () => clearInterval(t)
-  }, [])
+  }, [isDemo])
 
   // Auto-clear toast
   useEffect(() => {

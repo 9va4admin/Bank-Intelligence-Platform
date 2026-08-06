@@ -199,12 +199,13 @@ function buildPredictiveSignals(queue) {
 // ── Component ─────────────────────────────────────────────────────────────
 
 export default function CTSExceptions() {
-  const { bankIfsc, bankName, isSB, isSMB } = useBankContext()
+  const { bankIfsc, bankName, isSB, isSMB, isDemo } = useBankContext()
   const SESSION_META = { ...makeSessionMeta(bankIfsc, isSMB), bank_ifsc: bankIfsc, bank_name: bankName }
   const { isDark } = useTheme()
   const [severityFilter, setSeverityFilter] = useState('All')
   const [showResolved, setShowResolved]     = useState(true)
-  const predictive = buildPredictiveSignals(MOCK_QUEUE.filter(i => i.status === 'PENDING'))
+  const ALL_EXCEPTIONS = isDemo ? EXCEPTIONS : []
+  const predictive = isDemo ? buildPredictiveSignals(MOCK_QUEUE.filter(i => i.status === 'PENDING')) : []
 
   const th = {
     page:    isDark ? 'bg-navy-950' : 'bg-slate-50',
@@ -232,21 +233,21 @@ export default function CTSExceptions() {
   }
   const SEV = isDark ? SEV_D : SEV_L
 
-  const filtered = EXCEPTIONS.filter(e => {
+  const filtered = ALL_EXCEPTIONS.filter(e => {
     if (severityFilter !== 'All' && e.severity !== severityFilter) return false
     if (!showResolved && e.resolved) return false
     return true
   })
 
   const counts = {
-    CRITICAL: EXCEPTIONS.filter(e => e.severity === 'CRITICAL').length,
-    HIGH:     EXCEPTIONS.filter(e => e.severity === 'HIGH').length,
-    MEDIUM:   EXCEPTIONS.filter(e => e.severity === 'MEDIUM').length,
+    CRITICAL: ALL_EXCEPTIONS.filter(e => e.severity === 'CRITICAL').length,
+    HIGH:     ALL_EXCEPTIONS.filter(e => e.severity === 'HIGH').length,
+    MEDIUM:   ALL_EXCEPTIONS.filter(e => e.severity === 'MEDIUM').length,
   }
-  const unresolvedCount = EXCEPTIONS.filter(e => !e.resolved).length
+  const unresolvedCount = ALL_EXCEPTIONS.filter(e => !e.resolved).length
 
   function handleDownload() {
-    const csv = buildCsv(EXCEPTIONS, SESSION_META)
+    const csv = buildCsv(ALL_EXCEPTIONS, SESSION_META)
     const fname = `DISC_${SESSION_META.bank_ifsc}_${SESSION_META.clearing_date.replace(/-/g,'')}_${SESSION_META.session_id}.csv`
     downloadCsv(csv, fname)
   }
@@ -324,7 +325,7 @@ export default function CTSExceptions() {
         {/* Summary KPI strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Total Exceptions', value: EXCEPTIONS.length, color: th.heading },
+            { label: 'Total Exceptions', value: ALL_EXCEPTIONS.length, color: th.heading },
             { label: 'Critical',         value: counts.CRITICAL,   color: 'text-red-400' },
             { label: 'High',             value: counts.HIGH,        color: 'text-amber-400' },
             { label: 'Unresolved',       value: unresolvedCount,    color: 'text-orange-400' },
@@ -348,7 +349,7 @@ export default function CTSExceptions() {
                   ? 'bg-violet-600 border-violet-500 text-white'
                   : `${th.badge} border-transparent`}`}
             >
-              {s} {s !== 'All' ? `(${counts[s] ?? 0})` : `(${EXCEPTIONS.length})`}
+              {s} {s !== 'All' ? `(${counts[s] ?? 0})` : `(${ALL_EXCEPTIONS.length})`}
             </button>
           ))}
           <label className={`flex items-center gap-1.5 text-xs ${th.muted} cursor-pointer ml-4`}>
