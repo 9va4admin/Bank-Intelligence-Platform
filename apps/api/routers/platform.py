@@ -2,9 +2,10 @@
 Platform Management API — Go-Live readiness, service control, smoke tests.
 
 Routes:
-  GET  /v1/platform/readiness              master data completeness checklist
-  POST /v1/platform/smoke-test/run         run real connectivity tests (POC / PROD)
-  POST /v1/platform/services/{name}/start  attempt to start a stopped service
+  GET  /v1/platform/readiness                master data completeness checklist
+  POST /v1/platform/smoke-test/run           run real connectivity tests (POC / PROD)
+  POST /v1/platform/services/start-all       start all infra services in dependency order
+  POST /v1/platform/services/{name}/start    attempt to start a single stopped service
 
 Access: bank_it_admin only (readiness also readable by ops_manager).
 All checks degrade gracefully — a failed check returns status=WARN, never a 500.
@@ -15,6 +16,7 @@ import asyncio
 import os
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Literal, Optional
 
 import structlog
@@ -98,6 +100,22 @@ class ServiceStartResponse(BaseModel):
     service:  str
     success:  bool
     message:  str
+    skipped:  bool = False   # True when the service is HF-hosted in POC mode
+
+
+class TierStartResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    tier:     int
+    label:    str
+    services: list[ServiceStartResponse]
+
+
+class ServiceStartAllResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    tiers:   list[TierStartResult]
+    started: int
+    failed:  int
+    skipped: int
 
 
 # ---------------------------------------------------------------------------
@@ -574,14 +592,35 @@ _DOCKER_SERVICE_MAP = {
     "kafka":     "kafka",
     "yugabyte":  "yugabyte",
     "redis-cts": "redis-cts",
+    "redis-ej":  "redis-ej",
     "temporal":  "temporal",
     "vault":     "vault",
     "minio":     "minio",
     "immudb":    "immudb",
-    "vllm":      "vllm-server",
+    # vllm-server intentionally absent — POC routes AI to HuggingFace (see _HF_HOSTED_SERVICES)
 }
 
-_COMPOSE_FILE = os.environ.get("ASTRA_COMPOSE_FILE", "/opt/astra/docker-compose.yml")
+# Services that are not started via Docker in POC mode — handled externally (HuggingFace API).
+_HF_HOSTED_SERVICES: frozenset[str] = frozenset({"vllm"})
+
+# Startup order: each inner list starts in parallel; tiers run sequentially.
+# Mirrors the dependency graph in infra/docker-compose.dev.yml.
+_STARTUP_SEQUENCE: list[list[str]] = [
+    ["vault", "redis-cts", "redis-ej", "minio", "immudb"],  # Tier 1 — no deps
+    ["yugabyte", "kafka"],                                    # Tier 2 — independent
+    ["temporal"],                                             # Tier 3 — needs yugabyte
+    ["vllm"],                                                 # Tier 4 — HF-hosted, instant
+]
+_TIER_LABELS = ["Foundation", "Data Layer", "Orchestration", "AI Inference"]
+_INTER_TIER_SLEEP = 15  # seconds between real Docker tiers (let services stabilise)
+
+# Default path is the dev compose file co-located in this repo.
+# Override with ASTRA_COMPOSE_FILE env var for staging/prod environments.
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_COMPOSE_FILE = os.environ.get(
+    "ASTRA_COMPOSE_FILE",
+    str(_REPO_ROOT / "infra" / "docker-compose.dev.yml"),
+)
 
 
 async def _start_via_docker_compose(container: str) -> ServiceStartResponse:
@@ -607,6 +646,25 @@ async def _start_via_docker_compose(container: str) -> ServiceStartResponse:
                                     message="docker compose start timed out (>60s)")
     except Exception as exc:
         return ServiceStartResponse(service=container, success=False, message=str(exc)[:200])
+
+
+async def _start_single(service_id: str) -> ServiceStartResponse:
+    """Start one service via docker compose, or return a skipped result for HF-hosted services."""
+    if service_id in _HF_HOSTED_SERVICES:
+        log.info("platform.service.hf_skip", service=service_id)
+        return ServiceStartResponse(
+            service=service_id, success=True, skipped=True,
+            message="Routed to Hugging Face Inference API in POC mode — no local container needed",
+        )
+    container = _DOCKER_SERVICE_MAP.get(service_id)
+    if container is None:
+        return ServiceStartResponse(service=service_id, success=False,
+                                    message=f"Unknown service: {service_id}")
+    log.info("platform.service.start_requested", service=service_id, container=container)
+    result = await _start_via_docker_compose(container)
+    log.info("platform.service.start_result", service=service_id,
+             success=result.success, message=result.message)
+    return ServiceStartResponse(service=service_id, success=result.success, message=result.message)
 
 
 # ---------------------------------------------------------------------------
@@ -694,6 +752,56 @@ async def run_smoke_tests(
     )
 
 
+@router_v1.post("/services/start-all", response_model=ServiceStartAllResponse)
+async def start_all_services(
+    user: UserContext = Depends(get_current_user),
+) -> ServiceStartAllResponse:
+    """Start all infra services in dependency order (tier by tier, parallel within each tier).
+
+    Tier 1 — Foundation:    vault, redis-cts, redis-ej, minio, immudb  (parallel, no deps)
+    Tier 2 — Data Layer:    yugabyte, kafka                             (parallel)
+    Tier 3 — Orchestration: temporal                                    (needs yugabyte)
+    Tier 4 — AI Inference:  vllm                                        (HF-hosted, instant)
+
+    POC mode: vllm is skipped (HuggingFace Inference API used instead).
+    """
+    role = user["role"] if isinstance(user, dict) else user.role
+    if role not in _ADMIN_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="bank_it_admin required")
+
+    tier_results: list[TierStartResult] = []
+    total_started = total_failed = total_skipped = 0
+
+    for idx, tier_svc_ids in enumerate(_STARTUP_SEQUENCE):
+        # Sleep between real Docker tiers so services stabilise before the next tier starts.
+        # Skip the sleep before HF-only tiers (they return instantly).
+        if idx > 0:
+            all_hf = all(s in _HF_HOSTED_SERVICES for s in tier_svc_ids)
+            if not all_hf:
+                await asyncio.sleep(_INTER_TIER_SLEEP)
+
+        svc_results = list(await asyncio.gather(
+            *[_start_single(svc_id) for svc_id in tier_svc_ids]
+        ))
+
+        label = _TIER_LABELS[idx] if idx < len(_TIER_LABELS) else f"Tier {idx + 1}"
+        tier_results.append(TierStartResult(tier=idx + 1, label=label, services=svc_results))
+
+        for r in svc_results:
+            if r.skipped:    total_skipped += 1
+            elif r.success:  total_started += 1
+            else:            total_failed  += 1
+
+    log.info("platform.service.start_all_complete",
+             started=total_started, failed=total_failed, skipped=total_skipped)
+    return ServiceStartAllResponse(
+        tiers=tier_results,
+        started=total_started,
+        failed=total_failed,
+        skipped=total_skipped,
+    )
+
+
 @router_v1.post("/services/{service_id}/start", response_model=ServiceStartResponse)
 async def start_service(
     service_id: str,
@@ -702,13 +810,6 @@ async def start_service(
     role = user["role"] if isinstance(user, dict) else user.role
     if role not in _ADMIN_ROLES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="bank_it_admin required")
-
-    container = _DOCKER_SERVICE_MAP.get(service_id)
-    if container is None:
+    if service_id not in _DOCKER_SERVICE_MAP and service_id not in _HF_HOSTED_SERVICES:
         raise HTTPException(status_code=400, detail=f"Unknown service: {service_id}")
-
-    log.info("platform.service.start_requested", service=service_id, container=container)
-    result = await _start_via_docker_compose(container)
-    log.info("platform.service.start_result", service=service_id,
-             success=result.success, message=result.message)
-    return result
+    return await _start_single(service_id)
