@@ -456,7 +456,7 @@ function PoolListModal({ type, items, baseCount, onSelect, onClose }) {
 
 // ─── IET Timer strip ──────────────────────────────────────────────────────────
 
-function IETTimerStrip({ confirmCount, returnCount, reviewCount, manualConfirmCount = 0, manualRejectCount = 0, onOpenPool }) {
+function IETTimerStrip({ confirmCount, returnCount, reviewCount, manualConfirmCount = 0, manualRejectCount = 0, onOpenPool, isDemo }) {
   const [elapsed, setElapsed] = useState(0)
   useEffect(() => {
     const t = setInterval(() => setElapsed(e => e + 1), 1000)
@@ -470,8 +470,8 @@ function IETTimerStrip({ confirmCount, returnCount, reviewCount, manualConfirmCo
   const barColor = pct < 50 ? '#10b981' : pct < 80 ? '#f59e0b' : '#ef4444'
 
   const pools = [
-    { key: 'confirm',        label: 'STP Confirmed',    val: confirmCount + 847,  color: 'text-emerald-400', hoverCls: 'hover:text-emerald-300 hover:bg-emerald-500/8' },
-    { key: 'return',         label: 'STP Returned',     val: returnCount  + 124,  color: 'text-red-400',     hoverCls: 'hover:text-red-300 hover:bg-red-500/8'     },
+    { key: 'confirm',        label: 'STP Confirmed',    val: confirmCount + (isDemo ? 847 : 0),  color: 'text-emerald-400', hoverCls: 'hover:text-emerald-300 hover:bg-emerald-500/8' },
+    { key: 'return',         label: 'STP Returned',     val: returnCount  + (isDemo ? 124 : 0),  color: 'text-red-400',     hoverCls: 'hover:text-red-300 hover:bg-red-500/8'     },
     { key: 'review',         label: 'Human Review',     val: reviewCount,          color: 'text-amber-400',   hoverCls: 'hover:text-amber-300 hover:bg-amber-500/8'  },
     { key: 'manualConfirm',  label: 'Manual Confirmed', val: manualConfirmCount,   color: 'text-emerald-300', hoverCls: 'hover:text-emerald-200 hover:bg-emerald-500/8', disabled: true },
     { key: 'manualReject',   label: 'Manual Rejected',  val: manualRejectCount,    color: 'text-red-300',     hoverCls: 'hover:text-red-200 hover:bg-red-500/8',         disabled: true },
@@ -617,8 +617,8 @@ function StatsStrip({ stats, stageActive }) {
 
 // ─── Exit pools ───────────────────────────────────────────────────────────────
 
-function ConfirmPool({ items, onSelect }) {
-  const total = items.length + 847
+function ConfirmPool({ items, onSelect, isDemo }) {
+  const total = items.length + (isDemo ? 847 : 0)
   return (
     <div
       className="flex-1 rounded-2xl border border-emerald-500/20 flex flex-col p-4 relative overflow-hidden min-w-0"
@@ -653,8 +653,8 @@ function ConfirmPool({ items, onSelect }) {
   )
 }
 
-function ReturnPool({ items, onSelect }) {
-  const total = items.length + 124
+function ReturnPool({ items, onSelect, isDemo }) {
+  const total = items.length + (isDemo ? 124 : 0)
   return (
     <div
       className="flex-1 rounded-2xl border border-red-500/20 flex flex-col p-4 relative overflow-hidden min-w-0"
@@ -774,6 +774,7 @@ function BatchSummaryBar({ confirmCount, returnCount, reviewCount, onClickStat }
 // ─── Main page component ──────────────────────────────────────────────────────
 
 export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Bank' }) {
+  const { isDemo } = useBankContext()
   const reviewDockSeed = useDemoData(MOCK_QUEUE)
   const exceptionsSeed = useDemoData(MOCK_EXCEPTIONS)
   const manualConfirm  = useDemoData(53, 0)
@@ -934,6 +935,7 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
             manualConfirmCount={manualConfirm}
             manualRejectCount={manualReject}
             onOpenPool={setPoolModal}
+            isDemo={isDemo}
           />
 
           {/* Circuit board track */}
@@ -1046,9 +1048,9 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
 
           {/* Exit pools — all three clickable */}
           <div className="flex gap-3 shrink-0" style={{ height: 144 }}>
-            <ConfirmPool items={confirmPool} onSelect={item => openItem(item, false)} />
+            <ConfirmPool items={confirmPool} onSelect={item => openItem(item, false)} isDemo={isDemo} />
             <ReviewDock  items={reviewDock}  onSelect={item => openItem(item, false)} />
-            <ReturnPool  items={returnPool}  onSelect={item => openItem(item, false)} />
+            <ReturnPool  items={returnPool}  onSelect={item => openItem(item, false)} isDemo={isDemo} />
           </div>
 
           {/* Batch summary stats */}
@@ -1105,7 +1107,7 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
         <PoolListModal
           type={poolModal}
           items={poolModal === 'confirm' ? confirmPool : poolModal === 'return' ? returnPool : reviewDock}
-          baseCount={poolModal === 'confirm' ? 847 : poolModal === 'return' ? 124 : 0}
+          baseCount={poolModal === 'confirm' ? (isDemo ? 847 : 0) : poolModal === 'return' ? (isDemo ? 124 : 0) : 0}
           onSelect={item => { openItem(item, false); setPoolModal(null) }}
           onClose={() => setPoolModal(null)}
         />
