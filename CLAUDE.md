@@ -32,10 +32,7 @@
 - Buyers: any Indian bank in CTS clearing — PSBs, private, SFBs, UCBs, RRBs, foreign banks
 - 18-month first-mover window before incumbents (Nelito, TCS BaNCS) catch up
 
-**Module 2 — ATM EJ Intelligence**
-- AI normalisation of Electronic Journal logs across 5+ OEMs (zero standard format)
-- Dispute resolution, fleet observability, predictive maintenance
-- Cross-sell after CTS foothold; same buyer, shared infra
+**Module 2 — ATM EJ Intelligence:** AI normalisation of EJ logs across 5+ OEMs, dispute resolution, fleet observability. Cross-sell after CTS foothold. Details in reference/ej.md.
 
 **Market:** CTS ₹71 lakh crore / 609M cheques/year (FY25). 2.5L+ ATMs.
 
@@ -57,9 +54,7 @@
 - PPS vault: always hub-and-spoke
 
 ### 2.3 EJ — Hybrid Edge + Central
-- Edge Agent (Go binary) at branch/ATM controller: OEM fingerprinting, gzip ~70%, AES-256, buffering
-- Edge does NOT do LLM parsing (no GPU at edge)
-- Central: full LLM normalisation, cross-ATM patterns, dispute matching
+Go binary at branch: OEM fingerprint, gzip ~70%, AES-256, buffer. Central: LLM normalisation, cross-ATM patterns, dispute matching. Edge never does LLM. Details in reference/ej.md.
 
 ### 2.4 MCP as Integration Standard
 - MCP = universal integration layer for AI agents
@@ -69,32 +64,11 @@
 
 ### 2.5 Module Blast Isolation (CTS ↔ EJ — Non-Negotiable)
 
-CTS load must never degrade EJ. EJ failure must never affect CTS. Enforced at every layer:
-
-- **K8s namespaces**: `astra-cts-{bank_id}` and `astra-ej-{bank_id}` — separate ResourceQuota/LimitRange; Istio blocks cross-pod calls
-- **Kafka**: `cts.*` topics for CTS only; `ej.*` topics for EJ only; separate KEDA ScaledObjects
-- **Redis**: `redis-cts` (Signature Vault + PPS Vault) and `redis-ej` — separate clusters, separate resource limits
-- **DB**: separate pgbouncer pools; `schema: cts` and `schema: ej` — no cross-schema JOINs in app code
-- **vLLM queues**: `cts-vision` (Qwen2-VL), `cts-ocr` (GOT-OCR2) — CTS exclusive; `ej-reasoning` (Llama 3.3 70B), `ej-embeddings` (BGE-M3) — EJ exclusive; separate worker processes per queue
-- **Temporal**: `cts-processing-{bank_id}` and `ej-normalisation-{bank_id}` — separate worker Deployments
-- **Python**: `from modules.cts import ...` forbidden in `modules/ej/` and vice versa; shared utilities in `shared/` only
-- **Shared (allowed)**: audit-service (separate Immudb collections), notification-service (separate consumer groups), analytics-service (read-only, async)
+CTS/EJ are hard-isolated at every layer: K8s namespaces, Kafka topics (`cts.*` vs `ej.*`), Redis clusters, pgbouncer pools, vLLM queues, Temporal task queues, and Python imports. No sharing, no cross-module calls. Only shared: audit-service, notification-service, analytics-service — each with separate partitions/consumer groups. Full rules in isolation.md.
 
 ### 2.6 On-Premises Deployment & Upgrade Model
 
-**Deployment — Per-Bank, Air-Gapped, GitOps Pull:**
-```
-ASTRA Vendor → Private OCI Helm Registry ← ArgoCD (bank-owned) pulls
-Three independent charts: astra-platform / astra-cts / astra-ej
-Bank values: infra/helm/values/banks/{bank_id}/platform.yaml + cts.yaml + ej.yaml
-No ASTRA team member ever has shell/kubectl access to any bank's production cluster.
-```
-
-**Upgrade process:** ASTRA tags release → bank CAB approval → ArgoCD changes targetRevision → Alembic pre-upgrade Job → rolling deploy → post-upgrade smoke tests. Rollback < 10 minutes.
-
-**Schema migrations:** Always via Alembic; always backwards-compatible for one version (additive only); run as K8s Job before new pods start; failures auto-rollback.
-
-**Multi-Bank:** Each bank has its own `infra/helm/values/banks/{bank_id}/`. No bank data ever crosses to another bank's environment.
+Three independent Helm charts: `astra-platform / astra-cts / astra-ej`. Banks own their ArgoCD and pull from ASTRA's OCI registry — ASTRA team has zero direct cluster access. Each bank has `infra/helm/values/banks/{bank_id}/` — no bank data crosses environments. Schema migrations always via Alembic, backwards-compatible for one version, run as K8s Job pre-deploy with auto-rollback on failure.
 
 ### 2.7 Observability — No Grafana/Prometheus/Loki/Tempo in Mandatory Stack
 
@@ -417,20 +391,4 @@ NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
 
 Phases: A (REST API, 6 months) → B (Webhook push, 12 months) → C (MCP client, 24 months). ~70% of internal plumbing ready; gap is entirely in NPCI-facing transport layer.
 
----
-
-## 16. Gemini Architecture Hardening (July 2026) — All 5 Fixes Shipped
-
-> Full evaluation: [docs/gemini-evaluation.md](docs/gemini-evaluation.md)
-
-| Fix | What | Where |
-|---|---|---|
-| A | AI cascade: 7B (L1 fast) → 72B (L2 forensic), ~90% clear at L1 | `shared/ai/model_cascade.py`, `alteration.py`, `ocr.py` |
-| B | Delta vault sync (15-min) + Bloom filter for cancelled leaves | `DeltaVaultSyncWorkflow`, `cts.vault.delta.{bank_id}` |
-| C | HA/DR: YugabyteDB RF=3, Kafka min.insync=2, Temporal warm-DR, Redis active-passive | `infra/helm/astra-platform/values.yaml` ha section |
-| D | EJ integrity check (9th activity) + reconciliation orphan scanner | `verify_canonical_integrity.py` |
-| E | Notification debouncer: 60s window, P0 bypass, batch summary | `shared/notifications/debouncer.py` |
-
----
-
-*Last updated: July 2026 | All architectural decisions final unless explicitly revised in this file*
+*Last updated: August 2026 | All architectural decisions final unless explicitly revised in this file*
