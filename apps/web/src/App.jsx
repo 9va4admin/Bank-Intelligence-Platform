@@ -34,6 +34,7 @@ import CTSSubMemberBanks from './modules/cts/pages/CTSSubMemberBanks'
 import CTSMICRPrefixes from './modules/cts/pages/CTSMICRPrefixes'
 import CTSThresholds from './modules/cts/pages/CTSThresholds'
 import CTSBranchMaster from './modules/cts/pages/CTSBranchMaster'
+import CTSProcessingUnits from './modules/cts/pages/CTSProcessingUnits'
 import CTSNGCHRouting from './modules/cts/pages/CTSNGCHRouting'
 import CTSSMBRegistry from './modules/cts/pages/CTSSMBRegistry'
 import CTSSMBLedger from './modules/cts/pages/CTSSMBLedger'
@@ -138,6 +139,7 @@ export default function App() {
         <Route path="/cts/config/micr-prefixes" element={<CTSMICRPrefixes />} />
         <Route path="/cts/config/thresholds" element={<CTSThresholds />} />
         <Route path="/cts/admin/branches" element={<CTSBranchMaster />} />
+        <Route path="/cts/admin/processing-units" element={<CTSProcessingUnits />} />
         <Route path="/cts/config/ngch-routing" element={<CTSNGCHRouting />} />
         <Route path="/cts/smb/registry" element={<CTSSMBRegistry />} />
         <Route path="/cts/smb/ledger" element={<CTSSMBLedger />} />
