@@ -99,15 +99,3 @@ ThemeContext.jsx exports:
 ```
 
 The theme toggle button is in `AppShell` (CTS) and `EJShell` (EJ). No page needs to render its own toggle.
-
----
-
-## Enforcement
-
-| Rule | Enforced By | Blocks |
-|---|---|---|
-| Every new page uses `useTheme()` | Code review: pages without `useTheme` import on PR flagged HIGH | PR merge |
-| No hardcoded dark class on page wrapper div | Semgrep pattern: `className="bg-\[#020817\]"` or `className="bg-navy-950"` outside shell files | PR merge blocked |
-| `th` object defined before JSX return | Code review: colour classes inline in JSX without `th.` prefix flagged MEDIUM | PR merge |
-| Sub-components receive `isDark` prop | `security-auditor` agent review when DetailPanel-pattern components lack prop | PR merge |
-| Both dark and light manually verified | Developer checklist: toggle theme in browser before raising PR | PR description required |
