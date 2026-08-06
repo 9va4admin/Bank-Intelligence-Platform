@@ -307,6 +307,11 @@ function ServiceControlPanel({ isDark, isDemo, bankId }) {
                   {startMut.data?.message?.slice(0, 60)}
                 </div>
               )}
+              {startMut.isError && startMut.variables === svc.id && (
+                <div className="text-[9px] mt-0.5 truncate text-red-400">
+                  {startMut.error?.message?.slice(0, 55) || 'Backend unreachable'}
+                </div>
+              )}
             </div>
           )
         })}
