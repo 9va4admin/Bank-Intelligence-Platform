@@ -167,7 +167,25 @@ services:
       timeout: 10s
       retries: 20
 
-# ── Tier 3 — Orchestration (Temporal requires YugabyteDB healthy) ──────────
+# ── Tier 3 — Orchestration ────────────────────────────────────────────────
+# Temporal uses its own postgres:15 container for metadata (YugabyteDB does
+# not support the GENERATED ALWAYS AS STORED columns in Temporal's visibility
+# schema v1.2). temporal-postgres has no host port — internal only.
+
+  temporal-postgres:
+    image: postgres:15-alpine
+    container_name: astra-temporal-postgres
+    hostname: temporal-postgres
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB: temporal
+    networks: [astra-dev]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
 
   temporal:
     image: temporalio/auto-setup:1.24.2
@@ -175,10 +193,10 @@ services:
     hostname: temporal
     environment:
       DB: postgres12
-      DB_PORT: "5433"
-      POSTGRES_USER: yugabyte
-      POSTGRES_PWD: yugabyte
-      POSTGRES_SEEDS: yugabyte
+      DB_PORT: "5432"
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: temporal
+      POSTGRES_SEEDS: temporal-postgres
       TEMPORAL_ADDRESS: "0.0.0.0:7233"
       TEMPORAL_BROADCAST_ADDRESS: "127.0.0.1"
       DEFAULT_NAMESPACE_RETENTION: "30"
@@ -187,10 +205,10 @@ services:
       - "17233:7233"
     networks: [astra-dev]
     depends_on:
-      yugabyte:
+      temporal-postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 7233 || exit 1"]
+      test: ["CMD", "nc", "-z", "localhost", "7233"]
       interval: 10s
       timeout: 10s
       retries: 30
