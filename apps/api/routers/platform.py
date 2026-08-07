@@ -592,12 +592,12 @@ _DOCKER_SERVICE_MAP = {
     "kafka":     "kafka",
     "yugabyte":  "yugabyte",
     "redis-cts": "redis-cts",
-    "redis-ej":  "redis-ej",
     "temporal":  "temporal",
     "vault":     "vault",
     "minio":     "minio",
     "immudb":    "immudb",
-    # vllm-server intentionally absent — POC routes AI to HuggingFace (see _HF_HOSTED_SERVICES)
+    # redis-ej: managed separately (EJ module, not CTS Go-Live automation)
+    # vllm-server: absent — POC routes AI to HuggingFace (see _HF_HOSTED_SERVICES)
 }
 
 # Services that are not started via Docker in POC mode — handled externally (HuggingFace API).
@@ -606,10 +606,10 @@ _HF_HOSTED_SERVICES: frozenset[str] = frozenset({"vllm"})
 # Startup order: each inner list starts in parallel; tiers run sequentially.
 # Mirrors the dependency graph in infra/docker-compose.dev.yml.
 _STARTUP_SEQUENCE: list[list[str]] = [
-    ["vault", "redis-cts", "redis-ej", "minio", "immudb"],  # Tier 1 — no deps
-    ["yugabyte", "kafka"],                                    # Tier 2 — independent
-    ["temporal"],                                             # Tier 3 — needs yugabyte
-    ["vllm"],                                                 # Tier 4 — HF-hosted, instant
+    ["vault", "redis-cts", "minio", "immudb"],  # Tier 1 — no deps (redis-ej managed separately)
+    ["yugabyte", "kafka"],                       # Tier 2 — independent
+    ["temporal"],                                # Tier 3 — needs yugabyte healthy
+    ["vllm"],                                    # Tier 4 — HF-hosted, instant
 ]
 _TIER_LABELS = ["Foundation", "Data Layer", "Orchestration", "AI Inference"]
 _INTER_TIER_SLEEP = 15  # seconds between real Docker tiers (let services stabilise)
@@ -621,6 +621,20 @@ _COMPOSE_FILE = os.environ.get(
     "ASTRA_COMPOSE_FILE",
     str(_REPO_ROOT / "infra" / "docker-compose.dev.yml"),
 )
+
+
+async def _docker_inspect_running(container: str) -> bool:
+    """Return True if the named Docker container exists and its State.Running is true."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "docker", "inspect", "--format", "{{.State.Running}}", container,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5)
+        return stdout.strip() == b"true"
+    except Exception:
+        return False
 
 
 async def _start_via_docker_compose(container: str) -> ServiceStartResponse:
@@ -759,17 +773,46 @@ async def run_smoke_tests(
     )
 
 
+@router_v1.get("/services/status")
+async def get_services_status(
+    user: UserContext = Depends(get_current_user),
+) -> dict:
+    """Return docker running state for each managed CTS service.
+
+    Uses `docker inspect` — accurate even when the backend has no live connections
+    to those services (e.g. dev_auth_server where app.state pools are None).
+    """
+    role = user["role"] if isinstance(user, dict) else user.role
+    if role not in _READ_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="ops_manager or bank_it_admin required")
+
+    # Run all docker inspect calls concurrently
+    svc_ids = list(_DOCKER_SERVICE_MAP.keys())
+    running_flags = await asyncio.gather(*[
+        _docker_inspect_running(f"astra-{_DOCKER_SERVICE_MAP[s]}")
+        for s in svc_ids
+    ])
+    status_map: dict[str, bool] = dict(zip(svc_ids, running_flags))
+    # HF-hosted services are always considered running in POC mode
+    for svc_id in _HF_HOSTED_SERVICES:
+        status_map[svc_id] = True
+    log.debug("platform.services.status", statuses=status_map)
+    return status_map
+
+
 @router_v1.post("/services/start-all", response_model=ServiceStartAllResponse)
 async def start_all_services(
     user: UserContext = Depends(get_current_user),
 ) -> ServiceStartAllResponse:
-    """Start all infra services in dependency order (tier by tier, parallel within each tier).
+    """Start all CTS infra services in dependency order (tier by tier, parallel within each tier).
 
-    Tier 1 — Foundation:    vault, redis-cts, redis-ej, minio, immudb  (parallel, no deps)
-    Tier 2 — Data Layer:    yugabyte, kafka                             (parallel)
-    Tier 3 — Orchestration: temporal                                    (needs yugabyte)
-    Tier 4 — AI Inference:  vllm                                        (HF-hosted, instant)
+    Tier 1 — Foundation:    vault, redis-cts, minio, immudb  (parallel, no deps)
+    Tier 2 — Data Layer:    yugabyte, kafka                  (parallel)
+    Tier 3 — Orchestration: temporal                         (waits for yugabyte healthy)
+    Tier 4 — AI Inference:  vllm                             (HF-hosted, instant)
 
+    redis-ej is managed separately (EJ module, not CTS automation).
     POC mode: vllm is skipped (HuggingFace Inference API used instead).
     """
     role = user["role"] if isinstance(user, dict) else user.role
