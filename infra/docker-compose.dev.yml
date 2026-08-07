@@ -10,15 +10,17 @@
 # Service names here match _DOCKER_SERVICE_MAP in apps/api/routers/platform.py
 # exactly — the Go-Live Start buttons rely on these names.
 #
-# Host port assignments (all distinct, checked against common dev conflicts):
-#   vault        8200
-#   redis-cts    6379
-#   redis-ej     6380
-#   minio        9000 (S3 API)  9091 (Console)
-#   immudb       3322 (gRPC)    9497 (metrics)
-#   yugabyte     5433 (YSQL)   17000 (master UI)
-#   kafka        9092
-#   temporal     7233 (gRPC)    8088 (UI)
+# Host ports use ASTRA-specific range (1xxxx) so this stack coexists with
+# other dev stacks (prana, etc.) on the same machine without any port conflicts.
+#
+#   vault        18200
+#   redis-cts    16379
+#   redis-ej     16380
+#   minio        19000 (S3 API)  19091 (Console)
+#   immudb       13322 (gRPC)   19497 (metrics)
+#   yugabyte     15433 (YSQL)   17000 (master UI)
+#   kafka        19092
+#   temporal     17233 (gRPC)   18088 (UI)
 
 networks:
   astra-dev:
@@ -35,13 +37,13 @@ services:
 
   vault:
     image: hashicorp/vault:1.15
-    container_name: vault
+    container_name: astra-vault
     hostname: vault
     environment:
       VAULT_DEV_ROOT_TOKEN_ID: "astra-dev-root-token"
       VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
     ports:
-      - "8200:8200"
+      - "18200:8200"
     cap_add: [IPC_LOCK]
     networks: [astra-dev]
     healthcheck:
@@ -52,11 +54,11 @@ services:
 
   redis-cts:
     image: redis:7.2-alpine
-    container_name: redis-cts
+    container_name: astra-redis-cts
     hostname: redis-cts
     command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     ports:
-      - "6379:6379"
+      - "16379:6379"
     networks: [astra-dev]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -66,11 +68,11 @@ services:
 
   redis-ej:
     image: redis:7.2-alpine
-    container_name: redis-ej
+    container_name: astra-redis-ej
     hostname: redis-ej
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
-      - "6380:6379"
+      - "16380:6379"
     networks: [astra-dev]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -80,15 +82,15 @@ services:
 
   minio:
     image: minio/minio:RELEASE.2024-01-16T16-07-38Z
-    container_name: minio
+    container_name: astra-minio
     hostname: minio
     command: server /data --console-address ":9091"
     environment:
       MINIO_ROOT_USER: astra-dev
       MINIO_ROOT_PASSWORD: astra-dev-secret
     ports:
-      - "9000:9000"
-      - "9091:9091"
+      - "19000:9000"
+      - "19091:9091"
     volumes:
       - minio-data:/data
     networks: [astra-dev]
@@ -100,11 +102,11 @@ services:
 
   immudb:
     image: codenotary/immudb:1.9.5
-    container_name: immudb
+    container_name: astra-immudb
     hostname: immudb
     ports:
-      - "3322:3322"
-      - "9497:9497"
+      - "13322:3322"
+      - "19497:9497"
     volumes:
       - immudb-data:/var/lib/immudb
     networks: [astra-dev]
@@ -118,15 +120,15 @@ services:
 
   yugabyte:
     image: yugabytedb/yugabyte:2.20.1.0-b97
-    container_name: yugabyte
+    container_name: astra-yugabyte
     hostname: yugabyte
     command: >
       bash -c "bin/yugabyted start --daemon=false --background=false
       --listen=0.0.0.0 --master_flags='rpc_bind_addresses=0.0.0.0'
       --tserver_flags='pgsql_proxy_bind_address=0.0.0.0:5433'"
     ports:
-      - "5433:5433"    # YSQL (PostgreSQL-compatible)
-      - "17000:7000"   # Master UI (mapped to 17000 to avoid local conflicts)
+      - "15433:5433"    # YSQL (PostgreSQL-compatible)
+      - "17000:7000"    # Master UI
     volumes:
       - yugabyte-data:/home/yugabyte/var
     networks: [astra-dev]
@@ -138,15 +140,15 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.6.1
-    container_name: kafka
+    container_name: astra-kafka
     hostname: kafka
     environment:
       # KRaft mode — no Zookeeper required
       KAFKA_NODE_ID: "1"
       KAFKA_PROCESS_ROLES: controller,broker
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-      # Advertise localhost so the FastAPI host process can connect via 9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      # Advertise host port 19092 so FastAPI running on the host can connect
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:19092
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
@@ -157,7 +159,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
       CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
     ports:
-      - "9092:9092"
+      - "19092:9092"
     networks: [astra-dev]
     healthcheck:
       test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
@@ -169,7 +171,7 @@ services:
 
   temporal:
     image: temporalio/auto-setup:1.24.2
-    container_name: temporal
+    container_name: astra-temporal
     hostname: temporal
     environment:
       DB: postgresql
@@ -182,7 +184,7 @@ services:
       DEFAULT_NAMESPACE_RETENTION: "30"
       LOG_LEVEL: warn
     ports:
-      - "7233:7233"
+      - "17233:7233"
     networks: [astra-dev]
     depends_on:
       yugabyte:
@@ -195,13 +197,13 @@ services:
 
   temporal-ui:
     image: temporalio/ui:2.26.2
-    container_name: temporal-ui
+    container_name: astra-temporal-ui
     hostname: temporal-ui
     environment:
       TEMPORAL_ADDRESS: temporal:7233
-      TEMPORAL_CORS_ORIGINS: "http://localhost:8088"
+      TEMPORAL_CORS_ORIGINS: "http://localhost:18088"
     ports:
-      - "8088:8080"
+      - "18088:8080"
     networks: [astra-dev]
     depends_on:
       - temporal
