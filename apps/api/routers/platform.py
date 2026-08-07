@@ -626,7 +626,8 @@ _COMPOSE_FILE = os.environ.get(
 async def _start_via_docker_compose(container: str) -> ServiceStartResponse:
     try:
         proc = await asyncio.create_subprocess_exec(
-            "docker", "compose", "-f", _COMPOSE_FILE, "up", "-d", container,
+            "docker", "compose", "-f", _COMPOSE_FILE,
+            "up", "-d", "--no-build", "--pull", "never", container,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -634,7 +635,13 @@ async def _start_via_docker_compose(container: str) -> ServiceStartResponse:
         if proc.returncode == 0:
             return ServiceStartResponse(service=container, success=True,
                                         message=f"docker compose up -d {container}: OK")
-        err = stderr.decode(errors="replace")[:300]
+        raw = stderr.decode(errors="replace")
+        # Filter docker-compose warning/info lines so the real error is visible
+        error_lines = [
+            l for l in raw.splitlines()
+            if l.strip() and "level=warning" not in l and "level=info" not in l
+        ]
+        err = ("\n".join(error_lines) or raw)[:300]
         return ServiceStartResponse(service=container, success=False, message=err)
     except FileNotFoundError:
         return ServiceStartResponse(
