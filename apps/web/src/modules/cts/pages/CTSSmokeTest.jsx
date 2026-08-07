@@ -212,6 +212,7 @@ async function apiFetch(path, opts = {}) {
 }
 
 const fetchSystemHealth = () => apiFetch('/v1/ops/system')
+const fetchDockerStatus = () => apiFetch('/v1/platform/services/status')
 const fetchReadiness    = () => apiFetch('/v1/platform/readiness')
 const postStartService  = (id) => apiFetch(`/v1/platform/services/${id}/start`, { method: 'POST' })
 const postStartAll      = ()   => apiFetch('/v1/platform/services/start-all',    { method: 'POST' })
@@ -242,11 +243,22 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
     enabled: !isDemo,
     retry: 1,
   })
+  // Docker container running state — authoritative even when app.state has no live connections
+  const { data: dockerStatus } = useQuery({
+    queryKey: ['docker-status', bankId],
+    queryFn: fetchDockerStatus,
+    refetchInterval: 10_000,
+    enabled: !isDemo,
+    retry: 1,
+  })
 
   // ── Individual service start ──
   const startMut = useMutation({
     mutationFn: postStartService,
-    onSuccess: () => setTimeout(() => qc.invalidateQueries(['system-health', bankId]), 3000),
+    onSuccess: () => setTimeout(() => {
+      qc.invalidateQueries(['system-health', bankId])
+      qc.invalidateQueries(['docker-status', bankId])
+    }, 3000),
   })
 
   // ── Start-All sequence state ──
@@ -295,27 +307,50 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
     } catch (err) {
       setSeqState(s => ({ ...s, running: false, error: err.message || 'Backend unreachable' }))
     }
-    setTimeout(() => qc.invalidateQueries(['system-health', bankId]), 3000)
+    setTimeout(() => {
+      qc.invalidateQueries(['system-health', bankId])
+      qc.invalidateQueries(['docker-status', bankId])
+    }, 3000)
   }
 
   const effectiveHealth = isDemo ? DEMO_SYSTEM_HEALTH : health
 
+  function _healthDetail(svc, panel) {
+    if (svc.id === 'yugabyte')  return `${panel.active_connections ?? 0} active conn`
+    if (svc.id === 'kafka')     return `lag: ${panel.total_lag ?? 0}`
+    if (svc.id === 'redis-cts') return `${panel.hit_rate_pct ?? 0}% hit rate`
+    if (svc.id === 'temporal')  return 'namespace reachable'
+    if (svc.id === 'vault')     return panel.seal_status ?? 'unsealed'
+    return ''
+  }
+
   function svcStatus(svc) {
     // vLLM is HF-hosted in POC — never shown as DOWN
     if (isPOC && POC_HF_IDS.has(svc.id)) return { up: true, detail: 'Hugging Face API', hf: true }
+
+    // Docker container state — authoritative source (works even when app.state has no connections)
+    if (dockerStatus) {
+      const running = dockerStatus[svc.id]
+      if (running === false) return { up: false, detail: 'container stopped', hf: false }
+      if (running === true) {
+        // Overlay real health details if the backend is also connected
+        if (effectiveHealth && svc.stateKey) {
+          const panel = effectiveHealth[svc.stateKey]
+          if (panel && Boolean(panel[svc.connKey])) {
+            return { up: true, detail: _healthDetail(svc, panel), hf: false }
+          }
+        }
+        return { up: true, detail: 'running', hf: false }
+      }
+      // running === undefined means service not in docker status (minio, immudb, vllm)
+    }
+
+    // Fall back to health check (PROD: app.state connections are real)
     if (!effectiveHealth || !svc.stateKey) return { up: isDemo, detail: isDemo ? 'OK' : '—' }
     const panel = effectiveHealth[svc.stateKey]
     if (!panel) return { up: false, detail: 'not in response' }
     const up = Boolean(panel[svc.connKey])
-    let detail = up ? '' : 'DOWN'
-    if (up) {
-      if (svc.id === 'yugabyte')  detail = `${panel.active_connections ?? 0} active conn`
-      if (svc.id === 'kafka')     detail = `lag: ${panel.total_lag ?? 0}`
-      if (svc.id === 'redis-cts') detail = `${panel.hit_rate_pct ?? 0}% hit rate`
-      if (svc.id === 'temporal')  detail = 'namespace reachable'
-      if (svc.id === 'vault')     detail = panel.seal_status ?? 'unsealed'
-    }
-    return { up, detail, hf: false }
+    return { up, detail: up ? _healthDetail(svc, panel) : 'DOWN', hf: false }
   }
 
   const lastRefreshed = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString() : '—'
