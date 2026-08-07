@@ -42,6 +42,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from apps.api.middleware.authentication import AuthenticationMiddleware
 from apps.api.routers import auth as auth_router
 from apps.api.routers import demo_cloud_extract, observability
+from apps.api.routers import platform as platform_router
 from shared.auth.auth_service import AuthService
 from shared.auth.connectors.base import ASTRAIdentity
 from shared.auth.connectors.local import LocalCredentials
@@ -179,6 +180,9 @@ def build_app() -> FastAPI:
     app.include_router(auth_router.router_v1)
     app.include_router(demo_cloud_extract.router_v1)
     app.include_router(observability.router_v1)
+    # Platform router: readiness + smoke-test degrade gracefully when state is None.
+    # start-all / start have zero app.state dependency (docker subprocess only).
+    app.include_router(platform_router.router_v1)
 
     @app.get("/health/live", include_in_schema=False)
     async def live():

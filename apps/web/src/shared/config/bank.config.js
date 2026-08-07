@@ -33,24 +33,18 @@ const BANK_PRESETS = {
   },
 }
 
-// const bankId   = import.meta.env.VITE_BANK_ID   ?? 'saraswat-coop'
-// const bankMode = import.meta.env.VITE_BANK_MODE  ?? 'SB_SMB'
-
-const bankId   = import.meta.env.VITE_BANK_ID   ?? 'karnataka-bank'
-const bankMode = import.meta.env.VITE_BANK_MODE  ?? 'SB_ONLY'
+const bankId        = import.meta.env.VITE_BANK_ID          ?? 'saraswat-coop'
+const bankMode      = import.meta.env.VITE_BANK_MODE         ?? 'SB_SMB'
+// DEMO  — pre-seeded mock data, no real services required
+// POC   — full pipeline, real AI/DB/queues, folder-based I/O instead of scanner+NGCH
+// PROD  — everything live: physical scanner, NGCH, on-prem vLLM, CBS
+const deploymentMode = import.meta.env.VITE_DEPLOYMENT_MODE  ?? 'POC'
 
 // BASE_URL already includes a trailing slash (e.g. '/Bank-Intelligence-Platform/')
 // so we join without a leading slash on the asset path.
+const base   = import.meta.env.BASE_URL ?? '/'
+const preset = BANK_PRESETS[bankId] ?? BANK_PRESETS['saraswat-coop']
 
-// VITE_DEPLOYMENT_MODE controls which integrations are live vs stubbed:
-//   DEMO  — pre-seeded mock data, no real services required (default)
-//   POC   — full pipeline, real AI/DB/queues, folder-based I/O instead of scanner+NGCH
-//   PROD  — everything live: physical scanner, NGCH, on-prem vLLM, CBS
-const deploymentMode = import.meta.env.VITE_DEPLOYMENT_MODE ?? 'POC'
-
-const base = import.meta.env.BASE_URL ?? '/'
-
-const preset = BANK_PRESETS[bankId] ?? BANK_PRESETS['karnataka-ban']
 
 export const BANK_CONFIG = {
   ...preset,

@@ -1,5 +1,3 @@
-version: "3.9"
-
 # ASTRA Dev Infrastructure Stack
 #
 # Starts all platform services required for POC/local development.
