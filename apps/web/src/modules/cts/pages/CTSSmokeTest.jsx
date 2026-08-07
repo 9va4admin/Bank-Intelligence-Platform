@@ -201,7 +201,12 @@ function sleep(ms) { return new Promise((r) => setTimeout(r, ms)) }
 // ── API helpers ───────────────────────────────────────────────────────────
 
 async function apiFetch(path, opts = {}) {
-  const res = await fetch(`${API}${path}`, { credentials: 'include', ...opts })
+  const csrf = sessionStorage.getItem('astra-csrf') || ''
+  const res = await fetch(`${API}${path}`, {
+    credentials: 'include',
+    headers: { 'X-CSRF-Token': csrf, ...opts.headers },
+    ...opts,
+  })
   if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || `HTTP ${res.status}`) }
   return res.json()
 }
