@@ -95,9 +95,9 @@ services:
       - minio-data:/data
     networks: [astra-dev]
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live || exit 1"]
+      test: ["CMD-SHELL", "mc alias set local http://localhost:9000 astra-dev astra-dev-secret --api S3v4 >/dev/null 2>&1 && mc ping local --count 1 --quiet >/dev/null 2>&1"]
       interval: 5s
-      timeout: 5s
+      timeout: 10s
       retries: 12
 
   immudb:
@@ -111,9 +111,9 @@ services:
       - immudb-data:/var/lib/immudb
     networks: [astra-dev]
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 3322 || exit 1"]
+      test: ["CMD", "immuadmin", "status"]
       interval: 5s
-      timeout: 5s
+      timeout: 10s
       retries: 15
 
 # ── Tier 2 — Data layer (independent of Tier 1 startup, but must be up before Temporal) ──
@@ -133,9 +133,9 @@ services:
       - yugabyte-data:/home/yugabyte/var
     networks: [astra-dev]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h localhost -p 5433 -U yugabyte || exit 1"]
+      test: ["CMD", "ysqlsh", "-h", "localhost", "-p", "5433", "-U", "yugabyte", "-c", "SELECT 1"]
       interval: 5s
-      timeout: 5s
+      timeout: 10s
       retries: 30
 
   kafka:
@@ -174,7 +174,7 @@ services:
     container_name: astra-temporal
     hostname: temporal
     environment:
-      DB: postgresql
+      DB: postgres12
       DB_PORT: "5433"
       POSTGRES_USER: yugabyte
       POSTGRES_PWD: yugabyte
