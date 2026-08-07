@@ -218,7 +218,7 @@ const postRunSmokeTests = (entity, bankId) => apiFetch('/v1/platform/smoke-test/
 
 // ── ServiceControlPanel ───────────────────────────────────────────────────
 
-function ServiceControlPanel({ isDark, isDemo, isPOC, bankId }) {
+function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
   const th = {
     card:    isDark ? 'bg-navy-900/60 border-white/8' : 'bg-white border-slate-200',
     heading: isDark ? 'text-white'     : 'text-slate-900',
@@ -341,8 +341,8 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId }) {
               DEMO — simulated
             </span>
           )}
-          {/* Start All — only shown in non-demo mode when at least one service is down */}
-          {!isDemo && anyDown && (
+          {/* Start All — bank_it_admin only; ops_manager can view status but not start */}
+          {!isDemo && isAdmin && anyDown && (
             <button
               onClick={handleStartAll}
               disabled={seqState?.running}
@@ -378,8 +378,8 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId }) {
                     HF
                   </span>
                 )}
-                {/* Start button — only for real Docker services that are down */}
-                {!up && !isDemo && !hf && (
+                {/* Start button — bank_it_admin only */}
+                {!up && !isDemo && !hf && isAdmin && (
                   <button
                     onClick={() => startMut.mutate(svc.id)}
                     disabled={starting || seqState?.running}
@@ -611,7 +611,7 @@ function ReadinessPanel({ isDark, isDemo, bankId, deploymentMode }) {
 
 export default function CTSSmokeTest() {
   const { isDark } = useTheme()
-  const { bankId, isSB, isSMB, bankMode, deploymentMode, isDemo, isPOC } = useBankContext()
+  const { bankId, isSB, isSMB, bankMode, deploymentMode, isDemo, isPOC, userRole } = useBankContext()
   const sc = isDark ? SC_DARK : SC_LIGHT
 
   const availableEntities = isSMB
@@ -800,7 +800,7 @@ export default function CTSSmokeTest() {
         </div>
 
         {/* ── Section 1: Infrastructure Services ───────────────────── */}
-        <ServiceControlPanel isDark={isDark} isDemo={isDemo} isPOC={isPOC} bankId={bankId} />
+        <ServiceControlPanel isDark={isDark} isDemo={isDemo} isPOC={isPOC} bankId={bankId} isAdmin={userRole === 'bank_it_admin'} />
 
         {/* ── Section 2: Master Data Readiness ─────────────────────── */}
         <ReadinessPanel isDark={isDark} isDemo={isDemo} bankId={bankId} deploymentMode={deploymentMode} />
