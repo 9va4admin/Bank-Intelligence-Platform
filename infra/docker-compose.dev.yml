@@ -197,9 +197,7 @@ services:
       POSTGRES_USER: temporal
       POSTGRES_PWD: temporal
       POSTGRES_SEEDS: temporal-postgres
-      TEMPORAL_ADDRESS: "0.0.0.0:7233"
-      TEMPORAL_BROADCAST_ADDRESS: "127.0.0.1"
-      DEFAULT_NAMESPACE_RETENTION: "30"
+      DEFAULT_NAMESPACE_RETENTION: "30d"
       LOG_LEVEL: warn
     ports:
       - "17233:7233"
