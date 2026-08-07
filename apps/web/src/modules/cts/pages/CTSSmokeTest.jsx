@@ -243,12 +243,13 @@ function ServiceControlPanel({ isDark, isDemo, isPOC, bankId, isAdmin }) {
     enabled: !isDemo,
     retry: 1,
   })
-  // Docker container running state — authoritative even when app.state has no live connections
+  // Docker container running state — POC only; authoritative when app.state pools are None.
+  // Disabled in PROD where docker is not on PATH and health check is the real source.
   const { data: dockerStatus } = useQuery({
     queryKey: ['docker-status', bankId],
     queryFn: fetchDockerStatus,
     refetchInterval: 10_000,
-    enabled: !isDemo,
+    enabled: !isDemo && isPOC,
     retry: 1,
   })
 
