@@ -206,7 +206,7 @@ services:
       temporal-postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "7233"]
+      test: ["CMD", "nc", "-z", "temporal", "7233"]
       interval: 10s
       timeout: 10s
       retries: 30
