@@ -17,7 +17,8 @@ import { useBankContext } from '../../../shared/context/BankContext'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
 
 const API = import.meta.env.VITE_API_BASE || ''
-const USE_MOCK = !import.meta.env.VITE_API_BASE
+// DEMO mode: use client-side mock. POC/PROD: Vite proxy forwards /v1/* to backend.
+const USE_MOCK = BANK_CONFIG.deployment_mode === 'DEMO'
 
 const VALID_ZONES = ['MUMBAI', 'DELHI', 'CHENNAI', 'KOLKATA', 'HYDERABAD', 'AHMEDABAD']
 

@@ -41,10 +41,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from apps.api.middleware.authentication import AuthenticationMiddleware
+from apps.api.routers import admin as admin_router
+from apps.api.routers import audit as audit_router
 from apps.api.routers import auth as auth_router
+from apps.api.routers import batch as batch_router
 from apps.api.routers import branches as branches_router
 from apps.api.routers import demo_cloud_extract, observability
+from apps.api.routers import mcp_connections as mcp_router
+from apps.api.routers import notifications as notifications_router
 from apps.api.routers import platform as platform_router
+from apps.api.routers import processing_units as pu_router
+from apps.api.routers import users as users_router
 from shared.auth.auth_service import AuthService
 from shared.auth.connectors.base import ASTRAIdentity
 from shared.auth.connectors.local import LocalCredentials
@@ -151,9 +158,141 @@ class _DevConnector:
         return True
 
 
-_BRANCHES_DDL = """
+_DEV_SCHEMA_DDL = """
+CREATE SCHEMA IF NOT EXISTS platform;
 CREATE SCHEMA IF NOT EXISTS cts;
 
+-- ── Platform: bank registry (FK anchor for all bank_id columns) ──────────────
+CREATE TABLE IF NOT EXISTS platform.banks (
+    bank_id          TEXT NOT NULL,
+    bank_name        TEXT NOT NULL,
+    bank_code        TEXT NOT NULL DEFAULT '',
+    ifsc_prefix      TEXT NOT NULL DEFAULT '',
+    ngch_member_code TEXT,
+    bank_type        TEXT NOT NULL DEFAULT 'COOPERATIVE',
+    is_active        BOOLEAN NOT NULL DEFAULT true,
+    onboarded_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deactivated_at   TIMESTAMPTZ,
+    PRIMARY KEY (bank_id)
+);
+
+-- Seed dev banks so every FK-less query still resolves
+INSERT INTO platform.banks (bank_id, bank_name, bank_code, ifsc_prefix, bank_type)
+VALUES
+  ('saraswat-coop', 'Saraswat Co-operative Bank', 'SRCB', 'SRCB', 'COOPERATIVE'),
+  ('smb-mh-vasavi',  'Vasavi Co-operative Bank',  'VASB', 'VASB', 'COOPERATIVE')
+ON CONFLICT (bank_id) DO NOTHING;
+
+-- ── Platform: user accounts (argon2 hash + TOTP) ─────────────────────────────
+CREATE TABLE IF NOT EXISTS platform.local_auth_accounts (
+    user_id          TEXT NOT NULL,
+    bank_id          TEXT NOT NULL,
+    entity_type      TEXT NOT NULL,
+    entity_id        TEXT NOT NULL,
+    username         TEXT NOT NULL,
+    display_name     TEXT,
+    password_hash    TEXT NOT NULL,
+    role             TEXT NOT NULL,
+    permission_level TEXT NOT NULL DEFAULT 'VIEW',
+    bank_type        TEXT NOT NULL DEFAULT 'SB',
+    clearing_zones   TEXT[] NOT NULL DEFAULT '{}',
+    email            TEXT,
+    phone            TEXT,
+    totp_enrolled    BOOLEAN NOT NULL DEFAULT false,
+    is_active        BOOLEAN NOT NULL DEFAULT true,
+    failed_attempts  INTEGER NOT NULL DEFAULT 0,
+    locked_until     DOUBLE PRECISION,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_login_at    TIMESTAMPTZ,
+    PRIMARY KEY (user_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_laa_username_bank
+    ON platform.local_auth_accounts (username, bank_id);
+CREATE INDEX IF NOT EXISTS ix_laa_bank_id
+    ON platform.local_auth_accounts (bank_id);
+
+-- ── Platform: Layer 3 config values (hot-reloadable thresholds) ──────────────
+CREATE TABLE IF NOT EXISTS platform.config_values (
+    config_id    TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+    bank_id      TEXT NOT NULL,
+    module       TEXT NOT NULL DEFAULT 'cts',
+    config_key   TEXT NOT NULL,
+    config_value TEXT NOT NULL,
+    value_type   TEXT NOT NULL DEFAULT 'float',
+    description  TEXT,
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_by   TEXT NOT NULL DEFAULT 'system',
+    PRIMARY KEY (config_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_config_values_key
+    ON platform.config_values (bank_id, module, config_key);
+
+-- ── Platform: config maker-checker pending changes ────────────────────────────
+CREATE TABLE IF NOT EXISTS platform.config_pending_changes (
+    change_id    TEXT NOT NULL,
+    bank_id      TEXT NOT NULL,
+    config_key   TEXT NOT NULL,
+    new_value    TEXT NOT NULL,
+    reason       TEXT,
+    status       TEXT NOT NULL DEFAULT 'PENDING_APPROVAL',
+    submitted_by TEXT NOT NULL,
+    submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    actioned_by  TEXT,
+    actioned_at  TIMESTAMPTZ,
+    PRIMARY KEY (change_id)
+);
+CREATE INDEX IF NOT EXISTS ix_config_pending_bank
+    ON platform.config_pending_changes (bank_id, status);
+
+-- ── Platform: Layer 2 Helm-values change requests ────────────────────────────
+CREATE TABLE IF NOT EXISTS platform.layer2_change_requests (
+    request_id      TEXT NOT NULL,
+    bank_id         TEXT NOT NULL,
+    config_key      TEXT NOT NULL,
+    current_value   TEXT NOT NULL DEFAULT '',
+    requested_value TEXT NOT NULL,
+    reason          TEXT NOT NULL,
+    cab_ticket      TEXT NOT NULL DEFAULT '',
+    status          TEXT NOT NULL DEFAULT 'PENDING_ASTRA_REVIEW',
+    submitted_by    TEXT NOT NULL,
+    submitted_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (request_id)
+);
+
+-- ── Platform: notification records ───────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS platform.notification_records (
+    notification_id TEXT NOT NULL,
+    bank_id         TEXT NOT NULL,
+    template_id     TEXT,
+    recipient_role  TEXT,
+    recipient_user  TEXT,
+    channel         TEXT NOT NULL DEFAULT 'EMAIL',
+    status          TEXT NOT NULL DEFAULT 'PENDING',
+    sent_at         TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    payload         TEXT,
+    PRIMARY KEY (notification_id)
+);
+
+-- ── CTS: Processing Units ─────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS cts.processing_units (
+    pu_id                 TEXT NOT NULL,
+    bank_id               TEXT NOT NULL,
+    pu_name               TEXT NOT NULL,
+    clearing_zone         TEXT NOT NULL,
+    ngch_participant_code TEXT NOT NULL DEFAULT '',
+    temporal_task_queue   TEXT NOT NULL DEFAULT '',
+    kafka_inward_topic    TEXT NOT NULL DEFAULT '',
+    max_agent_swarm_size  INTEGER NOT NULL DEFAULT 200,
+    is_active             BOOLEAN NOT NULL DEFAULT true,
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ,
+    created_by            TEXT NOT NULL DEFAULT 'system',
+    PRIMARY KEY (pu_id)
+);
+CREATE INDEX IF NOT EXISTS ix_pu_bank_id ON cts.processing_units (bank_id);
+
+-- ── CTS: Branches ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS cts.branches (
     branch_id             TEXT NOT NULL,
     bank_id               TEXT NOT NULL,
@@ -175,9 +314,51 @@ CREATE TABLE IF NOT EXISTS cts.branches (
     created_by            TEXT NOT NULL DEFAULT 'system',
     PRIMARY KEY (branch_id)
 );
-
 CREATE UNIQUE INDEX IF NOT EXISTS uq_branches_ifsc ON cts.branches (branch_ifsc);
-CREATE INDEX IF NOT EXISTS ix_branches_bank_id    ON cts.branches (bank_id);
+CREATE INDEX IF NOT EXISTS ix_branches_bank_id ON cts.branches (bank_id);
+
+-- ── CTS: MCP connection configs (CBS, Vault, PPS links) ──────────────────────
+CREATE TABLE IF NOT EXISTS cts.mcp_connection_configs (
+    id                     TEXT NOT NULL,
+    bank_id                TEXT NOT NULL,
+    connection_type        TEXT NOT NULL,
+    smb_id                 TEXT,
+    smb_name               TEXT,
+    cbs_vendor             TEXT,
+    endpoint_url_encrypted BYTEA,
+    vault_secret_ref       TEXT,
+    status                 TEXT NOT NULL DEFAULT 'PENDING',
+    last_tested_at         TIMESTAMPTZ,
+    last_test_latency_ms   INTEGER,
+    last_sync_at           TIMESTAMPTZ,
+    vault_record_count     INTEGER,
+    error_message          TEXT,
+    created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at             TIMESTAMPTZ,
+    created_by             TEXT NOT NULL DEFAULT 'system',
+    PRIMARY KEY (id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_mcp_bank_type_smb
+    ON cts.mcp_connection_configs (bank_id, connection_type, COALESCE(smb_id, ''));
+CREATE INDEX IF NOT EXISTS ix_mcp_bank_id ON cts.mcp_connection_configs (bank_id);
+
+-- ── CTS: Clearing sessions (used by batch/dashboard pages) ───────────────────
+CREATE TABLE IF NOT EXISTS cts.clearing_sessions (
+    session_id         TEXT NOT NULL,
+    bank_id            TEXT NOT NULL,
+    session_type       TEXT NOT NULL,
+    status             TEXT NOT NULL DEFAULT 'OPEN',
+    clearing_date      DATE NOT NULL DEFAULT CURRENT_DATE,
+    total_instruments  INTEGER NOT NULL DEFAULT 0,
+    opened_at          TIMESTAMPTZ,
+    sealed_at          TIMESTAMPTZ,
+    submitted_at       TIMESTAMPTZ,
+    reconciled_at      TIMESTAMPTZ,
+    npci_ack_ref       TEXT,
+    PRIMARY KEY (session_id)
+);
+CREATE INDEX IF NOT EXISTS ix_cs_bank_date
+    ON cts.clearing_sessions (bank_id, clearing_date);
 """
 
 
@@ -224,9 +405,10 @@ def build_app() -> FastAPI:
                 command_timeout=30,
             )
             async with pool.acquire() as conn:
-                await conn.execute(_BRANCHES_DDL)
+                await conn.execute(_DEV_SCHEMA_DDL)
             app.state.db_pool_cts = pool
-            log.info("dev_auth.yugabyte_connected", host="localhost", port=15433)
+            log.info("dev_auth.yugabyte_connected", host="localhost", port=15433,
+                     note="all management tables created/verified")
         except Exception as exc:
             log.warning("dev_auth.yugabyte_unavailable_fallback_to_memory", error=str(exc))
             # db_pool_cts stays None → branches router falls back to _BRANCH_STORE
@@ -242,10 +424,22 @@ def build_app() -> FastAPI:
     # Platform router: readiness + smoke-test degrade gracefully when state is None.
     # start-all / start have zero app.state dependency (docker subprocess only).
     app.include_router(platform_router.router_v1)
-    # Branches: db_pool_cts is None here → falls back to in-memory _BRANCH_STORE.
-    # CSV imports persist for the lifetime of this process (restart wipes them, same
-    # as MFA enrollments). That is acceptable for dev/POC mode.
+
+    # ── Management routers — all use db_pool_cts; degrade gracefully when None ──
+    # Kafka/Redis/Immudb stubs are defined inline in each router so missing
+    # producers return no-ops rather than 500s. Tables are created by _DEV_SCHEMA_DDL
+    # in the startup event above.
     app.include_router(branches_router.router_v1)
+    app.include_router(pu_router.router_v1)
+    app.include_router(users_router.router_v1)
+    app.include_router(admin_router.router_v1)
+    app.include_router(mcp_router.router_v1)
+    # notifications uses db_pool_platform (None here) → returns empty list (safe)
+    app.include_router(notifications_router.router_v1)
+    # audit uses db_pool_cts; immudb is None → audit writes are no-ops (safe)
+    app.include_router(audit_router.router_v1)
+    # batch uses cts.clearing_sessions (created by DDL) → returns empty list on fresh DB
+    app.include_router(batch_router.router_v1)
 
     @app.get("/health/live", include_in_schema=False)
     async def live():
