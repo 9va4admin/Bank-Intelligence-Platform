@@ -32,6 +32,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[2] / ".env.local", override=True)
 
+import asyncpg
 import structlog
 from argon2 import PasswordHasher
 from cryptography.hazmat.primitives import serialization
@@ -150,6 +151,36 @@ class _DevConnector:
         return True
 
 
+_BRANCHES_DDL = """
+CREATE SCHEMA IF NOT EXISTS cts;
+
+CREATE TABLE IF NOT EXISTS cts.branches (
+    branch_id             TEXT NOT NULL,
+    bank_id               TEXT NOT NULL,
+    smb_id                TEXT,
+    branch_name           TEXT NOT NULL,
+    branch_ifsc           TEXT NOT NULL,
+    city                  TEXT,
+    district              TEXT,
+    state                 TEXT,
+    address               TEXT,
+    pin_code              TEXT,
+    phone_number          TEXT,
+    pu_id                 TEXT,
+    drop_folder_base_path TEXT,
+    is_scanning_enabled   BOOLEAN NOT NULL DEFAULT true,
+    is_active             BOOLEAN NOT NULL DEFAULT true,
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ,
+    created_by            TEXT NOT NULL DEFAULT 'system',
+    PRIMARY KEY (branch_id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_branches_ifsc ON cts.branches (branch_ifsc);
+CREATE INDEX IF NOT EXISTS ix_branches_bank_id    ON cts.branches (bank_id);
+"""
+
+
 def build_app() -> FastAPI:
     priv, pub = _gen_keys()
     session_service = SessionTokenService(priv, pub, issuer="astra-auth", ttl_seconds=900)
@@ -172,12 +203,39 @@ def build_app() -> FastAPI:
 
     app.state.session_service = session_service
     app.state.auth_service = svc
-    # Observability deps: all None → router degrades gracefully (returns degraded=True, zero values)
+    # db_pool_cts is wired in startup (see below) — branches use real YugabyteDB
     app.state.db_pool_cts = None
     app.state.redis_cts = None
     app.state.vault_client = None
     app.state.kafka_admin = None
     app.state.temporal_client = None
+
+    @app.on_event("startup")
+    async def _connect_yugabyte() -> None:
+        try:
+            pool = await asyncpg.create_pool(
+                host="localhost",
+                port=15433,
+                user="yugabyte",
+                password="yugabyte",
+                database="yugabyte",
+                min_size=2,
+                max_size=10,
+                command_timeout=30,
+            )
+            async with pool.acquire() as conn:
+                await conn.execute(_BRANCHES_DDL)
+            app.state.db_pool_cts = pool
+            log.info("dev_auth.yugabyte_connected", host="localhost", port=15433)
+        except Exception as exc:
+            log.warning("dev_auth.yugabyte_unavailable_fallback_to_memory", error=str(exc))
+            # db_pool_cts stays None → branches router falls back to _BRANCH_STORE
+
+    @app.on_event("shutdown")
+    async def _disconnect_yugabyte() -> None:
+        pool = app.state.db_pool_cts
+        if pool:
+            await pool.close()
     app.include_router(auth_router.router_v1)
     app.include_router(demo_cloud_extract.router_v1)
     app.include_router(observability.router_v1)
