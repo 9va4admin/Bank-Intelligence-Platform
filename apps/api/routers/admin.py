@@ -473,13 +473,31 @@ async def approve_threshold_change(
                     """
                     UPDATE platform.config_pending_changes
                     SET status = 'APPROVED', actioned_by = $1, actioned_at = NOW()
-                    WHERE change_id = $2 AND bank_id = $3 AND status = 'PENDING_APPROVAL'
+                    WHERE change_id = $2 AND bank_id = $3
+                      AND status = 'PENDING_APPROVAL'
+                      AND submitted_by != $1
                     RETURNING change_id, config_key, new_value, submitted_by, actioned_at
                     """,
                     user_id, change_id, bank_id,
                 )
             if result is None:
-                # 2a. Still fire audit on attempt — no silent path
+                # Distinguish self-approval block from not-found — both audited
+                conflict = await conn.fetchrow(
+                    "SELECT submitted_by FROM platform.config_pending_changes "
+                    "WHERE change_id = $1 AND bank_id = $2 AND status = 'PENDING_APPROVAL'",
+                    change_id, bank_id,
+                )
+                if conflict and conflict["submitted_by"] == user_id:
+                    await audit_stream_writer(
+                        event_type=AuditEventType.CONFIG_CHANGE.value,
+                        bank_id=bank_id,
+                        payload={"action": "SELF_APPROVAL_BLOCKED", "change_id": change_id,
+                                 "attempted_by": user_id},
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Maker cannot approve their own change — four-eyes principle",
+                    )
                 await audit_stream_writer(
                     event_type=AuditEventType.CONFIG_CHANGE.value,
                     bank_id=bank_id,

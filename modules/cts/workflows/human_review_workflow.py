@@ -192,7 +192,7 @@ class HumanReviewWorkflow:
             ngch_action = "RETURN"
             outcome = "TIMEOUT_AUTO_RETURNED"
             reviewer_id = None
-            reason = "human_review_timeout_55min"
+            reason = f"human_review_timeout_{inp.review_timeout_minutes}min"
             timed_out = True
             log.warning(
                 "human_review.timeout_auto_return",
@@ -351,7 +351,7 @@ class HumanReviewWorkflow:
             ngch_action = "RETURN"
             outcome = "TIMEOUT_AUTO_RETURNED"
             reviewer_id = None
-            reason = "human_review_timeout_55min"
+            reason = f"human_review_timeout_{inp.review_timeout_minutes}min"
             timed_out = True
             log.warning(
                 "human_review.timeout_auto_return",
