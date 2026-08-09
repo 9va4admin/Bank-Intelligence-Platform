@@ -1,0 +1,38 @@
+# Version control
+.git/
+.gitignore
+
+# Frontend source — not needed in backend images
+apps/web/node_modules/
+apps/web/dist/
+
+# Secrets — never bake into images
+secrets/
+scripts/.env.dev
+scripts/.env.ps1
+
+# Dev / test artefacts
+__pycache__/
+*.pyc
+*.pyo
+.coverage
+.pytest_cache/
+htmlcov/
+tests/
+
+# Demo data and large binaries
+demo/
+apps/sig_detector/weights/
+*.tar
+*.tar.gz
+*.zip
+
+# IDE and OS
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+
+# Docs (not needed at runtime)
+docs/
+*.md

@@ -9,6 +9,8 @@ dist/
 scripts/.env.dev
 scripts/.env.ps1
 secrets/
+infra/astra.env
+dist/
 
 # ML model weights (large binaries — distributed via MLflow, not git)
 apps/sig_detector/weights/
