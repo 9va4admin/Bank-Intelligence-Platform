@@ -270,6 +270,11 @@ class BoundCTSActivities:
     @activity.defn(name="synthesise_decision")
     async def synthesise_decision(self, inp: DecisionInput, config: dict, kill_switch_status=None):
         from modules.cts.workflows.activities.decision import synthesise_decision as _real
+        # config is forwarded from ChequeWorkflowInput.cts_config.  When the
+        # API caller didn't populate it (empty dict), fetch it here so the
+        # activity always has real thresholds rather than raising KeyError.
+        if not config:
+            config = await self._config_service.get_cts_config(inp.bank_id)
         # hsm intentionally omitted — no real implementation exists yet.
         return await _real(
             inp, config,
