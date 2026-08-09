@@ -41,6 +41,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from apps.api.middleware.authentication import AuthenticationMiddleware
 from apps.api.routers import auth as auth_router
+from apps.api.routers import branches as branches_router
 from apps.api.routers import demo_cloud_extract, observability
 from apps.api.routers import platform as platform_router
 from shared.auth.auth_service import AuthService
@@ -183,6 +184,10 @@ def build_app() -> FastAPI:
     # Platform router: readiness + smoke-test degrade gracefully when state is None.
     # start-all / start have zero app.state dependency (docker subprocess only).
     app.include_router(platform_router.router_v1)
+    # Branches: db_pool_cts is None here → falls back to in-memory _BRANCH_STORE.
+    # CSV imports persist for the lifetime of this process (restart wipes them, same
+    # as MFA enrollments). That is acceptable for dev/POC mode.
+    app.include_router(branches_router.router_v1)
 
     @app.get("/health/live", include_in_schema=False)
     async def live():

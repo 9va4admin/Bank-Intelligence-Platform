@@ -6,8 +6,9 @@ import { useBankContext } from '../../../shared/context/BankContext'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
 
 const API = import.meta.env.VITE_API_BASE || ''
-// When no backend URL is configured (dev / demo) all mutations use client-side mock logic.
-const USE_MOCK = !import.meta.env.VITE_API_BASE
+// DEMO mode: no backend, use client-side mock data.
+// POC/PROD: Vite proxy forwards /v1/* to the real backend — always use real API.
+const USE_MOCK = BANK_CONFIG.deployment_mode === 'DEMO'
 
 // ── Mock branch data (keyed by bank_id) ──────────────────────────────────
 
@@ -94,10 +95,12 @@ async function readFileAsText(file) {
 
 // ── API calls ──────────────────────────────────────────────────────────────
 
+function getCsrf() { return sessionStorage.getItem('astra-csrf') || '' }
+
 async function apiFetch(path, opts = {}) {
   const res = await fetch(`${API}${path}`, {
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...opts.headers },
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrf(), ...opts.headers },
     ...opts,
   })
   if (!res.ok) {
@@ -161,7 +164,9 @@ async function previewImport(file) {
   const fd = new FormData()
   fd.append('file', file)
   const res = await fetch(`${API}/v1/branches/bulk-import/preview`, {
-    method: 'POST', credentials: 'include', body: fd,
+    method: 'POST', credentials: 'include',
+    headers: { 'X-CSRF-Token': getCsrf() },
+    body: fd,
   })
   if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || `HTTP ${res.status}`) }
   return res.json()
@@ -176,7 +181,9 @@ async function confirmImport(file) {
   const fd = new FormData()
   fd.append('file', file)
   const res = await fetch(`${API}/v1/branches/bulk-import`, {
-    method: 'POST', credentials: 'include', body: fd,
+    method: 'POST', credentials: 'include',
+    headers: { 'X-CSRF-Token': getCsrf() },
+    body: fd,
   })
   if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || `HTTP ${res.status}`) }
   return res.json()
