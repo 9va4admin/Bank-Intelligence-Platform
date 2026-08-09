@@ -126,7 +126,7 @@ export default function CTSHoldQueue() {
 
   const releaseMutation = useMutation({
     mutationFn: async (instrumentId) => {
-      const res = await fetch(`/api/v1/cts/holds/${instrumentId}/release`, {
+      const res = await fetch(`/v1/cts/holds/${instrumentId}/release`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

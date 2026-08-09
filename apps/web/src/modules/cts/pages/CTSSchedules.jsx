@@ -104,7 +104,7 @@ function EditScheduleModal({ schedule, isDark, onClose, onSave }) {
   const handleSave = async () => {
     setSaving(true)
     try {
-      const res = await fetch(`/api/v1/cts/schedules/${encodeURIComponent(schedule.schedule_id)}`, {
+      const res = await fetch(`/v1/cts/schedules/${encodeURIComponent(schedule.schedule_id)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -223,7 +223,7 @@ export default function CTSSchedules() {
   const { data, isLoading } = useQuery({
     queryKey: ['cts-schedules', bankId],
     queryFn: async () => {
-      const res = await fetch('/api/v1/cts/schedules', { credentials: 'include' })
+      const res = await fetch('/v1/cts/schedules', { credentials: 'include' })
       if (!res.ok) throw new Error('Failed')
       return res.json()
     },
@@ -232,7 +232,7 @@ export default function CTSSchedules() {
 
   const toggleMutation = useMutation({
     mutationFn: async ({ scheduleId, action }) => {
-      const res = await fetch(`/api/v1/cts/schedules/${encodeURIComponent(scheduleId)}/${action}`, {
+      const res = await fetch(`/v1/cts/schedules/${encodeURIComponent(scheduleId)}/${action}`, {
         method: 'POST',
         credentials: 'include',
       })

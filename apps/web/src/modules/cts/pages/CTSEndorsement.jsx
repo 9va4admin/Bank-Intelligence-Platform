@@ -96,7 +96,7 @@ export default function CTSEndorsement() {
 
   const endorseMutation = useMutation({
     mutationFn: async ({ lot, ids }) => {
-      const res = await fetch('/api/v1/cts/endorsement/batch', {
+      const res = await fetch('/v1/cts/endorsement/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

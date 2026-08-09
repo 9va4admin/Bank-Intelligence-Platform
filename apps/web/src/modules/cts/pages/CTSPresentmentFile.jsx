@@ -148,7 +148,7 @@ function DownloadBtn({ label, icon, filename, disabled, isDark }) {
   const downloadMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch(
-        `/api/v1/cts/outward/files/${encodeURIComponent(filename)}/download-url`,
+        `/v1/cts/outward/files/${encodeURIComponent(filename)}/download-url`,
         { credentials: 'include' }
       )
       if (!res.ok) throw new Error('File not available')

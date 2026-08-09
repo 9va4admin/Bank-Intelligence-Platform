@@ -110,7 +110,7 @@ export default function CTSImageQuality() {
 
   const rescanMutation = useMutation({
     mutationFn: async (id) => {
-      const res = await fetch(`/api/v1/cts/iqa/${encodeURIComponent(id)}/rescan`, {
+      const res = await fetch(`/v1/cts/iqa/${encodeURIComponent(id)}/rescan`, {
         method: 'POST',
         credentials: 'include',
       })

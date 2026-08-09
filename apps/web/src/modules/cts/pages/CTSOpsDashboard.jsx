@@ -310,7 +310,7 @@ export default function CTSOpsDashboard() {
   const downloadMutation = useMutation({
     mutationFn: async ({ sessionId, path }) => {
       const res = await fetch(
-        `/api/v1/cts/sessions/${encodeURIComponent(sessionId)}/download/${path}`,
+        `/v1/cts/sessions/${encodeURIComponent(sessionId)}/download/${path}`,
         { credentials: 'include' },
       )
       if (!res.ok) throw new Error('Download URL request failed')
