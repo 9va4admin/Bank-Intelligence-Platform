@@ -48,6 +48,7 @@ def _make_config():
         "human_review_fraud_threshold": 0.72,
         "ocr_min_confidence": 0.85,
         "sig_min_match_score": 0.80,
+        "opa_required": False,  # OPA not under test here; bypass unavailable-OPA guard
     }
 
 
