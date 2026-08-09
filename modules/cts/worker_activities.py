@@ -275,7 +275,6 @@ class BoundCTSActivities:
         # activity always has real thresholds rather than raising KeyError.
         if not config:
             config = await self._config_service.get_cts_config(inp.bank_id)
-        # hsm intentionally omitted — no real implementation exists yet.
         return await _real(
             inp, config,
             kill_switch_status=kill_switch_status,
