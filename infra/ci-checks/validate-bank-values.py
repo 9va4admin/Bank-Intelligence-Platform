@@ -36,7 +36,6 @@ PLATFORM_REQUIRED = [
     "global.bank_id",
     "global.registry",
     "modules.cts.enabled",
-    "modules.ej.enabled",
     "minio.endpoint",
     "hsm.transit_key_name",
     "astra.platform_chart_version",
@@ -48,13 +47,6 @@ CTS_REQUIRED = [
     "global.registry",
     "kafka.bootstrap_servers",
     "astra.cts_chart_version",
-]
-
-EJ_REQUIRED = [
-    "bank_id",
-    "global.bank_id",
-    "global.registry",
-    "astra.ej_chart_version",
 ]
 
 # Fields that must be consistent across platform.yaml and cts.yaml (if both exist)
@@ -114,7 +106,6 @@ def validate_bank(bank_dir: Path) -> list[str]:
 
     platform_file = bank_dir / "platform.yaml"
     cts_file = bank_dir / "cts.yaml"
-    ej_file = bank_dir / "ej.yaml"
 
     # platform.yaml is MANDATORY for every bank
     if not platform_file.exists():
@@ -135,13 +126,6 @@ def validate_bank(bank_dir: Path) -> list[str]:
         consistency_errors = check_cross_file_consistency(platform, cts, bank_id)
         for e in consistency_errors:
             errors.append(f"[{bank_id}] {e.strip()}")
-
-    # EJ file validation
-    if ej_file.exists():
-        ej = yaml.safe_load(ej_file.read_text(encoding="utf-8")) or {}
-        ej_errors = check_required_fields(ej, EJ_REQUIRED, "ej.yaml")
-        for e in ej_errors:
-            errors.append(f"[{bank_id}/ej.yaml] {e.strip()}")
 
     return errors
 

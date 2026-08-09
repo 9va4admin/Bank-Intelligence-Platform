@@ -3,8 +3,7 @@ ASTRA API Gateway — FastAPI application entry point.
 
 Lifespan wiring:
   - Redis CTS cluster (signature vault, PPS vault, session cache, rate limiting, distributed locks)
-  - Redis EJ cluster (ATM health cache, canonical cache, OEM fingerprint cache)
-  - Kafka producers: cts-producer (cts.* topics), ej-producer (ej.* topics)
+  - Kafka producer: cts-producer (cts.* topics)
   - Temporal client (workflow orchestration)
   - Rate limiting middleware (Redis sliding window)
   - Cache invalidation consumer (platform.config.changed → Redis DEL)
@@ -24,7 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from apps.api.middleware.authentication import AuthenticationMiddleware
 from apps.api.middleware.rate_limit import RateLimitMiddleware
 from apps.api.middleware.security_violations import SecurityViolationMiddleware
-from apps.api.routers import cts, ej, disputes, audit, admin, notifications
+from apps.api.routers import cts, audit, admin, notifications
 from apps.api.routers import batch, users, mcp_connections, demo, cts_outward_queue, demo_cloud_extract
 from apps.api.routers import auth as auth_router
 from apps.api.routers import observability
@@ -94,22 +93,6 @@ async def lifespan(app: FastAPI):
         log.error("api_gateway.redis_cts_failed", error=str(exc))
         app.state.redis_cts = None
 
-    # --- Redis EJ cluster ---
-    # Hosts EJ health cache, EJ canonical cache, OEM fingerprint cache, EJ dashboard aggregates
-    try:
-        redis_ej_url = await config_service.get_secret("redis.ej.url")
-        app.state.redis_ej = aioredis.from_url(
-            redis_ej_url,
-            encoding="utf-8",
-            decode_responses=True,
-            max_connections=10,
-        )
-        await app.state.redis_ej.ping()
-        log.info("api_gateway.redis_ej_connected")
-    except Exception as exc:
-        log.error("api_gateway.redis_ej_failed", error=str(exc))
-        app.state.redis_ej = None
-
     # --- Kafka producer: CTS topics (cts.inward, cts.decisions, cts.human_review ...) ---
     kafka_servers = ""  # declared here so cache invalidator section can reference it safely
     try:
@@ -124,18 +107,6 @@ async def lifespan(app: FastAPI):
         app.state.kafka_producer_cts = None
     # Alias for backward compat with cts.py routes that reference kafka_producer
     app.state.kafka_producer = app.state.kafka_producer_cts
-
-    # --- Kafka producer: EJ topics (ej.raw.ingested, ej.canonical ...) ---
-    try:
-        kafka_servers = await config_service.get_secret("kafka.bootstrap_servers")
-        app.state.kafka_producer_ej = KafkaEventProducer(
-            bootstrap_servers=kafka_servers,
-            module="ej",
-        )
-        log.info("api_gateway.kafka_ej_producer_ready")
-    except Exception as exc:
-        log.error("api_gateway.kafka_ej_producer_failed", error=str(exc))
-        app.state.kafka_producer_ej = None
 
     # --- YugabyteDB CTS connection pool (pgbouncer-cts endpoint) ---
     # Used by mcp_connections router (YugabyteDBConnectionStore) and future CTS routers.
@@ -167,8 +138,8 @@ async def lifespan(app: FastAPI):
         app.state.db_pool_cts = None
 
     # --- MinIO object store ---
-    # Cheque images (front/rear TIFFs), EJ files, and CCTV clips are stored in
-    # MinIO. The API uses this client to generate presigned download URLs for the
+    # Cheque images (front/rear TIFFs) and CCTV clips are stored in MinIO.
+    # The API uses this client to generate presigned download URLs for the
     # human review UI. SSE-KMS encryption is enforced at the bucket level (Helm
     # non-overridable). Degrades gracefully — image preview unavailable, all other
     # routes unaffected.
@@ -290,16 +261,12 @@ async def lifespan(app: FastAPI):
 
     if app.state.redis_cts:
         await app.state.redis_cts.aclose()
-    if app.state.redis_ej:
-        await app.state.redis_ej.aclose()
 
     if getattr(app.state, "db_pool_cts", None):
         await app.state.db_pool_cts.close()
 
     if app.state.kafka_producer_cts:
         app.state.kafka_producer_cts.flush()
-    if app.state.kafka_producer_ej:
-        app.state.kafka_producer_ej.flush()
 
     await config_service.shutdown()
     log.info("api_gateway.stopped")
@@ -363,8 +330,6 @@ app.add_middleware(AuthenticationMiddleware)
 # --- Routers ---
 app.include_router(auth_router.router_v1)
 app.include_router(cts.router_v1)
-app.include_router(ej.router_v1)
-app.include_router(disputes.router_v1)
 app.include_router(audit.router_v1)
 app.include_router(admin.router_v1)
 app.include_router(notifications.router_v1)
@@ -393,10 +358,8 @@ async def readiness():
     checks = {
         "config_service": config_service._ready,
         "redis_cts": app.state.redis_cts is not None,
-        "redis_ej": app.state.redis_ej is not None,
         "temporal": app.state.temporal_client is not None,
         "kafka_cts": app.state.kafka_producer_cts is not None,
-        "kafka_ej": app.state.kafka_producer_ej is not None,
         "session_service": app.state.session_service is not None,
     }
     # Only config_service and redis_cts are critical — rest degrade gracefully
