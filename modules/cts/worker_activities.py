@@ -128,8 +128,8 @@ class BoundCTSActivities:
         if key not in self._lot_managers:
             self._lot_managers[key] = LotManager(
                 bank_ifsc=bank_ifsc,
-                session_id=session_id,
-                session_date=datetime.now(timezone.utc),
+                clearing_date=datetime.now(timezone.utc),
+                clearing_slot=session_id,
             )
         return self._lot_managers[key]
 
