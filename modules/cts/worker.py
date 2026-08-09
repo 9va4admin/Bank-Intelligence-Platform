@@ -20,6 +20,7 @@ import structlog
 from shared.config.config_service import ConfigService
 from shared.config.exceptions import ConfigKeyNotFoundError
 from shared.observability.otel_setup import configure_otel
+from shared.temporal.converter import pydantic_data_converter
 
 log = structlog.get_logger()
 
@@ -364,6 +365,7 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
     client = await Client.connect(
         temporal_address,
         namespace=temporal_namespace,
+        data_converter=pydantic_data_converter,
     )
 
     # Processing worker — handles ChequeProcessingWorkflow + all other CTS workflows
