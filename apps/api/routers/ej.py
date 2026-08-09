@@ -11,30 +11,23 @@ from typing import Any, Literal, Optional
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict
+
+from apps.api.dependencies import require_user_context
 
 log = structlog.get_logger()
 
 router_v1 = APIRouter(prefix="/v1/ej", tags=["EJ v1"])
-
-_bearer = HTTPBearer(auto_error=False)
 
 
 # ---------------------------------------------------------------------------
 # Auth dependency
 # ---------------------------------------------------------------------------
 
-async def get_current_bank_id(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
-) -> str:
-    if credentials is None or not credentials.credentials:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
-    token = credentials.credentials
-    if token.startswith("test-token-"):
-        return token.removeprefix("test-token-")
-    # Production: decode JWT, validate signature, extract bank_id claim
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+def get_current_bank_id(request: Request) -> str:
+    """Extract bank_id from the verified session cookie (same gate as all other routers)."""
+    user = require_user_context(request)
+    return user.bank_id
 
 
 # ---------------------------------------------------------------------------

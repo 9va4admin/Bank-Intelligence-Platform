@@ -111,6 +111,7 @@ async def lifespan(app: FastAPI):
         app.state.redis_ej = None
 
     # --- Kafka producer: CTS topics (cts.inward, cts.decisions, cts.human_review ...) ---
+    kafka_servers = ""  # declared here so cache invalidator section can reference it safely
     try:
         kafka_servers = await config_service.get_secret("kafka.bootstrap_servers")
         app.state.kafka_producer_cts = KafkaEventProducer(
@@ -149,6 +150,18 @@ async def lifespan(app: FastAPI):
             command_timeout=30,
         )
         log.info("api_gateway.db_pool_cts_ready")
+        # In dev/staging: auto-create all management tables so the API starts
+        # clean without requiring a manual Alembic run. Production: tables are
+        # created by the Alembic K8s Job pre-deploy; this block is a no-op there
+        # because CREATE TABLE IF NOT EXISTS is safe to repeat.
+        if _env in ("development", "staging"):
+            try:
+                from apps.api.dev_auth_server import _DEV_SCHEMA_DDL  # type: ignore[import]
+                async with app.state.db_pool_cts.acquire() as _conn:
+                    await _conn.execute(_DEV_SCHEMA_DDL)
+                log.info("api_gateway.dev_schema_applied")
+            except Exception as _ddl_exc:
+                log.warning("api_gateway.dev_schema_failed", error=str(_ddl_exc))
     except Exception as exc:
         log.error("api_gateway.db_pool_cts_failed", error=str(exc))
         app.state.db_pool_cts = None
@@ -244,7 +257,7 @@ async def lifespan(app: FastAPI):
     try:
         from shared.event_bus.cache_invalidator import CacheInvalidator
         from shared.event_bus.consumer import KafkaEventConsumer
-        if app.state.redis_cts is not None:
+        if app.state.redis_cts is not None and kafka_servers:
             bank_id = config_service.bank_id
             invalidation_consumer = KafkaEventConsumer(
                 bootstrap_servers=kafka_servers,
@@ -328,8 +341,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT"],
-    allow_headers=["Authorization", "Content-Type", "X-Request-Id"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-Id", "X-CSRF-Token"],
 )
 
 # Security violations — catches TenantIsolationError / BankIsolationError, suspends user
