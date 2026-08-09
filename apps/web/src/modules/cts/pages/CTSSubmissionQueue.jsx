@@ -559,7 +559,7 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
 
   const confirmMutation = useMutation({
     mutationFn: async (instrumentId) => {
-      const res = await fetch(`/api/v1/cts/review/${encodeURIComponent(instrumentId)}/decide`, {
+      const res = await fetch(`/v1/cts/review/${encodeURIComponent(instrumentId)}/decide`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -579,7 +579,7 @@ export default function CTSSubmissionQueue({ mode = 'outward' }) {
 
   const returnMutation = useMutation({
     mutationFn: async ({ instrumentId, reason }) => {
-      const res = await fetch(`/api/v1/cts/review/${encodeURIComponent(instrumentId)}/decide`, {
+      const res = await fetch(`/v1/cts/review/${encodeURIComponent(instrumentId)}/decide`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

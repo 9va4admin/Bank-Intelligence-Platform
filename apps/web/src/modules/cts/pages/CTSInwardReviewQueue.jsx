@@ -407,7 +407,7 @@ export default function CTSInwardReviewQueue() {
   async function handleClaim(item) {
     setLoadingId(item.instrument_id)
     try {
-      await apiPost(`/api/v1/cts/review/${item.instrument_id}/claim`)
+      await apiPost(`/v1/cts/review/${item.instrument_id}/claim`)
       invalidate()
       showToast(`Claimed ${item.instrument_id}`)
     } catch (e) {
@@ -422,7 +422,7 @@ export default function CTSInwardReviewQueue() {
     setHoldTarget(null)
     setLoadingId(item.instrument_id)
     try {
-      await apiPost(`/api/v1/cts/holds/${item.instrument_id}`, {
+      await apiPost(`/v1/cts/holds/${item.instrument_id}`, {
         hold_reason: reason,
         iet_deadline: item.iet_deadline,
         branch_email: email,
@@ -441,7 +441,7 @@ export default function CTSInwardReviewQueue() {
   async function handleConfirm(item) {
     setLoadingId(item.instrument_id)
     try {
-      await apiPost(`/api/v1/cts/review/${item.instrument_id}/confirm`)
+      await apiPost(`/v1/cts/review/${item.instrument_id}/confirm`)
       invalidate()
       showToast(`Confirmed (PAY) ${item.instrument_id}`)
     } catch (e) {
@@ -456,7 +456,7 @@ export default function CTSInwardReviewQueue() {
     setReturnTarget(null)
     setLoadingId(item.instrument_id)
     try {
-      await apiPost(`/api/v1/cts/review/${item.instrument_id}/return`, { return_reason: returnReason })
+      await apiPost(`/v1/cts/review/${item.instrument_id}/return`, { return_reason: returnReason })
       invalidate()
       showToast(`Returned ${item.instrument_id} — ${returnReason}`)
     } catch (e) {

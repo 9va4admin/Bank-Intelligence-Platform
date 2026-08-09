@@ -98,7 +98,7 @@ export default function CTSVaultSync() {
 
   const syncMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/v1/cts/vault-sync/trigger', {
+      const res = await fetch('/v1/cts/vault-sync/trigger', {
         method: 'POST',
         credentials: 'include',
       })

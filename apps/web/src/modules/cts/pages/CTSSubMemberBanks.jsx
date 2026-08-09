@@ -35,7 +35,7 @@ function OnboardModal({ isDark, onClose, bankId }) {
 
   const registerMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/v1/cts/smb', {
+      const res = await fetch('/v1/cts/smb', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

@@ -311,7 +311,7 @@ export default function CTSSMBRegistry() {
 
   const syncMutation = useMutation({
     mutationFn: async (sub_member_id) => {
-      const res = await fetch(`/api/v1/cts/smb/${encodeURIComponent(sub_member_id)}/vault-sync`, {
+      const res = await fetch(`/v1/cts/smb/${encodeURIComponent(sub_member_id)}/vault-sync`, {
         method: 'POST',
         credentials: 'include',
       })
