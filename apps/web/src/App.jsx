@@ -63,7 +63,6 @@ import OpsDashboard from './modules/observability/pages/OpsDashboard'
 import ModelHealth from './modules/observability/pages/ModelHealth'
 import AlertLog from './modules/observability/pages/AlertLog'
 import SystemHealth from './modules/observability/pages/SystemHealth'
-import EJSchedules from './modules/ej/pages/EJSchedules'
 import UserManagement from './modules/admin/pages/UserManagement'
 import LoginLog from './modules/admin/pages/LoginLog'
 import SecurityViolations from './modules/admin/pages/SecurityViolations'
@@ -74,13 +73,6 @@ import Logout from './modules/auth/pages/Logout'
 import Profile from './modules/auth/pages/Profile'
 import { AuthProvider } from './shared/context/AuthContext'
 import RequireAuth from './shared/auth/RequireAuth'
-import { EJDashboard } from './modules/ej'
-import IncidentManagement from './modules/ej/pages/IncidentManagement'
-import ManagerPortal from './modules/ej/pages/ManagerPortal'
-import BREPolicyManager from './modules/ej/pages/BREPolicyManager'
-import NotificationCenter from './modules/ej/pages/NotificationCenter'
-import DisputeConsole from './modules/ej/pages/DisputeConsole'
-import ATMFleetMap from './modules/ej/pages/ATMFleetMap'
 import './index.css'
 
 export default function App() {
@@ -173,19 +165,6 @@ export default function App() {
         <Route path="/ops/model-health" element={<ModelHealth />} />
         <Route path="/ops/alerts"       element={<AlertLog />} />
         <Route path="/ops/system"       element={<SystemHealth />} />
-        {/* EJ module — own routes, no overlap with CTS */}
-        <Route path="/ej" element={<EJDashboard />} />
-        <Route path="/ej/incidents" element={<IncidentManagement />} />
-        <Route path="/ej/portal" element={<ManagerPortal />} />
-        <Route path="/ej/bre" element={<BREPolicyManager />} />
-        <Route path="/ej/disputes" element={<DisputeConsole />} />
-        <Route path="/ej/fleet" element={<ATMFleetMap />} />
-        <Route path="/ej/notifications" element={<NotificationCenter />} />
-        <Route path="/ej/schedules" element={<EJSchedules />} />
-        {/* EJ deep-links from landing page cards */}
-        <Route path="/fleet" element={<EJDashboard defaultTab="fleet" />} />
-        <Route path="/disputes" element={<EJDashboard defaultTab="disputes" />} />
-        <Route path="/audit" element={<ManagerPortal />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

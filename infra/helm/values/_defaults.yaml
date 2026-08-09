@@ -3,7 +3,6 @@
 # THIS FILE IS DOCUMENTATION ONLY — it is NOT loaded by Helm or ArgoCD.
 # Actual Layer 1 defaults live in: infra/helm/astra-platform/values.yaml
 #                                  infra/helm/astra-cts/values.yaml
-#                                  infra/helm/astra-ej/values.yaml
 #
 # Layer 3 defaults (iet_minutes, thresholds, etc.) are SEEDED into YugabyteDB
 # at bank onboarding from infra/helm/astra-cts/values.yaml thresholds: section.
@@ -205,15 +204,13 @@ layer3:
 #
 # Files to create (copy from example-bank and customise):
 #   infra/helm/values/banks/{bank_id}/platform.yaml
-#   infra/helm/values/banks/{bank_id}/cts.yaml      (if CTS purchased)
-#   infra/helm/values/banks/{bank_id}/ej.yaml       (if EJ purchased)
+#   infra/helm/values/banks/{bank_id}/cts.yaml
 #
 # Required fields in platform.yaml:
 #   bank_id:           {bank_id}
 #   global.bank_id:    {bank_id}
 #   global.registry:   registry.astra.internal
 #   modules.cts.enabled: true/false
-#   modules.ej.enabled:  true/false
 #   minio.endpoint:    minio.astra-platform-{bank_id}.svc.cluster.local:9000
 #   hsm.transit_key_name: astra-audit-key-{bank_id}
 #   astra.platform_chart_version: {current chart version}
