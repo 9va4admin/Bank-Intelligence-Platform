@@ -5,9 +5,29 @@
  * bank_type is immutable after creation — shown as read-only in edit mode.
  */
 import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
+
+const USE_MOCK = BANK_CONFIG.deployment_mode === 'DEMO'
+
+function getCsrf() { return sessionStorage.getItem('astra-csrf') || '' }
+
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(path, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrf(), ...opts.headers },
+    ...opts,
+  })
+  if (!res.ok) {
+    const b = await res.json().catch(() => ({}))
+    throw new Error(b.detail || `HTTP ${res.status}`)
+  }
+  if (res.status === 204) return null
+  return res.json()
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -330,12 +350,71 @@ function ConfirmModal({ title, message, confirmLabel, danger, isDark, onClose, o
 
 export default function UserManagement() {
   const { isDark } = useTheme()
-  const { bankMode } = useBankContext()
-  const [users, setUsers] = useState(MOCK_USERS)
-  // In SB_ONLY mode there are no SMB users — always stay on the SB tab
-  const [bankTypeTab, setBankTypeTab] = useState(bankMode === 'SB_ONLY' ? 'SB' : 'SB')   // 'SB' | 'SMB'
+  const { bankMode, bankId } = useBankContext()
+  const qc = useQueryClient()
+  const [bankTypeTab, setBankTypeTab] = useState('SB')
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState(null)
+
+  const { data: usersData } = useQuery({
+    queryKey: ['admin-users', bankId],
+    queryFn: () => USE_MOCK
+      ? Promise.resolve({ users: MOCK_USERS, total: MOCK_USERS.length })
+      : apiFetch('/v1/admin/users'),
+    staleTime: 30_000,
+  })
+  const users = usersData?.users ?? (USE_MOCK ? MOCK_USERS : [])
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['admin-users', bankId] })
+
+  const createMut = useMutation({
+    mutationFn: (body) => USE_MOCK
+      ? Promise.resolve({ ...body, user_id: `usr-${Date.now()}`, is_active: true, totp_enabled: false, last_login_at: null })
+      : apiFetch('/v1/admin/users', { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: invalidate,
+  })
+
+  const updateMut = useMutation({
+    mutationFn: ({ userId, body }) => USE_MOCK
+      ? Promise.resolve({})
+      : apiFetch(`/v1/admin/users/${userId}`, { method: 'PUT', body: JSON.stringify(body) }),
+    onSuccess: invalidate,
+  })
+
+  const deactivateMut = useMutation({
+    mutationFn: (userId) => USE_MOCK
+      ? Promise.resolve(null)
+      : apiFetch(`/v1/admin/users/${userId}`, { method: 'DELETE' }),
+    onSuccess: invalidate,
+  })
+
+  const totpResetMut = useMutation({
+    mutationFn: (userId) => USE_MOCK
+      ? Promise.resolve(null)
+      : apiFetch(`/v1/admin/users/${userId}/totp`, { method: 'DELETE' }),
+    onSuccess: invalidate,
+  })
+
+  const closeModal = () => setModal(null)
+
+  const handleSave = (form) => {
+    if (modal?.user) {
+      updateMut.mutate({ userId: modal.user.user_id, body: form })
+    } else {
+      createMut.mutate(form)
+    }
+    closeModal()
+  }
+
+  const handleDeactivate = (user) => {
+    deactivateMut.mutate(user.user_id)
+    closeModal()
+  }
+
+  const handleResetTOTP = (user) => {
+    totpResetMut.mutate(user.user_id)
+    closeModal()
+  }
 
   const th = {
     page:    isDark ? 'bg-navy-950' : 'bg-slate-50',
@@ -354,33 +433,8 @@ export default function UserManagement() {
   const tabUsers = users.filter(u => u.bank_type === bankTypeTab)
   const filtered = tabUsers.filter(u => {
     const q = search.toLowerCase()
-    return !q || u.display_name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+    return !q || u.display_name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q)
   })
-
-  const closeModal = () => setModal(null)
-
-  const handleSave = (form) => {
-    if (modal.user) {
-      setUsers(us => us.map(u => u.user_id === modal.user.user_id ? { ...u, ...form } : u))
-    } else {
-      const newUser = {
-        user_id: `usr-${String(users.length + 1).padStart(3, '0')}`,
-        ...form, is_active: true, totp_enabled: false, last_login: null,
-      }
-      setUsers(us => [...us, newUser])
-    }
-    closeModal()
-  }
-
-  const handleDeactivate = (user) => {
-    setUsers(us => us.map(u => u.user_id === user.user_id ? { ...u, is_active: false } : u))
-    closeModal()
-  }
-
-  const handleResetTOTP = (user) => {
-    setUsers(us => us.map(u => u.user_id === user.user_id ? { ...u, totp_enabled: false } : u))
-    closeModal()
-  }
 
   const sbCount  = users.filter(u => u.bank_type === 'SB').length
   const smbCount = users.filter(u => u.bank_type === 'SMB').length
@@ -501,7 +555,7 @@ export default function UserManagement() {
                             : (isDark ? 'bg-slate-800 text-slate-500 border-white/5' : 'bg-slate-100 text-slate-400 border-slate-200')
                         }`}>{u.is_active ? 'Active' : 'Inactive'}</span>
                       </td>
-                      <td className={`px-4 py-3 text-[11px] ${th.muted} font-mono`}>{fmt(u.last_login)}</td>
+                      <td className={`px-4 py-3 text-[11px] ${th.muted} font-mono`}>{fmt(u.last_login_at ?? u.last_login)}</td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2 justify-end">
                           <button onClick={() => setModal({ type: 'edit', user: u })} className={`text-[10px] px-2.5 py-1 rounded border transition-colors ${isDark ? 'border-white/10 text-slate-400 hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}>Edit</button>
