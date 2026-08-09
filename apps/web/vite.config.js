@@ -27,7 +27,7 @@ const demoCheques = {
 
 export default defineConfig({
   plugins: [react(), demoCheques],
-  base: '/Bank-Intelligence-Platform/',
+  base: process.env.VITE_BASE || '/Bank-Intelligence-Platform/',
   server: {
     port: 4000,
     proxy: {
