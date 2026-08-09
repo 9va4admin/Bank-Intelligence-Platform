@@ -10,8 +10,18 @@ Routes:
 All routes require JWT auth (bank_id extracted from token claim).
 No business logic — delegates to Temporal workflow client.
 """
+import re
 import time
 from typing import Literal, Optional
+
+_TEMPORAL_PARAM_RE = re.compile(r'^[a-zA-Z0-9\-_]{1,64}$')
+
+
+def _safe_temporal_param(value: str, field: str) -> str:
+    """Reject bank_id / smb_id values that could inject into a Temporal visibility query."""
+    if not _TEMPORAL_PARAM_RE.match(value):
+        raise ValueError(f"Invalid {field} for Temporal query: must be alphanumeric + hyphens/underscores, max 64 chars")
+    return value
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -390,13 +400,16 @@ async def get_human_review_queue(
         try:
             # Query Temporal for open HumanReviewWorkflow instances.
             # SMB users: add SmbId filter to enforce row-level isolation.
+            # Validate params to prevent Temporal visibility query injection.
+            safe_bank = _safe_temporal_param(eff_bank_id, "bank_id")
             query = (
                 f"WorkflowType = 'HumanReviewWorkflow' "
                 f"AND ExecutionStatus = 'Running' "
-                f"AND BankId = '{eff_bank_id}'"
+                f"AND BankId = '{safe_bank}'"
             )
             if smb_id_filter:
-                query += f" AND SmbId = '{smb_id_filter}'"
+                safe_smb = _safe_temporal_param(smb_id_filter, "smb_id")
+                query += f" AND SmbId = '{safe_smb}'"
 
             async for wf in temporal_client.list_workflows(query=query, page_size=limit):
                 memo = wf.memo or {}

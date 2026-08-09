@@ -324,6 +324,54 @@ class ChequeProcessingWorkflow:
                     parent_close_policy=ParentClosePolicy.ABANDON,
                 )
 
+            # SMB side effects — only for sub-member-tagged instruments on terminal STP decisions.
+            # HUMAN_REVIEW is not terminal here; HumanReviewWorkflow emits its own ledger entry.
+            if inp.smb_id and decision in ("STP_CONFIRM", "STP_RETURN"):
+                session_date = workflow.now().strftime("%Y%m%d")
+                clearing_session = inp.cts_config.get("clearing_session", "MORNING")
+                bucket = "STP_PASS" if decision == "STP_CONFIRM" else "STP_RETURN"
+
+                if decision == "STP_RETURN":
+                    try:
+                        await workflow.execute_activity(
+                            notify_sub_member_return,
+                            args=[
+                                inp.instrument_id,
+                                inp.bank_id,
+                                inp.smb_id,
+                                rationale,
+                                bucket,
+                                mask_amount(inp.presented_amount),
+                                inp.instrument_id[-4:],
+                            ],
+                            start_to_close_timeout=timedelta(seconds=30),
+                            retry_policy=_CBS_RETRY,
+                        )
+                    except Exception as exc:
+                        log.warning(
+                            "cheque_workflow.smb_notify_degraded",
+                            instrument_id=inp.instrument_id,
+                            bank_id=inp.bank_id,
+                            smb_id=inp.smb_id,
+                            error=str(exc),
+                        )
+
+                try:
+                    await workflow.execute_activity(
+                        emit_batch_ledger_update,
+                        args=[inp.bank_id, inp.smb_id, session_date, clearing_session, bucket],
+                        start_to_close_timeout=timedelta(seconds=30),
+                        retry_policy=_CBS_RETRY,
+                    )
+                except Exception as exc:
+                    log.warning(
+                        "cheque_workflow.smb_ledger_update_degraded",
+                        instrument_id=inp.instrument_id,
+                        bank_id=inp.bank_id,
+                        smb_id=inp.smb_id,
+                        error=str(exc),
+                    )
+
             log.info(
                 "cheque_workflow.complete",
                 instrument_id=inp.instrument_id, bank_id=inp.bank_id, decision=decision,

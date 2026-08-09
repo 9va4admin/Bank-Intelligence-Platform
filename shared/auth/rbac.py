@@ -219,7 +219,7 @@ class UserContext(BaseModel):
     user_id: str
     role: Role
     bank_id: str
-    bank_type: BankType = BankType.SB           # default SB for backward compat
+    bank_type: BankType                          # required — must be explicit in every JWT
     permission_level: PermissionLevel = PermissionLevel.READ_ONLY  # least-privilege default
     clearing_zones: list[str] = Field(default_factory=list)
     engagement_expires_at: Optional[float] = None

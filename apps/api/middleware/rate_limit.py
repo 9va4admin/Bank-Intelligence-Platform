@@ -106,9 +106,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         redis = getattr(request.app.state, "redis_cts", None)
 
         if redis is None:
-            # No Redis available — fail open, log warning
-            log.warning("rate_limit.redis_unavailable", path=path, slug=slug)
-            return await call_next(request)
+            log.error("rate_limit.redis_unavailable", path=path, slug=slug)
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "error_code": "RATE_LIMIT_UNAVAILABLE",
+                    "message": "Service temporarily unavailable — rate limit infrastructure down",
+                },
+            )
 
         with tracer.start_as_current_span("rate_limit.check") as span:
             span.set_attribute("endpoint_slug", slug)

@@ -116,8 +116,11 @@ class SAMLConnector(AuthConnector):
 
     async def _parse_and_validate_assertion(self, saml_response: str) -> dict[str, Any]:
         """Validate signature, timestamps, audience. Return attribute dict."""
-        raise NotImplementedError("wire real python3-saml or pysaml2 library")
+        raise AuthenticationError(
+            "SAML authentication is not yet configured for this deployment. "
+            "Contact bank IT admin to complete IdP integration."
+        )
 
     async def _ping_idp_metadata(self) -> bool:
         """Fetch IdP metadata URL; return True if 200."""
-        raise NotImplementedError
+        return False
