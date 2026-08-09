@@ -4,6 +4,8 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 
+function getCsrf() { return sessionStorage.getItem('astra-csrf') || '' }
+
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const CONNECTION_TYPES = [
@@ -579,7 +581,7 @@ export default function CTSMCPConfig() {
   const { data: connData, isLoading: connLoading } = useQuery({
     queryKey: ['mcp-connections', bankId],
     queryFn: async () => {
-      const res = await fetch('/api/v1/admin/mcp-connections/', { credentials: 'include' })
+      const res = await fetch('/v1/admin/mcp-connections/', { credentials: 'include' })
       if (!res.ok) throw new Error('Failed to load connections')
       return res.json()
     },
@@ -591,11 +593,11 @@ export default function CTSMCPConfig() {
   const saveMutation = useMutation({
     mutationFn: async (form) => {
       const url = editRow
-        ? `/api/v1/admin/mcp-connections/${encodeURIComponent(editRow.id)}`
-        : '/api/v1/admin/mcp-connections/'
+        ? `/v1/admin/mcp-connections/${encodeURIComponent(editRow.id)}`
+        : '/v1/admin/mcp-connections/'
       const res = await fetch(url, {
         method: editRow ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrf() },
         credentials: 'include',
         body: JSON.stringify(form),
       })
@@ -617,8 +619,9 @@ export default function CTSMCPConfig() {
 
   const testMutation = useMutation({
     mutationFn: async (id) => {
-      const res = await fetch(`/api/v1/admin/mcp-connections/${encodeURIComponent(id)}/test`, {
+      const res = await fetch(`/v1/admin/mcp-connections/${encodeURIComponent(id)}/test`, {
         method: 'POST', credentials: 'include',
+        headers: { 'X-CSRF-Token': getCsrf() },
       })
       if (!res.ok) throw new Error('Test request failed')
       return res.json()
@@ -646,8 +649,9 @@ export default function CTSMCPConfig() {
 
   const syncMutation = useMutation({
     mutationFn: async (id) => {
-      const res = await fetch(`/api/v1/admin/mcp-connections/${encodeURIComponent(id)}/sync`, {
+      const res = await fetch(`/v1/admin/mcp-connections/${encodeURIComponent(id)}/sync`, {
         method: 'POST', credentials: 'include',
+        headers: { 'X-CSRF-Token': getCsrf() },
       })
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'Sync trigger failed') }
       return res.json()
@@ -670,8 +674,9 @@ export default function CTSMCPConfig() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
-      const res = await fetch(`/api/v1/admin/mcp-connections/${encodeURIComponent(id)}`, {
+      const res = await fetch(`/v1/admin/mcp-connections/${encodeURIComponent(id)}`, {
         method: 'DELETE', credentials: 'include',
+        headers: { 'X-CSRF-Token': getCsrf() },
       })
       if (!res.ok) throw new Error('Delete failed')
     },
