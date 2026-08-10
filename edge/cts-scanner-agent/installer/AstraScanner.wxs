@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ASTRA CTS Scanner Agent — WiX v4 Installer
+  Build command (from build.ps1 -BuildInstaller):
+    wix build AstraScanner.wxs -define ExePath=staging\cts-scanner-bridge.exe -define Version=1.0.0 -out dist\AstraScanner-Setup-v1.0.0.msi
+
+  Silent install (enterprise GPO / SCCM deployment):
+    msiexec /i AstraScanner-Setup-v1.0.0.msi /quiet \
+      ASTRA_API_URL="https://api.astra.bank.internal" \
+      BANK_ID="saraswat-coop" \
+      BANK_IFSC="SARAS0001001" \
+      OPERATOR_ID="scanner-1" \
+      SESSION_PREFIX="MUM-AM" \
+      SCANNER_PORT="USB" \
+      ENDORSEMENT_TEXT="ASTRA/CTS/SARASWAT" \
+      ENABLE_UV="0" \
+      ENABLE_IMPRINTER="1"
+
+  ASTRA_API_TOKEN is NOT in this installer (stored via Credential Manager separately).
+  After MSI install, the bank IT admin runs:
+    cmdkey /add:AstraScannerAgent /user:scanner /pass:<token-from-admin-ui>
+  The token is then injected via the service registry — see CustomAction below.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <Package
+    Name="ASTRA CTS Scanner Agent"
+    Manufacturer="ASTRA (9va4admin)"
+    Version="!(bind.FileVersion.CtsScannerBridge)"
+    UpgradeCode="3FA1B2C4-7D8E-4A9F-B0C1-D2E3F4A5B6C7"
+    Scope="perMachine"
+    InstallerVersion="500">
+
+    <!-- Allow upgrades; block older installer over newer installation -->
+    <MajorUpgrade
+      AllowSameVersionUpgrades="no"
+      DowngradeErrorMessage="A newer version of ASTRA CTS Scanner Agent is already installed." />
+
+    <!-- Properties filled by the installer UI or /quiet command line -->
+    <Property Id="ASTRA_API_URL"      Value="" />
+    <Property Id="BANK_ID"            Value="" />
+    <Property Id="BANK_IFSC"          Value="" />
+    <Property Id="OPERATOR_ID"        Value="scanner-agent" />
+    <Property Id="SESSION_PREFIX"     Value="CTS" />
+    <Property Id="SCANNER_PORT"       Value="USB" />
+    <Property Id="ENDORSEMENT_TEXT"   Value="ASTRA/CTS" />
+    <Property Id="ENABLE_UV"          Value="0" />
+    <Property Id="ENABLE_IMPRINTER"   Value="1" />
+    <Property Id="LISTEN_ADDR"        Value=":9201" />
+
+    <!-- Validate required properties before install -->
+    <Condition Message="ASTRA API URL is required. Pass ASTRA_API_URL=https://... on the command line or fill the installer form.">
+      <![CDATA[Installed OR ASTRA_API_URL <> ""]]>
+    </Condition>
+    <Condition Message="Bank ID is required. Pass BANK_ID=... on the command line or fill the installer form.">
+      <![CDATA[Installed OR BANK_ID <> ""]]>
+    </Condition>
+    <Condition Message="Bank IFSC code is required. Pass BANK_IFSC=... on the command line or fill the installer form.">
+      <![CDATA[Installed OR BANK_IFSC <> ""]]>
+    </Condition>
+
+    <!-- ── Directory layout ─────────────────────────────────────────────── -->
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="ASTRA_DIR" Name="ASTRA">
+        <Directory Id="INSTALLFOLDER" Name="Scanner Agent" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ASTRA_MENU" Name="ASTRA" />
+    </StandardDirectory>
+
+    <!-- ── Feature ──────────────────────────────────────────────────────── -->
+    <Feature Id="ProductFeature" Title="ASTRA CTS Scanner Agent" Level="1">
+      <ComponentGroupRef Id="ScannerAgentComponents" />
+    </Feature>
+
+    <!-- ── UI ───────────────────────────────────────────────────────────── -->
+    <UI>
+      <UIRef Id="WixUI_Minimal" />
+    </UI>
+
+    <!-- ── Sequences: run CustomAction after InstallFiles ───────────────── -->
+    <InstallExecuteSequence>
+      <Custom Action="ConfigureServiceEnv" After="InstallFiles">NOT Installed</Custom>
+      <Custom Action="RemoveServiceEnv"    Before="RemoveFiles">Installed AND NOT UPGRADINGPRODUCTCODE</Custom>
+    </InstallExecuteSequence>
+
+    <!-- ── CustomAction: write env vars into Windows service registry ───── -->
+    <!--
+      Windows reads service env vars from:
+        HKLM\SYSTEM\CurrentControlSet\Services\AstraScannerAgent\Environment
+      as REG_MULTI_SZ — one "KEY=VALUE" string per line.
+      This is service-process-only; not visible to other user sessions.
+    -->
+    <CustomAction
+      Id="ConfigureServiceEnv"
+      Directory="INSTALLFOLDER"
+      ExeCommand="powershell.exe -NonInteractive -ExecutionPolicy Bypass -Command &quot;
+        $svcPath = 'HKLM:\SYSTEM\CurrentControlSet\Services\AstraScannerAgent';
+        if (Test-Path $svcPath) {
+          $env_vars = @(
+            'ASTRA_API_URL=[ASTRA_API_URL]',
+            'BANK_ID=[BANK_ID]',
+            'BANK_IFSC=[BANK_IFSC]',
+            'OPERATOR_ID=[OPERATOR_ID]',
+            'SESSION_PREFIX=[SESSION_PREFIX]',
+            'SCANNER_PORT=[SCANNER_PORT]',
+            'ENDORSEMENT_TEXT=[ENDORSEMENT_TEXT]',
+            'ENABLE_UV_SCAN=[ENABLE_UV]',
+            'ENABLE_IMPRINTER=[ENABLE_IMPRINTER]',
+            'LISTEN_ADDR=[LISTEN_ADDR]'
+          );
+          Set-ItemProperty -Path $svcPath -Name Environment -Value $env_vars -Type MultiString;
+        }
+      &quot;"
+      Return="check"
+      Impersonate="no" />
+
+    <CustomAction
+      Id="RemoveServiceEnv"
+      Directory="INSTALLFOLDER"
+      ExeCommand="powershell.exe -NonInteractive -ExecutionPolicy Bypass -Command &quot;
+        $svcPath = 'HKLM:\SYSTEM\CurrentControlSet\Services\AstraScannerAgent';
+        if (Test-Path $svcPath) {
+          Remove-ItemProperty -Path $svcPath -Name Environment -ErrorAction SilentlyContinue;
+        }
+      &quot;"
+      Return="ignore"
+      Impersonate="no" />
+
+  </Package>
+
+  <!-- ── Components ──────────────────────────────────────────────────────── -->
+  <Fragment>
+    <ComponentGroup Id="ScannerAgentComponents" Directory="INSTALLFOLDER">
+
+      <!-- Main executable -->
+      <Component Id="CtsScannerBridge" Guid="A1B2C3D4-E5F6-7890-ABCD-EF0123456789">
+        <File
+          Id="CtsScannerBridge"
+          Name="cts-scanner-bridge.exe"
+          Source="!(bind.SourceDir)\cts-scanner-bridge.exe"
+          KeyPath="yes" />
+
+        <!-- Windows service registration -->
+        <ServiceInstall
+          Id="AstraScannerService"
+          Name="AstraScannerAgent"
+          DisplayName="ASTRA CTS Scanner Agent"
+          Description="ASTRA Cheque Truncation System — scanner bridge service for Canon CR-120. Submits scanned cheques to the ASTRA CTS API."
+          Type="ownProcess"
+          Start="auto"
+          ErrorControl="normal"
+          Account="LocalSystem" />
+
+        <ServiceControl
+          Id="AstraScannerServiceControl"
+          Name="AstraScannerAgent"
+          Start="install"
+          Stop="both"
+          Remove="uninstall"
+          Wait="yes" />
+      </Component>
+
+      <!-- README for bank IT -->
+      <Component Id="ReadmeComponent" Guid="B2C3D4E5-F6A7-8901-BCDE-F01234567890">
+        <File
+          Id="ReadmeFile"
+          Name="README.txt"
+          Source="$(sys.SOURCEFILEPATH)\..\README-install.txt"
+          KeyPath="yes" />
+      </Component>
+
+    </ComponentGroup>
+  </Fragment>
+
+</Wix>

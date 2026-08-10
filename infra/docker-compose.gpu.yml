@@ -1,0 +1,187 @@
+# ASTRA GPU Inference Stack — Server 3 (Ubuntu 22.04 + NVIDIA GPU)
+#
+# Three vLLM containers, one per AI queue.
+# Each container is assigned a specific GPU (or GPU subset) to prevent contention.
+#
+# Start with: docker compose -f infra/docker-compose.gpu.yml up -d
+# Requires:
+#   - NVIDIA Container Toolkit installed
+#   - MODEL_BASE_DIR env var set (or /etc/astra-gpu.env)
+#     MODEL_BASE_DIR=/data/astra/models
+#
+# GPU assignment (adjust GPU_DEVICES_* below for your hardware):
+#   Pilot  (4× RTX 4090 24GB): 0→vision, 1→reasoning, 2→ocr, 3→spare
+#   Production (4× A100 80GB): 0,1→vision, 2,3→reasoning  (ocr shares reasoning GPU)
+#
+# vLLM exposes OpenAI-compatible API:
+#   POST /v1/chat/completions  (vision + reasoning)
+#   POST /v1/completions       (ocr)
+# ASTRA API talks to these endpoints via CTS_VISION_URL / CTS_REASONING_URL / CTS_OCR_URL
+# defined in infra/docker-compose.pilot.yml or bank Helm values.
+
+x-vllm-common: &vllm-common
+  image: vllm/vllm-openai:v0.6.4
+  restart: unless-stopped
+  ipc: host           # shared memory between GPU processes
+  ulimits:
+    memlock:
+      soft: -1
+      hard: -1
+    stack: 67108864
+  volumes:
+    - ${MODEL_BASE_DIR:-/data/astra/models}:/models:ro
+  environment:
+    - VLLM_WORKER_MULTIPROC_METHOD=spawn
+    - NCCL_DEBUG=WARN
+    - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+  healthcheck:
+    test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+    interval: 30s
+    timeout: 10s
+    retries: 20         # model loading takes 3-8 minutes; be patient
+    start_period: 600s
+
+services:
+
+  # ── cts-vision: Qwen2-VL 72B AWQ ──────────────────────────────────────────
+  # Handles: cheque image analysis, alteration detection, field extraction
+  # Queue:   cts-vision
+  # Port:    8100 on host (maps to 8000 in container)
+  astra-vllm-vision:
+    <<: *vllm-common
+    container_name: astra-vllm-vision
+    ports:
+      - "127.0.0.1:8100:8000"   # localhost only — not exposed to bank network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_DEVICES_VISION:-0}"]
+              capabilities: [gpu]
+    command: >
+      --model /models/qwen2-vl-72b-awq
+      --served-model-name qwen2-vl-72b-awq
+      --quantization awq
+      --dtype auto
+      --max-model-len 8192
+      --max-num-seqs 32
+      --tensor-parallel-size ${TP_VISION:-1}
+      --gpu-memory-utilization 0.92
+      --disable-log-requests
+      --port 8000
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 600s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+        labels: "service=astra-vllm-vision,queue=cts-vision"
+
+  # ── cts-reasoning: Llama 3.3 70B AWQ-INT4 ─────────────────────────────────
+  # Handles: fraud synthesis, decision explanation, SHAP narrative generation
+  # Queue:   cts-reasoning
+  # Port:    8101 on host
+  astra-vllm-reasoning:
+    <<: *vllm-common
+    container_name: astra-vllm-reasoning
+    ports:
+      - "127.0.0.1:8101:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_DEVICES_REASONING:-1}"]
+              capabilities: [gpu]
+    command: >
+      --model /models/llama-3.3-70b-awq-int4
+      --served-model-name llama-3.3-70b-awq-int4
+      --quantization awq
+      --dtype auto
+      --max-model-len 4096
+      --max-num-seqs 64
+      --tensor-parallel-size ${TP_REASONING:-1}
+      --gpu-memory-utilization 0.90
+      --disable-log-requests
+      --port 8000
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 480s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+        labels: "service=astra-vllm-reasoning,queue=cts-reasoning"
+
+  # ── cts-ocr: GOT-OCR2.0 ────────────────────────────────────────────────────
+  # Handles: MICR line OCR, handwriting extraction, amount field OCR
+  # Queue:   cts-ocr
+  # Port:    8102 on host
+  # Note: GOT-OCR2 uses transformers chat template, not vLLM chat/completions.
+  #       ASTRA OCR activity calls /v1/completions with special prompt format.
+  astra-vllm-ocr:
+    <<: *vllm-common
+    container_name: astra-vllm-ocr
+    ports:
+      - "127.0.0.1:8102:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_DEVICES_OCR:-2}"]
+              capabilities: [gpu]
+    command: >
+      --model /models/got-ocr2
+      --served-model-name got-ocr2
+      --dtype float16
+      --max-model-len 2048
+      --max-num-seqs 32
+      --tensor-parallel-size ${TP_OCR:-1}
+      --gpu-memory-utilization 0.85
+      --disable-log-requests
+      --trust-remote-code
+      --port 8000
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 180s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+        labels: "service=astra-vllm-ocr,queue=cts-ocr"
+
+# ── Notes ──────────────────────────────────────────────────────────────────────
+#
+# To override GPU assignment and tensor parallel size via env file:
+#   GPU_DEVICES_VISION=0,1
+#   GPU_DEVICES_REASONING=2,3
+#   GPU_DEVICES_OCR=2
+#   TP_VISION=2
+#   TP_REASONING=2
+#   TP_OCR=1
+#
+# For 4× A100 80GB (production) recommended settings:
+#   TP_VISION=2, GPU_DEVICES_VISION=0,1
+#   TP_REASONING=2, GPU_DEVICES_REASONING=2,3
+#   GOT-OCR2 shares GPU 2 (small model — only ~2 GB VRAM)
+#
+# For 4× RTX 4090 24GB (pilot) recommended settings:
+#   TP_VISION=1, GPU_DEVICES_VISION=0     (36GB AWQ fits in 24GB VRAM via AWQ)
+#   TP_REASONING=1, GPU_DEVICES_REASONING=1
+#   TP_OCR=1, GPU_DEVICES_OCR=2
+#   GPU 3 spare / for Siamese signature model
