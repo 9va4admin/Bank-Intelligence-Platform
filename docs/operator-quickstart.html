@@ -1,0 +1,512 @@
+<title>ASTRA CTS — Operator Quick-Start Guide</title>
+<style>
+/* ── Design tokens ─────────────────────────────────────────────────────── */
+:root {
+  --bg:         #F6F5F2;
+  --surface:    #FFFFFF;
+  --border:     #DDD9D0;
+  --border-faint: #EAE8E4;
+  --text:       #1B1E2D;
+  --text-2:     #5B6070;
+  --text-3:     #8B8F9E;
+  --accent:     #1554C2;
+  --accent-dim: #E8EEFA;
+  --green:      #0B6B3A;
+  --green-bg:   #E6F4ED;
+  --red:        #C0311E;
+  --red-bg:     #FAEAE8;
+  --amber:      #8A5A00;
+  --amber-bg:   #FFF3D6;
+  --mono:       'Consolas', 'Monaco', 'Courier New', monospace;
+  --sans:       'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:         #0D0F19;
+    --surface:    #1C2035;
+    --border:     #2E3350;
+    --border-faint: #242740;
+    --text:       #E2E4EF;
+    --text-2:     #8B8FA8;
+    --text-3:     #5C6078;
+    --accent:     #4E87E8;
+    --accent-dim: #1B2A4A;
+    --green:      #3DAA78;
+    --green-bg:   #0B261A;
+    --red:        #E06A58;
+    --red-bg:     #2A0F0C;
+    --amber:      #D4A230;
+    --amber-bg:   #231A08;
+  }
+}
+
+:root[data-theme="light"] {
+  --bg:         #F6F5F2;
+  --surface:    #FFFFFF;
+  --border:     #DDD9D0;
+  --border-faint: #EAE8E4;
+  --text:       #1B1E2D;
+  --text-2:     #5B6070;
+  --text-3:     #8B8F9E;
+  --accent:     #1554C2;
+  --accent-dim: #E8EEFA;
+  --green:      #0B6B3A;
+  --green-bg:   #E6F4ED;
+  --red:        #C0311E;
+  --red-bg:     #FAEAE8;
+  --amber:      #8A5A00;
+  --amber-bg:   #FFF3D6;
+}
+
+:root[data-theme="dark"] {
+  --bg:         #0D0F19;
+  --surface:    #1C2035;
+  --border:     #2E3350;
+  --border-faint: #242740;
+  --text:       #E2E4EF;
+  --text-2:     #8B8FA8;
+  --text-3:     #5C6078;
+  --accent:     #4E87E8;
+  --accent-dim: #1B2A4A;
+  --green:      #3DAA78;
+  --green-bg:   #0B261A;
+  --red:        #E06A58;
+  --red-bg:     #2A0F0C;
+  --amber:      #D4A230;
+  --amber-bg:   #231A08;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--sans);
+  font-size: 13.5px;
+  line-height: 1.6;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 32px 24px 48px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-bottom: 18px;
+  border-bottom: 2px solid var(--accent);
+  margin-bottom: 24px;
+}
+
+.header-left { display: flex; flex-direction: column; gap: 3px; }
+
+.wordmark {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--text);
+}
+.wordmark span { color: var(--accent); }
+
+.doc-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  margin-top: 2px;
+}
+
+.header-right {
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.7;
+  font-family: var(--mono);
+}
+
+.role-strip {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.role-pill {
+  padding: 3px 10px;
+  border-radius: 2px;
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 16px 18px 18px;
+}
+
+.section-full { grid-column: 1 / -1; }
+
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 13px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-faint);
+}
+
+.section-letter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.section-name {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.steps { display: flex; flex-direction: column; gap: 8px; }
+
+.step {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.step-n {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+}
+
+.step-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.step-text strong { font-weight: 600; color: var(--text); }
+
+.step-text code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 2px;
+  color: var(--accent);
+  border: 1px solid var(--border);
+}
+
+.decision-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.decision-card {
+  padding: 10px 12px;
+  border-left: 3px solid;
+}
+
+.decision-card.approve { background: var(--green-bg); border-color: var(--green); }
+.decision-card.reject  { background: var(--red-bg);   border-color: var(--red); }
+.decision-card.escalate{ background: var(--amber-bg); border-color: var(--amber); }
+
+.decision-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.approve .decision-label  { color: var(--green); }
+.reject  .decision-label  { color: var(--red); }
+.escalate .decision-label { color: var(--amber); }
+
+.decision-body {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.issue-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.issue-table tr + tr td { border-top: 1px solid var(--border-faint); }
+
+.issue-table td {
+  padding: 7px 8px;
+  vertical-align: top;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.issue-table td:first-child {
+  font-weight: 600;
+  width: 38%;
+  white-space: nowrap;
+  padding-right: 12px;
+}
+
+.issue-table td:last-child { color: var(--text-2); }
+
+.support-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 2px;
+}
+
+.support-item { display: flex; flex-direction: column; gap: 3px; }
+
+.support-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.support-value {
+  font-size: 13px;
+  color: var(--text);
+  font-family: var(--mono);
+}
+
+.note {
+  background: var(--accent-dim);
+  border-left: 3px solid var(--accent);
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-2);
+  margin-top: 10px;
+  line-height: 1.5;
+}
+.note strong { color: var(--accent); }
+
+.footer {
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-faint);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.footer-left { display: flex; flex-direction: column; gap: 2px; }
+
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 11px;
+  font-family: var(--sans);
+  padding: 4px 10px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+}
+.theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+@media print {
+  body { background: #fff; }
+  .page { padding: 16px; }
+  .theme-toggle { display: none; }
+  .section { break-inside: avoid; }
+  :root, :root[data-theme="dark"], :root[data-theme="light"] {
+    --bg: #fff; --surface: #fff; --border: #ccc; --border-faint: #e5e5e5;
+    --text: #111; --text-2: #444; --text-3: #888; --accent: #1044A0;
+    --accent-dim: #EEF2FF; --green: #0B6B3A; --green-bg: #EBF5F0;
+    --red: #B02A1A; --red-bg: #FDF0EE; --amber: #7A4F00; --amber-bg: #FFF8E6;
+  }
+}
+</style>
+
+<div class="page">
+  <header class="header">
+    <div class="header-left">
+      <div class="wordmark">ASTRA <span>CTS</span></div>
+      <div class="doc-title">Operator Quick-Start Guide</div>
+    </div>
+    <div class="header-right">
+      Automated Settlement &amp; Transaction<br>
+      Recognition Architecture · v1.0<br>
+      Confidential — Banking Grade
+    </div>
+  </header>
+
+  <div class="role-strip">
+    <div class="role-pill">Ops Reviewer</div>
+    <div class="role-pill">Teller / Scanner Operator</div>
+    <div class="role-pill">Fraud Analyst</div>
+  </div>
+
+  <div class="grid">
+
+    <div class="section">
+      <div class="section-head">
+        <div class="section-letter">A</div>
+        <div class="section-name">Login</div>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-text">Open browser → go to <code>http://&lt;server-ip&gt;</code> (ask IT for the address)</div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-text">Enter your <strong>username</strong> (bank email) and <strong>password</strong></div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-text">Enter the <strong>6-digit OTP</strong> from your authenticator app (or SMS)</div></div>
+        <div class="step"><div class="step-n">4</div><div class="step-text">You are now on the <strong>Dashboard</strong>. Your role and branch appear top-right</div></div>
+      </div>
+      <div class="note"><strong>Session expires</strong> after 15 min of inactivity. You will be logged out automatically.</div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <div class="section-letter">B</div>
+        <div class="section-name">Start Scanner Session</div>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-text">Ensure the Canon CR-120 is powered on and the green LED is steady</div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-text">Navigate to <strong>CTS → Outward → New Session</strong></div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-text">Enter the <strong>Session ID</strong> (given by your supervisor) and click <strong>Start Session</strong></div></div>
+        <div class="step"><div class="step-n">4</div><div class="step-text">Feed cheques face-up. The system displays each cheque's MICR line and status in real time</div></div>
+        <div class="step"><div class="step-n">5</div><div class="step-text">When all cheques are scanned, click <strong>End Session</strong>. Do not power off the scanner first</div></div>
+      </div>
+    </div>
+
+    <div class="section section-full">
+      <div class="section-head">
+        <div class="section-letter">C</div>
+        <div class="section-name">Inward Queue — Review &amp; Decision</div>
+      </div>
+      <div class="steps" style="margin-bottom:14px;">
+        <div class="step"><div class="step-n">1</div><div class="step-text">Go to <strong>CTS → Inward → Review Queue</strong>. Cheques requiring human review appear here (AI confidence below threshold)</div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-text">Click a cheque row to open it. Review: <strong>front &amp; rear images</strong>, MICR line, AI fraud score, SHAP explanation, stop-payment status</div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-text">Select your decision below and add a <strong>reason</strong> (required for non-STP decisions)</div></div>
+      </div>
+      <div class="decision-row">
+        <div class="decision-card approve">
+          <div class="decision-label">Approve (STP)</div>
+          <div class="decision-body">Cheque passes all checks. Click <strong>Approve</strong>. Filed to NGCH automatically. Cannot be reversed once filed.</div>
+        </div>
+        <div class="decision-card reject">
+          <div class="decision-label">Return</div>
+          <div class="decision-body">Select a <strong>Return Reason</strong> from the list (RBI-standard codes). Instrument returned to presenting bank via NGCH.</div>
+        </div>
+        <div class="decision-card escalate">
+          <div class="decision-label">Escalate</div>
+          <div class="decision-body">Refer to <strong>Branch Manager</strong> or <strong>Fraud Analyst</strong>. Escalate before the <strong>IET countdown</strong> reaches 0.</div>
+        </div>
+      </div>
+      <div class="note" style="margin-top:12px;"><strong>IET Timer</strong> — the countdown in red next to each cheque is the RBI-mandated decision deadline. If it reaches zero, the system auto-files. Never leave a cheque unreviewed when the timer is under 5 minutes.</div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <div class="section-letter">D</div>
+        <div class="section-name">Escalation Procedure</div>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-text">Open the cheque → click <strong>Escalate</strong></div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-text">Select recipient: <strong>Branch Manager</strong> (fraud / high value) or <strong>Fraud Analyst</strong> (AI uncertainty)</div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-text">Type escalation note (minimum 20 characters). Click <strong>Send Escalation</strong></div></div>
+        <div class="step"><div class="step-n">4</div><div class="step-text">The cheque moves to the recipient's queue. You are notified by <strong>WhatsApp</strong> when a decision is made</div></div>
+        <div class="step"><div class="step-n">5</div><div class="step-text">If the IET countdown is under <strong>10 minutes</strong>, call the Branch Manager directly — do not rely on notifications alone</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <div class="section-letter">E</div>
+        <div class="section-name">Common Issues</div>
+      </div>
+      <table class="issue-table">
+        <tbody>
+          <tr><td>Scanner not detecting cheque</td><td>Check green LED steady; restart scanner; re-seat USB cable; call IT if persists</td></tr>
+          <tr><td>MICR read error on cheque</td><td>Re-feed the cheque once. If fails again, mark as <em>MICR Fail</em> and escalate</td></tr>
+          <tr><td>"Session already active"</td><td>Another terminal has an open session. Click <strong>View Active Sessions</strong> and confirm with supervisor</td></tr>
+          <tr><td>Login OTP not received</td><td>Wait 60 s, then click <strong>Resend OTP</strong>. Still failing → call IT Helpdesk</td></tr>
+          <tr><td>Cheque queue is empty</td><td>Normal — no cheques in your zone for this session. Check with clearing supervisor</td></tr>
+          <tr><td>"Vault miss — human review"</td><td>Signature not on record. Escalate to Branch Manager for manual signature verification</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section section-full">
+      <div class="section-head">
+        <div class="section-letter">F</div>
+        <div class="section-name">Support Contacts</div>
+      </div>
+      <div class="support-grid">
+        <div class="support-item">
+          <div class="support-label">IT Helpdesk (bank internal)</div>
+          <div class="support-value">Ext. 4000 / helpdesk@bank.internal</div>
+        </div>
+        <div class="support-item">
+          <div class="support-label">ASTRA Support (vendor)</div>
+          <div class="support-value">support@9va4.in</div>
+        </div>
+        <div class="support-item">
+          <div class="support-label">WhatsApp Escalation Group</div>
+          <div class="support-value">ASTRA-CTS-OPS (pinned)</div>
+        </div>
+        <div class="support-item">
+          <div class="support-label">Clearing Supervisor</div>
+          <div class="support-value">Ext. 4100</div>
+        </div>
+        <div class="support-item">
+          <div class="support-label">For IET emergencies</div>
+          <div class="support-value" style="color:var(--red);font-weight:600;">Ext. 4100 (direct call — do not email)</div>
+        </div>
+        <div class="support-item">
+          <div class="support-label">Email subject format</div>
+          <div class="support-value">[ASTRA] &lt;Bank&gt; &lt;Branch IFSC&gt; &lt;Issue&gt;</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer class="footer">
+    <div class="footer-left">
+      <div>ASTRA v1.0 · Confidential — For authorised bank staff only</div>
+      <div>Nilesh Shah · Ex-NPCI · Piramal · Fullerton/SMFG · 9va4admin</div>
+    </div>
+    <button class="theme-toggle" onclick="
+      const cur = document.documentElement.getAttribute('data-theme');
+      document.documentElement.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+    ">Toggle theme</button>
+  </footer>
+</div>
