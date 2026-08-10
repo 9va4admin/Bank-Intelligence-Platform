@@ -59,7 +59,8 @@ from modules.cts.workflows.activities.alteration import AlterationActivityInput
 from modules.cts.workflows.activities.cbs import CBSActivityInput
 from modules.cts.workflows.activities.decision import DecisionInput
 from modules.cts.workflows.activities.fraud import FraudActivityInput
-from modules.cts.workflows.activities.kill_switch_lookup import KillSwitchLookupInput
+from modules.cts.workflows.activities.kill_switch_lookup import KillSwitchLookupInput, KillSwitchLookupResult
+from modules.cts.kill_switch.vision_ai_kill_switch import KillSwitchStatus
 from modules.cts.workflows.activities.ngch_filer import NGCHFilerInput
 from modules.cts.workflows.activities.ocr import OCRActivityInput
 from modules.cts.workflows.activities.outward_scan_activities import (
@@ -238,9 +239,19 @@ class BoundCTSActivities:
         return await _real(inp, config_service=self._config_service, orchestrator=self._orchestrator)
 
     @activity.defn(name="detect_alteration")
-    async def detect_alteration(self, inp: AlterationActivityInput, kill_switch_status=None):
+    async def detect_alteration(self, inp: AlterationActivityInput, ks_lookup: Optional[KillSwitchLookupResult] = None):
         from modules.cts.workflows.activities.alteration import detect_alteration as _real
-        # hsm intentionally omitted — no real implementation exists yet.
+        from modules.cts.kill_switch.vision_ai_kill_switch import KillMode, KillScope
+        # Workflow passes KillSwitchLookupResult (Pydantic) — convert to KillSwitchStatus dataclass here
+        kill_switch_status: Optional[KillSwitchStatus] = None
+        if ks_lookup is not None:
+            if isinstance(ks_lookup, dict):
+                ks_lookup = KillSwitchLookupResult(**ks_lookup)
+            kill_switch_status = KillSwitchStatus(
+                mode=KillMode(ks_lookup.mode),
+                scope=KillScope(ks_lookup.scope) if ks_lookup.scope else None,
+                smb_id=ks_lookup.smb_id,
+            )
         return await _real(
             inp,
             kill_switch_status=kill_switch_status,
@@ -268,13 +279,21 @@ class BoundCTSActivities:
     # ------------------------------------------------------------------
 
     @activity.defn(name="synthesise_decision")
-    async def synthesise_decision(self, inp: DecisionInput, config: dict, kill_switch_status=None):
+    async def synthesise_decision(self, inp: DecisionInput, config: dict, ks_lookup: Optional[KillSwitchLookupResult] = None):
         from modules.cts.workflows.activities.decision import synthesise_decision as _real
-        # config is forwarded from ChequeWorkflowInput.cts_config.  When the
-        # API caller didn't populate it (empty dict), fetch it here so the
-        # activity always has real thresholds rather than raising KeyError.
+        from modules.cts.kill_switch.vision_ai_kill_switch import KillMode, KillScope
         if not config:
             config = await self._config_service.get_cts_config(inp.bank_id)
+        # Workflow passes KillSwitchLookupResult (Pydantic) — convert to KillSwitchStatus dataclass here
+        kill_switch_status: Optional[KillSwitchStatus] = None
+        if ks_lookup is not None:
+            if isinstance(ks_lookup, dict):
+                ks_lookup = KillSwitchLookupResult(**ks_lookup)
+            kill_switch_status = KillSwitchStatus(
+                mode=KillMode(ks_lookup.mode),
+                scope=KillScope(ks_lookup.scope) if ks_lookup.scope else None,
+                smb_id=ks_lookup.smb_id,
+            )
         return await _real(
             inp, config,
             kill_switch_status=kill_switch_status,

@@ -402,8 +402,7 @@ class ChequeProcessingWorkflow:
                     cheque_amount=inp.presented_amount,
                     smb_id=inp.smb_id,
                 ),
-                None,  # vllm_client — worker-level DI, out of this fix's scope
-                _to_kill_switch_status(kc1_lookup),
+                kc1_lookup,  # KillSwitchLookupResult (Pydantic) — worker wrapper converts to KillSwitchStatus
             ],
             start_to_close_timeout=timedelta(seconds=120),
             retry_policy=_AI_ACTIVITY_RETRY,
@@ -714,7 +713,7 @@ class ChequeProcessingWorkflow:
                     # ocr_ifsc remains None — no OCR on inward drawee path
                 ),
                 inp.cts_config,
-                _to_kill_switch_status(kc2_lookup),
+                kc2_lookup,  # KillSwitchLookupResult (Pydantic) — worker wrapper converts to KillSwitchStatus
             ],
             start_to_close_timeout=timedelta(seconds=15),
             retry_policy=_CBS_RETRY,

@@ -159,6 +159,7 @@ class _DevConnector:
 
 
 _DEV_SCHEMA_DDL = """
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE SCHEMA IF NOT EXISTS platform;
 CREATE SCHEMA IF NOT EXISTS cts;
 
@@ -359,6 +360,57 @@ CREATE TABLE IF NOT EXISTS cts.clearing_sessions (
 );
 CREATE INDEX IF NOT EXISTS ix_cs_bank_date
     ON cts.clearing_sessions (bank_id, clearing_date);
+
+-- ── Config: bank config values (queried by config_service._fetch_from_db) ────
+CREATE SCHEMA IF NOT EXISTS config;
+CREATE TABLE IF NOT EXISTS config.bank_config (
+    bank_id    TEXT NOT NULL,
+    key        TEXT NOT NULL,
+    value      TEXT NOT NULL,
+    value_type TEXT NOT NULL DEFAULT 'float',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (bank_id, key)
+);
+
+-- Seed CTS + AI defaults for saraswat-coop so activities have thresholds to load
+INSERT INTO config.bank_config (bank_id, key, value, value_type) VALUES
+  -- CTS thresholds (queried via get_cts_config())
+  ('saraswat-coop', 'cts.iet_minutes',                    '180',   'int'),
+  ('saraswat-coop', 'cts.stp_auto_confirm_threshold',     '0.92',  'float'),
+  ('saraswat-coop', 'cts.human_review_fraud_threshold',   '0.72',  'float'),
+  ('saraswat-coop', 'cts.high_value_amount_threshold',    '500000','float'),
+  ('saraswat-coop', 'cts.vault_miss_action',              'HUMAN_REVIEW', 'str'),
+  ('saraswat-coop', 'cts.ocr_min_confidence',             '0.85',  'float'),
+  ('saraswat-coop', 'cts.signature_min_match_score',      '0.80',  'float'),
+  ('saraswat-coop', 'cts.cheque_validity_days',           '90',    'int'),
+  ('saraswat-coop', 'cts.very_high_value_threshold',      '1000000','float'),
+  ('saraswat-coop', 'cts.smb.min_iet_headroom_s',         '30',    'int'),
+  -- AI thresholds (queried via get_ai_config())
+  ('saraswat-coop', 'ai.ocr.min_confidence',              '0.85',  'float'),
+  ('saraswat-coop', 'ai.signature.min_match_score',       '0.80',  'float'),
+  ('saraswat-coop', 'ai.fraud.score_threshold',           '0.72',  'float'),
+  ('saraswat-coop', 'ai.tamper_risk_threshold',           '0.35',  'float'),
+  ('saraswat-coop', 'ai.llm_request_timeout_s',          '120',   'int'),
+  ('saraswat-coop', 'ai.ej.field_extraction.min_confidence', '0.80', 'float'),
+  ('saraswat-coop', 'ai.ej.field_extraction.max_weak_fields', '3', 'int'),
+  ('saraswat-coop', 'ai.drift.alert_pct_threshold',      '0.02',  'float'),
+  ('saraswat-coop', 'ai.drift.auto_tighten_pct_threshold','0.05', 'float'),
+  ('saraswat-coop', 'ai.drift.pull_from_prod_pct_threshold','0.08','float'),
+  -- Legacy flat keys (some older activities use these directly)
+  ('saraswat-coop', 'stp_auto_confirm_threshold',    '0.92',  'float'),
+  ('saraswat-coop', 'human_review_fraud_threshold',   '0.72',  'float'),
+  ('saraswat-coop', 'ocr_min_confidence',             '0.85',  'float'),
+  ('saraswat-coop', 'sig_min_match_score',            '0.80',  'float'),
+  ('saraswat-coop', 'high_value_amount_threshold',    '500000','float'),
+  ('saraswat-coop', 'iet_minutes',                    '180',   'int'),
+  ('saraswat-coop', 'cheque_validity_days',           '90',    'int'),
+  ('saraswat-coop', 'vault_miss_action',              'HUMAN_REVIEW', 'str'),
+  ('saraswat-coop', 'opa_required',                   'false', 'bool'),
+  ('saraswat-coop', 'kill_switch_enabled',            'false', 'bool'),
+  -- Vault / Bloom filter config
+  ('saraswat-coop', 'vault.bloom_expected_items',     '100000','int'),
+  ('saraswat-coop', 'vault.bloom_false_positive_rate','0.001', 'float')
+ON CONFLICT (bank_id, key) DO NOTHING;
 """
 
 

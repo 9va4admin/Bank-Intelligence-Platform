@@ -138,6 +138,12 @@ export ENV="development"
 export MINIO_ENDPOINT="localhost:19000"
 export MINIO_SECURE="false"
 
+# Platform Layer 1/2 config — read by config_service.get_platform()
+export TEMPORAL_ADDRESS="localhost:17233"
+export TEMPORAL_NAMESPACE="default"
+export KAFKA_BOOTSTRAP_SERVERS="localhost:19092"
+export OPA_REQUIRED="false"
+
 export ASTRA_SECRET_REDIS_CONFIG_URL="redis://localhost:16379/1"
 export ASTRA_SECRET_DB_CONFIG_DSN="postgresql://yugabyte:yugabyte@localhost:15433/yugabyte"
 
@@ -207,12 +213,13 @@ async def seed_users(bank_id: str):
                    email, is_active)
                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
                 ON CONFLICT (user_id) DO UPDATE SET
+                  entity_type=EXCLUDED.entity_type,
                   display_name=EXCLUDED.display_name,
                   role=EXCLUDED.role,
                   permission_level=EXCLUDED.permission_level,
                   is_active=EXCLUDED.is_active
                 """,
-                f"usr-{username}-{bank_id}", bank_id, "SB", bank_id,
+                f"usr-{username}-{bank_id}", bank_id, "sb", bank_id,
                 username, display, pwd_hash, role, perm, btype,
                 zones, f"{username}@{bank_id}.internal", True,
             )
