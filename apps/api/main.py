@@ -108,6 +108,22 @@ async def lifespan(app: FastAPI):
     # Alias for backward compat with cts.py routes that reference kafka_producer
     app.state.kafka_producer = app.state.kafka_producer_cts
 
+    # --- Kafka admin client (ops dashboard — consumer-group lag panels) ---
+    # Uses aiokafka AIOKafkaAdminClient so observability.py can await list_consumer_groups().
+    # Must be started before yield and closed after. Degrades gracefully when Kafka
+    # bootstrap servers unavailable — /v1/ops/system kafka panel returns degraded=True.
+    app.state.kafka_admin = None
+    if kafka_servers:
+        try:
+            from aiokafka.admin import AIOKafkaAdminClient  # type: ignore[import]
+            _kafka_admin = AIOKafkaAdminClient(bootstrap_servers=kafka_servers)
+            await _kafka_admin.start()
+            app.state.kafka_admin = _kafka_admin
+            log.info("api_gateway.kafka_admin_ready")
+        except Exception as exc:
+            log.warning("api_gateway.kafka_admin_failed", error=str(exc))
+            app.state.kafka_admin = None
+
     # --- YugabyteDB CTS connection pool (pgbouncer-cts endpoint) ---
     # Used by mcp_connections router (YugabyteDBConnectionStore) and future CTS routers.
     # Isolated from EJ schema — pgbouncer-cts has access to cts schema only.
@@ -198,8 +214,11 @@ async def lifespan(app: FastAPI):
 
         # TOTP secrets go to Vault — reuse config_service's shared hvac client
         # so we don't open a second Vault connection from the same env vars.
+        # Also wires app.state.vault_client for the ops-dashboard /system panel.
+        app.state.vault_client = None
         try:
             _vault_client = config_service.get_vault_client()
+            app.state.vault_client = _vault_client
             _totp_store = VaultTOTPSecretStore(bank_id=_bank_id, vault_client=_vault_client)
         except Exception as _vault_err:
             log.warning(
@@ -267,6 +286,12 @@ async def lifespan(app: FastAPI):
 
     if app.state.kafka_producer_cts:
         app.state.kafka_producer_cts.flush()
+
+    if getattr(app.state, "kafka_admin", None):
+        try:
+            await app.state.kafka_admin.close()
+        except Exception:
+            pass
 
     await config_service.shutdown()
     log.info("api_gateway.stopped")
