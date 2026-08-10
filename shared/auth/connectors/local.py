@@ -27,6 +27,7 @@ class LocalCredentials(BaseModel):
     model_config = ConfigDict(frozen=True)
     username: str
     password: str
+    bank_id: str = ""   # forwarded from login request; used by platform_admin to adopt target bank
 
 
 class LocalAuthConnector(AuthConnector):

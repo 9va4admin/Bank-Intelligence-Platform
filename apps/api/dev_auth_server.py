@@ -69,7 +69,7 @@ SEED_ACCOUNTS: dict[str, dict] = {
     # In dev: fixed known password below — first login always shows QR for TOTP enrol
     "__astra-admin": {
         "user_id": "usr-astra-sc", "password": "Astra@Platform2026!",
-        "display_name": "ASTRA Platform Admin", "role": "bank_it_admin",
+        "display_name": "ASTRA Platform Admin", "role": "platform_admin",
         "bank_type": "SB", "permission_level": "ADMIN",
         "entity_type": "sb", "entity_id": "__astra-platform__", "bank_id": "saraswat-coop",
         "clearing_zones": ["ALL"],
@@ -157,10 +157,15 @@ class _DevConnector:
             _PH.verify(acct["password_hash"], credentials.password)
         except Exception:
             raise AuthenticationError("invalid credentials")
+        # Platform admin adopts whichever bank_id the login request specified,
+        # so the same credentials work in every deployed bank without re-seeding.
+        is_platform_admin = acct.get("entity_id") == "__astra-platform__"
+        bank_id = (credentials.bank_id or acct["bank_id"]) if is_platform_admin else acct["bank_id"]
+
         return ASTRAIdentity(
             user_id=acct["user_id"], username=credentials.username,
             display_name=acct["display_name"], entity_type=acct["entity_type"],
-            entity_id=acct["entity_id"], bank_id=acct["bank_id"], role=acct["role"],
+            entity_id=acct["entity_id"], bank_id=bank_id, role=acct["role"],
             clearing_zones=acct["clearing_zones"], connector_used="local",
             bank_type=acct["bank_type"], permission_level=acct["permission_level"],
         )
@@ -394,11 +399,11 @@ VALUES
   -- ASTRA platform super admin — saraswat-coop
   ('usr-astra-sc', 'saraswat-coop', 'sb', '__astra-platform__', '__astra-admin', 'ASTRA Platform Admin',
    '$argon2id$v=19$m=65536,t=3,p=4$afqXPdEUxZfyel832blAyA$UOf0mZXvX06owJ7Pykn/HIJZPpGnLJs9HS/zpaeNjcM',
-   'bank_it_admin', 'ADMIN', 'SB', ARRAY['ALL'], false),
+   'platform_admin', 'ADMIN', 'SB', ARRAY['ALL'], false),
   -- ASTRA platform super admin — federal-bank
   ('usr-astra-fb', 'federal-bank',  'sb', '__astra-platform__', '__astra-admin', 'ASTRA Platform Admin',
    '$argon2id$v=19$m=65536,t=3,p=4$afqXPdEUxZfyel832blAyA$UOf0mZXvX06owJ7Pykn/HIJZPpGnLJs9HS/zpaeNjcM',
-   'bank_it_admin', 'ADMIN', 'SB', ARRAY['ALL'], false),
+   'platform_admin', 'ADMIN', 'SB', ARRAY['ALL'], false),
   -- Bank-specific dev accounts
   ('usr-admin', 'saraswat-coop', 'sb',  'saraswat-coop', 'admin', 'Anita Rao',
    '$argon2id$v=19$m=65536,t=3,p=4$RpL0cwR5KMqXDBHoxOYL4w$uimuuZjif2n7t8HwlOU2zEgV9euZTCsRASVNaAgj29I',
