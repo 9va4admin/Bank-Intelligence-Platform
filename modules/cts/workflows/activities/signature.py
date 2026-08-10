@@ -1,34 +1,33 @@
 """
-Signature verification activity — embedding-based comparison.
+Signature verification activity — per-signatory embedding comparison.
 
-Flow:
-  1. Crop the signature region from the cheque image (MinIO URL → PNG bytes)
-  2. Embed the crop: SignatureEmbeddingModel → 512-dim vector (in-memory, not stored)
-  3. Fetch stored embeddings from SignatureVault (Redis → YugabyteDB fallback)
-  4. Cosine similarity: cheque vector vs each stored specimen vector → best score
-  5. Score >= threshold → PROCEED; below → HUMAN_REVIEW
+Handles 1 or N detected ink signatures on a cheque uniformly:
 
-Vault miss (no specimens on file) triggers CBS fallback first:
-  vault miss → CBS.get_signature_specimens() → embed → store in vault → compare
-  CBS empty / error → HUMAN_REVIEW with NO_SIGNATURE_IN_VAULT
+  1. Embed every detected signature bbox from the cheque image.
+  2. Load all authorised signatories and their specimens from SignatureVault.
+  3. For each signatory: best cosine score across ALL their specimens vs
+     ALL detected ink signatures on the cheque. Multiple specimens per
+     signatory give the signatory the best chance to match.
+  4. Apply mandate BRE:
+       ANY_ONE       — PROCEED if at least 1 signatory matched (retail default)
+       ALL_REQUIRED  — PROCEED only if every registered signatory matched
+       QUORUM_N      — PROCEED if N signatories matched
+  5. Return enriched SignatureActivityResult with per-signatory breakdown.
 
-Multiple signatures detected on cheque (sig_count > 1) → HUMAN_REVIEW
-with MULTI_SIGNATURE_DETECTED.
+Vault miss (no specimens for any signatory) → CBS fallback:
+  get_signatory_data() → per-signatory embed → store in vault → compare.
+  Falls back to flat get_signature_specimens() when get_signatory_data() raises
+  NotImplementedError (older CBS adapters).
 
-Vault error (Redis + DB down) → HUMAN_REVIEW.
-Embedding model unavailable → HUMAN_REVIEW (degraded).
+SMB proxy path: flat list from proxy treated as single PRIMARY signatory.
 
-SMB proxy routing (Phase 4):
-  When smb_id is set on the input AND smb_proxy is provided, specimens are
-  fetched from the SMB's own CBS via smb-cbs-vault-proxy MCP tool instead of
-  the sponsor bank's local SignatureVault. The vault-miss invariant (miss →
-  HUMAN_REVIEW) applies equally to proxy responses.
+Vault error or model unavailable → HUMAN_REVIEW (degraded). Never raises.
 """
 from __future__ import annotations
 
 import asyncio
 import io as _io
-from typing import Any, Optional
+from typing import Optional
 
 import structlog
 from pydantic import BaseModel, ConfigDict
@@ -39,37 +38,53 @@ from shared.ai.signature_embedding import EmbeddingModelUnavailableError, cosine
 log = structlog.get_logger()
 
 
+# ---------------------------------------------------------------------------
+# Data models
+# ---------------------------------------------------------------------------
+
 class SignatureActivityInput(BaseModel):
     model_config = ConfigDict(frozen=True)
     instrument_id: str
     bank_id: str
     account_number: str
-    signature_image_url: str       # full cheque image URL (MinIO); cropped before embedding
-    sig_count: int = 1             # number of ink signatures detected on cheque image
-    sig_bboxes: list[list[float]] = []  # fractional [x1,y1,x2,y2] from detect_signatures
+    signature_image_url: str        # full cheque image URL (MinIO); cropped per bbox
+    sig_count: int = 1              # total ink signatures detected on cheque image
+    sig_bboxes: list[list[float]] = []  # fractional [x1,y1,x2,y2] per detected sig
     smb_id: Optional[str] = None   # set when instrument drawn on an SMB customer
+
+
+class SignatoryVerdict(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    signatory_id: str
+    best_score: float               # highest cosine across all specimens × all detected sigs
+    specimen_index: Optional[int] = None    # vault specimen index that gave best_score
+    verdict: str                    # "MATCHED" | "NO_MATCH" | "NO_SPECIMENS"
 
 
 class SignatureActivityResult(BaseModel):
     model_config = ConfigDict(frozen=True)
-    outcome: str                           # "PROCEED" | "HUMAN_REVIEW"
-    match_score: Optional[float] = None
+    outcome: str                                    # "PROCEED" | "HUMAN_REVIEW"
+    match_score: Optional[float] = None             # highest score across all signatories
     miss_reason: Optional[str] = None
     degraded: bool = False
-    cbs_fallback_used: bool = False        # True when CBS was queried to backfill vault miss
+    cbs_fallback_used: bool = False
+    per_signatory: list[SignatoryVerdict] = []       # one entry per account signatory
+    mandate_rule: Optional[str] = None               # rule that was applied
+    signatories_matched: int = 0                     # count that cleared threshold
+    signatories_required: int = 1                    # per mandate BRE
 
 
-def _apply_morphological_normalisation(crop: "Any") -> "Any":
+# ---------------------------------------------------------------------------
+# Image helpers
+# ---------------------------------------------------------------------------
+
+def _apply_morphological_normalisation(crop: "any") -> "any":
     """
     Otsu binarisation + morphological thinning on a PIL signature crop.
 
-    Produces a cleaner image for the Siamese embedding model by removing
-    scanner background noise and reducing ink strokes to single-pixel width.
-    This improves cosine similarity accuracy for faded or light-ink signatures.
-
-    Falls back to the original crop PIL image if opencv or numpy is unavailable.
-    The embedding model accepts both colour and grayscale inputs, so the output
-    is white-background / black-ink RGB to preserve format consistency.
+    Improves cosine similarity accuracy by removing scanner background noise
+    and reducing ink strokes to single-pixel width. Falls back to the original
+    crop if opencv or numpy is unavailable.
     """
     try:
         import cv2
@@ -81,14 +96,10 @@ def _apply_morphological_normalisation(crop: "Any") -> "Any":
     try:
         gray = cv2.cvtColor(np.array(crop), cv2.COLOR_RGB2GRAY)
         _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-
-        # Morphological thinning — opencv-contrib (cv2.ximgproc); graceful skip if absent
         try:
             thinned = cv2.ximgproc.thinning(binary, thinningType=cv2.ximgproc.THINNING_ZHANGSUEN)
         except AttributeError:
             thinned = binary
-
-        # White background, black ink — convert back to RGB for embedding model input
         rgb_arr = cv2.cvtColor(cv2.bitwise_not(thinned), cv2.COLOR_GRAY2RGB)
         return _PIL.fromarray(rgb_arr)
     except Exception:
@@ -96,13 +107,7 @@ def _apply_morphological_normalisation(crop: "Any") -> "Any":
 
 
 def _sync_crop_signature(image_url: str, bbox: list[float]) -> bytes:
-    """Download full cheque image and crop to the signature bbox.
-
-    Sync helper — called via asyncio.to_thread so the event loop stays free.
-    Applies morphological normalisation (Otsu + thinning) after cropping to
-    produce cleaner input for the Siamese embedding model.
-    Returns PNG bytes of the processed signature region with a small padding border.
-    """
+    """Download full cheque image and crop to the signature bbox, with padding."""
     import urllib.request
     from PIL import Image as _PIL
 
@@ -112,14 +117,19 @@ def _sync_crop_signature(image_url: str, bbox: list[float]) -> bytes:
     img.load()
     img = img.convert("RGB")
     w, h = img.size
-    x1_f, y1_f, x2_f, y2_f = bbox
-    pad = max(6, int(min(w, h) * 0.02))
-    crop = img.crop((
-        max(0, int(x1_f * w) - pad),
-        max(0, int(y1_f * h) - pad),
-        min(w, int(x2_f * w) + pad),
-        min(h, int(y2_f * h) + pad),
-    ))
+
+    if bbox:
+        x1_f, y1_f, x2_f, y2_f = bbox
+        pad = max(6, int(min(w, h) * 0.02))
+        crop = img.crop((
+            max(0, int(x1_f * w) - pad),
+            max(0, int(y1_f * h) - pad),
+            min(w, int(x2_f * w) + pad),
+            min(h, int(y2_f * h) + pad),
+        ))
+    else:
+        crop = img  # no bbox → full image
+
     crop = _apply_morphological_normalisation(crop)
     buf = _io.BytesIO()
     crop.save(buf, format="PNG")
@@ -127,33 +137,22 @@ def _sync_crop_signature(image_url: str, bbox: list[float]) -> bytes:
 
 
 async def _crop_signature_region(image_url: str, bbox: list[float]) -> Optional[bytes]:
-    """Async wrapper — download cheque from MinIO, crop to signature bbox, return PNG bytes."""
+    """Async wrapper — download + crop, return PNG bytes. Returns None on failure."""
     try:
         return await asyncio.to_thread(_sync_crop_signature, image_url, bbox)
     except Exception as exc:
-        log.warning("signature_activity.sig_crop_failed", image_url=image_url[:60], error=str(exc))
+        log.warning("signature_activity.crop_failed", image_url=image_url[:60], error=str(exc))
         return None
 
 
-async def _embed_image(image_url_or_bytes, bbox: list[float], embedding_model, bank_id: str) -> Optional[list[float]]:
-    """
-    Crop the signature region then embed it.  Returns None if cropping or
-    embedding fails — caller falls back to HUMAN_REVIEW on None.
-    """
+async def _embed_image(
+    image_url_or_bytes, bbox: list[float], embedding_model, bank_id: str
+) -> Optional[list[float]]:
+    """Crop the signature region then embed it. Returns None on any failure."""
     if isinstance(image_url_or_bytes, bytes):
         crop_bytes = image_url_or_bytes
     else:
-        if bbox:
-            crop_bytes = await _crop_signature_region(image_url_or_bytes, bbox)
-        else:
-            # No bbox — try to download full image
-            try:
-                import urllib.request
-                with urllib.request.urlopen(image_url_or_bytes, timeout=10) as resp:  # noqa: S310
-                    crop_bytes = resp.read()
-            except Exception as exc:
-                log.warning("signature_activity.image_download_failed", error=str(exc))
-                return None
+        crop_bytes = await _crop_signature_region(image_url_or_bytes, bbox)
 
     if crop_bytes is None:
         return None
@@ -165,14 +164,27 @@ async def _embed_image(image_url_or_bytes, bbox: list[float], embedding_model, b
         return None
 
 
-def _best_cosine_score(cheque_vector: list[float], vault_embeddings: list[list[float]]) -> float:
-    """Highest cosine similarity between the cheque vector and any vault specimen."""
-    if not vault_embeddings:
-        return 0.0
-    return max(cosine_similarity(cheque_vector, stored) for stored in vault_embeddings)
+# ---------------------------------------------------------------------------
+# Mandate BRE helper
+# ---------------------------------------------------------------------------
+
+def _mandate_required_count(mandate_rule: str, total_signatories: int) -> int:
+    """Resolve mandate rule to a required-count integer."""
+    if mandate_rule == "ALL_REQUIRED":
+        return total_signatories
+    if mandate_rule.startswith("QUORUM_"):
+        try:
+            return int(mandate_rule.split("_")[1])
+        except (IndexError, ValueError):
+            return 1
+    return 1  # ANY_ONE or unknown → default 1
 
 
-async def _fetch_via_proxy(smb_proxy, inp: "SignatureActivityInput"):
+# ---------------------------------------------------------------------------
+# SMB proxy helper
+# ---------------------------------------------------------------------------
+
+async def _fetch_via_proxy(smb_proxy, inp: SignatureActivityInput):
     from modules.cts.vaults.signature_vault import VaultResult
     try:
         return await smb_proxy.get_signature(inp.account_number, inp.bank_id, inp.smb_id)
@@ -186,94 +198,122 @@ async def _fetch_via_proxy(smb_proxy, inp: "SignatureActivityInput"):
         return VaultResult(outcome="HUMAN_REVIEW", embeddings=[], miss_reason="SMB_PROXY_UNAVAILABLE")
 
 
-async def _try_cbs_fallback(
-    inp: "SignatureActivityInput",
+# ---------------------------------------------------------------------------
+# CBS fallback helper
+# ---------------------------------------------------------------------------
+
+async def _cbs_signatory_fallback(
+    inp: SignatureActivityInput,
     vault,
     cbs_connector,
     embedding_model,
-    min_match_score: float,
-) -> "SignatureActivityResult":
+) -> tuple[dict[str, list[list[float]]], bool]:
     """
-    Called only on VAULT_MISS (not VAULT_ERROR). Queries CBS for raw specimen
-    images, embeds them, stores in vault, then runs cosine comparison.
+    Fetch specimens from CBS on vault miss.
+
+    Priority:
+      1. get_signatory_data() → per-signatory specimens + store per-signatory
+      2. get_signature_specimens() flat fallback → stored as PRIMARY
+
+    Returns (specimens_by_signatory, cbs_fallback_used).
+    On CBS error returns ({}, True) — caller treats empty dict as HUMAN_REVIEW.
     """
+    # Try structured per-signatory CBS method first
     try:
-        raw_specimens: list[bytes] = await cbs_connector.get_signature_specimens(
+        signatory_list = await cbs_connector.get_signatory_data(
+            inp.account_number, inp.bank_id
+        )
+    except NotImplementedError:
+        signatory_list = None  # older CBS adapter — fall through to flat method
+    except Exception as exc:
+        log.warning(
+            "signature_activity.cbs_signatory_data_error",
+            instrument_id=inp.instrument_id,
+            error=str(exc),
+        )
+        return {}, True
+
+    if signatory_list is not None:
+        if not signatory_list:
+            return {}, True
+
+        specimens_by_sig: dict[str, list[list[float]]] = {}
+        for sig_data in signatory_list:
+            sig_embeddings: list[list[float]] = []
+            for raw_img in sig_data.specimen_images:
+                try:
+                    emb = await embedding_model.embed(raw_img, bank_id=inp.bank_id)
+                    sig_embeddings.append(emb)
+                except EmbeddingModelUnavailableError:
+                    log.warning(
+                        "signature_activity.cbs_specimen_embed_failed",
+                        instrument_id=inp.instrument_id,
+                        signatory_id=sig_data.signatory_id,
+                    )
+
+            if sig_embeddings:
+                await vault.store_embeddings(
+                    inp.account_number,
+                    sig_embeddings,
+                    signatory_id=sig_data.signatory_id,
+                    source="CBS_FALLBACK",
+                )
+                specimens_by_sig[sig_data.signatory_id] = sig_embeddings
+
+        if specimens_by_sig:
+            log.info(
+                "signature_activity.cbs_signatory_fallback_complete",
+                instrument_id=inp.instrument_id,
+                account_last4=inp.account_number[-4:],
+                signatories_loaded=len(specimens_by_sig),
+            )
+        return specimens_by_sig, True
+
+    # Flat fallback for CBS adapters that don't implement get_signatory_data()
+    try:
+        raw_specimens = await cbs_connector.get_signature_specimens(
             inp.account_number, inp.bank_id
         )
     except Exception as exc:
         log.warning(
-            "signature_activity.cbs_fallback_error",
+            "signature_activity.cbs_flat_fallback_error",
             instrument_id=inp.instrument_id,
             error=str(exc),
         )
-        return SignatureActivityResult(
-            outcome="HUMAN_REVIEW",
-            miss_reason="CBS_FALLBACK_ERROR",
-            degraded=True,
-        )
+        return {}, True
 
     if not raw_specimens:
-        log.info(
-            "signature_activity.no_specimen_in_vault_or_cbs",
-            instrument_id=inp.instrument_id,
-            account_last4=inp.account_number[-4:],
-        )
-        return SignatureActivityResult(outcome="HUMAN_REVIEW", miss_reason="NO_SIGNATURE_IN_VAULT")
+        return {}, True
 
-    # Embed all CBS specimens
-    specimen_embeddings: list[list[float]] = []
+    embeddings: list[list[float]] = []
     for raw in raw_specimens:
         try:
             emb = await embedding_model.embed(raw, bank_id=inp.bank_id)
-            specimen_embeddings.append(emb)
+            embeddings.append(emb)
         except EmbeddingModelUnavailableError:
-            log.warning("signature_activity.cbs_specimen_embed_failed", instrument_id=inp.instrument_id)
+            log.warning(
+                "signature_activity.cbs_flat_specimen_embed_failed",
+                instrument_id=inp.instrument_id,
+            )
 
-    if not specimen_embeddings:
-        return SignatureActivityResult(
-            outcome="HUMAN_REVIEW",
-            miss_reason="MODEL_UNAVAILABLE",
-            degraded=True,
-            cbs_fallback_used=True,
+    if embeddings:
+        await vault.store_embeddings(
+            inp.account_number, embeddings, signatory_id="PRIMARY", source="CBS_FALLBACK"
         )
-
-    # Store embeddings in vault (YugabyteDB + Redis)
-    await vault.store_embeddings(inp.account_number, specimen_embeddings, source="CBS_FALLBACK")
-    log.info(
-        "signature_activity.cbs_specimens_embedded_and_stored",
-        instrument_id=inp.instrument_id,
-        account_last4=inp.account_number[-4:],
-        specimen_count=len(specimen_embeddings),
-    )
-
-    # Embed cheque crop and compare
-    cheque_vector = await _embed_image(
-        inp.signature_image_url, inp.sig_bboxes[0] if inp.sig_bboxes else [],
-        embedding_model, inp.bank_id,
-    )
-    if cheque_vector is None:
-        return SignatureActivityResult(
-            outcome="HUMAN_REVIEW",
-            miss_reason="MODEL_UNAVAILABLE",
-            degraded=True,
-            cbs_fallback_used=True,
+        log.info(
+            "signature_activity.cbs_flat_fallback_complete",
+            instrument_id=inp.instrument_id,
+            account_last4=inp.account_number[-4:],
+            specimen_count=len(embeddings),
         )
+        return {"PRIMARY": embeddings}, True
 
-    best_score = _best_cosine_score(cheque_vector, specimen_embeddings)
-    if best_score < min_match_score:
-        return SignatureActivityResult(
-            outcome="HUMAN_REVIEW",
-            match_score=best_score,
-            cbs_fallback_used=True,
-        )
+    return {}, True
 
-    return SignatureActivityResult(
-        outcome="PROCEED",
-        match_score=best_score,
-        cbs_fallback_used=True,
-    )
 
+# ---------------------------------------------------------------------------
+# Main activity
+# ---------------------------------------------------------------------------
 
 @activity.defn
 async def verify_signature(
@@ -285,63 +325,25 @@ async def verify_signature(
     cbs_connector=None,
 ) -> SignatureActivityResult:
     """
-    Verify the signature on a cheque against vault embeddings.
+    Verify ink signature(s) on a cheque against all registered account signatories.
+
+    Works uniformly for cheques with 1 detected sig and cheques with N detected sigs.
+    The mandate rule (ANY_ONE / ALL_REQUIRED / QUORUM_N) determines the overall outcome.
 
     Source priority:
-      1. Multi-sig gate — if sig_count > 1, skip vault entirely → HUMAN_REVIEW
-      2. smb_proxy (if provided AND inp.smb_id is set) — SMB CBS vault proxy MCP tool
-      3. vault (local SignatureVault) — default for SB instruments
-         └─ on VAULT_MISS + cbs_connector → CBS fallback → embed → store → compare
+      SMB proxy (if smb_id set)  → flat list treated as PRIMARY signatory, ANY_ONE mandate
+      SignatureVault              → per-signatory specimens, mandate from account_signatories
+        └─ vault miss + CBS      → embed per signatory from CBS, store, compare
 
-    Vault error (Redis + DB down) does NOT trigger CBS fallback.
-    Embedding model unavailable → HUMAN_REVIEW (degraded).
+    Vault error or model unavailable → HUMAN_REVIEW (degraded=True). Never raises.
     """
     ai_config = await config_service.get_ai_config(inp.bank_id)
-    min_match_score = ai_config["ai.signature.min_match_score"]
+    min_match_score: float = ai_config["ai.signature.min_match_score"]
 
-    # Gate 1 — multiple ink signatures detected on the cheque image
-    if inp.sig_count > 1:
-        log.info(
-            "signature_activity.multi_sig_detected",
-            instrument_id=inp.instrument_id,
-            sig_count=inp.sig_count,
-        )
-        return SignatureActivityResult(
-            outcome="HUMAN_REVIEW",
-            miss_reason="MULTI_SIGNATURE_DETECTED",
-        )
-
-    # Fetch stored embeddings — SMB proxy or local vault
-    if smb_proxy is not None and inp.smb_id:
-        vault_result = await _fetch_via_proxy(smb_proxy, inp)
-    else:
-        vault_result = await vault.get_signatures(inp.account_number, inp.bank_id)
-
-    if vault_result.outcome != "FOUND":
-        # CBS fallback only on a clean VAULT_MISS (not infrastructure error)
-        if (
-            cbs_connector is not None
-            and embedding_model is not None
-            and vault_result.miss_reason == "VAULT_MISS"
-            and smb_proxy is None
-        ):
-            return await _try_cbs_fallback(inp, vault, cbs_connector, embedding_model, min_match_score)
-
-        log.info(
-            "signature_activity.vault_miss",
-            instrument_id=inp.instrument_id,
-            miss_reason=vault_result.miss_reason,
-        )
-        return SignatureActivityResult(
-            outcome="HUMAN_REVIEW",
-            miss_reason=vault_result.miss_reason,
-            degraded=vault_result.miss_reason in {"SMB_PROXY_UNAVAILABLE", "VAULT_ERROR"},
-        )
-
-    # Embedding model unavailable — degrade gracefully
+    # Step 1 — need embedding model first; fail fast if absent
     if embedding_model is None:
         log.warning(
-            "signature_activity.no_embedding_model",
+            "verify_signature.no_embedding_model",
             instrument_id=inp.instrument_id,
         )
         return SignatureActivityResult(
@@ -350,34 +352,135 @@ async def verify_signature(
             degraded=True,
         )
 
-    # Embed the cheque crop
-    bbox = inp.sig_bboxes[0] if inp.sig_bboxes else []
-    cheque_vector = await _embed_image(inp.signature_image_url, bbox, embedding_model, inp.bank_id)
+    # Step 2 — embed all detected ink signatures on the cheque
+    bboxes = inp.sig_bboxes if inp.sig_bboxes else [[]]  # empty → full image
+    cheque_vectors: list[list[float]] = []
+    for bbox in bboxes:
+        vec = await _embed_image(inp.signature_image_url, bbox, embedding_model, inp.bank_id)
+        if vec is not None:
+            cheque_vectors.append(vec)
 
-    if cheque_vector is None:
-        log.warning("signature_activity.embed_cheque_failed", instrument_id=inp.instrument_id)
+    if not cheque_vectors:
+        log.warning(
+            "verify_signature.all_crops_failed",
+            instrument_id=inp.instrument_id,
+            bbox_count=len(bboxes),
+        )
         return SignatureActivityResult(
             outcome="HUMAN_REVIEW",
             miss_reason="MODEL_UNAVAILABLE",
             degraded=True,
         )
 
-    # Cosine similarity: cheque vector vs each stored specimen
-    best_score = _best_cosine_score(cheque_vector, vault_result.embeddings)
+    # Step 3 — load signatory specimens
+    cbs_fallback_used = False
+    mandate_rule = "ANY_ONE"
 
-    if best_score < min_match_score:
-        log.info(
-            "signature_activity.low_match",
-            instrument_id=inp.instrument_id,
-            score=best_score,
-            threshold=min_match_score,
+    if smb_proxy is not None and inp.smb_id:
+        # SMB proxy path: flat result wrapped as PRIMARY
+        vault_result = await _fetch_via_proxy(smb_proxy, inp)
+        if vault_result.outcome != "FOUND":
+            return SignatureActivityResult(
+                outcome="HUMAN_REVIEW",
+                miss_reason=vault_result.miss_reason,
+                degraded=vault_result.miss_reason == "SMB_PROXY_UNAVAILABLE",
+            )
+        specimens_by_sig = {"PRIMARY": vault_result.embeddings}
+        # ANY_ONE is the only sensible mandate for an SMB proxy result
+    else:
+        specimens_by_sig = await vault.get_specimens_by_signatory(
+            inp.account_number, inp.bank_id
         )
-        return SignatureActivityResult(outcome="HUMAN_REVIEW", match_score=best_score)
+        mandate_rule = await vault.get_mandate_rule(inp.account_number, inp.bank_id)
+
+        if not specimens_by_sig:
+            if cbs_connector is not None:
+                specimens_by_sig, cbs_fallback_used = await _cbs_signatory_fallback(
+                    inp, vault, cbs_connector, embedding_model
+                )
+
+        if not specimens_by_sig:
+            log.info(
+                "verify_signature.no_specimens",
+                instrument_id=inp.instrument_id,
+                account_last4=inp.account_number[-4:],
+                cbs_fallback_used=cbs_fallback_used,
+            )
+            return SignatureActivityResult(
+                outcome="HUMAN_REVIEW",
+                miss_reason="NO_SIGNATURE_IN_VAULT",
+                cbs_fallback_used=cbs_fallback_used,
+                degraded=cbs_fallback_used,  # CBS was tried but empty/errored
+            )
+
+    # Step 4 — per-signatory match
+    # For each signatory: find the highest cosine score across
+    #   ALL their vault specimens × ALL detected ink sigs on the cheque.
+    per_signatory: list[SignatoryVerdict] = []
+
+    for sig_id, specimens in specimens_by_sig.items():
+        if not specimens:
+            per_signatory.append(SignatoryVerdict(
+                signatory_id=sig_id,
+                best_score=0.0,
+                specimen_index=None,
+                verdict="NO_SPECIMENS",
+            ))
+            continue
+
+        best_score = 0.0
+        best_spec_idx: Optional[int] = None
+
+        for spec_idx, spec_vec in enumerate(specimens):
+            for chq_vec in cheque_vectors:
+                score = cosine_similarity(chq_vec, spec_vec)
+                if score > best_score:
+                    best_score = score
+                    best_spec_idx = spec_idx
+
+        verdict = "MATCHED" if best_score >= min_match_score else "NO_MATCH"
+        per_signatory.append(SignatoryVerdict(
+            signatory_id=sig_id,
+            best_score=round(best_score, 6),
+            specimen_index=best_spec_idx if verdict == "MATCHED" else None,
+            verdict=verdict,
+        ))
+
+    # Step 5 — mandate BRE
+    matched_count = sum(1 for r in per_signatory if r.verdict == "MATCHED")
+    total_count = len(per_signatory)
+    required = _mandate_required_count(mandate_rule, total_count)
+    overall_score = max((r.best_score for r in per_signatory), default=0.0)
 
     log.info(
-        "signature_activity.match_accepted",
+        "verify_signature.result",
         instrument_id=inp.instrument_id,
-        score=best_score,
-        threshold=min_match_score,
+        bank_id=inp.bank_id,
+        mandate_rule=mandate_rule,
+        signatories_total=total_count,
+        signatories_matched=matched_count,
+        signatories_required=required,
+        overall_score=overall_score,
+        detected_sigs=len(cheque_vectors),
     )
-    return SignatureActivityResult(outcome="PROCEED", match_score=best_score)
+
+    if matched_count < required:
+        return SignatureActivityResult(
+            outcome="HUMAN_REVIEW",
+            match_score=overall_score,
+            per_signatory=per_signatory,
+            mandate_rule=mandate_rule,
+            signatories_matched=matched_count,
+            signatories_required=required,
+            cbs_fallback_used=cbs_fallback_used,
+        )
+
+    return SignatureActivityResult(
+        outcome="PROCEED",
+        match_score=overall_score,
+        per_signatory=per_signatory,
+        mandate_rule=mandate_rule,
+        signatories_matched=matched_count,
+        signatories_required=required,
+        cbs_fallback_used=cbs_fallback_used,
+    )
