@@ -631,9 +631,10 @@ async def _docker_inspect_running(container: str) -> bool:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5)
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=5)
         return stdout.strip() == b"true"
-    except Exception:
+    except Exception as exc:
+        log.warning("platform.docker_inspect.error", container=container, error=str(exc), exc_type=type(exc).__name__)
         return False
 
 
@@ -797,7 +798,6 @@ async def get_services_status(
     # HF-hosted services are always considered running in POC mode
     for svc_id in _HF_HOSTED_SERVICES:
         status_map[svc_id] = True
-    log.debug("platform.services.status", statuses=status_map)
     return status_map
 
 

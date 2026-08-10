@@ -372,6 +372,22 @@ CREATE TABLE IF NOT EXISTS config.bank_config (
     PRIMARY KEY (bank_id, key)
 );
 
+-- ── Platform: dev seed users (local auth — dev/staging only) ────────────────
+INSERT INTO platform.local_auth_accounts
+    (user_id, bank_id, entity_type, entity_id, username, display_name,
+     password_hash, role, permission_level, bank_type, clearing_zones, totp_enrolled)
+VALUES
+  ('usr-admin', 'saraswat-coop', 'sb',  'saraswat-coop', 'admin', 'Anita Rao',
+   '$argon2id$v=19$m=65536,t=3,p=4$RpL0cwR5KMqXDBHoxOYL4w$uimuuZjif2n7t8HwlOU2zEgV9euZTCsRASVNaAgj29I',
+   'bank_it_admin', 'ADMIN', 'SB', ARRAY['ALL'], false),
+  ('usr-ops',   'saraswat-coop', 'sb',  'saraswat-coop', 'ops',   'Sunil Mehta',
+   '$argon2id$v=19$m=65536,t=3,p=4$OjmmP/u5VC/orNBhlNSRyA$ULGjkdbrZLs9FUVAY6mOvmN+wtW0whA/CCb0xKIk0iY',
+   'ops_manager', 'EDIT', 'SB', ARRAY['ALL'], false),
+  ('usr-smb',   'smb-mh-vasavi', 'smb', 'smb-mh-vasavi', 'smb',   'Vasavi Admin',
+   '$argon2id$v=19$m=65536,t=3,p=4$WVVrBi7dk2K+WI79D05Njg$Bw6eRjYKWAsrdKrFs5hxvuGzOxr7SNc8mP2RGkagZBQ',
+   'smb_admin',   'ADMIN', 'SMB', ARRAY['MUMBAI'], false)
+ON CONFLICT (user_id) DO NOTHING;
+
 -- Seed CTS + AI defaults for saraswat-coop so activities have thresholds to load
 INSERT INTO config.bank_config (bank_id, key, value, value_type) VALUES
   -- CTS thresholds (queried via get_cts_config())

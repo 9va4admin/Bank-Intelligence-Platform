@@ -1,0 +1,123 @@
+# federal-bank/platform.yaml — Layer 2 overrides for astra-platform chart.
+# Bank: Federal Bank Limited — Private Sector Bank | Headquartered: Aluva, Kerala
+# Onboarded: August 2026 | Regulator: RBI
+# ─────────────────────────────────────────────────────────────────────────────
+# Changes require: PR to ASTRA repo → bank_it_admin approval → ArgoCD sync
+# Audit trail: every merged PR triggers Immudb ConfigChangeEvent on apply
+# ─────────────────────────────────────────────────────────────────────────────
+
+bank_id: federal-bank
+
+global:
+  bank_id: federal-bank
+  registry: registry.astra.internal
+
+# ── Module Flags ─────────────────────────────────────────────────────────────
+modules:
+  cts:
+    enabled: true
+  ej:
+    enabled: false                    # EJ not in scope for initial deployment
+
+# ── CBS Connector ─────────────────────────────────────────────────────────────
+# Federal Bank runs Infosys Finacle core banking
+cbs_connector_type: finacle
+
+# ── Auth Connector Config ─────────────────────────────────────────────────────
+auth:
+  sb:
+    integration_enabled: true
+    integration_type: saml
+    saml:
+      idp_metadata_url_secret: "secret/astra/federal-bank/auth/saml/sb/idp_metadata_url"
+      sp_entity_id: "astra-sb-federal-bank"
+      acs_url: "https://api.federal-bank.astra.internal/v1/auth/saml/acs"
+      group_role_map:
+        "federal-cts-reviewer":   ops_reviewer
+        "federal-fraud-analyst":  fraud_analyst
+        "federal-ops-manager":    ops_manager
+        "federal-it-admin":       bank_it_admin
+        "federal-compliance":     compliance_officer
+    clearing_zones: [SOUTH, WEST, NORTH, EAST]
+
+  branch:
+    integration_enabled: true
+    integration_type: ldap_ad
+    ldap_ad:
+      server_url: "ldaps://dc.federal-bank.local:636"
+      base_dn: "DC=federal-bank,DC=local"
+      user_search_base: "OU=BranchUsers,DC=federal-bank,DC=local"
+      group_search_base: "OU=ASTRAGroups,DC=federal-bank,DC=local"
+      bind_dn_secret: "secret/astra/federal-bank/auth/ldap/bind_dn"
+      bind_pw_secret: "secret/astra/federal-bank/auth/ldap/bind_pw"
+      group_role_map:
+        "CN=ASTRA-BranchReviewers,OU=ASTRAGroups,DC=federal-bank,DC=local": ops_reviewer
+        "CN=ASTRA-BranchManagers,OU=ASTRAGroups,DC=federal-bank,DC=local":  ops_manager
+
+  pu:
+    integration_enabled: true
+    integration_type: ldap_ad
+    ldap_ad:
+      server_url: "ldaps://dc.federal-bank.local:636"
+      base_dn: "DC=federal-bank,DC=local"
+      user_search_base: "OU=PUUsers,DC=federal-bank,DC=local"
+      group_search_base: "OU=ASTRAGroups,DC=federal-bank,DC=local"
+      bind_dn_secret: "secret/astra/federal-bank/auth/ldap/bind_dn"
+      bind_pw_secret: "secret/astra/federal-bank/auth/ldap/bind_pw"
+      group_role_map:
+        "CN=ASTRA-PUManagers,OU=ASTRAGroups,DC=federal-bank,DC=local": ops_manager
+        "CN=ASTRA-PUEditors,OU=ASTRAGroups,DC=federal-bank,DC=local":  ops_reviewer
+
+  # Federal Bank is a private sector bank — no SMB sub-members
+  smb:
+    default:
+      integration_enabled: false
+      integration_type: local
+
+# ── Data Centers ─────────────────────────────────────────────────────────────
+datacenters:
+  dc1:
+    name: "Aluva Primary Data Centre"
+    location: "Aluva, Kerala"
+    zone: "dc1"
+  dc2:
+    name: "Mumbai DR Site"
+    location: "Mumbai"
+    zone: "dc2"
+    active: false
+
+# ── NGCH Clearing Zone ───────────────────────────────────────────────────────
+# Federal Bank clears in all four NGCH zones
+clearing_zones: [SOUTH, WEST, NORTH, EAST]
+
+# ── Notifications ────────────────────────────────────────────────────────────
+notifications:
+  email:
+    from_address: "astra-alerts@federalbank.co.in"
+    smtp_relay: "smtp.federalbank.co.in"
+  whatsapp:
+    enabled: true
+
+# ── Shared Services Scale ─────────────────────────────────────────────────────
+api_gateway:
+  replicas: 2
+audit_service:
+  replicas: 2
+notification_service:
+  replicas: 1
+
+# ── Federal Bank is SB-ONLY — no SMB sponsor routing ─────────────────────────
+smb_sponsor_enabled: false
+
+# ── MinIO Object Store ────────────────────────────────────────────────────────
+minio:
+  endpoint: "minio.astra-platform-federal-bank.svc.cluster.local:9000"
+  secure: false
+
+# ── HSM ───────────────────────────────────────────────────────────────────────
+hsm:
+  transit_key_name: "astra-audit-key-federal-bank"
+
+# ── ASTRA Chart Version ───────────────────────────────────────────────────────
+astra:
+  platform_chart_version: "0.1.0"
