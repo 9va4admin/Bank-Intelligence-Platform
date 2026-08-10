@@ -31,6 +31,16 @@ const BANK_PRESETS = {
     ifsc_prefix:     'KARB',
     clearing_zone:   'SOUTH',
   },
+  'federal-bank': {
+    bank_id:         'federal-bank',
+    bank_name:       'Federal Bank Limited',
+    bank_short_name: 'Federal',
+    tagline:         'Your Perfect Banking Partner.',
+    bank_logo:       'federal-bank-logo.png',
+    primary_hex:     '#C62828',
+    ifsc_prefix:     'FDRL',
+    clearing_zone:   'SOUTH',
+  },
 }
 
 const bankId        = import.meta.env.VITE_BANK_ID          ?? 'saraswat-coop'
