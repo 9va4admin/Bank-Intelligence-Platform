@@ -224,7 +224,7 @@ async def submit_inward_cheque(
 
     if temporal_client is not None:
         try:
-            from temporalio.client import WorkflowAlreadyStartedError
+            from temporalio.exceptions import WorkflowAlreadyStartedError
             from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
 
             await temporal_client.start_workflow(
@@ -233,19 +233,19 @@ async def submit_inward_cheque(
                 id=workflow_id,
                 task_queue=f"cts-processing-{bank_id}",
             )
+        except WorkflowAlreadyStartedError:
+            pass  # idempotent — workflow already running for this instrument_id
         except Exception as exc:
-            # WorkflowAlreadyStartedError is normal — idempotent submission
-            if "already started" not in str(exc).lower():
-                log.error(
-                    "cts.submit_workflow_error",
-                    instrument_id=instrument_id,
-                    bank_id=bank_id,
-                    error=str(exc),
-                )
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Failed to start workflow",
-                ) from exc
+            log.error(
+                "cts.submit_workflow_error",
+                instrument_id=instrument_id,
+                bank_id=bank_id,
+                error=str(exc),
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Failed to start workflow",
+            ) from exc
 
     log.info(
         "cts.submit_accepted",
@@ -282,15 +282,38 @@ async def get_decision(
 
     if temporal_client is not None:
         try:
+            from temporalio.client import WorkflowExecutionStatus
             handle = temporal_client.get_workflow_handle(workflow_id)
-            result = await handle.result()
-            return ChequeDecisionResponse(
-                instrument_id=instrument_id,
-                workflow_id=workflow_id,
-                workflow_status=result.decision,
-                decision=result.decision,
-                rationale=result.rationale,
-            )
+            desc = await handle.describe()
+            wf_status = desc.status
+
+            if wf_status == WorkflowExecutionStatus.COMPLETED:
+                result = await handle.result()
+                return ChequeDecisionResponse(
+                    instrument_id=instrument_id,
+                    workflow_id=workflow_id,
+                    workflow_status=result.decision,
+                    decision=result.decision,
+                    rationale=result.rationale,
+                )
+            elif wf_status in (
+                WorkflowExecutionStatus.FAILED,
+                WorkflowExecutionStatus.TERMINATED,
+                WorkflowExecutionStatus.CANCELED,
+                WorkflowExecutionStatus.TIMED_OUT,
+            ):
+                return ChequeDecisionResponse(
+                    instrument_id=instrument_id,
+                    workflow_id=workflow_id,
+                    workflow_status="FAILED",
+                    rationale=f"Workflow ended with status: {wf_status.name}",
+                )
+            else:
+                return ChequeDecisionResponse(
+                    instrument_id=instrument_id,
+                    workflow_id=workflow_id,
+                    workflow_status="RUNNING",
+                )
         except Exception:
             pass
 
@@ -1215,22 +1238,23 @@ async def submit_outward_scan(
     temporal_client = getattr(request.app.state, "temporal_client", None)
     if temporal_client is not None:
         try:
-            from temporalio.client import WorkflowAlreadyStartedError
+            from temporalio.exceptions import WorkflowAlreadyStartedError
             await temporal_client.start_workflow(
                 OutwardScanWorkflow.run,
                 workflow_input,
                 id=workflow_id,
                 task_queue=f"cts-processing-{bank_id}",
             )
+        except WorkflowAlreadyStartedError:
+            pass  # idempotent
         except Exception as exc:
-            if "already started" not in str(exc).lower():
-                log.error(
+            log.error(
                     "cts.outward_scan_workflow_error",
                     scan_id=body.scan_id,
                     bank_id=bank_id,
                     error=str(exc),
                 )
-                raise HTTPException(
+            raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail="Failed to start OutwardScanWorkflow",
                 ) from exc

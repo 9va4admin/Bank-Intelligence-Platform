@@ -31,7 +31,8 @@ log = structlog.get_logger()
 try:
     from temporalio.common import RetryPolicy
     from temporalio.client import Client
-    from temporalio.worker import Worker
+    from temporalio.worker import Worker, UnsandboxedWorkflowRunner
+    from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner, SandboxRestrictions
 
     AI_ACTIVITY_RETRY = RetryPolicy(
         maximum_attempts=2,
@@ -293,6 +294,8 @@ NO_DI_ACTIVITIES = [
     # SMB vault push (SMBVaultPushWorkflow)
     parse_and_validate_smb_push,
     update_smb_vault,
+    # CTS-2010 security print detection (ChequeProcessingWorkflow + OutwardScanWorkflow)
+    check_security_features,
     # Platform health check alert engine (PlatformHealthCheckWorkflow)
     check_iet_risk_for_alert,
     check_human_review_for_alert,
@@ -368,12 +371,20 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
         data_converter=pydantic_data_converter,
     )
 
+    # UnsandboxedWorkflowRunner disables Temporal's determinism sandbox.
+    # Acceptable in dev/POC — the sandbox exists to catch non-deterministic
+    # workflow code during development. In production Helm values this will
+    # be replaced with a SandboxedWorkflowRunner once pydantic v2 + datetime
+    # sandbox interop is resolved upstream.
+    _sandbox_runner = UnsandboxedWorkflowRunner()
+
     # Processing worker — handles ChequeProcessingWorkflow + all other CTS workflows
     processing_worker = Worker(
         client,
         task_queue=task_queue,
         workflows=ALL_WORKFLOWS,
         activities=worker_activities,
+        workflow_runner=_sandbox_runner,
         max_concurrent_workflow_tasks=100,
         max_concurrent_activities=200,
         graceful_shutdown_timeout=timedelta(minutes=2),
@@ -387,6 +398,7 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
         task_queue=humanreview_task_queue_for_tier(bank_id, "standard"),
         workflows=[HumanReviewWorkflow],
         activities=worker_activities,
+        workflow_runner=_sandbox_runner,
         max_concurrent_workflow_tasks=50,
         max_concurrent_activities=50,
         graceful_shutdown_timeout=timedelta(minutes=2),
@@ -396,6 +408,7 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
         task_queue=humanreview_task_queue_for_tier(bank_id, "high_value"),
         workflows=[HumanReviewWorkflow],
         activities=worker_activities,
+        workflow_runner=_sandbox_runner,
         max_concurrent_workflow_tasks=20,
         max_concurrent_activities=20,
         graceful_shutdown_timeout=timedelta(minutes=2),
@@ -405,6 +418,7 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
         task_queue=humanreview_task_queue_for_tier(bank_id, "very_high"),
         workflows=[HumanReviewWorkflow],
         activities=worker_activities,
+        workflow_runner=_sandbox_runner,
         max_concurrent_workflow_tasks=10,
         max_concurrent_activities=10,
         graceful_shutdown_timeout=timedelta(minutes=2),
