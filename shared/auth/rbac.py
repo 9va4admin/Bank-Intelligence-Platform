@@ -75,6 +75,10 @@ class Role(str, Enum):
     SMB_EDITOR = "smb_editor"  # Action HR queue + modify within own SMB
     SMB_VIEWER = "smb_viewer"  # Read-only within own SMB
 
+    # ASTRA platform super admin — cross-bank, bootstrap only
+    # In production: one account per bank, password from Vault; never assigned to regular users.
+    PLATFORM_ADMIN = "platform_admin"
+
 
 class Permission(str, Enum):
     # CTS operations
@@ -209,6 +213,8 @@ _ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
         Permission.SMB_VIEW_LEDGER,
         Permission.LOGIN_LOG_READ,
     }),
+    # Platform admin has every permission — used only for bootstrap and support.
+    Role.PLATFORM_ADMIN: frozenset(Permission),
 }
 
 
