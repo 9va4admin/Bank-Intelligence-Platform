@@ -64,6 +64,17 @@ log = structlog.get_logger()
 # username -> account. Users enrol TOTP on first sign-in (scan QR), then supply a
 # code every time. Enrolment lives in memory, so a backend restart means re-enrol.
 SEED_ACCOUNTS: dict[str, dict] = {
+    # ── ASTRA Platform super admin — works in every deployed bank ──────────────
+    # In production: password from Vault (secret/astra/platform/super_admin_password)
+    # In dev: fixed known password below — first login always shows QR for TOTP enrol
+    "__astra-admin": {
+        "user_id": "usr-astra-sc", "password": "Astra@Platform2026!",
+        "display_name": "ASTRA Platform Admin", "role": "bank_it_admin",
+        "bank_type": "SB", "permission_level": "ADMIN",
+        "entity_type": "sb", "entity_id": "__astra-platform__", "bank_id": "saraswat-coop",
+        "clearing_zones": ["ALL"],
+    },
+    # ── Bank-specific dev accounts ─────────────────────────────────────────────
     "admin": {
         "user_id": "usr-admin", "password": "astra-dev-admin",
         "display_name": "Anita Rao", "role": "bank_it_admin",
@@ -373,10 +384,22 @@ CREATE TABLE IF NOT EXISTS config.bank_config (
 );
 
 -- ── Platform: dev seed users (local auth — dev/staging only) ────────────────
+-- __astra-admin is the ASTRA platform super admin — seeded for every bank.
+-- Password: Astra@Platform2026!  |  In production: from Vault.
+-- Use this to bootstrap any bank deployment, then create bank-specific users.
 INSERT INTO platform.local_auth_accounts
     (user_id, bank_id, entity_type, entity_id, username, display_name,
      password_hash, role, permission_level, bank_type, clearing_zones, totp_enrolled)
 VALUES
+  -- ASTRA platform super admin — saraswat-coop
+  ('usr-astra-sc', 'saraswat-coop', 'sb', '__astra-platform__', '__astra-admin', 'ASTRA Platform Admin',
+   '$argon2id$v=19$m=65536,t=3,p=4$afqXPdEUxZfyel832blAyA$UOf0mZXvX06owJ7Pykn/HIJZPpGnLJs9HS/zpaeNjcM',
+   'bank_it_admin', 'ADMIN', 'SB', ARRAY['ALL'], false),
+  -- ASTRA platform super admin — federal-bank
+  ('usr-astra-fb', 'federal-bank',  'sb', '__astra-platform__', '__astra-admin', 'ASTRA Platform Admin',
+   '$argon2id$v=19$m=65536,t=3,p=4$afqXPdEUxZfyel832blAyA$UOf0mZXvX06owJ7Pykn/HIJZPpGnLJs9HS/zpaeNjcM',
+   'bank_it_admin', 'ADMIN', 'SB', ARRAY['ALL'], false),
+  -- Bank-specific dev accounts
   ('usr-admin', 'saraswat-coop', 'sb',  'saraswat-coop', 'admin', 'Anita Rao',
    '$argon2id$v=19$m=65536,t=3,p=4$RpL0cwR5KMqXDBHoxOYL4w$uimuuZjif2n7t8HwlOU2zEgV9euZTCsRASVNaAgj29I',
    'bank_it_admin', 'ADMIN', 'SB', ARRAY['ALL'], false),
@@ -386,7 +409,7 @@ VALUES
   ('usr-smb',   'smb-mh-vasavi', 'smb', 'smb-mh-vasavi', 'smb',   'Vasavi Admin',
    '$argon2id$v=19$m=65536,t=3,p=4$WVVrBi7dk2K+WI79D05Njg$Bw6eRjYKWAsrdKrFs5hxvuGzOxr7SNc8mP2RGkagZBQ',
    'smb_admin',   'ADMIN', 'SMB', ARRAY['MUMBAI'], false)
-ON CONFLICT (user_id) DO NOTHING;
+ON CONFLICT (username, bank_id) DO NOTHING;
 
 -- Seed CTS + AI defaults for saraswat-coop so activities have thresholds to load
 INSERT INTO config.bank_config (bank_id, key, value, value_type) VALUES
@@ -425,7 +448,38 @@ INSERT INTO config.bank_config (bank_id, key, value, value_type) VALUES
   ('saraswat-coop', 'kill_switch_enabled',            'false', 'bool'),
   -- Vault / Bloom filter config
   ('saraswat-coop', 'vault.bloom_expected_items',     '100000','int'),
-  ('saraswat-coop', 'vault.bloom_false_positive_rate','0.001', 'float')
+  ('saraswat-coop', 'vault.bloom_false_positive_rate','0.001', 'float'),
+  -- ── federal-bank: same defaults as saraswat-coop ──────────────────────────
+  ('federal-bank', 'cts.iet_minutes',                    '180',   'int'),
+  ('federal-bank', 'cts.stp_auto_confirm_threshold',     '0.92',  'float'),
+  ('federal-bank', 'cts.human_review_fraud_threshold',   '0.72',  'float'),
+  ('federal-bank', 'cts.high_value_amount_threshold',    '500000','float'),
+  ('federal-bank', 'cts.vault_miss_action',              'HUMAN_REVIEW', 'str'),
+  ('federal-bank', 'cts.ocr_min_confidence',             '0.85',  'float'),
+  ('federal-bank', 'cts.signature_min_match_score',      '0.80',  'float'),
+  ('federal-bank', 'cts.cheque_validity_days',           '90',    'int'),
+  ('federal-bank', 'cts.very_high_value_threshold',      '1000000','float'),
+  ('federal-bank', 'cts.smb.min_iet_headroom_s',         '30',    'int'),
+  ('federal-bank', 'ai.ocr.min_confidence',              '0.85',  'float'),
+  ('federal-bank', 'ai.signature.min_match_score',       '0.80',  'float'),
+  ('federal-bank', 'ai.fraud.score_threshold',           '0.72',  'float'),
+  ('federal-bank', 'ai.tamper_risk_threshold',           '0.35',  'float'),
+  ('federal-bank', 'ai.llm_request_timeout_s',          '120',   'int'),
+  ('federal-bank', 'ai.drift.alert_pct_threshold',      '0.02',  'float'),
+  ('federal-bank', 'ai.drift.auto_tighten_pct_threshold','0.05', 'float'),
+  ('federal-bank', 'ai.drift.pull_from_prod_pct_threshold','0.08','float'),
+  ('federal-bank', 'stp_auto_confirm_threshold',    '0.92',  'float'),
+  ('federal-bank', 'human_review_fraud_threshold',   '0.72',  'float'),
+  ('federal-bank', 'ocr_min_confidence',             '0.85',  'float'),
+  ('federal-bank', 'sig_min_match_score',            '0.80',  'float'),
+  ('federal-bank', 'high_value_amount_threshold',    '500000','float'),
+  ('federal-bank', 'iet_minutes',                    '180',   'int'),
+  ('federal-bank', 'cheque_validity_days',           '90',    'int'),
+  ('federal-bank', 'vault_miss_action',              'HUMAN_REVIEW', 'str'),
+  ('federal-bank', 'opa_required',                   'false', 'bool'),
+  ('federal-bank', 'kill_switch_enabled',            'false', 'bool'),
+  ('federal-bank', 'vault.bloom_expected_items',     '100000','int'),
+  ('federal-bank', 'vault.bloom_false_positive_rate','0.001', 'float')
 ON CONFLICT (bank_id, key) DO NOTHING;
 """
 
@@ -519,18 +573,31 @@ def build_app() -> FastAPI:
 
 def _banner() -> None:
     line = "=" * 68
-    rows = "\n".join(
-        f"    {u:<7} / {a['password']:<16}  ->  {a['role']} ({a['bank_type']})"
-        for u, a in SEED_ACCOUNTS.items()
+    # Separate platform super admin from bank-specific accounts
+    super_admin = {u: a for u, a in SEED_ACCOUNTS.items() if a.get("entity_id") == "__astra-platform__"}
+    bank_accounts = {u: a for u, a in SEED_ACCOUNTS.items() if a.get("entity_id") != "__astra-platform__"}
+
+    super_rows = "\n".join(
+        f"  *** {u:<14} / {a['password']:<22} ->  {a['role']} (ALL BANKS) ***"
+        for u, a in super_admin.items()
+    )
+    bank_rows = "\n".join(
+        f"      {u:<14} / {a['password']:<22} ->  {a['role']} ({a['bank_type']}, {a['bank_id']})"
+        for u, a in bank_accounts.items()
     )
     print(
         f"\n{line}\n"
         f"  ASTRA DEV AUTH  |  http://localhost:8010  |  NEVER use in production\n"
         f"{line}\n"
-        f"  username / password:\n{rows}\n\n"
+        f"  PLATFORM SUPER ADMIN  (works in every bank — use to bootstrap):\n"
+        f"{super_rows}\n\n"
+        f"  Bank-specific dev accounts:\n"
+        f"{bank_rows}\n\n"
         f"  First sign-in = scan the QR with an authenticator app (Google\n"
         f"  Authenticator / Authy), then enter the 6-digit code. Every sign-in\n"
         f"  after that asks for the current code from your app.\n"
+        f"  NOTE: after uvicorn restart, run:  UPDATE platform.local_auth_accounts\n"
+        f"        SET totp_enrolled=false, failed_attempts=0;\n"
         f"{line}\n"
     )
 
