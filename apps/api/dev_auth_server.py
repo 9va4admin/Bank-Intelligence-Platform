@@ -324,15 +324,21 @@ CREATE TABLE IF NOT EXISTS cts.branches (
     phone_number          TEXT,
     pu_id                 TEXT,
     drop_folder_base_path TEXT,
+    scanner_input_mode    TEXT NOT NULL DEFAULT 'UI_UPLOAD',
     is_scanning_enabled   BOOLEAN NOT NULL DEFAULT true,
     is_active             BOOLEAN NOT NULL DEFAULT true,
     created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at            TIMESTAMPTZ,
     created_by            TEXT NOT NULL DEFAULT 'system',
-    PRIMARY KEY (branch_id)
+    PRIMARY KEY (branch_id),
+    CONSTRAINT ck_branches_scanner_input_mode CHECK (scanner_input_mode IN ('UI_UPLOAD', 'FOLDER_DROP', 'SDK_PUSH'))
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_branches_ifsc ON cts.branches (branch_ifsc);
 CREATE INDEX IF NOT EXISTS ix_branches_bank_id ON cts.branches (bank_id);
+-- Migration: existing installs get the column with default value
+ALTER TABLE cts.branches ADD COLUMN IF NOT EXISTS scanner_input_mode TEXT NOT NULL DEFAULT 'UI_UPLOAD';
+ALTER TABLE cts.branches DROP CONSTRAINT IF EXISTS ck_branches_scanner_input_mode;
+ALTER TABLE cts.branches ADD CONSTRAINT ck_branches_scanner_input_mode CHECK (scanner_input_mode IN ('UI_UPLOAD', 'FOLDER_DROP', 'SDK_PUSH'));
 
 -- ── CTS: MCP connection configs (CBS, Vault, PPS links) ──────────────────────
 CREATE TABLE IF NOT EXISTS cts.mcp_connection_configs (
