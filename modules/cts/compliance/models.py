@@ -181,6 +181,9 @@ class InstrumentComplianceRecord:
     # MICR
     micr_band_score:     float
 
+    # Bank-configurable via Admin UI (Layer 3: rear_image_required); default False per RBI practice
+    rear_image_required: bool = False
+
     def __post_init__(self) -> None:
         self._failure_reasons: list[str] = []
         self._evaluate()
@@ -189,20 +192,21 @@ class InstrumentComplianceRecord:
         s = CTS2010Standard
         if self.front_dpi < s.MIN_DPI:
             self._failure_reasons.append('front_dpi')
-        if self.rear_dpi < s.MIN_DPI:
-            self._failure_reasons.append('rear_dpi')
         if self.front_colour_depth < s.MIN_COLOUR_DEPTH:
             self._failure_reasons.append('front_colour_depth')
         if self.front_file_size_kb > s.MAX_FILE_SIZE_KB:
             self._failure_reasons.append('front_file_size_kb')
-        if self.rear_file_size_kb > s.MAX_FILE_SIZE_KB:
-            self._failure_reasons.append('rear_file_size_kb')
         if self.front_iqa_score < s.MIN_IQA_SCORE:
             self._failure_reasons.append('front_iqa_score')
-        if self.rear_iqa_score < s.MIN_IQA_SCORE:
-            self._failure_reasons.append('rear_iqa_score')
         if self.micr_band_score < s.MICR_BAND_MIN_SCORE:
             self._failure_reasons.append('micr_band_score')
+        if self.rear_image_required:
+            if self.rear_dpi < s.MIN_DPI:
+                self._failure_reasons.append('rear_dpi')
+            if self.rear_file_size_kb > s.MAX_FILE_SIZE_KB:
+                self._failure_reasons.append('rear_file_size_kb')
+            if self.rear_iqa_score < s.MIN_IQA_SCORE:
+                self._failure_reasons.append('rear_iqa_score')
 
     @property
     def failure_reasons(self) -> list[str]:

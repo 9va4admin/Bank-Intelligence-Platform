@@ -3,7 +3,6 @@
 # THIS FILE IS DOCUMENTATION ONLY — it is NOT loaded by Helm or ArgoCD.
 # Actual Layer 1 defaults live in: infra/helm/astra-platform/values.yaml
 #                                  infra/helm/astra-cts/values.yaml
-#                                  infra/helm/astra-ej/values.yaml
 #
 # Layer 3 defaults (iet_minutes, thresholds, etc.) are SEEDED into YugabyteDB
 # at bank onboarding from infra/helm/astra-cts/values.yaml thresholds: section.
@@ -177,6 +176,17 @@ layer3:
     cheque_validity_days: 90                  # RBI: 3-month validity (Jan 2012 circular)
     pps_mandatory_threshold: 500000           # ₹5,00,000 — PPS check mandatory above this
     shadow_credit_release_hours: 4            # release after 2 return clearing sessions
+    opa_required: true                        # OPA unavailable → HUMAN_REVIEW (never PROCEED)
+    clearing_session: "MORNING"               # used for SMB ledger bucketing; override per bank
+    # Outward payee account status routing — bank-level policy, never branch-level
+    # CLOSED is always AUTO_RETURN (account no longer exists — no ambiguity)
+    # FROZEN / DORMANT / NPA are bank-configurable: HUMAN_REVIEW (default) or AUTO_RETURN
+    outward_frozen_payee_action: "HUMAN_REVIEW"  # FROZEN = temp (court/regulatory hold) — teller should not decide
+    outward_dormant_payee_action: "HUMAN_REVIEW" # DORMANT = no txns 2yr — may be reactivatable
+    outward_npa_payee_action: "HUMAN_REVIEW"     # NPA = credit event — human must confirm return
+    # Rear image (back of cheque) is NOT mandatory by default — blank reverse is normal practice.
+    # Banks that endorse or stamp the reverse may set this to "true" to enforce rear quality checks.
+    rear_image_required: "false"                 # Layer 3: hot-reload; "true" enables rear DPI/IQA checks
 
   platform_health_check:
     cadence_seconds: 60                       # PlatformHealthCheckWorkflow polling interval
@@ -203,15 +213,13 @@ layer3:
 #
 # Files to create (copy from example-bank and customise):
 #   infra/helm/values/banks/{bank_id}/platform.yaml
-#   infra/helm/values/banks/{bank_id}/cts.yaml      (if CTS purchased)
-#   infra/helm/values/banks/{bank_id}/ej.yaml       (if EJ purchased)
+#   infra/helm/values/banks/{bank_id}/cts.yaml
 #
 # Required fields in platform.yaml:
 #   bank_id:           {bank_id}
 #   global.bank_id:    {bank_id}
 #   global.registry:   registry.astra.internal
 #   modules.cts.enabled: true/false
-#   modules.ej.enabled:  true/false
 #   minio.endpoint:    minio.astra-platform-{bank_id}.svc.cluster.local:9000
 #   hsm.transit_key_name: astra-audit-key-{bank_id}
 #   astra.platform_chart_version: {current chart version}

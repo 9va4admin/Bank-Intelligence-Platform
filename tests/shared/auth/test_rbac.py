@@ -797,3 +797,115 @@ class TestSMBInstrumentFilter:
         assert user.sponsor_bank_id == "saraswat-coop"
         assert user.bank_id == "cosmos-coop"
         assert user.bank_type == BankType.SMB
+
+
+# ---------------------------------------------------------------------------
+# Branch Manager role — ABAC branch_code scoping
+# ---------------------------------------------------------------------------
+
+class TestBranchManagerRole:
+    """
+    branch_manager — a bank's branch-level representative who:
+      - Can view held cheques for their branch only
+      - Can add notes/recommendations to held cheques
+      - CANNOT view the regular CTS queue (ops_reviewer only)
+      - CANNOT submit Pay/Return decisions (ops_reviewer/ops_manager only)
+      - CANNOT see full PII
+    ABAC: scoped by branch_code from JWT claim.
+    """
+
+    def _branch_mgr(self, branch_code: str = "SRCB0000034") -> UserContext:
+        return UserContext(
+            user_id="bm-001",
+            role=Role.BRANCH_MANAGER,
+            bank_id="test-bank",
+            branch_code=branch_code,
+        )
+
+    # Role enum membership
+    def test_branch_manager_exists_in_role_enum(self):
+        assert Role.BRANCH_MANAGER in Role
+
+    def test_branch_manager_value_is_branch_manager(self):
+        assert Role.BRANCH_MANAGER.value == "branch_manager"
+
+    # New permissions exist
+    def test_cts_view_hold_queue_permission_exists(self):
+        assert Permission.CTS_VIEW_HOLD_QUEUE in Permission
+
+    def test_cts_add_hold_note_permission_exists(self):
+        assert Permission.CTS_ADD_HOLD_NOTE in Permission
+
+    # branch_manager is granted the right permissions
+    def test_branch_manager_has_cts_view_hold_queue(self):
+        user = self._branch_mgr()
+        assert has_permission(user, Permission.CTS_VIEW_HOLD_QUEUE)
+
+    def test_branch_manager_has_cts_add_hold_note(self):
+        user = self._branch_mgr()
+        assert has_permission(user, Permission.CTS_ADD_HOLD_NOTE)
+
+    # branch_manager is explicitly denied clearing permissions
+    def test_branch_manager_cannot_view_regular_cts_queue(self):
+        user = self._branch_mgr()
+        assert not has_permission(user, Permission.CTS_VIEW_QUEUE)
+
+    def test_branch_manager_cannot_submit_clearing_decision(self):
+        user = self._branch_mgr()
+        assert not has_permission(user, Permission.CTS_SUBMIT_DECISION)
+
+    def test_branch_manager_cannot_view_pii(self):
+        user = self._branch_mgr()
+        assert not has_permission(user, Permission.VIEW_PII)
+
+    def test_branch_manager_cannot_access_admin_console(self):
+        user = self._branch_mgr()
+        assert not has_permission(user, Permission.ADMIN_CONSOLE)
+
+    # UserContext branch_code field
+    def test_user_context_accepts_branch_code(self):
+        user = self._branch_mgr(branch_code="SRCB0000034")
+        assert user.branch_code == "SRCB0000034"
+
+    def test_user_context_branch_code_defaults_to_none(self):
+        user = UserContext(
+            user_id="u", role=Role.OPS_MANAGER, bank_id="b"
+        )
+        assert user.branch_code is None
+
+    # RBACPolicy.assert_branch_access
+    def test_assert_branch_access_passes_when_codes_match(self):
+        policy = RBACPolicy()
+        user = self._branch_mgr(branch_code="SRCB0000034")
+        policy.assert_branch_access(user, "SRCB0000034")  # no exception
+
+    def test_assert_branch_access_raises_on_mismatch(self):
+        policy = RBACPolicy()
+        user = self._branch_mgr(branch_code="SRCB0000034")
+        with pytest.raises(InsufficientZoneScopeError):
+            policy.assert_branch_access(user, "SRCB0000099")
+
+    def test_assert_branch_access_passes_for_ops_manager(self):
+        policy = RBACPolicy()
+        user = UserContext(
+            user_id="mgr", role=Role.OPS_MANAGER, bank_id="test-bank"
+        )
+        policy.assert_branch_access(user, "ANY_BRANCH_CODE")  # no restriction
+
+    def test_assert_branch_access_passes_for_ops_reviewer(self):
+        policy = RBACPolicy()
+        user = UserContext(
+            user_id="rev", role=Role.OPS_REVIEWER, bank_id="test-bank",
+            clearing_zones=["MUMBAI"]
+        )
+        policy.assert_branch_access(user, "ANY_BRANCH_CODE")  # no restriction
+
+    def test_assert_branch_access_branch_manager_no_branch_code_raises(self):
+        """branch_manager without branch_code in JWT must not get access."""
+        policy = RBACPolicy()
+        user = UserContext(
+            user_id="bm", role=Role.BRANCH_MANAGER, bank_id="test-bank",
+            branch_code=None,
+        )
+        with pytest.raises(InsufficientZoneScopeError):
+            policy.assert_branch_access(user, "SRCB0000034")

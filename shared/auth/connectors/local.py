@@ -27,6 +27,7 @@ class LocalCredentials(BaseModel):
     model_config = ConfigDict(frozen=True)
     username: str
     password: str
+    bank_id: str = ""   # forwarded from login request; used by platform_admin to adopt target bank
 
 
 class LocalAuthConnector(AuthConnector):
@@ -87,6 +88,8 @@ class LocalAuthConnector(AuthConnector):
             entity_id=account["entity_id"],
             bank_id=account["bank_id"],
             role=account["role"],
+            permission_level=account.get("permission_level", "READ_ONLY"),
+            bank_type=account.get("bank_type", "SB"),
             clearing_zones=account.get("clearing_zones", []),
             connector_used="local",
         )
@@ -139,8 +142,8 @@ class YugabyteDBLocalAuthConnector(LocalAuthConnector):
 
     _COLS = (
         "user_id, bank_id, entity_type, entity_id, username, display_name, "
-        "password_hash, role, clearing_zones, is_active, failed_attempts, "
-        "locked_until, email, phone"
+        "password_hash, role, permission_level, bank_type, clearing_zones, "
+        "is_active, failed_attempts, locked_until, email, phone"
     )
 
     def __init__(self, bank_id: str, db_pool: Any) -> None:

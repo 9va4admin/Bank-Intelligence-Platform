@@ -1,7 +1,10 @@
 import { useState, useCallback } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+
+function getCsrf() { return sessionStorage.getItem('astra-csrf') || '' }
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -211,7 +214,7 @@ function StatusBadge({ status, isDark }) {
 
 // ── Form modal ────────────────────────────────────────────────────────────────
 
-function ConnectionFormModal({ isDark, onClose, onSave, editRow, isSB }) {
+function ConnectionFormModal({ isDark, onClose, onSave, editRow, isSB, bankMode }) {
   const [form, setForm] = useState({
     connection_type: editRow?.connection_type || 'SB_CBS',
     smb_id: editRow?.smb_id || '',
@@ -243,9 +246,12 @@ function ConnectionFormModal({ isDark, onClose, onSave, editRow, isSB }) {
     setSaving(false)
   }
 
+  const baseTypes = bankMode === 'SB_ONLY'
+    ? CONNECTION_TYPES.filter(ct => ct.type !== 'SMB_CBS')
+    : CONNECTION_TYPES
   const availableTypes = isSB
-    ? CONNECTION_TYPES
-    : CONNECTION_TYPES.filter(ct => ct.type === 'SMB_CBS')
+    ? baseTypes
+    : baseTypes.filter(ct => ct.type === 'SMB_CBS')
 
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center ${th.overlay}`} onClick={onClose}>
@@ -542,10 +548,14 @@ function PreflightBanner({ connections, isDark }) {
 
 export default function CTSMCPConfig() {
   const { isDark } = useTheme()
-  const { bankId, bankName, isSB } = useBankContext()
-  const [connections, setConnections] = useState(
-    isSB ? MOCK_CONNECTIONS : MOCK_CONNECTIONS.filter(c => c.connection_type === 'SMB_CBS')
-  )
+  const { bankId, bankName, isSB, bankMode } = useBankContext()
+  const effectiveConnectionTypes = bankMode === 'SB_ONLY'
+    ? CONNECTION_TYPES.filter(ct => ct.type !== 'SMB_CBS')
+    : CONNECTION_TYPES
+  const effectiveMockConns = bankMode === 'SB_ONLY'
+    ? MOCK_CONNECTIONS.filter(c => c.connection_type !== 'SMB_CBS')
+    : MOCK_CONNECTIONS
+  const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editRow, setEditRow] = useState(null)
   const [testing, setTesting] = useState({})
@@ -566,92 +576,122 @@ export default function CTSMCPConfig() {
     divider: isDark ? 'border-white/8' : 'border-slate-200',
   }
 
-  function handleSave(form) {
-    return new Promise(resolve => {
-      if (editRow) {
-        setConnections(cs => cs.map(c =>
-          c.id === editRow.id
-            ? { ...c, cbs_vendor: form.cbs_vendor || c.cbs_vendor, smb_name: form.smb_name || c.smb_name, status: 'PENDING' }
-            : c
-        ))
-        showToast('Connection updated — status reset to PENDING. Run Test to activate.', 'info')
-      } else {
-        const newConn = {
-          id: 'conn-' + Date.now(),
-          connection_type: form.connection_type,
-          smb_id: form.smb_id || null,
-          smb_name: form.smb_name || null,
-          cbs_vendor: form.cbs_vendor || null,
-          endpoint_url_masked: form.endpoint_url
-            ? (() => { try { const u = new URL(form.endpoint_url); return `${u.protocol}//${u.hostname}/***` } catch { return '***' } })()
-            : null,
-          vault_secret_ref: form.vault_secret_ref || null,
-          status: 'PENDING',
-          last_tested_at: null,
-          last_test_latency_ms: null,
-          last_sync_at: null,
-          vault_record_count: null,
-          error_message: null,
-          created_at: new Date().toISOString(),
-          created_by: 'itadmin@' + bankId,
-        }
-        setConnections(cs => [...cs, newConn])
-        showToast('Connection added. Run Test to verify connectivity and activate.', 'info')
-      }
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['mcp-connections', bankId] })
+
+  const { data: connData, isLoading: connLoading } = useQuery({
+    queryKey: ['mcp-connections', bankId],
+    queryFn: async () => {
+      const res = await fetch('/v1/admin/mcp-connections/', { credentials: 'include' })
+      if (!res.ok) throw new Error('Failed to load connections')
+      return res.json()
+    },
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+  })
+  const allConns = connData?.connections ?? (isSB ? effectiveMockConns : effectiveMockConns.filter(c => c.connection_type === 'SMB_CBS'))
+
+  const saveMutation = useMutation({
+    mutationFn: async (form) => {
+      const url = editRow
+        ? `/v1/admin/mcp-connections/${encodeURIComponent(editRow.id)}`
+        : '/v1/admin/mcp-connections/'
+      const res = await fetch(url, {
+        method: editRow ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrf() },
+        credentials: 'include',
+        body: JSON.stringify(form),
+      })
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'Save failed') }
+      return res.json()
+    },
+    onSuccess: () => {
+      invalidate()
+      showToast(editRow ? 'Connection updated — status reset to PENDING. Run Test to activate.' : 'Connection added. Run Test to verify connectivity and activate.', 'info')
       setShowForm(false)
       setEditRow(null)
-      resolve()
-    })
+    },
+    onError: (err) => showToast(err.message || 'Save failed', 'error'),
+  })
+
+  function handleSave(form) {
+    return saveMutation.mutateAsync(form)
   }
+
+  const testMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await fetch(`/v1/admin/mcp-connections/${encodeURIComponent(id)}/test`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'X-CSRF-Token': getCsrf() },
+      })
+      if (!res.ok) throw new Error('Test request failed')
+      return res.json()
+    },
+    onSuccess: (data) => {
+      invalidate()
+      setTesting(t => ({ ...t, [data.connection_id]: false }))
+      showToast(
+        data.success
+          ? `Connection tested successfully (${data.latency_ms} ms)`
+          : `Connection test failed — ${data.error || 'check endpoint and credentials'}`,
+        data.success ? 'success' : 'error',
+      )
+    },
+    onError: (_, id) => {
+      setTesting(t => ({ ...t, [id]: false }))
+      showToast('Connection test request failed', 'error')
+    },
+  })
 
   function handleTest(id) {
     setTesting(t => ({ ...t, [id]: true }))
-    // Simulate API call: POST /v1/admin/mcp-connections/{id}/test
-    setTimeout(() => {
-      const success = Math.random() > 0.2
-      const latency = Math.floor(Math.random() * 80) + 10
-      setConnections(cs => cs.map(c =>
-        c.id === id
-          ? {
-              ...c,
-              status: success ? 'ACTIVE' : 'ERROR',
-              last_tested_at: new Date().toISOString(),
-              last_test_latency_ms: success ? latency : null,
-              error_message: success ? null : 'Connection refused: CBS endpoint unreachable',
-            }
-          : c
-      ))
-      setTesting(t => ({ ...t, [id]: false }))
-      showToast(
-        success ? `Connection tested successfully (${latency} ms)` : 'Connection test failed — check endpoint and credentials',
-        success ? 'success' : 'error'
-      )
-    }, 1400)
+    testMutation.mutate(id)
   }
+
+  const syncMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await fetch(`/v1/admin/mcp-connections/${encodeURIComponent(id)}/sync`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'X-CSRF-Token': getCsrf() },
+      })
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'Sync trigger failed') }
+      return res.json()
+    },
+    onSuccess: (data) => {
+      invalidate()
+      setSyncing(s => ({ ...s, [data.connection_id]: false }))
+      showToast(`Vault sync triggered — workflow ${data.workflow_id}`, 'success')
+    },
+    onError: (err, id) => {
+      setSyncing(s => ({ ...s, [id]: false }))
+      showToast(err.message || 'Sync trigger failed', 'error')
+    },
+  })
 
   function handleSync(id) {
     setSyncing(s => ({ ...s, [id]: true }))
-    // Simulate API call: POST /v1/admin/mcp-connections/{id}/sync
-    setTimeout(() => {
-      const wfId = `cts-vaultsync-${bankId}-${id.slice(-8)}`
-      setConnections(cs => cs.map(c =>
-        c.id === id ? { ...c, last_sync_at: new Date().toISOString() } : c
-      ))
-      setSyncing(s => ({ ...s, [id]: false }))
-      showToast(`Vault sync triggered — workflow ${wfId}`, 'success')
-    }, 1200)
+    syncMutation.mutate(id)
   }
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await fetch(`/v1/admin/mcp-connections/${encodeURIComponent(id)}`, {
+        method: 'DELETE', credentials: 'include',
+        headers: { 'X-CSRF-Token': getCsrf() },
+      })
+      if (!res.ok) throw new Error('Delete failed')
+    },
+    onSuccess: () => { invalidate(); showToast('Connection removed', 'info') },
+    onError: () => showToast('Failed to remove connection', 'error'),
+  })
 
   function handleEdit(conn) {
     setEditRow(conn)
     setShowForm(true)
   }
 
-  function handleDelete(id) {
-    setConnections(cs => cs.filter(c => c.id !== id))
-    showToast('Connection removed', 'info')
-  }
+  function handleDelete(id) { deleteMutation.mutate(id) }
 
+  const connections = allConns
   // Group connections for display
   const cbsConns = connections.filter(c => c.connection_type.endsWith('CBS'))
   const vaultConns = connections.filter(c => !c.connection_type.endsWith('CBS'))
@@ -753,7 +793,7 @@ export default function CTSMCPConfig() {
         <div className={`mt-6 rounded-xl border p-4 ${th.card}`}>
           <h3 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${th.muted}`}>Setup Guide</h3>
           <div className="grid grid-cols-1 gap-2">
-            {CONNECTION_TYPES.filter(ct => isSB || ct.type === 'SMB_CBS').map((ct, i) => (
+            {effectiveConnectionTypes.filter(ct => isSB || ct.type === 'SMB_CBS').map((ct, i) => (
               <div key={ct.type} className="flex items-start gap-2">
                 <span className={`text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${isDark ? 'bg-violet-900/50 text-violet-300' : 'bg-violet-100 text-violet-700'}`}>
                   {i + 1}
@@ -776,6 +816,7 @@ export default function CTSMCPConfig() {
           onSave={handleSave}
           editRow={editRow}
           isSB={isSB}
+              bankMode={bankMode}
         />
       )}
 

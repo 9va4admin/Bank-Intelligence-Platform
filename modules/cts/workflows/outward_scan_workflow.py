@@ -39,6 +39,43 @@ from temporalio.workflow import ParentClosePolicy
 
 log = structlog.get_logger()
 
+# ── Date validation helpers ───────────────────────────────────────────────────
+
+_DATE_FORMATS = ("%d-%m-%Y", "%d/%m/%Y", "%d.%m.%Y", "%Y-%m-%d")
+_STALE_DAYS = 90   # RBI: cheques older than 3 months cannot be presented
+
+
+def _parse_cheque_date(date_str: str):
+    """Parse cheque date string in common Indian formats. Returns date or None."""
+    from datetime import date as _date
+    for fmt in _DATE_FORMATS:
+        try:
+            return __import__("datetime").datetime.strptime(date_str.strip(), fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _validate_cheque_date(date_str):
+    """
+    Returns (ok: bool, violation: str | None).
+    violation is None when date is valid.
+    Non-string values (e.g. None, or missing attr) → UNDATED_CHEQUE.
+    """
+    from datetime import date as _date
+    if not isinstance(date_str, str) or not date_str.strip():
+        return False, "UNDATED_CHEQUE"
+    parsed = _parse_cheque_date(date_str)
+    if parsed is None:
+        return False, "UNDATED_CHEQUE"
+    today = _date.today()
+    if parsed > today:
+        return False, "POST_DATED_CHEQUE"
+    if (today - parsed).days > _STALE_DAYS:
+        return False, "STALE_CHEQUE"
+    return True, None
+
+
 _AI_RETRY = RetryPolicy(
     maximum_attempts=2,
     initial_interval=timedelta(seconds=1),
@@ -85,10 +122,32 @@ class OutwardScanInput(BaseModel):
     # vision_extract_and_check path (no GOT-OCR2 call on outward side).
     micr_hardware_raw: Optional[str] = None
 
+    # Payee / beneficiary details — from deposit slip (kiosk digital entry, teller
+    # counter, or rear-image OCR). If payee_account_number is present, validate_payee_account
+    # runs before CTS-2010 compliance. On CBS_UNAVAILABLE, workflow continues degraded
+    # so the IET window is never blocked by a CBS outage.
+    payee_account_number: Optional[str] = None    # KBL account number of the depositing customer
+    payee_name_from_slip: Optional[str] = None    # name as written on deposit slip / cheque back
+    payee_mobile: Optional[str] = None            # optional; for teller notification only
+    rear_image_ocr_required: bool = False         # True → run extract_rear_payee_details first
+
     # NGCH metadata cross-check fields (Item 6) — filled at deposit registration.
     # Optional and additive: if absent, cross-check degrades gracefully to PROCEED.
     registered_drawee_ifsc: Optional[str] = None   # IFSC of drawee bank (from teller entry)
     registered_amount_str: Optional[str] = None    # amount entered at deposit (decimal string)
+
+    # UV scanner image bundle — populated by DropFolderWatcher when scanner has UV lamp.
+    # Both optional: standard non-UV scanners omit them; workflow skips those checks.
+    image_front_gray_url: Optional[str] = None     # front grayscale — alteration detection
+    image_uv_url: Optional[str] = None             # UV wavelength — security feature verification
+
+    # Bank-level payee account status routing policy — populated by the trigger
+    # from config_service.get_cts_config(bank_id) before starting the workflow.
+    # Values: "HUMAN_REVIEW" (default) | "AUTO_RETURN"
+    # CLOSED is always AUTO_RETURN regardless of these fields.
+    outward_frozen_payee_action: str = "HUMAN_REVIEW"
+    outward_dormant_payee_action: str = "HUMAN_REVIEW"
+    outward_npa_payee_action: str = "HUMAN_REVIEW"
 
 
 class OutwardScanResult(BaseModel):
@@ -119,8 +178,40 @@ class OutwardScanWorkflow:
 
     @workflow.run
     async def run(self, inp: OutwardScanInput) -> OutwardScanResult:
+        """Production Temporal @workflow.run entry point."""
+        from modules.cts.workflows.activities.outward_scan_activities import (
+            record_outward_scan_event, RecordScanEventInput,
+        )
+        result = await self._run_impl(inp)
+        # Record scan event for branch monitor (best-effort — never fail workflow for this)
+        try:
+            micr_suffix = (result.micr_line or "")[-4:] or None
+            await workflow.execute_activity(
+                record_outward_scan_event,
+                RecordScanEventInput(
+                    bank_id=inp.bank_id,
+                    scan_id=inp.scan_id,
+                    instrument_id=inp.instrument_id,
+                    branch_id=getattr(inp, "branch_id", None),
+                    session_id=getattr(inp, "session_id", None),
+                    micr_suffix=micr_suffix if micr_suffix else None,
+                    amount_range=None,
+                    outcome=result.outcome,
+                    lot_id=result.lot_number,
+                    mismatch_id=result.mismatch_id,
+                    mismatch_fields=result.mismatch_fields,
+                    reject_reason=(result.violations[0] if result.violations else None),
+                ),
+                start_to_close_timeout=timedelta(seconds=10),
+                retry_policy=_INFRA_RETRY,
+            )
+        except Exception:
+            pass  # non-critical — never fail scan for event recording
+        return result
+
+    async def _run_impl(self, inp: OutwardScanInput) -> OutwardScanResult:
         """
-        Production Temporal @workflow.run entry point.
+        Core scan logic — delegated from run() so event recording wraps all paths.
 
         capture_image / drop-folder parsing / MinIO upload happen upstream of
         this workflow (see module docstring) — image_front_url/image_rear_url
@@ -162,6 +253,127 @@ class OutwardScanWorkflow:
         micr_line = ocr_result.micr_line
         scanner_amount_str = ocr_result.amount_figures
         quality_score = None if ocr_result.degraded else ocr_result.overall_confidence
+
+        # Step 2.1: Rear-image OCR → extract payee account + name (if deposit slip not pre-entered)
+        if inp.rear_image_ocr_required and inp.image_rear_url:
+            from modules.cts.workflows.activities.outward_scan_activities import (
+                extract_rear_payee_details, RearPayeeExtractionInput,
+            )
+            rear = await workflow.execute_activity(
+                extract_rear_payee_details,
+                RearPayeeExtractionInput(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    image_rear_url=inp.image_rear_url,
+                ),
+                start_to_close_timeout=timedelta(seconds=60),
+                retry_policy=_AI_RETRY,
+            )
+            # Merge OCR output into payee fields (don't override what teller pre-entered)
+            if not inp.payee_account_number and rear.account_number:
+                inp = inp.model_copy(update={
+                    "payee_account_number": rear.account_number,
+                    "payee_name_from_slip": rear.depositor_name or inp.payee_name_from_slip,
+                })
+
+        # Step 2.2: Payee account validation — Account Vault first, CBS on miss / for name match
+        if inp.payee_account_number:
+            from modules.cts.workflows.activities.outward_scan_activities import (
+                validate_payee_account, PayeeValidationInput,
+            )
+            payee_result = await workflow.execute_activity(
+                validate_payee_account,
+                PayeeValidationInput(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    payee_account_number=inp.payee_account_number,
+                    payee_name_from_slip=inp.payee_name_from_slip,
+                ),
+                start_to_close_timeout=timedelta(seconds=15),
+                retry_policy=_INFRA_RETRY,
+            )
+            if payee_result.outcome == "ACCOUNT_NOT_FOUND":
+                log.info("outward_scan_workflow.payee_not_found",
+                         scan_id=inp.scan_id, bank_id=inp.bank_id,
+                         account_last4=inp.payee_account_number[-4:])
+                await workflow.execute_activity(
+                    write_audit,
+                    WriteAuditInput(event_type="CTS_OUT_PAYEE_NOT_FOUND", bank_id=inp.bank_id,
+                                    instrument_id=inp.instrument_id,
+                                    payload={"scan_id": inp.scan_id,
+                                             "account_last4": inp.payee_account_number[-4:]}),
+                    start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
+                )
+                return OutwardScanResult(
+                    outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                    instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
+                    violations=["PAYEE_ACCOUNT_NOT_FOUND"], audit_written=True, pu_id=inp.pu_id,
+                )
+            if payee_result.outcome == "ACCOUNT_INACTIVE":
+                acct_status = payee_result.account_status or "UNKNOWN"
+                # CLOSED → always auto-return (account no longer exists).
+                # FROZEN / DORMANT / NPA → bank-level policy from inp (populated by trigger
+                # via config_service.get_cts_config). Default: HUMAN_REVIEW.
+                _policy_map = {
+                    "FROZEN":  inp.outward_frozen_payee_action,
+                    "DORMANT": inp.outward_dormant_payee_action,
+                    "NPA":     inp.outward_npa_payee_action,
+                }
+                action = "AUTO_RETURN" if acct_status == "CLOSED" else _policy_map.get(acct_status, "HUMAN_REVIEW")
+                log.info("outward_scan_workflow.payee_inactive",
+                         scan_id=inp.scan_id, bank_id=inp.bank_id,
+                         account_status=acct_status, action=action)
+                if action == "HUMAN_REVIEW":
+                    await workflow.execute_activity(
+                        write_audit,
+                        WriteAuditInput(event_type="CTS_OUT_PAYEE_INACTIVE_HELD", bank_id=inp.bank_id,
+                                        instrument_id=inp.instrument_id,
+                                        payload={"scan_id": inp.scan_id,
+                                                 "account_status": acct_status, "action": "HUMAN_REVIEW"}),
+                        start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
+                    )
+                    return OutwardScanResult(
+                        outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                        instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
+                        violations=[f"PAYEE_ACCOUNT_{acct_status}"],
+                        mismatch_fields=["payee_account_status"],
+                        audit_written=True, pu_id=inp.pu_id,
+                    )
+                await workflow.execute_activity(
+                    write_audit,
+                    WriteAuditInput(event_type="CTS_OUT_PAYEE_INACTIVE", bank_id=inp.bank_id,
+                                    instrument_id=inp.instrument_id,
+                                    payload={"scan_id": inp.scan_id,
+                                             "account_status": acct_status, "action": "AUTO_RETURN"}),
+                    start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
+                )
+                return OutwardScanResult(
+                    outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                    instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
+                    violations=[f"PAYEE_ACCOUNT_{acct_status}"],
+                    audit_written=True, pu_id=inp.pu_id,
+                )
+            if payee_result.outcome == "NAME_MISMATCH":
+                # Name mismatch → human review (not outright rejection; teller can override)
+                log.info("outward_scan_workflow.payee_name_mismatch",
+                         scan_id=inp.scan_id, bank_id=inp.bank_id,
+                         score=payee_result.name_match_score)
+                await workflow.execute_activity(
+                    write_audit,
+                    WriteAuditInput(event_type="CTS_OUT_PAYEE_NAME_MISMATCH", bank_id=inp.bank_id,
+                                    instrument_id=inp.instrument_id,
+                                    payload={"scan_id": inp.scan_id,
+                                             "name_match_score": payee_result.name_match_score,
+                                             "payee_display": payee_result.payee_display}),
+                    start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
+                )
+                return OutwardScanResult(
+                    outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                    instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
+                    violations=["PAYEE_NAME_MISMATCH"], audit_written=True, pu_id=inp.pu_id,
+                    mismatch_fields=["payee_name"],
+                )
+            # CBS_UNAVAILABLE → proceed degraded; vault says account exists; teller notified via UI flag
 
         # Step 2.5: NGCH metadata cross-check — MICR band vs registered instrument metadata
         from modules.cts.workflows.activities.ngch_metadata_cross_check import (
@@ -419,7 +631,95 @@ class OutwardScanWorkflow:
                 audit_written=True, pu_id=inp.pu_id,
             )
 
-        # Step 1.5 (CR-120): detect_signatures — presence only, same as legacy path
+        # Step 1.5 (CR-120): Payee account validation — same logic as legacy path
+        if inp.payee_account_number:
+            from modules.cts.workflows.activities.outward_scan_activities import (
+                validate_payee_account, PayeeValidationInput,
+            )
+            payee_cr = await workflow.execute_activity(
+                validate_payee_account,
+                PayeeValidationInput(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    payee_account_number=inp.payee_account_number,
+                    payee_name_from_slip=inp.payee_name_from_slip,
+                ),
+                start_to_close_timeout=timedelta(seconds=15),
+                retry_policy=_INFRA_RETRY,
+            )
+            if payee_cr.outcome == "ACCOUNT_NOT_FOUND":
+                await workflow.execute_activity(
+                    write_audit,
+                    WriteAuditInput(event_type="CTS_OUT_PAYEE_NOT_FOUND", bank_id=inp.bank_id,
+                                    instrument_id=inp.instrument_id,
+                                    payload={"scan_id": inp.scan_id, "path": "cr120",
+                                             "account_last4": inp.payee_account_number[-4:]}),
+                    start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
+                )
+                return OutwardScanResult(
+                    outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                    instrument_id=inp.instrument_id, micr_line=inp.micr_hardware_raw,
+                    lot_number=None, violations=["PAYEE_ACCOUNT_NOT_FOUND"],
+                    audit_written=True, pu_id=inp.pu_id,
+                )
+            if payee_cr.outcome == "ACCOUNT_INACTIVE":
+                acct_status = payee_cr.account_status or "UNKNOWN"
+                _policy_map = {
+                    "FROZEN":  inp.outward_frozen_payee_action,
+                    "DORMANT": inp.outward_dormant_payee_action,
+                    "NPA":     inp.outward_npa_payee_action,
+                }
+                action = "AUTO_RETURN" if acct_status == "CLOSED" else _policy_map.get(acct_status, "HUMAN_REVIEW")
+                log.info("outward_scan_workflow.payee_inactive",
+                         scan_id=inp.scan_id, bank_id=inp.bank_id,
+                         account_status=acct_status, action=action, path="cr120")
+                if action == "HUMAN_REVIEW":
+                    await workflow.execute_activity(
+                        write_audit,
+                        WriteAuditInput(event_type="CTS_OUT_PAYEE_INACTIVE_HELD", bank_id=inp.bank_id,
+                                        instrument_id=inp.instrument_id,
+                                        payload={"scan_id": inp.scan_id, "path": "cr120",
+                                                 "account_status": acct_status, "action": "HUMAN_REVIEW"}),
+                        start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
+                    )
+                    return OutwardScanResult(
+                        outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                        instrument_id=inp.instrument_id, micr_line=inp.micr_hardware_raw,
+                        lot_number=None, violations=[f"PAYEE_ACCOUNT_{acct_status}"],
+                        mismatch_fields=["payee_account_status"],
+                        audit_written=True, pu_id=inp.pu_id,
+                    )
+                await workflow.execute_activity(
+                    write_audit,
+                    WriteAuditInput(event_type="CTS_OUT_PAYEE_INACTIVE", bank_id=inp.bank_id,
+                                    instrument_id=inp.instrument_id,
+                                    payload={"scan_id": inp.scan_id, "path": "cr120",
+                                             "account_status": acct_status, "action": "AUTO_RETURN"}),
+                    start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
+                )
+                return OutwardScanResult(
+                    outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                    instrument_id=inp.instrument_id, micr_line=inp.micr_hardware_raw,
+                    lot_number=None, violations=[f"PAYEE_ACCOUNT_{acct_status}"],
+                    audit_written=True, pu_id=inp.pu_id,
+                )
+            if payee_cr.outcome == "NAME_MISMATCH":
+                await workflow.execute_activity(
+                    write_audit,
+                    WriteAuditInput(event_type="CTS_OUT_PAYEE_NAME_MISMATCH", bank_id=inp.bank_id,
+                                    instrument_id=inp.instrument_id,
+                                    payload={"scan_id": inp.scan_id, "path": "cr120",
+                                             "name_match_score": payee_cr.name_match_score}),
+                    start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
+                )
+                return OutwardScanResult(
+                    outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                    instrument_id=inp.instrument_id, micr_line=inp.micr_hardware_raw,
+                    lot_number=None, violations=["PAYEE_NAME_MISMATCH"],
+                    audit_written=True, pu_id=inp.pu_id, mismatch_fields=["payee_name"],
+                )
+
+        # Step 1.6 (CR-120): detect_signatures — presence only, same as legacy path
         from modules.cts.workflows.activities.detect_signatures import (
             detect_signatures, DetectSignaturesInput,
         )
@@ -571,6 +871,86 @@ class OutwardScanWorkflow:
         micr_result = mock_results["micr"]
         micr_line = getattr(micr_result, "micr_line", None)
 
+        # Step 1.5: Date validation — stale / post-dated / undated cheques rejected here
+        # OCR extracts the date; we validate before spending AI budget on the rest.
+        date_str = getattr(micr_result, "date", None)
+        date_ok, date_violation = _validate_cheque_date(date_str)
+        if not date_ok:
+            log.info("outward_scan_workflow.date_rejected",
+                     scan_id=inp.scan_id, bank_id=inp.bank_id,
+                     violation=date_violation, date_extracted=date_str)
+            await self._write_audit(mock_results, "CTS_REJECTED", inp)
+            return OutwardScanResult(
+                outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                instrument_id=inp.instrument_id, micr_line=micr_line,
+                lot_number=None, violations=[date_violation], audit_written=True,
+                pu_id=getattr(inp, "pu_id", None),
+            )
+
+        # Step 2.2: Payee account validation (optional mock — skipped when payee_account_number absent)
+        if inp.payee_account_number:
+            payee_result = mock_results.get("payee")
+            if payee_result is not None:
+                if getattr(payee_result, "outcome", "PROCEED") == "ACCOUNT_NOT_FOUND":
+                    log.info("outward_scan_workflow.payee_not_found",
+                             scan_id=inp.scan_id, bank_id=inp.bank_id,
+                             account_last4=inp.payee_account_number[-4:])
+                    await self._write_audit(mock_results, "CTS_REJECTED", inp)
+                    return OutwardScanResult(
+                        outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                        instrument_id=inp.instrument_id, micr_line=micr_line,
+                        lot_number=None, violations=["PAYEE_ACCOUNT_NOT_FOUND"],
+                        audit_written=True, pu_id=getattr(inp, "pu_id", None),
+                    )
+                if getattr(payee_result, "outcome", "PROCEED") == "ACCOUNT_INACTIVE":
+                    acct_status = getattr(payee_result, "account_status", "UNKNOWN")
+                    # CLOSED is always auto-returned — account no longer exists.
+                    # FROZEN / DORMANT / NPA are bank-level policy (Layer 3):
+                    #   outward_frozen_payee_action / outward_dormant_payee_action / outward_npa_payee_action
+                    # Default: HUMAN_REVIEW — the teller should not make this call.
+                    _policy_map = {
+                        "FROZEN":  inp.outward_frozen_payee_action,
+                        "DORMANT": inp.outward_dormant_payee_action,
+                        "NPA":     inp.outward_npa_payee_action,
+                    }
+                    if acct_status == "CLOSED":
+                        action = "AUTO_RETURN"
+                    else:
+                        action = _policy_map.get(acct_status, "HUMAN_REVIEW")
+                    log.info("outward_scan_workflow.payee_inactive",
+                             scan_id=inp.scan_id, bank_id=inp.bank_id,
+                             account_status=acct_status, action=action)
+                    if action == "HUMAN_REVIEW":
+                        await self._write_audit(mock_results, "MISMATCH_HELD", inp)
+                        return OutwardScanResult(
+                            outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                            instrument_id=inp.instrument_id, micr_line=micr_line,
+                            lot_number=None,
+                            violations=[f"PAYEE_ACCOUNT_{acct_status}"],
+                            mismatch_fields=["payee_account_status"],
+                            audit_written=True, pu_id=getattr(inp, "pu_id", None),
+                        )
+                    # AUTO_RETURN path
+                    await self._write_audit(mock_results, "CTS_REJECTED", inp)
+                    return OutwardScanResult(
+                        outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                        instrument_id=inp.instrument_id, micr_line=micr_line,
+                        lot_number=None, violations=[f"PAYEE_ACCOUNT_{acct_status}"],
+                        audit_written=True, pu_id=getattr(inp, "pu_id", None),
+                    )
+                if getattr(payee_result, "outcome", "PROCEED") == "NAME_MISMATCH":
+                    log.info("outward_scan_workflow.payee_name_mismatch",
+                             scan_id=inp.scan_id, bank_id=inp.bank_id,
+                             score=getattr(payee_result, "name_match_score", None))
+                    await self._write_audit(mock_results, "MISMATCH_HELD", inp)
+                    return OutwardScanResult(
+                        outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                        instrument_id=inp.instrument_id, micr_line=micr_line,
+                        lot_number=None, violations=["PAYEE_NAME_MISMATCH"],
+                        audit_written=True, pu_id=getattr(inp, "pu_id", None),
+                        mismatch_fields=["payee_name"],
+                    )
+
         # Step 2.5: NGCH metadata cross-check (optional mock — defaults to PROCEED)
         xcheck_result = mock_results.get("cross_check")
         if xcheck_result is not None and getattr(xcheck_result, "outcome", "PROCEED") == "HUMAN_REVIEW":
@@ -610,6 +990,48 @@ class OutwardScanWorkflow:
                 audit_written=True,
                 pu_id=inp.pu_id,
             )
+
+        # Step 3.5: Front-gray alteration detection — only when gray image was captured.
+        # Graceful degradation: model unavailable (degraded=True) → proceed, never block.
+        if inp.image_front_gray_url:
+            alteration_result = mock_results.get("alteration")
+            if alteration_result is not None:
+                if alteration_result.alteration_detected and not alteration_result.degraded:
+                    altered = getattr(alteration_result, "altered_fields", ["unknown"])
+                    log.info("outward_scan_workflow.alteration_detected",
+                             scan_id=inp.scan_id, bank_id=inp.bank_id,
+                             altered_fields=altered)
+                    await self._write_audit(mock_results, "MISMATCH_HELD", inp)
+                    return OutwardScanResult(
+                        outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                        instrument_id=inp.instrument_id, micr_line=micr_line,
+                        lot_number=None,
+                        violations=[f"ALTERATION_DETECTED:{f}" for f in altered],
+                        audit_written=True, pu_id=getattr(inp, "pu_id", None),
+                        mismatch_fields=list(altered),
+                    )
+                # degraded or no alteration → proceed
+
+        # Step 3.6: UV security check — only when UV image was captured by scanner.
+        # Failure (uv_security_passed=False, not degraded) → MISMATCH_HELD for teller review.
+        # Degraded (UV lamp absent/offline) → proceed optimistically.
+        if inp.image_uv_url:
+            uv_result = mock_results.get("uv")
+            if uv_result is not None:
+                if not uv_result.uv_security_passed and not uv_result.degraded:
+                    log.info("outward_scan_workflow.uv_security_failed",
+                             scan_id=inp.scan_id, bank_id=inp.bank_id,
+                             uv_risk_score=getattr(uv_result, "uv_risk_score", None))
+                    await self._write_audit(mock_results, "MISMATCH_HELD", inp)
+                    return OutwardScanResult(
+                        outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                        instrument_id=inp.instrument_id, micr_line=micr_line,
+                        lot_number=None,
+                        violations=["UV_SECURITY_FAILED"],
+                        audit_written=True, pu_id=getattr(inp, "pu_id", None),
+                        mismatch_fields=["uv_security"],
+                    )
+                # degraded or passed → proceed
 
         # Step 4: Vision LLM sanity cross-check (lot assignment deferred to ClearingSessionWorkflow)
         # In production: workflow.execute_activity(run_vision_presentment_check, ...)

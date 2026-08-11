@@ -1,7 +1,9 @@
-﻿import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
+import useDemoInterval from '../../../shared/hooks/useDemoInterval'
 import ChequeImageViewer from '../components/ChequeImageViewer'
 import { demoChequeUrl } from '../demoImages'
 
@@ -454,12 +456,13 @@ function PoolListModal({ type, items, baseCount, onSelect, onClose }) {
 
 // ─── IET Timer strip ──────────────────────────────────────────────────────────
 
-function IETTimerStrip({ confirmCount, returnCount, reviewCount, manualConfirmCount = 0, manualRejectCount = 0, onOpenPool }) {
+function IETTimerStrip({ confirmCount, returnCount, reviewCount, manualConfirmCount = 0, manualRejectCount = 0, onOpenPool, isDemo }) {
   const [elapsed, setElapsed] = useState(0)
   useEffect(() => {
+    if (!isDemo) return  // no active session in POC/PROD with no backend
     const t = setInterval(() => setElapsed(e => e + 1), 1000)
     return () => clearInterval(t)
-  }, [])
+  }, [isDemo])
   const ietSecs = 180 * 60
   const pct = Math.min((elapsed / ietSecs) * 100, 100)
   const remaining = ietSecs - elapsed
@@ -468,8 +471,8 @@ function IETTimerStrip({ confirmCount, returnCount, reviewCount, manualConfirmCo
   const barColor = pct < 50 ? '#10b981' : pct < 80 ? '#f59e0b' : '#ef4444'
 
   const pools = [
-    { key: 'confirm',        label: 'STP Confirmed',    val: confirmCount + 847,  color: 'text-emerald-400', hoverCls: 'hover:text-emerald-300 hover:bg-emerald-500/8' },
-    { key: 'return',         label: 'STP Returned',     val: returnCount  + 124,  color: 'text-red-400',     hoverCls: 'hover:text-red-300 hover:bg-red-500/8'     },
+    { key: 'confirm',        label: 'STP Confirmed',    val: confirmCount + (isDemo ? 847 : 0),  color: 'text-emerald-400', hoverCls: 'hover:text-emerald-300 hover:bg-emerald-500/8' },
+    { key: 'return',         label: 'STP Returned',     val: returnCount  + (isDemo ? 124 : 0),  color: 'text-red-400',     hoverCls: 'hover:text-red-300 hover:bg-red-500/8'     },
     { key: 'review',         label: 'Human Review',     val: reviewCount,          color: 'text-amber-400',   hoverCls: 'hover:text-amber-300 hover:bg-amber-500/8'  },
     { key: 'manualConfirm',  label: 'Manual Confirmed', val: manualConfirmCount,   color: 'text-emerald-300', hoverCls: 'hover:text-emerald-200 hover:bg-emerald-500/8', disabled: true },
     { key: 'manualReject',   label: 'Manual Rejected',  val: manualRejectCount,    color: 'text-red-300',     hoverCls: 'hover:text-red-200 hover:bg-red-500/8',         disabled: true },
@@ -615,8 +618,8 @@ function StatsStrip({ stats, stageActive }) {
 
 // ─── Exit pools ───────────────────────────────────────────────────────────────
 
-function ConfirmPool({ items, onSelect }) {
-  const total = items.length + 847
+function ConfirmPool({ items, onSelect, isDemo }) {
+  const total = items.length + (isDemo ? 847 : 0)
   return (
     <div
       className="flex-1 rounded-2xl border border-emerald-500/20 flex flex-col p-4 relative overflow-hidden min-w-0"
@@ -651,8 +654,8 @@ function ConfirmPool({ items, onSelect }) {
   )
 }
 
-function ReturnPool({ items, onSelect }) {
-  const total = items.length + 124
+function ReturnPool({ items, onSelect, isDemo }) {
+  const total = items.length + (isDemo ? 124 : 0)
   return (
     <div
       className="flex-1 rounded-2xl border border-red-500/20 flex flex-col p-4 relative overflow-hidden min-w-0"
@@ -772,14 +775,23 @@ function BatchSummaryBar({ confirmCount, returnCount, reviewCount, onClickStat }
 // ─── Main page component ──────────────────────────────────────────────────────
 
 export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Bank' }) {
+  const { isDemo } = useBankContext()
+  const reviewDockSeed = useDemoData(MOCK_QUEUE)
+  const exceptionsSeed = useDemoData(MOCK_EXCEPTIONS)
+  const manualConfirm  = useDemoData(53, 0)
+  const manualReject   = useDemoData(11, 0)
+
+  const zeroStats = useMemo(() => STAGES.map(() => ({ throughput: 0, avgMs: 0, errRate: 0 })), [])
+  const statsSeed = useDemoData(initStats(), zeroStats)
+
   const [running, setRunning] = useState(true)
   const [particles, setParticles] = useState([])
-  const [stats] = useState(initStats)
+  const [stats] = useState(statsSeed)
   const [stageActive, setStageActive] = useState({})
   const [confirmPool, setConfirmPool] = useState([])
   const [returnPool, setReturnPool] = useState([])
-  const [reviewDock, setReviewDock] = useState(MOCK_QUEUE)
-  const [exceptions] = useState(MOCK_EXCEPTIONS)
+  const [reviewDock, setReviewDock] = useState(reviewDockSeed)
+  const [exceptions] = useState(exceptionsSeed)
   const [selectedItem, setSelectedItem] = useState(null)
   const [isException, setIsException] = useState(false)
   const [poolModal, setPoolModal] = useState(null)   // 'confirm' | 'return' | 'review' | null
@@ -812,6 +824,7 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
     const tick = () => {
       if (runningRef.current) {
         setParticles(prev => {
+          if (prev.length === 0) return prev   // nothing to animate — skip state update
           const next = []
           const newActive = {}
           const toConfirm = []
@@ -870,17 +883,14 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
     return () => cancelAnimationFrame(frameRef.current)
   }, [])
 
-  // Spawn interval
-  useEffect(() => {
-    spawnRef.current = setInterval(() => {
-      if (!runningRef.current) return
-      setParticles(prev => {
-        if (prev.filter(p => !p.finalized).length >= 18) return prev
-        return [...prev, makeParticle(bankName)]
-      })
-    }, 1400)
-    return () => clearInterval(spawnRef.current)
-  }, [])
+  // Spawn interval — only animate in demo mode
+  useDemoInterval(() => {
+    if (!runningRef.current) return
+    setParticles(prev => {
+      if (prev.filter(p => !p.finalized).length >= 18) return prev
+      return [...prev, makeParticle(bankName)]
+    })
+  }, 1400)
 
   // Pulse cleanup
   useEffect(() => {
@@ -923,9 +933,10 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
             confirmCount={confirmPool.length}
             returnCount={returnPool.length}
             reviewCount={reviewDock.length}
-            manualConfirmCount={53}
-            manualRejectCount={11}
+            manualConfirmCount={manualConfirm}
+            manualRejectCount={manualReject}
             onOpenPool={setPoolModal}
+            isDemo={isDemo}
           />
 
           {/* Circuit board track */}
@@ -1038,9 +1049,9 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
 
           {/* Exit pools — all three clickable */}
           <div className="flex gap-3 shrink-0" style={{ height: 144 }}>
-            <ConfirmPool items={confirmPool} onSelect={item => openItem(item, false)} />
+            <ConfirmPool items={confirmPool} onSelect={item => openItem(item, false)} isDemo={isDemo} />
             <ReviewDock  items={reviewDock}  onSelect={item => openItem(item, false)} />
-            <ReturnPool  items={returnPool}  onSelect={item => openItem(item, false)} />
+            <ReturnPool  items={returnPool}  onSelect={item => openItem(item, false)} isDemo={isDemo} />
           </div>
 
           {/* Batch summary stats */}
@@ -1097,7 +1108,7 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
         <PoolListModal
           type={poolModal}
           items={poolModal === 'confirm' ? confirmPool : poolModal === 'return' ? returnPool : reviewDock}
-          baseCount={poolModal === 'confirm' ? 847 : poolModal === 'return' ? 124 : 0}
+          baseCount={poolModal === 'confirm' ? (isDemo ? 847 : 0) : poolModal === 'return' ? (isDemo ? 124 : 0) : 0}
           onSelect={item => { openItem(item, false); setPoolModal(null) }}
           onClose={() => setPoolModal(null)}
         />
@@ -1116,7 +1127,7 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
 }
 
 export default function CTSPipelineVisualizer() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   return (
     <AppShell>
       <PipelineLiveBoard bankName={bankName} />

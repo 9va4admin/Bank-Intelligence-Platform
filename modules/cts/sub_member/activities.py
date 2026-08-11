@@ -27,8 +27,10 @@ import structlog
 
 log = structlog.get_logger()
 
-_RETURN_NOTIFICATION_TOPIC = "cts.sub_member.return_notification"
-_RISK_EVENT_TOPIC = "cts.sub_member.return_notification"  # same topic, different event_type
+from shared.event_bus.topics import PLATFORM_NOTIFICATIONS
+
+_RETURN_NOTIFICATION_TOPIC = PLATFORM_NOTIFICATIONS
+_RISK_EVENT_TOPIC = PLATFORM_NOTIFICATIONS
 
 # bucket -> ledger column mapping, allowlisted (never build column names from
 # unvalidated input — bucket is already checked against this exact key set
@@ -68,10 +70,9 @@ async def notify_sub_member_return(
     """
     Tier 1 notification activity — called after STP_RETURN or FRAUD_HOLD decision.
 
-    Publishes to Kafka cts.sub_member.return_notification via the real
-    shared/event_bus/producer.py EventProducer. Actual email dispatch is
-    handled by notification-service consuming this topic — this activity
-    only enqueues the event.
+    Publishes to platform.notifications (consumed by notification-service).
+    This activity only enqueues the event; actual email/WhatsApp dispatch is
+    handled by the notification-service consumer.
 
     Returns notification envelope (notification_id, tier, status).
     """
@@ -96,12 +97,25 @@ async def notify_sub_member_return(
         "queued_at": datetime.now(timezone.utc).isoformat(),
     }
 
+    # Payload shaped for the notification-service consumer on platform.notifications
+    notification_payload = {
+        "notification_id": notification_id,
+        "channel": "email",
+        "recipient_role": "ops_reviewer",
+        "template_id": "CTS_SMB_RETURN_NOTIFICATION",
+        "context": envelope,
+        "bank_id": bank_id,
+        "smb_id": sub_member_id,
+        "priority": "P2",
+        "event_category": "SMB_RETURN",
+    }
+
     if event_producer is not None:
         try:
             await event_producer.publish(
                 topic=_RETURN_NOTIFICATION_TOPIC,
                 event_type="SMB_RETURN_NOTIFICATION",
-                payload=envelope,
+                payload=notification_payload,
                 schema_version="1.0",
             )
         except Exception as exc:

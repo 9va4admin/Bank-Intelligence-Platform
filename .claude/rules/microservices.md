@@ -77,38 +77,6 @@ async def readiness():
     status_code = 200 if all_healthy else 503
     return JSONResponse({"status": "ready" if all_healthy else "degraded", "checks": checks},
                         status_code=status_code)
-
-@router.get("/metrics", include_in_schema=False)
-async def metrics():
-    # Prometheus scrape endpoint — served by opentelemetry-prometheus exporter
-    # Do not hand-write this — OTel handles it
-    return prometheus_client.generate_latest()
-```
-
-## Kubernetes Probe Configuration (in Helm templates)
-```yaml
-livenessProbe:
-  httpGet:
-    path: /health/live
-    port: 8000
-  initialDelaySeconds: 30
-  periodSeconds: 10
-  failureThreshold: 3
-
-readinessProbe:
-  httpGet:
-    path: /health/ready
-    port: 8000
-  initialDelaySeconds: 10
-  periodSeconds: 5
-  failureThreshold: 3
-
-startupProbe:
-  httpGet:
-    path: /health/live
-    port: 8000
-  failureThreshold: 30    # allow 5 minutes for slow startup (model loading)
-  periodSeconds: 10
 ```
 
 ## Service-to-Service Communication
@@ -168,30 +136,8 @@ log.info(f"Amount: {amount}")   # f-string logging loses structure
 ## Ingress and Load Balancing
 - External traffic enters via: **Istio Ingress Gateway** (not nginx) → routes to `api-gateway` service
 - `api-gateway` is the single public entry point — all other services are cluster-internal only
-- Load balancing across pods: handled by Kubernetes Service (round-robin by default)
 - Istio handles: mTLS termination, rate limiting, circuit breaking, canary traffic splits
-- No nginx deployed — Istio Ingress Gateway serves this role for ASTRA
-
-```yaml
-# infra/k8s/istio-ingress.yaml pattern
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: astra-api-gateway
-spec:
-  hosts: ["api.astra.{bank_id}.internal"]
-  gateways: ["astra-gateway"]
-  http:
-    - match: [{uri: {prefix: "/v1/"}}]
-      route:
-        - destination:
-            host: api-gateway
-            port: {number: 8000}
-      timeout: 30s
-      retries:
-        attempts: 2
-        retryOn: "gateway-error,connect-failure"
-```
+- No nginx deployed — Istio Ingress Gateway is the standard
 
 ## Forbidden Patterns
 - Returning `dict` from any API endpoint — always use typed Pydantic model
@@ -200,15 +146,3 @@ spec:
 - Exposing `/docs` (Swagger UI) in production — information disclosure
 - Direct pod-to-pod communication bypassing Istio service mesh
 - Using nginx separately — Istio Ingress Gateway is the standard
-
----
-
-## Enforcement
-
-| Rule | Enforced By | Blocks |
-|---|---|---|
-| /health/live and /health/ready endpoints exist | CI smoke test: curl health endpoints after deploy | Deploy-staging blocked |
-| No print() — structlog only | Semgrep rule: `python.lang.best-practice.logging.no-print` | PR merge (CI SAST) |
-| Istio not nginx | Helm chart lint: no nginx Deployment/Service in templates/ | PR merge (CI lint) |
-| SERVICE_NAME constant defined in every service | CI lint: grep for SERVICE_NAME in service entrypoint | PR merge |
-| OTel init in lifespan — not at module level | `security-auditor` agent review | PR merge |

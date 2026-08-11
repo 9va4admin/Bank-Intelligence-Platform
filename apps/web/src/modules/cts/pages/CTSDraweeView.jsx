@@ -15,6 +15,7 @@
 import { useState } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
 import AppShell from '../../../shared/layout/AppShell'
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
@@ -91,7 +92,8 @@ function ReturnReasonBar({ reasons, total, isDark }) {
 export default function CTSDraweeView() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
-  const [selectedSession, setSelectedSession] = useState(SESSIONS[1])
+  const activeSessions = useDemoData(SESSIONS)
+  const [selectedSession, setSelectedSession] = useState(useDemoData(SESSIONS[1], null))
   const [sortBy, setSortBy] = useState('returned_desc')
 
   // Outward & Combined Position is SB-only — SMBs present cheques via their sponsor bank
@@ -147,7 +149,7 @@ export default function CTSDraweeView() {
               <p className={`text-[11px] ${th.muted}`}>Presenting + Drawee · {selectedSession}</p>
             </div>
             <div className="flex gap-2">
-              {SESSIONS.map(s => (
+              {activeSessions.map(s => (
                 <button key={s} onClick={() => setSelectedSession(s)}
                   className={`text-[10px] px-2.5 py-1 rounded-lg border transition-colors ${th.tab(selectedSession === s)}`}>
                   {s.split('-')[3] + ':00'}

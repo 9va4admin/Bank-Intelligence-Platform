@@ -136,8 +136,6 @@ $ pytest tests/shared/audit/test_immudb_client.py -v
 FAILED tests/shared/audit/test_immudb_client.py::test_write_event_calls_immudb
   ModuleNotFoundError: No module named 'shared.audit.immudb_client'
   — OR —
-  ImportError: cannot import name 'ImmudbClient'
-  — OR —
   AssertionError: Expected call not made
 
 1 failed, 0 passed in 0.03s
@@ -158,16 +156,3 @@ This output is the proof that TDD was followed. Claude must paste this output in
 ✗ Writing assert True or assert 1 == 1 as placeholder tests
 ✗ Coverage via __init__.py imports — every line of logic must have a test assertion
 ```
-
----
-
-## Enforcement
-
-| Rule | Enforced By | Blocks |
-|---|---|---|
-| Test file must exist alongside implementation | pre-commit Check 9: new `.py` outside `tests/` requires paired `tests/.*/test_*.py` | Commit blocked |
-| Coverage minimums per module | CI `pytest --cov-fail-under` per module (separate pytest run per coverage tier) | PR merge blocked |
-| CTS activities at 95% | CI `test-cts-critical` stage (separate from main test run) | PR merge blocked |
-| RED step confirmed before implementation | Claude session rule: must run pytest and show FAILED output before writing impl | Session-time enforcement |
-| No skip markers in committed tests | pre-commit Check 10: `@pytest.mark.skip` in staged test files = blocked | Commit blocked |
-| Tests mirror implementation path | CI lint: `infra/ci-checks/check-test-pairing.sh` verifies 1:1 mapping | PR merge blocked |

@@ -162,16 +162,17 @@ def test_scanner_config_invalid_amount_format(tmp_path):
 
 def test_scanned_cheque_input_has_required_fields():
     from modules.cts.scanner.mapper import ScannedChequeInput
-    # just check it's importable and has the key attributes
     import inspect
     fields = inspect.get_annotations(ScannedChequeInput, eval_str=True)
     assert "micr_line" in fields
     assert "account_number_hash" in fields
     assert "account_suffix" in fields
     assert "amount_figures" in fields
-    assert "image_color_path" in fields
-    assert "image_grey_path" in fields
-    assert "image_rear_path" in fields
+    assert "image_color_path" in fields   # front B&W — mandatory
+    assert "image_grey_path" in fields    # front grayscale — mandatory
+    assert "image_rear_path" in fields    # rear — optional
+    assert "image_uv_path" in fields      # UV — optional
+    assert "bundle_status" in fields
 
 
 # ── Amount parsing ───────────────────────────────────────────────────────────
@@ -385,9 +386,10 @@ def test_parse_digital_check_xml(tmp_path):
 
 # ── Image path resolution ────────────────────────────────────────────────────
 
-def test_image_paths_missing_raises_error(tmp_path):
-    """If image files referenced in metadata do not exist → ScannerMappingError."""
-    from modules.cts.scanner.mapper import ScannerDropFolderMapper, ScannerMappingError
+def test_image_paths_missing_gives_instrument_hold(tmp_path):
+    """If mandatory front images are missing → bundle_status INSTRUMENT_HOLD (no exception).
+    The batch still parses; the individual instrument is flagged for human attention."""
+    from modules.cts.scanner.mapper import ScannerDropFolderMapper, BundleStatus
 
     csv_content = (
         "MICR_DATA|AMT_FIGURES|AMT_WORDS|PAYEE_NM|CHQ_DATE|BATCH_ID|SEQ|ACCT_NO\n"
@@ -397,8 +399,9 @@ def test_image_paths_missing_raises_error(tmp_path):
     meta_file.write_text(csv_content, encoding="utf-8")
 
     mapper = ScannerDropFolderMapper(_panini_cfg(tmp_path))
-    with pytest.raises(ScannerMappingError, match="image.*not found|missing"):
-        mapper.parse_metadata_file(meta_file)
+    results = mapper.parse_metadata_file(meta_file)
+    assert len(results) == 1
+    assert results[0].bundle_status == BundleStatus.INSTRUMENT_HOLD
 
 
 def test_unknown_image_side_code_raises_error(tmp_path):
@@ -497,3 +500,122 @@ def test_oem_confidence_none_when_not_in_csv(tmp_path):
     mapper = ScannerDropFolderMapper(_panini_cfg(tmp_path))
     results = mapper.parse_metadata_file(meta_file)
     assert results[0].oem_confidence is None
+
+
+# ── Bundle status + optional images (RED — new behavior) ────────────────────
+
+def test_rear_image_optional_processable(tmp_path):
+    """Rear B&W absent → image_rear_path=None, bundle_status PROCESSABLE (not an error)."""
+    from modules.cts.scanner.mapper import ScannerDropFolderMapper, BundleStatus
+
+    # Only front_bw and front_gray — no rear file
+    (tmp_path / "NOREAR_0001_F.tif").write_bytes(b"stub")
+    (tmp_path / "NOREAR_0001_G.tif").write_bytes(b"stub")
+
+    csv_content = (
+        "MICR_DATA|AMT_FIGURES|AMT_WORDS|PAYEE_NM|CHQ_DATE|BATCH_ID|SEQ|ACCT_NO\n"
+        "111|10,000.00|Ten Thousand|Test|04072026|NOREAR|1|1234567890\n"
+    )
+    (tmp_path / "NOREAR.dat").write_text(csv_content, encoding="utf-8")
+
+    mapper = ScannerDropFolderMapper(_panini_cfg(tmp_path))
+    results = mapper.parse_metadata_file(tmp_path / "NOREAR.dat")
+
+    assert len(results) == 1
+    r = results[0]
+    assert r.image_rear_path is None
+    assert r.bundle_status == BundleStatus.PROCESSABLE
+
+
+def test_uv_image_tracked_when_present(tmp_path):
+    """UV file in drop folder → image_uv_path set, bundle_status COMPLETE."""
+    from modules.cts.scanner.mapper import ScannerConfig, ScannerOEM, ScannerDropFolderMapper, BundleStatus
+
+    cfg = ScannerConfig(
+        scanner_config_id="uv-001",
+        bank_id="test-bank",
+        branch_id="br-001",
+        scanner_oem=ScannerOEM.DIGITAL_CHECK,
+        scanner_model="TS240-UV",
+        output_format="CSV_PIPE",
+        date_format="%d%m%Y",
+        amount_format="DECIMAL_DOT",
+        field_mapping={
+            "MICR_DATA": "micr_line", "AMT_FIGURES": "amount_figures",
+            "AMT_WORDS": "amount_words", "PAYEE_NM": "payee_name",
+            "CHQ_DATE": "cheque_date", "BATCH_ID": "batch_id",
+            "SEQ": "sequence_in_batch", "ACCT_NO": "account_number",
+        },
+        image_naming_pattern="{batch_id}_{seq:04d}_{side}.tif",
+        image_side_mapping={"F": "front_bw", "G": "front_gray", "R": "rear", "UV": "uv"},
+        drop_folder_path=str(tmp_path),
+    )
+
+    (tmp_path / "UVBAT_0001_F.tif").write_bytes(b"stub")
+    (tmp_path / "UVBAT_0001_G.tif").write_bytes(b"stub")
+    (tmp_path / "UVBAT_0001_R.tif").write_bytes(b"stub")
+    (tmp_path / "UVBAT_0001_UV.tif").write_bytes(b"stub")
+
+    csv_content = (
+        "MICR_DATA|AMT_FIGURES|AMT_WORDS|PAYEE_NM|CHQ_DATE|BATCH_ID|SEQ|ACCT_NO\n"
+        "111|10000.00|Ten Thousand|Test|04072026|UVBAT|1|1234567890\n"
+    )
+    (tmp_path / "UVBAT.dat").write_text(csv_content, encoding="utf-8")
+
+    mapper = ScannerDropFolderMapper(cfg)
+    results = mapper.parse_metadata_file(tmp_path / "UVBAT.dat")
+
+    assert len(results) == 1
+    r = results[0]
+    assert r.image_uv_path == tmp_path / "UVBAT_0001_UV.tif"
+    assert r.bundle_status == BundleStatus.COMPLETE
+
+
+def test_bundle_processable_front_gray_missing_front_bw_present(tmp_path):
+    """front_bw present, front_gray absent → INSTRUMENT_HOLD (cannot analyse fraud)."""
+    from modules.cts.scanner.mapper import ScannerDropFolderMapper, BundleStatus
+
+    # Only front_bw, no gray
+    (tmp_path / "HOLD_0001_F.tif").write_bytes(b"stub")
+
+    csv_content = (
+        "MICR_DATA|AMT_FIGURES|AMT_WORDS|PAYEE_NM|CHQ_DATE|BATCH_ID|SEQ|ACCT_NO\n"
+        "111|10,000.00|Ten Thousand|Test|04072026|HOLD|1|1234567890\n"
+    )
+    (tmp_path / "HOLD.dat").write_text(csv_content, encoding="utf-8")
+
+    mapper = ScannerDropFolderMapper(_panini_cfg(tmp_path))
+    results = mapper.parse_metadata_file(tmp_path / "HOLD.dat")
+
+    assert len(results) == 1
+    assert results[0].bundle_status == BundleStatus.INSTRUMENT_HOLD
+
+
+def test_bundle_processable_no_uv_no_rear(tmp_path):
+    """front_bw + front_gray only (non-UV scanner, no rear captured) → PROCESSABLE."""
+    from modules.cts.scanner.mapper import ScannerDropFolderMapper, BundleStatus
+
+    (tmp_path / "MINV_0001_F.tif").write_bytes(b"stub")
+    (tmp_path / "MINV_0001_G.tif").write_bytes(b"stub")
+
+    csv_content = (
+        "MICR_DATA|AMT_FIGURES|AMT_WORDS|PAYEE_NM|CHQ_DATE|BATCH_ID|SEQ|ACCT_NO\n"
+        "111|10,000.00|Ten Thousand|Test|04072026|MINV|1|1234567890\n"
+    )
+    (tmp_path / "MINV.dat").write_text(csv_content, encoding="utf-8")
+
+    mapper = ScannerDropFolderMapper(_panini_cfg(tmp_path))
+    results = mapper.parse_metadata_file(tmp_path / "MINV.dat")
+
+    assert results[0].bundle_status == BundleStatus.PROCESSABLE
+    assert results[0].image_rear_path is None
+    assert results[0].image_uv_path is None
+
+
+def test_scanned_cheque_input_has_new_fields():
+    """ScannedChequeInput has bundle_status and image_uv_path fields."""
+    import inspect
+    from modules.cts.scanner.mapper import ScannedChequeInput
+    fields = inspect.get_annotations(ScannedChequeInput, eval_str=True)
+    assert "bundle_status" in fields
+    assert "image_uv_path" in fields

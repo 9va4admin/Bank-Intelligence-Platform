@@ -472,7 +472,7 @@ function RrfModal({ returns, sessionMeta, onClose, isDark }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function CTSDecisionsLog() {
-  const { bankIfsc, bankName, isSB, isSMB } = useBankContext()
+  const { bankIfsc, bankName, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const sessionId = `SES-${bankIfsc || 'BANK'}-20260619-001`
   const sessionMeta = {
@@ -488,10 +488,11 @@ export default function CTSDecisionsLog() {
   const [sortDir,  setSortDir]  = useState('desc')
   const [shapRow,  setShapRow]  = useState(null)   // decision object
   const [rrfModal, setRrfModal] = useState(null)   // null | 'session' | rowId
-  const returned = DECISIONS.filter(d => d.outcome === 'STP_RETURN')
+  const ALL_DECISIONS = isDemo ? DECISIONS : []
+  const returned = ALL_DECISIONS.filter(d => d.outcome === 'STP_RETURN')
 
   const rows = useMemo(() => {
-    let r = filter === 'All' ? DECISIONS : DECISIONS.filter(d => d.outcome === filter)
+    let r = filter === 'All' ? ALL_DECISIONS : ALL_DECISIONS.filter(d => d.outcome === filter)
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       r = r.filter(d =>
@@ -508,7 +509,7 @@ export default function CTSDecisionsLog() {
       return sortDir === 'asc' ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1)
     })
     return r
-  }, [filter, search, sortCol, sortDir])
+  }, [isDemo, filter, search, sortCol, sortDir])
 
   function toggleSort(col) {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -589,10 +590,10 @@ export default function CTSDecisionsLog() {
         {/* Summary strip */}
         <div className="grid grid-cols-5 gap-3 mb-4">
           {[
-            { label: 'Total Filed',   value: DECISIONS.length,                                          color: th.heading },
-            { label: 'STP Confirmed', value: DECISIONS.filter(d => d.outcome === 'STP_CONFIRM').length, color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
-            { label: 'STP Returned',  value: returned.length,                                           color: isDark ? 'text-red-400' : 'text-red-600' },
-            { label: 'Human Review',  value: DECISIONS.filter(d => d.outcome === 'HUMAN_REVIEW').length,color: isDark ? 'text-amber-400' : 'text-amber-600' },
+            { label: 'Total Filed',   value: ALL_DECISIONS.length,                                          color: th.heading },
+            { label: 'STP Confirmed', value: ALL_DECISIONS.filter(d => d.outcome === 'STP_CONFIRM').length, color: isDark ? 'text-emerald-400' : 'text-emerald-600' },
+            { label: 'STP Returned',  value: returned.length,                                               color: isDark ? 'text-red-400' : 'text-red-600' },
+            { label: 'Human Review',  value: ALL_DECISIONS.filter(d => d.outcome === 'HUMAN_REVIEW').length,color: isDark ? 'text-amber-400' : 'text-amber-600' },
             { label: 'RRF Generated', value: returned.length > 0 ? '✓' : '—',                          color: returned.length > 0 ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : th.faint },
           ].map(s => (
             <div key={s.label} className={`border rounded-xl px-4 py-3 ${th.card}`}>

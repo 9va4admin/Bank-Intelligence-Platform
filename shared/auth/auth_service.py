@@ -77,14 +77,14 @@ class AuthService:
 
     # -- stage 1: password -------------------------------------------------- #
 
-    async def login(self, username: str, password: str) -> LoginResult:
+    async def login(self, username: str, password: str, bank_id: str = "") -> LoginResult:
         """Verify password, then issue a half-session and say what MFA step is next.
 
         Raises AuthenticationError / AccountLockedError from the connector on
         failure — the caller returns 401 with a uniform message.
         """
         identity: ASTRAIdentity = await self._connector.authenticate(
-            LocalCredentials(username=username, password=password)
+            LocalCredentials(username=username, password=password, bank_id=bank_id)
         )
         enrolled = await self._accounts.is_totp_enrolled(identity.user_id)
         interim = self._issue_from_identity(identity, mfa_authenticated=False)

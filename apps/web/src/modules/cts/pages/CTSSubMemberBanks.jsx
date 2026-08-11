@@ -1,11 +1,12 @@
 import { useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 
 const CLEARING_ZONES = ['MUMBAI', 'PUNE', 'DELHI', 'CHENNAI', 'KOLKATA', 'AHMEDABAD', 'HYDERABAD']
 
-function OnboardModal({ isDark, onClose }) {
+function OnboardModal({ isDark, onClose, bankId }) {
   const th = {
     overlay: 'fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm',
     modal:   isDark ? 'bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-lg p-6 shadow-2xl' : 'bg-white border border-slate-200 rounded-2xl w-full max-w-lg p-6 shadow-2xl',
@@ -23,6 +24,7 @@ function OnboardModal({ isDark, onClose }) {
     clearing_zones: [], daily_limit: '', risk_level: 'LOW',
   })
   const [submitted, setSubmitted] = useState(false)
+  const [submitError, setSubmitError] = useState(null)
 
   const toggle_zone = (z) => setForm(f => ({
     ...f,
@@ -31,10 +33,44 @@ function OnboardModal({ isDark, onClose }) {
       : [...f.clearing_zones, z],
   }))
 
+  const registerMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/v1/cts/smb', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          bank_name: form.name,
+          ifsc_prefix: form.ifsc_prefix,
+          micr_prefix: form.ifsc_prefix,
+          sponsor_account_number: form.sponsor_account,
+          contact_email: form.contact,
+          clearing_zones: form.clearing_zones,
+          daily_presentment_limit: parseInt(form.daily_limit) || 1000,
+          risk_level: form.risk_level,
+          return_rate_threshold: 0.15,
+          soft_hold_threshold: 0.25,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Registration failed' }))
+        throw new Error(err.detail || 'Registration failed')
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      setSubmitted(true)
+      setTimeout(onClose, 1500)
+    },
+    onError: (err) => {
+      setSubmitError(err.message)
+    },
+  })
+
   const handleSubmit = (e) => {
     e.preventDefault()
-    setSubmitted(true)
-    setTimeout(onClose, 1500)
+    setSubmitError(null)
+    registerMutation.mutate()
   }
 
   return (
@@ -119,11 +155,16 @@ function OnboardModal({ isDark, onClose }) {
                 ))}
               </div>
             </div>
+            {submitError && (
+              <div className="text-xs text-red-400 bg-red-900/20 border border-red-700/30 rounded-lg px-3 py-2">
+                {submitError}
+              </div>
+            )}
             <div className={`pt-4 border-t ${th.divider} flex justify-end gap-2`}>
               <button type="button" onClick={onClose} className={`px-4 py-2 rounded-lg text-xs font-medium ${th.cancel}`}>Cancel</button>
-              <button type="submit" disabled={form.clearing_zones.length === 0}
+              <button type="submit" disabled={form.clearing_zones.length === 0 || registerMutation.isPending}
                 className={`px-4 py-2 rounded-lg text-xs font-medium disabled:opacity-40 ${th.btn}`}>
-                Submit for Compliance Review
+                {registerMutation.isPending ? 'Submitting…' : 'Submit for Compliance Review'}
               </button>
             </div>
           </form>

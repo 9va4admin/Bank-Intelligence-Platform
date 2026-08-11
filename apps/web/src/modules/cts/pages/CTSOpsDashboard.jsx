@@ -11,6 +11,7 @@
  *   (SMBDashboardContent, shared with the standalone /cts/smb/dashboard route).
  */
 import { useState, useMemo } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
@@ -231,10 +232,13 @@ function combineTrend(sbTrend, smbTrend) {
 
 // ─── Tab bar ──────────────────────────────────────────────────────────────────
 
-function DashboardTabs({ tab, onChange, isDark }) {
+function DashboardTabs({ tab, onChange, isDark, bankMode }) {
+  const tabs = bankMode === 'SB_ONLY'
+    ? [['mybank', 'My Bank']]
+    : [['mybank', 'My Bank'], ['smb', 'SMB Dashboard']]
   return (
     <div className="flex gap-1">
-      {[['mybank', 'My Bank'], ['smb', 'SMB Dashboard']].map(([key, label]) => (
+      {tabs.map(([key, label]) => (
         <button
           key={key}
           onClick={() => onChange(key)}
@@ -274,9 +278,25 @@ function SMBFilterBar({ smbs, selectedSmbId, onSelect, isDark }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const ZERO_TODAY = {
+  clearing_date: new Date().toISOString().slice(0, 10),
+  sessions_count: 0, sessions_settled: 0,
+  total_inward: 0, total_inward_value_paise: 0,
+  stp_confirmed: 0, stp_returned: 0,
+  manual_confirmed: 0, manual_returned: 0,
+  pending_review: 0, overall_stp_rate_pct: 0, overall_return_rate_pct: 0,
+  total_outward: 0, total_outward_value_paise: 0,
+  outward_returned: 0, net_settlement_paise: 0,
+}
+
+const ZERO_TREND = Array.from({ length: 7 }, (_, i) => {
+  const d = new Date(); d.setDate(d.getDate() - (6 - i))
+  return { date: d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }), inward: 0, return_rate_pct: 0, stp_rate_pct: 0 }
+})
+
 export default function CTSOpsDashboard() {
   const { isDark } = useTheme()
-  const { bankName, bankIfsc, isSMB, smbs, selectedSmbId, setSelectedSmbId, selectedSmb } = useBankContext()
+  const { bankName, bankIfsc, isSMB, smbs, selectedSmbId, setSelectedSmbId, selectedSmb, bankMode, isDemo } = useBankContext()
   const [dashTab, setDashTab] = useState('mybank') // 'mybank' | 'smb' — SB only
   const [includeSMB, setIncludeSMB] = useState(false) // My Bank tab: combine with sponsored SMBs
   const [downloading, setDownloading] = useState(null)
@@ -287,12 +307,32 @@ export default function CTSOpsDashboard() {
   const smbSessions = useMemo(() => makeSessions(selectedSmb?.ifsc || bankIfsc, 'smb'), [selectedSmb, bankIfsc])
   const smbCombinedSessions = useMemo(() => makeSessions(bankIfsc, 'smb_combined'), [bankIfsc])
 
+  const downloadMutation = useMutation({
+    mutationFn: async ({ sessionId, path }) => {
+      const res = await fetch(
+        `/v1/cts/sessions/${encodeURIComponent(sessionId)}/download/${path}`,
+        { credentials: 'include' },
+      )
+      if (!res.ok) throw new Error('Download URL request failed')
+      return res.json()
+    },
+    onSuccess: (data, { sessionId, path }) => {
+      const a = document.createElement('a')
+      a.href = data.download_url
+      a.download = `${sessionId}-${path}`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setDownloading(null)
+    },
+    onError: (_, { sessionId, path }) => { setDownloading(null) },
+  })
+
   function handleDownload(sessionId, type) {
     const pathMap = { 'NPCI RRF': 'npci', 'MIS CSV': 'mis', 'Settlement': 'settlement' }
     const path = pathMap[type]
     setDownloading(`${sessionId}-${path}`)
-    // In production: call /v1/cts/sessions/{id}/download/{path}
-    setTimeout(() => setDownloading(null), 1200)
+    downloadMutation.mutate({ sessionId, path })
   }
 
   const th = {
@@ -316,12 +356,17 @@ export default function CTSOpsDashboard() {
   // Sessions grid stays SB's own regardless of the checkbox — a "session" is a
   // clearing window scoped to this bank; merging SMB session rows into the same
   // grid would mix two banks' processing windows in one list.
-  const myBank = includeSMB
-    ? { TODAY: combineToday(SB_TODAY, SMB_COMBINED_TODAY), SESSIONS: sbSessions, TREND: combineTrend(SB_TREND, SMB_COMBINED_TREND) }
-    : { TODAY: SB_TODAY, SESSIONS: sbSessions, TREND: SB_TREND }
-  const smbView = selectedSmbId
-    ? { TODAY: SMB_TODAY, SESSIONS: smbSessions, TREND: SMB_TREND }
-    : { TODAY: SMB_COMBINED_TODAY, SESSIONS: smbCombinedSessions, TREND: SMB_COMBINED_TREND }
+  // In POC/PROD: start with zeros — real data comes from backend polling (not yet wired).
+  const myBank = !isDemo
+    ? { TODAY: ZERO_TODAY, SESSIONS: [], TREND: ZERO_TREND }
+    : includeSMB
+      ? { TODAY: combineToday(SB_TODAY, SMB_COMBINED_TODAY), SESSIONS: sbSessions, TREND: combineTrend(SB_TREND, SMB_COMBINED_TREND) }
+      : { TODAY: SB_TODAY, SESSIONS: sbSessions, TREND: SB_TREND }
+  const smbView = !isDemo
+    ? { TODAY: ZERO_TODAY, SESSIONS: [], TREND: ZERO_TREND }
+    : selectedSmbId
+      ? { TODAY: SMB_TODAY, SESSIONS: smbSessions, TREND: SMB_TREND }
+      : { TODAY: SMB_COMBINED_TODAY, SESSIONS: smbCombinedSessions, TREND: SMB_COMBINED_TREND }
 
   const active = dashTab === 'mybank' ? myBank : smbView
   const totalSessions = active.TODAY.sessions_count
@@ -337,13 +382,13 @@ export default function CTSOpsDashboard() {
               <h1 className={`text-base font-semibold ${th.heading}`}>Clearing Operations Dashboard</h1>
               <p className={`text-[11px] ${th.muted}`}>
                 {dashTab === 'mybank'
-                  ? (includeSMB ? `${bankName} + ${smbs.length} Sponsored SMBs (combined)` : bankName)
+                  ? (bankMode !== 'SB_ONLY' && includeSMB ? `${bankName} + ${smbs.length} Sponsored SMBs (combined)` : bankName)
                   : (selectedSmbId ? selectedSmb?.name : 'All Sponsored SMBs')}
                 {' · '}{active.TODAY.clearing_date} · {totalSessions} sessions · {settledSessions} settled
               </p>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
-              {dashTab === 'mybank' && (
+              {bankMode !== 'SB_ONLY' && dashTab === 'mybank' && (
                 <label className={`flex items-center gap-1.5 text-[11px] font-medium cursor-pointer select-none ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                   <input
                     type="checkbox"
@@ -354,7 +399,7 @@ export default function CTSOpsDashboard() {
                   + SMB
                 </label>
               )}
-              <DashboardTabs tab={dashTab} onChange={setDashTab} isDark={isDark} />
+              <DashboardTabs tab={dashTab} onChange={setDashTab} isDark={isDark} bankMode={bankMode} />
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/10 border border-emerald-400/20 text-emerald-400">● Live</span>
               <button
                 onClick={() => handleDownload('TODAY', 'MIS CSV')}
@@ -371,6 +416,15 @@ export default function CTSOpsDashboard() {
           {dashTab === 'mybank' && <ZoneGatewayStrip isDark={isDark} />}
           {dashTab === 'smb' && (
             <SMBFilterBar smbs={smbs} selectedSmbId={selectedSmbId} onSelect={setSelectedSmbId} isDark={isDark} />
+          )}
+          {!isDemo && (
+            <div className={`mb-4 rounded-xl border px-4 py-3 flex items-center gap-3 ${isDark ? 'border-amber-700/40 bg-amber-900/10 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+              <span className="text-lg">📂</span>
+              <div>
+                <div className="text-xs font-semibold">No clearing data yet — POC mode</div>
+                <div className="text-[11px] opacity-70 mt-0.5">Drop TIF/JPG files into the inward folder to trigger the pipeline. Stats will update as instruments are processed.</div>
+              </div>
+            </div>
           )}
           <OpsDashboardBody
             TODAY={active.TODAY}

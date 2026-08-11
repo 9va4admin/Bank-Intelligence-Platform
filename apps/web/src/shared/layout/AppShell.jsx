@@ -4,6 +4,7 @@ import { useTheme } from '../theme/ThemeContext'
 import { PageHeaderCtx } from './PageHeaderContext'
 import ChequeSearchBar from './ChequeSearchBar'
 import { useBankContext } from '../context/BankContext'
+import { BANK_CONFIG } from '../config/bank.config'
 
 // Nav item visibility is controlled by two independent gates:
 //   1. sbOnly: true  — SB bank type required (structural — SMB never sees SB management pages)
@@ -35,6 +36,16 @@ function AdminIcon() {
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-4 h-4">
       <circle cx="10" cy="7" r="3" />
       <path d="M4 17c0-3.314 2.686-5 6-5s6 1.686 6 5" strokeLinecap="round" />
+    </svg>
+  )
+}
+function BranchIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-4 h-4">
+      <path d="M10 3v14M5 7l5-4 5 4" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="3" y="12" width="4" height="5" rx="1" />
+      <rect x="13" y="12" width="4" height="5" rx="1" />
+      <rect x="8" y="12" width="4" height="5" rx="1" />
     </svg>
   )
 }
@@ -92,10 +103,12 @@ const SIDEBAR_MODULES = [
           { to: '/cts/inward/verification',    label: 'Verification IQ',             perm: 'cts:view_queue'      },
           { to: '/cts',                        label: 'Validation IQ',  end: true,   perm: 'cts:view_queue'      },
           { to: '/cts/inward/submission',      label: 'Submission IQ',               perm: 'cts:submit_decision' },
+          { to: '/cts/inward/review-queue',    label: 'Human Review Queue',          perm: 'cts:view_queue'      },
+          { to: '/cts/hold-queue',             label: 'Hold Queue',                  perm: 'cts:view_queue'      },
           { to: '/cts/recall',                 label: 'Recall',                      perm: 'cts:submit_decision' },
           // SMB Dashboard removed — "Dashboard" nav item shows it directly to SMB users now
-          { to: '/cts/smb/review-queue',       label: 'SMB Review Queue',           smbOnly: true, perm: 'cts:view_queue'   },
-          { to: '/cts/smb/reports',            label: 'SMB Reports',                smbOnly: true, perm: 'smb:view_ledger'  },
+          { to: '/cts/smb/review-queue',       label: 'SMB Review Queue',           smbOnly: true, smbMgmt: true, perm: 'cts:view_queue'   },
+          { to: '/cts/smb/reports',            label: 'SMB Reports',                smbOnly: true, smbMgmt: true, perm: 'smb:view_ledger'  },
         ],
       },
       {
@@ -104,10 +117,10 @@ const SIDEBAR_MODULES = [
           { to: '/cts/batches',            label: 'Batches',          perm: 'cts:submit_decision'                },
           { to: '/cts/vault',              label: 'Vault',            perm: 'cts:view_queue'                     },
           { to: '/cts/vault-sync',         label: 'PPS & Stop Cheque',perm: 'cts:view_queue'                     },
-          { to: '/cts/sub-member',         label: 'Sub-Member',       sbOnly: true, perm: 'smb:view_ledger'      },
-          { to: '/cts/smb/registry',       label: 'SMB Registry',     sbOnly: true, perm: 'smb:register'         },
-          { to: '/cts/smb/ledger',         label: 'SMB Ledger',       sbOnly: true, perm: 'smb:view_ledger'      },
-          { to: '/cts/smb/forwarding-log', label: 'SMB Fwd Log',      sbOnly: true, perm: 'smb:view_ledger'      },
+          { to: '/cts/sub-member',         label: 'Sub-Member',       sbOnly: true, smbMgmt: true, perm: 'smb:view_ledger'      },
+          { to: '/cts/smb/registry',       label: 'SMB Registry',     sbOnly: true, smbMgmt: true, perm: 'smb:register'         },
+          { to: '/cts/smb/ledger',         label: 'SMB Ledger',       sbOnly: true, smbMgmt: true, perm: 'smb:view_ledger'      },
+          { to: '/cts/smb/forwarding-log', label: 'SMB Fwd Log',      sbOnly: true, smbMgmt: true, perm: 'smb:view_ledger'      },
           { to: '/cts/endorsement',        label: 'Endorsement',      perm: 'cts:submit_decision'                },
           { to: '/cts/exceptions',         label: 'Exceptions',       perm: 'cts:view_queue'                     },
           { to: '/cts/iqa',               label: 'Image Quality',    perm: 'cts:view_queue'                     },
@@ -129,10 +142,11 @@ const SIDEBAR_MODULES = [
       {
         label: 'Branch Portal',
         items: [
-          { to: '/branch',          label: 'Branch Dashboard', perm: 'cts:view_queue'      },
-          { to: '/branch/scan',     label: 'Scanner Monitor',  perm: 'cts:submit_decision' },
-          { to: '/branch/mismatch', label: 'Mismatch Queue',   perm: 'cts:submit_decision' },
-          { to: '/branch/history',  label: 'Session History',  perm: 'cts:view_queue'      },
+          { to: '/branch',              label: 'Branch Dashboard',  perm: 'cts:view_queue'      },
+          { to: '/branch/scan',         label: 'Scanner Monitor',   perm: 'cts:submit_decision' },
+          { to: '/branch/mismatch',     label: 'Mismatch Queue',    perm: 'cts:submit_decision' },
+          { to: '/branch/history',      label: 'Session History',   perm: 'cts:view_queue'      },
+          { to: '/branch/hold-queue',   label: 'Inward Hold Queue', perm: 'cts:view_queue'      },
         ],
       },
       {
@@ -175,11 +189,16 @@ const SIDEBAR_MODULES = [
           { to: '/admin/users',                  label: 'User Management',  perm: 'user:manage'          },
           { to: '/cts/schedules',                label: 'Schedules',        perm: 'config:layer3:submit' },
           { to: '/cts/config',                   label: 'Configuration',    perm: 'config:layer3:submit' },
-          { to: '/cts/config/sub-member-banks',  label: 'Sub-Member Banks', perm: 'smb:config_change',  sbOnly: true },
+          { to: '/cts/config/sub-member-banks',  label: 'Sub-Member Banks', perm: 'smb:config_change',  sbOnly: true, smbMgmt: true },
           { to: '/cts/config/micr-prefixes',     label: 'MICR Prefixes',    perm: 'config:layer2:change' },
           { to: '/cts/config/thresholds',        label: 'Thresholds',       perm: 'config:layer3:submit' },
           { to: '/cts/config/ngch-routing',      label: 'NGCH Routing',     perm: 'config:layer2:change', sbOnly: true },
           { to: '/cts/config/mcp-connections',   label: 'MCP Connections',  perm: 'config:layer2:change' },
+          { to: '/cts/admin/branches',            label: 'Branch Master',    perm: 'config:layer2:change' },
+          { to: '/cts/admin/processing-units',    label: 'PU Master',        perm: 'config:layer2:change' },
+          { to: '/admin/config/operations',      label: 'Operations Config', perm: 'config:layer3:submit' },
+          { to: '/admin/config/platform',       label: 'Platform Config',   perm: 'config:layer2:change' },
+          { to: '/admin/allocation',            label: 'Allocation Panel',  perm: 'config:layer3:submit' },
           { to: '/admin/security-violations',    label: 'Security Alerts',  perm: 'admin:console', sbOnly: true },
           { to: '/admin/smoke-test',            label: '✓ Go-Live Test',   perm: 'config:layer2:change' },
         ],
@@ -231,6 +250,8 @@ const ROUTE_LABELS = {
   '/cts/config/sub-member-banks': ['Admin · Config', 'Sub-Member Banks'],
   '/cts/config/micr-prefixes':    ['Admin · Config', 'MICR Prefix Table'],
   '/cts/config/thresholds':       ['Admin · Config', 'Thresholds & Rules'],
+  '/cts/admin/branches':          ['Admin', 'Branch Master'],
+  '/cts/admin/processing-units': ['Admin', 'Processing Unit Master'],
   '/cts/config/ngch-routing':     ['Admin · Config', 'NGCH Routing'],
   '/cts/config/mcp-connections':  ['Admin · Config', 'MCP Connection Setup'],
   '/cts/smb/registry':            ['Processing', 'SMB Registry'],
@@ -240,12 +261,18 @@ const ROUTE_LABELS = {
   '/cts/smb/dashboard':           ['Inward Clearing', 'SMB Dashboard'],
   '/cts/smb/review-queue':        ['Inward Clearing', 'SMB Human Review Queue'],
   '/cts/smb/reports':             ['Inward Clearing', 'SMB Reports'],
+  '/admin/config/operations':     ['Admin · Config', 'Operations Config — Layer 3 Business Rules'],
+  '/admin/config/platform':       ['Admin · Config', 'Platform Config — Layer 2 Deployment Topology'],
+  '/admin/allocation':            ['Admin · Queue', 'Allocation Control Panel — Reviewer Claims'],
   '/admin/security-violations':   ['Admin', 'Security Violation Log'],
   '/admin/smoke-test':            ['Admin', 'Pre-Live Smoke Test — Connection & Infrastructure Validation'],
   '/branch':                      ['Branch Portal', 'Dashboard'],
   '/branch/scan':                 ['Branch Portal', 'Scanner Monitor'],
   '/branch/mismatch':             ['Branch Portal', 'Mismatch Queue'],
   '/branch/history':              ['Branch Portal', 'Session History'],
+  '/branch/hold-queue':           ['Branch Portal', 'Inward Hold Queue — Held Instruments'],
+  '/cts/inward/review-queue':     ['Inward Clearing', 'Human Review Queue — Claim · Hold · Confirm · Return'],
+  '/cts/hold-queue':              ['Inward Clearing', 'Hold Queue — Instruments Awaiting Branch Confirmation'],
   '/cts/hub':                     ['Outward Clearing', 'Hub Manager — Branch Sessions & Lot Sealing'],
   '/ops/dashboard':               ['Platform Ops', 'ASTRA Ops Overview'],
   '/ops/model-health':            ['Platform Ops', 'AI Model Health — 7-Day Drift'],
@@ -269,7 +296,7 @@ function useBreadcrumb(pathname) {
 function activeModuleId(pathname) {
   if (pathname.startsWith('/admin') || pathname.startsWith('/cts/config')) return 'admin'
   if (pathname.startsWith('/ops')) return 'ops'
-  return 'cts'   // /branch/* and /cts/* routes live under the CTS module tab
+  return 'cts'   // /cts/* and all /branch/* routes live under the CTS module tab
 }
 
 // ── AppShell ────────────────────────────────────────────────────────────────
@@ -279,7 +306,7 @@ export default function AppShell({ children }) {
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
-  const { bankType, bankName, bankIfsc, isSB, isSMB, userRole, userName, hasPermission } = useBankContext()
+  const { bankType, bankName, bankIfsc, isSB, isSMB, userRole, userName, hasPermission, bankMode } = useBankContext()
 
   const [section, page] = useBreadcrumb(location.pathname)
   const currentModule = activeModuleId(location.pathname)
@@ -367,6 +394,7 @@ export default function AppShell({ children }) {
               isSB={isSB}
               isSMB={isSMB}
               hasPermission={hasPermission}
+              bankMode={bankMode}
             />
           ))}
         </nav>
@@ -389,8 +417,39 @@ export default function AppShell({ children }) {
           {/* Search bar */}
           <ChequeSearchBar isDark={isDark} />
 
-          {/* Right: theme toggle + user menu */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Right: bank logo + notifications + theme toggle + user menu */}
+          <div className="flex items-center gap-1 shrink-0">
+
+            {/* Bank logo */}
+            <div className={`flex items-center px-3 mr-1 border-r ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+              <img
+                src={BANK_CONFIG.bank_logo}
+                alt={BANK_CONFIG.bank_name}
+                className="h-6 w-auto object-contain"
+                style={{ maxWidth: '110px' }}
+                onError={e => {
+                  e.currentTarget.style.display = 'none'
+                  const fb = e.currentTarget.nextSibling
+                  if (fb) fb.style.display = 'block'
+                }}
+              />
+              <span className={`text-xs font-semibold hidden ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+                {BANK_CONFIG.bank_short_name}
+              </span>
+            </div>
+
+            {/* Notification bell */}
+            <div className="relative">
+              <button className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/8' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`}>
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-4 h-4">
+                  <path d="M10 2a6 6 0 00-6 6v2l-2 4h16l-2-4V8a6 6 0 00-6-6z" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M10 18a2 2 0 01-2-2h4a2 2 0 01-2 2z" />
+                </svg>
+              </button>
+              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500 pointer-events-none" />
+            </div>
+
+            {/* Theme toggle */}
             <button
               onClick={toggle}
               title={isDark ? 'Switch to light' : 'Switch to dark'}
@@ -399,7 +458,7 @@ export default function AppShell({ children }) {
               {isDark ? '☀' : '🌙'}
             </button>
 
-            {/* User menu — identity + My Profile + Sign Out */}
+            {/* User menu */}
             <div className="relative">
               <button
                 onClick={() => setProfileOpen((v) => !v)}
@@ -410,7 +469,7 @@ export default function AppShell({ children }) {
                 </div>
                 <div className="text-left hidden md:block leading-tight">
                   <div className={`text-[11px] font-medium truncate max-w-[130px] ${isDark ? 'text-white' : 'text-slate-700'}`}>{userName || 'User'}</div>
-                  <div className={`text-[10px] truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{userRole} · {bankType}</div>
+                  <div className={`text-[10px] truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{BANK_CONFIG.bank_short_name}</div>
                 </div>
                 <span className={`text-[9px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>▾</span>
               </button>
@@ -451,7 +510,20 @@ export default function AppShell({ children }) {
 
 // ── SidebarModule ────────────────────────────────────────────────────────────
 
-function SidebarModule({ mod, collapsed, isDark, isActiveModule, open, onToggle, location, isSB, isSMB, hasPermission }) {
+function SidebarModule({ mod, collapsed, isDark, isActiveModule, open, onToggle, location, isSB, isSMB, hasPermission, bankMode }) {
+  // Hide the entire module tab when no items are visible to this user.
+  // This uses the same four-gate filter as SidebarSection so branch-ops
+  // is invisible to all roles except branch_manager.
+  const hasVisibleItems = mod.sections.some(sec =>
+    sec.items.some(item => {
+      if (item.sbOnly && !isSB) return false
+      if (item.smbOnly && !isSMB) return false
+      if (item.smbMgmt && bankMode === 'SB_ONLY') return false
+      if (item.perm && !hasPermission(item.perm)) return false
+      return true
+    })
+  )
+
   const [expandedSections, setExpandedSections] = useState(() => {
     // Single-open accordion: start with the active section (or the first).
     const active = mod.sections.find((sec) =>
@@ -479,6 +551,8 @@ function SidebarModule({ mod, collapsed, isDark, isActiveModule, open, onToggle,
     // Accordion: opening a group collapses the rest; clicking the open one closes it.
     setExpandedSections((prev) => (prev.has(label) ? new Set() : new Set([label])))
   }
+
+  if (!hasVisibleItems) return null
 
   if (collapsed) {
     return (
@@ -531,6 +605,7 @@ function SidebarModule({ mod, collapsed, isDark, isActiveModule, open, onToggle,
               isSB={isSB}
               isSMB={isSMB}
               hasPermission={hasPermission}
+              bankMode={bankMode}
             />
           ))}
         </div>
@@ -541,14 +616,16 @@ function SidebarModule({ mod, collapsed, isDark, isActiveModule, open, onToggle,
 
 // ── SidebarSection ───────────────────────────────────────────────────────────
 
-function SidebarSection({ section, isDark, location, showHeader, expanded, onToggle, isSB, isSMB, hasPermission }) {
-  // Three-gate filter:
+function SidebarSection({ section, isDark, location, showHeader, expanded, onToggle, isSB, isSMB, hasPermission, bankMode }) {
+  // Four-gate filter:
   // 1. sbOnly gate  — structural bank-type wall (SMB never sees SB management pages)
   // 2. smbOnly gate — structural bank-type wall (SB never sees SMB-only screens)
-  // 3. perm gate    — role-based permission (user only sees items their role allows)
+  // 3. smbMgmt gate — deployment-mode wall (SB_ONLY deployments hide SMB management items)
+  // 4. perm gate    — role-based permission (user only sees items their role allows)
   const visibleItems = section.items.filter(item => {
     if (item.sbOnly && !isSB) return false
     if (item.smbOnly && !isSMB) return false
+    if (item.smbMgmt && bankMode === 'SB_ONLY') return false
     if (item.perm && !hasPermission(item.perm)) return false
     return true
   })

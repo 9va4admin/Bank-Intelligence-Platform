@@ -2,6 +2,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
 
 const SB_DAILY = [
   { date: 'Jun 13', total: 4820, stp_confirm: 3921, stp_return: 641, human: 258, avg_ms: 389 },
@@ -92,9 +93,9 @@ export default function CTSAnalytics() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
 
-  const DAILY          = isSMB ? SMB_DAILY          : SB_DAILY
-  const FRAUD_DIST     = isSMB ? SMB_FRAUD_DIST     : SB_FRAUD_DIST
-  const RETURN_REASONS = isSMB ? SMB_RETURN_REASONS : SB_RETURN_REASONS
+  const DAILY          = useDemoData(isSMB ? SMB_DAILY          : SB_DAILY)
+  const FRAUD_DIST     = useDemoData(isSMB ? SMB_FRAUD_DIST     : SB_FRAUD_DIST)
+  const RETURN_REASONS = useDemoData(isSMB ? SMB_RETURN_REASONS : SB_RETURN_REASONS)
 
   const maxFraud  = Math.max(...FRAUD_DIST.map(d => d.count))
   const maxReturn = Math.max(...RETURN_REASONS.map(d => d.count))

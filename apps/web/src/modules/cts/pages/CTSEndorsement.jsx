@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
 
 // ── Mock batch ────────────────────────────────────────────────────────────────
 // TEMPLATE built inside component from bankContext
@@ -76,42 +78,62 @@ export default function CTSEndorsement() {
   }
   const STATUS = isDark ? STATUS_D : STATUS_L
 
+  const activeInstruments = useDemoData(INSTRUMENTS)
   const [statuses, setStatuses] = useState(() =>
-    Object.fromEntries(INSTRUMENTS.map(i => [i.id, 'PENDING']))
+    Object.fromEntries(activeInstruments.map(i => [i.id, 'PENDING']))
   )
-  const [endorsing, setEndorsing]           = useState(false)
   const [endorsingLot, setEndorsingLot]     = useState(null)
   const [selected, setSelected]             = useState(null)
   const [endorsementText, setEndorsementText] = useState(TEMPLATE.endorsement_text)
 
   const endorsed = Object.values(statuses).filter(s => s === 'ENDORSED').length
   const pending  = Object.values(statuses).filter(s => s === 'PENDING').length
+  const endorsing = endorsingLot === '__ALL__'
 
   const lotsComplete = LOTS.filter(lot =>
-    INSTRUMENTS.filter(i => i.lot === lot).every(i => statuses[i.id] === 'ENDORSED')
+    activeInstruments.filter(i => i.lot === lot).every(i => statuses[i.id] === 'ENDORSED')
   ).length
 
-  function endorseIds(ids, onDone) {
-    const pendingIds = ids.filter(id => statuses[id] === 'PENDING')
-    if (pendingIds.length === 0) { onDone?.(); return }
-    pendingIds.forEach((id, idx) => {
-      setTimeout(() => {
-        setStatuses(prev => ({ ...prev, [id]: 'ENDORSED' }))
-        if (idx === pendingIds.length - 1) onDone?.()
-      }, (idx + 1) * 200)
-    })
-  }
+  const endorseMutation = useMutation({
+    mutationFn: async ({ lot, ids }) => {
+      const res = await fetch('/v1/cts/endorsement/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          lot_number: lot,
+          instrument_ids: ids,
+          bank_ifsc: bankIfsc || TEMPLATE.bank_ifsc,
+        }),
+      })
+      if (!res.ok) throw new Error('Endorsement failed')
+      return res.json()
+    },
+    onSuccess: (_, { lot, ids }) => {
+      setStatuses(prev => {
+        const next = { ...prev }
+        ids.forEach(id => { next[id] = 'ENDORSED' })
+        return next
+      })
+      setEndorsingLot(null)
+    },
+    onError: () => {
+      setEndorsingLot(null)
+    },
+  })
 
   function endorseAll() {
-    setEndorsing(true)
-    const ids = INSTRUMENTS.filter(i => statuses[i.id] === 'PENDING').map(i => i.id)
-    endorseIds(ids, () => setEndorsing(false))
+    const ids = activeInstruments.filter(i => statuses[i.id] === 'PENDING').map(i => i.id)
+    if (ids.length === 0) return
+    setEndorsingLot('__ALL__')
+    endorseMutation.mutate({ lot: 'ALL', ids })
   }
 
   function endorseLot(lot) {
+    const ids = activeInstruments.filter(i => i.lot === lot && statuses[i.id] === 'PENDING').map(i => i.id)
+    if (ids.length === 0) return
     setEndorsingLot(lot)
-    const ids = INSTRUMENTS.filter(i => i.lot === lot && statuses[i.id] === 'PENDING').map(i => i.id)
-    endorseIds(ids, () => setEndorsingLot(null))
+    endorseMutation.mutate({ lot, ids })
   }
 
   usePageHeader({
@@ -143,7 +165,7 @@ export default function CTSEndorsement() {
           {[
             {
               label: 'Total Instruments',
-              value: INSTRUMENTS.length,
+              value: activeInstruments.length,
               color: th.heading,
             },
             {
@@ -216,7 +238,7 @@ export default function CTSEndorsement() {
 
         {/* Instruments table — grouped by lot */}
         {LOTS.map(lot => {
-          const lotInstruments = INSTRUMENTS.filter(i => i.lot === lot)
+          const lotInstruments = activeInstruments.filter(i => i.lot === lot)
           const lotPending = lotInstruments.filter(i => statuses[i.id] === 'PENDING').length
           const lotEndorsed = lotInstruments.length - lotPending
           const isLotDone = lotPending === 0

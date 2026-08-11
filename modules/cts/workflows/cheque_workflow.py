@@ -94,6 +94,9 @@ class ChequeWorkflowInput(BaseModel):
     smb_id: Optional[str] = None  # Phase 3: set when instrument is tagged to a sub-member bank
     ngch_ifsc: Optional[str] = None  # IFSC from NGCH presentment metadata (item 3 IFSC cross-check)
     cts_config: dict = Field(default_factory=dict)  # Layer 3 thresholds forwarded to decision
+    # Phase D: resolved by the inward ingestion layer using queue_tier.resolve_queue_tier()
+    # before the workflow is started; drives Temporal task queue selection.
+    queue_tier: str = "standard"  # "standard" | "high_value" | "very_high"
 
 
 class ChequeWorkflowResult(BaseModel):
@@ -106,6 +109,10 @@ class ChequeWorkflowResult(BaseModel):
     emergency_iet_filed: bool = False
     sub_member_notified: bool = False
     ledger_updated: bool = False
+    # STP ramp fields — set when a STP_CONFIRM is downgraded to HUMAN_REVIEW by stp_mode.
+    # The ops workstation uses these to show a quick "Confirm AI Decision" button.
+    stp_eligible: bool = False              # True when AI said CONFIRM but mode forced review
+    ai_recommendation: Optional[str] = None  # "CONFIRM" when stp_eligible
 
 
 @workflow.defn
@@ -167,6 +174,7 @@ class ChequeProcessingWorkflow:
         from modules.cts.kill_switch.vision_ai_kill_switch import (
             KillMode, KillScope, KillSwitchStatus,
         )
+        from modules.cts.queue_tier import humanreview_task_queue_for_tier
 
         def _to_kill_switch_status(lookup_result) -> KillSwitchStatus:
             mode = lookup_result["mode"] if isinstance(lookup_result, dict) else lookup_result.mode
@@ -194,9 +202,16 @@ class ChequeProcessingWorkflow:
         )
         self._watchdog_spawned = True
 
+        human_review_timeout = int(
+            inp.cts_config.get("human_review_max_wait_minutes", 55)
+        )
+
         async def finalise(
             decision: str, rationale: str, shap_values: Optional[dict] = None,
             context_extra: Optional[dict] = None,
+            review_timeout_minutes: int = human_review_timeout,
+            stp_eligible: bool = False,
+            ai_recommendation: Optional[str] = None,
         ) -> ChequeWorkflowResult:
             """Every exit point of this workflow routes through here — this is
             the ASTRA-02 fix: previously every branch just returned a result
@@ -302,10 +317,60 @@ class ChequeProcessingWorkflow:
                         workflow_id=wf_id,
                         context_bundle={"rationale": rationale, **(context_extra or {})},
                         iet_deadline=inp.iet_deadline,
+                        review_timeout_minutes=review_timeout_minutes,
                     ),
                     id=f"cts-humanreview-{inp.bank_id}-{inp.instrument_id}",
+                    task_queue=humanreview_task_queue_for_tier(inp.bank_id, inp.queue_tier),
                     parent_close_policy=ParentClosePolicy.ABANDON,
                 )
+
+            # SMB side effects — only for sub-member-tagged instruments on terminal STP decisions.
+            # HUMAN_REVIEW is not terminal here; HumanReviewWorkflow emits its own ledger entry.
+            if inp.smb_id and decision in ("STP_CONFIRM", "STP_RETURN"):
+                session_date = workflow.now().strftime("%Y%m%d")
+                clearing_session = inp.cts_config.get("clearing_session", "MORNING")
+                bucket = "STP_PASS" if decision == "STP_CONFIRM" else "STP_RETURN"
+
+                if decision == "STP_RETURN":
+                    try:
+                        await workflow.execute_activity(
+                            notify_sub_member_return,
+                            args=[
+                                inp.instrument_id,
+                                inp.bank_id,
+                                inp.smb_id,
+                                rationale,
+                                bucket,
+                                mask_amount(inp.presented_amount),
+                                inp.instrument_id[-4:],
+                            ],
+                            start_to_close_timeout=timedelta(seconds=30),
+                            retry_policy=_CBS_RETRY,
+                        )
+                    except Exception as exc:
+                        log.warning(
+                            "cheque_workflow.smb_notify_degraded",
+                            instrument_id=inp.instrument_id,
+                            bank_id=inp.bank_id,
+                            smb_id=inp.smb_id,
+                            error=str(exc),
+                        )
+
+                try:
+                    await workflow.execute_activity(
+                        emit_batch_ledger_update,
+                        args=[inp.bank_id, inp.smb_id, session_date, clearing_session, bucket],
+                        start_to_close_timeout=timedelta(seconds=30),
+                        retry_policy=_CBS_RETRY,
+                    )
+                except Exception as exc:
+                    log.warning(
+                        "cheque_workflow.smb_ledger_update_degraded",
+                        instrument_id=inp.instrument_id,
+                        bank_id=inp.bank_id,
+                        smb_id=inp.smb_id,
+                        error=str(exc),
+                    )
 
             log.info(
                 "cheque_workflow.complete",
@@ -314,6 +379,8 @@ class ChequeProcessingWorkflow:
             return ChequeWorkflowResult(
                 instrument_id=inp.instrument_id, bank_id=inp.bank_id,
                 decision=decision, rationale=rationale, shap_values=shap_values or {},
+                stp_eligible=stp_eligible,
+                ai_recommendation=ai_recommendation,
             )
 
         # Step 2: detect_alteration — Vision LLM FIRST on drawee side
@@ -335,8 +402,7 @@ class ChequeProcessingWorkflow:
                     cheque_amount=inp.presented_amount,
                     smb_id=inp.smb_id,
                 ),
-                None,  # vllm_client — worker-level DI, out of this fix's scope
-                _to_kill_switch_status(kc1_lookup),
+                kc1_lookup,  # KillSwitchLookupResult (Pydantic) — worker wrapper converts to KillSwitchStatus
             ],
             start_to_close_timeout=timedelta(seconds=120),
             retry_policy=_AI_ACTIVITY_RETRY,
@@ -460,72 +526,23 @@ class ChequeProcessingWorkflow:
             flags_str = ",".join(sig_detect.fraud_flags)
             return await finalise("HUMAN_REVIEW", f"signature_fraud_suspected:{flags_str}")
 
-        # Step 5: verify_signature (single-sig) or MSV child workflow (multi-sig)
-        if sig_detect.sig_count > 1:
-            from modules.msv.workflows.msv_workflow import (
-                MSVValidationWorkflow, MSVWorkflowInput, MSVWorkflowResult,
-            )
-            from modules.msv.mandates.models import (
-                MSVInput as _MSVInput,
-                AccountMandateMeta,
-                MandateRule,
-                MandateRuleType,
-            )
-            msv_handle = await workflow.start_child_workflow(
-                MSVValidationWorkflow.run,
-                MSVWorkflowInput(
-                    msv_input=_MSVInput(
-                        instrument_id=inp.instrument_id,
-                        bank_id=inp.bank_id,
-                        account_number=inp.account_number,
-                        cheque_image_url=inp.image_url,
-                    ),
-                    account_meta=AccountMandateMeta(
-                        account_hash="",          # orchestrator loads from MSV registry
-                        bank_id=inp.bank_id,
-                        operation_type="J",       # default multi-sig; BRE validates
-                        mandate=MandateRule(
-                            rule_type=MandateRuleType.ANY_N_OF,
-                            required_count=sig_detect.sig_count,
-                            min_score=0.80,
-                        ),
-                        signatories=[],           # orchestrator loads from MSV registry
-                    ),
-                ),
-                id=f"msv-{inp.bank_id}-{inp.instrument_id}",
-                task_queue=f"msv-validation-{inp.bank_id}",
-                parent_close_policy=ParentClosePolicy.TERMINATE,
-            )
-            msv_raw = await msv_handle
-            msv_result = (
-                MSVWorkflowResult.model_validate(msv_raw)
-                if isinstance(msv_raw, dict)
-                else msv_raw
-            )
-            if msv_result.outcome != "GREEN":
-                return await finalise(
-                    "HUMAN_REVIEW",
-                    f"msv_{msv_result.reason_code.lower()}",
-                )
-            sig_result = SignatureActivityResult(
-                outcome="PROCEED",
-                match_score=msv_result.confidence,
-            )
-        else:
-            sig_result = await workflow.execute_activity(
-                verify_signature,
-                SignatureActivityInput(
-                    instrument_id=inp.instrument_id,
-                    bank_id=inp.bank_id,
-                    account_number=inp.account_number,
-                    signature_image_url=inp.image_url,
-                    sig_count=sig_detect.sig_count,
-                    sig_bboxes=sig_detect.sig_bboxes,
-                    smb_id=inp.smb_id,
-                ),
-                start_to_close_timeout=timedelta(seconds=15),
-                retry_policy=_AI_ACTIVITY_RETRY,
-            )
+        # Step 5: verify_signature — handles 1 or N detected ink sigs uniformly.
+        # Embeds each bbox, matches against all account signatories and their
+        # specimens, applies mandate BRE (ANY_ONE / ALL_REQUIRED / QUORUM_N).
+        sig_result = await workflow.execute_activity(
+            verify_signature,
+            SignatureActivityInput(
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                account_number=inp.account_number,
+                signature_image_url=inp.image_url,
+                sig_count=sig_detect.sig_count,
+                sig_bboxes=sig_detect.sig_bboxes,
+                smb_id=inp.smb_id,
+            ),
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=_AI_ACTIVITY_RETRY,
+        )
 
         # Step 6: score_fraud
         fraud_result = await workflow.execute_activity(
@@ -647,11 +664,60 @@ class ChequeProcessingWorkflow:
                     # ocr_ifsc remains None — no OCR on inward drawee path
                 ),
                 inp.cts_config,
-                _to_kill_switch_status(kc2_lookup),
+                kc2_lookup,  # KillSwitchLookupResult (Pydantic) — worker wrapper converts to KillSwitchStatus
             ],
             start_to_close_timeout=timedelta(seconds=15),
             retry_policy=_CBS_RETRY,
         )
+
+        # STP mode routing — applied only when AI decided STP_CONFIRM.
+        # STP_RETURN and HUMAN_REVIEW are never changed by stp_mode.
+        # Config keys: stp_mode (required), stp_supervised_confirm_threshold (for SELECTIVE).
+        # Default to FULL_MANUAL (conservative) when stp_mode is absent.
+        if decision_result.decision == "STP_CONFIRM":
+            stp_mode = inp.cts_config.get("stp_mode", "FULL_MANUAL")
+            supervised_threshold = inp.cts_config.get("stp_supervised_confirm_threshold", 0.95)
+            supervised_timeout = int(inp.cts_config.get("stp_supervised_review_timeout_minutes", 30))
+
+            if stp_mode == "FULL_STP":
+                pass  # auto-file — fall through to normal finalise
+
+            elif stp_mode == "SELECTIVE":
+                if decision_result.stp_confidence >= supervised_threshold:
+                    pass  # high confidence — auto-file
+                else:
+                    return await finalise(
+                        "HUMAN_REVIEW",
+                        f"stp_selective_threshold_not_met (confidence={decision_result.stp_confidence:.3f})",
+                        decision_result.shap_values,
+                        context_extra={"stp_eligible": True, "ai_recommendation": "CONFIRM",
+                                       "stp_confidence": decision_result.stp_confidence},
+                        stp_eligible=True,
+                        ai_recommendation="CONFIRM",
+                    )
+
+            elif stp_mode == "SUPERVISED":
+                return await finalise(
+                    "HUMAN_REVIEW",
+                    "stp_supervised_mode",
+                    decision_result.shap_values,
+                    context_extra={"stp_eligible": True, "stp_mode": "SUPERVISED",
+                                   "ai_recommendation": "CONFIRM",
+                                   "stp_confidence": decision_result.stp_confidence},
+                    review_timeout_minutes=supervised_timeout,
+                    stp_eligible=True,
+                    ai_recommendation="CONFIRM",
+                )
+
+            else:  # FULL_MANUAL (or unknown mode — default conservative)
+                return await finalise(
+                    "HUMAN_REVIEW",
+                    "stp_mode_full_manual",
+                    decision_result.shap_values,
+                    context_extra={"stp_eligible": True, "ai_recommendation": "CONFIRM"},
+                    stp_eligible=True,
+                    ai_recommendation="CONFIRM",
+                )
 
         return await finalise(
             decision_result.decision, decision_result.rationale, decision_result.shap_values,
@@ -760,32 +826,9 @@ class ChequeProcessingWorkflow:
         # Step 5: PPS lookup
         pps_result = mock_results["pps"]
 
-        # Step 5.5: Signature path — single-sig or multi-sig (MSV)
-        sig_count = mock_results.get("sig_count", 1)
-        if sig_count > 1:
-            # Multi-sig path: MSV result drives routing
-            msv_result = mock_results.get("msv")
-            if msv_result is None or msv_result.outcome != "GREEN":
-                reason_code = (
-                    msv_result.reason_code.lower()
-                    if msv_result is not None
-                    else "not_configured"
-                )
-                return ChequeWorkflowResult(
-                    instrument_id=inp.instrument_id,
-                    bank_id=inp.bank_id,
-                    decision="HUMAN_REVIEW",
-                    rationale=f"msv_{reason_code}",
-                    shap_values={},
-                )
-            from modules.cts.workflows.activities.signature import SignatureActivityResult
-            sig_result = SignatureActivityResult(
-                outcome="PROCEED",
-                match_score=msv_result.confidence,
-            )
-        else:
-            # Step 6: Signature verification (single sig)
-            sig_result = mock_results["signature"]
+        # Step 5.5: Signature verification — handles 1 or N ink sigs uniformly.
+        # verify_signature applies mandate BRE; result is always in mock_results["signature"].
+        sig_result = mock_results["signature"]
 
         # Step 7: Fraud scoring (always includes SHAP)
         fraud_result = mock_results["fraud"]
@@ -855,6 +898,52 @@ class ChequeProcessingWorkflow:
 
         # Step 10: Synthesise decision
         decision_result = mock_results["decision"]
+
+        # STP mode routing — mirrors the same logic in run().
+        # Applied only to STP_CONFIRM; STP_RETURN and HUMAN_REVIEW are untouched.
+        if decision_result.decision == "STP_CONFIRM":
+            stp_mode = inp.cts_config.get("stp_mode", "FULL_MANUAL")
+            supervised_threshold = inp.cts_config.get("stp_supervised_confirm_threshold", 0.95)
+
+            if stp_mode == "FULL_STP":
+                pass  # auto-file — fall through
+
+            elif stp_mode == "SELECTIVE":
+                stp_conf = getattr(decision_result, "stp_confidence", 0.0)
+                if stp_conf >= supervised_threshold:
+                    pass  # high confidence — auto-file
+                else:
+                    return ChequeWorkflowResult(
+                        instrument_id=inp.instrument_id,
+                        bank_id=inp.bank_id,
+                        decision="HUMAN_REVIEW",
+                        rationale=f"stp_selective_threshold_not_met (confidence={stp_conf:.3f})",
+                        shap_values=decision_result.shap_values,
+                        stp_eligible=True,
+                        ai_recommendation="CONFIRM",
+                    )
+
+            elif stp_mode == "SUPERVISED":
+                return ChequeWorkflowResult(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    decision="HUMAN_REVIEW",
+                    rationale="stp_supervised_mode",
+                    shap_values=decision_result.shap_values,
+                    stp_eligible=True,
+                    ai_recommendation="CONFIRM",
+                )
+
+            else:  # FULL_MANUAL (or unknown — conservative default)
+                return ChequeWorkflowResult(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    decision="HUMAN_REVIEW",
+                    rationale="stp_mode_full_manual",
+                    shap_values=decision_result.shap_values,
+                    stp_eligible=True,
+                    ai_recommendation="CONFIRM",
+                )
 
         # Step 9: Sub-Member Bank activities (only for sub-member-tagged instruments)
         sub_member_id = mock_results.get("sub_member_id")

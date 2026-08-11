@@ -2,6 +2,7 @@ import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 
@@ -242,6 +243,8 @@ export default function CTSSMBForwardingLog() {
   const [filterSmb, setFilterSmb] = useState('All SMBs')
   const [filterStatus, setFilterStatus] = useState('All')
 
+  const LOG_SOURCE = useDemoData(MOCK_LOG)
+
   const th = {
     page:    isDark ? 'bg-transparent' : 'bg-slate-50',
     card:    isDark ? 'bg-white/3 border-white/8' : 'bg-white border-slate-200',
@@ -255,14 +258,14 @@ export default function CTSSMBForwardingLog() {
   const STATUS   = isDark ? STATUS_D   : STATUS_L
   const DECISION = isDark ? DECISION_D : DECISION_L
 
-  const filtered = MOCK_LOG.filter(l =>
+  const filtered = LOG_SOURCE.filter(l =>
     (filterSmb === 'All SMBs' || l.bank_name === filterSmb) &&
     (filterStatus === 'All' || l.forwarding_status === filterStatus)
   )
 
-  const completedCount = MOCK_LOG.filter(l => l.forwarding_status === 'COMPLETED').length
-  const failedCount    = MOCK_LOG.filter(l => l.forwarding_status === 'FAILED').length
-  const inFlightCount  = MOCK_LOG.filter(l => l.forwarding_status === 'FORWARDING').length
+  const completedCount = LOG_SOURCE.filter(l => l.forwarding_status === 'COMPLETED').length
+  const failedCount    = LOG_SOURCE.filter(l => l.forwarding_status === 'FAILED').length
+  const inFlightCount  = LOG_SOURCE.filter(l => l.forwarding_status === 'FORWARDING').length
 
   if (isSMB) {
     return (
@@ -300,7 +303,7 @@ export default function CTSSMBForwardingLog() {
         {/* KPI strip */}
         <div className="grid grid-cols-4 gap-3 mb-5">
           {[
-            { label: 'Total Hops Today', value: MOCK_LOG.length },
+            { label: 'Total Hops Today', value: LOG_SOURCE.length },
             { label: 'Completed', value: completedCount },
             { label: 'In-Flight', value: inFlightCount },
             { label: 'IET Failures', value: failedCount, warn: failedCount > 0 },

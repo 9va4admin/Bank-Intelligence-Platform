@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
@@ -90,9 +91,9 @@ function buildStats(instruments) {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function CTSImageQuality() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
-  const [instruments, setInstruments] = useState(INSTRUMENTS)
+  const [instruments, setInstruments] = useState(() => isDemo ? INSTRUMENTS : [])
   const [selected, setSelected]       = useState(null)
   const [filter, setFilter]           = useState('ALL')  // ALL | IQA_FAIL | IQA_PASS | RESCAN_PASS
   const [scannerFilter, setScannerFilter] = useState('ALL')
@@ -107,15 +108,30 @@ export default function CTSImageQuality() {
     (scannerFilter === 'ALL' || x.scanner === scannerFilter)
   )
 
-  const triggerRescan = (id) => {
-    setRescanQueue(prev => [...prev, id])
-    setTimeout(() => {
+  const rescanMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await fetch(`/v1/cts/iqa/${encodeURIComponent(id)}/rescan`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+      if (!res.ok) throw new Error('Re-scan trigger failed')
+      return res.json()
+    },
+    onSuccess: (_, id) => {
       setInstruments(prev => prev.map(x =>
-        x.id === id ? { ...x, status: 'RESCAN_PASS', fail_reason: null, fail_label: null } : x
+        x.id === id ? { ...x, status: 'RESCAN_PENDING', fail_reason: null, fail_label: null } : x
       ))
       setRescanQueue(prev => prev.filter(v => v !== id))
-      if (selected?.id === id) setSelected(prev => ({ ...prev, status: 'RESCAN_PASS' }))
-    }, 1800)
+      if (selected?.id === id) setSelected(prev => ({ ...prev, status: 'RESCAN_PENDING' }))
+    },
+    onError: (_, id) => {
+      setRescanQueue(prev => prev.filter(v => v !== id))
+    },
+  })
+
+  const triggerRescan = (id) => {
+    setRescanQueue(prev => [...prev, id])
+    rescanMutation.mutate(id)
   }
 
   const th = {

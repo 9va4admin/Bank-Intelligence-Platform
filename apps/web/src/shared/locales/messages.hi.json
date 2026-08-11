@@ -2823,7 +2823,8 @@
     "severity": "INFO",
     "surface": [
       "UI",
-      "AUDIT"
+      "AUDIT",
+      "NOTIFICATION"
     ],
     "variables": [
       "submitted_by",
@@ -2841,7 +2842,6 @@
     "variables": [
       "approved_by",
       "config_key",
-      "old_value",
       "new_value"
     ]
   },
@@ -2855,7 +2855,7 @@
     "variables": [
       "rejected_by",
       "config_key",
-      "reason"
+      "rejection_reason"
     ]
   },
   "PLATFORM_CONFIG_HOT_RELOADED": {
@@ -3850,6 +3850,388 @@
       "yugabyte_accounts",
       "redis_sig_keys",
       "coverage_pct"
+    ]
+  },
+  "CTS_WF_HOLD_PLACED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "held_by",
+      "hold_reason",
+      "iet_deadline"
+    ]
+  },
+  "CTS_WF_HOLD_RELEASED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "released_by",
+      "branch_recommendation"
+    ]
+  },
+  "CTS_LOCK_ACQUIRED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "reviewer_id",
+      "ttl_minutes"
+    ]
+  },
+  "CTS_LOCK_RELEASED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "reviewer_id"
+    ]
+  },
+  "CTS_LOCK_EXPIRED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "reviewer_id"
+    ]
+  },
+  "CTS_ALLOC_CLAIMED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "reviewer_id"
+    ]
+  },
+  "CTS_ALLOC_AUTO_ASSIGNED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "reviewer_id",
+      "allocation_mode"
+    ]
+  },
+  "CTS_ALLOC_UNCLAIMED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "reviewer_id"
+    ]
+  },
+  "PLATFORM_CONFIG_L2_REQUESTED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "requested_by",
+      "config_key",
+      "current_value",
+      "requested_value",
+      "cab_ticket"
+    ]
+  },
+  "PLATFORM_CONFIG_L2_DEPLOYED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "config_key",
+      "new_value",
+      "deployed_by",
+      "cab_ticket"
+    ]
+  },
+  "CTS_WF_HOLD_EXPIRED": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "held_by",
+      "iet_deadline"
+    ]
+  },
+  "CTS_HOLD_ESCALATION_30MIN": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "branch_email"
+    ]
+  },
+  "CTS_HOLD_ESCALATION_CRITICAL": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "iet_deadline"
+    ]
+  },
+  "CTS_HOLD_ESCALATION_P0": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "instrument_id",
+      "iet_deadline"
+    ]
+  },
+  "CTS_CONFIG_L3_SUBMITTED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "submitted_by",
+      "config_key",
+      "current_value",
+      "new_value"
+    ]
+  },
+  "CTS_CONFIG_L3_APPROVED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "approved_by",
+      "config_key",
+      "new_value"
+    ]
+  },
+  "CTS_CONFIG_L3_REJECTED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "rejected_by",
+      "config_key",
+      "reason"
+    ]
+  },
+  "CTS_QUEUE_TIER_ROUTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "queue_tier",
+      "kafka_topic"
+    ]
+  },
+  "BRANCH_CREATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "branch_ifsc",
+      "branch_name",
+      "created_by"
+    ]
+  },
+  "BRANCH_UPDATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "branch_ifsc",
+      "updated_by",
+      "changed_fields"
+    ]
+  },
+  "BRANCH_DELETED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "branch_ifsc",
+      "deleted_by"
+    ]
+  },
+  "BRANCH_BULK_IMPORTED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "imported_count",
+      "skipped_count",
+      "error_count",
+      "imported_by"
+    ]
+  },
+  "BRANCH_NOT_FOUND": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "branch_ifsc"
+    ]
+  },
+  "BRANCH_IFSC_DUPLICATE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "branch_ifsc"
+    ]
+  },
+  "PU_CREATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "pu_id",
+      "pu_name",
+      "clearing_zone",
+      "created_by"
+    ]
+  },
+  "PU_UPDATED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "pu_id",
+      "updated_by",
+      "changed_fields"
+    ]
+  },
+  "PU_DEACTIVATED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "pu_id",
+      "pu_name",
+      "deactivated_by",
+      "branch_count"
+    ]
+  },
+  "PU_NOT_FOUND": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI"
+    ],
+    "variables": [
+      "pu_id"
+    ]
+  },
+  "PU_ZONE_CONFLICT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "clearing_zone",
+      "existing_pu_id"
+    ]
+  },
+  "PU_BRANCH_ASSIGNED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "branch_ifsc",
+      "pu_id",
+      "assigned_by"
+    ]
+  },
+  "PU_BRANCH_REASSIGNED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "branch_ifsc",
+      "from_pu_id",
+      "to_pu_id",
+      "reassigned_by"
     ]
   }
 }

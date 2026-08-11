@@ -20,6 +20,7 @@ import structlog
 from shared.config.config_service import ConfigService
 from shared.config.exceptions import ConfigKeyNotFoundError
 from shared.observability.otel_setup import configure_otel
+from shared.temporal.converter import pydantic_data_converter
 
 log = structlog.get_logger()
 
@@ -30,7 +31,8 @@ log = structlog.get_logger()
 try:
     from temporalio.common import RetryPolicy
     from temporalio.client import Client
-    from temporalio.worker import Worker
+    from temporalio.worker import Worker, UnsandboxedWorkflowRunner
+    from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner, SandboxRestrictions
 
     AI_ACTIVITY_RETRY = RetryPolicy(
         maximum_attempts=2,
@@ -69,6 +71,7 @@ except ImportError:
 # Workflow and activity imports
 # ---------------------------------------------------------------------------
 
+from modules.cts.queue_tier import humanreview_task_queue_for_tier
 from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
 from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
 from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
@@ -124,6 +127,7 @@ from modules.cts.workflows.activities.outward_scan_activities import (
     validate_cts2010,
     create_lot_entry,
     run_vision_presentment_check,
+    record_outward_scan_event,
 )
 from modules.cts.workflows.activities.security_features import check_security_features
 from modules.cts.workflows.activities.ngch_metadata_cross_check import cross_check_ngch_metadata
@@ -164,6 +168,12 @@ from modules.cts.workflows.activities.platform_health_activities import (
 )
 from modules.cts.workflows.platform_health_check_workflow import PlatformHealthCheckWorkflow
 from modules.cts.worker_activities import build_bound_activities
+from modules.cts.workflows.hold_escalation_workflow import HoldEscalationWorkflow
+from modules.cts.workflows.activities.hold_escalation import (
+    send_hold_reminder,
+    send_hold_critical_alert,
+    send_hold_p0_alert,
+)
 
 ALL_WORKFLOWS = [
     ChequeProcessingWorkflow,
@@ -183,6 +193,7 @@ ALL_WORKFLOWS = [
     SMBVaultPushWorkflow,
     AgencyCCWorkflow,
     PlatformHealthCheckWorkflow,
+    HoldEscalationWorkflow,
 ]
 
 # Every registered CTS activity name, for reference/introspection. This list
@@ -245,6 +256,9 @@ ALL_ACTIVITIES = [
     check_iet_risk_for_alert,
     check_human_review_for_alert,
     dispatch_platform_alert,
+    send_hold_reminder,
+    send_hold_critical_alert,
+    send_hold_p0_alert,
 ]
 
 # Activities registered directly as bare functions.  Includes:
@@ -280,10 +294,18 @@ NO_DI_ACTIVITIES = [
     # SMB vault push (SMBVaultPushWorkflow)
     parse_and_validate_smb_push,
     update_smb_vault,
+    # CTS-2010 security print detection (ChequeProcessingWorkflow + OutwardScanWorkflow)
+    check_security_features,
     # Platform health check alert engine (PlatformHealthCheckWorkflow)
     check_iet_risk_for_alert,
     check_human_review_for_alert,
     dispatch_platform_alert,
+    # Scan event recorder (OutwardScanWorkflow — branch monitor feed)
+    record_outward_scan_event,
+    # Hold escalation (HoldEscalationWorkflow) — notification-only, no NGCH touch
+    send_hold_reminder,
+    send_hold_critical_alert,
+    send_hold_p0_alert,
 ]
 
 
@@ -346,15 +368,59 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
     client = await Client.connect(
         temporal_address,
         namespace=temporal_namespace,
+        data_converter=pydantic_data_converter,
     )
 
-    worker = Worker(
+    # UnsandboxedWorkflowRunner disables Temporal's determinism sandbox.
+    # Acceptable in dev/POC — the sandbox exists to catch non-deterministic
+    # workflow code during development. In production Helm values this will
+    # be replaced with a SandboxedWorkflowRunner once pydantic v2 + datetime
+    # sandbox interop is resolved upstream.
+    _sandbox_runner = UnsandboxedWorkflowRunner()
+
+    # Processing worker — handles ChequeProcessingWorkflow + all other CTS workflows
+    processing_worker = Worker(
         client,
         task_queue=task_queue,
         workflows=ALL_WORKFLOWS,
         activities=worker_activities,
+        workflow_runner=_sandbox_runner,
         max_concurrent_workflow_tasks=100,
         max_concurrent_activities=200,
+        graceful_shutdown_timeout=timedelta(minutes=2),
+    )
+
+    # Per-tier human review workers — HumanReviewWorkflow is started on the tier-
+    # specific task queue by ChequeProcessingWorkflow so that high-value reviews
+    # never compete for worker capacity with standard-value volume.
+    hr_standard_worker = Worker(
+        client,
+        task_queue=humanreview_task_queue_for_tier(bank_id, "standard"),
+        workflows=[HumanReviewWorkflow],
+        activities=worker_activities,
+        workflow_runner=_sandbox_runner,
+        max_concurrent_workflow_tasks=50,
+        max_concurrent_activities=50,
+        graceful_shutdown_timeout=timedelta(minutes=2),
+    )
+    hr_highvalue_worker = Worker(
+        client,
+        task_queue=humanreview_task_queue_for_tier(bank_id, "high_value"),
+        workflows=[HumanReviewWorkflow],
+        activities=worker_activities,
+        workflow_runner=_sandbox_runner,
+        max_concurrent_workflow_tasks=20,
+        max_concurrent_activities=20,
+        graceful_shutdown_timeout=timedelta(minutes=2),
+    )
+    hr_veryhigh_worker = Worker(
+        client,
+        task_queue=humanreview_task_queue_for_tier(bank_id, "very_high"),
+        workflows=[HumanReviewWorkflow],
+        activities=worker_activities,
+        workflow_runner=_sandbox_runner,
+        max_concurrent_workflow_tasks=10,
+        max_concurrent_activities=10,
         graceful_shutdown_timeout=timedelta(minutes=2),
     )
 
@@ -401,12 +467,20 @@ async def run_worker(bank_id: str, config_service: Optional[ConfigService] = Non
         )
 
     trigger_task = None
-    async with worker:
+    async with processing_worker, hr_standard_worker, hr_highvalue_worker, hr_veryhigh_worker:
         if trigger is not None:
             trigger_task = asyncio.create_task(trigger.run())
             log.info("worker.outward_scan_trigger_started", bank_id=bank_id)
 
-        log.info("worker.ready", bank_id=bank_id, task_queue=task_queue)
+        log.info(
+            "worker.ready",
+            bank_id=bank_id,
+            task_queue=task_queue,
+            hr_queues=[
+                humanreview_task_queue_for_tier(bank_id, t)
+                for t in ("standard", "high_value", "very_high")
+            ],
+        )
         await shutdown_event.wait()
 
         if trigger is not None:

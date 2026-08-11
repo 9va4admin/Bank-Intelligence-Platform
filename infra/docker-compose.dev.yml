@@ -1,0 +1,225 @@
+# ASTRA Dev Infrastructure Stack
+#
+# Starts all platform services required for POC/local development.
+# vLLM is intentionally absent — POC mode routes AI inference to HuggingFace API.
+#
+# Usage:
+#   docker compose -f infra/docker-compose.dev.yml up -d
+#   docker compose -f infra/docker-compose.dev.yml down -v   # wipe state
+#
+# Service names here match _DOCKER_SERVICE_MAP in apps/api/routers/platform.py
+# exactly — the Go-Live Start buttons rely on these names.
+#
+# Host ports use ASTRA-specific range (1xxxx) so this stack coexists with
+# other dev stacks (prana, etc.) on the same machine without any port conflicts.
+#
+#   vault        18200
+#   redis-cts    16379
+#   redis-ej     16380
+#   minio        19000 (S3 API)  19091 (Console)
+#   immudb       13322 (gRPC)   19497 (metrics)
+#   yugabyte     15433 (YSQL)   17000 (master UI)
+#   kafka        19092
+#   temporal     17233 (gRPC)   18088 (UI)
+
+networks:
+  astra-dev:
+    driver: bridge
+
+volumes:
+  minio-data:
+  immudb-data:
+  yugabyte-data:
+
+# ── Tier 1 — Foundation (no deps, start in parallel) ──────────────────────
+
+services:
+
+  vault:
+    image: hashicorp/vault:1.15
+    container_name: astra-vault
+    hostname: vault
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "astra-dev-root-token"
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+    ports:
+      - "18200:8200"
+    cap_add: [IPC_LOCK]
+    networks: [astra-dev]
+    healthcheck:
+      test: ["CMD-SHELL", "vault status -address=http://localhost:8200 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis-cts:
+    image: redis:7.2-alpine
+    container_name: astra-redis-cts
+    hostname: redis-cts
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    ports:
+      - "16379:6379"
+    networks: [astra-dev]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  redis-ej:
+    image: redis:7.2-alpine
+    container_name: astra-redis-ej
+    hostname: redis-ej
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "16380:6379"
+    networks: [astra-dev]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:RELEASE.2024-01-16T16-07-38Z
+    container_name: astra-minio
+    hostname: minio
+    command: server /data --console-address ":9091"
+    environment:
+      MINIO_ROOT_USER: astra-dev
+      MINIO_ROOT_PASSWORD: astra-dev-secret
+    ports:
+      - "19000:9000"
+      - "19091:9091"
+    volumes:
+      - minio-data:/data
+    networks: [astra-dev]
+    healthcheck:
+      test: ["CMD-SHELL", "mc alias set local http://localhost:9000 astra-dev astra-dev-secret --api S3v4 >/dev/null 2>&1 && mc ping local --count 1 --quiet >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 10s
+      retries: 12
+
+  immudb:
+    image: codenotary/immudb:1.9.5
+    container_name: astra-immudb
+    hostname: immudb
+    ports:
+      - "13322:3322"
+      - "19497:9497"
+    volumes:
+      - immudb-data:/var/lib/immudb
+    networks: [astra-dev]
+    healthcheck:
+      test: ["CMD", "immuadmin", "status"]
+      interval: 5s
+      timeout: 10s
+      retries: 15
+
+# ── Tier 2 — Data layer (independent of Tier 1 startup, but must be up before Temporal) ──
+
+  yugabyte:
+    image: yugabytedb/yugabyte:2.20.1.0-b97
+    container_name: astra-yugabyte
+    hostname: yugabyte
+    command: >
+      bash -c "bin/yugabyted start --daemon=false --background=false
+      --listen=0.0.0.0 --master_flags='rpc_bind_addresses=0.0.0.0'
+      --tserver_flags='pgsql_proxy_bind_address=0.0.0.0:5433'"
+    ports:
+      - "15433:5433"    # YSQL (PostgreSQL-compatible)
+      - "17000:7000"    # Master UI
+    volumes:
+      - yugabyte-data:/home/yugabyte/var
+    networks: [astra-dev]
+    healthcheck:
+      test: ["CMD", "ysqlsh", "-h", "localhost", "-p", "5433", "-U", "yugabyte", "-c", "SELECT 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: astra-kafka
+    hostname: kafka
+    environment:
+      # KRaft mode — no Zookeeper required
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: controller,broker
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      # Advertise host port 19092 so FastAPI running on the host can connect
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:19092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+    ports:
+      - "19092:9092"
+    networks: [astra-dev]
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+# ── Tier 3 — Orchestration ────────────────────────────────────────────────
+# Temporal uses its own postgres:15 container for metadata (YugabyteDB does
+# not support the GENERATED ALWAYS AS STORED columns in Temporal's visibility
+# schema v1.2). temporal-postgres has no host port — internal only.
+
+  temporal-postgres:
+    image: postgres:15-alpine
+    container_name: astra-temporal-postgres
+    hostname: temporal-postgres
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB: temporal
+    networks: [astra-dev]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  temporal:
+    image: temporalio/auto-setup:1.24.2
+    container_name: astra-temporal
+    hostname: temporal
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: temporal
+      POSTGRES_SEEDS: temporal-postgres
+      DEFAULT_NAMESPACE_RETENTION: "30d"
+      LOG_LEVEL: warn
+    ports:
+      - "17233:7233"
+    networks: [astra-dev]
+    depends_on:
+      temporal-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nc", "-z", "temporal", "7233"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+  temporal-ui:
+    image: temporalio/ui:2.26.2
+    container_name: astra-temporal-ui
+    hostname: temporal-ui
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: "http://localhost:18088"
+    ports:
+      - "18088:8080"
+    networks: [astra-dev]
+    depends_on:
+      - temporal

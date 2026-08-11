@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
+import useDemoInterval from '../../../shared/hooks/useDemoInterval'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -142,13 +145,32 @@ function BatchHeader({ batch, onClose, isDark, sessionId }) {
 function DownloadBtn({ label, icon, filename, disabled, isDark }) {
   const [state, setState] = useState('idle') // idle | busy | done
 
+  const downloadMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(
+        `/v1/cts/outward/files/${encodeURIComponent(filename)}/download-url`,
+        { credentials: 'include' }
+      )
+      if (!res.ok) throw new Error('File not available')
+      return res.json()
+    },
+    onSuccess: ({ download_url }) => {
+      const a = document.createElement('a')
+      a.href = download_url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setState('done')
+      setTimeout(() => setState('idle'), 3000)
+    },
+    onError: () => setState('idle'),
+  })
+
   function handleClick() {
     if (disabled || state !== 'idle') return
     setState('busy')
-    setTimeout(() => {
-      setState('done')
-      setTimeout(() => setState('idle'), 3000)
-    }, 900)
+    downloadMutation.mutate()
   }
 
   const base = `flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-semibold transition-all`
@@ -326,13 +348,14 @@ function HistoryRow({ batch, isDark }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CTSPresentmentFile() {
-  const { bankIfsc, bankName, isSB, isSMB } = useBankContext()
+  const { bankIfsc, bankName, isSB, isSMB, isDemo } = useBankContext()
   const SB_IFSC = bankIfsc
   const SB_NAME = bankName
   const SESSION_ID = `SES-${bankIfsc || 'BANK'}-20260619-001`
   const { isDark } = useTheme()
 
-  const [currentBatch, setCurrentBatch] = useState(() => makeBatch(1, isSMB ? 4 : 14, bankIfsc, SESSION_ID))
+  const demoBatch = useDemoData(makeBatch(1, isSMB ? 4 : 14, bankIfsc, SESSION_ID), { items: [], status: 'OPEN', nextSeq: 1, batchNo: 0 })
+  const [currentBatch, setCurrentBatch] = useState(demoBatch)
   const [history, setHistory]           = useState([])
   const [batchCounter, setBatchCounter] = useState(1)
   const [expandSuccess, setExpandSuccess] = useState(true)
@@ -340,19 +363,15 @@ export default function CTSPresentmentFile() {
   const seqRef = useRef(currentBatch.nextSeq)
 
   // Simulate Kafka listener: instruments arrive and get appended to current batch
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (Math.random() > 0.45) return
-      if (currentBatch.status !== 'OPEN') return
-
-      setCurrentBatch(prev => {
-        const newItem = makeInstrument(seqRef.current, prev.batchNo, SB_IFSC, SESSION_ID)
-        seqRef.current += 1
-        return { ...prev, items: [...prev.items, newItem], nextSeq: seqRef.current }
-      })
-    }, 2200)
-    return () => clearInterval(timer)
-  }, [currentBatch.status])
+  useDemoInterval(() => {
+    if (Math.random() > 0.45) return
+    if (currentBatch.status !== 'OPEN') return
+    setCurrentBatch(prev => {
+      const newItem = makeInstrument(seqRef.current, prev.batchNo, SB_IFSC, SESSION_ID)
+      seqRef.current += 1
+      return { ...prev, items: [...prev.items, newItem], nextSeq: seqRef.current }
+    })
+  }, 2200, [currentBatch.status])
 
   function handleCloseBatch() {
     const closed = { ...currentBatch, status: 'CLOSED', closedAt: new Date().toISOString() }

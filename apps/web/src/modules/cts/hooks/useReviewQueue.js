@@ -1,11 +1,11 @@
 /**
  * useReviewQueue — fetches the human review queue from GET /v1/cts/queue.
  *
- * Falls back to mock data when the API is unreachable (dev / offline).
- * Polls every 10 seconds during an active clearing session.
+ * In DEMO mode: always returns MOCK_QUEUE immediately, no network calls.
+ * In POC/PROD mode: hits real API; never falls back to mock data; starts empty.
  *
  * Returns:
- *   { items, total, loading, error, refetch }
+ *   { items, total, loading, error, useMock, refetch }
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { MOCK_QUEUE } from '../data/mockQueue'
@@ -61,7 +61,7 @@ function _reasonLabel(reason) {
   return MAP[reason] ?? reason ?? 'Flagged for review'
 }
 
-export default function useReviewQueue({ token, pollEnabled = true } = {}) {
+export default function useReviewQueue({ token, pollEnabled = true, isDemo = true } = {}) {
   const [items, setItems]     = useState([])
   const [total, setTotal]     = useState(0)
   const [loading, setLoading] = useState(true)
@@ -70,13 +70,23 @@ export default function useReviewQueue({ token, pollEnabled = true } = {}) {
   const timerRef = useRef(null)
 
   const fetchQueue = useCallback(async () => {
-    if (!token) {
-      // No auth token — use mock data for development
+    // DEMO mode: serve mock data immediately, no network call
+    if (isDemo) {
       const pending = MOCK_QUEUE.filter((q) => q.status === 'PENDING')
       setItems(pending)
       setTotal(pending.length)
       setUseMock(true)
       setLoading(false)
+      return
+    }
+
+    // POC / PROD: always hit real API; never fall back to mock
+    if (!token) {
+      setItems([])
+      setTotal(0)
+      setUseMock(false)
+      setLoading(false)
+      setError('No auth token — queue unavailable')
       return
     }
 
@@ -97,17 +107,11 @@ export default function useReviewQueue({ token, pollEnabled = true } = {}) {
       setError(null)
     } catch (err) {
       setError(err.message)
-      // On first failure fall back to mock so the UI stays usable
-      if (items.length === 0) {
-        const pending = MOCK_QUEUE.filter((q) => q.status === 'PENDING')
-        setItems(pending)
-        setTotal(pending.length)
-        setUseMock(true)
-      }
+      // In POC/PROD we do NOT fall back to mock — show error state, keep items as-is
     } finally {
       setLoading(false)
     }
-  }, [token])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [token, isDemo])  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchQueue()

@@ -77,7 +77,7 @@ function formatSponsorLabel(sponsorBankId) {
 }
 
 export default function CTSSMBReviewQueue() {
-  const { bankId, bankName, isSMB, sponsorBankId } = useBankContext()
+  const { bankId, bankName, isSMB, sponsorBankId, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const { items: liveItems, loading: queueLoading } = useReviewQueue({ pollEnabled: true })
   const [queue, setQueue] = useState([])
@@ -92,7 +92,10 @@ export default function CTSSMBReviewQueue() {
   useEffect(() => {
     if (!queueLoading) {
       const smbFiltered = liveItems.filter(i => !i.smb_id || i.smb_id === bankId)
-      const items = smbFiltered.length > 0 ? smbFiltered : SMB_MOCK_ITEMS
+      // In POC/PROD never fall back to mock — start empty
+      const items = isDemo
+        ? (smbFiltered.length > 0 ? smbFiltered : SMB_MOCK_ITEMS)
+        : smbFiltered
 
       setQueue(prev => {
         const localState = new Map(prev.map(i => [i.instrument_id, i.status]))

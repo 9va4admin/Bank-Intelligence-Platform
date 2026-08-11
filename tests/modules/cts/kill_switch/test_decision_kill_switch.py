@@ -12,6 +12,7 @@ This backstop catches the mid-flight race condition:
   activity independently re-checks the kill_switch_status passed to it.
 """
 import pytest
+from datetime import date
 
 
 # ---------------------------------------------------------------------------
@@ -35,6 +36,7 @@ def _make_signals(**kwargs):
         shap_values={"amount_feature": 0.1},
         kill_switch_mode="NONE",
         kill_switch_scope=None,
+        cheque_date=date.today(),  # required by date-validation gate; None → STP_RETURN "Undated"
     )
     defaults.update(kwargs)
     return DecisionInput(**defaults)
@@ -46,6 +48,7 @@ def _make_config():
         "human_review_fraud_threshold": 0.72,
         "ocr_min_confidence": 0.85,
         "sig_min_match_score": 0.80,
+        "opa_required": False,  # OPA not under test here; bypass unavailable-OPA guard
     }
 
 
@@ -167,7 +170,8 @@ class TestNoneModePreservesNormalLogic:
     async def test_none_mode_allows_stp_return(self):
         from modules.cts.workflows.activities.decision import synthesise_decision
         result = await synthesise_decision(
-            _make_signals(alteration_detected=True),
+            # Non-date field alteration ("amount") → CTS code 85 → STP_RETURN
+            _make_signals(alteration_detected=True, altered_fields=["amount"]),
             config=_make_config(),
             kill_switch_status=_kill_status("NONE"),
         )

@@ -27,13 +27,11 @@ from datetime import timedelta
 from typing import Any, Optional
 
 import structlog
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from temporalio import activity, workflow
 from temporalio.common import RetryPolicy
 
 log = structlog.get_logger()
-
-_TIMEOUT_SECONDS = 55 * 60   # 55 minutes — never configurable (safety margin)
 
 # Standard retry policies (temporal.md) — same values as cheque_workflow.py / iet_watchdog_workflow.py
 _NGCH_FILING_RETRY = RetryPolicy(
@@ -72,6 +70,11 @@ class HumanReviewInput(BaseModel):
     workflow_id: str       # idempotency key for NGCH filing
     context_bundle: dict[str, Any]   # OCR fields, fraud score, SHAP, sig score
     iet_deadline: float    # Unix timestamp — for display in ops workstation
+    # HIGH-1 fix: configurable timeout instead of hardcoded 55-minute constant.
+    # ChequeProcessingWorkflow sets a shorter value for SUPERVISED STP mode
+    # (reviewers are confirming an AI recommendation, not doing a full review).
+    # Minimum 1 to prevent zero/negative timeout bugs.
+    review_timeout_minutes: int = Field(default=55, ge=1)
 
 
 class ReviewDecision(BaseModel):
@@ -173,7 +176,7 @@ class HumanReviewWorkflow:
         try:
             await workflow.wait_condition(
                 lambda: self._decision is not None,
-                timeout=timedelta(seconds=_TIMEOUT_SECONDS),
+                timeout=timedelta(minutes=inp.review_timeout_minutes),
             )
         except asyncio.TimeoutError:
             pass
@@ -189,7 +192,7 @@ class HumanReviewWorkflow:
             ngch_action = "RETURN"
             outcome = "TIMEOUT_AUTO_RETURNED"
             reviewer_id = None
-            reason = "human_review_timeout_55min"
+            reason = f"human_review_timeout_{inp.review_timeout_minutes}min"
             timed_out = True
             log.warning(
                 "human_review.timeout_auto_return",
@@ -348,7 +351,7 @@ class HumanReviewWorkflow:
             ngch_action = "RETURN"
             outcome = "TIMEOUT_AUTO_RETURNED"
             reviewer_id = None
-            reason = "human_review_timeout_55min"
+            reason = f"human_review_timeout_{inp.review_timeout_minutes}min"
             timed_out = True
             log.warning(
                 "human_review.timeout_auto_return",

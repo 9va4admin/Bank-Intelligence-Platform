@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
 
 // ── Mock data ──────────────────────────────────────────────────────────────
 
@@ -94,19 +96,42 @@ export default function CTSVaultSync() {
     input:   isDark ? 'bg-white/8 border-white/10 text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400',
   }
 
-  const handleManualSync = async () => {
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/v1/cts/vault-sync/trigger', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      if (!res.ok) throw new Error('Trigger failed')
+      return res.json()
+    },
+    onSuccess: (data) => {
+      setSyncing(false)
+      setSyncMsg({
+        type: 'success',
+        text: `Vault sync triggered (workflow: ${data.workflow_id}). PPS & Stop Cheque data will refresh within ~45 seconds.`,
+      })
+    },
+    onError: () => {
+      setSyncing(false)
+      setSyncMsg({ type: 'error', text: 'Failed to trigger vault sync. Please retry.' })
+    },
+  })
+
+  const handleManualSync = () => {
     setSyncing(true)
     setSyncMsg(null)
-    // In production: POST /v1/admin/vault-sync/trigger
-    await new Promise((r) => setTimeout(r, 2200))
-    setSyncing(false)
-    setSyncMsg({ type: 'success', text: 'Vault sync triggered. Temporal workflow started — PPS & Stop Cheque data will refresh within ~45 seconds.' })
+    syncMutation.mutate()
   }
 
-  const filteredPPS = MOCK_PPS.filter((r) =>
+  const ppsSource   = useDemoData(MOCK_PPS)
+  const stopSource  = useDemoData(MOCK_STOP)
+  const syncStatus  = useDemoData(MOCK_SYNC_STATUS, { cbs_connector: '—', last_run_at: null, triggered_by: '—', pps_records_loaded: 0, stop_cheque_records_loaded: 0, next_scheduled: null })
+  const syncHistory = useDemoData(MOCK_SYNC_HISTORY)
+  const filteredPPS = ppsSource.filter((r) =>
     !ppsSearch || r.account_display.includes(ppsSearch) || r.cheque_series_from.includes(ppsSearch)
   )
-  const filteredStop = MOCK_STOP.filter((r) =>
+  const filteredStop = stopSource.filter((r) =>
     !stopSearch || r.account_display.includes(stopSearch) || r.cheque_number.includes(stopSearch)
   )
 
@@ -119,7 +144,7 @@ export default function CTSVaultSync() {
           <div>
             <h1 className={`text-lg font-semibold ${th.heading}`}>Positive Pay & Stop Cheque</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              CBS vault data — synced daily at 7:00 AM via Temporal · CBS: {MOCK_SYNC_STATUS.cbs_connector}
+              CBS vault data — synced daily at 7:00 AM via Temporal · CBS: {syncStatus.cbs_connector}
             </p>
           </div>
           <button
@@ -165,10 +190,10 @@ export default function CTSVaultSync() {
         {/* Status cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
           {[
-            { label: 'Last Sync', value: fmtDate(MOCK_SYNC_STATUS.last_run_at), sub: MOCK_SYNC_STATUS.triggered_by },
-            { label: 'PPS Records', value: MOCK_SYNC_STATUS.pps_records_loaded.toLocaleString('en-IN'), sub: 'Active entries' },
-            { label: 'Stop Cheques', value: MOCK_SYNC_STATUS.stop_cheque_records_loaded.toLocaleString('en-IN'), sub: 'Active holds' },
-            { label: 'Next Scheduled', value: fmtDate(MOCK_SYNC_STATUS.next_scheduled), sub: 'Daily at 07:00 AM' },
+            { label: 'Last Sync', value: fmtDate(syncStatus.last_run_at), sub: syncStatus.triggered_by },
+            { label: 'PPS Records', value: syncStatus.pps_records_loaded.toLocaleString('en-IN'), sub: 'Active entries' },
+            { label: 'Stop Cheques', value: syncStatus.stop_cheque_records_loaded.toLocaleString('en-IN'), sub: 'Active holds' },
+            { label: 'Next Scheduled', value: fmtDate(syncStatus.next_scheduled), sub: 'Daily at 07:00 AM' },
           ].map(({ label, value, sub }) => (
             <div key={label} className={`rounded-xl border p-4 ${th.card}`}>
               <div className={`text-[10px] font-semibold uppercase tracking-widest mb-1 ${th.muted}`}>{label}</div>
@@ -234,7 +259,7 @@ export default function CTSVaultSync() {
               </tbody>
             </table>
             <div className={`px-4 py-2 border-t text-[10px] ${th.muted} ${th.divider}`}>
-              {filteredPPS.length} records shown · Total in vault: {MOCK_SYNC_STATUS.pps_records_loaded.toLocaleString('en-IN')}
+              {filteredPPS.length} records shown · Total in vault: {syncStatus.pps_records_loaded.toLocaleString('en-IN')}
             </div>
           </div>
         )}
@@ -272,7 +297,7 @@ export default function CTSVaultSync() {
               </tbody>
             </table>
             <div className={`px-4 py-2 border-t text-[10px] ${th.muted} ${th.divider}`}>
-              {filteredStop.length} records shown · Total in vault: {MOCK_SYNC_STATUS.stop_cheque_records_loaded.toLocaleString('en-IN')}
+              {filteredStop.length} records shown · Total in vault: {syncStatus.stop_cheque_records_loaded.toLocaleString('en-IN')}
             </div>
           </div>
         )}
@@ -292,7 +317,7 @@ export default function CTSVaultSync() {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_SYNC_HISTORY.map((r, i) => (
+                {syncHistory.map((r, i) => (
                   <tr key={i} className={`text-xs border-t transition-colors ${th.row}`}>
                     <td className={`px-4 py-2.5 ${th.heading}`}>{fmtDate(r.run_at)}</td>
                     <td className={`px-4 py-2.5 ${th.body}`}>

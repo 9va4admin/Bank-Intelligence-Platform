@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
@@ -308,9 +309,22 @@ export default function CTSSMBRegistry() {
   const activeCount  = MOCK_SMBS.filter(s => s.is_active).length
   const holdCount    = MOCK_SMBS.filter(s => s.shield_status !== 'CLEAR').length
 
+  const syncMutation = useMutation({
+    mutationFn: async (sub_member_id) => {
+      const res = await fetch(`/v1/cts/smb/${encodeURIComponent(sub_member_id)}/vault-sync`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+      if (!res.ok) throw new Error('Sync trigger failed')
+      return res.json()
+    },
+    onSuccess: () => setSyncingId(null),
+    onError: () => setSyncingId(null),
+  })
+
   function handleVaultSync(sub_member_id) {
     setSyncingId(sub_member_id)
-    setTimeout(() => setSyncingId(null), 2000)
+    syncMutation.mutate(sub_member_id)
   }
 
   if (isSMB) {
