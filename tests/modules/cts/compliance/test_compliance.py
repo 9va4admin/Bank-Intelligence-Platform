@@ -21,7 +21,7 @@ def test_cts2010_standard_constants():
     assert CTS2010Standard.MIN_IQA_SCORE        == 0.70    # overall quality score
     assert CTS2010Standard.MICR_BAND_MIN_SCORE  == 0.80    # MICR line quality
     assert CTS2010Standard.FRONT_IMAGE_REQUIRED is True
-    assert CTS2010Standard.REAR_IMAGE_REQUIRED  is True
+    assert CTS2010Standard.REAR_IMAGE_REQUIRED  is False   # non-mandatory by default; configurable via Admin UI
 
 
 # ── Instrument Compliance Record ─────────────────────────────────────────────

@@ -200,6 +200,7 @@ async def run_one(filename: str, scenario: str,
         front_file_size_kb=metrics.file_kb, front_iqa_score=0.92,
         rear_dpi=0, rear_colour_depth=8, rear_file_size_kb=0.0, rear_iqa_score=0.0,
         micr_band_score=0.92,
+        rear_image_required=False,  # bank default — blank reverse is not a failure
     )
     compliance_mock = CTS2010ValidationResult(
         is_compliant=compliance_rec.is_compliant,

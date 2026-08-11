@@ -184,6 +184,9 @@ layer3:
     outward_frozen_payee_action: "HUMAN_REVIEW"  # FROZEN = temp (court/regulatory hold) — teller should not decide
     outward_dormant_payee_action: "HUMAN_REVIEW" # DORMANT = no txns 2yr — may be reactivatable
     outward_npa_payee_action: "HUMAN_REVIEW"     # NPA = credit event — human must confirm return
+    # Rear image (back of cheque) is NOT mandatory by default — blank reverse is normal practice.
+    # Banks that endorse or stamp the reverse may set this to "true" to enforce rear quality checks.
+    rear_image_required: "false"                 # Layer 3: hot-reload; "true" enables rear DPI/IQA checks
 
   platform_health_check:
     cadence_seconds: 60                       # PlatformHealthCheckWorkflow polling interval
