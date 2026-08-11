@@ -10,6 +10,16 @@ import { useTheme } from '../../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../../shared/context/BankContext'
 import AppShell from '../../../../shared/layout/AppShell'
 
+async function fetchReportUrl(session_id, format) {
+  const res = await fetch(
+    `/v1/cts/outward/sessions/${session_id}/report?format=${format}`,
+    { credentials: 'include' },
+  )
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const data = await res.json()
+  return format === 'html' ? data.html_url : data.pdf_url
+}
+
 // ─── Mock history ─────────────────────────────────────────────────────────────
 
 const MOCK_SESSIONS = [
@@ -64,6 +74,40 @@ const STATUS_COLORS = {
   RECONCILED:  'bg-slate-500/15 text-slate-400 border-slate-500/30',
 }
 
+function ReportDownloadButton({ sessionId, format, isDark }) {
+  const [loading, setLoading] = useState(false)
+  const label = format === 'html' ? 'HTML' : 'PDF'
+  const baseClass = format === 'html'
+    ? 'text-violet-400 border-violet-400/30 hover:bg-violet-400/10'
+    : 'text-amber-400 border-amber-400/30 hover:bg-amber-400/10'
+
+  async function handleClick() {
+    setLoading(true)
+    try {
+      const url = await fetchReportUrl(sessionId, format)
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer')
+      } else {
+        alert('Report not ready yet — please try again in a moment.')
+      }
+    } catch {
+      alert('Could not fetch report URL. Check network or permissions.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={loading}
+      className={`text-xs px-2 py-0.5 border rounded transition-colors ${baseClass} disabled:opacity-40`}
+    >
+      {loading ? '…' : label}
+    </button>
+  )
+}
+
 function SessionRow({ sess, isDark, onDownload }) {
   const th = {
     row:   isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
@@ -71,6 +115,7 @@ function SessionRow({ sess, isDark, onDownload }) {
     muted: isDark ? 'text-xs text-slate-400' : 'text-xs text-slate-500',
   }
   const color = STATUS_COLORS[sess.status] || STATUS_COLORS.RECONCILED
+  const reportReady = sess.status === 'SUBMITTED' || sess.status === 'RECONCILED'
   return (
     <tr className={`border-b transition-colors ${th.row}`}>
       <td className={`py-2.5 px-3 ${th.muted}`}>{sess.clearing_date}</td>
@@ -95,7 +140,7 @@ function SessionRow({ sess, isDark, onDownload }) {
       </td>
       <td className={`py-2.5 px-3 ${th.muted}`}>{sess.operator}</td>
       <td className="py-2.5 px-3">
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5 flex-wrap">
           {sess.status !== 'OPEN' && (
             <>
               <button
@@ -112,6 +157,12 @@ function SessionRow({ sess, isDark, onDownload }) {
               >
                 Summary
               </button>
+            </>
+          )}
+          {reportReady && (
+            <>
+              <ReportDownloadButton sessionId={sess.session_id} format="html" isDark={isDark} />
+              <ReportDownloadButton sessionId={sess.session_id} format="pdf"  isDark={isDark} />
             </>
           )}
         </div>
@@ -157,7 +208,7 @@ export default function BranchSessionHistory() {
             <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  {['Date', 'Session', 'Status', 'Lots', 'Uploaded', 'Accepted / Rejected', 'Time', 'Operator', 'Downloads'].map(h => (
+                  {['Date', 'Session', 'Status', 'Lots', 'Uploaded', 'Accepted / Rejected', 'Time', 'Operator', 'Downloads / Report'].map(h => (
                     <th key={h} className={`px-3 py-2 text-left border-b ${th.divider} ${th.thCell}`}>
                       {h}
                     </th>
