@@ -178,6 +178,12 @@ layer3:
     shadow_credit_release_hours: 4            # release after 2 return clearing sessions
     opa_required: true                        # OPA unavailable → HUMAN_REVIEW (never PROCEED)
     clearing_session: "MORNING"               # used for SMB ledger bucketing; override per bank
+    # Outward payee account status routing — bank-level policy, never branch-level
+    # CLOSED is always AUTO_RETURN (account no longer exists — no ambiguity)
+    # FROZEN / DORMANT / NPA are bank-configurable: HUMAN_REVIEW (default) or AUTO_RETURN
+    outward_frozen_payee_action: "HUMAN_REVIEW"  # FROZEN = temp (court/regulatory hold) — teller should not decide
+    outward_dormant_payee_action: "HUMAN_REVIEW" # DORMANT = no txns 2yr — may be reactivatable
+    outward_npa_payee_action: "HUMAN_REVIEW"     # NPA = credit event — human must confirm return
 
   platform_health_check:
     cadence_seconds: 60                       # PlatformHealthCheckWorkflow polling interval

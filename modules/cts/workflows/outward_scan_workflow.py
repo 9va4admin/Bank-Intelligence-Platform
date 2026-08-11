@@ -141,6 +141,14 @@ class OutwardScanInput(BaseModel):
     image_front_gray_url: Optional[str] = None     # front grayscale — alteration detection
     image_uv_url: Optional[str] = None             # UV wavelength — security feature verification
 
+    # Bank-level payee account status routing policy — populated by the trigger
+    # from config_service.get_cts_config(bank_id) before starting the workflow.
+    # Values: "HUMAN_REVIEW" (default) | "AUTO_RETURN"
+    # CLOSED is always AUTO_RETURN regardless of these fields.
+    outward_frozen_payee_action: str = "HUMAN_REVIEW"
+    outward_dormant_payee_action: str = "HUMAN_REVIEW"
+    outward_npa_payee_action: str = "HUMAN_REVIEW"
+
 
 class OutwardScanResult(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -302,21 +310,47 @@ class OutwardScanWorkflow:
                     violations=["PAYEE_ACCOUNT_NOT_FOUND"], audit_written=True, pu_id=inp.pu_id,
                 )
             if payee_result.outcome == "ACCOUNT_INACTIVE":
+                acct_status = payee_result.account_status or "UNKNOWN"
+                # CLOSED → always auto-return (account no longer exists).
+                # FROZEN / DORMANT / NPA → bank-level policy from inp (populated by trigger
+                # via config_service.get_cts_config). Default: HUMAN_REVIEW.
+                _policy_map = {
+                    "FROZEN":  inp.outward_frozen_payee_action,
+                    "DORMANT": inp.outward_dormant_payee_action,
+                    "NPA":     inp.outward_npa_payee_action,
+                }
+                action = "AUTO_RETURN" if acct_status == "CLOSED" else _policy_map.get(acct_status, "HUMAN_REVIEW")
                 log.info("outward_scan_workflow.payee_inactive",
                          scan_id=inp.scan_id, bank_id=inp.bank_id,
-                         account_status=payee_result.account_status)
+                         account_status=acct_status, action=action)
+                if action == "HUMAN_REVIEW":
+                    await workflow.execute_activity(
+                        write_audit,
+                        WriteAuditInput(event_type="CTS_OUT_PAYEE_INACTIVE_HELD", bank_id=inp.bank_id,
+                                        instrument_id=inp.instrument_id,
+                                        payload={"scan_id": inp.scan_id,
+                                                 "account_status": acct_status, "action": "HUMAN_REVIEW"}),
+                        start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
+                    )
+                    return OutwardScanResult(
+                        outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                        instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
+                        violations=[f"PAYEE_ACCOUNT_{acct_status}"],
+                        mismatch_fields=["payee_account_status"],
+                        audit_written=True, pu_id=inp.pu_id,
+                    )
                 await workflow.execute_activity(
                     write_audit,
                     WriteAuditInput(event_type="CTS_OUT_PAYEE_INACTIVE", bank_id=inp.bank_id,
                                     instrument_id=inp.instrument_id,
                                     payload={"scan_id": inp.scan_id,
-                                             "account_status": payee_result.account_status}),
+                                             "account_status": acct_status, "action": "AUTO_RETURN"}),
                     start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
                 )
                 return OutwardScanResult(
                     outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
                     instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
-                    violations=[f"PAYEE_ACCOUNT_{payee_result.account_status}"],
+                    violations=[f"PAYEE_ACCOUNT_{acct_status}"],
                     audit_written=True, pu_id=inp.pu_id,
                 )
             if payee_result.outcome == "NAME_MISMATCH":
@@ -629,18 +663,44 @@ class OutwardScanWorkflow:
                     audit_written=True, pu_id=inp.pu_id,
                 )
             if payee_cr.outcome == "ACCOUNT_INACTIVE":
+                acct_status = payee_cr.account_status or "UNKNOWN"
+                _policy_map = {
+                    "FROZEN":  inp.outward_frozen_payee_action,
+                    "DORMANT": inp.outward_dormant_payee_action,
+                    "NPA":     inp.outward_npa_payee_action,
+                }
+                action = "AUTO_RETURN" if acct_status == "CLOSED" else _policy_map.get(acct_status, "HUMAN_REVIEW")
+                log.info("outward_scan_workflow.payee_inactive",
+                         scan_id=inp.scan_id, bank_id=inp.bank_id,
+                         account_status=acct_status, action=action, path="cr120")
+                if action == "HUMAN_REVIEW":
+                    await workflow.execute_activity(
+                        write_audit,
+                        WriteAuditInput(event_type="CTS_OUT_PAYEE_INACTIVE_HELD", bank_id=inp.bank_id,
+                                        instrument_id=inp.instrument_id,
+                                        payload={"scan_id": inp.scan_id, "path": "cr120",
+                                                 "account_status": acct_status, "action": "HUMAN_REVIEW"}),
+                        start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
+                    )
+                    return OutwardScanResult(
+                        outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                        instrument_id=inp.instrument_id, micr_line=inp.micr_hardware_raw,
+                        lot_number=None, violations=[f"PAYEE_ACCOUNT_{acct_status}"],
+                        mismatch_fields=["payee_account_status"],
+                        audit_written=True, pu_id=inp.pu_id,
+                    )
                 await workflow.execute_activity(
                     write_audit,
                     WriteAuditInput(event_type="CTS_OUT_PAYEE_INACTIVE", bank_id=inp.bank_id,
                                     instrument_id=inp.instrument_id,
                                     payload={"scan_id": inp.scan_id, "path": "cr120",
-                                             "account_status": payee_cr.account_status}),
+                                             "account_status": acct_status, "action": "AUTO_RETURN"}),
                     start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
                 )
                 return OutwardScanResult(
                     outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
                     instrument_id=inp.instrument_id, micr_line=inp.micr_hardware_raw,
-                    lot_number=None, violations=[f"PAYEE_ACCOUNT_{payee_cr.account_status}"],
+                    lot_number=None, violations=[f"PAYEE_ACCOUNT_{acct_status}"],
                     audit_written=True, pu_id=inp.pu_id,
                 )
             if payee_cr.outcome == "NAME_MISMATCH":
@@ -843,14 +903,39 @@ class OutwardScanWorkflow:
                         audit_written=True, pu_id=getattr(inp, "pu_id", None),
                     )
                 if getattr(payee_result, "outcome", "PROCEED") == "ACCOUNT_INACTIVE":
+                    acct_status = getattr(payee_result, "account_status", "UNKNOWN")
+                    # CLOSED is always auto-returned — account no longer exists.
+                    # FROZEN / DORMANT / NPA are bank-level policy (Layer 3):
+                    #   outward_frozen_payee_action / outward_dormant_payee_action / outward_npa_payee_action
+                    # Default: HUMAN_REVIEW — the teller should not make this call.
+                    _policy_map = {
+                        "FROZEN":  inp.outward_frozen_payee_action,
+                        "DORMANT": inp.outward_dormant_payee_action,
+                        "NPA":     inp.outward_npa_payee_action,
+                    }
+                    if acct_status == "CLOSED":
+                        action = "AUTO_RETURN"
+                    else:
+                        action = _policy_map.get(acct_status, "HUMAN_REVIEW")
                     log.info("outward_scan_workflow.payee_inactive",
                              scan_id=inp.scan_id, bank_id=inp.bank_id,
-                             account_status=getattr(payee_result, "account_status", "UNKNOWN"))
+                             account_status=acct_status, action=action)
+                    if action == "HUMAN_REVIEW":
+                        await self._write_audit(mock_results, "MISMATCH_HELD", inp)
+                        return OutwardScanResult(
+                            outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                            instrument_id=inp.instrument_id, micr_line=micr_line,
+                            lot_number=None,
+                            violations=[f"PAYEE_ACCOUNT_{acct_status}"],
+                            mismatch_fields=["payee_account_status"],
+                            audit_written=True, pu_id=getattr(inp, "pu_id", None),
+                        )
+                    # AUTO_RETURN path
                     await self._write_audit(mock_results, "CTS_REJECTED", inp)
                     return OutwardScanResult(
                         outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
                         instrument_id=inp.instrument_id, micr_line=micr_line,
-                        lot_number=None, violations=[f"PAYEE_ACCOUNT_{getattr(payee_result, 'account_status', 'INACTIVE')}"],
+                        lot_number=None, violations=[f"PAYEE_ACCOUNT_{acct_status}"],
                         audit_written=True, pu_id=getattr(inp, "pu_id", None),
                     )
                 if getattr(payee_result, "outcome", "PROCEED") == "NAME_MISMATCH":
