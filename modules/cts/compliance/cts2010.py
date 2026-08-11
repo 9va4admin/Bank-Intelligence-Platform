@@ -14,4 +14,4 @@ class CTS2010Standard:
     MIN_IQA_SCORE:        float = 0.70     # minimum overall Image Quality Assessment score
     MICR_BAND_MIN_SCORE:  float = 0.80     # minimum MICR line legibility score
     FRONT_IMAGE_REQUIRED: bool  = True
-    REAR_IMAGE_REQUIRED:  bool  = True
+    REAR_IMAGE_REQUIRED:  bool  = False   # configurable via Admin UI (Layer 3: rear_image_required)

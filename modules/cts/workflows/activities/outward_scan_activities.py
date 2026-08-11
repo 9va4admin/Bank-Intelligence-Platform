@@ -44,6 +44,7 @@ class CTS2010ValidationInput(BaseModel):
     model_config = ConfigDict(frozen=True)
     instrument_id: str
     cheque_number: str
+    bank_id: str
     front_dpi: Optional[int] = None
     rear_dpi: Optional[int] = None
     front_colour_depth: Optional[int] = None
@@ -61,10 +62,11 @@ class CTS2010ValidationResult(BaseModel):
     violations: list[str]
 
 
-_REQUIRED_METRICS = (
-    "front_dpi", "rear_dpi", "front_colour_depth", "rear_colour_depth",
-    "front_file_size_kb", "rear_file_size_kb",
-    "front_iqa_score", "rear_iqa_score", "micr_band_score",
+_FRONT_REQUIRED_METRICS = (
+    "front_dpi", "front_colour_depth", "front_file_size_kb", "front_iqa_score", "micr_band_score",
+)
+_REAR_METRICS = (
+    "rear_dpi", "rear_colour_depth", "rear_file_size_kb", "rear_iqa_score",
 )
 
 
@@ -75,16 +77,26 @@ async def validate_cts2010(inp: CTS2010ValidationInput) -> CTS2010ValidationResu
     already-implemented CTS2010Standard evaluator) with the Temporal activity
     boundary.
 
-    Fails closed: if any required image metric is missing (None), this is not
-    treated as a pass — a compliance certificate cannot be issued without the
-    data to certify it. Returns is_compliant=False with a single
-    MISSING_IMAGE_METRICS violation rather than fabricating a value.
+    Fails closed: if any required front metric is missing (None), returns
+    MISSING_IMAGE_METRICS. Rear metrics are only required when the bank has
+    rear_image_required=true in Layer 3 config (default: false — blank reverse
+    is standard practice and must not cause a compliance failure).
     """
-    missing = [f for f in _REQUIRED_METRICS if getattr(inp, f) is None]
+    from shared.config.config_service import config_service  # avoid circular at module load
+
+    cts_cfg = await config_service.get_module_config("cts", inp.bank_id)
+    rear_image_required: bool = str(cts_cfg.get("rear_image_required", "false")).lower() == "true"
+
+    required_metrics = list(_FRONT_REQUIRED_METRICS)
+    if rear_image_required:
+        required_metrics.extend(_REAR_METRICS)
+
+    missing = [f for f in required_metrics if getattr(inp, f) is None]
     if missing:
         log.warning(
             "validate_cts2010.missing_metrics",
             instrument_id=inp.instrument_id,
+            bank_id=inp.bank_id,
             missing=missing,
         )
         return CTS2010ValidationResult(is_compliant=False, violations=["MISSING_IMAGE_METRICS"])
@@ -97,11 +109,12 @@ async def validate_cts2010(inp: CTS2010ValidationInput) -> CTS2010ValidationResu
         front_colour_depth=inp.front_colour_depth,
         front_file_size_kb=inp.front_file_size_kb,
         front_iqa_score=inp.front_iqa_score,
-        rear_dpi=inp.rear_dpi,
-        rear_colour_depth=inp.rear_colour_depth,
-        rear_file_size_kb=inp.rear_file_size_kb,
-        rear_iqa_score=inp.rear_iqa_score,
+        rear_dpi=inp.rear_dpi or 0,
+        rear_colour_depth=inp.rear_colour_depth or 0,
+        rear_file_size_kb=inp.rear_file_size_kb or 0.0,
+        rear_iqa_score=inp.rear_iqa_score or 0.0,
         micr_band_score=inp.micr_band_score,
+        rear_image_required=rear_image_required,
     )
 
     log.info(

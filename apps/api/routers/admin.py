@@ -69,6 +69,8 @@ _LAYER3_SCHEMA = [
      "description": "Payee account DORMANT (no txns >2yr) on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN. Account may be reactivatable — human review avoids rejecting a recoverable instrument."},
     {"config_key": "outward_npa_payee_action",     "layer": "LAYER_3", "default": "HUMAN_REVIEW",
      "description": "Payee account NPA on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN. NPA is a credit classification — a deposit to the account may still be valid. Ops_manager must confirm return."},
+    {"config_key": "rear_image_required",          "layer": "LAYER_3", "default": "false",
+     "description": "Require rear (back) cheque image to meet CTS-2010 DPI/IQA thresholds. Default false — blank reverse is standard practice. Set true only if bank endorses/stamps the reverse and wants quality enforcement."},
 ]
 
 _ADMIN_ROLES = {"bank_it_admin", "ops_manager"}

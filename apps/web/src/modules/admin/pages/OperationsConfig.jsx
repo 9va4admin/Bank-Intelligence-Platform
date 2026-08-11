@@ -109,6 +109,12 @@ const CONFIG_META = {
     desc: 'When the payee account is classified NPA at deposit intake. NPA is a credit classification — a deposit to that account may still be valid and creditable. HUMAN_REVIEW is strongly recommended; AUTO_RETURN should only be set after explicit compliance officer sign-off.',
     warn: true, editable: true,
   },
+  rear_image_required: {
+    label: 'Require Rear Cheque Image', unit: '', type: 'enum',
+    options: ['false', 'true'], defaultVal: 'false', category: 'Outward Processing',
+    desc: 'Enforce CTS-2010 DPI and IQA quality checks on the back (rear) side of the cheque. Default: false — a blank reverse is standard practice and should not cause a compliance failure. Set to true only if your bank stamps or endorses the reverse and wants rear quality enforced.',
+    warn: false, editable: true,
+  },
 }
 
 const ENUM_DESCRIPTIONS = {
@@ -134,6 +140,10 @@ const ENUM_DESCRIPTIONS = {
   outward_npa_payee_action: {
     HUMAN_REVIEW: 'Instrument sent to mismatch queue — ops reviewer confirms return (recommended)',
     AUTO_RETURN:  'Instrument rejected immediately — use only after compliance sign-off',
+  },
+  rear_image_required: {
+    false: 'Blank / missing rear image is accepted — no quality check on back of cheque',
+    true:  'Rear image must meet CTS-2010 DPI (≥200) and IQA (≥0.70) — enable only if bank endorses reverse',
   },
 }
 

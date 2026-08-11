@@ -27,10 +27,12 @@ def _make_inst(**kwargs):
 
 
 def test_fail_low_rear_dpi():
-    """Covers line 52: rear_dpi below minimum → failure_reasons includes rear_dpi."""
+    """rear_dpi below minimum → failure when rear_image_required=True; ignored when False."""
     from modules.cts.compliance.cts2010 import CTS2010Standard
-    inst = _make_inst(rear_dpi=CTS2010Standard.MIN_DPI - 1)
-    assert "rear_dpi" in inst.failure_reasons
+    inst_required = _make_inst(rear_dpi=CTS2010Standard.MIN_DPI - 1, rear_image_required=True)
+    assert "rear_dpi" in inst_required.failure_reasons
+    inst_optional = _make_inst(rear_dpi=CTS2010Standard.MIN_DPI - 1, rear_image_required=False)
+    assert "rear_dpi" not in inst_optional.failure_reasons
 
 
 def test_fail_low_front_colour_depth():
@@ -41,10 +43,12 @@ def test_fail_low_front_colour_depth():
 
 
 def test_fail_high_rear_file_size():
-    """Covers line 58: rear_file_size_kb above maximum."""
+    """rear_file_size_kb above maximum → failure when rear_image_required=True; ignored when False."""
     from modules.cts.compliance.cts2010 import CTS2010Standard
-    inst = _make_inst(rear_file_size_kb=CTS2010Standard.MAX_FILE_SIZE_KB + 1)
-    assert "rear_file_size_kb" in inst.failure_reasons
+    inst_required = _make_inst(rear_file_size_kb=CTS2010Standard.MAX_FILE_SIZE_KB + 1, rear_image_required=True)
+    assert "rear_file_size_kb" in inst_required.failure_reasons
+    inst_optional = _make_inst(rear_file_size_kb=CTS2010Standard.MAX_FILE_SIZE_KB + 1, rear_image_required=False)
+    assert "rear_file_size_kb" not in inst_optional.failure_reasons
 
 
 def test_fail_low_front_iqa_score():
@@ -55,10 +59,12 @@ def test_fail_low_front_iqa_score():
 
 
 def test_fail_low_rear_iqa_score():
-    """Covers line 62: rear_iqa_score below minimum."""
+    """rear_iqa_score below minimum → failure when rear_image_required=True; ignored when False."""
     from modules.cts.compliance.cts2010 import CTS2010Standard
-    inst = _make_inst(rear_iqa_score=CTS2010Standard.MIN_IQA_SCORE - 0.01)
-    assert "rear_iqa_score" in inst.failure_reasons
+    inst_required = _make_inst(rear_iqa_score=CTS2010Standard.MIN_IQA_SCORE - 0.01, rear_image_required=True)
+    assert "rear_iqa_score" in inst_required.failure_reasons
+    inst_optional = _make_inst(rear_iqa_score=CTS2010Standard.MIN_IQA_SCORE - 0.01, rear_image_required=False)
+    assert "rear_iqa_score" not in inst_optional.failure_reasons
 
 
 def test_pass_rate_with_instruments():
@@ -66,7 +72,7 @@ def test_pass_rate_with_instruments():
     from modules.cts.compliance.models import BatchComplianceCertificate
     from datetime import datetime, timezone
     good = _make_inst()
-    bad = _make_inst(rear_dpi=1)
+    bad = _make_inst(front_dpi=1)  # front_dpi failure always fires regardless of rear_image_required
     cert = BatchComplianceCertificate(
         batch_id="BATCH001", bank_ifsc="HDFC0001234",
         session_id="sess-001",
