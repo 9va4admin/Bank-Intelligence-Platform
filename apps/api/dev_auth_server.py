@@ -477,6 +477,8 @@ CREATE TABLE IF NOT EXISTS cts.clearing_sessions (
     npci_ack_ref       TEXT,
     PRIMARY KEY (session_id)
 );
+-- Migration: add clearing_date if table was created by an older DDL version
+ALTER TABLE cts.clearing_sessions ADD COLUMN IF NOT EXISTS clearing_date DATE NOT NULL DEFAULT CURRENT_DATE;
 CREATE INDEX IF NOT EXISTS ix_cs_bank_date
     ON cts.clearing_sessions (bank_id, clearing_date);
 
