@@ -15,28 +15,28 @@ const USE_MOCK = BANK_CONFIG.deployment_mode === 'DEMO'
 const MOCK_BRANCHES_DB = {
   'karnataka-bank': [
     { branch_name: 'Mangalore Main',         branch_ifsc: 'KARB0000001', address: '1st Cross, Kodialbail',     city: 'Mangalore',  district: 'Dakshina Kannada', state: 'Karnataka',   pin_code: '575003', phone: '08242440150', is_active: true,  scanner_input_mode: 'SDK_PUSH'    },
-    { branch_name: 'Bengaluru MG Road',      branch_ifsc: 'KARB0000002', address: '41 MG Road',                city: 'Bengaluru',  district: 'Bengaluru Urban',  state: 'Karnataka',   pin_code: '560001', phone: '08022212000', is_active: true,  scanner_input_mode: 'FOLDER_DROP', drop_folder_base_path: '/mnt/scanner/KARB0000002' },
+    { branch_name: 'Bengaluru MG Road',      branch_ifsc: 'KARB0000002', address: '41 MG Road',                city: 'Bengaluru',  district: 'Bengaluru Urban',  state: 'Karnataka',   pin_code: '560001', phone: '08022212000', is_active: true,  scanner_input_mode: 'FOLDER_DROP' },
     { branch_name: 'Hubli Main',             branch_ifsc: 'KARB0000003', address: 'Lamington Road',            city: 'Hubli',      district: 'Dharwad',          state: 'Karnataka',   pin_code: '580020', phone: '08362357000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
     { branch_name: 'Mysuru Sayyaji Rao Rd',  branch_ifsc: 'KARB0000004', address: 'Sayyaji Rao Road',          city: 'Mysuru',     district: 'Mysuru',           state: 'Karnataka',   pin_code: '570001', phone: '08212420000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
     { branch_name: 'Udupi Town',             branch_ifsc: 'KARB0000005', address: 'Car Street, Udupi',         city: 'Udupi',      district: 'Udupi',            state: 'Karnataka',   pin_code: '576101', phone: '08202529000', is_active: true,  scanner_input_mode: 'SDK_PUSH'    },
     { branch_name: 'Kochi Fort Branch',      branch_ifsc: 'KARB0000006', address: 'Fort Kochi, Ernakulam',     city: 'Kochi',      district: 'Ernakulam',        state: 'Kerala',      pin_code: '682001', phone: '04842226000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
     { branch_name: 'Chennai Anna Salai',     branch_ifsc: 'KARB0000007', address: '56 Anna Salai',             city: 'Chennai',    district: 'Chennai',          state: 'Tamil Nadu',  pin_code: '600002', phone: '04428562000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
     { branch_name: 'Mumbai Fort',            branch_ifsc: 'KARB0000008', address: '12 Horniman Circle',        city: 'Mumbai',     district: 'Mumbai',           state: 'Maharashtra', pin_code: '400001', phone: '02222654000', is_active: false, scanner_input_mode: 'UI_UPLOAD'   },
-    { branch_name: 'Bengaluru Jayanagar',    branch_ifsc: 'KARB0000009', address: '4th Block, 11th Main',      city: 'Bengaluru',  district: 'Bengaluru Urban',  state: 'Karnataka',   pin_code: '560041', phone: '08026572000', is_active: true,  scanner_input_mode: 'FOLDER_DROP', drop_folder_base_path: '/mnt/scanner/KARB0000009' },
+    { branch_name: 'Bengaluru Jayanagar',    branch_ifsc: 'KARB0000009', address: '4th Block, 11th Main',      city: 'Bengaluru',  district: 'Bengaluru Urban',  state: 'Karnataka',   pin_code: '560041', phone: '08026572000', is_active: true,  scanner_input_mode: 'FOLDER_DROP' },
     { branch_name: 'Manipal Campus',         branch_ifsc: 'KARB0000010', address: 'MIT Campus Road',           city: 'Manipal',    district: 'Udupi',            state: 'Karnataka',   pin_code: '576104', phone: '08202577000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
     { branch_name: 'Hyderabad Banjara Hills',branch_ifsc: 'KARB0000011', address: 'Road No 2, Banjara Hills',  city: 'Hyderabad',  district: 'Hyderabad',        state: 'Telangana',   pin_code: '500034', phone: '04023554000', is_active: true,  scanner_input_mode: 'SDK_PUSH'    },
     { branch_name: 'Delhi Connaught Place',  branch_ifsc: 'KARB0000012', address: 'Block A, Connaught Place',  city: 'New Delhi',  district: 'New Delhi',        state: 'Delhi',       pin_code: '110001', phone: '01123415000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
   ],
   'saraswat-coop': [
     { branch_name: 'Saraswat Head Office',   branch_ifsc: 'SRCB0000001', address: 'Erandwane, Karve Road',     city: 'Pune',       district: 'Pune',             state: 'Maharashtra', pin_code: '411004', phone: '02025435000', is_active: true,  scanner_input_mode: 'SDK_PUSH'    },
-    { branch_name: 'Mumbai Fort Main',       branch_ifsc: 'SRCB0000002', address: 'DN Road, Fort',             city: 'Mumbai',     district: 'Mumbai',           state: 'Maharashtra', pin_code: '400001', phone: '02222660000', is_active: true,  scanner_input_mode: 'FOLDER_DROP', drop_folder_base_path: '/mnt/scanner/SRCB0000002' },
+    { branch_name: 'Mumbai Fort Main',       branch_ifsc: 'SRCB0000002', address: 'DN Road, Fort',             city: 'Mumbai',     district: 'Mumbai',           state: 'Maharashtra', pin_code: '400001', phone: '02222660000', is_active: true,  scanner_input_mode: 'FOLDER_DROP' },
     { branch_name: 'Thane West',             branch_ifsc: 'SRCB0000003', address: 'Gokhale Road, Naupada',     city: 'Thane',      district: 'Thane',            state: 'Maharashtra', pin_code: '400602', phone: '02225414000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
     { branch_name: 'Pune Shivajinagar',      branch_ifsc: 'SRCB0000004', address: 'FC Road, Shivajinagar',     city: 'Pune',       district: 'Pune',             state: 'Maharashtra', pin_code: '411005', phone: '02025536000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
     { branch_name: 'Nashik Main',            branch_ifsc: 'SRCB0000005', address: 'Mahatma Gandhi Road',       city: 'Nashik',     district: 'Nashik',           state: 'Maharashtra', pin_code: '422001', phone: '02532318000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
     { branch_name: 'Aurangabad Nirala Bazar',branch_ifsc: 'SRCB0000006', address: 'Nirala Bazar',              city: 'Aurangabad', district: 'Aurangabad',       state: 'Maharashtra', pin_code: '431001', phone: '02402335000', is_active: true,  scanner_input_mode: 'SDK_PUSH'    },
     { branch_name: 'Navi Mumbai Vashi',      branch_ifsc: 'SRCB0000007', address: 'Sector 17, Vashi',          city: 'Navi Mumbai',district: 'Thane',            state: 'Maharashtra', pin_code: '400703', phone: '02227892000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
     { branch_name: 'Goa Panaji',             branch_ifsc: 'SRCB0000008', address: 'Dr Atmaram Borkar Road',    city: 'Panaji',     district: 'North Goa',        state: 'Goa',         pin_code: '403001', phone: '08322425000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
-    { branch_name: 'Bengaluru Malleswaram',  branch_ifsc: 'SRCB0000009', address: '8th Cross, Malleswaram',    city: 'Bengaluru',  district: 'Bengaluru Urban',  state: 'Karnataka',   pin_code: '560003', phone: '08023565000', is_active: true,  scanner_input_mode: 'FOLDER_DROP', drop_folder_base_path: '/mnt/scanner/SRCB0000009' },
+    { branch_name: 'Bengaluru Malleswaram',  branch_ifsc: 'SRCB0000009', address: '8th Cross, Malleswaram',    city: 'Bengaluru',  district: 'Bengaluru Urban',  state: 'Karnataka',   pin_code: '560003', phone: '08023565000', is_active: true,  scanner_input_mode: 'FOLDER_DROP' },
     { branch_name: 'Kolhapur Shahupuri',     branch_ifsc: 'SRCB0000010', address: 'Shahupuri 2nd Lane',        city: 'Kolhapur',   district: 'Kolhapur',         state: 'Maharashtra', pin_code: '416001', phone: '02312543000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
     { branch_name: 'Mumbai Dadar',           branch_ifsc: 'SRCB0000011', address: 'LJ Cross Road, Dadar West', city: 'Mumbai',     district: 'Mumbai',           state: 'Maharashtra', pin_code: '400028', phone: '02224441000', is_active: false, scanner_input_mode: 'UI_UPLOAD'   },
     { branch_name: 'Pune Kothrud',           branch_ifsc: 'SRCB0000012', address: 'Paud Road, Kothrud',        city: 'Pune',       district: 'Pune',             state: 'Maharashtra', pin_code: '411038', phone: '02025462000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
@@ -268,7 +268,6 @@ function BranchFormModal({ branch, isDark, onClose, onSave }) {
     pin_code:             branch?.pin_code ?? '',
     phone_number:         branch?.phone_number ?? '',
     scanner_input_mode:   branch?.scanner_input_mode ?? 'UI_UPLOAD',
-    drop_folder_base_path: branch?.drop_folder_base_path ?? '',
   })
   const [err, setErr] = useState('')
 
@@ -284,9 +283,6 @@ function BranchFormModal({ branch, isDark, onClose, onSave }) {
       if (form.branch_ifsc.length !== 11) return setErr('IFSC must be exactly 11 characters.')
       if (!/^[A-Za-z0-9]+$/.test(form.branch_ifsc)) return setErr('IFSC must be alphanumeric.')
     }
-    if (form.scanner_input_mode === 'FOLDER_DROP' && !form.drop_folder_base_path.trim()) {
-      return setErr('Folder path is required when Scanner Mode is Folder Drop.')
-    }
     const basePayload = {
       branch_name:   form.branch_name,
       city:          form.city,
@@ -296,9 +292,6 @@ function BranchFormModal({ branch, isDark, onClose, onSave }) {
       pin_code:      form.pin_code,
       phone_number:  form.phone_number,
       scanner_input_mode: form.scanner_input_mode,
-      drop_folder_base_path: form.scanner_input_mode === 'FOLDER_DROP'
-        ? form.drop_folder_base_path.trim() || null
-        : null,
     }
     const payload = isEdit ? basePayload : { ...basePayload, branch_ifsc: form.branch_ifsc.toUpperCase() }
     onSave(payload)
@@ -349,17 +342,9 @@ function BranchFormModal({ branch, isDark, onClose, onSave }) {
         <p className={`mt-1.5 ${infoCls}`}>{SCANNER_MODE_LABELS[form.scanner_input_mode]?.desc}</p>
 
         {form.scanner_input_mode === 'FOLDER_DROP' && (
-          <div className="mt-3">
-            <Field label="Drop Folder Path *" isDark={isDark}>
-              <Input
-                isDark={isDark}
-                value={form.drop_folder_base_path}
-                onChange={e => handleChange('drop_folder_base_path', e.target.value)}
-                placeholder="/mnt/scanner/SRCB0000001"
-              />
-            </Field>
-            <p className={`mt-1 ${infoCls}`}>Absolute path on the server where scanner images are written. ASTRA watches this directory.</p>
-          </div>
+          <p className={`mt-3 ${infoCls}`}>
+            Folder path and OEM settings are configured in <strong>Scanner Config</strong> (Admin → Scanner Config). Set the drop folder path there after saving this branch.
+          </p>
         )}
 
         {form.scanner_input_mode === 'SDK_PUSH' && (
