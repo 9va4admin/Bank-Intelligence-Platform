@@ -266,7 +266,7 @@ CTS inward fan-out: `cts.inward.{bank_id}`. Human review: `cts.human.review.{ban
 
 **EJ:** `EJNormalisationWorkflow` (8 activities + integrity check), `DisputeResolutionWorkflow`, `ATMHealthWorkflow`
 
-**Platform:** `NotificationWorkflow`, `AuditWriteWorkflow`, `BankOnboardingWorkflow`
+**Platform:** `NotificationWorkflow`, `AuditWriteWorkflow`, `BankOnboardingWorkflow`, `PlatformHealthCheckWorkflow` (60s cadence, alert engine → dispatcher.py)
 
 **Workflow ID pattern (idempotency):** `cts-{bank_id}-{instrument_id}`, `ej-normalise-{bank_id}-{raw_log_hash}`
 
@@ -366,15 +366,14 @@ NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
 
 > Full history: [docs/build-history.md](docs/build-history.md)
 
-**Completed:** Phases 1–13 (Foundation → CTS Core → Observability → EJ → Hardening → Multi-Scenario CTS → Auth Connectors → Smoke Tests → Security Remediation → Incident Management → Audit/Notification Gap Closure → TOTP/MFA + MSV → @workflow.defn/@activity.defn + DI gaps: all 16 workflows + 35 activities registered in real Worker())
+**Completed:** Phases 1–14 (Foundation → CTS Core → Observability → EJ → Hardening → Multi-Scenario CTS → Auth Connectors → Smoke Tests → Security Remediation → Incident Management → Audit/Notification Gap Closure → TOTP/MFA + MSV → @workflow.defn/@activity.defn + DI gaps: all 16 workflows + 35 activities registered in real Worker() → ASTRA Ops Dashboard + alert engine → POC E2E + Federal Bank onboarding → `__astra-admin` platform super admin + `platform_admin` RBAC role)
 
 **Immediate Next (priority order):**
 1. **ASTRA-01 on ej.py** — test-token backdoor identical to the 9 already fixed; deliberately deferred
-2. **ASTRA Ops Dashboard (React) + alert engine** — replace Grafana/Prometheus/Loki/Tempo; `apps/api/routers/observability.py` + React pages under `web/src/modules/observability/` + `PlatformHealthCheckWorkflow`; see §2.7
-3. **NPCI API Modernisation Phase A** — trigger: NPCI concept note acceptance; see [docs/npci-readiness-plan.md](docs/npci-readiness-plan.md)
-4. **Wire AuthConnectorFactory into real login flow** — `dev_auth_server.py` + `main.py` bypass connectors entirely; SAML/LDAP hooks still raise `NotImplementedError` (deliberately deferred)
-5. **Pilot bank deployment** — validate `saraswat-coop` Helm values against real K8s cluster
-6. **Security hardening** — OWASP ZAP + pen test prep
+2. **NPCI API Modernisation Phase A** — trigger: NPCI concept note acceptance; see [docs/npci-readiness-plan.md](docs/npci-readiness-plan.md)
+3. **Wire AuthConnectorFactory into real login flow** — `dev_auth_server.py` + `main.py` bypass connectors entirely; SAML/LDAP hooks still raise `NotImplementedError` (deliberately deferred)
+4. **Pilot bank deployment** — validate `saraswat-coop` Helm values against real K8s cluster
+5. **Security hardening** — OWASP ZAP + pen test prep
 
 **Open security findings (not yet fixed):**
 - `ej.py` router: ASTRA-01 backdoor open (conscious deferral)
@@ -391,4 +390,4 @@ NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
 
 Phases: A (REST API, 6 months) → B (Webhook push, 12 months) → C (MCP client, 24 months). ~70% of internal plumbing ready; gap is entirely in NPCI-facing transport layer.
 
-*Last updated: August 2026 | All architectural decisions final unless explicitly revised in this file*
+*Last updated: 2026-08-11 | All architectural decisions final unless explicitly revised in this file*
