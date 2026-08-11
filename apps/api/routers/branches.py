@@ -37,8 +37,8 @@ router_v1 = APIRouter(prefix="/v1/branches", tags=["Branch Master v1"])
 
 # ── RBAC constants ───────────────────────────────────────────────────────────
 
-_READ_ROLES = {"bank_it_admin", "ops_manager"}
-_WRITE_ROLES = {"bank_it_admin"}
+_READ_ROLES = {"bank_it_admin", "ops_manager", "platform_admin"}
+_WRITE_ROLES = {"bank_it_admin", "platform_admin"}
 
 _REQUIRED_CSV_COLUMNS = {
     "IFSC Code", "Branch Name", "Complete Address",
@@ -79,6 +79,9 @@ def _require_write(user: dict = Depends(get_current_user)) -> dict:
 
 # ── Pydantic models ──────────────────────────────────────────────────────────
 
+_VALID_SCANNER_MODES = {"UI_UPLOAD", "FOLDER_DROP", "SDK_PUSH"}
+
+
 class BranchCreateRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -90,6 +93,8 @@ class BranchCreateRequest(BaseModel):
     address: Optional[str] = None
     pin_code: Optional[str] = None
     phone_number: Optional[str] = None
+    scanner_input_mode: str = "UI_UPLOAD"
+    drop_folder_base_path: Optional[str] = None
 
     @field_validator("branch_ifsc")
     @classmethod
@@ -97,6 +102,13 @@ class BranchCreateRequest(BaseModel):
         if not v.isalnum() or " " in v:
             raise ValueError("IFSC must be 11 alphanumeric characters with no spaces")
         return v.upper()
+
+    @field_validator("scanner_input_mode")
+    @classmethod
+    def validate_scanner_mode(cls, v: str) -> str:
+        if v not in _VALID_SCANNER_MODES:
+            raise ValueError(f"scanner_input_mode must be one of {sorted(_VALID_SCANNER_MODES)}")
+        return v
 
 
 class BranchUpdateRequest(BaseModel):
@@ -113,6 +125,7 @@ class BranchUpdateRequest(BaseModel):
     is_scanning_enabled: Optional[bool] = None
     is_active: Optional[bool] = None
     drop_folder_base_path: Optional[str] = None
+    scanner_input_mode: Optional[str] = None
 
     # Explicitly forbid IFSC changes — IFSC is the immutable identity key
     branch_ifsc: None = Field(
@@ -127,6 +140,13 @@ class BranchUpdateRequest(BaseModel):
         if isinstance(data, dict) and "branch_ifsc" in data and data["branch_ifsc"] is not None:
             raise ValueError("branch_ifsc cannot be updated — it is the immutable identity key")
         return data
+
+    @field_validator("scanner_input_mode")
+    @classmethod
+    def validate_scanner_mode(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in _VALID_SCANNER_MODES:
+            raise ValueError(f"scanner_input_mode must be one of {sorted(_VALID_SCANNER_MODES)}")
+        return v
 
 
 class BranchResponse(BaseModel):
@@ -144,6 +164,8 @@ class BranchResponse(BaseModel):
     phone_number: Optional[str]
     pu_id: Optional[str]
     smb_id: Optional[str]
+    scanner_input_mode: str
+    drop_folder_base_path: Optional[str]
     is_scanning_enabled: bool
     is_active: bool
     created_at: str
@@ -203,6 +225,8 @@ def _branch_to_response(b: dict) -> BranchResponse:
         phone_number=b.get("phone_number"),
         pu_id=b.get("pu_id"),
         smb_id=b.get("smb_id"),
+        scanner_input_mode=b.get("scanner_input_mode", "UI_UPLOAD"),
+        drop_folder_base_path=b.get("drop_folder_base_path"),
         is_scanning_enabled=b.get("is_scanning_enabled", True),
         is_active=b.get("is_active", True),
         created_at=b.get("created_at", ""),
@@ -284,6 +308,8 @@ def _row_to_branch(row: dict, bank_id: str) -> dict:
         "phone_number": (row.get("Phone Number") or "").strip() or None,
         "pu_id": None,
         "smb_id": None,
+        "scanner_input_mode": "UI_UPLOAD",
+        "drop_folder_base_path": None,
         "is_scanning_enabled": True,
         "is_active": True,
         "created_at": now,
@@ -342,6 +368,7 @@ async def list_branches(
                     rows = await conn.fetch(
                         f"SELECT branch_id, bank_id, branch_name, branch_ifsc, city, district, "
                         f"state, address, pin_code, phone_number, pu_id, smb_id, "
+                        f"scanner_input_mode, drop_folder_base_path, "
                         f"is_scanning_enabled, is_active, created_at, updated_at, created_by "
                         f"FROM cts.branches WHERE {where} "
                         f"ORDER BY branch_name LIMIT ${idx}",
@@ -417,16 +444,20 @@ async def create_branch(
                         "INSERT INTO cts.branches "
                         "(branch_id, bank_id, branch_name, branch_ifsc, city, district, state, "
                         "address, pin_code, phone_number, pu_id, smb_id, is_scanning_enabled, "
+                        "scanner_input_mode, drop_folder_base_path, "
                         "is_active, created_at, created_by) "
-                        "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)",
+                        "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)",
                         branch_id, bank_id, payload.branch_name, ifsc,
                         payload.city, payload.district, payload.state,
                         payload.address, payload.pin_code, payload.phone_number,
-                        None, None, True, True, now, user["user_id"],
+                        None, None, True,
+                        payload.scanner_input_mode, payload.drop_folder_base_path,
+                        True, now, user["user_id"],
                     )
                     row = await conn.fetchrow(
                         "SELECT branch_id, bank_id, branch_name, branch_ifsc, city, district, "
                         "state, address, pin_code, phone_number, pu_id, smb_id, "
+                        "scanner_input_mode, drop_folder_base_path, "
                         "is_scanning_enabled, is_active, created_at, updated_at, created_by "
                         "FROM cts.branches WHERE branch_id = $1",
                         branch_id,
@@ -464,6 +495,8 @@ async def create_branch(
                 "phone_number": payload.phone_number,
                 "pu_id": None,
                 "smb_id": None,
+                "scanner_input_mode": payload.scanner_input_mode,
+                "drop_folder_base_path": payload.drop_folder_base_path,
                 "is_scanning_enabled": True,
                 "is_active": True,
                 "created_at": now,
@@ -494,6 +527,7 @@ async def get_branch(
                     row = await conn.fetchrow(
                         "SELECT branch_id, bank_id, branch_name, branch_ifsc, city, district, "
                         "state, address, pin_code, phone_number, pu_id, smb_id, "
+                        "scanner_input_mode, drop_folder_base_path, "
                         "is_scanning_enabled, is_active, created_at, updated_at, created_by "
                         "FROM cts.branches WHERE branch_ifsc = $1 AND bank_id = $2",
                         ifsc, bank_id,
@@ -552,6 +586,7 @@ async def update_branch(
                     row = await conn.fetchrow(
                         "SELECT branch_id, bank_id, branch_name, branch_ifsc, city, district, "
                         "state, address, pin_code, phone_number, pu_id, smb_id, "
+                        "scanner_input_mode, drop_folder_base_path, "
                         "is_scanning_enabled, is_active, created_at, updated_at, created_by "
                         "FROM cts.branches WHERE branch_ifsc = $1",
                         ifsc,
@@ -626,6 +661,7 @@ async def delete_branch(
                     row = await conn.fetchrow(
                         "SELECT branch_id, bank_id, branch_name, branch_ifsc, city, district, "
                         "state, address, pin_code, phone_number, pu_id, smb_id, "
+                        "scanner_input_mode, drop_folder_base_path, "
                         "is_scanning_enabled, is_active, created_at, updated_at, created_by "
                         "FROM cts.branches WHERE branch_ifsc = $1",
                         ifsc,
@@ -707,8 +743,9 @@ async def bulk_import(
                                     "INSERT INTO cts.branches "
                                     "(branch_id, bank_id, branch_name, branch_ifsc, city, district, "
                                     "state, address, pin_code, phone_number, pu_id, smb_id, "
-                                    "is_scanning_enabled, is_active, created_at, created_by) "
-                                    "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) "
+                                    "scanner_input_mode, is_scanning_enabled, is_active, "
+                                    "created_at, created_by) "
+                                    "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) "
                                     "ON CONFLICT (branch_ifsc) DO UPDATE SET "
                                     "branch_name = EXCLUDED.branch_name, "
                                     "city = EXCLUDED.city, "
@@ -722,7 +759,7 @@ async def bulk_import(
                                     branch["branch_name"], branch["branch_ifsc"],
                                     branch["city"], branch["district"], branch["state"],
                                     branch["address"], branch["pin_code"], branch["phone_number"],
-                                    None, None, True, True,
+                                    None, None, "UI_UPLOAD", True, True,
                                     datetime.now(timezone.utc), "bulk-import",
                                 )
                                 # asyncpg returns "INSERT 0 1" or "UPDATE 1"

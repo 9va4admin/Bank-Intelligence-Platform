@@ -14,32 +14,32 @@ const USE_MOCK = BANK_CONFIG.deployment_mode === 'DEMO'
 
 const MOCK_BRANCHES_DB = {
   'karnataka-bank': [
-    { branch_name: 'Mangalore Main',         branch_ifsc: 'KARB0000001', address: '1st Cross, Kodialbail',     city: 'Mangalore',  district: 'Dakshina Kannada', state: 'Karnataka',   pin_code: '575003', phone: '08242440150', is_active: true  },
-    { branch_name: 'Bengaluru MG Road',      branch_ifsc: 'KARB0000002', address: '41 MG Road',                city: 'Bengaluru',  district: 'Bengaluru Urban',  state: 'Karnataka',   pin_code: '560001', phone: '08022212000', is_active: true  },
-    { branch_name: 'Hubli Main',             branch_ifsc: 'KARB0000003', address: 'Lamington Road',            city: 'Hubli',      district: 'Dharwad',          state: 'Karnataka',   pin_code: '580020', phone: '08362357000', is_active: true  },
-    { branch_name: 'Mysuru Sayyaji Rao Rd',  branch_ifsc: 'KARB0000004', address: 'Sayyaji Rao Road',          city: 'Mysuru',     district: 'Mysuru',           state: 'Karnataka',   pin_code: '570001', phone: '08212420000', is_active: true  },
-    { branch_name: 'Udupi Town',             branch_ifsc: 'KARB0000005', address: 'Car Street, Udupi',         city: 'Udupi',      district: 'Udupi',            state: 'Karnataka',   pin_code: '576101', phone: '08202529000', is_active: true  },
-    { branch_name: 'Kochi Fort Branch',      branch_ifsc: 'KARB0000006', address: 'Fort Kochi, Ernakulam',     city: 'Kochi',      district: 'Ernakulam',        state: 'Kerala',      pin_code: '682001', phone: '04842226000', is_active: true  },
-    { branch_name: 'Chennai Anna Salai',     branch_ifsc: 'KARB0000007', address: '56 Anna Salai',             city: 'Chennai',    district: 'Chennai',          state: 'Tamil Nadu',  pin_code: '600002', phone: '04428562000', is_active: true  },
-    { branch_name: 'Mumbai Fort',            branch_ifsc: 'KARB0000008', address: '12 Horniman Circle',        city: 'Mumbai',     district: 'Mumbai',           state: 'Maharashtra', pin_code: '400001', phone: '02222654000', is_active: false },
-    { branch_name: 'Bengaluru Jayanagar',    branch_ifsc: 'KARB0000009', address: '4th Block, 11th Main',      city: 'Bengaluru',  district: 'Bengaluru Urban',  state: 'Karnataka',   pin_code: '560041', phone: '08026572000', is_active: true  },
-    { branch_name: 'Manipal Campus',         branch_ifsc: 'KARB0000010', address: 'MIT Campus Road',           city: 'Manipal',    district: 'Udupi',            state: 'Karnataka',   pin_code: '576104', phone: '08202577000', is_active: true  },
-    { branch_name: 'Hyderabad Banjara Hills',branch_ifsc: 'KARB0000011', address: 'Road No 2, Banjara Hills',  city: 'Hyderabad',  district: 'Hyderabad',        state: 'Telangana',   pin_code: '500034', phone: '04023554000', is_active: true  },
-    { branch_name: 'Delhi Connaught Place',  branch_ifsc: 'KARB0000012', address: 'Block A, Connaught Place',  city: 'New Delhi',  district: 'New Delhi',        state: 'Delhi',       pin_code: '110001', phone: '01123415000', is_active: true  },
+    { branch_name: 'Mangalore Main',         branch_ifsc: 'KARB0000001', address: '1st Cross, Kodialbail',     city: 'Mangalore',  district: 'Dakshina Kannada', state: 'Karnataka',   pin_code: '575003', phone: '08242440150', is_active: true,  scanner_input_mode: 'SDK_PUSH'    },
+    { branch_name: 'Bengaluru MG Road',      branch_ifsc: 'KARB0000002', address: '41 MG Road',                city: 'Bengaluru',  district: 'Bengaluru Urban',  state: 'Karnataka',   pin_code: '560001', phone: '08022212000', is_active: true,  scanner_input_mode: 'FOLDER_DROP', drop_folder_base_path: '/mnt/scanner/KARB0000002' },
+    { branch_name: 'Hubli Main',             branch_ifsc: 'KARB0000003', address: 'Lamington Road',            city: 'Hubli',      district: 'Dharwad',          state: 'Karnataka',   pin_code: '580020', phone: '08362357000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
+    { branch_name: 'Mysuru Sayyaji Rao Rd',  branch_ifsc: 'KARB0000004', address: 'Sayyaji Rao Road',          city: 'Mysuru',     district: 'Mysuru',           state: 'Karnataka',   pin_code: '570001', phone: '08212420000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
+    { branch_name: 'Udupi Town',             branch_ifsc: 'KARB0000005', address: 'Car Street, Udupi',         city: 'Udupi',      district: 'Udupi',            state: 'Karnataka',   pin_code: '576101', phone: '08202529000', is_active: true,  scanner_input_mode: 'SDK_PUSH'    },
+    { branch_name: 'Kochi Fort Branch',      branch_ifsc: 'KARB0000006', address: 'Fort Kochi, Ernakulam',     city: 'Kochi',      district: 'Ernakulam',        state: 'Kerala',      pin_code: '682001', phone: '04842226000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
+    { branch_name: 'Chennai Anna Salai',     branch_ifsc: 'KARB0000007', address: '56 Anna Salai',             city: 'Chennai',    district: 'Chennai',          state: 'Tamil Nadu',  pin_code: '600002', phone: '04428562000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
+    { branch_name: 'Mumbai Fort',            branch_ifsc: 'KARB0000008', address: '12 Horniman Circle',        city: 'Mumbai',     district: 'Mumbai',           state: 'Maharashtra', pin_code: '400001', phone: '02222654000', is_active: false, scanner_input_mode: 'UI_UPLOAD'   },
+    { branch_name: 'Bengaluru Jayanagar',    branch_ifsc: 'KARB0000009', address: '4th Block, 11th Main',      city: 'Bengaluru',  district: 'Bengaluru Urban',  state: 'Karnataka',   pin_code: '560041', phone: '08026572000', is_active: true,  scanner_input_mode: 'FOLDER_DROP', drop_folder_base_path: '/mnt/scanner/KARB0000009' },
+    { branch_name: 'Manipal Campus',         branch_ifsc: 'KARB0000010', address: 'MIT Campus Road',           city: 'Manipal',    district: 'Udupi',            state: 'Karnataka',   pin_code: '576104', phone: '08202577000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
+    { branch_name: 'Hyderabad Banjara Hills',branch_ifsc: 'KARB0000011', address: 'Road No 2, Banjara Hills',  city: 'Hyderabad',  district: 'Hyderabad',        state: 'Telangana',   pin_code: '500034', phone: '04023554000', is_active: true,  scanner_input_mode: 'SDK_PUSH'    },
+    { branch_name: 'Delhi Connaught Place',  branch_ifsc: 'KARB0000012', address: 'Block A, Connaught Place',  city: 'New Delhi',  district: 'New Delhi',        state: 'Delhi',       pin_code: '110001', phone: '01123415000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
   ],
   'saraswat-coop': [
-    { branch_name: 'Saraswat Head Office',   branch_ifsc: 'SRCB0000001', address: 'Erandwane, Karve Road',     city: 'Pune',       district: 'Pune',             state: 'Maharashtra', pin_code: '411004', phone: '02025435000', is_active: true  },
-    { branch_name: 'Mumbai Fort Main',       branch_ifsc: 'SRCB0000002', address: 'DN Road, Fort',             city: 'Mumbai',     district: 'Mumbai',           state: 'Maharashtra', pin_code: '400001', phone: '02222660000', is_active: true  },
-    { branch_name: 'Thane West',             branch_ifsc: 'SRCB0000003', address: 'Gokhale Road, Naupada',     city: 'Thane',      district: 'Thane',            state: 'Maharashtra', pin_code: '400602', phone: '02225414000', is_active: true  },
-    { branch_name: 'Pune Shivajinagar',      branch_ifsc: 'SRCB0000004', address: 'FC Road, Shivajinagar',     city: 'Pune',       district: 'Pune',             state: 'Maharashtra', pin_code: '411005', phone: '02025536000', is_active: true  },
-    { branch_name: 'Nashik Main',            branch_ifsc: 'SRCB0000005', address: 'Mahatma Gandhi Road',       city: 'Nashik',     district: 'Nashik',           state: 'Maharashtra', pin_code: '422001', phone: '02532318000', is_active: true  },
-    { branch_name: 'Aurangabad Nirala Bazar',branch_ifsc: 'SRCB0000006', address: 'Nirala Bazar',              city: 'Aurangabad', district: 'Aurangabad',       state: 'Maharashtra', pin_code: '431001', phone: '02402335000', is_active: true  },
-    { branch_name: 'Navi Mumbai Vashi',      branch_ifsc: 'SRCB0000007', address: 'Sector 17, Vashi',          city: 'Navi Mumbai',district: 'Thane',            state: 'Maharashtra', pin_code: '400703', phone: '02227892000', is_active: true  },
-    { branch_name: 'Goa Panaji',             branch_ifsc: 'SRCB0000008', address: 'Dr Atmaram Borkar Road',    city: 'Panaji',     district: 'North Goa',        state: 'Goa',         pin_code: '403001', phone: '08322425000', is_active: true  },
-    { branch_name: 'Bengaluru Malleswaram',  branch_ifsc: 'SRCB0000009', address: '8th Cross, Malleswaram',    city: 'Bengaluru',  district: 'Bengaluru Urban',  state: 'Karnataka',   pin_code: '560003', phone: '08023565000', is_active: true  },
-    { branch_name: 'Kolhapur Shahupuri',     branch_ifsc: 'SRCB0000010', address: 'Shahupuri 2nd Lane',        city: 'Kolhapur',   district: 'Kolhapur',         state: 'Maharashtra', pin_code: '416001', phone: '02312543000', is_active: true  },
-    { branch_name: 'Mumbai Dadar',           branch_ifsc: 'SRCB0000011', address: 'LJ Cross Road, Dadar West', city: 'Mumbai',     district: 'Mumbai',           state: 'Maharashtra', pin_code: '400028', phone: '02224441000', is_active: false },
-    { branch_name: 'Pune Kothrud',           branch_ifsc: 'SRCB0000012', address: 'Paud Road, Kothrud',        city: 'Pune',       district: 'Pune',             state: 'Maharashtra', pin_code: '411038', phone: '02025462000', is_active: true  },
+    { branch_name: 'Saraswat Head Office',   branch_ifsc: 'SRCB0000001', address: 'Erandwane, Karve Road',     city: 'Pune',       district: 'Pune',             state: 'Maharashtra', pin_code: '411004', phone: '02025435000', is_active: true,  scanner_input_mode: 'SDK_PUSH'    },
+    { branch_name: 'Mumbai Fort Main',       branch_ifsc: 'SRCB0000002', address: 'DN Road, Fort',             city: 'Mumbai',     district: 'Mumbai',           state: 'Maharashtra', pin_code: '400001', phone: '02222660000', is_active: true,  scanner_input_mode: 'FOLDER_DROP', drop_folder_base_path: '/mnt/scanner/SRCB0000002' },
+    { branch_name: 'Thane West',             branch_ifsc: 'SRCB0000003', address: 'Gokhale Road, Naupada',     city: 'Thane',      district: 'Thane',            state: 'Maharashtra', pin_code: '400602', phone: '02225414000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
+    { branch_name: 'Pune Shivajinagar',      branch_ifsc: 'SRCB0000004', address: 'FC Road, Shivajinagar',     city: 'Pune',       district: 'Pune',             state: 'Maharashtra', pin_code: '411005', phone: '02025536000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
+    { branch_name: 'Nashik Main',            branch_ifsc: 'SRCB0000005', address: 'Mahatma Gandhi Road',       city: 'Nashik',     district: 'Nashik',           state: 'Maharashtra', pin_code: '422001', phone: '02532318000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
+    { branch_name: 'Aurangabad Nirala Bazar',branch_ifsc: 'SRCB0000006', address: 'Nirala Bazar',              city: 'Aurangabad', district: 'Aurangabad',       state: 'Maharashtra', pin_code: '431001', phone: '02402335000', is_active: true,  scanner_input_mode: 'SDK_PUSH'    },
+    { branch_name: 'Navi Mumbai Vashi',      branch_ifsc: 'SRCB0000007', address: 'Sector 17, Vashi',          city: 'Navi Mumbai',district: 'Thane',            state: 'Maharashtra', pin_code: '400703', phone: '02227892000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
+    { branch_name: 'Goa Panaji',             branch_ifsc: 'SRCB0000008', address: 'Dr Atmaram Borkar Road',    city: 'Panaji',     district: 'North Goa',        state: 'Goa',         pin_code: '403001', phone: '08322425000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
+    { branch_name: 'Bengaluru Malleswaram',  branch_ifsc: 'SRCB0000009', address: '8th Cross, Malleswaram',    city: 'Bengaluru',  district: 'Bengaluru Urban',  state: 'Karnataka',   pin_code: '560003', phone: '08023565000', is_active: true,  scanner_input_mode: 'FOLDER_DROP', drop_folder_base_path: '/mnt/scanner/SRCB0000009' },
+    { branch_name: 'Kolhapur Shahupuri',     branch_ifsc: 'SRCB0000010', address: 'Shahupuri 2nd Lane',        city: 'Kolhapur',   district: 'Kolhapur',         state: 'Maharashtra', pin_code: '416001', phone: '02312543000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
+    { branch_name: 'Mumbai Dadar',           branch_ifsc: 'SRCB0000011', address: 'LJ Cross Road, Dadar West', city: 'Mumbai',     district: 'Mumbai',           state: 'Maharashtra', pin_code: '400028', phone: '02224441000', is_active: false, scanner_input_mode: 'UI_UPLOAD'   },
+    { branch_name: 'Pune Kothrud',           branch_ifsc: 'SRCB0000012', address: 'Paud Road, Kothrud',        city: 'Pune',       district: 'Pune',             state: 'Maharashtra', pin_code: '411038', phone: '02025462000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
   ],
 }
 
@@ -243,17 +243,32 @@ function Input({ isDark, ...props }) {
   return <input className={cls} {...props} />
 }
 
+function Select({ isDark, children, ...props }) {
+  const cls = isDark
+    ? 'w-full bg-white/6 border border-white/12 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500'
+    : 'w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-violet-500'
+  return <select className={cls} {...props}>{children}</select>
+}
+
+const SCANNER_MODE_LABELS = {
+  UI_UPLOAD:   { short: 'UI', label: 'UI Upload',   desc: 'Operator uploads cheque images via web UI' },
+  FOLDER_DROP: { short: 'FDR', label: 'Folder Drop', desc: 'Scanner writes to folder; ASTRA watcher picks up' },
+  SDK_PUSH:    { short: 'SDK', label: 'SDK Push',    desc: 'Scanner SDK calls POST /v1/cts/outward/scan/submit' },
+}
+
 function BranchFormModal({ branch, isDark, onClose, onSave }) {
   const isEdit = !!branch
   const [form, setForm] = useState({
-    branch_name: branch?.branch_name ?? '',
-    branch_ifsc: branch?.branch_ifsc ?? '',
-    city: branch?.city ?? '',
-    district: branch?.district ?? '',
-    state: branch?.state ?? '',
-    address: branch?.address ?? '',
-    pin_code: branch?.pin_code ?? '',
-    phone_number: branch?.phone_number ?? '',
+    branch_name:          branch?.branch_name ?? '',
+    branch_ifsc:          branch?.branch_ifsc ?? '',
+    city:                 branch?.city ?? '',
+    district:             branch?.district ?? '',
+    state:                branch?.state ?? '',
+    address:              branch?.address ?? '',
+    pin_code:             branch?.pin_code ?? '',
+    phone_number:         branch?.phone_number ?? '',
+    scanner_input_mode:   branch?.scanner_input_mode ?? 'UI_UPLOAD',
+    drop_folder_base_path: branch?.drop_folder_base_path ?? '',
   })
   const [err, setErr] = useState('')
 
@@ -269,13 +284,28 @@ function BranchFormModal({ branch, isDark, onClose, onSave }) {
       if (form.branch_ifsc.length !== 11) return setErr('IFSC must be exactly 11 characters.')
       if (!/^[A-Za-z0-9]+$/.test(form.branch_ifsc)) return setErr('IFSC must be alphanumeric.')
     }
-    const payload = isEdit
-      ? { branch_name: form.branch_name, city: form.city, district: form.district, state: form.state, address: form.address, pin_code: form.pin_code, phone_number: form.phone_number }
-      : { ...form, branch_ifsc: form.branch_ifsc.toUpperCase() }
+    if (form.scanner_input_mode === 'FOLDER_DROP' && !form.drop_folder_base_path.trim()) {
+      return setErr('Folder path is required when Scanner Mode is Folder Drop.')
+    }
+    const basePayload = {
+      branch_name:   form.branch_name,
+      city:          form.city,
+      district:      form.district,
+      state:         form.state,
+      address:       form.address,
+      pin_code:      form.pin_code,
+      phone_number:  form.phone_number,
+      scanner_input_mode: form.scanner_input_mode,
+      drop_folder_base_path: form.scanner_input_mode === 'FOLDER_DROP'
+        ? form.drop_folder_base_path.trim() || null
+        : null,
+    }
+    const payload = isEdit ? basePayload : { ...basePayload, branch_ifsc: form.branch_ifsc.toUpperCase() }
     onSave(payload)
   }
 
   const btnCls = 'px-4 py-2 rounded-lg text-sm font-medium transition-colors'
+  const infoCls = isDark ? 'text-xs text-slate-400 bg-white/4 border border-white/10 rounded-lg px-3 py-2' : 'text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2'
 
   return (
     <Modal title={isEdit ? 'Edit Branch' : 'Add Branch'} onClose={onClose} isDark={isDark}>
@@ -305,6 +335,40 @@ function BranchFormModal({ branch, isDark, onClose, onSave }) {
           <Input isDark={isDark} value={form.address} onChange={e => handleChange('address', e.target.value)} placeholder="80 Feet Road, Koramangala" />
         </Field>
       </div>
+
+      {/* Scanner configuration — full width below the grid */}
+      <div className={`mt-1 p-4 rounded-xl border ${isDark ? 'border-white/8 bg-white/3' : 'border-slate-200 bg-slate-50'}`}>
+        <p className={`text-xs font-semibold uppercase tracking-wide mb-3 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Scanner Configuration</p>
+        <Field label="Scanner Input Mode" isDark={isDark}>
+          <Select isDark={isDark} value={form.scanner_input_mode} onChange={e => handleChange('scanner_input_mode', e.target.value)}>
+            {Object.entries(SCANNER_MODE_LABELS).map(([k, v]) => (
+              <option key={k} value={k}>{v.label}</option>
+            ))}
+          </Select>
+        </Field>
+        <p className={`mt-1.5 ${infoCls}`}>{SCANNER_MODE_LABELS[form.scanner_input_mode]?.desc}</p>
+
+        {form.scanner_input_mode === 'FOLDER_DROP' && (
+          <div className="mt-3">
+            <Field label="Drop Folder Path *" isDark={isDark}>
+              <Input
+                isDark={isDark}
+                value={form.drop_folder_base_path}
+                onChange={e => handleChange('drop_folder_base_path', e.target.value)}
+                placeholder="/mnt/scanner/SRCB0000001"
+              />
+            </Field>
+            <p className={`mt-1 ${infoCls}`}>Absolute path on the server where scanner images are written. ASTRA watches this directory.</p>
+          </div>
+        )}
+
+        {form.scanner_input_mode === 'SDK_PUSH' && (
+          <p className={`mt-3 ${infoCls}`}>
+            SDK endpoint: <span className="font-mono">POST /v1/cts/outward/scan/submit</span> — scanner SDK calls this directly. No folder configuration required.
+          </p>
+        )}
+      </div>
+
       {err && <p className="text-red-400 text-xs mt-2">{err}</p>}
       <div className="flex justify-end gap-3 pt-2">
         <button className={`${btnCls} ${isDark ? 'text-slate-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`} onClick={onClose}>Cancel</button>
@@ -591,21 +655,21 @@ export default function CTSBranchMaster() {
           <table className="w-full">
             <thead>
               <tr className={`border-b ${th.divider}`}>
-                {['IFSC', 'Branch Name', 'City', 'State', 'District', 'Phone', 'PU', 'Status', ''].map(h => (
+                {['IFSC', 'Branch Name', 'City', 'State', 'District', 'Phone', 'PU', 'Scanner', 'Status', ''].map(h => (
                   <th key={h} className={`text-left px-4 py-3 ${th.th}`}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {isLoading && (
-                <tr><td colSpan={9} className={`text-center py-12 ${th.muted}`}>Loading…</td></tr>
+                <tr><td colSpan={10} className={`text-center py-12 ${th.muted}`}>Loading…</td></tr>
               )}
               {isError && (
-                <tr><td colSpan={9} className="text-center py-12 text-red-400 text-sm">Failed to load branches.</td></tr>
+                <tr><td colSpan={10} className="text-center py-12 text-red-400 text-sm">Failed to load branches.</td></tr>
               )}
               {!isLoading && branches.length === 0 && (
                 <tr>
-                  <td colSpan={9} className={`text-center py-12 ${th.muted} text-sm`}>
+                  <td colSpan={10} className={`text-center py-12 ${th.muted} text-sm`}>
                     No branches found. Use <strong>Import CSV</strong> to load your branch directory.
                   </td>
                 </tr>
@@ -623,6 +687,18 @@ export default function CTSBranchMaster() {
                       ? <span className="font-mono text-xs text-violet-400">{b.pu_id}</span>
                       : <span className={`text-xs ${th.muted} italic`}>unassigned</span>
                     }
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      title={SCANNER_MODE_LABELS[b.scanner_input_mode]?.desc ?? b.scanner_input_mode}
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium border ${
+                        b.scanner_input_mode === 'SDK_PUSH'    ? (isDark ? 'bg-blue-900/40 text-blue-300 border-blue-700/40'    : 'bg-blue-50 text-blue-700 border-blue-200') :
+                        b.scanner_input_mode === 'FOLDER_DROP' ? (isDark ? 'bg-amber-900/40 text-amber-300 border-amber-700/40' : 'bg-amber-50 text-amber-700 border-amber-200') :
+                                                                 (isDark ? 'bg-white/8 text-slate-300 border-white/10'           : 'bg-slate-100 text-slate-600 border-slate-200')
+                      }`}
+                    >
+                      {SCANNER_MODE_LABELS[b.scanner_input_mode]?.short ?? b.scanner_input_mode}
+                    </span>
                   </td>
                   <td className="px-4 py-3">
                     <Badge isDark={isDark} variant={b.is_active ? 'green' : 'red'}>
