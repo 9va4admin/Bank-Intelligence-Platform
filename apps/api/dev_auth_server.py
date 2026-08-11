@@ -379,6 +379,41 @@ DO $$ BEGIN
     END IF;
 END $$;
 
+-- ── CTS: Scanner OEM configs (FOLDER_DROP mode — file watcher settings) ─────
+CREATE TABLE IF NOT EXISTS cts.scanner_configs (
+    scanner_config_id     TEXT NOT NULL,
+    bank_id               TEXT NOT NULL,
+    branch_id             TEXT,
+    branch_ifsc           TEXT,
+    scanner_oem           TEXT NOT NULL,
+    scanner_model         TEXT NOT NULL,
+    output_format         TEXT NOT NULL,
+    date_format           TEXT NOT NULL,
+    amount_format         TEXT NOT NULL,
+    field_mapping         JSONB NOT NULL DEFAULT '{}',
+    image_naming_pattern  TEXT NOT NULL,
+    image_side_mapping    JSONB NOT NULL DEFAULT '{}',
+    drop_folder_path      TEXT NOT NULL,
+    is_active             BOOLEAN NOT NULL DEFAULT true,
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ,
+    created_by            TEXT NOT NULL DEFAULT 'system',
+    PRIMARY KEY (scanner_config_id)
+);
+CREATE INDEX IF NOT EXISTS ix_scanner_configs_bank_id ON cts.scanner_configs (bank_id);
+CREATE INDEX IF NOT EXISTS ix_scanner_configs_branch_id ON cts.scanner_configs (branch_id);
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_indexes
+        WHERE schemaname = 'cts'
+          AND tablename = 'scanner_configs'
+          AND indexname = 'uq_scanner_configs_bank_branch'
+    ) THEN
+        CREATE UNIQUE INDEX uq_scanner_configs_bank_branch
+            ON cts.scanner_configs (bank_id, COALESCE(branch_id, ''));
+    END IF;
+END $$;
+
 -- ── CTS: MCP connection configs (CBS, Vault, PPS links) ──────────────────────
 CREATE TABLE IF NOT EXISTS cts.mcp_connection_configs (
     id                     TEXT NOT NULL,

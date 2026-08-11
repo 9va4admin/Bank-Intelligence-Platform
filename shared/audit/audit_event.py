@@ -83,6 +83,11 @@ class AuditEventType(str, Enum):
     CTS_ALLOC_AUTO_ASSIGNED = "CTS_ALLOC_AUTO_ASSIGNED"
     CTS_ALLOC_UNCLAIMED = "CTS_ALLOC_UNCLAIMED"
 
+    # ── Scanner Config ─────────────────────────────────────────────────────────
+    SCANNER_CONFIG_CREATED = "SCANNER_CONFIG_CREATED"
+    SCANNER_CONFIG_UPDATED = "SCANNER_CONFIG_UPDATED"  # every field change — path changes are critical
+    SCANNER_CONFIG_DELETED = "SCANNER_CONFIG_DELETED"  # soft-delete (is_active=false)
+
     # ── Branch Master ──────────────────────────────────────────────────────────
     BRANCH_CREATED = "BRANCH_CREATED"
     BRANCH_UPDATED = "BRANCH_UPDATED"
