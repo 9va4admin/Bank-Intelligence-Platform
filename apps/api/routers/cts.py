@@ -2568,3 +2568,117 @@ async def get_allocation_status(
 
     log.info("cts.alloc.status", bank_id=bank_id, active_claims=len(claims))
     return AllocationStatusResponse(bank_id=bank_id, active_claims=claims, total=len(claims))
+
+
+# ── Session Report ─────────────────────────────────────────────────────────────
+
+class SessionReportMeta(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    report_id:        str
+    session_id:       str
+    bank_id:          str
+    branch_ifsc:      str
+    clearing_date:    str
+    session_type:     str
+    generated_at:     str
+    instrument_count: int
+    accepted_count:   int
+    rejected_count:   int
+    held_count:       int
+    compliance_pass_count: int
+    compliance_fail_count: int
+    status:           str
+    html_url:         Optional[str] = None
+    pdf_url:          Optional[str] = None
+
+
+@router_v1.get(
+    "/outward/sessions/{session_id}/report",
+    response_model=SessionReportMeta,
+    status_code=status.HTTP_200_OK,
+)
+async def get_session_report(
+    session_id: str,
+    request: Request,
+    format: Optional[str] = None,      # ?format=html | pdf  → redirect to presigned URL
+    ctx: UserContext = Depends(get_current_user_context),
+) -> SessionReportMeta:
+    """
+    Returns metadata for a CTS outward session clearing report.
+    Add ?format=html or ?format=pdf to get a presigned MinIO download URL.
+
+    Roles: ops_manager, bank_it_admin, ops_reviewer (own branch only).
+    SB users see any session in their bank. SMB users see only their branch.
+    """
+    bank_id = ctx.bank_id
+    allowed = {"ops_manager", "bank_it_admin", "ops_reviewer", "fraud_analyst"}
+    if ctx.role.value not in allowed:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    db = getattr(request.app.state, "db", None)
+    if db is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable")
+
+    row = await db.fetchrow(
+        """
+        SELECT report_id, session_id, bank_id, branch_id, branch_ifsc,
+               clearing_date, session_type, generated_at,
+               instrument_count, lot_count,
+               accepted_count, rejected_count, held_count,
+               compliance_pass_count, compliance_fail_count,
+               html_minio_path, pdf_minio_path, status
+        FROM cts.session_reports
+        WHERE session_id = $1 AND bank_id = $2
+        """,
+        session_id, bank_id,
+    )
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
+
+    html_url = pdf_url = None
+
+    if format in ("html", "pdf") and row["status"] == "READY":
+        from shared.config.config_service import config_service
+        from minio import Minio  # type: ignore
+        from datetime import timedelta
+
+        minio_ep = await config_service.get("minio.endpoint")
+        minio_ak = await config_service.get_secret("minio.access_key")
+        minio_sk = await config_service.get_secret("minio.secret_key")
+        client = Minio(minio_ep, access_key=minio_ak, secret_key=minio_sk, secure=False)
+        bucket = "astra-cts-reports"
+        path_key = "html_minio_path" if format == "html" else "pdf_minio_path"
+        object_path = row[path_key]
+        if object_path:
+            url = client.presigned_get_object(bucket, object_path, expires=timedelta(minutes=15))
+            if format == "html":
+                html_url = url
+            else:
+                pdf_url = url
+
+    log.info(
+        "cts.session_report.fetched",
+        session_id=session_id,
+        bank_id=bank_id,
+        status=row["status"],
+        format=format,
+    )
+
+    return SessionReportMeta(
+        report_id=str(row["report_id"]),
+        session_id=row["session_id"],
+        bank_id=row["bank_id"],
+        branch_ifsc=row["branch_ifsc"],
+        clearing_date=str(row["clearing_date"]),
+        session_type=row["session_type"],
+        generated_at=row["generated_at"].isoformat(),
+        instrument_count=row["instrument_count"],
+        accepted_count=row["accepted_count"],
+        rejected_count=row["rejected_count"],
+        held_count=row["held_count"],
+        compliance_pass_count=row["compliance_pass_count"],
+        compliance_fail_count=row["compliance_fail_count"],
+        status=row["status"],
+        html_url=html_url,
+        pdf_url=pdf_url,
+    )

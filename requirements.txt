@@ -75,6 +75,13 @@ opentelemetry-sdk==1.43.0
 # --- Config ---
 pyyaml==6.0.3
 
+# --- Session Reports (PDF generation) ---
+# Production (Linux Docker): WeasyPrint uses libgobject/Pango — install via:
+#   apt-get install -y libpango-1.0-0 libpangocairo-1.0-0 libcairo2
+# Development (Windows): falls back to xhtml2pdf automatically (pure Python).
+weasyprint>=62.0
+xhtml2pdf>=0.2.17
+
 # NOTE: headroom-ai[ml] (apps/ai_server/headroom_client.py) is deliberately
 # excluded -- it's an optional compression dependency with a working
 # ImportError fallback already built into that module, and needs a Rust
