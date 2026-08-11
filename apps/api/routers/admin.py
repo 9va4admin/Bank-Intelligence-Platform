@@ -63,6 +63,12 @@ _LAYER3_SCHEMA = [
      "description": "Dual-approval threshold for high-value cheques (₹)"},
     {"config_key": "vault_miss_action",            "layer": "LAYER_1", "default": "HUMAN_REVIEW",
      "description": "LOCKED — vault miss always routes to human review (Layer 1 constraint)"},
+    {"config_key": "outward_frozen_payee_action",  "layer": "LAYER_3", "default": "HUMAN_REVIEW",
+     "description": "Payee account FROZEN on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN. FROZEN may be temporary (court/regulatory hold) — default sends to mismatch queue for ops review."},
+    {"config_key": "outward_dormant_payee_action", "layer": "LAYER_3", "default": "HUMAN_REVIEW",
+     "description": "Payee account DORMANT (no txns >2yr) on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN. Account may be reactivatable — human review avoids rejecting a recoverable instrument."},
+    {"config_key": "outward_npa_payee_action",     "layer": "LAYER_3", "default": "HUMAN_REVIEW",
+     "description": "Payee account NPA on outward deposit: HUMAN_REVIEW (default) | AUTO_RETURN. NPA is a credit classification — a deposit to the account may still be valid. Ops_manager must confirm return."},
 ]
 
 _ADMIN_ROLES = {"bank_it_admin", "ops_manager"}
@@ -369,6 +375,15 @@ async def submit_threshold_change(
 ) -> ThresholdChangeResponse:
     bank_id = user["bank_id"]
     user_id = user["user_id"]
+
+    _known_keys = {s["config_key"] for s in _LAYER3_SCHEMA}
+    _editable_keys = {s["config_key"] for s in _LAYER3_SCHEMA if s["layer"] == "LAYER_3"}
+    if body.config_key not in _known_keys:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Unknown config_key: {body.config_key}")
+    if body.config_key not in _editable_keys:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail=f"{body.config_key} is a Layer 1 platform constraint and cannot be changed")
 
     log.info("admin.submit_threshold_change",
              bank_id=bank_id, config_key=body.config_key, submitted_by=user_id)

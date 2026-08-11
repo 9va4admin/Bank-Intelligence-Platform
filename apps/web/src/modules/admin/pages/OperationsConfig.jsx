@@ -91,6 +91,24 @@ const CONFIG_META = {
     desc: 'Action when signature or PPS vault has no record for an account. LOCKED to HUMAN_REVIEW by platform constraint (Layer 1) — cannot be changed by any role.',
     warn: true, editable: false,
   },
+  outward_frozen_payee_action: {
+    label: 'Outward — Frozen Payee', unit: '', type: 'enum',
+    options: ['HUMAN_REVIEW', 'AUTO_RETURN'], defaultVal: 'HUMAN_REVIEW', category: 'Outward Processing',
+    desc: 'When a depositor\'s payee account is FROZEN at deposit intake: HUMAN_REVIEW routes the instrument to the mismatch queue for an ops reviewer to decide. AUTO_RETURN rejects it at the teller window. FROZEN may be temporary (court order, regulatory hold) — HUMAN_REVIEW is recommended.',
+    warn: false, editable: true,
+  },
+  outward_dormant_payee_action: {
+    label: 'Outward — Dormant Payee', unit: '', type: 'enum',
+    options: ['HUMAN_REVIEW', 'AUTO_RETURN'], defaultVal: 'HUMAN_REVIEW', category: 'Outward Processing',
+    desc: 'When the payee account is DORMANT (no transactions for >2 years) at deposit intake. HUMAN_REVIEW gives an ops reviewer a chance to verify reactivation status before returning the cheque. AUTO_RETURN rejects immediately.',
+    warn: false, editable: true,
+  },
+  outward_npa_payee_action: {
+    label: 'Outward — NPA Payee', unit: '', type: 'enum',
+    options: ['HUMAN_REVIEW', 'AUTO_RETURN'], defaultVal: 'HUMAN_REVIEW', category: 'Outward Processing',
+    desc: 'When the payee account is classified NPA at deposit intake. NPA is a credit classification — a deposit to that account may still be valid and creditable. HUMAN_REVIEW is strongly recommended; AUTO_RETURN should only be set after explicit compliance officer sign-off.',
+    warn: true, editable: true,
+  },
 }
 
 const ENUM_DESCRIPTIONS = {
@@ -105,9 +123,21 @@ const ENUM_DESCRIPTIONS = {
     HYBRID: 'Claim manually or system assigns unclaimed items',
     AUTO:   'System assigns all items via round-robin',
   },
+  outward_frozen_payee_action: {
+    HUMAN_REVIEW: 'Instrument sent to mismatch queue — ops reviewer decides',
+    AUTO_RETURN:  'Instrument rejected at teller window immediately',
+  },
+  outward_dormant_payee_action: {
+    HUMAN_REVIEW: 'Instrument sent to mismatch queue — ops reviewer verifies reactivation',
+    AUTO_RETURN:  'Instrument rejected at teller window immediately',
+  },
+  outward_npa_payee_action: {
+    HUMAN_REVIEW: 'Instrument sent to mismatch queue — ops reviewer confirms return (recommended)',
+    AUTO_RETURN:  'Instrument rejected immediately — use only after compliance sign-off',
+  },
 }
 
-const CATEGORIES = ['All', 'STP Pipeline', 'Queue Segmentation', 'Allocation', 'IET & Timing', 'AI Confidence', 'Amount Controls', 'Security']
+const CATEGORIES = ['All', 'STP Pipeline', 'Queue Segmentation', 'Allocation', 'IET & Timing', 'AI Confidence', 'Amount Controls', 'Outward Processing', 'Security']
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
 
