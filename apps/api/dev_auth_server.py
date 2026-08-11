@@ -323,7 +323,6 @@ CREATE TABLE IF NOT EXISTS cts.branches (
     pin_code              TEXT,
     phone_number          TEXT,
     pu_id                 TEXT,
-    drop_folder_base_path TEXT,
     scanner_input_mode    TEXT NOT NULL DEFAULT 'UI_UPLOAD',
     is_scanning_enabled   BOOLEAN NOT NULL DEFAULT true,
     is_active             BOOLEAN NOT NULL DEFAULT true,
@@ -339,6 +338,46 @@ CREATE INDEX IF NOT EXISTS ix_branches_bank_id ON cts.branches (bank_id);
 ALTER TABLE cts.branches ADD COLUMN IF NOT EXISTS scanner_input_mode TEXT NOT NULL DEFAULT 'UI_UPLOAD';
 ALTER TABLE cts.branches DROP CONSTRAINT IF EXISTS ck_branches_scanner_input_mode;
 ALTER TABLE cts.branches ADD CONSTRAINT ck_branches_scanner_input_mode CHECK (scanner_input_mode IN ('UI_UPLOAD', 'FOLDER_DROP', 'SDK_PUSH'));
+-- Migration: drop duplicate drop_folder_base_path (canonical location is scanner_configs.drop_folder_path)
+ALTER TABLE cts.branches DROP COLUMN IF EXISTS drop_folder_base_path;
+
+-- ── CTS: Scanner registrations (SDK_PUSH mode — machine identity lifecycle) ──
+CREATE TABLE IF NOT EXISTS cts.scanner_registrations (
+    registration_id           TEXT NOT NULL,
+    bank_id                   TEXT NOT NULL,
+    branch_id                 TEXT NOT NULL,
+    branch_ifsc               TEXT NOT NULL,
+    scanner_config_id         TEXT,
+    sdk_version               TEXT,
+    registration_token_hash   TEXT NOT NULL,
+    status                    TEXT NOT NULL DEFAULT 'PENDING',
+    last_heartbeat_at         TIMESTAMPTZ,
+    last_scan_submitted_at    TIMESTAMPTZ,
+    heartbeat_interval_seconds INTEGER NOT NULL DEFAULT 60,
+    scans_today               INTEGER NOT NULL DEFAULT 0,
+    errors_today              INTEGER NOT NULL DEFAULT 0,
+    last_error                TEXT,
+    registered_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    registered_by             TEXT NOT NULL,
+    is_active                 BOOLEAN NOT NULL DEFAULT true,
+    PRIMARY KEY (registration_id),
+    CONSTRAINT ck_scanner_reg_status CHECK (status IN ('PENDING', 'ONLINE', 'DEGRADED', 'OFFLINE'))
+);
+CREATE INDEX IF NOT EXISTS ix_scanner_registrations_bank_id ON cts.scanner_registrations (bank_id);
+CREATE INDEX IF NOT EXISTS ix_scanner_registrations_branch_ifsc ON cts.scanner_registrations (branch_ifsc);
+-- Partial unique index: one active registration per branch (allows re-registration after deactivation)
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_indexes
+        WHERE schemaname = 'cts'
+          AND tablename = 'scanner_registrations'
+          AND indexname = 'uq_scanner_registrations_active_branch'
+    ) THEN
+        CREATE UNIQUE INDEX uq_scanner_registrations_active_branch
+            ON cts.scanner_registrations (bank_id, branch_ifsc)
+            WHERE is_active = true;
+    END IF;
+END $$;
 
 -- ── CTS: MCP connection configs (CBS, Vault, PPS links) ──────────────────────
 CREATE TABLE IF NOT EXISTS cts.mcp_connection_configs (
