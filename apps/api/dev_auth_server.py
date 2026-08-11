@@ -96,6 +96,28 @@ SEED_ACCOUNTS: dict[str, dict] = {
         "entity_type": "smb", "entity_id": "smb-mh-vasavi", "bank_id": "smb-mh-vasavi",
         "clearing_zones": ["MUMBAI"],
     },
+    # ── Federal Bank dev accounts (VITE_BANK_ID=federal-bank) ─────────────────
+    "fed-admin": {
+        "user_id": "usr-fed-admin", "password": "federal-dev-admin",
+        "display_name": "Priya Nair", "role": "bank_it_admin",
+        "bank_type": "SB", "permission_level": "ADMIN",
+        "entity_type": "sb", "entity_id": "federal-bank", "bank_id": "federal-bank",
+        "clearing_zones": ["ALL"],
+    },
+    "fed-ops": {
+        "user_id": "usr-fed-ops", "password": "federal-dev-ops",
+        "display_name": "Rajan Thomas", "role": "ops_manager",
+        "bank_type": "SB", "permission_level": "EDIT",
+        "entity_type": "sb", "entity_id": "federal-bank", "bank_id": "federal-bank",
+        "clearing_zones": ["ALL"],
+    },
+    "fed-reviewer": {
+        "user_id": "usr-fed-rev", "password": "federal-dev-reviewer",
+        "display_name": "Meena Pillai", "role": "ops_reviewer",
+        "bank_type": "SB", "permission_level": "READ",
+        "entity_type": "sb", "entity_id": "federal-bank", "bank_id": "federal-bank",
+        "clearing_zones": ["ALL"],
+    },
 }
 
 _PH = PasswordHasher()
@@ -197,7 +219,8 @@ CREATE TABLE IF NOT EXISTS platform.banks (
 INSERT INTO platform.banks (bank_id, bank_name, bank_code, ifsc_prefix, bank_type)
 VALUES
   ('saraswat-coop', 'Saraswat Co-operative Bank', 'SRCB', 'SRCB', 'COOPERATIVE'),
-  ('smb-mh-vasavi',  'Vasavi Co-operative Bank',  'VASB', 'VASB', 'COOPERATIVE')
+  ('smb-mh-vasavi',  'Vasavi Co-operative Bank',  'VASB', 'VASB', 'COOPERATIVE'),
+  ('federal-bank',   'Federal Bank',               'FDRL', 'FDRL', 'PRIVATE')
 ON CONFLICT (bank_id) DO NOTHING;
 
 -- ── Platform: user accounts (argon2 hash + TOTP) ─────────────────────────────
@@ -493,7 +516,17 @@ VALUES
    'ops_manager', 'EDIT', 'SB', ARRAY['ALL'], false),
   ('usr-smb',   'smb-mh-vasavi', 'smb', 'smb-mh-vasavi', 'smb',   'Vasavi Admin',
    '$argon2id$v=19$m=65536,t=3,p=4$WVVrBi7dk2K+WI79D05Njg$Bw6eRjYKWAsrdKrFs5hxvuGzOxr7SNc8mP2RGkagZBQ',
-   'smb_admin',   'ADMIN', 'SMB', ARRAY['MUMBAI'], false)
+   'smb_admin',   'ADMIN', 'SMB', ARRAY['MUMBAI'], false),
+  -- Federal Bank dev accounts (VITE_BANK_ID=federal-bank)
+  ('usr-fed-admin', 'federal-bank', 'sb', 'federal-bank', 'fed-admin', 'Priya Nair',
+   '$argon2id$v=19$m=65536,t=3,p=4$kK58+XyJeeIklEpC1NLC+w$CmP7ooYe5Y543B6b9saNynLswlK3wleMbWdQfQqW5hs',
+   'bank_it_admin', 'ADMIN', 'SB', ARRAY['ALL'], false),
+  ('usr-fed-ops',   'federal-bank', 'sb', 'federal-bank', 'fed-ops',   'Rajan Thomas',
+   '$argon2id$v=19$m=65536,t=3,p=4$FkNrtPVfTrlvql8PzoKckw$+AL7/zFDK9RP3dQ+kEdtcuB3/i/a1fJgYvR+K10c4Bs',
+   'ops_manager',   'EDIT',  'SB', ARRAY['ALL'], false),
+  ('usr-fed-rev',   'federal-bank', 'sb', 'federal-bank', 'fed-reviewer', 'Meena Pillai',
+   '$argon2id$v=19$m=65536,t=3,p=4$IbaUYWuuMX6kkl8SwhEQpg$AQ6DEwZIhJSUCZIdW2tZyg+p3Zxra4ze1sVMotIhgyA',
+   'ops_reviewer',  'READ',  'SB', ARRAY['ALL'], false)
 ON CONFLICT (username, bank_id) DO NOTHING;
 
 -- Seed CTS + AI defaults for saraswat-coop so activities have thresholds to load
