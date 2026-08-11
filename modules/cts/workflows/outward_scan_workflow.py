@@ -827,6 +827,45 @@ class OutwardScanWorkflow:
                 pu_id=getattr(inp, "pu_id", None),
             )
 
+        # Step 2.2: Payee account validation (optional mock — skipped when payee_account_number absent)
+        if inp.payee_account_number:
+            payee_result = mock_results.get("payee")
+            if payee_result is not None:
+                if getattr(payee_result, "outcome", "PROCEED") == "ACCOUNT_NOT_FOUND":
+                    log.info("outward_scan_workflow.payee_not_found",
+                             scan_id=inp.scan_id, bank_id=inp.bank_id,
+                             account_last4=inp.payee_account_number[-4:])
+                    await self._write_audit(mock_results, "CTS_REJECTED", inp)
+                    return OutwardScanResult(
+                        outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                        instrument_id=inp.instrument_id, micr_line=micr_line,
+                        lot_number=None, violations=["PAYEE_ACCOUNT_NOT_FOUND"],
+                        audit_written=True, pu_id=getattr(inp, "pu_id", None),
+                    )
+                if getattr(payee_result, "outcome", "PROCEED") == "ACCOUNT_INACTIVE":
+                    log.info("outward_scan_workflow.payee_inactive",
+                             scan_id=inp.scan_id, bank_id=inp.bank_id,
+                             account_status=getattr(payee_result, "account_status", "UNKNOWN"))
+                    await self._write_audit(mock_results, "CTS_REJECTED", inp)
+                    return OutwardScanResult(
+                        outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                        instrument_id=inp.instrument_id, micr_line=micr_line,
+                        lot_number=None, violations=[f"PAYEE_ACCOUNT_{getattr(payee_result, 'account_status', 'INACTIVE')}"],
+                        audit_written=True, pu_id=getattr(inp, "pu_id", None),
+                    )
+                if getattr(payee_result, "outcome", "PROCEED") == "NAME_MISMATCH":
+                    log.info("outward_scan_workflow.payee_name_mismatch",
+                             scan_id=inp.scan_id, bank_id=inp.bank_id,
+                             score=getattr(payee_result, "name_match_score", None))
+                    await self._write_audit(mock_results, "MISMATCH_HELD", inp)
+                    return OutwardScanResult(
+                        outcome="MISMATCH_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                        instrument_id=inp.instrument_id, micr_line=micr_line,
+                        lot_number=None, violations=["PAYEE_NAME_MISMATCH"],
+                        audit_written=True, pu_id=getattr(inp, "pu_id", None),
+                        mismatch_fields=["payee_name"],
+                    )
+
         # Step 2.5: NGCH metadata cross-check (optional mock — defaults to PROCEED)
         xcheck_result = mock_results.get("cross_check")
         if xcheck_result is not None and getattr(xcheck_result, "outcome", "PROCEED") == "HUMAN_REVIEW":
