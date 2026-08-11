@@ -279,7 +279,8 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
     { key: 'BFG', label: 'Front Gray', url: item.front_gray_url ?? null, iqaScore: item.iqa_front_gray ?? null },
   ]
 
-  const overallIqa = ((item.iqa_front_bw ?? 0) + (item.iqa_back_bw ?? 0) + (item.iqa_front_gray ?? 0)) / 3
+  const iqaScores = [item.iqa_front_bw, item.iqa_back_bw, item.iqa_front_gray].filter(s => s != null)
+  const overallIqa = iqaScores.length > 0 ? iqaScores.reduce((a, b) => a + b, 0) / iqaScores.length : null
 
   function handleReturn() {
     if (!returnReason) return
@@ -390,7 +391,7 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
             {/* Image + content checks */}
             <div className="space-y-2">
               {[
-                { label: 'Image Quality ≥ 85%',     ok: overallIqa >= 0.85 },
+                { label: 'Image Quality ≥ 85%',     ok: overallIqa != null && overallIqa >= 0.85 },
                 { label: 'MICR Line Extracted',      ok: !!item.ocr_fields?.micr },
                 { label: 'Date Present + Parseable', ok: !!item.ocr_fields?.date },
                 { label: 'Payee Name Present',       ok: !!item.ocr_fields?.payee },
@@ -448,7 +449,7 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
                 <ScorePill label="OCR Accuracy"    value={item.ocr_confidence}     isDark={isDark} />
                 <ScorePill label="Vision / CTS-10" value={item.vision_compliance}  isDark={isDark} />
                 <ScorePill label="MICR Confidence" value={item.micr_confidence}    isDark={isDark} />
-                <ScorePill label="IQA Overall"     value={overallIqa > 0 ? overallIqa : null} isDark={isDark} />
+                <ScorePill label="IQA Overall"     value={overallIqa} isDark={isDark} />
               </div>
             </div>
 
