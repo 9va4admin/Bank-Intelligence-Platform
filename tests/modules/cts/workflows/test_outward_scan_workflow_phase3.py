@@ -45,8 +45,10 @@ def _make_p3_mocks(
         vision_mock.mismatch_fields = vision_mismatch_fields or ["amount_figures"]
         vision_mock.vision_amount_str = "4500.00"
 
+    from datetime import date, timedelta
+    valid_date = (date.today() - timedelta(days=10)).strftime("%d-%m-%Y")
     return {
-        "micr": MagicMock(micr_line="123456789", confidence=0.98),
+        "micr": MagicMock(micr_line="123456789", confidence=0.98, date=valid_date),
         "compliance": MagicMock(is_compliant=compliance_ok, violations=[]),
         "lot": MagicMock(lot_number=lot_number),
         "vision_llm": vision_mock,

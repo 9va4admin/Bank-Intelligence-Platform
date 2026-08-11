@@ -2,7 +2,6 @@ import Navbar from '../components/landing/Navbar'
 import Hero from '../components/landing/Hero'
 import ProblemStatement from '../components/landing/ProblemStatement'
 import CTSModule from '../components/landing/CTSModule'
-import EJModule from '../components/landing/EJModule'
 import SecuritySection from '../components/landing/SecuritySection'
 import Architecture from '../components/landing/Architecture'
 import TechStack from '../components/landing/TechStack'
@@ -17,7 +16,6 @@ export default function LandingPage() {
         <Hero />
         <ProblemStatement />
         <CTSModule />
-        <EJModule />
         <SecuritySection />
         <Architecture />
         <TechStack />

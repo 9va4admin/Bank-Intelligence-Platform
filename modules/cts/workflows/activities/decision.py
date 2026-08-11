@@ -114,6 +114,10 @@ class DecisionResult(BaseModel):
     is_customer_fault: Optional[bool] = None
     # True = re-present in next clearing within 24h (technical returns per CCPs)
     requires_re_presentation: bool = False
+    # Composite confidence (ocr * 0.5 + sig * 0.5) — used by SELECTIVE STP mode
+    # to decide whether to auto-file or route to human when confidence is borderline.
+    # Set to combined_confidence when decision=STP_CONFIRM; 0.0 otherwise.
+    stp_confidence: float = 0.0
 
 
 @activity.defn
@@ -193,7 +197,8 @@ async def synthesise_decision(
     # ── OPA Layer 4 policy evaluation ─────────────────────────────────────────
     # Evaluates bank-configurable Rego business rules that cannot be expressed
     # as numeric thresholds: government cheques, court orders, high-value first-day, etc.
-    # OPA unavailable → safe default PROCEED (existing gates below still apply).
+    # OPA unavailable: if opa_required (production default), route to HUMAN_REVIEW.
+    # Set config["opa_required"] = False only in development / test environments.
     if opa_client is not None:
         opa_input = OPAInput(
             instrument_id=inp.instrument_id,
@@ -232,6 +237,18 @@ async def synthesise_decision(
                 rationale=f"OPA policy: {opa_result.reason}",
                 shap_values=inp.shap_values,
             )
+    elif config.get("opa_required", True):
+        log.warning(
+            "decision_activity.opa_unavailable",
+            instrument_id=inp.instrument_id,
+            bank_id=inp.bank_id,
+        )
+        return DecisionResult(
+            instrument_id=inp.instrument_id,
+            decision="HUMAN_REVIEW",
+            rationale="OPA_UNAVAILABLE: business policy engine unreachable — routed for manual review",
+            shap_values=inp.shap_values,
+        )
     # ── End OPA evaluation ────────────────────────────────────────────────────
 
     stp_threshold: float = config["stp_auto_confirm_threshold"]
@@ -405,6 +422,7 @@ async def synthesise_decision(
                 f"combined_confidence={combined_confidence:.3f}"
             ),
             shap_values=inp.shap_values,
+            stp_confidence=combined_confidence,
         )
 
     return DecisionResult(

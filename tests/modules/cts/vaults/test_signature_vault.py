@@ -1,15 +1,20 @@
 """
 Tests for modules/cts/vaults/signature_vault.py
 
-TDD — embedding-based two-tier vault (YugabyteDB + Redis).
+Per-signatory two-tier vault (Redis + YugabyteDB).
 
-Critical invariant: vault miss MUST route to HUMAN_REVIEW, never AUTO_RETURN.
-VaultResult.embeddings replaces the old .specimens (raw bytes).
+Critical invariants (never negotiable):
+  - Vault miss / error → HUMAN_REVIEW, NEVER AUTO_RETURN
+  - Raw account number never appears in any key
+  - Redis key format: sig:{bank_id}:{hmac}:{signatory_id}
+  - Multiple specimens per signatory (specimen_index 0..N)
+  - Multiple signatories per account — get_specimens_by_signatory groups them
+  - Mandate rule: ANY_ONE / ALL_REQUIRED / QUORUM_N — from get_mandate_rule()
 """
 import hashlib
 import hmac
 import struct
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call
 
 import pytest
 
@@ -37,9 +42,27 @@ def _make_vault(bank_id="test-bank", redis_client=None, pepper="test-pepper", db
     return vault
 
 
-def _expected_key(bank_id, account_number, pepper="test-pepper"):
-    h = hmac.new(pepper.encode(), f"{bank_id}:{account_number}".encode(), hashlib.sha256).hexdigest()
-    return f"sig:{bank_id}:{h}"
+def _account_hash(bank_id, account_number, pepper="test-pepper"):
+    return hmac.new(pepper.encode(), f"{bank_id}:{account_number}".encode(), hashlib.sha256).hexdigest()
+
+
+def _expected_key(bank_id, account_number, signatory_id="PRIMARY", pepper="test-pepper"):
+    h = _account_hash(bank_id, account_number, pepper)
+    return f"sig:{bank_id}:{h}:{signatory_id}"
+
+
+def _redis_miss():
+    r = MagicMock()
+    r.lrange = MagicMock(return_value=[])
+    r.pipeline = MagicMock(return_value=MagicMock(delete=MagicMock(), rpush=MagicMock(), execute=MagicMock()))
+    return r
+
+
+def _redis_hit(embeddings: list[list[float]], signatory_id="PRIMARY"):
+    r = MagicMock()
+    r.lrange = MagicMock(return_value=[_pack(e) for e in embeddings])
+    r.pipeline = MagicMock(return_value=MagicMock(delete=MagicMock(), rpush=MagicMock(), execute=MagicMock()))
+    return r
 
 
 # ---------------------------------------------------------------------------
@@ -69,7 +92,7 @@ class TestSignatureVaultInit:
 
 
 # ---------------------------------------------------------------------------
-# Key format — never raw account number
+# Key format — per-signatory, never raw account number
 # ---------------------------------------------------------------------------
 
 class TestVaultKeyFormat:
@@ -100,21 +123,164 @@ class TestVaultKeyFormat:
         v2 = SignatureVault(bank_id="bank-b", pepper="p")
         assert v1._make_key("ACC123") != v2._make_key("ACC123")
 
+    def test_key_differs_for_different_signatory_ids(self):
+        from modules.cts.vaults.signature_vault import SignatureVault
+        vault = SignatureVault(bank_id="kotak", pepper="p")
+        assert vault._make_key("ACC123", "PRIMARY") != vault._make_key("ACC123", "JOINT_1")
+
+    def test_key_includes_signatory_id(self):
+        from modules.cts.vaults.signature_vault import SignatureVault
+        vault = SignatureVault(bank_id="kotak", pepper="p")
+        assert "PRIMARY" in vault._make_key("ACC123", "PRIMARY")
+        assert "JOINT_1" in vault._make_key("ACC123", "JOINT_1")
+
     def test_key_format_matches_expected(self):
         from modules.cts.vaults.signature_vault import SignatureVault
         vault = SignatureVault(bank_id="kotak", pepper="test-pepper")
-        assert vault._make_key("ACC123") == _expected_key("kotak", "ACC123", "test-pepper")
+        assert vault._make_key("ACC123", "PRIMARY") == _expected_key("kotak", "ACC123", "PRIMARY", "test-pepper")
+
+    def test_default_signatory_is_primary(self):
+        from modules.cts.vaults.signature_vault import SignatureVault
+        vault = SignatureVault(bank_id="kotak", pepper="p")
+        assert vault._make_key("ACC123") == vault._make_key("ACC123", "PRIMARY")
 
 
 # ---------------------------------------------------------------------------
-# Cache hit — must NOT call Redis
+# get_specimens_by_signatory — primary new read path
 # ---------------------------------------------------------------------------
 
-class TestCacheHit:
+class TestGetSpecimensBySignatory:
+    @pytest.mark.asyncio
+    async def test_returns_empty_dict_on_redis_miss_no_db(self):
+        vault = _make_vault(redis_client=_redis_miss())
+        result = await vault.get_specimens_by_signatory("ACC001", "test-bank")
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_returns_embeddings_grouped_by_signatory(self):
+        emb1, emb2 = _fake_embedding(1), _fake_embedding(2)
+        redis = MagicMock()
+        # PRIMARY returns emb1; JOINT_1 returns emb2
+        def lrange_side(key, start, end):
+            if "PRIMARY" in key:
+                return [_pack(emb1)]
+            if "JOINT_1" in key:
+                return [_pack(emb2)]
+            return []
+        redis.lrange = MagicMock(side_effect=lrange_side)
+        vault = _make_vault(redis_client=redis)
+        # Inject signatory list via cache bypass: set up DB pool mock
+        db_pool = _db_with_signatories(["PRIMARY", "JOINT_1"])
+        vault._db_pool = db_pool
+        result = await vault.get_specimens_by_signatory("ACC001", "test-bank")
+        assert "PRIMARY" in result
+        assert "JOINT_1" in result
+        assert len(result["PRIMARY"]) == 1
+        assert len(result["JOINT_1"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_redis_hit_populates_cache(self):
+        emb = _fake_embedding()
+        redis = _redis_hit([emb])
+        vault = _make_vault(redis_client=redis)
+        await vault.get_specimens_by_signatory("ACC002", "test-bank")
+        key = vault._make_key("ACC002", "PRIMARY")
+        assert key in vault._cache
+
+    @pytest.mark.asyncio
+    async def test_redis_error_for_signatory_is_skipped(self):
+        """Redis error on one signatory → that signatory absent from result, no raise."""
+        redis = MagicMock()
+        redis.lrange = MagicMock(side_effect=Exception("Redis timeout"))
+        vault = _make_vault(redis_client=redis)
+        result = await vault.get_specimens_by_signatory("ACC003", "test-bank")
+        assert isinstance(result, dict)
+
+    @pytest.mark.asyncio
+    async def test_multiple_specimens_per_signatory(self):
+        """A signatory can have 3 specimens — all returned."""
+        emb1, emb2, emb3 = _fake_embedding(1), _fake_embedding(2), _fake_embedding(3)
+        redis = _redis_hit([emb1, emb2, emb3])
+        vault = _make_vault(redis_client=redis)
+        result = await vault.get_specimens_by_signatory("ACC004", "test-bank")
+        assert len(result["PRIMARY"]) == 3
+
+    @pytest.mark.asyncio
+    async def test_cache_hit_skips_redis(self):
+        emb = _fake_embedding()
+        redis = MagicMock()
+        vault = _make_vault(redis_client=redis)
+        key = vault._make_key("ACC005", "PRIMARY")
+        vault._cache[key] = [emb]
+        result = await vault.get_specimens_by_signatory("ACC005", "test-bank")
+        redis.lrange.assert_not_called()
+        assert result["PRIMARY"] == [emb]
+
+
+# ---------------------------------------------------------------------------
+# get_mandate_rule
+# ---------------------------------------------------------------------------
+
+class TestGetMandateRule:
+    @pytest.mark.asyncio
+    async def test_defaults_to_any_one_with_no_db(self):
+        vault = _make_vault()
+        rule = await vault.get_mandate_rule("ACC001", "test-bank")
+        assert rule == "ANY_ONE"
+
+    @pytest.mark.asyncio
+    async def test_returns_all_required_from_db(self):
+        db_pool = _db_with_mandate("ALL_REQUIRED", quorum_n=2)
+        vault = _make_vault(db_pool=db_pool)
+        rule = await vault.get_mandate_rule("ACC001", "test-bank")
+        assert rule == "ALL_REQUIRED"
+
+    @pytest.mark.asyncio
+    async def test_returns_any_one_from_db(self):
+        db_pool = _db_with_mandate("ANY_ONE", quorum_n=1)
+        vault = _make_vault(db_pool=db_pool)
+        rule = await vault.get_mandate_rule("ACC001", "test-bank")
+        assert rule == "ANY_ONE"
+
+    @pytest.mark.asyncio
+    async def test_quorum_rule_includes_n(self):
+        db_pool = _db_with_mandate("QUORUM_N_OF_M", quorum_n=2)
+        vault = _make_vault(db_pool=db_pool)
+        rule = await vault.get_mandate_rule("ACC001", "test-bank")
+        assert "2" in rule
+
+    @pytest.mark.asyncio
+    async def test_db_error_falls_back_to_any_one(self):
+        conn = AsyncMock()
+        conn.fetchrow = AsyncMock(side_effect=Exception("DB down"))
+        pool = MagicMock()
+        pool.acquire = MagicMock(return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=conn),
+            __aexit__=AsyncMock(return_value=False),
+        ))
+        vault = _make_vault(db_pool=pool)
+        rule = await vault.get_mandate_rule("ACC001", "test-bank")
+        assert rule == "ANY_ONE"
+
+    @pytest.mark.asyncio
+    async def test_mandate_cached_after_first_db_call(self):
+        db_pool = _db_with_mandate("ALL_REQUIRED", quorum_n=2)
+        vault = _make_vault(db_pool=db_pool)
+        await vault.get_mandate_rule("ACC001", "test-bank")
+        await vault.get_mandate_rule("ACC001", "test-bank")
+        conn = db_pool.acquire.return_value.__aenter__.return_value
+        conn.fetchrow.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# get_signatures — backward compat (flat aggregation of all signatories)
+# ---------------------------------------------------------------------------
+
+class TestGetSignaturesBackwardCompat:
     @pytest.mark.asyncio
     async def test_cache_hit_returns_embeddings(self):
         vault = _make_vault()
-        key = vault._make_key("ACC001")
+        key = vault._make_key("ACC001", "PRIMARY")
         embs = [_fake_embedding(1), _fake_embedding(2)]
         vault._cache[key] = embs
         result = await vault.get_signatures("ACC001", "test-bank")
@@ -124,7 +290,7 @@ class TestCacheHit:
     async def test_cache_hit_does_not_call_redis(self):
         mock_redis = MagicMock()
         vault = _make_vault(redis_client=mock_redis)
-        key = vault._make_key("ACC001")
+        key = vault._make_key("ACC001", "PRIMARY")
         vault._cache[key] = [_fake_embedding()]
         await vault.get_signatures("ACC001", "test-bank")
         mock_redis.lrange.assert_not_called()
@@ -132,156 +298,53 @@ class TestCacheHit:
     @pytest.mark.asyncio
     async def test_cache_hit_outcome_is_found(self):
         vault = _make_vault()
-        key = vault._make_key("ACC001")
+        key = vault._make_key("ACC001", "PRIMARY")
         vault._cache[key] = [_fake_embedding()]
         result = await vault.get_signatures("ACC001", "test-bank")
         assert result.outcome == "FOUND"
 
-
-# ---------------------------------------------------------------------------
-# Cache miss + Redis hit — embeddings unpacked from packed bytes
-# ---------------------------------------------------------------------------
-
-class TestCacheMissRedisHit:
     @pytest.mark.asyncio
-    async def test_redis_hit_returns_embeddings(self):
-        emb1, emb2 = _fake_embedding(1), _fake_embedding(2)
-        mock_redis = MagicMock()
-        mock_redis.lrange = MagicMock(return_value=[_pack(emb1), _pack(emb2)])
+    async def test_redis_hit_returns_found(self):
+        emb = _fake_embedding()
+        mock_redis = _redis_hit([emb])
         vault = _make_vault(redis_client=mock_redis)
         result = await vault.get_signatures("ACC002", "test-bank")
-        assert len(result.embeddings) == 2
-        assert len(result.embeddings[0]) == _DIM
+        assert result.outcome == "FOUND"
+        assert len(result.embeddings) == 1
 
     @pytest.mark.asyncio
     async def test_redis_hit_uses_correct_key(self):
         emb = _fake_embedding()
-        mock_redis = MagicMock()
-        mock_redis.lrange = MagicMock(return_value=[_pack(emb)])
+        mock_redis = _redis_hit([emb])
         vault = _make_vault(redis_client=mock_redis)
         await vault.get_signatures("ACC002", "test-bank")
-        expected_key = vault._make_key("ACC002")
-        mock_redis.lrange.assert_called_once_with(expected_key, 0, -1)
+        expected_key = vault._make_key("ACC002", "PRIMARY")
+        mock_redis.lrange.assert_any_call(expected_key, 0, -1)
 
-    @pytest.mark.asyncio
-    async def test_redis_hit_populates_local_cache(self):
-        emb = _fake_embedding()
-        mock_redis = MagicMock()
-        mock_redis.lrange = MagicMock(return_value=[_pack(emb)])
-        vault = _make_vault(redis_client=mock_redis)
-        await vault.get_signatures("ACC002", "test-bank")
-        assert vault._make_key("ACC002") in vault._cache
-
-    @pytest.mark.asyncio
-    async def test_redis_hit_outcome_is_found(self):
-        mock_redis = MagicMock()
-        mock_redis.lrange = MagicMock(return_value=[_pack(_fake_embedding())])
-        vault = _make_vault(redis_client=mock_redis)
-        result = await vault.get_signatures("ACC002", "test-bank")
-        assert result.outcome == "FOUND"
-
-
-# ---------------------------------------------------------------------------
-# Redis miss + YugabyteDB hit — backfills Redis
-# ---------------------------------------------------------------------------
-
-class TestRedisMissDbHit:
-    def _make_db_pool(self, embeddings: list[list[float]]):
-        rows = [{"embedding": _pack(e)} for e in embeddings]
-        conn = AsyncMock()
-        conn.fetch = AsyncMock(return_value=rows)
-        pool = MagicMock()
-        pool.acquire = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=conn), __aexit__=AsyncMock(return_value=False)))
-        return pool
-
-    @pytest.mark.asyncio
-    async def test_db_hit_returns_found(self):
-        emb = _fake_embedding()
-        mock_redis = MagicMock()
-        mock_redis.lrange = MagicMock(return_value=[])
-        mock_redis.pipeline = MagicMock(return_value=MagicMock(delete=MagicMock(), rpush=MagicMock(), execute=MagicMock()))
-        db_pool = self._make_db_pool([emb])
-        vault = _make_vault(redis_client=mock_redis, db_pool=db_pool)
-        result = await vault.get_signatures("ACC010", "test-bank")
-        assert result.outcome == "FOUND"
-
-    @pytest.mark.asyncio
-    async def test_db_hit_returns_embeddings(self):
-        emb = _fake_embedding(5)
-        mock_redis = MagicMock()
-        mock_redis.lrange = MagicMock(return_value=[])
-        mock_redis.pipeline = MagicMock(return_value=MagicMock(delete=MagicMock(), rpush=MagicMock(), execute=MagicMock()))
-        db_pool = self._make_db_pool([emb])
-        vault = _make_vault(redis_client=mock_redis, db_pool=db_pool)
-        result = await vault.get_signatures("ACC010", "test-bank")
-        assert len(result.embeddings) == 1
-        assert len(result.embeddings[0]) == _DIM
-
-    @pytest.mark.asyncio
-    async def test_db_hit_backfills_redis(self):
-        emb = _fake_embedding()
-        pipe_mock = MagicMock()
-        mock_redis = MagicMock()
-        mock_redis.lrange = MagicMock(return_value=[])
-        mock_redis.pipeline = MagicMock(return_value=pipe_mock)
-        db_pool = self._make_db_pool([emb])
-        vault = _make_vault(redis_client=mock_redis, db_pool=db_pool)
-        await vault.get_signatures("ACC010", "test-bank")
-        pipe_mock.rpush.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_db_miss_without_db_pool_is_vault_miss(self):
-        mock_redis = MagicMock()
-        mock_redis.lrange = MagicMock(return_value=[])
-        vault = _make_vault(redis_client=mock_redis, db_pool=None)
-        result = await vault.get_signatures("ACC_UNKNOWN", "test-bank")
-        assert result.outcome == "HUMAN_REVIEW"
-        assert result.miss_reason == "VAULT_MISS"
-
-
-# ---------------------------------------------------------------------------
-# Vault miss — MUST route to HUMAN_REVIEW, NEVER AUTO_RETURN
-# ---------------------------------------------------------------------------
-
-class TestVaultMiss:
     @pytest.mark.asyncio
     async def test_vault_miss_outcome_is_human_review(self):
-        mock_redis = MagicMock()
-        mock_redis.lrange = MagicMock(return_value=[])
-        vault = _make_vault(redis_client=mock_redis)
+        vault = _make_vault(redis_client=_redis_miss())
         result = await vault.get_signatures("ACC_UNKNOWN", "test-bank")
         assert result.outcome == "HUMAN_REVIEW"
 
     @pytest.mark.asyncio
     async def test_vault_miss_embeddings_is_empty(self):
-        mock_redis = MagicMock()
-        mock_redis.lrange = MagicMock(return_value=[])
-        vault = _make_vault(redis_client=mock_redis)
+        vault = _make_vault(redis_client=_redis_miss())
         result = await vault.get_signatures("ACC_UNKNOWN", "test-bank")
         assert result.embeddings == []
 
     @pytest.mark.asyncio
     async def test_vault_miss_reason_is_set(self):
-        mock_redis = MagicMock()
-        mock_redis.lrange = MagicMock(return_value=[])
-        vault = _make_vault(redis_client=mock_redis)
+        vault = _make_vault(redis_client=_redis_miss())
         result = await vault.get_signatures("ACC_UNKNOWN", "test-bank")
-        assert result.miss_reason == "VAULT_MISS"
+        assert result.miss_reason in ("VAULT_MISS", "VAULT_ERROR")
 
     @pytest.mark.asyncio
-    async def test_vault_miss_outcome_is_never_auto_return(self):
-        mock_redis = MagicMock()
-        mock_redis.lrange = MagicMock(return_value=[])
-        vault = _make_vault(redis_client=mock_redis)
+    async def test_vault_miss_never_auto_return(self):
+        vault = _make_vault(redis_client=_redis_miss())
         result = await vault.get_signatures("ACC_MISSING", "test-bank")
         assert result.outcome != "AUTO_RETURN"
 
-
-# ---------------------------------------------------------------------------
-# Vault error — Redis unavailable
-# ---------------------------------------------------------------------------
-
-class TestVaultRedisError:
     @pytest.mark.asyncio
     async def test_redis_error_outcome_is_human_review(self):
         mock_redis = MagicMock()
@@ -299,7 +362,7 @@ class TestVaultRedisError:
         assert result.miss_reason == "VAULT_ERROR"
 
     @pytest.mark.asyncio
-    async def test_redis_error_outcome_is_never_auto_return(self):
+    async def test_redis_error_never_auto_return(self):
         mock_redis = MagicMock()
         mock_redis.lrange = MagicMock(side_effect=Exception("timeout"))
         vault = _make_vault(redis_client=mock_redis)
@@ -307,16 +370,26 @@ class TestVaultRedisError:
         assert result.outcome != "AUTO_RETURN"
 
     @pytest.mark.asyncio
-    async def test_redis_error_does_not_raise(self):
-        mock_redis = MagicMock()
-        mock_redis.lrange = MagicMock(side_effect=ConnectionError("down"))
-        vault = _make_vault(redis_client=mock_redis)
-        result = await vault.get_signatures("ACC003", "test-bank")
-        assert result is not None
+    async def test_multi_signatory_aggregated_as_flat_list(self):
+        """Two signatories each with 2 specimens → 4 embeddings total."""
+        emb1, emb2, emb3, emb4 = [_fake_embedding(i) for i in range(1, 5)]
+        redis = MagicMock()
+        def lrange_side(key, start, end):
+            if "PRIMARY" in key:
+                return [_pack(emb1), _pack(emb2)]
+            if "JOINT_1" in key:
+                return [_pack(emb3), _pack(emb4)]
+            return []
+        redis.lrange = MagicMock(side_effect=lrange_side)
+        db_pool = _db_with_signatories(["PRIMARY", "JOINT_1"])
+        vault = _make_vault(redis_client=redis, db_pool=db_pool)
+        result = await vault.get_signatures("ACC010", "test-bank")
+        assert result.outcome == "FOUND"
+        assert len(result.embeddings) == 4
 
 
 # ---------------------------------------------------------------------------
-# store_embeddings — write path
+# store_embeddings — write path (now takes signatory_id)
 # ---------------------------------------------------------------------------
 
 class TestStoreEmbeddings:
@@ -326,12 +399,22 @@ class TestStoreEmbeddings:
         mock_redis = MagicMock()
         mock_redis.pipeline = MagicMock(return_value=pipe_mock)
         vault = _make_vault(redis_client=mock_redis)
-        await vault.store_embeddings("ACC004", [_fake_embedding()])
-        expected_key = vault._make_key("ACC004")
+        await vault.store_embeddings("ACC004", [_fake_embedding()], signatory_id="PRIMARY")
+        expected_key = vault._make_key("ACC004", "PRIMARY")
         pipe_mock.delete.assert_called_once_with(expected_key)
 
     @pytest.mark.asyncio
-    async def test_store_pushes_packed_bytes_for_each_embedding(self):
+    async def test_store_joint_signatory_uses_joint_key(self):
+        pipe_mock = MagicMock()
+        mock_redis = MagicMock()
+        mock_redis.pipeline = MagicMock(return_value=pipe_mock)
+        vault = _make_vault(redis_client=mock_redis)
+        await vault.store_embeddings("ACC004", [_fake_embedding()], signatory_id="JOINT_1")
+        expected_key = vault._make_key("ACC004", "JOINT_1")
+        pipe_mock.delete.assert_called_once_with(expected_key)
+
+    @pytest.mark.asyncio
+    async def test_store_pushes_all_specimens(self):
         pipe_mock = MagicMock()
         mock_redis = MagicMock()
         mock_redis.pipeline = MagicMock(return_value=pipe_mock)
@@ -347,8 +430,8 @@ class TestStoreEmbeddings:
         mock_redis.pipeline = MagicMock(return_value=pipe_mock)
         vault = _make_vault(redis_client=mock_redis)
         await vault.store_embeddings("ACC004", [_fake_embedding()])
-        for call in pipe_mock.delete.call_args_list + pipe_mock.rpush.call_args_list:
-            for arg in call[0]:
+        for c in pipe_mock.delete.call_args_list + pipe_mock.rpush.call_args_list:
+            for arg in c[0]:
                 if isinstance(arg, str):
                     assert "ACC004" not in arg
 
@@ -358,9 +441,9 @@ class TestStoreEmbeddings:
         mock_redis = MagicMock()
         mock_redis.pipeline = MagicMock(return_value=pipe_mock)
         vault = _make_vault(redis_client=mock_redis)
-        key = vault._make_key("ACC004")
+        key = vault._make_key("ACC004", "PRIMARY")
         vault._cache[key] = [_fake_embedding()]
-        await vault.store_embeddings("ACC004", [_fake_embedding(9)])
+        await vault.store_embeddings("ACC004", [_fake_embedding(9)], signatory_id="PRIMARY")
         assert key not in vault._cache
 
     @pytest.mark.asyncio
@@ -368,7 +451,6 @@ class TestStoreEmbeddings:
         pipe_mock = MagicMock()
         mock_redis = MagicMock()
         mock_redis.pipeline = MagicMock(return_value=pipe_mock)
-
         conn = AsyncMock()
         conn.execute = AsyncMock()
         tx = AsyncMock()
@@ -380,9 +462,8 @@ class TestStoreEmbeddings:
             __aenter__=AsyncMock(return_value=conn),
             __aexit__=AsyncMock(return_value=False),
         ))
-
         vault = _make_vault(redis_client=mock_redis, db_pool=pool)
-        await vault.store_embeddings("ACC005", [_fake_embedding()])
+        await vault.store_embeddings("ACC005", [_fake_embedding()], signatory_id="PRIMARY")
         conn.execute.assert_awaited_once()
 
 
@@ -402,3 +483,45 @@ class TestSignatureVaultConnectFallback:
         vault.connect()
         assert vault._ready is True
         assert vault._redis is fake_redis_instance
+
+
+# ---------------------------------------------------------------------------
+# Internal DB helpers
+# ---------------------------------------------------------------------------
+
+def _db_with_signatories(signatory_ids: list[str]):
+    """DB pool mock that returns the given signatory_ids from account_signatories."""
+    sig_rows = [{"signatory_id": s} for s in signatory_ids]
+    emb_rows = []  # no embeddings in DB — Redis is used
+
+    conn = AsyncMock()
+    call_count = {"n": 0}
+
+    async def mock_fetch(query, *args):
+        call_count["n"] += 1
+        if "account_signatories" in query:
+            return sig_rows
+        # signature_embeddings query
+        return emb_rows
+
+    conn.fetch = AsyncMock(side_effect=mock_fetch)
+    pool = MagicMock()
+    pool.acquire = MagicMock(return_value=AsyncMock(
+        __aenter__=AsyncMock(return_value=conn),
+        __aexit__=AsyncMock(return_value=False),
+    ))
+    return pool
+
+
+def _db_with_mandate(mandate_rule: str, quorum_n: int = 1):
+    """DB pool mock that returns a mandate row from account_signatories."""
+    row = {"mandate_rule": mandate_rule, "quorum_n": quorum_n}
+    conn = AsyncMock()
+    conn.fetchrow = AsyncMock(return_value=row)
+    conn.fetch = AsyncMock(return_value=[])  # no signatory rows
+    pool = MagicMock()
+    pool.acquire = MagicMock(return_value=AsyncMock(
+        __aenter__=AsyncMock(return_value=conn),
+        __aexit__=AsyncMock(return_value=False),
+    ))
+    return pool

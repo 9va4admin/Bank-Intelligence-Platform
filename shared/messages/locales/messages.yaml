@@ -1808,23 +1808,23 @@ EJ_ATM_PREDICTED_FAILURE:
 
 PLATFORM_CONFIG_CHANGE_SUBMITTED:
   severity: INFO
-  surface: [UI, AUDIT]
+  surface: [UI, AUDIT, NOTIFICATION]
   variables: [submitted_by, config_key, new_value]
-  en: "Config change submitted by {submitted_by} — key: {config_key}, new value: {new_value}. Pending approval."
+  en: "Config change submitted by {submitted_by} — key: {config_key}, new value: {new_value}. Pending bank_it_admin approval."
   hi: ""
 
 PLATFORM_CONFIG_CHANGE_APPROVED:
   severity: WARN
   surface: [AUDIT, NOTIFICATION]
-  variables: [approved_by, config_key, old_value, new_value]
-  en: "Config change approved by {approved_by} — {config_key} updated from {old_value} to {new_value}."
+  variables: [approved_by, config_key, new_value]
+  en: "Config change approved by {approved_by} — {config_key} updated to {new_value}. Live within 30 seconds via hot-reload."
   hi: ""
 
 PLATFORM_CONFIG_CHANGE_REJECTED:
   severity: WARN
   surface: [AUDIT, NOTIFICATION]
-  variables: [rejected_by, config_key, reason]
-  en: "Config change rejected by {rejected_by} — {config_key}. Reason: {reason}."
+  variables: [rejected_by, config_key, rejection_reason]
+  en: "Config change rejected by {rejected_by} — {config_key}. Reason: {rejection_reason}."
   hi: ""
 
 PLATFORM_CONFIG_HOT_RELOADED:
@@ -2481,4 +2481,271 @@ VAULT_SIG_SYNC_STATUS:
   surface: [UI]
   variables: [bank_id, yugabyte_accounts, redis_sig_keys, coverage_pct]
   en: "Vault sync status for {bank_id}: {yugabyte_accounts} accounts in YugabyteDB, {redis_sig_keys} in Redis ({coverage_pct}% coverage)."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# CTS HOLD QUEUE (Phase F)
+# ────────────────────────────────────────────────────────────────────────
+
+CTS_WF_HOLD_PLACED:
+  severity: WARN
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, held_by, hold_reason, iet_deadline]
+  en: "Instrument {instrument_id} placed on hold by {held_by} — reason: {hold_reason}. IET deadline: {iet_deadline}. Branch notified."
+  hi: ""
+
+CTS_WF_HOLD_RELEASED:
+  severity: INFO
+  surface: [UI, AUDIT]
+  variables: [instrument_id, released_by, branch_recommendation]
+  en: "Hold released on {instrument_id} by {released_by}. Branch recommendation: {branch_recommendation}. Instrument returned to review queue."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# CTS ALLOCATION / LOCK (Phase E)
+# ────────────────────────────────────────────────────────────────────────
+
+CTS_LOCK_ACQUIRED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, reviewer_id, ttl_minutes]
+  en: "Review lock acquired on {instrument_id} by {reviewer_id} — TTL {ttl_minutes} minutes."
+  hi: ""
+
+CTS_LOCK_RELEASED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, reviewer_id]
+  en: "Review lock released on {instrument_id} by {reviewer_id}."
+  hi: ""
+
+CTS_LOCK_EXPIRED:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [instrument_id, reviewer_id]
+  en: "Review lock expired on {instrument_id} — previously held by {reviewer_id}. Instrument is now claimable."
+  hi: ""
+
+CTS_ALLOC_CLAIMED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, reviewer_id]
+  en: "Instrument {instrument_id} manually claimed by {reviewer_id}."
+  hi: ""
+
+CTS_ALLOC_AUTO_ASSIGNED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, reviewer_id, allocation_mode]
+  en: "Instrument {instrument_id} auto-assigned to {reviewer_id} via {allocation_mode} allocation mode."
+  hi: ""
+
+CTS_ALLOC_UNCLAIMED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, reviewer_id]
+  en: "Instrument {instrument_id} unclaimed by {reviewer_id} — returned to queue."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# PLATFORM CONFIG — LAYER 2 CHANGE REQUESTS
+# ────────────────────────────────────────────────────────────────────────
+
+PLATFORM_CONFIG_L2_REQUESTED:
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [requested_by, config_key, current_value, requested_value, cab_ticket]
+  en: "Layer 2 config change requested by {requested_by} — key: {config_key}, from {current_value} to {requested_value}. CAB ticket: {cab_ticket}. Sent to ASTRA vendor for review."
+  hi: ""
+
+PLATFORM_CONFIG_L2_DEPLOYED:
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [config_key, new_value, deployed_by, cab_ticket]
+  en: "Layer 2 config change deployed — {config_key} updated to {new_value} by {deployed_by} (CAB: {cab_ticket}). Helm upgrade complete."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# CTS HOLD — EXPIRY AND ESCALATION (Phase F)
+# ────────────────────────────────────────────────────────────────────────
+
+CTS_WF_HOLD_EXPIRED:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [instrument_id, held_by, iet_deadline]
+  en: "IET expired on instrument {instrument_id} while on hold (held by {held_by}). IET deadline {iet_deadline} was reached. IETWatchdog has filed emergency return to NGCH."
+  hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P0
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_clearing_ops
+    regulatory_reportable: true
+
+CTS_HOLD_ESCALATION_30MIN:
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [instrument_id, branch_email]
+  en: "Hold reminder sent to branch {branch_email} — no response received 30 minutes after hold placed on {instrument_id}. IET clock running."
+  hi: ""
+
+CTS_HOLD_ESCALATION_CRITICAL:
+  severity: CRITICAL
+  surface: [AUDIT, NOTIFICATION]
+  variables: [instrument_id, iet_deadline]
+  en: "CRITICAL: IET window closing on held instrument {instrument_id} — 60 minutes remaining until {iet_deadline}. Release hold and make decision immediately."
+  hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_clearing_ops
+    regulatory_reportable: false
+
+CTS_HOLD_ESCALATION_P0:
+  severity: CRITICAL
+  surface: [AUDIT, NOTIFICATION]
+  variables: [instrument_id, iet_deadline]
+  en: "P0 ALERT: IET breach imminent on {instrument_id} — 5 minutes to {iet_deadline}. IMMEDIATE action required. Release hold and confirm or return now."
+  hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P0
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_clearing_ops
+    regulatory_reportable: true
+
+# ────────────────────────────────────────────────────────────────────────
+# CTS OPERATIONAL CONFIG — LAYER 3 CHANGE EVENTS (Phase H)
+# ────────────────────────────────────────────────────────────────────────
+
+CTS_CONFIG_L3_SUBMITTED:
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [submitted_by, config_key, current_value, new_value]
+  en: "Layer 3 config change submitted by {submitted_by} — {config_key} proposed from {current_value} to {new_value}. Pending bank_it_admin approval."
+  hi: ""
+
+CTS_CONFIG_L3_APPROVED:
+  severity: INFO
+  surface: [AUDIT, NOTIFICATION]
+  variables: [approved_by, config_key, new_value]
+  en: "Layer 3 config change approved by {approved_by} — {config_key} updated to {new_value}. Hot-reloaded via config_service within 30 seconds."
+  hi: ""
+
+CTS_CONFIG_L3_REJECTED:
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [rejected_by, config_key, reason]
+  en: "Layer 3 config change rejected by {rejected_by} — {config_key} change denied. Reason: {reason}. No change applied."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# CTS QUEUE TIER ROUTING (Phase D)
+# ────────────────────────────────────────────────────────────────────────
+
+CTS_QUEUE_TIER_ROUTED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, queue_tier, kafka_topic]
+  en: "Instrument {instrument_id} routed to {queue_tier} queue — Kafka topic {kafka_topic}."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# BRANCH MASTER (Admin CRUD + CSV bulk import)
+# ────────────────────────────────────────────────────────────────────────
+
+BRANCH_CREATED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [branch_ifsc, branch_name, created_by]
+  en: "Branch {branch_ifsc} ({branch_name}) created by {created_by}."
+  hi: ""
+
+BRANCH_UPDATED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [branch_ifsc, updated_by, changed_fields]
+  en: "Branch {branch_ifsc} updated by {updated_by} — fields changed: {changed_fields}."
+  hi: ""
+
+BRANCH_DELETED:
+  severity: WARN
+  surface: [AUDIT]
+  variables: [branch_ifsc, deleted_by]
+  en: "Branch {branch_ifsc} deactivated by {deleted_by} — is_active set to false."
+  hi: ""
+
+BRANCH_BULK_IMPORTED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [imported_count, skipped_count, error_count, imported_by]
+  en: "Branch bulk import completed by {imported_by} — {imported_count} imported, {skipped_count} skipped, {error_count} errors."
+  hi: ""
+
+BRANCH_NOT_FOUND:
+  severity: WARN
+  surface: [UI]
+  variables: [branch_ifsc]
+  en: "Branch with IFSC {branch_ifsc} not found."
+  hi: ""
+
+BRANCH_IFSC_DUPLICATE:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [branch_ifsc]
+  en: "Branch IFSC {branch_ifsc} already exists — use bulk import to update existing branches."
+  hi: ""
+
+# ────────────────────────────────────────────────────────────────────────
+# PROCESSING UNIT (PU) MASTER
+# ────────────────────────────────────────────────────────────────────────
+
+PU_CREATED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [pu_id, pu_name, clearing_zone, created_by]
+  en: "Processing Unit {pu_id} ({pu_name}) created for zone {clearing_zone} by {created_by}."
+  hi: ""
+
+PU_UPDATED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [pu_id, updated_by, changed_fields]
+  en: "Processing Unit {pu_id} updated by {updated_by} — fields changed: {changed_fields}."
+  hi: ""
+
+PU_DEACTIVATED:
+  severity: WARN
+  surface: [AUDIT]
+  variables: [pu_id, pu_name, deactivated_by, branch_count]
+  en: "Processing Unit {pu_id} ({pu_name}) deactivated by {deactivated_by} — {branch_count} branch(es) remain mapped to this PU."
+  hi: ""
+
+PU_NOT_FOUND:
+  severity: WARN
+  surface: [UI]
+  variables: [pu_id]
+  en: "Processing Unit {pu_id} not found."
+  hi: ""
+
+PU_ZONE_CONFLICT:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [clearing_zone, existing_pu_id]
+  en: "A Processing Unit already exists for zone {clearing_zone} — existing PU: {existing_pu_id}. Only one PU per clearing zone per bank is permitted."
+  hi: ""
+
+PU_BRANCH_ASSIGNED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [branch_ifsc, pu_id, assigned_by]
+  en: "Branch {branch_ifsc} assigned to Processing Unit {pu_id} by {assigned_by}."
+  hi: ""
+
+PU_BRANCH_REASSIGNED:
+  severity: WARN
+  surface: [AUDIT]
+  variables: [branch_ifsc, from_pu_id, to_pu_id, reassigned_by]
+  en: "Branch {branch_ifsc} reassigned from Processing Unit {from_pu_id} to {to_pu_id} by {reassigned_by} — instruments in-flight on old PU are unaffected."
   hi: ""

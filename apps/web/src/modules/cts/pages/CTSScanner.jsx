@@ -507,7 +507,7 @@ export default function CTSScanner() {
         <div className={`border rounded-xl overflow-hidden ${th.card}`}>
           <div className={`px-4 py-2.5 border-b ${th.divider} flex items-center justify-between`}>
             <span className={`text-sm font-medium ${th.heading}`}>Kafka Topics — Outward Clearing</span>
-            <span className={`text-[10px] ${th.faint}`}>bank_id: {bankId ?? 'demo-bank'} · redis-cts cluster (isolated from redis-ej)</span>
+            <span className={`text-[10px] ${th.faint}`}>bank_id: {bankId ?? 'demo-bank'} · redis-cts cluster</span>
           </div>
           <div className="grid grid-cols-3 divide-x" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0' }}>
             {KAFKA_TOPICS(bankId ?? 'demo-bank').map(t => {
@@ -737,7 +737,7 @@ export default function CTSScanner() {
             <span className="font-mono">cts.outward.submitted.{bankId ?? '{bank_id}'}</span>
             {' · Redis: '}
             <span className="font-mono">redis-cts</span>
-            {' (isolated from redis-ej per blast isolation rules)'}
+            {' (blast-isolated CTS cluster)'}
             {' · Audit → Immudb collection: '}
             <span className="font-mono">cts_events</span>
           </div>

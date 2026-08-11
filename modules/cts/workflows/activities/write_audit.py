@@ -77,6 +77,17 @@ async def write_audit(
     When hsm is provided, signs the canonical event bytes and stores the hex
     signature as _hsm_signature in the payload.
     """
+    # Degrade gracefully when Immudb is unavailable (dev/POC mode — no container).
+    # In production this path is never reached: immudb_client is always wired.
+    if immudb_client is None:
+        log.warning(
+            "write_audit.immudb_unavailable_skipped",
+            event_type=inp.event_type,
+            instrument_id=inp.instrument_id,
+            bank_id=inp.bank_id,
+        )
+        return WriteAuditResult(success=False, immudb_tx_id=None)
+
     if inp.event_type not in _VALID_EVENT_TYPES:
         log.warning(
             "write_audit.unknown_event_type",

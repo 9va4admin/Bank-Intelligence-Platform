@@ -3,6 +3,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
 
 // ── Mock RPC data ─────────────────────────────────────────────────────────────
 const RPCS = [
@@ -59,6 +60,7 @@ export default function CTSRPCConsolidation() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
   const [selected, setSelected] = useState(null)
+  const rpcs = useDemoData(RPCS)
 
   // RPC — NGCH Gateway is SB-only — SMBs have no RPCs of their own
   if (isSMB) {
@@ -107,18 +109,18 @@ export default function CTSRPCConsolidation() {
   }
 
   // Consolidated totals
-  const total_inward  = RPCS.reduce((a, r) => a + r.inward,  0)
-  const total_outward = RPCS.reduce((a, r) => a + r.outward, 0)
-  const total_pending = RPCS.reduce((a, r) => a + r.pending, 0)
-  const total_iet     = RPCS.reduce((a, r) => a + r.iet_risk, 0)
-  const avg_stp       = (RPCS.reduce((a, r) => a + r.stp_rate, 0) / RPCS.length).toFixed(1)
+  const total_inward  = rpcs.reduce((a, r) => a + r.inward,  0)
+  const total_outward = rpcs.reduce((a, r) => a + r.outward, 0)
+  const total_pending = rpcs.reduce((a, r) => a + r.pending, 0)
+  const total_iet     = rpcs.reduce((a, r) => a + r.iet_risk, 0)
+  const avg_stp       = rpcs.length ? (rpcs.reduce((a, r) => a + r.stp_rate, 0) / rpcs.length).toFixed(1) : '0.0'
 
   usePageHeader({
     subtitle: `Live NGCH connectivity, per zone · ${SESSION_DATE} · ${CLEARING_SESSION}`,
     actions: (
       <div className={`text-xs px-3 py-1.5 rounded-lg border ${isDark ? 'border-emerald-700/40 bg-emerald-900/20 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
         <span className="w-1.5 h-1.5 inline-block rounded-full bg-emerald-400 mr-1.5 animate-pulse" />
-        {RPCS.filter(r => r.status === 'ACTIVE').length}/{RPCS.length} RPCs Active
+        {rpcs.filter(r => r.status === 'ACTIVE').length}/{rpcs.length} RPCs Active
       </div>
     ),
   })
@@ -145,7 +147,7 @@ export default function CTSRPCConsolidation() {
 
         {/* RPC cards grid */}
         <div className="grid grid-cols-5 gap-3 mb-5">
-          {RPCS.map(rpc => (
+          {rpcs.map(rpc => (
             <button
               key={rpc.id}
               onClick={() => setSelected(selected?.id === rpc.id ? null : rpc)}
@@ -249,7 +251,7 @@ export default function CTSRPCConsolidation() {
             <div className="col-span-1 text-right">Sync</div>
           </div>
 
-          {RPCS.map(rpc => (
+          {rpcs.map(rpc => (
             <div key={rpc.id} className={`grid grid-cols-12 gap-2 px-4 py-2.5 border-b ${th.row} text-xs`}>
               <div className={`col-span-2 font-medium ${th.heading}`}>{rpc.name}</div>
               <div className={`col-span-1 ${th.muted}`}>{rpc.zone.slice(0, 3)}</div>

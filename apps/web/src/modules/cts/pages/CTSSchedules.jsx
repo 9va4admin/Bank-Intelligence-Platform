@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
@@ -102,10 +103,21 @@ function EditScheduleModal({ schedule, isDark, onClose, onSave }) {
 
   const handleSave = async () => {
     setSaving(true)
-    await new Promise(r => setTimeout(r, 800))
-    onSave({ ...schedule, cron })
-    setSaving(false)
-    onClose()
+    try {
+      const res = await fetch(`/v1/cts/schedules/${encodeURIComponent(schedule.schedule_id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ cron }),
+      })
+      if (!res.ok) throw new Error('Failed to update schedule')
+      onSave({ ...schedule, cron })
+      onClose()
+    } catch {
+      // keep modal open on error so user can retry
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -192,11 +204,10 @@ function EditScheduleModal({ schedule, isDark, onClose, onSave }) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CTSSchedules() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId } = useBankContext()
   const { isDark } = useTheme()
-  const [schedules, setSchedules] = useState(MOCK_SCHEDULES)
+  const queryClient = useQueryClient()
   const [editing, setEditing] = useState(null)
-  const [togglingId, setTogglingId] = useState(null)
 
   const th = {
     page:    isDark ? '' : 'bg-slate-50',
@@ -209,24 +220,45 @@ export default function CTSSchedules() {
     input:   isDark ? 'bg-white/8 border-white/10 text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400',
   }
 
-  const handleToggle = async (s) => {
-    setTogglingId(s.schedule_id)
-    await new Promise(r => setTimeout(r, 600))
-    setSchedules(prev => prev.map(x =>
-      x.schedule_id === s.schedule_id
-        ? { ...x, status: x.status === 'RUNNING' ? 'PAUSED' : 'RUNNING' }
-        : x
-    ))
-    setTogglingId(null)
+  const { data, isLoading } = useQuery({
+    queryKey: ['cts-schedules', bankId],
+    queryFn: async () => {
+      const res = await fetch('/v1/cts/schedules', { credentials: 'include' })
+      if (!res.ok) throw new Error('Failed')
+      return res.json()
+    },
+    staleTime: 30_000,
+  })
+
+  const toggleMutation = useMutation({
+    mutationFn: async ({ scheduleId, action }) => {
+      const res = await fetch(`/v1/cts/schedules/${encodeURIComponent(scheduleId)}/${action}`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+      if (!res.ok) throw new Error('Toggle failed')
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cts-schedules', bankId] })
+    },
+  })
+
+  const handleToggle = (s) => {
+    const action = s.status === 'RUNNING' ? 'pause' : 'resume'
+    toggleMutation.mutate({ scheduleId: s.schedule_id, action })
   }
 
   const handleSave = (updated) => {
-    setSchedules(prev => prev.map(s => s.schedule_id === updated.schedule_id ? updated : s))
+    queryClient.invalidateQueries({ queryKey: ['cts-schedules', bankId] })
+    setEditing(null)
   }
 
+  const schedules = data?.schedules ?? MOCK_SCHEDULES
   const displayed = schedules
   const running = schedules.filter(s => s.status === 'RUNNING').length
   const paused  = schedules.filter(s => s.status === 'PAUSED').length
+  const togglingId = toggleMutation.isPending ? toggleMutation.variables?.scheduleId : null
 
   return (
     <AppShell>

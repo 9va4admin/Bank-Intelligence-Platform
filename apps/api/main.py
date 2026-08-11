@@ -3,8 +3,7 @@ ASTRA API Gateway — FastAPI application entry point.
 
 Lifespan wiring:
   - Redis CTS cluster (signature vault, PPS vault, session cache, rate limiting, distributed locks)
-  - Redis EJ cluster (ATM health cache, canonical cache, OEM fingerprint cache)
-  - Kafka producers: cts-producer (cts.* topics), ej-producer (ej.* topics)
+  - Kafka producer: cts-producer (cts.* topics)
   - Temporal client (workflow orchestration)
   - Rate limiting middleware (Redis sliding window)
   - Cache invalidation consumer (platform.config.changed → Redis DEL)
@@ -24,10 +23,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from apps.api.middleware.authentication import AuthenticationMiddleware
 from apps.api.middleware.rate_limit import RateLimitMiddleware
 from apps.api.middleware.security_violations import SecurityViolationMiddleware
-from apps.api.routers import cts, ej, disputes, audit, admin, notifications
+from apps.api.routers import cts, audit, admin, notifications
 from apps.api.routers import batch, users, mcp_connections, demo, cts_outward_queue, demo_cloud_extract
 from apps.api.routers import auth as auth_router
 from apps.api.routers import observability
+from apps.api.routers import branches, processing_units
+from apps.api.routers import platform as platform_router
+from apps.api.routers import scanner, scanner_configs
 from shared.config.config_service import config_service
 from shared.config.exceptions import ConfigKeyNotFoundError
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
@@ -92,23 +94,8 @@ async def lifespan(app: FastAPI):
         log.error("api_gateway.redis_cts_failed", error=str(exc))
         app.state.redis_cts = None
 
-    # --- Redis EJ cluster ---
-    # Hosts EJ health cache, EJ canonical cache, OEM fingerprint cache, EJ dashboard aggregates
-    try:
-        redis_ej_url = await config_service.get_secret("redis.ej.url")
-        app.state.redis_ej = aioredis.from_url(
-            redis_ej_url,
-            encoding="utf-8",
-            decode_responses=True,
-            max_connections=10,
-        )
-        await app.state.redis_ej.ping()
-        log.info("api_gateway.redis_ej_connected")
-    except Exception as exc:
-        log.error("api_gateway.redis_ej_failed", error=str(exc))
-        app.state.redis_ej = None
-
     # --- Kafka producer: CTS topics (cts.inward, cts.decisions, cts.human_review ...) ---
+    kafka_servers = ""  # declared here so cache invalidator section can reference it safely
     try:
         kafka_servers = await config_service.get_secret("kafka.bootstrap_servers")
         app.state.kafka_producer_cts = KafkaEventProducer(
@@ -122,17 +109,21 @@ async def lifespan(app: FastAPI):
     # Alias for backward compat with cts.py routes that reference kafka_producer
     app.state.kafka_producer = app.state.kafka_producer_cts
 
-    # --- Kafka producer: EJ topics (ej.raw.ingested, ej.canonical ...) ---
-    try:
-        kafka_servers = await config_service.get_secret("kafka.bootstrap_servers")
-        app.state.kafka_producer_ej = KafkaEventProducer(
-            bootstrap_servers=kafka_servers,
-            module="ej",
-        )
-        log.info("api_gateway.kafka_ej_producer_ready")
-    except Exception as exc:
-        log.error("api_gateway.kafka_ej_producer_failed", error=str(exc))
-        app.state.kafka_producer_ej = None
+    # --- Kafka admin client (ops dashboard — consumer-group lag panels) ---
+    # Uses aiokafka AIOKafkaAdminClient so observability.py can await list_consumer_groups().
+    # Must be started before yield and closed after. Degrades gracefully when Kafka
+    # bootstrap servers unavailable — /v1/ops/system kafka panel returns degraded=True.
+    app.state.kafka_admin = None
+    if kafka_servers:
+        try:
+            from aiokafka.admin import AIOKafkaAdminClient  # type: ignore[import]
+            _kafka_admin = AIOKafkaAdminClient(bootstrap_servers=kafka_servers)
+            await _kafka_admin.start()
+            app.state.kafka_admin = _kafka_admin
+            log.info("api_gateway.kafka_admin_ready")
+        except Exception as exc:
+            log.warning("api_gateway.kafka_admin_failed", error=str(exc))
+            app.state.kafka_admin = None
 
     # --- YugabyteDB CTS connection pool (pgbouncer-cts endpoint) ---
     # Used by mcp_connections router (YugabyteDBConnectionStore) and future CTS routers.
@@ -147,13 +138,25 @@ async def lifespan(app: FastAPI):
             command_timeout=30,
         )
         log.info("api_gateway.db_pool_cts_ready")
+        # In dev/staging: auto-create all management tables so the API starts
+        # clean without requiring a manual Alembic run. Production: tables are
+        # created by the Alembic K8s Job pre-deploy; this block is a no-op there
+        # because CREATE TABLE IF NOT EXISTS is safe to repeat.
+        if _env in ("development", "staging"):
+            try:
+                from apps.api.dev_auth_server import _DEV_SCHEMA_DDL  # type: ignore[import]
+                async with app.state.db_pool_cts.acquire() as _conn:
+                    await _conn.execute(_DEV_SCHEMA_DDL)
+                log.info("api_gateway.dev_schema_applied")
+            except Exception as _ddl_exc:
+                log.warning("api_gateway.dev_schema_failed", error=str(_ddl_exc))
     except Exception as exc:
         log.error("api_gateway.db_pool_cts_failed", error=str(exc))
         app.state.db_pool_cts = None
 
     # --- MinIO object store ---
-    # Cheque images (front/rear TIFFs), EJ files, and CCTV clips are stored in
-    # MinIO. The API uses this client to generate presigned download URLs for the
+    # Cheque images (front/rear TIFFs) and CCTV clips are stored in MinIO.
+    # The API uses this client to generate presigned download URLs for the
     # human review UI. SSE-KMS encryption is enforced at the bucket level (Helm
     # non-overridable). Degrades gracefully — image preview unavailable, all other
     # routes unaffected.
@@ -212,8 +215,11 @@ async def lifespan(app: FastAPI):
 
         # TOTP secrets go to Vault — reuse config_service's shared hvac client
         # so we don't open a second Vault connection from the same env vars.
+        # Also wires app.state.vault_client for the ops-dashboard /system panel.
+        app.state.vault_client = None
         try:
             _vault_client = config_service.get_vault_client()
+            app.state.vault_client = _vault_client
             _totp_store = VaultTOTPSecretStore(bank_id=_bank_id, vault_client=_vault_client)
         except Exception as _vault_err:
             log.warning(
@@ -242,7 +248,7 @@ async def lifespan(app: FastAPI):
     try:
         from shared.event_bus.cache_invalidator import CacheInvalidator
         from shared.event_bus.consumer import KafkaEventConsumer
-        if app.state.redis_cts is not None:
+        if app.state.redis_cts is not None and kafka_servers:
             bank_id = config_service.bank_id
             invalidation_consumer = KafkaEventConsumer(
                 bootstrap_servers=kafka_servers,
@@ -275,16 +281,18 @@ async def lifespan(app: FastAPI):
 
     if app.state.redis_cts:
         await app.state.redis_cts.aclose()
-    if app.state.redis_ej:
-        await app.state.redis_ej.aclose()
 
     if getattr(app.state, "db_pool_cts", None):
         await app.state.db_pool_cts.close()
 
     if app.state.kafka_producer_cts:
         app.state.kafka_producer_cts.flush()
-    if app.state.kafka_producer_ej:
-        app.state.kafka_producer_ej.flush()
+
+    if getattr(app.state, "kafka_admin", None):
+        try:
+            await app.state.kafka_admin.close()
+        except Exception:
+            pass
 
     await config_service.shutdown()
     log.info("api_gateway.stopped")
@@ -300,7 +308,15 @@ except ConfigKeyNotFoundError:
 try:
     _cors_origins = config_service.get_platform("cors.allowed_origins").split(",")
 except ConfigKeyNotFoundError:
-    _cors_origins = ["https://ops.astra.internal"]
+    if _env in ("development", "staging"):
+        _cors_origins = [
+            "http://localhost:4000",
+            "http://localhost:5173",
+            "http://127.0.0.1:4000",
+            "http://127.0.0.1:5173",
+        ]
+    else:
+        _cors_origins = ["https://ops.astra.internal"]
 
 app = FastAPI(
     title="ASTRA Bank Intelligence Platform",
@@ -318,8 +334,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT"],
-    allow_headers=["Authorization", "Content-Type", "X-Request-Id"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-Id", "X-CSRF-Token"],
 )
 
 # Security violations — catches TenantIsolationError / BankIsolationError, suspends user
@@ -340,8 +356,6 @@ app.add_middleware(AuthenticationMiddleware)
 # --- Routers ---
 app.include_router(auth_router.router_v1)
 app.include_router(cts.router_v1)
-app.include_router(ej.router_v1)
-app.include_router(disputes.router_v1)
 app.include_router(audit.router_v1)
 app.include_router(admin.router_v1)
 app.include_router(notifications.router_v1)
@@ -351,6 +365,11 @@ app.include_router(mcp_connections.router_v1)
 app.include_router(cts_outward_queue.router_v1)
 app.include_router(demo_cloud_extract.router_v1)
 app.include_router(observability.router_v1)
+app.include_router(branches.router_v1)
+app.include_router(processing_units.router_v1)
+app.include_router(platform_router.router_v1)
+app.include_router(scanner.router_v1)
+app.include_router(scanner_configs.router_v1)
 if _env in ("development", "staging"):
     app.include_router(demo.router_v1)
 
@@ -367,10 +386,8 @@ async def readiness():
     checks = {
         "config_service": config_service._ready,
         "redis_cts": app.state.redis_cts is not None,
-        "redis_ej": app.state.redis_ej is not None,
         "temporal": app.state.temporal_client is not None,
         "kafka_cts": app.state.kafka_producer_cts is not None,
-        "kafka_ej": app.state.kafka_producer_ej is not None,
         "session_service": app.state.session_service is not None,
     }
     # Only config_service and redis_cts are critical — rest degrade gracefully

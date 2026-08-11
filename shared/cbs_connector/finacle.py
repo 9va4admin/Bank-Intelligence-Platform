@@ -13,7 +13,8 @@ from typing import Any
 import structlog
 
 from shared.cbs_connector.base import (
-    AccountInfo, AccountStatus, CBSConnector, CBSSignatoryData, PPSEntry, StopPaymentResult,
+    AccountInfo, AccountStatus, BeneficiaryValidationResult, BranchContactProfile,
+    CBSConnector, CBSSignatoryData, PPSEntry, StopPaymentResult,
 )
 from shared.cbs_connector.exceptions import AccountNotFoundError, CBSUnavailableError
 
@@ -153,6 +154,56 @@ class FinacleCBSConnector(CBSConnector):
 
         return str(data.get("status", "ACTIVE"))
 
+    async def validate_beneficiary(
+        self,
+        account_number: str,
+        inquiry_name: str,
+        bank_id: str,
+        name_match_threshold: float = 0.80,
+    ) -> BeneficiaryValidationResult:
+        _inactive = {AccountStatus.FROZEN, AccountStatus.CLOSED, AccountStatus.NPA, AccountStatus.DORMANT}
+        try:
+            # Finacle GET /accounts/{account_number} returns accountHolderName in the payload.
+            # We call the existing endpoint but read the name field before building AccountInfo.
+            url = f"{self._base_url}/accounts/{account_number}"
+            async with self._session() as s:
+                resp = await s.get(url, headers=self._auth_headers())
+                if resp.status == 404:
+                    raise AccountNotFoundError(account_number)
+                resp.raise_for_status()
+                data = await resp.json()
+        except AccountNotFoundError:
+            return BeneficiaryValidationResult(outcome="ACCOUNT_NOT_FOUND")
+        except Exception as exc:
+            log.warning("finacle.validate_beneficiary.unavailable", error=str(exc))
+            return BeneficiaryValidationResult(outcome="CBS_UNAVAILABLE", degraded=True)
+
+        raw_status = data.get("accountStatus", "ACTIVE")
+        status = _STATUS_MAP.get(raw_status, AccountStatus.ACTIVE)
+        if status in _inactive:
+            return BeneficiaryValidationResult(
+                outcome="ACCOUNT_INACTIVE",
+                account_status=status,
+                payee_display=self._payee_display(data.get("accountHolderName", "")),
+            )
+
+        holder_name: str = data.get("accountHolderName", "")
+        score = self._name_match_score(inquiry_name, holder_name)
+        display = self._payee_display(holder_name)
+        confidence = "HIGH" if score >= 0.92 else ("MEDIUM" if score >= 0.80 else "LOW")
+
+        if score < name_match_threshold:
+            return BeneficiaryValidationResult(
+                outcome="NAME_MISMATCH", account_status=status,
+                name_match_score=score, name_match_confidence=confidence,
+                payee_display=display,
+            )
+        return BeneficiaryValidationResult(
+            outcome="PROCEED", account_status=status,
+            name_match_score=score, name_match_confidence=confidence,
+            payee_display=display,
+        )
+
     async def list_issued_leaves(self, bank_id: str) -> list[dict]:
         raise NotImplementedError("Finacle list_issued_leaves not yet implemented")
 
@@ -206,6 +257,33 @@ class FinacleCBSConnector(CBSConnector):
                 operation_type=str(sig.get("operationType", "J")),
             ))
         return result
+
+    async def get_branch_contacts(
+        self,
+        branch_code: str,
+        bank_id: str,
+    ) -> BranchContactProfile:
+        self._assert_ready()
+        url = f"{self._base_url}/api/v1/branches/{branch_code}/contacts"
+        try:
+            response = await self._http.get(url)
+            response.raise_for_status()
+            data = response.json()
+        except Exception as exc:
+            log.error("cbs.finacle.get_branch_contacts.failed",
+                      branch_code=branch_code, bank_id=bank_id, error=str(exc))
+            raise CBSUnavailableError(f"Finacle get_branch_contacts failed: {exc}") from exc
+
+        return BranchContactProfile(
+            branch_code=branch_code,
+            branch_name=data.get("branchName", ""),
+            branch_ifsc=data.get("ifscCode", ""),
+            branch_manager_name=data.get("managerNameMasked", "***"),
+            branch_manager_email=data.get("managerEmail", ""),
+            branch_contact_email=data.get("contactEmail", ""),
+            branch_contact_phone=data.get("contactPhone", ""),
+            last_updated_in_cbs=data.get("lastUpdated", ""),
+        )
 
     def _assert_ready(self) -> None:
         if not self._ready:

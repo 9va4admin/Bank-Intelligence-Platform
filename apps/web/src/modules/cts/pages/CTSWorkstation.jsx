@@ -8,16 +8,18 @@ import useReviewQueue from '../hooks/useReviewQueue'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
+import useDemoInterval from '../../../shared/hooks/useDemoInterval'
 
 const STP_DELAY_MS = 3200
 const SESSION_START = new Date(new Date().setHours(10, 0, 0, 0))
 const IET_WINDOW_MINS = 180
 
 export default function CTSWorkstation() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, bankMode, isDemo } = useBankContext()
   const { isDark } = useTheme()
-  // Token would come from auth context in production; undefined triggers mock fallback in dev
-  const { items: liveItems, loading: queueLoading, useMock } = useReviewQueue({ pollEnabled: true })
+  const { items: liveItems, loading: queueLoading, error: queueError, useMock } = useReviewQueue({ pollEnabled: true, isDemo })
+  const ZERO_BATCH = { total_inward: 0, stp_confirmed: 0, stp_returned: 0, human_review: 0, stp_rate: 0, avg_decision_ms: 0 }
   const [queue, setQueue] = useState([])
   const [selected, setSelected] = useState(null)
   const [bankTab, setBankTab] = useState('own')  // SB: 'own' (My Bank) | 'smb' (Sponsored SMBs)
@@ -42,10 +44,10 @@ export default function CTSWorkstation() {
     }
   }, [liveItems, queueLoading])
 
-  const stpSource   = useRef(getStpStream())
+  const stpSource   = useRef(useDemoData(getStpStream(), []))
   const stpIndexRef = useRef(0)
   const [stpStream, setStpStream]   = useState([])
-  const [batchStats, setBatchStats] = useState({ ...BATCH_STATS })
+  const [batchStats, setBatchStats] = useState(useDemoData({ ...BATCH_STATS }, ZERO_BATCH))
   const [now, setNow] = useState(new Date())
 
   useEffect(() => {
@@ -53,22 +55,20 @@ export default function CTSWorkstation() {
     return () => clearInterval(t)
   }, [])
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const items = stpSource.current
-      if (stpIndexRef.current >= items.length) return
-      const item = items[stpIndexRef.current]
-      stpIndexRef.current += 1
-      setStpStream((prev) => [{ ...item, arrivedAt: new Date() }, ...prev].slice(0, 40))
-      setBatchStats((prev) => ({
-        ...prev,
-        stp_confirmed: item.outcome === 'CONFIRM' ? prev.stp_confirmed + 1 : prev.stp_confirmed,
-        stp_returned:  item.outcome === 'RETURN'  ? prev.stp_returned  + 1 : prev.stp_returned,
-        total_inward:  prev.total_inward + 1,
-      }))
-    }, STP_DELAY_MS)
-    return () => clearInterval(timer)
-  }, [])
+  // STP animation only runs in DEMO mode; in POC/PROD the stream comes from real Kafka events
+  useDemoInterval(() => {
+    const items = stpSource.current
+    if (stpIndexRef.current >= items.length) return
+    const item = items[stpIndexRef.current]
+    stpIndexRef.current += 1
+    setStpStream((prev) => [{ ...item, arrivedAt: new Date() }, ...prev].slice(0, 40))
+    setBatchStats((prev) => ({
+      ...prev,
+      stp_confirmed: item.outcome === 'CONFIRM' ? prev.stp_confirmed + 1 : prev.stp_confirmed,
+      stp_returned:  item.outcome === 'RETURN'  ? prev.stp_returned  + 1 : prev.stp_returned,
+      total_inward:  prev.total_inward + 1,
+    }))
+  }, STP_DELAY_MS)
 
   // Bank scoping: SMB sees only its own bank; SB gets My-Bank / Sponsored-SMBs tabs.
   const inScope = (item) => {
@@ -149,7 +149,7 @@ export default function CTSWorkstation() {
               </span>
             </div>
 
-            {isSB && (
+            {isSB && bankMode !== 'SB_ONLY' && (
               <div className="flex gap-1 px-3 pt-2">
                 {[['own', 'My Bank'], ['smb', 'Sponsored SMBs']].map(([key, label]) => (
                   <button
@@ -170,8 +170,11 @@ export default function CTSWorkstation() {
             <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
               {pending.length === 0 && (
                 <div className={`text-center ${th.empty} text-sm py-12`}>
-                  <div className="text-3xl mb-2">✓</div>
-                  <div>Queue clear</div>
+                  <div className="text-3xl mb-2">{isDemo || decisions.length > 0 ? '✓' : '📂'}</div>
+                  <div>{isDemo || decisions.length > 0 ? 'Queue clear' : 'No instruments yet'}</div>
+                  {!isDemo && decisions.length === 0 && (
+                    <div className={`text-[10px] mt-1 ${th.empty}`}>Drop files into the inward folder to start</div>
+                  )}
                 </div>
               )}
               {pending.map((item) => (
@@ -220,8 +223,10 @@ export default function CTSWorkstation() {
             <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1.5">
               {stpStream.length === 0 && (
                 <div className={`text-[11px] ${th.empty} text-center pt-8 leading-relaxed`}>
-                  <div className="text-2xl mb-2">⚡</div>
-                  STP agents processing<br />inward cheques…
+                  <div className="text-2xl mb-2">{isDemo ? '⚡' : '📂'}</div>
+                  {isDemo
+                    ? <span>STP agents processing<br />inward cheques…</span>
+                    : <span>Waiting for instruments<br />Drop TIF/JPG into inward folder</span>}
                 </div>
               )}
               {stpStream.map((item, i) => (

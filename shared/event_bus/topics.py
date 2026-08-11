@@ -27,6 +27,8 @@ PLATFORM_CACHE_INVALIDATION = "platform.cache.invalidation"
 CTS_INWARD = "cts.inward.{bank_id}"
 CTS_DECISIONS = "cts.decisions.{bank_id}"
 CTS_HUMAN_REVIEW = "cts.human.review.{bank_id}"
+CTS_HUMAN_REVIEW_HV  = "cts.human.review.hv.{bank_id}"
+CTS_HUMAN_REVIEW_VHV = "cts.human.review.vhv.{bank_id}"
 CTS_VAULT_SYNC = "cts.vault.sync.{bank_id}"
 CTS_VAULT_DELTA = "cts.vault.delta.{bank_id}"
 
@@ -35,6 +37,13 @@ CTS_OUTWARD_SCANNED = "cts.outward.scanned.{bank_id}"
 CTS_OUTWARD_LOT_SEALED = "cts.outward.lot.sealed.{bank_id}"
 CTS_OUTWARD_SUBMITTED = "cts.outward.submitted.{bank_id}"
 CTS_MISMATCH = "cts.mismatch.{bank_id}.{branch_id}"
+
+# CTS — segmented inward queues (Phase D queue segmentation)
+# Instruments are routed to the matching tier based on presented_amount vs
+# queue_tier_high_value_threshold / queue_tier_very_high_threshold in cts_config.
+CTS_INWARD_STANDARD   = "cts.inward.{bank_id}.standard"
+CTS_INWARD_HIGH_VALUE = "cts.inward.{bank_id}.high_value"
+CTS_INWARD_VERY_HIGH  = "cts.inward.{bank_id}.very_high"
 
 # CTS — sub-member bank routing
 CTS_SMB_INBOUND = "cts.smb.inbound.{bank_id}"

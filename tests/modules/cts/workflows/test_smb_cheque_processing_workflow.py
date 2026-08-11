@@ -98,3 +98,57 @@ class TestDesignInvariants:
         from modules.cts.workflows import smb_cheque_processing_workflow
         source = inspect.getsource(smb_cheque_processing_workflow)
         assert "input.sub_member_id" in source
+
+    def test_notify_sub_member_return_in_run(self):
+        """notify_sub_member_return must be called in run() — not just in run_with_mocks()."""
+        import inspect
+        from modules.cts.workflows import smb_cheque_processing_workflow
+        source = inspect.getsource(smb_cheque_processing_workflow.SMBChequeProcessingWorkflow.run)
+        assert "notify_sub_member_return" in source, (
+            "notify_sub_member_return not found in run() — HIGH-4 regression"
+        )
+
+    def test_emit_batch_ledger_update_in_run(self):
+        """emit_batch_ledger_update must always be called in run()."""
+        import inspect
+        from modules.cts.workflows import smb_cheque_processing_workflow
+        source = inspect.getsource(smb_cheque_processing_workflow.SMBChequeProcessingWorkflow.run)
+        assert "emit_batch_ledger_update" in source, (
+            "emit_batch_ledger_update not found in run() — HIGH-4 regression"
+        )
+
+    def test_notify_called_only_for_stp_return(self):
+        """notify_sub_member_return must be guarded by the STP_RETURN branch — not called on every decision."""
+        import ast, inspect
+        from modules.cts.workflows import smb_cheque_processing_workflow
+        source = inspect.getsource(smb_cheque_processing_workflow.SMBChequeProcessingWorkflow.run)
+        # Check that notify call appears inside a conditional that checks STP_RETURN
+        assert "STP_RETURN" in source and "notify_sub_member_return" in source
+
+
+class TestHigh1ReviewTimeoutFromConfig:
+    def test_finalise_does_not_hardcode_55(self):
+        """HIGH-1: finalise() must NOT use 55 as a literal default for review_timeout_minutes.
+        Must read from inp.cts_config['human_review_max_wait_minutes']."""
+        import re, inspect
+        from modules.cts.workflows import cheque_workflow
+        source = inspect.getsource(cheque_workflow.ChequeProcessingWorkflow.run)
+        # Find the finalise signature (may span multiple lines until closing paren)
+        m = re.search(r'async def finalise\(([^)]*)\)', source, re.DOTALL)
+        assert m, "Could not find finalise() definition inside ChequeProcessingWorkflow.run()"
+        sig = m.group(1)
+        # The hardcoded ': int = 55' must NOT appear as the review_timeout_minutes default
+        assert "review_timeout_minutes: int = 55" not in sig, (
+            "finalise() has review_timeout_minutes hardcoded to 55. "
+            "Must be set from inp.cts_config['human_review_max_wait_minutes']."
+        )
+
+    def test_human_review_max_wait_minutes_key_referenced(self):
+        """HIGH-1: run() must reference 'human_review_max_wait_minutes' config key."""
+        import inspect
+        from modules.cts.workflows import cheque_workflow
+        source = inspect.getsource(cheque_workflow.ChequeProcessingWorkflow.run)
+        assert "human_review_max_wait_minutes" in source, (
+            "run() does not reference 'human_review_max_wait_minutes' config key — "
+            "timeout is not config-driven (HIGH-1)"
+        )

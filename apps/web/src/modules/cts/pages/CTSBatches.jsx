@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
 import AppShell from '../../../shared/layout/AppShell'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -151,9 +152,13 @@ export default function CTSBatches() {
     panel: isDark ? 'bg-white/2 border-white/8' : 'bg-slate-50 border-slate-200',
   }
 
-  const SESSIONS = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
+  const demoSessions = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
+  const SESSIONS = useDemoData(demoSessions)
   const BRANCHES = isSMB ? SMB_BRANCHES : SB_BRANCHES
-  const ALL_LOTS = useMemo(() => makeLots(isSMB ? 5 : 30, SESSIONS, BRANCHES, bankIfsc), [isSMB, SESSIONS, BRANCHES, bankIfsc])
+  const ALL_LOTS = useMemo(
+    () => SESSIONS.length ? makeLots(isSMB ? 5 : 30, SESSIONS, BRANCHES, bankIfsc) : [],
+    [isSMB, SESSIONS, BRANCHES, bankIfsc]
+  )
   const SUMMARY = useMemo(() => ({
     lots:      ALL_LOTS.length,
     instruments: ALL_LOTS.reduce((s, l) => s + l.instrument_count, 0),

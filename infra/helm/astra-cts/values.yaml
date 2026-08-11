@@ -80,6 +80,22 @@ keda:
     min_replicas: 1
     max_replicas: 50
     lag_threshold: "10"
+  # Per-tier human review workers (Phase D queue segmentation)
+  hr_standard:
+    enabled: true
+    min_replicas: 1
+    max_replicas: 10
+    lag_threshold: "5"
+  hr_highvalue:
+    enabled: true
+    min_replicas: 2
+    max_replicas: 20
+    lag_threshold: "3"
+  hr_veryhigh:
+    enabled: true
+    min_replicas: 2
+    max_replicas: 10
+    lag_threshold: "2"
 
 # ── Layer 3 Threshold Seeds (HOT-RELOAD after onboarding) ───────────────────
 # These values are written to YugabyteDB at bank onboarding. Banks then adjust

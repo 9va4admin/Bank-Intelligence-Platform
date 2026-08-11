@@ -10,8 +10,18 @@ Routes:
 All routes require JWT auth (bank_id extracted from token claim).
 No business logic — delegates to Temporal workflow client.
 """
+import re
 import time
 from typing import Literal, Optional
+
+_TEMPORAL_PARAM_RE = re.compile(r'^[a-zA-Z0-9\-_]{1,64}$')
+
+
+def _safe_temporal_param(value: str, field: str) -> str:
+    """Reject bank_id / smb_id values that could inject into a Temporal visibility query."""
+    if not _TEMPORAL_PARAM_RE.match(value):
+        raise ValueError(f"Invalid {field} for Temporal query: must be alphanumeric + hyphens/underscores, max 64 chars")
+    return value
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -214,7 +224,7 @@ async def submit_inward_cheque(
 
     if temporal_client is not None:
         try:
-            from temporalio.client import WorkflowAlreadyStartedError
+            from temporalio.exceptions import WorkflowAlreadyStartedError
             from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
 
             await temporal_client.start_workflow(
@@ -223,19 +233,19 @@ async def submit_inward_cheque(
                 id=workflow_id,
                 task_queue=f"cts-processing-{bank_id}",
             )
+        except WorkflowAlreadyStartedError:
+            pass  # idempotent — workflow already running for this instrument_id
         except Exception as exc:
-            # WorkflowAlreadyStartedError is normal — idempotent submission
-            if "already started" not in str(exc).lower():
-                log.error(
-                    "cts.submit_workflow_error",
-                    instrument_id=instrument_id,
-                    bank_id=bank_id,
-                    error=str(exc),
-                )
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Failed to start workflow",
-                ) from exc
+            log.error(
+                "cts.submit_workflow_error",
+                instrument_id=instrument_id,
+                bank_id=bank_id,
+                error=str(exc),
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Failed to start workflow",
+            ) from exc
 
     log.info(
         "cts.submit_accepted",
@@ -272,15 +282,38 @@ async def get_decision(
 
     if temporal_client is not None:
         try:
+            from temporalio.client import WorkflowExecutionStatus
             handle = temporal_client.get_workflow_handle(workflow_id)
-            result = await handle.result()
-            return ChequeDecisionResponse(
-                instrument_id=instrument_id,
-                workflow_id=workflow_id,
-                workflow_status=result.decision,
-                decision=result.decision,
-                rationale=result.rationale,
-            )
+            desc = await handle.describe()
+            wf_status = desc.status
+
+            if wf_status == WorkflowExecutionStatus.COMPLETED:
+                result = await handle.result()
+                return ChequeDecisionResponse(
+                    instrument_id=instrument_id,
+                    workflow_id=workflow_id,
+                    workflow_status=result.decision,
+                    decision=result.decision,
+                    rationale=result.rationale,
+                )
+            elif wf_status in (
+                WorkflowExecutionStatus.FAILED,
+                WorkflowExecutionStatus.TERMINATED,
+                WorkflowExecutionStatus.CANCELED,
+                WorkflowExecutionStatus.TIMED_OUT,
+            ):
+                return ChequeDecisionResponse(
+                    instrument_id=instrument_id,
+                    workflow_id=workflow_id,
+                    workflow_status="FAILED",
+                    rationale=f"Workflow ended with status: {wf_status.name}",
+                )
+            else:
+                return ChequeDecisionResponse(
+                    instrument_id=instrument_id,
+                    workflow_id=workflow_id,
+                    workflow_status="RUNNING",
+                )
         except Exception:
             pass
 
@@ -390,13 +423,16 @@ async def get_human_review_queue(
         try:
             # Query Temporal for open HumanReviewWorkflow instances.
             # SMB users: add SmbId filter to enforce row-level isolation.
+            # Validate params to prevent Temporal visibility query injection.
+            safe_bank = _safe_temporal_param(eff_bank_id, "bank_id")
             query = (
                 f"WorkflowType = 'HumanReviewWorkflow' "
                 f"AND ExecutionStatus = 'Running' "
-                f"AND BankId = '{eff_bank_id}'"
+                f"AND BankId = '{safe_bank}'"
             )
             if smb_id_filter:
-                query += f" AND SmbId = '{smb_id_filter}'"
+                safe_smb = _safe_temporal_param(smb_id_filter, "smb_id")
+                query += f" AND SmbId = '{safe_smb}'"
 
             async for wf in temporal_client.list_workflows(query=query, page_size=limit):
                 memo = wf.memo or {}
@@ -1202,22 +1238,23 @@ async def submit_outward_scan(
     temporal_client = getattr(request.app.state, "temporal_client", None)
     if temporal_client is not None:
         try:
-            from temporalio.client import WorkflowAlreadyStartedError
+            from temporalio.exceptions import WorkflowAlreadyStartedError
             await temporal_client.start_workflow(
                 OutwardScanWorkflow.run,
                 workflow_input,
                 id=workflow_id,
                 task_queue=f"cts-processing-{bank_id}",
             )
+        except WorkflowAlreadyStartedError:
+            pass  # idempotent
         except Exception as exc:
-            if "already started" not in str(exc).lower():
-                log.error(
+            log.error(
                     "cts.outward_scan_workflow_error",
                     scan_id=body.scan_id,
                     bank_id=bank_id,
                     error=str(exc),
                 )
-                raise HTTPException(
+            raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail="Failed to start OutwardScanWorkflow",
                 ) from exc
@@ -1359,3 +1396,1175 @@ async def deactivate_ifsc(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="IFSC entry not found")
     log.info("ifsc_registry.deactivated", entry_id=entry_id, bank_id=ctx.bank_id, updated_by=ctx.user_id)
     return entry
+
+
+# ---------------------------------------------------------------------------
+# Hold Queue endpoints
+# ---------------------------------------------------------------------------
+
+class HoldItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    hold_id: str
+    instrument_id: str
+    bank_id: str
+    held_by: str
+    held_at: float
+    iet_deadline: float
+    hold_reason: str
+    branch_notified_at: Optional[float] = None
+    branch_recommendation: Optional[str] = None
+    branch_note: Optional[str] = None
+    amount_display: str = ""
+    payee_display: str = ""
+    account_display: str = ""
+    queue_tier: str = "standard"
+
+
+class HoldListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    items: list[HoldItem]
+    total: int
+    bank_id: str
+
+
+class PlaceHoldRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    hold_reason: str
+    iet_deadline: float      # forwarded from the HumanReview record in the caller
+    branch_email: Optional[str] = None    # if None, looked up from branch contact registry
+    branch_phone: Optional[str] = None
+
+
+class PlaceHoldResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    hold_id: str
+    held_at: float
+    iet_remaining_seconds: float
+    branch_notified: bool
+
+
+class HoldReleaseRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    branch_note: Optional[str] = None
+    branch_recommendation: Optional[str] = None
+
+
+class HoldReleaseResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    hold_id: str
+    released: bool
+    hold_duration_seconds: Optional[float] = None
+    iet_remaining_at_release: Optional[float] = None
+
+
+class HoldRecommendationRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    branch_note: Optional[str] = None
+    branch_recommendation: Optional[str] = None  # "CONFIRM" | "RETURN"
+
+
+class HoldRecommendationResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    hold_id: str
+    updated: bool
+
+
+@router_v1.post(
+    "/holds/{instrument_id}",
+    response_model=PlaceHoldResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def place_hold(
+    instrument_id: str,
+    body: PlaceHoldRequest,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> PlaceHoldResponse:
+    """
+    Place a hold on an instrument — pauses it in the review queue while the
+    branch is consulted. IET clock NEVER pauses.
+    Calls HoldService.place_hold() which: persists IET timing fields, sends
+    branch email/WhatsApp notification, and writes CTS_WF_HOLD_PLACED to Immudb.
+    Roles: ops_reviewer, ops_manager.
+    """
+    import time as _time
+    bank_id = ctx.bank_id
+    reviewer_id = ctx.user_id
+    if ctx.role.value not in ("ops_reviewer", "ops_manager"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    pool = getattr(request.app.state, "db_pool_cts", None)
+    dispatcher = getattr(request.app.state, "notification_dispatcher", None)
+    audit_writer_raw = getattr(request.app.state, "audit_stream_writer", None)
+
+    # Wrap audit_writer in the interface HoldService expects: audit.write(event_type, bank_id, payload)
+    class _AuditWriterAdapter:
+        def __init__(self, writer):
+            self._writer = writer
+        async def write(self, event_type, bank_id, payload):
+            if self._writer is None:
+                return
+            from shared.audit.audit_event import AuditEvent, AuditEventType
+            await self._writer(AuditEvent(
+                event_type=getattr(AuditEventType, event_type, AuditEventType.CTS_HOLD_PLACED),
+                bank_id=bank_id,
+                user_id=reviewer_id,
+                payload=payload,
+            ))
+
+    # Build a thin DB adapter that HoldService can call .execute() on
+    class _DBAdapter:
+        def __init__(self, pool):
+            self._pool = pool
+        async def execute(self, query, *args):
+            if self._pool is None:
+                return
+            async with self._pool.acquire() as conn:
+                await conn.execute(query, *args)
+
+    branch_contact = {}
+    if body.branch_email:
+        branch_contact["email"] = body.branch_email
+    if body.branch_phone:
+        branch_contact["phone"] = body.branch_phone
+
+    from modules.cts.hold.hold_service import HoldService
+    hold_svc = HoldService(
+        db_pool=_DBAdapter(pool),
+        dispatcher=dispatcher,
+        audit_writer=_AuditWriterAdapter(audit_writer_raw),
+    )
+
+    record = await hold_svc.place_hold(
+        instrument_id=instrument_id,
+        bank_id=bank_id,
+        reviewer_id=reviewer_id,
+        hold_reason=body.hold_reason,
+        iet_deadline=body.iet_deadline,
+        branch_contact=branch_contact,
+    )
+
+    # Derive hold_id from the DB insert (HoldService doesn't return it; query it back)
+    hold_id = instrument_id  # fallback
+    if pool is not None:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT hold_id FROM cts.instrument_holds WHERE instrument_id = $1 AND bank_id = $2 AND released_at IS NULL ORDER BY held_at DESC LIMIT 1",
+                instrument_id, bank_id,
+            )
+            if row:
+                hold_id = row["hold_id"]
+
+    iet_remaining = max(0.0, body.iet_deadline - _time.time())
+
+    # Start the escalation chain: 30-min reminder → T-60min CRITICAL → T-5min P0
+    try:
+        from temporalio.client import Client as TemporalClient
+        from modules.cts.workflows.hold_escalation_workflow import (
+            HoldEscalationWorkflow, HoldEscalationInput,
+        )
+        temporal_address = await config_service.get("temporal.address")
+        temporal_client = await TemporalClient.connect(temporal_address)
+        escalation_input = HoldEscalationInput(
+            instrument_id=instrument_id,
+            bank_id=bank_id,
+            reviewer_id=reviewer_id,
+            iet_deadline=body.iet_deadline,
+            held_at=record.held_at,
+            branch_email=body.branch_email,
+        )
+        await temporal_client.start_workflow(
+            HoldEscalationWorkflow.run,
+            escalation_input,
+            id=f"cts-hold-escalation-{bank_id}-{instrument_id}",
+            task_queue=f"cts-processing-{bank_id}",
+        )
+    except Exception as _exc:
+        # Escalation workflow failure MUST NOT block the hold response — log and continue
+        log.warning("hold.escalation.start_failed", instrument_id=instrument_id,
+                    bank_id=bank_id, error=str(_exc))
+
+    log.info("cts.hold.placed", instrument_id=instrument_id, bank_id=bank_id, reviewer_id=reviewer_id)
+    return PlaceHoldResponse(
+        instrument_id=instrument_id,
+        hold_id=hold_id,
+        held_at=record.held_at,
+        iet_remaining_seconds=iet_remaining,
+        branch_notified=record.branch_notified_at is not None,
+    )
+
+
+@router_v1.get(
+    "/holds",
+    response_model=HoldListResponse,
+)
+async def list_holds(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> HoldListResponse:
+    """
+    List all active (unreleased) holds for this bank.
+    Roles: ops_manager, ops_reviewer, branch_manager (scoped to own branch).
+    """
+    bank_id = ctx.bank_id
+    allowed_roles = ("ops_manager", "ops_reviewer", "bank_it_admin", "branch_manager")
+    if ctx.role.value not in allowed_roles:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    pool = getattr(request.app.state, "db_pool_cts", None)
+    items: list[HoldItem] = []
+
+    if pool is not None:
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT
+                    h.hold_id, h.instrument_id, h.bank_id, h.held_by,
+                    h.held_at, h.iet_deadline, h.hold_reason,
+                    h.branch_notified_at, h.branch_recommendation, h.branch_note,
+                    i.account_last4, i.amount_range, i.queue_tier
+                FROM cts.instrument_holds h
+                LEFT JOIN cts.cheque_instruments i
+                    ON h.instrument_id = i.instrument_id::TEXT
+                    AND i.bank_id = $1
+                WHERE h.bank_id = $1
+                  AND h.released_at IS NULL
+                ORDER BY h.iet_deadline ASC
+                """,
+                bank_id,
+            )
+            for row in rows:
+                last4 = row["account_last4"] or "????"
+                amount_range = row["amount_range"] or "STANDARD"
+                amount_display = {
+                    "STANDARD": "₹[<1L]",
+                    "HIGH_VALUE": "₹[1L–5L]",
+                    "VERY_HIGH_VALUE": "₹[>1Cr]",
+                }.get(amount_range, "₹[?]")
+                items.append(HoldItem(
+                    hold_id=row["hold_id"],
+                    instrument_id=row["instrument_id"],
+                    bank_id=row["bank_id"],
+                    held_by=row["held_by"],
+                    held_at=row["held_at"],
+                    iet_deadline=row["iet_deadline"],
+                    hold_reason=row["hold_reason"],
+                    branch_notified_at=row["branch_notified_at"],
+                    branch_recommendation=row["branch_recommendation"],
+                    branch_note=row["branch_note"],
+                    account_display=f"****{last4}",
+                    amount_display=amount_display,
+                    payee_display="***",
+                    queue_tier=row["queue_tier"] or "standard",
+                ))
+
+    log.info("cts.holds.listed", bank_id=bank_id, count=len(items))
+    return HoldListResponse(items=items, total=len(items), bank_id=bank_id)
+
+
+@router_v1.post(
+    "/holds/{instrument_id}/release",
+    response_model=HoldReleaseResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def release_hold(
+    instrument_id: str,
+    body: HoldReleaseRequest,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> HoldReleaseResponse:
+    """
+    Release a hold — instrument returns to review queue.
+    Roles: ops_manager, ops_reviewer.
+    Writes CTS_HOLD_RELEASED audit event to Immudb.
+    """
+    bank_id = ctx.bank_id
+    reviewer_id = ctx.user_id
+    allowed_roles = ("ops_manager", "ops_reviewer")
+    if ctx.role.value not in allowed_roles:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="ops_manager or ops_reviewer role required")
+
+    pool = getattr(request.app.state, "db_pool_cts", None)
+    hold_id: Optional[str] = None
+
+    if pool is not None:
+        import time as _time
+        now = _time.time()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                UPDATE cts.instrument_holds
+                   SET released_at = $1,
+                       released_by = $2,
+                       branch_note = COALESCE($3, branch_note),
+                       branch_recommendation = COALESCE($4, branch_recommendation)
+                 WHERE instrument_id = $5
+                   AND bank_id = $6
+                   AND released_at IS NULL
+                RETURNING hold_id
+                """,
+                now, reviewer_id,
+                body.branch_note, body.branch_recommendation,
+                instrument_id, bank_id,
+            )
+        if row is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Active hold not found for this instrument",
+            )
+        hold_id = row["hold_id"]
+
+        # Audit — every hold release is an auditable decision
+        from shared.audit.audit_event import AuditEvent, AuditEventType
+        from shared.messages import get_message
+        audit_writer = getattr(request.app.state, "audit_stream_writer", None)
+        if audit_writer is not None:
+            audit_event = AuditEvent(
+                event_type=AuditEventType.CTS_HOLD_RELEASED,
+                bank_id=bank_id,
+                user_id=reviewer_id,
+                payload={
+                    "instrument_id": instrument_id,
+                    "hold_id": hold_id,
+                    "released_by": reviewer_id,
+                    "branch_note": body.branch_note,
+                    "branch_recommendation": body.branch_recommendation,
+                },
+            )
+            await audit_writer(audit_event)
+
+    hold_id = hold_id or instrument_id
+
+    # Signal the escalation workflow to stop — hold is resolved
+    try:
+        from temporalio.client import Client as TemporalClient
+        from modules.cts.workflows.hold_escalation_workflow import HoldEscalationWorkflow
+        temporal_address = await config_service.get("temporal.address")
+        temporal_client = await TemporalClient.connect(temporal_address)
+        handle = temporal_client.get_workflow_handle(
+            f"cts-hold-escalation-{bank_id}-{instrument_id}"
+        )
+        await handle.signal(HoldEscalationWorkflow.released)
+    except Exception as _exc:
+        # Non-fatal — escalation workflow may have already completed or never started
+        log.warning("hold.escalation.signal_failed", instrument_id=instrument_id,
+                    bank_id=bank_id, error=str(_exc))
+
+    log.info("cts.hold.released", instrument_id=instrument_id, bank_id=bank_id, released_by=reviewer_id)
+    return HoldReleaseResponse(instrument_id=instrument_id, hold_id=hold_id, released=True)
+
+
+@router_v1.post(
+    "/holds/{instrument_id}/recommendation",
+    response_model=HoldRecommendationResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def submit_hold_recommendation(
+    instrument_id: str,
+    body: HoldRecommendationRequest,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> HoldRecommendationResponse:
+    """
+    Branch manager submits or updates their recommendation (CONFIRM | RETURN)
+    on an active hold. Does NOT release the hold — that is the ops_reviewer's call.
+    Roles: branch_manager, ops_reviewer, ops_manager.
+    """
+    bank_id = ctx.bank_id
+    allowed_roles = ("ops_manager", "ops_reviewer", "branch_manager")
+    if ctx.role.value not in allowed_roles:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    pool = getattr(request.app.state, "db_pool_cts", None)
+    hold_id: Optional[str] = None
+
+    if pool is not None:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                UPDATE cts.instrument_holds
+                   SET branch_note = COALESCE($1, branch_note),
+                       branch_recommendation = COALESCE($2, branch_recommendation)
+                 WHERE instrument_id = $3
+                   AND bank_id = $4
+                   AND released_at IS NULL
+                RETURNING hold_id
+                """,
+                body.branch_note, body.branch_recommendation,
+                instrument_id, bank_id,
+            )
+        if row is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Active hold not found for this instrument",
+            )
+        hold_id = row["hold_id"]
+
+        # Audit
+        from shared.audit.audit_event import AuditEvent, AuditEventType
+        audit_writer = getattr(request.app.state, "audit_stream_writer", None)
+        if audit_writer is not None:
+            audit_event = AuditEvent(
+                event_type=AuditEventType.CTS_HOLD_PLACED,
+                bank_id=bank_id,
+                user_id=ctx.user_id,
+                payload={
+                    "instrument_id": instrument_id,
+                    "hold_id": hold_id,
+                    "branch_recommendation": body.branch_recommendation,
+                    "action": "RECOMMENDATION_UPDATED",
+                },
+            )
+            await audit_writer(audit_event)
+
+    hold_id = hold_id or instrument_id
+    log.info(
+        "cts.hold.recommendation_updated",
+        instrument_id=instrument_id,
+        bank_id=bank_id,
+        recommendation=body.branch_recommendation,
+    )
+    return HoldRecommendationResponse(instrument_id=instrument_id, hold_id=hold_id, updated=True)
+
+
+# ---------------------------------------------------------------------------
+# Mismatch Queue endpoints (outward scan — Vision LLM vs scanner discrepancy)
+# ---------------------------------------------------------------------------
+
+class MismatchItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    mismatch_id: str
+    instrument_id: str
+    branch_id: str
+    held_at: str
+    status: str
+    mismatch_fields: list[str]
+    scanner_amount: str
+    vision_amount: str
+    payee_display: str
+    lot_id: Optional[str] = None
+    workflow_run_id: Optional[str] = None
+
+
+class MismatchListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    items: list[MismatchItem]
+    total: int
+    bank_id: str
+
+
+class MismatchResolveRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    action: Literal["GO_AHEAD", "REJECTED"]
+    note: Optional[str] = None
+
+
+class MismatchResolveResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    mismatch_id: str
+    action: str
+    signal_sent: bool
+
+
+@router_v1.get(
+    "/mismatches",
+    response_model=MismatchListResponse,
+)
+async def list_mismatches(
+    request: Request,
+    branch_id: Optional[str] = None,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> MismatchListResponse:
+    """
+    List all HELD mismatches for this bank (optionally filtered by branch).
+    Roles: ops_manager, ops_reviewer, branch_manager.
+    """
+    bank_id = ctx.bank_id
+    allowed_roles = ("ops_manager", "ops_reviewer", "bank_it_admin", "branch_manager")
+    if ctx.role.value not in allowed_roles:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    pool = getattr(request.app.state, "db_pool_cts", None)
+    items: list[MismatchItem] = []
+
+    if pool is not None:
+        async with pool.acquire() as conn:
+            if branch_id:
+                rows = await conn.fetch(
+                    """
+                    SELECT mismatch_id, instrument_id, branch_id, held_at, status,
+                           mismatch_fields, vision_finding, scanner_data, lot_id, workflow_run_id
+                    FROM cts.mismatch_queue
+                    WHERE branch_id = $1 AND status = 'HELD'
+                    ORDER BY held_at ASC
+                    """,
+                    branch_id,
+                )
+            else:
+                rows = await conn.fetch(
+                    """
+                    SELECT mq.mismatch_id, mq.instrument_id, mq.branch_id, mq.held_at,
+                           mq.status, mq.mismatch_fields, mq.vision_finding, mq.scanner_data,
+                           mq.lot_id, mq.workflow_run_id
+                    FROM cts.mismatch_queue mq
+                    JOIN cts.cheque_instruments ci
+                        ON mq.instrument_id = ci.instrument_id::TEXT
+                        AND ci.bank_id = $1
+                    WHERE mq.status = 'HELD'
+                    ORDER BY mq.held_at ASC
+                    """,
+                    bank_id,
+                )
+            for row in rows:
+                vf = row["vision_finding"] or {}
+                sd = row["scanner_data"] or {}
+                items.append(MismatchItem(
+                    mismatch_id=row["mismatch_id"],
+                    instrument_id=row["instrument_id"],
+                    branch_id=row["branch_id"],
+                    held_at=str(row["held_at"]),
+                    status=row["status"],
+                    mismatch_fields=row["mismatch_fields"] or [],
+                    scanner_amount=sd.get("amount_figures", "—"),
+                    vision_amount=vf.get("amount_figures", "—"),
+                    payee_display=sd.get("payee_masked", "***"),
+                    lot_id=row["lot_id"],
+                    workflow_run_id=row["workflow_run_id"],
+                ))
+
+    log.info("cts.mismatches.listed", bank_id=bank_id, count=len(items))
+    return MismatchListResponse(items=items, total=len(items), bank_id=bank_id)
+
+
+@router_v1.post(
+    "/mismatches/{mismatch_id}/resolve",
+    response_model=MismatchResolveResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def resolve_mismatch(
+    mismatch_id: str,
+    body: MismatchResolveRequest,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> MismatchResolveResponse:
+    """
+    Branch supervisor resolves a mismatch: GO_AHEAD or REJECTED.
+    Sends a Temporal signal to the MismatchResolutionWorkflow and updates DB.
+    Roles: ops_manager, ops_reviewer, branch_manager.
+    """
+    bank_id = ctx.bank_id
+    user_id = ctx.user_id
+    allowed_roles = ("ops_manager", "ops_reviewer", "branch_manager")
+    if ctx.role.value not in allowed_roles:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    pool = getattr(request.app.state, "db_pool_cts", None)
+    signal_sent = False
+
+    if pool is not None:
+        import time as _time
+        now_ts = _time.time()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT mismatch_id, branch_id, workflow_run_id
+                FROM cts.mismatch_queue
+                WHERE mismatch_id = $1 AND status = 'HELD'
+                """,
+                mismatch_id,
+            )
+        if row is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Mismatch not found or already resolved",
+            )
+
+        branch_id = row["branch_id"]
+        workflow_run_id = row["workflow_run_id"]
+
+        # Send Temporal signal to MismatchResolutionWorkflow
+        temporal_client = getattr(request.app.state, "temporal_client", None)
+        if temporal_client is not None and workflow_run_id:
+            try:
+                from modules.cts.workflows.mismatch_resolution_workflow import (
+                    MismatchResolutionWorkflow, MismatchSignal,
+                )
+                workflow_id = f"cts-mismatch-{bank_id}-{branch_id}-{mismatch_id}"
+                handle = temporal_client.get_workflow_handle(
+                    workflow_id, run_id=workflow_run_id
+                )
+                await handle.signal(
+                    MismatchResolutionWorkflow.resolve,
+                    MismatchSignal(action=body.action, resolved_by=user_id),
+                )
+                signal_sent = True
+            except Exception as exc:
+                log.error("cts.mismatch.signal_failed", mismatch_id=mismatch_id, error=str(exc))
+
+        # Update DB regardless of signal (idempotent — workflow also updates on signal receipt)
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE cts.mismatch_queue
+                   SET status = $1, resolved_at = NOW(), resolved_by = $2, resolution_note = $3
+                 WHERE mismatch_id = $4
+                """,
+                body.action, user_id, body.note, mismatch_id,
+            )
+
+        # Audit
+        from shared.audit.audit_event import AuditEvent, AuditEventType
+        audit_writer = getattr(request.app.state, "audit_stream_writer", None)
+        if audit_writer is not None:
+            audit_event = AuditEvent(
+                event_type=AuditEventType.CTS_LOCK_ACQUIRED,  # reuse closest available
+                bank_id=bank_id,
+                user_id=user_id,
+                payload={
+                    "mismatch_id": mismatch_id,
+                    "action": body.action,
+                    "note": body.note,
+                    "signal_sent": signal_sent,
+                },
+            )
+            await audit_writer(audit_event)
+
+    log.info(
+        "cts.mismatch.resolved",
+        mismatch_id=mismatch_id,
+        action=body.action,
+        bank_id=bank_id,
+        resolved_by=user_id,
+    )
+    return MismatchResolveResponse(mismatch_id=mismatch_id, action=body.action, signal_sent=signal_sent)
+
+
+# ---------------------------------------------------------------------------
+# Endorsement endpoints (outward clearing — batch stamp reverse of cheque)
+# ---------------------------------------------------------------------------
+
+class EndorsementBatchRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    lot_number: str
+    instrument_ids: list[str]
+    bank_ifsc: str
+    session_id: Optional[str] = None
+
+
+class EndorsementBatchResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    workflow_id: str
+    lot_number: str
+    status: Literal["TRIGGERED"]
+    instrument_count: int
+
+
+@router_v1.post(
+    "/endorsement/batch",
+    response_model=EndorsementBatchResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def endorse_batch(
+    body: EndorsementBatchRequest,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> EndorsementBatchResponse:
+    """
+    Trigger BatchEndorsementWorkflow for a sealed lot.
+    Roles: ops_manager.
+    """
+    bank_id = ctx.bank_id
+    if ctx.role.value not in ("ops_manager", "bank_it_admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="ops_manager role required")
+
+    import time as _time
+    session_id = body.session_id or f"manual-{int(_time.time())}"
+    workflow_id = f"cts-endorse-{bank_id}-{body.lot_number}"
+
+    temporal_client = getattr(request.app.state, "temporal_client", None)
+    if temporal_client is not None:
+        try:
+            from modules.cts.workflows.batch_endorsement_workflow import (
+                BatchEndorsementWorkflow, BatchEndorsementInput,
+            )
+            await temporal_client.start_workflow(
+                BatchEndorsementWorkflow.run,
+                BatchEndorsementInput(
+                    lot_number=body.lot_number,
+                    bank_id=bank_id,
+                    bank_ifsc=body.bank_ifsc,
+                    session_id=session_id,
+                    instrument_ids=body.instrument_ids,
+                ),
+                id=workflow_id,
+                task_queue=f"cts-processing-{bank_id}",
+            )
+        except Exception as exc:
+            log.error("cts.endorsement_trigger_failed", lot_number=body.lot_number, error=str(exc))
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Failed to trigger endorsement workflow",
+            ) from exc
+
+    log.info(
+        "cts.endorsement.triggered",
+        bank_id=bank_id,
+        lot_number=body.lot_number,
+        instrument_count=len(body.instrument_ids),
+        workflow_id=workflow_id,
+    )
+    return EndorsementBatchResponse(
+        workflow_id=workflow_id,
+        lot_number=body.lot_number,
+        status="TRIGGERED",
+        instrument_count=len(body.instrument_ids),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Outward file download (presigned MinIO URL for CXF / image archives)
+# ---------------------------------------------------------------------------
+
+class OutwardFileDownloadResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    filename: str
+    download_url: str
+    expires_in_seconds: int = 300
+
+
+@router_v1.get(
+    "/outward/files/{filename}/download-url",
+    response_model=OutwardFileDownloadResponse,
+)
+async def get_outward_file_download_url(
+    filename: str,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> OutwardFileDownloadResponse:
+    """
+    Returns a presigned MinIO download URL for an outward CXF or image archive file.
+    Roles: ops_manager, ops_reviewer.
+    """
+    bank_id = ctx.bank_id
+    if ctx.role.value not in ("ops_manager", "ops_reviewer", "bank_it_admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    minio_client = getattr(request.app.state, "minio_client", None)
+    if minio_client is not None:
+        try:
+            from datetime import timedelta
+            bucket = f"cts-outward-{bank_id}"
+            url = await minio_client.presigned_get_object(
+                bucket,
+                filename,
+                expires=timedelta(seconds=300),
+            )
+            return OutwardFileDownloadResponse(filename=filename, download_url=url)
+        except Exception as exc:
+            log.error("cts.outward_file.presign_failed", filename=filename, error=str(exc))
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="File not found or not yet generated",
+            ) from exc
+
+    # Dev/test mode: no MinIO — return a placeholder URL
+    return OutwardFileDownloadResponse(
+        filename=filename,
+        download_url=f"/dev-placeholder/{filename}",
+        expires_in_seconds=300,
+    )
+
+
+# ---------------------------------------------------------------------------
+# IQA re-scan endpoint (outward scanning — Image Quality Assessment retry)
+# ---------------------------------------------------------------------------
+
+class IQARescanResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    scan_id: str
+    workflow_id: str
+    status: Literal["TRIGGERED"]
+
+
+@router_v1.post(
+    "/iqa/{scan_id}/rescan",
+    response_model=IQARescanResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def trigger_iqa_rescan(
+    scan_id: str,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> IQARescanResponse:
+    """
+    Re-trigger OutwardScanWorkflow for a scan that failed IQA.
+    Roles: ops_manager, ops_reviewer.
+    """
+    bank_id = ctx.bank_id
+    if ctx.role.value not in ("ops_manager", "ops_reviewer", "bank_it_admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="ops_manager role required")
+
+    import time as _time
+    workflow_id = f"cts-iqa-rescan-{bank_id}-{scan_id}-{int(_time.time())}"
+
+    temporal_client = getattr(request.app.state, "temporal_client", None)
+    if temporal_client is not None:
+        try:
+            from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow, OutwardScanInput
+            await temporal_client.start_workflow(
+                OutwardScanWorkflow.run,
+                OutwardScanInput(
+                    scan_id=scan_id,
+                    bank_id=bank_id,
+                    triggered_by=ctx.user_id,
+                    rescan=True,
+                ),
+                id=workflow_id,
+                task_queue=f"cts-processing-{bank_id}",
+            )
+        except Exception as exc:
+            log.error("cts.iqa_rescan_failed", scan_id=scan_id, error=str(exc))
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Failed to trigger re-scan workflow",
+            ) from exc
+
+    log.info("cts.iqa.rescan_triggered", scan_id=scan_id, bank_id=bank_id, workflow_id=workflow_id)
+    return IQARescanResponse(scan_id=scan_id, workflow_id=workflow_id, status="TRIGGERED")
+
+
+# ─── Session Report Downloads ──────────────────────────────────────────────────
+
+_SESSION_REPORT_EXTENSIONS = {
+    "npci": "npci_rrf.zip",
+    "mis": "mis.csv",
+    "settlement": "settlement.xlsx",
+}
+
+
+class SessionDownloadResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    session_id: str
+    report_type: str
+    download_url: str
+    expires_in_seconds: int
+
+
+@router_v1.get(
+    "/sessions/{session_id}/download/{report_type}",
+    response_model=SessionDownloadResponse,
+)
+async def get_session_report_download_url(
+    session_id: str,
+    report_type: str,
+    request: Request,
+    ctx: UserContext = Depends(require_user_context),
+) -> SessionDownloadResponse:
+    bank_id = ctx.bank_id
+    if ctx.role.value not in ("ops_manager", "ops_reviewer", "bank_it_admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="ops_manager role required")
+
+    if report_type not in _SESSION_REPORT_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unknown report_type '{report_type}'. Valid: {list(_SESSION_REPORT_EXTENSIONS)}",
+        )
+
+    ext = _SESSION_REPORT_EXTENSIONS[report_type]
+    object_name = f"cts/{bank_id}/sessions/{session_id}/{ext}"
+
+    minio_client = getattr(request.app.state, "minio_client", None)
+    if minio_client is not None:
+        try:
+            from datetime import timedelta as _td
+            presigned = minio_client.presigned_get_object(
+                "astra-cts",
+                object_name,
+                expires=_td(seconds=300),
+            )
+            download_url = presigned
+        except Exception as exc:
+            log.error("cts.session_download.presign_failed", session_id=session_id, report_type=report_type, error=str(exc))
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Failed to generate download URL",
+            ) from exc
+    else:
+        download_url = f"/dev-placeholder/sessions/{session_id}/{ext}"
+
+    log.info("cts.session_download.url_issued", session_id=session_id, report_type=report_type, bank_id=bank_id)
+    return SessionDownloadResponse(
+        session_id=session_id,
+        report_type=report_type,
+        download_url=download_url,
+        expires_in_seconds=300,
+    )
+
+
+# ─── Branch Scan Monitor — recent outward scan events ─────────────────────────
+
+class ScanEventItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    scan_id: str
+    micr_suffix: Optional[str]
+    payee_display: Optional[str]
+    amount_range: Optional[str]
+    outcome: str
+    lot_id: Optional[str]
+    mismatch_id: Optional[str]
+    mismatch_fields: Optional[list]
+    reject_reason: Optional[str]
+    scanned_at: str
+
+
+class ScanMonitorResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    events: list[ScanEventItem]
+    total: int
+
+
+@router_v1.get("/scan-monitor/recent", response_model=ScanMonitorResponse)
+async def get_recent_scan_events(
+    request: Request,
+    limit: int = 50,
+    ctx: UserContext = Depends(require_user_context),
+) -> ScanMonitorResponse:
+    bank_id = ctx.bank_id
+    if ctx.role.value not in ("ops_manager", "ops_reviewer", "bank_it_admin", "branch_manager"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+    if limit > 100:
+        limit = 100
+
+    db = getattr(request.app.state, "db", None)
+    if db is None:
+        return ScanMonitorResponse(bank_id=bank_id, events=[], total=0)
+
+    try:
+        rows = await db.fetch(
+            """
+            SELECT scan_id, micr_suffix, payee_display, amount_range, outcome,
+                   lot_id, mismatch_id, mismatch_fields, reject_reason,
+                   scanned_at::text
+            FROM cts.outward_scan_events
+            WHERE bank_id = $1
+              AND scanned_at > NOW() - INTERVAL '8 hours'
+            ORDER BY scanned_at DESC
+            LIMIT $2
+            """,
+            bank_id, limit,
+        )
+    except Exception as exc:
+        log.error("cts.scan_monitor.query_failed", bank_id=bank_id, error=str(exc))
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable") from exc
+
+    events = [
+        ScanEventItem(
+            scan_id=r["scan_id"],
+            micr_suffix=r["micr_suffix"],
+            payee_display=r["payee_display"],
+            amount_range=r["amount_range"],
+            outcome=r["outcome"],
+            lot_id=r["lot_id"],
+            mismatch_id=r["mismatch_id"],
+            mismatch_fields=r["mismatch_fields"],
+            reject_reason=r["reject_reason"],
+            scanned_at=r["scanned_at"],
+        )
+        for r in rows
+    ]
+    return ScanMonitorResponse(bank_id=bank_id, events=events, total=len(events))
+
+
+# ---------------------------------------------------------------------------
+# Allocation — reviewer claim / unclaim + admin status panel
+# ---------------------------------------------------------------------------
+
+class ClaimResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    claimed: bool
+    reviewer_id: Optional[str] = None
+    held_by: Optional[str] = None   # set when claimed=False and already held by someone else
+    message: str
+
+
+class AllocationStatusItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    reviewer_id: str
+    tier: Optional[str] = None
+    claimed_at: Optional[str] = None  # ISO timestamp from Redis TTL metadata when available
+
+
+class AllocationStatusResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    active_claims: list[AllocationStatusItem]
+    total: int
+
+
+@router_v1.post(
+    "/review/{instrument_id}/claim",
+    response_model=ClaimResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def claim_instrument(
+    instrument_id: str,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> ClaimResponse:
+    """
+    Reviewer manually claims an instrument for review.
+    Works in SELF, HYBRID, and AUTO allocation modes.
+    Writes CTS_ALLOC_CLAIMED AllocationAuditEvent to Immudb.
+    Roles: ops_reviewer, ops_manager.
+    """
+    bank_id = ctx.bank_id
+    reviewer_id = ctx.user_id
+    if ctx.role.value not in ("ops_reviewer", "ops_manager"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    redis = getattr(request.app.state, "redis_cts", None)
+
+    # Build AllocationService with a LockService backed by app-state Redis
+    from modules.cts.allocation.lock_service import LockService
+    from modules.cts.allocation.allocation_service import AllocationService
+    lock_svc = LockService(redis_client=redis)
+    alloc_svc = AllocationService(lock_service=lock_svc)
+
+    # Fetch Layer 3 config for allocation_mode + lock TTL
+    cts_config: dict = {}
+    config_svc = getattr(request.app.state, "config_service", None)
+    if config_svc is not None:
+        try:
+            cts_config = await config_svc.get_cts_config(bank_id)
+        except Exception:
+            pass
+
+    result = await alloc_svc.claim(instrument_id, reviewer_id, cts_config)
+
+    # AllocationAuditEvent → Immudb
+    from shared.audit.audit_event import AuditEvent, AuditEventType
+    audit_writer = getattr(request.app.state, "audit_stream_writer", None)
+    if audit_writer is not None:
+        audit_event = AuditEvent(
+            event_type=AuditEventType.CTS_ALLOC_CLAIMED if result.claimed else AuditEventType.CTS_LOCK_ACQUIRED,
+            bank_id=bank_id,
+            user_id=reviewer_id,
+            payload={
+                "instrument_id": instrument_id,
+                "claimed": result.claimed,
+                "held_by": result.held_by,
+                "allocation_mode": cts_config.get("allocation_mode", "SELF"),
+            },
+        )
+        await audit_writer(audit_event)
+
+    if result.claimed:
+        log.info("cts.alloc.claimed", instrument_id=instrument_id, reviewer_id=reviewer_id, bank_id=bank_id)
+        return ClaimResponse(
+            instrument_id=instrument_id, claimed=True,
+            reviewer_id=reviewer_id, message="Claimed successfully",
+        )
+
+    log.info("cts.alloc.claim_rejected", instrument_id=instrument_id, reviewer_id=reviewer_id, held_by=result.held_by)
+    return ClaimResponse(
+        instrument_id=instrument_id, claimed=False,
+        held_by=result.held_by, message="Already claimed by another reviewer",
+    )
+
+
+@router_v1.delete(
+    "/review/{instrument_id}/claim",
+    response_model=ClaimResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def unclaim_instrument(
+    instrument_id: str,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> ClaimResponse:
+    """
+    Reviewer releases their claim on an instrument.
+    Writes CTS_ALLOC_UNCLAIMED AllocationAuditEvent to Immudb.
+    Roles: ops_reviewer, ops_manager.
+    """
+    bank_id = ctx.bank_id
+    reviewer_id = ctx.user_id
+    if ctx.role.value not in ("ops_reviewer", "ops_manager"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    redis = getattr(request.app.state, "redis_cts", None)
+
+    from modules.cts.allocation.lock_service import LockService
+    from modules.cts.allocation.allocation_service import AllocationService
+    lock_svc = LockService(redis_client=redis)
+    alloc_svc = AllocationService(lock_service=lock_svc)
+
+    await alloc_svc.unclaim(instrument_id, reviewer_id, {})
+
+    from shared.audit.audit_event import AuditEvent, AuditEventType
+    audit_writer = getattr(request.app.state, "audit_stream_writer", None)
+    if audit_writer is not None:
+        audit_event = AuditEvent(
+            event_type=AuditEventType.CTS_ALLOC_UNCLAIMED,
+            bank_id=bank_id,
+            user_id=reviewer_id,
+            payload={"instrument_id": instrument_id, "unclaimed_by": reviewer_id},
+        )
+        await audit_writer(audit_event)
+
+    log.info("cts.alloc.unclaimed", instrument_id=instrument_id, reviewer_id=reviewer_id, bank_id=bank_id)
+    return ClaimResponse(instrument_id=instrument_id, claimed=False, message="Released successfully")
+
+
+@router_v1.get(
+    "/allocation/status",
+    response_model=AllocationStatusResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def get_allocation_status(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> AllocationStatusResponse:
+    """
+    Admin panel: return all active reviewer claims for this bank.
+    Scans Redis for keys matching the LockService key pattern.
+    Roles: ops_manager, bank_it_admin.
+    """
+    bank_id = ctx.bank_id
+    if ctx.role.value not in ("ops_manager", "bank_it_admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    redis = getattr(request.app.state, "redis_cts", None)
+    claims: list[AllocationStatusItem] = []
+
+    if redis is not None:
+        from modules.cts.allocation.lock_service import LockService, LOCK_KEY_PREFIX
+        # Each bank has its own redis-cts cluster — scanning all lock:cts:* keys
+        # returns only this bank's claims (bank isolation is at the cluster level).
+        pattern = f"{LOCK_KEY_PREFIX}*"
+        cursor = 0
+        while True:
+            cursor, keys = await redis.scan(cursor, match=pattern, count=100)
+            for key in keys:
+                raw = await redis.get(key)
+                if raw is None:
+                    continue
+                # Key format: lock:cts:{instrument_id}
+                key_str = key.decode() if isinstance(key, bytes) else key
+                instrument_id = key_str[len(LOCK_KEY_PREFIX):]
+                reviewer_id = raw.decode() if isinstance(raw, bytes) else str(raw)
+                claims.append(AllocationStatusItem(
+                    instrument_id=instrument_id,
+                    reviewer_id=reviewer_id,
+                ))
+            if cursor == 0:
+                break
+
+    log.info("cts.alloc.status", bank_id=bank_id, active_claims=len(claims))
+    return AllocationStatusResponse(bank_id=bank_id, active_claims=claims, total=len(claims))

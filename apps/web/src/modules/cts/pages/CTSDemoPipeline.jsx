@@ -482,33 +482,40 @@ export default function CTSDemoPipeline() {
   async function runPresentment(fileList) {
     if (runningRef.current) return
     runningRef.current = true
-    const initialItems = fileList.map(f => fresh(typeof f === 'string' ? f : f.name))
-    setItems(initialItems)
-    setPhase('presentment')
-    setActiveSteps(new Set())
-    setDoneSteps(new Set())
-    setFailedSteps(new Set())
-    addLog('info', `Presentment started — ${initialItems.length} cheques`)
+    try {
+      const initialItems = fileList.map(f => fresh(typeof f === 'string' ? f : f.name))
+      setItems(initialItems)
+      setPhase('presentment')
+      setActiveSteps(new Set())
+      setDoneSteps(new Set())
+      setFailedSteps(new Set())
+      addLog('info', `Presentment started — ${initialItems.length} cheques`)
 
-    const sem = createSemaphore(MAX_CONCURRENT)
-    await Promise.all(initialItems.map((item, idx) => processPresent(item, idx, sem)))
+      const sem = createSemaphore(MAX_CONCURRENT)
+      await Promise.all(initialItems.map((item, idx) => processPresent(item, idx, sem)))
 
-    // Build NPCI groups from final state
-    setItems(prev => {
-      const groups = {}
-      prev.forEach(it => {
-        if (it.status === 'success' && it.draweeBank) {
-          groups[it.draweeBank] = (groups[it.draweeBank] || 0) + 1
-        }
+      // Build NPCI groups from accepted items
+      const accepted = []
+      setItems(prev => {
+        const groups = {}
+        prev.forEach(it => {
+          if (it.status === 'success' && it.draweeBank) {
+            groups[it.draweeBank] = (groups[it.draweeBank] || 0) + 1
+            accepted.push(it)
+          }
+        })
+        setNpciGroups(groups)
+        const s = prev.filter(it => it.status === 'success').length
+        const f = prev.filter(it => it.status === 'failed').length
+        addLog('info', `Presentment done — ${s} accepted, ${f} rejected`)
+        return prev
       })
-      setNpciGroups(groups)
-      const s = prev.filter(it => it.status === 'success').length
-      const f = prev.filter(it => it.status === 'failed').length
-      addLog('info', `Presentment done — ${s} accepted, ${f} rejected`)
-      return prev
-    })
-    setPhase('npci')
-    runningRef.current = false
+      setPhase('npci')
+    } catch (err) {
+      addLog('error', `Presentment error: ${err.message}`)
+    } finally {
+      runningRef.current = false
+    }
   }
 
   // ── Drawee pipeline ───────────────────────────────────────────────────────
@@ -560,35 +567,37 @@ export default function CTSDemoPipeline() {
     if (runningRef.current) return
     runningRef.current = true
 
-    // Get accepted items for this bank from current items state
+    // Snapshot accepted items for this bank synchronously, then run async
+    let di = []
     setItems(prev => {
       const bankItems = prev.filter(it => it.status === 'success' && it.draweeBank === bankName)
-      const di = bankItems.map(it => ({ ...fresh(it.filename), extracted: it.extracted }))
-      setDraweeItems(di)
-
-      // kick off async after state update
-      setTimeout(async () => {
-        setPhase('drawee')
-        setActiveSteps(new Set())
-        setDoneSteps(new Set())
-        setFailedSteps(new Set())
-        addLog('info', `Drawee processing started for ${bankName} — ${di.length} cheques`)
-
-        const sem = createSemaphore(MAX_CONCURRENT)
-        await Promise.all(di.map((item, idx) => processDrawee(item, idx, sem, setDraweeItems)))
-
-        setDraweeItems(prev2 => {
-          const s = prev2.filter(it => it.status === 'success').length
-          const f = prev2.filter(it => it.status === 'failed').length
-          addLog('info', `Drawee done — ${s} confirmed, ${f} returned`)
-          return prev2
-        })
-        setPhase('complete')
-        runningRef.current = false
-      }, 0)
-
+      di = bankItems.map(it => ({ ...fresh(it.filename), extracted: it.extracted }))
       return prev
     })
+    setDraweeItems(di)
+
+    try {
+      setPhase('drawee')
+      setActiveSteps(new Set())
+      setDoneSteps(new Set())
+      setFailedSteps(new Set())
+      addLog('info', `Drawee processing started for ${bankName} — ${di.length} cheques`)
+
+      const sem = createSemaphore(MAX_CONCURRENT)
+      await Promise.all(di.map((item, idx) => processDrawee(item, idx, sem, setDraweeItems)))
+
+      setDraweeItems(prev2 => {
+        const s = prev2.filter(it => it.status === 'success').length
+        const f = prev2.filter(it => it.status === 'failed').length
+        addLog('info', `Drawee done — ${s} confirmed, ${f} returned`)
+        return prev2
+      })
+      setPhase('complete')
+    } catch (err) {
+      addLog('error', `Drawee error: ${err.message}`)
+    } finally {
+      runningRef.current = false
+    }
   }
 
   function handleFiles(newFiles) {

@@ -18,6 +18,7 @@ def _make_config():
         "ocr_min_confidence": 0.85,
         "sig_min_match_score": 0.80,
         "cheque_validity_days": 90,   # Layer 3 — 3-month validity per RBI
+        "opa_required": False,  # OPA not under test here; bypass unavailable-OPA guard
     }
 
 

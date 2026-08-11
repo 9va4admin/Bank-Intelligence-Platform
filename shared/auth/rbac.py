@@ -67,10 +67,17 @@ class Role(str, Enum):
     ML_ENGINEER        = "ml_engineer"
     SMB_IT_ADMIN       = "smb_it_admin"  # SB staff managing SMB registrations
 
+    # Branch-level representative role — scoped to own branch_code via ABAC
+    BRANCH_MANAGER = "branch_manager"  # Sees held cheques for their branch; can add notes
+
     # SMB roles — map 1:1 to PermissionLevel within the SMB tenant
     SMB_ADMIN  = "smb_admin"   # Full control of own SMB
     SMB_EDITOR = "smb_editor"  # Action HR queue + modify within own SMB
     SMB_VIEWER = "smb_viewer"  # Read-only within own SMB
+
+    # ASTRA platform super admin — cross-bank, bootstrap only
+    # In production: one account per bank, password from Vault; never assigned to regular users.
+    PLATFORM_ADMIN = "platform_admin"
 
 
 class Permission(str, Enum):
@@ -113,6 +120,10 @@ class Permission(str, Enum):
 
     # User management
     USER_MANAGE = "user:manage"  # create/edit/deactivate users within own tenant
+
+    # Hold Queue — branch manager access
+    CTS_VIEW_HOLD_QUEUE = "cts:view_hold_queue"  # view held cheques for own branch
+    CTS_ADD_HOLD_NOTE   = "cts:add_hold_note"    # add note/recommendation to held cheque
 
 
 # Permission matrix: role → granted permissions
@@ -177,6 +188,11 @@ _ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
         Permission.AUDIT_READ,
         Permission.LOGIN_LOG_READ,
     }),
+    Role.BRANCH_MANAGER: frozenset({
+        Permission.CTS_VIEW_HOLD_QUEUE,
+        Permission.CTS_ADD_HOLD_NOTE,
+        Permission.LOGIN_LOG_READ,
+    }),
     # SMB roles — scoped to own SMB tenant by assert_tenant_access
     Role.SMB_ADMIN: frozenset({
         Permission.CTS_VIEW_QUEUE,
@@ -197,6 +213,8 @@ _ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
         Permission.SMB_VIEW_LEDGER,
         Permission.LOGIN_LOG_READ,
     }),
+    # Platform admin has every permission — used only for bootstrap and support.
+    Role.PLATFORM_ADMIN: frozenset(Permission),
 }
 
 
@@ -207,13 +225,14 @@ class UserContext(BaseModel):
     user_id: str
     role: Role
     bank_id: str
-    bank_type: BankType = BankType.SB           # default SB for backward compat
+    bank_type: BankType                          # required — must be explicit in every JWT
     permission_level: PermissionLevel = PermissionLevel.READ_ONLY  # least-privilege default
     clearing_zones: list[str] = Field(default_factory=list)
     engagement_expires_at: Optional[float] = None
     engagement_date_from: Optional[str] = None
     engagement_date_to: Optional[str] = None
     sponsor_bank_id: Optional[str] = None      # SMB users only: the SB they route through
+    branch_code: Optional[str] = None          # branch_manager only: ABAC scope from JWT
 
 
 def has_permission(user: UserContext, permission: Permission) -> bool:
@@ -318,6 +337,23 @@ class RBACPolicy:
             raise EngagementExpiredError(
                 f"RBI examiner '{user.user_id}' engagement has expired or was never provisioned. "
                 f"A new time-limited engagement token is required."
+            )
+
+    def assert_branch_access(self, user: UserContext, branch_code: str) -> None:
+        """
+        Enforce ABAC branch scoping for branch_manager role.
+
+        branch_manager users may only see held cheques for their own branch_code.
+        A branch_manager with no branch_code in their JWT is denied access to all branches.
+        All other roles pass this check unconditionally — branch scoping is only
+        enforced for the branch_manager role.
+        """
+        if user.role != Role.BRANCH_MANAGER:
+            return
+        if user.branch_code is None or user.branch_code != branch_code:
+            raise InsufficientZoneScopeError(
+                f"branch_manager '{user.user_id}' is scoped to branch '{user.branch_code}' "
+                f"but requested branch '{branch_code}'."
             )
 
     def login_log_bank_scope(self, user: UserContext) -> Optional[str]:

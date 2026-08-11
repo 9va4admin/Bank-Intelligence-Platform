@@ -1,0 +1,292 @@
+# ASTRA Pilot — Complete Stack (Infrastructure + ASTRA Services)
+#
+# This file runs EVERYTHING in Docker. No Python, no Node.js needed on the host.
+#
+# Usage:
+#   docker compose -f infra/docker-compose.pilot.yml up -d
+#   docker compose -f infra/docker-compose.pilot.yml down -v   # full wipe
+#
+# Prerequisites:
+#   1. All images loaded (docker load -i astra-bundle.tar)
+#   2. astra.env file present at the same level as this compose file
+#      (copy infra/astra.env.template → infra/astra.env and fill in)
+#
+# Host port map (same as dev, zero conflicts with other stacks):
+#   Web UI       http://localhost:80
+#   API          http://localhost:8010
+#   Temporal UI  http://localhost:18088
+#   MinIO UI     http://localhost:19091
+#   YugabyteDB   localhost:15433  (ysqlsh / psql)
+
+networks:
+  astra:
+    driver: bridge
+
+volumes:
+  minio-data:
+  immudb-data:
+  yugabyte-data:
+  temporal-pg-data:
+
+# ── Infrastructure ────────────────────────────────────────────────────────────
+
+services:
+
+  vault:
+    image: hashicorp/vault:1.15
+    container_name: astra-vault
+    hostname: vault
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "astra-dev-root-token"
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+    cap_add: [IPC_LOCK]
+    networks: [astra]
+    healthcheck:
+      test: ["CMD-SHELL", "vault status -address=http://localhost:8200 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis-cts:
+    image: redis:7.2-alpine
+    container_name: astra-redis-cts
+    hostname: redis-cts
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    networks: [astra]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  redis-ej:
+    image: redis:7.2-alpine
+    container_name: astra-redis-ej
+    hostname: redis-ej
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks: [astra]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:RELEASE.2024-01-16T16-07-38Z
+    container_name: astra-minio
+    hostname: minio
+    command: server /data --console-address ":9091"
+    environment:
+      MINIO_ROOT_USER: astra-pilot
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-changeme-minio}
+    ports:
+      - "19000:9000"
+      - "19091:9091"
+    volumes:
+      - minio-data:/data
+    networks: [astra]
+    healthcheck:
+      test: ["CMD-SHELL", "mc alias set local http://localhost:9000 astra-pilot ${MINIO_SECRET_KEY:-changeme-minio} --api S3v4 >/dev/null 2>&1 && mc ping local --count 1 --quiet >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 10s
+      retries: 12
+
+  immudb:
+    image: codenotary/immudb:1.9.5
+    container_name: astra-immudb
+    hostname: immudb
+    ports:
+      - "13322:3322"
+    volumes:
+      - immudb-data:/var/lib/immudb
+    networks: [astra]
+    healthcheck:
+      test: ["CMD", "immuadmin", "status"]
+      interval: 5s
+      timeout: 10s
+      retries: 15
+
+  yugabyte:
+    image: yugabytedb/yugabyte:2.20.1.0-b97
+    container_name: astra-yugabyte
+    hostname: yugabyte
+    command: >
+      bash -c "bin/yugabyted start --daemon=false --background=false
+      --listen=0.0.0.0 --master_flags='rpc_bind_addresses=0.0.0.0'
+      --tserver_flags='pgsql_proxy_bind_address=0.0.0.0:5433'"
+    ports:
+      - "15433:5433"
+      - "17000:7000"
+    volumes:
+      - yugabyte-data:/home/yugabyte/var
+    networks: [astra]
+    healthcheck:
+      test: ["CMD", "ysqlsh", "-h", "localhost", "-p", "5433", "-U", "yugabyte", "-c", "SELECT 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: astra-kafka
+    hostname: kafka
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: controller,broker
+      # Two listeners:
+      #   INTERNAL — used by astra-api and astra-cts-worker (container-to-container)
+      #   EXTERNAL — exposed on the host for dev tools / monitoring
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9093,CONTROLLER://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9094
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+    ports:
+      - "19092:9093"    # EXTERNAL listener — host tools use this
+    networks: [astra]
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  temporal-postgres:
+    image: postgres:15-alpine
+    container_name: astra-temporal-postgres
+    hostname: temporal-postgres
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB: temporal
+    volumes:
+      - temporal-pg-data:/var/lib/postgresql/data
+    networks: [astra]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  temporal:
+    image: temporalio/auto-setup:1.24.2
+    container_name: astra-temporal
+    hostname: temporal
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: temporal
+      POSTGRES_SEEDS: temporal-postgres
+      DEFAULT_NAMESPACE_RETENTION: "30d"
+      LOG_LEVEL: warn
+    ports:
+      - "17233:7233"
+    networks: [astra]
+    depends_on:
+      temporal-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nc", "-z", "temporal", "7233"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+  temporal-ui:
+    image: temporalio/ui:2.26.2
+    container_name: astra-temporal-ui
+    hostname: temporal-ui
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: "http://localhost:18088"
+    ports:
+      - "18088:8080"
+    networks: [astra]
+    depends_on:
+      - temporal
+
+# ── ASTRA Services ────────────────────────────────────────────────────────────
+
+  astra-api:
+    image: astra/api:1.0.0
+    container_name: astra-api
+    hostname: astra-api
+    env_file: ./astra.env
+    environment:
+      # Container-internal service URLs override the template defaults
+      ASTRA_SECRET_REDIS_CONFIG_URL:       "redis://redis-cts:6379/1"
+      ASTRA_SECRET_DB_CONFIG_DSN:          "postgresql://yugabyte:yugabyte@yugabyte:5433/yugabyte"
+      ASTRA_SECRET_REDIS_CTS_URL:          "redis://redis-cts:6379/0"
+      ASTRA_SECRET_REDIS_EJ_URL:           "redis://redis-ej:6379/0"
+      ASTRA_SECRET_DB_CTS_DSN:             "postgresql://yugabyte:yugabyte@yugabyte:5433/yugabyte"
+      ASTRA_SECRET_KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      ASTRA_SECRET_TEMPORAL_HOST:          "temporal:7233"
+      # MinIO endpoint for SDK (no host port — internal)
+      MINIO_ENDPOINT: "minio:9000"
+      MINIO_SECURE:   "false"
+    ports:
+      - "8010:8010"
+    networks: [astra]
+    depends_on:
+      yugabyte:
+        condition: service_healthy
+      redis-cts:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      immudb:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8010/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  astra-cts-worker:
+    image: astra/cts-worker:1.0.0
+    container_name: astra-cts-worker
+    hostname: astra-cts-worker
+    env_file: ./astra.env
+    environment:
+      ASTRA_SECRET_REDIS_CONFIG_URL:       "redis://redis-cts:6379/1"
+      ASTRA_SECRET_DB_CONFIG_DSN:          "postgresql://yugabyte:yugabyte@yugabyte:5433/yugabyte"
+      ASTRA_SECRET_REDIS_CTS_URL:          "redis://redis-cts:6379/0"
+      ASTRA_SECRET_DB_CTS_DSN:             "postgresql://yugabyte:yugabyte@yugabyte:5433/yugabyte"
+      ASTRA_SECRET_KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      ASTRA_SECRET_TEMPORAL_HOST:          "temporal:7233"
+      MINIO_ENDPOINT: "minio:9000"
+      MINIO_SECURE:   "false"
+    networks: [astra]
+    depends_on:
+      temporal:
+        condition: service_healthy
+      yugabyte:
+        condition: service_healthy
+      redis-cts:
+        condition: service_healthy
+      astra-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  astra-web:
+    image: astra/web:1.0.0
+    container_name: astra-web
+    hostname: astra-web
+    ports:
+      - "80:80"
+    networks: [astra]
+    depends_on:
+      astra-api:
+        condition: service_healthy
+    restart: unless-stopped

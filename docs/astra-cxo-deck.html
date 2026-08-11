@@ -1,769 +1,1252 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ASTRA — Banking Platform · CXO Deck 2026</title>
+<meta name="viewport" content="width=1280">
+<meta name="color-scheme" content="light">
+
+<title>ASTRA — Platform for Banking 2.0 · CXO Deck 2026</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-
 :root{
-  --blue:#1741CC;      --blue-bg:#EEF1FB;   --blue-bd:#C0CAEE;
-  --teal:#0994B4;      --teal-bg:#E8F7FB;   --teal-bd:#B0D8E8;
-  --green:#0C9266;     --green-bg:#E6F7F3;  --green-bd:#A8DDD0;
-  --gold:#B87828;      --gold-bg:#FDF5E4;   --gold-bd:#E8D49A;
-  --violet:#6B31CE;    --violet-bg:#F2EDFC; --violet-bd:#C9BBF0;
-  --indigo:#3D31CE;    --indigo-bg:#E8EAFC; --indigo-bd:#C0BBF0;
-  --red:#C42B2B;       --red-bg:#FEF0F0;
-  --text:#0D1729;      --muted:#546275;     --faint:#8896A8;
-  --bg:#F0F2F7;        --card:#FFFFFF;      --border:#D5DAE8;
-  --cover:#091320;
+  --navy:#0B1E3D;--gold:#C8922A;--gold-lt:#FDF6E8;--gold-md:#E8C47A;
+  --blue:#1B4FD8;--blue-lt:#EEF2FC;--blue-md:#C0CAEE;
+  --teal:#0B7A75;--teal-lt:#E6F4F3;--teal-md:#A8D5D3;
+  --green:#0C8A5A;--green-lt:#E8F5EE;--green-md:#A8D5C0;
+  --violet:#6031C8;--violet-lt:#F0ECFC;--violet-md:#C0B0E8;
+  --red:#C42B2B;--red-lt:#FEF0F0;
+  --bg:#F2F5FB;--card:#FFFFFF;--border:#D6DCEE;
+  --text:#0B1E3D;--muted:#4E617A;--faint:#8A9BB0;
+  --cover:#06121F;
 }
-
-body{background:var(--bg);font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-  display:flex;flex-direction:column;align-items:center;gap:20px;padding:20px 20px 100px}
+body{background:var(--bg);font-family:system-ui,-apple-system,'Segoe UI',Helvetica,sans-serif;
+  display:flex;flex-direction:column;align-items:center;gap:20px;padding:20px 20px 110px}
 
 /* ── SLIDE SHELL ── */
-.slide{width:1280px;height:720px;position:relative;overflow:hidden;
-  border-radius:10px;box-shadow:0 2px 24px rgba(0,0,0,0.12);
-  display:none;background:var(--card)}
+.slide{width:1280px;height:720px;position:relative;overflow:hidden;border-radius:12px;
+  box-shadow:0 4px 36px rgba(11,30,61,0.16);display:none;background:var(--card)}
 .slide.active{display:block}
-@media print{body{background:#fff;padding:0;gap:0}
-  .slide{display:block!important;border-radius:0;box-shadow:none}
-  .nav-bar{display:none!important}}
+@media print{
+  @page{size:1280px 720px;margin:0}
+  html{width:1280px;margin:0;padding:0}
+  body{width:1280px;margin:0;padding:0;background:#fff;
+    display:block!important;align-items:unset!important;gap:0!important}
+  .slide{display:block!important;width:1280px;height:720px;
+    border-radius:0;box-shadow:none;overflow:hidden;position:relative;
+    page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid}
+  #s8{page-break-after:auto!important;break-after:auto!important}
+  .nav-bar{display:none!important}
+  .wm{display:none!important}
+}
 
-/* ── BRAND HEADER (every slide) ── */
-.sbrand{position:absolute;top:0;left:0;right:0;height:34px;
-  display:flex;align-items:center;justify-content:space-between;padding:0 52px;
-  border-bottom:1px solid var(--border);background:rgba(255,255,255,0.97);z-index:10}
-.sbrand-l{font-size:9px;font-weight:800;color:var(--blue);letter-spacing:2.5px;text-transform:uppercase}
-.sbrand-r{font-size:9px;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-weight:600}
-.dark .sbrand{background:rgba(9,19,32,0.82);border-bottom-color:rgba(255,255,255,0.09)}
-.dark .sbrand-l{color:rgba(255,255,255,0.48)}
-.dark .sbrand-r{color:rgba(255,255,255,0.26)}
+/* ── ASTRA A ICON ── */
+.a-icon{width:24px;height:24px;border-radius:6px;background:#F0B429;display:inline-flex;
+  align-items:center;justify-content:center;font-size:13px;font-weight:900;color:#0B1E3D;
+  letter-spacing:-0.5px;flex-shrink:0;font-family:Georgia,serif;line-height:1}
+.a-icon-lg{width:64px;height:64px;border-radius:15px;font-size:36px;
+  background:linear-gradient(135deg,#1B4FD8,#4D72F0);
+  box-shadow:0 0 0 1px rgba(255,255,255,0.10),0 8px 32px rgba(27,79,216,0.28)}
 
-/* ── WATERMARK + PAGE NUM ── */
-.wm{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
-  font-size:8.5px;font-weight:700;letter-spacing:3.5px;text-transform:uppercase;
-  color:rgba(0,0,0,0.11);white-space:nowrap;pointer-events:none;z-index:20}
-.dark .wm{color:rgba(255,255,255,0.10)}
-.pg{position:absolute;bottom:12px;right:20px;font-size:9.5px;font-weight:600;letter-spacing:0.5px;
-  color:rgba(0,0,0,0.17);z-index:20}
-.dark .pg{color:rgba(255,255,255,0.22)}
+/* ── BRAND HEADER ── */
+.sbrand{position:absolute;top:0;left:0;right:0;height:36px;display:flex;align-items:center;
+  justify-content:space-between;padding:0 32px;border-bottom:1px solid var(--border);
+  background:rgba(255,255,255,0.96);backdrop-filter:blur(4px);z-index:10;gap:10px}
+.sbrand-l{display:flex;align-items:center;gap:5px}
+.sbrand-l .a-icon+.sbrand-sep{display:none}
+.sbrand-word{font-size:11px;font-weight:800;color:var(--navy);letter-spacing:2.5px;text-transform:uppercase}
+.sbrand-sep{width:1px;height:13px;background:var(--border);flex-shrink:0}
+.sbrand-tag{font-size:9px;color:var(--faint);font-weight:500;letter-spacing:0.3px}
+.sbrand-r{font-size:9px;color:var(--faint);font-weight:500}
+.dark .sbrand{background:rgba(6,18,31,0.88);border-bottom-color:rgba(255,255,255,0.07)}
+.dark .sbrand-word{color:rgba(255,255,255,0.50)}
+.dark .sbrand-sep{background:rgba(255,255,255,0.10)}
+.dark .sbrand-tag,.dark .sbrand-r{color:rgba(255,255,255,0.26)}
+.dark .a-icon{background:rgba(255,255,255,0.10);color:rgba(255,255,255,0.70)}
 
-/* ── CHIPS ── */
-.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 12px;
-  border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase}
-.ch-b{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd)}
-.ch-t{background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal-bd)}
-.ch-g{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)}
-.ch-a{background:var(--gold-bg);color:var(--gold);border:1px solid var(--gold-bd)}
-.ch-v{background:var(--violet-bg);color:var(--violet);border:1px solid var(--violet-bd)}
-.ch-i{background:var(--indigo-bg);color:var(--indigo);border:1px solid var(--indigo-bd)}
+/* ── WATERMARK / PAGE ── */
+.wm{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);font-size:7.5px;font-weight:700;
+  letter-spacing:3.5px;text-transform:uppercase;color:rgba(11,30,61,0.09);white-space:nowrap;pointer-events:none;z-index:20}
+.dark .wm{color:rgba(255,255,255,0.07)}
+.pg{position:absolute;bottom:9px;right:18px;font-size:9px;font-weight:600;
+  color:rgba(11,30,61,0.16);z-index:20;font-variant-numeric:tabular-nums}
+.dark .pg{color:rgba(255,255,255,0.18)}
 
-/* ── SLIDE HEADER (all light slides) ── */
-.sh{position:absolute;top:44px;left:52px;right:52px}
-.sh-title{font-size:24px;font-weight:800;color:var(--text);letter-spacing:-0.4px;
-  margin-top:10px;line-height:1.2;text-wrap:balance}
-.sh-sub{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.48;max-width:900px}
+/* ── SLIDE CONTENT ── */
+.sc{position:absolute;top:46px;left:42px;right:42px;bottom:28px}
+
+/* ── SLIDE HEADER ── */
+.sh{margin-bottom:14px}
+.sh-eye{display:inline-flex;align-items:center;gap:6px;padding:3px 11px 3px 5px;
+  border-radius:100px;font-size:9px;font-weight:700;letter-spacing:0.08em;
+  text-transform:uppercase;margin-bottom:9px}
+.eye-b{background:var(--blue-lt);color:var(--blue);border:1px solid var(--blue-md)}
+.eye-g{background:var(--gold-lt);color:var(--gold);border:1px solid var(--gold-md)}
+.eye-t{background:var(--teal-lt);color:var(--teal);border:1px solid var(--teal-md)}
+.eye-v{background:var(--violet-lt);color:var(--violet);border:1px solid var(--violet-md)}
+.eye-n{background:var(--green-lt);color:var(--green);border:1px solid var(--green-md)}
+.sh-title{font-size:24px;font-weight:800;color:var(--text);letter-spacing:-0.4px;line-height:1.18;text-wrap:balance}
+.sh-sub{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.55;max-width:860px}
 
 /* ── GRADIENT TEXT ── */
-.g-gold{background:linear-gradient(135deg,#B87828 0%,#E8B94A 100%);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.g-blue{background:linear-gradient(135deg,#1741CC 0%,#4D72F0 100%);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.g-green{background:linear-gradient(135deg,#0C9266 0%,#1EC494 100%);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.g-teal{background:linear-gradient(135deg,#0994B4 0%,#22C4E0 100%);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.g-gold{background:linear-gradient(135deg,#C8922A,#E8B94A);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.g-blue{background:linear-gradient(135deg,#1B4FD8,#5B7FF0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.g-teal{background:linear-gradient(135deg,#0B7A75,#18B8B0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 
 /* ── NAV BAR ── */
-.nav-bar{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
-  display:flex;align-items:center;gap:10px;
-  background:rgba(9,19,32,0.92);backdrop-filter:blur(10px);
-  border-radius:40px;padding:7px 16px;z-index:1000;border:1px solid rgba(255,255,255,0.08)}
-.nav-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.26);
+.nav-bar{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:8px;background:rgba(6,18,31,0.90);
+  backdrop-filter:blur(12px);border-radius:40px;padding:6px 14px;z-index:1000;
+  border:1px solid rgba(255,255,255,0.09)}
+.nav-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.24);
   cursor:pointer;transition:all .2s ease;flex-shrink:0}
-.nav-dot.active{background:#60A5FA;width:18px;border-radius:4px}
-.nav-btn{background:none;border:none;color:rgba(255,255,255,0.58);font-size:15px;
-  cursor:pointer;padding:3px 8px;border-radius:5px;transition:all .15s;line-height:1}
-.nav-btn:hover{background:rgba(255,255,255,0.10);color:white}
-.ncount{font-size:10.5px;color:rgba(255,255,255,0.40);font-weight:600;
-  min-width:36px;text-align:center;font-variant-numeric:tabular-nums}
+.nav-dot.active{background:#4D72F0;width:14px;border-radius:3px}
+.nav-btn{background:none;border:none;color:rgba(255,255,255,0.52);font-size:14px;
+  cursor:pointer;padding:3px 7px;border-radius:5px;transition:all .15s;line-height:1}
+.nav-btn:hover{background:rgba(255,255,255,0.10);color:#fff}
+.ncount{font-size:10px;color:rgba(255,255,255,0.32);font-weight:600;min-width:28px;
+  text-align:center;font-variant-numeric:tabular-nums}
 
-/*═══ SLIDE 1 — COVER ═══*/
-#s1{background:var(--cover);background-image:radial-gradient(rgba(255,255,255,0.055) 1px,transparent 1px);background-size:26px 26px}
-#s1::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 55%,transparent 30%,rgba(0,0,0,0.52) 100%);pointer-events:none;z-index:1}
-.cv-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2;padding:48px;text-align:center}
-.cv-name{font-size:104px;font-weight:900;letter-spacing:-4px;line-height:0.88;margin-top:16px}
-.cv-full{font-size:13.5px;color:rgba(255,255,255,0.42);letter-spacing:1.8px;margin-top:20px;text-transform:uppercase;font-weight:500}
-.cv-tag{font-size:20px;font-weight:300;color:rgba(255,255,255,0.68);margin-top:22px;letter-spacing:0.3px}
-.cv-meta{position:absolute;bottom:38px;left:52px;right:52px;display:flex;align-items:flex-end;justify-content:space-between;z-index:2}
-.cv-founder{color:rgba(255,255,255,0.78)}
-.cvf-name{font-size:14px;font-weight:700;margin-bottom:5px}
-.cvf-creds{font-size:11px;color:rgba(255,255,255,0.40);line-height:1.65}
-.cv-badges{display:flex;gap:10px;align-items:flex-end}
-.cv-badge{background:rgba(255,255,255,0.055);border:1px solid rgba(255,255,255,0.13);border-radius:8px;padding:9px 14px;text-align:right}
-.cvb-lbl{font-size:8.5px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,0.28);margin-bottom:3px}
-.cvb-val{font-size:12px;font-weight:600;color:rgba(255,255,255,0.62)}
+/* ══════ SLIDE 1 — COVER ══════ */
+#s1{background:var(--cover);
+  background-image:radial-gradient(ellipse 800px 450px at 65% 35%,rgba(27,79,216,0.14) 0%,transparent 70%),
+    radial-gradient(ellipse 400px 280px at 18% 72%,rgba(200,146,42,0.07) 0%,transparent 70%),
+    linear-gradient(175deg,#06121F 0%,#091828 100%)}
+#s1::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(255,255,255,0.022) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,0.022) 1px,transparent 1px);
+  background-size:38px 38px}
+.cv-inner{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;padding:40px 80px 110px}
+.cv-astral{font-size:108px;font-weight:900;letter-spacing:-5px;line-height:0.88;font-family:Georgia,serif}
+.cv-wordmark{display:inline-flex;align-items:center;gap:8px;margin-bottom:4px}
+.cv-wm-a{background:#F0B429;color:#0B1E3D;font-family:Georgia,serif;font-size:88px;
+  font-weight:900;border-radius:16px;display:inline-flex;align-items:center;
+  justify-content:center;width:100px;height:100px;line-height:1;flex-shrink:0}
+.cv-wm-stra{font-size:108px;font-weight:900;letter-spacing:-3px;line-height:1;font-family:Georgia,serif}
+.cv-full{font-size:11.5px;color:rgba(255,255,255,0.36);letter-spacing:2px;margin-top:16px;
+  text-transform:uppercase;font-weight:500}
+.cv-tag{font-size:18px;font-weight:300;color:rgba(255,255,255,0.62);margin-top:14px;letter-spacing:0.2px}
+.cv-eq{margin-top:22px;display:inline-flex;align-items:center;gap:0;
+  background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:100px;padding:8px 22px}
+.cv-eq-text{font-size:12.5px;color:rgba(255,255,255,0.74);font-weight:500;line-height:1.5}
+.cv-eq-hi{font-weight:700;color:rgba(255,255,255,0.90)}
+.cv-eq-dev{font-size:14px;color:#E8C47A;font-weight:700}
+.cv-eq-tag{font-size:10.5px;color:rgba(255,255,255,0.35);margin-left:4px}
+.cv-footer{position:absolute;bottom:24px;left:42px;right:42px;z-index:2;
+  display:flex;align-items:flex-end;justify-content:space-between}
+.cv-founders{display:flex;gap:32px}
+.cvf{border-left:2px solid rgba(255,255,255,0.10);padding-left:14px}
+.cvf-role{font-size:8px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;
+  color:rgba(255,255,255,0.28);margin-bottom:5px}
+.cvf-name{font-size:14px;font-weight:700;color:rgba(255,255,255,0.82);margin-bottom:3px}
+.cvf-creds{font-size:10px;color:rgba(255,255,255,0.36);line-height:1.72}
+.cv-badges{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.cv-badge{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);
+  border-radius:8px;padding:7px 12px;text-align:right}
+.cvb-lbl{font-size:7.5px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:rgba(255,255,255,0.24);margin-bottom:2px}
+.cvb-val{font-size:11px;font-weight:600;color:rgba(255,255,255,0.56)}
 
-/*═══ SLIDE 2 — TOC ═══*/
-#s2{background:#F4F6FC}
-.toc-hd{position:absolute;top:46px;left:0;right:0;text-align:center}
-.toc-eye{font-size:9.5px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
-.toc-title{font-size:26px;font-weight:800;color:var(--text);letter-spacing:-0.4px}
-.toc-wrap{position:absolute;top:118px;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center}
+/* ══════ SLIDE 2 — WHY NOW ══════ */
+#s2{background:linear-gradient(160deg,#F2F5FB 0%,#EAF0FF 100%)}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px}
+.sbox{border-radius:12px;padding:16px 18px;background:var(--card);border:1.5px solid var(--border);
+  position:relative;overflow:hidden}
+.sbox::after{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.sbox-b::after{background:linear-gradient(90deg,var(--blue),#5B7FF0)}
+.sbox-g::after{background:linear-gradient(90deg,var(--gold),#E8B94A)}
+.sbox-t::after{background:linear-gradient(90deg,var(--teal),#18B8B0)}
+.sbox-r::after{background:linear-gradient(90deg,var(--red),#E05050)}
+.sv{font-size:30px;font-weight:900;line-height:1;letter-spacing:-0.8px;font-variant-numeric:tabular-nums}
+.sl{font-size:9.5px;font-weight:700;color:var(--muted);margin-top:6px;text-transform:uppercase;letter-spacing:0.06em}
+.ss{font-size:10px;color:var(--faint);margin-top:2px;line-height:1.4}
+.why-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.col-lbl{font-size:8.5px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--faint);
+  margin-bottom:9px;display:flex;align-items:center;gap:7px}
+.col-lbl::after{content:'';flex:1;height:1px;background:var(--border)}
+.wi{display:flex;align-items:flex-start;gap:9px;padding:8px 10px;border-radius:8px;margin-bottom:6px;
+  background:var(--card);border:1px solid var(--border)}
+.wi-ico{font-size:17px;line-height:1;flex-shrink:0;margin-top:1px}
+.wi-t{font-size:11.5px;font-weight:700;color:var(--text);margin-bottom:2px}
+.wi-b{font-size:10px;color:var(--muted);line-height:1.45}
+.wi-future{background:linear-gradient(135deg,rgba(27,79,216,0.04),rgba(27,79,216,0.01));
+  border-color:rgba(27,79,216,0.12)}
+.callout{margin-top:12px;background:linear-gradient(135deg,rgba(11,30,61,0.05),rgba(27,79,216,0.04));
+  border:1px solid rgba(27,79,216,0.13);border-radius:10px;padding:10px 15px;
+  display:flex;align-items:center;gap:10px}
+.callout-ico{font-size:18px;flex-shrink:0}
+.callout-t{font-size:11.5px;font-weight:700;color:var(--navy);font-style:italic}
 
-/*═══ SLIDE 3 — TEAM ═══*/
-.team-grid{position:absolute;top:148px;left:52px;right:52px;display:grid;grid-template-columns:1fr 1fr;gap:24px}
-.pcard{border:1px solid var(--border);border-radius:14px;overflow:hidden}
-.pcard-top{padding:20px 22px 16px;background:var(--card)}
-.pav{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;color:white;margin-bottom:12px;letter-spacing:-1px}
-.pname{font-size:17px;font-weight:800;color:var(--text);margin-bottom:2px}
-.ptitle{font-size:11px;color:var(--muted);margin-bottom:12px}
-.proles{display:flex;flex-direction:column;gap:6px}
-.prole{display:flex;align-items:flex-start;gap:9px;padding:8px 10px;background:var(--bg);border-radius:7px}
-.prd{width:3px;height:3px;border-radius:50%;background:var(--faint);flex-shrink:0;margin-top:5.5px}
-.prt{font-size:11.5px;font-weight:600;color:var(--text);line-height:1.35}
-.pro{font-size:10px;color:var(--faint);margin-top:1px}
-.pcard-bot{padding:11px 22px;background:var(--bg);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px}
-.pbot-row{display:flex;align-items:center;gap:12px}
-.pbot-lbl{font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--faint);flex-shrink:0;min-width:52px}
-.pbot-val{font-size:12.5px;font-weight:700;color:var(--text)}
-.ptags{display:flex;flex-wrap:wrap;gap:5px}
-.ptag{background:var(--card);border:1px solid var(--border);border-radius:100px;font-size:9.5px;font-weight:600;color:var(--muted);padding:2px 9px}
+/* ══════ SLIDE 3 — TECHNOLOGY ══════ */
+#s3{background:#F2F5FB}
+.tech3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.tbucket{border-radius:13px;overflow:hidden;border:1.5px solid var(--border);display:flex;flex-direction:column}
+.tbh{padding:15px 17px 12px;position:relative}
+.tbh-b{background:linear-gradient(145deg,var(--blue-lt),rgba(255,255,255,0.5));border-top:3px solid var(--blue)}
+.tbh-g{background:linear-gradient(145deg,var(--gold-lt),rgba(255,255,255,0.5));border-top:3px solid var(--gold)}
+.tbh-t{background:linear-gradient(145deg,var(--teal-lt),rgba(255,255,255,0.5));border-top:3px solid var(--teal)}
+.tbh-ico{font-size:26px;margin-bottom:9px;display:block}
+.tbh-title{font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px}
+.tbh-sub{font-size:10px;color:var(--muted);line-height:1.45}
+.tbb{padding:11px 17px 13px;flex:1;background:var(--card);display:flex;flex-direction:column;gap:5px}
+.tbi{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text)}
+.tbi-ico{font-size:13px;flex-shrink:0;width:18px;text-align:center}
+.tbi strong{font-weight:700}
+.tbf{margin-top:8px;padding:9px 11px;border-radius:8px;font-size:10px;font-weight:600;line-height:1.45}
+.tbf-b{background:var(--blue-lt);color:var(--blue);border:1px solid var(--blue-md)}
+.tbf-g{background:var(--gold-lt);color:#8A5E10;border:1px solid var(--gold-md)}
+.tbf-t{background:var(--teal-lt);color:var(--teal);border:1px solid var(--teal-md)}
+.tech-callout{margin-top:13px;background:linear-gradient(135deg,rgba(11,30,61,0.06),rgba(27,79,216,0.04));
+  border:1px solid rgba(27,79,216,0.14);border-radius:10px;padding:11px 16px;
+  display:flex;align-items:center;justify-content:space-between;gap:14px}
+.tc-text{font-size:12px;font-weight:700;color:var(--navy);font-style:italic;line-height:1.4}
+.tc-tag{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:100px;
+  background:var(--navy);color:#fff;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;white-space:nowrap}
 
-/*═══ SLIDE 4 — PROBLEM ═══*/
-.stat3{position:absolute;top:148px;left:52px;right:52px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.sbox{border-radius:12px;padding:16px 18px;border:1.5px solid var(--border);background:var(--card);text-align:center}
-.sv{font-size:28px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-0.5px}
-.sl{font-size:10px;font-weight:700;color:var(--muted);margin-top:7px;text-transform:uppercase;letter-spacing:0.07em}
-.ss{font-size:10px;color:var(--faint);margin-top:2px}
-.pains{position:absolute;top:264px;left:52px;right:52px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.pain{border:1px solid var(--border);border-radius:12px;padding:20px 22px;background:var(--card);border-top:3px solid}
-.pain-ico{font-size:24px;margin-bottom:10px}
-.pain-t{font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:7px}
-.pain-b{font-size:11.5px;color:var(--muted);line-height:1.58}
+/* ══════ SLIDE 4 — RESPONSIBLE AI ══════ */
+#s4{background:linear-gradient(155deg,#F2F5FB 0%,#EAF0FF 50%,#EEF7F5 100%)}
+.ai-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}
+.ai-card{border-radius:13px;padding:18px 14px;border:1.5px solid var(--border);
+  background:var(--card);display:flex;flex-direction:column}
+.ai-card-ico{font-size:28px;margin-bottom:10px}
+.ai-card-t{font-size:13.5px;font-weight:800;color:var(--text);margin-bottom:6px;line-height:1.2}
+.ai-card-b{font-size:10.5px;color:var(--muted);line-height:1.55;flex:1}
+.ai-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:9px}
+.ai-tag{background:var(--bg);border:1px solid var(--border);border-radius:100px;
+  font-size:8.5px;font-weight:600;color:var(--muted);padding:2px 7px}
+.ai-card.bc-b{border-top:3px solid var(--blue)}
+.ai-card.bc-t{border-top:3px solid var(--teal)}
+.ai-card.bc-g{border-top:3px solid var(--gold)}
+.ai-card.bc-r{border-top:3px solid var(--red)}
+.ai-trust{background:linear-gradient(135deg,var(--navy),#1B3F70);border-radius:12px;
+  padding:15px 20px;display:flex;align-items:center;justify-content:space-between;color:#fff;gap:20px}
+.at-left{flex:1}
+.at-q{font-size:15px;font-weight:700;color:rgba(255,255,255,0.92);font-style:italic;margin-bottom:4px}
+.at-s{font-size:10px;color:rgba(255,255,255,0.40)}
+.at-badges{display:flex;gap:8px;flex-shrink:0}
+.at-badge{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);
+  border-radius:8px;padding:8px 14px;text-align:center}
+.at-bv{font-size:15px;font-weight:900}
+.at-bl{font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  color:rgba(255,255,255,0.38);margin-top:2px}
+.ai-pipe{background:rgba(27,79,216,0.05);border:1.5px solid rgba(27,79,216,0.14);
+  border-radius:10px;padding:8px 14px;margin-bottom:10px;
+  display:flex;align-items:center;gap:12px}
+.ai-pipe-lbl{font-size:8px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+  color:var(--blue);white-space:nowrap;flex-shrink:0}
+.ai-pipe-steps{display:flex;align-items:center;gap:0;flex:1;justify-content:space-between}
+.ai-pipe-step{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.ai-pipe-ico{font-size:15px}
+.ai-pipe-t{font-size:9.5px;font-weight:600;color:var(--text)}
+.ai-pipe-arr{font-size:13px;color:rgba(27,79,216,0.30);margin:0 4px}
 
-/*═══ SLIDE 5 — PROCESS ═══*/
-.proc-wrap{position:absolute;top:148px;left:52px;right:52px;bottom:40px;display:grid;grid-template-columns:1fr 1px 1fr;gap:24px}
-.proc-col{display:flex;flex-direction:column;overflow:hidden}
-.proc-lbl{font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;padding:4px 12px;border-radius:100px;display:inline-flex;align-items:center;gap:6px;width:fit-content;margin-bottom:12px}
-.proc-div{background:var(--border);border-radius:2px}
-.pf{display:flex;flex-direction:column;gap:6px}
-.pf-step{display:flex;align-items:flex-start;gap:10px;border:1px solid var(--border);border-radius:8px;padding:9px 12px;background:var(--card)}
-.pfn{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;color:white;flex-shrink:0;margin-top:1px}
-.pfl{font-size:12px;font-weight:700;color:var(--text)}
-.pfs{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.4}
-.pf-arrow{padding:2px 0 2px 32px;font-size:11px;color:var(--faint)}
-.proc-note{margin-top:10px;padding:12px 14px;background:var(--green-bg);border-radius:8px;border-left:3px solid var(--green)}
-.pn-t{font-size:11.5px;font-weight:800;color:var(--green);margin-bottom:3px}
-.pn-b{font-size:11px;color:var(--muted);line-height:1.5}
+/* ══════ SLIDE 5 — PROCESSING ══════ */
+#s5{background:#F2F5FB}
+.proc-wrap{background:var(--card);border:1.5px solid var(--border);border-radius:13px;
+  padding:16px 14px;margin-bottom:12px}
+.proc-lbl{font-size:8.5px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;
+  color:var(--faint);margin-bottom:12px}
+.proc-flow{display:flex;align-items:center;justify-content:space-between;gap:3px}
+.pf-step{display:flex;flex-direction:column;align-items:center;text-align:center;flex:1;min-width:0}
+.pf-ico-wrap{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;
+  justify-content:center;font-size:20px;margin-bottom:6px;flex-shrink:0;
+  border:1.5px solid var(--border);background:var(--bg)}
+.pf-step.hl .pf-ico-wrap{background:linear-gradient(135deg,var(--blue),#5B7FF0);
+  border-color:var(--blue);box-shadow:0 4px 12px rgba(27,79,216,0.25)}
+.pf-lbl{font-size:9px;font-weight:700;color:var(--muted);line-height:1.3}
+.pf-step.hl .pf-lbl{color:var(--blue)}
+.pf-arr{font-size:12px;color:var(--border);flex-shrink:0;margin-bottom:18px}
+.stp-banner{background:linear-gradient(135deg,var(--blue),#5B7FF0);border-radius:10px;
+  padding:11px 16px;display:flex;align-items:center;gap:10px;color:#fff;margin-bottom:12px}
+.stp-ico{font-size:20px;flex-shrink:0}
+.stp-t{font-size:13px;font-weight:800}
+.stp-s{font-size:10px;opacity:0.70;margin-top:1px}
+.ops-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.ops{display:flex;align-items:flex-start;gap:9px;padding:11px 12px;border-radius:10px;
+  background:var(--card);border:1.5px solid var(--border)}
+.ops-ico{font-size:20px;flex-shrink:0}
+.ops-t{font-size:11.5px;font-weight:700;color:var(--text);margin-bottom:2px}
+.ops-b{font-size:10px;color:var(--muted);line-height:1.45}
+.catchphrase-bar{margin-top:10px;background:linear-gradient(135deg,rgba(200,146,42,0.07),rgba(200,146,42,0.03));
+  border:1px solid rgba(200,146,42,0.20);border-radius:9px;padding:10px 16px;
+  text-align:center;font-size:14px;font-weight:700;color:var(--navy);letter-spacing:0.1px}
+.catch-sep{color:var(--gold);margin:0 8px}
 
-/*═══ SLIDE 6 — SMB ═══*/
-.smb-wrap{position:absolute;top:148px;left:52px;right:52px;bottom:40px;display:grid;grid-template-columns:440px 1fr;gap:28px;align-items:start}
-.smb-bens{display:flex;flex-direction:column;gap:11px;padding-top:4px}
-.sben{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;background:var(--bg);border:1px solid var(--border)}
-.sbi{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
-.sbt{font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:3px}
-.sbb{font-size:11px;color:var(--muted);line-height:1.5}
+/* ══════ SLIDE 6 — ONE PLATFORM ══════ */
+#s6{background:linear-gradient(155deg,#F2F5FB 0%,#EAF0FF 100%)}
+.plat-cols{display:grid;grid-template-columns:1fr 360px;gap:16px}
+.roadmap{display:flex;flex-direction:column;gap:9px;flex:1;justify-content:space-between}
+.rm-row{display:flex;align-items:flex-start;gap:11px;padding:11px 14px;border-radius:11px;
+  border:1.5px solid var(--border);background:var(--card)}
+.rm-badge{min-width:58px;height:28px;border-radius:7px;display:flex;align-items:center;
+  justify-content:center;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:1px;flex-shrink:0}
+.rm-now{background:var(--blue);color:#fff}
+.rm-near{background:var(--teal-lt);color:var(--teal);border:1px solid var(--teal-md)}
+.rm-future{background:var(--gold-lt);color:var(--gold);border:1px solid var(--gold-md)}
+.rm-t{font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:3px}
+.rm-b{font-size:10px;color:var(--muted);line-height:1.45}
+.rm-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.rm-tag{background:var(--bg);border:1px solid var(--border);border-radius:100px;
+  font-size:8.5px;font-weight:600;color:var(--muted);padding:2px 7px}
+.sponsor-card{background:linear-gradient(155deg,#0B1E3D,#1B3F70);border-radius:14px;
+  padding:18px;color:#fff;display:flex;flex-direction:column;gap:11px;height:100%}
+.sp-head{font-size:12.5px;font-weight:800;margin-bottom:2px}
+.sp-sub{font-size:9.5px;color:rgba(255,255,255,0.42);margin-bottom:8px}
+.sp-bank{background:rgba(255,255,255,0.09);border:1px solid rgba(255,255,255,0.12);
+  border-radius:9px;padding:10px 13px}
+.sp-bank-n{font-size:12px;font-weight:700;margin-bottom:2px}
+.sp-bank-s{font-size:9px;color:rgba(255,255,255,0.42)}
+.sp-arr{text-align:center;font-size:11px;color:rgba(255,255,255,0.30);padding:4px 0}
+.sp-smbs{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.sp-smb{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.09);
+  border-radius:8px;padding:8px 10px;text-align:center}
+.sp-smb-n{font-size:9.5px;font-weight:700}
+.sp-smb-s{font-size:8px;color:rgba(255,255,255,0.38);margin-top:2px}
+.sp-bens{border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;display:flex;flex-direction:column;gap:5px}
+.sp-ben{display:flex;align-items:center;gap:7px;font-size:10px;color:rgba(255,255,255,0.65)}
+.sp-ben-ico{font-size:12px;flex-shrink:0}
+.plat-quote{margin-top:auto;padding-top:12px;background:linear-gradient(135deg,rgba(200,146,42,0.06),rgba(200,146,42,0.02));
+  border:1px solid rgba(200,146,42,0.18);border-radius:9px;padding:10px 15px;
+  font-size:11.5px;font-weight:600;color:var(--navy);font-style:italic}
+#s6 .plat-cols>div:first-child{display:flex;flex-direction:column}
 
-/*═══ SLIDE 7 — SOLUTION ═══*/
-.sol-wrap{position:absolute;top:148px;left:52px;right:52px;bottom:40px}
-.sol-hero{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
-.sol-st{border-radius:12px;padding:20px 14px;text-align:center;border:1.5px solid var(--border);background:var(--card);border-top:3px solid}
-.ssv{font-size:32px;font-weight:900;letter-spacing:-1px;line-height:1;font-variant-numeric:tabular-nums}
-.ssl{font-size:9.5px;font-weight:700;color:var(--muted);margin-top:8px;text-transform:uppercase;letter-spacing:0.07em}
-.sss{font-size:9.5px;color:var(--faint);margin-top:3px;line-height:1.4}
-.sol-feats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.sfeat{display:flex;align-items:flex-start;gap:11px;padding:14px 15px;border:1px solid var(--border);border-radius:10px;background:var(--card)}
-.sfi{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
-.sft{font-size:12px;font-weight:700;color:var(--text);margin-bottom:3px}
-.sfb{font-size:10.5px;color:var(--muted);line-height:1.5}
-
-/*═══ SLIDE 8 — TRAJECTORY ═══*/
-.traj-wrap{position:absolute;top:148px;left:52px;right:52px;bottom:40px}
-.traj-tl{display:grid;grid-template-columns:repeat(4,1fr);margin-bottom:24px;position:relative}
-.traj-tl::after{content:'';position:absolute;top:15px;left:100px;right:100px;height:2px;background:linear-gradient(90deg,var(--blue),var(--teal));z-index:0;opacity:0.45}
-.ttp{display:flex;flex-direction:column;align-items:center;text-align:center;z-index:1;padding:0 6px}
-.ttd{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;margin-bottom:10px;flex-shrink:0;border:2px solid}
-.ttt{font-size:20px;font-weight:900;letter-spacing:-0.5px;margin-bottom:2px;line-height:1}
-.ttl{font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px}
-.tts{font-size:10px;color:var(--muted);line-height:1.45}
-.traj-section-lbl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:2.5px;color:var(--faint);margin-bottom:10px}
-.traj-pills{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.tpill{border-radius:11px;padding:16px 14px;border:1px solid var(--border);border-top:3px solid;background:var(--card)}
-.tpi{font-size:20px;margin-bottom:9px}
-.tpt{font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:5px}
-.tpb{font-size:10.5px;color:var(--muted);line-height:1.5}
-
-/*═══ SLIDE 9 — COMMERCIAL ═══*/
-.comm-wrap{position:absolute;top:148px;left:52px;right:52px;bottom:40px;display:flex;flex-direction:column;gap:14px}
-.comm-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-.ccol{border:1px solid var(--border);border-radius:13px;overflow:hidden;display:flex;flex-direction:column}
-.cch{padding:16px 18px;border-bottom:1px solid var(--border)}
-.ccico{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:10px}
-.ccn{font-size:14.5px;font-weight:800;color:var(--text);margin-bottom:2px}
-.cct{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted)}
-.ccb{padding:13px 18px;flex:1;display:flex;flex-direction:column;gap:7px;background:var(--bg)}
-.cci{display:flex;align-items:flex-start;gap:7px;font-size:11.5px;color:var(--muted);line-height:1.45}
-.ccbul{width:4px;height:4px;border-radius:50%;background:var(--faint);flex-shrink:0;margin-top:5px}
-.ccf{padding:11px 18px;border-top:1px solid var(--border);background:var(--card)}
-.ccfl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--faint);margin-bottom:3px}
-.ccfv{font-size:12.5px;font-weight:700;color:var(--text)}
-.comm-foot{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border:1px solid var(--border);border-radius:11px;background:var(--bg)}
-.cf-text{font-size:12px;color:var(--muted);line-height:1.5;max-width:680px}
-.cf-chips{display:flex;gap:8px;flex-shrink:0}
-
-/*═══ SLIDE 10 — PILOT ═══*/
-.pilot-wrap{position:absolute;top:148px;left:52px;right:52px;bottom:40px;display:grid;grid-template-columns:1fr 290px;gap:24px;align-items:start}
-.pilot-phases{display:flex;flex-direction:column;gap:12px}
-.pph{display:flex;align-items:flex-start;gap:14px;border:1px solid var(--border);border-radius:12px;padding:16px 18px;background:var(--card)}
-.ppn{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:white;flex-shrink:0}
-.ppey{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--faint);margin-bottom:3px}
-.ppt{font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px}
-.ppb{font-size:11.5px;color:var(--muted);line-height:1.5}
-.pilot-r{display:flex;flex-direction:column;gap:12px;padding-top:2px}
-.zdg{background:linear-gradient(135deg,#0C9266 0%,#059669 100%);border-radius:13px;padding:20px 18px;color:white}
-.zdg-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2.5px;opacity:0.62;margin-bottom:5px}
-.zdg-t{font-size:15px;font-weight:800;margin-bottom:7px;line-height:1.2}
-.zdg-b{font-size:11px;opacity:0.82;line-height:1.55}
-.cta-box{border:1px solid var(--blue-bd);border-radius:13px;padding:18px;background:var(--blue-bg);text-align:center}
-.cta-lbl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:5px}
-.cta-email{font-size:15px;font-weight:800;color:var(--blue);margin-bottom:4px}
-.cta-phone{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:2px}
-.cta-hint{font-size:10px;color:var(--faint);line-height:1.4;margin-top:4px}
-.why-box{border:1px solid var(--border);border-radius:11px;padding:14px 16px;background:var(--bg)}
-.why-lbl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--faint);margin-bottom:8px}
-.why-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px}
-.why-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:4px}
-.why-t{font-size:10.5px;color:var(--muted);line-height:1.45}
+/* ══════ SLIDE 8 — CLOSING VISION ══════ */
+#s8{background:var(--cover);
+  background-image:radial-gradient(ellipse 900px 500px at 50% 28%,rgba(27,79,216,0.16) 0%,transparent 68%),
+    radial-gradient(ellipse 350px 250px at 12% 80%,rgba(200,146,42,0.09) 0%,transparent 70%),
+    radial-gradient(ellipse 300px 220px at 88% 80%,rgba(11,122,117,0.08) 0%,transparent 70%)}
+#s8::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(255,255,255,0.018) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,0.018) 1px,transparent 1px);background-size:46px 46px}
+.vi{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:46px 80px}
+.vi-sup{font-size:10px;font-weight:700;letter-spacing:4px;text-transform:uppercase;
+  color:rgba(255,255,255,0.28);margin-bottom:14px}
+.vi-h{font-size:36px;font-weight:800;color:#fff;text-align:center;line-height:1.2;
+  letter-spacing:-0.5px;margin-bottom:8px;text-wrap:balance}
+.vi-s{font-size:15px;color:rgba(255,255,255,0.45);text-align:center;font-weight:300;
+  margin-bottom:30px;line-height:1.6;max-width:760px;letter-spacing:0.1px}
+.vi-pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;width:100%;margin-bottom:28px}
+.vp{background:rgba(255,255,255,0.055);border:1px solid rgba(255,255,255,0.10);
+  border-radius:14px;padding:20px 16px;text-align:center}
+.vp-ico{font-size:28px;margin-bottom:10px}
+.vp-t{font-size:15px;font-weight:800;color:#fff;margin-bottom:10px}
+.vp-pts{display:flex;flex-direction:column;gap:5px}
+.vp-p{font-size:11px;color:rgba(255,255,255,0.48);line-height:1.4}
+.vi-catch{font-size:19px;font-weight:700;letter-spacing:0.05px;
+  background:linear-gradient(135deg,#C8922A,#E8C97A);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.vi-legal{position:absolute;bottom:20px;left:0;right:0;text-align:center;z-index:2;
+  font-size:8.5px;color:rgba(255,255,255,0.15);letter-spacing:0.3px}
+.vi-poc{margin-top:18px;border:1.5px solid rgba(200,146,42,0.35);border-radius:12px;
+  background:rgba(200,146,42,0.07);padding:12px 22px;width:100%;max-width:900px}
+.vi-poc-t{font-size:11.5px;font-weight:800;color:#E8C47A;margin-bottom:9px}
+.vi-poc-chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:9px}
+.vi-poc-chip{background:rgba(255,255,255,0.09);border:1px solid rgba(255,255,255,0.14);
+  border-radius:100px;padding:3px 11px;font-size:9.5px;font-weight:600;color:rgba(255,255,255,0.72)}
+.vi-poc-foot{display:flex;align-items:center;justify-content:space-between;font-size:9.5px;
+  color:rgba(255,255,255,0.38)}
+.vi-poc-contact{color:#E8C47A;font-weight:700;font-size:10px}
 </style>
 </head>
 <body>
-
-<!-- ═══════════════════ SLIDE 1 — COVER ═══════════════════ -->
+<!-- ══════════════════════════════════════════════════
+     SLIDE 1 — COVER
+     ══════════════════════════════════════════════════ -->
 <div class="slide dark" id="s1">
   <div class="sbrand">
-    <span class="sbrand-l">ASTRA — Banking Platform</span>
-    <span class="sbrand-r">admin@9va.in &nbsp;·&nbsp; +91 9819 88 2904 &nbsp;·&nbsp; Confidential 2026</span>
+    <div class="sbrand-l">
+      <div class="a-icon">A</div>
+      <div class="sbrand-sep"></div>
+      <span class="sbrand-word">STRA</span>
+      <div class="sbrand-sep"></div>
+      <span class="sbrand-tag">Platform for Banking 2.0</span>
+    </div>
+    <span class="sbrand-r">Confidential · 2026</span>
   </div>
   <div class="cv-inner">
-    <div class="cv-name g-gold">ASTRA</div>
-    <div class="cv-full">Automated Settlement and Transaction Recognition Architecture</div>
+    <div class="cv-wordmark">
+      <span class="cv-wm-a">A</span><span class="cv-wm-stra g-gold">STRA</span>
+    </div>
+    <div class="cv-full">Automated Settlement &amp; Transaction Recognition Architecture</div>
     <div class="cv-tag">Precision Banking.&nbsp;&nbsp;Zero Compromise.</div>
+    <div class="cv-eq">
+      <span class="cv-eq-text">
+        <span class="cv-eq-hi">Nilesh Shah</span>&nbsp;(Platform)&nbsp;&nbsp;+&nbsp;&nbsp;<span class="cv-eq-hi">Jitendra Gupta</span>&nbsp;(Product)&nbsp;&nbsp;=&nbsp;&nbsp;<span class="cv-eq-dev">ASTRA (अस्त्र)</span><span class="cv-eq-tag">&nbsp;— Platform for Banking 2.0</span>
+      </span>
+    </div>
   </div>
-  <div class="cv-meta">
-    <div class="cv-founder">
-      <div class="cvf-name">Nilesh Shah</div>
-      <div class="cvf-creds">Head of AI — NPCI &nbsp;·&nbsp; CTO Digital Banking — Fullerton India / SMFG<br>Director BSG — Piramal Finance &nbsp;·&nbsp; +91 9819 88 2904</div>
+  <div class="cv-footer">
+    <div class="cv-founders">
+      <div class="cvf">
+        <div class="cvf-role" style="color:#E8C47A">Platform</div>
+        <div class="cvf-name">Nilesh Shah <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.40)">| 25 yrs · Engg</span></div>
+        <div class="cvf-creds">
+          Head of Automation and AI — NPCI<br>
+          CTO Digital Lending &amp; Transformation — Fullerton India / SMFG<br>
+          Director Business Solutions Group — Piramal Finance
+        </div>
+      </div>
+      <div class="cvf">
+        <div class="cvf-role" style="color:#E8C47A">Product</div>
+        <div class="cvf-name">Jitendra Gupta <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.40)">| 25 yrs · CA</span></div>
+        <div class="cvf-creds">
+          Investment Banking &amp; Capital Markets · Treasury<br>
+          Banking, Finance, IPO, Resolution Professional (RP)<br>
+          RBI Regulatory Frameworks &amp; Clearing Operations
+        </div>
+      </div>
     </div>
     <div class="cv-badges">
       <div class="cv-badge"><div class="cvb-lbl">Contact</div><div class="cvb-val">admin@9va.in</div></div>
+      <div class="cv-badge"><div class="cvb-lbl">Mobile</div><div class="cvb-val">+91 9819 88 2904</div></div>
       <div class="cv-badge"><div class="cvb-lbl">Classification</div><div class="cvb-val">Confidential</div></div>
     </div>
   </div>
   <div class="wm">Confidential — Not for Distribution</div>
-  <div class="pg">1 / 10</div>
+  <div class="pg">1 / 7</div>
 </div>
 
-<!-- ═══════════════════ SLIDE 2 — TOC ═══════════════════ -->
+<!-- ══════════════════════════════════════════════════
+     SLIDE 2 — WHY NOW
+     ══════════════════════════════════════════════════ -->
 <div class="slide" id="s2">
-  <div class="sbrand"><span class="sbrand-l">ASTRA — Banking Platform</span><span class="sbrand-r">Confidential · 2026</span></div>
-  <div class="toc-hd">
-    <div class="toc-eye">Navigation</div>
-    <div class="toc-title">What We Cover Today</div>
+  <div class="sbrand">
+    <div class="sbrand-l">
+      <div class="a-icon">A</div>
+      <div class="sbrand-sep"></div>
+      <span class="sbrand-word">STRA</span>
+      <div class="sbrand-sep"></div>
+      <span class="sbrand-tag">Why Now</span>
+    </div>
+    <span class="sbrand-r">Confidential · 2026</span>
   </div>
-  <div class="toc-wrap">
-    <svg width="1020" height="380" viewBox="0 0 1020 380" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M403,54 L452,82 L452,138 L403,166 L354,138 L354,82 Z" fill="#F2EDFC" stroke="#6B31CE" stroke-width="1.5"/>
-      <text x="403" y="100" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" font-weight="800" fill="#6B31CE" letter-spacing="2">01</text>
-      <text x="403" y="119" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#3B1C75">Team</text>
-      <text x="403" y="135" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="#7B5EBF">&amp; Credentials</text>
-
-      <path d="M500,54 L549,82 L549,138 L500,166 L451,138 L451,82 Z" fill="#FDF5E4" stroke="#B87828" stroke-width="1.5"/>
-      <text x="500" y="100" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" font-weight="800" fill="#B87828" letter-spacing="2">02</text>
-      <text x="500" y="119" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#6B4010">Problem</text>
-      <text x="500" y="135" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="#A8803A">&amp; Market</text>
-
-      <path d="M597,54 L646,82 L646,138 L597,166 L548,138 L548,82 Z" fill="#EEF1FB" stroke="#1741CC" stroke-width="1.5"/>
-      <text x="597" y="100" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" font-weight="800" fill="#1741CC" letter-spacing="2">03</text>
-      <text x="597" y="119" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#0D257A">CTS</text>
-      <text x="597" y="135" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="#3D5ABF">Process</text>
-
-      <path d="M452,138 L501,166 L501,222 L452,250 L403,222 L403,166 Z" fill="#E8F7FB" stroke="#0994B4" stroke-width="1.5"/>
-      <text x="452" y="184" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" font-weight="800" fill="#0994B4" letter-spacing="2">04</text>
-      <text x="452" y="203" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#054F66">SMB</text>
-      <text x="452" y="219" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="#3A88A0">Network</text>
-
-      <path d="M549,138 L598,166 L598,222 L549,250 L500,222 L500,166 Z" fill="#E6F7F3" stroke="#0C9266" stroke-width="1.5"/>
-      <text x="549" y="184" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" font-weight="800" fill="#0C9266" letter-spacing="2">05</text>
-      <text x="549" y="203" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#054030">Solution</text>
-      <text x="549" y="219" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="#3A8A6C">Capabilities</text>
-
-      <path d="M403,222 L452,250 L452,306 L403,334 L354,306 L354,250 Z" fill="#E8EAFC" stroke="#3D31CE" stroke-width="1.5"/>
-      <text x="403" y="268" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" font-weight="800" fill="#3D31CE" letter-spacing="2">06</text>
-      <text x="403" y="287" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#1A1066">Trajectory</text>
-      <text x="403" y="303" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="#5B4FBF">&amp; Roadmap</text>
-
-      <path d="M500,222 L549,250 L549,306 L500,334 L451,306 L451,250 Z" fill="#FDF5E4" stroke="#C9862C" stroke-width="1.5"/>
-      <text x="500" y="268" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" font-weight="800" fill="#C9862C" letter-spacing="2">07</text>
-      <text x="500" y="287" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#7A4A08">Commercial</text>
-      <text x="500" y="303" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="#B07022">Model</text>
-
-      <path d="M597,222 L646,250 L646,306 L597,334 L548,306 L548,250 Z" fill="#E6F7F3" stroke="#0C9266" stroke-width="1.5"/>
-      <text x="597" y="268" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" font-weight="800" fill="#0C9266" letter-spacing="2">08</text>
-      <text x="597" y="287" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#054030">90-Day</text>
-      <text x="597" y="303" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="#3A8A6C">Pilot</text>
-    </svg>
+  <div class="sc">
+    <div class="sh">
+      <div class="sh-eye eye-g">📊 Market &amp; Opportunity</div>
+      <div class="sh-title">India's Cheque Ecosystem Is Ready for Its Next Evolution</div>
+      <div class="sh-sub">One of the world's largest cheque clearing systems — yet still constrained by legacy file-based processing, heavy CBS dependency, and mounting fraud complexity.</div>
+    </div>
+    <div class="stats-row">
+      <div class="sbox sbox-b">
+        <div class="sv g-blue">₹71 Lakh Crore</div>
+        <div class="sl">Cleared Annually — FY25</div>
+        <div class="ss">Total CTS clearing value through NGCH India</div>
+      </div>
+      <div class="sbox sbox-g">
+        <div class="sv g-gold">65–70 Crore</div>
+        <div class="sl">Cheques Per Year</div>
+        <div class="ss">Instruments processed through the CTS grid annually</div>
+      </div>
+      <div class="sbox sbox-r">
+        <div class="sv" style="background:linear-gradient(135deg,#C42B2B,#E05050);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">3 Hours</div>
+        <div class="sl">IET Window — RBI Jan 2026</div>
+        <div class="ss">Inward examination mandate — missed = bank pays regardless of fraud</div>
+      </div>
+    </div>
+    <div class="why-cols">
+      <div>
+        <div class="col-lbl">⚠️ Today's Operational Reality</div>
+        <div class="wi">
+          <div class="wi-ico">⏱️</div>
+          <div><div class="wi-t">File-Based Processing — Peak Hour Pressure</div>
+          <div class="wi-b">Batch-driven clearing creates processing spikes. Every clearing session is a manual race against the clock.</div></div>
+        </div>
+        <div class="wi">
+          <div class="wi-ico">🔗</div>
+          <div><div class="wi-t">Heavy CBS Dependency</div>
+          <div class="wi-b">Every inward cheque triggers multiple live CBS calls — slowing decisions and creating single-point-of-failure risk.</div></div>
+        </div>
+        <div class="wi">
+          <div class="wi-ico">🔄</div>
+          <div><div class="wi-t">Multiple Reconciliation Points</div>
+          <div class="wi-b">Outward and inward workflows run on separate systems. Manual bridging for reconciliation, audit, and exceptions.</div></div>
+        </div>
+        <div class="wi">
+          <div class="wi-ico">📋</div>
+          <div><div class="wi-t">Manual Exception Handling &amp; Fraud Sophistication</div>
+          <div class="wi-b">Return reason codes rarely carry evidence. Disputes escalate. Fraud vectors are evolving faster than legacy systems can respond.</div></div>
+        </div>
+      </div>
+      <div>
+        <div class="col-lbl">🚀 Tomorrow's Drivers</div>
+        <div class="wi wi-future">
+          <div class="wi-ico">📜</div>
+          <div><div class="wi-t">RBI Payments Vision 2028</div>
+          <div class="wi-b">Regulatory push toward faster settlement, AI-assisted operations, and digital instrument frameworks.</div></div>
+        </div>
+        <div class="wi wi-future">
+          <div class="wi-ico">📱</div>
+          <div><div class="wi-t">Digital Cheques &amp; e-Cheques</div>
+          <div class="wi-b">The platform that processes paper cheques today must handle digital instruments tomorrow — without a re-build.</div></div>
+        </div>
+        <div class="wi wi-future">
+          <div class="wi-ico">⚡</div>
+          <div><div class="wi-t">Faster Settlement Expectations</div>
+          <div class="wi-b">From T+1 toward near real-time. Banks that cannot accelerate internally will fall behind the regulatory curve.</div></div>
+        </div>
+        <div class="wi wi-future">
+          <div class="wi-ico">💰</div>
+          <div><div class="wi-t">Lower Operating Costs Through AI</div>
+          <div class="wi-b">Straight-through processing at scale dramatically reduces per-cheque handling cost — a board-level imperative.</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="callout">
+      <div class="callout-ico">💡</div>
+      <div class="callout-t">The industry does not merely need a faster CTS. It needs a modern cheque processing platform.</div>
+    </div>
   </div>
   <div class="wm">Confidential — Not for Distribution</div>
-  <div class="pg">2 / 10</div>
+  <div class="pg">2 / 7</div>
 </div>
 
-<!-- ═══════════════════ SLIDE 3 — TEAM ═══════════════════ -->
+<!-- ══════════════════════════════════════════════════
+     SLIDE 3 — TECHNOLOGY PLATFORM
+     ══════════════════════════════════════════════════ -->
 <div class="slide" id="s3">
-  <div class="sbrand"><span class="sbrand-l">ASTRA — Banking Platform</span><span class="sbrand-r">Confidential · 2026</span></div>
-  <div class="sh">
-    <span class="chip ch-v">Team &amp; Credentials</span>
-    <div class="sh-title">Former NPCI. Current Mission.</div>
-    <div class="sh-sub">Two practitioners who built banking infrastructure at scale — and are building it again, from scratch, with AI at the core.</div>
+  <div class="sbrand">
+    <div class="sbrand-l">
+      <div class="a-icon">A</div>
+      <div class="sbrand-sep"></div>
+      <span class="sbrand-word">STRA</span>
+      <div class="sbrand-sep"></div>
+      <span class="sbrand-tag">Technology Platform</span>
+    </div>
+    <span class="sbrand-r">Confidential · 2026</span>
   </div>
-  <div class="team-grid">
-    <div class="pcard">
-      <div class="pcard-top">
-        <div class="pav" style="background:linear-gradient(135deg,#1741CC,#4D72F0)">NS</div>
-        <div class="pname">Nilesh Shah</div>
-        <div class="ptitle">Co-Founder &amp; Chief Technology Officer</div>
-        <div class="proles">
-          <div class="prole"><div class="prd"></div><div><div class="prt">Head of AI &amp; Advanced Technology</div><div class="pro">National Payments Corporation of India (NPCI)</div></div></div>
-          <div class="prole"><div class="prd"></div><div><div class="prt">CTO — Digital Banking &amp; Transformation</div><div class="pro">Fullerton India Credit Company / SMFG</div></div></div>
-          <div class="prole"><div class="prd"></div><div><div class="prt">Director — Business Solutions Group</div><div class="pro">Piramal Finance</div></div></div>
+  <div class="sc">
+    <div class="sh">
+      <div class="sh-eye eye-b">🏗️ Architecture</div>
+      <div class="sh-title">Built for the Next 10 Years, Not the Last 10</div>
+      <div class="sh-sub">Three architectural pillars that make ASTRA fundamentally different from legacy CTS software.</div>
+    </div>
+    <div class="tech3">
+      <!-- Bucket 1: On-Premises -->
+      <div class="tbucket">
+        <div class="tbh tbh-b">
+          <span class="tbh-ico">🖥️</span>
+          <div class="tbh-title">On-Premises Architecture</div>
+          <div class="tbh-sub">100% bank-owned infrastructure. Zero cloud dependency. Full data localisation — as RBI mandates.</div>
+        </div>
+        <div class="tbb">
+          <div class="tbi"><span class="tbi-ico">🔒</span><span><strong>Data never leaves bank boundary</strong></span></div>
+          <div class="tbi"><span class="tbi-ico">🏦</span><span><strong>Bank-owned private DC</strong> deployment</span></div>
+          <div class="tbi"><span class="tbi-ico">📦</span><span><strong>Container-ready</strong> — Kubernetes native</span></div>
+          <div class="tbi"><span class="tbi-ico">↔️</span><span><strong>Horizontal scalability</strong> on commodity hardware</span></div>
+          <div class="tbi"><span class="tbi-ico">🔌</span><span><strong>API-first</strong>, event-driven microservices</span></div>
+          <div class="tbi"><span class="tbi-ico">🛡️</span><span><strong>Air-gapped</strong> deployment capable</span></div>
+          <div class="tbi"><span class="tbi-ico">🔄</span><span><strong>Active-active</strong> dual DC — RPO = zero</span></div>
+          <div class="tbf tbf-b">Banks control their own infrastructure. ASTRA has zero direct cluster access.</div>
         </div>
       </div>
-      <div class="pcard-bot">
-        <div class="pbot-row"><span class="pbot-lbl">Mobile</span><span class="pbot-val">+91 9819 88 2904</span></div>
-        <div class="pbot-row"><span class="pbot-lbl">Email</span><span class="pbot-val">admin@9va.in</span></div>
-        <div class="pbot-row"><span class="pbot-lbl">Focus</span><div class="ptags"><span class="ptag">CTS Clearing</span><span class="ptag">AI / ML</span><span class="ptag">NPCI Infra</span><span class="ptag">Digital Banking</span></div></div>
+
+      <!-- Bucket 2: Miniature Vault -->
+      <div class="tbucket">
+        <div class="tbh tbh-g">
+          <span class="tbh-ico">🗄️</span>
+          <div class="tbh-title">Miniature Vault Database</div>
+          <div class="tbh-sub">Instead of hitting CBS repeatedly, ASTRA maintains a secure operational vault — only what's needed for cheque decisions.</div>
+        </div>
+        <div class="tbb">
+          <div class="tbi"><span class="tbi-ico">👤</span><span><strong>Account Master</strong> — basic account state</span></div>
+          <div class="tbi"><span class="tbi-ico">📋</span><span><strong>Cheque Series</strong> — issued instrument ranges</span></div>
+          <div class="tbi"><span class="tbi-ico">🛑</span><span><strong>Stop Payment</strong> — active stop orders</span></div>
+          <div class="tbi"><span class="tbi-ico">✅</span><span><strong>Positive Pay</strong> — PPS instructions</span></div>
+          <div class="tbi"><span class="tbi-ico">🔐</span><span><strong>Signature Metadata</strong> — hashed, encrypted</span></div>
+          <div class="tbi"><span class="tbi-ico">⚠️</span><span><strong>Frozen / Closed</strong> account flags</span></div>
+          <div class="tbi"><span class="tbi-ico">⚡</span><span><strong>Vault lookup &lt; 5ms</strong> — CBS isolated</span></div>
+          <div class="tbf tbf-g">Massive reduction in CBS calls. Faster processing. Better resilience. Scale without CBS bottleneck.</div>
+        </div>
+      </div>
+
+      <!-- Bucket 3: Future Ready -->
+      <div class="tbucket">
+        <div class="tbh tbh-t">
+          <span class="tbh-ico">🔮</span>
+          <div class="tbh-title">Future Ready</div>
+          <div class="tbh-sub">Designed to evolve with the regulatory roadmap — without architectural rework.</div>
+        </div>
+        <div class="tbb">
+          <div class="col-lbl" style="font-size:7.5px;margin-bottom:6px;color:var(--faint)">TODAY</div>
+          <div class="tbi"><span class="tbi-ico">📂</span><span><strong>File-based CTS processing</strong> — full NGCH compliance</span></div>
+          <div class="tbi"><span class="tbi-ico">🔗</span><span><strong>SFTP + API</strong> NGCH integration</span></div>
+          <div class="col-lbl" style="font-size:7.5px;margin:7px 0 6px;color:var(--teal)">TOMORROW</div>
+          <div class="tbi"><span class="tbi-ico">⚡</span><span><strong>30-minute clearing</strong> — architecture ready</span></div>
+          <div class="tbi"><span class="tbi-ico">📱</span><span><strong>Digital Cheque</strong> &amp; <strong>e-Cheque</strong> support</span></div>
+          <div class="col-lbl" style="font-size:7.5px;margin:7px 0 6px;color:var(--gold)">FUTURE</div>
+          <div class="tbi"><span class="tbi-ico">🚀</span><span><strong>Near real-time</strong> processing pipeline</span></div>
+          <div class="tbi"><span class="tbi-ico">🌐</span><span><strong>API / MCP-based presentment</strong> — emerging industry standard</span></div>
+          <div class="tbf tbf-t">Architecture should never become the bottleneck for regulatory innovation.</div>
+        </div>
       </div>
     </div>
-    <div class="pcard">
-      <div class="pcard-top">
-        <div class="pav" style="background:linear-gradient(135deg,#B87828,#E8B94A)">JG</div>
-        <div class="pname">Jitendra Gupta</div>
-        <div class="ptitle">Co-Founder &amp; Banking Strategy Lead</div>
-        <div class="proles">
-          <div class="prole"><div class="prd"></div><div><div class="prt">Chartered Accountant — 25+ Years Banking &amp; Finance</div><div class="pro">Investment Banking &amp; Capital Markets Practice</div></div></div>
-          <div class="prole"><div class="prd"></div><div><div class="prt">Independent Consultant &amp; Advisor</div><div class="pro">Banking Strategy, Treasury &amp; Compliance</div></div></div>
-          <div class="prole"><div class="prd"></div><div><div class="prt">Deep expertise in RBI regulatory frameworks</div><div class="pro">Clearing operations, audit readiness &amp; bank governance</div></div></div>
-        </div>
-      </div>
-      <div class="pcard-bot">
-        <div class="pbot-row"><span class="pbot-lbl">Mobile</span><span class="pbot-val">+91 7021 48 5668</span></div>
-        <div class="pbot-row"><span class="pbot-lbl">Focus</span><div class="ptags"><span class="ptag">Banking Strategy</span><span class="ptag">RBI Compliance</span><span class="ptag">Treasury</span><span class="ptag">Capital Markets</span></div></div>
-      </div>
+    <div class="tech-callout">
+      <div class="tc-text">🏛️ &nbsp;Every bank owns its own data. Every deployment is isolated. Zero vendor lock-in. Zero cloud risk.</div>
+      <div class="tc-tag">🇮🇳 &nbsp;100% Data Localisation</div>
     </div>
   </div>
   <div class="wm">Confidential — Not for Distribution</div>
-  <div class="pg">3 / 10</div>
+  <div class="pg">3 / 7</div>
 </div>
 
-<!-- ═══════════════════ SLIDE 4 — PROBLEM ═══════════════════ -->
+<!-- ══════════════════════════════════════════════════
+     SLIDE 4 — RESPONSIBLE AI
+     ══════════════════════════════════════════════════ -->
 <div class="slide" id="s4">
-  <div class="sbrand"><span class="sbrand-l">ASTRA — Banking Platform</span><span class="sbrand-r">Confidential · 2026</span></div>
-  <div class="sh">
-    <span class="chip ch-a">Market &amp; Opportunity</span>
-    <div class="sh-title">₹71L Crore. 609 Million Cheques. One 3-Hour Window.</div>
-    <div class="sh-sub">Three operational problems that manual clearing still hasn't solved — at any scale.</div>
-  </div>
-  <div class="stat3">
-    <div class="sbox"><div class="sv g-blue">₹71L Cr</div><div class="sl">Cleared Annually — FY25</div><div class="ss">India CTS clearing volume via NGCH</div></div>
-    <div class="sbox"><div class="sv g-blue">609 M</div><div class="sl">Cheques Per Year</div><div class="ss">Instruments processed through the CTS grid</div></div>
-    <div class="sbox"><div class="sv g-gold">3 Hours</div><div class="sl">IET Window — RBI Jan 2026</div><div class="ss">Inward examination mandate for every drawee bank</div></div>
-  </div>
-  <div class="pains">
-    <div class="pain" style="border-top-color:#1741CC">
-      <div class="pain-ico">⏱</div>
-      <div class="pain-t">Manual Clearing Cannot Keep Pace</div>
-      <div class="pain-b">Staff-driven review of inward cheques takes hours. With NGCH batches arriving continuously, human processing is the binding constraint on clearing speed and cost.</div>
+  <div class="sbrand">
+    <div class="sbrand-l">
+      <div class="a-icon">A</div>
+      <div class="sbrand-sep"></div>
+      <span class="sbrand-word">STRA</span>
+      <div class="sbrand-sep"></div>
+      <span class="sbrand-tag">Responsible AI</span>
     </div>
-    <div class="pain" style="border-top-color:#B87828">
-      <div class="pain-ico">🔗</div>
-      <div class="pain-t">Two Sides. No Unified Platform.</div>
-      <div class="pain-b">Outward and inward workflows run on separate systems with no shared data model. Reconciliation, audit, and exception management all require manual bridging today.</div>
+    <span class="sbrand-r">Confidential · 2026</span>
+  </div>
+  <div class="sc">
+    <div class="sh">
+      <div class="sh-eye eye-t">🧠 Intelligence Layer</div>
+      <div class="sh-title">AI That Banks Can Trust</div>
+      <div class="sh-sub">Not flashy AI. Responsible AI. Every decision is traceable, explainable, and overridable — built for RBI-regulated environments.</div>
     </div>
-    <div class="pain" style="border-top-color:#C42B2B">
-      <div class="pain-ico">📋</div>
-      <div class="pain-t">Return Decisions Are Unexplainable</div>
-      <div class="pain-b">When a cheque is returned, the reason code rarely carries evidence — creating disputes, regulatory exposure, and eroding trust in the clearing process.</div>
+    <div class="ai-grid">
+      <div class="ai-card bc-b">
+        <div class="ai-card-ico">👁️</div>
+        <div class="ai-card-t">Vision LLM — Beyond OCR</div>
+        <div class="ai-card-b">
+          A visual AI model trained to understand physical documents — not just extract text.<br><br>
+          Detects <strong>handwriting, ink variations, stamp overlaps, physical alterations</strong>, and suspicious document characteristics that rule-based systems miss entirely.
+        </div>
+        <div class="ai-tags">
+          <span class="ai-tag">🖊️ Handwriting</span>
+          <span class="ai-tag">🔏 Signatures</span>
+          <span class="ai-tag">🧾 Alterations</span>
+          <span class="ai-tag">🏷️ Stamps</span>
+        </div>
+      </div>
+      <div class="ai-card bc-t">
+        <div class="ai-card-ico">🔬</div>
+        <div class="ai-card-t">Multi-OCR Strategy</div>
+        <div class="ai-card-b">
+          Multiple OCR engines run in parallel. Each produces its own output. A cross-validation layer selects the highest-confidence result.<br><br>
+          <strong>No single OCR engine failure can stop processing.</strong> Confidence scoring routes borderline cases to human review automatically.
+        </div>
+        <div class="ai-tags">
+          <span class="ai-tag">🏆 Best Output</span>
+          <span class="ai-tag">📊 Confidence Score</span>
+          <span class="ai-tag">🔄 Cross-Validation</span>
+        </div>
+      </div>
+      <div class="ai-card bc-g">
+        <div class="ai-card-ico">📋</div>
+        <div class="ai-card-t">Auditable AI</div>
+        <div class="ai-card-b">
+          Every AI decision carries a <strong>human-readable rationale</strong> and SHAP-based feature attribution. No black box.<br><br>
+          Any AI outcome can be reviewed, challenged, or overridden by a bank officer. Every decision is stored in a cryptographic audit trail — tamper-proof.
+        </div>
+        <div class="ai-tags">
+          <span class="ai-tag">📝 Traceable</span>
+          <span class="ai-tag">💡 Explainable</span>
+          <span class="ai-tag">👤 Reviewable</span>
+        </div>
+      </div>
+      <div class="ai-card bc-r">
+        <div class="ai-card-ico">🔴</div>
+        <div class="ai-card-t">AI Kill Switch</div>
+        <div class="ai-card-b">
+          Banks remain in complete control. At any time, with a single action, processing <strong>falls back immediately to deterministic rule-based workflows.</strong><br><br>
+          Local LLM deployment. Data never leaves bank boundary. Fully offline-capable. No model calls outside the DC.
+        </div>
+        <div class="ai-tags">
+          <span class="ai-tag">🏦 Local LLM</span>
+          <span class="ai-tag">🔒 Offline</span>
+          <span class="ai-tag">⚡ Instant Fallback</span>
+        </div>
+      </div>
+    </div>
+    <div class="ai-pipe">
+      <div class="ai-pipe-lbl">On Every Cheque →</div>
+      <div class="ai-pipe-steps">
+        <div class="ai-pipe-step"><span class="ai-pipe-ico">📷</span><span class="ai-pipe-t">Image Capture</span></div>
+        <div class="ai-pipe-arr">›</div>
+        <div class="ai-pipe-step"><span class="ai-pipe-ico">🔬</span><span class="ai-pipe-t">MICR + OCR</span></div>
+        <div class="ai-pipe-arr">›</div>
+        <div class="ai-pipe-step"><span class="ai-pipe-ico">👁️</span><span class="ai-pipe-t">Vision Analysis</span></div>
+        <div class="ai-pipe-arr">›</div>
+        <div class="ai-pipe-step"><span class="ai-pipe-ico">✍️</span><span class="ai-pipe-t">Signature Match</span></div>
+        <div class="ai-pipe-arr">›</div>
+        <div class="ai-pipe-step"><span class="ai-pipe-ico">🛡️</span><span class="ai-pipe-t">Fraud Score</span></div>
+        <div class="ai-pipe-arr">›</div>
+        <div class="ai-pipe-step"><span class="ai-pipe-ico">📊</span><span class="ai-pipe-t">SHAP Explain</span></div>
+        <div class="ai-pipe-arr">›</div>
+        <div class="ai-pipe-step"><span class="ai-pipe-ico">✅</span><span class="ai-pipe-t">STP or Human Review</span></div>
+      </div>
+    </div>
+    <div class="ai-trust">
+      <div class="at-left">
+        <div class="at-q">"AI assists operations. AI never replaces governance."</div>
+        <div class="at-s">Every AI decision carries a human-readable rationale + SHAP attribution · Auditable · Overridable · Data never leaves the bank</div>
+      </div>
+      <div class="at-badges">
+        <div class="at-badge">
+          <div class="at-bv" style="color:#4ade80;font-size:14px">99%+</div>
+          <div class="at-bl">OCR Accuracy</div>
+        </div>
+        <div class="at-badge">
+          <div class="at-bv" style="color:#60a5fa;font-size:14px">97%+</div>
+          <div class="at-bl">Sig Precision</div>
+        </div>
+        <div class="at-badge">
+          <div class="at-bv" style="color:#fb923c;font-size:14px">0.92</div>
+          <div class="at-bl">Fraud F1 Score</div>
+        </div>
+        <div class="at-badge">
+          <div class="at-bv" style="color:#a78bfa;font-size:13px">&lt;600ms</div>
+          <div class="at-bl">Decision Time</div>
+        </div>
+        <div class="at-badge">
+          <div class="at-bv">🇮🇳</div>
+          <div class="at-bl">100% On-Prem</div>
+        </div>
+      </div>
     </div>
   </div>
   <div class="wm">Confidential — Not for Distribution</div>
-  <div class="pg">4 / 10</div>
+  <div class="pg">4 / 7</div>
 </div>
 
-<!-- ═══════════════════ SLIDE 5 — PROCESS ═══════════════════ -->
+<style>
+#s5 .sbox{padding:11px 14px}
+#s5 .sv{font-size:26px}
+#s5 .pf-ico-wrap{width:36px;height:36px;font-size:15px;margin-bottom:4px}
+#s5 .pf-arr{margin-bottom:12px}
+#s5 .ops{padding:8px 10px}
+#s5 .ops-t{font-size:11px;margin-bottom:1px}
+#s5 .catchphrase-bar{padding:8px 16px;margin-top:7px}
+#s5 .proc-wrap{padding:11px 12px}
+#s5 .proc-lbl{margin-bottom:8px}
+</style>
+<!-- ══════════════════════════════════════════════════
+     SLIDE 5 — PROCESSING EXCELLENCE
+     ══════════════════════════════════════════════════ -->
 <div class="slide" id="s5">
-  <div class="sbrand"><span class="sbrand-l">ASTRA — Banking Platform</span><span class="sbrand-r">Confidential · 2026</span></div>
-  <div class="sh">
-    <span class="chip ch-b">CTS Process</span>
-    <div class="sh-title">Outward: Automated. Inward: Intelligent.</div>
-    <div class="sh-sub">One deployment, shared signature vault, single audit trail — across both sides of the clearing cycle.</div>
+  <div class="sbrand">
+    <div class="sbrand-l">
+      <div class="a-icon">A</div>
+      <div class="sbrand-sep"></div>
+      <span class="sbrand-word">STRA</span>
+      <div class="sbrand-sep"></div>
+      <span class="sbrand-tag">Processing Excellence</span>
+    </div>
+    <span class="sbrand-r">Confidential · 2026</span>
   </div>
-  <div class="proc-wrap">
-    <div class="proc-col">
-      <span class="proc-lbl" style="background:#EEF1FB;color:#1741CC;border:1px solid #C0CAEE">Outward — Presentee Bank</span>
-      <div class="pf">
-        <div class="pf-step"><div class="pfn" style="background:#1741CC">1</div><div><div class="pfl">Branch Scanner Capture</div><div class="pfs">UV + IR dual image · Physical cheque stays at branch</div></div></div>
-        <div class="pf-arrow">↓</div>
-        <div class="pf-step"><div class="pfn" style="background:#1741CC">2</div><div><div class="pfl">MICR Extraction &amp; OCR</div><div class="pfs">GOT-OCR2.0 · Bank / Branch / Account / Serial / Amount</div></div></div>
-        <div class="pf-arrow">↓</div>
-        <div class="pf-step"><div class="pfn" style="background:#1741CC">3</div><div><div class="pfl">CTS-2010 Compliance Check</div><div class="pfs">Security feature validation · Alteration detection · Qwen2-VL</div></div></div>
-        <div class="pf-arrow">↓</div>
-        <div class="pf-step"><div class="pfn" style="background:#1741CC">4</div><div><div class="pfl">Lot / Batch Assembly</div><div class="pfs">Grouped by drawee bank · Presentment file · Session management</div></div></div>
-        <div class="pf-arrow">↓</div>
-        <div class="pf-step"><div class="pfn" style="background:#1741CC">5</div><div><div class="pfl">Endorsement &amp; NGCH Submit</div><div class="pfs">Digital stamp · Secure SFTP to NGCH clearing grid</div></div></div>
+  <div class="sc">
+    <div class="sh">
+      <div class="sh-eye eye-n">⚡ STP Engine</div>
+      <div class="sh-title">Designed for Straight Through Processing</div>
+      <div class="sh-sub" style="max-width:100%">Maximum automation. Minimum manual intervention. ASTRA processes every cheque on arrival — continuously, not in batches. The future of clearing is always-on.</div>
+    </div>
+
+    <div class="stats-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:8px">
+      <div class="sbox sbox-b">
+        <div class="sv g-blue">&lt; 600ms</div>
+        <div class="sl">Per Cheque AI Decision — p99</div>
+        <div class="ss">Vision LLM + OCR + Signature + Fraud running in a single parallel pipeline</div>
+      </div>
+      <div class="sbox sbox-g">
+        <div class="sv g-gold">500+</div>
+        <div class="sl">Parallel Agents per Batch</div>
+        <div class="ss">Entire inward batch processed simultaneously — never one after another</div>
+      </div>
+      <div class="sbox sbox-r">
+        <div class="sv" style="background:linear-gradient(135deg,#C42B2B,#E05050);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">0.000%</div>
+        <div class="sl">IET Breach Rate — Target</div>
+        <div class="ss">Continuous clearing + T-30s Watchdog — structural guarantee, not a configuration</div>
+      </div>
+      <div class="sbox sbox-t">
+        <div class="sv g-teal">95%+</div>
+        <div class="sl">Straight Through Rate</div>
+        <div class="ss">AI decides clean instruments; humans review only genuinely ambiguous cases</div>
       </div>
     </div>
-    <div class="proc-div"></div>
-    <div class="proc-col">
-      <span class="proc-lbl" style="background:#E6F7F3;color:#0C9266;border:1px solid #A8DDD0">Inward — Drawee Bank</span>
-      <div class="pf">
-        <div class="pf-step"><div class="pfn" style="background:#0C9266">1</div><div><div class="pfl">NGCH Batch Received</div><div class="pfs">Instruments fan out immediately — one AI agent per cheque</div></div></div>
-        <div class="pf-arrow">↓</div>
-        <div class="pf-step" style="border-color:#0C9266;border-width:1.5px"><div class="pfn" style="background:#0C9266">2</div><div><div class="pfl">500 AI Agents — Fully Parallel</div><div class="pfs">Signature · OCR · Fraud scoring · CBS · PPS · Stop payment</div></div></div>
-        <div class="pf-arrow">↓</div>
-        <div class="pf-step"><div class="pfn" style="background:#0C9266">3</div><div><div class="pfl">Decision Gate</div><div class="pfs">STP Confirm · Human Review · Return — all with SHAP rationale</div></div></div>
-        <div class="pf-arrow">↓</div>
-        <div class="pf-step"><div class="pfn" style="background:#0C9266">4</div><div><div class="pfl">IET Watchdog — Always Active</div><div class="pfs">Fires at T−30 s · Auto-files if processing stalls</div></div></div>
-        <div class="proc-note">
-          <div class="pn-t">500 cheques → 500 agents → entire batch &lt;600 ms (p99)</div>
-          <div class="pn-b">Each Temporal workflow is independent. One slow cheque never delays the batch.</div>
+
+    <div style="background:linear-gradient(135deg,#0B1E3D,#1B3F70);border-radius:11px;padding:10px 16px;display:flex;align-items:center;gap:14px;color:white;margin-bottom:8px">
+      <span style="font-size:24px;flex-shrink:0">♾️</span>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:800;margin-bottom:3px">Continuous Clearing — No More Batch Windows</div>
+        <div style="font-size:10.5px;color:rgba(255,255,255,0.55);line-height:1.5">Cheques are processed <strong style="color:rgba(255,255,255,0.82)">as they arrive</strong> — not accumulated and released in end-of-session batches. Every instrument enters the STP pipeline immediately on receipt. The <strong style="color:rgba(255,255,255,0.82)">IET Watchdog</strong> provides an independent T-30s structural safety net for the rare exception that needs emergency filing.</div>
+      </div>
+      <div style="flex-shrink:0;border-left:1px solid rgba(255,255,255,0.10);padding-left:14px;text-align:center;min-width:95px">
+        <div style="font-size:8.5px;font-weight:700;color:rgba(255,255,255,0.30);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:3px">Legacy</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.38);margin-bottom:8px">⏱ Batch Windows</div>
+        <div style="font-size:8.5px;font-weight:700;color:rgba(255,255,255,0.30);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:3px">ASTRA</div>
+        <div style="font-size:12px;font-weight:800;color:#6B9FF0">♾️ Always On</div>
+      </div>
+    </div>
+
+    <div class="proc-wrap" style="margin-bottom:8px">
+      <div class="proc-lbl">🔄 Inward Cheque Lifecycle — 9 Stages</div>
+      <div class="proc-flow">
+        <div class="pf-step">
+          <div class="pf-ico-wrap">📄</div>
+          <div class="pf-lbl">Receive<br>Inward</div>
         </div>
+        <div class="pf-arr">›</div>
+        <div class="pf-step hl">
+          <div class="pf-ico-wrap">🔬</div>
+          <div class="pf-lbl">OCR<br>Extraction</div>
+        </div>
+        <div class="pf-arr">›</div>
+        <div class="pf-step hl">
+          <div class="pf-ico-wrap">👁️</div>
+          <div class="pf-lbl">Vision AI<br>Validation</div>
+        </div>
+        <div class="pf-arr">›</div>
+        <div class="pf-step">
+          <div class="pf-ico-wrap">📋</div>
+          <div class="pf-lbl">Business<br>Rules</div>
+        </div>
+        <div class="pf-arr">›</div>
+        <div class="pf-step">
+          <div class="pf-ico-wrap">🔐</div>
+          <div class="pf-lbl">Positive Pay<br>&amp; Stop Pay</div>
+        </div>
+        <div class="pf-arr">›</div>
+        <div class="pf-step hl">
+          <div class="pf-ico-wrap">🔍</div>
+          <div class="pf-lbl">Duplicate &amp;<br>Fraud Check</div>
+        </div>
+        <div class="pf-arr">›</div>
+        <div class="pf-step">
+          <div class="pf-ico-wrap">⚠️</div>
+          <div class="pf-lbl">Exception<br>Queue</div>
+        </div>
+        <div class="pf-arr">›</div>
+        <div class="pf-step hl">
+          <div class="pf-ico-wrap">📤</div>
+          <div class="pf-lbl">Clearing<br>File</div>
+        </div>
+        <div class="pf-arr">›</div>
+        <div class="pf-step hl">
+          <div class="pf-ico-wrap">💰</div>
+          <div class="pf-lbl">Settlement<br>&amp; Archive</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="catchphrase-bar">
+      ⚡ <strong>Speed of UPI</strong><span class="catch-sep">·</span>🔒 <strong>Security of Bank</strong><span class="catch-sep">·</span>🧠 <strong>Intelligence of AI</strong>
+    </div>
+
+    <div class="ops-grid" style="grid-template-columns:repeat(3,1fr);margin-top:10px">
+      <div class="ops">
+        <div class="ops-ico">♾️</div>
+        <div><div class="ops-t">Continuous Clearing</div><div class="ops-b">Process-on-arrival. No batch accumulation. Always-on STP pipeline from morning session open through close.</div></div>
+      </div>
+      <div class="ops">
+        <div class="ops-ico">🔔</div>
+        <div><div class="ops-t">IET Watchdog — T-30s Safety Net</div><div class="ops-b">Emergency filer activates 30s before IET deadline regardless of queue state. Structural — not a setting.</div></div>
+      </div>
+      <div class="ops">
+        <div class="ops-ico">📊</div>
+        <div><div class="ops-t">Live SLA Dashboard</div><div class="ops-b">Real-time queue depth, STP rate, IET exposure, exception count — built-in, no third-party observability needed.</div></div>
+      </div>
+      <div class="ops">
+        <div class="ops-ico">🔄</div>
+        <div><div class="ops-t">Exactly-Once NGCH Filing</div><div class="ops-b">Temporal workflow engine guarantees zero duplicate submissions. Idempotency is structural — not defensive code.</div></div>
+      </div>
+      <div class="ops">
+        <div class="ops-ico">👥</div>
+        <div><div class="ops-t">Intelligent Human Review Queue</div><div class="ops-b">Only genuinely ambiguous instruments route to reviewers. 55-min signal-driven window — no batch pressure.</div></div>
+      </div>
+      <div class="ops">
+        <div class="ops-ico">📜</div>
+        <div><div class="ops-t">Automated RRF Generation</div><div class="ops-b">Return Reason File with full AI evidence. Every return is explainable, defensible, and RBI-auditable.</div></div>
       </div>
     </div>
   </div>
   <div class="wm">Confidential — Not for Distribution</div>
-  <div class="pg">5 / 10</div>
+  <div class="pg">5 / 7</div>
 </div>
 
-<!-- ═══════════════════ SLIDE 6 — SMB ═══════════════════ -->
+<!-- ══════════════════════════════════════════════════
+     SLIDE 6 — ONE PLATFORM
+     ══════════════════════════════════════════════════ -->
 <div class="slide" id="s6">
-  <div class="sbrand"><span class="sbrand-l">ASTRA — Banking Platform</span><span class="sbrand-r">Confidential · 2026</span></div>
-  <div class="sh">
-    <span class="chip ch-t">SMB Network</span>
-    <div class="sh-title">One Bank Signs. Many Banks Clear.</div>
-    <div class="sh-sub">Sponsor banks route outward instruments for smaller UCBs — one NGCH connection, one ASTRA deployment, full data isolation per member bank.</div>
+  <div class="sbrand">
+    <div class="sbrand-l">
+      <div class="a-icon">A</div>
+      <div class="sbrand-sep"></div>
+      <span class="sbrand-word">STRA</span>
+      <div class="sbrand-sep"></div>
+      <span class="sbrand-tag">One Platform</span>
+    </div>
+    <span class="sbrand-r">Confidential · 2026</span>
   </div>
-  <div class="smb-wrap">
-    <svg width="440" height="400" viewBox="0 0 440 400" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="320" y="168" width="104" height="46" rx="9" fill="#EEF1FB" stroke="#1741CC" stroke-width="1.5"/>
-      <text x="372" y="188" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11.5" font-weight="800" fill="#1741CC">NGCH</text>
-      <text x="372" y="204" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="#4D72F0">Clearing Grid</text>
-      <rect x="148" y="158" width="136" height="64" rx="11" fill="#1741CC"/>
-      <text x="216" y="184" text-anchor="middle" font-family="system-ui,sans-serif" font-size="12" font-weight="800" fill="white">Sponsor Bank</text>
-      <text x="216" y="199" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="rgba(255,255,255,0.65)">Saraswat-class UCB</text>
-      <text x="216" y="213" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" fill="rgba(255,255,255,0.55)">ASTRA Hub</text>
-      <line x1="284" y1="190" x2="320" y2="190" stroke="#1741CC" stroke-width="2" stroke-dasharray="4,3"/>
-      <polygon points="316,186 324,190 316,194" fill="#1741CC"/>
-      <rect x="8" y="22" width="110" height="42" rx="8" fill="#E8F7FB" stroke="#0994B4" stroke-width="1.5"/>
-      <text x="63" y="40" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" font-weight="700" fill="#054F66">Sub-Member UCB</text>
-      <text x="63" y="56" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" fill="#0994B4">Zone A</text>
-      <line x1="118" y1="43" x2="160" y2="165" stroke="#0994B4" stroke-width="1.2" stroke-dasharray="3,3"/>
-      <rect x="8" y="106" width="110" height="42" rx="8" fill="#E8F7FB" stroke="#0994B4" stroke-width="1.5"/>
-      <text x="63" y="124" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" font-weight="700" fill="#054F66">Sub-Member UCB</text>
-      <text x="63" y="140" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" fill="#0994B4">Zone B</text>
-      <line x1="118" y1="127" x2="150" y2="177" stroke="#0994B4" stroke-width="1.2" stroke-dasharray="3,3"/>
-      <rect x="8" y="190" width="110" height="42" rx="8" fill="#E8F7FB" stroke="#0994B4" stroke-width="1.5"/>
-      <text x="63" y="208" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" font-weight="700" fill="#054F66">Sub-Member UCB</text>
-      <text x="63" y="224" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" fill="#0994B4">Zone C</text>
-      <line x1="118" y1="211" x2="148" y2="206" stroke="#0994B4" stroke-width="1.2" stroke-dasharray="3,3"/>
-      <rect x="8" y="274" width="110" height="42" rx="8" fill="#E8F7FB" stroke="#0994B4" stroke-width="1.5"/>
-      <text x="63" y="292" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" font-weight="700" fill="#054F66">Sub-Member UCB</text>
-      <text x="63" y="308" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" fill="#0994B4">Zone D</text>
-      <line x1="118" y1="295" x2="158" y2="222" stroke="#0994B4" stroke-width="1.2" stroke-dasharray="3,3"/>
-      <rect x="128" y="262" width="82" height="32" rx="7" fill="#F3F5F9" stroke="#D5DAE8"/>
-      <text x="169" y="276" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#546275">Branch</text>
-      <text x="169" y="289" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8.5" fill="#8896A8">Network</text>
-      <rect x="224" y="262" width="82" height="32" rx="7" fill="#F3F5F9" stroke="#D5DAE8"/>
-      <text x="265" y="276" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#546275">Scanner</text>
-      <text x="265" y="289" text-anchor="middle" font-family="system-ui,sans-serif" font-size="8.5" fill="#8896A8">Integration</text>
-      <line x1="216" y1="222" x2="169" y2="262" stroke="#D5DAE8" stroke-width="1"/>
-      <line x1="216" y1="222" x2="265" y2="262" stroke="#D5DAE8" stroke-width="1"/>
-    </svg>
-    <div class="smb-bens">
-      <div class="sben"><div class="sbi" style="background:#E8F7FB">🏦</div><div><div class="sbt">One NGCH Connection for All Members</div><div class="sbb">Sponsor bank submits on behalf of all sub-members. Smaller UCBs gain NGCH access without direct connectivity costs or technical overhead.</div></div></div>
-      <div class="sben"><div class="sbi" style="background:#E6F7F3">🔒</div><div><div class="sbt">Full Data Isolation — By Architecture, Not Policy</div><div class="sbb">Separate Kubernetes namespaces, Redis clusters, and DB pools per bank. No SMB can access another SMB's data — enforced at infrastructure level.</div></div></div>
-      <div class="sben"><div class="sbi" style="background:#FDF5E4">📊</div><div><div class="sbt">Consolidated Reporting for the Sponsor</div><div class="sbb">Sponsor bank gets cross-member dashboards and settlement positions. Each SMB sees only their own data. One deployment, zero data leakage.</div></div></div>
-      <div class="sben"><div class="sbi" style="background:#EEF1FB">⚡</div><div><div class="sbt">Revenue Enabler — Not Just a Cost Centre</div><div class="sbb">Sponsor banks earn correspondent banking fees from sub-members. ASTRA becomes a product you offer, not just a compliance requirement you absorb.</div></div></div>
+  <div class="sc">
+    <div class="sh">
+      <div class="sh-eye eye-v">🌐 Platform Vision</div>
+      <div class="sh-title">Much More Than a Cheque Processing Product</div>
+      <div class="sh-sub">ASTRA is a platform. One infrastructure that grows from CTS into the full banking operations layer — and serves Sponsor Banks with their entire Sub-Member network.</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:11px">
+      <span style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--faint);flex-shrink:0">Serves →</span>
+      <div class="sh-eye eye-b" style="margin-bottom:0">🏦 Sponsor Banks</div>
+      <div class="sh-eye eye-b" style="margin-bottom:0">🏛️ Large PSBs</div>
+      <div class="sh-eye eye-t" style="margin-bottom:0">🏢 Private Banks</div>
+      <div class="sh-eye eye-g" style="margin-bottom:0">🤝 Co-operative Banks</div>
+      <div class="sh-eye eye-v" style="margin-bottom:0">🌾 RRBs &amp; SFBs</div>
+      <div class="sh-eye eye-n" style="margin-bottom:0">🌍 Foreign Banks</div>
+    </div>
+    <div class="plat-cols">
+      <div>
+        <div class="roadmap">
+          <div class="rm-row">
+            <div class="rm-badge rm-now">Now</div>
+            <div>
+              <div class="rm-t">🏦 CTS Inward &amp; Outward Processing</div>
+              <div class="rm-b">Complete cheque truncation — inward IET compliance, outward lot/batch/endorsement, NGCH filing, session reconciliation, SMB sponsor routing</div>
+              <div class="rm-tags">
+                <span class="rm-tag">📥 Inward</span><span class="rm-tag">📤 Outward</span>
+                <span class="rm-tag">🏛️ NGCH</span><span class="rm-tag">🤝 SMB Sponsor</span><span class="rm-tag">📊 Reconciliation</span>
+              </div>
+            </div>
+          </div>
+          <div class="rm-row">
+            <div class="rm-badge rm-near">Near Future</div>
+            <div>
+              <div class="rm-t">📱 Digital Cheques · e-Cheques · API Presentment</div>
+              <div class="rm-b">The same platform extends to handle digital instrument formats as RBI Payments Vision 2028 evolves. No architectural rebuild required.</div>
+              <div class="rm-tags">
+                <span class="rm-tag">📱 Digital Cheque</span><span class="rm-tag">🌐 e-Cheque</span><span class="rm-tag">🔌 API Presentment</span>
+              </div>
+            </div>
+          </div>
+          <div class="rm-row">
+            <div class="rm-badge rm-future">Future</div>
+            <div>
+              <div class="rm-t">🔮 Fraud Analytics · Fleet Intelligence · Regulatory Reporting</div>
+              <div class="rm-b">Signature Intelligence · AI Operations · Branch Analytics · Predictive Monitoring · Operational Dashboards</div>
+              <div class="rm-tags">
+                <span class="rm-tag">🧠 Fraud AI</span><span class="rm-tag">📈 Analytics</span>
+                <span class="rm-tag">📋 Regulatory</span><span class="rm-tag">🔍 Monitoring</span>
+              </div>
+            </div>
+          </div>
+          <div class="rm-row">
+            <div class="rm-badge" style="background:var(--violet-lt);color:var(--violet);border:1px solid var(--violet-md);font-size:7.5px">Platform</div>
+            <div>
+              <div class="rm-t">🚪 One Platform. Many Doors.</div>
+              <div class="rm-b">A bank that adopts ASTRA for CTS gains a foundation — not a product. The same platform extends to ATM EJ intelligence, multi-signature validation, branch operations, and regulatory reporting. No rip-and-replace. Platform thinking, not product thinking.</div>
+              <div class="rm-tags">
+                <span class="rm-tag">⚙️ CTS → EJ → MSV</span><span class="rm-tag">🏦 Branch Ops</span>
+                <span class="rm-tag">📋 Reg Reporting</span><span class="rm-tag">🔄 No Rip &amp; Replace</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="plat-quote">
+          ☕ &nbsp;Sometimes the most valuable conversations begin over a cup of coffee. ASTRA is a platform where many more banking possibilities can emerge beyond cheque processing.
+        </div>
+      </div>
+      <div class="sponsor-card">
+        <div>
+          <div class="sp-head">🤝 Sponsor Bank Model</div>
+          <div class="sp-sub">One ASTRA platform — one Sponsor Bank — many Sub-Members</div>
+          <div style="background:rgba(200,146,42,0.12);border:1px solid rgba(200,146,42,0.25);border-radius:7px;padding:6px 11px;margin-top:7px;display:flex;align-items:center;gap:7px">
+            <span style="font-size:14px">⏰</span>
+            <div>
+              <div style="font-size:10.5px;font-weight:700;color:#E8C47A">18-Month First-Mover Window</div>
+              <div style="font-size:8.5px;color:rgba(255,255,255,0.38)">Before incumbents replicate this architecture</div>
+            </div>
+          </div>
+        </div>
+        <div class="sp-bank">
+          <div class="sp-bank-n">🏦 Sponsor Bank</div>
+          <div class="sp-bank-s">e.g. Pratham Urban Co-operative Bank Ltd.</div>
+        </div>
+        <div class="sp-arr">↓ &nbsp;Routes for &nbsp;↓</div>
+        <div class="sp-smbs">
+          <div class="sp-smb"><div class="sp-smb-n">🏪 Sahyadri Nagari Bank</div><div class="sp-smb-s">Independent config</div></div>
+          <div class="sp-smb"><div class="sp-smb-n">🏪 Deccan Urban Co-op</div><div class="sp-smb-s">Independent config</div></div>
+          <div class="sp-smb"><div class="sp-smb-n">🏪 Konkan Gramin Sahakari</div><div class="sp-smb-s">Independent config</div></div>
+          <div class="sp-smb"><div class="sp-smb-n">🏪 + 40 Sub-Members</div><div class="sp-smb-s">Same model, any scale</div></div>
+        </div>
+        <div class="sp-bens">
+          <div class="sp-ben"><span class="sp-ben-ico">✅</span>Independent configuration &amp; controls per SMB</div>
+          <div class="sp-ben"><span class="sp-ben-ico">✅</span>Shared infrastructure — lower cost for all</div>
+          <div class="sp-ben"><span class="sp-ben-ico">✅</span>Central governance &amp; compliance oversight</div>
+          <div class="sp-ben"><span class="sp-ben-ico">✅</span>Faster onboarding of new Sub-Members</div>
+          <div class="sp-ben"><span class="sp-ben-ico">✅</span>Consistent clearing operations across network</div>
+          <div class="sp-ben"><span class="sp-ben-ico">✅</span>Zero cross-contamination between Sub-Members</div>
+          <div class="sp-ben"><span class="sp-ben-ico">✅</span>Independent upgrade path per bank — no forced lockstep</div>
+        </div>
+      </div>
     </div>
   </div>
   <div class="wm">Confidential — Not for Distribution</div>
-  <div class="pg">6 / 10</div>
+  <div class="pg">6 / 7</div>
 </div>
 
-<!-- ═══════════════════ SLIDE 7 — SOLUTION ═══════════════════ -->
+
+<style>
+#s7{background:linear-gradient(155deg,#F2F5FB 0%,#EAF0FF 60%,#FDF6E8 100%)}
+#s7 .sh-eye{font-size:13px;padding:5px 18px 5px 10px;font-weight:800}
+.poc-sh{margin-bottom:10px}
+.poc-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px}
+.poc-col-lbl{font-size:8px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;
+  margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.poc-bank-lbl{color:var(--teal)}
+.poc-exec-lbl{color:var(--blue)}
+.poc-item{display:flex;align-items:flex-start;gap:10px;padding:7px 10px;border-radius:9px;
+  background:var(--card);border:1.5px solid var(--border);margin-bottom:6px}
+.poc-item:last-child{margin-bottom:0}
+.poc-num{min-width:20px;height:20px;border-radius:50%;background:var(--teal);color:#fff;
+  font-size:8.5px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.poc-exec .poc-num{background:var(--blue)}
+.poc-ico{font-size:16px;flex-shrink:0;margin-top:1px}
+.poc-t{font-size:11.5px;font-weight:700;color:var(--text);line-height:1.2}
+.poc-s{font-size:9.5px;color:var(--muted);margin-top:2px;line-height:1.4}
+.poc-gate{background:linear-gradient(135deg,#C8922A,#E8B94A);border-radius:11px;
+  padding:10px 20px;display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:10px;color:#fff}
+.poc-gate-l{display:flex;align-items:center;gap:10px}
+.poc-gate-ico{font-size:22px}
+.poc-gate-t{font-size:13px;font-weight:800}
+.poc-gate-s{font-size:9.5px;opacity:0.80;margin-top:1px}
+.poc-gate-tag{background:rgba(255,255,255,0.20);border:1px solid rgba(255,255,255,0.30);
+  border-radius:6px;padding:4px 12px;font-size:9px;font-weight:700;letter-spacing:1px;
+  text-transform:uppercase;white-space:nowrap}
+.poc-prod{display:grid;grid-template-columns:1fr 40px 1fr;align-items:center;gap:0;margin-bottom:10px}
+.poc-prod-step{border-radius:10px;padding:10px 14px;border:1.5px solid var(--border);background:var(--card)}
+.poc-prod-step.final{background:linear-gradient(135deg,var(--navy),#1B3F70);border-color:transparent;color:#fff}
+.poc-prod-num{font-size:8px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+  color:var(--blue);margin-bottom:3px}
+.poc-prod-step.final .poc-prod-num{color:rgba(255,255,255,0.50)}
+.poc-prod-t{font-size:12.5px;font-weight:800;color:var(--text);margin-bottom:2px}
+.poc-prod-step.final .poc-prod-t{color:#fff}
+.poc-prod-s{font-size:9.5px;color:var(--muted);line-height:1.4}
+.poc-prod-step.final .poc-prod-s{color:rgba(255,255,255,0.60)}
+.poc-prod-arr{text-align:center;font-size:20px;color:var(--gold)}
+.poc-timeline{display:flex;align-items:center;background:rgba(27,79,216,0.05);
+  border:1px solid rgba(27,79,216,0.12);border-radius:8px;padding:7px 14px;gap:0}
+.poc-tl-item{flex:1;text-align:center;border-right:1px solid rgba(27,79,216,0.12)}
+.poc-tl-item:last-child{border-right:none}
+.poc-tl-t{font-size:8px;font-weight:800;color:var(--blue);letter-spacing:0.5px}
+.poc-tl-s{font-size:8.5px;color:var(--muted);margin-top:1px}
+</style>
 <div class="slide" id="s7">
-  <div class="sbrand"><span class="sbrand-l">ASTRA — Banking Platform</span><span class="sbrand-r">Confidential · 2026</span></div>
-  <div class="sh">
-    <span class="chip ch-g">ASTRA Capabilities</span>
-    <div class="sh-title">Speed of UPI. Security of a Bank.</div>
-    <div class="sh-sub">Not a target. An architecture — on your premises, your data, your control, with a human-readable rationale on every single AI decision.</div>
-  </div>
-  <div class="sol-wrap">
-    <div class="sol-hero">
-      <div class="sol-st" style="border-top-color:#0C9266"><div class="ssv g-green">100%</div><div class="ssl">IET Compliance Rate</div><div class="sss">Every batch filed within the 3-hour window — by architecture</div></div>
-      <div class="sol-st" style="border-top-color:#1741CC"><div class="ssv g-blue">&lt;600 ms</div><div class="ssl">Decision Latency (p99)</div><div class="sss">End-to-end per cheque, including full AI inference stack</div></div>
-      <div class="sol-st" style="border-top-color:#0994B4"><div class="ssv g-teal">500</div><div class="ssl">Parallel AI Agents</div><div class="sss">One per cheque · Entire batch processed simultaneously</div></div>
-      <div class="sol-st" style="border-top-color:#B87828"><div class="ssv g-gold">100%</div><div class="ssl">On-Premises</div><div class="sss">Zero cloud. Data never leaves the bank's own infrastructure.</div></div>
+  <div class="sbrand">
+    <div class="sbrand-l">
+      <div class="a-icon">A</div>
+      <div class="sbrand-sep"></div>
+      <span class="sbrand-word">STRA</span>
+      <div class="sbrand-sep"></div>
+      <span class="sbrand-tag">POC Journey</span>
     </div>
-    <div class="sol-feats">
-      <div class="sfeat"><div class="sfi" style="background:#EEF1FB">🔍</div><div><div class="sft">Vision LLM — Cheque Image Analysis</div><div class="sfb">Qwen2-VL 72B analyses each image for alteration, layout integrity, and security features. GOT-OCR2.0 extracts MICR and handwriting with &gt;99% accuracy.</div></div></div>
-      <div class="sfeat"><div class="sfi" style="background:#E6F7F3">✍️</div><div><div class="sft">Signature Verification — Siamese Network</div><div class="sfb">Custom-trained PyTorch model compares against your specimen vault. Confidence scored and SHAP-explained. Vault refreshed daily from CBS at 6 AM.</div></div></div>
-      <div class="sfeat"><div class="sfi" style="background:#FDF5E4">🛡️</div><div><div class="sft">Fraud Scoring — XGBoost + SHAP</div><div class="sfb">Ensemble model scores 150+ features per instrument. Every decision ships with human-readable rationale stored in Immudb — audit ready, one query.</div></div></div>
-      <div class="sfeat"><div class="sfi" style="background:#E8F7FB">🏦</div><div><div class="sft">CBS Integration — Real-Time Checks</div><div class="sfb">Live connectivity to Finacle, BaNCS, and FlexCube. Balance, account status, and stop payment checks per instrument — async, inside the 600 ms window.</div></div></div>
-      <div class="sfeat"><div class="sfi" style="background:#E8EAFC">⚖️</div><div><div class="sft">Human Review — 55-Minute Timeout</div><div class="sfb">Borderline cases route to ops with all AI evidence pre-loaded. If no decision in 55 minutes, the IET watchdog files the instrument automatically.</div></div></div>
-      <div class="sfeat"><div class="sfi" style="background:#FEF0F0">📋</div><div><div class="sft">Immutable Audit — Immudb Ledger</div><div class="sfb">Every decision, vault lookup, and filing written to a cryptographically append-only ledger. Tamper-evident. RBI examination answered in one query.</div></div></div>
-    </div>
+    <span class="sbrand-r">Confidential · 2026</span>
   </div>
-  <div class="wm">Confidential — Not for Distribution</div>
-  <div class="pg">7 / 10</div>
-</div>
+  <div class="sc">
+    <div class="sh poc-sh">
+      <div class="sh-eye eye-t">🤝 Proof of Concept</div>
+      <div class="sh-title">Bank Commits 5 Things. ASTRA Handles the Rest.</div>
+      <div class="sh-sub">A structured, zero-disruption path from first conversation to full production — existing system runs in parallel throughout, no forced commitment at any stage.</div>
+    </div>
 
-<!-- ═══════════════════ SLIDE 8 — TRAJECTORY ═══════════════════ -->
-<div class="slide" id="s8">
-  <div class="sbrand"><span class="sbrand-l">ASTRA — Banking Platform</span><span class="sbrand-r">Confidential · 2026</span></div>
-  <div class="sh">
-    <span class="chip ch-i">Technology Trajectory</span>
-    <div class="sh-title">Not a Target. An Architecture.</div>
-    <div class="sh-sub">Clearing intelligence is on an inevitable trajectory. ASTRA is purpose-built for where it is going — and operational today at the stage that matters most.</div>
-  </div>
-  <div class="traj-wrap">
-    <div class="traj-tl">
-      <div class="ttp">
-        <div class="ttd" style="background:#DDE3EE;border-color:#8896A8;font-size:12px">📋</div>
-        <div class="ttt" style="color:#8896A8">3 hrs</div>
-        <div class="ttl" style="color:#8896A8">Manual Clearing</div>
-        <div class="tts">Staff-driven<br>Error-prone</div>
+    <div class="poc-cols">
+      <!-- LEFT: Bank commits -->
+      <div class="poc-bank">
+        <div class="poc-col-lbl poc-bank-lbl">🏦 What the Bank Provides</div>
+        <div class="poc-item">
+          <div class="poc-num">1</div>
+          <div class="poc-ico">✍️</div>
+          <div><div class="poc-t">NDA Signing</div><div class="poc-s">Standard non-disclosure — protects both sides before any data moves</div></div>
+        </div>
+        <div class="poc-item">
+          <div class="poc-num">2</div>
+          <div class="poc-ico">👤</div>
+          <div><div class="poc-t">Bank SPOC Identification</div><div class="poc-s">One point of contact — IT + Operations — for the duration of POC</div></div>
+        </div>
+        <div class="poc-item">
+          <div class="poc-num">3</div>
+          <div class="poc-ico">📋</div>
+          <div><div class="poc-t">Sample Cheque Sharing</div><div class="poc-s">Historical or live cheque images — even 500 samples are enough to begin</div></div>
+        </div>
+        <div class="poc-item">
+          <div class="poc-num">4</div>
+          <div class="poc-ico">🖥️</div>
+          <div><div class="poc-t">Infrastructure Provision</div><div class="poc-s">On-prem server per ASTRA specs — ASTRA provides exact hardware requirements</div></div>
+        </div>
+        <div class="poc-item">
+          <div class="poc-num">5</div>
+          <div class="poc-ico">🔗</div>
+          <div><div class="poc-t">Read-Only CBS Connectivity</div><div class="poc-s">Balance, account status, stop-payment signals — read-only, zero write access</div></div>
+        </div>
       </div>
-      <div class="ttp">
-        <div class="ttd" style="background:#1741CC;border-color:#1741CC;font-size:12px">⚡</div>
-        <div class="ttt g-blue">&lt;30 min</div>
-        <div class="ttl">ASTRA — Today</div>
-        <div class="tts">AI + human hybrid<br>IET-safe · Explainable</div>
-      </div>
-      <div class="ttp">
-        <div class="ttd" style="background:#E8F7FB;border-color:#0994B4;font-size:12px">🚀</div>
-        <div class="ttt g-teal">&lt;1 min</div>
-        <div class="ttl">Full Automation</div>
-        <div class="tts">High-STP regime<br>NPCI API phase B</div>
-      </div>
-      <div class="ttp">
-        <div class="ttd" style="background:#E6F7F3;border-color:#0C9266;font-size:12px">✨</div>
-        <div class="ttt g-green">Instant</div>
-        <div class="ttl">E-Cheque Era</div>
-        <div class="tts">Digital instruments<br>NPCI MCP phase C</div>
-      </div>
-    </div>
-    <div class="traj-section-lbl">Four Pillars That Make ASTRA Different</div>
-    <div class="traj-pills">
-      <div class="tpill" style="border-top-color:#1741CC">
-        <div class="tpi">🏛️</div>
-        <div class="tpt">On-Premises Local LLM</div>
-        <div class="tpb">Every AI model runs inside the bank's own data centre. No cheque image, no customer data, no inference result ever leaves. RBI data localisation — architecturally enforced, not policy-dependent.</div>
-      </div>
-      <div class="tpill" style="border-top-color:#0C9266">
-        <div class="tpi">🔬</div>
-        <div class="tpt">Full Explainability — No Black Box</div>
-        <div class="tpb">SHAP values and human-readable rationale on every decision. Audit queries answered in seconds. No black-box AI in a regulated institution — ever. Every return is defensible.</div>
-      </div>
-      <div class="tpill" style="border-top-color:#0994B4">
-        <div class="tpi">📄</div>
-        <div class="tpt">Instrument-Agnostic by Design</div>
-        <div class="tpb">CTS-2010 cheques today. Demand drafts, banker's cheques, digital instruments tomorrow. The AI pipeline adapts without code changes — one architecture, many instruments.</div>
-      </div>
-      <div class="tpill" style="border-top-color:#B87828">
-        <div class="tpi">🗄️</div>
-        <div class="tpt">Vault Architecture — &lt;5 ms Lookup</div>
-        <div class="tpb">Signature specimens and PPS data warm-loaded from CBS into Redis at 6 AM daily. Vault lookup &lt;5 ms p99. Zero CBS calls in the 600 ms critical path — speed without compromise.</div>
-      </div>
-    </div>
-  </div>
-  <div class="wm">Confidential — Not for Distribution</div>
-  <div class="pg">8 / 10</div>
-</div>
 
-<!-- ═══════════════════ SLIDE 9 — COMMERCIAL ═══════════════════ -->
-<div class="slide" id="s9">
-  <div class="sbrand"><span class="sbrand-l">ASTRA — Banking Platform</span><span class="sbrand-r">Confidential · 2026</span></div>
-  <div class="sh">
-    <span class="chip ch-a">Commercial Model</span>
-    <div class="sh-title">Rent the Kit. Pay per Cheque. Own the Outcome.</div>
-    <div class="sh-sub">No hardware capex. No platform licence. SaaS pricing tied directly to your clearing volume — ASTRA succeeds when you do.</div>
-  </div>
-  <div class="comm-wrap">
-    <div class="comm-cols">
-      <div class="ccol">
-        <div class="cch">
-          <div class="ccico" style="background:#EEF1FB">🖨️</div>
-          <div class="ccn">CTS UV Scanner</div>
-          <div class="cct">Hardware · Monthly Rental</div>
+      <!-- RIGHT: ASTRA delivers -->
+      <div class="poc-exec">
+        <div class="poc-col-lbl poc-exec-lbl">⚡ What ASTRA Delivers</div>
+        <div class="poc-item">
+          <div class="poc-num">6</div>
+          <div class="poc-ico">🚀</div>
+          <div><div class="poc-t">Initiate POC</div><div class="poc-s">Deploy platform, configure bank profile, connect CBS, load signature vault</div></div>
         </div>
-        <div class="ccb">
-          <div class="cci"><div class="ccbul"></div><div>NPCI-approved UV/IR CTS-2010 compliant dual scanner per branch</div></div>
-          <div class="cci"><div class="ccbul"></div><div>Plug-and-play integration with ASTRA agent — zero custom wiring</div></div>
-          <div class="cci"><div class="ccbul"></div><div>Maintenance, support, and hardware replacement included</div></div>
-          <div class="cci"><div class="ccbul"></div><div>No capital expenditure · No depreciation schedules · Monthly billing</div></div>
-          <div class="cci"><div class="ccbul"></div><div>Scales with your branch network — add scanners as you grow</div></div>
+        <div class="poc-item">
+          <div class="poc-num">7</div>
+          <div class="poc-ico">⚖️</div>
+          <div><div class="poc-t">Validate Alongside Current System</div><div class="poc-s">ASTRA processes the same cheques in parallel — every decision compared, every delta explained</div></div>
         </div>
-        <div class="ccf"><div class="ccfl">Billing Basis</div><div class="ccfv">₹ / scanner / month</div></div>
-      </div>
-      <div class="ccol">
-        <div class="cch">
-          <div class="ccico" style="background:#E6F7F3">⚙️</div>
-          <div class="ccn">ASTRA Platform</div>
-          <div class="cct">Software · Setup + Per-Cheque SaaS</div>
+        <div class="poc-item">
+          <div class="poc-num">8</div>
+          <div class="poc-ico">🔧</div>
+          <div><div class="poc-t">Recalibrate on Findings</div><div class="poc-s">AI thresholds, fraud scoring weights, and routing rules tuned to the bank's specific cheque portfolio</div></div>
         </div>
-        <div class="ccb">
-          <div class="cci"><div class="ccbul"></div><div>One-time setup, onboarding, and integration fee</div></div>
-          <div class="cci"><div class="ccbul"></div><div>Per-cheque processing fee, volume-tiered — lower rate at scale</div></div>
-          <div class="cci"><div class="ccbul"></div><div>Includes CTS Inward · CTS Outward · SMB Routing · Ops Dashboard</div></div>
-          <div class="cci"><div class="ccbul"></div><div>Signature Vault · PPS Vault · Immudb Audit Trail · NGCH Adapter</div></div>
-          <div class="cci"><div class="ccbul"></div><div>Software updates via ArgoCD — zero downtime, zero manual upgrades</div></div>
-        </div>
-        <div class="ccf"><div class="ccfl">Billing Basis</div><div class="ccfv">Setup fee + ₹ / cheque (tiered)</div></div>
-      </div>
-      <div class="ccol">
-        <div class="cch">
-          <div class="ccico" style="background:#FDF5E4">🖥️</div>
-          <div class="ccn">AI Compute Hardware</div>
-          <div class="cct">GPU Infrastructure · Monthly Rental</div>
-        </div>
-        <div class="ccb">
-          <div class="cci"><div class="ccbul"></div><div>Pilot: 4× NVIDIA RTX 4090 (24 GB VRAM each)</div></div>
-          <div class="cci"><div class="ccbul"></div><div>Production: 4–8× NVIDIA A100 80 GB — handles 500 parallel agents</div></div>
-          <div class="cci"><div class="ccbul"></div><div>Deployed inside the bank's own data centre — ASTRA managed</div></div>
-          <div class="cci"><div class="ccbul"></div><div>vLLM serving + Kubernetes orchestration included in rental</div></div>
-          <div class="cci"><div class="ccbul"></div><div>Hardware refresh cycle and support covered under rental terms</div></div>
-        </div>
-        <div class="ccf"><div class="ccfl">Billing Basis</div><div class="ccfv">₹ / GPU node / month</div></div>
       </div>
     </div>
-    <div class="comm-foot">
-      <div class="cf-text">ASTRA's commercial interests are directly tied to your clearing uptime. We earn when you process cheques on time — not from a fixed platform licence that accrues regardless of performance. Every component is priced to scale with your actual clearing volume.</div>
-      <div class="cf-chips">
-        <span class="chip ch-g" style="font-size:9.5px;padding:3px 10px">No Capex</span>
-        <span class="chip ch-b" style="font-size:9.5px;padding:3px 10px">Volume SaaS</span>
-        <span class="chip ch-t" style="font-size:9.5px;padding:3px 10px">Fully Managed</span>
-      </div>
-    </div>
-  </div>
-  <div class="wm">Confidential — Not for Distribution</div>
-  <div class="pg">9 / 10</div>
-</div>
 
-<!-- ═══════════════════ SLIDE 10 — PILOT ═══════════════════ -->
-<div class="slide" id="s10">
-  <div class="sbrand"><span class="sbrand-l">ASTRA — Banking Platform</span><span class="sbrand-r">Confidential · 2026</span></div>
-  <div class="sh">
-    <span class="chip ch-g">Proposal</span>
-    <div class="sh-title">90-Day Pilot — Zero Displacement Guarantee</div>
-    <div class="sh-sub">Shadow mode first. Parallel operation second. Decision authority third. No disruption to your current clearing operations at any stage.</div>
-  </div>
-  <div class="pilot-wrap">
-    <div class="pilot-phases">
-      <div class="pph">
-        <div class="ppn" style="background:#1741CC">1</div>
+    <!-- SIGN-OFF GATE -->
+    <div class="poc-gate">
+      <div class="poc-gate-l">
+        <div class="poc-gate-ico">✅</div>
         <div>
-          <div class="ppey">Phase 1 · Weeks 1–2</div>
-          <div class="ppt">Shadow Mode</div>
-          <div class="ppb">ASTRA observes every inward cheque alongside your existing process. AI decisions generated but not acted upon. Accuracy benchmarked against your team's decisions. Zero change to current workflows — your team works as normal.</div>
+          <div class="poc-gate-t">Step 9 — Sign-Off Gate &nbsp;·&nbsp; Evaluation Complete</div>
+          <div class="poc-gate-s">Bank formally accepts POC results · Commitment to production begins here · Full audit trail of POC decisions handed over</div>
         </div>
       </div>
-      <div class="pph">
-        <div class="ppn" style="background:#0994B4">2</div>
-        <div>
-          <div class="ppey">Phase 2 · Weeks 3–8</div>
-          <div class="ppt">Parallel Decision</div>
-          <div class="ppb">ASTRA takes live decision authority on high-confidence STP instruments (typically 60–70% of volume). Your team retains authority on all borderline and flagged cases. Side-by-side comparison dashboard throughout.</div>
-        </div>
+      <div class="poc-gate-tag">60–90 Days from NDA</div>
+    </div>
+
+    <!-- PRODUCTION JOURNEY -->
+    <div class="poc-prod">
+      <div class="poc-prod-step">
+        <div class="poc-prod-num">Step 10 · Month 3–6</div>
+        <div class="poc-prod-t">🔄 Production — Side by Side</div>
+        <div class="poc-prod-s">ASTRA runs live in parallel with the existing CTS system. Bank operators validate real outcomes. Zero pressure to cut over until confident.</div>
       </div>
-      <div class="pph">
-        <div class="ppn" style="background:#0C9266">3</div>
-        <div>
-          <div class="ppey">Phase 3 · Weeks 9–12</div>
-          <div class="ppt">Calibrate &amp; Confirm</div>
-          <div class="ppb">Thresholds tuned to your bank's risk appetite. False-positive and false-negative rates benchmarked against pilot data. Go / no-go with full performance evidence in hand. Production commercial terms confirmed.</div>
-        </div>
+      <div class="poc-prod-arr">→</div>
+      <div class="poc-prod-step final">
+        <div class="poc-prod-num">Step 11 · Month 6+</div>
+        <div class="poc-prod-t">🏁 Production — Standalone</div>
+        <div class="poc-prod-s">Full cutover. Existing system retired at the bank's own pace. ASTRA is the sole CTS processing platform — IET watchdog live, STP at scale.</div>
       </div>
     </div>
-    <div class="pilot-r">
-      <div class="zdg">
-        <div class="zdg-lbl">Our Commitment</div>
-        <div class="zdg-t">Zero Displacement Guarantee</div>
-        <div class="zdg-b">ASTRA runs alongside your clearing team — it never replaces them during the pilot. If we don't demonstrate measurable accuracy improvement over your baseline, the engagement ends at no cost to the bank.</div>
-      </div>
-      <div class="cta-box">
-        <div class="cta-lbl">Start the Conversation</div>
-        <div class="cta-email">admin@9va.in</div>
-        <div class="cta-phone">Nilesh Shah &nbsp;·&nbsp; +91 9819 88 2904</div>
-        <div class="cta-phone">Jitendra Gupta &nbsp;·&nbsp; +91 7021 48 5668</div>
-        <div class="cta-hint">Response within one business day</div>
-      </div>
-      <div class="why-box">
-        <div class="why-lbl">Why Act Now</div>
-        <div class="why-row"><div class="why-dot" style="background:#1741CC"></div><div class="why-t">18-month first-mover window before Nelito and TCS BaNCS ship comparable AI capability</div></div>
-        <div class="why-row"><div class="why-dot" style="background:#0994B4"></div><div class="why-t">RBI IET mandate is already in force — every inward batch is a live compliance event today</div></div>
-        <div class="why-row"><div class="why-dot" style="background:#0C9266"></div><div class="why-t">Pilot cost is a rounding error relative to the exposure on a single late-filed batch</div></div>
-      </div>
+
+    <!-- TIMELINE -->
+    <div class="poc-timeline">
+      <div class="poc-tl-item"><div class="poc-tl-t">Week 1</div><div class="poc-tl-s">NDA + SPOC</div></div>
+      <div class="poc-tl-item"><div class="poc-tl-t">Week 2–4</div><div class="poc-tl-s">Cheques · Infra · CBS</div></div>
+      <div class="poc-tl-item"><div class="poc-tl-t">Week 4–10</div><div class="poc-tl-s">POC Run + Validate</div></div>
+      <div class="poc-tl-item"><div class="poc-tl-t">Week 10–12</div><div class="poc-tl-s">Recalibrate + Sign-off</div></div>
+      <div class="poc-tl-item"><div class="poc-tl-t">Month 3–6</div><div class="poc-tl-s">Side-by-Side Production</div></div>
+      <div class="poc-tl-item"><div class="poc-tl-t">Month 6+</div><div class="poc-tl-s">Standalone — Full Go-Live</div></div>
     </div>
   </div>
   <div class="wm">Confidential — Not for Distribution</div>
-  <div class="pg">10 / 10</div>
+  <div class="pg">7 / 8</div>
+</div>
+<!-- ══════════════════════════════════════════════════
+     SLIDE 7 — CLOSING VISION
+     ══════════════════════════════════════════════════ -->
+<div class="slide dark" id="s8">
+  <div class="sbrand">
+    <div class="sbrand-l">
+      <div class="a-icon">A</div>
+      <div class="sbrand-sep"></div>
+      <span class="sbrand-word">STRA</span>
+      <div class="sbrand-sep"></div>
+      <span class="sbrand-tag">Vision 2028 &amp; Beyond</span>
+    </div>
+    <span class="sbrand-r">Confidential · 2026</span>
+  </div>
+  <div class="vi">
+    <div class="vi-sup">Closing Vision</div>
+    <div class="vi-h">Preparing India for the Next Generation<br>of Cheque Processing</div>
+    <div class="vi-s">ASTRA is not an attempt to replace today's CTS ecosystem. It is a platform designed to help it evolve — supporting today's file-based processing while enabling tomorrow's faster, smarter, and more resilient cheque ecosystem.</div>
+    <div class="vi-pillars">
+      <div class="vp">
+        <div class="vp-ico">🏗️</div>
+        <div class="vp-t">Technology</div>
+        <div class="vp-pts">
+          <div class="vp-p">Modern · Scalable · Future Ready</div>
+          <div class="vp-p">On-Premises · Data Localised</div>
+          <div class="vp-p">API-First · Event Driven</div>
+        </div>
+      </div>
+      <div class="vp">
+        <div class="vp-ico">⚙️</div>
+        <div class="vp-t">Operations</div>
+        <div class="vp-pts">
+          <div class="vp-p">Faster · Simpler · More Efficient</div>
+          <div class="vp-p">STP at Scale · IET Zero Breach</div>
+          <div class="vp-p">Complete Audit · RBI Aligned</div>
+        </div>
+      </div>
+      <div class="vp">
+        <div class="vp-ico">🧠</div>
+        <div class="vp-t">Intelligence</div>
+        <div class="vp-pts">
+          <div class="vp-p">Responsible AI · Vision LLM</div>
+          <div class="vp-p">Auditable Decisions · Kill Switch</div>
+          <div class="vp-p">Local Deployment · No Black Box</div>
+        </div>
+      </div>
+    </div>
+    <div class="vi-catch">⚡ Speed of UPI &nbsp;·&nbsp; 🔒 Security of Bank &nbsp;·&nbsp; 🧠 Intelligence of AI</div>
+    <div class="vi-poc">
+      <div class="vi-poc-t">🤝 Start Your POC — 5 Things From You. Everything Else From ASTRA.</div>
+      <div class="vi-poc-chips">
+        <span class="vi-poc-chip">✍️ NDA</span>
+        <span class="vi-poc-chip">👤 Appoint SPOC</span>
+        <span class="vi-poc-chip">📋 Sample Cheques</span>
+        <span class="vi-poc-chip">🖥️ Infrastructure</span>
+        <span class="vi-poc-chip">🔗 Read-Only CBS Access</span>
+      </div>
+      <div class="vi-poc-foot">
+        <span>60–90 days from NDA to production-ready sign-off</span>
+        <span class="vi-poc-contact">admin@9va.in &nbsp;·&nbsp; +91 9819 88 2904</span>
+      </div>
+    </div>
+  </div>
+  <div class="vi-legal">Confidential — Not for Distribution · ASTRA Banking Platform 2026</div>
+  <div class="pg">8 / 8</div>
 </div>
 
-<!-- NAV BAR -->
-<nav class="nav-bar">
-  <button class="nav-btn nav-prev" aria-label="Previous">&#8592;</button>
-  <div id="dots" style="display:flex;gap:6px;align-items:center"></div>
-  <span class="ncount" id="counter">1 / 10</span>
-  <button class="nav-btn nav-next" aria-label="Next">&#8594;</button>
-</nav>
+<!-- ══════════════════════════════════════════════════
+     SLIDE 7 — POC JOURNEY
+     ══════════════════════════════════════════════════ -->
+<!-- ══ NAV BAR ══ -->
+<div class="nav-bar">
+  <button class="nav-btn" onclick="moveSlide(-1)">&#8592;</button>
+  <div class="nav-dot active" onclick="showSlide(1)" title="Slide 1"></div>
+  <div class="nav-dot" onclick="showSlide(2)" title="Slide 2"></div>
+  <div class="nav-dot" onclick="showSlide(3)" title="Slide 3"></div>
+  <div class="nav-dot" onclick="showSlide(4)" title="Slide 4"></div>
+  <div class="nav-dot" onclick="showSlide(5)" title="Slide 5"></div>
+  <div class="nav-dot" onclick="showSlide(6)" title="Slide 6"></div>
+  <div class="nav-dot" onclick="showSlide(7)" title="Slide 7"></div>
+  <div class="nav-dot" onclick="showSlide(8)" title="Slide 8"></div>
+  <button class="nav-btn" onclick="moveSlide(1)">&#8594;</button>
+  <span class="ncount">1 / 8</span>
+</div>
 
 <script>
-(function(){
-  var TOTAL=10,cur=0;
-  var slides=document.querySelectorAll('.slide');
-  var dotsEl=document.getElementById('dots');
-  var counter=document.getElementById('counter');
-  var dots=[];
-  for(var i=0;i<TOTAL;i++){
-    var d=document.createElement('div');
-    d.className='nav-dot';
-    d.setAttribute('role','button');d.setAttribute('tabindex','0');
-    (function(idx){
-      d.addEventListener('click',function(){goTo(idx)});
-      d.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' ')goTo(idx)});
-    })(i);
-    dotsEl.appendChild(d);dots.push(d);
-  }
-  function goTo(n){
-    slides[cur].classList.remove('active');dots[cur].classList.remove('active');
-    cur=((n%TOTAL)+TOTAL)%TOTAL;
-    slides[cur].classList.add('active');dots[cur].classList.add('active');
-    counter.textContent=(cur+1)+' / '+TOTAL;
-  }
-  document.querySelector('.nav-prev').addEventListener('click',function(){goTo(cur-1)});
-  document.querySelector('.nav-next').addEventListener('click',function(){goTo(cur+1)});
-  document.addEventListener('keydown',function(e){
-    if(e.key==='ArrowRight'||e.key==='ArrowDown'){e.preventDefault();goTo(cur+1)}
-    if(e.key==='ArrowLeft'||e.key==='ArrowUp'){e.preventDefault();goTo(cur-1)}
-  });
-  var tx=0;
-  document.addEventListener('touchstart',function(e){tx=e.touches[0].clientX},{passive:true});
-  document.addEventListener('touchend',function(e){var dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)>50)goTo(cur+(dx<0?1:-1))});
-  goTo(0);
-})();
+let cur = 1;
+const total = 8;
+function showSlide(n) {
+  document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-dot').forEach(d => d.classList.remove('active'));
+  cur = ((n - 1) % total + total) % total + 1;
+  document.getElementById('s' + cur).classList.add('active');
+  document.querySelectorAll('.nav-dot')[cur - 1].classList.add('active');
+  document.querySelector('.ncount').textContent = cur + ' / ' + total;
+}
+function moveSlide(dir) { showSlide(cur + dir); }
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); moveSlide(1); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); moveSlide(-1); }
+});
 </script>
 </body>
 </html>

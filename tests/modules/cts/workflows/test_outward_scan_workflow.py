@@ -31,8 +31,10 @@ def from_dict(d):
 
 
 def _make_scan_result(micr="123456789", compliance_ok=True, lot_number="LOT_SVCB0000001_20240619_SES-0619-001_01"):
+    from datetime import date, timedelta
+    valid_date = (date.today() - timedelta(days=10)).strftime("%d-%m-%Y")
     return {
-        "micr": MagicMock(micr_line=micr, confidence=0.98, outcome="PROCEED"),
+        "micr": MagicMock(micr_line=micr, confidence=0.98, outcome="PROCEED", date=valid_date),
         "compliance": MagicMock(is_compliant=compliance_ok, violations=[]),
         "lot": MagicMock(lot_number=lot_number, outcome="ASSIGNED"),
         "audit": MagicMock(audit_event_id="AUD-001"),

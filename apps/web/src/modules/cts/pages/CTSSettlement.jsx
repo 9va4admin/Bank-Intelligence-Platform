@@ -11,6 +11,7 @@
 import { useState, useMemo } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
 import AppShell from '../../../shared/layout/AppShell'
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
@@ -120,10 +121,11 @@ function Pipeline({ status, isDark }) {
 
 export default function CTSSettlement() {
   const { isDark } = useTheme()
-  const { bankName, bankIfsc, isSMB } = useBankContext()
+  const { bankName, bankIfsc, isSMB, isDemo } = useBankContext()
 
-  const SESSIONS      = useMemo(() => isSMB ? makeSmbSessions(bankIfsc) : SB_SESSIONS, [bankIfsc, isSMB])
-  const COUNTERPARTIES = isSMB ? SMB_COUNTERPARTIES : SB_COUNTERPARTIES
+  const demoSessions   = useMemo(() => isSMB ? makeSmbSessions(bankIfsc) : SB_SESSIONS, [bankIfsc, isSMB])
+  const SESSIONS       = useDemoData(demoSessions)
+  const COUNTERPARTIES = useDemoData(isSMB ? SMB_COUNTERPARTIES : SB_COUNTERPARTIES)
 
   const [selectedSession, setSelectedSession] = useState(null)
   const activeSessionId = selectedSession ?? SESSIONS[1]?.id ?? SESSIONS[0]?.id
@@ -167,6 +169,16 @@ export default function CTSSettlement() {
 
         <div className="px-6 py-5 max-w-7xl space-y-5">
 
+          {!isDemo && (
+            <div className={`rounded-xl border px-4 py-3 flex items-center gap-3 ${isDark ? 'border-amber-700/40 bg-amber-900/10 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+              <span className="text-lg">📂</span>
+              <div>
+                <div className="text-xs font-semibold">No clearing sessions yet — POC mode</div>
+                <div className="text-[11px] opacity-70 mt-0.5">Settlement data appears after instruments are processed and a session is reconciled.</div>
+              </div>
+            </div>
+          )}
+
           {/* Session cards with pipeline */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             {SESSIONS.map(s => (
@@ -208,7 +220,12 @@ export default function CTSSettlement() {
           </div>
 
           {/* Settlement detail for selected session */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {!sel && (
+            <div className="border border-amber-500/30 bg-amber-500/5 rounded-xl px-5 py-4 text-amber-400 text-sm">
+              📂 No settlement data yet — no clearing sessions have been processed in POC mode.
+            </div>
+          )}
+          {sel && <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
             {/* Net summary */}
             <div className={`border rounded-xl p-5 ${th.card}`}>
@@ -292,7 +309,7 @@ export default function CTSSettlement() {
                 </tfoot>
               </table>
             </div>
-          </div>
+          </div>}
         </div>
       </div>
     </AppShell>

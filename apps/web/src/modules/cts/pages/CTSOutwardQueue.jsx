@@ -18,6 +18,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDemoData from '../../../shared/hooks/useDemoData'
 import OutwardReviewPanel from '../components/OutwardReviewPanel'
 import { demoChequeUrl } from '../demoImages'
 
@@ -204,8 +205,8 @@ export default function CTSOutwardQueue() {
   const { isDark } = useTheme()
   const { bankId, isSMB } = useBankContext()
   const [tab, setTab] = useState('review') // 'review' | 'stp_rejected'
-  const [review, setReview] = useState(MOCK_HUMAN_REVIEW)
-  const [rejected, setRejected] = useState(MOCK_STP_REJECTED)
+  const [review, setReview]     = useState(useDemoData(MOCK_HUMAN_REVIEW))
+  const [rejected, setRejected] = useState(useDemoData(MOCK_STP_REJECTED))
   const [decided, setDecided] = useState([]) // { instrument_id, action, reason, ts }
   const [selected, setSelected] = useState(null)
 

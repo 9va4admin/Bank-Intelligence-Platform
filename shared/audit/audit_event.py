@@ -71,8 +71,39 @@ class AuditEventType(str, Enum):
     # ── Instrument Passport ────────────────────────────────────────────────────
     CTS_INSTRUMENT_PASSPORT = "CTS_INSTRUMENT_PASSPORT"   # per-instrument full analysis record
 
+    # ── CTS Hold Queue (Phase F) ───────────────────────────────────────────────
+    CTS_HOLD_PLACED = "CTS_HOLD_PLACED"
+    CTS_HOLD_RELEASED = "CTS_HOLD_RELEASED"
+
+    # ── CTS Allocation / Lock (Phase E) ───────────────────────────────────────
+    CTS_LOCK_ACQUIRED = "CTS_LOCK_ACQUIRED"
+    CTS_LOCK_RELEASED = "CTS_LOCK_RELEASED"
+    CTS_LOCK_EXPIRED = "CTS_LOCK_EXPIRED"
+    CTS_ALLOC_CLAIMED = "CTS_ALLOC_CLAIMED"
+    CTS_ALLOC_AUTO_ASSIGNED = "CTS_ALLOC_AUTO_ASSIGNED"
+    CTS_ALLOC_UNCLAIMED = "CTS_ALLOC_UNCLAIMED"
+
+    # ── Scanner Config ─────────────────────────────────────────────────────────
+    SCANNER_CONFIG_CREATED = "SCANNER_CONFIG_CREATED"
+    SCANNER_CONFIG_UPDATED = "SCANNER_CONFIG_UPDATED"  # every field change — path changes are critical
+    SCANNER_CONFIG_DELETED = "SCANNER_CONFIG_DELETED"  # soft-delete (is_active=false)
+
+    # ── Branch Master ──────────────────────────────────────────────────────────
+    BRANCH_CREATED = "BRANCH_CREATED"
+    BRANCH_UPDATED = "BRANCH_UPDATED"
+    BRANCH_DELETED = "BRANCH_DELETED"             # soft-delete (is_active=false)
+    BRANCH_BULK_IMPORTED = "BRANCH_BULK_IMPORTED" # CSV bulk upsert completed
+
+    # ── Processing Unit Master ─────────────────────────────────────────────────
+    PU_CREATED = "PU_CREATED"
+    PU_UPDATED = "PU_UPDATED"
+    PU_DEACTIVATED = "PU_DEACTIVATED"             # soft-deactivate (is_active=false)
+    PU_BRANCH_ASSIGNED = "PU_BRANCH_ASSIGNED"     # branch first-time mapped to a PU
+    PU_BRANCH_REASSIGNED = "PU_BRANCH_REASSIGNED" # branch moved from one PU to another
+
     # ── Platform / infra ───────────────────────────────────────────────────────
     CONFIG_CHANGE = "CONFIG_CHANGE"
+    CONFIG_L2_CHANGE_REQUESTED = "CONFIG_L2_CHANGE_REQUESTED"
     DIAGNOSTIC_ACCESS = "DIAGNOSTIC_ACCESS"
     BANK_ONBOARDED = "BANK_ONBOARDED"
 

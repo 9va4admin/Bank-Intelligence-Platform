@@ -118,3 +118,114 @@ spec:
       authenticationRef:
         name: keda-kafka-auth
 {{- end }}
+
+{{/* ── Human Review — per-tier Deployments ────────────────────────────────── */}}
+{{/*
+  Each tier has a dedicated KEDA ScaledObject so that a burst of standard-value
+  returns never starves high-value or very-high-value reviews with tighter IET
+  windows. Each ScaledObject scales the matching cts-humanreview-{tier}-worker
+  Deployment (separate from the processing worker) based on Kafka lag on the
+  corresponding per-tier human review topic.
+*/}}
+
+{{/* ── Standard tier human review ──────────────────────────────────────────── */}}
+{{- if .Values.keda.hr_standard.enabled }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: cts-hr-standard-scaler
+  namespace: {{ printf "astra-cts-%s" $bankId }}
+  labels:
+    app.kubernetes.io/name: cts-humanreview-standard-worker
+    app.kubernetes.io/part-of: astra-cts
+    astra.io/bank-id: {{ $bankId | quote }}
+    astra.io/topic: {{ printf "cts.human.review.%s" $bankId | quote }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cts-humanreview-standard-worker
+  minReplicaCount: {{ .Values.keda.hr_standard.min_replicas | default 1 }}
+  maxReplicaCount: {{ .Values.keda.hr_standard.max_replicas | default 10 }}
+  cooldownPeriod: 120
+  pollingInterval: 15
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: {{ .Values.kafka.bootstrap_servers | quote }}
+        consumerGroup: {{ printf "cg-cts-hr-standard-%s" $bankId | quote }}
+        topic: {{ printf "cts.human.review.%s" $bankId | quote }}
+        lagThreshold: {{ .Values.keda.hr_standard.lag_threshold | default "5" | quote }}
+        offsetResetPolicy: earliest
+      authenticationRef:
+        name: keda-kafka-auth
+{{- end }}
+
+{{/* ── High-value tier human review ────────────────────────────────────────── */}}
+{{- if .Values.keda.hr_highvalue.enabled }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: cts-hr-highvalue-scaler
+  namespace: {{ printf "astra-cts-%s" $bankId }}
+  labels:
+    app.kubernetes.io/name: cts-humanreview-highvalue-worker
+    app.kubernetes.io/part-of: astra-cts
+    astra.io/bank-id: {{ $bankId | quote }}
+    astra.io/topic: {{ printf "cts.human.review.hv.%s" $bankId | quote }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cts-humanreview-highvalue-worker
+  minReplicaCount: {{ .Values.keda.hr_highvalue.min_replicas | default 2 }}
+  maxReplicaCount: {{ .Values.keda.hr_highvalue.max_replicas | default 20 }}
+  cooldownPeriod: 60
+  pollingInterval: 10
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: {{ .Values.kafka.bootstrap_servers | quote }}
+        consumerGroup: {{ printf "cg-cts-hr-highvalue-%s" $bankId | quote }}
+        topic: {{ printf "cts.human.review.hv.%s" $bankId | quote }}
+        lagThreshold: {{ .Values.keda.hr_highvalue.lag_threshold | default "3" | quote }}
+        offsetResetPolicy: earliest
+      authenticationRef:
+        name: keda-kafka-auth
+{{- end }}
+
+{{/* ── Very-high tier human review ─────────────────────────────────────────── */}}
+{{- if .Values.keda.hr_veryhigh.enabled }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: cts-hr-veryhigh-scaler
+  namespace: {{ printf "astra-cts-%s" $bankId }}
+  labels:
+    app.kubernetes.io/name: cts-humanreview-veryhigh-worker
+    app.kubernetes.io/part-of: astra-cts
+    astra.io/bank-id: {{ $bankId | quote }}
+    astra.io/topic: {{ printf "cts.human.review.vhv.%s" $bankId | quote }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cts-humanreview-veryhigh-worker
+  minReplicaCount: {{ .Values.keda.hr_veryhigh.min_replicas | default 2 }}
+  maxReplicaCount: {{ .Values.keda.hr_veryhigh.max_replicas | default 10 }}
+  cooldownPeriod: 60
+  pollingInterval: 10
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: {{ .Values.kafka.bootstrap_servers | quote }}
+        consumerGroup: {{ printf "cg-cts-hr-veryhigh-%s" $bankId | quote }}
+        topic: {{ printf "cts.human.review.vhv.%s" $bankId | quote }}
+        lagThreshold: {{ .Values.keda.hr_veryhigh.lag_threshold | default "2" | quote }}
+        offsetResetPolicy: earliest
+      authenticationRef:
+        name: keda-kafka-auth
+{{- end }}

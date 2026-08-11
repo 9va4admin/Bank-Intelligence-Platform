@@ -56,6 +56,7 @@ def _make_config(
         "ocr_min_confidence": ocr_min_confidence,
         "sig_min_match_score": sig_min_match,
         "cheque_validity_days": 90,
+        "opa_required": False,  # OPA not under test here; bypass unavailable-OPA guard
     }
 
 
