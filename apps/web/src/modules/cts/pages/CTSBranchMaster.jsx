@@ -4,6 +4,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
+import { FEDERAL_BANK_BRANCHES } from '../../../shared/config/federalBankBranches'
 
 const API = import.meta.env.VITE_API_BASE || ''
 // DEMO mode: no backend, use client-side mock data.
@@ -42,6 +43,20 @@ const MOCK_BRANCHES_DB = {
     { branch_name: 'Pune Kothrud',           branch_ifsc: 'SRCB0000012', address: 'Paud Road, Kothrud',        city: 'Pune',       district: 'Pune',             state: 'Maharashtra', pin_code: '411038', phone: '02025462000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
   ],
 }
+
+const SCANNER_MODES = ['SDK_PUSH', 'SDK_PUSH', 'FOLDER_DROP', 'UI_UPLOAD']
+MOCK_BRANCHES_DB['federal-bank'] = FEDERAL_BANK_BRANCHES.map((b, i) => ({
+  branch_name:        b.name,
+  branch_ifsc:        b.ifsc,
+  address:            '',
+  city:               b.city,
+  district:           b.district,
+  state:              b.state,
+  pin_code:           b.pin,
+  phone_number:       b.phone,
+  is_active:          true,
+  scanner_input_mode: SCANNER_MODES[i % SCANNER_MODES.length],
+}))
 
 // Pick the mock set for the currently configured bank; fall back to an empty list.
 const ACTIVE_MOCK_BRANCHES = MOCK_BRANCHES_DB[BANK_CONFIG.bank_id] ?? []
@@ -119,7 +134,8 @@ function fetchBranches({ state, city, q, isActive, limit = 50 }) {
     if (state) results = results.filter(b => b.state.toLowerCase().includes(state.toLowerCase()))
     if (city)  results = results.filter(b => b.city.toLowerCase().includes(city.toLowerCase()))
     if (isActive !== null) results = results.filter(b => b.is_active === (isActive === true || isActive === 'true'))
-    return Promise.resolve({ branches: results, total: results.length })
+    const total = results.length
+    return Promise.resolve({ branches: results.slice(0, limit), total })
   }
   const params = new URLSearchParams()
   if (state) params.set('state', state)

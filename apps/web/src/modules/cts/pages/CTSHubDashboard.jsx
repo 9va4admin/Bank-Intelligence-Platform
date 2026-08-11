@@ -17,6 +17,8 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
 import AppShell from '../../../shared/layout/AppShell'
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
+import { getBranchByIfsc } from '../../../shared/config/federalBankBranches'
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
@@ -29,7 +31,8 @@ const CLEARING_WINDOW = {
   close_ts: new Date().setHours(12, 30, 0, 0),
 }
 
-const BRANCHES_MOCK = [
+// ── Saraswat / default mock (Mumbai branches) ─────────────────────────────────
+const SARASWAT_BRANCHES_MOCK = [
   {
     branch_id: 'BRANCH-ANDHERI-01',
     branch_name: 'Andheri (W) Branch',
@@ -159,6 +162,33 @@ const BRANCHES_MOCK = [
     lots_sealed_today: 6,
   },
 ]
+
+// ── Federal Bank hub session overlay ─────────────────────────────────────────
+// Branch names/cities come from federalBankBranches.js (same source as Branch Master).
+// Only hub-specific runtime fields (EEH status, session, lots) are defined here.
+const FEDERAL_HUB_SESSIONS = [
+  { ifsc: 'FDRL0000001', hub_type: 'EEH', eeh_status: 'CONNECTED', eeh_latency_ms: 6,   session: { session_id: 'sess-fdrl-ho-0811',  status: 'ACTIVE', opened_at: '2026-08-11T09:30:00Z', total_uploaded: 1842, total_accepted: 1826, total_rejected: 12, total_held: 4 }, current_lot: { lot_id: 'LOT-FDRL-HO-0074', filled: 18, max: 25, status: 'OPEN' }, lots_sealed_today: 73 },
+  { ifsc: 'FDRL0001375', hub_type: 'EEH', eeh_status: 'CONNECTED', eeh_latency_ms: 9,   session: { session_id: 'sess-fdrl-ekm-0811', status: 'ACTIVE', opened_at: '2026-08-11T09:31:22Z', total_uploaded: 412,  total_accepted: 408,  total_rejected: 3,  total_held: 1 }, current_lot: { lot_id: 'LOT-FDRL-EKM-0017', filled: 12, max: 25, status: 'OPEN' }, lots_sealed_today: 16 },
+  { ifsc: 'FDRL0001496', hub_type: 'EEH', eeh_status: 'CONNECTED', eeh_latency_ms: 14,  session: { session_id: 'sess-fdrl-kzd-0811', status: 'ACTIVE', opened_at: '2026-08-11T09:33:10Z', total_uploaded: 287,  total_accepted: 283,  total_rejected: 4,  total_held: 0 }, current_lot: { lot_id: 'LOT-FDRL-KZD-0012', filled: 22, max: 25, status: 'OPEN' }, lots_sealed_today: 11 },
+  { ifsc: 'FDRL0001888', hub_type: 'EEH', eeh_status: 'WARN',      eeh_latency_ms: 142, session: { session_id: 'sess-fdrl-gvr-0811', status: 'ACTIVE', opened_at: '2026-08-11T09:35:44Z', total_uploaded: 198,  total_accepted: 196,  total_rejected: 2,  total_held: 0 }, current_lot: { lot_id: 'LOT-FDRL-GVR-0008', filled: 23, max: 25, status: 'OPEN' }, lots_sealed_today: 7  },
+  { ifsc: 'FDRL0001004', hub_type: 'EEH', eeh_status: 'CONNECTED', eeh_latency_ms: 11,  session: { session_id: 'sess-fdrl-ekn-0811', status: 'ACTIVE', opened_at: '2026-08-11T09:32:01Z', total_uploaded: 175,  total_accepted: 174,  total_rejected: 1,  total_held: 0 }, current_lot: { lot_id: 'LOT-FDRL-EKN-0007', filled: 0,  max: 25, status: 'OPEN' }, lots_sealed_today: 7  },
+  { ifsc: 'FDRL0001764', hub_type: 'EEH', eeh_status: 'CONNECTED', eeh_latency_ms: 18,  session: { session_id: 'sess-fdrl-plk-0811', status: 'ACTIVE', opened_at: '2026-08-11T09:38:55Z', total_uploaded: 94,   total_accepted: 94,   total_rejected: 0,  total_held: 0 }, current_lot: { lot_id: 'LOT-FDRL-PLK-0004', filled: 19, max: 25, status: 'OPEN' }, lots_sealed_today: 3  },
+  { ifsc: 'FDRL0001401', hub_type: 'EEH', eeh_status: 'CONNECTED', eeh_latency_ms: 22,  session: null, current_lot: null, lots_sealed_today: 0 },
+  { ifsc: 'FDRL0001110', hub_type: 'IEH', eeh_status: 'DISCONNECTED', eeh_latency_ms: null, session: null, current_lot: null, lots_sealed_today: 0 },
+]
+
+// Merge hub sessions with branch details from Branch Master data source (federalBankBranches.js)
+const FEDERAL_BRANCHES_MOCK = FEDERAL_HUB_SESSIONS.map(({ ifsc, ...hub }) => {
+  const b = getBranchByIfsc(ifsc)
+  return {
+    branch_id:   ifsc,
+    branch_name: b ? `${b.name}, ${b.city}` : ifsc,
+    ...hub,
+  }
+})
+
+// Select mock based on configured bank — single source of truth via Branch Master
+const BRANCHES_MOCK = BANK_CONFIG.bank_id === 'federal-bank' ? FEDERAL_BRANCHES_MOCK : SARASWAT_BRANCHES_MOCK
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

@@ -294,7 +294,12 @@ function useBreadcrumb(pathname) {
 }
 
 function activeModuleId(pathname) {
-  if (pathname.startsWith('/admin') || pathname.startsWith('/cts/config')) return 'admin'
+  if (
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/cts/config') ||
+    pathname.startsWith('/cts/admin') ||
+    pathname === '/cts/schedules'
+  ) return 'admin'
   if (pathname.startsWith('/ops')) return 'ops'
   return 'cts'   // /cts/* and all /branch/* routes live under the CTS module tab
 }
