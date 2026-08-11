@@ -81,11 +81,47 @@ const DEMO_BRANCH_MANAGER = {
   smbs: [],
 }
 
+// ─── Federal Bank demo profiles (active when VITE_BANK_ID=federal-bank) ────────
+// DEMO ONLY — remove before production. SMBs route CTS through Federal Bank.
+const DEMO_FEDERAL_SMB = {
+  bankType:        'SMB',
+  bankId:          'smb-kl-tsucb',
+  bankIfsc:        'TSUB0000001',
+  bankName:        'Thrissur UCB',
+  bankShortName:   'Thrissur UCB',
+  bankCity:        'Thrissur',
+  sponsorBankId:   'federal-bank',
+  sponsorBankName: 'Federal Bank Limited',
+  sponsorBankIfsc: 'FDRL0000001',
+  userRole:        'smb_editor',
+  smbs: [],
+}
+
+// DEMO ONLY — branch_manager at Federal Bank Aluva HQ branch
+const DEMO_FEDERAL_BRANCH_MANAGER = {
+  bankType:      'SB',
+  bankId:        'federal-bank',
+  bankIfsc:      'FDRL0000001',
+  bankName:      'Federal Bank Limited',
+  bankShortName: 'Federal',
+  bankCity:      'Aluva',
+  sponsorBankId: null,
+  userRole:      'branch_manager',
+  branchCode:    'FDRL-KL-ALU-001',
+  userName:      'Demo Branch Manager',
+  smbs: [],
+}
+
+// Per-bank SMB + branch-manager profiles for the demo toggle cycle.
+// When VITE_BANK_ID is not federal-bank, falls back to Saraswat profiles.
+const DEMO_SMB_FOR_BANK = BANK_CONFIG.bank_id === 'federal-bank' ? DEMO_FEDERAL_SMB : DEMO_SMB
+const DEMO_BRANCH_FOR_BANK = BANK_CONFIG.bank_id === 'federal-bank' ? DEMO_FEDERAL_BRANCH_MANAGER : DEMO_BRANCH_MANAGER
+
 // ─── Config-driven SB profile (follows bank.config.js / VITE_BANK_ID) ────────
 // In production this is superseded by the JWT claim. For demo/POC the config
-// determines which bank's identity to show so that KBL shows KBL, Saraswat shows
-// Saraswat, etc.  DEMO_SMB and DEMO_BRANCH_MANAGER remain Saraswat-specific
-// fiction used only when toggling in demo mode.
+// determines which bank's identity to show so that KBL shows KBL, Federal shows
+// Federal, etc.  smbs comes from bank.config.js preset so the SMB nav is
+// populated automatically without touching this file per bank.
 const CONFIG_PROFILE = {
   bankType:      'SB',
   bankId:        BANK_CONFIG.bank_id,
@@ -96,7 +132,7 @@ const CONFIG_PROFILE = {
   sponsorBankId: null,
   userRole:      'ops_manager',
   userName:      'Demo User',
-  smbs:          [],
+  smbs:          BANK_CONFIG.smbs ?? [],
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -111,9 +147,9 @@ export function BankProvider({ children }) {
   const [profile, setProfile] = useState(() => {
     if (!isDemoMode) return CONFIG_PROFILE // non-demo: bank identity from bank.config.js until JWT
     const saved = localStorage.getItem('astra-bank-type')
-    if (saved === 'SMB') return DEMO_SMB
-    if (saved === 'BRANCH') return DEMO_BRANCH_MANAGER
-    return CONFIG_PROFILE  // base SB profile from bank.config.js (not hardcoded Saraswat)
+    if (saved === 'SMB') return DEMO_SMB_FOR_BANK
+    if (saved === 'BRANCH') return DEMO_BRANCH_FOR_BANK
+    return CONFIG_PROFILE  // base SB profile from bank.config.js (not hardcoded)
   })
 
   // SB can drill into a specific SMB — null means "show all / consolidated"
@@ -122,10 +158,11 @@ export function BankProvider({ children }) {
   function toggleBankType() {
     if (!isDemoMode) return
     // Cycle: SB (ops_manager) → SMB (smb_editor) → BRANCH (branch_manager) → SB
+    // Each step uses the bank-specific profile so Federal shows Federal SMBs, etc.
     let next, key
-    if (profile.userRole === 'ops_manager') { next = DEMO_SMB;            key = 'SMB'    }
-    else if (profile.userRole === 'smb_editor')  { next = DEMO_BRANCH_MANAGER; key = 'BRANCH' }
-    else                                          { next = CONFIG_PROFILE;      key = 'SB'     }
+    if (profile.userRole === 'ops_manager') { next = DEMO_SMB_FOR_BANK;    key = 'SMB'    }
+    else if (profile.userRole === 'smb_editor')  { next = DEMO_BRANCH_FOR_BANK; key = 'BRANCH' }
+    else                                          { next = CONFIG_PROFILE;       key = 'SB'     }
     localStorage.setItem('astra-bank-type', key)
     setSelectedSmbId(null)
     setProfile(next)
