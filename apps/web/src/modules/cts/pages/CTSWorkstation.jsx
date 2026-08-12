@@ -171,7 +171,7 @@ export default function CTSWorkstation() {
               </div>
             </div>
 
-            {/* Human Review sub-tabs (My Bank / SMBs) — only shown in review view */}
+            {/* Human Review sub-tabs (My Bank / SMBs) - only shown in review view */}
             {queueView === 'review' && isSB && bankMode !== 'SB_ONLY' && (
               <div className="flex gap-1 px-3 pt-2">
                 {[['own', 'My Bank'], ['smb', 'Sponsored SMBs']].map(([key, label]) => (
@@ -190,77 +190,71 @@ export default function CTSWorkstation() {
               </div>
             )}
 
-            {/* ── Human Review Queue ───────────────────────────────────────── */}
-            {queueView === 'review' && (
-            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
-              {pending.length === 0 && (
-                <div className={`text-center ${th.empty} text-sm py-12`}>
-                  <div className="text-3xl mb-2">{isDemo || decisions.length > 0 ? '✓' : '📂'}</div>
-                  <div>{isDemo || decisions.length > 0 ? 'Queue clear' : 'No instruments yet'}</div>
-                  {!isDemo && decisions.length === 0 && (
-                    <div className={`text-[10px] mt-1 ${th.empty}`}>Drop files into the inward folder to start</div>
-                  )}
-                </div>
-              )}
-              {pending.map((item) => (
-                <QueueCard
-                  key={item.instrument_id}
-                  item={item}
-                  selected={selected?.instrument_id === item.instrument_id}
-                  onClick={() => setSelected(item)}
-                  isDark={isDark}
-                />
-              ))}
-
-              {decided.length > 0 && (
-                <>
-                  <div className={`text-[10px] ${th.faint} uppercase tracking-widest pt-3 pb-1 px-1`}>
-                    Decided this session
+            {queueView === 'review' ? (
+              <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+                {pending.length === 0 && (
+                  <div className={`text-center ${th.empty} text-sm py-12`}>
+                    <div className="text-3xl mb-2">{isDemo || decisions.length > 0 ? '✓' : '📂'}</div>
+                    <div>{isDemo || decisions.length > 0 ? 'Queue clear' : 'No instruments yet'}</div>
+                    {!isDemo && decisions.length === 0 && (
+                      <div className={`text-[10px] mt-1 ${th.empty}`}>Drop files into the inward folder to start</div>
+                    )}
                   </div>
-                  {decided.map((item) => (
-                    <div key={item.instrument_id} className={`rounded-xl border ${th.decided} px-4 py-3 opacity-50`}>
-                      <div className="flex items-center justify-between">
-                        <div className={`text-[11px] font-mono ${th.muted}`}>{item.instrument_id}</div>
-                        <span className={`text-[10px] font-semibold ${item.status === 'CONFIRMED' ? 'text-emerald-500' : 'text-red-500'}`}>
-                          {item.status === 'CONFIRMED' ? '✓ Confirmed' : '✕ Returned'}
-                        </span>
-                      </div>
+                )}
+                {pending.map((item) => (
+                  <QueueCard
+                    key={item.instrument_id}
+                    item={item}
+                    selected={selected?.instrument_id === item.instrument_id}
+                    onClick={() => setSelected(item)}
+                    isDark={isDark}
+                  />
+                ))}
+                {decided.length > 0 && (
+                  <>
+                    <div className={`text-[10px] ${th.faint} uppercase tracking-widest pt-3 pb-1 px-1`}>
+                      Decided this session
                     </div>
-                  ))}
-                </>
-              )}
-            </div>
-            )}
-
-            {/* ── STP Success Queue — read-only, no actions ──────────────── */}
-            {queueView === 'stp_success' && (
-            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
-              {stpStream.filter(s => s.outcome === 'CONFIRM').length === 0 && (
-                <div className={`text-center ${th.empty} text-sm py-12`}>
-                  <div className="text-3xl mb-2">{isDemo ? '⚡' : '📂'}</div>
-                  <div className={`text-[11px] ${th.empty}`}>
-                    {isDemo ? 'STP confirms will appear here…' : 'No STP confirmed items yet'}
+                    {decided.map((item) => (
+                      <div key={item.instrument_id} className={`rounded-xl border ${th.decided} px-4 py-3 opacity-50`}>
+                        <div className="flex items-center justify-between">
+                          <div className={`text-[11px] font-mono ${th.muted}`}>{item.instrument_id}</div>
+                          <span className={`text-[10px] font-semibold ${item.status === 'CONFIRMED' ? 'text-emerald-500' : 'text-red-500'}`}>
+                            {item.status === 'CONFIRMED' ? '✓ Confirmed' : '✕ Returned'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+                {stpStream.filter(s => s.outcome === 'CONFIRM').length === 0 ? (
+                  <div className={`text-center ${th.empty} text-sm py-12`}>
+                    <div className="text-3xl mb-2">{isDemo ? '⚡' : '📂'}</div>
+                    <div className={`text-[11px] ${th.empty}`}>
+                      {isDemo ? 'STP confirms will appear here...' : 'No STP confirmed items yet'}
+                    </div>
                   </div>
-                </div>
-              )}
-              {stpStream.filter(s => s.outcome === 'CONFIRM').map((item, i) => (
-                <div
-                  key={`stp-ok-${item.id}-${i}`}
-                  className={`rounded-xl border px-3 py-2.5 border-emerald-500/20 ${isDark ? 'bg-emerald-500/5' : 'bg-emerald-50/60'}`}
-                >
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-[10px] font-semibold text-emerald-500">✓ STP Confirmed</span>
-                    <span className={`text-[9px] font-mono ${th.faint}`}>{item.ms}ms</span>
+                ) : stpStream.filter(s => s.outcome === 'CONFIRM').map((item, i) => (
+                  <div
+                    key={`stpok-${i}`}
+                    className={`rounded-xl border px-3 py-2.5 border-emerald-500/20 ${isDark ? 'bg-emerald-500/5' : 'bg-emerald-50/50'}`}
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[10px] font-semibold text-emerald-500">STP Confirmed</span>
+                      <span className={`text-[9px] font-mono ${th.faint}`}>{item.ms}ms</span>
+                    </div>
+                    <div className={`text-[10px] font-mono ${th.muted} truncate`}>{item.id}</div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className={`text-[9px] ${th.faint}`}>{item.acct}</span>
+                      <span className={`text-[9px] ${th.faint}`}>·</span>
+                      <span className={`text-[9px] ${th.faint}`}>{item.amt}</span>
+                    </div>
                   </div>
-                  <div className={`text-[10px] font-mono ${th.muted} truncate`}>{item.id}</div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className={`text-[9px] ${th.faint}`}>{item.acct}</span>
-                    <span className={`text-[9px] ${th.faint}`}>·</span>
-                    <span className={`text-[9px] ${th.faint}`}>{item.amt}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
             )}
 
           </div>
