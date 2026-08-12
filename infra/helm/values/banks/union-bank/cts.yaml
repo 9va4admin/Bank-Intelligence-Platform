@@ -1,0 +1,127 @@
+# union-bank/cts.yaml — Layer 2 overrides for astra-cts chart.
+# Bank: Union Bank of India | Module: CTS | EJ: not in scope
+# ─────────────────────────────────────────────────────────────────────────────
+# Layer 3 thresholds are set post-onboarding via Admin UI maker-checker.
+# ─────────────────────────────────────────────────────────────────────────────
+
+bank_id: union-bank
+global:
+  bank_id: union-bank
+  registry: registry.astra.internal
+
+# ── Kafka Bootstrap Servers ───────────────────────────────────────────────────
+kafka:
+  bootstrap_servers: >-
+    kafka-broker-0.kafka-broker-headless.astra-platform-union-bank.svc.cluster.local:9092,
+    kafka-broker-1.kafka-broker-headless.astra-platform-union-bank.svc.cluster.local:9092,
+    kafka-broker-2.kafka-broker-headless.astra-platform-union-bank.svc.cluster.local:9092
+
+# ── Clearing ─────────────────────────────────────────────────────────────────
+# Union Bank of India is pan-India — all four NGCH clearing zones
+clearing_zones: [WEST, SOUTH, NORTH, EAST]
+
+# Union Bank own volumes: ~50,000 outward + ~50,000 inward cheques/day (PSB scale)
+# SMB (Navi Mumbai Co-op): ~200 outward + ~200 inward cheques/day
+max_agent_swarm_size: 500
+
+# ── GPU Profile ───────────────────────────────────────────────────────────────
+gpu_profile: production               # 4×A100 80GB (Qwen2-VL 72B + Llama 3.3 70B)
+
+# ── Redis CTS Vault ───────────────────────────────────────────────────────────
+redis_cts:
+  nodes: 6
+
+# ── AI Model Config ───────────────────────────────────────────────────────────
+ai:
+  models:
+    vision: qwen2-vl-72b
+    ocr: got-ocr2
+    reasoning: llama-3.3-70b
+  timeouts_seconds:
+    vision: 120
+    ocr: 30
+    reasoning: 180
+
+# ── Vault Sync Schedule ───────────────────────────────────────────────────────
+vault_sync:
+  schedule: "0 5 * * *"              # 5AM — before earliest clearing session
+  cbs_batch_size: 5000               # Union Bank: very large account base (PSB)
+
+# ── Worker Sizing ─────────────────────────────────────────────────────────────
+cts_agent_worker:
+  min_replicas: 5                    # always warm — higher floor for PSB scale
+  max_replicas: 500
+  keda_kafka_lag_threshold: 10
+
+# ── CCTV ─────────────────────────────────────────────────────────────────────
+cctv_enabled: false                  # Phase 2
+
+# ── SMB — Union Bank sponsors 1 UCB sub-member for CTS clearing ──────────────
+# Navi Mumbai Co-operative Bank Ltd. (~200 cheques/day outward + inward)
+smb:
+  enabled: true
+  smb_forwarding_worker:
+    min_replicas: 1
+    max_replicas: 5
+    keda_kafka_lag_threshold: 5
+
+keda:
+  smb_inbound:
+    enabled: true
+    min_replicas: 1
+    max_replicas: 5
+    lag_threshold: "5"
+
+# ── NGCH Adapter ─────────────────────────────────────────────────────────────
+ngch:
+  transport: sftp
+
+# ── Deployment Mode: SB + 1 SMB sub-member ───────────────────────────────────
+deployment_mode: SB_NGCH
+
+# ── Processing Units ─────────────────────────────────────────────────────────
+# Union Bank: 4 zone PUs — one per NGCH clearing zone
+pu:
+  ids: [WEST-MAIN, SOUTH-MAIN, NORTH-MAIN, EAST-MAIN]
+
+# ── EEH / IEH ─────────────────────────────────────────────────────────────────
+eeh:
+  enabled: true
+  replicas: 2
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "2000m"
+      memory: "2Gi"
+  session_ttl_hours: 4
+  rate_limit:
+    uploads_per_branch_per_minute: 50
+  mtls:
+    crl_cache_ttl_seconds: 300
+    cert_expiry_warn_days: 30
+    cert_expiry_critical_days: 7
+  envoy:
+    enabled: true
+    grpc_web_port: 8443
+  otel:
+    trace_sampling_rate: 0.1         # 10% sampling at scale
+
+ieh:
+  enabled: true
+  replicas: 2
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+  session_ttl_hours: 4
+  envoy:
+    enabled: false
+
+# ── ASTRA Chart Version ───────────────────────────────────────────────────────
+astra:
+  cts_chart_version: "0.2.0"
