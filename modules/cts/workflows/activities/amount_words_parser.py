@@ -270,14 +270,21 @@ def amounts_match(
     figures: Optional[str],
     words: Optional[str],
     tolerance: float = 1.0,
+    script: Optional[str] = None,
 ) -> Optional[bool]:
     """
     Compare amount_in_figures (string) vs amount_in_words (string).
 
+    Fallback chain:
+      1. English parser (word_to_num)
+      2. Hindi/Marathi parser (Devanagari)
+      3. Script-specific Indic parser (Tamil/Telugu/Kannada/Malayalam/
+         Gujarati/Bengali/Punjabi/Odia) when `script` is provided.
+
     Returns:
       True   — amounts match within tolerance
       False  — amounts differ beyond tolerance (SUSPICIOUS)
-      None   — cannot determine (unparseable input — treat as unknown, not mismatch)
+      None   — cannot determine (undecidable — treat as unknown, not mismatch)
     """
     if figures is None or words is None:
         return None
@@ -289,11 +296,18 @@ def amounts_match(
 
     word_value = parse_amount_words(words)
 
-    # English parser failed → try Hindi/Marathi (Devanagari script)
+    # English parser failed → try Hindi/Marathi (Devanagari)
     if word_value is None:
         word_value = parse_hindi_amount_words(words)
 
-    # Still None → unknown language/script — undecidable, not a mismatch
+    # Still None → try script-specific Indic parser
+    if word_value is None and script is not None:
+        from modules.cts.workflows.activities.indic_amount_parsers import (
+            parse_indic_amount_by_script,
+        )
+        word_value = parse_indic_amount_by_script(words, script)
+
+    # Exhausted all parsers → undecidable, not a mismatch
     if word_value is None:
         return None
 
