@@ -239,7 +239,7 @@ function ReasonPicker({ returnReason, setReturnReason, isDark }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function OutwardReviewPanel({ item, onDecision, isDark }) {
+export default function OutwardReviewPanel({ item, onDecision, isDark, tabKind = 'review' }) {
   const [tab, setTab] = useState('images')
   const [returnReason, setReturnReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -622,15 +622,23 @@ export default function OutwardReviewPanel({ item, onDecision, isDark }) {
       </div>
 
       {/* Footer */}
-      <div className={`shrink-0 border-t ${th.border} px-5 py-3 flex items-center gap-2 ${th.foot} backdrop-blur`}>
-        <ReasonPicker returnReason={returnReason} setReturnReason={setReturnReason} isDark={isDark} />
-        <button onClick={handleReturn} disabled={!returnReason || submitting}
-          className="shrink-0 px-4 py-2 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-        >{submitting ? 'Filing…' : '✕ Return'}</button>
-        <button onClick={handleApprove} disabled={submitting}
-          className="shrink-0 px-5 py-2 rounded-lg border border-emerald-500/40 bg-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30 transition-all disabled:opacity-50 whitespace-nowrap"
-        >Approve → Validation OQ</button>
-      </div>
+      {tabKind === 'stp_success' ? (
+        <div className={`shrink-0 border-t ${th.border} px-5 py-2.5 flex items-center gap-3 ${isDark ? 'bg-emerald-950/20' : 'bg-emerald-50'}`}>
+          <span className="w-2 h-2 rounded-full bg-emerald-500 flex-none" />
+          <span className={`text-xs font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>STP Auto-Filed to NGCH</span>
+          <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Read-only - No action required</span>
+        </div>
+      ) : (
+        <div className={`shrink-0 border-t ${th.border} px-5 py-3 flex items-center gap-2 ${th.foot} backdrop-blur`}>
+          <ReasonPicker returnReason={returnReason} setReturnReason={setReturnReason} isDark={isDark} />
+          <button onClick={handleReturn} disabled={!returnReason || submitting}
+            className="shrink-0 px-4 py-2 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+          >{submitting ? 'Filing…' : '✕ Return'}</button>
+          <button onClick={handleApprove} disabled={submitting}
+            className="shrink-0 px-5 py-2 rounded-lg border border-emerald-500/40 bg-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30 transition-all disabled:opacity-50 whitespace-nowrap"
+          >Approve → Validation OQ</button>
+        </div>
+      )}
     </div>
   )
 }
