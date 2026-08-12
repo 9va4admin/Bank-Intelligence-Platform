@@ -15,6 +15,90 @@ const STP_DELAY_MS = 3200
 const SESSION_START = new Date(new Date().setHours(10, 0, 0, 0))
 const IET_WINDOW_MINS = 180
 
+// Full-data STP confirmed instruments shown in the IQ STP Success tab.
+// These have passed all AI checks and were auto-filed to NGCH — no human action needed.
+const _t = Date.now()
+const MOCK_STP_SUCCESS_IQ = [
+  {
+    instrument_id: 'CHQ-IN-00134', account_display: '****2271', payee_display: 'Rajan Textiles Ltd.',
+    amount_range: '₹[<1L]',
+    received_at: new Date(_t - 50 * 60000).toISOString(),
+    iet_deadline: new Date(_t - 50 * 60000 + 3 * 3600000).toISOString(),
+    status: 'STP_CONFIRMED', reason: 'STP_CONFIRMED', reason_label: 'STP Auto-Confirmed',
+    fraud_score: 0.04, ocr_confidence: 0.98, sig_match_score: 0.96,
+    sig_specimen_available: true, sig_specimen_label: '1 specimen on file',
+    bank: 'Federal Bank Limited', branch: 'Thrissur Main',
+    clearing_zone: 'SOUTH', cbs_type: 'Finacle',
+    opa_rule: 'cts_routing.rego - rule: stp_auto_confirm',
+    bank_slug: 'federal-bank', principal_tag: 'DIRECT',
+    shap_values: [
+      { feature: 'OCR Confidence', value: 0.98, direction: 'safe' },
+      { feature: 'Signature Match', value: 0.96, direction: 'safe' },
+      { feature: 'Fraud Risk', value: 0.04, direction: 'safe' },
+      { feature: 'Amount Consistency', value: 0.95, direction: 'safe' },
+      { feature: 'Security Features', value: 0.92, direction: 'safe' },
+    ],
+    security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true },
+    ocr_fields: {
+      date: '12-Aug-2026', payee: 'Rajan Textiles Ltd.',
+      amount_figures: '₹45,000', amount_words: 'Forty five thousand only',
+      micr: '680001002134', alterations: false,
+    },
+  },
+  {
+    instrument_id: 'CHQ-IN-00139', account_display: '****8812', payee_display: 'M.K. Builders',
+    amount_range: '₹[1L-5L]',
+    received_at: new Date(_t - 42 * 60000).toISOString(),
+    iet_deadline: new Date(_t - 42 * 60000 + 3 * 3600000).toISOString(),
+    status: 'STP_CONFIRMED', reason: 'STP_CONFIRMED', reason_label: 'STP Auto-Confirmed',
+    fraud_score: 0.06, ocr_confidence: 0.97, sig_match_score: 0.94,
+    sig_specimen_available: true, sig_specimen_label: '2 specimens on file',
+    bank: 'Federal Bank Limited', branch: 'Ernakulam',
+    clearing_zone: 'SOUTH', cbs_type: 'Finacle',
+    opa_rule: 'cts_routing.rego - rule: stp_auto_confirm',
+    bank_slug: 'federal-bank', principal_tag: 'DIRECT',
+    shap_values: [
+      { feature: 'OCR Confidence', value: 0.97, direction: 'safe' },
+      { feature: 'Signature Match', value: 0.94, direction: 'safe' },
+      { feature: 'Fraud Risk', value: 0.06, direction: 'safe' },
+      { feature: 'Amount Consistency', value: 0.93, direction: 'safe' },
+      { feature: 'Security Features', value: 0.91, direction: 'safe' },
+    ],
+    security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true },
+    ocr_fields: {
+      date: '12-Aug-2026', payee: 'M.K. Builders',
+      amount_figures: '₹2,30,000', amount_words: 'Two lakhs thirty thousand only',
+      micr: '682001002139', alterations: false,
+    },
+  },
+  {
+    instrument_id: 'CHQ-IN-00148', account_display: '****4409', payee_display: 'Cochin Fisheries',
+    amount_range: '₹[<1L]',
+    received_at: new Date(_t - 28 * 60000).toISOString(),
+    iet_deadline: new Date(_t - 28 * 60000 + 3 * 3600000).toISOString(),
+    status: 'STP_CONFIRMED', reason: 'STP_CONFIRMED', reason_label: 'STP Auto-Confirmed',
+    fraud_score: 0.03, ocr_confidence: 0.99, sig_match_score: 0.98,
+    sig_specimen_available: true, sig_specimen_label: '1 specimen on file',
+    bank: 'Federal Bank Limited', branch: 'Kozhikode Main',
+    clearing_zone: 'SOUTH', cbs_type: 'Finacle',
+    opa_rule: 'cts_routing.rego - rule: stp_auto_confirm',
+    bank_slug: 'federal-bank', principal_tag: 'DIRECT',
+    shap_values: [
+      { feature: 'OCR Confidence', value: 0.99, direction: 'safe' },
+      { feature: 'Signature Match', value: 0.98, direction: 'safe' },
+      { feature: 'Fraud Risk', value: 0.03, direction: 'safe' },
+      { feature: 'Amount Consistency', value: 0.97, direction: 'safe' },
+      { feature: 'Security Features', value: 0.99, direction: 'safe' },
+    ],
+    security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true },
+    ocr_fields: {
+      date: '12-Aug-2026', payee: 'Cochin Fisheries',
+      amount_figures: '₹78,000', amount_words: 'Seventy eight thousand only',
+      micr: '682001002148', alterations: false,
+    },
+  },
+]
+
 export default function CTSWorkstation() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, bankMode, isDemo } = useBankContext()
   const { isDark } = useTheme()
@@ -48,6 +132,7 @@ export default function CTSWorkstation() {
   const stpSource   = useRef(useDemoData(getStpStream(), []))
   const stpIndexRef = useRef(0)
   const [stpStream, setStpStream]   = useState([])
+  const [stpSuccessQueue]           = useState(useDemoData(MOCK_STP_SUCCESS_IQ))
   const [batchStats, setBatchStats] = useState(useDemoData({ ...BATCH_STATS }, ZERO_BATCH))
   const [now, setNow] = useState(new Date())
 
@@ -145,11 +230,11 @@ export default function CTSWorkstation() {
               <div className="flex gap-1">
                 {[
                   ['review',      'Human Review', pending.length],
-                  ['stp_success', 'STP Success',  stpStream.filter(s => s.outcome === 'CONFIRM').length],
+                  ['stp_success', 'STP Success',  stpSuccessQueue.length],
                 ].map(([key, label, count]) => (
                   <button
                     key={key}
-                    onClick={() => { setQueueView(key); if (key === 'stp_success') setSelected(null) }}
+                    onClick={() => { setQueueView(key); setSelected(null) }}
                     className={`flex-1 text-[10px] font-semibold px-2 py-1.5 rounded-lg border transition-all flex items-center justify-center gap-1.5 ${
                       queueView === key
                         ? (isDark ? 'bg-white/10 text-white border-white/15' : 'bg-slate-800 text-white border-slate-800')
@@ -230,37 +315,47 @@ export default function CTSWorkstation() {
               </div>
             ) : (
               <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
-                {stpStream.filter(s => s.outcome === 'CONFIRM').length === 0 ? (
+                {stpSuccessQueue.length === 0 ? (
                   <div className={`text-center ${th.empty} text-sm py-12`}>
                     <div className="text-3xl mb-2">{isDemo ? '⚡' : '📂'}</div>
                     <div className={`text-[11px] ${th.empty}`}>
                       {isDemo ? 'STP confirms will appear here...' : 'No STP confirmed items yet'}
                     </div>
                   </div>
-                ) : stpStream.filter(s => s.outcome === 'CONFIRM').map((item, i) => (
-                  <div
-                    key={`stpok-${i}`}
-                    className={`rounded-xl border px-3 py-2.5 border-emerald-500/20 ${isDark ? 'bg-emerald-500/5' : 'bg-emerald-50/50'}`}
-                  >
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[10px] font-semibold text-emerald-500">STP Confirmed</span>
-                      <span className={`text-[9px] font-mono ${th.faint}`}>{item.ms}ms</span>
-                    </div>
-                    <div className={`text-[10px] font-mono ${th.muted} truncate`}>{item.id}</div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className={`text-[9px] ${th.faint}`}>{item.acct}</span>
-                      <span className={`text-[9px] ${th.faint}`}>·</span>
-                      <span className={`text-[9px] ${th.faint}`}>{item.amt}</span>
-                    </div>
-                  </div>
-                ))}
+                ) : stpSuccessQueue.map((item) => {
+                  const isSel = selected?.instrument_id === item.instrument_id
+                  return (
+                    <button
+                      key={item.instrument_id}
+                      onClick={() => setSelected(item)}
+                      className={`w-full text-left rounded-xl border px-3 py-2.5 transition-all ${
+                        isSel
+                          ? 'border-emerald-500/40 bg-emerald-500/8'
+                          : isDark
+                            ? 'border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/30'
+                            : 'border-emerald-200 bg-emerald-50/50 hover:border-emerald-300 hover:bg-emerald-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[10px] font-semibold text-emerald-500">STP Confirmed</span>
+                        <span className={`text-[9px] font-mono ${th.faint}`}>{Math.round((item.ocr_confidence ?? 0.98) * 100)}% OCR</span>
+                      </div>
+                      <div className={`text-[10px] font-mono ${th.muted} truncate`}>{item.instrument_id}</div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className={`text-[9px] ${th.faint}`}>{item.account_display}</span>
+                        <span className={`text-[9px] ${th.faint}`}>-</span>
+                        <span className={`text-[9px] ${th.faint}`}>{item.amount_range}</span>
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
             )}
 
           </div>
 
           {/* Review panel */}
-          <ReviewPanel item={selected} onDecision={handleDecision} />
+          <ReviewPanel item={selected} onDecision={handleDecision} isDark={isDark} readOnly={queueView === 'stp_success'} />
 
           {/* Live STP stream */}
           <div className={`w-64 shrink-0 border-l ${th.divider} flex flex-col`}>

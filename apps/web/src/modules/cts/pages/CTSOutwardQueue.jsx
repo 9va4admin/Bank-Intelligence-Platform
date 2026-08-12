@@ -174,6 +174,45 @@ const MOCK_STP_REJECTED = [
   },
 ]
 
+const MOCK_STP_SUCCESS = [
+  {
+    instrument_id: 'CHQ-OUT-00461', account_display: '****9182', payee_display: 'Malabar Trading Co.',
+    amount_range: '₹[<1L]', micr: '680001002661', bank: 'Federal Bank Limited',
+    branch: 'Kozhikode Main', pu: 'SOUTH-MAIN', bank_slug: 'federal-bank',
+    received_at: '10:15 AM', filed_at: '10:15:03 AM', lot_number: 'LOT_FDRL0000001_20260812_01',
+    scanner_id: 'SCN-KOZ-01', ngch_ref: 'NGCH-20260812-CTS2-00461',
+    ocr_confidence: 0.98, vision_compliance: 0.99, micr_confidence: 0.99,
+    stp_detail: 'All checks passed. Auto-filed to NGCH within 3s of scan.',
+  },
+  {
+    instrument_id: 'CHQ-OUT-00467', account_display: '****3340', payee_display: 'Kerala Spices Exports',
+    amount_range: '₹[1L-5L]', micr: '682001002704', bank: 'Federal Bank Limited',
+    branch: 'Ernakulam', pu: 'SOUTH-MAIN', bank_slug: 'federal-bank',
+    received_at: '10:28 AM', filed_at: '10:28:07 AM', lot_number: 'LOT_FDRL0000001_20260812_01',
+    scanner_id: 'SCN-ERN-01', ngch_ref: 'NGCH-20260812-CTS2-00467',
+    ocr_confidence: 0.97, vision_compliance: 0.98, micr_confidence: 0.99,
+    stp_detail: 'Amount words/figures match. CTS-2010 compliant. Signature vault hit.',
+  },
+  {
+    instrument_id: 'CHQ-OUT-00471', account_display: '****5501', payee_display: 'Thrissur Auto Parts',
+    amount_range: '₹[<1L]', micr: '680001002731', bank: 'Federal Bank Limited',
+    branch: 'Thrissur Main', pu: 'SOUTH-MAIN', bank_slug: 'federal-bank',
+    received_at: '10:44 AM', filed_at: '10:44:05 AM', lot_number: 'LOT_FDRL0000001_20260812_01',
+    scanner_id: 'SCN-THR-01', ngch_ref: 'NGCH-20260812-CTS2-00471',
+    ocr_confidence: 0.99, vision_compliance: 0.99, micr_confidence: 0.99,
+    stp_detail: 'Clean STP. No alterations detected. Endorsement stamped.',
+  },
+  {
+    instrument_id: 'CHQ-OUT-00479', account_display: '****8826', payee_display: 'Coimbatore Textiles',
+    amount_range: '₹[<1L]', micr: '641001002791', bank: 'Federal Bank Limited',
+    branch: 'Coimbatore', pu: 'SOUTH-MAIN', bank_slug: 'federal-bank',
+    received_at: '11:02 AM', filed_at: '11:02:04 AM', lot_number: 'LOT_FDRL0000001_20260812_02',
+    scanner_id: 'SCN-CBE-01', ngch_ref: 'NGCH-20260812-CTS2-00479',
+    ocr_confidence: 0.96, vision_compliance: 0.97, micr_confidence: 0.98,
+    stp_detail: 'STP confirmed. No stop-payment flag. PPS vault hit.',
+  },
+]
+
 // ─── Row card ───────────────────────────────────────────────────────────────
 
 function OutwardRow({ item, isDark, selected, onClick }) {
@@ -209,14 +248,106 @@ function OutwardRow({ item, isDark, selected, onClick }) {
   )
 }
 
+// ─── STP Success read-only row ──────────────────────────────────────────────
+
+function STPSuccessRow({ item, isDark, selected, onClick }) {
+  const th = isDark
+    ? { idle: 'border-white/8 bg-white/5 hover:border-emerald-500/30 hover:bg-emerald-500/5', id: 'text-slate-500', name: 'text-white', sub: 'text-slate-400' }
+    : { idle: 'border-slate-200 bg-white hover:border-emerald-400 hover:bg-emerald-50/40', id: 'text-slate-400', name: 'text-slate-900', sub: 'text-slate-500' }
+  return (
+    <button onClick={onClick} className={`w-full text-left rounded-xl border p-4 transition-all ${selected ? 'border-emerald-500/40 bg-emerald-500/5' : th.idle}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className={`text-[11px] font-mono ${th.id}`}>{item.instrument_id}</div>
+          <div className={`text-sm font-semibold ${th.name} mt-0.5 truncate`}>{item.account_display} · {item.payee_display}</div>
+          <div className={`text-[10px] mt-0.5 truncate ${th.sub}`}>{item.bank} · {item.branch} · {item.pu}</div>
+        </div>
+        <span className={`text-[10px] shrink-0 ${th.sub}`}>{item.received_at}</span>
+      </div>
+      <div className="flex items-center gap-2 mt-2">
+        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${isDark ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' : 'text-emerald-700 bg-emerald-50 border-emerald-300'}`}>
+          STP Filed to NGCH
+        </span>
+        <span className={`text-[10px] ml-auto ${th.sub}`}>{item.amount_range}</span>
+      </div>
+    </button>
+  )
+}
+
+// ─── STP Success read-only detail panel ─────────────────────────────────────
+
+function STPSuccessPanel({ item, isDark }) {
+  const th = {
+    panel:   isDark ? 'bg-transparent' : 'bg-slate-50',
+    card:    isDark ? 'bg-white/4 border-white/8' : 'bg-white border-slate-200',
+    heading: isDark ? 'text-white' : 'text-slate-900',
+    label:   isDark ? 'text-slate-400' : 'text-slate-500',
+    value:   isDark ? 'text-slate-200' : 'text-slate-800',
+    mono:    isDark ? 'text-slate-300 font-mono' : 'text-slate-700 font-mono',
+  }
+  if (!item) return (
+    <div className={`flex-1 flex items-center justify-center ${th.panel}`}>
+      <div className={`text-sm ${th.label} text-center`}>
+        <div className="text-3xl mb-3">✓</div>
+        Select an instrument to view STP filing details
+      </div>
+    </div>
+  )
+  const fields = [
+    ['Instrument ID',   item.instrument_id],
+    ['Account',         item.account_display],
+    ['Payee',           item.payee_display],
+    ['Amount Range',    item.amount_range],
+    ['MICR',            item.micr],
+    ['Bank / Branch',   `${item.bank} · ${item.branch}`],
+    ['Processing Unit', item.pu],
+    ['Scanner',         item.scanner_id],
+    ['Lot',             item.lot_number],
+    ['Received',        item.received_at],
+    ['Filed to NGCH',   item.filed_at],
+    ['NGCH Reference',  item.ngch_ref],
+    ['OCR Confidence',  `${(item.ocr_confidence * 100).toFixed(0)}%`],
+    ['Vision Score',    `${(item.vision_compliance * 100).toFixed(0)}%`],
+    ['MICR Confidence', `${(item.micr_confidence * 100).toFixed(0)}%`],
+  ]
+  return (
+    <div className={`flex-1 overflow-y-auto px-6 py-5 ${th.panel}`}>
+      <div className="flex items-center gap-3 mb-5">
+        <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${isDark ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10' : 'text-emerald-700 border-emerald-300 bg-emerald-50'}`}>
+          STP Confirmed — Filed to NGCH
+        </span>
+        <span className={`text-xs ${th.label}`}>Read-only · No action required</span>
+      </div>
+      <div className={`border rounded-xl overflow-hidden ${th.card} mb-4`}>
+        <table className="w-full">
+          <tbody>
+            {fields.map(([label, val]) => (
+              <tr key={label} className={`border-b last:border-0 ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+                <td className={`px-4 py-2.5 text-xs ${th.label} w-40`}>{label}</td>
+                <td className={`px-4 py-2.5 text-xs ${th.mono}`}>{val}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {item.stp_detail && (
+        <div className={`rounded-xl border px-4 py-3 text-xs ${isDark ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300' : 'border-emerald-300 bg-emerald-50 text-emerald-800'}`}>
+          {item.stp_detail}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main page ──────────────────────────────────────────────────────────────
 
 export default function CTSOutwardQueue() {
   const { isDark } = useTheme()
   const { bankId, isSMB } = useBankContext()
-  const [tab, setTab] = useState('review') // 'review' | 'stp_rejected'
+  const [tab, setTab] = useState('review') // 'review' | 'stp_rejected' | 'stp_success'
   const [review, setReview]     = useState(useDemoData(MOCK_HUMAN_REVIEW))
   const [rejected, setRejected] = useState(useDemoData(MOCK_STP_REJECTED))
+  const [stpSuccess]            = useState(useDemoData(MOCK_STP_SUCCESS))
   const [decided, setDecided] = useState([]) // { instrument_id, action, reason, ts }
   const [selected, setSelected] = useState(null)
 
@@ -224,7 +355,8 @@ export default function CTSOutwardQueue() {
 
   const reviewQueue   = review.filter(inScope)
   const rejectedQueue = rejected.filter(inScope)
-  const activeList = tab === 'review' ? reviewQueue : rejectedQueue
+  const successQueue  = stpSuccess.filter(inScope)
+  const activeList = tab === 'review' ? reviewQueue : tab === 'stp_rejected' ? rejectedQueue : successQueue
 
   usePageHeader({
     subtitle: 'Outward Q · Human Review + STP Rejected · action required before NGCH filing',
@@ -279,7 +411,7 @@ export default function CTSOutwardQueue() {
         <div className={`w-96 shrink-0 border-r ${th.divider} flex flex-col`}>
           {/* Tabs */}
           <div className={`flex gap-1 px-3 pt-3 border-b ${th.divider} pb-2`}>
-            {[['review', 'Human Review', reviewQueue.length], ['stp_rejected', 'STP Rejected', rejectedQueue.length]].map(([key, label, count]) => (
+            {[['review', 'Human Review', reviewQueue.length], ['stp_rejected', 'STP Rejected', rejectedQueue.length], ['stp_success', 'STP Success', successQueue.length]].map(([key, label, count]) => (
               <button
                 key={key}
                 onClick={() => { setTab(key); setSelected(null) }}
@@ -303,8 +435,11 @@ export default function CTSOutwardQueue() {
               </div>
             )}
             {activeList.map(item => (
-              <OutwardRow key={item.instrument_id} item={item} isDark={isDark}
-                selected={selected?.instrument_id === item.instrument_id} onClick={() => selectItem(item)} />
+              tab === 'stp_success'
+                ? <STPSuccessRow key={item.instrument_id} item={item} isDark={isDark}
+                    selected={selected?.instrument_id === item.instrument_id} onClick={() => selectItem(item)} />
+                : <OutwardRow key={item.instrument_id} item={item} isDark={isDark}
+                    selected={selected?.instrument_id === item.instrument_id} onClick={() => selectItem(item)} />
             ))}
 
             {decided.length > 0 && (
@@ -325,8 +460,11 @@ export default function CTSOutwardQueue() {
           </div>
         </div>
 
-        {/* Decision panel — same depth as Inward Q: Overview/Cheque/AI Analysis/Passport (+ Reject Decision) */}
-        <OutwardReviewPanel item={selected} tabKind={tab} onDecision={decide} isDark={isDark} />
+        {/* Decision panel — STP Success uses read-only STPSuccessPanel; others use full OutwardReviewPanel */}
+        {tab === 'stp_success'
+          ? <STPSuccessPanel item={selected} isDark={isDark} />
+          : <OutwardReviewPanel item={selected} tabKind={tab} onDecision={decide} isDark={isDark} />
+        }
       </div>
     </AppShell>
   )
