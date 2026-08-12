@@ -130,6 +130,8 @@ async function readFileAsText(file) {
 
 // ── API calls ──────────────────────────────────────────────────────────────
 
+const PAGE_SIZE = 50
+
 function getCsrf() { return sessionStorage.getItem('astra-csrf') || '' }
 
 async function apiFetch(path, opts = {}) {
@@ -145,7 +147,7 @@ async function apiFetch(path, opts = {}) {
   return res.json()
 }
 
-function fetchBranches({ state, city, q, isActive, limit = 50 }) {
+function fetchBranches({ state, city, q, isActive, limit = PAGE_SIZE, page = 1 }) {
   if (USE_MOCK) {
     let results = [...ACTIVE_MOCK_BRANCHES]
     if (q) results = results.filter(b =>
@@ -155,7 +157,8 @@ function fetchBranches({ state, city, q, isActive, limit = 50 }) {
     if (city)  results = results.filter(b => b.city.toLowerCase().includes(city.toLowerCase()))
     if (isActive !== null) results = results.filter(b => b.is_active === (isActive === true || isActive === 'true'))
     const total = results.length
-    return Promise.resolve({ branches: results.slice(0, limit), total })
+    const offset = (page - 1) * limit
+    return Promise.resolve({ branches: results.slice(offset, offset + limit), total })
   }
   const params = new URLSearchParams()
   if (state) params.set('state', state)
@@ -163,6 +166,7 @@ function fetchBranches({ state, city, q, isActive, limit = 50 }) {
   if (q)     params.set('q', q)
   if (isActive !== null) params.set('is_active', isActive)
   params.set('limit', limit)
+  params.set('offset', (page - 1) * limit)
   return apiFetch(`/v1/branches?${params}`)
 }
 
@@ -580,6 +584,7 @@ export default function CTSBranchMaster() {
   const qc = useQueryClient()
 
   const [filters, setFilters] = useState({ q: '', state: '', city: '', isActive: null })
+  const [page, setPage] = useState(1)
   const [modal, setModal] = useState(null) // null | 'create' | 'edit' | 'delete' | 'import'
   const [selected, setSelected] = useState(null)
   const [toast, setToast] = useState(null)
@@ -598,8 +603,8 @@ export default function CTSBranchMaster() {
   }
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['branches', bankId, filters],
-    queryFn: () => fetchBranches({ ...filters }),
+    queryKey: ['branches', bankId, filters, page],
+    queryFn: () => fetchBranches({ ...filters, page }),
     staleTime: 30_000,
   })
 
@@ -670,13 +675,13 @@ export default function CTSBranchMaster() {
                 className={`rounded-lg border px-3 py-2 text-sm focus:outline-none ${th.input}`}
                 placeholder={ph}
                 value={filters[key]}
-                onChange={e => setFilters(f => ({ ...f, [key]: e.target.value }))}
+                onChange={e => { setFilters(f => ({ ...f, [key]: e.target.value })); setPage(1) }}
               />
             ))}
             <select
               className={`rounded-lg border px-3 py-2 text-sm focus:outline-none ${th.input}`}
               value={filters.isActive === null ? '' : String(filters.isActive)}
-              onChange={e => setFilters(f => ({ ...f, isActive: e.target.value === '' ? null : e.target.value === 'true' }))}
+              onChange={e => { setFilters(f => ({ ...f, isActive: e.target.value === '' ? null : e.target.value === 'true' })); setPage(1) }}
             >
               <option value="">All statuses</option>
               <option value="true">Active only</option>
@@ -763,6 +768,34 @@ export default function CTSBranchMaster() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {total > PAGE_SIZE && (
+          <div className="flex items-center justify-between mt-3 px-1">
+            <p className={`text-xs ${th.muted}`}>
+              Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total} branches
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(p => p - 1)}
+                className={`px-3 py-1.5 text-xs rounded border transition-colors disabled:opacity-40 ${isDark ? 'border-white/15 text-slate-300 hover:bg-white/6' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+              >
+                ← Prev
+              </button>
+              <span className={`text-xs font-medium ${th.muted}`}>
+                Page {page} of {Math.ceil(total / PAGE_SIZE)}
+              </span>
+              <button
+                disabled={page >= Math.ceil(total / PAGE_SIZE)}
+                onClick={() => setPage(p => p + 1)}
+                className={`px-3 py-1.5 text-xs rounded border transition-colors disabled:opacity-40 ${isDark ? 'border-white/15 text-slate-300 hover:bg-white/6' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
 
       </div>
 
