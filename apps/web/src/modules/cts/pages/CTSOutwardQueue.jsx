@@ -176,40 +176,83 @@ const MOCK_STP_REJECTED = [
 
 const MOCK_STP_SUCCESS = [
   {
-    instrument_id: 'CHQ-OUT-00461', account_display: '****9182', payee_display: 'Malabar Trading Co.',
+    instrument_id: 'CHQ-OUT-00461', front_bw_url: null, front_gray_url: null,
+    iqa_front_bw: 0.97, iqa_back_bw: 0.96, iqa_front_gray: 0.95,
+    account_display: '****9182', payee_display: 'Malabar Trading Co.',
     amount_range: '₹[<1L]', micr: '680001002661', bank: 'Federal Bank Limited',
     branch: 'Kozhikode Main', pu: 'SOUTH-MAIN', bank_slug: 'federal-bank',
+    reason: 'STP_CONFIRMED', reason_label: 'STP Auto-Filed',
     received_at: '10:15 AM', filed_at: '10:15:03 AM', lot_number: 'LOT_FDRL0000001_20260812_01',
     scanner_id: 'SCN-KOZ-01', ngch_ref: 'NGCH-20260812-CTS2-00461',
     ocr_confidence: 0.98, vision_compliance: 0.99, micr_confidence: 0.99,
-    stp_detail: 'All checks passed. Auto-filed to NGCH within 3s of scan.',
+    checks: { signature_present: true, amount_words_match: true, date_valid: true, cts_valid: true },
+    security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true, missing: [] },
+    deposit_channel: null, deposit_data: null,
+    ocr_fields: ocrFields({
+      payee: 'Malabar Trading Co.', amount_figures: '₹68,000', amount_words: 'Sixty eight thousand only',
+      bank_name: 'State Bank of India', bank_branch: 'Kozhikode Main', bank_ifsc: 'SBIN0070275', bank_micr: '673002003',
+    }),
+    get fields_meta() { return makeFieldsMeta(this.ocr_fields, { date: 0.99, payee: 0.98, amount_figures: 0.98, amount_words: 0.97 }) },
   },
   {
-    instrument_id: 'CHQ-OUT-00467', account_display: '****3340', payee_display: 'Kerala Spices Exports',
+    instrument_id: 'CHQ-OUT-00467', front_bw_url: null, front_gray_url: null,
+    iqa_front_bw: 0.96, iqa_back_bw: 0.95, iqa_front_gray: 0.94,
+    account_display: '****3340', payee_display: 'Kerala Spices Exports',
     amount_range: '₹[1L-5L]', micr: '682001002704', bank: 'Federal Bank Limited',
     branch: 'Ernakulam', pu: 'SOUTH-MAIN', bank_slug: 'federal-bank',
+    reason: 'STP_CONFIRMED', reason_label: 'STP Auto-Filed',
     received_at: '10:28 AM', filed_at: '10:28:07 AM', lot_number: 'LOT_FDRL0000001_20260812_01',
     scanner_id: 'SCN-ERN-01', ngch_ref: 'NGCH-20260812-CTS2-00467',
     ocr_confidence: 0.97, vision_compliance: 0.98, micr_confidence: 0.99,
-    stp_detail: 'Amount words/figures match. CTS-2010 compliant. Signature vault hit.',
+    checks: { signature_present: true, amount_words_match: true, date_valid: true, cts_valid: true },
+    security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true, missing: [] },
+    deposit_channel: 'PAY_IN_SLIP',
+    deposit_data: { depositor_name: 'Kerala Spices Exports', depositor_account: '4000213340', deposit_amount: '₹2,15,000', counter_token: 'T-0041', date: '12/08/2026', branch: 'Ernakulam Main' },
+    ocr_fields: ocrFields({
+      payee: 'Kerala Spices Exports', amount_figures: '₹2,15,000', amount_words: 'Two lakhs fifteen thousand only',
+      bank_name: 'HDFC Bank Ltd.', bank_branch: 'MG Road, Ernakulam', bank_ifsc: 'HDFC0001234', bank_micr: '682240001',
+    }),
+    get fields_meta() { return makeFieldsMeta(this.ocr_fields, { date: 0.98, payee: 0.97, amount_figures: 0.97, amount_words: 0.96 }) },
   },
   {
-    instrument_id: 'CHQ-OUT-00471', account_display: '****5501', payee_display: 'Thrissur Auto Parts',
+    instrument_id: 'CHQ-OUT-00471', front_bw_url: null, front_gray_url: null,
+    iqa_front_bw: 0.98, iqa_back_bw: 0.97, iqa_front_gray: 0.96,
+    account_display: '****5501', payee_display: 'Thrissur Auto Parts',
     amount_range: '₹[<1L]', micr: '680001002731', bank: 'Federal Bank Limited',
     branch: 'Thrissur Main', pu: 'SOUTH-MAIN', bank_slug: 'federal-bank',
+    reason: 'STP_CONFIRMED', reason_label: 'STP Auto-Filed',
     received_at: '10:44 AM', filed_at: '10:44:05 AM', lot_number: 'LOT_FDRL0000001_20260812_01',
     scanner_id: 'SCN-THR-01', ngch_ref: 'NGCH-20260812-CTS2-00471',
     ocr_confidence: 0.99, vision_compliance: 0.99, micr_confidence: 0.99,
-    stp_detail: 'Clean STP. No alterations detected. Endorsement stamped.',
+    checks: { signature_present: true, amount_words_match: true, date_valid: true, cts_valid: true },
+    security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true, missing: [] },
+    deposit_channel: 'BACK_ANNOTATION',
+    deposit_data: { extracted_account: '4000285501', extracted_mobile: '9876501234', ocr_confidence: 0.96 },
+    ocr_fields: ocrFields({
+      payee: 'Thrissur Auto Parts', amount_figures: '₹52,500', amount_words: 'Fifty two thousand five hundred only',
+      bank_name: 'Canara Bank', bank_branch: 'Thrissur Main', bank_ifsc: 'CNRB0000682', bank_micr: '680015001',
+    }),
+    get fields_meta() { return makeFieldsMeta(this.ocr_fields, { date: 0.99, payee: 0.99, amount_figures: 0.99, amount_words: 0.98, micr: 0.99 }) },
   },
   {
-    instrument_id: 'CHQ-OUT-00479', account_display: '****8826', payee_display: 'Coimbatore Textiles',
+    instrument_id: 'CHQ-OUT-00479', front_bw_url: null, front_gray_url: null,
+    iqa_front_bw: 0.95, iqa_back_bw: 0.94, iqa_front_gray: 0.93,
+    account_display: '****8826', payee_display: 'Coimbatore Textiles',
     amount_range: '₹[<1L]', micr: '641001002791', bank: 'Federal Bank Limited',
     branch: 'Coimbatore', pu: 'SOUTH-MAIN', bank_slug: 'federal-bank',
+    reason: 'STP_CONFIRMED', reason_label: 'STP Auto-Filed',
     received_at: '11:02 AM', filed_at: '11:02:04 AM', lot_number: 'LOT_FDRL0000001_20260812_02',
     scanner_id: 'SCN-CBE-01', ngch_ref: 'NGCH-20260812-CTS2-00479',
     ocr_confidence: 0.96, vision_compliance: 0.97, micr_confidence: 0.98,
-    stp_detail: 'STP confirmed. No stop-payment flag. PPS vault hit.',
+    checks: { signature_present: true, amount_words_match: true, date_valid: true, cts_valid: true },
+    security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true, missing: [] },
+    deposit_channel: 'KIOSK',
+    deposit_data: { name: 'Coimbatore Textiles', account: '4000318826', txn_id: 'CDM-012-20260812', timestamp: '11:01 AM  12/08/2026' },
+    ocr_fields: ocrFields({
+      payee: 'Coimbatore Textiles', amount_figures: '₹88,000', amount_words: 'Eighty eight thousand only',
+      bank_name: 'Indian Bank', bank_branch: 'RS Puram, Coimbatore', bank_ifsc: 'IDIB000C001', bank_micr: '641017001',
+    }),
+    get fields_meta() { return makeFieldsMeta(this.ocr_fields, { date: 0.97, payee: 0.96, amount_figures: 0.96, amount_words: 0.95 }) },
   },
 ]
 
@@ -460,11 +503,8 @@ export default function CTSOutwardQueue() {
           </div>
         </div>
 
-        {/* Decision panel — STP Success uses read-only STPSuccessPanel; others use full OutwardReviewPanel */}
-        {tab === 'stp_success'
-          ? <STPSuccessPanel item={selected} isDark={isDark} />
-          : <OutwardReviewPanel item={selected} tabKind={tab} onDecision={decide} isDark={isDark} />
-        }
+        {/* Decision panel — tabKind drives footer visibility; stp_success shows read-only banner */}
+        <OutwardReviewPanel item={selected} tabKind={tab} onDecision={decide} isDark={isDark} />
       </div>
     </AppShell>
   )
