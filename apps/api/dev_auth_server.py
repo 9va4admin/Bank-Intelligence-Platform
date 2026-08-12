@@ -118,6 +118,28 @@ SEED_ACCOUNTS: dict[str, dict] = {
         "entity_type": "sb", "entity_id": "federal-bank", "bank_id": "federal-bank",
         "clearing_zones": ["ALL"],
     },
+    # ── Union Bank of India dev accounts (VITE_BANK_ID=union-bank) ────────────
+    "ubi-admin": {
+        "user_id": "usr-ubi-admin", "password": "union-dev-admin",
+        "display_name": "Rajesh Kumar", "role": "bank_it_admin",
+        "bank_type": "SB", "permission_level": "ADMIN",
+        "entity_type": "sb", "entity_id": "union-bank", "bank_id": "union-bank",
+        "clearing_zones": ["ALL"],
+    },
+    "ubi-ops": {
+        "user_id": "usr-ubi-ops", "password": "union-dev-ops",
+        "display_name": "Preethi Menon", "role": "ops_manager",
+        "bank_type": "SB", "permission_level": "EDIT",
+        "entity_type": "sb", "entity_id": "union-bank", "bank_id": "union-bank",
+        "clearing_zones": ["ALL"],
+    },
+    "ubi-smb": {
+        "user_id": "usr-ubi-smb", "password": "union-dev-smb",
+        "display_name": "NM Co-op Admin", "role": "smb_admin",
+        "bank_type": "SMB", "permission_level": "ADMIN",
+        "entity_type": "smb", "entity_id": "smb-mh-nmcb", "bank_id": "smb-mh-nmcb",
+        "clearing_zones": ["WEST"],
+    },
 }
 
 _PH = PasswordHasher()
