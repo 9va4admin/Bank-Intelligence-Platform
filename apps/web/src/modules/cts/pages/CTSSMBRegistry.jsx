@@ -233,7 +233,7 @@ export default function CTSSMBRegistry() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className={`text-lg font-semibold ${th.heading}`}>SMB Registry</h1>
+            <h1 className={`text-lg font-semibold ${th.heading}`}>SMB Vault & CBS</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>Sub-Member Banks sponsored for CTS clearing — vault health, return rate shield, forwarding status</p>
           </div>
           <button
