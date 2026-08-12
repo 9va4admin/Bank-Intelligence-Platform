@@ -52,16 +52,20 @@ def _mock_config(min_confidence=0.85):
     return config
 
 
-def _mock_config_partial(min_confidence=0.85, indic_ocr_url="http://indic-ocr-test:8021"):
-    """Config mock with PARTIAL_IMAGE mode enabled."""
+def _mock_config_with_indic(min_confidence=0.85, indic_ocr_url="http://indic-ocr-test:8021",
+                             min_indic_confidence=0.60):
+    """Config mock with IndicOCR enabled (services.indic_ocr.url set)."""
     config = AsyncMock()
     config.get_ai_config = AsyncMock(return_value={
         "ai.ocr.min_confidence": min_confidence,
-        "ocr.mode": "PARTIAL_IMAGE",
         "services.indic_ocr.url": indic_ocr_url,
-        "ai.ocr.min_indic_confidence": 0.60,
+        "ai.ocr.min_indic_confidence": min_indic_confidence,
     })
     return config
+
+
+# Keep alias so tests that haven't been renamed still compile
+_mock_config_partial = _mock_config_with_indic
 
 
 def _make_fake_jpeg_bytes(w: int = 1400, h: int = 600) -> bytes:
@@ -555,13 +559,17 @@ class TestOCRPartialImageMode:
     """
 
     @pytest.mark.asyncio
-    async def test_full_image_mode_is_default_when_key_absent(self):
+    async def test_indic_ocr_skipped_when_url_not_configured(self):
+        """
+        When services.indic_ocr.url is absent from config, IndicOCR refinement
+        is entirely skipped — no HTTP calls, GOT-OCR2 result used as-is.
+        """
         from modules.cts.workflows.activities.ocr import ocr_extract
         with patch("modules.cts.workflows.activities.ocr.httpx") as mock_httpx_mod:
             result = await ocr_extract(
                 _make_input(),
                 orchestrator=_mock_orchestrator(_make_vllm_response()),
-                config_service=_mock_config(),
+                config_service=_mock_config(),   # no services.indic_ocr.url → defaults to ""
             )
         mock_httpx_mod.AsyncClient.assert_not_called()
         assert result.outcome == "PROCEED"
@@ -585,44 +593,69 @@ class TestOCRPartialImageMode:
         client.get.assert_called()
 
     @pytest.mark.asyncio
-    async def test_image_fetch_failure_returns_human_review_degraded(self):
+    async def test_image_fetch_failure_for_indic_does_not_crash(self):
+        """
+        When image fetch for IndicOCR refinement fails, the activity degrades
+        gracefully: GOT-OCR2 results are kept, degraded flag stays False,
+        and no exception propagates.
+        """
         from modules.cts.workflows.activities.ocr import ocr_extract
+
+        # GOT-OCR2 returns a good high-confidence Latin result
+        good_orchestrator = _mock_orchestrator(_make_vllm_response(confidence=0.97))
+
+        # Image fetch for IndicOCR zone refinement fails
         client = AsyncMock()
-        client.get = AsyncMock(side_effect=Exception("connection refused"))
+        client.get = AsyncMock(side_effect=Exception("minio unreachable"))
         client.__aenter__ = AsyncMock(return_value=client)
         client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", MagicMock(return_value=client)):
             result = await ocr_extract(
                 _make_input(),
-                orchestrator=AsyncMock(),
-                config_service=_mock_config_partial(),
+                orchestrator=good_orchestrator,
+                config_service=_mock_config_with_indic(),
             )
 
-        assert result.outcome == "HUMAN_REVIEW"
-        assert result.degraded is True
-        assert "IMAGE_FETCH_FAILED" in (result.low_confidence_reason or "")
+        # GOT-OCR2 result is high-confidence Latin → PROCEED despite IndicOCR fetch failure
+        assert result is not None
+        assert result.degraded is False
+        assert result.indic_refined_fields == []
 
     @pytest.mark.asyncio
-    async def test_date_zone_routed_to_got_ocr_not_indic_ocr(self):
+    async def test_latin_cheque_never_calls_indic_ocr_post(self):
+        """
+        When GOT-OCR2 returns high-confidence Latin text (no Indic script),
+        IndicOCR POST endpoint is never called — only one GOT-OCR2 call total.
+        """
         from modules.cts.workflows.activities.ocr import ocr_extract
-        fake_bytes = _make_fake_jpeg_bytes()
-        mock_client_cls = _mock_httpx(fake_bytes, indic_text="", indic_conf=0.0)
-        orchestrator = AsyncMock()
-        orchestrator.call_ocr = AsyncMock(return_value=_zone_cascade_result("08/01/2013", 0.97))
 
-        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", mock_client_cls):
-            await ocr_extract(
+        # High-confidence fully Latin result: date, payee, amount_words all Latin
+        latin_response = {
+            "micr_line": {"value": "123456789012345", "confidence": 0.98},
+            "amount_figures": {"value": "10000.00", "confidence": 0.98},
+            "amount_words": {"value": "Ten Thousand Only", "confidence": 0.98},
+            "date": {"value": "08/01/2013", "confidence": 0.98},
+            "payee": {"value": "ACME Corporation", "confidence": 0.98},
+        }
+
+        client = AsyncMock()
+        client.get = AsyncMock()
+        client.post = AsyncMock()
+        client.__aenter__ = AsyncMock(return_value=client)
+        client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("modules.cts.workflows.activities.ocr.httpx.AsyncClient", MagicMock(return_value=client)):
+            result = await ocr_extract(
                 _make_input(),
-                orchestrator=orchestrator,
-                config_service=_mock_config_partial(),
+                orchestrator=_mock_orchestrator(latin_response, confidence=0.98),
+                config_service=_mock_config_with_indic(),
             )
 
-        orchestrator.call_ocr.assert_called()
-        # All image_urls for zone calls must be data URIs — not the original S3 URL
-        for call in orchestrator.call_ocr.call_args_list:
-            img_url = call.kwargs.get("image_url") or (call.args[0] if call.args else "")
-            assert img_url.startswith("data:image/")
+        # No IndicOCR zone POST for fully Latin cheques
+        client.post.assert_not_called()
+        assert result.outcome == "PROCEED"
+        assert result.indic_refined_fields == []
 
     @pytest.mark.asyncio
     async def test_devanagari_payee_uses_indic_ocr_result(self):

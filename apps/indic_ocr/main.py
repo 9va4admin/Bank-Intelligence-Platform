@@ -1,33 +1,33 @@
 """
-IndicOCR Microservice — Devanagari OCR for Indian cheque field zones.
+IndicOCR Microservice — multi-script Indic OCR for Indian cheque field zones.
 
-Three backends (select via INDIC_OCR_BACKEND env var or ?backend= per request):
+Scripts covered (via PaddleOCR language packs):
+  devanagari → hi   Hindi, Marathi, Sanskrit (Devanagari script)
+  bengali    → bn   Bengali/Bangla
+  gurmukhi   → pa   Punjabi (Gurmukhi)
+  gujarati   → gu   Gujarati
+  odia       → or   Odia (Oriya)
+  tamil      → ta   Tamil
+  telugu     → te   Telugu
+  kannada    → kn   Kannada
+  malayalam  → ml   Malayalam
 
-  paddle      (default) — PaddleOCR with Hindi model.  Pip-installable, offline,
-                          better accuracy than EasyOCR on printed Indian bank fonts.
+Backends (select via INDIC_OCR_BACKEND env var):
+  paddle      (default) — PaddleOCR, one lazy-loaded instance per script.
                           Install: pip install paddlepaddle paddleocr
                           GPU:     pip install paddlepaddle-gpu paddleocr
-                          Downloads ~80 MB Hindi model to ~/.paddleocr/ on first run.
-
-  ai4bharat             — AI4Bharat IndicOCR (CRNN weights). Highest accuracy on
-                          Indian document/cheque Devanagari. NOT pip-installable.
-                          Requires manual setup — see _get_ai4bharat_reader() below.
-                          Once weights are in place, set INDIC_OCR_BACKEND=ai4bharat.
-
-  easyocr               — EasyOCR 'hi' pack. Simplest fallback; lower accuracy on
-                          printed bank fonts but zero extra setup if already installed.
+  ai4bharat             — Stub: weights not yet set up.  Falls back to paddle.
+  easyocr               — EasyOCR ['hi'] pack. Latin-only fallback; ignores ?script.
                           Install: pip install easyocr
 
-Configuration:
-  INDIC_OCR_BACKEND=paddle     # service-wide default (env var)
-  ?backend=easyocr             # per-request override (query param)
+Query parameters:
+  ?script=devanagari    Language hint from the OCR activity (identify_indic_script() result).
+                        When omitted or unknown, defaults to devanagari.
+  ?backend=paddle       Per-request backend override.
 
 Start:
     cd apps/indic_ocr && python main.py
     uvicorn apps.indic_ocr.main:app --port 8021
-
-CTS-2010 field zones: bank_name, date, payee_name, amount_words.
-MICR / cheque number / account number are English numerics — not extracted here.
 """
 
 import io
@@ -56,6 +56,24 @@ if _SERVICE_DEFAULT not in _VALID_BACKENDS:
                 value=_SERVICE_DEFAULT, fallback=BACKEND_PADDLE)
     _SERVICE_DEFAULT = BACKEND_PADDLE
 
+# ── Script → PaddleOCR lang code mapping ─────────────────────────────────────
+# Keys match the script names returned by identify_indic_script() in zone_extractor.py.
+# Values are PaddleOCR lang codes: https://paddlepaddle.github.io/PaddleOCR/latest/en/ppocr/blog/multi_languages.html
+
+_SCRIPT_TO_PADDLE_LANG: dict[str, str] = {
+    "devanagari": "hi",   # Hindi, Marathi (Devanagari)
+    "bengali":    "bn",
+    "gurmukhi":   "pa",   # Punjabi
+    "gujarati":   "gu",
+    "odia":       "or",   # Oriya
+    "tamil":      "ta",
+    "telugu":     "te",
+    "kannada":    "kn",
+    "malayalam":  "ml",
+}
+
+_DEFAULT_PADDLE_LANG = "hi"   # fallback when script is unknown or absent
+
 # ── CTS-2010 field zones ──────────────────────────────────────────────────────
 
 _CTS_ZONES: dict[str, tuple[float, float, float, float]] = {
@@ -66,14 +84,15 @@ _CTS_ZONES: dict[str, tuple[float, float, float, float]] = {
 }
 
 # ── Lazy singletons ───────────────────────────────────────────────────────────
+# One PaddleOCR instance per lang code; created on first use and cached.
 
-_paddle_ocr:       Optional[Any] = None
-_easyocr_reader:   Optional[Any] = None
+_paddle_ocr_pool: dict[str, Any] = {}
+_easyocr_reader:  Optional[Any]  = None
 
 
-def _get_paddle_ocr() -> Any:
-    global _paddle_ocr
-    if _paddle_ocr is None:
+def _get_paddle_ocr(lang: str = _DEFAULT_PADDLE_LANG) -> Any:
+    global _paddle_ocr_pool
+    if lang not in _paddle_ocr_pool:
         try:
             from paddleocr import PaddleOCR  # pip install paddlepaddle paddleocr
         except ImportError as exc:
@@ -82,31 +101,30 @@ def _get_paddle_ocr() -> Any:
                 "CPU:  pip install paddlepaddle paddleocr\n"
                 "GPU:  pip install paddlepaddle-gpu paddleocr"
             ) from exc
-        # use_angle_cls=True handles rotated text (cheque backs, stamps).
-        # show_log=False suppresses PaddlePaddle's verbose download logs.
-        _paddle_ocr = PaddleOCR(use_angle_cls=True, lang="hi", show_log=False)
-        log.info("indic_ocr.paddle_loaded", lang="hi")
-    return _paddle_ocr
+        _paddle_ocr_pool[lang] = PaddleOCR(use_angle_cls=True, lang=lang, show_log=False)
+        log.info("indic_ocr.paddle_loaded", lang=lang)
+    return _paddle_ocr_pool[lang]
 
 
 def _get_ai4bharat_reader() -> Any:
     """
-    AI4Bharat IndicOCR — manual setup required (not pip-installable).
+    AI4Bharat IndicOCR — manual setup required.
 
     Setup steps:
       1. git clone https://github.com/AI4Bharat/IndicOCR  apps/indic_ocr/ai4bharat_src
-      2. Download Devanagari CRNN weights from their GitHub releases page and place at:
-             apps/indic_ocr/weights/ai4bharat/devanagari_crnn.pth
+      2. Download script-specific CRNN weights from their GitHub releases and place at:
+             apps/indic_ocr/weights/ai4bharat/<script>_crnn.pth
       3. pip install -r apps/indic_ocr/ai4bharat_src/requirements.txt
-      4. Implement the loader below using their inference API.
+      4. Implement loader below using their inference API.
       5. Set INDIC_OCR_BACKEND=ai4bharat to activate.
 
+    Until then: falls back to paddle silently.
     Reference: https://github.com/AI4Bharat/IndicOCR
     """
     raise NotImplementedError(
         "AI4Bharat IndicOCR backend is not yet set up on this instance.\n"
         "See _get_ai4bharat_reader() in apps/indic_ocr/main.py for setup steps.\n"
-        "Use INDIC_OCR_BACKEND=paddle (default) or INDIC_OCR_BACKEND=easyocr in the meantime."
+        "Falling back to PaddleOCR."
     )
 
 
@@ -116,44 +134,10 @@ def _get_easyocr_reader() -> Any:
         try:
             import easyocr  # pip install easyocr
         except ImportError as exc:
-            raise RuntimeError(
-                "EasyOCR not installed. Run: pip install easyocr"
-            ) from exc
+            raise RuntimeError("EasyOCR not installed. Run: pip install easyocr") from exc
         _easyocr_reader = easyocr.Reader(["hi"], gpu=True, verbose=False)
         log.info("indic_ocr.easyocr_loaded", lang="hi")
     return _easyocr_reader
-
-
-def _run_ocr(arr: np.ndarray, backend: str) -> list[tuple[str, float]]:
-    """
-    Run OCR on a (H, W, 3) uint8 numpy array.
-    Returns [(text, confidence)] regardless of backend.
-    """
-    if backend == BACKEND_PADDLE:
-        ocr    = _get_paddle_ocr()
-        result = ocr.ocr(arr, cls=True)
-        # PaddleOCR returns: list-per-image → list-of-lines
-        # Each line: [[bbox_points], [text, confidence]]
-        pairs: list[tuple[str, float]] = []
-        if result and result[0]:
-            for line in result[0]:
-                if line and len(line) >= 2:
-                    text = line[1][0]
-                    conf = float(line[1][1])
-                    if text:
-                        pairs.append((text, conf))
-        return pairs
-
-    elif backend == BACKEND_AI4BHARAT:
-        # Raises NotImplementedError until weights are installed.
-        _get_ai4bharat_reader()
-        return []  # unreachable — kept for type checker
-
-    else:  # EASYOCR
-        reader = _get_easyocr_reader()
-        raw    = reader.readtext(arr, detail=1) or []
-        # easyocr: [bbox, text, confidence]
-        return [(r[1], float(r[2])) for r in raw if r[1]]
 
 
 def _resolve_backend(override: Optional[str]) -> str:
@@ -168,17 +152,58 @@ def _resolve_backend(override: Optional[str]) -> str:
     return _SERVICE_DEFAULT
 
 
+def _resolve_paddle_lang(script: Optional[str]) -> str:
+    """Map a script name (from identify_indic_script()) to a PaddleOCR lang code."""
+    if not script:
+        return _DEFAULT_PADDLE_LANG
+    return _SCRIPT_TO_PADDLE_LANG.get(script.lower(), _DEFAULT_PADDLE_LANG)
+
+
+def _run_ocr(arr: np.ndarray, backend: str, script: Optional[str] = None) -> list[tuple[str, float]]:
+    """
+    Run OCR on a (H, W, 3) uint8 numpy array.
+    Returns [(text, confidence)] regardless of backend.
+
+    script: Indic script name from identify_indic_script() — used to select
+            the correct PaddleOCR language model. Ignored for easyocr/ai4bharat.
+    """
+    if backend == BACKEND_AI4BHARAT:
+        try:
+            _get_ai4bharat_reader()
+        except NotImplementedError:
+            log.warning("indic_ocr.ai4bharat_not_ready_falling_back_to_paddle")
+            backend = BACKEND_PADDLE   # graceful fallback
+
+    if backend == BACKEND_PADDLE:
+        lang   = _resolve_paddle_lang(script)
+        ocr    = _get_paddle_ocr(lang)
+        result = ocr.ocr(arr, cls=True)
+        pairs: list[tuple[str, float]] = []
+        if result and result[0]:
+            for line in result[0]:
+                if line and len(line) >= 2:
+                    text = line[1][0]
+                    conf = float(line[1][1])
+                    if text:
+                        pairs.append((text, conf))
+        return pairs
+
+    else:  # EASYOCR (always hi — lang pack is fixed on load)
+        reader = _get_easyocr_reader()
+        raw    = reader.readtext(arr, detail=1) or []
+        return [(r[1], float(r[2])) for r in raw if r[1]]
+
+
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 
 app = FastAPI(
     title="ASTRA IndicOCR",
     description=(
-        "Devanagari OCR for Indian cheque fields. "
-        "Default: PaddleOCR (paddle). "
-        "Planned: AI4Bharat IndicOCR (ai4bharat, manual setup). "
-        "Fallback: EasyOCR (easyocr)."
+        "Multi-script Indic OCR for Indian cheque field zones. "
+        "Pass ?script=<script_name> for script-aware PaddleOCR language selection. "
+        "Scripts: devanagari, bengali, gurmukhi, gujarati, odia, tamil, telugu, kannada, malayalam."
     ),
-    version="2.1.0",
+    version="3.0.0",
     docs_url="/docs" if os.environ.get("ASTRA_ENV", "dev") == "dev" else None,
     redoc_url=None,
 )
@@ -187,9 +212,11 @@ app = FastAPI(
 
 class OcrResult(BaseModel):
     model_config = ConfigDict(frozen=True)
-    text:       str
-    confidence: float
-    backend:    str
+    text:        str
+    confidence:  float
+    backend:     str
+    script:      Optional[str] = None
+    paddle_lang: Optional[str] = None   # resolved PaddleOCR lang code
 
 
 class ZoneOcrResult(BaseModel):
@@ -199,15 +226,18 @@ class ZoneOcrResult(BaseModel):
     payee_name:   Optional[str] = None
     amount_words: Optional[str] = None
     backend:      str
-    raw:          dict  # zone_name → [[text, confidence], ...]
+    script:       Optional[str] = None
+    raw:          dict   # zone_name → [[text, confidence], ...]
 
 
 class BackendInfo(BaseModel):
     model_config = ConfigDict(frozen=True)
-    service_default:  str
-    valid_backends:   list[str]
-    loaded:           dict[str, bool]
-    ai4bharat_status: str
+    service_default:   str
+    valid_backends:    list[str]
+    supported_scripts: list[str]
+    loaded_paddle:     list[str]   # lang codes with loaded PaddleOCR instance
+    loaded_easyocr:    bool
+    ai4bharat_status:  str
 
 
 # ── Health + info ─────────────────────────────────────────────────────────────
@@ -219,20 +249,11 @@ async def liveness():
 
 @app.get("/health/ready", include_in_schema=False)
 async def readiness():
-    if _SERVICE_DEFAULT == BACKEND_AI4BHARAT:
-        return JSONResponse(
-            status_code=503,
-            content={
-                "status": "degraded",
-                "backend": BACKEND_AI4BHARAT,
-                "error": "AI4Bharat backend requires manual setup. See /info.",
-            },
-        )
     try:
-        if _SERVICE_DEFAULT == BACKEND_PADDLE:
-            _get_paddle_ocr()
-        else:
+        if _SERVICE_DEFAULT == BACKEND_EASYOCR:
             _get_easyocr_reader()
+        else:
+            _get_paddle_ocr(_DEFAULT_PADDLE_LANG)
         return {"status": "ready", "backend": _SERVICE_DEFAULT}
     except Exception as exc:
         return JSONResponse(
@@ -244,18 +265,16 @@ async def readiness():
 @app.get("/info", response_model=BackendInfo)
 async def info() -> BackendInfo:
     return BackendInfo(
-        service_default  = _SERVICE_DEFAULT,
-        valid_backends   = sorted(_VALID_BACKENDS),
-        loaded           = {
-            BACKEND_PADDLE:    _paddle_ocr     is not None,
-            BACKEND_AI4BHARAT: False,           # never loaded until manual setup
-            BACKEND_EASYOCR:   _easyocr_reader is not None,
-        },
-        ai4bharat_status = (
+        service_default   = _SERVICE_DEFAULT,
+        valid_backends    = sorted(_VALID_BACKENDS),
+        supported_scripts = sorted(_SCRIPT_TO_PADDLE_LANG.keys()),
+        loaded_paddle     = sorted(_paddle_ocr_pool.keys()),
+        loaded_easyocr    = _easyocr_reader is not None,
+        ai4bharat_status  = (
             "NOT_IMPLEMENTED — clone https://github.com/AI4Bharat/IndicOCR, "
-            "download Devanagari CRNN weights → apps/indic_ocr/weights/ai4bharat/, "
-            "implement loader in _get_ai4bharat_reader(), "
-            "then set INDIC_OCR_BACKEND=ai4bharat"
+            "download script CRNN weights → apps/indic_ocr/weights/ai4bharat/, "
+            "implement _get_ai4bharat_reader(), then INDIC_OCR_BACKEND=ai4bharat. "
+            "Currently falls back to paddle automatically."
         ),
     )
 
@@ -267,11 +286,21 @@ async def ocr_image(
     file:    UploadFile = File(...),
     backend: Optional[str] = Query(
         default=None,
-        description="Backend override: 'paddle', 'ai4bharat', or 'easyocr'. Omit to use service default.",
+        description="Backend override: 'paddle', 'ai4bharat', or 'easyocr'.",
+    ),
+    script:  Optional[str] = Query(
+        default=None,
+        description=(
+            "Indic script name from identify_indic_script(): "
+            "devanagari | bengali | gurmukhi | gujarati | odia | "
+            "tamil | telugu | kannada | malayalam. "
+            "Selects the correct PaddleOCR language model. Defaults to devanagari."
+        ),
     ),
 ) -> OcrResult:
-    """Run Devanagari OCR on the entire uploaded image. Returns concatenated text."""
-    b = _resolve_backend(backend)
+    """Run Indic OCR on the entire uploaded image. Returns concatenated text."""
+    b    = _resolve_backend(backend)
+    lang = _resolve_paddle_lang(script)
     try:
         raw_bytes = await file.read()
         img = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
@@ -279,33 +308,38 @@ async def ocr_image(
         raise HTTPException(status_code=422, detail="Unreadable image.")
 
     arr   = np.array(img)
-    pairs = _run_ocr(arr, b)
+    pairs = _run_ocr(arr, b, script)
 
     if not pairs:
-        return OcrResult(text="", confidence=0.0, backend=b)
+        return OcrResult(text="", confidence=0.0, backend=b, script=script, paddle_lang=lang)
 
     texts = [p[0] for p in pairs]
     confs = [p[1] for p in pairs]
     avg   = sum(confs) / len(confs)
-    log.info("indic_ocr.full_ocr_done", backend=b,
+    log.info("indic_ocr.full_ocr_done",
+             backend=b, script=script, paddle_lang=lang,
              text_preview=" ".join(texts)[:80], confidence=round(avg, 4))
-    return OcrResult(text=" ".join(texts), confidence=round(avg, 4), backend=b)
+    return OcrResult(
+        text=        " ".join(texts),
+        confidence=  round(avg, 4),
+        backend=     b,
+        script=      script,
+        paddle_lang= lang,
+    )
 
 
 @app.post("/ocr_zones", response_model=ZoneOcrResult)
 async def ocr_zones(
     file:    UploadFile = File(...),
-    backend: Optional[str] = Query(
+    backend: Optional[str] = Query(default=None),
+    script:  Optional[str] = Query(
         default=None,
-        description="Backend override: 'paddle', 'ai4bharat', or 'easyocr'. Omit to use service default.",
+        description="Indic script name — applied to all zones.",
     ),
 ) -> ZoneOcrResult:
     """
-    Crop CTS-2010 field zones from the full cheque image and run Devanagari OCR
-    on each zone independently.
-
+    Crop CTS-2010 field zones from the full cheque image and run OCR on each.
     Returns: payee_name, amount_words, date, bank_name.
-    MICR / cheque number / account number are English numerics — not extracted here.
     """
     b = _resolve_backend(backend)
     try:
@@ -330,7 +364,7 @@ async def ocr_zones(
 
         zone  = img.crop((x1, y1, x2, y2))
         arr   = np.array(zone)
-        pairs = _run_ocr(arr, b)
+        pairs = _run_ocr(arr, b, script)
 
         if pairs:
             texts     = [p[0] for p in pairs]
@@ -339,7 +373,7 @@ async def ocr_zones(
             avg_conf  = sum(confs) / len(confs)
             field_text[field]  = combined
             raw_results[field] = [[t, round(c, 4)] for t, c in zip(texts, confs)]
-            log.info("indic_ocr.zone_done", backend=b, field=field,
+            log.info("indic_ocr.zone_done", backend=b, script=script, field=field,
                      text=combined[:80], conf=round(avg_conf, 4))
         else:
             field_text[field]  = None
@@ -351,6 +385,7 @@ async def ocr_zones(
         payee_name   = field_text.get("payee_name"),
         amount_words = field_text.get("amount_words"),
         backend      = b,
+        script       = script,
         raw          = raw_results,
     )
 
