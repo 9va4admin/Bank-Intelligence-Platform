@@ -258,3 +258,118 @@ class TestFiguresNormalisation:
     def test_whitespace_around_figures_handled(self):
         from modules.cts.workflows.activities.amount_words_parser import amounts_match
         assert amounts_match(figures="  1000/-  ", words="one thousand Rs only") is True
+
+
+# ── Devanagari digit normalisation ────────────────────────────────────────────
+
+class TestNormalizeDevanagariDigits:
+    def test_converts_all_digits(self):
+        from modules.cts.workflows.activities.amount_words_parser import normalize_devanagari_digits
+        assert normalize_devanagari_digits("०१२३४५६७८९") == "0123456789"
+
+    def test_mixed_keeps_latin(self):
+        from modules.cts.workflows.activities.amount_words_parser import normalize_devanagari_digits
+        assert normalize_devanagari_digits("₹१,00,000") == "₹1,00,000"
+
+    def test_already_latin_unchanged(self):
+        from modules.cts.workflows.activities.amount_words_parser import normalize_devanagari_digits
+        assert normalize_devanagari_digits("100000") == "100000"
+
+    def test_empty_unchanged(self):
+        from modules.cts.workflows.activities.amount_words_parser import normalize_devanagari_digits
+        assert normalize_devanagari_digits("") == ""
+
+
+# ── Hindi / Marathi (Devanagari) amount words parser ─────────────────────────
+
+class TestHindiAmountParser:
+    def test_ek(self):
+        from modules.cts.workflows.activities.amount_words_parser import parse_hindi_amount_words
+        assert parse_hindi_amount_words("एक") == 1
+
+    def test_bees(self):
+        from modules.cts.workflows.activities.amount_words_parser import parse_hindi_amount_words
+        assert parse_hindi_amount_words("बीस") == 20
+
+    def test_pachas(self):
+        from modules.cts.workflows.activities.amount_words_parser import parse_hindi_amount_words
+        assert parse_hindi_amount_words("पचास") == 50
+
+    def test_panch_sau(self):
+        from modules.cts.workflows.activities.amount_words_parser import parse_hindi_amount_words
+        assert parse_hindi_amount_words("पाँच सौ") == 500
+
+    def test_bees_lakh(self):
+        from modules.cts.workflows.activities.amount_words_parser import parse_hindi_amount_words
+        assert parse_hindi_amount_words("बीस लाख") == 2_000_000
+
+    def test_bees_lakh_pachas_hazar(self):
+        from modules.cts.workflows.activities.amount_words_parser import parse_hindi_amount_words
+        assert parse_hindi_amount_words("बीस लाख पचास हजार") == 2_050_000
+
+    def test_ek_crore_bees_lakh(self):
+        from modules.cts.workflows.activities.amount_words_parser import parse_hindi_amount_words
+        assert parse_hindi_amount_words("एक करोड़ बीस लाख") == 12_000_000
+
+    def test_strips_rupaye_prefix(self):
+        from modules.cts.workflows.activities.amount_words_parser import parse_hindi_amount_words
+        assert parse_hindi_amount_words("रुपये बीस लाख पचास हजार मात्र") == 2_050_000
+
+    def test_strips_matra_suffix(self):
+        from modules.cts.workflows.activities.amount_words_parser import parse_hindi_amount_words
+        assert parse_hindi_amount_words("पचास हजार मात्र") == 50_000
+
+    def test_marathi_don_lakh(self):
+        # दोन = 2 in Marathi
+        from modules.cts.workflows.activities.amount_words_parser import parse_hindi_amount_words
+        assert parse_hindi_amount_words("दोन लाख") == 200_000
+
+    def test_marathi_pannas_hazar(self):
+        # पन्नास = 50 in Marathi
+        from modules.cts.workflows.activities.amount_words_parser import parse_hindi_amount_words
+        assert parse_hindi_amount_words("पन्नास हजार") == 50_000
+
+    def test_devanagari_digits_in_amount(self):
+        # Some OCR outputs mix Devanagari digits with words
+        from modules.cts.workflows.activities.amount_words_parser import parse_hindi_amount_words
+        assert parse_hindi_amount_words("२५ हजार") == 25_000
+
+    def test_none_on_empty(self):
+        from modules.cts.workflows.activities.amount_words_parser import parse_hindi_amount_words
+        assert parse_hindi_amount_words("") is None
+
+    def test_none_on_none(self):
+        from modules.cts.workflows.activities.amount_words_parser import parse_hindi_amount_words
+        assert parse_hindi_amount_words(None) is None
+
+    def test_none_on_unknown_word(self):
+        from modules.cts.workflows.activities.amount_words_parser import parse_hindi_amount_words
+        assert parse_hindi_amount_words("completely unknown") is None
+
+    def test_never_raises(self):
+        from modules.cts.workflows.activities.amount_words_parser import parse_hindi_amount_words
+        for text in [None, "", "???", "रुपये मात्र", "xyzzy"]:
+            result = parse_hindi_amount_words(text)
+            assert result is None or isinstance(result, float)
+
+
+# ── amounts_match with Indic fallback ─────────────────────────────────────────
+
+class TestAmountsMatchIndicFallback:
+    def test_hindi_amount_matches_figures(self):
+        from modules.cts.workflows.activities.amount_words_parser import amounts_match
+        assert amounts_match(figures="2000000", words="बीस लाख") is True
+
+    def test_hindi_amount_mismatch_detected(self):
+        from modules.cts.workflows.activities.amount_words_parser import amounts_match
+        assert amounts_match(figures="1000000", words="बीस लाख") is False
+
+    def test_hindi_with_noise_matches(self):
+        from modules.cts.workflows.activities.amount_words_parser import amounts_match
+        assert amounts_match(figures="2050000", words="रुपये बीस लाख पचास हजार मात्र") is True
+
+    def test_unknown_indic_script_returns_none_not_false(self):
+        # Tamil — not yet supported; must return None, not False
+        from modules.cts.workflows.activities.amount_words_parser import amounts_match
+        result = amounts_match(figures="100000", words="இருபது லட்சம்")
+        assert result is None
