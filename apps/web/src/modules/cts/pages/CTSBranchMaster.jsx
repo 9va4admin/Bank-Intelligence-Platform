@@ -746,19 +746,25 @@ export default function CTSBranchMaster() {
                     </Badge>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-1">
                       <button
-                        className={`text-xs px-2 py-1 rounded transition-colors ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/8' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
+                        title="Edit branch"
+                        className={`p-1.5 rounded transition-colors ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/8' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'}`}
                         onClick={() => { setSelected(b); setModal('edit') }}
                       >
-                        Edit
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                        </svg>
                       </button>
                       {b.is_active && (
                         <button
-                          className={`text-xs px-2 py-1 rounded transition-colors text-red-400 hover:text-red-300 ${isDark ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}
+                          title="Deactivate branch"
+                          className={`p-1.5 rounded transition-colors text-red-400 hover:text-red-300 ${isDark ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}
                           onClick={() => { setSelected(b); setModal('delete') }}
                         >
-                          Deactivate
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524L13.477 14.89zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clipRule="evenodd" />
+                          </svg>
                         </button>
                       )}
                     </div>
