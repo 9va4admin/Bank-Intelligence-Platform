@@ -1,0 +1,209 @@
+# union-bank/platform.yaml — Layer 2 overrides for astra-platform chart.
+# Bank: Union Bank of India — Public Sector Bank | Headquartered: Mumbai, Maharashtra
+# Onboarded: August 2026 | Regulator: RBI | Demo: 2026-08-13
+# ─────────────────────────────────────────────────────────────────────────────
+# Changes require: PR to ASTRA repo → bank_it_admin approval → ArgoCD sync
+# Audit trail: every merged PR triggers Immudb ConfigChangeEvent on apply
+# ─────────────────────────────────────────────────────────────────────────────
+
+bank_id: union-bank
+
+global:
+  bank_id: union-bank
+  registry: registry.astra.internal
+
+# ── Module Flags ─────────────────────────────────────────────────────────────
+modules:
+  cts:
+    enabled: true
+  ej:
+    enabled: false                    # EJ not in scope for initial deployment
+
+# ── CBS Connector ─────────────────────────────────────────────────────────────
+# Union Bank of India runs Infosys Finacle core banking
+cbs_connector_type: finacle
+
+# ── Auth Connector Config ─────────────────────────────────────────────────────
+auth:
+  sb:
+    integration_enabled: true
+    integration_type: saml
+    saml:
+      idp_metadata_url_secret: "secret/astra/union-bank/auth/saml/sb/idp_metadata_url"
+      sp_entity_id: "astra-sb-union-bank"
+      acs_url: "https://api.union-bank.astra.internal/v1/auth/saml/acs"
+      group_role_map:
+        "ubi-cts-reviewer":   ops_reviewer
+        "ubi-fraud-analyst":  fraud_analyst
+        "ubi-ops-manager":    ops_manager
+        "ubi-it-admin":       bank_it_admin
+        "ubi-compliance":     compliance_officer
+
+  branch:
+    integration_enabled: true
+    integration_type: ldap_ad
+    ldap_ad:
+      server_url: "ldaps://dc.unionbankofindia.local:636"
+      base_dn: "DC=unionbankofindia,DC=local"
+      user_search_base: "OU=BranchUsers,DC=unionbankofindia,DC=local"
+      group_search_base: "OU=ASTRAGroups,DC=unionbankofindia,DC=local"
+      bind_dn_secret: "secret/astra/union-bank/auth/ldap/bind_dn"
+      bind_pw_secret: "secret/astra/union-bank/auth/ldap/bind_pw"
+      group_role_map:
+        "CN=ASTRA-BranchReviewers,OU=ASTRAGroups,DC=unionbankofindia,DC=local": ops_reviewer
+        "CN=ASTRA-BranchManagers,OU=ASTRAGroups,DC=unionbankofindia,DC=local":  ops_manager
+
+  pu:
+    integration_enabled: true
+    integration_type: ldap_ad
+    ldap_ad:
+      server_url: "ldaps://dc.unionbankofindia.local:636"
+      base_dn: "DC=unionbankofindia,DC=local"
+      user_search_base: "OU=PUUsers,DC=unionbankofindia,DC=local"
+      group_search_base: "OU=ASTRAGroups,DC=unionbankofindia,DC=local"
+      bind_dn_secret: "secret/astra/union-bank/auth/ldap/bind_dn"
+      bind_pw_secret: "secret/astra/union-bank/auth/ldap/bind_pw"
+      group_role_map:
+        "CN=ASTRA-PUManagers,OU=ASTRAGroups,DC=unionbankofindia,DC=local": ops_manager
+        "CN=ASTRA-PUEditors,OU=ASTRAGroups,DC=unionbankofindia,DC=local":  ops_reviewer
+
+  # Union Bank sponsors 1 UCB sub-member; uses local (argon2) accounts for demo.
+  smb:
+    default:
+      integration_enabled: false
+      integration_type: local
+
+# ── Data Centers ─────────────────────────────────────────────────────────────
+datacenters:
+  dc1:
+    name: "Mumbai Primary Data Centre"
+    location: "Mumbai, Maharashtra"
+    zone: "dc1"
+  dc2:
+    name: "Hyderabad DR Site"
+    location: "Hyderabad, Telangana"
+    zone: "dc2"
+    active: false
+
+# ── NGCH Clearing Zones ───────────────────────────────────────────────────────
+# Union Bank of India clears in all four NGCH zones (pan-India PSB)
+clearing_zones: [WEST, SOUTH, NORTH, EAST]
+
+# ── Branches (10 demo branches) ───────────────────────────────────────────────
+branches:
+  - id: ubin-mum-fort
+    ifsc: UBIN0530001
+    name: Fort Branch
+    city: Mumbai
+    state: MH
+    micr: "400026001"
+    address: "239, Vidhan Bhavan Marg, Fort, Mumbai - 400 001"
+  - id: ubin-del-cp
+    ifsc: UBIN0530002
+    name: Connaught Place Branch
+    city: New Delhi
+    state: DL
+    micr: "110026001"
+    address: "E-12, Connaught Place, New Delhi - 110 001"
+  - id: ubin-chn-anna
+    ifsc: UBIN0530003
+    name: Anna Salai Branch
+    city: Chennai
+    state: TN
+    micr: "600026001"
+    address: "184, Anna Salai, Chennai - 600 006"
+  - id: ubin-kol-dal
+    ifsc: UBIN0530004
+    name: Dalhousie Square Branch
+    city: Kolkata
+    state: WB
+    micr: "700026001"
+    address: "8, Dalhousie Square, Kolkata - 700 001"
+  - id: ubin-blr-mg
+    ifsc: UBIN0530005
+    name: MG Road Branch
+    city: Bengaluru
+    state: KA
+    micr: "560026001"
+    address: "50, MG Road, Bengaluru - 560 001"
+  - id: ubin-hyd-abids
+    ifsc: UBIN0530006
+    name: Abids Branch
+    city: Hyderabad
+    state: TS
+    micr: "500026001"
+    address: "4-1-844, Abids, Hyderabad - 500 001"
+  - id: ubin-ahm-cg
+    ifsc: UBIN0530007
+    name: CG Road Branch
+    city: Ahmedabad
+    state: GJ
+    micr: "380026001"
+    address: "Sunrise Complex, CG Road, Ahmedabad - 380 009"
+  - id: ubin-pun-fc
+    ifsc: UBIN0530008
+    name: FC Road Branch
+    city: Pune
+    state: MH
+    micr: "411026001"
+    address: "1187/4, FC Road, Shivajinagar, Pune - 411 016"
+  - id: ubin-lko-haz
+    ifsc: UBIN0530009
+    name: Hazratganj Branch
+    city: Lucknow
+    state: UP
+    micr: "226026001"
+    address: "12, Mahatma Gandhi Marg, Hazratganj, Lucknow - 226 001"
+  - id: ubin-chd-s17
+    ifsc: UBIN0530010
+    name: Sector 17 Branch
+    city: Chandigarh
+    state: PB
+    micr: "160026001"
+    address: "SCO 92-93, Sector 17-B, Chandigarh - 160 017"
+
+# ── Notifications ────────────────────────────────────────────────────────────
+notifications:
+  email:
+    from_address: "astra-alerts@unionbankofindia.com"
+    smtp_relay: "smtp.unionbankofindia.com"
+  whatsapp:
+    enabled: true
+
+# ── Shared Services Scale ─────────────────────────────────────────────────────
+api_gateway:
+  replicas: 2
+audit_service:
+  replicas: 2
+notification_service:
+  replicas: 1
+
+# ── Sub-Member Sponsorship ────────────────────────────────────────────────────
+# Union Bank sponsors 1 UCB sub-member for CTS clearing (demo)
+smb_sponsor_enabled: true
+smb_sponsor_max_sub_members: 1
+
+# Sub-member: Navi Mumbai Co-operative Bank Ltd.
+smb_registry:
+  - smb_id: smb-mh-nmcb
+    name: "Navi Mumbai Co-operative Bank Ltd."
+    short_name: "NM Co-op Bank"
+    ifsc_prefix: NMCB
+    micr_code: "400091001"
+    city: "Navi Mumbai"
+    state: MH
+    daily_avg_cheques: 200
+    integration_type: local
+
+# ── MinIO Object Store ────────────────────────────────────────────────────────
+minio:
+  endpoint: "minio.astra-platform-union-bank.svc.cluster.local:9000"
+  secure: false
+
+# ── HSM ───────────────────────────────────────────────────────────────────────
+hsm:
+  transit_key_name: "astra-audit-key-union-bank"
+
+# ── ASTRA Chart Version ───────────────────────────────────────────────────────
+astra:
+  platform_chart_version: "0.1.0"

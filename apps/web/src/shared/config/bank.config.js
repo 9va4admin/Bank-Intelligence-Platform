@@ -31,6 +31,33 @@ const BANK_PRESETS = {
     ifsc_prefix:     'KARB',
     clearing_zone:   'SOUTH',
   },
+  'union-bank': {
+    bank_id:         'union-bank',
+    bank_name:       'Union Bank of India',
+    bank_short_name: 'Union Bank',
+    tagline:         'Good People to Bank With.',
+    bank_logo:       'union-bank-logo.png',
+    primary_hex:     '#003087',
+    ifsc_prefix:     'UBIN',
+    clearing_zone:   'WEST',
+    // 10 branches across India for demo
+    branches: [
+      { id: 'ubin-mum-fort',  ifsc: 'UBIN0530001', name: 'Fort Branch',             city: 'Mumbai',      state: 'MH', micr: '400026001', address: '239, Vidhan Bhavan Marg, Fort, Mumbai - 400 001' },
+      { id: 'ubin-del-cp',    ifsc: 'UBIN0530002', name: 'Connaught Place Branch',   city: 'New Delhi',   state: 'DL', micr: '110026001', address: 'E-12, Connaught Place, New Delhi - 110 001' },
+      { id: 'ubin-chn-anna',  ifsc: 'UBIN0530003', name: 'Anna Salai Branch',        city: 'Chennai',     state: 'TN', micr: '600026001', address: '184, Anna Salai, Chennai - 600 006' },
+      { id: 'ubin-kol-dal',   ifsc: 'UBIN0530004', name: 'Dalhousie Square Branch',  city: 'Kolkata',     state: 'WB', micr: '700026001', address: '8, Dalhousie Square, Kolkata - 700 001' },
+      { id: 'ubin-blr-mg',    ifsc: 'UBIN0530005', name: 'MG Road Branch',           city: 'Bengaluru',   state: 'KA', micr: '560026001', address: '50, MG Road, Bengaluru - 560 001' },
+      { id: 'ubin-hyd-abids', ifsc: 'UBIN0530006', name: 'Abids Branch',             city: 'Hyderabad',   state: 'TS', micr: '500026001', address: '4-1-844, Abids, Hyderabad - 500 001' },
+      { id: 'ubin-ahm-cg',    ifsc: 'UBIN0530007', name: 'CG Road Branch',           city: 'Ahmedabad',   state: 'GJ', micr: '380026001', address: 'Sunrise Complex, CG Road, Ahmedabad - 380 009' },
+      { id: 'ubin-pun-fc',    ifsc: 'UBIN0530008', name: 'FC Road Branch',           city: 'Pune',        state: 'MH', micr: '411026001', address: '1187/4, FC Road, Shivajinagar, Pune - 411 016' },
+      { id: 'ubin-lko-haz',   ifsc: 'UBIN0530009', name: 'Hazratganj Branch',        city: 'Lucknow',     state: 'UP', micr: '226026001', address: '12, Mahatma Gandhi Marg, Hazratganj, Lucknow - 226 001' },
+      { id: 'ubin-chd-s17',   ifsc: 'UBIN0530010', name: 'Sector 17 Branch',         city: 'Chandigarh',  state: 'PB', micr: '160026001', address: 'SCO 92-93, Sector 17-B, Chandigarh - 160 017' },
+    ],
+    // 1 UCB sub-member sponsored for CTS clearing
+    smbs: [
+      { id: 'smb-mh-nmcb', ifsc: 'NMCB0000001', name: 'Navi Mumbai Co-operative Bank Ltd.', shortName: 'NM Co-op Bank', city: 'Navi Mumbai', state: 'MH', daily_avg: 200 },
+    ],
+  },
   'federal-bank': {
     bank_id:         'federal-bank',
     bank_name:       'Federal Bank Limited',
