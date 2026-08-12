@@ -15,6 +15,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
+import { FEDERAL_BANK_BRANCHES } from '../../../shared/config/federalBankBranches'
 
 const API = import.meta.env.VITE_API_BASE || ''
 // DEMO mode: use client-side mock. POC/PROD: Vite proxy forwards /v1/* to backend.
@@ -46,6 +47,25 @@ const MOCK_PU_DB = {
 }
 
 const ACTIVE_MOCK = MOCK_PU_DB[BANK_CONFIG.bank_id] ?? []
+
+// Demo branch data — map state → PU for Federal Bank; other banks get static counts
+const STATE_TO_PU_DEMO = {
+  'Kerala': 'SOUTH-MAIN', 'Tamil Nadu': 'SOUTH-MAIN', 'Karnataka': 'SOUTH-MAIN',
+  'Andhra Pradesh': 'SOUTH-MAIN', 'Telangana': 'SOUTH-MAIN',
+  'Maharashtra': 'WEST-MAIN', 'Goa': 'WEST-MAIN',
+  'Delhi': 'NORTH-MAIN', 'West Bengal': 'EAST-MAIN',
+}
+const DEMO_BRANCHES_BY_PU = (() => {
+  const grouped = {}
+  if (BANK_CONFIG.bank_id === 'federal-bank') {
+    for (const b of FEDERAL_BANK_BRANCHES) {
+      const pu = STATE_TO_PU_DEMO[b.state] ?? 'SOUTH-MAIN'
+      if (!grouped[pu]) grouped[pu] = []
+      grouped[pu].push({ branch_ifsc: b.ifsc, branch_name: b.name, city: b.city, is_active: true, is_scanning_enabled: true })
+    }
+  }
+  return grouped
+})()
 
 let _mockStore = ACTIVE_MOCK.map(p => ({ ...p }))
 
@@ -293,7 +313,9 @@ function BranchesPanel({ puId, bankId, isDark, isDemo }) {
     enabled: !isDemo,
   })
 
-  const branches = isDemo ? [] : (data?.branches ?? [])
+  const demoBranches = DEMO_BRANCHES_BY_PU[puId] ?? []
+  const branches = isDemo ? demoBranches.slice(0, 8) : (data?.branches ?? [])
+  const totalCount = isDemo ? demoBranches.length : (data?.total ?? branches.length)
 
   const th = {
     row:   isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
@@ -305,7 +327,7 @@ function BranchesPanel({ puId, bankId, isDark, isDemo }) {
   if (branches.length === 0) {
     return (
       <div className={`px-6 py-3 text-xs ${th.muted}`}>
-        {isDemo ? 'No branches mapped to this PU (demo mode).' : 'No branches mapped to this PU yet.'}
+        {isDemo ? 'No branches mapped to this PU.' : 'No branches mapped to this PU yet.'}
       </div>
     )
   }
@@ -367,7 +389,7 @@ function PURow({ pu, isDark, isDemo, onEdit, onDeactivate, bankId }) {
               onClick={() => setExpanded(v => !v)}
               className={th.btnGhost}
             >
-              {expanded ? '▲ Branches' : '▼ Branches'}
+              {expanded ? '▲ Branches' : `▼ Branches${(DEMO_BRANCHES_BY_PU[pu.pu_id]?.length ?? 0) > 0 ? ` (${DEMO_BRANCHES_BY_PU[pu.pu_id].length})` : ''}`}
             </button>
             <button onClick={() => onEdit(pu)} className={th.btnGhost}>Edit</button>
             {pu.is_active && (
