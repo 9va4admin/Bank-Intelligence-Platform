@@ -23,6 +23,7 @@ export default function CTSWorkstation() {
   const [queue, setQueue] = useState([])
   const [selected, setSelected] = useState(null)
   const [bankTab, setBankTab] = useState('own')  // SB: 'own' (My Bank) | 'smb' (Sponsored SMBs)
+  const [queueView, setQueueView] = useState('review')  // 'review' | 'stp_success'
   const [decisions, setDecisions] = useState([])
 
   useEffect(() => {
@@ -138,18 +139,40 @@ export default function CTSWorkstation() {
         <div className="flex flex-1 min-h-0">
           {/* Queue column */}
           <div className={`w-72 shrink-0 border-r ${th.divider} flex flex-col`}>
-            <div className={`px-4 py-3 border-b ${th.dividerSm} flex items-center justify-between`}>
-              <div className={`text-xs font-semibold ${th.heading}`}>Human Review Queue</div>
-              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
-                pending.length > 0
-                  ? 'text-amber-500 border-amber-500/30 bg-amber-500/10'
-                  : 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10'
-              }`}>
-                {pending.length} pending
-              </span>
+
+            {/* View toggle: Human Review | STP Success */}
+            <div className={`px-3 pt-3 pb-2 border-b ${th.dividerSm}`}>
+              <div className="flex gap-1">
+                {[
+                  ['review',      'Human Review', pending.length],
+                  ['stp_success', 'STP Success',  stpStream.filter(s => s.outcome === 'CONFIRM').length],
+                ].map(([key, label, count]) => (
+                  <button
+                    key={key}
+                    onClick={() => { setQueueView(key); if (key === 'stp_success') setSelected(null) }}
+                    className={`flex-1 text-[10px] font-semibold px-2 py-1.5 rounded-lg border transition-all flex items-center justify-center gap-1.5 ${
+                      queueView === key
+                        ? (isDark ? 'bg-white/10 text-white border-white/15' : 'bg-slate-800 text-white border-slate-800')
+                        : (isDark ? 'text-slate-400 border-white/8 hover:bg-white/5' : 'text-slate-500 border-slate-200 hover:bg-slate-50')
+                    }`}
+                  >
+                    {label}
+                    <span className={`font-mono text-[9px] px-1.5 py-0.5 rounded-full ${
+                      queueView === key
+                        ? (isDark ? 'bg-white/15 text-white' : 'bg-white/20 text-white')
+                        : (key === 'review'
+                            ? (count > 0 ? 'bg-amber-500/15 text-amber-500' : 'bg-emerald-500/10 text-emerald-500')
+                            : 'bg-emerald-500/10 text-emerald-500')
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {isSB && bankMode !== 'SB_ONLY' && (
+            {/* Human Review sub-tabs (My Bank / SMBs) — only shown in review view */}
+            {queueView === 'review' && isSB && bankMode !== 'SB_ONLY' && (
               <div className="flex gap-1 px-3 pt-2">
                 {[['own', 'My Bank'], ['smb', 'Sponsored SMBs']].map(([key, label]) => (
                   <button
@@ -167,6 +190,8 @@ export default function CTSWorkstation() {
               </div>
             )}
 
+            {/* ── Human Review Queue ───────────────────────────────────────── */}
+            {queueView === 'review' && (
             <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
               {pending.length === 0 && (
                 <div className={`text-center ${th.empty} text-sm py-12`}>
@@ -205,6 +230,39 @@ export default function CTSWorkstation() {
                 </>
               )}
             </div>
+            )}
+
+            {/* ── STP Success Queue — read-only, no actions ──────────────── */}
+            {queueView === 'stp_success' && (
+            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+              {stpStream.filter(s => s.outcome === 'CONFIRM').length === 0 && (
+                <div className={`text-center ${th.empty} text-sm py-12`}>
+                  <div className="text-3xl mb-2">{isDemo ? '⚡' : '📂'}</div>
+                  <div className={`text-[11px] ${th.empty}`}>
+                    {isDemo ? 'STP confirms will appear here…' : 'No STP confirmed items yet'}
+                  </div>
+                </div>
+              )}
+              {stpStream.filter(s => s.outcome === 'CONFIRM').map((item, i) => (
+                <div
+                  key={`stp-ok-${item.id}-${i}`}
+                  className={`rounded-xl border px-3 py-2.5 border-emerald-500/20 ${isDark ? 'bg-emerald-500/5' : 'bg-emerald-50/60'}`}
+                >
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[10px] font-semibold text-emerald-500">✓ STP Confirmed</span>
+                    <span className={`text-[9px] font-mono ${th.faint}`}>{item.ms}ms</span>
+                  </div>
+                  <div className={`text-[10px] font-mono ${th.muted} truncate`}>{item.id}</div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className={`text-[9px] ${th.faint}`}>{item.acct}</span>
+                    <span className={`text-[9px] ${th.faint}`}>·</span>
+                    <span className={`text-[9px] ${th.faint}`}>{item.amt}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            )}
+
           </div>
 
           {/* Review panel */}
