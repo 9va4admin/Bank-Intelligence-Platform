@@ -34,94 +34,10 @@ export function roleHasPermission(role, permission) {
   return (ROLE_PERMISSIONS[role] ?? []).includes(permission)
 }
 
-const DEMO_SB = {
-  bankType:       'SB',
-  bankId:         'saraswat-coop',
-  bankIfsc:       'SRCB0000001',
-  bankName:       'Saraswat Co-operative Bank',
-  bankShortName:  'Saraswat',
-  bankCity:       'Mumbai',
-  sponsorBankId:  null,
-  userRole:       'ops_manager', // demo: SB user is ops_manager
-  // SMBs sponsored by this SB — available only to SB users
-  smbs: [
-    { id: 'smb-mh-vasavi',  ifsc: 'VASB0000001', name: 'Vasavi Co-op Bank',       shortName: 'Vasavi',   city: 'Mumbai'    },
-    { id: 'smb-mh-kjsb',    ifsc: 'KJSB0000001', name: 'Kalyan Janata Sah. Bank', shortName: 'KJSB',     city: 'Kalyan'    },
-    { id: 'smb-gj-mucb',    ifsc: 'MUCB0000001', name: 'Mehsana Urban Co-op Bank', shortName: 'MUCB',    city: 'Mehsana'   },
-    { id: 'smb-mh-janata',  ifsc: 'JNSB0000001', name: 'Janata Sah. Bank',        shortName: 'Janata',   city: 'Pune'      },
-  ],
-}
-
-const DEMO_SMB = {
-  bankType:       'SMB',
-  bankId:         'smb-mh-vasavi',
-  bankIfsc:       'VASB0000001',
-  bankName:       'Vasavi Co-operative Bank',
-  bankShortName:  'Vasavi',
-  bankCity:       'Mumbai',
-  sponsorBankId:  'saraswat-coop',
-  sponsorBankName: 'Saraswat Co-operative Bank',
-  sponsorBankIfsc: 'SRCB0000001',
-  userRole:       'smb_editor', // demo: SMB user is smb_editor
-  smbs: [], // SMB has no sub-members of its own
-}
-
-// DEMO ONLY — branch_manager sees Branch Operations → Inward Hold Queue only
-const DEMO_BRANCH_MANAGER = {
-  bankType:      'SB',
-  bankId:        'saraswat-coop',
-  bankIfsc:      'SRCB0000001',
-  bankName:      'Saraswat Co-operative Bank',
-  bankShortName: 'Saraswat',
-  bankCity:      'Mumbai',
-  sponsorBankId: null,
-  userRole:      'branch_manager',
-  branchCode:    'SRCB-MUM-001',  // demo branch
-  userName:      'Demo Branch Manager',
-  smbs: [],
-}
-
-// ─── Federal Bank demo profiles (active when VITE_BANK_ID=federal-bank) ────────
-// DEMO ONLY — remove before production. SMBs route CTS through Federal Bank.
-const DEMO_FEDERAL_SMB = {
-  bankType:        'SMB',
-  bankId:          'smb-kl-tsucb',
-  bankIfsc:        'TSUB0000001',
-  bankName:        'Thrissur UCB',
-  bankShortName:   'Thrissur UCB',
-  bankCity:        'Thrissur',
-  sponsorBankId:   'federal-bank',
-  sponsorBankName: 'Federal Bank Limited',
-  sponsorBankIfsc: 'FDRL0000001',
-  userRole:        'smb_editor',
-  smbs: [],
-}
-
-// DEMO ONLY — branch_manager at Federal Bank Aluva HQ branch
-const DEMO_FEDERAL_BRANCH_MANAGER = {
-  bankType:      'SB',
-  bankId:        'federal-bank',
-  bankIfsc:      'FDRL0000001',
-  bankName:      'Federal Bank Limited',
-  bankShortName: 'Federal',
-  bankCity:      'Aluva',
-  sponsorBankId: null,
-  userRole:      'branch_manager',
-  branchCode:    'FDRL-KL-ALU-001',
-  userName:      'Demo Branch Manager',
-  smbs: [],
-}
-
-// Per-bank SMB + branch-manager profiles for the demo toggle cycle.
-// When VITE_BANK_ID is not federal-bank, falls back to Saraswat profiles.
-const DEMO_SMB_FOR_BANK = BANK_CONFIG.bank_id === 'federal-bank' ? DEMO_FEDERAL_SMB : DEMO_SMB
-const DEMO_BRANCH_FOR_BANK = BANK_CONFIG.bank_id === 'federal-bank' ? DEMO_FEDERAL_BRANCH_MANAGER : DEMO_BRANCH_MANAGER
-
 // ─── Config-driven SB profile (follows bank.config.js / VITE_BANK_ID) ────────
 // In production this is superseded by the JWT claim. For demo/POC the config
-// determines which bank's identity to show so that KBL shows KBL, Federal shows
-// Federal, etc.  smbs comes from bank.config.js preset so the SMB nav is
-// populated automatically without touching this file per bank.
+// determines which bank's identity to show so that any bank preset works without
+// touching this file. smbs comes from bank.config.js preset automatically.
 const CONFIG_PROFILE = {
   bankType:      'SB',
   bankId:        BANK_CONFIG.bank_id,
@@ -133,6 +49,44 @@ const CONFIG_PROFILE = {
   userRole:      'ops_manager',
   userName:      'Demo User',
   smbs:          BANK_CONFIG.smbs ?? [],
+}
+
+// ─── Config-driven demo toggle profiles ──────────────────────────────────────
+// Derived entirely from bank.config.js — adding a new bank never requires
+// touching this file. Just add the preset (with smbs[]) to bank.config.js.
+
+// SMB toggle: the first SMB from the bank's configured smbs list.
+// If the bank has no smbs configured, the SMB step is skipped in the toggle.
+const _firstSmb = BANK_CONFIG.smbs?.[0] ?? null
+const DEMO_SMB_FOR_BANK = _firstSmb
+  ? {
+      bankType:        'SMB',
+      bankId:          _firstSmb.id,
+      bankIfsc:        _firstSmb.ifsc,
+      bankName:        _firstSmb.name,
+      bankShortName:   _firstSmb.shortName ?? _firstSmb.name,
+      bankCity:        _firstSmb.city ?? '',
+      sponsorBankId:   BANK_CONFIG.bank_id,
+      sponsorBankName: BANK_CONFIG.bank_name,
+      sponsorBankIfsc: `${BANK_CONFIG.ifsc_prefix}0000001`,
+      userRole:        'smb_editor',
+      smbs:            [],
+    }
+  : null
+
+// Branch-manager toggle: SB identity, role overridden to branch_manager.
+const DEMO_BRANCH_FOR_BANK = {
+  bankType:      'SB',
+  bankId:        BANK_CONFIG.bank_id,
+  bankIfsc:      `${BANK_CONFIG.ifsc_prefix}0000001`,
+  bankName:      BANK_CONFIG.bank_name,
+  bankShortName: BANK_CONFIG.bank_short_name,
+  bankCity:      '',
+  sponsorBankId: null,
+  userRole:      'branch_manager',
+  branchCode:    `${BANK_CONFIG.ifsc_prefix}-MAIN-001`,
+  userName:      'Demo Branch Manager',
+  smbs:          [],
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -147,7 +101,7 @@ export function BankProvider({ children }) {
   const [profile, setProfile] = useState(() => {
     if (!isDemoMode) return CONFIG_PROFILE // non-demo: bank identity from bank.config.js until JWT
     const saved = localStorage.getItem('astra-bank-type')
-    if (saved === 'SMB') return DEMO_SMB_FOR_BANK
+    if (saved === 'SMB' && DEMO_SMB_FOR_BANK) return DEMO_SMB_FOR_BANK
     if (saved === 'BRANCH') return DEMO_BRANCH_FOR_BANK
     return CONFIG_PROFILE  // base SB profile from bank.config.js (not hardcoded)
   })
@@ -157,12 +111,16 @@ export function BankProvider({ children }) {
 
   function toggleBankType() {
     if (!isDemoMode) return
-    // Cycle: SB (ops_manager) → SMB (smb_editor) → BRANCH (branch_manager) → SB
-    // Each step uses the bank-specific profile so Federal shows Federal SMBs, etc.
+    // Cycle: SB → SMB (if bank has smbs) → BRANCH → SB
     let next, key
-    if (profile.userRole === 'ops_manager') { next = DEMO_SMB_FOR_BANK;    key = 'SMB'    }
-    else if (profile.userRole === 'smb_editor')  { next = DEMO_BRANCH_FOR_BANK; key = 'BRANCH' }
-    else                                          { next = CONFIG_PROFILE;       key = 'SB'     }
+    if (profile.userRole === 'ops_manager') {
+      if (DEMO_SMB_FOR_BANK) { next = DEMO_SMB_FOR_BANK;    key = 'SMB'    }
+      else                   { next = DEMO_BRANCH_FOR_BANK; key = 'BRANCH' }
+    } else if (profile.userRole === 'smb_editor') {
+      next = DEMO_BRANCH_FOR_BANK; key = 'BRANCH'
+    } else {
+      next = CONFIG_PROFILE; key = 'SB'
+    }
     localStorage.setItem('astra-bank-type', key)
     setSelectedSmbId(null)
     setProfile(next)
@@ -174,9 +132,9 @@ export function BankProvider({ children }) {
   const sessionUser = auth && auth.status === 'authenticated' ? auth.user : null
   const active = sessionUser
     ? {
-        // Use bank.config.js smbs so the correct UCBs show regardless of who is logged in.
-        // DEMO_SB smbs are kept as a fallback for non-federal-bank Saraswat sessions only.
-        ...(sessionUser.bank_type === 'SMB' ? DEMO_SMB_FOR_BANK : CONFIG_PROFILE),
+        // SMB session: overlay the config-driven SMB profile so sponsor name is correct.
+        // SB session: use CONFIG_PROFILE so smbs list matches the deployed bank.
+        ...(sessionUser.bank_type === 'SMB' ? DEMO_SMB_FOR_BANK ?? CONFIG_PROFILE : CONFIG_PROFILE),
         bankType:   sessionUser.bank_type  || 'SB',
         bankId:     sessionUser.bank_id,
         userRole:   sessionUser.role,

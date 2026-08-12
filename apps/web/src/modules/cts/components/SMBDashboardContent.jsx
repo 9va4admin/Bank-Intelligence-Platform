@@ -172,7 +172,7 @@ function QuickLink({ to, label, icon, isDark }) {
 // ─── Main content ───────────────────────────────────────────────────────────
 
 export default function SMBDashboardContent() {
-  const { bankName, bankIfsc, bankId, sponsorBankId } = useBankContext()
+  const { bankName, bankIfsc, bankId, sponsorBankId, sponsorBankName } = useBankContext()
   const { isDark } = useTheme()
 
   const th = {
@@ -203,7 +203,7 @@ export default function SMBDashboardContent() {
         <div className="flex-1 min-w-0">
           <div className={`text-base font-semibold ${th.bannerHd}`}>{bankName || 'Sub-Member Bank'}</div>
           <div className={`text-xs ${th.bannerMt}`}>
-            IFSC: {bankIfsc || bankId?.toUpperCase()} · Sponsor: {sponsorBankId || 'Saraswat Co-op Bank'} · Zone: MUMBAI
+            IFSC: {bankIfsc || bankId?.toUpperCase()} · Sponsor: {sponsorBankName || 'Sponsor Bank'} · Zone: MUMBAI
           </div>
         </div>
         <div className={`text-xs px-2.5 py-1 rounded-full border font-medium ${th.bannerHd} ${isDark ? 'border-violet-700/40 bg-violet-900/30' : 'border-violet-300 bg-violet-100'}`}>

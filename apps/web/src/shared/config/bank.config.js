@@ -20,6 +20,12 @@ const BANK_PRESETS = {
     primary_hex:     '#1E3A8A',
     ifsc_prefix:     'SRCB',
     clearing_zone:   'WEST',
+    smbs: [
+      { id: 'smb-mh-vasavi', ifsc: 'VASB0000001', name: 'Vasavi Co-operative Bank',    shortName: 'Vasavi',   city: 'Mumbai',  state: 'MH', daily_avg: 150 },
+      { id: 'smb-mh-kjsb',   ifsc: 'KJSB0000001', name: 'Kalyan Janata Sahakari Bank', shortName: 'KJSB',     city: 'Kalyan',  state: 'MH', daily_avg: 120 },
+      { id: 'smb-gj-mucb',   ifsc: 'MUCB0000001', name: 'Mehsana Urban Co-op Bank',    shortName: 'MUCB',     city: 'Mehsana', state: 'GJ', daily_avg: 90  },
+      { id: 'smb-mh-janata', ifsc: 'JNSB0000001', name: 'Janata Sahakari Bank',        shortName: 'Janata',   city: 'Pune',    state: 'MH', daily_avg: 80  },
+    ],
   },
   'karnataka-bank': {
     bank_id:         'karnataka-bank',
