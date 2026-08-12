@@ -44,6 +44,10 @@ const MOCK_PU_DB = {
     { pu_id: 'NORTH-MAIN', bank_id: 'federal-bank', pu_name: 'North Zone PU — Delhi NGCH',  clearing_zone: 'NORTH', ngch_participant_code: 'NORTH-FDRL-001', temporal_task_queue: 'cts-processing-federal-bank-NORTH-MAIN', kafka_inward_topic: 'cts.inward.federal-bank.NORTH-MAIN', max_agent_swarm_size: 200, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
     { pu_id: 'EAST-MAIN',  bank_id: 'federal-bank', pu_name: 'East Zone PU — Kolkata NGCH', clearing_zone: 'EAST',  ngch_participant_code: 'EAST-FDRL-001',  temporal_task_queue: 'cts-processing-federal-bank-EAST-MAIN',  kafka_inward_topic: 'cts.inward.federal-bank.EAST-MAIN',  max_agent_swarm_size: 100, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
   ],
+  'union-bank': [
+    { pu_id: 'UBIN-PU-WEST',  bank_id: 'union-bank', pu_name: 'Union Bank Western PU',  clearing_zone: 'WEST',  ngch_participant_code: 'WEST-UBIN-001',  temporal_task_queue: 'cts-processing-union-bank-west',  kafka_inward_topic: 'cts.inward.union-bank.west',  max_agent_swarm_size: 300, is_active: true, created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+    { pu_id: 'UBIN-PU-SOUTH', bank_id: 'union-bank', pu_name: 'Union Bank Southern PU', clearing_zone: 'SOUTH', ngch_participant_code: 'SOUTH-UBIN-001', temporal_task_queue: 'cts-processing-union-bank-south', kafka_inward_topic: 'cts.inward.union-bank.south', max_agent_swarm_size: 300, is_active: true, created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+  ],
 }
 
 const ACTIVE_MOCK = MOCK_PU_DB[BANK_CONFIG.bank_id] ?? []

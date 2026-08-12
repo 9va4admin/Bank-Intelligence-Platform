@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import AppShell from '../../../shared/layout/AppShell'
 import BatchStats from '../components/BatchStats'
 import QueueCard from '../components/QueueCard'
@@ -30,7 +31,7 @@ const MOCK_STP_SUCCESS_IQ = [
     bank: 'Federal Bank Limited', branch: 'Thrissur Main',
     clearing_zone: 'SOUTH', cbs_type: 'Finacle',
     opa_rule: 'cts_routing.rego - rule: stp_auto_confirm',
-    bank_slug: 'federal-bank', principal_tag: 'DIRECT',
+    bank_slug: BANK_CONFIG.bank_id, principal_tag: 'DIRECT',
     shap_values: [
       { feature: 'OCR Confidence', value: 0.98, direction: 'safe' },
       { feature: 'Signature Match', value: 0.96, direction: 'safe' },
@@ -56,7 +57,7 @@ const MOCK_STP_SUCCESS_IQ = [
     bank: 'Federal Bank Limited', branch: 'Ernakulam',
     clearing_zone: 'SOUTH', cbs_type: 'Finacle',
     opa_rule: 'cts_routing.rego - rule: stp_auto_confirm',
-    bank_slug: 'federal-bank', principal_tag: 'DIRECT',
+    bank_slug: BANK_CONFIG.bank_id, principal_tag: 'DIRECT',
     shap_values: [
       { feature: 'OCR Confidence', value: 0.97, direction: 'safe' },
       { feature: 'Signature Match', value: 0.94, direction: 'safe' },
@@ -82,7 +83,7 @@ const MOCK_STP_SUCCESS_IQ = [
     bank: 'Federal Bank Limited', branch: 'Kozhikode Main',
     clearing_zone: 'SOUTH', cbs_type: 'Finacle',
     opa_rule: 'cts_routing.rego - rule: stp_auto_confirm',
-    bank_slug: 'federal-bank', principal_tag: 'DIRECT',
+    bank_slug: BANK_CONFIG.bank_id, principal_tag: 'DIRECT',
     shap_values: [
       { feature: 'OCR Confidence', value: 0.99, direction: 'safe' },
       { feature: 'Signature Match', value: 0.98, direction: 'safe' },
@@ -158,7 +159,7 @@ export default function CTSWorkstation() {
 
   // Bank scoping: SMB sees only its own bank; SB gets My-Bank / Sponsored-SMBs tabs.
   const inScope = (item) => {
-    if (isSMB) return (item.bank_slug ?? 'saraswat-coop') === bankId
+    if (isSMB) return (item.bank_slug ?? BANK_CONFIG.bank_id) === bankId
     if (bankTab === 'smb') return item.principal_tag === 'SUB_MEMBER'
     return (item.principal_tag ?? 'DIRECT') !== 'SUB_MEMBER'
   }

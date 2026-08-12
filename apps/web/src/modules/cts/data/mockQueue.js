@@ -1,4 +1,5 @@
 import { demoChequeUrl } from '../demoImages'
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 
 const now = Date.now()
 const mins = (m) => now + m * 60 * 1000
@@ -53,7 +54,7 @@ export const MOCK_QUEUE = [
     front_bw_url: null, front_gray_url: null,
     bank: 'Federal Bank Limited',
     branch: 'Ernakulam City',
-    bank_slug: 'federal-bank',
+    bank_slug: BANK_CONFIG.bank_id,
     account_display: '****9027',
     payee_display: 'Menon Constructions Ltd.',
     amount_range: '₹[1L-5L]',
@@ -94,7 +95,7 @@ export const MOCK_QUEUE = [
     front_bw_url: null, front_gray_url: null,
     bank: 'Federal Bank Limited',
     branch: 'Aluva HO',
-    bank_slug: 'federal-bank',
+    bank_slug: BANK_CONFIG.bank_id,
     account_display: '****3374',
     payee_display: 'Rajan Nair',
     amount_range: '₹[<1L]',
@@ -179,7 +180,7 @@ export const MOCK_QUEUE = [
     front_bw_url: null, front_gray_url: null,
     bank: 'Federal Bank Limited',
     branch: 'Kozhikode Main',
-    bank_slug: 'federal-bank',
+    bank_slug: BANK_CONFIG.bank_id,
     account_display: '****6618',
     payee_display: 'Narayanan Infrastructure Ltd.',
     amount_range: '₹[>1Cr]',
@@ -221,7 +222,7 @@ export const MOCK_QUEUE = [
     front_bw_url: null, front_gray_url: null,
     bank: 'Federal Bank Limited',
     branch: 'Palakkad Market',
-    bank_slug: 'federal-bank',
+    bank_slug: BANK_CONFIG.bank_id,
     account_display: '****1155',
     payee_display: 'Subramaniam Exports',
     amount_range: '₹[5L-10L]',

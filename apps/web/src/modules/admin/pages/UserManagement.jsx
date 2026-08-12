@@ -39,6 +39,7 @@ const ZONES_BY_BANK = {
   'federal-bank':   ['SOUTH', 'WEST', 'NORTH', 'EAST'],
   'saraswat-coop':  ['MUMBAI', 'PUNE', 'DELHI', 'CHENNAI', 'KOLKATA', 'AHMEDABAD', 'HYDERABAD'],
   'karnataka-bank': ['SOUTH', 'NORTH'],
+  'union-bank':     ['WEST', 'SOUTH', 'NORTH', 'EAST'],
 }
 const VALID_ZONES = ZONES_BY_BANK[BANK_CONFIG.bank_id] ?? ['SOUTH', 'NORTH', 'EAST', 'WEST']
 
@@ -122,6 +123,16 @@ const MOCK_USERS_BY_BANK = {
     { user_id: 'usr-006', email: 'admin@vasavi.coop',         display_name: 'Ravi Kulkarni',      bank_type: 'SMB', role: 'smb_admin',          permission_level: 'ADMIN',     clearing_zone: null,     is_active: true,  totp_enabled: true,  last_login: '2026-06-25T10:05:00Z' },
     { user_id: 'usr-007', email: 'ops@cosmos.coop',           display_name: 'Anita Desai',        bank_type: 'SMB', role: 'smb_editor',         permission_level: 'EDIT',      clearing_zone: null,     is_active: true,  totp_enabled: false, last_login: '2026-06-24T15:30:00Z' },
     { user_id: 'usr-008', email: 'view@janatasahakari.co.in', display_name: 'Suresh Patil',       bank_type: 'SMB', role: 'smb_viewer',         permission_level: 'READ_ONLY', clearing_zone: null,     is_active: true,  totp_enabled: false, last_login: '2026-06-23T09:00:00Z' },
+  ],
+  'union-bank': [
+    { user_id: 'usr-001', email: 'ubi-ops@unionbankofindia.com',        display_name: 'Amitabh Pandey',     bank_type: 'SB',  role: 'ops_reviewer',       permission_level: 'EDIT',      clearing_zone: 'WEST',  is_active: true,  totp_enabled: true,  last_login: '2026-08-12T09:14:00Z' },
+    { user_id: 'usr-002', email: 'fraud@unionbankofindia.com',           display_name: 'Sunita Rao',          bank_type: 'SB',  role: 'fraud_analyst',      permission_level: 'EDIT',      clearing_zone: 'SOUTH', is_active: true,  totp_enabled: true,  last_login: '2026-08-12T08:52:00Z' },
+    { user_id: 'usr-003', email: 'ubi-admin@unionbankofindia.com',       display_name: 'Rajesh Kumar',        bank_type: 'SB',  role: 'ops_manager',        permission_level: 'EDIT',      clearing_zone: null,    is_active: true,  totp_enabled: true,  last_login: '2026-08-11T17:30:00Z' },
+    { user_id: 'usr-004', email: 'it.admin@unionbankofindia.com',        display_name: 'Priya Sharma',        bank_type: 'SB',  role: 'bank_it_admin',      permission_level: 'ADMIN',     clearing_zone: null,    is_active: true,  totp_enabled: true,  last_login: '2026-08-12T07:00:00Z' },
+    { user_id: 'usr-005', email: 'compliance@unionbankofindia.com',      display_name: 'Arvind Gupta',        bank_type: 'SB',  role: 'compliance_officer', permission_level: 'READ_ONLY', clearing_zone: null,    is_active: true,  totp_enabled: true,  last_login: '2026-08-10T11:00:00Z' },
+    { user_id: 'usr-006', email: 'ml@unionbankofindia.com',              display_name: 'Deepika Venkat',      bank_type: 'SB',  role: 'ml_engineer',        permission_level: 'EDIT',      clearing_zone: null,    is_active: true,  totp_enabled: true,  last_login: '2026-08-11T14:22:00Z' },
+    { user_id: 'usr-007', email: 'admin@navimumbaicoop.com',             display_name: 'Sanjay Patil',        bank_type: 'SMB', role: 'smb_admin',          permission_level: 'ADMIN',     clearing_zone: null,    is_active: true,  totp_enabled: true,  last_login: '2026-08-12T10:05:00Z' },
+    { user_id: 'usr-008', email: 'ops@navimumbaicoop.com',               display_name: 'Kavita Kadam',        bank_type: 'SMB', role: 'smb_editor',         permission_level: 'EDIT',      clearing_zone: null,    is_active: true,  totp_enabled: false, last_login: '2026-08-11T15:30:00Z' },
   ],
 }
 

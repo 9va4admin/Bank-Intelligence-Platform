@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 
 const API = import.meta.env.VITE_API_BASE || ''
 
@@ -119,14 +120,14 @@ const DEMO_OUTCOMES = [
     test_auth_sb: ['PASS', 'ADFS metadata at /FederationMetadata fetched, XML valid'],
     test_iet_watchdog: ['PASS', 'Temporal namespace reachable in 8ms · IET workers assumed active'],
     test_auth_smb: ['PASS', 'Local auth DB reachable · argon2 verify test OK in 8ms'],
-    test_sftp_push: ['PASS', 'SFTP write to Agency sftp://saraswat-coop:22/smb-push OK in 120ms'],
+    test_sftp_push: ['PASS', `SFTP write to Agency sftp://${BANK_CONFIG.bank_id}:22/smb-push OK in 120ms`],
     test_vault_seeded: ['WARN', '847 of 1200 accounts seeded — seed remaining before go-live'],
     test_smb_cbs: ['SKIP', 'No SMB_CBS MCP connection configured — skipping'],
-    test_auth_branch: ['PASS', 'LDAP bind OK: CN=astra-svc,OU=ServiceAccounts,DC=saraswat-coop,DC=local'],
+    test_auth_branch: ['PASS', `LDAP bind OK: CN=astra-svc,OU=ServiceAccounts,DC=${BANK_CONFIG.bank_id},DC=local`],
     test_scanner_folder: ['PASS', '/opt/astra/scanner/dadar-001 exists and is writable'],
-    test_eeh_connectivity: ['PASS', 'gRPC ping to eeh-service.astra-cts-saraswat-coop:50051 → OK 4ms'],
-    test_auth_pu: ['PASS', 'LDAP bind OK: CN=astra-svc,OU=ServiceAccounts,DC=saraswat-coop,DC=local'],
-    test_sb_connector: ['PASS', 'SFTP to saraswat-sb.ngch.local:22 connected, /agency-cc/lots writable'],
+    test_eeh_connectivity: ['PASS', `gRPC ping to eeh-service.astra-cts-${BANK_CONFIG.bank_id}:50051 → OK 4ms`],
+    test_auth_pu: ['PASS', `LDAP bind OK: CN=astra-svc,OU=ServiceAccounts,DC=${BANK_CONFIG.bank_id},DC=local`],
+    test_sb_connector: ['PASS', `SFTP to ${BANK_CONFIG.bank_id}-sb.ngch.local:22 connected, /agency-cc/lots writable`],
   },
   {
     test_cbs: ['FAIL', 'Finacle API unreachable — check cbs.finacle.base_url in Vault'],
@@ -141,7 +142,7 @@ const DEMO_OUTCOMES = [
     test_sftp_push: ['FAIL', 'SFTP connection refused — check Agency SFTP endpoint config'],
     test_vault_seeded: ['WARN', 'Only 2 of 12 signatures seeded'],
     test_smb_cbs: ['SKIP', 'No SMB_CBS MCP connection configured — skipping'],
-    test_auth_branch: ['FAIL', 'LDAP server unreachable: ldaps://dc.saraswat-coop.local:636'],
+    test_auth_branch: ['FAIL', `LDAP server unreachable: ldaps://dc.${BANK_CONFIG.bank_id}.local:636`],
     test_scanner_folder: ['FAIL', '/opt/astra/scanner/dadar-001 not found — create directory'],
     test_eeh_connectivity: ['PASS', 'gRPC ping OK 4ms'],
     test_auth_pu: ['WARN', 'LDAP bind OK but took 190ms — verify AD health under load'],
