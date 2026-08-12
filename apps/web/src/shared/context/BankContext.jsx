@@ -174,7 +174,9 @@ export function BankProvider({ children }) {
   const sessionUser = auth && auth.status === 'authenticated' ? auth.user : null
   const active = sessionUser
     ? {
-        ...(sessionUser.bank_type === 'SMB' ? DEMO_SMB : DEMO_SB),
+        // Use bank.config.js smbs so the correct UCBs show regardless of who is logged in.
+        // DEMO_SB smbs are kept as a fallback for non-federal-bank Saraswat sessions only.
+        ...(sessionUser.bank_type === 'SMB' ? DEMO_SMB_FOR_BANK : CONFIG_PROFILE),
         bankType:   sessionUser.bank_type  || 'SB',
         bankId:     sessionUser.bank_id,
         userRole:   sessionUser.role,
