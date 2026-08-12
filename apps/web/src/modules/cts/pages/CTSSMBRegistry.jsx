@@ -1,85 +1,45 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 
-const MOCK_SMBS = [
-  {
-    sub_member_id: 'smb-mh-vasavi',
-    bank_name: 'Vasavi Co-operative Bank',
-    micr_prefix: '400053',
-    cbs_connector: 'finacle',
-    is_active: true,
-    return_rate_today: 0.11,
-    soft_hold_threshold: 0.25,
-    hard_stop_threshold: 0.40,
-    shield_status: 'CLEAR',
-    signature_count: 4821,
-    pps_entry_count: 1204,
-    last_vault_sync_at: '2026-06-26T06:03:11Z',
-    last_sync_status: 'SUCCESS',
-    cheques_today: 312,
-    forwarding_today: 309,
-    iet_headroom_breaches: 0,
-  },
-  {
-    sub_member_id: 'smb-mh-kjsb',
-    bank_name: 'Kalyan Janata Sahakari Bank',
-    micr_prefix: '421301',
-    cbs_connector: 'bancs',
-    is_active: true,
-    return_rate_today: 0.21,
-    soft_hold_threshold: 0.20,
-    hard_stop_threshold: 0.35,
-    shield_status: 'SOFT_HOLD',
-    signature_count: 2018,
-    pps_entry_count: 540,
-    last_vault_sync_at: '2026-06-26T06:04:22Z',
-    last_sync_status: 'SUCCESS',
-    cheques_today: 87,
-    forwarding_today: 85,
-    iet_headroom_breaches: 0,
-  },
-  {
-    sub_member_id: 'smb-gj-mucb',
-    bank_name: 'Mehsana Urban Co-op Bank',
-    micr_prefix: '384001',
-    cbs_connector: 'flexcube',
-    is_active: true,
-    return_rate_today: 0.04,
-    soft_hold_threshold: 0.22,
-    hard_stop_threshold: 0.38,
-    shield_status: 'CLEAR',
-    signature_count: 9142,
-    pps_entry_count: 2871,
-    last_vault_sync_at: '2026-06-26T06:02:58Z',
-    last_sync_status: 'SUCCESS',
-    cheques_today: 211,
-    forwarding_today: 211,
-    iet_headroom_breaches: 0,
-  },
-  {
-    sub_member_id: 'smb-mh-janata',
-    bank_name: 'Janata Sahakari Bank (Pune)',
-    micr_prefix: '411002',
-    cbs_connector: 'manual_upload',
-    is_active: false,
-    return_rate_today: 0.0,
-    soft_hold_threshold: 0.25,
-    hard_stop_threshold: 0.40,
-    shield_status: 'CLEAR',
-    signature_count: 1120,
-    pps_entry_count: 287,
-    last_vault_sync_at: '2026-06-24T06:01:02Z',
-    last_sync_status: 'SUCCESS',
-    cheques_today: 0,
-    forwarding_today: 0,
-    iet_headroom_breaches: 0,
-  },
-]
+const CBS_CYCLE = ['finacle', 'bancs', 'flexcube', 'finacle', 'bancs']
+const MICR_PREFIXES = { KL: '680', TN: '600', KA: '560', MH: '400', AP: '520', default: '500' }
+
+function buildMockSmbs(bankConfig) {
+  if (!bankConfig.smbs?.length) return []
+  return bankConfig.smbs.map((smb, i) => {
+    const micrBase = MICR_PREFIXES[smb.state] ?? MICR_PREFIXES.default
+    const isInactive = i === 13
+    const returnRate = isInactive ? 0 : [0.04, 0.08, 0.11, 0.21, 0.06, 0.09, 0.03, 0.15][i % 8]
+    const softHold = [0.25, 0.22, 0.20, 0.25, 0.22][i % 5]
+    return {
+      sub_member_id: smb.id,
+      bank_name: smb.name,
+      micr_prefix: `${micrBase}${String(i + 1).padStart(3, '0')}`,
+      cbs_connector: CBS_CYCLE[i % CBS_CYCLE.length],
+      is_active: !isInactive,
+      return_rate_today: returnRate,
+      soft_hold_threshold: softHold,
+      hard_stop_threshold: softHold + 0.15,
+      shield_status: returnRate * 100 >= softHold * 100 ? 'SOFT_HOLD' : 'CLEAR',
+      signature_count: isInactive ? 800 : 1000 + (smb.daily_avg ?? 50) * 20 + i * 137,
+      pps_entry_count: isInactive ? 200 : 200 + (smb.daily_avg ?? 50) * 5 + i * 31,
+      last_vault_sync_at: `2026-08-11T06:${String((i % 10) + 1).padStart(2, '0')}:${String((i * 7) % 60).padStart(2, '0')}Z`,
+      last_sync_status: 'SUCCESS',
+      cheques_today: isInactive ? 0 : Math.round((smb.daily_avg ?? 50) * 0.85),
+      forwarding_today: isInactive ? 0 : Math.round((smb.daily_avg ?? 50) * 0.83),
+      iet_headroom_breaches: 0,
+    }
+  })
+}
+
+const MOCK_SMBS = buildMockSmbs(BANK_CONFIG)
 
 const SHIELD_D = {
   CLEAR:     'bg-emerald-900/40 text-emerald-300 border-emerald-700/50',
@@ -95,80 +55,6 @@ const SHIELD_L = {
 const SYNC_D = { SUCCESS: 'text-emerald-400', FAILED: 'text-red-400', RUNNING: 'text-amber-400' }
 const SYNC_L = { SUCCESS: 'text-emerald-600', FAILED: 'text-red-600', RUNNING: 'text-amber-600' }
 
-// ── Registration Modal ───────────────────────────────────────────────────────
-
-function RegisterSMBModal({ isDark, onClose }) {
-  const th = {
-    overlay: 'fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm',
-    panel:   isDark ? 'bg-navy-900 border border-white/10 rounded-2xl w-[520px] p-6' : 'bg-white border border-slate-200 rounded-2xl w-[520px] p-6 shadow-xl',
-    heading: isDark ? 'text-white' : 'text-slate-900',
-    label:   isDark ? 'text-slate-400' : 'text-slate-600',
-    input:   isDark ? 'bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:border-cyan-500 rounded-lg px-3 py-2 text-sm w-full outline-none' : 'bg-white border border-slate-300 text-slate-900 placeholder-slate-400 focus:border-cyan-500 rounded-lg px-3 py-2 text-sm w-full outline-none',
-    select:  isDark ? 'bg-white/5 border border-white/10 text-white focus:border-cyan-500 rounded-lg px-3 py-2 text-sm w-full outline-none' : 'bg-white border border-slate-300 text-slate-900 focus:border-cyan-500 rounded-lg px-3 py-2 text-sm w-full outline-none',
-    divider: isDark ? 'border-white/8' : 'border-slate-100',
-    btnPrimary: 'bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-    btnSecondary: isDark ? 'bg-white/5 hover:bg-white/10 text-slate-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-  }
-
-  const [form, setForm] = useState({
-    bank_name: '',
-    micr_prefix: '',
-    cbs_connector: 'finacle',
-    soft_hold_threshold: '25',
-    hard_stop_threshold: '40',
-  })
-
-  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
-
-  return (
-    <div className={th.overlay} onClick={onClose}>
-      <div className={th.panel} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5">
-          <h2 className={`text-base font-semibold ${th.heading}`}>Register Sub-Member Bank</h2>
-          <button onClick={onClose} className={`text-sm ${th.label}`}>✕</button>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className={`block text-xs mb-1 ${th.label}`}>Bank Name</label>
-            <input className={th.input} placeholder="e.g. Vasavi Co-operative Bank" value={form.bank_name} onChange={set('bank_name')} />
-          </div>
-          <div>
-            <label className={`block text-xs mb-1 ${th.label}`}>MICR Prefix <span className={`font-mono ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>(3–6 digits)</span></label>
-            <input className={`${th.input} font-mono`} placeholder="e.g. 400053" value={form.micr_prefix} onChange={set('micr_prefix')} maxLength={6} />
-          </div>
-          <div>
-            <label className={`block text-xs mb-1 ${th.label}`}>CBS Connector</label>
-            <select className={th.select} value={form.cbs_connector} onChange={set('cbs_connector')}>
-              <option value="finacle">Infosys Finacle</option>
-              <option value="bancs">TCS BaNCS</option>
-              <option value="flexcube">Oracle FlexCube</option>
-              <option value="manual_upload">Manual Upload</option>
-            </select>
-          </div>
-          <div className={`pt-3 border-t ${th.divider}`}>
-            <p className={`text-xs mb-3 ${th.label}`}>Return Rate Shield — thresholds trigger STP_RETURN override to HUMAN_REVIEW</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={`block text-xs mb-1 ${th.label}`}>Soft Hold % <span className={isDark ? 'text-amber-400' : 'text-amber-600'}>(warn)</span></label>
-                <input className={th.input} type="number" min="5" max="50" value={form.soft_hold_threshold} onChange={set('soft_hold_threshold')} />
-              </div>
-              <div>
-                <label className={`block text-xs mb-1 ${th.label}`}>Hard Stop % <span className={isDark ? 'text-red-400' : 'text-red-600'}>(block)</span></label>
-                <input className={th.input} type="number" min="10" max="60" value={form.hard_stop_threshold} onChange={set('hard_stop_threshold')} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className={`flex justify-end gap-3 mt-5 pt-4 border-t ${th.divider}`}>
-          <button className={th.btnSecondary} onClick={onClose}>Cancel</button>
-          <button className={th.btnPrimary} onClick={onClose}>Register Bank</button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ── Detail Panel ─────────────────────────────────────────────────────────────
 
@@ -288,8 +174,8 @@ function SMBDetailPanel({ smb, isDark, onClose, onVaultSync }) {
 export default function CTSSMBRegistry() {
   const { bankName, bankIfsc, isSB, isSMB } = useBankContext()
   const { isDark } = useTheme()
+  const navigate = useNavigate()
   const [selected, setSelected] = useState(null)
-  const [showRegister, setShowRegister] = useState(false)
   const [syncingId, setSyncingId] = useState(null)
 
   const th = {
@@ -343,8 +229,6 @@ export default function CTSSMBRegistry() {
 
   return (
     <AppShell>
-      {showRegister && <RegisterSMBModal isDark={isDark} onClose={() => setShowRegister(false)} />}
-
       <div className={`flex-1 overflow-y-auto ${th.page} px-6 py-5`}>
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
@@ -353,10 +237,10 @@ export default function CTSSMBRegistry() {
             <p className={`text-xs mt-0.5 ${th.muted}`}>Sub-Member Banks sponsored for CTS clearing — vault health, return rate shield, forwarding status</p>
           </div>
           <button
-            onClick={() => setShowRegister(true)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${th.btn}`}
+            onClick={() => navigate('/admin/sub-member-banks')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-300'}`}
           >
-            + Register Sub-Member
+            Onboard / Manage → Admin
           </button>
         </div>
 

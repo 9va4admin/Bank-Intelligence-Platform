@@ -44,6 +44,25 @@ const MOCK_BRANCHES_DB = {
   ],
 }
 
+const STATE_TO_PU = {
+  'Kerala':           'SOUTH-MAIN',
+  'Tamil Nadu':       'SOUTH-MAIN',
+  'Karnataka':        'SOUTH-MAIN',
+  'Andhra Pradesh':   'SOUTH-MAIN',
+  'Telangana':        'SOUTH-MAIN',
+  'Maharashtra':      'WEST-MAIN',
+  'Goa':              'WEST-MAIN',
+  'Delhi':            'NORTH-MAIN',
+  'West Bengal':      'EAST-MAIN',
+}
+
+const PU_OPTIONS_BY_BANK = {
+  'federal-bank':   [{ id: 'SOUTH-MAIN', label: 'South Zone PU' }, { id: 'WEST-MAIN', label: 'West Zone PU' }, { id: 'NORTH-MAIN', label: 'North Zone PU' }, { id: 'EAST-MAIN', label: 'East Zone PU' }],
+  'saraswat-coop':  [{ id: 'PU-MUM-01', label: 'Mumbai PU-01' }, { id: 'PU-MUM-02', label: 'Mumbai PU-02' }, { id: 'PU-PUN-01', label: 'Pune PU-01' }],
+  'karnataka-bank': [{ id: 'PU-SOUTH', label: 'South PU' }, { id: 'PU-NORTH', label: 'North PU' }],
+}
+const ACTIVE_PU_OPTIONS = PU_OPTIONS_BY_BANK[BANK_CONFIG.bank_id] ?? []
+
 const SCANNER_MODES = ['SDK_PUSH', 'SDK_PUSH', 'FOLDER_DROP', 'UI_UPLOAD']
 MOCK_BRANCHES_DB['federal-bank'] = FEDERAL_BANK_BRANCHES.map((b, i) => ({
   branch_name:        b.name,
@@ -56,6 +75,7 @@ MOCK_BRANCHES_DB['federal-bank'] = FEDERAL_BANK_BRANCHES.map((b, i) => ({
   phone_number:       b.phone,
   is_active:          true,
   scanner_input_mode: SCANNER_MODES[i % SCANNER_MODES.length],
+  pu_id:              STATE_TO_PU[b.state] ?? 'SOUTH-MAIN',
 }))
 
 // Pick the mock set for the currently configured bank; fall back to an empty list.
@@ -275,6 +295,7 @@ const SCANNER_MODE_LABELS = {
 function BranchFormModal({ branch, isDark, onClose, onSave }) {
   const isEdit = !!branch
   const [form, setForm] = useState({
+    pu_id:                branch?.pu_id ?? (ACTIVE_PU_OPTIONS[0]?.id ?? ''),
     branch_name:          branch?.branch_name ?? '',
     branch_ifsc:          branch?.branch_ifsc ?? '',
     city:                 branch?.city ?? '',
@@ -308,6 +329,7 @@ function BranchFormModal({ branch, isDark, onClose, onSave }) {
       pin_code:      form.pin_code,
       phone_number:  form.phone_number,
       scanner_input_mode: form.scanner_input_mode,
+      pu_id:         form.pu_id || null,
     }
     const payload = isEdit ? basePayload : { ...basePayload, branch_ifsc: form.branch_ifsc.toUpperCase() }
     onSave(payload)
@@ -344,6 +366,18 @@ function BranchFormModal({ branch, isDark, onClose, onSave }) {
           <Input isDark={isDark} value={form.address} onChange={e => handleChange('address', e.target.value)} placeholder="80 Feet Road, Koramangala" />
         </Field>
       </div>
+
+      {/* PU assignment */}
+      {ACTIVE_PU_OPTIONS.length > 0 && (
+        <Field label="Processing Unit (PU)" isDark={isDark}>
+          <Select isDark={isDark} value={form.pu_id} onChange={e => handleChange('pu_id', e.target.value)}>
+            <option value="">— Unassigned —</option>
+            {ACTIVE_PU_OPTIONS.map(pu => (
+              <option key={pu.id} value={pu.id}>{pu.label} ({pu.id})</option>
+            ))}
+          </Select>
+        </Field>
+      )}
 
       {/* Scanner configuration — full width below the grid */}
       <div className={`mt-1 p-4 rounded-xl border ${isDark ? 'border-white/8 bg-white/3' : 'border-slate-200 bg-slate-50'}`}>
