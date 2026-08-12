@@ -240,9 +240,11 @@ CREATE TABLE IF NOT EXISTS platform.banks (
 -- Seed dev banks so every FK-less query still resolves
 INSERT INTO platform.banks (bank_id, bank_name, bank_code, ifsc_prefix, bank_type)
 VALUES
-  ('saraswat-coop', 'Saraswat Co-operative Bank', 'SRCB', 'SRCB', 'COOPERATIVE'),
-  ('smb-mh-vasavi',  'Vasavi Co-operative Bank',  'VASB', 'VASB', 'COOPERATIVE'),
-  ('federal-bank',   'Federal Bank',               'FDRL', 'FDRL', 'PRIVATE')
+  ('saraswat-coop', 'Saraswat Co-operative Bank',           'SRCB', 'SRCB', 'COOPERATIVE'),
+  ('smb-mh-vasavi', 'Vasavi Co-operative Bank',             'VASB', 'VASB', 'COOPERATIVE'),
+  ('federal-bank',  'Federal Bank',                         'FDRL', 'FDRL', 'PRIVATE'),
+  ('union-bank',    'Union Bank of India',                  'UBIN', 'UBIN', 'PUBLIC_SECTOR'),
+  ('smb-mh-nmcb',  'Navi Mumbai Co-operative Bank Ltd.',   'NMCB', 'NMCB', 'COOPERATIVE')
 ON CONFLICT (bank_id) DO NOTHING;
 
 -- ── Platform: user accounts (argon2 hash + TOTP) ─────────────────────────────
@@ -385,6 +387,57 @@ ALTER TABLE cts.branches DROP CONSTRAINT IF EXISTS ck_branches_scanner_input_mod
 ALTER TABLE cts.branches ADD CONSTRAINT ck_branches_scanner_input_mode CHECK (scanner_input_mode IN ('UI_UPLOAD', 'FOLDER_DROP', 'SDK_PUSH'));
 -- Migration: drop duplicate drop_folder_base_path (canonical location is scanner_configs.drop_folder_path)
 ALTER TABLE cts.branches DROP COLUMN IF EXISTS drop_folder_base_path;
+
+-- ── Union Bank of India demo seed — 2 PUs, 10 branches ───────────────────────
+INSERT INTO cts.processing_units
+  (pu_id, bank_id, pu_name, clearing_zone, ngch_participant_code,
+   temporal_task_queue, kafka_inward_topic, max_agent_swarm_size)
+VALUES
+  ('UBIN-PU-WEST',  'union-bank', 'Union Bank Western PU',
+   'WEST', 'UBIN-WEST',
+   'cts-processing-union-bank-west', 'cts.inward.union-bank.west', 300),
+  ('UBIN-PU-SOUTH', 'union-bank', 'Union Bank Southern PU',
+   'SOUTH', 'UBIN-SOUTH',
+   'cts-processing-union-bank-south', 'cts.inward.union-bank.south', 300)
+ON CONFLICT (pu_id) DO NOTHING;
+
+INSERT INTO cts.branches
+  (branch_id, bank_id, branch_name, branch_ifsc, city, state, address, pu_id,
+   scanner_input_mode, is_scanning_enabled, is_active, created_by)
+VALUES
+  -- PU-WEST: Mumbai, Pune, Ahmedabad, Lucknow, Chandigarh
+  ('ubin-mum-fort',  'union-bank', 'Fort Branch',           'UBIN0530001',
+   'Mumbai',     'MH', '239, Vidhan Bhavan Marg, Fort, Mumbai - 400 001',
+   'UBIN-PU-WEST', 'UI_UPLOAD', true, true, 'system'),
+  ('ubin-pun-fc',    'union-bank', 'FC Road Branch',        'UBIN0530008',
+   'Pune',       'MH', '1187/4, FC Road, Shivajinagar, Pune - 411 016',
+   'UBIN-PU-WEST', 'UI_UPLOAD', true, true, 'system'),
+  ('ubin-ahm-cg',    'union-bank', 'CG Road Branch',        'UBIN0530007',
+   'Ahmedabad',  'GJ', 'Sunrise Complex, CG Road, Ahmedabad - 380 009',
+   'UBIN-PU-WEST', 'UI_UPLOAD', true, true, 'system'),
+  ('ubin-lko-haz',   'union-bank', 'Hazratganj Branch',     'UBIN0530009',
+   'Lucknow',    'UP', '12, Mahatma Gandhi Marg, Hazratganj, Lucknow - 226 001',
+   'UBIN-PU-WEST', 'UI_UPLOAD', true, true, 'system'),
+  ('ubin-chd-s17',   'union-bank', 'Sector 17 Branch',      'UBIN0530010',
+   'Chandigarh', 'PB', 'SCO 92-93, Sector 17-B, Chandigarh - 160 017',
+   'UBIN-PU-WEST', 'UI_UPLOAD', true, true, 'system'),
+  -- PU-SOUTH: Chennai, Bengaluru, Hyderabad, Kolkata, New Delhi
+  ('ubin-chn-anna',  'union-bank', 'Anna Salai Branch',     'UBIN0530003',
+   'Chennai',    'TN', '184, Anna Salai, Chennai - 600 006',
+   'UBIN-PU-SOUTH', 'UI_UPLOAD', true, true, 'system'),
+  ('ubin-blr-mg',    'union-bank', 'MG Road Branch',        'UBIN0530005',
+   'Bengaluru',  'KA', '50, MG Road, Bengaluru - 560 001',
+   'UBIN-PU-SOUTH', 'UI_UPLOAD', true, true, 'system'),
+  ('ubin-hyd-abids', 'union-bank', 'Abids Branch',          'UBIN0530006',
+   'Hyderabad',  'TS', '4-1-844, Abids, Hyderabad - 500 001',
+   'UBIN-PU-SOUTH', 'UI_UPLOAD', true, true, 'system'),
+  ('ubin-kol-dal',   'union-bank', 'Dalhousie Square Branch','UBIN0530004',
+   'Kolkata',    'WB', '8, Dalhousie Square, Kolkata - 700 001',
+   'UBIN-PU-SOUTH', 'UI_UPLOAD', true, true, 'system'),
+  ('ubin-del-cp',    'union-bank', 'Connaught Place Branch', 'UBIN0530002',
+   'New Delhi',  'DL', 'E-12, Connaught Place, New Delhi - 110 001',
+   'UBIN-PU-SOUTH', 'UI_UPLOAD', true, true, 'system')
+ON CONFLICT (branch_id) DO NOTHING;
 
 -- ── CTS: Scanner registrations (SDK_PUSH mode — machine identity lifecycle) ──
 CREATE TABLE IF NOT EXISTS cts.scanner_registrations (

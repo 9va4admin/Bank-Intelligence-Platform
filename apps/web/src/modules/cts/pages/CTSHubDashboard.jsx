@@ -187,8 +187,24 @@ const FEDERAL_BRANCHES_MOCK = FEDERAL_HUB_SESSIONS.map(({ ifsc, ...hub }) => {
   }
 })
 
+// Union Bank hub sessions — 10 branches across 2 PUs
+const UNION_BRANCHES_MOCK = [
+  { branch_id: 'UBIN0534007', branch_name: 'Fort Mumbai Branch',          hub_type: 'EEH', eeh_status: 'CONNECTED',    eeh_latency_ms: 6,   session: { session_id: 'sess-ubin-frt-0812',  status: 'ACTIVE', opened_at: '2026-08-12T09:15:00Z', total_uploaded: 1240, total_accepted: 1228, total_rejected: 8,  total_held: 4 }, current_lot: { lot_id: 'LOT-UBIN-FRT-0050', filled: 21, max: 25, status: 'OPEN' }, lots_sealed_today: 49 },
+  { branch_id: 'UBIN0534021', branch_name: 'FC Road Pune Branch',          hub_type: 'EEH', eeh_status: 'CONNECTED',    eeh_latency_ms: 9,   session: { session_id: 'sess-ubin-fcr-0812',  status: 'ACTIVE', opened_at: '2026-08-12T09:22:00Z', total_uploaded: 387,  total_accepted: 382,  total_rejected: 4,  total_held: 1 }, current_lot: { lot_id: 'LOT-UBIN-FCR-0016', filled: 12, max: 25, status: 'OPEN' }, lots_sealed_today: 15 },
+  { branch_id: 'UBIN0534035', branch_name: 'CG Road Ahmedabad Branch',     hub_type: 'EEH', eeh_status: 'CONNECTED',    eeh_latency_ms: 14,  session: { session_id: 'sess-ubin-cgr-0812',  status: 'ACTIVE', opened_at: '2026-08-12T09:30:00Z', total_uploaded: 262,  total_accepted: 258,  total_rejected: 3,  total_held: 1 }, current_lot: { lot_id: 'LOT-UBIN-CGR-0011', filled: 17, max: 25, status: 'OPEN' }, lots_sealed_today: 10 },
+  { branch_id: 'UBIN0534049', branch_name: 'Hazratganj Lucknow Branch',    hub_type: 'EEH', eeh_status: 'WARN',         eeh_latency_ms: 187, session: { session_id: 'sess-ubin-hzg-0812',  status: 'ACTIVE', opened_at: '2026-08-12T09:35:00Z', total_uploaded: 194,  total_accepted: 192,  total_rejected: 2,  total_held: 0 }, current_lot: { lot_id: 'LOT-UBIN-HZG-0008', filled: 22, max: 25, status: 'OPEN' }, lots_sealed_today: 7  },
+  { branch_id: 'UBIN0534063', branch_name: 'Sector 17 Chandigarh Branch',  hub_type: 'EEH', eeh_status: 'CONNECTED',    eeh_latency_ms: 11,  session: { session_id: 'sess-ubin-s17-0812',  status: 'ACTIVE', opened_at: '2026-08-12T09:28:00Z', total_uploaded: 158,  total_accepted: 157,  total_rejected: 1,  total_held: 0 }, current_lot: { lot_id: 'LOT-UBIN-S17-0007', filled: 8,  max: 25, status: 'OPEN' }, lots_sealed_today: 6  },
+  { branch_id: 'UBIN0534077', branch_name: 'Anna Salai Chennai Branch',    hub_type: 'EEH', eeh_status: 'CONNECTED',    eeh_latency_ms: 18,  session: { session_id: 'sess-ubin-ans-0812',  status: 'ACTIVE', opened_at: '2026-08-12T09:20:00Z', total_uploaded: 321,  total_accepted: 317,  total_rejected: 3,  total_held: 1 }, current_lot: { lot_id: 'LOT-UBIN-ANS-0013', filled: 6,  max: 25, status: 'OPEN' }, lots_sealed_today: 12 },
+  { branch_id: 'UBIN0534091', branch_name: 'MG Road Bengaluru Branch',     hub_type: 'EEH', eeh_status: 'CONNECTED',    eeh_latency_ms: 22,  session: { session_id: 'sess-ubin-mgr-0812',  status: 'ACTIVE', opened_at: '2026-08-12T09:25:00Z', total_uploaded: 289,  total_accepted: 285,  total_rejected: 4,  total_held: 0 }, current_lot: { lot_id: 'LOT-UBIN-MGR-0012', filled: 19, max: 25, status: 'OPEN' }, lots_sealed_today: 11 },
+  { branch_id: 'UBIN0534105', branch_name: 'Abids Hyderabad Branch',       hub_type: 'EEH', eeh_status: 'CONNECTED',    eeh_latency_ms: 16,  session: { session_id: 'sess-ubin-abd-0812',  status: 'ACTIVE', opened_at: '2026-08-12T09:32:00Z', total_uploaded: 176,  total_accepted: 175,  total_rejected: 1,  total_held: 0 }, current_lot: { lot_id: 'LOT-UBIN-ABD-0007', filled: 3,  max: 25, status: 'OPEN' }, lots_sealed_today: 7  },
+  { branch_id: 'UBIN0534119', branch_name: 'Dalhousie Kolkata Branch',     hub_type: 'IEH', eeh_status: 'CONNECTED',    eeh_latency_ms: 29,  session: { session_id: 'sess-ubin-dls-0812',  status: 'ACTIVE', opened_at: '2026-08-12T09:18:00Z', total_uploaded: 243,  total_accepted: 240,  total_rejected: 2,  total_held: 1 }, current_lot: { lot_id: 'LOT-UBIN-DLS-0010', filled: 14, max: 25, status: 'OPEN' }, lots_sealed_today: 9  },
+  { branch_id: 'UBIN0534133', branch_name: 'Connaught Place Delhi Branch', hub_type: 'EEH', eeh_status: 'DISCONNECTED', eeh_latency_ms: null, session: null, current_lot: null, lots_sealed_today: 0 },
+]
+
 // Select mock based on configured bank — single source of truth via Branch Master
-const BRANCHES_MOCK = BANK_CONFIG.bank_id === 'federal-bank' ? FEDERAL_BRANCHES_MOCK : SARASWAT_BRANCHES_MOCK
+const BRANCHES_MOCK = BANK_CONFIG.bank_id === 'federal-bank' ? FEDERAL_BRANCHES_MOCK
+  : BANK_CONFIG.bank_id === 'union-bank' ? UNION_BRANCHES_MOCK
+  : SARASWAT_BRANCHES_MOCK
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

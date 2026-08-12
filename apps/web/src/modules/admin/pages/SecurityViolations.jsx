@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -15,7 +16,7 @@ function useSecurityViolations() {
     setError(null)
     try {
       const res = await fetch(`${API_BASE}/v1/admin/security-violations?limit=100`, {
-        headers: { Authorization: 'Bearer test-token-saraswat-coop' },
+        headers: { Authorization: `Bearer test-token-${BANK_CONFIG.bank_id}` },
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setData(await res.json())
@@ -32,7 +33,7 @@ function useSecurityViolations() {
     try {
       await fetch(`${API_BASE}/v1/admin/security-violations/${userId}/reinstate`, {
         method: 'POST',
-        headers: { Authorization: 'Bearer test-token-saraswat-coop' },
+        headers: { Authorization: `Bearer test-token-${BANK_CONFIG.bank_id}` },
       })
       await load()
     } catch {
@@ -79,7 +80,7 @@ function relTime(isoStr) {
 const DEMO_DATA = {
   total: 3,
   suspended_count: 2,
-  bank_id: 'saraswat-coop',
+  bank_id: BANK_CONFIG.bank_id,
   violations: [
     {
       id: 'demo-1',
@@ -90,7 +91,7 @@ const DEMO_DATA = {
       bank_id: 'smb-mh-kjsb',
       bank_type: 'SMB',
       role: 'smb_editor',
-      endpoint: '/v1/cts/smb/saraswat-coop/vault-sync',
+      endpoint: `/v1/cts/smb/${BANK_CONFIG.bank_id}/vault-sync`,
       method: 'POST',
       client_ip: '10.42.3.21',
       request_id: 'req-abcd1234',

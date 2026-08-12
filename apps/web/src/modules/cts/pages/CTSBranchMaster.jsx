@@ -14,6 +14,18 @@ const USE_MOCK = BANK_CONFIG.deployment_mode === 'DEMO'
 // ── Mock branch data (keyed by bank_id) ──────────────────────────────────
 
 const MOCK_BRANCHES_DB = {
+  'union-bank': [
+    { branch_name: 'Fort Branch',              branch_ifsc: 'UBIN0530001', address: '239, Vidhan Bhavan Marg, Fort',       city: 'Mumbai',      district: 'Mumbai',        state: 'Maharashtra', pin_code: '400001', phone_number: '02222614000', is_active: true,  scanner_input_mode: 'FOLDER_DROP', pu_id: 'UBIN-PU-WEST'  },
+    { branch_name: 'FC Road Branch',           branch_ifsc: 'UBIN0530008', address: '1187/4, FC Road, Shivajinagar',       city: 'Pune',        district: 'Pune',          state: 'Maharashtra', pin_code: '411016', phone_number: '02025528000', is_active: true,  scanner_input_mode: 'UI_UPLOAD',   pu_id: 'UBIN-PU-WEST'  },
+    { branch_name: 'CG Road Branch',           branch_ifsc: 'UBIN0530007', address: 'Sunrise Complex, CG Road',            city: 'Ahmedabad',   district: 'Ahmedabad',     state: 'Gujarat',     pin_code: '380009', phone_number: '07926403000', is_active: true,  scanner_input_mode: 'UI_UPLOAD',   pu_id: 'UBIN-PU-WEST'  },
+    { branch_name: 'Hazratganj Branch',        branch_ifsc: 'UBIN0530009', address: '12, Mahatma Gandhi Marg, Hazratganj', city: 'Lucknow',     district: 'Lucknow',       state: 'Uttar Pradesh',pin_code: '226001', phone_number: '05222625000', is_active: true,  scanner_input_mode: 'UI_UPLOAD',   pu_id: 'UBIN-PU-WEST'  },
+    { branch_name: 'Sector 17 Branch',         branch_ifsc: 'UBIN0530010', address: 'SCO 92-93, Sector 17-B',              city: 'Chandigarh',  district: 'Chandigarh',    state: 'Punjab',      pin_code: '160017', phone_number: '01722703000', is_active: true,  scanner_input_mode: 'SDK_PUSH',    pu_id: 'UBIN-PU-WEST'  },
+    { branch_name: 'Anna Salai Branch',        branch_ifsc: 'UBIN0530003', address: '184, Anna Salai',                     city: 'Chennai',     district: 'Chennai',       state: 'Tamil Nadu',  pin_code: '600006', phone_number: '04428415000', is_active: true,  scanner_input_mode: 'FOLDER_DROP', pu_id: 'UBIN-PU-SOUTH' },
+    { branch_name: 'MG Road Branch',           branch_ifsc: 'UBIN0530005', address: '50, MG Road',                         city: 'Bengaluru',   district: 'Bengaluru Urban',state: 'Karnataka',   pin_code: '560001', phone_number: '08022112000', is_active: true,  scanner_input_mode: 'UI_UPLOAD',   pu_id: 'UBIN-PU-SOUTH' },
+    { branch_name: 'Abids Branch',             branch_ifsc: 'UBIN0530006', address: '4-1-844, Abids',                      city: 'Hyderabad',   district: 'Hyderabad',     state: 'Telangana',   pin_code: '500001', phone_number: '04024752000', is_active: true,  scanner_input_mode: 'UI_UPLOAD',   pu_id: 'UBIN-PU-SOUTH' },
+    { branch_name: 'Dalhousie Square Branch',  branch_ifsc: 'UBIN0530004', address: '8, Dalhousie Square',                 city: 'Kolkata',     district: 'Kolkata',       state: 'West Bengal', pin_code: '700001', phone_number: '03322130000', is_active: true,  scanner_input_mode: 'SDK_PUSH',    pu_id: 'UBIN-PU-SOUTH' },
+    { branch_name: 'Connaught Place Branch',   branch_ifsc: 'UBIN0530002', address: 'E-12, Connaught Place',               city: 'New Delhi',   district: 'New Delhi',     state: 'Delhi',       pin_code: '110001', phone_number: '01123415000', is_active: true,  scanner_input_mode: 'FOLDER_DROP', pu_id: 'UBIN-PU-SOUTH' },
+  ],
   'karnataka-bank': [
     { branch_name: 'Mangalore Main',         branch_ifsc: 'KARB0000001', address: '1st Cross, Kodialbail',     city: 'Mangalore',  district: 'Dakshina Kannada', state: 'Karnataka',   pin_code: '575003', phone: '08242440150', is_active: true,  scanner_input_mode: 'SDK_PUSH'    },
     { branch_name: 'Bengaluru MG Road',      branch_ifsc: 'KARB0000002', address: '41 MG Road',                city: 'Bengaluru',  district: 'Bengaluru Urban',  state: 'Karnataka',   pin_code: '560001', phone: '08022212000', is_active: true,  scanner_input_mode: 'FOLDER_DROP' },
@@ -60,6 +72,7 @@ const PU_OPTIONS_BY_BANK = {
   'federal-bank':   [{ id: 'SOUTH-MAIN', label: 'South Zone PU' }, { id: 'WEST-MAIN', label: 'West Zone PU' }, { id: 'NORTH-MAIN', label: 'North Zone PU' }, { id: 'EAST-MAIN', label: 'East Zone PU' }],
   'saraswat-coop':  [{ id: 'PU-MUM-01', label: 'Mumbai PU-01' }, { id: 'PU-MUM-02', label: 'Mumbai PU-02' }, { id: 'PU-PUN-01', label: 'Pune PU-01' }],
   'karnataka-bank': [{ id: 'PU-SOUTH', label: 'South PU' }, { id: 'PU-NORTH', label: 'North PU' }],
+  'union-bank':     [{ id: 'UBIN-PU-WEST', label: 'Western PU (Mumbai/Pune/Ahmedabad)' }, { id: 'UBIN-PU-SOUTH', label: 'Southern PU (Chennai/Bengaluru/Hyderabad)' }],
 }
 const ACTIVE_PU_OPTIONS = PU_OPTIONS_BY_BANK[BANK_CONFIG.bank_id] ?? []
 
