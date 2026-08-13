@@ -16,6 +16,9 @@ dist/
 apps/sig_detector/weights/
 apps/*/weights/
 
+# Test digest reports (generated artifacts — not source)
+test-reports/
+
 # Debug and scratch outputs (generated during development)
 debug_*.jpg
 debug_*.png
