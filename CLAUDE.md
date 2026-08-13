@@ -32,9 +32,7 @@
 - Buyers: any Indian bank in CTS clearing — PSBs, private, SFBs, UCBs, RRBs, foreign banks
 - 18-month first-mover window before incumbents (Nelito, TCS BaNCS) catch up
 
-**Module 2 — ATM EJ Intelligence:** AI normalisation of EJ logs across 5+ OEMs, dispute resolution, fleet observability. Cross-sell after CTS foothold. Details in reference/ej.md.
-
-**Market:** CTS ₹71 lakh crore / 609M cheques/year (FY25). 2.5L+ ATMs.
+**Market:** CTS ₹71 lakh crore / 609M cheques/year (FY25).
 
 ---
 
@@ -53,24 +51,17 @@
 - Central Intelligence Hub aggregates reporting; cross-center signature lookup hub-and-spoke
 - PPS vault: always hub-and-spoke
 
-### 2.3 EJ — Hybrid Edge + Central
-Go binary at branch: OEM fingerprint, gzip ~70%, AES-256, buffer. Central: LLM normalisation, cross-ATM patterns, dispute matching. Edge never does LLM. Details in reference/ej.md.
-
-### 2.4 MCP as Integration Standard
+### 2.3 MCP as Integration Standard
 - MCP = universal integration layer for AI agents
 - NGCH Adapter wraps existing SFTP/API as MCP tools; future: direct NPCI MCP server
-- EJ Edge Agent IS an MCP server; CBS Connector as MCP server (read-only, async)
+- CBS Connector as MCP server (read-only, async)
 - MCP transport: always HTTPS with mTLS
 
-### 2.5 Module Blast Isolation (CTS ↔ EJ — Non-Negotiable)
+### 2.4 On-Premises Deployment & Upgrade Model
 
-CTS/EJ are hard-isolated at every layer: K8s namespaces, Kafka topics (`cts.*` vs `ej.*`), Redis clusters, pgbouncer pools, vLLM queues, Temporal task queues, and Python imports. No sharing, no cross-module calls. Only shared: audit-service, notification-service, analytics-service — each with separate partitions/consumer groups. Full rules in isolation.md.
+Two independent Helm charts: `astra-platform / astra-cts`. Banks own their ArgoCD and pull from ASTRA's OCI registry — ASTRA team has zero direct cluster access. Each bank has `infra/helm/values/banks/{bank_id}/` — no bank data crosses environments. Schema migrations always via Alembic, backwards-compatible for one version, run as K8s Job pre-deploy with auto-rollback on failure.
 
-### 2.6 On-Premises Deployment & Upgrade Model
-
-Three independent Helm charts: `astra-platform / astra-cts / astra-ej`. Banks own their ArgoCD and pull from ASTRA's OCI registry — ASTRA team has zero direct cluster access. Each bank has `infra/helm/values/banks/{bank_id}/` — no bank data crosses environments. Schema migrations always via Alembic, backwards-compatible for one version, run as K8s Job pre-deploy with auto-rollback on failure.
-
-### 2.7 Observability — No Grafana/Prometheus/Loki/Tempo in Mandatory Stack
+### 2.5 Observability — No Grafana/Prometheus/Loki/Tempo in Mandatory Stack
 
 **Decision (2026-07-21):** Banks deploying ASTRA on-prem face strict CAB approval for every Docker image. Adding 4 OSS observability containers creates a procurement and security-review burden that may block deployment. These tools also surface raw infra metrics — not the contextual operational signals bank operators actually need.
 
@@ -117,8 +108,7 @@ Three independent Helm charts: `astra-platform / astra-cts / astra-ej`. Banks ow
 | LLM Inference Server | vLLM (on-prem GPU, OpenAI-compatible API) |
 | Vision LLM (cheque) | Qwen2-VL 72B → `cts-vision` queue |
 | OCR | GOT-OCR2.0 (MICR, handwriting) → `cts-ocr` queue |
-| Reasoning LLM | Llama 3.3 70B → `cts-reasoning` / `ej-reasoning` queues |
-| Embeddings | BGE-M3 → `ej-embeddings` queue |
+| Reasoning LLM | Llama 3.3 70B → `cts-reasoning` queue |
 | Signature Verification | Siamese Neural Network (PyTorch, custom trained) |
 | Fraud Scoring | XGBoost ensemble + SHAP + LLM explainer |
 | Model Registry | MLflow (on-prem) |
@@ -143,24 +133,29 @@ Three independent Helm charts: `astra-platform / astra-cts / astra-ej`. Banks ow
 ```
 cerebrum/
 ├── apps/
-│   ├── web/src/modules/         ← React frontend: cts/, ej/, disputes/, fleet/, observability/
+│   ├── web/src/modules/         ← React frontend: cts/, disputes/, observability/
 │   │   └── shared/              ← Auth, layout, design system, ThemeContext
-│   ├── api/routers/             ← FastAPI: cts.py, ej.py, disputes.py, audit.py, admin.py, msv.py
+│   ├── api/routers/             ← FastAPI: cts.py, disputes.py, audit.py, admin.py, msv.py, platform.py
 │   │   ├── middleware/          ← Auth, RBAC, rate limit, tracing
 │   │   └── dependencies/        ← require_user_context (central auth chokepoint)
-│   └── ai_server/               ← vLLM wrapper: vision.py, reasoning.py, ocr.py, embeddings.py
+│   └── ai_server/               ← vLLM wrapper: vision.py, reasoning.py, ocr.py
 │
 ├── modules/
-│   ├── cts/                     ← CTS domain (fully isolated from EJ)
+│   ├── cts/                     ← CTS domain
 │   │   ├── workflows/
 │   │   │   ├── cheque_workflow.py          ← Inward: one cheque → one agent
 │   │   │   ├── human_review_workflow.py    ← 55-min timeout, signal-driven
 │   │   │   ├── iet_watchdog_workflow.py    ← T-30s emergency filer
 │   │   │   ├── vault_sync_workflow.py
 │   │   │   ├── outward_scan_workflow.py
+│   │   │   ├── feedback_workflow.py        ← OCR feedback loop (automated retraining)
 │   │   │   ├── mismatch_resolution_workflow.py
 │   │   │   └── activities/                ← ocr, alteration, signature, pps, cbs, stop_payment,
-│   │   │                                     fraud, decision, ngch_filer, write_audit, kill_switch_lookup
+│   │   │                                     fraud, decision, ngch_filer, write_audit,
+│   │   │                                     kill_switch_lookup, feedback_activities
+│   │   ├── feedback/            ← failure_classifier.py, signal_extractor.py, corpus_manager.py
+│   │   ├── preprocessing/       ← payee_normalizer.py, name_lexicon.py, zone_extractor.py,
+│   │   │                           cheque_dedup.py, ifsc_validator.py, micr_validator.py
 │   │   ├── vaults/              ← signature_vault.py, pps_vault.py
 │   │   ├── compliance/          ← CTS-2010 validation (cts2010.py)
 │   │   ├── endorsement/         ← Batch stamping
@@ -171,13 +166,6 @@ cerebrum/
 │   │   ├── sub_member/          ← SMB sponsor routing
 │   │   ├── worker.py            ← Temporal worker: CTS task queues
 │   │   └── mcp/ngch_adapter.py  ← MCP server wrapping NGCH
-│   │
-│   ├── ej/                      ← EJ domain (fully isolated from CTS)
-│   │   ├── workflows/           ← normalise_workflow.py, dispute_workflow.py + activities/
-│   │   ├── parser/llm_parser.py
-│   │   ├── mcp/diagnostic_mcp_server.py
-│   │   ├── cctv/evidence_extractor.py
-│   │   └── worker.py
 │   │
 │   └── msv/                     ← Multi-Signature Validation (fully isolated)
 │       ├── workflows/msv_workflow.py + activities/
@@ -198,12 +186,11 @@ cerebrum/
 │   ├── messages/locales/messages.yaml  ← single source of truth for ALL system messages
 │   └── event_bus/topics.py      ← Kafka topic name constants (single source of truth)
 │
-├── edge/ej-agent/               ← Go binary: branch MCP server (main.go, mcp_server.go, etc.)
 ├── infra/
-│   ├── helm/                    ← astra-platform/, astra-cts/, astra-ej/ + values/banks/{bank_id}/
+│   ├── helm/                    ← astra-platform/, astra-cts/ + values/banks/{bank_id}/
 │   ├── argocd/                  ← app-of-apps.yaml + bank Application templates
-│   ├── opa/policies/            ← cts_routing.rego, cts_auto_return.rego, ej_dispute.rego
-│   ├── migrations/              ← cts/ and ej/ Alembic migration chains
+│   ├── opa/policies/            ← cts_routing.rego, cts_auto_return.rego
+│   ├── migrations/              ← cts/ Alembic migration chain
 │   └── k8s/                     ← temporal/, kafka/, redis/, yugabyte/, minio/, immudb/, vault/
 └── compliance/
     └── rbi-it-framework/control-mapping.yaml
@@ -225,7 +212,7 @@ Five layers. Lower layers cannot override higher layers. All changes at Layer 2+
 
 **Layer 1 non-overridable keys:** `min_tls_version: "1.3"`, `audit_trail_enabled: true`, `data_localisation: enforced`, `hsm_required: true`, `exactly_once_ngch: true`, `iet_watchdog_enabled: true`
 
-**Layer 3 key examples:** `iet_minutes: 180`, `stp_auto_confirm_threshold: 0.92`, `human_review_fraud_threshold: 0.72`, `high_value_amount_threshold: 500000`, `vault_miss_action: HUMAN_REVIEW` (never changeable to AUTO_RETURN)
+**Layer 3 key examples:** `iet_minutes: 180`, `stp_auto_confirm_threshold: 0.92`, `human_review_fraud_threshold: 0.72`, `high_value_amount_threshold: 500000`, `vault_miss_action: HUMAN_REVIEW` (never changeable to AUTO_RETURN), `payee_match_threshold: 0.82`, `ocr_feedback_retrain_threshold: 500`, `ocr_promote_min_improvement: 0.02`
 
 **Config-Service:** `shared/config/config_service.py` is the ONLY gateway. No service reads env vars directly. Layer 3 cached in Redis 30s TTL; invalidated on `platform.config.changed` Kafka event. Layer 4 via OPA decision API per request.
 
@@ -236,8 +223,8 @@ Five layers. Lower layers cannot override higher layers. All changes at Layer 2+
 | Role | Module Access | Data Access | Config Access |
 |---|---|---|---|
 | ops_reviewer | CTS human queue | Own zone only | None |
-| fraud_analyst | CTS + EJ analytics | Scores + SHAP, no PII | None |
-| ops_manager | CTS + EJ full | Cross-zone reports | Layer 3 |
+| fraud_analyst | CTS analytics | Scores + SHAP, no PII | None |
+| ops_manager | CTS full | Cross-zone reports | Layer 3 |
 | bank_it_admin | Admin console | Infrastructure only | Layer 2 (maker-checker) |
 | compliance_officer | Audit + reports | Read-only audit trail | None |
 | rbi_examiner | Audit only (time-scoped) | Read-only, date-scoped | None |
@@ -251,32 +238,32 @@ ABAC on top: `ops_reviewer` scoped to `clearing_zone`; all roles scoped to `bank
 
 > **See `shared/event_bus/topics.py`** — single source of truth for all topic name constants.
 
-Key topic prefixes: `cts.*` (CTS only), `ej.*` (EJ only), `platform.*` (shared services).
-CTS inward fan-out: `cts.inward.{bank_id}`. Human review: `cts.human.review.{bank_id}[.{smb_id}]`. SMB: `cts.smb.inbound.{bank_id}`. Audit: `platform.audit.events`. Config changes: `platform.config.changed`.
+Key topic prefixes: `cts.*` (CTS only), `platform.*` (shared services).
+CTS inward fan-out: `cts.inward.{bank_id}`. Human review: `cts.human.review.{bank_id}[.{smb_id}]`. SMB: `cts.smb.inbound.{bank_id}`. OCR feedback: `cts.ocr.feedback.{bank_id}`. Audit: `platform.audit.events`. Config changes: `platform.config.changed`.
 
 ---
 
 ## 8. Temporal Workflows
 
-> **See `modules/cts/workflows/` and `modules/ej/workflows/`** — code is authoritative.
+> **See `modules/cts/workflows/`** — code is authoritative.
 
 **CTS Inward:** `ChequeProcessingWorkflow` (main), `IETWatchdogWorkflow` (T-30s child, always first), `HumanReviewWorkflow` (55-min timeout, signal-driven), `VaultSyncWorkflow` (6AM daily)
 
 **CTS Outward:** `OutwardScanWorkflow`, `BatchEndorsementWorkflow`, `NGCHSubmissionWorkflow`, `SessionReconciliationWorkflow`, `SMBForwardingWorkflow`, `MismatchResolutionWorkflow` (4-hour timeout)
 
-**EJ:** `EJNormalisationWorkflow` (8 activities + integrity check), `DisputeResolutionWorkflow`, `ATMHealthWorkflow`
+**CTS Feedback:** `FeedbackAccumulatorWorkflow` (persistent per-bank, signals from every decision), `ModelRetrainWorkflow` (auto-triggered, zero human action)
 
 **Platform:** `NotificationWorkflow`, `AuditWriteWorkflow`, `BankOnboardingWorkflow`, `PlatformHealthCheckWorkflow` (60s cadence, alert engine → dispatcher.py)
 
-**Workflow ID pattern (idempotency):** `cts-{bank_id}-{instrument_id}`, `ej-normalise-{bank_id}-{raw_log_hash}`
+**Workflow ID pattern (idempotency):** `cts-{bank_id}-{instrument_id}`, `cts-feedback-{bank_id}`, `cts-retrain-{bank_id}-{corpus_type}-{ts}`
 
 ---
 
 ## 9. MCP Servers
 
-> **See `modules/cts/mcp/`, `modules/ej/mcp/`, `edge/ej-agent/`** for implementations.
+> **See `modules/cts/mcp/`** for implementations.
 
-`ngch-adapter` (NGCH SFTP/API wrapper), `cbs-connector` (read-only, per CBS type), `branch-ej-agent` (Go binary at branch), `cctv-adapter` (per vendor), `astra-diagnostic-mcp` (consent-gated, OPA-enforced, non-PII signals only)
+`ngch-adapter` (NGCH SFTP/API wrapper), `cbs-connector` (read-only, per CBS type), `cctv-adapter` (per vendor), `astra-diagnostic-mcp` (consent-gated, OPA-enforced, non-PII signals only)
 
 ---
 
@@ -310,7 +297,7 @@ CTS inward fan-out: `cts.inward.{bank_id}`. Human review: `cts.human.review.{ban
 
 **Critical SLAs:** CTS agent decision < 600ms (p99) · IET breach rate **0.000%** (non-negotiable) · Vault lookup < 5ms · DC failover < 30s · RPO = 0
 
-**Availability:** CTS clearing hours 99.999% · CTS off-hours 99.99% · EJ 99.9%
+**Availability:** CTS clearing hours 99.999% · CTS off-hours 99.99%
 
 **AI thresholds:** OCR > 99.0% · Signature precision > 97.0% · Fraud F1 > 0.92 · False positive < 3% · False negative < 1%
 
@@ -340,10 +327,9 @@ NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
 
 ### Code Standards
 - Python: FastAPI, Pydantic v2, async throughout; `structlog` (never `print()`)
-- Go: standard library preferred, minimal deps (edge agent only)
 - React: functional components, React Query for all server state
 - No hardcoded values — all config from `config_service`
-- Every cheque/EJ function: OTel span required
+- Every CTS activity: OTel span required
 - Every AI call: Langfuse trace required
 - Every YugabyteDB write: Immudb audit write required immediately after
 
@@ -366,17 +352,17 @@ NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
 
 > Full history: [docs/build-history.md](docs/build-history.md)
 
-**Completed:** Phases 1–14 (Foundation → CTS Core → Observability → EJ → Hardening → Multi-Scenario CTS → Auth Connectors → Smoke Tests → Security Remediation → Incident Management → Audit/Notification Gap Closure → TOTP/MFA + MSV → @workflow.defn/@activity.defn + DI gaps: all 16 workflows + 35 activities registered in real Worker() → ASTRA Ops Dashboard + alert engine → POC E2E + Federal Bank onboarding → `__astra-admin` platform super admin + `platform_admin` RBAC role)
+**Completed:** Phases 1–15 (Foundation → CTS Core → Observability → Hardening → Multi-Scenario CTS → Auth Connectors → Smoke Tests → Security Remediation → Incident Management → Audit/Notification Gap Closure → TOTP/MFA + MSV → @workflow.defn/@activity.defn + DI gaps → ASTRA Ops Dashboard + alert engine → POC E2E + Federal Bank onboarding → `__astra-admin` platform super admin + `platform_admin` RBAC role → 9-script Indic transliteration + Malayalam Christian-name lexicon → automated OCR feedback loop: failure classifier + corpus accumulation + `FeedbackAccumulatorWorkflow` + `ModelRetrainWorkflow`)
 
 **Immediate Next (priority order):**
-1. **ASTRA-01 on ej.py** — test-token backdoor identical to the 9 already fixed; deliberately deferred
-2. **NPCI API Modernisation Phase A** — trigger: NPCI concept note acceptance; see [docs/npci-readiness-plan.md](docs/npci-readiness-plan.md)
-3. **Wire AuthConnectorFactory into real login flow** — `dev_auth_server.py` + `main.py` bypass connectors entirely; SAML/LDAP hooks still raise `NotImplementedError` (deliberately deferred)
+1. **Wire AuthConnectorFactory into real login flow** — `dev_auth_server.py` + `main.py` bypass connectors entirely; SAML/LDAP hooks still raise `NotImplementedError` (deliberately deferred)
+2. **Wire `FeedbackAccumulatorWorkflow` into `ChequeProcessingWorkflow`** — feedback loop infrastructure is built but signals are not yet emitted from the main workflow; loop is dormant without this
+3. **Fix `check_cheque_dedup` ImportError** — outward scan workflow tests failing; function exists but not exported from `outward_scan_activities`
 4. **Pilot bank deployment** — validate `saraswat-coop` Helm values against real K8s cluster
-5. **Security hardening** — OWASP ZAP + pen test prep
+5. **NPCI API Modernisation Phase A** — trigger: NPCI concept note acceptance; see [docs/npci-readiness-plan.md](docs/npci-readiness-plan.md)
+6. **Security hardening** — OWASP ZAP + pen test prep
 
 **Open security findings (not yet fixed):**
-- `ej.py` router: ASTRA-01 backdoor open (conscious deferral)
 - `rbac.py:210-211`: fail-open defaults (SB/EDIT)
 - `HumanReviewWorkflow`: 55-min timeout is a flat constant, not config-aware (HIGH-1)
 - SMB notify side effects missing from real `run()` (HIGH-4)
@@ -390,4 +376,4 @@ NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
 
 Phases: A (REST API, 6 months) → B (Webhook push, 12 months) → C (MCP client, 24 months). ~70% of internal plumbing ready; gap is entirely in NPCI-facing transport layer.
 
-*Last updated: 2026-08-11 | All architectural decisions final unless explicitly revised in this file*
+*Last updated: 2026-08-13 | All architectural decisions final unless explicitly revised in this file*
