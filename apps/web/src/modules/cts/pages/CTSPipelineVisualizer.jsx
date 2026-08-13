@@ -561,12 +561,21 @@ function ParticleDot({ particle }) {
   const rawProgress = (particle.stage + particle.stageProgress) / (STAGES.length - 1)
   const progress = Math.min(rawProgress, 1)
   const leftPct = 5 + progress * 90
+
+  // Outcome is unknown while the cheque is in-flight through the pipeline.
+  // Reveal the color only at the Decision stage (index 8) and beyond.
+  const DECISION_STAGE = 8
+  const revealOutcome = particle.stage >= DECISION_STAGE
+
   const colorMap = {
     STP_CONFIRM:  { dot: '#10b981', glow: '#10b981' },
     STP_RETURN:   { dot: '#ef4444', glow: '#ef4444' },
     HUMAN_REVIEW: { dot: '#f59e0b', glow: '#f59e0b' },
   }
-  const { dot, glow } = colorMap[particle.outcome] || colorMap.STP_CONFIRM
+  const { dot, glow } = revealOutcome
+    ? (colorMap[particle.outcome] || colorMap.STP_CONFIRM)
+    : { dot: '#8b9bbd', glow: '#8b9bbd' }   // neutral slate-blue while processing
+
   return (
     <div
       className="absolute z-20 w-3 h-3 rounded-full pointer-events-none"
@@ -785,7 +794,14 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
   const statsSeed = useDemoData(initStats(), zeroStats)
 
   const [running, setRunning] = useState(true)
-  const [particles, setParticles] = useState([])
+  // Pre-seed particles spread across the pipeline so the track isn't empty on first render
+  const [particles, setParticles] = useState(() =>
+    [0, 1, 2, 3, 4, 5, 6, 7].map((stage, i) => ({
+      ...makeParticle(bankName),
+      stage,
+      stageProgress: 0.15 + (i % 3) * 0.25,   // stagger positions within each stage
+    }))
+  )
   const [stats] = useState(statsSeed)
   const [stageActive, setStageActive] = useState({})
   const [confirmPool, setConfirmPool] = useState([])
