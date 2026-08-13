@@ -56,6 +56,10 @@ CTS_SB_RELAY_OUTWARD = "cts.sb.relay.outward.{agency_id}.{sb_bank_id}"
 # EJ — ATM Electronic Journal
 # ---------------------------------------------------------------------------
 
+# CTS — OCR feedback loop (automated, no human trigger)
+CTS_OCR_FEEDBACK       = "cts.ocr.feedback.{bank_id}"
+CTS_OCR_RETRAIN_READY  = "cts.ocr.retrain.ready.{bank_id}"
+
 EJ_RAW_INGESTED = "ej.raw.ingested.{bank_id}"
 EJ_CANONICAL = "ej.canonical.{bank_id}"
 EJ_HEALTH_SIGNALS = "ej.health.signals.{bank_id}"
