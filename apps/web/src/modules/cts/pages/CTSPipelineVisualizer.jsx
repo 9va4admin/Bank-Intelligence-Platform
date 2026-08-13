@@ -562,10 +562,11 @@ function ParticleDot({ particle }) {
   const progress = Math.min(rawProgress, 1)
   const leftPct = 5 + progress * 90
 
-  // Outcome is unknown while the cheque is in-flight through the pipeline.
-  // Reveal the color only at the Decision stage (index 8) and beyond.
-  const DECISION_STAGE = 8
-  const revealOutcome = particle.stage >= DECISION_STAGE
+  // Outcome is pre-determined by the fraud model (stage 6).
+  // Reveal color from Fraud stage onward so particles travel green/red/amber
+  // for 4 visible stages before exiting — easy to see the transition.
+  const REVEAL_STAGE = 6
+  const revealOutcome = particle.stage >= REVEAL_STAGE
 
   const colorMap = {
     STP_CONFIRM:  { dot: '#10b981', glow: '#10b981' },
@@ -574,18 +575,25 @@ function ParticleDot({ particle }) {
   }
   const { dot, glow } = revealOutcome
     ? (colorMap[particle.outcome] || colorMap.STP_CONFIRM)
-    : { dot: '#8b9bbd', glow: '#8b9bbd' }   // neutral slate-blue while processing
+    : { dot: '#8b9bbd', glow: '#8b9bbd' }   // neutral slate-blue while in early stages
+
+  // Colored particles are slightly larger and glow more strongly
+  const size = revealOutcome ? 14 : 12
 
   return (
     <div
-      className="absolute z-20 w-3 h-3 rounded-full pointer-events-none"
+      className="absolute z-20 rounded-full pointer-events-none"
       style={{
+        width: size,
+        height: size,
         left: `${leftPct}%`,
         top: '50%',
         transform: 'translate(-50%, -50%)',
         background: dot,
-        boxShadow: `0 0 6px ${glow}, 0 0 14px ${glow}70`,
-        transition: 'left 0.05s linear',
+        boxShadow: revealOutcome
+          ? `0 0 8px ${glow}, 0 0 20px ${glow}90, 0 0 40px ${glow}40`
+          : `0 0 6px ${glow}, 0 0 14px ${glow}70`,
+        transition: 'left 0.05s linear, width 0.3s ease, height 0.3s ease, box-shadow 0.3s ease',
       }}
     />
   )
@@ -794,9 +802,10 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
   const statsSeed = useDemoData(initStats(), zeroStats)
 
   const [running, setRunning] = useState(true)
-  // Pre-seed particles spread across the pipeline so the track isn't empty on first render
+  // Pre-seed particles across ALL stages — including Decision (8) and NGCH (9) so
+  // colored dots are visible immediately on load without waiting ~13 seconds.
   const [particles, setParticles] = useState(() =>
-    [0, 1, 2, 3, 4, 5, 6, 7].map((stage, i) => ({
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((stage, i) => ({
       ...makeParticle(bankName),
       stage,
       stageProgress: 0.15 + (i % 3) * 0.25,   // stagger positions within each stage
