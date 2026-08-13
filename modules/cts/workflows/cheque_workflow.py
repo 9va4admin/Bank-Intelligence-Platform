@@ -826,9 +826,23 @@ class ChequeProcessingWorkflow:
         # Step 5: PPS lookup
         pps_result = mock_results["pps"]
 
-        # Step 5.5: Signature verification — handles 1 or N ink sigs uniformly.
-        # verify_signature applies mandate BRE; result is always in mock_results["signature"].
-        sig_result = mock_results["signature"]
+        # Step 5.5: Signature verification — single or multi-sig path.
+        sig_count = mock_results.get("sig_count", 1)
+        if sig_count >= 2:
+            # Multi-sig: MSVValidationWorkflow result drives routing.
+            msv_r = mock_results.get("msv")
+            if msv_r is None or msv_r.outcome != "GREEN":
+                reason = "msv_not_configured" if msv_r is None else f"msv_{msv_r.outcome.lower()}"
+                return ChequeWorkflowResult(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    decision="HUMAN_REVIEW",
+                    rationale=reason,
+                    shap_values={},
+                )
+            # GREEN: proceed — sig_result not needed downstream in run_with_mocks
+        else:
+            sig_result = mock_results["signature"]  # noqa: F841 — read for parity with run()
 
         # Step 7: Fraud scoring (always includes SHAP)
         fraud_result = mock_results["fraud"]
