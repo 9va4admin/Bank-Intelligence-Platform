@@ -695,7 +695,16 @@ def payee_names_match(
     if script is not None and _is_indic(ocr_name):
         # Strip salutation BEFORE transliteration (critical ordering)
         ocr_work = strip_salutation(ocr_name)
-        ocr_work = transliterate_by_script(ocr_work, script)
+        # Lexicon lookup: replace script-specific loan-words (Malayalam Christian
+        # names) with their canonical English form before the phonemic engine runs
+        try:
+            from modules.cts.preprocessing.name_lexicon import apply_lexicon
+            ocr_work = apply_lexicon(ocr_work, script)
+        except ImportError:
+            pass
+        # Transliterate any remaining Indic tokens the lexicon didn't cover
+        if _is_indic(ocr_work):
+            ocr_work = transliterate_by_script(ocr_work, script)
 
     norm_ocr = _normalize(ocr_work)
     norm_cbs = _normalize(cbs_name)
