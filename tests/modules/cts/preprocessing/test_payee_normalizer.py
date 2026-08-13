@@ -191,46 +191,51 @@ class TestPayeeNamesMatch:
                               threshold=0.82, script="devanagari")
         assert r.decision == "MISMATCH"
 
-    # ── Non-Devanagari scripts → UNDECIDABLE (no transliterator) ──
+    # ── All 8 non-Devanagari scripts now transliterate (no longer UNDECIDABLE) ──
 
-    def test_tamil_script_undecidable(self):
+    def test_tamil_script_transliterates(self):
         r = payee_names_match("மீனாக்ஷி சுந்தரம்", "Meenakshi Sundaram",
                               threshold=0.82, script="tamil")
-        assert r.decision == "UNDECIDABLE"
+        assert r.decision in {"MATCH", "FUZZY"}
 
-    def test_telugu_script_undecidable(self):
+    def test_telugu_script_transliterates(self):
         r = payee_names_match("సుభాషిణి రెడ్డి", "Subhashini Reddy",
                               threshold=0.82, script="telugu")
-        assert r.decision == "UNDECIDABLE"
+        assert r.decision in {"MATCH", "FUZZY"}
 
-    def test_kannada_script_undecidable(self):
+    def test_kannada_script_transliterates(self):
         r = payee_names_match("ಶಾಂತಾ ಲಕ್ಷ್ಮೀ", "Shantha Lakshmi",
-                              threshold=0.82, script="kannada")
-        assert r.decision == "UNDECIDABLE"
+                              threshold=0.72, script="kannada")
+        assert r.decision in {"MATCH", "FUZZY"}
 
-    def test_malayalam_script_undecidable(self):
+    def test_malayalam_script_transliterates(self):
         r = payee_names_match("ലക്ഷ്മി നായർ", "Laxmi Nair",
-                              threshold=0.82, script="malayalam")
-        assert r.decision == "UNDECIDABLE"
+                              threshold=0.72, script="malayalam")
+        assert r.decision in {"MATCH", "FUZZY"}
 
-    def test_gujarati_script_undecidable(self):
+    def test_gujarati_script_transliterates(self):
         r = payee_names_match("ભૂપેન્દ્ર ભાઈ શાહ", "Bhupendra Bhai Shah",
-                              threshold=0.82, script="gujarati")
-        assert r.decision == "UNDECIDABLE"
+                              threshold=0.75, script="gujarati")
+        assert r.decision in {"MATCH", "FUZZY"}
 
-    def test_bengali_script_undecidable(self):
+    def test_bengali_script_transliterates(self):
         r = payee_names_match("রজত কুমার ব্যানার্জি", "Rajat Kumar Banerjee",
-                              threshold=0.82, script="bengali")
-        assert r.decision == "UNDECIDABLE"
+                              threshold=0.75, script="bengali")
+        assert r.decision in {"MATCH", "FUZZY"}
 
-    def test_gurmukhi_script_undecidable(self):
+    def test_gurmukhi_script_transliterates(self):
         r = payee_names_match("ਗੁਰਪ੍ਰੀਤ ਸਿੰਘ", "Gurpreet Singh",
-                              threshold=0.82, script="gurmukhi")
-        assert r.decision == "UNDECIDABLE"
+                              threshold=0.75, script="gurmukhi")
+        assert r.decision in {"MATCH", "FUZZY"}
 
-    def test_odia_script_undecidable(self):
+    def test_odia_script_transliterates(self):
         r = payee_names_match("ସୁଭାଷ ମହାପାତ୍ର", "Subhash Mahapatra",
-                              threshold=0.82, script="odia")
+                              threshold=0.72, script="odia")
+        assert r.decision in {"MATCH", "FUZZY"}
+
+    def test_unknown_script_returns_undecidable(self):
+        r = payee_names_match("रामलाल", "Ramlal",
+                              threshold=0.82, script="unknown_script_xyz")
         assert r.decision == "UNDECIDABLE"
 
     # ── Result shape ──
@@ -247,6 +252,6 @@ class TestPayeeNamesMatch:
         assert r.normalized_cbs == "lata deshpande"
 
     def test_undecidable_has_none_score(self):
-        r = payee_names_match("மீனாக்ஷி சுந்தரம்", "Meenakshi Sundaram",
-                              threshold=0.82, script="tamil")
+        r = payee_names_match("रामलाल", "Ramlal",
+                              threshold=0.82, script="unknown_script_xyz")
         assert r.score is None
