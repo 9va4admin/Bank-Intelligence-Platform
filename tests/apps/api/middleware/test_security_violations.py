@@ -91,25 +91,29 @@ class TestViolationStore:
 # ── SuspensionStore ───────────────────────────────────────────────────────────
 
 class TestSuspensionStore:
-    def test_suspend_and_is_suspended(self):
+    @pytest.mark.asyncio
+    async def test_suspend_and_is_suspended(self):
         store = SuspensionStore()
-        store.suspend("u-1")
-        assert store.is_suspended("u-1") is True
+        await store.suspend("u-1")
+        assert await store.is_suspended("u-1") is True
 
-    def test_reinstate(self):
+    @pytest.mark.asyncio
+    async def test_reinstate(self):
         store = SuspensionStore()
-        store.suspend("u-2")
-        store.reinstate("u-2")
-        assert store.is_suspended("u-2") is False
+        await store.suspend("u-2")
+        await store.reinstate("u-2")
+        assert await store.is_suspended("u-2") is False
 
-    def test_reinstate_nonexistent_does_not_raise(self):
+    @pytest.mark.asyncio
+    async def test_reinstate_nonexistent_does_not_raise(self):
         store = SuspensionStore()
-        store.reinstate("nonexistent")  # must not raise
+        await store.reinstate("nonexistent")  # must not raise
 
-    def test_all_suspended(self):
+    @pytest.mark.asyncio
+    async def test_all_suspended(self):
         store = SuspensionStore()
-        store.suspend("a")
-        store.suspend("b")
+        await store.suspend("a")
+        await store.suspend("b")
         assert set(store.all_suspended()) == {"a", "b"}
 
 
