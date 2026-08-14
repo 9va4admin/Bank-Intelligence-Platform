@@ -123,19 +123,42 @@ async def ocr_extract(
         return OCRActivityResult(
             outcome="HUMAN_REVIEW", degraded=True,
             low_confidence_reason="MODEL_UNAVAILABLE",
+            ocr_engines_used=["got-ocr2.0:unavailable"],
         )
 
     fields, cascade_level = raw
 
-    # ── Stage 2: Indic zone refinement (only when triggered) ─────────────────
+    engines_used = [f"got-ocr2.0:cascade-{cascade_level}"]
+
+    # ── IndicOCR kill switch ──────────────────────────────────────────────────
+    # Fail-open: missing / unreadable config key = NONE (do not block OCR).
+    indic_ks_active = False
+    try:
+        indic_ks_raw = await config_service.get("cts.indic_ocr.kill_mode")
+        if indic_ks_raw == "KC":
+            indic_ks_active = True
+            log.warning("ocr.indic_ocr_kill_switch_active",
+                        instrument_id=inp.instrument_id, bank_id=inp.bank_id)
+    except Exception:
+        pass
+
+    # ── Stage 2: Indic zone refinement (skipped when KC or URL absent) ───────
     indic_refined: list[str] = []
-    if indic_ocr_url:
-        indic_refined = await _refine_indic_zones(
+    if indic_ocr_url and not indic_ks_active:
+        indic_refined, indic_backend = await _refine_indic_zones(
             inp, fields, indic_ocr_url, min_confidence, indic_min_confidence
         )
+        if indic_refined:
+            engines_used.append(indic_backend)
+    elif indic_ks_active:
+        log.info("ocr.indic_stage2_skipped_kill_switch",
+                 instrument_id=inp.instrument_id, bank_id=inp.bank_id)
 
     # ── Stage 3: Confidence gate + amount cross-check ─────────────────────────
-    return _build_result(fields, min_confidence, cascade_level, indic_refined, routing_table, inp)
+    return _build_result(
+        fields, min_confidence, cascade_level, indic_refined,
+        routing_table, inp, engines_used, indic_ks_active,
+    )
 
 
 # ── Stage 1 ───────────────────────────────────────────────────────────────────
