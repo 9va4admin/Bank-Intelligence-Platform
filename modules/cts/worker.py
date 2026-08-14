@@ -56,7 +56,7 @@ try:
     )
 
     AUDIT_RETRY = RetryPolicy(
-        maximum_attempts=0,
+        maximum_attempts=None,   # unlimited — audit must succeed
         initial_interval=timedelta(seconds=1),
         maximum_interval=timedelta(minutes=5),
     )
@@ -178,6 +178,17 @@ from modules.cts.workflows.activities.platform_health_activities import (
 from modules.cts.workflows.platform_health_check_workflow import PlatformHealthCheckWorkflow
 from modules.cts.worker_activities import build_bound_activities
 from modules.cts.workflows.hold_escalation_workflow import HoldEscalationWorkflow
+from modules.cts.workflows.feedback_workflow import (
+    FeedbackAccumulatorWorkflow,
+    ModelRetrainWorkflow,
+    FeedbackEmitWorkflow,
+)
+from modules.cts.workflows.activities.feedback_activities import (
+    emit_payee_feedback_signal,
+    emit_micr_feedback_signal,
+    dispatch_retrain_job,
+    run_shadow_evaluation,
+)
 from modules.cts.workflows.activities.hold_escalation import (
     send_hold_reminder,
     send_hold_critical_alert,
@@ -204,6 +215,10 @@ ALL_WORKFLOWS = [
     PlatformHealthCheckWorkflow,
     HoldEscalationWorkflow,
     PostDatedHoldWorkflow,
+    # OCR feedback loop
+    FeedbackAccumulatorWorkflow,
+    ModelRetrainWorkflow,
+    FeedbackEmitWorkflow,
 ]
 
 # Every registered CTS activity name, for reference/introspection. This list
@@ -325,6 +340,11 @@ NO_DI_ACTIVITIES = [
     # Post-dated hold persistence (PostDatedHoldWorkflow)
     store_postdated_hold,
     mark_hold_cancelled,
+    # OCR feedback loop — no DI needed (accumulate/threshold/promote are in BoundCTSActivities)
+    emit_payee_feedback_signal,
+    emit_micr_feedback_signal,
+    dispatch_retrain_job,
+    run_shadow_evaluation,
 ]
 
 

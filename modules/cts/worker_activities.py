@@ -56,6 +56,13 @@ from temporalio import activity
 # annotations` — TYPE_CHECKING imports would be invisible at runtime and
 # cause Temporal to fall back to plain-dict deserialization.
 from modules.cts.workflows.activities.alteration import AlterationActivityInput
+from modules.cts.workflows.activities.feedback_activities import (
+    FeedbackSignalResult,
+    RetrainThresholdResult,
+    accumulate_corpus_entry as _fa_accumulate_corpus_entry,
+    check_retrain_threshold as _fa_check_retrain_threshold,
+    promote_model as _fa_promote_model,
+)
 from modules.cts.workflows.activities.cbs import CBSActivityInput
 from modules.cts.workflows.activities.decision import DecisionInput
 from modules.cts.workflows.activities.fraud import FraudActivityInput
@@ -97,6 +104,7 @@ class BoundCTSActivities:
         config_service: Any = None,
         db_pool: Any = None,
         hsm_signer: Any = None,
+        minio_client: Any = None,
     ) -> None:
         self._bank_id = bank_id
         self._cbs_connector = cbs_connector
@@ -114,6 +122,7 @@ class BoundCTSActivities:
         self._config_service = config_service
         self._db_pool = db_pool
         self._hsm_signer = hsm_signer
+        self._minio_client = minio_client
         # LotManager is stateful/in-memory per clearing session (see
         # modules/cts/lot/manager.py) — cached by (bank_ifsc, session_id) so
         # sequential lot numbers are correct across a session's many
@@ -415,6 +424,50 @@ class BoundCTSActivities:
         )
 
     # ------------------------------------------------------------------
+    # Feedback loop — corpus accumulation + retrain threshold + promote
+    # These need minio_client + redis_client injected from self.
+    # ------------------------------------------------------------------
+
+    @activity.defn(name="accumulate_corpus_entry")
+    async def accumulate_corpus_entry(
+        self,
+        signal_result: FeedbackSignalResult,
+        image_path: str,
+        ocr_text: str,
+        corpus_type: str,
+    ) -> None:
+        return await _fa_accumulate_corpus_entry(
+            signal_result, image_path, ocr_text, corpus_type,
+            minio_client=self._minio_client,
+            redis_client=self._redis_client,
+        )
+
+    @activity.defn(name="check_retrain_threshold")
+    async def check_retrain_threshold(
+        self,
+        bank_id: str,
+        corpus_type: str,
+    ) -> RetrainThresholdResult:
+        return await _fa_check_retrain_threshold(
+            bank_id, corpus_type,
+            minio_client=self._minio_client,
+            redis_client=self._redis_client,
+        )
+
+    @activity.defn(name="promote_model")
+    async def promote_model(
+        self,
+        bank_id: str,
+        mlflow_run_id: str,
+        corpus_type: str,
+    ) -> None:
+        return await _fa_promote_model(
+            bank_id, mlflow_run_id, corpus_type,
+            minio_client=self._minio_client,
+            redis_client=self._redis_client,
+        )
+
+    # ------------------------------------------------------------------
     # Registration list — every bound method Worker() should dispatch to.
     # ------------------------------------------------------------------
 
@@ -456,6 +509,10 @@ class BoundCTSActivities:
             self.notify_sub_member_return,
             self.emit_batch_ledger_update,
             self.check_return_rate_shield,
+            # Feedback loop — DI-wired corpus/retrain/promote
+            self.accumulate_corpus_entry,
+            self.check_retrain_threshold,
+            self.promote_model,
         ]
 
 
@@ -484,6 +541,7 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
     vision_vllm_client = await _build_vision_vllm_client(config_service)
     db_pool = await _build_db_pool(config_service)
     hsm_signer = _build_hsm_signer(config_service, bank_id)
+    minio_client = await _build_minio_client(config_service)
 
     pepper = await _get_pii_pepper(config_service, bank_id)
     signature_vault = _build_signature_vault(bank_id, pepper, redis_client)
@@ -507,6 +565,7 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
         config_service=config_service,
         db_pool=db_pool,
         hsm_signer=hsm_signer,
+        minio_client=minio_client,
     )
 
 
@@ -779,4 +838,24 @@ async def _build_bloom_client(redis_client: Any, bank_id: str, config_service: A
         return client
     except Exception as exc:
         log.warning("worker_activities.bloom_client_unavailable", bank_id=bank_id, error=str(exc))
+        return None
+
+
+async def _build_minio_client(config_service: Any) -> Any:
+    """MinIO client for corpus accumulation (OCR feedback loop)."""
+    try:
+        from shared.storage.minio_client import MinioObjectStore
+        endpoint = await config_service.get_secret("minio.endpoint")
+        access_key = await config_service.get_secret("minio.access_key")
+        secret_key = await config_service.get_secret("minio.secret_key")
+        client = MinioObjectStore(
+            endpoint=endpoint,
+            access_key=access_key,
+            secret_key=secret_key,
+            secure=True,
+        )
+        log.info("worker_activities.minio_client_ready")
+        return client
+    except Exception as exc:
+        log.warning("worker_activities.minio_client_unavailable", error=str(exc))
         return None

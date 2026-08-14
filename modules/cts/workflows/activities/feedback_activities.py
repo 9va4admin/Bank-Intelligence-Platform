@@ -14,21 +14,19 @@ Activity sequence for every processed cheque (happens automatically):
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Optional
 
 import structlog
 from pydantic import BaseModel, ConfigDict
 from temporalio import activity
 
-from shared.config.config_service import config_service
-from modules.cts.feedback.failure_classifier import FailureMode
+from modules.cts.feedback.corpus_manager import CorpusEntry, CorpusManager
 from modules.cts.feedback.signal_extractor import (
-    extract_payee_signal,
-    extract_micr_signal,
     FeedbackSignal,
+    extract_micr_signal,
+    extract_payee_signal,
 )
-from modules.cts.feedback.corpus_manager import CorpusEntry
+from shared.config.config_service import config_service
 
 log = structlog.get_logger()
 
@@ -174,7 +172,8 @@ async def accumulate_corpus_entry(
     image_path: str,
     ocr_text: str,
     corpus_type: str,
-    app_state,
+    minio_client=None,
+    redis_client=None,
 ) -> None:
     """Write a training candidate to MinIO and increment the Redis counter.
 
@@ -184,10 +183,17 @@ async def accumulate_corpus_entry(
     if not signal_result.add_to_corpus:
         return
 
-    from modules.cts.feedback.corpus_manager import CorpusManager
+    if minio_client is None or redis_client is None:
+        log.warning(
+            "feedback.corpus.skipped_no_clients",
+            instrument_id=signal_result.instrument_id,
+            bank_id=signal_result.bank_id,
+        )
+        return
+
     mgr = CorpusManager(
-        minio_client=app_state.minio_client,
-        redis_client=app_state.redis_cts,
+        minio_client=minio_client,
+        redis_client=redis_client,
     )
     entry = CorpusEntry(
         instrument_id=signal_result.instrument_id,
@@ -212,16 +218,29 @@ async def accumulate_corpus_entry(
 async def check_retrain_threshold(
     bank_id: str,
     corpus_type: str,
-    app_state,
+    minio_client=None,
+    redis_client=None,
 ) -> RetrainThresholdResult:
     """Check if the accumulated corpus is large enough to trigger retraining."""
-    from modules.cts.feedback.corpus_manager import CorpusManager
     cts_cfg = await config_service.get_cts_config(bank_id)
     threshold: int = int(cts_cfg.get("ocr_feedback_retrain_threshold", 500))
 
+    if minio_client is None or redis_client is None:
+        log.warning(
+            "feedback.retrain.skipped_no_clients",
+            bank_id=bank_id,
+            corpus_type=corpus_type,
+        )
+        return RetrainThresholdResult(
+            bank_id=bank_id,
+            corpus_count=0,
+            threshold=threshold,
+            should_retrain=False,
+        )
+
     mgr = CorpusManager(
-        minio_client=app_state.minio_client,
-        redis_client=app_state.redis_cts,
+        minio_client=minio_client,
+        redis_client=redis_client,
     )
     stats = await mgr.get_stats(bank_id, corpus_type)
     should = await mgr.should_trigger_retrain(bank_id, threshold, corpus_type)
@@ -247,14 +266,13 @@ async def check_retrain_threshold(
 async def dispatch_retrain_job(
     bank_id: str,
     corpus_type: str,
-    app_state,
 ) -> RetrainJobResult:
     """Submit a retraining job to MLflow. Non-blocking — workflow polls for completion.
 
     In production: calls MLflow REST API to create a new training run.
     The vLLM model remains unchanged until shadow evaluation passes.
     """
-    mlflow_url = await config_service.get_secret(f"mlflow.{bank_id}.api_url")
+    mlflow_url = await config_service.get(f"services.mlflow.{bank_id}.url")
     # MLflow experiment name follows convention: cts-ocr-{corpus_type}-{bank_id}
     experiment_name = f"cts-ocr-{corpus_type}-{bank_id}"
 
@@ -297,7 +315,6 @@ async def run_shadow_evaluation(
     bank_id: str,
     mlflow_run_id: str,
     corpus_type: str,
-    app_state,
 ) -> ShadowEvalResult:
     """Fetch evaluation metrics from MLflow and decide whether to promote.
 
@@ -309,7 +326,7 @@ async def run_shadow_evaluation(
     cts_cfg = await config_service.get_cts_config(bank_id)
     min_improvement: float = float(cts_cfg.get("ocr_promote_min_improvement", 0.02))
 
-    mlflow_url = await config_service.get_secret(f"mlflow.{bank_id}.api_url")
+    mlflow_url = await config_service.get(f"services.mlflow.{bank_id}.url")
 
     try:
         import httpx
@@ -363,7 +380,8 @@ async def promote_model(
     bank_id: str,
     mlflow_run_id: str,
     corpus_type: str,
-    app_state,
+    minio_client=None,
+    redis_client=None,
 ) -> None:
     """Hot-swap the vLLM model to the new version. Zero downtime.
 
@@ -371,7 +389,7 @@ async def promote_model(
     vLLM hot-reload API reloads the model without dropping in-flight requests.
     Resets the corpus counter so the next cycle starts fresh.
     """
-    mlflow_url = await config_service.get_secret(f"mlflow.{bank_id}.api_url")
+    mlflow_url = await config_service.get(f"services.mlflow.{bank_id}.url")
     model_name = f"cts-ocr-{corpus_type}-{bank_id}"
 
     try:
@@ -398,12 +416,12 @@ async def promote_model(
         raise
 
     # Reset corpus counter — next cycle starts from 0
-    from modules.cts.feedback.corpus_manager import CorpusManager
-    mgr = CorpusManager(
-        minio_client=app_state.minio_client,
-        redis_client=app_state.redis_cts,
-    )
-    await mgr.reset_counter(bank_id, corpus_type)
+    if minio_client is not None and redis_client is not None:
+        mgr = CorpusManager(
+            minio_client=minio_client,
+            redis_client=redis_client,
+        )
+        await mgr.reset_counter(bank_id, corpus_type)
 
     log.info(
         "feedback.model.promoted",
