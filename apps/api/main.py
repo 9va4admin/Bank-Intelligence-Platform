@@ -195,7 +195,7 @@ async def lifespan(app: FastAPI):
     # VaultTOTPSecretStore writes TOTP enrollment secrets to Vault KV v2; falls back
     # to InMemoryTOTPSecretStore if Vault env vars are absent (dev/CI — warns loudly).
     try:
-        from shared.auth.connectors.local import YugabyteDBLocalAuthConnector
+        from shared.auth.connectors.factory import AuthConnectorFactory
         from shared.auth.enrollment_store import YugabyteDBAccountEnrollmentStore
         from shared.auth.mfa import TOTPMFAService
         from shared.auth.mfa_stores import InMemoryTOTPSecretStore, VaultTOTPSecretStore
@@ -204,10 +204,12 @@ async def lifespan(app: FastAPI):
         _bank_id = config_service.bank_id
 
         if app.state.db_pool_cts is not None:
-            _connector = YugabyteDBLocalAuthConnector(
+            _connector_factory = AuthConnectorFactory(
                 bank_id=_bank_id,
+                config_service=config_service,
                 db_pool=app.state.db_pool_cts,
             )
+            app.state.connector_factory = _connector_factory
             _enrollment_store = YugabyteDBAccountEnrollmentStore(app.state.db_pool_cts)
         else:
             # DB pool unavailable — auth service cannot be built
@@ -232,7 +234,7 @@ async def lifespan(app: FastAPI):
         _mfa = TOTPMFAService(store=_totp_store, issuer="ASTRA")
 
         app.state.auth_service = AuthService(
-            connector=_connector,
+            connector_factory=_connector_factory,
             mfa=_mfa,
             session_service=app.state.session_service,
             account_store=_enrollment_store,

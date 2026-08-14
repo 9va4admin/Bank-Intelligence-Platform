@@ -65,25 +65,43 @@ def _derive_permission_level(identity: ASTRAIdentity) -> str:
 class AuthService:
     def __init__(
         self,
-        connector,                       # AuthConnector (LocalAuthConnector in prod)
         mfa: TOTPMFAService,
         session_service: SessionTokenService,
         account_store: AccountEnrollmentStore,
+        connector=None,            # single AuthConnector — backward-compat / tests
+        connector_factory=None,    # AuthConnectorFactory — production path
     ) -> None:
+        if connector is None and connector_factory is None:
+            raise ValueError("either connector or connector_factory must be provided")
         self._connector = connector
+        self._connector_factory = connector_factory
         self._mfa = mfa
         self._session = session_service
         self._accounts = account_store
 
     # -- stage 1: password -------------------------------------------------- #
 
-    async def login(self, username: str, password: str, bank_id: str = "") -> LoginResult:
+    async def login(
+        self,
+        username: str,
+        password: str,
+        bank_id: str = "",
+        entity_type: str = "sb",
+        entity_id: Optional[str] = None,
+    ) -> LoginResult:
         """Verify password, then issue a half-session and say what MFA step is next.
 
         Raises AuthenticationError / AccountLockedError from the connector on
         failure — the caller returns 401 with a uniform message.
         """
-        identity: ASTRAIdentity = await self._connector.authenticate(
+        if self._connector_factory is not None:
+            connector = self._connector_factory.get_connector(
+                entity_type, entity_id if entity_id is not None else bank_id
+            )
+        else:
+            connector = self._connector
+
+        identity: ASTRAIdentity = await connector.authenticate(
             LocalCredentials(username=username, password=password, bank_id=bank_id)
         )
         enrolled = await self._accounts.is_totp_enrolled(identity.user_id)
