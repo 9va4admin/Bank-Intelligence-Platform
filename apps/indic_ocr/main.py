@@ -86,8 +86,9 @@ _CTS_ZONES: dict[str, tuple[float, float, float, float]] = {
 # ── Lazy singletons ───────────────────────────────────────────────────────────
 # One PaddleOCR instance per lang code; created on first use and cached.
 
-_paddle_ocr_pool: dict[str, Any] = {}
-_easyocr_reader:  Optional[Any]  = None
+_paddle_ocr_pool:  dict[str, Any] = {}
+_easyocr_reader:   Optional[Any]  = None
+_ai4bharat_reader: Optional[Any]  = None
 
 
 def _get_paddle_ocr(lang: str = _DEFAULT_PADDLE_LANG) -> Any:
@@ -108,24 +109,58 @@ def _get_paddle_ocr(lang: str = _DEFAULT_PADDLE_LANG) -> Any:
 
 def _get_ai4bharat_reader() -> Any:
     """
-    AI4Bharat IndicOCR — manual setup required.
+    AI4Bharat IndicOCR — uses OneFourthLabs/Indic-OCR framework (the upstream
+    implementation AI4Bharat references for Indic document OCR).
 
-    Setup steps:
-      1. git clone https://github.com/AI4Bharat/IndicOCR  apps/indic_ocr/ai4bharat_src
-      2. Download script-specific CRNN weights from their GitHub releases and place at:
-             apps/indic_ocr/weights/ai4bharat/<script>_crnn.pth
-      3. pip install -r apps/indic_ocr/ai4bharat_src/requirements.txt
-      4. Implement loader below using their inference API.
-      5. Set INDIC_OCR_BACKEND=ai4bharat to activate.
+    One-time setup on the inference node:
+      1. git clone https://github.com/OneFourthLabs/Indic-OCR \\
+             apps/indic_ocr/ai4bharat_src
+      2. pip install -r apps/indic_ocr/ai4bharat_src/dependencies.txt
+      3. Set INDIC_OCR_BACKEND=ai4bharat and restart.
 
-    Until then: falls back to paddle silently.
-    Reference: https://github.com/AI4Bharat/IndicOCR
+    The framework uses CRAFT text detection + EasyOCR Devanagari recognition,
+    fully on-prem with no outbound calls after initial model download.
+
+    Returns an EasyOCR end2end instance from the AI4Bharat framework whose
+    .run(numpy_array) produces [{'text': str, 'confidence': float, ...}].
+    Falls back to PaddleOCR automatically when the src tree is absent.
     """
-    raise NotImplementedError(
-        "AI4Bharat IndicOCR backend is not yet set up on this instance.\n"
-        "See _get_ai4bharat_reader() in apps/indic_ocr/main.py for setup steps.\n"
-        "Falling back to PaddleOCR."
-    )
+    global _ai4bharat_reader
+    if _ai4bharat_reader is not None:
+        return _ai4bharat_reader
+
+    src_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai4bharat_src")
+    if not os.path.isdir(src_dir):
+        raise NotImplementedError(
+            "AI4Bharat IndicOCR source tree not found.\n"
+            f"Run:  git clone https://github.com/OneFourthLabs/Indic-OCR {src_dir}\n"
+            f"      pip install -r {src_dir}/dependencies.txt\n"
+            "Then: INDIC_OCR_BACKEND=ai4bharat (restart service)"
+        )
+
+    import sys
+    if src_dir not in sys.path:
+        sys.path.insert(0, src_dir)
+
+    try:
+        from indic_ocr.end2end.easy_ocr import EasyOCR as _A4BEasyOCR
+    except ImportError as exc:
+        raise NotImplementedError(
+            f"indic_ocr package not importable from {src_dir}.\n"
+            f"Run: pip install -r {src_dir}/dependencies.txt\n"
+            f"Error: {exc}"
+        ) from exc
+
+    log.info("indic_ocr.ai4bharat_loading", src_dir=src_dir)
+    try:
+        _ai4bharat_reader = _A4BEasyOCR(langs=["hi", "en"], gpu=True)
+        log.info("indic_ocr.ai4bharat_loaded", gpu=True)
+    except Exception:
+        log.warning("indic_ocr.ai4bharat_gpu_unavailable_falling_back_to_cpu")
+        _ai4bharat_reader = _A4BEasyOCR(langs=["hi", "en"], gpu=False)
+        log.info("indic_ocr.ai4bharat_loaded", gpu=False)
+
+    return _ai4bharat_reader
 
 
 def _get_easyocr_reader() -> Any:
@@ -169,10 +204,20 @@ def _run_ocr(arr: np.ndarray, backend: str, script: Optional[str] = None) -> lis
     """
     if backend == BACKEND_AI4BHARAT:
         try:
-            _get_ai4bharat_reader()
+            reader  = _get_ai4bharat_reader()
+            bboxes  = reader.run(arr) or []
+            return [
+                (b["text"], float(b.get("confidence", 0.0)))
+                for b in bboxes
+                if b.get("text")
+            ]
         except NotImplementedError:
             log.warning("indic_ocr.ai4bharat_not_ready_falling_back_to_paddle")
             backend = BACKEND_PADDLE   # graceful fallback
+        except Exception as exc:
+            log.warning("indic_ocr.ai4bharat_inference_error_falling_back_to_paddle",
+                        error=str(exc))
+            backend = BACKEND_PADDLE
 
     if backend == BACKEND_PADDLE:
         lang   = _resolve_paddle_lang(script)
@@ -237,6 +282,7 @@ class BackendInfo(BaseModel):
     supported_scripts: list[str]
     loaded_paddle:     list[str]   # lang codes with loaded PaddleOCR instance
     loaded_easyocr:    bool
+    loaded_ai4bharat:  bool
     ai4bharat_status:  str
 
 
@@ -264,18 +310,33 @@ async def readiness():
 
 @app.get("/info", response_model=BackendInfo)
 async def info() -> BackendInfo:
+    src_dir     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai4bharat_src")
+    src_present = os.path.isdir(src_dir)
+    a4b_loaded  = _ai4bharat_reader is not None
+
+    if a4b_loaded:
+        a4b_status = "LOADED — OneFourthLabs/Indic-OCR (CRAFT+EasyOCR), fully on-prem"
+    elif src_present:
+        a4b_status = (
+            "READY_TO_LOAD — source tree present, will load on first request. "
+            "Ensure: pip install -r apps/indic_ocr/ai4bharat_src/dependencies.txt"
+        )
+    else:
+        a4b_status = (
+            "NOT_INSTALLED — run: "
+            f"git clone https://github.com/OneFourthLabs/Indic-OCR {src_dir} && "
+            f"pip install -r {src_dir}/dependencies.txt  "
+            "then set INDIC_OCR_BACKEND=ai4bharat. Falls back to paddle automatically."
+        )
+
     return BackendInfo(
         service_default   = _SERVICE_DEFAULT,
         valid_backends    = sorted(_VALID_BACKENDS),
         supported_scripts = sorted(_SCRIPT_TO_PADDLE_LANG.keys()),
         loaded_paddle     = sorted(_paddle_ocr_pool.keys()),
         loaded_easyocr    = _easyocr_reader is not None,
-        ai4bharat_status  = (
-            "NOT_IMPLEMENTED — clone https://github.com/AI4Bharat/IndicOCR, "
-            "download script CRNN weights → apps/indic_ocr/weights/ai4bharat/, "
-            "implement _get_ai4bharat_reader(), then INDIC_OCR_BACKEND=ai4bharat. "
-            "Currently falls back to paddle automatically."
-        ),
+        loaded_ai4bharat  = a4b_loaded,
+        ai4bharat_status  = a4b_status,
     )
 
 
