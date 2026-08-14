@@ -255,7 +255,7 @@ class FeedbackAccumulatorWorkflow:
         if signal_result.add_to_corpus:
             await workflow.execute_activity(
                 accumulate_corpus_entry,
-                args=[signal_result, msg.image_path, "", "micr", app_state],
+                args=[signal_result, msg.image_path, "", "micr"],
                 start_to_close_timeout=timedelta(seconds=30),
                 retry_policy=_CORPUS_RETRY,
             )
@@ -279,12 +279,10 @@ class ModelRetrainWorkflow:
 
     @workflow.run
     async def run(self, inp: ModelRetrainInput) -> None:
-        app_state = workflow.info()
-
         # Step 1 — dispatch training job
         job_result: RetrainJobResult = await workflow.execute_activity(
             dispatch_retrain_job,
-            args=[inp.bank_id, inp.corpus_type, app_state],
+            args=[inp.bank_id, inp.corpus_type],
             start_to_close_timeout=timedelta(seconds=60),
             retry_policy=_MLFLOW_RETRY,
         )
@@ -302,7 +300,7 @@ class ModelRetrainWorkflow:
 
             eval_result = await workflow.execute_activity(
                 run_shadow_evaluation,
-                args=[inp.bank_id, job_result.mlflow_run_id, inp.corpus_type, app_state],
+                args=[inp.bank_id, job_result.mlflow_run_id, inp.corpus_type],
                 start_to_close_timeout=timedelta(seconds=30),
                 retry_policy=_MLFLOW_RETRY,
             )
@@ -314,7 +312,7 @@ class ModelRetrainWorkflow:
         if eval_result and eval_result.promote:
             await workflow.execute_activity(
                 promote_model,
-                args=[inp.bank_id, job_result.mlflow_run_id, inp.corpus_type, app_state],
+                args=[inp.bank_id, job_result.mlflow_run_id, inp.corpus_type],
                 start_to_close_timeout=timedelta(seconds=120),
                 retry_policy=_PROMOTE_RETRY,
             )

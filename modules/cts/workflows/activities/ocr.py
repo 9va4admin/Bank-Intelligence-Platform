@@ -89,7 +89,10 @@ class OCRActivityResult(BaseModel):
     principal_tag: Optional[str] = None
     sub_member_id: Optional[str] = None
     amount_mismatch: bool = False
-    indic_refined_fields: list[str] = []   # which fields were re-run via IndicOCR
+    indic_refined_fields: list[str] = []        # which fields were re-run via IndicOCR
+    # ── engine provenance (written to ImmuDB via CTS_INSTRUMENT_PASSPORT) ──
+    ocr_engines_used: list[str] = []            # ordered: engines that actually ran
+    indic_ocr_kill_switch_active: bool = False  # True when cts.indic_ocr.kill_mode=KC
 
 
 @activity.defn
@@ -184,15 +187,15 @@ async def _refine_indic_zones(
     indic_ocr_url: str,
     min_confidence: float,
     indic_min_confidence: float,
-) -> list[str]:
+) -> tuple[list[str], str]:
     """
     For each SCRIPT_ADAPTIVE result field that contains Indic text (or has low
     confidence), fetch the cheque image, crop the zone, and call IndicOCR.
     Mutates `fields` in place with the refined value when IndicOCR wins.
-    Returns list of field names that were successfully refined.
+    Returns (refined_field_names, engine_label) where engine_label is suitable
+    for inclusion in ocr_engines_used (e.g. "indic_ocr:paddle/devanagari").
     """
-    # Determine which fields need IndicOCR refinement
-    needs_refine: list[tuple[str, str, str]] = []   # (result_field, zone_name, script)
+    needs_refine: list[tuple[str, str, str]] = []
     for result_field, zone_name in _RESULT_FIELD_TO_ZONE.items():
         text, conf = fields.get(result_field, (None, 0.0))
         script = identify_indic_script(text or "")
@@ -200,9 +203,8 @@ async def _refine_indic_zones(
             needs_refine.append((result_field, zone_name, script or "devanagari"))
 
     if not needs_refine:
-        return []
+        return [], ""
 
-    # Fetch image once for all zones that need it
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
             resp = await client.get(inp.image_url)
@@ -210,9 +212,12 @@ async def _refine_indic_zones(
             img = Image.open(io.BytesIO(resp.content)).convert("RGB")
     except Exception as exc:
         log.warning("ocr.indic_image_fetch_failed", instrument_id=inp.instrument_id, error=str(exc))
-        return []
+        return [], ""
 
     refined: list[str] = []
+    scripts_seen: set[str] = set()
+    backend_used: str = "paddle"   # IndicOCR service default; may differ per zone
+
     for result_field, zone_name, script in needs_refine:
         try:
             zone = extract_zone(img, zone_name)
@@ -231,10 +236,12 @@ async def _refine_indic_zones(
 
             indic_text: str = data.get("text", "") or ""
             indic_conf: float = float(data.get("confidence", 0.0))
+            backend_used = data.get("backend", backend_used)
 
             if detect_script(indic_text) == "indic" and indic_conf >= indic_min_confidence:
                 fields[result_field] = (indic_text, indic_conf)
                 refined.append(result_field)
+                scripts_seen.add(script)
                 log.info("ocr.indic_refined",
                          instrument_id=inp.instrument_id, field=result_field,
                          script=script, confidence=indic_conf)
@@ -243,7 +250,9 @@ async def _refine_indic_zones(
             log.warning("ocr.indic_zone_failed",
                         instrument_id=inp.instrument_id, field=result_field, error=str(exc))
 
-    return refined
+    script_label = "+".join(sorted(scripts_seen)) if scripts_seen else "none"
+    engine_label = f"indic_ocr:{backend_used}/{script_label}" if refined else ""
+    return refined, engine_label
 
 
 # ── Stage 3 ───────────────────────────────────────────────────────────────────
@@ -255,8 +264,12 @@ def _build_result(
     indic_refined: list[str],
     routing_table: Optional[dict],
     inp: OCRActivityInput,
+    engines_used: Optional[list[str]] = None,
+    indic_ks_active: bool = False,
 ) -> OCRActivityResult:
     """Apply confidence gate, MICR routing, amount cross-check, build final result."""
+    _engines = engines_used or []
+
     _PRIMARY = ("date", "payee", "amount_words", "amount_figures")
     low_fields = [
         f for f in _PRIMARY
@@ -295,6 +308,8 @@ def _build_result(
             principal_tag=principal_tag,
             sub_member_id=sub_member_id,
             indic_refined_fields=indic_refined,
+            ocr_engines_used=_engines,
+            indic_ocr_kill_switch_active=indic_ks_active,
         )
 
     match = amounts_match(figures=amt_figures, words=amt_words)
@@ -312,6 +327,8 @@ def _build_result(
             sub_member_id=sub_member_id,
             amount_mismatch=True,
             indic_refined_fields=indic_refined,
+            ocr_engines_used=_engines,
+            indic_ocr_kill_switch_active=indic_ks_active,
         )
 
     return OCRActivityResult(
@@ -327,6 +344,8 @@ def _build_result(
         principal_tag=principal_tag,
         sub_member_id=sub_member_id,
         indic_refined_fields=indic_refined,
+        ocr_engines_used=_engines,
+        indic_ocr_kill_switch_active=indic_ks_active,
     )
 
 
