@@ -70,6 +70,7 @@ class LoginRequest(BaseModel):
     username: str = Field(..., min_length=1, max_length=256)
     password: str = Field(..., min_length=1, max_length=1024)
     bank_id: str = Field(default="", max_length=128)   # used by platform_admin to adopt target bank
+    entity_type: str = Field(default="sb", pattern=r"^(sb|smb|branch|pu)$")
 
 
 class LoginResponse(BaseModel):
@@ -165,7 +166,11 @@ async def login(
     auth_service: AuthService = Depends(get_auth_service),
 ) -> LoginResponse:
     try:
-        result = await auth_service.login(body.username, body.password, body.bank_id)
+        result = await auth_service.login(
+            body.username, body.password,
+            bank_id=body.bank_id,
+            entity_type=body.entity_type,
+        )
     except AccountLockedError:
         raise HTTPException(
             status_code=status.HTTP_423_LOCKED,
