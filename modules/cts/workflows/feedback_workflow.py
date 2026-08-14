@@ -10,9 +10,15 @@ ModelRetrainWorkflow
   is reached. Dispatches MLflow training job, polls for completion, runs shadow
   evaluation, auto-promotes if metrics pass. No human approval step.
 
+FeedbackEmitWorkflow
+  Fire-and-forget child workflow spawned by ChequeProcessingWorkflow after each
+  decision. Sends one payee or MICR signal to the running FeedbackAccumulatorWorkflow
+  without blocking the main cheque processing timeline.
+
 Workflow IDs:
   FeedbackAccumulatorWorkflow : cts-feedback-{bank_id}
   ModelRetrainWorkflow        : cts-retrain-{bank_id}-{corpus_type}-{ts}
+  FeedbackEmitWorkflow        : cts-feedback-emit-{bank_id}-{instrument_id}
 """
 from __future__ import annotations
 
@@ -113,6 +119,15 @@ class ModelRetrainInput:
     corpus_type: str
 
 
+@dataclass
+class FeedbackEmitInput:
+    bank_id: str
+    instrument_id: str
+    signal_type: str              # "payee" | "micr"
+    payee_msg: Optional[PayeeSignalMessage] = None
+    micr_msg: Optional[MicrSignalMessage] = None
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  FeedbackAccumulatorWorkflow
 # ─────────────────────────────────────────────────────────────────────────────
@@ -151,7 +166,6 @@ class FeedbackAccumulatorWorkflow:
     @workflow.run
     async def run(self, inp: FeedbackAccumulatorInput) -> None:
         self._event_count = inp.event_count
-        app_state = workflow.info()   # used as DI token — real app_state injected by worker
 
         while True:
             # Wait for any signal
@@ -164,19 +178,19 @@ class FeedbackAccumulatorWorkflow:
             while self._payee_queue:
                 msg = self._payee_queue.pop(0)
                 self._event_count += 1
-                await self._process_payee(msg, inp.bank_id, inp.corpus_type, app_state)
+                await self._process_payee(msg, inp.bank_id, inp.corpus_type)
 
             # Drain MICR queue
             while self._micr_queue:
                 msg = self._micr_queue.pop(0)
                 self._event_count += 1
-                await self._process_micr(msg, inp.bank_id, app_state)
+                await self._process_micr(msg, inp.bank_id)
 
             # Check if retraining should fire
             if not self._retrain_in_progress:
                 threshold_result: RetrainThresholdResult = await workflow.execute_activity(
                     check_retrain_threshold,
-                    args=[inp.bank_id, inp.corpus_type, app_state],
+                    args=[inp.bank_id, inp.corpus_type],
                     start_to_close_timeout=timedelta(seconds=15),
                     retry_policy=_CORPUS_RETRY,
                 )
@@ -207,7 +221,6 @@ class FeedbackAccumulatorWorkflow:
         msg: PayeeSignalMessage,
         bank_id: str,
         corpus_type: str,
-        app_state,
     ) -> None:
         signal_result: FeedbackSignalResult = await workflow.execute_activity(
             emit_payee_feedback_signal,
@@ -229,7 +242,7 @@ class FeedbackAccumulatorWorkflow:
         if signal_result.add_to_corpus:
             await workflow.execute_activity(
                 accumulate_corpus_entry,
-                args=[signal_result, msg.image_path, msg.ocr_payee, corpus_type, app_state],
+                args=[signal_result, msg.image_path, msg.ocr_payee, corpus_type],
                 start_to_close_timeout=timedelta(seconds=30),
                 retry_policy=_CORPUS_RETRY,
             )
@@ -238,7 +251,6 @@ class FeedbackAccumulatorWorkflow:
         self,
         msg: MicrSignalMessage,
         bank_id: str,
-        app_state,
     ) -> None:
         signal_result: FeedbackSignalResult = await workflow.execute_activity(
             emit_micr_feedback_signal,
@@ -315,4 +327,36 @@ class ModelRetrainWorkflow:
                 args=[inp.bank_id, job_result.mlflow_run_id, inp.corpus_type],
                 start_to_close_timeout=timedelta(seconds=120),
                 retry_policy=_PROMOTE_RETRY,
+            )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  FeedbackEmitWorkflow
+# ─────────────────────────────────────────────────────────────────────────────
+
+@workflow.defn
+class FeedbackEmitWorkflow:
+    """Fire-and-forget child workflow that sends one feedback signal.
+
+    Spawned by ChequeProcessingWorkflow after each decision. Exits immediately
+    after signalling FeedbackAccumulatorWorkflow, so the main processing
+    timeline is never blocked by corpus accumulation.
+    """
+
+    @workflow.run
+    async def run(self, inp: FeedbackEmitInput) -> None:
+        accumulator_id = f"cts-feedback-{inp.bank_id}"
+        handle = workflow.get_external_workflow_handle_for(
+            FeedbackAccumulatorWorkflow.run,
+            workflow_id=accumulator_id,
+        )
+        if inp.signal_type == "payee" and inp.payee_msg is not None:
+            await handle.signal(
+                FeedbackAccumulatorWorkflow.receive_payee_signal,
+                inp.payee_msg,
+            )
+        elif inp.signal_type == "micr" and inp.micr_msg is not None:
+            await handle.signal(
+                FeedbackAccumulatorWorkflow.receive_micr_signal,
+                inp.micr_msg,
             )
