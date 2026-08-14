@@ -253,6 +253,27 @@ class OutwardScanWorkflow:
         micr_line = ocr_result.micr_line
         scanner_amount_str = ocr_result.amount_figures
         quality_score = None if ocr_result.degraded else ocr_result.overall_confidence
+        _ocr_engines = getattr(ocr_result, "ocr_engines_used", [])
+        _indic_ks = getattr(ocr_result, "indic_ocr_kill_switch_active", False)
+
+        # Emit CTS_KILL_SWITCH_APPLIED if IndicOCR was bypassed by kill switch.
+        if _indic_ks:
+            await workflow.execute_activity(
+                write_audit,
+                WriteAuditInput(
+                    event_type="CTS_KILL_SWITCH_APPLIED",
+                    bank_id=inp.bank_id,
+                    instrument_id=inp.instrument_id,
+                    payload={
+                        "scope": "indic_ocr",
+                        "mode": "KC",
+                        "scan_id": inp.scan_id,
+                        "ocr_engines_used": _ocr_engines,
+                    },
+                ),
+                start_to_close_timeout=timedelta(seconds=15),
+                retry_policy=_AUDIT_RETRY,
+            )
 
         # Step 1.5: Date validation — stale / post-dated / undated cheques handled here.
         date_ok, date_violation = _validate_cheque_date(getattr(ocr_result, "date", None))
@@ -672,7 +693,12 @@ class OutwardScanWorkflow:
             write_audit,
             WriteAuditInput(event_type="CTS_OUT_INSTRUMENT_PENDING", bank_id=inp.bank_id,
                             instrument_id=inp.instrument_id,
-                            payload={"scan_id": inp.scan_id, "lot_number": None}),
+                            payload={
+                                "scan_id": inp.scan_id,
+                                "lot_number": None,
+                                "ocr_engines_used": _ocr_engines,
+                                "indic_ocr_kill_switch_active": _indic_ks,
+                            }),
             start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
         )
         return OutwardScanResult(
