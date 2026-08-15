@@ -176,6 +176,8 @@ class ChequeProcessingWorkflow:
             KillMode, KillScope, KillSwitchStatus,
         )
         from modules.cts.queue_tier import humanreview_task_queue_for_tier
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+        from modules.cts.workflows.feedback_types import FeedbackEmitInput as FeedbackInput
 
         def _to_kill_switch_status(lookup_result) -> KillSwitchStatus:
             mode = lookup_result["mode"] if isinstance(lookup_result, dict) else lookup_result.mode
@@ -372,6 +374,32 @@ class ChequeProcessingWorkflow:
                         smb_id=inp.smb_id,
                         error=str(exc),
                     )
+
+            # Fire-and-forget OCR feedback signal — never blocks return.
+            # FeedbackAccumulatorWorkflow must be running (started at bank onboarding).
+            # If it's not yet running, FeedbackEmitWorkflow logs a warning and exits;
+            # the main cheque decision is unaffected.
+            try:
+                await workflow.start_child_workflow(
+                    FeedbackEmitWorkflow.run,
+                    FeedbackInput(
+                        instrument_id=inp.instrument_id,
+                        bank_id=inp.bank_id,
+                        ocr_payee=inp.presented_payee,
+                        name_match_score=0.0,  # placeholder — improves when payee score threaded through
+                        workflow_decision=decision,
+                        image_path=inp.image_url,
+                        account_suffix=inp.account_number[-4:],
+                        ngch_filed_ok=(decision != "HUMAN_REVIEW"),
+                    ),
+                    id=f"cts-feedback-emit-{inp.bank_id}-{inp.instrument_id}",
+                    parent_close_policy=ParentClosePolicy.ABANDON,
+                )
+            except Exception as exc:
+                log.warning(
+                    "cheque_workflow.feedback_emit_failed",
+                    instrument_id=inp.instrument_id, bank_id=inp.bank_id, error=str(exc),
+                )
 
             log.info(
                 "cheque_workflow.complete",

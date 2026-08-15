@@ -121,6 +121,11 @@ class ModelRetrainInput:
 
 @dataclass
 class FeedbackEmitInput:
+    """Kept for internal backward-compat. ChequeProcessingWorkflow uses
+    feedback_types.FeedbackEmitInput (lightweight, importable inside run()).
+    Both serialise to compatible JSON — Temporal cares about field values, not
+    class identity.
+    """
     bank_id: str
     instrument_id: str
     signal_type: str              # "payee" | "micr"
@@ -341,22 +346,66 @@ class FeedbackEmitWorkflow:
     Spawned by ChequeProcessingWorkflow after each decision. Exits immediately
     after signalling FeedbackAccumulatorWorkflow, so the main processing
     timeline is never blocked by corpus accumulation.
+
+    Accepts feedback_types.FeedbackEmitInput (inline fields) from
+    ChequeProcessingWorkflow — Temporal serialises to JSON so the class
+    identity does not matter, only the field names.
     """
 
     @workflow.run
-    async def run(self, inp: FeedbackEmitInput) -> None:
-        accumulator_id = f"cts-feedback-{inp.bank_id}"
-        handle = workflow.get_external_workflow_handle_for(
-            FeedbackAccumulatorWorkflow.run,
-            workflow_id=accumulator_id,
-        )
-        if inp.signal_type == "payee" and inp.payee_msg is not None:
-            await handle.signal(
-                FeedbackAccumulatorWorkflow.receive_payee_signal,
-                inp.payee_msg,
+    async def run(self, inp) -> None:  # type: ignore[override]
+        """Best-effort signal to FeedbackAccumulatorWorkflow. Completes gracefully
+        if the accumulator is not running (new bank, restart, or test environment).
+        Never raises — feedback loss is acceptable; IET breach is not.
+        """
+        with workflow.unsafe.imports_passed_through():
+            import structlog as _log_mod
+        _log = _log_mod.get_logger()
+
+        try:
+            from modules.cts.workflows.feedback_types import PayeeSignalMessage
+
+            accumulator_id = f"cts-feedback-{inp.bank_id}"
+            handle = workflow.get_external_workflow_handle_for(
+                FeedbackAccumulatorWorkflow.run,
+                workflow_id=accumulator_id,
             )
-        elif inp.signal_type == "micr" and inp.micr_msg is not None:
-            await handle.signal(
-                FeedbackAccumulatorWorkflow.receive_micr_signal,
-                inp.micr_msg,
+
+            # feedback_types.FeedbackEmitInput (inline fields) — from ChequeProcessingWorkflow
+            if hasattr(inp, "ocr_payee"):
+                await handle.signal(
+                    FeedbackAccumulatorWorkflow.receive_payee_signal,
+                    PayeeSignalMessage(
+                        instrument_id=inp.instrument_id,
+                        bank_id=inp.bank_id,
+                        ocr_payee=inp.ocr_payee,
+                        name_match_score=inp.name_match_score,
+                        script=getattr(inp, "script", None),
+                        workflow_decision=inp.workflow_decision,
+                        human_approved=getattr(inp, "human_approved", None),
+                        image_path=inp.image_path,
+                        cbs_degraded=getattr(inp, "cbs_degraded", False),
+                        cbs_display_initial=getattr(inp, "cbs_display_initial", None),
+                    ),
+                )
+            # Legacy FeedbackEmitInput (nested payee_msg / micr_msg)
+            elif hasattr(inp, "signal_type"):
+                if inp.signal_type == "payee" and inp.payee_msg is not None:
+                    await handle.signal(
+                        FeedbackAccumulatorWorkflow.receive_payee_signal,
+                        inp.payee_msg,
+                    )
+                elif inp.signal_type == "micr" and inp.micr_msg is not None:
+                    await handle.signal(
+                        FeedbackAccumulatorWorkflow.receive_micr_signal,
+                        inp.micr_msg,
+                    )
+        except BaseException as exc:
+            # Accumulator not running (new bank, restart, test env) — acceptable loss.
+            # BaseException (not just Exception) to catch Temporal's CancelledError too.
+            _log.warning(
+                "feedback_emit.accumulator_unreachable",
+                bank_id=getattr(inp, "bank_id", "?"),
+                instrument_id=getattr(inp, "instrument_id", "?"),
+                error=str(exc),
             )

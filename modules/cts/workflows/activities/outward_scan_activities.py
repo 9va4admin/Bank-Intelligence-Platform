@@ -84,7 +84,7 @@ async def validate_cts2010(inp: CTS2010ValidationInput) -> CTS2010ValidationResu
     """
     from shared.config.config_service import config_service  # avoid circular at module load
 
-    cts_cfg = await config_service.get_module_config("cts", inp.bank_id)
+    cts_cfg = await config_service.get_cts_config(inp.bank_id)
     rear_image_required: bool = str(cts_cfg.get("rear_image_required", "false")).lower() == "true"
 
     required_metrics = list(_FRONT_REQUIRED_METRICS)

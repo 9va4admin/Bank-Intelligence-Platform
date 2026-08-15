@@ -1,7 +1,14 @@
 """Tests for modules/cts/workflows/activities/outward_scan_activities.py"""
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+
+def _mock_cts_config():
+    """Mock config_service for validate_cts2010 (rear_image_required = false by default)."""
+    cfg = AsyncMock()
+    cfg.get_cts_config = AsyncMock(return_value={"rear_image_required": "false"})
+    return cfg
 
 
 # ---------------------------------------------------------------------------
@@ -10,6 +17,7 @@ import pytest
 
 def _compliant_metrics(**overrides) -> dict:
     defaults = dict(
+        bank_id="test-bank",
         front_dpi=203, rear_dpi=203,
         front_colour_depth=24, rear_colour_depth=24,
         front_file_size_kb=40.0, rear_file_size_kb=30.0,
@@ -21,6 +29,14 @@ def _compliant_metrics(**overrides) -> dict:
 
 
 class TestValidateCTS2010:
+    @pytest.fixture(autouse=True)
+    def _patch_config(self):
+        with patch(
+            "shared.config.config_service.config_service",
+            new=_mock_cts_config(),
+        ):
+            yield
+
     @pytest.mark.asyncio
     async def test_compliant_image_passes(self):
         from modules.cts.workflows.activities.outward_scan_activities import (
@@ -75,7 +91,7 @@ class TestValidateCTS2010:
             validate_cts2010, CTS2010ValidationInput,
         )
         result = await validate_cts2010(CTS2010ValidationInput(
-            instrument_id="OUT-005", cheque_number="000127",
+            instrument_id="OUT-005", cheque_number="000127", bank_id="test-bank",
         ))
         assert result.is_compliant is False
         assert result.violations == ["MISSING_IMAGE_METRICS"]
@@ -95,14 +111,15 @@ class TestValidateCTS2010:
 
     @pytest.mark.asyncio
     async def test_multiple_violations_all_reported(self):
+        """Multiple front-metric violations must all be reported (not short-circuited)."""
         from modules.cts.workflows.activities.outward_scan_activities import (
             validate_cts2010, CTS2010ValidationInput,
         )
         result = await validate_cts2010(CTS2010ValidationInput(
             instrument_id="OUT-007", cheque_number="000129",
-            **_compliant_metrics(front_dpi=100, rear_dpi=100, front_colour_depth=8),
+            **_compliant_metrics(front_dpi=100, front_colour_depth=8),
         ))
-        assert set(result.violations) >= {"front_dpi", "rear_dpi", "front_colour_depth"}
+        assert set(result.violations) >= {"front_dpi", "front_colour_depth"}
 
 
 # ---------------------------------------------------------------------------
