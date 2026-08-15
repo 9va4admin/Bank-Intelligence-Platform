@@ -623,13 +623,19 @@ async def _fake_check_security_features(inp, vllm_client=None, config_service=No
     )
 
 
+@activity.defn(name="persist_agent_decision")
+async def _fake_persist_agent_decision(inp):
+    from modules.cts.workflows.activities.persist_decision import PersistDecisionResult
+    return PersistDecisionResult(success=True)
+
+
 _HAPPY_PATH_ACTIVITIES = [
     _fake_detect_alteration, _fake_get_kill_switch_status, _fake_check_stop_payment_proceed,
     _fake_validate_ifsc, _fake_validate_cheque_series,
     _fake_lookup_pps, _fake_detect_signatures, _fake_verify_signature, _fake_score_fraud,
     _fake_check_cbs_balance, _fake_check_account_status, _fake_synthesise_decision,
     _fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue,
-    _fake_check_security_features,
+    _fake_check_security_features, _fake_persist_agent_decision,
 ]
 
 
@@ -730,6 +736,7 @@ class TestChequeWorkflowRealRun:
             _fake_detect_alteration, _fake_get_kill_switch_status, _fake_check_stop_payment_return,
             _fake_check_security_features,
             _fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue,
+            _fake_persist_agent_decision,
         ]
 
         async with Worker(
@@ -784,6 +791,7 @@ class TestChequeWorkflowRealRun:
         activities = [
             _tampered, _fake_get_kill_switch_status,
             _fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue,
+            _fake_persist_agent_decision,
         ]
 
         # HumanReviewWorkflow runs on its own dedicated task queue (tier-based).
@@ -916,6 +924,7 @@ class TestChequeWorkflowKillSwitchWiring:
             _fake_score_fraud, _fake_check_cbs_balance, _fake_check_account_status,
             _synthesise_decision_forces_human_review_under_kc,
             _fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue,
+            _fake_persist_agent_decision,
         ]
 
         # HumanReviewWorkflow runs on its own dedicated task queue (tier-based).

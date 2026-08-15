@@ -77,6 +77,7 @@ from modules.cts.workflows.activities.outward_scan_activities import (
 from modules.cts.workflows.activities.pps import PPSActivityInput
 from modules.cts.workflows.activities.signature import SignatureActivityInput
 from modules.cts.workflows.activities.stop_payment import StopPaymentActivityInput
+from modules.cts.workflows.activities.persist_decision import PersistDecisionInput
 from modules.cts.workflows.activities.write_audit import WriteAuditInput
 from modules.cts.workflows.human_review_workflow import HumanReviewInput
 from modules.cts.workflows.mismatch_resolution_workflow import PublishMismatchHoldInput
@@ -468,6 +469,18 @@ class BoundCTSActivities:
         )
 
     # ------------------------------------------------------------------
+    # Decision persistence (cts.agent_decisions in YugabyteDB)
+    # ------------------------------------------------------------------
+
+    @activity.defn(name="persist_agent_decision")
+    async def persist_agent_decision(self, inp: PersistDecisionInput):
+        from modules.cts.workflows.activities.persist_decision import persist_agent_decision as _real
+        if self._db_pool is None:
+            return await _real(inp, db_conn=None)
+        async with self._db_pool.acquire() as conn:
+            return await _real(inp, db_conn=conn)
+
+    # ------------------------------------------------------------------
     # Registration list — every bound method Worker() should dispatch to.
     # ------------------------------------------------------------------
 
@@ -513,6 +526,8 @@ class BoundCTSActivities:
             self.accumulate_corpus_entry,
             self.check_retrain_threshold,
             self.promote_model,
+            # Decision persistence (cts.agent_decisions)
+            self.persist_agent_decision,
         ]
 
 
