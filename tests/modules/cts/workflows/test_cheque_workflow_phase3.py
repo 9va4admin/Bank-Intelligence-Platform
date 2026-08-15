@@ -803,7 +803,7 @@ class TestChequeWorkflowRealRun:
                 workflow_runner=UnsandboxedWorkflowRunner(),
             ),
         ):
-            result = await temporal_env.client.execute_workflow(
+            cheque_handle = await temporal_env.client.start_workflow(
                 ChequeProcessingWorkflow.run,
                 ChequeWorkflowInput(
                     instrument_id=instrument_id, bank_id=bank_id,
@@ -814,6 +814,12 @@ class TestChequeWorkflowRealRun:
                 ),
                 id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
             )
+            # Advance virtual time by 1 s so ChequeProcessingWorkflow runs its
+            # activities and spawns HumanReviewWorkflow. Activities complete
+            # instantly in the time-skipping env. We send the reviewer signal
+            # HERE — before awaiting cheque_handle.result() — so the
+            # 55-min HumanReview timeout cannot fire first (it is 3 300 s away).
+            await temporal_env.sleep(1.0)
             review_handle = temporal_env.client.get_workflow_handle(
                 f"cts-humanreview-{bank_id}-{instrument_id}"
             )
@@ -824,6 +830,7 @@ class TestChequeWorkflowRealRun:
                     reviewer_id="reviewer-042", decided_at=time.time(),
                 ),
             )
+            result = await cheque_handle.result()
             import types as _types
             _raw_review = await review_handle.result()
             review_result = _types.SimpleNamespace(**_raw_review) if isinstance(_raw_review, dict) else _raw_review
@@ -928,7 +935,8 @@ class TestChequeWorkflowKillSwitchWiring:
                 workflow_runner=UnsandboxedWorkflowRunner(),
             ),
         ):
-            result = await temporal_env.client.execute_workflow(
+            from modules.cts.workflows.human_review_workflow import ReviewDecision
+            cheque_handle = await temporal_env.client.start_workflow(
                 ChequeProcessingWorkflow.run,
                 ChequeWorkflowInput(
                     instrument_id=instrument_id, bank_id=bank_id,
@@ -939,10 +947,10 @@ class TestChequeWorkflowKillSwitchWiring:
                 ),
                 id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
             )
-            # ChequeProcessingWorkflow starts HumanReviewWorkflow ABANDON — resolve
-            # it (and the watchdog it in turn signals) so the worker can shut down
-            # cleanly instead of leaving an unresolved 55-min-timeout child behind.
-            from modules.cts.workflows.human_review_workflow import ReviewDecision
+            # Advance virtual time so ChequeProcessingWorkflow completes its
+            # activities and spawns HumanReviewWorkflow, then signal the reviewer
+            # decision BEFORE time-skipping reaches the 55-min timeout.
+            await temporal_env.sleep(1.0)
             review_handle = temporal_env.client.get_workflow_handle(
                 f"cts-humanreview-{bank_id}-{instrument_id}"
             )
@@ -953,6 +961,7 @@ class TestChequeWorkflowKillSwitchWiring:
                     reviewer_id="reviewer-kc", decided_at=time.time(),
                 ),
             )
+            result = await cheque_handle.result()
             await review_handle.result()
             await _await_watchdog(temporal_env.client, bank_id, instrument_id)
 
