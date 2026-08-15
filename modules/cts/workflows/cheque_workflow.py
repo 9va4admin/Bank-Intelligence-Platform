@@ -191,6 +191,17 @@ class ChequeProcessingWorkflow:
 
         wf_id = self.workflow_id(inp.bank_id, inp.instrument_id)
 
+        # State accumulator — updated by each activity so finalise() can persist
+        # a complete row to cts.agent_decisions regardless of which exit path fires.
+        _started_at: float = workflow.now().timestamp()
+        _alteration_detected: bool = False
+        _fraud_score: float = 0.0
+        _shap_values: dict = {}
+        _sig_match_score: float = 0.0
+        _sig_verdict: str = "UNKNOWN"
+        _pps_verdict: str = "NOT_CHECKED"
+        _cbs_status: str = "NOT_CHECKED"
+
         # Step 1: Spawn IET watchdog FIRST — before any activity (non-negotiable)
         watchdog = await workflow.start_child_workflow(
             IETWatchdogWorkflow.run,
@@ -231,6 +242,42 @@ class ChequeProcessingWorkflow:
             itself signals the watchdog once a reviewer decides or the 55-min
             window times out.
             """
+            # Persist to cts.agent_decisions (YugabyteDB) before Immudb audit write.
+            # Best-effort: degrades gracefully if db_pool unavailable — never blocks workflow.
+            from modules.cts.workflows.activities.persist_decision import (
+                PersistDecisionInput, persist_agent_decision,
+            )
+            try:
+                await workflow.execute_activity(
+                    persist_agent_decision,
+                    PersistDecisionInput(
+                        instrument_id=inp.instrument_id,
+                        bank_id=inp.bank_id,
+                        workflow_id=wf_id,
+                        decision=decision,
+                        decision_reason=rationale,
+                        fraud_score=_fraud_score,
+                        shap_values=shap_values or _shap_values,
+                        processing_started_at=_started_at,
+                        processing_completed_at=workflow.now().timestamp(),
+                        alteration_detected=_alteration_detected,
+                        signature_match_score=_sig_match_score,
+                        signature_verdict=_sig_verdict,
+                        pps_verdict=_pps_verdict,
+                        cbs_balance_status=_cbs_status,
+                        ocr_engines_used=[],           # inward side: no OCR on drawee
+                        indic_ocr_kill_switch_active=False,
+                        iet_margin_seconds=0,          # watchdog tracks IET margin
+                    ),
+                    start_to_close_timeout=timedelta(seconds=15),
+                    retry_policy=_AUDIT_RETRY,
+                )
+            except Exception as exc:
+                log.warning(
+                    "cheque_workflow.persist_decision_failed",
+                    instrument_id=inp.instrument_id, bank_id=inp.bank_id, error=str(exc),
+                )
+
             if decision in ("STP_CONFIRM", "STP_RETURN"):
                 ngch_decision = "CONFIRM" if decision == "STP_CONFIRM" else "RETURN"
                 try:
@@ -436,6 +483,7 @@ class ChequeProcessingWorkflow:
             start_to_close_timeout=timedelta(seconds=120),
             retry_policy=_AI_ACTIVITY_RETRY,
         )
+        _alteration_detected = alteration_result.alteration_detected
         if alteration_result.alteration_detected:
             return await finalise("HUMAN_REVIEW", "alteration_detected")
 
@@ -529,6 +577,8 @@ class ChequeProcessingWorkflow:
             retry_policy=_CBS_RETRY,
         )
 
+        _pps_verdict = pps_result.outcome
+
         # Step 4.5: detect_signatures — count ink signatures, check fraud patterns
         from modules.cts.workflows.activities.detect_signatures import (
             detect_signatures, DetectSignaturesInput,
@@ -573,6 +623,9 @@ class ChequeProcessingWorkflow:
             retry_policy=_AI_ACTIVITY_RETRY,
         )
 
+        _sig_match_score = sig_result.match_score or 0.0
+        _sig_verdict = getattr(sig_result, "verdict", "UNKNOWN") or "UNKNOWN"
+
         # Step 6: score_fraud
         fraud_result = await workflow.execute_activity(
             score_fraud,
@@ -588,6 +641,9 @@ class ChequeProcessingWorkflow:
             start_to_close_timeout=timedelta(seconds=30),
             retry_policy=_AI_ACTIVITY_RETRY,
         )
+
+        _fraud_score = fraud_result.fraud_score
+        _shap_values = fraud_result.shap_values or {}
 
         # Stage D — Step 7.0: validate_cheque_series (vault mode default → Redis < 5ms; CBS mode → live call)
         from modules.cts.workflows.activities.cheque_series import (
@@ -631,6 +687,7 @@ class ChequeProcessingWorkflow:
             start_to_close_timeout=timedelta(seconds=10),
             retry_policy=_CBS_RETRY,
         )
+        _cbs_status = cbs_balance_result.outcome
         if cbs_balance_result.outcome == "CBS_UNAVAILABLE":
             return await finalise("HUMAN_REVIEW", "cbs_unavailable_image_only_path")
         if cbs_balance_result.outcome == "RETURN":

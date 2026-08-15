@@ -3,6 +3,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDecisions from '../hooks/useDecisions'
 
 // RBI return reason code mapping — mirrors modules/cts/rrf/models.py RBIReturnCode
 const RBI_CODE_MAP = {
@@ -545,7 +546,15 @@ export default function CTSDecisionsLog() {
   const [sortDir,  setSortDir]  = useState('desc')
   const [shapRow,  setShapRow]  = useState(null)   // decision object
   const [rrfModal, setRrfModal] = useState(null)   // null | 'session' | rowId
-  const ALL_DECISIONS = isDemo ? DECISIONS : []
+  const {
+    items: liveDecisions,
+    loading: decisionsLoading,
+    error:   decisionsError,
+  } = useDecisions({ limit: 50 })
+
+  // DEMO mode: show mock data. POC/PROD: use live API data.
+  // When live data is loading, keep previous mock/empty state to avoid flash.
+  const ALL_DECISIONS = isDemo ? DECISIONS : liveDecisions
   const returned = ALL_DECISIONS.filter(d => d.outcome === 'STP_RETURN')
 
   const rows = useMemo(() => {
@@ -633,6 +642,18 @@ export default function CTSDecisionsLog() {
 
         {/* Page heading — visible for tests + accessibility */}
         <h1 className={`text-lg font-semibold ${th.heading} mb-4`}>Decisions Log</h1>
+
+        {/* Live data status — shown only in non-demo mode */}
+        {!isDemo && decisionsLoading && (
+          <div className={`mb-3 px-3 py-2 rounded-lg text-xs ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+            Loading decisions…
+          </div>
+        )}
+        {!isDemo && decisionsError && !decisionsLoading && (
+          <div className={`mb-3 px-3 py-2 rounded-lg text-xs ${isDark ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-red-50 text-red-600 border border-red-200'}`}>
+            Unable to load live decisions: {decisionsError}. Showing last known data.
+          </div>
+        )}
 
         {/* Filter buttons — also rendered here so tests can find them */}
         <div className="flex gap-1 mb-4">

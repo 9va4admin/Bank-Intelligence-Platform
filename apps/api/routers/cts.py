@@ -467,6 +467,139 @@ async def get_human_review_queue(
 # Cheque search (global search bar)
 # ---------------------------------------------------------------------------
 
+class DecisionLogItem(BaseModel):
+    """One row from cts.agent_decisions, joined with cts.cheque_instruments.
+    All PII fields are masked — no raw account numbers or amounts in response.
+    """
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    workflow_id: str
+    decision: str                   # STP_CONFIRM | STP_RETURN | HUMAN_REVIEW
+    decision_reason: str
+    fraud_score: float
+    shap_values: dict
+    processing_duration_ms: int
+    iet_margin_seconds: int
+    degraded_mode: bool
+    created_at: float               # Unix timestamp
+    ocr_engines_used: list[str] = []
+    indic_ocr_kill_switch_active: bool = False
+    signature_match_score: float = 0.0
+    signature_verdict: str = "UNKNOWN"
+    pps_verdict: str = "NOT_CHECKED"
+    cbs_balance_status: str = "NOT_CHECKED"
+    alteration_detected: bool = False
+    # From cheque_instruments JOIN — may be None if instrument not yet written
+    micr_code: Optional[str] = None
+    account_display: Optional[str] = None   # ****last4
+    amount_range: Optional[str] = None
+    presenting_ifsc: Optional[str] = None
+
+
+class DecisionLogResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    items: list[DecisionLogItem]
+    total: int
+    bank_id: str
+
+
+@router_v1.get(
+    "/decisions",
+    response_model=DecisionLogResponse,
+)
+async def list_decisions(
+    request: Request,
+    bank_id: str = Depends(get_current_bank_id),
+    limit: int = 50,
+) -> DecisionLogResponse:
+    """
+    List recent CTS agent decisions for the ops workstation CTSDecisionsLog page.
+    Queries cts.agent_decisions LEFT JOIN cts.cheque_instruments.
+    Results ordered by created_at DESC (most recent first).
+    Explicit column list — no SELECT * on PII tables.
+    Returns empty list when db_pool_cts is unavailable (dev mode, worker not started).
+    """
+    import json as _json
+
+    if limit > 100:
+        limit = 100
+
+    db_pool = getattr(request.app.state, "db_pool_cts", None)
+    items: list[DecisionLogItem] = []
+
+    if db_pool is not None:
+        _SQL = """
+            SELECT
+                d.instrument_id,
+                d.workflow_id,
+                d.decision,
+                d.decision_reason,
+                d.fraud_score,
+                d.shap_values,
+                d.processing_duration_ms,
+                d.iet_margin_seconds,
+                d.degraded_mode,
+                EXTRACT(EPOCH FROM d.created_at) AS created_at_epoch,
+                d.ocr_engines_used,
+                d.indic_ocr_kill_switch_active,
+                d.signature_match_score,
+                d.signature_verdict,
+                d.pps_verdict,
+                d.cbs_balance_status,
+                d.alteration_detected,
+                i.micr_code,
+                i.account_last4,
+                i.amount_range,
+                i.presenting_ifsc
+            FROM cts.agent_decisions d
+            LEFT JOIN cts.cheque_instruments i
+                   ON i.instrument_id = d.instrument_id
+                  AND i.bank_id = d.bank_id
+            WHERE d.bank_id = $1
+            ORDER BY d.created_at DESC
+            LIMIT $2
+        """.strip()
+        try:
+            async with db_pool.acquire() as conn:
+                rows = await conn.fetch(_SQL, bank_id, limit)
+            for row in rows:
+                shap = row["shap_values"]
+                if isinstance(shap, str):
+                    shap = _json.loads(shap)
+                ocr_engines = row["ocr_engines_used"] or []
+                if isinstance(ocr_engines, str):
+                    ocr_engines = _json.loads(ocr_engines)
+                account_last4 = row["account_last4"]
+                items.append(DecisionLogItem(
+                    instrument_id=row["instrument_id"],
+                    workflow_id=row["workflow_id"],
+                    decision=row["decision"],
+                    decision_reason=row["decision_reason"] or "",
+                    fraud_score=float(row["fraud_score"] or 0.0),
+                    shap_values=shap or {},
+                    processing_duration_ms=int(row["processing_duration_ms"] or 0),
+                    iet_margin_seconds=int(row["iet_margin_seconds"] or 0),
+                    degraded_mode=bool(row["degraded_mode"]),
+                    created_at=float(row["created_at_epoch"] or 0.0),
+                    ocr_engines_used=ocr_engines,
+                    indic_ocr_kill_switch_active=bool(row["indic_ocr_kill_switch_active"]),
+                    signature_match_score=float(row["signature_match_score"] or 0.0),
+                    signature_verdict=row["signature_verdict"] or "UNKNOWN",
+                    pps_verdict=row["pps_verdict"] or "NOT_CHECKED",
+                    cbs_balance_status=row["cbs_balance_status"] or "NOT_CHECKED",
+                    alteration_detected=bool(row["alteration_detected"]),
+                    micr_code=row["micr_code"],
+                    account_display=f"****{account_last4}" if account_last4 else None,
+                    amount_range=row["amount_range"],
+                    presenting_ifsc=row["presenting_ifsc"],
+                ))
+        except Exception as exc:
+            log.warning("cts.decisions_list_error", bank_id=bank_id, error=str(exc))
+
+    log.info("cts.decisions_list", bank_id=bank_id, count=len(items))
+    return DecisionLogResponse(items=items, total=len(items), bank_id=bank_id)
+
+
 class ChequeSearchResult(BaseModel):
     model_config = ConfigDict(frozen=True)
     instrument_id: str
