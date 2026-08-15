@@ -679,13 +679,14 @@ class TestChequeWorkflowRealRun:
         )
         from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
         from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
 
         task_queue = f"tq-{uuid.uuid4()}"
         bank_id, instrument_id = "saraswat-coop", f"INST-{uuid.uuid4().hex[:8]}"
 
         async with Worker(
             temporal_env.client, task_queue=task_queue,
-            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow],
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
             activities=_HAPPY_PATH_ACTIVITIES,
             workflow_runner=UnsandboxedWorkflowRunner(),
         ):
@@ -721,6 +722,7 @@ class TestChequeWorkflowRealRun:
         )
         from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
         from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
 
         task_queue = f"tq-{uuid.uuid4()}"
         bank_id, instrument_id = "saraswat-coop", f"INST-{uuid.uuid4().hex[:8]}"
@@ -732,7 +734,7 @@ class TestChequeWorkflowRealRun:
 
         async with Worker(
             temporal_env.client, task_queue=task_queue,
-            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow],
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
             activities=activities,
             workflow_runner=UnsandboxedWorkflowRunner(),
         ):
@@ -769,6 +771,7 @@ class TestChequeWorkflowRealRun:
         )
         from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
         from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow, ReviewDecision
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
 
         task_queue = f"tq-{uuid.uuid4()}"
         bank_id, instrument_id = "saraswat-coop", f"INST-{uuid.uuid4().hex[:8]}"
@@ -783,11 +786,22 @@ class TestChequeWorkflowRealRun:
             _fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue,
         ]
 
-        async with Worker(
-            temporal_env.client, task_queue=task_queue,
-            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow],
-            activities=activities,
-            workflow_runner=UnsandboxedWorkflowRunner(),
+        # HumanReviewWorkflow runs on its own dedicated task queue (tier-based).
+        # A second worker on that queue is needed so the workflow can actually execute.
+        hr_task_queue = f"cts-humanreview-standard-{bank_id}"
+        async with (
+            Worker(
+                temporal_env.client, task_queue=task_queue,
+                workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, FeedbackEmitWorkflow],
+                activities=activities,
+                workflow_runner=UnsandboxedWorkflowRunner(),
+            ),
+            Worker(
+                temporal_env.client, task_queue=hr_task_queue,
+                workflows=[HumanReviewWorkflow],
+                activities=[_fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue],
+                workflow_runner=UnsandboxedWorkflowRunner(),
+            ),
         ):
             result = await temporal_env.client.execute_workflow(
                 ChequeProcessingWorkflow.run,
@@ -843,6 +857,7 @@ class TestChequeWorkflowKillSwitchWiring:
         )
         from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
         from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
 
         task_queue = f"tq-{uuid.uuid4()}"
         bank_id, instrument_id = "saraswat-coop", f"INST-{uuid.uuid4().hex[:8]}"
@@ -862,9 +877,9 @@ class TestChequeWorkflowKillSwitchWiring:
             return _dget(kill_switch_status, "mode")
 
         @activity.defn(name="detect_alteration")
-        async def _detect_alteration_captures_kill_switch(inp, vllm_client=None, kill_switch_status=None):
+        async def _detect_alteration_captures_kill_switch(inp, ks_lookup=None):
             from modules.cts.workflows.activities.alteration import AlterationActivityResult
-            detect_alteration_calls.append({"kill_switch_status": _ks_mode(kill_switch_status)})
+            detect_alteration_calls.append({"kill_switch_status": _ks_mode(ks_lookup)})
             # Real KC behaviour: Vision AI bypassed, not "alteration detected" —
             # the HUMAN_REVIEW forcing happens at synthesise_decision (checkpoint 2).
             return AlterationActivityResult(
@@ -896,11 +911,22 @@ class TestChequeWorkflowKillSwitchWiring:
             _fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue,
         ]
 
-        async with Worker(
-            temporal_env.client, task_queue=task_queue,
-            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow],
-            activities=activities,
-            workflow_runner=UnsandboxedWorkflowRunner(),
+        # HumanReviewWorkflow runs on its own dedicated task queue (tier-based).
+        # A second worker on that queue is needed so the workflow can actually execute.
+        hr_task_queue = f"cts-humanreview-standard-{bank_id}"
+        async with (
+            Worker(
+                temporal_env.client, task_queue=task_queue,
+                workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, FeedbackEmitWorkflow],
+                activities=activities,
+                workflow_runner=UnsandboxedWorkflowRunner(),
+            ),
+            Worker(
+                temporal_env.client, task_queue=hr_task_queue,
+                workflows=[HumanReviewWorkflow],
+                activities=[_fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue],
+                workflow_runner=UnsandboxedWorkflowRunner(),
+            ),
         ):
             result = await temporal_env.client.execute_workflow(
                 ChequeProcessingWorkflow.run,
