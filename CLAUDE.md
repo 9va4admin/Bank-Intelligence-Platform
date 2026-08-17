@@ -352,19 +352,18 @@ NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
 
 > Full history: [docs/build-history.md](docs/build-history.md)
 
-**Completed:** Phases 1–15 (Foundation → CTS Core → Observability → Hardening → Multi-Scenario CTS → Auth Connectors → Smoke Tests → Security Remediation → Incident Management → Audit/Notification Gap Closure → TOTP/MFA + MSV → @workflow.defn/@activity.defn + DI gaps → ASTRA Ops Dashboard + alert engine → POC E2E + Federal Bank onboarding → `__astra-admin` platform super admin + `platform_admin` RBAC role → 9-script Indic transliteration + Malayalam Christian-name lexicon → automated OCR feedback loop: failure classifier + corpus accumulation + `FeedbackAccumulatorWorkflow` + `ModelRetrainWorkflow`)
+**Completed:** Phases 1–15 (Foundation → CTS Core → Observability → Hardening → Multi-Scenario CTS → Auth Connectors → Smoke Tests → Security Remediation → Incident Management → Audit/Notification Gap Closure → TOTP/MFA + MSV → @workflow.defn/@activity.defn + DI gaps → ASTRA Ops Dashboard + alert engine → POC E2E + Federal Bank onboarding → `__astra-admin` platform super admin + `platform_admin` RBAC role → 9-script Indic transliteration + Malayalam Christian-name lexicon → automated OCR feedback loop: failure classifier + corpus accumulation + `FeedbackAccumulatorWorkflow` + `ModelRetrainWorkflow` → `FeedbackEmitWorkflow` wired into `ChequeProcessingWorkflow` (fire-and-forget child, every decision) → `persist_agent_decision` activity + `cts.agent_decisions` table + `GET /v1/cts/decisions` list endpoint + `CTSDecisionsLog` React page → HIGH-1 fix: `get_workflow_thresholds()` wired into `submit_inward_cheque`; `HumanReviewWorkflow` timeout now truly config-driven)
 
 **Immediate Next (priority order):**
 1. **Wire AuthConnectorFactory into real login flow** — `dev_auth_server.py` + `main.py` bypass connectors entirely; SAML/LDAP hooks still raise `NotImplementedError` (deliberately deferred)
-2. **Wire `FeedbackAccumulatorWorkflow` into `ChequeProcessingWorkflow`** — feedback loop infrastructure is built but signals are not yet emitted from the main workflow; loop is dormant without this
-3. **Fix `check_cheque_dedup` ImportError** — outward scan workflow tests failing; function exists but not exported from `outward_scan_activities`
-4. **Pilot bank deployment** — validate `saraswat-coop` Helm values against real K8s cluster
-5. **NPCI API Modernisation Phase A** — trigger: NPCI concept note acceptance; see [docs/npci-readiness-plan.md](docs/npci-readiness-plan.md)
-6. **Security hardening** — OWASP ZAP + pen test prep
+2. **Fix `check_cheque_dedup` ImportError** — outward scan workflow tests failing; function exists but not exported from `outward_scan_activities`
+3. **Pilot bank deployment** — validate `saraswat-coop` Helm values against real K8s cluster
+4. **NPCI API Modernisation Phase A** — trigger: NPCI concept note acceptance; see [docs/npci-readiness-plan.md](docs/npci-readiness-plan.md)
+5. **Security hardening** — OWASP ZAP + pen test prep
 
 **Open security findings (not yet fixed):**
 - `rbac.py:210-211`: fail-open defaults (SB/EDIT)
-- `HumanReviewWorkflow`: 55-min timeout is a flat constant, not config-aware (HIGH-1)
+- ~~`HumanReviewWorkflow`: 55-min timeout is a flat constant, not config-aware (HIGH-1)~~ — **FIXED `5cfaa7e`**
 - SMB notify side effects missing from real `run()` (HIGH-4)
 - `mfa_stores.py:60-61`: direct `os.environ.get("VAULT_ADDR")` — needs config_service
 
@@ -376,4 +375,4 @@ NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
 
 Phases: A (REST API, 6 months) → B (Webhook push, 12 months) → C (MCP client, 24 months). ~70% of internal plumbing ready; gap is entirely in NPCI-facing transport layer.
 
-*Last updated: 2026-08-13 | All architectural decisions final unless explicitly revised in this file*
+*Last updated: 2026-08-17 | All architectural decisions final unless explicitly revised in this file*
