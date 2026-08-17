@@ -74,6 +74,8 @@ import Logout from './modules/auth/pages/Logout'
 import Profile from './modules/auth/pages/Profile'
 import { AuthProvider } from './shared/context/AuthContext'
 import RequireAuth from './shared/auth/RequireAuth'
+import RequirePermission from './shared/auth/RequirePermission'
+import AccessDenied from './modules/auth/pages/AccessDenied'
 import './index.css'
 
 export default function App() {
@@ -87,6 +89,7 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/logout" element={<Logout />} />
+        <Route path="/access-denied" element={<AccessDenied />} />
         <Route element={<RequireAuth />}>
         {/* CTS module */}
         {/* Inward 3-stage pipeline */}
@@ -154,19 +157,25 @@ export default function App() {
         <Route path="/branch/hold-queue" element={<BranchHoldQueue />} />
         {/* Admin */}
         <Route path="/profile" element={<Profile />} />
-        <Route path="/admin/users" element={<UserManagement />} />
         <Route path="/admin/security-violations" element={<SecurityViolations />} />
         <Route path="/admin/login-log" element={<LoginLog />} />
         <Route path="/admin/smoke-test" element={<CTSSmokeTest />} />
         <Route path="/admin/config/operations" element={<OperationsConfig />} />
         <Route path="/admin/config/platform" element={<PlatformConfig />} />
         <Route path="/admin/allocation" element={<CTSAllocationAdmin />} />
-        {/* ASTRA Ops Dashboard — replaces Grafana for ops_manager + bank_it_admin */}
+        {/* ASTRA Ops Dashboard — ops_manager + bank_it_admin (analytics) */}
         <Route path="/ops/dashboard"    element={<OpsDashboard />} />
-        <Route path="/ops/model-health"   element={<ModelHealth />} />
-        <Route path="/ops/ocr-feedback"   element={<CTSOCRFeedback />} />
         <Route path="/ops/alerts"       element={<AlertLog />} />
         <Route path="/ops/system"       element={<SystemHealth />} />
+        {/* AI model pages — ops_manager + bank_it_admin + ml_engineer only */}
+        <Route element={<RequirePermission permission="ai:model_metrics" />}>
+          <Route path="/ops/model-health"   element={<ModelHealth />} />
+          <Route path="/ops/ocr-feedback"   element={<CTSOCRFeedback />} />
+        </Route>
+        {/* Admin — bank_it_admin only */}
+        <Route element={<RequirePermission permission="user:manage" />}>
+          <Route path="/admin/users" element={<UserManagement />} />
+        </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
