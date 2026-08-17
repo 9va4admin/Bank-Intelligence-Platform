@@ -61,6 +61,7 @@ import CTSAgencyCC from './modules/cts/pages/CTSAgencyCC'
 import CTSSmokeTest from './modules/cts/pages/CTSSmokeTest'
 import OpsDashboard from './modules/observability/pages/OpsDashboard'
 import ModelHealth from './modules/observability/pages/ModelHealth'
+import CTSOCRFeedback from './modules/observability/pages/CTSOCRFeedback'
 import AlertLog from './modules/observability/pages/AlertLog'
 import SystemHealth from './modules/observability/pages/SystemHealth'
 import UserManagement from './modules/admin/pages/UserManagement'
@@ -162,7 +163,8 @@ export default function App() {
         <Route path="/admin/allocation" element={<CTSAllocationAdmin />} />
         {/* ASTRA Ops Dashboard — replaces Grafana for ops_manager + bank_it_admin */}
         <Route path="/ops/dashboard"    element={<OpsDashboard />} />
-        <Route path="/ops/model-health" element={<ModelHealth />} />
+        <Route path="/ops/model-health"   element={<ModelHealth />} />
+        <Route path="/ops/ocr-feedback"   element={<CTSOCRFeedback />} />
         <Route path="/ops/alerts"       element={<AlertLog />} />
         <Route path="/ops/system"       element={<SystemHealth />} />
         </Route>

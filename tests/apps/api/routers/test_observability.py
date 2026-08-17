@@ -308,6 +308,128 @@ class TestSystemHealthEndpoint:
             assert pii not in text
 
 
+# ── /v1/ops/ocr-feedback ──────────────────────────────────────────────────────
+
+class TestOCRFeedbackEndpoint:
+    """Tests for GET /v1/ops/ocr-feedback — corpus accumulation + retrain history."""
+
+    def test_unauthenticated_returns_401(self):
+        client = TestClient(_unauthed_app(), raise_server_exceptions=False)
+        assert client.get("/v1/ops/ocr-feedback").status_code == 401
+
+    def test_ops_reviewer_returns_403(self):
+        client = TestClient(_make_app(role="ops_reviewer"), raise_server_exceptions=False)
+        assert client.get("/v1/ops/ocr-feedback").status_code == 403
+
+    def test_fraud_analyst_returns_403(self):
+        client = TestClient(_make_app(role="fraud_analyst"), raise_server_exceptions=False)
+        assert client.get("/v1/ops/ocr-feedback").status_code == 403
+
+    def test_ops_manager_gets_200(self):
+        client = TestClient(_make_app(role="ops_manager"), raise_server_exceptions=False)
+        assert client.get("/v1/ops/ocr-feedback").status_code == 200
+
+    def test_ml_engineer_gets_200(self):
+        client = TestClient(_make_app(role="ml_engineer"), raise_server_exceptions=False)
+        assert client.get("/v1/ops/ocr-feedback").status_code == 200
+
+    def test_bank_it_admin_gets_200(self):
+        client = TestClient(_make_app(role="bank_it_admin"), raise_server_exceptions=False)
+        assert client.get("/v1/ops/ocr-feedback").status_code == 200
+
+    def test_response_top_level_schema(self):
+        client = TestClient(_make_app(), raise_server_exceptions=False)
+        data = client.get("/v1/ops/ocr-feedback").json()
+        for field in ("bank_id", "as_of", "corpus", "failure_modes", "retrain_history", "degraded"):
+            assert field in data, f"Missing field: {field}"
+
+    def test_corpus_is_list(self):
+        client = TestClient(_make_app(), raise_server_exceptions=False)
+        data = client.get("/v1/ops/ocr-feedback").json()
+        assert isinstance(data["corpus"], list)
+
+    def test_failure_modes_is_list(self):
+        client = TestClient(_make_app(), raise_server_exceptions=False)
+        data = client.get("/v1/ops/ocr-feedback").json()
+        assert isinstance(data["failure_modes"], list)
+
+    def test_retrain_history_is_list(self):
+        client = TestClient(_make_app(), raise_server_exceptions=False)
+        data = client.get("/v1/ops/ocr-feedback").json()
+        assert isinstance(data["retrain_history"], list)
+
+    def test_corpus_entry_schema(self):
+        client = TestClient(_make_app(), raise_server_exceptions=False)
+        data = client.get("/v1/ops/ocr-feedback").json()
+        for entry in data["corpus"]:
+            assert "corpus_type" in entry
+            assert "count" in entry
+            assert "threshold" in entry
+            assert "progress_pct" in entry
+            assert "degraded" in entry
+            assert isinstance(entry["count"], int)
+            assert isinstance(entry["progress_pct"], float)
+            assert entry["corpus_type"] in ("payee", "micr")
+
+    def test_corpus_has_payee_and_micr_entries(self):
+        client = TestClient(_make_app(), raise_server_exceptions=False)
+        data = client.get("/v1/ops/ocr-feedback").json()
+        types = {e["corpus_type"] for e in data["corpus"]}
+        assert "payee" in types
+        assert "micr" in types
+
+    def test_degraded_when_redis_none(self):
+        client = TestClient(_make_app(redis_cts=None), raise_server_exceptions=False)
+        data = client.get("/v1/ops/ocr-feedback").json()
+        assert data["degraded"] is True
+        for entry in data["corpus"]:
+            assert entry["degraded"] is True
+
+    def test_degraded_when_both_none(self):
+        client = TestClient(_make_app(db_pool=None, redis_cts=None), raise_server_exceptions=False)
+        data = client.get("/v1/ops/ocr-feedback").json()
+        assert data["degraded"] is True
+
+    def test_bank_id_scoped_to_jwt_claim(self):
+        client = TestClient(_make_app(), raise_server_exceptions=False)
+        data = client.get("/v1/ops/ocr-feedback").json()
+        assert data["bank_id"] == "test-bank"
+
+    def test_no_pii_in_response(self):
+        client = TestClient(_make_app(), raise_server_exceptions=False)
+        text = client.get("/v1/ops/ocr-feedback").text
+        for pii in ("account_number", "instrument_id", "payee_name", "drawer_name"):
+            assert pii not in text, f"PII field '{pii}' found in ocr-feedback response"
+
+    def test_progress_pct_between_0_and_100(self):
+        client = TestClient(_make_app(), raise_server_exceptions=False)
+        data = client.get("/v1/ops/ocr-feedback").json()
+        for entry in data["corpus"]:
+            if not entry["degraded"]:
+                assert 0.0 <= entry["progress_pct"] <= 100.0
+
+    def test_retrain_entry_schema_when_present(self):
+        client = TestClient(_make_app(), raise_server_exceptions=False)
+        data = client.get("/v1/ops/ocr-feedback").json()
+        for run in data["retrain_history"]:
+            assert "run_id" in run
+            assert "corpus_type" in run
+            assert "triggered_at" in run
+            assert "status" in run
+            assert run["corpus_type"] in ("payee", "micr")
+            assert run["status"] in ("RUNNING", "PROMOTED", "REJECTED", "FAILED")
+
+    def test_failure_mode_entry_schema_when_present(self):
+        client = TestClient(_make_app(), raise_server_exceptions=False)
+        data = client.get("/v1/ops/ocr-feedback").json()
+        for fm in data["failure_modes"]:
+            assert "mode" in fm
+            assert "count" in fm
+            assert "pct" in fm
+            assert isinstance(fm["count"], int)
+            assert isinstance(fm["pct"], float)
+
+
 # ── /v1/ops/system — extended panels ──────────────────────────────────────────
 
 class TestSystemHealthExtended:
