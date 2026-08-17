@@ -170,7 +170,8 @@ const SIDEBAR_MODULES = [
         label: 'ASTRA Ops Dashboard',
         items: [
           { to: '/ops/dashboard',    label: 'Ops Overview',  perm: 'cts:view_analytics' },
-          { to: '/ops/model-health', label: 'Model Health',  perm: 'cts:view_analytics' },
+          { to: '/ops/model-health',   label: 'Model Health',   perm: 'cts:view_analytics' },
+          { to: '/ops/ocr-feedback',   label: 'OCR Feedback',   perm: 'cts:view_analytics' },
           { to: '/ops/alerts',       label: 'Alert Log',     perm: 'cts:view_analytics' },
           { to: '/ops/system',       label: 'System Health', perm: 'cts:view_analytics' },
         ],
