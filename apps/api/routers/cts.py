@@ -183,6 +183,22 @@ async def submit_inward_cheque(
     """
     workflow_id = f"cts-{bank_id}-{instrument_id}"
 
+    # Fetch bank-specific thresholds (Layer 3) so the workflow uses the
+    # configured values instead of falling back to hardcoded literals.
+    # Degrade gracefully — a config fetch failure must never block a cheque;
+    # the workflow's own Field(default=...) values are the safe fallback.
+    from shared.config.config_service import config_service
+    cts_config: dict = {}
+    try:
+        cts_config = await config_service.get_workflow_thresholds(bank_id)
+    except Exception as _cfg_exc:
+        log.warning(
+            "submit_inward.cts_config_fetch_failed",
+            instrument_id=instrument_id,
+            bank_id=bank_id,
+            error=str(_cfg_exc),
+        )
+
     workflow_input = ChequeWorkflowInput(
         instrument_id=instrument_id,
         bank_id=bank_id,
@@ -192,6 +208,7 @@ async def submit_inward_cheque(
         presented_amount=body.presented_amount,
         presented_payee=body.presented_payee,
         iet_deadline=body.iet_deadline,
+        cts_config=cts_config,
     )
 
     # Publish to Kafka cts.inward.{bank_id} so KEDA ScaledObject has a real lag

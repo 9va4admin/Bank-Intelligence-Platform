@@ -1026,3 +1026,117 @@ class TestVaultSyncRoutes:
 
         assert response.status_code == 503
         mock_client.start_workflow.assert_not_called()
+
+
+class TestCTSSubmitCtsConfigWiring:
+    """HIGH-1 fix: verify cts_config (including human_review_max_wait_minutes)
+    is fetched from config_service and passed to ChequeWorkflowInput on every
+    inward cheque submission.  Previously cts_config defaulted to {} — so the
+    workflow always used the hardcoded 55-minute fallback regardless of the
+    bank's Admin-UI setting."""
+
+    def _make_app(self, temporal_client):
+        _patch_temporalio()
+        from apps.api.routers.cts import router_v1, get_current_bank_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: "test-bank"
+        app.state.temporal_client = temporal_client
+        return app
+
+    def test_submit_passes_cts_config_to_workflow_input(self):
+        """cts_config must be populated from config_service, not left as {}."""
+        _patch_temporalio()
+        thresholds = {
+            "human_review_max_wait_minutes": 40,
+            "stp_mode": "FULL_MANUAL",
+            "stp_supervised_confirm_threshold": 0.95,
+            "stp_supervised_review_timeout_minutes": 20,
+            "human_review_fraud_threshold": 0.72,
+            "stp_auto_confirm_threshold": 0.92,
+            "high_value_amount_threshold": 500000,
+            "clearing_session": "MORNING",
+        }
+        temporal_client = MagicMock()
+        captured = {}
+
+        async def _capture_start(*args, **kwargs):
+            captured["args"] = args
+            captured["kwargs"] = kwargs
+            return MagicMock(id="wf-001")
+
+        temporal_client.start_workflow = _capture_start
+        app = self._make_app(temporal_client)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        from shared.config.config_service import config_service as _cfg
+        with patch.object(_cfg, "get_workflow_thresholds", new=AsyncMock(return_value=thresholds)):
+            with patch("modules.cts.workflows.cheque_workflow.ChequeProcessingWorkflow", MagicMock()):
+                response = client.post(
+                    "/v1/cts/inward/INST001/submit",
+                    json=_submit_payload(),
+                    headers=_auth_headers(),
+                )
+
+        assert response.status_code in (200, 202)
+        # The ChequeWorkflowInput passed to start_workflow must carry cts_config
+        wf_input = captured.get("args", (None, None))[1]
+        assert wf_input is not None, "No workflow input captured"
+        assert hasattr(wf_input, "cts_config"), "ChequeWorkflowInput missing cts_config"
+        assert wf_input.cts_config.get("human_review_max_wait_minutes") == 40, (
+            "human_review_max_wait_minutes must be 40 (from config), not the hardcoded 55"
+        )
+
+    def test_submit_cts_config_not_empty_when_config_service_available(self):
+        """cts_config must not be {} when config_service.get_workflow_thresholds succeeds."""
+        _patch_temporalio()
+        thresholds = {"human_review_max_wait_minutes": 55, "stp_mode": "FULL_MANUAL"}
+        temporal_client = MagicMock()
+        captured = {}
+
+        async def _capture_start(*args, **kwargs):
+            captured["args"] = args
+            return MagicMock(id="wf-002")
+
+        temporal_client.start_workflow = _capture_start
+        app = self._make_app(temporal_client)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        from shared.config.config_service import config_service as _cfg
+        with patch.object(_cfg, "get_workflow_thresholds", new=AsyncMock(return_value=thresholds)):
+            with patch("modules.cts.workflows.cheque_workflow.ChequeProcessingWorkflow", MagicMock()):
+                client.post(
+                    "/v1/cts/inward/INST001/submit",
+                    json=_submit_payload(),
+                    headers=_auth_headers(),
+                )
+
+        wf_input = captured.get("args", (None, None))[1]
+        if wf_input is not None and hasattr(wf_input, "cts_config"):
+            assert wf_input.cts_config != {}, "cts_config must not be empty dict"
+
+    def test_submit_degrades_gracefully_when_config_service_fails(self):
+        """If get_workflow_thresholds raises, submission must still succeed
+        (workflow uses its own safe defaults) — never block a cheque because
+        of a config fetch failure."""
+        _patch_temporalio()
+        temporal_client = MagicMock()
+        temporal_client.start_workflow = AsyncMock(return_value=MagicMock(id="wf-003"))
+
+        app = self._make_app(temporal_client)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        from shared.config.config_service import config_service as _cfg
+        with patch.object(
+            _cfg,
+            "get_workflow_thresholds",
+            new=AsyncMock(side_effect=Exception("config_service unavailable")),
+        ):
+            with patch("modules.cts.workflows.cheque_workflow.ChequeProcessingWorkflow", MagicMock()):
+                response = client.post(
+                    "/v1/cts/inward/INST001/submit",
+                    json=_submit_payload(),
+                    headers=_auth_headers(),
+                )
+        # Must not 500 — degrade to empty cts_config, workflow uses its built-in defaults
+        assert response.status_code in (200, 202)
