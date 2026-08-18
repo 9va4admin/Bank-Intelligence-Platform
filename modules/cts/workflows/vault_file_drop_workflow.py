@@ -327,3 +327,57 @@ class VaultFileDropWorkflow:
             rows_processed=process_result.rows_processed,
             rows_failed=process_result.rows_failed,
         )
+
+    async def run_with_mocks(
+        self,
+        inp: VaultFileDropInput,
+        mock_results: dict,
+    ) -> VaultFileDropResult:
+        """
+        Test-only entry point — bypasses Temporal's workflow.execute_activity.
+        mock_results keys: "fetch", "process" (optional), "archive" (optional)
+          fetch:   FetchDropFileResult | None (None → skip to process with empty bytes)
+          process: ProcessVaultCSVResult
+        """
+        if inp.vault_type not in _VALID_VAULT_TYPES:
+            return VaultFileDropResult(
+                outcome="PARSE_FAILED",
+                bank_id=inp.bank_id,
+                vault_type=inp.vault_type,
+                error=f"Unknown vault_type: {inp.vault_type}",
+            )
+
+        fetch_result: FetchDropFileResult = mock_results.get("fetch") or FetchDropFileResult()
+
+        if fetch_result.duplicate:
+            return VaultFileDropResult(
+                outcome="DUPLICATE_SKIPPED",
+                bank_id=inp.bank_id,
+                vault_type=inp.vault_type,
+            )
+        if fetch_result.error:
+            return VaultFileDropResult(
+                outcome="PARSE_FAILED",
+                bank_id=inp.bank_id,
+                vault_type=inp.vault_type,
+                error=fetch_result.error,
+            )
+
+        process_result: ProcessVaultCSVResult = mock_results.get("process") or ProcessVaultCSVResult()
+        if process_result.error:
+            return VaultFileDropResult(
+                outcome="VAULT_UPDATE_FAILED",
+                bank_id=inp.bank_id,
+                vault_type=inp.vault_type,
+                error=process_result.error,
+            )
+
+        return VaultFileDropResult(
+            outcome="VAULT_UPDATED",
+            bank_id=inp.bank_id,
+            vault_type=inp.vault_type,
+            batch_id=process_result.batch_id,
+            rows_total=process_result.rows_total,
+            rows_processed=process_result.rows_processed,
+            rows_failed=process_result.rows_failed,
+        )
