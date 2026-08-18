@@ -58,10 +58,18 @@ from temporalio import activity
 from modules.cts.workflows.activities.alteration import AlterationActivityInput
 from modules.cts.workflows.activities.feedback_activities import (
     FeedbackSignalResult,
+    MicrFeedbackInput,
+    PayeeFeedbackInput,
+    RetrainJobResult,
     RetrainThresholdResult,
+    ShadowEvalResult,
     accumulate_corpus_entry as _fa_accumulate_corpus_entry,
     check_retrain_threshold as _fa_check_retrain_threshold,
+    dispatch_retrain_job as _fa_dispatch_retrain_job,
+    emit_micr_feedback_signal as _fa_emit_micr_feedback_signal,
+    emit_payee_feedback_signal as _fa_emit_payee_feedback_signal,
     promote_model as _fa_promote_model,
+    run_shadow_evaluation as _fa_run_shadow_evaluation,
 )
 from modules.cts.workflows.activities.cbs import CBSActivityInput
 from modules.cts.workflows.activities.decision import DecisionInput
@@ -466,6 +474,27 @@ class BoundCTSActivities:
             bank_id, mlflow_run_id, corpus_type,
             minio_client=self._minio_client,
             redis_client=self._redis_client,
+            db_pool=self._db_pool,
+        )
+
+    @activity.defn(name="emit_payee_feedback_signal")
+    async def emit_payee_feedback_signal(self, inp: PayeeFeedbackInput) -> FeedbackSignalResult:
+        return await _fa_emit_payee_feedback_signal(inp, db_pool=self._db_pool)
+
+    @activity.defn(name="emit_micr_feedback_signal")
+    async def emit_micr_feedback_signal(self, inp: MicrFeedbackInput) -> FeedbackSignalResult:
+        return await _fa_emit_micr_feedback_signal(inp, db_pool=self._db_pool)
+
+    @activity.defn(name="dispatch_retrain_job")
+    async def dispatch_retrain_job(self, bank_id: str, corpus_type: str) -> RetrainJobResult:
+        return await _fa_dispatch_retrain_job(bank_id, corpus_type, db_pool=self._db_pool)
+
+    @activity.defn(name="run_shadow_evaluation")
+    async def run_shadow_evaluation(
+        self, bank_id: str, mlflow_run_id: str, corpus_type: str
+    ) -> ShadowEvalResult:
+        return await _fa_run_shadow_evaluation(
+            bank_id, mlflow_run_id, corpus_type, db_pool=self._db_pool
         )
 
     # ------------------------------------------------------------------
@@ -522,10 +551,14 @@ class BoundCTSActivities:
             self.notify_sub_member_return,
             self.emit_batch_ledger_update,
             self.check_return_rate_shield,
-            # Feedback loop — DI-wired corpus/retrain/promote
+            # Feedback loop — DI-wired (all need db_pool for DB writes)
             self.accumulate_corpus_entry,
             self.check_retrain_threshold,
             self.promote_model,
+            self.emit_payee_feedback_signal,
+            self.emit_micr_feedback_signal,
+            self.dispatch_retrain_job,
+            self.run_shadow_evaluation,
             # Decision persistence (cts.agent_decisions)
             self.persist_agent_decision,
         ]

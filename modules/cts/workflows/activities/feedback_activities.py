@@ -97,8 +97,14 @@ class ShadowEvalResult(BaseModel):
 #  Activities
 # ─────────────────────────────────────────────────────────────────────────────
 
+_SKIP_DB_MODES = frozenset({"CLEAN", "INDETERMINATE"})
+
+
 @activity.defn
-async def emit_payee_feedback_signal(inp: PayeeFeedbackInput) -> FeedbackSignalResult:
+async def emit_payee_feedback_signal(
+    inp: PayeeFeedbackInput,
+    db_pool=None,
+) -> FeedbackSignalResult:
     """Extract and classify a payee OCR feedback signal. No human input needed."""
     cts_cfg = await config_service.get_cts_config(inp.bank_id)
     threshold: float = cts_cfg.get("payee_match_threshold", 0.82)
@@ -117,19 +123,42 @@ async def emit_payee_feedback_signal(inp: PayeeFeedbackInput) -> FeedbackSignalR
         cbs_display_initial=inp.cbs_display_initial,
     )
 
+    failure_mode = signal.failure_mode.value if signal.failure_mode else "INDETERMINATE"
+
     log.info(
         "feedback.payee_signal.emitted",
         instrument_id=inp.instrument_id,
         bank_id=inp.bank_id,
-        failure_mode=signal.failure_mode.value if signal.failure_mode else "NONE",
+        failure_mode=failure_mode,
         add_to_corpus=signal.add_to_corpus,
         score=round(inp.name_match_score, 3),
     )
 
+    if db_pool is not None and failure_mode not in _SKIP_DB_MODES:
+        try:
+            async with db_pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO cts.ocr_corpus_events
+                        (bank_id, instrument_id, corpus_type, failure_mode,
+                         name_match_score, rationale)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    """,
+                    inp.bank_id,
+                    inp.instrument_id,
+                    "payee",
+                    failure_mode,
+                    inp.name_match_score,
+                    signal.rationale,
+                )
+        except Exception as exc:
+            log.warning("feedback.payee_signal.db_write_failed", error=str(exc),
+                        instrument_id=inp.instrument_id)
+
     return FeedbackSignalResult(
         instrument_id=inp.instrument_id,
         bank_id=inp.bank_id,
-        failure_mode=signal.failure_mode.value if signal.failure_mode else "INDETERMINATE",
+        failure_mode=failure_mode,
         add_to_corpus=signal.add_to_corpus,
         corpus_label="negative" if signal.add_to_corpus else "",
         rationale=signal.rationale,
@@ -137,7 +166,10 @@ async def emit_payee_feedback_signal(inp: PayeeFeedbackInput) -> FeedbackSignalR
 
 
 @activity.defn
-async def emit_micr_feedback_signal(inp: MicrFeedbackInput) -> FeedbackSignalResult:
+async def emit_micr_feedback_signal(
+    inp: MicrFeedbackInput,
+    db_pool=None,
+) -> FeedbackSignalResult:
     """Extract MICR feedback signal from NGCH filing outcome. Fully automatic."""
     signal: FeedbackSignal = extract_micr_signal(
         instrument_id=inp.instrument_id,
@@ -146,6 +178,8 @@ async def emit_micr_feedback_signal(inp: MicrFeedbackInput) -> FeedbackSignalRes
         micr_fields=inp.micr_fields,
         image_path=inp.image_path,
     )
+
+    failure_mode = signal.failure_mode.value if signal.failure_mode else "INDETERMINATE"
 
     log.info(
         "feedback.micr_signal.emitted",
@@ -156,10 +190,31 @@ async def emit_micr_feedback_signal(inp: MicrFeedbackInput) -> FeedbackSignalRes
         corpus_label=signal.corpus_label,
     )
 
+    if db_pool is not None and failure_mode not in _SKIP_DB_MODES:
+        try:
+            async with db_pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO cts.ocr_corpus_events
+                        (bank_id, instrument_id, corpus_type, failure_mode,
+                         name_match_score, rationale)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    """,
+                    inp.bank_id,
+                    inp.instrument_id,
+                    "micr",
+                    failure_mode,
+                    None,
+                    signal.rationale,
+                )
+        except Exception as exc:
+            log.warning("feedback.micr_signal.db_write_failed", error=str(exc),
+                        instrument_id=inp.instrument_id)
+
     return FeedbackSignalResult(
         instrument_id=inp.instrument_id,
         bank_id=inp.bank_id,
-        failure_mode=signal.failure_mode.value if signal.failure_mode else "INDETERMINATE",
+        failure_mode=failure_mode,
         add_to_corpus=signal.add_to_corpus,
         corpus_label=signal.corpus_label,
         rationale=signal.rationale,
@@ -266,6 +321,7 @@ async def check_retrain_threshold(
 async def dispatch_retrain_job(
     bank_id: str,
     corpus_type: str,
+    db_pool=None,
 ) -> RetrainJobResult:
     """Submit a retraining job to MLflow. Non-blocking — workflow polls for completion.
 
@@ -275,6 +331,9 @@ async def dispatch_retrain_job(
     mlflow_url = await config_service.get(f"services.mlflow.{bank_id}.url")
     # MLflow experiment name follows convention: cts-ocr-{corpus_type}-{bank_id}
     experiment_name = f"cts-ocr-{corpus_type}-{bank_id}"
+
+    from temporalio import activity as _activity
+    workflow_run_id = _activity.info().workflow_id
 
     try:
         import httpx
@@ -301,6 +360,25 @@ async def dispatch_retrain_job(
         )
         return RetrainJobResult(bank_id=bank_id, mlflow_run_id="", status="failed")
 
+    if db_pool is not None:
+        try:
+            async with db_pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO cts.model_retrain_runs
+                        (run_id, bank_id, corpus_type, mlflow_run_id, status)
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT (run_id) DO NOTHING
+                    """,
+                    workflow_run_id,
+                    bank_id,
+                    corpus_type,
+                    run_id,
+                    "RUNNING",
+                )
+        except Exception as exc:
+            log.warning("feedback.retrain.db_insert_failed", error=str(exc), bank_id=bank_id)
+
     log.info(
         "feedback.retrain.job_dispatched",
         bank_id=bank_id,
@@ -315,6 +393,7 @@ async def run_shadow_evaluation(
     bank_id: str,
     mlflow_run_id: str,
     corpus_type: str,
+    db_pool=None,
 ) -> ShadowEvalResult:
     """Fetch evaluation metrics from MLflow and decide whether to promote.
 
@@ -365,6 +444,27 @@ async def run_shadow_evaluation(
         improvement=round(improvement, 4),
         promote=promote,
     )
+
+    if db_pool is not None and new_acc > 0:
+        try:
+            async with db_pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    UPDATE cts.model_retrain_runs
+                       SET accuracy_before = $1,
+                           accuracy_after  = $2,
+                           improvement_pct = $3
+                     WHERE mlflow_run_id = $4
+                    """,
+                    baseline_acc,
+                    new_acc,
+                    round(improvement * 100, 2),
+                    mlflow_run_id,
+                )
+        except Exception as exc:
+            log.warning("feedback.shadow_eval.db_update_failed", error=str(exc),
+                        run_id=mlflow_run_id)
+
     return ShadowEvalResult(
         bank_id=bank_id,
         mlflow_run_id=mlflow_run_id,
@@ -382,6 +482,8 @@ async def promote_model(
     corpus_type: str,
     minio_client=None,
     redis_client=None,
+    db_pool=None,
+    improvement_pct: Optional[float] = None,
 ) -> None:
     """Hot-swap the vLLM model to the new version. Zero downtime.
 
@@ -422,6 +524,28 @@ async def promote_model(
             redis_client=redis_client,
         )
         await mgr.reset_counter(bank_id, corpus_type)
+
+    if db_pool is not None:
+        from datetime import datetime, timezone
+        try:
+            async with db_pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    UPDATE cts.model_retrain_runs
+                       SET status       = $1,
+                           completed_at = $2,
+                           improvement_pct = COALESCE($3, improvement_pct),
+                           promoted     = TRUE
+                     WHERE mlflow_run_id = $4
+                    """,
+                    "PROMOTED",
+                    datetime.now(timezone.utc),
+                    improvement_pct,
+                    mlflow_run_id,
+                )
+        except Exception as exc:
+            log.warning("feedback.promote.db_update_failed", error=str(exc),
+                        run_id=mlflow_run_id)
 
     log.info(
         "feedback.model.promoted",
