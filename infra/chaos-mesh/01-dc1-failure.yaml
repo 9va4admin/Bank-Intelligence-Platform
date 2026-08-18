@@ -35,7 +35,6 @@ spec:
   selector:
     namespaces:
       - astra-cts-saraswat-coop
-      - astra-ej-saraswat-coop
     labelSelectors:
       topology.kubernetes.io/zone: dc1
   direction: both
@@ -44,7 +43,6 @@ spec:
     selector:
       namespaces:
         - astra-cts-saraswat-coop
-        - astra-ej-saraswat-coop
       labelSelectors:
         topology.kubernetes.io/zone: dc2
   duration: "10m"
@@ -66,7 +64,6 @@ spec:
   selector:
     namespaces:
       - astra-cts-saraswat-coop
-      - astra-ej-saraswat-coop
     labelSelectors:
       topology.kubernetes.io/zone: dc1
   duration: "10m"

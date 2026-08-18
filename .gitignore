@@ -1,6 +1,10 @@
 __pycache__/
 .coverage
 .claude/worktrees/
+
+# EJ module lives in 9va4admin/atm-ej-platform — not this repo
+modules/ej/
+apps/ej_ingestion/
 node_modules/
 dist/
 *.local

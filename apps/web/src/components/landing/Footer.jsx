@@ -34,7 +34,6 @@ export default function Footer() {
             <div className="space-y-2">
               {[
                 { label: 'CTS Module', href: '#cts' },
-                { label: 'ATM EJ Intelligence', href: '#ej' },
                 { label: 'Security & Compliance', href: '#security' },
                 { label: 'Architecture', href: '#architecture' },
                 { label: 'Commercial Model', href: '#commercial' },
@@ -63,20 +62,6 @@ export default function Footer() {
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
                 CTS Operations Workstation
-              </Link>
-              <Link
-                to="/ej"
-                className="flex items-center gap-2 text-sm text-slate-400 hover:text-sky-300 transition-colors"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
-                EJ Intelligence Dashboard
-              </Link>
-              <Link
-                to="/ej/portal"
-                className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-300 transition-colors"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                Manager Portal
               </Link>
             </div>
 

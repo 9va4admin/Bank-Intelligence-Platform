@@ -19,7 +19,7 @@ const TIERS = [
     tagline: 'For mid-tier banks deploying both modules',
     pricing: '₹50L–1.2Cr + 18% AMC',
     features: [
-      'CTS + EJ modules',
+      'CTS module — on-premises deployment',
       'On-premises deployment in bank\'s DC',
       'Unlimited cheques, unlimited ATMs',
       'Priority support (4-hour SLA)',
@@ -35,7 +35,7 @@ const TIERS = [
     tagline: 'For large banks with active-active multi-DC requirements',
     pricing: '₹12–25L / month',
     features: [
-      'CTS + EJ + full observability stack',
+      'CTS + full observability stack',
       'Active-active across 2 DCs (RPO = 0)',
       'Dedicated ASTRA engineer on-site',
       'Custom CBS connector development',
@@ -50,7 +50,7 @@ const TIERS = [
 
 const NORTH_STAR = [
   { label: 'North Star Vision', value: 'Every instrument, everywhere — cheques, UPI, NACH, IMPS — intelligently processed, always on-premises, never breaching mandate.' },
-  { label: 'Phase 1', value: 'CTS + EJ (now in production readiness)' },
+  { label: 'Phase 1', value: 'CTS (now in production readiness)' },
   { label: 'Phase 2', value: 'NACH return processing, UPI dispute intelligence' },
   { label: 'Phase 3', value: 'Cross-bank fraud intelligence network (consent-gated, federated)' },
 ]

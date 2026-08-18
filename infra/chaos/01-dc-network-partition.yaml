@@ -2,11 +2,11 @@
 #
 # Simulates: DC1 loses network connectivity to DC2 (split-brain scenario).
 # Expected behaviour:
-#   - DC2 continues serving 100% of traffic (CTS + EJ) within 30 seconds
+#   - DC2 continues serving 100% of CTS traffic within 30 seconds
 #   - No IET breach during failover window
 #   - Kafka MirrorMaker2 re-routes consumer groups to DC2 topics
 #   - YugabyteDB YSQL remains available via DC2 nodes (quorum maintained)
-#   - Redis EJ and CTS vaults on DC2 remain warm (VaultSyncWorkflow ran at 6AM)
+#   - Redis CTS vaults on DC2 remain warm (VaultSyncWorkflow ran at 6AM)
 #
 # RBI Control: DR-01 — RTO < 30s, RPO = 0
 # Run with: chaos-mesh dashboard or kubectl apply -f 01-dc-network-partition.yaml
@@ -30,7 +30,6 @@ spec:
   selector:
     namespaces:
       - astra-cts-saraswat-coop
-      - astra-ej-saraswat-coop
     labelSelectors:
       "topology.kubernetes.io/zone": "dc1"
   direction: both
@@ -39,7 +38,6 @@ spec:
     selector:
       namespaces:
         - astra-cts-saraswat-coop
-        - astra-ej-saraswat-coop
       labelSelectors:
         "topology.kubernetes.io/zone": "dc2"
   duration: "5m"
@@ -75,7 +73,6 @@ spec:
 #
 # Pass criteria:
 #   1. CTS inward endpoint returns 200 within 30 seconds of partition
-#   2. EJNormalisationWorkflow completes successfully during partition window
-#   3. Zero IET breaches in Prometheus metric: cts_iet_breaches_total (DC2 pod selector)
+#   2. Zero IET breaches in Prometheus metric: cts_iet_breaches_total (DC2 pod selector)
 #   4. YugabyteDB reports no data loss post-partition via checksums
 #   5. Redis vault hit rate stays > 95% on DC2 (VaultSyncWorkflow pre-warmed)
