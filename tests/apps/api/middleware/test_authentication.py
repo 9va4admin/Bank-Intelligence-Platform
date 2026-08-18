@@ -150,3 +150,86 @@ def test_no_session_leaves_state_bank_id_none():
     r = client.get("/v1/protected/state-bank-id")
     assert r.status_code == 200
     assert r.json()["bank_id"] is None
+
+
+# --------------------------------------------------------------------------- #
+# Token revocation                                                             #
+# --------------------------------------------------------------------------- #
+
+class _FakeRedis:
+    """Minimal async-compatible fake for the Redis revocation store."""
+    def __init__(self, data=None):
+        self._data: dict = dict(data or {})
+
+    async def exists(self, key: str) -> int:
+        return 1 if key in self._data else 0
+
+    async def setex(self, key: str, ttl: int, value: str) -> None:
+        self._data[key] = value
+
+    # pipeline stub (used by RateLimitMiddleware, not by revocation)
+    def pipeline(self):
+        class _Pipe:
+            async def execute(self_p): return [0, True]
+            def incr(self_p, k): pass
+            def expire(self_p, k, t): pass
+        return _Pipe()
+
+
+def _build_revoke_app(ss, redis=None):
+    """Build a test app with the GIVEN session service. Caller owns the keys —
+    tokens and the validation client share the same service, so the only reason
+    for a 401 is the revocation check (not a key mismatch)."""
+    app = FastAPI()
+    app.state.session_service = ss
+    app.state.redis_cts = redis
+    app.add_middleware(AuthenticationMiddleware)
+
+    @app.get("/v1/protected")
+    async def protected(claims=Depends(require_session)):
+        return {"user": claims.user_id}
+
+    return TestClient(app, base_url="https://testserver")
+
+
+class TestTokenRevocation:
+    def _ss(self):
+        priv, pub = _keys()
+        return SessionTokenService(priv, pub, "astra-auth", 900)
+
+    def test_revoked_session_id_is_rejected(self):
+        """JTI in Redis → 401 even though JWT signature is valid."""
+        ss = self._ss()
+        issued = _full(ss)
+        redis = _FakeRedis({f"revoked:session:{issued.session_id}": "1"})
+        client = _build_revoke_app(ss, redis)
+        _set_cookie(client, issued.token)
+        assert client.get("/v1/protected").status_code == 401
+
+    def test_valid_token_not_in_revocation_list_passes(self):
+        ss = self._ss()
+        redis = _FakeRedis()
+        client = _build_revoke_app(ss, redis)
+        _set_cookie(client, _full(ss).token)
+        assert client.get("/v1/protected").status_code == 200
+
+    def test_revocation_skipped_when_redis_none_fail_open(self):
+        """Redis down → fail-open: JWT still validates (15-min TTL is the safety net)."""
+        ss = self._ss()
+        client = _build_revoke_app(ss, redis=None)
+        _set_cookie(client, _full(ss).token)
+        assert client.get("/v1/protected").status_code == 200
+
+    def test_different_session_not_affected_by_another_revocation(self):
+        """Revoking session A must not affect session B for the same user."""
+        ss = self._ss()
+        session_a = _full(ss)
+        session_b = _full(ss)
+        redis = _FakeRedis({f"revoked:session:{session_a.session_id}": "1"})
+        client = _build_revoke_app(ss, redis)
+        # session_a: revoked → 401
+        _set_cookie(client, session_a.token)
+        assert client.get("/v1/protected").status_code == 401
+        # session_b: different JTI, not revoked → 200
+        _set_cookie(client, session_b.token)
+        assert client.get("/v1/protected").status_code == 200

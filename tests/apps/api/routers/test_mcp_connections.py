@@ -326,6 +326,147 @@ class TestCreateConnection:
         assert resp.status_code == 403
 
 
+# ── 4b. SSRF protection on endpoint_url ─────────────────────────────────────
+
+class TestSSRFValidation:
+    """endpoint_url must reject URLs that could reach ASTRA-internal infrastructure.
+
+    Validation blocks:
+      - RFC 1918 private IPs (10.x, 172.16-31.x, 192.168.x)
+      - Loopback (127.x)
+      - Link-local RFC 3927 (169.254.x) — on-prem self-configured addresses
+      - Known ASTRA K8s service names (vault, redis-cts, immudb, ...)
+      - Kubernetes cluster-internal DNS suffixes (.svc.cluster.local, ...)
+    Only applied to http:// and https:// schemes — redis://, sftp:// are
+    not HTTP clients and carry no SSRF risk via httpx.
+    """
+
+    def _client(self):
+        app, _ = _make_app()
+        return TestClient(app, raise_server_exceptions=False)
+
+    def _create_payload(self, url: str) -> dict:
+        return {
+            "connection_type": "SB_CBS",
+            "cbs_vendor": "finacle",
+            "endpoint_url": url,
+            "vault_secret_ref": "secret/astra/saraswat-coop/cbs/finacle",
+        }
+
+    # ── Blocked: private/internal IPs ─────────────────────────────────────
+
+    def test_rfc1918_10_block_rejected_at_create(self):
+        resp = self._client().post(
+            "/v1/admin/mcp-connections/",
+            json=self._create_payload("http://10.0.0.1/finacle/api"),
+        )
+        assert resp.status_code == 422
+
+    def test_rfc1918_172_block_rejected_at_create(self):
+        resp = self._client().post(
+            "/v1/admin/mcp-connections/",
+            json=self._create_payload("http://172.20.0.5/api"),
+        )
+        assert resp.status_code == 422
+
+    def test_rfc1918_192_block_rejected_at_create(self):
+        resp = self._client().post(
+            "/v1/admin/mcp-connections/",
+            json=self._create_payload("https://192.168.1.100/cbs"),
+        )
+        assert resp.status_code == 422
+
+    def test_loopback_rejected_at_create(self):
+        resp = self._client().post(
+            "/v1/admin/mcp-connections/",
+            json=self._create_payload("http://127.0.0.1/health"),
+        )
+        assert resp.status_code == 422
+
+    def test_link_local_rfc3927_rejected_at_create(self):
+        """169.254.0.0/16 is RFC 3927 link-local (on-prem self-configured) — not routable."""
+        resp = self._client().post(
+            "/v1/admin/mcp-connections/",
+            json=self._create_payload("http://169.254.0.1/api"),
+        )
+        assert resp.status_code == 422
+
+    # ── Blocked: ASTRA-internal Kubernetes service names ──────────────────
+
+    def test_vault_hostname_rejected_at_create(self):
+        resp = self._client().post(
+            "/v1/admin/mcp-connections/",
+            json=self._create_payload("http://vault:8200/v1/secret"),
+        )
+        assert resp.status_code == 422
+
+    def test_redis_cts_hostname_rejected_at_create(self):
+        resp = self._client().post(
+            "/v1/admin/mcp-connections/",
+            json=self._create_payload("http://redis-cts:6379/"),
+        )
+        assert resp.status_code == 422
+
+    def test_immudb_hostname_rejected_at_create(self):
+        resp = self._client().post(
+            "/v1/admin/mcp-connections/",
+            json=self._create_payload("http://immudb:3322/"),
+        )
+        assert resp.status_code == 422
+
+    # ── Blocked: Kubernetes cluster-internal DNS ───────────────────────────
+
+    def test_k8s_svc_cluster_local_rejected_at_create(self):
+        resp = self._client().post(
+            "/v1/admin/mcp-connections/",
+            json=self._create_payload(
+                "http://immudb.astra-cts-saraswat-coop.svc.cluster.local:3322/"
+            ),
+        )
+        assert resp.status_code == 422
+
+    # ── Also blocked on UPDATE ─────────────────────────────────────────────
+
+    def test_private_ip_rejected_at_update(self):
+        app, store = _make_app()
+        client = TestClient(app, raise_server_exceptions=False)
+        # Create a valid connection first
+        client.post("/v1/admin/mcp-connections/", json=_SB_CBS_PAYLOAD)
+        rows = client.get("/v1/admin/mcp-connections/").json()["connections"]
+        conn_id = rows[0]["id"]
+        resp = client.put(
+            f"/v1/admin/mcp-connections/{conn_id}",
+            json={"endpoint_url": "http://10.10.10.10/cbs"},
+        )
+        assert resp.status_code == 422
+
+    # ── Allowed: legitimate on-prem CBS endpoints ─────────────────────────
+
+    def test_on_prem_cbs_https_accepted(self):
+        """Bank's CBS uses .internal domain — must NOT be blocked."""
+        resp = self._client().post(
+            "/v1/admin/mcp-connections/",
+            json=_SB_CBS_PAYLOAD,   # https://cbs.saraswat.internal/finacle/api
+        )
+        assert resp.status_code == 201
+
+    def test_redis_scheme_bypasses_ssrf_check(self):
+        """redis:// scheme is not an HTTP client — no SSRF risk, must be allowed."""
+        resp = self._client().post(
+            "/v1/admin/mcp-connections/",
+            json=_SIG_VAULT_PAYLOAD,   # redis://redis-cts.astra-cts-saraswat-coop:6379
+        )
+        assert resp.status_code == 201
+
+    def test_none_endpoint_url_accepted(self):
+        """Optional field — None must not fail SSRF validation."""
+        resp = self._client().post(
+            "/v1/admin/mcp-connections/",
+            json={"connection_type": "SB_CBS", "cbs_vendor": "finacle"},
+        )
+        assert resp.status_code == 201
+
+
 # ── 5. Get single connection ─────────────────────────────────────────────────
 
 class TestGetConnection:

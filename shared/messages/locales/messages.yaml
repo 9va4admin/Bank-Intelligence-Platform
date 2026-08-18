@@ -597,6 +597,14 @@ CTS_KILL_SWITCH_ENGAGED:
   variables: [bank_id, mode, scope, engaged_by]
   en: "Vision AI kill switch ENGAGED for bank {bank_id} — mode: {mode}, scope: {scope}, by {engaged_by}. AI vision decisions suspended."
   hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_ai_platform
+    regulatory_reportable: false
+    auto_close_eligible: false
+    runbook_ref: "runbooks/cts/kill-switch-engaged.md"
 
 CTS_KILL_SWITCH_RELEASED:
   severity: INFO
@@ -2402,6 +2410,35 @@ AUTH_CONNECTOR_CONFIG_MISSING:
     regulatory_reportable: false
     auto_close_eligible: false
     runbook_ref: "runbooks/auth/connector-config-missing.md"
+
+AUTH_TOKEN_REPLAY_ATTEMPT:
+  severity: CRITICAL
+  surface: [AUDIT, NOTIFICATION]
+  variables: [session_display, bank_id, user_id]
+  en: "Revoked session token presented for user {user_id} at bank {bank_id} — session {session_display}. Possible session hijack. Force-re-authenticate this user."
+  hi: ""
+  incident:
+    incident_class: SECURITY
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: bank_infra
+    regulatory_reportable: true
+    auto_close_eligible: false
+    runbook_ref: "runbooks/auth/token-replay-detected.md"
+
+AUTH_SESSION_SELF_REVOKED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [user_id, bank_id]
+  en: "Session revoked by user {user_id} at bank {bank_id} (user-initiated logout)."
+  hi: ""
+
+AUTH_LOGIN_RATE_LIMIT_EXCEEDED:
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [ip_display, attempts, window_seconds]
+  en: "Login rate limit exceeded from {ip_display} — {attempts} attempts in {window_seconds}s window. Possible credential-stuffing or brute-force attack."
+  hi: ""
 
 # ────────────────────────────────────────────────────────────────────────
 # MSV — MULTI-SIGNATURE VALIDATION

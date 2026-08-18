@@ -17,8 +17,10 @@ from contextlib import asynccontextmanager
 
 import redis.asyncio as aioredis
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from apps.api.middleware.authentication import AuthenticationMiddleware
 from apps.api.middleware.rate_limit import RateLimitMiddleware
@@ -374,6 +376,25 @@ app.include_router(scanner.router_v1)
 app.include_router(scanner_configs.router_v1)
 if _env in ("development", "staging"):
     app.include_router(demo.router_v1)
+
+
+# --- Exception handlers ---
+
+@app.exception_handler(RequestValidationError)
+async def _validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Replace FastAPI's verbose 422 detail with a generic error — prevents schema disclosure."""
+    from opentelemetry import trace
+    span = trace.get_current_span()
+    ctx = span.get_span_context() if span else None
+    request_id = format(ctx.trace_id, "032x") if ctx and ctx.is_valid() else "unknown"
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error_code": "INVALID_REQUEST",
+            "message": "Request validation failed. Check required fields and data types.",
+            "request_id": request_id,
+        },
+    )
 
 
 # --- Health endpoints (no auth — Kubernetes probes) ---
