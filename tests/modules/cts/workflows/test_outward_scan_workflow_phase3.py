@@ -258,27 +258,34 @@ def _compliant_input(**overrides):
 
 @_activity.defn(name="ocr_extract")
 async def _fake_ocr_matching(inp):
+    from datetime import date, timedelta
     from modules.cts.workflows.activities.ocr import OCRActivityResult
+    valid_date = (date.today() - timedelta(days=10)).strftime("%d-%m-%Y")
     return OCRActivityResult(
         outcome="PROCEED", micr_line="123456789", amount_figures="45000.00",
-        overall_confidence=0.95, degraded=False,
+        overall_confidence=0.95, degraded=False, date=valid_date,
     )
 
 
 @_activity.defn(name="ocr_extract")
 async def _fake_ocr_low_quality(inp):
+    from datetime import date, timedelta
     from modules.cts.workflows.activities.ocr import OCRActivityResult
+    valid_date = (date.today() - timedelta(days=10)).strftime("%d-%m-%Y")
     return OCRActivityResult(
         outcome="PROCEED", micr_line="123456789", amount_figures="45000.00",
-        overall_confidence=0.3, degraded=False,
+        overall_confidence=0.3, degraded=False, date=valid_date,
     )
 
 
 @_activity.defn(name="ocr_extract")
 async def _fake_ocr_degraded(inp):
+    from datetime import date, timedelta
     from modules.cts.workflows.activities.ocr import OCRActivityResult
+    valid_date = (date.today() - timedelta(days=10)).strftime("%d-%m-%Y")
     return OCRActivityResult(
         outcome="HUMAN_REVIEW", degraded=True, low_confidence_reason="MODEL_UNAVAILABLE",
+        date=valid_date,
     )
 
 
@@ -341,6 +348,17 @@ async def _fake_check_security_features(inp, vllm_client=None, config_service=No
     )
 
 
+@_activity.defn(name="check_cheque_dedup")
+async def _fake_check_cheque_dedup(inp):
+    from modules.cts.workflows.activities.outward_scan_activities import ChequeDedupActivityResult
+    return ChequeDedupActivityResult(is_duplicate=False)
+
+
+@_activity.defn(name="record_outward_scan_event")
+async def _fake_record_outward_scan_event(inp):
+    return None
+
+
 def _worker(env, task_queue, ocr_fake, vision_fake, compliance_fake=_fake_validate_pass):
     from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
     from modules.cts.workflows.mismatch_resolution_workflow import MismatchResolutionWorkflow
@@ -351,6 +369,7 @@ def _worker(env, task_queue, ocr_fake, vision_fake, compliance_fake=_fake_valida
             ocr_fake, compliance_fake, _fake_lot, vision_fake,
             _fake_write_audit, _fake_publish_hold, _fake_detect_signatures_outward,
             _fake_check_security_features, _fake_cross_check,
+            _fake_check_cheque_dedup, _fake_record_outward_scan_event,
         ],
         workflow_runner=UnsandboxedWorkflowRunner(),
     )
@@ -381,6 +400,8 @@ class TestOutwardScanWorkflowRealRun:
         """Image metrics deliberately omitted from input — validate_cts2010
         (the REAL activity, not a fake) must fail closed, not fabricate a
         pass."""
+        from unittest.mock import AsyncMock, patch
+        from shared.config.config_service import config_service as _cfg
         from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
         from modules.cts.workflows.activities.outward_scan_activities import (
             validate_cts2010 as real_validate_cts2010,
@@ -388,16 +409,17 @@ class TestOutwardScanWorkflowRealRun:
 
         async with await WorkflowEnvironment.start_time_skipping() as env:
             task_queue = f"tq-{uuid.uuid4()}"
-            async with _worker(
-                env, task_queue, _fake_ocr_matching, _fake_vision_match,
-                compliance_fake=real_validate_cts2010,
-            ):
-                result = await env.client.execute_workflow(
-                    OutwardScanWorkflow.run,
-                    _compliant_input(front_dpi=None),
-                    id=f"cts-outscan-real-{uuid.uuid4().hex[:8]}",
-                    task_queue=task_queue,
-                )
+            with patch.object(_cfg, "get_cts_config", new=AsyncMock(return_value={"rear_image_required": "false"})):
+                async with _worker(
+                    env, task_queue, _fake_ocr_matching, _fake_vision_match,
+                    compliance_fake=real_validate_cts2010,
+                ):
+                    result = await env.client.execute_workflow(
+                        OutwardScanWorkflow.run,
+                        _compliant_input(front_dpi=None),
+                        id=f"cts-outscan-real-{uuid.uuid4().hex[:8]}",
+                        task_queue=task_queue,
+                    )
 
         assert result.outcome == "CTS_REJECTED"
         assert result.violations == ["MISSING_IMAGE_METRICS"]
@@ -455,6 +477,8 @@ class TestOutwardScanWorkflowRealRun:
         real one here would hit the same pre-existing no-pydantic-converter
         gap as the child-workflow-result case above (unrelated to this
         workflow's own wiring, already tracked separately)."""
+        from unittest.mock import AsyncMock, patch
+        from shared.config.config_service import config_service as _cfg
         from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
         from modules.cts.workflows.activities.outward_scan_activities import (
             validate_cts2010 as real_validate_cts2010,
@@ -462,16 +486,17 @@ class TestOutwardScanWorkflowRealRun:
 
         async with await WorkflowEnvironment.start_time_skipping() as env:
             task_queue = f"tq-{uuid.uuid4()}"
-            async with _worker(
-                env, task_queue, _fake_ocr_degraded, _fake_vision_match,
-                compliance_fake=real_validate_cts2010,
-            ):
-                result = await env.client.execute_workflow(
-                    OutwardScanWorkflow.run,
-                    _compliant_input(scan_id="SCAN-DEGRADED-01", instrument_id="OUT-DEGRADED-01"),
-                    id=f"cts-outscan-real-{uuid.uuid4().hex[:8]}",
-                    task_queue=task_queue,
-                )
+            with patch.object(_cfg, "get_cts_config", new=AsyncMock(return_value={"rear_image_required": "false"})):
+                async with _worker(
+                    env, task_queue, _fake_ocr_degraded, _fake_vision_match,
+                    compliance_fake=real_validate_cts2010,
+                ):
+                    result = await env.client.execute_workflow(
+                        OutwardScanWorkflow.run,
+                        _compliant_input(scan_id="SCAN-DEGRADED-01", instrument_id="OUT-DEGRADED-01"),
+                        id=f"cts-outscan-real-{uuid.uuid4().hex[:8]}",
+                        task_queue=task_queue,
+                    )
 
         assert result.outcome == "CTS_REJECTED"
         assert result.violations == ["MISSING_IMAGE_METRICS"]
