@@ -1,0 +1,433 @@
+<title>Vault Upload Tests</title>
+<style>
+  /*
+   * Design plan:
+   * Palette: deep navy page · slate cards · emerald pass · slate text
+   * Type: system UI stack for body; Consolas for test names
+   * Layout: KPI strip → two-panel (per file) → grouped class tables
+   * Single-theme: committed dark — bank operator / terminal feel
+   */
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --page:     #020817;
+    --card:     #0f172a;
+    --card2:    #162032;
+    --row-alt:  #0d1829;
+    --border:   rgba(255,255,255,.07);
+    --pass:     #22c55e;
+    --pass-bg:  rgba(34,197,94,.12);
+    --fail:     #ef4444;
+    --accent:   #3b82f6;
+    --accent-2: #60a5fa;
+    --text:     #f1f5f9;
+    --muted:    #94a3b8;
+    --faint:    #475569;
+    --mono:     'Consolas', 'Menlo', 'Courier New', monospace;
+    --sans:     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  body {
+    background: var(--page);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+    padding: 0 0 48px;
+  }
+
+  /* ── Header ── */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .header-badge {
+    background: var(--accent);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+  .header-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .header-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-left: auto;
+  }
+
+  /* ── KPI strip ── */
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    padding: 20px 32px 0;
+  }
+  .kpi {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+  }
+  .kpi-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .kpi-value {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text);
+  }
+  .kpi-value.green { color: var(--pass); }
+  .kpi-value.blue  { color: var(--accent-2); }
+  .kpi-value.small { font-size: 18px; color: var(--muted); }
+  .kpi-note {
+    font-size: 11px;
+    color: var(--faint);
+    margin-top: 4px;
+  }
+
+  /* ── Section ── */
+  .section {
+    margin: 24px 32px 0;
+  }
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .section-file {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--faint);
+  }
+  .section-count {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ── Class block ── */
+  .class-block {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  .class-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--card2);
+  }
+  .class-name {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-2);
+  }
+  .class-count {
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: auto;
+  }
+  .pill {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 20px;
+    letter-spacing: .05em;
+  }
+  .pill-pass { background: var(--pass-bg); color: var(--pass); }
+
+  /* ── Test row ── */
+  .test-row {
+    display: grid;
+    grid-template-columns: 22px 1fr 70px;
+    align-items: center;
+    padding: 7px 14px;
+    border-bottom: 1px solid rgba(255,255,255,.03);
+    gap: 8px;
+  }
+  .test-row:last-child { border-bottom: none; }
+  .test-row:nth-child(even) { background: var(--row-alt); }
+  .test-icon { font-size: 13px; }
+  .test-name {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .test-status {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    color: var(--pass);
+    text-align: right;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    margin: 28px 32px 0;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .footer-item { font-size: 11px; color: var(--faint); }
+  .footer-item b { color: var(--muted); font-weight: 600; }
+</style>
+
+<div class="header">
+  <div class="header-badge">ASTRA</div>
+  <div class="header-title">Vault Upload Test Results</div>
+  <div class="header-sub">2026-08-18 · branch claude/cool-euler-x02gek · commit 221937b</div>
+</div>
+
+<div class="kpi-strip">
+  <div class="kpi">
+    <div class="kpi-label">Total Tests</div>
+    <div class="kpi-value blue">64</div>
+    <div class="kpi-note">2 test files</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Passed</div>
+    <div class="kpi-value green">64</div>
+    <div class="kpi-note">100% pass rate</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Failed</div>
+    <div class="kpi-value">0</div>
+    <div class="kpi-note">zero regressions</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Run Time</div>
+    <div class="kpi-value small">2.08s</div>
+    <div class="kpi-note">pytest 9.1.0 · Python 3.12</div>
+  </div>
+</div>
+
+<!-- ── FILE 1 ── -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-title">UI Upload Path</span>
+    <span class="section-file">tests/modules/cts/vaults/test_vault_upload_processor.py</span>
+    <span class="section-count">35 tests</span>
+  </div>
+
+  <div class="class-block">
+    <div class="class-head">
+      <span class="class-name">TestUnknownVaultType</span>
+      <span class="pill pill-pass">2 PASS</span>
+      <span class="class-count">unknown vault_type → ValueError</span>
+    </div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_unknown_vault_type_raises</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_all_valid_vault_types_accepted</span><span class="test-status">PASSED</span></div>
+  </div>
+
+  <div class="class-block">
+    <div class="class-head">
+      <span class="class-name">TestMissingColumns</span>
+      <span class="pill pill-pass">3 PASS</span>
+      <span class="class-count">header validation → ValueError with column name</span>
+    </div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_pps_missing_cheque_number_raises</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_cheque_book_missing_series_end_raises</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_leaf_status_missing_new_status_raises</span><span class="test-status">PASSED</span></div>
+  </div>
+
+  <div class="class-block">
+    <div class="class-head">
+      <span class="class-name">TestInvalidAction</span>
+      <span class="pill pill-pass">2 PASS</span>
+      <span class="class-count">invalid action → failed row, not crash</span>
+    </div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_invalid_action_counted_as_failed_row</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_valid_actions_not_flagged_as_invalid</span><span class="test-status">PASSED</span></div>
+  </div>
+
+  <div class="class-block">
+    <div class="class-head">
+      <span class="class-name">TestPPSHappyPath</span>
+      <span class="pill pill-pass">11 PASS</span>
+      <span class="class-count">5 RBI-mandated fields · DEACTIVATE→CANCEL · paise conversion</span>
+    </div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_upsert_calls_store_pps</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_bank_id_is_processor_constructor_value</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_amount_converted_to_paise</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_whole_rupee_amount_to_paise</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_deactivate_maps_to_cancel</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_upsert_action_passed_as_upsert</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_non_numeric_amount_fails_row</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_multiple_rows_all_processed</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_partial_failure_tracked</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_pps_vault_not_configured_fails_row</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_registration_channel_defaults_to_branch_upload</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_registration_channel_from_csv</span><span class="test-status">PASSED</span></div>
+  </div>
+
+  <div class="class-block">
+    <div class="class-head">
+      <span class="class-name">TestChequeBookUpload</span>
+      <span class="pill pill-pass">4 PASS</span>
+      <span class="class-count">series_start ≤ series_end invariant</span>
+    </div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_insert_only_calls_store_book</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_series_start_greater_than_end_fails_row</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_equal_series_start_end_valid</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_cheque_leaf_vault_not_configured_fails_row</span><span class="test-status">PASSED</span></div>
+  </div>
+
+  <div class="class-block">
+    <div class="class-head">
+      <span class="class-name">TestLeafStatusUpload</span>
+      <span class="pill pill-pass">4 PASS</span>
+      <span class="class-count">DEACTIVATE→STOPPED · not-found on UPDATE_ONLY is not an error</span>
+    </div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_update_only_calls_set_leaf_status</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_leaf_not_found_on_update_only_not_an_error</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_deactivate_forces_status_to_stopped</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_leaf_vault_not_configured_fails_row</span><span class="test-status">PASSED</span></div>
+  </div>
+
+  <div class="class-block">
+    <div class="class-head">
+      <span class="class-name">TestSignatureUpload</span>
+      <span class="pill pill-pass">3 PASS</span>
+      <span class="class-count">DB ON CONFLICT upsert · DEACTIVATE sets is_active=False</span>
+    </div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_insert_only_executes_db_upsert</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_signature_vault_not_configured_fails_row</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_deactivate_passes_is_active_false</span><span class="test-status">PASSED</span></div>
+  </div>
+
+  <div class="class-block">
+    <div class="class-head">
+      <span class="class-name">TestBatchLifecycle</span>
+      <span class="pill pill-pass">5 PASS</span>
+      <span class="class-count">UUID batch_id · no-pool graceful · row index starts at 2</span>
+    </div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_batch_id_is_uuid</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_no_db_pool_still_processes_rows</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_sftp_channel_accepted</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_empty_csv_zero_rows</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_error_row_index_starts_at_2</span><span class="test-status">PASSED</span></div>
+  </div>
+</div>
+
+<!-- ── FILE 2 ── -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-title">File-Drop Path</span>
+    <span class="section-file">tests/modules/cts/workflows/test_vault_file_drop_workflow.py</span>
+    <span class="section-count">29 tests</span>
+  </div>
+
+  <div class="class-block">
+    <div class="class-head">
+      <span class="class-name">TestVaultFileDropInput</span>
+      <span class="pill pill-pass">3 PASS</span>
+      <span class="class-count">frozen model · feed_name default · all vault types accepted</span>
+    </div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_input_is_frozen</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_feed_name_defaults_to_sftp</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_valid_vault_types_accepted</span><span class="test-status">PASSED</span></div>
+  </div>
+
+  <div class="class-block">
+    <div class="class-head">
+      <span class="class-name">TestFetchDropFile</span>
+      <span class="pill pill-pass">5 PASS</span>
+      <span class="class-count">MinIO=None · SHA-256 mismatch · FETCH_FAILED exception</span>
+    </div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_minio_none_returns_error</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_hash_mismatch_returns_error</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_hash_match_returns_bytes</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_minio_get_object_exception_returns_error</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_bank_id_present_in_activity_log</span><span class="test-status">PASSED</span></div>
+  </div>
+
+  <div class="class-block">
+    <div class="class-head">
+      <span class="class-name">TestProcessVaultCSV</span>
+      <span class="pill pill-pass">6 PASS</span>
+      <span class="class-count">DB_UNAVAILABLE · unknown type · upload_channel=SFTP enforced</span>
+    </div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_db_pool_none_returns_error</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_unknown_vault_type_returns_error</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_valid_csv_returns_batch_result</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_upload_channel_is_sftp</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_changed_by_system_feed_name</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_processor_exception_returns_error</span><span class="test-status">PASSED</span></div>
+  </div>
+
+  <div class="class-block">
+    <div class="class-head">
+      <span class="class-name">TestArchiveDropFile</span>
+      <span class="pill pill-pass">4 PASS</span>
+      <span class="class-count">non-fatal on any exception · copy then remove · archive bucket</span>
+    </div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_minio_none_does_not_crash</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_happy_path_copy_then_remove</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_archive_exception_does_not_raise</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_archive_destination_bucket_is_vault_archive</span><span class="test-status">PASSED</span></div>
+  </div>
+
+  <div class="class-block">
+    <div class="class-head">
+      <span class="class-name">TestVaultFileDropWorkflowRouting</span>
+      <span class="pill pill-pass">11 PASS</span>
+      <span class="class-count">all 4 terminal outcomes · bank_id · row count propagation</span>
+    </div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_happy_path_vault_updated</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_fetch_error_returns_parse_failed</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_minio_unavailable_returns_parse_failed</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_duplicate_file_returns_duplicate_skipped</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_process_error_returns_vault_update_failed</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_unknown_vault_type_returns_parse_failed</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_bank_id_always_in_result</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_vault_type_in_result</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_row_counts_propagated_from_process_result</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_parse_failed_has_no_batch_id</span><span class="test-status">PASSED</span></div>
+    <div class="test-row"><span class="test-icon">✓</span><span class="test-name">test_workflow_id_format</span><span class="test-status">PASSED</span></div>
+  </div>
+</div>
+
+<div class="footer">
+  <span class="footer-item"><b>Commit</b> 221937b</span>
+  <span class="footer-item"><b>Branch</b> claude/cool-euler-x02gek</span>
+  <span class="footer-item"><b>Processor tests</b> test_vault_upload_processor.py · 35 tests · UI + SFTP channels</span>
+  <span class="footer-item"><b>Workflow tests</b> test_vault_file_drop_workflow.py · 29 tests · fetch / process / archive / routing</span>
+  <span class="footer-item"><b>Vault types covered</b> PPS · CHEQUE_BOOK · LEAF_STATUS · SIGNATURE · ACCOUNT_DETAIL</span>
+  <span class="footer-item"><b>Runtime</b> 2.08s · pytest 9.1.0 · Python 3.12.10 · Win32</span>
+</div>
