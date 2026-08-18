@@ -34,13 +34,13 @@ Raw account numbers never appear as Redis keys, DB columns, or logs.
 """
 from __future__ import annotations
 
-import hashlib
-import hmac
 from dataclasses import dataclass
 from datetime import date, datetime, timezone, timedelta
 from typing import Any, Optional
 
 import structlog
+
+from shared.utils.pii_crypto import encrypt_pii, hash_account_number
 
 log = structlog.get_logger()
 
@@ -83,11 +83,7 @@ class PPSVault:
     # ------------------------------------------------------------------
 
     def _account_hash(self, account_number: str) -> str:
-        return hmac.new(
-            self._pepper.encode(),
-            f"{self._bank_id}:{account_number}".encode(),
-            hashlib.sha256,
-        ).hexdigest()
+        return hash_account_number(account_number, self._bank_id, self._pepper)
 
     def _make_key(self, account_number: str, cheque_number: str) -> str:
         """Redis key: pps:{bank_id}:{hmac}:{cheque_number}"""
@@ -260,10 +256,10 @@ class PPSVault:
 
                     new_status = "CANCELLED" if action == "CANCEL" else "REGISTERED"
 
-                    # payee_name_enc: store encrypted in DB via pgcrypto
-                    # For now stored as plaintext bytes (pgcrypto key integration is
-                    # handled at the DB trigger level or by the CBS connector layer)
-                    payee_bytes = payee.encode("utf-8") if payee else None
+                    # Encrypt payee name with pgcrypto — key from Vault
+                    from shared.config.config_service import config_service as _cs
+                    pii_key = _cs.get_secret(f"banks.{self._bank_id}.pii_enc_key")
+                    payee_bytes = await encrypt_pii(payee or "", pii_key, conn) if payee else None
 
                     await conn.execute(
                         """

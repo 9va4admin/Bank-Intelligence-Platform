@@ -34,14 +34,13 @@ Raw account numbers NEVER appear in Redis keys, cache keys, or DB columns.
 """
 from __future__ import annotations
 
-import hashlib
-import hmac
 from dataclasses import dataclass
 from typing import Optional
 
 import structlog
 
 from shared.ai.signature_embedding import pack_embedding, unpack_embedding
+from shared.utils.pii_crypto import hash_account_number
 
 log = structlog.get_logger()
 
@@ -81,11 +80,7 @@ class SignatureVault:
 
     def _account_hash(self, account_number: str) -> str:
         """HMAC-SHA256 of account number — never stored raw anywhere."""
-        return hmac.new(
-            self._pepper.encode(),
-            f"{self._bank_id}:{account_number}".encode(),
-            hashlib.sha256,
-        ).hexdigest()
+        return hash_account_number(account_number, self._bank_id, self._pepper)
 
     def _make_key(self, account_number: str, signatory_id: str = "PRIMARY") -> str:
         """Redis key: sig:{bank_id}:{hmac}:{signatory_id}"""

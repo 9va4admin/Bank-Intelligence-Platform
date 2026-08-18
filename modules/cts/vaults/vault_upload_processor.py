@@ -34,6 +34,8 @@ from typing import Any, Optional
 
 import structlog
 
+from shared.utils.pii_crypto import encrypt_pii, hash_account_number
+
 log = structlog.get_logger()
 
 _VALID_ACTIONS = frozenset({"UPSERT", "INSERT_ONLY", "UPDATE_ONLY", "DEACTIVATE"})
@@ -269,13 +271,7 @@ class VaultUploadProcessor:
         if not isinstance(self._account_vault, AccountVault):
             raise RuntimeError("AccountVault not configured in processor")
 
-        pepper = self._account_vault._pepper
-        import hashlib, hmac as _hmac
-        account_hash = _hmac.new(
-            pepper.encode(),
-            f"{self._bank_id}:{acct}".encode(),
-            hashlib.sha256,
-        ).hexdigest()
+        account_hash = hash_account_number(acct, self._bank_id, self._account_vault._pepper)
 
         if self._db_pool is None:
             raise RuntimeError("DB pool not configured in processor")
@@ -296,6 +292,11 @@ class VaultUploadProcessor:
                     return
                 is_active = action != "DEACTIVATE"
 
+                # Encrypt full holder name with pgcrypto via pii_crypto utility
+                from shared.config.config_service import config_service as _cs
+                pii_key = _cs.get_secret(f"banks.{self._bank_id}.pii_enc_key")
+                holder_name_enc = await encrypt_pii(holder_name, pii_key, conn)
+
                 if existing:
                     await conn.execute(
                         """
@@ -313,21 +314,22 @@ class VaultUploadProcessor:
                 await conn.execute(
                     """
                     INSERT INTO cts.account_vault_detail
-                      (bank_id, account_hash, holder_seq, holder_name_display,
-                       role, pan_last4, is_active, upload_batch_id,
+                      (bank_id, account_hash, holder_seq, holder_name_encrypted,
+                       holder_name_display, role, pan_last4, is_active, upload_batch_id,
                        created_at, updated_at)
-                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,now(),now())
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now(),now())
                     ON CONFLICT (bank_id, account_hash, holder_seq)
                     DO UPDATE SET
-                        holder_name_display = EXCLUDED.holder_name_display,
-                        role                = EXCLUDED.role,
-                        pan_last4           = EXCLUDED.pan_last4,
-                        is_active           = EXCLUDED.is_active,
-                        upload_batch_id     = EXCLUDED.upload_batch_id,
-                        updated_at          = now()
+                        holder_name_encrypted = EXCLUDED.holder_name_encrypted,
+                        holder_name_display   = EXCLUDED.holder_name_display,
+                        role                  = EXCLUDED.role,
+                        pan_last4             = EXCLUDED.pan_last4,
+                        is_active             = EXCLUDED.is_active,
+                        upload_batch_id       = EXCLUDED.upload_batch_id,
+                        updated_at            = now()
                     """,
-                    self._bank_id, account_hash, holder_seq, holder_display,
-                    role, pan_last4, is_active, batch_id,
+                    self._bank_id, account_hash, holder_seq, holder_name_enc,
+                    holder_display, role, pan_last4, is_active, batch_id,
                 )
 
                 # Recompute holder_names array on parent account_vault row
@@ -405,13 +407,7 @@ class VaultUploadProcessor:
         if self._signature_vault is None:
             raise RuntimeError("SignatureVault not configured in processor")
 
-        pepper = self._signature_vault._pepper
-        import hashlib, hmac as _hmac
-        account_hash = _hmac.new(
-            pepper.encode(),
-            f"{self._bank_id}:{acct}".encode(),
-            hashlib.sha256,
-        ).hexdigest()
+        account_hash = hash_account_number(acct, self._bank_id, self._signature_vault._pepper)
 
         is_active = action != "DEACTIVATE"
 

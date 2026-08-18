@@ -15,8 +15,6 @@ except scanner OEM is explicitly configured per branch rather than auto-detected
 from __future__ import annotations
 
 import csv
-import hashlib
-import hmac
 import io
 import structlog
 
@@ -35,6 +33,7 @@ from pydantic import BaseModel, field_validator
 # ScannerOEM is the single source of truth in models.py — re-exported here for
 # backward compatibility (file_watcher.py and tests import it from mapper).
 from modules.cts.scanner.models import ScannerOEM  # noqa: F401
+from shared.utils.pii_crypto import hash_account_number
 
 
 # ── Bundle status ──────────────────────────────────────────────────────────────
@@ -256,8 +255,7 @@ class ScannerDropFolderMapper:
         """
         acct = account_number.strip()
         pepper = self._get_pepper()
-        message = f"{self._cfg.bank_id}:{acct}".encode()
-        digest = hmac.new(pepper.encode(), message, hashlib.sha256).hexdigest()
+        digest = hash_account_number(acct, self._cfg.bank_id, pepper)
         suffix = acct[-4:] if len(acct) >= 4 else acct
         return digest, suffix
 
