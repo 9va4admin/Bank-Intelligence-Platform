@@ -183,12 +183,6 @@ from modules.cts.workflows.feedback_workflow import (
     ModelRetrainWorkflow,
     FeedbackEmitWorkflow,
 )
-from modules.cts.workflows.activities.feedback_activities import (
-    emit_payee_feedback_signal,
-    emit_micr_feedback_signal,
-    dispatch_retrain_job,
-    run_shadow_evaluation,
-)
 from modules.cts.workflows.activities.hold_escalation import (
     send_hold_reminder,
     send_hold_critical_alert,
@@ -340,11 +334,8 @@ NO_DI_ACTIVITIES = [
     # Post-dated hold persistence (PostDatedHoldWorkflow)
     store_postdated_hold,
     mark_hold_cancelled,
-    # OCR feedback loop — no DI needed (accumulate/threshold/promote are in BoundCTSActivities)
-    emit_payee_feedback_signal,
-    emit_micr_feedback_signal,
-    dispatch_retrain_job,
-    run_shadow_evaluation,
+    # OCR feedback loop — accumulate/threshold/promote/emit/dispatch/shadow are
+    # all in BoundCTSActivities (db_pool injection required)
 ]
 
 
