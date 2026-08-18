@@ -27,7 +27,6 @@ All system messages — UI text, audit log entries, notifications — live in ex
 | `CBS` | Core Banking System connector events |
 | `VAULT` | Signature vault and PPS vault events |
 | `AUTH` | Authentication, session, RBAC, user management |
-| `EJ` | ATM Electronic Journal processing and disputes |
 | `PLATFORM` | Infrastructure: config, policy, audit, model, DC, Kafka |
 
 **STEP 2 — Run the build:** `python -m shared.messages.build`
