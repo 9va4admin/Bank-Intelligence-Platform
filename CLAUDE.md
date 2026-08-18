@@ -361,7 +361,7 @@ NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
 4. **NPCI API Modernisation Phase A** — trigger: NPCI concept note acceptance; see [docs/npci-readiness-plan.md](docs/npci-readiness-plan.md)
 5. **Security hardening** — OWASP ZAP + pen test prep
 
-**Open security findings:** All code-level findings closed as of `4dd6b13` (2026-08-09 VAPT pre-clearance). See `docs/astra-vapt-security-architecture.html` for the current architecture reference package (DFD, network topology, threat model, port matrix).
+**Open security findings:** All code-level findings closed as of `4b9a3e1` (2026-08-18). Closed in this sprint: token revocation JTI blocklist, login rate limiting, SSRF in MCP endpoint_url, FastAPI 422 schema disclosure, IDOR (403→404 on cross-bank schedule and cross-SMB MCP connection access). See `docs/astra-vapt-security-architecture.html` for the architecture reference package (DFD, network topology, threat model, port matrix).
 
 **Remaining VAPT blockers (non-code):**
 - Staging/pre-prod K8s environment (pilot bank deploy prerequisite)

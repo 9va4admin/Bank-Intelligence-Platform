@@ -747,10 +747,14 @@ def _row_to_response(row: dict) -> MCPConnectionResponse:
 
 
 def _scope_check(user: dict, row: dict):
-    """Raise 403 if SMB user tries to access a row belonging to a different SMB."""
+    """Raise 404 if SMB user tries to access a row belonging to a different SMB.
+
+    404 (not 403) is deliberate IDOR protection: a 403 would reveal the resource
+    exists, giving a cross-SMB existence oracle. 404 is opaque — same as not found.
+    """
     if user["bank_type"] == "SMB":
         if row.get("smb_id") != user.get("smb_id"):
-            raise HTTPException(status_code=403, detail="Access denied: not your SMB connection")
+            raise HTTPException(status_code=404, detail="Connection not found")
 
 
 # ── Router ───────────────────────────────────────────────────────────────────

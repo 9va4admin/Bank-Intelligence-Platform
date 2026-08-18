@@ -1140,3 +1140,54 @@ class TestCTSSubmitCtsConfigWiring:
                 )
         # Must not 500 — degrade to empty cts_config, workflow uses its built-in defaults
         assert response.status_code in (200, 202)
+
+
+# ── IDOR: schedule cross-bank ownership ──────────────────────────────────────
+
+class TestScheduleIDOR:
+    """Accessing a Temporal schedule that belongs to a different bank must return
+    404 — not 403. 403 reveals the schedule exists (existence oracle = IDOR)."""
+
+    def _make_schedule_app(self, bank_id: str):
+        from apps.api.routers.cts import router_v1, get_current_bank_id
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_current_bank_id] = lambda: bank_id
+        return TestClient(app, raise_server_exceptions=False)
+
+    # The schedule ID pattern is: cts-vaultsync-schedule-{bank_id}
+    # A caller whose bank_id is "bank-b" should see 404 for a schedule
+    # whose name contains "bank-a" (because "bank-b" is not in "...-bank-a").
+
+    def test_update_schedule_wrong_bank_returns_404_not_403(self):
+        client = self._make_schedule_app("bank-b")
+        resp = client.patch(
+            "/v1/cts/schedules/cts-vaultsync-schedule-bank-a",
+            json={"cron": "0 6 * * *"},
+        )
+        assert resp.status_code == 404, f"Expected 404 (IDOR), got {resp.status_code}"
+
+    def test_pause_schedule_wrong_bank_returns_404_not_403(self):
+        client = self._make_schedule_app("bank-b")
+        resp = client.post(
+            "/v1/cts/schedules/cts-vaultsync-schedule-bank-a/pause",
+        )
+        assert resp.status_code == 404, f"Expected 404 (IDOR), got {resp.status_code}"
+
+    def test_resume_schedule_wrong_bank_returns_404_not_403(self):
+        client = self._make_schedule_app("bank-b")
+        resp = client.post(
+            "/v1/cts/schedules/cts-vaultsync-schedule-bank-a/resume",
+        )
+        assert resp.status_code == 404, f"Expected 404 (IDOR), got {resp.status_code}"
+
+    def test_update_schedule_own_bank_is_allowed(self):
+        """Sanity: own bank's schedule must NOT be blocked."""
+        client = self._make_schedule_app("bank-a")
+        resp = client.patch(
+            "/v1/cts/schedules/cts-vaultsync-schedule-bank-a",
+            json={"cron": "0 6 * * *"},
+        )
+        # 200 (no temporal client) or 503 (temporal unavailable) — both are fine;
+        # the point is it must NOT be 403 or 404.
+        assert resp.status_code not in (403, 404), f"Own bank blocked: {resp.status_code}"

@@ -19,7 +19,7 @@ Coverage targets:
   - SMB_CBS requires smb_id → 422 without it
   - Duplicate connection → 409
   - endpoint_url is masked in every response (never returned raw)
-  - SMB admin cannot access another SMB's connection → 403
+  - SMB admin cannot access another SMB's connection → 404 (IDOR: no existence oracle)
   - test_connection: success path + failure path
   - trigger_sync: only CBS types, only ACTIVE connections
   - preflight: all ACTIVE → clearing_allowed=True; any non-ACTIVE → blocked
@@ -506,7 +506,77 @@ class TestGetConnection:
 
         smb_client2 = TestClient(smb_app2, raise_server_exceptions=False)
         resp = smb_client2.get(f"/v1/admin/mcp-connections/{created['id']}")
-        assert resp.status_code == 403
+        # IDOR fix: must be 404, not 403 — 403 would reveal the connection exists
+        assert resp.status_code == 404
+
+
+# ── 5b. IDOR protection — cross-SMB resource access ──────────────────────────
+
+class TestIDORProtection:
+    """Accessing a resource that exists but belongs to a different SMB must return
+    404 — not 403. A 403 tells the caller the resource exists, which is an IDOR
+    existence oracle. A 404 is opaque and leaks nothing."""
+
+    def _sb_store_with_smb_conn(self):
+        """Create an SB-owned store with one SMB_CBS connection for smb-ucb-001."""
+        from apps.api.routers.mcp_connections import get_current_user, get_connection_tester, get_store, router_v1, _ConnectionStore
+        from fastapi import FastAPI
+        sb_app = FastAPI()
+        sb_app.include_router(router_v1)
+        sb_store = _ConnectionStore()
+        sb_app.dependency_overrides[get_store] = lambda: sb_store
+        sb_app.dependency_overrides[get_current_user] = lambda: {
+            "bank_id": "saraswat-coop",
+            "user_id": "sb-admin",
+            "role": "bank_it_admin",
+            "bank_type": "SB",
+            "smb_id": None,
+        }
+        async def _ok(row): return True, 10, None
+        sb_app.dependency_overrides[get_connection_tester] = lambda: _ok
+        sb_client = TestClient(sb_app, raise_server_exceptions=False)
+        created = sb_client.post("/v1/admin/mcp-connections/", json=_SMB_CBS_PAYLOAD).json()
+        return sb_store, created["id"]
+
+    def _smb_client(self, store, smb_id="smb-ucb-INTRUDER"):
+        from apps.api.routers.mcp_connections import get_current_user, get_connection_tester, get_store, router_v1
+        from fastapi import FastAPI
+        app = FastAPI()
+        app.include_router(router_v1)
+        app.dependency_overrides[get_store] = lambda: store
+        app.dependency_overrides[get_current_user] = lambda: {
+            "bank_id": "saraswat-coop",
+            "user_id": "intruder-smb-admin",
+            "role": "bank_it_admin",
+            "bank_type": "SMB",
+            "smb_id": smb_id,
+        }
+        async def _ok(row): return True, 10, None
+        app.dependency_overrides[get_connection_tester] = lambda: _ok
+        return TestClient(app, raise_server_exceptions=False)
+
+    def test_get_different_smb_connection_returns_404_not_403(self):
+        store, conn_id = self._sb_store_with_smb_conn()
+        resp = self._smb_client(store).get(f"/v1/admin/mcp-connections/{conn_id}")
+        assert resp.status_code == 404, f"Expected 404 (IDOR), got {resp.status_code}"
+
+    def test_update_different_smb_connection_returns_404_not_403(self):
+        store, conn_id = self._sb_store_with_smb_conn()
+        resp = self._smb_client(store).put(
+            f"/v1/admin/mcp-connections/{conn_id}",
+            json={"cbs_vendor": "bancs"},
+        )
+        assert resp.status_code == 404, f"Expected 404 (IDOR), got {resp.status_code}"
+
+    def test_delete_different_smb_connection_returns_404_not_403(self):
+        store, conn_id = self._sb_store_with_smb_conn()
+        resp = self._smb_client(store).delete(f"/v1/admin/mcp-connections/{conn_id}")
+        assert resp.status_code == 404, f"Expected 404 (IDOR), got {resp.status_code}"
+
+    def test_test_different_smb_connection_returns_404_not_403(self):
+        store, conn_id = self._sb_store_with_smb_conn()
+        resp = self._smb_client(store).post(f"/v1/admin/mcp-connections/{conn_id}/test")
+        assert resp.status_code == 404, f"Expected 404 (IDOR), got {resp.status_code}"
 
 
 # ── 6. Update connection ─────────────────────────────────────────────────────
