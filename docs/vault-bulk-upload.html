@@ -716,6 +716,10 @@ tr:hover td { background: var(--surface2); }
       <div class="dl-role">Min. role <span>ops_manager</span></div>
     </div>
 
+    <div class="callout note">
+      <strong>bank_id is never a CSV column.</strong> Every row is automatically scoped to the authenticated user's bank (for UI uploads, from the session JWT; for SFTP file-drop, from the MinIO path <code>astra-vault-drops/{bank_id}/stop_payment/</code>). Do not add a <code>bank_id</code> column — the system will reject files that include it.
+    </div>
+
     <div class="section-label">Field specification</div>
     <div class="table-wrap">
       <table>
@@ -793,6 +797,10 @@ tr:hover td { background: var(--surface2); }
         <div class="vault-title">Account Vault</div>
         <div class="vault-desc">Two-file upload: <strong>Summary</strong> carries one operational record per account (branch contacts, type, status); <strong>Detail</strong> carries one row per holder per account (holder identity and role). ASTRA derives the masked display string from Detail rows — the bank never constructs it directly. Covers all account structures: individual, joint, corporate, HUF, partnership, and trust.</div>
       </div>
+    </div>
+
+    <div class="callout note">
+      <strong>bank_id is never a CSV column.</strong> Every row is automatically scoped to the authenticated user's bank (for UI uploads, from the session JWT; for SFTP file-drop, from the MinIO path <code>astra-vault-drops/{bank_id}/account_detail/</code>). Do not add a <code>bank_id</code> column — the system will reject files that include it.
     </div>
 
     <div class="callout note">
@@ -1049,6 +1057,10 @@ tr:hover td { background: var(--surface2); }
       <div class="dl-role">Min. role <span>bank_it_admin</span></div>
     </div>
 
+    <div class="callout note">
+      <strong>bank_id is never a CSV column.</strong> Every row is automatically scoped to the authenticated user's bank (for UI uploads, from the session JWT; for SFTP file-drop, from the MinIO path <code>astra-vault-drops/{bank_id}/cheque_book/</code> or <code>astra-vault-drops/{bank_id}/leaf_status/</code>). Do not add a <code>bank_id</code> column — the system will reject files that include it.
+    </div>
+
     <div class="section-label">Field specification</div>
     <div class="table-wrap">
       <table>
@@ -1130,6 +1142,10 @@ tr:hover td { background: var(--surface2); }
       <div class="dl-label">Part 1 — Signatory CSV</div>
       <div class="dl-filename">signatory_upload.csv</div>
       <div class="dl-role">Min. role <span>bank_it_admin</span></div>
+    </div>
+
+    <div class="callout note">
+      <strong>bank_id is never a CSV column.</strong> Every row is automatically scoped to the authenticated user's bank (for UI uploads, from the session JWT; for SFTP file-drop, from the MinIO path <code>astra-vault-drops/{bank_id}/signature/</code>). Do not add a <code>bank_id</code> column — the system will reject files that include it.
     </div>
 
     <div class="section-label">Field specification — signatory_upload.csv</div>
