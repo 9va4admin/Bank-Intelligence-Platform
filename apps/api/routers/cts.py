@@ -899,7 +899,8 @@ async def update_schedule(
     """
     # Verify the schedule belongs to the caller's bank — prevents cross-bank tampering
     if bank_id not in schedule_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Schedule does not belong to your bank")
+        # 404 not 403 — IDOR: a 403 reveals the schedule exists (cross-bank existence oracle)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
     temporal_client = getattr(request.app.state, "temporal_client", None)
     if temporal_client is not None:
         try:
@@ -939,7 +940,8 @@ async def pause_schedule(
 ) -> ScheduleUpdateResponse:
     """Pause a Temporal Schedule — future runs are suppressed."""
     if bank_id not in schedule_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Schedule does not belong to your bank")
+        # 404 not 403 — IDOR: a 403 reveals the schedule exists (cross-bank existence oracle)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
     temporal_client = getattr(request.app.state, "temporal_client", None)
     if temporal_client is not None:
         try:
@@ -972,7 +974,8 @@ async def resume_schedule(
 ) -> ScheduleUpdateResponse:
     """Resume a paused Temporal Schedule."""
     if bank_id not in schedule_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Schedule does not belong to your bank")
+        # 404 not 403 — IDOR: a 403 reveals the schedule exists (cross-bank existence oracle)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
     temporal_client = getattr(request.app.state, "temporal_client", None)
     if temporal_client is not None:
         try:
