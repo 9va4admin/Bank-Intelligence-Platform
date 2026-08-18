@@ -28,6 +28,9 @@ class NGCHFilerInput(BaseModel):
     return_reason_code: Optional[str] = None
     # False = CBS must suppress return charge for this instrument
     is_customer_fault: Optional[bool] = None
+    # For leaf lifecycle writes — set by ChequeProcessingWorkflow
+    account_number: Optional[str] = None
+    cheque_number: Optional[str] = None
 
 
 class NGCHFilerResult(BaseModel):
@@ -42,6 +45,7 @@ async def file_to_ngch(
     inp: NGCHFilerInput,
     ngch_adapter,
     event_producer,
+    cheque_leaf_vault=None,
 ) -> NGCHFilerResult:
     """
     File cheque decision to NGCH. Exactly-once via idempotency_key = workflow_id.
@@ -88,6 +92,30 @@ async def file_to_ngch(
         },
         schema_version="1.0",
     )
+
+    # Update cheque leaf vault — fire-and-forget; never blocks the return value
+    if cheque_leaf_vault is not None and inp.account_number and inp.cheque_number:
+        try:
+            if inp.decision == "CONFIRM":
+                await cheque_leaf_vault.mark_paid(
+                    account_number=inp.account_number,
+                    cheque_number=inp.cheque_number,
+                    instrument_id=inp.instrument_id,
+                )
+            else:
+                await cheque_leaf_vault.mark_returned(
+                    account_number=inp.account_number,
+                    cheque_number=inp.cheque_number,
+                    instrument_id=inp.instrument_id,
+                    return_reason_code=inp.return_reason_code,
+                )
+        except Exception as _leaf_exc:
+            log.warning(
+                "ngch_filer.leaf_status_update_failed",
+                instrument_id=inp.instrument_id,
+                decision=inp.decision,
+                error=str(_leaf_exc),
+            )
 
     return NGCHFilerResult(
         acknowledgement_id=response.get("acknowledgement_id", ""),

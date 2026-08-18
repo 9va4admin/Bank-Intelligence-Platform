@@ -216,6 +216,43 @@ class ChequeProcessingWorkflow:
         )
         self._watchdog_spawned = True
 
+        # Step 2: Mark leaf as PRESENTED in the vault immediately.
+        # DuplicatePresentmentError → STP_RETURN (no AI work for a known duplicate).
+        # Any other vault error → logged and ignored (IET breach > vault miss).
+        from modules.cts.workflows.activities.leaf_lifecycle import (
+            MarkLeafPresentedInput, mark_leaf_presented,
+        )
+        from modules.cts.vaults.cheque_leaf_vault import DuplicatePresentmentError
+        try:
+            await workflow.execute_activity(
+                mark_leaf_presented,
+                MarkLeafPresentedInput(
+                    bank_id=inp.bank_id,
+                    account_number=inp.account_number,
+                    cheque_number=inp.cheque_number,
+                    instrument_id=inp.instrument_id,
+                ),
+                start_to_close_timeout=timedelta(seconds=10),
+                retry_policy=RetryPolicy(
+                    maximum_attempts=2,
+                    non_retryable_error_types=["DuplicatePresentmentError"],
+                ),
+            )
+        except Exception as _leaf_exc:
+            if "DuplicatePresentmentError" in type(_leaf_exc).__name__ or \
+               "DuplicatePresentmentError" in str(_leaf_exc):
+                return await finalise(
+                    "STP_RETURN",
+                    "DUPLICATE_PRESENTMENT: cheque leaf already PRESENTED or PAID",
+                )
+            # Non-duplicate vault error — log and continue (never block IET)
+            log.warning(
+                "cheque_workflow.mark_presented_failed",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                error=str(_leaf_exc),
+            )
+
         human_review_timeout = int(
             inp.cts_config.get("human_review_max_wait_minutes", 55)
         )
