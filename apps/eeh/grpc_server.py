@@ -92,21 +92,21 @@ _FETCH_MISMATCH_SQL = """
 SELECT mismatch_id, status, scan_id, mismatch_fields, held_at,
        vision_finding, scanner_data, lot_id
 FROM cts.mismatch_queue
-WHERE mismatch_id = $1
+WHERE mismatch_id = $1 AND bank_id = $2
 """
 
 _FETCH_HELD_MISMATCHES_SQL = """
 SELECT mismatch_id, scan_id, held_at, mismatch_fields,
        vision_finding, scanner_data, lot_id
 FROM cts.mismatch_queue
-WHERE branch_id = $1 AND status = $2
+WHERE bank_id = $1 AND branch_id = $2 AND status = $3
 ORDER BY held_at ASC
 """
 
 _RESOLVE_MISMATCH_SQL = """
 UPDATE cts.mismatch_queue
 SET status = $2, resolved_at = NOW(), resolved_by = $3, updated_at = NOW()
-WHERE mismatch_id = $1
+WHERE mismatch_id = $1 AND bank_id = $4
 """
 
 _FETCH_SESSION_SQL = """
