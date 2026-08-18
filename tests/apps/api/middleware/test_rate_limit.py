@@ -58,6 +58,61 @@ class TestWindowKey:
         assert "hdfc-bank" in key
         assert "cts_inward_submit" in key
 
+
+class TestLoginRateLimitSlug:
+    """Login path must have its own rate-limit slug — currently missing (RED)."""
+
+    def test_auth_login_resolves_to_slug(self):
+        assert _resolve_slug("/v1/auth/login") == "auth_login"
+
+    def test_auth_mfa_verify_resolves_to_slug(self):
+        assert _resolve_slug("/v1/auth/mfa/verify") == "auth_mfa_verify"
+
+    def test_auth_mfa_enrol_resolves_to_slug(self):
+        assert _resolve_slug("/v1/auth/mfa/enrol/begin") == "auth_mfa_enrol"
+
+    def test_auth_login_limit_is_10_per_minute(self):
+        from apps.api.middleware.rate_limit import _ENDPOINT_LIMITS
+        limit, by_bank = _ENDPOINT_LIMITS["auth_login"]
+        assert limit == 10
+        assert by_bank is False  # keyed per-IP, not per-bank (no bank_id at login time)
+
+    def test_auth_mfa_verify_limit_is_10_per_minute(self):
+        from apps.api.middleware.rate_limit import _ENDPOINT_LIMITS
+        limit, by_bank = _ENDPOINT_LIMITS["auth_mfa_verify"]
+        assert limit == 10
+        assert by_bank is False
+
+
+class TestLoginRateLimitEnforcement:
+    """Auth login returns 429 after 10 requests in the same window."""
+
+    def _build_login_app(self, redis):
+        from apps.api.middleware.rate_limit import RateLimitMiddleware
+        app = FastAPI()
+        app.state.redis_cts = redis
+        app.add_middleware(RateLimitMiddleware)
+
+        @app.post("/v1/auth/login")
+        async def login():
+            return {"ok": True}
+
+        return TestClient(app, base_url="https://testserver")
+
+    def test_login_rate_limited_after_threshold(self):
+        class _OverLimitRedis:
+            """Always reports count above limit — simulates an exhausted window."""
+            def pipeline(self):
+                class _Pipe:
+                    def incr(self_p, key): return self_p
+                    def expire(self_p, key, ttl): return self_p
+                    async def execute(self_p): return [999, True]
+                return _Pipe()
+
+        client = self._build_login_app(_OverLimitRedis())
+        r = client.post("/v1/auth/login")
+        assert r.status_code == 429
+
     def test_key_includes_minute_window(self):
         minute = int(time.time()) // 60
         key = _window_key("hdfc-bank", "cts_inward_submit")

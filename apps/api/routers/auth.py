@@ -61,6 +61,11 @@ def get_auth_service(request: Request) -> AuthService:
     return svc
 
 
+def get_redis(request: Request):
+    """Returns redis_cts from app.state; may be None if Redis is unavailable."""
+    return getattr(request.app.state, "redis_cts", None)
+
+
 # --------------------------------------------------------------------------- #
 # Models
 # --------------------------------------------------------------------------- #
@@ -261,8 +266,34 @@ async def refresh(
 
 
 @router_v1.post("/logout", response_model=LogoutResponse)
-async def logout(request: Request, response: Response) -> LogoutResponse:
-    # Clearing your own cookie is idempotent and low-risk — no CSRF gate needed.
+async def logout(
+    request: Request,
+    response: Response,
+    redis=Depends(get_redis),
+) -> LogoutResponse:
+    # Write a revocation record so the JTI is rejected by AuthenticationMiddleware
+    # even if the httpOnly cookie was captured (e.g., network intercept, XSS on a
+    # misconfigured CSP). TTL = remaining session lifetime so Redis auto-expires it.
+    token = request.cookies.get(_COOKIE)
+    if token and redis is not None:
+        session_service = getattr(request.app.state, "session_service", None)
+        if session_service is not None:
+            try:
+                claims = session_service.validate(token)
+                remaining_ttl = max(1, int(claims.expires_at - time.time()))
+                await redis.setex(
+                    f"revoked:session:{claims.session_id}",
+                    remaining_ttl,
+                    "1",
+                )
+                log.info(
+                    "auth.session_revoked",
+                    bank_id=claims.bank_id,
+                    user_id=claims.user_id,
+                )
+            except Exception:
+                pass  # expired / invalid token — cookie clear is still the primary control
+
     _clear_session_cookie(response)
     return LogoutResponse(status="OK")
 

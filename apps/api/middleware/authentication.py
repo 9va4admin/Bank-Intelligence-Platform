@@ -32,10 +32,29 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
 
-        # Resolve the session once — never raises (absent/invalid -> None).
-        request.state.user = self._resolve(request)
+        # Resolve JWT (synchronous — crypto + expiry only).
+        claims = self._resolve(request)
+
+        # Revocation check: consult Redis for the JTI blocklist.
+        # Fail-open: if Redis is unavailable, the 15-min JWT TTL is the fallback safety net.
+        if claims is not None:
+            redis = getattr(request.app.state, "redis_cts", None)
+            if redis is not None:
+                try:
+                    if await redis.exists(f"revoked:session:{claims.session_id}"):
+                        log.warning(
+                            "auth.token_replay_attempt",
+                            session_id=claims.session_id,
+                            bank_id=claims.bank_id,
+                            user_id=claims.user_id,
+                        )
+                        claims = None
+                except Exception:
+                    pass  # Redis error → fail-open
+
+        request.state.user = claims
         # RateLimitMiddleware keys per-bank limits off this (falls back to IP if unset).
-        request.state.bank_id = request.state.user.bank_id if request.state.user else None
+        request.state.bank_id = claims.bank_id if claims else None
 
         # CSRF on unsafe methods, once a session exists, outside bootstrap/public.
         if (
