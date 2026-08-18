@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ASTRA Vault Architecture Reference</title>
+<style>
+:root{
+  --ink:#0B1520;--ink2:#2C3E52;--paper:#F4F7FB;--surf:#FFFFFF;--surf2:#EDF2F8;
+  --rule:#D0DAE8;--accent:#1A50A0;--acbg:#E6EEF9;--muted:#627080;
+  --cbg:#E9EFF8;--cink:#1D3A60;
+  --pk-bg:#1A50A0;--pk-ink:#fff;
+  --fk-bg:#E6EEF9;--fk-ink:#1A50A0;--fk-b:#1A50A0;
+  --uq-bg:#EEF0F3;--uq-ink:#445060;--uq-b:#9AAABB;
+  --idx-bg:#F0F3F6;--idx-ink:#637080;
+  --nn-bg:#F0F3F6;--nn-ink:#445060;
+  --hash-bg:#D1F0EB;--hash-ink:#0B6B5E;
+  --enc-bg:#FEF3E2;--enc-ink:#7A4200;
+  --mask-bg:#E3F2E8;--mask-ink:#166534;
+  --new-bg:#DCFCE7;--new-ink:#14532D;
+  --cbs-bg:#FFF7ED;--cbs-ink:#9A4E00;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;
+  --mono:'SF Mono','Cascadia Code','Fira Code',Consolas,'Courier New',monospace;
+  --sw:220px;
+}
+@media(prefers-color-scheme:dark){:root{
+  --ink:#C8D6E5;--ink2:#8FA4BB;--paper:#0C1320;--surf:#111C2C;--surf2:#172236;
+  --rule:#1D2F45;--accent:#5080D4;--acbg:#132040;--muted:#7A8FA8;--cbg:#0F1B2C;--cink:#7EB8F7;
+  --pk-bg:#1A50A0;--pk-ink:#E8F0FF;
+  --fk-bg:#13243C;--fk-ink:#6FA0E8;--fk-b:#3A6AB0;
+  --uq-bg:#1A2535;--uq-ink:#8FA4BB;--uq-b:#2C3F55;
+  --idx-bg:#151F2E;--idx-ink:#7A8FA8;--nn-bg:#1A2535;--nn-ink:#8FA4BB;
+  --hash-bg:#0D2A26;--hash-ink:#4DC9B8;--enc-bg:#2A1C08;--enc-ink:#F0A940;
+  --mask-bg:#0F2218;--mask-ink:#4ADE80;--new-bg:#0A2016;--new-ink:#4ADE80;
+  --cbs-bg:#261808;--cbs-ink:#FBA04A;
+}}
+:root[data-theme=dark]{
+  --ink:#C8D6E5;--ink2:#8FA4BB;--paper:#0C1320;--surf:#111C2C;--surf2:#172236;
+  --rule:#1D2F45;--accent:#5080D4;--acbg:#132040;--muted:#7A8FA8;--cbg:#0F1B2C;--cink:#7EB8F7;
+  --pk-bg:#1A50A0;--pk-ink:#E8F0FF;--fk-bg:#13243C;--fk-ink:#6FA0E8;--fk-b:#3A6AB0;
+  --uq-bg:#1A2535;--uq-ink:#8FA4BB;--uq-b:#2C3F55;--idx-bg:#151F2E;--idx-ink:#7A8FA8;
+  --nn-bg:#1A2535;--nn-ink:#8FA4BB;--hash-bg:#0D2A26;--hash-ink:#4DC9B8;
+  --enc-bg:#2A1C08;--enc-ink:#F0A940;--mask-bg:#0F2218;--mask-ink:#4ADE80;
+  --new-bg:#0A2016;--new-ink:#4ADE80;--cbs-bg:#261808;--cbs-ink:#FBA04A;
+}
+:root[data-theme=light]{
+  --ink:#0B1520;--ink2:#2C3E52;--paper:#F4F7FB;--surf:#FFFFFF;--surf2:#EDF2F8;
+  --rule:#D0DAE8;--accent:#1A50A0;--acbg:#E6EEF9;--muted:#627080;--cbg:#E9EFF8;--cink:#1D3A60;
+  --pk-bg:#1A50A0;--pk-ink:#fff;--fk-bg:#E6EEF9;--fk-ink:#1A50A0;--fk-b:#1A50A0;
+  --uq-bg:#EEF0F3;--uq-ink:#445060;--uq-b:#9AAABB;--idx-bg:#F0F3F6;--idx-ink:#637080;
+  --nn-bg:#F0F3F6;--nn-ink:#445060;--hash-bg:#D1F0EB;--hash-ink:#0B6B5E;
+  --enc-bg:#FEF3E2;--enc-ink:#7A4200;--mask-bg:#E3F2E8;--mask-ink:#166534;
+  --new-bg:#DCFCE7;--new-ink:#14532D;--cbs-bg:#FFF7ED;--cbs-ink:#9A4E00;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);font-size:14px;line-height:1.65;color:var(--ink);background:var(--paper)}
+a{color:var(--accent);text-decoration:none}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.shell{display:flex;align-items:flex-start;max-width:1160px;margin:0 auto;padding:0 20px}
+.sidebar{width:var(--sw);flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto;padding:28px 0;border-right:1px solid var(--rule)}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--rule)}
+.main{flex:1;min-width:0;padding:36px 0 80px 44px;max-width:880px}
+.nl{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:18px}
+.nsl{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:16px 0 5px}
+.nav-a{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink2);padding:3px 12px 3px 0;white-space:nowrap;transition:color .12s}
+.nav-a:hover{color:var(--accent)}
+.nd{width:6px;height:6px;border-radius:50%;background:var(--rule);flex-shrink:0}
+.nd.cts{background:#1A50A0}.nd.msv{background:#5B3EA8}.nd.rd{background:#D4391A}.nd.nw{background:#16A34A}
+.tgl{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);cursor:pointer;background:none;border:1px solid var(--rule);border-radius:3px;padding:3px 8px;margin-top:20px;transition:border-color .12s,color .12s}
+.tgl:hover{border-color:var(--accent);color:var(--accent)}
+/* doc header */
+.dh{padding-bottom:24px;border-bottom:1px solid var(--rule);margin-bottom:32px}
+.eye{font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+.dtitle{font-size:25px;font-weight:800;line-height:1.2;color:var(--ink);letter-spacing:-.02em;margin-bottom:6px;text-wrap:balance}
+.dsub{font-size:13.5px;color:var(--muted);max-width:560px;line-height:1.5}
+.dmeta{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.chip{font-size:11px;font-family:var(--mono);color:var(--muted);background:var(--surf2);border:1px solid var(--rule);border-radius:3px;padding:2px 7px}
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:32px}
+.sc{background:var(--surf);border:1px solid var(--rule);border-left:3px solid var(--accent);border-radius:3px;padding:12px 14px}
+.sn{font-size:22px;font-weight:800;color:var(--ink);line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.sl{font-size:9.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:3px}
+/* section */
+.sec{margin-bottom:48px;scroll-margin-top:20px}
+.seye{font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.stitle{font-size:19px;font-weight:700;color:var(--ink);letter-spacing:-.015em;text-wrap:balance;margin-bottom:3px}
+.ssub{font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5}
+.sdiv{height:1px;background:var(--rule);margin:44px 0}
+/* vault header */
+.vh{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
+.vid{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.06em;color:#fff;background:var(--accent);padding:2px 7px;border-radius:3px;flex-shrink:0;margin-top:2px}
+.vid.msv{background:#5B3EA8}.vid.ro{background:#D4391A}
+.vtitle{font-size:16px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.vpath{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:1px}
+/* two-tier */
+.tiers{display:flex;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-bottom:16px}
+.tier{flex:1;padding:14px 16px;background:var(--surf)}
+.tier+.tier{border-left:1px solid var(--rule)}
+.tn{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:5px}
+.tn.hot{color:#D4391A}.tn.dur{color:var(--accent)}
+.td{font-size:12px;color:var(--muted);line-height:1.55}
+.tk{font-family:var(--mono);font-size:10.5px;color:var(--cink);background:var(--cbg);border-radius:2px;padding:2px 5px;display:inline-block;margin-top:5px;word-break:break-all;line-height:1.7}
+/* info box */
+.ib{border-left:3px solid var(--accent);background:var(--acbg);padding:11px 14px;border-radius:0 3px 3px 0;margin-bottom:14px;font-size:12.5px;color:var(--ink2);line-height:1.55}
+.ib strong{color:var(--ink)}
+.ib.warn{border-color:#D97706;background:var(--cbs-bg);color:var(--cbs-ink)}
+.ib.new{border-color:#16A34A;background:var(--new-bg);color:var(--new-ink)}
+.pbnr{display:inline-flex;align-items:center;gap:6px;background:var(--new-bg);color:var(--new-ink);font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:3px;margin-bottom:10px}
+/* schema table */
+.tlabel{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;margin-top:18px}
+.tname{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--ink);margin-bottom:8px}
+.tname .sp{color:var(--muted);font-weight:400}
+.tw{overflow-x:auto;margin-bottom:24px}
+.st{width:100%;border-collapse:collapse;font-size:12px;border:1px solid var(--rule)}
+.st thead tr{background:var(--surf2)}
+.st th{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:left;padding:7px 11px;border-bottom:1px solid var(--rule);white-space:nowrap}
+.st td{padding:6px 11px;border-bottom:1px solid var(--rule);vertical-align:top}
+.st tbody tr:last-child td{border-bottom:none}
+.st tbody tr:nth-child(even) td{background:var(--surf2)}
+.st tbody tr:hover td{background:var(--acbg)}
+.cn{font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--ink);white-space:nowrap}
+.ct{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap}
+.cc{white-space:nowrap}
+.co{font-size:12px;color:var(--ink2);line-height:1.5;max-width:300px}
+/* badges */
+.b{display:inline-flex;align-items:center;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.04em;border-radius:2px;padding:1px 4px;margin-right:2px;margin-bottom:1px;white-space:nowrap;vertical-align:middle}
+.bpk{background:var(--pk-bg);color:var(--pk-ink)}
+.bfk{background:var(--fk-bg);color:var(--fk-ink);border:1px solid var(--fk-b)}
+.buq{background:var(--uq-bg);color:var(--uq-ink);border:1px solid var(--uq-b)}
+.bidx{background:var(--idx-bg);color:var(--idx-ink)}
+.bnn{background:var(--nn-bg);color:var(--nn-ink)}
+.bhash{background:var(--hash-bg);color:var(--hash-ink)}
+.benc{background:var(--enc-bg);color:var(--enc-ink)}
+.bmask{background:var(--mask-bg);color:var(--mask-ink)}
+.bnew{background:var(--new-bg);color:var(--new-ink)}
+.bcbs{background:var(--cbs-bg);color:var(--cbs-ink)}
+/* indexes */
+.il{}
+.ir{display:flex;gap:8px;font-size:12px;padding:5px 0;border-bottom:1px solid var(--rule);align-items:flex-start}
+.ir:last-child{border-bottom:none}
+.it{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.06em;padding:1px 5px;border-radius:2px;white-space:nowrap;flex-shrink:0}
+.it.bt{background:var(--idx-bg);color:var(--idx-ink)}
+.it.uq{background:var(--uq-bg);color:var(--uq-ink);border:1px solid var(--uq-b)}
+.it.pt{background:var(--cbs-bg);color:var(--cbs-ink)}
+.ic{font-family:var(--mono);font-size:11px;color:var(--cink);flex:1;word-break:break-all}
+.in{color:var(--muted);font-size:11px;flex-shrink:0}
+/* sync table */
+.synct{width:100%;border-collapse:collapse;font-size:12.5px;border:1px solid var(--rule);margin-bottom:20px}
+.synct th{background:var(--surf2);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:7px 11px;text-align:left;border-bottom:1px solid var(--rule)}
+.synct td{padding:8px 11px;border-bottom:1px solid var(--rule);vertical-align:top}
+.synct tbody tr:last-child td{border-bottom:none}
+.synct tbody tr:hover td{background:var(--acbg)}
+/* csv block */
+.csv{background:var(--cbg);border:1px solid var(--rule);border-radius:3px;font-family:var(--mono);font-size:11.5px;color:var(--cink);padding:12px 14px;margin-bottom:14px;overflow-x:auto;line-height:1.75}
+/* steps */
+.steps{list-style:none;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-bottom:20px}
+.step{display:flex;gap:12px;align-items:flex-start;padding:11px 14px;border-bottom:1px solid var(--rule);background:var(--surf)}
+.step:last-child{border-bottom:none}
+.snum{flex-shrink:0;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;font-size:9.5px;font-weight:800;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;margin-top:1px}
+.snum.nw{background:#16A34A}
+.sbody{font-size:12.5px;line-height:1.55}
+.sbody strong{color:var(--ink);display:block;margin-bottom:1px}
+.sbody span{color:var(--ink2)}
+.sbody code{font-family:var(--mono);font-size:11px;background:var(--cbg);color:var(--cink);padding:1px 4px;border-radius:2px}
+/* recommendation */
+.rec{border:1px solid #16A34A;border-radius:3px;background:var(--new-bg);padding:16px 18px;margin-bottom:20px}
+.rec h4{font-size:9.5px;font-weight:700;color:var(--new-ink);margin-bottom:8px;text-transform:uppercase;letter-spacing:.1em}
+.rec ul{list-style:none}
+.rec li{padding:3px 0 3px 16px;font-size:12.5px;color:var(--ink2);position:relative;line-height:1.55}
+.rec li::before{content:'→';position:absolute;left:0;color:#16A34A;font-weight:700}
+/* redis ref */
+.rr{display:grid;grid-template-columns:1fr 70px 1fr;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--rule);font-size:12px}
+.rr:last-child{border-bottom:none}
+.rkey{font-family:var(--mono);font-size:11px;color:var(--cink);word-break:break-all}
+.rtype{font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 5px;border-radius:2px;text-align:center;background:var(--surf2);color:var(--muted)}
+.rtype.list{background:var(--hash-bg);color:var(--hash-ink)}
+.rtype.hash{background:var(--cbs-bg);color:var(--cbs-ink)}
+.rnote{font-size:12px;color:var(--ink2)}
+@media(max-width:760px){
+  .shell{flex-direction:column;padding:0 14px}
+  .sidebar{position:static;width:100%;height:auto;border-right:none;border-bottom:1px solid var(--rule);padding:14px 0;overflow-x:auto}
+  .main{padding:24px 0 60px}
+  .tiers{flex-direction:column}
+  .tier+.tier{border-left:none;border-top:1px solid var(--rule)}
+  .rr{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="nl">ASTRA</div>
+  <div class="nsl">Document</div>
+  <a href="#overview" class="nav-a"><span class="nd"></span>Overview</a>
+  <a href="#arch" class="nav-a"><span class="nd"></span>Two-Tier Pattern</a>
+  <div class="nsl">CTS Vaults</div>
+  <a href="#v1" class="nav-a"><span class="nd cts"></span>V1 — Signature</a>
+  <a href="#v2" class="nav-a"><span class="nd cts"></span>V2 — PPS</a>
+  <a href="#v3" class="nav-a"><span class="nd cts"></span>V3 — Account</a>
+  <a href="#v4" class="nav-a"><span class="nd cts"></span>V4 — Cheque Leaf</a>
+  <a href="#v5" class="nav-a"><span class="nd cts"></span>V5 — Stop Payment</a>
+  <div class="nsl">MSV Vault</div>
+  <a href="#v6" class="nav-a"><span class="nd msv"></span>V6 — Signatory Registry</a>
+  <div class="nsl">Sync &amp; Seeding</div>
+  <a href="#sync" class="nav-a"><span class="nd"></span>Sync Mechanisms</a>
+  <a href="#bulk" class="nav-a"><span class="nd nw"></span>Bulk CSV Seeding ✦</a>
+  <div class="nsl">Reference</div>
+  <a href="#redis" class="nav-a"><span class="nd rd"></span>Redis Key Map</a>
+  <button class="tgl" onclick="toggleTheme()"><span id="ti">◐</span> Theme</button>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- HEADER -->
+<div class="dh" id="overview">
+  <div class="eye">ASTRA — Automated Settlement and Transaction Recognition Architecture</div>
+  <h1 class="dtitle">Vault Architecture Reference</h1>
+  <p class="dsub">Complete schema for all miniature vault databases across CTS and MSV — primary keys, foreign keys, indexes, Redis patterns, sync mechanisms, and the proposed bulk CSV seeding design.</p>
+  <div class="dmeta">
+    <span class="chip">v2.2 · 2026-08-13</span>
+    <span class="chip">6 vaults · 2 modules</span>
+    <span class="chip">YugabyteDB YSQL + Redis Cluster</span>
+    <span class="chip">confidential</span>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="sc"><div class="sn">6</div><div class="sl">Vault Instances</div></div>
+  <div class="sc"><div class="sn">14</div><div class="sl">DB Tables</div></div>
+  <div class="sc"><div class="sn">2</div><div class="sl">Redis Clusters</div></div>
+  <div class="sc"><div class="sn">&lt;5ms</div><div class="sl">Lookup SLA</div></div>
+  <div class="sc"><div class="sn">0</div><div class="sl">Raw Acct# Stored</div></div>
+</div>
+
+<!-- ARCH -->
+<div class="sec" id="arch">
+  <div class="seye">Architecture</div>
+  <h2 class="stitle">Two-Tier Vault Pattern</h2>
+  <p class="ssub">Every vault (except Cheque Leaf) uses the same architecture: Redis as the sub-millisecond hot cache during the IET decision window, YugabyteDB as the durable source of truth that survives Redis restarts without needing a CBS call.</p>
+  <div class="tiers">
+    <div class="tier">
+      <div class="tn hot">Tier 1 — Hot (Redis)</div>
+      <div class="td">Sub-millisecond lookup. Keyed by HMAC-SHA256 — raw account numbers never appear as Redis keys. No TTL on signature/account vaults — refreshed by VaultSyncWorkflow daily at 07:00. Cold restart: warm from YugabyteDB, no CBS call needed.</div>
+      <div class="tk">sig:{bank_id}:{hmac(bank_id:acct)}:{signatory_id}</div>
+    </div>
+    <div class="tier">
+      <div class="tn dur">Tier 2 — Durable (YugabyteDB)</div>
+      <div class="td">Source of truth. Active-active across 2 DCs (RPO=0). Not queried during the 600ms IET decision window — only on Redis miss or cold-start warm. Audit trail of every sync event, CBS version, and model version.</div>
+      <div class="tk">cts.signature_embeddings<br>cts.account_signatories<br>cts.pps_vault_entries …</div>
+    </div>
+  </div>
+  <div class="ib"><strong>Vault miss policy (non-negotiable, Layer 1):</strong> Any miss — Redis error, key not found, or DB error — always routes to <code style="font-family:var(--mono);font-size:11px;background:var(--cbg);color:var(--cink);padding:1px 4px;border-radius:2px">HUMAN_REVIEW</code>. Never <code style="font-family:var(--mono);font-size:11px;background:var(--cbg);color:var(--cink);padding:1px 4px;border-radius:2px">AUTO_RETURN</code>.</div>
+</div>
+
+<div class="sdiv"></div>
+
+<!-- V1 SIGNATURE -->
+<div class="sec" id="v1">
+  <div class="seye">CTS Module · redis-cts cluster · modules/cts/vaults/signature_vault.py</div>
+  <div class="vh">
+    <div class="vid">V1</div>
+    <div><div class="vtitle">Signature Vault</div><div class="vpath">3 tables · Redis LIST per signatory</div></div>
+  </div>
+  <div class="tiers">
+    <div class="tier">
+      <div class="tn hot">Redis Hot Cache</div>
+      <div class="td">One Redis LIST per signatory per account. Each item is a packed float32 embedding (2048 bytes). No TTL. Process-local in-memory cache as L0 before Redis.</div>
+      <div class="tk">sig:{bank_id}:{hmac}:{signatory_id}</div>
+    </div>
+    <div class="tier">
+      <div class="tn dur">YugabyteDB — 3 tables</div>
+      <div class="td"><strong>signature_embeddings</strong> — actual vectors<br><strong>account_signatories</strong> — mandate rules (ANY_ONE / ALL_REQUIRED / QUORUM_N)<br><strong>signature_vault_entries</strong> — CBS metadata + MinIO image ref</div>
+    </div>
+  </div>
+
+  <div class="tlabel">Table A — Embedding vectors (source of truth)</div>
+  <div class="tname"><span class="sp">cts.</span>signature_embeddings</div>
+  <div class="tw"><table class="st">
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="cn">id</td><td class="ct">UUID</td><td class="cc"><span class="b bpk">PK</span></td><td class="co">uuid_generate_v4()</td></tr>
+      <tr><td class="cn">bank_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bfk">FK</span><span class="b bnn">NN</span></td><td class="co">→ platform.banks.bank_id</td></tr>
+      <tr><td class="cn">account_hash</td><td class="ct">TEXT</td><td class="cc"><span class="b bhash">HASH</span><span class="b bnn">NN</span></td><td class="co">HMAC-SHA256(bank_pepper, bank_id:account_number). Raw account never stored.</td></tr>
+      <tr><td class="cn">signatory_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">'PRIMARY' for retail/single. Named ID for joint/corporate. Default 'PRIMARY'.</td></tr>
+      <tr><td class="cn">specimen_index</td><td class="ct">SMALLINT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">0–9. CHECK (BETWEEN 0 AND 9). Up to 10 specimens per signatory.</td></tr>
+      <tr><td class="cn">embedding</td><td class="ct">BYTEA</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">512-dim float32 · 2048 bytes. Siamese network output. Not human-interpretable PII.</td></tr>
+      <tr><td class="cn">source</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">CHECK IN ('CBS', 'CBS_FALLBACK', 'BULK_UPLOAD'). Tracks provenance.</td></tr>
+      <tr><td class="cn">created_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT now()</td></tr>
+      <tr><td class="cn">updated_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT now(). Auto-updated via trigger on every UPDATE.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="il">
+    <div class="ir"><span class="it uq">UNIQUE</span><span class="ic">uq_sig_emb_account_signatory_specimen (bank_id, account_hash, signatory_id, specimen_index)</span></div>
+    <div class="ir"><span class="it bt">BTREE</span><span class="ic">idx_sig_emb_lookup (bank_id, account_hash, signatory_id)</span><span class="in">Primary read path</span></div>
+  </div>
+
+  <div class="tlabel">Table B — Mandate rules per account</div>
+  <div class="tname"><span class="sp">cts.</span>account_signatories</div>
+  <div class="tw"><table class="st">
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="cn">id</td><td class="ct">UUID</td><td class="cc"><span class="b bpk">PK</span></td><td class="co">uuid_generate_v4()</td></tr>
+      <tr><td class="cn">bank_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co"></td></tr>
+      <tr><td class="cn">account_hash</td><td class="ct">TEXT</td><td class="cc"><span class="b bhash">HASH</span><span class="b bnn">NN</span></td><td class="co">HMAC-SHA256. Same pepper as signature_embeddings.</td></tr>
+      <tr><td class="cn">signatory_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Matches signatory_id in signature_embeddings.</td></tr>
+      <tr><td class="cn">role</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">PRIMARY / JOINT / CFO / DIRECTOR / TRUSTEE etc. Default 'PRIMARY'.</td></tr>
+      <tr><td class="cn">name_masked</td><td class="ct">TEXT</td><td class="cc"><span class="b bmask">MASK</span><span class="b bnn">NN</span></td><td class="co">Format 'R***'. CBS-provided. Full name never stored. Default '***'.</td></tr>
+      <tr><td class="cn">mandate_rule</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">CHECK: 'ANY_ONE' | 'ALL_REQUIRED' | LIKE 'QUORUM_%'. Default 'ANY_ONE'.</td></tr>
+      <tr><td class="cn">quorum_n</td><td class="ct">SMALLINT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">N for QUORUM_N_OF_M. CHECK (≥1). Default 1.</td></tr>
+      <tr><td class="cn">is_active</td><td class="ct">BOOLEAN</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT TRUE. Set FALSE on CBS revocation.</td></tr>
+      <tr><td class="cn">synced_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT now()</td></tr>
+      <tr><td class="cn">created_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT now()</td></tr>
+    </tbody>
+  </table></div>
+  <div class="il">
+    <div class="ir"><span class="it uq">UNIQUE</span><span class="ic">(bank_id, account_hash, signatory_id)</span></div>
+    <div class="ir"><span class="it pt">PARTIAL</span><span class="ic">idx_acct_sig_lookup (bank_id, account_hash) WHERE is_active = TRUE</span></div>
+    <div class="ir"><span class="it bt">BTREE</span><span class="ic">idx_acct_sig_bank_active (bank_id, is_active)</span></div>
+  </div>
+
+  <div class="tlabel">Table C — CBS metadata &amp; MinIO image reference</div>
+  <div class="tname"><span class="sp">cts.</span>signature_vault_entries</div>
+  <div class="tw"><table class="st">
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="cn">entry_id</td><td class="ct">UUID</td><td class="cc"><span class="b bpk">PK</span></td><td class="co">uuid_generate_v4()</td></tr>
+      <tr><td class="cn">bank_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bfk">FK</span><span class="b bnn">NN</span></td><td class="co">→ platform.banks.bank_id</td></tr>
+      <tr><td class="cn">account_hash</td><td class="ct">TEXT</td><td class="cc"><span class="b bhash">HASH</span><span class="b bnn">NN</span></td><td class="co">HMAC-SHA256. Never the raw account number.</td></tr>
+      <tr><td class="cn">account_last4</td><td class="ct">VARCHAR(4)</td><td class="cc"><span class="b bmask">MASK</span><span class="b bnn">NN</span></td><td class="co">Display only. Last 4 digits.</td></tr>
+      <tr><td class="cn">signature_vector</td><td class="ct">BYTEA</td><td class="cc"></td><td class="co">Siamese network feature vector. NULL until embedding run completes.</td></tr>
+      <tr><td class="cn">vector_model_version</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">MLflow model version. Model drift traceability.</td></tr>
+      <tr><td class="cn">specimen_image_key</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">MinIO object key. Image encrypted at rest via SSE-KMS (Vault transit engine).</td></tr>
+      <tr><td class="cn">specimen_image_hash</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">SHA-256 of original image. Integrity verification.</td></tr>
+      <tr><td class="cn">cbs_account_status</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">ACTIVE | DORMANT | FROZEN | CLOSED. Synced from CBS.</td></tr>
+      <tr><td class="cn">cbs_sync_version</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">CBS ETag/version for change detection on next sync.</td></tr>
+      <tr><td class="cn">valid_from</td><td class="ct">DATE</td><td class="cc"></td><td class="co">Specimen validity start.</td></tr>
+      <tr><td class="cn">valid_until</td><td class="ct">DATE</td><td class="cc"></td><td class="co">NULL = indefinite.</td></tr>
+      <tr><td class="cn">is_active</td><td class="ct">BOOLEAN</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT true. Partial index enforces one active row per account.</td></tr>
+      <tr><td class="cn">last_synced_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT NOW()</td></tr>
+      <tr><td class="cn">synced_by_workflow</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">Temporal VaultSyncWorkflow ID. Full provenance trail.</td></tr>
+      <tr><td class="cn">created_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT NOW()</td></tr>
+    </tbody>
+  </table></div>
+  <div class="il">
+    <div class="ir"><span class="it uq">UNIQUE</span><span class="ic">ix_cts_sig_vault_bank_account (bank_id, account_hash) WHERE is_active = true</span><span class="in">One active record per account</span></div>
+    <div class="ir"><span class="it bt">BTREE</span><span class="ic">ix_cts_sig_vault_account_hash (account_hash)</span></div>
+    <div class="ir"><span class="it bt">BTREE</span><span class="ic">ix_cts_sig_vault_last_synced (bank_id, last_synced_at)</span><span class="in">Stale-sync monitoring</span></div>
+  </div>
+</div>
+
+<div class="sdiv"></div>
+
+<!-- V2 PPS -->
+<div class="sec" id="v2">
+  <div class="seye">CTS Module · redis-cts cluster · modules/cts/vaults/pps_vault.py</div>
+  <div class="vh">
+    <div class="vid">V2</div>
+    <div><div class="vtitle">Positive Pay System (PPS) Vault</div><div class="vpath">1 table · Redis HASH per cheque series</div></div>
+  </div>
+  <div class="ib"><strong>RBI mandate:</strong> Mandatory for cheques ≥ ₹5 lakh (Jan 2021). A disputed cheque with no PPS registration cannot be reimbursed. ASTRA stores PPS in Redis for &lt;1ms lookup during the IET window; YugabyteDB holds the full lifecycle audit trail.</div>
+  <div class="tiers">
+    <div class="tier">
+      <div class="tn hot">Redis — HASH per entry</div>
+      <div class="td">Fields: amount, payee, cheque_number. TTL = cheque validity period set at write time. On miss → HUMAN_REVIEW (never AUTO_RETURN).</div>
+      <div class="tk">pps:{bank_id}:{hmac(bank_id:acct)}:{cheque_number}</div>
+    </div>
+    <div class="tier">
+      <div class="tn dur">YugabyteDB — 1 table</div>
+      <div class="td">Full lifecycle: REGISTERED → CONFIRMED_PAID / EXPIRED / CANCELLED. Stores exact amount_paise for matching + encrypted payee name.</div>
+      <div class="tk">cts.pps_vault_entries</div>
+    </div>
+  </div>
+  <div class="tname"><span class="sp">cts.</span>pps_vault_entries</div>
+  <div class="tw"><table class="st">
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="cn">entry_id</td><td class="ct">UUID</td><td class="cc"><span class="b bpk">PK</span></td><td class="co">uuid_generate_v4()</td></tr>
+      <tr><td class="cn">bank_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bfk">FK</span><span class="b bnn">NN</span></td><td class="co">→ platform.banks.bank_id</td></tr>
+      <tr><td class="cn">account_hash</td><td class="ct">TEXT</td><td class="cc"><span class="b bhash">HASH</span><span class="b bnn">NN</span></td><td class="co">HMAC-SHA256. Raw account never stored.</td></tr>
+      <tr><td class="cn">account_last4</td><td class="ct">VARCHAR(4)</td><td class="cc"><span class="b bmask">MASK</span><span class="b bnn">NN</span></td><td class="co">Display only.</td></tr>
+      <tr><td class="cn">cheque_number</td><td class="ct">VARCHAR(6)</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">6-digit MICR cheque number.</td></tr>
+      <tr><td class="cn">cheque_date</td><td class="ct">DATE</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Date printed on cheque face.</td></tr>
+      <tr><td class="cn">amount_paise</td><td class="ct">BIGINT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Exact amount in paise. Used for PPS match verification during inward clearing.</td></tr>
+      <tr><td class="cn">amount_range</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">STANDARD (&lt;₹5L) | HIGH_VALUE (₹5L–₹50L) | VERY_HIGH_VALUE (&gt;₹50L). Audit/analytics only.</td></tr>
+      <tr><td class="cn">payee_name_enc</td><td class="ct">BYTEA</td><td class="cc"><span class="b benc">ENC</span></td><td class="co">pgp_sym_encrypt(payee_name, key). Key from Vault transit engine. Required for PPS match.</td></tr>
+      <tr><td class="cn">status</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">REGISTERED | CONFIRMED_PAID | EXPIRED | CANCELLED. Default REGISTERED.</td></tr>
+      <tr><td class="cn">registered_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT NOW()</td></tr>
+      <tr><td class="cn">expires_at</td><td class="ct">DATE</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">cheque_date + 3 months (standard cheque validity).</td></tr>
+      <tr><td class="cn">confirmed_paid_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"></td><td class="co">Nullable. Set when NGCH/CBS confirms cheque is paid.</td></tr>
+      <tr><td class="cn">registration_channel</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">INTERNET_BANKING | MOBILE | BRANCH | CBS_BATCH.</td></tr>
+      <tr><td class="cn">cbs_pps_ref</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">CBS-assigned PPS reference number. Used for dispute resolution.</td></tr>
+      <tr><td class="cn">last_synced_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT NOW()</td></tr>
+      <tr><td class="cn">created_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT NOW()</td></tr>
+    </tbody>
+  </table></div>
+  <div class="il">
+    <div class="ir"><span class="it uq">UNIQUE</span><span class="ic">ix_cts_pps_vault_account_cheque (bank_id, account_hash, cheque_number)</span><span class="in">One PPS reg per cheque</span></div>
+    <div class="ir"><span class="it bt">BTREE</span><span class="ic">ix_cts_pps_vault_account_hash (account_hash)</span></div>
+    <div class="ir"><span class="it bt">BTREE</span><span class="ic">ix_cts_pps_vault_status (bank_id, status)</span></div>
+    <div class="ir"><span class="it pt">PARTIAL</span><span class="ic">ix_cts_pps_vault_expires (expires_at) WHERE status = 'REGISTERED'</span><span class="in">Expiry sweep</span></div>
+  </div>
+</div>
+
+<div class="sdiv"></div>
+
+<!-- V3 ACCOUNT VAULT -->
+<div class="sec" id="v3">
+  <div class="seye">CTS Module · redis-cts cluster · Added 2026-08-03</div>
+  <div class="vh">
+    <div class="vid">V3</div>
+    <div><div class="vtitle">Account Vault</div><div class="vpath">1 table · Redis HASH per account</div></div>
+  </div>
+  <div class="ib"><strong>Why it exists:</strong> Hold notifications during the IET window require branch contact details. Without this vault, every hold triggers a live CBS call — adding latency and a CBS failure dependency during the 180-minute window. The account vault makes branch contacts available sub-millisecond, offline from CBS.</div>
+  <div class="tname"><span class="sp">cts.</span>account_vault</div>
+  <div class="tw"><table class="st">
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="cn">bank_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bpk">PK</span><span class="b bnn">NN</span></td><td class="co">Composite PK part 1.</td></tr>
+      <tr><td class="cn">account_hash</td><td class="ct">TEXT</td><td class="cc"><span class="b bpk">PK</span><span class="b bhash">HASH</span><span class="b bnn">NN</span></td><td class="co">Composite PK part 2. HMAC-SHA256.</td></tr>
+      <tr><td class="cn">account_number_last4</td><td class="ct">TEXT</td><td class="cc"><span class="b bmask">MASK</span><span class="b bnn">NN</span></td><td class="co">Display only.</td></tr>
+      <tr><td class="cn">account_type</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">SAVINGS | CURRENT | OD | NRE | NRO etc. Default 'UNKNOWN'.</td></tr>
+      <tr><td class="cn">account_status</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">ACTIVE | FROZEN | CLOSED | DORMANT | NPA. Default 'ACTIVE'.</td></tr>
+      <tr><td class="cn">holder_name_display</td><td class="ct">TEXT</td><td class="cc"><span class="b bmask">MASK</span><span class="b bnn">NN</span></td><td class="co">'R***' format. Primary holder only. For UI and audit trail display. Default '***'.</td></tr>
+      <tr><td class="cn">holder_names</td><td class="ct">JSONB</td><td class="cc"><span class="b bmask">MASK</span><span class="b bnn">NN</span></td><td class="co">["R***","V***"] — all holders including primary. Used for joint-account payee name matching. Default '[]'::jsonb.</td></tr>
+      <tr><td class="cn">branch_code</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">CBS branch code. Used for deduplication during bulk account profile loads.</td></tr>
+      <tr><td class="cn">branch_name</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Human-readable branch name. Default ''.</td></tr>
+      <tr><td class="cn">branch_ifsc</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">11-character IFSC. Validated against cts.ifsc_registry. Default ''.</td></tr>
+      <tr><td class="cn">branch_manager_email</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Hold notification target. Default ''.</td></tr>
+      <tr><td class="cn">branch_contact_email</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Default ''.</td></tr>
+      <tr><td class="cn">branch_contact_phone</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Default ''.</td></tr>
+      <tr><td class="cn">last_synced_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT now()</td></tr>
+      <tr><td class="cn">sync_source</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">CBS | BULK_UPLOAD. Default 'CBS'.</td></tr>
+      <tr><td class="cn">vault_version</td><td class="ct">INTEGER</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Optimistic locking. Increments on every UPDATE. Default 1.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="il">
+    <div class="ir"><span class="it bt">BTREE</span><span class="ic">idx_account_vault_branch_code (bank_id, branch_code)</span><span class="in">Branch-level queries</span></div>
+    <div class="ir"><span class="it bt">BTREE</span><span class="ic">idx_account_vault_last_synced (bank_id, last_synced_at DESC)</span><span class="in">Stale-sync monitoring</span></div>
+  </div>
+</div>
+
+<div class="sdiv"></div>
+
+<!-- V4 CHEQUE LEAF -->
+<div class="sec" id="v4">
+  <div class="seye">CTS Module · redis-cts cluster · VaultSyncWorkflow activity</div>
+  <div class="vh">
+    <div class="vid ro">V4</div>
+    <div><div class="vtitle">Cheque Leaf Vault</div><div class="vpath">Redis-only · No YugabyteDB backing table</div></div>
+  </div>
+  <div class="ib warn"><strong>Redis-only vault.</strong> Rebuilt entirely from CBS on every VaultSyncWorkflow run (daily 07:00). No YugabyteDB backing table. If Redis is cold, the workflow rebuilds it — no data is "lost" because CBS is the authority. Lookup miss during clearing → HUMAN_REVIEW.</div>
+  <div class="tiers">
+    <div class="tier">
+      <div class="tn hot">Redis — HASH per leaf</div>
+      <div class="td">Fields: <strong>status</strong> (ACTIVE | LOST | STOLEN | CANCELLED | USED), <strong>issued_date</strong>, <strong>series_end</strong>. No TTL — rebuilt daily.</div>
+      <div class="tk">chq:{bank_id}:{hmac(bank_id:acct)}:{cheque_number}</div>
+    </div>
+    <div class="tier">
+      <div class="tn dur" style="color:var(--muted)">YugabyteDB — None</div>
+      <div class="td" style="color:var(--muted)">No persistent DB table. CBS is the authoritative source. VaultSyncWorkflow calls <code style="font-family:var(--mono);font-size:10.5px;background:var(--cbg);color:var(--cink);padding:1px 4px;border-radius:2px">cbs_connector.list_issued_leaves(bank_id)</code> and pipeline-writes to Redis directly.</div>
+    </div>
+  </div>
+  <div class="ib"><strong>Implication for bulk seeding:</strong> The Cheque Leaf Vault CSV upload path writes directly to Redis (no DB table to UPSERT into). The upload job tracker still records the run for audit purposes.</div>
+</div>
+
+<div class="sdiv"></div>
+
+<!-- V5 STOP PAYMENT -->
+<div class="sec" id="v5">
+  <div class="seye">CTS Module · redis-cts cluster · infra/migrations/cts/versions/20260618_008</div>
+  <div class="vh">
+    <div class="vid">V5</div>
+    <div><div class="vtitle">Stop Payment Vault</div><div class="vpath">2 tables · Redis HASH per instruction (fast-lookup)</div></div>
+  </div>
+  <div class="ib"><strong>OPA enforcement:</strong> A cheque matching a stop payment must be returned immediately, regardless of fraud score. ChequeProcessingWorkflow checks Redis first (&lt;1ms); the stop_payment_instructions table is the DB fallback and full audit trail.</div>
+
+  <div class="tlabel">Table A — Customer instructions</div>
+  <div class="tname"><span class="sp">cts.</span>stop_payment_instructions</div>
+  <div class="tw"><table class="st">
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="cn">stop_id</td><td class="ct">UUID</td><td class="cc"><span class="b bpk">PK</span></td><td class="co">uuid_generate_v4()</td></tr>
+      <tr><td class="cn">bank_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bfk">FK</span><span class="b bnn">NN</span></td><td class="co">→ platform.banks.bank_id</td></tr>
+      <tr><td class="cn">account_hash</td><td class="ct">TEXT</td><td class="cc"><span class="b bhash">HASH</span><span class="b bnn">NN</span></td><td class="co">HMAC-SHA256. Raw account never stored.</td></tr>
+      <tr><td class="cn">account_last4</td><td class="ct">VARCHAR(4)</td><td class="cc"><span class="b bmask">MASK</span><span class="b bnn">NN</span></td><td class="co">Display only.</td></tr>
+      <tr><td class="cn">scope</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">SINGLE_CHEQUE | RANGE | ALL_CHEQUES.</td></tr>
+      <tr><td class="cn">cheque_number</td><td class="ct">VARCHAR(6)</td><td class="cc"></td><td class="co">Populated when scope = SINGLE_CHEQUE.</td></tr>
+      <tr><td class="cn">cheque_date</td><td class="ct">DATE</td><td class="cc"></td><td class="co">Populated when scope = SINGLE_CHEQUE.</td></tr>
+      <tr><td class="cn">amount_paise</td><td class="ct">BIGINT</td><td class="cc"></td><td class="co">Exact amount for match verification on SINGLE_CHEQUE scope.</td></tr>
+      <tr><td class="cn">amount_range</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">Bucketed range for audit logging.</td></tr>
+      <tr><td class="cn">cheque_from</td><td class="ct">VARCHAR(6)</td><td class="cc"></td><td class="co">Start of range. Populated when scope = RANGE.</td></tr>
+      <tr><td class="cn">cheque_to</td><td class="ct">VARCHAR(6)</td><td class="cc"></td><td class="co">End of range. Populated when scope = RANGE.</td></tr>
+      <tr><td class="cn">reason_code</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">LOST | STOLEN | PAYMENT_CANCELLED | DISPUTE | OTHER.</td></tr>
+      <tr><td class="cn">reason_notes</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">Free-text customer note. Nullable.</td></tr>
+      <tr><td class="cn">status</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">ACTIVE | REVOKED | EXPIRED | PAYMENT_PROCESSED. Default ACTIVE.</td></tr>
+      <tr><td class="cn">effective_from</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">When the stop payment takes effect.</td></tr>
+      <tr><td class="cn">effective_until</td><td class="ct">DATE</td><td class="cc"></td><td class="co">NULL = indefinite. Most stops have no end date.</td></tr>
+      <tr><td class="cn">revoked_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"></td><td class="co">Set when customer withdraws the stop payment instruction.</td></tr>
+      <tr><td class="cn">cbs_stop_ref</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">CBS-assigned reference. Dispute resolution.</td></tr>
+      <tr><td class="cn">channel</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">INTERNET_BANKING | MOBILE | BRANCH | PHONE | CBS.</td></tr>
+      <tr><td class="cn">last_synced_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"></td><td class="co">Last sync to Redis fast-lookup key.</td></tr>
+      <tr><td class="cn">created_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT NOW()</td></tr>
+    </tbody>
+  </table></div>
+  <div class="il">
+    <div class="ir"><span class="it pt">PARTIAL</span><span class="ic">ix_cts_stop_payment_account (bank_id, account_hash) WHERE status = 'ACTIVE'</span><span class="in">Primary check path</span></div>
+    <div class="ir"><span class="it pt">PARTIAL</span><span class="ic">ix_cts_stop_payment_cheque (bank_id, cheque_number) WHERE scope = 'SINGLE_CHEQUE' AND status = 'ACTIVE'</span></div>
+    <div class="ir"><span class="it bt">BTREE</span><span class="ic">ix_cts_stop_payment_status (bank_id, status)</span></div>
+  </div>
+
+  <div class="tlabel">Table B — Append-only lifecycle audit (RBI required)</div>
+  <div class="tname"><span class="sp">cts.</span>stop_payment_audit</div>
+  <div class="tw"><table class="st">
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="cn">audit_id</td><td class="ct">UUID</td><td class="cc"><span class="b bpk">PK</span></td><td class="co">uuid_generate_v4()</td></tr>
+      <tr><td class="cn">stop_id</td><td class="ct">UUID</td><td class="cc"><span class="b bfk">FK</span><span class="b bnn">NN</span></td><td class="co">→ cts.stop_payment_instructions.stop_id</td></tr>
+      <tr><td class="cn">bank_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Denormalised for partition pruning.</td></tr>
+      <tr><td class="cn">event_type</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">CREATED | SYNCED_TO_REDIS | CBS_SYNC | CHEQUE_MATCHED | CHEQUE_RETURNED | REVOKED | EXPIRED | PAYMENT_PROCESSED_DESPITE_STOP (critical — triggers alert)</td></tr>
+      <tr><td class="cn">related_instrument_id</td><td class="ct">UUID</td><td class="cc"></td><td class="co">FK → cts.cheque_instruments. Set when a cheque matches this stop instruction.</td></tr>
+      <tr><td class="cn">event_detail</td><td class="ct">JSONB</td><td class="cc"></td><td class="co">e.g. {"cheque_number":"123456","action":"RETURNED","workflow_id":"…"}</td></tr>
+      <tr><td class="cn">occurred_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT NOW()</td></tr>
+    </tbody>
+  </table></div>
+  <div class="il">
+    <div class="ir"><span class="it bt">BTREE</span><span class="ic">ix_cts_stop_payment_audit_stop_id (stop_id)</span></div>
+    <div class="ir"><span class="it pt">PARTIAL</span><span class="ic">ix_cts_stop_payment_audit_instrument (related_instrument_id) WHERE related_instrument_id IS NOT NULL</span></div>
+    <div class="ir"><span class="it bt">BTREE</span><span class="ic">ix_cts_stop_payment_audit_bank_event (bank_id, event_type, occurred_at)</span></div>
+  </div>
+</div>
+
+<div class="sdiv"></div>
+
+<!-- V6 MSV SIGNATORY REGISTRY -->
+<div class="sec" id="v6">
+  <div class="seye">MSV Module · redis-msv cluster · modules/msv/vaults/signatory_registry.py</div>
+  <div class="vh">
+    <div class="vid msv">V6</div>
+    <div><div class="vtitle">MSV Signatory Registry</div><div class="vpath">4 tables · Redis LIST per signatory · File-drop seeding</div></div>
+  </div>
+  <div class="ib"><strong>Module isolation:</strong> MSV is fully isolated from CTS. Uses a separate Redis cluster (redis-msv), separate pgbouncer pool, and separate Temporal task queues. No shared state with any CTS vault.</div>
+
+  <div class="tlabel">Table A — Embedding vectors (source of truth)</div>
+  <div class="tname"><span class="sp">msv.</span>signatory_embeddings</div>
+  <div class="tw"><table class="st">
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="cn">bank_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bpk">PK</span><span class="b bnn">NN</span></td><td class="co">Composite PK part 1.</td></tr>
+      <tr><td class="cn">account_hash</td><td class="ct">TEXT</td><td class="cc"><span class="b bpk">PK</span><span class="b bhash">HASH</span><span class="b bnn">NN</span></td><td class="co">Composite PK part 2. HMAC-SHA256(bank_pepper, bank_id:account_number).</td></tr>
+      <tr><td class="cn">signatory_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bpk">PK</span><span class="b bnn">NN</span></td><td class="co">Composite PK part 3. Named identifier per signatory.</td></tr>
+      <tr><td class="cn">specimen_idx</td><td class="ct">INTEGER</td><td class="cc"><span class="b bpk">PK</span><span class="b bnn">NN</span></td><td class="co">Composite PK part 4. 0-based specimen index.</td></tr>
+      <tr><td class="cn">embedding</td><td class="ct">BYTEA</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">512-dim float32 · little-endian numpy tobytes(). 2048 bytes.</td></tr>
+      <tr><td class="cn">operation_type</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">S | E | F | A | J | JAS | L | T | P. CBS signatory operation code.</td></tr>
+      <tr><td class="cn">enrolled_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT NOW()</td></tr>
+      <tr><td class="cn">revoked_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"></td><td class="co">NULL = active. Set on revocation file processing.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="il">
+    <div class="ir"><span class="it bt">BTREE</span><span class="ic">ix_msv_emb_account_signatory (bank_id, account_hash, signatory_id)</span></div>
+    <div class="ir"><span class="it pt">PARTIAL</span><span class="ic">ix_msv_emb_active (bank_id, account_hash, signatory_id, specimen_idx) WHERE revoked_at IS NULL</span></div>
+  </div>
+
+  <div class="tlabel">Table B — Signatory metadata (no binary data)</div>
+  <div class="tname"><span class="sp">msv.</span>signatory_manifest</div>
+  <div class="tw"><table class="st">
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="cn">bank_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bpk">PK</span><span class="b bnn">NN</span></td><td class="co">Composite PK part 1.</td></tr>
+      <tr><td class="cn">account_hash</td><td class="ct">TEXT</td><td class="cc"><span class="b bpk">PK</span><span class="b bhash">HASH</span><span class="b bnn">NN</span></td><td class="co">Composite PK part 2.</td></tr>
+      <tr><td class="cn">signatory_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bpk">PK</span><span class="b bnn">NN</span></td><td class="co">Composite PK part 3.</td></tr>
+      <tr><td class="cn">role</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">CFO | DIRECTOR | TRUSTEE | PARTNER etc.</td></tr>
+      <tr><td class="cn">name_masked</td><td class="ct">TEXT</td><td class="cc"><span class="b bmask">MASK</span><span class="b bnn">NN</span></td><td class="co">'P***' — first initial + ***. CBS-provided. Full name never stored.</td></tr>
+      <tr><td class="cn">specimen_count</td><td class="ct">INTEGER</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Count of active (non-revoked) specimens. Default 0. Updated on enroll/revoke.</td></tr>
+      <tr><td class="cn">operation_type</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Inherited from signatory_embeddings on enrollment.</td></tr>
+      <tr><td class="cn">enrolled_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT NOW()</td></tr>
+      <tr><td class="cn">updated_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT NOW(). Updated on re-enrollment or revocation.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="il">
+    <div class="ir"><span class="it bt">BTREE</span><span class="ic">ix_msv_manifest_account (bank_id, account_hash)</span><span class="in">load_all_signatories path</span></div>
+  </div>
+
+  <div class="tlabel">Table C — Per-account enrollment lifecycle</div>
+  <div class="tname"><span class="sp">msv.</span>enrollment_progress</div>
+  <div class="tw"><table class="st">
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="cn">bank_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bpk">PK</span><span class="b bnn">NN</span></td><td class="co">Composite PK part 1.</td></tr>
+      <tr><td class="cn">account_hash</td><td class="ct">TEXT</td><td class="cc"><span class="b bpk">PK</span><span class="b bhash">HASH</span><span class="b bnn">NN</span></td><td class="co">Composite PK part 2. One record per account.</td></tr>
+      <tr><td class="cn">operation_type</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Most recent operation_type enrolled. Empty string before first enrollment.</td></tr>
+      <tr><td class="cn">status</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">ENROLLED | FAILED | SKIPPED.</td></tr>
+      <tr><td class="cn">batch_id</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">job_id of most recent enrollment or delta sync.</td></tr>
+      <tr><td class="cn">enrolled_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"></td><td class="co">Timestamp of last successful enrollment. Nullable.</td></tr>
+      <tr><td class="cn">error_reason</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">Error detail if status = FAILED. NULL otherwise.</td></tr>
+      <tr><td class="cn">updated_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT NOW()</td></tr>
+    </tbody>
+  </table></div>
+  <div class="il">
+    <div class="ir"><span class="it bt">BTREE</span><span class="ic">ix_msv_progress_status (bank_id, status)</span><span class="in">Retry job query</span></div>
+  </div>
+
+  <div class="tlabel">Table D — Bulk enrollment job tracker</div>
+  <div class="tname"><span class="sp">msv.</span>enrollment_jobs</div>
+  <div class="tw"><table class="st">
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="cn">job_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bpk">PK</span><span class="b bnn">NN</span></td><td class="co">UUIDv7-based identifier.</td></tr>
+      <tr><td class="cn">bank_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co"></td></tr>
+      <tr><td class="cn">file_name</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Original filename of the CBS export file.</td></tr>
+      <tr><td class="cn">file_hash</td><td class="ct">TEXT</td><td class="cc"><span class="b buq">UQ</span></td><td class="co">SHA-256 of raw file. Idempotency key: re-submitting same file is a no-op.</td></tr>
+      <tr><td class="cn">file_type</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">FULL | DELTA | REVOCATION.</td></tr>
+      <tr><td class="cn">status</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">RUNNING | COMPLETE | FAILED | PARTIAL. Default RUNNING.</td></tr>
+      <tr><td class="cn">total_accounts</td><td class="ct">INTEGER</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Default 0. Updated as file is parsed.</td></tr>
+      <tr><td class="cn">processed_accounts</td><td class="ct">INTEGER</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Default 0. Updated every 500 accounts.</td></tr>
+      <tr><td class="cn">enrolled_accounts</td><td class="ct">INTEGER</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Default 0.</td></tr>
+      <tr><td class="cn">failed_accounts</td><td class="ct">INTEGER</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Default 0.</td></tr>
+      <tr><td class="cn">total_signatures</td><td class="ct">INTEGER</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Total specimen images found in the file.</td></tr>
+      <tr><td class="cn">enrolled_signatures</td><td class="ct">INTEGER</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Specimen embeddings successfully stored.</td></tr>
+      <tr><td class="cn">current_operation_type</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">Most recently processed operation_type within the job. Dashboard progress indicator.</td></tr>
+      <tr><td class="cn">started_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT NOW()</td></tr>
+      <tr><td class="cn">completed_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"></td><td class="co">Set when status → COMPLETE | FAILED | PARTIAL.</td></tr>
+      <tr><td class="cn">error_summary</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">Brief error description if status = FAILED.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="il">
+    <div class="ir"><span class="it uq">UNIQUE</span><span class="ic">uq_msv_jobs_bank_file_hash (bank_id, file_hash)</span><span class="in">Idempotency</span></div>
+    <div class="ir"><span class="it bt">BTREE</span><span class="ic">ix_msv_jobs_bank_started (bank_id, started_at)</span></div>
+  </div>
+</div>
+
+<div class="sdiv"></div>
+
+<!-- SYNC MECHANISMS -->
+<div class="sec" id="sync">
+  <div class="seye">Operations</div>
+  <h2 class="stitle">Sync Mechanisms — Current State</h2>
+  <p class="ssub">All CTS vaults are synced via CBS API through VaultSyncWorkflow (Temporal, daily 07:00 + event-triggered). MSV uses file-drop exclusively.</p>
+  <div class="tw"><table class="synct">
+    <thead><tr><th>Vault</th><th>Trigger</th><th>Method</th><th>Schedule</th><th>CBS Connector Call</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="b bpk" style="margin-right:6px">V1</span>Signature</td>
+        <td>SCHEDULED + EVENT</td>
+        <td><span class="b bcbs">CBS API</span></td>
+        <td>Daily 07:00 + on-demand</td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--cink)">list_signature_specimens(bank_id)</td>
+      </tr>
+      <tr>
+        <td><span class="b bpk" style="margin-right:6px">V2</span>PPS</td>
+        <td>SCHEDULED + EVENT</td>
+        <td><span class="b bcbs">CBS API</span></td>
+        <td>Daily 07:00 + on-demand</td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--cink)">list_positive_pay_records(bank_id)</td>
+      </tr>
+      <tr>
+        <td><span class="b bpk" style="margin-right:6px">V3</span>Account</td>
+        <td>SCHEDULED + EVENT</td>
+        <td><span class="b bcbs">CBS API</span></td>
+        <td>Daily 07:00 + on-demand</td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--cink)">list_account_profiles(bank_id)</td>
+      </tr>
+      <tr>
+        <td><span class="b" style="background:var(--vault-redis,#D4391A);color:#fff;margin-right:6px">V4</span>Cheque Leaf</td>
+        <td>SCHEDULED</td>
+        <td><span class="b bcbs">CBS API</span></td>
+        <td>Daily 07:00 only</td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--cink)">list_issued_leaves(bank_id)</td>
+      </tr>
+      <tr>
+        <td><span class="b bpk" style="margin-right:6px">V5</span>Stop Payment</td>
+        <td>SCHEDULED + EVENT</td>
+        <td><span class="b bcbs">CBS API</span></td>
+        <td>Daily 07:00 + on customer instruction</td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--cink)">list_stop_payments(bank_id)</td>
+      </tr>
+      <tr>
+        <td><span class="b" style="background:#5B3EA8;color:#fff;margin-right:6px">V6</span>Signatory Registry</td>
+        <td>BANK FILE DROP</td>
+        <td><span class="b bnew">FILE</span></td>
+        <td>FULL daily + DELTA intra-day</td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">— (file-drop only)</td>
+      </tr>
+    </tbody>
+  </table></div>
+  <div class="ib"><strong>Event trigger:</strong> When CBS pushes a change event (account frozen, new PPS registered, stop payment raised), a Kafka message lands on <code style="font-family:var(--mono);font-size:11px;background:var(--cbg);color:var(--cink);padding:1px 4px;border-radius:2px">cts.vault.sync.{bank_id}</code>, which triggers VaultSyncWorkflow immediately rather than waiting for 07:00. Temporal's idempotent workflow IDs prevent concurrent runs for the same bank.</div>
+</div>
+
+<div class="sdiv"></div>
+
+<!-- BULK CSV SEEDING -->
+<div class="sec" id="bulk">
+  <div class="seye">Implemented — 2026-08-18</div>
+  <h2 class="stitle">Vault Bulk Upload — Two Channels</h2>
+  <p class="ssub">Two upload channels exist for seeding and updating all CTS vault types. Both channels converge on <code style="font-family:var(--mono);font-size:11px;background:var(--cbg);color:var(--cink);padding:1px 4px;border-radius:2px">VaultUploadProcessor</code>, which handles hashing, encryption, DB writes, and Redis warm in a single pass.</p>
+
+  <div class="ib new"><strong>Channel 1 — Manual UI:</strong> <code style="font-family:var(--mono);font-size:11px">POST /v1/cts/vault/upload/{vault_type}</code> — authenticated (bank_it_admin or ops_manager). Synchronous. File size limit: 20 MB. Returns batch summary immediately. Roles: LEAF_STATUS and PPS allow ops_manager; all other types require bank_it_admin.</div>
+
+  <div class="ib new"><strong>Channel 2 — SFTP / File-Drop:</strong> Bank drops a CSV file to MinIO bucket <code style="font-family:var(--mono);font-size:11px">astra-vault-drops/{bank_id}/{vault_type_lower}/{filename}.csv</code>. MinIO event notification fires webhook → <code style="font-family:var(--mono);font-size:11px">POST /v1/cts/vault/upload/file-drop</code> → Temporal starts <code style="font-family:var(--mono);font-size:11px">VaultFileDropWorkflow</code>. Workflow ID includes SHA-256 of file bytes — duplicate MinIO events for the same file are silently de-duplicated. Processed files are archived to <code style="font-family:var(--mono);font-size:11px">astra-vault-archive/{bank_id}/</code>.</div>
+
+  <div class="ib warn"><strong>Both channels:</strong> <code style="font-family:var(--mono);font-size:11px">changed_by</code> is set to <code style="font-family:var(--mono);font-size:11px">user:{user_id}</code> (UI) or <code style="font-family:var(--mono);font-size:11px">system:{feed_name}</code> (file-drop). Every batch is written to <code style="font-family:var(--mono);font-size:11px">cts.vault_upload_batches</code> (bank_id scoped). <code style="font-family:var(--mono);font-size:11px">upload_channel</code> column records which path was used.</div>
+
+  <h3 style="font-size:15px;font-weight:700;color:var(--ink);margin:20px 0 12px;letter-spacing:-.01em">CSV Formats per Vault Type</h3>
+
+  <div class="tlabel">V1 — Signature CSV (one row per specimen image)</div>
+  <div class="csv">account_number,signatory_id,operation_type,mandate_rule,quorum_n,name_masked,specimen_image_minio_key<br>
+1234567890,PRIMARY,S,ANY_ONE,1,R***,banks/saraswat/specimens/sig_1234567890_0.jpg<br>
+1234567890,JOINT_1,J,ALL_REQUIRED,2,V***,banks/saraswat/specimens/sig_1234567890_j1_0.jpg</div>
+  <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Bank pre-stages specimen images to MinIO. CSV references them by object key. ASTRA reads each image and runs it through the Siamese embedding model — same pipeline as CBS API path.</p>
+
+  <div class="tlabel">V2 — PPS CSV (one row per cheque registration) — 5 RBI-mandated fields only</div>
+  <div class="csv">account_number,cheque_number,cheque_date,amount,payee_name<br>
+1234567890,123456,2026-08-10,750000.00,Reliance Industries Ltd</div>
+  <p style="font-size:12px;color:var(--muted);margin-bottom:14px"><strong>Exactly 5 fields</strong> per RBI PPS mandate. <code>expires_at</code> is computed (cheque_date + 90 days) — never stored in CSV. <code>registration_channel</code> and <code>cbs_pps_ref</code> are derived from the upload context (UI vs SFTP), not from the CSV. A 6th column in the file is a validation error.</p>
+
+  <div class="tlabel">V3 — Account CSV (one row per account)</div>
+  <div class="csv">account_number,account_type,account_status,branch_code,branch_name,branch_ifsc,holder_name,branch_manager_email,branch_contact_email,branch_contact_phone<br>
+1234567890,SAVINGS,ACTIVE,MUM001,Dadar Branch,SRCB0000001,Ramesh Shah,mgr.dadar@saraswat.in,dadar@saraswat.in,022-24306060</div>
+
+  <div class="tlabel">V4 — Cheque Leaf CSV (one row per issued cheque leaf)</div>
+  <div class="csv">account_number,cheque_number,status,issued_date,series_end<br>
+1234567890,100001,ACTIVE,2026-01-15,100025</div>
+
+  <div class="tlabel">V5 — Stop Payment CSV (one row per instruction)</div>
+  <div class="csv">account_number,scope,cheque_number,cheque_date,amount,reason_code,effective_from,cbs_stop_ref<br>
+1234567890,SINGLE_CHEQUE,123456,2026-08-10,750000.00,LOST,2026-08-11T09:00:00Z,STOP-REF-001</div>
+
+  <h3 style="font-size:15px;font-weight:700;color:var(--ink);margin:20px 0 8px;letter-spacing:-.01em">File Naming Convention</h3>
+  <div class="csv"># MinIO upload path: vaults/{bank_id}/uploads/{vault_type}_{file_type}_{YYYYMMDD}[_HHMM].csv.gz
+#
+signature_full_20260813.csv.gz       → Full seed, all accounts
+signature_delta_20260813_1400.csv.gz → Incremental delta (new/changed accounts only)
+pps_full_20260813.csv.gz
+account_delta_20260813.csv.gz
+stop_payment_delta_20260813.csv.gz
+signature_revocation_20260813.csv.gz  → Revoke specific signatories</div>
+
+  <h3 style="font-size:15px;font-weight:700;color:var(--ink);margin:20px 0 8px;letter-spacing:-.01em">Temporal Workflow: VaultFileDropWorkflow</h3>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Workflow ID: <code style="font-family:var(--mono);font-size:11.5px;background:var(--cbg);color:var(--cink);padding:1px 4px;border-radius:2px">cts-vault-drop-{bank_id}-{vault_type_lower}-{file_hash[:16]}</code> — idempotent, same file never processed twice. Registered in CTS worker under <code style="font-family:var(--mono);font-size:11px;background:var(--cbg);color:var(--cink);padding:1px 4px;border-radius:2px">cts-processing-{bank_id}</code> task queue.</p>
+  <ol class="steps">
+    <li class="step"><span class="snum">1</span><div class="sbody"><strong>fetch_drop_file</strong><span>Download CSV bytes from MinIO bucket <code style="font-family:var(--mono);font-size:11px">astra-vault-drops</code>. Verify SHA-256 against <code>file_hash</code> in the workflow input — mismatch aborts immediately. Returns raw CSV bytes.</span></div></li>
+    <li class="step"><span class="snum">2</span><div class="sbody"><strong>process_vault_csv</strong><span>Instantiates <code style="font-family:var(--mono);font-size:11px">VaultUploadProcessor</code> with bank-scoped vault instances (SignatureVault, PPSVault, ChequeLeafVault, AccountVault). Streams CSV rows. Per row: HMAC-SHA256 account number via <code style="font-family:var(--mono);font-size:11px">shared.utils.pii_crypto.hash_account_number</code> (bank-specific pepper from Vault); encrypt PII fields via <code style="font-family:var(--mono);font-size:11px">pgp_sym_encrypt</code>; upsert to DB + warm Redis. Writes batch record to <code style="font-family:var(--mono);font-size:11px">cts.vault_upload_batches</code> with <code>upload_channel="SFTP"</code>.</span></div></li>
+    <li class="step"><span class="snum">3</span><div class="sbody"><strong>archive_drop_file</strong><span>Copy processed file to <code style="font-family:var(--mono);font-size:11px">astra-vault-archive/{bank_id}/</code> bucket. Remove from <code>astra-vault-drops</code> so it is not reprocessed. Non-fatal — if archive fails, batch is already committed; warning logged.</span></div></li>
+  </ol>
+
+  <h3 style="font-size:15px;font-weight:700;color:var(--ink);margin:20px 0 8px;letter-spacing:-.01em">Table: cts.vault_upload_batches</h3>
+  <div class="ib new">Tracks every vault upload batch across both channels (UI + SFTP file-drop) and all 5 vault types. Migration: <code style="font-family:var(--mono);font-size:11px;background:var(--cbg);color:var(--cink);padding:1px 4px;border-radius:2px">20260818_cheque_leaf_lifecycle.py</code> (already applied).</div>
+  <div class="tname"><span class="sp">cts.</span>vault_upload_batches <span class="bnew" style="font-size:10px;vertical-align:middle;margin-left:6px">LIVE</span></div>
+  <div class="tw"><table class="st">
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="cn">id</td><td class="ct">UUID</td><td class="cc"><span class="b bpk">PK</span><span class="b bnn">NN</span></td><td class="co">gen_random_uuid(). Used as batch_id in API responses.</td></tr>
+      <tr><td class="cn">bank_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Row-level multi-tenancy. Every query filters by bank_id first.</td></tr>
+      <tr><td class="cn">vault_type</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">SIGNATURE | PPS | ACCOUNT_DETAIL | CHEQUE_BOOK | LEAF_STATUS</td></tr>
+      <tr><td class="cn">filename</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">Original filename. NULL for UI drag-and-drop without filename.</td></tr>
+      <tr><td class="cn">upload_channel</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">UI | SFTP. Default UI.</td></tr>
+      <tr><td class="cn">uploaded_by</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">"user:{user_id}" (UI) or "system:{feed_name}" (SFTP file-drop).</td></tr>
+      <tr><td class="cn">status</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">PENDING | PROCESSING | COMPLETE | PARTIAL | FAILED. Default PENDING.</td></tr>
+      <tr><td class="cn">rows_total</td><td class="ct">INTEGER</td><td class="cc"></td><td class="co">NULL until CSV is parsed. Set after header validation.</td></tr>
+      <tr><td class="cn">rows_processed</td><td class="ct">INTEGER</td><td class="cc"></td><td class="co">Default 0. Updated per row.</td></tr>
+      <tr><td class="cn">rows_failed</td><td class="ct">INTEGER</td><td class="cc"></td><td class="co">Default 0.</td></tr>
+      <tr><td class="cn">errors_json</td><td class="ct">JSONB</td><td class="cc"></td><td class="co">Array of per-row error objects. NULL if no errors.</td></tr>
+      <tr><td class="cn">created_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT NOW()</td></tr>
+      <tr><td class="cn">completed_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"></td><td class="co">Set when status → COMPLETE | PARTIAL | FAILED.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="il">
+    <div class="ir"><span class="it bt">BTREE</span><span class="ic">ix_vault_upload_batches_bank_id (bank_id, created_at DESC)</span></div>
+  </div>
+
+  <div class="rec">
+    <h4>What Is Now Live</h4>
+    <ul>
+      <li><strong>Zero CBS API dependency</strong> — UCBs that cannot expose CBS APIs can drop a CSV to MinIO. File-drop removes the single biggest onboarding blocker.</li>
+      <li><strong>Both channels share VaultUploadProcessor</strong> — identical hashing, encryption, DB write, Redis warm. Only <code>upload_channel</code> and <code>uploaded_by</code> differ.</li>
+      <li><strong>Single PII crypto utility</strong> — <code style="font-family:var(--mono);font-size:11px">shared/utils/pii_crypto.py</code> is the only place HMAC-SHA256 and pgp_sym_encrypt are called. All 9 files that previously had inline <code>hmac.new()</code> now import from here. Raises ValueError if pepper is empty — silent plain-SHA256 is impossible.</li>
+      <li><strong>PPS: 5 fields exactly</strong> — account_number, cheque_number, cheque_date, amount, payee_name. expires_at is computed. registration_channel is derived from upload context. RBI compliance, no custom fields.</li>
+      <li><strong>All vault DB tables scoped by bank_id</strong> — NOT NULL, first key in every index. Cross-bank row leakage is impossible at DB level.</li>
+      <li><strong>Alembic chain current</strong> — latest head: <code style="font-family:var(--mono);font-size:11px">20260818_pps_vault_fix</code>. No new migrations needed for VaultFileDropWorkflow (code-only).</li>
+    </ul>
+  </div>
+</div>
+
+<div class="sdiv"></div>
+
+<!-- REDIS KEY MAP -->
+<div class="sec" id="redis">
+  <div class="seye">Reference</div>
+  <h2 class="stitle">Redis Key Map</h2>
+  <p class="ssub">All vault Redis keys across both clusters. Raw account numbers never appear as keys — all keyed by HMAC-SHA256 with bank-specific pepper.</p>
+
+  <div class="tw" style="margin-bottom:0">
+    <div class="rr" style="font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding-bottom:6px">
+      <span>Key Pattern</span><span>Type</span><span>Value / Fields</span>
+    </div>
+    <div class="rr">
+      <span class="rkey">sig:{bank_id}:{hmac(bank_id:acct)}:{signatory_id}</span>
+      <span class="rtype list">LIST</span>
+      <span class="rnote">Packed float32 embeddings. One item per specimen. No TTL. redis-cts.</span>
+    </div>
+    <div class="rr">
+      <span class="rkey">pps:{bank_id}:{hmac(bank_id:acct)}:{cheque_number}</span>
+      <span class="rtype hash">HASH</span>
+      <span class="rnote">Fields: amount, payee, cheque_number. TTL = cheque validity. redis-cts.</span>
+    </div>
+    <div class="rr">
+      <span class="rkey">acct:{bank_id}:{hmac(bank_id:acct)}</span>
+      <span class="rtype hash">HASH</span>
+      <span class="rnote">Fields: account_type, account_status, branch_ifsc, branch_manager_email, holder_name_display, last_synced_at. No TTL. redis-cts.</span>
+    </div>
+    <div class="rr">
+      <span class="rkey">chq:{bank_id}:{hmac(bank_id:acct)}:{cheque_number}</span>
+      <span class="rtype hash">HASH</span>
+      <span class="rnote">Fields: status, issued_date, series_end. No TTL. Rebuilt daily. redis-cts.</span>
+    </div>
+    <div class="rr">
+      <span class="rkey">stop:{bank_id}:{hmac(bank_id:acct)}</span>
+      <span class="rtype">SET</span>
+      <span class="rnote">Members: active cheque_numbers under stop instruction. Partial index mirror for fast set-membership check. redis-cts.</span>
+    </div>
+    <div class="rr">
+      <span class="rkey">msv:{bank_id}:{account_hash}:{signatory_id}</span>
+      <span class="rtype list">LIST</span>
+      <span class="rnote">Packed float32 embeddings. One item per specimen. allkeys-lru eviction. redis-msv cluster (isolated from CTS).</span>
+    </div>
+  </div>
+
+  <div class="ib" style="margin-top:20px"><strong>Pepper rotation:</strong> The HMAC pepper for each bank is rotated every 24 hours by HashiCorp Vault dynamic secrets. After rotation, VaultSyncWorkflow (or BulkVaultSeedWorkflow) must re-hash all keys and re-warm Redis. Keys written with the old pepper are deleted as part of the warm cycle — no stale keys remain after a successful sync.</div>
+</div>
+
+</main>
+</div>
+
+<script>
+function toggleTheme(){
+  const r=document.documentElement;
+  const n=r.getAttribute('data-theme')==='dark'?'light':'dark';
+  r.setAttribute('data-theme',n);
+  document.getElementById('ti').textContent=n==='dark'?'○':'●';
+  localStorage.setItem('astra-theme',n);
+}
+(function(){
+  const s=localStorage.getItem('astra-theme');
+  if(s){document.documentElement.setAttribute('data-theme',s);document.getElementById('ti').textContent=s==='dark'?'○':'●';}
+  // Active nav link on scroll
+  const links=document.querySelectorAll('.nav-a');
+  const io=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        links.forEach(l=>l.classList.remove('active'));
+        const a=document.querySelector('.nav-a[href="#'+e.target.id+'"]');
+        if(a)a.classList.add('active');
+      }
+    });
+  },{rootMargin:'-20% 0px -70% 0px'});
+  document.querySelectorAll('.sec[id],div[id]').forEach(s=>io.observe(s));
+})();
+</script>
+</body>
+</html>
