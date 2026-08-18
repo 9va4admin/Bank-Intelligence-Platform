@@ -32,13 +32,13 @@ AUTO_RETURN is never a valid outcome from this vault.
 """
 from __future__ import annotations
 
-import hashlib
-import hmac
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Optional
 
 import structlog
+
+from shared.utils.pii_crypto import hash_account_number
 
 log = structlog.get_logger()
 
@@ -107,11 +107,7 @@ class AccountVault:
         self._ready = True
 
     def _make_key(self, account_number: str) -> str:
-        digest = hmac.new(
-            self._pepper.encode(),
-            f"{self._bank_id}:{account_number}".encode(),
-            hashlib.sha256,
-        ).hexdigest()
+        digest = hash_account_number(account_number, self._bank_id, self._pepper)
         return f"acct:{self._bank_id}:{digest}"
 
     def _assert_ready(self) -> None:

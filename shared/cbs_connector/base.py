@@ -9,13 +9,13 @@ PII rules enforced at this layer:
   - Balance is returned as float (exact amount — used only in CTS decision, never logged)
   - Status mapping normalises CBS-specific strings to AccountStatus enum
 """
-import hashlib
-import hmac
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
+
+from shared.utils.pii_crypto import hash_account_number
 
 
 class AccountStatus(str, Enum):
@@ -179,13 +179,9 @@ class CBSConnector(ABC):
         """
 
     @staticmethod
-    def _hash_account(account_number: str, pepper: str = "") -> str:
-        """HMAC-SHA256 hash of account number. pepper from Vault in production."""
-        return hmac.new(
-            pepper.encode() if pepper else b"",
-            account_number.encode(),
-            hashlib.sha256,
-        ).hexdigest()
+    def _hash_account(account_number: str, bank_id: str = "", pepper: str = "") -> str:
+        """HMAC-SHA256 hash of account number via canonical pii_crypto utility."""
+        return hash_account_number(account_number, bank_id, pepper)
 
     @abstractmethod
     async def list_issued_leaves(self, bank_id: str) -> list[dict]:

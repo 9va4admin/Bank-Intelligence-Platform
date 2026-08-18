@@ -18,8 +18,6 @@ Cold-restart recovery (Redis only — embeddings already in YugabyteDB):
 Exactly-once: Temporal workflow ID deduplicates concurrent trigger events.
 """
 import base64
-import hashlib
-import hmac
 from collections import defaultdict
 from datetime import date, timedelta
 from typing import Any, Optional
@@ -28,6 +26,8 @@ import structlog
 from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
 from temporalio import activity, workflow
 from temporalio.common import RetryPolicy
+
+from shared.utils.pii_crypto import hash_account_number
 
 log = structlog.get_logger()
 
@@ -249,11 +249,7 @@ async def load_pps_from_cbs(
 # ---------------------------------------------------------------------------
 
 def _hmac_key(pepper: str, bank_id: str, account_number: str) -> str:
-    return hmac.new(
-        pepper.encode(),
-        f"{bank_id}:{account_number}".encode(),
-        hashlib.sha256,
-    ).hexdigest()
+    return hash_account_number(account_number, bank_id, pepper)
 
 
 @activity.defn

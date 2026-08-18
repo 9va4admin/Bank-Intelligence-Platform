@@ -28,13 +28,13 @@ Raw account numbers NEVER appear in Redis keys, DB columns, or logs.
 """
 from __future__ import annotations
 
-import hashlib
-import hmac
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Optional
 
 import structlog
+
+from shared.utils.pii_crypto import hash_account_number
 
 log = structlog.get_logger()
 
@@ -84,11 +84,7 @@ class ChequeLeafVault:
     # ------------------------------------------------------------------
 
     def _account_hash(self, account_number: str) -> str:
-        return hmac.new(
-            self._pepper.encode(),
-            f"{self._bank_id}:{account_number}".encode(),
-            hashlib.sha256,
-        ).hexdigest()
+        return hash_account_number(account_number, self._bank_id, self._pepper)
 
     def _make_key(self, account_number: str, cheque_number: str) -> str:
         return f"chq:{self._bank_id}:{self._account_hash(account_number)}:{cheque_number}"

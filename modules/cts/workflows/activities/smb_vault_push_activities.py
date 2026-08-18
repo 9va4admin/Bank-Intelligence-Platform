@@ -26,6 +26,7 @@ class ParseSMBPushInput(BaseModel):
 
     agency_id: str
     smb_id: str
+    bank_id: str                # SMB's own bank_id — used for HMAC pepper lookup
     file_type: str              # "STOP_PAYMENTS" | "PPS_ENTRIES" | "SIGNATURES"
     file_path: str
     file_hash: str              # SHA-256 of raw file content — idempotency key
@@ -80,13 +81,21 @@ async def parse_and_validate_smb_push(
     try:
         import pathlib
 
+        from shared.config.config_service import config_service
+        pepper = config_service.get_secret(f"banks.{inp.bank_id}.pii_hash_pepper")
+
         path = pathlib.Path(inp.file_path)
         if not path.exists():
             raise FileNotFoundError(f"SMB push file not found: {inp.file_path}")
 
         from modules.cts.smb_ingest.parser import SMBPushParser
 
-        parser = SMBPushParser(file_type=inp.file_type, smb_id=inp.smb_id)
+        parser = SMBPushParser(
+            file_type=inp.file_type,
+            smb_id=inp.smb_id,
+            bank_id=inp.bank_id,
+            pepper=pepper,
+        )
         records = parser.parse(path.read_bytes())
     except Exception as exc:
         log.error(
@@ -128,6 +137,7 @@ class UpdateSMBVaultInput(BaseModel):
 
     agency_id: str
     smb_id: str
+    bank_id: str                # SMB's own bank_id — used in vault key prefix
     file_type: str
     records: list[dict]
 
@@ -162,17 +172,26 @@ async def update_smb_vault(
         )
         return UpdateSMBVaultResult(updated_count=0, error="REDIS_UNAVAILABLE")
 
+    # Key formats MUST match the canonical vault key formats used at lookup time:
+    #   stop payment : stop:{bank_id}:{account_hash}:{cheque_number}
+    #   PPS          : pps:{bank_id}:{account_hash}:{cheque_number}  (PPSVault._make_key)
+    #   signature    : sig:{bank_id}:{account_hash}:PRIMARY           (SignatureVault._make_key)
     async with redis_client.pipeline() as pipe:
         for record in inp.records:
             account_hash = record.get("account_number_hash", "")
+            cheque_number = record.get("cheque_number", "")
             if inp.file_type == "STOP_PAYMENTS":
-                key = f"stop:{inp.agency_id}:{account_hash}:{record.get('cheque_number', '')}"
+                key = f"stop:{inp.bank_id}:{account_hash}:{cheque_number}"
                 pipe.set(key, "1")
             elif inp.file_type == "PPS_ENTRIES":
-                key = f"pps:{inp.agency_id}:{account_hash}"
-                pipe.set(key, str(record))
+                key = f"pps:{inp.bank_id}:{account_hash}:{cheque_number}"
+                pipe.hset(key, mapping={
+                    "amount_range": record.get("amount_range", ""),
+                    "payee_hash": record.get("payee_hash", ""),
+                    "status": "REGISTERED",
+                })
             elif inp.file_type == "SIGNATURES":
-                key = f"sig:{inp.agency_id}:{account_hash}"
+                key = f"sig:{inp.bank_id}:{account_hash}:PRIMARY"
                 pipe.set(key, str(record))
         await pipe.execute()
 
