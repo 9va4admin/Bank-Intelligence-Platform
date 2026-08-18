@@ -117,6 +117,7 @@ const SIDEBAR_MODULES = [
           { to: '/cts/batches',            label: 'Batches',          perm: 'cts:submit_decision'                },
           { to: '/cts/vault',              label: 'Vault',            perm: 'cts:view_queue'                     },
           { to: '/cts/vault-sync',         label: 'PPS & Stop Cheque',perm: 'cts:view_queue'                     },
+          { to: '/cts/vault/upload',       label: 'Vault Upload',     perm: 'admin:manage'                       },
           { to: '/cts/sub-member',         label: 'SMB Session Monitor', sbOnly: true, smbMgmt: true, perm: 'smb:view_ledger'      },
           { to: '/cts/smb/registry',       label: 'SMB Vault & CBS',    sbOnly: true, smbMgmt: true, perm: 'smb:register'         },
           { to: '/cts/smb/ledger',         label: 'SMB Ledger',       sbOnly: true, smbMgmt: true, perm: 'smb:view_ledger'      },

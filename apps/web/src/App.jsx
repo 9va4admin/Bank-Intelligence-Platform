@@ -4,6 +4,7 @@ import { BankProvider } from './shared/context/BankContext'
 import LandingPage from './pages/LandingPage'
 import CTSWorkstation from './modules/cts/pages/CTSWorkstation'
 import CTSVaultStatus from './modules/cts/pages/CTSVaultStatus'
+import CTSVaultUpload from './modules/cts/pages/CTSVaultUpload'
 import CTSDecisionsLog from './modules/cts/pages/CTSDecisionsLog'
 import CTSAnalytics from './modules/cts/pages/CTSAnalytics'
 import CTSConfig from './modules/cts/pages/CTSConfig'
@@ -102,6 +103,7 @@ export default function App() {
         <Route path="/cts/outward/queue"        element={<CTSValidationQueue mode="outward" />} />
         <Route path="/cts/outward/submission"   element={<CTSSubmissionQueue mode="outward" />} />
         <Route path="/cts/vault" element={<CTSVaultStatus />} />
+        <Route path="/cts/vault/upload" element={<CTSVaultUpload />} />
         <Route path="/cts/decisions" element={<CTSDecisionsLog />} />
         <Route path="/cts/exceptions" element={<CTSExceptions />} />
         <Route path="/cts/reconciliation" element={<CTSReconciliation />} />
