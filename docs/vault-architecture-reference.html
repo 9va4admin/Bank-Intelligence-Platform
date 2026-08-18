@@ -448,24 +448,61 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 <!-- V4 CHEQUE LEAF -->
 <div class="sec" id="v4">
-  <div class="seye">CTS Module · redis-cts cluster · VaultSyncWorkflow activity</div>
+  <div class="seye">CTS Module · redis-cts cluster · infra/migrations/cts/20260818_cheque_leaf_lifecycle.py</div>
   <div class="vh">
-    <div class="vid ro">V4</div>
-    <div><div class="vtitle">Cheque Leaf Vault</div><div class="vpath">Redis-only · No YugabyteDB backing table</div></div>
+    <div class="vid">V4</div>
+    <div><div class="vtitle">Cheque Leaf Vault</div><div class="vpath">2 tables + Redis HASH per leaf (fast-lookup)</div></div>
   </div>
-  <div class="ib warn"><strong>Redis-only vault.</strong> Rebuilt entirely from CBS on every VaultSyncWorkflow run (daily 07:00). No YugabyteDB backing table. If Redis is cold, the workflow rebuilds it — no data is "lost" because CBS is the authority. Lookup miss during clearing → HUMAN_REVIEW.</div>
+  <div class="ib"><strong>YugabyteDB is the source of truth.</strong> <code>cts.cheque_books</code> tracks issued books per account; <code>cts.cheque_leaves</code> tracks each individual leaf status. VaultSyncWorkflow (daily 06:00) rebuilds Redis from these tables. Lookup miss during clearing → HUMAN_REVIEW. CBS seed data is loaded via bulk upload or the CBS connector — ASTRA owns the record thereafter.</div>
+
+  <div class="tlabel">Table A — Cheque book issuance</div>
+  <div class="tname"><span class="sp">cts.</span>cheque_books</div>
+  <div class="tw"><table class="st">
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="cn">book_id</td><td class="ct">UUID</td><td class="cc"><span class="b bpk">PK</span></td><td class="co">uuid_generate_v4()</td></tr>
+      <tr><td class="cn">bank_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bfk">FK</span><span class="b bnn">NN</span></td><td class="co">→ platform.banks.bank_id. Leading key of composite index.</td></tr>
+      <tr><td class="cn">account_hash</td><td class="ct">TEXT</td><td class="cc"><span class="b bhash">HASH</span><span class="b bnn">NN</span></td><td class="co">HMAC-SHA256. Raw account never stored.</td></tr>
+      <tr><td class="cn">account_last4</td><td class="ct">VARCHAR(4)</td><td class="cc"><span class="b bmask">MASK</span><span class="b bnn">NN</span></td><td class="co">Display only.</td></tr>
+      <tr><td class="cn">cheque_number_from</td><td class="ct">VARCHAR(6)</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">First leaf number in the issued book.</td></tr>
+      <tr><td class="cn">cheque_number_to</td><td class="ct">VARCHAR(6)</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Last leaf number in the issued book.</td></tr>
+      <tr><td class="cn">issued_date</td><td class="ct">DATE</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Date book was dispatched to customer.</td></tr>
+      <tr><td class="cn">status</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">ACTIVE | CANCELLED | EXHAUSTED. Default ACTIVE.</td></tr>
+      <tr><td class="cn">upload_batch_id</td><td class="ct">UUID</td><td class="cc"><span class="b bfk">FK</span></td><td class="co">→ cts.vault_upload_batches.id. Audit trail for the seeding batch.</td></tr>
+      <tr><td class="cn">changed_by</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">user:{user_id} (UI) or system:{feed_name} (SFTP).</td></tr>
+      <tr><td class="cn">created_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT NOW()</td></tr>
+      <tr><td class="cn">updated_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT NOW()</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="tlabel">Table B — Individual leaf status</div>
+  <div class="tname"><span class="sp">cts.</span>cheque_leaves</div>
+  <div class="tw"><table class="st">
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="cn">leaf_id</td><td class="ct">UUID</td><td class="cc"><span class="b bpk">PK</span></td><td class="co">uuid_generate_v4()</td></tr>
+      <tr><td class="cn">bank_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bfk">FK</span><span class="b bnn">NN</span></td><td class="co">→ platform.banks.bank_id. Leading key of all composite indexes.</td></tr>
+      <tr><td class="cn">book_id</td><td class="ct">UUID</td><td class="cc"><span class="b bfk">FK</span><span class="b bnn">NN</span></td><td class="co">→ cts.cheque_books.book_id.</td></tr>
+      <tr><td class="cn">account_hash</td><td class="ct">TEXT</td><td class="cc"><span class="b bhash">HASH</span><span class="b bnn">NN</span></td><td class="co">HMAC-SHA256. Denormalized for fast lookup without book join.</td></tr>
+      <tr><td class="cn">cheque_number</td><td class="ct">VARCHAR(6)</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">6-digit zero-padded leaf serial. Composite unique: (bank_id, account_hash, cheque_number).</td></tr>
+      <tr><td class="cn">status</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">ACTIVE | LOST | STOLEN | CANCELLED | USED. Default ACTIVE.</td></tr>
+      <tr><td class="cn">issued_date</td><td class="ct">DATE</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">Inherited from cheque_books.issued_date at expansion time.</td></tr>
+      <tr><td class="cn">changed_by</td><td class="ct">TEXT</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">user:{user_id} or system:{feed_name}.</td></tr>
+      <tr><td class="cn">updated_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT NOW()</td></tr>
+    </tbody>
+  </table></div>
+
   <div class="tiers">
     <div class="tier">
       <div class="tn hot">Redis — HASH per leaf</div>
-      <div class="td">Fields: <strong>status</strong> (ACTIVE | LOST | STOLEN | CANCELLED | USED), <strong>issued_date</strong>, <strong>series_end</strong>. No TTL — rebuilt daily.</div>
+      <div class="td">Fields: <strong>status</strong> (ACTIVE | LOST | STOLEN | CANCELLED | USED), <strong>issued_date</strong>. No TTL — rebuilt daily by VaultSyncWorkflow from <code>cts.cheque_leaves</code>.</div>
       <div class="tk">chq:{bank_id}:{hmac(bank_id:acct)}:{cheque_number}</div>
     </div>
     <div class="tier">
-      <div class="tn dur" style="color:var(--muted)">YugabyteDB — None</div>
-      <div class="td" style="color:var(--muted)">No persistent DB table. CBS is the authoritative source. VaultSyncWorkflow calls <code style="font-family:var(--mono);font-size:10.5px;background:var(--cbg);color:var(--cink);padding:1px 4px;border-radius:2px">cbs_connector.list_issued_leaves(bank_id)</code> and pipeline-writes to Redis directly.</div>
+      <div class="tn dur">YugabyteDB — Source of truth</div>
+      <div class="td">Both tables above. <code>cts.cheque_leaves</code> has composite unique index on <code>(bank_id, account_hash, cheque_number)</code>. History tracked in <code>cts.cheque_leaves_history</code>.</div>
     </div>
   </div>
-  <div class="ib"><strong>Implication for bulk seeding:</strong> The Cheque Leaf Vault CSV upload path writes directly to Redis (no DB table to UPSERT into). The upload job tracker still records the run for audit purposes.</div>
 </div>
 
 <div class="sdiv"></div>
