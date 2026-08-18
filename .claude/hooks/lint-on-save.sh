@@ -28,7 +28,7 @@ if grep -n "verify=False" "$FILE" 2>/dev/null; then
 fi
 
 # Check for SELECT * on PII tables
-if grep -niE "SELECT \* FROM (cheque_instruments|agent_decisions|users|ej_raw_logs)" "$FILE" 2>/dev/null; then
+if grep -niE "SELECT \* FROM (cheque_instruments|agent_decisions|users)" "$FILE" 2>/dev/null; then
     echo "ERROR: SELECT * on PII table in $FILE — specify column list explicitly"
     exit 1
 fi

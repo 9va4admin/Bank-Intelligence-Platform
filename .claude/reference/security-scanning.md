@@ -108,17 +108,15 @@ rules:
       "SELECT * FROM $TABLE ..."
     metavariable-regex:
       metavariable: $TABLE
-      regex: "(cheque_instruments|agent_decisions|users|ej_raw_logs)"
+      regex: "(cheque_instruments|agent_decisions|users)"
     message: "SELECT * on PII table — specify explicit column list."
     severity: ERROR
     languages: [python]
 
   - id: astra-no-cross-module-import
     pattern: |
-      from modules.cts import ...
-    paths:
-      include: ["modules/ej/**"]
-    message: "Cross-module import: EJ must not import from CTS."
+      from modules.ej import ...
+    message: "Cross-module import: EJ module is in a separate repo (atm-ej-platform) — never import here."
     severity: ERROR
     languages: [python]
 

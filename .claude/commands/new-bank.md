@@ -6,7 +6,7 @@ Scaffold configuration for onboarding a new bank to ASTRA.
 /new-bank [bank_id] [bank_name] [cbs_type] [modules]
 
 ## Example
-/new-bank kotak-mah "Kotak Mahindra Bank" finacle cts,ej
+/new-bank kotak-mah "Kotak Mahindra Bank" finacle cts
 
 ## What This Does
 1. Creates `infra/helm/values/banks/{bank_id}.yaml` from bank-template.yaml

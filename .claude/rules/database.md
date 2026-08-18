@@ -4,7 +4,7 @@
 - Driver: `asyncpg` with `sqlalchemy[asyncio]` — never synchronous psycopg2 in async code
 - Connection pool: pgbouncer in transaction mode — max 10 connections per pod
 - All schema migrations via Alembic — never raw DDL in application code
-- Table partitioning: `cheque_instruments` and `ej_raw_logs` partition by `received_at` (monthly range)
+- Table partitioning: `cheque_instruments` partitions by `received_at` (monthly range)
 - Always include `bank_id` in WHERE clause — row-level multi-tenancy filter
 
 ## Query Rules

@@ -43,9 +43,7 @@ db_pass = os.environ.get("DB_PASSWORD", "admin") # env var with default
 
 ```
 secret/astra/{bank_id}/db/cts/password
-secret/astra/{bank_id}/db/ej/password
 secret/astra/{bank_id}/redis/cts/auth_token
-secret/astra/{bank_id}/redis/ej/auth_token
 secret/astra/{bank_id}/ngch/api_key
 secret/astra/{bank_id}/ngch/sftp_private_key
 secret/astra/{bank_id}/cbs/finacle/password        (or bancs, flexcube)

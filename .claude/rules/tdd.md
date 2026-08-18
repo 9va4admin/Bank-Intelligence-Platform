@@ -55,9 +55,7 @@ shared/auth/rbac.py               → tests/shared/auth/test_rbac.py
 shared/config/config_service.py   → tests/shared/config/test_config_service.py
 modules/cts/vaults/sig_vault.py   → tests/modules/cts/vaults/test_sig_vault.py
 modules/cts/workflows/cheque*.py  → tests/modules/cts/workflows/test_cheque*.py
-modules/ej/parser/llm_parser.py   → tests/modules/ej/parser/test_llm_parser.py
 apps/api/routers/cts.py           → tests/apps/api/routers/test_cts.py
-edge/ej-agent/main.go             → edge/ej-agent/main_test.go  (Go convention)
 ```
 
 Rule: test path mirrors implementation path exactly, with `tests/` prefix and `test_` file prefix.
@@ -74,7 +72,6 @@ Rule: test path mirrors implementation path exactly, with `tests/` prefix and `t
 | `shared/config/` | 90% | Every service depends on this |
 | `shared/auth/` | 90% | RBAC bypass = security incident |
 | `shared/audit/` | 90% | Audit trail loss = compliance failure |
-| `modules/ej/` | 85% | LLM paths have inherent variance |
 | `apps/api/routers/` | 80% | Integration-tested separately |
 | Overall project | 80% | Enforced by `pytest --cov-fail-under=80` in CI |
 
