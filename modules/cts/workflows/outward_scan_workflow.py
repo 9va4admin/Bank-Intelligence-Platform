@@ -556,6 +556,7 @@ class OutwardScanWorkflow:
             CTS2010ValidationInput(
                 instrument_id=inp.instrument_id,
                 cheque_number=inp.cheque_number,
+                bank_id=inp.bank_id,
                 front_dpi=inp.front_dpi,
                 rear_dpi=inp.rear_dpi,
                 front_colour_depth=inp.front_colour_depth,
