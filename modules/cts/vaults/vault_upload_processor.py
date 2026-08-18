@@ -84,6 +84,7 @@ class VaultUploadProcessor:
         account_vault=None,
         signature_vault=None,
         pps_vault=None,
+        pepper: Optional[str] = None,
     ) -> None:
         self._bank_id = bank_id
         self._db_pool = db_pool
@@ -91,6 +92,10 @@ class VaultUploadProcessor:
         self._account_vault = account_vault
         self._signature_vault = signature_vault
         self._pps_vault = pps_vault
+        # When pepper is provided, _bulk_account_check validates every non-ACCOUNT_DETAIL row
+        # against cts.account_vault before writing to any child vault table.
+        # Without pepper the check is skipped — tests and dev deployments that don't need it.
+        self._pepper = pepper
 
     async def process(
         self,
@@ -137,6 +142,17 @@ class VaultUploadProcessor:
                 await self._fail_batch(batch_id, f"Missing required columns: {missing}")
                 raise ValueError(f"CSV missing required columns for {vault_type}: {missing}")
 
+        # Referential integrity: bulk-check all accounts exist in cts.account_vault.
+        # One DB round-trip for the whole batch — cheap for any realistic CSV size.
+        # Skipped when: pepper not set (dev/test), db_pool is None, or ACCOUNT_DETAIL
+        # (which IS the source of truth — it creates the account_vault entries).
+        valid_hashes: Optional[frozenset[str]] = None
+        if self._pepper is not None and self._db_pool is not None and vault_type != "ACCOUNT_DETAIL":
+            valid_hashes = await self._bulk_account_check(rows)
+
+        # Cache account_number → hash to avoid recomputing HMAC per row
+        _acct_hash_cache: dict[str, str] = {}
+
         # Dispatch rows
         handler = self._get_handler(vault_type)
         for idx, row in enumerate(rows, start=2):  # row 1 is header
@@ -151,6 +167,26 @@ class VaultUploadProcessor:
                     "error": f"Invalid action {action!r}. Must be one of {sorted(_VALID_ACTIONS)}.",
                 })
                 continue
+
+            # Referential integrity gate: reject rows for accounts not in cts.account_vault
+            if valid_hashes is not None:
+                raw_acct = (clean.get("account_number") or "").strip()
+                if raw_acct:
+                    if raw_acct not in _acct_hash_cache:
+                        _acct_hash_cache[raw_acct] = hash_account_number(
+                            raw_acct, self._bank_id, self._pepper
+                        )
+                    if _acct_hash_cache[raw_acct] not in valid_hashes:
+                        result.rows_failed += 1
+                        result.errors.append({
+                            "row": idx,
+                            "error": (
+                                f"Account ****{raw_acct[-4:]} not found in cts.account_vault"
+                                f" — upload ACCOUNT_DETAIL first"
+                            ),
+                            "error_code": "ACCOUNT_NOT_FOUND_IN_VAULT",
+                        })
+                        continue
 
             try:
                 await handler(clean, action, changed_by, batch_id)
@@ -175,6 +211,41 @@ class VaultUploadProcessor:
         )
         await self._complete_batch(batch_id, final_status, result)
         return result
+
+    # ------------------------------------------------------------------
+    # Referential integrity
+    # ------------------------------------------------------------------
+
+    async def _bulk_account_check(self, rows: list[dict]) -> frozenset[str]:
+        """
+        Bulk-validate that every account_number in the CSV exists in cts.account_vault.
+        One SELECT per batch regardless of row count — O(unique_accounts) not O(rows).
+        Returns frozenset of valid account_hashes. An empty frozenset means zero accounts
+        in this batch have an account_vault entry — all rows will be rejected.
+        """
+        unique_accounts = {
+            r.get("account_number", "").strip()
+            for r in rows
+            if r.get("account_number", "").strip()
+        }
+        if not unique_accounts:
+            return frozenset()
+
+        hashes = [
+            hash_account_number(acct, self._bank_id, self._pepper)
+            for acct in unique_accounts
+        ]
+
+        async with self._db_pool.acquire() as conn:
+            records = await conn.fetch(
+                """
+                SELECT account_hash FROM cts.account_vault
+                WHERE bank_id = $1 AND account_hash = ANY($2::text[])
+                """,
+                self._bank_id,
+                hashes,
+            )
+        return frozenset(r["account_hash"] for r in records)
 
     # ------------------------------------------------------------------
     # Row handlers per vault type

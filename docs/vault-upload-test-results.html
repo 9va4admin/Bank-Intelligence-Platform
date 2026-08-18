@@ -162,12 +162,12 @@
 <div class="kpi-row">
   <div class="kpi">
     <div class="kpi-label">Total Tests</div>
-    <div class="kpi-val c-blue">146</div>
+    <div class="kpi-val c-blue">155</div>
     <div class="kpi-note">4 test files</div>
   </div>
   <div class="kpi">
     <div class="kpi-label">Passed</div>
-    <div class="kpi-val c-green">146</div>
+    <div class="kpi-val c-green">155</div>
     <div class="kpi-note">100% pass rate</div>
   </div>
   <div class="kpi">
@@ -177,8 +177,8 @@
   </div>
   <div class="kpi">
     <div class="kpi-label">Vault Tables</div>
-    <div class="kpi-val c-amber">4</div>
-    <div class="kpi-note">PPS · BOOK · LEAF · SIG</div>
+    <div class="kpi-val c-amber">5</div>
+    <div class="kpi-note">PPS · BOOK · LEAF · SIG · ACCT</div>
   </div>
   <div class="kpi">
     <div class="kpi-label">1M Row Time</div>
@@ -250,9 +250,14 @@
         <td class="accent">1,000,000 rows: exact counts · 10%/1% failure mix · single-row exception at row 500K · timing &lt; 120s</td>
       </tr>
       <tr>
-        <td class="bright">Error storage gap</td>
-        <td class="dim">Not tested</td>
-        <td class="accent">Proved: in-memory result has ALL errors; DB only stores first 50 (errors[:50] cap exposed)</td>
+        <td class="bright">Error storage cap</td>
+        <td class="dim">errors[:50] cap — silent data loss beyond 50 failures</td>
+        <td class="accent">errors[:1000] · in-memory result holds ALL errors for download · DB stores up to 1000 error entries</td>
+      </tr>
+      <tr>
+        <td class="bright">account_vault integrity</td>
+        <td class="dim">No check — orphan rows silently written</td>
+        <td class="accent">9-test suite: bulk SELECT per batch · orphan rows fail ACCOUNT_NOT_FOUND_IN_VAULT · ACCOUNT_DETAIL exempt · 1 DB call regardless of row count</td>
       </tr>
     </table>
   </div>
@@ -784,12 +789,119 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════
+     cts.account_vault INTEGRITY CHECK
+     ═══════════════════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-hdr">
+    <span class="sec-title">cts.account_vault Referential Integrity</span>
+    <span class="sec-file">test_vault_upload_scale.py · TestAccountVaultIntegrity</span>
+    <span class="sec-count">9 tests · all PASS</span>
+  </div>
+
+  <div class="blk">
+    <div class="blk-hdr">
+      <span class="blk-name">Problem + Solution</span>
+      <span class="blk-sub">Why orphan vault rows are dangerous in CTS</span>
+    </div>
+    <div style="padding:14px;">
+      <div class="box box-warn" style="margin-bottom:8px;">
+        <b>The gap:</b> SIGNATURE, PPS, CHEQUE_BOOK, and LEAF_STATUS rows are children of <code>cts.account_vault</code>.
+        If a bank uploads signatories for an account that doesn't exist in the account vault, the signatory row is written
+        but will never be matched during a cheque decision — the cheque goes to HUMAN_REVIEW on a vault miss.
+        Without a check, 1M such rows can accumulate silently with no operator visibility.
+      </div>
+      <div class="box box-pass">
+        <b>The fix:</b> When <code>pepper</code> is passed to <code>VaultUploadProcessor</code>,
+        <code>_bulk_account_check()</code> issues <b>one SELECT</b> against <code>cts.account_vault</code> at batch start,
+        covering all unique account_numbers in the CSV. Any row whose account_hash is absent gets
+        <code>error_code = "ACCOUNT_NOT_FOUND_IN_VAULT"</code> and appears in the downloadable errors CSV.
+        <code>ACCOUNT_DETAIL</code> uploads are exempt — they create the vault entries.
+      </div>
+    </div>
+  </div>
+
+  <div class="blk">
+    <div class="blk-hdr">
+      <span class="blk-name">TestAccountVaultIntegrity</span>
+      <span class="pill p-pass">9 PASS</span>
+    </div>
+    <table>
+      <tr><th>Test</th><th>What it proves</th><th>Status</th></tr>
+      <tr>
+        <td class="tn">test_signature_rows_for_missing_accounts_all_fail</td>
+        <td class="insight">0 accounts in account_vault → all 5 rows fail, rows_processed=0</td>
+        <td class="ts ts-pass">PASS</td>
+      </tr>
+      <tr>
+        <td class="tn">test_signature_rows_for_valid_accounts_all_succeed</td>
+        <td class="insight">All 5 accounts present → all pass, rows_failed=0</td>
+        <td class="ts ts-pass">PASS</td>
+      </tr>
+      <tr>
+        <td class="tn">test_mixed_valid_and_orphan_gives_partial_batch</td>
+        <td class="insight">3 valid + 2 orphan → rows_processed=3, rows_failed=2, batch=PARTIAL</td>
+        <td class="ts ts-pass">PASS</td>
+      </tr>
+      <tr>
+        <td class="tn">test_orphan_error_entry_contains_correct_error_code</td>
+        <td class="insight">error["error_code"] == "ACCOUNT_NOT_FOUND_IN_VAULT" · message tells operator to upload ACCOUNT_DETAIL first</td>
+        <td class="ts ts-pass">PASS</td>
+      </tr>
+      <tr>
+        <td class="tn">test_orphan_error_masks_account_number_to_last_4</td>
+        <td class="insight">PII: only last 4 digits appear in error message · full account_number never logged</td>
+        <td class="ts ts-pass">PASS</td>
+      </tr>
+      <tr>
+        <td class="tn">test_account_detail_upload_exempt_from_account_vault_check</td>
+        <td class="insight">ACCOUNT_DETAIL skips bulk check even with pepper set · error is "AccountVault not configured" not ACCOUNT_NOT_FOUND</td>
+        <td class="ts ts-pass">PASS</td>
+      </tr>
+      <tr>
+        <td class="tn">test_no_pepper_check_is_skipped_orphan_rows_pass_through</td>
+        <td class="insight">Without pepper, _bulk_account_check never called · backward-compat for dev/test deployments</td>
+        <td class="ts ts-pass">PASS</td>
+      </tr>
+      <tr>
+        <td class="tn">test_bulk_check_is_one_db_fetch_call_for_100_rows</td>
+        <td class="insight">conn.fetch call count == 1 for 100-row batch · never one SELECT per row</td>
+        <td class="ts ts-pass">PASS</td>
+      </tr>
+      <tr>
+        <td class="tn">test_duplicate_account_numbers_in_csv_cause_single_hash_lookup</td>
+        <td class="insight">100 rows same account → SELECT sends 1 unique hash · deduplication before DB call verified</td>
+        <td class="ts ts-pass">PASS</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="blk">
+    <div class="blk-hdr">
+      <span class="blk-name">Remaining gap: DB-level FK constraint</span>
+      <span class="pill p-warn">OPEN</span>
+    </div>
+    <div style="padding:14px;">
+      <div class="box box-warn">
+        The application-level check (above) catches orphan rows when <code>pepper</code> is provided.
+        For defence-in-depth, an Alembic migration should add
+        <code>FOREIGN KEY (bank_id, account_hash) REFERENCES cts.account_vault (bank_id, account_hash)</code>
+        on <code>cts.account_signatories</code>, <code>cts.cheque_books</code>, <code>cts.cheque_leaves</code>,
+        and <code>cts.pps_vault_entries</code>. The DB then enforces the constraint unconditionally,
+        regardless of whether <code>pepper</code> is configured. Migration name:
+        <code>add_account_vault_fk_constraints.py</code>.
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="foot">
-  <span class="fi"><b>Commits</b> d3f425c (exhaustive 72) · 221937b (basic + workflow) · latest (scale 10)</span>
-  <span class="fi"><b>Vault tables covered</b> cts.pps_vault_entries · cts.cheque_books · cts.cheque_leaves · cts.account_signatories</span>
+  <span class="fi"><b>Commits</b> d3f425c (exhaustive 72) · 221937b (basic + workflow) · latest (scale + integrity)</span>
+  <span class="fi"><b>Vault tables covered</b> cts.pps_vault_entries · cts.cheque_books · cts.cheque_leaves · cts.account_signatories · cts.account_vault</span>
   <span class="fi"><b>DB params verified</b> bank_id · account_hash (never raw acct) · cheque_number (6-pad) · issued_date (date obj) · amount_paise (int) · is_active · quorum_n</span>
   <span class="fi"><b>Cross-bank isolation</b> bank_id from constructor, never CSV · verified in $1 SQL arg · 1M-row two-bank independence test</span>
   <span class="fi"><b>Scale</b> 1M rows / ~30s · 500K × 2 banks · exception at row 500K · 10% + 1% + 100% failure scenarios</span>
-  <span class="fi"><b>Gaps</b> errors_json capped at 50 · no error CSV download · no PARTIAL batch notification</span>
-  <span class="fi"><b>Runtime</b> unit tests 3.2s · scale tests 212s · pytest 9.1.0 · Python 3.12.10</span>
+  <span class="fi"><b>Gaps closed</b> errors_json 50→1000 · error CSV download endpoint built · PARTIAL batch Kafka notification built · account_vault orphan check built</span>
+  <span class="fi"><b>Remaining gap</b> DB-level FK constraints (migration: add_account_vault_fk_constraints.py)</span>
+  <span class="fi"><b>Runtime</b> unit tests 1.9s · scale tests ~212s · integrity tests 1.9s · pytest 9.1.0 · Python 3.12.10</span>
 </div>
