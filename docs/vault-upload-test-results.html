@@ -162,12 +162,12 @@
 <div class="kpi-row">
   <div class="kpi">
     <div class="kpi-label">Total Tests</div>
-    <div class="kpi-val c-blue">155</div>
-    <div class="kpi-note">4 test files</div>
+    <div class="kpi-val c-blue">206</div>
+    <div class="kpi-note">6 test files · 3 surfaces</div>
   </div>
   <div class="kpi">
     <div class="kpi-label">Passed</div>
-    <div class="kpi-val c-green">155</div>
+    <div class="kpi-val c-green">206</div>
     <div class="kpi-note">100% pass rate</div>
   </div>
   <div class="kpi">
@@ -258,6 +258,16 @@
         <td class="bright">account_vault integrity</td>
         <td class="dim">No check — orphan rows silently written</td>
         <td class="accent">9-test suite: bulk SELECT per batch · orphan rows fail ACCOUNT_NOT_FOUND_IN_VAULT · ACCOUNT_DETAIL exempt · 1 DB call regardless of row count</td>
+      </tr>
+      <tr>
+        <td class="bright">HTTP upload endpoint (route-level)</td>
+        <td class="dim">Not covered — processor only, no router</td>
+        <td class="accent">41 tests: FastAPI TestClient · auth 401/403 · vault type 422 · bank_id from JWT only · upload_channel=UI · Kafka on failure · batch status GET · errors CSV download</td>
+      </tr>
+      <tr>
+        <td class="bright">Temporal real-worker execution</td>
+        <td class="dim">Not covered — unit tests called workflow methods directly</td>
+        <td class="accent">10 tests: WorkflowEnvironment.start_time_skipping() · real Worker() + UnsandboxedWorkflowRunner · @activity.defn routing by name · degradation path via real activities (MinIO=None → PARSE_FAILED)</td>
       </tr>
     </table>
   </div>
@@ -790,6 +800,278 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════
+     HTTP UPLOAD ROUTE — FastAPI TestClient
+     ═══════════════════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-hdr">
+    <span class="sec-title">HTTP Upload Endpoint — Route-Level Tests</span>
+    <span class="sec-file">tests/apps/api/routers/test_vault_upload_routes.py</span>
+    <span class="sec-count">41 tests · 6.71s · 100% PASS</span>
+  </div>
+
+  <div class="blk">
+    <div class="blk-hdr">
+      <span class="blk-name">Test Architecture</span>
+      <span class="blk-sub">FastAPI TestClient + dependency_overrides · VaultUploadProcessor patched</span>
+    </div>
+    <div style="padding:14px;">
+      <div class="box box-blue">
+        <b>What this surface adds:</b> The unit tests (exhaustive, basic, scale) prove <code>VaultUploadProcessor</code> in isolation.
+        The route tests prove the <b>HTTP contract</b>: that the router correctly reads <code>bank_id</code> from the JWT
+        (never from the request body), sets <code>upload_channel="UI"</code>, enforces auth and RBAC, translates
+        processor <code>ValueError</code> to HTTP 422, and publishes Kafka notifications when rows fail.
+        <code>VaultUploadProcessor</code> is patched so only the router's wiring is tested — not the processor again.
+      </div>
+      <div class="box box-blue" style="margin-top:6px;">
+        <b>Setup:</b> <code>app.dependency_overrides[get_current_user_context] = lambda: _ctx(bank_id)</code>
+        · <code>with patch("modules.cts.vaults.vault_upload_processor.VaultUploadProcessor") as MockProc</code>
+        · <code>client = TestClient(app, raise_server_exceptions=False)</code>
+        · <code>client.post("/v1/cts/vault/upload/PPS", files={"file": ("f.csv", csv_bytes, "text/csv")})</code>
+      </div>
+    </div>
+  </div>
+
+  <div class="blk">
+    <div class="blk-hdr">
+      <span class="blk-name">TestVaultUploadAuth</span>
+      <span class="pill p-pass">3 PASS</span>
+      <span class="blk-sub">→ 401 on missing auth token</span>
+    </div>
+    <table>
+      <tr><th></th><th>Test</th><th>What is proved</th><th>Status</th></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_unauthenticated_upload_returns_401</td><td class="insight">POST /v1/cts/vault/upload/PPS without auth → 401 (not 422, not 500)</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_unauthenticated_batch_status_returns_401</td><td class="insight">GET /v1/cts/vault/batches/{id} without auth → 401</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_unauthenticated_errors_csv_returns_401</td><td class="insight">GET /v1/cts/vault/batches/{id}/errors.csv without auth → 401</td><td class="ts ts-pass">PASS</td></tr>
+    </table>
+  </div>
+
+  <div class="blk">
+    <div class="blk-hdr">
+      <span class="blk-name">TestVaultTypeValidation</span>
+      <span class="pill p-pass">4 PASS</span>
+      <span class="blk-sub">→ 422 on unknown type · lowercase accepted · empty file rejected</span>
+    </div>
+    <table>
+      <tr><th></th><th>Test</th><th>What is proved</th><th>Status</th></tr>
+      <tr><td class="icon">✗</td><td class="tn">test_unknown_vault_type_returns_422</td><td class="insight">"FAKE_TYPE" in URL → 422 VAULT_PARSE_ERROR (not 500)</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_lowercase_vault_type_accepted</td><td class="insight">"pps" in URL uppercased → 200 (case-insensitive routing)</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✗</td><td class="tn">test_empty_file_returns_422</td><td class="insight">Zero-byte CSV → 422 VAULT_PARSE_ERROR</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_all_five_valid_vault_types_accepted</td><td class="insight">PPS/CHEQUE_BOOK/LEAF_STATUS/ACCOUNT_DETAIL/SIGNATURE each returns 200</td><td class="ts ts-pass">PASS</td></tr>
+    </table>
+  </div>
+
+  <div class="blk">
+    <div class="blk-hdr">
+      <span class="blk-name">TestVaultUploadHappyPath</span>
+      <span class="pill p-pass">15 PASS</span>
+      <span class="blk-sub">→ 200 · JWT scoping · channel · counts · Kafka gating</span>
+    </div>
+    <table>
+      <tr><th></th><th>Test</th><th>What is proved</th><th>Status</th></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_happy_path_returns_200</td><td class="insight">Clean batch → HTTP 200</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_response_has_batch_id</td><td class="insight">batch_id present in response body</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_response_has_vault_type</td><td class="insight">vault_type echoed in response</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_pps_db_table_is_pps_vault_entries</td><td class="insight">Processor constructed with db_table="cts.pps_vault_entries"</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_cheque_book_db_table_correct</td><td class="insight">CHEQUE_BOOK → db_table="cts.cheque_books"</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_leaf_status_db_table_correct</td><td class="insight">LEAF_STATUS → db_table="cts.cheque_leaves"</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_account_detail_db_table_correct</td><td class="insight">ACCOUNT_DETAIL → db_table="cts.account_vault_detail"</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_signature_db_table_correct</td><td class="insight">SIGNATURE → db_table="cts.account_signatories"</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_all_valid_rows_gives_complete_status</td><td class="insight">rows_failed=0 → status="COMPLETE" in response</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_row_counts_propagated</td><td class="insight">rows_total/rows_processed/rows_failed from processor arrive in response</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_bank_id_passed_to_processor_from_jwt_not_csv</td><td class="insight"><b>bank_id in Processor constructor == ctx.bank_id (JWT claim) — cannot be injected from CSV or URL</b></td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_changed_by_includes_user_id_from_jwt</td><td class="insight">changed_by == f"user:{ctx.user_id}" — never hardcoded</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_upload_channel_is_ui_not_sftp</td><td class="insight"><b>upload_channel="UI" on HTTP path (not "SFTP") — enforced structurally in router</b></td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_errors_preview_empty_on_clean_batch</td><td class="insight">errors_preview=[] when rows_failed=0</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_kafka_not_published_when_zero_failures</td><td class="insight"><b>Kafka publish NOT called on clean batch</b> — no false alarms</td><td class="ts ts-pass">PASS</td></tr>
+    </table>
+  </div>
+
+  <div class="blk">
+    <div class="blk-hdr">
+      <span class="blk-name">TestVaultUploadPartialBatch + TestVaultUploadParseError</span>
+      <span class="pill p-pass">7 PASS</span>
+      <span class="blk-sub">→ PARTIAL/FAILED status · errors_preview cap · Kafka gating · 422 on parse error</span>
+    </div>
+    <table>
+      <tr><th></th><th>Test</th><th>What is proved</th><th>Status</th></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_partial_batch_returns_partial_status</td><td class="insight">rows_failed &gt; 0, rows_processed &gt; 0 → status="PARTIAL"</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_partial_batch_rows_failed_in_response</td><td class="insight">rows_failed count present in response</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_errors_preview_capped_at_20</td><td class="insight">25 errors from processor → errors_preview[:20] (5 dropped) — protects response size</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_all_rows_failed_gives_failed_status</td><td class="insight">rows_processed=0, rows_failed=all → status="FAILED"</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_kafka_published_when_rows_failed_gt_zero</td><td class="insight"><b>Kafka published to platform.audit.events when rows_failed &gt; 0</b></td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✗</td><td class="tn">test_processor_value_error_returns_422</td><td class="insight">Processor raises ValueError("invalid CSV header") → HTTP 422 VAULT_PARSE_ERROR (not 500)</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_parse_error_message_in_response</td><td class="insight">ValueError message appears in 422 response body</td><td class="ts ts-pass">PASS</td></tr>
+    </table>
+  </div>
+
+  <div class="blk">
+    <div class="blk-hdr">
+      <span class="blk-name">TestVaultBatchStatus</span>
+      <span class="pill p-pass">5 PASS</span>
+      <span class="blk-sub">→ GET /v1/cts/vault/batches/{id} · cross-bank 404 · DB unavailable 503</span>
+    </div>
+    <table>
+      <tr><th></th><th>Test</th><th>What is proved</th><th>Status</th></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_batch_status_returns_200_when_found</td><td class="insight">Known batch_id → 200 with all fields (filename, upload_channel, uploaded_by)</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_batch_status_response_schema</td><td class="insight">All required fields present in response model</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_batch_not_found_returns_404</td><td class="insight">Unknown batch_id → 404 (not 500)</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_cross_bank_batch_returns_404_not_200</td><td class="insight"><b>batch belonging to bank-B returns 404 to bank-A's JWT — IDOR prevention confirmed</b></td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_db_unavailable_returns_503</td><td class="insight">DB pool raises exception → 503 (not 500)</td><td class="ts ts-pass">PASS</td></tr>
+    </table>
+  </div>
+
+  <div class="blk">
+    <div class="blk-hdr">
+      <span class="blk-name">TestVaultBatchErrorsCsv</span>
+      <span class="pill p-pass">7 PASS</span>
+      <span class="blk-sub">→ GET /v1/cts/vault/batches/{id}/errors.csv · download header · IDOR · DB 503</span>
+    </div>
+    <table>
+      <tr><th></th><th>Test</th><th>What is proved</th><th>Status</th></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_errors_csv_returns_200_with_csv_content_type</td><td class="insight">Content-Type: text/csv</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_errors_csv_has_attachment_content_disposition</td><td class="insight">Content-Disposition: attachment (browser triggers download)</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_errors_csv_filename_contains_batch_id_prefix</td><td class="insight">filename=vault_errors_{batch_id[:8]}.csv — first 8 chars of batch_id in filename</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_errors_csv_has_header_row</td><td class="insight">First line == "row,error,error_code"</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_errors_csv_contains_all_error_rows</td><td class="insight">All error entries from DB appear in CSV body</td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_errors_csv_cross_bank_returns_404</td><td class="insight"><b>Cross-bank errors CSV → 404 (IDOR prevention)</b></td><td class="ts ts-pass">PASS</td></tr>
+      <tr><td class="icon">✓</td><td class="tn">test_errors_csv_db_unavailable_returns_503</td><td class="insight">DB exception → 503</td><td class="ts ts-pass">PASS</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     TEMPORAL REAL-WORKER TESTS
+     ═══════════════════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-hdr">
+    <span class="sec-title">Temporal Real-Worker Tests — VaultFileDropWorkflow</span>
+    <span class="sec-file">tests/modules/cts/workflows/test_vault_file_drop_workflow_real.py</span>
+    <span class="sec-count">10 tests · 100% PASS</span>
+  </div>
+
+  <div class="blk">
+    <div class="blk-hdr">
+      <span class="blk-name">What this surface adds</span>
+      <span class="blk-sub">WorkflowEnvironment + real Worker — @activity.defn routing proven end-to-end</span>
+    </div>
+    <div style="padding:14px;">
+      <div class="box box-blue">
+        <b>Why this is different from unit tests:</b> <code>test_vault_file_drop_workflow.py</code> calls
+        <code>workflow.run_with_mocks()</code> — it never touches Temporal's task queue machinery.
+        These tests start a <b>real Temporal WorkflowEnvironment</b> (time-skipping mode) with a real
+        <code>Worker()</code> registered against an actual in-process task queue.
+        The workflow is started via <code>client.execute_workflow()</code> and Temporal routes activity
+        calls by <b>@activity.defn name</b> — proving the decorator wiring is correct end-to-end.
+      </div>
+      <div class="box box-blue" style="margin-top:6px;">
+        <b>Fake activity pattern:</b> Module-level result stores (<code>_fetch_result</code>,
+        <code>_process_result</code>, <code>_alert_calls</code>, <code>_archive_called</code>)
+        reset via <code>autouse</code> fixture each test. Fake activities decorated with
+        <code>@activity.defn(name="fetch_drop_file")</code> — same name as production functions.
+        Temporal routes by name, not function reference, so the worker serves both fakes and real activities.
+      </div>
+      <div class="box box-pass" style="margin-top:6px;">
+        <b>Degradation path proven:</b> One test uses <code>_REAL_ACTIVITIES</code> (not fakes) — it runs
+        the actual <code>fetch_drop_file</code> activity with no MinIO client configured, proving
+        the real error path returns <code>outcome="PARSE_FAILED"</code> with
+        <code>"MINIO_UNAVAILABLE"</code> in the error field — not a crash, not a silent hang.
+      </div>
+    </div>
+  </div>
+
+  <div class="blk">
+    <div class="blk-hdr">
+      <span class="blk-name">TestVaultFileDropWorkflowRealWorker</span>
+      <span class="pill p-pass">10 PASS</span>
+      <span class="blk-cnt">10 tests</span>
+    </div>
+    <table>
+      <tr><th></th><th>Test</th><th>Activities</th><th>Scenario</th><th>Key Assertion</th><th>Status</th></tr>
+      <tr>
+        <td class="icon">✓</td>
+        <td class="tn">test_happy_path_returns_vault_updated</td>
+        <td class="insight">Fake (all 4)</td>
+        <td class="insight">fetch→bytes · process→10/10 · archive→called</td>
+        <td class="insight">outcome="VAULT_UPDATED" · rows_processed=10 · batch_id="batch-real-001"</td>
+        <td class="ts ts-pass">PASS</td>
+      </tr>
+      <tr>
+        <td class="icon">✓</td>
+        <td class="tn">test_fetch_unavailable_returns_parse_failed</td>
+        <td class="insight" style="color:var(--warn)">REAL activities</td>
+        <td class="insight">MinIO=None in real fetch_drop_file</td>
+        <td class="insight">outcome="PARSE_FAILED" · "MINIO_UNAVAILABLE" in error · graceful degradation confirmed</td>
+        <td class="ts ts-pass">PASS</td>
+      </tr>
+      <tr>
+        <td class="icon">✓</td>
+        <td class="tn">test_process_error_returns_vault_update_failed</td>
+        <td class="insight">Fake</td>
+        <td class="insight">process returns error="DB_UNAVAILABLE"</td>
+        <td class="insight">outcome="VAULT_UPDATE_FAILED" · error="DB_UNAVAILABLE"</td>
+        <td class="ts ts-pass">PASS</td>
+      </tr>
+      <tr>
+        <td class="icon">✓</td>
+        <td class="tn">test_duplicate_file_returns_duplicate_skipped</td>
+        <td class="insight">Fake</td>
+        <td class="insight">fetch returns duplicate=True</td>
+        <td class="insight">outcome="DUPLICATE_SKIPPED" · rows_total=0 · process NOT called</td>
+        <td class="ts ts-pass">PASS</td>
+      </tr>
+      <tr>
+        <td class="icon">✓</td>
+        <td class="tn">test_unknown_vault_type_returns_parse_failed_immediately</td>
+        <td class="insight">Fake</td>
+        <td class="insight">vault_type="INVALID_TYPE" in input</td>
+        <td class="insight">outcome="PARSE_FAILED" · "INVALID_TYPE" in error · no activity scheduled</td>
+        <td class="ts ts-pass">PASS</td>
+      </tr>
+      <tr>
+        <td class="icon">✓</td>
+        <td class="tn">test_partial_batch_triggers_emit_alert_activity</td>
+        <td class="insight">Fake</td>
+        <td class="insight">rows_failed=3 (out of 10)</td>
+        <td class="insight">outcome="VAULT_UPDATED" · len(_alert_calls)==1 · alert.rows_failed==3</td>
+        <td class="ts ts-pass">PASS</td>
+      </tr>
+      <tr>
+        <td class="icon">✓</td>
+        <td class="tn">test_complete_batch_does_not_trigger_alert</td>
+        <td class="insight">Fake</td>
+        <td class="insight">rows_failed=0</td>
+        <td class="insight"><b>len(_alert_calls)==0 — no alert on clean batch</b></td>
+        <td class="ts ts-pass">PASS</td>
+      </tr>
+      <tr>
+        <td class="icon">✓</td>
+        <td class="tn">test_bank_id_propagated_to_workflow_result</td>
+        <td class="insight">Fake</td>
+        <td class="insight">bank_id="federal-bank" in input</td>
+        <td class="insight">result.bank_id=="federal-bank" (Pydantic serialisation through Temporal)</td>
+        <td class="ts ts-pass">PASS</td>
+      </tr>
+      <tr>
+        <td class="icon">✓</td>
+        <td class="tn">test_archive_activity_called_on_success</td>
+        <td class="insight">Fake</td>
+        <td class="insight">process succeeds</td>
+        <td class="insight">len(_archive_called)==1 — archive always runs after success</td>
+        <td class="ts ts-pass">PASS</td>
+      </tr>
+      <tr>
+        <td class="icon">✓</td>
+        <td class="tn">test_archive_not_called_on_fetch_failure</td>
+        <td class="insight">Fake</td>
+        <td class="insight">fetch returns error="HASH_MISMATCH"</td>
+        <td class="insight">outcome="PARSE_FAILED" · <b>len(_archive_called)==0 — archive skipped on fetch failure</b></td>
+        <td class="ts ts-pass">PASS</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
      cts.account_vault INTEGRITY CHECK
      ═══════════════════════════════════════════════ -->
 <div class="sec">
@@ -896,12 +1178,15 @@
 </div>
 
 <div class="foot">
-  <span class="fi"><b>Commits</b> d3f425c (exhaustive 72) · 221937b (basic + workflow) · latest (scale + integrity)</span>
+  <span class="fi"><b>Total tests</b> 206 PASS · 0 FAIL · 6 test files · 3 verification surfaces</span>
+  <span class="fi"><b>Test surfaces</b> Processor unit (155) · HTTP route (41) · Temporal real-worker (10)</span>
   <span class="fi"><b>Vault tables covered</b> cts.pps_vault_entries · cts.cheque_books · cts.cheque_leaves · cts.account_signatories · cts.account_vault</span>
   <span class="fi"><b>DB params verified</b> bank_id · account_hash (never raw acct) · cheque_number (6-pad) · issued_date (date obj) · amount_paise (int) · is_active · quorum_n</span>
-  <span class="fi"><b>Cross-bank isolation</b> bank_id from constructor, never CSV · verified in $1 SQL arg · 1M-row two-bank independence test</span>
+  <span class="fi"><b>Security verified by tests</b> bank_id from JWT only (never CSV/URL) · cross-bank 404 not 200 · upload_channel=UI enforced · Kafka only on failure</span>
+  <span class="fi"><b>Cross-bank isolation</b> bank_id from constructor, never CSV · verified in $1 SQL arg · 1M-row two-bank independence test · IDOR tests for batch status + errors CSV</span>
   <span class="fi"><b>Scale</b> 1M rows / ~30s · 500K × 2 banks · exception at row 500K · 10% + 1% + 100% failure scenarios</span>
   <span class="fi"><b>Gaps closed</b> errors_json 50→1000 · error CSV download endpoint built · PARTIAL batch Kafka notification built · account_vault orphan check built</span>
   <span class="fi"><b>Remaining gap</b> DB-level FK constraints (migration: add_account_vault_fk_constraints.py)</span>
-  <span class="fi"><b>Runtime</b> unit tests 1.9s · scale tests ~212s · integrity tests 1.9s · pytest 9.1.0 · Python 3.12.10</span>
+  <span class="fi"><b>Runtime</b> unit tests 1.9s · route tests 6.71s · scale+integrity tests ~212s · Temporal real-worker tests ~180s · pytest 9.1.0 · Python 3.12.10</span>
+  <span class="fi"><b>Branch</b> claude/cool-euler-x02gek · 2026-08-19</span>
 </div>
