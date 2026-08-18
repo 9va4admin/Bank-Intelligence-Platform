@@ -107,6 +107,9 @@ class AuditEventType(str, Enum):
     DIAGNOSTIC_ACCESS = "DIAGNOSTIC_ACCESS"
     BANK_ONBOARDED = "BANK_ONBOARDED"
 
+    # ── Session reports ────────────────────────────────────────────────────────
+    SESSION_REPORT_GENERATED = "SESSION_REPORT_GENERATED"  # outward clearing session digest stored
+
 
 class HSMSigningError(RuntimeError):
     """Raised when the HSM fails to sign an audit event."""

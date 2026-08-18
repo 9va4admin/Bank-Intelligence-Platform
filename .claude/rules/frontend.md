@@ -88,7 +88,6 @@ const SEV = isDark ? SEV_D : SEV_L
 ### Shell Wrappers
 
 - CTS pages: wrap with `<AppShell>` — already theme-aware, handles sidebar + topbar
-- EJ pages: wrap with `<EJShell>` — already theme-aware, handles topbar
 
 ### ThemeContext API
 
@@ -98,4 +97,4 @@ ThemeContext.jsx exports:
   ThemeProvider  →  wraps the app, persists to localStorage('astra-theme')
 ```
 
-The theme toggle button is in `AppShell` (CTS) and `EJShell` (EJ). No page needs to render its own toggle.
+The theme toggle button is in `AppShell`. No page needs to render its own toggle.

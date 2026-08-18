@@ -199,3 +199,52 @@ class TestFieldClassification:
             assert (field in ALWAYS_LATIN) != (field in SCRIPT_ADAPTIVE), (
                 f"Field '{field}' must be in exactly one of ALWAYS_LATIN or SCRIPT_ADAPTIVE"
             )
+
+
+# ── identify_indic_script ──────────────────────────────────────────────────────
+
+class TestIdentifyIndicScript:
+    def test_devanagari_text_returns_devanagari(self):
+        from modules.cts.preprocessing.zone_extractor import identify_indic_script
+        assert identify_indic_script("अभिलाष रेड्डी") == "devanagari"
+
+    def test_tamil_text_returns_tamil(self):
+        from modules.cts.preprocessing.zone_extractor import identify_indic_script
+        assert identify_indic_script("தமிழ்") == "tamil"
+
+    def test_telugu_text_returns_telugu(self):
+        from modules.cts.preprocessing.zone_extractor import identify_indic_script
+        assert identify_indic_script("తెలుగు") == "telugu"
+
+    def test_kannada_text_returns_kannada(self):
+        from modules.cts.preprocessing.zone_extractor import identify_indic_script
+        assert identify_indic_script("ಕನ್ನಡ") == "kannada"
+
+    def test_malayalam_text_returns_malayalam(self):
+        from modules.cts.preprocessing.zone_extractor import identify_indic_script
+        assert identify_indic_script("മലയാളം") == "malayalam"
+
+    def test_gujarati_text_returns_gujarati(self):
+        from modules.cts.preprocessing.zone_extractor import identify_indic_script
+        assert identify_indic_script("ગુજરાત") == "gujarati"
+
+    def test_bengali_text_returns_bengali(self):
+        from modules.cts.preprocessing.zone_extractor import identify_indic_script
+        assert identify_indic_script("বাংলা") == "bengali"
+
+    def test_latin_returns_none(self):
+        from modules.cts.preprocessing.zone_extractor import identify_indic_script
+        assert identify_indic_script("ACME Corp") is None
+
+    def test_empty_returns_none(self):
+        from modules.cts.preprocessing.zone_extractor import identify_indic_script
+        assert identify_indic_script("") is None
+
+    def test_dominant_script_wins_on_mixed_text(self):
+        # Devanagari codepoints outnumber Tamil in this string
+        from modules.cts.preprocessing.zone_extractor import identify_indic_script
+        assert identify_indic_script("अभिलाष தமிழ்") == "devanagari"
+
+    def test_marathi_amount_words_devanagari(self):
+        from modules.cts.preprocessing.zone_extractor import identify_indic_script
+        assert identify_indic_script("बीस लाख पचास हजार") == "devanagari"

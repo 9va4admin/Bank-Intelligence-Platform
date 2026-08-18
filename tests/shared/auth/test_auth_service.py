@@ -240,3 +240,89 @@ def test_confirm_enrollment_wrong_code_stays_unenrolled():
     with pytest.raises(AuthenticationError):
         asyncio.run(svc.confirm_enrollment(interim_claims, "000000"))
     assert asyncio.run(accts.is_totp_enrolled("usr-001")) is False
+
+
+# --------------------------------------------------------------------------- #
+# AuthConnectorFactory integration — wiring the factory path
+# --------------------------------------------------------------------------- #
+
+class _FakeFactory:
+    """Minimal factory stub that records get_connector() calls."""
+
+    def __init__(self, connector):
+        self._connector = connector
+        self.calls: list[tuple[str, str]] = []
+
+    def get_connector(self, entity_type: str, entity_id: str):
+        self.calls.append((entity_type, entity_id))
+        return self._connector
+
+
+def _factory_service(identity=None, exc=None, enrolled=()):
+    """Build an AuthService wired via connector_factory (not connector=)."""
+    priv, pub = KEYS
+    sess = SessionTokenService(priv, pub, "astra-auth", 900)
+    mfa = TOTPMFAService(_MfaStore(), "ASTRA")
+    conn = _FakeConnector(identity=identity if identity is not None else _identity(), exc=exc)
+    factory = _FakeFactory(conn)
+    accts = _FakeAccounts(enrolled)
+    svc = AuthService(connector_factory=factory, mfa=mfa, session_service=sess, account_store=accts)
+    return svc, factory, mfa, accts, sess
+
+
+def test_factory_path_authenticates_successfully():
+    """AuthService built with connector_factory= completes login correctly."""
+    svc, factory, _, _, sess = _factory_service(enrolled=["usr-001"])
+    result = asyncio.run(svc.login("ops1", "pw", bank_id="saraswat-coop"))
+    assert result.outcome == LoginOutcome.MFA_REQUIRED
+    claims = sess.validate(result.interim_session.token)
+    assert claims.user_id == "usr-001"
+
+
+def test_factory_get_connector_called_with_entity_type_and_entity_id():
+    """factory.get_connector receives entity_type and entity_id on each login."""
+    svc, factory, _, _, _ = _factory_service(enrolled=["usr-001"])
+    asyncio.run(svc.login("ops1", "pw", bank_id="saraswat-coop", entity_type="sb"))
+    assert factory.calls == [("sb", "saraswat-coop")]
+
+
+def test_factory_entity_type_smb_forwarded():
+    """When entity_type='smb' is passed, factory receives 'smb'."""
+    svc, factory, _, _, _ = _factory_service(
+        identity=_identity(entity_type="smb", entity_id="pune-ucb", bank_type="SMB"),
+        enrolled=["usr-001"],
+    )
+    asyncio.run(svc.login("ops1", "pw", bank_id="pune-ucb", entity_type="smb"))
+    assert factory.calls[0][0] == "smb"
+    assert factory.calls[0][1] == "pune-ucb"
+
+
+def test_factory_entity_id_defaults_to_bank_id_when_omitted():
+    """When entity_id not given, bank_id is used as entity_id."""
+    svc, factory, _, _, _ = _factory_service(enrolled=["usr-001"])
+    asyncio.run(svc.login("ops1", "pw", bank_id="federal-bank"))
+    assert factory.calls[0] == ("sb", "federal-bank")
+
+
+def test_factory_connector_auth_failure_propagates():
+    """AuthenticationError from connector still propagates when using factory."""
+    svc, _, _, _, _ = _factory_service(exc=AuthenticationError("bad password"))
+    with pytest.raises(AuthenticationError):
+        asyncio.run(svc.login("ops1", "wrong", bank_id="saraswat-coop"))
+
+
+def test_backward_compat_connector_arg_still_works():
+    """Passing connector= directly (old API) still works — no regression."""
+    svc, _, _, _ = _service(enrolled=["usr-001"])
+    result = asyncio.run(svc.login("ops1", "pw"))
+    assert result.outcome == LoginOutcome.MFA_REQUIRED
+
+
+def test_neither_connector_nor_factory_raises_value_error():
+    """AuthService must receive either connector or connector_factory."""
+    priv, pub = KEYS
+    sess = SessionTokenService(priv, pub, "astra-auth", 900)
+    mfa = TOTPMFAService(_MfaStore(), "ASTRA")
+    accts = _FakeAccounts()
+    with pytest.raises(ValueError, match="connector"):
+        AuthService(mfa=mfa, session_service=sess, account_store=accts)

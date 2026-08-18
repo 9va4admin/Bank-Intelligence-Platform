@@ -10,15 +10,15 @@ import { BANK_CONFIG } from '../config/bank.config'
 // Used by AppShell nav filtering — each nav item declares which roles may see it.
 export const ROLE_PERMISSIONS = {
   ops_reviewer:       ['cts:view_queue', 'cts:submit_decision', 'login_log:read'],
-  fraud_analyst:      ['cts:view_analytics', 'ej:view_dashboard', 'ej:view_disputes', 'login_log:read'],
+  fraud_analyst:      ['cts:view_analytics', 'login_log:read'],
   ops_manager:        ['cts:view_queue', 'cts:submit_decision', 'cts:view_analytics',
-                       'ej:view_dashboard', 'ej:view_disputes', 'pii:view',
-                       'config:layer3:submit', 'audit:read', 'smb:view_ledger', 'login_log:read'],
+                       'pii:view', 'config:layer3:submit', 'audit:read', 'smb:view_ledger',
+                       'ai:model_metrics', 'login_log:read'],
   bank_it_admin:      ['admin:console', 'config:layer3:approve', 'config:layer2:change',
                        'audit:read', 'smb:register', 'smb:view_ledger', 'smb:vault_sync',
-                       'smb:config_change', 'user:manage', 'login_log:read'],
+                       'smb:config_change', 'user:manage', 'ai:model_metrics', 'login_log:read'],
   compliance_officer: ['audit:read', 'pii:view', 'cts:view_analytics',
-                       'ej:view_dashboard', 'smb:view_ledger', 'login_log:read'],
+                       'smb:view_ledger', 'login_log:read'],
   rbi_examiner:       ['audit:read', 'login_log:read'],
   ml_engineer:        ['ai:model_metrics', 'ai:mlflow_access'],
   smb_it_admin:       ['smb:register', 'smb:view_ledger', 'smb:vault_sync',
@@ -34,58 +34,10 @@ export function roleHasPermission(role, permission) {
   return (ROLE_PERMISSIONS[role] ?? []).includes(permission)
 }
 
-const DEMO_SB = {
-  bankType:       'SB',
-  bankId:         'saraswat-coop',
-  bankIfsc:       'SRCB0000001',
-  bankName:       'Saraswat Co-operative Bank',
-  bankShortName:  'Saraswat',
-  bankCity:       'Mumbai',
-  sponsorBankId:  null,
-  userRole:       'ops_manager', // demo: SB user is ops_manager
-  // SMBs sponsored by this SB — available only to SB users
-  smbs: [
-    { id: 'smb-mh-vasavi',  ifsc: 'VASB0000001', name: 'Vasavi Co-op Bank',       shortName: 'Vasavi',   city: 'Mumbai'    },
-    { id: 'smb-mh-kjsb',    ifsc: 'KJSB0000001', name: 'Kalyan Janata Sah. Bank', shortName: 'KJSB',     city: 'Kalyan'    },
-    { id: 'smb-gj-mucb',    ifsc: 'MUCB0000001', name: 'Mehsana Urban Co-op Bank', shortName: 'MUCB',    city: 'Mehsana'   },
-    { id: 'smb-mh-janata',  ifsc: 'JNSB0000001', name: 'Janata Sah. Bank',        shortName: 'Janata',   city: 'Pune'      },
-  ],
-}
-
-const DEMO_SMB = {
-  bankType:       'SMB',
-  bankId:         'smb-mh-vasavi',
-  bankIfsc:       'VASB0000001',
-  bankName:       'Vasavi Co-operative Bank',
-  bankShortName:  'Vasavi',
-  bankCity:       'Mumbai',
-  sponsorBankId:  'saraswat-coop',
-  sponsorBankName: 'Saraswat Co-operative Bank',
-  sponsorBankIfsc: 'SRCB0000001',
-  userRole:       'smb_editor', // demo: SMB user is smb_editor
-  smbs: [], // SMB has no sub-members of its own
-}
-
-// DEMO ONLY — branch_manager sees Branch Operations → Inward Hold Queue only
-const DEMO_BRANCH_MANAGER = {
-  bankType:      'SB',
-  bankId:        'saraswat-coop',
-  bankIfsc:      'SRCB0000001',
-  bankName:      'Saraswat Co-operative Bank',
-  bankShortName: 'Saraswat',
-  bankCity:      'Mumbai',
-  sponsorBankId: null,
-  userRole:      'branch_manager',
-  branchCode:    'SRCB-MUM-001',  // demo branch
-  userName:      'Demo Branch Manager',
-  smbs: [],
-}
-
 // ─── Config-driven SB profile (follows bank.config.js / VITE_BANK_ID) ────────
 // In production this is superseded by the JWT claim. For demo/POC the config
-// determines which bank's identity to show so that KBL shows KBL, Saraswat shows
-// Saraswat, etc.  DEMO_SMB and DEMO_BRANCH_MANAGER remain Saraswat-specific
-// fiction used only when toggling in demo mode.
+// determines which bank's identity to show so that any bank preset works without
+// touching this file. smbs comes from bank.config.js preset automatically.
 const CONFIG_PROFILE = {
   bankType:      'SB',
   bankId:        BANK_CONFIG.bank_id,
@@ -96,6 +48,44 @@ const CONFIG_PROFILE = {
   sponsorBankId: null,
   userRole:      'ops_manager',
   userName:      'Demo User',
+  smbs:          BANK_CONFIG.smbs ?? [],
+}
+
+// ─── Config-driven demo toggle profiles ──────────────────────────────────────
+// Derived entirely from bank.config.js — adding a new bank never requires
+// touching this file. Just add the preset (with smbs[]) to bank.config.js.
+
+// SMB toggle: the first SMB from the bank's configured smbs list.
+// If the bank has no smbs configured, the SMB step is skipped in the toggle.
+const _firstSmb = BANK_CONFIG.smbs?.[0] ?? null
+const DEMO_SMB_FOR_BANK = _firstSmb
+  ? {
+      bankType:        'SMB',
+      bankId:          _firstSmb.id,
+      bankIfsc:        _firstSmb.ifsc,
+      bankName:        _firstSmb.name,
+      bankShortName:   _firstSmb.shortName ?? _firstSmb.name,
+      bankCity:        _firstSmb.city ?? '',
+      sponsorBankId:   BANK_CONFIG.bank_id,
+      sponsorBankName: BANK_CONFIG.bank_name,
+      sponsorBankIfsc: `${BANK_CONFIG.ifsc_prefix}0000001`,
+      userRole:        'smb_editor',
+      smbs:            [],
+    }
+  : null
+
+// Branch-manager toggle: SB identity, role overridden to branch_manager.
+const DEMO_BRANCH_FOR_BANK = {
+  bankType:      'SB',
+  bankId:        BANK_CONFIG.bank_id,
+  bankIfsc:      `${BANK_CONFIG.ifsc_prefix}0000001`,
+  bankName:      BANK_CONFIG.bank_name,
+  bankShortName: BANK_CONFIG.bank_short_name,
+  bankCity:      '',
+  sponsorBankId: null,
+  userRole:      'branch_manager',
+  branchCode:    `${BANK_CONFIG.ifsc_prefix}-MAIN-001`,
+  userName:      'Demo Branch Manager',
   smbs:          [],
 }
 
@@ -111,9 +101,9 @@ export function BankProvider({ children }) {
   const [profile, setProfile] = useState(() => {
     if (!isDemoMode) return CONFIG_PROFILE // non-demo: bank identity from bank.config.js until JWT
     const saved = localStorage.getItem('astra-bank-type')
-    if (saved === 'SMB') return DEMO_SMB
-    if (saved === 'BRANCH') return DEMO_BRANCH_MANAGER
-    return CONFIG_PROFILE  // base SB profile from bank.config.js (not hardcoded Saraswat)
+    if (saved === 'SMB' && DEMO_SMB_FOR_BANK) return DEMO_SMB_FOR_BANK
+    if (saved === 'BRANCH') return DEMO_BRANCH_FOR_BANK
+    return CONFIG_PROFILE  // base SB profile from bank.config.js (not hardcoded)
   })
 
   // SB can drill into a specific SMB — null means "show all / consolidated"
@@ -121,11 +111,16 @@ export function BankProvider({ children }) {
 
   function toggleBankType() {
     if (!isDemoMode) return
-    // Cycle: SB (ops_manager) → SMB (smb_editor) → BRANCH (branch_manager) → SB
+    // Cycle: SB → SMB (if bank has smbs) → BRANCH → SB
     let next, key
-    if (profile.userRole === 'ops_manager') { next = DEMO_SMB;            key = 'SMB'    }
-    else if (profile.userRole === 'smb_editor')  { next = DEMO_BRANCH_MANAGER; key = 'BRANCH' }
-    else                                          { next = CONFIG_PROFILE;      key = 'SB'     }
+    if (profile.userRole === 'ops_manager') {
+      if (DEMO_SMB_FOR_BANK) { next = DEMO_SMB_FOR_BANK;    key = 'SMB'    }
+      else                   { next = DEMO_BRANCH_FOR_BANK; key = 'BRANCH' }
+    } else if (profile.userRole === 'smb_editor') {
+      next = DEMO_BRANCH_FOR_BANK; key = 'BRANCH'
+    } else {
+      next = CONFIG_PROFILE; key = 'SB'
+    }
     localStorage.setItem('astra-bank-type', key)
     setSelectedSmbId(null)
     setProfile(next)
@@ -137,7 +132,9 @@ export function BankProvider({ children }) {
   const sessionUser = auth && auth.status === 'authenticated' ? auth.user : null
   const active = sessionUser
     ? {
-        ...(sessionUser.bank_type === 'SMB' ? DEMO_SMB : DEMO_SB),
+        // SMB session: overlay the config-driven SMB profile so sponsor name is correct.
+        // SB session: use CONFIG_PROFILE so smbs list matches the deployed bank.
+        ...(sessionUser.bank_type === 'SMB' ? DEMO_SMB_FOR_BANK ?? CONFIG_PROFILE : CONFIG_PROFILE),
         bankType:   sessionUser.bank_type  || 'SB',
         bankId:     sessionUser.bank_id,
         userRole:   sessionUser.role,

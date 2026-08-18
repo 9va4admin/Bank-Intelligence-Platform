@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 
 function getCsrf() { return sessionStorage.getItem('astra-csrf') || '' }
 
@@ -61,8 +62,8 @@ const MOCK_CONNECTIONS = [
     smb_id: null,
     smb_name: null,
     cbs_vendor: 'finacle',
-    endpoint_url_masked: 'https://cbs.saraswat.internal/***',
-    vault_secret_ref: 'secret/astra/saraswat-coop/cbs/finacle',
+    endpoint_url_masked: `https://cbs.${BANK_CONFIG.bank_id}.internal/***`,
+    vault_secret_ref: `secret/astra/${BANK_CONFIG.bank_id}/cbs/finacle`,
     status: 'ACTIVE',
     last_tested_at: '2026-07-01T08:15:00Z',
     last_test_latency_ms: 38,
@@ -70,7 +71,7 @@ const MOCK_CONNECTIONS = [
     vault_record_count: 94320,
     error_message: null,
     created_at: '2026-06-15T10:00:00Z',
-    created_by: 'itadmin@saraswat.internal',
+    created_by: `itadmin@${BANK_CONFIG.bank_id}.internal`,
   },
   {
     id: 'conn-002',
@@ -79,7 +80,7 @@ const MOCK_CONNECTIONS = [
     smb_name: 'Citizen Urban Co-op Bank',
     cbs_vendor: 'bancs',
     endpoint_url_masked: 'https://cbs.citizen-ucb.internal/***',
-    vault_secret_ref: 'secret/astra/saraswat-coop/smb/smb-ucb-001/cbs',
+    vault_secret_ref: `secret/astra/${BANK_CONFIG.bank_id}/smb/smb-ucb-001/cbs`,
     status: 'ACTIVE',
     last_tested_at: '2026-07-01T08:16:00Z',
     last_test_latency_ms: 52,
@@ -87,7 +88,7 @@ const MOCK_CONNECTIONS = [
     vault_record_count: 18240,
     error_message: null,
     created_at: '2026-06-16T11:00:00Z',
-    created_by: 'itadmin@saraswat.internal',
+    created_by: `itadmin@${BANK_CONFIG.bank_id}.internal`,
   },
   {
     id: 'conn-003',
@@ -96,7 +97,7 @@ const MOCK_CONNECTIONS = [
     smb_name: 'Merchant Co-op Bank',
     cbs_vendor: 'finacle',
     endpoint_url_masked: 'https://cbs.merchant-ucb.internal/***',
-    vault_secret_ref: 'secret/astra/saraswat-coop/smb/smb-ucb-002/cbs',
+    vault_secret_ref: `secret/astra/${BANK_CONFIG.bank_id}/smb/smb-ucb-002/cbs`,
     status: 'ERROR',
     last_tested_at: '2026-07-01T07:00:00Z',
     last_test_latency_ms: null,
@@ -104,7 +105,7 @@ const MOCK_CONNECTIONS = [
     vault_record_count: null,
     error_message: 'Connection refused: CBS unreachable at endpoint',
     created_at: '2026-06-17T09:00:00Z',
-    created_by: 'itadmin@saraswat.internal',
+    created_by: `itadmin@${BANK_CONFIG.bank_id}.internal`,
   },
   {
     id: 'conn-004',
@@ -112,8 +113,8 @@ const MOCK_CONNECTIONS = [
     smb_id: null,
     smb_name: null,
     cbs_vendor: null,
-    endpoint_url_masked: 'redis://redis-cts.astra-cts-saraswat-coop/***',
-    vault_secret_ref: 'secret/astra/saraswat-coop/redis/cts/auth_token',
+    endpoint_url_masked: `redis://redis-cts.astra-cts-${BANK_CONFIG.bank_id}/***`,
+    vault_secret_ref: `secret/astra/${BANK_CONFIG.bank_id}/redis/cts/auth_token`,
     status: 'ACTIVE',
     last_tested_at: '2026-07-01T08:14:00Z',
     last_test_latency_ms: 3,
@@ -121,7 +122,7 @@ const MOCK_CONNECTIONS = [
     vault_record_count: 94320,
     error_message: null,
     created_at: '2026-06-15T10:05:00Z',
-    created_by: 'itadmin@saraswat.internal',
+    created_by: `itadmin@${BANK_CONFIG.bank_id}.internal`,
   },
   {
     id: 'conn-005',
@@ -129,8 +130,8 @@ const MOCK_CONNECTIONS = [
     smb_id: null,
     smb_name: null,
     cbs_vendor: null,
-    endpoint_url_masked: 'redis://redis-cts.astra-cts-saraswat-coop/***',
-    vault_secret_ref: 'secret/astra/saraswat-coop/redis/cts/auth_token',
+    endpoint_url_masked: `redis://redis-cts.astra-cts-${BANK_CONFIG.bank_id}/***`,
+    vault_secret_ref: `secret/astra/${BANK_CONFIG.bank_id}/redis/cts/auth_token`,
     status: 'PENDING',
     last_tested_at: null,
     last_test_latency_ms: null,
@@ -138,7 +139,7 @@ const MOCK_CONNECTIONS = [
     vault_record_count: null,
     error_message: null,
     created_at: '2026-06-30T14:00:00Z',
-    created_by: 'itadmin@saraswat.internal',
+    created_by: `itadmin@${BANK_CONFIG.bank_id}.internal`,
   },
   {
     id: 'conn-006',
@@ -146,8 +147,8 @@ const MOCK_CONNECTIONS = [
     smb_id: null,
     smb_name: null,
     cbs_vendor: null,
-    endpoint_url_masked: 'redis://redis-cts.astra-cts-saraswat-coop/***',
-    vault_secret_ref: 'secret/astra/saraswat-coop/redis/cts/auth_token',
+    endpoint_url_masked: `redis://redis-cts.astra-cts-${BANK_CONFIG.bank_id}/***`,
+    vault_secret_ref: `secret/astra/${BANK_CONFIG.bank_id}/redis/cts/auth_token`,
     status: 'ACTIVE',
     last_tested_at: '2026-07-01T07:45:00Z',
     last_test_latency_ms: 2,
@@ -155,7 +156,7 @@ const MOCK_CONNECTIONS = [
     vault_record_count: 4821,
     error_message: null,
     created_at: '2026-06-15T10:10:00Z',
-    created_by: 'itadmin@saraswat.internal',
+    created_by: `itadmin@${BANK_CONFIG.bank_id}.internal`,
   },
 ]
 

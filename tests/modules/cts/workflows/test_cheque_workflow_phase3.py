@@ -623,13 +623,19 @@ async def _fake_check_security_features(inp, vllm_client=None, config_service=No
     )
 
 
+@activity.defn(name="persist_agent_decision")
+async def _fake_persist_agent_decision(inp):
+    from modules.cts.workflows.activities.persist_decision import PersistDecisionResult
+    return PersistDecisionResult(success=True)
+
+
 _HAPPY_PATH_ACTIVITIES = [
     _fake_detect_alteration, _fake_get_kill_switch_status, _fake_check_stop_payment_proceed,
     _fake_validate_ifsc, _fake_validate_cheque_series,
     _fake_lookup_pps, _fake_detect_signatures, _fake_verify_signature, _fake_score_fraud,
     _fake_check_cbs_balance, _fake_check_account_status, _fake_synthesise_decision,
     _fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue,
-    _fake_check_security_features,
+    _fake_check_security_features, _fake_persist_agent_decision,
 ]
 
 
@@ -679,13 +685,14 @@ class TestChequeWorkflowRealRun:
         )
         from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
         from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
 
         task_queue = f"tq-{uuid.uuid4()}"
         bank_id, instrument_id = "saraswat-coop", f"INST-{uuid.uuid4().hex[:8]}"
 
         async with Worker(
             temporal_env.client, task_queue=task_queue,
-            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow],
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
             activities=_HAPPY_PATH_ACTIVITIES,
             workflow_runner=UnsandboxedWorkflowRunner(),
         ):
@@ -721,6 +728,7 @@ class TestChequeWorkflowRealRun:
         )
         from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
         from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
 
         task_queue = f"tq-{uuid.uuid4()}"
         bank_id, instrument_id = "saraswat-coop", f"INST-{uuid.uuid4().hex[:8]}"
@@ -728,11 +736,12 @@ class TestChequeWorkflowRealRun:
             _fake_detect_alteration, _fake_get_kill_switch_status, _fake_check_stop_payment_return,
             _fake_check_security_features,
             _fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue,
+            _fake_persist_agent_decision,
         ]
 
         async with Worker(
             temporal_env.client, task_queue=task_queue,
-            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow],
+            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow, FeedbackEmitWorkflow],
             activities=activities,
             workflow_runner=UnsandboxedWorkflowRunner(),
         ):
@@ -769,6 +778,7 @@ class TestChequeWorkflowRealRun:
         )
         from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
         from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow, ReviewDecision
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
 
         task_queue = f"tq-{uuid.uuid4()}"
         bank_id, instrument_id = "saraswat-coop", f"INST-{uuid.uuid4().hex[:8]}"
@@ -781,15 +791,27 @@ class TestChequeWorkflowRealRun:
         activities = [
             _tampered, _fake_get_kill_switch_status,
             _fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue,
+            _fake_persist_agent_decision,
         ]
 
-        async with Worker(
-            temporal_env.client, task_queue=task_queue,
-            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow],
-            activities=activities,
-            workflow_runner=UnsandboxedWorkflowRunner(),
+        # HumanReviewWorkflow runs on its own dedicated task queue (tier-based).
+        # A second worker on that queue is needed so the workflow can actually execute.
+        hr_task_queue = f"cts-humanreview-standard-{bank_id}"
+        async with (
+            Worker(
+                temporal_env.client, task_queue=task_queue,
+                workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, FeedbackEmitWorkflow],
+                activities=activities,
+                workflow_runner=UnsandboxedWorkflowRunner(),
+            ),
+            Worker(
+                temporal_env.client, task_queue=hr_task_queue,
+                workflows=[HumanReviewWorkflow],
+                activities=[_fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue],
+                workflow_runner=UnsandboxedWorkflowRunner(),
+            ),
         ):
-            result = await temporal_env.client.execute_workflow(
+            cheque_handle = await temporal_env.client.start_workflow(
                 ChequeProcessingWorkflow.run,
                 ChequeWorkflowInput(
                     instrument_id=instrument_id, bank_id=bank_id,
@@ -800,6 +822,12 @@ class TestChequeWorkflowRealRun:
                 ),
                 id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
             )
+            # Advance virtual time by 1 s so ChequeProcessingWorkflow runs its
+            # activities and spawns HumanReviewWorkflow. Activities complete
+            # instantly in the time-skipping env. We send the reviewer signal
+            # HERE — before awaiting cheque_handle.result() — so the
+            # 55-min HumanReview timeout cannot fire first (it is 3 300 s away).
+            await temporal_env.sleep(1.0)
             review_handle = temporal_env.client.get_workflow_handle(
                 f"cts-humanreview-{bank_id}-{instrument_id}"
             )
@@ -810,6 +838,7 @@ class TestChequeWorkflowRealRun:
                     reviewer_id="reviewer-042", decided_at=time.time(),
                 ),
             )
+            result = await cheque_handle.result()
             import types as _types
             _raw_review = await review_handle.result()
             review_result = _types.SimpleNamespace(**_raw_review) if isinstance(_raw_review, dict) else _raw_review
@@ -843,6 +872,7 @@ class TestChequeWorkflowKillSwitchWiring:
         )
         from modules.cts.workflows.iet_watchdog_workflow import IETWatchdogWorkflow
         from modules.cts.workflows.human_review_workflow import HumanReviewWorkflow
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
 
         task_queue = f"tq-{uuid.uuid4()}"
         bank_id, instrument_id = "saraswat-coop", f"INST-{uuid.uuid4().hex[:8]}"
@@ -862,9 +892,9 @@ class TestChequeWorkflowKillSwitchWiring:
             return _dget(kill_switch_status, "mode")
 
         @activity.defn(name="detect_alteration")
-        async def _detect_alteration_captures_kill_switch(inp, vllm_client=None, kill_switch_status=None):
+        async def _detect_alteration_captures_kill_switch(inp, ks_lookup=None):
             from modules.cts.workflows.activities.alteration import AlterationActivityResult
-            detect_alteration_calls.append({"kill_switch_status": _ks_mode(kill_switch_status)})
+            detect_alteration_calls.append({"kill_switch_status": _ks_mode(ks_lookup)})
             # Real KC behaviour: Vision AI bypassed, not "alteration detected" —
             # the HUMAN_REVIEW forcing happens at synthesise_decision (checkpoint 2).
             return AlterationActivityResult(
@@ -894,15 +924,28 @@ class TestChequeWorkflowKillSwitchWiring:
             _fake_score_fraud, _fake_check_cbs_balance, _fake_check_account_status,
             _synthesise_decision_forces_human_review_under_kc,
             _fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue,
+            _fake_persist_agent_decision,
         ]
 
-        async with Worker(
-            temporal_env.client, task_queue=task_queue,
-            workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, HumanReviewWorkflow],
-            activities=activities,
-            workflow_runner=UnsandboxedWorkflowRunner(),
+        # HumanReviewWorkflow runs on its own dedicated task queue (tier-based).
+        # A second worker on that queue is needed so the workflow can actually execute.
+        hr_task_queue = f"cts-humanreview-standard-{bank_id}"
+        async with (
+            Worker(
+                temporal_env.client, task_queue=task_queue,
+                workflows=[ChequeProcessingWorkflow, IETWatchdogWorkflow, FeedbackEmitWorkflow],
+                activities=activities,
+                workflow_runner=UnsandboxedWorkflowRunner(),
+            ),
+            Worker(
+                temporal_env.client, task_queue=hr_task_queue,
+                workflows=[HumanReviewWorkflow],
+                activities=[_fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue],
+                workflow_runner=UnsandboxedWorkflowRunner(),
+            ),
         ):
-            result = await temporal_env.client.execute_workflow(
+            from modules.cts.workflows.human_review_workflow import ReviewDecision
+            cheque_handle = await temporal_env.client.start_workflow(
                 ChequeProcessingWorkflow.run,
                 ChequeWorkflowInput(
                     instrument_id=instrument_id, bank_id=bank_id,
@@ -913,10 +956,10 @@ class TestChequeWorkflowKillSwitchWiring:
                 ),
                 id=f"cts-{bank_id}-{instrument_id}", task_queue=task_queue,
             )
-            # ChequeProcessingWorkflow starts HumanReviewWorkflow ABANDON — resolve
-            # it (and the watchdog it in turn signals) so the worker can shut down
-            # cleanly instead of leaving an unresolved 55-min-timeout child behind.
-            from modules.cts.workflows.human_review_workflow import ReviewDecision
+            # Advance virtual time so ChequeProcessingWorkflow completes its
+            # activities and spawns HumanReviewWorkflow, then signal the reviewer
+            # decision BEFORE time-skipping reaches the 55-min timeout.
+            await temporal_env.sleep(1.0)
             review_handle = temporal_env.client.get_workflow_handle(
                 f"cts-humanreview-{bank_id}-{instrument_id}"
             )
@@ -927,6 +970,7 @@ class TestChequeWorkflowKillSwitchWiring:
                     reviewer_id="reviewer-kc", decided_at=time.time(),
                 ),
             )
+            result = await cheque_handle.result()
             await review_handle.result()
             await _await_watchdog(temporal_env.client, bank_id, instrument_id)
 

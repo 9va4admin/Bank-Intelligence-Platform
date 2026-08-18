@@ -38,11 +38,11 @@ Use when: modifying `modules/cts/workflows/`, `modules/cts/vaults/`, or `modules
 - [ ] SHAP values present in AgentDecision before writing?
 
 ### Module Isolation (Blast Containment)
-- [ ] No `from modules.ej import` anywhere in this file?
-- [ ] Redis connection uses `config_service.get("redis.cts.url")` — not `redis.ej`?
+- [ ] No `from modules.ej import` anywhere in this file (EJ is in a separate repo)?
+- [ ] Redis connection uses `config_service.get("redis.cts.url")` only?
 - [ ] Kafka consumer group follows `cg-cts-*` naming — not a shared group?
 - [ ] Temporal task queue is `cts-processing-{bank_id}` — not a shared queue?
-- [ ] vLLM calls use `queue: cts-vision` or `queue: cts-ocr` — never EJ queues?
+- [ ] vLLM calls use `queue: cts-vision`, `queue: cts-ocr`, or `queue: cts-reasoning` only?
 
 ### Security
 - [ ] No account numbers or amounts in log messages (unmasked)?

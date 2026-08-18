@@ -99,6 +99,21 @@ spec:
           $labels.bank_id }}
         description: 'Auth connector configuration missing for {entity_type} at bank
           {bank_id}. Users cannot log in. Update Helm Layer 2 values. Runbook: runbooks/auth/connector-config-missing.md'
+    - alert: AUTHTOKENREPLAYATTEMPT
+      expr: increase(astra_incident_signal_total{message_key="AUTH_TOKEN_REPLAY_ATTEMPT"}[5m])
+        > 0
+      for: 0s
+      labels:
+        severity: critical
+        module: platform
+        owning_team: bank_infra
+        incident_class: SECURITY
+      annotations:
+        summary: AUTH_TOKEN_REPLAY_ATTEMPT — incident signal fired for bank {{ $labels.bank_id
+          }}
+        description: 'Revoked session token presented for user {user_id} at bank {bank_id}
+          — session {session_display}. Possible session hijack. Force-re-authenticate
+          this user. Runbook: runbooks/auth/token-replay-detected.md'
   - name: compliance_review
     rules:
     - alert: PLATFORMAUDITWRITEFAILED
@@ -131,6 +146,21 @@ spec:
           — security team notified. Runbook: runbooks/platform/audit-tamper-detected.md'
   - name: cts_ai_platform
     rules:
+    - alert: CTSKILLSWITCHENGAGED
+      expr: increase(astra_incident_signal_total{message_key="CTS_KILL_SWITCH_ENGAGED"}[5m])
+        > 0
+      for: 0s
+      labels:
+        severity: critical
+        module: cts
+        owning_team: cts_ai_platform
+        incident_class: SAFETY_BOUNDARY
+      annotations:
+        summary: CTS_KILL_SWITCH_ENGAGED — incident signal fired for bank {{ $labels.bank_id
+          }}
+        description: 'Vision AI kill switch ENGAGED for bank {bank_id} — mode: {mode},
+          scope: {scope}, by {engaged_by}. AI vision decisions suspended. Runbook:
+          runbooks/cts/kill-switch-engaged.md'
     - alert: PLATFORMMODELDRIFTCRITICAL
       expr: increase(astra_incident_signal_total{message_key="PLATFORM_MODEL_DRIFT_CRITICAL"}[5m])
         > 0

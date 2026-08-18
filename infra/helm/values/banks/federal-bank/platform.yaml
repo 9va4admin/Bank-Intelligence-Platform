@@ -68,7 +68,8 @@ auth:
         "CN=ASTRA-PUManagers,OU=ASTRAGroups,DC=federal-bank,DC=local": ops_manager
         "CN=ASTRA-PUEditors,OU=ASTRAGroups,DC=federal-bank,DC=local":  ops_reviewer
 
-  # Federal Bank is a private sector bank — no SMB sub-members
+  # Federal Bank sponsors 25 UCB sub-members; all use local (argon2) accounts for demo.
+  # Per-SMB LDAP-AD overrides can be added here post-go-live via PR.
   smb:
     default:
       integration_enabled: false
@@ -106,8 +107,11 @@ audit_service:
 notification_service:
   replicas: 1
 
-# ── Federal Bank is SB-ONLY — no SMB sponsor routing ─────────────────────────
-smb_sponsor_enabled: false
+# ── Federal Bank sponsors 25 UCB sub-members for CTS clearing ────────────────
+# Combined SMB daily volume: ~1,000 outward + ~1,000 inward cheques/day
+# Federal Bank own volumes: ~35,000 outward + ~35,000 inward cheques/day
+smb_sponsor_enabled: true
+smb_sponsor_max_sub_members: 25
 
 # ── MinIO Object Store ────────────────────────────────────────────────────────
 minio:

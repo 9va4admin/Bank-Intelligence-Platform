@@ -4,6 +4,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
+import { FEDERAL_BANK_BRANCHES } from '../../../shared/config/federalBankBranches'
 
 const API = import.meta.env.VITE_API_BASE || ''
 // DEMO mode: no backend, use client-side mock data.
@@ -13,6 +14,18 @@ const USE_MOCK = BANK_CONFIG.deployment_mode === 'DEMO'
 // ── Mock branch data (keyed by bank_id) ──────────────────────────────────
 
 const MOCK_BRANCHES_DB = {
+  'union-bank': [
+    { branch_name: 'Fort Branch',              branch_ifsc: 'UBIN0530001', address: '239, Vidhan Bhavan Marg, Fort',       city: 'Mumbai',      district: 'Mumbai',        state: 'Maharashtra', pin_code: '400001', phone_number: '02222614000', is_active: true,  scanner_input_mode: 'FOLDER_DROP', pu_id: 'UBIN-PU-WEST'  },
+    { branch_name: 'FC Road Branch',           branch_ifsc: 'UBIN0530008', address: '1187/4, FC Road, Shivajinagar',       city: 'Pune',        district: 'Pune',          state: 'Maharashtra', pin_code: '411016', phone_number: '02025528000', is_active: true,  scanner_input_mode: 'UI_UPLOAD',   pu_id: 'UBIN-PU-WEST'  },
+    { branch_name: 'CG Road Branch',           branch_ifsc: 'UBIN0530007', address: 'Sunrise Complex, CG Road',            city: 'Ahmedabad',   district: 'Ahmedabad',     state: 'Gujarat',     pin_code: '380009', phone_number: '07926403000', is_active: true,  scanner_input_mode: 'UI_UPLOAD',   pu_id: 'UBIN-PU-WEST'  },
+    { branch_name: 'Hazratganj Branch',        branch_ifsc: 'UBIN0530009', address: '12, Mahatma Gandhi Marg, Hazratganj', city: 'Lucknow',     district: 'Lucknow',       state: 'Uttar Pradesh',pin_code: '226001', phone_number: '05222625000', is_active: true,  scanner_input_mode: 'UI_UPLOAD',   pu_id: 'UBIN-PU-WEST'  },
+    { branch_name: 'Sector 17 Branch',         branch_ifsc: 'UBIN0530010', address: 'SCO 92-93, Sector 17-B',              city: 'Chandigarh',  district: 'Chandigarh',    state: 'Punjab',      pin_code: '160017', phone_number: '01722703000', is_active: true,  scanner_input_mode: 'SDK_PUSH',    pu_id: 'UBIN-PU-WEST'  },
+    { branch_name: 'Anna Salai Branch',        branch_ifsc: 'UBIN0530003', address: '184, Anna Salai',                     city: 'Chennai',     district: 'Chennai',       state: 'Tamil Nadu',  pin_code: '600006', phone_number: '04428415000', is_active: true,  scanner_input_mode: 'FOLDER_DROP', pu_id: 'UBIN-PU-SOUTH' },
+    { branch_name: 'MG Road Branch',           branch_ifsc: 'UBIN0530005', address: '50, MG Road',                         city: 'Bengaluru',   district: 'Bengaluru Urban',state: 'Karnataka',   pin_code: '560001', phone_number: '08022112000', is_active: true,  scanner_input_mode: 'UI_UPLOAD',   pu_id: 'UBIN-PU-SOUTH' },
+    { branch_name: 'Abids Branch',             branch_ifsc: 'UBIN0530006', address: '4-1-844, Abids',                      city: 'Hyderabad',   district: 'Hyderabad',     state: 'Telangana',   pin_code: '500001', phone_number: '04024752000', is_active: true,  scanner_input_mode: 'UI_UPLOAD',   pu_id: 'UBIN-PU-SOUTH' },
+    { branch_name: 'Dalhousie Square Branch',  branch_ifsc: 'UBIN0530004', address: '8, Dalhousie Square',                 city: 'Kolkata',     district: 'Kolkata',       state: 'West Bengal', pin_code: '700001', phone_number: '03322130000', is_active: true,  scanner_input_mode: 'SDK_PUSH',    pu_id: 'UBIN-PU-SOUTH' },
+    { branch_name: 'Connaught Place Branch',   branch_ifsc: 'UBIN0530002', address: 'E-12, Connaught Place',               city: 'New Delhi',   district: 'New Delhi',     state: 'Delhi',       pin_code: '110001', phone_number: '01123415000', is_active: true,  scanner_input_mode: 'FOLDER_DROP', pu_id: 'UBIN-PU-SOUTH' },
+  ],
   'karnataka-bank': [
     { branch_name: 'Mangalore Main',         branch_ifsc: 'KARB0000001', address: '1st Cross, Kodialbail',     city: 'Mangalore',  district: 'Dakshina Kannada', state: 'Karnataka',   pin_code: '575003', phone: '08242440150', is_active: true,  scanner_input_mode: 'SDK_PUSH'    },
     { branch_name: 'Bengaluru MG Road',      branch_ifsc: 'KARB0000002', address: '41 MG Road',                city: 'Bengaluru',  district: 'Bengaluru Urban',  state: 'Karnataka',   pin_code: '560001', phone: '08022212000', is_active: true,  scanner_input_mode: 'FOLDER_DROP' },
@@ -42,6 +55,41 @@ const MOCK_BRANCHES_DB = {
     { branch_name: 'Pune Kothrud',           branch_ifsc: 'SRCB0000012', address: 'Paud Road, Kothrud',        city: 'Pune',       district: 'Pune',             state: 'Maharashtra', pin_code: '411038', phone: '02025462000', is_active: true,  scanner_input_mode: 'UI_UPLOAD'   },
   ],
 }
+
+const STATE_TO_PU = {
+  'Kerala':           'SOUTH-MAIN',
+  'Tamil Nadu':       'SOUTH-MAIN',
+  'Karnataka':        'SOUTH-MAIN',
+  'Andhra Pradesh':   'SOUTH-MAIN',
+  'Telangana':        'SOUTH-MAIN',
+  'Maharashtra':      'WEST-MAIN',
+  'Goa':              'WEST-MAIN',
+  'Delhi':            'NORTH-MAIN',
+  'West Bengal':      'EAST-MAIN',
+}
+
+const PU_OPTIONS_BY_BANK = {
+  'federal-bank':   [{ id: 'SOUTH-MAIN', label: 'South Zone PU' }, { id: 'WEST-MAIN', label: 'West Zone PU' }, { id: 'NORTH-MAIN', label: 'North Zone PU' }, { id: 'EAST-MAIN', label: 'East Zone PU' }],
+  'saraswat-coop':  [{ id: 'PU-MUM-01', label: 'Mumbai PU-01' }, { id: 'PU-MUM-02', label: 'Mumbai PU-02' }, { id: 'PU-PUN-01', label: 'Pune PU-01' }],
+  'karnataka-bank': [{ id: 'PU-SOUTH', label: 'South PU' }, { id: 'PU-NORTH', label: 'North PU' }],
+  'union-bank':     [{ id: 'UBIN-PU-WEST', label: 'Western PU (Mumbai/Pune/Ahmedabad)' }, { id: 'UBIN-PU-SOUTH', label: 'Southern PU (Chennai/Bengaluru/Hyderabad)' }],
+}
+const ACTIVE_PU_OPTIONS = PU_OPTIONS_BY_BANK[BANK_CONFIG.bank_id] ?? []
+
+const SCANNER_MODES = ['SDK_PUSH', 'SDK_PUSH', 'FOLDER_DROP', 'UI_UPLOAD']
+MOCK_BRANCHES_DB['federal-bank'] = FEDERAL_BANK_BRANCHES.map((b, i) => ({
+  branch_name:        b.name,
+  branch_ifsc:        b.ifsc,
+  address:            '',
+  city:               b.city,
+  district:           b.district,
+  state:              b.state,
+  pin_code:           b.pin,
+  phone_number:       b.phone,
+  is_active:          true,
+  scanner_input_mode: SCANNER_MODES[i % SCANNER_MODES.length],
+  pu_id:              STATE_TO_PU[b.state] ?? 'SOUTH-MAIN',
+}))
 
 // Pick the mock set for the currently configured bank; fall back to an empty list.
 const ACTIVE_MOCK_BRANCHES = MOCK_BRANCHES_DB[BANK_CONFIG.bank_id] ?? []
@@ -95,6 +143,8 @@ async function readFileAsText(file) {
 
 // ── API calls ──────────────────────────────────────────────────────────────
 
+const PAGE_SIZE = 50
+
 function getCsrf() { return sessionStorage.getItem('astra-csrf') || '' }
 
 async function apiFetch(path, opts = {}) {
@@ -110,7 +160,7 @@ async function apiFetch(path, opts = {}) {
   return res.json()
 }
 
-function fetchBranches({ state, city, q, isActive, limit = 50 }) {
+function fetchBranches({ state, city, q, isActive, limit = PAGE_SIZE, page = 1 }) {
   if (USE_MOCK) {
     let results = [...ACTIVE_MOCK_BRANCHES]
     if (q) results = results.filter(b =>
@@ -119,7 +169,9 @@ function fetchBranches({ state, city, q, isActive, limit = 50 }) {
     if (state) results = results.filter(b => b.state.toLowerCase().includes(state.toLowerCase()))
     if (city)  results = results.filter(b => b.city.toLowerCase().includes(city.toLowerCase()))
     if (isActive !== null) results = results.filter(b => b.is_active === (isActive === true || isActive === 'true'))
-    return Promise.resolve({ branches: results, total: results.length })
+    const total = results.length
+    const offset = (page - 1) * limit
+    return Promise.resolve({ branches: results.slice(offset, offset + limit), total })
   }
   const params = new URLSearchParams()
   if (state) params.set('state', state)
@@ -127,6 +179,7 @@ function fetchBranches({ state, city, q, isActive, limit = 50 }) {
   if (q)     params.set('q', q)
   if (isActive !== null) params.set('is_active', isActive)
   params.set('limit', limit)
+  params.set('offset', (page - 1) * limit)
   return apiFetch(`/v1/branches?${params}`)
 }
 
@@ -259,6 +312,7 @@ const SCANNER_MODE_LABELS = {
 function BranchFormModal({ branch, isDark, onClose, onSave }) {
   const isEdit = !!branch
   const [form, setForm] = useState({
+    pu_id:                branch?.pu_id ?? (ACTIVE_PU_OPTIONS[0]?.id ?? ''),
     branch_name:          branch?.branch_name ?? '',
     branch_ifsc:          branch?.branch_ifsc ?? '',
     city:                 branch?.city ?? '',
@@ -292,6 +346,7 @@ function BranchFormModal({ branch, isDark, onClose, onSave }) {
       pin_code:      form.pin_code,
       phone_number:  form.phone_number,
       scanner_input_mode: form.scanner_input_mode,
+      pu_id:         form.pu_id || null,
     }
     const payload = isEdit ? basePayload : { ...basePayload, branch_ifsc: form.branch_ifsc.toUpperCase() }
     onSave(payload)
@@ -328,6 +383,18 @@ function BranchFormModal({ branch, isDark, onClose, onSave }) {
           <Input isDark={isDark} value={form.address} onChange={e => handleChange('address', e.target.value)} placeholder="80 Feet Road, Koramangala" />
         </Field>
       </div>
+
+      {/* PU assignment */}
+      {ACTIVE_PU_OPTIONS.length > 0 && (
+        <Field label="Processing Unit (PU)" isDark={isDark}>
+          <Select isDark={isDark} value={form.pu_id} onChange={e => handleChange('pu_id', e.target.value)}>
+            <option value="">— Unassigned —</option>
+            {ACTIVE_PU_OPTIONS.map(pu => (
+              <option key={pu.id} value={pu.id}>{pu.label} ({pu.id})</option>
+            ))}
+          </Select>
+        </Field>
+      )}
 
       {/* Scanner configuration — full width below the grid */}
       <div className={`mt-1 p-4 rounded-xl border ${isDark ? 'border-white/8 bg-white/3' : 'border-slate-200 bg-slate-50'}`}>
@@ -530,6 +597,7 @@ export default function CTSBranchMaster() {
   const qc = useQueryClient()
 
   const [filters, setFilters] = useState({ q: '', state: '', city: '', isActive: null })
+  const [page, setPage] = useState(1)
   const [modal, setModal] = useState(null) // null | 'create' | 'edit' | 'delete' | 'import'
   const [selected, setSelected] = useState(null)
   const [toast, setToast] = useState(null)
@@ -548,8 +616,8 @@ export default function CTSBranchMaster() {
   }
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['branches', bankId, filters],
-    queryFn: () => fetchBranches({ ...filters }),
+    queryKey: ['branches', bankId, filters, page],
+    queryFn: () => fetchBranches({ ...filters, page }),
     staleTime: 30_000,
   })
 
@@ -620,13 +688,13 @@ export default function CTSBranchMaster() {
                 className={`rounded-lg border px-3 py-2 text-sm focus:outline-none ${th.input}`}
                 placeholder={ph}
                 value={filters[key]}
-                onChange={e => setFilters(f => ({ ...f, [key]: e.target.value }))}
+                onChange={e => { setFilters(f => ({ ...f, [key]: e.target.value })); setPage(1) }}
               />
             ))}
             <select
               className={`rounded-lg border px-3 py-2 text-sm focus:outline-none ${th.input}`}
               value={filters.isActive === null ? '' : String(filters.isActive)}
-              onChange={e => setFilters(f => ({ ...f, isActive: e.target.value === '' ? null : e.target.value === 'true' }))}
+              onChange={e => { setFilters(f => ({ ...f, isActive: e.target.value === '' ? null : e.target.value === 'true' })); setPage(1) }}
             >
               <option value="">All statuses</option>
               <option value="true">Active only</option>
@@ -691,19 +759,25 @@ export default function CTSBranchMaster() {
                     </Badge>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-1">
                       <button
-                        className={`text-xs px-2 py-1 rounded transition-colors ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/8' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
+                        title="Edit branch"
+                        className={`p-1.5 rounded transition-colors ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/8' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'}`}
                         onClick={() => { setSelected(b); setModal('edit') }}
                       >
-                        Edit
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                        </svg>
                       </button>
                       {b.is_active && (
                         <button
-                          className={`text-xs px-2 py-1 rounded transition-colors text-red-400 hover:text-red-300 ${isDark ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}
+                          title="Deactivate branch"
+                          className={`p-1.5 rounded transition-colors text-red-400 hover:text-red-300 ${isDark ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}
                           onClick={() => { setSelected(b); setModal('delete') }}
                         >
-                          Deactivate
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524L13.477 14.89zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clipRule="evenodd" />
+                          </svg>
                         </button>
                       )}
                     </div>
@@ -713,6 +787,34 @@ export default function CTSBranchMaster() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {total > PAGE_SIZE && (
+          <div className="flex items-center justify-between mt-3 px-1">
+            <p className={`text-xs ${th.muted}`}>
+              Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total} branches
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(p => p - 1)}
+                className={`px-3 py-1.5 text-xs rounded border transition-colors disabled:opacity-40 ${isDark ? 'border-white/15 text-slate-300 hover:bg-white/6' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+              >
+                ← Prev
+              </button>
+              <span className={`text-xs font-medium ${th.muted}`}>
+                Page {page} of {Math.ceil(total / PAGE_SIZE)}
+              </span>
+              <button
+                disabled={page >= Math.ceil(total / PAGE_SIZE)}
+                onClick={() => setPage(p => p + 1)}
+                className={`px-3 py-1.5 text-xs rounded border transition-colors disabled:opacity-40 ${isDark ? 'border-white/15 text-slate-300 hover:bg-white/6' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
 
       </div>
 

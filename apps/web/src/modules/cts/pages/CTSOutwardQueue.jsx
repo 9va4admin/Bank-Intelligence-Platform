@@ -21,6 +21,7 @@ import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
 import OutwardReviewPanel from '../components/OutwardReviewPanel'
 import { demoChequeUrl } from '../demoImages'
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 
 // ─── Mock data ──────────────────────────────────────────────────────────────
 // bank_slug mirrors Inward Q's convention: SMB sees only its own bank's rows.
@@ -64,11 +65,13 @@ const DEPOSIT_CHANNEL_CFG = {
 
 const MOCK_HUMAN_REVIEW = [
   {
-    instrument_id: 'CHQ-OUT-00512', front_bw_url: null, front_gray_url: null, account_display: '****4471', payee_display: 'Kiran Traders',
-    amount_range: '₹[5L-10L]', micr: '400160002841', bank: 'Saraswat Co-operative Bank',
-    branch: 'Fort', pu: 'PU-MUM-01', bank_slug: 'saraswat-coop',
+    instrument_id: 'CHQ-OUT-00512', front_bw_url: null, front_gray_url: null,
+    iqa_front_bw: 0.94, iqa_back_bw: 0.93, iqa_front_gray: 0.91,
+    account_display: '****4471', payee_display: 'Kiran Traders',
+    amount_range: '₹[5L-10L]', micr: '400001002841', bank: BANK_CONFIG.bank_name,
+    branch: 'Fort Mumbai Branch', pu: 'UBIN-PU-WEST', bank_slug: BANK_CONFIG.bank_id,
     reason: 'AMOUNT_MISMATCH', reason_label: 'Amount words/figures variance', received_at: '11:42 AM',
-    scanner_id: 'SCN-FORT-02', lot_number: 'LOT_SRCB0000001_20260619_01',
+    scanner_id: 'SCN-FRT-02', lot_number: `LOT_${BANK_CONFIG.ifsc_prefix}0000001_20260811_01`,
     ocr_confidence: 0.91, vision_compliance: 0.97, micr_confidence: 0.99,
     checks: { signature_present: true, amount_words_match: false, date_valid: true, cts_valid: true },
     security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true, missing: [] },
@@ -81,16 +84,18 @@ const MOCK_HUMAN_REVIEW = [
     get fields_meta() { return makeFieldsMeta(this.ocr_fields, { amount_words: 0.74, amount_figures: 0.91 }) },
   },
   {
-    instrument_id: 'CHQ-OUT-00519', front_bw_url: null, front_gray_url: null, account_display: '****9021', payee_display: 'Om Enterprises',
-    amount_range: '₹[1L-5L]', micr: '400160002855', bank: 'Saraswat Co-operative Bank',
-    branch: 'Vashi', pu: 'PU-MUM-02', bank_slug: 'saraswat-coop',
+    instrument_id: 'CHQ-OUT-00519', front_bw_url: null, front_gray_url: null,
+    iqa_front_bw: 0.91, iqa_back_bw: 0.89, iqa_front_gray: 0.88,
+    account_display: '****9021', payee_display: 'Om Enterprises',
+    amount_range: '₹[1L-5L]', micr: '400001002855', bank: BANK_CONFIG.bank_name,
+    branch: 'FC Road Pune Branch', pu: 'UBIN-PU-WEST', bank_slug: BANK_CONFIG.bank_id,
     reason: 'ENDORSEMENT_IRREGULAR', reason_label: 'Endorsement irregular', received_at: '11:47 AM',
-    scanner_id: 'SCN-VASH-01', lot_number: 'LOT_SRCB0000001_20260619_02',
+    scanner_id: 'SCN-FCR-01', lot_number: `LOT_${BANK_CONFIG.ifsc_prefix}0000001_20260811_02`,
     ocr_confidence: 0.95, vision_compliance: 0.88, micr_confidence: 0.98,
     checks: { signature_present: true, amount_words_match: true, date_valid: true, cts_valid: false },
     security_features: { void_pantograph: false, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: false, missing: ['void_pantograph', 'printer_name_cts2010'] },
     deposit_channel: 'PAY_IN_SLIP',
-    deposit_data: { depositor_name: 'Om Enterprises', depositor_account: '4000295021', deposit_amount: '₹2,15,000', counter_token: 'T-0019', date: '19/06/2026', branch: 'Nariman Point, Mumbai' },
+    deposit_data: { depositor_name: 'Om Enterprises', depositor_account: '4000295021', deposit_amount: '₹2,15,000', counter_token: 'T-0019', date: '11/08/2026', branch: 'Ernakulam Main' },
     ocr_fields: ocrFields({
       payee: 'Om Enterprises', amount_figures: '₹2,15,000', amount_words: 'Two lakhs fifteen thousand only',
       bank_name: 'ICICI Bank Ltd.', bank_branch: 'Nariman Point, Mumbai', bank_ifsc: 'ICIC0000001', bank_micr: '400229001',
@@ -98,7 +103,9 @@ const MOCK_HUMAN_REVIEW = [
     get fields_meta() { return makeFieldsMeta(this.ocr_fields) },
   },
   {
-    instrument_id: 'CHQ-OUT-00527', front_bw_url: null, front_gray_url: null, account_display: '****3308', payee_display: 'Deshmukh & Co.',
+    instrument_id: 'CHQ-OUT-00527', front_bw_url: null, front_gray_url: null,
+    iqa_front_bw: 0.97, iqa_back_bw: 0.96, iqa_front_gray: 0.95,
+    account_display: '****3308', payee_display: 'Deshmukh & Co.',
     amount_range: '₹[10L-1Cr]', micr: '400160002863', bank: 'Vasavi Co-operative Bank',
     branch: 'Andheri (W)', pu: 'PU-MUM-03', bank_slug: 'smb-mh-vasavi',
     reason: 'HIGH_VALUE_DUAL_APPROVAL', reason_label: 'High value — dual approval', received_at: '11:53 AM',
@@ -119,16 +126,18 @@ const MOCK_HUMAN_REVIEW = [
 
 const MOCK_STP_REJECTED = [
   {
-    instrument_id: 'CHQ-OUT-00488', front_bw_url: null, front_gray_url: null, account_display: '****7712', payee_display: 'Bhagwati Steels',
-    amount_range: '₹[1L-5L]', micr: '400160002771', bank: 'Saraswat Co-operative Bank',
-    branch: 'Dadar (E)', pu: 'PU-MUM-01', bank_slug: 'saraswat-coop',
+    instrument_id: 'CHQ-OUT-00488', front_bw_url: null, front_gray_url: null,
+    iqa_front_bw: 0.72, iqa_back_bw: 0.68, iqa_front_gray: 0.71,
+    account_display: '****7712', payee_display: 'Bhagwati Steels',
+    amount_range: '₹[1L-5L]', micr: '400001002771', bank: BANK_CONFIG.bank_name,
+    branch: 'Anna Salai Chennai Branch', pu: 'UBIN-PU-SOUTH', bank_slug: BANK_CONFIG.bank_id,
     reason: 'CTS_COMPLIANCE_FAILURE', reason_label: 'CTS compliance failure — auto-rejected', received_at: '10:58 AM',
-    scanner_id: 'SCN-DADR-01', lot_number: 'LOT_SRCB0000001_20260619_01',
+    scanner_id: 'SCN-ANS-01', lot_number: `LOT_${BANK_CONFIG.ifsc_prefix}0000001_20260811_01`,
     ocr_confidence: 0.86, vision_compliance: 0.61, micr_confidence: 0.94,
     checks: { signature_present: true, amount_words_match: true, date_valid: true, cts_valid: false },
     security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true, missing: [] },
     deposit_channel: 'PAY_IN_SLIP',
-    deposit_data: { depositor_name: 'Bhagwati Steels', depositor_account: '4000187712', deposit_amount: '₹1,88,000', counter_token: 'T-0088', date: '19/06/2026', branch: 'Dadar (E)' },
+    deposit_data: { depositor_name: 'Bhagwati Steels', depositor_account: '4000187712', deposit_amount: '₹1,88,000', counter_token: 'T-0088', date: '11/08/2026', branch: 'Aluva' },
     ocr_fields: ocrFields({
       payee: 'Bhagwati Steels', amount_figures: '₹1,88,000', amount_words: 'One lakh eighty eight thousand only',
       bank_name: 'Axis Bank Ltd.', bank_branch: 'Andheri West, Mumbai', bank_ifsc: 'UTIB0000067', bank_micr: '400211067',
@@ -141,7 +150,9 @@ const MOCK_STP_REJECTED = [
     },
   },
   {
-    instrument_id: 'CHQ-OUT-00495', front_bw_url: null, front_gray_url: null, account_display: '****2245', payee_display: 'Shree Ambika Traders',
+    instrument_id: 'CHQ-OUT-00495', front_bw_url: null, front_gray_url: null,
+    iqa_front_bw: 0.94, iqa_back_bw: 0.92, iqa_front_gray: 0.93,
+    account_display: '****2245', payee_display: 'Shree Ambika Traders',
     amount_range: '₹[<1L]', micr: '400160002788', bank: 'Andheri Urban Co-op Bank',
     branch: 'Andheri (E)', pu: 'PU-MUM-04', bank_slug: 'smb-mh-andheri',
     reason: 'DATE_INVALID', reason_label: 'Date invalid / stale — auto-rejected', received_at: '11:05 AM',
@@ -161,6 +172,88 @@ const MOCK_STP_REJECTED = [
       confidence: 0.97, threshold: 0.90, decided_at: '11:05:18 AM',
       detail: 'Cheque date 02-Jan-2026 exceeds the 3-month validity window as of presentation (19-Jun-2026). Auto-rejected per NI Act staleness rule — never auto-returned to drawee without human sign-off on outward side.',
     },
+  },
+]
+
+const MOCK_STP_SUCCESS = [
+  {
+    instrument_id: 'CHQ-OUT-00461', front_bw_url: null, front_gray_url: null,
+    iqa_front_bw: 0.97, iqa_back_bw: 0.96, iqa_front_gray: 0.95,
+    account_display: '****9182', payee_display: 'Malabar Trading Co.',
+    amount_range: '₹[<1L]', micr: '400001002661', bank: BANK_CONFIG.bank_name,
+    branch: 'MG Road Bengaluru Branch', pu: 'UBIN-PU-SOUTH', bank_slug: BANK_CONFIG.bank_id,
+    reason: 'STP_CONFIRMED', reason_label: 'STP Auto-Filed',
+    received_at: '10:15 AM', filed_at: '10:15:03 AM', lot_number: `LOT_${BANK_CONFIG.ifsc_prefix}0000001_20260812_01`,
+    scanner_id: 'SCN-MGB-01', ngch_ref: 'NGCH-20260812-CTS2-00461',
+    ocr_confidence: 0.98, vision_compliance: 0.99, micr_confidence: 0.99,
+    checks: { signature_present: true, amount_words_match: true, date_valid: true, cts_valid: true },
+    security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true, missing: [] },
+    deposit_channel: null, deposit_data: null,
+    ocr_fields: ocrFields({
+      payee: 'Malabar Trading Co.', amount_figures: '₹68,000', amount_words: 'Sixty eight thousand only',
+      bank_name: 'State Bank of India', bank_branch: 'Kozhikode Main', bank_ifsc: 'SBIN0070275', bank_micr: '673002003',
+    }),
+    get fields_meta() { return makeFieldsMeta(this.ocr_fields, { date: 0.99, payee: 0.98, amount_figures: 0.98, amount_words: 0.97 }) },
+  },
+  {
+    instrument_id: 'CHQ-OUT-00467', front_bw_url: null, front_gray_url: null,
+    iqa_front_bw: 0.96, iqa_back_bw: 0.95, iqa_front_gray: 0.94,
+    account_display: '****3340', payee_display: 'Rajasthan Spices Exports',
+    amount_range: '₹[1L-5L]', micr: '400001002704', bank: BANK_CONFIG.bank_name,
+    branch: 'Connaught Place Delhi Branch', pu: 'UBIN-PU-SOUTH', bank_slug: BANK_CONFIG.bank_id,
+    reason: 'STP_CONFIRMED', reason_label: 'STP Auto-Filed',
+    received_at: '10:28 AM', filed_at: '10:28:07 AM', lot_number: `LOT_${BANK_CONFIG.ifsc_prefix}0000001_20260812_01`,
+    scanner_id: 'SCN-CPD-01', ngch_ref: 'NGCH-20260812-CTS2-00467',
+    ocr_confidence: 0.97, vision_compliance: 0.98, micr_confidence: 0.99,
+    checks: { signature_present: true, amount_words_match: true, date_valid: true, cts_valid: true },
+    security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true, missing: [] },
+    deposit_channel: 'PAY_IN_SLIP',
+    deposit_data: { depositor_name: 'Kerala Spices Exports', depositor_account: '4000213340', deposit_amount: '₹2,15,000', counter_token: 'T-0041', date: '12/08/2026', branch: 'Ernakulam Main' },
+    ocr_fields: ocrFields({
+      payee: 'Kerala Spices Exports', amount_figures: '₹2,15,000', amount_words: 'Two lakhs fifteen thousand only',
+      bank_name: 'HDFC Bank Ltd.', bank_branch: 'MG Road, Ernakulam', bank_ifsc: 'HDFC0001234', bank_micr: '682240001',
+    }),
+    get fields_meta() { return makeFieldsMeta(this.ocr_fields, { date: 0.98, payee: 0.97, amount_figures: 0.97, amount_words: 0.96 }) },
+  },
+  {
+    instrument_id: 'CHQ-OUT-00471', front_bw_url: null, front_gray_url: null,
+    iqa_front_bw: 0.98, iqa_back_bw: 0.97, iqa_front_gray: 0.96,
+    account_display: '****5501', payee_display: 'Dalhousie Auto Parts',
+    amount_range: '₹[<1L]', micr: '400001002731', bank: BANK_CONFIG.bank_name,
+    branch: 'Dalhousie Kolkata Branch', pu: 'UBIN-PU-SOUTH', bank_slug: BANK_CONFIG.bank_id,
+    reason: 'STP_CONFIRMED', reason_label: 'STP Auto-Filed',
+    received_at: '10:44 AM', filed_at: '10:44:05 AM', lot_number: `LOT_${BANK_CONFIG.ifsc_prefix}0000001_20260812_01`,
+    scanner_id: 'SCN-DLS-01', ngch_ref: 'NGCH-20260812-CTS2-00471',
+    ocr_confidence: 0.99, vision_compliance: 0.99, micr_confidence: 0.99,
+    checks: { signature_present: true, amount_words_match: true, date_valid: true, cts_valid: true },
+    security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true, missing: [] },
+    deposit_channel: 'BACK_ANNOTATION',
+    deposit_data: { extracted_account: '4000285501', extracted_mobile: '9876501234', ocr_confidence: 0.96 },
+    ocr_fields: ocrFields({
+      payee: 'Thrissur Auto Parts', amount_figures: '₹52,500', amount_words: 'Fifty two thousand five hundred only',
+      bank_name: 'Canara Bank', bank_branch: 'Thrissur Main', bank_ifsc: 'CNRB0000682', bank_micr: '680015001',
+    }),
+    get fields_meta() { return makeFieldsMeta(this.ocr_fields, { date: 0.99, payee: 0.99, amount_figures: 0.99, amount_words: 0.98, micr: 0.99 }) },
+  },
+  {
+    instrument_id: 'CHQ-OUT-00479', front_bw_url: null, front_gray_url: null,
+    iqa_front_bw: 0.95, iqa_back_bw: 0.94, iqa_front_gray: 0.93,
+    account_display: '****8826', payee_display: 'Abids Textiles Exports',
+    amount_range: '₹[<1L]', micr: '400001002791', bank: BANK_CONFIG.bank_name,
+    branch: 'Abids Hyderabad Branch', pu: 'UBIN-PU-SOUTH', bank_slug: BANK_CONFIG.bank_id,
+    reason: 'STP_CONFIRMED', reason_label: 'STP Auto-Filed',
+    received_at: '11:02 AM', filed_at: '11:02:04 AM', lot_number: `LOT_${BANK_CONFIG.ifsc_prefix}0000001_20260812_02`,
+    scanner_id: 'SCN-ABD-01', ngch_ref: 'NGCH-20260812-CTS2-00479',
+    ocr_confidence: 0.96, vision_compliance: 0.97, micr_confidence: 0.98,
+    checks: { signature_present: true, amount_words_match: true, date_valid: true, cts_valid: true },
+    security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true, missing: [] },
+    deposit_channel: 'KIOSK',
+    deposit_data: { name: 'Coimbatore Textiles', account: '4000318826', txn_id: 'CDM-012-20260812', timestamp: '11:01 AM  12/08/2026' },
+    ocr_fields: ocrFields({
+      payee: 'Coimbatore Textiles', amount_figures: '₹88,000', amount_words: 'Eighty eight thousand only',
+      bank_name: 'Indian Bank', bank_branch: 'RS Puram, Coimbatore', bank_ifsc: 'IDIB000C001', bank_micr: '641017001',
+    }),
+    get fields_meta() { return makeFieldsMeta(this.ocr_fields, { date: 0.97, payee: 0.96, amount_figures: 0.96, amount_words: 0.95 }) },
   },
 ]
 
@@ -199,14 +292,106 @@ function OutwardRow({ item, isDark, selected, onClick }) {
   )
 }
 
+// ─── STP Success read-only row ──────────────────────────────────────────────
+
+function STPSuccessRow({ item, isDark, selected, onClick }) {
+  const th = isDark
+    ? { idle: 'border-white/8 bg-white/5 hover:border-emerald-500/30 hover:bg-emerald-500/5', id: 'text-slate-500', name: 'text-white', sub: 'text-slate-400' }
+    : { idle: 'border-slate-200 bg-white hover:border-emerald-400 hover:bg-emerald-50/40', id: 'text-slate-400', name: 'text-slate-900', sub: 'text-slate-500' }
+  return (
+    <button onClick={onClick} className={`w-full text-left rounded-xl border p-4 transition-all ${selected ? 'border-emerald-500/40 bg-emerald-500/5' : th.idle}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className={`text-[11px] font-mono ${th.id}`}>{item.instrument_id}</div>
+          <div className={`text-sm font-semibold ${th.name} mt-0.5 truncate`}>{item.account_display} · {item.payee_display}</div>
+          <div className={`text-[10px] mt-0.5 truncate ${th.sub}`}>{item.bank} · {item.branch} · {item.pu}</div>
+        </div>
+        <span className={`text-[10px] shrink-0 ${th.sub}`}>{item.received_at}</span>
+      </div>
+      <div className="flex items-center gap-2 mt-2">
+        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${isDark ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' : 'text-emerald-700 bg-emerald-50 border-emerald-300'}`}>
+          STP Filed to NGCH
+        </span>
+        <span className={`text-[10px] ml-auto ${th.sub}`}>{item.amount_range}</span>
+      </div>
+    </button>
+  )
+}
+
+// ─── STP Success read-only detail panel ─────────────────────────────────────
+
+function STPSuccessPanel({ item, isDark }) {
+  const th = {
+    panel:   isDark ? 'bg-transparent' : 'bg-slate-50',
+    card:    isDark ? 'bg-white/4 border-white/8' : 'bg-white border-slate-200',
+    heading: isDark ? 'text-white' : 'text-slate-900',
+    label:   isDark ? 'text-slate-400' : 'text-slate-500',
+    value:   isDark ? 'text-slate-200' : 'text-slate-800',
+    mono:    isDark ? 'text-slate-300 font-mono' : 'text-slate-700 font-mono',
+  }
+  if (!item) return (
+    <div className={`flex-1 flex items-center justify-center ${th.panel}`}>
+      <div className={`text-sm ${th.label} text-center`}>
+        <div className="text-3xl mb-3">✓</div>
+        Select an instrument to view STP filing details
+      </div>
+    </div>
+  )
+  const fields = [
+    ['Instrument ID',   item.instrument_id],
+    ['Account',         item.account_display],
+    ['Payee',           item.payee_display],
+    ['Amount Range',    item.amount_range],
+    ['MICR',            item.micr],
+    ['Bank / Branch',   `${item.bank} · ${item.branch}`],
+    ['Processing Unit', item.pu],
+    ['Scanner',         item.scanner_id],
+    ['Lot',             item.lot_number],
+    ['Received',        item.received_at],
+    ['Filed to NGCH',   item.filed_at],
+    ['NGCH Reference',  item.ngch_ref],
+    ['OCR Confidence',  `${(item.ocr_confidence * 100).toFixed(0)}%`],
+    ['Vision Score',    `${(item.vision_compliance * 100).toFixed(0)}%`],
+    ['MICR Confidence', `${(item.micr_confidence * 100).toFixed(0)}%`],
+  ]
+  return (
+    <div className={`flex-1 overflow-y-auto px-6 py-5 ${th.panel}`}>
+      <div className="flex items-center gap-3 mb-5">
+        <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${isDark ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10' : 'text-emerald-700 border-emerald-300 bg-emerald-50'}`}>
+          STP Confirmed — Filed to NGCH
+        </span>
+        <span className={`text-xs ${th.label}`}>Read-only · No action required</span>
+      </div>
+      <div className={`border rounded-xl overflow-hidden ${th.card} mb-4`}>
+        <table className="w-full">
+          <tbody>
+            {fields.map(([label, val]) => (
+              <tr key={label} className={`border-b last:border-0 ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+                <td className={`px-4 py-2.5 text-xs ${th.label} w-40`}>{label}</td>
+                <td className={`px-4 py-2.5 text-xs ${th.mono}`}>{val}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {item.stp_detail && (
+        <div className={`rounded-xl border px-4 py-3 text-xs ${isDark ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300' : 'border-emerald-300 bg-emerald-50 text-emerald-800'}`}>
+          {item.stp_detail}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main page ──────────────────────────────────────────────────────────────
 
 export default function CTSOutwardQueue() {
   const { isDark } = useTheme()
   const { bankId, isSMB } = useBankContext()
-  const [tab, setTab] = useState('review') // 'review' | 'stp_rejected'
+  const [tab, setTab] = useState('review') // 'review' | 'stp_rejected' | 'stp_success'
   const [review, setReview]     = useState(useDemoData(MOCK_HUMAN_REVIEW))
   const [rejected, setRejected] = useState(useDemoData(MOCK_STP_REJECTED))
+  const [stpSuccess]            = useState(useDemoData(MOCK_STP_SUCCESS))
   const [decided, setDecided] = useState([]) // { instrument_id, action, reason, ts }
   const [selected, setSelected] = useState(null)
 
@@ -214,7 +399,8 @@ export default function CTSOutwardQueue() {
 
   const reviewQueue   = review.filter(inScope)
   const rejectedQueue = rejected.filter(inScope)
-  const activeList = tab === 'review' ? reviewQueue : rejectedQueue
+  const successQueue  = stpSuccess.filter(inScope)
+  const activeList = tab === 'review' ? reviewQueue : tab === 'stp_rejected' ? rejectedQueue : successQueue
 
   usePageHeader({
     subtitle: 'Outward Q · Human Review + STP Rejected · action required before NGCH filing',
@@ -269,7 +455,7 @@ export default function CTSOutwardQueue() {
         <div className={`w-96 shrink-0 border-r ${th.divider} flex flex-col`}>
           {/* Tabs */}
           <div className={`flex gap-1 px-3 pt-3 border-b ${th.divider} pb-2`}>
-            {[['review', 'Human Review', reviewQueue.length], ['stp_rejected', 'STP Rejected', rejectedQueue.length]].map(([key, label, count]) => (
+            {[['review', 'Human Review', reviewQueue.length], ['stp_rejected', 'STP Rejected', rejectedQueue.length], ['stp_success', 'STP Success', successQueue.length]].map(([key, label, count]) => (
               <button
                 key={key}
                 onClick={() => { setTab(key); setSelected(null) }}
@@ -293,8 +479,11 @@ export default function CTSOutwardQueue() {
               </div>
             )}
             {activeList.map(item => (
-              <OutwardRow key={item.instrument_id} item={item} isDark={isDark}
-                selected={selected?.instrument_id === item.instrument_id} onClick={() => selectItem(item)} />
+              tab === 'stp_success'
+                ? <STPSuccessRow key={item.instrument_id} item={item} isDark={isDark}
+                    selected={selected?.instrument_id === item.instrument_id} onClick={() => selectItem(item)} />
+                : <OutwardRow key={item.instrument_id} item={item} isDark={isDark}
+                    selected={selected?.instrument_id === item.instrument_id} onClick={() => selectItem(item)} />
             ))}
 
             {decided.length > 0 && (
@@ -315,7 +504,7 @@ export default function CTSOutwardQueue() {
           </div>
         </div>
 
-        {/* Decision panel — same depth as Inward Q: Overview/Cheque/AI Analysis/Passport (+ Reject Decision) */}
+        {/* Decision panel — tabKind drives footer visibility; stp_success shows read-only banner */}
         <OutwardReviewPanel item={selected} tabKind={tab} onDecision={decide} isDark={isDark} />
       </div>
     </AppShell>

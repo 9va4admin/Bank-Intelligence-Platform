@@ -230,7 +230,7 @@ function ReasonPicker({ returnReason, setReturnReason, isDark }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function ReviewPanel({ item, onDecision, isDark }) {
+export default function ReviewPanel({ item, onDecision, isDark, readOnly = false }) {
   const [tab, setTab] = useState('overview')
   const [returnReason, setReturnReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -361,15 +361,25 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
         {tab === 'overview' && (
           <>
-            <div className={`flex items-start gap-3 rounded-xl border px-4 py-2.5 ${reasonColor}`}>
-              <span className="text-base mt-0.5">⚠</span>
-              <div>
-                <div className="text-xs font-semibold">Flagged: {item.reason_label}</div>
-                <div className="text-[11px] opacity-70 mt-0.5">
-                  {item.reason === 'VAULT_MISS' ? 'Vault miss — no specimen on file. Auto-return is never permitted.' : 'AI confidence below threshold — manual verification required before IET.'}
+            {readOnly ? (
+              <div className={`flex items-start gap-3 rounded-xl border px-4 py-2.5 ${isDark ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300' : 'border-emerald-300 bg-emerald-50 text-emerald-800'}`}>
+                <span className="text-base mt-0.5">✓</span>
+                <div>
+                  <div className="text-xs font-semibold">STP Auto-Confirmed</div>
+                  <div className="text-[11px] opacity-70 mt-0.5">All AI checks passed. Filed to NGCH automatically. No manual action required.</div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className={`flex items-start gap-3 rounded-xl border px-4 py-2.5 ${reasonColor}`}>
+                <span className="text-base mt-0.5">⚠</span>
+                <div>
+                  <div className="text-xs font-semibold">Flagged: {item.reason_label}</div>
+                  <div className="text-[11px] opacity-70 mt-0.5">
+                    {item.reason === 'VAULT_MISS' ? 'Vault miss — no specimen on file. Auto-return is never permitted.' : 'AI confidence below threshold — manual verification required before IET.'}
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-3 gap-2">
               {[
                 { label: 'OCR',       val: `${Math.round(item.ocr_confidence * 100)}%`,       sub: 'confidence', color: th.heading },
@@ -471,15 +481,23 @@ export default function ReviewPanel({ item, onDecision, isDark }) {
       </div>
 
       {/* Footer */}
-      <div className={`shrink-0 border-t ${th.border} px-6 py-3 flex items-center gap-2 ${th.foot} backdrop-blur`}>
-        <ReasonPicker returnReason={returnReason} setReturnReason={setReturnReason} isDark={isDark} />
-        <button onClick={handleReturn} disabled={!returnReason || submitting}
-          className="shrink-0 px-4 py-2 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-        >{submitting ? 'Filing…' : '✕ Return'}</button>
-        <button onClick={handleApprove} disabled={submitting}
-          className="shrink-0 px-5 py-2 rounded-lg border border-emerald-500/40 bg-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30 transition-all disabled:opacity-50 whitespace-nowrap"
-        >Approve → Validation IQ</button>
-      </div>
+      {readOnly ? (
+        <div className={`shrink-0 border-t ${th.border} px-6 py-2.5 flex items-center gap-3 ${isDark ? 'bg-emerald-950/20' : 'bg-emerald-50'}`}>
+          <span className="w-2 h-2 rounded-full bg-emerald-500 flex-none" />
+          <span className={`text-xs font-semibold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>STP Auto-Confirmed</span>
+          <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Filed to NGCH - No action required</span>
+        </div>
+      ) : (
+        <div className={`shrink-0 border-t ${th.border} px-6 py-3 flex items-center gap-2 ${th.foot} backdrop-blur`}>
+          <ReasonPicker returnReason={returnReason} setReturnReason={setReturnReason} isDark={isDark} />
+          <button onClick={handleReturn} disabled={!returnReason || submitting}
+            className="shrink-0 px-4 py-2 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+          >{submitting ? 'Filing…' : '✕ Return'}</button>
+          <button onClick={handleApprove} disabled={submitting}
+            className="shrink-0 px-5 py-2 rounded-lg border border-emerald-500/40 bg-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30 transition-all disabled:opacity-50 whitespace-nowrap"
+          >Approve → Validation IQ</button>
+        </div>
+      )}
     </div>
   )
 }

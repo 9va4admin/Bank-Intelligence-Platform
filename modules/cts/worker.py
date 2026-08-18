@@ -56,7 +56,7 @@ try:
     )
 
     AUDIT_RETRY = RetryPolicy(
-        maximum_attempts=0,
+        maximum_attempts=None,   # unlimited — audit must succeed
         initial_interval=timedelta(seconds=1),
         maximum_interval=timedelta(minutes=5),
     )
@@ -88,6 +88,7 @@ from modules.cts.workflows.session_reconciliation_workflow import SessionReconci
 from modules.cts.workflows.sb_inward_forwarding_workflow import SBInwardForwardingWorkflow
 from modules.cts.workflows.smb_vault_push_workflow import SMBVaultPushWorkflow
 from modules.cts.workflows.agency_cc_workflow import AgencyCCWorkflow
+from modules.cts.workflows.postdated_hold_workflow import PostDatedHoldWorkflow
 
 from modules.cts.workflows.activities.ocr import ocr_extract
 from modules.cts.workflows.activities.alteration import detect_alteration
@@ -128,6 +129,14 @@ from modules.cts.workflows.activities.outward_scan_activities import (
     create_lot_entry,
     run_vision_presentment_check,
     record_outward_scan_event,
+    check_cheque_dedup,
+    extract_rear_payee_details,
+    validate_payee_account,
+)
+from modules.cts.workflows.activities.outward_payee_check import check_outward_payee
+from modules.cts.workflows.activities.postdated_hold_activities import (
+    store_postdated_hold,
+    mark_hold_cancelled,
 )
 from modules.cts.workflows.activities.security_features import check_security_features
 from modules.cts.workflows.activities.ngch_metadata_cross_check import cross_check_ngch_metadata
@@ -169,6 +178,11 @@ from modules.cts.workflows.activities.platform_health_activities import (
 from modules.cts.workflows.platform_health_check_workflow import PlatformHealthCheckWorkflow
 from modules.cts.worker_activities import build_bound_activities
 from modules.cts.workflows.hold_escalation_workflow import HoldEscalationWorkflow
+from modules.cts.workflows.feedback_workflow import (
+    FeedbackAccumulatorWorkflow,
+    ModelRetrainWorkflow,
+    FeedbackEmitWorkflow,
+)
 from modules.cts.workflows.activities.hold_escalation import (
     send_hold_reminder,
     send_hold_critical_alert,
@@ -194,6 +208,11 @@ ALL_WORKFLOWS = [
     AgencyCCWorkflow,
     PlatformHealthCheckWorkflow,
     HoldEscalationWorkflow,
+    PostDatedHoldWorkflow,
+    # OCR feedback loop
+    FeedbackAccumulatorWorkflow,
+    ModelRetrainWorkflow,
+    FeedbackEmitWorkflow,
 ]
 
 # Every registered CTS activity name, for reference/introspection. This list
@@ -306,6 +325,17 @@ NO_DI_ACTIVITIES = [
     send_hold_reminder,
     send_hold_critical_alert,
     send_hold_p0_alert,
+    # Outward scanning — dedup, rear OCR, payee account validation
+    check_cheque_dedup,
+    extract_rear_payee_details,
+    validate_payee_account,
+    # Outward payee name check (deposit slip / kiosk / cheque reverse)
+    check_outward_payee,
+    # Post-dated hold persistence (PostDatedHoldWorkflow)
+    store_postdated_hold,
+    mark_hold_cancelled,
+    # OCR feedback loop — accumulate/threshold/promote/emit/dispatch/shadow are
+    # all in BoundCTSActivities (db_pool injection required)
 ]
 
 

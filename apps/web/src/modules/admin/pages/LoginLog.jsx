@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 
 // Mock login events — SB user sees all (SB + SMB tenants), SMB user sees only own
 const MOCK_EVENTS = [
@@ -36,7 +37,7 @@ const MOCK_EVENTS = [
   },
   {
     event_id: 'evt-003',
-    bank_id: 'saraswat-coop',
+    bank_id: BANK_CONFIG.bank_id,
     bank_type: 'SMB',
     user_id: 'smb-usr-001',
     display_name: 'Anil Sawant',
@@ -66,7 +67,7 @@ const MOCK_EVENTS = [
   },
   {
     event_id: 'evt-005',
-    bank_id: 'saraswat-coop',
+    bank_id: BANK_CONFIG.bank_id,
     bank_type: 'SMB',
     user_id: 'smb-usr-002',
     display_name: 'Meera Kulkarni',
@@ -111,7 +112,7 @@ const MOCK_EVENTS = [
   },
   {
     event_id: 'evt-008',
-    bank_id: 'saraswat-coop',
+    bank_id: BANK_CONFIG.bank_id,
     bank_type: 'SMB',
     user_id: 'smb-usr-001',
     display_name: 'Anil Sawant',

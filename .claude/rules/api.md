@@ -1,7 +1,7 @@
 # API Rules (FastAPI Backend)
 
 ## Structure
-- All routers in `apps/api/routers/` — one file per module (cts.py, ej.py, disputes.py, audit.py, admin.py)
+- All routers in `apps/api/routers/` — one file per module (cts.py, disputes.py, audit.py, admin.py)
 - All Pydantic v2 models — use `model_config = ConfigDict(...)` not class Config
 - Async throughout — all route handlers must be `async def`
 - No business logic in routers — delegate to service layer or Temporal workflow trigger
@@ -19,7 +19,6 @@
 
 ## Rate Limiting
 - CTS submission endpoints: 600 req/min per bank_id
-- EJ ingestion: 100 req/min per branch
 - Admin endpoints: 30 req/min per user
 
 ## OpenTelemetry

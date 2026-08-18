@@ -56,6 +56,21 @@ from temporalio import activity
 # annotations` — TYPE_CHECKING imports would be invisible at runtime and
 # cause Temporal to fall back to plain-dict deserialization.
 from modules.cts.workflows.activities.alteration import AlterationActivityInput
+from modules.cts.workflows.activities.feedback_activities import (
+    FeedbackSignalResult,
+    MicrFeedbackInput,
+    PayeeFeedbackInput,
+    RetrainJobResult,
+    RetrainThresholdResult,
+    ShadowEvalResult,
+    accumulate_corpus_entry as _fa_accumulate_corpus_entry,
+    check_retrain_threshold as _fa_check_retrain_threshold,
+    dispatch_retrain_job as _fa_dispatch_retrain_job,
+    emit_micr_feedback_signal as _fa_emit_micr_feedback_signal,
+    emit_payee_feedback_signal as _fa_emit_payee_feedback_signal,
+    promote_model as _fa_promote_model,
+    run_shadow_evaluation as _fa_run_shadow_evaluation,
+)
 from modules.cts.workflows.activities.cbs import CBSActivityInput
 from modules.cts.workflows.activities.decision import DecisionInput
 from modules.cts.workflows.activities.fraud import FraudActivityInput
@@ -70,6 +85,7 @@ from modules.cts.workflows.activities.outward_scan_activities import (
 from modules.cts.workflows.activities.pps import PPSActivityInput
 from modules.cts.workflows.activities.signature import SignatureActivityInput
 from modules.cts.workflows.activities.stop_payment import StopPaymentActivityInput
+from modules.cts.workflows.activities.persist_decision import PersistDecisionInput
 from modules.cts.workflows.activities.write_audit import WriteAuditInput
 from modules.cts.workflows.human_review_workflow import HumanReviewInput
 from modules.cts.workflows.mismatch_resolution_workflow import PublishMismatchHoldInput
@@ -97,6 +113,7 @@ class BoundCTSActivities:
         config_service: Any = None,
         db_pool: Any = None,
         hsm_signer: Any = None,
+        minio_client: Any = None,
     ) -> None:
         self._bank_id = bank_id
         self._cbs_connector = cbs_connector
@@ -114,6 +131,7 @@ class BoundCTSActivities:
         self._config_service = config_service
         self._db_pool = db_pool
         self._hsm_signer = hsm_signer
+        self._minio_client = minio_client
         # LotManager is stateful/in-memory per clearing session (see
         # modules/cts/lot/manager.py) — cached by (bank_ifsc, session_id) so
         # sequential lot numbers are correct across a session's many
@@ -415,6 +433,83 @@ class BoundCTSActivities:
         )
 
     # ------------------------------------------------------------------
+    # Feedback loop — corpus accumulation + retrain threshold + promote
+    # These need minio_client + redis_client injected from self.
+    # ------------------------------------------------------------------
+
+    @activity.defn(name="accumulate_corpus_entry")
+    async def accumulate_corpus_entry(
+        self,
+        signal_result: FeedbackSignalResult,
+        image_path: str,
+        ocr_text: str,
+        corpus_type: str,
+    ) -> None:
+        return await _fa_accumulate_corpus_entry(
+            signal_result, image_path, ocr_text, corpus_type,
+            minio_client=self._minio_client,
+            redis_client=self._redis_client,
+        )
+
+    @activity.defn(name="check_retrain_threshold")
+    async def check_retrain_threshold(
+        self,
+        bank_id: str,
+        corpus_type: str,
+    ) -> RetrainThresholdResult:
+        return await _fa_check_retrain_threshold(
+            bank_id, corpus_type,
+            minio_client=self._minio_client,
+            redis_client=self._redis_client,
+        )
+
+    @activity.defn(name="promote_model")
+    async def promote_model(
+        self,
+        bank_id: str,
+        mlflow_run_id: str,
+        corpus_type: str,
+    ) -> None:
+        return await _fa_promote_model(
+            bank_id, mlflow_run_id, corpus_type,
+            minio_client=self._minio_client,
+            redis_client=self._redis_client,
+            db_pool=self._db_pool,
+        )
+
+    @activity.defn(name="emit_payee_feedback_signal")
+    async def emit_payee_feedback_signal(self, inp: PayeeFeedbackInput) -> FeedbackSignalResult:
+        return await _fa_emit_payee_feedback_signal(inp, db_pool=self._db_pool)
+
+    @activity.defn(name="emit_micr_feedback_signal")
+    async def emit_micr_feedback_signal(self, inp: MicrFeedbackInput) -> FeedbackSignalResult:
+        return await _fa_emit_micr_feedback_signal(inp, db_pool=self._db_pool)
+
+    @activity.defn(name="dispatch_retrain_job")
+    async def dispatch_retrain_job(self, bank_id: str, corpus_type: str) -> RetrainJobResult:
+        return await _fa_dispatch_retrain_job(bank_id, corpus_type, db_pool=self._db_pool)
+
+    @activity.defn(name="run_shadow_evaluation")
+    async def run_shadow_evaluation(
+        self, bank_id: str, mlflow_run_id: str, corpus_type: str
+    ) -> ShadowEvalResult:
+        return await _fa_run_shadow_evaluation(
+            bank_id, mlflow_run_id, corpus_type, db_pool=self._db_pool
+        )
+
+    # ------------------------------------------------------------------
+    # Decision persistence (cts.agent_decisions in YugabyteDB)
+    # ------------------------------------------------------------------
+
+    @activity.defn(name="persist_agent_decision")
+    async def persist_agent_decision(self, inp: PersistDecisionInput):
+        from modules.cts.workflows.activities.persist_decision import persist_agent_decision as _real
+        if self._db_pool is None:
+            return await _real(inp, db_conn=None)
+        async with self._db_pool.acquire() as conn:
+            return await _real(inp, db_conn=conn)
+
+    # ------------------------------------------------------------------
     # Registration list — every bound method Worker() should dispatch to.
     # ------------------------------------------------------------------
 
@@ -456,6 +551,16 @@ class BoundCTSActivities:
             self.notify_sub_member_return,
             self.emit_batch_ledger_update,
             self.check_return_rate_shield,
+            # Feedback loop — DI-wired (all need db_pool for DB writes)
+            self.accumulate_corpus_entry,
+            self.check_retrain_threshold,
+            self.promote_model,
+            self.emit_payee_feedback_signal,
+            self.emit_micr_feedback_signal,
+            self.dispatch_retrain_job,
+            self.run_shadow_evaluation,
+            # Decision persistence (cts.agent_decisions)
+            self.persist_agent_decision,
         ]
 
 
@@ -484,6 +589,7 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
     vision_vllm_client = await _build_vision_vllm_client(config_service)
     db_pool = await _build_db_pool(config_service)
     hsm_signer = _build_hsm_signer(config_service, bank_id)
+    minio_client = await _build_minio_client(config_service)
 
     pepper = await _get_pii_pepper(config_service, bank_id)
     signature_vault = _build_signature_vault(bank_id, pepper, redis_client)
@@ -507,6 +613,7 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
         config_service=config_service,
         db_pool=db_pool,
         hsm_signer=hsm_signer,
+        minio_client=minio_client,
     )
 
 
@@ -779,4 +886,24 @@ async def _build_bloom_client(redis_client: Any, bank_id: str, config_service: A
         return client
     except Exception as exc:
         log.warning("worker_activities.bloom_client_unavailable", bank_id=bank_id, error=str(exc))
+        return None
+
+
+async def _build_minio_client(config_service: Any) -> Any:
+    """MinIO client for corpus accumulation (OCR feedback loop)."""
+    try:
+        from shared.storage.minio_client import MinioObjectStore
+        endpoint = await config_service.get_secret("minio.endpoint")
+        access_key = await config_service.get_secret("minio.access_key")
+        secret_key = await config_service.get_secret("minio.secret_key")
+        client = MinioObjectStore(
+            endpoint=endpoint,
+            access_key=access_key,
+            secret_key=secret_key,
+            secure=True,
+        )
+        log.info("worker_activities.minio_client_ready")
+        return client
+    except Exception as exc:
+        log.warning("worker_activities.minio_client_unavailable", error=str(exc))
         return None

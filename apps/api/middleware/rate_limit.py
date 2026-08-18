@@ -41,6 +41,10 @@ _ENDPOINT_LIMITS: dict[str, tuple[int, bool]] = {
     "admin_config": (30, False),
     "admin_bank": (20, False),
     "audit_query": (30, False),
+    # Auth — keyed per-IP (bank_id not yet known at login time)
+    "auth_login":      (10, False),
+    "auth_mfa_verify": (10, False),
+    "auth_mfa_enrol":  (5,  False),
 }
 
 # Maps URL path prefixes to endpoint slugs
@@ -56,6 +60,9 @@ _PATH_TO_SLUG: dict[str, str] = {
     "/v1/admin/config": "admin_config",
     "/v1/admin/bank": "admin_bank",
     "/v1/audit": "audit_query",
+    "/v1/auth/login":          "auth_login",
+    "/v1/auth/mfa/verify":     "auth_mfa_verify",
+    "/v1/auth/mfa/enrol":      "auth_mfa_enrol",
 }
 
 

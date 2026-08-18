@@ -20,7 +20,7 @@ kafka:
 # Federal Bank is pan-India — all four NGCH clearing zones
 clearing_zones: [SOUTH, WEST, NORTH, EAST]
 
-# Federal Bank volumes: ~50,000 inward cheques/day (large private bank)
+# Federal Bank volumes: ~35,000 own inward + ~1,000 SMB inward = ~36,000/day
 max_agent_swarm_size: 500
 
 # ── GPU Profile ───────────────────────────────────────────────────────────────
@@ -55,19 +55,27 @@ cts_agent_worker:
 # ── CCTV ─────────────────────────────────────────────────────────────────────
 cctv_enabled: false                  # Phase 2
 
-# ── SMB — disabled for Federal Bank (private sector, no sub-members) ─────────
+# ── SMB — Federal Bank sponsors 25 UCB sub-members for CTS clearing ──────────
+# Combined SMB outward volume: ~1,000 cheques/day (~35,000 Federal own + ~1,000 SMB)
 smb:
-  enabled: false
+  enabled: true
+  smb_forwarding_worker:
+    min_replicas: 2
+    max_replicas: 25
+    keda_kafka_lag_threshold: 5
 
 keda:
   smb_inbound:
-    enabled: false
+    enabled: true
+    min_replicas: 1
+    max_replicas: 25
+    lag_threshold: "5"
 
 # ── NGCH Adapter ─────────────────────────────────────────────────────────────
 ngch:
   transport: sftp
 
-# ── Deployment Mode: SB_ONLY ─────────────────────────────────────────────────
+# ── Deployment Mode: SB + 25 SMB sub-members ─────────────────────────────────
 deployment_mode: SB_NGCH
 
 # ── Processing Units ─────────────────────────────────────────────────────────

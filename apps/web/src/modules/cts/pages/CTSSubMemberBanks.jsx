@@ -3,8 +3,43 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 
-const CLEARING_ZONES = ['MUMBAI', 'PUNE', 'DELHI', 'CHENNAI', 'KOLKATA', 'AHMEDABAD', 'HYDERABAD']
+function smbZone(state) {
+  if (['KL', 'TN', 'KA', 'AP', 'TG'].includes(state)) return 'SOUTH'
+  if (['MH', 'GA'].includes(state)) return 'WEST'
+  if (['DL', 'UP', 'RJ', 'HR', 'PB'].includes(state)) return 'NORTH'
+  return 'EAST'
+}
+
+const RISK_CYCLE = ['LOW', 'LOW', 'MEDIUM', 'LOW', 'LOW', 'MEDIUM', 'LOW', 'HIGH']
+const ONBOARD_DATES = ['2026-01-15', '2026-01-22', '2026-02-01', '2026-02-10', '2026-02-20', '2026-03-05', '2026-03-15', '2026-04-01']
+
+const BASE_MOCK_SUB_MEMBERS = [
+  { id: 'SMB001', name: 'Vasavi Co-operative Bank',  ifsc_prefix: 'VASB', sponsor_account: 'SRCB00000001', clearing_zones: ['MUMBAI'], status: 'ACTIVE',    daily_limit: 5000, cheques_today: 312, risk_level: 'LOW',  onboarded: '2026-01-15', contact: 'ops@vasavi.coop' },
+  { id: 'SMB002', name: 'Cosmos Co-operative Bank',  ifsc_prefix: 'COSB', sponsor_account: 'SRCB00000002', clearing_zones: ['MUMBAI', 'PUNE'], status: 'ACTIVE', daily_limit: 3000, cheques_today: 187, risk_level: 'LOW', onboarded: '2026-02-20', contact: 'clearing@cosmosbank.in' },
+  { id: 'SMB003', name: 'Janata Sahakari Bank',      ifsc_prefix: 'JSBP', sponsor_account: 'SRCB00000003', clearing_zones: ['PUNE'], status: 'SUSPENDED', daily_limit: 2000, cheques_today: 0,   risk_level: 'HIGH', onboarded: '2026-03-05', contact: 'mgmt@janatasahakari.co.in' },
+]
+
+const MOCK_SUB_MEMBERS = (BANK_CONFIG.smbs ?? []).length > 0
+  ? BANK_CONFIG.smbs.map((smb, i) => ({
+      id: smb.id,
+      name: smb.name,
+      ifsc_prefix: smb.ifsc.substring(0, 4),
+      sponsor_account: `${BANK_CONFIG.ifsc_prefix}${String(i + 1).padStart(8, '0')}`,
+      clearing_zones: [smbZone(smb.state)],
+      status: i === 13 ? 'SUSPENDED' : 'ACTIVE',
+      daily_limit: (smb.daily_avg ?? 50) * 10,
+      cheques_today: i === 13 ? 0 : Math.round((smb.daily_avg ?? 50) * 0.85),
+      risk_level: RISK_CYCLE[i % RISK_CYCLE.length],
+      onboarded: ONBOARD_DATES[i % ONBOARD_DATES.length],
+      contact: `ops@${smb.shortName.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '')}.coop`,
+    }))
+  : BASE_MOCK_SUB_MEMBERS
+
+const CLEARING_ZONES = (BANK_CONFIG.smbs ?? []).length > 0
+  ? [...new Set(BANK_CONFIG.smbs.map(s => smbZone(s.state)))]
+  : ['MUMBAI', 'PUNE', 'DELHI', 'CHENNAI', 'KOLKATA', 'AHMEDABAD', 'HYDERABAD']
 
 function OnboardModal({ isDark, onClose, bankId }) {
   const th = {
@@ -173,48 +208,6 @@ function OnboardModal({ isDark, onClose, bankId }) {
     </div>
   )
 }
-
-const MOCK_SUB_MEMBERS = [
-  {
-    id: 'SMB001',
-    name: 'Vasavi Co-operative Bank',
-    ifsc_prefix: 'VASB',
-    sponsor_account: 'SVCB00000001',
-    clearing_zones: ['MUMBAI'],
-    status: 'ACTIVE',
-    daily_limit: 5000,
-    cheques_today: 312,
-    risk_level: 'LOW',
-    onboarded: '2026-01-15',
-    contact: 'ops@saraswat.coop',
-  },
-  {
-    id: 'SMB002',
-    name: 'Cosmos Co-operative Bank',
-    ifsc_prefix: 'COSB',
-    sponsor_account: 'SVCB00000002',
-    clearing_zones: ['MUMBAI', 'PUNE'],
-    risk_level: 'LOW',
-    status: 'ACTIVE',
-    daily_limit: 3000,
-    cheques_today: 187,
-    onboarded: '2026-02-20',
-    contact: 'clearing@cosmosbank.in',
-  },
-  {
-    id: 'SMB003',
-    name: 'Janata Sahakari Bank',
-    ifsc_prefix: 'JSBP',
-    sponsor_account: 'SVCB00000003',
-    clearing_zones: ['PUNE'],
-    status: 'SUSPENDED',
-    daily_limit: 2000,
-    cheques_today: 0,
-    risk_level: 'HIGH',
-    onboarded: '2026-03-05',
-    contact: 'mgmt@janatasahakari.co.in',
-  },
-]
 
 const RISK_COLORS_D = { LOW: 'bg-emerald-900/40 text-emerald-300 border-emerald-700/50', MEDIUM: 'bg-amber-900/40 text-amber-300 border-amber-700/50', HIGH: 'bg-red-900/40 text-red-300 border-red-700/50' }
 const RISK_COLORS_L = { LOW: 'bg-emerald-100 text-emerald-700 border-emerald-300', MEDIUM: 'bg-amber-100 text-amber-700 border-amber-300', HIGH: 'bg-red-100 text-red-700 border-red-300' }

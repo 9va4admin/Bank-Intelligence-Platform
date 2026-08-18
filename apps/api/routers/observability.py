@@ -82,6 +82,45 @@ class DashboardResponse(BaseModel):
     degraded: bool = False
 
 
+class CorpusProgressEntry(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    corpus_type: str                # "payee" | "micr"
+    count: int = 0
+    threshold: int = 500
+    progress_pct: float = 0.0
+    degraded: bool = False
+
+
+class FailureModeEntry(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    mode: str                       # CLEAN | OCR_CHAR_ERROR | XLIT_GAP | LEXICON_GAP | THRESHOLD_ISSUE | INDETERMINATE
+    count: int = 0
+    pct: float = 0.0
+
+
+class RetrainRunEntry(BaseModel):
+    model_config = ConfigDict(frozen=True, protected_namespaces=())
+    run_id: str
+    corpus_type: str
+    triggered_at: str
+    completed_at: Optional[str] = None
+    status: str                     # RUNNING | PROMOTED | REJECTED | FAILED
+    accuracy_before: Optional[float] = None
+    accuracy_after: Optional[float] = None
+    improvement_pct: Optional[float] = None
+    promoted: Optional[bool] = None
+
+
+class OCRFeedbackResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    as_of: str
+    corpus: list[CorpusProgressEntry] = []
+    failure_modes: list[FailureModeEntry] = []
+    retrain_history: list[RetrainRunEntry] = []
+    degraded: bool = False
+
+
 class ModelEntry(BaseModel):
     model_config = ConfigDict(frozen=True, protected_namespaces=())
     model_name: str
@@ -264,6 +303,108 @@ async def _fetch_vault_coverage(
     except Exception as exc:
         log.warning("ops.dashboard.vault_coverage_error", bank_id=bank_id, error=str(exc))
         return VaultCoveragePanel(degraded=True)
+
+
+_CORPUS_THRESHOLD_DEFAULT = 500   # mirrors infra/helm/values/_defaults.yaml ocr_feedback_retrain_threshold
+
+
+async def _fetch_ocr_feedback(
+    bank_id: str,
+    redis_cts: Any,
+    db_pool: Any,
+) -> tuple[list[CorpusProgressEntry], list[FailureModeEntry], list[RetrainRunEntry], bool]:
+    corpus: list[CorpusProgressEntry] = []
+    failure_modes: list[FailureModeEntry] = []
+    retrain_history: list[RetrainRunEntry] = []
+    degraded = False
+
+    # ── Corpus progress from Redis (feedback:corpus:{bank_id}:{type}:count) ──
+    if redis_cts is not None:
+        try:
+            for corpus_type in ("payee", "micr"):
+                key = f"feedback:corpus:{bank_id}:{corpus_type}:count"
+                raw = await redis_cts.get(key)
+                count = int(raw) if raw else 0
+                pct = min(100.0, count / _CORPUS_THRESHOLD_DEFAULT * 100)
+                corpus.append(CorpusProgressEntry(
+                    corpus_type=corpus_type,
+                    count=count,
+                    threshold=_CORPUS_THRESHOLD_DEFAULT,
+                    progress_pct=round(pct, 1),
+                ))
+        except Exception as exc:
+            log.warning("ops.ocr_feedback.redis_error", bank_id=bank_id, error=str(exc))
+            degraded = True
+            corpus = [
+                CorpusProgressEntry(corpus_type=t, degraded=True)
+                for t in ("payee", "micr")
+            ]
+    else:
+        degraded = True
+        corpus = [
+            CorpusProgressEntry(corpus_type=t, degraded=True)
+            for t in ("payee", "micr")
+        ]
+
+    # ── Failure mode breakdown from YugabyteDB (last 30 days) ────────────────
+    if db_pool is not None:
+        try:
+            async with db_pool.acquire() as conn:
+                rows = await conn.fetch(
+                    """
+                    SELECT failure_mode, COUNT(*) AS cnt
+                    FROM cts.ocr_corpus_events
+                    WHERE bank_id = $1
+                      AND created_at > NOW() - INTERVAL '30 days'
+                    GROUP BY failure_mode
+                    ORDER BY cnt DESC
+                    """,
+                    bank_id,
+                )
+                total = sum(int(r["cnt"]) for r in rows)
+                for r in rows:
+                    cnt = int(r["cnt"])
+                    failure_modes.append(FailureModeEntry(
+                        mode=r["failure_mode"],
+                        count=cnt,
+                        pct=round(cnt / total * 100, 1) if total else 0.0,
+                    ))
+        except Exception as exc:
+            log.warning("ops.ocr_feedback.failure_modes_error", bank_id=bank_id, error=str(exc))
+
+    # ── Retraining run history from YugabyteDB (last 10 runs) ────────────────
+    if db_pool is not None:
+        try:
+            async with db_pool.acquire() as conn:
+                rows = await conn.fetch(
+                    """
+                    SELECT run_id, corpus_type, triggered_at, completed_at,
+                           status, accuracy_before, accuracy_after, improvement_pct, promoted
+                    FROM cts.model_retrain_runs
+                    WHERE bank_id = $1
+                    ORDER BY triggered_at DESC
+                    LIMIT 10
+                    """,
+                    bank_id,
+                )
+                for r in rows:
+                    retrain_history.append(RetrainRunEntry(
+                        run_id=r["run_id"],
+                        corpus_type=r["corpus_type"],
+                        triggered_at=r["triggered_at"].isoformat()
+                            if hasattr(r["triggered_at"], "isoformat") else str(r["triggered_at"]),
+                        completed_at=r["completed_at"].isoformat()
+                            if r["completed_at"] and hasattr(r["completed_at"], "isoformat") else None,
+                        status=r["status"],
+                        accuracy_before=float(r["accuracy_before"]) if r["accuracy_before"] is not None else None,
+                        accuracy_after=float(r["accuracy_after"]) if r["accuracy_after"] is not None else None,
+                        improvement_pct=float(r["improvement_pct"]) if r["improvement_pct"] is not None else None,
+                        promoted=bool(r["promoted"]) if r["promoted"] is not None else None,
+                    ))
+        except Exception as exc:
+            log.warning("ops.ocr_feedback.retrain_history_error", bank_id=bank_id, error=str(exc))
+
+    return corpus, failure_modes, retrain_history, degraded
 
 
 _MODEL_CONFIGS = [
@@ -540,6 +681,33 @@ async def get_alerts(
         as_of=_now_iso(),
         total=total,
         alerts=alerts,
+        degraded=degraded,
+    )
+
+
+@router_v1.get("/ocr-feedback", response_model=OCRFeedbackResponse)
+async def get_ocr_feedback(
+    request: Request,
+    user: dict = Depends(get_current_user),
+) -> OCRFeedbackResponse:
+    role = user["role"] if isinstance(user, dict) else user.role
+    bank_id = user["bank_id"] if isinstance(user, dict) else user.bank_id
+    if role not in _OPS_AND_ML_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+
+    db_pool = getattr(request.app.state, "db_pool_cts", None)
+    redis_cts = getattr(request.app.state, "redis_cts", None)
+    corpus, failure_modes, retrain_history, degraded = await _fetch_ocr_feedback(
+        bank_id, redis_cts, db_pool,
+    )
+
+    log.info("ops.ocr_feedback.served", bank_id=bank_id, degraded=degraded)
+    return OCRFeedbackResponse(
+        bank_id=bank_id,
+        as_of=_now_iso(),
+        corpus=corpus,
+        failure_modes=failure_modes,
+        retrain_history=retrain_history,
         degraded=degraded,
     )
 

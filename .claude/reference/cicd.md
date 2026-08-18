@@ -14,7 +14,7 @@ Every stage must pass before the next begins. No parallel shortcuts across stage
 
 **security-scan (all parallel, all `allow_failure: false`):** gitleaks (secrets), Trivy CRITICAL CVE on base images, Semgrep ASTRA custom rules (`infra/ci-checks/semgrep-astra.yaml`), OWASP dependency check (CVSS ≥ 7 = fail), checkov IaC (HIGH/CRITICAL = block), OPA policy lint + unit tests, api-compatibility check.
 
-**build-image:** Multi-stage Docker for all services, tagged `${CI_COMMIT_SHA}` and `${CI_COMMIT_TAG}`. Services: api-gateway, cts-agent-worker, ej-normalisation-worker, ai-inference-server, branch-ej-agent (Go). Only on `main` and version tags.
+**build-image:** Multi-stage Docker for all services, tagged `${CI_COMMIT_SHA}` and `${CI_COMMIT_TAG}`. Services: api-gateway, cts-agent-worker, ai-inference-server. Only on `main` and version tags.
 
 **build-chart + publish:** Bump `Chart.yaml` version from git tag. `helm package` + `helm push` to OCI registry. Verify pullable. Only on `v1.x.y` tags.
 

@@ -9,7 +9,7 @@
 - Every CTS activity function must emit an OTel span: `with tracer.start_as_current_span("activity.name")`
 - Every AI call (OCR, signature, fraud) must be wrapped in a Langfuse trace
 - Vault lookups use hashed keys: `sig:{bank_id}:{sha256(account_number)}`
-- All Pydantic models for CTS entities live in `modules/cts/` — never import from EJ module
+- All Pydantic models for CTS entities live in `modules/cts/` — no imports from other modules
 
 ## Temporal Workflow Rules
 - `ChequeProcessingWorkflow` is the only entry point for a cheque — no direct activity calls

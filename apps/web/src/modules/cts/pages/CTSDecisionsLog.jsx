@@ -3,6 +3,7 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useDecisions from '../hooks/useDecisions'
 
 // RBI return reason code mapping — mirrors modules/cts/rrf/models.py RBIReturnCode
 const RBI_CODE_MAP = {
@@ -37,6 +38,8 @@ const DECISIONS = [
     presenting_ifsc: 'HDFC0001234',
     audit_hash: 'a3f8c1d2e9b54670f1a2c3d4e5f67890a1b2c3d4e5f678901234567890abcdef',
     immudb_seq: 18901,
+    ocr_engines_used: ['got-ocr2.0:cascade-1', 'indic_ocr:paddle/devanagari'],
+    indic_ocr_kill_switch_active: false,
     shap: {
       score: 0.91,
       features: [
@@ -59,6 +62,8 @@ const DECISIONS = [
     presenting_ifsc: 'ICIC0001234',
     audit_hash: 'b4e9d2c3f0a1578690b2c3d4e5f67891b2c3d4e5f67890234567890abcdef12',
     immudb_seq: 18900,
+    ocr_engines_used: ['got-ocr2.0:cascade-1'],
+    indic_ocr_kill_switch_active: false,
     shap: {
       score: 0.08,
       features: [
@@ -81,6 +86,8 @@ const DECISIONS = [
     presenting_ifsc: 'SBIN0001234',
     audit_hash: 'c5f0e3d4a1b2689701c3d4e5f67892c3d4e5f67890345678901abcdef123456',
     immudb_seq: 18899,
+    ocr_engines_used: ['got-ocr2.0:cascade-1'],
+    indic_ocr_kill_switch_active: true,
     shap: null, // vault miss — no fraud score computed, routed to human review
   },
   {
@@ -92,6 +99,8 @@ const DECISIONS = [
     presenting_ifsc: 'AXIS0001234',
     audit_hash: 'd6a1f4e5b2c3790812d4e5f67893d4e5f67890456789012bcdef1234567890ab',
     immudb_seq: 18898,
+    ocr_engines_used: ['got-ocr2.0:cascade-2', 'indic_ocr:ai4bharat/devanagari'],
+    indic_ocr_kill_switch_active: false,
     shap: {
       score: 0.87,
       features: [
@@ -114,6 +123,8 @@ const DECISIONS = [
     presenting_ifsc: 'HDFC0001234',
     audit_hash: 'e7b2a5f6c3d4801923e5f67894e5f67890567890123cdef2345678901abcdef3',
     immudb_seq: 18897,
+    ocr_engines_used: ['got-ocr2.0:cascade-1'],
+    indic_ocr_kill_switch_active: false,
     shap: {
       score: 0.12,
       features: [
@@ -136,6 +147,8 @@ const DECISIONS = [
     presenting_ifsc: 'ICIC0001234',
     audit_hash: 'f8c3b6a7d4e5912034f6a78905f67890678901234def3456789012bcdef456789',
     immudb_seq: 18896,
+    ocr_engines_used: ['got-ocr2.0:cascade-1', 'indic_ocr:paddle/devanagari+gujarati'],
+    indic_ocr_kill_switch_active: false,
     shap: {
       score: 0.44,
       features: [
@@ -158,6 +171,8 @@ const DECISIONS = [
     presenting_ifsc: 'SBIN0001234',
     audit_hash: 'a9d4c7b8e5f6023145a7b89016a78901789012345ef04567890123cdef567890',
     immudb_seq: 18895,
+    ocr_engines_used: ['got-ocr2.0:cascade-1'],
+    indic_ocr_kill_switch_active: false,
     shap: {
       score: 0.05,
       features: [
@@ -181,6 +196,8 @@ const DECISIONS = [
     presenting_ifsc: 'HDFC0001234',
     audit_hash: 'b0e5d8c9f6a7134256b8c90127b89012890123456f015678901234def678901a',
     immudb_seq: 18894,
+    ocr_engines_used: ['got-ocr2.0:cascade-1'],
+    indic_ocr_kill_switch_active: false,
     shap: {
       score: 0.79,
       features: [
@@ -303,7 +320,7 @@ function ShapPanel({ decision, onClose, isDark }) {
     closeBtn: isDark ? 'hover:bg-white/8 text-slate-400' : 'hover:bg-slate-100 text-slate-500',
   }
 
-  const { shap, audit_hash, immudb_seq } = decision
+  const { shap, audit_hash, immudb_seq, ocr_engines_used = [], indic_ocr_kill_switch_active = false } = decision
   const fraudPct = shap ? Math.round(shap.score * 100) : null
   const fraudColor = fraudPct > 70 ? 'red' : fraudPct > 40 ? 'amber' : 'green'
 
@@ -376,6 +393,47 @@ function ShapPanel({ decision, onClose, isDark }) {
               </p>
             </div>
           )}
+
+          {/* OCR Engines Used */}
+          <div>
+            <div className={`text-[10px] uppercase tracking-wider ${th.muted} mb-2`}>
+              OCR Engines Used
+              {indic_ocr_kill_switch_active && (
+                <span className={`ml-2 normal-case px-1.5 py-0.5 rounded border text-[9px] font-semibold ${
+                  isDark ? 'bg-amber-500/15 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-300 text-amber-700'
+                }`}>IndicOCR · Kill Switch KC</span>
+              )}
+            </div>
+            {ocr_engines_used.length === 0 ? (
+              <span className={`text-xs ${th.muted}`}>Not recorded (inward path — NGCH provides field data)</span>
+            ) : (
+              <div className="space-y-1.5">
+                {ocr_engines_used.map((eng, i) => {
+                  const [model, detail] = eng.split(':')
+                  const isIndic = model === 'indic_ocr'
+                  const isCascade2 = eng.includes('cascade-2')
+                  return (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                        isIndic ? (isDark ? 'bg-violet-400' : 'bg-violet-500') : (isDark ? 'bg-sky-400' : 'bg-sky-500')
+                      }`} />
+                      <span className={`font-mono text-[11px] ${th.label}`}>{model}</span>
+                      {detail && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                          isIndic
+                            ? (isDark ? 'border-violet-500/30 bg-violet-500/10 text-violet-300' : 'border-violet-300 bg-violet-50 text-violet-700')
+                            : (isDark ? 'border-sky-500/30 bg-sky-500/10 text-sky-300' : 'border-sky-300 bg-sky-50 text-sky-700')
+                        }`}>{detail}</span>
+                      )}
+                      {isCascade2 && (
+                        <span className={`text-[9px] ${th.muted}`}>(fallback tier)</span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Decision outcome */}
           <div>
@@ -488,7 +546,15 @@ export default function CTSDecisionsLog() {
   const [sortDir,  setSortDir]  = useState('desc')
   const [shapRow,  setShapRow]  = useState(null)   // decision object
   const [rrfModal, setRrfModal] = useState(null)   // null | 'session' | rowId
-  const ALL_DECISIONS = isDemo ? DECISIONS : []
+  const {
+    items: liveDecisions,
+    loading: decisionsLoading,
+    error:   decisionsError,
+  } = useDecisions({ limit: 50 })
+
+  // DEMO mode: show mock data. POC/PROD: use live API data.
+  // When live data is loading, keep previous mock/empty state to avoid flash.
+  const ALL_DECISIONS = isDemo ? DECISIONS : liveDecisions
   const returned = ALL_DECISIONS.filter(d => d.outcome === 'STP_RETURN')
 
   const rows = useMemo(() => {
@@ -576,6 +642,18 @@ export default function CTSDecisionsLog() {
 
         {/* Page heading — visible for tests + accessibility */}
         <h1 className={`text-lg font-semibold ${th.heading} mb-4`}>Decisions Log</h1>
+
+        {/* Live data status — shown only in non-demo mode */}
+        {!isDemo && decisionsLoading && (
+          <div className={`mb-3 px-3 py-2 rounded-lg text-xs ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+            Loading decisions…
+          </div>
+        )}
+        {!isDemo && decisionsError && !decisionsLoading && (
+          <div className={`mb-3 px-3 py-2 rounded-lg text-xs ${isDark ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-red-50 text-red-600 border border-red-200'}`}>
+            Unable to load live decisions: {decisionsError}. Showing last known data.
+          </div>
+        )}
 
         {/* Filter buttons — also rendered here so tests can find them */}
         <div className="flex gap-1 mb-4">

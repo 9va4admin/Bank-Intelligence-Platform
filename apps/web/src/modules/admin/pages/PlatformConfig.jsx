@@ -24,9 +24,7 @@ import InfoTooltip from '../../../shared/components/InfoTooltip'
 
 const PLATFORM_META = [
   { key: 'cts.namespace',               label: 'CTS Namespace',                  type: 'string',  category: 'Kubernetes', editable: false,
-    desc: 'Kubernetes namespace for all CTS workloads. Follows convention astra-cts-{bank_id}. Separate ResourceQuota and LimitRange enforced.' },
-  { key: 'ej.namespace',                label: 'EJ Namespace',                   type: 'string',  category: 'Kubernetes', editable: false,
-    desc: 'Kubernetes namespace for all EJ workloads. Istio AuthorizationPolicy blocks cross-namespace CTS↔EJ traffic.' },
+    desc: 'Kubernetes namespace for all CTS workloads. ResourceQuota and LimitRange enforced. EJ lives in a separate namespace — no cross-module traffic permitted.' },
   { key: 'cts.workers.min_replicas',    label: 'CTS Worker Min Replicas',        type: 'integer', category: 'Kubernetes', editable: true,
     desc: 'Minimum number of warm CTS agent worker pods. KEDA scales up from this baseline on Kafka lag > 10. Never set to 0 — cold start latency would breach IET.' },
   { key: 'cts.workers.max_replicas',    label: 'CTS Worker Max Replicas',        type: 'integer', category: 'Kubernetes', editable: true,
@@ -60,7 +58,6 @@ const PLATFORM_META = [
 // Default display values (from last Helm deploy — read-only display, actual values in values.yaml)
 const PLATFORM_DEFAULTS = {
   'cts.namespace':                      'astra-cts-{bank_id}',
-  'ej.namespace':                       'astra-ej-{bank_id}',
   'cts.workers.min_replicas':           '2',
   'cts.workers.max_replicas':           '500',
   'redis.cts.cluster_size':             '6',
@@ -157,7 +154,7 @@ export default function PlatformConfig() {
 
   const configItems = PLATFORM_META.map(m => ({
     ...m,
-    value: PLATFORM_DEFAULTS[m.key] ?? '—',
+    value: (PLATFORM_DEFAULTS[m.key] ?? '—').replace('{bank_id}', bankId),
   }))
   const displayed = configItems.filter(c => cat === 'All' || c.category === cat)
   const l2Requests = requestsData?.requests ?? []

@@ -56,17 +56,20 @@ SCRIPT_ADAPTIVE: frozenset[str] = frozenset({
 })
 
 # ── Unicode ranges for Indic scripts ─────────────────────────────────────────
-_INDIC_RANGES: tuple[tuple[str, str], ...] = (
-    ('ऀ', 'ॿ'),   # Devanagari (Hindi, Marathi, Sanskrit, Nepali)
-    ('ঀ', '৿'),   # Bengali
-    ('਀', '੿'),   # Gurmukhi (Punjabi)
-    ('઀', '૿'),   # Gujarati
-    ('଀', '୿'),   # Oriya (Odia)
-    ('஀', '௿'),   # Tamil
-    ('ఀ', '౿'),   # Telugu
-    ('ಀ', '೿'),   # Kannada
-    ('ഀ', 'ൿ'),   # Malayalam
-)
+# Named map used by identify_indic_script(); _INDIC_RANGES kept for backward compat.
+_INDIC_SCRIPT_MAP: dict[str, tuple[str, str]] = {
+    "devanagari": ('ऀ', 'ॿ'),   # Hindi, Marathi, Sanskrit, Nepali
+    "bengali":    ('ঀ', '৿'),
+    "gurmukhi":   ('਀', '੿'),   # Punjabi
+    "gujarati":   ('઀', '૿'),
+    "odia":       ('଀', '୿'),
+    "tamil":      ('஀', '௿'),
+    "telugu":     ('ఀ', '౿'),
+    "kannada":    ('ಀ', '೿'),
+    "malayalam":  ('ഀ', 'ൿ'),
+}
+
+_INDIC_RANGES: tuple[tuple[str, str], ...] = tuple(_INDIC_SCRIPT_MAP.values())
 
 
 # ── Zone extraction ───────────────────────────────────────────────────────────
@@ -114,6 +117,27 @@ def has_devanagari(text: str) -> bool:
     """Return True if text contains Devanagari characters (Hindi, Marathi, etc.)."""
     lo, hi = 'ऀ', 'ॿ'
     return any(lo <= ch <= hi for ch in text)
+
+
+def identify_indic_script(text: str) -> str | None:
+    """
+    Return the dominant Indic script name in text, or None if Latin/empty.
+
+    When multiple scripts are present (unusual — mixed-language payee names),
+    returns the one with the most codepoints. Useful for routing to the
+    correct language-specific PaddleOCR model in the IndicOCR service.
+
+    Script names match keys of _INDIC_SCRIPT_MAP:
+      "devanagari" | "bengali" | "gurmukhi" | "gujarati" | "odia"
+      "tamil" | "telugu" | "kannada" | "malayalam"
+    """
+    counts: dict[str, int] = {}
+    for ch in text:
+        for script, (lo, hi) in _INDIC_SCRIPT_MAP.items():
+            if lo <= ch <= hi:
+                counts[script] = counts.get(script, 0) + 1
+                break
+    return max(counts, key=lambda k: counts[k]) if counts else None
 
 
 def detect_script(text: str) -> Literal["indic", "latin", "unknown"]:

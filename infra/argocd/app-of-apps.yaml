@@ -1,14 +1,14 @@
 # ASTRA ArgoCD App-of-Apps
 # ─────────────────────────────────────────────────────────────────────
-# Each bank gets up to three ArgoCD Applications:
+# Each bank gets up to two ArgoCD Applications from this repo:
 #   1. astra-platform-{bank_id}  — always installed (shared infra)
 #   2. astra-cts-{bank_id}       — installed only if bank purchased CTS
-#   3. astra-ej-{bank_id}        — installed only if bank purchased EJ
 #
 # Bank values live in infra/helm/values/banks/{bank_id}/
 #   platform.yaml  — always present
 #   cts.yaml       — present only if CTS purchased (ArgoCD discovers via file presence)
-#   ej.yaml        — present only if EJ purchased
+#
+# EJ module is deployed from a separate repo: 9va4admin/atm-ej-platform
 #
 # ArgoCD is installed in the BANK's cluster.
 # ASTRA vendor does not have kubectl/ArgoCD access to any bank cluster in production.
@@ -101,46 +101,3 @@ spec:
             factor: 2
             maxDuration: 5m
 
----
-# ── 3. astra-ej (only banks with ej.yaml) ────────────────────────────────────
-apiVersion: argoproj.io/v1alpha1
-kind: ApplicationSet
-metadata:
-  name: astra-ej-banks
-  namespace: argocd
-spec:
-  generators:
-    - git:
-        repoURL: https://gitlab.astra.internal/9va4admin/bank-intelligence-platform.git
-        revision: main
-        files:
-          # Only generates an Application for banks that HAVE an ej.yaml file.
-          - path: "infra/helm/values/banks/*/ej.yaml"
-  template:
-    metadata:
-      name: "astra-ej-{{ .bank_id }}"
-      annotations:
-        astra/chart: astra-ej
-        astra/chart-version: "{{ .astra.ej_chart_version }}"
-    spec:
-      project: astra
-      source:
-        repoURL: oci://registry.astra.internal/charts
-        chart: astra-ej
-        targetRevision: "{{ .astra.ej_chart_version }}"
-        helm:
-          valueFiles:
-            - $values/infra/helm/values/banks/{{ .bank_id }}/ej.yaml
-      destination:
-        server: https://kubernetes.default.svc
-        namespace: "astra-ej-{{ .bank_id }}"
-      syncPolicy:
-        syncOptions:
-          - CreateNamespace=true
-          - PrunePropagationPolicy=foreground
-        retry:
-          limit: 3
-          backoff:
-            duration: 30s
-            factor: 2
-            maxDuration: 5m

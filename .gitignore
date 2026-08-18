@@ -1,6 +1,10 @@
 __pycache__/
 .coverage
 .claude/worktrees/
+
+# EJ module lives in 9va4admin/atm-ej-platform — not this repo
+modules/ej/
+apps/ej_ingestion/
 node_modules/
 dist/
 *.local
@@ -15,6 +19,9 @@ dist/
 # ML model weights (large binaries — distributed via MLflow, not git)
 apps/sig_detector/weights/
 apps/*/weights/
+
+# Test digest reports (generated artifacts — not source)
+test-reports/
 
 # Debug and scratch outputs (generated during development)
 debug_*.jpg

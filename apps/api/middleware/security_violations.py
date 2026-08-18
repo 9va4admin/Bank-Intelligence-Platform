@@ -57,19 +57,63 @@ class ViolationStore:
 
 
 class SuspensionStore:
-    """Tracks suspended user IDs. In production: YugabyteDB users.suspended column."""
+    """Tracks suspended user IDs.
+
+    Uses Redis key `suspended:{user_id}` as the durable cross-pod store when
+    a redis_client is available. Falls back to the in-process set so a
+    Redis failure never silently allows a suspended user through.
+    """
+
+    _REDIS_KEY_PREFIX = "suspended:"
+    _REDIS_TTL_SECONDS = 30 * 24 * 3600  # 30 days
 
     def __init__(self):
         self._suspended: set[str] = set()
 
-    def suspend(self, user_id: str) -> None:
+    async def suspend(self, user_id: str, redis_client=None) -> None:
         self._suspended.add(user_id)
+        if redis_client is not None:
+            try:
+                await redis_client.set(
+                    f"{self._REDIS_KEY_PREFIX}{user_id}",
+                    "1",
+                    ex=self._REDIS_TTL_SECONDS,
+                )
+            except Exception as exc:
+                log.warning(
+                    "suspension_store.redis_write_failed",
+                    user_id=user_id,
+                    error=str(exc),
+                )
 
-    def is_suspended(self, user_id: str) -> bool:
-        return user_id in self._suspended
+    async def is_suspended(self, user_id: str, redis_client=None) -> bool:
+        if user_id in self._suspended:
+            return True
+        if redis_client is not None:
+            try:
+                val = await redis_client.get(f"{self._REDIS_KEY_PREFIX}{user_id}")
+                if val is not None:
+                    self._suspended.add(user_id)  # warm in-process cache
+                    return True
+            except Exception as exc:
+                log.warning(
+                    "suspension_store.redis_read_failed",
+                    user_id=user_id,
+                    error=str(exc),
+                )
+        return False
 
-    def reinstate(self, user_id: str) -> None:
+    async def reinstate(self, user_id: str, redis_client=None) -> None:
         self._suspended.discard(user_id)
+        if redis_client is not None:
+            try:
+                await redis_client.delete(f"{self._REDIS_KEY_PREFIX}{user_id}")
+            except Exception as exc:
+                log.warning(
+                    "suspension_store.redis_delete_failed",
+                    user_id=user_id,
+                    error=str(exc),
+                )
 
     def all_suspended(self) -> list[str]:
         return list(self._suspended)
@@ -102,7 +146,8 @@ class SecurityViolationMiddleware(BaseHTTPMiddleware):
         # Check if the user is already suspended (extracted from request state if set
         # by auth dependency — otherwise skip, auth will 401 first)
         user_ctx: Optional[object] = getattr(request.state, "user_context", None)
-        if user_ctx and suspension_store.is_suspended(user_ctx.user_id):
+        _redis = getattr(request.app.state, "redis_cts", None)
+        if user_ctx and await suspension_store.is_suspended(user_ctx.user_id, _redis):
             return JSONResponse(
                 status_code=403,
                 content={
@@ -158,7 +203,8 @@ class SecurityViolationMiddleware(BaseHTTPMiddleware):
         violation_store.record(event)
 
         if is_suspension_event:
-            suspension_store.suspend(user_id)
+            _redis = getattr(request.app.state, "redis_cts", None)
+            await suspension_store.suspend(user_id, _redis)
             log.critical(
                 "security.isolation_violation.account_suspended",
                 user_id=user_id,

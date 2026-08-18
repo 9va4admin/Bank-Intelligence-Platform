@@ -119,14 +119,14 @@ class TestOutwardDateValidation:
         assert any("STALE" in v for v in (result.violations or []))
 
     @pytest.mark.asyncio
-    async def test_postdated_cheque_returns_cts_rejected(self):
-        """Cheque date in the future → CTS_REJECTED with POST_DATED violation."""
+    async def test_postdated_cheque_returns_post_dated_held(self):
+        """Cheque date in the future → POST_DATED_HELD (valid instrument, held until maturity)."""
         inp = _base_inp()
         wf, mocks = self._make_workflow_with_mocks(
             ocr_date_str=(date.today() + timedelta(days=5)).strftime("%d-%m-%Y")
         )
         result = await wf.run_with_mocks(inp, mocks)
-        assert result.outcome == "CTS_REJECTED"
+        assert result.outcome == "POST_DATED_HELD"
         assert any("POST_DATED" in v for v in (result.violations or []))
 
     @pytest.mark.asyncio

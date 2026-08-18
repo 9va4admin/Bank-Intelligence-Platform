@@ -7,7 +7,6 @@ import { useBankContext } from '../../../shared/context/BankContext'
 // ── Mock schedule data ──────────────────────────────────────────────────────
 // In production these come from GET /v1/cts/schedules
 
-// CTS-only schedules — EJ schedules are managed separately in the EJ module
 const MOCK_SCHEDULES = [
   {
     schedule_id: 'cts-vaultsync-schedule-bank001',
@@ -66,11 +65,7 @@ function RunStatusPill({ s, isDark }) {
 }
 
 function ModuleBadge({ module, isDark }) {
-  const CTS_D = 'bg-violet-900/40 text-violet-300'
-  const CTS_L = 'bg-violet-50 text-violet-700'
-  const EJ_D  = 'bg-blue-900/40 text-blue-300'
-  const EJ_L  = 'bg-blue-50 text-blue-700'
-  const cls = module === 'CTS' ? (isDark ? CTS_D : CTS_L) : (isDark ? EJ_D : EJ_L)
+  const cls = isDark ? 'bg-violet-900/40 text-violet-300' : 'bg-violet-50 text-violet-700'
   return <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wide ${cls}`}>{module}</span>
 }
 

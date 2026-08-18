@@ -14,4 +14,4 @@ Review a Temporal workflow file for ASTRA compliance.
 6. Reports CRITICAL / HIGH / MEDIUM findings
 
 ## Invokes
-Uses `cts-workflow-reviewer` agent for CTS workflows, general review for EJ/Platform workflows.
+Uses `cts-workflow-reviewer` agent for CTS workflows, general review for Platform workflows.

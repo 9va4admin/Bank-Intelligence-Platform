@@ -15,12 +15,15 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
+import { FEDERAL_BANK_BRANCHES } from '../../../shared/config/federalBankBranches'
 
 const API = import.meta.env.VITE_API_BASE || ''
 // DEMO mode: use client-side mock. POC/PROD: Vite proxy forwards /v1/* to backend.
 const USE_MOCK = BANK_CONFIG.deployment_mode === 'DEMO'
 
-const VALID_ZONES = ['MUMBAI', 'DELHI', 'CHENNAI', 'KOLKATA', 'HYDERABAD', 'AHMEDABAD']
+// NGCH geographic zones (Federal Bank, large private banks)
+// + MICR city zones (co-operative banks, regional banks)
+const VALID_ZONES = ['SOUTH', 'WEST', 'NORTH', 'EAST', 'MUMBAI', 'DELHI', 'CHENNAI', 'KOLKATA', 'HYDERABAD', 'AHMEDABAD', 'BENGALURU']
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 
@@ -35,9 +38,38 @@ const MOCK_PU_DB = {
     { pu_id: 'MUMBAI-PU-01',  bank_id: 'saraswat-coop', pu_name: 'Mumbai PU',  clearing_zone: 'MUMBAI', ngch_participant_code: 'MUMBAI-SRCB-001',  temporal_task_queue: 'cts-processing-saraswat-coop-MUMBAI-PU-01',  kafka_inward_topic: 'cts.inward.saraswat-coop.MUMBAI-PU-01',  max_agent_swarm_size: 500, is_active: true, created_at: '2026-07-01T09:00:00Z', created_by: 'admin' },
     { pu_id: 'PUNE-PU-01',   bank_id: 'saraswat-coop', pu_name: 'Pune PU',   clearing_zone: 'MUMBAI', ngch_participant_code: 'MUMBAI-SRCB-002',  temporal_task_queue: 'cts-processing-saraswat-coop-PUNE-PU-01',   kafka_inward_topic: 'cts.inward.saraswat-coop.PUNE-PU-01',   max_agent_swarm_size: 200, is_active: true, created_at: '2026-07-01T09:05:00Z', created_by: 'admin' },
   ],
+  'federal-bank': [
+    { pu_id: 'SOUTH-MAIN', bank_id: 'federal-bank', pu_name: 'South Zone PU — Chennai NGCH', clearing_zone: 'SOUTH', ngch_participant_code: 'SOUTH-FDRL-001', temporal_task_queue: 'cts-processing-federal-bank-SOUTH-MAIN', kafka_inward_topic: 'cts.inward.federal-bank.SOUTH-MAIN', max_agent_swarm_size: 500, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+    { pu_id: 'WEST-MAIN',  bank_id: 'federal-bank', pu_name: 'West Zone PU — Mumbai NGCH',  clearing_zone: 'WEST',  ngch_participant_code: 'WEST-FDRL-001',  temporal_task_queue: 'cts-processing-federal-bank-WEST-MAIN',  kafka_inward_topic: 'cts.inward.federal-bank.WEST-MAIN',  max_agent_swarm_size: 300, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+    { pu_id: 'NORTH-MAIN', bank_id: 'federal-bank', pu_name: 'North Zone PU — Delhi NGCH',  clearing_zone: 'NORTH', ngch_participant_code: 'NORTH-FDRL-001', temporal_task_queue: 'cts-processing-federal-bank-NORTH-MAIN', kafka_inward_topic: 'cts.inward.federal-bank.NORTH-MAIN', max_agent_swarm_size: 200, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+    { pu_id: 'EAST-MAIN',  bank_id: 'federal-bank', pu_name: 'East Zone PU — Kolkata NGCH', clearing_zone: 'EAST',  ngch_participant_code: 'EAST-FDRL-001',  temporal_task_queue: 'cts-processing-federal-bank-EAST-MAIN',  kafka_inward_topic: 'cts.inward.federal-bank.EAST-MAIN',  max_agent_swarm_size: 100, is_active: true,  created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+  ],
+  'union-bank': [
+    { pu_id: 'UBIN-PU-WEST',  bank_id: 'union-bank', pu_name: 'Union Bank Western PU',  clearing_zone: 'WEST',  ngch_participant_code: 'WEST-UBIN-001',  temporal_task_queue: 'cts-processing-union-bank-west',  kafka_inward_topic: 'cts.inward.union-bank.west',  max_agent_swarm_size: 300, is_active: true, created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+    { pu_id: 'UBIN-PU-SOUTH', bank_id: 'union-bank', pu_name: 'Union Bank Southern PU', clearing_zone: 'SOUTH', ngch_participant_code: 'SOUTH-UBIN-001', temporal_task_queue: 'cts-processing-union-bank-south', kafka_inward_topic: 'cts.inward.union-bank.south', max_agent_swarm_size: 300, is_active: true, created_at: '2026-08-01T06:00:00Z', created_by: 'admin' },
+  ],
 }
 
 const ACTIVE_MOCK = MOCK_PU_DB[BANK_CONFIG.bank_id] ?? []
+
+// Demo branch data — map state → PU for Federal Bank; other banks get static counts
+const STATE_TO_PU_DEMO = {
+  'Kerala': 'SOUTH-MAIN', 'Tamil Nadu': 'SOUTH-MAIN', 'Karnataka': 'SOUTH-MAIN',
+  'Andhra Pradesh': 'SOUTH-MAIN', 'Telangana': 'SOUTH-MAIN',
+  'Maharashtra': 'WEST-MAIN', 'Goa': 'WEST-MAIN',
+  'Delhi': 'NORTH-MAIN', 'West Bengal': 'EAST-MAIN',
+}
+const DEMO_BRANCHES_BY_PU = (() => {
+  const grouped = {}
+  if (BANK_CONFIG.bank_id === 'federal-bank') {
+    for (const b of FEDERAL_BANK_BRANCHES) {
+      const pu = STATE_TO_PU_DEMO[b.state] ?? 'SOUTH-MAIN'
+      if (!grouped[pu]) grouped[pu] = []
+      grouped[pu].push({ branch_ifsc: b.ifsc, branch_name: b.name, city: b.city, is_active: true, is_scanning_enabled: true })
+    }
+  }
+  return grouped
+})()
 
 let _mockStore = ACTIVE_MOCK.map(p => ({ ...p }))
 
@@ -102,12 +134,17 @@ function Badge({ active, isDark }) {
 
 function ZonePill({ zone }) {
   const COLORS = {
+    SOUTH:     'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+    WEST:      'bg-blue-500/15 text-blue-400 border-blue-500/30',
+    NORTH:     'bg-violet-500/15 text-violet-400 border-violet-500/30',
+    EAST:      'bg-teal-500/15 text-teal-400 border-teal-500/30',
     MUMBAI:    'bg-blue-500/15 text-blue-400 border-blue-500/30',
     DELHI:     'bg-violet-500/15 text-violet-400 border-violet-500/30',
     CHENNAI:   'bg-amber-500/15 text-amber-400 border-amber-500/30',
     KOLKATA:   'bg-teal-500/15 text-teal-400 border-teal-500/30',
     HYDERABAD: 'bg-rose-500/15 text-rose-400 border-rose-500/30',
     AHMEDABAD: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30',
+    BENGALURU: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
   }
   return (
     <span className={`inline-flex items-center text-[10px] px-2 py-0.5 rounded border font-medium ${COLORS[zone] ?? 'bg-slate-500/15 text-slate-400 border-slate-500/30'}`}>
@@ -280,7 +317,9 @@ function BranchesPanel({ puId, bankId, isDark, isDemo }) {
     enabled: !isDemo,
   })
 
-  const branches = isDemo ? [] : (data?.branches ?? [])
+  const demoBranches = DEMO_BRANCHES_BY_PU[puId] ?? []
+  const branches = isDemo ? demoBranches.slice(0, 8) : (data?.branches ?? [])
+  const totalCount = isDemo ? demoBranches.length : (data?.total ?? branches.length)
 
   const th = {
     row:   isDark ? 'border-white/4 hover:bg-white/2' : 'border-slate-100 hover:bg-slate-50',
@@ -292,7 +331,7 @@ function BranchesPanel({ puId, bankId, isDark, isDemo }) {
   if (branches.length === 0) {
     return (
       <div className={`px-6 py-3 text-xs ${th.muted}`}>
-        {isDemo ? 'No branches mapped to this PU (demo mode).' : 'No branches mapped to this PU yet.'}
+        {isDemo ? 'No branches mapped to this PU.' : 'No branches mapped to this PU yet.'}
       </div>
     )
   }
@@ -354,7 +393,7 @@ function PURow({ pu, isDark, isDemo, onEdit, onDeactivate, bankId }) {
               onClick={() => setExpanded(v => !v)}
               className={th.btnGhost}
             >
-              {expanded ? '▲ Branches' : '▼ Branches'}
+              {expanded ? '▲ Branches' : `▼ Branches${(DEMO_BRANCHES_BY_PU[pu.pu_id]?.length ?? 0) > 0 ? ` (${DEMO_BRANCHES_BY_PU[pu.pu_id].length})` : ''}`}
             </button>
             <button onClick={() => onEdit(pu)} className={th.btnGhost}>Edit</button>
             {pu.is_active && (
