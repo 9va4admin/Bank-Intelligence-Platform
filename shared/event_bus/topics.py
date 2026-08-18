@@ -1,10 +1,11 @@
-"""Kafka topic name constants — single source of truth for all ASTRA topics.
+"""Kafka topic name constants — single source of truth for all ASTRA CTS + platform topics.
 
 Module isolation guarantee:
   CTS producers/consumers only use CTS_* and PLATFORM_* constants.
-  EJ  producers/consumers only use EJ_*  and PLATFORM_* constants.
   No cross-module topic access is permitted (enforced by EventProducer's
   module-scope guard in shared/event_bus/producer.py).
+
+  EJ topics live in 9va4admin/atm-ej-platform — not in this repo.
 
 Bank-scoped topics are f-strings — caller substitutes {bank_id}:
     from shared.event_bus.topics import CTS_INWARD
@@ -52,14 +53,6 @@ CTS_SMB_INBOUND = "cts.smb.inbound.{bank_id}"
 CTS_SB_RELAY_INWARD  = "cts.sb.relay.inward.{agency_id}.{sb_bank_id}"
 CTS_SB_RELAY_OUTWARD = "cts.sb.relay.outward.{agency_id}.{sb_bank_id}"
 
-# ---------------------------------------------------------------------------
-# EJ — ATM Electronic Journal
-# ---------------------------------------------------------------------------
-
 # CTS — OCR feedback loop (automated, no human trigger)
 CTS_OCR_FEEDBACK       = "cts.ocr.feedback.{bank_id}"
 CTS_OCR_RETRAIN_READY  = "cts.ocr.retrain.ready.{bank_id}"
-
-EJ_RAW_INGESTED = "ej.raw.ingested.{bank_id}"
-EJ_CANONICAL = "ej.canonical.{bank_id}"
-EJ_HEALTH_SIGNALS = "ej.health.signals.{bank_id}"

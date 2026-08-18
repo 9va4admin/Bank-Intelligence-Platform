@@ -5,7 +5,6 @@
 #   - Kafka auto-rebalances partitions to remaining 2 brokers (within 30 seconds)
 #   - CTS inward events continue flowing — no message loss (min.insync.replicas=2)
 #   - CTS agent KEDA scaling continues (Kafka lag metric from remaining brokers)
-#   - EJ ingestion continues — edge agents buffer locally if needed (SQLite WAL)
 #   - Audit event stream (platform.audit.events) continues — no audit trail gap
 #   - MirrorMaker2 cross-DC replication continues via surviving brokers
 #
@@ -63,7 +62,6 @@ spec:
     selector:
       namespaces:
         - astra-cts-saraswat-coop
-        - astra-ej-saraswat-coop
   duration: "5m"
 
 ---
@@ -72,8 +70,7 @@ spec:
 #   2. Kafka consumer lag for cts-agent-worker stays < 100 messages during rebalance
 #   3. KEDA ScaledObject for CTS workers continues scaling based on lag metric
 #   4. platform.audit.events topic: zero gaps in event IDs
-#   5. EJ edge agent buffers: no data loss — SQLite WAL holds events during rebalance
-#   6. MirrorMaker2 replication lag stays < 5 seconds (cross-DC)
+#   5. MirrorMaker2 replication lag stays < 5 seconds (cross-DC)
 #   7. After broker recovery: ISR (in-sync replicas) restores to 3 within 2 minutes
 #
 # Metrics to watch:

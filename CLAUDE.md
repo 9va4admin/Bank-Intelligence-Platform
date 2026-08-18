@@ -367,7 +367,7 @@ NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
 - Staging/pre-prod K8s environment (pilot bank deploy prerequisite)
 - CERT-In empanelled vendor (discussions initiated)
 - Internal OWASP ZAP pre-scan on live staging environment
-- Sanitised test data (cheque images, EJ logs, accounts)
+- Sanitised test data (cheque images, accounts)
 
 ---
 
