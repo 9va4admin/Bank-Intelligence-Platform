@@ -320,6 +320,29 @@ class ConfigService:
         results = await asyncio.gather(*[self.get(k) for k in keys])
         return dict(zip(keys, results))
 
+    async def get_workflow_thresholds(self, bank_id: str | None = None) -> dict:
+        """Return all thresholds that ChequeProcessingWorkflow reads from
+        ChequeWorkflowInput.cts_config, keyed by the BARE name the workflow
+        uses (no 'cts.' prefix).  This is what the inward submission endpoint
+        fetches and passes as cts_config to start_workflow().
+
+        Includes every key read by cheque_workflow.py and human_review_workflow.py
+        so no workflow code path ever falls back to a hardcoded literal.
+        """
+        # Map: bare workflow key → config_service dotted key
+        key_map = {
+            "human_review_max_wait_minutes":     "cts.human_review_max_wait_minutes",
+            "human_review_fraud_threshold":      "cts.human_review_fraud_threshold",
+            "stp_auto_confirm_threshold":        "cts.stp_auto_confirm_threshold",
+            "high_value_amount_threshold":       "cts.high_value_amount_threshold",
+            "stp_mode":                          "cts.stp_mode",
+            "stp_supervised_confirm_threshold":  "cts.stp_supervised_confirm_threshold",
+            "stp_supervised_review_timeout_minutes": "cts.stp_supervised_review_timeout_minutes",
+            "clearing_session":                  "cts.clearing_session",
+        }
+        results = await asyncio.gather(*[self.get(v) for v in key_map.values()])
+        return dict(zip(key_map.keys(), results))
+
     async def get_ej_config(self, bank_id: str | None = None) -> dict:
         """Fetch all EJ thresholds in one call."""
         keys = [

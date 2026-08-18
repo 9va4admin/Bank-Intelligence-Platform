@@ -806,6 +806,172 @@
       "instrument_id"
     ]
   },
+  "CTS_OUT_DATE_INVALID": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "date_value",
+      "reason"
+    ]
+  },
+  "CTS_OUT_DUPLICATE_CHEQUE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "duplicate_ref"
+    ]
+  },
+  "CTS_OUT_PAYEE_NOT_FOUND": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "payee_name_initial"
+    ]
+  },
+  "CTS_OUT_PAYEE_INACTIVE": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "payee_account_suffix"
+    ]
+  },
+  "CTS_OUT_PAYEE_INACTIVE_HELD": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "payee_account_suffix"
+    ]
+  },
+  "CTS_OUT_PAYEE_NAME_MISMATCH": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "ocr_initial",
+      "account_initial",
+      "score"
+    ]
+  },
+  "CTS_OUT_NGCH_METADATA_MISMATCH": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "mismatch_fields"
+    ]
+  },
+  "CTS_OUT_SIGNATURE_ABSENT": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_OUT_SECURITY_FEATURES_MISSING": {
+    "text": "",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "missing_features"
+    ]
+  },
+  "CTS_KILL_SWITCH_APPLIED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "mode",
+      "scope"
+    ]
+  },
+  "CTS_KILL_SWITCH_ENGAGED": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "mode",
+      "scope",
+      "engaged_by"
+    ]
+  },
+  "CTS_KILL_SWITCH_RELEASED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "scope",
+      "released_by"
+    ]
+  },
+  "CTS_INSTRUMENT_PASSPORT": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "ocr_engines_used",
+      "vision_model",
+      "fraud_score_range"
+    ]
+  },
   "CTS_OUT_LOT_CREATED": {
     "text": "",
     "severity": "INFO",
@@ -3566,6 +3732,43 @@
     "variables": [
       "entity_type",
       "bank_id"
+    ]
+  },
+  "AUTH_TOKEN_REPLAY_ATTEMPT": {
+    "text": "",
+    "severity": "CRITICAL",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "session_display",
+      "bank_id",
+      "user_id"
+    ]
+  },
+  "AUTH_SESSION_SELF_REVOKED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "user_id",
+      "bank_id"
+    ]
+  },
+  "AUTH_LOGIN_RATE_LIMIT_EXCEEDED": {
+    "text": "",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "ip_display",
+      "attempts",
+      "window_seconds"
     ]
   },
   "MSV_VALIDATED": {

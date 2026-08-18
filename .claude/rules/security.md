@@ -28,6 +28,6 @@
 - Model inference endpoints require mTLS client cert (vLLM behind Istio)
 
 ## Audit
-- Every write to YugabyteDB that modifies a cheque or EJ record: must emit to `platform.audit.events` Kafka topic
+- Every write to YugabyteDB that modifies a cheque record: must emit to `platform.audit.events` Kafka topic
 - AuditEvent must be HSM-signed before Immudb write
 - Audit writes are fire-and-forget from app perspective — Temporal handles durability

@@ -5,7 +5,7 @@ Reference for CI/pre-commit hook setup. Not needed during coding sessions.
 | Rules File | What It Governs | Enforced By |
 |---|---|---|
 | `cts.md` | IET safety, vault miss routing, NGCH filing, thresholds | pre-commit Check 3, Semgrep `astra-vault-miss-must-review` + `astra-no-hardcoded-threshold`, cts-workflow-reviewer agent |
-| `isolation.md` | CTS↔EJ blast isolation | pre-commit Check 6+7, Semgrep `astra-no-cross-module-import`, CI checkov |
+| `isolation.md` | CTS-only blast isolation (EJ is in `atm-ej-platform` repo) | pre-commit Check 6+7, Semgrep `astra-no-cross-module-import`, CI checkov |
 | `temporal.md` | Workflow patterns, retry constants, IET watchdog | cts-workflow-reviewer agent, Semgrep (asyncio.sleep in workflows), CI SAST |
 | `ai-inference.md` | vLLM queue routing, SHAP, Langfuse wrapping | Semgrep (vLLM calls without explicit queue), security-auditor agent |
 | `microservices.md` | Service identity, health endpoints, logging | CI lint (missing /health endpoints), no-print Semgrep rule |
@@ -18,7 +18,6 @@ Reference for CI/pre-commit hook setup. Not needed during coding sessions.
 | `security.md` | General security baseline | All of the above |
 | `database.md` | Query patterns, connection pools, migrations | Semgrep `astra-no-select-star-pii`, Alembic migration CI check |
 | `api.md` | Router structure, auth, rate limits, OTel | CI integration tests, OpenAPI schema lint |
-| `ej.md` | EJ immutability, edge agent, LLM parsing | ej-parser-specialist agent, CI contract tests for MCP server |
 | `frontend.md` | Multi-theme support, `useTheme()` pattern | Semgrep (hardcoded dark wrapper classes), code review |
 | `sb-smb-context.md` | SB vs SMB bank type scoping | `security-auditor` agent, Semgrep (hardcoded bank_type) |
 | `messages.md` | Single-source message registry | pre-commit Check 11, CI `build --validate-only` |

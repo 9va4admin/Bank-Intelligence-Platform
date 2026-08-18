@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from 'react'
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import AppShell from '../../../shared/layout/AppShell'
 import QueueCard from '../components/QueueCard'
 import ReviewPanel from '../components/ReviewPanel'
@@ -17,7 +18,7 @@ const SMB_MOCK_ITEMS = [
     instrument_id: 'CHQ-SMB-001847',
     front_bw_url: null, front_gray_url: null,
     workflow_id: 'wf-smb-001847',
-    bank_id: 'saraswat-coop',
+    bank_id: BANK_CONFIG.bank_id,
     smb_id: 'cosmos-coop',
     account_display: '****7812',
     payee_display: 'K***',
@@ -35,7 +36,7 @@ const SMB_MOCK_ITEMS = [
     instrument_id: 'CHQ-SMB-001901',
     front_bw_url: null, front_gray_url: null,
     workflow_id: 'wf-smb-001901',
-    bank_id: 'saraswat-coop',
+    bank_id: BANK_CONFIG.bank_id,
     smb_id: 'cosmos-coop',
     account_display: '****3341',
     payee_display: 'P***',
@@ -53,7 +54,7 @@ const SMB_MOCK_ITEMS = [
     instrument_id: 'CHQ-SMB-001733',
     front_bw_url: null, front_gray_url: null,
     workflow_id: 'wf-smb-001733',
-    bank_id: 'saraswat-coop',
+    bank_id: BANK_CONFIG.bank_id,
     smb_id: 'cosmos-coop',
     account_display: '****5509',
     payee_display: 'M***',

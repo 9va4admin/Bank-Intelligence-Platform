@@ -150,6 +150,7 @@ _ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
         Permission.CONFIG_LAYER3_SUBMIT,
         Permission.AUDIT_READ,
         Permission.SMB_VIEW_LEDGER,
+        Permission.AI_MODEL_METRICS,
         Permission.LOGIN_LOG_READ,
     }),
     Role.BANK_IT_ADMIN: frozenset({
@@ -162,6 +163,7 @@ _ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
         Permission.SMB_VAULT_SYNC,
         Permission.SMB_CONFIG_CHANGE,
         Permission.USER_MANAGE,
+        Permission.AI_MODEL_METRICS,
         Permission.LOGIN_LOG_READ,
     }),
     Role.COMPLIANCE_OFFICER: frozenset({

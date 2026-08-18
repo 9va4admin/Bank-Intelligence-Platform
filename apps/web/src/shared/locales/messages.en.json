@@ -806,6 +806,172 @@
       "instrument_id"
     ]
   },
+  "CTS_OUT_DATE_INVALID": {
+    "text": "Instrument {instrument_id} rejected — date invalid: {date_value} ({reason}).",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "date_value",
+      "reason"
+    ]
+  },
+  "CTS_OUT_DUPLICATE_CHEQUE": {
+    "text": "Instrument {instrument_id} rejected — duplicate cheque detected (ref: {duplicate_ref}).",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "duplicate_ref"
+    ]
+  },
+  "CTS_OUT_PAYEE_NOT_FOUND": {
+    "text": "Instrument {instrument_id} held — payee {payee_name_initial}*** not found in NGCH or CBS records.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "payee_name_initial"
+    ]
+  },
+  "CTS_OUT_PAYEE_INACTIVE": {
+    "text": "Instrument {instrument_id} rejected — payee account ****{payee_account_suffix} is inactive or closed.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "payee_account_suffix"
+    ]
+  },
+  "CTS_OUT_PAYEE_INACTIVE_HELD": {
+    "text": "Instrument {instrument_id} held for review — payee account ****{payee_account_suffix} inactive; pending ops confirmation.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "payee_account_suffix"
+    ]
+  },
+  "CTS_OUT_PAYEE_NAME_MISMATCH": {
+    "text": "Instrument {instrument_id} held — OCR payee ({ocr_initial}***) vs. account name ({account_initial}***) mismatch, score {score}.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "ocr_initial",
+      "account_initial",
+      "score"
+    ]
+  },
+  "CTS_OUT_NGCH_METADATA_MISMATCH": {
+    "text": "Instrument {instrument_id} held — NGCH metadata vs. scanned data mismatch on: {mismatch_fields}.",
+    "severity": "WARN",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "mismatch_fields"
+    ]
+  },
+  "CTS_OUT_SIGNATURE_ABSENT": {
+    "text": "Instrument {instrument_id} held — no ink signature detected on cheque image.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id"
+    ]
+  },
+  "CTS_OUT_SECURITY_FEATURES_MISSING": {
+    "text": "Instrument {instrument_id} held — mandatory CTS-2010 security features absent: {missing_features}.",
+    "severity": "ERROR",
+    "surface": [
+      "UI",
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "missing_features"
+    ]
+  },
+  "CTS_KILL_SWITCH_APPLIED": {
+    "text": "Vision AI kill switch applied to instrument {instrument_id} for bank {bank_id} — mode: {mode}, scope: {scope}.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "mode",
+      "scope"
+    ]
+  },
+  "CTS_KILL_SWITCH_ENGAGED": {
+    "text": "Vision AI kill switch ENGAGED for bank {bank_id} — mode: {mode}, scope: {scope}, by {engaged_by}. AI vision decisions suspended.",
+    "severity": "CRITICAL",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "mode",
+      "scope",
+      "engaged_by"
+    ]
+  },
+  "CTS_KILL_SWITCH_RELEASED": {
+    "text": "Vision AI kill switch released for bank {bank_id} (scope: {scope}) by {released_by}. AI vision decisions resumed.",
+    "severity": "INFO",
+    "surface": [
+      "UI",
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "bank_id",
+      "scope",
+      "released_by"
+    ]
+  },
+  "CTS_INSTRUMENT_PASSPORT": {
+    "text": "Instrument passport recorded for {instrument_id} at bank {bank_id} — OCR engines: {ocr_engines_used}, vision: {vision_model}, fraud score: {fraud_score_range}.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "instrument_id",
+      "bank_id",
+      "ocr_engines_used",
+      "vision_model",
+      "fraud_score_range"
+    ]
+  },
   "CTS_OUT_LOT_CREATED": {
     "text": "Lot {lot_id} created for clearing zone {zone} — {instrument_count} instruments.",
     "severity": "INFO",
@@ -3566,6 +3732,43 @@
     "variables": [
       "entity_type",
       "bank_id"
+    ]
+  },
+  "AUTH_TOKEN_REPLAY_ATTEMPT": {
+    "text": "Revoked session token presented for user {user_id} at bank {bank_id} — session {session_display}. Possible session hijack. Force-re-authenticate this user.",
+    "severity": "CRITICAL",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "session_display",
+      "bank_id",
+      "user_id"
+    ]
+  },
+  "AUTH_SESSION_SELF_REVOKED": {
+    "text": "Session revoked by user {user_id} at bank {bank_id} (user-initiated logout).",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "user_id",
+      "bank_id"
+    ]
+  },
+  "AUTH_LOGIN_RATE_LIMIT_EXCEEDED": {
+    "text": "Login rate limit exceeded from {ip_display} — {attempts} attempts in {window_seconds}s window. Possible credential-stuffing or brute-force attack.",
+    "severity": "WARN",
+    "surface": [
+      "AUDIT",
+      "NOTIFICATION"
+    ],
+    "variables": [
+      "ip_display",
+      "attempts",
+      "window_seconds"
     ]
   },
   "MSV_VALIDATED": {

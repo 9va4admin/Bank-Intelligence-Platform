@@ -183,6 +183,22 @@ async def submit_inward_cheque(
     """
     workflow_id = f"cts-{bank_id}-{instrument_id}"
 
+    # Fetch bank-specific thresholds (Layer 3) so the workflow uses the
+    # configured values instead of falling back to hardcoded literals.
+    # Degrade gracefully — a config fetch failure must never block a cheque;
+    # the workflow's own Field(default=...) values are the safe fallback.
+    from shared.config.config_service import config_service
+    cts_config: dict = {}
+    try:
+        cts_config = await config_service.get_workflow_thresholds(bank_id)
+    except Exception as _cfg_exc:
+        log.warning(
+            "submit_inward.cts_config_fetch_failed",
+            instrument_id=instrument_id,
+            bank_id=bank_id,
+            error=str(_cfg_exc),
+        )
+
     workflow_input = ChequeWorkflowInput(
         instrument_id=instrument_id,
         bank_id=bank_id,
@@ -192,6 +208,7 @@ async def submit_inward_cheque(
         presented_amount=body.presented_amount,
         presented_payee=body.presented_payee,
         iet_deadline=body.iet_deadline,
+        cts_config=cts_config,
     )
 
     # Publish to Kafka cts.inward.{bank_id} so KEDA ScaledObject has a real lag
@@ -466,6 +483,139 @@ async def get_human_review_queue(
 # ---------------------------------------------------------------------------
 # Cheque search (global search bar)
 # ---------------------------------------------------------------------------
+
+class DecisionLogItem(BaseModel):
+    """One row from cts.agent_decisions, joined with cts.cheque_instruments.
+    All PII fields are masked — no raw account numbers or amounts in response.
+    """
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    workflow_id: str
+    decision: str                   # STP_CONFIRM | STP_RETURN | HUMAN_REVIEW
+    decision_reason: str
+    fraud_score: float
+    shap_values: dict
+    processing_duration_ms: int
+    iet_margin_seconds: int
+    degraded_mode: bool
+    created_at: float               # Unix timestamp
+    ocr_engines_used: list[str] = []
+    indic_ocr_kill_switch_active: bool = False
+    signature_match_score: float = 0.0
+    signature_verdict: str = "UNKNOWN"
+    pps_verdict: str = "NOT_CHECKED"
+    cbs_balance_status: str = "NOT_CHECKED"
+    alteration_detected: bool = False
+    # From cheque_instruments JOIN — may be None if instrument not yet written
+    micr_code: Optional[str] = None
+    account_display: Optional[str] = None   # ****last4
+    amount_range: Optional[str] = None
+    presenting_ifsc: Optional[str] = None
+
+
+class DecisionLogResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    items: list[DecisionLogItem]
+    total: int
+    bank_id: str
+
+
+@router_v1.get(
+    "/decisions",
+    response_model=DecisionLogResponse,
+)
+async def list_decisions(
+    request: Request,
+    bank_id: str = Depends(get_current_bank_id),
+    limit: int = 50,
+) -> DecisionLogResponse:
+    """
+    List recent CTS agent decisions for the ops workstation CTSDecisionsLog page.
+    Queries cts.agent_decisions LEFT JOIN cts.cheque_instruments.
+    Results ordered by created_at DESC (most recent first).
+    Explicit column list — no SELECT * on PII tables.
+    Returns empty list when db_pool_cts is unavailable (dev mode, worker not started).
+    """
+    import json as _json
+
+    if limit > 100:
+        limit = 100
+
+    db_pool = getattr(request.app.state, "db_pool_cts", None)
+    items: list[DecisionLogItem] = []
+
+    if db_pool is not None:
+        _SQL = """
+            SELECT
+                d.instrument_id,
+                d.workflow_id,
+                d.decision,
+                d.decision_reason,
+                d.fraud_score,
+                d.shap_values,
+                d.processing_duration_ms,
+                d.iet_margin_seconds,
+                d.degraded_mode,
+                EXTRACT(EPOCH FROM d.created_at) AS created_at_epoch,
+                d.ocr_engines_used,
+                d.indic_ocr_kill_switch_active,
+                d.signature_match_score,
+                d.signature_verdict,
+                d.pps_verdict,
+                d.cbs_balance_status,
+                d.alteration_detected,
+                i.micr_code,
+                i.account_last4,
+                i.amount_range,
+                i.presenting_ifsc
+            FROM cts.agent_decisions d
+            LEFT JOIN cts.cheque_instruments i
+                   ON i.instrument_id = d.instrument_id
+                  AND i.bank_id = d.bank_id
+            WHERE d.bank_id = $1
+            ORDER BY d.created_at DESC
+            LIMIT $2
+        """.strip()
+        try:
+            async with db_pool.acquire() as conn:
+                rows = await conn.fetch(_SQL, bank_id, limit)
+            for row in rows:
+                shap = row["shap_values"]
+                if isinstance(shap, str):
+                    shap = _json.loads(shap)
+                ocr_engines = row["ocr_engines_used"] or []
+                if isinstance(ocr_engines, str):
+                    ocr_engines = _json.loads(ocr_engines)
+                account_last4 = row["account_last4"]
+                items.append(DecisionLogItem(
+                    instrument_id=row["instrument_id"],
+                    workflow_id=row["workflow_id"],
+                    decision=row["decision"],
+                    decision_reason=row["decision_reason"] or "",
+                    fraud_score=float(row["fraud_score"] or 0.0),
+                    shap_values=shap or {},
+                    processing_duration_ms=int(row["processing_duration_ms"] or 0),
+                    iet_margin_seconds=int(row["iet_margin_seconds"] or 0),
+                    degraded_mode=bool(row["degraded_mode"]),
+                    created_at=float(row["created_at_epoch"] or 0.0),
+                    ocr_engines_used=ocr_engines,
+                    indic_ocr_kill_switch_active=bool(row["indic_ocr_kill_switch_active"]),
+                    signature_match_score=float(row["signature_match_score"] or 0.0),
+                    signature_verdict=row["signature_verdict"] or "UNKNOWN",
+                    pps_verdict=row["pps_verdict"] or "NOT_CHECKED",
+                    cbs_balance_status=row["cbs_balance_status"] or "NOT_CHECKED",
+                    alteration_detected=bool(row["alteration_detected"]),
+                    micr_code=row["micr_code"],
+                    account_display=f"****{account_last4}" if account_last4 else None,
+                    amount_range=row["amount_range"],
+                    presenting_ifsc=row["presenting_ifsc"],
+                ))
+        except Exception as exc:
+            log.warning("cts.decisions_list_error", bank_id=bank_id, error=str(exc))
+
+    log.info("cts.decisions_list", bank_id=bank_id, count=len(items))
+    return DecisionLogResponse(items=items, total=len(items), bank_id=bank_id)
+
 
 class ChequeSearchResult(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -749,7 +899,8 @@ async def update_schedule(
     """
     # Verify the schedule belongs to the caller's bank — prevents cross-bank tampering
     if bank_id not in schedule_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Schedule does not belong to your bank")
+        # 404 not 403 — IDOR: a 403 reveals the schedule exists (cross-bank existence oracle)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
     temporal_client = getattr(request.app.state, "temporal_client", None)
     if temporal_client is not None:
         try:
@@ -789,7 +940,8 @@ async def pause_schedule(
 ) -> ScheduleUpdateResponse:
     """Pause a Temporal Schedule — future runs are suppressed."""
     if bank_id not in schedule_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Schedule does not belong to your bank")
+        # 404 not 403 — IDOR: a 403 reveals the schedule exists (cross-bank existence oracle)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
     temporal_client = getattr(request.app.state, "temporal_client", None)
     if temporal_client is not None:
         try:
@@ -822,7 +974,8 @@ async def resume_schedule(
 ) -> ScheduleUpdateResponse:
     """Resume a paused Temporal Schedule."""
     if bank_id not in schedule_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Schedule does not belong to your bank")
+        # 404 not 403 — IDOR: a 403 reveals the schedule exists (cross-bank existence oracle)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
     temporal_client = getattr(request.app.state, "temporal_client", None)
     if temporal_client is not None:
         try:
@@ -2568,3 +2721,117 @@ async def get_allocation_status(
 
     log.info("cts.alloc.status", bank_id=bank_id, active_claims=len(claims))
     return AllocationStatusResponse(bank_id=bank_id, active_claims=claims, total=len(claims))
+
+
+# ── Session Report ─────────────────────────────────────────────────────────────
+
+class SessionReportMeta(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    report_id:        str
+    session_id:       str
+    bank_id:          str
+    branch_ifsc:      str
+    clearing_date:    str
+    session_type:     str
+    generated_at:     str
+    instrument_count: int
+    accepted_count:   int
+    rejected_count:   int
+    held_count:       int
+    compliance_pass_count: int
+    compliance_fail_count: int
+    status:           str
+    html_url:         Optional[str] = None
+    pdf_url:          Optional[str] = None
+
+
+@router_v1.get(
+    "/outward/sessions/{session_id}/report",
+    response_model=SessionReportMeta,
+    status_code=status.HTTP_200_OK,
+)
+async def get_session_report(
+    session_id: str,
+    request: Request,
+    format: Optional[str] = None,      # ?format=html | pdf  → redirect to presigned URL
+    ctx: UserContext = Depends(get_current_user_context),
+) -> SessionReportMeta:
+    """
+    Returns metadata for a CTS outward session clearing report.
+    Add ?format=html or ?format=pdf to get a presigned MinIO download URL.
+
+    Roles: ops_manager, bank_it_admin, ops_reviewer (own branch only).
+    SB users see any session in their bank. SMB users see only their branch.
+    """
+    bank_id = ctx.bank_id
+    allowed = {"ops_manager", "bank_it_admin", "ops_reviewer", "fraud_analyst"}
+    if ctx.role.value not in allowed:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    db = getattr(request.app.state, "db", None)
+    if db is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable")
+
+    row = await db.fetchrow(
+        """
+        SELECT report_id, session_id, bank_id, branch_id, branch_ifsc,
+               clearing_date, session_type, generated_at,
+               instrument_count, lot_count,
+               accepted_count, rejected_count, held_count,
+               compliance_pass_count, compliance_fail_count,
+               html_minio_path, pdf_minio_path, status
+        FROM cts.session_reports
+        WHERE session_id = $1 AND bank_id = $2
+        """,
+        session_id, bank_id,
+    )
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
+
+    html_url = pdf_url = None
+
+    if format in ("html", "pdf") and row["status"] == "READY":
+        from shared.config.config_service import config_service
+        from minio import Minio  # type: ignore
+        from datetime import timedelta
+
+        minio_ep = await config_service.get("minio.endpoint")
+        minio_ak = await config_service.get_secret("minio.access_key")
+        minio_sk = await config_service.get_secret("minio.secret_key")
+        client = Minio(minio_ep, access_key=minio_ak, secret_key=minio_sk, secure=False)
+        bucket = "astra-cts-reports"
+        path_key = "html_minio_path" if format == "html" else "pdf_minio_path"
+        object_path = row[path_key]
+        if object_path:
+            url = client.presigned_get_object(bucket, object_path, expires=timedelta(minutes=15))
+            if format == "html":
+                html_url = url
+            else:
+                pdf_url = url
+
+    log.info(
+        "cts.session_report.fetched",
+        session_id=session_id,
+        bank_id=bank_id,
+        status=row["status"],
+        format=format,
+    )
+
+    return SessionReportMeta(
+        report_id=str(row["report_id"]),
+        session_id=row["session_id"],
+        bank_id=row["bank_id"],
+        branch_ifsc=row["branch_ifsc"],
+        clearing_date=str(row["clearing_date"]),
+        session_type=row["session_type"],
+        generated_at=row["generated_at"].isoformat(),
+        instrument_count=row["instrument_count"],
+        accepted_count=row["accepted_count"],
+        rejected_count=row["rejected_count"],
+        held_count=row["held_count"],
+        compliance_pass_count=row["compliance_pass_count"],
+        compliance_fail_count=row["compliance_fail_count"],
+        status=row["status"],
+        html_url=html_url,
+        pdf_url=pdf_url,
+    )

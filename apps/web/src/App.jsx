@@ -4,6 +4,7 @@ import { BankProvider } from './shared/context/BankContext'
 import LandingPage from './pages/LandingPage'
 import CTSWorkstation from './modules/cts/pages/CTSWorkstation'
 import CTSVaultStatus from './modules/cts/pages/CTSVaultStatus'
+import CTSVaultUpload from './modules/cts/pages/CTSVaultUpload'
 import CTSDecisionsLog from './modules/cts/pages/CTSDecisionsLog'
 import CTSAnalytics from './modules/cts/pages/CTSAnalytics'
 import CTSConfig from './modules/cts/pages/CTSConfig'
@@ -61,6 +62,7 @@ import CTSAgencyCC from './modules/cts/pages/CTSAgencyCC'
 import CTSSmokeTest from './modules/cts/pages/CTSSmokeTest'
 import OpsDashboard from './modules/observability/pages/OpsDashboard'
 import ModelHealth from './modules/observability/pages/ModelHealth'
+import CTSOCRFeedback from './modules/observability/pages/CTSOCRFeedback'
 import AlertLog from './modules/observability/pages/AlertLog'
 import SystemHealth from './modules/observability/pages/SystemHealth'
 import UserManagement from './modules/admin/pages/UserManagement'
@@ -73,6 +75,8 @@ import Logout from './modules/auth/pages/Logout'
 import Profile from './modules/auth/pages/Profile'
 import { AuthProvider } from './shared/context/AuthContext'
 import RequireAuth from './shared/auth/RequireAuth'
+import RequirePermission from './shared/auth/RequirePermission'
+import AccessDenied from './modules/auth/pages/AccessDenied'
 import './index.css'
 
 export default function App() {
@@ -86,6 +90,7 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/logout" element={<Logout />} />
+        <Route path="/access-denied" element={<AccessDenied />} />
         <Route element={<RequireAuth />}>
         {/* CTS module */}
         {/* Inward 3-stage pipeline */}
@@ -98,6 +103,7 @@ export default function App() {
         <Route path="/cts/outward/queue"        element={<CTSValidationQueue mode="outward" />} />
         <Route path="/cts/outward/submission"   element={<CTSSubmissionQueue mode="outward" />} />
         <Route path="/cts/vault" element={<CTSVaultStatus />} />
+        <Route path="/cts/vault/upload" element={<CTSVaultUpload />} />
         <Route path="/cts/decisions" element={<CTSDecisionsLog />} />
         <Route path="/cts/exceptions" element={<CTSExceptions />} />
         <Route path="/cts/reconciliation" element={<CTSReconciliation />} />
@@ -153,18 +159,25 @@ export default function App() {
         <Route path="/branch/hold-queue" element={<BranchHoldQueue />} />
         {/* Admin */}
         <Route path="/profile" element={<Profile />} />
-        <Route path="/admin/users" element={<UserManagement />} />
         <Route path="/admin/security-violations" element={<SecurityViolations />} />
         <Route path="/admin/login-log" element={<LoginLog />} />
         <Route path="/admin/smoke-test" element={<CTSSmokeTest />} />
         <Route path="/admin/config/operations" element={<OperationsConfig />} />
         <Route path="/admin/config/platform" element={<PlatformConfig />} />
         <Route path="/admin/allocation" element={<CTSAllocationAdmin />} />
-        {/* ASTRA Ops Dashboard — replaces Grafana for ops_manager + bank_it_admin */}
+        {/* ASTRA Ops Dashboard — ops_manager + bank_it_admin (analytics) */}
         <Route path="/ops/dashboard"    element={<OpsDashboard />} />
-        <Route path="/ops/model-health" element={<ModelHealth />} />
         <Route path="/ops/alerts"       element={<AlertLog />} />
         <Route path="/ops/system"       element={<SystemHealth />} />
+        {/* AI model pages — ops_manager + bank_it_admin + ml_engineer only */}
+        <Route element={<RequirePermission permission="ai:model_metrics" />}>
+          <Route path="/ops/model-health"   element={<ModelHealth />} />
+          <Route path="/ops/ocr-feedback"   element={<CTSOCRFeedback />} />
+        </Route>
+        {/* Admin — bank_it_admin only */}
+        <Route element={<RequirePermission permission="user:manage" />}>
+          <Route path="/admin/users" element={<UserManagement />} />
+        </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

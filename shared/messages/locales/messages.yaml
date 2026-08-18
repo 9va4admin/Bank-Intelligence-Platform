@@ -521,6 +521,105 @@ CTS_OUT_CTS2010_NON_CTS_FORM:
   en: "Non-CTS cheque form detected for {instrument_id} — not eligible for truncation."
   hi: ""
 
+CTS_OUT_DATE_INVALID:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id, date_value, reason]
+  en: "Instrument {instrument_id} rejected — date invalid: {date_value} ({reason})."
+  hi: ""
+
+CTS_OUT_DUPLICATE_CHEQUE:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id, duplicate_ref]
+  en: "Instrument {instrument_id} rejected — duplicate cheque detected (ref: {duplicate_ref})."
+  hi: ""
+
+CTS_OUT_PAYEE_NOT_FOUND:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id, payee_name_initial]
+  en: "Instrument {instrument_id} held — payee {payee_name_initial}*** not found in NGCH or CBS records."
+  hi: ""
+
+CTS_OUT_PAYEE_INACTIVE:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id, payee_account_suffix]
+  en: "Instrument {instrument_id} rejected — payee account ****{payee_account_suffix} is inactive or closed."
+  hi: ""
+
+CTS_OUT_PAYEE_INACTIVE_HELD:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [instrument_id, payee_account_suffix]
+  en: "Instrument {instrument_id} held for review — payee account ****{payee_account_suffix} inactive; pending ops confirmation."
+  hi: ""
+
+CTS_OUT_PAYEE_NAME_MISMATCH:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [instrument_id, ocr_initial, account_initial, score]
+  en: "Instrument {instrument_id} held — OCR payee ({ocr_initial}***) vs. account name ({account_initial}***) mismatch, score {score}."
+  hi: ""
+
+CTS_OUT_NGCH_METADATA_MISMATCH:
+  severity: WARN
+  surface: [UI, AUDIT]
+  variables: [instrument_id, mismatch_fields]
+  en: "Instrument {instrument_id} held — NGCH metadata vs. scanned data mismatch on: {mismatch_fields}."
+  hi: ""
+
+CTS_OUT_SIGNATURE_ABSENT:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id]
+  en: "Instrument {instrument_id} held — no ink signature detected on cheque image."
+  hi: ""
+
+CTS_OUT_SECURITY_FEATURES_MISSING:
+  severity: ERROR
+  surface: [UI, AUDIT]
+  variables: [instrument_id, missing_features]
+  en: "Instrument {instrument_id} held — mandatory CTS-2010 security features absent: {missing_features}."
+  hi: ""
+
+CTS_KILL_SWITCH_APPLIED:
+  severity: WARN
+  surface: [AUDIT]
+  variables: [instrument_id, bank_id, mode, scope]
+  en: "Vision AI kill switch applied to instrument {instrument_id} for bank {bank_id} — mode: {mode}, scope: {scope}."
+  hi: ""
+
+CTS_KILL_SWITCH_ENGAGED:
+  severity: CRITICAL
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [bank_id, mode, scope, engaged_by]
+  en: "Vision AI kill switch ENGAGED for bank {bank_id} — mode: {mode}, scope: {scope}, by {engaged_by}. AI vision decisions suspended."
+  hi: ""
+  incident:
+    incident_class: SAFETY_BOUNDARY
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: cts_ai_platform
+    regulatory_reportable: false
+    auto_close_eligible: false
+    runbook_ref: "runbooks/cts/kill-switch-engaged.md"
+
+CTS_KILL_SWITCH_RELEASED:
+  severity: INFO
+  surface: [UI, AUDIT, NOTIFICATION]
+  variables: [bank_id, scope, released_by]
+  en: "Vision AI kill switch released for bank {bank_id} (scope: {scope}) by {released_by}. AI vision decisions resumed."
+  hi: ""
+
+CTS_INSTRUMENT_PASSPORT:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [instrument_id, bank_id, ocr_engines_used, vision_model, fraud_score_range]
+  en: "Instrument passport recorded for {instrument_id} at bank {bank_id} — OCR engines: {ocr_engines_used}, vision: {vision_model}, fraud score: {fraud_score_range}."
+  hi: ""
+
 CTS_OUT_LOT_CREATED:
   severity: INFO
   surface: [UI, AUDIT]
@@ -2311,6 +2410,35 @@ AUTH_CONNECTOR_CONFIG_MISSING:
     regulatory_reportable: false
     auto_close_eligible: false
     runbook_ref: "runbooks/auth/connector-config-missing.md"
+
+AUTH_TOKEN_REPLAY_ATTEMPT:
+  severity: CRITICAL
+  surface: [AUDIT, NOTIFICATION]
+  variables: [session_display, bank_id, user_id]
+  en: "Revoked session token presented for user {user_id} at bank {bank_id} — session {session_display}. Possible session hijack. Force-re-authenticate this user."
+  hi: ""
+  incident:
+    incident_class: SECURITY
+    default_severity: P1
+    escalation_trigger: IMMEDIATE
+    owning_team: bank_infra
+    regulatory_reportable: true
+    auto_close_eligible: false
+    runbook_ref: "runbooks/auth/token-replay-detected.md"
+
+AUTH_SESSION_SELF_REVOKED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [user_id, bank_id]
+  en: "Session revoked by user {user_id} at bank {bank_id} (user-initiated logout)."
+  hi: ""
+
+AUTH_LOGIN_RATE_LIMIT_EXCEEDED:
+  severity: WARN
+  surface: [AUDIT, NOTIFICATION]
+  variables: [ip_display, attempts, window_seconds]
+  en: "Login rate limit exceeded from {ip_display} — {attempts} attempts in {window_seconds}s window. Possible credential-stuffing or brute-force attack."
+  hi: ""
 
 # ────────────────────────────────────────────────────────────────────────
 # MSV — MULTI-SIGNATURE VALIDATION

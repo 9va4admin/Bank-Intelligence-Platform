@@ -117,8 +117,9 @@ const SIDEBAR_MODULES = [
           { to: '/cts/batches',            label: 'Batches',          perm: 'cts:submit_decision'                },
           { to: '/cts/vault',              label: 'Vault',            perm: 'cts:view_queue'                     },
           { to: '/cts/vault-sync',         label: 'PPS & Stop Cheque',perm: 'cts:view_queue'                     },
-          { to: '/cts/sub-member',         label: 'Sub-Member',       sbOnly: true, smbMgmt: true, perm: 'smb:view_ledger'      },
-          { to: '/cts/smb/registry',       label: 'SMB Registry',     sbOnly: true, smbMgmt: true, perm: 'smb:register'         },
+          { to: '/cts/vault/upload',       label: 'Vault Upload',     perm: 'admin:manage'                       },
+          { to: '/cts/sub-member',         label: 'SMB Session Monitor', sbOnly: true, smbMgmt: true, perm: 'smb:view_ledger'      },
+          { to: '/cts/smb/registry',       label: 'SMB Vault & CBS',    sbOnly: true, smbMgmt: true, perm: 'smb:register'         },
           { to: '/cts/smb/ledger',         label: 'SMB Ledger',       sbOnly: true, smbMgmt: true, perm: 'smb:view_ledger'      },
           { to: '/cts/smb/forwarding-log', label: 'SMB Fwd Log',      sbOnly: true, smbMgmt: true, perm: 'smb:view_ledger'      },
           { to: '/cts/endorsement',        label: 'Endorsement',      perm: 'cts:submit_decision'                },
@@ -170,7 +171,8 @@ const SIDEBAR_MODULES = [
         label: 'ASTRA Ops Dashboard',
         items: [
           { to: '/ops/dashboard',    label: 'Ops Overview',  perm: 'cts:view_analytics' },
-          { to: '/ops/model-health', label: 'Model Health',  perm: 'cts:view_analytics' },
+          { to: '/ops/model-health',   label: 'Model Health',   perm: 'ai:model_metrics' },
+          { to: '/ops/ocr-feedback',   label: 'OCR Feedback',   perm: 'ai:model_metrics' },
           { to: '/ops/alerts',       label: 'Alert Log',     perm: 'cts:view_analytics' },
           { to: '/ops/system',       label: 'System Health', perm: 'cts:view_analytics' },
         ],
@@ -228,7 +230,7 @@ const ROUTE_LABELS = {
   '/cts/reconciliation':['Reports', 'Reconciliation'],
   '/cts/analytics':     ['Reports', 'Analytics'],
   '/cts/compliance':    ['Reports', 'Compliance Cert'],
-  '/cts/sub-member':    ['Processing', 'Sub-Member Banks'],
+  '/cts/sub-member':    ['Processing', 'SMB Session Monitor'],
   '/cts/exceptions':    ['Processing', 'Exceptions'],
   '/cts/endorsement':   ['Processing', 'Endorsement'],
   '/cts/iqa':           ['Processing', 'Image Quality Assessment'],
@@ -254,7 +256,7 @@ const ROUTE_LABELS = {
   '/cts/admin/processing-units': ['Admin', 'Processing Unit Master'],
   '/cts/config/ngch-routing':     ['Admin · Config', 'NGCH Routing'],
   '/cts/config/mcp-connections':  ['Admin · Config', 'MCP Connection Setup'],
-  '/cts/smb/registry':            ['Processing', 'SMB Registry'],
+  '/cts/smb/registry':            ['Processing', 'SMB Vault & CBS'],
   '/cts/smb/ledger':              ['Processing', 'SMB Clearing Ledger'],
   '/cts/smb/forwarding-log':      ['Processing', 'SMB Forwarding Log'],
   '/cts/agency-cc':               ['Processing', 'Agency Command Center'],
@@ -294,7 +296,12 @@ function useBreadcrumb(pathname) {
 }
 
 function activeModuleId(pathname) {
-  if (pathname.startsWith('/admin') || pathname.startsWith('/cts/config')) return 'admin'
+  if (
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/cts/config') ||
+    pathname.startsWith('/cts/admin') ||
+    pathname === '/cts/schedules'
+  ) return 'admin'
   if (pathname.startsWith('/ops')) return 'ops'
   return 'cts'   // /cts/* and all /branch/* routes live under the CTS module tab
 }

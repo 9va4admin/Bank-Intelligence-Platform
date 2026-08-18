@@ -15,7 +15,6 @@
 #
 #   vault        18200
 #   redis-cts    16379
-#   redis-ej     16380
 #   minio        19000 (S3 API)  19091 (Console)
 #   immudb       13322 (gRPC)   19497 (metrics)
 #   yugabyte     15433 (YSQL)   17000 (master UI)
@@ -59,20 +58,6 @@ services:
     command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     ports:
       - "16379:6379"
-    networks: [astra-dev]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 3s
-      timeout: 3s
-      retries: 10
-
-  redis-ej:
-    image: redis:7.2-alpine
-    container_name: astra-redis-ej
-    hostname: redis-ej
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
-    ports:
-      - "16380:6379"
     networks: [astra-dev]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]

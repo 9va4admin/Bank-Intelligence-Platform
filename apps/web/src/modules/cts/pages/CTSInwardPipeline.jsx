@@ -9,14 +9,14 @@ import { getStpStream } from '../data/mockQueue'
 
 // ─── Sub-member bank definitions (mock — live data via Kafka cts.smb.inbound) ─
 
-// Sub-member UCBs routed through Saraswat as sponsor — smaller UCBs that
-// do not have direct NGCH membership; Saraswat forwards on their behalf
+// Sub-member UCBs routed through Federal Bank as sponsor — smaller UCBs that
+// do not have direct NGCH membership; Federal Bank forwards on their behalf
 const SMB_LIST = [
-  { id: 'cosmos',     name: 'Cosmos Co-op',          ifsc: 'COSB0000001', city: 'Pune'      },
-  { id: 'abhyudaya',  name: 'Abhyudaya Co-op',        ifsc: 'ABHY0065001', city: 'Mumbai'    },
-  { id: 'shamrao',    name: 'Shamrao Vithal Co-op',   ifsc: 'SVCB0000001', city: 'Mumbai'    },
-  { id: 'tjsb',       name: 'TJSB Sahakari Bank',     ifsc: 'TJSB0000001', city: 'Thane'     },
-  { id: 'janata',     name: 'Janata Sahakari Bank',   ifsc: 'JNSB0000001', city: 'Pune'      },
+  { id: 'smb-kl-tsucb',  name: 'Thrissur UCB',          ifsc: 'TSUB0000001', city: 'Thrissur'   },
+  { id: 'smb-kl-eklucb', name: 'Ernakulam UCB',          ifsc: 'EKLB0000001', city: 'Kochi'      },
+  { id: 'smb-kl-mlbcb',  name: 'Malabar Co-op Bank',     ifsc: 'MLCB0000001', city: 'Kozhikode'  },
+  { id: 'smb-tn-cbucb',  name: 'Coimbatore City UCB',    ifsc: 'CBUB0000001', city: 'Coimbatore' },
+  { id: 'smb-ka-mgucb',  name: 'Mangaluru UCB',          ifsc: 'MGUB0000001', city: 'Mangaluru'  },
 ]
 
 // SMB pipeline has fewer stages — sponsor bank does forwarding, not full AI
@@ -535,7 +535,7 @@ export default function CTSInwardPipeline() {
   const [smbActiveStages, setSmbActiveStages] = useState(() =>
     Object.fromEntries(SMB_LIST.map(smb => [smb.id, isDemo ? SMB_STAGES[Math.floor(Math.random() * SMB_STAGES.length)].id : null]))
   )
-  const [smbAlerts, setSmbAlerts] = useState({ cosmos: 0, tjsb: 0, janata: 0, abhyudaya: 0, shamrao: 0 })
+  const [smbAlerts, setSmbAlerts] = useState(() => Object.fromEntries(SMB_LIST.map(smb => [smb.id, 0])))
   const [selectedSmb, setSelectedSmb] = useState(null)
 
   // Clock

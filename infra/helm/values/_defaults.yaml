@@ -166,6 +166,9 @@ layer3:
   cts:
     iet_minutes: 180                          # RBI IET mandate: T+3 hours; non-negotiable
     stp_auto_confirm_threshold: 0.92          # fraud score ≤ this → STP confirm (no review)
+    stp_mode: "FULL_MANUAL"                   # FULL_MANUAL | SUPERVISED | FULL_AUTO
+    stp_supervised_confirm_threshold: 0.95    # SUPERVISED mode: auto-confirm if AI score ≥ this
+    stp_supervised_review_timeout_minutes: 30 # SUPERVISED mode: fast-path review window (minutes)
     human_review_fraud_threshold: 0.72        # fraud score > this → human review queue
     high_value_amount_threshold: 500000       # ₹5,00,000 → human review regardless of score
     signature_min_match_score: 0.85           # Siamese network; below → human review

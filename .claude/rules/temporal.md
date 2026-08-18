@@ -14,7 +14,6 @@ workflow_id = f"cts-{bank_id}-{instrument_id}"
 iet_watchdog_id = f"cts-iet-{bank_id}-{instrument_id}"
 human_review_id = f"cts-humanreview-{bank_id}-{instrument_id}"
 vault_sync_id = f"cts-vaultsync-{bank_id}-{date}"
-# EJ: ej-normalise-{bank_id}-{raw_log_hash}, ej-dispute-{bank_id}-{npci_claim_id}
 ```
 
 ## Retry Policies (Standard — use these, never invent your own)
@@ -115,7 +114,6 @@ worker = Worker(
     max_concurrent_activities=200,
     graceful_shutdown_timeout=timedelta(minutes=2),
 )
-# EJ workers follow same pattern with task_queue=f"ej-normalisation-{bank_id}" — never "cts-*"
 ```
 
 ## Forbidden Patterns
@@ -123,6 +121,6 @@ worker = Worker(
 - `datetime.now()` inside a workflow — use `workflow.now()` (deterministic replay)
 - `random.random()` inside a workflow — use `workflow.random()` (deterministic replay)
 - Calling activities directly without retry policy (use standard retry constants above)
-- Sharing a Temporal task queue between CTS and EJ workers
+- Sharing a Temporal task queue across different bank namespaces
 - Starting a workflow without a deterministic workflow ID (no UUID4 — use instrument_id)
 - Catching `CancelledException` and suppressing it (Temporal cancellation must propagate)

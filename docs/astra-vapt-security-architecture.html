@@ -1,0 +1,996 @@
+<title>ASTRA Security Architecture</title>
+<style>
+/* ── Token System ────────────────────────────────────────── */
+:root {
+  --bg-page:       #F1F4F8;
+  --bg-card:       #FFFFFF;
+  --bg-nav:        #0E2340;
+  --nav-text:      #7A9BBD;
+  --nav-active:    #F0F6FF;
+  --nav-accent:    #CE9240;
+  --nav-border:    rgba(255,255,255,0.06);
+  --text-primary:  #14202E;
+  --text-body:     #2C3F54;
+  --text-muted:    #4D6275;
+  --text-faint:    #7B95AB;
+  --amber:         #A66C12;
+  --amber-bg:      #FEF3E2;
+  --amber-border:  #E0AA5A;
+  --border:        #D0DAE8;
+  --border-card:   #E2EAF3;
+  --divider:       #EAF0F7;
+  --classif-bg:    #7B0E19;
+  --classif-text:  #FFE5E8;
+  --code-bg:       #EBF0F7;
+  --code-text:     #14202E;
+  --thead-bg:      #0E2340;
+  --thead-text:    #D8E8F5;
+  --trow-alt:      #F6F9FC;
+  --r-mit-bg:#E7F6EA; --r-mit-text:#145522; --r-mit-br:#8ECB9A;
+  --r-low-bg:#EAF7ED; --r-low-text:#1A6B30; --r-low-br:#9ED5AC;
+  --r-med-bg:#FFF4E0; --r-med-text:#7A4800; --r-med-br:#F0CC80;
+  --r-hi-bg: #FDECEA; --r-hi-text: #8B1A15; --r-hi-br: #F5B3AE;
+  --shadow:  0 1px 3px rgba(0,0,0,0.07), 0 2px 8px rgba(0,0,0,0.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-page:      #050E1A;
+    --bg-card:      #0B1928;
+    --bg-nav:       #030B16;
+    --nav-text:     #587A96;
+    --nav-active:   #C8DCF0;
+    --nav-accent:   #CE9240;
+    --nav-border:   rgba(255,255,255,0.05);
+    --text-primary: #C8DCF0;
+    --text-body:    #7A9BB8;
+    --text-muted:   #4D6880;
+    --text-faint:   #2E4A62;
+    --amber:        #CE9240;
+    --amber-bg:     #1A1104;
+    --amber-border: #5A3B10;
+    --border:       #122030;
+    --border-card:  #162A3C;
+    --divider:      #0C1E2C;
+    --code-bg:      #040D18;
+    --code-text:    #7A9BB8;
+    --thead-bg:     #0B1928;
+    --thead-text:   #C8DCF0;
+    --trow-alt:     #07111E;
+    --r-mit-bg:#081E0E; --r-mit-text:#6EDA84; --r-mit-br:#144D22;
+    --r-low-bg:#0A2214; --r-low-text:#6EDA84; --r-low-br:#1A4D28;
+    --r-med-bg:#1E1200; --r-med-text:#FFCC60; --r-med-br:#4D3000;
+    --r-hi-bg: #220805; --r-hi-text: #FCA5A5; --r-hi-br: #5A1212;
+    --shadow:  0 1px 3px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3);
+  }
+}
+:root[data-theme="dark"] {
+  --bg-page:      #050E1A;
+  --bg-card:      #0B1928;
+  --bg-nav:       #030B16;
+  --nav-text:     #587A96;
+  --nav-active:   #C8DCF0;
+  --nav-accent:   #CE9240;
+  --nav-border:   rgba(255,255,255,0.05);
+  --text-primary: #C8DCF0;
+  --text-body:    #7A9BB8;
+  --text-muted:   #4D6880;
+  --text-faint:   #2E4A62;
+  --amber:        #CE9240;
+  --amber-bg:     #1A1104;
+  --amber-border: #5A3B10;
+  --border:       #122030;
+  --border-card:  #162A3C;
+  --divider:      #0C1E2C;
+  --code-bg:      #040D18;
+  --code-text:    #7A9BB8;
+  --thead-bg:     #0B1928;
+  --thead-text:   #C8DCF0;
+  --trow-alt:     #07111E;
+  --r-mit-bg:#081E0E; --r-mit-text:#6EDA84; --r-mit-br:#144D22;
+  --r-low-bg:#0A2214; --r-low-text:#6EDA84; --r-low-br:#1A4D28;
+  --r-med-bg:#1E1200; --r-med-text:#FFCC60; --r-med-br:#4D3000;
+  --r-hi-bg: #220805; --r-hi-text: #FCA5A5; --r-hi-br: #5A1212;
+  --shadow:  0 1px 3px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* ── Reset + Base ───────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-body);
+  background: var(--bg-page);
+}
+a { color: var(--amber); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Classification Banner ──────────────────────────────── */
+.classif {
+  background: var(--classif-bg);
+  color: var(--classif-text);
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 5px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+}
+
+/* ── Layout ─────────────────────────────────────────────── */
+.layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+@media (max-width: 760px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+}
+
+/* ── Sidebar ────────────────────────────────────────────── */
+.sidebar {
+  background: var(--bg-nav);
+  position: sticky;
+  top: 30px;   /* below classif banner */
+  height: calc(100vh - 30px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 24px 0;
+}
+.nav-logo {
+  padding: 22px 18px 14px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #FFFFFF;
+  border-bottom: 1px solid var(--nav-border);
+}
+.nav-logo span {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--nav-accent);
+  margin-top: 2px;
+}
+.nav-section {
+  padding: 16px 18px 4px;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.nav-links { list-style: none; padding: 0 8px; }
+.nav-links li a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12.5px;
+  color: var(--nav-text);
+  border-radius: 5px;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-links li a:hover { background: rgba(255,255,255,0.06); color: var(--nav-active); text-decoration: none; }
+.nav-links li a.active { color: var(--nav-active); background: rgba(255,255,255,0.08); }
+.nav-links li a .dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--nav-accent);
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+.nav-links li a:hover .dot, .nav-links li a.active .dot { opacity: 1; }
+.nav-meta {
+  margin-top: auto;
+  padding: 12px 18px;
+  font-size: 10.5px;
+  color: var(--nav-text);
+  border-top: 1px solid var(--nav-border);
+}
+.nav-meta strong { display: block; color: var(--nav-accent); margin-bottom: 4px; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; }
+.theme-btn {
+  display: block;
+  margin: 8px 18px 0;
+  padding: 5px 10px;
+  font-size: 10.5px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 4px;
+  color: var(--nav-text);
+  cursor: pointer;
+  text-align: center;
+  letter-spacing: 0.05em;
+}
+.theme-btn:hover { background: rgba(255,255,255,0.1); color: var(--nav-active); }
+
+/* ── Main Content ───────────────────────────────────────── */
+.main { padding: 0; }
+
+/* ── Doc Header ─────────────────────────────────────────── */
+.doc-header {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-card);
+  padding: 36px 48px 28px;
+  box-shadow: var(--shadow);
+}
+.doc-eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 8px;
+}
+.doc-title {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+  text-wrap: balance;
+}
+.doc-subtitle {
+  margin-top: 4px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+.doc-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0;
+  margin-top: 22px;
+  border: 1px solid var(--border-card);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.doc-meta-item {
+  padding: 10px 16px;
+  border-right: 1px solid var(--border-card);
+  border-bottom: 1px solid var(--border-card);
+}
+.doc-meta-item:last-child { border-right: none; }
+.doc-meta-label {
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 3px;
+}
+.doc-meta-value {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Sections ───────────────────────────────────────────── */
+.section {
+  padding: 40px 48px;
+  border-bottom: 1px solid var(--divider);
+}
+.section:last-child { border-bottom: none; }
+.section-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.section-num {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--amber);
+  padding: 2px 8px;
+  border: 1px solid var(--amber-border);
+  border-radius: 3px;
+  background: var(--amber-bg);
+  flex-shrink: 0;
+}
+.section-title {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+.section p {
+  margin-bottom: 12px;
+  color: var(--text-body);
+  max-width: 78ch;
+}
+.section p:last-child { margin-bottom: 0; }
+
+/* ── Card ───────────────────────────────────────────────── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 7px;
+  padding: 20px 24px;
+  margin: 16px 0;
+  box-shadow: var(--shadow);
+}
+.card-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 14px;
+}
+
+/* ── Spec / Info Tables ─────────────────────────────────── */
+.info-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.info-table th, .info-table td { padding: 8px 12px; border: 1px solid var(--border); vertical-align: top; }
+.info-table th { background: var(--thead-bg); color: var(--thead-text); font-weight: 600; font-size: 11.5px; text-align: left; letter-spacing: 0.04em; }
+.info-table tr:nth-child(even) td { background: var(--trow-alt); }
+.info-table td:first-child { font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+.tbl-wrap { overflow-x: auto; margin: 16px 0; border-radius: 6px; box-shadow: var(--shadow); }
+
+/* ── Risk Pills ─────────────────────────────────────────── */
+.risk {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 3px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+.risk.mitigated { background: var(--r-mit-bg); color: var(--r-mit-text); border-color: var(--r-mit-br); }
+.risk.low  { background: var(--r-low-bg); color: var(--r-low-text); border-color: var(--r-low-br); }
+.risk.med  { background: var(--r-med-bg); color: var(--r-med-text); border-color: var(--r-med-br); }
+.risk.high { background: var(--r-hi-bg);  color: var(--r-hi-text);  border-color: var(--r-hi-br);  }
+
+/* ── Code / Mono ────────────────────────────────────────── */
+code {
+  font-family: 'Consolas', 'Cascadia Code', 'Courier New', monospace;
+  font-size: 12px;
+  background: var(--code-bg);
+  color: var(--code-text);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.mono { font-family: 'Consolas', 'Cascadia Code', 'Courier New', monospace; font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* ── Callout / Note ─────────────────────────────────────── */
+.note {
+  border-left: 3px solid var(--amber-border);
+  background: var(--amber-bg);
+  color: var(--text-body);
+  padding: 10px 14px;
+  border-radius: 0 5px 5px 0;
+  font-size: 13px;
+  margin: 12px 0;
+}
+.note strong { color: var(--amber); }
+
+/* ── Scope Lists ────────────────────────────────────────── */
+.scope-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
+@media (max-width: 640px) { .scope-grid { grid-template-columns: 1fr; } }
+.scope-col h4 { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 8px; }
+.scope-list { list-style: none; padding: 0; }
+.scope-list li { padding: 5px 0; border-bottom: 1px solid var(--divider); font-size: 13px; color: var(--text-body); display: flex; align-items: baseline; gap: 8px; }
+.scope-list li::before { content: attr(data-icon); flex-shrink: 0; font-size: 12px; }
+.scope-list.in li::before  { color: var(--r-low-text); }
+.scope-list.out li::before { color: var(--text-faint); }
+
+/* ── ZAP Endpoints ──────────────────────────────────────── */
+.zap-list { list-style: none; padding: 0; margin-top: 12px; }
+.zap-item { display: flex; align-items: stretch; gap: 0; margin-bottom: 6px; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; font-size: 12.5px; }
+.zap-method { padding: 6px 10px; font-weight: 800; font-size: 10.5px; letter-spacing: 0.06em; display: flex; align-items: center; min-width: 52px; justify-content: center; }
+.zap-method.post { background: #1E5C36; color: #A8F0C0; }
+.zap-method.get  { background: #1A3E6E; color: #A8CCF0; }
+.zap-path { padding: 6px 12px; font-family: 'Consolas', monospace; font-size: 12px; color: var(--text-body); background: var(--bg-card); flex: 1; display: flex; align-items: center; }
+.zap-note { padding: 6px 12px; font-size: 11px; color: var(--text-muted); background: var(--trow-alt); display: flex; align-items: center; border-left: 1px solid var(--border); max-width: 200px; }
+
+/* ── Mermaid Diagram Container ──────────────────────────── */
+.diagram-wrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 7px;
+  padding: 24px;
+  margin: 16px 0;
+  overflow-x: auto;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.diagram-caption {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 10px;
+  text-align: center;
+  font-style: italic;
+}
+
+/* ── Print ───────────────────────────────────────────────── */
+@media print {
+  .sidebar { display: none; }
+  .layout  { display: block; }
+  .classif { position: static; }
+  .section { page-break-inside: avoid; }
+}
+</style>
+
+<!-- Classification Banner -->
+<div class="classif">
+  CONFIDENTIAL — BANKING GRADE &nbsp;|&nbsp; VAPT PRE-CLEARANCE REFERENCE &nbsp;|&nbsp; NOT FOR EXTERNAL DISTRIBUTION
+</div>
+
+<div class="layout">
+  <!-- ── Left Nav ── -->
+  <nav class="sidebar" aria-label="Document sections">
+    <div class="nav-logo">
+      ASTRA
+      <span>Security Architecture</span>
+    </div>
+
+    <div class="nav-section">Contents</div>
+    <ul class="nav-links">
+      <li><a href="#overview"><span class="dot"></span>1 — System Overview</a></li>
+      <li><a href="#dfd"><span class="dot"></span>2 — Data Flow Diagram</a></li>
+      <li><a href="#topology"><span class="dot"></span>3 — Network Topology</a></li>
+      <li><a href="#threat-model"><span class="dot"></span>4 — Threat Model</a></li>
+      <li><a href="#scope"><span class="dot"></span>5 — Pen Test Scope</a></li>
+      <li><a href="#ports"><span class="dot"></span>6 — Port Matrix</a></li>
+    </ul>
+
+    <button class="theme-btn" onclick="
+      const r=document.documentElement;
+      r.setAttribute('data-theme', r.getAttribute('data-theme')==='dark'?'light':'dark');
+    ">Toggle Light / Dark</button>
+
+    <div class="nav-meta">
+      <strong>Document</strong>
+      Version 1.0 — Pre-VAPT<br>
+      Prepared: 2026-08-18<br>
+      Author: Nilesh Shah
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main class="main">
+
+    <!-- Doc Header -->
+    <header class="doc-header">
+      <div class="doc-eyebrow">Security Architecture Reference</div>
+      <div class="doc-title">ASTRA — CTS Security Architecture</div>
+      <div class="doc-subtitle">Automated Settlement and Transaction Recognition Architecture · Cheque Truncation System</div>
+      <div class="doc-meta-grid">
+        <div class="doc-meta-item">
+          <div class="doc-meta-label">Classification</div>
+          <div class="doc-meta-value" style="color: var(--r-hi-text);">Confidential</div>
+        </div>
+        <div class="doc-meta-item">
+          <div class="doc-meta-label">Version</div>
+          <div class="doc-meta-value">1.0 — Pre-VAPT</div>
+        </div>
+        <div class="doc-meta-item">
+          <div class="doc-meta-label">Date</div>
+          <div class="doc-meta-value">2026-08-18</div>
+        </div>
+        <div class="doc-meta-item">
+          <div class="doc-meta-label">Author</div>
+          <div class="doc-meta-value">Nilesh Shah</div>
+        </div>
+        <div class="doc-meta-item">
+          <div class="doc-meta-label">Scope</div>
+          <div class="doc-meta-value">CTS Inward + Outward + Platform Auth</div>
+        </div>
+        <div class="doc-meta-item">
+          <div class="doc-meta-label">Regulation</div>
+          <div class="doc-meta-value">RBI IT Framework 2023 · CTS-2010</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ── 1. System Overview ── -->
+    <section class="section" id="overview">
+      <div class="section-header">
+        <span class="section-num">§ 1</span>
+        <h2 class="section-title">System Overview</h2>
+      </div>
+      <p>ASTRA processes Indian CTS-2010 cheques for both sides of the clearing cycle. The Inward path (Drawee Bank) must return or confirm each instrument within the RBI T+3 hour IET window — one AI agent per cheque, maximum decision time 600ms, 500 agents in parallel per batch. The Outward path (Presentee Bank) handles scanner capture, MICR extraction, lot formation, and NGCH submission.</p>
+      <p>All computation is strictly on-premises inside the bank's own data centres. No cloud dependency. No vendor access to bank data. Dual-DC active-active with RPO = 0 and RTO &lt; 30 seconds.</p>
+      <div class="tbl-wrap">
+        <table class="info-table">
+          <thead><tr><th>Property</th><th>Value</th><th>Enforcement</th></tr></thead>
+          <tbody>
+            <tr><td>Deployment Model</td><td>On-premises, dual DC active-active</td><td>Helm chart — no cloud credentials in any chart</td></tr>
+            <tr><td>Data Localisation</td><td>Enforced — <code>data_localisation: enforced</code></td><td>Layer 1 non-overridable Helm key</td></tr>
+            <tr><td>Network Encryption</td><td>TLS 1.3 everywhere · mTLS for all internal comms</td><td>Istio sidecar on every pod; <code>min_tls_version: "1.3"</code> Layer 1</td></tr>
+            <tr><td>Audit Trail</td><td>Cryptographically append-only — Immudb Merkle tree</td><td><code>audit_trail_enabled: true</code> Layer 1; HSM-signed before write</td></tr>
+            <tr><td>AI Decision Explainability</td><td>SHAP values required on every cheque decision</td><td>NGCH filer activity blocks filing without SHAP</td></tr>
+            <tr><td>Secrets</td><td>HashiCorp Vault only — 24hr auto-rotation</td><td>gitleaks pre-commit hook; <code>config_service</code> is the sole gateway</td></tr>
+            <tr><td>NGCH Exactly-Once</td><td><code>exactly_once_ngch: true</code></td><td>Temporal idempotent workflow IDs + <code>DuplicateFilingError</code> non-retryable</td></tr>
+            <tr><td>PKI / HSM</td><td>FIPS 140-2 Level 3 HSM for all PKI ops</td><td><code>hsm_required: true</code> Layer 1; no software-held private keys</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── 2. Data Flow Diagram ── -->
+    <section class="section" id="dfd">
+      <div class="section-header">
+        <span class="section-num">§ 2</span>
+        <h2 class="section-title">Data Flow Diagram</h2>
+      </div>
+      <p>The DFD shows the CTS inward cheque path from branch scanner through NGCH filing. Trust zone boundaries mark where authentication and encryption controls change.</p>
+
+      <div class="diagram-wrap">
+        <pre class="mermaid">
+%%{init: {"theme": "neutral", "flowchart": {"nodeSpacing": 40, "rankSpacing": 60}}}%%
+flowchart TD
+    subgraph EXT["External Zone — Untrusted"]
+        SC["Branch Scanner\nCTS-2010"]
+        NPCI["NPCI NGCH\nClearing Hub"]
+        CBS["Core Banking\nFinacle / BaNCS"]
+        IDP["Bank IdP\nSAML 2.0"]
+    end
+    subgraph EDGE["Edge — mTLS Enforced"]
+        EEH["EEH\nEdge Endpoint Hub"]
+        IGW["Istio Ingress\n:443 / TLS 1.3"]
+    end
+    subgraph CORE["ASTRA Secure Core — Zero Trust / Istio mTLS"]
+        API["API Gateway\nFastAPI + JWT"]
+        TEMP["Temporal\nWorkflow Engine"]
+        WORKER["CTS Agent Workers\nChequeProcessingWorkflow"]
+        VLLM["vLLM\nQwen2-VL · OCR · Llama 70B"]
+        SVAULT["Signature Vault\nRedis Cluster"]
+        MCP["MCP NGCH Adapter"]
+    end
+    subgraph DATA["Encrypted Data Zone — AES-256 at Rest"]
+        YUG["YugabyteDB\nYSQL / pgcrypto PII columns"]
+        MINIO["MinIO\nWORM · SSE-KMS"]
+        IMMU["Immudb\nMerkle Audit Trail"]
+        HSM["HSM\nFIPS 140-2 Level 3"]
+    end
+
+    SC -->|"gRPC + mTLS\nclient cert required"| EEH
+    IDP -->|"SAML Assertion\nHTTPS"| IGW
+    EEH -->|"Kafka cts.inward\nSASL/SCRAM TLS"| WORKER
+    IGW -->|"JWT-authed REST\n/v1/cts/**"| API
+    API -->|"start_workflow"| TEMP
+    TEMP -->|"task queue\ncts-processing"| WORKER
+    WORKER <-->|"read-only · MCP"| CBS
+    WORKER -->|"GPU inference"| VLLM
+    WORKER -->|"vault lookup\nsig:bank:sha256"| SVAULT
+    WORKER -->|"SQL writes\nexplicit columns"| YUG
+    WORKER -->|"TIFF upload\nSSE-KMS"| MINIO
+    WORKER -->|"HSM-signed events"| IMMU
+    IMMU <-->|"sign · verify"| HSM
+    WORKER -->|"via MCP"| MCP
+    MCP -->|"SFTP · mTLS\nHSM PKI cert"| NPCI
+        </pre>
+        <div class="diagram-caption">Fig 2.1 — CTS Inward Data Flow (Level 1 DFD). Every arrow crossing a trust zone boundary requires mutual TLS.</div>
+      </div>
+
+      <div class="tbl-wrap">
+        <table class="info-table">
+          <thead><tr><th>Zone</th><th>Trust Level</th><th>Boundary Control</th></tr></thead>
+          <tbody>
+            <tr><td>External Zone</td><td>Untrusted</td><td>mTLS client cert (HSM-signed) required to enter EEH; SAML Assertion required for user auth</td></tr>
+            <tr><td>Edge — mTLS Enforced</td><td>Authenticated transit</td><td>Istio Ingress terminates TLS 1.3; no pod reachable without valid cert chain</td></tr>
+            <tr><td>ASTRA Secure Core</td><td>Zero Trust internal</td><td>Istio mTLS sidecar on every pod; Kubernetes NetworkPolicy; OPA Rego per request</td></tr>
+            <tr><td>Encrypted Data Zone</td><td>Highest trust — least privilege</td><td>pgcrypto column encryption; MinIO SSE-KMS; Vault dynamic creds 24h TTL; Immudb append-only</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── 3. Network Topology ── -->
+    <section class="section" id="topology">
+      <div class="section-header">
+        <span class="section-num">§ 3</span>
+        <h2 class="section-title">Network Topology &amp; DC Architecture</h2>
+      </div>
+      <p>ASTRA runs active-active across two on-premises data centres. Both DCs serve live traffic. DC3 is air-gapped and receives one-way nightly sync — it never serves traffic. Each bank is isolated in its own Kubernetes namespace pair (<code>astra-platform-{bank_id}</code> and <code>astra-cts-{bank_id}</code>) with dedicated resource quotas.</p>
+
+      <div class="diagram-wrap">
+        <pre class="mermaid">
+%%{init: {"theme": "neutral"}}%%
+graph TD
+    subgraph INET["Internet / External Network"]
+        N["NPCI NGCH"]
+        WA["WhatsApp Business API"]
+    end
+    subgraph BRANCH["Branch / PU Network"]
+        SCN["CTS Scanner Hardware"]
+        EH["EEH Node"]
+        SCN --> EH
+    end
+    subgraph DC1["DC1 — Active Primary"]
+        IG1["Istio Ingress :443"]
+        subgraph K8S1["Kubernetes Cluster"]
+            PLAT1["astra-platform-{bank}"]
+            CTS1["astra-cts-{bank}"]
+        end
+        VT1["HashiCorp Vault"]
+        YB1["YugabyteDB primary"]
+    end
+    subgraph DC2["DC2 — Active Secondary"]
+        IG2["Istio Ingress :443"]
+        subgraph K8S2["Kubernetes Cluster"]
+            PLAT2["astra-platform-{bank}"]
+            CTS2["astra-cts-{bank}"]
+        end
+        YB2["YugabyteDB replica"]
+    end
+    subgraph DC3["DC3 — Air-Gapped Cold Backup"]
+        TAPE["LTO-9 Tape / MinIO WORM"]
+    end
+
+    EH -->|"TLS 1.3"| IG1
+    EH -->|"TLS 1.3 failover"| IG2
+    DC1 <-->|"YB sync · Kafka MirrorMaker2 · Vault raft"| DC2
+    DC1 -->|"nightly · one-way"| DC3
+    CTS1 -->|"SFTP · mTLS · HSM cert"| N
+    PLAT1 -->|"HTTPS · Vault API key"| WA
+        </pre>
+        <div class="diagram-caption">Fig 3.1 — Active-Active DC Topology. DC3 is strictly air-gapped; it has no inbound path from any live DC.</div>
+      </div>
+
+      <div class="tbl-wrap">
+        <table class="info-table">
+          <thead><tr><th>DC</th><th>Role</th><th>Traffic</th><th>Isolation</th></tr></thead>
+          <tbody>
+            <tr><td>DC1</td><td>Active Primary</td><td>Live — 50% nominal</td><td>Full Istio mesh; KEDA autoscaling; all services present</td></tr>
+            <tr><td>DC2</td><td>Active Secondary</td><td>Live — 50% nominal; 100% on DC1 failure (&lt;30s)</td><td>Independent Kubernetes cluster; independent Vault raft member</td></tr>
+            <tr><td>DC3</td><td>Cold Backup — Air-Gapped</td><td>Receive only — no outbound to DC1/DC2; no live traffic served</td><td>MinIO Object Lock COMPLIANCE mode; physical network isolation from DC1/DC2</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">
+        <strong>Istio AuthorizationPolicy:</strong> Cross-module traffic (CTS → EJ namespace and vice versa) is blocked at the policy layer. Verified by deny-first default: only explicitly allowed paths in <code>opa/policies/cts_routing.rego</code> are permitted.
+      </div>
+    </section>
+
+    <!-- ── 4. Threat Model ── -->
+    <section class="section" id="threat-model">
+      <div class="section-header">
+        <span class="section-num">§ 4</span>
+        <h2 class="section-title">Threat Model (STRIDE)</h2>
+      </div>
+      <p>STRIDE analysis against key assets in the CTS pipeline. All thresholds cited (fraud score, OCR confidence, STP threshold) are pulled at runtime from <code>config_service</code> — no hardcoded values exist in implementation files.</p>
+
+      <div class="tbl-wrap">
+        <table class="info-table">
+          <thead>
+            <tr>
+              <th style="width:3%">ID</th>
+              <th style="width:14%">Asset</th>
+              <th style="width:7%">STRIDE</th>
+              <th style="width:24%">Threat</th>
+              <th style="width:35%">Control</th>
+              <th style="width:9%">Residual</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">T-01</td>
+              <td>JWT / Session Token</td>
+              <td>Spoofing</td>
+              <td>Token theft enables impersonation of bank operator</td>
+              <td>15-min TTL; SAML-issued (bank IdP HSM-protected); mTLS on all endpoints; no token in logs (structlog masking enforced)</td>
+              <td><span class="risk low">LOW</span></td>
+            </tr>
+            <tr>
+              <td class="mono">T-02</td>
+              <td>JWT Role Claim</td>
+              <td>Elevation of Privilege</td>
+              <td>Forged <code>role</code> claim in JWT grants higher permissions</td>
+              <td>JWT signed by bank IdP (RS256/ECDSA); signature verified on every request in <code>shared/auth/rbac.py</code>; role is not user-settable</td>
+              <td><span class="risk low">LOW</span></td>
+            </tr>
+            <tr>
+              <td class="mono">T-03</td>
+              <td>CTS Inward API</td>
+              <td>DoS</td>
+              <td>Mass submission floods CTS workers, delays IET processing</td>
+              <td>Rate limit 600 req/min per <code>bank_id</code> at Istio Ingress; KEDA autoscaling 0→500 pods on Kafka lag &gt;10; IETWatchdog files emergency on threshold breach regardless of queue depth</td>
+              <td><span class="risk low">LOW</span></td>
+            </tr>
+            <tr>
+              <td class="mono">T-04</td>
+              <td>Cheque Image (MinIO)</td>
+              <td>Information Disclosure</td>
+              <td>Exfiltration of TIFF images — contain customer PII (account number, signature, amount)</td>
+              <td>MinIO SSE-KMS (AES-256); KMS key in Vault transit engine; <code>RBAC.VIEW_PII</code> gate on API; bucket policy: no public read; Immudb audit on every object access</td>
+              <td><span class="risk low">LOW</span></td>
+            </tr>
+            <tr>
+              <td class="mono">T-05</td>
+              <td>Signature Vault (Redis)</td>
+              <td>Tampering</td>
+              <td>Cache poisoning inserts false signature template, bypasses mismatch detection</td>
+              <td>Keys are HMAC-SHA256(<code>bank_id:account_number</code>, Vault pepper) — raw account numbers never stored; Redis TLS + AUTH; Istio mTLS; VaultSyncWorkflow refreshes from Immudb-verified source daily at 06:00</td>
+              <td><span class="risk low">LOW</span></td>
+            </tr>
+            <tr>
+              <td class="mono">T-06</td>
+              <td>Signature Vault (Redis)</td>
+              <td>DoS</td>
+              <td>Vault miss (key not found) escalated to auto-approve or auto-return, bypassing review</td>
+              <td><code>vault_miss_action: HUMAN_REVIEW</code> is a Layer 1 non-overridable constant; the setting cannot be changed to AUTO_RETURN via any admin path; code path verified by 95%+ vault tests</td>
+              <td><span class="risk mitigated">MITIGATED</span></td>
+            </tr>
+            <tr>
+              <td class="mono">T-07</td>
+              <td>NGCH Filing</td>
+              <td>Repudiation</td>
+              <td>Duplicate NGCH submission — bank pays twice or creates reconciliation dispute</td>
+              <td>Temporal workflow ID <code>cts-{bank_id}-{instrument_id}</code> enforces exactly-once; <code>DuplicateFilingError</code> is non-retryable; Immudb audit trail with HSM signature on every filing; NGCH filer is the only code path allowed to submit</td>
+              <td><span class="risk mitigated">MITIGATED</span></td>
+            </tr>
+            <tr>
+              <td class="mono">T-08</td>
+              <td>NGCH SFTP Transport</td>
+              <td>Tampering</td>
+              <td>Man-in-the-middle on outbound SFTP connection, alters instrument data or inserts fraudulent lot</td>
+              <td>mTLS client certificate issued by HSM (FIPS 140-2 L3); TLS 1.3 minimum; server cert pinned in MCP NGCH adapter config; HSM signs every CXF file before upload</td>
+              <td><span class="risk low">LOW</span></td>
+            </tr>
+            <tr>
+              <td class="mono">T-09</td>
+              <td>Immudb Audit Trail</td>
+              <td>Tampering</td>
+              <td>Attacker deletes or rewrites audit log to remove evidence of fraud</td>
+              <td>Immudb is cryptographically append-only (Merkle tree); HSM signs each AuditEvent before write; <code>immudb verify()</code> detects any tree inconsistency; deletion is architecturally impossible — no DELETE API exists in Immudb</td>
+              <td><span class="risk mitigated">MITIGATED</span></td>
+            </tr>
+            <tr>
+              <td class="mono">T-10</td>
+              <td>Layer 3 Config (Thresholds)</td>
+              <td>Elevation of Privilege</td>
+              <td>ops_manager lowers fraud threshold to 0.01 — all cheques auto-approve regardless of fraud score</td>
+              <td>Maker-checker: <code>ops_manager</code> submits (maker), <code>bank_it_admin</code> approves (checker) — single role cannot change alone; every config change is Immudb-audited; Layer 1 keys (vault_miss_action, exactly_once_ngch) are immutable via Helm chart</td>
+              <td><span class="risk low">LOW</span></td>
+            </tr>
+            <tr>
+              <td class="mono">T-11</td>
+              <td>vLLM Inference</td>
+              <td>Tampering</td>
+              <td>Prompt injection via cheque image content manipulates OCR/fraud LLM output to approve fraudulent instrument</td>
+              <td>Structured JSON schema enforced on all vLLM responses; confidence threshold gate from config_service — low confidence → HUMAN_REVIEW regardless of label; SHAP required before NGCH filing; Langfuse traces every inference for anomaly detection</td>
+              <td><span class="risk med">MEDIUM</span></td>
+            </tr>
+            <tr>
+              <td class="mono">T-12</td>
+              <td>CBS Connector</td>
+              <td>Information Disclosure</td>
+              <td>CBS connector returns full account PII which leaks into logs or API responses</td>
+              <td>CBS connector is read-only via MCP (no write path); account numbers masked to <code>****{last4}</code> in all structlog calls; API responses return bucketed amounts and masked accounts; <code>VIEW_PII</code> permission gates decryption</td>
+              <td><span class="risk low">LOW</span></td>
+            </tr>
+            <tr>
+              <td class="mono">T-13</td>
+              <td>Temporal Workflow Engine</td>
+              <td>Spoofing</td>
+              <td>Workflow ID collision — attacker submits same instrument_id twice to create ambiguous state</td>
+              <td>Temporal enforces unique workflow IDs; a second <code>StartWorkflow</code> with an existing ID returns the existing run (idempotent); instrument_id generated by scanner and validated for uniqueness in <code>check_cheque_dedup</code> activity before workflow start</td>
+              <td><span class="risk mitigated">MITIGATED</span></td>
+            </tr>
+            <tr>
+              <td class="mono">T-14</td>
+              <td>Kubernetes Namespaces</td>
+              <td>Elevation of Privilege</td>
+              <td>CTS worker pod breaks out and reaches EJ namespace, accessing EJ customer data</td>
+              <td>Istio AuthorizationPolicy deny-by-default between <code>astra-cts-*</code> and <code>astra-ej-*</code> namespaces; separate Kafka consumer groups; no shared Redis or pgbouncer; OPA Rego enforces module routing</td>
+              <td><span class="risk low">LOW</span></td>
+            </tr>
+            <tr>
+              <td class="mono">T-15</td>
+              <td>Admin Console</td>
+              <td>Information Disclosure</td>
+              <td>Swagger UI exposed in production reveals internal API schema to attacker</td>
+              <td><code>docs_url=None</code> when <code>env != "development"</code> in FastAPI app setup; Istio Ingress only routes <code>/v1/**</code> and <code>/health/**</code> to API pods — no <code>/docs</code> route reaches production</td>
+              <td><span class="risk mitigated">MITIGATED</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">
+        <strong>T-11 (prompt injection) is rated MEDIUM</strong> because adversarial ML is a fast-moving threat class. Controls are strong (structured output, confidence gates, SHAP) but not formally verified. Recommend including adversarial image tests in the VAPT scope.
+      </div>
+    </section>
+
+    <!-- ── 5. Pen Test Scope ── -->
+    <section class="section" id="scope">
+      <div class="section-header">
+        <span class="section-num">§ 5</span>
+        <h2 class="section-title">Pen Test Scope &amp; ZAP Targets</h2>
+      </div>
+      <p>VAPT is scoped to the ASTRA application layer and its integration surfaces. NPCI NGCH infrastructure, physical HSM hardware, and third-party CBS systems are explicitly out of scope.</p>
+
+      <div class="scope-grid">
+        <div class="scope-col">
+          <h4>In Scope</h4>
+          <ul class="scope-list in">
+            <li data-icon="✓">CTS Inward API (<code>/v1/cts/inward/**</code>)</li>
+            <li data-icon="✓">CTS Outward API (<code>/v1/cts/outward/**</code>)</li>
+            <li data-icon="✓">Human Review API (<code>/v1/cts/review/**</code>)</li>
+            <li data-icon="✓">Admin Console API (<code>/v1/admin/**</code>)</li>
+            <li data-icon="✓">Authentication endpoints (<code>/auth/**</code>)</li>
+            <li data-icon="✓">MFA endpoints (<code>/auth/mfa/**</code>)</li>
+            <li data-icon="✓">Observability API (<code>/v1/observability/**</code>)</li>
+            <li data-icon="✓">Audit read API (<code>/v1/audit/**</code>)</li>
+            <li data-icon="✓">RBAC enforcement across all roles</li>
+            <li data-icon="✓">JWT validation and session management</li>
+            <li data-icon="✓">Rate limiting at Istio Ingress</li>
+            <li data-icon="✓">MinIO bucket access controls</li>
+            <li data-icon="✓">YugabyteDB SQL injection surface</li>
+            <li data-icon="✓">Kafka producer authentication</li>
+          </ul>
+        </div>
+        <div class="scope-col">
+          <h4>Out of Scope</h4>
+          <ul class="scope-list out">
+            <li data-icon="✗">NPCI NGCH infrastructure (NPCI-owned)</li>
+            <li data-icon="✗">Physical HSM hardware</li>
+            <li data-icon="✗">Bank CBS (Finacle / BaNCS / FlexCube) — separate vendor</li>
+            <li data-icon="✗">Bank IdP (SAML Identity Provider) — bank-owned</li>
+            <li data-icon="✗">Physical network and ISP infrastructure</li>
+            <li data-icon="✗">DC3 air-gapped backup systems</li>
+            <li data-icon="✗">WhatsApp Business API (Meta-owned)</li>
+            <li data-icon="✗">GitLab CI / ArgoCD infrastructure</li>
+            <li data-icon="✗">MLflow model registry (internal; no customer data)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 24px;">
+        <div class="card-title">OWASP ZAP Scan Targets — Staging Environment</div>
+        <ul class="zap-list">
+          <li class="zap-item">
+            <span class="zap-method post">POST</span>
+            <span class="zap-path">/v1/cts/inward/{instrument_id}/submit</span>
+            <span class="zap-note">Main inward submission; IET-critical</span>
+          </li>
+          <li class="zap-item">
+            <span class="zap-method get">GET</span>
+            <span class="zap-path">/v1/cts/queue</span>
+            <span class="zap-note">Human review queue; RBAC tested</span>
+          </li>
+          <li class="zap-item">
+            <span class="zap-method post">POST</span>
+            <span class="zap-path">/v1/cts/review/{instrument_id}/decide</span>
+            <span class="zap-note">Human review decision</span>
+          </li>
+          <li class="zap-item">
+            <span class="zap-method get">GET</span>
+            <span class="zap-path">/v1/cts/decisions</span>
+            <span class="zap-note">Agent decisions log</span>
+          </li>
+          <li class="zap-item">
+            <span class="zap-method post">POST</span>
+            <span class="zap-path">/v1/cts/outward/scan</span>
+            <span class="zap-note">Outward scan submission</span>
+          </li>
+          <li class="zap-item">
+            <span class="zap-method get">GET</span>
+            <span class="zap-path">/v1/admin/config</span>
+            <span class="zap-note">Layer 3 config read — RBAC critical</span>
+          </li>
+          <li class="zap-item">
+            <span class="zap-method post">POST</span>
+            <span class="zap-path">/v1/admin/config</span>
+            <span class="zap-note">Maker submit — requires ops_manager</span>
+          </li>
+          <li class="zap-item">
+            <span class="zap-method post">POST</span>
+            <span class="zap-path">/auth/login</span>
+            <span class="zap-note">Auth endpoint; brute-force, injection</span>
+          </li>
+          <li class="zap-item">
+            <span class="zap-method post">POST</span>
+            <span class="zap-path">/auth/mfa/verify</span>
+            <span class="zap-note">TOTP MFA; rate-limit test</span>
+          </li>
+          <li class="zap-item">
+            <span class="zap-method get">GET</span>
+            <span class="zap-path">/v1/audit/events</span>
+            <span class="zap-note">Audit read — compliance_officer / rbi_examiner</span>
+          </li>
+          <li class="zap-item">
+            <span class="zap-method get">GET</span>
+            <span class="zap-path">/health/ready</span>
+            <span class="zap-note">Exempt from auth — verify no data leakage</span>
+          </li>
+        </ul>
+        <div class="note" style="margin-top: 12px;">
+          <strong>Sanitised test data required:</strong> ZAP scans must use synthetic cheque images, synthetic account numbers, and a sandboxed staging Temporal cluster. Do not run active scans against a shared-cluster environment holding any real instrument data.
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 6. Port Matrix ── -->
+    <section class="section" id="ports">
+      <div class="section-header">
+        <span class="section-num">§ 6</span>
+        <h2 class="section-title">Port &amp; Protocol Matrix</h2>
+      </div>
+      <p>All ports below are controlled via Istio AuthorizationPolicy and Kubernetes NetworkPolicy. No port is reachable without a valid mTLS certificate except the Istio Ingress at <code>:443</code>, which requires a valid JWT.</p>
+
+      <div class="tbl-wrap">
+        <table class="info-table">
+          <thead>
+            <tr>
+              <th>Service</th>
+              <th>Port</th>
+              <th>Protocol</th>
+              <th>Auth Mechanism</th>
+              <th>Direction</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Istio Ingress Gateway</td><td class="mono">443</td><td>HTTPS / TLS 1.3</td><td>JWT (SAML-issued, RS256)</td><td>Inbound</td></tr>
+            <tr><td>EEH — Scanner Edge</td><td class="mono">8443</td><td>gRPC / TLS 1.3</td><td>mTLS client cert (HSM-issued)</td><td>Inbound</td></tr>
+            <tr><td>Temporal gRPC</td><td class="mono">7233</td><td>gRPC / TLS 1.3</td><td>mTLS + Vault AppRole</td><td>Internal</td></tr>
+            <tr><td>YugabyteDB YSQL</td><td class="mono">5433</td><td>PostgreSQL / TLS 1.3</td><td>Vault dynamic credentials (24h)</td><td>Internal (pgbouncer)</td></tr>
+            <tr><td>Redis Cluster</td><td class="mono">6380</td><td>RESP / TLS 1.3</td><td>AUTH token (Vault-rotated)</td><td>Internal</td></tr>
+            <tr><td>Kafka (Strimzi)</td><td class="mono">9093</td><td>Kafka / TLS 1.3</td><td>SASL/SCRAM-SHA-512</td><td>Internal + DC-DC</td></tr>
+            <tr><td>MinIO S3 API</td><td class="mono">9000</td><td>HTTPS / TLS 1.3</td><td>Vault IAM policy + STS</td><td>Internal</td></tr>
+            <tr><td>Immudb</td><td class="mono">3322</td><td>gRPC / TLS 1.3</td><td>API key (Vault-managed)</td><td>Internal</td></tr>
+            <tr><td>HashiCorp Vault</td><td class="mono">8200</td><td>HTTPS / TLS 1.3</td><td>AppRole + mTLS (Istio sidecar)</td><td>Internal</td></tr>
+            <tr><td>vLLM Inference Server</td><td class="mono">8000</td><td>HTTPS (Istio mTLS)</td><td>Istio mTLS sidecar — no app-level token</td><td>Internal (CTS ns only)</td></tr>
+            <tr><td>NGCH SFTP</td><td class="mono">22</td><td>SFTP / SSH</td><td>HSM-signed PKI cert (FIPS 140-2 L3)</td><td>Outbound</td></tr>
+            <tr><td>WhatsApp Business API</td><td class="mono">443</td><td>HTTPS / TLS 1.3</td><td>API key (Vault secret)</td><td>Outbound</td></tr>
+            <tr><td>YB DC Replication</td><td class="mono">7100 / 9100</td><td>TLS 1.3</td><td>Mutual TLS (cert rotation via Vault)</td><td>DC1 ↔ DC2</td></tr>
+            <tr><td>Kafka MirrorMaker 2</td><td class="mono">9093</td><td>Kafka / TLS 1.3</td><td>SASL/SCRAM-SHA-512</td><td>DC1 ↔ DC2</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card" style="margin-top: 24px;">
+        <div class="card-title">Control References — Layer 1 Non-Overridable Keys</div>
+        <div class="tbl-wrap" style="margin: 0;">
+          <table class="info-table">
+            <thead><tr><th>Key</th><th>Value</th><th>Effect</th></tr></thead>
+            <tbody>
+              <tr><td><code>min_tls_version</code></td><td><code>"1.3"</code></td><td>Istio + all internal clients reject TLS 1.2 and below</td></tr>
+              <tr><td><code>audit_trail_enabled</code></td><td><code>true</code></td><td>Cannot be disabled by any role; Immudb write is always attempted</td></tr>
+              <tr><td><code>data_localisation</code></td><td><code>enforced</code></td><td>No cloud API calls permitted from any ASTRA service</td></tr>
+              <tr><td><code>hsm_required</code></td><td><code>true</code></td><td>Vault transit key operations routed to HSM; no software-held private keys</td></tr>
+              <tr><td><code>exactly_once_ngch</code></td><td><code>true</code></td><td>Temporal idempotency + DuplicateFilingError non-retryable</td></tr>
+              <tr><td><code>iet_watchdog_enabled</code></td><td><code>true</code></td><td>IETWatchdogWorkflow starts before any other activity — non-negotiable</td></tr>
+              <tr><td><code>vault_miss_action</code></td><td><code>HUMAN_REVIEW</code></td><td>Vault miss always routes to human review; cannot be set to AUTO_RETURN</td></tr>
+              <tr><td><code>opa_required</code></td><td><code>true</code></td><td>OPA policy check required on every mutating request; fail-closed</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+// Set initial theme based on OS preference
+(function() {
+  const pref = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', pref);
+})();
+
+// Highlight active nav link on scroll
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.nav-links a');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      navLinks.forEach(a => a.classList.remove('active'));
+      const link = document.querySelector('.nav-links a[href="#' + e.target.id + '"]');
+      if (link) link.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+sections.forEach(s => observer.observe(s));
+</script>

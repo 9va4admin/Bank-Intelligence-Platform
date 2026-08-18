@@ -10,7 +10,6 @@
 | Fraud synthesis + explanation | Llama 3.3 70B | `cts-reasoning` | CTS only |
 | CCTV frame analysis, person detection | InternVL2-26B | `cts-vision-cctv` | CTS only |
 | Fraud scoring (structured features) | XGBoost ensemble | direct call, no GPU | CTS only |
-| EJ parsing / dispute / embeddings | Llama 3.3 70B / BGE-M3 / Qwen2.5 72B | `ej-reasoning` / `ej-embeddings` / `ej-dispute` | EJ only — see reference/ej.md |
 
 ## vLLM Client Call Pattern (Mandatory)
 
@@ -41,7 +40,7 @@ Fallback priority: LLM down → rule-based fallback → human review · CBS unre
 
 ## Forbidden Patterns
 - Calling vLLM without specifying `queue` in `extra_body` — always explicit
-- Using a CTS queue (`cts-vision`) from EJ module code — isolation violation
+- Using a CTS queue (`cts-vision`, `cts-ocr`, `cts-reasoning`) from any non-CTS code
 - Caching any AI output — every cheque is unique, never reuse inference results
 - Filing to NGCH without SHAP values stored — audit compliance violation
 - Logging full prompt content if it contains account numbers or customer names

@@ -16,10 +16,12 @@ Pre-flight gate: GET /v1/admin/mcp-connections/preflight
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
+from urllib.parse import urlparse
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -42,6 +44,72 @@ _VALID_TYPES = {"SB_CBS", "SMB_CBS", "SIGNATURE_VAULT", "PPS_VAULT", "CANCELLED_
 _VALID_CBS_VENDORS = {"finacle", "bancs", "flexcube"}
 
 _policy = RBACPolicy()
+
+# ── SSRF protection for endpoint_url ─────────────────────────────────────────
+
+# RFC 1918 private ranges + loopback + RFC 3927 link-local (on-prem self-configured)
+_BLOCKED_IP_NETWORKS = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),   # RFC 3927 link-local (NOT cloud-specific)
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+]
+
+# Kubernetes short-form service names for ASTRA-internal infrastructure
+_BLOCKED_K8S_NAMES = frozenset({
+    "vault", "redis-cts", "redis-ej", "immudb", "yugabyte", "minio",
+    "temporal", "kafka", "strimzi", "etcd", "kubernetes",
+})
+
+# Kubernetes cluster-internal DNS suffixes that must never be reachable from user input
+_BLOCKED_CLUSTER_SUFFIXES = (".svc.cluster.local", ".pod.cluster.local")
+
+
+def _validate_ssrf_url(url: str) -> Optional[str]:
+    """Return an error reason string if url could reach ASTRA-internal infrastructure, else None.
+
+    Only validates http:// and https:// — other schemes (redis://, sftp://) are
+    not dispatched through httpx and carry no SSRF risk via the connection tester.
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return "Malformed URL"
+
+    if parsed.scheme not in ("http", "https"):
+        return None  # non-HTTP schemes — not reachable via httpx, no SSRF vector
+
+    host = (parsed.hostname or "").lower().strip("[]")  # strip IPv6 brackets
+
+    if not host:
+        return "Missing host in URL"
+
+    # Loopback
+    if host in ("localhost", "127.0.0.1", "::1"):
+        return f"Loopback host not allowed: {host}"
+
+    # Known ASTRA Kubernetes service names
+    if host in _BLOCKED_K8S_NAMES:
+        return f"ASTRA-internal service hostname not allowed: {host}"
+
+    # Kubernetes cluster-internal DNS suffixes
+    if any(host.endswith(suffix) for suffix in _BLOCKED_CLUSTER_SUFFIXES):
+        return f"Kubernetes cluster-internal hostname not allowed: {host}"
+
+    # Private/link-local IP ranges
+    try:
+        ip = ipaddress.ip_address(host)
+        for net in _BLOCKED_IP_NETWORKS:
+            if ip in net:
+                return f"Private or link-local IP range not allowed: {host}"
+    except ValueError:
+        pass  # not an IP address — hostname checks above are sufficient
+
+    return None
+
 
 # ── In-memory store (replaced by YugabyteDB in production) ──────────────────
 
@@ -314,6 +382,9 @@ async def _default_tester(row: dict):
             url = row.get("endpoint_url", "")
             if not url:
                 return False, None, "No endpoint_url configured"
+            ssrf_err = _validate_ssrf_url(url)
+            if ssrf_err:
+                return False, None, f"SSRF policy blocked probe: {ssrf_err}"
             resp = await client.get(url + "/health", timeout=10.0)
             latency_ms = int((time.monotonic() - t0) * 1000)
             return resp.status_code < 500, latency_ms, None
@@ -526,6 +597,16 @@ class MCPConnectionCreate(BaseModel):
             raise ValueError(f"cbs_vendor must be one of {_VALID_CBS_VENDORS}")
         return v
 
+    @field_validator("endpoint_url")
+    @classmethod
+    def validate_endpoint_url_no_ssrf(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        err = _validate_ssrf_url(v)
+        if err:
+            raise ValueError(f"endpoint_url blocked by SSRF policy: {err}")
+        return v
+
 
 class MCPConnectionUpdate(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -540,6 +621,16 @@ class MCPConnectionUpdate(BaseModel):
     def validate_vendor(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v not in _VALID_CBS_VENDORS:
             raise ValueError(f"cbs_vendor must be one of {_VALID_CBS_VENDORS}")
+        return v
+
+    @field_validator("endpoint_url")
+    @classmethod
+    def validate_endpoint_url_no_ssrf(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        err = _validate_ssrf_url(v)
+        if err:
+            raise ValueError(f"endpoint_url blocked by SSRF policy: {err}")
         return v
 
 
@@ -656,10 +747,14 @@ def _row_to_response(row: dict) -> MCPConnectionResponse:
 
 
 def _scope_check(user: dict, row: dict):
-    """Raise 403 if SMB user tries to access a row belonging to a different SMB."""
+    """Raise 404 if SMB user tries to access a row belonging to a different SMB.
+
+    404 (not 403) is deliberate IDOR protection: a 403 would reveal the resource
+    exists, giving a cross-SMB existence oracle. 404 is opaque — same as not found.
+    """
     if user["bank_type"] == "SMB":
         if row.get("smb_id") != user.get("smb_id"):
-            raise HTTPException(status_code=403, detail="Access denied: not your SMB connection")
+            raise HTTPException(status_code=404, detail="Connection not found")
 
 
 # ── Router ───────────────────────────────────────────────────────────────────

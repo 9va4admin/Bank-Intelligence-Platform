@@ -17,8 +17,10 @@ from contextlib import asynccontextmanager
 
 import redis.asyncio as aioredis
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from apps.api.middleware.authentication import AuthenticationMiddleware
 from apps.api.middleware.rate_limit import RateLimitMiddleware
@@ -30,6 +32,7 @@ from apps.api.routers import observability
 from apps.api.routers import branches, processing_units
 from apps.api.routers import platform as platform_router
 from apps.api.routers import scanner, scanner_configs
+from apps.api.routers import vault_upload
 from shared.config.config_service import config_service
 from shared.config.exceptions import ConfigKeyNotFoundError
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
@@ -195,7 +198,7 @@ async def lifespan(app: FastAPI):
     # VaultTOTPSecretStore writes TOTP enrollment secrets to Vault KV v2; falls back
     # to InMemoryTOTPSecretStore if Vault env vars are absent (dev/CI — warns loudly).
     try:
-        from shared.auth.connectors.local import YugabyteDBLocalAuthConnector
+        from shared.auth.connectors.factory import AuthConnectorFactory
         from shared.auth.enrollment_store import YugabyteDBAccountEnrollmentStore
         from shared.auth.mfa import TOTPMFAService
         from shared.auth.mfa_stores import InMemoryTOTPSecretStore, VaultTOTPSecretStore
@@ -204,10 +207,12 @@ async def lifespan(app: FastAPI):
         _bank_id = config_service.bank_id
 
         if app.state.db_pool_cts is not None:
-            _connector = YugabyteDBLocalAuthConnector(
+            _connector_factory = AuthConnectorFactory(
                 bank_id=_bank_id,
+                config_service=config_service,
                 db_pool=app.state.db_pool_cts,
             )
+            app.state.connector_factory = _connector_factory
             _enrollment_store = YugabyteDBAccountEnrollmentStore(app.state.db_pool_cts)
         else:
             # DB pool unavailable — auth service cannot be built
@@ -232,7 +237,7 @@ async def lifespan(app: FastAPI):
         _mfa = TOTPMFAService(store=_totp_store, issuer="ASTRA")
 
         app.state.auth_service = AuthService(
-            connector=_connector,
+            connector_factory=_connector_factory,
             mfa=_mfa,
             session_service=app.state.session_service,
             account_store=_enrollment_store,
@@ -370,8 +375,28 @@ app.include_router(processing_units.router_v1)
 app.include_router(platform_router.router_v1)
 app.include_router(scanner.router_v1)
 app.include_router(scanner_configs.router_v1)
+app.include_router(vault_upload.router_v1)
 if _env in ("development", "staging"):
     app.include_router(demo.router_v1)
+
+
+# --- Exception handlers ---
+
+@app.exception_handler(RequestValidationError)
+async def _validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Replace FastAPI's verbose 422 detail with a generic error — prevents schema disclosure."""
+    from opentelemetry import trace
+    span = trace.get_current_span()
+    ctx = span.get_span_context() if span else None
+    request_id = format(ctx.trace_id, "032x") if ctx and ctx.is_valid() else "unknown"
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error_code": "INVALID_REQUEST",
+            "message": "Request validation failed. Check required fields and data types.",
+            "request_id": request_id,
+        },
+    )
 
 
 # --- Health endpoints (no auth — Kubernetes probes) ---

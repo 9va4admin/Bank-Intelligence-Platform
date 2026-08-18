@@ -46,6 +46,23 @@ _VALID_EVENT_TYPES = {
     "CTS_OUT_ENDORSEMENT_FAILED",
     "CTS_OUT_NGCH_SUBMITTED",
     "CTS_OUT_NGCH_SUBMISSION_FAILED",
+    # ── Outward scan ──────────────────────────────────────────────────────────
+    "CTS_OUT_INSTRUMENT_PENDING",       # terminal acceptance — includes ocr_engines_used
+    "CTS_OUT_DATE_INVALID",
+    "CTS_OUT_DUPLICATE_CHEQUE",
+    "CTS_OUT_PAYEE_NOT_FOUND",
+    "CTS_OUT_PAYEE_INACTIVE_HELD",
+    "CTS_OUT_PAYEE_INACTIVE",
+    "CTS_OUT_PAYEE_NAME_MISMATCH",
+    "CTS_OUT_NGCH_METADATA_MISMATCH",
+    "CTS_OUT_SIGNATURE_ABSENT",
+    "CTS_OUT_SECURITY_FEATURES_MISSING",
+    # ── Kill switch ───────────────────────────────────────────────────────────
+    "CTS_KILL_SWITCH_APPLIED",          # per-instrument: KP or KC applied (including IndicOCR KC)
+    "CTS_KILL_SWITCH_ENGAGED",
+    "CTS_KILL_SWITCH_RELEASED",
+    # ── Instrument passport / OCR provenance ──────────────────────────────────
+    "CTS_INSTRUMENT_PASSPORT",          # per-instrument full AI analysis record
 }
 
 

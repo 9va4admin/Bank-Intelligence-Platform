@@ -29,7 +29,7 @@ Temporal signals:
   - Human review queue depth and average wait time
 
 Infrastructure signals:
-  - Redis hit/miss rate per vault (CTS, EJ)
+  - Redis hit/miss rate per vault (CTS)
   - DB query latency percentiles (p50, p95, p99) per service
   - Pod CPU/memory utilisation per namespace
   - vLLM inference queue depth and latency per model queue
@@ -107,7 +107,7 @@ Output: {
 
 ### `get_service_health`
 ```json
-Input:  { "services": ["cts-agent-worker", "ej-normalisation-worker"] }
+Input:  { "services": ["cts-agent-worker"] }
 Output: {
   "cts-agent-worker": {
     "pod_count": 8,

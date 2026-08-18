@@ -17,6 +17,12 @@ import AppShell from '../../../shared/layout/AppShell'
 
 const REFETCH_MS = 30_000
 
+const MOCK_CLAIMS = [
+  { instrument_id: 'CHQ-IN-20260811-0142', reviewer_id: 'ananya.krishnan', reviewer_name: 'Ananya Krishnan', claimed_at: '2026-08-11T09:31:00Z', tier: 1, reason: 'SIGNATURE_MISMATCH' },
+  { instrument_id: 'CHQ-IN-20260811-0157', reviewer_id: 'rahul.menon',     reviewer_name: 'Rahul Menon',     claimed_at: '2026-08-11T09:38:00Z', tier: 2, reason: 'AMOUNT_MISMATCH'    },
+  { instrument_id: 'CHQ-IN-20260811-0163', reviewer_id: 'ananya.krishnan', reviewer_name: 'Ananya Krishnan', claimed_at: '2026-08-11T09:44:00Z', tier: 1, reason: 'HIGH_VALUE_DUAL_APPROVAL' },
+]
+
 function ModeTag({ mode, isDark }) {
   const colors = {
     SELF:   isDark ? 'bg-slate-700/60 text-slate-300' : 'bg-slate-100 text-slate-600',
@@ -57,11 +63,12 @@ export default function CTSAllocationAdmin() {
   const { data: statusData, isLoading, isError, dataUpdatedAt } = useQuery({
     queryKey: ['allocation-status', bankId],
     queryFn: async () => {
+      if (isDemo) return { active_claims: MOCK_CLAIMS }
       const res = await fetch(`/v1/cts/allocation/status?bank_id=${bankId}`, { credentials: 'include' })
       if (!res.ok) throw new Error('Failed to load allocation status')
       return res.json()
     },
-    enabled: !isDemo,
+    enabled: true,
     refetchInterval: isDemo ? false : REFETCH_MS,
     staleTime: 10_000,
     retry: false,
@@ -71,11 +78,12 @@ export default function CTSAllocationAdmin() {
   const { data: cfgData } = useQuery({
     queryKey: ['cts-config-alloc-mode', bankId],
     queryFn: async () => {
+      if (isDemo) return { allocation_mode: 'HYBRID' }
       const res = await fetch(`/v1/admin/config/keys?prefix=allocation&bank_id=${bankId}`, { credentials: 'include' })
       if (!res.ok) return {}
       return res.json()
     },
-    enabled: !isDemo,
+    enabled: true,
     staleTime: 30_000,
     retry: false,
   })

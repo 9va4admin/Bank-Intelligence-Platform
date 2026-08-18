@@ -96,6 +96,50 @@ SEED_ACCOUNTS: dict[str, dict] = {
         "entity_type": "smb", "entity_id": "smb-mh-vasavi", "bank_id": "smb-mh-vasavi",
         "clearing_zones": ["MUMBAI"],
     },
+    # ── Federal Bank dev accounts (VITE_BANK_ID=federal-bank) ─────────────────
+    "fed-admin": {
+        "user_id": "usr-fed-admin", "password": "federal-dev-admin",
+        "display_name": "Priya Nair", "role": "bank_it_admin",
+        "bank_type": "SB", "permission_level": "ADMIN",
+        "entity_type": "sb", "entity_id": "federal-bank", "bank_id": "federal-bank",
+        "clearing_zones": ["ALL"],
+    },
+    "fed-ops": {
+        "user_id": "usr-fed-ops", "password": "federal-dev-ops",
+        "display_name": "Rajan Thomas", "role": "ops_manager",
+        "bank_type": "SB", "permission_level": "EDIT",
+        "entity_type": "sb", "entity_id": "federal-bank", "bank_id": "federal-bank",
+        "clearing_zones": ["ALL"],
+    },
+    "fed-reviewer": {
+        "user_id": "usr-fed-rev", "password": "federal-dev-reviewer",
+        "display_name": "Meena Pillai", "role": "ops_reviewer",
+        "bank_type": "SB", "permission_level": "READ",
+        "entity_type": "sb", "entity_id": "federal-bank", "bank_id": "federal-bank",
+        "clearing_zones": ["ALL"],
+    },
+    # ── Union Bank of India dev accounts (VITE_BANK_ID=union-bank) ────────────
+    "ubi-admin": {
+        "user_id": "usr-ubi-admin", "password": "union-dev-admin",
+        "display_name": "Rajesh Kumar", "role": "bank_it_admin",
+        "bank_type": "SB", "permission_level": "ADMIN",
+        "entity_type": "sb", "entity_id": "union-bank", "bank_id": "union-bank",
+        "clearing_zones": ["ALL"],
+    },
+    "ubi-ops": {
+        "user_id": "usr-ubi-ops", "password": "union-dev-ops",
+        "display_name": "Preethi Menon", "role": "ops_manager",
+        "bank_type": "SB", "permission_level": "EDIT",
+        "entity_type": "sb", "entity_id": "union-bank", "bank_id": "union-bank",
+        "clearing_zones": ["ALL"],
+    },
+    "ubi-smb": {
+        "user_id": "usr-ubi-smb", "password": "union-dev-smb",
+        "display_name": "NM Co-op Admin", "role": "smb_admin",
+        "bank_type": "SMB", "permission_level": "ADMIN",
+        "entity_type": "smb", "entity_id": "smb-mh-nmcb", "bank_id": "smb-mh-nmcb",
+        "clearing_zones": ["WEST"],
+    },
 }
 
 _PH = PasswordHasher()
@@ -196,8 +240,11 @@ CREATE TABLE IF NOT EXISTS platform.banks (
 -- Seed dev banks so every FK-less query still resolves
 INSERT INTO platform.banks (bank_id, bank_name, bank_code, ifsc_prefix, bank_type)
 VALUES
-  ('saraswat-coop', 'Saraswat Co-operative Bank', 'SRCB', 'SRCB', 'COOPERATIVE'),
-  ('smb-mh-vasavi',  'Vasavi Co-operative Bank',  'VASB', 'VASB', 'COOPERATIVE')
+  ('saraswat-coop', 'Saraswat Co-operative Bank',           'SRCB', 'SRCB', 'COOPERATIVE'),
+  ('smb-mh-vasavi', 'Vasavi Co-operative Bank',             'VASB', 'VASB', 'COOPERATIVE'),
+  ('federal-bank',  'Federal Bank',                         'FDRL', 'FDRL', 'PRIVATE'),
+  ('union-bank',    'Union Bank of India',                  'UBIN', 'UBIN', 'PUBLIC_SECTOR'),
+  ('smb-mh-nmcb',  'Navi Mumbai Co-operative Bank Ltd.',   'NMCB', 'NMCB', 'COOPERATIVE')
 ON CONFLICT (bank_id) DO NOTHING;
 
 -- ── Platform: user accounts (argon2 hash + TOTP) ─────────────────────────────
@@ -341,6 +388,57 @@ ALTER TABLE cts.branches ADD CONSTRAINT ck_branches_scanner_input_mode CHECK (sc
 -- Migration: drop duplicate drop_folder_base_path (canonical location is scanner_configs.drop_folder_path)
 ALTER TABLE cts.branches DROP COLUMN IF EXISTS drop_folder_base_path;
 
+-- ── Union Bank of India demo seed — 2 PUs, 10 branches ───────────────────────
+INSERT INTO cts.processing_units
+  (pu_id, bank_id, pu_name, clearing_zone, ngch_participant_code,
+   temporal_task_queue, kafka_inward_topic, max_agent_swarm_size)
+VALUES
+  ('UBIN-PU-WEST',  'union-bank', 'Union Bank Western PU',
+   'WEST', 'UBIN-WEST',
+   'cts-processing-union-bank-west', 'cts.inward.union-bank.west', 300),
+  ('UBIN-PU-SOUTH', 'union-bank', 'Union Bank Southern PU',
+   'SOUTH', 'UBIN-SOUTH',
+   'cts-processing-union-bank-south', 'cts.inward.union-bank.south', 300)
+ON CONFLICT (pu_id) DO NOTHING;
+
+INSERT INTO cts.branches
+  (branch_id, bank_id, branch_name, branch_ifsc, city, state, address, pu_id,
+   scanner_input_mode, is_scanning_enabled, is_active, created_by)
+VALUES
+  -- PU-WEST: Mumbai, Pune, Ahmedabad, Lucknow, Chandigarh
+  ('ubin-mum-fort',  'union-bank', 'Fort Branch',           'UBIN0530001',
+   'Mumbai',     'MH', '239, Vidhan Bhavan Marg, Fort, Mumbai - 400 001',
+   'UBIN-PU-WEST', 'UI_UPLOAD', true, true, 'system'),
+  ('ubin-pun-fc',    'union-bank', 'FC Road Branch',        'UBIN0530008',
+   'Pune',       'MH', '1187/4, FC Road, Shivajinagar, Pune - 411 016',
+   'UBIN-PU-WEST', 'UI_UPLOAD', true, true, 'system'),
+  ('ubin-ahm-cg',    'union-bank', 'CG Road Branch',        'UBIN0530007',
+   'Ahmedabad',  'GJ', 'Sunrise Complex, CG Road, Ahmedabad - 380 009',
+   'UBIN-PU-WEST', 'UI_UPLOAD', true, true, 'system'),
+  ('ubin-lko-haz',   'union-bank', 'Hazratganj Branch',     'UBIN0530009',
+   'Lucknow',    'UP', '12, Mahatma Gandhi Marg, Hazratganj, Lucknow - 226 001',
+   'UBIN-PU-WEST', 'UI_UPLOAD', true, true, 'system'),
+  ('ubin-chd-s17',   'union-bank', 'Sector 17 Branch',      'UBIN0530010',
+   'Chandigarh', 'PB', 'SCO 92-93, Sector 17-B, Chandigarh - 160 017',
+   'UBIN-PU-WEST', 'UI_UPLOAD', true, true, 'system'),
+  -- PU-SOUTH: Chennai, Bengaluru, Hyderabad, Kolkata, New Delhi
+  ('ubin-chn-anna',  'union-bank', 'Anna Salai Branch',     'UBIN0530003',
+   'Chennai',    'TN', '184, Anna Salai, Chennai - 600 006',
+   'UBIN-PU-SOUTH', 'UI_UPLOAD', true, true, 'system'),
+  ('ubin-blr-mg',    'union-bank', 'MG Road Branch',        'UBIN0530005',
+   'Bengaluru',  'KA', '50, MG Road, Bengaluru - 560 001',
+   'UBIN-PU-SOUTH', 'UI_UPLOAD', true, true, 'system'),
+  ('ubin-hyd-abids', 'union-bank', 'Abids Branch',          'UBIN0530006',
+   'Hyderabad',  'TS', '4-1-844, Abids, Hyderabad - 500 001',
+   'UBIN-PU-SOUTH', 'UI_UPLOAD', true, true, 'system'),
+  ('ubin-kol-dal',   'union-bank', 'Dalhousie Square Branch','UBIN0530004',
+   'Kolkata',    'WB', '8, Dalhousie Square, Kolkata - 700 001',
+   'UBIN-PU-SOUTH', 'UI_UPLOAD', true, true, 'system'),
+  ('ubin-del-cp',    'union-bank', 'Connaught Place Branch', 'UBIN0530002',
+   'New Delhi',  'DL', 'E-12, Connaught Place, New Delhi - 110 001',
+   'UBIN-PU-SOUTH', 'UI_UPLOAD', true, true, 'system')
+ON CONFLICT (branch_id) DO NOTHING;
+
 -- ── CTS: Scanner registrations (SDK_PUSH mode — machine identity lifecycle) ──
 CREATE TABLE IF NOT EXISTS cts.scanner_registrations (
     registration_id           TEXT NOT NULL,
@@ -454,6 +552,8 @@ CREATE TABLE IF NOT EXISTS cts.clearing_sessions (
     npci_ack_ref       TEXT,
     PRIMARY KEY (session_id)
 );
+-- Migration: add clearing_date if table was created by an older DDL version
+ALTER TABLE cts.clearing_sessions ADD COLUMN IF NOT EXISTS clearing_date DATE NOT NULL DEFAULT CURRENT_DATE;
 CREATE INDEX IF NOT EXISTS ix_cs_bank_date
     ON cts.clearing_sessions (bank_id, clearing_date);
 
@@ -493,7 +593,17 @@ VALUES
    'ops_manager', 'EDIT', 'SB', ARRAY['ALL'], false),
   ('usr-smb',   'smb-mh-vasavi', 'smb', 'smb-mh-vasavi', 'smb',   'Vasavi Admin',
    '$argon2id$v=19$m=65536,t=3,p=4$WVVrBi7dk2K+WI79D05Njg$Bw6eRjYKWAsrdKrFs5hxvuGzOxr7SNc8mP2RGkagZBQ',
-   'smb_admin',   'ADMIN', 'SMB', ARRAY['MUMBAI'], false)
+   'smb_admin',   'ADMIN', 'SMB', ARRAY['MUMBAI'], false),
+  -- Federal Bank dev accounts (VITE_BANK_ID=federal-bank)
+  ('usr-fed-admin', 'federal-bank', 'sb', 'federal-bank', 'fed-admin', 'Priya Nair',
+   '$argon2id$v=19$m=65536,t=3,p=4$kK58+XyJeeIklEpC1NLC+w$CmP7ooYe5Y543B6b9saNynLswlK3wleMbWdQfQqW5hs',
+   'bank_it_admin', 'ADMIN', 'SB', ARRAY['ALL'], false),
+  ('usr-fed-ops',   'federal-bank', 'sb', 'federal-bank', 'fed-ops',   'Rajan Thomas',
+   '$argon2id$v=19$m=65536,t=3,p=4$FkNrtPVfTrlvql8PzoKckw$+AL7/zFDK9RP3dQ+kEdtcuB3/i/a1fJgYvR+K10c4Bs',
+   'ops_manager',   'EDIT',  'SB', ARRAY['ALL'], false),
+  ('usr-fed-rev',   'federal-bank', 'sb', 'federal-bank', 'fed-reviewer', 'Meena Pillai',
+   '$argon2id$v=19$m=65536,t=3,p=4$IbaUYWuuMX6kkl8SwhEQpg$AQ6DEwZIhJSUCZIdW2tZyg+p3Zxra4ze1sVMotIhgyA',
+   'ops_reviewer',  'READ',  'SB', ARRAY['ALL'], false)
 ON CONFLICT (username, bank_id) DO NOTHING;
 
 -- Seed CTS + AI defaults for saraswat-coop so activities have thresholds to load

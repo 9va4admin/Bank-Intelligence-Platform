@@ -33,8 +33,15 @@ async function apiFetch(path, opts = {}) {
 
 const SB_ROLES = ['ops_reviewer', 'fraud_analyst', 'ops_manager', 'bank_it_admin', 'compliance_officer', 'rbi_examiner', 'ml_engineer', 'smb_it_admin']
 const SMB_ROLES = ['smb_admin', 'smb_editor', 'smb_viewer']
-const VALID_ZONES = ['MUMBAI', 'DELHI', 'CHENNAI', 'KOLKATA', 'AHMEDABAD', 'HYDERABAD']
 const PERMISSION_LEVELS = ['ADMIN', 'EDIT', 'READ_ONLY']
+
+const ZONES_BY_BANK = {
+  'federal-bank':   ['SOUTH', 'WEST', 'NORTH', 'EAST'],
+  'saraswat-coop':  ['MUMBAI', 'PUNE', 'DELHI', 'CHENNAI', 'KOLKATA', 'AHMEDABAD', 'HYDERABAD'],
+  'karnataka-bank': ['SOUTH', 'NORTH'],
+  'union-bank':     ['WEST', 'SOUTH', 'NORTH', 'EAST'],
+}
+const VALID_ZONES = ZONES_BY_BANK[BANK_CONFIG.bank_id] ?? ['SOUTH', 'NORTH', 'EAST', 'WEST']
 
 const ROLE_LABELS = {
   ops_reviewer:       'Ops Reviewer',
@@ -92,16 +99,44 @@ const ROLE_COLORS_L = {
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
-const MOCK_USERS = [
-  { user_id: 'usr-001', email: 'ops1@hdfc.com',        display_name: 'Priya Mehta',       bank_type: 'SB',  role: 'ops_reviewer',       permission_level: 'EDIT',      clearing_zone: 'MUMBAI', is_active: true,  totp_enabled: true,  last_login: '2026-06-25T09:14:00Z' },
-  { user_id: 'usr-002', email: 'fraud1@hdfc.com',      display_name: 'Rahul Singh',        bank_type: 'SB',  role: 'fraud_analyst',      permission_level: 'EDIT',      clearing_zone: 'DELHI',  is_active: true,  totp_enabled: false, last_login: '2026-06-25T08:52:00Z' },
-  { user_id: 'usr-003', email: 'mgr1@hdfc.com',        display_name: 'Sunita Iyer',        bank_type: 'SB',  role: 'ops_manager',        permission_level: 'EDIT',      clearing_zone: null,     is_active: true,  totp_enabled: true,  last_login: '2026-06-24T17:30:00Z' },
-  { user_id: 'usr-004', email: 'admin1@hdfc.com',      display_name: 'Vikram Kapoor',      bank_type: 'SB',  role: 'bank_it_admin',      permission_level: 'ADMIN',     clearing_zone: null,     is_active: true,  totp_enabled: true,  last_login: '2026-06-25T07:00:00Z' },
-  { user_id: 'usr-005', email: 'compliance@hdfc.com',  display_name: 'Meena Nair',         bank_type: 'SB',  role: 'compliance_officer', permission_level: 'READ_ONLY', clearing_zone: null,     is_active: false, totp_enabled: false, last_login: '2026-06-20T11:00:00Z' },
-  { user_id: 'usr-006', email: 'admin@saraswat.coop',  display_name: 'Ravi Kulkarni',      bank_type: 'SMB', role: 'smb_admin',          permission_level: 'ADMIN',     clearing_zone: null,     is_active: true,  totp_enabled: true,  last_login: '2026-06-25T10:05:00Z' },
-  { user_id: 'usr-007', email: 'ops@saraswat.coop',    display_name: 'Anita Desai',        bank_type: 'SMB', role: 'smb_editor',         permission_level: 'EDIT',      clearing_zone: null,     is_active: true,  totp_enabled: false, last_login: '2026-06-24T15:30:00Z' },
-  { user_id: 'usr-008', email: 'view@cosmos.coop',     display_name: 'Suresh Patil',       bank_type: 'SMB', role: 'smb_viewer',         permission_level: 'READ_ONLY', clearing_zone: null,     is_active: true,  totp_enabled: false, last_login: '2026-06-23T09:00:00Z' },
-]
+const MOCK_USERS_BY_BANK = {
+  'federal-bank': [
+    { user_id: 'usr-001', email: 'ops.south@federalbank.co.in',       display_name: 'Ananya Krishnan',    bank_type: 'SB',  role: 'ops_reviewer',       permission_level: 'EDIT',      clearing_zone: 'SOUTH', is_active: true,  totp_enabled: true,  last_login: '2026-08-11T09:14:00Z' },
+    { user_id: 'usr-002', email: 'fraud@federalbank.co.in',            display_name: 'Rahul Menon',        bank_type: 'SB',  role: 'fraud_analyst',      permission_level: 'EDIT',      clearing_zone: null,    is_active: true,  totp_enabled: true,  last_login: '2026-08-11T08:52:00Z' },
+    { user_id: 'usr-003', email: 'ops.mgr@federalbank.co.in',          display_name: 'Sunitha Pillai',     bank_type: 'SB',  role: 'ops_manager',        permission_level: 'EDIT',      clearing_zone: null,    is_active: true,  totp_enabled: true,  last_login: '2026-08-10T17:30:00Z' },
+    { user_id: 'usr-004', email: 'it.admin@federalbank.co.in',         display_name: 'Vinod Nair',         bank_type: 'SB',  role: 'bank_it_admin',      permission_level: 'ADMIN',     clearing_zone: null,    is_active: true,  totp_enabled: true,  last_login: '2026-08-11T07:00:00Z' },
+    { user_id: 'usr-005', email: 'compliance@federalbank.co.in',       display_name: 'Meenakshi Iyer',     bank_type: 'SB',  role: 'compliance_officer', permission_level: 'READ_ONLY', clearing_zone: null,    is_active: true,  totp_enabled: false, last_login: '2026-08-09T11:00:00Z' },
+    { user_id: 'usr-006', email: 'rbi.exam@federalbank.co.in',         display_name: 'P.K. Sharma',        bank_type: 'SB',  role: 'rbi_examiner',       permission_level: 'READ_ONLY', clearing_zone: null,    is_active: false, totp_enabled: false, last_login: '2026-07-20T11:00:00Z' },
+    { user_id: 'usr-007', email: 'ml@federalbank.co.in',               display_name: 'Deepa Thomas',       bank_type: 'SB',  role: 'ml_engineer',        permission_level: 'EDIT',      clearing_zone: null,    is_active: true,  totp_enabled: true,  last_login: '2026-08-10T14:22:00Z' },
+    { user_id: 'usr-008', email: 'admin@thrissurucb.coop',             display_name: 'Rajan Varghese',     bank_type: 'SMB', role: 'smb_admin',          permission_level: 'ADMIN',     clearing_zone: null,    is_active: true,  totp_enabled: true,  last_login: '2026-08-11T10:05:00Z' },
+    { user_id: 'usr-009', email: 'ops@ernakulamucb.coop',              display_name: 'Suja Mathew',        bank_type: 'SMB', role: 'smb_editor',         permission_level: 'EDIT',      clearing_zone: null,    is_active: true,  totp_enabled: false, last_login: '2026-08-10T15:30:00Z' },
+    { user_id: 'usr-010', email: 'view@malabarcoopbank.coop',          display_name: 'Hamid Kutty',        bank_type: 'SMB', role: 'smb_viewer',         permission_level: 'READ_ONLY', clearing_zone: null,    is_active: true,  totp_enabled: false, last_login: '2026-08-09T09:00:00Z' },
+    { user_id: 'usr-011', email: 'admin@coimbatoreucb.coop',           display_name: 'Saravanan Murugan',  bank_type: 'SMB', role: 'smb_admin',          permission_level: 'ADMIN',     clearing_zone: null,    is_active: true,  totp_enabled: true,  last_login: '2026-08-11T08:30:00Z' },
+    { user_id: 'usr-012', email: 'admin@mangaluruucb.coop',            display_name: 'Suresh Kamath',      bank_type: 'SMB', role: 'smb_admin',          permission_level: 'ADMIN',     clearing_zone: null,    is_active: true,  totp_enabled: true,  last_login: '2026-08-10T09:45:00Z' },
+  ],
+  'saraswat-coop': [
+    { user_id: 'usr-001', email: 'ops1@saraswat.coop',        display_name: 'Priya Mehta',       bank_type: 'SB',  role: 'ops_reviewer',       permission_level: 'EDIT',      clearing_zone: 'MUMBAI', is_active: true,  totp_enabled: true,  last_login: '2026-06-25T09:14:00Z' },
+    { user_id: 'usr-002', email: 'fraud1@saraswat.coop',      display_name: 'Rahul Singh',        bank_type: 'SB',  role: 'fraud_analyst',      permission_level: 'EDIT',      clearing_zone: 'DELHI',  is_active: true,  totp_enabled: false, last_login: '2026-06-25T08:52:00Z' },
+    { user_id: 'usr-003', email: 'mgr1@saraswat.coop',        display_name: 'Sunita Iyer',        bank_type: 'SB',  role: 'ops_manager',        permission_level: 'EDIT',      clearing_zone: null,     is_active: true,  totp_enabled: true,  last_login: '2026-06-24T17:30:00Z' },
+    { user_id: 'usr-004', email: 'admin@saraswat.coop',       display_name: 'Vikram Kapoor',      bank_type: 'SB',  role: 'bank_it_admin',      permission_level: 'ADMIN',     clearing_zone: null,     is_active: true,  totp_enabled: true,  last_login: '2026-06-25T07:00:00Z' },
+    { user_id: 'usr-005', email: 'compliance@saraswat.coop',  display_name: 'Meena Nair',         bank_type: 'SB',  role: 'compliance_officer', permission_level: 'READ_ONLY', clearing_zone: null,     is_active: false, totp_enabled: false, last_login: '2026-06-20T11:00:00Z' },
+    { user_id: 'usr-006', email: 'admin@vasavi.coop',         display_name: 'Ravi Kulkarni',      bank_type: 'SMB', role: 'smb_admin',          permission_level: 'ADMIN',     clearing_zone: null,     is_active: true,  totp_enabled: true,  last_login: '2026-06-25T10:05:00Z' },
+    { user_id: 'usr-007', email: 'ops@cosmos.coop',           display_name: 'Anita Desai',        bank_type: 'SMB', role: 'smb_editor',         permission_level: 'EDIT',      clearing_zone: null,     is_active: true,  totp_enabled: false, last_login: '2026-06-24T15:30:00Z' },
+    { user_id: 'usr-008', email: 'view@janatasahakari.co.in', display_name: 'Suresh Patil',       bank_type: 'SMB', role: 'smb_viewer',         permission_level: 'READ_ONLY', clearing_zone: null,     is_active: true,  totp_enabled: false, last_login: '2026-06-23T09:00:00Z' },
+  ],
+  'union-bank': [
+    { user_id: 'usr-001', email: 'ubi-ops@unionbankofindia.com',        display_name: 'Amitabh Pandey',     bank_type: 'SB',  role: 'ops_reviewer',       permission_level: 'EDIT',      clearing_zone: 'WEST',  is_active: true,  totp_enabled: true,  last_login: '2026-08-12T09:14:00Z' },
+    { user_id: 'usr-002', email: 'fraud@unionbankofindia.com',           display_name: 'Sunita Rao',          bank_type: 'SB',  role: 'fraud_analyst',      permission_level: 'EDIT',      clearing_zone: 'SOUTH', is_active: true,  totp_enabled: true,  last_login: '2026-08-12T08:52:00Z' },
+    { user_id: 'usr-003', email: 'ubi-admin@unionbankofindia.com',       display_name: 'Rajesh Kumar',        bank_type: 'SB',  role: 'ops_manager',        permission_level: 'EDIT',      clearing_zone: null,    is_active: true,  totp_enabled: true,  last_login: '2026-08-11T17:30:00Z' },
+    { user_id: 'usr-004', email: 'it.admin@unionbankofindia.com',        display_name: 'Priya Sharma',        bank_type: 'SB',  role: 'bank_it_admin',      permission_level: 'ADMIN',     clearing_zone: null,    is_active: true,  totp_enabled: true,  last_login: '2026-08-12T07:00:00Z' },
+    { user_id: 'usr-005', email: 'compliance@unionbankofindia.com',      display_name: 'Arvind Gupta',        bank_type: 'SB',  role: 'compliance_officer', permission_level: 'READ_ONLY', clearing_zone: null,    is_active: true,  totp_enabled: true,  last_login: '2026-08-10T11:00:00Z' },
+    { user_id: 'usr-006', email: 'ml@unionbankofindia.com',              display_name: 'Deepika Venkat',      bank_type: 'SB',  role: 'ml_engineer',        permission_level: 'EDIT',      clearing_zone: null,    is_active: true,  totp_enabled: true,  last_login: '2026-08-11T14:22:00Z' },
+    { user_id: 'usr-007', email: 'admin@navimumbaicoop.com',             display_name: 'Sanjay Patil',        bank_type: 'SMB', role: 'smb_admin',          permission_level: 'ADMIN',     clearing_zone: null,    is_active: true,  totp_enabled: true,  last_login: '2026-08-12T10:05:00Z' },
+    { user_id: 'usr-008', email: 'ops@navimumbaicoop.com',               display_name: 'Kavita Kadam',        bank_type: 'SMB', role: 'smb_editor',         permission_level: 'EDIT',      clearing_zone: null,    is_active: true,  totp_enabled: false, last_login: '2026-08-11T15:30:00Z' },
+  ],
+}
+
+const MOCK_USERS = MOCK_USERS_BY_BANK[BANK_CONFIG.bank_id] ?? MOCK_USERS_BY_BANK['saraswat-coop']
 
 function fmt(iso) {
   if (!iso) return '—'

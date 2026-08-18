@@ -71,7 +71,7 @@ const BASE_INSTRUMENTS_OUTWARD = [
     name_match: 'NO_MATCH', name_match_cbs_name: 'Vikram S. Patil',
     fields_meta: {
       date: makeMeta('15/07/2026', 0.98), payee: makeMeta('Kavita R. Desai', 0.85),
-      amount_figures: makeMeta('₹3,80,500', 0.87), amount_words: makeMeta('Three Lakh Eighty Thousand Five Hundred Only', 0.82),
+      amount_figures: makeMeta('₹7,40,000', 0.87), amount_words: makeMeta('Seven Lakh Fifty Thousand Only', 0.82),
       micr: makeMeta('400008901', 0.99), alterations: { ...makeMeta(false, 0.99), source: 'STP' },
     },
   },
@@ -600,6 +600,9 @@ function SBadge({ source, isDark }) {
   if (source === 'STP') return (
     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap ${isDark ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-emerald-50 border-emerald-400 text-emerald-700'}`}>STP</span>
   )
+  if (source === 'MISMATCH') return (
+    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap ${isDark ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-red-50 border-red-400 text-red-700'}`}>MISMATCH</span>
+  )
   return (
     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap ${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-400 text-amber-700'}`}>MANUAL</span>
   )
@@ -614,6 +617,28 @@ const MOCK_HV_THRESHOLD = 500000   // ₹5,00,000 default; real value = bank con
 
 function parseAmtNum(amtStr) {
   return parseInt((amtStr || '').replace(/[₹,\s]/g, ''), 10) || 0
+}
+function parseWordsToNum(words) {
+  if (!words) return null
+  const wordMap = {
+    zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,
+    ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,
+    seventeen:17,eighteen:18,nineteen:19,twenty:20,thirty:30,forty:40,fifty:50,
+    sixty:60,seventy:70,eighty:80,ninety:90,
+    hundred:100,thousand:1000,lakh:100000,lac:100000,lakhs:100000,
+    crore:10000000,crores:10000000,
+  }
+  const tokens = words.toLowerCase().replace(/[,\-]/g, ' ').split(/\s+/)
+    .filter(t => t && t !== 'only' && t !== 'and' && t !== 'rupees' && t !== 'rs')
+  let total = 0, current = 0
+  for (const t of tokens) {
+    const v = wordMap[t]
+    if (v === undefined) continue
+    if (v === 100) { current = (current || 1) * v }
+    else if (v >= 1000) { total += (current || 1) * v; current = 0 }
+    else { current += v }
+  }
+  return total + current
 }
 function isHighValue(inst, threshold = MOCK_HV_THRESHOLD) {
   return parseAmtNum(inst.fields_meta?.amount_figures?.actual_value) >= threshold
@@ -826,19 +851,28 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
                       )}
 
                       {/* Editable OCR fields */}
-                      {OCR_COLS.map(col => {
-                        const fm = inst.fields_meta[col.key] ?? { actual_value: '', source: 'STP' }
-                        return (
-                          <td key={col.key} className={`px-1.5 py-1.5 ${col.w}`}>
-                            <div className="flex flex-col gap-0.5">
-                              <EditCell value={fm.actual_value} onChange={v => handleEdit(inst.instrument_id, col.key, v)}
-                                isDark={isDark} isManual={fm.source === 'MANUAL'} isBoolean={col.isBoolean}
-                              />
-                              <SBadge source={fm.source} isDark={isDark} />
-                            </div>
-                          </td>
-                        )
-                      })}
+                      {(() => {
+                        const figVal = inst.fields_meta.amount_figures?.actual_value
+                        const wrdVal = inst.fields_meta.amount_words?.actual_value
+                        const figNum = parseAmtNum(figVal)
+                        const wrdNum = parseWordsToNum(wrdVal)
+                        const amtMismatch = figNum > 0 && wrdNum !== null && wrdNum > 0 && figNum !== wrdNum
+                        return OCR_COLS.map(col => {
+                          const fm = inst.fields_meta[col.key] ?? { actual_value: '', source: 'STP' }
+                          const isAmtCol = col.key === 'amount_figures' || col.key === 'amount_words'
+                          const badgeSource = isAmtCol && amtMismatch ? 'MISMATCH' : fm.source
+                          return (
+                            <td key={col.key} className={`px-1.5 py-1.5 ${col.w}`}>
+                              <div className="flex flex-col gap-0.5">
+                                <EditCell value={fm.actual_value} onChange={v => handleEdit(inst.instrument_id, col.key, v)}
+                                  isDark={isDark} isManual={fm.source === 'MANUAL'} isBoolean={col.isBoolean}
+                                />
+                                <SBadge source={badgeSource} isDark={isDark} />
+                              </div>
+                            </td>
+                          )
+                        })
+                      })()}
 
                       {/* Cheque view toggle */}
                       <td className="px-2 py-2 text-center">

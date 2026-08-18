@@ -1,13 +1,21 @@
 """
-OCR activity — extract cheque fields via GOT-OCR2.0 (vLLM, cts-ocr queue).
+OCR activity — adaptive pipeline for cheque field extraction.
 
-Fields: MICR line, amount in figures, amount in words, date, payee, drawer.
-Confidence below min_confidence → HUMAN_REVIEW.
-vLLM unavailable → HUMAN_REVIEW (degraded), never crashes workflow.
+Flow (single entry point, no mode config):
+  1. Full image → GOT-OCR2.0 via vLLM (one call — handles all Latin cheques).
+  2. Inspect SCRIPT_ADAPTIVE fields (payee_name, amount_words, bank_name) from
+     the GOT-OCR2 result for Indic-script content via detect_script().
+  3. If Indic detected AND IndicOCR is configured → fetch image, crop the Indic
+     zones, POST to IndicOCR service, override the field with the higher-accuracy
+     result.  Only the fields that need it; Latin cheques stay at step 1 cost.
+  4. Confidence gate + amount cross-check → HUMAN_REVIEW or PROCEED.
+
+Thresholds always from config_service — never hardcoded.
+vLLM/IndicOCR unavailable → HUMAN_REVIEW (degraded), never crashes workflow.
 """
 import io
 import json
-from typing import Any, Literal, Optional
+from typing import Any, Optional
 
 import httpx
 import structlog
@@ -16,21 +24,16 @@ from pydantic import BaseModel, ConfigDict
 from temporalio import activity
 
 from modules.cts.preprocessing.zone_extractor import (
-    ALWAYS_LATIN,
-    SCRIPT_ADAPTIVE,
     detect_script,
     extract_zone,
-    zone_to_data_uri,
+    identify_indic_script,
 )
 from modules.cts.sub_member.models import PrincipalTag
 from modules.cts.sub_member.router import MICRPrefixRouter
 from modules.cts.workflows.activities.amount_words_parser import amounts_match
 from shared.ai.model_cascade import CascadeOrchestrator
-from shared.utils.masking import mask_amount
 
 log = structlog.get_logger()
-
-OCRMode = Literal["FULL_IMAGE", "PARTIAL_IMAGE"]
 
 
 class OCRActivityInput(BaseModel):
@@ -55,32 +58,19 @@ Confidence range: 0.0 (illegible) to 1.0 (perfectly clear).
 ifsc_code: the bank IFSC code printed on the cheque face (e.g. "SBIN0001234").
 """
 
-# PARTIAL_IMAGE mode — one prompt per zone crop (single-field response)
-_ZONE_PROMPTS: dict[str, str] = {
-    "date": (
-        'Extract the cheque date from this field crop. '
-        'Return JSON only: {"value": "DD/MM/YYYY", "confidence": 0.0}'
-    ),
-    "payee_name": (
-        'Extract the payee name from this cheque field. '
-        'Return JSON only: {"value": "...", "confidence": 0.0}'
-    ),
-    "amount_words": (
-        'Extract the amount written in words (e.g. "Twenty Two Lakhs Fifty Five Thousand"). '
-        'Return JSON only: {"value": "...", "confidence": 0.0}'
-    ),
-    "amount_figures": (
-        'Extract the numeric cheque amount (digits only). '
-        'Return JSON only: {"value": "...", "confidence": 0.0}'
-    ),
-    "micr_band": (
-        'Extract the MICR line text (cheque number, sort code, account number). '
-        'Return JSON only: {"value": "...", "confidence": 0.0}'
-    ),
+# SCRIPT_ADAPTIVE zone → field name mapping used when IndicOCR re-runs a zone.
+# IndicOCR /ocr_zones returns these keys; we map them back to OCRActivityResult fields.
+_INDIC_ZONE_TO_RESULT_FIELD: dict[str, str] = {
+    "payee_name":   "payee",
+    "amount_words": "amount_words",
+    "bank_name":    "bank_name",
 }
 
-# Zone fields processed in PARTIAL_IMAGE mode and their order
-_PARTIAL_FIELDS = ("date", "payee_name", "amount_words", "amount_figures", "micr_band")
+# GOT-OCR2 result field → zone name (for fetching the crop to send to IndicOCR)
+_RESULT_FIELD_TO_ZONE: dict[str, str] = {
+    "payee":        "payee_name",
+    "amount_words": "amount_words",
+}
 
 
 class OCRActivityResult(BaseModel):
@@ -91,54 +81,97 @@ class OCRActivityResult(BaseModel):
     amount_words: Optional[str] = None
     date: Optional[str] = None
     payee: Optional[str] = None
-    ifsc_code: Optional[str] = None     # IFSC printed on cheque face (item 3 — IFSC cross-check)
+    ifsc_code: Optional[str] = None
     overall_confidence: float = 0.0
     low_confidence_reason: Optional[str] = None
     degraded: bool = False
-    cascade_level: int = 2              # 1 = L1 used (7B fast), 2 = L2 used (full model)
-    principal_tag: Optional[str] = None   # "DIRECT" | "SUB_MEMBER"
-    sub_member_id: Optional[str] = None   # populated when principal_tag == "SUB_MEMBER"
-    amount_mismatch: bool = False         # True when figures and words disagree
+    cascade_level: int = 2
+    principal_tag: Optional[str] = None
+    sub_member_id: Optional[str] = None
+    amount_mismatch: bool = False
+    indic_refined_fields: list[str] = []        # which fields were re-run via IndicOCR
+    # ── engine provenance (written to ImmuDB via CTS_INSTRUMENT_PASSPORT) ──
+    ocr_engines_used: list[str] = []            # ordered: engines that actually ran
+    indic_ocr_kill_switch_active: bool = False  # True when cts.indic_ocr.kill_mode=KC
 
 
 @activity.defn
 async def ocr_extract(
     inp: OCRActivityInput,
     orchestrator: CascadeOrchestrator,
-    config_service,
+    config_service: Any,
     routing_table: Optional[dict] = None,
 ) -> OCRActivityResult:
     """
-    Extract cheque fields. Mode is controlled by ai_config["ocr.mode"]:
+    Extract cheque fields via an adaptive two-stage pipeline.
 
-      FULL_IMAGE (default) — sends the complete cheque image to GOT-OCR2 via vLLM.
-                             Single inference call extracts all fields at once.
+    Stage 1 (always): full cheque image → GOT-OCR2 via vLLM cascade.
+    Stage 2 (only when needed): Indic script detected in SCRIPT_ADAPTIVE fields
+    → zone crop → IndicOCR service → replace field with higher-accuracy result.
 
-      PARTIAL_IMAGE        — crops each CTS-2010 field zone independently,
-                             detects script per zone (Indic vs Latin), routes to:
-                               ALWAYS_LATIN zones   → GOT-OCR2 (cts-ocr queue)
-                               SCRIPT_ADAPTIVE zones → IndicOCR if Indic, else GOT-OCR2
+    Latin cheques: one GOT-OCR2 call, same latency as before.
+    Indic cheques: one GOT-OCR2 call + targeted zone call(s) for Indic fields only.
     """
     ai_config = await config_service.get_ai_config(inp.bank_id)
-    mode: OCRMode = ai_config.get("ocr.mode", "FULL_IMAGE")
+    min_confidence: float = ai_config["ai.ocr.min_confidence"]
+    indic_ocr_url: str = ai_config.get("services.indic_ocr.url", "")
+    indic_min_confidence: float = float(ai_config.get("ai.ocr.min_indic_confidence", 0.60))
 
-    if mode == "PARTIAL_IMAGE":
-        return await _run_partial_image(inp, orchestrator, ai_config, routing_table)
-    return await _run_full_image(inp, orchestrator, ai_config, routing_table)
+    # ── Stage 1: Full image → GOT-OCR2 ───────────────────────────────────────
+    raw = await _extract_got_ocr2(inp, orchestrator)
+    if raw is None:
+        return OCRActivityResult(
+            outcome="HUMAN_REVIEW", degraded=True,
+            low_confidence_reason="MODEL_UNAVAILABLE",
+            ocr_engines_used=["got-ocr2.0:unavailable"],
+        )
+
+    fields, cascade_level = raw
+
+    engines_used = [f"got-ocr2.0:cascade-{cascade_level}"]
+
+    # ── IndicOCR kill switch ──────────────────────────────────────────────────
+    # Fail-open: missing / unreadable config key = NONE (do not block OCR).
+    indic_ks_active = False
+    try:
+        indic_ks_raw = await config_service.get("cts.indic_ocr.kill_mode")
+        if indic_ks_raw == "KC":
+            indic_ks_active = True
+            log.warning("ocr.indic_ocr_kill_switch_active",
+                        instrument_id=inp.instrument_id, bank_id=inp.bank_id)
+    except Exception:
+        pass
+
+    # ── Stage 2: Indic zone refinement (skipped when KC or URL absent) ───────
+    indic_refined: list[str] = []
+    if indic_ocr_url and not indic_ks_active:
+        indic_refined, indic_backend = await _refine_indic_zones(
+            inp, fields, indic_ocr_url, min_confidence, indic_min_confidence
+        )
+        if indic_refined:
+            engines_used.append(indic_backend)
+    elif indic_ks_active:
+        log.info("ocr.indic_stage2_skipped_kill_switch",
+                 instrument_id=inp.instrument_id, bank_id=inp.bank_id)
+
+    # ── Stage 3: Confidence gate + amount cross-check ─────────────────────────
+    return _build_result(
+        fields, min_confidence, cascade_level, indic_refined,
+        routing_table, inp, engines_used, indic_ks_active,
+    )
 
 
-# ── FULL_IMAGE mode ───────────────────────────────────────────────────────────
+# ── Stage 1 ───────────────────────────────────────────────────────────────────
 
-async def _run_full_image(
+async def _extract_got_ocr2(
     inp: OCRActivityInput,
     orchestrator: CascadeOrchestrator,
-    ai_config: dict,
-    routing_table: Optional[dict],
-) -> OCRActivityResult:
-    """Send the complete cheque image to GOT-OCR2; extract all fields in one call."""
-    min_confidence = ai_config["ai.ocr.min_confidence"]
-    resolved_cascade_level = 2
-
+) -> Optional[tuple[dict[str, tuple[Optional[str], float]], int]]:
+    """
+    Call GOT-OCR2 on the full cheque image.
+    Returns (fields_dict, cascade_level) or None on model error.
+    fields_dict: { field_name: (text_or_None, confidence) }
+    """
     try:
         cascade_result = await orchestrator.call_ocr(
             image_url=inp.image_url,
@@ -146,248 +179,197 @@ async def _run_full_image(
             cheque_amount=0.0,
         )
         data = json.loads(cascade_result.content)
-        resolved_cascade_level = cascade_result.cascade_level
     except Exception as exc:
-        log.warning("ocr_activity.model_unavailable", instrument_id=inp.instrument_id, error=str(exc))
-        return OCRActivityResult(outcome="HUMAN_REVIEW", degraded=True, low_confidence_reason="MODEL_UNAVAILABLE")
+        log.warning("ocr.got_ocr2_failed", instrument_id=inp.instrument_id, error=str(exc))
+        return None
 
-    _PRIMARY_FIELDS = {"micr_line", "amount_figures", "amount_words", "date", "payee"}
-    primary_data = {k: v for k, v in data.items() if k in _PRIMARY_FIELDS}
+    def _field(key: str) -> tuple[Optional[str], float]:
+        entry = data.get(key, {})
+        if not isinstance(entry, dict):
+            return None, 0.0
+        val = entry.get("value")
+        conf = float(entry.get("confidence", 0.0))
+        return (val if val else None), conf
 
-    confidences = [v["confidence"] for v in primary_data.values() if isinstance(v, dict) and "confidence" in v]
-    overall = sum(confidences) / len(confidences) if confidences else 0.0
-    low_fields = [k for k, v in primary_data.items() if isinstance(v, dict) and v.get("confidence", 1.0) < min_confidence]
-
-    micr_line = data.get("micr_line", {}).get("value")
-    principal_tag, sub_member_id = _route_micr(micr_line, routing_table, inp.instrument_id)
-
-    if low_fields:
-        log.info("ocr_activity.low_confidence", instrument_id=inp.instrument_id, low_fields=low_fields)
-        return OCRActivityResult(
-            outcome="HUMAN_REVIEW",
-            micr_line=micr_line,
-            amount_figures=data.get("amount_figures", {}).get("value"),
-            overall_confidence=overall,
-            low_confidence_reason=f"low_confidence_fields: {low_fields}",
-            cascade_level=resolved_cascade_level,
-            principal_tag=principal_tag,
-            sub_member_id=sub_member_id,
-        )
-
-    amount_figures_val = data.get("amount_figures", {}).get("value")
-    amount_words_val = data.get("amount_words", {}).get("value")
-
-    match = amounts_match(figures=amount_figures_val, words=amount_words_val)
-    if match is False:
-        log.info("ocr_activity.amount_mismatch", instrument_id=inp.instrument_id)
-        return OCRActivityResult(
-            outcome="HUMAN_REVIEW",
-            micr_line=micr_line,
-            amount_figures=amount_figures_val,
-            amount_words=amount_words_val,
-            overall_confidence=overall,
-            low_confidence_reason="amount_figures_words_mismatch",
-            cascade_level=resolved_cascade_level,
-            principal_tag=principal_tag,
-            sub_member_id=sub_member_id,
-            amount_mismatch=True,
-        )
-
-    ifsc_entry = data.get("ifsc_code", {})
-    ifsc_raw = ifsc_entry.get("value") if isinstance(ifsc_entry, dict) else None
-    ifsc_conf = ifsc_entry.get("confidence", 0.0) if isinstance(ifsc_entry, dict) else 0.0
-    ifsc_code = (
-        ifsc_raw.strip().upper()
-        if isinstance(ifsc_raw, str) and ifsc_raw and ifsc_conf >= 0.3
-        else None
-    )
-
-    return OCRActivityResult(
-        outcome="PROCEED",
-        micr_line=micr_line,
-        amount_figures=amount_figures_val,
-        amount_words=amount_words_val,
-        date=data.get("date", {}).get("value"),
-        payee=data.get("payee", {}).get("value"),
-        ifsc_code=ifsc_code,
-        overall_confidence=overall,
-        cascade_level=resolved_cascade_level,
-        principal_tag=principal_tag,
-        sub_member_id=sub_member_id,
-    )
+    fields: dict[str, tuple[Optional[str], float]] = {
+        "micr_line":      _field("micr_line"),
+        "amount_figures": _field("amount_figures"),
+        "amount_words":   _field("amount_words"),
+        "date":           _field("date"),
+        "payee":          _field("payee"),
+        "ifsc_code":      _field("ifsc_code"),
+    }
+    return fields, cascade_result.cascade_level
 
 
-# ── PARTIAL_IMAGE mode ────────────────────────────────────────────────────────
+# ── Stage 2 ───────────────────────────────────────────────────────────────────
 
-async def _run_partial_image(
+async def _refine_indic_zones(
     inp: OCRActivityInput,
-    orchestrator: CascadeOrchestrator,
-    ai_config: dict,
-    routing_table: Optional[dict],
-) -> OCRActivityResult:
+    fields: dict[str, tuple[Optional[str], float]],
+    indic_ocr_url: str,
+    min_confidence: float,
+    indic_min_confidence: float,
+) -> tuple[list[str], str]:
     """
-    Zone-based OCR: crop each CTS-2010 field, detect script, route to the
-    right model.
-
-    ALWAYS_LATIN fields (date, amount_figures, micr_band) go straight to GOT-OCR2.
-    SCRIPT_ADAPTIVE fields (payee_name, amount_words, bank_name) try IndicOCR
-    first; fall back to GOT-OCR2 when text is Latin or IndicOCR is unavailable.
+    For each SCRIPT_ADAPTIVE result field that contains Indic text (or has low
+    confidence), fetch the cheque image, crop the zone, and call IndicOCR.
+    Mutates `fields` in place with the refined value when IndicOCR wins.
+    Returns (refined_field_names, engine_label) where engine_label is suitable
+    for inclusion in ocr_engines_used (e.g. "indic_ocr:paddle/devanagari").
     """
-    min_confidence = ai_config["ai.ocr.min_confidence"]
-    indic_ocr_url = ai_config.get("services.indic_ocr.url", "http://indic-ocr:8021")
-    min_indic_conf = ai_config.get("ai.ocr.min_indic_confidence", 0.60)
+    needs_refine: list[tuple[str, str, str]] = []
+    for result_field, zone_name in _RESULT_FIELD_TO_ZONE.items():
+        text, conf = fields.get(result_field, (None, 0.0))
+        script = identify_indic_script(text or "")
+        if script is not None or (text is None and conf < min_confidence):
+            needs_refine.append((result_field, zone_name, script or "devanagari"))
 
-    # ── 1. Fetch full cheque image ────────────────────────────────────────────
+    if not needs_refine:
+        return [], ""
+
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
             resp = await client.get(inp.image_url)
             resp.raise_for_status()
             img = Image.open(io.BytesIO(resp.content)).convert("RGB")
     except Exception as exc:
-        log.warning("ocr_partial.image_fetch_failed", instrument_id=inp.instrument_id, error=str(exc))
-        return OCRActivityResult(
-            outcome="HUMAN_REVIEW",
-            degraded=True,
-            low_confidence_reason="IMAGE_FETCH_FAILED",
-        )
+        log.warning("ocr.indic_image_fetch_failed", instrument_id=inp.instrument_id, error=str(exc))
+        return [], ""
 
-    # ── 2. Per-field extraction ───────────────────────────────────────────────
-    # field_name → (extracted_text, confidence, source)
-    fields: dict[str, tuple[Optional[str], float, str]] = {}
+    refined: list[str] = []
+    scripts_seen: set[str] = set()
+    backend_used: str = "paddle"   # IndicOCR service default; may differ per zone
 
-    for field in _PARTIAL_FIELDS:
+    for result_field, zone_name, script in needs_refine:
         try:
-            zone = extract_zone(img, field)
+            zone = extract_zone(img, zone_name)
+            buf = io.BytesIO()
+            zone.convert("RGB").save(buf, format="JPEG", quality=90)
+            buf.seek(0)
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(
+                    f"{indic_ocr_url}/ocr",
+                    files={"file": ("zone.jpg", buf, "image/jpeg")},
+                    params={"script": script},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+
+            indic_text: str = data.get("text", "") or ""
+            indic_conf: float = float(data.get("confidence", 0.0))
+            backend_used = data.get("backend", backend_used)
+
+            if detect_script(indic_text) == "indic" and indic_conf >= indic_min_confidence:
+                fields[result_field] = (indic_text, indic_conf)
+                refined.append(result_field)
+                scripts_seen.add(script)
+                log.info("ocr.indic_refined",
+                         instrument_id=inp.instrument_id, field=result_field,
+                         script=script, confidence=indic_conf)
+
         except Exception as exc:
-            log.warning("ocr_partial.zone_extract_failed", field=field, error=str(exc))
-            fields[field] = (None, 0.0, "zone_failed")
-            continue
+            log.warning("ocr.indic_zone_failed",
+                        instrument_id=inp.instrument_id, field=result_field, error=str(exc))
 
-        if field in ALWAYS_LATIN:
-            text, conf, src = await _got_ocr_zone(zone, field, orchestrator)
-        else:
-            text, conf, src = await _script_route_zone(
-                zone, field, orchestrator, indic_ocr_url, min_indic_conf
-            )
+    script_label = "+".join(sorted(scripts_seen)) if scripts_seen else "none"
+    engine_label = f"indic_ocr:{backend_used}/{script_label}" if refined else ""
+    return refined, engine_label
 
-        log.info("ocr_partial.field_extracted", field=field, source=src, confidence=conf,
-                 instrument_id=inp.instrument_id)
-        fields[field] = (text, conf, src)
 
-    # ── 3. Map zone field names → OCRActivityResult field names ───────────────
-    micr_line       = fields.get("micr_band",      (None, 0.0, ""))[0]
-    amount_figures  = fields.get("amount_figures",  (None, 0.0, ""))[0]
-    amount_words    = fields.get("amount_words",    (None, 0.0, ""))[0]
-    date_val        = fields.get("date",            (None, 0.0, ""))[0]
-    payee_val       = fields.get("payee_name",      (None, 0.0, ""))[0]
+# ── Stage 3 ───────────────────────────────────────────────────────────────────
 
-    # ── 4. Confidence gate ────────────────────────────────────────────────────
-    all_confs = [c for _, c, _ in fields.values()]
+def _build_result(
+    fields: dict[str, tuple[Optional[str], float]],
+    min_confidence: float,
+    cascade_level: int,
+    indic_refined: list[str],
+    routing_table: Optional[dict],
+    inp: OCRActivityInput,
+    engines_used: Optional[list[str]] = None,
+    indic_ks_active: bool = False,
+) -> OCRActivityResult:
+    """Apply confidence gate, MICR routing, amount cross-check, build final result."""
+    _engines = engines_used or []
+
+    _PRIMARY = ("date", "payee", "amount_words", "amount_figures")
+    low_fields = [
+        f for f in _PRIMARY
+        if fields.get(f, (None, 0.0))[1] < min_confidence
+    ]
+
+    micr_line    = fields.get("micr_line",      (None, 0.0))[0]
+    amt_figures  = fields.get("amount_figures",  (None, 0.0))[0]
+    amt_words    = fields.get("amount_words",    (None, 0.0))[0]
+    date_val     = fields.get("date",            (None, 0.0))[0]
+    payee_val    = fields.get("payee",           (None, 0.0))[0]
+    ifsc_raw     = fields.get("ifsc_code",       (None, 0.0))
+    ifsc_code    = (
+        ifsc_raw[0].strip().upper()
+        if isinstance(ifsc_raw[0], str) and ifsc_raw[0] and ifsc_raw[1] >= 0.3
+        else None
+    )
+
+    all_confs = [c for _, c in fields.values()]
     overall = sum(all_confs) / len(all_confs) if all_confs else 0.0
-
-    # Primary fields for confidence gate — micr_band excluded (often hardware-read)
-    _PRIMARY = ("date", "payee_name", "amount_words", "amount_figures")
-    low_fields = [f for f in _PRIMARY if fields.get(f, (None, 0.0, ""))[1] < min_confidence]
 
     principal_tag, sub_member_id = _route_micr(micr_line, routing_table, inp.instrument_id)
 
     if low_fields:
-        log.info("ocr_partial.low_confidence", instrument_id=inp.instrument_id, low_fields=low_fields)
-        # Include all extracted values so human reviewers can see the AI's best attempt.
+        log.info("ocr.low_confidence", instrument_id=inp.instrument_id, low_fields=low_fields)
         return OCRActivityResult(
             outcome="HUMAN_REVIEW",
             micr_line=micr_line,
-            amount_figures=amount_figures,
-            amount_words=amount_words,
+            amount_figures=amt_figures,
+            amount_words=amt_words,
             date=date_val,
             payee=payee_val,
             overall_confidence=overall,
             low_confidence_reason=f"low_confidence_fields: {low_fields}",
+            cascade_level=cascade_level,
             principal_tag=principal_tag,
             sub_member_id=sub_member_id,
+            indic_refined_fields=indic_refined,
+            ocr_engines_used=_engines,
+            indic_ocr_kill_switch_active=indic_ks_active,
         )
 
-    # ── 5. Amount cross-check ─────────────────────────────────────────────────
-    match = amounts_match(figures=amount_figures, words=amount_words)
+    match = amounts_match(figures=amt_figures, words=amt_words)
     if match is False:
-        log.info("ocr_partial.amount_mismatch", instrument_id=inp.instrument_id)
+        log.info("ocr.amount_mismatch", instrument_id=inp.instrument_id)
         return OCRActivityResult(
             outcome="HUMAN_REVIEW",
             micr_line=micr_line,
-            amount_figures=amount_figures,
-            amount_words=amount_words,
+            amount_figures=amt_figures,
+            amount_words=amt_words,
             overall_confidence=overall,
             low_confidence_reason="amount_figures_words_mismatch",
+            cascade_level=cascade_level,
             principal_tag=principal_tag,
             sub_member_id=sub_member_id,
             amount_mismatch=True,
+            indic_refined_fields=indic_refined,
+            ocr_engines_used=_engines,
+            indic_ocr_kill_switch_active=indic_ks_active,
         )
 
     return OCRActivityResult(
         outcome="PROCEED",
         micr_line=micr_line,
-        amount_figures=amount_figures,
-        amount_words=amount_words,
+        amount_figures=amt_figures,
+        amount_words=amt_words,
         date=date_val,
         payee=payee_val,
+        ifsc_code=ifsc_code,
         overall_confidence=overall,
+        cascade_level=cascade_level,
         principal_tag=principal_tag,
         sub_member_id=sub_member_id,
+        indic_refined_fields=indic_refined,
+        ocr_engines_used=_engines,
+        indic_ocr_kill_switch_active=indic_ks_active,
     )
-
-
-async def _got_ocr_zone(
-    zone: Image.Image,
-    field: str,
-    orchestrator: CascadeOrchestrator,
-) -> tuple[Optional[str], float, str]:
-    """Encode zone as data URI and call GOT-OCR2 via vLLM cascade."""
-    data_uri = zone_to_data_uri(zone)
-    prompt = _ZONE_PROMPTS.get(field, f'Extract {field}. Return JSON: {{"value": "...", "confidence": 0.0}}')
-    try:
-        result = await orchestrator.call_ocr(image_url=data_uri, prompt=prompt, cheque_amount=0.0)
-        data = json.loads(result.content)
-        return data.get("value"), float(data.get("confidence", 0.0)), "got_ocr2"
-    except Exception as exc:
-        log.warning("ocr_partial.got_ocr_zone_failed", field=field, error=str(exc))
-        return None, 0.0, "got_ocr2_failed"
-
-
-async def _script_route_zone(
-    zone: Image.Image,
-    field: str,
-    orchestrator: CascadeOrchestrator,
-    indic_ocr_url: str,
-    min_indic_conf: float,
-) -> tuple[Optional[str], float, str]:
-    """
-    Try IndicOCR on the zone crop first.
-    If the result contains Indic-script characters AND confidence >= min_indic_conf
-    → use IndicOCR result.
-    Otherwise (Latin text, low confidence, or service down) → GOT-OCR2.
-    """
-    try:
-        buf = io.BytesIO()
-        zone.convert("RGB").save(buf, format="JPEG", quality=90)
-        buf.seek(0)
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(
-                f"{indic_ocr_url}/ocr",
-                files={"file": ("zone.jpg", buf, "image/jpeg")},
-            )
-            resp.raise_for_status()
-            data = resp.json()
-
-        indic_text = data.get("text", "")
-        indic_conf = float(data.get("confidence", 0.0))
-
-        if detect_script(indic_text) == "indic" and indic_conf >= min_indic_conf:
-            return indic_text, indic_conf, "indic_ocr"
-    except Exception as exc:
-        log.warning("ocr_partial.indic_ocr_unavailable", field=field, error=str(exc))
-
-    # Fall through: Latin text detected, low confidence, or IndicOCR is down → GOT-OCR2
-    return await _got_ocr_zone(zone, field, orchestrator)
 
 
 def _route_micr(
@@ -395,23 +377,12 @@ def _route_micr(
     routing_table: Optional[dict],
     instrument_id: str,
 ) -> tuple[Optional[str], Optional[str]]:
-    """
-    Identify principal tag from MICR line using MICRPrefixRouter.
-    Returns (principal_tag_str, sub_member_id_str).
-    Defaults to DIRECT when no micr_line or no routing_table is provided.
-    """
     if not micr_line or not routing_table:
         return PrincipalTag.DIRECT.value, None
-
     try:
         router = MICRPrefixRouter(routing_table)
         tag, smb = router.identify(micr_line)
-        sub_member_id = smb.sub_member_id if smb is not None else None
-        return tag.value, sub_member_id
+        return tag.value, (smb.sub_member_id if smb is not None else None)
     except Exception as exc:
-        log.warning(
-            "ocr_activity.micr_routing_failed",
-            instrument_id=instrument_id,
-            error=str(exc),
-        )
+        log.warning("ocr.micr_routing_failed", instrument_id=instrument_id, error=str(exc))
         return PrincipalTag.DIRECT.value, None

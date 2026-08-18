@@ -498,6 +498,74 @@ async def test_get_ej_config_returns_all_keys(svc: ConfigService):
     assert "ej.pull_schedule" in result
 
 
+# ------------------------------------------------------------------
+# get_workflow_thresholds — bare-key dict for ChequeWorkflowInput.cts_config
+# ------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_get_workflow_thresholds_returns_bare_key_names(svc: ConfigService):
+    """get_workflow_thresholds() must return bare key names — no 'cts.' prefix.
+    ChequeProcessingWorkflow reads inp.cts_config.get("human_review_max_wait_minutes")
+    not inp.cts_config.get("cts.human_review_max_wait_minutes")."""
+    svc._redis.get.return_value = None
+    conn = svc._db_pool.acquire.return_value.__aenter__.return_value
+    conn.fetchrow.return_value = {"value": "55", "value_type": "int"}
+
+    result = await svc.get_workflow_thresholds()
+    for key in result:
+        assert not key.startswith("cts."), (
+            f"key '{key}' must be a bare name — workflow reads without 'cts.' prefix"
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_workflow_thresholds_includes_human_review_timeout(svc: ConfigService):
+    """human_review_max_wait_minutes must be present — this is the HIGH-1 fix."""
+    svc._redis.get.return_value = None
+    conn = svc._db_pool.acquire.return_value.__aenter__.return_value
+    conn.fetchrow.return_value = {"value": "40", "value_type": "int"}
+
+    result = await svc.get_workflow_thresholds()
+    assert "human_review_max_wait_minutes" in result
+    assert result["human_review_max_wait_minutes"] == 40
+
+
+@pytest.mark.asyncio
+async def test_get_workflow_thresholds_includes_stp_fields(svc: ConfigService):
+    """stp_mode, stp_supervised_confirm_threshold, stp_supervised_review_timeout_minutes
+    must all be present — they gate the supervised STP fast-path."""
+    svc._redis.get.return_value = None
+    conn = svc._db_pool.acquire.return_value.__aenter__.return_value
+    conn.fetchrow.return_value = {"value": "FULL_MANUAL", "value_type": "str"}
+
+    result = await svc.get_workflow_thresholds()
+    assert "stp_mode" in result
+    assert "stp_supervised_confirm_threshold" in result
+    assert "stp_supervised_review_timeout_minutes" in result
+
+
+@pytest.mark.asyncio
+async def test_get_workflow_thresholds_includes_all_decision_keys(svc: ConfigService):
+    """All keys the workflow reads from cts_config must be present."""
+    required = {
+        "human_review_max_wait_minutes",
+        "human_review_fraud_threshold",
+        "stp_auto_confirm_threshold",
+        "high_value_amount_threshold",
+        "stp_mode",
+        "stp_supervised_confirm_threshold",
+        "stp_supervised_review_timeout_minutes",
+        "clearing_session",
+    }
+    svc._redis.get.return_value = None
+    conn = svc._db_pool.acquire.return_value.__aenter__.return_value
+    conn.fetchrow.return_value = {"value": "0.92", "value_type": "float"}
+
+    result = await svc.get_workflow_thresholds()
+    missing = required - result.keys()
+    assert not missing, f"get_workflow_thresholds() is missing keys: {missing}"
+
+
 @pytest.mark.asyncio
 async def test_get_ai_config_returns_all_keys(svc: ConfigService):
     """get_ai_config() returns a dict with all AI threshold keys."""

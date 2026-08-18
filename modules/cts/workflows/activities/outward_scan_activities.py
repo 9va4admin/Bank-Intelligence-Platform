@@ -84,7 +84,7 @@ async def validate_cts2010(inp: CTS2010ValidationInput) -> CTS2010ValidationResu
     """
     from shared.config.config_service import config_service  # avoid circular at module load
 
-    cts_cfg = await config_service.get_module_config("cts", inp.bank_id)
+    cts_cfg = await config_service.get_cts_config(inp.bank_id)
     rear_image_required: bool = str(cts_cfg.get("rear_image_required", "false")).lower() == "true"
 
     required_metrics = list(_FRONT_REQUIRED_METRICS)
@@ -575,9 +575,30 @@ async def validate_payee_account(
 
     try:
         from shared.cbs_connector.base import BeneficiaryValidationResult
+
+        # If the deposit-slip name is in an Indic script, transliterate to Latin
+        # before CBS comparison — the CBS connector's _name_match_score() uses
+        # plain string comparison and cannot handle Devanagari, Tamil, etc.
+        raw_inquiry = inp.payee_name_from_slip or ""
+        inquiry_name = raw_inquiry
+        if raw_inquiry:
+            from modules.cts.preprocessing.payee_normalizer import (
+                _is_indic, strip_salutation, transliterate_by_script, _detect_script,
+            )
+            if _is_indic(raw_inquiry):
+                script = _detect_script(raw_inquiry) or "devanagari"
+                inquiry_name = transliterate_by_script(
+                    strip_salutation(raw_inquiry), script
+                )
+                log.info(
+                    "validate_payee_account.indic_transliterated",
+                    instrument_id=inp.instrument_id,
+                    script=script,
+                )
+
         cbs_result: BeneficiaryValidationResult = await cbs_connector.validate_beneficiary(
             account_number=inp.payee_account_number,
-            inquiry_name=inp.payee_name_from_slip or "",
+            inquiry_name=inquiry_name,
             bank_id=inp.bank_id,
             name_match_threshold=threshold,
         )
@@ -732,6 +753,79 @@ async def extract_rear_payee_details(
         depositor_name=_val("depositor_name"),
         mobile_number=_val("mobile_number"),
         overall_confidence=overall,
+    )
+
+
+# ── Cheque de-duplication activity ────────────────────────────────────────────
+
+class ChequeDedupInput(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    bank_id: str
+    micr_line: str          # full MICR line from OCR — MICR code extracted inside
+    cheque_number: str      # 6-digit cheque serial from deposit slip or scanner
+    presented_at: str       # ISO datetime string of this presentation
+
+
+class ChequeDedupActivityResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    is_duplicate: bool
+    original_instrument_id: Optional[str] = None
+    original_presented_at: Optional[str] = None
+
+
+@activity.defn
+async def check_cheque_dedup(inp: ChequeDedupInput) -> ChequeDedupActivityResult:
+    """Check and register cheque presentation for duplicate detection.
+
+    Extracts the 9-digit MICR code from the MICR line (chars 13–21, standard
+    CTS-2010 MICR field layout) and uses it with the cheque number to build a
+    Redis dedup key with 18-month TTL.
+
+    FRESH  → first presentation, key registered.
+    DUPLICATE → same cheque seen before; caller must reject and audit.
+    """
+    from shared.config.config_service import config_service
+    from modules.cts.preprocessing.cheque_dedup import check_and_register_dedup
+
+    try:
+        redis_url = config_service.get("redis.cts.url")
+        import aioredis
+        redis = await aioredis.from_url(redis_url, decode_responses=False)
+    except Exception as exc:
+        # Redis unavailable: fail open with FRESH to avoid blocking clearing.
+        # Audit trail in YugabyteDB provides compliance backstop.
+        log.warning(
+            "check_cheque_dedup.redis_unavailable",
+            instrument_id=inp.instrument_id,
+            error=str(exc),
+        )
+        return ChequeDedupActivityResult(is_duplicate=False)
+
+    # MICR line layout (CTS-2010): positions 13–21 (1-indexed) = 9-digit bank/branch code.
+    # Strip non-digit chars before slicing — scanner OCR sometimes inserts spaces.
+    digits_only = "".join(c for c in inp.micr_line if c.isdigit())
+    micr_code = digits_only[12:21] if len(digits_only) >= 21 else digits_only
+
+    result = await check_and_register_dedup(
+        bank_id=inp.bank_id,
+        micr_code=micr_code,
+        cheque_number=inp.cheque_number,
+        instrument_id=inp.instrument_id,
+        presented_at=inp.presented_at,
+        redis=redis,
+    )
+    log.info(
+        "check_cheque_dedup.result",
+        instrument_id=inp.instrument_id,
+        decision=result.decision,
+        micr_suffix=micr_code[-4:] if micr_code else "",
+        cheque_suffix=inp.cheque_number[-4:],
+    )
+    return ChequeDedupActivityResult(
+        is_duplicate=(result.decision == "DUPLICATE"),
+        original_instrument_id=result.existing_instrument_id,
+        original_presented_at=result.existing_presented_at,
     )
 
 

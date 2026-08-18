@@ -253,6 +253,136 @@ class OutwardScanWorkflow:
         micr_line = ocr_result.micr_line
         scanner_amount_str = ocr_result.amount_figures
         quality_score = None if ocr_result.degraded else ocr_result.overall_confidence
+        _ocr_engines = getattr(ocr_result, "ocr_engines_used", [])
+        _indic_ks = getattr(ocr_result, "indic_ocr_kill_switch_active", False)
+
+        # Emit CTS_KILL_SWITCH_APPLIED if IndicOCR was bypassed by kill switch.
+        if _indic_ks:
+            await workflow.execute_activity(
+                write_audit,
+                WriteAuditInput(
+                    event_type="CTS_KILL_SWITCH_APPLIED",
+                    bank_id=inp.bank_id,
+                    instrument_id=inp.instrument_id,
+                    payload={
+                        "scope": "indic_ocr",
+                        "mode": "KC",
+                        "scan_id": inp.scan_id,
+                        "ocr_engines_used": _ocr_engines,
+                    },
+                ),
+                start_to_close_timeout=timedelta(seconds=15),
+                retry_policy=_AUDIT_RETRY,
+            )
+
+        # Step 1.5: Date validation — stale / post-dated / undated cheques handled here.
+        date_ok, date_violation = _validate_cheque_date(getattr(ocr_result, "date", None))
+        if not date_ok:
+            log.info("outward_scan_workflow.date_issue",
+                     scan_id=inp.scan_id, bank_id=inp.bank_id,
+                     violation=date_violation, date_extracted=getattr(ocr_result, "date", None))
+            await workflow.execute_activity(
+                write_audit,
+                WriteAuditInput(
+                    event_type="CTS_OUT_DATE_INVALID",
+                    bank_id=inp.bank_id,
+                    instrument_id=inp.instrument_id,
+                    payload={"scan_id": inp.scan_id, "violation": date_violation},
+                ),
+                start_to_close_timeout=timedelta(seconds=15),
+                retry_policy=_AUDIT_RETRY,
+            )
+            if date_violation == "POST_DATED_CHEQUE":
+                # Post-dated: physical cheque accepted; Temporal holds until maturity.
+                from modules.cts.workflows.postdated_hold_workflow import (
+                    PostDatedHoldWorkflow, PostDatedHoldInput, make_hold_workflow_id,
+                )
+                from datetime import date as _date
+                release_date = _parse_cheque_date(getattr(ocr_result, "date", "") or "")
+                if release_date is None:
+                    release_date = _date.today()   # safe fallback — hold won't sleep
+                hold_id = make_hold_workflow_id(inp.bank_id, inp.instrument_id)
+                await workflow.start_child_workflow(
+                    PostDatedHoldWorkflow.run,
+                    PostDatedHoldInput(
+                        instrument_id=inp.instrument_id,
+                        bank_id=inp.bank_id,
+                        release_date=release_date,
+                        original_workflow_data={
+                            "instrument_id": inp.instrument_id,
+                            "bank_id": inp.bank_id,
+                            "image_front_url": inp.image_front_url,
+                        },
+                    ),
+                    id=hold_id,
+                    parent_close_policy=workflow.ParentClosePolicy.ABANDON,
+                )
+                return OutwardScanResult(
+                    outcome="POST_DATED_HELD",
+                    scan_id=inp.scan_id,
+                    bank_id=inp.bank_id,
+                    instrument_id=inp.instrument_id,
+                    micr_line=micr_line,
+                    violations=["POST_DATED_CHEQUE"],
+                    audit_written=True,
+                    pu_id=inp.pu_id,
+                )
+            return OutwardScanResult(
+                outcome="CTS_REJECTED",
+                scan_id=inp.scan_id,
+                bank_id=inp.bank_id,
+                instrument_id=inp.instrument_id,
+                micr_line=micr_line,
+                violations=[date_violation],
+                audit_written=True,
+                pu_id=inp.pu_id,
+            )
+
+        # Step 2.05: Cheque de-duplication — reject BEFORE any lot admission
+        # Uses MICR code (bank+branch) + cheque_number for a globally unique key.
+        # Redis TTL = 18 months; YugabyteDB persistence is caller's responsibility via audit write.
+        if micr_line and inp.cheque_number:
+            from modules.cts.workflows.activities.outward_scan_activities import (
+                check_cheque_dedup, ChequeDedupInput,
+            )
+            dedup_result = await workflow.execute_activity(
+                check_cheque_dedup,
+                ChequeDedupInput(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    micr_line=micr_line,
+                    cheque_number=inp.cheque_number,
+                    presented_at=workflow.now().isoformat(),
+                ),
+                start_to_close_timeout=timedelta(seconds=5),
+                retry_policy=_INFRA_RETRY,
+            )
+            if dedup_result.is_duplicate:
+                await workflow.execute_activity(
+                    write_audit,
+                    WriteAuditInput(
+                        event_type="CTS_OUT_DUPLICATE_CHEQUE",
+                        bank_id=inp.bank_id,
+                        instrument_id=inp.instrument_id,
+                        payload={
+                            "scan_id": inp.scan_id,
+                            "cheque_number": inp.cheque_number[-4:],
+                            "original_instrument_id": dedup_result.original_instrument_id or "unknown",
+                        },
+                    ),
+                    start_to_close_timeout=timedelta(seconds=15),
+                    retry_policy=_AUDIT_RETRY,
+                )
+                return OutwardScanResult(
+                    outcome="CTS_REJECTED",
+                    scan_id=inp.scan_id,
+                    bank_id=inp.bank_id,
+                    instrument_id=inp.instrument_id,
+                    micr_line=micr_line,
+                    violations=["DUPLICATE_CHEQUE"],
+                    audit_written=True,
+                    pu_id=inp.pu_id,
+                )
 
         # Step 2.1: Rear-image OCR → extract payee account + name (if deposit slip not pre-entered)
         if inp.rear_image_ocr_required and inp.image_rear_url:
@@ -426,6 +556,7 @@ class OutwardScanWorkflow:
             CTS2010ValidationInput(
                 instrument_id=inp.instrument_id,
                 cheque_number=inp.cheque_number,
+                bank_id=inp.bank_id,
                 front_dpi=inp.front_dpi,
                 rear_dpi=inp.rear_dpi,
                 front_colour_depth=inp.front_colour_depth,
@@ -563,7 +694,12 @@ class OutwardScanWorkflow:
             write_audit,
             WriteAuditInput(event_type="CTS_OUT_INSTRUMENT_PENDING", bank_id=inp.bank_id,
                             instrument_id=inp.instrument_id,
-                            payload={"scan_id": inp.scan_id, "lot_number": None}),
+                            payload={
+                                "scan_id": inp.scan_id,
+                                "lot_number": None,
+                                "ocr_engines_used": _ocr_engines,
+                                "indic_ocr_kill_switch_active": _indic_ks,
+                            }),
             start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
         )
         return OutwardScanResult(
@@ -871,14 +1007,24 @@ class OutwardScanWorkflow:
         micr_result = mock_results["micr"]
         micr_line = getattr(micr_result, "micr_line", None)
 
-        # Step 1.5: Date validation — stale / post-dated / undated cheques rejected here
-        # OCR extracts the date; we validate before spending AI budget on the rest.
+        # Step 1.5: Date validation — stale / post-dated / undated cheques handled here.
         date_str = getattr(micr_result, "date", None)
         date_ok, date_violation = _validate_cheque_date(date_str)
         if not date_ok:
-            log.info("outward_scan_workflow.date_rejected",
+            log.info("outward_scan_workflow.date_issue",
                      scan_id=inp.scan_id, bank_id=inp.bank_id,
                      violation=date_violation, date_extracted=date_str)
+            if date_violation == "POST_DATED_CHEQUE":
+                # Post-dated: valid instrument — hold it, don't reject.
+                # In run_with_mocks(), no child workflow is started; caller should observe
+                # POST_DATED_HELD outcome and treat the instrument as held by the branch.
+                await self._write_audit(mock_results, "POST_DATED_HELD", inp)
+                return OutwardScanResult(
+                    outcome="POST_DATED_HELD", scan_id=inp.scan_id, bank_id=inp.bank_id,
+                    instrument_id=inp.instrument_id, micr_line=micr_line,
+                    lot_number=None, violations=["POST_DATED_CHEQUE"], audit_written=True,
+                    pu_id=getattr(inp, "pu_id", None),
+                )
             await self._write_audit(mock_results, "CTS_REJECTED", inp)
             return OutwardScanResult(
                 outcome="CTS_REJECTED", scan_id=inp.scan_id, bank_id=inp.bank_id,

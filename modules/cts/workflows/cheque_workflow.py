@@ -29,6 +29,7 @@ from modules.cts.sub_member.activities import (
     emit_batch_ledger_update,
     notify_sub_member_return,
 )
+from shared.utils.masking import mask_amount
 
 log = structlog.get_logger()
 
@@ -175,6 +176,8 @@ class ChequeProcessingWorkflow:
             KillMode, KillScope, KillSwitchStatus,
         )
         from modules.cts.queue_tier import humanreview_task_queue_for_tier
+        from modules.cts.workflows.feedback_workflow import FeedbackEmitWorkflow
+        from modules.cts.workflows.feedback_types import FeedbackEmitInput as FeedbackInput
 
         def _to_kill_switch_status(lookup_result) -> KillSwitchStatus:
             mode = lookup_result["mode"] if isinstance(lookup_result, dict) else lookup_result.mode
@@ -187,6 +190,17 @@ class ChequeProcessingWorkflow:
             )
 
         wf_id = self.workflow_id(inp.bank_id, inp.instrument_id)
+
+        # State accumulator — updated by each activity so finalise() can persist
+        # a complete row to cts.agent_decisions regardless of which exit path fires.
+        _started_at: float = workflow.now().timestamp()
+        _alteration_detected: bool = False
+        _fraud_score: float = 0.0
+        _shap_values: dict = {}
+        _sig_match_score: float = 0.0
+        _sig_verdict: str = "UNKNOWN"
+        _pps_verdict: str = "NOT_CHECKED"
+        _cbs_status: str = "NOT_CHECKED"
 
         # Step 1: Spawn IET watchdog FIRST — before any activity (non-negotiable)
         watchdog = await workflow.start_child_workflow(
@@ -201,6 +215,43 @@ class ChequeProcessingWorkflow:
             parent_close_policy=ParentClosePolicy.ABANDON,
         )
         self._watchdog_spawned = True
+
+        # Step 2: Mark leaf as PRESENTED in the vault immediately.
+        # DuplicatePresentmentError → STP_RETURN (no AI work for a known duplicate).
+        # Any other vault error → logged and ignored (IET breach > vault miss).
+        from modules.cts.workflows.activities.leaf_lifecycle import (
+            MarkLeafPresentedInput, mark_leaf_presented,
+        )
+        from modules.cts.vaults.cheque_leaf_vault import DuplicatePresentmentError
+        try:
+            await workflow.execute_activity(
+                mark_leaf_presented,
+                MarkLeafPresentedInput(
+                    bank_id=inp.bank_id,
+                    account_number=inp.account_number,
+                    cheque_number=inp.cheque_number,
+                    instrument_id=inp.instrument_id,
+                ),
+                start_to_close_timeout=timedelta(seconds=10),
+                retry_policy=RetryPolicy(
+                    maximum_attempts=2,
+                    non_retryable_error_types=["DuplicatePresentmentError"],
+                ),
+            )
+        except Exception as _leaf_exc:
+            if "DuplicatePresentmentError" in type(_leaf_exc).__name__ or \
+               "DuplicatePresentmentError" in str(_leaf_exc):
+                return await finalise(
+                    "STP_RETURN",
+                    "DUPLICATE_PRESENTMENT: cheque leaf already PRESENTED or PAID",
+                )
+            # Non-duplicate vault error — log and continue (never block IET)
+            log.warning(
+                "cheque_workflow.mark_presented_failed",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                error=str(_leaf_exc),
+            )
 
         human_review_timeout = int(
             inp.cts_config.get("human_review_max_wait_minutes", 55)
@@ -228,6 +279,42 @@ class ChequeProcessingWorkflow:
             itself signals the watchdog once a reviewer decides or the 55-min
             window times out.
             """
+            # Persist to cts.agent_decisions (YugabyteDB) before Immudb audit write.
+            # Best-effort: degrades gracefully if db_pool unavailable — never blocks workflow.
+            from modules.cts.workflows.activities.persist_decision import (
+                PersistDecisionInput, persist_agent_decision,
+            )
+            try:
+                await workflow.execute_activity(
+                    persist_agent_decision,
+                    PersistDecisionInput(
+                        instrument_id=inp.instrument_id,
+                        bank_id=inp.bank_id,
+                        workflow_id=wf_id,
+                        decision=decision,
+                        decision_reason=rationale,
+                        fraud_score=_fraud_score,
+                        shap_values=shap_values or _shap_values,
+                        processing_started_at=_started_at,
+                        processing_completed_at=workflow.now().timestamp(),
+                        alteration_detected=_alteration_detected,
+                        signature_match_score=_sig_match_score,
+                        signature_verdict=_sig_verdict,
+                        pps_verdict=_pps_verdict,
+                        cbs_balance_status=_cbs_status,
+                        ocr_engines_used=[],           # inward side: no OCR on drawee
+                        indic_ocr_kill_switch_active=False,
+                        iet_margin_seconds=0,          # watchdog tracks IET margin
+                    ),
+                    start_to_close_timeout=timedelta(seconds=15),
+                    retry_policy=_AUDIT_RETRY,
+                )
+            except Exception as exc:
+                log.warning(
+                    "cheque_workflow.persist_decision_failed",
+                    instrument_id=inp.instrument_id, bank_id=inp.bank_id, error=str(exc),
+                )
+
             if decision in ("STP_CONFIRM", "STP_RETURN"):
                 ngch_decision = "CONFIRM" if decision == "STP_CONFIRM" else "RETURN"
                 try:
@@ -372,6 +459,32 @@ class ChequeProcessingWorkflow:
                         error=str(exc),
                     )
 
+            # Fire-and-forget OCR feedback signal — never blocks return.
+            # FeedbackAccumulatorWorkflow must be running (started at bank onboarding).
+            # If it's not yet running, FeedbackEmitWorkflow logs a warning and exits;
+            # the main cheque decision is unaffected.
+            try:
+                await workflow.start_child_workflow(
+                    FeedbackEmitWorkflow.run,
+                    FeedbackInput(
+                        instrument_id=inp.instrument_id,
+                        bank_id=inp.bank_id,
+                        ocr_payee=inp.presented_payee,
+                        name_match_score=0.0,  # placeholder — improves when payee score threaded through
+                        workflow_decision=decision,
+                        image_path=inp.image_url,
+                        account_suffix=inp.account_number[-4:],
+                        ngch_filed_ok=(decision != "HUMAN_REVIEW"),
+                    ),
+                    id=f"cts-feedback-emit-{inp.bank_id}-{inp.instrument_id}",
+                    parent_close_policy=ParentClosePolicy.ABANDON,
+                )
+            except Exception as exc:
+                log.warning(
+                    "cheque_workflow.feedback_emit_failed",
+                    instrument_id=inp.instrument_id, bank_id=inp.bank_id, error=str(exc),
+                )
+
             log.info(
                 "cheque_workflow.complete",
                 instrument_id=inp.instrument_id, bank_id=inp.bank_id, decision=decision,
@@ -407,6 +520,7 @@ class ChequeProcessingWorkflow:
             start_to_close_timeout=timedelta(seconds=120),
             retry_policy=_AI_ACTIVITY_RETRY,
         )
+        _alteration_detected = alteration_result.alteration_detected
         if alteration_result.alteration_detected:
             return await finalise("HUMAN_REVIEW", "alteration_detected")
 
@@ -500,6 +614,8 @@ class ChequeProcessingWorkflow:
             retry_policy=_CBS_RETRY,
         )
 
+        _pps_verdict = pps_result.outcome
+
         # Step 4.5: detect_signatures — count ink signatures, check fraud patterns
         from modules.cts.workflows.activities.detect_signatures import (
             detect_signatures, DetectSignaturesInput,
@@ -544,6 +660,9 @@ class ChequeProcessingWorkflow:
             retry_policy=_AI_ACTIVITY_RETRY,
         )
 
+        _sig_match_score = sig_result.match_score or 0.0
+        _sig_verdict = getattr(sig_result, "verdict", "UNKNOWN") or "UNKNOWN"
+
         # Step 6: score_fraud
         fraud_result = await workflow.execute_activity(
             score_fraud,
@@ -559,6 +678,9 @@ class ChequeProcessingWorkflow:
             start_to_close_timeout=timedelta(seconds=30),
             retry_policy=_AI_ACTIVITY_RETRY,
         )
+
+        _fraud_score = fraud_result.fraud_score
+        _shap_values = fraud_result.shap_values or {}
 
         # Stage D — Step 7.0: validate_cheque_series (vault mode default → Redis < 5ms; CBS mode → live call)
         from modules.cts.workflows.activities.cheque_series import (
@@ -602,6 +724,7 @@ class ChequeProcessingWorkflow:
             start_to_close_timeout=timedelta(seconds=10),
             retry_policy=_CBS_RETRY,
         )
+        _cbs_status = cbs_balance_result.outcome
         if cbs_balance_result.outcome == "CBS_UNAVAILABLE":
             return await finalise("HUMAN_REVIEW", "cbs_unavailable_image_only_path")
         if cbs_balance_result.outcome == "RETURN":
@@ -826,9 +949,23 @@ class ChequeProcessingWorkflow:
         # Step 5: PPS lookup
         pps_result = mock_results["pps"]
 
-        # Step 5.5: Signature verification — handles 1 or N ink sigs uniformly.
-        # verify_signature applies mandate BRE; result is always in mock_results["signature"].
-        sig_result = mock_results["signature"]
+        # Step 5.5: Signature verification — single or multi-sig path.
+        sig_count = mock_results.get("sig_count", 1)
+        if sig_count >= 2:
+            # Multi-sig: MSVValidationWorkflow result drives routing.
+            msv_r = mock_results.get("msv")
+            if msv_r is None or msv_r.outcome != "GREEN":
+                reason = "msv_not_configured" if msv_r is None else f"msv_{msv_r.outcome.lower()}"
+                return ChequeWorkflowResult(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    decision="HUMAN_REVIEW",
+                    rationale=reason,
+                    shap_values={},
+                )
+            # GREEN: proceed — sig_result not needed downstream in run_with_mocks
+        else:
+            sig_result = mock_results["signature"]  # noqa: F841 — read for parity with run()
 
         # Step 7: Fraud scoring (always includes SHAP)
         fraud_result = mock_results["fraud"]

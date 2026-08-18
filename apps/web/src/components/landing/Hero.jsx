@@ -4,7 +4,7 @@ const STATS = [
   { value: '₹71.1L Cr', label: 'Cleared via CTS', sub: 'FY2024–25' },
   { value: '609M', label: 'Cheques processed', sub: 'India, per year' },
   { value: '<600ms', label: 'AI decision wall-clock', sub: 'Any batch size, p99' },
-  { value: '2.5L+', label: 'ATMs, 5+ OEM formats', sub: 'Zero standard EJ exists' },
+  { value: '18 mo', label: 'First-mover window', sub: 'Before incumbents catch up' },
 ]
 
 export default function Hero() {
@@ -66,8 +66,8 @@ export default function Hero() {
             className="anim text-lg sm:text-xl text-slate-300 leading-relaxed max-w-2xl mx-auto mb-4"
             style={{ opacity: 0, transform: 'translateY(20px)', transition: 'all 0.5s ease' }}
           >
-            ASTRA brings agentic AI to India's two largest unresolved banking operations —
-            cheque truncation compliance and ATM EJ dispute resolution.
+            ASTRA brings agentic AI to India's most critical unresolved banking operation —
+            cheque truncation compliance under the RBI IET mandate.
             <span className="text-slate-200"> 100% on-premises. No cloud. No vendor data access.</span>
           </p>
 
