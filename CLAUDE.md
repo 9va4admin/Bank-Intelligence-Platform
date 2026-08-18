@@ -361,11 +361,13 @@ NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
 4. **NPCI API Modernisation Phase A** — trigger: NPCI concept note acceptance; see [docs/npci-readiness-plan.md](docs/npci-readiness-plan.md)
 5. **Security hardening** — OWASP ZAP + pen test prep
 
-**Open security findings (not yet fixed):**
-- `rbac.py:210-211`: fail-open defaults (SB/EDIT)
-- ~~`HumanReviewWorkflow`: 55-min timeout is a flat constant, not config-aware (HIGH-1)~~ — **FIXED `5cfaa7e`**
-- SMB notify side effects missing from real `run()` (HIGH-4)
-- `mfa_stores.py:60-61`: direct `os.environ.get("VAULT_ADDR")` — needs config_service
+**Open security findings:** All code-level findings closed as of `4dd6b13` (2026-08-09 VAPT pre-clearance). See `docs/astra-vapt-security-architecture.html` for the current architecture reference package (DFD, network topology, threat model, port matrix).
+
+**Remaining VAPT blockers (non-code):**
+- Staging/pre-prod K8s environment (pilot bank deploy prerequisite)
+- CERT-In empanelled vendor (discussions initiated)
+- Internal OWASP ZAP pre-scan on live staging environment
+- Sanitised test data (cheque images, EJ logs, accounts)
 
 ---
 
