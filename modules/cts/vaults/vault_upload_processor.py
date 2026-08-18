@@ -12,10 +12,11 @@ Action column values (universal across all vault types):
   DEACTIVATE   — mark record inactive / revoke status
 
 Vault types handled:
-  CHEQUE_BOOK    — cheque_book_upload.csv     → ChequeLeafVault.store_book()
-  LEAF_STATUS    — cheque_leaf_status_upload.csv → ChequeLeafVault.set_leaf_status()
+  CHEQUE_BOOK    — cheque_book_upload.csv          → ChequeLeafVault.store_book()
+  LEAF_STATUS    — cheque_leaf_status_upload.csv   → ChequeLeafVault.set_leaf_status()
   ACCOUNT_DETAIL — account_vault_detail_upload.csv → AccountVaultDetailWriter
-  SIGNATURE      — signatory_upload.csv       → SignatureVault account_signatories
+  SIGNATURE      — signatory_upload.csv            → SignatureVault account_signatories
+  PPS            — pps_upload.csv                  → PPSVault.store_pps()
 
 All uploads:
   1. Create a vault_upload_batches row (status=PROCESSING)
@@ -56,6 +57,10 @@ _COLUMNS: dict[str, dict[str, list[str]]] = {
         "required": ["account_number", "signatory_id", "mandate_rule"],
         "optional": ["action", "quorum_n"],
     },
+    "PPS": {
+        "required": ["account_number", "cheque_number", "cheque_date", "amount", "payee_name"],
+        "optional": ["action", "registration_channel", "cbs_pps_ref", "npci_flag"],
+    },
 }
 
 
@@ -76,12 +81,14 @@ class VaultUploadProcessor:
         cheque_leaf_vault=None,
         account_vault=None,
         signature_vault=None,
+        pps_vault=None,
     ) -> None:
         self._bank_id = bank_id
         self._db_pool = db_pool
         self._cheque_leaf_vault = cheque_leaf_vault
         self._account_vault = account_vault
         self._signature_vault = signature_vault
+        self._pps_vault = pps_vault
 
     async def process(
         self,
@@ -177,6 +184,7 @@ class VaultUploadProcessor:
             "LEAF_STATUS": self._handle_leaf_status_row,
             "ACCOUNT_DETAIL": self._handle_account_detail_row,
             "SIGNATURE": self._handle_signature_row,
+            "PPS": self._handle_pps_row,
         }[vault_type]
 
     async def _handle_cheque_book_row(
@@ -343,6 +351,47 @@ class VaultUploadProcessor:
                         self._bank_id, account_hash, json.dumps(holder_names),
                     )
 
+    async def _handle_pps_row(
+        self, row: dict, action: str, changed_by: str, batch_id: str
+    ) -> None:
+        """
+        Registers or cancels a PPS entry (Positive Pay System).
+
+        5 RBI-mandated fields: account_number, cheque_number, cheque_date, amount, payee_name.
+        amount: rupees (float/int) — converted to paise internally.
+        action DEACTIVATE maps to store_pps action=CANCEL (deletes Redis key, sets CANCELLED in DB).
+        """
+        from datetime import date as _date
+        acct = _require(row, "account_number")
+        cheque_number = _require(row, "cheque_number").zfill(6)
+        cheque_date_raw = _require(row, "cheque_date")
+        cheque_date = _date.fromisoformat(cheque_date_raw)
+        amount_raw = _require(row, "amount")
+        try:
+            amount_paise = int(float(amount_raw) * 100)
+        except ValueError as exc:
+            raise ValueError(f"amount must be numeric, got {amount_raw!r}") from exc
+        payee = _require(row, "payee_name")
+
+        store_action = "CANCEL" if action == "DEACTIVATE" else action
+
+        if self._pps_vault is None:
+            raise RuntimeError("PPSVault not configured in processor")
+
+        await self._pps_vault.store_pps(
+            account_number=acct,
+            cheque_number=cheque_number,
+            cheque_date=cheque_date,
+            amount_paise=amount_paise,
+            payee=payee,
+            registered_by=changed_by,
+            action=store_action,
+            registration_channel=row.get("registration_channel") or "BRANCH_UPLOAD",
+            cbs_pps_ref=row.get("cbs_pps_ref"),
+            npci_flag=row.get("npci_flag") or None,
+            upload_batch_id=batch_id,
+        )
+
     async def _handle_signature_row(
         self, row: dict, action: str, changed_by: str, batch_id: str
     ) -> None:
@@ -468,6 +517,12 @@ TEMPLATES: dict[str, str] = {
     "SIGNATURE": (
         "action,account_number,signatory_id,mandate_rule,quorum_n\n"
         "UPSERT,00112233445566,SIG001,ANY_ONE,\n"
+    ),
+    "PPS": (
+        "action,account_number,cheque_number,cheque_date,amount,payee_name,"
+        "registration_channel,cbs_pps_ref,npci_flag\n"
+        "INSERT_ONLY,00112233445566,000101,2026-08-20,50000.00,"
+        "Mahindra Finance Ltd,NET_BANKING,,\n"
     ),
 }
 

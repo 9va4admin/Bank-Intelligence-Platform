@@ -36,6 +36,14 @@ const VAULT_TYPES = [
     filename: 'signatory_upload.csv',
     minRole: 'bank_it_admin',
   },
+  {
+    id: 'PPS',
+    label: 'Positive Pay',
+    icon: '✅',
+    desc: 'Pre-register cheques for Positive Pay System (RBI mandate). One row per cheque: account, cheque number, date, amount, payee.',
+    filename: 'pps_upload.csv',
+    minRole: 'ops_manager',
+  },
 ]
 
 const STATUS_STYLES = {
