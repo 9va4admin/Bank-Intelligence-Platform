@@ -213,6 +213,73 @@ async def process_vault_csv(inp: ProcessVaultCSVInput, db_pool=None, vaults: dic
         return ProcessVaultCSVResult(error=str(exc))
 
 
+class VaultBatchAlertInput(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    batch_id: str
+    bank_id: str
+    vault_type: str
+    rows_total: int
+    rows_processed: int
+    rows_failed: int
+
+
+@activity.defn
+async def emit_vault_batch_alert(inp: VaultBatchAlertInput, kafka_producer=None) -> None:
+    """
+    Publish a VAULT_BATCH_PARTIAL or VAULT_BATCH_FAILED event to platform.audit.events.
+    PlatformHealthCheckWorkflow consumes this and routes via dispatcher.py → WhatsApp + email.
+    Non-fatal if Kafka is down — batch result is already in DB.
+    """
+    if kafka_producer is None:
+        log.warning(
+            "vault_file_drop.alert_skipped_no_kafka",
+            batch_id=inp.batch_id,
+            bank_id=inp.bank_id,
+            rows_failed=inp.rows_failed,
+        )
+        return
+
+    event_type = (
+        "VAULT_BATCH_FAILED" if inp.rows_processed == 0
+        else "VAULT_BATCH_PARTIAL"
+    )
+    _TABLE_MAP = {
+        "PPS": "cts.pps_vault_entries", "CHEQUE_BOOK": "cts.cheque_books",
+        "LEAF_STATUS": "cts.cheque_leaves", "ACCOUNT_DETAIL": "cts.account_vault_detail",
+        "SIGNATURE": "cts.account_signatories",
+    }
+    try:
+        kafka_producer.publish(
+            topic="platform.audit.events",
+            event_type=event_type,
+            payload={
+                "batch_id": inp.batch_id,
+                "vault_type": inp.vault_type,
+                "db_table": _TABLE_MAP.get(inp.vault_type, "unknown"),
+                "bank_id": inp.bank_id,
+                "rows_total": inp.rows_total,
+                "rows_processed": inp.rows_processed,
+                "rows_failed": inp.rows_failed,
+                "download_url": f"/v1/cts/vault/batches/{inp.batch_id}/errors.csv",
+            },
+            bank_id=inp.bank_id,
+        )
+        log.warning(
+            "vault_file_drop.batch_alert_emitted",
+            batch_id=inp.batch_id,
+            bank_id=inp.bank_id,
+            vault_type=inp.vault_type,
+            event_type=event_type,
+            rows_failed=inp.rows_failed,
+        )
+    except Exception as exc:
+        log.error(
+            "vault_file_drop.batch_alert_failed",
+            batch_id=inp.batch_id,
+            error=str(exc),
+        )
+
+
 @activity.defn
 async def archive_drop_file(inp: ArchiveDropFileInput, minio_client=None) -> None:
     """Move the processed file to the archive bucket so it isn't reprocessed."""
@@ -318,7 +385,7 @@ class VaultFileDropWorkflow:
             start_to_close_timeout=timedelta(seconds=30),
         )
 
-        return VaultFileDropResult(
+        result = VaultFileDropResult(
             outcome="VAULT_UPDATED",
             bank_id=inp.bank_id,
             vault_type=inp.vault_type,
@@ -327,6 +394,25 @@ class VaultFileDropWorkflow:
             rows_processed=process_result.rows_processed,
             rows_failed=process_result.rows_failed,
         )
+
+        # Notify on PARTIAL batch — alert ops_manager via Kafka audit event.
+        # The PlatformHealthCheckWorkflow picks this up and routes to dispatcher.py.
+        if process_result.rows_failed > 0:
+            await workflow.execute_activity(
+                emit_vault_batch_alert,
+                VaultBatchAlertInput(
+                    batch_id=process_result.batch_id or "",
+                    bank_id=inp.bank_id,
+                    vault_type=inp.vault_type,
+                    rows_total=process_result.rows_total,
+                    rows_processed=process_result.rows_processed,
+                    rows_failed=process_result.rows_failed,
+                ),
+                retry_policy=_DEFAULT_RETRY,
+                start_to_close_timeout=timedelta(seconds=15),
+            )
+
+        return result
 
     async def run_with_mocks(
         self,
