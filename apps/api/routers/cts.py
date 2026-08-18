@@ -2831,3 +2831,345 @@ async def get_session_report(
         html_url=html_url,
         pdf_url=pdf_url,
     )
+
+
+# ---------------------------------------------------------------------------
+# Vault Upload — UI path
+# POST /v1/cts/vault/upload/{vault_type}
+# GET  /v1/cts/vault/batches/{batch_id}
+# GET  /v1/cts/vault/batches/{batch_id}/errors.csv
+# ---------------------------------------------------------------------------
+
+import csv as _csv
+import io as _io
+from fastapi import UploadFile, File
+from fastapi.responses import StreamingResponse
+
+_VAULT_TABLE_MAP: dict[str, str] = {
+    "PPS":            "cts.pps_vault_entries",
+    "CHEQUE_BOOK":    "cts.cheque_books",
+    "LEAF_STATUS":    "cts.cheque_leaves",
+    "ACCOUNT_DETAIL": "cts.account_vault_detail",
+    "SIGNATURE":      "cts.account_signatories",
+}
+
+_VALID_VAULT_TYPES = frozenset(_VAULT_TABLE_MAP)
+
+
+class VaultUploadResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    batch_id: str
+    vault_type: str
+    db_table: str
+    status: str          # COMPLETE | PARTIAL | FAILED
+    rows_total: int
+    rows_processed: int
+    rows_failed: int
+    errors_preview: list[dict]   # first 20 inline; full list → /errors.csv
+
+
+class VaultBatchStatusResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    batch_id: str
+    bank_id: str
+    vault_type: str
+    db_table: str
+    filename: Optional[str]
+    upload_channel: str
+    uploaded_by: str
+    status: str
+    rows_total: int
+    rows_processed: int
+    rows_failed: int
+    errors_preview: list[dict]   # first 20 from stored errors_json
+    created_at: float
+    completed_at: Optional[float]
+
+
+def _vault_status(rows_processed: int, rows_failed: int) -> str:
+    if rows_processed == 0 and rows_failed > 0:
+        return "FAILED"
+    if rows_failed > 0:
+        return "PARTIAL"
+    return "COMPLETE"
+
+
+def _publish_vault_batch_event(
+    kafka_producer,
+    *,
+    batch_id: str,
+    bank_id: str,
+    vault_type: str,
+    status: str,
+    rows_total: int,
+    rows_processed: int,
+    rows_failed: int,
+) -> None:
+    """Emit Kafka event on PARTIAL or FAILED batch → PlatformHealthCheckWorkflow → dispatcher → alert."""
+    if kafka_producer is None or rows_failed == 0:
+        return
+    event_type = "VAULT_BATCH_FAILED" if rows_processed == 0 else "VAULT_BATCH_PARTIAL"
+    try:
+        kafka_producer.publish(
+            topic="platform.audit.events",
+            event_type=event_type,
+            payload={
+                "batch_id": batch_id,
+                "vault_type": vault_type,
+                "db_table": _VAULT_TABLE_MAP.get(vault_type, "unknown"),
+                "bank_id": bank_id,
+                "rows_total": rows_total,
+                "rows_processed": rows_processed,
+                "rows_failed": rows_failed,
+            },
+            bank_id=bank_id,
+        )
+        log.warning(
+            "vault.batch_alert_emitted",
+            batch_id=batch_id,
+            bank_id=bank_id,
+            vault_type=vault_type,
+            event_type=event_type,
+            rows_failed=rows_failed,
+        )
+    except Exception as exc:
+        log.error("vault.batch_alert_publish_failed", batch_id=batch_id, error=str(exc))
+
+
+@router_v1.post(
+    "/vault/upload/{vault_type}",
+    response_model=VaultUploadResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def upload_vault_csv(
+    vault_type: str,
+    request: Request,
+    file: UploadFile = File(...),
+    ctx: UserContext = Depends(get_current_user_context),
+) -> VaultUploadResponse:
+    """
+    Upload a vault CSV via the ops workstation UI.
+    Accepted vault_type: PPS | CHEQUE_BOOK | LEAF_STATUS | ACCOUNT_DETAIL | SIGNATURE.
+    Returns batch result immediately; failed rows available at /errors.csv.
+    """
+    bank_id = ctx.bank_id
+    vault_type = vault_type.upper()
+
+    if vault_type not in _VALID_VAULT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error_code": "VAULT_UNKNOWN_TYPE",
+                "message": f"vault_type must be one of {sorted(_VALID_VAULT_TYPES)}",
+                "request_id": request.headers.get("X-Request-Id", ""),
+            },
+        )
+
+    csv_bytes = await file.read()
+    if not csv_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error_code": "VAULT_EMPTY_FILE",
+                "message": "Uploaded file is empty",
+                "request_id": request.headers.get("X-Request-Id", ""),
+            },
+        )
+
+    db_pool = getattr(request.app.state, "db_pool", None)
+    vaults: dict = getattr(request.app.state, "vault_instances", {}) or {}
+
+    from modules.cts.vaults.vault_upload_processor import VaultUploadProcessor
+
+    processor = VaultUploadProcessor(
+        bank_id=bank_id,
+        db_pool=db_pool,
+        cheque_leaf_vault=vaults.get("cheque_leaf"),
+        account_vault=vaults.get("account"),
+        signature_vault=vaults.get("signature"),
+        pps_vault=vaults.get("pps"),
+    )
+
+    try:
+        result = await processor.process(
+            vault_type=vault_type,
+            csv_content=csv_bytes,
+            changed_by=f"user:{ctx.user_id}",
+            filename=file.filename,
+            upload_channel="UI",
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error_code": "VAULT_PARSE_ERROR",
+                "message": str(exc),
+                "request_id": request.headers.get("X-Request-Id", ""),
+            },
+        ) from exc
+
+    batch_status = _vault_status(result.rows_processed, result.rows_failed)
+
+    # Notify ops_manager via Kafka → PlatformHealthCheckWorkflow → dispatcher
+    _publish_vault_batch_event(
+        get_kafka_producer(request),
+        batch_id=result.batch_id,
+        bank_id=bank_id,
+        vault_type=vault_type,
+        status=batch_status,
+        rows_total=result.rows_total,
+        rows_processed=result.rows_processed,
+        rows_failed=result.rows_failed,
+    )
+
+    log.info(
+        "vault.upload_complete",
+        batch_id=result.batch_id,
+        bank_id=bank_id,
+        vault_type=vault_type,
+        db_table=_VAULT_TABLE_MAP[vault_type],
+        status=batch_status,
+        rows_total=result.rows_total,
+        rows_processed=result.rows_processed,
+        rows_failed=result.rows_failed,
+    )
+
+    return VaultUploadResponse(
+        batch_id=result.batch_id,
+        vault_type=vault_type,
+        db_table=_VAULT_TABLE_MAP[vault_type],
+        status=batch_status,
+        rows_total=result.rows_total,
+        rows_processed=result.rows_processed,
+        rows_failed=result.rows_failed,
+        errors_preview=result.errors[:20],
+    )
+
+
+@router_v1.get(
+    "/vault/batches/{batch_id}",
+    response_model=VaultBatchStatusResponse,
+)
+async def get_vault_batch_status(
+    batch_id: str,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> VaultBatchStatusResponse:
+    """
+    Return status and row counts for a completed vault upload batch.
+    Scoped to the authenticated bank_id — cannot query another bank's batch.
+    """
+    bank_id = ctx.bank_id
+    db_pool = getattr(request.app.state, "db_pool", None)
+
+    if db_pool is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error_code": "DB_UNAVAILABLE", "message": "Database pool not ready"},
+        )
+
+    import json as _json
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT id, bank_id, vault_type, filename, upload_channel,
+                   uploaded_by, status, rows_total, rows_processed, rows_failed,
+                   errors_json, created_at, completed_at
+            FROM cts.vault_upload_batches
+            WHERE id=$1 AND bank_id=$2
+            """,
+            batch_id, bank_id,
+        )
+
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "VAULT_BATCH_NOT_FOUND",
+                "message": f"Batch {batch_id!r} not found for bank {bank_id!r}",
+            },
+        )
+
+    vault_type = row["vault_type"]
+    errors_raw = row["errors_json"] or []
+    errors_list: list[dict] = _json.loads(errors_raw) if isinstance(errors_raw, str) else (errors_raw or [])
+
+    return VaultBatchStatusResponse(
+        batch_id=str(row["id"]),
+        bank_id=row["bank_id"],
+        vault_type=vault_type,
+        db_table=_VAULT_TABLE_MAP.get(vault_type, "unknown"),
+        filename=row["filename"],
+        upload_channel=row["upload_channel"],
+        uploaded_by=row["uploaded_by"],
+        status=row["status"],
+        rows_total=row["rows_total"],
+        rows_processed=row["rows_processed"],
+        rows_failed=row["rows_failed"],
+        errors_preview=errors_list[:20],
+        created_at=row["created_at"].timestamp() if row["created_at"] else 0.0,
+        completed_at=row["completed_at"].timestamp() if row["completed_at"] else None,
+    )
+
+
+@router_v1.get("/vault/batches/{batch_id}/errors.csv")
+async def download_vault_batch_errors(
+    batch_id: str,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> StreamingResponse:
+    """
+    Download all rejected rows from a vault upload batch as a CSV file.
+    Columns: row_number, error_message.
+    Scoped to authenticated bank_id — cannot download another bank's errors.
+    Response: text/csv with Content-Disposition: attachment.
+    """
+    bank_id = ctx.bank_id
+    db_pool = getattr(request.app.state, "db_pool", None)
+
+    if db_pool is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error_code": "DB_UNAVAILABLE", "message": "Database pool not ready"},
+        )
+
+    import json as _json
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT vault_type, status, rows_failed, errors_json
+            FROM cts.vault_upload_batches
+            WHERE id=$1 AND bank_id=$2
+            """,
+            batch_id, bank_id,
+        )
+
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "VAULT_BATCH_NOT_FOUND",
+                "message": f"Batch {batch_id!r} not found for bank {bank_id!r}",
+            },
+        )
+
+    errors_raw = row["errors_json"] or []
+    errors_list: list[dict] = _json.loads(errors_raw) if isinstance(errors_raw, str) else (errors_raw or [])
+
+    def _generate_csv():
+        buf = _io.StringIO()
+        writer = _csv.DictWriter(buf, fieldnames=["row_number", "error_message"])
+        writer.writeheader()
+        yield buf.getvalue()
+        for err in errors_list:
+            buf = _io.StringIO()
+            writer = _csv.DictWriter(buf, fieldnames=["row_number", "error_message"])
+            writer.writerow({"row_number": err.get("row", ""), "error_message": err.get("error", "")})
+            yield buf.getvalue()
+
+    filename = f"vault_errors_{batch_id[:8]}.csv"
+    return StreamingResponse(
+        _generate_csv(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

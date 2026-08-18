@@ -470,7 +470,7 @@ class VaultUploadProcessor:
                 """,
                 batch_id, status,
                 result.rows_processed, result.rows_failed,
-                json.dumps(result.errors[:50]),  # cap to avoid huge JSONB
+                json.dumps(result.errors[:1000]),  # first 1000 rows; full list in result.errors
             )
 
     async def _fail_batch(self, batch_id: str, reason: str) -> None:
