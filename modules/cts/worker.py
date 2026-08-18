@@ -140,7 +140,11 @@ from modules.cts.workflows.activities.postdated_hold_activities import (
 )
 from modules.cts.workflows.activities.security_features import check_security_features
 from modules.cts.workflows.activities.ngch_metadata_cross_check import cross_check_ngch_metadata
-from modules.cts.workflows.mismatch_resolution_workflow import publish_mismatch_hold
+from modules.cts.workflows.mismatch_resolution_workflow import (
+    publish_mismatch_hold,
+    persist_mismatch_hold_db,
+    resolve_mismatch_db,
+)
 from modules.cts.workflows.activities.batch_endorsement_activities import (
     stamp_endorsement,
     update_lot_status,
@@ -263,6 +267,8 @@ ALL_ACTIVITIES = [
     run_vision_presentment_check,
     check_security_features,
     publish_mismatch_hold,
+    persist_mismatch_hold_db,
+    resolve_mismatch_db,
     stamp_endorsement,
     update_lot_status,
     build_ngch_file,

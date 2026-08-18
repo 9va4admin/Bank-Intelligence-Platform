@@ -2051,23 +2051,19 @@ async def list_mismatches(
                     SELECT mismatch_id, instrument_id, branch_id, held_at, status,
                            mismatch_fields, vision_finding, scanner_data, lot_id, workflow_run_id
                     FROM cts.mismatch_queue
-                    WHERE branch_id = $1 AND status = 'HELD'
+                    WHERE bank_id = $1 AND branch_id = $2 AND status = 'HELD'
                     ORDER BY held_at ASC
                     """,
-                    branch_id,
+                    bank_id, branch_id,
                 )
             else:
                 rows = await conn.fetch(
                     """
-                    SELECT mq.mismatch_id, mq.instrument_id, mq.branch_id, mq.held_at,
-                           mq.status, mq.mismatch_fields, mq.vision_finding, mq.scanner_data,
-                           mq.lot_id, mq.workflow_run_id
-                    FROM cts.mismatch_queue mq
-                    JOIN cts.cheque_instruments ci
-                        ON mq.instrument_id = ci.instrument_id::TEXT
-                        AND ci.bank_id = $1
-                    WHERE mq.status = 'HELD'
-                    ORDER BY mq.held_at ASC
+                    SELECT mismatch_id, instrument_id, branch_id, held_at, status,
+                           mismatch_fields, vision_finding, scanner_data, lot_id, workflow_run_id
+                    FROM cts.mismatch_queue
+                    WHERE bank_id = $1 AND status = 'HELD'
+                    ORDER BY held_at ASC
                     """,
                     bank_id,
                 )
@@ -2125,9 +2121,9 @@ async def resolve_mismatch(
                 """
                 SELECT mismatch_id, branch_id, workflow_run_id
                 FROM cts.mismatch_queue
-                WHERE mismatch_id = $1 AND status = 'HELD'
+                WHERE mismatch_id = $1 AND bank_id = $2 AND status = 'HELD'
                 """,
-                mismatch_id,
+                mismatch_id, bank_id,
             )
         if row is None:
             raise HTTPException(
@@ -2163,9 +2159,9 @@ async def resolve_mismatch(
                 """
                 UPDATE cts.mismatch_queue
                    SET status = $1, resolved_at = NOW(), resolved_by = $2, resolution_note = $3
-                 WHERE mismatch_id = $4
+                 WHERE mismatch_id = $4 AND bank_id = $5
                 """,
-                body.action, user_id, body.note, mismatch_id,
+                body.action, user_id, body.note, mismatch_id, bank_id,
             )
 
         # Audit
