@@ -188,6 +188,12 @@ from modules.cts.workflows.activities.hold_escalation import (
     send_hold_critical_alert,
     send_hold_p0_alert,
 )
+from modules.cts.workflows.vault_file_drop_workflow import (
+    VaultFileDropWorkflow,
+    fetch_drop_file,
+    process_vault_csv,
+    archive_drop_file,
+)
 
 ALL_WORKFLOWS = [
     ChequeProcessingWorkflow,
@@ -213,6 +219,8 @@ ALL_WORKFLOWS = [
     FeedbackAccumulatorWorkflow,
     ModelRetrainWorkflow,
     FeedbackEmitWorkflow,
+    # Vault file-drop (MinIO event → SFTP channel upload for all vault types)
+    VaultFileDropWorkflow,
 ]
 
 # Every registered CTS activity name, for reference/introspection. This list
@@ -272,6 +280,9 @@ ALL_ACTIVITIES = [
     publish_relay_event,
     parse_and_validate_smb_push,
     update_smb_vault,
+    fetch_drop_file,
+    process_vault_csv,
+    archive_drop_file,
     check_iet_risk_for_alert,
     check_human_review_for_alert,
     dispatch_platform_alert,
@@ -334,6 +345,10 @@ NO_DI_ACTIVITIES = [
     # Post-dated hold persistence (PostDatedHoldWorkflow)
     store_postdated_hold,
     mark_hold_cancelled,
+    # Vault file-drop (VaultFileDropWorkflow — MinIO event → VaultUploadProcessor)
+    fetch_drop_file,
+    process_vault_csv,
+    archive_drop_file,
     # OCR feedback loop — accumulate/threshold/promote/emit/dispatch/shadow are
     # all in BoundCTSActivities (db_pool injection required)
 ]
