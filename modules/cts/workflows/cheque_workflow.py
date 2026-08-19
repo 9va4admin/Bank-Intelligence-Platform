@@ -663,6 +663,21 @@ class ChequeProcessingWorkflow:
         _sig_match_score = sig_result.match_score or 0.0
         _sig_verdict = getattr(sig_result, "verdict", "UNKNOWN") or "UNKNOWN"
 
+        # Vault miss / signature degraded: route immediately with explicit context
+        # so the HRQ screen shows the true reason, not a generic sig_mismatch.
+        if getattr(sig_result, "outcome", None) == "HUMAN_REVIEW":
+            miss_reason = getattr(sig_result, "miss_reason", None) or "SIG_VERIFICATION_FAILED"
+            cbs_tried = getattr(sig_result, "cbs_fallback_used", False)
+            context_extra: dict = {"sig_miss_reason": miss_reason, "cbs_fallback_tried": cbs_tried}
+            if miss_reason == "NO_SIGNATURE_IN_VAULT":
+                context_extra["vault_miss"] = True
+                context_extra["account_last4"] = inp.account_number[-4:]
+            return await finalise(
+                "HUMAN_REVIEW",
+                f"signature_vault_miss_{miss_reason}",
+                context_extra=context_extra,
+            )
+
         # Step 6: score_fraud
         fraud_result = await workflow.execute_activity(
             score_fraud,

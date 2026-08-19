@@ -359,6 +359,16 @@ async def _fake_record_outward_scan_event(inp):
     return None
 
 
+@_activity.defn(name="persist_mismatch_hold_db")
+async def _fake_persist_mismatch_hold_db(inp):
+    return None
+
+
+@_activity.defn(name="resolve_mismatch_db")
+async def _fake_resolve_mismatch_db(inp):
+    return None
+
+
 def _worker(env, task_queue, ocr_fake, vision_fake, compliance_fake=_fake_validate_pass):
     from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow
     from modules.cts.workflows.mismatch_resolution_workflow import MismatchResolutionWorkflow
@@ -370,6 +380,7 @@ def _worker(env, task_queue, ocr_fake, vision_fake, compliance_fake=_fake_valida
             _fake_write_audit, _fake_publish_hold, _fake_detect_signatures_outward,
             _fake_check_security_features, _fake_cross_check,
             _fake_check_cheque_dedup, _fake_record_outward_scan_event,
+            _fake_persist_mismatch_hold_db, _fake_resolve_mismatch_db,
         ],
         workflow_runner=UnsandboxedWorkflowRunner(),
     )

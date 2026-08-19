@@ -618,6 +618,119 @@ async def list_decisions(
     return DecisionLogResponse(items=items, total=len(items), bank_id=bank_id)
 
 
+# ── Vault Gap Report ────────────────────────────────────────────────────────
+# After banking hours, ops team uses this to see which accounts presented
+# cheques without a signature in vault → trigger enrollment overnight.
+
+class VaultGapAccount(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    account_display: str         # ****4521
+    instrument_count: int
+    instrument_ids: list[str]
+    micr_codes: list[Optional[str]]
+    first_seen_at: float         # Unix epoch
+    last_seen_at: float
+
+
+class VaultGapResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    date: str
+    bank_id: str
+    total_accounts_affected: int
+    total_instruments: int
+    gaps: list[VaultGapAccount]
+
+
+@router_v1.get("/vault-gaps", response_model=VaultGapResponse)
+async def get_vault_gaps(
+    request: Request,
+    bank_id: str = Depends(get_current_bank_id),
+    date: Optional[str] = None,   # YYYY-MM-DD; defaults to today
+) -> VaultGapResponse:
+    """
+    Post-banking-hours report: accounts that presented cheques but have no
+    signature in vault. Ops team uses this to drive overnight enrollment.
+
+    Queries cts.agent_decisions for HUMAN_REVIEW rows where decision_reason
+    contains 'NO_SIGNATURE_IN_VAULT', grouped by account_last4 for the
+    specified clearing date (today by default).
+
+    Returns at most 200 gap accounts — sufficient for any single clearing session.
+    """
+    import json as _json
+    from datetime import date as _date
+
+    session_date = date or _date.today().isoformat()
+
+    db_pool = getattr(request.app.state, "db_pool_cts", None)
+    gaps: list[VaultGapAccount] = []
+
+    if db_pool is not None:
+        _SQL = """
+            SELECT
+                i.account_last4,
+                d.instrument_id,
+                d.decision_reason,
+                i.micr_code,
+                EXTRACT(EPOCH FROM d.created_at) AS created_at_epoch
+            FROM cts.agent_decisions d
+            LEFT JOIN cts.cheque_instruments i
+                   ON i.instrument_id = d.instrument_id
+                  AND i.bank_id = d.bank_id
+            WHERE d.bank_id = $1
+              AND d.decision = 'HUMAN_REVIEW'
+              AND d.decision_reason ILIKE '%NO_SIGNATURE_IN_VAULT%'
+              AND d.created_at::date = $2::date
+            ORDER BY i.account_last4, d.created_at ASC
+            LIMIT 2000
+        """.strip()
+
+        try:
+            async with db_pool.acquire() as conn:
+                rows = await conn.fetch(_SQL, bank_id, session_date)
+
+            # Group by account_last4
+            grouped: dict[str, dict] = {}
+            for row in rows:
+                key = row["account_last4"] or "UNKNOWN"
+                display = f"****{key}" if key != "UNKNOWN" else "****????"
+                if key not in grouped:
+                    grouped[key] = {
+                        "account_display": display,
+                        "instrument_ids": [],
+                        "micr_codes": [],
+                        "first_seen_at": float(row["created_at_epoch"] or 0.0),
+                        "last_seen_at": float(row["created_at_epoch"] or 0.0),
+                    }
+                g = grouped[key]
+                g["instrument_ids"].append(row["instrument_id"])
+                g["micr_codes"].append(row["micr_code"])
+                g["last_seen_at"] = max(g["last_seen_at"], float(row["created_at_epoch"] or 0.0))
+
+            for g in list(grouped.values())[:200]:
+                gaps.append(VaultGapAccount(
+                    account_display=g["account_display"],
+                    instrument_count=len(g["instrument_ids"]),
+                    instrument_ids=g["instrument_ids"],
+                    micr_codes=g["micr_codes"],
+                    first_seen_at=g["first_seen_at"],
+                    last_seen_at=g["last_seen_at"],
+                ))
+        except Exception as exc:
+            log.warning("cts.vault_gaps_error", bank_id=bank_id, error=str(exc))
+
+    total_instruments = sum(g.instrument_count for g in gaps)
+    log.info("cts.vault_gaps", bank_id=bank_id, date=session_date,
+             accounts=len(gaps), instruments=total_instruments)
+    return VaultGapResponse(
+        date=session_date,
+        bank_id=bank_id,
+        total_accounts_affected=len(gaps),
+        total_instruments=total_instruments,
+        gaps=gaps,
+    )
+
+
 class ChequeSearchResult(BaseModel):
     model_config = ConfigDict(frozen=True)
     instrument_id: str
