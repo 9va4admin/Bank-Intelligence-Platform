@@ -120,6 +120,9 @@ layer2:
     vault_sync:
       schedule: "0 6 * * *"                   # 6AM daily — before first clearing session
       cbs_batch_size: 500
+      sig_staging:
+        bucket: "astra-sig-staging"           # MinIO bucket where CBS drops raw signature images
+        lifecycle_expiry_days: 30             # safety-net: orphaned staging files deleted after 30d
 
     eeh:
       enabled: false
@@ -190,6 +193,16 @@ layer3:
     # Rear image (back of cheque) is NOT mandatory by default — blank reverse is normal practice.
     # Banks that endorse or stamp the reverse may set this to "true" to enforce rear quality checks.
     rear_image_required: "false"                 # Layer 3: hot-reload; "true" enables rear DPI/IQA checks
+
+  vault:
+    error_files:
+      enabled: true                           # write full error CSV to MinIO on PARTIAL/FAILED batch
+      bucket: "astra-vault-errors"            # MinIO bucket; must exist before first upload
+      # Key pattern: {bank_id}/vault-errors/{batch_id}.csv
+      # Retention: governed by MinIO ILM rule on this bucket (default: delete after 365 days)
+      # Access: streamed via GET /v1/cts/vault/batches/{batch_id}/errors.csv (auth enforced)
+      # Fallback: if MinIO unavailable, errors_json JSONB used (first 1000 rows)
+      retention_days: 365                     # MinIO ILM TTL for error files in this bucket
 
   platform_health_check:
     cadence_seconds: 60                       # PlatformHealthCheckWorkflow polling interval

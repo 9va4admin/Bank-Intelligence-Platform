@@ -2,20 +2,22 @@
 Vault Upload API — upload CSV files to seed / update CTS vault data.
 
 Routes:
-  POST /v1/cts/vault/upload/{vault_type}        — process CSV upload
-  GET  /v1/cts/vault/upload/template/{vault_type} — download blank template CSV
-  GET  /v1/cts/vault/upload/batches              — list recent upload batches
+  POST /v1/cts/vault/upload/{vault_type}           — manual UI upload
+  GET  /v1/cts/vault/upload/template/{vault_type}  — download blank template CSV
+  GET  /v1/cts/vault/upload/batches                — list recent upload batches
+  POST /v1/cts/vault/upload/file-drop              — MinIO event webhook →
+                                                     starts VaultFileDropWorkflow
 
-vault_type values: CHEQUE_BOOK | LEAF_STATUS | ACCOUNT_DETAIL | SIGNATURE
+vault_type values: CHEQUE_BOOK | LEAF_STATUS | ACCOUNT_DETAIL | SIGNATURE | PPS
 
-Role requirement: bank_it_admin (LEAF_STATUS also allows ops_manager).
+Role requirement: bank_it_admin (LEAF_STATUS + PPS also allow ops_manager).
 """
 from typing import Optional
 
 import structlog
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response, StreamingResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict  # noqa: F401 (ConfigDict used in response models)
 
 from apps.api.dependencies import require_user_context
 from shared.auth.rbac import Role, UserContext
@@ -24,7 +26,7 @@ log = structlog.get_logger()
 
 router_v1 = APIRouter(prefix="/v1/cts/vault/upload", tags=["Vault Upload v1"])
 
-_VALID_VAULT_TYPES = {"CHEQUE_BOOK", "LEAF_STATUS", "ACCOUNT_DETAIL", "SIGNATURE"}
+_VALID_VAULT_TYPES = {"CHEQUE_BOOK", "LEAF_STATUS", "ACCOUNT_DETAIL", "SIGNATURE", "PPS"}
 _MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
 
 
@@ -121,7 +123,7 @@ async def upload_vault_csv(
         )
 
     # Role check
-    if vault_type == "LEAF_STATUS":
+    if vault_type in ("LEAF_STATUS", "PPS"):
         allowed = {Role.bank_it_admin, Role.ops_manager}
     else:
         allowed = {Role.bank_it_admin}
@@ -155,6 +157,9 @@ async def upload_vault_csv(
     account_vault = av_factory(ctx.bank_id) if av_factory else None
     signature_vault = sv_factory(ctx.bank_id) if sv_factory else None
 
+    pps_vault_factory = getattr(request.app.state, "pps_vault_factory", None)
+    pps_vault = pps_vault_factory(ctx.bank_id) if pps_vault_factory else None
+
     from modules.cts.vaults.vault_upload_processor import VaultUploadProcessor
     processor = VaultUploadProcessor(
         bank_id=ctx.bank_id,
@@ -162,6 +167,7 @@ async def upload_vault_csv(
         cheque_leaf_vault=cheque_leaf_vault,
         account_vault=account_vault,
         signature_vault=signature_vault,
+        pps_vault=pps_vault,
     )
 
     changed_by = f"user:{ctx.user_id}"
@@ -309,3 +315,107 @@ async def list_upload_batches(
         for r in rows
     ]
     return BatchListResponse(items=items, total=total or 0)
+
+
+# ---------------------------------------------------------------------------
+# File-drop webhook — triggered by MinIO bucket event notification
+# ---------------------------------------------------------------------------
+
+class FileDropWebhookBody(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    vault_type: str       # CHEQUE_BOOK | LEAF_STATUS | ACCOUNT_DETAIL | SIGNATURE | PPS
+    minio_bucket: str
+    minio_key: str        # e.g. "{bank_id}/pps/20260818_batch.csv"
+    file_hash: str        # SHA-256 of file bytes — workflow idempotency key
+    feed_name: str = "sftp"
+
+
+class FileDropWebhookResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    workflow_id: str
+    bank_id: str
+    vault_type: str
+    status: str           # ACCEPTED | DUPLICATE_SKIPPED | INVALID
+
+
+@router_v1.post(
+    "/file-drop",
+    response_model=FileDropWebhookResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def file_drop_webhook(
+    request: Request,
+    body: FileDropWebhookBody,
+) -> FileDropWebhookResponse:
+    """
+    MinIO event notification endpoint — called when a CSV file is dropped in
+    astra-vault-drops/{bank_id}/{vault_type}/.
+
+    Starts VaultFileDropWorkflow via Temporal.
+    Workflow ID is deterministic (bank_id + vault_type + file_hash) so duplicate
+    MinIO events for the same file are silently deduplicated.
+
+    No user auth required — this is an internal system-to-system call from MinIO
+    event notification, protected by mTLS (Istio) at the service mesh layer.
+    """
+    vault_type = body.vault_type.upper()
+    if vault_type not in _VALID_VAULT_TYPES:
+        return FileDropWebhookResponse(
+            workflow_id="",
+            bank_id=body.bank_id,
+            vault_type=vault_type,
+            status="INVALID",
+        )
+
+    workflow_id = (
+        f"cts-vault-drop-{body.bank_id}-{vault_type.lower()}-{body.file_hash[:16]}"
+    )
+
+    temporal_client = getattr(request.app.state, "temporal_client", None)
+    if temporal_client is None:
+        log.warning("vault_file_drop.temporal_unavailable",
+                    bank_id=body.bank_id, vault_type=vault_type)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error_code": "TEMPORAL_UNAVAILABLE", "message": "Temporal not connected."},
+        )
+
+    from modules.cts.workflows.vault_file_drop_workflow import (
+        VaultFileDropWorkflow,
+        VaultFileDropInput,
+    )
+    from temporalio.client import WorkflowAlreadyStartedError
+
+    try:
+        await temporal_client.start_workflow(
+            VaultFileDropWorkflow.run,
+            VaultFileDropInput(
+                bank_id=body.bank_id,
+                vault_type=vault_type,
+                minio_bucket=body.minio_bucket,
+                minio_key=body.minio_key,
+                file_hash=body.file_hash,
+                feed_name=body.feed_name,
+            ),
+            id=workflow_id,
+            task_queue=f"cts-processing-{body.bank_id}",
+        )
+        log.info("vault_file_drop.workflow_started",
+                 bank_id=body.bank_id, vault_type=vault_type,
+                 workflow_id=workflow_id, minio_key=body.minio_key)
+        return FileDropWebhookResponse(
+            workflow_id=workflow_id,
+            bank_id=body.bank_id,
+            vault_type=vault_type,
+            status="ACCEPTED",
+        )
+    except WorkflowAlreadyStartedError:
+        log.info("vault_file_drop.duplicate_skipped",
+                 bank_id=body.bank_id, vault_type=vault_type, workflow_id=workflow_id)
+        return FileDropWebhookResponse(
+            workflow_id=workflow_id,
+            bank_id=body.bank_id,
+            vault_type=vault_type,
+            status="DUPLICATE_SKIPPED",
+        )

@@ -52,6 +52,7 @@ class AuditEventType(str, Enum):
     VAULT_INTEGRITY_FAIL = "VAULT_INTEGRITY_FAIL"           # vault integrity check failed
     VAULT_SYNC_FAILED = "VAULT_SYNC_FAILED"                 # VaultSyncWorkflow failed
     VAULT_SYNC = "VAULT_SYNC"                               # successful vault sync (existing)
+    VAULT_SIG_STAGING_PURGED = "VAULT_SIG_STAGING_PURGED"  # staging image deleted post-embed → Immudb
 
     # ── EJ module ──────────────────────────────────────────────────────────────
     EJ_PARSED = "EJ_PARSED"

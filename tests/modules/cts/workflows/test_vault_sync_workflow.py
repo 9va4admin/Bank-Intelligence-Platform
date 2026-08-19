@@ -17,6 +17,7 @@ from modules.cts.workflows.vault_sync_workflow import (
     warm_redis_vault,
     warm_redis_from_db,
     verify_vault_integrity,
+    cleanup_staging_files,
     _hmac_key,
 )
 
@@ -389,7 +390,7 @@ class TestWarmRedisFromDb:
         db_pool = MagicMock()
         conn = AsyncMock()
         conn.fetch = AsyncMock(return_value=[
-            {"account_hash": "abc123", "specimen_index": 0, "embedding": packed},
+            {"account_hash": "abc123", "signatory_id": "PRIMARY", "specimen_index": 0, "embedding": packed},
         ])
         db_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
         db_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -412,9 +413,9 @@ class TestWarmRedisFromDb:
         db_pool = MagicMock()
         conn = AsyncMock()
         conn.fetch = AsyncMock(return_value=[
-            {"account_hash": "hash_A", "specimen_index": 0, "embedding": packed},
-            {"account_hash": "hash_A", "specimen_index": 1, "embedding": packed},
-            {"account_hash": "hash_B", "specimen_index": 0, "embedding": packed},
+            {"account_hash": "hash_A", "signatory_id": "PRIMARY", "specimen_index": 0, "embedding": packed},
+            {"account_hash": "hash_A", "signatory_id": "PRIMARY", "specimen_index": 1, "embedding": packed},
+            {"account_hash": "hash_B", "signatory_id": "PRIMARY", "specimen_index": 0, "embedding": packed},
         ])
         db_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
         db_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -919,3 +920,463 @@ class TestVaultSyncWorkflowWithChequeLeaves:
         # Cheque leaf failure must not abort the whole sync (partial failure, not crash)
         assert result.cheque_leaves_loaded == 0
         assert result.outcome in ("SYNC_COMPLETE", "PARTIAL_FAILURE")
+
+
+# ---------------------------------------------------------------------------
+# GAP A — SignatureRecord.signatory_id + embed_and_store passes it through
+# ---------------------------------------------------------------------------
+
+class TestSignatureRecordSignatoryId:
+    def test_signature_record_has_signatory_id_field(self):
+        """SignatureRecord must carry signatory_id so multi-signatory CBS data is preserved."""
+        rec = SignatureRecord(account_number="ACC001", signatory_id="JOINT_A", specimens=[b"s"])
+        assert rec.signatory_id == "JOINT_A"
+
+    def test_signature_record_defaults_signatory_id_to_primary(self):
+        rec = SignatureRecord(account_number="ACC001", specimens=[b"s"])
+        assert rec.signatory_id == "PRIMARY"
+
+    def test_signature_record_survives_temporal_roundtrip_with_signatory_id(self):
+        from temporalio.converter import default
+        conv = default().payload_converter
+        records = [SignatureRecord(account_number="ACC001", signatory_id="JOINT_B", specimens=[b"s1"])]
+        payloads = conv.to_payloads([records])
+        restored = conv.from_payloads(payloads, [list[SignatureRecord]])
+        assert restored[0][0].signatory_id == "JOINT_B"
+
+
+class TestLoadSignaturesParseSignatoryId:
+    @pytest.mark.asyncio
+    async def test_parses_signatory_id_from_cbs_response(self):
+        """CBS bulk response may include signatory_id — must be preserved in SignatureRecord."""
+        cbs = AsyncMock()
+        cbs.list_signature_specimens.return_value = [
+            {"account_number": "ACC001", "signatory_id": "JOINT_A", "specimens": [b"s"]},
+        ]
+        records = await load_signatures_from_cbs(BANK_ID, cbs_connector=cbs)
+        assert records[0].signatory_id == "JOINT_A"
+
+    @pytest.mark.asyncio
+    async def test_defaults_to_primary_when_signatory_id_absent(self):
+        """CBS records without signatory_id must get 'PRIMARY' — backward compat."""
+        cbs = AsyncMock()
+        cbs.list_signature_specimens.return_value = [
+            {"account_number": "ACC001", "specimens": [b"s"]},
+        ]
+        records = await load_signatures_from_cbs(BANK_ID, cbs_connector=cbs)
+        assert records[0].signatory_id == "PRIMARY"
+
+    @pytest.mark.asyncio
+    async def test_different_signatories_for_same_account_preserved(self):
+        """Joint account returns two CBS rows (one per signatory) — both must survive."""
+        cbs = AsyncMock()
+        cbs.list_signature_specimens.return_value = [
+            {"account_number": "JOINT001", "signatory_id": "JOINT_A", "specimens": [b"s1"]},
+            {"account_number": "JOINT001", "signatory_id": "JOINT_B", "specimens": [b"s2"]},
+        ]
+        records = await load_signatures_from_cbs(BANK_ID, cbs_connector=cbs)
+        assert len(records) == 2
+        ids = {r.signatory_id for r in records}
+        assert ids == {"JOINT_A", "JOINT_B"}
+
+
+class TestEmbedAndStorePassesSignatoryId:
+    @pytest.mark.asyncio
+    async def test_passes_signatory_id_to_store_embeddings(self):
+        """store_embeddings must be called with the signatory_id from the record."""
+        vault = _mock_vault()
+        model = _mock_embed_model()
+        records = [
+            SignatureRecord(account_number="JOINT001", signatory_id="JOINT_A", specimens=[b"s1"]),
+        ]
+        await embed_and_store_signatures(BANK_ID, records, vault=vault, embedding_model=model)
+        _, call_kwargs = vault.store_embeddings.call_args
+        assert call_kwargs.get("signatory_id") == "JOINT_A"
+
+    @pytest.mark.asyncio
+    async def test_different_signatories_call_store_independently(self):
+        """Two signatories for the same account → two separate store_embeddings calls."""
+        vault = _mock_vault()
+        model = _mock_embed_model()
+        records = [
+            SignatureRecord(account_number="JOINT001", signatory_id="JOINT_A", specimens=[b"s1"]),
+            SignatureRecord(account_number="JOINT001", signatory_id="JOINT_B", specimens=[b"s2"]),
+        ]
+        await embed_and_store_signatures(BANK_ID, records, vault=vault, embedding_model=model)
+        assert vault.store_embeddings.await_count == 2
+        signatory_ids_called = [
+            c.kwargs.get("signatory_id") for c in vault.store_embeddings.call_args_list
+        ]
+        assert set(signatory_ids_called) == {"JOINT_A", "JOINT_B"}
+
+
+# ---------------------------------------------------------------------------
+# GAP B — warm_redis_from_db key includes signatory_id
+# ---------------------------------------------------------------------------
+
+class TestWarmRedisFromDbSignatoryKey:
+    @pytest.mark.asyncio
+    async def test_redis_key_includes_signatory_id(self):
+        """Key must be sig:{bank_id}:{account_hash}:{signatory_id}, not without the suffix."""
+        from shared.ai.signature_embedding import pack_embedding
+        packed = pack_embedding([1.0] + [0.0] * 511)
+
+        db_pool = MagicMock()
+        conn = AsyncMock()
+        conn.fetch = AsyncMock(return_value=[
+            {"account_hash": "hashXYZ", "signatory_id": "PRIMARY",
+             "specimen_index": 0, "embedding": packed},
+        ])
+        db_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
+        db_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        redis = _make_redis()
+        await warm_redis_from_db(BANK_ID, db_pool=db_pool, redis_client=redis)
+
+        pipe = redis.pipeline.return_value
+        delete_key = pipe.delete.call_args[0][0]
+        assert delete_key == f"sig:{BANK_ID}:hashXYZ:PRIMARY"
+
+    @pytest.mark.asyncio
+    async def test_different_signatories_get_separate_redis_keys(self):
+        """JOINT_A and JOINT_B for same account → two distinct Redis keys."""
+        from shared.ai.signature_embedding import pack_embedding
+        packed = pack_embedding([0.5] * 512)
+
+        db_pool = MagicMock()
+        conn = AsyncMock()
+        conn.fetch = AsyncMock(return_value=[
+            {"account_hash": "hashJOINT", "signatory_id": "JOINT_A",
+             "specimen_index": 0, "embedding": packed},
+            {"account_hash": "hashJOINT", "signatory_id": "JOINT_B",
+             "specimen_index": 0, "embedding": packed},
+        ])
+        db_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
+        db_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        redis = _make_redis()
+        result = await warm_redis_from_db(BANK_ID, db_pool=db_pool, redis_client=redis)
+
+        # 2 signatory keys → 2 delete calls
+        assert redis.pipeline.return_value.delete.call_count == 2
+        # account count = 1 unique account (hashJOINT)
+        assert result["accounts"] == 1
+
+    @pytest.mark.asyncio
+    async def test_query_selects_signatory_id_column(self):
+        """SELECT must include signatory_id so grouping works correctly."""
+        from shared.ai.signature_embedding import pack_embedding
+        packed = pack_embedding([0.1] * 512)
+
+        db_pool = MagicMock()
+        conn = AsyncMock()
+        conn.fetch = AsyncMock(return_value=[
+            {"account_hash": "h1", "signatory_id": "DIRECTOR_1",
+             "specimen_index": 0, "embedding": packed},
+        ])
+        db_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
+        db_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        redis = _make_redis()
+        await warm_redis_from_db(BANK_ID, db_pool=db_pool, redis_client=redis)
+
+        # Verify signatory_id appears in the SQL passed to fetch
+        query_used = conn.fetch.call_args[0][0]
+        assert "signatory_id" in query_used
+
+
+# ---------------------------------------------------------------------------
+# GAP C — verify_vault_integrity checks the :PRIMARY signatory key
+# ---------------------------------------------------------------------------
+
+class TestVerifyVaultIntegrityKeyFormat:
+    @pytest.mark.asyncio
+    async def test_integrity_check_uses_primary_signatory_suffix(self):
+        """llen must be called on sig:{bank_id}:{digest}:PRIMARY, not without :PRIMARY."""
+        redis = MagicMock()
+        redis.llen.return_value = 1
+
+        await verify_vault_integrity(BANK_ID, PEPPER, ["ACC001"], redis_client=redis)
+
+        key_checked = redis.llen.call_args[0][0]
+        digest = _hmac_key(PEPPER, BANK_ID, "ACC001")
+        assert key_checked == f"sig:{BANK_ID}:{digest}:PRIMARY"
+
+    @pytest.mark.asyncio
+    async def test_integrity_key_does_not_use_bare_format(self):
+        """Old bare key format (without :signatory_id) must never be used."""
+        redis = MagicMock()
+        redis.llen.return_value = 1
+
+        await verify_vault_integrity(BANK_ID, PEPPER, ["ACC001"], redis_client=redis)
+
+        key_checked = redis.llen.call_args[0][0]
+        digest = _hmac_key(PEPPER, BANK_ID, "ACC001")
+        bare_key = f"sig:{BANK_ID}:{digest}"
+        assert key_checked != bare_key
+
+
+# ---------------------------------------------------------------------------
+# GAP D (new) — staging file lifecycle: field, collection, delete + audit trail
+# ---------------------------------------------------------------------------
+
+class TestSignatureRecordStagingFileKey:
+    def test_staging_file_key_field_exists(self):
+        """staging_file_key must be a field on SignatureRecord."""
+        rec = SignatureRecord(
+            account_number="ACC001",
+            staging_file_key="astra-sig-staging/test-bank/hashABC/PRIMARY/0.jpg",
+            specimens=[b"s"],
+        )
+        assert rec.staging_file_key == "astra-sig-staging/test-bank/hashABC/PRIMARY/0.jpg"
+
+    def test_staging_file_key_defaults_to_none(self):
+        """Direct-API CBS connectors don't produce staging files — field must be optional."""
+        rec = SignatureRecord(account_number="ACC001", specimens=[b"s"])
+        assert rec.staging_file_key is None
+
+
+class TestLoadSignaturesParseStagingKey:
+    @pytest.mark.asyncio
+    async def test_parses_staging_file_key_from_cbs_response(self):
+        cbs = AsyncMock()
+        cbs.list_signature_specimens.return_value = [
+            {
+                "account_number": "ACC001",
+                "specimens": [b"s"],
+                "staging_file_key": "astra-sig-staging/BANK/hashABC/PRIMARY/0.jpg",
+            }
+        ]
+        records = await load_signatures_from_cbs(BANK_ID, cbs_connector=cbs)
+        assert records[0].staging_file_key == "astra-sig-staging/BANK/hashABC/PRIMARY/0.jpg"
+
+    @pytest.mark.asyncio
+    async def test_staging_file_key_none_when_absent(self):
+        """Backward compat: CBS records without staging_file_key must produce None."""
+        cbs = AsyncMock()
+        cbs.list_signature_specimens.return_value = [
+            {"account_number": "ACC001", "specimens": [b"s"]},
+        ]
+        records = await load_signatures_from_cbs(BANK_ID, cbs_connector=cbs)
+        assert records[0].staging_file_key is None
+
+
+class TestEmbedAndStoreReturnsStagingKeys:
+    @pytest.mark.asyncio
+    async def test_returns_embedded_staging_keys_for_successful_records(self):
+        """embed_and_store must return list of staging keys that were successfully embedded."""
+        vault = _mock_vault()
+        model = _mock_embed_model()
+        records = [
+            SignatureRecord(account_number="ACC001", staging_file_key="bucket/k1.jpg", specimens=[b"s"]),
+            SignatureRecord(account_number="ACC002", staging_file_key="bucket/k2.jpg", specimens=[b"s"]),
+        ]
+        result = await embed_and_store_signatures(BANK_ID, records, vault=vault, embedding_model=model)
+        assert set(result["embedded_staging_keys"]) == {"bucket/k1.jpg", "bucket/k2.jpg"}
+
+    @pytest.mark.asyncio
+    async def test_embedded_staging_keys_empty_when_no_staging_files(self):
+        """Direct-API connectors produce None staging_file_key — list must be empty."""
+        vault = _mock_vault()
+        model = _mock_embed_model()
+        records = [SignatureRecord(account_number="ACC001", specimens=[b"s"])]
+        result = await embed_and_store_signatures(BANK_ID, records, vault=vault, embedding_model=model)
+        assert result["embedded_staging_keys"] == []
+
+    @pytest.mark.asyncio
+    async def test_failed_records_not_in_embedded_staging_keys(self):
+        """If store_embeddings fails for an account, its staging key must NOT be in the purge list."""
+        vault = AsyncMock()
+        vault.store_embeddings = AsyncMock(side_effect=[None, Exception("DB down")])
+        model = _mock_embed_model()
+        records = [
+            SignatureRecord(account_number="ACC001", staging_file_key="bucket/k1.jpg", specimens=[b"s"]),
+            SignatureRecord(account_number="ACC002", staging_file_key="bucket/k2.jpg", specimens=[b"s"]),
+        ]
+        result = await embed_and_store_signatures(BANK_ID, records, vault=vault, embedding_model=model)
+        assert result["embedded_staging_keys"] == ["bucket/k1.jpg"]
+        assert "bucket/k2.jpg" not in result["embedded_staging_keys"]
+
+
+class TestCleanupStagingFiles:
+    def _make_minio(self, raises: bool = False) -> MagicMock:
+        mc = MagicMock()
+        if raises:
+            mc.remove_object.side_effect = Exception("MinIO connection refused")
+        return mc
+
+    def _make_producer(self) -> AsyncMock:
+        p = AsyncMock()
+        p.publish = AsyncMock()
+        return p
+
+    @pytest.mark.asyncio
+    async def test_deletes_each_key_from_minio(self):
+        mc = self._make_minio()
+        result = await cleanup_staging_files(
+            BANK_ID, ["bucket/k1.jpg", "bucket/k2.jpg"],
+            staging_bucket="astra-sig-staging", minio_client=mc,
+        )
+        assert mc.remove_object.call_count == 2
+        assert result["deleted"] == 2
+
+    @pytest.mark.asyncio
+    async def test_emits_audit_event_per_deletion(self):
+        """Each deleted file must emit one platform audit event → Immudb chain."""
+        mc = self._make_minio()
+        producer = self._make_producer()
+        await cleanup_staging_files(
+            BANK_ID, ["bucket/k1.jpg", "bucket/k2.jpg"],
+            staging_bucket="astra-sig-staging", minio_client=mc, event_producer=producer,
+        )
+        assert producer.publish.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_audit_event_targets_platform_audit_topic(self):
+        """Audit event must go to platform.audit.events to reach Immudb consumer."""
+        mc = self._make_minio()
+        producer = self._make_producer()
+        await cleanup_staging_files(
+            BANK_ID, ["bucket/k1.jpg"],
+            staging_bucket="astra-sig-staging", minio_client=mc, event_producer=producer,
+        )
+        topic_used = producer.publish.call_args.kwargs.get("topic") or producer.publish.call_args[1].get("topic") or producer.publish.call_args[0][0]
+        assert topic_used == "platform.audit.events"
+
+    @pytest.mark.asyncio
+    async def test_audit_event_type_is_staging_purged(self):
+        mc = self._make_minio()
+        producer = self._make_producer()
+        await cleanup_staging_files(
+            BANK_ID, ["bucket/k1.jpg"],
+            staging_bucket="astra-sig-staging", minio_client=mc, event_producer=producer,
+        )
+        call_kwargs = producer.publish.call_args[1] if producer.publish.call_args[1] else {}
+        if not call_kwargs:
+            call_kwargs = dict(zip(
+                ["topic", "event_type", "payload", "schema_version"],
+                producer.publish.call_args[0]
+            ))
+        assert call_kwargs["event_type"] == "VAULT_SIG_STAGING_PURGED"
+
+    @pytest.mark.asyncio
+    async def test_minio_delete_failure_is_non_fatal(self):
+        """A MinIO failure must increment failed count but not raise."""
+        mc = self._make_minio(raises=True)
+        result = await cleanup_staging_files(
+            BANK_ID, ["bucket/k1.jpg", "bucket/k2.jpg"],
+            staging_bucket="astra-sig-staging", minio_client=mc,
+        )
+        assert result["failed"] == 2
+        assert result["deleted"] == 0
+
+    @pytest.mark.asyncio
+    async def test_audit_emit_failure_is_non_fatal(self):
+        """Kafka publish failure after a successful delete must not raise."""
+        mc = self._make_minio()
+        producer = AsyncMock()
+        producer.publish = AsyncMock(side_effect=Exception("Kafka down"))
+        result = await cleanup_staging_files(
+            BANK_ID, ["bucket/k1.jpg"],
+            staging_bucket="astra-sig-staging", minio_client=mc, event_producer=producer,
+        )
+        assert result["deleted"] == 1   # file still deleted even if audit publish fails
+
+    @pytest.mark.asyncio
+    async def test_no_minio_client_returns_all_failed(self):
+        result = await cleanup_staging_files(
+            BANK_ID, ["bucket/k1.jpg", "bucket/k2.jpg"],
+            staging_bucket="astra-sig-staging", minio_client=None,
+        )
+        assert result["deleted"] == 0
+        assert result["failed"] == 2
+
+    @pytest.mark.asyncio
+    async def test_empty_keys_returns_zero_counts(self):
+        mc = self._make_minio()
+        result = await cleanup_staging_files(
+            BANK_ID, [],
+            staging_bucket="astra-sig-staging", minio_client=mc,
+        )
+        assert result == {"deleted": 0, "failed": 0}
+        mc.remove_object.assert_not_called()
+
+
+class TestVaultSyncWorkflowCleanupStep:
+    @pytest.mark.asyncio
+    async def test_run_with_mocks_triggers_cleanup_for_staging_keys(self):
+        """Workflow must call cleanup when embedded_staging_keys is non-empty."""
+        cbs = AsyncMock()
+        cbs.list_signature_specimens.return_value = [
+            {"account_number": "ACC001", "specimens": [b"s"],
+             "staging_file_key": "bucket/ACC001.jpg"},
+        ]
+        cbs.list_positive_pay_records.return_value = []
+        cbs.list_issued_leaves = AsyncMock(return_value=[])
+        cbs.list_account_profiles = AsyncMock(return_value=[])
+
+        minio_mc = MagicMock()
+        producer = AsyncMock()
+        producer.publish = AsyncMock()
+
+        wf = VaultSyncWorkflow()
+        result = await wf.run_with_mocks(
+            VaultSyncInput(bank_id=BANK_ID, pepper=PEPPER, sync_date=SYNC_DATE,
+                           sig_staging_bucket="astra-sig-staging"),
+            cbs_connector=cbs,
+            redis_client=_make_redis(),
+            vault=_mock_vault(),
+            embedding_model=_mock_embed_model(),
+            sample_accounts=[],
+            minio_client=minio_mc,
+            event_producer=producer,
+        )
+        assert result.outcome == "SYNC_COMPLETE"
+        minio_mc.remove_object.assert_called_once_with("astra-sig-staging", "bucket/ACC001.jpg")
+
+    @pytest.mark.asyncio
+    async def test_run_with_mocks_no_cleanup_when_no_staging_keys(self):
+        """Direct-API CBS (no staging_file_key) must not call minio_client.remove_object."""
+        cbs = _make_cbs(accounts=2)    # no staging_file_key in response
+        cbs.list_issued_leaves = AsyncMock(return_value=[])
+        cbs.list_account_profiles = AsyncMock(return_value=[])
+
+        minio_mc = MagicMock()
+        wf = VaultSyncWorkflow()
+        await wf.run_with_mocks(
+            VaultSyncInput(bank_id=BANK_ID, pepper=PEPPER, sync_date=SYNC_DATE),
+            cbs_connector=cbs,
+            redis_client=_make_redis(),
+            vault=_mock_vault(),
+            embedding_model=_mock_embed_model(),
+            sample_accounts=[],
+            minio_client=minio_mc,
+        )
+        minio_mc.remove_object.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_cleanup_failure_does_not_abort_sync(self):
+        """If minio.remove_object raises for all files, sync must still return SYNC_COMPLETE."""
+        cbs = AsyncMock()
+        cbs.list_signature_specimens.return_value = [
+            {"account_number": "ACC001", "specimens": [b"s"],
+             "staging_file_key": "bucket/ACC001.jpg"},
+        ]
+        cbs.list_positive_pay_records.return_value = []
+        cbs.list_issued_leaves = AsyncMock(return_value=[])
+        cbs.list_account_profiles = AsyncMock(return_value=[])
+
+        minio_mc = MagicMock()
+        minio_mc.remove_object.side_effect = Exception("MinIO down")
+
+        wf = VaultSyncWorkflow()
+        result = await wf.run_with_mocks(
+            VaultSyncInput(bank_id=BANK_ID, pepper=PEPPER, sync_date=SYNC_DATE),
+            cbs_connector=cbs,
+            redis_client=_make_redis(),
+            vault=_mock_vault(),
+            embedding_model=_mock_embed_model(),
+            sample_accounts=[],
+            minio_client=minio_mc,
+        )
+        assert result.outcome == "SYNC_COMPLETE"   # embedding done; staging leak is acceptable

@@ -76,9 +76,10 @@ def _fault_code(root: ET.Element) -> str:
 
 
 class FlexCubeCBSConnector(CBSConnector):
-    def __init__(self, base_url: str, bank_id: str) -> None:
+    def __init__(self, base_url: str, bank_id: str, pepper: str = "") -> None:
         self._base_url = base_url.rstrip("/")
         self._bank_id = bank_id
+        self._pepper = pepper
         self._http = None
         self._ready = False
 
@@ -102,6 +103,12 @@ class FlexCubeCBSConnector(CBSConnector):
             self._soap_client = soap_client
         else:
             self._soap_client = self._build_soap_client()
+
+        if not self._pepper:
+            from shared.config.config_service import config_service
+            self._pepper = config_service.get_secret(
+                f"banks.{self._bank_id}.pii_hash_pepper"
+            )
 
         self._ready = True
         log.info("cbs.flexcube.connected", base_url=self._base_url, bank_id=self._bank_id)
@@ -179,7 +186,7 @@ class FlexCubeCBSConnector(CBSConnector):
 
         bal_text = _find_text(root, "AVAIL_BAL")
         balance = float(bal_text) if bal_text else None
-        account_hash = self._hash_account(account_number)
+        account_hash = self._hash_account(account_number, bank_id, self._pepper)
 
         return AccountInfo(
             account_number_hash=account_hash,

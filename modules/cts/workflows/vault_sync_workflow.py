@@ -18,8 +18,6 @@ Cold-restart recovery (Redis only — embeddings already in YugabyteDB):
 Exactly-once: Temporal workflow ID deduplicates concurrent trigger events.
 """
 import base64
-import hashlib
-import hmac
 from collections import defaultdict
 from datetime import date, timedelta
 from typing import Any, Optional
@@ -28,6 +26,8 @@ import structlog
 from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
 from temporalio import activity, workflow
 from temporalio.common import RetryPolicy
+
+from shared.utils.pii_crypto import hash_account_number
 
 log = structlog.get_logger()
 
@@ -48,11 +48,14 @@ class VaultSyncInput(BaseModel):
     pepper: str
     sync_date: str = ""
     triggered_by: str = "SCHEDULED"
+    sig_staging_bucket: str = "astra-sig-staging"  # MinIO staging bucket for CBS image drops
 
 
 class SignatureRecord(BaseModel):
     model_config = ConfigDict(frozen=True)
     account_number: str
+    signatory_id: str = "PRIMARY"           # which signatory these specimens belong to
+    staging_file_key: Optional[str] = None  # MinIO object key; None for direct-CBS-API connectors
     specimens: list[bytes]
 
     @field_serializer("specimens")
@@ -122,7 +125,12 @@ async def load_signatures_from_cbs(
             )
             continue
         specimens = [s if isinstance(s, bytes) else s.encode() for s in specimens_raw]
-        records.append(SignatureRecord(account_number=account_number, specimens=specimens))
+        records.append(SignatureRecord(
+            account_number=account_number,
+            signatory_id=raw.get("signatory_id", "PRIMARY"),
+            staging_file_key=raw.get("staging_file_key"),
+            specimens=specimens,
+        ))
 
     log.info("vault_sync.signatures_loaded_from_cbs", bank_id=bank_id, count=len(records))
     return records
@@ -165,6 +173,7 @@ async def embed_and_store_signatures(
 
     embedded = 0
     failed = 0
+    embedded_staging_keys: list[str] = []
 
     for rec in signature_records:
         specimen_embeddings: list[list[float]] = []
@@ -185,8 +194,16 @@ async def embed_and_store_signatures(
             continue
 
         try:
-            await vault.store_embeddings(rec.account_number, specimen_embeddings, source="CBS")
+            await vault.store_embeddings(
+                rec.account_number,
+                specimen_embeddings,
+                signatory_id=rec.signatory_id,
+                source="CBS",
+            )
             embedded += 1
+            # Only add staging key to purge list after durable store succeeds
+            if rec.staging_file_key:
+                embedded_staging_keys.append(rec.staging_file_key)
         except Exception as exc:
             log.error(
                 "vault_sync.store_embeddings_failed",
@@ -201,8 +218,9 @@ async def embed_and_store_signatures(
         bank_id=bank_id,
         embedded=embedded,
         failed=failed,
+        staging_keys_to_purge=len(embedded_staging_keys),
     )
-    return {"embedded": embedded, "failed": failed}
+    return {"embedded": embedded, "failed": failed, "embedded_staging_keys": embedded_staging_keys}
 
 
 # ---------------------------------------------------------------------------
@@ -249,11 +267,7 @@ async def load_pps_from_cbs(
 # ---------------------------------------------------------------------------
 
 def _hmac_key(pepper: str, bank_id: str, account_number: str) -> str:
-    return hmac.new(
-        pepper.encode(),
-        f"{bank_id}:{account_number}".encode(),
-        hashlib.sha256,
-    ).hexdigest()
+    return hash_account_number(account_number, bank_id, pepper)
 
 
 @activity.defn
@@ -306,7 +320,7 @@ async def verify_vault_integrity(
     missing = []
     for account_number in sample_accounts:
         digest = _hmac_key(pepper, bank_id, account_number)
-        sig_key = f"sig:{bank_id}:{digest}"
+        sig_key = f"sig:{bank_id}:{digest}:PRIMARY"
         try:
             count = redis_client.llen(sig_key)
         except Exception as exc:
@@ -434,29 +448,113 @@ async def warm_redis_from_db(
     async with db_pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT account_hash, specimen_index, embedding
+            SELECT account_hash, signatory_id, specimen_index, embedding
             FROM cts.signature_embeddings
             WHERE bank_id = $1
-            ORDER BY account_hash, specimen_index
+            ORDER BY account_hash, signatory_id, specimen_index
             """,
             bank_id,
         )
 
-    by_account: dict[str, list[bytes]] = defaultdict(list)
+    # Group by (account_hash, signatory_id) — one Redis LIST key per signatory
+    by_signatory: dict[tuple[str, str], list[bytes]] = defaultdict(list)
     for row in rows:
-        by_account[row["account_hash"]].append(bytes(row["embedding"]))
+        by_signatory[(row["account_hash"], row["signatory_id"])].append(bytes(row["embedding"]))
 
     pipe = redis_client.pipeline()
-    for account_hash, packed_list in by_account.items():
-        key = f"sig:{bank_id}:{account_hash}"
+    for (account_hash, signatory_id), packed_list in by_signatory.items():
+        key = f"sig:{bank_id}:{account_hash}:{signatory_id}"
         pipe.delete(key)
         for packed in packed_list:
             pipe.rpush(key, packed)
     pipe.execute()
 
-    count = len(by_account)
+    # Report unique account count (not signatory-key count)
+    count = len({ah for ah, _ in by_signatory})
     log.info("vault_sync.warm_from_db_complete", bank_id=bank_id, accounts=count)
     return {"accounts": count}
+
+
+# ---------------------------------------------------------------------------
+# Activity: cleanup_staging_files
+# ---------------------------------------------------------------------------
+
+@activity.defn
+async def cleanup_staging_files(
+    bank_id: str,
+    staging_keys: list[str],
+    staging_bucket: str = "astra-sig-staging",
+    minio_client=None,
+    event_producer=None,
+) -> dict[str, int]:
+    """
+    Delete successfully-embedded CBS staging files from MinIO.
+
+    Emits VAULT_SIG_STAGING_PURGED to platform.audit.events for each deletion so
+    the Immudb consumer can build a cryptographic proof that biometric raw images
+    were not retained beyond the embedding step.
+
+    Non-fatal: a deletion or audit-publish failure is logged and counted but never
+    raises — the embeddings are already durable in YugabyteDB at this point.
+    """
+    if not staging_keys:
+        return {"deleted": 0, "failed": 0}
+
+    if minio_client is None:
+        log.warning(
+            "cleanup_staging_files.no_minio_client",
+            bank_id=bank_id,
+            pending_keys=len(staging_keys),
+        )
+        return {"deleted": 0, "failed": len(staging_keys)}
+
+    from shared.audit.audit_event import AuditEventType
+
+    deleted = 0
+    failed = 0
+
+    for key in staging_keys:
+        try:
+            minio_client.remove_object(staging_bucket, key)
+            deleted += 1
+
+            if event_producer is not None:
+                key_suffix = key.split("/")[-1]
+                try:
+                    await event_producer.publish(
+                        topic="platform.audit.events",
+                        event_type=AuditEventType.VAULT_SIG_STAGING_PURGED.value,
+                        payload={
+                            "bank_id": bank_id,
+                            "staging_key": key,
+                            "staging_key_suffix": key_suffix,
+                            "staging_bucket": staging_bucket,
+                        },
+                        schema_version="1.0",
+                    )
+                except Exception as audit_exc:
+                    log.warning(
+                        "cleanup_staging_files.audit_emit_failed",
+                        bank_id=bank_id,
+                        key_suffix=key_suffix,
+                        error=str(audit_exc),
+                    )
+        except Exception as exc:
+            log.warning(
+                "cleanup_staging_files.delete_failed",
+                bank_id=bank_id,
+                key=key,
+                error=str(exc),
+            )
+            failed += 1
+
+    log.info(
+        "cleanup_staging_files.complete",
+        bank_id=bank_id,
+        deleted=deleted,
+        failed=failed,
+    )
+    return {"deleted": deleted, "failed": failed}
 
 
 # ---------------------------------------------------------------------------
@@ -677,6 +775,23 @@ class VaultSyncWorkflow:
             retry_policy=_INFRA_RETRY,
         )
 
+        # Step 2b: Delete CBS staging files that were successfully embedded (non-fatal)
+        embedded_staging_keys = embed_result.get("embedded_staging_keys", [])
+        if embedded_staging_keys:
+            try:
+                await workflow.execute_activity(
+                    cleanup_staging_files,
+                    args=[inp.bank_id, embedded_staging_keys, inp.sig_staging_bucket],
+                    start_to_close_timeout=timedelta(seconds=120),
+                    retry_policy=RetryPolicy(maximum_attempts=2),
+                )
+            except Exception as exc:
+                log.warning(
+                    "vault_sync.cleanup_staging_failed",
+                    bank_id=inp.bank_id,
+                    error=str(exc),
+                )
+
         # Step 3: Load PPS records from CBS
         try:
             pps_records = await workflow.execute_activity(
@@ -820,6 +935,8 @@ class VaultSyncWorkflow:
         embedding_model=None,
         sample_accounts: Optional[list[str]] = None,
         account_vault=None,
+        minio_client=None,
+        event_producer=None,
         **kwargs,
     ) -> VaultSyncResult:
         """Testable orchestration — same logic as run(), direct Python calls."""
@@ -846,6 +963,24 @@ class VaultSyncWorkflow:
             vault=vault,
             embedding_model=embedding_model,
         )
+
+        # Step 2b: Delete CBS staging files for successfully embedded records (non-fatal)
+        embedded_staging_keys = embed_result.get("embedded_staging_keys", [])
+        if embedded_staging_keys:
+            try:
+                await cleanup_staging_files(
+                    bank_id=inp.bank_id,
+                    staging_keys=embedded_staging_keys,
+                    staging_bucket=inp.sig_staging_bucket,
+                    minio_client=minio_client,
+                    event_producer=event_producer,
+                )
+            except Exception as exc:
+                log.warning(
+                    "vault_sync.cleanup_staging_failed",
+                    bank_id=inp.bank_id,
+                    error=str(exc),
+                )
 
         # Step 3
         try:

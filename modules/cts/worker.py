@@ -140,7 +140,11 @@ from modules.cts.workflows.activities.postdated_hold_activities import (
 )
 from modules.cts.workflows.activities.security_features import check_security_features
 from modules.cts.workflows.activities.ngch_metadata_cross_check import cross_check_ngch_metadata
-from modules.cts.workflows.mismatch_resolution_workflow import publish_mismatch_hold
+from modules.cts.workflows.mismatch_resolution_workflow import (
+    publish_mismatch_hold,
+    persist_mismatch_hold_db,
+    resolve_mismatch_db,
+)
 from modules.cts.workflows.activities.batch_endorsement_activities import (
     stamp_endorsement,
     update_lot_status,
@@ -188,6 +192,12 @@ from modules.cts.workflows.activities.hold_escalation import (
     send_hold_critical_alert,
     send_hold_p0_alert,
 )
+from modules.cts.workflows.vault_file_drop_workflow import (
+    VaultFileDropWorkflow,
+    fetch_drop_file,
+    process_vault_csv,
+    archive_drop_file,
+)
 
 ALL_WORKFLOWS = [
     ChequeProcessingWorkflow,
@@ -213,6 +223,8 @@ ALL_WORKFLOWS = [
     FeedbackAccumulatorWorkflow,
     ModelRetrainWorkflow,
     FeedbackEmitWorkflow,
+    # Vault file-drop (MinIO event → SFTP channel upload for all vault types)
+    VaultFileDropWorkflow,
 ]
 
 # Every registered CTS activity name, for reference/introspection. This list
@@ -255,6 +267,8 @@ ALL_ACTIVITIES = [
     run_vision_presentment_check,
     check_security_features,
     publish_mismatch_hold,
+    persist_mismatch_hold_db,
+    resolve_mismatch_db,
     stamp_endorsement,
     update_lot_status,
     build_ngch_file,
@@ -272,6 +286,9 @@ ALL_ACTIVITIES = [
     publish_relay_event,
     parse_and_validate_smb_push,
     update_smb_vault,
+    fetch_drop_file,
+    process_vault_csv,
+    archive_drop_file,
     check_iet_risk_for_alert,
     check_human_review_for_alert,
     dispatch_platform_alert,
@@ -334,6 +351,10 @@ NO_DI_ACTIVITIES = [
     # Post-dated hold persistence (PostDatedHoldWorkflow)
     store_postdated_hold,
     mark_hold_cancelled,
+    # Vault file-drop (VaultFileDropWorkflow — MinIO event → VaultUploadProcessor)
+    fetch_drop_file,
+    process_vault_csv,
+    archive_drop_file,
     # OCR feedback loop — accumulate/threshold/promote/emit/dispatch/shadow are
     # all in BoundCTSActivities (db_pool injection required)
 ]

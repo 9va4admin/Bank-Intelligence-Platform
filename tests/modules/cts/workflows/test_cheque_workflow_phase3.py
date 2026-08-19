@@ -532,6 +532,22 @@ async def _fake_push_to_review_queue(inp):
     _queue_calls.append({"instrument_id": _dget(inp, "instrument_id")})
 
 
+@activity.defn(name="ocr_extract")
+async def _fake_ocr_extract(inp, orchestrator=None, config_service=None, routing_table=None):
+    from modules.cts.workflows.activities.ocr import OCRActivityResult
+    return OCRActivityResult(
+        outcome="PROCEED",
+        micr_line="600002000012",
+        amount_figures="45000",
+        amount_words="Forty Five Thousand Only",
+        date="15/08/2026",
+        payee="Ramesh Iyer",
+        ifsc_code="SRCB0000001",
+        overall_confidence=0.97,
+        ocr_engines_used=["got-ocr2.0:cascade-1"],
+    )
+
+
 @activity.defn(name="detect_alteration")
 async def _fake_detect_alteration(inp, vllm_client=None, kill_switch_status=None):
     from modules.cts.workflows.activities.alteration import AlterationActivityResult
@@ -630,6 +646,7 @@ async def _fake_persist_agent_decision(inp):
 
 
 _HAPPY_PATH_ACTIVITIES = [
+    _fake_ocr_extract,
     _fake_detect_alteration, _fake_get_kill_switch_status, _fake_check_stop_payment_proceed,
     _fake_validate_ifsc, _fake_validate_cheque_series,
     _fake_lookup_pps, _fake_detect_signatures, _fake_verify_signature, _fake_score_fraud,
@@ -733,6 +750,7 @@ class TestChequeWorkflowRealRun:
         task_queue = f"tq-{uuid.uuid4()}"
         bank_id, instrument_id = "saraswat-coop", f"INST-{uuid.uuid4().hex[:8]}"
         activities = [
+            _fake_ocr_extract,
             _fake_detect_alteration, _fake_get_kill_switch_status, _fake_check_stop_payment_return,
             _fake_check_security_features,
             _fake_file_to_ngch, _fake_write_audit, _fake_push_to_review_queue,
