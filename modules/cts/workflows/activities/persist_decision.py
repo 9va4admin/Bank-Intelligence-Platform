@@ -48,6 +48,8 @@ class PersistDecisionInput(BaseModel):
     ocr_engines_used: List[str] = []
     indic_ocr_kill_switch_active: bool = False
     iet_margin_seconds: int = 0
+    steps_digest: Optional[dict] = None
+    registry_version: Optional[str] = None
 
 
 class PersistDecisionResult(BaseModel):
@@ -63,14 +65,16 @@ INSERT INTO cts.agent_decisions (
     processing_duration_ms, ocr_confidence, alteration_detected,
     signature_match_score, signature_verdict, pps_checked, pps_verdict,
     cbs_balance_status, degraded_mode, ocr_engines_used,
-    indic_ocr_kill_switch_active, iet_margin_seconds
+    indic_ocr_kill_switch_active, iet_margin_seconds,
+    steps_digest, registry_version
 ) VALUES (
     $1, $2, $3, $4, $5,
     $6, $7, $8::timestamptz, $9::timestamptz,
     $10, $11, $12,
     $13, $14, $15, $16,
     $17, $18, $19,
-    $20, $21
+    $20, $21,
+    $22, $23
 )
 ON CONFLICT (workflow_id) DO NOTHING
 """.strip()
@@ -120,6 +124,8 @@ async def persist_agent_decision(
                 json.dumps(inp.ocr_engines_used),
                 inp.indic_ocr_kill_switch_active,
                 inp.iet_margin_seconds,
+                json.dumps(inp.steps_digest) if inp.steps_digest is not None else None,
+                inp.registry_version,
             )
         except Exception as exc:
             log.warning(

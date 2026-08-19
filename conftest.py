@@ -166,6 +166,43 @@ def _fmt_dur(secs: float) -> str:
 
 
 _STEP_ICON = {
+    # Registry step_id → icon (canonical, used by new StepResult-based steps)
+    "iet_watchdog":       "⏱",
+    "duplicate_check":    "♻",
+    "ocr_extract":        "⬡",
+    "kill_switch_1":      "🔴",
+    "alteration_detect":  "🔍",
+    "security_features":  "📋",
+    "stop_payment":       "🚫",
+    "ifsc_validate":      "🏷",
+    "pps_lookup":         "🔑",
+    "sig_detect":         "✍",
+    "sig_verify":         "✍",
+    "fraud_score":        "🎯",
+    "cheque_series":      "🔢",
+    "cbs_balance":        "🏦",
+    "account_status":     "👤",
+    "kill_switch_2":      "🔴",
+    "synthesise_decision":"⚖",
+    "stp_mode_routing":   "🔀",
+    "persist_decision":   "💾",
+    "ngch_file":          "📤",
+    "audit_write":        "📝",
+    "human_review_spawn": "👁",
+    "smb_ledger":         "📒",
+    "feedback_emit":      "📡",
+    # Outward step_ids
+    "date_validate":      "📅",
+    "post_dated_hold":    "📆",
+    "cheque_dedup":       "♻",
+    "rear_ocr":           "🖼",
+    "payee_validate":     "💳",
+    "ngch_cross_check":   "🔗",
+    "cts2010_compliance": "📋",
+    "vision_crosscheck":  "👁",
+    "mismatch_spawn":     "⚠",
+    "branch_monitor":     "📊",
+    # Legacy name-based keys (backward compat for hand-crafted test steps)
     "OCR":          "⬡",
     "Alteration":   "🔍",
     "CTS-2010":     "📋",
@@ -211,13 +248,24 @@ _OUTCOME_CLASS = {
 
 
 def _step_row(step: dict) -> str:
+    # Support both registry-based step_id and legacy name-keyed steps
+    step_id = step.get("step_id", "")
     name = step.get("name", "")
+    if step_id and not name:
+        # Look up display name from registry
+        try:
+            from modules.cts.pipeline.registry import get_step
+            pipeline_hint = step.get("pipeline", "INWARD")
+            reg_step = get_step(step_id, pipeline_hint) or get_step(step_id, "OUTWARD")
+            name = reg_step.name if reg_step else step_id
+        except Exception:
+            name = step_id
     outcome = step.get("outcome", "")
     score = step.get("score")
     violations = step.get("violations") or []
     shap = step.get("shap") or {}
-    detail = step.get("detail", "")
-    icon = _STEP_ICON.get(name, "·")
+    detail = step.get("detail") or step.get("reason", "")
+    icon = _STEP_ICON.get(step_id) or _STEP_ICON.get(name, "·")
     css = _OUTCOME_CLASS.get(outcome, "step-muted")
 
     extras = []
@@ -260,6 +308,15 @@ def _instrument_card(inst: dict, idx: int) -> str:
     label, dec_class = _DECISION_LABEL.get(raw_dec, (_html.escape(raw_dec), "dec-unknown"))
     wf_badge_cls = "badge-inward" if wtype == "INWARD" else "badge-outward"
     dur_str = f"{dur:,} ms" if dur else "—"
+
+    # Sort steps by registry seq when step_id is present; fall back to list order
+    try:
+        from modules.cts.pipeline.registry import steps_for
+        _seq_map = {s.step_id: s.seq for s in steps_for(wtype)}
+        steps = sorted(steps, key=lambda s: _seq_map.get(s.get("step_id", ""), 999))
+    except Exception:
+        pass
+
     step_rows = "".join(_step_row(s) for s in steps)
 
     # top SHAP from first step that has shap

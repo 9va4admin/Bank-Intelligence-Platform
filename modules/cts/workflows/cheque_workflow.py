@@ -36,6 +36,7 @@ from modules.cts.sub_member.activities import (
     notify_sub_member_return,
 )
 from shared.utils.masking import mask_amount
+from modules.cts.pipeline.models import StepResult, build_digest
 
 log = structlog.get_logger()
 
@@ -239,6 +240,9 @@ class ChequeProcessingWorkflow:
         _sig_verdict: str = "UNKNOWN"
         _pps_verdict: str = "NOT_CHECKED"
         _cbs_status: str = "NOT_CHECKED"
+        # Step accumulator — append after each activity; finalise() builds InstrumentDigest
+        _steps: list[StepResult] = []
+
         # OCR state — populated by ocr_extract, carried into persist_decision audit row
         _ocr_confidence: float = 0.0
         _ocr_engines_used: list = []
@@ -310,6 +314,8 @@ class ChequeProcessingWorkflow:
             review_timeout_minutes: int = human_review_timeout,
             stp_eligible: bool = False,
             ai_recommendation: Optional[str] = None,
+            step_outcome: Optional[str] = None,   # outcome of the step that triggered finalise
+            step_reason: Optional[str] = None,
         ) -> ChequeWorkflowResult:
             """Every exit point of this workflow routes through here — this is
             the ASTRA-02 fix: previously every branch just returned a result
@@ -331,6 +337,18 @@ class ChequeProcessingWorkflow:
             from modules.cts.workflows.activities.persist_decision import (
                 PersistDecisionInput, persist_agent_decision,
             )
+            _decided_at = workflow.now().timestamp()
+            _digest = build_digest(
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                pipeline="INWARD",
+                workflow_id=wf_id,
+                started_at=_started_at,
+                decided_at=_decided_at,
+                final_decision=decision,
+                accumulated_steps=list(_steps),
+                shap_values=shap_values or _shap_values,
+            )
             try:
                 await workflow.execute_activity(
                     persist_agent_decision,
@@ -343,7 +361,7 @@ class ChequeProcessingWorkflow:
                         fraud_score=_fraud_score,
                         shap_values=shap_values or _shap_values,
                         processing_started_at=_started_at,
-                        processing_completed_at=workflow.now().timestamp(),
+                        processing_completed_at=_decided_at,
                         alteration_detected=_alteration_detected,
                         signature_match_score=_sig_match_score,
                         signature_verdict=_sig_verdict,
@@ -351,7 +369,9 @@ class ChequeProcessingWorkflow:
                         cbs_balance_status=_cbs_status,
                         ocr_engines_used=_ocr_engines_used,
                         indic_ocr_kill_switch_active=_indic_ks_active,
-                        iet_margin_seconds=0,          # watchdog tracks IET margin
+                        iet_margin_seconds=0,
+                        steps_digest=_digest.model_dump(),
+                        registry_version=_digest.registry_version,
                     ),
                     start_to_close_timeout=timedelta(seconds=15),
                     retry_policy=_AUDIT_RETRY,
@@ -574,6 +594,14 @@ class ChequeProcessingWorkflow:
         _ocr_amount_words = ocr_result.amount_words
         _ocr_ifsc = ocr_result.ifsc_code
 
+        _steps.append(StepResult(
+            step_id="ocr_extract",
+            outcome="FAIL" if ocr_result.outcome == "HUMAN_REVIEW" else "PASS",
+            reason=ocr_result.low_confidence_reason or None,
+            score=_ocr_confidence,
+            extra={"engines": _ocr_engines_used, "indic_ks": _indic_ks_active},
+        ))
+
         if ocr_result.outcome == "HUMAN_REVIEW":
             return await finalise(
                 "HUMAN_REVIEW",
@@ -594,6 +622,12 @@ class ChequeProcessingWorkflow:
             start_to_close_timeout=timedelta(seconds=10),
             retry_policy=_CBS_RETRY,
         )
+        _steps.append(StepResult(
+            step_id="kill_switch_1",
+            outcome="PASS",
+            extra={"mode": kc1_lookup.get("mode") if isinstance(kc1_lookup, dict) else getattr(kc1_lookup, "mode", "NONE")},
+        ))
+
         alteration_result = await workflow.execute_activity(
             detect_alteration,
             args=[
@@ -604,12 +638,17 @@ class ChequeProcessingWorkflow:
                     cheque_amount=inp.presented_amount,
                     smb_id=inp.smb_id,
                 ),
-                kc1_lookup,  # KillSwitchLookupResult (Pydantic) — worker wrapper converts to KillSwitchStatus
+                kc1_lookup,
             ],
             start_to_close_timeout=timedelta(seconds=120),
             retry_policy=_AI_ACTIVITY_RETRY,
         )
         _alteration_detected = alteration_result.alteration_detected
+        _steps.append(StepResult(
+            step_id="alteration_detect",
+            outcome="FAIL" if alteration_result.alteration_detected else "PASS",
+            score=getattr(alteration_result, "tamper_risk_score", None),
+        ))
         if alteration_result.alteration_detected:
             return await finalise("HUMAN_REVIEW", "alteration_detected")
 
@@ -634,6 +673,14 @@ class ChequeProcessingWorkflow:
             start_to_close_timeout=timedelta(seconds=90),
             retry_policy=_AI_ACTIVITY_RETRY,
         )
+        _steps.append(StepResult(
+            step_id="security_features",
+            outcome="FAIL" if sec_result.outcome == "HUMAN_REVIEW" else (
+                "DEGRADED" if sec_result.outcome == "DEGRADED" else "PASS"
+            ),
+            reason=None if sec_result.outcome not in ("HUMAN_REVIEW", "DEGRADED") else sec_result.outcome,
+            extra={"missing": getattr(sec_result, "missing_features", [])},
+        ))
         if sec_result.outcome == "HUMAN_REVIEW":
             return await finalise(
                 "HUMAN_REVIEW",
@@ -653,6 +700,11 @@ class ChequeProcessingWorkflow:
             start_to_close_timeout=timedelta(seconds=10),
             retry_policy=_CBS_RETRY,
         )
+        _steps.append(StepResult(
+            step_id="stop_payment",
+            outcome="FAIL" if stop_result.outcome in ("STP_RETURN", "HUMAN_REVIEW") else "PASS",
+            reason=stop_result.stop_reason or None,
+        ))
         if stop_result.outcome == "STP_RETURN":
             return await finalise(
                 "STP_RETURN", f"Stop payment: {stop_result.stop_reason}",
@@ -682,6 +734,11 @@ class ChequeProcessingWorkflow:
                 start_to_close_timeout=timedelta(seconds=10),
                 retry_policy=_CBS_RETRY,
             )
+            _steps.append(StepResult(
+                step_id="ifsc_validate",
+                outcome="FAIL" if ifsc_result.outcome == "HUMAN_REVIEW" else "PASS",
+                reason=ifsc_result.reason or None,
+            ))
             if ifsc_result.outcome == "HUMAN_REVIEW":
                 return await finalise(
                     "HUMAN_REVIEW",
@@ -704,6 +761,11 @@ class ChequeProcessingWorkflow:
         )
 
         _pps_verdict = pps_result.outcome
+        _steps.append(StepResult(
+            step_id="pps_lookup",
+            outcome="PASS" if pps_result.outcome == "FOUND" else "FAIL",
+            reason=pps_result.outcome if pps_result.outcome != "FOUND" else None,
+        ))
 
         # Step 4.5: detect_signatures — count ink signatures, check fraud patterns
         from modules.cts.workflows.activities.detect_signatures import (
@@ -720,11 +782,22 @@ class ChequeProcessingWorkflow:
             retry_policy=_AI_ACTIVITY_RETRY,
         )
 
+        _sig_detect_outcome = (
+            "FAIL" if sig_detect.outcome in ("ABSENT", "DEGRADED") or sig_detect.fraud_flags
+            else "PASS"
+        )
+        _steps.append(StepResult(
+            step_id="sig_detect",
+            outcome="DEGRADED" if sig_detect.outcome == "DEGRADED" else _sig_detect_outcome,
+            reason=sig_detect.outcome if sig_detect.outcome != "PRESENT" else None,
+            extra={"fraud_flags": list(sig_detect.fraud_flags) if sig_detect.fraud_flags else [],
+                   "sig_count": sig_detect.sig_count},
+        ))
+
         if sig_detect.outcome == "ABSENT":
             return await finalise("HUMAN_REVIEW", "no_signature_on_cheque")
 
         if sig_detect.outcome == "DEGRADED":
-            # vLLM down — cannot confirm signature; route to human review
             return await finalise("HUMAN_REVIEW", "signature_detection_degraded")
 
         if sig_detect.fraud_flags:
@@ -751,6 +824,12 @@ class ChequeProcessingWorkflow:
 
         _sig_match_score = sig_result.match_score or 0.0
         _sig_verdict = getattr(sig_result, "verdict", "UNKNOWN") or "UNKNOWN"
+        _steps.append(StepResult(
+            step_id="sig_verify",
+            outcome="FAIL" if getattr(sig_result, "outcome", None) == "HUMAN_REVIEW" else "PASS",
+            reason=getattr(sig_result, "miss_reason", None),
+            score=_sig_match_score,
+        ))
 
         # Vault miss / signature degraded: route immediately with explicit context
         # so the HRQ screen shows the true reason, not a generic sig_mismatch.
@@ -785,6 +864,12 @@ class ChequeProcessingWorkflow:
 
         _fraud_score = fraud_result.fraud_score
         _shap_values = fraud_result.shap_values or {}
+        _steps.append(StepResult(
+            step_id="fraud_score",
+            outcome="PASS",   # routing decision made by synthesise_decision, not here
+            score=_fraud_score,
+            extra={"shap_keys": list(_shap_values.keys())},
+        ))
 
         # Stage D — Step 7.0: validate_cheque_series (vault mode default → Redis < 5ms; CBS mode → live call)
         from modules.cts.workflows.activities.cheque_series import (
@@ -806,6 +891,11 @@ class ChequeProcessingWorkflow:
             start_to_close_timeout=timedelta(seconds=10),
             retry_policy=_CBS_RETRY,
         )
+        _steps.append(StepResult(
+            step_id="cheque_series",
+            outcome="FAIL" if cheque_series_result.outcome in ("STP_RETURN", "HUMAN_REVIEW") else "PASS",
+            reason=cheque_series_result.reason or None,
+        ))
         if cheque_series_result.outcome == "STP_RETURN":
             return await finalise(
                 "STP_RETURN",
@@ -829,6 +919,11 @@ class ChequeProcessingWorkflow:
             retry_policy=_CBS_RETRY,
         )
         _cbs_status = cbs_balance_result.outcome
+        _steps.append(StepResult(
+            step_id="cbs_balance",
+            outcome="FAIL" if cbs_balance_result.outcome in ("RETURN", "CBS_UNAVAILABLE") else "PASS",
+            reason=cbs_balance_result.outcome if cbs_balance_result.outcome != "PROCEED" else None,
+        ))
         if cbs_balance_result.outcome == "CBS_UNAVAILABLE":
             return await finalise("HUMAN_REVIEW", "cbs_unavailable_image_only_path")
         if cbs_balance_result.outcome == "RETURN":
@@ -847,6 +942,11 @@ class ChequeProcessingWorkflow:
             start_to_close_timeout=timedelta(seconds=10),
             retry_policy=_CBS_RETRY,
         )
+        _steps.append(StepResult(
+            step_id="account_status",
+            outcome="FAIL" if acct_status_result.outcome in ("RETURN", "HUMAN_REVIEW") else "PASS",
+            reason=acct_status_result.account_status if acct_status_result.outcome != "PROCEED" else None,
+        ))
         if acct_status_result.outcome == "RETURN":
             return await finalise(
                 "STP_RETURN", f"Account status: {acct_status_result.account_status}",
@@ -866,6 +966,12 @@ class ChequeProcessingWorkflow:
             start_to_close_timeout=timedelta(seconds=10),
             retry_policy=_CBS_RETRY,
         )
+
+        _steps.append(StepResult(
+            step_id="kill_switch_2",
+            outcome="PASS",
+            extra={"mode": kc2_lookup.get("mode") if isinstance(kc2_lookup, dict) else getattr(kc2_lookup, "mode", "NONE")},
+        ))
 
         # Step 9: synthesise_decision
         decision_result = await workflow.execute_activity(
@@ -900,6 +1006,14 @@ class ChequeProcessingWorkflow:
             retry_policy=_CBS_RETRY,
         )
 
+        _steps.append(StepResult(
+            step_id="synthesise_decision",
+            outcome="PASS",
+            reason=decision_result.rationale,
+            extra={"decision": decision_result.decision,
+                   "return_reason_code": getattr(decision_result, "return_reason_code", None)},
+        ))
+
         # STP mode routing — applied only when AI decided STP_CONFIRM.
         # STP_RETURN and HUMAN_REVIEW are never changed by stp_mode.
         # Config keys: stp_mode (required), stp_supervised_confirm_threshold (for SELECTIVE).
@@ -910,7 +1024,8 @@ class ChequeProcessingWorkflow:
             supervised_timeout = int(inp.cts_config.get("stp_supervised_review_timeout_minutes", 30))
 
             if stp_mode == "FULL_STP":
-                pass  # auto-file — fall through to normal finalise
+                _steps.append(StepResult(step_id="stp_mode_routing", outcome="PASS",
+                                         extra={"stp_mode": "FULL_STP"}))
 
             elif stp_mode == "SELECTIVE":
                 if decision_result.stp_confidence >= supervised_threshold:

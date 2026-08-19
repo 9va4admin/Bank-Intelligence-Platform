@@ -37,6 +37,8 @@ from temporalio import workflow
 from temporalio.common import RetryPolicy
 from temporalio.workflow import ParentClosePolicy
 
+from modules.cts.pipeline.models import StepResult, build_digest
+
 log = structlog.get_logger()
 
 # ── Date validation helpers ───────────────────────────────────────────────────
@@ -182,8 +184,13 @@ class OutwardScanWorkflow:
         from modules.cts.workflows.activities.outward_scan_activities import (
             record_outward_scan_event, RecordScanEventInput,
         )
+        self._outward_steps: list[StepResult] = []
+        _started_at = workflow.now().timestamp()
+        wf_id = workflow.info().workflow_id
+
         result = await self._run_impl(inp)
-        # Record scan event for branch monitor (best-effort — never fail workflow for this)
+
+        # Branch monitor event (best-effort — never fail scan for event recording)
         try:
             micr_suffix = (result.micr_line or "")[-4:] or None
             await workflow.execute_activity(
@@ -205,8 +212,48 @@ class OutwardScanWorkflow:
                 start_to_close_timeout=timedelta(seconds=10),
                 retry_policy=_INFRA_RETRY,
             )
+            self._outward_steps.append(StepResult(step_id="branch_monitor", outcome="PASS"))
         except Exception:
-            pass  # non-critical — never fail scan for event recording
+            self._outward_steps.append(StepResult(step_id="branch_monitor", outcome="DEGRADED"))
+
+        # Persist InstrumentDigest to cts.agent_decisions (best-effort — non-blocking)
+        try:
+            from modules.cts.workflows.activities.persist_decision import (
+                PersistDecisionInput, persist_agent_decision,
+            )
+            _decided_at = workflow.now().timestamp()
+            _digest = build_digest(
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                pipeline="OUTWARD",
+                workflow_id=wf_id,
+                started_at=_started_at,
+                decided_at=_decided_at,
+                final_decision=result.outcome,
+                accumulated_steps=list(self._outward_steps),
+            )
+            await workflow.execute_activity(
+                persist_agent_decision,
+                PersistDecisionInput(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    workflow_id=wf_id,
+                    decision=result.outcome,
+                    decision_reason=(result.violations[0] if result.violations else "ACCEPTED"),
+                    fraud_score=0.0,
+                    shap_values={},
+                    processing_started_at=_started_at,
+                    processing_completed_at=_decided_at,
+                    steps_digest=_digest.model_dump(),
+                    registry_version=_digest.registry_version,
+                ),
+                start_to_close_timeout=timedelta(seconds=15),
+                retry_policy=_AUDIT_RETRY,
+            )
+        except Exception as exc:
+            log.warning("outward_scan_workflow.persist_digest_failed",
+                        instrument_id=inp.instrument_id, bank_id=inp.bank_id, error=str(exc))
+
         return result
 
     async def _run_impl(self, inp: OutwardScanInput) -> OutwardScanResult:
@@ -255,6 +302,11 @@ class OutwardScanWorkflow:
         quality_score = None if ocr_result.degraded else ocr_result.overall_confidence
         _ocr_engines = getattr(ocr_result, "ocr_engines_used", [])
         _indic_ks = getattr(ocr_result, "indic_ocr_kill_switch_active", False)
+        self._outward_steps.append(StepResult(
+            step_id="ocr_extract",
+            outcome="DEGRADED" if ocr_result.degraded else "PASS",
+            score=quality_score,
+        ))
 
         # Emit CTS_KILL_SWITCH_APPLIED if IndicOCR was bypassed by kill switch.
         if _indic_ks:
@@ -277,6 +329,11 @@ class OutwardScanWorkflow:
 
         # Step 1.5: Date validation — stale / post-dated / undated cheques handled here.
         date_ok, date_violation = _validate_cheque_date(getattr(ocr_result, "date", None))
+        self._outward_steps.append(StepResult(
+            step_id="date_validate",
+            outcome="PASS" if date_ok else "FAIL",
+            reason=date_violation if not date_ok else None,
+        ))
         if not date_ok:
             log.info("outward_scan_workflow.date_issue",
                      scan_id=inp.scan_id, bank_id=inp.bank_id,
@@ -317,6 +374,11 @@ class OutwardScanWorkflow:
                     id=hold_id,
                     parent_close_policy=workflow.ParentClosePolicy.ABANDON,
                 )
+                self._outward_steps.append(StepResult(
+                    step_id="post_dated_hold",
+                    outcome="PASS",
+                    reason="PostDatedHoldWorkflow spawned",
+                ))
                 return OutwardScanResult(
                     outcome="POST_DATED_HELD",
                     scan_id=inp.scan_id,
@@ -357,6 +419,11 @@ class OutwardScanWorkflow:
                 start_to_close_timeout=timedelta(seconds=5),
                 retry_policy=_INFRA_RETRY,
             )
+            self._outward_steps.append(StepResult(
+                step_id="cheque_dedup",
+                outcome="FAIL" if dedup_result.is_duplicate else "PASS",
+                reason="DUPLICATE_CHEQUE" if dedup_result.is_duplicate else None,
+            ))
             if dedup_result.is_duplicate:
                 await workflow.execute_activity(
                     write_audit,
@@ -399,6 +466,11 @@ class OutwardScanWorkflow:
                 start_to_close_timeout=timedelta(seconds=60),
                 retry_policy=_AI_RETRY,
             )
+            self._outward_steps.append(StepResult(
+                step_id="rear_ocr",
+                outcome="PASS",
+                extra={"account_extracted": bool(rear.account_number)},
+            ))
             # Merge OCR output into payee fields (don't override what teller pre-entered)
             if not inp.payee_account_number and rear.account_number:
                 inp = inp.model_copy(update={
@@ -422,6 +494,12 @@ class OutwardScanWorkflow:
                 start_to_close_timeout=timedelta(seconds=15),
                 retry_policy=_INFRA_RETRY,
             )
+            _payee_ok = payee_result.outcome in ("PROCEED", "CBS_UNAVAILABLE", "NAME_MATCH")
+            self._outward_steps.append(StepResult(
+                step_id="payee_validate",
+                outcome="PASS" if _payee_ok else "FAIL",
+                reason=payee_result.outcome if not _payee_ok else None,
+            ))
             if payee_result.outcome == "ACCOUNT_NOT_FOUND":
                 log.info("outward_scan_workflow.payee_not_found",
                          scan_id=inp.scan_id, bank_id=inp.bank_id,
@@ -524,6 +602,11 @@ class OutwardScanWorkflow:
             start_to_close_timeout=timedelta(seconds=5),
             retry_policy=_INFRA_RETRY,
         )
+        self._outward_steps.append(StepResult(
+            step_id="ngch_cross_check",
+            outcome="FAIL" if xcheck_result.outcome == "HUMAN_REVIEW" else "PASS",
+            reason=str(xcheck_result.mismatch_fields) if xcheck_result.outcome == "HUMAN_REVIEW" else None,
+        ))
         if xcheck_result.outcome == "HUMAN_REVIEW":
             log.info(
                 "outward_scan_workflow.ngch_metadata_mismatch",
@@ -571,6 +654,11 @@ class OutwardScanWorkflow:
             retry_policy=_INFRA_RETRY,
         )
 
+        self._outward_steps.append(StepResult(
+            step_id="cts2010_compliance",
+            outcome="PASS" if compliance_result.is_compliant else "FAIL",
+            reason=str(compliance_result.violations) if not compliance_result.is_compliant else None,
+        ))
         if not compliance_result.is_compliant:
             log.info("outward_scan_workflow.cts_rejected",
                      scan_id=inp.scan_id, bank_id=inp.bank_id,
@@ -603,6 +691,10 @@ class OutwardScanWorkflow:
             start_to_close_timeout=timedelta(seconds=60),
             retry_policy=_AI_RETRY,
         )
+        self._outward_steps.append(StepResult(
+            step_id="sig_detect",
+            outcome="FAIL" if sig_detect.outcome == "ABSENT" else ("DEGRADED" if sig_detect.outcome == "DEGRADED" else "PASS"),
+        ))
         if sig_detect.outcome == "ABSENT":
             log.info("outward_scan_workflow.signature_absent",
                      scan_id=inp.scan_id, bank_id=inp.bank_id)
@@ -641,6 +733,11 @@ class OutwardScanWorkflow:
             start_to_close_timeout=timedelta(seconds=120),
             retry_policy=_AI_RETRY,
         )
+        self._outward_steps.append(StepResult(
+            step_id="security_features",
+            outcome="FAIL" if sec_result.outcome == "HUMAN_REVIEW" else ("DEGRADED" if sec_result.outcome == "DEGRADED" else "PASS"),
+            reason=str(sec_result.missing_features) if sec_result.outcome == "HUMAN_REVIEW" else None,
+        ))
         if sec_result.outcome == "HUMAN_REVIEW":
             log.info(
                 "outward_scan_workflow.security_features_missing",
@@ -680,7 +777,18 @@ class OutwardScanWorkflow:
                 start_to_close_timeout=timedelta(seconds=120), retry_policy=_AI_RETRY,
             )
 
+        if vision_result is not None:
+            self._outward_steps.append(StepResult(
+                step_id="vision_crosscheck",
+                outcome="FAIL" if vision_result.has_mismatch else "PASS",
+                extra={"mismatch_fields": vision_result.mismatch_fields if vision_result.has_mismatch else []},
+            ))
         if vision_result is not None and vision_result.has_mismatch:
+            self._outward_steps.append(StepResult(
+                step_id="mismatch_spawn",
+                outcome="PASS",
+                reason="MismatchResolutionWorkflow spawned",
+            ))
             return await self._spawn_mismatch(
                 inp, None, micr_line,
                 scanner_amount_str or "", vision_result.vision_amount_str or "",
@@ -702,6 +810,7 @@ class OutwardScanWorkflow:
                             }),
             start_to_close_timeout=timedelta(seconds=15), retry_policy=_AUDIT_RETRY,
         )
+        self._outward_steps.append(StepResult(step_id="audit_write", outcome="PASS"))
         return OutwardScanResult(
             outcome="ACCEPTED", scan_id=inp.scan_id, bank_id=inp.bank_id,
             instrument_id=inp.instrument_id, micr_line=micr_line, lot_number=None,
