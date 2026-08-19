@@ -995,7 +995,7 @@ class ChequeProcessingWorkflow:
                     payee_name=inp.presented_payee,
                     ngch_ifsc=inp.ngch_ifsc,
                     ocr_ifsc=_ocr_ifsc,
-                    cheque_date=_ocr_cheque_date,
+                    cheque_date=_ocr_cheque_date.isoformat() if _ocr_cheque_date else None,
                     amount_figures=_ocr_amount_figures,
                     amount_words=_ocr_amount_words,
                 ),
