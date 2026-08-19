@@ -17,6 +17,7 @@ from modules.cts.workflows.vault_sync_workflow import (
     warm_redis_vault,
     warm_redis_from_db,
     verify_vault_integrity,
+    cleanup_staging_files,
     _hmac_key,
 )
 
@@ -1113,3 +1114,269 @@ class TestVerifyVaultIntegrityKeyFormat:
         digest = _hmac_key(PEPPER, BANK_ID, "ACC001")
         bare_key = f"sig:{BANK_ID}:{digest}"
         assert key_checked != bare_key
+
+
+# ---------------------------------------------------------------------------
+# GAP D (new) — staging file lifecycle: field, collection, delete + audit trail
+# ---------------------------------------------------------------------------
+
+class TestSignatureRecordStagingFileKey:
+    def test_staging_file_key_field_exists(self):
+        """staging_file_key must be a field on SignatureRecord."""
+        rec = SignatureRecord(
+            account_number="ACC001",
+            staging_file_key="astra-sig-staging/test-bank/hashABC/PRIMARY/0.jpg",
+            specimens=[b"s"],
+        )
+        assert rec.staging_file_key == "astra-sig-staging/test-bank/hashABC/PRIMARY/0.jpg"
+
+    def test_staging_file_key_defaults_to_none(self):
+        """Direct-API CBS connectors don't produce staging files — field must be optional."""
+        rec = SignatureRecord(account_number="ACC001", specimens=[b"s"])
+        assert rec.staging_file_key is None
+
+
+class TestLoadSignaturesParseStagingKey:
+    @pytest.mark.asyncio
+    async def test_parses_staging_file_key_from_cbs_response(self):
+        cbs = AsyncMock()
+        cbs.list_signature_specimens.return_value = [
+            {
+                "account_number": "ACC001",
+                "specimens": [b"s"],
+                "staging_file_key": "astra-sig-staging/BANK/hashABC/PRIMARY/0.jpg",
+            }
+        ]
+        records = await load_signatures_from_cbs(BANK_ID, cbs_connector=cbs)
+        assert records[0].staging_file_key == "astra-sig-staging/BANK/hashABC/PRIMARY/0.jpg"
+
+    @pytest.mark.asyncio
+    async def test_staging_file_key_none_when_absent(self):
+        """Backward compat: CBS records without staging_file_key must produce None."""
+        cbs = AsyncMock()
+        cbs.list_signature_specimens.return_value = [
+            {"account_number": "ACC001", "specimens": [b"s"]},
+        ]
+        records = await load_signatures_from_cbs(BANK_ID, cbs_connector=cbs)
+        assert records[0].staging_file_key is None
+
+
+class TestEmbedAndStoreReturnsStagingKeys:
+    @pytest.mark.asyncio
+    async def test_returns_embedded_staging_keys_for_successful_records(self):
+        """embed_and_store must return list of staging keys that were successfully embedded."""
+        vault = _mock_vault()
+        model = _mock_embed_model()
+        records = [
+            SignatureRecord(account_number="ACC001", staging_file_key="bucket/k1.jpg", specimens=[b"s"]),
+            SignatureRecord(account_number="ACC002", staging_file_key="bucket/k2.jpg", specimens=[b"s"]),
+        ]
+        result = await embed_and_store_signatures(BANK_ID, records, vault=vault, embedding_model=model)
+        assert set(result["embedded_staging_keys"]) == {"bucket/k1.jpg", "bucket/k2.jpg"}
+
+    @pytest.mark.asyncio
+    async def test_embedded_staging_keys_empty_when_no_staging_files(self):
+        """Direct-API connectors produce None staging_file_key — list must be empty."""
+        vault = _mock_vault()
+        model = _mock_embed_model()
+        records = [SignatureRecord(account_number="ACC001", specimens=[b"s"])]
+        result = await embed_and_store_signatures(BANK_ID, records, vault=vault, embedding_model=model)
+        assert result["embedded_staging_keys"] == []
+
+    @pytest.mark.asyncio
+    async def test_failed_records_not_in_embedded_staging_keys(self):
+        """If store_embeddings fails for an account, its staging key must NOT be in the purge list."""
+        vault = AsyncMock()
+        vault.store_embeddings = AsyncMock(side_effect=[None, Exception("DB down")])
+        model = _mock_embed_model()
+        records = [
+            SignatureRecord(account_number="ACC001", staging_file_key="bucket/k1.jpg", specimens=[b"s"]),
+            SignatureRecord(account_number="ACC002", staging_file_key="bucket/k2.jpg", specimens=[b"s"]),
+        ]
+        result = await embed_and_store_signatures(BANK_ID, records, vault=vault, embedding_model=model)
+        assert result["embedded_staging_keys"] == ["bucket/k1.jpg"]
+        assert "bucket/k2.jpg" not in result["embedded_staging_keys"]
+
+
+class TestCleanupStagingFiles:
+    def _make_minio(self, raises: bool = False) -> MagicMock:
+        mc = MagicMock()
+        if raises:
+            mc.remove_object.side_effect = Exception("MinIO connection refused")
+        return mc
+
+    def _make_producer(self) -> AsyncMock:
+        p = AsyncMock()
+        p.publish = AsyncMock()
+        return p
+
+    @pytest.mark.asyncio
+    async def test_deletes_each_key_from_minio(self):
+        mc = self._make_minio()
+        result = await cleanup_staging_files(
+            BANK_ID, ["bucket/k1.jpg", "bucket/k2.jpg"],
+            staging_bucket="astra-sig-staging", minio_client=mc,
+        )
+        assert mc.remove_object.call_count == 2
+        assert result["deleted"] == 2
+
+    @pytest.mark.asyncio
+    async def test_emits_audit_event_per_deletion(self):
+        """Each deleted file must emit one platform audit event → Immudb chain."""
+        mc = self._make_minio()
+        producer = self._make_producer()
+        await cleanup_staging_files(
+            BANK_ID, ["bucket/k1.jpg", "bucket/k2.jpg"],
+            staging_bucket="astra-sig-staging", minio_client=mc, event_producer=producer,
+        )
+        assert producer.publish.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_audit_event_targets_platform_audit_topic(self):
+        """Audit event must go to platform.audit.events to reach Immudb consumer."""
+        mc = self._make_minio()
+        producer = self._make_producer()
+        await cleanup_staging_files(
+            BANK_ID, ["bucket/k1.jpg"],
+            staging_bucket="astra-sig-staging", minio_client=mc, event_producer=producer,
+        )
+        topic_used = producer.publish.call_args.kwargs.get("topic") or producer.publish.call_args[1].get("topic") or producer.publish.call_args[0][0]
+        assert topic_used == "platform.audit.events"
+
+    @pytest.mark.asyncio
+    async def test_audit_event_type_is_staging_purged(self):
+        mc = self._make_minio()
+        producer = self._make_producer()
+        await cleanup_staging_files(
+            BANK_ID, ["bucket/k1.jpg"],
+            staging_bucket="astra-sig-staging", minio_client=mc, event_producer=producer,
+        )
+        call_kwargs = producer.publish.call_args[1] if producer.publish.call_args[1] else {}
+        if not call_kwargs:
+            call_kwargs = dict(zip(
+                ["topic", "event_type", "payload", "schema_version"],
+                producer.publish.call_args[0]
+            ))
+        assert call_kwargs["event_type"] == "VAULT_SIG_STAGING_PURGED"
+
+    @pytest.mark.asyncio
+    async def test_minio_delete_failure_is_non_fatal(self):
+        """A MinIO failure must increment failed count but not raise."""
+        mc = self._make_minio(raises=True)
+        result = await cleanup_staging_files(
+            BANK_ID, ["bucket/k1.jpg", "bucket/k2.jpg"],
+            staging_bucket="astra-sig-staging", minio_client=mc,
+        )
+        assert result["failed"] == 2
+        assert result["deleted"] == 0
+
+    @pytest.mark.asyncio
+    async def test_audit_emit_failure_is_non_fatal(self):
+        """Kafka publish failure after a successful delete must not raise."""
+        mc = self._make_minio()
+        producer = AsyncMock()
+        producer.publish = AsyncMock(side_effect=Exception("Kafka down"))
+        result = await cleanup_staging_files(
+            BANK_ID, ["bucket/k1.jpg"],
+            staging_bucket="astra-sig-staging", minio_client=mc, event_producer=producer,
+        )
+        assert result["deleted"] == 1   # file still deleted even if audit publish fails
+
+    @pytest.mark.asyncio
+    async def test_no_minio_client_returns_all_failed(self):
+        result = await cleanup_staging_files(
+            BANK_ID, ["bucket/k1.jpg", "bucket/k2.jpg"],
+            staging_bucket="astra-sig-staging", minio_client=None,
+        )
+        assert result["deleted"] == 0
+        assert result["failed"] == 2
+
+    @pytest.mark.asyncio
+    async def test_empty_keys_returns_zero_counts(self):
+        mc = self._make_minio()
+        result = await cleanup_staging_files(
+            BANK_ID, [],
+            staging_bucket="astra-sig-staging", minio_client=mc,
+        )
+        assert result == {"deleted": 0, "failed": 0}
+        mc.remove_object.assert_not_called()
+
+
+class TestVaultSyncWorkflowCleanupStep:
+    @pytest.mark.asyncio
+    async def test_run_with_mocks_triggers_cleanup_for_staging_keys(self):
+        """Workflow must call cleanup when embedded_staging_keys is non-empty."""
+        cbs = AsyncMock()
+        cbs.list_signature_specimens.return_value = [
+            {"account_number": "ACC001", "specimens": [b"s"],
+             "staging_file_key": "bucket/ACC001.jpg"},
+        ]
+        cbs.list_positive_pay_records.return_value = []
+        cbs.list_issued_leaves = AsyncMock(return_value=[])
+        cbs.list_account_profiles = AsyncMock(return_value=[])
+
+        minio_mc = MagicMock()
+        producer = AsyncMock()
+        producer.publish = AsyncMock()
+
+        wf = VaultSyncWorkflow()
+        result = await wf.run_with_mocks(
+            VaultSyncInput(bank_id=BANK_ID, pepper=PEPPER, sync_date=SYNC_DATE,
+                           sig_staging_bucket="astra-sig-staging"),
+            cbs_connector=cbs,
+            redis_client=_make_redis(),
+            vault=_mock_vault(),
+            embedding_model=_mock_embed_model(),
+            sample_accounts=[],
+            minio_client=minio_mc,
+            event_producer=producer,
+        )
+        assert result.outcome == "SYNC_COMPLETE"
+        minio_mc.remove_object.assert_called_once_with("astra-sig-staging", "bucket/ACC001.jpg")
+
+    @pytest.mark.asyncio
+    async def test_run_with_mocks_no_cleanup_when_no_staging_keys(self):
+        """Direct-API CBS (no staging_file_key) must not call minio_client.remove_object."""
+        cbs = _make_cbs(accounts=2)    # no staging_file_key in response
+        cbs.list_issued_leaves = AsyncMock(return_value=[])
+        cbs.list_account_profiles = AsyncMock(return_value=[])
+
+        minio_mc = MagicMock()
+        wf = VaultSyncWorkflow()
+        await wf.run_with_mocks(
+            VaultSyncInput(bank_id=BANK_ID, pepper=PEPPER, sync_date=SYNC_DATE),
+            cbs_connector=cbs,
+            redis_client=_make_redis(),
+            vault=_mock_vault(),
+            embedding_model=_mock_embed_model(),
+            sample_accounts=[],
+            minio_client=minio_mc,
+        )
+        minio_mc.remove_object.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_cleanup_failure_does_not_abort_sync(self):
+        """If minio.remove_object raises for all files, sync must still return SYNC_COMPLETE."""
+        cbs = AsyncMock()
+        cbs.list_signature_specimens.return_value = [
+            {"account_number": "ACC001", "specimens": [b"s"],
+             "staging_file_key": "bucket/ACC001.jpg"},
+        ]
+        cbs.list_positive_pay_records.return_value = []
+        cbs.list_issued_leaves = AsyncMock(return_value=[])
+        cbs.list_account_profiles = AsyncMock(return_value=[])
+
+        minio_mc = MagicMock()
+        minio_mc.remove_object.side_effect = Exception("MinIO down")
+
+        wf = VaultSyncWorkflow()
+        result = await wf.run_with_mocks(
+            VaultSyncInput(bank_id=BANK_ID, pepper=PEPPER, sync_date=SYNC_DATE),
+            cbs_connector=cbs,
+            redis_client=_make_redis(),
+            vault=_mock_vault(),
+            embedding_model=_mock_embed_model(),
+            sample_accounts=[],
+            minio_client=minio_mc,
+        )
+        assert result.outcome == "SYNC_COMPLETE"   # embedding done; staging leak is acceptable
