@@ -88,7 +88,7 @@ class DecisionInput(BaseModel):
     available_balance: Optional[float]
     cheque_amount: float
     shap_values: dict[str, Any]  # required — must be computed before decision
-    cheque_date: Optional[date] = None      # extracted by OCR; None = undated cheque
+    cheque_date: Optional[str] = None       # ISO date string extracted by OCR; None = undated cheque
     amount_figures: Optional[float] = None  # amount as numeric digits (OCR extracted)
     amount_words: Optional[str] = None      # amount in words text (OCR extracted)
     kill_switch_mode: str = "NONE"          # carried from alteration result
@@ -305,7 +305,8 @@ async def synthesise_decision(
     # Evaluated before CBS / alteration — objective date facts need no AI.
     # All three CCP provisions: post-dated=30, stale=31, undated=32.
     today = date.today()
-    if inp.cheque_date is None:
+    cheque_date = date.fromisoformat(inp.cheque_date) if inp.cheque_date else None
+    if cheque_date is None:
         return DecisionResult(
             instrument_id=inp.instrument_id,
             decision="STP_RETURN",
@@ -314,20 +315,20 @@ async def synthesise_decision(
             return_reason_code="32",
             is_customer_fault=is_customer_fault("32"),
         )
-    if inp.cheque_date > today:
+    if cheque_date > today:
         return DecisionResult(
             instrument_id=inp.instrument_id,
             decision="STP_RETURN",
-            rationale=f"Post-dated cheque — cheque date {inp.cheque_date} is in the future",
+            rationale=f"Post-dated cheque — cheque date {cheque_date} is in the future",
             shap_values=inp.shap_values,
             return_reason_code="30",
             is_customer_fault=is_customer_fault("30"),
         )
-    if (today - inp.cheque_date).days > validity_days:
+    if (today - cheque_date).days > validity_days:
         return DecisionResult(
             instrument_id=inp.instrument_id,
             decision="STP_RETURN",
-            rationale=f"Stale cheque — {(today - inp.cheque_date).days} days old (limit {validity_days})",
+            rationale=f"Stale cheque — {(today - cheque_date).days} days old (limit {validity_days})",
             shap_values=inp.shap_values,
             return_reason_code="31",
             is_customer_fault=is_customer_fault("31"),
