@@ -1,0 +1,1295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASTRA POC — Karnataka Bank</title>
+<style>
+:root{
+  --navy:#0B2448;--blue:#1B50D4;--blue-lt:#EBF0FC;--teal:#059E8C;
+  --paper:#F2F6FB;--card:#FFFFFF;--border:#D8E3F0;
+  --ink:#0C1A28;--body:#374E64;--muted:#6B8299;--faint:#B0C4D8;
+  --s1:#1B50D4;--s2:#059E8C;--s3:#7B4FBF;--s4:#D97706;--s5:#1A8C56;
+  --s1b:#EBF0FC;--s2b:#E6F5F3;--s3b:#F0EAF9;--s4b:#FEF3E2;--s5b:#E8F5EE;
+  --amber:#D97706;--red:#C53030;--green:#1A8C56;
+  --ff-serif:Georgia,'Times New Roman',serif;
+  --ff-sans:'Segoe UI',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  --ff-mono:'Courier New',Courier,monospace;
+}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#091524;--card:#0F2238;--border:#1C3455;
+  --ink:#DBE8F5;--body:#8DAAC5;--muted:#5A7A98;--faint:#243A52;
+  --blue-lt:#0D1A38;--s1b:#0D1A38;--s2b:#092820;--s3b:#1A0E2E;--s4b:#2A1900;--s5b:#0B2018;
+}}
+:root[data-theme="dark"]{
+  --paper:#091524;--card:#0F2238;--border:#1C3455;
+  --ink:#DBE8F5;--body:#8DAAC5;--muted:#5A7A98;--faint:#243A52;
+  --blue-lt:#0D1A38;--s1b:#0D1A38;--s2b:#092820;--s3b:#1A0E2E;--s4b:#2A1900;--s5b:#0B2018;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--ff-sans);font-size:15px;line-height:1.65;color:var(--body);background:var(--paper);-webkit-font-smoothing:antialiased}
+a{color:var(--blue);text-decoration:none}
+
+.cover{background:var(--navy);color:#fff;padding:48px 40px 44px;position:relative;overflow:hidden}
+.cover::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 900px 500px at 75% -10%,rgba(27,80,212,.5) 0%,transparent 70%),radial-gradient(ellipse 500px 400px at 0% 110%,rgba(5,158,140,.25) 0%,transparent 60%);pointer-events:none}
+.cover-inner{position:relative;max-width:1040px;margin:0 auto}
+.cover-top{display:flex;align-items:center;gap:14px;margin-bottom:36px}
+.a-mark{width:40px;height:40px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--ff-serif);font-size:20px;font-weight:bold;color:#fff;flex-shrink:0}
+.cover-brand{font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.6)}
+.cover-sep{flex:1;height:1px;background:rgba(255,255,255,.1)}
+.cover-class{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.35);font-family:var(--ff-mono)}
+.cover-eye{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.45);font-family:var(--ff-mono);margin-bottom:10px}
+.cover-title{font-family:var(--ff-serif);font-size:clamp(24px,3.8vw,40px);font-weight:normal;line-height:1.18;color:#fff;max-width:660px;text-wrap:balance;margin-bottom:14px}
+.cover-sub{font-size:16px;color:rgba(255,255,255,.55);max-width:580px;line-height:1.55;margin-bottom:32px}
+.cover-pills{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:36px}
+.pill{padding:4px 12px;border:1px solid rgba(255,255,255,.16);border-radius:100px;font-size:10px;letter-spacing:.06em;color:rgba(255,255,255,.65);text-transform:uppercase}
+.cover-stats{display:flex;flex-wrap:wrap;gap:28px}
+.stat-v{font-family:var(--ff-serif);font-size:32px;font-weight:normal;color:#fff;line-height:1}
+.stat-l{font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.1em;margin-top:4px}
+
+.wrap{max-width:1040px;margin:0 auto;padding:0 24px}
+.layout{display:flex;gap:36px;align-items:flex-start}
+.sidebar{width:210px;flex-shrink:0;position:sticky;top:24px;padding:28px 0}
+.toc-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:12px;padding-left:4px}
+.toc-a{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:5px;font-size:12px;color:var(--muted);transition:background .12s,color .12s;line-height:1.35}
+.toc-a:hover{background:var(--blue-lt);color:var(--blue)}
+.toc-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.toc-sec{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);padding:12px 8px 4px;font-weight:600}
+.toc-div{height:1px;background:var(--border);margin:6px 0}
+.main{flex:1;min-width:0;padding:32px 0 80px}
+
+.sec{margin:48px 0 20px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.sec-eye{font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);font-family:var(--ff-mono);margin-bottom:6px}
+.sec-title{font-family:var(--ff-serif);font-size:22px;font-weight:normal;color:var(--ink);text-wrap:balance}
+.sec-lead{font-size:15px;color:var(--body);margin-top:8px;line-height:1.6}
+
+/* INDICATIVE NOTICE */
+.notice-banner{background:var(--s4b);border:1px solid rgba(217,119,6,.2);border-radius:9px;padding:16px 20px;margin:20px 0;display:flex;gap:14px;align-items:flex-start}
+.notice-icon{font-size:20px;flex-shrink:0;margin-top:1px}
+.notice-text{font-size:13px;color:var(--body);line-height:1.6}
+.notice-text strong{color:var(--ink)}
+
+.stage{border:1px solid var(--border);border-radius:10px;background:var(--card);overflow:hidden;margin:24px 0}
+.stage-head{display:flex;align-items:flex-start;gap:16px;padding:22px 22px 18px;position:relative;overflow:hidden}
+.stage-ghost{position:absolute;right:10px;top:-4px;font-family:var(--ff-serif);font-size:90px;font-weight:bold;opacity:.05;color:var(--ink);pointer-events:none;line-height:1;user-select:none}
+.stage-badge{width:44px;height:44px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:var(--ff-serif);font-size:20px;font-weight:bold;color:#fff;flex-shrink:0}
+.stage-info{flex:1}
+.s-eye{font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-family:var(--ff-mono);margin-bottom:4px;opacity:.75}
+.s-title{font-family:var(--ff-serif);font-size:18px;font-weight:normal;color:var(--ink);text-wrap:balance}
+.s-week{font-family:var(--ff-mono);font-size:10px;color:#fff;padding:4px 10px;border-radius:100px;white-space:nowrap;flex-shrink:0;align-self:flex-start;margin-top:3px}
+
+.stage-body{padding:0 22px 22px}
+.stage-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+@media(max-width:600px){.stage-grid{grid-template-columns:1fr}}
+.col-head{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:600;margin-bottom:9px}
+.ul{list-style:none;display:flex;flex-direction:column;gap:6px}
+.ul li{display:flex;gap:8px;font-size:13px;color:var(--body);line-height:1.45}
+.ul li::before{content:'·';color:var(--faint);flex-shrink:0;width:9px}
+.div{height:1px;background:var(--border);margin:0 0 18px}
+
+.data-sec{padding:0;margin-bottom:18px}
+.data-head{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:600;margin-bottom:10px}
+.tbl-wrap{overflow-x:auto;margin-bottom:4px;border-radius:7px;border:1px solid var(--border)}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl thead th{background:var(--navy);color:rgba(255,255,255,.75);font-weight:600;padding:8px 12px;text-align:left;font-size:10px;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
+.tbl tbody td{padding:8px 12px;border-bottom:1px solid var(--border);color:var(--body);vertical-align:top}
+.tbl tbody tr:last-child td{border-bottom:none}
+.tbl tbody tr:hover td{background:var(--paper)}
+.mono-sm{font-family:var(--ff-mono);font-size:11px;color:var(--muted)}
+
+.raci-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.raci-tbl thead th{background:var(--navy);color:rgba(255,255,255,.7);padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.07em;text-align:center}
+.raci-tbl thead th:first-child{text-align:left}
+.raci-tbl tbody td{padding:7px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--body);text-align:center}
+.raci-tbl tbody td:first-child{text-align:left;color:var(--ink)}
+.raci-tbl tbody tr:last-child td{border-bottom:none}
+.r{color:var(--blue);font-weight:700}.a{color:var(--green);font-weight:700}.c{color:var(--amber);font-weight:700}.dash{color:var(--faint)}
+
+.criteria-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
+@media(max-width:600px){.criteria-row{grid-template-columns:1fr}}
+.crit-box{border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.crit-box-head{padding:8px 14px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:600;display:flex;align-items:center;gap:6px}
+.crit-items{padding:10px 14px;display:flex;flex-direction:column;gap:6px}
+.crit-item{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--body);line-height:1.4}
+.check{width:14px;height:14px;border:1.5px solid var(--border);border-radius:3px;flex-shrink:0;margin-top:2px;background:var(--card)}
+.entry-head{background:rgba(27,80,212,.07);color:var(--blue)}
+.exit-head{background:rgba(26,140,86,.07);color:var(--green)}
+
+.signoff{margin-bottom:0;border:1px dashed var(--border);border-radius:7px;padding:14px 16px}
+.so-head{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:600;margin-bottom:10px}
+.so-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.so-item{border:1px solid var(--border);border-radius:5px;padding:10px 12px;background:var(--paper)}
+.so-role{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:3px}
+.so-name{font-size:12px;color:var(--ink);font-weight:500}
+.so-what{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.4}
+.so-line{border-top:1px solid var(--faint);margin-top:14px;padding-top:6px;font-size:10px;color:var(--faint);font-family:var(--ff-mono)}
+
+.callout{padding:12px 16px;border-radius:0 6px 6px 0;font-size:13px;color:var(--ink);margin:12px 0;line-height:1.55}
+.callout.blue{background:var(--blue-lt);border-left:3px solid var(--blue)}
+.callout.amber{background:var(--s4b);border-left:3px solid var(--amber)}
+.callout.green{background:var(--s5b);border-left:3px solid var(--green)}
+
+.tl{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:22px;margin:16px 0 28px;overflow-x:auto}
+.tl-inner{min-width:560px}
+
+.acc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:10px;margin:16px 0}
+.acc-card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:12px}
+.acc-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:5px;font-weight:600}
+.acc-val{font-family:var(--ff-serif);font-size:18px;color:var(--ink);line-height:1.2}
+.acc-sub{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.4}
+
+/* RISK REGISTER */
+.risk-row{display:grid;grid-template-columns:28px 1fr 120px 1fr;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);align-items:start;font-size:12px}
+.risk-row:last-child{border-bottom:none}
+.risk-hd{background:var(--navy);color:rgba(255,255,255,.7);font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:600;border-radius:7px 7px 0 0}
+.risk-num{font-family:var(--ff-mono);color:var(--muted);font-size:11px;padding-top:2px}
+.risk-desc{color:var(--ink)}
+.risk-own{color:var(--muted)}
+.risk-mit{color:var(--body)}
+.risk-wrap{border:1px solid var(--border);border-radius:7px;overflow:hidden}
+
+/* HW TABLE */
+.hw-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}
+@media(max-width:560px){.hw-grid{grid-template-columns:1fr}}
+.hw-card{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:14px}
+.hw-label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600;margin-bottom:8px}
+.hw-items{display:flex;flex-direction:column;gap:5px}
+.hw-row{display:flex;justify-content:space-between;gap:12px;font-size:12px}
+.hw-k{color:var(--muted)}
+.hw-v{color:var(--ink);font-weight:500;text-align:right;font-family:var(--ff-mono);font-size:11px}
+
+/* POST-POC */
+.roadmap{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:0;align-items:center;margin:20px 0}
+.rm-step{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px}
+.rm-phase{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:5px}
+.rm-title{font-size:14px;font-weight:600;color:var(--ink);margin-bottom:4px}
+.rm-sub{font-size:12px;color:var(--body);line-height:1.4}
+.rm-arr{color:var(--faint);font-size:20px;text-align:center;padding:0 8px}
+
+/* GLOSSARY */
+.gloss-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0}
+@media(max-width:560px){.gloss-grid{grid-template-columns:1fr}}
+.gloss-item{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px 14px;display:flex;gap:12px;align-items:flex-start}
+.gloss-term{font-family:var(--ff-mono);font-size:12px;font-weight:700;color:var(--blue);flex-shrink:0;min-width:52px}
+.gloss-def{font-size:12px;color:var(--body);line-height:1.45}
+
+.footer{background:var(--navy);color:rgba(255,255,255,.4);padding:24px 40px;font-size:10px;font-family:var(--ff-mono);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+p{margin-bottom:10px}p:last-child{margin-bottom:0}
+strong{color:var(--ink);font-weight:600}
+@media(max-width:820px){.layout{flex-direction:column}.sidebar{display:none}}
+
+@media print{
+  /* Force light theme regardless of OS setting */
+  :root{
+    --paper:#FFFFFF;--card:#FFFFFF;--border:#C8D8E8;
+    --ink:#0C1A28;--body:#2A3D50;--muted:#556677;--faint:#99AABC;
+    --navy:#0B2448;--blue:#1B50D4;
+    --s1b:#EBF0FC;--s2b:#E6F5F3;--s3b:#F0EAF9;--s4b:#FEF3E2;--s5b:#E8F5EE;
+  }
+  /* Page setup */
+  @page{ margin:18mm 16mm 18mm 16mm; size:A4; }
+  @page:first{ margin-top:0; }
+
+  html,body{ background:#fff!important; font-size:11pt; line-height:1.5; }
+
+  /* Hide screen-only elements */
+  .sidebar{ display:none!important; }
+  .cover::before{ display:none!important; }
+  .tl{ display:none!important; }          /* inline timeline visual — redundant on paper */
+
+  /* Cover: title page, full bleed dark block */
+  .cover{
+    background:#0B2448!important;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+    padding:36px 32px 32px;
+    page-break-after:always;
+    break-after:page;
+  }
+  .cover *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+
+  /* Single-column layout */
+  .layout{ display:block; }
+  .main{ padding:0; }
+  .wrap{ padding:0; max-width:100%; }
+
+  /* Keep key block elements together */
+  .stage{ page-break-inside:avoid; break-inside:avoid; margin:16px 0; border:1px solid #C8D8E8; }
+  .criteria-row{ page-break-inside:avoid; break-inside:avoid; }
+  .crit-box{ page-break-inside:avoid; break-inside:avoid; }
+  .signoff{ page-break-inside:avoid; break-inside:avoid; }
+  .tbl-wrap{ page-break-inside:avoid; break-inside:avoid; overflow-x:visible; }
+  .tbl{ page-break-inside:auto; }
+  .tbl tr{ page-break-inside:avoid; break-inside:avoid; }
+  .risk-wrap{ page-break-inside:avoid; break-inside:avoid; }
+  .risk-row{ page-break-inside:avoid; break-inside:avoid; }
+  .acc-grid{ page-break-inside:avoid; break-inside:avoid; }
+  .hw-grid{ page-break-inside:avoid; break-inside:avoid; }
+  .gloss-grid{ page-break-inside:avoid; break-inside:avoid; }
+  .gloss-item{ page-break-inside:avoid; break-inside:avoid; }
+  .roadmap{ page-break-inside:avoid; break-inside:avoid; }
+  .notice-banner{ page-break-inside:avoid; break-inside:avoid; }
+  .callout{ page-break-inside:avoid; break-inside:avoid; }
+
+  /* Force print colours for coloured backgrounds */
+  .stage-badge,.s-week,.tbl thead th,.raci-tbl thead th,.risk-row.risk-hd{
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+  .stage-grid{ grid-template-columns:1fr 1fr; gap:14px; }
+  .hw-grid{ grid-template-columns:1fr 1fr; }
+  .gloss-grid{ grid-template-columns:1fr 1fr; }
+  .criteria-row{ grid-template-columns:1fr 1fr; }
+  .acc-grid{ grid-template-columns:repeat(3,1fr); }
+
+  /* Section headings — never orphaned */
+  .sec{ page-break-after:avoid; break-after:avoid; margin:28px 0 12px; }
+  h2.sec-title{ page-break-after:avoid; break-after:avoid; }
+
+  /* Stage heading keeps its body */
+  .stage-head{ page-break-after:avoid; break-after:avoid; }
+
+  /* Footer */
+  .footer{ display:none; }
+
+  /* Links: don't print URLs */
+  a[href]::after{ content:none!important; }
+
+  /* Reduce font sizes slightly for paper */
+  .s-title{ font-size:14pt; }
+  .sec-title{ font-size:16pt; }
+  .cover-title{ font-size:24pt; }
+}
+</style>
+</head>
+<body>
+
+<div class="cover">
+ <div class="cover-inner">
+  <div class="cover-top">
+   <div class="a-mark">A</div>
+   <span class="cover-brand">ASTRA · Automated Settlement and Transaction Recognition Architecture</span>
+   <div class="cover-sep"></div>
+   <span class="cover-class">Confidential — POC Coordination Only</span>
+  </div>
+  <div class="cover-eye">Proof-of-Concept Plan · Inward &amp; Outward CTS Processing</div>
+  <h1 class="cover-title">Live Testing Methodology<br>for Karnataka Bank Ltd.</h1>
+  <p class="cover-sub">A structured, non-disruptive evaluation path. Five stages, progressing from lab to a single branch to five branches to the full Processing Unit. Your existing clearing operations continue uninterrupted at every stage.</p>
+  <div class="cover-pills">
+   <span class="pill">Inward + Outward CTS</span>
+   <span class="pill">Existing Vendor Retains NGCH</span>
+   <span class="pill">Lab → 1 Branch → 5 Branches → Full PU</span>
+   <span class="pill">No Forced Commitment at Any Stage</span>
+  </div>
+  <div class="cover-stats">
+   <div><div class="stat-v">5</div><div class="stat-l">Stages</div></div>
+   <div><div class="stat-v">6–8</div><div class="stat-l">Indicative Weeks</div></div>
+   <div><div class="stat-v">18</div><div class="stat-l">Validated Scenarios</div></div>
+   <div><div class="stat-v">0</div><div class="stat-l">Disruption to Live Ops</div></div>
+  </div>
+ </div>
+</div>
+
+<div class="wrap">
+<div class="layout">
+
+<nav class="sidebar">
+ <div class="toc-lbl">On this page</div>
+ <a href="#notice" class="toc-a"><span class="toc-dot" style="background:var(--amber)"></span>Indicative Notice</a>
+ <a href="#purpose" class="toc-a"><span class="toc-dot" style="background:var(--muted)"></span>Purpose</a>
+ <a href="#regulatory" class="toc-a"><span class="toc-dot" style="background:var(--muted)"></span>Regulatory Context</a>
+ <a href="#objectives" class="toc-a"><span class="toc-dot" style="background:var(--muted)"></span>Objectives</a>
+ <a href="#scope" class="toc-a"><span class="toc-dot" style="background:var(--muted)"></span>Scope &amp; Context</a>
+ <a href="#prereqs" class="toc-a"><span class="toc-dot" style="background:var(--muted)"></span>Prerequisites</a>
+ <a href="#hw" class="toc-a"><span class="toc-dot" style="background:var(--muted)"></span>Hardware Requirements</a>
+ <div class="toc-sec">5 Stages</div>
+ <a href="#s1" class="toc-a"><span class="toc-dot" style="background:var(--s1)"></span>Stage 1 · Lab Setup</a>
+ <a href="#s2" class="toc-a"><span class="toc-dot" style="background:var(--s2)"></span>Stage 2 · 1 Branch</a>
+ <a href="#s3" class="toc-a"><span class="toc-dot" style="background:var(--s3)"></span>Stage 3 · 5 Branches</a>
+ <a href="#s4" class="toc-a"><span class="toc-dot" style="background:var(--s4)"></span>Stage 4 · Full PU</a>
+ <a href="#s5" class="toc-a"><span class="toc-dot" style="background:var(--s5)"></span>Stage 5 · Sign-off</a>
+ <div class="toc-div"></div>
+ <div class="toc-sec">Reference</div>
+ <a href="#baseline" class="toc-a"><span class="toc-dot" style="background:var(--muted)"></span>Baseline Measurement</a>
+ <a href="#scenarios" class="toc-a"><span class="toc-dot" style="background:var(--muted)"></span>18 Scenarios</a>
+ <a href="#acceptance" class="toc-a"><span class="toc-dot" style="background:var(--muted)"></span>Acceptance Criteria</a>
+ <a href="#raci" class="toc-a"><span class="toc-dot" style="background:var(--muted)"></span>RACI</a>
+ <a href="#risk" class="toc-a"><span class="toc-dot" style="background:var(--muted)"></span>Risk Register</a>
+ <a href="#postpoc" class="toc-a"><span class="toc-dot" style="background:var(--s5)"></span>Post-POC Path</a>
+ <a href="#glossary" class="toc-a"><span class="toc-dot" style="background:var(--muted)"></span>Glossary</a>
+</nav>
+
+<main class="main">
+
+<!-- NOTICE -->
+<div id="notice" style="padding-top:28px">
+ <div class="notice-banner">
+  <div class="notice-icon">📋</div>
+  <div class="notice-text">
+   <strong>This is an indicative plan.</strong> Stage timelines, scope of each stage, and specific deliverables will be confirmed on-ground during lab testing, based on data quality, interface readiness, CBS availability, and findings as they emerge. Each stage begins only after both parties formally sign off the preceding one. Karnataka Bank may pause or conclude the evaluation at the end of any stage — there is no obligation to proceed.
+  </div>
+ </div>
+</div>
+
+<!-- PURPOSE -->
+<section id="purpose">
+ <div class="sec">
+  <div class="sec-eye">Section 1 · Purpose</div>
+  <h2 class="sec-title">Purpose of This Document</h2>
+ </div>
+ <p>This document sets out the proposed end-to-end process, testing methodology, activities, responsibilities, prerequisites, controls, acceptance criteria and indicative timelines for conducting a controlled live Proof-of-Concept (POC) of the ASTRA Intelligent CTS Processing Platform with Karnataka Bank Ltd.</p>
+ <p>It is intended to give all stakeholders — technology, operations, compliance, and senior leadership — a common operating plan before technical integration and live testing commence. The plan will be reviewed and confirmed on-ground at Stage 1 before any integration work begins.</p>
+ <p>The methodology is designed around the RBI continuous clearing framework and is intended to minimise disruption to the bank's existing CTS environment throughout the evaluation.</p>
+</section>
+
+<!-- REGULATORY CONTEXT -->
+<section id="regulatory">
+ <div class="sec">
+  <div class="sec-eye">Section 2 · Regulatory Context</div>
+  <h2 class="sec-title">Regulatory Context and Testing Objective</h2>
+ </div>
+ <div class="callout blue">
+  The RBI circular dated 13 August 2025 introduced Continuous Clearing and Settlement on Realisation in CTS. Phase II, effective <strong>3 January 2026</strong>, prescribes that the Item Expiry Time (IET) for each inward cheque is <strong>T+3 clear hours</strong>. For example, instruments received by the drawee bank between 10:00 AM and 11:00 AM are to be confirmed by 2:00 PM. Items for which confirmation is not provided within the prescribed three hours are treated as <strong>deemed approved</strong> and included for settlement regardless of the instrument's merit.
+ </div>
+ <p style="margin-top:14px">Accordingly, this POC should not be treated merely as an AI accuracy demonstration. It must test the <strong>complete operational chain</strong> and establish whether ASTRA can reliably process inward instruments within the available clearing window while maintaining decision accuracy, full auditability, operational resilience, and safe fallback to the existing process at every step.</p>
+ <p>ASTRA's architecture — parallel agent-per-instrument processing, continuous per-instrument timer monitoring with configurable escalation thresholds, and direct hand-off to the existing CTS vendor for NGCH filing — has been designed specifically for this operating environment. The POC validates this architecture against Karnataka Bank's own volume profile, data characteristics, and operating conditions.</p>
+</section>
+
+<!-- OBJECTIVES -->
+<section id="objectives">
+ <div class="sec">
+  <div class="sec-eye">Section 3 · Objectives</div>
+  <h2 class="sec-title">Objectives of the POC</h2>
+ </div>
+ <div class="stage-grid" style="margin-bottom:0">
+  <div>
+   <div class="col-head">Processing &amp; Accuracy</div>
+   <ul class="ul">
+    <li>Demonstrate end-to-end inward cheque processing through ASTRA using Karnataka Bank-relevant data and operating conditions</li>
+    <li>Validate OCR/MICR extraction, image-quality handling, alteration detection, signature comparison, CBS checks, and return-reason determination</li>
+    <li>Validate Positive Pay System (PPS) checks where applicable to Karnataka Bank's portfolio</li>
+    <li>Validate outward pipeline — MICR extraction, CTS-2010 compliance, IQA scoring, lot formation, endorsement, and Presentment File (CXF) generation</li>
+   </ul>
+  </div>
+  <div>
+   <div class="col-head">Timing &amp; Operational</div>
+   <ul class="ul">
+    <li>Measure elapsed time from receipt of each inward instrument through automated validation, exception handling, and final decision</li>
+    <li>Demonstrate continuous per-instrument timer monitoring with configurable escalation thresholds aligned to the RBI T+3 clearing window</li>
+    <li>Validate human-review operator productivity and the ability of operators to take informed decisions within the remaining clearing window</li>
+    <li>Validate duplicate detection — no instrument processed twice, whether inward or outward</li>
+   </ul>
+  </div>
+  <div>
+   <div class="col-head">Integration &amp; Resilience</div>
+   <ul class="ul">
+    <li>Validate RRF generation, secure hand-off to the existing CTS vendor via SFTP, and avoidance of duplicate return filing</li>
+    <li>Validate graceful degradation when CBS is unavailable, SFTP is interrupted, or GPU inference is delayed — no silent failures</li>
+    <li>Validate operational alerts, audit trails, exception handling, and session reconciliation</li>
+   </ul>
+  </div>
+  <div>
+   <div class="col-head">Benchmark &amp; Decision</div>
+   <ul class="ul">
+    <li>Benchmark ASTRA's STP performance against Karnataka Bank's current process, using baselines provided by the bank before Stage 3 calibration</li>
+    <li>Validate operational dashboards and the completeness of the audit trail — every instrument, every decision, every timestamp</li>
+    <li>Establish a controlled, evidence-based foundation for deciding whether to proceed from shadow mode to a limited live production pilot and subsequently to broader deployment</li>
+   </ul>
+  </div>
+ </div>
+</section>
+
+<!-- SCOPE -->
+<section id="scope">
+ <div class="sec mt-0">
+  <div class="sec-eye">Section 4 · Scope</div>
+  <h2 class="sec-title">What This POC Covers</h2>
+ </div>
+ <div class="tbl-wrap">
+  <table class="tbl">
+   <thead><tr><th>Area</th><th>In Scope</th><th>Outside This POC</th></tr></thead>
+   <tbody>
+    <tr><td><strong>Inward Processing</strong></td><td>Image ingestion, OCR/MICR extraction, Vision/AI validation, CBS checks, Signature comparison, PPS cross-check, Fraud scoring, STP decision, Human review queue, RRF generation</td><td>NGCH filing — remains with existing CTS vendor throughout</td></tr>
+    <tr><td><strong>Outward Processing</strong></td><td>Scanner ingestion, MICR extraction, CTS-2010 compliance validation, IQA scoring, Lot &amp; batch formation, Endorsement stamping, Presentment File (CXF) generation, Deduplication</td><td>NGCH submission — remains with existing CTS vendor throughout</td></tr>
+    <tr><td><strong>Volume Progression</strong></td><td>Lab (controlled samples) → 1 Branch → 5 Branches → Full Processing Unit</td><td>SMB sub-member routing — deferred unless confirmed at Stage 1</td></tr>
+    <tr><td><strong>Interfaces</strong></td><td>CTS vendor inward mirror (SFTP), Branch scanner SFTP (outward), CBS read-only, Shared SFTP for RRF/CXF output to vendor</td><td>Direct NPCI/NGCH connectivity, live settlement accounting</td></tr>
+   </tbody>
+  </table>
+ </div>
+
+ <!-- TIMELINE VISUAL -->
+ <div class="tl">
+  <div class="tl-inner">
+   <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:0;margin-bottom:8px">
+    <div style="font-size:10px;font-family:var(--ff-mono);color:var(--muted);text-align:center">Wk 1</div>
+    <div style="font-size:10px;font-family:var(--ff-mono);color:var(--muted);text-align:center">Wk 2</div>
+    <div style="font-size:10px;font-family:var(--ff-mono);color:var(--muted);text-align:center">Wk 3</div>
+    <div style="font-size:10px;font-family:var(--ff-mono);color:var(--muted);text-align:center">Wk 4</div>
+    <div style="font-size:10px;font-family:var(--ff-mono);color:var(--muted);text-align:center">Wk 5</div>
+    <div style="font-size:10px;font-family:var(--ff-mono);color:var(--muted);text-align:center">Wk 6</div>
+    <div style="font-size:10px;font-family:var(--ff-mono);color:var(--muted);text-align:center">Wk 7</div>
+    <div style="font-size:10px;font-family:var(--ff-mono);color:var(--muted);text-align:center">Wk 8</div>
+   </div>
+   <div style="display:grid;grid-template-columns:2fr 3fr 2fr 3fr 2fr;gap:3px;margin-bottom:9px">
+    <div style="height:10px;border-radius:5px;background:var(--s1)"></div>
+    <div style="height:10px;border-radius:5px;background:var(--s2)"></div>
+    <div style="height:10px;border-radius:5px;background:var(--s3)"></div>
+    <div style="height:10px;border-radius:5px;background:var(--s4)"></div>
+    <div style="height:10px;border-radius:5px;background:var(--s5)"></div>
+   </div>
+   <div style="display:grid;grid-template-columns:2fr 3fr 2fr 3fr 2fr;gap:0">
+    <div style="font-size:10px;color:var(--s1);text-align:center;line-height:1.4">Stage 1<br><em style="color:var(--muted);font-style:normal">Lab</em><br><em style="font-size:9px;color:var(--faint)">Wk 1–2</em></div>
+    <div style="font-size:10px;color:var(--s2);text-align:center;line-height:1.4">Stage 2<br><em style="color:var(--muted);font-style:normal">1 Branch</em><br><em style="font-size:9px;color:var(--faint)">Wk 2–4</em></div>
+    <div style="font-size:10px;color:var(--s3);text-align:center;line-height:1.4">Stage 3<br><em style="color:var(--muted);font-style:normal">5 Branches</em><br><em style="font-size:9px;color:var(--faint)">Wk 4–5</em></div>
+    <div style="font-size:10px;color:var(--s4);text-align:center;line-height:1.4">Stage 4<br><em style="color:var(--muted);font-style:normal">Full PU</em><br><em style="font-size:9px;color:var(--faint)">Wk 5–7</em></div>
+    <div style="font-size:10px;color:var(--s5);text-align:center;line-height:1.4">Stage 5<br><em style="color:var(--muted);font-style:normal">Sign-off</em><br><em style="font-size:9px;color:var(--faint)">Wk 7–8</em></div>
+   </div>
+   <div style="margin-top:12px;font-size:11px;color:var(--muted);text-align:center;font-style:italic">Indicative only. Actual progression subject to data readiness and on-ground findings at each stage.</div>
+  </div>
+ </div>
+</section>
+
+<!-- PREREQUISITES -->
+<section id="prereqs">
+ <div class="sec">
+  <div class="sec-eye">Section 5 · Prerequisites</div>
+  <h2 class="sec-title">Karnataka Bank's Five Commitments</h2>
+  <p class="sec-lead">These are the only things ASTRA needs from Karnataka Bank to begin. Everything else — deployment, configuration, integration, training — is on ASTRA. Timelines for each subsequent stage depend directly on how promptly these commitments are fulfilled.</p>
+ </div>
+ <div class="tbl-wrap">
+  <table class="tbl">
+   <thead><tr><th>#</th><th>Commitment</th><th>What This Means</th><th>Stage Needed</th></tr></thead>
+   <tbody>
+    <tr><td class="mono-sm">C-01</td><td><strong>NDA Signed</strong></td><td>Standard mutual non-disclosure. Protects both parties before any data or configuration is shared.</td><td>Before Stage 1</td></tr>
+    <tr><td class="mono-sm">C-02</td><td><strong>SPOC Nominated</strong></td><td>One named point of contact covering IT + Operations, with authority to make decisions during the POC.</td><td>Before Stage 1</td></tr>
+    <tr><td class="mono-sm">C-03</td><td><strong>Sample Cheque Data</strong></td><td>Historical inward cheque images with MICR data. Volume grows across stages: ~1,000 for Stage 1 calibration, ~10,000 for Stage 3, and up to 1,00,000+ to reflect full PU production volume for Stages 4–5. Format and delivery details specified in each stage's Data section below.</td><td>Progressive: Stages 1 → 5</td></tr>
+    <tr><td class="mono-sm">C-04</td><td><strong>Infrastructure Provision</strong></td><td>On-prem server allocation per ASTRA's hardware specification (Section 3 below). ASTRA handles deployment once the hardware is available.</td><td>Before Stage 2</td></tr>
+    <tr><td class="mono-sm">C-05</td><td><strong>Read-Only CBS Access</strong></td><td>CBS sandbox or test-environment endpoint providing account status, balance, and stop-payment signals. Read-only — zero write access, no production impact.</td><td>Before Stage 2</td></tr>
+   </tbody>
+  </table>
+ </div>
+ <div class="callout amber" style="margin-top:4px">Each stage's timeline begins when its prerequisites are met. Delays in data delivery, CBS access provisioning, or infrastructure readiness will shift the corresponding stage start date accordingly — and that is understood and accepted.</div>
+</section>
+
+<!-- HARDWARE -->
+<section id="hw">
+ <div class="sec">
+  <div class="sec-eye">Section 6 · Hardware Requirements</div>
+  <h2 class="sec-title">Minimum Infrastructure Specification</h2>
+  <p class="sec-lead">ASTRA provides the exact specification; Karnataka Bank IT provisions and owns the hardware. All infrastructure remains on Karnataka Bank premises throughout.</p>
+ </div>
+ <div class="hw-grid">
+  <div class="hw-card">
+   <div class="hw-label">AI Inference Node (GPU)</div>
+   <div class="hw-items">
+    <div class="hw-row"><span class="hw-k">GPU</span><span class="hw-v">4× NVIDIA RTX 4090 (POC)<br>or 2× NVIDIA A100 80GB</span></div>
+    <div class="hw-row"><span class="hw-k">VRAM per card</span><span class="hw-v">24 GB minimum</span></div>
+    <div class="hw-row"><span class="hw-k">System RAM</span><span class="hw-v">256 GB DDR5</span></div>
+    <div class="hw-row"><span class="hw-k">CPU</span><span class="hw-v">2× Intel Xeon / AMD EPYC (32 cores+)</span></div>
+    <div class="hw-row"><span class="hw-k">Local NVMe</span><span class="hw-v">4 TB NVMe (model storage)</span></div>
+    <div class="hw-row"><span class="hw-k">Quantity</span><span class="hw-v">1 node (POC); 2 nodes (production)</span></div>
+   </div>
+  </div>
+  <div class="hw-card">
+   <div class="hw-label">Application Server</div>
+   <div class="hw-items">
+    <div class="hw-row"><span class="hw-k">CPU</span><span class="hw-v">2× Intel Xeon (16 cores+)</span></div>
+    <div class="hw-row"><span class="hw-k">RAM</span><span class="hw-v">128 GB</span></div>
+    <div class="hw-row"><span class="hw-k">Storage</span><span class="hw-v">2 TB NVMe (OS + app)</span></div>
+    <div class="hw-row"><span class="hw-k">Quantity</span><span class="hw-v">2 nodes (active-active)</span></div>
+   </div>
+  </div>
+  <div class="hw-card">
+   <div class="hw-label">Storage (Cheque Images)</div>
+   <div class="hw-items">
+    <div class="hw-row"><span class="hw-k">Type</span><span class="hw-v">Network-attached SSD or NVMe</span></div>
+    <div class="hw-row"><span class="hw-k">POC capacity</span><span class="hw-v">20 TB usable</span></div>
+    <div class="hw-row"><span class="hw-k">Production capacity</span><span class="hw-v">Scaled per daily volume × retention</span></div>
+    <div class="hw-row"><span class="hw-k">Protocol</span><span class="hw-v">S3-compatible (MinIO on-prem)</span></div>
+   </div>
+  </div>
+  <div class="hw-card">
+   <div class="hw-label">Network</div>
+   <div class="hw-items">
+    <div class="hw-row"><span class="hw-k">Internal bandwidth</span><span class="hw-v">10 GbE between nodes</span></div>
+    <div class="hw-row"><span class="hw-k">To CBS / SFTP</span><span class="hw-v">1 GbE minimum (low latency preferred)</span></div>
+    <div class="hw-row"><span class="hw-k">Firewall rules</span><span class="hw-v">Provided by ASTRA at Stage 1</span></div>
+    <div class="hw-row"><span class="hw-k">Internet access</span><span class="hw-v">Not required — fully air-gapped</span></div>
+   </div>
+  </div>
+ </div>
+ <p style="font-size:12px;color:var(--muted);margin-top:8px">ASTRA will issue a detailed hardware and network specification document at Stage 1 sign-off for Karnataka Bank IT to raise procurement and CAB approvals. POC-grade hardware (e.g. RTX 4090 nodes) is suitable for all lab and shadow stages; production-grade hardware can be sized after Stage 3 calibration based on actual volume measurements.</p>
+</section>
+
+<!-- STAGES -->
+<section>
+ <div class="sec">
+  <div class="sec-eye">Section 7 · The Five Stages</div>
+  <h2 class="sec-title">Stage by Stage — Entry · Data · Activities · Exit · Sign-off</h2>
+ </div>
+
+<!-- STAGE 1 -->
+<div class="stage" id="s1">
+ <div class="stage-head">
+  <div class="stage-ghost">1</div>
+  <div class="stage-badge" style="background:var(--s1)">1</div>
+  <div class="stage-info">
+   <div class="s-eye" style="color:var(--s1)">Stage 1 · Lab Setup &amp; Data Intake</div>
+   <div class="s-title">Discovery, Environment, Data Definition — Everything on the ASTRA Laptop</div>
+  </div>
+  <div class="s-week" style="background:var(--s1)">Weeks 1–2</div>
+ </div>
+ <div class="stage-body">
+
+  <div class="criteria-row">
+   <div class="crit-box">
+    <div class="crit-box-head entry-head">Entry Criteria</div>
+    <div class="crit-items">
+     <div class="crit-item"><div class="check"></div>NDA signed by both parties</div>
+     <div class="crit-item"><div class="check"></div>SPOC nominated (IT + Operations)</div>
+     <div class="crit-item"><div class="check"></div>Senior sponsor confirmed</div>
+     <div class="crit-item"><div class="check"></div>Legal clearance to proceed</div>
+    </div>
+   </div>
+   <div class="crit-box">
+    <div class="crit-box-head exit-head">Exit Criteria</div>
+    <div class="crit-items">
+     <div class="crit-item"><div class="check"></div>Scope document countersigned</div>
+     <div class="crit-item"><div class="check"></div>Data specification acknowledged by KBL IT</div>
+     <div class="crit-item"><div class="check"></div>Hardware spec issued; KBL procurement initiated</div>
+     <div class="crit-item"><div class="check"></div>CBS API specification received from KBL IT</div>
+     <div class="crit-item"><div class="check"></div>IS Audit / VAPT / CAB process initiated</div>
+     <div class="crit-item"><div class="check"></div>Stage 2 start date confirmed</div>
+    </div>
+   </div>
+  </div>
+  <div class="div"></div>
+
+  <div class="stage-grid">
+   <div>
+    <div class="col-head">What ASTRA Does</div>
+    <ul class="ul">
+     <li>Review discovery questionnaire; resolve open technical and operational questions</li>
+     <li>Freeze POC scope — clearing zones, instrument types, volumes, operating hours, SMB inclusion</li>
+     <li>Confirm CTS vendor cooperation and data feed mechanics</li>
+     <li>Agree network topology, firewall rules, security controls</li>
+     <li>Issue hardware specification for KBL procurement and CAB</li>
+     <li>Define data specification — cheque image format, MICR companion, account data format</li>
+     <li>Produce POC project plan with week-by-week milestones and named owners</li>
+     <li>Configure ASTRA laptop environment for offline demonstration and data review</li>
+    </ul>
+   </div>
+   <div>
+    <div class="col-head">What Karnataka Bank Provides</div>
+    <ul class="ul">
+     <li>Completed discovery questionnaire — volumes by clearing zone, CBS system type, existing vendor name</li>
+     <li>CBS API data dictionary and sandbox endpoint specification</li>
+     <li>Daily inward and outward cheque volumes by branch / zone (6-month average)</li>
+     <li>List of return reason codes currently in use</li>
+     <li>Current STP pass rate and average processing time per instrument (baseline for later comparison)</li>
+     <li>List of branches proposed for Stage 2 (1 branch) and Stage 3 (5 branches)</li>
+     <li>Confirmation of PPS scope — include or defer</li>
+    </ul>
+   </div>
+  </div>
+  <div class="div"></div>
+
+  <div class="data-sec">
+   <div class="data-head">Data Required at Stage 1 — Karnataka Bank to Deliver</div>
+   <div class="tbl-wrap">
+    <table class="tbl">
+     <thead><tr><th>Item</th><th>Format / Standard</th><th>Volume</th><th>Variation Needed</th><th>Source</th></tr></thead>
+     <tbody>
+      <tr><td><strong>Inward Cheque Images</strong></td><td>TIFF Group 4, CTS-2010 compliant<br><span class="mono-sm">Front: 200 DPI · Back: 100 DPI</span></td><td>~1,000 instruments<br>(calibration baseline)</td><td>Good quality, poor quality, handwritten, printed, post-dated, high-value, low-value</td><td>CTS vendor SFTP export</td></tr>
+      <tr><td><strong>MICR Companion Data</strong></td><td>XML per CTS-2010 schema or CSV<br><span class="mono-sm">instrument_id, cheque_no, micr_code, masked_account, ifsc, amount_range, drawee_bank, date</span></td><td>One record per image</td><td>Must accompany every image</td><td>CTS vendor export</td></tr>
+      <tr><td><strong>Outward Cheque Samples</strong></td><td>Same TIFF G4 standard<br>Plus: scanner model and DPI used at Karnataka Bank branches</td><td>~100 instruments across branch types</td><td>Good MICR, faint MICR, misaligned, handwritten amounts</td><td>Branch scanner exports</td></tr>
+      <tr><td><strong>Business Rules Document</strong></td><td>PDF or structured document</td><td>One document</td><td>Return reason codes, STP threshold, high-value threshold, post-dated policy, PPS rules</td><td>Operations / compliance team</td></tr>
+      <tr><td><strong>CBS API Specification</strong></td><td>OpenAPI / Swagger or Word document<br>Endpoints: account inquiry, stop-payment, balance</td><td>One document + sandbox credentials</td><td>—</td><td>KBL IT / CBS team</td></tr>
+     </tbody>
+    </table>
+   </div>
+   <p style="font-size:11px;color:var(--muted);margin-top:6px">Credentials must not be shared via email. ASTRA will provide a secure channel (encrypted SFTP or vault-based share) for all credential exchange.</p>
+  </div>
+  <div class="div"></div>
+
+  <div style="margin-bottom:18px">
+   <div class="data-head">RACI — Stage 1</div>
+   <div class="tbl-wrap">
+    <table class="raci-tbl">
+     <thead><tr><th>Activity</th><th>ASTRA</th><th>KBL Ops</th><th>KBL IT</th><th>CTS Vendor</th></tr></thead>
+     <tbody>
+      <tr><td>Discovery &amp; scope freeze</td><td class="r">R</td><td class="a">A</td><td class="c">C</td><td class="c">C</td></tr>
+      <tr><td>Data specification</td><td class="a">A/R</td><td class="c">C</td><td class="c">C</td><td class="dash">—</td></tr>
+      <tr><td>Hardware spec issue</td><td class="a">A/R</td><td class="dash">—</td><td class="c">C</td><td class="dash">—</td></tr>
+      <tr><td>Hardware procurement initiation</td><td class="c">C</td><td class="dash">—</td><td class="a">A/R</td><td class="dash">—</td></tr>
+      <tr><td>CBS API spec delivery</td><td class="c">C</td><td class="dash">—</td><td class="a">A/R</td><td class="dash">—</td></tr>
+      <tr><td>Sample data export &amp; delivery</td><td class="c">C</td><td class="c">C</td><td class="r">R</td><td class="a">A/R</td></tr>
+      <tr><td>IS Audit / VAPT initiation</td><td class="c">C</td><td class="dash">—</td><td class="a">A/R</td><td class="dash">—</td></tr>
+     </tbody>
+    </table>
+   </div>
+  </div>
+
+  <div class="signoff">
+   <div class="so-head">Stage 1 Sign-off — Before Stage 2 Begins</div>
+   <div class="so-grid">
+    <div class="so-item"><div class="so-role">KBL Ops SPOC</div><div class="so-name">Operations</div><div class="so-what">Scope, branch list, business rules confirmed</div></div>
+    <div class="so-item"><div class="so-role">KBL IT SPOC</div><div class="so-name">IT / CISO</div><div class="so-what">Data delivery plan, IS Audit initiated, procurement started</div></div>
+    <div class="so-item"><div class="so-role">ASTRA Project Lead</div><div class="so-name">ASTRA</div><div class="so-what">Data spec acknowledged; Stage 2 ready to begin on receipt of hardware</div></div>
+   </div>
+   <div class="so-line">Stage 1 Sign-off Date: __________________ | Signed copies exchanged: ☐</div>
+  </div>
+
+ </div>
+</div>
+
+<!-- STAGE 2 -->
+<div class="stage" id="s2" style="margin-top:20px">
+ <div class="stage-head">
+  <div class="stage-ghost">2</div>
+  <div class="stage-badge" style="background:var(--s2)">2</div>
+  <div class="stage-info">
+   <div class="s-eye" style="color:var(--s2)">Stage 2 · 1 Branch — Environment Build &amp; First Shadow</div>
+   <div class="s-title">Infrastructure Live · CBS Connected · Inward + Outward from One Branch</div>
+  </div>
+  <div class="s-week" style="background:var(--s2)">Weeks 2–4</div>
+ </div>
+ <div class="stage-body">
+
+  <div class="criteria-row">
+   <div class="crit-box">
+    <div class="crit-box-head entry-head">Entry Criteria</div>
+    <div class="crit-items">
+     <div class="crit-item"><div class="check"></div>Stage 1 sign-off received</div>
+     <div class="crit-item"><div class="check"></div>Infrastructure allocated and powered</div>
+     <div class="crit-item"><div class="check"></div>Network / firewall clearance from KBL IT</div>
+     <div class="crit-item"><div class="check"></div>CBS sandbox credentials provided</div>
+     <div class="crit-item"><div class="check"></div>Stage 1 sample data delivered</div>
+     <div class="crit-item"><div class="check"></div>CTS vendor cooperation confirmed in writing</div>
+     <div class="crit-item"><div class="check"></div>Shared SFTP provisioned by CTS vendor</div>
+    </div>
+   </div>
+   <div class="crit-box">
+    <div class="crit-box-head exit-head">Exit Criteria</div>
+    <div class="crit-items">
+     <div class="crit-item"><div class="check"></div>All infrastructure health checks green</div>
+     <div class="crit-item"><div class="check"></div>Inward pipeline: sample TIFF processed end-to-end</div>
+     <div class="crit-item"><div class="check"></div>Outward: scanned image through MICR + CTS-2010 validation</div>
+     <div class="crit-item"><div class="check"></div>CBS account query returns correct status</div>
+     <div class="crit-item"><div class="check"></div>Signature vault seeded for 1-branch accounts</div>
+     <div class="crit-item"><div class="check"></div>RRF sample validates against NPCI schema</div>
+     <div class="crit-item"><div class="check"></div>Minimum 3 shadow clearing sessions reconciled clean</div>
+    </div>
+   </div>
+  </div>
+  <div class="div"></div>
+
+  <div class="stage-grid">
+   <div>
+    <div class="col-head">What ASTRA Does</div>
+    <ul class="ul">
+     <li>Deploy ASTRA platform — Kubernetes cluster, storage, GPU inference nodes</li>
+     <li>Configure inward ingestion pipeline (TIFF + MICR from CTS vendor SFTP)</li>
+     <li>Configure outward processing — scanner SFTP, MICR extraction, CTS-2010 compliance, IQA scoring, lot/batch, endorsement, CXF generation</li>
+     <li>Connect CBS sandbox — account status, balance, stop-payment (read-only)</li>
+     <li>Seed signature vault for 1-branch accounts</li>
+     <li>Configure shared SFTP output for RRF and CXF to existing CTS vendor</li>
+     <li>Configure Karnataka Bank business rules, return reasons, routing thresholds</li>
+     <li>Train operators on ASTRA workstation; obtain usability feedback</li>
+     <li>Run minimum 3 clearing sessions in shadow mode — no production impact</li>
+    </ul>
+   </div>
+   <div>
+    <div class="col-head">What Karnataka Bank Provides</div>
+    <ul class="ul">
+     <li>Infrastructure SSH / access for ASTRA deployment</li>
+     <li>CBS sandbox endpoint and credentials (via secure channel)</li>
+     <li>Signature image export — all accounts for the 1 pilot branch<br><span style="font-size:11px;color:var(--muted)">PNG or TIFF, 300 DPI minimum, labelled with masked account reference</span></li>
+     <li>SAML / IdP configuration and user list for ASTRA workstation login</li>
+     <li>Live inward mirror feed from CTS vendor for 1 branch</li>
+     <li>Branch scanner SFTP credentials for outward ingestion</li>
+     <li>2 clearing operators available for shadow session monitoring</li>
+     <li>~10,000 cheque images for this stage (see data spec below)</li>
+    </ul>
+   </div>
+  </div>
+  <div class="div"></div>
+
+  <div class="data-sec">
+   <div class="data-head">Data Required at Stage 2 — Karnataka Bank to Deliver</div>
+   <div class="tbl-wrap">
+    <table class="tbl">
+     <thead><tr><th>Item</th><th>Format</th><th>Volume</th><th>Source</th></tr></thead>
+     <tbody>
+      <tr><td><strong>Signature Images — 1 Branch</strong></td><td>PNG or TIFF, 300 DPI minimum<br>Filename: <span class="mono-sm">{masked_acct_ref}_{seq}.png</span></td><td>All enrolled accounts for 1 pilot branch<br>Typical: 2,000–10,000 images</td><td>KBL IT — signature card scan archive</td></tr>
+      <tr><td><strong>Inward Mirror Feed (Live)</strong></td><td>CTS-2010 TIFF G4 + XML MICR<br>One session ZIP per NGCH session, delivered to ASTRA SFTP within 5 mins of session receipt</td><td>All inward instruments for 1 branch per clearing session</td><td>Existing CTS vendor</td></tr>
+      <tr><td><strong>Outward Scanner Feed (Live)</strong></td><td>TIFF G4 from branch scanner via SFTP</td><td>All outward cheques scanned at 1 pilot branch per day</td><td>Branch scanner SFTP</td></tr>
+      <tr><td><strong>Extended Historical Sample</strong></td><td>TIFF G4 + XML MICR + ground truth CSV<br><span class="mono-sm">instrument_id, decision (PASS/RETURN), return_reason</span></td><td>~10,000 instruments with known outcomes<br>Must include ≥ 5% return decisions</td><td>KBL CTS team export</td></tr>
+     </tbody>
+    </table>
+   </div>
+  </div>
+  <div class="div"></div>
+
+  <div style="margin-bottom:18px">
+   <div class="data-head">RACI — Stage 2</div>
+   <div class="tbl-wrap">
+    <table class="raci-tbl">
+     <thead><tr><th>Activity</th><th>ASTRA</th><th>KBL Ops</th><th>KBL IT</th><th>CTS Vendor</th></tr></thead>
+     <tbody>
+      <tr><td>Infrastructure deployment</td><td class="a">A/R</td><td class="dash">—</td><td class="c">C/R</td><td class="dash">—</td></tr>
+      <tr><td>CBS integration</td><td class="a">A/R</td><td class="dash">—</td><td class="r">R</td><td class="dash">—</td></tr>
+      <tr><td>Inward mirror feed setup</td><td class="c">C</td><td class="dash">—</td><td class="c">C</td><td class="a">A/R</td></tr>
+      <tr><td>Outward scanner SFTP setup</td><td class="c">C</td><td class="dash">—</td><td class="a">A/R</td><td class="dash">—</td></tr>
+      <tr><td>Signature vault seeding</td><td class="a">A/R</td><td class="c">C</td><td class="r">R</td><td class="dash">—</td></tr>
+      <tr><td>Operator training</td><td class="a">A/R</td><td class="a">A/R</td><td class="dash">—</td><td class="dash">—</td></tr>
+      <tr><td>Shadow session monitoring</td><td class="r">R</td><td class="a">A/R</td><td class="r">R</td><td class="r">R</td></tr>
+      <tr><td>Daily reconciliation</td><td class="r">R</td><td class="a">A/R</td><td class="dash">—</td><td class="r">R</td></tr>
+     </tbody>
+    </table>
+   </div>
+  </div>
+
+  <div class="signoff">
+   <div class="so-head">Stage 2 Sign-off — Before Stage 3 Begins</div>
+   <div class="so-grid">
+    <div class="so-item"><div class="so-role">KBL Ops SPOC</div><div class="so-name">Operations</div><div class="so-what">3 shadow sessions clean; operator workstation usable</div></div>
+    <div class="so-item"><div class="so-role">KBL IT SPOC</div><div class="so-name">IT / CISO</div><div class="so-what">Interfaces healthy; security controls in place</div></div>
+    <div class="so-item"><div class="so-role">ASTRA Tech Lead</div><div class="so-name">ASTRA</div><div class="so-what">Infrastructure stable; RRF valid; CBS live</div></div>
+    <div class="so-item"><div class="so-role">CTS Vendor</div><div class="so-name">Vendor PM</div><div class="so-what">Mirror feed stable; SFTP hand-off working</div></div>
+   </div>
+   <div class="so-line">Stage 2 Sign-off Date: __________________ | Signed copies exchanged: ☐</div>
+  </div>
+
+ </div>
+</div>
+
+<!-- STAGE 3 -->
+<div class="stage" id="s3" style="margin-top:20px">
+ <div class="stage-head">
+  <div class="stage-ghost">3</div>
+  <div class="stage-badge" style="background:var(--s3)">3</div>
+  <div class="stage-info">
+   <div class="s-eye" style="color:var(--s3)">Stage 3 · 5 Branches — Calibration at Scale</div>
+   <div class="s-title">SIT Completion · Model Tuning · Shadow at 5-Branch Volume</div>
+  </div>
+  <div class="s-week" style="background:var(--s3)">Weeks 4–5</div>
+ </div>
+ <div class="stage-body">
+
+  <div class="criteria-row">
+   <div class="crit-box">
+    <div class="crit-box-head entry-head">Entry Criteria</div>
+    <div class="crit-items">
+     <div class="crit-item"><div class="check"></div>Stage 2 sign-off received</div>
+     <div class="crit-item"><div class="check"></div>3 Stage 2 shadow sessions reconciled clean</div>
+     <div class="crit-item"><div class="check"></div>IS Audit / VAPT clearance received</div>
+     <div class="crit-item"><div class="check"></div>CAB approval for 5-branch shadow expansion</div>
+     <div class="crit-item"><div class="check"></div>Signature images for all 5 branches provided</div>
+     <div class="crit-item"><div class="check"></div>Historical data set (~1,00,000 instruments) delivered</div>
+    </div>
+   </div>
+   <div class="crit-box">
+    <div class="crit-box-head exit-head">Exit Criteria</div>
+    <div class="crit-items">
+     <div class="crit-item"><div class="check"></div>All 18 scenarios validated — zero critical open items</div>
+     <div class="crit-item"><div class="check"></div>Calibration report produced and accepted by KBL</div>
+     <div class="crit-item"><div class="check"></div>Model version frozen and tagged</div>
+     <div class="crit-item"><div class="check"></div>Average processing time within agreed target at 5-branch volume</div>
+     <div class="crit-item"><div class="check"></div>5 shadow sessions reconciled clean across 5 branches</div>
+     <div class="crit-item"><div class="check"></div>Human-review queue within operator capacity on all days</div>
+    </div>
+   </div>
+  </div>
+  <div class="div"></div>
+
+  <div class="stage-grid">
+   <div>
+    <div class="col-head">What ASTRA Does</div>
+    <ul class="ul">
+     <li>Execute all 18 validated scenarios against 5-branch data set</li>
+     <li>Run full historical replay — compare ASTRA's predicted decisions against actual Karnataka Bank outcomes across ~1,00,000 instruments</li>
+     <li>Calibrate OCR thresholds, fraud-scoring weights, signature match sensitivity to Karnataka Bank's specific cheque portfolio characteristics</li>
+     <li>Tune return-reason mapping, STP routing, high-value escalation logic</li>
+     <li>Extend vault seeding to all 5-branch accounts</li>
+     <li>Produce calibration report — accuracy vs. baseline, STP potential, human-review forecast, recommended thresholds</li>
+     <li>Freeze model version and business rule configuration for live pilot entry</li>
+    </ul>
+   </div>
+   <div>
+    <div class="col-head">What Karnataka Bank Provides</div>
+    <ul class="ul">
+     <li>Signature images for branches 2–5 (same format as Stage 2)</li>
+     <li>Historical inward data — ~1,00,000 instruments with ground truth outcomes<br><span style="font-size:11px;color:var(--muted)">This is the most critical dataset — quality and completeness directly determine calibration accuracy</span></li>
+     <li>Representative SIT test instruments — genuine, fraudulent, altered, poor-quality, PPS-enrolled (prepared by KBL ops team from fraud archives)</li>
+     <li>4+ operators available for 5-branch shadow session monitoring</li>
+     <li>Mirror feed extended to 5 branches by CTS vendor</li>
+     <li>Outward scanner feeds for all 5 branches</li>
+    </ul>
+   </div>
+  </div>
+  <div class="div"></div>
+
+  <div class="data-sec">
+   <div class="data-head">Data Required at Stage 3 — Karnataka Bank to Deliver</div>
+   <div class="tbl-wrap">
+    <table class="tbl">
+     <thead><tr><th>Item</th><th>Format</th><th>Volume</th><th>Notes</th></tr></thead>
+     <tbody>
+      <tr><td><strong>Full Calibration Dataset</strong></td><td>TIFF G4 + XML MICR + ground truth CSV<br><span class="mono-sm">instrument_id, decision, return_reason_code</span></td><td>~1,00,000 instruments across 3–6 months. Minimum: 5% return decisions, ≥10 fraud/alteration cases.</td><td>Subject to NDA and data governance approval. ASTRA processes on-premises — data does not leave KBL infrastructure.</td></tr>
+      <tr><td><strong>Signature Images — Branches 2–5</strong></td><td>PNG / TIFF, 300 DPI, labelled</td><td>All enrolled accounts for 4 additional branches</td><td>Same format as Stage 2 delivery</td></tr>
+      <tr><td><strong>SIT Test Instrument Set</strong></td><td>TIFF G4 + XML MICR, each labelled with scenario reference</td><td>Minimum 2 instruments per scenario = 36 minimum. Must include known fraud/alteration samples.</td><td>KBL ops team to source from fraud archive or prepare test instruments</td></tr>
+     </tbody>
+    </table>
+   </div>
+  </div>
+  <div class="div"></div>
+
+  <div style="margin-bottom:18px">
+   <div class="data-head">RACI — Stage 3</div>
+   <div class="tbl-wrap">
+    <table class="raci-tbl">
+     <thead><tr><th>Activity</th><th>ASTRA</th><th>KBL Ops</th><th>KBL IT</th><th>CTS Vendor</th></tr></thead>
+     <tbody>
+      <tr><td>Scenario validation (SIT)</td><td class="a">A/R</td><td class="r">R</td><td class="r">R</td><td class="r">R</td></tr>
+      <tr><td>Historical calibration</td><td class="a">A/R</td><td class="c">C</td><td class="dash">—</td><td class="dash">—</td></tr>
+      <tr><td>SIT test instrument preparation</td><td class="c">C</td><td class="a">A/R</td><td class="r">R</td><td class="dash">—</td></tr>
+      <tr><td>5-branch vault seeding</td><td class="a">A/R</td><td class="c">C</td><td class="r">R</td><td class="dash">—</td></tr>
+      <tr><td>Mirror feed extension to 5 branches</td><td class="c">C</td><td class="dash">—</td><td class="c">C</td><td class="a">A/R</td></tr>
+      <tr><td>Shadow sessions — 5 branches</td><td class="r">R</td><td class="a">A/R</td><td class="r">R</td><td class="r">R</td></tr>
+      <tr><td>Calibration report</td><td class="a">A/R</td><td class="c">C</td><td class="dash">—</td><td class="dash">—</td></tr>
+     </tbody>
+    </table>
+   </div>
+  </div>
+
+  <div class="signoff">
+   <div class="so-head">Stage 3 Sign-off — Before Stage 4 Begins</div>
+   <div class="so-grid">
+    <div class="so-item"><div class="so-role">KBL Ops SPOC</div><div class="so-name">Operations</div><div class="so-what">Calibration report accepted; operator sign-off on workstation</div></div>
+    <div class="so-item"><div class="so-role">KBL IT / CISO</div><div class="so-name">IT / CISO</div><div class="so-what">VAPT and IS Audit clearance confirmed; CAB approved for Stage 4</div></div>
+    <div class="so-item"><div class="so-role">ASTRA ML Lead</div><div class="so-name">ASTRA</div><div class="so-what">Model version frozen; accuracy vs. baseline documented</div></div>
+    <div class="so-item"><div class="so-role">ASTRA Project Lead</div><div class="so-name">ASTRA</div><div class="so-what">All 18 scenarios validated; zero critical open items</div></div>
+   </div>
+   <div class="so-line">Stage 3 Sign-off Date: __________________ | Signed copies exchanged: ☐</div>
+  </div>
+
+ </div>
+</div>
+
+<!-- STAGE 4 -->
+<div class="stage" id="s4" style="margin-top:20px">
+ <div class="stage-head">
+  <div class="stage-ghost">4</div>
+  <div class="stage-badge" style="background:var(--s4)">4</div>
+  <div class="stage-info">
+   <div class="s-eye" style="color:var(--s4)">Stage 4 · Full Processing Unit — Controlled Live Pilot</div>
+   <div class="s-title">ASTRA as Decision Engine · RRF Live · Existing Vendor Retains NGCH</div>
+  </div>
+  <div class="s-week" style="background:var(--s4)">Weeks 5–7</div>
+ </div>
+ <div class="stage-body">
+
+  <div class="callout amber" style="margin-bottom:16px"><strong>Operating principle:</strong> ASTRA produces binding inward decisions and live RRF, and generates Presentment Files for outward, for the agreed pilot population. The existing CTS vendor retains full NGCH connectivity and acts as the operational fallback at all times. Volume is increased in steps — only after each level is confirmed stable.</div>
+
+  <div class="criteria-row">
+   <div class="crit-box">
+    <div class="crit-box-head entry-head">Entry Criteria</div>
+    <div class="crit-items">
+     <div class="crit-item"><div class="check"></div>Stage 3 sign-off received</div>
+     <div class="crit-item"><div class="check"></div>Operations Head + CISO sign-off for controlled live</div>
+     <div class="crit-item"><div class="check"></div>CAB approval for live pilot scope</div>
+     <div class="crit-item"><div class="check"></div>Incident management protocol agreed and documented</div>
+     <div class="crit-item"><div class="check"></div>Rollback procedure dry-run completed</div>
+     <div class="crit-item"><div class="check"></div>CTS vendor ready to consume ASTRA RRF from shared SFTP</div>
+     <div class="crit-item"><div class="check"></div>Pilot routing logic agreed for Day 1</div>
+    </div>
+   </div>
+   <div class="crit-box">
+    <div class="crit-box-head exit-head">Exit Criteria</div>
+    <div class="crit-items">
+     <div class="crit-item"><div class="check"></div>Minimum 5 live clearing sessions completed</div>
+     <div class="crit-item"><div class="check"></div>IET compliance: all pilot instruments receive outcome within clearing window</div>
+     <div class="crit-item"><div class="check"></div>Zero duplicate returns attributable to ASTRA</div>
+     <div class="crit-item"><div class="check"></div>Reconciliation clean on every session (count and value)</div>
+     <div class="crit-item"><div class="check"></div>RRF files pass NPCI schema validation every session</div>
+     <div class="crit-item"><div class="check"></div>Zero unresolved P1/P2 incidents at stage close</div>
+     <div class="crit-item"><div class="check"></div>Infrastructure stable at full PU volume</div>
+    </div>
+   </div>
+  </div>
+  <div class="div"></div>
+
+  <div class="stage-grid">
+   <div>
+    <div class="col-head">Inward — What ASTRA Does</div>
+    <ul class="ul">
+     <li>Receives live inward instruments for the full PU from CTS vendor mirror</li>
+     <li>Full AI pipeline — OCR, Vision, CBS, Signature, PPS, Fraud scoring, STP or Human Review routing</li>
+     <li>Routes exceptions to operator queue with AI evidence panel — match scores, image overlay, confidence, rationale</li>
+     <li>Generates NPCI-standard RRF; places on shared SFTP for CTS vendor to file to NGCH</li>
+     <li>Continuous per-instrument timer tracking with configurable alert thresholds, agreed with the bank before go-live</li>
+     <li>Cryptographic audit trail written for every decision</li>
+    </ul>
+   </div>
+   <div>
+    <div class="col-head">Outward — What ASTRA Does</div>
+    <ul class="ul">
+     <li>Ingests branch scanner TIFF images for full PU outward volume via SFTP</li>
+     <li>MICR extraction, CTS-2010 compliance validation, IQA scoring</li>
+     <li>Lot and batch formation per clearing zone; endorsement stamping</li>
+     <li>Presentment File (CXF) generation for CTS vendor NGCH submission</li>
+     <li>Deduplication — duplicate outward instruments detected and suppressed</li>
+    </ul>
+    <div class="col-head" style="margin-top:14px">Volume Ramp</div>
+    <ul class="ul">
+     <li><strong>Day 1–2:</strong> 5–10% of full PU volume — end-to-end confirmation with minimal exposure</li>
+     <li><strong>Day 3–5:</strong> 20–30% — validate at meaningful scale</li>
+     <li><strong>Week 2:</strong> 50–75% subject to stability at Day 3–5 level</li>
+     <li>Each increase requires: zero unresolved P1/P2 + clean reconciliation at current level</li>
+    </ul>
+   </div>
+  </div>
+  <div class="div"></div>
+
+  <div style="margin-bottom:18px">
+   <div class="data-head">RACI — Stage 4</div>
+   <div class="tbl-wrap">
+    <table class="raci-tbl">
+     <thead><tr><th>Activity</th><th>ASTRA</th><th>KBL Ops</th><th>KBL IT</th><th>CTS Vendor</th></tr></thead>
+     <tbody>
+      <tr><td>Inward AI processing</td><td class="a">A/R</td><td class="dash">—</td><td class="dash">—</td><td class="dash">—</td></tr>
+      <tr><td>Outward CXF generation</td><td class="a">A/R</td><td class="dash">—</td><td class="dash">—</td><td class="dash">—</td></tr>
+      <tr><td>Human review queue</td><td class="r">R</td><td class="a">A/R</td><td class="dash">—</td><td class="dash">—</td></tr>
+      <tr><td>RRF delivery to vendor SFTP</td><td class="a">A/R</td><td class="dash">—</td><td class="dash">—</td><td class="r">R</td></tr>
+      <tr><td>NGCH filing</td><td class="dash">—</td><td class="dash">—</td><td class="dash">—</td><td class="a">A/R</td></tr>
+      <tr><td>IET monitoring &amp; alerts</td><td class="r">R</td><td class="a">A/R</td><td class="dash">—</td><td class="dash">—</td></tr>
+      <tr><td>Daily reconciliation</td><td class="r">R</td><td class="a">A/R</td><td class="dash">—</td><td class="r">R</td></tr>
+      <tr><td>Incident management</td><td class="a">A/R</td><td class="a">A/R</td><td class="r">R</td><td class="r">R</td></tr>
+      <tr><td>Volume ramp decisions</td><td class="r">R</td><td class="a">A</td><td class="c">C</td><td class="c">C</td></tr>
+      <tr><td>Rollback activation</td><td class="r">R</td><td class="a">A</td><td class="r">R</td><td class="r">R</td></tr>
+     </tbody>
+    </table>
+   </div>
+  </div>
+
+  <div class="signoff">
+   <div class="so-head">Stage 4 Sign-off — Before Stage 5 Begins</div>
+   <div class="so-grid">
+    <div class="so-item"><div class="so-role">KBL Operations Head</div><div class="so-name">Ops Head</div><div class="so-what">IET compliance confirmed; reconciliation clean; operators satisfied</div></div>
+    <div class="so-item"><div class="so-role">KBL CISO</div><div class="so-name">CISO</div><div class="so-what">Security controls held under live load; audit trail intact</div></div>
+    <div class="so-item"><div class="so-role">ASTRA Project Lead</div><div class="so-name">ASTRA</div><div class="so-what">STP at or above agreed target; zero duplicates; all P1/P2 closed</div></div>
+    <div class="so-item"><div class="so-role">CTS Vendor</div><div class="so-name">Vendor PM</div><div class="so-what">RRF consumed successfully each session; no NGCH filing gaps</div></div>
+   </div>
+   <div class="so-line">Stage 4 Sign-off Date: __________________ | Signed copies exchanged: ☐</div>
+  </div>
+
+ </div>
+</div>
+
+<!-- STAGE 5 -->
+<div class="stage" id="s5" style="margin-top:20px">
+ <div class="stage-head">
+  <div class="stage-ghost">5</div>
+  <div class="stage-badge" style="background:var(--s5)">5</div>
+  <div class="stage-info">
+   <div class="s-eye" style="color:var(--s5)">Stage 5 · Scale-up &amp; Final POC Sign-off</div>
+   <div class="s-title">Full Volume · Final Report · Production Decision</div>
+  </div>
+  <div class="s-week" style="background:var(--s5)">Weeks 7–8</div>
+ </div>
+ <div class="stage-body">
+
+  <div class="callout green" style="margin-bottom:16px"><strong>Objective:</strong> Validate ASTRA's performance at full PU volume including peak sessions. Produce the Final POC Report. Enable Karnataka Bank leadership to make an informed, evidence-based production decision.</div>
+
+  <div class="criteria-row">
+   <div class="crit-box">
+    <div class="crit-box-head entry-head">Entry Criteria</div>
+    <div class="crit-items">
+     <div class="crit-item"><div class="check"></div>Stage 4 sign-off received</div>
+     <div class="crit-item"><div class="check"></div>Volume ramp reached ≥ 50% at Stage 4 with clean reconciliation</div>
+     <div class="crit-item"><div class="check"></div>Zero unresolved P1/P2 incidents from Stage 4</div>
+     <div class="crit-item"><div class="check"></div>KBL leadership briefed on Stage 4 outcomes</div>
+    </div>
+   </div>
+   <div class="crit-box">
+    <div class="crit-box-head exit-head">Final POC Exit — Sign-off Gate</div>
+    <div class="crit-items">
+     <div class="crit-item"><div class="check"></div>Full PU volume (100%) processed for ≥ 5 sessions</div>
+     <div class="crit-item"><div class="check"></div>IET compliance maintained throughout Stage 5</div>
+     <div class="crit-item"><div class="check"></div>Zero duplicates; reconciliation clean across all sessions</div>
+     <div class="crit-item"><div class="check"></div>Peak session latency within agreed target</div>
+     <div class="crit-item"><div class="check"></div>Final POC Report accepted by KBL stakeholders</div>
+     <div class="crit-item"><div class="check"></div>Full audit trail of every POC decision handed to KBL</div>
+     <div class="crit-item"><div class="check"></div>Production decision formally recorded</div>
+    </div>
+   </div>
+  </div>
+  <div class="div"></div>
+
+  <div class="stage-grid">
+   <div>
+    <div class="col-head">What ASTRA Does</div>
+    <ul class="ul">
+     <li>Increase volume to 75% then 100% in controlled steps</li>
+     <li>Measure performance at each level — focus on peak clearing periods</li>
+     <li>Review infrastructure utilisation, CBS load, GPU throughput, operator productivity at scale</li>
+     <li>Produce Final POC Report — performance, accuracy, STP, incidents, lessons</li>
+     <li>Hand over complete audit trail of every POC decision to Karnataka Bank</li>
+    </ul>
+   </div>
+   <div>
+    <div class="col-head">What Karnataka Bank Does</div>
+    <ul class="ul">
+     <li>Confirm staffing for full PU monitoring — senior ops presence at peak sessions</li>
+     <li>Validate business outcomes at full volume</li>
+     <li>Attend final POC review meeting; raise any outstanding concerns</li>
+     <li>Formally accept (or request extension of) the Final POC Report</li>
+     <li>Record production decision — proceed, extend, or conclude</li>
+    </ul>
+   </div>
+  </div>
+  <div class="div"></div>
+
+  <div class="signoff">
+   <div class="so-head">Final POC Sign-off — Production Decision</div>
+   <div class="so-grid">
+    <div class="so-item"><div class="so-role">KBL — MD / CEO Office</div><div class="so-name">Sponsor</div><div class="so-what">Production decision: proceed, extend, or conclude</div></div>
+    <div class="so-item"><div class="so-role">KBL — Operations Head</div><div class="so-name">Ops Head</div><div class="so-what">Accepts Final POC Report; confirms operational readiness</div></div>
+    <div class="so-item"><div class="so-role">KBL — CISO</div><div class="so-name">CISO</div><div class="so-what">Security and audit posture acceptable for production</div></div>
+    <div class="so-item"><div class="so-role">ASTRA — Senior Lead</div><div class="so-name">ASTRA</div><div class="so-what">All exit criteria met; production readiness confirmed</div></div>
+   </div>
+   <div class="so-line">Final Sign-off Date: __________________ | Decision: ☐ Proceed &nbsp; ☐ Extend &nbsp; ☐ Conclude</div>
+  </div>
+
+ </div>
+</div>
+</section>
+
+<!-- BASELINE -->
+<section id="baseline">
+ <div class="sec">
+  <div class="sec-eye">Section 8 · Baseline Measurement</div>
+  <h2 class="sec-title">Karnataka Bank Must Provide the Starting Benchmark</h2>
+  <p class="sec-lead">ASTRA's performance is only meaningful relative to the existing process. Karnataka Bank is responsible for providing the following baseline figures before Stage 3 calibration. Without these, the calibration report cannot be produced and Stage 4 acceptance thresholds cannot be jointly agreed.</p>
+ </div>
+ <div class="tbl-wrap">
+  <table class="tbl">
+   <thead><tr><th>Metric</th><th>What Karnataka Bank Provides</th><th>Format</th><th>Needed By</th></tr></thead>
+   <tbody>
+    <tr><td><strong>Current STP Pass Rate</strong></td><td>Percentage of inward instruments processed without manual intervention, by clearing zone</td><td>CSV or summary report — last 3 months</td><td>Stage 1 exit</td></tr>
+    <tr><td><strong>Average Processing Time</strong></td><td>Average elapsed time from receipt of inward instrument to final decision (pass or return)</td><td>Data from existing CTS vendor or internal logs</td><td>Stage 1 exit</td></tr>
+    <tr><td><strong>Human Review Volume</strong></td><td>Daily count of instruments routed to human review; average and peak reviewer queue depth</td><td>Ops team estimate or existing report</td><td>Stage 2 exit</td></tr>
+    <tr><td><strong>Return Rate by Reason</strong></td><td>Breakdown of inward returns by return reason code — last 3 months</td><td>CSV or existing CTS report</td><td>Stage 2 exit</td></tr>
+    <tr><td><strong>Current Clearing Window Utilisation</strong></td><td>How much of the available clearing window is typically consumed before all decisions are filed</td><td>Estimate from ops team</td><td>Stage 2 exit</td></tr>
+   </tbody>
+  </table>
+ </div>
+ <div class="callout blue" style="margin-top:4px">ASTRA's calibration report will show predicted performance against each of these baselines. Acceptance thresholds for Stages 4 and 5 will be agreed jointly using these baselines as the starting reference point.</div>
+</section>
+
+<!-- 18 SCENARIOS -->
+<section id="scenarios">
+ <div class="sec">
+  <div class="sec-eye">Section 9 · Validated Scenarios</div>
+  <h2 class="sec-title">18 Scenarios — All Verified in the ASTRA Codebase</h2>
+  <p class="sec-lead">All 18 scenarios listed below are implemented and tested in the current ASTRA platform. The stage column indicates when each is formally validated during the POC.</p>
+ </div>
+ <div class="tbl-wrap">
+  <table class="tbl">
+   <thead><tr><th>ID</th><th>Scenario</th><th>Test Condition</th><th>Expected Outcome</th><th>Validated</th></tr></thead>
+   <tbody>
+    <tr><td class="mono-sm">S-01</td><td>STP Pass — Inward</td><td>Valid cheque, valid account, good signature</td><td>Confirmed within target window; no manual touch</td><td>Stage 3+</td></tr>
+    <tr><td class="mono-sm">S-02</td><td>STP Return — Inward</td><td>Known return condition (e.g. stop payment)</td><td>Return with correct CTS return reason code</td><td>Stage 3+</td></tr>
+    <tr><td class="mono-sm">S-03</td><td>Manual Review Routing</td><td>Low-confidence image, borderline signature, ambiguous amount</td><td>Routed to operator queue with AI evidence panel</td><td>Stage 3</td></tr>
+    <tr><td class="mono-sm">S-04</td><td>Signature Mismatch</td><td>Known mismatch (trained test case)</td><td>Flagged; human review with match score and image overlay</td><td>Stage 3</td></tr>
+    <tr><td class="mono-sm">S-05</td><td>Stop Payment</td><td>Active stop-payment instruction in CBS</td><td>Correct return; audit event written</td><td>Stage 3</td></tr>
+    <tr><td class="mono-sm">S-06</td><td>Account Not Found</td><td>Invalid or closed account number</td><td>Controlled return; no raw CBS error surfaced</td><td>Stage 3</td></tr>
+    <tr><td class="mono-sm">S-07</td><td>Duplicate Instrument</td><td>Same instrument submitted twice (inward or outward)</td><td>Duplicate detected; second suppressed; no double processing</td><td>Stage 3</td></tr>
+    <tr><td class="mono-sm">S-08</td><td>Poor Image Quality</td><td>Low DPI, blurred, torn, stained cheque</td><td>IQA flag raised; correct exception path; not silently mis-extracted</td><td>Stage 3</td></tr>
+    <tr><td class="mono-sm">S-09</td><td>Alteration / Fraud</td><td>Known altered amount or payee (from KBL fraud archive)</td><td>Detected by vision model; elevated fraud score; routed for review</td><td>Stage 3</td></tr>
+    <tr><td class="mono-sm">S-10</td><td>PPS Mismatch</td><td>High-value cheque with PPS discrepancy</td><td>PPS mismatch flagged; escalated per KBL policy</td><td>Stage 3</td></tr>
+    <tr><td class="mono-sm">S-11</td><td>CBS Timeout</td><td>CBS configured to delay or drop response</td><td>Graceful degradation — image-only path continues; no crash</td><td>Stage 3</td></tr>
+    <tr><td class="mono-sm">S-12</td><td>SFTP / RRF Interruption</td><td>SFTP output path unavailable during hand-off</td><td>Alert raised; Temporal retry; no duplicate RRF on recovery</td><td>Stage 3</td></tr>
+    <tr><td class="mono-sm">S-13</td><td>Operator Delay</td><td>Reviewer does not act; timer runs</td><td>Escalation alert sequence fires at configured thresholds</td><td>Stage 3+</td></tr>
+    <tr><td class="mono-sm">S-14</td><td>Near-Expiry Item</td><td>Item arrives with limited clearing window remaining</td><td>Priority flag set; front of queue; senior alert triggered</td><td>Stage 3+</td></tr>
+    <tr><td class="mono-sm">S-15</td><td>Peak Volume</td><td>Full PU session volume submitted in a compressed window</td><td>All items processed within latency target; no queue backlog</td><td>Stage 4–5 only</td></tr>
+    <tr><td class="mono-sm">S-16</td><td>Restart / Recovery</td><td>Controlled mid-session service restart</td><td>No in-flight item lost; no duplicate decision; processing resumes cleanly</td><td>Stage 3</td></tr>
+    <tr><td class="mono-sm">S-17</td><td>RRF Validation</td><td>Multi-instrument return batch, mixed return reasons</td><td>Schema-valid RRF; correct instrument-to-reason mapping per NPCI standard</td><td>Stage 3+</td></tr>
+    <tr><td class="mono-sm">S-18</td><td>Reconciliation</td><td>End-of-session count and value comparison</td><td>Zero unexplained differences between source, ASTRA, and RRF</td><td>Stage 4+</td></tr>
+   </tbody>
+  </table>
+ </div>
+ <p style="font-size:11px;color:var(--muted);margin-top:8px">S-15 (peak volume) is infrastructure-dependent and is validated only under live load in Stages 4 and 5. All others are validated in the lab or shadow environment before live traffic begins.</p>
+</section>
+
+<!-- ACCEPTANCE -->
+<section id="acceptance">
+ <div class="sec">
+  <div class="sec-eye">Section 10 · Acceptance Criteria</div>
+  <h2 class="sec-title">Targets — Jointly Agreed Before Stage 4</h2>
+  <p class="sec-lead">Specific thresholds are agreed jointly with Karnataka Bank after Stage 3 calibration, using the bank's own baseline as the reference point. The figures below reflect the design intent of the ASTRA platform — not commitments made prior to seeing Karnataka Bank's data.</p>
+ </div>
+ <div class="acc-grid">
+  <div class="acc-card"><div class="acc-lbl">IET Compliance</div><div class="acc-val">Designed for 100%</div><div class="acc-sub">Every instrument targets a recorded outcome within the applicable clearing window. Exact threshold jointly agreed.</div></div>
+  <div class="acc-card"><div class="acc-lbl">Duplicate Returns</div><div class="acc-val">Designed for zero</div><div class="acc-sub">Zero duplicate NGCH filings attributable to ASTRA — structurally enforced, not a configuration setting.</div></div>
+  <div class="acc-card"><div class="acc-lbl">Reconciliation</div><div class="acc-val">Count &amp; value match</div><div class="acc-sub">Source, ASTRA, and RRF reconcile every session. Threshold agreed before Stage 4.</div></div>
+  <div class="acc-card"><div class="acc-lbl">RRF Integrity</div><div class="acc-val">NPCI schema valid</div><div class="acc-sub">Every RRF file passes schema and business validation. Enforced by the platform.</div></div>
+  <div class="acc-card"><div class="acc-lbl">Processing Latency</div><div class="acc-val">vs. KBL baseline</div><div class="acc-sub">End-to-end receipt-to-decision target set after Stage 3 measurement. Expected well within the clearing window.</div></div>
+  <div class="acc-card"><div class="acc-lbl">STP Rate</div><div class="acc-val">vs. KBL baseline</div><div class="acc-sub">Benchmarked against Karnataka Bank's own current STP rate. Target agreed post Stage 3 calibration.</div></div>
+  <div class="acc-card"><div class="acc-lbl">Decision Accuracy</div><div class="acc-val">vs. KBL benchmark</div><div class="acc-sub">Compared against Stage 3 labelled historical dataset. Specific threshold jointly agreed.</div></div>
+  <div class="acc-card"><div class="acc-lbl">Auditability</div><div class="acc-val">Every instrument</div><div class="acc-sub">Complete decision path, timestamps, actor, outcome in immutable audit trail for every item — no exceptions.</div></div>
+  <div class="acc-card"><div class="acc-lbl">Recovery</div><div class="acc-val">No loss · No duplicate</div><div class="acc-sub">CBS timeout, SFTP outage, service restart — recovery without loss or duplicate processing.</div></div>
+ </div>
+</section>
+
+<!-- RACI OVERALL -->
+<section id="raci">
+ <div class="sec">
+  <div class="sec-eye">Section 11 · Overall RACI</div>
+  <h2 class="sec-title">Cross-Cutting Responsibilities</h2>
+  <p class="sec-lead"><strong style="color:var(--blue)">R</strong> = Responsible &nbsp;·&nbsp; <strong style="color:var(--green)">A</strong> = Accountable &nbsp;·&nbsp; <strong style="color:var(--amber)">C</strong> = Consulted</p>
+ </div>
+ <div class="tbl-wrap">
+  <table class="tbl">
+   <thead><tr><th>Activity</th><th>ASTRA</th><th>KBL Ops</th><th>KBL IT / CISO</th><th>CTS Vendor</th></tr></thead>
+   <tbody>
+    <tr><td>Project governance</td><td class="r">R</td><td class="a">A/R</td><td class="r">R</td><td class="c">C</td></tr>
+    <tr><td>Scope &amp; acceptance criteria</td><td class="r">R</td><td class="a">A</td><td class="c">C</td><td class="c">C</td></tr>
+    <tr><td>Infrastructure provisioning</td><td class="c">C/R</td><td class="c">C</td><td class="a">A/R</td><td class="c">C</td></tr>
+    <tr><td>Network / firewall clearance</td><td class="c">C</td><td class="c">C</td><td class="a">A/R</td><td class="c">C</td></tr>
+    <tr><td>Inward data mirror feed</td><td class="r">R</td><td class="c">C</td><td class="c">C</td><td class="a">A/R</td></tr>
+    <tr><td>Outward scanner feed</td><td class="r">R</td><td class="c">C</td><td class="a">A/R</td><td class="dash">—</td></tr>
+    <tr><td>RRF / CXF SFTP interface</td><td class="r">R</td><td class="c">C</td><td class="c">C</td><td class="a">A/R</td></tr>
+    <tr><td>CBS integration (read-only)</td><td class="a">A/R</td><td class="c">C</td><td class="r">R</td><td class="dash">—</td></tr>
+    <tr><td>Signature / PPS data export</td><td class="r">R</td><td class="a">A/R</td><td class="c">C</td><td class="c">C</td></tr>
+    <tr><td>AI model &amp; rule configuration</td><td class="a">A/R</td><td class="c">C</td><td class="c">C</td><td class="dash">—</td></tr>
+    <tr><td>Scenario validation (SIT)</td><td class="a">A/R</td><td class="a">A/R</td><td class="r">R</td><td class="r">R</td></tr>
+    <tr><td>Operator training</td><td class="a">A/R</td><td class="a">A/R</td><td class="c">C</td><td class="dash">—</td></tr>
+    <tr><td>IS Audit / VAPT</td><td class="c">C</td><td class="c">C</td><td class="a">A/R</td><td class="dash">—</td></tr>
+    <tr><td>Live monitoring</td><td class="r">R</td><td class="a">A/R</td><td class="r">R</td><td class="r">R</td></tr>
+    <tr><td>Incident management</td><td class="a">A/R</td><td class="a">A/R</td><td class="r">R</td><td class="r">R</td></tr>
+    <tr><td>Daily reconciliation</td><td class="r">R</td><td class="a">A/R</td><td class="c">C</td><td class="r">R</td></tr>
+    <tr><td>Baseline data provision</td><td class="c">C</td><td class="a">A/R</td><td class="r">R</td><td class="c">C</td></tr>
+    <tr><td>Final POC sign-off</td><td class="c">C</td><td class="a">A</td><td class="a">A/C</td><td class="c">C</td></tr>
+   </tbody>
+  </table>
+ </div>
+</section>
+
+<!-- RISK REGISTER -->
+<section id="risk">
+ <div class="sec">
+  <div class="sec-eye">Section 12 · Risk Register</div>
+  <h2 class="sec-title">Key Risks and Mitigations</h2>
+  <p class="sec-lead">Most risks to POC timeline sit on Karnataka Bank's side — data delivery, vendor cooperation, infrastructure readiness. ASTRA can work around most technical risks; commercial and organisational risks require Karnataka Bank's active management.</p>
+ </div>
+ <div class="risk-wrap">
+  <div class="risk-row risk-hd">
+   <div></div>
+   <div>Risk</div>
+   <div>Primary Owner</div>
+   <div>Mitigation</div>
+  </div>
+  <div class="risk-row">
+   <div class="risk-num">R-01</div>
+   <div class="risk-desc"><strong>CTS vendor does not cooperate</strong> — refuses or delays inward mirror feed to ASTRA</div>
+   <div class="risk-own">Karnataka Bank (vendor relationship)</div>
+   <div class="risk-mit">ASTRA can operate from offline batch files (ZIP + XML) in lieu of live mirror. Stages 1–3 can proceed fully. Formal vendor cooperation letter required before Stage 2.</div>
+  </div>
+  <div class="risk-row">
+   <div class="risk-num">R-02</div>
+   <div class="risk-desc"><strong>CBS sandbox not available on time</strong> — delays integration testing</div>
+   <div class="risk-own">Karnataka Bank IT</div>
+   <div class="risk-mit">Stage 2 lab testing proceeds without CBS; CBS-dependent scenarios (S-05, S-06, S-11) validated separately once sandbox is available. Stage timeline extends accordingly.</div>
+  </div>
+  <div class="risk-row">
+   <div class="risk-num">R-03</div>
+   <div class="risk-desc"><strong>Historical data quality is poor</strong> — inconsistent MICR data, incomplete ground truth labels, or insufficient fraud samples</div>
+   <div class="risk-own">Karnataka Bank IT / Ops</div>
+   <div class="risk-mit">Calibration can proceed with what is available, with a more conservative accuracy estimate. Stage 3 may extend. ASTRA flags data quality issues immediately on receipt so KBL can source supplementary data.</div>
+  </div>
+  <div class="risk-row">
+   <div class="risk-num">R-04</div>
+   <div class="risk-desc"><strong>Infrastructure procurement delayed</strong> — hardware not ready by Stage 2 start</div>
+   <div class="risk-own">Karnataka Bank IT</div>
+   <div class="risk-mit">Stage 1 lab work and data intake continue on ASTRA laptop. All Stage 2 build work commences on hardware delivery; Stage 2 start date shifts accordingly. Hardware spec issued at Stage 1 sign-off to allow maximum lead time.</div>
+  </div>
+  <div class="risk-row">
+   <div class="risk-num">R-05</div>
+   <div class="risk-desc"><strong>IS Audit / VAPT / CAB delays</strong> — clearances not received before Stage 4 go-live date</div>
+   <div class="risk-own">Karnataka Bank IT / CISO</div>
+   <div class="risk-mit">Approval process initiated at Stage 1. Stages 2–3 (lab and shadow) do not require VAPT clearance. Stage 4 live pilot is gated on VAPT completion — clearance delays push Stage 4 start date.</div>
+  </div>
+  <div class="risk-row" style="border-bottom:none">
+   <div class="risk-num">R-06</div>
+   <div class="risk-desc"><strong>Scope expansion mid-POC</strong> — requests to add SMB routing, additional CBS checks, or new instrument types during live stages</div>
+   <div class="risk-own">Both parties</div>
+   <div class="risk-mit">All scope changes require joint sign-off and may extend the current stage timeline. Scope is frozen at Stage 1 sign-off; additions are deferred to post-POC unless both parties agree and timeline is adjusted.</div>
+  </div>
+ </div>
+</section>
+
+<!-- POST-POC -->
+<section id="postpoc">
+ <div class="sec">
+  <div class="sec-eye">Section 13 · Post-POC Path</div>
+  <h2 class="sec-title">What Comes After a Successful POC</h2>
+  <p class="sec-lead">The POC establishes a shared evidence base. Production deployment proceeds at Karnataka Bank's pace — there is no forced timeline beyond the POC itself.</p>
+ </div>
+ <div class="roadmap">
+  <div class="rm-step" style="border-top:3px solid var(--s5)">
+   <div class="rm-phase">POC Complete</div>
+   <div class="rm-title">Evidence &amp; Decision</div>
+   <div class="rm-sub">Full audit trail handed over. Production decision jointly recorded. No further obligation.</div>
+  </div>
+  <div class="rm-arr">→</div>
+  <div class="rm-step" style="border-top:3px solid var(--blue)">
+   <div class="rm-phase">Month 3–6</div>
+   <div class="rm-title">Side-by-Side Production</div>
+   <div class="rm-sub">ASTRA runs live alongside existing CTS system. Bank operators validate real outcomes. Volume increased at bank's pace. No pressure to cut over until fully confident.</div>
+  </div>
+  <div class="rm-arr">→</div>
+  <div class="rm-step" style="border-top:3px solid var(--teal)">
+   <div class="rm-phase">Month 6+</div>
+   <div class="rm-title">Standalone Production</div>
+   <div class="rm-sub">Full cutover at bank's own decision. Existing system retired at bank's pace. ASTRA is the sole CTS processing platform — inward and outward at full PU volume.</div>
+  </div>
+ </div>
+ <p style="font-size:12px;color:var(--muted);margin-top:12px">NPCI direct API integration (when available) and SMB sub-member routing are planned for subsequent phases and do not affect the production cutover decision.</p>
+</section>
+
+<!-- GLOSSARY -->
+<section id="glossary">
+ <div class="sec">
+  <div class="sec-eye">Section 14 · Glossary</div>
+  <h2 class="sec-title">Key Terms</h2>
+ </div>
+ <div class="gloss-grid">
+  <div class="gloss-item"><div class="gloss-term">CTS</div><div class="gloss-def">Cheque Truncation System — RBI's electronic clearing framework under which physical cheques are processed as digital images.</div></div>
+  <div class="gloss-item"><div class="gloss-term">IET</div><div class="gloss-def">Item Expiry Time — the clearing window (currently T+3 clear hours under RBI's Phase II mandate) within which each inward instrument must be confirmed or returned. Items not actioned within IET are deemed approved.</div></div>
+  <div class="gloss-item"><div class="gloss-term">STP</div><div class="gloss-def">Straight-Through Processing — instruments processed to a final decision (pass or return) by ASTRA without any manual operator intervention.</div></div>
+  <div class="gloss-item"><div class="gloss-term">RRF</div><div class="gloss-def">Return Reason File — the NPCI-standard file containing return decisions and their reason codes, submitted to NGCH by the drawee bank's CTS vendor.</div></div>
+  <div class="gloss-item"><div class="gloss-term">CXF</div><div class="gloss-def">Clearing XML File — the NPCI-standard Presentment File generated from outward cheques, submitted by the presenting bank's CTS system to NGCH.</div></div>
+  <div class="gloss-item"><div class="gloss-term">NGCH</div><div class="gloss-def">National Grid for Cheque Clearing — NPCI's clearing infrastructure. During the POC, NGCH connectivity is retained by the existing CTS vendor throughout.</div></div>
+  <div class="gloss-item"><div class="gloss-term">MICR</div><div class="gloss-def">Magnetic Ink Character Recognition — the machine-readable band at the bottom of every CTS cheque containing cheque number, MICR code, and account details.</div></div>
+  <div class="gloss-item"><div class="gloss-term">PPS</div><div class="gloss-def">Positive Pay System — RBI-mandated cross-check for high-value cheques where the drawer pre-registers cheque details with their bank.</div></div>
+  <div class="gloss-item"><div class="gloss-term">IQA</div><div class="gloss-def">Image Quality Assessment — automated scoring of cheque image quality against NPCI's 16-parameter standard before processing or submission.</div></div>
+  <div class="gloss-item"><div class="gloss-term">CBS</div><div class="gloss-def">Core Banking System — Karnataka Bank's internal banking platform (e.g. Finacle, BaNCS, Flexcube). ASTRA connects read-only for account status, balance, and stop-payment lookups.</div></div>
+  <div class="gloss-item"><div class="gloss-term">SFTP</div><div class="gloss-def">Secure File Transfer Protocol — used to exchange cheque image bundles (inward mirror, outward scanner feeds) and output files (RRF, CXF) between ASTRA and the existing CTS vendor.</div></div>
+  <div class="gloss-item"><div class="gloss-term">PU</div><div class="gloss-def">Processing Unit — the full scope of a bank's CTS inward and outward processing, encompassing all branches and clearing zones under a single bank code.</div></div>
+ </div>
+</section>
+
+</main>
+</div>
+</div>
+
+<div class="footer">
+ <span>ASTRA · Automated Settlement and Transaction Recognition Architecture</span>
+ <span>Prepared for Karnataka Bank Ltd. · Team ASTRA · Confidential — Not for Distribution</span>
+ <span>Indicative: 6–8 Weeks · Inward + Outward CTS · Existing Vendor Retains NGCH · 2026</span>
+</div>
+</body>
+</html>
