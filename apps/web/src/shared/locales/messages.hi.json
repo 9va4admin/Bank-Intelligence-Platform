@@ -2165,6 +2165,17 @@
       "specimen_count"
     ]
   },
+  "VAULT_SIG_STAGING_PURGED": {
+    "text": "",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "staging_key_suffix",
+      "staging_bucket"
+    ]
+  },
   "VAULT_SIG_NO_SPECIMEN": {
     "text": "",
     "severity": "ERROR",

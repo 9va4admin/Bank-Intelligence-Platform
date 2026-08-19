@@ -120,6 +120,9 @@ layer2:
     vault_sync:
       schedule: "0 6 * * *"                   # 6AM daily — before first clearing session
       cbs_batch_size: 500
+      sig_staging:
+        bucket: "astra-sig-staging"           # MinIO bucket where CBS drops raw signature images
+        lifecycle_expiry_days: 30             # safety-net: orphaned staging files deleted after 30d
 
     eeh:
       enabled: false

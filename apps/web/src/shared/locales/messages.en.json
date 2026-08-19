@@ -2165,6 +2165,17 @@
       "specimen_count"
     ]
   },
+  "VAULT_SIG_STAGING_PURGED": {
+    "text": "Signature staging file purged after successful embedding — {staging_key_suffix} deleted from {staging_bucket}. Biometric raw image not retained per policy.",
+    "severity": "INFO",
+    "surface": [
+      "AUDIT"
+    ],
+    "variables": [
+      "staging_key_suffix",
+      "staging_bucket"
+    ]
+  },
   "VAULT_SIG_NO_SPECIMEN": {
     "text": "No signature specimen for {account_display} — vault miss and CBS returned nothing. {instrument_id} to human review.",
     "severity": "ERROR",
