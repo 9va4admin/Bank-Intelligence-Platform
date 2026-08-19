@@ -198,6 +198,11 @@ from modules.cts.workflows.vault_file_drop_workflow import (
     process_vault_csv,
     archive_drop_file,
 )
+from modules.cts.workflows.activities.leaf_lifecycle import (
+    mark_leaf_presented,
+    mark_leaf_paid,
+    mark_leaf_returned,
+)
 
 ALL_WORKFLOWS = [
     ChequeProcessingWorkflow,
@@ -355,6 +360,10 @@ NO_DI_ACTIVITIES = [
     fetch_drop_file,
     process_vault_csv,
     archive_drop_file,
+    # Leaf lifecycle — cheque_leaf_vault defaults to None; gracefully degrades
+    mark_leaf_presented,
+    mark_leaf_paid,
+    mark_leaf_returned,
     # OCR feedback loop — accumulate/threshold/promote/emit/dispatch/shadow are
     # all in BoundCTSActivities (db_pool injection required)
 ]

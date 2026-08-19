@@ -57,7 +57,7 @@ class LeafLifecycleResult(BaseModel):
 @activity.defn
 async def mark_leaf_presented(
     inp: MarkLeafPresentedInput,
-    cheque_leaf_vault,
+    cheque_leaf_vault=None,
 ) -> LeafLifecycleResult:
     """
     Marks the cheque leaf as PRESENTED in the vault.

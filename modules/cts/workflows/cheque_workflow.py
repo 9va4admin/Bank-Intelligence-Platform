@@ -571,16 +571,11 @@ class ChequeProcessingWorkflow:
 
         ocr_result = await workflow.execute_activity(
             ocr_extract,
-            args=[
-                OCRActivityInput(
-                    image_url=inp.image_url,
-                    instrument_id=inp.instrument_id,
-                    bank_id=inp.bank_id,
-                ),
-                None,   # orchestrator — worker-level DI
-                None,   # config_service — worker-level DI
-                None,   # routing_table — optional, not needed on inward path
-            ],
+            OCRActivityInput(
+                image_url=inp.image_url,
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+            ),
             start_to_close_timeout=timedelta(seconds=30),
             retry_policy=_AI_ACTIVITY_RETRY,
         )
@@ -659,17 +654,12 @@ class ChequeProcessingWorkflow:
         )
         sec_result = await workflow.execute_activity(
             check_security_features,
-            args=[
-                SecurityFeaturesInput(
-                    instrument_id=inp.instrument_id,
-                    bank_id=inp.bank_id,
-                    image_url=inp.image_url,
-                    smb_id=inp.smb_id,
-                ),
-                None,   # vllm_client — worker-level DI
-                None,   # config_service — worker-level DI
-                None,   # langfuse — worker-level DI
-            ],
+            SecurityFeaturesInput(
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                image_url=inp.image_url,
+                smb_id=inp.smb_id,
+            ),
             start_to_close_timeout=timedelta(seconds=90),
             retry_policy=_AI_ACTIVITY_RETRY,
         )
@@ -722,15 +712,12 @@ class ChequeProcessingWorkflow:
         if inp.ngch_ifsc:
             ifsc_result = await workflow.execute_activity(
                 validate_ifsc,
-                args=[
-                    IFSCValidatorInput(
-                        instrument_id=inp.instrument_id,
-                        bank_id=inp.bank_id,
-                        ifsc_to_validate=inp.ngch_ifsc,
-                        smb_id=inp.smb_id,
-                    ),
-                    None,  # repo — worker-level DI
-                ],
+                IFSCValidatorInput(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    ifsc_to_validate=inp.ngch_ifsc,
+                    smb_id=inp.smb_id,
+                ),
                 start_to_close_timeout=timedelta(seconds=10),
                 retry_policy=_CBS_RETRY,
             )
@@ -877,17 +864,12 @@ class ChequeProcessingWorkflow:
         )
         cheque_series_result = await workflow.execute_activity(
             validate_cheque_series,
-            args=[
-                ChequeSeriesActivityInput(
-                    instrument_id=inp.instrument_id,
-                    bank_id=inp.bank_id,
-                    account_number=inp.account_number,
-                    cheque_number=inp.cheque_number,
-                ),
-                None,   # cbs_connector — worker-level DI
-                None,   # cheque_leaf_vault — worker-level DI
-                None,   # config_service — worker-level DI
-            ],
+            ChequeSeriesActivityInput(
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                account_number=inp.account_number,
+                cheque_number=inp.cheque_number,
+            ),
             start_to_close_timeout=timedelta(seconds=10),
             retry_policy=_CBS_RETRY,
         )
