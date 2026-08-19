@@ -6,6 +6,7 @@ import CTSWorkstation from './modules/cts/pages/CTSWorkstation'
 import CTSVaultStatus from './modules/cts/pages/CTSVaultStatus'
 import CTSVaultUpload from './modules/cts/pages/CTSVaultUpload'
 import CTSDecisionsLog from './modules/cts/pages/CTSDecisionsLog'
+import CTSVaultGapReport from './modules/cts/pages/CTSVaultGapReport'
 import CTSAnalytics from './modules/cts/pages/CTSAnalytics'
 import CTSConfig from './modules/cts/pages/CTSConfig'
 import CTSAllocationAdmin from './modules/cts/pages/CTSAllocationAdmin'
@@ -104,6 +105,7 @@ export default function App() {
         <Route path="/cts/outward/submission"   element={<CTSSubmissionQueue mode="outward" />} />
         <Route path="/cts/vault" element={<CTSVaultStatus />} />
         <Route path="/cts/vault/upload" element={<CTSVaultUpload />} />
+        <Route path="/cts/vault-gaps" element={<CTSVaultGapReport />} />
         <Route path="/cts/decisions" element={<CTSDecisionsLog />} />
         <Route path="/cts/exceptions" element={<CTSExceptions />} />
         <Route path="/cts/reconciliation" element={<CTSReconciliation />} />

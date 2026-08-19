@@ -1393,6 +1393,13 @@ VAULT_SIG_CBS_STORED:
   en: "CBS specimen(s) stored in signature vault for {account_display} — {specimen_count} image(s) written."
   hi: ""
 
+VAULT_SIG_STAGING_PURGED:
+  severity: INFO
+  surface: [AUDIT]
+  variables: [staging_key_suffix, staging_bucket]
+  en: "Signature staging file purged after successful embedding — {staging_key_suffix} deleted from {staging_bucket}. Biometric raw image not retained per policy."
+  hi: ""
+
 VAULT_SIG_NO_SPECIMEN:
   severity: ERROR
   surface: [UI, AUDIT, NOTIFICATION]

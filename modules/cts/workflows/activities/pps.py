@@ -81,7 +81,7 @@ async def lookup_pps(
     if config is None:
         config = {}
 
-    vault_result = await vault.lookup(inp.account_number, inp.bank_id, inp.cheque_number)
+    vault_result = await vault.lookup(inp.account_number, inp.cheque_number)
 
     if vault_result.outcome != "FOUND":
         log.info(

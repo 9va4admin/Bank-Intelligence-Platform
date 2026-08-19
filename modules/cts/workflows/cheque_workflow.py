@@ -4,18 +4,24 @@ ChequeProcessingWorkflow — main CTS workflow: one cheque, one agent (drawee si
 Workflow ID: cts-{bank_id}-{instrument_id} (deterministic, exactly-once).
 IETWatchdogWorkflow spawned as first child before any activity — non-negotiable.
 
-Phase 3 activity order (drawee inward):
-  detect_alteration → validate_cts2010 → stop_payment → pps
-  → signature → fraud → cbs_balance → account_status → decision
+Inward (drawee) activity order:
+  ocr_extract → detect_alteration → check_security_features → stop_payment
+  → validate_ifsc → pps → detect_signatures → verify_signature
+  → fraud → cheque_series → cbs_balance → account_status → decision
 
 Rationale:
-  - OCR removed: NGCH provides MICR data; scanner not on inward side.
-  - Vision LLM FIRST: trust Vision on drawee side; early tamper discard saves CBS calls.
+  - OCR (GOT-OCR2.0 + IndicOCR) runs FIRST: extracts date, amount, payee, IFSC, MICR.
+    Early gates on stale/post-dated date, amount mismatch, IFSC mismatch save the
+    120-second Vision LLM call. Multilingual (Devanagari/regional scripts) handled
+    by IndicOCR stage 2 — only activates when Indic text detected in payee/amount fields.
+  - Vision LLM (Qwen2-VL) SECOND: alteration detection on the full cheque image.
   - account_status separated from cbs_balance: independent step, runs after balance check.
   - Human review topic: smb-scoped when instrument tagged to a sub-member bank.
 """
+import re
 import time
-from datetime import timedelta
+from datetime import date as _date_type
+from datetime import timedelta, datetime
 from typing import Any, Callable, Optional
 
 import structlog
@@ -80,6 +86,38 @@ def _make_early_human_review(instrument_id: str, reason: str) -> _EarlyDecision:
 
 def _make_early_stp_return(instrument_id: str, reason: str) -> _EarlyDecision:
     return _EarlyDecision(instrument_id, "STP_RETURN", reason)
+
+
+# ---------------------------------------------------------------------------
+# OCR result parsing helpers (Temporal-safe: pure stdlib, no I/O)
+# ---------------------------------------------------------------------------
+
+_DATE_FORMATS = (
+    "%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y",
+    "%d-%b-%Y", "%d %b %Y", "%d/%m/%y",
+)
+
+def _parse_cheque_date(raw: Optional[str]) -> Optional[_date_type]:
+    """Parse OCR-extracted date string to datetime.date. Returns None on failure."""
+    if not raw:
+        return None
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.strptime(raw.strip(), fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _parse_amount_figures(raw: Optional[str]) -> Optional[float]:
+    """Parse OCR-extracted amount string ('45,000.00' or '45000') to float."""
+    if not raw:
+        return None
+    cleaned = re.sub(r"[₹,\s]", "", raw.strip())
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
 
 
 class ChequeWorkflowInput(BaseModel):
@@ -201,6 +239,15 @@ class ChequeProcessingWorkflow:
         _sig_verdict: str = "UNKNOWN"
         _pps_verdict: str = "NOT_CHECKED"
         _cbs_status: str = "NOT_CHECKED"
+        # OCR state — populated by ocr_extract, carried into persist_decision audit row
+        _ocr_confidence: float = 0.0
+        _ocr_engines_used: list = []
+        _indic_ks_active: bool = False
+        _micr_line: str = ""
+        _ocr_cheque_date: Optional[_date_type] = None
+        _ocr_amount_figures: Optional[float] = None
+        _ocr_amount_words: Optional[str] = None
+        _ocr_ifsc: Optional[str] = None
 
         # Step 1: Spawn IET watchdog FIRST — before any activity (non-negotiable)
         watchdog = await workflow.start_child_workflow(
@@ -302,8 +349,8 @@ class ChequeProcessingWorkflow:
                         signature_verdict=_sig_verdict,
                         pps_verdict=_pps_verdict,
                         cbs_balance_status=_cbs_status,
-                        ocr_engines_used=[],           # inward side: no OCR on drawee
-                        indic_ocr_kill_switch_active=False,
+                        ocr_engines_used=_ocr_engines_used,
+                        indic_ocr_kill_switch_active=_indic_ks_active,
                         iet_margin_seconds=0,          # watchdog tracks IET margin
                     ),
                     start_to_close_timeout=timedelta(seconds=15),
@@ -496,6 +543,48 @@ class ChequeProcessingWorkflow:
                 ai_recommendation=ai_recommendation,
             )
 
+        # Step 1.5: ocr_extract — GOT-OCR2.0 (Latin) + IndicOCR (Devanagari/regional scripts)
+        # Extracts: date, amount_figures, amount_words, payee, IFSC, MICR from image.
+        # Runs BEFORE Vision LLM so stale/post-dated/IFSC-mismatch early-exits save
+        # the 120-second Qwen2-VL call. Low-confidence → HUMAN_REVIEW immediately.
+        from modules.cts.workflows.activities.ocr import ocr_extract, OCRActivityInput
+
+        ocr_result = await workflow.execute_activity(
+            ocr_extract,
+            args=[
+                OCRActivityInput(
+                    image_url=inp.image_url,
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                ),
+                None,   # orchestrator — worker-level DI
+                None,   # config_service — worker-level DI
+                None,   # routing_table — optional, not needed on inward path
+            ],
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=_AI_ACTIVITY_RETRY,
+        )
+
+        _ocr_confidence = ocr_result.overall_confidence
+        _ocr_engines_used = ocr_result.ocr_engines_used
+        _indic_ks_active = ocr_result.indic_ocr_kill_switch_active
+        _micr_line = ocr_result.micr_line or ""
+        _ocr_cheque_date = _parse_cheque_date(ocr_result.date)
+        _ocr_amount_figures = _parse_amount_figures(ocr_result.amount_figures)
+        _ocr_amount_words = ocr_result.amount_words
+        _ocr_ifsc = ocr_result.ifsc_code
+
+        if ocr_result.outcome == "HUMAN_REVIEW":
+            return await finalise(
+                "HUMAN_REVIEW",
+                f"ocr_quality_{ocr_result.low_confidence_reason or 'low_confidence'}",
+                context_extra={
+                    "ocr_engines_used": _ocr_engines_used,
+                    "indic_ks_active": _indic_ks_active,
+                    "degraded": ocr_result.degraded,
+                },
+            )
+
         # Step 2: detect_alteration — Vision LLM FIRST on drawee side
         # Kill-switch checkpoint 1: resolved fresh right before the Vision LLM
         # call so detect_alteration can skip Qwen2-VL entirely under KC.
@@ -663,6 +752,21 @@ class ChequeProcessingWorkflow:
         _sig_match_score = sig_result.match_score or 0.0
         _sig_verdict = getattr(sig_result, "verdict", "UNKNOWN") or "UNKNOWN"
 
+        # Vault miss / signature degraded: route immediately with explicit context
+        # so the HRQ screen shows the true reason, not a generic sig_mismatch.
+        if getattr(sig_result, "outcome", None) == "HUMAN_REVIEW":
+            miss_reason = getattr(sig_result, "miss_reason", None) or "SIG_VERIFICATION_FAILED"
+            cbs_tried = getattr(sig_result, "cbs_fallback_used", False)
+            context_extra: dict = {"sig_miss_reason": miss_reason, "cbs_fallback_tried": cbs_tried}
+            if miss_reason == "NO_SIGNATURE_IN_VAULT":
+                context_extra["vault_miss"] = True
+                context_extra["account_last4"] = inp.account_number[-4:]
+            return await finalise(
+                "HUMAN_REVIEW",
+                f"signature_vault_miss_{miss_reason}",
+                context_extra=context_extra,
+            )
+
         # Step 6: score_fraud
         fraud_result = await workflow.execute_activity(
             score_fraud,
@@ -670,8 +774,8 @@ class ChequeProcessingWorkflow:
                 instrument_id=inp.instrument_id,
                 bank_id=inp.bank_id,
                 amount=inp.presented_amount,
-                micr_line="",  # MICR comes from NGCH metadata on inward side
-                ocr_confidence=sig_result.match_score or 0.0,
+                micr_line=_micr_line,          # from OCR — cross-check against NGCH metadata
+                ocr_confidence=_ocr_confidence,  # from OCR — real confidence, not sig score proxy
                 alteration_detected=alteration_result.alteration_detected,
                 account_last4=inp.account_number[-4:],
             ),
@@ -772,7 +876,7 @@ class ChequeProcessingWorkflow:
                     bank_id=inp.bank_id,
                     smb_id=inp.smb_id,
                     fraud_score=fraud_result.fraud_score,
-                    ocr_confidence=1.0,  # inward side: NGCH guarantees image; no OCR step
+                    ocr_confidence=_ocr_confidence,
                     signature_match_score=sig_result.match_score or 0.0,
                     cbs_outcome=cbs_balance_result.outcome,
                     alteration_detected=alteration_result.alteration_detected,
@@ -784,7 +888,10 @@ class ChequeProcessingWorkflow:
                     kill_switch_scope=alteration_result.kill_switch_scope,
                     payee_name=inp.presented_payee,
                     ngch_ifsc=inp.ngch_ifsc,
-                    # ocr_ifsc remains None — no OCR on inward drawee path
+                    ocr_ifsc=_ocr_ifsc,
+                    cheque_date=_ocr_cheque_date,
+                    amount_figures=_ocr_amount_figures,
+                    amount_words=_ocr_amount_words,
                 ),
                 inp.cts_config,
                 kc2_lookup,  # KillSwitchLookupResult (Pydantic) — worker wrapper converts to KillSwitchStatus
@@ -856,7 +963,8 @@ class ChequeProcessingWorkflow:
         Testable orchestration method: accepts pre-built activity results.
         Production Temporal @workflow.run method wraps this logic.
 
-        Phase 3 mock_results keys (no 'ocr' — OCR removed for drawee side):
+        mock_results keys:
+          ocr (optional — PROCEED assumed when absent for backward compatibility),
           alteration, compliance, stop_payment, pps, signature,
           fraud, cbs, account_status, decision, audit
         """
@@ -868,6 +976,20 @@ class ChequeProcessingWorkflow:
                 iet_deadline=inp.iet_deadline,
             )
         self._watchdog_spawned = True
+
+        # Step 1.5: ocr_extract — GOT-OCR2.0 + IndicOCR
+        # Optional in mock_results for backward compat; absent = treated as PROCEED.
+        _ocr_mock = mock_results.get("ocr")
+        if _ocr_mock is not None:
+            _ocr_outcome = getattr(_ocr_mock, "outcome", "PROCEED")
+            if _ocr_outcome == "HUMAN_REVIEW":
+                return ChequeWorkflowResult(
+                    instrument_id=inp.instrument_id,
+                    bank_id=inp.bank_id,
+                    decision="HUMAN_REVIEW",
+                    rationale=f"ocr_quality_{getattr(_ocr_mock, 'low_confidence_reason', None) or 'low_confidence'}",
+                    shap_values={},
+                )
 
         # Step 2: detect_alteration — Vision LLM FIRST on drawee side
         # Tampered cheque exits immediately — saves all downstream CBS/PPS/signature calls.

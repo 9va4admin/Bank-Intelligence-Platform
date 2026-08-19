@@ -16,8 +16,6 @@ The `load` / `store` / `revoke` public methods accept `account_hash` (pre-hashed
 The `_hash_account` async method and `_hash_account_sync` helper are provided for callers
 that need to hash before calling (e.g. the Orchestrator which has the raw account_number).
 """
-import hashlib
-import hmac
 import struct
 
 import numpy as np
@@ -25,6 +23,7 @@ import structlog
 from opentelemetry import trace
 
 from modules.msv.mandates.models import SignatoryRecord
+from shared.utils.pii_crypto import hash_account_number
 
 log = structlog.get_logger()
 tracer = trace.get_tracer("astra.msv.vault")
@@ -283,7 +282,7 @@ class SignatoryRegistry:
         Never call with raw account number in any key, log, or DB write.
         """
         pepper = await self._cfg.get_secret(f"banks.{bank_id}.pii_hash_pepper")
-        return self._hash_account_sync(account_number, bank_id, pepper=pepper)
+        return hash_account_number(account_number, bank_id, pepper)
 
     def _hash_account_sync(
         self,
@@ -295,11 +294,7 @@ class SignatoryRegistry:
         Synchronous variant for tests that inject the pepper directly.
         In production code always call the async `_hash_account`.
         """
-        return hmac.new(
-            pepper.encode() if pepper else b"",
-            f"{bank_id}:{account_number}".encode(),
-            hashlib.sha256,
-        ).hexdigest()
+        return hash_account_number(account_number, bank_id, pepper)
 
     # ------------------------------------------------------------------
     # Internal helpers

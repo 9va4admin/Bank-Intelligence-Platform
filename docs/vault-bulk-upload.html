@@ -1,0 +1,1354 @@
+<title>Vault Bulk Upload</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* ─── Tokens ──────────────────────────────────────────────────────────── */
+:root {
+  --bg:         #F2F6FB;
+  --bg2:        #E8EFF8;
+  --surface:    #FFFFFF;
+  --surface2:   #F7FAFD;
+  --border:     #C8D8EA;
+  --border2:    #E0EAF4;
+  --accent:     #2563EB;
+  --accent-dim: #1E50BB;
+  --accent-bg:  #EEF4FF;
+  --text-hi:    #0B1829;
+  --text-mid:   #2E4566;
+  --text-lo:    #5B7A9A;
+  --text-inv:   #E8F0FC;
+  --mono-bg:    #EDF2FA;
+  --req-bg:     #EEF9F2;
+  --req-fg:     #1A7A42;
+  --opt-bg:     #F5F5F5;
+  --opt-fg:     #6B7280;
+  --pill-str:   #E8F0FF; --pill-str-fg: #2B5CC8;
+  --pill-int:   #FFF4E5; --pill-int-fg: #B45309;
+  --pill-date:  #F0FAFA; --pill-date-fg: #0F766E;
+  --pill-enum:  #F5F0FF; --pill-enum-fg: #6D28D9;
+  --pill-email: #FFF1F3; --pill-email-fg: #9F1239;
+  --pill-dec:   #FFFBEB; --pill-dec-fg: #92400E;
+  --warn-bg:    #FFFBEB;
+  --warn-border:#FCD34D;
+  --warn-text:  #78350F;
+  --note-bg:    #EEF4FF;
+  --note-border:#93C5FD;
+  --note-text:  #1E3A8A;
+  --tag-bg:     #E8F0FF;
+  --tag-fg:     #1E40AF;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:         #040D1A;
+    --bg2:        #071225;
+    --surface:    #0B1A2E;
+    --surface2:   #0F2240;
+    --border:     #1A3050;
+    --border2:    #0F2035;
+    --accent:     #3B82F6;
+    --accent-dim: #2563EB;
+    --accent-bg:  #0F2240;
+    --text-hi:    #E0EEFF;
+    --text-mid:   #8AADD4;
+    --text-lo:    #4A6A88;
+    --text-inv:   #E8F0FC;
+    --mono-bg:    #071225;
+    --req-bg:     #0C2415;
+    --req-fg:     #34D399;
+    --opt-bg:     #111828;
+    --opt-fg:     #6B7280;
+    --pill-str:   #1A2E50; --pill-str-fg: #60A5FA;
+    --pill-int:   #2A1A06; --pill-int-fg: #FCD34D;
+    --pill-date:  #0A2525; --pill-date-fg: #2DD4BF;
+    --pill-enum:  #1E0A3C; --pill-enum-fg: #C4B5FD;
+    --pill-email: #2A0A14; --pill-email-fg: #FDA4AF;
+    --pill-dec:   #231A04; --pill-dec-fg: #FDE68A;
+    --warn-bg:    #1C1504;
+    --warn-border:#92400E;
+    --warn-text:  #FDE68A;
+    --note-bg:    #0F1E3C;
+    --note-border:#1D4ED8;
+    --note-text:  #93C5FD;
+    --tag-bg:     #132040;
+    --tag-fg:     #93C5FD;
+  }
+}
+:root[data-theme="dark"] {
+    --bg:         #040D1A;
+    --bg2:        #071225;
+    --surface:    #0B1A2E;
+    --surface2:   #0F2240;
+    --border:     #1A3050;
+    --border2:    #0F2035;
+    --accent:     #3B82F6;
+    --accent-dim: #2563EB;
+    --accent-bg:  #0F2240;
+    --text-hi:    #E0EEFF;
+    --text-mid:   #8AADD4;
+    --text-lo:    #4A6A88;
+    --text-inv:   #E8F0FC;
+    --mono-bg:    #071225;
+    --req-bg:     #0C2415;
+    --req-fg:     #34D399;
+    --opt-bg:     #111828;
+    --opt-fg:     #6B7280;
+    --pill-str:   #1A2E50; --pill-str-fg: #60A5FA;
+    --pill-int:   #2A1A06; --pill-int-fg: #FCD34D;
+    --pill-date:  #0A2525; --pill-date-fg: #2DD4BF;
+    --pill-enum:  #1E0A3C; --pill-enum-fg: #C4B5FD;
+    --pill-email: #2A0A14; --pill-email-fg: #FDA4AF;
+    --pill-dec:   #231A04; --pill-dec-fg: #FDE68A;
+    --warn-bg:    #1C1504;
+    --warn-border:#92400E;
+    --warn-text:  #FDE68A;
+    --note-bg:    #0F1E3C;
+    --note-border:#1D4ED8;
+    --note-text:  #93C5FD;
+    --tag-bg:     #132040;
+    --tag-fg:     #93C5FD;
+}
+
+/* ─── Reset ───────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text-hi);
+  font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.65;
+  min-height: 100vh;
+}
+a { color: var(--accent); }
+
+/* ─── Page chrome ─────────────────────────────────────────────────────── */
+.page-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 20px 32px 0;
+}
+.page-header-inner {
+  max-width: 960px;
+  margin: 0 auto;
+}
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-hi);
+  margin-bottom: 4px;
+  letter-spacing: -.02em;
+}
+.page-subtitle {
+  font-size: 13px;
+  color: var(--text-lo);
+  margin-bottom: 16px;
+}
+
+/* ─── Nav path box ────────────────────────────────────────────────────── */
+.nav-path-section {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px 20px;
+}
+.nav-path-section-inner {
+  max-width: 960px;
+  margin: 0 auto;
+}
+.nav-path-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-lo);
+  margin-bottom: 8px;
+}
+.nav-path-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  flex-wrap: wrap;
+}
+.nav-crumb {
+  display: flex;
+  align-items: center;
+  padding: 8px 14px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  color: var(--text-mid);
+  border-right: 1px solid var(--border);
+  gap: 8px;
+}
+.nav-crumb:last-child {
+  border-right: none;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-weight: 700;
+}
+.nav-crumb-icon {
+  width: 14px;
+  height: 14px;
+  opacity: .5;
+  flex-shrink: 0;
+}
+.nav-crumb:last-child .nav-crumb-icon { opacity: 1; }
+.nav-sep {
+  padding: 0;
+  font-size: 16px;
+  color: var(--text-lo);
+  border-right: none !important;
+  background: transparent;
+}
+
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--tag-bg);
+  color: var(--tag-fg);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.meta-chip-label {
+  color: var(--text-lo);
+  font-weight: 400;
+}
+
+/* ─── Tab bar ─────────────────────────────────────────────────────────── */
+.tab-bar-wrap {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.tab-bar {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 32px;
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tab-bar::-webkit-scrollbar { display: none; }
+.tab-btn {
+  flex-shrink: 0;
+  padding: 12px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-lo);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.tab-btn:hover { color: var(--text-hi); }
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+.tab-badge {
+  display: inline-block;
+  margin-left: 5px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  vertical-align: middle;
+}
+
+/* ─── Main content ────────────────────────────────────────────────────── */
+.main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 28px 32px 60px;
+}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ─── Vault section ───────────────────────────────────────────────────── */
+.vault-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.vault-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--accent-bg);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.vault-icon svg { width: 20px; height: 20px; color: var(--accent); }
+.vault-title { font-size: 18px; font-weight: 700; letter-spacing: -.02em; color: var(--text-hi); }
+.vault-desc { font-size: 13px; color: var(--text-lo); margin-top: 2px; line-height: 1.5; }
+
+/* ─── Download filename ───────────────────────────────────────────────── */
+.dl-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 10px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+.dl-label { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-lo); }
+.dl-filename {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 600;
+}
+.dl-role {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-lo);
+}
+.dl-role span {
+  background: var(--tag-bg);
+  color: var(--tag-fg);
+  border-radius: 4px;
+  padding: 2px 8px;
+  margin-left: 5px;
+}
+
+/* ─── Note / Warning callouts ─────────────────────────────────────────── */
+.callout {
+  border-left: 3px solid;
+  padding: 11px 14px;
+  border-radius: 0 6px 6px 0;
+  font-size: 13px;
+  margin-bottom: 18px;
+  line-height: 1.55;
+}
+.callout.note { background: var(--note-bg); border-color: var(--note-border); color: var(--note-text); }
+.callout.warn { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
+.callout strong { font-weight: 700; }
+
+/* ─── Section label ───────────────────────────────────────────────────── */
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-lo);
+  margin-bottom: 8px;
+}
+
+/* ─── Field table ─────────────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; margin-bottom: 24px; border-radius: 8px; border: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; min-width: 600px; font-size: 13px; }
+thead tr { background: var(--bg2); }
+th {
+  text-align: left;
+  padding: 9px 12px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--text-lo);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+td { padding: 9px 12px; border-bottom: 1px solid var(--border2); vertical-align: top; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--surface2); }
+
+.td-field {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12.5px;
+  color: var(--text-hi);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.td-desc { color: var(--text-mid); line-height: 1.5; }
+.td-ex {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11.5px;
+  color: var(--text-lo);
+  white-space: nowrap;
+}
+
+/* Type pills */
+.pill {
+  display: inline-block;
+  border-radius: 4px;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Courier New', Courier, monospace;
+  white-space: nowrap;
+}
+.pill-string  { background: var(--pill-str);   color: var(--pill-str-fg);   }
+.pill-integer { background: var(--pill-int);   color: var(--pill-int-fg);   }
+.pill-date    { background: var(--pill-date);  color: var(--pill-date-fg);  }
+.pill-enum    { background: var(--pill-enum);  color: var(--pill-enum-fg);  }
+.pill-email   { background: var(--pill-email); color: var(--pill-email-fg); }
+.pill-decimal { background: var(--pill-dec);   color: var(--pill-dec-fg);   }
+
+.req-yes {
+  background: var(--req-bg);
+  color: var(--req-fg);
+  font-weight: 700;
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.req-no {
+  background: var(--opt-bg);
+  color: var(--opt-fg);
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* ─── CSV snippet ─────────────────────────────────────────────────────── */
+.csv-block {
+  background: var(--mono-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  color: var(--text-mid);
+  overflow-x: auto;
+  margin-bottom: 8px;
+  line-height: 1.7;
+  white-space: pre;
+}
+.csv-header-line { color: var(--accent); font-weight: 700; }
+.csv-caption {
+  font-size: 12px;
+  color: var(--text-lo);
+  margin-bottom: 20px;
+  padding-left: 2px;
+}
+
+/* ─── Upload rules ────────────────────────────────────────────────────── */
+.rules-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.rule-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+.rule-card-title { font-size: 12px; font-weight: 700; color: var(--text-hi); margin-bottom: 4px; }
+.rule-card-body { font-size: 12.5px; color: var(--text-lo); line-height: 1.55; }
+.rule-card-value { font-family: 'Courier New', Courier, monospace; color: var(--accent); font-size: 12px; font-weight: 600; }
+
+/* ─── Vault list overview ─────────────────────────────────────────────── */
+.overview-grid { display: grid; gap: 10px; margin-bottom: 28px; }
+.overview-row {
+  display: grid;
+  grid-template-columns: 180px 1fr 140px 130px;
+  gap: 12px;
+  align-items: start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+.overview-row:first-child {
+  background: var(--bg2);
+  border-color: var(--border);
+}
+.ov-cell { font-size: 12.5px; color: var(--text-mid); }
+.ov-head { font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--text-lo); }
+.ov-vault { font-weight: 700; color: var(--text-hi); font-size: 13px; }
+.ov-file { font-family: 'Courier New', Courier, monospace; font-size: 12px; color: var(--accent); }
+
+@media (max-width: 640px) {
+  .page-header, .nav-path-section { padding: 16px 16px 0; }
+  .nav-path-section { padding-bottom: 16px; }
+  .tab-bar { padding: 0 16px; }
+  .main { padding: 20px 16px 48px; }
+  .overview-row { grid-template-columns: 1fr 1fr; }
+  .dl-role { margin-left: 0; }
+}
+</style>
+
+<!-- ── Page header ──────────────────────────────────────────────────── -->
+<div class="page-header">
+  <div class="page-header-inner">
+    <div class="eyebrow">ASTRA · CTS · Reference</div>
+    <div class="page-title">Vault Bulk Upload</div>
+    <div class="page-subtitle">Menu navigation, CSV templates and field specifications for all five vault types</div>
+  </div>
+</div>
+
+<!-- ── Nav path ─────────────────────────────────────────────────────── -->
+<div class="nav-path-section">
+  <div class="nav-path-section-inner">
+    <div class="nav-path-label">UI Navigation Path (menu location)</div>
+    <div class="nav-path-box">
+      <div class="nav-crumb">
+        <svg class="nav-crumb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="12" height="9" rx="1.2"/><path d="M2 8h12" stroke-width="1.4"/><path d="M6 11h1m2 0h1" stroke-width="1.8" stroke-linecap="round"/></svg>
+        CTS
+      </div>
+      <div class="nav-crumb nav-sep">›</div>
+      <div class="nav-crumb">
+        <svg class="nav-crumb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="5.5"/><path d="M8 5.5v2.5l1.5 1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Processing
+      </div>
+      <div class="nav-crumb nav-sep">›</div>
+      <div class="nav-crumb">
+        <svg class="nav-crumb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 2v8M5 7l3 3 3-3" stroke-linecap="round" stroke-linejoin="round"/><rect x="2" y="12" width="12" height="2" rx="1"/></svg>
+        Vault Upload
+      </div>
+    </div>
+
+    <div class="meta-row">
+      <div class="meta-chip"><span class="meta-chip-label">Route</span> /cts/vault/upload</div>
+      <div class="meta-chip"><span class="meta-chip-label">Min. role</span> bank_it_admin</div>
+      <div class="meta-chip"><span class="meta-chip-label">Menu section</span> Processing (after "PPS &amp; Stop Cheque")</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Tab bar ──────────────────────────────────────────────────────── -->
+<div class="tab-bar-wrap">
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('overview')">Overview</button>
+    <button class="tab-btn" onclick="switchTab('pps')">PPS Vault</button>
+    <button class="tab-btn" onclick="switchTab('stop')">Stop Cheque</button>
+    <button class="tab-btn" onclick="switchTab('account')">Account Vault</button>
+    <button class="tab-btn" onclick="switchTab('leaf')">Cheque Leaf Vault</button>
+    <button class="tab-btn" onclick="switchTab('sig')">Signature Vault</button>
+    <button class="tab-btn" onclick="switchTab('rules')">Upload Rules</button>
+  </div>
+</div>
+
+<!-- ── Main ─────────────────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- OVERVIEW -->
+  <div id="tab-overview" class="tab-panel active">
+    <div class="section-label">All Vault Types</div>
+    <div class="overview-grid">
+      <div class="overview-row">
+        <div class="ov-head">Vault</div>
+        <div class="ov-head">What it stores</div>
+        <div class="ov-head">CSV Template</div>
+        <div class="ov-head">Role required</div>
+      </div>
+      <div class="overview-row">
+        <div class="ov-vault">PPS Vault</div>
+        <div class="ov-cell">Positive Pay: one pre-registration per specific cheque leaf (account + cheque number + date + payee + amount). RBI-mandated 5-field schema.</div>
+        <div class="ov-file">pps_upload.csv</div>
+        <div class="ov-cell"><span class="meta-chip">ops_manager</span></div>
+      </div>
+      <div class="overview-row">
+        <div class="ov-vault">Stop Cheque</div>
+        <div class="ov-cell">Stop payment instructions; cheques that must be returned on presentation</div>
+        <div class="ov-file">stop_cheque_upload.csv</div>
+        <div class="ov-cell"><span class="meta-chip">ops_manager</span></div>
+      </div>
+      <div class="overview-row">
+        <div class="ov-vault">Account Vault</div>
+        <div class="ov-cell">Account operational profiles: type, status, branch contact details for IET-window notifications</div>
+        <div class="ov-file">account_vault_upload.csv</div>
+        <div class="ov-cell"><span class="meta-chip">bank_it_admin</span></div>
+      </div>
+      <div class="overview-row">
+        <div class="ov-vault">Cheque Leaf Vault</div>
+        <div class="ov-cell">Issued cheque book status per account — used to catch lost/stolen leaves before clearing</div>
+        <div class="ov-file">cheque_leaf_upload.csv</div>
+        <div class="ov-cell"><span class="meta-chip">bank_it_admin</span></div>
+      </div>
+      <div class="overview-row">
+        <div class="ov-vault">Signature Vault</div>
+        <div class="ov-cell">Signatory registration + mandate rules. Specimen images uploaded separately as ZIP; ASTRA computes embeddings.</div>
+        <div class="ov-file">signatory_upload.csv<br>+ specimens.zip</div>
+        <div class="ov-cell"><span class="meta-chip">bank_it_admin</span></div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:8px;">How bulk upload fits the normal sync flow</div>
+    <div class="callout note">
+      <strong>Normal operation:</strong> All vaults are populated automatically each day by <code>VaultSyncWorkflow</code> pulling from the CBS connector (6 AM). Bulk upload is for <strong>initial seeding</strong> (go-live), <strong>CBS connector unavailability</strong> (disaster recovery), or <strong>corrections</strong> that cannot wait for the next sync cycle.
+    </div>
+    <div class="callout warn">
+      <strong>Vault miss rule is non-negotiable:</strong> Any record missing from any vault at clearing time routes to <strong>HUMAN_REVIEW</strong> — never AUTO_RETURN. Bulk upload does not change this routing policy. Incomplete uploads increase the human review queue; they do not cause incorrect returns.
+    </div>
+  </div>
+
+  <!-- PPS VAULT -->
+  <div id="tab-pps" class="tab-panel">
+    <div class="vault-header">
+      <div class="vault-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 12h8M8 8h8M8 16h5" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <div class="vault-title">PPS Vault — Positive Pay System</div>
+        <div class="vault-desc">Pre-registers individual cheque leaves issued by the drawee bank. Each registration covers one specific cheque leaf — one account, one cheque number, one date, one amount, one payee. At clearing, the incoming cheque is matched against this vault; a miss routes the instrument to human review.</div>
+      </div>
+    </div>
+
+    <div class="dl-row">
+      <div class="dl-label">Template filename</div>
+      <div class="dl-filename">pps_upload.csv</div>
+      <div class="dl-role">Min. role <span>ops_manager</span></div>
+    </div>
+
+    <div class="callout note">
+      <strong>bank_id is never a CSV column.</strong> Every row is automatically scoped to the authenticated user's bank (for UI uploads, from the session JWT; for SFTP file-drop, from the MinIO path <code>astra-vault-drops/{bank_id}/pps/</code>). Do not add a <code>bank_id</code> column — the system will reject files that include it.
+    </div>
+
+    <div class="section-label">Field specification — RBI Positive Pay (5 mandatory fields)</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Column</th>
+            <th>Type</th>
+            <th>Required</th>
+            <th>Description</th>
+            <th>Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-field">account_number</td>
+            <td><span class="pill pill-string">string</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Full account number of the drawer. HMAC-SHA256-hashed on ingest (bank-specific pepper from Vault) — never stored raw. Used as the vault lookup key.</td>
+            <td class="td-ex">00112233445566</td>
+          </tr>
+          <tr>
+            <td class="td-field">cheque_number</td>
+            <td><span class="pill pill-string">string</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">The specific 6-digit cheque leaf serial number, zero-padded. One registration per leaf — not a range. Together with <code>account_number</code>, forms the composite vault key.</td>
+            <td class="td-ex">000123</td>
+          </tr>
+          <tr>
+            <td class="td-field">cheque_date</td>
+            <td><span class="pill pill-date">date</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Date printed on the face of the cheque. Format: YYYY-MM-DD. The system computes expiry as <code>cheque_date + 90 days</code> automatically — do not supply an expiry column.</td>
+            <td class="td-ex">2026-08-10</td>
+          </tr>
+          <tr>
+            <td class="td-field">amount</td>
+            <td><span class="pill pill-decimal">decimal</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Cheque amount in INR, two decimal places. No commas, no currency symbols. Stored as range bucket internally; exact amount is never persisted.</td>
+            <td class="td-ex">750000.00</td>
+          </tr>
+          <tr>
+            <td class="td-field">payee_name</td>
+            <td><span class="pill pill-string">string</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Payee name as registered with the bank — must match what appears on the cheque face. UTF-8 encoding; Indic scripts accepted. Stored as SHA-256 hash; the raw name is never persisted.</td>
+            <td class="td-ex">Reliance Industries Ltd</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout warn">
+      <strong>No series ranges.</strong> PPS is per-leaf — one row per cheque number. If a customer pre-registers 10 cheques from the same book, that is 10 rows in this file. The Cheque Leaf Vault (separate tab) handles book-level range uploads.
+    </div>
+
+    <div class="section-label">Sample CSV</div>
+    <div class="csv-block"><span class="csv-header-line">action,account_number,cheque_number,cheque_date,amount,payee_name</span>
+<span style="color:var(--req-fg);">UPSERT</span>,00112233445566,000123,2026-08-10,750000.00,Reliance Industries Ltd
+<span style="color:var(--req-fg);">UPSERT</span>,00998877665544,000456,2026-08-15,1500000.00,Tata Consultancy Services Ltd
+<span style="color:var(--req-fg);">UPSERT</span>,00776655443322,000789,2026-08-20,2500000.00,महाराष्ट्र शासन
+<span style="color:var(--pill-email-fg);">DEACTIVATE</span>,00334455667788,000321,,,</div>
+    <div class="csv-caption">One row = one cheque leaf. <code>expires_at</code> is computed automatically as <code>cheque_date + 90 days</code> — never include it in the CSV. DEACTIVATE: only <code>account_number</code> and <code>cheque_number</code> are required; other columns are ignored. The previous registration is snapshotted to history before deactivation.</div>
+  </div>
+
+  <!-- STOP CHEQUE -->
+  <div id="tab-stop" class="tab-panel">
+    <div class="vault-header">
+      <div class="vault-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M9 9l6 6M15 9l-6 6" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <div class="vault-title">Stop Cheque</div>
+        <div class="vault-desc">Stop payment instructions from account holders. Any cheque number matching a stop instruction at presentation is returned without entering the AI decision pipeline.</div>
+      </div>
+    </div>
+
+    <div class="dl-row">
+      <div class="dl-label">Template filename</div>
+      <div class="dl-filename">stop_cheque_upload.csv</div>
+      <div class="dl-role">Min. role <span>ops_manager</span></div>
+    </div>
+
+    <div class="callout note">
+      <strong>bank_id is never a CSV column.</strong> Every row is automatically scoped to the authenticated user's bank (for UI uploads, from the session JWT; for SFTP file-drop, from the MinIO path <code>astra-vault-drops/{bank_id}/stop_payment/</code>). Do not add a <code>bank_id</code> column — the system will reject files that include it.
+    </div>
+
+    <div class="section-label">Field specification</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Column</th>
+            <th>Type</th>
+            <th>Required</th>
+            <th>Description</th>
+            <th>Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-field">account_number</td>
+            <td><span class="pill pill-string">string</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Full account number of the account holder placing the stop instruction.</td>
+            <td class="td-ex">00112233445566</td>
+          </tr>
+          <tr>
+            <td class="td-field">cheque_number</td>
+            <td><span class="pill pill-string">string</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Individual cheque serial number to stop (zero-padded, 6 digits).</td>
+            <td class="td-ex">000045</td>
+          </tr>
+          <tr>
+            <td class="td-field">stop_reason</td>
+            <td><span class="pill pill-enum">enum</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">One of: <code>LOST_STOLEN</code> · <code>DISPUTED_AMOUNT</code> · <code>COUNTERMAND</code> · <code>FRAUD_SUSPECTED</code></td>
+            <td class="td-ex">LOST_STOLEN</td>
+          </tr>
+          <tr>
+            <td class="td-field">requested_by</td>
+            <td><span class="pill pill-string">string</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Name of the account holder or authorised representative making the request.</td>
+            <td class="td-ex">Suresh Mehta</td>
+          </tr>
+          <tr>
+            <td class="td-field">requested_at</td>
+            <td><span class="pill pill-date">date</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Date the stop instruction was received. Format: YYYY-MM-DD.</td>
+            <td class="td-ex">2026-08-17</td>
+          </tr>
+          <tr>
+            <td class="td-field">branch_code</td>
+            <td><span class="pill pill-string">string</span></td>
+            <td><span class="req-no">— Opt.</span></td>
+            <td class="td-desc">Branch where the instruction was logged. Used for audit trail only.</td>
+            <td class="td-ex">MUM001</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-label">Sample CSV</div>
+    <div class="csv-block"><span class="csv-header-line">action,account_number,cheque_number,stop_reason,requested_by,requested_at,branch_code</span>
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00112233445566,000045,LOST_STOLEN,Suresh Mehta,2026-08-17,MUM001
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00998877665544,000178,DISPUTED_AMOUNT,Priya Nair,2026-08-16,CHN003
+<span style="color:var(--pill-email-fg);">DEACTIVATE</span>,00334455667788,000222,,,,</div>
+    <div class="csv-caption">Stop Cheque uses INSERT_ONLY for new stops (a stop cannot be updated — only revoked). DEACTIVATE = revoke the stop; the cheque is then permitted through clearing on next presentation. Both actions are logged to history before taking effect.</div>
+  </div>
+
+  <!-- ACCOUNT VAULT -->
+  <div id="tab-account" class="tab-panel">
+    <div class="vault-header">
+      <div class="vault-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M6 20c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke-linecap="round"/><path d="M19 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4M5 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <div class="vault-title">Account Vault</div>
+        <div class="vault-desc">Two-file upload: <strong>Summary</strong> carries one operational record per account (branch contacts, type, status); <strong>Detail</strong> carries one row per holder per account (holder identity and role). ASTRA derives the masked display string from Detail rows — the bank never constructs it directly. Covers all account structures: individual, joint, corporate, HUF, partnership, and trust.</div>
+      </div>
+    </div>
+
+    <div class="callout note">
+      <strong>bank_id is never a CSV column.</strong> Every row is automatically scoped to the authenticated user's bank (for UI uploads, from the session JWT; for SFTP file-drop, from the MinIO path <code>astra-vault-drops/{bank_id}/account_detail/</code>). Do not add a <code>bank_id</code> column — the system will reject files that include it.
+    </div>
+
+    <div class="callout note">
+      <strong>Upload order:</strong> Summary must be uploaded first. Detail rows referencing an <code>account_number</code> not present in Summary are rejected. Both files are processed atomically within their own upload — a row error rolls back that file only.
+    </div>
+
+    <!-- ── PART 1: SUMMARY ──────────────────────────────────────────── -->
+
+    <div class="dl-row">
+      <div class="dl-label">Part 1 — Summary</div>
+      <div class="dl-filename">account_vault_summary.csv</div>
+      <div class="dl-role">Min. role <span>bank_it_admin</span></div>
+    </div>
+
+    <div class="section-label">Field specification — account_vault_summary.csv</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Column</th>
+            <th>Type</th>
+            <th>Required</th>
+            <th>Description</th>
+            <th>Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-field">action</td>
+            <td><span class="pill pill-enum">enum</span></td>
+            <td><span class="req-no">— Opt.</span></td>
+            <td class="td-desc">Row-level operation. One of: <code>UPSERT</code> · <code>INSERT_ONLY</code> · <code>UPDATE_ONLY</code> · <code>DEACTIVATE</code>. Omitting the column header defaults all rows to <code>UPSERT</code>. See Upload Rules tab for full semantics.</td>
+            <td class="td-ex">UPSERT</td>
+          </tr>
+          <tr style="background:var(--accent-bg);">
+            <td class="td-field">account_number <span style="margin-left:5px;background:var(--accent);color:#fff;font-size:9px;font-weight:800;letter-spacing:.06em;padding:1px 5px;border-radius:3px;vertical-align:middle;font-family:system-ui,sans-serif;">UNIQUE / FILE</span></td>
+            <td><span class="pill pill-string">string</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Full account number. <strong>Must appear at most once within this file</strong> — a duplicate causes the entire upload to be rejected. Hashed on ingest; never stored raw. May appear in future uploads with a different action.</td>
+            <td class="td-ex">00112233445566</td>
+          </tr>
+          <tr>
+            <td class="td-field">account_type</td>
+            <td><span class="pill pill-enum">enum</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">CBS product type. One of: <code>SA</code> · <code>CA</code> · <code>OD</code> · <code>CC</code> · <code>FD</code> · <code>RD</code></td>
+            <td class="td-ex">CA</td>
+          </tr>
+          <tr>
+            <td class="td-field">account_status</td>
+            <td><span class="pill pill-enum">enum</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">One of: <code>ACTIVE</code> · <code>FROZEN</code> · <code>CLOSED</code> · <code>DORMANT</code> · <code>NPA</code></td>
+            <td class="td-ex">ACTIVE</td>
+          </tr>
+          <tr>
+            <td class="td-field">account_category</td>
+            <td><span class="pill pill-enum">enum</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Legal ownership structure. One of: <code>INDIVIDUAL</code> · <code>JOINT</code> · <code>CORPORATE</code> · <code>PARTNERSHIP</code> · <code>HUF</code> · <code>TRUST</code>. Controls how Detail rows are interpreted and how the display label is constructed.</td>
+            <td class="td-ex">JOINT</td>
+          </tr>
+          <tr>
+            <td class="td-field">branch_code</td>
+            <td><span class="pill pill-string">string</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Branch code per CBS master. Used to group accounts when branch contacts are updated in bulk.</td>
+            <td class="td-ex">MUM001</td>
+          </tr>
+          <tr>
+            <td class="td-field">branch_name</td>
+            <td><span class="pill pill-string">string</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Human-readable branch name shown in Hold notifications and audit log.</td>
+            <td class="td-ex">Andheri West</td>
+          </tr>
+          <tr>
+            <td class="td-field">branch_ifsc</td>
+            <td><span class="pill pill-string">string</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">11-character IFSC code of the home branch.</td>
+            <td class="td-ex">SARA0001234</td>
+          </tr>
+          <tr>
+            <td class="td-field">branch_manager_email</td>
+            <td><span class="pill pill-email">email</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Branch manager's email — primary recipient of IET-window Hold alerts.</td>
+            <td class="td-ex">mgr.andheri@bank.in</td>
+          </tr>
+          <tr>
+            <td class="td-field">branch_contact_email</td>
+            <td><span class="pill pill-email">email</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Branch ops desk email — secondary recipient for clearing notifications.</td>
+            <td class="td-ex">ops.andheri@bank.in</td>
+          </tr>
+          <tr>
+            <td class="td-field">branch_contact_phone</td>
+            <td><span class="pill pill-string">string</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Branch landline or WhatsApp-registered number. Country code optional (defaults to +91).</td>
+            <td class="td-ex">02266778899</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-label">Sample — account_vault_summary.csv</div>
+    <div class="csv-block"><span class="csv-header-line">action,account_number,account_type,account_status,account_category,branch_code,branch_name,branch_ifsc,branch_manager_email,branch_contact_email,branch_contact_phone</span>
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00112233445566,SA,ACTIVE,INDIVIDUAL,MUM001,Andheri West,SARA0001234,mgr.andheri@bank.in,ops.andheri@bank.in,02266778899
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00998877665544,CA,ACTIVE,JOINT,CHN003,T Nagar,SARA0002345,mgr.tnagar@bank.in,ops.tnagar@bank.in,04444556677
+<span style="color:var(--req-fg);">UPSERT</span>,00776655443322,CA,ACTIVE,CORPORATE,BLR007,Indiranagar,SARA0003456,mgr.indir@bank.in,ops.indir@bank.in,08033445566
+<span style="color:var(--pill-int-fg);">UPDATE_ONLY</span>,00334455667788,,FROZEN,,,,,,mgr.new@bank.in,,
+<span style="color:var(--pill-email-fg);">DEACTIVATE</span>,00221133445566,,,,,,,,,, </div>
+    <div class="csv-caption">Row 4 (UPDATE_ONLY): only account_status and branch_manager_email change — blanks leave all other fields untouched. Row 5 (DEACTIVATE): only account_number is needed; existing values are snapshotted to history before deactivation.</div>
+
+    <!-- ── PART 2: DETAIL ───────────────────────────────────────────── -->
+
+    <div class="dl-row" style="margin-top:24px;">
+      <div class="dl-label">Part 2 — Detail</div>
+      <div class="dl-filename">account_vault_detail.csv</div>
+      <div class="dl-role">Min. role <span>bank_it_admin</span></div>
+    </div>
+
+    <div class="section-label">Field specification — account_vault_detail.csv</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Column</th>
+            <th>Type</th>
+            <th>Required</th>
+            <th>Description</th>
+            <th>Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-field">action</td>
+            <td><span class="pill pill-enum">enum</span></td>
+            <td><span class="req-no">— Opt.</span></td>
+            <td class="td-desc">Row-level operation: <code>UPSERT</code> · <code>INSERT_ONLY</code> · <code>UPDATE_ONLY</code> · <code>DEACTIVATE</code>. DEACTIVATE on a holder row marks that person as removed from the account (e.g. deceased joint holder) without deleting the history record. Defaults to <code>UPSERT</code> if column is absent.</td>
+            <td class="td-ex">INSERT_ONLY</td>
+          </tr>
+          <tr style="background:var(--accent-bg);">
+            <td class="td-field">account_number <span style="margin-left:5px;background:var(--accent);color:#fff;font-size:9px;font-weight:800;letter-spacing:.06em;padding:1px 5px;border-radius:3px;vertical-align:middle;font-family:system-ui,sans-serif;">COMPOSITE KEY</span></td>
+            <td><span class="pill pill-string">string</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Must match an <code>account_number</code> in the Summary file. Rows with no matching Summary record are rejected.</td>
+            <td class="td-ex">00998877665544</td>
+          </tr>
+          <tr style="background:var(--accent-bg);">
+            <td class="td-field">holder_seq <span style="margin-left:5px;background:var(--accent);color:#fff;font-size:9px;font-weight:800;letter-spacing:.06em;padding:1px 5px;border-radius:3px;vertical-align:middle;font-family:system-ui,sans-serif;">COMPOSITE KEY</span></td>
+            <td><span class="pill pill-integer">integer</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Position of this holder within the account, starting at 1. The combination of <code>account_number + holder_seq</code> must be unique in the file. Holder 1 is always the primary holder.</td>
+            <td class="td-ex">1</td>
+          </tr>
+          <tr>
+            <td class="td-field">holder_role</td>
+            <td><span class="pill pill-enum">enum</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Role of this holder on the account:<br>
+              <code>PRIMARY</code> — sole or first holder (individual, joint)<br>
+              <code>JOINT</code> — additional holder in a joint account<br>
+              <code>KARTA</code> — HUF manager (exactly one per HUF account)<br>
+              <code>COPARCENER</code> — HUF member<br>
+              <code>PARTNER</code> — partnership firm partner<br>
+              <code>DIRECTOR</code> — company director (corporate accounts)<br>
+              <code>TRUSTEE</code> — trust trustee<br>
+              <code>NOMINEE</code> — nominee (not an owner; receives on death)<br>
+              <code>GUARDIAN</code> — guardian for a minor holder
+            </td>
+            <td class="td-ex">JOINT</td>
+          </tr>
+          <tr>
+            <td class="td-field">holder_initial</td>
+            <td><span class="pill pill-string">string</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">First letter of this holder's name — single character, A–Z. For CORPORATE and TRUST accounts where the holder is an entity rather than a person, use the first letter of the registered entity name. ASTRA builds the masked display label from these initials automatically.</td>
+            <td class="td-ex">P</td>
+          </tr>
+          <tr>
+            <td class="td-field">can_sign</td>
+            <td><span class="pill pill-enum">enum</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc"><code>TRUE</code> if this holder is also an authorised signatory for clearing cheques. <code>FALSE</code> if they hold the account but cannot sign (e.g. minor, nominee, silent partner). Note: authorised signatories who are <em>not</em> account holders (e.g. CFO on a corporate account) are enrolled via the Signature Vault upload, not here.</td>
+            <td class="td-ex">TRUE</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout note">
+      <strong>How ASTRA builds the display label from Detail rows</strong><br>
+      The bank never constructs a masked display string — ASTRA derives it automatically after both files are processed:
+      <div style="margin-top:8px;display:grid;grid-template-columns:110px 1fr 130px;gap:0;font-size:12.5px;">
+        <div style="padding:5px 8px;font-weight:700;border-bottom:1px solid var(--note-border);font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.7;">Category</div>
+        <div style="padding:5px 8px;font-weight:700;border-bottom:1px solid var(--note-border);font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.7;">Rule</div>
+        <div style="padding:5px 8px;font-weight:700;border-bottom:1px solid var(--note-border);font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.7;">Result</div>
+        <div style="padding:5px 8px;font-family:'Courier New',monospace;font-weight:700;border-bottom:1px solid var(--note-border);opacity:.85;">INDIVIDUAL</div>
+        <div style="padding:5px 8px;border-bottom:1px solid var(--note-border);opacity:.85;">Primary holder's initial + ***</div>
+        <div style="padding:5px 8px;font-family:'Courier New',monospace;border-bottom:1px solid var(--note-border);opacity:.85;">R***</div>
+        <div style="padding:5px 8px;font-family:'Courier New',monospace;font-weight:700;border-bottom:1px solid var(--note-border);opacity:.85;">JOINT</div>
+        <div style="padding:5px 8px;border-bottom:1px solid var(--note-border);opacity:.85;">Each holder's initial + ***, joined by &amp; · max 3 shown, remainder "+ N more"</div>
+        <div style="padding:5px 8px;font-family:'Courier New',monospace;border-bottom:1px solid var(--note-border);opacity:.85;">R*** &amp; P***</div>
+        <div style="padding:5px 8px;font-family:'Courier New',monospace;font-weight:700;border-bottom:1px solid var(--note-border);opacity:.85;">HUF</div>
+        <div style="padding:5px 8px;border-bottom:1px solid var(--note-border);opacity:.85;">Karta's initial + *** + HUF (coparceners not shown)</div>
+        <div style="padding:5px 8px;font-family:'Courier New',monospace;border-bottom:1px solid var(--note-border);opacity:.85;">S*** HUF</div>
+        <div style="padding:5px 8px;font-family:'Courier New',monospace;font-weight:700;border-bottom:1px solid var(--note-border);opacity:.85;">PARTNERSHIP</div>
+        <div style="padding:5px 8px;border-bottom:1px solid var(--note-border);opacity:.85;">First partner's initial + *** + &amp; Partners</div>
+        <div style="padding:5px 8px;font-family:'Courier New',monospace;border-bottom:1px solid var(--note-border);opacity:.85;">M*** &amp; Partners</div>
+        <div style="padding:5px 8px;font-family:'Courier New',monospace;font-weight:700;border-bottom:1px solid var(--note-border);opacity:.85;">CORPORATE</div>
+        <div style="padding:5px 8px;border-bottom:1px solid var(--note-border);opacity:.85;">Entity initial from seq-1 Director row + *** + Co.</div>
+        <div style="padding:5px 8px;font-family:'Courier New',monospace;border-bottom:1px solid var(--note-border);opacity:.85;">T*** Co.</div>
+        <div style="padding:5px 8px;font-family:'Courier New',monospace;font-weight:700;opacity:.85;">TRUST</div>
+        <div style="padding:5px 8px;opacity:.85;">Entity initial from seq-1 Trustee row + *** + Trust</div>
+        <div style="padding:5px 8px;font-family:'Courier New',monospace;opacity:.85;">A*** Trust</div>
+      </div>
+    </div>
+
+    <div class="section-label">Sample — account_vault_detail.csv</div>
+    <div class="csv-block"><span class="csv-header-line">action,account_number,holder_seq,holder_role,holder_initial,can_sign</span>
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00112233445566,1,PRIMARY,R,TRUE
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00998877665544,1,PRIMARY,R,TRUE
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00998877665544,2,JOINT,P,TRUE
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00776655443322,1,DIRECTOR,T,TRUE
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00776655443322,2,DIRECTOR,S,TRUE
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00776655443322,3,DIRECTOR,A,FALSE
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00334455667788,1,KARTA,S,TRUE
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00334455667788,2,COPARCENER,V,FALSE
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00334455667788,3,COPARCENER,A,FALSE
+<span style="color:var(--pill-int-fg);">UPDATE_ONLY</span>,00998877665544,2,,,FALSE
+<span style="color:var(--pill-email-fg);">DEACTIVATE</span>,00776655443322,3,,, </div>
+    <div class="csv-caption">Last two rows show day-2 changes: the second joint holder's <code>can_sign</code> is revoked (UPDATE_ONLY, blanks leave role and initial untouched); Director seq-3 is removed from the account (DEACTIVATE — their history row is written before the record is marked inactive).</div>
+  </div>
+
+  <!-- CHEQUE LEAF VAULT -->
+  <div id="tab-leaf" class="tab-panel">
+    <div class="vault-header">
+      <div class="vault-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5" stroke-linecap="round"/><path d="M15 15l2 2 3-3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div>
+        <div class="vault-title">Cheque Leaf Vault</div>
+        <div class="vault-desc">Tracks the status of every issued cheque leaf. A bloom filter of cancelled serials is checked before the AI pipeline — preventing GPU time spent on obviously invalid instruments. Bulk upload is how the bank seeds the vault at go-live from CBS issuance records.</div>
+      </div>
+    </div>
+
+    <div class="dl-row">
+      <div class="dl-label">Template filename</div>
+      <div class="dl-filename">cheque_leaf_upload.csv</div>
+      <div class="dl-role">Min. role <span>bank_it_admin</span></div>
+    </div>
+
+    <div class="callout note">
+      <strong>bank_id is never a CSV column.</strong> Every row is automatically scoped to the authenticated user's bank (for UI uploads, from the session JWT; for SFTP file-drop, from the MinIO path <code>astra-vault-drops/{bank_id}/cheque_book/</code> or <code>astra-vault-drops/{bank_id}/leaf_status/</code>). Do not add a <code>bank_id</code> column — the system will reject files that include it.
+    </div>
+
+    <div class="section-label">Field specification</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Column</th>
+            <th>Type</th>
+            <th>Required</th>
+            <th>Description</th>
+            <th>Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-field">account_number</td>
+            <td><span class="pill pill-string">string</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Account number to which this cheque book was issued.</td>
+            <td class="td-ex">00112233445566</td>
+          </tr>
+          <tr>
+            <td class="td-field">cheque_number_from</td>
+            <td><span class="pill pill-string">string</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">First leaf number in the issued cheque book (zero-padded, 6 digits).</td>
+            <td class="td-ex">000001</td>
+          </tr>
+          <tr>
+            <td class="td-field">cheque_number_to</td>
+            <td><span class="pill pill-string">string</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Last leaf number in the issued cheque book. Equal to <code>cheque_number_from</code> for a single-leaf upload.</td>
+            <td class="td-ex">000050</td>
+          </tr>
+          <tr>
+            <td class="td-field">status</td>
+            <td><span class="pill pill-enum">enum</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">One of: <code>ACTIVE</code> · <code>LOST</code> · <code>STOLEN</code> · <code>CANCELLED</code> · <code>USED</code></td>
+            <td class="td-ex">ACTIVE</td>
+          </tr>
+          <tr>
+            <td class="td-field">issued_date</td>
+            <td><span class="pill pill-date">date</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Date the cheque book was issued to the account holder. Format: YYYY-MM-DD.</td>
+            <td class="td-ex">2026-08-01</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout note" style="margin-top:4px;">
+      <strong>Range expansion:</strong> When <code>cheque_number_from ≠ cheque_number_to</code>, the upload processor expands each row into individual leaf entries automatically. A book of 50 leaves is one CSV row, not 50.
+    </div>
+
+    <div class="section-label">Sample CSV</div>
+    <div class="csv-block"><span class="csv-header-line">action,account_number,cheque_number_from,cheque_number_to,status,issued_date</span>
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00112233445566,000001,000050,ACTIVE,2026-08-01
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00998877665544,000100,000150,ACTIVE,2026-07-15
+<span style="color:var(--pill-int-fg);">UPDATE_ONLY</span>,00556677889900,000205,000205,CANCELLED,
+<span style="color:var(--pill-int-fg);">UPDATE_ONLY</span>,00334455667788,000300,000300,LOST,</div>
+    <div class="csv-caption">Range uploads (INSERT_ONLY) auto-expand each leaf to ACTIVE. Status corrections (UPDATE_ONLY) target individual leaves — CANCELLED and LOST/STOLEN are immediately added to the bloom filter and previous status written to history.</div>
+  </div>
+
+  <!-- SIGNATURE VAULT -->
+  <div id="tab-sig" class="tab-panel">
+    <div class="vault-header">
+      <div class="vault-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 17c2-4 4-8 8-8s4 4 4 8" stroke-linecap="round"/><path d="M14 9c1-3 3-5 5-5" stroke-linecap="round"/><path d="M3 20h18" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <div class="vault-title">Signature Vault — Signatory Registration</div>
+        <div class="vault-desc">Two-part upload. The CSV registers which signatories are authorised on each account and the mandate rule. Actual specimen signature images are uploaded as a separate ZIP — ASTRA's Siamese Network computes the embeddings; you never upload raw vectors.</div>
+      </div>
+    </div>
+
+    <div class="dl-row">
+      <div class="dl-label">Part 1 — Signatory CSV</div>
+      <div class="dl-filename">signatory_upload.csv</div>
+      <div class="dl-role">Min. role <span>bank_it_admin</span></div>
+    </div>
+
+    <div class="callout note">
+      <strong>bank_id is never a CSV column.</strong> Every row is automatically scoped to the authenticated user's bank (for UI uploads, from the session JWT; for SFTP file-drop, from the MinIO path <code>astra-vault-drops/{bank_id}/signature/</code>). Do not add a <code>bank_id</code> column — the system will reject files that include it.
+    </div>
+
+    <div class="section-label">Field specification — signatory_upload.csv</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Column</th>
+            <th>Type</th>
+            <th>Required</th>
+            <th>Description</th>
+            <th>Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-field">account_number</td>
+            <td><span class="pill pill-string">string</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Account number. Hashed on ingest.</td>
+            <td class="td-ex">00112233445566</td>
+          </tr>
+          <tr>
+            <td class="td-field">signatory_id</td>
+            <td><span class="pill pill-string">string</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">Unique ID for this signatory on this account. Use <code>PRIMARY</code> for single-signatory accounts. For joint/corporate, use <code>SIG_001</code>, <code>SIG_002</code>, etc.</td>
+            <td class="td-ex">PRIMARY</td>
+          </tr>
+          <tr>
+            <td class="td-field">mandate_rule</td>
+            <td><span class="pill pill-enum">enum</span></td>
+            <td><span class="req-yes">✓ Yes</span></td>
+            <td class="td-desc">One of: <code>ANY_ONE</code> (retail default) · <code>ALL_REQUIRED</code> (joint) · <code>QUORUM_N</code> (corporate)</td>
+            <td class="td-ex">ANY_ONE</td>
+          </tr>
+          <tr>
+            <td class="td-field">quorum_n</td>
+            <td><span class="pill pill-integer">integer</span></td>
+            <td><span class="req-no">Cond.</span></td>
+            <td class="td-desc">Minimum number of matching signatories required. Only used when <code>mandate_rule = QUORUM_N</code>. Leave blank for ALL_REQUIRED and ANY_ONE.</td>
+            <td class="td-ex">2</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-label">Sample CSV — signatory_upload.csv</div>
+    <div class="csv-block"><span class="csv-header-line">action,account_number,signatory_id,mandate_rule,quorum_n</span>
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00112233445566,PRIMARY,ANY_ONE,
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00998877665544,SIG_001,ALL_REQUIRED,
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00998877665544,SIG_002,ALL_REQUIRED,
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00776655443322,SIG_001,QUORUM_N,2
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00776655443322,SIG_002,QUORUM_N,2
+<span style="color:var(--pill-int-fg);">UPDATE_ONLY</span>,00776655443322,SIG_001,,3
+<span style="color:var(--pill-email-fg);">DEACTIVATE</span>,00776655443322,SIG_002,,</div>
+    <div class="csv-caption">Last two rows: quorum raised to 3 (UPDATE_ONLY — mandate_rule blank, left as QUORUM_N); SIG_002 removed from account (DEACTIVATE — embeddings and history preserved, signatory no longer valid at clearing). Specimen images for new signatories upload separately as ZIP.</div>
+
+    <div class="dl-row" style="margin-top:20px;">
+      <div class="dl-label">Part 2 — Specimen images</div>
+      <div class="dl-filename">specimens.zip</div>
+    </div>
+
+    <div class="callout note">
+      <strong>Image naming convention inside the ZIP:</strong><br>
+      <code>{account_number}_{signatory_id}_{index}.jpg</code><br><br>
+      Example for three specimens of the primary signatory on account 00112233445566:<br>
+      <code>00112233445566_PRIMARY_0.jpg</code><br>
+      <code>00112233445566_PRIMARY_1.jpg</code><br>
+      <code>00112233445566_PRIMARY_2.jpg</code><br><br>
+      Minimum 3 specimens per signatory recommended; ASTRA's Siamese Network performs best with 5+. Accepted formats: JPG, PNG, TIFF. Minimum resolution: 300 DPI. Signatures must be on a white background; preprocessing is applied automatically.
+    </div>
+
+    <div class="callout warn">
+      <strong>Embeddings are computed by ASTRA — never upload vectors directly.</strong> The processing pipeline runs in the background after ZIP upload; vault entries appear in Redis within the next VaultSyncWorkflow cycle or within 30 minutes if triggered manually.
+    </div>
+  </div>
+
+  <!-- UPLOAD RULES -->
+  <div id="tab-rules" class="tab-panel">
+
+    <!-- action column — the most important rule, shown first -->
+    <div class="section-label">The <code style="font-size:13px;letter-spacing:0;text-transform:none;">action</code> column — universal across all vault upload files</div>
+
+    <div class="callout note" style="margin-bottom:16px;">
+      Every vault upload file has an <code>action</code> column as its first column. It is optional — if omitted from the header entirely, the system defaults all rows to <code>UPSERT</code>. When present, each row declares individually what should happen. This is how the same file format handles initial seeding, periodic updates, and removals without separate upload flows.
+    </div>
+
+    <div class="table-wrap" style="margin-bottom:24px;">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:130px;">action value</th>
+            <th>What it does</th>
+            <th>Fails if…</th>
+            <th>Typical use</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-field" style="color:var(--req-fg);">UPSERT</td>
+            <td class="td-desc"><strong>Default.</strong> Creates the record if it does not exist; updates the matched record if it does. Only non-blank columns are written — blank = leave the existing value as-is.</td>
+            <td class="td-desc">Never fails on existence. May fail on validation (bad enum, missing required field on first insert).</td>
+            <td class="td-desc">Day-to-day incremental sync, periodic refresh batches.</td>
+          </tr>
+          <tr>
+            <td class="td-field" style="color:var(--accent);">INSERT_ONLY</td>
+            <td class="td-desc">Creates a new record. All required columns must be present. Blank optional columns use system defaults.</td>
+            <td class="td-desc">Record already exists in the vault — the row is rejected and logged. The rest of the file continues.</td>
+            <td class="td-desc">Go-live seeding where you want confirmation that you are not accidentally overwriting existing data.</td>
+          </tr>
+          <tr>
+            <td class="td-field" style="color:var(--pill-int-fg);">UPDATE_ONLY</td>
+            <td class="td-desc">Updates an existing record. Blank columns = leave as-is (partial update). To explicitly clear a field, write <code>~CLEAR~</code> as the value.</td>
+            <td class="td-desc">Record not found in the vault — the row is rejected and logged. Prevents silent creates when intent is to update.</td>
+            <td class="td-desc">Branch contact refresh, account status changes, holder detail corrections.</td>
+          </tr>
+          <tr>
+            <td class="td-field" style="color:var(--pill-email-fg);">DEACTIVATE</td>
+            <td class="td-desc">Soft-marks the record as inactive. The record is retained for audit trail — never physically deleted. Only the key columns are needed; data columns are ignored.</td>
+            <td class="td-desc">Record not found — logged as a warning, not an error.</td>
+            <td class="td-desc">Remove a joint holder, revoke a stop cheque instruction, expire a PPS entry, cancel a cheque book.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-label">History table — mandatory snapshot before every change</div>
+    <div class="callout warn" style="margin-bottom:16px;">
+      Before any <code>UPDATE_ONLY</code>, <code>UPSERT</code> (on an existing record), or <code>DEACTIVATE</code> row is applied, the system <strong>snapshots the current record</strong> into a companion <code>*_history</code> table. This happens inside the same database transaction — either both the snapshot and the update succeed, or neither does.<br><br>
+      Each history row captures: <strong>all column values at that moment</strong> · <code>changed_at</code> timestamp · <code>changed_by</code> (user ID of the uploader) · <code>upload_batch_id</code> (links back to the Immudb audit entry) · <code>change_action</code> (UPDATE / DEACTIVATE) · <code>change_reason</code> (optional free-text, bank can populate via the UI; blank on automated CBS sync).<br><br>
+      This gives you a full queryable answer to: <em>"What was this account's branch email on 15 August?"</em> or <em>"When was this joint holder removed and who authorised it?"</em> The history table is append-only and follows the same 10-year retention as the main table.
+    </div>
+
+    <div class="section-label">Uniqueness rules</div>
+    <div class="callout warn" style="margin-bottom:16px;">
+      <strong>Within a file:</strong> The same composite key (e.g. <code>account_number</code> for Summary, <code>account_number + holder_seq</code> for Detail) may not appear twice in one upload file — even with different <code>action</code> values. Two instructions for the same record in one batch are contradictory and the entire file is rejected.<br><br>
+      <strong>Across uploads:</strong> No restriction. The same account can be INSERT_ONLY'd on day 1, UPDATE_ONLY'd on day 60, and DEACTIVATE'd when the account closes — in separate upload files.
+    </div>
+
+    <div class="section-label">Partial update behaviour</div>
+    <div class="callout note" style="margin-bottom:16px;">
+      On <code>UPSERT</code> (updating an existing record) and <code>UPDATE_ONLY</code>: <strong>blank columns are skipped</strong> — the existing vault value is unchanged. This means a branch contact refresh batch only needs <code>account_number</code> + the contact columns; it does not need to re-supply <code>account_type</code>, <code>account_status</code>, or any holder detail.<br><br>
+      To <strong>explicitly clear a field</strong> (set it to empty), write the sentinel value <code>~CLEAR~</code>. Example: setting <code>branch_manager_email</code> to <code>~CLEAR~</code> removes the stored email address.
+    </div>
+
+    <div class="section-label">Sample — mixing actions in one file</div>
+    <div class="csv-block"><span class="csv-header-line">action,account_number,account_type,account_status,account_category,branch_code,branch_name,branch_ifsc,branch_manager_email,branch_contact_email,branch_contact_phone</span>
+<span style="color:var(--req-fg);">INSERT_ONLY</span>,00112233445566,SA,ACTIVE,INDIVIDUAL,MUM001,Andheri West,SARA0001234,mgr.andheri@bank.in,ops.andheri@bank.in,02266778899
+<span style="color:var(--pill-int-fg);">UPDATE_ONLY</span>,00998877665544,,,,MUM001,Andheri West,SARA0001234,mgr.new@bank.in,,
+<span style="color:var(--req-fg);">UPSERT</span>,00776655443322,CA,ACTIVE,CORPORATE,BLR007,Indiranagar,SARA0003456,mgr.indir@bank.in,ops.indir@bank.in,08033445566
+<span style="color:var(--pill-email-fg);">DEACTIVATE</span>,00334455667788,,,,,,,,,</div>
+    <div class="csv-caption">Row 2 (UPDATE_ONLY): only branch_manager_email changes; blank columns leave existing values untouched. Row 4 (DEACTIVATE): only account_number is needed — all other columns are ignored.</div>
+
+    <div class="section-label" style="margin-top:20px;">General upload rules</div>
+    <div class="rules-grid">
+      <div class="rule-card">
+        <div class="rule-card-title">Encoding</div>
+        <div class="rule-card-body">Files must be <span class="rule-card-value">UTF-8</span> encoded. BOM is stripped automatically. Do not save as Windows-1252 / ANSI — Indic characters will corrupt.</div>
+      </div>
+      <div class="rule-card">
+        <div class="rule-card-title">Header row</div>
+        <div class="rule-card-body">Row 1 must be the header with exact column names as specified. Column order does not matter — the system maps by name, not position. The <code>action</code> column may be omitted entirely (defaults all rows to UPSERT).</div>
+      </div>
+      <div class="rule-card">
+        <div class="rule-card-title">Row limit per upload</div>
+        <div class="rule-card-body">Max <span class="rule-card-value">50,000 rows</span> per file. Larger datasets must be split. Each file is processed atomically — a row-level error rolls back only that row (except within-file duplicate key, which rejects the whole file).</div>
+      </div>
+      <div class="rule-card">
+        <div class="rule-card-title">Date format</div>
+        <div class="rule-card-body">All dates must be <span class="rule-card-value">YYYY-MM-DD</span>. Indian DD/MM/YYYY and US MM/DD/YYYY formats are rejected with a validation error on that row.</div>
+      </div>
+      <div class="rule-card">
+        <div class="rule-card-title">Vault effect timing</div>
+        <div class="rule-card-body">PPS, Stop Cheque, and Account Vault entries are available in Redis within <span class="rule-card-value">30 seconds</span>. Signature embeddings take up to 30 minutes (GPU embedding job).</div>
+      </div>
+      <div class="rule-card">
+        <div class="rule-card-title">Audit trail</div>
+        <div class="rule-card-body">Every upload is written to Immudb with the uploader's ID, timestamp, row count, action breakdown, and file checksum. Cannot be deleted.</div>
+      </div>
+      <div class="rule-card">
+        <div class="rule-card-title">PII in CSV files</div>
+        <div class="rule-card-body">Files contain full account numbers — treat as confidential. Deleted from the upload buffer after processing. Do not store in shared drives or email.</div>
+      </div>
+      <div class="rule-card">
+        <div class="rule-card-title">Stop Cheque — DEACTIVATE = Revoke</div>
+        <div class="rule-card-body">For the Stop Cheque file only, <code>DEACTIVATE</code> means "revoke the stop instruction" — the cheque is then permitted to proceed through clearing on next presentation.</div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:4px;">Validation errors</div>
+    <div class="callout note">
+      After upload, the system returns: total rows, rows accepted, rows rejected, and a downloadable error log. Each error row includes the line number, column, value, and rejection reason. Fix only the rejected rows and re-upload — accepted rows are already committed and should not be re-submitted.
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+function switchTab(id) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+</script>

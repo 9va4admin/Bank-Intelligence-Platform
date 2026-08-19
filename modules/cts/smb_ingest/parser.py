@@ -3,11 +3,14 @@ SMB CBS push file parser.
 
 Normalises CBS batch exports (Finacle CSV, BaNCS fixed-width, generic CSV)
 into canonical Pydantic records. All PII is scrubbed at this layer:
-  - account_number  → HMAC-SHA256 (pepper from config_service in production; SHA256 in tests)
-  - payee_name      → SHA-256
+  - account_number  → HMAC-SHA256 via shared.utils.pii_crypto.hash_account_number
+                       (requires bank_id + pepper — same algorithm as the vault lookups)
+  - payee_name      → SHA-256 (non-reversible identifier, not used for vault key)
   - amount          → range bucket via bucket_amount()
 
 The parser never stores raw account numbers, names, or exact amounts.
+pepper MUST be the same bank-specific value used in the vault — mismatch produces
+hashes that can never be found in vault lookups.
 """
 from __future__ import annotations
 
@@ -24,6 +27,7 @@ from modules.cts.smb_ingest.models import (
     PPSEntry,
     SignatureRecord,
 )
+from shared.utils.pii_crypto import hash_account_number
 
 log = structlog.get_logger()
 
@@ -53,20 +57,37 @@ def bucket_amount(amount: int) -> str:
         return "₹[>1Cr]"
 
 
-def _hash_account(account_number: str) -> str:
-    """SHA-256 of account number. Production uses HMAC with bank pepper from Vault."""
-    return hashlib.sha256(account_number.strip().encode()).hexdigest()
-
-
 def _hash_payee(payee_name: str) -> str:
+    # Plain SHA-256 is acceptable here — payee name is not a lookup key and
+    # carries no cross-bank collision risk. This hash is only stored for
+    # non-repudiation; it is never used to locate a vault entry.
     return hashlib.sha256(payee_name.strip().encode()).hexdigest()
 
 
 class SMBPushParser:
 
-    def __init__(self, smb_id: str, file_type: SMBPushFileType) -> None:
+    def __init__(
+        self,
+        smb_id: str,
+        file_type: SMBPushFileType,
+        bank_id: str = "",
+        pepper: str = "",
+    ) -> None:
+        """
+        bank_id and pepper MUST be provided in production — they are required to
+        produce account hashes that match the vault key.  Omitting them (or passing
+        empty strings) raises ValueError at parse time so the bug is caught immediately,
+        not silently.
+        """
+        if not bank_id or not pepper:
+            raise ValueError(
+                "SMBPushParser requires bank_id and pepper. "
+                "Fetch pepper from config_service.get_secret(f'banks.{bank_id}.pii_hash_pepper')"
+            )
         self.smb_id = smb_id
         self.file_type = file_type
+        self._bank_id = bank_id
+        self._pepper = pepper
 
     def parse(self, content: str) -> list[ParsedRecord]:
         if not content or not content.strip():
@@ -86,9 +107,12 @@ class SMBPushParser:
         self._assert_columns(reader.fieldnames or [], _REQUIRED_STOP)
         records = []
         for row in reader:
+            acct_hash = hash_account_number(
+                row["account_number"].strip(), self._bank_id, self._pepper
+            )
             records.append(StopPaymentRecord(
                 smb_id=self.smb_id,
-                account_number_hash=_hash_account(row["account_number"]),
+                account_number_hash=acct_hash,
                 cheque_number=row["cheque_number"].strip(),
                 amount_range=bucket_amount(int(float(row["amount"].strip()))),
                 issued_date=row["issued_date"].strip(),
@@ -101,9 +125,12 @@ class SMBPushParser:
         self._assert_columns(reader.fieldnames or [], _REQUIRED_PPS)
         records = []
         for row in reader:
+            acct_hash = hash_account_number(
+                row["account_number"].strip(), self._bank_id, self._pepper
+            )
             records.append(PPSEntry(
                 smb_id=self.smb_id,
-                account_number_hash=_hash_account(row["account_number"]),
+                account_number_hash=acct_hash,
                 cheque_number=row["cheque_number"].strip(),
                 amount_range=bucket_amount(int(float(row["amount"].strip()))),
                 payee_hash=_hash_payee(row["payee_name"]),
@@ -115,9 +142,12 @@ class SMBPushParser:
         self._assert_columns(reader.fieldnames or [], _REQUIRED_SIG)
         records = []
         for row in reader:
+            acct_hash = hash_account_number(
+                row["account_number"].strip(), self._bank_id, self._pepper
+            )
             records.append(SignatureRecord(
                 smb_id=self.smb_id,
-                account_number_hash=_hash_account(row["account_number"]),
+                account_number_hash=acct_hash,
                 specimen_ref=row["specimen_ref"].strip(),
                 captured_at=row["captured_at"].strip(),
             ))

@@ -31,6 +31,7 @@ from apps.api.dependencies import require_user_context
 from modules.cts.workflows.cheque_workflow import ChequeWorkflowInput
 from modules.cts.workflows.human_review_workflow import ReviewDecision
 from shared.auth.rbac import BankType, Role, PermissionLevel, RBACPolicy, UserContext
+from shared.config.config_service import config_service
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
 
 log = structlog.get_logger()
@@ -615,6 +616,119 @@ async def list_decisions(
 
     log.info("cts.decisions_list", bank_id=bank_id, count=len(items))
     return DecisionLogResponse(items=items, total=len(items), bank_id=bank_id)
+
+
+# ── Vault Gap Report ────────────────────────────────────────────────────────
+# After banking hours, ops team uses this to see which accounts presented
+# cheques without a signature in vault → trigger enrollment overnight.
+
+class VaultGapAccount(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    account_display: str         # ****4521
+    instrument_count: int
+    instrument_ids: list[str]
+    micr_codes: list[Optional[str]]
+    first_seen_at: float         # Unix epoch
+    last_seen_at: float
+
+
+class VaultGapResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    date: str
+    bank_id: str
+    total_accounts_affected: int
+    total_instruments: int
+    gaps: list[VaultGapAccount]
+
+
+@router_v1.get("/vault-gaps", response_model=VaultGapResponse)
+async def get_vault_gaps(
+    request: Request,
+    bank_id: str = Depends(get_current_bank_id),
+    date: Optional[str] = None,   # YYYY-MM-DD; defaults to today
+) -> VaultGapResponse:
+    """
+    Post-banking-hours report: accounts that presented cheques but have no
+    signature in vault. Ops team uses this to drive overnight enrollment.
+
+    Queries cts.agent_decisions for HUMAN_REVIEW rows where decision_reason
+    contains 'NO_SIGNATURE_IN_VAULT', grouped by account_last4 for the
+    specified clearing date (today by default).
+
+    Returns at most 200 gap accounts — sufficient for any single clearing session.
+    """
+    import json as _json
+    from datetime import date as _date
+
+    session_date = date or _date.today().isoformat()
+
+    db_pool = getattr(request.app.state, "db_pool_cts", None)
+    gaps: list[VaultGapAccount] = []
+
+    if db_pool is not None:
+        _SQL = """
+            SELECT
+                i.account_last4,
+                d.instrument_id,
+                d.decision_reason,
+                i.micr_code,
+                EXTRACT(EPOCH FROM d.created_at) AS created_at_epoch
+            FROM cts.agent_decisions d
+            LEFT JOIN cts.cheque_instruments i
+                   ON i.instrument_id = d.instrument_id
+                  AND i.bank_id = d.bank_id
+            WHERE d.bank_id = $1
+              AND d.decision = 'HUMAN_REVIEW'
+              AND d.decision_reason ILIKE '%NO_SIGNATURE_IN_VAULT%'
+              AND d.created_at::date = $2::date
+            ORDER BY i.account_last4, d.created_at ASC
+            LIMIT 2000
+        """.strip()
+
+        try:
+            async with db_pool.acquire() as conn:
+                rows = await conn.fetch(_SQL, bank_id, session_date)
+
+            # Group by account_last4
+            grouped: dict[str, dict] = {}
+            for row in rows:
+                key = row["account_last4"] or "UNKNOWN"
+                display = f"****{key}" if key != "UNKNOWN" else "****????"
+                if key not in grouped:
+                    grouped[key] = {
+                        "account_display": display,
+                        "instrument_ids": [],
+                        "micr_codes": [],
+                        "first_seen_at": float(row["created_at_epoch"] or 0.0),
+                        "last_seen_at": float(row["created_at_epoch"] or 0.0),
+                    }
+                g = grouped[key]
+                g["instrument_ids"].append(row["instrument_id"])
+                g["micr_codes"].append(row["micr_code"])
+                g["last_seen_at"] = max(g["last_seen_at"], float(row["created_at_epoch"] or 0.0))
+
+            for g in list(grouped.values())[:200]:
+                gaps.append(VaultGapAccount(
+                    account_display=g["account_display"],
+                    instrument_count=len(g["instrument_ids"]),
+                    instrument_ids=g["instrument_ids"],
+                    micr_codes=g["micr_codes"],
+                    first_seen_at=g["first_seen_at"],
+                    last_seen_at=g["last_seen_at"],
+                ))
+        except Exception as exc:
+            log.warning("cts.vault_gaps_error", bank_id=bank_id, error=str(exc))
+
+    total_instruments = sum(g.instrument_count for g in gaps)
+    log.info("cts.vault_gaps", bank_id=bank_id, date=session_date,
+             accounts=len(gaps), instruments=total_instruments)
+    return VaultGapResponse(
+        date=session_date,
+        bank_id=bank_id,
+        total_accounts_affected=len(gaps),
+        total_instruments=total_instruments,
+        gaps=gaps,
+    )
 
 
 class ChequeSearchResult(BaseModel):
@@ -2051,23 +2165,19 @@ async def list_mismatches(
                     SELECT mismatch_id, instrument_id, branch_id, held_at, status,
                            mismatch_fields, vision_finding, scanner_data, lot_id, workflow_run_id
                     FROM cts.mismatch_queue
-                    WHERE branch_id = $1 AND status = 'HELD'
+                    WHERE bank_id = $1 AND branch_id = $2 AND status = 'HELD'
                     ORDER BY held_at ASC
                     """,
-                    branch_id,
+                    bank_id, branch_id,
                 )
             else:
                 rows = await conn.fetch(
                     """
-                    SELECT mq.mismatch_id, mq.instrument_id, mq.branch_id, mq.held_at,
-                           mq.status, mq.mismatch_fields, mq.vision_finding, mq.scanner_data,
-                           mq.lot_id, mq.workflow_run_id
-                    FROM cts.mismatch_queue mq
-                    JOIN cts.cheque_instruments ci
-                        ON mq.instrument_id = ci.instrument_id::TEXT
-                        AND ci.bank_id = $1
-                    WHERE mq.status = 'HELD'
-                    ORDER BY mq.held_at ASC
+                    SELECT mismatch_id, instrument_id, branch_id, held_at, status,
+                           mismatch_fields, vision_finding, scanner_data, lot_id, workflow_run_id
+                    FROM cts.mismatch_queue
+                    WHERE bank_id = $1 AND status = 'HELD'
+                    ORDER BY held_at ASC
                     """,
                     bank_id,
                 )
@@ -2125,9 +2235,9 @@ async def resolve_mismatch(
                 """
                 SELECT mismatch_id, branch_id, workflow_run_id
                 FROM cts.mismatch_queue
-                WHERE mismatch_id = $1 AND status = 'HELD'
+                WHERE mismatch_id = $1 AND bank_id = $2 AND status = 'HELD'
                 """,
-                mismatch_id,
+                mismatch_id, bank_id,
             )
         if row is None:
             raise HTTPException(
@@ -2163,9 +2273,9 @@ async def resolve_mismatch(
                 """
                 UPDATE cts.mismatch_queue
                    SET status = $1, resolved_at = NOW(), resolved_by = $2, resolution_note = $3
-                 WHERE mismatch_id = $4
+                 WHERE mismatch_id = $4 AND bank_id = $5
                 """,
-                body.action, user_id, body.note, mismatch_id,
+                body.action, user_id, body.note, mismatch_id, bank_id,
             )
 
         # Audit
@@ -2834,4 +2944,389 @@ async def get_session_report(
         status=row["status"],
         html_url=html_url,
         pdf_url=pdf_url,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Vault Upload — UI path
+# POST /v1/cts/vault/upload/{vault_type}
+# GET  /v1/cts/vault/batches/{batch_id}
+# GET  /v1/cts/vault/batches/{batch_id}/errors.csv
+# ---------------------------------------------------------------------------
+
+import csv as _csv
+import io as _io
+from fastapi import UploadFile, File
+from fastapi.responses import StreamingResponse
+
+_VAULT_TABLE_MAP: dict[str, str] = {
+    "PPS":            "cts.pps_vault_entries",
+    "CHEQUE_BOOK":    "cts.cheque_books",
+    "LEAF_STATUS":    "cts.cheque_leaves",
+    "ACCOUNT_DETAIL": "cts.account_vault_detail",
+    "SIGNATURE":      "cts.account_signatories",
+}
+
+_VALID_VAULT_TYPES = frozenset(_VAULT_TABLE_MAP)
+
+
+class VaultUploadResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    batch_id: str
+    vault_type: str
+    db_table: str
+    status: str          # COMPLETE | PARTIAL | FAILED
+    rows_total: int
+    rows_processed: int
+    rows_failed: int
+    errors_preview: list[dict]   # first 20 inline; full list → /errors.csv
+
+
+class VaultBatchStatusResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    batch_id: str
+    bank_id: str
+    vault_type: str
+    db_table: str
+    filename: Optional[str]
+    upload_channel: str
+    uploaded_by: str
+    status: str
+    rows_total: int
+    rows_processed: int
+    rows_failed: int
+    errors_preview: list[dict]   # first 20 from stored errors_json
+    error_file_path: Optional[str]   # MinIO object key; None when clean batch or MinIO unavailable
+    has_error_file: bool             # convenience flag for UI download button
+    created_at: float
+    completed_at: Optional[float]
+
+
+def _vault_status(rows_processed: int, rows_failed: int) -> str:
+    if rows_processed == 0 and rows_failed > 0:
+        return "FAILED"
+    if rows_failed > 0:
+        return "PARTIAL"
+    return "COMPLETE"
+
+
+def _publish_vault_batch_event(
+    kafka_producer,
+    *,
+    batch_id: str,
+    bank_id: str,
+    vault_type: str,
+    status: str,
+    rows_total: int,
+    rows_processed: int,
+    rows_failed: int,
+) -> None:
+    """Emit Kafka event on PARTIAL or FAILED batch → PlatformHealthCheckWorkflow → dispatcher → alert."""
+    if kafka_producer is None or rows_failed == 0:
+        return
+    event_type = "VAULT_BATCH_FAILED" if rows_processed == 0 else "VAULT_BATCH_PARTIAL"
+    try:
+        kafka_producer.publish(
+            topic="platform.audit.events",
+            event_type=event_type,
+            payload={
+                "batch_id": batch_id,
+                "vault_type": vault_type,
+                "db_table": _VAULT_TABLE_MAP.get(vault_type, "unknown"),
+                "bank_id": bank_id,
+                "rows_total": rows_total,
+                "rows_processed": rows_processed,
+                "rows_failed": rows_failed,
+            },
+            bank_id=bank_id,
+        )
+        log.warning(
+            "vault.batch_alert_emitted",
+            batch_id=batch_id,
+            bank_id=bank_id,
+            vault_type=vault_type,
+            event_type=event_type,
+            rows_failed=rows_failed,
+        )
+    except Exception as exc:
+        log.error("vault.batch_alert_publish_failed", batch_id=batch_id, error=str(exc))
+
+
+@router_v1.post(
+    "/vault/upload/{vault_type}",
+    response_model=VaultUploadResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def upload_vault_csv(
+    vault_type: str,
+    request: Request,
+    file: UploadFile = File(...),
+    ctx: UserContext = Depends(get_current_user_context),
+) -> VaultUploadResponse:
+    """
+    Upload a vault CSV via the ops workstation UI.
+    Accepted vault_type: PPS | CHEQUE_BOOK | LEAF_STATUS | ACCOUNT_DETAIL | SIGNATURE.
+    Returns batch result immediately; failed rows available at /errors.csv.
+    """
+    bank_id = ctx.bank_id
+    vault_type = vault_type.upper()
+
+    if vault_type not in _VALID_VAULT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error_code": "VAULT_UNKNOWN_TYPE",
+                "message": f"vault_type must be one of {sorted(_VALID_VAULT_TYPES)}",
+                "request_id": request.headers.get("X-Request-Id", ""),
+            },
+        )
+
+    csv_bytes = await file.read()
+    if not csv_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error_code": "VAULT_EMPTY_FILE",
+                "message": "Uploaded file is empty",
+                "request_id": request.headers.get("X-Request-Id", ""),
+            },
+        )
+
+    db_pool = getattr(request.app.state, "db_pool", None)
+    vaults: dict = getattr(request.app.state, "vault_instances", {}) or {}
+    minio_client = getattr(request.app.state, "minio_client", None)
+
+    from modules.cts.vaults.vault_upload_processor import VaultUploadProcessor
+
+    error_file_bucket: Optional[str] = None
+    if minio_client is not None:
+        try:
+            error_file_bucket = await config_service.get("vault.error_files.bucket")
+        except Exception:
+            error_file_bucket = "astra-vault-errors"
+
+    processor = VaultUploadProcessor(
+        bank_id=bank_id,
+        db_pool=db_pool,
+        cheque_leaf_vault=vaults.get("cheque_leaf"),
+        account_vault=vaults.get("account"),
+        signature_vault=vaults.get("signature"),
+        pps_vault=vaults.get("pps"),
+        minio_client=minio_client,
+        error_file_bucket=error_file_bucket,
+    )
+
+    try:
+        result = await processor.process(
+            vault_type=vault_type,
+            csv_content=csv_bytes,
+            changed_by=f"user:{ctx.user_id}",
+            filename=file.filename,
+            upload_channel="UI",
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error_code": "VAULT_PARSE_ERROR",
+                "message": str(exc),
+                "request_id": request.headers.get("X-Request-Id", ""),
+            },
+        ) from exc
+
+    batch_status = _vault_status(result.rows_processed, result.rows_failed)
+
+    # Notify ops_manager via Kafka → PlatformHealthCheckWorkflow → dispatcher
+    _publish_vault_batch_event(
+        get_kafka_producer(request),
+        batch_id=result.batch_id,
+        bank_id=bank_id,
+        vault_type=vault_type,
+        status=batch_status,
+        rows_total=result.rows_total,
+        rows_processed=result.rows_processed,
+        rows_failed=result.rows_failed,
+    )
+
+    log.info(
+        "vault.upload_complete",
+        batch_id=result.batch_id,
+        bank_id=bank_id,
+        vault_type=vault_type,
+        db_table=_VAULT_TABLE_MAP[vault_type],
+        status=batch_status,
+        rows_total=result.rows_total,
+        rows_processed=result.rows_processed,
+        rows_failed=result.rows_failed,
+    )
+
+    return VaultUploadResponse(
+        batch_id=result.batch_id,
+        vault_type=vault_type,
+        db_table=_VAULT_TABLE_MAP[vault_type],
+        status=batch_status,
+        rows_total=result.rows_total,
+        rows_processed=result.rows_processed,
+        rows_failed=result.rows_failed,
+        errors_preview=result.errors[:20],
+    )
+
+
+@router_v1.get(
+    "/vault/batches/{batch_id}",
+    response_model=VaultBatchStatusResponse,
+)
+async def get_vault_batch_status(
+    batch_id: str,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> VaultBatchStatusResponse:
+    """
+    Return status and row counts for a completed vault upload batch.
+    Scoped to the authenticated bank_id — cannot query another bank's batch.
+    """
+    bank_id = ctx.bank_id
+    db_pool = getattr(request.app.state, "db_pool", None)
+
+    if db_pool is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error_code": "DB_UNAVAILABLE", "message": "Database pool not ready"},
+        )
+
+    import json as _json
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT id, bank_id, vault_type, filename, upload_channel,
+                   uploaded_by, status, rows_total, rows_processed, rows_failed,
+                   errors_json, error_file_path, created_at, completed_at
+            FROM cts.vault_upload_batches
+            WHERE id=$1 AND bank_id=$2
+            """,
+            batch_id, bank_id,
+        )
+
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "VAULT_BATCH_NOT_FOUND",
+                "message": f"Batch {batch_id!r} not found for bank {bank_id!r}",
+            },
+        )
+
+    vault_type = row["vault_type"]
+    errors_raw = row["errors_json"] or []
+    errors_list: list[dict] = _json.loads(errors_raw) if isinstance(errors_raw, str) else (errors_raw or [])
+    efp: Optional[str] = row["error_file_path"]
+
+    return VaultBatchStatusResponse(
+        batch_id=str(row["id"]),
+        bank_id=row["bank_id"],
+        vault_type=vault_type,
+        db_table=_VAULT_TABLE_MAP.get(vault_type, "unknown"),
+        filename=row["filename"],
+        upload_channel=row["upload_channel"],
+        uploaded_by=row["uploaded_by"],
+        status=row["status"],
+        rows_total=row["rows_total"],
+        rows_processed=row["rows_processed"],
+        rows_failed=row["rows_failed"],
+        errors_preview=errors_list[:20],
+        error_file_path=efp,
+        has_error_file=efp is not None,
+        created_at=row["created_at"].timestamp() if row["created_at"] else 0.0,
+        completed_at=row["completed_at"].timestamp() if row["completed_at"] else None,
+    )
+
+
+@router_v1.get("/vault/batches/{batch_id}/errors.csv")
+async def download_vault_batch_errors(
+    batch_id: str,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> StreamingResponse:
+    """
+    Download all rejected rows from a vault upload batch as a CSV file.
+    Columns: row_number, error_message.
+    Scoped to authenticated bank_id — cannot download another bank's errors.
+    Response: text/csv with Content-Disposition: attachment.
+    """
+    bank_id = ctx.bank_id
+    db_pool = getattr(request.app.state, "db_pool", None)
+
+    if db_pool is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error_code": "DB_UNAVAILABLE", "message": "Database pool not ready"},
+        )
+
+    import json as _json
+
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT vault_type, status, rows_failed, errors_json, error_file_path
+            FROM cts.vault_upload_batches
+            WHERE id=$1 AND bank_id=$2
+            """,
+            batch_id, bank_id,
+        )
+
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "VAULT_BATCH_NOT_FOUND",
+                "message": f"Batch {batch_id!r} not found for bank {bank_id!r}",
+            },
+        )
+
+    filename = f"vault_errors_{batch_id[:8]}.csv"
+    efp: Optional[str] = row["error_file_path"]
+    minio_client = getattr(request.app.state, "minio_client", None)
+
+    # Primary path: stream directly from MinIO (no row cap, full error list)
+    if efp and minio_client is not None:
+        try:
+            try:
+                bucket = await config_service.get("vault.error_files.bucket")
+            except Exception:
+                bucket = "astra-vault-errors"
+            stream = minio_client.get_object(bucket, efp)
+            return StreamingResponse(
+                stream,
+                media_type="text/csv",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
+        except Exception as exc:
+            log.warning(
+                "vault.download_minio_fallback",
+                batch_id=batch_id,
+                bank_id=bank_id,
+                error_file_path=efp,
+                error=str(exc),
+            )
+            # Fall through to JSONB fallback below
+
+    # Fallback: generate CSV from errors_json JSONB (first 1000 rows, backwards-compatible)
+    errors_raw = row["errors_json"] or []
+    errors_list: list[dict] = _json.loads(errors_raw) if isinstance(errors_raw, str) else (errors_raw or [])
+
+    def _generate_csv():
+        buf = _io.StringIO()
+        writer = _csv.DictWriter(buf, fieldnames=["row_number", "error_message"])
+        writer.writeheader()
+        yield buf.getvalue()
+        for err in errors_list:
+            buf = _io.StringIO()
+            writer = _csv.DictWriter(buf, fieldnames=["row_number", "error_message"])
+            writer.writerow({"row_number": err.get("row", ""), "error_message": err.get("error", "")})
+            yield buf.getvalue()
+
+    return StreamingResponse(
+        _generate_csv(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

@@ -1,0 +1,172 @@
+<title>ASTRA CTS Scale 10K</title>
+<style>
+:root{--bg:#f8fafc;--surface:#fff;--border:#e2e8f0;--text:#0f172a;--muted:#64748b;--accent:#1d4ed8}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#f1f5f9;--muted:#94a3b8;--accent:#60a5fa}}
+:root[data-theme="dark"]{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#f1f5f9;--muted:#94a3b8;--accent:#60a5fa}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5}
+.page{max-width:1400px;margin:0 auto;padding:24px 16px}
+.hdr{background:linear-gradient(135deg,#0b1f5a,#1e40af);color:#fff;padding:24px 32px;border-radius:10px;margin-bottom:20px}
+.hdr h1{font-size:22px;font-weight:700}
+.hdr .sub{font-size:11px;opacity:.75;margin-top:4px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:20px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center}
+.kpi .num{font-size:24px;font-weight:700;color:var(--accent)}
+.kpi .lbl{font-size:11px;color:var(--muted);margin-top:3px}
+.sec{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px}
+.sec h2{font-size:14px;font-weight:600;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.stacked{display:flex;height:48px;border-radius:6px;overflow:hidden;gap:2px}
+.seg{display:flex;align-items:center;justify-content:center;cursor:default;transition:opacity .15s;font-size:11px;font-weight:600;min-width:60px}
+.seg:hover{opacity:.85}
+.seg-inner{text-align:center;line-height:1.3;pointer-events:none}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.hrq-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.hrq-lbl{width:200px;font-size:11px;color:var(--muted);flex-shrink:0}
+.hrq-track{flex:1;background:var(--bg);border-radius:4px;height:22px;overflow:hidden}
+.hrq-fill{height:100%;display:flex;align-items:center;padding-left:6px;font-size:11px;font-weight:600;color:#fff;border-radius:4px;transition:width .3s}
+.ox{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{background:var(--bg);padding:7px 10px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg)}
+.r{text-align:right}.c{text-align:center}.fw6{font-weight:600}
+.mono{font-family:monospace}.sm{font-size:11px}.dg{color:var(--muted)}
+.accuracy{display:flex;gap:16px;margin-top:12px}
+.acc-pill{padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600}
+.callout{background:var(--bg);border-left:4px solid var(--accent);padding:10px 14px;border-radius:0 6px 6px 0;font-size:12px;color:var(--muted);margin-bottom:12px}
+.callout strong{color:var(--text)}
+footer{text-align:center;padding:20px;font-size:11px;color:#94a3b8}
+</style>
+<div class="page">
+<div class="hdr">
+  <h1>ASTRA CTS — Scale Pipeline: 10,000 Instruments</h1>
+  <div class="sub">2026-08-19 12:48:13 &nbsp;·&nbsp; Saraswat Co-operative Bank (saraswat-coop) &nbsp;·&nbsp;
+  Real CTS-2010 Compliance · Real Date Validation · Real Fraud Scoring · Real Decision Gates &nbsp;·&nbsp;
+  2.56s run time</div>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="num">10,000</div><div class="lbl">Total Instruments</div></div>
+  <div class="kpi"><div class="num">9,700</div><div class="lbl">Outward Accepted</div></div>
+  <div class="kpi"><div class="num">300</div><div class="lbl">Outward Rejected</div></div>
+  <div class="kpi"><div class="num">5,820</div><div class="lbl">STP Confirm</div></div>
+  <div class="kpi"><div class="num">2,425</div><div class="lbl">Human Review Queue</div></div>
+  <div class="kpi"><div class="num">1,455</div><div class="lbl">STP Return</div></div>
+  <div class="kpi"><div class="num">10,000/10,000</div><div class="lbl">Outward Accuracy</div></div>
+  <div class="kpi"><div class="num">9,700/9,700</div><div class="lbl">Inward Accuracy</div></div>
+</div>
+
+<div class="sec">
+  <h2>Classification Overview</h2>
+  <div class="callout">
+    <strong>What is real:</strong>
+    <code>InstrumentComplianceRecord()</code> evaluates real CTS-2010 thresholds (DPI ≥ 200, IQA ≥ 0.70, size ≤ 50 KB) for all 10,000 instruments.
+    <code>_validate_cheque_date()</code> is the exact production module function — stale and post-dated dates fail.
+    <code>_rule_based_score()</code> is the production XGBoost fallback fraud scorer.
+    Decision gates (9 priority levels) are the same logic as <code>synthesise_decision</code>.
+    Only the injected fraud score for HRQ_FRAUD (simulating XGBoost ≥ 0.80) and the infra calls (NGCH, Immudb, vLLM) are test-controlled inputs.
+  </div>
+  <div class="stacked"><div class="seg" style="flex:58.200;background:#15803d;color:#fff" title="STP_CONFIRM: 5,820 (58.2%)"><span class="seg-inner">STP_CONFIRM<br/>5,820 · 58.2%</span></div><div class="seg" style="flex:24.250;background:#b45309;color:#fff" title="HUMAN_REVIEW: 2,425 (24.2%)"><span class="seg-inner">HUMAN_REVIEW<br/>2,425 · 24.2%</span></div><div class="seg" style="flex:14.550;background:#b91c1c;color:#fff" title="STP_RETURN: 1,455 (14.5%)"><span class="seg-inner">STP_RETURN<br/>1,455 · 14.5%</span></div><div class="seg" style="flex:3.000;background:#64748b;color:#fff" title="OUTWARD REJECT: 300 (3.0%)"><span class="seg-inner">OUTWARD REJECT<br/>300 · 3.0%</span></div></div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#15803d"></div>STP_CONFIRM (5,820 · 58.2%)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#b45309"></div>HUMAN_REVIEW (2,425 · 24.2%)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#b91c1c"></div>STP_RETURN (1,455 · 14.5%)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#64748b"></div>OUTWARD REJECTED (300 · 3.0%)</div>
+  </div>
+</div>
+
+<div class="sec">
+  <h2>Human Review Queue — Reason Breakdown</h2>
+  <p style="font-size:11px;color:var(--muted);margin-bottom:12px">
+    2,425 cheques routed to human review queue (24.2% of total pipeline).
+    Each bar shows count for that specific routing reason.
+  </p>
+  <div class="hrq-row"><div class="hrq-lbl">High Value (> ₹5L)</div><div class="hrq-track"><div class="hrq-fill" style="width:100.0%;background:#b45309"><span>970</span></div></div></div>
+<div class="hrq-row"><div class="hrq-lbl">Fraud Score > 0.72</div><div class="hrq-track"><div class="hrq-fill" style="width:50.0%;background:#b91c1c"><span>485</span></div></div></div>
+<div class="hrq-row"><div class="hrq-lbl">Signature Mismatch < 0.85</div><div class="hrq-track"><div class="hrq-fill" style="width:50.0%;background:#c2410c"><span>485</span></div></div></div>
+<div class="hrq-row"><div class="hrq-lbl">Alteration Detected</div><div class="hrq-track"><div class="hrq-fill" style="width:20.0%;background:#991b1b"><span>194</span></div></div></div>
+<div class="hrq-row"><div class="hrq-lbl">PPS Not Found</div><div class="hrq-track"><div class="hrq-fill" style="width:20.0%;background:#7c3aed"><span>194</span></div></div></div>
+<div class="hrq-row"><div class="hrq-lbl">CBS Unreachable</div><div class="hrq-track"><div class="hrq-fill" style="width:10.0%;background:#4338ca"><span>97</span></div></div></div>
+</div>
+
+<div class="sec">
+  <h2>Classification Detail — All 12 Scenario Classes</h2>
+  <div class="ox"><table>
+    <thead><tr><th>Class</th><th>Count</th><th>%</th><th>Outward</th><th>Inward</th><th>Description</th></tr></thead>
+    <tbody><tr><td><span style="background:#94a3b8;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px">STALE_CHEQUE</span></td><td class="r fw6">100</td><td class="r">1.0%</td><td class="c"><span style="background:#7f1d1d;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">CTS_REJECTED</span></td><td class="c"><span style=color:#94a3b8>N/A</span></td><td class="sm dg">Stale Cheque (> 90 days)</td></tr>
+<tr><td><span style="background:#64748b;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px">POST_DATED</span></td><td class="r fw6">100</td><td class="r">1.0%</td><td class="c"><span style="background:#7f1d1d;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">CTS_REJECTED</span></td><td class="c"><span style=color:#94a3b8>N/A</span></td><td class="sm dg">Post-Dated Cheque (future date)</td></tr>
+<tr><td><span style="background:#475569;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px">COMPLIANCE_FAIL</span></td><td class="r fw6">100</td><td class="r">1.0%</td><td class="c"><span style="background:#7f1d1d;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">CTS_REJECTED</span></td><td class="c"><span style=color:#94a3b8>N/A</span></td><td class="sm dg">Compliance Fail (IQA < 0.70)</td></tr>
+<tr><td><span style="background:#15803d;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px">STP_CONFIRM</span></td><td class="r fw6">5,820</td><td class="r">58.2%</td><td class="c"><span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">ACCEPTED</span></td><td class="c"><span style="background:#15803d;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">STP_CONFIRM</span></td><td class="sm dg">Clean STP — all gates pass</td></tr>
+<tr><td><span style="background:#b45309;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px">HRQ_HIGH_VALUE</span></td><td class="r fw6">970</td><td class="r">9.7%</td><td class="c"><span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">ACCEPTED</span></td><td class="c"><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class="sm dg">Human Review — High Value (> ₹5L)</td></tr>
+<tr><td><span style="background:#b91c1c;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px">HRQ_FRAUD</span></td><td class="r fw6">485</td><td class="r">4.9%</td><td class="c"><span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">ACCEPTED</span></td><td class="c"><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class="sm dg">Human Review — Fraud Score > 0.72</td></tr>
+<tr><td><span style="background:#c2410c;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px">HRQ_SIG_MISMATCH</span></td><td class="r fw6">485</td><td class="r">4.9%</td><td class="c"><span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">ACCEPTED</span></td><td class="c"><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class="sm dg">Human Review — Signature Mismatch < 0.85</td></tr>
+<tr><td><span style="background:#991b1b;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px">HRQ_ALTERATION</span></td><td class="r fw6">194</td><td class="r">1.9%</td><td class="c"><span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">ACCEPTED</span></td><td class="c"><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class="sm dg">Human Review — Alteration Detected</td></tr>
+<tr><td><span style="background:#7c3aed;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px">HRQ_PPS_MISS</span></td><td class="r fw6">194</td><td class="r">1.9%</td><td class="c"><span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">ACCEPTED</span></td><td class="c"><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class="sm dg">Human Review — PPS Not Found</td></tr>
+<tr><td><span style="background:#4338ca;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px">HRQ_CBS_UNAVAIL</span></td><td class="r fw6">97</td><td class="r">1.0%</td><td class="c"><span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">ACCEPTED</span></td><td class="c"><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class="sm dg">Human Review — CBS Unreachable</td></tr>
+<tr><td><span style="background:#9f1239;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px">STP_RETURN_STOP</span></td><td class="r fw6">485</td><td class="r">4.9%</td><td class="c"><span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">ACCEPTED</span></td><td class="c"><span style="background:#b91c1c;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">STP_RETURN</span></td><td class="sm dg">STP Return — Stop Payment</td></tr>
+<tr><td><span style="background:#881337;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px">STP_RETURN_BAL</span></td><td class="r fw6">970</td><td class="r">9.7%</td><td class="c"><span style="background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">ACCEPTED</span></td><td class="c"><span style="background:#b91c1c;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">STP_RETURN</span></td><td class="sm dg">STP Return — Insufficient Balance</td></tr></tbody>
+  </table></div>
+  <div class="accuracy" style="margin-top:12px">
+    <div class="acc-pill" style="background:#dcfce7;color:#15803d">
+      Outward accuracy: 10,000 / 10,000 = 100.00%
+    </div>
+    <div class="acc-pill" style="background:#dcfce7;color:#15803d">
+      Inward accuracy: 9,700 / 9,700 = 100.00%
+    </div>
+  </div>
+</div>
+
+<div class="sec">
+  <h2>Human Review Queue — Sample Decisions (3 per reason)</h2>
+  <div style="margin-bottom:14px"><div style="font-size:11px;font-weight:600;margin-bottom:6px;color:#b45309">Human Review — High Value (> ₹5L)</div><table><thead><tr><th>Idx</th><th>Fraud</th><th>Sig</th><th>Decision</th><th>Rationale</th><th>SHAP</th></tr></thead><tbody><tr><td class='mono sm'>6120</td><td class='r'>0.150</td><td class='r'>0.918</td><td class='c'><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class='mono sm dg'>high_value_cheque_974280</td><td class='mono sm dg'>baseline:+0.10 | very_high_amount:+0.05</td></tr><tr><td class='mono sm'>6121</td><td class='r'>0.150</td><td class='r'>0.940</td><td class='c'><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class='mono sm dg'>high_value_cheque_982199</td><td class='mono sm dg'>baseline:+0.10 | very_high_amount:+0.05</td></tr><tr><td class='mono sm'>6122</td><td class='r'>0.150</td><td class='r'>0.918</td><td class='c'><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class='mono sm dg'>high_value_cheque_990118</td><td class='mono sm dg'>baseline:+0.10 | very_high_amount:+0.05</td></tr></tbody></table></div>
+<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:600;margin-bottom:6px;color:#b91c1c">Human Review — Fraud Score > 0.72</div><table><thead><tr><th>Idx</th><th>Fraud</th><th>Sig</th><th>Decision</th><th>Rationale</th><th>SHAP</th></tr></thead><tbody><tr><td class='mono sm'>7090</td><td class='r'>0.890</td><td class='r'>0.942</td><td class='c'><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class='mono sm dg'>fraud_score_high_0.890</td><td class='mono sm dg'>fraud_component:+0.79 | baseline:+0.10</td></tr><tr><td class='mono sm'>7091</td><td class='r'>0.889</td><td class='r'>0.900</td><td class='c'><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class='mono sm dg'>fraud_score_high_0.889</td><td class='mono sm dg'>fraud_component:+0.79 | baseline:+0.10</td></tr><tr><td class='mono sm'>7092</td><td class='r'>0.888</td><td class='r'>0.943</td><td class='c'><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class='mono sm dg'>fraud_score_high_0.888</td><td class='mono sm dg'>fraud_component:+0.79 | baseline:+0.10</td></tr></tbody></table></div>
+<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:600;margin-bottom:6px;color:#c2410c">Human Review — Signature Mismatch < 0.85</div><table><thead><tr><th>Idx</th><th>Fraud</th><th>Sig</th><th>Decision</th><th>Rationale</th><th>SHAP</th></tr></thead><tbody><tr><td class='mono sm'>7575</td><td class='r'>0.100</td><td class='r'>0.625</td><td class='c'><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class='mono sm dg'>signature_mismatch_0.625</td><td class='mono sm dg'>sig_mismatch:+0.23 | baseline:+0.10</td></tr><tr><td class='mono sm'>7576</td><td class='r'>0.100</td><td class='r'>0.624</td><td class='c'><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class='mono sm dg'>signature_mismatch_0.624</td><td class='mono sm dg'>sig_mismatch:+0.23 | baseline:+0.10</td></tr><tr><td class='mono sm'>7577</td><td class='r'>0.100</td><td class='r'>0.703</td><td class='c'><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class='mono sm dg'>signature_mismatch_0.703</td><td class='mono sm dg'>sig_mismatch:+0.15 | baseline:+0.10</td></tr></tbody></table></div>
+<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:600;margin-bottom:6px;color:#991b1b">Human Review — Alteration Detected</div><table><thead><tr><th>Idx</th><th>Fraud</th><th>Sig</th><th>Decision</th><th>Rationale</th><th>SHAP</th></tr></thead><tbody><tr><td class='mono sm'>8060</td><td class='r'>0.700</td><td class='r'>0.884</td><td class='c'><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class='mono sm dg'>alteration_detected</td><td class='mono sm dg'>alteration_detected:+0.60 | fraud_component:+0.60</td></tr><tr><td class='mono sm'>8061</td><td class='r'>0.700</td><td class='r'>0.887</td><td class='c'><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class='mono sm dg'>alteration_detected</td><td class='mono sm dg'>alteration_detected:+0.60 | fraud_component:+0.60</td></tr><tr><td class='mono sm'>8062</td><td class='r'>0.700</td><td class='r'>0.894</td><td class='c'><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class='mono sm dg'>alteration_detected</td><td class='mono sm dg'>alteration_detected:+0.60 | fraud_component:+0.60</td></tr></tbody></table></div>
+<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:600;margin-bottom:6px;color:#7c3aed">Human Review — PPS Not Found</div><table><thead><tr><th>Idx</th><th>Fraud</th><th>Sig</th><th>Decision</th><th>Rationale</th><th>SHAP</th></tr></thead><tbody><tr><td class='mono sm'>8254</td><td class='r'>0.100</td><td class='r'>0.956</td><td class='c'><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class='mono sm dg'>pps_miss_MISSING</td><td class='mono sm dg'>baseline:+0.10</td></tr><tr><td class='mono sm'>8255</td><td class='r'>0.100</td><td class='r'>0.951</td><td class='c'><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class='mono sm dg'>pps_miss_MISSING</td><td class='mono sm dg'>baseline:+0.10</td></tr><tr><td class='mono sm'>8256</td><td class='r'>0.100</td><td class='r'>0.924</td><td class='c'><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class='mono sm dg'>pps_miss_MISSING</td><td class='mono sm dg'>baseline:+0.10</td></tr></tbody></table></div>
+<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:600;margin-bottom:6px;color:#4338ca">Human Review — CBS Unreachable</div><table><thead><tr><th>Idx</th><th>Fraud</th><th>Sig</th><th>Decision</th><th>Rationale</th><th>SHAP</th></tr></thead><tbody><tr><td class='mono sm'>8448</td><td class='r'>0.100</td><td class='r'>0.948</td><td class='c'><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class='mono sm dg'>cbs_unavailable</td><td class='mono sm dg'>baseline:+0.10</td></tr><tr><td class='mono sm'>8449</td><td class='r'>0.100</td><td class='r'>0.918</td><td class='c'><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class='mono sm dg'>cbs_unavailable</td><td class='mono sm dg'>baseline:+0.10</td></tr><tr><td class='mono sm'>8450</td><td class='r'>0.100</td><td class='r'>0.919</td><td class='c'><span style="background:#92400e;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">HUMAN_REVIEW</span></td><td class='mono sm dg'>cbs_unavailable</td><td class='mono sm dg'>baseline:+0.10</td></tr></tbody></table></div>
+</div>
+
+<div class="sec">
+  <h2>STP Return — Sample Decisions (3 per reason)</h2>
+  <div style='margin-bottom:14px'><div style='font-size:11px;font-weight:600;color:#9f1239;margin-bottom:6px'>Stop Payment</div><table><thead><tr><th>Idx</th><th>Fraud</th><th>Sig</th><th>Decision</th><th>Rationale</th><th>SHAP</th></tr></thead><tbody><tr><td class='mono sm'>8545</td><td class='r'>0.100</td><td class='r'>0.969</td><td class='c'><span style="background:#b91c1c;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">STP_RETURN</span></td><td class='mono sm dg'>stop_payment_instructed_by_drawer</td><td class='mono sm dg'>stop_payment:+1.00 | baseline:+0.10</td></tr><tr><td class='mono sm'>8546</td><td class='r'>0.100</td><td class='r'>0.915</td><td class='c'><span style="background:#b91c1c;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">STP_RETURN</span></td><td class='mono sm dg'>stop_payment_instructed_by_drawer</td><td class='mono sm dg'>stop_payment:+1.00 | baseline:+0.10</td></tr><tr><td class='mono sm'>8547</td><td class='r'>0.100</td><td class='r'>0.910</td><td class='c'><span style="background:#b91c1c;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">STP_RETURN</span></td><td class='mono sm dg'>stop_payment_instructed_by_drawer</td><td class='mono sm dg'>stop_payment:+1.00 | baseline:+0.10</td></tr></tbody></table></div><div style='margin-bottom:14px'><div style='font-size:11px;font-weight:600;color:#881337;margin-bottom:6px'>Insufficient Balance</div><table><thead><tr><th>Idx</th><th>Fraud</th><th>Sig</th><th>Decision</th><th>Rationale</th><th>SHAP</th></tr></thead><tbody><tr><td class='mono sm'>9030</td><td class='r'>0.100</td><td class='r'>0.944</td><td class='c'><span style="background:#b91c1c;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">STP_RETURN</span></td><td class='mono sm dg'>insufficient_balance</td><td class='mono sm dg'>baseline:+0.10</td></tr><tr><td class='mono sm'>9031</td><td class='r'>0.100</td><td class='r'>0.960</td><td class='c'><span style="background:#b91c1c;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">STP_RETURN</span></td><td class='mono sm dg'>insufficient_balance</td><td class='mono sm dg'>baseline:+0.10</td></tr><tr><td class='mono sm'>9032</td><td class='r'>0.100</td><td class='r'>0.906</td><td class='c'><span style="background:#b91c1c;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">STP_RETURN</span></td><td class='mono sm dg'>insufficient_balance</td><td class='mono sm dg'>baseline:+0.10</td></tr></tbody></table></div>
+</div>
+
+<div class="sec">
+  <h2>STP Confirm — Sample Decisions (5 clean cheques)</h2>
+  <table><thead><tr><th>Idx</th><th>Fraud</th><th>Sig</th><th>Decision</th><th>Rationale</th><th>SHAP</th></tr></thead><tbody><tr><td class='mono sm'>300</td><td class='r'>0.100</td><td class='r'>0.905</td><td class='c'><span style="background:#15803d;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">STP_CONFIRM</span></td><td class='mono sm dg'>all_gates_pass</td><td class='mono sm dg'>baseline:+0.10</td></tr><tr><td class='mono sm'>301</td><td class='r'>0.100</td><td class='r'>0.949</td><td class='c'><span style="background:#15803d;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">STP_CONFIRM</span></td><td class='mono sm dg'>all_gates_pass</td><td class='mono sm dg'>baseline:+0.10</td></tr><tr><td class='mono sm'>302</td><td class='r'>0.100</td><td class='r'>0.959</td><td class='c'><span style="background:#15803d;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">STP_CONFIRM</span></td><td class='mono sm dg'>all_gates_pass</td><td class='mono sm dg'>baseline:+0.10</td></tr><tr><td class='mono sm'>303</td><td class='r'>0.100</td><td class='r'>0.960</td><td class='c'><span style="background:#15803d;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">STP_CONFIRM</span></td><td class='mono sm dg'>all_gates_pass</td><td class='mono sm dg'>baseline:+0.10</td></tr><tr><td class='mono sm'>304</td><td class='r'>0.100</td><td class='r'>0.930</td><td class='c'><span style="background:#15803d;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">STP_CONFIRM</span></td><td class='mono sm dg'>all_gates_pass</td><td class='mono sm dg'>baseline:+0.10</td></tr></tbody></table>
+</div>
+
+<div class="sec">
+  <h2>Test Suite Results — 16 tests</h2>
+  <table>
+    <thead><tr><th>#</th><th>Test</th><th>Assertion</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>test_scale_10k_total</td><td>Exactly 10,000 instruments processed</td><td style="color:#15803d;font-weight:700">&#10003; PASS</td></tr>
+      <tr><td>2</td><td>test_scale_distribution_correct</td><td>Each class has exact designed count</td><td style="color:#15803d;font-weight:700">&#10003; PASS</td></tr>
+      <tr><td>3</td><td>test_scale_all_outward_outcomes_correct</td><td>10,000/10,000 outward outcomes correct</td><td style="color:#15803d;font-weight:700">&#10003; PASS</td></tr>
+      <tr><td>4</td><td>test_scale_all_inward_decisions_correct</td><td>9,700/9,700 inward decisions correct</td><td style="color:#15803d;font-weight:700">&#10003; PASS</td></tr>
+      <tr><td>5</td><td>test_scale_no_inward_for_rejected_outward</td><td>300 rejected cheques never reach inward</td><td style="color:#15803d;font-weight:700">&#10003; PASS</td></tr>
+      <tr><td>6</td><td>test_scale_all_12_classes_have_results</td><td>All 12 ScenarioClass values present</td><td style="color:#15803d;font-weight:700">&#10003; PASS</td></tr>
+      <tr><td>7</td><td>test_scale_outward_rejected_count</td><td>Exactly 300 outward rejections</td><td style="color:#15803d;font-weight:700">&#10003; PASS</td></tr>
+      <tr><td>8</td><td>test_scale_inward_stp_confirm_count</td><td>Exactly 5,820 STP_CONFIRM</td><td style="color:#15803d;font-weight:700">&#10003; PASS</td></tr>
+      <tr><td>9</td><td>test_scale_inward_human_review_count</td><td>Exactly 2,425 HUMAN_REVIEW</td><td style="color:#15803d;font-weight:700">&#10003; PASS</td></tr>
+      <tr><td>10</td><td>test_scale_inward_stp_return_count</td><td>Exactly 1,455 STP_RETURN</td><td style="color:#15803d;font-weight:700">&#10003; PASS</td></tr>
+      <tr><td>11</td><td>test_scale_compliance_evaluator_is_real</td><td>IQA=0.40→FAIL · IQA=0.92→PASS (real evaluator)</td><td style="color:#15803d;font-weight:700">&#10003; PASS</td></tr>
+      <tr><td>12</td><td>test_scale_date_function_is_real</td><td>-100d→STALE · +30d→POST_DATED · -5d→valid</td><td style="color:#15803d;font-weight:700">&#10003; PASS</td></tr>
+      <tr><td>13</td><td>test_scale_fraud_function_is_real</td><td>alteration→0.70 · clean→0.10 (real scorer)</td><td style="color:#15803d;font-weight:700">&#10003; PASS</td></tr>
+      <tr><td>14</td><td>test_scale_shap_values_always_present</td><td>All 9,700 inward decisions have SHAP</td><td style="color:#15803d;font-weight:700">&#10003; PASS</td></tr>
+      <tr><td>15</td><td>test_scale_stp_confirm_fraud_scores_low</td><td>No STP_CONFIRM with fraud > 0.72</td><td style="color:#15803d;font-weight:700">&#10003; PASS</td></tr>
+      <tr><td>16</td><td>test_scale_sig_mismatch_scores_below_threshold</td><td>All sig_mismatch instruments have sig &lt; 0.85</td><td style="color:#15803d;font-weight:700">&#10003; PASS</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<footer>
+  ASTRA CTS Scale Pipeline &nbsp;·&nbsp; 2026-08-19 12:48:13 &nbsp;·&nbsp;
+  10,000 instruments &nbsp;·&nbsp; 2.56s &nbsp;·&nbsp;
+  Real: InstrumentComplianceRecord + _validate_cheque_date + _rule_based_score + 9-gate decision logic
+</footer>
+</div>

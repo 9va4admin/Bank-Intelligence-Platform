@@ -4,10 +4,13 @@ MismatchResolutionWorkflow — branch supervisor resolution for Vision ↔ scann
 Triggered by: OutwardScanWorkflow when Vision LLM amount differs from scanner amount.
 
 Flow:
-  1. publish_mismatch_hold — publish to cts.mismatch.{bank_id}.{branch_id} Kafka topic
+  1. publish_mismatch_hold    — publish to cts.mismatch.{bank_id}.{branch_id} Kafka topic
      (EEH SSE feed picks this up → branch portal shows HELD item in real-time)
-  2. wait_for_signal      — Temporal signal: GO_AHEAD | REJECTED (or 4-hour timeout)
-  3. write_audit          — Immudb audit for all outcomes
+  2. persist_mismatch_hold_db — INSERT into cts.mismatch_queue (bank_id scoped, with
+     workflow_run_id so the API can signal back)
+  3. wait_for_signal          — Temporal signal: GO_AHEAD | REJECTED (or 4-hour timeout)
+  4. resolve_mismatch_db      — UPDATE cts.mismatch_queue with outcome + resolved_by
+  5. write_audit              — Immudb audit for all outcomes
 
 Terminal states: GO_AHEAD | REJECTED | TIMEOUT_AUTO_REJECTED
 Workflow ID: cts-mismatch-{bank_id}-{branch_id}-{mismatch_id}
@@ -35,6 +38,11 @@ _KAFKA_PUBLISH_RETRY = RetryPolicy(
     maximum_attempts=3,
     initial_interval=timedelta(seconds=2),
     backoff_coefficient=1.5,
+)
+_DB_RETRY = RetryPolicy(
+    maximum_attempts=3,
+    initial_interval=timedelta(seconds=1),
+    backoff_coefficient=2.0,
 )
 _AUDIT_RETRY = RetryPolicy(
     maximum_attempts=0,   # 0 = unlimited in Temporal Python SDK (None crashes _validate())
@@ -105,6 +113,92 @@ async def publish_mismatch_hold(
         topic=topic,
     )
     return PublishMismatchHoldResult(published=True)
+
+
+# ---------------------------------------------------------------------------
+# persist_mismatch_hold_db — INSERT into cts.mismatch_queue so the API and
+# gRPC server can query HELD items without joining through cheque_instruments.
+# ---------------------------------------------------------------------------
+
+class PersistMismatchHoldInput(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    mismatch_id: str
+    bank_id: str
+    branch_id: str
+    instrument_id: str
+    pu_id: str
+    lot_id: Optional[str]
+    vision_finding: dict          # already masked, no raw PII
+    scanner_data: dict            # already masked, no raw PII
+    mismatch_fields: list[str]
+    workflow_run_id: str          # Temporal run ID — needed by API to signal back
+
+
+@activity.defn
+async def persist_mismatch_hold_db(
+    inp: PersistMismatchHoldInput, db_pool=None
+) -> None:
+    """INSERT the mismatch hold record into cts.mismatch_queue (bank_id scoped)."""
+    import json
+    if db_pool is None:
+        log.warning("persist_mismatch_hold_db.no_pool",
+                    mismatch_id=inp.mismatch_id, bank_id=inp.bank_id)
+        return
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO cts.mismatch_queue (
+                mismatch_id, bank_id, instrument_id, branch_id, pu_id, lot_id,
+                vision_finding, scanner_data, mismatch_fields,
+                status, held_at, workflow_run_id, created_at
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'HELD',NOW(),$10,NOW())
+            ON CONFLICT (mismatch_id) DO NOTHING
+            """,
+            inp.mismatch_id, inp.bank_id, inp.instrument_id, inp.branch_id,
+            inp.pu_id, inp.lot_id,
+            json.dumps(inp.vision_finding), json.dumps(inp.scanner_data),
+            json.dumps(inp.mismatch_fields),
+            inp.workflow_run_id,
+        )
+    log.info("persist_mismatch_hold_db.inserted",
+             mismatch_id=inp.mismatch_id, bank_id=inp.bank_id)
+
+
+# ---------------------------------------------------------------------------
+# resolve_mismatch_db — UPDATE cts.mismatch_queue after branch decision or timeout.
+# ---------------------------------------------------------------------------
+
+class ResolveMismatchDbInput(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    mismatch_id: str
+    bank_id: str
+    outcome: str          # GO_AHEAD | REJECTED | TIMEOUT_AUTO_REJECTED
+    resolved_by: Optional[str]
+
+
+@activity.defn
+async def resolve_mismatch_db(
+    inp: ResolveMismatchDbInput, db_pool=None
+) -> None:
+    """UPDATE cts.mismatch_queue with the final outcome (bank_id checked to prevent IDOR)."""
+    if db_pool is None:
+        log.warning("resolve_mismatch_db.no_pool",
+                    mismatch_id=inp.mismatch_id, bank_id=inp.bank_id)
+        return
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            """
+            UPDATE cts.mismatch_queue
+               SET status      = $1,
+                   resolved_at = NOW(),
+                   resolved_by = $2
+             WHERE mismatch_id = $3
+               AND bank_id     = $4
+            """,
+            inp.outcome, inp.resolved_by, inp.mismatch_id, inp.bank_id,
+        )
+    log.info("resolve_mismatch_db.updated",
+             mismatch_id=inp.mismatch_id, bank_id=inp.bank_id, outcome=inp.outcome)
 
 
 class MismatchInput(BaseModel):
@@ -190,7 +284,29 @@ class MismatchResolutionWorkflow:
             retry_policy=_KAFKA_PUBLISH_RETRY,
         )
 
-        # Step 2: wait for branch supervisor signal, or 4-hour timeout.
+        # Step 2: persist hold row to DB so the API and gRPC server can query it.
+        # workflow.info().run_id lets the resolve API signal back to this workflow.
+        await workflow.execute_activity(
+            persist_mismatch_hold_db,
+            PersistMismatchHoldInput(
+                mismatch_id=inp.mismatch_id,
+                bank_id=inp.bank_id,
+                branch_id=inp.branch_id,
+                instrument_id=inp.instrument_id,
+                pu_id=inp.pu_id,
+                lot_id=None,
+                vision_finding={"amount_str": inp.vision_amount_str,
+                                "mismatch_fields": inp.mismatch_fields},
+                scanner_data={"amount_str": inp.scanner_amount_str,
+                              "payee_display": inp.payee_display},
+                mismatch_fields=inp.mismatch_fields,
+                workflow_run_id=workflow.info().run_id,
+            ),
+            start_to_close_timeout=timedelta(seconds=15),
+            retry_policy=_DB_RETRY,
+        )
+
+        # Step 3: wait for branch supervisor signal, or 4-hour timeout.
         try:
             await workflow.wait_condition(
                 lambda: self._signal is not None,
@@ -220,7 +336,20 @@ class MismatchResolutionWorkflow:
                 timeout_hours=MISMATCH_TIMEOUT_HOURS,
             )
 
-        # Step 3: audit — always written regardless of outcome.
+        # Step 4: persist outcome to DB (bank_id-scoped UPDATE prevents cross-bank IDOR).
+        await workflow.execute_activity(
+            resolve_mismatch_db,
+            ResolveMismatchDbInput(
+                mismatch_id=inp.mismatch_id,
+                bank_id=inp.bank_id,
+                outcome=outcome,
+                resolved_by=resolved_by,
+            ),
+            start_to_close_timeout=timedelta(seconds=15),
+            retry_policy=_DB_RETRY,
+        )
+
+        # Step 5: audit — always written regardless of outcome.
         await workflow.execute_activity(
             write_audit,
             WriteAuditInput(
