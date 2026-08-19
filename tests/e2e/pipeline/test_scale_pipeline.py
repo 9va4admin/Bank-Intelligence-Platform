@@ -1,5 +1,5 @@
 """
-ASTRA CTS Scale Pipeline: 18,000 instruments across all 27 classification paths.
+ASTRA CTS Scale Pipeline: 18,000 instruments across all 26 classification paths.
 
 All decision gates evaluated via REAL production functions:
   - modules.cts.compliance.models.InstrumentComplianceRecord  (CTS-2010 evaluator)
@@ -7,12 +7,14 @@ All decision gates evaluated via REAL production functions:
   - modules.cts.workflows.activities.fraud._rule_based_score  (fraud fallback scorer)
   - eval_decision_scale()  — same priority gate logic as synthesise_decision activity
 
-Scenario distribution (27 classes, designed to cover every branch):
-  Outward rejected    :   900   (5.0%)  — stale, post-dated, compliance, undated, duplicate
-  Inward STP_CONFIRM  :  8,880  (49.3%) — clean + handwritten clean
-  Inward HRQ          :  5,400  (30.0%) — 14 distinct subtypes
-  Inward POST_DATED_HELD:  180  (1.0%)  — near-future hold
-  Inward STP_RETURN   :  2,640  (14.7%) — stop, balance, frozen, closed, CBS not found
+Scenario distribution (26 classes, designed to cover every branch):
+  Outward rejected  :   900  (5.0%)  — stale, post-dated, compliance, undated, duplicate
+  Inward STP_CONFIRM:  9,060  (50.3%) — clean + handwritten clean
+  Inward HRQ        :  5,400  (30.0%) — 14 distinct subtypes
+  Inward STP_RETURN :  2,640  (14.7%) — stop, balance, frozen, closed, CBS not found
+
+NOTE: Post-dated cheques are rejected outward by the presentee bank (CTS_REJECTED) —
+they never reach the drawee inward pipeline. POST_DATED_HOLD is not a valid inward path.
 
 Total: 18,000 instruments. No async overhead — direct function calls for throughput.
 Deterministic seed → reproducible across runs.
@@ -61,8 +63,6 @@ class ScenarioClass(str, Enum):
     # ── Inward STP_CONFIRM (2 classes) ───────────────────────────────────────
     STP_CONFIRM             = "STP_CONFIRM"
     HANDWRITTEN_CLEAN       = "HANDWRITTEN_CLEAN"
-    # ── Inward POST_DATED_HELD (1 class) ─────────────────────────────────────
-    POST_DATED_HOLD         = "POST_DATED_HOLD"
     # ── Inward HUMAN_REVIEW (14 classes) ─────────────────────────────────────
     HRQ_HIGH_VALUE          = "HRQ_HIGH_VALUE"
     HRQ_FRAUD               = "HRQ_FRAUD"
@@ -93,11 +93,9 @@ DISTRIBUTION: dict[ScenarioClass, int] = {
     ScenarioClass.COMPLIANCE_FAIL:          180,
     ScenarioClass.UNDATED_CHEQUE:           180,
     ScenarioClass.DUPLICATE_CHEQUE:         160,
-    # ── Inward STP_CONFIRM (total 8,880) ────────────────────────────────────
-    ScenarioClass.STP_CONFIRM:             8760,
+    # ── Inward STP_CONFIRM (total 9,060) ────────────────────────────────────
+    ScenarioClass.STP_CONFIRM:             8940,
     ScenarioClass.HANDWRITTEN_CLEAN:        120,
-    # ── Inward POST_DATED_HELD (total 180) ──────────────────────────────────
-    ScenarioClass.POST_DATED_HOLD:          180,
     # ── Inward HUMAN_REVIEW (total 5,400) ───────────────────────────────────
     ScenarioClass.HRQ_HIGH_VALUE:          1500,
     ScenarioClass.HRQ_FRAUD:               750,
@@ -132,7 +130,6 @@ EXPECTED_OUTWARD: dict[ScenarioClass, str] = {
     ScenarioClass.DUPLICATE_CHEQUE:         "CTS_REJECTED",
     ScenarioClass.STP_CONFIRM:             "ACCEPTED",
     ScenarioClass.HANDWRITTEN_CLEAN:        "ACCEPTED",
-    ScenarioClass.POST_DATED_HOLD:          "ACCEPTED",
     ScenarioClass.HRQ_HIGH_VALUE:          "ACCEPTED",
     ScenarioClass.HRQ_FRAUD:               "ACCEPTED",
     ScenarioClass.HRQ_SIG_MISMATCH:        "ACCEPTED",
@@ -162,7 +159,6 @@ EXPECTED_INWARD: dict[ScenarioClass, Optional[str]] = {
     ScenarioClass.DUPLICATE_CHEQUE:         None,
     ScenarioClass.STP_CONFIRM:             "STP_CONFIRM",
     ScenarioClass.HANDWRITTEN_CLEAN:        "STP_CONFIRM",
-    ScenarioClass.POST_DATED_HOLD:          "POST_DATED_HELD",
     ScenarioClass.HRQ_HIGH_VALUE:          "HUMAN_REVIEW",
     ScenarioClass.HRQ_FRAUD:               "HUMAN_REVIEW",
     ScenarioClass.HRQ_SIG_MISMATCH:        "HUMAN_REVIEW",
@@ -192,7 +188,6 @@ SC_LABEL: dict[ScenarioClass, str] = {
     ScenarioClass.DUPLICATE_CHEQUE:         "Duplicate Cheque (instrument already presented)",
     ScenarioClass.STP_CONFIRM:             "Clean STP — all gates pass (printed cheque)",
     ScenarioClass.HANDWRITTEN_CLEAN:        "Handwritten Cheque — clean, OCR confidence ≥ 0.90",
-    ScenarioClass.POST_DATED_HOLD:          "Post-Dated Hold — near-future date, held at inward",
     ScenarioClass.HRQ_HIGH_VALUE:          "Human Review — High Value (> ₹5L)",
     ScenarioClass.HRQ_FRAUD:               "Human Review — Fraud Score > 0.72",
     ScenarioClass.HRQ_SIG_MISMATCH:        "Human Review — Signature Mismatch < 0.85",
@@ -242,7 +237,6 @@ class ScaleScenario:
     kill_switch_active: bool = False
     msv_required: bool = False
     vault_miss: bool = False
-    post_dated_hold: bool = False
     is_duplicate: bool = False
     is_handwritten: bool = False
 
@@ -313,9 +307,6 @@ def generate_scale_scenarios() -> list[ScaleScenario]:
                 chq_date = TODAY + timedelta(days=10 + (seed % 60))
             elif sc == ScenarioClass.UNDATED_CHEQUE:
                 chq_date = None                       # blank date field
-            elif sc == ScenarioClass.POST_DATED_HOLD:
-                # Near-future (1-3 days ahead) — outward uses TODAY for compliance
-                chq_date = TODAY + timedelta(days=1 + (seed % 3))
             else:
                 chq_date = TODAY - timedelta(days=seed % 30)
 
@@ -395,7 +386,6 @@ def generate_scale_scenarios() -> list[ScaleScenario]:
                 kill_switch_active=(sc == ScenarioClass.HRQ_KILL_SWITCH),
                 msv_required=(sc == ScenarioClass.HRQ_MSV_REQUIRED),
                 vault_miss=(sc == ScenarioClass.HRQ_VAULT_MISS),
-                post_dated_hold=(sc == ScenarioClass.POST_DATED_HOLD),
                 is_duplicate=(sc == ScenarioClass.DUPLICATE_CHEQUE),
                 is_handwritten=(sc in (ScenarioClass.HANDWRITTEN_CLEAN, ScenarioClass.HANDWRITTEN_LOW_OCR)),
             ))
@@ -452,9 +442,6 @@ def evaluate_scale_outward(s: ScaleScenario) -> ScaleOutwardResult:
     if s.cheque_date is None:
         # Undated cheque — empty string triggers UNDATED_CHEQUE violation
         date_str_eval = ""
-    elif s.post_dated_hold:
-        # Near-future hold: outward evaluation uses TODAY (drawee receives from NGCH)
-        date_str_eval = TODAY.strftime("%d-%m-%Y")
     else:
         date_str_eval = s.cheque_date.strftime("%d-%m-%Y")
 
@@ -510,18 +497,14 @@ def eval_decision_scale(
     kill_switch_active: bool = False,
     msv_required: bool = False,
     vault_miss: bool = False,
-    post_dated_hold: bool = False,
 ) -> tuple[str, str, float]:
     """
-    Extended decision logic — 14 priority gates.
-    Same gate order as synthesise_decision activity, plus new pre-gates
-    for post-dated hold, kill switch, OCR confidence, field mismatches,
-    vault miss, CBS account status, and MSV.
+    Extended decision logic — 13 priority gates.
+    Same gate order as synthesise_decision activity, plus pre-gates for
+    kill switch, OCR confidence, field mismatches, vault miss, CBS account
+    status, and MSV.
     """
-    # Pre-gate 0: post-dated hold (before all other checks)
-    if post_dated_hold:
-        return "POST_DATED_HELD", "post_dated_cheque_held_until_date", 0.0
-    # Pre-gate 1: kill switch active
+    # Pre-gate 0: kill switch active
     if kill_switch_active:
         return "HUMAN_REVIEW", "kill_switch_active_for_instrument_type", 0.0
     # Pre-gate 2: OCR confidence too low to trust extracted fields
@@ -626,7 +609,6 @@ def evaluate_scale_inward(
         kill_switch_active=s.kill_switch_active,
         msv_required=s.msv_required,
         vault_miss=s.vault_miss,
-        post_dated_hold=s.post_dated_hold,
     )
 
     return ScaleInwardResult(
@@ -810,14 +792,6 @@ def test_scale_inward_stp_return_count():
     assert n == expected, f"Expected {expected} STP_RETURN, got {n}"
 
 
-def test_scale_post_dated_held_count():
-    """Exactly 180 POST_DATED_HELD decisions."""
-    r = _get_report()
-    n = sum(1 for i in r.inward_results if i.decision == "POST_DATED_HELD")
-    expected = DISTRIBUTION[ScenarioClass.POST_DATED_HOLD]
-    assert n == expected, f"Expected {expected} POST_DATED_HELD, got {n}"
-
-
 def test_scale_vault_miss_always_human_review():
     """Signature vault miss ALWAYS routes to HUMAN_REVIEW — never STP_RETURN or STP_CONFIRM."""
     r = _get_report()
@@ -998,14 +972,12 @@ def test_scale_generate_report():
     inward_stp   = sum(1 for i in r.inward_results if i.decision == "STP_CONFIRM")
     inward_hrq   = sum(1 for i in r.inward_results if i.decision == "HUMAN_REVIEW")
     inward_ret   = sum(1 for i in r.inward_results if i.decision == "STP_RETURN")
-    inward_hold  = sum(1 for i in r.inward_results if i.decision == "POST_DATED_HELD")
 
     print(f"\n  Scale report  : {path} ({size_kb} KB)")
     print(f"  Run time      : {r.duration_s:.2f}s")
     print(f"  Total         : {r.total_scenarios:,} instruments")
     print(f"  Outward       : {outward_accepted:,} ACCEPTED · {r.total_scenarios - outward_accepted:,} CTS_REJECTED")
-    print(f"  Inward        : {inward_stp:,} STP_CONFIRM · {inward_hrq:,} HUMAN_REVIEW · "
-          f"{inward_ret:,} STP_RETURN · {inward_hold:,} POST_DATED_HELD")
+    print(f"  Inward        : {inward_stp:,} STP_CONFIRM · {inward_hrq:,} HUMAN_REVIEW · {inward_ret:,} STP_RETURN")
     print(f"  All correct   : outward={sum(1 for o in r.outward_results if o.correct)} "
           f"inward={sum(1 for i in r.inward_results if i.correct)}")
 
@@ -1018,7 +990,6 @@ _BADGE_COLOURS = {
     "STP_CONFIRM":      "#15803d",
     "STP_RETURN":       "#b91c1c",
     "HUMAN_REVIEW":     "#92400e",
-    "POST_DATED_HELD":  "#6d28d9",
     "ACCEPTED":         "#1d4ed8",
     "CTS_REJECTED":     "#7f1d1d",
 }
@@ -1033,8 +1004,6 @@ _SC_COLOURS = {
     # STP_CONFIRM
     ScenarioClass.STP_CONFIRM:             "#15803d",
     ScenarioClass.HANDWRITTEN_CLEAN:        "#16a34a",
-    # POST_DATED_HELD
-    ScenarioClass.POST_DATED_HOLD:          "#6d28d9",
     # HUMAN_REVIEW subtypes
     ScenarioClass.HRQ_HIGH_VALUE:          "#b45309",
     ScenarioClass.HRQ_FRAUD:               "#b91c1c",
@@ -1140,13 +1109,11 @@ def _generate_scale_report(report: ScaleReport) -> Path:
     stp_c  = sum(1 for i in report.inward_results if i.decision == "STP_CONFIRM")
     hrq    = sum(1 for i in report.inward_results if i.decision == "HUMAN_REVIEW")
     ret    = sum(1 for i in report.inward_results if i.decision == "STP_RETURN")
-    hold   = sum(1 for i in report.inward_results if i.decision == "POST_DATED_HELD")
 
     stacked = _stacked_bar([
         ("STP_CONFIRM",       stp_c,  "#15803d", "#fff"),
         ("HUMAN_REVIEW",      hrq,    "#b45309", "#fff"),
         ("STP_RETURN",        ret,    "#b91c1c", "#fff"),
-        ("POST_DATED_HELD",   hold,   "#6d28d9", "#fff"),
         ("OUTWARD REJECT",    or_,    "#64748b", "#fff"),
     ])
 
@@ -1261,7 +1228,6 @@ footer{{text-align:center;padding:20px;font-size:11px;color:#94a3b8}}
   <div class="kpi"><div class="num">{stp_c:,}</div><div class="lbl">STP Confirm</div></div>
   <div class="kpi"><div class="num">{hrq:,}</div><div class="lbl">Human Review Queue</div></div>
   <div class="kpi"><div class="num">{ret:,}</div><div class="lbl">STP Return</div></div>
-  <div class="kpi"><div class="num">{hold:,}</div><div class="lbl">Post-Dated Hold</div></div>
   <div class="kpi"><div class="num">{out_correct:,}/{T:,}</div><div class="lbl">Outward Accuracy</div></div>
   <div class="kpi"><div class="num">{in_correct:,}/{in_total:,}</div><div class="lbl">Inward Accuracy</div></div>
 </div>
@@ -1273,7 +1239,7 @@ footer{{text-align:center;padding:20px;font-size:11px;color:#94a3b8}}
     <code>InstrumentComplianceRecord()</code> evaluates CTS-2010 thresholds (DPI ≥ 200, IQA ≥ 0.70, ≤ 50 KB) for all 18,000 instruments.
     <code>_validate_cheque_date()</code> is the exact production function — stale, post-dated, undated all fail.
     <code>_rule_based_score()</code> is the production XGBoost fallback fraud scorer.
-    Decision logic runs 14 priority gates covering all 27 scenario classes.
+    Decision logic runs 13 priority gates covering all 26 scenario classes.
     Injected values: fraud score for HRQ_FRAUD (XGBoost ≥ 0.80), sig mismatch for HRQ_SIG_MISMATCH, and infra calls (NGCH, Immudb, vLLM) are test-controlled inputs.
   </div>
   {stacked}
@@ -1281,7 +1247,6 @@ footer{{text-align:center;padding:20px;font-size:11px;color:#94a3b8}}
     <span style="font-size:11px;display:flex;align-items:center;gap:4px"><span style="background:#15803d;width:10px;height:10px;border-radius:50%;display:inline-block"></span>STP_CONFIRM ({stp_c:,} · {_pct(stp_c, T)})</span>
     <span style="font-size:11px;display:flex;align-items:center;gap:4px"><span style="background:#b45309;width:10px;height:10px;border-radius:50%;display:inline-block"></span>HUMAN_REVIEW ({hrq:,} · {_pct(hrq, T)})</span>
     <span style="font-size:11px;display:flex;align-items:center;gap:4px"><span style="background:#b91c1c;width:10px;height:10px;border-radius:50%;display:inline-block"></span>STP_RETURN ({ret:,} · {_pct(ret, T)})</span>
-    <span style="font-size:11px;display:flex;align-items:center;gap:4px"><span style="background:#6d28d9;width:10px;height:10px;border-radius:50%;display:inline-block"></span>POST_DATED_HELD ({hold:,} · {_pct(hold, T)})</span>
     <span style="font-size:11px;display:flex;align-items:center;gap:4px"><span style="background:#64748b;width:10px;height:10px;border-radius:50%;display:inline-block"></span>OUTWARD REJECT ({or_:,} · {_pct(or_, T)})</span>
   </div>
 </div>
@@ -1292,7 +1257,7 @@ footer{{text-align:center;padding:20px;font-size:11px;color:#94a3b8}}
 </div>
 
 <div class="sec">
-  <h2>All 27 Scenario Classes</h2>
+  <h2>All 26 Scenario Classes</h2>
   <div class="ox">
   <table>
     <thead><tr>
@@ -1312,15 +1277,11 @@ footer{{text-align:center;padding:20px;font-size:11px;color:#94a3b8}}
   <div class="sec">
     <h2>STP_RETURN Samples (per subtype)</h2>
     {stp_return_samples}
-    <div style="margin-top:14px">
-      <div style="font-size:11px;font-weight:600;color:#6d28d9;margin-bottom:6px">Post-Dated Hold</div>
-      {_sample_table(report.inward_results, ScenarioClass.POST_DATED_HOLD, 3)}
-    </div>
   </div>
 </div>
 
 <footer>ASTRA · Saraswat Co-op Bank · Scale Test {report.timestamp} ·
-All business logic from real production modules · {report.duration_s:.2f}s · {T:,} instruments · 27 classes</footer>
+All business logic from real production modules · {report.duration_s:.2f}s · {T:,} instruments · 26 classes</footer>
 </div>"""
 
     path = DOCS_DIR / f"pipeline-scale-{ts_file}.html"
