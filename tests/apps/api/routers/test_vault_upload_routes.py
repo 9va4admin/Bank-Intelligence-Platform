@@ -397,7 +397,7 @@ class TestVaultUploadParseError:
 def _mock_db_pool_with_batch(batch_id="batch-uuid-001", bank_id=BANK_ID,
                               vault_type="PPS", status="COMPLETE",
                               rows_total=10, rows_processed=10, rows_failed=0,
-                              errors_json=None):
+                              errors_json=None, error_file_path=None):
     """Returns a MagicMock db_pool whose conn.fetchrow returns a realistic batch row."""
     row = {
         "id": batch_id, "bank_id": bank_id, "vault_type": vault_type,
@@ -407,6 +407,7 @@ def _mock_db_pool_with_batch(batch_id="batch-uuid-001", bank_id=BANK_ID,
         "status": status, "rows_total": rows_total,
         "rows_processed": rows_processed, "rows_failed": rows_failed,
         "errors_json": errors_json or [],
+        "error_file_path": error_file_path,
         "created_at":   MagicMock(timestamp=MagicMock(return_value=1724000000.0)),
         "completed_at": MagicMock(timestamp=MagicMock(return_value=1724000030.0)),
     }
@@ -490,7 +491,8 @@ class TestVaultBatchStatus:
 # 7. GET /vault/batches/{batch_id}/errors.csv
 # ---------------------------------------------------------------------------
 
-def _mock_db_pool_with_errors(batch_id="batch-uuid-001", bank_id=BANK_ID, errors=None):
+def _mock_db_pool_with_errors(batch_id="batch-uuid-001", bank_id=BANK_ID,
+                               errors=None, error_file_path=None):
     raw = errors or [
         {"row": 2, "error": "Account not found"},
         {"row": 5, "error": "Invalid amount"},
@@ -499,6 +501,7 @@ def _mock_db_pool_with_errors(batch_id="batch-uuid-001", bank_id=BANK_ID, errors
         "vault_type": "PPS", "status": "PARTIAL",
         "rows_failed": len(raw),
         "errors_json": raw,
+        "error_file_path": error_file_path,
     }
 
     async def _fetchrow(*args, **kwargs):
@@ -571,3 +574,175 @@ class TestVaultBatchErrorsCsv:
         client = TestClient(app, raise_server_exceptions=False)
         r = client.get("/v1/cts/vault/batches/batch-uuid-001/errors.csv")
         assert r.status_code == 503
+
+
+# ---------------------------------------------------------------------------
+# 8. VaultBatchStatusResponse — error_file_path / has_error_file fields
+# ---------------------------------------------------------------------------
+
+class TestVaultBatchStatusErrorFileFields:
+    def test_batch_status_includes_has_error_file_field(self):
+        """Response must expose has_error_file: bool."""
+        app = _make_app()
+        app.state.db_pool = _mock_db_pool_with_batch(rows_failed=0)
+        client = TestClient(app, raise_server_exceptions=False)
+        body = client.get("/v1/cts/vault/batches/batch-uuid-001").json()
+        assert "has_error_file" in body
+
+    def test_batch_status_includes_error_file_path_field(self):
+        """Response must expose error_file_path: Optional[str]."""
+        app = _make_app()
+        app.state.db_pool = _mock_db_pool_with_batch(rows_failed=0)
+        client = TestClient(app, raise_server_exceptions=False)
+        body = client.get("/v1/cts/vault/batches/batch-uuid-001").json()
+        assert "error_file_path" in body
+
+    def test_has_error_file_false_when_no_error_file_path(self):
+        app = _make_app()
+        app.state.db_pool = _mock_db_pool_with_batch(rows_failed=0, error_file_path=None)
+        client = TestClient(app, raise_server_exceptions=False)
+        body = client.get("/v1/cts/vault/batches/batch-uuid-001").json()
+        assert body["has_error_file"] is False
+        assert body["error_file_path"] is None
+
+    def test_has_error_file_true_when_error_file_path_set(self):
+        efp = "saraswat-coop/vault-errors/batch-uuid-001.csv"
+        app = _make_app()
+        app.state.db_pool = _mock_db_pool_with_batch(
+            rows_failed=3, error_file_path=efp
+        )
+        client = TestClient(app, raise_server_exceptions=False)
+        body = client.get("/v1/cts/vault/batches/batch-uuid-001").json()
+        assert body["has_error_file"] is True
+        assert body["error_file_path"] == efp
+
+
+# ---------------------------------------------------------------------------
+# 9. GET /vault/batches/{batch_id}/errors.csv — MinIO streaming path
+# ---------------------------------------------------------------------------
+
+_MINIO_CSV = b"row,error_message,error_code\n2,Account not found,VAL_ERR\n5,Invalid date,DATE_ERR\n"
+
+
+def _minio_client(raises: bool = False):
+    mc = MagicMock()
+    if raises:
+        mc.get_object.side_effect = Exception("MinIO connection refused")
+    else:
+        mc.get_object.return_value = io.BytesIO(_MINIO_CSV)
+    return mc
+
+
+class TestVaultBatchErrorsCsvMinIO:
+    _EFP = "saraswat-coop/vault-errors/batch-uuid-001.csv"
+
+    def _pool_with_efp(self):
+        return _mock_db_pool_with_errors(error_file_path=self._EFP)
+
+    def test_minio_path_returns_200(self):
+        """When error_file_path is set → 200 streaming from MinIO."""
+        app = _make_app()
+        app.state.db_pool = self._pool_with_efp()
+        app.state.minio_client = _minio_client()
+        client = TestClient(app, raise_server_exceptions=False)
+        r = client.get("/v1/cts/vault/batches/batch-uuid-001/errors.csv")
+        assert r.status_code == 200
+
+    def test_minio_path_content_type_is_csv(self):
+        app = _make_app()
+        app.state.db_pool = self._pool_with_efp()
+        app.state.minio_client = _minio_client()
+        client = TestClient(app, raise_server_exceptions=False)
+        r = client.get("/v1/cts/vault/batches/batch-uuid-001/errors.csv")
+        assert "text/csv" in r.headers["content-type"]
+
+    def test_minio_path_streams_minio_content_not_jsonb(self):
+        """Content must come from MinIO, not JSONB errors_json."""
+        app = _make_app()
+        app.state.db_pool = self._pool_with_efp()
+        app.state.minio_client = _minio_client()
+        client = TestClient(app, raise_server_exceptions=False)
+        content = client.get("/v1/cts/vault/batches/batch-uuid-001/errors.csv").content
+        assert content == _MINIO_CSV
+
+    def test_minio_get_object_called_with_correct_key(self):
+        """get_object must be called with bucket from config and key from DB."""
+        app = _make_app()
+        app.state.db_pool = self._pool_with_efp()
+        mc = _minio_client()
+        app.state.minio_client = mc
+        with patch("apps.api.routers.cts.config_service") as mock_cs:
+            mock_cs.get = AsyncMock(return_value="astra-vault-errors")
+            client = TestClient(app, raise_server_exceptions=False)
+            client.get("/v1/cts/vault/batches/batch-uuid-001/errors.csv")
+        mc.get_object.assert_called_once_with("astra-vault-errors", self._EFP)
+
+    def test_null_error_file_path_falls_back_to_jsonb(self):
+        """Old batch (error_file_path=None) → JSONB fallback; MinIO not called."""
+        app = _make_app()
+        app.state.db_pool = _mock_db_pool_with_errors(error_file_path=None)
+        mc = _minio_client()
+        app.state.minio_client = mc
+        client = TestClient(app, raise_server_exceptions=False)
+        r = client.get("/v1/cts/vault/batches/batch-uuid-001/errors.csv")
+        assert r.status_code == 200
+        mc.get_object.assert_not_called()
+
+    def test_minio_unavailable_falls_back_to_jsonb(self):
+        """MinIO get_object raises → graceful JSONB fallback (200, not 503)."""
+        app = _make_app()
+        app.state.db_pool = self._pool_with_efp()
+        app.state.minio_client = _minio_client(raises=True)
+        client = TestClient(app, raise_server_exceptions=False)
+        r = client.get("/v1/cts/vault/batches/batch-uuid-001/errors.csv")
+        assert r.status_code == 200
+        assert "text/csv" in r.headers["content-type"]
+
+    def test_no_minio_client_falls_back_to_jsonb(self):
+        """No minio_client on app.state → JSONB fallback, not 503."""
+        app = _make_app()
+        app.state.db_pool = self._pool_with_efp()
+        # deliberately no app.state.minio_client
+        client = TestClient(app, raise_server_exceptions=False)
+        r = client.get("/v1/cts/vault/batches/batch-uuid-001/errors.csv")
+        assert r.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# 10. upload_vault_csv passes minio_client + error_file_bucket to processor
+# ---------------------------------------------------------------------------
+
+class TestVaultUploadPassesMinioClient:
+    def test_upload_passes_minio_client_from_app_state(self):
+        """VaultUploadProcessor must receive minio_client from app.state."""
+        app = _make_app()
+        mc = MagicMock()
+        app.state.minio_client = mc
+        result = _make_upload_result()
+        with patch("modules.cts.vaults.vault_upload_processor.VaultUploadProcessor") as MockProc:
+            MockProc.return_value.process = AsyncMock(return_value=result)
+            client = TestClient(app, raise_server_exceptions=False)
+            client.post(
+                "/v1/cts/vault/upload/PPS",
+                files={"file": ("pps.csv", _pps_csv(), "text/csv")},
+            )
+        call_kwargs = MockProc.call_args.kwargs
+        assert call_kwargs.get("minio_client") is mc
+
+    def test_upload_passes_error_file_bucket_from_config(self):
+        """VaultUploadProcessor must receive error_file_bucket from config_service."""
+        app = _make_app()
+        mc = MagicMock()
+        app.state.minio_client = mc   # must be non-None for bucket to be fetched
+        result = _make_upload_result()
+        with patch("modules.cts.vaults.vault_upload_processor.VaultUploadProcessor") as MockProc:
+            MockProc.return_value.process = AsyncMock(return_value=result)
+            with patch("apps.api.routers.cts.config_service") as mock_cs:
+                mock_cs.get = AsyncMock(return_value="astra-vault-errors")
+                client = TestClient(app, raise_server_exceptions=False)
+                client.post(
+                    "/v1/cts/vault/upload/PPS",
+                    files={"file": ("pps.csv", _pps_csv(), "text/csv")},
+                )
+        call_kwargs = MockProc.call_args.kwargs
+        assert call_kwargs.get("error_file_bucket") == "astra-vault-errors"

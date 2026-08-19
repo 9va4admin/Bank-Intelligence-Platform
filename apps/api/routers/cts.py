@@ -31,6 +31,7 @@ from apps.api.dependencies import require_user_context
 from modules.cts.workflows.cheque_workflow import ChequeWorkflowInput
 from modules.cts.workflows.human_review_workflow import ReviewDecision
 from shared.auth.rbac import BankType, Role, PermissionLevel, RBACPolicy, UserContext
+from shared.config.config_service import config_service
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
 
 log = structlog.get_logger()
@@ -2882,6 +2883,8 @@ class VaultBatchStatusResponse(BaseModel):
     rows_processed: int
     rows_failed: int
     errors_preview: list[dict]   # first 20 from stored errors_json
+    error_file_path: Optional[str]   # MinIO object key; None when clean batch or MinIO unavailable
+    has_error_file: bool             # convenience flag for UI download button
     created_at: float
     completed_at: Optional[float]
 
@@ -2978,8 +2981,16 @@ async def upload_vault_csv(
 
     db_pool = getattr(request.app.state, "db_pool", None)
     vaults: dict = getattr(request.app.state, "vault_instances", {}) or {}
+    minio_client = getattr(request.app.state, "minio_client", None)
 
     from modules.cts.vaults.vault_upload_processor import VaultUploadProcessor
+
+    error_file_bucket: Optional[str] = None
+    if minio_client is not None:
+        try:
+            error_file_bucket = await config_service.get("vault.error_files.bucket")
+        except Exception:
+            error_file_bucket = "astra-vault-errors"
 
     processor = VaultUploadProcessor(
         bank_id=bank_id,
@@ -2988,6 +2999,8 @@ async def upload_vault_csv(
         account_vault=vaults.get("account"),
         signature_vault=vaults.get("signature"),
         pps_vault=vaults.get("pps"),
+        minio_client=minio_client,
+        error_file_bucket=error_file_bucket,
     )
 
     try:
@@ -3074,7 +3087,7 @@ async def get_vault_batch_status(
             """
             SELECT id, bank_id, vault_type, filename, upload_channel,
                    uploaded_by, status, rows_total, rows_processed, rows_failed,
-                   errors_json, created_at, completed_at
+                   errors_json, error_file_path, created_at, completed_at
             FROM cts.vault_upload_batches
             WHERE id=$1 AND bank_id=$2
             """,
@@ -3093,6 +3106,7 @@ async def get_vault_batch_status(
     vault_type = row["vault_type"]
     errors_raw = row["errors_json"] or []
     errors_list: list[dict] = _json.loads(errors_raw) if isinstance(errors_raw, str) else (errors_raw or [])
+    efp: Optional[str] = row["error_file_path"]
 
     return VaultBatchStatusResponse(
         batch_id=str(row["id"]),
@@ -3107,6 +3121,8 @@ async def get_vault_batch_status(
         rows_processed=row["rows_processed"],
         rows_failed=row["rows_failed"],
         errors_preview=errors_list[:20],
+        error_file_path=efp,
+        has_error_file=efp is not None,
         created_at=row["created_at"].timestamp() if row["created_at"] else 0.0,
         completed_at=row["completed_at"].timestamp() if row["completed_at"] else None,
     )
@@ -3134,10 +3150,11 @@ async def download_vault_batch_errors(
         )
 
     import json as _json
+
     async with db_pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            SELECT vault_type, status, rows_failed, errors_json
+            SELECT vault_type, status, rows_failed, errors_json, error_file_path
             FROM cts.vault_upload_batches
             WHERE id=$1 AND bank_id=$2
             """,
@@ -3153,6 +3170,34 @@ async def download_vault_batch_errors(
             },
         )
 
+    filename = f"vault_errors_{batch_id[:8]}.csv"
+    efp: Optional[str] = row["error_file_path"]
+    minio_client = getattr(request.app.state, "minio_client", None)
+
+    # Primary path: stream directly from MinIO (no row cap, full error list)
+    if efp and minio_client is not None:
+        try:
+            try:
+                bucket = await config_service.get("vault.error_files.bucket")
+            except Exception:
+                bucket = "astra-vault-errors"
+            stream = minio_client.get_object(bucket, efp)
+            return StreamingResponse(
+                stream,
+                media_type="text/csv",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
+        except Exception as exc:
+            log.warning(
+                "vault.download_minio_fallback",
+                batch_id=batch_id,
+                bank_id=bank_id,
+                error_file_path=efp,
+                error=str(exc),
+            )
+            # Fall through to JSONB fallback below
+
+    # Fallback: generate CSV from errors_json JSONB (first 1000 rows, backwards-compatible)
     errors_raw = row["errors_json"] or []
     errors_list: list[dict] = _json.loads(errors_raw) if isinstance(errors_raw, str) else (errors_raw or [])
 
@@ -3167,7 +3212,6 @@ async def download_vault_batch_errors(
             writer.writerow({"row_number": err.get("row", ""), "error_message": err.get("error", "")})
             yield buf.getvalue()
 
-    filename = f"vault_errors_{batch_id[:8]}.csv"
     return StreamingResponse(
         _generate_csv(),
         media_type="text/csv",

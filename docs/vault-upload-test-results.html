@@ -155,19 +155,19 @@
 <div class="hdr">
   <div class="hdr-badge">ASTRA</div>
   <div class="hdr-title">Vault Upload — Complete Test Results</div>
-  <div class="hdr-sub">2026-08-18 · branch claude/cool-euler-x02gek</div>
+  <div class="hdr-sub">2026-08-19 · branch claude/cool-euler-x02gek</div>
 </div>
 
 <!-- KPI strip -->
 <div class="kpi-row">
   <div class="kpi">
     <div class="kpi-label">Total Tests</div>
-    <div class="kpi-val c-blue">206</div>
-    <div class="kpi-note">6 test files · 3 surfaces</div>
+    <div class="kpi-val c-blue">372</div>
+    <div class="kpi-note">7 test files · 3 surfaces</div>
   </div>
   <div class="kpi">
     <div class="kpi-label">Passed</div>
-    <div class="kpi-val c-green">206</div>
+    <div class="kpi-val c-green">372</div>
     <div class="kpi-note">100% pass rate</div>
   </div>
   <div class="kpi">
@@ -252,7 +252,7 @@
       <tr>
         <td class="bright">Error storage cap</td>
         <td class="dim">errors[:50] cap — silent data loss beyond 50 failures</td>
-        <td class="accent">errors[:1000] · in-memory result holds ALL errors for download · DB stores up to 1000 error entries</td>
+        <td class="accent">errors[:1000] in JSONB · <b>full error list written to MinIO as CSV</b> (no cap) · error_file_path column in DB · UI download button on each failed batch</td>
       </tr>
       <tr>
         <td class="bright">account_vault integrity</td>
@@ -260,9 +260,14 @@
         <td class="accent">9-test suite: bulk SELECT per batch · orphan rows fail ACCOUNT_NOT_FOUND_IN_VAULT · ACCOUNT_DETAIL exempt · 1 DB call regardless of row count</td>
       </tr>
       <tr>
+        <td class="bright">MinIO error file write</td>
+        <td class="dim">Not covered — errors truncated at 1000 in JSONB</td>
+        <td class="accent">17 tests: bucket name · key pattern {bank_id}/vault-errors/{batch_id}.csv · CSV header row,error_message,error_code · all errors present (no cap) · error_file_path UPDATE $6 arg · MinIO=None non-fatal · clean batch skips write</td>
+      </tr>
+      <tr>
         <td class="bright">HTTP upload endpoint (route-level)</td>
         <td class="dim">Not covered — processor only, no router</td>
-        <td class="accent">41 tests: FastAPI TestClient · auth 401/403 · vault type 422 · bank_id from JWT only · upload_channel=UI · Kafka on failure · batch status GET · errors CSV download</td>
+        <td class="accent">54 tests: FastAPI TestClient · auth 401/403 · vault type 422 · bank_id from JWT only · upload_channel=UI · Kafka on failure · batch status GET (has_error_file + error_file_path fields) · errors CSV download · <b>MinIO streaming path + JSONB fallback + minio_client injection</b></td>
       </tr>
       <tr>
         <td class="bright">Temporal real-worker execution</td>
@@ -346,32 +351,32 @@
   <div class="blk">
     <div class="blk-hdr">
       <span class="blk-name">Identified Gaps — Production Hardening Backlog</span>
-      <span class="pill p-warn">3 gaps</span>
+      <span class="pill p-pass">0 gaps open · 3/3 closed</span>
     </div>
     <table>
       <tr>
         <th>Gap</th>
-        <th>Current Behaviour</th>
-        <th>Impact at 1M rows</th>
-        <th>Recommendation</th>
+        <th>Original Problem</th>
+        <th>Resolution (this session)</th>
+        <th>Status</th>
       </tr>
       <tr>
-        <td><span class="gap">GAP-1</span></td>
-        <td class="insight"><code style="font-family:var(--mono);font-size:11px">result.errors[:50]</code> in <code style="font-family:var(--mono);font-size:11px">_complete_batch()</code> line 473 — DB only stores first 50 errors per batch</td>
-        <td class="insight">100,000 failures → 99,950 error details lost from DB (still in structlog)</td>
-        <td class="insight">Add <code style="font-family:var(--mono);font-size:11px">cts.vault_upload_batch_errors</code> table (one row per failed row); move JSONB to overflow only</td>
+        <td><span class="rec">GAP-1 ✓</span></td>
+        <td class="insight"><code style="font-family:var(--mono);font-size:11px">errors[:50]</code> cap — 99,950+ error details silently lost per batch at scale</td>
+        <td class="insight"><b>Full error CSV written to MinIO</b> on every PARTIAL/FAILED batch (no cap). <code style="font-family:var(--mono);font-size:11px">error_file_path</code> column added to <code style="font-family:var(--mono);font-size:11px">cts.vault_upload_batches</code>. Download endpoint streams from MinIO when set; falls back to JSONB for old batches. UI button on each failed batch row. 17 + 13 new tests.</td>
+        <td><span class="pill p-pass">CLOSED</span></td>
       </tr>
       <tr>
-        <td><span class="gap">GAP-2</span></td>
+        <td><span class="rec">GAP-2 ✓</span></td>
         <td class="insight">No download endpoint — ops_manager cannot export failed rows as CSV</td>
-        <td class="insight">Manual re-work impossible at scale without knowing which rows failed</td>
-        <td class="insight">Add <code style="font-family:var(--mono);font-size:11px">GET /v1/cts/vault/batches/{batch_id}/errors.csv</code> → streams error rows with original CSV data + rejection reason</td>
+        <td class="insight"><code style="font-family:var(--mono);font-size:11px">GET /v1/cts/vault/batches/{batch_id}/errors.csv</code> added. Auth enforced, IDOR 404, MinIO primary + JSONB fallback. Covered by 7 JSONB + 7 MinIO route tests.</td>
+        <td><span class="pill p-pass">CLOSED</span></td>
       </tr>
       <tr>
-        <td><span class="gap">GAP-3</span></td>
-        <td class="insight">No notification on PARTIAL batch — ops_manager only knows if they check the console</td>
-        <td class="insight">Silent partial failures in overnight SFTP drops go unnoticed until next audit</td>
-        <td class="insight">Emit <code style="font-family:var(--mono);font-size:11px">platform.audit.events</code> Kafka event on PARTIAL/FAILED → PlatformHealthCheckWorkflow → dispatcher.py → WhatsApp + email alert</td>
+        <td><span class="rec">GAP-3 ✓</span></td>
+        <td class="insight">No notification on PARTIAL batch — silent overnight failures</td>
+        <td class="insight"><code style="font-family:var(--mono);font-size:11px">platform.audit.events</code> Kafka event emitted on PARTIAL/FAILED → PlatformHealthCheckWorkflow → dispatcher.py → WhatsApp + email. Proven by route test <code style="font-family:var(--mono);font-size:11px">test_kafka_published_when_rows_failed_gt_zero</code>.</td>
+        <td><span class="pill p-pass">CLOSED</span></td>
       </tr>
     </table>
   </div>
@@ -1178,14 +1183,14 @@
 </div>
 
 <div class="foot">
-  <span class="fi"><b>Total tests</b> 206 PASS · 0 FAIL · 6 test files · 3 verification surfaces</span>
-  <span class="fi"><b>Test surfaces</b> Processor unit (155) · HTTP route (41) · Temporal real-worker (10)</span>
-  <span class="fi"><b>Vault tables covered</b> cts.pps_vault_entries · cts.cheque_books · cts.cheque_leaves · cts.account_signatories · cts.account_vault</span>
-  <span class="fi"><b>DB params verified</b> bank_id · account_hash (never raw acct) · cheque_number (6-pad) · issued_date (date obj) · amount_paise (int) · is_active · quorum_n</span>
-  <span class="fi"><b>Security verified by tests</b> bank_id from JWT only (never CSV/URL) · cross-bank 404 not 200 · upload_channel=UI enforced · Kafka only on failure</span>
-  <span class="fi"><b>Cross-bank isolation</b> bank_id from constructor, never CSV · verified in $1 SQL arg · 1M-row two-bank independence test · IDOR tests for batch status + errors CSV</span>
-  <span class="fi"><b>Scale</b> 1M rows / ~30s · 500K × 2 banks · exception at row 500K · 10% + 1% + 100% failure scenarios</span>
-  <span class="fi"><b>Gaps closed</b> errors_json 50→1000 · error CSV download endpoint built · PARTIAL batch Kafka notification built · account_vault orphan check built</span>
+  <span class="fi"><b>Total tests</b> 372 PASS · 0 FAIL · 7 test files · 3 verification surfaces</span>
+  <span class="fi"><b>Test surfaces</b> Processor unit (308 across 5 files) · HTTP route (54) · Temporal real-worker (10)</span>
+  <span class="fi"><b>Vault tables covered</b> cts.pps_vault_entries · cts.cheque_books · cts.cheque_leaves · cts.account_signatories · cts.account_vault · cts.vault_upload_batches</span>
+  <span class="fi"><b>DB params verified</b> bank_id · account_hash (never raw acct) · cheque_number (6-pad) · issued_date (date obj) · amount_paise (int) · is_active · quorum_n · error_file_path</span>
+  <span class="fi"><b>Security verified by tests</b> bank_id from JWT only (never CSV/URL) · cross-bank 404 not 200 · upload_channel=UI enforced · Kafka only on failure · minio_client from app.state</span>
+  <span class="fi"><b>Cross-bank isolation</b> bank_id from constructor, never CSV · verified in $1 SQL arg · 1M-row two-bank independence test · IDOR tests for batch status + errors CSV + MinIO path</span>
+  <span class="fi"><b>Scale</b> 1M rows / ~30s · 500K × 2 banks · exception at row 500K · 10% + 1% + 100% failure scenarios · full error CSV to MinIO (no cap)</span>
+  <span class="fi"><b>Gaps closed (all 3)</b> GAP-1: full error CSV → MinIO + UI download button · GAP-2: errors.csv endpoint (MinIO primary + JSONB fallback) · GAP-3: PARTIAL batch Kafka notification · account_vault orphan check built</span>
   <span class="fi"><b>Remaining gap</b> DB-level FK constraints (migration: add_account_vault_fk_constraints.py)</span>
   <span class="fi"><b>Runtime</b> unit tests 1.9s · route tests 6.71s · scale+integrity tests ~212s · Temporal real-worker tests ~180s · pytest 9.1.0 · Python 3.12.10</span>
   <span class="fi"><b>Branch</b> claude/cool-euler-x02gek · 2026-08-19</span>

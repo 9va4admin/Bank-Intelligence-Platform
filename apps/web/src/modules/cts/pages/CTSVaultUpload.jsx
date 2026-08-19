@@ -70,6 +70,7 @@ export default function CTSVaultUpload() {
   const [dragOver, setDragOver] = useState(false)
   const [selectedFile, setSelectedFile] = useState(null)
   const [uploadResult, setUploadResult] = useState(null)
+  const [downloadingBatch, setDownloadingBatch] = useState(null)
   const fileInputRef = useRef(null)
 
   const th = {
@@ -138,6 +139,24 @@ export default function CTSVaultUpload() {
   const handleFileChange = (e) => {
     const file = e.target.files[0]
     if (file) { setSelectedFile(file); setUploadResult(null) }
+  }
+
+  const handleDownloadErrors = async (batchId) => {
+    setDownloadingBatch(batchId)
+    try {
+      const r = await apiFetch(`/v1/cts/vault/batches/${batchId}/errors.csv`)
+      const blob = await r.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `vault_errors_${batchId.slice(0, 8)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('vault error download failed', err)
+    } finally {
+      setDownloadingBatch(null)
+    }
   }
 
   const handleDownloadTemplate = async () => {
@@ -325,7 +344,7 @@ export default function CTSVaultUpload() {
                         {STATUS_STYLES[b.status]?.label || b.status}
                       </span>
                     </div>
-                    <div className={`flex gap-4 mt-1.5 text-xs ${th.faint}`}>
+                    <div className={`flex flex-wrap gap-4 mt-1.5 text-xs ${th.faint}`}>
                       <span>
                         <span className="text-emerald-400 font-medium">{b.rows_processed ?? 0}</span>
                         {' / '}
@@ -334,6 +353,19 @@ export default function CTSVaultUpload() {
                       </span>
                       {(b.rows_failed ?? 0) > 0 && (
                         <span className="text-red-400 font-medium">{b.rows_failed} failed</span>
+                      )}
+                      {b.has_error_file && (
+                        <button
+                          onClick={() => handleDownloadErrors(b.batch_id)}
+                          disabled={downloadingBatch === b.batch_id}
+                          className={`text-red-400 underline underline-offset-2 decoration-dashed ${
+                            downloadingBatch === b.batch_id
+                              ? 'opacity-50 cursor-wait'
+                              : 'hover:text-red-300 cursor-pointer'
+                          }`}
+                        >
+                          {downloadingBatch === b.batch_id ? 'downloading…' : '↓ errors.csv'}
+                        </button>
                       )}
                       <span>{new Date(b.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false })}</span>
                     </div>
