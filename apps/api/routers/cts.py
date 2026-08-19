@@ -786,6 +786,92 @@ async def search_instruments(
 
 
 # ---------------------------------------------------------------------------
+# Instrument digest — full pipeline step trail per cheque
+# ---------------------------------------------------------------------------
+
+class DigestStepResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    step_id:     str
+    outcome:     str                      # PASS | FAIL | SKIPPED | DEGRADED
+    reason:      Optional[str]  = None
+    score:       Optional[float] = None
+    duration_ms: Optional[int]  = None
+    extra:       dict = {}
+
+
+class InstrumentDigestResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id:    str
+    bank_id:          str
+    pipeline:         str
+    workflow_id:      str
+    started_at:       float
+    decided_at:       float
+    final_decision:   str
+    steps:            list[DigestStepResult]
+    shap_values:      dict = {}
+    registry_version: str
+
+
+@router_v1.get(
+    "/instruments/{instrument_id}/digest",
+    response_model=InstrumentDigestResponse,
+)
+async def get_instrument_digest(
+    instrument_id: str,
+    request: Request,
+    bank_id: str = Depends(get_current_bank_id),
+) -> InstrumentDigestResponse:
+    """
+    Return the full pipeline step trail for one instrument (passbook view).
+
+    Reads steps_digest JSONB from cts.agent_decisions. Returns 404 when the
+    instrument has not yet been processed or belongs to a different bank_id.
+    Excludes shap_values from response (available to fraud_analyst role only).
+    """
+    db_pool = getattr(request.app.state, "db_pool", None)
+    if db_pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT instrument_id, bank_id, workflow_id, decision,
+                   EXTRACT(EPOCH FROM processing_started_at)::float AS started_at,
+                   EXTRACT(EPOCH FROM processing_completed_at)::float AS decided_at,
+                   steps_digest, registry_version
+            FROM cts.agent_decisions
+            WHERE instrument_id = $1 AND bank_id = $2
+            LIMIT 1
+            """,
+            instrument_id,
+            bank_id,
+        )
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Instrument not found or not yet processed")
+
+    digest_payload = row["steps_digest"] or {}
+    steps_raw = digest_payload.get("steps", [])
+    steps = [DigestStepResult(**s) for s in steps_raw]
+
+    log.info("cts.instrument_digest", bank_id=bank_id, instrument_id=instrument_id,
+             step_count=len(steps))
+    return InstrumentDigestResponse(
+        instrument_id=row["instrument_id"],
+        bank_id=row["bank_id"],
+        pipeline=digest_payload.get("pipeline", "INWARD"),
+        workflow_id=row["workflow_id"],
+        started_at=row["started_at"] or 0.0,
+        decided_at=row["decided_at"] or 0.0,
+        final_decision=row["decision"],
+        steps=steps,
+        shap_values={},
+        registry_version=row["registry_version"] or "unknown",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Vault sync — manual trigger + status
 # ---------------------------------------------------------------------------
 
