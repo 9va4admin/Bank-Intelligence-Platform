@@ -73,6 +73,7 @@ class VaultUploadResult:
         self.rows_processed = 0
         self.rows_failed = 0
         self.errors: list[dict] = []
+        self.error_file_path: Optional[str] = None   # MinIO key; set when rows_failed > 0
 
 
 class VaultUploadProcessor:
@@ -85,6 +86,8 @@ class VaultUploadProcessor:
         signature_vault=None,
         pps_vault=None,
         pepper: Optional[str] = None,
+        minio_client=None,
+        error_file_bucket: Optional[str] = None,
     ) -> None:
         self._bank_id = bank_id
         self._db_pool = db_pool
@@ -96,6 +99,10 @@ class VaultUploadProcessor:
         # against cts.account_vault before writing to any child vault table.
         # Without pepper the check is skipped — tests and dev deployments that don't need it.
         self._pepper = pepper
+        # MinIO client + bucket for writing the full error CSV.
+        # Both must be non-None to write; either missing → fall back to errors_json JSONB.
+        self._minio_client = minio_client
+        self._error_file_bucket = error_file_bucket
 
     async def process(
         self,
@@ -506,6 +513,61 @@ class VaultUploadProcessor:
     # Batch lifecycle helpers
     # ------------------------------------------------------------------
 
+    # ------------------------------------------------------------------
+    # Error file writer (MinIO)
+    # ------------------------------------------------------------------
+
+    def _write_error_file(
+        self, batch_id: str, errors: list[dict]
+    ) -> Optional[str]:
+        """
+        Write the full error list to MinIO as a UTF-8 CSV.
+        Returns the object key on success, None if MinIO is unavailable or raises.
+        Key pattern: {bank_id}/vault-errors/{batch_id}.csv
+        Columns: row, error_message, error_code
+        This is intentionally synchronous — MinIO client is blocking; called from async
+        context but does not touch the event loop. Non-fatal: exceptions are swallowed.
+        """
+        if self._minio_client is None or self._error_file_bucket is None:
+            return None
+
+        object_key = f"{self._bank_id}/vault-errors/{batch_id}.csv"
+        try:
+            buf = io.StringIO()
+            writer = csv.DictWriter(buf, fieldnames=["row", "error_message", "error_code"])
+            writer.writeheader()
+            for err in errors:
+                writer.writerow({
+                    "row": err.get("row", ""),
+                    "error_message": err.get("error", ""),
+                    "error_code": err.get("error_code", ""),
+                })
+            raw = buf.getvalue().encode("utf-8")
+            data = io.BytesIO(raw)
+            self._minio_client.put_object(
+                bucket_name=self._error_file_bucket,
+                object_name=object_key,
+                data=data,
+                length=len(raw),
+                content_type="text/csv",
+            )
+            log.info(
+                "vault_upload_processor.error_file_written",
+                bank_id=self._bank_id,
+                batch_id=batch_id,
+                object_key=object_key,
+                error_count=len(errors),
+            )
+            return object_key
+        except Exception as exc:
+            log.warning(
+                "vault_upload_processor.error_file_write_failed",
+                bank_id=self._bank_id,
+                batch_id=batch_id,
+                error=str(exc),
+            )
+            return None
+
     async def _create_batch(
         self, batch_id: str, vault_type: str, filename: Optional[str],
         upload_channel: str, uploaded_by: str, rows_total: int,
@@ -531,17 +593,24 @@ class VaultUploadProcessor:
         if self._db_pool is None:
             return
         import json
+
+        # Write full error list to MinIO (non-fatal if unavailable).
+        # Only when rows_failed > 0 — clean batches need no error file.
+        if result.rows_failed > 0:
+            result.error_file_path = self._write_error_file(batch_id, result.errors)
+
         async with self._db_pool.acquire() as conn:
             await conn.execute(
                 """
                 UPDATE cts.vault_upload_batches
                 SET status=$2, rows_processed=$3, rows_failed=$4,
-                    errors_json=$5, completed_at=now()
+                    errors_json=$5, error_file_path=$6, completed_at=now()
                 WHERE id=$1
                 """,
                 batch_id, status,
                 result.rows_processed, result.rows_failed,
-                json.dumps(result.errors[:1000]),  # first 1000 rows; full list in result.errors
+                json.dumps(result.errors[:1000]),  # JSONB preview; full list in MinIO file
+                result.error_file_path,
             )
 
     async def _fail_batch(self, batch_id: str, reason: str) -> None:
