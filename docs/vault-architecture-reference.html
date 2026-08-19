@@ -274,7 +274,7 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     </div>
     <div class="tier">
       <div class="tn dur">YugabyteDB — 3 tables</div>
-      <div class="td"><strong>signature_embeddings</strong> — actual vectors<br><strong>account_signatories</strong> — mandate rules (ANY_ONE / ALL_REQUIRED / QUORUM_N)<br><strong>signature_vault_entries</strong> — CBS metadata + MinIO image ref</div>
+      <div class="td"><strong>signature_embeddings</strong> — actual embedding vectors (512-dim float32, one row per signatory × specimen)<br><strong>account_signatories</strong> — mandate rules (ANY_ONE / ALL_REQUIRED / QUORUM_N), one row per signatory per account<br><em>Note: Raw signature images are <strong>never stored</strong>. Image bytes exist only in RAM during embedding; they are discarded immediately after the embedding model returns the vector. No MinIO write, no table for image references.</em></div>
     </div>
   </div>
 
@@ -323,33 +323,11 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     <div class="ir"><span class="it bt">BTREE</span><span class="ic">idx_acct_sig_bank_active (bank_id, is_active)</span></div>
   </div>
 
-  <div class="tlabel">Table C — CBS metadata &amp; MinIO image reference</div>
-  <div class="tname"><span class="sp">cts.</span>signature_vault_entries</div>
-  <div class="tw"><table class="st">
-    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Notes</th></tr></thead>
-    <tbody>
-      <tr><td class="cn">entry_id</td><td class="ct">UUID</td><td class="cc"><span class="b bpk">PK</span></td><td class="co">uuid_generate_v4()</td></tr>
-      <tr><td class="cn">bank_id</td><td class="ct">TEXT</td><td class="cc"><span class="b bfk">FK</span><span class="b bnn">NN</span></td><td class="co">→ platform.banks.bank_id</td></tr>
-      <tr><td class="cn">account_hash</td><td class="ct">TEXT</td><td class="cc"><span class="b bhash">HASH</span><span class="b bnn">NN</span></td><td class="co">HMAC-SHA256. Never the raw account number.</td></tr>
-      <tr><td class="cn">account_last4</td><td class="ct">VARCHAR(4)</td><td class="cc"><span class="b bmask">MASK</span><span class="b bnn">NN</span></td><td class="co">Display only. Last 4 digits.</td></tr>
-      <tr><td class="cn">signature_vector</td><td class="ct">BYTEA</td><td class="cc"></td><td class="co">Siamese network feature vector. NULL until embedding run completes.</td></tr>
-      <tr><td class="cn">vector_model_version</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">MLflow model version. Model drift traceability.</td></tr>
-      <tr><td class="cn">specimen_image_key</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">MinIO object key. Image encrypted at rest via SSE-KMS (Vault transit engine).</td></tr>
-      <tr><td class="cn">specimen_image_hash</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">SHA-256 of original image. Integrity verification.</td></tr>
-      <tr><td class="cn">cbs_account_status</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">ACTIVE | DORMANT | FROZEN | CLOSED. Synced from CBS.</td></tr>
-      <tr><td class="cn">cbs_sync_version</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">CBS ETag/version for change detection on next sync.</td></tr>
-      <tr><td class="cn">valid_from</td><td class="ct">DATE</td><td class="cc"></td><td class="co">Specimen validity start.</td></tr>
-      <tr><td class="cn">valid_until</td><td class="ct">DATE</td><td class="cc"></td><td class="co">NULL = indefinite.</td></tr>
-      <tr><td class="cn">is_active</td><td class="ct">BOOLEAN</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT true. Partial index enforces one active row per account.</td></tr>
-      <tr><td class="cn">last_synced_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT NOW()</td></tr>
-      <tr><td class="cn">synced_by_workflow</td><td class="ct">TEXT</td><td class="cc"></td><td class="co">Temporal VaultSyncWorkflow ID. Full provenance trail.</td></tr>
-      <tr><td class="cn">created_at</td><td class="ct">TIMESTAMPTZ</td><td class="cc"><span class="b bnn">NN</span></td><td class="co">DEFAULT NOW()</td></tr>
-    </tbody>
-  </table></div>
-  <div class="il">
-    <div class="ir"><span class="it uq">UNIQUE</span><span class="ic">ix_cts_sig_vault_bank_account (bank_id, account_hash) WHERE is_active = true</span><span class="in">One active record per account</span></div>
-    <div class="ir"><span class="it bt">BTREE</span><span class="ic">ix_cts_sig_vault_account_hash (account_hash)</span></div>
-    <div class="ir"><span class="it bt">BTREE</span><span class="ic">ix_cts_sig_vault_last_synced (bank_id, last_synced_at)</span><span class="in">Stale-sync monitoring</span></div>
+  <div class="tlabel" style="background:var(--warn-bg,#7c3a001a);color:var(--warn-fg,#c45000);border-left:3px solid var(--warn-border,#c45000);">Design Decision — Images Are Never Stored</div>
+  <div style="padding:14px 16px;font-size:0.88rem;line-height:1.6;border:1px solid var(--border);border-top:none;border-radius:0 0 6px 6px;margin-bottom:18px;">
+    <p style="margin:0 0 8px"><strong>Raw signature image bytes are discarded immediately after embedding.</strong> They exist only in RAM during the <code>embed_and_store_signatures</code> activity. No MinIO write, no DB column, no object key.</p>
+    <p style="margin:0 0 8px">Flow: CBS → raw bytes (RAM) → <code>SignatureEmbeddingModel.embed()</code> → 512-dim float32 vector → <code>pack_embedding()</code> → 2048-byte BYTEA → YugabyteDB + Redis. Raw bytes are garbage-collected at function exit.</p>
+    <p style="margin:0">Rationale: storing the original image would create a biometric data liability (RBI circular on biometric storage) and add MinIO SSE-KMS complexity with no operational benefit — the embedding already encodes all information needed for Siamese verification. <code>cts.signature_vault_entries</code> was an earlier design concept that was explicitly rejected. The table does <strong>not exist</strong> and must not be created.</p>
   </div>
 </div>
 

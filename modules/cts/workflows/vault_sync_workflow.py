@@ -53,6 +53,7 @@ class VaultSyncInput(BaseModel):
 class SignatureRecord(BaseModel):
     model_config = ConfigDict(frozen=True)
     account_number: str
+    signatory_id: str = "PRIMARY"    # which signatory these specimens belong to
     specimens: list[bytes]
 
     @field_serializer("specimens")
@@ -122,7 +123,11 @@ async def load_signatures_from_cbs(
             )
             continue
         specimens = [s if isinstance(s, bytes) else s.encode() for s in specimens_raw]
-        records.append(SignatureRecord(account_number=account_number, specimens=specimens))
+        records.append(SignatureRecord(
+            account_number=account_number,
+            signatory_id=raw.get("signatory_id", "PRIMARY"),
+            specimens=specimens,
+        ))
 
     log.info("vault_sync.signatures_loaded_from_cbs", bank_id=bank_id, count=len(records))
     return records
@@ -185,7 +190,12 @@ async def embed_and_store_signatures(
             continue
 
         try:
-            await vault.store_embeddings(rec.account_number, specimen_embeddings, source="CBS")
+            await vault.store_embeddings(
+                rec.account_number,
+                specimen_embeddings,
+                signatory_id=rec.signatory_id,
+                source="CBS",
+            )
             embedded += 1
         except Exception as exc:
             log.error(
@@ -302,7 +312,7 @@ async def verify_vault_integrity(
     missing = []
     for account_number in sample_accounts:
         digest = _hmac_key(pepper, bank_id, account_number)
-        sig_key = f"sig:{bank_id}:{digest}"
+        sig_key = f"sig:{bank_id}:{digest}:PRIMARY"
         try:
             count = redis_client.llen(sig_key)
         except Exception as exc:
@@ -430,27 +440,29 @@ async def warm_redis_from_db(
     async with db_pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT account_hash, specimen_index, embedding
+            SELECT account_hash, signatory_id, specimen_index, embedding
             FROM cts.signature_embeddings
             WHERE bank_id = $1
-            ORDER BY account_hash, specimen_index
+            ORDER BY account_hash, signatory_id, specimen_index
             """,
             bank_id,
         )
 
-    by_account: dict[str, list[bytes]] = defaultdict(list)
+    # Group by (account_hash, signatory_id) — one Redis LIST key per signatory
+    by_signatory: dict[tuple[str, str], list[bytes]] = defaultdict(list)
     for row in rows:
-        by_account[row["account_hash"]].append(bytes(row["embedding"]))
+        by_signatory[(row["account_hash"], row["signatory_id"])].append(bytes(row["embedding"]))
 
     pipe = redis_client.pipeline()
-    for account_hash, packed_list in by_account.items():
-        key = f"sig:{bank_id}:{account_hash}"
+    for (account_hash, signatory_id), packed_list in by_signatory.items():
+        key = f"sig:{bank_id}:{account_hash}:{signatory_id}"
         pipe.delete(key)
         for packed in packed_list:
             pipe.rpush(key, packed)
     pipe.execute()
 
-    count = len(by_account)
+    # Report unique account count (not signatory-key count)
+    count = len({ah for ah, _ in by_signatory})
     log.info("vault_sync.warm_from_db_complete", bank_id=bank_id, accounts=count)
     return {"accounts": count}
 
