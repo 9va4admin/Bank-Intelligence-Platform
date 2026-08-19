@@ -90,6 +90,10 @@ class ChequeScenario:
     has_stop_payment: bool = False
     pps_valid: bool = True            # post-payment service validation
 
+    # Extended scenario flags
+    vault_miss: bool = False        # sig vault has no entry → HUMAN_REVIEW
+    is_handwritten: bool = False    # generate handwritten PIL image
+
     @property
     def micr_line(self) -> str:
         city = BANK_MICR_CITY
@@ -196,6 +200,59 @@ CHEQUE_SCENARIOS = [
         account_status="ACTIVE",
         has_stop_payment=False,
         pps_valid=True,
+    ),
+    ChequeScenario(
+        chq_id="CHQ-006",
+        cheque_number="100006",
+        account_number="9000000000006",
+        drawer_name="Smt. Meera Krishnan",
+        payee_name="Kerala Spices Export Ltd",
+        amount=45_000.0,
+        amount_words="Forty Five Thousand Only",
+        cheque_date=TODAY,
+        expected_outward="ACCEPTED",
+        expected_inward="STP_CONFIRM",
+        inward_reason="handwritten_clean_all_gates_pass",
+        account_balance=2_00_000.0,
+        account_status="ACTIVE",
+        has_stop_payment=False,
+        pps_valid=True,
+        is_handwritten=True,
+    ),
+    ChequeScenario(
+        chq_id="CHQ-007",
+        cheque_number="100007",
+        account_number="9000000000007",
+        drawer_name="M/s Frozen Holdings Ltd",
+        payee_name="State Trading Corporation",
+        amount=1_00_000.0,
+        amount_words="One Lakh Only",
+        cheque_date=TODAY,
+        expected_outward="ACCEPTED",
+        expected_inward="STP_RETURN",
+        inward_reason="account_frozen_by_regulatory_order",
+        account_balance=5_00_000.0,     # sufficient balance, but account is frozen
+        account_status="FROZEN",
+        has_stop_payment=False,
+        pps_valid=True,
+    ),
+    ChequeScenario(
+        chq_id="CHQ-008",
+        cheque_number="100008",
+        account_number="9000000000008",
+        drawer_name="Shri Nandlal Verma",
+        payee_name="Punjab National Traders",
+        amount=80_000.0,
+        amount_words="Eighty Thousand Only",
+        cheque_date=TODAY,
+        expected_outward="ACCEPTED",
+        expected_inward="HUMAN_REVIEW",
+        inward_reason="signature_vault_miss_no_entry_for_account",
+        account_balance=3_00_000.0,
+        account_status="ACTIVE",
+        has_stop_payment=False,
+        pps_valid=True,
+        vault_miss=True,
     ),
 ]
 
@@ -345,6 +402,161 @@ def generate_cheque_image(scenario: ChequeScenario) -> tuple[Path, dict]:
     return path, metrics
 
 
+def generate_handwritten_cheque_image(
+    scenario: "ChequeScenario", low_ocr: bool = False
+) -> tuple[Path, dict]:
+    """
+    Generate a handwritten CTS-2010-compliant cheque PIL image.
+    - Aged paper background (253, 249, 235) with ruled lines
+    - Bank header: machine-printed (same as regular cheque)
+    - Content fields (payee, amount, date, drawer): char-by-char with ±4px y-jitter
+      and random x-spacing in ballpoint ink colour (15, 20, 90 navy)
+    - Signature: 4 random-walk wavy strokes simulating pen on paper
+    - MICR band: always machine-printed (never blurred — ensures OCR reliability)
+    - low_ocr=True: GaussianBlur(radius=1.8) applied to content area ONLY (not MICR)
+    """
+    import random
+    from PIL import Image, ImageDraw, ImageFilter
+
+    WIDTH_PX, HEIGHT_PX = 1500, 700
+    INK = (15, 20, 90)            # ballpoint navy-blue
+    BANK_BLUE = (15, 52, 120)
+    DARK = (20, 20, 20)
+    GREY = (90, 90, 90)
+    LINE_GREY = (180, 180, 180)
+
+    # Aged paper background
+    img = Image.new("RGB", (WIDTH_PX, HEIGHT_PX), color=(253, 249, 235))
+    draw = ImageDraw.Draw(img)
+
+    # ── Ruled lines (light blue-grey horizontal rules in content area)
+    for y in range(110, 620, 30):
+        draw.line([(0, y), (WIDTH_PX, y)], fill=(200, 210, 225), width=1)
+
+    # ── Bank header (machine-printed)
+    draw.rectangle([(0, 0), (WIDTH_PX, 90)], fill=BANK_BLUE)
+    draw.text((20, 10), BANK_NAME.upper(), fill=(255, 255, 255))
+    draw.text((20, 45), f"{BANK_BRANCH}  |  IFSC: {BANK_IFSC}  |  MICR: {scenario.micr_raw}",
+              fill=(200, 220, 255))
+    draw.rectangle([(WIDTH_PX - 160, 5), (WIDTH_PX - 10, 85)], fill=(255, 255, 255))
+    draw.text((WIDTH_PX - 150, 15), "CTS-2010", fill=BANK_BLUE)
+    draw.text((WIDTH_PX - 150, 38), f"A/C: ...{scenario.account_number[-4:]}", fill=DARK)
+    draw.text((WIDTH_PX - 150, 58), "HANDWRITTEN", fill=GREY)
+    draw.line([(0, 92), (WIDTH_PX, 92)], fill=BANK_BLUE, width=3)
+
+    # ── Deterministic RNG seeded from account number (reproducible images)
+    rng = random.Random(int(hashlib.sha256(scenario.account_number.encode()).hexdigest(), 16) % 2 ** 31)
+
+    def draw_hw_text(x: int, y: int, text: str, char_spacing: int = 9) -> None:
+        """Render text char-by-char with per-character y-jitter and x-spacing randomness."""
+        cx = x
+        for ch in text:
+            jitter_y = rng.randint(-4, 4)
+            jitter_x = rng.randint(-1, 1)
+            draw.text((cx + jitter_x, y + jitter_y), ch, fill=INK)
+            cx += char_spacing + rng.randint(0, 2)
+
+    # ── Date field
+    date_str = scenario.cheque_date.strftime("%d-%m-%Y")
+    draw.text((WIDTH_PX - 220, 105), "Date:", fill=GREY)
+    draw_hw_text(WIDTH_PX - 160, 107, date_str, char_spacing=11)
+    draw.line([(WIDTH_PX - 160, 122), (WIDTH_PX - 30, 122)], fill=LINE_GREY)
+
+    # ── Cheque number
+    draw.text((20, 105), "Cheque No:", fill=GREY)
+    draw_hw_text(130, 107, scenario.cheque_number)
+
+    # ── Crossing stamps (Account Payee Only)
+    for offset in [5, 12]:
+        draw.line([(40 + offset, 150), (40 + offset, 390)], fill=DARK, width=2)
+    draw.text((55, 260), "Account", fill=DARK)
+    draw.text((55, 282), "Payee", fill=DARK)
+    draw.text((55, 304), "Only", fill=DARK)
+
+    # ── Pay line (handwritten payee)
+    draw.text((90, 155), "Pay:", fill=GREY)
+    draw_hw_text(150, 157, scenario.payee_name, char_spacing=10)
+    draw.line([(150, 175), (WIDTH_PX - 60, 175)], fill=LINE_GREY)
+
+    # ── Amount box (figures)
+    amt_str = f"Rs. {int(scenario.amount):,}/-"
+    draw.rectangle([(WIDTH_PX - 220, 140), (WIDTH_PX - 15, 182)], outline=BANK_BLUE, width=2)
+    draw_hw_text(WIDTH_PX - 210, 152, amt_str, char_spacing=9)
+
+    # ── Amount in words
+    draw.text((90, 197), "Rupees:", fill=GREY)
+    draw_hw_text(170, 199, scenario.amount_words, char_spacing=8)
+    draw.line([(170, 218), (WIDTH_PX - 60, 218)], fill=LINE_GREY)
+
+    # ── Drawer info
+    draw.text((90, 260), "Drawer:", fill=GREY)
+    draw_hw_text(170, 262, scenario.drawer_name, char_spacing=9)
+    draw.text((90, 290), "A/C No:", fill=GREY)
+    draw_hw_text(170, 292, scenario.account_number, char_spacing=10)
+
+    # ── Wavy handwritten signature (4 random-walk pen strokes)
+    sig_x, sig_y = WIDTH_PX - 260, 355
+    for stroke in range(4):
+        x0 = sig_x + rng.randint(0, 20)
+        y0 = sig_y + stroke * 7 + rng.randint(-3, 3)
+        cx, cy = x0, y0
+        for _ in range(28):
+            cx += rng.randint(3, 9)
+            cy += rng.randint(-6, 6)
+            draw.line([(cx - rng.randint(3,9), cy - rng.randint(-6,6)), (cx, cy)], fill=INK, width=2)
+    draw.line([(WIDTH_PX - 260, 385), (WIDTH_PX - 15, 385)], fill=DARK, width=2)
+    draw.text((WIDTH_PX - 240, 390), "Authorised Signatory", fill=GREY)
+
+    # ── low_ocr blur: apply to content area ONLY — not MICR band
+    if low_ocr:
+        content_box = (0, 93, WIDTH_PX, HEIGHT_PX - 82)
+        blurred = img.crop(content_box).filter(ImageFilter.GaussianBlur(radius=1.8))
+        img.paste(blurred, content_box[:2])
+
+    # ── MICR band (machine-printed, always drawn last — unaffected by blur)
+    draw.rectangle([(0, HEIGHT_PX - 80), (WIDTH_PX, HEIGHT_PX)], fill=(252, 252, 252))
+    draw.line([(0, HEIGHT_PX - 82), (WIDTH_PX, HEIGHT_PX - 82)], fill=DARK, width=2)
+    micr_display = (
+        f"[{scenario.cheque_number}]  [{scenario.micr_raw}]  [{scenario.account_number}]"
+    )
+    draw.text((40, HEIGHT_PX - 62), micr_display, fill=(5, 5, 5))
+
+    # ── Save
+    suffix = "hw-blur" if low_ocr else "hw"
+    path = CHEQUES_DIR / f"{scenario.chq_id}-{scenario.cheque_number}-{suffix}.jpg"
+    quality = 35
+    while True:
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality, dpi=(CTS_MIN_DPI, CTS_MIN_DPI))
+        size_kb = buf.tell() / 1024
+        if size_kb <= CTS_MAX_FILE_SIZE_KB or quality < 10:
+            break
+        quality -= 5
+    path.write_bytes(buf.getvalue())
+
+    # IQA: blurred is 0.78 (above 0.70 CTS threshold, but OCR confidence will be low)
+    iqa = 0.78 if low_ocr else 0.91
+    ocr_conf = 0.76 if low_ocr else 0.94  # below/above OCR_MIN_CONFIDENCE=0.90
+
+    metrics = {
+        "front_dpi": CTS_MIN_DPI,
+        "front_colour_depth": 24,
+        "front_file_size_kb": round(size_kb, 2),
+        "front_iqa_score": iqa,
+        "micr_band_score": 0.91,    # MICR is always machine-printed
+        "rear_dpi": CTS_MIN_DPI,
+        "rear_colour_depth": 8,
+        "rear_file_size_kb": round(size_kb * 0.6, 2),
+        "rear_iqa_score": 0.88,
+        "width_px": WIDTH_PX,
+        "height_px": HEIGHT_PX,
+        "jpeg_quality_used": quality,
+        "is_handwritten": True,
+        "ocr_confidence": ocr_conf,
+    }
+    return path, metrics
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Real Business Logic Evaluators
 # ─────────────────────────────────────────────────────────────────────────────
@@ -399,7 +611,7 @@ def eval_fraud(scenario: ChequeScenario, alteration: bool = False, ocr_conf: flo
 
 
 def eval_decision(
-    scenario: ChequeScenario,
+    scenario: "ChequeScenario",
     fraud_score: float,
     shap_values: dict,
     sig_match: float = 0.92,
@@ -407,47 +619,48 @@ def eval_decision(
     cbs_outcome: str = "PROCEED",
     alteration_detected: bool = False,
     available_balance: float = 0.0,
+    vault_miss: bool = False,
 ) -> tuple[str, str, float]:
     """
-    Applies the REAL decision priority logic from decision.py (gates 1–9).
-    Returns (decision, rationale, stp_confidence).
-    No hardcoded result — every exit is computed from real gate evaluation.
+    Decision priority gates — same logic as synthesise_decision activity.
+    Includes extended CBS status codes (FROZEN, CLOSED, NPA, NOT_FOUND)
+    and vault miss handling (ALWAYS HUMAN_REVIEW, never auto-return).
     """
-    # Gate 0: alteration (already handled by workflow before calling decision)
+    # Gate 0: alteration
     if alteration_detected:
         return "HUMAN_REVIEW", "alteration_detected", 0.0
-
-    # Gate 1: CBS explicit RETURN
+    # Gate 1: CBS hard-return codes (frozen, closed, not found)
+    if cbs_outcome in ("FROZEN", "CLOSED", "NOT_FOUND"):
+        return "STP_RETURN", f"account_{cbs_outcome.lower()}", 0.0
+    # Gate 1b: CBS balance return
     if cbs_outcome == "RETURN":
         return "STP_RETURN", "cbs_return_insufficient_funds", 0.0
-
     # Gate 2: fraud score
     if fraud_score > FRAUD_HUMAN_REVIEW_THRESHOLD:
         return "HUMAN_REVIEW", f"fraud_score_high_{fraud_score:.3f}", 0.0
-
-    # Gate 3: high value always routes to human review
+    # Gate 3: high value
     if scenario.amount > HIGH_VALUE_AMOUNT_THRESHOLD:
         return "HUMAN_REVIEW", f"high_value_cheque_{scenario.amount:.0f}", 0.0
-
-    # Gate 4: signature
+    # Gate 4a: vault miss — ALWAYS HUMAN_REVIEW, never auto-return
+    if vault_miss:
+        return "HUMAN_REVIEW", "signature_vault_miss_no_entry", 0.0
+    # Gate 4b: signature mismatch
     if sig_match < SIG_MIN_MATCH_SCORE:
         return "HUMAN_REVIEW", f"signature_mismatch_{sig_match:.3f}", 0.0
-
     # Gate 5: CBS unavailable
     if cbs_outcome == "CBS_UNAVAILABLE":
         return "HUMAN_REVIEW", "cbs_unavailable", 0.0
-
+    # Gate 5a: NPA account — escalate
+    if cbs_outcome == "NPA":
+        return "HUMAN_REVIEW", "account_npa_escalation_required", 0.0
     # Gate 6: PPS miss
     if pps_outcome not in ("FOUND", "NOT_REQUIRED"):
         return "HUMAN_REVIEW", f"pps_miss_{pps_outcome}", 0.0
-
-    # Gate 7: account balance check
+    # Gate 7: balance
     if available_balance < scenario.amount:
         return "STP_RETURN", "insufficient_balance", 0.0
-
-    # Gate 8: all clean → STP_CONFIRM
-    stp_conf = round(1.0 - fraud_score, 4)
-    return "STP_CONFIRM", "all_gates_pass", stp_conf
+    # Gate 8: STP confirm
+    return "STP_CONFIRM", "all_gates_pass", round(1.0 - fraud_score, 4)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -575,8 +788,11 @@ async def run_outward_pipeline(scenario: ChequeScenario) -> OutwardResult:
     )
     t_start = time.perf_counter()
 
-    # Step 1: Generate real cheque image
-    image_path, metrics = generate_cheque_image(scenario)
+    # Step 1: Generate real cheque image (printed or handwritten)
+    if scenario.is_handwritten:
+        image_path, metrics = generate_handwritten_cheque_image(scenario, low_ocr=False)
+    else:
+        image_path, metrics = generate_cheque_image(scenario)
 
     # Step 2: Real CTS-2010 compliance evaluation
     compliance_record = eval_cts2010_compliance(scenario, metrics)
@@ -651,8 +867,11 @@ async def run_inward_pipeline(scenario: ChequeScenario) -> InwardResult:
     )
     t_start = time.perf_counter()
 
-    # Reuse same compliance record as outward
-    _, metrics = generate_cheque_image(scenario)  # regenerate metrics (image cached on disk)
+    # Reuse same compliance record as outward (metrics regenerated, image already on disk)
+    if scenario.is_handwritten:
+        _, metrics = generate_handwritten_cheque_image(scenario, low_ocr=False)
+    else:
+        _, metrics = generate_cheque_image(scenario)
     compliance_record = eval_cts2010_compliance(scenario, metrics)
 
     # Real fraud score
@@ -663,29 +882,34 @@ async def run_inward_pipeline(scenario: ChequeScenario) -> InwardResult:
     # Deterministic stop-payment from scenario data
     stop_outcome = "STP_RETURN" if scenario.has_stop_payment else "PROCEED"
 
-    # Deterministic CBS balance check
-    balance_ok = scenario.account_balance >= scenario.amount
-    cbs_outcome = "PROCEED" if balance_ok else "RETURN"
-
-    # Deterministic account status
-    status_map = {
-        "ACTIVE": ("PROCEED", "ACTIVE"),
-        "FROZEN": ("RETURN", "FROZEN"),
-        "CLOSED": ("RETURN", "CLOSED"),
-        "NPA": ("HUMAN_REVIEW", "NPA"),
+    # Deterministic account status → CBS outcome code
+    acct_status_to_cbs = {
+        "ACTIVE":  "PROCEED",
+        "FROZEN":  "FROZEN",
+        "CLOSED":  "CLOSED",
+        "NPA":     "NPA",
     }
-    acct_outcome, acct_status = status_map.get(scenario.account_status, ("PROCEED", "ACTIVE"))
+    account_cbs = acct_status_to_cbs.get(scenario.account_status, "PROCEED")
+
+    # Determine effective CBS outcome: account status takes priority over balance
+    if account_cbs != "PROCEED":
+        effective_cbs = account_cbs
+        cbs_outcome = account_cbs      # for _CBSResult mock
+    elif scenario.account_balance < scenario.amount:
+        effective_cbs = "RETURN"
+        cbs_outcome = "RETURN"
+    else:
+        effective_cbs = "PROCEED"
+        cbs_outcome = "PROCEED"
 
     # Deterministic PPS
-    pps_outcome = "FOUND" if scenario.pps_valid else "HUMAN_REVIEW"
+    pps_outcome = "FOUND" if scenario.pps_valid else "MISSING"
 
-    # Signature match (deterministic from account hash seed)
+    # Signature match (deterministic from account hash seed; vault_miss bypasses this)
     sig_seed = int(hashlib.sha256(scenario.account_number.encode()).hexdigest(), 16)
-    sig_match = 0.88 + (sig_seed % 100) / 1000.0   # 0.88–0.98 range
-    sig_match = min(sig_match, 0.99)
+    sig_match = min(0.88 + (sig_seed % 100) / 1000.0, 0.99)   # 0.88–0.98
 
-    # Real decision logic — priority gates evaluated for real
-    effective_cbs = cbs_outcome if stop_outcome == "PROCEED" else "PROCEED"
+    # Real decision logic — all 8+ priority gates evaluated
     decision, rationale, stp_conf = eval_decision(
         scenario=scenario,
         fraud_score=fraud_score,
@@ -695,13 +919,21 @@ async def run_inward_pipeline(scenario: ChequeScenario) -> InwardResult:
         cbs_outcome=effective_cbs,
         alteration_detected=False,
         available_balance=scenario.account_balance,
+        vault_miss=scenario.vault_miss,
     )
 
-    # Stop payment overrides decision (workflow handles in Step 3 before decision activity)
+    # Stop payment overrides decision (workflow Step 3 fires before decision activity)
     if stop_outcome == "STP_RETURN":
         decision = "STP_RETURN"
-        rationale = "Stop payment: stop_payment_instructed_by_drawer"
+        rationale = "stop_payment_instructed_by_drawer"
         stp_conf = 0.0
+
+    # SHAP enrichment for new scenario types
+    if scenario.vault_miss:
+        shap_values = {**shap_values, "vault_miss": 1.0}
+
+    acct_outcome = "PROCEED" if account_cbs == "PROCEED" else "RETURN"
+    acct_status  = scenario.account_status
 
     # Build computed mock_results
     mock_results = {
@@ -797,15 +1029,44 @@ async def _run_full_pipeline() -> PipelineRunResult:
 
 
 def test_cheque_image_generation():
-    """All 5 cheque images generated, CTS-2010 metrics valid."""
+    """All 8 cheque images generated (printed + handwritten), CTS-2010 metrics valid."""
     for scenario in CHEQUE_SCENARIOS:
-        path, metrics = generate_cheque_image(scenario)
+        if scenario.is_handwritten:
+            path, metrics = generate_handwritten_cheque_image(scenario)
+        else:
+            path, metrics = generate_cheque_image(scenario)
         assert path.exists(), f"Image not created for {scenario.chq_id}"
         assert metrics["front_file_size_kb"] <= CTS_MAX_FILE_SIZE_KB, (
-            f"{scenario.chq_id} file size {metrics['front_file_size_kb']} KB exceeds {CTS_MAX_FILE_SIZE_KB} KB"
+            f"{scenario.chq_id} size {metrics['front_file_size_kb']:.1f} KB exceeds {CTS_MAX_FILE_SIZE_KB} KB"
         )
         assert metrics["front_dpi"] >= CTS_MIN_DPI
         assert metrics["front_colour_depth"] == 24
+
+
+def test_handwritten_cheque_image_generation():
+    """Handwritten PIL image (CHQ-006): aged paper background, CTS-2010 compliant."""
+    chq006 = next(s for s in CHEQUE_SCENARIOS if s.chq_id == "CHQ-006")
+    path, metrics = generate_handwritten_cheque_image(chq006, low_ocr=False)
+    assert path.exists()
+    assert metrics["front_file_size_kb"] <= CTS_MAX_FILE_SIZE_KB
+    assert metrics["front_dpi"] == CTS_MIN_DPI
+    assert metrics["front_colour_depth"] == 24
+    assert metrics["is_handwritten"] is True
+    assert metrics["ocr_confidence"] >= OCR_MIN_CONFIDENCE   # clean: 0.94 ≥ 0.90
+    assert metrics["front_iqa_score"] >= CTS_MIN_IQA_SCORE   # 0.91 ≥ 0.70
+
+
+def test_handwritten_low_ocr_still_cts_compliant():
+    """Blurred handwritten image: IQA stays above 0.70 (CTS passes), OCR below 0.90 (HRQ)."""
+    from PIL import Image
+    chq006 = next(s for s in CHEQUE_SCENARIOS if s.chq_id == "CHQ-006")
+    path, metrics = generate_handwritten_cheque_image(chq006, low_ocr=True)
+    assert metrics["front_iqa_score"] >= CTS_MIN_IQA_SCORE, (
+        f"Blurred IQA {metrics['front_iqa_score']:.2f} below CTS-2010 minimum {CTS_MIN_IQA_SCORE}"
+    )
+    assert metrics["ocr_confidence"] < OCR_MIN_CONFIDENCE, (
+        f"Expected ocr_confidence < {OCR_MIN_CONFIDENCE}, got {metrics['ocr_confidence']}"
+    )
 
 
 def test_real_compliance_evaluation():
@@ -823,6 +1084,8 @@ def test_real_date_validation():
         if scenario.chq_id == "CHQ-003":
             assert not date_ok
             assert violation == "STALE_CHEQUE", f"Expected STALE_CHEQUE, got {violation}"
+        elif scenario.expected_outward == "CTS_REJECTED":
+            assert not date_ok, f"{scenario.chq_id}: expected date rejection"
         else:
             assert date_ok, f"{scenario.chq_id}: {violation}"
 
@@ -837,7 +1100,7 @@ def test_real_fraud_scoring():
 
 
 def test_outward_pipeline_outcomes():
-    """Outward pipeline produces expected outcomes for all 5 scenarios."""
+    """Outward pipeline produces expected outcomes for all 8 scenarios."""
     results = asyncio.run(_run_full_pipeline())
     outcome_map = {r.scenario.chq_id: r.outcome for r in results.outward_results}
     assert outcome_map["CHQ-001"] == "ACCEPTED"
@@ -845,16 +1108,22 @@ def test_outward_pipeline_outcomes():
     assert outcome_map["CHQ-003"] == "CTS_REJECTED"   # STALE_CHEQUE
     assert outcome_map["CHQ-004"] == "ACCEPTED"
     assert outcome_map["CHQ-005"] == "ACCEPTED"
+    assert outcome_map["CHQ-006"] == "ACCEPTED"        # handwritten clean
+    assert outcome_map["CHQ-007"] == "ACCEPTED"        # frozen account — passes outward
+    assert outcome_map["CHQ-008"] == "ACCEPTED"        # vault miss — passes outward
 
 
 def test_inward_pipeline_decisions():
-    """Inward pipeline produces correct decisions for ACCEPTED cheques."""
+    """Inward pipeline produces correct decisions for all ACCEPTED cheques."""
     results = asyncio.run(_run_full_pipeline())
     decision_map = {r.scenario.chq_id: r.decision for r in results.inward_results}
     assert decision_map["CHQ-001"] == "STP_CONFIRM"
     assert decision_map["CHQ-002"] == "HUMAN_REVIEW"   # high value > 5L
     assert decision_map["CHQ-004"] == "STP_RETURN"     # stop payment
     assert decision_map["CHQ-005"] == "STP_CONFIRM"
+    assert decision_map["CHQ-006"] == "STP_CONFIRM"    # handwritten clean passes all gates
+    assert decision_map["CHQ-007"] == "STP_RETURN"     # frozen account
+    assert decision_map["CHQ-008"] == "HUMAN_REVIEW"   # vault miss → always HUMAN_REVIEW
 
 
 def test_iet_watchdog_spawned():
@@ -872,21 +1141,32 @@ def test_iet_watchdog_spawned():
             from modules.cts.workflows.cheque_workflow import (
                 ChequeProcessingWorkflow, ChequeWorkflowInput,
             )
-            _, metrics = generate_cheque_image(scenario)
+            if scenario.is_handwritten:
+                _, metrics = generate_handwritten_cheque_image(scenario)
+            else:
+                _, metrics = generate_cheque_image(scenario)
             compliance_record = eval_cts2010_compliance(scenario, metrics)
             fraud_score, shap_values = eval_fraud(scenario)
             stop_outcome = "STP_RETURN" if scenario.has_stop_payment else "PROCEED"
-            cbs_outcome = "PROCEED" if scenario.account_balance >= scenario.amount else "RETURN"
+            # Determine effective CBS outcome
+            if scenario.account_status != "ACTIVE":
+                cbs_outcome = scenario.account_status  # FROZEN/CLOSED/NPA
+            elif scenario.account_balance < scenario.amount:
+                cbs_outcome = "RETURN"
+            else:
+                cbs_outcome = "PROCEED"
             sig_seed = int(hashlib.sha256(scenario.account_number.encode()).hexdigest(), 16)
             sig_match = min(0.88 + (sig_seed % 100) / 1000.0, 0.99)
             decision, rationale, stp_conf = eval_decision(
                 scenario=scenario, fraud_score=fraud_score, shap_values=shap_values,
                 sig_match=sig_match, pps_outcome="FOUND", cbs_outcome=cbs_outcome,
                 alteration_detected=False, available_balance=scenario.account_balance,
+                vault_miss=scenario.vault_miss,
             )
             if stop_outcome == "STP_RETURN":
                 decision, rationale, stp_conf = "STP_RETURN", "stop_payment", 0.0
 
+            acct_out = "PROCEED" if scenario.account_status == "ACTIVE" else "RETURN"
             mock_results = {
                 "alteration": _AlterationResult(),
                 "compliance": _ComplianceResult(compliance_record),
@@ -895,7 +1175,7 @@ def test_iet_watchdog_spawned():
                 "signature": _SignatureResult(sig_match),
                 "fraud": _FraudResult(fraud_score, shap_values),
                 "cbs": _CBSResult(cbs_outcome, scenario.account_balance),
-                "account_status": _AccountStatusResult("PROCEED"),
+                "account_status": _AccountStatusResult(acct_out, scenario.account_status),
                 "decision": _DecisionResult(decision, rationale, shap_values, stp_conf),
             }
             wf = ChequeProcessingWorkflow()
@@ -929,10 +1209,32 @@ def test_shap_values_present():
 
 
 def test_stale_cheque_not_in_inward():
-    """Stale cheque (CHQ-003) never reaches inward pipeline."""
+    """All outward-rejected cheques never reach inward pipeline."""
     results = asyncio.run(_run_full_pipeline())
     inward_ids = {r.scenario.chq_id for r in results.inward_results}
-    assert "CHQ-003" not in inward_ids, "Stale cheque must not reach inward pipeline"
+    for scenario in CHEQUE_SCENARIOS:
+        if scenario.expected_outward == "CTS_REJECTED":
+            assert scenario.chq_id not in inward_ids, (
+                f"{scenario.chq_id} (rejected outward) must not reach inward pipeline"
+            )
+
+
+def test_vault_miss_always_human_review():
+    """CHQ-008 (vault miss): always routes to HUMAN_REVIEW — invariant enforced."""
+    results = asyncio.run(_run_full_pipeline())
+    decision_map = {r.scenario.chq_id: r.decision for r in results.inward_results}
+    assert decision_map["CHQ-008"] == "HUMAN_REVIEW", (
+        f"Vault miss must be HUMAN_REVIEW, got {decision_map.get('CHQ-008')}"
+    )
+
+
+def test_frozen_account_stp_return():
+    """CHQ-007 (frozen account): auto-returned as STP_RETURN — not routed to HUMAN_REVIEW."""
+    results = asyncio.run(_run_full_pipeline())
+    decision_map = {r.scenario.chq_id: r.decision for r in results.inward_results}
+    assert decision_map["CHQ-007"] == "STP_RETURN", (
+        f"Frozen account must be STP_RETURN, got {decision_map.get('CHQ-007')}"
+    )
 
 
 def test_full_pipeline_and_generate_report():
@@ -949,6 +1251,18 @@ def test_full_pipeline_and_generate_report():
     accepted_outward = [r for r in results.outward_results if r.outcome == "ACCEPTED"]
     assert len(results.inward_results) == len(accepted_outward)
     assert results.total_duration_ms > 0
+
+    # All 8 scenarios must match expectations
+    for scenario in CHEQUE_SCENARIOS:
+        out_r = next(r for r in results.outward_results if r.scenario.chq_id == scenario.chq_id)
+        assert out_r.outcome == scenario.expected_outward, (
+            f"{scenario.chq_id}: outward got={out_r.outcome} expected={scenario.expected_outward}"
+        )
+        if scenario.expected_inward is not None:
+            in_r = next(r for r in results.inward_results if r.scenario.chq_id == scenario.chq_id)
+            assert in_r.decision == scenario.expected_inward, (
+                f"{scenario.chq_id}: inward got={in_r.decision} expected={scenario.expected_inward}"
+            )
 
     print(f"\n  Pipeline report: {report_path}")
     print(f"  Outward: {len(results.outward_results)} cheques, "
@@ -1290,6 +1604,12 @@ def _generate_html_report(run: PipelineRunResult) -> Path:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _scene_type(self: OutwardResult) -> str:
+    if self.scenario.is_handwritten:
+        return "HANDWRITTEN"
+    if self.scenario.vault_miss:
+        return "VAULT_MISS"
+    if self.scenario.account_status != "ACTIVE":
+        return f"ACCT_{self.scenario.account_status}"
     if self.scenario.cheque_date < date.today() - timedelta(days=90):
         return "STALE"
     if self.scenario.has_stop_payment:
