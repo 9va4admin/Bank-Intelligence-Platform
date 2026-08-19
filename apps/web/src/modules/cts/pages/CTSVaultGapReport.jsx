@@ -6,6 +6,7 @@
  * so the next clearing session has vault hits for those accounts.
  */
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import useVaultGaps from '../hooks/useVaultGaps'
@@ -22,6 +23,7 @@ function fmtDate(epoch) {
 
 export default function CTSVaultGapReport() {
   const { isDark } = useTheme()
+  const navigate = useNavigate()
   const today = new Date().toISOString().split('T')[0]
   const [selectedDate, setSelectedDate] = useState(today)
   const [expanded, setExpanded] = useState(null)
@@ -160,7 +162,10 @@ export default function CTSVaultGapReport() {
                       <td className="px-4 py-3">
                         <button
                           className={`text-xs px-2.5 py-1 rounded font-medium ${th.btn}`}
-                          onClick={e => { e.stopPropagation(); /* open enrollment flow */ }}
+                          onClick={e => {
+                            e.stopPropagation()
+                            navigate(`/cts/vault/upload?account=${encodeURIComponent(gap.account_display)}`)
+                          }}
                         >
                           Enroll Signature
                         </button>
