@@ -133,11 +133,12 @@ const SIDEBAR_MODULES = [
       {
         label: 'Reports',
         items: [
-          { to: '/cts/decisions',       label: 'Decisions Log',  perm: 'cts:view_analytics'  },
-          { to: '/cts/discrepancy',     label: 'Discrepancy',    perm: 'cts:view_analytics'  },
-          { to: '/cts/reconciliation',  label: 'Reconciliation', perm: 'smb:view_ledger'     },
-          { to: '/cts/analytics',       label: 'Analytics',      perm: 'cts:view_analytics'  },
-          { to: '/cts/compliance',      label: 'Compliance Cert',perm: 'audit:read'          },
+          { to: '/cts/decisions',       label: 'Decisions Log',      perm: 'cts:view_analytics'  },
+          { to: '/cts/vault-gaps',      label: 'Vault Gap Report',   perm: 'cts:view_analytics'  },
+          { to: '/cts/discrepancy',     label: 'Discrepancy',        perm: 'cts:view_analytics'  },
+          { to: '/cts/reconciliation',  label: 'Reconciliation',     perm: 'smb:view_ledger'     },
+          { to: '/cts/analytics',       label: 'Analytics',          perm: 'cts:view_analytics'  },
+          { to: '/cts/compliance',      label: 'Compliance Cert',    perm: 'audit:read'          },
         ],
       },
       {
@@ -227,6 +228,7 @@ const ROUTE_LABELS = {
   '/cts/vault':         ['CTS', 'Vault Status'],
   '/cts/vault-sync':    ['Processing', 'Positive Pay & Stop Cheque'],
   '/cts/decisions':     ['Reports', 'Decisions Log'],
+  '/cts/vault-gaps':    ['Reports', 'Signature Vault Gap Report — Overnight Enrollment'],
   '/cts/reconciliation':['Reports', 'Reconciliation'],
   '/cts/analytics':     ['Reports', 'Analytics'],
   '/cts/compliance':    ['Reports', 'Compliance Cert'],
