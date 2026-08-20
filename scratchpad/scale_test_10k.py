@@ -22,6 +22,11 @@ import argparse
 import sys
 import time
 import json
+import io
+
+# Force UTF-8 stdout on Windows (avoid cp1252 UnicodeEncodeError for box-drawing chars)
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
@@ -31,8 +36,8 @@ TEMPORAL_ADDRESS = "localhost:17233"
 NAMESPACE = "default"
 API_BASE = "http://localhost:8080"
 
-INWARD_WORKFLOW_NAME  = "ChequeProcessingWorkflow"
-OUTWARD_WORKFLOW_NAME = "OutwardScanWorkflow"
+from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow, ChequeWorkflowInput
+from modules.cts.workflows.outward_scan_workflow import OutwardScanWorkflow, OutwardScanInput
 
 # execution_timeout: inward = 4h (IET window + buffer), outward = 24h (clearing session)
 INWARD_EXEC_TIMEOUT  = timedelta(hours=4)
@@ -46,43 +51,44 @@ MAX_WAIT_S = 3600  # 1 hour
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 
-def _inward_input(bank_id: str, idx: int) -> dict:
-    instrument_id = f"INW-SCALE-{int(time.time())}-{idx:05d}"
-    return {
-        "instrument_id": instrument_id,
-        "bank_id": bank_id,
-        "account_number": f"91120000{idx:05d}",
-        "ifsc": "SBIN0000001",
-        "amount": 50000.0 + (idx % 10) * 10000,
-        "cheque_number": f"{500000 + idx}",
-        "micr_code": "400002001",
-        "payee_name": f"Test Payee {idx}",
-        "drawer_name": f"Test Drawer {idx}",
-        "date_on_cheque": "20-08-2026",
-        "image_path": f"minio://cts-images/scale/INW-{idx:05d}.tif",
-        "iet_deadline": (datetime.now(tz=timezone.utc) + timedelta(hours=3)).isoformat(),
-        "smb_id": None,
-        "session_id": f"SESS-SCALE-{int(time.time())}",
-    }
+_TS = int(time.time())  # fixed per run so all IDs share the same timestamp prefix
 
 
-def _outward_input(bank_id: str, idx: int) -> dict:
-    instrument_id = f"OUT-SCALE-{int(time.time())}-{idx:05d}"
-    return {
-        "instrument_id": instrument_id,
-        "bank_id": bank_id,
-        "account_number": f"91120001{idx:05d}",
-        "ifsc": "SBIN0000001",
-        "amount": 75000.0 + (idx % 8) * 5000,
-        "cheque_number": f"{600000 + idx}",
-        "micr_code": "400002001",
-        "payee_name": f"Out Payee {idx}",
-        "drawer_name": f"Out Drawer {idx}",
-        "date_on_cheque": "20-08-2026",
-        "image_path": f"minio://cts-images/scale/OUT-{idx:05d}.tif",
-        "session_id": f"SESS-SCALE-OUT-{int(time.time())}",
-        "bank_ifsc": "SARB0000001",
-    }
+def _inward_input(bank_id: str, idx: int) -> ChequeWorkflowInput:
+    instrument_id = f"INW-SCALE-{_TS}-{idx:05d}"
+    return ChequeWorkflowInput(
+        instrument_id=instrument_id,
+        bank_id=bank_id,
+        image_url=f"minio://cts-images/scale/INW-{idx:05d}.tif",
+        account_number=f"91120000{idx:05d}",
+        cheque_number=f"{500000 + idx}",
+        presented_amount=50000.0 + (idx % 10) * 10000,
+        presented_payee=f"Test Payee {idx}",
+        iet_deadline=(datetime.now(tz=timezone.utc) + timedelta(hours=3)).timestamp(),
+        smb_id=None,
+        queue_tier="standard",
+        cts_config={},
+    )
+
+
+def _outward_input(bank_id: str, idx: int) -> OutwardScanInput:
+    instrument_id = f"OUT-SCALE-{_TS}-{idx:05d}"
+    return OutwardScanInput(
+        scan_id=f"SCAN-{_TS}-{idx:05d}",
+        instrument_id=instrument_id,
+        bank_id=bank_id,
+        bank_ifsc="SRCB0000001",
+        session_id=f"SESS-SCALE-OUT-{_TS}",
+        image_front_url=f"minio://cts-images/scale/OUT-{idx:05d}-front.tif",
+        image_rear_url=f"minio://cts-images/scale/OUT-{idx:05d}-rear.tif",
+        cheque_number=f"{600000 + idx}",
+        front_dpi=200,
+        rear_dpi=200,
+        front_colour_depth=24,
+        rear_colour_depth=24,
+        front_file_size_kb=30.0,
+        rear_file_size_kb=25.0,
+    )
 
 
 async def start_all(
@@ -93,7 +99,7 @@ async def start_all(
     dry_run: bool,
 ) -> tuple[list[str], list[str]]:
     """Fire all workflow starts concurrently. Returns (inward_ids, outward_ids)."""
-    from temporalio.client import WorkflowAlreadyStartedError
+    from temporalio.exceptions import WorkflowAlreadyStartedError
 
     ts = int(time.time())
     task_queue = f"cts-processing-{bank_id}"
@@ -109,10 +115,10 @@ async def start_all(
 
     async def start_inward(idx: int) -> Optional[str]:
         inp = _inward_input(bank_id, idx)
-        wf_id = f"cts-{bank_id}-{inp['instrument_id']}"
+        wf_id = f"cts-{bank_id}-{inp.instrument_id}"
         try:
             await client.start_workflow(
-                INWARD_WORKFLOW_NAME,
+                ChequeProcessingWorkflow.run,
                 inp,
                 id=wf_id,
                 task_queue=task_queue,
@@ -127,10 +133,10 @@ async def start_all(
 
     async def start_outward(idx: int) -> Optional[str]:
         inp = _outward_input(bank_id, idx)
-        wf_id = f"cts-{bank_id}-{inp['instrument_id']}"
+        wf_id = f"cts-{bank_id}-{inp.instrument_id}"
         try:
             await client.start_workflow(
-                OUTWARD_WORKFLOW_NAME,
+                OutwardScanWorkflow.run,
                 inp,
                 id=wf_id,
                 task_queue=task_queue,
@@ -143,19 +149,29 @@ async def start_all(
             print(f"  WARN: Failed to start outward {idx}: {e}", flush=True)
             return None
 
-    print(f"Starting {n_inward} inward workflows...", flush=True)
-    t0 = time.perf_counter()
-    inward_tasks = [start_inward(i) for i in range(n_inward)]
-    results = await asyncio.gather(*inward_tasks)
-    inward_ids = [r for r in results if r]
-    print(f"  → {len(inward_ids)}/{n_inward} inward started in {time.perf_counter()-t0:.1f}s", flush=True)
+    # Semaphore: limit concurrent Temporal gRPC calls so the dev server isn't overwhelmed.
+    # Production Temporal clusters handle much higher fan-out; dev server is single-process.
+    sem = asyncio.Semaphore(50)
 
-    print(f"Starting {n_outward} outward workflows...", flush=True)
+    async def throttled_inward(idx: int) -> Optional[str]:
+        async with sem:
+            return await start_inward(idx)
+
+    async def throttled_outward(idx: int) -> Optional[str]:
+        async with sem:
+            return await start_outward(idx)
+
+    print(f"Starting {n_inward} inward workflows (concurrency=50)...", flush=True)
     t0 = time.perf_counter()
-    outward_tasks = [start_outward(i) for i in range(n_outward)]
-    results = await asyncio.gather(*outward_tasks)
+    results = await asyncio.gather(*[throttled_inward(i) for i in range(n_inward)])
+    inward_ids = [r for r in results if r]
+    print(f"  -> {len(inward_ids)}/{n_inward} inward started in {time.perf_counter()-t0:.1f}s", flush=True)
+
+    print(f"Starting {n_outward} outward workflows (concurrency=50)...", flush=True)
+    t0 = time.perf_counter()
+    results = await asyncio.gather(*[throttled_outward(i) for i in range(n_outward)])
     outward_ids = [r for r in results if r]
-    print(f"  → {len(outward_ids)}/{n_outward} outward started in {time.perf_counter()-t0:.1f}s", flush=True)
+    print(f"  -> {len(outward_ids)}/{n_outward} outward started in {time.perf_counter()-t0:.1f}s", flush=True)
 
     return inward_ids, outward_ids
 

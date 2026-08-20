@@ -851,7 +851,7 @@ class RecordScanEventInput(BaseModel):
 @activity.defn(name="record_outward_scan_event")
 async def record_outward_scan_event(inp: RecordScanEventInput) -> None:
     from shared.config.config_service import config_service
-    dsn = config_service.get("db.cts.dsn")
+    dsn = await config_service.get("db.cts.dsn")
 
     import asyncpg
     try:
