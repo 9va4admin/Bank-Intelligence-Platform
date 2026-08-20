@@ -15,6 +15,7 @@ of ChequeProcessingWorkflow) owns the T-30s emergency filing. This workflow is n
 """
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Optional
@@ -62,18 +63,20 @@ class HoldEscalationWorkflow:
 
     @workflow.run
     async def run(self, inp: HoldEscalationInput) -> None:
-        import time
-
         # --- Checkpoint 1: T+30min from hold placement ---
         # If the branch hasn't responded after 30 minutes, send a reminder.
         thirty_min = timedelta(minutes=30).total_seconds()
         elapsed_since_hold = workflow.now().timestamp() - inp.held_at
         sleep_to_30min = max(0.0, thirty_min - elapsed_since_hold)
 
-        await workflow.wait_condition(
-            lambda: self._released,
-            timeout=timedelta(seconds=sleep_to_30min),
-        )
+        if sleep_to_30min > 0:
+            try:
+                await workflow.wait_condition(
+                    lambda: self._released,
+                    timeout=timedelta(seconds=sleep_to_30min),
+                )
+            except asyncio.TimeoutError:
+                pass
         if self._released:
             return
 
@@ -94,10 +97,13 @@ class HoldEscalationWorkflow:
         sleep_to_crit = max(0.0, inp.iet_deadline - 3600 - now_ts)
 
         if sleep_to_crit > 0:
-            await workflow.wait_condition(
-                lambda: self._released,
-                timeout=timedelta(seconds=sleep_to_crit),
-            )
+            try:
+                await workflow.wait_condition(
+                    lambda: self._released,
+                    timeout=timedelta(seconds=sleep_to_crit),
+                )
+            except asyncio.TimeoutError:
+                pass
             if self._released:
                 return
 
@@ -121,10 +127,13 @@ class HoldEscalationWorkflow:
         sleep_to_p0 = max(0.0, inp.iet_deadline - 300 - now_ts)
 
         if sleep_to_p0 > 0:
-            await workflow.wait_condition(
-                lambda: self._released,
-                timeout=timedelta(seconds=sleep_to_p0),
-            )
+            try:
+                await workflow.wait_condition(
+                    lambda: self._released,
+                    timeout=timedelta(seconds=sleep_to_p0),
+                )
+            except asyncio.TimeoutError:
+                pass
             if self._released:
                 return
 

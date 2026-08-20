@@ -52,7 +52,7 @@ def write_keypair(priv_pem: str, pub_pem: str):
     SECRETS_DIR.mkdir(exist_ok=True)
     (SECRETS_DIR / "session.priv.pem").write_text(priv_pem, encoding="utf-8")
     (SECRETS_DIR / "session.pub.pem").write_text(pub_pem,  encoding="utf-8")
-    print("  ✓ Keys written to secrets/session.priv.pem + session.pub.pem")
+    print("  [OK] Keys written to secrets/session.priv.pem + session.pub.pem")
 
 
 # ── 2. Env files ─────────────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ $env:ASTRA_SECRET_CBS_FLEXCUBE_PASSWORD = ""
 Write-Host "[env] ASTRA environment loaded (BANK_ID=$env:BANK_ID, ENV=$env:ASTRA_ENV)" -ForegroundColor DarkGray
 """
     ENV_PS1.write_text(content, encoding="utf-8")
-    print(f"  ✓ Wrote scripts/.env.ps1")
+    print("  [OK] Wrote scripts/.env.ps1")
 
 
 def write_env_dev(bank_id: str):
@@ -168,7 +168,7 @@ export ASTRA_SECRET_CBS_FLEXCUBE_PASSWORD=""
 echo "[env] ASTRA environment loaded (BANK_ID=$BANK_ID)"
 """
     ENV_DEV.write_text(content, encoding="utf-8")
-    print(f"  ✓ Wrote scripts/.env.dev")
+    print("  [OK] Wrote scripts/.env.dev")
 
 
 # ── 3. DB schema ──────────────────────────────────────────────────────────────
@@ -184,7 +184,7 @@ async def apply_schema():
     async with pool.acquire() as conn:
         await conn.execute(_DEV_SCHEMA_DDL)
     await pool.close()
-    print("  ✓ Schema applied — all tables created/verified")
+    print("  [OK] Schema applied -- all tables created/verified")
 
 
 # ── 4. Seed users ─────────────────────────────────────────────────────────────
@@ -224,7 +224,7 @@ async def seed_users(bank_id: str):
                 zones, f"{username}@{bank_id}.internal", True,
             )
     await pool.close()
-    print("  ✓ Seeded users: admin / ops / reviewer")
+    print("  [OK] Seeded users: admin / ops / reviewer")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -236,7 +236,7 @@ async def main():
     bank_id = args.bank_id
 
     print(f"\n{'='*56}")
-    print(f"  ASTRA Pilot Init  —  bank_id: {bank_id}")
+    print(f"  ASTRA Pilot Init  --  bank_id: {bank_id}")
     print(f"{'='*56}\n")
 
     print("[1/4] Generating RS256 session keypair ...")
@@ -251,22 +251,22 @@ async def main():
     try:
         await apply_schema()
     except Exception as e:
-        print(f"\n  ✗ DB connection failed: {e}")
-        print("  → Make sure docker-compose is running:")
+        print(f"\n  [FAIL] DB connection failed: {e}")
+        print("  Make sure docker-compose is running:")
         print("    docker compose -f infra/docker-compose.dev.yml up -d")
-        print("  → Then re-run this script.")
+        print("  Then re-run this script.")
         sys.exit(1)
 
     print("\n[4/4] Seeding default users ...")
     try:
         await seed_users(bank_id)
     except Exception as e:
-        print(f"  ✗ Seeding failed: {e}")
+        print(f"  [FAIL] Seeding failed: {e}")
         sys.exit(1)
 
     print(f"""
 {'='*56}
-  Init complete ✓
+  Init complete [OK]
 {'='*56}
 
   Default credentials (change after first login):

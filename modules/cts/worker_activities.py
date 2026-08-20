@@ -87,6 +87,15 @@ from modules.cts.workflows.activities.signature import SignatureActivityInput
 from modules.cts.workflows.activities.stop_payment import StopPaymentActivityInput
 from modules.cts.workflows.activities.persist_decision import PersistDecisionInput
 from modules.cts.workflows.activities.write_audit import WriteAuditInput
+from modules.cts.workflows.activities.leaf_lifecycle import (
+    LeafLifecycleResult,
+    MarkLeafPaidInput,
+    MarkLeafPresentedInput,
+    MarkLeafReturnedInput,
+    mark_leaf_paid as _ll_mark_leaf_paid,
+    mark_leaf_presented as _ll_mark_leaf_presented,
+    mark_leaf_returned as _ll_mark_leaf_returned,
+)
 from modules.cts.workflows.human_review_workflow import HumanReviewInput
 from modules.cts.workflows.mismatch_resolution_workflow import PublishMismatchHoldInput
 
@@ -114,6 +123,7 @@ class BoundCTSActivities:
         db_pool: Any = None,
         hsm_signer: Any = None,
         minio_client: Any = None,
+        cheque_leaf_vault: Any = None,
     ) -> None:
         self._bank_id = bank_id
         self._cbs_connector = cbs_connector
@@ -132,6 +142,7 @@ class BoundCTSActivities:
         self._db_pool = db_pool
         self._hsm_signer = hsm_signer
         self._minio_client = minio_client
+        self._cheque_leaf_vault = cheque_leaf_vault
         # LotManager is stateful/in-memory per clearing session (see
         # modules/cts/lot/manager.py) — cached by (bank_ifsc, session_id) so
         # sequential lot numbers are correct across a session's many
@@ -510,6 +521,25 @@ class BoundCTSActivities:
             return await _real(inp, db_conn=conn)
 
     # ------------------------------------------------------------------
+    # Cheque leaf lifecycle — DI-wired so Temporal's pydantic_data_converter
+    # correctly deserialises MarkLeafPresentedInput (bare functions in
+    # NO_DI_ACTIVITIES received inp as a raw dict because the second
+    # cheque_leaf_vault parameter confused Temporal's arg-type inference).
+    # ------------------------------------------------------------------
+
+    @activity.defn(name="mark_leaf_presented")
+    async def mark_leaf_presented(self, inp: MarkLeafPresentedInput) -> LeafLifecycleResult:
+        return await _ll_mark_leaf_presented(inp, cheque_leaf_vault=self._cheque_leaf_vault)
+
+    @activity.defn(name="mark_leaf_paid")
+    async def mark_leaf_paid(self, inp: MarkLeafPaidInput) -> LeafLifecycleResult:
+        return await _ll_mark_leaf_paid(inp, cheque_leaf_vault=self._cheque_leaf_vault)
+
+    @activity.defn(name="mark_leaf_returned")
+    async def mark_leaf_returned(self, inp: MarkLeafReturnedInput) -> LeafLifecycleResult:
+        return await _ll_mark_leaf_returned(inp, cheque_leaf_vault=self._cheque_leaf_vault)
+
+    # ------------------------------------------------------------------
     # Registration list — every bound method Worker() should dispatch to.
     # ------------------------------------------------------------------
 
@@ -561,6 +591,10 @@ class BoundCTSActivities:
             self.run_shadow_evaluation,
             # Decision persistence (cts.agent_decisions)
             self.persist_agent_decision,
+            # Cheque leaf lifecycle (DI-wired — was bare function causing dict deserialization)
+            self.mark_leaf_presented,
+            self.mark_leaf_paid,
+            self.mark_leaf_returned,
         ]
 
 
@@ -595,6 +629,7 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
     signature_vault = _build_signature_vault(bank_id, pepper, redis_client)
     pps_vault = _build_pps_vault(bank_id, pepper, redis_client)
     bloom_client = await _build_bloom_client(redis_client, bank_id, config_service)
+    cheque_leaf_vault = _build_cheque_leaf_vault(bank_id, pepper, db_pool, bloom_client, redis_client)
 
     return BoundCTSActivities(
         bank_id=bank_id,
@@ -614,6 +649,7 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
         db_pool=db_pool,
         hsm_signer=hsm_signer,
         minio_client=minio_client,
+        cheque_leaf_vault=cheque_leaf_vault,
     )
 
 
@@ -837,6 +873,26 @@ def _build_pps_vault(bank_id: str, pepper: str, redis_client: Any) -> Any:
         return vault
     except Exception as exc:
         log.warning("worker_activities.pps_vault_unavailable", bank_id=bank_id, error=str(exc))
+        return None
+
+
+def _build_cheque_leaf_vault(
+    bank_id: str, pepper: str, db_pool: Any, bloom_client: Any, redis_client: Any
+) -> Any:
+    if not pepper:
+        log.warning("worker_activities.cheque_leaf_vault_skipped_no_pepper", bank_id=bank_id)
+        return None
+    try:
+        from modules.cts.vaults.cheque_leaf_vault import ChequeLeafVault
+        vault = ChequeLeafVault(
+            bank_id=bank_id, pepper=pepper,
+            db_pool=db_pool, bloom_filter=bloom_client,
+        )
+        vault.connect(redis_client=redis_client)
+        log.info("worker_activities.cheque_leaf_vault_ready", bank_id=bank_id)
+        return vault
+    except Exception as exc:
+        log.warning("worker_activities.cheque_leaf_vault_unavailable", bank_id=bank_id, error=str(exc))
         return None
 
 

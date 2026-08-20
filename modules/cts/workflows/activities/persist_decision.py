@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Any, List, Optional
 
 import structlog
@@ -48,6 +49,8 @@ class PersistDecisionInput(BaseModel):
     ocr_engines_used: List[str] = []
     indic_ocr_kill_switch_active: bool = False
     iet_margin_seconds: int = 0
+    steps_digest: Optional[dict] = None
+    registry_version: Optional[str] = None
 
 
 class PersistDecisionResult(BaseModel):
@@ -63,14 +66,16 @@ INSERT INTO cts.agent_decisions (
     processing_duration_ms, ocr_confidence, alteration_detected,
     signature_match_score, signature_verdict, pps_checked, pps_verdict,
     cbs_balance_status, degraded_mode, ocr_engines_used,
-    indic_ocr_kill_switch_active, iet_margin_seconds
+    indic_ocr_kill_switch_active, iet_margin_seconds,
+    steps_digest, registry_version
 ) VALUES (
     $1, $2, $3, $4, $5,
-    $6, $7, $8::timestamptz, $9::timestamptz,
+    $6, $7, $8, $9,
     $10, $11, $12,
     $13, $14, $15, $16,
     $17, $18, $19,
-    $20, $21
+    $20, $21,
+    $22, $23
 )
 ON CONFLICT (workflow_id) DO NOTHING
 """.strip()
@@ -95,6 +100,17 @@ async def persist_agent_decision(
             return PersistDecisionResult(success=False)
 
         duration_ms = round((inp.processing_completed_at - inp.processing_started_at) * 1000)
+        started_dt = datetime.fromtimestamp(inp.processing_started_at, tz=timezone.utc)
+        completed_dt = datetime.fromtimestamp(inp.processing_completed_at, tz=timezone.utc)
+
+        # Normalise ocr_engines_used: Temporal may deliver as JSON string or list
+        _raw_engines = inp.ocr_engines_used
+        if isinstance(_raw_engines, str):
+            _engines: list = json.loads(_raw_engines) if _raw_engines else []
+        elif _raw_engines is None:
+            _engines = []
+        else:
+            _engines = list(_raw_engines)
 
         try:
             await db_conn.execute(
@@ -106,8 +122,8 @@ async def persist_agent_decision(
                 inp.decision_reason,
                 inp.fraud_score,
                 json.dumps(inp.shap_values),
-                inp.processing_started_at,
-                inp.processing_completed_at,
+                started_dt,
+                completed_dt,
                 duration_ms,
                 inp.ocr_confidence,
                 inp.alteration_detected,
@@ -117,9 +133,11 @@ async def persist_agent_decision(
                 inp.pps_verdict,
                 inp.cbs_balance_status,
                 inp.degraded_mode,
-                json.dumps(inp.ocr_engines_used),
+                _engines,
                 inp.indic_ocr_kill_switch_active,
                 inp.iet_margin_seconds,
+                json.dumps(inp.steps_digest) if inp.steps_digest is not None else None,
+                inp.registry_version,
             )
         except Exception as exc:
             log.warning(

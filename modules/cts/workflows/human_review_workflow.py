@@ -109,6 +109,14 @@ async def push_to_review_queue(
     Publish instrument to cts.human.review.{bank_id} Kafka topic.
     Ops workstation listens on this topic and displays the item in queue.
     """
+    if event_producer is None:
+        log.warning(
+            "human_review.queue_publish_skipped",
+            instrument_id=inp.instrument_id,
+            bank_id=inp.bank_id,
+            reason="event_producer unavailable (Kafka not configured)",
+        )
+        return
     await event_producer.publish(
         topic=f"cts.human.review.{inp.bank_id}",
         event_type="CTS_HUMAN_REVIEW_REQUIRED",

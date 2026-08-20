@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-08-20T13:15:21.217355+00:00",
+  "bank_id": "saraswat-coop",
+  "elapsed_s": 10.44,
+  "inward": {
+    "completed": 50,
+    "failed": 0,
+    "timeout": 0,
+    "running": 0,
+    "total": 50
+  },
+  "outward": {
+    "completed": 50,
+    "failed": 0,
+    "timeout": 0,
+    "running": 0,
+    "total": 50
+  },
+  "success_pct": 100.0,
+  "dry_run": false
+}

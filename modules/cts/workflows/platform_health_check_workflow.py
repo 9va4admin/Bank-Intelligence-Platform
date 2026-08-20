@@ -30,10 +30,12 @@ from modules.cts.workflows.activities.platform_health_activities import (
     CheckIETInput,
     CheckVaultCoverageInput,
     DispatchAlertInput,
+    StuckWorkflowSweepInput,
     check_human_review_for_alert,
     check_iet_risk_for_alert,
     check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
+    sweep_stuck_workflows,
 )
 
 log = structlog.get_logger()
@@ -150,6 +152,28 @@ class PlatformHealthCheckWorkflow:
                     start_to_close_timeout=_ACTIVITY_TIMEOUT,
                 )
 
+            # ── 4. Stuck workflow sweep ───────────────────────────────────
+            sweep_result = await workflow.execute_activity(
+                sweep_stuck_workflows,
+                StuckWorkflowSweepInput(bank_id=inp.bank_id),
+                start_to_close_timeout=_ACTIVITY_TIMEOUT,
+            )
+            if sweep_result.found > 0 and not sweep_result.degraded:
+                await workflow.execute_activity(
+                    dispatch_platform_alert,
+                    DispatchAlertInput(
+                        bank_id=inp.bank_id,
+                        event_type="STUCK_WORKFLOWS_TERMINATED",
+                        severity="WARN",
+                        priority="P1",
+                        message=(
+                            f"Auto-terminated {sweep_result.terminated}/{sweep_result.found} "
+                            f"stuck CTS workflows (exceeded 4h limit)"
+                        ),
+                    ),
+                    start_to_close_timeout=_ACTIVITY_TIMEOUT,
+                )
+
             await workflow.sleep(timedelta(seconds=_HEALTH_CHECK_INTERVAL_S))
 
     # -----------------------------------------------------------------------
@@ -168,10 +192,11 @@ class PlatformHealthCheckWorkflow:
           "iet_risk":      dict matching IETCheckResult fields
           "human_review":  dict matching HRCheckResult fields
           "vault_coverage": dict matching VaultCoverageCheckResult fields (optional — defaults to no alert)
+          "stuck_sweep":   dict matching StuckWorkflowSweepResult fields (optional — defaults to no alert)
           "dispatched":    list — run_with_mocks appends alert dicts here instead of
                            calling dispatch_platform_alert
 
-        Returns HealthCheckRunResult(checks_run=3).
+        Returns HealthCheckRunResult(checks_run=4).
         """
         checks_run = 0
         alerts_sent = 0
@@ -219,6 +244,22 @@ class PlatformHealthCheckWorkflow:
                 "message": (
                     f"Vault Redis coverage low: {cov_data.get('coverage_pct', 0.0):.1f}% "
                     f"(gap: {cov_data.get('gap_accounts', 0)} accounts)"
+                ),
+            })
+            alerts_sent += 1
+
+        # ── Stuck workflow sweep check ────────────────────────────────────
+        sweep_data = mock_results.get("stuck_sweep", {"found": 0, "terminated": 0, "degraded": False})
+        checks_run += 1
+        if sweep_data.get("found", 0) > 0 and not sweep_data.get("degraded", False):
+            dispatched.append({
+                "event_type": "STUCK_WORKFLOWS_TERMINATED",
+                "severity": "WARN",
+                "priority": "P1",
+                "bank_id": inp.bank_id,
+                "message": (
+                    f"Auto-terminated {sweep_data.get('terminated', 0)}/{sweep_data.get('found', 0)} "
+                    f"stuck CTS workflows (exceeded 4h limit)"
                 ),
             })
             alerts_sent += 1
