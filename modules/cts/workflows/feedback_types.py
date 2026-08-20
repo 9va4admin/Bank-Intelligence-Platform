@@ -4,52 +4,55 @@ Kept in a separate module with NO @workflow.defn or @activity.defn
 decorators so they can be safely imported from inside workflow run()
 methods (e.g. ChequeProcessingWorkflow) without triggering global
 Temporal workflow registrations that would confuse test environments.
+
+All types use Pydantic BaseModel so pydantic_data_converter can
+deserialize them correctly when used as Temporal workflow inputs.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Dict, Optional
+from pydantic import BaseModel, ConfigDict
 
 
-@dataclass
-class PayeeSignalMessage:
+class PayeeSignalMessage(BaseModel):
+    model_config = ConfigDict(frozen=True)
     instrument_id: str
     bank_id: str
     ocr_payee: str
     name_match_score: float
-    script: Optional[str]
+    script: Optional[str] = None
     workflow_decision: str
-    human_approved: Optional[bool]
+    human_approved: Optional[bool] = None
     image_path: str
     cbs_degraded: bool = False
     cbs_display_initial: Optional[str] = None
 
 
-@dataclass
-class MicrSignalMessage:
+class MicrSignalMessage(BaseModel):
+    model_config = ConfigDict(frozen=True)
     instrument_id: str
     bank_id: str
     ngch_outcome: str
-    micr_fields: dict = field(default_factory=dict)
+    micr_fields: Dict[str, Any] = {}
     image_path: str = ""
 
 
-@dataclass
-class FeedbackAccumulatorInput:
+class FeedbackAccumulatorInput(BaseModel):
+    model_config = ConfigDict(frozen=True)
     bank_id: str
     corpus_type: str = "payee"   # "payee" | "micr"
     event_count: int = 0         # for continue-as-new carry-over
 
 
-@dataclass
-class ModelRetrainInput:
+class ModelRetrainInput(BaseModel):
+    model_config = ConfigDict(frozen=True)
     bank_id: str
     corpus_type: str
 
 
-@dataclass
-class FeedbackEmitInput:
+class FeedbackEmitInput(BaseModel):
     """Payload for FeedbackEmitWorkflow — one instance per processed cheque."""
+    model_config = ConfigDict(frozen=True)
     instrument_id: str
     bank_id: str
     ocr_payee: str
