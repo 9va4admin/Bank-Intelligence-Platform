@@ -151,3 +151,88 @@ minio:
 # is impossible by design (keys never shared or exported).
 hsm:
   transit_key_name: "astra-audit-key"  # default; banks override with astra-audit-key-{bank_id}
+
+# ── Circuit Breaker / Bulkhead (Istio DestinationRule seeds) ─────────────────
+# Feeds istio-destination-rules.yaml templates. Banks override in platform.yaml (Layer 2).
+# Applies to all modules that call these platform services (CTS, MSV, platform health).
+#
+# Criticality tiers reflected in thresholds:
+#   IET-path (cbs, config): moderate — fast detection, quick recovery
+#   Audit (immudb): generous — unlimited Temporal retries; don't prematurely eject
+#   Workflow engine (temporal): moderate — 50% max ejection, SDK retries as fallback
+#   Non-critical (langfuse, notification): tolerant — observability/alerts can lag
+circuit_breaker:
+
+  # CBS Connector (Finacle / BaNCS / FlexCube — read-only, async)
+  # CBS unreachable → image-only processing path → file before IET.
+  cbs_connector:
+    consecutive_errors: 5
+    interval: 30s
+    base_ejection_time: 30s
+    max_ejection_percent: 100
+    max_connections: 20
+    http_pending_requests: 50
+    http2_max_requests: 100
+
+  # Immudb (cryptographic audit trail — compliance-critical)
+  # consecutive_errors=10: transient gRPC errors must not prematurely open audit circuit.
+  # max_ejection_percent=50: never eject all audit replicas simultaneously.
+  immudb:
+    consecutive_errors: 10
+    interval: 60s
+    base_ejection_time: 30s
+    max_ejection_percent: 50
+    max_connections: 50
+    http2_max_requests: 500
+
+  # MinIO (WORM object store — cheque images, signed PDFs, audit exports)
+  minio:
+    consecutive_errors: 5
+    interval: 30s
+    base_ejection_time: 30s
+    max_ejection_percent: 100
+    max_connections: 50
+    http_pending_requests: 100
+    http2_max_requests: 200
+
+  # Temporal Frontend (gRPC — workflow engine)
+  # max_ejection_percent=50: SDK retries as second layer; keep at least half in pool.
+  temporal:
+    consecutive_errors: 5
+    interval: 30s
+    base_ejection_time: 30s
+    max_ejection_percent: 50
+    max_connections: 50
+    http2_max_requests: 500
+
+  # Langfuse (LLM observability — non-critical for clearing)
+  # Trace loss acceptable; do not let observability outage affect IET path.
+  langfuse:
+    consecutive_errors: 10
+    interval: 60s
+    base_ejection_time: 30s
+    max_ejection_percent: 100
+    max_connections: 20
+    http_pending_requests: 50
+    http2_max_requests: 100
+
+  # Notification Service (email + WhatsApp — ops alerts, non-critical for clearing)
+  notification:
+    consecutive_errors: 10
+    interval: 60s
+    base_ejection_time: 30s
+    max_ejection_percent: 100
+    max_connections: 10
+    http_pending_requests: 20
+    http2_max_requests: 50
+
+  # Config Service (threshold gateway — all CTS activities depend on this)
+  # max_ejection_percent=50: activities must always be able to fetch thresholds.
+  config_service:
+    consecutive_errors: 5
+    interval: 30s
+    base_ejection_time: 30s
+    max_ejection_percent: 50
+    max_connections: 50
+    http_pending_requests: 100
+    http2_max_requests: 200
