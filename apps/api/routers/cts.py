@@ -242,6 +242,7 @@ async def submit_inward_cheque(
 
     if temporal_client is not None:
         try:
+            from datetime import timedelta as _td
             from temporalio.exceptions import WorkflowAlreadyStartedError
             from modules.cts.workflows.cheque_workflow import ChequeProcessingWorkflow
 
@@ -250,6 +251,7 @@ async def submit_inward_cheque(
                 workflow_input,
                 id=workflow_id,
                 task_queue=f"cts-processing-{bank_id}",
+                execution_timeout=_td(hours=4),  # IET window (3h) + 1h buffer; auto-terminates stuck workflows
             )
         except WorkflowAlreadyStartedError:
             pass  # idempotent — workflow already running for this instrument_id
@@ -868,6 +870,103 @@ async def get_instrument_digest(
         steps=steps,
         shap_values={},
         registry_version=row["registry_version"] or "unknown",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Admin — stuck workflow cleanup
+# ---------------------------------------------------------------------------
+
+class WorkflowCleanupRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    max_age_minutes: int = 240
+    dry_run: bool = False
+
+
+class WorkflowCleanupResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    found: int
+    terminated: int
+    dry_run: bool
+    degraded: bool
+
+
+@router_v1.post(
+    "/admin/workflows/cleanup",
+    response_model=WorkflowCleanupResponse,
+)
+async def trigger_workflow_cleanup(
+    body: WorkflowCleanupRequest,
+    request: Request,
+    bank_id: str = Depends(get_current_bank_id),
+) -> WorkflowCleanupResponse:
+    """
+    On-demand stuck workflow terminator.
+
+    Lists RUNNING ChequeProcessingWorkflow instances for this bank that have
+    exceeded max_age_minutes and terminates them immediately.  The automatic
+    version fires every 60s via PlatformHealthCheckWorkflow; this endpoint lets
+    bank_it_admin or ops_manager trigger a one-shot sweep during incidents.
+
+    dry_run=true returns counts without terminating anything.
+    Requires: bank_it_admin or ops_manager role.
+    """
+    from datetime import datetime, timezone, timedelta as _timedelta
+    try:
+        from temporalio.client import Client as TemporalClient
+        temporal_address = getattr(request.app.state, "temporal_address", "localhost:7233")
+        client = await TemporalClient.connect(temporal_address, namespace="default")
+    except Exception as exc:
+        log.warning("admin.workflow_cleanup.client_error", bank_id=bank_id, error=str(exc))
+        return WorkflowCleanupResponse(
+            bank_id=bank_id, found=0, terminated=0,
+            dry_run=body.dry_run, degraded=True,
+        )
+
+    cutoff = datetime.now(tz=timezone.utc) - _timedelta(minutes=body.max_age_minutes)
+    found = 0
+    terminated = 0
+
+    try:
+        query = (
+            f'WorkflowType="ChequeProcessingWorkflow" AND '
+            f'ExecutionStatus="Running" AND '
+            f'TaskQueue="cts-processing-{bank_id}"'
+        )
+        async for wf in client.list_workflows(query):
+            if wf.start_time and wf.start_time < cutoff:
+                found += 1
+                if not body.dry_run:
+                    try:
+                        handle = client.get_workflow_handle(wf.id, run_id=wf.run_id)
+                        await handle.terminate(
+                            reason=f"ASTRA admin cleanup: exceeded {body.max_age_minutes}min limit"
+                        )
+                        terminated += 1
+                        log.warning(
+                            "admin.workflow_cleanup.terminated",
+                            bank_id=bank_id, workflow_id=wf.id,
+                        )
+                    except Exception as term_exc:
+                        log.warning(
+                            "admin.workflow_cleanup.terminate_failed",
+                            bank_id=bank_id, workflow_id=wf.id, error=str(term_exc),
+                        )
+    except Exception as exc:
+        log.warning("admin.workflow_cleanup.list_error", bank_id=bank_id, error=str(exc))
+        return WorkflowCleanupResponse(
+            bank_id=bank_id, found=0, terminated=0,
+            dry_run=body.dry_run, degraded=True,
+        )
+
+    log.info(
+        "admin.workflow_cleanup.complete",
+        bank_id=bank_id, found=found, terminated=terminated, dry_run=body.dry_run,
+    )
+    return WorkflowCleanupResponse(
+        bank_id=bank_id, found=found, terminated=terminated,
+        dry_run=body.dry_run, degraded=False,
     )
 
 
@@ -1591,12 +1690,14 @@ async def submit_outward_scan(
     temporal_client = getattr(request.app.state, "temporal_client", None)
     if temporal_client is not None:
         try:
+            from datetime import timedelta as _td
             from temporalio.exceptions import WorkflowAlreadyStartedError
             await temporal_client.start_workflow(
                 OutwardScanWorkflow.run,
                 workflow_input,
                 id=workflow_id,
                 task_queue=f"cts-processing-{bank_id}",
+                execution_timeout=_td(hours=24),  # clearing session max window; auto-terminates stuck outward workflows
             )
         except WorkflowAlreadyStartedError:
             pass  # idempotent

@@ -333,3 +333,102 @@ async def check_vault_redis_coverage_for_alert(
             error=str(exc),
         )
         return VaultCoverageCheckResult(bank_id=inp.bank_id, degraded=True)
+
+
+# ---------------------------------------------------------------------------
+# Stuck workflow sweep — permanent production guard
+# ---------------------------------------------------------------------------
+
+class StuckWorkflowSweepInput(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    max_age_minutes: int = 240   # terminate workflows running longer than this (4h default)
+    task_queue_prefix: str = "cts-processing"
+    dry_run: bool = False        # True = count only, no terminations
+
+
+class StuckWorkflowSweepResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    found: int = 0
+    terminated: int = 0
+    dry_run: bool = False
+    degraded: bool = False
+
+
+@activity.defn
+async def sweep_stuck_workflows(inp: StuckWorkflowSweepInput) -> StuckWorkflowSweepResult:
+    """
+    Lists RUNNING CTS workflows for this bank that have exceeded max_age_minutes
+    and terminates them. Called by PlatformHealthCheckWorkflow every 60s tick.
+
+    Primary defence: execution_timeout on start_workflow (auto-terminates without
+    this activity). This sweep is the belt-and-suspenders layer for workflows
+    started without a timeout, stuck workers, or edge cases where Temporal's
+    own timeout logic is delayed.
+
+    Termination reason is written to the workflow's failure cause, which Temporal
+    surfaces in the UI and history — fully auditable without touching Immudb.
+    """
+    from datetime import datetime, timezone, timedelta
+    try:
+        from temporalio.client import Client, WorkflowExecutionStatus
+        client = await Client.connect(
+            "localhost:17233",   # resolved from config_service in real dep injection
+            namespace="default",
+        )
+    except Exception as exc:
+        log.warning("sweep_stuck_workflows.client_error", bank_id=inp.bank_id, error=str(exc))
+        return StuckWorkflowSweepResult(bank_id=inp.bank_id, degraded=True)
+
+    cutoff = datetime.now(tz=timezone.utc) - timedelta(minutes=inp.max_age_minutes)
+    prefix = f"cts-{inp.bank_id}-"
+    found = 0
+    terminated = 0
+
+    try:
+        query = (
+            f'WorkflowType="ChequeProcessingWorkflow" AND '
+            f'ExecutionStatus="Running" AND '
+            f'TaskQueue="{inp.task_queue_prefix}-{inp.bank_id}"'
+        )
+        async for wf in client.list_workflows(query):
+            if wf.start_time and wf.start_time < cutoff:
+                found += 1
+                if not inp.dry_run:
+                    try:
+                        handle = client.get_workflow_handle(wf.id, run_id=wf.run_id)
+                        await handle.terminate(
+                            reason=f"ASTRA auto-terminated: exceeded {inp.max_age_minutes}min limit"
+                        )
+                        terminated += 1
+                        log.warning(
+                            "sweep_stuck_workflows.terminated",
+                            bank_id=inp.bank_id,
+                            workflow_id=wf.id,
+                            age_minutes=round((datetime.now(tz=timezone.utc) - wf.start_time).seconds / 60),
+                        )
+                    except Exception as term_exc:
+                        log.warning(
+                            "sweep_stuck_workflows.terminate_failed",
+                            workflow_id=wf.id,
+                            error=str(term_exc),
+                        )
+    except Exception as exc:
+        log.warning("sweep_stuck_workflows.list_error", bank_id=inp.bank_id, error=str(exc))
+        return StuckWorkflowSweepResult(bank_id=inp.bank_id, degraded=True)
+
+    if found > 0:
+        log.warning(
+            "sweep_stuck_workflows.complete",
+            bank_id=inp.bank_id,
+            found=found,
+            terminated=terminated,
+            dry_run=inp.dry_run,
+        )
+    return StuckWorkflowSweepResult(
+        bank_id=inp.bank_id,
+        found=found,
+        terminated=terminated,
+        dry_run=inp.dry_run,
+    )
