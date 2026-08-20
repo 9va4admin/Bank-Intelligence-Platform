@@ -32,12 +32,13 @@ Terminal states:
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 from datetime import timedelta
 from typing import Optional
 
 import structlog
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from temporalio import activity, workflow
 from temporalio.common import RetryPolicy
 
@@ -101,19 +102,33 @@ class FetchDropFileInput(BaseModel):
 
 class FetchDropFileResult(BaseModel):
     model_config = ConfigDict(frozen=True)
-    csv_bytes: bytes = b""
+    csv_bytes: str = ""    # base64-encoded; Temporal's JSON encoder cannot handle raw bytes
     duplicate: bool = False
     error: Optional[str] = None
+
+    @field_validator("csv_bytes", mode="before")
+    @classmethod
+    def _encode_bytes(cls, v: object) -> str:
+        if isinstance(v, bytes):
+            return base64.b64encode(v).decode()
+        return v  # type: ignore[return-value]
 
 
 class ProcessVaultCSVInput(BaseModel):
     model_config = ConfigDict(frozen=True)
     bank_id: str
     vault_type: str
-    csv_bytes: bytes
+    csv_bytes: str         # base64-encoded; Temporal's JSON encoder cannot handle raw bytes
     changed_by: str       # "system:{feed_name}"
     filename: str
     file_hash: str
+
+    @field_validator("csv_bytes", mode="before")
+    @classmethod
+    def _encode_bytes(cls, v: object) -> str:
+        if isinstance(v, bytes):
+            return base64.b64encode(v).decode()
+        return v  # type: ignore[return-value]
 
 
 class ProcessVaultCSVResult(BaseModel):
@@ -161,7 +176,7 @@ async def fetch_drop_file(inp: FetchDropFileInput, minio_client=None) -> FetchDr
                   bank_id=inp.bank_id, expected=inp.file_hash, actual=actual_hash)
         return FetchDropFileResult(error="HASH_MISMATCH")
 
-    return FetchDropFileResult(csv_bytes=csv_bytes)
+    return FetchDropFileResult(csv_bytes=base64.b64encode(csv_bytes).decode())
 
 
 @activity.defn
@@ -196,7 +211,7 @@ async def process_vault_csv(inp: ProcessVaultCSVInput, db_pool=None, vaults: dic
         )
         result = await processor.process(
             vault_type=inp.vault_type,
-            csv_content=inp.csv_bytes,
+            csv_content=base64.b64decode(inp.csv_bytes),
             changed_by=inp.changed_by,
             filename=inp.filename,
             upload_channel="SFTP",
