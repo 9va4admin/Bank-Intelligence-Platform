@@ -177,7 +177,9 @@ from modules.cts.workflows.activities.smb_vault_push_activities import (
 from modules.cts.workflows.activities.platform_health_activities import (
     check_iet_risk_for_alert,
     check_human_review_for_alert,
+    check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
+    sweep_stuck_workflows,
 )
 from modules.cts.workflows.platform_health_check_workflow import PlatformHealthCheckWorkflow
 from modules.cts.worker_activities import build_bound_activities
@@ -197,11 +199,6 @@ from modules.cts.workflows.vault_file_drop_workflow import (
     fetch_drop_file,
     process_vault_csv,
     archive_drop_file,
-)
-from modules.cts.workflows.activities.leaf_lifecycle import (
-    mark_leaf_presented,
-    mark_leaf_paid,
-    mark_leaf_returned,
 )
 
 ALL_WORKFLOWS = [
@@ -296,7 +293,9 @@ ALL_ACTIVITIES = [
     archive_drop_file,
     check_iet_risk_for_alert,
     check_human_review_for_alert,
+    check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
+    sweep_stuck_workflows,
     send_hold_reminder,
     send_hold_critical_alert,
     send_hold_p0_alert,
@@ -340,7 +339,9 @@ NO_DI_ACTIVITIES = [
     # Platform health check alert engine (PlatformHealthCheckWorkflow)
     check_iet_risk_for_alert,
     check_human_review_for_alert,
+    check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
+    sweep_stuck_workflows,  # auto-terminates CTS workflows exceeding max_age_minutes
     # Scan event recorder (OutwardScanWorkflow — branch monitor feed)
     record_outward_scan_event,
     # Hold escalation (HoldEscalationWorkflow) — notification-only, no NGCH touch
@@ -360,10 +361,6 @@ NO_DI_ACTIVITIES = [
     fetch_drop_file,
     process_vault_csv,
     archive_drop_file,
-    # Leaf lifecycle — cheque_leaf_vault defaults to None; gracefully degrades
-    mark_leaf_presented,
-    mark_leaf_paid,
-    mark_leaf_returned,
     # OCR feedback loop — accumulate/threshold/promote/emit/dispatch/shadow are
     # all in BoundCTSActivities (db_pool injection required)
 ]
