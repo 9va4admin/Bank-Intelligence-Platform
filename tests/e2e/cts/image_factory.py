@@ -599,65 +599,89 @@ def _build(fixture) -> "Image.Image":
 # Public API
 # ─────────────────────────────────────────────────────────────────────────────
 
-def generate_signature_image(fixture) -> str:
-    """Render just the signature box(es) on a tinted background.
-    Returns a base64 JPEG data URI for embedding in the digest card.
-    1-sig → single box, 2-sig → two boxes side-by-side, 3-sig → three boxes.
-    3rd box on MSV cheques is unsigned (red ×MISSING).
+def _crop_sig_from_canvas(img: "Image.Image", fixture) -> str:
     """
-    if not _PIL_OK:
-        return ""
+    Crop the actual ink signature region(s) from the full-res PIL canvas.
+
+    Mirrors _sync_crop_signature() logic in modules/cts/workflows/activities/signature.py:
+    same PIL crop, same padding formula, same Otsu binarisation + morphological
+    thinning — no network download needed because we have the canvas in memory.
+
+    Pixel positions are the same constants used by _build() when it drew the boxes.
+    """
     try:
-        n      = _n_sigs(fixture)
-        style  = _PAPER_STYLES[abs(hash(fixture.bank_id)) % len(_PAPER_STYLES)]
-        bg, accent, _, _ = style
-        ink    = (20, 20, 80)     # dark-blue pen colour
+        n  = _n_sigs(fixture)
+        SH, SW = 95, 178
+        ST = _ANNO_H + 358 + 8          # B=52, YL=B+358=410, ST=YL+8=418
 
-        BW, BH, PAD = 240, 90, 10
-        W = n * BW + (n + 1) * PAD
-        H = BH + PAD * 2 + 22    # +22 for label below box
+        sx_right = _W - _MR - SW - 4   # rightmost sig box x-origin (1182)
+        if n == 1:
+            sx_left = sx_right
+        elif n == 2:
+            sx_left = sx_right - SW - 16
+        else:
+            sx_left = sx_right - 2 * (SW + 12)
 
-        canvas = Image.new("RGB", (W, H), bg)
-        d      = ImageDraw.Draw(canvas)
+        w, h = img.size
+        pad  = max(6, int(min(w, h) * 0.02))   # same formula as _sync_crop_signature
+        crop = img.crop((
+            max(0, sx_left  - pad),
+            max(0, ST       - pad),
+            min(w, sx_right + SW + pad),
+            min(h, ST + SH  + pad),
+        ))
 
-        for i in range(n):
-            bx     = PAD + i * (BW + PAD)
-            by     = PAD
-            seed   = abs(hash(fixture.instrument_id + str(i))) % (2 ** 31)
-            signed = not (n == 3 and i == 2)   # 3rd box is the missing one
-            if n == 1:
-                label = "Authorised Signatory"
-            elif n == 2:
-                label = f"Joint Holder – {i + 1}"
-            else:
-                label = f"Signatory – {i + 1}" + (" (Required)" if not signed else "")
-            _sig_box(d, bx, by, BW, BH, seed, ink, accent, label, signed)
+        # Otsu binarisation + morphological thinning — identical to
+        # _apply_morphological_normalisation() in signature.py
+        try:
+            import cv2
+            import numpy as np
+            gray = cv2.cvtColor(np.array(crop), cv2.COLOR_RGB2GRAY)
+            _, binary = cv2.threshold(
+                gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+            )
+            try:
+                thinned = cv2.ximgproc.thinning(
+                    binary, thinningType=cv2.ximgproc.THINNING_ZHANGSUEN
+                )
+            except AttributeError:
+                thinned = binary
+            rgb_arr = cv2.cvtColor(cv2.bitwise_not(thinned), cv2.COLOR_GRAY2RGB)
+            crop = Image.fromarray(rgb_arr)
+        except ImportError:
+            pass   # cv2 not installed — plain PIL crop is still useful
 
-        # Halve for digest — keeps data-URI small
-        canvas = canvas.resize((W // 2, H // 2), Image.LANCZOS)
-        buf    = io.BytesIO()
-        canvas.save(buf, format="JPEG", quality=78, optimize=True)
+        buf = io.BytesIO()
+        crop.save(buf, format="JPEG", quality=82, optimize=True)
         return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
     except Exception:
         return ""
 
 
-def generate_cheque_image(fixture, fixture_index: int = 0) -> str:
+def generate_cheque_image(fixture, fixture_index: int = 0) -> tuple[str, str]:
     """
     Generate a synthetic CTS cheque image for the given fixture.
-    Returns a base64 JPEG data URI, or "" if PIL is unavailable.
-    fixture_index is accepted for API compatibility but unused (each
-    fixture gets a unique image derived purely from its own data).
+
+    Returns (cheque_b64, sig_crop_b64):
+      cheque_b64   — full cheque downsampled to 50 % (700×350), JPEG q70
+      sig_crop_b64 — signature region cropped from the live canvas using the
+                     same pixel positions drawn by _build(), same Otsu/thinning
+                     normalisation as _sync_crop_signature() in signature.py.
+                     Empty string if PIL is unavailable.
+
+    fixture_index accepted for API compatibility but unused.
     """
     if not _PIL_OK:
-        return ""
+        return "", ""
     try:
-        img = _build(fixture)
-        # Downsample to 50 % (700 × 350) — keeps text legible, cuts file size ~75 %
+        img      = _build(fixture)                  # full-res 1400×700 PIL RGB
+        sig_b64  = _crop_sig_from_canvas(img, fixture)
+
         w, h = img.size
-        img = img.resize((w // 2, h // 2), Image.LANCZOS)
-        buf = io.BytesIO()
+        img  = img.resize((w // 2, h // 2), Image.LANCZOS)
+        buf  = io.BytesIO()
         img.save(buf, format="JPEG", quality=70, optimize=True)
-        return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+        cheque_b64 = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+        return cheque_b64, sig_b64
     except Exception:
-        return ""
+        return "", ""
