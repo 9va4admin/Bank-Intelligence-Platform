@@ -48,6 +48,61 @@ _SECRET_CACHE_TTL_SECONDS = 30
 _CONFIG_CACHE_TTL_SECONDS = 30
 _OPA_CACHE_TTL_SECONDS = 1
 
+# Fallback values when Layer 3 (Redis + YugabyteDB) is unavailable (dev/CI/degraded).
+# Values mirror infra/helm/values/_defaults.yaml layer3 section.
+# NEVER reference these literals from anywhere else — they exist only so that the
+# config service can return a sane value instead of crashing with AttributeError
+# when the DB pool is None during local development.
+_LAYER3_DEFAULTS: dict[str, Any] = {
+    # ── CTS thresholds ──────────────────────────────────────────────────────────
+    "cts.iet_minutes": 180,
+    "cts.stp_auto_confirm_threshold": 0.92,
+    "cts.stp_mode": "FULL_MANUAL",
+    "cts.stp_supervised_confirm_threshold": 0.95,
+    "cts.stp_supervised_review_timeout_minutes": 30,
+    "cts.human_review_fraud_threshold": 0.72,
+    "cts.high_value_amount_threshold": 500000,
+    "cts.vault_miss_action": "HUMAN_REVIEW",
+    "cts.ocr_min_confidence": 0.90,
+    "cts.signature_min_match_score": 0.85,
+    "cts.alteration_risk_threshold": 0.65,
+    "cts.iet_emergency_buffer_seconds": 30,
+    "cts.human_review_max_wait_minutes": 55,
+    "cts.cheque_validity_days": 90,
+    "cts.pps_mandatory_threshold": 500000,
+    "cts.clearing_session": "MORNING",
+    "cts.shadow_credit_release_hours": 4,
+    "cts.opa_required": True,
+    "cts.rear_image_required": "false",
+    "cts.outward_frozen_payee_action": "HUMAN_REVIEW",
+    "cts.outward_dormant_payee_action": "HUMAN_REVIEW",
+    "cts.outward_npa_payee_action": "HUMAN_REVIEW",
+    "cts.indic_ocr.kill_mode": "NONE",
+    # ── AI thresholds ───────────────────────────────────────────────────────────
+    "ai.ocr.min_confidence": 0.90,
+    "ai.signature.min_match_score": 0.85,
+    "ai.fraud.score_threshold": 0.72,
+    "ai.ej.field_extraction.min_confidence": 0.80,
+    "ai.ej.field_extraction.max_weak_fields": 2,
+    "ai.drift.alert_pct_threshold": 2.0,
+    "ai.drift.auto_tighten_pct_threshold": 5.0,
+    "ai.drift.pull_from_prod_pct_threshold": 8.0,
+    # ── Platform health ─────────────────────────────────────────────────────────
+    "platform_health_check.cadence_seconds": 60,
+    "platform_health_check.max_human_review_queue_depth": 50,
+    "platform_health_check.max_human_review_wait_minutes": 45.0,
+    # ── Vault / feedback ────────────────────────────────────────────────────────
+    "cts.ocr_feedback_retrain_threshold": 500,
+    "cts.ocr_promote_min_improvement": 0.02,
+    "vault.error_files.enabled": True,
+    "vault.error_files.bucket": "astra-vault-errors",
+    "vault.error_files.retention_days": 365,
+    # ── AI / vLLM endpoints (graceful: dev worker logs warn, not error) ──────────
+    "vllm.url": "http://localhost:8000",
+    "vllm.l1_url": "http://localhost:8000",
+    "db.cts.dsn": "postgresql://yugabyte:yugabyte@localhost:15433/yugabyte",
+}
+
 
 class ConfigService:
     def __init__(self) -> None:
@@ -99,13 +154,24 @@ class ConfigService:
             self._secret_backend = backend_cls()
             await self._secret_backend.initialise(bank_id)
 
-            # Layer 3: Redis cache URL (from secret backend — same key for all backends)
-            redis_url = await self._secret_backend.get("redis.config.url")
-            self._redis = aioredis.from_url(redis_url, decode_responses=True)
+            # Layer 3: Redis cache URL — degrades gracefully when unavailable
+            # (worker/API still boots; Layer 3 config calls raise ConfigKeyNotFoundError
+            # and each caller must tolerate that by using Layer 1/2 defaults)
+            try:
+                redis_url = await self._secret_backend.get("redis.config.url")
+                self._redis = aioredis.from_url(redis_url, decode_responses=True)
+                await self._redis.ping()
+            except Exception as _redis_exc:
+                log.warning("config_service.layer3_redis_unavailable", error=str(_redis_exc))
+                self._redis = None
 
-            # Layer 3: YugabyteDB pool DSN (from secret backend)
-            db_dsn = await self._secret_backend.get("db.config.dsn")
-            self._db_pool = await asyncpg.create_pool(db_dsn, min_size=1, max_size=5)
+            # Layer 3: YugabyteDB pool DSN — same graceful degradation
+            try:
+                db_dsn = await self._secret_backend.get("db.config.dsn")
+                self._db_pool = await asyncpg.create_pool(db_dsn, min_size=1, max_size=5)
+            except Exception as _db_exc:
+                log.warning("config_service.layer3_db_unavailable", error=str(_db_exc))
+                self._db_pool = None
 
             # Layer 4: OPA URL from platform env (not secret — cluster-internal address)
             self._opa_url = os.environ.get("OPA_URL", "http://opa.astra-platform.svc.cluster.local:8181")
@@ -162,6 +228,10 @@ class ConfigService:
         Stored in YugabyteDB config table, cached in Redis for 30 seconds.
         Invalidated by Kafka platform.config.changed events via CacheInvalidator.
 
+        When both Redis and YugabyteDB are unavailable (dev/CI/degraded):
+        falls back to _LAYER3_DEFAULTS. Raises ConfigKeyNotFoundError only if
+        the key is absent from defaults too — never raises AttributeError.
+
         Examples:
             config_service.get("cts.human_review_fraud_threshold")  → 0.72
             config_service.get("cts.iet_minutes")                   → 180
@@ -173,15 +243,45 @@ class ConfigService:
             span.set_attribute("bank_id", self._bank_id)
 
             cache_key = f"config:{self._bank_id}:{key}"
-            cached = await self._redis.get(cache_key)
-            if cached is not None:
-                return json.loads(cached)
 
-            value = await self._fetch_from_db(key)
-            await self._redis.setex(cache_key, _CONFIG_CACHE_TTL_SECONDS, json.dumps(value))
-            return value
+            # ── Redis cache (skip when unavailable) ──────────────────────────
+            if self._redis is not None:
+                try:
+                    cached = await self._redis.get(cache_key)
+                    if cached is not None:
+                        return json.loads(cached)
+                except Exception as _redis_exc:
+                    log.warning("config.get.redis_error", key=key, error=str(_redis_exc))
+
+            # ── YugabyteDB (skip when unavailable) ───────────────────────────
+            if self._db_pool is not None:
+                value = await self._fetch_from_db(key)
+                if self._redis is not None:
+                    try:
+                        await self._redis.setex(
+                            cache_key, _CONFIG_CACHE_TTL_SECONDS, json.dumps(value)
+                        )
+                    except Exception:
+                        pass  # cache write failure is non-fatal
+                return value
+
+            # ── Both unavailable: use built-in defaults ───────────────────────
+            if key in _LAYER3_DEFAULTS:
+                return _LAYER3_DEFAULTS[key]
+
+            raise ConfigKeyNotFoundError(
+                f"Config key '{key}' not set. Layer 3 (Redis + DB) both unavailable "
+                f"and no built-in default exists. Add to _LAYER3_DEFAULTS or check "
+                f"infra/helm/values/_defaults.yaml."
+            )
 
     async def _fetch_from_db(self, key: str) -> Any:
+        if self._db_pool is None:
+            if key in _LAYER3_DEFAULTS:
+                return _LAYER3_DEFAULTS[key]
+            raise ConfigKeyNotFoundError(
+                f"Config key '{key}' not found — DB pool unavailable."
+            )
         async with self._db_pool.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT value, value_type FROM config.bank_config WHERE bank_id = $1 AND key = $2",

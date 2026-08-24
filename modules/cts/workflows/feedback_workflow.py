@@ -45,6 +45,7 @@ with workflow.unsafe.imports_passed_through():
         RetrainJobResult,
         ShadowEvalResult,
     )
+    from modules.cts.workflows.feedback_types import FeedbackEmitInput as FeedbackEmitInput
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -117,20 +118,6 @@ class FeedbackAccumulatorInput:
 class ModelRetrainInput:
     bank_id: str
     corpus_type: str
-
-
-@dataclass
-class FeedbackEmitInput:
-    """Kept for internal backward-compat. ChequeProcessingWorkflow uses
-    feedback_types.FeedbackEmitInput (lightweight, importable inside run()).
-    Both serialise to compatible JSON — Temporal cares about field values, not
-    class identity.
-    """
-    bank_id: str
-    instrument_id: str
-    signal_type: str              # "payee" | "micr"
-    payee_msg: Optional[PayeeSignalMessage] = None
-    micr_msg: Optional[MicrSignalMessage] = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -353,7 +340,7 @@ class FeedbackEmitWorkflow:
     """
 
     @workflow.run
-    async def run(self, inp) -> None:  # type: ignore[override]
+    async def run(self, inp: "FeedbackEmitInput") -> None:
         """Best-effort signal to FeedbackAccumulatorWorkflow. Completes gracefully
         if the accumulator is not running (new bank, restart, or test environment).
         Never raises — feedback loss is acceptable; IET breach is not.
