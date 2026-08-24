@@ -310,6 +310,19 @@ def build_inward_mocks(fixture) -> dict:                         # noqa: ANN001
     elif t == "CBS_UNAVAILABLE":
         cbs = _ns(outcome="CBS_UNAVAILABLE", available_balance=None, account_balance_range=None)
 
+    elif t == "WORDS_DIGITS_MISMATCH":
+        # Fraudster altered the digit box; handwritten words still show original amount.
+        # Vision LLM detects the discrepancy → HUMAN_REVIEW.
+        _tampered = float(str(int(fixture.amount))[0] + str(int(fixture.amount)))
+        alteration = _ns(
+            alteration_detected=True,
+            tamper_risk_score=0.88,
+            altered_fields=["amount_figures"],
+            amount_figures=_tampered,
+            amount_words_value=fixture.amount,
+            amount_mismatch=True,
+        )
+
     elif t == "ACCOUNT_FROZEN":
         account_status = _ns(outcome="RETURN", account_status="FROZEN")
 
@@ -451,7 +464,8 @@ _INWARD_EXIT: dict[str, tuple[str, str]] = {
     "FRAUD_HIGH":        ("synthesise_decision", "HR_FRAUD_HIGH"),
     "CHEQUE_SERIES_STP": ("cheque_series", "INVALID"),
     "CBS_INSUFFICIENT":  ("cbs_balance", "INSUFFICIENT"),
-    "CBS_UNAVAILABLE":   ("cbs_balance", "UNAVAILABLE"),
+    "CBS_UNAVAILABLE":        ("cbs_balance",       "UNAVAILABLE"),
+    "WORDS_DIGITS_MISMATCH":  ("alteration_detect", "WORDS_DIGITS_MISMATCH"),
     "ACCOUNT_FROZEN":    ("account_status", "FROZEN"),
     "ACCOUNT_DORMANT":   ("account_status", "DORMANT"),
     "STP_FULL_MANUAL":   ("stp_mode_routing", "FULL_MANUAL→HR"),

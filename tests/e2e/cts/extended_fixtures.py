@@ -53,8 +53,8 @@ _SCENARIOS: list[tuple] = [
     ("ACCOUNT_FROZEN",     "STP_RETURN",      55_000.0,   "NEGATIVE","Account frozen — hard STP return",             TODAY),
     ("CBS_INSUFFICIENT",   "STP_RETURN",     220_000.0,   "NEGATIVE","CBS balance insufficient — hard STP return",   TODAY),
     ("SIG_MISMATCH",       "HUMAN_REVIEW",    60_000.0,   "NEGATIVE","Signature match score below threshold",        TODAY),
-    ("HIGH_VALUE_CLEAN",   "STP_CONFIRM",  2_500_000.0,   "POSITIVE","High-value (≥20L) clean — 2 sigs required",   TODAY),
-    ("CBS_UNAVAILABLE",    "HUMAN_REVIEW",   180_000.0,   "NEGATIVE","CBS unreachable — degrade gracefully",         TODAY),
+    ("HIGH_VALUE_CLEAN",      "STP_CONFIRM",  2_500_000.0, "POSITIVE","High-value (≥20L) clean — 2 sigs required",   TODAY),
+    ("WORDS_DIGITS_MISMATCH","HUMAN_REVIEW",    85_000.0, "NEGATIVE","Digit box tampered — words≠digits mismatch",  TODAY),
 ]
 
 _ACCT_POOL = [

@@ -130,7 +130,7 @@ def test_extended_all_triggers_present():
     required = {"CLEAN_ALL_PASS", "STOP_PAYMENT_STP", "OCR_LOW_CONF",
                 "ALTERATION", "FRAUD_HIGH", "ACCOUNT_FROZEN",
                 "CBS_INSUFFICIENT", "SIG_MISMATCH",
-                "HIGH_VALUE_CLEAN", "CBS_UNAVAILABLE"}
+                "HIGH_VALUE_CLEAN", "WORDS_DIGITS_MISMATCH"}
     assert required == triggers, f"Missing: {required - triggers}"
 
 
