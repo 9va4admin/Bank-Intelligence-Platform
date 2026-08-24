@@ -126,13 +126,13 @@ def register_instrument():
         decision: str,
         rationale: str = "",
         steps: list[dict] | None = None,
+        amount: float = 0.0,
         amount_range: str = "—",
         duration_ms: int = 0,
         test_name: str = "",
         image_data: str = "",
         ocr_model: str = "GOT-OCR2.0",
         ocr_payee: str = "",
-        signature_data: str = "",
     ) -> None:
         _state.instruments.append({
             "instrument_id": instrument_id,
@@ -141,13 +141,13 @@ def register_instrument():
             "decision": decision,
             "rationale": rationale,
             "steps": steps or [],
+            "amount": amount,
             "amount_range": amount_range,
             "duration_ms": duration_ms,
             "test_name": test_name,
             "image_data": image_data,
             "ocr_model": ocr_model,
             "ocr_payee": ocr_payee,
-            "signature_data": signature_data,
             "registered_at": datetime.now(tz=timezone.utc).isoformat(),
         })
 
@@ -308,7 +308,6 @@ def _instrument_card(inst: dict, idx: int) -> str:
     wtype     = _html.escape(inst.get("workflow_type", "INWARD"))
     raw_dec   = inst.get("decision", "")
     rationale = _html.escape(inst.get("rationale", ""))
-    amt       = _html.escape(inst.get("amount_range", "—"))
     dur       = inst.get("duration_ms", 0)
     tname     = _html.escape(inst.get("test_name", ""))
     ocr_model = _html.escape(inst.get("ocr_model", "GOT-OCR2.0"))
@@ -343,34 +342,37 @@ def _instrument_card(inst: dict, idx: int) -> str:
     rationale_html = f'<div class="rationale">{rationale}</div>' if rationale else ""
     tname_html = f'<div class="inst-testname">{tname}</div>' if tname else ""
 
-    image_data     = inst.get("image_data", "")
-    signature_data = inst.get("signature_data", "")
-    ocr_payee      = _html.escape(inst.get("ocr_payee", "") or "")
+    image_data  = inst.get("image_data", "")
+    ocr_payee   = _html.escape(inst.get("ocr_payee", "") or "")
+    raw_amount  = inst.get("amount", 0.0)
 
-    _chq_html = (
+    media_html = (
+        f'<div class="card-media">'
         f'<div class="card-chq">'
-        f'<div class="media-lbl">Cheque</div>'
+        f'<div class="media-lbl">Cheque &nbsp;<span class="media-hint">(mouse over → full size)</span></div>'
         f'<img class="thumb" src="{image_data}" loading="lazy" alt="{iid}" '
         f'onmouseover="window._showCheque(this.src)" title="Mouse over to enlarge">'
         f'</div>'
-    ) if image_data else ""
-
-    _sig_html = (
-        f'<div class="card-sig">'
-        f'<div class="media-lbl">Signature(s)</div>'
-        f'<img class="sig-thumb" src="{signature_data}" loading="lazy" alt="sig-{iid}" '
-        f'onmouseover="window._showCheque(this.src)" title="Mouse over to enlarge">'
         f'</div>'
-    ) if signature_data else ""
-
-    media_html = (
-        f'<div class="card-media">{_chq_html}{_sig_html}</div>'
-    ) if (image_data or signature_data) else ""
+    ) if image_data else ""
 
     ocr_payee_row = (
         f'<tr><td class="fl">Payee (OCR)</td>'
         f'<td class="mono small ocr-payee">{ocr_payee}</td></tr>'
     ) if ocr_payee else ""
+
+    def _fmt_inr(n: float) -> str:
+        s = str(int(n))
+        if len(s) <= 3:
+            return f"₹{s}/-"
+        last3, rest = s[-3:], s[:-3]
+        parts = [last3]
+        while rest:
+            parts.append(rest[-2:])
+            rest = rest[:-2]
+        return "₹" + ",".join(reversed(parts)) + "/-"
+
+    amt_display = _fmt_inr(raw_amount) if raw_amount else _html.escape(inst.get("amount_range", "—"))
 
     return f"""
 <section class="card" id="inst-{idx}">
@@ -379,7 +381,7 @@ def _instrument_card(inst: dict, idx: int) -> str:
       <span class="idx">#{idx:02d}</span>
       <div>
         <div class="chq-label">{iid} &nbsp;&middot;&nbsp; <span class="badge {wf_badge_cls}">{wtype}</span></div>
-        <div class="chq-sub">{bid} &nbsp;&middot;&nbsp; {amt}</div>
+        <div class="chq-sub">{bid} &nbsp;&middot;&nbsp; {amt_display}</div>
       </div>
     </div>
     <span class="decision-badge {dec_class}">{label}</span>
@@ -392,7 +394,7 @@ def _instrument_card(inst: dict, idx: int) -> str:
         <tr><td class="fl">ID</td><td class="mono small">{iid}</td></tr>
         <tr><td class="fl">Bank</td><td>{bid}</td></tr>
         <tr><td class="fl">Workflow</td><td>{wtype}</td></tr>
-        <tr><td class="fl">Amount</td><td class="amount">{amt}</td></tr>
+        <tr><td class="fl">Amount</td><td class="amount">{amt_display}</td></tr>
         <tr><td class="fl">OCR Model</td><td class="mono small ocr-model">{ocr_model}</td></tr>
         {ocr_payee_row}
         <tr><td class="fl">Duration</td><td class="mono">{dur_str}</td></tr>
@@ -671,14 +673,11 @@ body{{font-family:var(--sans);font-size:13px;line-height:1.5;background:var(--bg
 .no-steps{{color:var(--mut);font-size:.75rem;font-style:italic;padding:.3rem 0}}
 .ocr-model{{color:var(--mock);font-size:10.5px}}
 .no-instruments{{color:var(--mut);font-size:.8rem;padding:.75rem 0;font-style:italic}}
-.card-media{{display:flex;align-items:flex-start;gap:.75rem;background:var(--faint);border-bottom:1px solid var(--bdr);padding:.4rem 1.1rem}}
-.card-chq{{flex:1 1 auto;min-width:0}}
-.card-sig{{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start}}
+.card-media{{background:var(--faint);border-bottom:1px solid var(--bdr);padding:.4rem 1.1rem}}
 .media-lbl{{font-size:9px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px}}
-.card-chq img.thumb{{max-width:480px;max-height:150px;width:100%;height:auto;object-fit:contain;border-radius:3px;display:block;box-shadow:0 1px 4px rgba(0,0,0,.25);cursor:zoom-in;transition:opacity .15s}}
-.card-chq img.thumb:hover{{opacity:.88}}
-.card-sig img.sig-thumb{{max-width:200px;max-height:120px;height:auto;object-fit:contain;border-radius:3px;display:block;box-shadow:0 1px 4px rgba(0,0,0,.25);cursor:zoom-in;transition:opacity .15s}}
-.card-sig img.sig-thumb:hover{{opacity:.88}}
+.media-hint{{font-weight:400;text-transform:none;letter-spacing:0;font-style:italic}}
+.card-chq img.thumb{{max-width:520px;max-height:155px;width:100%;height:auto;object-fit:contain;border-radius:3px;display:block;box-shadow:0 1px 4px rgba(0,0,0,.25);cursor:zoom-in;transition:opacity .15s}}
+.card-chq img.thumb:hover{{opacity:.85}}
 .ocr-payee{{color:var(--acc);font-weight:500}}
 #chq-zoom-ov{{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9999;align-items:center;justify-content:center;cursor:zoom-out}}
 #chq-zoom-ov img{{max-width:92vw;max-height:88vh;border-radius:5px;box-shadow:0 10px 60px rgba(0,0,0,.7);object-fit:contain}}
