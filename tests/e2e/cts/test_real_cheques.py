@@ -56,11 +56,11 @@ _IMAGE_MAP: dict[str, Path] = {
     for f, p in zip(REAL_CHEQUE_FIXTURES, REAL_CHEQUE_IMAGE_PATHS)
 }
 
-_MAX_WIDTH = 1200   # resize threshold — keep digest manageable
+_MAX_WIDTH = 750    # resize threshold — keeps digest under 16 MB artifact limit
 
 
 def _load_real_image(path: Path) -> str:
-    """Load real cheque scan, resize to ≤1200px wide, return base64 data URI."""
+    """Load real cheque scan, resize to ≤750 px wide, return base64 data URI."""
     if not _PIL_AVAILABLE:
         return ""
     try:
@@ -72,7 +72,7 @@ def _load_real_image(path: Path) -> str:
                 w = _MAX_WIDTH
                 img = img.resize((w, h), _PILImage.LANCZOS)
             buf = io.BytesIO()
-            img.save(buf, format="JPEG", quality=72, optimize=True)
+            img.save(buf, format="JPEG", quality=58, optimize=True)
             b64 = base64.b64encode(buf.getvalue()).decode()
         return f"data:image/jpeg;base64,{b64}"
     except Exception:
