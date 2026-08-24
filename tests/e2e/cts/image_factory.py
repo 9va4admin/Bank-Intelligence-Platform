@@ -144,6 +144,45 @@ def _tampered_digit_amount(fixture) -> float:
     return float(n[0] + n)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Regional numeral tables — Unicode digit blocks for each Indic script
+# ─────────────────────────────────────────────────────────────────────────────
+
+_REGIONAL_DIGITS: dict[str, str] = {
+    # script-key      : "0123456789" in that script
+    "devanagari": "०१२३४५६७८९",   # Hindi + Marathi
+    "bengali":    "০১২৩৪৫৬৭৮৯",
+    "tamil":      "௦௧௨௩௪௫௬௭௮௯",
+    "telugu":     "౦౧౨౩౪౫౬౭౮౯",
+    "kannada":    "೦೧೨೩೪೫೬೭೮೯",
+    "gujarati":   "૦૧૨૩૪૫૬૭૮૯",
+    "malayalam":  "൦൧൨൩൪൫൬൭൮൯",
+}
+
+# Language label (lower-case) → which script key to use
+_LANG_SCRIPT: dict[str, str] = {
+    "hindi":      "devanagari",
+    "marathi":    "devanagari",
+    "mixed hi+mr":"devanagari",
+    "bengali":    "bengali",
+    "tamil":      "tamil",
+    "telugu":     "telugu",
+    "kannada":    "kannada",
+    "gujarati":   "gujarati",
+    "malayalam":  "malayalam",
+}
+
+
+def _to_regional(text: str, language: str) -> str:
+    """Replace ASCII digits in *text* with the regional numeral script for *language*.
+    Commas and '/-' stay in ASCII — that is standard on Indian cheques."""
+    script = _LANG_SCRIPT.get(language.lower().strip())
+    if not script:
+        return text                          # English / bilingual → keep ASCII
+    table = _REGIONAL_DIGITS[script]
+    return "".join(table[int(c)] if c.isdigit() else c for c in text)
+
+
 def _format_inr(amount: float) -> str:
     """Format amount in Indian comma convention: 25,00,000/- (not 2,500,000/-)."""
     n = int(amount)
@@ -466,13 +505,20 @@ def _build(fixture) -> "Image.Image":
     # Tampered cheques: digit box shows fraudulent inflated amount (words stay original)
     _digit_amt = _tampered_digit_amount(fixture) if _is_tampered else fixture.amount
     _digit_ink = (185, 30, 30) if _is_tampered else _PRINT   # red = different pen
-    amt_str = _format_inr(_digit_amt)
-    # Auto-scale: column = 296 px; Courier New ≈ 0.6× em → 42→25px, 36→21px, 30→18px/char
+
+    # Amount string — converted to regional numerals when the cheque language has a script
+    _lang = getattr(fixture, "language", "")
+    _amt_ascii = _format_inr(_digit_amt)
+    amt_str = _to_regional(_amt_ascii, _lang)
+
+    # Font: Nirmala UI for regional scripts (Courier New lacks Indic digit glyphs)
+    _use_indic_font = _LANG_SCRIPT.get(_lang.lower().strip()) is not None
+    _amt_font_fn = _findic if _use_indic_font else _fmono
+    # Auto-scale: column = 296 px
     amt_font_sz = 42 if len(amt_str) <= 9 else 36 if len(amt_str) <= 12 else 30
-    d.text((ABX + 56, ABY + 12), amt_str, font=_fmono(amt_font_sz), fill=_digit_ink)
+    d.text((ABX + 56, ABY + 12), amt_str, font=_amt_font_fn(amt_font_sz), fill=_digit_ink)
     if _is_tampered:
-        # Small red label: "WORDS≠DIGITS" so the visual mismatch is unambiguous
-        d.text((ABX + 56, ABY + 78), "WORDS ≠ DIGITS", font=_f(9, bold=True), fill=(185, 30, 30))
+        d.text((ABX + 56, ABY + 78), "WORDS != DIGITS", font=_f(9, bold=True), fill=(185, 30, 30))
     else:
         d.text((ABX + 56, ABY + 78), fixture.amount_range, font=_f(9), fill=accent)
 
