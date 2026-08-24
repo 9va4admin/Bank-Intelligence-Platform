@@ -138,6 +138,21 @@ def _amount_in_words(amount: float) -> str:
     return result + " Only"
 
 
+def _format_inr(amount: float) -> str:
+    """Format amount in Indian comma convention: 25,00,000/- (not 2,500,000/-)."""
+    n = int(amount)
+    if n < 1000:
+        return f"{n}/-"
+    # Last 3 digits as units block, then groups of 2
+    units = n % 1000
+    rest  = n // 1000
+    parts = [f"{units:03d}"]
+    while rest:
+        parts.append(f"{rest % 100:02d}" if rest >= 100 else str(rest % 100))
+        rest //= 100
+    return ",".join(reversed(parts)) + "/-"
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Paper & colour palette (two real-world cheque styles)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -434,11 +449,15 @@ def _build(fixture) -> "Image.Image":
     ABX, ABY, ABW, ABH = amt_box_x, YP - 2, 225, 88
     d.rectangle([ABX, ABY, ABX + ABW, ABY + ABH], outline=accent, width=2)
     d.line([(ABX + 32, ABY + 1), (ABX + 32, ABY + ABH - 1)], fill=rule_col, width=1)
-    d.text((ABX + 4,  ABY + 14), "₹",           font=_f(28, bold=True), fill=accent)
-    d.text((ABX + 4,  ABY + 50), "अदा करें",    font=_findic(9), fill=_PRINT)
-    amt_str = f"{fixture.amount:,.0f}/-"
-    d.text((ABX + 38, ABY + 22), amt_str,         font=_fmono(19), fill=_PRINT)
-    d.text((ABX + 38, ABY + 60), fixture.amount_range, font=_f(9), fill=accent)
+    # ₹ symbol — use Nirmala (guaranteed to have U+20B9, unlike older Arial)
+    d.text((ABX + 3,  ABY + 8),  "₹",       font=_findic(28), fill=accent)
+    d.text((ABX + 4,  ABY + 54), "अदा करें",    font=_findic(9),  fill=_PRINT)
+    # Amount in Indian comma format (25,00,000/- not 2,500,000/-)
+    amt_str = _format_inr(fixture.amount)
+    # Auto-scale: fit up to 13-char strings in the 193 px column
+    amt_font_sz = 22 if len(amt_str) <= 9 else 19 if len(amt_str) <= 12 else 16
+    d.text((ABX + 38, ABY + 16), amt_str, font=_fmono(amt_font_sz), fill=_PRINT)
+    d.text((ABX + 38, ABY + 64), fixture.amount_range, font=_f(9), fill=accent)
 
     # Rule below Rupees zone
     d.line([(_ML, YR + 70), (_W - _MR, YR + 70)], fill=rule_col, width=1)
@@ -528,8 +547,11 @@ def generate_cheque_image(fixture, fixture_index: int = 0) -> str:
         return ""
     try:
         img = _build(fixture)
+        # Downsample to 50 % (700 × 350) — keeps text legible, cuts file size ~75 %
+        w, h = img.size
+        img = img.resize((w // 2, h // 2), Image.LANCZOS)
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=88, optimize=True)
+        img.save(buf, format="JPEG", quality=70, optimize=True)
         return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
     except Exception:
         return ""
