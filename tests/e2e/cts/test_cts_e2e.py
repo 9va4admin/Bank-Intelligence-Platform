@@ -35,6 +35,7 @@ from modules.cts.workflows.outward_scan_workflow import (
 )
 
 from tests.e2e.cts.cheque_fixtures import (
+    ALL_FIXTURES,
     INWARD_FIXTURES,
     INWARD_COUNT,
     OUTWARD_COUNT,
@@ -42,6 +43,10 @@ from tests.e2e.cts.cheque_fixtures import (
     TOTAL_CHEQUES,
     fresh_iet_deadline,
 )
+
+# Pre-compute fixture index once so each cheque gets a unique scan from the pool
+_FIXTURE_INDEX = {f.fixture_id: i for i, f in enumerate(ALL_FIXTURES)}
+from tests.e2e.cts.image_factory import generate_cheque_image
 from tests.e2e.cts.mock_builders import (
     build_inward_mocks,
     build_inward_step_trace,
@@ -189,6 +194,7 @@ async def test_outward_e2e(fixture, register_instrument):
         amount_range=fixture.amount_range,
         duration_ms=duration_ms,
         test_name=f"test_outward_e2e[{fixture.fixture_id}]",
+        image_data=generate_cheque_image(fixture, _FIXTURE_INDEX[fixture.fixture_id]),
     )
 
 
@@ -336,6 +342,7 @@ async def test_inward_e2e(fixture, register_instrument):
         amount_range=fixture.amount_range,
         duration_ms=duration_ms,
         test_name=f"test_inward_e2e[{fixture.fixture_id}]",
+        image_data=generate_cheque_image(fixture, _FIXTURE_INDEX[fixture.fixture_id]),
     )
 
 

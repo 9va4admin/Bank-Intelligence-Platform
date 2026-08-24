@@ -129,6 +129,8 @@ def register_instrument():
         amount_range: str = "—",
         duration_ms: int = 0,
         test_name: str = "",
+        image_data: str = "",
+        ocr_model: str = "GOT-OCR2.0",
     ) -> None:
         _state.instruments.append({
             "instrument_id": instrument_id,
@@ -140,6 +142,8 @@ def register_instrument():
             "amount_range": amount_range,
             "duration_ms": duration_ms,
             "test_name": test_name,
+            "image_data": image_data,
+            "ocr_model": ocr_model,
             "registered_at": datetime.now(tz=timezone.utc).isoformat(),
         })
 
@@ -295,15 +299,16 @@ def _step_row(step: dict) -> str:
 
 
 def _instrument_card(inst: dict, idx: int) -> str:
-    iid      = _html.escape(inst.get("instrument_id", "—"))
-    bid      = _html.escape(inst.get("bank_id", "—"))
-    wtype    = _html.escape(inst.get("workflow_type", "INWARD"))
-    raw_dec  = inst.get("decision", "")
+    iid       = _html.escape(inst.get("instrument_id", "—"))
+    bid       = _html.escape(inst.get("bank_id", "—"))
+    wtype     = _html.escape(inst.get("workflow_type", "INWARD"))
+    raw_dec   = inst.get("decision", "")
     rationale = _html.escape(inst.get("rationale", ""))
-    amt      = _html.escape(inst.get("amount_range", "—"))
-    dur      = inst.get("duration_ms", 0)
-    tname    = _html.escape(inst.get("test_name", ""))
-    steps    = inst.get("steps", [])
+    amt       = _html.escape(inst.get("amount_range", "—"))
+    dur       = inst.get("duration_ms", 0)
+    tname     = _html.escape(inst.get("test_name", ""))
+    ocr_model = _html.escape(inst.get("ocr_model", "GOT-OCR2.0"))
+    steps     = inst.get("steps", [])
 
     label, dec_class = _DECISION_LABEL.get(raw_dec, (_html.escape(raw_dec), "dec-unknown"))
     wf_badge_cls = "badge-inward" if wtype == "INWARD" else "badge-outward"
@@ -334,6 +339,12 @@ def _instrument_card(inst: dict, idx: int) -> str:
     rationale_html = f'<div class="rationale">{rationale}</div>' if rationale else ""
     tname_html = f'<div class="inst-testname">{tname}</div>' if tname else ""
 
+    image_data = inst.get("image_data", "")
+    image_html = (
+        f'<div class="card-img"><img src="{image_data}" alt="Synthetic cheque {iid}" loading="lazy"></div>'
+        if image_data else ""
+    )
+
     return f"""
 <section class="card" id="inst-{idx}">
   <div class="card-hdr">
@@ -346,6 +357,7 @@ def _instrument_card(inst: dict, idx: int) -> str:
     </div>
     <span class="decision-badge {dec_class}">{label}</span>
   </div>
+  {image_html}
   <div class="digest-grid">
     <div class="dc">
       <div class="eyebrow">Instrument</div>
@@ -354,6 +366,7 @@ def _instrument_card(inst: dict, idx: int) -> str:
         <tr><td class="fl">Bank</td><td>{bid}</td></tr>
         <tr><td class="fl">Workflow</td><td>{wtype}</td></tr>
         <tr><td class="fl">Amount</td><td class="amount">{amt}</td></tr>
+        <tr><td class="fl">OCR</td><td class="mono small ocr-model">{ocr_model}</td></tr>
         <tr><td class="fl">Duration</td><td class="mono">{dur_str}</td></tr>
         <tr><td class="fl">Test</td><td class="small muted">{tname}</td></tr>
       </table>
@@ -628,7 +641,10 @@ body{{font-family:var(--sans);font-size:13px;line-height:1.5;background:var(--bg
 .fi-trace{{font-family:var(--mono);font-size:.68rem;padding:.75rem;background:var(--bg);overflow-x:auto;color:var(--mut);white-space:pre;max-height:280px;overflow-y:auto}}
 
 .no-steps{{color:var(--mut);font-size:.75rem;font-style:italic;padding:.3rem 0}}
+.ocr-model{{color:var(--mock);font-size:10.5px}}
 .no-instruments{{color:var(--mut);font-size:.8rem;padding:.75rem 0;font-style:italic}}
+.card-img{{padding:.55rem 1.1rem;background:var(--faint);border-bottom:1px solid var(--bdr)}}
+.card-img img{{max-width:100%;height:auto;border-radius:4px;display:block;box-shadow:0 1px 4px rgba(0,0,0,.25)}}
 
 @media(max-width:820px){{
   .digest-grid{{grid-template-columns:1fr}}
