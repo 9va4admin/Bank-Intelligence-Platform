@@ -46,7 +46,7 @@ from tests.e2e.cts.cheque_fixtures import (
 
 # Pre-compute fixture index once so each cheque gets a unique scan from the pool
 _FIXTURE_INDEX = {f.fixture_id: i for i, f in enumerate(ALL_FIXTURES)}
-from tests.e2e.cts.image_factory import generate_cheque_image, generate_signature_image
+from tests.e2e.cts.image_factory import generate_cheque_image
 from tests.e2e.cts.mock_builders import (
     build_inward_mocks,
     build_inward_step_trace,
@@ -191,12 +191,12 @@ async def test_outward_e2e(fixture, register_instrument):
         decision=result.outcome,
         rationale=f"{fixture.trigger} | violations={result.violations or []}",
         steps=steps,
+        amount=fixture.amount,
         amount_range=fixture.amount_range,
         duration_ms=duration_ms,
         test_name=f"test_outward_e2e[{fixture.fixture_id}]",
         image_data=generate_cheque_image(fixture, _FIXTURE_INDEX[fixture.fixture_id]),
         ocr_payee=getattr(mocks.get("micr"), "payee_name", None) or "",
-        signature_data=generate_signature_image(fixture),
     )
 
 
@@ -341,12 +341,12 @@ async def test_inward_e2e(fixture, register_instrument):
         decision=result.decision,
         rationale=result.rationale,
         steps=steps,
+        amount=fixture.amount,
         amount_range=fixture.amount_range,
         duration_ms=duration_ms,
         test_name=f"test_inward_e2e[{fixture.fixture_id}]",
         image_data=generate_cheque_image(fixture, _FIXTURE_INDEX[fixture.fixture_id]),
         ocr_payee=getattr(mocks.get("ocr"), "payee_name", None) or "",
-        signature_data=generate_signature_image(fixture),
     )
 
 
