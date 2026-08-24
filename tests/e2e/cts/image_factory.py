@@ -326,12 +326,196 @@ def _signature(d: "ImageDraw.Draw", bx: int, by: int, bw: int, bh: int,
     d.line([(x0, by + bh - py), (x1, by + bh - py)], fill=ink, width=1)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Language → signature style routing
+# ─────────────────────────────────────────────────────────────────────────────
+
+_LANG_SIG_STYLE: dict[str, str] = {
+    "hindi":        "devanagari",
+    "marathi":      "devanagari",
+    "mixed hi+mr":  "devanagari",
+    "bengali":      "bengali",
+    "tamil":        "dravidian",
+    "telugu":       "dravidian",
+    "kannada":      "dravidian",
+    "gujarati":     "gujarati",
+    "malayalam":    "malayalam",
+}
+
+
+def _sig_devanagari(d: "ImageDraw.Draw", bx: int, by: int,
+                    bw: int, bh: int, seed: int, ink: tuple) -> None:
+    """Hindi/Marathi — strong shirorekhā bar, angular hanging strokes, right-curl flourish."""
+    rng = _rnd.Random(seed)
+    px, py = bw // 10, bh // 8
+    x0, x1 = bx + px, bx + bw - px
+    bar_y = by + int(bh * 0.30)
+
+    # Shirorekha (horizontal bar — defines Devanagari scripts)
+    d.line([(x0, bar_y), (x1, bar_y)], fill=ink, width=2)
+
+    # Angular downstrokes hanging from bar
+    n_strokes = rng.randint(3, 5)
+    for i in range(n_strokes):
+        sx = x0 + int((i + rng.uniform(0.2, 0.8)) * (x1 - x0) / n_strokes)
+        drop = int(bh * rng.uniform(0.28, 0.50))
+        slant = rng.randint(-7, 7)
+        d.line([(sx, bar_y), (sx + slant, bar_y + drop)], fill=ink, width=2)
+        d.line([(sx + slant - 4, bar_y + drop),
+                (sx + slant + 4, bar_y + drop)], fill=ink, width=1)
+
+    # Right-curling end flourish (half-circle)
+    fx = x1 - int((x1 - x0) * 0.12)
+    r  = int(bh * 0.11)
+    curl = [(fx + int(r * math.cos(t * math.pi / 16 - math.pi / 2)),
+             bar_y + r + int(r * math.sin(t * math.pi / 16 - math.pi / 2)))
+            for t in range(17)]
+    d.line(curl, fill=ink, width=1)
+    d.line([(x0, by + bh - py), (x1, by + bh - py)], fill=ink, width=1)
+
+
+def _sig_bengali(d: "ImageDraw.Draw", bx: int, by: int,
+                 bw: int, bh: int, seed: int, ink: tuple) -> None:
+    """Bengali — large sweeping upward arc, closed loop, elongated trailing stroke."""
+    rng = _rnd.Random(seed)
+    px, py = bw // 10, bh // 8
+    x0, x1 = bx + px, bx + bw - px
+    cy = by + int(bh * rng.uniform(0.48, 0.56))
+
+    # Large rising sweep (the dominant Bengali stroke)
+    sweep = [(x0 + int(t / 60 * (x1 - x0) * 0.62),
+              cy - int(bh * 0.38 * math.sin(t / 60 * math.pi))
+              + int(bh * 0.04 * math.sin(t / 60 * math.pi * 5)))
+             for t in range(61)]
+    d.line(sweep, fill=ink, width=2)
+
+    # Closed loop at sweep peak
+    lx = sweep[30][0]
+    ly = sweep[30][1]
+    lr_x = int((x1 - x0) * 0.13)
+    lr_y = int(bh * rng.uniform(0.13, 0.19))
+    loop = [(lx + int(lr_x * math.cos(t * math.pi * 2 / 30)),
+             ly + int(lr_y * math.sin(t * math.pi * 2 / 30)))
+            for t in range(31)]
+    d.line(loop, fill=ink, width=2)
+
+    # Elongated trailing stroke
+    tail_x0 = sweep[-1][0]
+    tail = [(tail_x0 + int(t / 30 * (x1 - tail_x0)),
+             cy + int(bh * 0.06 * math.sin(t * math.pi / 30)))
+            for t in range(31)]
+    d.line(tail, fill=ink, width=1)
+    d.line([(x0, by + bh - py), (x1, by + bh - py)], fill=ink, width=1)
+
+
+def _sig_dravidian(d: "ImageDraw.Draw", bx: int, by: int,
+                   bw: int, bh: int, seed: int, ink: tuple) -> None:
+    """Tamil/Telugu/Kannada — compact angular zigzag, small entry loop, downward hook end."""
+    rng = _rnd.Random(seed)
+    px, py = bw // 10, bh // 8
+    x0, x1 = bx + px, bx + bw - px
+    cy = by + int(bh * 0.50)
+
+    # Small entry circle
+    lr = int(bh * 0.12)
+    lx = x0 + lr + 2
+    d.line([(lx + int(lr * math.cos(t * math.pi * 2 / 20)),
+             cy + int(lr * 0.65 * math.sin(t * math.pi * 2 / 20)))
+            for t in range(21)], fill=ink, width=2)
+
+    # Angular zigzag body — sharp direction changes (no curves)
+    n_segs = rng.randint(3, 4)
+    seg_w  = (x1 - (lx + lr)) / n_segs
+    cx_cur, cy_cur = lx + lr, cy
+    for i in range(n_segs):
+        nx = cx_cur + int(seg_w)
+        amp = int(bh * rng.uniform(0.22, 0.36))
+        ny  = cy + (amp if i % 2 == 0 else -amp)
+        d.line([(cx_cur, cy_cur), (nx, ny)], fill=ink, width=2)
+        cx_cur, cy_cur = nx, ny
+
+    # Downward hook
+    d.line([(cx_cur, cy_cur),
+            (cx_cur + 5, cy_cur + int(bh * 0.22))], fill=ink, width=2)
+    d.line([(x0, by + bh - py), (x1, by + bh - py)], fill=ink, width=1)
+
+
+def _sig_gujarati(d: "ImageDraw.Draw", bx: int, by: int,
+                  bw: int, bh: int, seed: int, ink: tuple) -> None:
+    """Gujarati — two forward-slanting elongated loops, rightward sweep."""
+    rng = _rnd.Random(seed)
+    px, py = bw // 10, bh // 8
+    x0, x1 = bx + px, bx + bw - px
+    cy = by + int(bh * rng.uniform(0.46, 0.54))
+    slant = int(bh * 0.14)
+
+    # Two elongated forward-slanting loops
+    loop_w = int((x1 - x0) * 0.30)
+    for li in range(2):
+        lx   = x0 + li * (loop_w + 8)
+        lr_x = int(loop_w * 0.42)
+        lr_y = int(bh * rng.uniform(0.18, 0.28))
+        pts  = [(lx + int(lr_x * (1 - math.cos(t * math.pi * 2 / 40)) / 2)
+                 + int(slant * t / 40),
+                 cy + int(lr_y * math.sin(t * math.pi * 2 / 40)))
+                for t in range(41)]
+        d.line(pts, fill=ink, width=2)
+
+    # Long rightward sweep
+    sx0 = x0 + 2 * (loop_w + 8)
+    sweep = [(sx0 + int(t / 30 * (x1 - sx0)),
+              cy + int(bh * 0.07 * math.sin(t * math.pi * 1.5 / 30)))
+             for t in range(31)]
+    d.line(sweep, fill=ink, width=1)
+    d.line([(x0, by + bh - py), (x1, by + bh - py)], fill=ink, width=1)
+
+
+def _sig_malayalam(d: "ImageDraw.Draw", bx: int, by: int,
+                   bw: int, bh: int, seed: int, ink: tuple) -> None:
+    """Malayalam — 2–3 compact rounded loops, upward tick, short horizontal tail."""
+    rng = _rnd.Random(seed)
+    px, py = bw // 10, bh // 8
+    x0, x1 = bx + px, bx + bw - px
+    cy = by + int(bh * 0.50)
+
+    n_loops = rng.randint(2, 3)
+    total_w = int((x1 - x0) * 0.60)
+    lr_x    = total_w // (n_loops * 2)
+    lr_y    = int(bh * rng.uniform(0.16, 0.24))
+
+    for li in range(n_loops):
+        lx = x0 + lr_x + li * (lr_x * 2 + 5)
+        d.line([(lx + int(lr_x * math.cos(t * math.pi * 2 / 30)),
+                 cy + int(lr_y * math.sin(t * math.pi * 2 / 30)))
+                for t in range(31)], fill=ink, width=2)
+
+    # Upward tick
+    tx = x0 + total_w + 6
+    d.line([(tx, cy), (tx + 9, cy - int(bh * 0.24)),
+            (tx + 13, cy - int(bh * 0.09))], fill=ink, width=1)
+    # Short horizontal tail
+    d.line([(tx + 13, cy - int(bh * 0.09)), (x1, cy - int(bh * 0.04))],
+           fill=ink, width=1)
+    d.line([(x0, by + bh - py), (x1, by + bh - py)], fill=ink, width=1)
+
+
+_SIG_DRAWERS: dict[str, "callable"] = {
+    "devanagari": _sig_devanagari,
+    "bengali":    _sig_bengali,
+    "dravidian":  _sig_dravidian,
+    "gujarati":   _sig_gujarati,
+    "malayalam":  _sig_malayalam,
+    "latin":      _signature,         # existing algorithm — English / fallback
+}
+
+
 def _sig_box(d: "ImageDraw.Draw", bx: int, by: int, bw: int, bh: int,
              seed: int, ink: tuple, accent: tuple,
-             label: str, signed: bool) -> None:
+             label: str, signed: bool, language: str = "") -> None:
     d.rectangle([bx, by, bx + bw, by + bh], outline=accent, width=1)
     if signed:
-        _signature(d, bx, by, bw, bh, seed, ink)
+        style = _LANG_SIG_STYLE.get(language.lower().strip(), "latin")
+        _SIG_DRAWERS[style](d, bx, by, bw, bh, seed, ink)
     else:
         # Unsigned box — red diagonal cross-marks
         d.line([(bx + 8, by + 8), (bx + bw - 8, by + bh - 8)],
@@ -552,29 +736,35 @@ def _build(fixture) -> "Image.Image":
     d.text((ppx, YL + 86), bank, font=_f(10, bold=True), fill=_PRINT)
 
     # ── SIGNATURE BOXES ───────────────────────────────────────────────────────
-    n = _n_sigs(fixture)
+    n    = _n_sigs(fixture)
     seed = hash(fixture.fixture_id) & 0xFFFF_FFFF
+    lang = getattr(fixture, "language", "")
     SH, SW = 95, 178
     ST = YL + 8
 
     if n == 1:
         sx = _W - _MR - SW - 4
-        _sig_box(d, sx, ST, SW, SH, seed, _INK, accent, "Authorised Signatory", True)
+        _sig_box(d, sx, ST, SW, SH, seed, _INK, accent,
+                 "Authorised Signatory", True, lang)
 
     elif n == 2:
         sx2 = _W - _MR - SW - 4
         sx1 = sx2 - SW - 16
-        _sig_box(d, sx1, ST, SW, SH, seed,        _INK, accent, "Joint Holder – 1", True)
-        _sig_box(d, sx2, ST, SW, SH, seed + 7919, _INK, accent, "Joint Holder – 2", True)
+        _sig_box(d, sx1, ST, SW, SH, seed,        _INK, accent,
+                 "Joint Holder – 1", True, lang)
+        _sig_box(d, sx2, ST, SW, SH, seed + 7919, _INK, accent,
+                 "Joint Holder – 2", True, lang)
 
     else:   # 3 required; 3rd unsigned = fraud
         sx3 = _W - _MR - SW - 4
         sx2 = sx3 - SW - 12
         sx1 = sx2 - SW - 12
-        _sig_box(d, sx1, ST, SW, SH, seed,        _INK, accent, "Signatory – 1", True)
-        _sig_box(d, sx2, ST, SW, SH, seed + 7919, _INK, accent, "Signatory – 2", True)
-        _sig_box(d, sx3, ST, SW, SH, seed + 3571, _INK, accent, "Signatory – 3 (Required)", False)
-        # Fraud annotation
+        _sig_box(d, sx1, ST, SW, SH, seed,        _INK, accent,
+                 "Signatory – 1", True, lang)
+        _sig_box(d, sx2, ST, SW, SH, seed + 7919, _INK, accent,
+                 "Signatory – 2", True, lang)
+        _sig_box(d, sx3, ST, SW, SH, seed + 3571, _INK, accent,
+                 "Signatory – 3 (Required)", False, lang)
         d.text((sx3 + 4, ST - 14), "⚠ SIGNATURE MISSING",
                font=_f(8, bold=True), fill=(220, 38, 38))
 
@@ -593,6 +783,63 @@ def _build(fixture) -> "Image.Image":
         d.rectangle([i, i, _W - 1 - i, _TOTAL_H - 1 - i], outline=bdr)
 
     return canvas.convert("RGB")
+
+
+def crop_signature_from_image_data(image_b64: str) -> str:
+    """
+    Crop the signature zone from a real cheque scan (base64 data URI).
+
+    Uses the same PIL crop + Otsu binarisation + morphological thinning as
+    _sync_crop_signature() / _apply_morphological_normalisation() in
+    modules/cts/workflows/activities/signature.py — but takes image bytes
+    instead of a MinIO URL (real models aren't running in the test environment).
+
+    Bbox covers the standard CTS signature zone: lower-right quadrant.
+    A Vision LLM (detect_signatures activity) would refine this in production.
+    """
+    if not _PIL_OK or not image_b64:
+        return ""
+    try:
+        _, encoded = image_b64.split(",", 1)
+        img = Image.open(io.BytesIO(base64.b64decode(encoded))).convert("RGB")
+        w, h = img.size
+
+        # Standard Indian CTS cheque: signature box is lower-right
+        # fractional bbox covers the "please sign above" zone
+        pad = max(4, int(min(w, h) * 0.015))
+        crop = img.crop((
+            max(0, int(0.54 * w) - pad),
+            max(0, int(0.60 * h) - pad),
+            min(w, w - pad),
+            min(h, int(0.90 * h) + pad),
+        ))
+
+        # Otsu binarisation + morphological thinning —
+        # identical to _apply_morphological_normalisation() in signature.py
+        try:
+            import cv2
+            import numpy as np
+            gray = cv2.cvtColor(np.array(crop), cv2.COLOR_RGB2GRAY)
+            _, binary = cv2.threshold(
+                gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+            )
+            try:
+                thinned = cv2.ximgproc.thinning(
+                    binary, thinningType=cv2.ximgproc.THINNING_ZHANGSUEN
+                )
+            except AttributeError:
+                thinned = binary
+            crop = Image.fromarray(
+                cv2.cvtColor(cv2.bitwise_not(thinned), cv2.COLOR_GRAY2RGB)
+            )
+        except ImportError:
+            pass
+
+        buf = io.BytesIO()
+        crop.save(buf, format="JPEG", quality=82, optimize=True)
+        return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+    except Exception:
+        return ""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
