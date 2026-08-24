@@ -599,6 +599,49 @@ def _build(fixture) -> "Image.Image":
 # Public API
 # ─────────────────────────────────────────────────────────────────────────────
 
+def generate_signature_image(fixture) -> str:
+    """Render just the signature box(es) on a tinted background.
+    Returns a base64 JPEG data URI for embedding in the digest card.
+    1-sig → single box, 2-sig → two boxes side-by-side, 3-sig → three boxes.
+    3rd box on MSV cheques is unsigned (red ×MISSING).
+    """
+    if not _PIL_OK:
+        return ""
+    try:
+        n      = _n_sigs(fixture)
+        style  = _PAPER_STYLES[abs(hash(fixture.bank_id)) % len(_PAPER_STYLES)]
+        bg, accent, _, _ = style
+        ink    = (20, 20, 80)     # dark-blue pen colour
+
+        BW, BH, PAD = 240, 90, 10
+        W = n * BW + (n + 1) * PAD
+        H = BH + PAD * 2 + 22    # +22 for label below box
+
+        canvas = Image.new("RGB", (W, H), bg)
+        d      = ImageDraw.Draw(canvas)
+
+        for i in range(n):
+            bx     = PAD + i * (BW + PAD)
+            by     = PAD
+            seed   = abs(hash(fixture.instrument_id + str(i))) % (2 ** 31)
+            signed = not (n == 3 and i == 2)   # 3rd box is the missing one
+            if n == 1:
+                label = "Authorised Signatory"
+            elif n == 2:
+                label = f"Joint Holder – {i + 1}"
+            else:
+                label = f"Signatory – {i + 1}" + (" (Required)" if not signed else "")
+            _sig_box(d, bx, by, BW, BH, seed, ink, accent, label, signed)
+
+        # Halve for digest — keeps data-URI small
+        canvas = canvas.resize((W // 2, H // 2), Image.LANCZOS)
+        buf    = io.BytesIO()
+        canvas.save(buf, format="JPEG", quality=78, optimize=True)
+        return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+    except Exception:
+        return ""
+
+
 def generate_cheque_image(fixture, fixture_index: int = 0) -> str:
     """
     Generate a synthetic CTS cheque image for the given fixture.
