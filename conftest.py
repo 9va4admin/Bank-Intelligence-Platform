@@ -643,8 +643,8 @@ body{{font-family:var(--sans);font-size:13px;line-height:1.5;background:var(--bg
 .no-steps{{color:var(--mut);font-size:.75rem;font-style:italic;padding:.3rem 0}}
 .ocr-model{{color:var(--mock);font-size:10.5px}}
 .no-instruments{{color:var(--mut);font-size:.8rem;padding:.75rem 0;font-style:italic}}
-.card-img{{padding:.55rem 1.1rem;background:var(--faint);border-bottom:1px solid var(--bdr)}}
-.card-img img{{max-width:100%;height:auto;border-radius:4px;display:block;box-shadow:0 1px 4px rgba(0,0,0,.25)}}
+.card-img{{padding:.4rem 1.1rem;background:var(--faint);border-bottom:1px solid var(--bdr)}}
+.card-img img{{max-width:520px;max-height:160px;width:100%;height:auto;object-fit:contain;border-radius:3px;display:block;box-shadow:0 1px 4px rgba(0,0,0,.25)}}
 
 @media(max-width:820px){{
   .digest-grid{{grid-template-columns:1fr}}
