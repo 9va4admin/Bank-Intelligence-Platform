@@ -409,11 +409,12 @@ def _build(fixture) -> "Image.Image":
     d.text((_ML, YP + 18), "पे",   font=_findic(12), fill=_PRINT)
 
     payee_x = _ML + 56
-    amt_box_x = _W - _MR - 225
+    amt_box_x = _W - _MR - 350          # wider box (350 px)
 
     d.line([(payee_x, YP + 42), (amt_box_x - 10, YP + 42)], fill=rule_col, width=1)
-    d.text((_W - _MR - 220, YP + 6),  "OR BEARER",  font=_f(10, bold=True), fill=_PRINT)
-    d.text((_W - _MR - 220, YP + 20), "या धारक को", font=_findic(10), fill=_PRINT)
+    # "OR BEARER" sits at the right end of the payee underline, before the amount box
+    d.text((amt_box_x - 130, YP + 6),  "OR BEARER",  font=_f(10, bold=True), fill=_PRINT)
+    d.text((amt_box_x - 130, YP + 20), "या धारक को", font=_findic(10), fill=_PRINT)
 
     # Payee name — Nirmala for Indic, Inkfree for English
     payee = fixture.payee_name
@@ -445,19 +446,19 @@ def _build(fixture) -> "Image.Image":
         d.line([(rup_x, YR + 54), (amt_box_x - 10, YR + 54)], fill=rule_col, width=1)
         d.text((rup_x + 4, YR + 22),  words[sp:].strip(),  font=_fhand(17), fill=_INK)
 
-    # Amount box spanning PAY + RUPEES rows
-    ABX, ABY, ABW, ABH = amt_box_x, YP - 2, 225, 88
+    # Amount box spanning PAY + RUPEES rows — 350 px wide for legible numbers
+    ABX, ABY, ABW, ABH = amt_box_x, YP - 2, 350, 96
     d.rectangle([ABX, ABY, ABX + ABW, ABY + ABH], outline=accent, width=2)
-    d.line([(ABX + 32, ABY + 1), (ABX + 32, ABY + ABH - 1)], fill=rule_col, width=1)
-    # ₹ symbol — use Nirmala (guaranteed to have U+20B9, unlike older Arial)
-    d.text((ABX + 3,  ABY + 8),  "₹",       font=_findic(28), fill=accent)
-    d.text((ABX + 4,  ABY + 54), "अदा करें",    font=_findic(9),  fill=_PRINT)
-    # Amount in Indian comma format (25,00,000/- not 2,500,000/-)
+    d.line([(ABX + 50, ABY + 1), (ABX + 50, ABY + ABH - 1)], fill=rule_col, width=1)
+    # ₹ symbol — Nirmala UI for guaranteed U+20B9 glyph
+    d.text((ABX + 5,  ABY + 8),  "₹",        font=_findic(44), fill=accent)
+    d.text((ABX + 6,  ABY + 66), "अदा करें", font=_findic(11), fill=_PRINT)
+    # Amount in Indian comma format: 25,00,000/- (not 2,500,000/-)
     amt_str = _format_inr(fixture.amount)
-    # Auto-scale: fit up to 13-char strings in the 193 px column
-    amt_font_sz = 22 if len(amt_str) <= 9 else 19 if len(amt_str) <= 12 else 16
-    d.text((ABX + 38, ABY + 16), amt_str, font=_fmono(amt_font_sz), fill=_PRINT)
-    d.text((ABX + 38, ABY + 64), fixture.amount_range, font=_f(9), fill=accent)
+    # Auto-scale: column = 296 px; Courier New ≈ 0.6× em → 42→25px, 36→21px, 30→18px/char
+    amt_font_sz = 42 if len(amt_str) <= 9 else 36 if len(amt_str) <= 12 else 30
+    d.text((ABX + 56, ABY + 12), amt_str, font=_fmono(amt_font_sz), fill=_PRINT)
+    d.text((ABX + 56, ABY + 78), fixture.amount_range, font=_f(9), fill=accent)
 
     # Rule below Rupees zone
     d.line([(_ML, YR + 70), (_W - _MR, YR + 70)], fill=rule_col, width=1)

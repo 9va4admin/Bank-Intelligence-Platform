@@ -341,7 +341,10 @@ def _instrument_card(inst: dict, idx: int) -> str:
 
     image_data = inst.get("image_data", "")
     image_html = (
-        f'<div class="card-img"><img src="{image_data}" alt="Synthetic cheque {iid}" loading="lazy"></div>'
+        f'<div class="card-img">'
+        f'<img class="thumb" src="{image_data}" loading="lazy" alt="{iid}" '
+        f'onmouseover="window._showCheque(this.src)" title="Mouse over to enlarge">'
+        f'</div>'
         if image_data else ""
     )
 
@@ -644,7 +647,10 @@ body{{font-family:var(--sans);font-size:13px;line-height:1.5;background:var(--bg
 .ocr-model{{color:var(--mock);font-size:10.5px}}
 .no-instruments{{color:var(--mut);font-size:.8rem;padding:.75rem 0;font-style:italic}}
 .card-img{{padding:.4rem 1.1rem;background:var(--faint);border-bottom:1px solid var(--bdr)}}
-.card-img img{{max-width:520px;max-height:160px;width:100%;height:auto;object-fit:contain;border-radius:3px;display:block;box-shadow:0 1px 4px rgba(0,0,0,.25)}}
+.card-img img.thumb{{max-width:480px;max-height:150px;width:100%;height:auto;object-fit:contain;border-radius:3px;display:block;box-shadow:0 1px 4px rgba(0,0,0,.25);cursor:zoom-in;transition:opacity .15s}}
+.card-img img.thumb:hover{{opacity:.88}}
+#chq-zoom-ov{{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9999;align-items:center;justify-content:center;cursor:zoom-out}}
+#chq-zoom-ov img{{max-width:92vw;max-height:88vh;border-radius:5px;box-shadow:0 10px 60px rgba(0,0,0,.7);object-fit:contain}}
 
 @media(max-width:820px){{
   .digest-grid{{grid-template-columns:1fr}}
@@ -660,6 +666,19 @@ function _toggleTheme(){{
   r.dataset.theme=cur==='dark'?'light':'dark';
   document.getElementById('thbtn').textContent=r.dataset.theme==='dark'?'☀ Light':'☾ Dark';
 }}
+(function(){{
+  var ov=null;
+  function _makeOv(){{
+    if(ov)return;
+    ov=document.createElement('div');ov.id='chq-zoom-ov';
+    var img=document.createElement('img');
+    ov.appendChild(img);
+    ov.addEventListener('click',function(){{ov.style.display='none';}});
+    document.addEventListener('keydown',function(e){{if(e.key==='Escape')ov.style.display='none';}});
+    document.body.appendChild(ov);
+  }}
+  window._showCheque=function(src){{_makeOv();ov.querySelector('img').src=src;ov.style.display='flex';}};
+}})();
 </script>
 </head>
 <body>
