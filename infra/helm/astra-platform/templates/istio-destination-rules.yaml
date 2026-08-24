@@ -1,0 +1,219 @@
+{{/*
+Circuit Breaker — Istio DestinationRules for platform-level services.
+
+Protects all ASTRA modules (CTS inward, CTS outward, MSV, feedback, platform
+health workflows) from cascading failures into shared infrastructure.
+
+OutlierDetection thresholds are tuned per service criticality:
+  - CBS connector: moderate (external legacy CBS, IET path)
+  - immudb: generous (audit writes have unlimited Temporal retries; keep hosts available)
+  - Temporal frontend: moderate (workflow engine; 50% max ejection)
+  - minio / langfuse / notification: standard (graceful degradation acceptable)
+
+Banks may override circuit_breaker.* in platform.yaml (Layer 2).
+*/}}
+
+{{- $bank := .Values.global.bank_id }}
+{{- $pns  := printf "astra-platform-%s" $bank }}
+{{- $cb   := .Values.circuit_breaker }}
+
+---
+# ── CBS Connector (Finacle / BaNCS / FlexCube — read-only, async) ────────────
+# CBS unreachable → image-only processing → file before IET (per graceful degradation rules).
+# Tight interval (30s) so ChequeProcessingWorkflow knows quickly and switches path.
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: cbs-connector-cb
+  namespace: {{ $pns | quote }}
+  labels:
+    astra.bank_id: {{ $bank | quote }}
+    astra.component: circuit-breaker
+    astra.service: cbs-connector
+spec:
+  host: {{ printf "cbs-connector.%s.svc.cluster.local" $pns }}
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: {{ $cb.cbs_connector.max_connections }}
+      http:
+        http1MaxPendingRequests: {{ $cb.cbs_connector.http_pending_requests }}
+        http2MaxRequests: {{ $cb.cbs_connector.http2_max_requests }}
+    outlierDetection:
+      consecutive5xxErrors: {{ $cb.cbs_connector.consecutive_errors }}
+      interval: {{ $cb.cbs_connector.interval }}
+      baseEjectionTime: {{ $cb.cbs_connector.base_ejection_time }}
+      maxEjectionPercent: {{ $cb.cbs_connector.max_ejection_percent }}
+      minHealthPercent: 0
+
+---
+# ── Immudb (cryptographic audit trail — Merkle-tree append-only) ──────────────
+# Audit writes have unlimited Temporal retries (AUDIT_RETRY policy).
+# maxEjectionPercent=50: never eject all audit hosts simultaneously.
+# generous consecutive_errors=10: transient gRPC errors should not prematurely
+# open the circuit on the compliance-critical audit path.
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: immudb-cb
+  namespace: {{ $pns | quote }}
+  labels:
+    astra.bank_id: {{ $bank | quote }}
+    astra.component: circuit-breaker
+    astra.service: immudb
+spec:
+  host: {{ printf "immudb.%s.svc.cluster.local" $pns }}
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: {{ $cb.immudb.max_connections }}
+      http:
+        http2MaxRequests: {{ $cb.immudb.http2_max_requests }}
+    outlierDetection:
+      consecutive5xxErrors: {{ $cb.immudb.consecutive_errors }}
+      interval: {{ $cb.immudb.interval }}
+      baseEjectionTime: {{ $cb.immudb.base_ejection_time }}
+      maxEjectionPercent: {{ $cb.immudb.max_ejection_percent }}
+      minHealthPercent: 0
+
+---
+# ── MinIO (WORM object store — cheque images, signed PDFs, audit exports) ─────
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: minio-cb
+  namespace: {{ $pns | quote }}
+  labels:
+    astra.bank_id: {{ $bank | quote }}
+    astra.component: circuit-breaker
+    astra.service: minio
+spec:
+  host: {{ printf "minio.%s.svc.cluster.local" $pns }}
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: {{ $cb.minio.max_connections }}
+      http:
+        http1MaxPendingRequests: {{ $cb.minio.http_pending_requests }}
+        http2MaxRequests: {{ $cb.minio.http2_max_requests }}
+    outlierDetection:
+      consecutive5xxErrors: {{ $cb.minio.consecutive_errors }}
+      interval: {{ $cb.minio.interval }}
+      baseEjectionTime: {{ $cb.minio.base_ejection_time }}
+      maxEjectionPercent: {{ $cb.minio.max_ejection_percent }}
+      minHealthPercent: 0
+
+---
+# ── Temporal Frontend (workflow engine — gRPC) ────────────────────────────────
+# maxEjectionPercent=50: at least one Temporal frontend remains in pool.
+# Temporal SDK has its own retry logic; mesh-level CB is a second line of defence.
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: temporal-frontend-cb
+  namespace: {{ $pns | quote }}
+  labels:
+    astra.bank_id: {{ $bank | quote }}
+    astra.component: circuit-breaker
+    astra.service: temporal-frontend
+spec:
+  host: {{ printf "temporal-frontend.%s.svc.cluster.local" $pns }}
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: {{ $cb.temporal.max_connections }}
+      http:
+        http2MaxRequests: {{ $cb.temporal.http2_max_requests }}
+    outlierDetection:
+      consecutive5xxErrors: {{ $cb.temporal.consecutive_errors }}
+      interval: {{ $cb.temporal.interval }}
+      baseEjectionTime: {{ $cb.temporal.base_ejection_time }}
+      maxEjectionPercent: {{ $cb.temporal.max_ejection_percent }}
+      minHealthPercent: 0
+
+---
+# ── Langfuse (LLM observability — non-critical) ───────────────────────────────
+# AI inference proceeds even if Langfuse is down; trace loss is acceptable.
+# Very tolerant thresholds — do not let observability outage affect clearing.
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: langfuse-cb
+  namespace: {{ $pns | quote }}
+  labels:
+    astra.bank_id: {{ $bank | quote }}
+    astra.component: circuit-breaker
+    astra.service: langfuse
+spec:
+  host: {{ printf "langfuse.%s.svc.cluster.local" $pns }}
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: {{ $cb.langfuse.max_connections }}
+      http:
+        http1MaxPendingRequests: {{ $cb.langfuse.http_pending_requests }}
+        http2MaxRequests: {{ $cb.langfuse.http2_max_requests }}
+    outlierDetection:
+      consecutive5xxErrors: {{ $cb.langfuse.consecutive_errors }}
+      interval: {{ $cb.langfuse.interval }}
+      baseEjectionTime: {{ $cb.langfuse.base_ejection_time }}
+      maxEjectionPercent: {{ $cb.langfuse.max_ejection_percent }}
+      minHealthPercent: 0
+
+---
+# ── Notification Service (email + WhatsApp dispatcher) ───────────────────────
+# Non-critical for clearing; important for ops alerts.
+# Tolerant thresholds — notification delay is preferable to clearing disruption.
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: notification-service-cb
+  namespace: {{ $pns | quote }}
+  labels:
+    astra.bank_id: {{ $bank | quote }}
+    astra.component: circuit-breaker
+    astra.service: notification-service
+spec:
+  host: {{ printf "notification-service.%s.svc.cluster.local" $pns }}
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: {{ $cb.notification.max_connections }}
+      http:
+        http1MaxPendingRequests: {{ $cb.notification.http_pending_requests }}
+        http2MaxRequests: {{ $cb.notification.http2_max_requests }}
+    outlierDetection:
+      consecutive5xxErrors: {{ $cb.notification.consecutive_errors }}
+      interval: {{ $cb.notification.interval }}
+      baseEjectionTime: {{ $cb.notification.base_ejection_time }}
+      maxEjectionPercent: {{ $cb.notification.max_ejection_percent }}
+      minHealthPercent: 0
+
+---
+# ── Config Service (Layer 3 hot-reload + secrets gateway) ────────────────────
+# All CTS activities call config_service at start. If it's down, activities
+# cannot read thresholds. maxEjectionPercent=50: always keep half in pool.
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: config-service-cb
+  namespace: {{ $pns | quote }}
+  labels:
+    astra.bank_id: {{ $bank | quote }}
+    astra.component: circuit-breaker
+    astra.service: config-service
+spec:
+  host: {{ printf "config-service.%s.svc.cluster.local" $pns }}
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: {{ $cb.config_service.max_connections }}
+      http:
+        http1MaxPendingRequests: {{ $cb.config_service.http_pending_requests }}
+        http2MaxRequests: {{ $cb.config_service.http2_max_requests }}
+    outlierDetection:
+      consecutive5xxErrors: {{ $cb.config_service.consecutive_errors }}
+      interval: {{ $cb.config_service.interval }}
+      baseEjectionTime: {{ $cb.config_service.base_ejection_time }}
+      maxEjectionPercent: {{ $cb.config_service.max_ejection_percent }}
+      minHealthPercent: 0

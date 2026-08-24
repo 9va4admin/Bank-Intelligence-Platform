@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CTS Pipeline Checks</title>
+<style>
+:root {
+  --bg: #f8fafc; --surface: #fff; --border: #e2e8f0;
+  --text: #1e293b; --muted: #64748b; --code-bg: #f1f5f9;
+  --ai: #6d28d9; --ai-bg: #ede9fe; --cond: #b45309; --cond-bg: #fef3c7;
+  --std: #047857; --std-bg: #d1fae5;
+  --outcome-bg: #fef2f2; --outcome: #991b1b;
+  --heading: #0f172a;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f172a; --surface: #1e293b; --border: #334155;
+    --text: #e2e8f0; --muted: #94a3b8; --code-bg: #0f172a;
+    --ai: #a78bfa; --ai-bg: #2e1065; --cond: #fcd34d; --cond-bg: #78350f;
+    --std: #6ee7b7; --std-bg: #064e3b;
+    --outcome-bg: #450a0a; --outcome: #fca5a5;
+    --heading: #f1f5f9;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f172a; --surface: #1e293b; --border: #334155;
+  --text: #e2e8f0; --muted: #94a3b8; --code-bg: #0f172a;
+  --ai: #a78bfa; --ai-bg: #2e1065; --cond: #fcd34d; --cond-bg: #78350f;
+  --std: #6ee7b7; --std-bg: #064e3b;
+  --outcome-bg: #450a0a; --outcome: #fca5a5;
+  --heading: #f1f5f9;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+       font-size: 14px; background: var(--bg); color: var(--text); line-height: 1.5; }
+header { padding: 24px 32px; border-bottom: 1px solid var(--border);
+         background: var(--surface); }
+header h1 { font-size: 20px; font-weight: 700; color: var(--heading); }
+header p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.toc { padding: 16px 32px; background: var(--surface);
+       border-bottom: 1px solid var(--border); display: flex; gap: 24px; }
+.toc a { color: var(--ai); text-decoration: none; font-size: 13px; }
+.toc a:hover { text-decoration: underline; }
+main { padding: 32px; max-width: 1400px; }
+section { margin-bottom: 48px; }
+h2 { font-size: 16px; font-weight: 600; color: var(--heading);
+     margin-bottom: 16px; padding-bottom: 8px;
+     border-bottom: 2px solid var(--border); }
+.table-wrap { overflow-x: auto; border: 1px solid var(--border);
+              border-radius: 8px; }
+table { width: 100%; border-collapse: collapse; background: var(--surface); }
+thead tr { background: var(--code-bg); }
+th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .5px; color: var(--muted);
+    border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 10px 12px; border-bottom: 1px solid var(--border);
+    vertical-align: top; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--code-bg); }
+.seq { color: var(--muted); font-variant-numeric: tabular-nums;
+       font-size: 12px; width: 36px; }
+.step-id code { font-size: 12px; background: var(--code-bg);
+               padding: 2px 6px; border-radius: 4px;
+               border: 1px solid var(--border); white-space: nowrap; }
+.tech { font-size: 12px; color: var(--muted); }
+.source code { font-size: 11px; color: var(--muted); }
+.condition-note { font-size: 11px; color: var(--cond); display: block; margin-top: 2px; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px;
+         font-size: 10px; font-weight: 600; letter-spacing: .4px;
+         text-transform: uppercase; white-space: nowrap; }
+.badge-ai { background: var(--ai-bg); color: var(--ai); }
+.badge-cond { background: var(--cond-bg); color: var(--cond); }
+.badge-std { background: var(--std-bg); color: var(--std); }
+.outcomes { white-space: nowrap; }
+code.outcome { font-size: 11px; background: var(--outcome-bg);
+              color: var(--outcome); padding: 1px 5px; border-radius: 4px; }
+.muted { color: var(--muted); }
+footer { padding: 16px 32px; border-top: 1px solid var(--border);
+         background: var(--surface); font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>CTS Pipeline Checks</h1>
+  <p>Auto-generated from <code>modules/cts/pipeline/registry.py</code>
+     · Registry version: <strong>1.1</strong>
+     · 24 inward checks · 14 outward checks</p>
+</header>
+<nav class="toc">
+  <a href="#inward">Inward Pipeline</a>
+  <a href="#outward">Outward Pipeline</a>
+</nav>
+<main>
+  
+  <section id="inward">
+    <h2>Inward Pipeline — Drawee Bank (ChequeProcessingWorkflow · 24 checks)</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Step ID</th>
+            <th>Name / Condition</th>
+            <th>Technology</th>
+            <th>Source File</th>
+            <th>Type</th>
+            <th>Failure Outcomes</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+    <tr>
+      <td class="seq">1</td>
+      <td class="step-id"><code>iet_watchdog</code></td>
+      <td>IET Watchdog</td>
+      <td class="tech">IETWatchdogWorkflow (Temporal child, ABANDON)</td>
+      <td class="source"><code>workflows/iet_watchdog_workflow.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><code class="outcome">EMERGENCY_FILE</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">2</td>
+      <td class="step-id"><code>duplicate_check</code></td>
+      <td>Duplicate Presentment Check</td>
+      <td class="tech">mark_leaf_presented · cheque_leaf_vault</td>
+      <td class="source"><code>workflows/activities/leaf_lifecycle.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><code class="outcome">STP_RETURN</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">3</td>
+      <td class="step-id"><code>ocr_extract</code></td>
+      <td>OCR Extraction</td>
+      <td class="tech">GOT-OCR2.0 + IndicOCR · cts-ocr queue</td>
+      <td class="source"><code>workflows/activities/ocr.py</code></td>
+      <td><span class="badge badge-ai">AI</span></td>
+      <td class="outcomes"><code class="outcome">HUMAN_REVIEW</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">4</td>
+      <td class="step-id"><code>kill_switch_1</code></td>
+      <td>Kill Switch Checkpoint 1</td>
+      <td class="tech">get_kill_switch_status · Redis</td>
+      <td class="source"><code>workflows/activities/kill_switch_lookup.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><code class="outcome">HUMAN_REVIEW</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">5</td>
+      <td class="step-id"><code>alteration_detect</code></td>
+      <td>Alteration Detection</td>
+      <td class="tech">Qwen2-VL 72B · cts-vision queue</td>
+      <td class="source"><code>workflows/activities/alteration.py</code></td>
+      <td><span class="badge badge-ai">AI</span></td>
+      <td class="outcomes"><code class="outcome">HUMAN_REVIEW</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">6</td>
+      <td class="step-id"><code>security_features</code></td>
+      <td>CTS-2010 Security Features</td>
+      <td class="tech">Qwen2-VL 72B · cts-vision queue</td>
+      <td class="source"><code>workflows/activities/security_features.py</code></td>
+      <td><span class="badge badge-ai">AI</span></td>
+      <td class="outcomes"><code class="outcome">HUMAN_REVIEW</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">7</td>
+      <td class="step-id"><code>stop_payment</code></td>
+      <td>Stop Payment Check</td>
+      <td class="tech">Bloom filter + CBS connector</td>
+      <td class="source"><code>workflows/activities/stop_payment.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><code class="outcome">STP_RETURN</code>, <code class="outcome">HUMAN_REVIEW</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">8</td>
+      <td class="step-id"><code>ifsc_validate</code></td>
+      <td>IFSC Registry Validation<br><span class="condition-note">Only when ngch_ifsc provided in workflow input</span></td>
+      <td class="tech">validate_ifsc · IFSC registry</td>
+      <td class="source"><code>workflows/activities/ifsc_validator.py</code></td>
+      <td><span class="badge badge-cond">Conditional</span></td>
+      <td class="outcomes"><code class="outcome">HUMAN_REVIEW</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">9</td>
+      <td class="step-id"><code>pps_lookup</code></td>
+      <td>PPS Lookup</td>
+      <td class="tech">lookup_pps · Redis PPS vault</td>
+      <td class="source"><code>workflows/activities/pps.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><code class="outcome">HUMAN_REVIEW</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">10</td>
+      <td class="step-id"><code>sig_detect</code></td>
+      <td>Signature Presence Detection</td>
+      <td class="tech">detect_signatures · cts-vision queue</td>
+      <td class="source"><code>workflows/activities/detect_signatures.py</code></td>
+      <td><span class="badge badge-ai">AI</span></td>
+      <td class="outcomes"><code class="outcome">HUMAN_REVIEW</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">11</td>
+      <td class="step-id"><code>sig_verify</code></td>
+      <td>Signature Verification</td>
+      <td class="tech">Siamese Network (PyTorch) · signature_vault</td>
+      <td class="source"><code>workflows/activities/signature.py</code></td>
+      <td><span class="badge badge-ai">AI</span></td>
+      <td class="outcomes"><code class="outcome">HUMAN_REVIEW</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">12</td>
+      <td class="step-id"><code>fraud_score</code></td>
+      <td>Fraud Scoring</td>
+      <td class="tech">XGBoost ensemble + SHAP</td>
+      <td class="source"><code>workflows/activities/fraud.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><code class="outcome">HUMAN_REVIEW</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">13</td>
+      <td class="step-id"><code>cheque_series</code></td>
+      <td>Cheque Series Validation</td>
+      <td class="tech">validate_cheque_series · Redis / CBS</td>
+      <td class="source"><code>workflows/activities/cheque_series.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><code class="outcome">STP_RETURN</code>, <code class="outcome">HUMAN_REVIEW</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">14</td>
+      <td class="step-id"><code>cbs_balance</code></td>
+      <td>CBS Balance Check</td>
+      <td class="tech">check_cbs_balance · CBS connector</td>
+      <td class="source"><code>workflows/activities/cbs.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><code class="outcome">STP_RETURN</code>, <code class="outcome">HUMAN_REVIEW</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">15</td>
+      <td class="step-id"><code>account_status</code></td>
+      <td>Account Status Check</td>
+      <td class="tech">check_account_status · CBS connector</td>
+      <td class="source"><code>workflows/activities/cbs.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><code class="outcome">STP_RETURN</code>, <code class="outcome">HUMAN_REVIEW</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">16</td>
+      <td class="step-id"><code>kill_switch_2</code></td>
+      <td>Kill Switch Checkpoint 2 (Backstop)</td>
+      <td class="tech">get_kill_switch_status · Redis</td>
+      <td class="source"><code>workflows/activities/kill_switch_lookup.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><code class="outcome">HUMAN_REVIEW</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">17</td>
+      <td class="step-id"><code>synthesise_decision</code></td>
+      <td>Decision Synthesis</td>
+      <td class="tech">synthesise_decision · OPA (Layer 4 Rego)</td>
+      <td class="source"><code>workflows/activities/decision.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><code class="outcome">STP_CONFIRM</code>, <code class="outcome">STP_RETURN</code>, <code class="outcome">HUMAN_REVIEW</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">18</td>
+      <td class="step-id"><code>stp_mode_routing</code></td>
+      <td>STP Mode Routing</td>
+      <td class="tech">config_service · stp_mode (Layer 3)</td>
+      <td class="source"><code>workflows/cheque_workflow.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><code class="outcome">HUMAN_REVIEW</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">19</td>
+      <td class="step-id"><code>persist_decision</code></td>
+      <td>Persist Agent Decision</td>
+      <td class="tech">persist_agent_decision · YugabyteDB</td>
+      <td class="source"><code>workflows/activities/persist_decision.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><span class="muted">—</span></td>
+    </tr>
+
+    <tr>
+      <td class="seq">20</td>
+      <td class="step-id"><code>ngch_file</code></td>
+      <td>NGCH Filing</td>
+      <td class="tech">file_to_ngch · ngch_filer (exactly-once)</td>
+      <td class="source"><code>workflows/activities/ngch_filer.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><code class="outcome">WATCHDOG_RACE</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">21</td>
+      <td class="step-id"><code>audit_write</code></td>
+      <td>Immudb Audit Write</td>
+      <td class="tech">write_audit · Immudb (HSM-signed, unlimited retry)</td>
+      <td class="source"><code>workflows/activities/write_audit.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><span class="muted">—</span></td>
+    </tr>
+
+    <tr>
+      <td class="seq">22</td>
+      <td class="step-id"><code>human_review_spawn</code></td>
+      <td>HumanReviewWorkflow Spawn<br><span class="condition-note">Only on HUMAN_REVIEW outcome</span></td>
+      <td class="tech">HumanReviewWorkflow (Temporal child, ABANDON)</td>
+      <td class="source"><code>workflows/human_review_workflow.py</code></td>
+      <td><span class="badge badge-cond">Conditional</span></td>
+      <td class="outcomes"><span class="muted">—</span></td>
+    </tr>
+
+    <tr>
+      <td class="seq">23</td>
+      <td class="step-id"><code>smb_ledger</code></td>
+      <td>SMB Ledger Update<br><span class="condition-note">Only when smb_id present in workflow input</span></td>
+      <td class="tech">emit_batch_ledger_update + notify_sub_member_return</td>
+      <td class="source"><code>sub_member/activities.py</code></td>
+      <td><span class="badge badge-cond">Conditional</span></td>
+      <td class="outcomes"><span class="muted">—</span></td>
+    </tr>
+
+    <tr>
+      <td class="seq">24</td>
+      <td class="step-id"><code>feedback_emit</code></td>
+      <td>OCR Feedback Emit</td>
+      <td class="tech">FeedbackEmitWorkflow (fire-and-forget, ABANDON)</td>
+      <td class="source"><code>workflows/feedback_workflow.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><span class="muted">—</span></td>
+    </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  
+  <section id="outward">
+    <h2>Outward Pipeline — Presentee Bank (OutwardScanWorkflow · 14 checks)</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Step ID</th>
+            <th>Name / Condition</th>
+            <th>Technology</th>
+            <th>Source File</th>
+            <th>Type</th>
+            <th>Failure Outcomes</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+    <tr>
+      <td class="seq">1</td>
+      <td class="step-id"><code>ocr_extract</code></td>
+      <td>OCR / CR-120 Extraction</td>
+      <td class="tech">GOT-OCR2.0 (legacy) · Qwen2-VL (CR-120 path)</td>
+      <td class="source"><code>workflows/activities/ocr.py</code></td>
+      <td><span class="badge badge-ai">AI</span></td>
+      <td class="outcomes"><span class="muted">—</span></td>
+    </tr>
+
+    <tr>
+      <td class="seq">2</td>
+      <td class="step-id"><code>date_validate</code></td>
+      <td>Date Validation</td>
+      <td class="tech">_validate_cheque_date (inline, no activity)</td>
+      <td class="source"><code>workflows/outward_scan_workflow.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><code class="outcome">POST_DATED_HELD</code>, <code class="outcome">CTS_REJECTED</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">3</td>
+      <td class="step-id"><code>post_dated_hold</code></td>
+      <td>PostDated Hold Spawn<br><span class="condition-note">Only when date_validate returns POST_DATED_CHEQUE</span></td>
+      <td class="tech">PostDatedHoldWorkflow (Temporal child, ABANDON)</td>
+      <td class="source"><code>workflows/postdated_hold_workflow.py</code></td>
+      <td><span class="badge badge-cond">Conditional</span></td>
+      <td class="outcomes"><span class="muted">—</span></td>
+    </tr>
+
+    <tr>
+      <td class="seq">4</td>
+      <td class="step-id"><code>cheque_dedup</code></td>
+      <td>Cheque Deduplication</td>
+      <td class="tech">check_cheque_dedup · Redis (18-month TTL)</td>
+      <td class="source"><code>workflows/activities/outward_scan_activities.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><code class="outcome">CTS_REJECTED</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">5</td>
+      <td class="step-id"><code>rear_ocr</code></td>
+      <td>Rear Image OCR<br><span class="condition-note">Only when rear_image_ocr_required = true</span></td>
+      <td class="tech">extract_rear_payee_details · GOT-OCR2.0</td>
+      <td class="source"><code>workflows/activities/outward_scan_activities.py</code></td>
+      <td><span class="badge badge-ai">AI</span></td>
+      <td class="outcomes"><span class="muted">—</span></td>
+    </tr>
+
+    <tr>
+      <td class="seq">6</td>
+      <td class="step-id"><code>payee_validate</code></td>
+      <td>Payee Account Validation<br><span class="condition-note">Only when payee_account_number provided</span></td>
+      <td class="tech">validate_payee_account · Account Vault + CBS</td>
+      <td class="source"><code>workflows/activities/outward_scan_activities.py</code></td>
+      <td><span class="badge badge-cond">Conditional</span></td>
+      <td class="outcomes"><code class="outcome">CTS_REJECTED</code>, <code class="outcome">MISMATCH_HELD</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">7</td>
+      <td class="step-id"><code>ngch_cross_check</code></td>
+      <td>NGCH Metadata Cross-Check</td>
+      <td class="tech">cross_check_ngch_metadata</td>
+      <td class="source"><code>workflows/activities/ngch_metadata_cross_check.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><code class="outcome">CTS_REJECTED</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">8</td>
+      <td class="step-id"><code>cts2010_compliance</code></td>
+      <td>CTS-2010 Compliance</td>
+      <td class="tech">validate_cts2010 (DPI, colour depth, IQA, MICR band)</td>
+      <td class="source"><code>workflows/activities/outward_scan_activities.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><code class="outcome">CTS_REJECTED</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">9</td>
+      <td class="step-id"><code>sig_detect</code></td>
+      <td>Signature Presence Detection</td>
+      <td class="tech">detect_signatures · cts-vision queue</td>
+      <td class="source"><code>workflows/activities/detect_signatures.py</code></td>
+      <td><span class="badge badge-ai">AI</span></td>
+      <td class="outcomes"><code class="outcome">CTS_REJECTED</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">10</td>
+      <td class="step-id"><code>security_features</code></td>
+      <td>CTS-2010 Security Features</td>
+      <td class="tech">Qwen2-VL 72B · cts-vision queue</td>
+      <td class="source"><code>workflows/activities/security_features.py</code></td>
+      <td><span class="badge badge-ai">AI</span></td>
+      <td class="outcomes"><code class="outcome">CTS_REJECTED</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">11</td>
+      <td class="step-id"><code>vision_crosscheck</code></td>
+      <td>Vision LLM Cross-Check<br><span class="condition-note">Only when scanner_amount_str available</span></td>
+      <td class="tech">run_vision_presentment_check · Qwen2-VL 72B</td>
+      <td class="source"><code>workflows/activities/outward_scan_activities.py</code></td>
+      <td><span class="badge badge-ai">AI</span></td>
+      <td class="outcomes"><code class="outcome">MISMATCH_HELD</code></td>
+    </tr>
+
+    <tr>
+      <td class="seq">12</td>
+      <td class="step-id"><code>mismatch_spawn</code></td>
+      <td>MismatchResolution Spawn<br><span class="condition-note">Only on MISMATCH_HELD outcome</span></td>
+      <td class="tech">MismatchResolutionWorkflow (Temporal child, ABANDON, 4h)</td>
+      <td class="source"><code>workflows/mismatch_resolution_workflow.py</code></td>
+      <td><span class="badge badge-cond">Conditional</span></td>
+      <td class="outcomes"><span class="muted">—</span></td>
+    </tr>
+
+    <tr>
+      <td class="seq">13</td>
+      <td class="step-id"><code>audit_write</code></td>
+      <td>Immudb Audit Write</td>
+      <td class="tech">write_audit · Immudb (HSM-signed, unlimited retry)</td>
+      <td class="source"><code>workflows/activities/write_audit.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><span class="muted">—</span></td>
+    </tr>
+
+    <tr>
+      <td class="seq">14</td>
+      <td class="step-id"><code>branch_monitor</code></td>
+      <td>Branch Monitor Event</td>
+      <td class="tech">record_outward_scan_event (best-effort)</td>
+      <td class="source"><code>workflows/activities/outward_scan_activities.py</code></td>
+      <td><span class="badge badge-std">Always</span></td>
+      <td class="outcomes"><span class="muted">—</span></td>
+    </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<footer>
+  Generated by <code>python -m modules.cts.pipeline.build</code> · Do not edit directly.
+</footer>
+</body>
+</html>

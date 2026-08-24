@@ -177,7 +177,9 @@ from modules.cts.workflows.activities.smb_vault_push_activities import (
 from modules.cts.workflows.activities.platform_health_activities import (
     check_iet_risk_for_alert,
     check_human_review_for_alert,
+    check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
+    sweep_stuck_workflows,
 )
 from modules.cts.workflows.platform_health_check_workflow import PlatformHealthCheckWorkflow
 from modules.cts.worker_activities import build_bound_activities
@@ -291,7 +293,9 @@ ALL_ACTIVITIES = [
     archive_drop_file,
     check_iet_risk_for_alert,
     check_human_review_for_alert,
+    check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
+    sweep_stuck_workflows,
     send_hold_reminder,
     send_hold_critical_alert,
     send_hold_p0_alert,
@@ -335,7 +339,9 @@ NO_DI_ACTIVITIES = [
     # Platform health check alert engine (PlatformHealthCheckWorkflow)
     check_iet_risk_for_alert,
     check_human_review_for_alert,
+    check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
+    sweep_stuck_workflows,  # auto-terminates CTS workflows exceeding max_age_minutes
     # Scan event recorder (OutwardScanWorkflow — branch monitor feed)
     record_outward_scan_event,
     # Hold escalation (HoldEscalationWorkflow) — notification-only, no NGCH touch
