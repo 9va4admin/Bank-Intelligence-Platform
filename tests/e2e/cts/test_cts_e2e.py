@@ -184,6 +184,7 @@ async def test_outward_e2e(fixture, register_instrument):
     )
 
     # ── Register in Digest ────────────────────────────────────────────────────
+    cheque_b64, sig_b64 = generate_cheque_image(fixture, _FIXTURE_INDEX[fixture.fixture_id])
     register_instrument(
         instrument_id=fixture.instrument_id,
         bank_id=fixture.bank_id,
@@ -195,7 +196,8 @@ async def test_outward_e2e(fixture, register_instrument):
         amount_range=fixture.amount_range,
         duration_ms=duration_ms,
         test_name=f"test_outward_e2e[{fixture.fixture_id}]",
-        image_data=generate_cheque_image(fixture, _FIXTURE_INDEX[fixture.fixture_id]),
+        image_data=cheque_b64,
+        signature_data=sig_b64,
         ocr_payee=getattr(mocks.get("micr"), "payee_name", None) or "",
     )
 
@@ -334,6 +336,7 @@ async def test_inward_e2e(fixture, register_instrument):
     )
 
     # ── Register in Digest ────────────────────────────────────────────────────
+    cheque_b64, sig_b64 = generate_cheque_image(fixture, _FIXTURE_INDEX[fixture.fixture_id])
     register_instrument(
         instrument_id=fixture.instrument_id,
         bank_id=fixture.bank_id,
@@ -345,7 +348,8 @@ async def test_inward_e2e(fixture, register_instrument):
         amount_range=fixture.amount_range,
         duration_ms=duration_ms,
         test_name=f"test_inward_e2e[{fixture.fixture_id}]",
-        image_data=generate_cheque_image(fixture, _FIXTURE_INDEX[fixture.fixture_id]),
+        image_data=cheque_b64,
+        signature_data=sig_b64,
         ocr_payee=getattr(mocks.get("ocr"), "payee_name", None) or "",
     )
 
