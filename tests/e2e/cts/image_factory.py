@@ -814,25 +814,16 @@ def crop_signature_from_image_data(image_b64: str) -> str:
             min(h, int(0.90 * h) + pad),
         ))
 
-        # Otsu binarisation + morphological thinning —
-        # identical to _apply_morphological_normalisation() in signature.py
+        # For digest display: plain crop with contrast/sharpness boost.
+        # Otsu+thinning is for Siamese network input (signature.py) — not for
+        # visual inspection. Blue-tinted paper (Canara, SBI, etc.) causes
+        # THRESH_BINARY_INV to classify the entire background as foreground,
+        # producing an all-black crop.
         try:
-            import cv2
-            import numpy as np
-            gray = cv2.cvtColor(np.array(crop), cv2.COLOR_RGB2GRAY)
-            _, binary = cv2.threshold(
-                gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
-            )
-            try:
-                thinned = cv2.ximgproc.thinning(
-                    binary, thinningType=cv2.ximgproc.THINNING_ZHANGSUEN
-                )
-            except AttributeError:
-                thinned = binary
-            crop = Image.fromarray(
-                cv2.cvtColor(cv2.bitwise_not(thinned), cv2.COLOR_GRAY2RGB)
-            )
-        except ImportError:
+            from PIL import ImageEnhance, ImageFilter
+            crop = ImageEnhance.Contrast(crop).enhance(1.6)
+            crop = ImageEnhance.Sharpness(crop).enhance(1.4)
+        except Exception:
             pass
 
         buf = io.BytesIO()
