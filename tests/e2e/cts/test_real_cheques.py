@@ -43,6 +43,7 @@ from modules.cts.workflows.cheque_workflow import (
     ChequeWorkflowInput,
 )
 from tests.e2e.cts.cheque_fixtures import fresh_iet_deadline
+from tests.e2e.cts.image_factory import generate_signature_image
 from tests.e2e.cts.mock_builders import build_inward_mocks, build_inward_step_trace
 from tests.e2e.cts.real_cheque_fixtures import (
     REAL_CHEQUE_FIXTURES,
@@ -160,6 +161,8 @@ async def test_real_cheque_inward(fixture, register_instrument):
         test_name=f"test_real_cheque_inward[{fixture.fixture_id}]",
         image_data=image_data,
         ocr_model="GOT-OCR2.0 (mock — real image not OCR'd in tests)",
+        ocr_payee=getattr(mocks.get("ocr"), "payee_name", None) or fixture.payee_name,
+        signature_data=generate_signature_image(fixture),
     )
 
 
