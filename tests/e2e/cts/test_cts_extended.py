@@ -28,7 +28,7 @@ from modules.cts.workflows.cheque_workflow import (
 )
 from tests.e2e.cts.cheque_fixtures import fresh_iet_deadline
 from tests.e2e.cts.extended_fixtures import EXTENDED_FIXTURES, EXTENDED_COUNT
-from tests.e2e.cts.image_factory import generate_cheque_image
+from tests.e2e.cts.image_factory import generate_cheque_image, generate_signature_image
 from tests.e2e.cts.mock_builders import build_inward_mocks, build_inward_step_trace
 
 # Index offset so each extended fixture picks a unique image from the generator
@@ -112,6 +112,8 @@ async def test_cts_extended_e2e(fixture, register_instrument):
         duration_ms=duration_ms,
         test_name=f"test_cts_extended_e2e[{fixture.fixture_id}]",
         image_data=generate_cheque_image(fixture),
+        ocr_payee=getattr(mocks.get("ocr"), "payee_name", None) or "",
+        signature_data=generate_signature_image(fixture),
     )
 
 
