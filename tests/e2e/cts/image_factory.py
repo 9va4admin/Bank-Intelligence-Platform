@@ -138,6 +138,12 @@ def _amount_in_words(amount: float) -> str:
     return result + " Only"
 
 
+def _tampered_digit_amount(fixture) -> float:
+    """Fraudulent amount: prepend first digit (42,000 → 4,42,000) — simulates digit-box tampering."""
+    n = str(int(fixture.amount))
+    return float(n[0] + n)
+
+
 def _format_inr(amount: float) -> str:
     """Format amount in Indian comma convention: 25,00,000/- (not 2,500,000/-)."""
     n = int(amount)
@@ -448,17 +454,27 @@ def _build(fixture) -> "Image.Image":
 
     # Amount box spanning PAY + RUPEES rows — 350 px wide for legible numbers
     ABX, ABY, ABW, ABH = amt_box_x, YP - 2, 350, 96
-    d.rectangle([ABX, ABY, ABX + ABW, ABY + ABH], outline=accent, width=2)
+    # For tampered cheques the box outline is in red to flag the fraud visually
+    _trig = getattr(fixture, "trigger", "")
+    _is_tampered = _trig in ("ALTERATION", "WORDS_DIGITS_MISMATCH")
+    _box_outline = (185, 30, 30) if _is_tampered else accent
+    d.rectangle([ABX, ABY, ABX + ABW, ABY + ABH], outline=_box_outline, width=2)
     d.line([(ABX + 50, ABY + 1), (ABX + 50, ABY + ABH - 1)], fill=rule_col, width=1)
     # ₹ symbol — Nirmala UI for guaranteed U+20B9 glyph
     d.text((ABX + 5,  ABY + 8),  "₹",        font=_findic(44), fill=accent)
     d.text((ABX + 6,  ABY + 66), "अदा करें", font=_findic(11), fill=_PRINT)
-    # Amount in Indian comma format: 25,00,000/- (not 2,500,000/-)
-    amt_str = _format_inr(fixture.amount)
+    # Tampered cheques: digit box shows fraudulent inflated amount (words stay original)
+    _digit_amt = _tampered_digit_amount(fixture) if _is_tampered else fixture.amount
+    _digit_ink = (185, 30, 30) if _is_tampered else _PRINT   # red = different pen
+    amt_str = _format_inr(_digit_amt)
     # Auto-scale: column = 296 px; Courier New ≈ 0.6× em → 42→25px, 36→21px, 30→18px/char
     amt_font_sz = 42 if len(amt_str) <= 9 else 36 if len(amt_str) <= 12 else 30
-    d.text((ABX + 56, ABY + 12), amt_str, font=_fmono(amt_font_sz), fill=_PRINT)
-    d.text((ABX + 56, ABY + 78), fixture.amount_range, font=_f(9), fill=accent)
+    d.text((ABX + 56, ABY + 12), amt_str, font=_fmono(amt_font_sz), fill=_digit_ink)
+    if _is_tampered:
+        # Small red label: "WORDS≠DIGITS" so the visual mismatch is unambiguous
+        d.text((ABX + 56, ABY + 78), "WORDS ≠ DIGITS", font=_f(9, bold=True), fill=(185, 30, 30))
+    else:
+        d.text((ABX + 56, ABY + 78), fixture.amount_range, font=_f(9), fill=accent)
 
     # Rule below Rupees zone
     d.line([(_ML, YR + 70), (_W - _MR, YR + 70)], fill=rule_col, width=1)
