@@ -100,6 +100,7 @@ async def test_cts_extended_e2e(fixture, register_instrument):
         assert result.decision in ("STP_RETURN", "HUMAN_REVIEW")
 
     steps = build_inward_step_trace(fixture, result)
+    cheque_b64, sig_b64 = generate_cheque_image(fixture)
 
     register_instrument(
         instrument_id=fixture.instrument_id,
@@ -112,7 +113,8 @@ async def test_cts_extended_e2e(fixture, register_instrument):
         amount_range=fixture.amount_range,
         duration_ms=duration_ms,
         test_name=f"test_cts_extended_e2e[{fixture.fixture_id}]",
-        image_data=generate_cheque_image(fixture),
+        image_data=cheque_b64,
+        signature_data=sig_b64,
         ocr_payee=getattr(mocks.get("ocr"), "payee_name", None) or "",
     )
 
