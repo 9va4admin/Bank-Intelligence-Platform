@@ -100,7 +100,7 @@ class TestFetchDropFile:
         )
         result = await fetch_drop_file(inp, minio_client=None)
         assert result.error == "MINIO_UNAVAILABLE"
-        assert result.csv_bytes == b""
+        assert result.csv_bytes == ""
 
     @pytest.mark.asyncio
     async def test_hash_mismatch_returns_error(self):
@@ -115,7 +115,7 @@ class TestFetchDropFile:
         )
         result = await fetch_drop_file(inp, minio_client=minio)
         assert result.error == "HASH_MISMATCH"
-        assert result.csv_bytes == b""
+        assert result.csv_bytes == ""
 
     @pytest.mark.asyncio
     async def test_hash_match_returns_bytes(self):
@@ -129,9 +129,10 @@ class TestFetchDropFile:
             bank_id=BANK_ID, minio_bucket=BUCKET,
             minio_key=KEY, file_hash=correct_hash,
         )
+        import base64
         result = await fetch_drop_file(inp, minio_client=minio)
         assert result.error is None
-        assert result.csv_bytes == csv_bytes
+        assert result.csv_bytes == base64.b64encode(csv_bytes).decode()
         assert result.duplicate is False
 
     @pytest.mark.asyncio
