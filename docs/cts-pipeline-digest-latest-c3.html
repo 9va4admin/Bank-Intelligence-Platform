@@ -1,0 +1,295 @@
+<title>CTS Pipeline — Cut 3</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg:       #f0f4fa;
+    --surface:  #ffffff;
+    --surface2: #f7f9fc;
+    --border:   rgba(0,0,0,0.08);
+    --text:     #0f172a;
+    --muted:    #64748b;
+    --faint:    #94a3b8;
+    --accent:   #2563eb;
+    --pass:     #059669;
+    --pass-bg:  #d1fae5;
+    --fail:     #dc2626;
+    --fail-bg:  #fee2e2;
+    --tag-bg:   #e0ebff;
+    --tag-text: #1d4ed8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:       #08101e;
+      --surface:  #111c2d;
+      --surface2: #0d1726;
+      --border:   rgba(255,255,255,0.07);
+      --text:     #e2e8f0;
+      --muted:    #94a3b8;
+      --faint:    #475569;
+      --accent:   #3b82f6;
+      --pass:     #10b981;
+      --pass-bg:  rgba(16,185,129,0.12);
+      --fail:     #f87171;
+      --fail-bg:  rgba(248,113,113,0.12);
+      --tag-bg:   rgba(59,130,246,0.15);
+      --tag-text: #93c5fd;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:       #08101e;
+    --surface:  #111c2d;
+    --surface2: #0d1726;
+    --border:   rgba(255,255,255,0.07);
+    --text:     #e2e8f0;
+    --muted:    #94a3b8;
+    --faint:    #475569;
+    --accent:   #3b82f6;
+    --pass:     #10b981;
+    --pass-bg:  rgba(16,185,129,0.12);
+    --fail:     #f87171;
+    --fail-bg:  rgba(248,113,113,0.12);
+    --tag-bg:   rgba(59,130,246,0.15);
+    --tag-text: #93c5fd;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.6;
+    padding: 24px 20px 48px;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+  .header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .header-left { display: flex; flex-direction: column; gap: 4px; }
+  .eyebrow { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
+  .cut-title { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.4px; }
+  .cut-subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .score-ring { display: flex; flex-direction: column; align-items: center; gap: 2px; flex-shrink: 0; }
+  .score-num { font-size: 32px; font-weight: 700; color: var(--pass); font-variant-numeric: tabular-nums; line-height: 1; }
+  .score-denom { font-size: 11px; color: var(--muted); }
+  .summary-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .stat-pill { display: flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; font-size: 12px; }
+  .stat-pill .label { color: var(--muted); }
+  .stat-pill .val { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+  .stat-pill .val.green { color: var(--pass); }
+  .section-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); margin-bottom: 8px; }
+  .components { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+  .tag { background: var(--tag-bg); color: var(--tag-text); border-radius: 6px; padding: 4px 12px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
+  .tag.gray { background: var(--surface2); color: var(--faint); }
+  .tests-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
+  .class-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: var(--surface2); border-bottom: 1px solid var(--border); }
+  .class-name { font-size: 11px; font-weight: 600; color: var(--muted); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.03em; }
+  .class-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: var(--pass-bg); color: var(--pass); }
+  .test-row { display: flex; align-items: center; padding: 9px 16px; border-bottom: 1px solid var(--border); gap: 10px; }
+  .test-row:last-child { border-bottom: none; }
+  .test-indicator { width: 6px; height: 6px; border-radius: 50%; background: var(--pass); flex-shrink: 0; }
+  .test-name { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .test-outcome { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--pass); flex-shrink: 0; }
+  .invariants { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+  .invariant-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .invariant-row:last-child { border-bottom: none; }
+  .invariant-icon { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+  .invariant-text { font-size: 12px; color: var(--text); }
+  .invariant-text strong { color: var(--pass); font-weight: 600; }
+  .footer { display: flex; justify-content: space-between; align-items: center; padding-top: 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--faint); }
+  .footer-brand { font-weight: 600; color: var(--muted); }
+  .progress-track { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 20px; }
+  .progress-fill { height: 100%; background: var(--pass); border-radius: 2px; width: 100%; }
+  .note { font-size: 11px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 20px; line-height: 1.7; }
+  code { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; }
+</style>
+
+<div class="header">
+  <div class="header-left">
+    <span class="eyebrow">ASTRA CTS — Integration Test Digest</span>
+    <h1 class="cut-title">Cut 3 — Temporal · Redis · OCR · YugabyteDB · Immudb</h1>
+    <p class="cut-subtitle">
+      IET watchdog timing · Vault stale recovery · Timeout routing · DB→Immudb pairing under time-skip
+    </p>
+  </div>
+  <div class="score-ring">
+    <span class="score-num">12</span>
+    <span class="score-denom">of 12 passed</span>
+  </div>
+</div>
+
+<div class="progress-track"><div class="progress-fill"></div></div>
+
+<div class="summary-bar">
+  <div class="stat-pill"><span class="label">Passed</span><span class="val green">12</span></div>
+  <div class="stat-pill"><span class="label">Failed</span><span class="val">0</span></div>
+  <div class="stat-pill"><span class="label">Run time</span><span class="val">~6 s</span></div>
+  <div class="stat-pill"><span class="label">Date</span><span class="val">2026-08-25</span></div>
+  <div class="stat-pill"><span class="label">Branch</span><span class="val">claude/cool-euler-x02gek</span></div>
+</div>
+
+<div class="note">
+  <strong>Time-skip Temporal note:</strong> Cut 3 uses <code>WorkflowEnvironment.start_time_skipping()</code> — an embedded in-process Temporal server where <code>workflow.sleep()</code> and <code>workflow.wait_condition(timeout=...)</code> advance instantly. The 55-minute <code>HumanReviewWorkflow</code> timeout, the 4-hour <code>MismatchResolutionWorkflow</code> timeout, and the IET watchdog T-30s window all collapse to milliseconds without any Docker container.
+</div>
+
+<div class="section-label">Components under test</div>
+<div class="components">
+  <span class="tag">Temporal time-skip (embedded)</span>
+  <span class="tag">Redis (real)</span>
+  <span class="tag">OCR Stub (port 18010)</span>
+  <span class="tag">YugabyteDB (real)</span>
+  <span class="tag">Immudb (real)</span>
+  <span class="tag gray">Kafka — excluded</span>
+  <span class="tag gray">Vision LLM — excluded</span>
+</div>
+
+<div class="section-label">Test results by class</div>
+
+<div class="tests-card">
+  <div class="class-header">
+    <span class="class-name">TestIETWatchdog</span>
+    <span class="class-badge">2 / 2</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_iet_watchdog_spawn_time_before_first_activity</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_iet_watchdog_t_minus_30s_fires_with_time_skip</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+</div>
+
+<div class="tests-card">
+  <div class="class-header">
+    <span class="class-name">TestVaultTemporalInteraction</span>
+    <span class="class-badge">3 / 3</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_vault_stale_inward_routes_human_review</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_vault_complete_miss_never_auto_return</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_outward_pps_miss_never_auto_return</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+</div>
+
+<div class="tests-card">
+  <div class="class-header">
+    <span class="class-name">TestVaultSyncWorkflow</span>
+    <span class="class-badge">2 / 2</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_vault_sync_populates_redis_and_db</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_vault_sync_backfills_redis_from_db</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+</div>
+
+<div class="tests-card">
+  <div class="class-header">
+    <span class="class-name">TestHumanReviewTimeout</span>
+    <span class="class-badge">2 / 2</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_human_review_55min_timeout_fires</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_human_review_resolves_on_signal</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+</div>
+
+<div class="tests-card">
+  <div class="class-header">
+    <span class="class-name">TestMismatchResolutionTimeout</span>
+    <span class="class-badge">2 / 2</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_mismatch_resolution_4hr_timeout_auto_rejects</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_mismatch_resolves_on_go_ahead_signal</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+</div>
+
+<div class="tests-card">
+  <div class="class-header">
+    <span class="class-name">TestDecisionPairingCut3</span>
+    <span class="class-badge">1 / 1</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_timeout_decision_db_immudb_both_written</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+</div>
+
+<div class="section-label" style="margin-top:24px">Safety invariants verified in this cut</div>
+<div class="invariants">
+  <div class="invariant-row">
+    <span class="invariant-icon">⏱️</span>
+    <span class="invariant-text"><strong>IET watchdog spawns first</strong> — <code>on_watchdog_spawn</code> callback fires before any OCR, signature, or fraud activity begins; ordering verified against full <code>ChequeProcessingWorkflow.run_with_mocks()</code> result</span>
+  </div>
+  <div class="invariant-row">
+    <span class="invariant-icon">🚨</span>
+    <span class="invariant-text"><strong>T-30s emergency filing fires</strong> — <code>IETWatchdogWorkflow</code> calls <code>file_to_ngch</code> via Temporal time-skip at the IET emergency threshold; <code>workflow_id</code> idempotency key confirmed present in filing input</span>
+  </div>
+  <div class="invariant-row">
+    <span class="invariant-icon">🔑</span>
+    <span class="invariant-text"><strong>Vault miss → HUMAN_REVIEW, never STP_RETURN</strong> — both Redis-only miss and complete Redis+DB miss produce <code>outcome="HUMAN_REVIEW"</code>; PPS outward miss identical guarantee</span>
+  </div>
+  <div class="invariant-row">
+    <span class="invariant-icon">♻️</span>
+    <span class="invariant-text"><strong>Vault stale recovers from DB tier</strong> — Redis key deleted mid-session; <code>get_signatures()</code> falls through to <code>cts.signature_embeddings</code> (YugabyteDB) and backfills Redis automatically (VaultSync guarantee)</span>
+  </div>
+  <div class="invariant-row">
+    <span class="invariant-icon">🗄️</span>
+    <span class="invariant-text"><strong>VaultSync writes both tiers</strong> — <code>store_embeddings()</code> persists to YugabyteDB first, then Redis; post-restart backfill from DB tier verified via Redis flush → lookup → Redis lrange</span>
+  </div>
+  <div class="invariant-row">
+    <span class="invariant-icon">⏰</span>
+    <span class="invariant-text"><strong>HumanReview 55-min timeout produces TIMEOUT_AUTO_RETURNED</strong> — no signal sent; <code>result.timed_out is True</code> and <code>result.outcome == "TIMEOUT_AUTO_RETURNED"</code>; signal path resolves REVIEWER_CONFIRMED immediately</span>
+  </div>
+  <div class="invariant-row">
+    <span class="invariant-icon">🔀</span>
+    <span class="invariant-text"><strong>MismatchResolution 4-hr timeout produces TIMEOUT_AUTO_REJECTED</strong> — hardcoded <code>MISMATCH_TIMEOUT_HOURS = 4</code> triggers; GO_AHEAD signal resolves early with <code>outcome="GO_AHEAD"</code></span>
+  </div>
+  <div class="invariant-row">
+    <span class="invariant-icon">🗄️</span>
+    <span class="invariant-text"><strong>DB→Immudb pairing rule under timeout</strong> — STP_RETURN on review timeout writes to <code>cts.agent_decisions</code> (YugabyteDB) and <code>verifiedSet()</code> (Immudb); both confirmed; no silent skip</span>
+  </div>
+</div>
+
+<div class="footer">
+  <span class="footer-brand">ASTRA — Bank Intelligence Platform</span>
+  <span>Cut 3 of 3 · Diagonal test strategy · 2026-08-25</span>
+</div>

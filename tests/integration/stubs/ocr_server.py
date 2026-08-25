@@ -28,6 +28,9 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 import uvicorn
 
+# Exported constant — imported by cut conftest files
+OCR_STUB_PORT = int(os.environ.get("OCR_STUB_PORT", "18010"))
+
 app = FastAPI(title="ASTRA OCR Stub", docs_url=None, redoc_url=None)
 
 
@@ -151,5 +154,4 @@ async def health():
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("OCR_STUB_PORT", "8010"))
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
+    uvicorn.run(app, host="0.0.0.0", port=OCR_STUB_PORT, log_level="warning")

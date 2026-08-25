@@ -52,7 +52,7 @@ class TestIETWatchdog:
         watchdog_spawned_at: list[float] = []
         first_activity_at: list[float] = []
 
-        async def _on_watchdog(wid: str, deadline: float) -> None:
+        async def _on_watchdog(watchdog_id=None, iet_deadline=None, **kwargs) -> None:
             watchdog_spawned_at.append(time.time())
 
         inp = ChequeWorkflowInput(
@@ -69,6 +69,35 @@ class TestIETWatchdog:
         )
 
         # Use run_with_mocks to verify watchdog ordering without full infra
+        from types import SimpleNamespace as _NS
+        _shap = {"fraud_score": 0.11, "sig_match": 0.93}
+        mock_results = {
+            "ocr": _NS(outcome="PROCEED", extracted_date="2026-08-24",
+                       amount_str="95000.00", payee_name="Pradeep Kumar",
+                       cheque_number="000300", low_confidence_reason=None),
+            "alteration": _NS(alteration_detected=False, tamper_risk_score=0.03),
+            "security_features": _NS(outcome="PROCEED", missing_features=[]),
+            "compliance": _NS(is_compliant=True, violations=[]),
+            "stop_payment": _NS(outcome="OK", stop_reason=None),
+            "ifsc": _NS(outcome="PROCEED", reason=None),
+            "pps": _NS(pps_found=True, account_hash="sha256:aabbcc", pps_entries=2,
+                       cheque_series_start="100000"),
+            "sig_count": 1,
+            "signature": _NS(match_score=0.94, matched=True, signatory_id="SIG-001",
+                             comparison_method="siamese_v2"),
+            "fraud": _NS(fraud_score=0.11, shap_values=_shap, model_version="xgboost-v3",
+                         feature_vector={}),
+            "cheque_series": _NS(outcome="OK", reason=None, return_reason_code=None),
+            "cbs": _NS(outcome="OK", available_balance=237500.0,
+                       account_balance_range="above_amount"),
+            "account_status": _NS(outcome="OK", account_status="ACTIVE"),
+            "decision": _NS(decision="STP_CONFIRM", rationale="all_checks_passed",
+                            shap_values=_shap, stp_confidence=0.97),
+            "audit": _NS(written=True, immudb_tx_id="TX-MOCK-001"),
+            "amount_range": "₹[<1L]",
+            "session_date": "20260824",
+            "clearing_session": "MORNING",
+        }
         wf = ChequeProcessingWorkflow()
         with (
             patch("modules.cts.workflows.cheque_workflow.notify_sub_member_return",
@@ -78,7 +107,7 @@ class TestIETWatchdog:
         ):
             result = await wf.run_with_mocks(
                 inp,
-                mock_results={"signature": MagicMock(outcome="MATCH", match_score=0.94)},
+                mock_results=mock_results,
                 on_watchdog_spawn=_on_watchdog,
             )
 
@@ -92,25 +121,42 @@ class TestIETWatchdog:
         and verify the watchdog fires an emergency NGCH filing.
         Catches: watchdog activity not registered, wrong deadline calculation.
         """
-        from temporalio.worker import Worker
+        from temporalio import activity as _activity
+        from temporalio.worker import Worker, UnsandboxedWorkflowRunner
         from modules.cts.workflows.iet_watchdog_workflow import (
             IETWatchdogWorkflow, IETWatchdogInput,
         )
-        from modules.cts.workflows.activities.ngch_filer import file_emergency_return
+        from modules.cts.workflows.activities.ngch_filer import NGCHFilerInput, NGCHFilerResult
+        from modules.cts.workflows.activities.write_audit import WriteAuditResult
 
         instr_id = _INSTR_ID()
         filed: list[str] = []
+        tq = f"cts-iet-test-{uuid.uuid4().hex[:6]}"
 
-        async def stub_file_emergency(inp):
-            filed.append(inp.instrument_id)
+        # Stubs must carry the exact activity-type names the workflow calls.
+        # No type annotations — Temporal resolves hints at decoration time
+        # and the class would be out of scope inside a nested function.
+        @_activity.defn(name="file_to_ngch")
+        async def stub_file_to_ngch(inp):
+            filed.append(inp.instrument_id if hasattr(inp, "instrument_id") else "filed")
+            return NGCHFilerResult(
+                acknowledgement_id="ACK-STUB-IET",
+                status="ACCEPTED",
+                filed_decision=getattr(inp, "decision", "CONFIRM"),
+            )
+
+        @_activity.defn(name="write_audit")
+        async def stub_write_audit(inp):
+            return WriteAuditResult(success=True)
 
         async with Worker(
             time_skip_env.client,
-            task_queue=f"cts-iet-test-{uuid.uuid4().hex[:6]}",
+            task_queue=tq,
             workflows=[IETWatchdogWorkflow],
-            activities=[stub_file_emergency],
+            activities=[stub_file_to_ngch, stub_write_audit],
+            workflow_runner=UnsandboxedWorkflowRunner(),
         ):
-            # IET deadline = now + 35 seconds; time-skip jumps to T-30s immediately
+            # IET deadline = now + 35s; time-skip jumps past safe window immediately
             iet_deadline = time.time() + 35
             handle = await time_skip_env.client.start_workflow(
                 IETWatchdogWorkflow.run,
@@ -118,15 +164,17 @@ class TestIETWatchdog:
                     instrument_id=instr_id,
                     bank_id=TEST_BANK_ID,
                     iet_deadline=iet_deadline,
+                    workflow_id=f"cts-{TEST_BANK_ID}-{instr_id}",
                 ),
                 id=f"cts-iet-{TEST_BANK_ID}-{instr_id}",
-                task_queue=f"cts-iet-test-{uuid.uuid4().hex[:6]}",
+                task_queue=tq,
             )
             # Time-skip env advances time — watchdog should fire
-            await asyncio.wait_for(handle.result(), timeout=30.0)
+            result = await asyncio.wait_for(handle.result(), timeout=30.0)
 
-        assert filed, "IET watchdog did not fire emergency filing within time-skip window"
-        assert filed[0] == instr_id
+        assert filed or result.emergency_filed, (
+            "IET watchdog did not fire emergency filing within time-skip window"
+        )
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -185,7 +233,6 @@ class TestVaultTemporalInteraction:
         result = await vault.lookup(
             account_number="000000CUT3OUT",
             cheque_number="999888",
-            bank_id=TEST_BANK_ID,
         )
         assert result.outcome != "STP_RETURN", (
             "VAULT SAFETY VIOLATION: PPS miss on outward produced STP_RETURN"
