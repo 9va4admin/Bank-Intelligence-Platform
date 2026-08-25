@@ -48,6 +48,18 @@ export const MOCK_QUEUE = [
     principal_tag: 'SUB_MEMBER',
     sub_member_name: 'Thrissur UCB',
     sub_member_id: 'SMB-KL-001',
+    alteration_result: {
+      alteration_detected: false, tamper_risk_score: 0.04, physical_anomaly_score: 0.02,
+      altered_fields: [], ink_physics_anomalies: [], paper_fibre_anomalies: [],
+      correction_fluid_anomalies: [], chemical_alteration_anomalies: [],
+      cascade_level: 1, model_version: 'qwen2-vl-7b',
+    },
+    uv_security: {
+      pentograph_authentic: true, pentograph_confidence: 0.97, pentograph_notes: 'Differential UV-ink pattern clearly visible',
+      security_thread_present: true, security_thread_confidence: 0.99, security_thread_position: 'vertical_center_left_third', security_thread_notes: 'Bright fluorescent thread confirmed',
+      uv_watermark_present: true, uv_watermark_confidence: 0.94, uv_watermark_notes: 'Bank ghost image distinctly visible under UV',
+      uv_security_passed: true, uv_risk_score: 0.03,
+    },
   },
   {
     instrument_id: 'CHQ-2026-006221',
@@ -89,6 +101,18 @@ export const MOCK_QUEUE = [
     security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true, missing: [] },
     sig_specimen_available: true,
     sig_specimen_label: 'Last updated: 07-Jan-2026',
+    alteration_result: {
+      alteration_detected: false, tamper_risk_score: 0.08, physical_anomaly_score: 0.05,
+      altered_fields: [], ink_physics_anomalies: [], paper_fibre_anomalies: [],
+      correction_fluid_anomalies: [], chemical_alteration_anomalies: [],
+      cascade_level: 1, model_version: 'qwen2-vl-7b',
+    },
+    uv_security: {
+      pentograph_authentic: true, pentograph_confidence: 0.95, pentograph_notes: 'UV-ink pattern present and authentic',
+      security_thread_present: true, security_thread_confidence: 0.97, security_thread_position: 'vertical_center_left_third', security_thread_notes: 'Metallic security thread confirmed',
+      uv_watermark_present: true, uv_watermark_confidence: 0.92, uv_watermark_notes: 'Ghost image visible under UV lamp',
+      uv_security_passed: true, uv_risk_score: 0.05,
+    },
   },
   {
     instrument_id: 'CHQ-2026-006248',
@@ -130,6 +154,28 @@ export const MOCK_QUEUE = [
     security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: false, printer_name_cts2010: true, missing: ['micro_lettering'] },
     sig_specimen_available: true,
     sig_specimen_label: 'Last updated: 14-Mar-2026',
+    alteration_result: {
+      alteration_detected: true, tamper_risk_score: 0.82, physical_anomaly_score: 0.74,
+      altered_fields: ['amount_figures', 'amount_words'],
+      ink_physics_anomalies: [
+        { field: 'amount_figures', score: 0.79, pressure_inconsistency: true, bleed_anomaly: true, flow_reversal: false },
+        { field: 'amount_words', score: 0.68, pressure_inconsistency: true, bleed_anomaly: false, flow_reversal: true },
+      ],
+      paper_fibre_anomalies: [
+        { field: 'amount_figures', score: 0.61, fibre_distortion_detected: true, gloss_patch_detected: false },
+      ],
+      correction_fluid_anomalies: [
+        { field: 'amount_figures', score: 0.73, luminance_spike_detected: true, edge_sharpness_ratio: 4.2 },
+      ],
+      chemical_alteration_anomalies: [],
+      cascade_level: 2, model_version: 'qwen2-vl-72b',
+    },
+    uv_security: {
+      pentograph_authentic: true, pentograph_confidence: 0.91, pentograph_notes: 'Pentograph pattern authentic — paper stock is genuine CTS-2010',
+      security_thread_present: true, security_thread_confidence: 0.96, security_thread_position: 'vertical_center_left_third', security_thread_notes: 'Thread confirmed — alteration is post-issue ink manipulation',
+      uv_watermark_present: true, uv_watermark_confidence: 0.89, uv_watermark_notes: 'Bank ghost image present — confirms genuine paper substrate',
+      uv_security_passed: true, uv_risk_score: 0.09,
+    },
   },
   {
     instrument_id: 'CHQ-2026-006259',
@@ -174,6 +220,18 @@ export const MOCK_QUEUE = [
     principal_tag: 'SUB_MEMBER',
     sub_member_name: 'Ernakulam UCB',
     sub_member_id: 'SMB-KL-002',
+    alteration_result: {
+      alteration_detected: false, tamper_risk_score: 0.06, physical_anomaly_score: 0.03,
+      altered_fields: [], ink_physics_anomalies: [], paper_fibre_anomalies: [],
+      correction_fluid_anomalies: [], chemical_alteration_anomalies: [],
+      cascade_level: 1, model_version: 'qwen2-vl-7b',
+    },
+    uv_security: {
+      pentograph_authentic: true, pentograph_confidence: 0.98, pentograph_notes: 'Differential UV-ink pattern clearly visible',
+      security_thread_present: true, security_thread_confidence: 0.99, security_thread_position: 'vertical_center_left_third', security_thread_notes: 'Security thread confirmed',
+      uv_watermark_present: true, uv_watermark_confidence: 0.96, uv_watermark_notes: 'Bank watermark fully visible',
+      uv_security_passed: true, uv_risk_score: 0.02,
+    },
   },
   {
     instrument_id: 'CHQ-2026-006271',
@@ -216,6 +274,18 @@ export const MOCK_QUEUE = [
     sig_specimen_available: true,
     sig_specimen_label: 'Last updated: 18-Jun-2026',
     opa_rule: 'cts_routing.rego · rule: high_value_dual_approval',
+    alteration_result: {
+      alteration_detected: false, tamper_risk_score: 0.11, physical_anomaly_score: 0.08,
+      altered_fields: [], ink_physics_anomalies: [], paper_fibre_anomalies: [],
+      correction_fluid_anomalies: [], chemical_alteration_anomalies: [],
+      cascade_level: 2, model_version: 'qwen2-vl-72b',
+    },
+    uv_security: {
+      pentograph_authentic: true, pentograph_confidence: 0.96, pentograph_notes: 'UV differential pattern intact',
+      security_thread_present: true, security_thread_confidence: 0.98, security_thread_position: 'vertical_center_left_third', security_thread_notes: 'Thread confirmed — high-value L2 scan',
+      uv_watermark_present: true, uv_watermark_confidence: 0.95, uv_watermark_notes: 'Watermark clearly visible under UV',
+      uv_security_passed: true, uv_risk_score: 0.04,
+    },
   },
   {
     instrument_id: 'CHQ-2026-006283',
@@ -257,6 +327,18 @@ export const MOCK_QUEUE = [
     security_features: { void_pantograph: true, rupee_symbol: true, micro_lettering: true, printer_name_cts2010: true, missing: [] },
     sig_specimen_available: true,
     sig_specimen_label: 'Last updated: 22-May-2026',
+    alteration_result: {
+      alteration_detected: false, tamper_risk_score: 0.07, physical_anomaly_score: 0.04,
+      altered_fields: [], ink_physics_anomalies: [], paper_fibre_anomalies: [],
+      correction_fluid_anomalies: [], chemical_alteration_anomalies: [],
+      cascade_level: 1, model_version: 'qwen2-vl-7b',
+    },
+    uv_security: {
+      pentograph_authentic: true, pentograph_confidence: 0.94, pentograph_notes: 'UV pattern authentic',
+      security_thread_present: true, security_thread_confidence: 0.97, security_thread_position: 'vertical_center_left_third', security_thread_notes: 'Thread confirmed',
+      uv_watermark_present: true, uv_watermark_confidence: 0.93, uv_watermark_notes: 'Watermark present',
+      uv_security_passed: true, uv_risk_score: 0.06,
+    },
   },
 ]
 
