@@ -44,11 +44,7 @@ from temporalio import activity
 
 log = structlog.get_logger()
 
-# High-value threshold — cheques above this always require human review
-# even when UV passes. Fetched from config_service in production; using
-# a module-level sentinel here so the activity can call config_service once
-# at runtime rather than importing config at module level.
-_HIGH_VALUE_DEFAULT = 500_000.0
+_HIGH_VALUE_FALLBACK = 500_000.0  # used only when config_service is absent (tests)
 
 
 # ── Prompt ────────────────────────────────────────────────────────────────────
@@ -148,6 +144,7 @@ class UVSecurityResult(BaseModel):
 async def analyze_uv_security(
     inp: UVSecurityInput,
     orchestrator: Any = None,       # worker-level DI: CascadeOrchestrator
+    config_service: Any = None,     # worker-level DI: ConfigService
 ) -> UVSecurityResult:
     """
     Run UV security checks on the UV-wavelength cheque image.
@@ -155,6 +152,14 @@ async def analyze_uv_security(
     Uses vision LLM (cts-vision queue) to analyse three physical security
     features. Gracefully degrades if the model or image is unavailable.
     """
+    cts_config = {}
+    if config_service is not None:
+        try:
+            cts_config = await config_service.get_cts_config(inp.bank_id)
+        except Exception:
+            pass
+    high_value_limit: float = float(cts_config.get("high_value_amount_threshold", _HIGH_VALUE_FALLBACK))
+
     if orchestrator is None:
         log.warning(
             "uv_security.no_orchestrator",
@@ -212,7 +217,7 @@ async def analyze_uv_security(
     uv_passed = pentograph_authentic and thread_present and watermark_present
 
     # high-value always requires human review regardless of UV result
-    is_high_value = inp.cheque_amount >= _HIGH_VALUE_DEFAULT
+    is_high_value = inp.cheque_amount >= high_value_limit
     requires_review = model_wants_review or not uv_passed or is_high_value
 
     log.info(
