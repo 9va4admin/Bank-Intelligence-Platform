@@ -811,29 +811,32 @@ def crop_signature_from_image_data(image_b64: str) -> str:
         y1 = min(h, int(0.86 * h))
         raw_crop = img.crop((x0, y0, x1, y1))
 
-        # ── Step 1: auto-trim "Please sign above" label on the RAW crop ────────
-        # Must run before enhancement: desaturation lightens the label text too,
-        # reducing its dark-pixel density below the detection threshold.
-        # Scan bottom 60% of crop (scan_from=0.40) to catch HDFC cheques where
-        # the label sits at ~57% of crop height.
-        # Fallback = no trim (e.g. 1.tiff where the sig tail merges with label).
+        # ── Step 1: auto-trim pre-printed text below signature on the RAW crop ──
+        # Removes "Please sign above" AND caps names (ANKIT KUMAR, RAJARSHI PAL).
+        # Runs on raw (pre-enhancement) so text pixels are fully dark regardless
+        # of paper colour.
+        # Strategy — walk from bottom upward through ALL text bands:
+        #   each time we cross a gap after text, record it as the cut candidate.
+        #   The LAST such gap going upward = gap just below the signature ink.
+        #   (vs first gap = gap just above "Please sign above" only)
+        # Fallback = no trim when sig stroke merges with pre-printed names (1.tiff).
         try:
             import numpy as _np
             _g = _np.array(raw_crop.convert("L"))
             _h, _w = _g.shape
             _dark = _g < 160
             _dens = _dark.mean(axis=1)
-            _scan_from = int(_h * 0.40)
+            _scan_from = int(_h * 0.35)   # scan bottom 65% of crop
             _LABEL, _GAP = 0.025, 0.008
-            _in_text, _label_top = False, None
+            _in_text, _last_gap = False, None
             for _r in range(_h - 1, _scan_from - 1, -1):
                 if _dens[_r] >= _LABEL:
                     _in_text = True
                 elif _in_text and _dens[_r] < _GAP:
-                    _label_top = _r + 1
-                    break
-            if _label_top is not None and _label_top > int(_h * 0.25):
-                _cut = max(int(_h * 0.25), _label_top - 3)
+                    _last_gap = _r + 1   # keep overriding — want topmost gap
+                    _in_text = False     # reset: keep scanning for more bands above
+            if _last_gap is not None and _last_gap > int(_h * 0.20):
+                _cut = max(int(_h * 0.20), _last_gap - 3)
                 raw_crop = raw_crop.crop((0, 0, _w, _cut))
         except Exception:
             pass
