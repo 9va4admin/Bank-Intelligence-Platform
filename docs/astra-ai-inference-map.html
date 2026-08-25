@@ -1342,9 +1342,150 @@ td.model-ref { font-family: 'JetBrains Mono', monospace; font-size: 11px; color:
 
   <hr class="divider">
 
-  <!-- ── 5. Graceful Degradation Matrix ─────────────────── -->
+  <!-- ── 5. Regional OCR + Transliteration Stack ──────────── -->
   <section>
-    <div class="section-eyebrow">05 · Graceful Degradation</div>
+    <div class="section-eyebrow">05 · Regional OCR &amp; Transliteration</div>
+    <h2>Indic Script Pipeline — IndicOCR + IndicXlit + Phonemic Engine</h2>
+    <p style="color:var(--text-muted);max-width:720px;margin-bottom:24px">
+      GOT-OCR2.0 handles Latin and MICR. For payee names and amount-in-words written in
+      any of 9 Indic scripts, a dedicated three-stage pipeline runs on top: script-aware
+      OCR → transliteration → fuzzy match against the CBS-stored English name.
+    </p>
+
+    <!-- Pipeline flow -->
+    <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:32px;align-items:center">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;min-width:160px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--cyan);text-transform:uppercase;margin-bottom:6px">Step A</div>
+        <div style="font-weight:600;color:var(--text);font-size:13px">Script Detection</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">identify_indic_script()<br>zone_extractor.py</div>
+      </div>
+      <div style="color:var(--amber);font-size:20px;font-weight:300">→</div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;min-width:160px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--purple);text-transform:uppercase;margin-bottom:6px">Step B</div>
+        <div style="font-weight:600;color:var(--text);font-size:13px">IndicOCR</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">PaddleOCR per-script<br>port 8021</div>
+      </div>
+      <div style="color:var(--amber);font-size:20px;font-weight:300">→</div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;min-width:160px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--amber);text-transform:uppercase;margin-bottom:6px">Step C</div>
+        <div style="font-weight:600;color:var(--text);font-size:13px">Name Lexicon</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Malayalam Christian<br>names (58 entries)</div>
+      </div>
+      <div style="color:var(--amber);font-size:20px;font-weight:300">→</div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;min-width:160px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--green);text-transform:uppercase;margin-bottom:6px">Step D</div>
+        <div style="font-weight:600;color:var(--text);font-size:13px">Transliteration</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">IndicXlit (primary)<br>Brahmic phonemic (fallback)</div>
+      </div>
+      <div style="color:var(--amber);font-size:20px;font-weight:300">→</div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;min-width:160px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--red);text-transform:uppercase;margin-bottom:6px">Step E</div>
+        <div style="font-weight:600;color:var(--text);font-size:13px">Jaro-Winkler</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Fuzzy match vs<br>CBS English name</div>
+      </div>
+    </div>
+
+    <!-- IndicOCR microservice -->
+    <h3 style="color:var(--text);font-size:15px;font-weight:700;margin-bottom:14px">IndicOCR Microservice — Script → PaddleOCR Routing (port 8021)</h3>
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:14px">
+      <code class="mono" style="font-size:11px">apps/indic_ocr/main.py</code> —
+      One PaddleOCR instance per script, lazy-loaded and cached.
+      Script is detected by <code class="mono" style="font-size:11px">identify_indic_script()</code> in the OCR activity
+      and passed as <code class="mono" style="font-size:11px">?script=devanagari</code> in the HTTP call.
+      Applies only to <code class="mono" style="font-size:11px">SCRIPT_ADAPTIVE</code> fields:
+      <strong>payee_name</strong>, <strong>amount_words</strong>, <strong>bank_name</strong>.
+    </p>
+    <div style="overflow-x:auto;margin-bottom:28px">
+      <table class="matrix-table">
+        <thead>
+          <tr>
+            <th>Script name (identify_indic_script result)</th>
+            <th>PaddleOCR lang code</th>
+            <th>Languages covered</th>
+            <th>PaddleOCR pack</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="comp">devanagari</td><td><code class="mono" style="font-size:11px">hi</code></td><td>Hindi, Marathi, Sanskrit</td><td>PP-OCRv4 Hindi</td></tr>
+          <tr><td class="comp">bengali</td><td><code class="mono" style="font-size:11px">bn</code></td><td>Bengali / Bangla</td><td>PP-OCRv4 Bengali</td></tr>
+          <tr><td class="comp">gurmukhi</td><td><code class="mono" style="font-size:11px">pa</code></td><td>Punjabi</td><td>PP-OCRv4 Punjabi</td></tr>
+          <tr><td class="comp">gujarati</td><td><code class="mono" style="font-size:11px">gu</code></td><td>Gujarati</td><td>PP-OCRv4 Gujarati</td></tr>
+          <tr><td class="comp">odia</td><td><code class="mono" style="font-size:11px">or</code></td><td>Odia (Oriya)</td><td>PP-OCRv4 Odia</td></tr>
+          <tr><td class="comp">tamil</td><td><code class="mono" style="font-size:11px">ta</code></td><td>Tamil</td><td>PP-OCRv4 Tamil</td></tr>
+          <tr><td class="comp">telugu</td><td><code class="mono" style="font-size:11px">te</code></td><td>Telugu</td><td>PP-OCRv4 Telugu</td></tr>
+          <tr><td class="comp">kannada</td><td><code class="mono" style="font-size:11px">kn</code></td><td>Kannada</td><td>PP-OCRv4 Kannada</td></tr>
+          <tr><td class="comp">malayalam</td><td><code class="mono" style="font-size:11px">ml</code></td><td>Malayalam</td><td>PP-OCRv4 Malayalam</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:28px;font-size:12px;color:var(--text-muted)">
+      <strong style="color:var(--text)">Three backends</strong> (select via <code class="mono" style="font-size:11px">INDIC_OCR_BACKEND</code> env var):
+      <ul style="margin:8px 0 0 16px;line-height:1.8">
+        <li><strong>paddle</strong> (default, production) — per-script PaddleOCR language pack, one lazy-loaded instance per lang code cached in <code class="mono" style="font-size:11px">_paddle_ocr_pool</code></li>
+        <li><strong>ai4bharat</strong> — OneFourthLabs/Indic-OCR (CRAFT detection + EasyOCR recognition). Requires cloning source tree to <code class="mono" style="font-size:11px">apps/indic_ocr/ai4bharat_src/</code>. Falls back to paddle automatically when source tree absent.</li>
+        <li><strong>easyocr</strong> — Latin-only fallback using EasyOCR <code class="mono" style="font-size:11px">['hi']</code> pack. Does not distinguish scripts.</li>
+      </ul>
+    </div>
+
+    <!-- Transliteration stack -->
+    <h3 style="color:var(--text);font-size:15px;font-weight:700;margin-bottom:14px">Transliteration Stack — payee_normalizer.py</h3>
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">
+      After IndicOCR extracts the payee name in its native script, <code class="mono" style="font-size:11px">payee_names_match()</code>
+      in <code class="mono" style="font-size:11px">modules/cts/preprocessing/payee_normalizer.py</code> converts it to Latin for Jaro-Winkler comparison against the CBS-stored English name.
+    </p>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:24px">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px 18px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--amber);text-transform:uppercase;margin-bottom:8px">Primary — IndicXlit (AI4Bharat)</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">Seq2Seq LSTM Transliterator</div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
+          Package: <code class="mono" style="font-size:10px">ai4bharat-transliteration</code><br>
+          Models: ~5 MB each × 9 languages, downloaded once to <code class="mono" style="font-size:10px">~/.cache</code><br>
+          API: <code class="mono" style="font-size:10px">XlitEngine.translit_word(word, lang_code, topk=1)</code><br>
+          Trained on Dakshina dataset — handles conventional community spellings<br>
+          (George, Thomas) that no phonemic rule engine can recover.<br>
+          <span style="color:var(--green);font-weight:600">Status: implemented, graceful auto-detect.</span> Install package to activate.
+        </div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px 18px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--cyan);text-transform:uppercase;margin-bottom:8px">Fallback — Brahmic Phonemic Engine</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">Character-Level Rule Engine</div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
+          File: <code class="mono" style="font-size:10px">payee_normalizer.py</code><br>
+          Zero dependencies — pure Python, always available.<br>
+          One <code class="mono" style="font-size:10px">_IndicScript</code> config per script; inherent-a algorithm.<br>
+          Benchmark: avg Jaro-Winkler 0.920 across 9 scripts (14-0 vs ITRANS).<br>
+          Gap: Malayalam Christian names (George → "joorjj" not "george").<br>
+          <span style="color:var(--text-muted);font-weight:600">Used per-word when IndicXlit returns [] or raises.</span>
+        </div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px 18px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--purple);text-transform:uppercase;margin-bottom:8px">Pre-Step — Malayalam Name Lexicon</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">name_lexicon.py</div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
+          58 Malayalam Christian name entries: ജോർജ്ജ് → george, തോമസ് → thomas, …<br>
+          Runs before transliteration so the phonemic engine handles only the remainder.<br>
+          IndicXlit makes this less critical (it handles these natively) but the lexicon<br>
+          provides deterministic coverage with zero model inference cost.
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-left:3px solid var(--green);border-radius:10px;padding:14px 18px;font-size:12px;color:var(--text-muted)">
+      <strong style="color:var(--text)">Word-level cascade (payee_normalizer.transliterate_by_script):</strong>
+      For each word in the payee name: (1) try IndicXlit.translit_word() → take top-1 candidate;
+      (2) if IndicXlit returns [] or raises → Brahmic phonemic for that word.
+      The lexicon runs <em>before</em> either transliterator, so lexicon-covered tokens never
+      reach the transliteration step. Config threshold: <code class="mono" style="font-size:11px">payee_match_threshold</code> (default 0.82).
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ── 6. Graceful Degradation Matrix ─────────────────── -->
+  <section>
+    <div class="section-eyebrow">06 · Graceful Degradation</div>
     <h2>What Happens When Each Component Fails</h2>
     <p class="section-desc">No silent failure. No IET breach. Every failure path is defined, logged, and routed. The IET Watchdog files regardless of AI availability.</p>
 
@@ -1468,9 +1609,9 @@ td.model-ref { font-family: 'JetBrains Mono', monospace; font-size: 11px; color:
 
   <hr class="divider">
 
-  <!-- ── 6. Config Keys Reference ───────────────────────── -->
+  <!-- ── 7. Config Keys Reference ───────────────────────── -->
   <section>
-    <div class="section-eyebrow">06 · Configuration Reference</div>
+    <div class="section-eyebrow">07 · Configuration Reference</div>
     <h2>Config Keys That Control AI Thresholds</h2>
     <p class="section-desc">All thresholds loaded at activity start via <code class="mono" style="font-size:13px">await config_service.get_ai_config(bank_id)</code> and <code class="mono" style="font-size:13px">await config_service.get_cts_config(bank_id)</code>. Hot-reload in 30 seconds via <code class="mono" style="font-size:13px">platform.config.changed</code> Kafka event. Zero code change, zero restart.</p>
 
