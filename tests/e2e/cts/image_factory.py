@@ -789,13 +789,11 @@ def crop_signature_from_image_data(image_b64: str) -> str:
     """
     Crop the signature zone from a real cheque scan (base64 data URI).
 
-    Uses the same PIL crop + Otsu binarisation + morphological thinning as
-    _sync_crop_signature() / _apply_morphological_normalisation() in
-    modules/cts/workflows/activities/signature.py — but takes image bytes
-    instead of a MinIO URL (real models aren't running in the test environment).
-
-    Bbox covers the standard CTS signature zone: lower-right quadrant.
-    A Vision LLM (detect_signatures activity) would refine this in production.
+    Bbox: tightly covers the CTS signature box — lower-right quadrant.
+    X from 65% (avoids body text on left), Y from 70% to 88% (avoids MICR band).
+    Enhancement is background-aware: chromatic paper (Canara blue, ICICI blue,
+    SBI green) is desaturated before contrast boost so the watermark doesn't
+    overpower the ink; neutral paper (cream/white) gets contrast directly.
     """
     if not _PIL_OK or not image_b64:
         return ""
@@ -804,25 +802,43 @@ def crop_signature_from_image_data(image_b64: str) -> str:
         img = Image.open(io.BytesIO(base64.b64decode(encoded))).convert("RGB")
         w, h = img.size
 
-        # Standard Indian CTS cheque: signature box is lower-right
-        # fractional bbox covers the "please sign above" zone
-        pad = max(4, int(min(w, h) * 0.015))
-        crop = img.crop((
-            max(0, int(0.54 * w) - pad),
-            max(0, int(0.60 * h) - pad),
-            min(w, w - pad),
-            min(h, int(0.90 * h) + pad),
-        ))
+        # CTS sig box: right side starts ~55% width; ink sits at 58–78% height.
+        # Y from 58% catches signature tops without hitting body text rows
+        # (address/account lines end by ~55%); 86% stays clear of MICR band.
+        x0 = max(0, int(0.58 * w))
+        y0 = max(0, int(0.58 * h))
+        x1 = min(w, int(0.99 * w))
+        y1 = min(h, int(0.86 * h))
+        crop = img.crop((x0, y0, x1, y1))
 
-        # For digest display: plain crop with contrast/sharpness boost.
-        # Otsu+thinning is for Siamese network input (signature.py) — not for
-        # visual inspection. Blue-tinted paper (Canara, SBI, etc.) causes
-        # THRESH_BINARY_INV to classify the entire background as foreground,
-        # producing an all-black crop.
         try:
-            from PIL import ImageEnhance, ImageFilter
-            crop = ImageEnhance.Contrast(crop).enhance(1.6)
-            crop = ImageEnhance.Sharpness(crop).enhance(1.4)
+            from PIL import ImageEnhance, ImageStat
+
+            # Detect chromatic background: compare mean R+B vs mean G channel.
+            # A blue/cyan watermark has high B, low R relative to G.
+            # A green watermark has high G. Either way saturation dominates.
+            stat = ImageStat.Stat(crop)
+            r_mean, g_mean, b_mean = stat.mean[:3]
+            # Chroma index: max deviation of any channel from neutral gray
+            gray_est = (r_mean + g_mean + b_mean) / 3
+            chroma = max(
+                abs(r_mean - gray_est),
+                abs(g_mean - gray_est),
+                abs(b_mean - gray_est),
+            )
+            is_chromatic = chroma > 12  # 0-255 scale; 12 catches blue/green paper
+
+            if is_chromatic:
+                # Desaturate first so watermark text fades, then mild contrast
+                gray = crop.convert("L").convert("RGB")
+                # Blend: 70% desaturated + 30% original keeps faint ink colour
+                crop = Image.blend(gray, crop, alpha=0.30)
+                crop = ImageEnhance.Contrast(crop).enhance(1.4)
+                crop = ImageEnhance.Sharpness(crop).enhance(1.1)
+            else:
+                # Neutral / cream paper — direct contrast boost is safe
+                crop = ImageEnhance.Contrast(crop).enhance(1.5)
+                crop = ImageEnhance.Sharpness(crop).enhance(1.2)
         except Exception:
             pass
 
