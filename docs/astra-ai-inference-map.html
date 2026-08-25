@@ -1,0 +1,1609 @@
+
+<title>ASTRA AI Inference Map</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+/* ─── Tokens ─────────────────────────────────────────── */
+:root {
+  --bg:          #EEF3FA;
+  --bg-card:     #FFFFFF;
+  --bg-code:     #F0F4FB;
+  --border:      #D1DBE8;
+  --border-faint:#E5EBF5;
+  --text:        #0F1C2E;
+  --text-body:   #2E4057;
+  --text-muted:  #5A7091;
+  --text-faint:  #8BA3BB;
+  --accent:      #0074A8;
+  --accent-glow: rgba(0,116,168,0.15);
+  --amber:       #C97F00;
+  --amber-bg:    rgba(201,127,0,0.1);
+  --green:       #1A7A4A;
+  --green-bg:    rgba(26,122,74,0.1);
+  --red:         #B91C1C;
+  --red-bg:      rgba(185,28,28,0.1);
+  --rail:        #0074A8;
+  --node-bg:     #FFFFFF;
+  --hero-bg:     #0A1628;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:          #070D18;
+    --bg-card:     #0E1A2D;
+    --bg-code:     #0A1525;
+    --border:      rgba(255,255,255,0.08);
+    --border-faint:rgba(255,255,255,0.04);
+    --text:        #E8F0FA;
+    --text-body:   #B0C4D8;
+    --text-muted:  #6A8BAA;
+    --text-faint:  #3D5570;
+    --accent:      #00B4D8;
+    --accent-glow: rgba(0,180,216,0.15);
+    --amber:       #F59E0B;
+    --amber-bg:    rgba(245,158,11,0.1);
+    --green:       #34D399;
+    --green-bg:    rgba(52,211,153,0.1);
+    --red:         #F87171;
+    --red-bg:      rgba(248,113,113,0.1);
+    --rail:        #00B4D8;
+    --node-bg:     #0E1A2D;
+    --hero-bg:     #030810;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:          #070D18;
+  --bg-card:     #0E1A2D;
+  --bg-code:     #0A1525;
+  --border:      rgba(255,255,255,0.08);
+  --border-faint:rgba(255,255,255,0.04);
+  --text:        #E8F0FA;
+  --text-body:   #B0C4D8;
+  --text-muted:  #6A8BAA;
+  --text-faint:  #3D5570;
+  --accent:      #00B4D8;
+  --accent-glow: rgba(0,180,216,0.15);
+  --amber:       #F59E0B;
+  --amber-bg:    rgba(245,158,11,0.1);
+  --green:       #34D399;
+  --green-bg:    rgba(52,211,153,0.1);
+  --red:         #F87171;
+  --red-bg:      rgba(248,113,113,0.1);
+  --rail:        #00B4D8;
+  --node-bg:     #0E1A2D;
+  --hero-bg:     #030810;
+}
+
+/* ─── Reset & Base ───────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-body);
+  background: var(--bg);
+}
+h1,h2,h3,h4 { font-family: 'Syne', sans-serif; color: var(--text); }
+code, pre, .mono { font-family: 'JetBrains Mono', monospace; }
+a { color: var(--accent); }
+
+/* ─── Hero ───────────────────────────────────────────── */
+.hero {
+  background: var(--hero-bg);
+  padding: 64px 48px 56px;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--accent) 40%, transparent 100%);
+  opacity: 0.7;
+  animation: scanline 4s ease-in-out forwards;
+  top: 0;
+}
+@keyframes scanline {
+  0%   { top: 0%; opacity: 0; }
+  5%   { opacity: 0.7; }
+  90%  { top: 100%; opacity: 0.5; }
+  100% { top: 100%; opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero::before { animation: none; opacity: 0; }
+}
+.hero-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 16px;
+}
+.hero h1 {
+  font-size: clamp(28px, 4vw, 48px);
+  font-weight: 800;
+  color: #E8F0FA;
+  line-height: 1.1;
+  text-wrap: balance;
+  max-width: 640px;
+  margin-bottom: 16px;
+}
+.hero-sub {
+  color: #7A9AB8;
+  font-size: 15px;
+  max-width: 560px;
+  line-height: 1.7;
+}
+.hero-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 28px;
+}
+.hero-chip {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(0,180,216,0.3);
+  color: #00B4D8;
+  background: rgba(0,180,216,0.06);
+  letter-spacing: 0.04em;
+}
+
+/* ─── Layout ─────────────────────────────────────────── */
+.page-body { max-width: 1100px; margin: 0 auto; padding: 48px 24px 80px; }
+section { margin-bottom: 64px; }
+.section-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+section > h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+section > .section-desc {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 28px;
+  max-width: 620px;
+}
+
+/* ─── Model Arsenal Cards ────────────────────────────── */
+.model-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+.model-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.model-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+.model-card.cyan::before  { background: var(--accent); }
+.model-card.amber::before { background: var(--amber); }
+.model-card.green::before { background: var(--green); }
+.model-card.red::before   { background: var(--red); }
+.model-card.purple::before { background: #8B5CF6; }
+
+.model-tag {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.model-tag.cyan   { background: rgba(0,180,216,0.12); color: var(--accent); }
+.model-tag.amber  { background: var(--amber-bg);       color: var(--amber);  }
+.model-tag.green  { background: var(--green-bg);        color: var(--green);  }
+.model-tag.red    { background: var(--red-bg);          color: var(--red);    }
+.model-tag.purple { background: rgba(139,92,246,0.12); color: #8B5CF6;       }
+.model-tag.gray   { background: rgba(130,150,170,0.12);color: var(--text-muted); }
+
+.model-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.model-role {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+.model-specs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.spec-item { font-size: 12px; }
+.spec-label {
+  color: var(--text-faint);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+.spec-value {
+  color: var(--text-body);
+  font-weight: 600;
+  font-size: 12px;
+}
+.spec-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  background: var(--bg-code);
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--accent);
+}
+.model-uses {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-faint);
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.use-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  margin: 2px 2px 2px 0;
+  color: var(--text-muted);
+}
+
+/* ─── Cascade Orchestrator ───────────────────────────── */
+.cascade-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 28px;
+}
+.cascade-flow {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin: 20px 0;
+  overflow-x: auto;
+}
+.casc-node {
+  flex: 1;
+  min-width: 160px;
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+}
+.casc-node h4 { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.casc-node p  { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+.casc-arrow {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  color: var(--accent);
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.casc-gate {
+  flex: 0 0 auto;
+  width: 140px;
+  background: var(--amber-bg);
+  border: 1px solid var(--amber);
+  border-radius: 6px;
+  padding: 14px 12px;
+  text-align: center;
+}
+.casc-gate h4 { font-size: 12px; font-weight: 700; color: var(--amber); margin-bottom: 4px; }
+.casc-gate p  { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+.cascade-rules {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
+.cascade-rule {
+  background: var(--bg-code);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: 12px;
+}
+.cascade-rule strong { display: block; color: var(--text); margin-bottom: 4px; font-size: 13px; }
+
+/* ─── Pipeline Rail ──────────────────────────────────── */
+.pipeline-rail {
+  position: relative;
+  padding-left: 48px;
+}
+.pipeline-rail::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 16px;
+  bottom: 16px;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--rail), transparent);
+  opacity: 0.4;
+}
+.pipeline-step {
+  position: relative;
+  margin-bottom: 24px;
+  display: flex;
+  gap: 0;
+}
+.pipeline-step:last-child { margin-bottom: 0; }
+.step-node {
+  position: absolute;
+  left: -48px;
+  top: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--node-bg);
+  border: 2px solid var(--rail);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  flex-shrink: 0;
+  z-index: 1;
+}
+.step-node.ai-node {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+}
+.step-node.rule-node {
+  border-color: var(--text-faint);
+  color: var(--text-faint);
+  background: var(--node-bg);
+}
+.step-body {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 18px;
+  flex: 1;
+}
+.step-body.ai-step { border-color: rgba(0,180,216,0.25); }
+.step-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.step-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  flex: 1;
+}
+.step-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+.badge-ai     { background: rgba(0,180,216,0.12); color: var(--accent); }
+.badge-rule   { background: rgba(130,150,170,0.12); color: var(--text-muted); }
+.badge-local  { background: rgba(139,92,246,0.12); color: #8B5CF6; }
+.step-model {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--bg-code);
+  padding: 2px 8px;
+  border-radius: 3px;
+  margin-bottom: 8px;
+  display: inline-block;
+}
+.step-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+.step-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-faint);
+  font-size: 11px;
+  color: var(--text-faint);
+  font-family: 'JetBrains Mono', monospace;
+}
+.step-meta span strong { color: var(--text-muted); font-weight: 500; }
+.step-outputs {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.step-outputs strong { color: var(--text); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px; }
+.output-chip {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  margin: 2px 2px 0 0;
+  color: var(--text-muted);
+}
+
+/* ─── Degradation Matrix ─────────────────────────────── */
+.matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  overflow-x: auto;
+}
+.matrix-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+.matrix-table th {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  background: var(--bg-code);
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.matrix-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-faint);
+  vertical-align: top;
+  line-height: 1.4;
+}
+.matrix-table tr:last-child td { border-bottom: none; }
+.matrix-table tr:hover td { background: var(--bg-code); }
+.outcome-ok     { color: var(--green); font-weight: 600; }
+.outcome-warn   { color: var(--amber); font-weight: 600; }
+.outcome-crit   { color: var(--red);   font-weight: 600; }
+td.comp { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; color: var(--text); }
+td.model-ref { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent); }
+
+/* ─── Config Keys Table ──────────────────────────────── */
+.config-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.config-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+.config-table th {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  background: var(--bg-code);
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.config-table td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border-faint);
+  vertical-align: top;
+}
+.config-table tr:last-child td { border-bottom: none; }
+.config-table tr:hover td { background: var(--bg-code); }
+.config-key {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--accent);
+}
+.config-default {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-code);
+  padding: 1px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.config-group-header td {
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  background: var(--bg-code);
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ─── Misc ───────────────────────────────────────────── */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+@media (max-width: 700px) {
+  .two-col { grid-template-columns: 1fr; }
+  .cascade-rules { grid-template-columns: 1fr; }
+  .model-specs { grid-template-columns: 1fr; }
+  .hero { padding: 40px 24px; }
+}
+.notice {
+  font-size: 12px;
+  background: var(--amber-bg);
+  border: 1px solid var(--amber);
+  border-radius: 6px;
+  padding: 10px 14px;
+  color: var(--amber);
+  margin-bottom: 20px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.divider {
+  border: none;
+  border-top: 1px solid var(--border-faint);
+  margin: 48px 0;
+}
+.legend {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  border: 2px solid;
+  flex-shrink: 0;
+}
+.legend-dot.ai   { border-color: var(--accent); background: var(--accent-glow); }
+.legend-dot.rule { border-color: var(--text-faint); }
+.legend-dot.local { border-color: #8B5CF6; }
+</style>
+
+<!-- ═══════════════════════════════════════════════════════ HERO -->
+<div class="hero">
+  <div class="hero-eyebrow">ASTRA CTS · AI Inference Reference · 2026</div>
+  <h1>AI &amp; Inference Map</h1>
+  <p class="hero-sub">
+    Every model, queue, cascade, and fallback path in the CTS Inward and Outward pipelines — from scanner to NGCH filing.
+  </p>
+  <div class="hero-chips">
+    <span class="hero-chip">Qwen2-VL 7B / 72B</span>
+    <span class="hero-chip">GOT-OCR2.0</span>
+    <span class="hero-chip">IndicOCR / PaddleOCR</span>
+    <span class="hero-chip">Siamese SNN v1</span>
+    <span class="hero-chip">XGBoost + SHAP</span>
+    <span class="hero-chip">Llama 3.3 70B</span>
+    <span class="hero-chip">CascadeOrchestrator</span>
+    <span class="hero-chip">Headroom Compression</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ BODY -->
+<div class="page-body">
+
+  <!-- ── 1. Model Arsenal ─────────────────────────────────── -->
+  <section>
+    <div class="section-eyebrow">01 · Model Arsenal</div>
+    <h2>All AI Models in Use</h2>
+    <p class="section-desc">Seven models across vision, OCR, signature, and fraud — each dedicated to a specific inference task with its own hardware queue and timeout budget.</p>
+
+    <div class="model-grid">
+
+      <!-- GOT-OCR2.0 -->
+      <div class="model-card cyan">
+        <div class="model-tag cyan">OCR · Stage 1</div>
+        <div class="model-name">GOT-OCR2.0</div>
+        <div class="model-role">General OCR Theory 2.0. Extracts all printed text fields from cheque image: MICR line (E-13B font), amount in figures, amount in words, date, payee name, drawer name, bank/branch.</div>
+        <div class="model-specs">
+          <div class="spec-item">
+            <div class="spec-label">L1 queue</div>
+            <div class="spec-code">cts-ocr-l1</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">L2 queue</div>
+            <div class="spec-code">cts-ocr-l2</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">L1 model</div>
+            <div class="spec-value">got-ocr2-7b</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">L2 model</div>
+            <div class="spec-value">got-ocr2-full</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Cascade timeout</div>
+            <div class="spec-value">120 s per model call</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Est. latency</div>
+            <div class="spec-value">200 – 400 ms (L1 path)</div>
+          </div>
+        </div>
+        <div class="model-uses">
+          Used in: <span class="use-badge">Inward OCR</span><span class="use-badge">Outward OCR</span>
+        </div>
+      </div>
+
+      <!-- IndicOCR -->
+      <div class="model-card purple">
+        <div class="model-tag purple">OCR · Stage 2</div>
+        <div class="model-name">IndicOCR (PaddleOCR)</div>
+        <div class="model-role">Refines OCR for Indic-script fields — payee name and amount in words — where GOT-OCR2.0 confidence falls below threshold. Covers 9 scripts: Devanagari, Bengali, Gujarati, Gurmukhi, Kannada, Malayalam, Odia, Tamil, Telugu.</div>
+        <div class="model-specs">
+          <div class="spec-item">
+            <div class="spec-label">Queue</div>
+            <div class="spec-value">Direct HTTP (no GPU queue)</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Hardware</div>
+            <div class="spec-value">CPU sidecar</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Timeout</div>
+            <div class="spec-value">15 s</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Kill switch</div>
+            <div class="spec-code">indic_ocr.kill_mode</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Est. latency</div>
+            <div class="spec-value">~100 ms</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Trigger</div>
+            <div class="spec-value">Indic script detected in zone</div>
+          </div>
+        </div>
+        <div class="model-uses">
+          Used in: <span class="use-badge">Inward OCR Stage 2</span><span class="use-badge">Outward OCR Stage 2</span>
+        </div>
+      </div>
+
+      <!-- Qwen2-VL 7B -->
+      <div class="model-card cyan">
+        <div class="model-tag cyan">Vision · L1 Cascade</div>
+        <div class="model-name">Qwen2-VL 7B</div>
+        <div class="model-role">Lightweight vision LLM. L1 of the CascadeOrchestrator — handles ~90 % of cheques in &lt;100 ms. Used for signature bbox detection and as L1 for alteration / UV checks. Escalates to 72B when confidence is below threshold or amount exceeds high-value limit.</div>
+        <div class="model-specs">
+          <div class="spec-item">
+            <div class="spec-label">Queue</div>
+            <div class="spec-code">cts-vision-l1</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Hardware</div>
+            <div class="spec-value">GPU (vLLM)</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Timeout</div>
+            <div class="spec-value">60 s</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Est. latency</div>
+            <div class="spec-value">~100 ms (L1)</div>
+          </div>
+        </div>
+        <div class="model-uses">
+          Used in: <span class="use-badge">Sig detection (both)</span><span class="use-badge">Alteration L1</span><span class="use-badge">UV L1</span>
+        </div>
+      </div>
+
+      <!-- Qwen2-VL 72B -->
+      <div class="model-card amber">
+        <div class="model-tag amber">Vision · L2 Cascade</div>
+        <div class="model-name">Qwen2-VL 72B</div>
+        <div class="model-role">Full-size vision LLM. L2 of the CascadeOrchestrator — handles escalated cases, high-value cheques (forced), and tasks always requiring 72B precision: security features validation, UV security analysis, vision presentment cross-check.</div>
+        <div class="model-specs">
+          <div class="spec-item">
+            <div class="spec-label">L2 queue (cascade)</div>
+            <div class="spec-code">cts-vision-l2</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Direct queue</div>
+            <div class="spec-code">cts-vision</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Hardware</div>
+            <div class="spec-value">GPU (vLLM, A100)</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Est. latency</div>
+            <div class="spec-value">~500 ms (L2)</div>
+          </div>
+        </div>
+        <div class="model-uses">
+          Used in: <span class="use-badge">Alteration L2</span><span class="use-badge">UV Security</span><span class="use-badge">Security Features</span><span class="use-badge">Presentment Check</span>
+        </div>
+      </div>
+
+      <!-- Siamese SNN -->
+      <div class="model-card green">
+        <div class="model-tag green">Signature · Encoder</div>
+        <div class="model-name">astra-sig-encoder-v1</div>
+        <div class="model-role">Custom-trained Siamese Neural Network (PyTorch). Embeds pre-processed signature crop into a 512-dimensional vector. Cosine similarity vs vault specimens decides match / mismatch. Pre-processing: Otsu binarisation + Zhang-Suen thinning via OpenCV ximgproc.</div>
+        <div class="model-specs">
+          <div class="spec-item">
+            <div class="spec-label">Endpoint</div>
+            <div class="spec-code">sig_detector :8020</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Hardware</div>
+            <div class="spec-value">GPU sidecar</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Timeout</div>
+            <div class="spec-value">15 s</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Embedding dim</div>
+            <div class="spec-value">512-d vector</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Vault lookup</div>
+            <div class="spec-value">&lt; 5 ms (Redis)</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Retries</div>
+            <div class="spec-value">max 2</div>
+          </div>
+        </div>
+        <div class="model-uses">
+          Used in: <span class="use-badge">Inward sig verify</span><span class="use-badge">VaultSyncWorkflow</span>
+        </div>
+      </div>
+
+      <!-- XGBoost -->
+      <div class="model-card red">
+        <div class="model-tag red">Fraud · Scoring</div>
+        <div class="model-name">XGBoost Ensemble + SHAP</div>
+        <div class="model-role">Structured-feature fraud scorer. Takes OCR output, cheque metadata, account history features, and signal flags. Produces fraud probability 0–1 plus SHAP values per feature. SHAP is mandatory before any NGCH filing — audit requirement.</div>
+        <div class="model-specs">
+          <div class="spec-item">
+            <div class="spec-label">Queue</div>
+            <div class="spec-value">Direct call (CPU)</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Hardware</div>
+            <div class="spec-value">CPU (no GPU)</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Timeout</div>
+            <div class="spec-value">10 s</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Est. latency</div>
+            <div class="spec-value">~10 ms</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">SHAP</div>
+            <div class="spec-value">TreeExplainer, always</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Fallback</div>
+            <div class="spec-value">Rule-based scorer</div>
+          </div>
+        </div>
+        <div class="model-uses">
+          Used in: <span class="use-badge">Inward fraud score</span>
+        </div>
+      </div>
+
+      <!-- Llama 3.3 70B -->
+      <div class="model-card amber">
+        <div class="model-tag amber">Reasoning · Rationale</div>
+        <div class="model-name">Llama 3.3 70B</div>
+        <div class="model-role">Fraud rationale synthesis — converts XGBoost output and SHAP feature importance into a human-readable explanation for the bank officer. Prompt compressed 75–82 % by Headroom before GPU send. Temperature 0.1, max_tokens 300.</div>
+        <div class="model-specs">
+          <div class="spec-item">
+            <div class="spec-label">Queue</div>
+            <div class="spec-code">cts-reasoning</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Hardware</div>
+            <div class="spec-value">GPU (vLLM, A100)</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Timeout</div>
+            <div class="spec-value">180 s</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Headroom</div>
+            <div class="spec-value">75–82 % token reduction</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Temperature</div>
+            <div class="spec-value">0.1</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">max_tokens</div>
+            <div class="spec-value">300</div>
+          </div>
+        </div>
+        <div class="model-uses">
+          Used in: <span class="use-badge">Inward fraud rationale</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ── 2. CascadeOrchestrator ──────────────────────────── -->
+  <section>
+    <div class="section-eyebrow">02 · Cascade Orchestrator</div>
+    <h2>L1 → L2 Escalation Logic</h2>
+    <p class="section-desc">Shared orchestrator in <code>shared/ai/model_cascade.py</code> that decides whether to run the 7B model (fast, cheap) or escalate to 72B (accurate, expensive). ~90 % of cheques clear at L1 in &lt;100 ms; average wall-clock drops from ~500 ms to ~150 ms.</p>
+
+    <div class="cascade-box">
+      <div class="cascade-flow">
+        <div class="casc-node">
+          <h4 style="color:var(--accent)">L1 — Qwen2-VL 7B</h4>
+          <p>Queue: <code style="font-size:10px">cts-vision-l1</code><br>~100 ms · handles ~90 %</p>
+        </div>
+        <div class="casc-arrow">→</div>
+        <div class="casc-gate">
+          <h4>Confidence Gate</h4>
+          <p>Check score vs threshold. Check amount vs high-value limit.</p>
+        </div>
+        <div class="casc-arrow">→</div>
+        <div class="casc-node" style="border-color:var(--amber)">
+          <h4 style="color:var(--amber)">L2 — Qwen2-VL 72B</h4>
+          <p>Queue: <code style="font-size:10px">cts-vision-l2</code><br>~500 ms · escalated cases</p>
+        </div>
+        <div class="casc-arrow">→</div>
+        <div class="casc-node" style="border-color:var(--green);flex:0 0 130px">
+          <h4 style="color:var(--green)">Result</h4>
+          <p>cascade_level=1 or 2, model_version in output</p>
+        </div>
+      </div>
+
+      <div class="cascade-rules">
+        <div class="cascade-rule">
+          <strong>Escalation Trigger 1</strong>
+          L1 confidence &lt; <code style="font-size:10px">ai.cascade.l1_confidence_threshold</code> (config, default 0.85)
+        </div>
+        <div class="cascade-rule">
+          <strong>Escalation Trigger 2</strong>
+          Cheque amount ≥ <code style="font-size:10px">ai.cascade.high_value_threshold</code> — L2 always forced for high-value (default ₹50 lakh)
+        </div>
+        <div class="cascade-rule">
+          <strong>Escalation Trigger 3</strong>
+          L1 unavailable (vLLMUnavailableError / TimeoutError) → immediate L2 retry
+        </div>
+      </div>
+
+      <div style="margin-top:16px;font-size:12px;color:var(--text-muted)">
+        <strong style="color:var(--text)">Kill switch:</strong> <code class="mono" style="font-size:11px">ai.cascade.l2_escalation_enabled = false</code> forces all results through L1 only (ops override, e.g. GPU contention during peak clearing window).
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ── 3. Inward Pipeline ──────────────────────────────── -->
+  <section>
+    <div class="section-eyebrow">03 · Inward Pipeline (Drawee Bank)</div>
+    <h2>ChequeProcessingWorkflow — Step by Step</h2>
+    <p class="section-desc">One cheque = one Temporal workflow. 500 cheques in a batch = 500 parallel workflows. Each must produce a decision in &lt;600 ms p99 with IET breach rate of 0.000 %.</p>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot ai"></div> AI model (vLLM / SNN / XGBoost)</div>
+      <div class="legend-item"><div class="legend-dot local"></div> Local NLP / CPU model (no vLLM)</div>
+      <div class="legend-item"><div class="legend-dot rule"></div> Rule-based / no AI</div>
+    </div>
+
+    <div class="pipeline-rail">
+
+      <div class="pipeline-step">
+        <div class="step-node rule-node">01</div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Inward Bundle Received</div>
+            <span class="step-badge badge-rule">Rule</span>
+          </div>
+          <div class="step-desc">NGCH inward file arrives via SFTP. Bundle is split per cheque. Each instrument gets a workflow ID: <code class="mono" style="font-size:11px">cts-{bank_id}-{instrument_id}</code>. Kafka topic: <code class="mono" style="font-size:11px">cts.inward.{bank_id}</code>.</div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node rule-node">02</div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">IET Watchdog Spawned</div>
+            <span class="step-badge badge-rule">Non-negotiable</span>
+          </div>
+          <div class="step-desc">
+            <strong>Always the very first child workflow</strong> — <code class="mono" style="font-size:11px">IETWatchdogWorkflow</code> starts before any processing. Fires an emergency NGCH filing at T−30 s before IET deadline regardless of processing state. <code class="mono" style="font-size:11px">parent_close_policy = ABANDON</code> — watchdog survives even if parent crashes.
+          </div>
+          <div class="step-meta">
+            <span><strong>Config key:</strong> iet_minutes (default 180)</span>
+            <span><strong>Emergency threshold:</strong> T−30 s (structural, not configurable)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node rule-node">03</div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Vision AI Kill Switch Lookup</div>
+            <span class="step-badge badge-rule">Rule · Config</span>
+          </div>
+          <div class="step-desc">Resolves the RBI Vision AI Kill Switch mode for this instrument via <code class="mono" style="font-size:11px">VisionAIKillSwitch.check()</code>. Two separate modes: <strong>KC (Kill Complete)</strong> — Vision AI is NOT called at all; activity immediately returns <code class="mono" style="font-size:11px">requires_human_review=True</code>. <strong>KP (Kill Proposed)</strong> — Vision AI runs normally, but the decision backstop forces HUMAN_REVIEW regardless of result. NONE = normal path.</div>
+          <div class="step-meta">
+            <span><strong>Activity:</strong> get_kill_switch_status</span>
+            <span><strong>Scope:</strong> GLOBAL | SB_OWN | SMB</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node ai-node">04</div>
+        <div class="step-body ai-step">
+          <div class="step-header">
+            <div class="step-title">OCR Extraction — Stage 1</div>
+            <span class="step-badge badge-ai">AI · GOT-OCR2.0</span>
+          </div>
+          <div class="step-model">L1: cts-ocr-l1 (got-ocr2-7b) → L2: cts-ocr-l2 (got-ocr2-full) · CascadeOrchestrator</div>
+          <div class="step-desc">Full-image OCR via <strong>CascadeOrchestrator</strong>. Extracts: MICR line (E-13B), amount in figures, amount in words, date (D/M/Y), payee name, drawer name, bank name, branch. Returns per-field confidence scores. Low-confidence fields trigger Stage 2.</div>
+          <div class="step-outputs">
+            <strong>Outputs</strong>
+            <span class="output-chip">micr_line</span>
+            <span class="output-chip">amount_figures</span>
+            <span class="output-chip">amount_words</span>
+            <span class="output-chip">payee_name</span>
+            <span class="output-chip">date</span>
+            <span class="output-chip">ocr_confidence</span>
+            <span class="output-chip">cascade_level</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node ai-node">05</div>
+        <div class="step-body ai-step">
+          <div class="step-header">
+            <div class="step-title">Indic OCR Refinement — Stage 2</div>
+            <span class="step-badge badge-local">Local · IndicOCR</span>
+          </div>
+          <div class="step-model">Direct HTTP · CPU sidecar · timeout: 10 s per zone</div>
+          <div class="step-desc">Optional second pass using <strong>PaddleOCR (IndicOCR)</strong> for payee name and amount_words zones when Indic script is detected. Covers 9 scripts. Skip if <code class="mono" style="font-size:11px">cts.indic_ocr.kill_mode = KC</code> or zone confidence already above threshold.</div>
+          <div class="step-meta">
+            <span><strong>Trigger:</strong> Indic script detected OR GOT confidence &lt; threshold</span>
+            <span><strong>Config:</strong> ocr.indic.enabled, indic_ocr.kill_mode</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node ai-node">06</div>
+        <div class="step-body ai-step">
+          <div class="step-header">
+            <div class="step-title">Signature Detection</div>
+            <span class="step-badge badge-ai">AI · Qwen2-VL 7B</span>
+          </div>
+          <div class="step-model">queue: cts-vision-l1 · timeout: 60 s · retry: 2</div>
+          <div class="step-desc">Detects ink signature bboxes on the cheque image. Returns fractional coordinates [x1,y1,x2,y2] and fraud flags: <code class="mono" style="font-size:11px">OVERWRITTEN · SMUDGED · MULTIPLE_INKS · FAINT_INK · MISALIGNED</code>. Count determines routing: 1 sig → S-SVS (single signatory vault); ≥2 sigs → M-SVS (mandate BRE).</div>
+          <div class="step-outputs">
+            <strong>Outputs</strong>
+            <span class="output-chip">sig_count</span>
+            <span class="output-chip">sig_bboxes</span>
+            <span class="output-chip">fraud_flags</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node ai-node">07</div>
+        <div class="step-body ai-step">
+          <div class="step-header">
+            <div class="step-title">Alteration Detection</div>
+            <span class="step-badge badge-ai">AI · Qwen2-VL Cascade</span>
+          </div>
+          <div class="step-model">L1: cts-vision-l1 (7B) → L2: cts-vision-l2 (72B) if escalated</div>
+          <div class="step-desc">CascadeOrchestrator runs Qwen2-VL to detect physical alterations. Analyses ink physics (pressure inconsistency, bleed anomaly, flow reversal), paper fibre (distortion, gloss patches), correction fluid (luminance spikes, edge sharpness), and chemical alteration. High tamper_risk_score → human review.</div>
+          <div class="step-outputs">
+            <strong>Outputs</strong>
+            <span class="output-chip">alteration_detected</span>
+            <span class="output-chip">tamper_risk_score</span>
+            <span class="output-chip">physical_anomaly_score</span>
+            <span class="output-chip">altered_fields</span>
+            <span class="output-chip">anomaly_breakdown</span>
+            <span class="output-chip">cascade_level</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node ai-node">08</div>
+        <div class="step-body ai-step">
+          <div class="step-header">
+            <div class="step-title">CTS-2010 Security Features</div>
+            <span class="step-badge badge-ai">AI · Qwen2-VL 72B</span>
+          </div>
+          <div class="step-model">queue: cts-vision · timeout: 90 s · direct 72B (no cascade) · primarily outward path</div>
+          <div class="step-desc">Validates 4 mandatory CTS-2010 printed security features: <strong>void pantograph</strong>, <strong>rupee symbol (₹)</strong>, <strong>micro-lettering</strong>, <strong>printer name per CTS-2010</strong>. Missing feature → compliance violation → routed per bank policy. Returns per-feature confidence and boolean present/absent. Applied primarily on the outward (presentee) path.</div>
+          <div class="step-outputs">
+            <strong>Outputs</strong>
+            <span class="output-chip">void_pantograph</span>
+            <span class="output-chip">rupee_symbol</span>
+            <span class="output-chip">micro_lettering</span>
+            <span class="output-chip">printer_name_cts2010</span>
+            <span class="output-chip">per-feature confidence</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node ai-node">09</div>
+        <div class="step-body ai-step">
+          <div class="step-header">
+            <div class="step-title">UV Security Analysis</div>
+            <span class="step-badge badge-ai">AI · Qwen2-VL 72B</span>
+          </div>
+          <div class="step-model">CascadeOrchestrator (cts-vision-l1 → cts-vision-l2) · timeout: 120 s per call</div>
+          <div class="step-desc">Analyses the UV-spectrum cheque image for three RBI-mandated UV features: <strong>pentograph authenticity</strong> (UV-reactive void pattern), <strong>security thread</strong> (presence, position), and <strong>UV watermark</strong>. All three must pass for <code class="mono" style="font-size:11px">uv_security_passed = true</code>. Uses <code class="mono" style="font-size:11px">orchestrator.call_vision()</code> — L1 (7B) handles routine cases; L2 (72B) forced for high-value or low-confidence.</div>
+          <div class="step-outputs">
+            <strong>Outputs</strong>
+            <span class="output-chip">pentograph_authentic</span>
+            <span class="output-chip">security_thread_present</span>
+            <span class="output-chip">uv_watermark_present</span>
+            <span class="output-chip">uv_security_passed</span>
+            <span class="output-chip">uv_risk_score</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node ai-node">10</div>
+        <div class="step-body ai-step">
+          <div class="step-header">
+            <div class="step-title">Signature Verification</div>
+            <span class="step-badge badge-ai">AI · Siamese SNN</span>
+          </div>
+          <div class="step-model">Direct HTTP :8020 · timeout: 15 s · retry: 2</div>
+          <div class="step-desc">Pre-processes each detected sig crop (Otsu binarisation + Zhang-Suen thinning), embeds into 512-dim vector via <strong>astra-sig-encoder-v1</strong>. Computes cosine similarity against ALL vault specimens for the account. Vault key: <code class="mono" style="font-size:11px">sig:{bank_id}:{hmac_sha256(account)}</code>. CBS fallback if vault miss: fetch specimens from CBS → embed → store → compare.</div>
+          <div class="step-meta">
+            <span><strong>Vault miss action:</strong> always HUMAN_REVIEW (Layer 1 enforced — never AUTO_RETURN)</span>
+          </div>
+          <div class="step-outputs">
+            <strong>Outputs</strong>
+            <span class="output-chip">sig_match_score</span>
+            <span class="output-chip">match_decision</span>
+            <span class="output-chip">specimens_compared</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node rule-node">11</div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Mandate BRE (Multi-Signatory)</div>
+            <span class="step-badge badge-rule">Rule · BRE</span>
+          </div>
+          <div class="step-desc">Business Rule Engine evaluates multi-signatory mandate: <strong>ANY_ONE</strong> (at least 1 sig matches — default / SMB), <strong>ALL_REQUIRED</strong> (every signatory must match), <strong>QUORUM_N</strong> (N of M must match). Triggered only when <code class="mono" style="font-size:11px">sig_count ≥ 2</code> in step 06.</div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node ai-node">12</div>
+        <div class="step-body ai-step">
+          <div class="step-header">
+            <div class="step-title">Fraud Scoring</div>
+            <span class="step-badge badge-ai">AI · XGBoost + SHAP</span>
+          </div>
+          <div class="step-model">Direct call · CPU · timeout: 10 s</div>
+          <div class="step-desc"><strong>XGBoost ensemble</strong> scores fraud probability from structured features (OCR fields, account metadata, clearing history, anomaly flags from earlier steps). <strong>SHAP TreeExplainer</strong> always runs — values stored in <code class="mono" style="font-size:11px">decision.shap_values</code> before any NGCH filing. Rule-based fallback if XGBoost unavailable.</div>
+          <div class="step-outputs">
+            <strong>Outputs</strong>
+            <span class="output-chip">fraud_score (0–1)</span>
+            <span class="output-chip">shap_values</span>
+            <span class="output-chip">feature_importances</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node ai-node">13</div>
+        <div class="step-body ai-step">
+          <div class="step-header">
+            <div class="step-title">Fraud Rationale Synthesis</div>
+            <span class="step-badge badge-ai">AI · Llama 3.3 70B</span>
+          </div>
+          <div class="step-model">queue: cts-reasoning · timeout: 180 s · Headroom 75–82 % compression</div>
+          <div class="step-desc"><strong>Llama 3.3 70B</strong> converts XGBoost score + SHAP top-N features into a plain-English explanation for the bank officer. Prompt is compressed locally by <strong>Headroom</strong> before GPU send (75–82 % token reduction). Temperature 0.1, max_tokens 300. Never includes raw account numbers or full customer names.</div>
+          <div class="step-outputs">
+            <strong>Outputs</strong>
+            <span class="output-chip">fraud_rationale (text)</span>
+            <span class="output-chip">key_risk_factors</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node rule-node">14</div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Decision &amp; NGCH Filing</div>
+            <span class="step-badge badge-rule">Decision Engine</span>
+          </div>
+          <div class="step-desc">
+            Aggregates all AI signals against config thresholds and routes to one of four outcomes:
+            <br><strong style="color:var(--green)">STP_AUTO_CONFIRM</strong> — all clear, fraud score below STP threshold → NGCH HONOUR
+            <br><strong style="color:var(--amber)">HUMAN_REVIEW</strong> — any signal above human_review threshold → 55-min HumanReviewWorkflow
+            <br><strong style="color:var(--red)">AUTO_RETURN</strong> — clear policy violation (stopped instrument, CTS-2010 fail, kill switch)
+            <br><strong style="color:var(--accent)">NGCH_FILED</strong> — honour or return filed via ngch_filer activity (exactly-once)
+          </div>
+          <div class="step-meta">
+            <span><strong>SHAP required:</strong> always before filing</span>
+            <span><strong>Audit:</strong> Immudb write + HSM sign after every YugabyteDB write</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ── 4. Outward Pipeline ─────────────────────────────── -->
+  <section>
+    <div class="section-eyebrow">04 · Outward Pipeline (Presentee Bank)</div>
+    <h2>OutwardScanWorkflow — Step by Step</h2>
+    <p class="section-desc">Outward processing handles cheques presented by the bank's own customers. Starts with physical scanning at the branch counter and ends with lot submission to NGCH.</p>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot ai"></div> AI model (vLLM)</div>
+      <div class="legend-item"><div class="legend-dot local"></div> Local NLP / CPU (no vLLM)</div>
+      <div class="legend-item"><div class="legend-dot rule"></div> Rule-based / no AI</div>
+    </div>
+
+    <div class="pipeline-rail">
+
+      <div class="pipeline-step">
+        <div class="step-node rule-node">01</div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Physical Scan</div>
+            <span class="step-badge badge-rule">Hardware</span>
+          </div>
+          <div class="step-desc">Branch scanner captures front and back at 200 DPI colour. MICR band read by scanner hardware (E-13B font, physical read — not AI). Raw image + MICR data forwarded to <code class="mono" style="font-size:11px">OutwardScanWorkflow</code>.</div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node rule-node">02</div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">CTS-2010 Image Quality Validation</div>
+            <span class="step-badge badge-rule">Rule · No AI</span>
+          </div>
+          <div class="step-desc">Rule-based checks — no AI involved. Validates: DPI ≥ 200, colour depth = 24-bit, file_size_kb within bounds, IQA score (image quality assessment via OpenCV), MICR band score. Reject-at-counter if any check fails — cheque returned to customer before lot creation.</div>
+          <div class="step-meta">
+            <span><strong>Activity:</strong> validate_cts2010</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node ai-node">03</div>
+        <div class="step-body ai-step">
+          <div class="step-header">
+            <div class="step-title">OCR Extraction — Stage 1</div>
+            <span class="step-badge badge-ai">AI · GOT-OCR2.0</span>
+          </div>
+          <div class="step-model">L1: cts-ocr-l1 (got-ocr2-7b) → L2: cts-ocr-l2 (got-ocr2-full) · CascadeOrchestrator · timeout: 30 s</div>
+          <div class="step-desc">Same OCR pipeline as inward. Extracts all printed fields from the captured image. MICR hardware read is used as ground truth for MICR line; GOT-OCR2.0 fills in all other fields. Low-confidence fields escalate to Stage 2.</div>
+          <div class="step-outputs">
+            <strong>Outputs</strong>
+            <span class="output-chip">amount_figures</span>
+            <span class="output-chip">amount_words</span>
+            <span class="output-chip">payee_name</span>
+            <span class="output-chip">date</span>
+            <span class="output-chip">ocr_confidence</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node ai-node">04</div>
+        <div class="step-body ai-step">
+          <div class="step-header">
+            <div class="step-title">Indic OCR Refinement — Stage 2</div>
+            <span class="step-badge badge-local">Local · IndicOCR</span>
+          </div>
+          <div class="step-model">Direct HTTP · CPU sidecar · timeout: 10 s per zone</div>
+          <div class="step-desc">Same as inward Step 05. Refines payee name and amount_words for Indic-script cheques using PaddleOCR. Optional — triggered by script detection or low L1 confidence in those zones.</div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node ai-node">05</div>
+        <div class="step-body ai-step">
+          <div class="step-header">
+            <div class="step-title">Signature Detection</div>
+            <span class="step-badge badge-ai">AI · Qwen2-VL 7B</span>
+          </div>
+          <div class="step-model">queue: cts-vision-l1 · timeout: 60 s</div>
+          <div class="step-desc">Detects ink signature presence and location on the outward cheque. CTS-2010 requires a signature — ABSENT result → immediate reject-at-counter with return reason code. PRESENT result → proceed to lot. Fraud flags captured for lot-level anomaly reporting.</div>
+          <div class="step-outputs">
+            <strong>Outputs</strong>
+            <span class="output-chip">sig_present (bool)</span>
+            <span class="output-chip">sig_bboxes</span>
+            <span class="output-chip">fraud_flags</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node ai-node">06</div>
+        <div class="step-body ai-step">
+          <div class="step-header">
+            <div class="step-title">Vision Presentment Cross-Check</div>
+            <span class="step-badge badge-ai">AI · Qwen2-VL Cascade</span>
+          </div>
+          <div class="step-model">L1: cts-vision-l1 → L2: cts-vision-l2 · CascadeOrchestrator</div>
+          <div class="step-desc">Reads <code class="mono" style="font-size:11px">amount_figures</code> directly from the cheque image and cross-checks against the scanner-extracted amount. Mismatch beyond tolerance → <strong>MISMATCH</strong> — routed to <code class="mono" style="font-size:11px">MismatchResolutionWorkflow</code> (4-hour timeout, branch supervisor). Catches scanner read errors before lot is created.</div>
+          <div class="step-meta">
+            <span><strong>Activity:</strong> run_vision_presentment_check</span>
+            <span><strong>Config:</strong> cts.presentment.amount_tolerance_paise</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node ai-node">07</div>
+        <div class="step-body ai-step">
+          <div class="step-header">
+            <div class="step-title">Payee Name Matching</div>
+            <span class="step-badge badge-local">Local NLP · No GPU</span>
+          </div>
+          <div class="step-model">CPU · 9-script transliteration + Jaro-Winkler</div>
+          <div class="step-desc">Purely local — no vLLM call. Strips salutations → runs 9-script Indic transliteration → computes <strong>Jaro-Winkler similarity</strong> between OCR payee name and account title on record. Returns: <code class="mono" style="font-size:11px">MATCH · FUZZY · MISMATCH · UNDECIDABLE</code>. FUZZY → branch supervisor; MISMATCH → reject at counter.</div>
+          <div class="step-meta">
+            <span><strong>Activity:</strong> outward_payee_check</span>
+            <span><strong>Config:</strong> payee_match_threshold (default 0.82)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node rule-node">08</div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Lot Creation &amp; Batch Assembly</div>
+            <span class="step-badge badge-rule">Rule · No AI</span>
+          </div>
+          <div class="step-desc">Stateful <code class="mono" style="font-size:11px">LotManager</code> assigns the instrument to the current clearing lot by MICR sort code / clearing zone. Generates lot sequence numbers. Lot is sealed when the clearing session closes or max instruments per lot is reached.</div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node rule-node">09</div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">Batch Endorsement</div>
+            <span class="step-badge badge-rule">Rule · No AI</span>
+          </div>
+          <div class="step-desc"><code class="mono" style="font-size:11px">BatchEndorsementWorkflow</code> stamps the lot with the presentee bank's CTS-2010 endorsement: bank name, branch, IFSC, date, clearing session ID. No AI — rule-based stamping against template.</div>
+        </div>
+      </div>
+
+      <div class="pipeline-step">
+        <div class="step-node rule-node">10</div>
+        <div class="step-body">
+          <div class="step-header">
+            <div class="step-title">NGCH Submission &amp; Session Reconciliation</div>
+            <span class="step-badge badge-rule">Rule · ngch_filer</span>
+          </div>
+          <div class="step-desc">Lot submitted to NGCH via <code class="mono" style="font-size:11px">NGCHSubmissionWorkflow</code> → <code class="mono" style="font-size:11px">ngch_filer</code> activity (exactly-once, Temporal idempotency). <code class="mono" style="font-size:11px">SessionReconciliationWorkflow</code> matches ACK from NGCH against submitted instruments. Reconciliation exceptions surfaced in RRF (Return Reason File).</div>
+          <div class="step-meta">
+            <span><strong>Retry:</strong> max 3, exponential backoff, non-retryable: DuplicateFilingError</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ── 5. Graceful Degradation Matrix ─────────────────── -->
+  <section>
+    <div class="section-eyebrow">05 · Graceful Degradation</div>
+    <h2>What Happens When Each Component Fails</h2>
+    <p class="section-desc">No silent failure. No IET breach. Every failure path is defined, logged, and routed. The IET Watchdog files regardless of AI availability.</p>
+
+    <div class="matrix-wrap">
+      <table class="matrix-table">
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th>Failure Mode</th>
+            <th>Immediate Response</th>
+            <th>Outcome</th>
+            <th>IET Risk</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="comp">GOT-OCR2.0</td>
+            <td class="model-ref">cts-ocr queue</td>
+            <td>2 retries → return ActivityResult(outcome="HUMAN_REVIEW", degraded=True)</td>
+            <td class="outcome-warn">HUMAN_REVIEW</td>
+            <td>Watchdog covers</td>
+          </tr>
+          <tr>
+            <td class="comp">IndicOCR Stage 2</td>
+            <td class="model-ref">CPU sidecar</td>
+            <td>Skip Stage 2 silently — use Stage 1 GOT result. Log warning.</td>
+            <td class="outcome-ok">Continue with L1 OCR</td>
+            <td>None</td>
+          </tr>
+          <tr>
+            <td class="comp">Qwen2-VL 7B (L1)</td>
+            <td class="model-ref">cts-vision-l1</td>
+            <td>Immediate escalation to L2 (72B). No retry at L1.</td>
+            <td class="outcome-warn">L2 fallback (slower)</td>
+            <td>Watchdog covers</td>
+          </tr>
+          <tr>
+            <td class="comp">Qwen2-VL 72B (L2)</td>
+            <td class="model-ref">cts-vision</td>
+            <td>Both L1 and L2 unavailable → HUMAN_REVIEW with degraded=True</td>
+            <td class="outcome-warn">HUMAN_REVIEW</td>
+            <td>Watchdog covers</td>
+          </tr>
+          <tr>
+            <td class="comp">Alteration Detection</td>
+            <td class="model-ref">vision cascade</td>
+            <td>Both models fail → DEGRADED result returned (never raises). Route to human review.</td>
+            <td class="outcome-warn">HUMAN_REVIEW</td>
+            <td>Watchdog covers</td>
+          </tr>
+          <tr>
+            <td class="comp">Security Features Check</td>
+            <td class="model-ref">cts-vision (72B)</td>
+            <td>DEGRADED result (never raises) → ops_manager review. No automated return.</td>
+            <td class="outcome-warn">HUMAN_REVIEW</td>
+            <td>Watchdog covers</td>
+          </tr>
+          <tr>
+            <td class="comp">UV Security Analysis</td>
+            <td class="model-ref">cts-vision-l1/l2 (Cascade)</td>
+            <td>DEGRADED result → human review. UV failure never triggers auto-return.</td>
+            <td class="outcome-warn">HUMAN_REVIEW</td>
+            <td>Watchdog covers</td>
+          </tr>
+          <tr>
+            <td class="comp">Signature Vault Miss</td>
+            <td class="model-ref">Redis vault</td>
+            <td>CBS fallback → fetch specimens → embed → store → compare. If CBS also fails → HUMAN_REVIEW.</td>
+            <td class="outcome-warn">HUMAN_REVIEW (never AUTO_RETURN)</td>
+            <td>Watchdog covers</td>
+          </tr>
+          <tr>
+            <td class="comp">sig_detector (SNN)</td>
+            <td class="model-ref">:8020 sidecar</td>
+            <td>2 retries → HUMAN_REVIEW. Vault lookup still possible from Redis if prior embedding stored.</td>
+            <td class="outcome-warn">HUMAN_REVIEW</td>
+            <td>Watchdog covers</td>
+          </tr>
+          <tr>
+            <td class="comp">XGBoost Fraud Scorer</td>
+            <td class="model-ref">CPU direct call</td>
+            <td>Rule-based fallback scorer (_rule_based_score). Returns score + shap with _source="rule_based_fallback".</td>
+            <td class="outcome-ok">Rule-based score (degraded)</td>
+            <td>None</td>
+          </tr>
+          <tr>
+            <td class="comp">Llama 3.3 70B</td>
+            <td class="model-ref">cts-reasoning</td>
+            <td>Skip rationale. Decision proceeds with score + SHAP only. Log warning. Rationale = "AI_UNAVAILABLE".</td>
+            <td class="outcome-ok">Continue (score only)</td>
+            <td>None</td>
+          </tr>
+          <tr>
+            <td class="comp">CBS Connector</td>
+            <td class="model-ref">balance / status</td>
+            <td>Image-only processing path. File to NGCH before IET. CBS check deferred to post-filing reconciliation.</td>
+            <td class="outcome-warn">File before IET (image-only)</td>
+            <td>Protected</td>
+          </tr>
+          <tr>
+            <td class="comp">NGCH Connection</td>
+            <td class="model-ref">ngch_filer</td>
+            <td>3 retries, exponential backoff → queue in Temporal until reconnect. IET Watchdog emergency-files when T−30s reached.</td>
+            <td class="outcome-warn">Queued → Watchdog files</td>
+            <td class="outcome-ok">Zero breach</td>
+          </tr>
+          <tr>
+            <td class="comp">Full DC1 Failure</td>
+            <td>—</td>
+            <td>Istio + Temporal multi-cluster routes all traffic to DC2. RPO=0, RTO&lt;30s.</td>
+            <td class="outcome-ok">DC2 handles 100%</td>
+            <td class="outcome-ok">Zero breach</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="notice" style="margin-top:16px">
+      HARD RULE: vault miss → always HUMAN_REVIEW, never AUTO_RETURN (Layer 1 enforced — no config can override)
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ── 6. Config Keys Reference ───────────────────────── -->
+  <section>
+    <div class="section-eyebrow">06 · Configuration Reference</div>
+    <h2>Config Keys That Control AI Thresholds</h2>
+    <p class="section-desc">All thresholds loaded at activity start via <code class="mono" style="font-size:13px">await config_service.get_ai_config(bank_id)</code> and <code class="mono" style="font-size:13px">await config_service.get_cts_config(bank_id)</code>. Hot-reload in 30 seconds via <code class="mono" style="font-size:13px">platform.config.changed</code> Kafka event. Zero code change, zero restart.</p>
+
+    <div class="config-wrap">
+      <table class="config-table">
+        <thead>
+          <tr>
+            <th>Config Key</th>
+            <th>Controls</th>
+            <th>Default</th>
+            <th>Layer</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="config-group-header"><td colspan="4">OCR</td></tr>
+          <tr>
+            <td class="config-key">ai.ocr.min_confidence</td>
+            <td>GOT-OCR2.0 confidence gate — below this → Stage 2 / human review</td>
+            <td><span class="config-default">0.85</span></td>
+            <td>Layer 3</td>
+          </tr>
+          <tr>
+            <td class="config-key">ocr.indic.enabled</td>
+            <td>Whether Stage 2 IndicOCR refinement runs at all</td>
+            <td><span class="config-default">true</span></td>
+            <td>Layer 3</td>
+          </tr>
+          <tr>
+            <td class="config-key">cts.indic_ocr.kill_mode</td>
+            <td>KP (proposer) / KC (confirmer) kill switch for IndicOCR — KC active = Stage 2 skipped</td>
+            <td><span class="config-default">NONE</span></td>
+            <td>Layer 3</td>
+          </tr>
+          <tr class="config-group-header"><td colspan="4">Cascade Orchestrator</td></tr>
+          <tr>
+            <td class="config-key">ai.cascade.l1_confidence_threshold</td>
+            <td>If L1 (7B) result confidence is below this, escalate to L2 (72B)</td>
+            <td><span class="config-default">0.85</span></td>
+            <td>Layer 3</td>
+          </tr>
+          <tr>
+            <td class="config-key">ai.cascade.high_value_threshold</td>
+            <td>Amount above which L2 (72B) is always forced, regardless of L1 confidence</td>
+            <td><span class="config-default">5000000</span> (₹50 lakh)</td>
+            <td>Layer 3</td>
+          </tr>
+          <tr>
+            <td class="config-key">ai.cascade.l2_escalation_enabled</td>
+            <td>Master switch — false forces all vision through L1 only (ops override)</td>
+            <td><span class="config-default">true</span></td>
+            <td>Layer 3</td>
+          </tr>
+          <tr class="config-group-header"><td colspan="4">Signature</td></tr>
+          <tr>
+            <td class="config-key">ai.signature.min_match_score</td>
+            <td>Cosine similarity threshold below which → HUMAN_REVIEW</td>
+            <td><span class="config-default">0.82</span></td>
+            <td>Layer 3</td>
+          </tr>
+          <tr>
+            <td class="config-key">vault_miss_action</td>
+            <td>Action on vault miss — Layer 1 enforced; always HUMAN_REVIEW, no other value permitted</td>
+            <td><span class="config-default">HUMAN_REVIEW</span></td>
+            <td>Layer 1 (locked)</td>
+          </tr>
+          <tr class="config-group-header"><td colspan="4">Fraud &amp; Decision</td></tr>
+          <tr>
+            <td class="config-key">stp_auto_confirm_threshold</td>
+            <td>Fraud score below this → STP_AUTO_CONFIRM (no human review needed)</td>
+            <td><span class="config-default">0.92</span></td>
+            <td>Layer 3</td>
+          </tr>
+          <tr>
+            <td class="config-key">human_review_fraud_threshold</td>
+            <td>Fraud score above this → HUMAN_REVIEW mandatory</td>
+            <td><span class="config-default">0.72</span></td>
+            <td>Layer 3</td>
+          </tr>
+          <tr>
+            <td class="config-key">high_value_amount_threshold</td>
+            <td>Amount above which → always HUMAN_REVIEW regardless of fraud score</td>
+            <td><span class="config-default">500000</span></td>
+            <td>Layer 3</td>
+          </tr>
+          <tr class="config-group-header"><td colspan="4">Payee &amp; IET</td></tr>
+          <tr>
+            <td class="config-key">payee_match_threshold</td>
+            <td>Jaro-Winkler score below this → MISMATCH / FUZZY routing in outward</td>
+            <td><span class="config-default">0.82</span></td>
+            <td>Layer 3</td>
+          </tr>
+          <tr>
+            <td class="config-key">iet_minutes</td>
+            <td>Total IET window in minutes. Watchdog fires at T−30s regardless.</td>
+            <td><span class="config-default">180</span></td>
+            <td>Layer 3</td>
+          </tr>
+          <tr class="config-group-header"><td colspan="4">Model Drift Alerts</td></tr>
+          <tr>
+            <td class="config-key">model.drift.alert_pct</td>
+            <td>Metric drop % over 7 days that triggers alert to ml_engineer</td>
+            <td><span class="config-default">2</span></td>
+            <td>Layer 3</td>
+          </tr>
+          <tr>
+            <td class="config-key">model.drift.tighten_pct</td>
+            <td>Drop % that auto-tightens thresholds (more conservative routing)</td>
+            <td><span class="config-default">5</span></td>
+            <td>Layer 3</td>
+          </tr>
+          <tr>
+            <td class="config-key">model.drift.pull_pct</td>
+            <td>Drop % that pulls model from production (all cheques → human review)</td>
+            <td><span class="config-default">8</span></td>
+            <td>Layer 3</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:16px;font-size:12px;color:var(--text-muted);line-height:1.6">
+      <strong style="color:var(--text)">Access pattern (mandatory):</strong>
+      <code class="mono" style="font-size:11px;background:var(--bg-code);padding:2px 8px;border-radius:4px;display:inline-block;margin-top:6px">
+        ai_config = await config_service.get_ai_config(bank_id)
+        <br>threshold = ai_config["ai.ocr.min_confidence"]  # typed — never a string
+      </code>
+      <br><br>
+      <strong style="color:var(--text)">Mandatory rule:</strong> No literal threshold value anywhere in application code. Default values live in <code class="mono" style="font-size:11px">infra/helm/values/_defaults.yaml</code> (Layer 1). Banks adjust Layer 3 values via Admin UI maker-checker — code never changes.
+    </div>
+  </section>
+
+  <div style="text-align:center;padding:32px 0;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-faint);letter-spacing:0.06em">
+    ASTRA · CTS AI Inference Map · Confidential — Banking Grade · 2026-08-25
+  </div>
+
+</div>
