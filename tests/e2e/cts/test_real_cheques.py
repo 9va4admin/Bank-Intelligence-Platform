@@ -205,6 +205,7 @@ def test_real_cheque_scenario_cycle():
     required = {
         "CLEAN_ALL_PASS", "SIG_MISMATCH", "FRAUD_HIGH",
         "STOP_PAYMENT_STP", "OCR_LOW_CONF", "ACCOUNT_FROZEN", "CBS_INSUFFICIENT",
+        "NO_SIGNATURE",
     }
     missing = required - triggers
     assert not missing, f"Missing scenario types in real cheque fixtures: {missing}"

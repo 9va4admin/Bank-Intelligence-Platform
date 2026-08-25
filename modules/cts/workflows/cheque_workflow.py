@@ -782,7 +782,7 @@ class ChequeProcessingWorkflow:
         ))
 
         if sig_detect.outcome == "ABSENT":
-            return await finalise("HUMAN_REVIEW", "no_signature_on_cheque")
+            return await finalise("STP_RETURN", "no_signature_on_cheque")
 
         if sig_detect.outcome == "DEGRADED":
             return await finalise("HUMAN_REVIEW", "signature_detection_degraded")
@@ -1170,7 +1170,16 @@ class ChequeProcessingWorkflow:
 
         # Step 5.5: Signature verification — single or multi-sig path.
         sig_count = mock_results.get("sig_count", 1)
-        if sig_count >= 2:
+        if sig_count == 0:
+            # No signature on cheque — hard STP_RETURN (mirrors run() ABSENT path)
+            return ChequeWorkflowResult(
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                decision="STP_RETURN",
+                rationale="no_signature_on_cheque",
+                shap_values={},
+            )
+        elif sig_count >= 2:
             # Multi-sig: MSVValidationWorkflow result drives routing.
             msv_r = mock_results.get("msv")
             if msv_r is None or msv_r.outcome != "GREEN":
