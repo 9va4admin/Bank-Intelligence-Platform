@@ -153,7 +153,7 @@ a { color: var(--accent); }
 }
 
 /* ─── Layout ─────────────────────────────────────────── */
-.page-body { max-width: min(1100px, calc(100vw - 120px)); margin: 0 auto; padding: 48px 24px 80px; }
+.page-body { max-width: 1100px; margin: 0 auto; padding: 48px 24px 80px; }
 section { margin-bottom: 64px; }
 .section-eyebrow {
   font-family: 'JetBrains Mono', monospace;
@@ -653,36 +653,6 @@ td.model-ref { font-family: 'JetBrains Mono', monospace; font-size: 11px; color:
   white-space: nowrap;
 }
 
-/* ─── QR Border Design Strips ─────────────────────────── */
-/*
-  A real, scannable QR code (version 7-L) encodes:
-    "9VA TECH LLP | PREPARED BY: NILESH SHAH | PRIVATE & CONFIDENTIAL |
-     UNAUTHORIZED USE STRICTLY PROHIBITED | ASTRA CTS - AI INFERENCE REFERENCE 2026"
-  Generated as a PNG (steel-blue modules on dark navy background), tiled at 56×56 px
-  along all 4 page edges. Visually reads as a technical border design; scans as
-  an attribution + confidentiality notice.
-
-  position:fixed ensures borders appear on every printed page.
-  -webkit-print-color-adjust: exact forces background-image into print output.
-  Separate <div> elements (not pseudo-elements) so the QR PNG data URI can
-  be shared across all 4 strips via the same class without duplication.
-*/
-.qr-border {
-  position: fixed;
-  background-image: url("data:image/png;base64,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");
-  background-repeat: repeat;
-  background-size: 56px 56px;
-  z-index: 999;
-  pointer-events: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
-}
-.qr-border-left  { top:0; left:0;   bottom:0; width:56px;  border-right: 1px solid rgba(0,116,168,0.18); }
-.qr-border-right { top:0; right:0;  bottom:0; width:56px;  border-left:  1px solid rgba(0,116,168,0.18); }
-/* Top/bottom only appear in print — on screen the header/footer already anchor those edges */
-.qr-border-top, .qr-border-bot { display: none; }
 
 /* ─── Print Layout ────────────────────────────────────── */
 @media print {
@@ -698,29 +668,6 @@ td.model-ref { font-family: 'JetBrains Mono', monospace; font-size: 11px; color:
     position: fixed !important;
     bottom: 0 !important; left: 0 !important; right: 0 !important;
     z-index: 99999 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  /* QR border strips on all 4 sides */
-  .qr-border-top {
-    display: block;
-    position: fixed !important;
-    top: 0 !important; left: 0 !important; right: 0 !important;
-    height: 56px !important;
-    border-bottom: 1px solid rgba(0,116,168,0.18);
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  .qr-border-bot {
-    display: block;
-    position: fixed !important;
-    bottom: 0 !important; left: 0 !important; right: 0 !important;
-    height: 56px !important;
-    border-top: 1px solid rgba(0,116,168,0.18);
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  .qr-border-left, .qr-border-right {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
@@ -2366,8 +2313,3 @@ td.model-ref { font-family: 'JetBrains Mono', monospace; font-size: 11px; color:
   </div>
 </footer>
 
-<!-- ═══ QR BORDER STRIPS (real QR code, version 7-L, all 4 edges) ═══ -->
-<div class="qr-border qr-border-top"></div>
-<div class="qr-border qr-border-bot"></div>
-<div class="qr-border qr-border-left"></div>
-<div class="qr-border qr-border-right"></div>
