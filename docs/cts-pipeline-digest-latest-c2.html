@@ -1,0 +1,467 @@
+<title>CTS Pipeline — Cut 2</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg:       #f0f4fa;
+    --surface:  #ffffff;
+    --surface2: #f7f9fc;
+    --border:   rgba(0,0,0,0.08);
+    --text:     #0f172a;
+    --muted:    #64748b;
+    --faint:    #94a3b8;
+    --accent:   #2563eb;
+    --pass:     #059669;
+    --pass-bg:  #d1fae5;
+    --fail:     #dc2626;
+    --fail-bg:  #fee2e2;
+    --tag-bg:   #e0ebff;
+    --tag-text: #1d4ed8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:       #08101e;
+      --surface:  #111c2d;
+      --surface2: #0d1726;
+      --border:   rgba(255,255,255,0.07);
+      --text:     #e2e8f0;
+      --muted:    #94a3b8;
+      --faint:    #475569;
+      --accent:   #3b82f6;
+      --pass:     #10b981;
+      --pass-bg:  rgba(16,185,129,0.12);
+      --fail:     #f87171;
+      --fail-bg:  rgba(248,113,113,0.12);
+      --tag-bg:   rgba(59,130,246,0.15);
+      --tag-text: #93c5fd;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:       #08101e;
+    --surface:  #111c2d;
+    --surface2: #0d1726;
+    --border:   rgba(255,255,255,0.07);
+    --text:     #e2e8f0;
+    --muted:    #94a3b8;
+    --faint:    #475569;
+    --accent:   #3b82f6;
+    --pass:     #10b981;
+    --pass-bg:  rgba(16,185,129,0.12);
+    --fail:     #f87171;
+    --fail-bg:  rgba(248,113,113,0.12);
+    --tag-bg:   rgba(59,130,246,0.15);
+    --tag-text: #93c5fd;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.6;
+    padding: 24px 20px 48px;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  /* ── Header ───────────────────────────────────────────────── */
+  .header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .header-left { display: flex; flex-direction: column; gap: 4px; }
+  .eyebrow {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .cut-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.4px;
+  }
+  .cut-subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .score-ring {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .score-num {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--pass);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .score-denom { font-size: 11px; color: var(--muted); }
+
+  /* ── Summary bar ──────────────────────────────────────────── */
+  .summary-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+  .stat-pill .label { color: var(--muted); }
+  .stat-pill .val { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+  .stat-pill .val.green { color: var(--pass); }
+  .stat-pill .val.red { color: var(--fail); }
+
+  /* ── Components ───────────────────────────────────────────── */
+  .section-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 8px;
+  }
+  .components {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .tag.gray {
+    background: var(--surface2);
+    color: var(--faint);
+  }
+
+  /* ── Test table ───────────────────────────────────────────── */
+  .tests-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .class-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+  .class-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.03em;
+  }
+  .class-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--pass-bg);
+    color: var(--pass);
+  }
+  .class-badge.fail { background: var(--fail-bg); color: var(--fail); }
+
+  .test-row {
+    display: flex;
+    align-items: center;
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--border);
+    gap: 10px;
+  }
+  .test-row:last-child { border-bottom: none; }
+  .test-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--pass);
+    flex-shrink: 0;
+  }
+  .test-indicator.fail { background: var(--fail); }
+  .test-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: var(--text);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .test-outcome {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--pass);
+    flex-shrink: 0;
+  }
+  .test-outcome.fail { color: var(--fail); }
+
+  /* ── Safety invariants ────────────────────────────────────── */
+  .invariants {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .invariant-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .invariant-row:last-child { border-bottom: none; }
+  .invariant-icon { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+  .invariant-text { font-size: 12px; color: var(--text); }
+  .invariant-text strong { color: var(--pass); font-weight: 600; }
+
+  /* ── Footer ───────────────────────────────────────────────── */
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--faint);
+  }
+  .footer-brand { font-weight: 600; color: var(--muted); }
+
+  /* Progress bar */
+  .progress-track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--pass);
+    border-radius: 2px;
+    width: 100%;
+  }
+</style>
+
+<div class="header">
+  <div class="header-left">
+    <span class="eyebrow">ASTRA CTS — Integration Test Digest</span>
+    <h1 class="cut-title">Cut 2 — Kafka · Redis · OCR</h1>
+    <p class="cut-subtitle">
+      Vault HMAC safety · Kafka roundtrip · OCR stub routing · PPS miss invariants
+    </p>
+  </div>
+  <div class="score-ring">
+    <span class="score-num">18</span>
+    <span class="score-denom">of 18 passed</span>
+  </div>
+</div>
+
+<div class="progress-track"><div class="progress-fill"></div></div>
+
+<div class="summary-bar">
+  <div class="stat-pill"><span class="label">Passed</span><span class="val green">18</span></div>
+  <div class="stat-pill"><span class="label">Failed</span><span class="val">0</span></div>
+  <div class="stat-pill"><span class="label">Run time</span><span class="val">~33 s</span></div>
+  <div class="stat-pill"><span class="label">Date</span><span class="val">2026-08-25</span></div>
+  <div class="stat-pill"><span class="label">Branch</span><span class="val">claude/cool-euler-x02gek</span></div>
+</div>
+
+<div class="section-label">Components under test</div>
+<div class="components">
+  <span class="tag">Kafka (real)</span>
+  <span class="tag">Redis (real)</span>
+  <span class="tag">OCR Stub (port 18010)</span>
+  <span class="tag gray">Temporal — excluded</span>
+  <span class="tag gray">YugabyteDB — excluded</span>
+  <span class="tag gray">Immudb — excluded</span>
+  <span class="tag gray">Vision LLM — excluded</span>
+</div>
+
+<div class="section-label">Test results by class</div>
+
+<div class="tests-card">
+  <div class="class-header">
+    <span class="class-name">TestKafkaInward</span>
+    <span class="class-badge">2 / 2</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_audit_event_roundtrip_inward</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_inward_fanout_topic_routing</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+</div>
+
+<div class="tests-card">
+  <div class="class-header">
+    <span class="class-name">TestKafkaOutward</span>
+    <span class="class-badge">2 / 2</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_lot_complete_event_published</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_kafka_event_schema_version_required</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+</div>
+
+<div class="tests-card">
+  <div class="class-header">
+    <span class="class-name">TestOCRActivity</span>
+    <span class="class-badge">5 / 5</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_ocr_high_confidence_inward_proceed</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_ocr_low_confidence_inward_human_review</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_ocr_amount_mismatch_human_review</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_ocr_model_unavailable_degrades_gracefully</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_ocr_outward_high_confidence_proceed</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+</div>
+
+<div class="tests-card">
+  <div class="class-header">
+    <span class="class-name">TestSignatureVaultInward</span>
+    <span class="class-badge">5 / 5</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_sig_vault_key_never_contains_raw_account</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_sig_vault_store_and_redis_hit</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_sig_vault_miss_routes_human_review</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_sig_vault_miss_never_stp_return</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_sig_vault_redis_error_routes_human_review</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+</div>
+
+<div class="tests-card">
+  <div class="class-header">
+    <span class="class-name">TestPPSVaultOutward</span>
+    <span class="class-badge">4 / 4</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_pps_registered_entry_found</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_pps_miss_routes_human_review</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_pps_miss_never_auto_return</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+  <div class="test-row">
+    <div class="test-indicator"></div>
+    <span class="test-name">test_pps_key_uses_hmac_not_raw_account</span>
+    <span class="test-outcome">PASS</span>
+  </div>
+</div>
+
+<div class="section-label" style="margin-top:24px">Safety invariants verified in this cut</div>
+<div class="invariants">
+  <div class="invariant-row">
+    <span class="invariant-icon">🔒</span>
+    <span class="invariant-text"><strong>VAULT_MISS → HUMAN_REVIEW</strong> — SignatureVault and PPSVault on miss or Redis error always route to HUMAN_REVIEW, never STP_RETURN</span>
+  </div>
+  <div class="invariant-row">
+    <span class="invariant-icon">🔑</span>
+    <span class="invariant-text"><strong>HMAC key format</strong> — raw account number never appears as a Redis key in sig:* or pps:* namespaces; HMAC-SHA256 hash used throughout</span>
+  </div>
+  <div class="invariant-row">
+    <span class="invariant-icon">📨</span>
+    <span class="invariant-text"><strong>Kafka roundtrip</strong> — platform.audit.events and cts.inward.{bank_id} topic routing confirmed end-to-end with real broker</span>
+  </div>
+  <div class="invariant-row">
+    <span class="invariant-icon">📋</span>
+    <span class="invariant-text"><strong>schema_version contract</strong> — every Kafka event envelope carries schema_version field (versioning rule enforced)</span>
+  </div>
+  <div class="invariant-row">
+    <span class="invariant-icon">🤖</span>
+    <span class="invariant-text"><strong>OCR degradation</strong> — vLLM 503 → activity returns degraded=True + HUMAN_REVIEW; never silent failure</span>
+  </div>
+</div>
+
+<div class="footer">
+  <span class="footer-brand">ASTRA — Bank Intelligence Platform</span>
+  <span>Cut 2 of 3 · Diagonal test strategy · 2026-08-25</span>
+</div>
