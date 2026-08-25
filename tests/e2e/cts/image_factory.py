@@ -802,10 +802,10 @@ def crop_signature_from_image_data(image_b64: str) -> str:
         img = Image.open(io.BytesIO(base64.b64decode(encoded))).convert("RGB")
         w, h = img.size
 
-        # CTS sig box: right side starts ~55% width; ink sits at 58–78% height.
-        # Y from 58% catches signature tops without hitting body text rows
-        # (address/account lines end by ~55%); 86% stays clear of MICR band.
-        x0 = max(0, int(0.58 * w))
+        # X from 62%: footer text "Payable at...in India." on ICICI/Axis cheques
+        # ends at ~60% width — 62% clears it without clipping HDFC-style sigs.
+        # Y from 58%: CTS sig ink starts at ~58-62% height; 86% stays above MICR.
+        x0 = max(0, int(0.64 * w))
         y0 = max(0, int(0.58 * h))
         x1 = min(w, int(0.99 * w))
         y1 = min(h, int(0.86 * h))
@@ -814,29 +814,26 @@ def crop_signature_from_image_data(image_b64: str) -> str:
         try:
             from PIL import ImageEnhance, ImageStat
 
-            # Detect chromatic background: compare mean R+B vs mean G channel.
-            # A blue/cyan watermark has high B, low R relative to G.
-            # A green watermark has high G. Either way saturation dominates.
             stat = ImageStat.Stat(crop)
             r_mean, g_mean, b_mean = stat.mean[:3]
-            # Chroma index: max deviation of any channel from neutral gray
             gray_est = (r_mean + g_mean + b_mean) / 3
             chroma = max(
                 abs(r_mean - gray_est),
                 abs(g_mean - gray_est),
                 abs(b_mean - gray_est),
             )
-            is_chromatic = chroma > 12  # 0-255 scale; 12 catches blue/green paper
+            is_chromatic = chroma > 12
 
             if is_chromatic:
-                # Desaturate first so watermark text fades, then mild contrast
+                # Heavy desaturation (90% grey / 10% colour) suppresses dense
+                # repeated watermarks (Canara, ICICI, Syndicate) while keeping
+                # the ink dark enough to read; raise contrast to compensate.
                 gray = crop.convert("L").convert("RGB")
-                # Blend: 70% desaturated + 30% original keeps faint ink colour
-                crop = Image.blend(gray, crop, alpha=0.30)
-                crop = ImageEnhance.Contrast(crop).enhance(1.4)
+                crop = Image.blend(gray, crop, alpha=0.10)
+                crop = ImageEnhance.Contrast(crop).enhance(1.8)
                 crop = ImageEnhance.Sharpness(crop).enhance(1.1)
             else:
-                # Neutral / cream paper — direct contrast boost is safe
+                # Neutral/cream paper — moderate contrast boost
                 crop = ImageEnhance.Contrast(crop).enhance(1.5)
                 crop = ImageEnhance.Sharpness(crop).enhance(1.2)
         except Exception:
