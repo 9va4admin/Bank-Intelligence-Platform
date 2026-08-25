@@ -809,8 +809,37 @@ def crop_signature_from_image_data(image_b64: str) -> str:
         y0 = max(0, int(0.58 * h))
         x1 = min(w, int(0.99 * w))
         y1 = min(h, int(0.86 * h))
-        crop = img.crop((x0, y0, x1, y1))
+        raw_crop = img.crop((x0, y0, x1, y1))
 
+        # ── Step 1: auto-trim "Please sign above" label on the RAW crop ────────
+        # Must run before enhancement: desaturation lightens the label text too,
+        # reducing its dark-pixel density below the detection threshold.
+        # Scan bottom 60% of crop (scan_from=0.40) to catch HDFC cheques where
+        # the label sits at ~57% of crop height.
+        # Fallback = no trim (e.g. 1.tiff where the sig tail merges with label).
+        try:
+            import numpy as _np
+            _g = _np.array(raw_crop.convert("L"))
+            _h, _w = _g.shape
+            _dark = _g < 160
+            _dens = _dark.mean(axis=1)
+            _scan_from = int(_h * 0.40)
+            _LABEL, _GAP = 0.025, 0.008
+            _in_text, _label_top = False, None
+            for _r in range(_h - 1, _scan_from - 1, -1):
+                if _dens[_r] >= _LABEL:
+                    _in_text = True
+                elif _in_text and _dens[_r] < _GAP:
+                    _label_top = _r + 1
+                    break
+            if _label_top is not None and _label_top > int(_h * 0.25):
+                _cut = max(int(_h * 0.25), _label_top - 3)
+                raw_crop = raw_crop.crop((0, 0, _w, _cut))
+        except Exception:
+            pass
+
+        # ── Step 2: background-aware enhancement ────────────────────────────────
+        crop = raw_crop
         try:
             from PIL import ImageEnhance, ImageStat
 
@@ -825,15 +854,11 @@ def crop_signature_from_image_data(image_b64: str) -> str:
             is_chromatic = chroma > 12
 
             if is_chromatic:
-                # Heavy desaturation (90% grey / 10% colour) suppresses dense
-                # repeated watermarks (Canara, ICICI, Syndicate) while keeping
-                # the ink dark enough to read; raise contrast to compensate.
                 gray = crop.convert("L").convert("RGB")
                 crop = Image.blend(gray, crop, alpha=0.10)
                 crop = ImageEnhance.Contrast(crop).enhance(1.8)
                 crop = ImageEnhance.Sharpness(crop).enhance(1.1)
             else:
-                # Neutral/cream paper — moderate contrast boost
                 crop = ImageEnhance.Contrast(crop).enhance(1.5)
                 crop = ImageEnhance.Sharpness(crop).enhance(1.2)
         except Exception:
