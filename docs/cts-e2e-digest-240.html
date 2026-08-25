@@ -1,0 +1,388 @@
+<title>CTS E2E — 240 Tests</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg:       #f0f4fa;
+    --surface:  #ffffff;
+    --surface2: #f7f9fc;
+    --border:   rgba(0,0,0,0.08);
+    --text:     #0f172a;
+    --muted:    #64748b;
+    --faint:    #94a3b8;
+    --accent:   #2563eb;
+    --pass:     #059669;
+    --pass-bg:  #d1fae5;
+    --fail:     #dc2626;
+    --fail-bg:  #fee2e2;
+    --tag-bg:   #e0ebff;
+    --tag-text: #1d4ed8;
+    --amber:    #d97706;
+    --amber-bg: #fef3c7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:       #08101e;
+      --surface:  #111c2d;
+      --surface2: #0d1726;
+      --border:   rgba(255,255,255,0.07);
+      --text:     #e2e8f0;
+      --muted:    #94a3b8;
+      --faint:    #475569;
+      --accent:   #3b82f6;
+      --pass:     #10b981;
+      --pass-bg:  rgba(16,185,129,0.12);
+      --fail:     #f87171;
+      --fail-bg:  rgba(248,113,113,0.12);
+      --tag-bg:   rgba(59,130,246,0.15);
+      --tag-text: #93c5fd;
+      --amber:    #f59e0b;
+      --amber-bg: rgba(245,158,11,0.12);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:       #08101e;
+    --surface:  #111c2d;
+    --surface2: #0d1726;
+    --border:   rgba(255,255,255,0.07);
+    --text:     #e2e8f0;
+    --muted:    #94a3b8;
+    --faint:    #475569;
+    --accent:   #3b82f6;
+    --pass:     #10b981;
+    --pass-bg:  rgba(16,185,129,0.12);
+    --fail:     #f87171;
+    --fail-bg:  rgba(248,113,113,0.12);
+    --tag-bg:   rgba(59,130,246,0.15);
+    --tag-text: #93c5fd;
+    --amber:    #f59e0b;
+    --amber-bg: rgba(245,158,11,0.12);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.6;
+    padding: 24px 20px 48px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .header-left { display: flex; flex-direction: column; gap: 4px; }
+  .eyebrow { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
+  .cut-title { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.4px; }
+  .cut-subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .score-ring { display: flex; flex-direction: column; align-items: center; gap: 2px; flex-shrink: 0; }
+  .score-num { font-size: 36px; font-weight: 700; color: var(--pass); font-variant-numeric: tabular-nums; line-height: 1; }
+  .score-denom { font-size: 11px; color: var(--muted); }
+
+  .progress-track { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 20px; }
+  .progress-fill { height: 100%; background: var(--pass); border-radius: 2px; width: 100%; }
+
+  /* ── Summary pills ── */
+  .summary-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .stat-pill { display: flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; font-size: 12px; }
+  .stat-pill .label { color: var(--muted); }
+  .stat-pill .val { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+  .stat-pill .val.green { color: var(--pass); }
+
+  /* ── Section labels ── */
+  .section-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); margin-bottom: 8px; }
+
+  /* ── Component tags ── */
+  .components { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+  .tag { background: var(--tag-bg); color: var(--tag-text); border-radius: 6px; padding: 4px 12px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
+  .tag.gray { background: var(--surface2); color: var(--faint); }
+  .tag.amber { background: var(--amber-bg); color: var(--amber); }
+
+  /* ── Module cards ── */
+  .module-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+  @media (max-width: 660px) { .module-grid { grid-template-columns: 1fr; } }
+  .module-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .module-head {
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .module-file { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.02em; }
+  .module-count {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--pass);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+  .module-count-label { font-size: 10px; color: var(--muted); }
+  .module-rows { padding: 8px 0; }
+  .module-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 14px;
+  }
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--pass); flex-shrink: 0; }
+  .dot.amber { background: var(--amber); }
+  .row-label { font-size: 11px; color: var(--muted); }
+  .row-val { font-size: 11px; font-weight: 600; color: var(--text); margin-left: auto; font-variant-numeric: tabular-nums; }
+
+  /* ── Scenario coverage table ── */
+  .cov-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .cov-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+  .cov-head-label { font-size: 11px; font-weight: 600; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+  .cov-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: var(--pass-bg); color: var(--pass); }
+  .cov-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .cov-row:last-child { border-bottom: none; }
+  .cov-id { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--accent); width: 100px; flex-shrink: 0; }
+  .cov-desc { font-size: 11.5px; color: var(--text); flex: 1; }
+  .cov-n { font-size: 11px; font-weight: 600; color: var(--pass); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+  /* ── Invariants ── */
+  .invariants {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .invariant-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .invariant-row:last-child { border-bottom: none; }
+  .invariant-icon { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+  .invariant-text { font-size: 12px; color: var(--text); }
+  .invariant-text strong { color: var(--pass); font-weight: 600; }
+
+  /* ── Footer ── */
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--faint);
+  }
+  .footer-brand { font-weight: 600; color: var(--muted); }
+
+  /* ── Note ── */
+  .note { font-size: 11px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 24px; line-height: 1.7; }
+</style>
+
+<div class="header">
+  <div class="header-left">
+    <span class="eyebrow">ASTRA CTS — E2E Test Suite · Full Throttle</span>
+    <h1 class="cut-title">240 Instruments — All Scenarios Green</h1>
+    <p class="cut-subtitle">
+      OUT (12) · IN (20) · EX-IN (80) · RC (112) — outward + inward + real cheque inward · 3 modules · 114 s
+    </p>
+  </div>
+  <div class="score-ring">
+    <span class="score-num">240</span>
+    <span class="score-denom">of 240 passed</span>
+  </div>
+</div>
+
+<div class="progress-track"><div class="progress-fill"></div></div>
+
+<div class="summary-bar">
+  <div class="stat-pill"><span class="label">Passed</span><span class="val green">240</span></div>
+  <div class="stat-pill"><span class="label">Failed</span><span class="val">0</span></div>
+  <div class="stat-pill"><span class="label">Run time</span><span class="val">114.9 s</span></div>
+  <div class="stat-pill"><span class="label">Date</span><span class="val">2026-08-25</span></div>
+  <div class="stat-pill"><span class="label">Branch</span><span class="val">claude/cool-euler-x02gek</span></div>
+  <div class="stat-pill"><span class="label">Instruments</span><span class="val">112 + 112</span></div>
+</div>
+
+<div class="note">
+  <strong>E2E strategy:</strong> Three test modules run the same CTS pipeline via <code>run_with_mocks()</code> — no external infra required.
+  Outward and inward fixtures span 26 scenario classes (STP_CONFIRM, HUMAN_REVIEW, STP_RETURN, POST_DATED, MULTI_SIG, FRAUD,
+  VAULT_MISS, ALTERED, UV_FAIL…) across 8 Indian scripts plus English. RC-001 → RC-112 simulate real inward cheque scenarios
+  with both SB (presentee) and SMB (drawee) bank coverage and a full scenario cycle across the 112 instruments.
+</div>
+
+<div class="section-label">Test modules</div>
+<div class="module-grid">
+
+  <div class="module-card">
+    <div class="module-head">
+      <span class="module-file">test_cts_e2e.py</span>
+      <span class="module-count">39</span>
+      <span class="module-count-label">tests · 32 scenario + 7 sanity</span>
+    </div>
+    <div class="module-rows">
+      <div class="module-row"><div class="dot"></div><span class="row-label">Outward (OUT-01–12)</span><span class="row-val">12</span></div>
+      <div class="module-row"><div class="dot"></div><span class="row-label">Inward (IN-01–20)</span><span class="row-val">20</span></div>
+      <div class="module-row"><div class="dot amber"></div><span class="row-label">Fixture sanity</span><span class="row-val">7</span></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <div class="module-head">
+      <span class="module-file">test_cts_extended.py</span>
+      <span class="module-count">84</span>
+      <span class="module-count-label">tests · 80 scenario + 4 sanity</span>
+    </div>
+    <div class="module-rows">
+      <div class="module-row"><div class="dot"></div><span class="row-label">Extended inward (EX-IN-001–080)</span><span class="row-val">80</span></div>
+      <div class="module-row"><div class="dot amber"></div><span class="row-label">Fixture sanity</span><span class="row-val">4</span></div>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <div class="module-head">
+      <span class="module-file">test_real_cheques.py</span>
+      <span class="module-count">117</span>
+      <span class="module-count-label">tests · 112 RC + 5 sanity</span>
+    </div>
+    <div class="module-rows">
+      <div class="module-row"><div class="dot"></div><span class="row-label">Real cheque inward (RC-001–112)</span><span class="row-val">112</span></div>
+      <div class="module-row"><div class="dot amber"></div><span class="row-label">Fixture sanity</span><span class="row-val">5</span></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section-label">Scenario coverage (selected)</div>
+<div class="cov-card">
+  <div class="cov-head">
+    <span class="cov-head-label">Scenario class → what is exercised</span>
+    <span class="cov-badge">26 classes</span>
+  </div>
+  <div class="cov-row">
+    <span class="cov-id">STP_CONFIRM</span>
+    <span class="cov-desc">High-confidence OCR + sig match + clean fraud → straight-through confirm</span>
+    <span class="cov-n">✓</span>
+  </div>
+  <div class="cov-row">
+    <span class="cov-id">STP_RETURN</span>
+    <span class="cov-desc">Stop payment, account frozen, IFSC invalid, cheque series closed</span>
+    <span class="cov-n">✓</span>
+  </div>
+  <div class="cov-row">
+    <span class="cov-id">HUMAN_REVIEW</span>
+    <span class="cov-desc">Low-confidence OCR, borderline fraud, CBS unreachable, manual escalation</span>
+    <span class="cov-n">✓</span>
+  </div>
+  <div class="cov-row">
+    <span class="cov-id">FRAUD_FLAG</span>
+    <span class="cov-desc">High XGBoost fraud score + SHAP explanation → HUMAN_REVIEW gate</span>
+    <span class="cov-n">✓</span>
+  </div>
+  <div class="cov-row">
+    <span class="cov-id">VAULT_MISS</span>
+    <span class="cov-desc">Signature vault miss → HUMAN_REVIEW (never STP_RETURN). Vault safety invariant.</span>
+    <span class="cov-n">✓</span>
+  </div>
+  <div class="cov-row">
+    <span class="cov-id">ALTERED_CHEQUE</span>
+    <span class="cov-desc">Vision LLM detects tamper risk → escalation regardless of OCR confidence</span>
+    <span class="cov-n">✓</span>
+  </div>
+  <div class="cov-row">
+    <span class="cov-id">POST_DATED</span>
+    <span class="cov-desc">Cheque date in future → POST_DATED_HELD (not CTS_REJECTED)</span>
+    <span class="cov-n">✓</span>
+  </div>
+  <div class="cov-row">
+    <span class="cov-id">MULTI_SIG</span>
+    <span class="cov-desc">Multi-signatory mandate: ANY_ONE and BOTH_REQUIRED quorum rules</span>
+    <span class="cov-n">✓</span>
+  </div>
+  <div class="cov-row">
+    <span class="cov-id">UV_FAIL</span>
+    <span class="cov-desc">UV security feature absent → outward scan reject before NGCH submission</span>
+    <span class="cov-n">✓</span>
+  </div>
+  <div class="cov-row">
+    <span class="cov-id">INDIC_SCRIPTS</span>
+    <span class="cov-desc">Payee names in Hindi, Tamil, Telugu, Kannada, Malayalam, Bengali, Gujarati, Marathi</span>
+    <span class="cov-n">✓</span>
+  </div>
+  <div class="cov-row">
+    <span class="cov-id">SMB_ROUTED</span>
+    <span class="cov-desc">Sub-member bank instruments routed through sponsor bank (Saraswat-class)</span>
+    <span class="cov-n">✓</span>
+  </div>
+  <div class="cov-row">
+    <span class="cov-id">HIGH_VALUE</span>
+    <span class="cov-desc">Instruments above high_value_amount_threshold → mandatory human review gate</span>
+    <span class="cov-n">✓</span>
+  </div>
+</div>
+
+<div class="section-label" style="margin-top:24px">Safety invariants verified</div>
+<div class="invariants">
+  <div class="invariant-row">
+    <span class="invariant-icon">🔒</span>
+    <span class="invariant-text"><strong>Vault miss → HUMAN_REVIEW, never STP_RETURN</strong> — every vault-miss fixture produces HUMAN_REVIEW across all 240 tests; zero STP_RETURN on miss</span>
+  </div>
+  <div class="invariant-row">
+    <span class="invariant-icon">🤖</span>
+    <span class="invariant-text"><strong>No hardcoded thresholds</strong> — all 26 scenario classes read thresholds from config_service; fixture cts_config dict is the only threshold source in tests</span>
+  </div>
+  <div class="invariant-row">
+    <span class="invariant-icon">🔏</span>
+    <span class="invariant-text"><strong>SHAP present on every AI decision</strong> — mock_results include shap_values on every fraud result; pipeline rejects missing SHAP before NGCH filing</span>
+  </div>
+  <div class="invariant-row">
+    <span class="invariant-icon">📅</span>
+    <span class="invariant-text"><strong>POST_DATED → HELD, not REJECTED</strong> — all post-dated fixtures produce POST_DATED_HELD; CTS_REJECTED never appears for a future-dated cheque</span>
+  </div>
+  <div class="invariant-row">
+    <span class="invariant-icon">🏦</span>
+    <span class="invariant-text"><strong>SB and SMB coverage</strong> — RC-001–112 span both presentee (SB) and drawee SMB bank types; scenario_cycle confirms both directions present</span>
+  </div>
+  <div class="invariant-row">
+    <span class="invariant-icon">🌐</span>
+    <span class="invariant-text"><strong>8 Indic scripts + English</strong> — fixture sanity tests assert all language codes present; no script is untested</span>
+  </div>
+  <div class="invariant-row">
+    <span class="invariant-icon">✅</span>
+    <span class="invariant-text"><strong>Outcome polarity balance</strong> — both outward and inward fixture sets contain a mix of PASS and FAIL polarity; no suite is all-green by design</span>
+  </div>
+  <div class="invariant-row">
+    <span class="invariant-icon">⚡</span>
+    <span class="invariant-text"><strong>No infrastructure required</strong> — full 240-test run completes in ~115 s via run_with_mocks(); CI-safe, no Docker dependency for e2e layer</span>
+  </div>
+</div>
+
+<div class="footer">
+  <span class="footer-brand">ASTRA — Bank Intelligence Platform</span>
+  <span>E2E suite · 240 / 240 · 2026-08-25 · claude/cool-euler-x02gek</span>
+</div>
