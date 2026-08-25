@@ -588,7 +588,148 @@ td.model-ref { font-family: 'JetBrains Mono', monospace; font-size: 11px; color:
 .legend-dot.ai   { border-color: var(--accent); background: var(--accent-glow); }
 .legend-dot.rule { border-color: var(--text-faint); }
 .legend-dot.local { border-color: #8B5CF6; }
+
+/* ─── Document Header & Footer ───────────────────────── */
+.doc-header {
+  background: #06101E;
+  border-bottom: 2px solid rgba(180,30,30,0.7);
+  padding: 7px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+.doc-header-brand {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: #8BA3BB;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.doc-header-brand strong {
+  color: #CBD5E1;
+}
+.doc-header-confid {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(220,60,60,0.85);
+  white-space: nowrap;
+}
+.doc-footer {
+  background: #06101E;
+  border-top: 1px solid rgba(180,30,30,0.5);
+  padding: 14px 48px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 0;
+}
+.doc-footer-left {
+  font-family: 'Source Sans 3', sans-serif;
+  font-size: 11px;
+  color: #6A8BAA;
+  line-height: 1.6;
+}
+.doc-footer-left strong { color: #8BA3BB; }
+.doc-footer-right {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(200,50,50,0.75);
+  letter-spacing: 0.08em;
+  text-align: right;
+  line-height: 1.7;
+  white-space: nowrap;
+}
+
+/* ─── Watermark ───────────────────────────────────────── */
+/*
+   Uses body::after (pseudo-element) so it cannot be removed by simply
+   deleting a DOM node in DevTools — the element does not exist in the DOM.
+   position:fixed repeats the watermark on every printed page.
+   -webkit-print-color-adjust + print-color-adjust force browsers to
+   include background images in print output.
+   All rules carry !important so overriding requires explicit !important
+   on the body::after selector itself, not just on individual properties.
+*/
+body::after {
+  content: '' !important;
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  z-index: 99998 !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='480' height='480'%3E%3Cg transform='rotate(-38 240 240)'%3E%3Ctext x='30' y='228' font-family='Arial%2Csans-serif' font-size='24' font-weight='700' fill='rgba(140%2C0%2C0%2C0.09)' letter-spacing='4'%3EPRIVATE %26amp%3B CONFIDENTIAL%3C/text%3E%3Ctext x='80' y='254' font-family='Arial%2Csans-serif' font-size='10.5' fill='rgba(140%2C0%2C0%2C0.065)' letter-spacing='3'%3E9VA TECH LLP %C2%B7 UNAUTHORIZED USE PROHIBITED%3C/text%3E%3C/g%3E%3C/svg%3E") !important;
+  background-repeat: repeat !important;
+  background-size: 480px 480px !important;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+/* ─── Print Layout ────────────────────────────────────── */
+@media print {
+  /* Header and footer pin to every printed page */
+  .doc-header {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 99999 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .doc-footer {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 99999 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* Push content below pinned header and above pinned footer */
+  .hero {
+    margin-top: 40px !important;
+  }
+  .page-body {
+    padding-bottom: 80px !important;
+  }
+  /* Force watermark to print */
+  body::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* Suppress animations and screen-only chrome */
+  .hero::before { display: none !important; }
+  /* Page numbering */
+  .doc-footer-right::after {
+    content: ' · Page ' counter(page) ' of ' counter(pages);
+    display: block;
+    font-size: 10px;
+    color: rgba(200,50,50,0.6);
+    margin-top: 2px;
+  }
+}
 </style>
+
+<!-- ═══════════════════════════════════════════════════════ DOCUMENT HEADER -->
+<header class="doc-header">
+  <div class="doc-header-brand">
+    Prepared by: <strong>Nilesh Shah</strong>&nbsp;&nbsp;·&nbsp;&nbsp;<strong>9VA TECH LLP</strong>&nbsp;&nbsp;·&nbsp;&nbsp;ASTRA CTS · AI Inference Reference · 2026
+  </div>
+  <div class="doc-header-confid">⚠ Private &amp; Confidential — Unauthorized Use Strictly Prohibited</div>
+</header>
 
 <!-- ═══════════════════════════════════════════════════════ HERO -->
 <div class="hero">
@@ -2189,8 +2330,21 @@ td.model-ref { font-family: 'JetBrains Mono', monospace; font-size: 11px; color:
     </div>
   </section>
 
-  <div style="text-align:center;padding:32px 0;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-faint);letter-spacing:0.06em">
-    ASTRA · CTS AI Inference Map · Confidential — Banking Grade · 2026-08-25
-  </div>
+  <!-- spacer so footer doesn't overlap last section on screen -->
+  <div style="height:20px"></div>
+</div><!-- /page-body -->
 
-</div>
+<!-- ═══════════════════════════════════════════════════════ DOCUMENT FOOTER -->
+<footer class="doc-footer">
+  <div class="doc-footer-left">
+    <strong>Prepared by: Nilesh Shah</strong> · 9VA TECH LLP<br>
+    © 2026 9VA Tech LLP. All rights reserved.<br>
+    This document is Private and Confidential. It is intended solely for the addressee(s).
+    Unauthorized use, reproduction, distribution, or disclosure — in whole or in part — is strictly prohibited and may be unlawful.
+  </div>
+  <div class="doc-footer-right">
+    PRIVATE &amp; CONFIDENTIAL<br>
+    UNAUTHORIZED USE STRICTLY PROHIBITED<br>
+    ASTRA CTS · AI Inference Reference · 2026
+  </div>
+</footer>
