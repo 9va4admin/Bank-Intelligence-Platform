@@ -45,6 +45,13 @@ _RC_SCENARIOS = [
     ("CBS_INSUFFICIENT",  "STP_RETURN",   "NEGATIVE", "CBS balance insufficient — hard STP return", 320_000.0),
 ]
 
+# Per-image overrides: {sorted_file_index: (trigger, expected_outcome, polarity, desc, amount)}
+# Used when the actual cheque scan shows a specific condition that must match the fixture.
+_RC_OVERRIDES: dict[int, tuple] = {
+    3: ("NO_SIGNATURE", "STP_RETURN", "NEGATIVE",
+        "NKGSB Bank — unsigned cheque → hard STP_RETURN", 5_000.0),
+}
+
 _BANKS = ["syndicate-bank", "axis-bank"]
 _IFSCS = ["SYNB0003011",    "UTIB0000426"]
 
@@ -70,7 +77,10 @@ def _amt_range(amount: float) -> str:
 
 
 def _make_rc(idx: int, fpath: Path) -> ChequeFixture:
-    trigger, exp_out, polarity, desc, amount = _RC_SCENARIOS[idx % len(_RC_SCENARIOS)]
+    if idx in _RC_OVERRIDES:
+        trigger, exp_out, polarity, desc, amount = _RC_OVERRIDES[idx]
+    else:
+        trigger, exp_out, polarity, desc, amount = _RC_SCENARIOS[idx % len(_RC_SCENARIOS)]
     bank_idx = idx % 2
     bank_id  = _BANKS[bank_idx]
     bank_ifsc = _IFSCS[bank_idx]

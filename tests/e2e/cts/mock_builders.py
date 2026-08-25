@@ -265,6 +265,16 @@ def build_inward_mocks(fixture) -> dict:                         # noqa: ANN001
             reason="IFSC_NOT_IN_REGISTRY",
         )
 
+    elif t == "NO_SIGNATURE":
+        # Cheque has no signature at all — sig_count=0 triggers STP_RETURN
+        sig_count = 0
+        decision = _ns(
+            decision="STP_RETURN",
+            rationale="no_signature_on_cheque",
+            shap_values={},
+            stp_confidence=0.0,
+        )
+
     elif t == "SIG_MISMATCH":
         signature = _ns(
             match_score=0.41,
@@ -460,6 +470,7 @@ _INWARD_EXIT: dict[str, tuple[str, str]] = {
     "STOP_PAYMENT_STP":  ("stop_payment", "STP_RETURN"),
     "STOP_PAYMENT_BLOOM":("stop_payment", "BLOOM_HIT"),
     "IFSC_INVALID":      ("ifsc_validate", "NOT_IN_REGISTRY"),
+    "NO_SIGNATURE":      ("detect_signatures",   "ABSENT"),
     "SIG_MISMATCH":      ("synthesise_decision", "HR_SIG_MISMATCH"),
     "FRAUD_HIGH":        ("synthesise_decision", "HR_FRAUD_HIGH"),
     "CHEQUE_SERIES_STP": ("cheque_series", "INVALID"),
