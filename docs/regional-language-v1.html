@@ -1,680 +1,628 @@
 <title>Regional Language OCR</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* ── Token system ── */
+/* ── Design tokens ── */
 :root {
-  --bg:         #f2ede3;
-  --surface:    #ffffff;
-  --surface2:   #f9f6f0;
-  --border:     rgba(30,20,10,0.10);
-  --stripe:     #1e3a5f;
-  --stripe2:    #162d4a;
-  --text:       #1a1410;
-  --muted:      #78716c;
-  --faint:      #a8a29e;
-  --accent:     #1e40af;
-  --pass:       #059669;
-  --pass-bg:    #d1fae5;
-  --pass-text:  #065f46;
-  --ret:        #b91c1c;
-  --ret-bg:     #fee2e2;
-  --ret-text:   #7f1d1d;
-  --rev:        #b45309;
-  --rev-bg:     #fef3c7;
-  --rev-text:   #78350f;
-  --micr-bg:    #f7f3ec;
-  --ocr-bg:     #f5f0e8;
-  --tag-bg:     rgba(30,64,175,0.10);
-  --tag-text:   #1e40af;
-  --shadow:     0 1px 4px rgba(30,20,10,0.08), 0 4px 16px rgba(30,20,10,0.06);
+  --bg:        #ede9df;
+  --surface:   #ffffff;
+  --surface2:  #f7f4ee;
+  --border:    rgba(30,20,8,0.10);
+  --text:      #18130b;
+  --muted:     #6b6155;
+  --faint:     #a89e8c;
+  --accent:    #1e3c72;
+  --pass:      #047857;
+  --pass-bg:   #d1fae5;
+  --pass-txt:  #064e3b;
+  --ret:       #b91c1c;
+  --ret-bg:    #fee2e2;
+  --ret-txt:   #7f1d1d;
+  --rev:       #b45309;
+  --rev-bg:    #fef3c7;
+  --rev-txt:   #78350f;
+  --shadow:    0 1px 3px rgba(20,12,4,0.07),0 6px 20px rgba(20,12,4,0.07);
+  /* cheque paper */
+  --chq-bg:    #fdfcf6;
+  --chq-line:  #c9b88a;
+  --chq-label: #8b7a56;
+  --chq-ink:   #1a1410;
+  --chq-head:  #1e3c72;
+  --micr-bg:   #f0e8d4;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg:         #0f0d0a;
-    --surface:    #1c1917;
-    --surface2:   #231f1b;
-    --border:     rgba(255,245,235,0.10);
-    --stripe:     #0f2140;
-    --stripe2:    #0a1a32;
-    --text:       #e7e0d4;
-    --muted:      #a8a29e;
-    --faint:      #57534e;
-    --accent:     #60a5fa;
-    --pass:       #10b981;
-    --pass-bg:    rgba(16,185,129,0.15);
-    --pass-text:  #6ee7b7;
-    --ret:        #f87171;
-    --ret-bg:     rgba(248,113,113,0.15);
-    --ret-text:   #fca5a5;
-    --rev:        #f59e0b;
-    --rev-bg:     rgba(245,158,11,0.15);
-    --rev-text:   #fcd34d;
-    --micr-bg:    #1a1714;
-    --ocr-bg:     #161310;
-    --tag-bg:     rgba(96,165,250,0.12);
-    --tag-text:   #93c5fd;
-    --shadow:     0 1px 4px rgba(0,0,0,0.3), 0 4px 20px rgba(0,0,0,0.25);
+    --bg:       #0c0a07;
+    --surface:  #1a1610;
+    --surface2: #211d15;
+    --border:   rgba(255,245,220,0.09);
+    --text:     #e8e0d0;
+    --muted:    #a89e8c;
+    --faint:    #5c5347;
+    --accent:   #60a5fa;
+    --pass:     #10b981;  --pass-bg: rgba(16,185,129,0.14); --pass-txt:#6ee7b7;
+    --ret:      #f87171;  --ret-bg:  rgba(248,113,113,0.14); --ret-txt:#fca5a5;
+    --rev:      #f59e0b;  --rev-bg:  rgba(245,158,11,0.14);  --rev-txt:#fcd34d;
+    --shadow:   0 1px 4px rgba(0,0,0,0.35),0 8px 24px rgba(0,0,0,0.30);
+    --chq-bg:   #1c1810;
+    --chq-line: #3d3220;
+    --chq-label:#7a6e52;
+    --chq-ink:  #ddd5c0;
+    --chq-head: #1a3260;
+    --micr-bg:  #161208;
   }
 }
 :root[data-theme="dark"] {
-  --bg:         #0f0d0a;
-  --surface:    #1c1917;
-  --surface2:   #231f1b;
-  --border:     rgba(255,245,235,0.10);
-  --stripe:     #0f2140;
-  --stripe2:    #0a1a32;
-  --text:       #e7e0d4;
-  --muted:      #a8a29e;
-  --faint:      #57534e;
-  --accent:     #60a5fa;
-  --pass:       #10b981;
-  --pass-bg:    rgba(16,185,129,0.15);
-  --pass-text:  #6ee7b7;
-  --ret:        #f87171;
-  --ret-bg:     rgba(248,113,113,0.15);
-  --ret-text:   #fca5a5;
-  --rev:        #f59e0b;
-  --rev-bg:     rgba(245,158,11,0.15);
-  --rev-text:   #fcd34d;
-  --micr-bg:    #1a1714;
-  --ocr-bg:     #161310;
-  --tag-bg:     rgba(96,165,250,0.12);
-  --tag-text:   #93c5fd;
-  --shadow:     0 1px 4px rgba(0,0,0,0.3), 0 4px 20px rgba(0,0,0,0.25);
+  --bg:       #0c0a07;
+  --surface:  #1a1610;
+  --surface2: #211d15;
+  --border:   rgba(255,245,220,0.09);
+  --text:     #e8e0d0;
+  --muted:    #a89e8c;
+  --faint:    #5c5347;
+  --accent:   #60a5fa;
+  --pass:     #10b981;  --pass-bg: rgba(16,185,129,0.14); --pass-txt:#6ee7b7;
+  --ret:      #f87171;  --ret-bg:  rgba(248,113,113,0.14); --ret-txt:#fca5a5;
+  --rev:      #f59e0b;  --rev-bg:  rgba(245,158,11,0.14);  --rev-txt:#fcd34d;
+  --shadow:   0  1px 4px rgba(0,0,0,0.35),0 8px 24px rgba(0,0,0,0.30);
+  --chq-bg:   #1c1810;
+  --chq-line: #3d3220;
+  --chq-label:#7a6e52;
+  --chq-ink:  #ddd5c0;
+  --chq-head: #1a3260;
+  --micr-bg:  #161208;
 }
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
 body {
-  font-family: 'Inter', system-ui, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  font-size: 13px;
-  line-height: 1.5;
-  padding: 28px 20px 60px;
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  font-size:13px;
+  line-height:1.5;
+  padding:28px 18px 60px;
 }
 
 /* ── Page header ── */
-.page-header {
-  max-width: 1100px;
-  margin: 0 auto 28px;
-}
-.eyebrow {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--accent);
-  margin-bottom: 6px;
-}
-.page-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: -0.4px;
-  line-height: 1.2;
-}
-.page-sub {
-  font-size: 13px;
-  color: var(--muted);
-  margin-top: 6px;
-  max-width: 640px;
-}
-.meta-bar {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 14px;
-}
-.meta-pill {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--muted);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 10px;
-}
-.meta-pill strong { color: var(--text); }
-.lang-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
-.lchip {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  padding: 3px 10px;
-  border-radius: 5px;
-  background: var(--tag-bg);
-  color: var(--tag-text);
-}
+.page-hdr { max-width:1120px; margin:0 auto 26px; }
+.eyebrow { font-size:10px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); margin-bottom:5px; }
+.page-title { font-size:23px; font-weight:700; letter-spacing:-.4px; color:var(--text); text-wrap:balance; }
+.page-sub { font-size:12.5px; color:var(--muted); margin-top:5px; max-width:660px; }
+.meta-bar { display:flex; gap:7px; flex-wrap:wrap; margin-top:12px; }
+.meta-pill { font-size:11px; background:var(--surface); border:1px solid var(--border); border-radius:5px; padding:3px 9px; color:var(--muted); }
+.meta-pill strong { color:var(--text); }
+.lang-chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+.lchip { font-size:11px; font-weight:600; padding:3px 10px; border-radius:5px; background:rgba(30,60,114,0.09); color:var(--accent); font-family:'Noto Sans','Nirmala UI',system-ui,sans-serif; }
 
 /* ── Grid ── */
 .grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
-  max-width: 1100px;
-  margin: 0 auto;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:18px;
+  max-width:1120px;
+  margin:0 auto;
 }
-@media (max-width: 800px) { .grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 520px) { .grid { grid-template-columns: 1fr; } }
+@media(max-width:820px){.grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.grid{grid-template-columns:1fr}}
 
-/* ── Cheque card ── */
+/* ── Card ── */
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  display: flex;
-  flex-direction: column;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:8px;
+  overflow:hidden;
+  box-shadow:var(--shadow);
+  display:flex;
+  flex-direction:column;
 }
 
-/* Bank stripe */
-.stripe {
-  background: var(--stripe);
-  padding: 10px 14px 9px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+/* Card top badge row */
+.card-top {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:7px 12px;
+  background:var(--surface2);
+  border-bottom:1px solid var(--border);
 }
-.bank-name {
-  font-size: 11px;
-  font-weight: 600;
-  color: rgba(255,255,255,0.9);
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.card-lang { font-size:11px; font-weight:700; color:var(--accent); letter-spacing:.04em; font-family:'Noto Sans','Nirmala UI',system-ui,sans-serif; }
+.card-right { display:flex; align-items:center; gap:6px; }
+.code-badge { font-size:9px; font-weight:700; letter-spacing:.08em; padding:2px 7px; border-radius:3px; background:var(--accent); color:#fff; }
+.fid { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--faint); }
+
+/* ══ Cheque visual ══════════════════════════════════════ */
+.cheque-wrap { padding:10px 12px 0; }
+.cheque {
+  border:1px solid var(--chq-line);
+  border-radius:3px;
+  overflow:hidden;
+  position:relative;
+  background-color:var(--chq-bg);
+  background-image:
+    repeating-linear-gradient(-45deg,transparent,transparent 5px,rgba(100,80,30,.018) 5px,rgba(100,80,30,.018) 6px);
 }
-.stripe-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-.lang-badge {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 2px 7px;
-  border-radius: 3px;
-  background: rgba(255,255,255,0.18);
-  color: rgba(255,255,255,0.95);
+/* SPECIMEN watermark */
+.cheque::before {
+  content:"SPECIMEN";
+  position:absolute;
+  top:50%; left:50%;
+  transform:translate(-50%,-50%) rotate(-22deg);
+  font-size:38px; font-weight:900; letter-spacing:.18em;
+  color:rgba(180,0,0,.055);
+  pointer-events:none; z-index:0; white-space:nowrap;
 }
-.fid {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
-  color: rgba(255,255,255,0.5);
+.cheque > * { position:relative; z-index:1; }
+
+/* Bank header inside cheque */
+.chq-hdr {
+  background:var(--chq-head);
+  padding:6px 10px 5px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
 }
+.chq-bank { font-size:9px; font-weight:700; color:rgba(255,255,255,.90); letter-spacing:.05em; text-transform:uppercase; }
+.chq-no-wrap { text-align:right; }
+.chq-no-lbl { font-size:7px; color:rgba(255,255,255,.55); letter-spacing:.07em; text-transform:uppercase; }
+.chq-no-val { font-family:'JetBrains Mono',monospace; font-size:10px; color:rgba(255,255,255,.90); letter-spacing:.04em; }
 
 /* Cheque body */
-.cheque-body {
-  padding: 12px 14px 10px;
-  background: var(--surface);
+.chq-body { padding:8px 10px 6px; }
+
+/* Date row */
+.chq-date-row {
+  display:flex;
+  justify-content:flex-end;
+  align-items:baseline;
+  gap:5px;
+  margin-bottom:7px;
 }
-.chq-row1 {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 6px;
+.chq-field-lbl { font-size:7.5px; color:var(--chq-label); font-weight:600; letter-spacing:.07em; text-transform:uppercase; }
+.chq-date-val { font-family:'JetBrains Mono','Noto Sans',monospace; font-size:10.5px; color:var(--chq-ink); font-weight:500; }
+
+/* Pay to */
+.chq-pay-lbl { font-size:7.5px; color:var(--chq-label); font-weight:600; letter-spacing:.07em; text-transform:uppercase; margin-bottom:2px; }
+.chq-pay-line { display:flex; align-items:baseline; gap:6px; }
+.chq-payee {
+  font-size:14px; font-weight:600; color:var(--chq-ink); flex:1;
+  font-family:'Noto Sans','Nirmala UI','Arial Unicode MS',system-ui,sans-serif;
+  line-height:1.25;
 }
-.chq-label {
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--faint);
-}
-.chq-date {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  color: var(--text);
-  font-weight: 500;
-}
-.payee-row {
-  margin-bottom: 8px;
-}
-.payee-label { font-size: 9px; color: var(--faint); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px; }
-.payee-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text);
-  line-height: 1.3;
-  /* Noto Sans gives best Indic coverage if system font lacks it */
-  font-family: 'Noto Sans', 'Nirmala UI', 'Arial Unicode MS', system-ui, sans-serif;
-}
-.amount-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.amount-fig {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-}
-.amount-range {
-  font-size: 9px;
-  font-weight: 600;
-  padding: 2px 7px;
-  border-radius: 4px;
-  background: var(--surface2);
-  color: var(--muted);
-  letter-spacing: 0.04em;
-}
-.acct-row {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-}
-.acct-item { display: flex; flex-direction: column; gap: 1px; }
-.acct-val {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  color: var(--text);
+.chq-bearer { font-size:8px; color:var(--chq-label); white-space:nowrap; }
+.chq-underline { border-bottom:1px solid var(--chq-line); margin:4px 0 8px; }
+
+/* Amount in words */
+.chq-words-lbl { font-size:7.5px; color:var(--chq-label); font-weight:600; letter-spacing:.07em; text-transform:uppercase; margin-bottom:3px; }
+.chq-words {
+  font-size:10.5px; color:var(--chq-ink); font-weight:500; line-height:1.4;
+  font-family:'Noto Sans','Nirmala UI',system-ui,sans-serif;
+  border-bottom:1px solid var(--chq-line);
+  padding-bottom:6px;
+  margin-bottom:7px;
 }
 
-/* MICR bar */
-.micr-bar {
-  background: var(--micr-bg);
-  border-top: 1px solid var(--border);
-  padding: 7px 14px;
+/* Amount fig + sig row */
+.chq-fig-row { display:flex; align-items:flex-end; justify-content:space-between; gap:8px; margin-bottom:6px; }
+.chq-fig-box { border:1px solid var(--chq-line); border-radius:2px; padding:3px 8px; background:var(--surface); }
+.chq-fig-lbl { font-size:7px; color:var(--chq-label); }
+.chq-fig-val {
+  font-family:'JetBrains Mono','Noto Sans',monospace;
+  font-size:12px; font-weight:600; color:var(--chq-ink);
+  font-variant-numeric:tabular-nums;
+  /* Noto Sans needed for regional numeral glyphs */
+  font-family:'Noto Sans','JetBrains Mono',monospace;
 }
-.micr-label { font-size: 8px; font-weight: 600; letter-spacing: 0.10em; color: var(--faint); margin-bottom: 2px; text-transform: uppercase; }
-.micr-line {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10.5px;
-  color: var(--muted);
-  letter-spacing: 0.08em;
-  font-variant-numeric: tabular-nums;
-}
+.chq-sig { border-bottom:1px solid var(--chq-line); width:76px; display:flex; flex-direction:column; align-items:center; padding-bottom:2px; }
+.chq-sig-label { font-size:7px; color:var(--chq-label); letter-spacing:.04em; text-transform:uppercase; }
 
-/* OCR extraction panel */
+/* Account row */
+.chq-acct-row { display:flex; gap:14px; border-top:1px dashed var(--chq-line); padding-top:5px; margin-bottom:0; }
+.chq-acct-item { display:flex; flex-direction:column; gap:1px; }
+.chq-acct-lbl { font-size:7px; color:var(--chq-label); text-transform:uppercase; letter-spacing:.07em; }
+.chq-acct-val { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--chq-ink); }
+
+/* MICR band */
+.chq-micr {
+  background:var(--micr-bg);
+  border-top:1px solid var(--chq-line);
+  padding:5px 10px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.chq-micr-lbl { font-size:7px; color:var(--chq-label); font-weight:600; text-transform:uppercase; letter-spacing:.08em; white-space:nowrap; }
+.chq-micr-val { font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--muted); letter-spacing:.06em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-variant-numeric:tabular-nums; }
+
+/* ══ OCR Extraction panel ══ */
 .ocr-panel {
-  background: var(--ocr-bg);
-  border-top: 1px solid var(--border);
-  padding: 10px 14px;
+  border-top:1px solid var(--border);
+  padding:9px 12px 8px;
+  background:var(--surface2);
+  margin-top:10px;
 }
-.ocr-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 7px;
+.ocr-head { display:flex; align-items:center; gap:5px; margin-bottom:7px; }
+.ocr-title { font-size:9px; font-weight:700; letter-spacing:.10em; text-transform:uppercase; color:var(--faint); }
+.ocr-badge {
+  font-size:8px; font-weight:700; letter-spacing:.04em; padding:1px 6px;
+  border-radius:3px;
 }
-.ocr-title {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-  color: var(--faint);
-}
-.ocr-model {
-  font-size: 8px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 3px;
-  background: var(--tag-bg);
-  color: var(--tag-text);
-  letter-spacing: 0.04em;
-}
-.ocr-row {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 3px 0;
-  border-bottom: 1px solid var(--border);
-}
-.ocr-row:last-of-type { border-bottom: none; }
-.ocr-field {
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--faint);
-  width: 56px;
-  flex-shrink: 0;
-}
-.ocr-val {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10.5px;
-  color: var(--text);
-  flex: 1;
-  /* Allow Indic characters in extracted values */
-  font-family: 'JetBrains Mono', 'Noto Sans', monospace;
-}
-.ocr-val.dim { color: var(--faint); font-style: italic; }
-.ocr-tick { font-size: 11px; flex-shrink: 0; }
-.ocr-fail-note {
-  font-size: 10px;
-  color: var(--rev);
-  margin-top: 6px;
-  font-style: italic;
-}
+.ocr-badge.proceed { background:var(--pass-bg); color:var(--pass-txt); }
+.ocr-badge.review  { background:var(--rev-bg);  color:var(--rev-txt); }
 
-/* Pipeline signals */
+.ocr-row { display:flex; align-items:baseline; gap:6px; padding:2.5px 0; border-bottom:1px solid var(--border); }
+.ocr-row:last-of-type { border-bottom:none; }
+.ocr-field { font-size:8.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); width:46px; flex-shrink:0; }
+.ocr-val { font-family:'JetBrains Mono','Noto Sans',monospace; font-size:10px; color:var(--text); flex:1; font-family:'Noto Sans','JetBrains Mono',monospace; }
+.ocr-val.dim { color:var(--faint); font-style:italic; }
+.ocr-tick { font-size:10px; flex-shrink:0; }
+.ocr-fail { font-size:9.5px; color:var(--rev-txt); margin-top:5px; font-style:italic; line-height:1.5; }
+
+/* ══ Pipeline signals ══ */
 .pipeline {
-  padding: 9px 14px 11px;
-  border-top: 1px solid var(--border);
+  padding:8px 12px 11px;
+  border-top:1px solid var(--border);
 }
-.sig-row {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 7px;
-}
+.sig-row { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:7px; }
 .sig-pill {
-  font-size: 9px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 4px;
-  letter-spacing: 0.04em;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  background: var(--surface2);
-  white-space: nowrap;
+  font-size:8.5px; font-weight:600; padding:2.5px 7px; border-radius:4px;
+  border:1px solid var(--border); color:var(--muted); background:var(--surface2);
+  letter-spacing:.03em; white-space:nowrap;
 }
-.sig-pill.ok { color: var(--pass); background: var(--pass-bg); border-color: transparent; }
-.fraud-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-bottom: 8px;
+.sig-pill.ok { color:var(--pass); background:var(--pass-bg); border-color:transparent; }
+.fraud-row { display:flex; align-items:center; gap:7px; margin-bottom:7px; }
+.fraud-lbl { font-size:8.5px; font-weight:600; color:var(--faint); letter-spacing:.06em; text-transform:uppercase; width:38px; }
+.fraud-track { flex:1; height:3px; background:var(--border); border-radius:2px; overflow:hidden; }
+.fraud-fill { height:100%; border-radius:2px; background:var(--pass); }
+.fraud-fill.mid { background:var(--rev); }
+.fraud-fill.hi  { background:var(--ret); }
+.fraud-num { font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--muted); width:24px; text-align:right; font-variant-numeric:tabular-nums; }
+.decision {
+  display:flex; align-items:center; justify-content:center;
+  gap:5px; font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase;
+  padding:5px 10px; border-radius:5px; width:100%;
 }
-.fraud-label { font-size: 9px; font-weight: 600; color: var(--faint); letter-spacing: 0.06em; text-transform: uppercase; width: 42px; }
-.fraud-track {
-  flex: 1;
-  height: 4px;
-  background: var(--border);
-  border-radius: 2px;
-  overflow: hidden;
-}
-.fraud-fill { height: 100%; border-radius: 2px; background: var(--pass); }
-.fraud-fill.warn { background: var(--rev); }
-.fraud-fill.high { background: var(--ret); }
-.fraud-num {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  width: 28px;
-  text-align: right;
-}
-.decision-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 4px 10px;
-  border-radius: 5px;
-  width: 100%;
-  justify-content: center;
-}
-.decision-badge.confirm { background: var(--pass-bg); color: var(--pass-text); }
-.decision-badge.ret    { background: var(--ret-bg);  color: var(--ret-text); }
-.decision-badge.review  { background: var(--rev-bg);  color: var(--rev-text); }
-
-.trigger-line {
-  font-size: 9px;
-  color: var(--faint);
-  text-align: center;
-  margin-top: 4px;
-  font-style: italic;
-}
+.decision.confirm { background:var(--pass-bg); color:var(--pass-txt); }
+.decision.ret     { background:var(--ret-bg);  color:var(--ret-txt); }
+.decision.review  { background:var(--rev-bg);  color:var(--rev-txt); }
+.trigger-note { font-size:9px; color:var(--faint); text-align:center; margin-top:3px; font-style:italic; }
 
 /* ── Footer ── */
 .page-footer {
-  max-width: 1100px;
-  margin: 32px auto 0;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: 11px;
-  color: var(--faint);
+  max-width:1120px; margin:28px auto 0;
+  padding-top:14px; border-top:1px solid var(--border);
+  display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px;
+  font-size:11px; color:var(--faint);
 }
-.page-footer strong { color: var(--muted); font-weight: 600; }
+.page-footer strong { color:var(--muted); font-weight:600; }
 </style>
 
 <script>
-const CHEQUES = [
+const DATA = [
+  /* ── IN-01: English — all English, classic bank layout ── */
   {
-    language:"English", code:"EN", fixture:"IN-01",
+    language:"English", langNative:"English", code:"EN", fixture:"IN-01",
     bank:"Federal Bank", ifsc:"FDRL0001234",
-    date:"24/08/2026", payee:"Rajan Pillai",
-    amount:45000, range:"₹[<1L]", chequeNo:"100001",
-    acct:"****9012", micr:"100001  724020003  123456789012",
-    ocr:{ outcome:"PROCEED", date:"24/08/2026", amount:"45,000.00", payee:"Rajan Pillai", chqNo:"100001", lowConf:null },
-    alt:false, altRisk:0.03, sig:0.93, fraud:0.11,
-    outcome:"STP_CONFIRM", trigger:"ALL_PASS",
+    lblDate:"Date", lblPay:"Pay to", lblRupees:"Rupees",
+    date:"24/08/2026",
+    payee:"Rajan Pillai",
+    amountWords:"Forty Five Thousand Only",
+    amountFig:"₹ 45,000.00",
+    chequeNo:"100001", acct:"****9012",
+    micr:"100001  724020003  123456789012",
+    note:"",
+    ocr:{ok:true,date:"24/08/2026",amount:"45,000.00",payee:"Rajan Pillai",chqNo:"100001",err:null},
+    alt:false,sig:0.93,fraud:0.11,
+    outcome:"STP_CONFIRM",
     triggerNote:"All 24 pipeline checks passed — golden path"
   },
+
+  /* ── IN-02: Hindi — Devanagari numerals throughout, Hindi labels ── */
   {
-    language:"Hindi", code:"HI", fixture:"IN-02",
+    language:"Hindi", langNative:"हिन्दी", code:"HI", fixture:"IN-02",
     bank:"Federal Bank", ifsc:"FDRL0001234",
-    date:"24/08/2026", payee:"राजेश कुमार",
-    amount:480000, range:"₹[1L-5L]", chequeNo:"100002",
-    acct:"****0123", micr:"100002  724020003  234567890123",
-    ocr:{ outcome:"PROCEED", date:"24/08/2026", amount:"4,80,000.00", payee:"राजेश कुमार", chqNo:"100002", lowConf:null },
-    alt:false, altRisk:0.03, sig:0.93, fraud:0.11,
-    outcome:"STP_CONFIRM", trigger:"ALL_PASS",
-    triggerNote:"Devanagari extracted cleanly — high-value, below ₹5L threshold"
+    lblDate:"तारीख", lblPay:"भुगतान करें", lblRupees:"रुपये",
+    date:"२४/०८/२०२६",
+    payee:"राजेश कुमार",
+    amountWords:"चार लाख अस्सी हजार रुपये मात्र",
+    amountFig:"₹ ४,८०,०००.००",
+    chequeNo:"100002", acct:"****0123",
+    micr:"100002  724020003  234567890123",
+    note:"Devanagari numerals in date + amount",
+    ocr:{ok:true,date:"24/08/2026",amount:"4,80,000.00",payee:"राजेश कुमार",chqNo:"100002",err:null},
+    alt:false,sig:0.93,fraud:0.11,
+    outcome:"STP_CONFIRM",
+    triggerNote:"Devanagari date + amount figures extracted · high-value, below threshold"
   },
+
+  /* ── IN-03: Marathi — Devanagari payee + words, English numerals ── */
   {
-    language:"Marathi", code:"MR", fixture:"IN-03",
+    language:"Marathi", langNative:"मराठी", code:"MR", fixture:"IN-03",
     bank:"Saraswat Co-op Bank", ifsc:"SRCB0000001",
-    date:"24/08/2026", payee:"सुनील पाटील",
-    amount:65000, range:"₹[<1L]", chequeNo:"200001",
-    acct:"****1234", micr:"200001  743020003  345678901234",
-    ocr:{ outcome:"PROCEED", date:"24/08/2026", amount:"65,000.00", payee:"सुनील पाटील", chqNo:"200001", lowConf:null },
-    alt:false, altRisk:0.03, sig:0.93, fraud:0.11,
-    outcome:"STP_CONFIRM", trigger:"ALL_PASS_SMB",
-    triggerNote:"SMB-routed · Saraswat sponsor · ledger update triggered"
+    lblDate:"Date", lblPay:"Pay to", lblRupees:"Rupees",
+    date:"24/08/2026",
+    payee:"सुनील पाटील",
+    amountWords:"पासष्ट हजार रुपये मात्र",
+    amountFig:"₹ 65,000.00",
+    chequeNo:"200001", acct:"****1234",
+    micr:"200001  743020003  345678901234",
+    note:"",
+    ocr:{ok:true,date:"24/08/2026",amount:"65,000.00",payee:"सुनील पाटील",chqNo:"200001",err:null},
+    alt:false,sig:0.93,fraud:0.11,
+    outcome:"STP_CONFIRM",
+    triggerNote:"SMB-routed via Saraswat · Marathi words extracted · ledger update triggered"
   },
+
+  /* ── IN-04: Tamil — Tamil labels, Tamil numerals in amount ── */
   {
-    language:"Tamil", code:"TA", fixture:"IN-04",
+    language:"Tamil", langNative:"தமிழ்", code:"TA", fixture:"IN-04",
     bank:"Federal Bank", ifsc:"FDRL0001234",
-    date:"24/08/2026", payee:"கணேஷ் குமார்",
-    amount:120000, range:"₹[1L-5L]", chequeNo:"300001",
-    acct:"****2345", micr:"300001  724020003  456789012345",
-    ocr:{ outcome:"PROCEED", date:"24/08/2026", amount:"1,20,000.00", payee:"கணேஷ் குமார்", chqNo:"300001", lowConf:null },
-    alt:false, altRisk:0.03, sig:0.93, fraud:0.11,
-    outcome:"STP_RETURN", trigger:"STOP_PAYMENT_STP",
-    triggerNote:"OCR succeeded · CBS stop-payment instruction active"
+    lblDate:"தேதி", lblPay:"செலுத்துக", lblRupees:"ரூபாய்",
+    date:"24/08/2026",
+    payee:"கணேஷ் குமார்",
+    amountWords:"ஒரு லட்சத்து இருபதாயிரம் ரூபாய் மட்டும்",
+    amountFig:"₹ ௧,௨௦,௦௦௦.௦௦",
+    chequeNo:"300001", acct:"****2345",
+    micr:"300001  724020003  456789012345",
+    note:"Tamil labels + Tamil numerals in amount",
+    ocr:{ok:true,date:"24/08/2026",amount:"1,20,000.00",payee:"கணேஷ் குமார்",chqNo:"300001",err:null},
+    alt:false,sig:0.93,fraud:0.11,
+    outcome:"STP_RETURN",
+    triggerNote:"Tamil script + numerals extracted cleanly · CBS stop-payment active"
   },
+
+  /* ── IN-05: Telugu — Telugu payee + words, English numerals ── */
   {
-    language:"Telugu", code:"TE", fixture:"IN-05",
+    language:"Telugu", langNative:"తెలుగు", code:"TE", fixture:"IN-05",
     bank:"Federal Bank", ifsc:"FDRL0001234",
-    date:"24/08/2026", payee:"వెంకటేశ్వర రావు",
-    amount:550000, range:"₹[5L-10L]", chequeNo:"400001",
-    acct:"****3456", micr:"400001  724020003  567890123456",
-    ocr:{ outcome:"PROCEED", date:"24/08/2026", amount:"5,50,000.00", payee:"వెంకటేశ్వర రావు", chqNo:"400001", lowConf:null },
-    alt:false, altRisk:0.03, sig:0.93, fraud:0.11,
-    outcome:"STP_RETURN", trigger:"CBS_INSUFFICIENT",
-    triggerNote:"OCR succeeded · CBS balance insufficient for ₹5.5L"
+    lblDate:"Date", lblPay:"Pay to", lblRupees:"రూపాయలు",
+    date:"24/08/2026",
+    payee:"వెంకటేశ్వర రావు",
+    amountWords:"ఐదు లక్షల యభై వేల రూపాయలు మాత్రమే",
+    amountFig:"₹ 5,50,000.00",
+    chequeNo:"400001", acct:"****3456",
+    micr:"400001  724020003  567890123456",
+    note:"",
+    ocr:{ok:true,date:"24/08/2026",amount:"5,50,000.00",payee:"వెంకటేశ్వర రావు",chqNo:"400001",err:null},
+    alt:false,sig:0.93,fraud:0.11,
+    outcome:"STP_RETURN",
+    triggerNote:"Telugu words extracted · English amount figures · CBS balance insufficient"
   },
+
+  /* ── IN-06: Kannada — Kannada labels, Kannada numerals in date + amount ── */
   {
-    language:"Kannada", code:"KN", fixture:"IN-06",
+    language:"Kannada", langNative:"ಕನ್ನಡ", code:"KN", fixture:"IN-06",
     bank:"Federal Bank", ifsc:"FDRL0001234",
-    date:"24/08/2026", payee:"ರಾಜೇಶ್ ಕುಮಾರ್",
-    amount:230000, range:"₹[1L-5L]", chequeNo:"500001",
-    acct:"****4567", micr:"500001  724020003  678901234567",
-    ocr:{ outcome:"PROCEED", date:"24/08/2026", amount:"2,30,000.00", payee:"ರಾಜೇಶ್ ಕುಮಾರ್", chqNo:"500001", lowConf:null },
-    alt:false, altRisk:0.03, sig:0.93, fraud:0.11,
-    outcome:"STP_RETURN", trigger:"ACCOUNT_FROZEN",
-    triggerNote:"OCR succeeded · account status FROZEN in CBS"
+    lblDate:"ದಿನಾಂಕ", lblPay:"ಪಾವತಿ ಮಾಡಿ", lblRupees:"ರೂಪಾಯಿ",
+    date:"೨೪/೦೮/೨೦೨೬",
+    payee:"ರಾಜೇಶ್ ಕುಮಾರ್",
+    amountWords:"ಎರಡು ಲಕ್ಷದ ಮೂವತ್ತು ಸಾವಿರ ರೂಪಾಯಿ ಮಾತ್ರ",
+    amountFig:"₹ ೨,೩೦,೦೦೦.೦೦",
+    chequeNo:"500001", acct:"****4567",
+    micr:"500001  724020003  678901234567",
+    note:"Kannada labels + numerals in date + amount",
+    ocr:{ok:true,date:"24/08/2026",amount:"2,30,000.00",payee:"ರಾಜೇಶ್ ಕುಮಾರ್",chqNo:"500001",err:null},
+    alt:false,sig:0.93,fraud:0.11,
+    outcome:"STP_RETURN",
+    triggerNote:"Kannada labels + numerals fully extracted · account status FROZEN"
   },
+
+  /* ── IN-07: Gujarati — Gujarati payee + words, English numerals ── */
   {
-    language:"Gujarati", code:"GU", fixture:"IN-07",
+    language:"Gujarati", langNative:"ગુજરાતી", code:"GU", fixture:"IN-07",
     bank:"Federal Bank", ifsc:"FDRL0001234",
-    date:"24/08/2026", payee:"રાજેશ પટેલ",
-    amount:40000, range:"₹[<1L]", chequeNo:"600001",
-    acct:"****5678", micr:"600001  724020003  789012345678",
-    ocr:{ outcome:"PROCEED", date:"24/08/2026", amount:"40,000.00", payee:"રાજેશ પટેલ", chqNo:"600001", lowConf:null },
-    alt:false, altRisk:0.03, sig:0.93, fraud:0.11,
-    outcome:"STP_RETURN", trigger:"CHEQUE_SERIES_STP",
-    triggerNote:"OCR succeeded · cheque series unregistered in CBS"
+    lblDate:"Date", lblPay:"Pay to", lblRupees:"Rupees",
+    date:"24/08/2026",
+    payee:"રાજેશ પટેલ",
+    amountWords:"ચાળીસ હજાર રૂપિયા માત્ર",
+    amountFig:"₹ 40,000.00",
+    chequeNo:"600001", acct:"****5678",
+    micr:"600001  724020003  789012345678",
+    note:"",
+    ocr:{ok:true,date:"24/08/2026",amount:"40,000.00",payee:"રાજેશ પટેલ",chqNo:"600001",err:null},
+    alt:false,sig:0.93,fraud:0.11,
+    outcome:"STP_RETURN",
+    triggerNote:"Gujarati words extracted · English numerals · cheque series unregistered"
   },
+
+  /* ── IN-08: Bengali — Bengali labels, Bengali numerals in date + amount ── */
   {
-    language:"Bengali", code:"BN", fixture:"IN-08",
+    language:"Bengali", langNative:"বাংলা", code:"BN", fixture:"IN-08",
     bank:"Saraswat Co-op Bank", ifsc:"SRCB0000001",
-    date:"24/08/2026", payee:"রাজেশ কুমার",
-    amount:85000, range:"₹[<1L]", chequeNo:"700001",
-    acct:"****6789", micr:"700001  743020003  890123456789",
-    ocr:{ outcome:"PROCEED", date:"24/08/2026", amount:"85,000.00", payee:"রাজেশ কুমার", chqNo:"700001", lowConf:null },
-    alt:false, altRisk:0.03, sig:0.93, fraud:0.11,
-    outcome:"STP_RETURN", trigger:"STOP_PAYMENT_STP",
-    triggerNote:"OCR succeeded · SMB-tagged · CBS stop-payment hit"
+    lblDate:"তারিখ", lblPay:"প্রদান করুন", lblRupees:"টাকা",
+    date:"২৪/০৮/২০২৬",
+    payee:"রাজেশ কুমার",
+    amountWords:"পঁচাশি হাজার টাকা মাত্র",
+    amountFig:"₹ ৮৫,০০০.০০",
+    chequeNo:"700001", acct:"****6789",
+    micr:"700001  743020003  890123456789",
+    note:"Bengali labels + numerals in date + amount",
+    ocr:{ok:true,date:"24/08/2026",amount:"85,000.00",payee:"রাজেশ কুমার",chqNo:"700001",err:null},
+    alt:false,sig:0.93,fraud:0.11,
+    outcome:"STP_RETURN",
+    triggerNote:"Bengali labels + numerals · SMB-tagged · CBS stop-payment active"
   },
+
+  /* ── IN-09: Malayalam — words in Malayalam, English numerals, OCR fail ── */
   {
-    language:"Malayalam", code:"ML", fixture:"IN-09",
+    language:"Malayalam", langNative:"മലയാളം", code:"ML", fixture:"IN-09",
     bank:"Federal Bank", ifsc:"FDRL0001234",
-    date:"24/08/2026", payee:"ജോർജ്ജ് മാത്യൂ",
-    amount:18000, range:"₹[<1L]", chequeNo:"800001",
-    acct:"****7890", micr:"800001  724020003  901234567890",
-    ocr:{ outcome:"HUMAN_REVIEW", date:null, amount:null, payee:null, chqNo:null, lowConf:"indic_script_extraction_failed" },
-    alt:false, altRisk:0.03, sig:0.93, fraud:0.11,
-    outcome:"HUMAN_REVIEW", trigger:"OCR_LOW_CONF",
-    triggerNote:"Malayalam Christian surname — OCR confidence below threshold → routed to human review"
+    lblDate:"Date", lblPay:"Pay to", lblRupees:"Rupees",
+    date:"24/08/2026",
+    payee:"ജോർജ്ജ് മാത്യൂ",
+    amountWords:"പതിനെട്ടായിരം രൂപ മാത്രം",
+    amountFig:"₹ 18,000.00",
+    chequeNo:"800001", acct:"****7890",
+    micr:"800001  724020003  901234567890",
+    note:"",
+    ocr:{ok:false,date:null,amount:null,payee:null,chqNo:null,err:"indic_script_extraction_failed"},
+    alt:false,sig:0.93,fraud:0.11,
+    outcome:"HUMAN_REVIEW",
+    triggerNote:"Malayalam Christian surname — OCR confidence below threshold → human review"
   },
 ];
 
-function fmt(v) {
-  if (v === null || v === undefined) return null;
-  const n = parseFloat(v);
-  // Indian number format
-  const s = Math.round(n).toString();
-  if (s.length <= 3) return s + ".00";
-  const last3 = s.slice(-3);
-  const rest = s.slice(0, -3);
-  const grouped = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ",");
-  return (grouped ? grouped + "," : "") + last3 + ".00";
-}
-
 function renderCard(c) {
-  const ocrOk = c.ocr.outcome === "PROCEED";
-  const decClass = c.outcome === "STP_CONFIRM" ? "confirm" : c.outcome === "STP_RETURN" ? "ret" : "review";
-  const decIcon = c.outcome === "STP_CONFIRM" ? "✓" : c.outcome === "STP_RETURN" ? "↩" : "⚑";
-  const fraudPct = (c.fraud * 100).toFixed(0);
-  const fraudClass = c.fraud < 0.40 ? "" : c.fraud < 0.70 ? "warn" : "high";
+  const ocrBadge = c.ocr.ok
+    ? `<span class="ocr-badge proceed">PROCEED</span>`
+    : `<span class="ocr-badge review">LOW CONF</span>`;
 
-  const ocrField = (label, val, extracted) => {
-    const show = extracted !== null ? extracted : "—";
-    const cls  = extracted !== null ? "" : "dim";
-    const tick = extracted !== null ? "✓" : "✗";
-    const tcolor = extracted !== null ? "color:var(--pass)" : "color:var(--faint)";
+  const ocrRow = (lbl, val) => {
+    const has  = val !== null;
+    const tick = has ? `<span class="ocr-tick" style="color:var(--pass)">✓</span>`
+                     : `<span class="ocr-tick" style="color:var(--faint)">—</span>`;
     return `<div class="ocr-row">
-      <span class="ocr-field">${label}</span>
-      <span class="ocr-val ${cls}">${show}</span>
-      <span class="ocr-tick" style="${tcolor}">${tick}</span>
+      <span class="ocr-field">${lbl}</span>
+      <span class="ocr-val${has?'':' dim'}">${has ? val : 'n/a'}</span>${tick}
     </div>`;
   };
 
+  const fp = c.fraud;
+  const fClass = fp < 0.40 ? "" : fp < 0.70 ? "mid" : "hi";
+  const dClass = c.outcome==="STP_CONFIRM" ? "confirm" : c.outcome==="STP_RETURN" ? "ret" : "review";
+  const dIcon  = c.outcome==="STP_CONFIRM" ? "✓" : c.outcome==="STP_RETURN" ? "↩" : "⚑";
+
+  const noteTag = c.note
+    ? `<div style="font-size:7.5px;color:var(--accent);margin-top:3px;font-weight:600;letter-spacing:.05em">${c.note}</div>`
+    : "";
+
   return `
 <div class="card">
-  <div class="stripe">
-    <span class="bank-name">${c.bank}</span>
-    <div class="stripe-right">
-      <span class="lang-badge">${c.code}</span>
+  <div class="card-top">
+    <span class="card-lang">${c.langNative} · ${c.language}</span>
+    <div class="card-right">
+      <span class="code-badge">${c.code}</span>
       <span class="fid">${c.fixture}</span>
     </div>
   </div>
 
-  <div class="cheque-body">
-    <div class="chq-row1">
-      <span class="chq-label">Cheque No.</span>
-      <div style="text-align:right">
-        <div class="chq-label">Date</div>
-        <div class="chq-date">${c.date}</div>
+  <div class="cheque-wrap">
+    <div class="cheque">
+      <!-- Bank header strip inside cheque -->
+      <div class="chq-hdr">
+        <span class="chq-bank">${c.bank}</span>
+        <div class="chq-no-wrap">
+          <div class="chq-no-lbl">Cheque No.</div>
+          <div class="chq-no-val">${c.chequeNo}</div>
+        </div>
       </div>
-    </div>
-    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--faint);margin-bottom:8px">${c.chequeNo}</div>
-    <div class="payee-row">
-      <div class="payee-label">Pay to</div>
-      <div class="payee-name">${c.payee}</div>
-    </div>
-    <div class="amount-row">
-      <span class="amount-fig">₹ ${fmt(c.amount)}</span>
-      <span class="amount-range">${c.range}</span>
-    </div>
-    <div class="acct-row">
-      <div class="acct-item">
-        <span class="chq-label">Account</span>
-        <span class="acct-val">${c.acct}</span>
-      </div>
-      <div class="acct-item">
-        <span class="chq-label">IFSC</span>
-        <span class="acct-val">${c.ifsc}</span>
-      </div>
-    </div>
-  </div>
 
-  <div class="micr-bar">
-    <div class="micr-label">MICR</div>
-    <div class="micr-line">${c.micr}</div>
-  </div>
+      <!-- Cheque body -->
+      <div class="chq-body">
+        <!-- Date row -->
+        <div class="chq-date-row">
+          <span class="chq-field-lbl">${c.lblDate}</span>
+          <span class="chq-date-val">${c.date}</span>
+        </div>
 
+        <!-- Pay to -->
+        <div class="chq-pay-lbl">${c.lblPay}</div>
+        <div class="chq-pay-line">
+          <span class="chq-payee">${c.payee}</span>
+          <span class="chq-bearer">or Bearer</span>
+        </div>
+        <div class="chq-underline"></div>
+
+        <!-- Amount in words -->
+        <div class="chq-words-lbl">${c.lblRupees}</div>
+        <div class="chq-words">${c.amountWords}</div>
+
+        <!-- Amount figures + signature -->
+        <div class="chq-fig-row">
+          <div class="chq-fig-box">
+            <div class="chq-fig-lbl">₹</div>
+            <div class="chq-fig-val">${c.amountFig}</div>
+          </div>
+          <div class="chq-sig">
+            <div style="height:20px"></div>
+            <span class="chq-sig-label">Authorised Signatory</span>
+          </div>
+        </div>
+
+        <!-- Account / IFSC -->
+        <div class="chq-acct-row">
+          <div class="chq-acct-item">
+            <span class="chq-acct-lbl">Account</span>
+            <span class="chq-acct-val">${c.acct}</span>
+          </div>
+          <div class="chq-acct-item">
+            <span class="chq-acct-lbl">IFSC</span>
+            <span class="chq-acct-val">${c.ifsc}</span>
+          </div>
+        </div>
+      </div><!-- /chq-body -->
+
+      <!-- MICR band -->
+      <div class="chq-micr">
+        <span class="chq-micr-lbl">MICR</span>
+        <span class="chq-micr-val">${c.micr}</span>
+      </div>
+    </div><!-- /cheque -->
+    ${noteTag}
+  </div><!-- /cheque-wrap -->
+
+  <!-- OCR Extraction -->
   <div class="ocr-panel">
     <div class="ocr-head">
       <span class="ocr-title">OCR Extraction</span>
-      <span class="ocr-model">GOT-OCR2.0</span>
-      <span class="ocr-model" style="${ocrOk ? 'color:var(--pass);background:var(--pass-bg)' : 'color:var(--rev-text);background:var(--rev-bg)'}">${c.ocr.outcome}</span>
+      <span style="font-size:8px;color:var(--faint);background:var(--surface);border:1px solid var(--border);border-radius:3px;padding:1px 5px">GOT-OCR2.0</span>
+      ${ocrBadge}
     </div>
-    ${ocrField("Payee", "payee", c.ocr.payee)}
-    ${ocrField("Date", "date", c.ocr.date)}
-    ${ocrField("Amount", "amount", c.ocr.amount ? "₹ " + c.ocr.amount : null)}
-    ${ocrField("Chq No.", "chqNo", c.ocr.chqNo)}
-    ${!ocrOk && c.ocr.lowConf ? `<div class="ocr-fail-note">⚠ ${c.ocr.lowConf.replace(/_/g," ")}</div>` : ""}
+    ${ocrRow("Payee",  c.ocr.payee)}
+    ${ocrRow("Date",   c.ocr.date)}
+    ${ocrRow("Amount", c.ocr.amount ? "₹ " + c.ocr.amount : null)}
+    ${ocrRow("Chq No", c.ocr.chqNo)}
+    ${!c.ocr.ok && c.ocr.err ? `<div class="ocr-fail">⚠ ${c.ocr.err.replace(/_/g," ")}</div>` : ""}
   </div>
 
+  <!-- Pipeline -->
   <div class="pipeline">
     <div class="sig-row">
       <span class="sig-pill ${!c.alt ? 'ok' : ''}">ALT ${c.alt ? "⚑ DETECTED" : "✓ CLEAR"}</span>
       <span class="sig-pill ${c.sig >= 0.90 ? 'ok' : ''}">SIG ${c.sig.toFixed(2)}</span>
     </div>
     <div class="fraud-row">
-      <span class="fraud-label">Fraud</span>
-      <div class="fraud-track"><div class="fraud-fill ${fraudClass}" style="width:${fraudPct}%"></div></div>
-      <span class="fraud-num">${c.fraud.toFixed(2)}</span>
+      <span class="fraud-lbl">Fraud</span>
+      <div class="fraud-track"><div class="fraud-fill ${fClass}" style="width:${(fp*100).toFixed(0)}%"></div></div>
+      <span class="fraud-num">${fp.toFixed(2)}</span>
     </div>
-    <div class="decision-badge ${decClass}">${decIcon} ${c.outcome}</div>
-    <div class="trigger-line">${c.triggerNote}</div>
+    <div class="decision ${dClass}">${dIcon} ${c.outcome}</div>
+    <div class="trigger-note">${c.triggerNote}</div>
   </div>
 </div>`;
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("grid").innerHTML = CHEQUES.map(renderCard).join("");
+  document.getElementById("grid").innerHTML = DATA.map(renderCard).join("");
 });
 </script>
 
-<div class="page-header">
+<div class="page-hdr">
   <div class="eyebrow">ASTRA CTS · Regional Language OCR · v1</div>
-  <h1 class="page-title">9 Regional Language Cheques — OCR Extraction Results</h1>
+  <h1 class="page-title">9 Regional Language Cheques — OCR Extraction</h1>
   <p class="page-sub">
-    One inward cheque per script extracted via <code>build_inward_mocks()</code> from the CTS pipeline code.
-    Shows what GOT-OCR2.0 extracts per field and how the pipeline routes each instrument.
+    One inward cheque per Indian script, rendered as a physical CTS-2010 specimen.
+    Amount in words is always in the regional language.
+    For Hindi, Tamil, Kannada, Bengali: amount figures and/or date use regional-script numerals.
+    For Tamil, Kannada, Bengali: printed field labels are in the regional language.
+    Source: <code>build_inward_mocks()</code> — purely from pipeline code.
   </p>
   <div class="meta-bar">
     <span class="meta-pill"><strong>9</strong> scripts</span>
-    <span class="meta-pill"><strong>240</strong> e2e tests green</span>
-    <span class="meta-pill">Model: <strong>GOT-OCR2.0</strong></span>
-    <span class="meta-pill">Source: <strong>build_inward_mocks()</strong></span>
-    <span class="meta-pill">Date: <strong>2026-08-26</strong></span>
+    <span class="meta-pill">Model <strong>GOT-OCR2.0</strong></span>
+    <span class="meta-pill">Source <strong>build_inward_mocks()</strong></span>
+    <span class="meta-pill"><strong>3</strong> cheques with regional numerals</span>
+    <span class="meta-pill"><strong>3</strong> cheques with regional-language labels</span>
+    <span class="meta-pill">Date <strong>2026-08-26</strong></span>
   </div>
   <div class="lang-chips">
-    <span class="lchip">EN English</span>
-    <span class="lchip">HI हिन्दी</span>
-    <span class="lchip">MR मराठी</span>
-    <span class="lchip">TA தமிழ்</span>
-    <span class="lchip">TE తెలుగు</span>
-    <span class="lchip">KN ಕನ್ನಡ</span>
-    <span class="lchip">GU ગુજરાતી</span>
-    <span class="lchip">BN বাংলা</span>
-    <span class="lchip">ML മലയാളം</span>
+    <span class="lchip">EN&nbsp;&nbsp;English</span>
+    <span class="lchip">HI&nbsp;&nbsp;हिन्दी</span>
+    <span class="lchip">MR&nbsp;&nbsp;मराठी</span>
+    <span class="lchip">TA&nbsp;&nbsp;தமிழ்</span>
+    <span class="lchip">TE&nbsp;&nbsp;తెలుగు</span>
+    <span class="lchip">KN&nbsp;&nbsp;ಕನ್ನಡ</span>
+    <span class="lchip">GU&nbsp;&nbsp;ગુજરાતી</span>
+    <span class="lchip">BN&nbsp;&nbsp;বাংলা</span>
+    <span class="lchip">ML&nbsp;&nbsp;മലയാളം</span>
   </div>
 </div>
 
@@ -682,5 +630,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <div class="page-footer">
   <strong>ASTRA — Bank Intelligence Platform</strong>
-  <span>regional-language-v1 · Source: tests/e2e/cts/mock_builders.py · 2026-08-26</span>
+  <span>regional-language-v1 · tests/e2e/cts/mock_builders.py · 2026-08-26</span>
 </div>
