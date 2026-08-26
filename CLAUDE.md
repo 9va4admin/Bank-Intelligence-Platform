@@ -107,7 +107,8 @@ Two independent Helm charts: `astra-platform / astra-cts`. Banks own their ArgoC
 |---|---|
 | LLM Inference Server | vLLM (on-prem GPU, OpenAI-compatible API) |
 | Vision LLM (cheque) | Qwen2-VL 72B → `cts-vision` queue |
-| OCR | GOT-OCR2.0 (MICR, handwriting) → `cts-ocr` queue |
+| OCR — Stage 1 | GOT-OCR2.0 (MICR, handwriting, all fields) → `cts-ocr` queue |
+| OCR — Stage 2 (Indic) | IndicOCR / PaddleOCR v3 — 9 scripts (hi bn pa gu or ta te kn ml) → Direct HTTP, CPU sidecar, port 8021 · kill switch: `cts.indic_ocr.kill_mode` (KP/KC) · triggered when Indic script detected in Stage 1 |
 | Reasoning LLM | Llama 3.3 70B → `cts-reasoning` queue |
 | Signature Verification | Siamese Neural Network (PyTorch, custom trained) |
 | Fraud Scoring | XGBoost ensemble + SHAP + LLM explainer |
