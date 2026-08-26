@@ -1,0 +1,730 @@
+<title>ASTRA GitHub Intelligence Brief</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600;9..144,700&family=Figtree:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+  /* ---- Token System ---- */
+  :root {
+    /* Light palette (default) */
+    --bg: #F3F5F9;
+    --surface: #FFFFFF;
+    --surface-raised: #EAECF3;
+    --text-primary: #0B1121;
+    --text-secondary: #44546B;
+    --text-muted: #7E90A7;
+    --border: rgba(11, 17, 33, 0.09);
+    --accent-1: #0284C7;
+    --accent-1-bg: rgba(2, 132, 199, 0.07);
+    --accent-1-border: rgba(2, 132, 199, 0.28);
+    --accent-2: #B45309;
+    --accent-2-bg: rgba(180, 83, 9, 0.07);
+    --accent-2-border: rgba(180, 83, 9, 0.28);
+    --mono-bg: rgba(11, 17, 33, 0.05);
+    --shadow-sm: 0 1px 3px rgba(11,17,33,0.07), 0 1px 2px rgba(11,17,33,0.04);
+    --shadow-md: 0 4px 14px rgba(11,17,33,0.09), 0 1px 4px rgba(11,17,33,0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #070E1C;
+      --surface: #0D1828;
+      --surface-raised: #152035;
+      --text-primary: #DEE8F5;
+      --text-secondary: #8099B8;
+      --text-muted: #445F7A;
+      --border: rgba(128, 153, 184, 0.11);
+      --accent-1: #22D3EE;
+      --accent-1-bg: rgba(34, 211, 238, 0.07);
+      --accent-1-border: rgba(34, 211, 238, 0.25);
+      --accent-2: #FBBF24;
+      --accent-2-bg: rgba(251, 191, 36, 0.07);
+      --accent-2-border: rgba(251, 191, 36, 0.25);
+      --mono-bg: rgba(128, 153, 184, 0.07);
+      --shadow-sm: 0 1px 4px rgba(0,0,0,0.45);
+      --shadow-md: 0 4px 18px rgba(0,0,0,0.42);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #070E1C;
+    --surface: #0D1828;
+    --surface-raised: #152035;
+    --text-primary: #DEE8F5;
+    --text-secondary: #8099B8;
+    --text-muted: #445F7A;
+    --border: rgba(128, 153, 184, 0.11);
+    --accent-1: #22D3EE;
+    --accent-1-bg: rgba(34, 211, 238, 0.07);
+    --accent-1-border: rgba(34, 211, 238, 0.25);
+    --accent-2: #FBBF24;
+    --accent-2-bg: rgba(251, 191, 36, 0.07);
+    --accent-2-border: rgba(251, 191, 36, 0.25);
+    --mono-bg: rgba(128, 153, 184, 0.07);
+    --shadow-sm: 0 1px 4px rgba(0,0,0,0.45);
+    --shadow-md: 0 4px 18px rgba(0,0,0,0.42);
+  }
+
+  /* ---- Base ---- */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: 'Figtree', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  code {
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 12px;
+    background: var(--mono-bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--text-secondary);
+  }
+
+  em { font-style: italic; }
+  strong { font-weight: 600; color: var(--text-primary); }
+
+  /* ---- Site Header ---- */
+  .site-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .site-header-inner {
+    max-width: 880px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 50px;
+  }
+  .site-wordmark {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .site-wordmark .mark {
+    color: var(--accent-1);
+    font-weight: 500;
+  }
+  .site-wordmark .sep {
+    color: var(--border);
+    font-size: 14px;
+    font-weight: 300;
+    color: var(--text-muted);
+    opacity: 0.4;
+  }
+  .site-date {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* ---- Main Layout ---- */
+  main {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 56px 32px 88px;
+  }
+
+  /* ---- Hero ---- */
+  .hero {
+    margin-bottom: 44px;
+    padding-bottom: 44px;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+    font-size: clamp(36px, 5.5vw, 54px);
+    font-weight: 700;
+    line-height: 1.05;
+    color: var(--text-primary);
+    text-wrap: balance;
+    letter-spacing: -0.03em;
+    margin-bottom: 22px;
+    max-width: 560px;
+  }
+  .hero-lead {
+    font-size: 16px;
+    font-weight: 300;
+    color: var(--text-secondary);
+    max-width: 620px;
+    line-height: 1.72;
+  }
+
+  /* ---- Methodology Bar ---- */
+  .methodology {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    padding: 13px 18px;
+    background: var(--surface-raised);
+    border-radius: 8px;
+    margin-bottom: 48px;
+    border: 1px solid var(--border);
+  }
+  .methodology-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-right: 4px;
+  }
+  .mchip {
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 9px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+
+  /* ---- Recommendation Cards ---- */
+  .rec-card {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 38px 42px 38px;
+    margin-bottom: 28px;
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+  }
+
+  /* Large watermark numeral */
+  .rec-card::before {
+    content: attr(data-num);
+    position: absolute;
+    top: -14px;
+    right: 20px;
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 160px;
+    font-weight: 700;
+    line-height: 1;
+    opacity: 0.03;
+    color: var(--watermark-color);
+    pointer-events: none;
+    user-select: none;
+    letter-spacing: -0.05em;
+  }
+
+  .rec-card-1 {
+    border-left: 3px solid var(--accent-1);
+    --watermark-color: var(--accent-1);
+  }
+  .rec-card-2 {
+    border-left: 3px solid var(--accent-2);
+    --watermark-color: var(--accent-2);
+  }
+
+  /* Badge */
+  .rec-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .rec-badge-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .rec-card-1 .rec-badge { color: var(--accent-1); }
+  .rec-card-1 .rec-badge-dot { background: var(--accent-1); }
+  .rec-card-2 .rec-badge { color: var(--accent-2); }
+  .rec-card-2 .rec-badge-dot { background: var(--accent-2); }
+
+  .rec-card h2 {
+    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+    line-height: 1.1;
+  }
+
+  .rec-subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 22px;
+  }
+
+  /* Chips */
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 30px;
+  }
+  .chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    background: var(--surface-raised);
+    white-space: nowrap;
+  }
+  .chip-c1 {
+    border-color: var(--accent-1-border);
+    background: var(--accent-1-bg);
+    color: var(--accent-1);
+  }
+  .chip-c2 {
+    border-color: var(--accent-2-border);
+    background: var(--accent-2-bg);
+    color: var(--accent-2);
+  }
+
+  /* Section labels within cards */
+  .slabel {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    margin-top: 26px;
+  }
+  .slabel:first-of-type { margin-top: 0; }
+
+  .rec-card p {
+    color: var(--text-secondary);
+    font-size: 14.5px;
+    line-height: 1.72;
+    max-width: 66ch;
+  }
+  .rec-card p + p { margin-top: 10px; }
+
+  /* Bullet list */
+  .blist {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 6px;
+  }
+  .blist li {
+    display: flex;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    max-width: 70ch;
+  }
+  .blist li::before {
+    content: '→';
+    font-size: 12px;
+    margin-top: 2px;
+    flex-shrink: 0;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Integration block */
+  .int-block {
+    margin-top: 28px;
+    padding: 16px 20px;
+    background: var(--mono-bg);
+    border-radius: 7px;
+    border: 1px solid var(--border);
+  }
+  .int-block-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+  .int-flow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.9;
+  }
+  .int-flow .h1 { color: var(--accent-1); font-weight: 500; }
+  .int-flow .h2 { color: var(--accent-2); font-weight: 500; }
+  .int-flow .est {
+    display: block;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 11px;
+  }
+
+  /* ---- Divider ---- */
+  .sdivider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 52px 0 36px;
+  }
+  .sdivider::before,
+  .sdivider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .sdivider span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  /* ---- Runner-up Grid ---- */
+  .rgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 56px;
+  }
+  .rcard {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 22px 24px 20px;
+    box-shadow: var(--shadow-sm);
+  }
+  .rcard-name {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--text-primary);
+    margin-bottom: 3px;
+  }
+  .rcard-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-bottom: 11px;
+    letter-spacing: 0.04em;
+  }
+  .rcard-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.65;
+  }
+  .rcard-phase {
+    display: inline-block;
+    margin-top: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 2px 8px;
+  }
+
+  /* ---- Footer ---- */
+  .brief-footer {
+    border-top: 1px solid var(--border);
+    padding-top: 26px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.75;
+  }
+  .brief-footer strong { color: var(--text-secondary); font-weight: 500; }
+
+  /* ---- Responsive ---- */
+  @media (max-width: 640px) {
+    main { padding: 36px 20px 64px; }
+    .rec-card { padding: 28px 24px; }
+    .site-header { padding: 0 20px; }
+    .hero h1 { font-size: 34px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<!-- ── Header ── -->
+<header class="site-header">
+  <div class="site-header-inner">
+    <div class="site-wordmark">
+      <span class="mark">ASTRA</span>
+      <span class="sep">·</span>
+      <span>GitHub Intelligence Brief</span>
+    </div>
+    <div class="site-date">26 Aug 2026</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── Hero ── -->
+  <div class="hero">
+    <div class="hero-eyebrow">Platform Capability Analysis · 11 Projects Evaluated</div>
+    <h1>Two Projects.<br>Two Gaps Closed.</h1>
+    <p class="hero-lead">
+      ASTRA's OCR recognises text well. Its reasoning model is capable. What the platform lacks is
+      <strong>document structure intelligence</strong> — the layer that makes reasoning accurate on complex
+      Indian banking documents — and a <strong>production annotation interface</strong> that makes the
+      existing feedback loop actually work. These two self-hosted, permissively licensed projects close
+      both gaps without adding cloud dependencies or new CAB approval burden.
+    </p>
+  </div>
+
+  <!-- ── Methodology Bar ── -->
+  <div class="methodology">
+    <span class="methodology-label">Criteria</span>
+    <span class="mchip">11 candidates</span>
+    <span class="mchip">5 categories</span>
+    <span class="mchip">MIT / Apache 2.0 only</span>
+    <span class="mchip">Self-hosted · zero cloud</span>
+    <span class="mchip">10k+ stars</span>
+    <span class="mchip">Direct path into Temporal + vLLM + React</span>
+  </div>
+
+  <!-- ── Recommendation 01: Docling ── -->
+  <div class="rec-card rec-card-1" data-num="01">
+    <div class="rec-badge">
+      <span class="rec-badge-dot"></span>
+      Recommendation 01
+    </div>
+    <h2>Docling</h2>
+    <p class="rec-subtitle">Document Structure Intelligence</p>
+
+    <div class="chips">
+      <span class="chip chip-c1">MIT License</span>
+      <span class="chip">IBM Research × Linux Foundation AI</span>
+      <span class="chip">37k+ stars</span>
+      <span class="chip">AAAI 2025</span>
+      <span class="chip">CPU-viable · no GPU required</span>
+    </div>
+
+    <p class="slabel">The gap it fills</p>
+    <p>
+      ASTRA has strong text recognition — GOT-OCR2.0 extracts characters and Qwen2-VL 72B understands
+      image context. What neither produces is the <em>semantic hierarchy</em> of a document: which block
+      is a table header versus a cell value, which is a footnote versus body text, where a seal inscription
+      ends and a paragraph begins. When an 8-page bank statement or trade finance LC document arrives as
+      a flat OCR stream, Llama 3.3 70B must reconstruct structure from context — hallucination rates rise,
+      confidence scores drop, human review volume spikes.
+    </p>
+    <p>
+      Docling inserts a structural intelligence layer between scan and reasoning. It does not replace
+      your existing OCR — it makes the OCR output genuinely useful to your reasoning model.
+    </p>
+
+    <p class="slabel">Why it changes the platform</p>
+    <ul class="blist">
+      <li>
+        <strong>TableFormer</strong> — trained on 1M+ financial tables — recovers table structure from
+        Indian bank statements with partial borders, empty cells, merged headers, and hierarchical column
+        groups. Outputs machine-readable JSON with cell coordinates, not flat text runs.
+      </li>
+      <li>
+        <strong>DocLayNet</strong> includes a <em>Seal</em> detection class — the only open-source layout
+        model with this label. Maps directly to authority stamps on Indian cheques, Demand Drafts, and
+        banker's certificates. Downstream: flagging a seal vs. a text block becomes structural, not heuristic.
+      </li>
+      <li>
+        <strong>Structured <code>DoclingDocument</code> JSON</strong> feeds directly into your Temporal
+        activity chain as a typed input. Llama 3.3 70B receives field hierarchy — section, table, cell,
+        caption — not raw character runs. Field extraction accuracy improves; SHAP explanations become
+        more precise because the feature boundaries are real.
+      </li>
+      <li>
+        <strong>CPU-viable</strong> — no GPU required for Docling itself. Runs on existing commodity
+        server hardware without touching GPU budget or allocation. Self-hosted Docker REST server,
+        offline mode, zero cloud calls, persistent model cache.
+      </li>
+      <li>
+        <strong>Formats</strong>: PDF, DOCX, XLSX, PPTX, images (PNG, TIFF, JPEG), HTML, email (EML/MSG)
+        — covers the full document surface area of Indian banking operations.
+      </li>
+    </ul>
+
+    <div class="int-block">
+      <div class="int-block-label">Integration Path</div>
+      <div class="int-flow">
+        Inbound document (PDF / image / bank statement)<br>
+        → existing <span class="h1">GOT-OCR2.0</span> activity  (character recognition, MICR extraction)<br>
+        → new <span class="h1">docling_parse</span> Temporal activity  (structural JSON via Docker REST)<br>
+        → <span class="h1">llm_reason_activity</span> receives DoclingDocument as structured context<br>
+        → SHAP values, NGCH filing — unchanged downstream
+        <span class="est">
+          Est. engineering: 3 days · 1 new Temporal activity · 1 Docker container (CPU, no GPU) · MIT license, no revenue cap
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Recommendation 02: Label Studio ── -->
+  <div class="rec-card rec-card-2" data-num="02">
+    <div class="rec-badge">
+      <span class="rec-badge-dot"></span>
+      Recommendation 02
+    </div>
+    <h2>Label Studio</h2>
+    <p class="rec-subtitle">Human-in-the-Loop Annotation</p>
+
+    <div class="chips">
+      <span class="chip chip-c2">Apache 2.0</span>
+      <span class="chip">HumanSignal</span>
+      <span class="chip">27k+ stars</span>
+      <span class="chip">ML Backend pre-labeling</span>
+      <span class="chip">LDAP · data sovereignty</span>
+    </div>
+
+    <p class="slabel">The gap it fills</p>
+    <p>
+      ASTRA's feedback loop is architecturally complete: <code>FeedbackAccumulatorWorkflow</code> captures
+      every decision, <code>ModelRetrainWorkflow</code> auto-triggers retraining, <code>FeedbackEmitWorkflow</code>
+      fires after every cheque decision. The loop exists in code and in Temporal. But it has a missing
+      link — when GOT-OCR2.0 misreads a handwritten amount in Malayalam, or confuses a cooperative
+      bank's regional handwriting style, there is no interface for a bank operator or ml_engineer to
+      see that error, correct it, and push a labeled example back into <code>corpus_manager.py</code>.
+    </p>
+    <p>
+      Label Studio is the annotation interface your existing feedback loop was designed for but never
+      had. It closes the loop your architecture already planned.
+    </p>
+
+    <p class="slabel">Why it changes the platform</p>
+    <ul class="blist">
+      <li>
+        <strong>ML Backend API</strong> pre-labels every task using your existing GOT-OCR2.0 inference
+        output — annotators correct mistakes only, not re-transcribe from blank. Throughput per operator
+        increases 5–10× versus cold annotation.
+      </li>
+      <li>
+        <strong>Multi-modal in one tool</strong> — bounding box correction on cheque images, OCR
+        transcription correction, and NER labeling on extracted text in a single interface. Eliminates
+        three separate tools that would otherwise need RBAC, storage, and maintenance.
+      </li>
+      <li>
+        <strong>RBAC maps directly</strong> to ASTRA roles: <code>ml_engineer</code> manages annotation
+        projects; <code>ops_reviewer</code> submits corrections from the human review queue. LDAP
+        connector — no custom SSO integration required.
+      </li>
+      <li>
+        <strong>Export formats</strong> — COCO, YOLO, and custom JSON — match what <code>feedback_activities.py</code>
+        and <code>corpus_manager.py</code> already expect. No format translation layer.
+      </li>
+      <li>
+        <strong>Data sovereignty</strong> — Apache 2.0, fully self-hosted. No cheque image or customer
+        data leaves your on-prem environment. RBI data localisation: structurally compliant.
+      </li>
+    </ul>
+
+    <div class="int-block">
+      <div class="int-block-label">Integration Path</div>
+      <div class="int-flow">
+        OCR confidence &lt; threshold → <span class="h2">FeedbackAccumulatorWorkflow</span> signal<br>
+        → Label Studio task creation API  (cheque image + OCR output as pre-label)<br>
+        → ML Backend auto-labels via <span class="h2">GOT-OCR2.0</span> inference endpoint<br>
+        → <code>ops_reviewer</code> / <code>ml_engineer</code> corrects in Label Studio UI<br>
+        → Webhook fires → <span class="h2">corpus_manager.py</span> ingests labeled example<br>
+        → <code>ModelRetrainWorkflow</code> auto-triggers — existing Temporal flow, unchanged
+        <span class="est">
+          Est. engineering: 4–5 days · 1 Docker container · webhook integration · Apache 2.0, fully free
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Runner-ups ── -->
+  <div class="sdivider"><span>Also Worth Watching</span></div>
+
+  <div class="rgrid">
+    <div class="rcard">
+      <div class="rcard-name">React Flow</div>
+      <div class="rcard-meta">xyflow/xyflow · 37.9k ★ · MIT</div>
+      <div class="rcard-desc">
+        Live visual pipeline showing each cheque's real-time processing state — intake through OCR,
+        fraud scoring, to NGCH filing. Used in Dify, Langflow, Flowise. No new Docker container —
+        pure React library, zero backend surface area.
+      </div>
+      <span class="rcard-phase">Phase 6 UX Sprint</span>
+    </div>
+    <div class="rcard">
+      <div class="rcard-name">PaddleOCR v5</div>
+      <div class="rcard-meta">PaddlePaddle · 70k ★ · Apache 2.0</div>
+      <div class="rcard-desc">
+        109-language OCR with dedicated Tamil, Telugu, and Devanagari training data, plus seal
+        recognition. Strongest challenger to GOT-OCR2.0 for multilingual cheque OCR. Requires
+        benchmark on your actual cheque corpus before replacing anything.
+      </div>
+      <span class="rcard-phase">Benchmark First</span>
+    </div>
+    <div class="rcard">
+      <div class="rcard-name">TanStack Table</div>
+      <div class="rcard-meta">TanStack · 27.9k ★ · MIT</div>
+      <div class="rcard-desc">
+        Headless data grid — 100% free including server-side row model (AG Grid charges Enterprise
+        for this). Candidate to replace or augment the transaction log tables in CTSDecisionsLog.jsx.
+        Full visual control, no paid tier.
+      </div>
+      <span class="rcard-phase">Low Priority</span>
+    </div>
+  </div>
+
+  <!-- ── Footer ── -->
+  <div class="brief-footer">
+    <strong>Methodology:</strong> 11 candidates evaluated across five categories: document AI,
+    OCR for Indian scripts, workflow visualization, data annotation, and real-time dashboards.
+    Shortlisting criteria: fully self-hostable with zero cloud dependency, MIT or Apache 2.0
+    license, minimum 10k GitHub stars, and a direct integration path into the existing
+    Temporal + vLLM + React stack without requiring CAB approval for a new mandatory
+    infrastructure tier. All star counts as of August 2026. Sources include arXiv 2507.05595
+    (PaddleOCR 3.0), AAAI 2025 (Docling), and arXiv 2606.29213 (Devanagari OCR benchmark).
+  </div>
+
+</main>
