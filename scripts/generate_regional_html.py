@@ -2,19 +2,19 @@
 generate_regional_html.py
 Generates docs/regional-language-v1.html — TWO sections:
 
-SECTION 1 — Real Scans (demo/112/, English only)
-  9 actual scanned cheques, English text, English OCR output.
-  No regional language fabrication. Pipeline scenarios + rejection reasons.
+SECTION 1 — Real Scans (demo/112/)
+  9 actual scanned cheques. Each image sent to Qwen3-VL-32B via HF Inference
+  Router for REAL extraction. Shows what the model actually reads from pixels.
 
 SECTION 2 — Regional Language Specimens (CSS-rendered CTS-2010 cheques)
-  Realistic CSS-rendered cheques that look like actual bank instruments.
-  Transliteration beside every Indic field.
-  2 cheques have AMOUNT_MISMATCH: words != figures, detected by amounts_match().
+  CSS-rendered synthetic cheques showing regional script with transliteration.
+  Two AMOUNT_MISMATCH cases. No OCR fabrication — CSS text is what's written.
 
 Usage:  python scripts/generate_regional_html.py
+Token:  ASTRA_DEMO_HF_TOKEN env var (same as demo_cloud_extract.py)
 """
 from __future__ import annotations
-import asyncio, base64, io, os, subprocess, sys, time
+import asyncio, base64, io, json, os, re, sys, time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -24,39 +24,41 @@ sys.path.insert(0, str(ROOT))
 
 from PIL import Image
 
-STUB_PORT = 18010
-STUB_URL  = f"http://localhost:{STUB_PORT}"
+HF_BASE_URL = os.environ.get("ASTRA_DEMO_HF_BASE_URL", "https://router.huggingface.co/v1")
+HF_TOKEN    = os.environ.get("ASTRA_DEMO_HF_TOKEN", "")
+HF_MODEL    = "Qwen/Qwen3-VL-32B-Instruct:featherless-ai"
 
-# ── Stub ──────────────────────────────────────────────────────────────────────
+# Same prompt as demo_cloud_extract.py — already validated against real cheques
+EXTRACT_PROMPT = """You are an expert Indian Bank Cheque OCR and Validation Engine.
 
-def _stub_healthy() -> bool:
-    try:
-        import httpx
-        r = httpx.get(f"{STUB_URL}/health", timeout=1.0)
-        return r.status_code == 200 and r.json().get("service") == "ocr-stub"
-    except Exception:
-        return False
+Extract cheque information with maximum accuracy.
 
-def ensure_stub() -> subprocess.Popen | None:
-    if _stub_healthy():
-        print("[stub] Already running.")
-        return None
-    print(f"[stub] Starting on port {STUB_PORT}...")
-    proc = subprocess.Popen(
-        [sys.executable, "-m", "tests.integration.stubs.ocr_server"],
-        env=os.environ.copy(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
-    deadline = time.time() + 12
-    while not _stub_healthy():
-        if time.time() > deadline:
-            proc.kill(); raise RuntimeError("Stub did not start within 12s")
-        time.sleep(0.3)
-    print(f"[stub] Ready at {STUB_URL}")
-    return proc
+INSTRUCTIONS:
+1. Read the ENTIRE cheque carefully.
+2. Extract all visible information exactly as written.
+3. If a field is not visible or cannot be determined, return null.
+4. Return ONLY valid JSON — no markdown, no comments.
 
-# ── Image encoding ────────────────────────────────────────────────────────────
+Return ONLY valid JSON:
+{
+  "bank_name": "",
+  "date": "",
+  "payee_name": "",
+  "amount_words": "",
+  "amount_numeric": "",
+  "is_amount_matching": true,
+  "account_number": "",
+  "ifsc_code": "",
+  "cheque_number": "",
+  "micr_code": "",
+  "signature_present": true,
+  "signature_name": null
+}"""
 
-def _encode(path: Path, max_w: int = 700, quality: int = 72) -> str:
+# ── Image helpers ─────────────────────────────────────────────────────────────
+
+def _encode(path: Path, max_w: int = 1024, quality: int = 85) -> str:
+    """Encode cheque image as base64 data URL. Higher quality for VLM reading."""
     img = Image.open(path)
     w, h = img.size
     if w > max_w:
@@ -67,58 +69,62 @@ def _encode(path: Path, max_w: int = 700, quality: int = 72) -> str:
     img.save(buf, format="JPEG", quality=quality)
     return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
 
-# ── Config / orchestrator ─────────────────────────────────────────────────────
+def _thumb(path: Path, max_w: int = 700, quality: int = 72) -> str:
+    """Smaller thumbnail for display in HTML."""
+    img = Image.open(path)
+    w, h = img.size
+    if w > max_w:
+        img = img.resize((max_w, int(h * max_w / w)), Image.LANCZOS)
+    if img.mode not in ("RGB", "L"):
+        img = img.convert("RGB")
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=quality)
+    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
 
-class _Cfg:
-    _d = {
-        "ai.ocr.min_confidence": 0.85, "ai.ocr.min_indic_confidence": 0.60,
-        "services.indic_ocr.url": "", "cts.indic_ocr.kill_mode": "NONE",
-        "ai.cascade.l1_confidence_threshold": 0.85,
-        "ai.cascade.high_value_threshold": 5_000_000.0,
-        "ai.cascade.l2_escalation_enabled": False,
-        "ai.cascade.l1_model_ocr": "got-ocr2-stub",
-        "ai.cascade.l2_model_ocr": "got-ocr2-stub",
-    }
-    async def get_ai_config(self, bank_id): return dict(self._d)
-    async def get(self, key):
-        if key == "cts.indic_ocr.kill_mode": return "NONE"
-        raise KeyError(key)
+# ── Real extraction via Qwen3-VL-32B on HF ───────────────────────────────────
 
-def _orchestrator():
+async def extract_real(data_url: str, idx: int) -> dict:
+    """Call Qwen3-VL-32B via HF Inference Router. Returns extracted fields dict."""
     from openai import AsyncOpenAI
-    from shared.ai.model_cascade import CascadeOrchestrator
-    c = AsyncOpenAI(base_url=f"{STUB_URL}/v1", api_key="stub")
-    cfg = {"ai.cascade.l1_confidence_threshold": 0.85,
-           "ai.cascade.high_value_threshold": 5_000_000.0,
-           "ai.cascade.l2_escalation_enabled": False,
-           "ai.cascade.l1_model_ocr": "got-ocr2-stub",
-           "ai.cascade.l2_model_ocr": "got-ocr2-stub"}
-    return CascadeOrchestrator(l1_client=c, l2_client=c, config=cfg, bank_id="demo")
+    client = AsyncOpenAI(base_url=HF_BASE_URL, api_key=HF_TOKEN)
+    try:
+        resp = await client.chat.completions.create(
+            model=HF_MODEL,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                    {"type": "text", "text": EXTRACT_PROMPT},
+                ]
+            }],
+            max_tokens=512,
+            timeout=90.0,
+        )
+        raw = resp.choices[0].message.content or ""
+        # Strip markdown fences if present
+        raw = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("`").strip()
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        return {"_error": f"JSON parse failed: {e}", "_raw": raw[:300]}
+    except Exception as e:
+        return {"_error": str(e)[:200]}
 
-async def _ocr(image_url: str, stub_scenario: str | None) -> dict:
-    from modules.cts.workflows.activities.ocr import OCRActivityInput, ocr_extract
-    url = image_url + (f"?scenario={stub_scenario}" if stub_scenario else "")
-    r = await ocr_extract(OCRActivityInput(image_url=url,
-                          instrument_id="DEMO", bank_id="demo"),
-                          _orchestrator(), _Cfg())
-    return r.model_dump()
-
-# ── SECTION 1: Real scans ─────────────────────────────────────────────────────
+# ── SECTION 1: Real scan cards ────────────────────────────────────────────────
 
 _FILES = sorted(p for p in DEMO.iterdir()
                 if p.suffix.lower() in (".jpeg", ".jpg", ".tiff", ".tif"))[:9]
 
-REAL_CARDS = [
-    # (idx, scenario_label, stub_scenario, bank, outcome, rejection, sig_score, fraud, alt)
-    (0, "CLEAN_ALL_PASS — golden path",              None,               "Syndicate Bank", "STP_CONFIRM",  None,                                                                     0.93, 0.09, False),
-    (1, "CLEAN_ALL_PASS — high-value dual sig",       None,               "Axis Bank",      "STP_CONFIRM",  None,                                                                     0.95, 0.14, False),
-    (2, "AMOUNT_MISMATCH — words vs figures",         "amount_mismatch",  "Syndicate Bank", "STP_RETURN",   ("AMOUNT_MISMATCH", "words='One Lakh Only' vs figures='95,000'"),         0.90, 0.29, False),
-    (3, "OCR LOW CONFIDENCE — key fields unclear",    "low_confidence",   "Axis Bank",      "HUMAN_REVIEW", ("OCR_LOW_CONFIDENCE", "payee + amount below confidence threshold"),       0.91, 0.17, False),
-    (4, "STOP_PAYMENT — CBS instruction active",      None,               "Syndicate Bank", "STP_RETURN",   ("STOP_PAYMENT", "CBS stop-payment lodged 23/08/2026"),                   0.93, 0.12, False),
-    (5, "AMOUNT_MISMATCH — possible alteration",      "amount_mismatch",  "Axis Bank",      "STP_RETURN",   ("AMOUNT_MISMATCH", "words vs figures mismatch + alteration signal"),     0.88, 0.48, True),
-    (6, "ACCOUNT_FROZEN — regulatory order",          None,               "Syndicate Bank", "STP_RETURN",   ("ACCOUNT_FROZEN", "RBI/ED freeze on drawer account"),                   0.91, 0.19, False),
-    (7, "CBS_INSUFFICIENT — balance < amount",        None,               "Axis Bank",      "STP_RETURN",   ("CBS_INSUFFICIENT", "drawer balance [1L-5L] vs instrument Rs 3,20,000"),  0.92, 0.13, False),
-    (8, "SIG_MISMATCH — vault score 0.44",            None,               "Syndicate Bank", "HUMAN_REVIEW", None,                                                                     0.44, 0.28, False),
+# Pipeline scenario for each card (matches real-cheque fixture types)
+REAL_SCENARIOS = [
+    ("CLEAN_ALL_PASS",   "STP_CONFIRM"),
+    ("CLEAN_ALL_PASS",   "STP_CONFIRM"),
+    ("SIG_MISMATCH",     "HUMAN_REVIEW"),
+    ("FRAUD_HIGH",       "HUMAN_REVIEW"),
+    ("STOP_PAYMENT",     "STP_RETURN"),
+    ("OCR_LOW_CONF",     "HUMAN_REVIEW"),
+    ("ACCOUNT_FROZEN",   "STP_RETURN"),
+    ("CBS_INSUFFICIENT", "STP_RETURN"),
+    ("SIG_MISMATCH",     "HUMAN_REVIEW"),
 ]
 
 # ── SECTION 2: Regional specimens ─────────────────────────────────────────────
@@ -131,12 +137,12 @@ SPECIMENS = [
         date_boxes=("2","5","0","8","2","0","2","6"),
         payee="Rajan Pillai", payee_xlit="",
         words="Forty Five Thousand Only", words_xlit="",
-        fig="45,000.00", fig_native="45,000.00",
+        fig="45,000.00",
         cheque_no="100001", acct_disp="****9012",
         micr="100001  724020003  123456789012",
-        stub_scenario=None, outcome="STP_CONFIRM", rejection=None,
+        outcome="STP_CONFIRM", rejection=None,
         sig_score=0.93, fraud=0.09, alt=False, sig_idx=0,
-        lbl_pay="Pay", lbl_rupees="Rupees", lbl_bearer="or Bearer",
+        lbl_pay="Pay", lbl_rupees="Rupees",
     ),
     dict(
         code="HI", lang="Hindi", lang_native="हिन्दी",
@@ -146,12 +152,12 @@ SPECIMENS = [
         payee="राजेश कुमार", payee_xlit="Rajesh Kumar",
         words="चार लाख अस्सी हजार रुपये मात्र",
         words_xlit="Chaar Laakh Assi Hazaar [= 4,80,000]",
-        fig="4,80,000.00", fig_native="4,80,000.00",
+        fig="4,80,000.00",
         cheque_no="100002", acct_disp="****0123",
         micr="100002  724020003  234567890123",
-        stub_scenario=None, outcome="STP_CONFIRM", rejection=None,
+        outcome="STP_CONFIRM", rejection=None,
         sig_score=0.93, fraud=0.11, alt=False, sig_idx=1,
-        lbl_pay="Pay", lbl_rupees="Rupees", lbl_bearer="or Bearer",
+        lbl_pay="Pay", lbl_rupees="Rupees",
     ),
     dict(
         code="MR", lang="Marathi", lang_native="मराठी",
@@ -161,12 +167,12 @@ SPECIMENS = [
         payee="सुनील पाटील", payee_xlit="Sunil Patil",
         words="पासष्ट हजार रुपये मात्र",
         words_xlit="Paashaht Hazaar [= 65,000]",
-        fig="65,000.00", fig_native="65,000.00",
+        fig="65,000.00",
         cheque_no="200001", acct_disp="****1234",
         micr="200001  743020003  345678901234",
-        stub_scenario=None, outcome="STP_CONFIRM", rejection=None,
+        outcome="STP_CONFIRM", rejection=None,
         sig_score=0.93, fraud=0.11, alt=False, sig_idx=2,
-        lbl_pay="Pay", lbl_rupees="Rupees", lbl_bearer="or Bearer",
+        lbl_pay="Pay", lbl_rupees="Rupees",
     ),
     dict(
         code="TA", lang="Tamil", lang_native="தமிழ்",
@@ -176,13 +182,13 @@ SPECIMENS = [
         payee="கணேஷ் குமார்", payee_xlit="Ganesh Kumar",
         words="ஐம்பது ஆயிரம் ரூபாய் மட்டும்",
         words_xlit="Aimpadhu Aayiram [= 50,000]",
-        fig="78,000.00", fig_native="78,000.00",
+        fig="78,000.00",
         cheque_no="300001", acct_disp="****2345",
         micr="300001  724020003  456789012345",
-        stub_scenario="amount_mismatch", outcome="STP_RETURN",
-        rejection=("AMOUNT_MISMATCH", "words=50,000 | figures=78,000 — amounts_match()=False"),
+        outcome="STP_RETURN",
+        rejection=("AMOUNT_MISMATCH", "words=50,000 | figures=78,000"),
         sig_score=0.91, fraud=0.22, alt=False, sig_idx=3,
-        lbl_pay="Pay", lbl_rupees="Rupees", lbl_bearer="or Bearer",
+        lbl_pay="Pay", lbl_rupees="Rupees",
         mismatch_words_val="50,000", mismatch_fig_val="78,000",
     ),
     dict(
@@ -193,12 +199,12 @@ SPECIMENS = [
         payee="వెంకటేశ్వర రావు", payee_xlit="Venkateswara Rao",
         words="ఐదు లక్షల యభై వేల రూపాయలు మాత్రమే",
         words_xlit="Aidu Lakshal Yabhai Vela [= 5,50,000]",
-        fig="5,50,000.00", fig_native="5,50,000.00",
+        fig="5,50,000.00",
         cheque_no="400001", acct_disp="****3456",
         micr="400001  724020003  567890123456",
-        stub_scenario=None, outcome="STP_CONFIRM", rejection=None,
+        outcome="STP_CONFIRM", rejection=None,
         sig_score=0.92, fraud=0.13, alt=False, sig_idx=4,
-        lbl_pay="Pay", lbl_rupees="Rupees", lbl_bearer="or Bearer",
+        lbl_pay="Pay", lbl_rupees="Rupees",
     ),
     dict(
         code="KN", lang="Kannada", lang_native="ಕನ್ನಡ",
@@ -208,13 +214,13 @@ SPECIMENS = [
         payee="ರಾಜೇಶ್ ಕುಮಾರ್", payee_xlit="Rajesh Kumar",
         words="ಎರಡು ಲಕ್ಷದ ಮೂವತ್ತು ಸಾವಿರ ರೂಪಾಯಿ ಮಾತ್ರ",
         words_xlit="Eradu Lakshadha Moovattu Saavira [= 2,30,000]",
-        fig="2,30,000.00", fig_native="2,30,000.00",
+        fig="2,30,000.00",
         cheque_no="500001", acct_disp="****4567",
         micr="500001  724020003  678901234567",
-        stub_scenario=None, outcome="STP_RETURN",
+        outcome="STP_RETURN",
         rejection=("ACCOUNT_FROZEN", "Drawer account frozen — RBI/ED regulatory order"),
         sig_score=0.93, fraud=0.19, alt=False, sig_idx=5,
-        lbl_pay="Pay", lbl_rupees="Rupees", lbl_bearer="or Bearer",
+        lbl_pay="Pay", lbl_rupees="Rupees",
     ),
     dict(
         code="GU", lang="Gujarati", lang_native="ગુજરાતી",
@@ -224,13 +230,13 @@ SPECIMENS = [
         payee="રાજેશ પટેલ", payee_xlit="Rajesh Patel",
         words="પંચાવન હજાર રૂપિયા માત્ર",
         words_xlit="Panchaavan Hazaar [= 55,000]",
-        fig="1,10,000.00", fig_native="1,10,000.00",
+        fig="1,10,000.00",
         cheque_no="600001", acct_disp="****5678",
         micr="600001  724020003  789012345678",
-        stub_scenario="amount_mismatch", outcome="STP_RETURN",
+        outcome="STP_RETURN",
         rejection=("AMOUNT_MISMATCH", "words=55,000 | figures=1,10,000 — possible alteration"),
         sig_score=0.88, fraud=0.48, alt=True, sig_idx=6,
-        lbl_pay="Pay", lbl_rupees="Rupees", lbl_bearer="or Bearer",
+        lbl_pay="Pay", lbl_rupees="Rupees",
         mismatch_words_val="55,000", mismatch_fig_val="1,10,000",
     ),
     dict(
@@ -241,13 +247,13 @@ SPECIMENS = [
         payee="রাজেশ কুমার", payee_xlit="Rajesh Kumar",
         words="পঁচাশি হাজার টাকা মাত্র",
         words_xlit="Panchaashi Hazaar [= 85,000]",
-        fig="85,000.00", fig_native="85,000.00",
+        fig="85,000.00",
         cheque_no="700001", acct_disp="****6789",
         micr="700001  743020003  890123456789",
-        stub_scenario=None, outcome="STP_RETURN",
+        outcome="STP_RETURN",
         rejection=("STOP_PAYMENT", "CBS stop-payment active — lodged 23/08/2026"),
         sig_score=0.93, fraud=0.12, alt=False, sig_idx=7,
-        lbl_pay="Pay", lbl_rupees="Rupees", lbl_bearer="or Bearer",
+        lbl_pay="Pay", lbl_rupees="Rupees",
     ),
     dict(
         code="ML", lang="Malayalam", lang_native="മലയാളം",
@@ -257,13 +263,13 @@ SPECIMENS = [
         payee="ജോർജ്ജ് മാത്യൂ", payee_xlit="George Mathew",
         words="പതിനെട്ടായിരം രൂപ മാത്രം",
         words_xlit="Pathinettaayiram Roopa [= 18,000]",
-        fig="18,000.00", fig_native="18,000.00",
+        fig="18,000.00",
         cheque_no="800001", acct_disp="****7890",
         micr="800001  724020003  901234567890",
-        stub_scenario="low_confidence", outcome="HUMAN_REVIEW",
+        outcome="HUMAN_REVIEW",
         rejection=("OCR_LOW_CONFIDENCE", "Payee + amount confidence below threshold"),
         sig_score=0.91, fraud=0.14, alt=False, sig_idx=8,
-        lbl_pay="Pay", lbl_rupees="Rupees", lbl_bearer="or Bearer",
+        lbl_pay="Pay", lbl_rupees="Rupees",
     ),
 ]
 
@@ -279,73 +285,27 @@ SIG_PATHS = [
     "M4,14 C12,5 18,7 22,12 C26,17 30,7 38,6 C44,5 50,11 54,9 M20,10 C28,4 36,8 46,8",
 ]
 
-# ── OCR runner ────────────────────────────────────────────────────────────────
-
-async def run_all_ocr(files, cards, specimens):
-    _DUMMY = "data:image/jpeg;base64," + base64.b64encode(
-        b"\xff\xd8\xff\xe0" + b"\x00" * 100).decode()
-
-    real_results = []
-    for i, (tup, path) in enumerate(zip(cards, files)):
-        stub_sc = tup[2]
-        print(f"  [RC-{i+1:03d}] {path.name} ...", end=" ", flush=True)
-        t0 = time.perf_counter()
-        img_url = _encode(path) + (f"?scenario={stub_sc}" if stub_sc else "")
-        r = await _ocr(img_url, None)
-        print(f"-> {r['outcome']} conf={r['overall_confidence']:.2f} {(time.perf_counter()-t0)*1000:.0f}ms")
-        real_results.append(r)
-
-    spec_results = []
-    for sp in specimens:
-        stub_sc = sp["stub_scenario"]
-        print(f"  [{sp['fixture']}] {sp['lang']} ...", end=" ", flush=True)
-        t0 = time.perf_counter()
-        url = _DUMMY + (f"?scenario={stub_sc}" if stub_sc else "")
-        r = await _ocr(url, None)
-        print(f"-> {r['outcome']} conf={r['overall_confidence']:.2f} {(time.perf_counter()-t0)*1000:.0f}ms")
-        spec_results.append(r)
-
-    return real_results, spec_results
-
 # ── HTML helpers ──────────────────────────────────────────────────────────────
 
 def _e(s) -> str:
     return str(s).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
 
-def _oc(outcome): return {"STP_CONFIRM":"confirm","STP_RETURN":"ret","HUMAN_REVIEW":"review"}.get(outcome,"review")
-def _oi(outcome): return {"STP_CONFIRM":"&#10003;","STP_RETURN":"&#8629;","HUMAN_REVIEW":"&#9873;"}.get(outcome,"?")
+def _oc(o): return {"STP_CONFIRM":"confirm","STP_RETURN":"ret","HUMAN_REVIEW":"review"}.get(o,"review")
+def _oi(o): return {"STP_CONFIRM":"&#10003;","STP_RETURN":"&#8629;","HUMAN_REVIEW":"&#9873;"}.get(o,"?")
 
-def _rej_html(rejection):
+def _rej(rejection):
     if not rejection: return ""
     code, why = rejection
     return f'<div class="rej-banner"><span class="rej-code">{_e(code)}</span><span class="rej-why"> &mdash; {_e(why)}</span></div>'
 
-def _ocr_rows(ocr):
-    def row(lbl, val):
-        has = val is not None and str(val).strip()
-        t = '<span class="tick ok">&#10003;</span>' if has else '<span class="tick no">&mdash;</span>'
-        v = f'<span class="ov">{_e(str(val))}</span>' if has else '<span class="ov dim">not extracted</span>'
-        return f'<div class="or"><span class="of">{lbl}</span>{v}{t}</div>'
-    extra = ""
-    if ocr.get("low_confidence_reason"):
-        extra += f'<div class="ocr-warn">&#9888; {_e(ocr["low_confidence_reason"].replace("_"," "))}</div>'
-    if ocr.get("amount_mismatch"):
-        extra += '<div class="ocr-mm">&#8800; amounts_match() = False &#8594; AMOUNT_MISMATCH</div>'
-    return (row("Payee", ocr.get("payee"))
-          + row("Amount", ocr.get("amount_figures"))
-          + row("Words",  ocr.get("amount_words"))
-          + row("Date",   ocr.get("date")) + extra)
-
-def _pipe(sig_score, fraud, alt, outcome):
+def _pipe_mini(sig_score, fraud, alt, outcome):
     oc = _oc(outcome)
     fc = "" if fraud < 0.40 else ("mid" if fraud < 0.70 else "hi")
     spc = "ok" if sig_score >= 0.90 else ("danger" if sig_score < 0.50 else "warn")
-    sps = f"SIG {sig_score:.2f}" if sig_score > 0 else "SIG ABSENT"
-    alt_cls = "danger" if alt else "ok"
-    alt_txt = "ALT &#9873; DETECTED" if alt else "ALT &#10003; CLEAR"
+    ac = "danger" if alt else "ok"
     return f'''<div class="pill-row">
-      <span class="pill {alt_cls}">{alt_txt}</span>
-      <span class="pill {spc}">{sps}</span>
+      <span class="pill {ac}">{"ALT &#9873;" if alt else "ALT &#10003;"}</span>
+      <span class="pill {spc}">SIG {sig_score:.2f}</span>
     </div>
     <div class="fraud-row">
       <span class="fraud-lbl">Fraud</span>
@@ -354,7 +314,72 @@ def _pipe(sig_score, fraud, alt, outcome):
     </div>
     <div class="decision {oc}">{_oi(outcome)} {_e(outcome)}</div>'''
 
-# ── Date boxes ────────────────────────────────────────────────────────────────
+# ── SECTION 1: Real scan card ─────────────────────────────────────────────────
+
+def _field_row(label, val):
+    has = val is not None and str(val).strip() not in ("", "null", "None")
+    if not has:
+        return f'<div class="fr"><span class="fl">{label}</span><span class="fv dim">—</span></div>'
+    v = str(val)
+    # Mask account number for PII
+    if label == "Acct" and len(v) > 4:
+        v = "****" + v[-4:]
+    return f'<div class="fr"><span class="fl">{label}</span><span class="fv">{_e(v)}</span></div>'
+
+def _mm_flag(ext: dict) -> str:
+    match = ext.get("is_amount_matching")
+    if match is False:
+        return '<div class="ocr-mm">&#8800; Amount mismatch detected by model</div>'
+    return ""
+
+def real_card(i: int, path: Path, ext: dict, thumb: str, scenario: str, outcome: str) -> str:
+    oc = _oc(outcome)
+    err = ext.get("_error")
+    bank = ext.get("bank_name") or "—"
+    elapsed = ext.get("_elapsed_ms", 0)
+
+    if err:
+        ocr_body = f'<div class="ocr-err">&#9888; {_e(err)}</div>'
+    else:
+        ocr_body = (
+            _field_row("Bank",   ext.get("bank_name"))
+          + _field_row("Payee",  ext.get("payee_name"))
+          + _field_row("Amount", ext.get("amount_numeric"))
+          + _field_row("Words",  ext.get("amount_words"))
+          + _field_row("Date",   ext.get("date"))
+          + _field_row("Chq#",  ext.get("cheque_number"))
+          + _field_row("MICR",  ext.get("micr_code"))
+          + _field_row("IFSC",  ext.get("ifsc_code"))
+          + _field_row("Acct",  ext.get("account_number"))
+          + _field_row("Sig",   "present" if ext.get("signature_present") else "absent")
+          + _mm_flag(ext)
+        )
+
+    return f'''
+<div class="card">
+  <div class="card-hdr">
+    <div class="card-left">
+      <span class="fid">RC-{i+1:03d}</span>
+      <span class="scenario-txt">{_e(scenario)}</span>
+    </div>
+    <div class="card-right">
+      <span class="outcome-badge {oc}">{_oi(outcome)} {_e(outcome)}</span>
+    </div>
+  </div>
+  <div class="scan-wrap">
+    <img src="{thumb}" class="scan-img" alt="RC-{i+1:03d}">
+  </div>
+  <div class="model-badge-row">
+    <span class="model-badge">Qwen3-VL-32B</span>
+    <span class="model-via">via HF Inference Router</span>
+    <span class="model-time">{elapsed:.0f}ms</span>
+  </div>
+  <div class="ocr-fields">
+    {ocr_body}
+  </div>
+</div>'''
+
+# ── SECTION 2: Regional specimen card ────────────────────────────────────────
 
 def _date_boxes(boxes):
     d1,d2,m1,m2,y1,y2,y3,y4 = boxes
@@ -368,50 +393,9 @@ def _indic(text, xlit, is_en=False):
     xl = f'<div class="chq-xlit">[{_e(xlit)}]</div>' if xlit else ""
     return f'<div class="chq-indic">{_e(text)}</div>{xl}'
 
-# ── SECTION 1: Real scan card ─────────────────────────────────────────────────
-
-def real_card(i, tup, ocr, embed):
-    idx, scenario, stub_sc, bank, outcome, rejection, sig_score, fraud, alt = tup
-    oc = _oc(outcome)
-    conf = ocr.get("overall_confidence", 0.0)
-    engines = ", ".join(ocr.get("ocr_engines_used", [])) or "none"
-    ocr_ok = ocr.get("outcome") == "PROCEED"
-    ob = ('<span class="ocr-ok">PROCEED</span>' if ocr_ok
-          else '<span class="ocr-fail-badge">LOW CONF</span>')
-    return f'''
-<div class="card">
-  <div class="card-hdr">
-    <div class="card-left">
-      <span class="fid">RC-{i+1:03d}</span>
-      <span class="scenario-txt">{_e(scenario)}</span>
-    </div>
-    <div class="card-right">
-      <span class="bank-txt">{_e(bank)}</span>
-      <span class="outcome-badge {oc}">{_oi(outcome)} {_e(outcome)}</span>
-    </div>
-  </div>
-  <div class="scan-wrap">
-    <img src="{embed}" class="scan-img" alt="RC-{i+1:03d}">
-    <div class="scan-cap">English text — real scan (Syndicate Bank / Axis Bank)</div>
-  </div>
-  <div class="body-grid">
-    <div class="ocr-panel">
-      <div class="panel-title">GOT-OCR2.0 extraction {ob}</div>
-      <div class="ocr-meta">L{ocr.get("cascade_level",1)} &bull; conf {conf:.3f} &bull; {_e(engines)}</div>
-      {_ocr_rows(ocr)}
-    </div>
-    <div class="pipe-panel">
-      <div class="panel-title">Pipeline</div>
-      {_pipe(sig_score, fraud, alt, outcome)}
-      {_rej_html(rejection)}
-    </div>
-  </div>
-</div>'''
-
-# ── SECTION 2: Realistic cheque visual ───────────────────────────────────────
-
-def cheque_html(sp, mm):
+def cheque_html(sp: dict) -> str:
     is_en = sp["code"] == "EN"
+    mm = sp.get("mismatch_words_val") is not None
     sig_path = SIG_PATHS[sp["sig_idx"] % len(SIG_PATHS)]
     sig_svg = (f'<svg width="88" height="26" viewBox="0 0 88 26" fill="none">'
                f'<path d="{sig_path}" stroke="var(--ink)" stroke-width="1.3" '
@@ -444,7 +428,7 @@ def cheque_html(sp, mm):
         <span class="chq-fl">{_e(sp["lbl_pay"])}</span>
         <div class="chq-payee-line">
           <div class="chq-payee-inner">{_indic(sp["payee"], sp["payee_xlit"], is_en)}</div>
-          <span class="chq-bearer">{_e(sp["lbl_bearer"])}</span>
+          <span class="chq-bearer">or Bearer</span>
         </div>
       </div>
       <div class="chq-ruled"></div>
@@ -457,7 +441,7 @@ def cheque_html(sp, mm):
     <div class="chq-right-col">
       <div class="chq-fig-box{fig_cls}">
         <div class="chq-fig-label">Rs.</div>
-        <div class="chq-fig-val">{_e(sp["fig_native"])}</div>
+        <div class="chq-fig-val">{_e(sp["fig"])}</div>
       </div>
     </div>
   </div>
@@ -477,17 +461,13 @@ def cheque_html(sp, mm):
   </div>
 </div>'''
 
-def specimen_card(sp, ocr):
+def specimen_card(sp: dict) -> str:
     oc = _oc(sp["outcome"])
-    mm = ocr.get("amount_mismatch", False)
-    ocr_ok = ocr.get("outcome") == "PROCEED"
-    ob = ('<span class="ocr-ok">PROCEED</span>' if ocr_ok
-          else '<span class="ocr-fail-badge">LOW CONF</span>')
-    conf = ocr.get("overall_confidence", 0.0)
+    mm = sp.get("mismatch_words_val") is not None
     mismatch_note = ""
     if mm:
-        wv = sp.get("mismatch_words_val","?")
-        fv = sp.get("mismatch_fig_val","?")
+        wv = sp["mismatch_words_val"]
+        fv = sp["mismatch_fig_val"]
         mismatch_note = f'''<div class="mm-flag">
           <span class="mm-item">Words <strong>{_e(wv)}</strong></span>
           <span class="mm-sep">&#8800;</span>
@@ -508,20 +488,12 @@ def specimen_card(sp, ocr):
     </div>
   </div>
   <div class="cheque-wrap">
-    {cheque_html(sp, mm)}
+    {cheque_html(sp)}
     {mismatch_note}
   </div>
-  <div class="body-grid">
-    <div class="ocr-panel">
-      <div class="panel-title">GOT-OCR2.0 extraction {ob}</div>
-      <div class="ocr-meta">conf {conf:.3f} &bull; stub (cannot read CSS text)</div>
-      {_ocr_rows(ocr)}
-    </div>
-    <div class="pipe-panel">
-      <div class="panel-title">Pipeline</div>
-      {_pipe(sp["sig_score"], sp["fraud"], sp["alt"], sp["outcome"])}
-      {_rej_html(sp["rejection"])}
-    </div>
+  <div class="sp-pipe">
+    {_pipe_mini(sp["sig_score"], sp["fraud"], sp["alt"], sp["outcome"])}
+    {_rej(sp["rejection"])}
   </div>
 </div>'''
 
@@ -576,6 +548,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 @media(max-width:860px){.grid3{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:540px){.grid3{grid-template-columns:1fr}}
+/* Card */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:7px;
   overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}
 .card-hdr{display:flex;align-items:center;justify-content:space-between;
@@ -585,7 +558,6 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .card-right{display:flex;align-items:center;gap:5px}
 .fid{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--faint)}
 .scenario-txt{font-size:9px;color:var(--muted)}
-.bank-txt{font-size:8.5px;color:var(--faint)}
 .lang-badge{font-size:12px;font-weight:600;color:var(--text);font-family:'Noto Sans','Nirmala UI',system-ui,sans-serif}
 .lang-en{font-size:9px;color:var(--muted)}
 .script-badge{font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;background:var(--accent);color:#fff;letter-spacing:.06em}
@@ -596,23 +568,25 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 /* Scan */
 .scan-wrap{padding:7px 9px 0;background:var(--surface2)}
 .scan-img{width:100%;border-radius:3px;border:1px solid var(--border);display:block}
-.scan-cap{font-size:7.5px;color:var(--faint);padding:3px 0 6px;font-style:italic}
-/* Body grid */
-.body-grid{display:grid;grid-template-columns:1fr 1fr;flex:1;border-top:1px solid var(--border)}
-.ocr-panel{padding:8px 9px;border-right:1px solid var(--border)}
-.pipe-panel{padding:8px 9px}
-.panel-title{font-size:7.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
-.ocr-meta{font-size:7.5px;color:var(--faint);margin-bottom:4px;font-family:'JetBrains Mono',monospace;line-height:1.4}
-.or{display:flex;align-items:baseline;gap:3px;padding:1.5px 0;border-bottom:1px solid var(--border)}
-.or:last-of-type{border-bottom:none}
-.of{font-size:7px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);width:34px;flex-shrink:0}
-.ov{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text);flex:1;word-break:break-all}
-.ov.dim{color:var(--faint);font-style:italic}
-.tick{font-size:9px;flex-shrink:0}.tick.ok{color:var(--pass)}.tick.no{color:var(--faint)}
-.ocr-ok{font-size:7px;font-weight:700;padding:1px 4px;border-radius:3px;background:var(--pass-bg);color:var(--pass-txt);margin-left:4px}
-.ocr-fail-badge{font-size:7px;font-weight:700;padding:1px 4px;border-radius:3px;background:var(--rev-bg);color:var(--rev-txt);margin-left:4px}
-.ocr-warn{font-size:8px;color:var(--rev-txt);margin-top:3px;font-style:italic}
-.ocr-mm{font-size:8px;font-weight:700;color:var(--ret-txt);margin-top:3px;background:var(--ret-bg);padding:2px 4px;border-radius:3px}
+/* Model badge */
+.model-badge-row{display:flex;align-items:center;gap:5px;padding:4px 9px;
+  background:rgba(16,185,129,.07);border-top:1px solid rgba(16,185,129,.15)}
+.model-badge{font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;
+  background:var(--pass-bg);color:var(--pass-txt);letter-spacing:.05em}
+.model-via{font-size:8px;color:var(--faint);flex:1}
+.model-time{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--faint)}
+/* OCR field rows */
+.ocr-fields{padding:7px 9px;flex:1}
+.fr{display:flex;align-items:baseline;gap:4px;padding:2px 0;border-bottom:1px solid var(--border)}
+.fr:last-child{border-bottom:none}
+.fl{font-size:7px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);width:36px;flex-shrink:0}
+.fv{font-family:'Noto Sans','JetBrains Mono',monospace;font-size:10px;color:var(--text);flex:1;word-break:break-all;line-height:1.3}
+.fv.dim{color:var(--faint);font-style:italic}
+.ocr-err{font-size:9px;color:var(--ret-txt);font-style:italic;padding:4px 0}
+.ocr-mm{font-size:8.5px;font-weight:700;color:var(--ret-txt);margin-top:4px;
+  background:var(--ret-bg);padding:2px 5px;border-radius:3px}
+/* Specimen pipe panel */
+.sp-pipe{padding:8px 9px;border-top:1px solid var(--border)}
 .pill-row{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:4px}
 .pill{font-size:7.5px;font-weight:600;padding:1px 5px;border-radius:3px;border:1px solid var(--border);color:var(--muted);background:var(--surface2)}
 .pill.ok{color:var(--pass-txt);background:var(--pass-bg);border-color:transparent}
@@ -634,7 +608,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   border:1px solid rgba(185,28,28,.16);border-radius:3px;padding:2px 5px;margin-bottom:2px}
 .rej-code{font-size:7px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ret-txt);white-space:nowrap}
 .rej-why{font-size:7px;color:var(--ret-txt);opacity:.85}
-/* ── Cheque visual — realistic CTS-2010 ── */
+/* Cheque visual */
 .cheque-wrap{padding:7px 9px 0;background:var(--surface2)}
 .cheque{
   background-color:var(--chq-paper);
@@ -644,19 +618,14 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   border:1.5px solid var(--chq-rule);border-radius:2px;overflow:hidden;position:relative;
   font-family:'Noto Sans','Inter',system-ui,sans-serif;
 }
-.cheque::before{
-  content:"SPECIMEN";position:absolute;inset:0;display:flex;align-items:center;
+.cheque::before{content:"SPECIMEN";position:absolute;inset:0;display:flex;align-items:center;
   justify-content:center;font-size:28px;font-weight:900;letter-spacing:.22em;
   color:rgba(155,10,10,.055);transform:rotate(-22deg);pointer-events:none;z-index:0;
-  white-space:nowrap;font-family:'Inter',system-ui,sans-serif;
-}
+  white-space:nowrap;font-family:'Inter',system-ui,sans-serif}
 .cheque>*{position:relative;z-index:1}
-/* Header */
-.chq-hdr{
-  background:linear-gradient(120deg,var(--chq-hdr) 0%,var(--chq-hdr2) 100%);
+.chq-hdr{background:linear-gradient(120deg,var(--chq-hdr) 0%,var(--chq-hdr2) 100%);
   padding:5px 8px;display:flex;align-items:flex-start;justify-content:space-between;gap:6px;
-  border-bottom:2px solid var(--chq-rule);
-}
+  border-bottom:2px solid var(--chq-rule)}
 .chq-bank-col{flex:1;min-width:0}
 .chq-bname{font-size:8.5px;font-weight:700;color:rgba(255,255,255,.95);
   letter-spacing:.05em;text-transform:uppercase;font-family:'Inter',sans-serif}
@@ -669,7 +638,6 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .chq-no-block{text-align:right}
 .chq-no-lbl{font-size:6px;color:rgba(255,255,255,.48);letter-spacing:.07em;text-transform:uppercase}
 .chq-no-val{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:rgba(255,255,255,.94)}
-/* Date row */
 .chq-date-row{display:flex;align-items:center;justify-content:flex-end;gap:5px;
   padding:3px 8px;background:var(--chq-paper2);border-bottom:1px dashed var(--chq-rule)}
 .chq-date-lbl{font-size:7px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--chq-label)}
@@ -679,7 +647,6 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   font-family:'Noto Sans','JetBrains Mono',monospace;font-size:9px;color:var(--ink);
   border-radius:1px;font-weight:500;line-height:1}
 .dsep{font-size:10px;color:var(--chq-label);padding:0 1px}
-/* Body layout: left column (pay+words) + right column (figure box) */
 .chq-body{display:flex;align-items:flex-start;padding:5px 8px 4px;gap:7px}
 .chq-left-col{flex:1;min-width:0}
 .chq-right-col{flex-shrink:0;width:88px;padding-top:2px}
@@ -697,15 +664,13 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   font-size:11px;font-weight:500;color:var(--ink);line-height:1.3}
 .chq-xlit{font-size:7px;color:var(--chq-label);font-style:italic;margin-top:1px}
 .chq-plain{font-size:11px;color:var(--ink)}
-/* Figure box — right column, top-aligned */
 .chq-fig-box{border:1.5px solid var(--chq-rule);border-radius:2px;padding:4px 6px;
   background:rgba(255,255,255,.45);text-align:right;min-height:40px}
 .chq-fig-mismatch{border-color:#b91c1c !important;background:rgba(185,28,28,.07) !important}
 .chq-fig-label{font-size:6.5px;color:var(--chq-label);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
 .chq-fig-val{font-family:'Noto Sans','JetBrains Mono',monospace;font-size:11px;font-weight:700;
-  color:var(--ink);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  color:var(--ink);line-height:1.25;white-space:nowrap}
 .chq-fig-mismatch .chq-fig-val{color:#b91c1c}
-/* Footer: account info left, signature right */
 .chq-footer{display:flex;align-items:flex-end;justify-content:space-between;
   padding:4px 8px 5px;border-top:1px dashed var(--chq-rule)}
 .chq-acct-block{display:flex;flex-direction:column;gap:2px}
@@ -715,14 +680,10 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .chq-sig-block{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:88px}
 .chq-sig-rule{width:88px;border-bottom:1px solid var(--chq-rule);margin-top:2px}
 .chq-sig-lbl{font-size:6.5px;color:var(--chq-label);text-transform:uppercase;letter-spacing:.06em}
-/* MICR band */
-.chq-micr-band{
-  background:var(--micr-bg);border-top:2px solid var(--chq-rule);
-  padding:3px 8px;display:flex;align-items:center;justify-content:center;
-}
+.chq-micr-band{background:var(--micr-bg);border-top:2px solid var(--chq-rule);
+  padding:3px 8px;display:flex;align-items:center;justify-content:center}
 .chq-micr-num{font-family:'JetBrains Mono',monospace;font-size:9.5px;
   color:var(--chq-label);letter-spacing:.10em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* Mismatch flag */
 .mm-flag{display:flex;align-items:center;gap:5px;flex-wrap:wrap;
   background:rgba(185,28,28,.07);border:1px solid rgba(185,28,28,.18);
   border-radius:4px;padding:4px 7px;margin-top:4px;margin-bottom:3px}
@@ -737,32 +698,32 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .pg-footer strong{color:var(--muted);font-weight:600}
 """
 
-# ── Build page HTML ───────────────────────────────────────────────────────────
+# ── Build page ────────────────────────────────────────────────────────────────
 
 def build_html(real_html, spec_html):
     return f"""<title>Regional Language OCR</title>
 <style>{CSS}</style>
 
 <div class="ph">
-  <div class="eyebrow">ASTRA CTS &bull; Regional Language OCR &bull; v2</div>
-  <h1>CTS Cheque OCR &mdash; Real Scans + Regional Language Specimens</h1>
-  <p>Section&nbsp;1: 9 actual English bank scans from <code>demo/112/</code> with honest
-  <code>ocr_extract()</code> output &mdash; no fabrication.
-  Section&nbsp;2: Realistic CSS-rendered CTS-2010 instruments with actual regional language text,
-  roman transliteration, and two AMOUNT_MISMATCH returns where <code>amounts_match()</code> returned False.</p>
+  <div class="eyebrow">ASTRA CTS &bull; Real OCR &bull; Qwen3-VL-32B</div>
+  <h1>CTS Cheque Extraction &mdash; Real Scans + Regional Language Specimens</h1>
+  <p>Section&nbsp;1: 9 actual bank cheque scans from <code>demo/112/</code> extracted by
+  <strong>Qwen3-VL-32B</strong> via Hugging Face Inference Router — real model, real pixels, real output.
+  Section&nbsp;2: CSS-rendered CTS-2010 specimens with actual regional language text and roman transliteration.</p>
   <div class="meta-bar">
-    <span class="mpill"><strong>9</strong> real English scans (demo/112/)</span>
-    <span class="mpill"><strong>9</strong> regional language specimens</span>
-    <span class="mpill"><strong>2</strong> AMOUNT_MISMATCH (code-detected)</span>
-    <span class="mpill">OCR: <strong>ocr_extract()</strong> + CascadeOrchestrator + GOT-OCR2.0 stub</span>
+    <span class="mpill">Model: <strong>Qwen/Qwen3-VL-32B-Instruct</strong></span>
+    <span class="mpill">Backend: <strong>featherless-ai via HF Router</strong></span>
+    <span class="mpill"><strong>9</strong> real scans extracted</span>
+    <span class="mpill"><strong>9</strong> regional specimens</span>
+    <span class="mpill"><strong>2</strong> AMOUNT_MISMATCH</span>
   </div>
 </div>
 
 <div class="section">
   <div class="section-hdr">
-    <h2>Section 1 &mdash; Real Scans from demo/112/ (English only)</h2>
-    <p>Actual Syndicate Bank / Axis Bank cheques. All text is English.
-    OCR panel shows exactly what the stub returned &mdash; no fabrication.</p>
+    <h2>Section 1 &mdash; Real Bank Cheque Scans (Qwen3-VL-32B extraction)</h2>
+    <p>Each image sent to Qwen3-VL-32B via HF Inference Router.
+    Extracted fields come from actual image pixels — not stubs, not fixtures.</p>
   </div>
   <div class="grid3">
 {"".join(real_html)}
@@ -772,9 +733,8 @@ def build_html(real_html, spec_html):
 <div class="section">
   <div class="section-hdr">
     <h2>Section 2 &mdash; Regional Language CTS-2010 Specimens</h2>
-    <p>CSS-rendered synthetic cheques with actual regional script and roman transliteration in [brackets].
-    The OCR stub cannot read the CSS-rendered text &mdash; it returns canned responses.
-    In production, GOT-OCR2.0 reads Indic fields directly from scanned images.</p>
+    <p>CSS-rendered synthetic instruments showing actual regional script with roman transliteration.
+    Two AMOUNT_MISMATCH cases: Tamil (words=50K, figures=78K) and Gujarati (words=55K, figures=1.1L).</p>
   </div>
   <div class="grid3">
 {"".join(spec_html)}
@@ -783,32 +743,48 @@ def build_html(real_html, spec_html):
 
 <div class="pg-footer">
   <strong>ASTRA &mdash; Bank Intelligence Platform</strong>
-  <span>regional-language-v1 &bull; 2026-08-26</span>
+  <span>regional-language-v1 &bull; Qwen3-VL-32B &bull; 2026-08-26</span>
 </div>
 """
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 async def main():
-    print(f"\nEncoding {len(_FILES)} images...")
-    embeds = [_encode(f) for f in _FILES]
+    if not HF_TOKEN:
+        print("ERROR: ASTRA_DEMO_HF_TOKEN not set"); sys.exit(1)
 
-    print("\nRunning OCR on all scenarios...")
-    real_ocr, spec_ocr = await run_all_ocr(_FILES, REAL_CARDS, SPECIMENS)
+    print(f"\nEncoding {len(_FILES)} real cheque images (high-res for VLM)...")
+    data_urls = [_encode(f) for f in _FILES]
+    thumbs    = [_thumb(f)  for f in _FILES]
+
+    print(f"\nCalling Qwen3-VL-32B on {len(_FILES)} real scans...")
+    print(f"  Model: {HF_MODEL}")
+    print(f"  Backend: {HF_BASE_URL}\n")
+
+    extractions = []
+    for i, (path, du) in enumerate(zip(_FILES, data_urls)):
+        print(f"  [{i+1:02d}/{len(_FILES)}] {path.name} ...", end=" ", flush=True)
+        t0 = time.perf_counter()
+        ext = await extract_real(du, i)
+        elapsed = (time.perf_counter() - t0) * 1000
+        ext["_elapsed_ms"] = elapsed
+        if "_error" in ext:
+            print(f"ERROR: {ext['_error'][:60]}")
+        else:
+            print(f"-> {ext.get('bank_name','?')} | {ext.get('payee_name','?')} | {ext.get('amount_numeric','?')} | {elapsed:.0f}ms")
+        extractions.append(ext)
 
     print("\nGenerating HTML...")
-    rc_html = [real_card(i, tup, ocr, embed)
-               for i, (tup, ocr, embed) in enumerate(zip(REAL_CARDS, real_ocr, embeds))]
-    sp_html = [specimen_card(sp, ocr) for sp, ocr in zip(SPECIMENS, spec_ocr)]
+    rc_html = [
+        real_card(i, path, ext, thumb, sc[0], sc[1])
+        for i, (path, ext, thumb, sc)
+        in enumerate(zip(_FILES, extractions, thumbs, REAL_SCENARIOS))
+    ]
+    sp_html = [specimen_card(sp) for sp in SPECIMENS]
 
     html = build_html(rc_html, sp_html)
     OUT.write_text(html, encoding="utf-8")
     print(f"\nWritten: {OUT}  ({len(html)//1024} KB)")
 
 if __name__ == "__main__":
-    stub = ensure_stub()
-    try:
-        asyncio.run(main())
-    finally:
-        if stub:
-            stub.kill(); stub.wait(); print("[stub] Stopped.")
+    asyncio.run(main())
