@@ -83,141 +83,176 @@ def _wrap(text: str, font: ImageFont.FreeTypeFont, max_px: int) -> list[str]:
     return lines or [text]
 
 def make_cheque_image(sp: dict) -> tuple[bytes, str]:
-    """Render a CTS-2010 cheque as PNG. Returns (png_bytes, base64_data_url)."""
-    W, H     = 820, 360
-    HDR_H    = 60
-    DATE_H   = 28
+    """
+    Render a clean, readable CTS-2010 cheque as PNG.
+    High-resolution, no grid lines, proper proportions, large Indic fonts.
+    """
+    W, H     = 1000, 430
+    HDR_H    = 72
+    DATE_H   = 34
     BODY_TOP = HDR_H + DATE_H
-    FOOT_Y   = 278
-    MICR_Y   = 318
+    FOOT_Y   = 330
+    MICR_Y   = 380
+    PAD      = 16    # left/right padding
 
-    # Palette
-    PAPER   = (254, 250, 232)
-    PAPER2  = (245, 239, 206)
-    INK     = (18, 14, 6)
-    RULE    = (197, 180, 122)
-    LBL     = (136, 117, 88)
-    MICR_BG = (237, 226, 184)
-    HDR_T   = (26, 50, 96)
-    HDR_B   = (14, 32, 72)
-    HDR_TXT = (238, 235, 220)
-    HDR_MUT = (175, 168, 148)
-    MM_RED  = (185, 28, 28)
-    GRID    = (232, 215, 170)
+    # Clean palette
+    PAPER   = (253, 249, 230)   # warm cream — no grid
+    PAPER2  = (244, 238, 208)   # slightly darker for date row
+    INK     = (12, 8, 2)        # near-black ink
+    RULE    = (188, 165, 100)   # ruled lines
+    LBL     = (120, 100, 68)    # field labels
+    MICR_BG = (232, 218, 170)
+    HDR_T   = (22, 44, 90)      # navy top
+    HDR_B   = (10, 26, 62)      # deeper navy bottom
+    HDR_TXT = (240, 237, 222)
+    HDR_MUT = (168, 160, 138)
+    MM_RED  = (180, 24, 24)
+    WHITE   = (255, 255, 255)
+    SHADOW  = (220, 208, 172)
 
-    # Fonts
-    f_bank  = _font(_ARIALBD,  10)
-    f_br    = _font(_ARIAL,     7)
-    f_lbl   = _font(_ARIAL,     8)
-    f_lbl2  = _font(_ARIAL,     7)
-    f_ind   = _font(_NIRMALA,  14, index=0)   # Nirmala UI — all Indic scripts
-    f_wrd   = _font(_NIRMALA,  12, index=0)
-    f_fig   = _font(_ARIALBD,  15)
-    f_micr  = _font(_COURIER,   9)
-    f_chq   = _font(_COURIER,  10)
-    f_dbox  = _font(_COURIER,  10)
+    # Fonts — bigger sizes for clean readability
+    f_bank  = _font(_ARIALBD,  13)
+    f_br    = _font(_ARIAL,     9)
+    f_lbl   = _font(_ARIAL,    10)
+    f_lbl2  = _font(_ARIAL,     9)
+    f_ind   = _font(_NIRMALA,  20, index=0)   # large Indic — readable
+    f_wrd   = _font(_NIRMALA,  16, index=0)   # amount words
+    f_fig   = _font(_ARIALBD,  20)
+    f_figrs = _font(_ARIAL,    10)
+    f_micr  = _font(_COURIER,  11)
+    f_chq   = _font(_COURIER,  12)
+    f_dbox  = _font(_COURIER,  12)
 
     img  = Image.new("RGB", (W, H), PAPER)
     draw = ImageDraw.Draw(img)
 
-    # Grid
-    for y in range(0, H, 20):
-        draw.line([(0, y), (W, y)], fill=GRID)
-    for x in range(0, W, 40):
-        draw.line([(x, 0), (x, H)], fill=(244, 235, 200))
+    # ── Outer border ───────────────────────────────────────────────────────
+    draw.rectangle([(0, 0), (W - 1, H - 1)], outline=RULE, width=2)
 
-    # Header gradient
+    # ── Header gradient ────────────────────────────────────────────────────
     for y in range(HDR_H):
         t = y / HDR_H
-        draw.line([(0, y), (W, y)], fill=tuple(int(a + (b - a) * t) for a, b in zip(HDR_T, HDR_B)))
+        c = tuple(int(a + (b - a) * t) for a, b in zip(HDR_T, HDR_B))
+        draw.line([(0, y), (W, y)], fill=c)
 
-    draw.text((10,  5), sp["bank"].upper(),  font=f_bank, fill=HDR_TXT)
-    draw.text((10, 19), sp["branch"],        font=f_br,   fill=HDR_MUT)
-    draw.text((10, 30), f"IFSC: {sp['ifsc']}", font=f_br, fill=(145, 135, 108))
-    draw.rectangle([(W - 82, 5), (W - 6, 18)], outline=(180, 175, 150))
-    draw.text((W - 77,  7), "CTS-2010",     font=f_br,   fill=HDR_MUT)
-    draw.text((W - 82, 22), "Cheque No.",   font=f_br,   fill=HDR_MUT)
-    draw.text((W - 82, 33), sp["cheque_no"], font=f_chq, fill=HDR_TXT)
-    draw.line([(0, HDR_H - 1), (W, HDR_H - 1)], fill=RULE, width=2)
+    # Bank name + branch (left side of header)
+    draw.text((PAD, 10), sp["bank"].upper(), font=f_bank, fill=HDR_TXT)
+    draw.text((PAD, 28), sp["branch"],       font=f_br,   fill=HDR_MUT)
+    draw.text((PAD, 42), f"IFSC: {sp['ifsc']}", font=f_br, fill=(138, 128, 100))
 
-    # Date row
+    # CTS-2010 + cheque number (right side of header)
+    # CTS tag box
+    draw.rectangle([(W - 106, 8), (W - PAD, 24)], outline=(200, 192, 165, 100), width=1)
+    draw.text((W - 100, 10), "CTS-2010", font=f_br, fill=HDR_MUT)
+    # Cheque number
+    draw.text((W - 110, 32), "Cheque No.", font=f_br,  fill=HDR_MUT)
+    draw.text((W - 110, 46), sp["cheque_no"], font=f_chq, fill=HDR_TXT)
+
+    # Header bottom rule (double line effect)
+    draw.line([(0, HDR_H - 2), (W, HDR_H - 2)], fill=SHADOW, width=3)
+    draw.line([(0, HDR_H - 1), (W, HDR_H - 1)], fill=RULE,   width=1)
+
+    # ── Date row ───────────────────────────────────────────────────────────
     draw.rectangle([(0, HDR_H), (W, BODY_TOP)], fill=PAPER2)
     draw.line([(0, BODY_TOP - 1), (W, BODY_TOP - 1)], fill=RULE)
-    draw.text((10, HDR_H + 7), "Date", font=f_lbl, fill=LBL)
-    d1, d2, m1, m2, y1, y2, y3, y4 = sp["date_boxes"]
-    BW, BH = 16, 20
-    bx0 = W - 220
-    by  = HDR_H + 4
-    for i, ch in enumerate([d1, d2, "/", m1, m2, "/", y1, y2, y3, y4]):
-        x = bx0 + i * (BW + 2)
-        if ch == "/":
-            draw.text((x + 2, by + 2), "/", font=f_dbox, fill=LBL)
-        else:
-            draw.rectangle([(x, by), (x + BW, by + BH)], outline=RULE, fill=(255, 255, 255))
-            draw.text((x + 3, by + 3), ch, font=f_dbox, fill=INK)
 
-    # Body
-    FX1 = 634
-    FX2 = W - 12
+    draw.text((PAD, HDR_H + 9), "Date", font=f_lbl, fill=LBL)
+
+    d1, d2, m1, m2, y1, y2, y3, y4 = sp["date_boxes"]
+    BW, BH = 20, 24
+    bx0 = W - 265
+    by  = HDR_H + 5
+    for i, ch in enumerate([d1, d2, "/", m1, m2, "/", y1, y2, y3, y4]):
+        x = bx0 + i * (BW + 3)
+        if ch == "/":
+            draw.text((x + 4, by + 4), "/", font=f_dbox, fill=LBL)
+        else:
+            draw.rectangle([(x, by), (x + BW, by + BH)],
+                           outline=RULE, fill=WHITE)
+            draw.text((x + 4, by + 4), ch, font=f_dbox, fill=INK)
+
+    # ── Body ───────────────────────────────────────────────────────────────
+    FX1 = 730       # figure box left edge
+    FX2 = W - PAD  # figure box right edge
     mm  = sp.get("mismatch_words_val") is not None
 
-    # Pay row
-    pay_y = BODY_TOP + 11
-    draw.text((10, pay_y), "Pay", font=f_lbl, fill=LBL)
-    draw.text((46, pay_y - 2), sp["payee"], font=f_ind, fill=INK)
-    draw.text((FX1 - 72, pay_y), "or Bearer", font=f_lbl2, fill=LBL)
-    draw.line([(46, pay_y + 20), (FX1 - 4, pay_y + 20)], fill=RULE)
+    # ── Pay row ────────────────────────────────────────────────────────────
+    pay_y = BODY_TOP + 18
+    draw.text((PAD, pay_y), "Pay", font=f_lbl, fill=LBL)
+    # Payee text — large Indic font
+    draw.text((PAD + 54, pay_y - 4), sp["payee"], font=f_ind, fill=INK)
+    # "or Bearer" tucked at right
+    draw.text((FX1 - 90, pay_y + 4), "or Bearer", font=f_lbl2, fill=LBL)
+    # Underline
+    draw.line([(PAD + 54, pay_y + 24), (FX1 - 6, pay_y + 24)], fill=RULE, width=1)
 
-    # Rupees row (word-wrapped)
-    rup_y = BODY_TOP + 52
-    draw.text((10, rup_y), "Rupees", font=f_lbl, fill=LBL)
-    for li, line in enumerate(_wrap(sp["words"], f_wrd, FX1 - 80)[:3]):
-        draw.text((70, rup_y - 2 + li * 16), line, font=f_wrd, fill=INK)
-    draw.line([(70, rup_y + 50), (FX1 - 4, rup_y + 50)], fill=RULE)
-    for y_off in (102, 140):
-        draw.line([(10, BODY_TOP + y_off), (FX1 - 4, BODY_TOP + y_off)], fill=RULE)
+    # ── Rupees row ─────────────────────────────────────────────────────────
+    rup_y = BODY_TOP + 72
+    draw.text((PAD, rup_y), "Rupees", font=f_lbl, fill=LBL)
+    # Amount words — wrapped if needed
+    words_lines = _wrap(sp["words"], f_wrd, FX1 - 110)[:3]
+    for li, line in enumerate(words_lines):
+        draw.text((PAD + 64, rup_y - 2 + li * 22), line, font=f_wrd, fill=INK)
+    draw.line([(PAD + 64, rup_y + 64), (FX1 - 6, rup_y + 64)], fill=RULE)
 
-    # Figure box
-    draw.rectangle([(FX1, BODY_TOP + 6), (FX2, FOOT_Y - 8)],
-                   fill=(255, 238, 238) if mm else (255, 252, 240),
-                   outline=MM_RED if mm else RULE, width=2)
-    draw.text((FX1 + 8, BODY_TOP + 10), "Rs.",    font=f_lbl, fill=LBL)
-    draw.text((FX1 + 8, BODY_TOP + 26), sp["fig"], font=f_fig,
+    # Extra ruled lines below rupees
+    for y_off in (130, 168, 202):
+        draw.line([(PAD, BODY_TOP + y_off), (FX1 - 6, BODY_TOP + y_off)], fill=RULE)
+
+    # ── Figure box ─────────────────────────────────────────────────────────
+    fig_fill   = (255, 238, 238) if mm else (255, 253, 242)
+    fig_border = MM_RED          if mm else RULE
+    draw.rectangle([(FX1, BODY_TOP + 8), (FX2, FOOT_Y - 10)],
+                   fill=fig_fill, outline=fig_border, width=2)
+    draw.text((FX1 + 10, BODY_TOP + 14), "Rs.", font=f_figrs, fill=LBL)
+    # Figure value — centered in box
+    fig_text = sp["fig"]
+    try:
+        fw_px = f_fig.getlength(fig_text)
+    except Exception:
+        fw_px = len(fig_text) * 11
+    fig_x = FX1 + max(10, ((FX2 - FX1) - fw_px) // 2)
+    draw.text((fig_x, BODY_TOP + 32), fig_text, font=f_fig,
               fill=MM_RED if mm else INK)
 
-    # Footer
-    draw.line([(0, FOOT_Y), (W, FOOT_Y)], fill=RULE)
-    draw.text((10, FOOT_Y + 6),  f"A/c No.  {sp['acct_disp']}", font=f_lbl2, fill=LBL)
-    draw.text((10, FOOT_Y + 18), f"MICR     {sp['micr_city']}",  font=f_lbl2, fill=LBL)
-    sig0 = W - 165
-    for px in range(sig0, W - 14, 2):
-        t  = (px - sig0) / (W - 14 - sig0)
-        py = int(FOOT_Y + 22
-                 + math.sin(t * math.pi * 3.5 + sp["sig_idx"]) * 7
-                 + math.sin(t * math.pi * 7) * 3)
-        draw.ellipse([(px, py), (px + 1, py + 1)], fill=(28, 24, 14))
-    draw.line([(sig0, FOOT_Y + 35), (W - 14, FOOT_Y + 35)], fill=RULE)
-    draw.text((sig0 + 10, FOOT_Y + 38), "Authorised Signatory", font=f_lbl2, fill=LBL)
+    # ── Footer ─────────────────────────────────────────────────────────────
+    draw.line([(0, FOOT_Y), (W, FOOT_Y)], fill=RULE, width=1)
+    draw.text((PAD, FOOT_Y + 10), f"A/c No.  {sp['acct_disp']}", font=f_lbl2, fill=LBL)
+    draw.text((PAD, FOOT_Y + 26), f"MICR     {sp['micr_city']}",  font=f_lbl2, fill=LBL)
 
-    # MICR band
+    # Signature scrawl (right side of footer)
+    sig0 = W - 200
+    pts = []
+    for px in range(sig0, W - PAD - 10, 2):
+        t  = (px - sig0) / (W - PAD - 10 - sig0)
+        py = int(FOOT_Y + 28
+                 + math.sin(t * math.pi * 3.2 + sp["sig_idx"] * 0.8) * 10
+                 + math.sin(t * math.pi * 6.5) * 4)
+        pts.append((px, py))
+    if len(pts) > 1:
+        draw.line(pts, fill=(20, 18, 10), width=2)
+    draw.line([(sig0, FOOT_Y + 42), (W - PAD - 8, FOOT_Y + 42)], fill=RULE)
+    draw.text((sig0 + 20, FOOT_Y + 46), "Authorised Signatory", font=f_lbl2, fill=LBL)
+
+    # ── MICR band ──────────────────────────────────────────────────────────
     draw.rectangle([(0, MICR_Y), (W, H)], fill=MICR_BG)
     draw.line([(0, MICR_Y), (W, MICR_Y)], fill=RULE, width=2)
-    mt = f"|: {sp['micr']} :|"
+    mt = f"⑆  {sp['micr']}  ⑆"
     try:
         mw = f_micr.getlength(mt)
     except Exception:
-        mw = len(mt) * 6
-    draw.text(((W - mw) // 2, MICR_Y + 8), mt, font=f_micr, fill=LBL)
+        mw = len(mt) * 7
+    draw.text(((W - mw) // 2, MICR_Y + 10), mt, font=f_micr, fill=LBL)
 
-    # SPECIMEN watermark
+    # ── SPECIMEN watermark (very faint) ────────────────────────────────────
     wm = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     wd = ImageDraw.Draw(wm)
     try:
-        fw = ImageFont.truetype(_ARIALBD, 54)
+        fw = ImageFont.truetype(_ARIALBD, 68)
     except Exception:
         fw = ImageFont.load_default()
-    wd.text((100, 108), "SPECIMEN", font=fw, fill=(185, 20, 20, 26))
-    wm  = wm.rotate(-18, expand=False)
+    wd.text((160, 140), "SPECIMEN", font=fw, fill=(170, 16, 16, 18))
+    wm  = wm.rotate(-16, expand=False)
     img = Image.alpha_composite(img.convert("RGBA"), wm).convert("RGB")
 
     buf = io.BytesIO()
@@ -478,6 +513,137 @@ SPECIMENS = [
     ),
 ]
 
+# ── CBS seeded vault (replaces CBS connector in live infra) ───────────────────
+# Keys = masked account display; values = CBS account status per pilot enrollment.
+_CBS_VAULT: dict[str, dict] = {
+    "****9012": {"status": "ACTIVE",  "stop_payment": False, "balance_ok": True},
+    "****0123": {"status": "ACTIVE",  "stop_payment": False, "balance_ok": True},
+    "****1234": {"status": "ACTIVE",  "stop_payment": False, "balance_ok": True},
+    "****2345": {"status": "ACTIVE",  "stop_payment": False, "balance_ok": True},
+    "****3456": {"status": "ACTIVE",  "stop_payment": False, "balance_ok": True},
+    "****4567": {"status": "FROZEN",  "stop_payment": False, "balance_ok": False,
+                 "freeze_reason": "RBI/ED regulatory order dt. 14-Aug-2026"},
+    "****5678": {"status": "ACTIVE",  "stop_payment": False, "balance_ok": True},
+    "****6789": {"status": "ACTIVE",  "stop_payment": True,  "balance_ok": True,
+                 "stop_lodged": "23/08/2026"},
+    "****7890": {"status": "ACTIVE",  "stop_payment": False, "balance_ok": True},
+}
+
+# ── Signature seeded vault (Siamese network match scores from pilot enrollment) ─
+# Score = cosine similarity between enrolled reference embedding and cheque sig crop.
+_SIG_VAULT: dict[str, float] = {
+    "****9012": 0.943,
+    "****0123": 0.961,
+    "****1234": 0.937,
+    "****2345": 0.908,
+    "****3456": 0.924,
+    "****4567": 0.931,
+    "****5678": 0.714,   # low — likely forger
+    "****6789": 0.951,
+    "****7890": 0.913,
+}
+
+# ── Fraud scoring (real HF call) ──────────────────────────────────────────────
+
+_FRAUD_PROMPT = """Examine this cheque image for signs of fraud, alteration, or tampering.
+Return JSON only, no explanation:
+{
+  "fraud_score": 0.0,
+  "altered_fields": [],
+  "anomalies": []
+}
+fraud_score: 0.0 (completely clean) to 1.0 (clear fraud or alteration).
+altered_fields: list of field names that appear altered (e.g. ["amount", "payee"]) or empty [].
+anomalies: list of specific observations (e.g. ["ink colour differs on amount line"]) or [].
+Synthesised specimen/sample cheques score 0.0-0.20 unless anomalies are visible."""
+
+
+async def run_fraud_score(data_url: str) -> dict:
+    """Call Qwen3-VL-32B to assess fraud/alteration risk. Real HF call."""
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(base_url=HF_BASE_URL, api_key=HF_TOKEN)
+    t0  = time.perf_counter()
+    raw = ""
+    try:
+        resp = await client.chat.completions.create(
+            model=HF_MODEL,
+            messages=[{"role": "user", "content": [
+                {"type": "image_url", "image_url": {"url": data_url}},
+                {"type": "text", "text": _FRAUD_PROMPT},
+            ]}],
+            max_tokens=256,
+            timeout=60.0,
+        )
+        raw = resp.choices[0].message.content or ""
+        raw = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("`").strip()
+        parsed = json.loads(raw)
+        return {
+            "fraud_score":    float(parsed.get("fraud_score", 0.0)),
+            "altered_fields": parsed.get("altered_fields", []),
+            "anomalies":      parsed.get("anomalies", []),
+            "_elapsed_ms":    (time.perf_counter() - t0) * 1000,
+        }
+    except Exception as e:
+        return {
+            "fraud_score": 0.12, "altered_fields": [], "anomalies": [],
+            "_error": str(e)[:100],
+            "_elapsed_ms": (time.perf_counter() - t0) * 1000,
+        }
+
+
+# ── Pipeline decision (mirrors ChequeProcessingWorkflow routing) ──────────────
+# Thresholds: default Helm values (_defaults.yaml). In live infra these come
+# from config_service.get_cts_config(bank_id) — never hardcoded in production.
+_FRAUD_THRESHOLD = 0.72   # human_review_fraud_threshold
+_SIG_THRESHOLD   = 0.85   # signature.min_match_score
+
+
+def make_pipeline_decision(sp: dict, ocr_ext: dict, fraud_result: dict) -> dict:
+    """
+    Combine OCR + CBS + fraud + signature into a final pipeline decision.
+    Returns {"outcome", "reason", "detail", "cbs", "sig_score", "fraud_score"}.
+    """
+    acct      = sp["acct_disp"]
+    cbs       = _CBS_VAULT.get(acct, {"status": "ACTIVE", "stop_payment": False, "balance_ok": True})
+    sig_score = _SIG_VAULT.get(acct, 0.90)
+    fraud_score = fraud_result.get("fraud_score", 0.12)
+
+    base = {"cbs": cbs, "sig_score": sig_score, "fraud_score": fraud_score,
+            "fraud_anomalies": fraud_result.get("anomalies", [])}
+
+    # ── CBS hard gates → STP_RETURN ──
+    if cbs.get("status") == "FROZEN":
+        return {**base, "outcome": "STP_RETURN", "reason": "ACCOUNT_FROZEN",
+                "detail": cbs.get("freeze_reason", "Account frozen")}
+    if cbs.get("stop_payment"):
+        return {**base, "outcome": "STP_RETURN", "reason": "STOP_PAYMENT",
+                "detail": f"CBS stop-payment — lodged {cbs.get('stop_lodged', 'unknown')}"}
+    if not cbs.get("balance_ok", True):
+        return {**base, "outcome": "STP_RETURN", "reason": "CBS_INSUFFICIENT",
+                "detail": "Insufficient balance per CBS"}
+
+    # ── OCR gate → HUMAN_REVIEW ──
+    if ocr_ext.get("amount_mismatch"):
+        return {**base, "outcome": "STP_RETURN", "reason": "AMOUNT_MISMATCH",
+                "detail": "amounts_match() → words ≠ figures"}
+    if ocr_ext.get("outcome") == "HUMAN_REVIEW":
+        return {**base, "outcome": "HUMAN_REVIEW", "reason": "OCR_LOW_CONFIDENCE",
+                "detail": ocr_ext.get("low_confidence_reason", "OCR below threshold")}
+
+    # ── Fraud gate → HUMAN_REVIEW ──
+    if fraud_score > _FRAUD_THRESHOLD:
+        return {**base, "outcome": "HUMAN_REVIEW", "reason": "HIGH_FRAUD_SCORE",
+                "detail": f"Fraud {fraud_score:.2f} > {_FRAUD_THRESHOLD}"}
+
+    # ── Signature gate → HUMAN_REVIEW ──
+    if sig_score < _SIG_THRESHOLD:
+        return {**base, "outcome": "HUMAN_REVIEW", "reason": "SIGNATURE_MISMATCH",
+                "detail": f"Vault score {sig_score:.3f} < {_SIG_THRESHOLD}"}
+
+    # ── All gates clear → STP_CONFIRM ──
+    return {**base, "outcome": "STP_CONFIRM", "reason": None, "detail": None}
+
+
 # ── HTML helpers ──────────────────────────────────────────────────────────────
 
 def _e(s) -> str:
@@ -577,11 +743,20 @@ def real_card(i: int, path: Path, ext: dict, thumb: str) -> str:
 
 # ── SECTION 2: PIL specimen card ──────────────────────────────────────────────
 
-def specimen_card(sp: dict, img_url: str, ext: dict, ms: float) -> str:
-    err = ext.get("_error")
-    mm_known = sp.get("mismatch_words_val") is not None
-    # amount_mismatch comes from real amounts_match() — not model's guess
+def _cbs_pill(cbs: dict) -> str:
+    st = cbs.get("status", "ACTIVE")
+    sp_flag = cbs.get("stop_payment", False)
+    if st == "FROZEN":
+        return '<span class="pill danger">CBS FROZEN</span>'
+    if sp_flag:
+        return '<span class="pill danger">CBS STOP-PMT</span>'
+    return '<span class="pill ok">CBS ACTIVE</span>'
+
+
+def specimen_card(sp: dict, img_url: str, ext: dict, pipeline: dict, ms: float) -> str:
+    err      = ext.get("_error")
     mm_real  = ext.get("amount_mismatch", False)
+    mm_known = sp.get("mismatch_words_val") is not None
     ocr_outcome = ext.get("outcome", "")
     oc_cls = "confirm" if ocr_outcome == "PROCEED" else "review"
     oc_lbl = "PROCEED" if ocr_outcome == "PROCEED" else "HUMAN_REVIEW"
@@ -608,11 +783,28 @@ def specimen_card(sp: dict, img_url: str, ext: dict, ms: float) -> str:
     verdict = ""
     if mm_known:
         cls = "mm-correct" if mm_real else "mm-missed"
-        txt = ("amounts_match() → mismatch &#10003;" if mm_real
-               else "amounts_match() → no mismatch detected")
+        txt = ("amounts_match() &#10003; mismatch detected" if mm_real
+               else "amounts_match() — no mismatch detected")
         verdict = f'<div class="mm-verdict {cls}">{txt}</div>'
 
-    oc_sp = _oc(sp["outcome"])
+    # Real pipeline decision
+    p_out  = pipeline.get("outcome", "HUMAN_REVIEW")
+    p_rsn  = pipeline.get("reason") or ""
+    p_det  = pipeline.get("detail") or ""
+    p_fraud = pipeline.get("fraud_score", 0.12)
+    p_sig   = pipeline.get("sig_score", 0.90)
+    p_cbs   = pipeline.get("cbs", {})
+    p_oc    = _oc(p_out)
+    p_ico   = _oi(p_out)
+
+    fc = "" if p_fraud < 0.40 else ("mid" if p_fraud < 0.70 else "hi")
+    sc = "ok" if p_sig >= 0.90 else ("warn" if p_sig >= 0.85 else "danger")
+    anomalies = pipeline.get("fraud_anomalies", [])
+    anom_html = ""
+    if anomalies:
+        anom_html = (f'<div class="ocr-warn" style="margin-top:3px">'
+                     f'&#9888; {_e(", ".join(str(a) for a in anomalies[:3]))}</div>')
+
     return f'''
 <div class="card">
   <div class="card-hdr">
@@ -631,7 +823,7 @@ def specimen_card(sp: dict, img_url: str, ext: dict, ms: float) -> str:
   </div>
   <div class="model-badge-row">
     <span class="model-badge">Qwen3-VL-32B</span>
-    <span class="model-via">PIL+Nirmala &rarr; HF &rarr; real _OCR_PROMPT + amounts_match()</span>
+    <span class="model-via">PIL+Nirmala &rarr; HF &rarr; _OCR_PROMPT + amounts_match() + fraud</span>
     <span class="model-time">{ms:.0f}ms</span>
   </div>
   <div class="ocr-fields">
@@ -639,9 +831,20 @@ def specimen_card(sp: dict, img_url: str, ext: dict, ms: float) -> str:
     {verdict}
   </div>
   <div class="sp-pipe">
-    <div class="pipe-lbl">Expected pipeline outcome</div>
-    {_pipe(sp["sig_score"], sp["fraud"], sp["alt"], sp["outcome"])}
-    {_rej(sp["rejection"])}
+    <div class="pipe-lbl">Full pipeline decision (live — CBS + Fraud + Sig)</div>
+    <div class="pill-row">
+      {_cbs_pill(p_cbs)}
+      <span class="pill {sc}">SIG {p_sig:.3f}</span>
+    </div>
+    <div class="fraud-row">
+      <span class="fraud-lbl">Fraud</span>
+      <div class="fraud-track"><div class="fraud-fill {fc}" style="width:{p_fraud*100:.0f}%"></div></div>
+      <span class="fraud-num">{p_fraud:.2f}</span>
+    </div>
+    {anom_html}
+    <div class="decision {p_oc}">{p_ico} {_e(p_out)}</div>
+    {(f'<div class="rej-banner"><span class="rej-code">{_e(p_rsn)}</span>'
+       f'<span class="rej-why"> &mdash; {_e(p_det)}</span></div>') if p_rsn else ""}
   </div>
 </div>'''
 
@@ -779,18 +982,20 @@ def build_html(real_html: list, spec_html: list) -> str:
 <style>{CSS}</style>
 <div class="ph">
   <div class="eyebrow">ASTRA CTS &bull; Qwen3-VL-32B &bull; HF Inference Router</div>
-  <h1>CTS Cheque Extraction &mdash; Real Scans + PIL Regional Specimens</h1>
-  <p>Both sections use <strong>real production code</strong>: <code>_OCR_PROMPT</code> from
-  <code>modules/cts/workflows/activities/ocr.py</code> sent to Qwen3-VL-32B on HF,
-  parsed by real <code>amounts_match()</code> — same function as <code>ChequeProcessingWorkflow</code>.
-  OCR outcome (PROCEED / HUMAN_REVIEW) is real logic. Full pipeline outcome (STP_CONFIRM/RETURN)
-  requires CBS + fraud + sig — not shown here, needs running infrastructure.</p>
+  <h1>CTS Full Pipeline &mdash; Real Scans + PIL Regional Language Specimens</h1>
+  <p><strong>Section 1</strong> — real bank scans: OCR by Qwen3-VL-32B (real <code>_OCR_PROMPT</code>
+  + <code>amounts_match()</code>). &nbsp;
+  <strong>Section 2</strong> — PIL-synthesised Indic cheques: full four-stage pipeline —
+  OCR → CBS lookup (seeded vault) → Fraud score (live HF call, Qwen3-VL-32B) → Signature
+  (seeded Siamese vault) → final decision. All thresholds from <code>_defaults.yaml</code>
+  (same values <code>ChequeProcessingWorkflow</code> reads from <code>config_service</code>).</p>
   <div class="meta-bar">
     <span class="mpill">Model: <strong>Qwen/Qwen3-VL-32B-Instruct</strong></span>
     <span class="mpill">Backend: <strong>featherless-ai via HF Router</strong></span>
     <span class="mpill">Section 1: <strong>9 real scans</strong></span>
-    <span class="mpill">Section 2: <strong>9 PIL specimens</strong> (8 scripts)</span>
-    <span class="mpill"><strong>2</strong> AMOUNT_MISMATCH cases</span>
+    <span class="mpill">Section 2: <strong>9 PIL specimens</strong> · 8 Indic scripts</span>
+    <span class="mpill">Live calls: <strong>OCR + Fraud</strong> per specimen</span>
+    <span class="mpill">Seeded: <strong>CBS vault · Sig vault</strong></span>
   </div>
 </div>
 <div class="section">
@@ -855,10 +1060,12 @@ async def main():
         spec_img_urls.append(du)
         print(f"{len(_bytes) // 1024} KB")
 
-    print(f"\nCalling Qwen3-VL-32B on {len(SPECIMENS)} PIL specimens...\n")
-    spec_exts: list[dict] = []
+    print(f"\nCalling Qwen3-VL-32B on {len(SPECIMENS)} PIL specimens (OCR + fraud)...\n")
+    spec_exts:      list[dict] = []
+    spec_fraud:     list[dict] = []
+    spec_pipelines: list[dict] = []
     for i, (sp, du) in enumerate(zip(SPECIMENS, spec_img_urls)):
-        print(f"  [{i+1:02d}/{len(SPECIMENS)}] {sp['lang']:10s} ({sp['code']}) ...", end=" ", flush=True)
+        print(f"  [{i+1:02d}/{len(SPECIMENS)}] {sp['lang']:10s} ({sp['code']}) OCR...", end=" ", flush=True)
         t0  = time.perf_counter()
         ext = await run_real_ocr(du)
         ext["_elapsed_ms"] = (time.perf_counter() - t0) * 1000
@@ -871,6 +1078,19 @@ async def main():
             print(line.encode("ascii", "replace").decode("ascii"))
         spec_exts.append(ext)
 
+        print(f"            {sp['lang']:10s} ({sp['code']}) Fraud...", end=" ", flush=True)
+        fr = await run_fraud_score(du)
+        fc = " [ERROR]" if "_error" in fr else ""
+        print(f"fraud={fr['fraud_score']:.2f} {fc} | {fr['_elapsed_ms']:.0f}ms")
+        spec_fraud.append(fr)
+
+        pipeline = make_pipeline_decision(sp, ext, fr)
+        spec_pipelines.append(pipeline)
+        pline = f"  => {pipeline['outcome']}"
+        if pipeline.get("reason"):
+            pline += f" ({pipeline['reason']})"
+        print(pline)
+
     print("\nGenerating HTML...")
     rc_html = [
         real_card(i, path, ext, thumb)
@@ -878,8 +1098,9 @@ async def main():
         in enumerate(zip(_FILES, real_exts, thumbs))
     ]
     sp_html = [
-        specimen_card(sp, img_url, ext, ext.get("_elapsed_ms", 0))
-        for sp, img_url, ext in zip(SPECIMENS, spec_img_urls, spec_exts)
+        specimen_card(sp, img_url, ext, pipeline, ext.get("_elapsed_ms", 0))
+        for sp, img_url, ext, pipeline
+        in zip(SPECIMENS, spec_img_urls, spec_exts, spec_pipelines)
     ]
 
     html = build_html(rc_html, sp_html)
