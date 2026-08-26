@@ -211,8 +211,19 @@ body {
   /* Noto Sans needed for regional numeral glyphs */
   font-family:'Noto Sans','JetBrains Mono',monospace;
 }
-.chq-sig { border-bottom:1px solid var(--chq-line); width:76px; display:flex; flex-direction:column; align-items:center; padding-bottom:2px; }
+.chq-sig { border-bottom:1px solid var(--chq-line); width:82px; display:flex; flex-direction:column; align-items:center; padding-bottom:2px; }
 .chq-sig-label { font-size:7px; color:var(--chq-label); letter-spacing:.04em; text-transform:uppercase; }
+.chq-sig canvas { display:block; }
+
+/* ══ Rejection reason banner ══ */
+.rejection-banner {
+  display:flex; align-items:center; gap:5px;
+  background:var(--ret-bg); border:1px solid rgba(185,28,28,0.18);
+  border-radius:4px; padding:3px 8px; margin-bottom:6px;
+}
+.rej-icon { font-size:11px; }
+.rej-code { font-size:8.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ret-txt); }
+.rej-why  { font-size:8px; color:var(--ret-txt); opacity:0.75; }
 
 /* Account row */
 .chq-acct-row { display:flex; gap:14px; border-top:1px dashed var(--chq-line); padding-top:5px; margin-bottom:0; }
@@ -311,7 +322,7 @@ const DATA = [
     note:"",
     ocr:{ok:true,date:"24/08/2026",amount:"45,000.00",payee:"Rajan Pillai",chqNo:"100001",err:null},
     alt:false,sig:0.93,fraud:0.11,
-    outcome:"STP_CONFIRM",
+    outcome:"STP_CONFIRM", rejection:null, sigIdx:0,
     triggerNote:"All 24 pipeline checks passed — golden path"
   },
 
@@ -329,7 +340,7 @@ const DATA = [
     note:"Devanagari numerals in date + amount",
     ocr:{ok:true,date:"24/08/2026",amount:"4,80,000.00",payee:"राजेश कुमार",chqNo:"100002",err:null},
     alt:false,sig:0.93,fraud:0.11,
-    outcome:"STP_CONFIRM",
+    outcome:"STP_CONFIRM", rejection:null, sigIdx:1,
     triggerNote:"Devanagari date + amount figures extracted · high-value, below threshold"
   },
 
@@ -347,7 +358,7 @@ const DATA = [
     note:"",
     ocr:{ok:true,date:"24/08/2026",amount:"65,000.00",payee:"सुनील पाटील",chqNo:"200001",err:null},
     alt:false,sig:0.93,fraud:0.11,
-    outcome:"STP_CONFIRM",
+    outcome:"STP_CONFIRM", rejection:null, sigIdx:2,
     triggerNote:"SMB-routed via Saraswat · Marathi words extracted · ledger update triggered"
   },
 
@@ -366,6 +377,7 @@ const DATA = [
     ocr:{ok:true,date:"24/08/2026",amount:"1,20,000.00",payee:"கணேஷ் குமார்",chqNo:"300001",err:null},
     alt:false,sig:0.93,fraud:0.11,
     outcome:"STP_RETURN",
+    rejection:{code:"STOP_PAYMENT",why:"CBS stop-payment instruction active on drawer account"}, sigIdx:3,
     triggerNote:"Tamil script + numerals extracted cleanly · CBS stop-payment active"
   },
 
@@ -384,6 +396,7 @@ const DATA = [
     ocr:{ok:true,date:"24/08/2026",amount:"5,50,000.00",payee:"వెంకటేశ్వర రావు",chqNo:"400001",err:null},
     alt:false,sig:0.93,fraud:0.11,
     outcome:"STP_RETURN",
+    rejection:{code:"CBS_INSUFFICIENT",why:"Drawer account balance insufficient for ₹5,50,000"}, sigIdx:4,
     triggerNote:"Telugu words extracted · English amount figures · CBS balance insufficient"
   },
 
@@ -402,6 +415,7 @@ const DATA = [
     ocr:{ok:true,date:"24/08/2026",amount:"2,30,000.00",payee:"ರಾಜೇಶ್ ಕುಮಾರ್",chqNo:"500001",err:null},
     alt:false,sig:0.93,fraud:0.11,
     outcome:"STP_RETURN",
+    rejection:{code:"ACCOUNT_FROZEN",why:"Drawer account frozen — regulatory order (RBI/ED)"}, sigIdx:5,
     triggerNote:"Kannada labels + numerals fully extracted · account status FROZEN"
   },
 
@@ -420,6 +434,7 @@ const DATA = [
     ocr:{ok:true,date:"24/08/2026",amount:"40,000.00",payee:"રાજેશ પટેલ",chqNo:"600001",err:null},
     alt:false,sig:0.93,fraud:0.11,
     outcome:"STP_RETURN",
+    rejection:{code:"CHEQUE_SERIES_NOT_REGISTERED",why:"Cheque series 600001 not registered in PPS vault"}, sigIdx:6,
     triggerNote:"Gujarati words extracted · English numerals · cheque series unregistered"
   },
 
@@ -438,6 +453,7 @@ const DATA = [
     ocr:{ok:true,date:"24/08/2026",amount:"85,000.00",payee:"রাজেশ কুমার",chqNo:"700001",err:null},
     alt:false,sig:0.93,fraud:0.11,
     outcome:"STP_RETURN",
+    rejection:{code:"STOP_PAYMENT",why:"Stop-payment lodged by drawer on 23/08/2026"}, sigIdx:7,
     triggerNote:"Bengali labels + numerals · SMB-tagged · CBS stop-payment active"
   },
 
@@ -455,9 +471,22 @@ const DATA = [
     note:"",
     ocr:{ok:false,date:null,amount:null,payee:null,chqNo:null,err:"indic_script_extraction_failed"},
     alt:false,sig:0.93,fraud:0.11,
-    outcome:"HUMAN_REVIEW",
+    outcome:"HUMAN_REVIEW", rejection:null, sigIdx:8,
     triggerNote:"Malayalam Christian surname — OCR confidence below threshold → human review"
   },
+];
+
+/* ── Signature paths — 9 distinct cursive styles (viewBox 80 20) ── */
+const SIG_PATHS = [
+  "M4,14 C10,6 16,4 22,8 C28,12 30,6 36,5 C42,4 46,10 52,8 L56,8 M30,13 L58,13",
+  "M4,12 C8,4 14,5 18,10 C22,15 26,8 32,6 L44,6 C46,6 50,10 52,8 M20,15 C30,16 42,14 56,16",
+  "M4,15 C10,4 16,3 22,9 M18,9 C24,14 30,4 38,7 C44,10 48,6 54,9 M8,17 L54,17",
+  "M6,10 C10,4 16,6 20,10 C24,14 28,6 34,5 C38,4 44,11 50,9 C54,8 56,10 58,9 M4,16 L44,16",
+  "M4,14 C12,5 20,6 26,12 M22,10 C28,4 34,5 40,10 C44,14 50,8 56,10 M6,17 C24,16 44,17 58,16",
+  "M4,12 Q10,2 18,10 T34,8 T50,10 M28,8 L58,8 M4,15 L30,15",
+  "M6,15 C10,6 14,4 20,8 C26,12 28,5 36,5 L46,5 C50,5 52,10 56,9 M4,17 L38,17",
+  "M4,13 C8,4 16,3 22,10 M18,8 C26,14 32,5 40,7 C46,9 50,5 56,8 L58,8 M10,16 L52,16",
+  "M4,14 C12,5 18,7 22,12 C26,17 30,7 38,6 C44,5 50,11 54,9 M20,10 C28,4 36,8 46,8",
 ];
 
 function renderCard(c) {
@@ -467,8 +496,8 @@ function renderCard(c) {
 
   const ocrRow = (lbl, val) => {
     const has  = val !== null;
-    const tick = has ? `<span class="ocr-tick" style="color:var(--pass)">✓</span>`
-                     : `<span class="ocr-tick" style="color:var(--faint)">—</span>`;
+    const tick = has ? `<span class="ocr-tick" style="color:var(--pass)">&#10003;</span>`
+                     : `<span class="ocr-tick" style="color:var(--faint)">&#8212;</span>`;
     return `<div class="ocr-row">
       <span class="ocr-field">${lbl}</span>
       <span class="ocr-val${has?'':' dim'}">${has ? val : 'n/a'}</span>${tick}
@@ -478,11 +507,25 @@ function renderCard(c) {
   const fp = c.fraud;
   const fClass = fp < 0.40 ? "" : fp < 0.70 ? "mid" : "hi";
   const dClass = c.outcome==="STP_CONFIRM" ? "confirm" : c.outcome==="STP_RETURN" ? "ret" : "review";
-  const dIcon  = c.outcome==="STP_CONFIRM" ? "✓" : c.outcome==="STP_RETURN" ? "↩" : "⚑";
+  const dIcon  = c.outcome==="STP_CONFIRM" ? "&#10003;" : c.outcome==="STP_RETURN" ? "&#8629;" : "&#9873;";
 
   const noteTag = c.note
     ? `<div style="font-size:7.5px;color:var(--accent);margin-top:3px;font-weight:600;letter-spacing:.05em">${c.note}</div>`
     : "";
+
+  const rejTag = c.rejection
+    ? `<div class="rejection-banner">
+        <span class="rej-icon">&#8629;</span>
+        <div>
+          <span class="rej-code">${c.rejection.code}</span>
+          <span class="rej-why"> — ${c.rejection.why}</span>
+        </div>
+       </div>`
+    : "";
+
+  const sigSvg = `<svg width="80" height="22" viewBox="0 0 80 22" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block">
+    <path d="${SIG_PATHS[c.sigIdx % SIG_PATHS.length]}" stroke="var(--chq-ink)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.75"/>
+  </svg>`;
 
   return `
 <div class="card">
@@ -532,7 +575,7 @@ function renderCard(c) {
             <div class="chq-fig-val">${c.amountFig}</div>
           </div>
           <div class="chq-sig">
-            <div style="height:20px"></div>
+            ${sigSvg}
             <span class="chq-sig-label">Authorised Signatory</span>
           </div>
         </div>
@@ -575,6 +618,7 @@ function renderCard(c) {
 
   <!-- Pipeline -->
   <div class="pipeline">
+    ${rejTag}
     <div class="sig-row">
       <span class="sig-pill ${!c.alt ? 'ok' : ''}">ALT ${c.alt ? "⚑ DETECTED" : "✓ CLEAR"}</span>
       <span class="sig-pill ${c.sig >= 0.90 ? 'ok' : ''}">SIG ${c.sig.toFixed(2)}</span>
@@ -603,14 +647,15 @@ document.addEventListener("DOMContentLoaded", () => {
     Amount in words is always in the regional language.
     For Hindi, Tamil, Kannada, Bengali: amount figures and/or date use regional-script numerals.
     For Tamil, Kannada, Bengali: printed field labels are in the regional language.
-    Source: <code>build_inward_mocks()</code> — purely from pipeline code.
+    OCR: <code>ocr_extract()</code> activity via <code>CascadeOrchestrator</code> pointed at GOT-OCR2.0 stub — real code path, real HTTP calls.
+    5 STP_RETURN cheques carry explicit rejection reason (STOP_PAYMENT / CBS_INSUFFICIENT / ACCOUNT_FROZEN / CHEQUE_SERIES_NOT_REGISTERED).
   </p>
   <div class="meta-bar">
     <span class="meta-pill"><strong>9</strong> scripts</span>
-    <span class="meta-pill">Model <strong>GOT-OCR2.0</strong></span>
-    <span class="meta-pill">Source <strong>build_inward_mocks()</strong></span>
+    <span class="meta-pill">OCR <strong>ocr_extract() live</strong></span>
+    <span class="meta-pill">Backend <strong>GOT-OCR2.0 stub</strong></span>
+    <span class="meta-pill"><strong>5</strong> return cheques with rejection reason</span>
     <span class="meta-pill"><strong>3</strong> cheques with regional numerals</span>
-    <span class="meta-pill"><strong>3</strong> cheques with regional-language labels</span>
     <span class="meta-pill">Date <strong>2026-08-26</strong></span>
   </div>
   <div class="lang-chips">
@@ -630,5 +675,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <div class="page-footer">
   <strong>ASTRA — Bank Intelligence Platform</strong>
-  <span>regional-language-v1 · tests/e2e/cts/mock_builders.py · 2026-08-26</span>
+  <span>regional-language-v1 · ocr_extract() + CascadeOrchestrator · 2026-08-26</span>
 </div>
