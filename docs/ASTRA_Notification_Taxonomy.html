@@ -108,7 +108,7 @@
 <p class="subtitle">
   <b>Single source of truth</b> for who gets notified &middot; which channel &middot; when &middot; where stored &middot; incident SLAs
   &nbsp;&nbsp;|&nbsp;&nbsp;Channels: <span class="ch email">Email (Postal)</span> <span class="ch wa">WhatsApp (Meta WA)</span> <span class="ch bell">Bell (In-App)</span>
-  &nbsp;&nbsp;|&nbsp;&nbsp;Last updated: 2026-07-01 &nbsp;&middot;&nbsp; Status: <span style="color:#4ade80;font-weight:700">ACTIVE &mdash; UPDATE ON EVERY FEATURE</span>
+  &nbsp;&nbsp;|&nbsp;&nbsp; 148 NOTIFICATION-surface message keys &nbsp;&middot;&nbsp; Last updated: 2026-08-27 &nbsp;&middot;&nbsp; Status: <span style="color:#4ade80;font-weight:700">ACTIVE &mdash; UPDATE ON EVERY FEATURE</span>
 </p>
 
 <div class="tabs">
@@ -116,6 +116,7 @@
   <div class="tab" onclick="sw('cts-out')">CTS Outward</div>
   <div class="tab ks-tab" onclick="sw('ks')">&#9888; Kill Switch</div>
   <div class="tab" onclick="sw('ej')">EJ Module</div>
+  <div class="tab" onclick="sw('msv')">MSV</div>
   <div class="tab" onclick="sw('platform')">Platform</div>
   <div class="tab" onclick="sw('cascade')">Delivery Cascade</div>
   <div class="tab" onclick="sw('incident')">Incident Escalation</div>
@@ -316,6 +317,54 @@
       <td><span class="ch p0">P0</span></td>
       <td>30 min</td>
     </tr>
+    <!-- Hold escalation ladder -->
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>Hold reminder &mdash; 30 min no response</td>
+      <td><code>CTS_HOLD_ESCALATION_30MIN</code><br><em>inline notification</em></td>
+      <td class="trigger">HumanReviewWorkflow<br>T+30 min timer</td>
+      <td>
+        <span class="role-pill role-ops-reviewer">ops_reviewer</span> <span class="ch bell">Bell</span> <span class="ch wa">WhatsApp</span> <small style="color:var(--muted)">(zone-scoped)</small>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>Hold escalation &mdash; IET window closing</td>
+      <td><code>CTS_HOLD_ESCALATION_CRITICAL</code><br><em>inline notification</em></td>
+      <td class="trigger">HumanReviewWorkflow<br>T-10 min IET timer</td>
+      <td>
+        <span class="role-pill role-ops-reviewer">ops_reviewer</span> <span class="ch bell">Bell</span> <span class="ch wa">WhatsApp</span><br>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch wa">WhatsApp</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p0">P0</span></td>
+      <td>Immediate</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>P0 ALERT &mdash; IET breach imminent on held instrument (5 min)</td>
+      <td><code>CTS_HOLD_ESCALATION_P0</code><br><em>inline notification</em></td>
+      <td class="trigger">HumanReviewWorkflow<br>T-5 min hard stop</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch wa">WhatsApp</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p0">P0</span></td>
+      <td>Immediate</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>IET expired while on hold (hold held past deadline)</td>
+      <td><code>CTS_WF_HOLD_EXPIRED</code><br><code>CTS_DECISION</code></td>
+      <td class="trigger">HumanReviewWorkflow<br>IET deadline exceeded</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-compliance">compliance_officer</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p0">P0</span> <small style="color:#fca5a5">NEVER HAPPENS — 0.000% target</small></td>
+      <td>Immediate + RBI report</td>
+    </tr>
   </table>
 </div>
 
@@ -413,6 +462,75 @@
         <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span> <span class="ch email">Email</span><br>
         <span class="role-pill role-smb-it-admin">smb_it_admin</span> <span class="ch email">Email</span>
       </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <!-- Re-presentation -->
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>Instrument returned &mdash; re-presentation window open</td>
+      <td><code>CTS_OUT_REPRESENTATION_PENDING</code><br><code>CTS_NGCH_RETURN_NOTIFICATION_RECEIVED</code></td>
+      <td class="trigger">NGCHSubmissionWorkflow<br>on return notification</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>Re-presentation to NGCH failed</td>
+      <td><code>CTS_OUT_REPRESENTATION_FAILED</code><br><code>CTS_NGCH_FILED</code></td>
+      <td class="trigger">NGCHSubmissionWorkflow<br>re-present attempt</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch email">Email</span> <span class="ch wa">WhatsApp</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p1">P1</span></td>
+      <td>4 hr</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>Re-presentation window expired</td>
+      <td><code>CTS_OUT_REPRESENTATION_EXPIRED</code><br><code>CTS_NGCH_FILED</code></td>
+      <td class="trigger">NGCHSubmissionWorkflow<br>24-hr RBI window elapsed</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-compliance">compliance_officer</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p0">P0</span></td>
+      <td>30 min</td>
+    </tr>
+    <!-- Mismatch hold -->
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>Instrument held &mdash; scan/physical mismatch</td>
+      <td><code>CTS_OUT_MISMATCH_HELD</code><br><code>CTS_DECISION</code></td>
+      <td class="trigger">MismatchResolutionWorkflow<br>on hold placement</td>
+      <td>
+        <span class="role-pill role-ops-reviewer">ops_reviewer</span> <span class="ch bell">Bell</span> <small style="color:var(--muted)">(zone-scoped)</small>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>Mismatch hold auto-rejected (4-hr timeout)</td>
+      <td><code>CTS_OUT_MISMATCH_TIMEOUT_AUTO_REJECTED</code><br><code>CTS_DECISION</code></td>
+      <td class="trigger">MismatchResolutionWorkflow<br>4-hr timeout</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <!-- SMB forwarding terminal — audit-only -->
+    <tr>
+      <td class="event"><span class="sev-info">&#9679; INFO</span><br>SMB cheque forwarded to sponsor bank <small style="color:var(--muted)">(audit-only)</small></td>
+      <td><code>CTS_SMB_CHEQUE_FORWARDED</code><br><code>CTS_SMB_CHEQUE_FORWARDED</code></td>
+      <td class="trigger">SMBForwardingWorkflow<br>terminal state</td>
+      <td><em style="color:var(--muted)">No notification &mdash; Immudb only (high volume)</em></td>
       <td class="yes">YES</td>
       <td><span class="pno">NO</span></td>
       <td>&mdash;</td>
@@ -612,6 +730,53 @@
   </table>
 </div>
 
+<!-- ═══ MSV MODULE ═══════════════════════════════════════════════════════ -->
+<div id="msv" class="panel">
+  <table>
+    <tr><th>Event</th><th>Msg Key</th><th>Triggered by</th><th>Recipients &amp; Channels</th><th>Immudb</th><th>Incident</th><th>SLA</th></tr>
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>MSV enrollment job failed</td>
+      <td><code>MSV_ENROLLMENT_FAILED</code></td>
+      <td class="trigger">modules/msv/enrollment/<br>account_enroller.py</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>MSV validation degraded &mdash; AI unavailable</td>
+      <td><code>MSV_VALIDATION_DEGRADED</code></td>
+      <td class="trigger">modules/msv/workflows/<br>msv_workflow.py</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span><br>
+        <span class="role-pill role-ml-engineer">ml_engineer</span> <span class="ch bell">Bell</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>MSV CBS sync degraded</td>
+      <td><code>MSV_CBS_SYNC_DEGRADED</code></td>
+      <td class="trigger">modules/msv/enrollment/<br>bulk_enrollment.py</td>
+      <td>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+  </table>
+  <div class="box" style="margin-top:12px">
+    <div class="box-title">MSV Module Context</div>
+    <div class="box-body">Multi-Signature Validation is fully isolated in <code>modules/msv/</code>. It uses its own Temporal task queue, its own signatory registry, and its own enrollment flows. MSV notifications are distinct from CTS — MSV events never appear in CTS audit collections.</div>
+  </div>
+</div>
+
 <!-- ═══ PLATFORM ══════════════════════════════════════════════════════════ -->
 <div id="platform" class="panel">
   <table>
@@ -739,8 +904,8 @@
     <!-- Config -->
     <tr>
       <td class="event"><span class="sev-warn">&#9679; WARN</span><br>Layer 3 config change (maker-checker)</td>
-      <td><code>PLATFORM_CONFIG_CHANGE</code><br><code>CONFIG_CHANGE</code></td>
-      <td class="trigger">config-service<br>after checker approval</td>
+      <td><code>PLATFORM_CONFIG_CHANGE_SUBMITTED</code> / <code>_APPROVED</code> / <code>_REJECTED</code><br><code>CONFIG_CHANGE</code></td>
+      <td class="trigger">config-service<br>maker submit + checker approve/reject</td>
       <td>
         <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span><br>
         <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch bell">Bell</span> <span class="ch email">Email</span>
@@ -750,9 +915,9 @@
       <td>&mdash;</td>
     </tr>
     <tr>
-      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>OPA policy change (Layer 4)</td>
-      <td><code>PLATFORM_CONFIG_CHANGE</code><br><code>CONFIG_CHANGE</code></td>
-      <td class="trigger">OPA config watcher<br>on new policy version</td>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>OPA policy approved / reload failed</td>
+      <td><code>PLATFORM_POLICY_APPROVED</code> / <code>PLATFORM_POLICY_RELOAD_FAILED</code><br><code>CONFIG_CHANGE</code></td>
+      <td class="trigger">OPA config watcher<br>on policy version change</td>
       <td>
         <span class="role-pill role-compliance">compliance_officer</span> <span class="ch email">Email</span> <span class="ch bell">Bell</span><br>
         <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span>
@@ -760,6 +925,203 @@
       <td class="yes">YES</td>
       <td><span class="pno">NO</span></td>
       <td>&mdash;</td>
+    </tr>
+    <!-- Vault — new events -->
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>Redis vault cold detected (accounts not warmed)</td>
+      <td><code>VAULT_REDIS_COLD_DETECTED</code><br><code>VAULT_STALE</code></td>
+      <td class="trigger">VaultSyncWorkflow<br>post-warm integrity check</td>
+      <td>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>Vault miss &mdash; CBS fallback triggered</td>
+      <td><code>VAULT_SIG_CBS_FALLBACK</code><br><code>VAULT_SYNC</code></td>
+      <td class="trigger">signature_vault.py<br>CBS fallback path</td>
+      <td><em style="color:var(--muted)">Inline audit only &mdash; no standalone notification (high volume)</em></td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-info">&#9679; INFO</span><br>Redis vault warm complete</td>
+      <td><code>VAULT_REDIS_WARM_COMPLETE</code><br><code>VAULT_SYNC</code></td>
+      <td class="trigger">VaultSyncWorkflow<br>6AM daily completion</td>
+      <td><em style="color:var(--muted)">No notification &mdash; Immudb only</em></td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <!-- CBS — new events -->
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>Stop payment active on instrument</td>
+      <td><code>CBS_STOP_PAYMENT_ACTIVE</code><br><code>CTS_DECISION</code></td>
+      <td class="trigger">stop_payment activity<br>CBS stop check</td>
+      <td>
+        <span class="role-pill role-ops-reviewer">ops_reviewer</span> <span class="ch bell">Bell</span> <small style="color:var(--muted)">(zone-scoped)</small>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>Account closed / frozen in CBS</td>
+      <td><code>CBS_ACCOUNT_CLOSED</code> / <code>CBS_ACCOUNT_FROZEN</code><br><code>CTS_DECISION</code></td>
+      <td class="trigger">CBS activity<br>check_cbs_balance()</td>
+      <td>
+        <span class="role-pill role-ops-reviewer">ops_reviewer</span> <span class="ch bell">Bell</span> <small style="color:var(--muted)">(zone-scoped)</small>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <!-- Auth — new security events -->
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>Revoked session token replayed</td>
+      <td><code>AUTH_TOKEN_REPLAY_ATTEMPT</code><br><em>inline auth event</em></td>
+      <td class="trigger">shared/auth/session_token.py<br>JTI blocklist check</td>
+      <td>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-compliance">compliance_officer</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p0">P0</span></td>
+      <td>30 min</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>Login rate limit exceeded</td>
+      <td><code>AUTH_LOGIN_RATE_LIMIT_EXCEEDED</code><br><em>inline auth event</em></td>
+      <td class="trigger">shared/auth/auth_service.py<br>rate limit middleware</td>
+      <td>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch bell">Bell</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>Session forcibly revoked</td>
+      <td><code>AUTH_SESSION_REVOKED</code><br><em>inline auth event</em></td>
+      <td class="trigger">shared/auth/auth_service.py<br>admin session revoke</td>
+      <td>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch bell">Bell</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>LDAP/AD server unreachable</td>
+      <td><code>AUTH_LDAP_SERVER_UNREACHABLE</code><br><em>inline auth event</em></td>
+      <td class="trigger">shared/auth/connectors/ldap_ad.py</td>
+      <td>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch email">Email</span>
+      </td>
+      <td class="no">NO</td>
+      <td><span class="ch p1">P1</span></td>
+      <td>4 hr</td>
+    </tr>
+    <!-- MCP connection lifecycle -->
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>MCP connection deleted</td>
+      <td><code>MCP_CONN_DELETED</code><br><code>MCP_CONN_DELETED</code></td>
+      <td class="trigger">apps/api/routers/admin.py<br>DELETE /v1/mcp/connections/{id}</td>
+      <td>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-err">&#9679; ERROR</span><br>MCP connection test FAILED</td>
+      <td><code>MCP_CONN_TESTED_FAIL</code><br><code>MCP_CONN_TESTED_FAIL</code></td>
+      <td class="trigger">apps/api/routers/admin.py<br>POST /v1/mcp/connections/{id}/test</td>
+      <td>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span> <span class="ch bell">Bell</span><br>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-info">&#9679; INFO</span><br>MCP connection created / updated / tested OK / sync triggered <small style="color:var(--muted)">(audit-only)</small></td>
+      <td><code>MCP_CONN_CREATED</code> / <code>MCP_CONN_UPDATED</code><br><code>MCP_CONN_TESTED_OK</code> / <code>MCP_CONN_SYNC_TRIGGERED</code></td>
+      <td class="trigger">apps/api/routers/admin.py<br>MCP lifecycle CRUD</td>
+      <td><em style="color:var(--muted)">No notification &mdash; Immudb only</em></td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <!-- Model drift -->
+    <tr>
+      <td class="event"><span class="sev-warn">&#9679; WARN</span><br>Model drift warning (&gt;2% drop over 7 days)</td>
+      <td><code>PLATFORM_MODEL_DRIFT_WARN</code><br><code>CONFIG_CHANGE</code></td>
+      <td class="trigger">PlatformHealthCheckWorkflow<br>60s cadence drift check</td>
+      <td>
+        <span class="role-pill role-ml-engineer">ml_engineer</span> <span class="ch email">Email</span> <span class="ch bell">Bell</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">NO</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>Model pulled from production (&gt;8% drift)</td>
+      <td><code>PLATFORM_MODEL_PULLED</code><br><code>CONFIG_CHANGE</code></td>
+      <td class="trigger">PlatformHealthCheckWorkflow<br>auto-pull threshold</td>
+      <td>
+        <span class="role-pill role-ml-engineer">ml_engineer</span> <span class="ch email">Email</span> <span class="ch wa">WhatsApp</span><br>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p1">P1</span></td>
+      <td>4 hr</td>
+    </tr>
+    <!-- DC failover -->
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>DC failover triggered</td>
+      <td><code>PLATFORM_DC_FAILOVER</code><br><em>inline platform event</em></td>
+      <td class="trigger">Kubernetes / Istio<br>DC health monitor</td>
+      <td>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch wa">WhatsApp</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p0">P0</span></td>
+      <td>30 min</td>
+    </tr>
+    <tr>
+      <td class="event"><span class="sev-info">&#9679; INFO</span><br>DC restored &mdash; active-active rebalancing</td>
+      <td><code>PLATFORM_DC_RESTORED</code><br><em>inline platform event</em></td>
+      <td class="trigger">Kubernetes / Istio<br>DC health monitor</td>
+      <td>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-ops-manager">ops_manager</span> <span class="ch bell">Bell</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="pno">CLOSE incident</span></td>
+      <td>&mdash;</td>
+    </tr>
+    <!-- Audit tamper -->
+    <tr>
+      <td class="event"><span class="sev-crit">&#9679; CRITICAL</span><br>Immudb audit tamper detected</td>
+      <td><code>PLATFORM_AUDIT_TAMPER_DETECTED</code><br><em>inline platform event</em></td>
+      <td class="trigger">PlatformHealthCheckWorkflow<br>Merkle tree verify</td>
+      <td>
+        <span class="role-pill role-it-admin">bank_it_admin</span> <span class="ch wa">WhatsApp</span> <span class="ch email">Email</span><br>
+        <span class="role-pill role-compliance">compliance_officer</span> <span class="ch email">Email</span>
+      </td>
+      <td class="yes">YES</td>
+      <td><span class="ch p0">P0</span></td>
+      <td>Immediate</td>
     </tr>
   </table>
 </div>
@@ -1144,11 +1506,11 @@
   </p>
 </div>
 
-<p class="stamp">ASTRA Bank Intelligence Platform &middot; docs/ASTRA_Notification_Taxonomy.html &middot; Generated 2026-07-01 &middot; <b>Living document &mdash; update on every new feature</b></p>
+<p class="stamp">ASTRA Bank Intelligence Platform &middot; docs/ASTRA_Notification_Taxonomy.html &middot; Updated 2026-08-27 &middot; 148 NOTIFICATION-surface message keys &middot; <b>Living document &mdash; update on every new feature</b></p>
 
 <script>
 function sw(id) {
-  const ids = ['cts-in','cts-out','ks','ej','platform','cascade','incident','storage','role-matrix','templates'];
+  const ids = ['cts-in','cts-out','ks','ej','msv','platform','cascade','incident','storage','role-matrix','templates'];
   document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ids[i] === id));
   document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === id));
 }
