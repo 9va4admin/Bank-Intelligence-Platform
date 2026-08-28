@@ -593,7 +593,7 @@ export default function CTSDecisionsLog() {
     divider: isDark ? 'border-white/8' : 'border-slate-200',
     row:     isDark ? 'border-white/4 hover:bg-white/2 cursor-pointer' : 'border-slate-100 hover:bg-slate-50 cursor-pointer',
     thead:   isDark ? 'bg-white/5 border-white/10 text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-400',
-    input:   isDark ? 'bg-navy-800 border-white/10 text-white placeholder-slate-600 focus:border-indigo-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-indigo-500',
+    input:   isDark ? 'bg-navy-800 border-white/10 text-white placeholder-slate-600 focus:border-[#f5c842]' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-[#f5c842]',
     filterActive: isDark ? 'bg-gold-400/15 text-gold-400' : 'bg-amber-100 text-amber-700',
     filterIdle:   isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-700',
     rrfBtn:     isDark ? 'border-red-500/25 text-red-400 hover:bg-red-500/10' : 'border-red-300 text-red-600 hover:bg-red-50',
@@ -624,14 +624,6 @@ export default function CTSDecisionsLog() {
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${th.csvBtn}`}>
           ↓ CSV
         </button>
-        <div className="flex gap-1">
-          {FILTERS.map(f => (
-            <button key={f} onClick={() => setFilter(f)}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${filter === f ? th.filterActive : th.filterIdle}`}>
-              {f.replace(/_/g, ' ')}
-            </button>
-          ))}
-        </div>
       </div>
     ),
   })
@@ -655,7 +647,7 @@ export default function CTSDecisionsLog() {
           </div>
         )}
 
-        {/* Filter buttons — also rendered here so tests can find them */}
+        {/* Filter buttons */}
         <div className="flex gap-1 mb-4">
           {FILTERS.map(f => (
             <button key={f} onClick={() => setFilter(f)}
@@ -693,7 +685,7 @@ export default function CTSDecisionsLog() {
         </div>
 
         {/* Table */}
-        <div className={`border rounded-xl overflow-hidden ${th.card}`}>
+        <div className={`border rounded-xl overflow-x-auto ${th.card}`}>
           <table className="w-full text-xs">
             <thead>
               <tr className={`${th.thead} border-b`}>

@@ -389,18 +389,23 @@ export default function CTSOpsDashboard() {
             </div>
             <div className="flex items-center gap-3 flex-wrap">
               {bankMode !== 'SB_ONLY' && dashTab === 'mybank' && (
-                <label className={`flex items-center gap-1.5 text-[11px] font-medium cursor-pointer select-none ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                  <input
-                    type="checkbox"
-                    checked={includeSMB}
-                    onChange={(e) => setIncludeSMB(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded accent-violet-500"
-                  />
+                <button
+                  role="switch"
+                  aria-checked={includeSMB}
+                  onClick={() => setIncludeSMB(v => !v)}
+                  className={`flex items-center gap-2 text-[11px] font-medium cursor-pointer select-none transition-colors ${isDark ? 'text-slate-300' : 'text-slate-600'}`}
+                >
+                  <span className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${includeSMB ? 'bg-[#f5c842]' : (isDark ? 'bg-white/15' : 'bg-slate-300')}`}>
+                    <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${includeSMB ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+                  </span>
                   + SMB
-                </label>
+                </button>
               )}
               <DashboardTabs tab={dashTab} onChange={setDashTab} isDark={isDark} bankMode={bankMode} />
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/10 border border-emerald-400/20 text-emerald-400">● Live</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/10 border border-emerald-400/20 text-emerald-400 inline-flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+                Live
+              </span>
               <button
                 onClick={() => handleDownload('TODAY', 'MIS CSV')}
                 className={`text-[11px] px-3 py-1.5 rounded-lg border transition-colors
