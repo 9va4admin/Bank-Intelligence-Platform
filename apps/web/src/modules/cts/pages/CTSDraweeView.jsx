@@ -214,9 +214,9 @@ export default function CTSDraweeView() {
                           <td className={`px-4 py-2.5 font-mono ${b.returned > 25 ? 'text-red-400' : th.body}`}>{b.returned}</td>
                           <td className="px-4 py-2.5">
                             <span className={`text-[11px] font-mono px-1.5 py-0.5 rounded ${
-                              rate > 12 ? 'bg-red-900/40 text-red-300' :
-                              rate > 8  ? 'bg-amber-900/40 text-amber-300' :
-                              isDark    ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700'
+                              rate > 12 ? (isDark ? 'bg-red-900/40 text-red-300'     : 'bg-red-100 text-red-700')   :
+                              rate > 8  ? (isDark ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700') :
+                              isDark    ? 'bg-emerald-900/40 text-emerald-300'        : 'bg-emerald-100 text-emerald-700'
                             }`}>{rate.toFixed(1)}%</span>
                           </td>
                         </tr>
