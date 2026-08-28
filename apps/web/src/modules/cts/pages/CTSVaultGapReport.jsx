@@ -5,11 +5,23 @@
  * Ops manager uses this overnight to trigger enrollment for affected accounts
  * so the next clearing session has vault hits for those accounts.
  */
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import useVaultGaps from '../hooks/useVaultGaps'
+
+function nextClearingCountdown() {
+  const now = new Date()
+  const next = new Date()
+  next.setHours(9, 0, 0, 0)
+  if (next <= now) next.setDate(next.getDate() + 1)
+  const diff = next - now
+  const h = Math.floor(diff / 3600000)
+  const m = Math.floor((diff % 3600000) / 60000)
+  const urgent = h < 2
+  return { h, m, urgent, label: `${h}h ${m}m` }
+}
 
 function fmt(epoch) {
   if (!epoch) return '—'
@@ -26,6 +38,7 @@ export default function CTSVaultGapReport() {
   const navigate = useNavigate()
   const today = new Date().toISOString().split('T')[0]
   const [selectedDate, setSelectedDate] = useState(today)
+  const clearing = useMemo(() => nextClearingCountdown(), [])
   const [expanded, setExpanded] = useState(null)
 
   const { data, loading, error, refetch } = useVaultGaps({ date: selectedDate })
@@ -79,6 +92,25 @@ export default function CTSVaultGapReport() {
             >
               Refresh
             </button>
+          </div>
+        </div>
+
+        {/* Urgency countdown */}
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border mb-5 ${
+          clearing.urgent
+            ? isDark ? 'bg-red-900/25 border-red-700/50 text-red-300' : 'bg-red-50 border-red-200 text-red-800'
+            : isDark ? 'bg-navy-900 border-white/10 text-slate-300'   : 'bg-white border-slate-200 text-slate-700'
+        }`}>
+          <div className={`shrink-0 text-2xl font-bold font-mono tabular-nums ${clearing.urgent ? 'text-red-400' : isDark ? 'text-white' : 'text-slate-900'}`}>
+            {clearing.label}
+          </div>
+          <div>
+            <div className={`text-xs font-semibold ${clearing.urgent ? '' : (isDark ? 'text-white' : 'text-slate-900')}`}>
+              {clearing.urgent ? 'Urgent — ' : ''}Until next clearing session (09:00 AM)
+            </div>
+            <div className={`text-xs mt-0.5 opacity-75`}>
+              Enroll accounts below before session start — gaps resolved tonight will have vault coverage tomorrow
+            </div>
           </div>
         </div>
 
