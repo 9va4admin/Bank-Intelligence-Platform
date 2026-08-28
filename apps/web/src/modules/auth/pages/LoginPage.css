@@ -1,0 +1,268 @@
+/* LoginPage.css — styles for the full-bleed animated login page.
+   All classes are prefixed lp- to avoid Tailwind collisions. */
+
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ── Keyframes ───────────────────────────────────────────── */
+
+@keyframes lp-grid-drift {
+  from { transform: translate(0, 0); }
+  to   { transform: translate(52px, 52px); }
+}
+
+@keyframes lp-glow {
+  0%,100% { transform: scale(1);    opacity: 0.7; }
+  50%      { transform: scale(1.08); opacity: 1; }
+}
+
+@keyframes lp-sweep {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes lp-rb {
+  0%,100% { stroke-opacity: 0.07; }
+  50%      { stroke-opacity: 0.20; }
+}
+
+@keyframes lp-db {
+  0%,100% { opacity: 0.18; }
+  50%      { opacity: 1; }
+}
+
+@keyframes lp-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes lp-panel {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes lp-pulse {
+  0%,100% { box-shadow: 0 0 0 0   rgba(245,200,66,0.45); opacity: 1;    }
+  60%      { box-shadow: 0 0 0 7px rgba(245,200,66,0);    opacity: 0.55; }
+}
+
+/* ── Canvas / HUD ────────────────────────────────────────── */
+
+.lp-canvas {
+  position: fixed;
+  inset: 0;
+  background: #03061a;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.lp-canvas::before {
+  content: '';
+  position: absolute;
+  inset: -100px;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.032) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.032) 1px, transparent 1px);
+  background-size: 52px 52px;
+  animation: lp-grid-drift 22s linear infinite;
+}
+
+.lp-hud-glow { animation: lp-glow 5s ease-in-out infinite; }
+.lp-hud-sweep { animation: lp-sweep 5.5s linear infinite; }
+
+.lp-ring-1 { animation: lp-rb 7s ease-in-out 0.0s infinite; }
+.lp-ring-2 { animation: lp-rb 7s ease-in-out 1.4s infinite; }
+.lp-ring-3 { animation: lp-rb 7s ease-in-out 2.8s infinite; }
+.lp-ring-4 { animation: lp-rb 7s ease-in-out 4.2s infinite; }
+
+.lp-sdot-1 { animation: lp-db 3.2s ease-in-out 0.0s infinite; }
+.lp-sdot-2 { animation: lp-db 3.2s ease-in-out 0.8s infinite; }
+.lp-sdot-3 { animation: lp-db 3.2s ease-in-out 1.6s infinite; }
+.lp-sdot-4 { animation: lp-db 3.2s ease-in-out 2.4s infinite; }
+
+/* ── Page layout ─────────────────────────────────────────── */
+
+.lp-page {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  align-items: stretch;
+  overflow-y: auto;
+}
+
+.lp-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 44px 48px 48px 52px;
+  min-width: 0;
+}
+
+/* Outer wrapper for glass panel + its shadow layers */
+.lp-outer {
+  position: relative;
+  width: 402px;
+  flex-shrink: 0;
+  align-self: center;
+  margin: 40px 52px 40px 0;
+  animation: lp-panel 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+}
+
+/* ── Enter animations ────────────────────────────────────── */
+
+.lp-anim-logo    { opacity: 0; animation: lp-rise 0.55s ease 0.05s forwards; }
+.lp-anim-tag     { opacity: 0; animation: lp-rise 0.55s ease 0.20s forwards; }
+.lp-anim-num     { opacity: 0; animation: lp-rise 0.60s ease 0.30s forwards;
+                   transition: opacity 0.38s ease, transform 0.38s ease; }
+.lp-anim-desc    { opacity: 0; animation: lp-rise 0.60s ease 0.38s forwards;
+                   transition: opacity 0.38s ease; }
+.lp-anim-pillars { opacity: 0; animation: lp-rise 0.60s ease 0.48s forwards; }
+.lp-anim-mandate { opacity: 0; animation: lp-rise 0.60s ease 0.56s forwards; }
+.lp-anim-pulse   { animation: lp-pulse 2.6s ease-in-out infinite; }
+
+/* ── Form elements ───────────────────────────────────────── */
+
+.lp-input {
+  width: 100%;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  padding: 11px 14px;
+  font-size: 14px;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: rgba(255,255,255,0.88);
+  outline: none;
+  border-radius: 0;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.lp-input::placeholder { color: rgba(255,255,255,0.18); }
+.lp-input:focus {
+  border-color: rgba(245,200,66,0.65);
+  background: rgba(255,255,255,0.08);
+  box-shadow: 0 0 0 3px rgba(245,200,66,0.09);
+}
+
+.lp-totp {
+  text-align: center;
+  font-size: 28px;
+  letter-spacing: 0.4em;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 13px;
+}
+
+.lp-btn {
+  display: block;
+  width: 100%;
+  padding: 12px 20px;
+  background: #f5c842;
+  color: #03061a;
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'Inter', system-ui, sans-serif;
+  cursor: pointer;
+  border-radius: 0;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.15s, transform 0.1s, opacity 0.15s;
+  letter-spacing: 0.01em;
+  margin-top: 4px;
+  text-align: center;
+}
+.lp-btn::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 55%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
+  transform: skewX(-18deg);
+  transition: left 0.5s ease;
+}
+.lp-btn:hover:not(:disabled) { background: #f0c130; }
+.lp-btn:hover:not(:disabled)::after { left: 160%; }
+.lp-btn:active:not(:disabled) { transform: scale(0.99); }
+.lp-btn:disabled {
+  background: rgba(245,200,66,0.15);
+  color: rgba(255,255,255,0.25);
+  cursor: not-allowed;
+}
+.lp-btn:disabled::after { display: none; }
+
+.lp-btn-ghost {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-top: 12px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.28);
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: 'Inter', system-ui, sans-serif;
+  padding: 4px;
+  transition: color 0.15s;
+  border-radius: 0;
+}
+.lp-btn-ghost:hover { color: rgba(255,255,255,0.55); text-decoration: underline; }
+
+/* ── Panel decorations ───────────────────────────────────── */
+
+.lp-brk {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  z-index: 10;
+}
+.lp-brk-tl { top: 8px; left: 8px; border-top: 1.5px solid rgba(245,200,66,0.65); border-left: 1.5px solid rgba(245,200,66,0.65); }
+.lp-brk-br { bottom: 8px; right: 8px; border-bottom: 1.5px solid rgba(245,200,66,0.65); border-right: 1.5px solid rgba(245,200,66,0.65); }
+
+.lp-chf {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  background: #f5c842;
+  border-radius: 50%;
+  opacity: 0.75;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 0 6px rgba(245,200,66,0.6);
+}
+.lp-chf-lbl {
+  position: absolute;
+  top: 4px;
+  right: 48px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 7px;
+  color: rgba(245,200,66,0.36);
+  letter-spacing: 0.12em;
+  pointer-events: none;
+  z-index: 10;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+
+@media (max-width: 840px) {
+  .lp-page { flex-direction: column; align-items: center; padding: 32px 20px 48px; overflow-y: auto; }
+  .lp-info { padding: 0; flex: 0 0 auto; width: 100%; max-width: 480px; }
+  .lp-outer { width: 100%; max-width: 482px; margin: 28px 0 0; align-self: auto; }
+  .lp-pillars-block { display: none !important; }
+}
+
+/* ── Reduced motion ──────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-canvas::before,
+  .lp-hud-glow, .lp-hud-sweep,
+  .lp-ring-1, .lp-ring-2, .lp-ring-3, .lp-ring-4,
+  .lp-sdot-1, .lp-sdot-2, .lp-sdot-3, .lp-sdot-4,
+  .lp-anim-logo, .lp-anim-tag, .lp-anim-num, .lp-anim-desc,
+  .lp-anim-pillars, .lp-anim-mandate, .lp-anim-pulse,
+  .lp-outer {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
