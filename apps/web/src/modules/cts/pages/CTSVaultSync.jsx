@@ -48,25 +48,26 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-function StatusPill({ status }) {
-  const MAP = {
-    SUCCESS:        'bg-emerald-900/40 text-emerald-300 border-emerald-700/40',
-    PARTIAL:        'bg-amber-900/40   text-amber-300   border-amber-700/40',
-    FAILED:         'bg-red-900/40     text-red-300     border-red-700/40',
-    ACTIVE:         'bg-emerald-900/40 text-emerald-300 border-emerald-700/40',
-    EXPIRING_SOON:  'bg-amber-900/40   text-amber-300   border-amber-700/40',
-    EXPIRED:        'bg-slate-800      text-slate-400   border-slate-700',
-    REVOKED:        'bg-slate-800      text-slate-400   border-slate-700',
+function StatusPill({ status, isDark }) {
+  const DARK = {
+    SUCCESS:       'bg-emerald-900/40 text-emerald-300 border-emerald-700/40',
+    PARTIAL:       'bg-amber-900/40   text-amber-300   border-amber-700/40',
+    FAILED:        'bg-red-900/40     text-red-300     border-red-700/40',
+    ACTIVE:        'bg-emerald-900/40 text-emerald-300 border-emerald-700/40',
+    EXPIRING_SOON: 'bg-amber-900/40   text-amber-300   border-amber-700/40',
+    EXPIRED:       'bg-slate-800      text-slate-400   border-slate-700',
+    REVOKED:       'bg-slate-800      text-slate-400   border-slate-700',
   }
-  const LIGHT_MAP = {
-    SUCCESS:        'bg-emerald-50 text-emerald-700 border-emerald-200',
-    PARTIAL:        'bg-amber-50   text-amber-700   border-amber-200',
-    FAILED:         'bg-red-50     text-red-700     border-red-200',
-    ACTIVE:         'bg-emerald-50 text-emerald-700 border-emerald-200',
-    EXPIRING_SOON:  'bg-amber-50   text-amber-700   border-amber-200',
-    EXPIRED:        'bg-slate-100  text-slate-500   border-slate-200',
-    REVOKED:        'bg-slate-100  text-slate-500   border-slate-200',
+  const LIGHT = {
+    SUCCESS:       'bg-emerald-50 text-emerald-700 border-emerald-200',
+    PARTIAL:       'bg-amber-50   text-amber-700   border-amber-200',
+    FAILED:        'bg-red-50     text-red-700     border-red-200',
+    ACTIVE:        'bg-emerald-50 text-emerald-700 border-emerald-200',
+    EXPIRING_SOON: 'bg-amber-50   text-amber-700   border-amber-200',
+    EXPIRED:       'bg-slate-100  text-slate-500   border-slate-200',
+    REVOKED:       'bg-slate-100  text-slate-500   border-slate-200',
   }
+  const MAP = isDark ? DARK : LIGHT
   return (
     <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border ${MAP[status] ?? MAP.ACTIVE}`}>
       {status.replace('_', ' ')}
@@ -253,7 +254,7 @@ export default function CTSVaultSync() {
                     <td className={`px-4 py-2.5 ${th.body}`}>{r.payee_display}</td>
                     <td className={`px-4 py-2.5 ${th.muted}`}>{r.valid_from}</td>
                     <td className={`px-4 py-2.5 ${th.muted}`}>{r.valid_to}</td>
-                    <td className="px-4 py-2.5"><StatusPill status={r.status} /></td>
+                    <td className="px-4 py-2.5"><StatusPill status={r.status} isDark={isDark} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -291,7 +292,7 @@ export default function CTSVaultSync() {
                     <td className={`px-4 py-2.5 font-mono ${th.body}`}>{r.cheque_number}</td>
                     <td className={`px-4 py-2.5 ${th.body}`}>{r.reason}</td>
                     <td className={`px-4 py-2.5 ${th.muted}`}>{fmtDate(r.requested_at)}</td>
-                    <td className="px-4 py-2.5"><StatusPill status={r.status} /></td>
+                    <td className="px-4 py-2.5"><StatusPill status={r.status} isDark={isDark} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -327,7 +328,7 @@ export default function CTSVaultSync() {
                           : (isDark ? 'bg-white/8 text-slate-400' : 'bg-slate-100 text-slate-500')
                       }`}>{r.triggered_by}</span>
                     </td>
-                    <td className="px-4 py-2.5"><StatusPill status={r.status} /></td>
+                    <td className="px-4 py-2.5"><StatusPill status={r.status} isDark={isDark} /></td>
                     <td className={`px-4 py-2.5 tabular-nums ${th.body}`}>{r.pps.toLocaleString('en-IN')}</td>
                     <td className={`px-4 py-2.5 tabular-nums ${th.body}`}>{r.stop.toLocaleString('en-IN')}</td>
                     <td className={`px-4 py-2.5 ${th.muted}`}>{r.duration}s</td>
