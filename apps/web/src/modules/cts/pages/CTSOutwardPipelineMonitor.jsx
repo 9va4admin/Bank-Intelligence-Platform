@@ -429,11 +429,10 @@ export default function CTSOutwardPipelineMonitor() {
           ))}
         </div>
 
-        {/* Canvas + detail panel */}
-        <div className="flex flex-1 min-h-0 overflow-hidden">
-          {/* Relative wrapper — ReactFlow child fills it with absolute inset-0 */}
+        {/* Canvas + detail panel — explicit vh height because AppShell content
+            area uses overflow-y-auto which breaks flex-1 height propagation */}
+        <div className="flex overflow-hidden" style={{ height: 'calc(100vh - 160px)' }}>
           <div className="flex-1 relative">
-            <div className="absolute inset-0">
             <ReactFlow
               nodes={nodes}
               edges={[]}
@@ -495,7 +494,6 @@ export default function CTSOutwardPipelineMonitor() {
                 </div>
               </Panel>
             </ReactFlow>
-            </div>
           </div>
 
           {selected && (
