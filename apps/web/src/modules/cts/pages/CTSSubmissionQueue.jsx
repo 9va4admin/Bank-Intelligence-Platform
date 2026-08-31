@@ -9,7 +9,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
 import { getReasonByLabel, getReturnReasons } from '../data/returnReasons'
-import { MockChequeFront, MockChequeBack, MockPayinSlip } from '../components/MockCheque'
+import ChequeImageViewer from '../components/ChequeImageViewer'
 import { demoChequeUrl } from '../demoImages'
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
@@ -201,10 +201,37 @@ const DEPOSIT_CHANNEL_CFG = {
   KIOSK:           { label: 'Kiosk/CDM',   icon: '🏧',  color: 'text-violet-400 bg-violet-500/10 border-violet-500/30',    colorL: 'text-violet-700 bg-violet-50 border-violet-400'    },
 }
 
+// ── Viewer props helper ───────────────────────────────────────────────────────
+
+function _viewerProps(item, isInward) {
+  const views = [
+    { key: 'BFB', label: 'Front (B&W)',  url: item.front_bw_url   ?? null, iqaScore: item.iqa_score ?? 0.94 },
+    { key: 'BBB', label: 'Back (B&W)',   url: item.front_gray_url ?? null, iqaScore: item.iqa_score ? item.iqa_score - 0.02 : 0.91 },
+    { key: 'BFG', label: 'Front (Gray)', url: null,                         iqaScore: item.iqa_score ? item.iqa_score - 0.03 : 0.89 },
+  ]
+  const fields = {
+    payee:          item.payee,
+    date:           item.date,
+    amount_figures: item.amount_figures,
+    amount_words:   item.amount_words,
+    micr:           item.micr,
+    alterations:    item.alterations,
+    drawer_name:    item.drawer_name,
+    bank_name:      item.drawee_bank,
+    bank_branch:    item.drawee_branch,
+    account_display: item.account_display,
+  }
+  const depositInfo = !isInward && item.deposit_data ? {
+    channel: item.deposit_channel,
+    data:    item.deposit_data,
+  } : undefined
+  return { views, fields, depositInfo }
+}
+
 // ── Detail panel ──────────────────────────────────────────────────────────────
 
 function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
-  const [imgTab, setImgTab] = useState('front')
+  const [imgTab, setImgTab] = useState('image')
   const [showReturnPicker, setShowReturnPicker] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -217,11 +244,7 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
   }
 
   const imgTabs = [
-    { id: 'front',       label: '▣ Front'       },
-    { id: 'back',        label: '▣ Back'         },
-    ...(!isInward && item.deposit_channel === 'PAY_IN_SLIP'
-      ? [{ id: 'payinslip', label: '🧾 Slip' }]
-      : []),
+    { id: 'image',       label: '▣ Image'        },
     { id: 'fields',      label: '📋 Fields'      },
     { id: 'ai_analysis', label: '🤖 AI Analysis' },
     { id: 'passport',    label: '🪪 Passport'    },
@@ -276,27 +299,13 @@ function DetailPanel({ item, isInward, isDark, onConfirm, onReturn }) {
 
       {/* Content area */}
       <div className="flex-1 overflow-y-auto">
-        {imgTab === 'front' && (
-          <div className="flex flex-col items-center justify-center p-5 gap-2 min-h-full">
-            <MockChequeFront item={item} />
-            <div className={`text-[9px] ${th.lbl}`}>CTS-2010 · Front of cheque — colour scan</div>
-          </div>
-        )}
-        {imgTab === 'back' && (
-          <div className="flex flex-col items-center justify-center p-5 gap-2 min-h-full">
-            <MockChequeBack depositChannel={isInward ? undefined : item.deposit_channel} item={item} />
-            <div className={`text-[9px] ${th.lbl}`}>
-              {item.deposit_channel === 'BACK_ANNOTATION' ? 'Customer handwrote A/c + mobile on back' :
-               item.deposit_channel === 'KIOSK'           ? 'CDM kiosk label affixed — details system-captured' :
-               'CTS-2010 · Back of cheque — endorsement area'}
-            </div>
-          </div>
-        )}
-        {imgTab === 'payinslip' && (
-          <div className="flex flex-col items-center justify-center p-5 gap-2 min-h-full">
-            <MockPayinSlip item={item} />
-            <div className={`text-[9px] ${th.lbl}`}>Pay-in / deposit slip captured at branch</div>
-          </div>
+        {imgTab === 'image' && (
+          <ChequeImageViewer
+            {..._viewerProps(item, isInward)}
+            isDark={isDark}
+            title={item.instrument_id}
+            compact
+          />
         )}
         {imgTab === 'fields' && (
           <div className="px-5 py-3">

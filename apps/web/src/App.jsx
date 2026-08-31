@@ -25,6 +25,7 @@ import CTSSubMember from './modules/cts/pages/CTSSubMember'
 import CTSImageQuality from './modules/cts/pages/CTSImageQuality'
 import CTSPipelineVisualizer from './modules/cts/pages/CTSPipelineVisualizer'
 import CTSInwardMonitor from './modules/cts/pages/CTSInwardMonitor'
+import CTSOutwardPipelineMonitor from './modules/cts/pages/CTSOutwardPipelineMonitor'
 import CTSDiscrepancy from './modules/cts/pages/CTSDiscrepancy'
 import CTSBatches from './modules/cts/pages/CTSBatches'
 import CTSBusinessModel from './modules/cts/pages/CTSBusinessModel'
@@ -119,6 +120,7 @@ export default function App() {
         <Route path="/cts/pipeline" element={<CTSPipelineVisualizer />} />
         <Route path="/cts/inward-pipeline" element={<CTSInwardPipeline />} />
         <Route path="/cts/inward-monitor" element={<CTSInwardMonitor />} />
+        <Route path="/cts/outward/pipeline-monitor" element={<CTSOutwardPipelineMonitor />} />
         <Route path="/cts/demo" element={<CTSDemoPipeline />} />
         <Route path="/cts/cloud-ai-demo" element={<CTSCloudAIDemo />} />
         <Route path="/cts/sig-batch-test" element={<CTSSigBatchTest />} />

@@ -3,107 +3,70 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import { BANK_CONFIG } from '../../../shared/config/bank.config'
 
-const SUB_MEMBERS = [
-  {
-    id: 'smb-kl-tsucb',
-    bank_name: 'Thrissur UCB',
-    ifsc_prefix: 'TSUB',
-    micr_prefix: '680001',
-    sponsor: 'Federal Bank Limited (Direct)',
-    session: 'MORNING 2026-08-11',
-    total: 85,
-    stp_pass: 72,
-    stp_return: 8,
-    eyeball: 4,
-    fraud_hold: 1,
-    iet_emergency: 0,
-    soft_hold: false,
-    bm_email: 'bm.thrissur@thrissurucb.coop',
-    return_threshold: 0.15,
-    soft_hold_threshold: 0.25,
-  },
-  {
-    id: 'smb-kl-eklucb',
-    bank_name: 'Ernakulam UCB',
-    ifsc_prefix: 'EKLB',
-    micr_prefix: '682001',
-    sponsor: 'Federal Bank Limited (Direct)',
-    session: 'MORNING 2026-08-11',
-    total: 85,
-    stp_pass: 62,
-    stp_return: 17,
-    eyeball: 5,
-    fraud_hold: 1,
-    iet_emergency: 0,
-    soft_hold: true,
-    bm_email: 'bm.ernakulam@ernakulamucb.coop',
-    return_threshold: 0.15,
-    soft_hold_threshold: 0.20,
-  },
-  {
-    id: 'smb-kl-mlbcb',
-    bank_name: 'Malabar Co-operative Bank',
-    ifsc_prefix: 'MLCB',
-    micr_prefix: '673001',
-    sponsor: 'Federal Bank Limited (Direct)',
-    session: 'MORNING 2026-08-11',
-    total: 68,
-    stp_pass: 64,
-    stp_return: 3,
-    eyeball: 1,
-    fraud_hold: 0,
-    iet_emergency: 0,
-    soft_hold: false,
-    bm_email: 'bm.kozhikode@malabarcoopbank.coop',
-    return_threshold: 0.12,
-    soft_hold_threshold: 0.22,
-  },
-  {
-    id: 'smb-tn-cbucb',
-    bank_name: 'Coimbatore City UCB',
-    ifsc_prefix: 'CBUB',
-    micr_prefix: '641001',
-    sponsor: 'Federal Bank Limited (Direct)',
-    session: 'MORNING 2026-08-11',
-    total: 34,
-    stp_pass: 33,
-    stp_return: 1,
-    eyeball: 0,
-    fraud_hold: 0,
-    iet_emergency: 0,
-    soft_hold: false,
-    bm_email: 'bm.coimbatore@coimbatoreucb.coop',
-    return_threshold: 0.15,
-    soft_hold_threshold: 0.25,
-  },
-  {
-    id: 'smb-ka-mgucb',
-    bank_name: 'Mangaluru UCB',
-    ifsc_prefix: 'MGUB',
-    micr_prefix: '575001',
-    sponsor: 'Federal Bank Limited (Direct)',
-    session: 'MORNING 2026-08-11',
-    total: 42,
-    stp_pass: 40,
-    stp_return: 2,
-    eyeball: 0,
-    fraud_hold: 0,
-    iet_emergency: 0,
-    soft_hold: false,
-    bm_email: 'bm.mangaluru@mangaluruucb.coop',
-    return_threshold: 0.15,
-    soft_hold_threshold: 0.25,
-  },
-]
+// ── Derive sub-member session data from BANK_CONFIG.smbs ─────────────────────
 
-const RETURN_EVENTS = [
-  { id: 'CHQ-IN-20260811-0042', smb: 'smb-kl-tsucb',  reason: 'SIGNATURE_MISMATCH',     bucket: 'STP_RETURN', amount: '₹[1L–5L]',   suffix: '7823', time: '09:14', tier: 1 },
-  { id: 'CHQ-IN-20260811-0055', smb: 'smb-kl-tsucb',  reason: 'AMOUNT_ALTERATION',      bucket: 'FRAUD_HOLD', amount: '₹[10L–1Cr]', suffix: '3341', time: '09:21', tier: 1 },
-  { id: 'CHQ-IN-20260811-0071', smb: 'smb-kl-eklucb', reason: 'STALE_CHEQUE',           bucket: 'STP_RETURN', amount: '₹[<1L]',      suffix: '0019', time: '09:35', tier: 1 },
-  { id: 'CHQ-IN-20260811-0098', smb: 'smb-kl-eklucb', reason: 'PPS_MISMATCH',           bucket: 'EYEBALL',    amount: '₹[5L–10L]',   suffix: '4492', time: '09:42', tier: 2 },
-  { id: 'CHQ-IN-20260811-0134', smb: 'smb-kl-eklucb', reason: 'DRAWEE_ACCOUNT_FROZEN',  bucket: 'STP_RETURN', amount: '₹[1L–5L]',    suffix: '1127', time: '10:03', tier: 1 },
+const RETURN_REASONS_POOL = [
+  'SIGNATURE_MISMATCH', 'AMOUNT_ALTERATION', 'STALE_CHEQUE',
+  'PPS_MISMATCH', 'DRAWEE_ACCOUNT_FROZEN', 'STOP_PAYMENT_ACTIVE', 'FRAUD_RISK',
 ]
+const BUCKETS_POOL = ['STP_RETURN', 'FRAUD_HOLD', 'EYEBALL', 'STP_RETURN', 'STP_RETURN']
+const AMOUNTS_POOL = ['₹[<1L]', '₹[1L–5L]', '₹[5L–10L]', '₹[10L–1Cr]']
+const TIMES_POOL   = ['09:14', '09:21', '09:35', '09:42', '10:03', '10:28', '10:51']
+
+function buildMockSubMembers(bankConfig) {
+  const smbs = bankConfig.smbs ?? []
+  const session = `MORNING ${new Date().toISOString().slice(0, 10)}`
+  return smbs.map((smb, i) => {
+    const daily = smb.daily_avg ?? 80
+    const total = Math.round(daily * (0.6 + (i % 5) * 0.1))
+    const returnRate = [0.04, 0.20, 0.07, 0.11, 0.05, 0.09, 0.15, 0.03][i % 8]
+    const stp_return = Math.round(total * returnRate)
+    const eyeball   = Math.round(total * 0.02 + i)
+    const fraud_hold = Math.round(total * 0.005)
+    const stp_pass  = total - stp_return - eyeball - fraud_hold
+    const softThreshold = 0.18 + (i % 3) * 0.04
+    const domain = smb.name.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 10)
+    return {
+      id:               smb.id,
+      bank_name:        smb.name,
+      ifsc_prefix:      smb.ifsc?.slice(0, 4) ?? 'SMBB',
+      micr_prefix:      `${400 + i * 11}${String(i + 1).padStart(3, '0')}`,
+      sponsor:          bankConfig.bank_name,
+      session,
+      total,
+      stp_pass:         Math.max(0, stp_pass),
+      stp_return,
+      eyeball,
+      fraud_hold,
+      iet_emergency:    0,
+      soft_hold:        returnRate >= softThreshold,
+      bm_email:         `bm.${smb.city?.toLowerCase() ?? 'main'}@${domain}.coop`,
+      return_threshold: 0.12,
+      soft_hold_threshold: softThreshold,
+    }
+  })
+}
+
+function buildReturnEvents(smbs) {
+  if (!smbs.length) return []
+  return smbs.slice(0, Math.min(smbs.length, 3)).flatMap((smb, si) =>
+    Array.from({ length: 1 + (si % 2) }, (_, ei) => ({
+      id:     `CHQ-IN-20260831-${String(si * 10 + ei + 42).padStart(4, '0')}`,
+      smb:    smb.id,
+      reason: RETURN_REASONS_POOL[(si * 3 + ei) % RETURN_REASONS_POOL.length],
+      bucket: BUCKETS_POOL[(si + ei) % BUCKETS_POOL.length],
+      amount: AMOUNTS_POOL[(si + ei) % AMOUNTS_POOL.length],
+      suffix: String(1000 + (si * 37 + ei * 13) % 9000),
+      time:   TIMES_POOL[(si * 2 + ei) % TIMES_POOL.length],
+      tier:   1 + (ei % 2),
+    }))
+  )
+}
+
+const MOCK_SMBS   = buildMockSubMembers(BANK_CONFIG)
+const RETURN_EVENTS = buildReturnEvents(MOCK_SMBS)
 
 const BUCKET_COLORS_D = {
   STP_PASS:      'bg-emerald-900/40 text-emerald-300 border-emerald-700/40',
@@ -290,10 +253,7 @@ export default function CTSSubMember() {
     input:   isDark ? 'bg-navy-800 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
   }
 
-  const subMembers = SUB_MEMBERS.map(m => ({
-    ...m,
-    sponsor: m.sponsor.replace('[SB_NAME]', bankName),
-  }))
+  const subMembers = MOCK_SMBS
   const totalInward  = subMembers.reduce((s, m) => s + m.total, 0)
   const totalReturns = subMembers.reduce((s, m) => s + m.stp_return, 0)
   const totalEyeball = subMembers.reduce((s, m) => s + m.eyeball, 0)
