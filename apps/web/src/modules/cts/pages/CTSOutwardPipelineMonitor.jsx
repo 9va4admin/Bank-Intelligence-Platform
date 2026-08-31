@@ -431,7 +431,9 @@ export default function CTSOutwardPipelineMonitor() {
 
         {/* Canvas + detail panel */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
-          <div className="flex-1 relative h-full">
+          {/* Relative wrapper — ReactFlow child fills it with absolute inset-0 */}
+          <div className="flex-1 relative">
+            <div className="absolute inset-0">
             <ReactFlow
               nodes={nodes}
               edges={[]}
@@ -446,7 +448,7 @@ export default function CTSOutwardPipelineMonitor() {
               minZoom={0.35}
               maxZoom={1.5}
               proOptions={{ hideAttribution: true }}
-              style={{ background: th.flow }}
+              style={{ width: '100%', height: '100%', background: th.flow }}
             >
               <Background
                 variant={BackgroundVariant.Dots}
@@ -493,6 +495,7 @@ export default function CTSOutwardPipelineMonitor() {
                 </div>
               </Panel>
             </ReactFlow>
+            </div>
           </div>
 
           {selected && (
