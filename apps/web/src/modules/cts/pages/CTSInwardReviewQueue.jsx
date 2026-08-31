@@ -482,6 +482,8 @@ export default function CTSInwardReviewQueue() {
   const [holdTarget, setHoldTarget]   = useState(null)
   const [returnTarget, setReturnTarget] = useState(null)
   const [toast, setToast]             = useState(null)
+  const [focusMode, setFocusMode]     = useState(false)
+  const [focusIdx, setFocusIdx]       = useState(0)
 
   // Demo-mode local state: starts as MOCK_REVIEW_ITEMS, mutations update in-place
   const [demoItems, setDemoItems]     = useState(() => MOCK_REVIEW_ITEMS)
@@ -510,6 +512,7 @@ export default function CTSInwardReviewQueue() {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3500)
   }, [])
+
 
   // ── Remote data (non-demo) ──────────────────────────────────────────────────
   const { data, isLoading, isError } = useQuery({
@@ -607,7 +610,218 @@ export default function CTSInwardReviewQueue() {
     } catch (e) { showToast(e.message, 'error') }
   }
 
+  // ── Focus mode keyboard shortcuts ───────────────────────────────────────────
+  const focusItem = sorted[focusIdx] ?? null
+
+  useEffect(() => {
+    if (!focusMode) return
+    const handler = (e) => {
+      if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault()
+        setFocusIdx(i => Math.min(i + 1, sorted.length - 1))
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        setFocusIdx(i => Math.max(i - 1, 0))
+      }
+      if (e.key === 'Escape') setFocusMode(false)
+      if (!focusItem || focusItem.status !== 'CLAIMED' || !focusItem.claimed_by_me) return
+      if (e.key === 'a' || e.key === 'A') handleConfirm(focusItem)
+      if (e.key === 'r' || e.key === 'R') setReturnTarget(focusItem)
+      if (e.key === 'h' || e.key === 'H') setHoldTarget(focusItem)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [focusMode, focusItem, sorted.length])
+
   // ── Render ──────────────────────────────────────────────────────────────────
+
+  // ── Focus Mode render ────────────────────────────────────────────────────────
+  if (focusMode) {
+    const item = focusItem
+    const secs = item ? (remaining[item.instrument_id] ?? 0) : 0
+    const isClaimed = item?.status === 'CLAIMED'
+    const isMine    = item?.claimed_by_me
+    const isDone    = item?.status === 'CONFIRMED' || item?.status === 'RETURNED'
+    const ai = item?.ai ?? {}
+
+    return (
+      <AppShell>
+        {toast && (
+          <div className={`fixed top-4 right-4 z-50 text-sm px-4 py-2 rounded-xl shadow-lg font-medium
+            ${toast.type === 'error' ? 'bg-red-600 text-white' : (isDark ? 'bg-emerald-700 text-white' : 'bg-emerald-500 text-white')}`}>
+            {toast.msg}
+          </div>
+        )}
+        {holdTarget && <HoldModal instrument={holdTarget} onConfirm={handleHoldConfirm} onCancel={() => setHoldTarget(null)} isDark={isDark} />}
+        {returnTarget && <ReturnModal instrument={returnTarget} onConfirm={handleReturnConfirm} onCancel={() => setReturnTarget(null)} isDark={isDark} />}
+
+        <div className={`flex-1 flex flex-col overflow-hidden ${isDark ? 'bg-navy-950' : 'bg-slate-50'}`}>
+
+          {/* Focus mode top bar */}
+          <div className={`shrink-0 flex items-center justify-between px-5 py-3 border-b ${isDark ? 'bg-navy-900 border-white/8' : 'bg-white border-slate-200'}`}>
+            <div className="flex items-center gap-4">
+              <button onClick={() => setFocusMode(false)}
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${isDark ? 'border-white/10 text-slate-400 hover:text-white hover:bg-white/8' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                <span>←</span> Exit Focus
+              </button>
+              <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                {focusIdx + 1} / {sorted.length} instruments
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {/* IET */}
+              {item && !isDone && (
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${isDark ? 'bg-navy-950 border-white/8' : 'bg-slate-50 border-slate-200'}`}>
+                  <span className={`text-[10px] uppercase tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>IET</span>
+                  <span className={`font-mono text-sm font-semibold tabular-nums ${ietColor(secs, isDark)}`}>{fmtCountdown(secs)}</span>
+                </div>
+              )}
+              {/* Prev / Next */}
+              <div className="flex gap-1">
+                <button onClick={() => setFocusIdx(i => Math.max(i - 1, 0))} disabled={focusIdx === 0}
+                  className={`w-8 h-8 rounded-lg border flex items-center justify-center text-sm font-bold transition-colors disabled:opacity-30 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/8' : 'border-slate-200 text-slate-700 hover:bg-slate-100'}`}>
+                  ←
+                </button>
+                <button onClick={() => setFocusIdx(i => Math.min(i + 1, sorted.length - 1))} disabled={focusIdx >= sorted.length - 1}
+                  className={`w-8 h-8 rounded-lg border flex items-center justify-center text-sm font-bold transition-colors disabled:opacity-30 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/8' : 'border-slate-200 text-slate-700 hover:bg-slate-100'}`}>
+                  →
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {!item ? (
+            <div className={`flex-1 flex items-center justify-center ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>No instruments in queue</div>
+          ) : (
+            <div className="flex-1 flex overflow-hidden">
+              {/* Left: cheque image + meta */}
+              <div className={`flex flex-col w-[52%] border-r overflow-y-auto ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
+                <div className="p-5">
+                  {/* Instrument header */}
+                  <div className="flex items-center gap-2 flex-wrap mb-4">
+                    <span className={`font-mono text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.instrument_id}</span>
+                    <TierBadge tier={item.queue_tier} isDark={isDark} />
+                    <StatusBadge status={item.status} claimedBy={item.claimed_by} isDark={isDark} />
+                    {(item.risk_flags ?? []).map(f => (
+                      <span key={f} className={`text-[10px] px-2 py-0.5 rounded font-medium border ${isDark ? 'bg-red-900/40 text-red-300 border-red-700/40' : 'bg-red-50 text-red-700 border-red-200'}`}>{f}</span>
+                    ))}
+                  </div>
+                  {/* Cheque image */}
+                  <MockChequeFront item={item} />
+                  {/* Field grid */}
+                  <div className={`mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-xs`}>
+                    {[
+                      ['Account', item.account_display],
+                      ['Payee', item.payee_display],
+                      ['Amount', item.amount_display],
+                      ['In Words', item.amount_words],
+                      ['Cheque No.', `#${item.cheque_number}`],
+                      ['MICR Code', item.micr_code],
+                      ['Date', item.cheque_date],
+                      ['Branch', item.branch_name],
+                    ].map(([label, val]) => (
+                      <div key={label}>
+                        <div className={`text-[10px] uppercase tracking-wide mb-0.5 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{label}</div>
+                        <div className={`font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{val}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: AI analysis + actions */}
+              <div className="flex flex-col w-[48%] overflow-y-auto">
+                <div className="flex-1 p-5 space-y-5">
+                  {/* AI scores */}
+                  <div>
+                    <div className={`text-[10px] font-semibold uppercase tracking-wide mb-3 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>AI Analysis</div>
+                    <div className="space-y-2.5">
+                      <ScoreBar label={`OCR Confidence (${ai.ocr_model ?? 'OCR'})`} value={ai.ocr_confidence ?? 0} good="high" isDark={isDark} />
+                      <ScoreBar label={`Signature Match (${ai.signature_model ?? 'SigNet'})`} value={ai.signature_score ?? 0} good="high" isDark={isDark} />
+                      <ScoreBar label={`Fraud Score (${ai.fraud_model ?? 'XGBoost'})`} value={ai.fraud_score ?? 0} good="low" isDark={isDark} />
+                      <ScoreBar label="Alteration Risk" value={ai.alteration_risk ?? 0} good="low" isDark={isDark} />
+                    </div>
+                  </div>
+
+                  {/* SHAP */}
+                  {(ai.shap ?? []).length > 0 && (
+                    <div>
+                      <div className={`text-[10px] font-semibold uppercase tracking-wide mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>SHAP — Key Factors</div>
+                      <div className={`text-[9px] mb-2 flex gap-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                        <span className="text-emerald-500">◀ lowers risk</span>
+                        <span className="text-red-400">raises risk ▶</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {ai.shap.map((s, i) => <ShapRow key={i} {...s} isDark={isDark} />)}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* AI narrative */}
+                  {item.ai_summary && (
+                    <div className={`text-xs rounded-lg px-3 py-2.5 border-l-2 border-violet-500 ${isDark ? 'bg-violet-900/20 text-slate-300' : 'bg-violet-50 text-slate-700'}`}>
+                      <span className={`font-semibold ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>AI Observation: </span>
+                      {item.ai_summary}
+                    </div>
+                  )}
+                </div>
+
+                {/* Action bar — always visible at bottom */}
+                <div className={`shrink-0 border-t px-5 py-4 ${isDark ? 'border-white/8 bg-navy-900/50' : 'border-slate-200 bg-white'}`}>
+                  {!isClaimed && !isDone && (
+                    <div className="space-y-2">
+                      <button onClick={() => handleClaim(item)}
+                        className="w-full py-2.5 rounded-xl font-semibold text-sm bg-violet-600 hover:bg-violet-500 text-white transition-colors">
+                        Claim &amp; Review
+                      </button>
+                    </div>
+                  )}
+                  {isClaimed && isMine && !isDone && (
+                    <div className="space-y-2">
+                      <button onClick={() => handleConfirm(item)}
+                        className="w-full py-2.5 rounded-xl font-semibold text-sm bg-emerald-600 hover:bg-emerald-500 text-white transition-colors flex items-center justify-center gap-2">
+                        <span>Confirm (PAY)</span>
+                        <kbd className="text-[10px] font-mono opacity-70 bg-white/20 px-1.5 py-0.5 rounded">A</kbd>
+                      </button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button onClick={() => setHoldTarget(item)}
+                          className="py-2 rounded-xl font-semibold text-sm bg-amber-600 hover:bg-amber-500 text-white transition-colors flex items-center justify-center gap-1.5">
+                          Hold
+                          <kbd className="text-[10px] font-mono opacity-70 bg-white/20 px-1 rounded">H</kbd>
+                        </button>
+                        <button onClick={() => setReturnTarget(item)}
+                          className="py-2 rounded-xl font-semibold text-sm bg-red-700 hover:bg-red-600 text-white transition-colors flex items-center justify-center gap-1.5">
+                          Return
+                          <kbd className="text-[10px] font-mono opacity-70 bg-white/20 px-1 rounded">R</kbd>
+                        </button>
+                      </div>
+                      <p className={`text-center text-[10px] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
+                        Keyboard: A = Confirm · R = Return · H = Hold · ←→ = Navigate
+                      </p>
+                    </div>
+                  )}
+                  {isClaimed && !isMine && (
+                    <p className={`text-center text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Locked by another reviewer</p>
+                  )}
+                  {isDone && (
+                    <div className="flex items-center justify-between">
+                      <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Decision recorded</span>
+                      <button onClick={() => setFocusIdx(i => Math.min(i + 1, sorted.length - 1))}
+                        className="text-sm px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-medium">
+                        Next →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </AppShell>
+    )
+  }
 
   return (
     <AppShell>
@@ -631,8 +845,18 @@ export default function CTSInwardReviewQueue() {
               {isLoading ? 'Loading…' : `${items.length} instrument${items.length !== 1 ? 's' : ''} · click any row to view cheque image and AI analysis`}
             </p>
           </div>
-          <div className={`text-xs px-3 py-1 rounded-full border ${isDark ? 'border-amber-700/40 bg-amber-900/30 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
-            IET countdown active — breach rate must be 0.000%
+          <div className="flex items-center gap-2">
+            {sorted.length > 0 && (
+              <button
+                onClick={() => { setFocusIdx(0); setFocusMode(true) }}
+                className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${isDark ? 'border-violet-700/50 bg-violet-900/20 text-violet-300 hover:bg-violet-900/40' : 'border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100'}`}
+              >
+                ⬛ Focus Mode
+              </button>
+            )}
+            <div className={`text-xs px-3 py-1 rounded-full border ${isDark ? 'border-amber-700/40 bg-amber-900/30 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+              IET breach rate must be 0.000%
+            </div>
           </div>
         </div>
 
