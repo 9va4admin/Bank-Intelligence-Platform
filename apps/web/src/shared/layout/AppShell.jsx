@@ -1,10 +1,61 @@
-import { useState, useContext, useEffect } from 'react'
+import { useState, useContext, useEffect, useCallback } from 'react'
 import { NavLink, Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../theme/ThemeContext'
 import { PageHeaderCtx } from './PageHeaderContext'
 import ChequeSearchBar from './ChequeSearchBar'
 import { useBankContext } from '../context/BankContext'
 import { BANK_CONFIG } from '../config/bank.config'
+import CommandPalette from './CommandPalette'
+
+// ── Notification data ────────────────────────────────────────────────────────
+
+const _ago = (mins) => Date.now() - mins * 60000
+
+const MOCK_NOTIFICATIONS = [
+  { id: 'n1', severity: 'CRITICAL', read: false, ts: _ago(3),
+    title: 'IET risk — 22 min remaining',
+    body: 'INS-20260812-00144: very high value ₹1.25 Cr with stop payment instruction. Claim immediately.',
+    action: '/cts/inward/review-queue' },
+  { id: 'n2', severity: 'CRITICAL', read: false, ts: _ago(9),
+    title: 'Stop payment detected',
+    body: 'Active stop payment on INS-20260812-00144 flagged by CBS connector. Instrument locked pending review.',
+    action: '/cts/inward/review-queue' },
+  { id: 'n3', severity: 'WARN', read: false, ts: _ago(16),
+    title: 'Vault miss — 3 accounts',
+    body: 'Signature vault returned no match for 3 accounts in today\'s batch. All routed to HRQ.',
+    action: '/cts/vault/gaps' },
+  { id: 'n4', severity: 'WARN', read: true, ts: _ago(34),
+    title: 'OCR confidence degraded',
+    body: 'GOT-OCR2.0 returned confidence < 0.82 on 4 instruments this session. Review AI decisions.',
+    action: '/cts/decisions' },
+  { id: 'n5', severity: 'INFO', read: true, ts: _ago(52),
+    title: 'Vault sync completed',
+    body: '2,847 signature records refreshed. PPS vault updated. Next sync at 06:00 AM.',
+    action: '/cts/vault/status' },
+  { id: 'n6', severity: 'INFO', read: true, ts: _ago(94),
+    title: 'Morning session cleared',
+    body: 'Clearing session 2026-08-12: 609 instruments, ₹27.4 Cr settled. IET breach rate: 0.000%.',
+    action: null },
+]
+
+function fmtNotifTs(ts) {
+  const mins = Math.floor((Date.now() - ts) / 60000)
+  if (mins < 1)  return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  return `${hrs}h ago`
+}
+
+const SEV_D = {
+  CRITICAL: { dot: 'bg-red-500',    badge: 'bg-red-900/50 text-red-300 border-red-700/40',    ring: 'border-red-700/30' },
+  WARN:     { dot: 'bg-amber-400',  badge: 'bg-amber-900/40 text-amber-300 border-amber-700/40', ring: 'border-amber-700/20' },
+  INFO:     { dot: 'bg-blue-400',   badge: 'bg-blue-900/40 text-blue-300 border-blue-700/40',  ring: 'border-white/8' },
+}
+const SEV_L = {
+  CRITICAL: { dot: 'bg-red-500',    badge: 'bg-red-50 text-red-700 border-red-200',     ring: 'border-red-200' },
+  WARN:     { dot: 'bg-amber-400',  badge: 'bg-amber-50 text-amber-700 border-amber-200', ring: 'border-amber-100' },
+  INFO:     { dot: 'bg-blue-400',   badge: 'bg-blue-50 text-blue-700 border-blue-200',   ring: 'border-slate-200' },
+}
 
 // Nav item visibility is controlled by two independent gates:
 //   1. sbOnly: true  — SB bank type required (structural — SMB never sees SB management pages)
@@ -315,7 +366,28 @@ export default function AppShell({ children }) {
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [cmdOpen, setCmdOpen] = useState(false)
+  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS)
   const { bankType, bankName, bankIfsc, isSB, isSMB, userRole, userName, hasPermission, bankMode } = useBankContext()
+
+  const unreadCount = notifications.filter(n => !n.read).length
+
+  // Ctrl+K — open command palette
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        setCmdOpen(v => !v)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
+  const markAllRead = useCallback(() => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+  }, [])
 
   const [section, page] = useBreadcrumb(location.pathname)
   const currentModule = activeModuleId(location.pathname)
@@ -447,15 +519,37 @@ export default function AppShell({ children }) {
               </span>
             </div>
 
+            {/* Command palette trigger */}
+            <button
+              onClick={() => setCmdOpen(true)}
+              title="Command palette (Ctrl+K)"
+              className={`hidden sm:flex items-center gap-1.5 text-[11px] rounded-lg px-2 py-1.5 border transition-colors ${isDark ? 'border-white/10 text-slate-400 hover:text-white hover:bg-white/8' : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
+            >
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" className="w-3 h-3">
+                <circle cx="6.5" cy="6.5" r="4.5" />
+                <path d="M10 10l3.5 3.5" strokeLinecap="round" />
+              </svg>
+              <span className="hidden md:inline">Search</span>
+              <kbd className={`hidden md:inline font-mono text-[9px] px-1 py-0.5 rounded ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>⌘K</kbd>
+            </button>
+
             {/* Notification bell */}
             <div className="relative">
-              <button className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/8' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`}>
+              <button
+                onClick={() => setNotifOpen(v => !v)}
+                title="Notifications"
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${notifOpen ? (isDark ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-800') : (isDark ? 'text-slate-400 hover:text-white hover:bg-white/8' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100')}`}
+              >
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-4 h-4">
                   <path d="M10 2a6 6 0 00-6 6v2l-2 4h16l-2-4V8a6 6 0 00-6-6z" strokeLinecap="round" strokeLinejoin="round" />
                   <path d="M10 18a2 2 0 01-2-2h4a2 2 0 01-2 2z" />
                 </svg>
               </button>
-              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500 pointer-events-none" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-0.5 pointer-events-none">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </div>
 
             {/* Theme toggle */}
@@ -513,6 +607,101 @@ export default function AppShell({ children }) {
           {children}
         </div>
       </div>
+
+      {/* ── Notification drawer ──────────────────────────────────────────────── */}
+      {notifOpen && (
+        <>
+          {/* backdrop */}
+          <div className="fixed inset-0 z-[200]" onClick={() => setNotifOpen(false)} />
+          <div
+            className={`fixed top-0 right-0 bottom-0 z-[201] flex flex-col border-l shadow-2xl transition-all ${isDark ? 'bg-[#06102a] border-white/10' : 'bg-white border-slate-200'}`}
+            style={{ width: 380 }}
+          >
+            {/* Header */}
+            <div className={`flex items-center justify-between px-5 py-4 border-b shrink-0 ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
+              <div>
+                <h2 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>Notifications</h2>
+                <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllRead}
+                    className={`text-[11px] px-2.5 py-1 rounded-lg border font-medium transition-colors ${isDark ? 'border-white/10 text-slate-400 hover:text-white hover:bg-white/8' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                  >
+                    Mark all read
+                  </button>
+                )}
+                <button
+                  onClick={() => setNotifOpen(false)}
+                  className={`w-7 h-7 flex items-center justify-center rounded-lg ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/8' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`}
+                >
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+                    <path strokeLinecap="round" d="M4 4l8 8M12 4l-8 8" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Notification list */}
+            <div className="flex-1 overflow-y-auto">
+              {notifications.map((n) => {
+                const SEV = isDark ? SEV_D : SEV_L
+                const s = SEV[n.severity] ?? SEV.INFO
+                return (
+                  <div
+                    key={n.id}
+                    className={`relative px-5 py-4 border-b cursor-pointer transition-colors ${isDark ? 'border-white/5 hover:bg-white/3' : 'border-slate-100 hover:bg-slate-50'} ${!n.read ? (isDark ? 'bg-white/2' : 'bg-blue-50/40') : ''}`}
+                    onClick={() => {
+                      setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))
+                      if (n.action) window.location.href = n.action
+                    }}
+                  >
+                    {/* Unread indicator */}
+                    {!n.read && (
+                      <span className={`absolute left-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full ${s.dot}`} />
+                    )}
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${s.badge}`}>
+                            {n.severity}
+                          </span>
+                          <span className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{fmtNotifTs(n.ts)}</span>
+                        </div>
+                        <p className={`text-xs font-semibold leading-snug mb-1 ${isDark ? (n.read ? 'text-slate-300' : 'text-white') : (n.read ? 'text-slate-600' : 'text-slate-900')}`}>{n.title}</p>
+                        <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{n.body}</p>
+                      </div>
+                      {n.action && (
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-3.5 h-3.5 shrink-0 mt-1" style={{ color: isDark ? '#64748b' : '#94a3b8' }}>
+                          <path d="M6 3l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className={`px-5 py-3 border-t shrink-0 ${isDark ? 'border-white/8' : 'border-slate-200'}`}>
+              <p className={`text-[10px] text-center ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
+                Powered by PlatformHealthCheckWorkflow · 60s cadence
+              </p>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Command palette ──────────────────────────────────────────────────── */}
+      <CommandPalette
+        open={cmdOpen}
+        onClose={() => setCmdOpen(false)}
+        onToggleTheme={toggle}
+        isDark={isDark}
+      />
     </div>
   )
 }
