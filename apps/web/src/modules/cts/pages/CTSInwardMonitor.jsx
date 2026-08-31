@@ -364,7 +364,7 @@ export default function CTSInwardMonitor() {
         </div>
 
         {/* ── Canvas + detail panel ── */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex overflow-hidden" style={{ height: 'calc(100vh - 160px)' }}>
 
           {/* React Flow canvas */}
           <div className="flex-1 relative">
@@ -382,7 +382,7 @@ export default function CTSInwardMonitor() {
               minZoom={0.35}
               maxZoom={1.5}
               proOptions={{ hideAttribution: true }}
-              style={{ background: th.flow }}
+              style={{ width: '100%', height: '100%', background: th.flow }}
             >
               <Background
                 variant={BackgroundVariant.Dots}
