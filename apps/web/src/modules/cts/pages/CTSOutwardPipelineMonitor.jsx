@@ -23,13 +23,13 @@ import { useBankContext } from '../../../shared/context/BankContext'
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 
-const LANE_W   = 172
-const HDR_H    = 56
-const CHQ_W    = 150
-const CHQ_H    = 108
+const LANE_W   = 190
+const HDR_H    = 60
+const CHQ_W    = 168
+const CHQ_H    = 155
 const CHQ_PAD  = 11
-const CHQ_VPAD = 12
-const CHQ_GAP  = 10
+const CHQ_VPAD = 14
+const CHQ_GAP  = 12
 
 // ── Stage config ─────────────────────────────────────────────────────────────
 
@@ -147,8 +147,8 @@ function StageHeaderNode({ data }) {
       className={`flex flex-col items-center justify-center select-none border-b
         ${isDark ? 'bg-navy-900/70 border-white/10 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-600'}`}
     >
-      <span className="text-base leading-none">{data.icon}</span>
-      <span className={`text-[10px] font-mono uppercase tracking-widest mt-0.5
+      <span className="text-lg leading-none">{data.icon}</span>
+      <span className={`text-[10px] font-mono uppercase tracking-widest mt-1
         ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
         {data.label}
       </span>
@@ -195,20 +195,20 @@ function OutwardChequeNode({ data, selected }) {
   return (
     <div
       style={{ width: CHQ_W, height: CHQ_H }}
-      className={`rounded-lg border-2 px-3 py-2 cursor-pointer transition-shadow
+      className={`rounded-lg border-2 px-3 py-3 cursor-pointer transition-shadow
         ${URGENCY_BORDER[u]}
         ${isDark ? URGENCY_BG_D[u] : URGENCY_BG_L[u]}
         ${selected ? (isDark ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-navy-900' : 'ring-2 ring-amber-500 ring-offset-1') : ''}
         ${u === 'urgent' ? 'animate-pulse' : ''}`}
     >
       {/* ID + lot badge */}
-      <div className="flex items-center justify-between mb-1">
-        <span className={`font-mono text-[10px] font-semibold
-          ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+      <div className="flex items-center justify-between mb-2">
+        <span className={`font-mono text-[11px] font-bold
+          ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
           ****{data.id.slice(-4)}
         </span>
         {data.lot && (
-          <span className={`text-[9px] font-mono px-1 py-0.5 rounded
+          <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded
             ${isDark ? 'bg-sky-900/60 text-sky-300' : 'bg-sky-100 text-sky-700'}`}>
             {data.lot}
           </span>
@@ -216,38 +216,41 @@ function OutwardChequeNode({ data, selected }) {
       </div>
 
       {/* Drawee bank */}
-      <div className={`text-[10px] truncate mb-0.5 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+      <div className={`text-[11px] truncate mb-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
         {data.drawee}
       </div>
 
       {/* Amount */}
-      <div className={`text-[11px] font-mono mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+      <div className={`text-[13px] font-mono font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
         {data.amount}
       </div>
 
+      {/* Divider */}
+      <div className={`border-t mb-2 ${isDark ? 'border-white/8' : 'border-slate-200'}`} />
+
       {/* Stage-specific indicator */}
       {data.iqa_fail && (
-        <div className="text-[9px] font-bold text-red-400 truncate">⚠ IQA FAIL — Rescan</div>
+        <div className="text-[10px] font-bold text-red-400 truncate mb-1">⚠ IQA FAIL — Rescan</div>
       )}
       {data.cts_violation && !data.iqa_fail && (
-        <div className="text-[9px] font-bold text-red-400 truncate">⚠ CTS-2010 Fail</div>
+        <div className="text-[10px] font-bold text-red-400 truncate mb-1">⚠ CTS-2010 Fail</div>
       )}
       {data.amount_mismatch && !data.iqa_fail && !data.cts_violation && (
-        <div className="text-[9px] font-bold text-amber-400 truncate">⚠ Amount Mismatch</div>
+        <div className="text-[10px] font-bold text-amber-400 truncate mb-1">⚠ Amount Mismatch</div>
       )}
       {data.ocr_conf != null && !data.iqa_fail && !data.cts_violation && !data.amount_mismatch && (
-        <div className={`text-[9px] font-mono ${data.ocr_conf >= 0.95 ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : 'text-amber-400'}`}>
+        <div className={`text-[10px] font-mono mb-1 ${data.ocr_conf >= 0.95 ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : 'text-amber-400'}`}>
           OCR {Math.round(data.ocr_conf * 100)}%
         </div>
       )}
       {data.ngch_status && (
-        <div className={`text-[9px] font-bold ${data.ngch_status === 'ACCEPTED' ? 'text-emerald-400' : (isDark ? 'text-sky-400' : 'text-sky-600')}`}>
+        <div className={`text-[10px] font-bold mb-1 ${data.ngch_status === 'ACCEPTED' ? 'text-emerald-400' : (isDark ? 'text-sky-400' : 'text-sky-600')}`}>
           {data.ngch_status === 'ACCEPTED' ? '✓ Accepted' : '⟳ Ack Pending'}
         </div>
       )}
 
       {/* Session countdown */}
-      <div className={`text-[9px] font-mono mt-1 ${urgent ? 'text-red-400 font-bold' : (isDark ? 'text-slate-500' : 'text-slate-400')}`}>
+      <div className={`text-[10px] font-mono mt-auto ${urgent ? 'text-red-400 font-bold' : (isDark ? 'text-slate-500' : 'text-slate-400')}`}>
         Window: {minsLeft}m {urgent ? '⚠' : ''}
       </div>
     </div>
@@ -431,7 +434,7 @@ export default function CTSOutwardPipelineMonitor() {
 
         {/* Canvas + detail panel — explicit vh height because AppShell content
             area uses overflow-y-auto which breaks flex-1 height propagation */}
-        <div className="flex overflow-hidden" style={{ height: 'calc(100vh - 160px)' }}>
+        <div className="flex overflow-hidden" style={{ height: 'calc(100vh - 156px)' }}>
           <div className="flex-1 relative">
             <ReactFlow
               nodes={nodes}
@@ -441,7 +444,7 @@ export default function CTSOutwardPipelineMonitor() {
               onNodeClick={onNodeClick}
               onPaneClick={onPaneClick}
               fitView
-              fitViewOptions={{ padding: 0.12, maxZoom: 1 }}
+              fitViewOptions={{ padding: 0.06, minZoom: 0.4, maxZoom: 1.2 }}
               panOnDrag
               zoomOnScroll
               minZoom={0.35}
