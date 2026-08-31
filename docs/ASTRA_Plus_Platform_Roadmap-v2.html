@@ -1,0 +1,1308 @@
+<title>ASTRA+ Platform Roadmap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Serif:wght@300;400;600&display=swap" rel="stylesheet">
+
+<style>
+/* ── tokens ─────────────────────────────────────────────────────────────── */
+:root {
+  --ground:      #06111F;
+  --surf1:       #0D1E35;
+  --surf2:       #122741;
+  --surf3:       #172F52;
+  --border:      rgba(148,163,184,.10);
+  --border-hi:   rgba(148,163,184,.22);
+  --txt1:        #EFF6FF;
+  --txt2:        #7EA5C5;
+  --txt3:        #3D6080;
+  --accent:      #00C9A7;
+  --accent-dim:  rgba(0,201,167,.12);
+  --cts:         #3B82F6;
+  --cts-dim:     rgba(59,130,246,.12);
+  --ej:          #10B981;
+  --ej-dim:      rgba(16,185,129,.12);
+  --pramaan:     #A78BFA;
+  --pramaan-dim: rgba(167,139,250,.12);
+  --ibb:         #F59E0B;
+  --ibb-dim:     rgba(245,158,11,.12);
+  --ok:          #10B981;
+  --warn:        #F59E0B;
+  --crit:        #F87171;
+  --radius:      10px;
+  --font-serif:  'IBM Plex Serif', Georgia, serif;
+  --font-sans:   'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono:   'IBM Plex Mono', monospace;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --ground:    #F0F5FA;
+    --surf1:     #FFFFFF;
+    --surf2:     #F1F5F9;
+    --surf3:     #E2EAF4;
+    --border:    rgba(15,23,42,.08);
+    --border-hi: rgba(15,23,42,.18);
+    --txt1:      #0F172A;
+    --txt2:      #475569;
+    --txt3:      #94A3B8;
+    --accent:    #008A72;
+    --accent-dim:rgba(0,138,114,.10);
+    --cts-dim:   rgba(59,130,246,.08);
+    --ej-dim:    rgba(16,185,129,.08);
+    --pramaan-dim:rgba(167,139,250,.08);
+    --ibb-dim:   rgba(245,158,11,.08);
+  }
+}
+:root[data-theme="dark"] {
+  --ground:      #06111F;
+  --surf1:       #0D1E35;
+  --surf2:       #122741;
+  --surf3:       #172F52;
+  --border:      rgba(148,163,184,.10);
+  --border-hi:   rgba(148,163,184,.22);
+  --txt1:        #EFF6FF;
+  --txt2:        #7EA5C5;
+  --txt3:        #3D6080;
+  --accent:      #00C9A7;
+  --accent-dim:  rgba(0,201,167,.12);
+  --cts:         #3B82F6;
+  --cts-dim:     rgba(59,130,246,.12);
+  --ej:          #10B981;
+  --ej-dim:      rgba(16,185,129,.12);
+  --pramaan:     #A78BFA;
+  --pramaan-dim: rgba(167,139,250,.12);
+  --ibb:         #F59E0B;
+  --ibb-dim:     rgba(245,158,11,.12);
+}
+
+/* ── reset & base ───────────────────────────────────────────────────────── */
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html { scroll-behavior:smooth; }
+body {
+  font-family:var(--font-sans);
+  background:var(--ground);
+  color:var(--txt1);
+  line-height:1.6;
+  font-size:15px;
+  padding-top:52px;
+}
+a { color:inherit; text-decoration:none; }
+img { max-width:100%; }
+
+/* ── nav ────────────────────────────────────────────────────────────────── */
+nav {
+  position:fixed; top:0; left:0; right:0; z-index:100;
+  height:52px;
+  background:rgba(6,17,31,.92);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:0;
+  padding:0 32px;
+}
+.nav-brand {
+  font-family:var(--font-serif);
+  font-size:15px; font-weight:600;
+  color:var(--accent);
+  letter-spacing:.02em;
+  margin-right:28px;
+  flex-shrink:0;
+}
+.nav-links { display:flex; gap:4px; flex:1; }
+.nav-links a {
+  font-size:12px; font-weight:500; letter-spacing:.04em;
+  text-transform:uppercase; color:var(--txt3);
+  padding:6px 12px; border-radius:6px;
+  transition:color .15s, background .15s;
+}
+.nav-links a:hover, .nav-links a.active { color:var(--txt1); background:var(--surf2); }
+.nav-theme {
+  margin-left:auto;
+  width:34px; height:34px; border-radius:8px;
+  border:1px solid var(--border-hi);
+  background:var(--surf1); cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--txt2); font-size:15px;
+  transition:background .15s;
+}
+.nav-theme:hover { background:var(--surf2); }
+
+/* ── layout helpers ─────────────────────────────────────────────────────── */
+.container { max-width:1200px; margin:0 auto; padding:0 40px; }
+.section { padding:80px 0; }
+.section + .section { border-top:1px solid var(--border); }
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:start; }
+.two-col-6040 { display:grid; grid-template-columns:3fr 2fr; gap:48px; align-items:start; }
+
+/* ── section eyebrow & headings ─────────────────────────────────────────── */
+.eyebrow {
+  font-size:11px; font-weight:600; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--txt3);
+  margin-bottom:10px; display:block;
+}
+h1.display {
+  font-family:var(--font-serif);
+  font-size:clamp(40px,5vw,60px);
+  font-weight:300; line-height:1.1;
+  text-wrap:balance;
+  letter-spacing:-.02em;
+}
+h1.display strong { font-weight:600; }
+h2.section-title {
+  font-family:var(--font-serif);
+  font-size:clamp(26px,3vw,36px);
+  font-weight:400; line-height:1.2;
+  text-wrap:balance;
+  letter-spacing:-.01em;
+  color:var(--txt1);
+}
+h3.module-name {
+  font-family:var(--font-sans);
+  font-size:22px; font-weight:600;
+  color:var(--txt1);
+  letter-spacing:-.01em;
+}
+h4.card-head {
+  font-size:13px; font-weight:600;
+  color:var(--txt1); margin-bottom:4px;
+}
+p.lead { font-size:16px; color:var(--txt2); line-height:1.65; }
+p.body { color:var(--txt2); line-height:1.65; margin-bottom:12px; }
+
+/* ── status badges ───────────────────────────────────────────────────────── */
+.badge {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:4px 12px; border-radius:100px;
+  font-size:11px; font-weight:600; letter-spacing:.07em;
+  text-transform:uppercase; border:1px solid;
+}
+.badge-live     { color:#10B981; border-color:rgba(16,185,129,.35); background:rgba(16,185,129,.08); }
+.badge-proto    { color:#3B82F6; border-color:rgba(59,130,246,.35); background:rgba(59,130,246,.08); }
+.badge-blueprint{ color:#A78BFA; border-color:rgba(167,139,250,.35); background:rgba(167,139,250,.08); }
+.badge-gate     { color:#F59E0B; border-color:rgba(245,158,11,.35); background:rgba(245,158,11,.08); }
+.badge-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
+
+/* ── module section wrapper ─────────────────────────────────────────────── */
+.module-section { padding:80px 0; position:relative; }
+.module-section::before {
+  content:'';
+  position:absolute; left:0; top:0; bottom:0; width:3px;
+}
+.mod-cts::before     { background:var(--cts); }
+.mod-ej::before      { background:var(--ej); }
+.mod-pramaan::before { background:var(--pramaan); }
+.mod-ibb::before     { background:var(--ibb); }
+
+.module-watermark {
+  position:absolute; right:40px; top:60px;
+  font-family:var(--font-serif); font-size:160px; font-weight:600;
+  line-height:1; letter-spacing:-.04em;
+  opacity:.035; pointer-events:none; user-select:none;
+  color:var(--txt1);
+}
+
+/* ── metric tiles ────────────────────────────────────────────────────────── */
+.metrics-row { display:grid; gap:12px; margin:24px 0; }
+.metrics-4 { grid-template-columns:repeat(4,1fr); }
+.metrics-3 { grid-template-columns:repeat(3,1fr); }
+.metric-tile {
+  background:var(--surf1); border:1px solid var(--border);
+  border-radius:var(--radius); padding:16px;
+}
+.metric-val {
+  font-family:var(--font-mono); font-size:22px; font-weight:500;
+  color:var(--txt1); line-height:1.1; display:block;
+  font-variant-numeric:tabular-nums;
+}
+.metric-label { font-size:11px; color:var(--txt3); margin-top:4px; display:block; letter-spacing:.04em; text-transform:uppercase; }
+
+/* ── cards ───────────────────────────────────────────────────────────────── */
+.card {
+  background:var(--surf1); border:1px solid var(--border);
+  border-radius:var(--radius); padding:20px;
+}
+.card-sm { padding:14px 16px; }
+
+/* ── platform grid ───────────────────────────────────────────────────────── */
+.platform-grid {
+  display:grid; grid-template-columns:repeat(4,1fr);
+  gap:12px; margin-top:32px;
+}
+.platform-card {
+  background:var(--surf1); border:1px solid var(--border);
+  border-radius:var(--radius); padding:18px;
+  transition:border-color .2s;
+}
+.platform-card:hover { border-color:var(--border-hi); }
+.platform-icon {
+  width:36px; height:36px; border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
+  margin-bottom:12px;
+  background:var(--accent-dim);
+}
+.platform-icon svg { width:18px; height:18px; stroke:var(--accent); fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+.platform-card p { font-size:12px; color:var(--txt2); line-height:1.5; margin-top:4px; }
+
+/* ── screen frame (mock UI) ──────────────────────────────────────────────── */
+.screen-frame {
+  border-radius:12px; overflow:hidden;
+  border:1px solid var(--border-hi);
+  box-shadow:0 24px 60px rgba(0,0,0,.35);
+  background:var(--surf2);
+}
+.screen-chrome {
+  background:var(--surf3); padding:10px 14px;
+  display:flex; align-items:center; gap:8px;
+  border-bottom:1px solid var(--border);
+}
+.chrome-dot { width:10px; height:10px; border-radius:50%; }
+.chrome-title {
+  font-size:11px; font-weight:500; color:var(--txt2);
+  letter-spacing:.04em; flex:1; text-align:center;
+}
+.chrome-badge { font-size:10px; color:var(--txt3); font-family:var(--font-mono); }
+.screen-body { padding:14px; }
+
+/* ── queue table (CTS mock) ──────────────────────────────────────────────── */
+.queue-hdr {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:10px;
+}
+.queue-title { font-size:12px; font-weight:600; color:var(--txt1); }
+.queue-stat { font-size:11px; color:var(--txt2); font-family:var(--font-mono); }
+.q-table { width:100%; border-collapse:collapse; font-size:11px; font-family:var(--font-mono); }
+.q-table th {
+  text-align:left; color:var(--txt3); font-size:10px; font-weight:500;
+  letter-spacing:.06em; text-transform:uppercase;
+  padding:0 8px 6px; border-bottom:1px solid var(--border);
+}
+.q-table td { padding:5px 8px; color:var(--txt2); border-bottom:1px solid rgba(148,163,184,.04); }
+.q-table tr:hover td { background:rgba(148,163,184,.04); }
+.status-pill {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:2px 8px; border-radius:100px; font-size:10px; font-weight:600;
+}
+.s-stp  { color:#10B981; background:rgba(16,185,129,.12); }
+.s-hmn  { color:#F59E0B; background:rgba(245,158,11,.12); }
+.s-rtn  { color:#F87171; background:rgba(248,113,113,.12); }
+.score-bar { display:inline-block; width:36px; height:4px; border-radius:2px; background:var(--surf3); vertical-align:middle; position:relative; overflow:hidden; }
+.score-fill { height:100%; border-radius:2px; }
+.screen-footer {
+  padding:8px 14px;
+  border-top:1px solid var(--border);
+  display:flex; gap:16px;
+  font-size:10px; color:var(--txt3); font-family:var(--font-mono);
+}
+
+/* ── EJ mock ─────────────────────────────────────────────────────────────── */
+.kpi-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border); margin-bottom:10px; }
+.kpi-cell { background:var(--surf2); padding:8px 10px; }
+.kpi-val { font-size:18px; font-weight:600; font-family:var(--font-mono); color:var(--txt1); line-height:1; }
+.kpi-lbl { font-size:9px; color:var(--txt3); text-transform:uppercase; letter-spacing:.06em; margin-top:2px; }
+.fleet-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; flex:1; }
+.fleet-card { background:var(--surf3); border-radius:6px; padding:8px 10px; border:1px solid var(--border); }
+.fleet-id { font-size:10px; font-weight:600; font-family:var(--font-mono); color:var(--txt1); }
+.fleet-status { font-size:10px; margin-top:2px; }
+.fleet-txns { font-size:9px; color:var(--txt3); margin-top:4px; }
+.alarm-feed { background:var(--surf3); border-radius:6px; padding:10px; border:1px solid rgba(248,113,113,.2); flex:1; }
+.alarm-title { font-size:10px; font-weight:600; color:#F87171; margin-bottom:6px; }
+.alarm-item { font-size:10px; color:var(--txt2); line-height:1.5; padding-bottom:6px; border-bottom:1px solid var(--border); margin-bottom:6px; }
+.alarm-item:last-child { border:none; margin:0; padding:0; }
+.ej-lower { display:flex; gap:8px; margin-top:8px; }
+
+/* ── PRAMAAN calendar mock ───────────────────────────────────────────────── */
+.cal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.cal-month { font-size:12px; font-weight:600; color:var(--txt1); }
+.cal-dqi { font-size:11px; font-family:var(--font-mono); color:var(--accent); }
+.cal-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; }
+.cal-day-hdr { font-size:9px; color:var(--txt3); text-align:center; padding:2px 0; text-transform:uppercase; letter-spacing:.06em; }
+.cal-day { background:var(--surf3); border-radius:4px; padding:4px; min-height:42px; }
+.cal-day-num { font-size:10px; color:var(--txt2); font-family:var(--font-mono); margin-bottom:2px; }
+.cal-event { font-size:9px; padding:1px 4px; border-radius:3px; margin-bottom:1px; font-weight:600; }
+.ce-t1 { background:rgba(248,113,113,.18); color:#F87171; }
+.ce-t2 { background:rgba(245,158,11,.18); color:#F59E0B; }
+.ce-t3 { background:rgba(167,139,250,.18); color:#A78BFA; }
+.ce-t4 { background:rgba(16,185,129,.18); color:#10B981; }
+.ce-done { opacity:.45; }
+.cal-legend { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+.cl-item { display:flex; align-items:center; gap:4px; font-size:9px; color:var(--txt3); }
+.cl-dot { width:8px; height:8px; border-radius:2px; }
+
+/* ── IBB mock ─────────────────────────────────────────────────────────────── */
+.form-row { margin-bottom:8px; }
+.form-label { font-size:10px; color:var(--txt3); letter-spacing:.05em; text-transform:uppercase; margin-bottom:3px; display:block; }
+.form-val { font-size:12px; color:var(--txt1); font-family:var(--font-mono); background:var(--surf3); border:1px solid var(--border); border-radius:5px; padding:5px 10px; }
+.form-row-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
+.dup-alert {
+  background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.30);
+  border-radius:6px; padding:10px 12px; margin:8px 0;
+}
+.dup-title { font-size:11px; font-weight:600; color:#F59E0B; margin-bottom:4px; }
+.dup-body { font-size:10px; color:var(--txt2); line-height:1.5; }
+.form-actions { display:flex; gap:6px; margin-top:10px; }
+.btn { font-size:10px; font-weight:600; padding:5px 12px; border-radius:5px; border:1px solid var(--border); cursor:pointer; color:var(--txt2); background:var(--surf3); letter-spacing:.04em; }
+.btn-warn { border-color:rgba(245,158,11,.5); color:#F59E0B; background:rgba(245,158,11,.08); }
+.idkey { font-family:var(--font-mono); font-size:9px; color:var(--txt3); margin-top:6px; }
+
+/* ── flow diagram ────────────────────────────────────────────────────────── */
+.flow { margin-top:36px; }
+.flow-title { font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--txt3); margin-bottom:16px; }
+.flow-steps { display:flex; align-items:stretch; gap:0; }
+.flow-step {
+  flex:1; position:relative;
+  background:var(--surf1); border:1px solid var(--border);
+  border-right:none; padding:14px 16px;
+}
+.flow-step:first-child { border-radius:var(--radius) 0 0 var(--radius); }
+.flow-step:last-child { border-right:1px solid var(--border); border-radius:0 var(--radius) var(--radius) 0; }
+.flow-step::after {
+  content:'';
+  position:absolute; right:-8px; top:50%; transform:translateY(-50%);
+  width:0; height:0;
+  border-left:8px solid var(--border-hi);
+  border-top:8px solid transparent;
+  border-bottom:8px solid transparent;
+  z-index:1;
+}
+.flow-step:last-child::after { display:none; }
+.flow-step-num { font-size:9px; font-weight:600; color:var(--txt3); letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px; }
+.flow-step-label { font-size:12px; font-weight:600; color:var(--txt1); margin-bottom:3px; }
+.flow-step-sub { font-size:10px; color:var(--txt2); line-height:1.4; }
+.flow-time {
+  font-family:var(--font-mono); font-size:10px; font-weight:500;
+  margin-top:6px; padding:2px 7px; border-radius:4px; display:inline-block;
+}
+
+/* ── hero ─────────────────────────────────────────────────────────────────── */
+.hero { padding:96px 0 80px; }
+.hero-sub { font-size:16px; color:var(--txt2); margin:16px 0 32px; max-width:560px; line-height:1.6; }
+.module-chips { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:40px; }
+.module-chip {
+  display:flex; align-items:center; gap:8px;
+  padding:8px 16px; border-radius:100px;
+  border:1px solid var(--border-hi);
+  background:var(--surf1); font-size:12px; font-weight:600;
+}
+.chip-dot { width:8px; height:8px; border-radius:50%; }
+.chip-name { color:var(--txt1); }
+.chip-status { font-size:10px; color:var(--txt3); font-family:var(--font-mono); }
+.hero-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--border); max-width:640px; border-radius:var(--radius); overflow:hidden; }
+.hero-stat { background:var(--surf1); padding:20px 24px; }
+.hero-stat-val { font-family:var(--font-serif); font-size:28px; font-weight:300; color:var(--accent); display:block; }
+.hero-stat-lbl { font-size:11px; color:var(--txt3); margin-top:2px; text-transform:uppercase; letter-spacing:.06em; }
+
+/* ── cross-module table ───────────────────────────────────────────────────── */
+.cross-table { width:100%; border-collapse:collapse; margin-top:28px; font-size:12px; }
+.cross-table th {
+  text-align:left; font-size:10px; font-weight:600; letter-spacing:.07em;
+  text-transform:uppercase; color:var(--txt3); padding:8px 12px;
+  border-bottom:2px solid var(--border-hi);
+}
+.cross-table td { padding:10px 12px; border-bottom:1px solid var(--border); color:var(--txt2); vertical-align:top; }
+.cross-table tr:last-child td { border-bottom:none; }
+.cross-table .row-label { font-weight:600; color:var(--txt1); white-space:nowrap; }
+.mod-dot-cts     { color:var(--cts); }
+.mod-dot-ej      { color:var(--ej); }
+.mod-dot-pramaan { color:var(--pramaan); }
+.mod-dot-ibb     { color:var(--ibb); }
+
+/* ── decision path ───────────────────────────────────────────────────────── */
+.decision-stages { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-top:32px; }
+.stage-card {
+  background:var(--surf1); border:1px solid var(--border);
+  border-radius:var(--radius); padding:20px; position:relative;
+}
+.stage-num {
+  font-family:var(--font-serif); font-size:48px; font-weight:300;
+  color:var(--border-hi); line-height:1; position:absolute; top:12px; right:16px;
+}
+.stage-label { font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--txt3); margin-bottom:8px; }
+.stage-action { font-size:14px; font-weight:600; color:var(--txt1); margin-bottom:8px; }
+.stage-gate { font-size:11px; color:var(--txt2); line-height:1.5; }
+.stage-gate strong { color:var(--accent); }
+
+/* ── bullet list ─────────────────────────────────────────────────────────── */
+.bullet-list { list-style:none; }
+.bullet-list li {
+  display:flex; gap:10px; padding:8px 0;
+  border-bottom:1px solid var(--border); color:var(--txt2);
+  font-size:14px; line-height:1.5;
+}
+.bullet-list li:last-child { border:none; }
+.bullet-list li::before { content:'—'; color:var(--txt3); flex-shrink:0; }
+
+/* ── divider label ───────────────────────────────────────────────────────── */
+.divider-label {
+  display:flex; align-items:center; gap:16px; margin-bottom:32px;
+}
+.divider-label::before, .divider-label::after {
+  content:''; flex:1; height:1px; background:var(--border);
+}
+.divider-label span { font-size:10px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--txt3); white-space:nowrap; }
+
+/* ── section intro ───────────────────────────────────────────────────────── */
+.section-intro { max-width:640px; margin-bottom:48px; }
+.section-intro p { color:var(--txt2); line-height:1.65; }
+
+/* ── responsive ──────────────────────────────────────────────────────────── */
+@media (max-width:900px) {
+  .two-col, .two-col-6040 { grid-template-columns:1fr; }
+  .platform-grid { grid-template-columns:repeat(2,1fr); }
+  .metrics-4, .metrics-3 { grid-template-columns:repeat(2,1fr); }
+  .flow-steps { flex-direction:column; }
+  .flow-step { border-right:1px solid var(--border); border-bottom:none; border-radius:0; }
+  .flow-step:first-child { border-radius:var(--radius) var(--radius) 0 0; }
+  .flow-step:last-child { border-bottom:1px solid var(--border); border-radius:0 0 var(--radius) var(--radius); }
+  .flow-step::after { display:none; }
+  .decision-stages { grid-template-columns:1fr 1fr; }
+  .hero-stats { grid-template-columns:1fr; }
+  .module-watermark { display:none; }
+}
+@media (prefers-reduced-motion:reduce) { * { animation:none!important; transition:none!important; } }
+</style>
+
+<!-- NAV -->
+<nav>
+  <span class="nav-brand">ASTRA+</span>
+  <div class="nav-links">
+    <a href="#platform">Platform</a>
+    <a href="#cts">CTS</a>
+    <a href="#ej">EJ Intelligence</a>
+    <a href="#pramaan">PRAMAAN</a>
+    <a href="#ibb">IBB</a>
+    <a href="#crossmodule">Cross-Module</a>
+    <a href="#decision">Decision</a>
+  </div>
+  <button class="nav-theme" id="themeBtn" aria-label="Toggle theme">☀</button>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="hero">
+  <div class="container">
+    <span class="eyebrow">Banking Platform 2.0 · August 2026 · Confidential</span>
+    <h1 class="display">One platform.<br><strong>Four modules.</strong><br>Zero rebuild.</h1>
+    <p class="hero-sub">ASTRA is not a cheque-processing product. It is a shared substrate — vault isolation, exactly-once orchestration, tamper-evident audit, explainable AI — that each module points at a different external counterparty.</p>
+
+    <div class="module-chips">
+      <div class="module-chip">
+        <span class="chip-dot" style="background:var(--cts)"></span>
+        <span class="chip-name">CTS</span>
+        <span class="chip-status">LIVE</span>
+      </div>
+      <div class="module-chip">
+        <span class="chip-dot" style="background:var(--ej)"></span>
+        <span class="chip-name">EJ Intelligence</span>
+        <span class="chip-status">PROTOTYPE</span>
+      </div>
+      <div class="module-chip">
+        <span class="chip-dot" style="background:var(--pramaan)"></span>
+        <span class="chip-name">PRAMAAN</span>
+        <span class="chip-status">BLUEPRINT-READY</span>
+      </div>
+      <div class="module-chip">
+        <span class="chip-dot" style="background:var(--ibb)"></span>
+        <span class="chip-name">IBB</span>
+        <span class="chip-status">DECISION GATE</span>
+      </div>
+    </div>
+
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <span class="hero-stat-val">₹71L Cr</span>
+        <span class="hero-stat-lbl">CTS value cleared FY25</span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-val">2.5L+</span>
+        <span class="hero-stat-lbl">ATMs on EJ scope</span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-val">7</span>
+        <span class="hero-stat-lbl">Regulatory frameworks under PRAMAAN</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PLATFORM SUBSTRATE -->
+<section class="section" id="platform">
+  <div class="container">
+    <div class="section-intro">
+      <span class="eyebrow">Section 2</span>
+      <h2 class="section-title">The Shared Engine</h2>
+      <p style="color:var(--txt2);margin-top:12px;line-height:1.65;">Eight platform components built once. Consumed by every module. The marginal cost of a new module is new business logic and a new external integration — not a new trust infrastructure.</p>
+    </div>
+
+    <div class="platform-grid">
+      <!-- Miniature Vault -->
+      <div class="platform-card">
+        <div class="platform-icon">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 8v4m0 0v4m0-4h4m-4 0H8"/></svg>
+        </div>
+        <h4 class="card-head">Miniature Vault</h4>
+        <p>CBS-isolated sub-5ms lookups for account state, signatures, mandates. CBS sees one call per cheque — not five.</p>
+      </div>
+      <!-- Temporal -->
+      <div class="platform-card">
+        <div class="platform-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <h4 class="card-head">Temporal Orchestration</h4>
+        <p>Exactly-once, idempotent workflows with retries and compensating actions. No duplicate NGCH filings. No duplicate payments.</p>
+      </div>
+      <!-- Reconciliation -->
+      <div class="platform-card">
+        <div class="platform-icon">
+          <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/><circle cx="7" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="17" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
+        </div>
+        <h4 class="card-head">Reconciliation Engine</h4>
+        <p>One engine normalises all external party return codes — cheque returns, regulatory rejections, payment rail statuses — into one internal taxonomy.</p>
+      </div>
+      <!-- immudb -->
+      <div class="platform-card">
+        <div class="platform-icon">
+          <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </div>
+        <h4 class="card-head">immudb Audit Store</h4>
+        <p>Tamper-evident, Merkle-chained record of every action across every module. One audit trail. Cryptographically verifiable.</p>
+      </div>
+      <!-- Identity -->
+      <div class="platform-card">
+        <div class="platform-icon">
+          <svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+        </div>
+        <h4 class="card-head">Identity & Access</h4>
+        <p>Login · MFA (TOTP) · RBAC · SAML 2.0 / LDAP / Local. Shared auth layer — no module rebuilds authentication.</p>
+      </div>
+      <!-- Notifications -->
+      <div class="platform-card">
+        <div class="platform-icon">
+          <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </div>
+        <h4 class="card-head">Notification Engine</h4>
+        <p>WhatsApp Business API + Email (Postal). dispatcher.py routes alerts from any module — one infrastructure, many producers.</p>
+      </div>
+      <!-- AI -->
+      <div class="platform-card">
+        <div class="platform-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/><path d="M18 2v4h4"/></svg>
+        </div>
+        <h4 class="card-head">Explainable AI</h4>
+        <p>SHAP-explainable fraud scoring · Vision LLM (Qwen2-VL) · OCR (GOT-OCR2) · Siamese signature network. Every AI decision has a human-readable rationale.</p>
+      </div>
+      <!-- GTM -->
+      <div class="platform-card">
+        <div class="platform-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M12 7v5m-5.2 5.3L10 12m2 0 3.2 5.3"/></svg>
+        </div>
+        <h4 class="card-head">Sponsor Bank GTM</h4>
+        <p>Banks landed via CTS are natural cross-sell targets for EJ, PRAMAAN, IBB. No new sales cycle — same CTO relationship.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ CTS MODULE ═══════════════════════════════════════════════════════════ -->
+<section class="module-section mod-cts" id="cts">
+  <div class="container" style="position:relative;">
+    <div class="module-watermark" style="color:var(--cts);">01</div>
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+      <h3 class="module-name">CTS — Cheque Truncation & Clearing</h3>
+      <span class="badge badge-live"><span class="badge-dot"></span>Live</span>
+    </div>
+
+    <div class="metrics-row metrics-4">
+      <div class="metric-tile">
+        <span class="metric-val">₹71L Cr</span>
+        <span class="metric-label">Annual clearing value (FY25)</span>
+      </div>
+      <div class="metric-tile">
+        <span class="metric-val">&lt;600ms</span>
+        <span class="metric-label">Agent decision wall-clock (p99)</span>
+      </div>
+      <div class="metric-tile">
+        <span class="metric-val">0.000%</span>
+        <span class="metric-label">IET breach rate (non-negotiable)</span>
+      </div>
+      <div class="metric-tile">
+        <span class="metric-val">80%</span>
+        <span class="metric-label">CBS call reduction via vaults</span>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-top:32px;">
+      <!-- Left: description -->
+      <div>
+        <p class="body">RBI's Phase 2 (Jan 2026) compressed the clearing window to T+3 hours with deemed-approval consequences. A cheque presented at 10:00 AM must be confirmed or returned by 1:00 PM. Miss the window — the bank pays, regardless of fraud. Manual review at scale is structurally impossible. An agent processes each inward cheque in under 600ms.</p>
+        <p class="body" style="margin-top:8px;">500 inward cheques → 500 agents spawn via Kafka fan-out → all run in parallel → entire batch done in &lt;600ms wall-clock. The signature vault and PPS vault eliminate 80% of CBS calls from the critical path.</p>
+        <ul class="bullet-list" style="margin-top:16px;">
+          <li>OCR (GOT-OCR2) + Qwen2-VL alteration forensics on all 3 cheque images</li>
+          <li>Signature verification: YOLO detection → Siamese network → vault lookup &lt;5ms</li>
+          <li>Fraud scoring: XGBoost + LLM synthesis + SHAP before NGCH filing</li>
+          <li>IETWatchdogWorkflow: T-30s emergency filer, always-on, cannot be disabled</li>
+        </ul>
+      </div>
+      <!-- Right: mock screen -->
+      <div>
+        <div class="screen-frame">
+          <div class="screen-chrome">
+            <span class="chrome-dot" style="background:#F87171"></span>
+            <span class="chrome-dot" style="background:#F59E0B;margin-left:4px"></span>
+            <span class="chrome-dot" style="background:#10B981;margin-left:4px"></span>
+            <span class="chrome-title">CTS Inward Queue · Federal Bank Mumbai</span>
+            <span class="chrome-badge">ops_reviewer: Priya M.</span>
+          </div>
+          <div class="screen-body">
+            <div class="queue-hdr">
+              <span class="queue-title">Inward Queue <span style="color:var(--cts);font-family:var(--font-mono);">47 pending</span></span>
+              <span class="queue-stat">STP Rate <span style="color:var(--ok);">87.2%</span> &nbsp;·&nbsp; IET <span style="color:var(--warn);">2h 14m</span></span>
+            </div>
+            <table class="q-table">
+              <thead>
+                <tr>
+                  <th>Instrument</th>
+                  <th>Acct</th>
+                  <th>Amount</th>
+                  <th>OCR</th>
+                  <th>Sig</th>
+                  <th>Fraud</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>FBK-0041</td><td>****4521</td><td>₹[1L-5L]</td>
+                  <td><span class="score-bar"><span class="score-fill" style="width:97%;background:var(--ok)"></span></span> 97%</td>
+                  <td><span class="score-bar"><span class="score-fill" style="width:91%;background:var(--ok)"></span></span> .91</td>
+                  <td><span class="score-bar"><span class="score-fill" style="width:8%;background:var(--ok)"></span></span> .08</td>
+                  <td><span class="status-pill s-stp">● STP</span></td>
+                </tr>
+                <tr>
+                  <td>FBK-0042</td><td>****8834</td><td>₹[&gt;1Cr]</td>
+                  <td><span class="score-bar"><span class="score-fill" style="width:82%;background:var(--warn)"></span></span> 82%</td>
+                  <td><span class="score-bar"><span class="score-fill" style="width:67%;background:var(--warn)"></span></span> .67</td>
+                  <td><span class="score-bar"><span class="score-fill" style="width:31%;background:var(--warn)"></span></span> .31</td>
+                  <td><span class="status-pill s-hmn">● Review</span></td>
+                </tr>
+                <tr>
+                  <td>FBK-0043</td><td>****2290</td><td>₹[&lt;1L]</td>
+                  <td><span class="score-bar"><span class="score-fill" style="width:99%;background:var(--ok)"></span></span> 99%</td>
+                  <td><span class="score-bar"><span class="score-fill" style="width:94%;background:var(--ok)"></span></span> .94</td>
+                  <td><span class="score-bar"><span class="score-fill" style="width:4%;background:var(--ok)"></span></span> .04</td>
+                  <td><span class="status-pill s-stp">● STP</span></td>
+                </tr>
+                <tr>
+                  <td>FBK-0044</td><td>****7741</td><td>₹[5L-10L]</td>
+                  <td><span class="score-bar"><span class="score-fill" style="width:91%;background:var(--ok)"></span></span> 91%</td>
+                  <td><span class="score-bar"><span class="score-fill" style="width:45%;background:var(--crit)"></span></span> .45</td>
+                  <td><span class="score-bar"><span class="score-fill" style="width:72%;background:var(--warn)"></span></span> .72</td>
+                  <td><span class="status-pill s-hmn">● Review</span></td>
+                </tr>
+                <tr>
+                  <td>FBK-0045</td><td>****3382</td><td>₹[1L-5L]</td>
+                  <td><span class="score-bar"><span class="score-fill" style="width:88%;background:var(--ok)"></span></span> 88%</td>
+                  <td><span class="score-bar"><span class="score-fill" style="width:21%;background:var(--crit)"></span></span> .21</td>
+                  <td><span class="score-bar"><span class="score-fill" style="width:89%;background:var(--crit)"></span></span> .89</td>
+                  <td><span class="status-pill s-rtn">● Return</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="screen-footer">
+            <span>Agents: 47 running</span>
+            <span>Wall-clock: 0.58s</span>
+            <span>CBS calls saved: 82%</span>
+            <span>IETWatchdog: ✓ active</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTS Flow -->
+    <div class="flow">
+      <p class="flow-title">Inward cheque journey · Single agent lifecycle</p>
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="flow-step-num">Trigger</div>
+          <div class="flow-step-label">NGCH Batch Lands</div>
+          <div class="flow-step-sub">Images already local · Kafka fan-out · 1 agent per cheque</div>
+          <span class="flow-time" style="background:var(--cts-dim);color:var(--cts);">t = 0</span>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">Parallel AI</div>
+          <div class="flow-step-label">OCR + Vision + Sig</div>
+          <div class="flow-step-sub">GOT-OCR2 · Qwen2-VL alteration · Siamese vault lookup &lt;5ms</div>
+          <span class="flow-time" style="background:var(--cts-dim);color:var(--cts);">~300ms</span>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">Parallel</div>
+          <div class="flow-step-label">CBS Balance Check</div>
+          <div class="flow-step-sub">Only 1 CBS call per cheque · PPS + sig handled by vault</div>
+          <span class="flow-time" style="background:var(--cts-dim);color:var(--cts);">~300ms</span>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">Synthesis</div>
+          <div class="flow-step-label">Fraud Score + SHAP</div>
+          <div class="flow-step-sub">XGBoost ensemble · LLM rationale · SHAP stored before NGCH</div>
+          <span class="flow-time" style="background:var(--cts-dim);color:var(--cts);">~100ms</span>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">Terminal</div>
+          <div class="flow-step-label">Filed to NGCH</div>
+          <div class="flow-step-sub">STP confirm / auto-return / human review · immudb audit written</div>
+          <span class="flow-time" style="background:var(--cts-dim);color:var(--cts);">&lt;600ms total</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ EJ INTELLIGENCE ══════════════════════════════════════════════════════ -->
+<section class="module-section mod-ej" id="ej" style="border-top:1px solid var(--border);">
+  <div class="container" style="position:relative;">
+    <div class="module-watermark" style="color:var(--ej);">02</div>
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+      <h3 class="module-name">EJ Intelligence — ATM Electronic Journal</h3>
+      <span class="badge badge-proto"><span class="badge-dot"></span>Prototype</span>
+    </div>
+
+    <div class="metrics-row metrics-4">
+      <div class="metric-tile">
+        <span class="metric-val">2.5L+</span>
+        <span class="metric-label">ATMs in scope (RBI CCTV mandated)</span>
+      </div>
+      <div class="metric-tile">
+        <span class="metric-val">5+ OEMs</span>
+        <span class="metric-label">Zero standard format — root cause</span>
+      </div>
+      <div class="metric-tile">
+        <span class="metric-val">48h</span>
+        <span class="metric-label">Target dispute TAT (from 30–45 days)</span>
+      </div>
+      <div class="metric-tile">
+        <span class="metric-val">₹100Cr+</span>
+        <span class="metric-label">Est. annual chargeback losses (industry)</span>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-top:32px;">
+      <div>
+        <p class="body">Five OEM vendors — NCR Atleos, Diebold Nixdorf, Hyosung, AGS Transact, Euronet — generate EJ logs in proprietary formats with 3–5 firmware versions each active in the field. Rule-based parsers are a treadmill. AI is structurally the only viable solution.</p>
+        <p class="body" style="margin-top:8px;">The platform runs in two tiers. <strong style="color:var(--txt1);">Tier 1 (immediate ROI):</strong> OEM-agnostic EJ normalisation → canonical hash-chained store → automated dispute evidence assembly → CCTV auto-retrieval → 48-hour resolution. <strong style="color:var(--txt1);">Tier 2 (fraud ops):</strong> On-prem anomaly engine detecting skimming, cash trap, suspicious engineer access — requires Tier 1 data foundation first.</p>
+        <ul class="bullet-list" style="margin-top:16px;">
+          <li>OEM classifier (confidence &gt;0.95 to proceed) + active learning loop — model improves weekly</li>
+          <li>YugabyteDB hash-chained canonical store — SHA-256(prev_hash + all_fields), immutable once written</li>
+          <li>CCTV MCP adapter: millisecond-precision EJ timestamp → auto clip retrieval → evidence bundle</li>
+          <li>NPCI evidence API: canonical store exposed directly — no PDF submissions, no ops team involvement</li>
+        </ul>
+      </div>
+      <div>
+        <div class="screen-frame">
+          <div class="screen-chrome">
+            <span class="chrome-dot" style="background:#F87171"></span>
+            <span class="chrome-dot" style="background:#F59E0B;margin-left:4px"></span>
+            <span class="chrome-dot" style="background:#10B981;margin-left:4px"></span>
+            <span class="chrome-title">EJ Command Center · Federal Bank</span>
+            <span class="chrome-badge">atm_ops: Rahul D.</span>
+          </div>
+          <div class="screen-body" style="padding:10px;">
+            <!-- KPI strip -->
+            <div class="kpi-strip">
+              <div class="kpi-cell">
+                <div class="kpi-val" style="color:var(--ok);">247<span style="font-size:12px;color:var(--txt2);">/250</span></div>
+                <div class="kpi-lbl">ATMs Online</div>
+              </div>
+              <div class="kpi-cell">
+                <div class="kpi-val" style="color:var(--warn);">3</div>
+                <div class="kpi-lbl">Open Disputes</div>
+              </div>
+              <div class="kpi-cell">
+                <div class="kpi-val" style="color:var(--crit);">1</div>
+                <div class="kpi-lbl">Fraud Flags</div>
+              </div>
+              <div class="kpi-cell">
+                <div class="kpi-val">31h</div>
+                <div class="kpi-lbl">Avg Dispute TAT</div>
+              </div>
+            </div>
+            <!-- Fleet + alarms -->
+            <div class="ej-lower">
+              <div class="fleet-grid" style="flex:1;">
+                <div class="fleet-card">
+                  <div class="fleet-id">ATM-MH-0042</div>
+                  <div class="fleet-status" style="color:var(--ok);">● Healthy</div>
+                  <div class="fleet-txns">847 txns today · 0 failures</div>
+                </div>
+                <div class="fleet-card" style="border-color:rgba(248,113,113,.3);">
+                  <div class="fleet-id">ATM-MH-0089</div>
+                  <div class="fleet-status" style="color:var(--crit);">⚠ Degraded</div>
+                  <div class="fleet-txns">High failure rate detected</div>
+                </div>
+                <div class="fleet-card">
+                  <div class="fleet-id">ATM-MH-0113</div>
+                  <div class="fleet-status" style="color:var(--ok);">● Healthy</div>
+                  <div class="fleet-txns">1,204 txns · Cassettes full 34%</div>
+                </div>
+                <div class="fleet-card">
+                  <div class="fleet-id">ATM-MH-0201</div>
+                  <div class="fleet-status" style="color:var(--ok);">● Healthy</div>
+                  <div class="fleet-txns">992 txns today</div>
+                </div>
+              </div>
+              <div class="alarm-feed" style="min-width:160px;">
+                <div class="alarm-title">⚠ Alarm Feed</div>
+                <div class="alarm-item">
+                  <strong style="color:var(--crit);">ATM-MH-0089</strong><br>
+                  Cash trap pattern<br>
+                  detected 14:23:07<br>
+                  <span style="color:var(--txt3);">CCTV auto-pull ✓</span>
+                </div>
+                <div class="alarm-item">
+                  <strong style="color:var(--ej);">DIS-2026-0041</strong><br>
+                  Evidence ready<br>
+                  EJ + CCTV bundled<br>
+                  <span style="color:var(--txt3);">NPCI submit ready</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="screen-footer">
+            <span>Last sync: 14:31:02</span>
+            <span>OEM models: 5 loaded</span>
+            <span>Active disputes: 3</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EJ Flow -->
+    <div class="flow">
+      <p class="flow-title">Dispute resolution journey · 30–45 days → 48 hours</p>
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="flow-step-num">T = 0</div>
+          <div class="flow-step-label">Dispute Raised</div>
+          <div class="flow-step-sub">Customer: "card debited, no cash." Complaint via app or branch.</div>
+          <span class="flow-time" style="background:var(--ej-dim);color:var(--ej);">t = 0</span>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">Seconds</div>
+          <div class="flow-step-label">EJ Auto-Fetched</div>
+          <div class="flow-step-sub">Canonical store lookup by ATM ID + timestamp. No ops team request needed.</div>
+          <span class="flow-time" style="background:var(--ej-dim);color:var(--ej);">&lt;5s</span>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">Minutes</div>
+          <div class="flow-step-label">CCTV Auto-Pulled</div>
+          <div class="flow-step-sub">MCP adapter retrieves clip at EJ timestamp ± buffer. Timestamped precisely.</div>
+          <span class="flow-time" style="background:var(--ej-dim);color:var(--ej);">&lt;10 min</span>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">Auto</div>
+          <div class="flow-step-label">Evidence Bundled</div>
+          <div class="flow-step-sub">EJ record + CCTV clip + CBS debit → structured package → NPCI evidence API.</div>
+          <span class="flow-time" style="background:var(--ej-dim);color:var(--ej);">1 hour</span>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">Resolved</div>
+          <div class="flow-step-label">Customer Credited</div>
+          <div class="flow-step-sub">Clear-cut cases auto-resolve. NPCI adjudicates only genuine edge cases.</div>
+          <span class="flow-time" style="background:var(--ej-dim);color:var(--ej);">48 hours</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ PRAMAAN ══════════════════════════════════════════════════════════════ -->
+<section class="module-section mod-pramaan" id="pramaan" style="border-top:1px solid var(--border);">
+  <div class="container" style="position:relative;">
+    <div class="module-watermark" style="color:var(--pramaan);">03</div>
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+      <h3 class="module-name">PRAMAAN — Regulatory Reporting Orchestration</h3>
+      <span class="badge badge-blueprint"><span class="badge-dot"></span>Blueprint-Ready</span>
+    </div>
+
+    <div class="metrics-row metrics-3">
+      <div class="metric-tile">
+        <span class="metric-val">7</span>
+        <span class="metric-label">Regulatory report categories</span>
+      </div>
+      <div class="metric-tile">
+        <span class="metric-val">4 tiers</span>
+        <span class="metric-label">By penalty severity — Tier 1 zero-tolerance</span>
+      </div>
+      <div class="metric-tile">
+        <span class="metric-val">₹100/day</span>
+        <span class="metric-label">Statutory penalty on CIC/UCRF non-compliance</span>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-top:32px;">
+      <div>
+        <p class="body">PRAMAAN (प्रमाण — proof, evidence) takes any regulator-mandated report through six stages: extract from CBS → transform to mandated schema → validate → transmit → reconcile the response → attest immutably. Seven categories: Credit Bureau (CIC/UCRF), Systemic Risk (CRILC), Registry (CKYCR/CERSAI), Unclaimed Assets (DEAF), AML/FIU-IND, Statistical/XBRL, and Instrument Clearing.</p>
+        <p class="body" style="margin-top:8px;">Nobody competes with a bank on internal regulatory tooling. PRAMAAN's market is uncontested by construction. Tier 1 (CRILC, FIU-IND STR/CTR) carries direct supervisory-action risk; Tier 2 (CIC/UCRF) carries ₹100/day compensation clauses with DQI visible to RBI monthly.</p>
+        <ul class="bullet-list" style="margin-top:16px;">
+          <li>Exception Manager: normalises all rejection codes, starts statutory SLA clock automatically</li>
+          <li>DQI trending dashboard with half-yearly industry benchmark comparison</li>
+          <li>Mandated two-month top-management DQI report generated as a system byproduct</li>
+          <li>Root Cause Analysis auto-populated — no manual work</li>
+        </ul>
+      </div>
+      <div>
+        <div class="screen-frame">
+          <div class="screen-chrome">
+            <span class="chrome-dot" style="background:#F87171"></span>
+            <span class="chrome-dot" style="background:#F59E0B;margin-left:4px"></span>
+            <span class="chrome-dot" style="background:#10B981;margin-left:4px"></span>
+            <span class="chrome-title">PRAMAAN Compliance Calendar · Federal Bank</span>
+            <span class="chrome-badge">compliance: Sunita K.</span>
+          </div>
+          <div class="screen-body" style="padding:12px;">
+            <div class="cal-header">
+              <span class="cal-month">September 2026</span>
+              <span class="cal-dqi">DQI Score: 98.7% ↑ &nbsp;<span style="color:var(--txt3);font-size:10px;">industry avg 96.1%</span></span>
+            </div>
+            <div class="cal-grid">
+              <div class="cal-day-hdr">Mon</div>
+              <div class="cal-day-hdr">Tue</div>
+              <div class="cal-day-hdr">Wed</div>
+              <div class="cal-day-hdr">Thu</div>
+              <div class="cal-day-hdr">Fri</div>
+
+              <div class="cal-day"></div>
+              <div class="cal-day"><div class="cal-day-num">1</div></div>
+              <div class="cal-day"><div class="cal-day-num">2</div></div>
+              <div class="cal-day"><div class="cal-day-num">3</div><div class="cal-event ce-t1 ce-done">CIC</div></div>
+              <div class="cal-day"><div class="cal-day-num">4</div></div>
+
+              <div class="cal-day"><div class="cal-day-num">7</div></div>
+              <div class="cal-day"><div class="cal-day-num">8</div></div>
+              <div class="cal-day"><div class="cal-day-num">9</div></div>
+              <div class="cal-day"><div class="cal-day-num">10</div></div>
+              <div class="cal-day"><div class="cal-day-num">11</div><div class="cal-event ce-t1">CRILC</div></div>
+
+              <div class="cal-day"><div class="cal-day-num">14</div></div>
+              <div class="cal-day"><div class="cal-day-num">15</div><div class="cal-event ce-t1">STR</div></div>
+              <div class="cal-day"><div class="cal-day-num">16</div></div>
+              <div class="cal-day"><div class="cal-day-num">17</div></div>
+              <div class="cal-day"><div class="cal-day-num">18</div><div class="cal-event ce-t2">UCRF</div></div>
+
+              <div class="cal-day"><div class="cal-day-num">21</div></div>
+              <div class="cal-day"><div class="cal-day-num">22</div></div>
+              <div class="cal-day"><div class="cal-day-num">23</div><div class="cal-event ce-t3">BSR</div></div>
+              <div class="cal-day"><div class="cal-day-num">24</div></div>
+              <div class="cal-day"><div class="cal-day-num">25</div></div>
+            </div>
+            <div class="cal-legend">
+              <div class="cl-item"><div class="cl-dot" style="background:rgba(248,113,113,.5)"></div>Tier 1 (zero tolerance)</div>
+              <div class="cl-item"><div class="cl-dot" style="background:rgba(245,158,11,.5)"></div>Tier 2 (statutory penalty)</div>
+              <div class="cl-item"><div class="cl-dot" style="background:rgba(167,139,250,.5)"></div>Tier 3 (audit-cycle)</div>
+              <div class="cl-item"><div class="cl-dot" style="background:rgba(16,185,129,.5)"></div>Tier 4 (informational)</div>
+            </div>
+          </div>
+          <div class="screen-footer">
+            <span>Next: CRILC due Thu Sep 11</span>
+            <span>3 submissions this week</span>
+            <span>Exception queue: 0 open</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRAMAAN Flow -->
+    <div class="flow">
+      <p class="flow-title">Report submission lifecycle · Every category, same six stages</p>
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="flow-step-num">Stage 1</div>
+          <div class="flow-step-label">CBS Extract</div>
+          <div class="flow-step-sub">Scheduled pull via CBS Connector · incremental delta</div>
+          <span class="flow-time" style="background:var(--pramaan-dim);color:var(--pramaan);">Scheduled</span>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">Stage 2</div>
+          <div class="flow-step-label">Transform</div>
+          <div class="flow-step-sub">Schema mapping to regulator's mandated format · version-locked</div>
+          <span class="flow-time" style="background:var(--pramaan-dim);color:var(--pramaan);">Automated</span>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">Stage 3</div>
+          <div class="flow-step-label">Validate</div>
+          <div class="flow-step-sub">DQI checks · field completeness · cross-field rules · auto-correct where deterministic</div>
+          <span class="flow-time" style="background:var(--pramaan-dim);color:var(--pramaan);">Automated</span>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">Stage 4</div>
+          <div class="flow-step-label">Transmit</div>
+          <div class="flow-step-sub">Temporal exactly-once submission · Tier 1 with human sign-off</div>
+          <span class="flow-time" style="background:var(--pramaan-dim);color:var(--pramaan);">Before SLA</span>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">Stage 5–6</div>
+          <div class="flow-step-label">Reconcile & Attest</div>
+          <div class="flow-step-sub">Rejection codes normalised · SLA clock started · immudb attestation</div>
+          <span class="flow-time" style="background:var(--pramaan-dim);color:var(--pramaan);">Immutable</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ IBB ════════════════════════════════════════════════════════════════════ -->
+<section class="module-section mod-ibb" id="ibb" style="border-top:1px solid var(--border);">
+  <div class="container" style="position:relative;">
+    <div class="module-watermark" style="color:var(--ibb);">04</div>
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+      <h3 class="module-name">IBB — Integrated Business Banking</h3>
+      <span class="badge badge-gate"><span class="badge-dot"></span>Decision Gate</span>
+    </div>
+
+    <div class="two-col" style="margin-top:8px;gap:40px;">
+      <div>
+        <p class="body">IBB is ASTRA's entry into Connected Banking / API Corporate Banking — ERP-initiated payments (NEFT/RTGS/IMPS/UPI), real-time balances, unified reconciliation, Virtual Account Management, and BharatConnect-for-Business integration.</p>
+        <p class="body" style="margin-top:8px;">Every existing TSP (Cashfree, Yes Bank API Banking, ICICI Connected Banking) sits outside the bank's data boundary on cloud SaaS. On-prem Connected Banking is a genuine wedge for PSU/BFSI corporates under data-residency mandates. The same vault, Temporal engine, and reconciliation infrastructure transfer directly.</p>
+
+        <div style="margin-top:20px;">
+          <div class="divider-label"><span>Build sequence</span></div>
+          <div class="card card-sm" style="margin-bottom:8px;border-left:3px solid var(--ibb);">
+            <h4 class="card-head" style="color:var(--ibb);">Tier A — Foundation</h4>
+            <p style="font-size:12px;color:var(--txt2);">Corporate Payments Vault · ERP Connector Layer (read-only first) · mirrors CTS's trust-building sequence</p>
+          </div>
+          <div class="card card-sm" style="margin-bottom:8px;border-left:3px solid var(--ibb);opacity:.7;">
+            <h4 class="card-head">Tier B — Core Differentiator</h4>
+            <p style="font-size:12px;color:var(--txt2);">Idempotent payment initiation · Unified Reconciliation Engine · addresses treasury's #1 complaint (duplicate payments)</p>
+          </div>
+          <div class="card card-sm" style="margin-bottom:8px;border-left:3px solid var(--ibb);opacity:.5;">
+            <h4 class="card-head">Tier C — Platform Moat</h4>
+            <p style="font-size:12px;color:var(--txt2);">Payment Anomaly / Fraud Module · VAM · hard to replicate quickly</p>
+          </div>
+          <div class="card card-sm" style="border-left:3px solid var(--ibb);opacity:.35;">
+            <h4 class="card-head">Tier D — Frontier</h4>
+            <p style="font-size:12px;color:var(--txt2);">Trade Finance Document AI · needs Vision LLM hardened in CTS/EJ first</p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="screen-frame">
+          <div class="screen-chrome">
+            <span class="chrome-dot" style="background:#F87171"></span>
+            <span class="chrome-dot" style="background:#F59E0B;margin-left:4px"></span>
+            <span class="chrome-dot" style="background:#10B981;margin-left:4px"></span>
+            <span class="chrome-title">IBB Corporate Payments · Federal Bank</span>
+            <span class="chrome-badge">treasury: Deepak N.</span>
+          </div>
+          <div class="screen-body">
+            <div style="font-size:13px;font-weight:600;color:var(--txt1);margin-bottom:12px;">New Payment</div>
+            <div class="form-row">
+              <label class="form-label">Beneficiary</label>
+              <div class="form-val">ABC Trading Co Ltd &nbsp;<span style="color:var(--txt3);font-size:10px;">IFSC: HDFC0001234</span></div>
+            </div>
+            <div class="form-row-2">
+              <div>
+                <label class="form-label">Amount</label>
+                <div class="form-val">₹ 5,00,000</div>
+              </div>
+              <div>
+                <label class="form-label">Rail</label>
+                <div class="form-val">RTGS</div>
+              </div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Reference</label>
+              <div class="form-val">PO-2026-8841 · Q3 Supplies</div>
+            </div>
+            <div class="dup-alert">
+              <div class="dup-title">⚠ Duplicate Detected</div>
+              <div class="dup-body">Similar payment of ₹5,00,000 to <strong>ABC Trading Co</strong> submitted 2h ago.<br>Ref: PO-2026-8839 · Status: <span style="color:var(--warn);">PENDING SETTLEMENT</span><br>Idempotency key matches — likely unintended duplicate.</div>
+            </div>
+            <div class="form-actions">
+              <button class="btn">Review original</button>
+              <button class="btn btn-warn">Proceed anyway</button>
+              <button class="btn">Cancel</button>
+            </div>
+            <div class="idkey">Idempotency key: fbk-rtgs-20260831-abc-500000-8841</div>
+          </div>
+          <div class="screen-footer">
+            <span>Rail: RTGS · Settlement: T+0</span>
+            <span>Vault check: ✓ beneficiary verified</span>
+          </div>
+        </div>
+
+        <!-- IBB opportunity/drift compact -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
+          <div class="card card-sm" style="border-color:rgba(16,185,129,.2);">
+            <div style="font-size:10px;font-weight:600;color:var(--ok);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;">Opportunity</div>
+            <ul style="list-style:none;font-size:11px;color:var(--txt2);line-height:1.6;">
+              <li>+ Revenue, not cost-centre</li>
+              <li>+ On-prem TSP gap is real</li>
+              <li>+ BharatConnect momentum</li>
+              <li>+ Same GTM — no new cycle</li>
+            </ul>
+          </div>
+          <div class="card card-sm" style="border-color:rgba(248,113,113,.2);">
+            <div style="font-size:10px;font-weight:600;color:var(--crit);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;">Risk</div>
+            <ul style="list-style:none;font-size:11px;color:var(--txt2);line-height:1.6;">
+              <li>− Different buyer (Treasury)</li>
+              <li>− Funded incumbents present</li>
+              <li>− Bandwidth is the constraint</li>
+              <li>− BharatConnect not mandated</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ CROSS-MODULE ══════════════════════════════════════════════════════════ -->
+<section class="section" id="crossmodule">
+  <div class="container">
+    <span class="eyebrow">Section 7</span>
+    <h2 class="section-title">One Engine, Four Targets</h2>
+    <p style="color:var(--txt2);margin-top:12px;max-width:600px;line-height:1.65;">The same eight platform components consumed differently by each module. None are rebuilt. Every module after the first is materially cheaper than the one before it.</p>
+
+    <div style="overflow-x:auto;margin-top:28px;">
+      <table class="cross-table">
+        <thead>
+          <tr>
+            <th>Platform Component</th>
+            <th class="mod-dot-cts">● CTS</th>
+            <th class="mod-dot-ej">● EJ Intelligence</th>
+            <th class="mod-dot-pramaan">● PRAMAAN</th>
+            <th class="mod-dot-ibb">● IBB</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="row-label">Miniature Vault</td>
+            <td>Sig, PPS, cheque-series vaults</td>
+            <td>EJ canonical store; ATM fleet state</td>
+            <td>Read-only CBS sync</td>
+            <td>Balance/mandate/VAM vault</td>
+          </tr>
+          <tr>
+            <td class="row-label">Temporal (exactly-once)</td>
+            <td>Idempotent NGCH filing</td>
+            <td>Normalise, dispute, fleet health</td>
+            <td>Per-report submission + retry</td>
+            <td>Idempotent payment initiation</td>
+          </tr>
+          <tr>
+            <td class="row-label">Reconciliation Engine</td>
+            <td>RRF generation, cheque returns</td>
+            <td>EJ vs CBS cross-check; dispute evidence match</td>
+            <td>CIC / CRILC / XBRL rejection codes</td>
+            <td>NEFT/RTGS/IMPS/UPI + BharatConnect</td>
+          </tr>
+          <tr>
+            <td class="row-label">immudb Audit</td>
+            <td>Every clearing event</td>
+            <td>Every normalisation, dispute, CCTV retrieval</td>
+            <td>Every submission, rejection, correction</td>
+            <td>Every payment, match, fraud-flag</td>
+          </tr>
+          <tr>
+            <td class="row-label">Identity & Access</td>
+            <td>ops_reviewer, fraud_analyst, ops_manager</td>
+            <td>atm_ops_manager; fleet + dispute scope</td>
+            <td>compliance_officer, rbi_examiner</td>
+            <td>treasury_manager, erp_connector</td>
+          </tr>
+          <tr>
+            <td class="row-label">Notification Engine</td>
+            <td>IET alerts, vault miss alerts</td>
+            <td>Fleet down, fraud flag, cassette irregularity</td>
+            <td>DQI breach, Tier 1 SLA warning</td>
+            <td>Payment failure, duplicate detected</td>
+          </tr>
+          <tr>
+            <td class="row-label">Explainable AI</td>
+            <td>Sig/fraud scoring on cheque images</td>
+            <td>EJ anomaly — skimming, cash trap</td>
+            <td>DQI root-cause analysis</td>
+            <td>Beneficiary / high-value anomaly</td>
+          </tr>
+          <tr>
+            <td class="row-label">Sponsor Bank GTM</td>
+            <td>Original motion — reference</td>
+            <td>Cross-sell to ATM ops desk</td>
+            <td>Cross-sell to CCO / compliance</td>
+            <td>Cross-sell to treasury</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ══ DECISION PATH ════════════════════════════════════════════════════════ -->
+<section class="section" id="decision" style="border-top:1px solid var(--border);">
+  <div class="container">
+    <span class="eyebrow">Section 9 · IBB only</span>
+    <h2 class="section-title">Recommended Decision Path</h2>
+    <p style="color:var(--txt2);margin-top:12px;max-width:600px;line-height:1.65;">CTS is live. EJ runs as a prototype — Tier 1 pilot at a reference bank is the immediate next step. PRAMAAN's Tier 1–2 delivery is in progress. IBB needs a gate before engineering begins.</p>
+
+    <div class="decision-stages">
+      <div class="stage-card">
+        <div class="stage-num">1</div>
+        <div class="stage-label">Stage 1</div>
+        <div class="stage-action">Bake</div>
+        <div class="stage-gate">This document. Lay out platform + modules. Weigh IBB opportunity vs. drift honestly.<br><br><strong style="color:var(--accent);">Gate:</strong> Open questions are specific and answerable, not vague.</div>
+      </div>
+      <div class="stage-card">
+        <div class="stage-num">2</div>
+        <div class="stage-label">Stage 2</div>
+        <div class="stage-action">Research</div>
+        <div class="stage-gate">Targeted research against the four question buckets — Market, Technical, Financial, Strategic Fit. Not generic sizing.<br><br><strong style="color:var(--accent);">Gate:</strong> Market + Technical come back net-positive or clearly mitigable.</div>
+      </div>
+      <div class="stage-card">
+        <div class="stage-num">3</div>
+        <div class="stage-label">Stage 3</div>
+        <div class="stage-action">Gate</div>
+        <div class="stage-gate">Revisit opportunity-vs-threat table against research. Explicit go / defer / reshape. Bandwidth honestly answered.<br><br><strong style="color:var(--accent);">Gate:</strong> A recorded decision. Not a default drift into building.</div>
+      </div>
+      <div class="stage-card">
+        <div class="stage-num">4</div>
+        <div class="stage-label">Stage 4</div>
+        <div class="stage-action">Build (Tier A only)</div>
+        <div class="stage-gate">Corporate Payments Vault + ERP Connector (read-only). Bounded pilot at one bank before Tiers B–D.<br><br><strong style="color:var(--accent);">Gate:</strong> Tier A validates or invalidates the reuse-economics assumption directly.</div>
+      </div>
+    </div>
+
+    <!-- footer -->
+    <div style="margin-top:60px;padding-top:28px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:gap;">
+      <span style="font-family:var(--font-serif);font-size:18px;font-weight:300;color:var(--txt2);">ASTRA+ · Banking Platform 2.0</span>
+      <span style="font-size:11px;color:var(--txt3);font-family:var(--font-mono);">Confidential · August 2026 · Nilesh Shah · 9va4admin</span>
+    </div>
+  </div>
+</section>
+
+<script>
+// Nav active link on scroll
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.nav-links a');
+const obs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      navLinks.forEach(l => l.classList.remove('active'));
+      const a = document.querySelector('.nav-links a[href="#' + e.target.id + '"]');
+      if (a) a.classList.add('active');
+    }
+  });
+}, { rootMargin:'-30% 0px -60% 0px' });
+sections.forEach(s => obs.observe(s));
+
+// Theme toggle
+const btn = document.getElementById('themeBtn');
+const root = document.documentElement;
+let dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+function applyTheme() {
+  root.dataset.theme = dark ? 'dark' : 'light';
+  btn.textContent = dark ? '☀' : '🌙';
+}
+applyTheme();
+btn.addEventListener('click', () => { dark = !dark; applyTheme(); });
+</script>
