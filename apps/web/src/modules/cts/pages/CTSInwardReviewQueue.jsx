@@ -18,7 +18,31 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
-import { MockChequeFront } from '../components/MockCheque'
+import ChequeImageViewer from '../components/ChequeImageViewer'
+
+function _viewerProps(item) {
+  return {
+    views: [
+      { key: 'BFB', label: 'Front (B&W)',  url: null, iqaScore: 0.94 },
+      { key: 'BBB', label: 'Back (B&W)',   url: null, iqaScore: 0.91 },
+      { key: 'BFG', label: 'Front (Gray)', url: null, iqaScore: 0.89 },
+    ],
+    fields: {
+      payee:           item.payee_name,
+      date:            item.cheque_date,
+      amount_figures:  item.amount_figures,
+      amount_words:    item.amount_words,
+      micr:            item.micr_code,
+      alterations:     (item.risk_flags ?? []).some(f => f.includes('ALTERATION')),
+      drawer_name:     item.drawer_name,
+      bank_name:       item.drawee_bank,
+      bank_branch:     item.drawee_branch,
+      bank_ifsc:       item.branch_ifsc,
+      bank_micr:       item.micr_code,
+      account_display: item.account_display,
+    },
+  }
+}
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
@@ -335,13 +359,9 @@ function ExpandedPanel({ item, isDark }) {
       <div className="flex flex-col lg:flex-row gap-5">
 
         {/* Left: cheque image */}
-        <div className="flex-shrink-0">
-          <div className={`${th.sec}`}>Cheque Image (Front)</div>
-          <div className="overflow-x-auto">
-            <div style={{ minWidth: 420, maxWidth: 560 }}>
-              <MockChequeFront item={item} />
-            </div>
-          </div>
+        <div className="flex-shrink-0" style={{ minWidth: 420, maxWidth: 580 }}>
+          <div className={`${th.sec}`}>Cheque Image</div>
+          <ChequeImageViewer {..._viewerProps(item)} isDark={isDark} title={item.instrument_id} />
         </div>
 
         {/* Right: AI analysis */}
@@ -709,7 +729,7 @@ export default function CTSInwardReviewQueue() {
                     ))}
                   </div>
                   {/* Cheque image */}
-                  <MockChequeFront item={item} />
+                  <ChequeImageViewer {..._viewerProps(item)} isDark={isDark} title={item.instrument_id} />
                   {/* Field grid */}
                   <div className={`mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-xs`}>
                     {[
