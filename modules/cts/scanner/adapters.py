@@ -182,8 +182,10 @@ class ScannerAdapter(ABC):
         micr_raw:             str,
         uv_image:             Optional[bytes] = None,
         micr_hardware_raw:    Optional[str]   = None,
+        micr_source:          str             = "UNKNOWN",
         imprinter_stamped:    bool            = False,
         double_feed_detected: bool            = False,
+        branch_id:            Optional[str]   = None,
     ) -> ScanResult:
         return ScanResult(
             scan_id=self._generate_scan_id(),
@@ -199,9 +201,11 @@ class ScannerAdapter(ABC):
             rear_colour_depth=24,
             micr_raw=micr_raw,
             bank_id=self.bank_id,
+            branch_id=branch_id,
             operator_id=self.operator_id,
             uv_image=uv_image,
             micr_hardware_raw=micr_hardware_raw,
+            micr_source=micr_source,
             imprinter_stamped=imprinter_stamped,
             double_feed_detected=double_feed_detected,
         )
@@ -273,6 +277,7 @@ class PaniniVisionXAdapter(ScannerAdapter):
             rear_dpi=200,
             micr_raw=result.micr,
             uv_image=result.uv_image,
+            micr_source="OCR",   # Panini MICR is image-OCR derived, not a dedicated magnetic head
         )
 
 
@@ -358,6 +363,8 @@ class CanonCR120UVAdapter(ScannerAdapter):
             front_dpi=result.dpi,
             rear_dpi=result.dpi,
             micr_raw=result.micr,
+            micr_hardware_raw=result.micr,   # Ranger MICR IS the hardware read — same value, explicit source
+            micr_source="HARDWARE",
             uv_image=result.uv_image,
             imprinter_stamped=result.imprinter_stamped,
             double_feed_detected=result.double_feed_detected,
@@ -410,6 +417,8 @@ class DigitalCheckAdapter(ScannerAdapter):
             front_dpi=dpi,
             rear_dpi=dpi,
             micr_raw=data.get("micr", ""),
+            micr_hardware_raw=data.get("micr") or None,
+            micr_source="HARDWARE",   # SecureLink MICR comes from TS240's physical MICR head
             uv_image=uv_bytes,
         )
 
@@ -479,6 +488,7 @@ class DigitalCheckTS240UVAdapter(DigitalCheckAdapter):
             rear_dpi=200,
             micr_raw=result.micr,
             uv_image=result.uv_image,
+            micr_source="HARDWARE",   # DCC API USD_GetMICR() reads the physical MICR head
         )
 
 

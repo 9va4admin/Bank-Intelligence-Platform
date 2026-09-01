@@ -3517,3 +3517,282 @@ async def download_vault_batch_errors(
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ---------------------------------------------------------------------------
+# Outward scan events — branch scanner agent reporting + Branch Scan Dashboard
+# ---------------------------------------------------------------------------
+
+class OutwardScanEventRequest(BaseModel):
+    """Received from the edge scanner agent for non-submit scan outcomes."""
+    model_config = ConfigDict(frozen=True)
+    bank_id:          str
+    branch_id:        Optional[str] = None
+    session_id:       str
+    scan_id:          str
+    event_type:       Literal["DOUBLE_FEED_DETECTED", "IMPRINTER_FAULT", "UPLOAD_FAILED"]
+    position_in_batch: Optional[int] = None
+    micr_suffix:      Optional[str] = None   # last 4 chars only — safe to store
+
+
+class OutwardScanEventResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    event_id: str
+    status:   Literal["RECORDED"]
+
+
+class ScanSessionItem(BaseModel):
+    """One instrument row in the Branch Scan Dashboard session log."""
+    model_config = ConfigDict(frozen=True)
+    event_id:          str
+    scan_id:           str
+    instrument_id:     Optional[str] = None
+    workflow_id:       Optional[str] = None
+    # SUBMITTED | DOUBLE_FEED_DETECTED | IMPRINTER_FAULT | UPLOAD_FAILED
+    event_type:        str
+    position_in_batch: Optional[int] = None
+    micr_suffix:       Optional[str] = None
+    imprinter_stamped: bool = False
+    micr_source:       Optional[str] = None
+    branch_id:         Optional[str] = None
+    created_at:        float   # Unix timestamp
+
+
+class ScanSessionLogResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    session_id:    str
+    bank_id:       str
+    branch_id:     Optional[str] = None
+    total:         int
+    double_feeds:  int   # count of items needing re-scan
+    items:         list[ScanSessionItem]
+
+
+@router_v1.post(
+    "/outward/scan/event",
+    response_model=OutwardScanEventResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def report_outward_scan_event(
+    body: OutwardScanEventRequest,
+    request: Request,
+    bank_id: str = Depends(get_current_bank_id),
+) -> OutwardScanEventResponse:
+    """
+    Called by the edge scanner agent for non-submit scan outcomes:
+    DOUBLE_FEED_DETECTED — two cheques fed together; held at branch, not processed centrally.
+    IMPRINTER_FAULT      — cheque submitted but endorsement stamp failed; needs manual re-stamp.
+    UPLOAD_FAILED        — image upload to MinIO failed; instrument needs re-scan.
+
+    These events are written to cts.outward_scan_events so the Branch Scan Dashboard
+    can surface them alongside submitted instruments.
+    """
+    import uuid as _uuid
+
+    if body.bank_id != bank_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="bank_id in request body must match authenticated bank",
+        )
+
+    event_id = str(_uuid.uuid4())
+    db_pool = getattr(request.app.state, "db_pool_cts", None)
+
+    if db_pool is not None:
+        try:
+            async with db_pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO cts.outward_scan_events
+                        (event_id, bank_id, branch_id, session_id, scan_id,
+                         event_type, position_in_batch, micr_suffix, created_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
+                    """,
+                    event_id, bank_id, body.branch_id, body.session_id, body.scan_id,
+                    body.event_type, body.position_in_batch, body.micr_suffix,
+                )
+        except Exception as exc:
+            log.warning(
+                "cts.outward_scan_event_write_failed",
+                bank_id=bank_id, scan_id=body.scan_id, event_type=body.event_type,
+                error=str(exc),
+            )
+            # Non-fatal — agent receives 202 either way so the scan session is not blocked.
+
+    log.info(
+        "cts.outward_scan_event",
+        bank_id=bank_id,
+        branch_id=body.branch_id,
+        session_id=body.session_id,
+        scan_id=body.scan_id,
+        event_type=body.event_type,
+        position=body.position_in_batch,
+    )
+    return OutwardScanEventResponse(event_id=event_id, status="RECORDED")
+
+
+@router_v1.get(
+    "/outward/session/{session_id}/scan-log",
+    response_model=ScanSessionLogResponse,
+)
+async def get_scan_session_log(
+    session_id: str,
+    request: Request,
+    bank_id: str = Depends(get_current_bank_id),
+    branch_id: Optional[str] = None,
+) -> ScanSessionLogResponse:
+    """
+    Branch Scan Dashboard data source — returns all instruments from a scanning session.
+
+    Merges two data sources:
+    1. cts.outward_scan_events — double-feed, imprinter faults, upload failures
+    2. cts.agent_decisions — submitted instruments that completed processing
+
+    Items with event_type = DOUBLE_FEED_DETECTED are flagged for re-scan.
+    Items are ordered by position_in_batch / created_at ascending (batch order).
+
+    Access: ops_reviewer, ops_manager — scoped to bank_id. branch_id filter optional.
+    """
+    db_pool = getattr(request.app.state, "db_pool_cts", None)
+    items: list[ScanSessionItem] = []
+
+    if db_pool is not None:
+        _SQL = """
+            SELECT
+                event_id,
+                scan_id,
+                instrument_id,
+                workflow_id,
+                event_type,
+                position_in_batch,
+                micr_suffix,
+                imprinter_stamped,
+                micr_source,
+                branch_id,
+                EXTRACT(EPOCH FROM created_at) AS created_at_epoch
+            FROM cts.outward_scan_events
+            WHERE bank_id = $1
+              AND session_id = $2
+              AND ($3::text IS NULL OR branch_id = $3)
+            ORDER BY COALESCE(position_in_batch, 999999), created_at ASC
+            LIMIT 500
+        """.strip()
+        try:
+            async with db_pool.acquire() as conn:
+                rows = await conn.fetch(_SQL, bank_id, session_id, branch_id)
+            for row in rows:
+                items.append(ScanSessionItem(
+                    event_id=row["event_id"],
+                    scan_id=row["scan_id"],
+                    instrument_id=row["instrument_id"],
+                    workflow_id=row["workflow_id"],
+                    event_type=row["event_type"],
+                    position_in_batch=row["position_in_batch"],
+                    micr_suffix=row["micr_suffix"],
+                    imprinter_stamped=bool(row["imprinter_stamped"]),
+                    micr_source=row["micr_source"],
+                    branch_id=row["branch_id"],
+                    created_at=float(row["created_at_epoch"] or 0.0),
+                ))
+        except Exception as exc:
+            log.warning("cts.scan_session_log_error", bank_id=bank_id,
+                        session_id=session_id, error=str(exc))
+
+    double_feeds = sum(1 for i in items if i.event_type == "DOUBLE_FEED_DETECTED")
+
+    log.info("cts.scan_session_log", bank_id=bank_id, session_id=session_id,
+             total=len(items), double_feeds=double_feeds)
+    return ScanSessionLogResponse(
+        session_id=session_id,
+        bank_id=bank_id,
+        branch_id=branch_id,
+        total=len(items),
+        double_feeds=double_feeds,
+        items=items,
+    )
+
+
+class BranchScanEventRow(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    scan_id:           str
+    event_type:        str   # DOUBLE_FEED_DETECTED | IMPRINTER_FAULT | UPLOAD_FAILED
+    micr_suffix:       Optional[str] = None
+    micr_source:       Optional[str] = None
+    branch_id:         Optional[str] = None
+    session_id:        str
+    position_in_batch: Optional[int] = None
+    created_at:        str
+
+
+class BranchScanEventsResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id:  str
+    total:    int
+    events:   list[BranchScanEventRow]
+
+
+@router_v1.get(
+    "/outward/scan-events",
+    response_model=BranchScanEventsResponse,
+)
+async def list_outward_scan_events(
+    request: Request,
+    bank_id: str = Depends(get_current_bank_id),
+    branch_id: Optional[str] = None,
+    event_type: Optional[str] = None,
+    limit: int = 50,
+) -> BranchScanEventsResponse:
+    """
+    Branch Scan Monitor — scan-event feed filtered by branch (not session).
+
+    Called by BranchScanMonitor.jsx (query 2) to surface double-feed and
+    imprinter-fault events from the Canon CSD edge agent path alongside
+    submitted instruments from query 1 (scan-monitor/recent).
+
+    Optional filters:
+      branch_id  — scope to one branch terminal (recommended)
+      event_type — filter to DOUBLE_FEED_DETECTED | IMPRINTER_FAULT | UPLOAD_FAILED
+    """
+    if limit > 100:
+        limit = 100
+
+    events: list[BranchScanEventRow] = []
+    db_pool = getattr(request.app.state, "db_pool_cts", None)
+
+    if db_pool is not None:
+        try:
+            async with db_pool.acquire() as conn:
+                rows = await conn.fetch(
+                    """
+                    SELECT scan_id, event_type, micr_suffix, micr_source,
+                           branch_id, session_id, position_in_batch,
+                           to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
+                    FROM cts.outward_scan_events
+                    WHERE bank_id = $1
+                      AND ($2::text IS NULL OR branch_id = $2)
+                      AND ($3::text IS NULL OR event_type = $3)
+                      AND event_type != 'SUBMITTED'
+                      AND created_at > NOW() - INTERVAL '12 hours'
+                    ORDER BY created_at DESC
+                    LIMIT $4
+                    """,
+                    bank_id, branch_id, event_type, limit,
+                )
+                for row in rows:
+                    events.append(BranchScanEventRow(
+                        scan_id=row["scan_id"],
+                        event_type=row["event_type"],
+                        micr_suffix=row["micr_suffix"],
+                        micr_source=row["micr_source"],
+                        branch_id=row["branch_id"],
+                        session_id=row["session_id"],
+                        position_in_batch=row["position_in_batch"],
+                        created_at=row["created_at"],
+                    ))
+        except Exception as exc:
+            log.warning("cts.branch_scan_events_error", bank_id=bank_id,
+                        branch_id=branch_id, error=str(exc))
+
+    log.info("cts.branch_scan_events", bank_id=bank_id, branch_id=branch_id,
+             event_type=event_type, total=len(events))
+    return BranchScanEventsResponse(bank_id=bank_id, total=len(events), events=events)
