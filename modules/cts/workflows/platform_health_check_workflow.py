@@ -28,11 +28,13 @@ from temporalio import workflow
 from modules.cts.workflows.activities.platform_health_activities import (
     CheckHRInput,
     CheckIETInput,
+    CheckScannerFleetInput,
     CheckVaultCoverageInput,
     DispatchAlertInput,
     StuckWorkflowSweepInput,
     check_human_review_for_alert,
     check_iet_risk_for_alert,
+    check_scanner_fleet_for_alert,
     check_vault_redis_coverage_for_alert,
     dispatch_platform_alert,
     sweep_stuck_workflows,
@@ -152,7 +154,32 @@ class PlatformHealthCheckWorkflow:
                     start_to_close_timeout=_ACTIVITY_TIMEOUT,
                 )
 
-            # ── 4. Stuck workflow sweep ───────────────────────────────────
+            # ── 4. Scanner fleet OFFLINE check ───────────────────────────
+            fleet_result = await workflow.execute_activity(
+                check_scanner_fleet_for_alert,
+                CheckScannerFleetInput(bank_id=inp.bank_id),
+                start_to_close_timeout=_ACTIVITY_TIMEOUT,
+            )
+            if fleet_result.needs_alert:
+                branch_list = ", ".join(fleet_result.offline_branches[:5])
+                if fleet_result.offline_count > 5:
+                    branch_list += f" (+{fleet_result.offline_count - 5} more)"
+                await workflow.execute_activity(
+                    dispatch_platform_alert,
+                    DispatchAlertInput(
+                        bank_id=inp.bank_id,
+                        event_type="SCANNER_BRANCH_OFFLINE",
+                        severity="WARN",
+                        priority="P1",
+                        message=(
+                            f"{fleet_result.offline_count} branch scanner(s) OFFLINE "
+                            f"during clearing hours: {branch_list}"
+                        ),
+                    ),
+                    start_to_close_timeout=_ACTIVITY_TIMEOUT,
+                )
+
+            # ── 5. Stuck workflow sweep ───────────────────────────────────
             sweep_result = await workflow.execute_activity(
                 sweep_stuck_workflows,
                 StuckWorkflowSweepInput(bank_id=inp.bank_id),
@@ -192,11 +219,12 @@ class PlatformHealthCheckWorkflow:
           "iet_risk":      dict matching IETCheckResult fields
           "human_review":  dict matching HRCheckResult fields
           "vault_coverage": dict matching VaultCoverageCheckResult fields (optional — defaults to no alert)
+          "scanner_fleet": dict matching ScannerFleetCheckResult fields (optional — defaults to no alert)
           "stuck_sweep":   dict matching StuckWorkflowSweepResult fields (optional — defaults to no alert)
           "dispatched":    list — run_with_mocks appends alert dicts here instead of
                            calling dispatch_platform_alert
 
-        Returns HealthCheckRunResult(checks_run=4).
+        Returns HealthCheckRunResult(checks_run=5).
         """
         checks_run = 0
         alerts_sent = 0
@@ -244,6 +272,26 @@ class PlatformHealthCheckWorkflow:
                 "message": (
                     f"Vault Redis coverage low: {cov_data.get('coverage_pct', 0.0):.1f}% "
                     f"(gap: {cov_data.get('gap_accounts', 0)} accounts)"
+                ),
+            })
+            alerts_sent += 1
+
+        # ── Scanner fleet OFFLINE check ───────────────────────────────────
+        fleet_data = mock_results.get("scanner_fleet", {"needs_alert": False, "degraded": False, "skipped_outside_hours": False})
+        checks_run += 1
+        if fleet_data.get("needs_alert"):
+            offline_branches = fleet_data.get("offline_branches", [])
+            branch_list = ", ".join(offline_branches[:5])
+            if len(offline_branches) > 5:
+                branch_list += f" (+{len(offline_branches) - 5} more)"
+            dispatched.append({
+                "event_type": "SCANNER_BRANCH_OFFLINE",
+                "severity": fleet_data.get("alert_severity", "WARN"),
+                "priority": "P1",
+                "bank_id": inp.bank_id,
+                "message": (
+                    f"{fleet_data.get('offline_count', len(offline_branches))} branch scanner(s) "
+                    f"OFFLINE during clearing hours: {branch_list}"
                 ),
             })
             alerts_sent += 1
