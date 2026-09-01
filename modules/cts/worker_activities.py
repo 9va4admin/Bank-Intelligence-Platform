@@ -124,6 +124,7 @@ class BoundCTSActivities:
         hsm_signer: Any = None,
         minio_client: Any = None,
         cheque_leaf_vault: Any = None,
+        lot_store: Any = None,
     ) -> None:
         self._bank_id = bank_id
         self._cbs_connector = cbs_connector
@@ -143,6 +144,7 @@ class BoundCTSActivities:
         self._hsm_signer = hsm_signer
         self._minio_client = minio_client
         self._cheque_leaf_vault = cheque_leaf_vault
+        self._lot_store = lot_store
         # LotManager is stateful/in-memory per clearing session (see
         # modules/cts/lot/manager.py) — cached by (bank_ifsc, session_id) so
         # sequential lot numbers are correct across a session's many
@@ -540,6 +542,38 @@ class BoundCTSActivities:
         return await _ll_mark_leaf_returned(inp, cheque_leaf_vault=self._cheque_leaf_vault)
 
     # ------------------------------------------------------------------
+    # NGCH file build + submission (previously NO_DI_ACTIVITIES)
+    # ------------------------------------------------------------------
+
+    @activity.defn(name="build_ngch_file")
+    async def build_ngch_file(self, inp):
+        from modules.cts.workflows.activities.ngch_submission_activities import (
+            build_ngch_file as _real,
+        )
+        return await _real(inp, lot_store=self._lot_store)
+
+    @activity.defn(name="submit_to_ngch")
+    async def submit_to_ngch(self, inp):
+        from modules.cts.workflows.activities.ngch_submission_activities import (
+            submit_to_ngch as _real,
+        )
+        return await _real(inp, ngch_client=self._ngch_adapter)
+
+    @activity.defn(name="confirm_acknowledgement")
+    async def confirm_acknowledgement(self, inp):
+        from modules.cts.workflows.activities.ngch_submission_activities import (
+            confirm_acknowledgement as _real,
+        )
+        return await _real(inp, ngch_client=self._ngch_adapter)
+
+    @activity.defn(name="fetch_ngch_settlement_report")
+    async def fetch_ngch_settlement_report(self, inp):
+        from modules.cts.workflows.activities.session_reconciliation_activities import (
+            fetch_ngch_settlement_report as _real,
+        )
+        return await _real(inp, ngch_client=self._ngch_adapter)
+
+    # ------------------------------------------------------------------
     # Registration list — every bound method Worker() should dispatch to.
     # ------------------------------------------------------------------
 
@@ -595,6 +629,11 @@ class BoundCTSActivities:
             self.mark_leaf_presented,
             self.mark_leaf_paid,
             self.mark_leaf_returned,
+            # NGCH file build + submission (DI-wired: lot_store + ngch_adapter)
+            self.build_ngch_file,
+            self.submit_to_ngch,
+            self.confirm_acknowledgement,
+            self.fetch_ngch_settlement_report,
         ]
 
 
@@ -631,6 +670,8 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
     bloom_client = await _build_bloom_client(redis_client, bank_id, config_service)
     cheque_leaf_vault = _build_cheque_leaf_vault(bank_id, pepper, db_pool, bloom_client, redis_client)
 
+    lot_store = await _build_lot_store(db_pool, minio_client, config_service)
+
     return BoundCTSActivities(
         bank_id=bank_id,
         cbs_connector=cbs_connector,
@@ -650,7 +691,32 @@ async def build_bound_activities(bank_id: str, config_service: Any) -> BoundCTSA
         hsm_signer=hsm_signer,
         minio_client=minio_client,
         cheque_leaf_vault=cheque_leaf_vault,
+        lot_store=lot_store,
     )
+
+
+async def _build_lot_store(db_pool: Any, minio_client: Any, config_service: Any) -> Any:
+    """Constructs LotStore with the already-built db_pool and minio_client."""
+    try:
+        from modules.cts.lot.lot_store import LotStore
+        bucket = "astra-cts"
+        try:
+            bucket = config_service.get_platform("minio.cts_bucket")
+        except Exception:
+            pass
+        if db_pool is None or minio_client is None:
+            log.warning(
+                "worker_activities.lot_store_unavailable",
+                db_pool_ok=db_pool is not None,
+                minio_ok=minio_client is not None,
+            )
+            return None
+        store = LotStore(db_pool=db_pool, minio_client=minio_client, bucket=bucket)
+        log.info("worker_activities.lot_store_ready", bucket=bucket)
+        return store
+    except Exception as exc:
+        log.warning("worker_activities.lot_store_build_failed", error=str(exc))
+        return None
 
 
 async def _build_db_pool(config_service: Any) -> Any:

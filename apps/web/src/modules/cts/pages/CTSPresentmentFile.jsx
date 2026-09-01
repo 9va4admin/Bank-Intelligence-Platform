@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
@@ -364,6 +364,64 @@ export default function CTSPresentmentFile() {
   const seqRef = useRef(currentBatch.nextSeq)
 
   const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+  const liveTimerRef = useRef(null)
+
+  // POC/PROD: fetch open lot from hub-summary, then poll its instruments every 10s
+  const fetchLiveInstruments = useCallback(async () => {
+    if (isDemo) return
+    try {
+      // Step 1: find current open lot via hub-summary
+      const hubRes = await fetch(`${API_BASE}/v1/cts/outward/hub-summary`, { credentials: 'include' })
+      if (!hubRes.ok) return
+      const hub = await hubRes.json()
+      const firstLot = (hub.branches ?? []).flatMap(b => b.current_lot ? [b.current_lot] : [])[0]
+      if (!firstLot?.lot_id) return
+
+      // Step 2: fetch lot instruments
+      const instrRes = await fetch(
+        `${API_BASE}/v1/cts/outward/lots/${encodeURIComponent(firstLot.lot_id)}/instruments`,
+        { credentials: 'include' },
+      )
+      if (!instrRes.ok) return
+      const data = await instrRes.json()
+
+      // Map API rows → currentBatch.items shape
+      const mapped = (data.instruments ?? []).map((r, idx) => ({
+        instrument_id:   r.instrument_id ?? r.scan_id,
+        account_display: `****${r.micr_suffix ?? '0000'}`,
+        payee:           r.payee_display ?? '—',
+        amount:          r.amount_range ?? '—',
+        micr:            r.micr_suffix ?? '—',
+        date_on_cheque:  new Date(r.scanned_at).toLocaleDateString('en-IN'),
+        passed:          r.outcome === 'ACCEPTED',
+        fail_code:       r.outcome !== 'ACCEPTED' ? r.outcome : null,
+        fail_label:      r.outcome !== 'ACCEPTED' ? r.outcome : null,
+        fail_category:   r.outcome !== 'ACCEPTED' ? 'System' : null,
+        seq_in_batch:    idx + 1,
+        image_bw:        null,
+        images_all:      [],
+        arrived_at:      r.scanned_at,
+      }))
+
+      setCurrentBatch(prev => ({
+        ...prev,
+        lot_id: firstLot.lot_id,
+        batchId: firstLot.lot_id,
+        items: mapped,
+        nextSeq: mapped.length + 1,
+        status: firstLot.status === 'SEALED' ? 'CLOSED' : 'OPEN',
+      }))
+    } catch {
+      // keep previous state on transient error
+    }
+  }, [isDemo, API_BASE])
+
+  useEffect(() => {
+    if (isDemo) return
+    fetchLiveInstruments()
+    liveTimerRef.current = setInterval(fetchLiveInstruments, 10_000)
+    return () => clearInterval(liveTimerRef.current)
+  }, [isDemo, fetchLiveInstruments])
 
   async function handleSendToNGCH() {
     if (isDemo) return
@@ -443,7 +501,7 @@ export default function CTSPresentmentFile() {
           ))}
           {isOpen && (
             <span className={`ml-auto text-[9px] font-mono ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-              ● Kafka listener active — auto-updating
+              ● {isDemo ? 'Kafka listener active — auto-updating' : 'Live — polling every 10s'}
             </span>
           )}
         </div>
