@@ -14,10 +14,14 @@ package main
 //     • %ProgramFiles%\Canon Electronics\CR150\CanoCheetah.dll
 //
 // Duplex scanning pattern (discovered from SDK C++ sample ScanCRDlg.cpp):
-//   CsdReadPage is called TWICE per physical cheque:
+//   Without UV: 2 CsdReadPage calls per cheque (standard CR-120/CR-150):
 //     call 1 → front image (CSD_OK) → capture front, read MICR
 //     call 2 → rear  image (CSD_OK) → capture rear, return ScannedItem
-//   The SDK returns pages interleaved: front1, rear1, front2, rear2, ...
+//   With UV (CR-120 UV / CR-150 UV, EnableUVScan=true): 3 calls:
+//     call 1 → front image → capture front, read MICR
+//     call 2 → rear  image → save front+rear TIFFs
+//     call 3 → UV    image → save UV TIFF, return ScannedItem with UVImage set
+//   The SDK returns pages interleaved: front1, rear1, [uv1,] front2, rear2, [uv2,] ...
 //
 // 10-minute idle timeout (CSD_TIMEOUT):
 //   CsdReadPage returns CSD_TIMEOUT if no cheque is fed for 10 minutes.
@@ -79,6 +83,12 @@ package main
 #define CSD_IQA_BRIGHTNESS_PASSED      0
 #define CSD_IQA_BRIGHTNESS_TOOLIGHT    1
 #define CSD_IQA_BRIGHTNESS_TOODARK     2
+
+// --- UV lamp parameter (CR-120 UV / CR-150 UV models only) ---
+// CSDP_UV enables the UV fluorescence lamp for security-feature verification.
+// Confirm this offset against CSDP_UV in CsdScan.h from the CR-150 UV driver
+// installation before deploying on UV hardware.  Non-UV models ignore it silently.
+#define CSDP_UV  380
 
 // --- TIFF output constants ---
 #define CSD_TIFF_FILE  1
@@ -359,6 +369,17 @@ func (t *CanonTransport) StartJob(endorsementText string, enableImprinter bool) 
 		C.astra_par_set_long(C.CSDP_IQA_BRIGHTNESS, 1)
 	}
 
+	// UV lamp — CR-120 UV / CR-150 UV models only.
+	// When enabled, CsdReadPage yields a third page per cheque (UV image of the front)
+	// after the regular front+rear duplex pair.
+	if t.cfg.EnableUVScan {
+		if ret := C.astra_par_set_long(C.CSDP_UV, 1); int32(ret) != csdOK {
+			t.logger.Warn("UV lamp enable failed — continuing without UV (non-UV model or unsupported driver?)",
+				"code", int32(ret))
+			// Don't fail the job; UV is advisory, not mandatory for CTS clearance.
+		}
+	}
+
 	// Imprinter / endorsement stamp.
 	impEnabled := C.LONG(0)
 	if enableImprinter {
@@ -389,19 +410,34 @@ func (t *CanonTransport) StartJob(endorsementText string, enableImprinter bool) 
 	return nil
 }
 
-// ReadItem blocks until a complete duplex cheque (front+rear) has passed through
-// the scanner, then returns the captured images and hardware MICR.
+// ReadItem blocks until a complete cheque has passed through the scanner and
+// returns the captured images and hardware MICR.
+//
+// Without UV: 2 CsdReadPage calls per cheque — front then rear.
+// With UV (CR-120 UV / CR-150 UV, EnableUVScan=true): 3 calls — front, rear, UV.
+// The SDK sequences the UV page immediately after the rear page.
 //
 // Returns (nil, nil) when EndJob has been called — the caller interprets this
 // as a clean session end and exits the scan loop.
 func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 	var (
 		frontImg  C.CEIIMAGEINFO
-		hasFront  bool
+		hasFront  bool   // front image held in frontImg (not yet released)
+		hasRear   bool   // front+rear saved to TIFF; waiting for UV page
 		micrRaw   string
 		frontDPI  int
+		rearDPI   int
 		frontTIFF []byte
+		rearTIFF  []byte
 	)
+
+	// releaseFront releases the front CEIIMAGEINFO buffer and resets hasFront.
+	releaseFront := func() {
+		if hasFront {
+			C.astra_release_image(&frontImg)
+			hasFront = false
+		}
+	}
 
 	for {
 		var img C.CEIIMAGEINFO
@@ -411,26 +447,26 @@ func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 
 		switch ret {
 		case csdOK:
-			if !hasFront {
-				// First pass: front side of the cheque.
+			switch {
+			case !hasFront && !hasRear:
+				// Pass 1 — front side of the cheque.
 				frontImg = img
 				hasFront = true
 				frontDPI = int(img.lXResolution)
 
-				// MICR is read by hardware on the first transport pass.
+				// MICR is decoded by hardware during the first transport pass.
 				micrRaw = t.readMICR()
 
 				// IQA brightness check on the front image.
-				// On failure: physically eject the cheque back to the operator tray
-				// via CsdAbortScan, then restart scanning for the next cheque.
+				// On failure: eject the cheque back to the operator tray via
+				// CsdAbortScan, restart scanning, return synthetic IQA item.
 				if t.cfg.EnableIQA {
 					var iqaResult C.LONG
 					if r := C.astra_par_get_long(C.CSDP_IQA_BRIGHTNESS_RESULT, &iqaResult); int32(r) == csdOK {
 						if int32(iqaResult) != C.CSD_IQA_BRIGHTNESS_PASSED {
 							t.logger.Warn("IQA brightness fail — ejecting cheque to operator tray",
 								"result", int32(iqaResult))
-							C.astra_release_image(&frontImg)
-							hasFront = false
+							releaseFront()
 							C.astra_abort_scan()
 							if r2 := int32(C.astra_start_scan()); r2 != csdOK {
 								return nil, fmt.Errorf("restart scan after IQA reject: code %d", r2)
@@ -439,50 +475,51 @@ func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 						}
 					}
 				}
-			} else {
-				// Second pass: rear side.  Assemble the complete ScannedItem.
-				rearDPI := int(img.lXResolution)
 
-				// Save both sides as TIFF Group 4 (CTS-2010 mandated compression).
+			case hasFront && !hasRear:
+				// Pass 2 — rear side.  Save both TIFFs now; they are released here.
+				rearDPI = int(img.lXResolution)
+
 				var err error
 				frontTIFF, err = t.saveImageToBytes(&frontImg)
-				C.astra_release_image(&frontImg)
+				releaseFront()
 				if err != nil {
 					C.astra_release_image(&img)
-					hasFront = false
 					return nil, fmt.Errorf("save front image: %w", err)
 				}
 
-				rearTIFF, err := t.saveImageToBytes(&img)
+				rearTIFF, err = t.saveImageToBytes(&img)
 				C.astra_release_image(&img)
-				hasFront = false
-
 				if err != nil {
 					return nil, fmt.Errorf("save rear image: %w", err)
 				}
 
-				item := &ScannedItem{
-					FrontImage:       frontTIFF,
-					RearImage:        rearTIFF,
-					FrontDPI:         frontDPI,
-					RearDPI:          rearDPI,
-					FrontFileSizeKB:  float64(len(frontTIFF)) / 1024.0,
-					RearFileSizeKB:   float64(len(rearTIFF)) / 1024.0,
-					FrontColourDepth: 1,
-					RearColourDepth:  1,
-					MICRRaw:          micrRaw,
-					ImprinterStamped: t.cfg.EnableImprinter,
+				if !t.cfg.EnableUVScan {
+					// No UV lamp — assemble and return now.
+					return t.assembleItem(frontTIFF, rearTIFF, nil, frontDPI, rearDPI, micrRaw), nil
 				}
-				return item, nil
+				// UV enabled: stay in the loop to receive the UV page.
+				hasRear = true
+
+			default:
+				// Pass 3 — UV image (only reached when EnableUVScan=true).
+				uvTIFF, err := t.saveImageToBytes(&img)
+				C.astra_release_image(&img)
+				hasRear = false
+				if err != nil {
+					// UV save failed — return item without UV rather than failing the cheque.
+					// The workflow will route to human review (security feature check skipped).
+					t.logger.Warn("save UV image failed — submitting without UV", "error", err)
+					return t.assembleItem(frontTIFF, rearTIFF, nil, frontDPI, rearDPI, micrRaw), nil
+				}
+				return t.assembleItem(frontTIFF, rearTIFF, uvTIFF, frontDPI, rearDPI, micrRaw), nil
 			}
 
 		case csdDoubleFeed:
 			// Ultrasonic sensor triggered.  Release any partial image and tell the
 			// SDK to resume scanning (without this call, the scanner stalls).
-			if hasFront {
-				C.astra_release_image(&frontImg)
-				hasFront = false
-			}
+			releaseFront()
+			hasRear = false
 			C.astra_par_set_long(C.CSDP_DBLFEEDSTATUS, C.LONG(csdOK))
 			t.logger.Warn("double-feed detected by ultrasonic sensor")
 			return &ScannedItem{DoubleFeedDetected: true}, nil
@@ -491,10 +528,8 @@ func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 			// Feeder exhausted.  In a live clearing session the operator will feed
 			// the next cheque; restart the scan and keep waiting rather than ending
 			// the session.  If EndJob was called, exit cleanly.
-			if hasFront {
-				C.astra_release_image(&frontImg)
-				hasFront = false
-			}
+			releaseFront()
+			hasRear = false
 			select {
 			case <-t.done:
 				return nil, nil // clean session end
@@ -513,10 +548,8 @@ func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 
 		case csdTimeout:
 			// Scanner entered standby after 10-minute idle.  Restart transparently.
-			if hasFront {
-				C.astra_release_image(&frontImg)
-				hasFront = false
-			}
+			releaseFront()
+			hasRear = false
 			t.logger.Info("scanner 10-minute idle timeout — restarting scan")
 			select {
 			case <-t.done:
@@ -530,33 +563,43 @@ func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 
 		case csdCancel:
 			// CsdStopScan was called from EndJob — clean session end.
-			if hasFront {
-				C.astra_release_image(&frontImg)
-				hasFront = false
-			}
+			releaseFront()
+			hasRear = false
 			return nil, nil
 
 		case csdJam:
-			if hasFront {
-				C.astra_release_image(&frontImg)
-				hasFront = false
-			}
+			releaseFront()
+			hasRear = false
 			return nil, ErrPaperJam
 
 		case csdCoverOpen:
-			if hasFront {
-				C.astra_release_image(&frontImg)
-				hasFront = false
-			}
+			releaseFront()
+			hasRear = false
 			return nil, ErrCoverOpen
 
 		default:
-			if hasFront {
-				C.astra_release_image(&frontImg)
-				hasFront = false
-			}
+			releaseFront()
+			hasRear = false
 			return nil, fmt.Errorf("CsdReadPage unexpected code %d", ret)
 		}
+	}
+}
+
+// assembleItem constructs a ScannedItem from the captured image buffers.
+// uvTIFF may be nil when the scanner is a non-UV model or UV capture failed.
+func (t *CanonTransport) assembleItem(frontTIFF, rearTIFF, uvTIFF []byte, frontDPI, rearDPI int, micrRaw string) *ScannedItem {
+	return &ScannedItem{
+		FrontImage:       frontTIFF,
+		RearImage:        rearTIFF,
+		UVImage:          uvTIFF,
+		FrontDPI:         frontDPI,
+		RearDPI:          rearDPI,
+		FrontFileSizeKB:  float64(len(frontTIFF)) / 1024.0,
+		RearFileSizeKB:   float64(len(rearTIFF)) / 1024.0,
+		FrontColourDepth: 1,
+		RearColourDepth:  1,
+		MICRRaw:          micrRaw,
+		ImprinterStamped: t.cfg.EnableImprinter,
 	}
 }
 
