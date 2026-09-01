@@ -303,26 +303,22 @@ ALL_ACTIVITIES = [
 
 # Activities registered directly as bare functions.  Includes:
 #   a) Pure computation (validate_cts2010 — no I/O)
-#   b) Batch endorsement + NGCH submission activities — have graceful
-#      degradation when their optional DI dependency is None, so they work
-#      without BoundCTSActivities wiring today and gain real DI later.
+#   b) Batch endorsement activities (stamp_endorsement, update_lot_status)
 #   c) New stub activities for ClearingSession, SessionReconciliation,
-#      SBRelay, SMBVaultPush, and AgencyCC workflows — same pattern.
+#      SBRelay, SMBVaultPush, and AgencyCC workflows.
+# NOTE: build_ngch_file, submit_to_ngch, confirm_acknowledgement, and
+#   fetch_ngch_settlement_report have been moved to BoundCTSActivities
+#   (DI-wired with lot_store + ngch_adapter). Removed from this list.
 NO_DI_ACTIVITIES = [
     validate_cts2010,
     cross_check_ngch_metadata,
     # Batch endorsement (BatchEndorsementWorkflow)
     stamp_endorsement,
     update_lot_status,
-    # NGCH file build + submission (NGCHSubmissionWorkflow)
-    build_ngch_file,
-    submit_to_ngch,
-    confirm_acknowledgement,
     # Clearing session (ClearingSessionWorkflow)
     seal_all_lots,
     update_session_status,
     # Session reconciliation (SessionReconciliationWorkflow)
-    fetch_ngch_settlement_report,
     match_submitted_vs_settled,
     generate_rrf,
     # SB relay — inward forwarding + agency CC
