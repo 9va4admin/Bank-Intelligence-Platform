@@ -52,6 +52,10 @@ func main() {
 	mux := http.NewServeMux()
 	registerHandlers(mux, session, logger)
 
+	// Heartbeat loop — runs for the lifetime of the process; reports ACTIVE/IDLE to ASTRA.
+	// Non-blocking: a missed heartbeat logs a warning, never stops scanning.
+	go StartHeartbeatLoop(ctx, cfg, client, session, logger)
+
 	srv := &http.Server{
 		Addr:         cfg.ListenAddr,
 		Handler:      mux,

@@ -7,6 +7,8 @@ Routes:
   GET    /v1/cts/scanner/fleet                        — Fleet status for all registrations
   GET    /v1/cts/scanner/{branch_ifsc}/status         — Per-branch scanner status
   DELETE /v1/cts/scanner/{registration_id}            — Deactivate a registration
+  POST   /v1/cts/scanner/agent/heartbeat              — Go agent heartbeat (Bearer machine token)
+  GET    /v1/cts/scanner/agent/status                 — Branch scanner status: ACTIVE/IDLE/OFFLINE
 
 Auth model
 ──────────
@@ -30,7 +32,7 @@ import hmac
 import secrets
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
@@ -542,3 +544,219 @@ async def deactivate_scanner(
             reg["is_active"] = False
             log.info("scanner.deactivated", registration_id=registration_id, bank_id=bank_id)
             return _reg_to_summary(reg)
+
+
+# ── Go agent heartbeat + status (cts.scanner_tokens, NOT cts.scanner_registrations) ──
+#
+# The Go CGO scanner agent (edge/cts-scanner-agent/) uses machine-bound tokens
+# from cts.scanner_tokens — a separate table from the SDK-based scanner_registrations
+# above. These two endpoints serve the agent's 30-second heartbeat and the
+# BranchDashboard's scanner status pill.
+#
+# Three states (computed server-side from last_seen + active_session_id):
+#   ACTIVE  — heartbeat within 90s AND active_session_id non-empty
+#   IDLE    — heartbeat within 90s AND no active session
+#   OFFLINE — no heartbeat in 90s (or never seen)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# In-memory fallback for agent heartbeats when DB is unavailable (dev / tests).
+_AGENT_STORE: dict[str, dict] = {}  # keyed by token_hash
+
+
+class AgentHeartbeatRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    branch_id: str
+    active_session_id: str = ""  # empty string → IDLE
+
+
+class AgentHeartbeatResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    status: Literal["OK"]
+
+
+class AgentStatusResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    state: Literal["ACTIVE", "IDLE", "OFFLINE"]
+    branch_id: str
+    active_session_id: Optional[str]
+    last_seen: Optional[str]       # ISO 8601 UTC
+    last_seen_seconds_ago: Optional[int]
+
+
+def _agent_state(last_seen, active_session_id: str) -> str:
+    """Derive ACTIVE / IDLE / OFFLINE from DB row values."""
+    if last_seen is None:
+        return "OFFLINE"
+    now = datetime.now(timezone.utc)
+    if isinstance(last_seen, str):
+        last_seen = datetime.fromisoformat(last_seen)
+    age = (now - last_seen).total_seconds()
+    if age > 90:
+        return "OFFLINE"
+    return "ACTIVE" if active_session_id else "IDLE"
+
+
+@router_v1.post("/agent/heartbeat", response_model=AgentHeartbeatResponse)
+async def agent_heartbeat(
+    body: AgentHeartbeatRequest,
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+) -> AgentHeartbeatResponse:
+    """
+    30-second heartbeat from the Go CGO scanner agent on the teller PC.
+
+    Auth: Authorization: Bearer <machine-bound token from token.dat>
+    Validates against cts.scanner_tokens — NOT a user JWT.
+    Updates last_seen and active_session_id. No CSRF required (machine token).
+    """
+    with tracer.start_as_current_span("scanner.agent_heartbeat") as span:
+        span.set_attribute("bank_id", body.bank_id)
+        span.set_attribute("branch_id", body.branch_id)
+
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Scanner machine token required: Authorization: Bearer <token>",
+            )
+        incoming_token = authorization[7:].strip()
+        incoming_hash = hashlib.sha256(incoming_token.encode()).hexdigest()
+
+        now = datetime.now(timezone.utc)
+        session_id = body.active_session_id or None  # store NULL rather than empty string
+
+        db_pool = _get_db_pool(request)
+
+        if db_pool:
+            try:
+                async with db_pool.acquire() as conn:
+                    row = await conn.fetchrow(
+                        "SELECT token_id, bank_id, branch_id, token_hash, revoked "
+                        "FROM cts.scanner_tokens "
+                        "WHERE bank_id = $1 AND branch_id = $2 AND revoked = false",
+                        body.bank_id, body.branch_id,
+                    )
+            except Exception as exc:
+                log.error("scanner.agent_heartbeat.db_error", error=str(exc))
+                raise HTTPException(status_code=500, detail="Database error")
+
+            if row is None:
+                raise HTTPException(status_code=404, detail="No active scanner token for this branch")
+            if not hmac.compare_digest(row["token_hash"], incoming_hash):
+                log.warning("scanner.agent_heartbeat.bad_token",
+                            bank_id=body.bank_id, branch_id=body.branch_id)
+                raise HTTPException(status_code=401, detail="Invalid scanner token")
+
+            try:
+                async with db_pool.acquire() as conn:
+                    await conn.execute(
+                        "UPDATE cts.scanner_tokens "
+                        "SET last_seen = $2, active_session_id = $3 "
+                        "WHERE bank_id = $1 AND branch_id = $4 AND revoked = false",
+                        body.bank_id, now, session_id, body.branch_id,
+                    )
+            except Exception as exc:
+                log.error("scanner.agent_heartbeat.update_error", error=str(exc))
+                raise HTTPException(status_code=500, detail="Database error")
+        else:
+            # In-memory fallback — dev / unit tests
+            if not hmac.compare_digest(
+                _AGENT_STORE.get(incoming_hash, {}).get("token_hash", ""),
+                incoming_hash,
+            ):
+                # No stored record → accept first-time heartbeat and store it
+                _AGENT_STORE[incoming_hash] = {
+                    "bank_id": body.bank_id,
+                    "branch_id": body.branch_id,
+                    "token_hash": incoming_hash,
+                }
+            entry = _AGENT_STORE[incoming_hash]
+            entry["last_seen"] = now.isoformat()
+            entry["active_session_id"] = body.active_session_id
+
+        log.info("scanner.agent_heartbeat.ok",
+                 bank_id=body.bank_id, branch_id=body.branch_id,
+                 active_session_id=body.active_session_id or "IDLE")
+        return AgentHeartbeatResponse(status="OK")
+
+
+@router_v1.get("/agent/status", response_model=AgentStatusResponse)
+async def agent_status(
+    branch_id: str,
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+) -> AgentStatusResponse:
+    """
+    Current scanner state for a branch — polled by BranchDashboard every 15s.
+
+    ACTIVE  — heartbeat within 90s AND a scan session is running
+    IDLE    — heartbeat within 90s AND no active session
+    OFFLINE — no heartbeat in 90s (or machine has never connected)
+    """
+    bank_id = current_user["bank_id"]
+
+    with tracer.start_as_current_span("scanner.agent_status") as span:
+        span.set_attribute("bank_id", bank_id)
+        span.set_attribute("branch_id", branch_id)
+
+        db_pool = _get_db_pool(request)
+        now = datetime.now(timezone.utc)
+
+        if db_pool:
+            try:
+                async with db_pool.acquire() as conn:
+                    row = await conn.fetchrow(
+                        "SELECT last_seen, active_session_id "
+                        "FROM cts.scanner_tokens "
+                        "WHERE bank_id = $1 AND branch_id = $2 AND revoked = false",
+                        bank_id, branch_id,
+                    )
+            except Exception as exc:
+                log.error("scanner.agent_status.db_error", error=str(exc))
+                raise HTTPException(status_code=500, detail="Database error")
+
+            if row is None:
+                return AgentStatusResponse(
+                    state="OFFLINE",
+                    branch_id=branch_id,
+                    active_session_id=None,
+                    last_seen=None,
+                    last_seen_seconds_ago=None,
+                )
+
+            last_seen = row["last_seen"]
+            active_session_id = row["active_session_id"] or ""
+        else:
+            # In-memory fallback
+            entry = next(
+                (v for v in _AGENT_STORE.values()
+                 if v.get("bank_id") == bank_id and v.get("branch_id") == branch_id),
+                None,
+            )
+            if entry is None:
+                return AgentStatusResponse(
+                    state="OFFLINE",
+                    branch_id=branch_id,
+                    active_session_id=None,
+                    last_seen=None,
+                    last_seen_seconds_ago=None,
+                )
+            last_seen = entry.get("last_seen")
+            active_session_id = entry.get("active_session_id") or ""
+
+        state = _agent_state(last_seen, active_session_id)
+
+        last_seen_str = None
+        seconds_ago = None
+        if last_seen is not None:
+            ls = last_seen if isinstance(last_seen, datetime) else datetime.fromisoformat(str(last_seen))
+            last_seen_str = ls.isoformat()
+            seconds_ago = int((now - ls).total_seconds())
+
+        return AgentStatusResponse(
+            state=state,
+            branch_id=branch_id,
+            active_session_id=active_session_id or None,
+            last_seen=last_seen_str,
+            last_seen_seconds_ago=seconds_ago,
+        )
