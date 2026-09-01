@@ -51,6 +51,7 @@ type Config struct {
 
 	// Scan options
 	EnableUVScan    bool
+	UVParamID       int  // CSDP_UV offset in CsdScan.h — default 380; override in config.ini if Canon confirms a different value
 	EnableImprinter bool
 	EndorsementText string
 }
@@ -118,6 +119,7 @@ func loadConfig() (*Config, error) {
 		EnableIQA:            getBool("scanner", "enable_iqa", true),
 
 		EnableUVScan:    getBool("scanner", "enable_uv_scan", false),
+		UVParamID:       getInt("scanner", "uv_param_id", 380),
 		EnableImprinter: getBool("scanner", "enable_imprinter", true),
 		EndorsementText: get("scanner", "endorsement_text", "ASTRA/CTS"),
 
@@ -279,6 +281,7 @@ func envMap() map[string]string {
 		"scanner.mocr_weight":         os.Getenv("SCANNER_MOCR_WEIGHT"),
 		"scanner.enable_iqa":          os.Getenv("SCANNER_ENABLE_IQA"),
 		"scanner.enable_uv_scan":      os.Getenv("ENABLE_UV_SCAN"),
+		"scanner.uv_param_id":         os.Getenv("SCANNER_UV_PARAM_ID"),
 		"scanner.enable_imprinter":    os.Getenv("ENABLE_IMPRINTER"),
 		"scanner.endorsement_text":    os.Getenv("ENDORSEMENT_TEXT"),
 		"scanner.http_timeout_seconds": os.Getenv("HTTP_TIMEOUT_SECONDS"),
