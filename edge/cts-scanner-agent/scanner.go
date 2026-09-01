@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -14,10 +15,13 @@ import (
 type SessionItemStatus string
 
 const (
-	StatusSubmitted       SessionItemStatus = "SUBMITTED"
-	StatusDoubleFeed      SessionItemStatus = "DOUBLE_FEED_DETECTED"
-	StatusImprinterFault  SessionItemStatus = "IMPRINTER_FAULT"
-	StatusUploadFailed    SessionItemStatus = "UPLOAD_FAILED"
+	StatusSubmitted      SessionItemStatus = "SUBMITTED"
+	StatusDoubleFeed     SessionItemStatus = "DOUBLE_FEED_DETECTED"
+	StatusImprinterFault SessionItemStatus = "IMPRINTER_FAULT"
+	StatusUploadFailed   SessionItemStatus = "UPLOAD_FAILED"
+	StatusPaperJam       SessionItemStatus = "PAPER_JAM"
+	StatusCoverOpen      SessionItemStatus = "COVER_OPEN"
+	StatusIQARejected    SessionItemStatus = "IQA_REJECTED"
 )
 
 // SessionItem is a teller-visible record of one cheque position in the scan session.
@@ -129,7 +133,48 @@ func (s *ScanSession) runLoop(ctx context.Context) error {
 			if ctx.Err() != nil {
 				return nil // clean shutdown
 			}
-			s.logger.Error("transport read item error", "error", err)
+
+			// Hardware events (JAM, COVER_OPEN) must be reported to central so
+			// the Branch Scan Monitor and the ops dashboard can surface them.
+			// Other transport errors (generic hardware fault) are logged only.
+			var eventStatus SessionItemStatus
+			var eventType   string
+			switch {
+			case errors.Is(err, ErrPaperJam):
+				eventStatus, eventType = StatusPaperJam, "PAPER_JAM"
+			case errors.Is(err, ErrCoverOpen):
+				eventStatus, eventType = StatusCoverOpen, "COVER_OPEN"
+			}
+			if eventType != "" {
+				position := int(s.counter.Add(1))
+				scanID := s.buildScanID(position)
+				s.logger.Warn("hardware event", "event_type", eventType,
+					"session_id", s.sessionID, "scan_id", scanID)
+				s.appendItem(SessionItem{
+					Position:  position,
+					ScanID:    scanID,
+					Status:    eventStatus,
+					Timestamp: time.Now().UTC(),
+				})
+				go func(pos int, sid, evType string) {
+					ctx2, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+					defer cancel()
+					if err2 := s.client.ReportScanEvent(ctx2, &ScanEventRequest{
+						BankID:          s.cfg.BankID,
+						BranchID:        s.cfg.BranchID,
+						SessionID:       s.sessionID,
+						ScanID:          sid,
+						EventType:       evType,
+						PositionInBatch: pos,
+					}); err2 != nil {
+						s.logger.Warn("hardware event report failed — local log still present",
+							"event_type", evType, "scan_id", sid, "error", err2)
+					}
+				}(position, scanID, eventType)
+			} else {
+				s.logger.Error("transport read item error", "error", err)
+			}
+
 			// Brief pause before retrying — don't spin on repeated hardware errors
 			select {
 			case <-ctx.Done():
@@ -184,6 +229,39 @@ func (s *ScanSession) runLoop(ctx context.Context) error {
 
 			// Scanner has already physically ejected the overlapping documents.
 			// Operator must separate them and re-feed individually.
+			continue
+		}
+
+		// IQA failure — cheque was physically ejected back to operator tray by
+		// CsdAbortScan in ranger_windows.go. Report to central and continue.
+		if item.IQAFailed {
+			position := int(s.counter.Add(1))
+			scanID := s.buildScanID(position)
+			s.logger.Warn("IQA brightness fail — cheque ejected to operator tray",
+				"session_id", s.sessionID, "position", position, "scan_id", scanID,
+				"micr_suffix", micrSuffix(item.MICRRaw))
+			s.appendItem(SessionItem{
+				Position:   position,
+				ScanID:     scanID,
+				Status:     StatusIQARejected,
+				MICRSuffix: micrSuffix(item.MICRRaw),
+				Timestamp:  time.Now().UTC(),
+			})
+			go func(pos int, sid string) {
+				ctx2, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				if err2 := s.client.ReportScanEvent(ctx2, &ScanEventRequest{
+					BankID:          s.cfg.BankID,
+					BranchID:        s.cfg.BranchID,
+					SessionID:       s.sessionID,
+					ScanID:          sid,
+					EventType:       "IQA_REJECTED",
+					PositionInBatch: pos,
+					MICRSuffix:      micrSuffix(item.MICRRaw),
+				}); err2 != nil {
+					s.logger.Warn("IQA event report failed", "scan_id", sid, "error", err2)
+				}
+			}(position, scanID)
 			continue
 		}
 
