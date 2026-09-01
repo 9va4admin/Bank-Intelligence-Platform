@@ -338,14 +338,15 @@ func (t *CanonTransport) StartJob(endorsementText string, enableImprinter bool) 
 		return fmt.Errorf("set duplex mode failed: %d", ret)
 	}
 
-	// Binary fine-text-filtering — sharpest B&W mode for printed cheques.
-	if ret := C.astra_par_set_long(C.CSDP_MODE, C.CSD_BINARY_FINETEXTFILTERING); int32(ret) != csdOK {
+	// Scan mode — default 16 (CSD_BINARY_FINETEXTFILTERING, sharpest B&W for printed cheques).
+	// Override via scan_mode_value in config.ini for grayscale or colour capture.
+	if ret := C.astra_par_set_long(C.CSDP_MODE, C.LONG(t.cfg.ScanModeValue)); int32(ret) != csdOK {
 		return fmt.Errorf("set scan mode failed: %d", ret)
 	}
 
-	// 200 DPI — CTS-2010 mandated resolution.
-	C.astra_par_set_long(C.CSDP_XRESOLUTION, 200)
-	C.astra_par_set_long(C.CSDP_YRESOLUTION, 200)
+	// DPI — CTS-2010 minimum is 200; banks may set 300 for higher-quality archival.
+	C.astra_par_set_long(C.CSDP_XRESOLUTION, C.LONG(t.cfg.ScanDPI))
+	C.astra_par_set_long(C.CSDP_YRESOLUTION, C.LONG(t.cfg.ScanDPI))
 
 	// MICR: enable hardware reader, E13B font (Indian CTS-2010 standard).
 	if ret := C.astra_par_set_long(C.CSDP_MICR, 1); int32(ret) != csdOK {
@@ -364,8 +365,10 @@ func (t *CanonTransport) StartJob(endorsementText string, enableImprinter bool) 
 	C.astra_par_set_long(C.CSDP_MOCR, mocrWeight)
 
 	// IQA brightness check — requires CeiIQA.ini in the driver directory.
+	// Param IDs default to 355/356; override iqa_brightness_param_id / iqa_result_param_id
+	// in config.ini if Canon confirms different offsets for your model.
 	if t.cfg.EnableIQA {
-		C.astra_par_set_long(C.CSDP_IQA_BRIGHTNESS, 1)
+		C.astra_par_set_long(C.UINT(t.cfg.IQABrightnessParamID), C.LONG(1))
 	}
 
 	// UV lamp — CR-120 UV / CR-150 UV models only.
@@ -404,9 +407,16 @@ func (t *CanonTransport) StartJob(endorsementText string, enableImprinter bool) 
 
 	t.started = true
 	t.logger.Info("scan job started",
+		"dpi", t.cfg.ScanDPI,
+		"scan_mode", t.cfg.ScanModeValue,
 		"imprinter", enableImprinter,
 		"mocr_weight", int(mocrWeight),
 		"iqa", t.cfg.EnableIQA,
+		"iqa_brightness_param_id", t.cfg.IQABrightnessParamID,
+		"iqa_result_param_id", t.cfg.IQAResultParamID,
+		"uv", t.cfg.EnableUVScan,
+		"uv_param_id", t.cfg.UVParamID,
+		"feeder_poll_ms", t.cfg.FeederPollMS,
 	)
 	return nil
 }
@@ -463,7 +473,7 @@ func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 				// CsdAbortScan, restart scanning, return synthetic IQA item.
 				if t.cfg.EnableIQA {
 					var iqaResult C.LONG
-					if r := C.astra_par_get_long(C.CSDP_IQA_BRIGHTNESS_RESULT, &iqaResult); int32(r) == csdOK {
+					if r := C.astra_par_get_long(C.UINT(t.cfg.IQAResultParamID), &iqaResult); int32(r) == csdOK {
 						if int32(iqaResult) != C.CSD_IQA_BRIGHTNESS_PASSED {
 							t.logger.Warn("IQA brightness fail — ejecting cheque to operator tray",
 								"result", int32(iqaResult))
@@ -536,8 +546,8 @@ func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 				return nil, nil // clean session end
 			default:
 			}
-			// Small back-off before restarting — avoids spinning the CPU.
-			time.Sleep(300 * time.Millisecond)
+			// Back-off before restarting — avoids spinning the CPU while waiting for next cheque.
+			time.Sleep(time.Duration(t.cfg.FeederPollMS) * time.Millisecond)
 			select {
 			case <-t.done:
 				return nil, nil
