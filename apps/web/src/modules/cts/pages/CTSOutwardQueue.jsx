@@ -13,7 +13,7 @@
  * tag on every row. Real per-user branch/PU visibility scoping (who is mapped to
  * which PUs) is a backend RBAC feature — see the note at the bottom of this file.
  */
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
@@ -22,6 +22,8 @@ import useDemoData from '../../../shared/hooks/useDemoData'
 import OutwardReviewPanel from '../components/OutwardReviewPanel'
 import { demoChequeUrl } from '../demoImages'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
+
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
 // ─── Mock data ──────────────────────────────────────────────────────────────
 // bank_slug mirrors Inward Q's convention: SMB sees only its own bank's rows.
@@ -389,11 +391,59 @@ export default function CTSOutwardQueue() {
   const { isDark } = useTheme()
   const { bankId, isSMB } = useBankContext()
   const [tab, setTab] = useState('review') // 'review' | 'stp_rejected' | 'stp_success'
-  const [review, setReview]     = useState(useDemoData(MOCK_HUMAN_REVIEW))
-  const [rejected, setRejected] = useState(useDemoData(MOCK_STP_REJECTED))
-  const [stpSuccess]            = useState(useDemoData(MOCK_STP_SUCCESS))
-  const [decided, setDecided] = useState([]) // { instrument_id, action, reason, ts }
+  const demoReview    = useDemoData(MOCK_HUMAN_REVIEW)
+  const demoRejected  = useDemoData(MOCK_STP_REJECTED)
+  const demoSuccess   = useDemoData(MOCK_STP_SUCCESS)
+  const [review, setReview]     = useState(demoReview)
+  const [rejected, setRejected] = useState(demoRejected)
+  const [stpSuccess]            = useState(demoSuccess)
+  const [decided, setDecided]   = useState([])
   const [selected, setSelected] = useState(null)
+
+  // POC/PROD: fetch live outward queue from backend every 10s
+  const fetchLiveQueue = useCallback(async () => {
+    if (isDemo) return
+    try {
+      const res = await fetch(`${API_BASE}/v1/cts/outward/human-review-queue?limit=100`, { credentials: 'include' })
+      if (!res.ok) return
+      const data = await res.json()
+      const items = data.items ?? []
+      setReview(items.filter(i => i.outcome === 'HUMAN_REVIEW').map(i => ({
+        instrument_id: i.instrument_id,
+        cheque_no: i.cheque_number,
+        amount: i.amount_range,
+        payee: i.payee_display,
+        bank_slug: bankId,
+        pu: i.branch_id ?? '—',
+        branch: i.branch_id ?? '—',
+        fraud_score: i.fraud_score ?? 0,
+        ocr_confidence: i.ocr_confidence ?? 0,
+        review_reason: i.review_reason ?? '',
+        received_at: i.received_at,
+        ocr_fields: {},
+      })))
+      setRejected(items.filter(i => i.outcome === 'STP_RETURN' || i.outcome === 'MISMATCH_HELD').map(i => ({
+        instrument_id: i.instrument_id,
+        cheque_no: i.cheque_number,
+        amount: i.amount_range,
+        payee: i.payee_display,
+        bank_slug: bankId,
+        pu: i.branch_id ?? '—',
+        branch: i.branch_id ?? '—',
+        reject_reason: i.review_reason ?? i.outcome,
+        received_at: i.received_at,
+        ocr_fields: {},
+      })))
+    } catch { }
+  }, [isDemo, bankId])
+
+  useEffect(() => {
+    fetchLiveQueue()
+    if (!isDemo) {
+      const t = setInterval(fetchLiveQueue, 10000)
+      return () => clearInterval(t)
+    }
+  }, [fetchLiveQueue, isDemo])
 
   const inScope = (item) => (isSMB ? item.bank_slug === bankId : true)
 
@@ -411,30 +461,20 @@ export default function CTSOutwardQueue() {
     ),
   })
 
-  function decide(instrumentId, action, reason) {
+  async function decide(instrumentId, action, reason) {
     const entry = { instrument_id: instrumentId, action, reason, ts: new Date().toLocaleTimeString() }
     setDecided(d => [entry, ...d])
     if (tab === 'review') setReview(r => r.filter(i => i.instrument_id !== instrumentId))
     else setRejected(r => r.filter(i => i.instrument_id !== instrumentId))
+    setSelected(null)
 
-    // Immudb audit trail — fire-and-forget, never blocks the reviewer's decision.
-    // POST /v1/cts/outward/queue/decisions -> platform.audit.events -> audit-service -> Immudb.
-    fetch('/v1/cts/outward/queue/decisions', {
+    // Send Temporal signal + update DB status — fire-and-forget, never blocks reviewer
+    fetch(`${API_BASE}/v1/cts/outward/review/${encodeURIComponent(instrumentId)}/decide`, {
       method: 'POST',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': sessionStorage.getItem('astra-csrf') || '',
-      },
-      body: JSON.stringify({
-        instrument_id: instrumentId,
-        tab,
-        action,
-        reason,
-        reason_category: action === 'CONFIRMED' ? 'confirm' : 'reject',
-      }),
-    }).catch(err => console.warn('outward Q audit write failed (non-blocking):', err))
-    setSelected(null)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, reason, reason_category: action === 'CONFIRMED' ? 'confirm' : 'reject' }),
+    }).catch(err => console.warn('outward review signal failed (non-blocking):', err))
   }
 
   function selectItem(item) {

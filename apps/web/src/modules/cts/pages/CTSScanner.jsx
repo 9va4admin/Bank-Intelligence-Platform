@@ -1,8 +1,10 @@
-﻿import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 import ChequeImageViewer from '../components/ChequeImageViewer'
 import { demoChequeUrl } from '../demoImages'
 
@@ -283,58 +285,95 @@ export default function CTSScanner() {
   }, [pingAgent])
 
   // ── Session control ─────────────────────────────────────────────────────────
-  function startSession() {
-    const sid = `SES-${Date.now().toString(36).toUpperCase()}`
+  async function startSession() {
+    setKpis({ accepted: 0, cts_rejected: 0, mismatch: 0, human_review: 0 })
+    setScans([])
+    scanIdxRef.current = 0
+
+    // 1. Tell scanner agent to start scanning
+    try {
+      await fetch(`${agentUrl}/session/start`, { method: 'POST', signal: AbortSignal.timeout(3000) })
+    } catch {
+      // agent may be unreachable — continue to open ASTRA session anyway so operator can monitor
+    }
+
+    // 2. Open EEH session in ASTRA
+    let sid = `SES-${Date.now().toString(36).toUpperCase()}`
+    try {
+      const res = await fetch(`${API_BASE}/v1/cts/outward/scanner/session/open`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branch_id: cfgDraft.bankIfsc || 'BRANCH-DEFAULT', hub_type: 'EEH', cert_fingerprint: 'ui-session' }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        sid = data.session_id
+      }
+    } catch {
+      // session open failed — session_id falls back to local
+    }
+
     setSessionId(sid)
     setSessionActive(true)
-    setKpis({ accepted: 0, cts_rejected: 0, mismatch: 0, human_review: 0 })
-    scanIdxRef.current = 0
-    setScans([])
 
-    intervalRef.current = setInterval(() => {
-      const scan = mkScan(scanIdxRef.current)
-      scanIdxRef.current++
-      setSessionCount(c => c + 1)
-      setScans(prev => [scan, ...prev].slice(0, 60))
-      setKpis(prev => ({
-        accepted:     prev.accepted     + (scan.outcome === 'ACCEPTED'      ? 1 : 0),
-        cts_rejected: prev.cts_rejected + (scan.outcome === 'CTS_REJECTED'  ? 1 : 0),
-        mismatch:     prev.mismatch     + (scan.outcome === 'MISMATCH_HELD' ? 1 : 0),
-        human_review: prev.human_review + (scan.outcome === 'HUMAN_REVIEW'  ? 1 : 0),
-      }))
-
-      // Audit feed
-      const ae = mkAuditEvent(auditIdxRef.current, bankId ?? 'demo-bank')
-      auditIdxRef.current++
-      setAuditEvents(prev => [ae, ...prev].slice(0, 20))
-
-      // Kafka lag simulation
-      setKafkaStats({
-        scanned:   { lag: Math.max(0, Math.floor(Math.random() * 3)), rate: +(0.7  + Math.random() * 0.4 ).toFixed(1) },
-        sealed:    { lag: 0,                                           rate: +(0.03 + Math.random() * 0.04).toFixed(2) },
-        submitted: { lag: 0,                                           rate: +(0.02 + Math.random() * 0.03).toFixed(2) },
-      })
-
-      // Lot fill simulation
-      setLots(prev => {
-        const updated = [...prev]
-        const openIdx = updated.findIndex(l => l.status === 'OPEN')
-        if (openIdx >= 0) {
-          const filled = { ...updated[openIdx], count: updated[openIdx].count + 1 }
-          if (filled.count >= filled.max) {
-            updated[openIdx] = { ...filled, status: 'SEALED' }
-            return [...updated, { ...mkLot(updated.length), status: 'OPEN', count: 0 }]
-          }
-          updated[openIdx] = filled
-        }
-        return updated
-      })
-    }, 1800)
+    // 3. Poll /scan-monitor/recent every 3s for live scan events
+    intervalRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/v1/cts/scan-monitor/recent?limit=60`, { credentials: 'include' })
+        if (!res.ok) return
+        const data = await res.json()
+        const events = (data.events ?? []).map(e => ({
+          scan_id:       e.scan_id,
+          instrument_id: e.scan_id,
+          cheque_no:     e.micr_suffix ?? '—',
+          acct_suffix:   (e.micr_suffix ?? '****').slice(-4),
+          micr_ok:       true,
+          iqa:           1.0,
+          path:          'CR120',
+          outcome:       e.outcome,
+          lot_id:        e.lot_id ?? '—',
+          ts:            e.scanned_at ? new Date(e.scanned_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—',
+          front_bw_url:  null,
+          back_bw_url:   null,
+          front_gray_url: null,
+        }))
+        setScans(events)
+        setSessionCount(events.length)
+        const kpi = events.reduce((acc, s) => {
+          if (s.outcome === 'ACCEPTED')      acc.accepted++
+          if (s.outcome === 'CTS_REJECTED')  acc.cts_rejected++
+          if (s.outcome === 'MISMATCH_HELD') acc.mismatch++
+          if (s.outcome === 'HUMAN_REVIEW')  acc.human_review++
+          return acc
+        }, { accepted: 0, cts_rejected: 0, mismatch: 0, human_review: 0 })
+        setKpis(kpi)
+      } catch {
+        // transient — keep showing existing data
+      }
+    }, 3000)
   }
 
-  function stopSession() {
+  async function stopSession() {
     setSessionActive(false)
     clearInterval(intervalRef.current)
+
+    // Tell scanner agent to stop
+    try {
+      await fetch(`${agentUrl}/session/stop`, { method: 'POST', signal: AbortSignal.timeout(3000) })
+    } catch { }
+
+    // Close ASTRA session
+    if (sessionId) {
+      try {
+        await fetch(`${API_BASE}/v1/cts/outward/scanner/session/close`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sessionId }),
+        })
+      } catch { }
+    }
   }
 
   useEffect(() => () => clearInterval(intervalRef.current), [])

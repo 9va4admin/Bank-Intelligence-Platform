@@ -360,7 +360,32 @@ export default function CTSPresentmentFile() {
   const [batchCounter, setBatchCounter] = useState(1)
   const [expandSuccess, setExpandSuccess] = useState(true)
   const [expandReject, setExpandReject]   = useState(true)
+  const [ngchSending, setNgchSending]   = useState(false)
   const seqRef = useRef(currentBatch.nextSeq)
+
+  const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+  async function handleSendToNGCH() {
+    if (isDemo) return
+    setNgchSending(true)
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      const res = await fetch(`${API_BASE}/v1/cts/outward/clearing-session/submit`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clearing_date: today, session_type: 'MORNING', deployment_mode: 'SB_NGCH', pu_ids: [] }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        console.warn('NGCH submit failed:', err.detail ?? res.status)
+      }
+    } catch (e) {
+      console.warn('NGCH submit error:', e.message)
+    } finally {
+      setNgchSending(false)
+    }
+  }
 
   // Simulate Kafka listener: instruments arrive and get appended to current batch
   useDemoInterval(() => {
@@ -465,9 +490,17 @@ export default function CTSPresentmentFile() {
                     disabled={passed.length === 0}
                     isDark={isDark}
                   />
-                  <span className={`text-[9px] ${th.lbl} ml-1`}>
-                    Send to NGCH — coming soon
-                  </span>
+                  <button
+                    onClick={handleSendToNGCH}
+                    disabled={passed.length === 0 || ngchSending}
+                    className={`text-[10px] px-3 py-1.5 rounded-lg font-medium border transition-colors ml-1 ${
+                      passed.length === 0 || ngchSending
+                        ? (isDark ? 'border-white/10 text-slate-600 cursor-not-allowed' : 'border-slate-200 text-slate-400 cursor-not-allowed')
+                        : 'bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700'
+                    }`}
+                  >
+                    {ngchSending ? 'Submitting…' : 'Send to NGCH'}
+                  </button>
                 </div>
 
                 {/* Live instrument list */}
