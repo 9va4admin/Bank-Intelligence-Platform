@@ -344,7 +344,7 @@ func (t *CanonTransport) StartJob(endorsementText string, enableImprinter bool) 
 		return fmt.Errorf("set scan mode failed: %d", ret)
 	}
 
-	// DPI — CTS-2010 minimum is 200; banks may set 300 for higher-quality archival.
+	// DPI — NPCI guideline default is 300; CTS-2010 minimum is 200 (override via scan_dpi in config.ini).
 	C.astra_par_set_long(C.CSDP_XRESOLUTION, C.LONG(t.cfg.ScanDPI))
 	C.astra_par_set_long(C.CSDP_YRESOLUTION, C.LONG(t.cfg.ScanDPI))
 
