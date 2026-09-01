@@ -17,6 +17,16 @@ package main
 //
 // This file defines the interface and the data types shared across all builds.
 
+import "errors"
+
+// Sentinel errors returned by Transport.ReadItem for hardware events that need
+// to be reported to central and may need operator intervention before resuming.
+// scanner.go uses errors.Is to distinguish these from generic transport failures.
+var (
+	ErrPaperJam  = errors.New("paper jam — operator must clear the transport")
+	ErrCoverOpen = errors.New("scanner cover is open — close before scanning")
+)
+
 // ScannedItem is the normalised output from one cheque pass through the scanner.
 type ScannedItem struct {
 	FrontImage []byte // TIFF Group 4, 200 dpi — CTS-2010 compliant
@@ -46,6 +56,11 @@ type ScannedItem struct {
 	// DoubleFeedDetected is true when the ultrasonic sensor detected a
 	// multi-sheet feed. The caller must reject this item.
 	DoubleFeedDetected bool
+
+	// IQAFailed is true when the hardware IQA brightness check failed on the
+	// front image. The scanner has already physically ejected the cheque back to
+	// the operator tray via CsdAbortScan. The caller must re-feed the cheque.
+	IQAFailed bool
 }
 
 // Transport is the interface every Ranger API implementation must satisfy.
