@@ -447,7 +447,6 @@ export default function CTSHubDashboard() {
     theadTx: isDark ? 'text-slate-400'           : 'text-slate-500',
   }
 
-  // Derived stats — lots_sealed_today and total_held are demo-only (not in DB yet)
   const activeBranches  = branches.filter(b => b.session?.status === 'ACTIVE').length
   const noSessionCount  = branches.filter(b => !b.session).length
   const totalUploaded   = branches.reduce((s, b) => s + (b.session?.total_uploaded ?? 0), 0)
@@ -455,17 +454,35 @@ export default function CTSHubDashboard() {
   const totalSealed     = branches.reduce((s, b) => s + (b.lots_sealed_today ?? 0), 0)
   const openLots        = branches.filter(b => b.current_lot?.status === 'OPEN')
 
+  const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
   function handleSealLot(branch, lot) {
     setSealTarget({ branch, lot })
   }
 
-  function confirmSeal() {
+  async function confirmSeal() {
     const { branch, lot } = sealTarget
+    if (!isDemo) {
+      try {
+        const res = await fetch(`${API_BASE}/v1/cts/outward/lots/${encodeURIComponent(lot.lot_id)}/seal`, {
+          method: 'PATCH', credentials: 'include',
+        })
+        if (!res.ok) {
+          setToast(`Seal failed: ${res.status}`)
+          setSealTarget(null)
+          return
+        }
+      } catch (e) {
+        setToast(`Seal error: ${e.message}`)
+        setSealTarget(null)
+        return
+      }
+    }
     setBranches(prev => prev.map(b =>
       b.branch_id !== branch.branch_id ? b : {
         ...b,
         current_lot: null,
-        lots_sealed_today: b.lots_sealed_today + 1,
+        lots_sealed_today: (b.lots_sealed_today ?? 0) + 1,
       }
     ))
     setToast(`Lot ${lot.lot_id.slice(-10)} sealed — ${branch.branch_name}`)
@@ -476,10 +493,26 @@ export default function CTSHubDashboard() {
     setSealAllPending(true)
   }
 
-  function confirmSealAll() {
+  async function confirmSealAll() {
+    if (!isDemo) {
+      try {
+        const res = await fetch(`${API_BASE}/v1/cts/outward/lots/seal-all`, {
+          method: 'POST', credentials: 'include',
+        })
+        if (!res.ok) {
+          setToast(`Seal-all failed: ${res.status}`)
+          setSealAllPending(false)
+          return
+        }
+      } catch (e) {
+        setToast(`Seal-all error: ${e.message}`)
+        setSealAllPending(false)
+        return
+      }
+    }
     setBranches(prev => prev.map(b => ({
       ...b,
-      lots_sealed_today: b.lots_sealed_today + (b.current_lot ? 1 : 0),
+      lots_sealed_today: (b.lots_sealed_today ?? 0) + (b.current_lot ? 1 : 0),
       current_lot: null,
     })))
     setToast(`All ${openLots.length} open lots sealed — ready for NGCH submission`)

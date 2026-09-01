@@ -30,7 +30,7 @@ function normaliseBranch(raw) {
                     : raw.scanner_health === 'DEGRADED' ? 'DEGRADED'
                     : raw.scanner_health === 'OFFLINE'  ? 'DISCONNECTED'
                     : 'UNKNOWN',
-    eeh_latency_ms:   null,           // not stored — UI guards with ?. so this is safe
+    eeh_latency_ms:   null,           // real-time measurement — not stored in DB
     session:          raw.session
       ? {
           session_id:      raw.session.session_id,
@@ -39,11 +39,18 @@ function normaliseBranch(raw) {
           total_uploaded:  raw.session.total_uploaded,
           total_accepted:  raw.session.total_accepted,
           total_rejected:  raw.session.total_rejected,
-          total_held:      0,          // not tracked in eeh_sessions yet
+          total_held:      raw.session.total_held ?? 0,
         }
       : null,
-    current_lot:      null,           // lot management not yet in DB — demo-only
-    lots_sealed_today: 0,             // not tracked in DB — demo-only
+    current_lot: raw.current_lot
+      ? {
+          lot_id: raw.current_lot.lot_id,
+          filled: raw.current_lot.filled,
+          max:    raw.current_lot.max,
+          status: raw.current_lot.status,
+        }
+      : null,
+    lots_sealed_today: raw.lots_sealed_today ?? 0,
   }
 }
 
