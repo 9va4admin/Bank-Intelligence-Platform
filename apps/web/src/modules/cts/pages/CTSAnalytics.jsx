@@ -16,6 +16,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
+import useAnalytics from '../hooks/useAnalytics'
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -165,12 +166,16 @@ function SecHead({ title, sub, isDark }) {
 
 export default function CTSAnalytics() {
   const { isDark } = useTheme()
-  const { isSMB } = useBankContext()
+  const { isSMB, isDemo } = useBankContext()
   const [activeTab, setActiveTab] = useState('overview')
 
   usePageHeader({ subtitle: 'Decision analytics · AI model performance · IET safety · 7-day rolling' })
 
-  const DAILY          = useDemoData(isSMB ? SMB_DAILY          : SB_DAILY)
+  // Live analytics — only fetched in POC/PROD; demo mode uses mock data below
+  const { daily: liveDaily, loading: liveLoading } = useAnalytics({ pollEnabled: !isDemo })
+
+  const mockDaily      = isSMB ? SMB_DAILY          : SB_DAILY
+  const DAILY          = isDemo ? mockDaily : (liveDaily.length > 0 ? liveDaily : mockDaily)
   const FRAUD_DIST     = useDemoData(isSMB ? SMB_FRAUD_DIST     : SB_FRAUD_DIST)
   const RISK_FLAGS     = useDemoData(isSMB ? SMB_RISK_FLAGS     : SB_RISK_FLAGS)
   const RETURN_REASONS = useDemoData(isSMB ? SMB_RETURN_REASONS : SB_RETURN_REASONS)

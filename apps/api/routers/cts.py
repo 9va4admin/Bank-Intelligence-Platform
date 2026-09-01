@@ -5277,3 +5277,191 @@ async def _instrument_search(bank_id: str, q: str, limit: int, db) -> ChequeSear
         for r in rows
     ]
     return ChequeSearchResponse(results=results, total=len(results), bank_id=bank_id)
+
+
+# ---------------------------------------------------------------------------
+# B8 — Lot instruments list (CTSPresentmentFile.jsx live data source)
+# ---------------------------------------------------------------------------
+
+class LotInstrumentRow(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    scan_id: str
+    instrument_id: Optional[str]
+    micr_suffix: Optional[str]
+    payee_display: Optional[str]
+    amount_range: Optional[str]
+    outcome: str
+    scanned_at: str
+
+
+class LotInstrumentsResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    lot_id: str
+    bank_id: str
+    lot_status: str
+    instrument_count: int
+    instruments: list[LotInstrumentRow]
+
+
+_LOT_READ_ROLES = {"ops_manager", "ops_reviewer", "bank_it_admin", "branch_manager"}
+
+
+@router_v1.get("/outward/lots/{lot_id}/instruments", response_model=LotInstrumentsResponse)
+async def get_lot_instruments(
+    lot_id: str,
+    request: Request,
+    ctx: UserContext = Depends(require_user_context),
+):
+    """
+    Returns accepted outward_scan_events for a lot.
+    Used by CTSPresentmentFile.jsx to display real instrument list in POC/PROD.
+    """
+    if ctx.role.value not in _LOT_READ_ROLES:
+        raise HTTPException(status_code=403, detail="Insufficient role")
+
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    bank_id = ctx.bank_id
+
+    async with db.acquire() as conn:
+        lot_row = await conn.fetchrow(
+            "SELECT lot_id, bank_id, status, instrument_count FROM cts.lots WHERE lot_id = $1",
+            lot_id,
+        )
+        if lot_row is None:
+            raise HTTPException(status_code=404, detail="Lot not found")
+        if lot_row["bank_id"] != bank_id:
+            raise HTTPException(status_code=403, detail="Lot belongs to a different bank")
+
+        rows = await conn.fetch(
+            """
+            SELECT scan_id::text, instrument_id, micr_suffix, payee_display,
+                   amount_range, outcome, scanned_at::text
+            FROM cts.outward_scan_events
+            WHERE lot_id = $1
+              AND bank_id = $2
+            ORDER BY scanned_at
+            """,
+            lot_id,
+            bank_id,
+        )
+
+    instruments = [
+        LotInstrumentRow(
+            scan_id=str(r["scan_id"]),
+            instrument_id=r["instrument_id"],
+            micr_suffix=r["micr_suffix"],
+            payee_display=r["payee_display"],
+            amount_range=r["amount_range"],
+            outcome=r["outcome"],
+            scanned_at=str(r["scanned_at"]),
+        )
+        for r in rows
+    ]
+
+    return LotInstrumentsResponse(
+        lot_id=lot_id,
+        bank_id=bank_id,
+        lot_status=lot_row["status"],
+        instrument_count=lot_row["instrument_count"],
+        instruments=instruments,
+    )
+
+
+# ---------------------------------------------------------------------------
+# B9 — Outward analytics (CTSAnalytics.jsx live data source)
+# ---------------------------------------------------------------------------
+
+class DailyAnalyticsRow(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    date: str
+    total: int
+    stp_confirm: int
+    stp_return: int
+    human_review: int
+    avg_ms: float
+    ocr_conf: Optional[float] = None
+    sig_prec: Optional[float] = None
+
+
+class DailyAnalyticsResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    days: int
+    daily: list[DailyAnalyticsRow]
+
+
+_ANALYTICS_READ_ROLES = {"ops_manager", "fraud_analyst", "bank_it_admin", "ops_reviewer"}
+
+
+@router_v1.get("/outward/analytics/daily", response_model=DailyAnalyticsResponse)
+async def get_outward_analytics_daily(
+    request: Request,
+    ctx: UserContext = Depends(require_user_context),
+    days: int = 7,
+):
+    """
+    Returns rolling N-day daily aggregates for outward CTS instruments.
+    Source: cts.outward_scan_events (outcome counts + timing) +
+            cts.agent_decisions (OCR/sig confidence averages).
+
+    Used by CTSAnalytics.jsx in POC/PROD mode.
+    """
+    if ctx.role.value not in _ANALYTICS_READ_ROLES:
+        raise HTTPException(status_code=403, detail="Insufficient role")
+
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    bank_id = ctx.bank_id
+    days = max(1, min(days, 30))  # clamp 1–30
+
+    async with db.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            WITH daily AS (
+                SELECT
+                    DATE(scanned_at AT TIME ZONE 'Asia/Kolkata')   AS day,
+                    COUNT(*)                                        AS total,
+                    COUNT(*) FILTER (WHERE outcome = 'ACCEPTED')   AS stp_confirm,
+                    COUNT(*) FILTER (WHERE outcome = 'CTS_REJECTED') AS stp_return,
+                    COUNT(*) FILTER (WHERE outcome = 'MISMATCH_HELD') AS human_review
+                FROM cts.outward_scan_events
+                WHERE bank_id = $1
+                  AND scanned_at >= NOW() - ($2 || ' days')::INTERVAL
+                GROUP BY day
+                ORDER BY day
+            )
+            SELECT
+                day::text                     AS date,
+                total::int                    AS total,
+                stp_confirm::int              AS stp_confirm,
+                stp_return::int               AS stp_return,
+                human_review::int             AS human_review,
+                0.0::float                    AS avg_ms
+            FROM daily
+            """,
+            bank_id,
+            str(days),
+        )
+
+    daily_list = [
+        DailyAnalyticsRow(
+            date=r["date"],
+            total=r["total"],
+            stp_confirm=r["stp_confirm"],
+            stp_return=r["stp_return"],
+            human_review=r["human_review"],
+            avg_ms=r["avg_ms"],
+        )
+        for r in rows
+    ]
+
+    return DailyAnalyticsResponse(
+        bank_id=bank_id,
+        days=days,
+        daily=daily_list,
+    )
