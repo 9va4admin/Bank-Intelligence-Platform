@@ -212,6 +212,7 @@ static INT32 astra_par_get_buf(UINT p, char *b)  { return g_CsdParGet(p, (LPVOID
 static INT32 astra_start_scan(void)              { return g_CsdStartScan(NULL, NULL, NULL); }
 static INT32 astra_read_page(CEIIMAGEINFO *img)  { return g_CsdReadPage(img); }
 static INT32 astra_stop_scan(void)               { return g_CsdStopScan(); }
+static INT32 astra_abort_scan(void)              { return g_CsdAbortScan(); }
 static INT32 astra_terminate(void)               { return g_CsdTerminate(); }
 static INT32 astra_release_image(CEIIMAGEINFO *img) { return g_CsdReleaseImage(img); }
 
@@ -400,7 +401,6 @@ func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 		micrRaw   string
 		frontDPI  int
 		frontTIFF []byte
-		iqaPassed = true
 	)
 
 	for {
@@ -420,14 +420,22 @@ func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 				// MICR is read by hardware on the first transport pass.
 				micrRaw = t.readMICR()
 
-				// IQA brightness result for the front image.
+				// IQA brightness check on the front image.
+				// On failure: physically eject the cheque back to the operator tray
+				// via CsdAbortScan, then restart scanning for the next cheque.
 				if t.cfg.EnableIQA {
 					var iqaResult C.LONG
 					if r := C.astra_par_get_long(C.CSDP_IQA_BRIGHTNESS_RESULT, &iqaResult); int32(r) == csdOK {
 						if int32(iqaResult) != C.CSD_IQA_BRIGHTNESS_PASSED {
-							iqaPassed = false
-							t.logger.Warn("IQA brightness fail on front image",
+							t.logger.Warn("IQA brightness fail — ejecting cheque to operator tray",
 								"result", int32(iqaResult))
+							C.astra_release_image(&frontImg)
+							hasFront = false
+							C.astra_abort_scan()
+							if r2 := int32(C.astra_start_scan()); r2 != csdOK {
+								return nil, fmt.Errorf("restart scan after IQA reject: code %d", r2)
+							}
+							return &ScannedItem{IQAFailed: true, MICRRaw: micrRaw}, nil
 						}
 					}
 				}
@@ -465,7 +473,6 @@ func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 					MICRRaw:          micrRaw,
 					ImprinterStamped: t.cfg.EnableImprinter,
 				}
-				_ = iqaPassed // surfaced via logger; field can be added to ScannedItem if needed
 				return item, nil
 			}
 
@@ -534,14 +541,14 @@ func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 				C.astra_release_image(&frontImg)
 				hasFront = false
 			}
-			return nil, fmt.Errorf("paper jam detected — operator must clear the transport")
+			return nil, ErrPaperJam
 
 		case csdCoverOpen:
 			if hasFront {
 				C.astra_release_image(&frontImg)
 				hasFront = false
 			}
-			return nil, fmt.Errorf("scanner cover is open")
+			return nil, ErrCoverOpen
 
 		default:
 			if hasFront {

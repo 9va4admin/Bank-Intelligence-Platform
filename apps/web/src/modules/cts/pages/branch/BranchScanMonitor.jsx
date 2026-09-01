@@ -2,13 +2,13 @@
  * Branch Portal — Scanner Monitor (/branch/scan)
  *
  * Live view of the scan stream per session. Merges two data sources:
- *  1. /v1/cts/scan-monitor/recent  — submitted instruments (EEH / drop-folder path)
- *  2. /v1/cts/outward/session/{id}/scan-log — Canon CSD edge agent events
- *     including DOUBLE_FEED_DETECTED (held at branch, never sent to central)
- *     and IMPRINTER_FAULT (submitted but needs manual re-stamp).
- *
- * Double-feed rows are visually prominent — red left stripe + tinted background
- * — so the teller can see immediately which cheques need to be re-fed.
+ *  1. /v1/cts/scan-monitor/recent        — submitted instruments (EEH / drop-folder)
+ *  2. /v1/cts/outward/scan-events        — Canon CSD edge agent hardware events:
+ *       DOUBLE_FEED_DETECTED   — two cheques fed together; ejected; not sent to central
+ *       IMPRINTER_FAULT        — submitted but physical stamp failed; manual re-stamp needed
+ *       PAPER_JAM              — transport jammed; operator must clear and restart
+ *       COVER_OPEN             — scanner lid open during scan; close and re-feed
+ *       IQA_REJECTED           — hardware brightness check failed; cheque ejected to tray
  */
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -26,7 +26,11 @@ const MOCK_INSTRUMENTS = [
   { scan_id: 'SC-001246B',micr_suffix: '????', payee: '—',                 amount_range: '—',          status: 'DOUBLE_FEED_DETECTED', lot_id: '',         ts: '10:43:48', micr_source: 'UNKNOWN' },
   { scan_id: 'SC-001245', micr_suffix: '2211', payee: 'Rajesh Kulkarni',   amount_range: '₹[1L-5L]',  status: 'HELD',                 lot_id: '',         ts: '10:43:47', mismatch_id: 'MM-001', mismatch_fields: ['amount_figures'], micr_source: 'HARDWARE' },
   { scan_id: 'SC-001244', micr_suffix: '6699', payee: 'Anita Sharma',      amount_range: '₹[<1L]',    status: 'REJECTED',             lot_id: '',         ts: '10:43:44', reason: 'CTS_IMAGE_QUALITY', micr_source: 'OCR' },
+  // IQA rejected — hardware brightness fail; cheque ejected back to operator tray
+  { scan_id: 'SC-001244B',micr_suffix: '????', payee: '—',                 amount_range: '—',          status: 'IQA_REJECTED',         lot_id: '',         ts: '10:43:43', micr_source: 'UNKNOWN' },
   { scan_id: 'SC-001243', micr_suffix: '3312', payee: 'Sunil Enterprises', amount_range: '₹[5L-10L]', status: 'ACCEPTED',             lot_id: 'LOT-0007', ts: '10:43:42', micr_source: 'HARDWARE' },
+  // Paper jam — scanner jammed; operator cleared it
+  { scan_id: 'SC-001242B',micr_suffix: '????', payee: '—',                 amount_range: '—',          status: 'PAPER_JAM',            lot_id: '',         ts: '10:43:41', micr_source: 'UNKNOWN' },
   // Imprinter fault — cheque submitted but physical stamp failed; needs manual re-stamp at branch
   { scan_id: 'SC-001242', micr_suffix: '7741', payee: 'Kishore Mehta',     amount_range: '₹[1L-5L]',  status: 'IMPRINTER_FAULT',      lot_id: 'LOT-0007', ts: '10:43:40', micr_source: 'HARDWARE' },
   { scan_id: 'SC-001241', micr_suffix: '0023', payee: 'Priya Deshmukh',    amount_range: '₹[<1L]',    status: 'ACCEPTED',             lot_id: 'LOT-0007', ts: '10:43:38', micr_source: 'HARDWARE' },
@@ -47,6 +51,12 @@ const STATUS_CFG = {
   // Teller must re-stamp manually before returning the cheque to the customer.
   IMPRINTER_FAULT:      { label: 'Stamp Fault',  bg: 'bg-amber-500/15 text-amber-400 border-amber-500/30',      stripe: 'border-l-4 border-l-amber-500' },
   UPLOAD_FAILED:        { label: 'Upload Failed', bg: 'bg-red-500/15 text-red-400 border-red-500/30',            stripe: 'border-l-4 border-l-red-400' },
+  // Paper jam / cover open: scanner halted; operator must clear before resuming.
+  PAPER_JAM:            { label: 'Paper Jam',    bg: 'bg-orange-500/15 text-orange-400 border-orange-500/30',   stripe: 'border-l-4 border-l-orange-500' },
+  COVER_OPEN:           { label: 'Cover Open',   bg: 'bg-orange-500/15 text-orange-400 border-orange-500/30',   stripe: 'border-l-4 border-l-orange-500' },
+  // IQA rejected: hardware brightness check failed; cheque ejected back to operator tray.
+  // Re-feed with better lighting or clean the scanner glass.
+  IQA_REJECTED:         { label: 'IQA Fail',     bg: 'bg-purple-500/15 text-purple-400 border-purple-500/30',   stripe: 'border-l-4 border-l-purple-400' },
 }
 
 function StatusPill({ status }) {
@@ -72,14 +82,28 @@ function MicrSourceBadge({ source }) {
 }
 
 function EventRow({ item, isDark }) {
-  const isDoubleFeed    = item.status === 'DOUBLE_FEED_DETECTED'
+  const isDoubleFeed     = item.status === 'DOUBLE_FEED_DETECTED'
   const isImprinterFault = item.status === 'IMPRINTER_FAULT'
+  const isPaperJam       = item.status === 'PAPER_JAM'
+  const isCoverOpen      = item.status === 'COVER_OPEN'
+  const isIQAFail        = item.status === 'IQA_REJECTED'
+  const isHardwareFault  = isDoubleFeed || isPaperJam || isCoverOpen || isIQAFail
   const cfg = STATUS_CFG[item.status] || STATUS_CFG.PENDING
 
+  const rowTint = isDark
+    ? isDoubleFeed     ? 'bg-red-950/40'
+    : isPaperJam || isCoverOpen ? 'bg-orange-950/30'
+    : isIQAFail        ? 'bg-purple-950/30'
+    : isImprinterFault ? 'bg-amber-950/20'
+    : ''
+    : isDoubleFeed     ? 'bg-red-50'
+    : isPaperJam || isCoverOpen ? 'bg-orange-50'
+    : isIQAFail        ? 'bg-purple-50'
+    : isImprinterFault ? 'bg-amber-50'
+    : ''
+
   const th = {
-    row:   isDark
-      ? `border-white/4 hover:bg-white/2 ${isDoubleFeed ? 'bg-red-950/40' : ''} ${isImprinterFault ? 'bg-amber-950/20' : ''}`
-      : `border-slate-100 hover:bg-slate-50 ${isDoubleFeed ? 'bg-red-50' : ''} ${isImprinterFault ? 'bg-amber-50' : ''}`,
+    row:   isDark ? `border-white/4 hover:bg-white/2 ${rowTint}` : `border-slate-100 hover:bg-slate-50 ${rowTint}`,
     mono:  isDark ? 'text-slate-300 font-mono text-xs' : 'text-slate-600 font-mono text-xs',
     muted: isDark ? 'text-slate-400 text-xs' : 'text-slate-500 text-xs',
     faint: isDark ? 'text-slate-600 text-xs' : 'text-slate-400 text-xs',
@@ -90,18 +114,18 @@ function EventRow({ item, isDark }) {
       <td className={`py-2 px-3 ${th.muted}`}>{item.ts}</td>
       <td className={`py-2 px-3 ${th.mono}`}>{item.scan_id}</td>
       <td className={`py-2 px-3 ${th.mono}`}>
-        {isDoubleFeed ? <span className={th.faint}>—</span> : `****${item.micr_suffix}`}
+        {isHardwareFault ? <span className={th.faint}>—</span> : `****${item.micr_suffix}`}
         <MicrSourceBadge source={item.micr_source} />
       </td>
-      <td className={`py-2 px-3 ${isDoubleFeed ? th.faint : th.muted}`}>
-        {isDoubleFeed ? 'Not readable' : item.payee}
+      <td className={`py-2 px-3 ${isHardwareFault ? th.faint : th.muted}`}>
+        {isHardwareFault ? 'Not readable' : item.payee}
       </td>
-      <td className={`py-2 px-3 ${isDoubleFeed ? th.faint : th.muted} tabular-nums`}>
-        {isDoubleFeed ? '—' : item.amount_range}
+      <td className={`py-2 px-3 ${isHardwareFault ? th.faint : th.muted} tabular-nums`}>
+        {isHardwareFault ? '—' : item.amount_range}
       </td>
       <td className="py-2 px-3"><StatusPill status={item.status} /></td>
       <td className={`py-2 px-3 ${th.mono}`}>
-        {isDoubleFeed ? <span className={th.faint}>—</span> : (item.lot_id || '—')}
+        {isHardwareFault ? <span className={th.faint}>—</span> : (item.lot_id || '—')}
       </td>
       <td className={`py-2 px-3 ${th.muted}`}>
         {isDoubleFeed && (
@@ -110,12 +134,21 @@ function EventRow({ item, isDark }) {
         {isImprinterFault && (
           <span className="text-amber-400 text-xs font-medium">Manual re-stamp required</span>
         )}
+        {isPaperJam && (
+          <span className="text-orange-400 text-xs font-medium">Clear jam, then resume session</span>
+        )}
+        {isCoverOpen && (
+          <span className="text-orange-400 text-xs font-medium">Close scanner cover, then re-feed</span>
+        )}
+        {isIQAFail && (
+          <span className="text-purple-400 text-xs font-medium">Cheque ejected — re-feed or clean glass</span>
+        )}
         {item.mismatch_id && (
           <Link to="/branch/mismatch" className="text-amber-400 hover:underline text-xs">
             {item.mismatch_id}
           </Link>
         )}
-        {item.reason && !isDoubleFeed && (
+        {item.reason && !isHardwareFault && (
           <span className="text-red-400 text-xs">{item.reason}</span>
         )}
       </td>
@@ -156,6 +189,9 @@ function normalizeScanEvent(e) {
     amount_range: '—',
     status:       e.event_type === 'DOUBLE_FEED_DETECTED' ? 'DOUBLE_FEED_DETECTED'
                 : e.event_type === 'IMPRINTER_FAULT'      ? 'IMPRINTER_FAULT'
+                : e.event_type === 'PAPER_JAM'            ? 'PAPER_JAM'
+                : e.event_type === 'COVER_OPEN'           ? 'COVER_OPEN'
+                : e.event_type === 'IQA_REJECTED'         ? 'IQA_REJECTED'
                 : 'UPLOAD_FAILED',
     lot_id:       '',
     mismatch_id:  null,
@@ -246,6 +282,10 @@ export default function BranchScanMonitor() {
   const held         = instruments.filter(i => i.status === 'HELD').length
   const doubleFeed   = instruments.filter(i => i.status === 'DOUBLE_FEED_DETECTED').length
   const impFault     = instruments.filter(i => i.status === 'IMPRINTER_FAULT').length
+  const paperJam     = instruments.filter(i => i.status === 'PAPER_JAM').length
+  const coverOpen    = instruments.filter(i => i.status === 'COVER_OPEN').length
+  const iqaFail      = instruments.filter(i => i.status === 'IQA_REJECTED').length
+  const hwFaults     = paperJam + coverOpen
 
   return (
     <AppShell>
@@ -319,6 +359,45 @@ export default function BranchScanMonitor() {
           </div>
         )}
 
+        {/* Hardware fault notice — paper jam or cover open; scanner halted */}
+        {hwFaults > 0 && (
+          <div className={`flex items-start gap-3 px-6 py-2 border-b ${
+            isDark ? 'bg-orange-950/30 border-orange-700/30 text-orange-300' : 'bg-orange-50 border-orange-200 text-orange-700'
+          }`}>
+            <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            </svg>
+            <div className="text-sm">
+              {paperJam > 0 && (
+                <span className="font-semibold">{paperJam} paper jam{paperJam > 1 ? 's' : ''}{coverOpen > 0 ? ' · ' : ''}</span>
+              )}
+              {coverOpen > 0 && (
+                <span className="font-semibold">{coverOpen} cover open{coverOpen > 1 ? 's' : ''}</span>
+              )}
+              {' '}— scanner halted. Clear the jam or close the cover, then resume the session.
+            </div>
+          </div>
+        )}
+
+        {/* IQA rejection notice — image quality below hardware threshold */}
+        {iqaFail > 0 && (
+          <div className={`flex items-start gap-3 px-6 py-2 border-b ${
+            isDark ? 'bg-purple-950/30 border-purple-700/30 text-purple-300' : 'bg-purple-50 border-purple-200 text-purple-700'
+          }`}>
+            <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <div className="text-sm">
+              <span className="font-semibold">
+                {iqaFail} cheque{iqaFail > 1 ? 's' : ''} rejected by hardware IQA
+              </span>
+              {' '}— image brightness check failed. Cheque{iqaFail > 1 ? 's' : ''} ejected to operator tray.
+              Re-feed, or clean the scanner glass if this repeats.
+            </div>
+          </div>
+        )}
+
         {/* Summary strip */}
         <div className={`flex items-center gap-6 px-6 py-2 border-b ${th.divider} text-xs`}>
           <span className={th.muted}>
@@ -341,6 +420,12 @@ export default function BranchScanMonitor() {
           )}
           {impFault > 0 && (
             <span className="text-amber-400 font-medium">{impFault} stamp fault</span>
+          )}
+          {hwFaults > 0 && (
+            <span className="text-orange-400 font-semibold">{hwFaults} hardware fault</span>
+          )}
+          {iqaFail > 0 && (
+            <span className="text-purple-400 font-medium">{iqaFail} IQA fail — re-feed</span>
           )}
           {held > 0 && (
             <Link to="/branch/mismatch" className="text-amber-400 hover:underline">
