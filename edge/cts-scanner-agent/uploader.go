@@ -35,13 +35,16 @@ type UploadURLResponse struct {
 	RearPresignedURL  string `json:"rear_presigned_url"`
 	FrontObjectURL    string `json:"front_object_url"` // s3://... URL for submit request
 	RearObjectURL     string `json:"rear_object_url"`
+	UVPresignedURL    string `json:"uv_presigned_url,omitempty"` // only when include_uv=true
+	UVObjectURL       string `json:"uv_object_url,omitempty"`
 	ExpiresAt         int64  `json:"expires_at"` // Unix timestamp
 }
 
-// RequestUploadURLs asks ASTRA to provision a pair of pre-signed MinIO URLs
-// for uploading front and rear cheque images for a given scan_id.
-func (c *ASTRAClient) RequestUploadURLs(ctx context.Context, scanID string) (*UploadURLResponse, error) {
-	body, _ := json.Marshal(map[string]string{"scan_id": scanID})
+// RequestUploadURLs asks ASTRA to provision pre-signed MinIO PUT URLs for
+// front, rear, and optionally UV cheque images for a given scan_id.
+// includeUV should be true when item.UVImage is non-nil.
+func (c *ASTRAClient) RequestUploadURLs(ctx context.Context, scanID string, includeUV bool) (*UploadURLResponse, error) {
+	body, _ := json.Marshal(map[string]any{"scan_id": scanID, "include_uv": includeUV})
 	req, err := http.NewRequestWithContext(ctx,
 		http.MethodPost, c.baseURL+"/v1/cts/outward/scan/upload-url", bytes.NewReader(body))
 	if err != nil {
@@ -112,6 +115,10 @@ type ScanSubmitRequest struct {
 	// When present, the backend uses the CR-120 single-pass Qwen2-VL path.
 	// Never logged in full on the server side — contains account number.
 	MICRHardwareRaw  *string `json:"micr_hardware_raw,omitempty"`
+	// UVImageURL is the s3:// object URL of the UV wavelength image uploaded to MinIO.
+	// Set only when the scanner has a UV lamp (CR-120 UV model) and EnableUVScan=true.
+	// When present, OutwardScanWorkflow runs check_security_features with this image.
+	UVImageURL       *string `json:"image_uv_url,omitempty"`
 	ImprinterStamped bool    `json:"imprinter_stamped"`  // true = rear endorsement was printed
 	PuID             *string `json:"pu_id,omitempty"`
 }
@@ -221,8 +228,8 @@ func processScannedItem(
 	uploadCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
-	// Step 1 — get pre-signed upload URLs
-	urls, err := client.RequestUploadURLs(uploadCtx, scanID)
+	// Step 1 — get pre-signed upload URLs (UV requested only when image is present)
+	urls, err := client.RequestUploadURLs(uploadCtx, scanID, item.UVImage != nil)
 	if err != nil {
 		return nil, fmt.Errorf("request upload urls: %w", err)
 	}
@@ -235,6 +242,13 @@ func processScannedItem(
 	// Step 3 — upload rear image
 	if err := client.UploadImage(uploadCtx, urls.RearPresignedURL, item.RearImage); err != nil {
 		return nil, fmt.Errorf("upload rear: %w", err)
+	}
+
+	// Step 3b — upload UV image when present (CR-120 UV model, EnableUVScan=true)
+	if item.UVImage != nil && urls.UVPresignedURL != "" {
+		if err := client.UploadImage(uploadCtx, urls.UVPresignedURL, item.UVImage); err != nil {
+			return nil, fmt.Errorf("upload uv: %w", err)
+		}
 	}
 
 	// Step 4 — submit scan metadata
@@ -271,6 +285,13 @@ func processScannedItem(
 	if item.MICRRaw != "" {
 		micrCopy := item.MICRRaw
 		submitReq.MICRHardwareRaw = &micrCopy
+	}
+
+	// UV image — if uploaded, pass the object URL so the workflow can retrieve it
+	// for security feature verification (check_security_features activity).
+	if item.UVImage != nil && urls.UVObjectURL != "" {
+		uvURL := urls.UVObjectURL
+		submitReq.UVImageURL = &uvURL
 	}
 
 	submitCtx, cancel2 := context.WithTimeout(ctx, 30*time.Second)
