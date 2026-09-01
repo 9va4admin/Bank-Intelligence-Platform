@@ -69,6 +69,7 @@ import CTSOCRFeedback from './modules/observability/pages/CTSOCRFeedback'
 import AlertLog from './modules/observability/pages/AlertLog'
 import SystemHealth from './modules/observability/pages/SystemHealth'
 import UserManagement from './modules/admin/pages/UserManagement'
+import ScannerSetupGuide from './modules/admin/pages/ScannerSetupGuide'
 import LoginLog from './modules/admin/pages/LoginLog'
 import SecurityViolations from './modules/admin/pages/SecurityViolations'
 import OperationsConfig from './modules/admin/pages/OperationsConfig'
@@ -168,6 +169,7 @@ export default function App() {
         <Route path="/admin/security-violations" element={<SecurityViolations />} />
         <Route path="/admin/login-log" element={<LoginLog />} />
         <Route path="/admin/smoke-test" element={<CTSSmokeTest />} />
+        <Route path="/admin/scanner-setup-guide" element={<ScannerSetupGuide />} />
         <Route path="/admin/config/operations" element={<OperationsConfig />} />
         <Route path="/admin/config/platform" element={<PlatformConfig />} />
         <Route path="/admin/allocation" element={<CTSAllocationAdmin />} />
