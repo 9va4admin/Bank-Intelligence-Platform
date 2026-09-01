@@ -12,6 +12,7 @@ No business logic — delegates to Temporal workflow client.
 """
 import re
 import time
+from datetime import date, datetime, timezone
 from typing import Literal, Optional
 
 _TEMPORAL_PARAM_RE = re.compile(r'^[a-zA-Z0-9\-_]{1,64}$')
@@ -3121,6 +3122,155 @@ async def get_allocation_status(
 
     log.info("cts.alloc.status", bank_id=bank_id, active_claims=len(claims))
     return AllocationStatusResponse(bank_id=bank_id, active_claims=claims, total=len(claims))
+
+
+# ── Hub Summary ────────────────────────────────────────────────────────────────
+# GET /v1/cts/outward/hub-summary
+#
+# Returns per-branch aggregation used by CTSHubDashboard in POC/PROD mode.
+# Joins: cts.branches + cts.eeh_sessions (today, ACTIVE) + cts.scanner_registrations
+#
+# Demo-only fields (current_lot, lots_sealed_today, total_held, eeh_latency_ms)
+# are NOT returned — the frontend guards them with optional-chaining and ?? 0.
+#
+# Allowed roles: bank_it_admin, platform_admin, ops_manager
+# ─────────────────────────────────────────────────────────────────────────────
+
+_HUB_READ_ROLES = {"bank_it_admin", "platform_admin", "ops_manager"}
+
+_HUB_SUMMARY_SQL = """
+    SELECT
+        b.branch_id,
+        b.branch_name,
+        b.branch_ifsc,
+        COALESCE(s.hub_type, 'EEH')         AS hub_type,
+        COALESCE(r.health, 'UNKNOWN')        AS scanner_health,
+        s.session_id,
+        s.status                             AS session_status,
+        s.opened_at,
+        s.total_uploaded,
+        s.total_accepted,
+        s.total_rejected
+    FROM cts.branches b
+    LEFT JOIN cts.eeh_sessions s
+        ON  s.branch_id     = b.branch_id
+        AND s.clearing_date = $2
+        AND s.status        = 'ACTIVE'
+    LEFT JOIN cts.scanner_registrations r
+        ON  r.branch_id = b.branch_id
+        AND r.bank_id   = $1
+        AND r.is_active = true
+    WHERE b.bank_id = $1
+    ORDER BY b.branch_id
+"""
+
+
+class BranchSessionInfo(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    session_id:      str
+    status:          str
+    opened_at:       str
+    total_uploaded:  int
+    total_accepted:  int
+    total_rejected:  int
+
+
+class BranchSessionSummary(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    branch_id:      str
+    branch_name:    str
+    branch_ifsc:    str
+    hub_type:       str
+    scanner_health: str
+    session:        Optional[BranchSessionInfo]
+
+
+class HubSummaryResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id:         str
+    clearing_date:   str
+    branches:        list[BranchSessionSummary]
+    total_branches:  int
+    active_sessions: int
+    generated_at:    str
+
+
+def _row_to_branch_summary(row: dict) -> BranchSessionSummary:
+    session = None
+    if row.get("session_id") is not None:
+        opened = row["opened_at"]
+        opened_str = opened.isoformat() if hasattr(opened, "isoformat") else str(opened)
+        session = BranchSessionInfo(
+            session_id=row["session_id"],
+            status=row["session_status"] or "ACTIVE",
+            opened_at=opened_str,
+            total_uploaded=row["total_uploaded"] or 0,
+            total_accepted=row["total_accepted"] or 0,
+            total_rejected=row["total_rejected"] or 0,
+        )
+    return BranchSessionSummary(
+        branch_id=row["branch_id"],
+        branch_name=row["branch_name"],
+        branch_ifsc=row["branch_ifsc"],
+        hub_type=row.get("hub_type") or "EEH",
+        scanner_health=row.get("scanner_health") or "UNKNOWN",
+        session=session,
+    )
+
+
+@router_v1.get("/outward/hub-summary", response_model=HubSummaryResponse)
+async def get_hub_summary(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> HubSummaryResponse:
+    """
+    Hub dashboard branch summary — active sessions + scanner health per branch.
+
+    Joins cts.branches, cts.eeh_sessions (today's ACTIVE session), and
+    cts.scanner_registrations. Returns empty branch list in POC/dev when no
+    database pool is configured.
+    """
+    if ctx.role.value not in _HUB_READ_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient role",
+        )
+
+    bank_id = ctx.bank_id
+    today = date.today().isoformat()
+    generated_at = datetime.now(timezone.utc).isoformat()
+    state = getattr(getattr(request, "app", None), "state", None)
+    db_pool = getattr(state, "db_pool_cts", None) if state else None
+
+    if db_pool is None:
+        # POC/dev: no DB pool — return empty list so UI shows "no branches configured"
+        return HubSummaryResponse(
+            bank_id=bank_id,
+            clearing_date=today,
+            branches=[],
+            total_branches=0,
+            active_sessions=0,
+            generated_at=generated_at,
+        )
+
+    try:
+        async with db_pool.acquire() as conn:
+            rows = await conn.fetch(_HUB_SUMMARY_SQL, bank_id, today)
+    except Exception as exc:
+        log.error("cts.hub_summary.db_error", bank_id=bank_id, error=str(exc))
+        raise HTTPException(status_code=500, detail="Database error")
+
+    branches = [_row_to_branch_summary(dict(r)) for r in rows]
+    active = sum(1 for b in branches if b.session is not None)
+
+    return HubSummaryResponse(
+        bank_id=bank_id,
+        clearing_date=today,
+        branches=branches,
+        total_branches=len(branches),
+        active_sessions=active,
+        generated_at=generated_at,
+    )
 
 
 # ── Session Report ─────────────────────────────────────────────────────────────

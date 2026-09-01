@@ -16,6 +16,7 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
+import useHubSummary from '../hooks/useHubSummary'
 import AppShell from '../../../shared/layout/AppShell'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import { getBranchByIfsc } from '../../../shared/config/federalBankBranches'
@@ -406,7 +407,16 @@ function SealConfirmModal({ branch, lot, onConfirm, onCancel, isDark }) {
 export default function CTSHubDashboard() {
   const { isDark } = useTheme()
   const { bankId, bankName, isDemo } = useBankContext()
-  const [branches, setBranches] = useState(useDemoData(BRANCHES_MOCK))
+
+  // DEMO: rich mock data with lot management, session counters, EEH latency
+  // POC/PROD: live data from GET /v1/cts/outward/hub-summary (eeh_sessions + scanner_registrations)
+  const demoBranches = useDemoData(BRANCHES_MOCK)
+  const { branches: liveBranches, loading: liveLoading } = useHubSummary({ pollEnabled: !isDemo })
+  const [branches, setBranches] = useState([])
+  useEffect(() => {
+    setBranches(isDemo ? demoBranches : liveBranches)
+  }, [isDemo, demoBranches, liveBranches])
+
   const [countdown, setCountdown] = useState(isDemo ? windowCountdown(CLEARING_WINDOW.close_ts) : '—:—:—')
   const [sealTarget, setSealTarget] = useState(null)   // { branch, lot }
   const [sealAllPending, setSealAllPending] = useState(false)
@@ -437,12 +447,12 @@ export default function CTSHubDashboard() {
     theadTx: isDark ? 'text-slate-400'           : 'text-slate-500',
   }
 
-  // Derived stats
+  // Derived stats — lots_sealed_today and total_held are demo-only (not in DB yet)
   const activeBranches  = branches.filter(b => b.session?.status === 'ACTIVE').length
   const noSessionCount  = branches.filter(b => !b.session).length
   const totalUploaded   = branches.reduce((s, b) => s + (b.session?.total_uploaded ?? 0), 0)
   const totalHeld       = branches.reduce((s, b) => s + (b.session?.total_held ?? 0), 0)
-  const totalSealed     = branches.reduce((s, b) => s + b.lots_sealed_today, 0)
+  const totalSealed     = branches.reduce((s, b) => s + (b.lots_sealed_today ?? 0), 0)
   const openLots        = branches.filter(b => b.current_lot?.status === 'OPEN')
 
   function handleSealLot(branch, lot) {
