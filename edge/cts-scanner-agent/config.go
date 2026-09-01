@@ -25,6 +25,7 @@ type Config struct {
 	ScannerPort   string // kept for legacy config compatibility; discovery mode takes precedence
 	BankIFSC      string // teller's branch IFSC code — embeds in every scan
 	BankID        string // e.g. "kotak-mah"
+	BranchID      string // ASTRA internal branch ID (from Admin UI) — e.g. "kotak-mah-vashi-01"
 	OperatorID    string // teller user ID stamped into scan metadata
 	SessionPrefix string // clearing session prefix (e.g. "MUM-AM")
 
@@ -69,6 +70,7 @@ func loadConfig() (*Config, error) {
 		ScannerPort:     env("SCANNER_PORT", "USB"),
 		BankIFSC:        env("BANK_IFSC", ""),
 		BankID:          env("BANK_ID", ""),
+		BranchID:        env("BRANCH_ID", ""),
 		OperatorID:      env("OPERATOR_ID", "scanner-agent"),
 		SessionPrefix:   env("SESSION_PREFIX", "CTS"),
 		ListenAddr:      env("LISTEN_ADDR", ":9201"),
@@ -102,6 +104,9 @@ func loadConfig() (*Config, error) {
 	}
 	if c.BankID == "" {
 		errs = append(errs, "BANK_ID is required")
+	}
+	if c.BranchID == "" {
+		errs = append(errs, "BRANCH_ID is required — set to the ASTRA branch ID from Admin UI (e.g. kotak-mah-vashi-01)")
 	}
 	if len(errs) > 0 {
 		return nil, errors.New(strings.Join(errs, "; "))
