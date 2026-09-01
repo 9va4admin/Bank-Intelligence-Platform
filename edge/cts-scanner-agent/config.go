@@ -54,7 +54,7 @@ type Config struct {
 	UVParamID       int // CSDP_UV offset in CsdScan.h — default 380; confirm with Canon on UV hardware
 
 	// Scan quality — tunable without a rebuild
-	ScanDPI          int // XRESOLUTION + YRESOLUTION; CTS-2010 minimum is 200; some banks use 300 for archival
+	ScanDPI          int // XRESOLUTION + YRESOLUTION; NPCI guideline default is 300; CTS-2010 minimum is 200
 	ScanModeValue    int // value passed to CSDP_MODE; 16=binary fine-text (default); other values select grayscale or colour modes
 
 	// IQA parameter offsets — model-dependent like CSDP_UV; confirm from CsdScan.h if IQA fails unexpectedly
@@ -133,7 +133,7 @@ func loadConfig() (*Config, error) {
 		EnableUVScan:    getBool("scanner", "enable_uv_scan", false),
 		UVParamID:       getInt("scanner", "uv_param_id", 380),
 
-		ScanDPI:              getInt("scanner", "scan_dpi", 200),
+		ScanDPI:              getInt("scanner", "scan_dpi", 300),
 		ScanModeValue:        getInt("scanner", "scan_mode_value", 16),
 		IQABrightnessParamID: getInt("scanner", "iqa_brightness_param_id", 355),
 		IQAResultParamID:     getInt("scanner", "iqa_result_param_id", 356),
