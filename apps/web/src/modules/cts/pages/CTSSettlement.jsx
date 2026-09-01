@@ -8,11 +8,13 @@
  *   - Settlement finality tracker
  *   - Download: settlement position statement
  */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
 import AppShell from '../../../shared/layout/AppShell'
+
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
@@ -124,10 +126,57 @@ export default function CTSSettlement() {
   const { bankName, bankIfsc, isSMB, isDemo } = useBankContext()
 
   const demoSessions   = useMemo(() => isSMB ? makeSmbSessions(bankIfsc) : SB_SESSIONS, [bankIfsc, isSMB])
-  const SESSIONS       = useDemoData(demoSessions)
-  const COUNTERPARTIES = useDemoData(isSMB ? SMB_COUNTERPARTIES : SB_COUNTERPARTIES)
+  const demoCounterparties = useDemoData(isSMB ? SMB_COUNTERPARTIES : SB_COUNTERPARTIES)
+  const demoParsedSessions = useDemoData(demoSessions)
 
+  const [liveSessions, setLiveSessions]     = useState([])
+  const [settlementSummary, setSettlementSummary] = useState(null)
+  const [liveLoading, setLiveLoading]       = useState(false)
   const [selectedSession, setSelectedSession] = useState(null)
+
+  const fetchSettlement = useCallback(async () => {
+    if (isDemo) return
+    setLiveLoading(true)
+    try {
+      const res = await fetch(`${API_BASE}/v1/cts/outward/settlement`, { credentials: 'include' })
+      if (!res.ok) return
+      const data = await res.json()
+      // Map to the shape the existing UI expects
+      const mapped = (data.sessions ?? []).map(s => ({
+        id:           s.session_id,
+        type:         s.hub_type,
+        status:       s.status === 'ACTIVE' ? 'PROCESSING' : s.status === 'CLOSED' ? 'FILED' : s.status,
+        opened:       s.opened_at ? new Date(s.opened_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—',
+        instruments:  s.total_uploaded,
+        accepted:     s.total_accepted,
+        rejected:     s.total_rejected,
+        held:         s.total_held,
+        branch_name:  s.branch_name ?? s.branch_id,
+      }))
+      setLiveSessions(mapped)
+      setSettlementSummary({
+        total_instruments: data.total_instruments,
+        total_accepted:    data.total_accepted,
+        total_rejected:    data.total_rejected,
+        total_held:        data.total_held,
+        clearing_date:     data.clearing_date,
+      })
+    } catch { } finally {
+      setLiveLoading(false)
+    }
+  }, [isDemo])
+
+  useEffect(() => {
+    fetchSettlement()
+    if (!isDemo) {
+      const t = setInterval(fetchSettlement, 30000)
+      return () => clearInterval(t)
+    }
+  }, [fetchSettlement, isDemo])
+
+  const SESSIONS       = isDemo ? demoParsedSessions : liveSessions
+  const COUNTERPARTIES = isDemo ? demoCounterparties : []
+
   const activeSessionId = selectedSession ?? SESSIONS[1]?.id ?? SESSIONS[0]?.id
 
   const th = {
@@ -169,12 +218,12 @@ export default function CTSSettlement() {
 
         <div className="px-6 py-5 max-w-7xl space-y-5">
 
-          {!isDemo && (
+          {!isDemo && !liveLoading && liveSessions.length === 0 && (
             <div className={`rounded-xl border px-4 py-3 flex items-center gap-3 ${isDark ? 'border-amber-700/40 bg-amber-900/10 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
               <span className="text-lg">📂</span>
               <div>
-                <div className="text-xs font-semibold">No clearing sessions yet — POC mode</div>
-                <div className="text-[11px] opacity-70 mt-0.5">Settlement data appears after instruments are processed and a session is reconciled.</div>
+                <div className="text-xs font-semibold">No clearing sessions today</div>
+                <div className="text-[11px] opacity-70 mt-0.5">Settlement data appears after branches open scanning sessions and instruments are processed.</div>
               </div>
             </div>
           )}

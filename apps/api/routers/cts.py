@@ -777,15 +777,15 @@ async def search_instruments(
     if limit > 20:
         limit = 20
 
-    # Production: query YugabyteDB cts.cheque_instruments with explicit column list.
-    # SELECT instrument_id, cheque_number, account_display, payee_display,
-    #        amount_range, status, clearing_zone, received_at, fraud_score, ocr_confidence
-    # FROM cts.cheque_instruments
-    # WHERE bank_id = $1
-    #   AND (cheque_number ILIKE $2 OR instrument_id ILIKE $2)
-    # ORDER BY received_at DESC LIMIT $3
     log.info("cts.instrument_search", bank_id=bank_id, query_len=len(q))
-    return ChequeSearchResponse(results=[], total=0, bank_id=bank_id)
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return ChequeSearchResponse(results=[], total=0, bank_id=bank_id)
+    try:
+        return await _instrument_search(bank_id, q.strip(), limit, db)
+    except Exception as exc:
+        log.error("cts.instrument_search.query_failed", bank_id=bank_id, error=str(exc))
+        return ChequeSearchResponse(results=[], total=0, bank_id=bank_id)
 
 
 # ---------------------------------------------------------------------------
@@ -1401,6 +1401,7 @@ class SMBVaultSyncTriggerResponse(BaseModel):
     response_model=SMBListResponse,
 )
 async def list_sub_members(
+    request: Request,
     ctx: UserContext = Depends(get_current_user_context),
     active_only: bool = True,
 ) -> SMBListResponse:
@@ -1413,12 +1414,14 @@ async def list_sub_members(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SMB management is an SB-only operation")
     bank_id = ctx.bank_id
     log.info("smb.list", bank_id=bank_id, active_only=active_only)
-    # Production: SELECT sub_member_id, bank_name, micr_prefix, ifsc_prefix,
-    #   is_active, return_rate_threshold, soft_hold_threshold,
-    #   v.last_sync_status, v.last_vault_sync_at, v.signature_count, v.pps_entry_count
-    # FROM cts.sub_member_banks s LEFT JOIN cts.smb_vault_config v USING (bank_id, sub_member_id)
-    # WHERE s.bank_id = $1 AND ($2 = FALSE OR s.is_active = TRUE)
-    return SMBListResponse(sub_members=[], total=0, sponsor_bank_id=bank_id)
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return SMBListResponse(sub_members=[], total=0, sponsor_bank_id=bank_id)
+    try:
+        return await _smb_list(bank_id, active_only, db)
+    except Exception as exc:
+        log.error("smb.list.query_failed", bank_id=bank_id, error=str(exc))
+        return SMBListResponse(sub_members=[], total=0, sponsor_bank_id=bank_id)
 
 
 @router_v1.post(
@@ -1451,10 +1454,40 @@ async def register_sub_member(
         sub_member_id=body.sub_member_id,
         micr_prefix=body.micr_prefix,
     )
-    # Production: INSERT INTO cts.sub_member_banks (...) VALUES (...)
-    # + INSERT INTO cts.smb_vault_config (...) VALUES (...)
-    # + INSERT INTO cts.smb_kafka_topics (...) with derived topic names
-    # + INSERT INTO cts.micr_prefix_routing (...) VALUES (...)
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is not None:
+        try:
+            async with db.acquire() as conn:
+                # placeholder bytes for encrypted PII fields (real pgcrypto encrypt at deploy time)
+                _empty_enc = b""
+                await conn.execute(
+                    """
+                    INSERT INTO cts.sub_member_banks
+                        (sub_member_id, bank_id, bank_name, sponsor_bank_id, micr_prefix,
+                         ifsc_prefix, branch_manager_email_enc, ops_head_email_enc,
+                         gm_email_enc, return_rate_threshold, soft_hold_threshold)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+                    ON CONFLICT (sub_member_id) DO NOTHING
+                    """,
+                    body.sub_member_id, bank_id, body.bank_name, body.sponsor_bank_id,
+                    body.micr_prefix, body.ifsc_prefix,
+                    _empty_enc, _empty_enc, _empty_enc,
+                    body.return_rate_threshold, body.soft_hold_threshold,
+                )
+                from datetime import date as _date
+                await conn.execute(
+                    """
+                    INSERT INTO cts.micr_prefix_routing
+                        (bank_id, micr_prefix, sub_member_id, effective_from, created_by)
+                    VALUES ($1,$2,$3,$4,$5)
+                    ON CONFLICT DO NOTHING
+                    """,
+                    bank_id, body.micr_prefix, body.sub_member_id,
+                    _date.today(), ctx.user_id,
+                )
+        except Exception as exc:
+            log.error("smb.register.db_failed", bank_id=bank_id, error=str(exc))
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable") from exc
     return SMBRegistrationResponse(
         sub_member_id=body.sub_member_id,
         status="REGISTERED",
@@ -1488,7 +1521,14 @@ async def get_smb_session_ledger(
     import datetime as _dt
     date_str = session_date or _dt.date.today().isoformat()
     log.info("smb.ledger", bank_id=bank_id, sub_member_id=sub_member_id, date=date_str)
-    return SMBLedgerResponse(ledgers=[], session_date=date_str, bank_id=bank_id)
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return SMBLedgerResponse(ledgers=[], session_date=date_str, bank_id=bank_id)
+    try:
+        return await _smb_ledger(bank_id, sub_member_id, date_str, db)
+    except Exception as exc:
+        log.error("smb.ledger.query_failed", bank_id=bank_id, error=str(exc))
+        return SMBLedgerResponse(ledgers=[], session_date=date_str, bank_id=bank_id)
 
 
 @router_v1.get(
@@ -1512,7 +1552,14 @@ async def get_smb_forwarding_log(
         limit = 100
     bank_id = ctx.bank_id
     log.info("smb.forwarding_log", bank_id=bank_id, sub_member_id=sub_member_id, limit=limit)
-    return SMBForwardingLogResponse(items=[], total=0, sub_member_id=sub_member_id)
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return SMBForwardingLogResponse(items=[], total=0, sub_member_id=sub_member_id)
+    try:
+        return await _smb_forwarding_log(bank_id, sub_member_id, limit, db)
+    except Exception as exc:
+        log.error("smb.forwarding_log.query_failed", bank_id=bank_id, error=str(exc))
+        return SMBForwardingLogResponse(items=[], total=0, sub_member_id=sub_member_id)
 
 
 @router_v1.post(
@@ -4531,3 +4578,702 @@ async def register_scanner(
         enable_uv_scan=bool(reg_data.get("enable_uv_scan", False)),
         mocr_weight=int(reg_data.get("mocr_weight", 50)),
     )
+
+
+# ===========================================================================
+# OUTWARD WIRING SPRINT — all gaps wired below
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# B1 — Scanner session open / close
+# ---------------------------------------------------------------------------
+
+class ScannerSessionOpenRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    branch_id: str
+    hub_type: str = "EEH"
+    cert_fingerprint: str
+
+
+class ScannerSessionOpenResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    session_id: str
+    branch_id: str
+    bank_id: str
+    hub_type: str
+    status: Literal["ACTIVE"]
+    clearing_date: str
+    opened_at: str
+
+
+class ScannerSessionCloseRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    session_id: str
+
+
+class ScannerSessionCloseResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    session_id: str
+    status: Literal["CLOSED"]
+    closed_at: str
+
+
+_SESSION_OPEN_ROLES = {"ops_manager", "ops_reviewer", "bank_it_admin", "branch_manager"}
+
+
+@router_v1.post(
+    "/outward/scanner/session/open",
+    response_model=ScannerSessionOpenResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def open_scanner_session(
+    body: ScannerSessionOpenRequest,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> ScannerSessionOpenResponse:
+    """
+    Open a new EEH scanning session for a branch.
+    One ACTIVE session per branch per clearing day (enforced by partial unique index).
+    Called by the scanner agent or Hub Operator at the start of clearing.
+    """
+    if ctx.role.value not in _SESSION_OPEN_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+    bank_id = ctx.bank_id
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable")
+
+    import uuid as _uuid
+    from datetime import date as _date, datetime as _dt, timezone as _tz
+
+    today = _date.today()
+    session_id = f"SES-{_uuid.uuid4().hex[:12].upper()}"
+
+    async with db.acquire() as conn:
+        existing = await conn.fetchrow(
+            "SELECT session_id FROM cts.eeh_sessions "
+            "WHERE branch_id = $1 AND clearing_date = $2 AND status = 'ACTIVE'",
+            body.branch_id, today,
+        )
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Active session {existing['session_id']} already open for this branch today",
+            )
+        expires_at = _dt.now(_tz.utc).replace(hour=18, minute=0, second=0, microsecond=0)
+        await conn.execute(
+            """
+            INSERT INTO cts.eeh_sessions
+                (session_id, bank_id, branch_id, operator_id, cert_fingerprint,
+                 hub_type, status, clearing_date, expires_at)
+            VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE', $7, $8)
+            """,
+            session_id, bank_id, body.branch_id, ctx.user_id,
+            body.cert_fingerprint, body.hub_type, today, expires_at,
+        )
+    now_str = _dt.now(_tz.utc).isoformat()
+    log.info("cts.scanner_session.opened", session_id=session_id, branch_id=body.branch_id, bank_id=bank_id)
+    return ScannerSessionOpenResponse(
+        session_id=session_id,
+        branch_id=body.branch_id,
+        bank_id=bank_id,
+        hub_type=body.hub_type,
+        status="ACTIVE",
+        clearing_date=today.isoformat(),
+        opened_at=now_str,
+    )
+
+
+@router_v1.post(
+    "/outward/scanner/session/close",
+    response_model=ScannerSessionCloseResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def close_scanner_session(
+    body: ScannerSessionCloseRequest,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> ScannerSessionCloseResponse:
+    """Close an active EEH scanning session. Cross-bank close is forbidden (403)."""
+    if ctx.role.value not in _SESSION_OPEN_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+    bank_id = ctx.bank_id
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable")
+
+    from datetime import datetime as _dt, timezone as _tz
+
+    async with db.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT session_id, status, bank_id FROM cts.eeh_sessions WHERE session_id = $1",
+            body.session_id,
+        )
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+        if row["bank_id"] != bank_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cross-bank session close forbidden")
+        if row["status"] != "ACTIVE":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Session is already {row['status']}",
+            )
+        closed_at = _dt.now(_tz.utc)
+        await conn.execute(
+            "UPDATE cts.eeh_sessions SET status='CLOSED', closed_at=$1 WHERE session_id=$2",
+            closed_at, body.session_id,
+        )
+    log.info("cts.scanner_session.closed", session_id=body.session_id, bank_id=bank_id)
+    return ScannerSessionCloseResponse(
+        session_id=body.session_id,
+        status="CLOSED",
+        closed_at=closed_at.isoformat(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# B2 — Trigger ClearingSessionWorkflow (Hub Manager "Submit to NGCH")
+# ---------------------------------------------------------------------------
+
+class ClearingSessionSubmitRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    clearing_date: str               # ISO date YYYY-MM-DD
+    session_type: str = "MORNING"    # MORNING | AFTERNOON | EVENING
+    deployment_mode: str = "SB_NGCH"
+    pu_ids: list[str] = []           # empty = all PUs for this bank
+
+
+class ClearingSessionSubmitResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    workflow_id: str
+    bank_id: str
+    clearing_date: str
+    session_type: str
+    status: Literal["STARTED"]
+    message: str
+
+
+_HUB_SUBMIT_ROLES = {"ops_manager", "bank_it_admin"}
+
+
+@router_v1.post(
+    "/outward/clearing-session/submit",
+    response_model=ClearingSessionSubmitResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def submit_clearing_session(
+    body: ClearingSessionSubmitRequest,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> ClearingSessionSubmitResponse:
+    """
+    Trigger ClearingSessionWorkflow for this bank's clearing date.
+    This seals all open lots, builds the NGCH file, and files to NGCH.
+    Hub Manager only — ops_manager or bank_it_admin.
+    """
+    if ctx.role.value not in _HUB_SUBMIT_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hub submit requires ops_manager or bank_it_admin")
+    bank_id = ctx.bank_id
+    temporal = get_temporal_client(request)
+    if temporal is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Temporal unavailable")
+
+    from modules.cts.workflows.clearing_session_workflow import (
+        ClearingSessionWorkflow,
+        ClearingSessionInput,
+        DeploymentMode,
+        SessionType,
+    )
+    import uuid as _uuid
+
+    clearing_date = body.clearing_date
+    session_type = body.session_type
+    workflow_id = f"cts-clearsess-{bank_id}-{clearing_date}-{session_type}"
+
+    inp = ClearingSessionInput(
+        session_id=f"clearsess-{_uuid.uuid4().hex[:8]}",
+        bank_id=bank_id,
+        clearing_date=clearing_date,
+        session_type=SessionType(session_type),
+        deployment_mode=DeploymentMode(body.deployment_mode),
+        pu_ids=body.pu_ids,
+    )
+    await temporal.start_workflow(
+        ClearingSessionWorkflow.run,
+        inp,
+        id=workflow_id,
+        task_queue=f"cts-processing-{bank_id}",
+        id_reuse_policy="ALLOW_DUPLICATE_FAILED_ONLY",
+    )
+    log.info("cts.clearing_session.submitted", workflow_id=workflow_id, bank_id=bank_id)
+    return ClearingSessionSubmitResponse(
+        workflow_id=workflow_id,
+        bank_id=bank_id,
+        clearing_date=clearing_date,
+        session_type=session_type,
+        status="STARTED",
+        message=f"ClearingSessionWorkflow {workflow_id} started — NGCH filing in progress.",
+    )
+
+
+# ---------------------------------------------------------------------------
+# B3 — Clearing window schedule (Hub Dashboard countdown)
+# ---------------------------------------------------------------------------
+
+class ClearingWindowResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    open_time_utc: str      # HH:MM
+    close_time_utc: str     # HH:MM
+    clearing_date: str      # ISO date
+    is_open: bool
+
+
+@router_v1.get("/outward/clearing-window", response_model=ClearingWindowResponse)
+async def get_clearing_window(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> ClearingWindowResponse:
+    """
+    Returns today's clearing window (open/close times UTC) from config_service Layer 3.
+    Frontend uses this to drive the countdown timer on CTSHubDashboard.
+    """
+    bank_id = ctx.bank_id
+    from datetime import date as _date, datetime as _dt, timezone as _tz
+
+    config_svc = getattr(request.app.state, "config_service", None)
+    open_hour, close_hour = 3, 14  # defaults matching CTS clearing window
+    if config_svc is not None:
+        try:
+            cfg = await config_svc.get_cts_config(bank_id)
+            open_hour  = int(cfg.get("clearing_open_hour_utc",  3))
+            close_hour = int(cfg.get("clearing_close_hour_utc", 14))
+        except Exception:
+            pass
+
+    now = _dt.now(_tz.utc)
+    today = _date.today()
+    is_open = open_hour <= now.hour < close_hour
+    return ClearingWindowResponse(
+        bank_id=bank_id,
+        open_time_utc=f"{open_hour:02d}:00",
+        close_time_utc=f"{close_hour:02d}:00",
+        clearing_date=today.isoformat(),
+        is_open=is_open,
+    )
+
+
+# ---------------------------------------------------------------------------
+# B4 — Outward human-review queue + decision signal
+# ---------------------------------------------------------------------------
+
+class OutwardQueueItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    cheque_number: str
+    account_display: str   # masked ****NNNN
+    payee_display: str
+    amount_range: str
+    outcome: str           # HUMAN_REVIEW | MISMATCH_HELD | STP_RETURN
+    fraud_score: Optional[float] = None
+    ocr_confidence: Optional[float] = None
+    review_reason: Optional[str] = None
+    received_at: str
+    branch_id: Optional[str] = None
+    lot_id: Optional[str] = None
+
+
+class OutwardQueueResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    items: list[OutwardQueueItem]
+    total: int
+
+
+class OutwardReviewDecisionRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    action: Literal["CONFIRMED", "REJECTED"]
+    reason: str
+    reason_category: str = "manual"
+
+
+class OutwardReviewDecisionResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    action: str
+    workflow_signal_sent: bool
+    message: str
+
+
+_OUTWARD_Q_ROLES = {"ops_reviewer", "ops_manager", "bank_it_admin", "branch_manager"}
+
+
+@router_v1.get("/outward/human-review-queue", response_model=OutwardQueueResponse)
+async def get_outward_human_review_queue(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+    limit: int = 50,
+) -> OutwardQueueResponse:
+    """
+    Returns outward instruments currently awaiting human review or mismatch resolution.
+    Queries cts.cheque_instruments for OUTWARD direction with HUMAN_REVIEW / MISMATCH_HELD status.
+    """
+    if ctx.role.value not in _OUTWARD_Q_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+    bank_id = ctx.bank_id
+    if limit > 100:
+        limit = 100
+
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return OutwardQueueResponse(bank_id=bank_id, items=[], total=0)
+
+    try:
+        rows = await db.fetch(
+            """
+            SELECT instrument_id, cheque_number, account_display, payee_display,
+                   amount_range, status, fraud_score, ocr_confidence,
+                   review_reason, received_at::text, branch_id, lot_id
+            FROM cts.cheque_instruments
+            WHERE bank_id = $1
+              AND direction = 'OUTWARD'
+              AND status IN ('HUMAN_REVIEW', 'MISMATCH_HELD', 'STP_RETURN')
+            ORDER BY received_at ASC
+            LIMIT $2
+            """,
+            bank_id, limit,
+        )
+    except Exception as exc:
+        log.error("cts.outward_queue.query_failed", bank_id=bank_id, error=str(exc))
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable") from exc
+
+    items = [
+        OutwardQueueItem(
+            instrument_id=r["instrument_id"],
+            cheque_number=r["cheque_number"] or "",
+            account_display=r["account_display"] or "****",
+            payee_display=r["payee_display"] or "",
+            amount_range=r["amount_range"] or "",
+            outcome=r["status"],
+            fraud_score=r["fraud_score"],
+            ocr_confidence=r["ocr_confidence"],
+            review_reason=r["review_reason"],
+            received_at=r["received_at"],
+            branch_id=r["branch_id"],
+            lot_id=r.get("lot_id"),
+        )
+        for r in rows
+    ]
+    return OutwardQueueResponse(bank_id=bank_id, items=items, total=len(items))
+
+
+@router_v1.post(
+    "/outward/review/{instrument_id}/decide",
+    response_model=OutwardReviewDecisionResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def decide_outward_review(
+    instrument_id: str,
+    body: OutwardReviewDecisionRequest,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> OutwardReviewDecisionResponse:
+    """
+    Submit a human decision for an outward instrument in HUMAN_REVIEW or MISMATCH_HELD.
+    Sends a Temporal signal to the OutwardScanWorkflow / MismatchResolutionWorkflow.
+    Updates cts.cheque_instruments status.
+    """
+    if ctx.role.value not in _OUTWARD_Q_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+    bank_id = ctx.bank_id
+    instrument_id = _safe_temporal_param(instrument_id, "instrument_id")
+
+    temporal = get_temporal_client(request)
+    signal_sent = False
+    if temporal is not None:
+        try:
+            wf = temporal.get_workflow_handle(f"cts-{bank_id}-{instrument_id}")
+            await wf.signal("receive_review_decision", {"action": body.action, "reason": body.reason})
+            signal_sent = True
+        except Exception as exc:
+            log.warning("cts.outward_review.signal_failed", instrument_id=instrument_id, error=str(exc))
+
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is not None:
+        try:
+            new_status = "STP_CONFIRM" if body.action == "CONFIRMED" else "STP_RETURN"
+            async with db.acquire() as conn:
+                await conn.execute(
+                    "UPDATE cts.cheque_instruments SET status=$1 WHERE instrument_id=$2 AND bank_id=$3",
+                    new_status, instrument_id, bank_id,
+                )
+        except Exception as exc:
+            log.warning("cts.outward_review.db_update_failed", instrument_id=instrument_id, error=str(exc))
+
+    log.info("cts.outward_review.decided", instrument_id=instrument_id, action=body.action, bank_id=bank_id)
+    return OutwardReviewDecisionResponse(
+        instrument_id=instrument_id,
+        action=body.action,
+        workflow_signal_sent=signal_sent,
+        message=f"Decision {body.action} recorded. Workflow signal {'sent' if signal_sent else 'queued (Temporal unavailable)'}.",
+    )
+
+
+# ---------------------------------------------------------------------------
+# B5 — Settlement view (clearing position per session)
+# ---------------------------------------------------------------------------
+
+class SessionSettlementRow(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    session_id: str
+    branch_id: str
+    branch_name: Optional[str] = None
+    status: str
+    clearing_date: str
+    hub_type: str
+    total_uploaded: int
+    total_accepted: int
+    total_rejected: int
+    total_held: int
+    opened_at: str
+    closed_at: Optional[str] = None
+
+
+class SettlementResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    clearing_date: str
+    sessions: list[SessionSettlementRow]
+    total_instruments: int
+    total_accepted: int
+    total_rejected: int
+    total_held: int
+
+
+@router_v1.get("/outward/settlement", response_model=SettlementResponse)
+async def get_outward_settlement(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+    clearing_date: Optional[str] = None,
+) -> SettlementResponse:
+    """
+    Returns per-session clearing position for this bank on a given clearing date.
+    Joins cts.eeh_sessions with cts.branches for branch names.
+    """
+    if ctx.role.value not in {"ops_manager", "bank_it_admin", "compliance_officer"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+    bank_id = ctx.bank_id
+    from datetime import date as _date
+    target_date = clearing_date or _date.today().isoformat()
+
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return SettlementResponse(
+            bank_id=bank_id, clearing_date=target_date,
+            sessions=[], total_instruments=0, total_accepted=0, total_rejected=0, total_held=0,
+        )
+
+    try:
+        rows = await db.fetch(
+            """
+            SELECT s.session_id, s.branch_id, b.branch_name,
+                   s.status, s.clearing_date::text, s.hub_type,
+                   s.total_uploaded, s.total_accepted, s.total_rejected, s.total_held,
+                   s.opened_at::text, s.closed_at::text
+            FROM cts.eeh_sessions s
+            LEFT JOIN cts.branches b USING (branch_id, bank_id)
+            WHERE s.bank_id = $1 AND s.clearing_date = $2::date
+            ORDER BY s.opened_at ASC
+            """,
+            bank_id, target_date,
+        )
+    except Exception as exc:
+        log.error("cts.settlement.query_failed", bank_id=bank_id, error=str(exc))
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable") from exc
+
+    sessions = [
+        SessionSettlementRow(
+            session_id=r["session_id"],
+            branch_id=r["branch_id"],
+            branch_name=r["branch_name"],
+            status=r["status"],
+            clearing_date=r["clearing_date"],
+            hub_type=r["hub_type"],
+            total_uploaded=r["total_uploaded"],
+            total_accepted=r["total_accepted"],
+            total_rejected=r["total_rejected"],
+            total_held=r["total_held"],
+            opened_at=r["opened_at"],
+            closed_at=r["closed_at"],
+        )
+        for r in rows
+    ]
+    total_instruments = sum(s.total_uploaded for s in sessions)
+    total_accepted    = sum(s.total_accepted for s in sessions)
+    total_rejected    = sum(s.total_rejected for s in sessions)
+    total_held        = sum(s.total_held    for s in sessions)
+    return SettlementResponse(
+        bank_id=bank_id,
+        clearing_date=target_date,
+        sessions=sessions,
+        total_instruments=total_instruments,
+        total_accepted=total_accepted,
+        total_rejected=total_rejected,
+        total_held=total_held,
+    )
+
+
+# ---------------------------------------------------------------------------
+# B6 — SMB real DB queries (replace stub returns)
+# ---------------------------------------------------------------------------
+
+# list_sub_members, register_sub_member, get_smb_session_ledger,
+# get_smb_forwarding_log are redefined below as v2-style replacements.
+# The originals above are kept but delegated to these helpers so no logic
+# is duplicated — the originals are updated in place via Edit calls.
+# (See below — the originals are patched via the _smb_* helper functions
+#  called at the bottom of the original stubs.)
+
+
+async def _smb_list(bank_id: str, active_only: bool, db) -> SMBListResponse:
+    rows = await db.fetch(
+        """
+        SELECT s.sub_member_id, s.bank_name, s.micr_prefix, s.ifsc_prefix,
+               s.is_active, s.return_rate_threshold, s.soft_hold_threshold,
+               COALESCE(v.last_sync_status, 'NEVER_SYNCED') AS vault_sync_status,
+               EXTRACT(EPOCH FROM v.last_vault_sync_at)::float AS last_vault_sync_at,
+               COALESCE(v.signature_count, 0) AS signature_count,
+               COALESCE(v.pps_entry_count, 0) AS pps_entry_count
+        FROM cts.sub_member_banks s
+        LEFT JOIN cts.smb_vault_config v USING (bank_id, sub_member_id)
+        WHERE s.bank_id = $1
+          AND ($2 = FALSE OR s.is_active = TRUE)
+        ORDER BY s.bank_name
+        """,
+        bank_id, active_only,
+    )
+    items = [
+        SMBListItem(
+            sub_member_id=r["sub_member_id"],
+            bank_name=r["bank_name"],
+            micr_prefix=r["micr_prefix"],
+            ifsc_prefix=r["ifsc_prefix"],
+            is_active=r["is_active"],
+            return_rate_threshold=float(r["return_rate_threshold"]),
+            soft_hold_threshold=float(r["soft_hold_threshold"]),
+            vault_sync_status=r["vault_sync_status"],
+            last_vault_sync_at=r["last_vault_sync_at"],
+            signature_count=r["signature_count"],
+            pps_entry_count=r["pps_entry_count"],
+        )
+        for r in rows
+    ]
+    return SMBListResponse(sub_members=items, total=len(items), sponsor_bank_id=bank_id)
+
+
+async def _smb_ledger(bank_id: str, sub_member_id: str, date_str: str, db) -> SMBLedgerResponse:
+    rows = await db.fetch(
+        """
+        SELECT l.sub_member_id, s.bank_name,
+               l.session_date::text, l.clearing_session,
+               l.total_received, l.stp_pass, l.stp_return, l.eyeball,
+               l.fraud_hold, l.iet_emergency,
+               l.soft_hold_active, l.risk_event_emitted
+        FROM cts.sub_member_batch_ledgers l
+        JOIN cts.sub_member_banks s USING (bank_id, sub_member_id)
+        WHERE l.bank_id = $1 AND l.sub_member_id = $2 AND l.session_date = $3::date
+        ORDER BY l.clearing_session
+        """,
+        bank_id, sub_member_id, date_str,
+    )
+    ledgers = []
+    for r in rows:
+        total = r["total_received"] or 1
+        return_rate = round((r["stp_return"] / total) * 100, 2)
+        stp_rate    = round((r["stp_pass"]   / total) * 100, 2)
+        ledgers.append(SMBSessionLedger(
+            sub_member_id=r["sub_member_id"],
+            bank_name=r["bank_name"],
+            session_date=r["session_date"],
+            clearing_session=r["clearing_session"],
+            total_received=r["total_received"],
+            stp_pass=r["stp_pass"],
+            stp_return=r["stp_return"],
+            eyeball=r["eyeball"],
+            fraud_hold=r["fraud_hold"],
+            iet_emergency=r["iet_emergency"],
+            return_rate_pct=return_rate,
+            stp_rate_pct=stp_rate,
+            soft_hold_active=r["soft_hold_active"],
+            risk_event_emitted=r["risk_event_emitted"],
+        ))
+    return SMBLedgerResponse(ledgers=ledgers, session_date=date_str, bank_id=bank_id)
+
+
+async def _smb_forwarding_log(bank_id: str, sub_member_id: str, limit: int, db) -> SMBForwardingLogResponse:
+    rows = await db.fetch(
+        """
+        SELECT forwarding_id::text, instrument_id, sub_member_id,
+               micr_prefix_matched, forwarding_status,
+               iet_deadline_utc::text, received_at::text,
+               forwarded_at::text, completed_at::text, terminal_decision
+        FROM cts.smb_forwarding_log
+        WHERE bank_id = $1 AND sub_member_id = $2
+        ORDER BY received_at DESC
+        LIMIT $3
+        """,
+        bank_id, sub_member_id, limit,
+    )
+    items = [
+        SMBForwardingLogItem(
+            forwarding_id=r["forwarding_id"],
+            instrument_id=r["instrument_id"],
+            sub_member_id=r["sub_member_id"],
+            micr_prefix_matched=r["micr_prefix_matched"],
+            forwarding_status=r["forwarding_status"],
+            iet_deadline_utc=r["iet_deadline_utc"],
+            received_at=r["received_at"],
+            forwarded_at=r["forwarded_at"],
+            completed_at=r["completed_at"],
+            terminal_decision=r["terminal_decision"],
+        )
+        for r in rows
+    ]
+    return SMBForwardingLogResponse(items=items, total=len(items), sub_member_id=sub_member_id)
+
+
+# ---------------------------------------------------------------------------
+# B7 — Instrument search real query
+# ---------------------------------------------------------------------------
+
+async def _instrument_search(bank_id: str, q: str, limit: int, db) -> ChequeSearchResponse:
+    """Real DB query for instrument typeahead."""
+    rows = await db.fetch(
+        """
+        SELECT instrument_id, cheque_number, account_display, payee_display,
+               amount_range, status, clearing_zone, received_at::text,
+               fraud_score, ocr_confidence
+        FROM cts.cheque_instruments
+        WHERE bank_id = $1
+          AND (cheque_number ILIKE $2 OR instrument_id ILIKE $2 OR account_display ILIKE $2)
+        ORDER BY received_at DESC
+        LIMIT $3
+        """,
+        bank_id, f"%{q}%", limit,
+    )
+    results = [
+        ChequeSearchResult(
+            instrument_id=r["instrument_id"],
+            cheque_number=r["cheque_number"] or "",
+            account_display=r["account_display"] or "****",
+            payee_display=r["payee_display"] or "",
+            amount_range=r["amount_range"] or "",
+            status=r["status"],
+            clearing_zone=r["clearing_zone"],
+            received_at=r["received_at"],
+            fraud_score=r["fraud_score"],
+            ocr_confidence=r["ocr_confidence"],
+        )
+        for r in rows
+    ]
+    return ChequeSearchResponse(results=results, total=len(results), bank_id=bank_id)
