@@ -1,4 +1,4 @@
-<title>Scanner Setup Guide</title>
+<title>ASTRA Scanner Operations Guide</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap">
 <style>
 /* ── Token system ─────────────────────────────────────────── */
@@ -27,6 +27,9 @@
   --emerald-bg:  #ECFDF5;
   --emerald-text:#065F46;
   --emerald-border:#6EE7B7;
+  --red-bg:      #FEF2F2;
+  --red-text:    #991B1B;
+  --red-border:  #FECACA;
   --slate-bg:    #F1F5F9;
   --slate-text:  #475569;
   --slate-border:#CBD5E1;
@@ -37,6 +40,8 @@
   --num-text:    #374151;
   --line:        #E2E8F0;
   --shadow:      0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --code-bg:     #F1F5F9;
+  --code-text:   #1E40AF;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -65,6 +70,9 @@
     --emerald-bg:  #022C22;
     --emerald-text:#6EE7B7;
     --emerald-border:#064E3B;
+    --red-bg:      #200808;
+    --red-text:    #FCA5A5;
+    --red-border:  #7F1D1D;
     --slate-bg:    #1A2235;
     --slate-text:  #94A3B8;
     --slate-border:#334155;
@@ -75,6 +83,8 @@
     --num-text:    #CBD5E1;
     --line:        rgba(255,255,255,.06);
     --shadow:      0 1px 3px rgba(0,0,0,.4);
+    --code-bg:     #1A2235;
+    --code-text:   #93C5FD;
   }
 }
 :root[data-theme="dark"] {
@@ -102,6 +112,9 @@
     --emerald-bg:  #022C22;
     --emerald-text:#6EE7B7;
     --emerald-border:#064E3B;
+    --red-bg:      #200808;
+    --red-text:    #FCA5A5;
+    --red-border:  #7F1D1D;
     --slate-bg:    #1A2235;
     --slate-text:  #94A3B8;
     --slate-border:#334155;
@@ -112,6 +125,8 @@
     --num-text:    #CBD5E1;
     --line:        rgba(255,255,255,.06);
     --shadow:      0 1px 3px rgba(0,0,0,.4);
+    --code-bg:     #1A2235;
+    --code-text:   #93C5FD;
 }
 
 /* ── Reset + base ─────────────────────────────────────────── */
@@ -124,10 +139,52 @@ body {
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
 }
-h1, h2, h3, .heading { color: var(--text); }
+h1, h2, h3, h4, .heading { color: var(--text); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
 
 /* ── Layout ───────────────────────────────────────────────── */
-.page { max-width: 860px; margin: 0 auto; padding: 32px 24px 80px; }
+.page { max-width: 900px; margin: 0 auto; padding: 32px 24px 80px; }
+
+/* ── TOC ──────────────────────────────────────────────────── */
+.toc {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 20px 22px;
+  margin-bottom: 32px; box-shadow: var(--shadow);
+}
+.toc-title { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+.toc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 24px; }
+.toc-item { display: flex; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border2); align-items: baseline; }
+.toc-item:last-child { border-bottom: none; }
+.toc-num { font-size: 10px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; flex-shrink: 0; width: 18px; }
+.toc-link { font-size: 12px; color: var(--body); }
+.toc-link:hover { color: var(--accent); text-decoration: none; }
+
+/* ── Section header ───────────────────────────────────────── */
+.section-head {
+  display: flex; align-items: center; gap: 12px;
+  margin: 36px 0 16px; padding-bottom: 10px;
+  border-bottom: 2px solid var(--border);
+}
+.section-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; flex-shrink: 0;
+}
+.section-icon.violet { background: rgba(124,58,237,.12); }
+.section-icon.sky    { background: rgba(2,132,199,.12); }
+.section-icon.amber  { background: rgba(217,119,6,.12); }
+.section-icon.emerald{ background: rgba(5,150,105,.12); }
+.section-icon.slate  { background: rgba(100,116,139,.12); }
+.section-icon.red    { background: rgba(185,28,28,.12); }
+.section-eyebrow { font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.section-eyebrow.violet { color: var(--violet-text); }
+.section-eyebrow.sky    { color: var(--sky-text); }
+.section-eyebrow.amber  { color: var(--amber-text); }
+.section-eyebrow.emerald{ color: var(--emerald-text); }
+.section-eyebrow.slate  { color: var(--slate-text); }
+.section-eyebrow.red    { color: var(--red-text); }
+.section-title { font-size: 16px; font-weight: 800; color: var(--text); margin-top: 1px; }
 
 /* ── Header ───────────────────────────────────────────────── */
 .header { margin-bottom: 28px; }
@@ -139,7 +196,8 @@ h1, h2, h3, .heading { color: var(--text); }
 }
 .badge-training { background: var(--violet-bg); color: var(--violet-text); border-color: var(--violet-border); }
 .badge-audience { background: var(--emerald-bg); color: var(--emerald-text); border-color: var(--emerald-border); }
-.header h1 { font-size: 24px; font-weight: 800; color: var(--text); line-height: 1.2; }
+.badge-dev      { background: var(--sky-bg); color: var(--sky-text); border-color: var(--sky-border); }
+.header h1 { font-size: 26px; font-weight: 800; color: var(--text); line-height: 1.2; }
 .header-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
 .header-meta { text-align: right; font-size: 11px; color: var(--muted); line-height: 1.7; flex-shrink: 0; }
 .intro-box {
@@ -150,47 +208,120 @@ h1, h2, h3, .heading { color: var(--text); }
 .intro-box strong { color: var(--text); }
 
 /* ── Stats strip ──────────────────────────────────────────── */
-.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; }
 .stat-card {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 12px; padding: 14px 16px; text-align: center;
   box-shadow: var(--shadow);
 }
-.stat-value { font-size: 26px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
-.stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.stat-value { font-size: 22px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+.stat-label { font-size: 10px; color: var(--muted); margin-top: 2px; }
 
-/* ── Actors ───────────────────────────────────────────────── */
-.actors { margin-bottom: 24px; }
-.section-label {
-  font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
-  color: var(--muted); margin-bottom: 10px;
-}
-.actors-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.actor-card {
+/* ── Card ─────────────────────────────────────────────────── */
+.card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 10px; padding: 14px; display: flex; gap: 10px;
+  border-radius: 14px; overflow: hidden; box-shadow: var(--shadow);
+  margin-bottom: 12px;
 }
-.actor-stripe { width: 3px; border-radius: 2px; flex-shrink: 0; }
-.actor-stripe.violet { background: #7C3AED; }
-.actor-stripe.sky    { background: #0284C7; }
-.actor-stripe.slate  { background: #64748B; }
-.actor-name { font-size: 12px; font-weight: 700; color: var(--text); }
-.actor-loc  { font-size: 10px; color: var(--muted); margin: 1px 0 4px; }
-.actor-desc { font-size: 11px; color: var(--body); line-height: 1.5; }
+.card-body { padding: 18px; }
 
-/* ── Phase card ───────────────────────────────────────────── */
+/* ── Req grid ─────────────────────────────────────────────── */
+.req-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.req-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px 18px;
+}
+.req-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+.req-item { display: flex; gap: 8px; padding: 4px 0; font-size: 13px; color: var(--body); align-items: flex-start; }
+.req-item .chk { color: var(--emerald-text); font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+.req-item .req-note { color: var(--muted); font-size: 11px; }
+
+/* ── Config table ─────────────────────────────────────────── */
+.config-table-wrap {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; overflow: hidden; box-shadow: var(--shadow);
+  margin-bottom: 16px;
+}
+.config-table-head {
+  padding: 10px 16px;
+  background: var(--surface2); border-bottom: 1px solid var(--border);
+  font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+  display: grid; grid-template-columns: 180px 90px 110px 1fr;
+  gap: 12px;
+}
+.config-row {
+  display: grid; grid-template-columns: 180px 90px 110px 1fr;
+  gap: 12px; padding: 12px 16px;
+  border-top: 1px solid var(--border2);
+  align-items: start;
+}
+.config-row:first-of-type { border-top: none; }
+.config-row.group-header {
+  background: var(--surface2); padding: 7px 16px;
+  font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); display: block; border-top: 1px solid var(--border);
+}
+.config-key {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600;
+  color: var(--accent); word-break: break-all;
+}
+.config-section {
+  font-size: 11px; color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+.config-default {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--body); background: var(--code-bg);
+  padding: 2px 6px; border-radius: 5px; display: inline-block;
+  white-space: nowrap;
+}
+.config-desc { font-size: 12px; color: var(--body); line-height: 1.5; }
+.config-desc .note { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.config-desc .warn { font-size: 11px; color: var(--amber-text); margin-top: 3px; }
+
+/* ── Code block ───────────────────────────────────────────── */
+.code-block {
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px 18px; overflow-x: auto;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.75;
+  color: var(--body); margin: 12px 0;
+}
+.code-block .cm { color: var(--muted); font-style: italic; }
+.code-block .ck { color: var(--accent); }
+.code-block .cv { color: var(--emerald-text); }
+.code-block .sect { color: var(--amber-text); font-weight: 600; }
+
+/* ── Pill ─────────────────────────────────────────────────── */
+.pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700; padding: 3px 10px;
+  border-radius: 100px; border: 1px solid; letter-spacing: .03em;
+}
+.pill-active   { background: var(--emerald-bg); color: var(--emerald-text); border-color: var(--emerald-border); }
+.pill-idle     { background: var(--amber-bg);   color: var(--amber-text);   border-color: var(--amber-border); }
+.pill-offline  { background: var(--red-bg);     color: var(--red-text);     border-color: var(--red-border); }
+.pill-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.pill-active .pill-dot   { background: var(--emerald-text); }
+.pill-idle .pill-dot     { background: var(--amber-text); }
+.pill-offline .pill-dot  { background: var(--red-text); }
+
+/* ── Heartbeat states ─────────────────────────────────────── */
+.hb-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+.hb-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px; box-shadow: var(--shadow);
+}
+.hb-status { margin-bottom: 8px; }
+.hb-when   { font-size: 12px; font-weight: 600; color: var(--text); margin: 8px 0 4px; }
+.hb-desc   { font-size: 12px; color: var(--body); line-height: 1.5; }
+
+/* ── Phase card (registration flow) ──────────────────────── */
 .phase-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow: var(--shadow);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); margin-bottom: 4px;
 }
 .phase-header {
-  padding: 12px 18px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  padding: 12px 18px; display: flex; align-items: center; gap: 12px;
   border-bottom: 1px solid var(--border2);
 }
 .phase-header.violet { background: var(--violet-bg); border-left: 3px solid #7C3AED; }
@@ -198,18 +329,15 @@ h1, h2, h3, .heading { color: var(--text); }
 .phase-header.sky    { background: var(--sky-bg);    border-left: 3px solid #0284C7; }
 .phase-header.slate  { background: var(--slate-bg);  border-left: 3px solid #64748B; }
 .phase-header.emerald{ background: var(--emerald-bg);border-left: 3px solid #059669; }
-
 .phase-icon {
   width: 34px; height: 34px; border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;
 }
 .phase-icon.violet { background: rgba(124,58,237,.15); }
 .phase-icon.amber  { background: rgba(217,119,6,.15);  }
 .phase-icon.sky    { background: rgba(2,132,199,.15);  }
 .phase-icon.slate  { background: rgba(100,116,139,.15);}
 .phase-icon.emerald{ background: rgba(5,150,105,.15);  }
-
 .phase-label { font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .phase-label.violet { color: var(--violet-text); }
 .phase-label.amber  { color: var(--amber-text);  }
@@ -243,32 +371,48 @@ h1, h2, h3, .heading { color: var(--text); }
 }
 .security-note .lock { flex-shrink: 0; margin-top: 1px; }
 
+/* ── Callout ──────────────────────────────────────────────── */
+.callout {
+  padding: 12px 16px; border-radius: 10px; border: 1px solid;
+  font-size: 12px; line-height: 1.6; display: flex; gap: 10px; margin: 10px 0;
+}
+.callout-amber { background: var(--amber-bg); border-color: var(--amber-border); color: var(--amber-text); }
+.callout-sky   { background: var(--sky-bg);   border-color: var(--sky-border);   color: var(--sky-text); }
+.callout-emerald{background: var(--emerald-bg);border-color:var(--emerald-border);color:var(--emerald-text);}
+.callout-icon  { flex-shrink: 0; font-size: 14px; margin-top: 1px; }
+
 /* ── Connector arrow ──────────────────────────────────────── */
 .arrow-connector {
-  display: flex; justify-content: center; padding: 6px 0;
+  display: flex; justify-content: center; padding: 4px 0;
   color: var(--faint);
 }
 .arrow-connector svg { width: 18px; height: 18px; }
 
+/* ── Troubleshooting ──────────────────────────────────────── */
+.faq-list { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.faq-item { padding: 16px 18px; display: flex; gap: 14px; border-top: 1px solid var(--line); }
+.faq-item:first-child { border-top: none; }
+.faq-q-mark { color: #D97706; font-weight: 800; flex-shrink: 0; margin-top: 1px; font-size: 14px; }
+.faq-q { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+.faq-a { font-size: 13px; color: var(--body); line-height: 1.55; }
+.faq-code { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent); background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+
+/* ── Section label ────────────────────────────────────────── */
+.section-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 10px;
+}
+
 /* ── Security grid ────────────────────────────────────────── */
 .security-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
-.sec-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 14px 16px; display: flex; gap: 12px;
-}
+.sec-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; gap: 12px; }
 .sec-icon { font-size: 20px; flex-shrink: 0; }
 .sec-card-title { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
 .sec-card-desc  { font-size: 11px; color: var(--body); line-height: 1.5; }
 
 /* ── Installer mockup ─────────────────────────────────────── */
-.installer-wrap {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; overflow: hidden; box-shadow: var(--shadow);
-}
-.installer-titlebar {
-  padding: 10px 16px; border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; gap: 8px;
-}
+.installer-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); }
+.installer-titlebar { padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
 .traffic-lights { display: flex; gap: 5px; }
 .tl { width: 12px; height: 12px; border-radius: 50%; }
 .tl.r { background: rgba(239,68,68,.6); }
@@ -278,54 +422,32 @@ h1, h2, h3, .heading { color: var(--text); }
 .installer-body { padding: 24px; }
 .installer-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 20px; }
 .form-group { margin-bottom: 16px; }
-.form-label {
-  display: block; font-size: 10px; font-weight: 700;
-  letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
-  margin-bottom: 5px;
-}
-.form-input {
-  width: 100%; padding: 9px 12px;
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 8px; font-family: 'JetBrains Mono', monospace;
-  font-size: 13px; color: var(--body);
-}
-.form-input.code {
-  font-size: 20px; font-weight: 700; letter-spacing: .22em; color: var(--accent);
-}
+.form-label { display: block; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+.form-input { width: 100%; padding: 9px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--body); }
+.form-input.code { font-size: 20px; font-weight: 700; letter-spacing: .22em; color: var(--accent); }
 .form-hint { font-size: 10px; color: var(--muted); margin-top: 4px; }
-.installer-footer {
-  display: flex; justify-content: space-between; align-items: center;
-  padding-top: 16px; border-top: 1px solid var(--line); margin-top: 8px;
-}
+.installer-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 16px; border-top: 1px solid var(--line); margin-top: 8px; }
 .btn-back { font-size: 13px; color: var(--muted); }
-.btn-verify {
-  padding: 8px 18px; background: #6366f1; color: #fff;
-  border-radius: 8px; font-size: 13px; font-weight: 700;
-}
+.btn-verify { padding: 8px 18px; background: #6366f1; color: #fff; border-radius: 8px; font-size: 13px; font-weight: 700; }
 
-/* ── Troubleshooting ──────────────────────────────────────── */
-.faq-list {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; overflow: hidden;
-}
-.faq-item { padding: 16px 18px; display: flex; gap: 14px; border-top: 1px solid var(--line); }
-.faq-item:first-child { border-top: none; }
-.faq-q-mark { color: #D97706; font-weight: 800; flex-shrink: 0; margin-top: 1px; font-size: 14px; }
-.faq-q { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
-.faq-a { font-size: 13px; color: var(--body); line-height: 1.55; }
+/* ── Build table ──────────────────────────────────────────── */
+.build-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.build-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+.build-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.build-val { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--accent); font-weight: 600; }
+.build-note { font-size: 11px; color: var(--body); margin-top: 4px; line-height: 1.5; }
 
 /* ── Footer ───────────────────────────────────────────────── */
-.footer {
-  margin-top: 40px; padding-top: 16px;
-  border-top: 1px solid var(--border);
-  display: flex; justify-content: space-between;
-  font-size: 11px; color: var(--faint);
-}
+.footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; font-size: 11px; color: var(--faint); }
 
-@media (max-width: 600px) {
-  .actors-grid { grid-template-columns: 1fr; }
-  .security-grid { grid-template-columns: 1fr; }
-  .stats { grid-template-columns: repeat(3, 1fr); }
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 660px) {
+  .req-grid, .hb-grid, .security-grid, .build-grid { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .toc-grid { grid-template-columns: 1fr; }
+  .config-table-head, .config-row { grid-template-columns: 140px 80px 1fr; }
+  .config-table-head > *:nth-child(3),
+  .config-row > *:nth-child(3) { display: none; }
   .phase-actor { display: none; }
 }
 </style>
@@ -337,336 +459,879 @@ h1, h2, h3, .heading { color: var(--text); }
     <div class="header-top">
       <div>
         <div class="badge-row">
-          <span class="badge badge-training">Training Guide</span>
+          <span class="badge badge-training">Operations Guide</span>
           <span class="badge badge-audience">Bank IT Admin</span>
+          <span class="badge badge-dev">Developer Reference</span>
         </div>
-        <h1>Scanner Registration Flow</h1>
+        <h1>ASTRA Scanner Operations Guide</h1>
         <div class="header-sub">Canon CR-120 / CR-150 &nbsp;·&nbsp; ASTRA CTS Edge Agent &nbsp;·&nbsp; Windows Service</div>
       </div>
       <div class="header-meta">
         <div>ASTRA Platform</div>
-        <div>CTS-SCANNER-SETUP-001</div>
+        <div>CTS-SCANNER-OPS-001</div>
         <div>Rev 2026-09-01</div>
       </div>
     </div>
     <div class="intro-box">
-      <strong>Overview:</strong> This guide covers the complete process of registering a new branch
-      scanner with ASTRA CTS — from generating a one-time code at bank headquarters to the
-      scanner agent going live on the teller PC. The entire setup takes under 10 minutes.
-      The branch IT coordinator enters only <strong>2 fields</strong>.
+      <strong>Scope:</strong> Everything needed to install, configure, operate, and troubleshoot the ASTRA CTS scanner agent on a teller PC.
+      Covers hardware prerequisites, registration, all <strong>config.ini</strong> keys and their environment-variable equivalents,
+      UV scanner setup, agent heartbeat states, build-from-source instructions, and troubleshooting.
+      This is the single reference — no other document is needed for scanner topics.
     </div>
     <div class="stats">
-      <div class="stat-card"><div class="stat-value">15</div><div class="stat-label">Steps total</div></div>
-      <div class="stat-card"><div class="stat-value">2</div><div class="stat-label">Fields in installer</div></div>
+      <div class="stat-card"><div class="stat-value">30+</div><div class="stat-label">Config keys</div></div>
+      <div class="stat-card"><div class="stat-value">3</div><div class="stat-label">Agent states</div></div>
+      <div class="stat-card"><div class="stat-value">300</div><div class="stat-label">DPI default (NPCI)</div></div>
       <div class="stat-card"><div class="stat-value">&lt;10 min</div><div class="stat-label">Time to live</div></div>
     </div>
   </div>
 
-  <!-- Actors -->
-  <div class="actors">
-    <div class="section-label">Actors in this process</div>
-    <div class="actors-grid">
-      <div class="actor-card">
-        <div class="actor-stripe violet"></div>
+  <!-- TOC -->
+  <div class="toc">
+    <div class="toc-title">Contents</div>
+    <div class="toc-grid">
+      <div class="toc-item"><span class="toc-num">1</span><a class="toc-link" href="#prereq">Hardware &amp; PC Prerequisites</a></div>
+      <div class="toc-item"><span class="toc-num">6</span><a class="toc-link" href="#uv">UV Scanner Setup</a></div>
+      <div class="toc-item"><span class="toc-num">2</span><a class="toc-link" href="#sdk">Canon CSD SDK Dependency</a></div>
+      <div class="toc-item"><span class="toc-num">7</span><a class="toc-link" href="#heartbeat">Agent Heartbeat &amp; States</a></div>
+      <div class="toc-item"><span class="toc-num">3</span><a class="toc-link" href="#registration">Installation &amp; Registration</a></div>
+      <div class="toc-item"><span class="toc-num">8</span><a class="toc-link" href="#build">Build from Source</a></div>
+      <div class="toc-item"><span class="toc-num">4</span><a class="toc-link" href="#files">Installed Files</a></div>
+      <div class="toc-item"><span class="toc-num">9</span><a class="toc-link" href="#security">Security Design</a></div>
+      <div class="toc-item"><span class="toc-num">5</span><a class="toc-link" href="#config">config.ini Reference</a></div>
+      <div class="toc-item"><span class="toc-num">10</span><a class="toc-link" href="#trouble">Troubleshooting</a></div>
+    </div>
+  </div>
+
+  <!-- ── §1 Prerequisites ─────────────────────────────────── -->
+  <div id="prereq">
+    <div class="section-head">
+      <div class="section-icon violet">🖨️</div>
+      <div>
+        <div class="section-eyebrow violet">Section 1</div>
+        <div class="section-title">Hardware &amp; PC Prerequisites</div>
+      </div>
+    </div>
+
+    <div class="req-grid">
+      <div class="req-card">
+        <div class="req-label">Scanner Hardware</div>
+        <div class="req-item"><span class="chk">✓</span><div><strong>Canon CR-120</strong> or <strong>Canon CR-150</strong><br><span class="req-note">Standard duplex (front+rear). USB or network interface.</span></div></div>
+        <div class="req-item"><span class="chk">✓</span><div><strong>Canon CR-120 UV</strong> or <strong>Canon CR-150 UV</strong><br><span class="req-note">UV-lamp variant. Required for ultraviolet image capture (enable_uv_scan = true).</span></div></div>
+        <div class="req-item"><span class="chk">✓</span><div>MICR font: <strong>E13B</strong> (RBI / NPCI standard)<br><span class="req-note">CMC-7 is not supported. CR-120/150 hardware MICR head is E13B only.</span></div></div>
+        <div class="req-item"><span class="chk">✓</span><div>Canon USB scanner driver installed<br><span class="req-note">Required even for network-connected scanners.</span></div></div>
+      </div>
+      <div class="req-card">
+        <div class="req-label">Teller PC Requirements</div>
+        <div class="req-item"><span class="chk">✓</span><div><strong>Windows 10 or Windows 11</strong><br><span class="req-note">64-bit OS is fine; the agent process runs as 32-bit (GOARCH=386 for CGO/CSD API).</span></div></div>
+        <div class="req-item"><span class="chk">✓</span><div>Administrator rights during install<br><span class="req-note">Needed to register the Windows service and set NTFS ACL on token.dat.</span></div></div>
+        <div class="req-item"><span class="chk">✓</span><div>Outbound HTTPS (port 443) to ASTRA server<br><span class="req-note">Internal bank network — not internet. mTLS termination at Istio Ingress Gateway.</span></div></div>
+        <div class="req-item"><span class="chk">✓</span><div>USB port (or network path for IP-mode scanners)<br><span class="req-note">One scanner per teller PC. Multiple scanners per PC are not supported.</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── §2 SDK Dependency ─────────────────────────────────── -->
+  <div id="sdk">
+    <div class="section-head">
+      <div class="section-icon sky">⚙️</div>
+      <div>
+        <div class="section-eyebrow sky">Section 2</div>
+        <div class="section-title">Canon CSD SDK Dependency</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--body);line-height:1.65;margin-bottom:14px">
+          The ASTRA scanner agent uses the <strong>Canon CSD (CanoCheetah SDK)</strong> to communicate with CR-120/CR-150 hardware.
+          The SDK is a Windows DLL. The agent loads it at runtime — the DLL must be present on the teller PC.
+        </p>
+        <div class="req-grid">
+          <div class="req-card">
+            <div class="req-label">Required Files (from Canon)</div>
+            <div class="req-item"><span class="chk">✓</span><div><strong>CanoCheetah.dll</strong><br><span class="req-note">Primary CSD API DLL. Supplied by Canon under OEM agreement.</span></div></div>
+            <div class="req-item"><span class="chk">✓</span><div>Any CSD dependencies listed in Canon's deployment note<br><span class="req-note">Typically MSVC runtime DLLs (VC++ Redistributable).</span></div></div>
+          </div>
+          <div class="req-card">
+            <div class="req-label">DLL Location</div>
+            <div class="req-item"><span class="chk">✓</span><div>Same folder as <code style="font-family:'JetBrains Mono',monospace;font-size:11px">astra-scanner-agent.exe</code> (default)<br><span class="req-note">Or set <code style="font-family:'JetBrains Mono',monospace;font-size:11px">csd_dll_path</code> in config.ini to an explicit path.</span></div></div>
+            <div class="req-item"><span class="chk">✓</span><div>System PATH also searched<br><span class="req-note">If DLL is already in C:\Windows\System32 or similar, no copy needed.</span></div></div>
+          </div>
+        </div>
+        <div class="callout callout-amber" style="margin-top:12px">
+          <span class="callout-icon">⚠️</span>
+          <div><strong>32-bit process requirement:</strong> The CSD API is a 32-bit DLL. The agent binary is compiled with GOARCH=386 and loads the DLL via CGO. The agent will not start on a 64-bit build. The ASTRA CI pipeline enforces this — do not change the GOARCH setting.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── §3 Registration ────────────────────────────────────── -->
+  <div id="registration">
+    <div class="section-head">
+      <div class="section-icon emerald">🔑</div>
+      <div>
+        <div class="section-eyebrow emerald">Section 3</div>
+        <div class="section-title">Installation &amp; Registration</div>
+      </div>
+    </div>
+
+    <!-- Phase 1 -->
+    <div class="phase-card">
+      <div class="phase-header violet">
+        <div class="phase-icon violet">🔑</div>
         <div>
-          <div class="actor-name">Ops Manager</div>
-          <div class="actor-loc">Bank HQ · Central Admin</div>
-          <div class="actor-desc">Generates registration code in Branch Master</div>
+          <div class="phase-label violet">Phase 1</div>
+          <div class="phase-title">Generate Registration Code</div>
+        </div>
+        <div class="phase-actor">Ops Manager · Bank HQ</div>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-left"><div class="step-num">1</div><div class="step-line"></div></div>
+          <div class="step-body">
+            <div class="step-title">Open Branch Master</div>
+            <div class="step-detail">Navigate to Admin → Branch Master. Confirm Scanner Mode is <strong>SDK_PUSH</strong> and Status is <strong>Active</strong>. Branches in FOLDER_DROP or UI_UPLOAD mode do not receive a scanner token.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-left"><div class="step-num">2</div><div class="step-line"></div></div>
+          <div class="step-body">
+            <div class="step-title">Click Register Scanner (🔑)</div>
+            <div class="step-detail">A key icon appears on every SDK_PUSH row. Click it to open the Registration panel for that branch.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-left"><div class="step-num">3</div></div>
+          <div class="step-body">
+            <div class="step-title">Click "Generate Registration Code"</div>
+            <div class="step-detail">ASTRA creates an 8-character one-time code tied exclusively to this branch. A 24-hour countdown starts. The code appears in large monospace type.</div>
+            <div class="security-note"><span class="lock">🔐</span> One active code per branch. Generating a new code invalidates any previous pending code.</div>
+          </div>
         </div>
       </div>
-      <div class="actor-card">
-        <div class="actor-stripe sky"></div>
+    </div>
+
+    <div class="arrow-connector"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 9l-7 7-7-7"/></svg></div>
+
+    <!-- Handoff -->
+    <div class="phase-card">
+      <div class="phase-header amber">
+        <div class="phase-icon amber">📞</div>
         <div>
-          <div class="actor-name">Branch IT Coordinator</div>
-          <div class="actor-loc">At branch · Teller PC</div>
-          <div class="actor-desc">Runs installer on teller PC with the code</div>
+          <div class="phase-label amber">Handoff</div>
+          <div class="phase-title">Secure Code Delivery</div>
+        </div>
+        <div class="phase-actor">Ops Manager → Branch IT</div>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-left"><div class="step-num">4</div></div>
+          <div class="step-body">
+            <div class="step-title">Read the code to Branch IT Coordinator</div>
+            <div class="step-detail">Call the coordinator and read the 8-character code (e.g. "SARAS-3X7Q"). Use secure internal messaging — not plain email or SMS.</div>
+            <div class="security-note"><span class="lock">🔐</span> Code expires in 24 hours and is single-use. It only works for the exact branch it was generated for.</div>
+          </div>
         </div>
       </div>
-      <div class="actor-card">
-        <div class="actor-stripe slate"></div>
+    </div>
+
+    <div class="arrow-connector"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 9l-7 7-7-7"/></svg></div>
+
+    <!-- Phase 2 -->
+    <div class="phase-card">
+      <div class="phase-header sky">
+        <div class="phase-icon sky">💻</div>
         <div>
-          <div class="actor-name">ASTRA Server</div>
-          <div class="actor-loc">Automatic · No human action</div>
-          <div class="actor-desc">Validates code, issues machine-bound token</div>
+          <div class="phase-label sky">Phase 2</div>
+          <div class="phase-title">Run Installer at Branch</div>
+        </div>
+        <div class="phase-actor">Branch IT Coordinator · Teller PC</div>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-left"><div class="step-num">5</div><div class="step-line"></div></div>
+          <div class="step-body">
+            <div class="step-title">Download installer from IT portal</div>
+            <div class="step-detail">Download <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent)">ASTRA-Scanner-Setup-v{version}.exe</span> from the bank's internal software portal. Verify SHA-256 checksum before running.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-left"><div class="step-num">6</div><div class="step-line"></div></div>
+          <div class="step-body">
+            <div class="step-title">Run as Windows Administrator</div>
+            <div class="step-detail">Right-click → "Run as administrator". Accept the UAC prompt. Admin rights are required to install the Windows service and set NTFS ACL on token.dat.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-left"><div class="step-num">7</div><div class="step-line"></div></div>
+          <div class="step-body">
+            <div class="step-title">Enter exactly 2 fields</div>
+            <div class="step-detail"><strong>ASTRA Server URL</strong> (same for all branches) and <strong>Registration Code</strong> (from Ops Manager).</div>
+            <div class="security-note"><span class="lock">🔐</span> No branch name, no branch ID — the server returns these. Branch identity cannot be forged.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-left"><div class="step-num">8</div></div>
+          <div class="step-body">
+            <div class="step-title">Click "Verify →"</div>
+            <div class="step-detail">The installer contacts ASTRA, submits the code and PC's COMPUTERNAME, and receives all branch config automatically. A green tick confirms success.</div>
+          </div>
         </div>
       </div>
     </div>
+
+    <div class="arrow-connector"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 9l-7 7-7-7"/></svg></div>
+
+    <!-- Automatic -->
+    <div class="phase-card">
+      <div class="phase-header slate">
+        <div class="phase-icon slate">⚡</div>
+        <div>
+          <div class="phase-label slate">Automatic</div>
+          <div class="phase-title">Server-Side Exchange</div>
+        </div>
+        <div class="phase-actor">ASTRA Platform · No human action</div>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-left"><div class="step-num">9</div><div class="step-line"></div></div>
+          <div class="step-body">
+            <div class="step-title">Code atomically consumed from Redis</div>
+            <div class="step-detail">Server executes a single atomic GETDEL on <span style="font-family:'JetBrains Mono',monospace;font-size:11px">scanner_reg:{bank_id}:{code}</span>. Code is gone the instant it is read.</div>
+            <div class="security-note"><span class="lock">🔐</span> Atomic single-use: even if the request arrives twice simultaneously, only one exchange succeeds.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-left"><div class="step-num">10</div><div class="step-line"></div></div>
+          <div class="step-body">
+            <div class="step-title">Machine-bound token issued</div>
+            <div class="step-detail">Server generates a random API token bound to COMPUTERNAME of this PC. It will not authenticate from any other machine.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-left"><div class="step-num">11</div></div>
+          <div class="step-body">
+            <div class="step-title">Full config returned</div>
+            <div class="step-detail">Response: branch_id, bank_id, bank_ifsc, api_url, endorsement_text, enable_imprinter, enable_uv_scan, and raw API token (shown once — never stored on server).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-connector"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 9l-7 7-7-7"/></svg></div>
+
+    <!-- Phase 3 -->
+    <div class="phase-card">
+      <div class="phase-header emerald">
+        <div class="phase-icon emerald">✅</div>
+        <div>
+          <div class="phase-label emerald">Phase 3</div>
+          <div class="phase-title">Scanner Goes Live</div>
+        </div>
+        <div class="phase-actor">Installer → Windows Service → Teller PC</div>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-left"><div class="step-num">12</div><div class="step-line"></div></div>
+          <div class="step-body">
+            <div class="step-title">config.ini written</div>
+            <div class="step-detail">Non-secret configuration saved to installation folder. Readable by any Windows user — contains no credentials.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-left"><div class="step-num">13</div><div class="step-line"></div></div>
+          <div class="step-body">
+            <div class="step-title">token.dat written (restricted NTFS ACL)</div>
+            <div class="step-detail">API token saved to token.dat. NTFS ACL: Read/Write for SYSTEM and Administrators only. Standard teller accounts cannot read this file.</div>
+            <div class="security-note"><span class="lock">🔐</span> Even if the teller's Windows account is compromised, the token is inaccessible.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-left"><div class="step-num">14</div><div class="step-line"></div></div>
+          <div class="step-body">
+            <div class="step-title">ASTRAScannerAgent service installed and started</div>
+            <div class="step-detail">Registered as a Windows service, set to Automatic (start on boot). Starts immediately. The branch appears as IDLE on the Branch Scan Monitor within seconds.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-left"><div class="step-num">15</div></div>
+          <div class="step-body">
+            <div class="step-title">✅ Scanner operational — teller can begin</div>
+            <div class="step-detail">Load cheques into the Canon CR-120/CR-150 feeder. Each cheque is captured (front + rear TIFF, hardware MICR, optional UV) and submitted to ASTRA CTS.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Installer mockup -->
+    <div style="margin-top:20px">
+      <div class="section-label">Quick reference — installer screen</div>
+      <div class="installer-wrap">
+        <div class="installer-titlebar">
+          <div class="traffic-lights"><div class="tl r"></div><div class="tl y"></div><div class="tl g"></div></div>
+          <div class="installer-titlebar-label">ASTRA Scanner Setup — Step 2 of 4</div>
+        </div>
+        <div class="installer-body">
+          <div class="installer-title">Connect to ASTRA Server</div>
+          <div class="form-group">
+            <label class="form-label">ASTRA Server URL</label>
+            <div class="form-input">https://astra.yourbank.in</div>
+            <div class="form-hint">Provided by bank IT — same URL for all branches</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Registration Code</label>
+            <div class="form-input code">SARAS3X7</div>
+            <div class="form-hint">8 characters · case-insensitive · expires in 24 hours</div>
+          </div>
+          <div class="installer-footer">
+            <span class="btn-back">← Back</span>
+            <div class="btn-verify">Verify →</div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">After "Verify" succeeds, the installer completes automatically — no further input needed.</div>
+    </div>
   </div>
 
-  <!-- Phase 1: Generate code -->
-  <div class="phase-card">
-    <div class="phase-header violet">
-      <div class="phase-icon violet">🔑</div>
+  <!-- ── §4 Installed Files ─────────────────────────────────── -->
+  <div id="files">
+    <div class="section-head">
+      <div class="section-icon slate">📁</div>
       <div>
-        <div class="phase-label violet">Phase 1</div>
-        <div class="phase-title">Generate Registration Code</div>
+        <div class="section-eyebrow slate">Section 4</div>
+        <div class="section-title">Installed Files</div>
       </div>
-      <div class="phase-actor">Ops Manager · Bank HQ</div>
     </div>
-    <div class="steps">
-      <div class="step">
-        <div class="step-left"><div class="step-num">1</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <div class="step-title">Open Branch Master</div>
-          <div class="step-detail">Navigate to Admin → Branch Master. Locate the target branch. Confirm Scanner Mode is <strong>SDK_PUSH</strong> and Status is <strong>Active</strong>. Branches in FOLDER_DROP or UI_UPLOAD mode do not get a scanner token.</div>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-left"><div class="step-num">2</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <div class="step-title">Click the Register Scanner icon (🔑)</div>
-          <div class="step-detail">A key icon appears on every row where Scanner Mode = SDK_PUSH. Click it to open the Registration panel for that branch.</div>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-left"><div class="step-num">3</div></div>
-        <div class="step-body">
-          <div class="step-title">Click "Generate Registration Code"</div>
-          <div class="step-detail">The ASTRA server creates an 8-character one-time code tied exclusively to this branch. A 24-hour countdown starts immediately. The code appears in large monospace type — easy to read over the phone.</div>
-          <div class="security-note"><span class="lock">🔐</span> Only one active code per branch at a time. Generating a new code automatically invalidates any previous pending code for this branch.</div>
-        </div>
-      </div>
+    <div class="code-block">
+<span class="cm"># Default install path: C:\Program Files\ASTRA\ScannerAgent\</span>
+
+<span class="cv">astra-scanner-agent.exe</span>  <span class="cm">← main binary (32-bit, GOARCH=386)</span>
+<span class="cv">CanoCheetah.dll</span>           <span class="cm">← Canon CSD SDK DLL (placed by installer)</span>
+<span class="cv">config.ini</span>                <span class="cm">← non-secret configuration (world-readable)</span>
+<span class="cv">token.dat</span>                 <span class="cm">← API bearer token (NTFS: SYSTEM+Admins only)</span>
+<span class="cv">astra-scanner-agent.log</span>   <span class="cm">← structured JSON log (slog, rotated daily)</span>
+    </div>
+    <div class="callout callout-sky">
+      <span class="callout-icon">ℹ️</span>
+      <div>After a PC replacement or rebuild, re-run the installer with a fresh registration code. The old token is revoked automatically. The old <code style="font-family:'JetBrains Mono',monospace;font-size:11px">config.ini</code> can be reused as a starting point but <strong>token.dat must be regenerated</strong> — it is machine-bound.</div>
     </div>
   </div>
 
-  <!-- Arrow -->
-  <div class="arrow-connector">
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 9l-7 7-7-7"/></svg>
-  </div>
-
-  <!-- Handoff -->
-  <div class="phase-card">
-    <div class="phase-header amber">
-      <div class="phase-icon amber">📞</div>
+  <!-- ── §5 Config Reference ────────────────────────────────── -->
+  <div id="config">
+    <div class="section-head">
+      <div class="section-icon violet">🔧</div>
       <div>
-        <div class="phase-label amber">Handoff</div>
-        <div class="phase-title">Secure Code Delivery</div>
+        <div class="section-eyebrow violet">Section 5</div>
+        <div class="section-title">config.ini Reference</div>
       </div>
-      <div class="phase-actor">Ops Manager → Branch IT</div>
     </div>
-    <div class="steps">
-      <div class="step">
-        <div class="step-left"><div class="step-num">4</div></div>
-        <div class="step-body">
-          <div class="step-title">Read the code to the Branch IT Coordinator</div>
-          <div class="step-detail">Call the branch IT coordinator and read the 8-character code aloud (e.g. "SARAS-3X7Q"). Alternatively use your bank's secure internal messaging system. Do not send via plain email or SMS.</div>
-          <div class="security-note"><span class="lock">🔐</span> The code expires in 24 hours and is single-use. Even if intercepted, it only works for the exact branch it was generated for — branch identity is server-authoritative.</div>
-        </div>
+
+    <p style="font-size:13px;color:var(--body);line-height:1.65;margin-bottom:16px">
+      All keys are read at startup. Changes require a service restart
+      (<code style="font-family:'JetBrains Mono',monospace;font-size:11px">sc stop ASTRAScannerAgent &amp;&amp; sc start ASTRAScannerAgent</code>).
+      In CI / dev environments without config.ini, the agent falls back to environment variables (see Env Var column).
+      <strong>No value in this file is a secret</strong> — the API token lives exclusively in token.dat.
+    </p>
+
+    <div class="code-block">
+<span class="cm"># Minimal config.ini written by the installer</span>
+<span class="cm"># All values below can be edited without a rebuild</span>
+
+<span class="sect">[astra]</span>
+<span class="ck">api_url</span>     = https://astra.yourbank.in
+<span class="ck">bank_ifsc</span>   = SVCB0000001
+<span class="ck">bank_id</span>     = saraswat-coop
+<span class="ck">branch_id</span>   = BRANCH-ANDHERI-01
+<span class="cm"># api_token is NOT here — it lives in token.dat</span>
+
+<span class="sect">[scanner]</span>
+<span class="ck">discovery_mode</span>      = usb
+<span class="ck">scan_dpi</span>            = 300       <span class="cm">; NPCI guideline; CTS-2010 minimum is 200</span>
+<span class="ck">scan_mode_value</span>     = 16        <span class="cm">; 16 = binary fine-text</span>
+<span class="ck">enable_uv_scan</span>      = false     <span class="cm">; true only on UV-equipped models</span>
+<span class="ck">enable_imprinter</span>    = true
+<span class="ck">endorsement_text</span>    = ASTRA/CTS
+<span class="ck">enable_iqa</span>          = true
+<span class="ck">mocr_weight</span>         = 50
+    </div>
+
+    <!-- [astra] section -->
+    <div class="section-label" style="margin-top:20px">[astra] section — backend &amp; branch identity</div>
+    <div class="config-table-wrap">
+      <div class="config-table-head">
+        <div>Key</div><div>Default</div><div>Env Var (CI fallback)</div><div>Description</div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">api_url</div>
+        <div><span class="config-default">—</span></div>
+        <div class="config-section">ASTRA_API_URL</div>
+        <div class="config-desc">Base URL of the ASTRA backend. Required. Written by installer.<div class="note">Example: https://astra.yourbank.in</div></div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">api_token</div>
+        <div><span class="config-default">token.dat</span></div>
+        <div class="config-section">ASTRA_API_TOKEN</div>
+        <div class="config-desc">Bearer token for API auth. <strong>token.dat takes priority over this key.</strong> Set this only in CI where token.dat cannot be written.<div class="warn">⚠ Never put a real token here in production — NTFS ACL on token.dat is the protection layer.</div></div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">bank_id</div>
+        <div><span class="config-default">—</span></div>
+        <div class="config-section">BANK_ID</div>
+        <div class="config-desc">Bank identifier as registered in ASTRA. Required. Example: saraswat-coop</div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">bank_ifsc</div>
+        <div><span class="config-default">—</span></div>
+        <div class="config-section">BANK_IFSC</div>
+        <div class="config-desc">IFSC of the bank's head office (not branch IFSC). Required. Used in endorsement stamp and CTS filing.</div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">branch_id</div>
+        <div><span class="config-default">—</span></div>
+        <div class="config-section">BRANCH_ID</div>
+        <div class="config-desc">Branch identifier. Required. Written by installer from server response — do not edit manually unless re-registering.</div>
+      </div>
+    </div>
+
+    <!-- [scanner] identity -->
+    <div class="section-label" style="margin-top:20px">[scanner] section — identity &amp; session</div>
+    <div class="config-table-wrap">
+      <div class="config-table-head">
+        <div>Key</div><div>Default</div><div>Env Var</div><div>Description</div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">listen_addr</div>
+        <div><span class="config-default">:9201</span></div>
+        <div class="config-section">LISTEN_ADDR</div>
+        <div class="config-desc">Local HTTP control port. Teller UI calls POST /session/start, GET /session/items, etc.<div class="note">Only change if 9201 is taken by another service on the PC.</div></div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">operator_id</div>
+        <div><span class="config-default">scanner-agent</span></div>
+        <div class="config-section">OPERATOR_ID</div>
+        <div class="config-desc">Operator identifier stamped in scan submissions and heartbeats. Can be set to a branch code or teller station name.</div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">session_prefix</div>
+        <div><span class="config-default">CTS</span></div>
+        <div class="config-section">SESSION_PREFIX</div>
+        <div class="config-desc">Prefix for session IDs generated by the agent. Example: CTS-ANDHERI-20260901-001</div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">http_timeout_seconds</div>
+        <div><span class="config-default">30</span></div>
+        <div class="config-section">HTTP_TIMEOUT_SECONDS</div>
+        <div class="config-desc">Timeout for all outbound HTTP calls to ASTRA API (image upload, submit, heartbeat). Increase on slow internal WAN links.</div>
+      </div>
+    </div>
+
+    <!-- [scanner] hardware discovery -->
+    <div class="section-label" style="margin-top:20px">[scanner] section — hardware discovery</div>
+    <div class="config-table-wrap">
+      <div class="config-table-head">
+        <div>Key</div><div>Default</div><div>Env Var</div><div>Description</div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">discovery_mode</div>
+        <div><span class="config-default">usb</span></div>
+        <div class="config-section">SCANNER_DISCOVERY_MODE</div>
+        <div class="config-desc">How the CSD API finds the scanner. Valid values: <code style="font-family:'JetBrains Mono',monospace;font-size:11px">usb</code> · <code style="font-family:'JetBrains Mono',monospace;font-size:11px">devname</code> · <code style="font-family:'JetBrains Mono',monospace;font-size:11px">ip</code> · <code style="font-family:'JetBrains Mono',monospace;font-size:11px">mac</code> · <code style="font-family:'JetBrains Mono',monospace;font-size:11px">serial</code><div class="note">Use "usb" for direct USB connection (most common). Use "ip" for network-attached scanners.</div></div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">device_name</div>
+        <div><span class="config-default">""</span></div>
+        <div class="config-section">SCANNER_DEVICE_NAME</div>
+        <div class="config-desc">Device name string. Required when discovery_mode = devname.</div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">serial</div>
+        <div><span class="config-default">""</span></div>
+        <div class="config-section">SCANNER_SERIAL</div>
+        <div class="config-desc">Scanner serial number. Required when discovery_mode = serial. Find on label on scanner base.</div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">ip</div>
+        <div><span class="config-default">""</span></div>
+        <div class="config-section">SCANNER_IP</div>
+        <div class="config-desc">IP address or hostname. Required when discovery_mode = ip.</div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">mac</div>
+        <div><span class="config-default">""</span></div>
+        <div class="config-section">SCANNER_MAC</div>
+        <div class="config-desc">MAC address. Required when discovery_mode = mac. Format: XX:XX:XX:XX:XX:XX</div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">csd_dll_path</div>
+        <div><span class="config-default">""</span></div>
+        <div class="config-section">CSD_DLL_PATH</div>
+        <div class="config-desc">Explicit path to CanoCheetah.dll. Leave blank to search exe directory and system PATH.<div class="note">Set this if DLL is in a non-standard location (e.g. a shared network drive).</div></div>
+      </div>
+    </div>
+
+    <!-- [scanner] image quality -->
+    <div class="section-label" style="margin-top:20px">[scanner] section — image capture quality</div>
+    <div class="config-table-wrap">
+      <div class="config-table-head">
+        <div>Key</div><div>Default</div><div>Env Var</div><div>Description</div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">scan_dpi</div>
+        <div><span class="config-default">300</span></div>
+        <div class="config-section">SCANNER_DPI</div>
+        <div class="config-desc">Scan resolution in DPI. Applied to both X and Y resolution (CSDP_XRESOLUTION + CSDP_YRESOLUTION).<div class="note">NPCI guideline: 300 DPI. CTS-2010 regulatory minimum: 200 DPI. Do not go below 200.</div></div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">scan_mode_value</div>
+        <div><span class="config-default">16</span></div>
+        <div class="config-section">SCANNER_MODE_VALUE</div>
+        <div class="config-desc">Value passed to CSDP_MODE. Controls colour depth.<div class="note">16 = binary fine-text mode (recommended for cheque processing). Other values select grayscale or colour. Confirm from CsdScan.h or Canon documentation.</div></div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">mocr_weight</div>
+        <div><span class="config-default">50</span></div>
+        <div class="config-section">SCANNER_MOCR_WEIGHT</div>
+        <div class="config-desc">MICR OCR fusion weight: 0 = pure magnetic (hardware MICR head only), 100 = pure optical (camera OCR only). 50 = equal blend.<div class="note">Increase toward 100 for scanners with aging magnetic heads. Decrease toward 0 for maximum accuracy on clean instruments.</div></div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">feeder_poll_ms</div>
+        <div><span class="config-default">300</span></div>
+        <div class="config-section">SCANNER_FEEDER_POLL_MS</div>
+        <div class="config-desc">Sleep duration in milliseconds between feeder-empty restart attempts. Controls how quickly the agent responds when a teller loads the next cheque batch.<div class="note">Lower values are more responsive but increase CPU usage. 200–500 ms is a reasonable range.</div></div>
+      </div>
+    </div>
+
+    <!-- [scanner] IQA -->
+    <div class="section-label" style="margin-top:20px">[scanner] section — Image Quality Assessment (IQA)</div>
+    <div class="config-table-wrap">
+      <div class="config-table-head">
+        <div>Key</div><div>Default</div><div>Env Var</div><div>Description</div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">enable_iqa</div>
+        <div><span class="config-default">true</span></div>
+        <div class="config-section">SCANNER_ENABLE_IQA</div>
+        <div class="config-desc">Enables the CSD IQA brightness check after each scan. Images that fail the IQA threshold are flagged for re-scan.<div class="note">Disable temporarily only if IQA is causing spurious failures (e.g. intentionally low-contrast cheques).</div></div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">iqa_brightness_param_id</div>
+        <div><span class="config-default">355</span></div>
+        <div class="config-section">SCANNER_IQA_BRIGHTNESS_PARAM_ID</div>
+        <div class="config-desc">CSD parameter offset for enabling IQA brightness check (CSDP_IQA_BRIGHTNESS in CsdScan.h).<div class="warn">⚠ Canon-model-specific. If IQA failures are unexpected, confirm this offset from CsdScan.h supplied with your scanner's CSD SDK version.</div></div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">iqa_result_param_id</div>
+        <div><span class="config-default">356</span></div>
+        <div class="config-section">SCANNER_IQA_RESULT_PARAM_ID</div>
+        <div class="config-desc">CSD parameter offset for reading the IQA brightness result (CSDP_IQA_BRIGHTNESS_RESULT in CsdScan.h).<div class="warn">⚠ Must be paired with iqa_brightness_param_id. Change both together if changing either.</div></div>
+      </div>
+    </div>
+
+    <!-- [scanner] UV -->
+    <div class="section-label" style="margin-top:20px">[scanner] section — UV image capture</div>
+    <div class="config-table-wrap">
+      <div class="config-table-head">
+        <div>Key</div><div>Default</div><div>Env Var</div><div>Description</div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">enable_uv_scan</div>
+        <div><span class="config-default">false</span></div>
+        <div class="config-section">ENABLE_UV_SCAN</div>
+        <div class="config-desc">Enables UV image capture. Must only be set on CR-120 UV or CR-150 UV hardware variants.<div class="warn">⚠ Setting this to true on a non-UV scanner causes a third CsdReadPage call that returns an error. Leave false on standard models.</div></div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">uv_param_id</div>
+        <div><span class="config-default">380</span></div>
+        <div class="config-section">SCANNER_UV_PARAM_ID</div>
+        <div class="config-desc">CSD parameter ID used to enable the UV lamp (CSDP_UV offset in CsdScan.h). Default 380 is the value in ASTRA's development SDK header.<div class="warn">⚠ Verify against the CsdScan.h file shipped with your specific CR-120 UV / CR-150 UV CSD SDK. If Canon Engineering confirms a different offset, update this value — no rebuild needed.</div></div>
+      </div>
+    </div>
+
+    <!-- [scanner] endorsement -->
+    <div class="section-label" style="margin-top:20px">[scanner] section — endorsement &amp; imprinter</div>
+    <div class="config-table-wrap">
+      <div class="config-table-head">
+        <div>Key</div><div>Default</div><div>Env Var</div><div>Description</div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">enable_imprinter</div>
+        <div><span class="config-default">true</span></div>
+        <div class="config-section">ENABLE_IMPRINTER</div>
+        <div class="config-desc">Activates the CR-120/CR-150 rear imprinter that stamps endorsement text on each cheque as it passes through.<div class="note">Disable only for testing or if the imprinter ink cartridge is being replaced.</div></div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">endorsement_text</div>
+        <div><span class="config-default">ASTRA/CTS</span></div>
+        <div class="config-section">ENDORSEMENT_TEXT</div>
+        <div class="config-desc">Text stamped on the rear of each cheque by the imprinter. Typically includes bank name or branch code per RBI CTS-2010 requirements.<div class="note">Example: SVCB/ANDHERI/CTS. Max length: confirm from Canon CSD documentation.</div></div>
       </div>
     </div>
   </div>
 
-  <!-- Arrow -->
-  <div class="arrow-connector">
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 9l-7 7-7-7"/></svg>
-  </div>
-
-  <!-- Phase 2: Install -->
-  <div class="phase-card">
-    <div class="phase-header sky">
-      <div class="phase-icon sky">💻</div>
+  <!-- ── §6 UV Setup ────────────────────────────────────────── -->
+  <div id="uv">
+    <div class="section-head">
+      <div class="section-icon amber">🔦</div>
       <div>
-        <div class="phase-label sky">Phase 2</div>
-        <div class="phase-title">Run Installer at the Branch</div>
+        <div class="section-eyebrow amber">Section 6</div>
+        <div class="section-title">UV Scanner Setup</div>
       </div>
-      <div class="phase-actor">Branch IT Coordinator · Teller PC</div>
     </div>
-    <div class="steps">
-      <div class="step">
-        <div class="step-left"><div class="step-num">5</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <div class="step-title">Obtain the installer from IT portal</div>
-          <div class="step-detail">Download <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent)">ASTRA-Scanner-Setup-v{version}.exe</span> from the bank's internal software portal. Verify the SHA-256 checksum matches before running. The installer is built once in CI and deployed to all branches — no branch-specific build needed.</div>
+
+    <div class="callout callout-amber">
+      <span class="callout-icon">⚠️</span>
+      <div><strong>UV hardware required:</strong> UV image capture is only available on the <strong>Canon CR-120 UV</strong> and <strong>Canon CR-150 UV</strong> variants. Standard CR-120/CR-150 scanners do not have a UV lamp. The model variant is printed on the scanner label.</div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="card-body">
+        <p style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">How UV capture works (3-pass sequence)</p>
+        <p style="font-size:13px;color:var(--body);line-height:1.65;margin-bottom:12px">
+          When <code style="font-family:'JetBrains Mono',monospace;font-size:11px">enable_uv_scan = true</code>, the CSD API performs three
+          <code style="font-family:'JetBrains Mono',monospace;font-size:11px">CsdReadPage</code> calls per cheque instead of two:
+        </p>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+            <div style="font-size:22px;margin-bottom:6px">1️⃣</div>
+            <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">Pass 1 — Front</div>
+            <div style="font-size:11px;color:var(--body)">Front face TIFF image + hardware MICR line</div>
+          </div>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+            <div style="font-size:22px;margin-bottom:6px">2️⃣</div>
+            <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">Pass 2 — Rear</div>
+            <div style="font-size:11px;color:var(--body)">Rear face TIFF image. Front released after saving both.</div>
+          </div>
+          <div style="background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:10px;padding:14px;text-align:center">
+            <div style="font-size:22px;margin-bottom:6px">3️⃣</div>
+            <div style="font-size:12px;font-weight:700;color:var(--amber-text);margin-bottom:4px">Pass 3 — UV</div>
+            <div style="font-size:11px;color:var(--amber-text)">UV lamp image. Reveals security printing not visible under white light.</div>
+          </div>
         </div>
-      </div>
-      <div class="step">
-        <div class="step-left"><div class="step-num">6</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <div class="step-title">Run installer as Windows Administrator</div>
-          <div class="step-detail">Right-click the .exe → "Run as administrator". Accept the UAC prompt. The installer requires admin rights to install the Windows service and set token.dat file permissions.</div>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-left"><div class="step-num">7</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <div class="step-title">Enter exactly 2 fields</div>
-          <div class="step-detail">The installer wizard shows only two input fields: (1) <strong>ASTRA Server URL</strong> — same for all branches in your bank, provided by bank IT; (2) <strong>Registration Code</strong> — the 8-character code from Ops Manager.</div>
-          <div class="security-note"><span class="lock">🔐</span> No branch name, no branch ID, no region — these are returned by the server and cannot be overridden. This prevents any branch from impersonating another.</div>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-left"><div class="step-num">8</div></div>
-        <div class="step-body">
-          <div class="step-title">Click "Verify →"</div>
-          <div class="step-detail">The installer contacts the ASTRA server, submits the code and the PC's machine name, and receives all branch configuration automatically. A green tick confirms a successful exchange.</div>
+        <p style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">Setup checklist</p>
+        <div class="req-item"><span class="chk">✓</span><div>Confirm scanner model is CR-120 UV or CR-150 UV (check label)</div></div>
+        <div class="req-item"><span class="chk">✓</span><div>Set <code style="font-family:'JetBrains Mono',monospace;font-size:11px">enable_uv_scan = true</code> in config.ini [scanner] section</div></div>
+        <div class="req-item"><span class="chk">✓</span><div>Verify <code style="font-family:'JetBrains Mono',monospace;font-size:11px">uv_param_id = 380</code> against CsdScan.h in your SDK package</div></div>
+        <div class="req-item"><span class="chk">✓</span><div>Restart the ASTRAScannerAgent Windows service</div></div>
+        <div class="req-item"><span class="chk">✓</span><div>Run a test scan — the Branch Scan Monitor item detail should show a UV image thumbnail</div></div>
+        <div class="req-item"><span class="chk">✓</span><div>Check agent log for: <code style="font-family:'JetBrains Mono',monospace;font-size:11px">"UV lamp enabled"</code> — if you see <code style="font-family:'JetBrains Mono',monospace;font-size:11px">"UV lamp enable failed"</code>, the <code style="font-family:'JetBrains Mono',monospace;font-size:11px">uv_param_id</code> offset is wrong</div></div>
+
+        <div class="callout callout-sky" style="margin-top:12px">
+          <span class="callout-icon">ℹ️</span>
+          <div>A UV enable failure is a <strong>warning, not a fatal error</strong>. The agent continues scanning without UV and logs a warning. Scanning is never blocked by UV setup issues — IET compliance is never at risk.</div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Arrow -->
-  <div class="arrow-connector">
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 9l-7 7-7-7"/></svg>
-  </div>
-
-  <!-- Automatic: Server -->
-  <div class="phase-card">
-    <div class="phase-header slate">
-      <div class="phase-icon slate">⚡</div>
+  <!-- ── §7 Heartbeat ───────────────────────────────────────── -->
+  <div id="heartbeat">
+    <div class="section-head">
+      <div class="section-icon sky">💓</div>
       <div>
-        <div class="phase-label slate">Automatic</div>
-        <div class="phase-title">Server-Side Exchange</div>
-      </div>
-      <div class="phase-actor">ASTRA Platform · No human action</div>
-    </div>
-    <div class="steps">
-      <div class="step">
-        <div class="step-left"><div class="step-num">9</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <div class="step-title">Code atomically consumed from Redis</div>
-          <div class="step-detail">The server executes a single atomic GETDEL on the Redis key <span style="font-family:'JetBrains Mono',monospace;font-size:11px">scanner_reg:{bank_id}:{code}</span>. The code is gone the instant it is read — it cannot be replayed.</div>
-          <div class="security-note"><span class="lock">🔐</span> Atomic single-use: even if the network request arrives twice simultaneously, only one exchange succeeds. The second attempt receives 401.</div>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-left"><div class="step-num">10</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <div class="step-title">Branch config loaded & machine-bound token issued</div>
-          <div class="step-detail">Server reads branch details (branch_id, IFSC, endorsement settings, UV scan flags) from YugabyteDB and generates a random API token bound to <strong>COMPUTERNAME</strong> of this PC — it will not authenticate from any other machine.</div>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-left"><div class="step-num">11</div></div>
-        <div class="step-body">
-          <div class="step-title">Full config returned to installer</div>
-          <div class="step-detail">Response: branch_id, bank_id, bank_ifsc, api_url, endorsement_text, enable_imprinter, enable_uv_scan, and the raw API token (shown only once — never stored on the server).</div>
-        </div>
+        <div class="section-eyebrow sky">Section 7</div>
+        <div class="section-title">Agent Heartbeat &amp; States</div>
       </div>
     </div>
-  </div>
 
-  <!-- Arrow -->
-  <div class="arrow-connector">
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 9l-7 7-7-7"/></svg>
-  </div>
+    <p style="font-size:13px;color:var(--body);line-height:1.65;margin-bottom:16px">
+      The agent sends a heartbeat to ASTRA every <strong>30 seconds</strong> for the lifetime of the process.
+      Each heartbeat includes the branch_id, bank_id, and the active session ID (if a session is running).
+      ASTRA uses this to maintain the 3-state status visible in the Branch Scan Monitor.
+    </p>
 
-  <!-- Phase 3: Live -->
-  <div class="phase-card">
-    <div class="phase-header emerald">
-      <div class="phase-icon emerald">✅</div>
+    <div class="hb-grid">
+      <div class="hb-card">
+        <div class="hb-status"><span class="pill pill-active"><span class="pill-dot"></span>ACTIVE</span></div>
+        <div class="hb-when">When:</div>
+        <div class="hb-desc">Heartbeat received within the last 90 seconds AND a scan session is currently running (teller has called POST /session/start).</div>
+      </div>
+      <div class="hb-card">
+        <div class="hb-status"><span class="pill pill-idle"><span class="pill-dot"></span>IDLE</span></div>
+        <div class="hb-when">When:</div>
+        <div class="hb-desc">Heartbeat received within the last 90 seconds but no session is running. Service is online and ready — teller has not started a scan session yet.</div>
+      </div>
+      <div class="hb-card">
+        <div class="hb-status"><span class="pill pill-offline"><span class="pill-dot"></span>OFFLINE</span></div>
+        <div class="hb-when">When:</div>
+        <div class="hb-desc">No heartbeat received in the last 90 seconds. Service may be stopped, PC is off, or network is unreachable from ASTRA.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-sky" style="margin-top:14px">
+      <span class="callout-icon">ℹ️</span>
       <div>
-        <div class="phase-label emerald">Phase 3</div>
-        <div class="phase-title">Scanner Goes Live</div>
+        <strong>No clearing schedule needed.</strong> The heartbeat threshold does not need to be configured to match banking hours.
+        OFFLINE alerts during clearing hours matter; OFFLINE overnight does not — tellers don't start sessions on holidays
+        and PCs may be powered off after hours. ASTRA ops staff understand this context.
       </div>
-      <div class="phase-actor">Installer → Windows Service → Teller PC</div>
     </div>
-    <div class="steps">
-      <div class="step">
-        <div class="step-left"><div class="step-num">12</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <div class="step-title">config.ini written to installation folder</div>
-          <div class="step-detail">Non-secret configuration is saved: server URL, branch_id, IFSC, scan settings. This file can be read by any Windows user — it contains no credentials.</div>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-left"><div class="step-num">13</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <div class="step-title">token.dat written with restricted NTFS permissions</div>
-          <div class="step-detail">The API token is saved to token.dat. The installer immediately restricts NTFS permissions: Read/Write for SYSTEM and Administrators group only. Standard user accounts (including the teller login) cannot read this file.</div>
-          <div class="security-note"><span class="lock">🔐</span> Even if a teller's Windows account is compromised, the attacker cannot extract the scanner token. Only the service (running as SYSTEM) can read it.</div>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-left"><div class="step-num">14</div><div class="step-line"></div></div>
-        <div class="step-body">
-          <div class="step-title">ASTRAScannerAgent service installed and started</div>
-          <div class="step-detail">The installer registers ASTRAScannerAgent as a Windows service set to Automatic (start on boot). The service starts immediately. On the Branch Scan Monitor, the branch shows as "Connected" within seconds.</div>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-left"><div class="step-num">15</div></div>
-        <div class="step-body">
-          <div class="step-title">✅ Scanner Operational — Teller can begin</div>
-          <div class="step-detail">Load cheques into the Canon CR-120 / CR-150 feeder. Each cheque is automatically captured (front + back image, hardware MICR), UV scanned, and submitted to ASTRA CTS. Real-time status appears in the Branch Scan Monitor.</div>
-        </div>
+
+    <div style="margin-top:14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px">
+      <div class="section-label">What the Branch Scan Monitor shows</div>
+      <div style="font-size:13px;color:var(--body);line-height:1.65">
+        The Branch Scan Monitor (React page in ASTRA CTS UI) combines two data sources:
+        <ul style="margin:8px 0 0 16px;display:flex;flex-direction:column;gap:5px">
+          <li><strong>Hardware events</strong> — instant, from the scan-events endpoint. Shows scan-start, double-feed, re-scan, jam.</li>
+          <li><strong>Workflow outcomes</strong> — polled, from scan-monitor/recent. Shows ACCEPTED / REJECTED / HELD per instrument after the CTS inward workflow completes.</li>
+        </ul>
       </div>
     </div>
   </div>
 
-  <!-- Security principles -->
-  <div style="margin-top:32px">
-    <div class="section-label">Security design — why it is safe</div>
+  <!-- ── §8 Build from Source ───────────────────────────────── -->
+  <div id="build">
+    <div class="section-head">
+      <div class="section-icon slate">🔨</div>
+      <div>
+        <div class="section-eyebrow slate">Section 8</div>
+        <div class="section-title">Build from Source</div>
+      </div>
+    </div>
+
+    <p style="font-size:13px;color:var(--body);line-height:1.65;margin-bottom:16px">
+      The agent binary is built by CI and distributed via the bank's internal software portal.
+      Bank IT teams should not need to build from source. This section is for ASTRA developers
+      and advanced troubleshooting.
+    </p>
+
+    <div class="build-grid">
+      <div class="build-card">
+        <div class="build-label">Go Architecture</div>
+        <div class="build-val">GOARCH=386</div>
+        <div class="build-note">32-bit required. The Canon CSD API (CanoCheetah.dll) is a 32-bit DLL and can only be loaded from a 32-bit process via CGO.</div>
+      </div>
+      <div class="build-card">
+        <div class="build-label">Target OS</div>
+        <div class="build-val">GOOS=windows</div>
+        <div class="build-note">Windows only. The real CSD implementation is in ranger_windows.go (build tag: windows &amp;&amp; cgo). Non-Windows builds use a stub transport.</div>
+      </div>
+      <div class="build-card">
+        <div class="build-label">CGO Compiler</div>
+        <div class="build-val">MinGW-w64 (i686)</div>
+        <div class="build-note">Cross-compilation from Linux CI: use i686-w64-mingw32-gcc. On Windows: install MSYS2 and select the mingw32 toolchain.</div>
+      </div>
+      <div class="build-card">
+        <div class="build-label">CGO Status</div>
+        <div class="build-val">CGO_ENABLED=1</div>
+        <div class="build-note">CGO must be enabled for the CSD API header bindings to compile. CGO_ENABLED=0 produces a stub-only binary with no hardware support.</div>
+      </div>
+    </div>
+
+    <div class="code-block" style="margin-top:14px">
+<span class="cm"># Build from Linux CI (cross-compile for Windows 32-bit)</span>
+GOOS=windows GOARCH=386 CGO_ENABLED=1 \
+  CC=i686-w64-mingw32-gcc \
+  go build -o astra-scanner-agent.exe ./edge/cts-scanner-agent/
+
+<span class="cm"># Build on Windows (requires MinGW-w64 i686 in PATH)</span>
+set GOARCH=386
+set CGO_ENABLED=1
+go build -o astra-scanner-agent.exe ./edge/cts-scanner-agent/
+
+<span class="cm"># Run tests (non-CGO stub, works on any platform)</span>
+go test ./edge/cts-scanner-agent/ -v -count=1
+    </div>
+
+    <div class="callout callout-emerald">
+      <span class="callout-icon">✅</span>
+      <div><strong>Test suite:</strong> 29/29 tests pass on any platform (Linux, Windows, macOS) without CGO. Tests cover config defaults, DPI override, UV URL presence, heartbeat success/error, session state, and scanner item flags.</div>
+    </div>
+  </div>
+
+  <!-- ── §9 Security ────────────────────────────────────────── -->
+  <div id="security">
+    <div class="section-head">
+      <div class="section-icon red">🔒</div>
+      <div>
+        <div class="section-eyebrow red">Section 9</div>
+        <div class="section-title">Security Design</div>
+      </div>
+    </div>
     <div class="security-grid">
-      <div class="sec-card"><span class="sec-icon">🔒</span><div><div class="sec-card-title">Branch ID is server-authoritative</div><div class="sec-card-desc">The IT coordinator enters zero branch identity. The server returns it. No forgery possible.</div></div></div>
+      <div class="sec-card"><span class="sec-icon">🔒</span><div><div class="sec-card-title">Branch ID is server-authoritative</div><div class="sec-card-desc">The IT coordinator enters zero branch identity. The server returns it from YugabyteDB. Forgery is impossible.</div></div></div>
       <div class="sec-card"><span class="sec-icon">⚡</span><div><div class="sec-card-title">Single-use code (atomic)</div><div class="sec-card-desc">Redis GETDEL — code vanishes on first successful exchange. No replay window.</div></div></div>
-      <div class="sec-card"><span class="sec-icon">🖥️</span><div><div class="sec-card-title">Machine-bound token</div><div class="sec-card-desc">Token stored with machine_id = COMPUTERNAME. Fails authentication on any other PC.</div></div></div>
+      <div class="sec-card"><span class="sec-icon">🖥️</span><div><div class="sec-card-title">Machine-bound token</div><div class="sec-card-desc">Token stored with machine_id = COMPUTERNAME. Fails authentication from any other PC.</div></div></div>
       <div class="sec-card"><span class="sec-icon">🛡️</span><div><div class="sec-card-title">token.dat unreadable by users</div><div class="sec-card-desc">NTFS ACL: SYSTEM + Administrators only. Standard teller account cannot read it.</div></div></div>
-      <div class="sec-card"><span class="sec-icon">⏰</span><div><div class="sec-card-title">24-hour code expiry</div><div class="sec-card-desc">Unexchanged codes auto-expire from Redis. No dangling codes after installation window.</div></div></div>
-      <div class="sec-card"><span class="sec-icon">🔑</span><div><div class="sec-card-title">One active code per branch</div><div class="sec-card-desc">Generating a new code invalidates the previous one. No duplicate registrations.</div></div></div>
+      <div class="sec-card"><span class="sec-icon">⏰</span><div><div class="sec-card-title">24-hour code expiry</div><div class="sec-card-desc">Unexchanged codes auto-expire from Redis. No dangling codes survive past installation window.</div></div></div>
+      <div class="sec-card"><span class="sec-icon">🔑</span><div><div class="sec-card-title">One active code per branch</div><div class="sec-card-desc">Generating a new code invalidates the previous. No duplicate registrations possible.</div></div></div>
     </div>
   </div>
 
-  <!-- Installer mockup -->
-  <div style="margin-top:32px">
-    <div class="section-label">Quick reference — what the installer shows</div>
-    <div class="installer-wrap">
-      <div class="installer-titlebar">
-        <div class="traffic-lights"><div class="tl r"></div><div class="tl y"></div><div class="tl g"></div></div>
-        <div class="installer-titlebar-label">ASTRA Scanner Setup — Step 2 of 4</div>
-      </div>
-      <div class="installer-body">
-        <div class="installer-title">Connect to ASTRA Server</div>
-        <div class="form-group">
-          <label class="form-label">ASTRA Server URL</label>
-          <div class="form-input">https://astra.yourbank.in</div>
-          <div class="form-hint">Provided by bank IT — same URL for all branches</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Registration Code</label>
-          <div class="form-input code">SARAS3X7</div>
-          <div class="form-hint">8 characters · case-insensitive · expires in 24 hours</div>
-        </div>
-        <div class="installer-footer">
-          <span class="btn-back">← Back</span>
-          <div class="btn-verify">Verify →</div>
-        </div>
+  <!-- ── §10 Troubleshooting ────────────────────────────────── -->
+  <div id="trouble">
+    <div class="section-head">
+      <div class="section-icon amber">🔍</div>
+      <div>
+        <div class="section-eyebrow amber">Section 10</div>
+        <div class="section-title">Troubleshooting</div>
       </div>
     </div>
-    <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">
-      After "Verify" succeeds, the installer completes automatically — no more input needed.
-    </div>
-  </div>
 
-  <!-- Troubleshooting -->
-  <div style="margin-top:32px">
-    <div class="section-label">Common issues</div>
     <div class="faq-list">
       <div class="faq-item">
         <div class="faq-q-mark">?</div>
         <div>
           <div class="faq-q">"Invalid code" error on Verify</div>
-          <div class="faq-a">Code has already been used, or has expired (24h limit). Ask Ops Manager to generate a new code from Branch Master.</div>
+          <div class="faq-a">Code has been used or expired (24-hour limit). Ask Ops Manager to generate a new code from Branch Master.</div>
         </div>
       </div>
       <div class="faq-item">
         <div class="faq-q-mark">?</div>
         <div>
-          <div class="faq-q">Installer says "Branch not eligible"</div>
-          <div class="faq-a">Check that the branch Scanner Mode is set to SDK_PUSH in Branch Master. FOLDER_DROP and UI_UPLOAD branches do not get a token.</div>
+          <div class="faq-q">Service installs but scanner shows OFFLINE in Branch Scan Monitor</div>
+          <div class="faq-a">Check: (1) Outbound HTTPS port 443 to ASTRA server allowed from teller PC. (2) Canon scanner USB driver installed. (3) Service status: <span class="faq-code">sc query ASTRAScannerAgent</span>. (4) Check log at <span class="faq-code">astra-scanner-agent.log</span> for the startup error.</div>
         </div>
       </div>
       <div class="faq-item">
         <div class="faq-q-mark">?</div>
         <div>
-          <div class="faq-q">Service installs but scanner shows Disconnected</div>
-          <div class="faq-a">Check firewall: outbound HTTPS (port 443) to the ASTRA server URL must be allowed from the teller PC. Also verify the Canon scanner USB driver is installed.</div>
+          <div class="faq-q">Branch shows IDLE — teller cannot start session</div>
+          <div class="faq-a">IDLE means the agent is running but no session is active. The teller UI must call POST /session/start to begin scanning. If the UI button is disabled, check that the teller PC's scanner agent is on the same local port (<span class="faq-code">listen_addr = :9201</span>) the UI is configured to call.</div>
         </div>
       </div>
       <div class="faq-item">
         <div class="faq-q-mark">?</div>
         <div>
-          <div class="faq-q">Need to re-register (PC replaced / token expired)</div>
-          <div class="faq-a">Ask Ops Manager to generate a fresh code from Branch Master. Run the installer again — it will revoke the old token automatically and issue a new one for the new machine.</div>
+          <div class="faq-q">Scanner found but scans fail immediately — no images produced</div>
+          <div class="faq-a">Check CanoCheetah.dll is present in the exe directory or system PATH. Then check log for <span class="faq-code">"CSD open failed"</span> — this means the DLL loaded but the scanner session could not be opened. Confirm the scanner USB cable is connected and the Canon driver is installed.</div>
+        </div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q-mark">?</div>
+        <div>
+          <div class="faq-q">IQA failures — good cheques flagged as bad quality</div>
+          <div class="faq-a">Two causes: (1) Wrong IQA param IDs — verify <span class="faq-code">iqa_brightness_param_id</span> and <span class="faq-code">iqa_result_param_id</span> against CsdScan.h for your SDK version. (2) Lighting or scanner dirty — clean the scanner glass. Alternatively disable IQA temporarily with <span class="faq-code">enable_iqa = false</span> to confirm it is a config issue.</div>
+        </div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q-mark">?</div>
+        <div>
+          <div class="faq-q">UV scans not appearing in Branch Scan Monitor item detail</div>
+          <div class="faq-a">Check log for <span class="faq-code">"UV lamp enable failed"</span>. If present, the <span class="faq-code">uv_param_id</span> is wrong — confirm the correct offset from CsdScan.h for your CSD SDK version and update config.ini. Restart the service. If log shows <span class="faq-code">"UV lamp enabled"</span> but no image appears, the scanner model may not be a UV variant.</div>
+        </div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q-mark">?</div>
+        <div>
+          <div class="faq-q">Need to re-register after PC replacement</div>
+          <div class="faq-a">Ask Ops Manager for a fresh registration code. Run the installer on the new PC — it revokes the old machine-bound token automatically and issues a new one. The old <span class="faq-code">config.ini</span> can be copied to the new PC as a starting point; delete <span class="faq-code">token.dat</span> before running the installer.</div>
+        </div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q-mark">?</div>
+        <div>
+          <div class="faq-q">Where are the logs?</div>
+          <div class="faq-a">Structured JSON logs (slog format) in <span class="faq-code">astra-scanner-agent.log</span> in the installation folder. To tail on Windows: <span class="faq-code">Get-Content "...\astra-scanner-agent.log" -Wait -Tail 50</span> in PowerShell. Look for <span class="faq-code">"level":"ERROR"</span> entries first.</div>
+        </div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q-mark">?</div>
+        <div>
+          <div class="faq-q">Agent starts but MICR values are garbled</div>
+          <div class="faq-a">Adjust <span class="faq-code">mocr_weight</span>. A value of 100 (optical only) avoids the magnetic head entirely if the head is faulty. Values around 80–90 work well for aging hardware. A value of 0 (magnetic only) is best when cheques are clean and hardware is maintained.</div>
         </div>
       </div>
     </div>
@@ -674,7 +1339,8 @@ h1, h2, h3, .heading { color: var(--text); }
 
   <!-- Footer -->
   <div class="footer">
-    <span>ASTRA CTS · Scanner Registration Guide · CTS-SCANNER-SETUP-001</span>
+    <span>ASTRA CTS · Scanner Operations Guide · CTS-SCANNER-OPS-001</span>
     <span>Rev 2026-09-01</span>
   </div>
+
 </div>
