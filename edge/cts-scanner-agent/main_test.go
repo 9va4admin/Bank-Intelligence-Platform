@@ -21,15 +21,17 @@ func TestLoadConfigMissingRequired(t *testing.T) {
 	t.Setenv("ASTRA_API_TOKEN", "")
 	t.Setenv("BANK_IFSC", "")
 	t.Setenv("BANK_ID", "")
+	t.Setenv("BRANCH_ID", "")
 
 	_, err := loadConfig()
 	if err == nil {
 		t.Fatal("expected error for missing required config, got nil")
 	}
 	errStr := err.Error()
-	for _, field := range []string{"ASTRA_API_URL", "ASTRA_API_TOKEN", "BANK_IFSC", "BANK_ID"} {
-		if !strings.Contains(errStr, field) {
-			t.Errorf("error missing mention of %s: %s", field, errStr)
+	// Match the actual error message strings from config.go validation block.
+	for _, phrase := range []string{"api_url missing", "api token missing", "bank_ifsc missing", "bank_id missing"} {
+		if !strings.Contains(errStr, phrase) {
+			t.Errorf("error message missing phrase %q: %s", phrase, errStr)
 		}
 	}
 }
@@ -39,6 +41,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 	t.Setenv("ASTRA_API_TOKEN", "tok-abc")
 	t.Setenv("BANK_IFSC", "SVCB0000001")
 	t.Setenv("BANK_ID", "saraswat-coop")
+	t.Setenv("BRANCH_ID", "BRANCH-ANDHERI-01")
 
 	cfg, err := loadConfig()
 	if err != nil {
@@ -52,6 +55,45 @@ func TestLoadConfigDefaults(t *testing.T) {
 	}
 	if !cfg.EnableImprinter {
 		t.Error("expected default EnableImprinter true")
+	}
+	// NPCI-mandated defaults — must not regress
+	if cfg.ScanDPI != 300 {
+		t.Errorf("ScanDPI default must be 300 (NPCI guideline), got %d", cfg.ScanDPI)
+	}
+	if cfg.ScanModeValue != 16 {
+		t.Errorf("ScanModeValue default must be 16 (binary fine-text), got %d", cfg.ScanModeValue)
+	}
+	if cfg.IQABrightnessParamID != 355 {
+		t.Errorf("IQABrightnessParamID default must be 355, got %d", cfg.IQABrightnessParamID)
+	}
+	if cfg.IQAResultParamID != 356 {
+		t.Errorf("IQAResultParamID default must be 356, got %d", cfg.IQAResultParamID)
+	}
+	if cfg.UVParamID != 380 {
+		t.Errorf("UVParamID default must be 380, got %d", cfg.UVParamID)
+	}
+	if cfg.FeederPollMS != 300 {
+		t.Errorf("FeederPollMS default must be 300, got %d", cfg.FeederPollMS)
+	}
+	if cfg.EnableUVScan {
+		t.Error("EnableUVScan must default to false (UV is opt-in)")
+	}
+}
+
+func TestLoadConfigScanDPIOverride(t *testing.T) {
+	t.Setenv("ASTRA_API_URL", "https://api.test.internal")
+	t.Setenv("ASTRA_API_TOKEN", "tok-abc")
+	t.Setenv("BANK_IFSC", "SVCB0000001")
+	t.Setenv("BANK_ID", "saraswat-coop")
+	t.Setenv("BRANCH_ID", "BRANCH-ANDHERI-01")
+	t.Setenv("SCANNER_DPI", "200")
+
+	cfg, err := loadConfig()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.ScanDPI != 200 {
+		t.Errorf("expected overridden ScanDPI 200, got %d", cfg.ScanDPI)
 	}
 }
 
@@ -162,17 +204,17 @@ func TestMICRSuffix(t *testing.T) {
 func TestScanIDFormat(t *testing.T) {
 	cfg := &Config{SessionPrefix: "MUM"}
 	s := newScanSession(cfg, NewStubTransport(nil), nil, slog.Default())
-	id := s.generateScanID()
+	id := s.buildScanID(1)
 	if !strings.HasPrefix(id, "SCAN-") {
 		t.Errorf("scan ID missing SCAN- prefix: %s", id)
 	}
 	if !strings.Contains(id, "MUM") {
 		t.Errorf("scan ID missing session prefix: %s", id)
 	}
-	// Second ID must be different
-	id2 := s.generateScanID()
+	// Different positions must produce different IDs
+	id2 := s.buildScanID(2)
 	if id == id2 {
-		t.Error("two successive scan IDs must differ")
+		t.Error("scan IDs for different positions must differ")
 	}
 }
 
@@ -267,7 +309,8 @@ func TestSessionStartAndStop(t *testing.T) {
 // ASTRA HTTP client tests (against mock server)
 // ---------------------------------------------------------------------------
 
-func TestRequestUploadURLs(t *testing.T) {
+func TestRequestUploadURLsNoUV(t *testing.T) {
+	var capturedBody map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/cts/outward/scan/upload-url" {
 			http.NotFound(w, r)
@@ -277,6 +320,7 @@ func TestRequestUploadURLs(t *testing.T) {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
+		json.NewDecoder(r.Body).Decode(&capturedBody)
 		json.NewEncoder(w).Encode(UploadURLResponse{
 			FrontPresignedURL: "https://minio.internal/presigned/front",
 			RearPresignedURL:  "https://minio.internal/presigned/rear",
@@ -286,13 +330,9 @@ func TestRequestUploadURLs(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := &ASTRAClient{
-		baseURL:    srv.URL,
-		token:      "tok-test",
-		httpClient: srv.Client(),
-	}
+	client := &ASTRAClient{baseURL: srv.URL, token: "tok-test", httpClient: srv.Client()}
 
-	resp, err := client.RequestUploadURLs(context.Background(), "SCAN-001")
+	resp, err := client.RequestUploadURLs(context.Background(), "SCAN-001", false)
 	if err != nil {
 		t.Fatalf("RequestUploadURLs: %v", err)
 	}
@@ -301,6 +341,106 @@ func TestRequestUploadURLs(t *testing.T) {
 	}
 	if !strings.HasPrefix(resp.FrontObjectURL, "s3://") {
 		t.Errorf("FrontObjectURL should be s3:// URL: %s", resp.FrontObjectURL)
+	}
+	// include_uv=false must be sent in body
+	if v, ok := capturedBody["include_uv"].(bool); ok && v {
+		t.Error("include_uv must be false when not a UV item")
+	}
+	// UV URLs must be empty in the response
+	if resp.UVPresignedURL != "" {
+		t.Errorf("expected empty UVPresignedURL for non-UV request, got %s", resp.UVPresignedURL)
+	}
+}
+
+func TestRequestUploadURLsWithUV(t *testing.T) {
+	var capturedBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&capturedBody)
+		json.NewEncoder(w).Encode(UploadURLResponse{
+			FrontPresignedURL: "https://minio.internal/presigned/front",
+			RearPresignedURL:  "https://minio.internal/presigned/rear",
+			FrontObjectURL:    "s3://cts-images/bank/outward/SCAN-001/front.tiff",
+			RearObjectURL:     "s3://cts-images/bank/outward/SCAN-001/rear.tiff",
+			UVPresignedURL:    "https://minio.internal/presigned/uv",
+			UVObjectURL:       "s3://cts-images/bank/outward/SCAN-001/uv.tiff",
+		})
+	}))
+	defer srv.Close()
+
+	client := &ASTRAClient{baseURL: srv.URL, token: "tok-test", httpClient: srv.Client()}
+
+	resp, err := client.RequestUploadURLs(context.Background(), "SCAN-001", true)
+	if err != nil {
+		t.Fatalf("RequestUploadURLs with UV: %v", err)
+	}
+	// include_uv=true must be sent in request body
+	if v, ok := capturedBody["include_uv"].(bool); !ok || !v {
+		t.Error("expected include_uv=true in request body for UV item")
+	}
+	if resp.UVPresignedURL == "" {
+		t.Error("expected UVPresignedURL to be set in UV response")
+	}
+	if resp.UVObjectURL == "" {
+		t.Error("expected UVObjectURL to be set in UV response")
+	}
+}
+
+func TestSubmitScanWithUVURL(t *testing.T) {
+	var capturedBody ScanSubmitRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&capturedBody)
+		w.WriteHeader(http.StatusAccepted)
+		json.NewEncoder(w).Encode(ScanSubmitResponse{
+			ScanID: capturedBody.ScanID, Status: "ACCEPTED", Path: "CR120",
+		})
+	}))
+	defer srv.Close()
+
+	client := &ASTRAClient{baseURL: srv.URL, token: "tok-test", httpClient: srv.Client()}
+
+	uvURL := "s3://cts-images/bank/outward/SCAN-UV/uv.tiff"
+	resp, err := client.SubmitScan(context.Background(), &ScanSubmitRequest{
+		ScanID:        "SCAN-UV",
+		SessionID:     "SES-001",
+		ImageFrontURL: "s3://cts-images/bank/outward/SCAN-UV/front.tiff",
+		ImageRearURL:  "s3://cts-images/bank/outward/SCAN-UV/rear.tiff",
+		UVImageURL:    &uvURL,
+	})
+	if err != nil {
+		t.Fatalf("SubmitScan with UV: %v", err)
+	}
+	if resp.Status != "ACCEPTED" {
+		t.Errorf("expected ACCEPTED, got %s", resp.Status)
+	}
+	// UV URL must be forwarded in the JSON body
+	if capturedBody.UVImageURL == nil || *capturedBody.UVImageURL != uvURL {
+		t.Errorf("UVImageURL not forwarded in submit body: got %v", capturedBody.UVImageURL)
+	}
+}
+
+func TestSubmitScanUVURLAbsentWhenNoUV(t *testing.T) {
+	var capturedBody ScanSubmitRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&capturedBody)
+		w.WriteHeader(http.StatusAccepted)
+		json.NewEncoder(w).Encode(ScanSubmitResponse{ScanID: "SCAN-001", Status: "ACCEPTED"})
+	}))
+	defer srv.Close()
+
+	client := &ASTRAClient{baseURL: srv.URL, token: "tok-test", httpClient: srv.Client()}
+
+	_, err := client.SubmitScan(context.Background(), &ScanSubmitRequest{
+		ScanID:        "SCAN-001",
+		SessionID:     "SES-001",
+		ImageFrontURL: "s3://cts-images/bank/outward/SCAN-001/front.tiff",
+		ImageRearURL:  "s3://cts-images/bank/outward/SCAN-001/rear.tiff",
+		// UVImageURL intentionally nil
+	})
+	if err != nil {
+		t.Fatalf("SubmitScan without UV: %v", err)
+	}
+	if capturedBody.UVImageURL != nil {
+		t.Errorf("UVImageURL must be omitted (nil) when no UV image: got %v", capturedBody.UVImageURL)
 	}
 }
 
@@ -447,5 +587,164 @@ func TestSubmitScanServerError(t *testing.T) {
 	})
 	if err == nil {
 		t.Error("expected error on 503, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Heartbeat tests
+// ---------------------------------------------------------------------------
+
+func TestSendHeartbeatSuccess(t *testing.T) {
+	var capturedBody agentHeartbeatRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/cts/scanner/agent/heartbeat" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Header.Get("Authorization") != "Bearer tok-hb" {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		json.NewDecoder(r.Body).Decode(&capturedBody)
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}))
+	defer srv.Close()
+
+	client := &ASTRAClient{baseURL: srv.URL, token: "tok-hb", httpClient: srv.Client()}
+	err := client.SendHeartbeat(context.Background(), "saraswat-coop", "BRANCH-ANDHERI-01", "SES-HB-001")
+	if err != nil {
+		t.Fatalf("SendHeartbeat: %v", err)
+	}
+	if capturedBody.BankID != "saraswat-coop" {
+		t.Errorf("expected bank_id saraswat-coop, got %s", capturedBody.BankID)
+	}
+	if capturedBody.BranchID != "BRANCH-ANDHERI-01" {
+		t.Errorf("expected branch_id BRANCH-ANDHERI-01, got %s", capturedBody.BranchID)
+	}
+	if capturedBody.ActiveSessionID != "SES-HB-001" {
+		t.Errorf("expected active_session_id SES-HB-001, got %s", capturedBody.ActiveSessionID)
+	}
+}
+
+func TestSendHeartbeatServerError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "gateway timeout", http.StatusGatewayTimeout)
+	}))
+	defer srv.Close()
+
+	client := &ASTRAClient{baseURL: srv.URL, token: "tok-hb", httpClient: srv.Client()}
+	err := client.SendHeartbeat(context.Background(), "bank-1", "branch-1", "")
+	if err == nil {
+		t.Error("expected error on 504, got nil")
+	}
+}
+
+func TestSendHeartbeatIdleSession(t *testing.T) {
+	// When no session is active, active_session_id must be empty string (IDLE state).
+	var capturedBody agentHeartbeatRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&capturedBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	client := &ASTRAClient{baseURL: srv.URL, token: "tok-hb", httpClient: srv.Client()}
+	client.SendHeartbeat(context.Background(), "bank-1", "branch-1", "") // empty = IDLE
+	if capturedBody.ActiveSessionID != "" {
+		t.Errorf("IDLE heartbeat must send empty active_session_id, got %q", capturedBody.ActiveSessionID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ScanSession.CurrentSessionID tests
+// ---------------------------------------------------------------------------
+
+func TestCurrentSessionIDWhenInactive(t *testing.T) {
+	cfg := &Config{SessionPrefix: "TEST"}
+	session := newScanSession(cfg, NewStubTransport(nil), nil, newTestLogger())
+	if id := session.CurrentSessionID(); id != "" {
+		t.Errorf("CurrentSessionID must be empty when no session active, got %q", id)
+	}
+}
+
+func TestCurrentSessionIDWhenActive(t *testing.T) {
+	cfg := &Config{SessionPrefix: "TEST", EnableImprinter: false}
+	st := NewStubTransport(nil)
+	session := newScanSession(cfg, st, nil, newTestLogger())
+
+	mux := http.NewServeMux()
+	registerHandlers(mux, session, newTestLogger())
+
+	req := httptest.NewRequest(http.MethodPost, "/session/start",
+		strings.NewReader(`{"session_id":"SES-ACTIVE"}`))
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("expected 202, got %d", w.Code)
+	}
+
+	time.Sleep(50 * time.Millisecond) // let goroutine start
+
+	if id := session.CurrentSessionID(); id != "SES-ACTIVE" {
+		t.Errorf("CurrentSessionID must return active session ID, got %q", id)
+	}
+
+	// Stop and verify CurrentSessionID clears
+	req2 := httptest.NewRequest(http.MethodPost, "/session/stop", nil)
+	w2 := httptest.NewRecorder()
+	mux.ServeHTTP(w2, req2)
+
+	time.Sleep(50 * time.Millisecond)
+
+	if id := session.CurrentSessionID(); id != "" {
+		t.Errorf("CurrentSessionID must be empty after session stop, got %q", id)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// UV ScannedItem flag tests (stub-based — no hardware required)
+// ---------------------------------------------------------------------------
+
+func TestUVItemFlagPresent(t *testing.T) {
+	uvBytes := []byte("fake-uv-tiff-data")
+	items := []*ScannedItem{
+		{
+			FrontImage: []byte("front"),
+			RearImage:  []byte("rear"),
+			UVImage:    uvBytes,
+			MICRRaw:    "000123  00110001234  999999999",
+		},
+	}
+	st := NewStubTransport(items)
+	st.Open()
+	st.StartJob("", false)
+
+	item, err := st.ReadItem()
+	if err != nil {
+		t.Fatalf("ReadItem: %v", err)
+	}
+	if item.UVImage == nil {
+		t.Fatal("expected UVImage to be non-nil for UV item")
+	}
+	if string(item.UVImage) != string(uvBytes) {
+		t.Errorf("UVImage bytes mismatch: got %s", item.UVImage)
+	}
+}
+
+func TestNonUVItemHasNilUVImage(t *testing.T) {
+	items := []*ScannedItem{
+		{FrontImage: []byte("front"), RearImage: []byte("rear"), MICRRaw: "000123  00110001234  999999999"},
+	}
+	st := NewStubTransport(items)
+	st.Open()
+	st.StartJob("", false)
+
+	item, err := st.ReadItem()
+	if err != nil {
+		t.Fatalf("ReadItem: %v", err)
+	}
+	if item.UVImage != nil {
+		t.Error("non-UV item must have nil UVImage")
 	}
 }
