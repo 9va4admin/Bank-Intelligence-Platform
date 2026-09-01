@@ -336,6 +336,102 @@ async def check_vault_redis_coverage_for_alert(
 
 
 # ---------------------------------------------------------------------------
+# Scanner fleet health — branch OFFLINE alerting during clearing hours
+# ---------------------------------------------------------------------------
+
+class CheckScannerFleetInput(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    offline_threshold_seconds: int = 90       # heartbeat older than this → branch OFFLINE
+    clearing_start_hour_utc: int = 3          # 3 AM UTC = ~8:30 AM IST (CTS clearing opens)
+    clearing_end_hour_utc: int = 14           # 2 PM UTC = ~7:30 PM IST (CTS clearing closes)
+    force_utc_hour: Optional[int] = None      # test-only: override current UTC hour
+
+
+class ScannerFleetCheckResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str = ""
+    offline_branches: list[str] = []
+    offline_count: int = 0
+    needs_alert: bool = False
+    alert_severity: str = "WARN"
+    skipped_outside_hours: bool = False
+    degraded: bool = False
+
+
+@activity.defn
+async def check_scanner_fleet_for_alert(
+    inp: CheckScannerFleetInput,
+    db_pool=None,
+) -> ScannerFleetCheckResult:
+    """
+    Query cts.scanner_tokens for branches where last_seen is stale (> offline_threshold_seconds).
+    Only fires an alert when the current UTC hour falls within [clearing_start_hour_utc,
+    clearing_end_hour_utc) — overnight gaps are expected and never paged.
+
+    Degrades gracefully when db_pool is None.
+    """
+    from datetime import datetime, timezone
+
+    if db_pool is None:
+        log.warning("check_scanner_fleet_for_alert.degraded", bank_id=inp.bank_id, reason="db_pool_none")
+        return ScannerFleetCheckResult(bank_id=inp.bank_id, degraded=True)
+
+    # Clearing-hours gate — no overnight false alarms
+    utc_hour = inp.force_utc_hour if inp.force_utc_hour is not None else datetime.now(timezone.utc).hour
+    in_clearing_window = inp.clearing_start_hour_utc <= utc_hour < inp.clearing_end_hour_utc
+
+    try:
+        async with db_pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT branch_id "
+                "FROM cts.scanner_tokens "
+                "WHERE bank_id = $1 AND revoked = false "
+                "  AND (last_seen IS NULL OR last_seen < NOW() - ($2 * INTERVAL '1 second'))",
+                inp.bank_id,
+                inp.offline_threshold_seconds,
+            )
+        offline_branches = [r["branch_id"] for r in rows]
+        offline_count = len(offline_branches)
+
+        if not in_clearing_window:
+            log.info(
+                "check_scanner_fleet_for_alert.outside_hours",
+                bank_id=inp.bank_id,
+                utc_hour=utc_hour,
+                offline_count=offline_count,
+            )
+            return ScannerFleetCheckResult(
+                bank_id=inp.bank_id,
+                offline_branches=offline_branches,
+                offline_count=offline_count,
+                needs_alert=False,
+                skipped_outside_hours=True,
+            )
+
+        needs_alert = offline_count > 0
+        log.info(
+            "check_scanner_fleet_for_alert.done",
+            bank_id=inp.bank_id,
+            offline_count=offline_count,
+            needs_alert=needs_alert,
+            utc_hour=utc_hour,
+        )
+        return ScannerFleetCheckResult(
+            bank_id=inp.bank_id,
+            offline_branches=offline_branches,
+            offline_count=offline_count,
+            needs_alert=needs_alert,
+            alert_severity="WARN",
+            skipped_outside_hours=False,
+            degraded=False,
+        )
+    except Exception as exc:
+        log.warning("check_scanner_fleet_for_alert.error", bank_id=inp.bank_id, error=str(exc))
+        return ScannerFleetCheckResult(bank_id=inp.bank_id, degraded=True)
+
+
+# ---------------------------------------------------------------------------
 # Stuck workflow sweep — permanent production guard
 # ---------------------------------------------------------------------------
 

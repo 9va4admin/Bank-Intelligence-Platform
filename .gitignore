@@ -37,3 +37,5 @@ tests/**/partial_image_tests_append.py
 
 # Edge scanner agent — compiled Windows binaries (distributed via release, not git)
 edge/cts-scanner-agent/*.exe
+# Canon SDK sample cheques captured during local dev/testing — not committed
+edge/cts-scanner-agent/scannned-chqs/
