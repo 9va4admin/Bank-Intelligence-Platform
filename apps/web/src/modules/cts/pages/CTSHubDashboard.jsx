@@ -420,13 +420,37 @@ export default function CTSHubDashboard() {
   const [countdown, setCountdown] = useState(isDemo ? windowCountdown(CLEARING_WINDOW.close_ts) : '—:—:—')
   const [sealTarget, setSealTarget] = useState(null)   // { branch, lot }
   const [sealAllPending, setSealAllPending] = useState(false)
+  const [ngchPending, setNgchPending] = useState(false)
   const [toast, setToast] = useState(null)
+  const [clearingWindow, setClearingWindow] = useState(null) // live window from backend
 
-  // Live countdown — only in DEMO mode; real clearing session comes from backend in POC/PROD
+  // DEMO: local countdown tick
   useEffect(() => {
     if (!isDemo) return
     const t = setInterval(() => setCountdown(windowCountdown(CLEARING_WINDOW.close_ts)), 1000)
     return () => clearInterval(t)
+  }, [isDemo])
+
+  // POC/PROD: fetch clearing window from backend, then tick countdown from close_time_utc
+  useEffect(() => {
+    if (isDemo) return
+    let timer = null
+    async function fetchWindow() {
+      try {
+        const res = await fetch(`${API_BASE}/v1/cts/outward/clearing-window`, { credentials: 'include' })
+        if (!res.ok) return
+        const data = await res.json()
+        setClearingWindow(data)
+        // build a Date for close time today and tick
+        const [closeH, closeM] = (data.close_time_utc ?? '14:00').split(':').map(Number)
+        const closeTs = new Date()
+        closeTs.setUTCHours(closeH, closeM, 0, 0)
+        timer = setInterval(() => setCountdown(windowCountdown(closeTs)), 1000)
+        setCountdown(windowCountdown(closeTs))
+      } catch { }
+    }
+    fetchWindow()
+    return () => { if (timer) clearInterval(timer) }
   }, [isDemo])
 
   // Auto-clear toast
@@ -519,8 +543,38 @@ export default function CTSHubDashboard() {
     setSealAllPending(false)
   }
 
-  const windowStatusColor = CLEARING_WINDOW.status === 'ACTIVE'
-    ? 'text-emerald-400' : CLEARING_WINDOW.status === 'CLOSING' ? 'text-amber-400' : th.muted
+  const liveWindowOpen = clearingWindow?.is_open ?? true
+  const windowStatusColor = isDemo
+    ? (CLEARING_WINDOW.status === 'ACTIVE' ? 'text-emerald-400' : CLEARING_WINDOW.status === 'CLOSING' ? 'text-amber-400' : th.muted)
+    : (liveWindowOpen ? 'text-emerald-400' : th.muted)
+
+  async function submitToNGCH() {
+    if (isDemo) {
+      setToast('Demo mode — ClearingSessionWorkflow not triggered in demo')
+      return
+    }
+    setNgchPending(true)
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      const res = await fetch(`${API_BASE}/v1/cts/outward/clearing-session/submit`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clearing_date: today, session_type: 'MORNING', deployment_mode: 'SB_NGCH', pu_ids: [] }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setToast(`ClearingSessionWorkflow started — ${data.workflow_id}`)
+      } else {
+        const err = await res.json().catch(() => ({}))
+        setToast(`Submit failed: ${err.detail ?? res.status}`)
+      }
+    } catch (e) {
+      setToast(`Submit error: ${e.message}`)
+    } finally {
+      setNgchPending(false)
+    }
+  }
 
   return (
     <AppShell>
@@ -639,14 +693,15 @@ export default function CTSHubDashboard() {
             </p>
           </div>
           <button
-            disabled={openLots.length > 0}
+            disabled={openLots.length > 0 || ngchPending}
+            onClick={submitToNGCH}
             className={`text-xs px-4 py-2 rounded font-medium transition-colors ${
-              openLots.length > 0
+              openLots.length > 0 || ngchPending
                 ? (isDark ? 'bg-white/5 text-slate-500 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed')
                 : 'bg-emerald-600 hover:bg-emerald-700 text-white'
             }`}
           >
-            Submit to NGCH
+            {ngchPending ? 'Submitting…' : 'Submit to NGCH'}
           </button>
         </div>
 
