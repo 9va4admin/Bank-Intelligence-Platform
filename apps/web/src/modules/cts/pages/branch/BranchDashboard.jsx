@@ -6,6 +6,7 @@
  * and connection health to the EEH gateway.
  */
 import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../../shared/context/BankContext'
@@ -39,6 +40,22 @@ function StatusDot({ status }) {
     ? 'bg-emerald-400'
     : status === 'WARN' ? 'bg-amber-400' : 'bg-red-400'
   return <span className={`inline-block w-2 h-2 rounded-full ${cls} mr-1.5`} />
+}
+
+// Scanner agent state dot — three states only.
+function ScannerDot({ state }) {
+  const cls =
+    state === 'ACTIVE'  ? 'bg-emerald-400' :
+    state === 'OFFLINE' ? 'bg-red-400' :
+                          'bg-slate-500'   // IDLE or unknown
+  return <span className={`inline-block w-2 h-2 rounded-full ${cls} mr-1.5`} />
+}
+
+function scannerLabel(state, secondsAgo) {
+  if (state === 'ACTIVE')  return 'Scanning'
+  if (state === 'OFFLINE') return 'OFFLINE'
+  if (state === 'IDLE' && secondsAgo != null) return `Idle · ${secondsAgo}s ago`
+  return 'Idle'
 }
 
 function StatCard({ label, value, sub, accent, isDark }) {
@@ -82,6 +99,18 @@ export default function BranchDashboard() {
   const [eehHealth] = useState(EEH_HEALTH)
   const [elapsed, setElapsed] = useState(0)
 
+  const branchId = session?.branch_id ?? ''
+  const { data: scannerStatus } = useQuery({
+    queryKey: ['scanner-agent-status', bankId, branchId],
+    queryFn: async () => {
+      const res = await fetch(`/v1/cts/scanner/agent/status?branch_id=${encodeURIComponent(branchId)}`)
+      if (!res.ok) return null
+      return res.json()
+    },
+    refetchInterval: 15_000,
+    enabled: !!branchId,
+  })
+
   useEffect(() => {
     const t = setInterval(() => setElapsed(e => e + 1), 1000)
     return () => clearInterval(t)
@@ -117,6 +146,10 @@ export default function BranchDashboard() {
             <span className="flex items-center">
               <StatusDot status={eehHealth.status} />
               EEH {eehHealth.status} · {eehHealth.latency_ms}ms
+            </span>
+            <span className={`flex items-center ${scannerStatus?.state === 'OFFLINE' ? 'text-red-400' : ''}`}>
+              <ScannerDot state={scannerStatus?.state} />
+              Scanner · {scannerLabel(scannerStatus?.state, scannerStatus?.last_seen_seconds_ago)}
             </span>
             <Link
               to="/branch/scan"
