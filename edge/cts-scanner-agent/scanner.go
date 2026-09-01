@@ -111,6 +111,15 @@ func (s *ScanSession) IsActive() bool {
 	return s.active.Load()
 }
 
+// CurrentSessionID returns the active session ID, or empty string when idle.
+// Safe for concurrent use — reads only after the atomic active flag is true.
+func (s *ScanSession) CurrentSessionID() string {
+	if !s.active.Load() {
+		return ""
+	}
+	return s.sessionID
+}
+
 // GetItems returns a snapshot of all session items — safe for concurrent reads.
 func (s *ScanSession) GetItems() []SessionItem {
 	s.itemsMu.RLock()
