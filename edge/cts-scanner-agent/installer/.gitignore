@@ -1,0 +1,8 @@
+# Built installer exe — lives in dist/ after CI build
+ASTRA-Scanner-Setup-*.exe
+
+# Canon SDK DLLs — OEM license; pulled from protected artifact store by CI
+Canon/
+
+# Temp files from NSIS build
+*.nsi.bak

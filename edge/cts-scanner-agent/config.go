@@ -1,158 +1,286 @@
 package main
 
 import (
+	"bufio"
 	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// Config is loaded once at startup from environment variables.
-// On the teller PC, these are set via Windows Service properties or a .env
-// file read by the installer — no Vault sidecar is available at the edge.
+// Config is loaded once at startup from config.ini in the exe directory.
+// On the teller PC, config.ini is written by the ASTRA installer wizard.
+// In CI / unit tests, env vars are used as fallback (no installer present).
 //
-// The ASTRA_API_TOKEN is a long-lived service token issued per-scanner by
-// the bank IT admin via the ASTRA Admin UI and stored in the Windows
-// Credential Manager by the installer script.
+// Secret separation:
+//   config.ini  — non-secret, version-controlled per-branch settings
+//   token.dat   — API bearer token; written by installer with restricted NTFS ACL
+//                 (only SYSTEM + Administrators can read it)
 type Config struct {
 	// ASTRA backend
-	ASTRABaseURL string        // e.g. https://api.astra.kotak-mah.internal
-	ASTRAToken   string        // Bearer token for the scanner service account
-	HTTPTimeout  time.Duration // default 30s
+	ASTRABaseURL string
+	ASTRAToken   string
+	HTTPTimeout  time.Duration
 
-	// Scanner hardware — basic
-	ScannerPort   string // kept for legacy config compatibility; discovery mode takes precedence
-	BankIFSC      string // teller's branch IFSC code — embeds in every scan
-	BankID        string // e.g. "kotak-mah"
-	BranchID      string // ASTRA internal branch ID (from Admin UI) — e.g. "kotak-mah-vashi-01"
-	OperatorID    string // teller user ID stamped into scan metadata
-	SessionPrefix string // clearing session prefix (e.g. "MUM-AM")
+	// Branch identity — set by installer per-teller-PC; never the same across branches
+	BankIFSC  string
+	BankID    string
+	BranchID  string
 
-	// Scanner discovery — Canon CR-120/150 CSD API
-	// ScannerDiscoveryMode: "usb" (default) | "devname" | "ip" | "mac" | "serial"
-	// "usb" calls CsdProbe() — auto-detects the first USB-connected scanner.
-	// "devname" calls CsdProbeEx(ScannerDeviceName) — useful when multiple models present.
-	// "ip"/"mac"/"serial" use CsdProbe2() for the network-variant CR-120/150 (future).
-	ScannerDiscoveryMode string
-	ScannerDeviceName    string // used when ScannerDiscoveryMode == "devname"
-	ScannerSerial        string // used when ScannerDiscoveryMode == "serial" (network model)
-	ScannerIP            string // used when ScannerDiscoveryMode == "ip"    (network model)
-	ScannerMACAddress    string // used when ScannerDiscoveryMode == "mac"   (network model)
+	// Operator / session
+	OperatorID    string
+	SessionPrefix string
 
-	// CSD DLL path — override default CanoCheetah.dll search.
-	// Leave empty to use default search: exe dir → %ProgramFiles(x86)%\Canon Electronics\CR150 → PATH.
-	CSDDLLPath string
+	// Local HTTP control server
+	ListenAddr string
 
-	// MICR OCR weight — CR-120/150 only (CSDP_MOCR parameter).
-	// 0   = pure magnetic MICR (strictest; best for high-quality ink)
-	// 50  = hybrid magnetic+optical (recommended for Indian banking; handles faded ink)
-	// 100 = pure optical MICR (lowest fraud resistance; use only when ink is severely degraded)
-	MICROCRWeight int
-
-	// IQA — Image Quality Assessment (requires CeiIQA.ini in the driver directory).
-	// Results logged per cheque; brightness failures flagged in the scan log.
-	EnableIQA bool
-
-	// Local server
-	ListenAddr string // default ":9201"
+	// Scanner hardware
+	ScannerPort          string // legacy compat
+	ScannerDiscoveryMode string // usb | devname | ip | mac | serial
+	ScannerDeviceName    string
+	ScannerSerial        string
+	ScannerIP            string
+	ScannerMACAddress    string
+	CSDDLLPath           string
+	MICROCRWeight        int
+	EnableIQA            bool
 
 	// Scan options
-	EnableUVScan        bool // true on CR-120 UV units only; false on standard CR-120/CR-150
-	EnableImprinter     bool // true when endorsement stamping hardware is present and licensed
-	EndorsementText     string
+	EnableUVScan    bool
+	EnableImprinter bool
+	EndorsementText string
 }
 
+// loadConfig reads config.ini from the exe directory.
+// Falls back to environment variables when no config.ini exists (CI / dev).
 func loadConfig() (*Config, error) {
+	kv, source, err := readConfigSource()
+	if err != nil {
+		return nil, fmt.Errorf("config: %w", err)
+	}
+
+	get := func(section, key, def string) string {
+		// Tries "section.key", then bare "key" (env-var mode where sections don't exist)
+		if v := kv[section+"."+key]; v != "" {
+			return v
+		}
+		if v := kv[key]; v != "" {
+			return v
+		}
+		return def
+	}
+	getBool := func(section, key string, def bool) bool {
+		v := get(section, key, "")
+		if v == "" {
+			return def
+		}
+		b, e := strconv.ParseBool(v)
+		if e != nil {
+			return def
+		}
+		return b
+	}
+	getInt := func(section, key string, def int) int {
+		v := get(section, key, "")
+		if v == "" {
+			return def
+		}
+		n, e := strconv.Atoi(v)
+		if e != nil {
+			return def
+		}
+		return n
+	}
+
 	c := &Config{
-		ASTRABaseURL:    env("ASTRA_API_URL", ""),
-		ASTRAToken:      env("ASTRA_API_TOKEN", ""),
-		ScannerPort:     env("SCANNER_PORT", "USB"),
-		BankIFSC:        env("BANK_IFSC", ""),
-		BankID:          env("BANK_ID", ""),
-		BranchID:        env("BRANCH_ID", ""),
-		OperatorID:      env("OPERATOR_ID", "scanner-agent"),
-		SessionPrefix:   env("SESSION_PREFIX", "CTS"),
-		ListenAddr:      env("LISTEN_ADDR", ":9201"),
-		EnableUVScan:    envBool("ENABLE_UV_SCAN", false),
-		EnableImprinter: envBool("ENABLE_IMPRINTER", true),
-		EndorsementText: env("ENDORSEMENT_TEXT", "ASTRA/CTS"),
-		HTTPTimeout:     envDuration("HTTP_TIMEOUT_SECONDS", 30*time.Second),
+		ASTRABaseURL: get("astra", "api_url", ""),
+		ASTRAToken:   get("astra", "api_token", ""), // overridden by token.dat below
+		BankIFSC:     get("astra", "bank_ifsc", ""),
+		BankID:       get("astra", "bank_id", ""),
+		BranchID:     get("astra", "branch_id", ""),
 
-		// Canon CSD discovery
-		ScannerDiscoveryMode: env("SCANNER_DISCOVERY_MODE", "usb"),
-		ScannerDeviceName:    env("SCANNER_DEVICE_NAME", ""),
-		ScannerSerial:        env("SCANNER_SERIAL", ""),
-		ScannerIP:            env("SCANNER_IP", ""),
-		ScannerMACAddress:    env("SCANNER_MAC", ""),
-		CSDDLLPath:           env("CSD_DLL_PATH", ""),
+		OperatorID:    get("scanner", "operator_id", "scanner-agent"),
+		SessionPrefix: get("scanner", "session_prefix", "CTS"),
+		ListenAddr:    get("scanner", "listen_addr", ":9201"),
+		ScannerPort:   get("scanner", "port", "USB"),
 
-		// MICR and IQA
-		MICROCRWeight: envInt("SCANNER_MOCR_WEIGHT", 50),
-		EnableIQA:     envBool("SCANNER_ENABLE_IQA", true),
+		ScannerDiscoveryMode: get("scanner", "discovery_mode", "usb"),
+		ScannerDeviceName:    get("scanner", "device_name", ""),
+		ScannerSerial:        get("scanner", "serial", ""),
+		ScannerIP:            get("scanner", "ip", ""),
+		ScannerMACAddress:    get("scanner", "mac", ""),
+		CSDDLLPath:           get("scanner", "csd_dll_path", ""),
+		MICROCRWeight:        getInt("scanner", "mocr_weight", 50),
+		EnableIQA:            getBool("scanner", "enable_iqa", true),
+
+		EnableUVScan:    getBool("scanner", "enable_uv_scan", false),
+		EnableImprinter: getBool("scanner", "enable_imprinter", true),
+		EndorsementText: get("scanner", "endorsement_text", "ASTRA/CTS"),
+
+		HTTPTimeout: func() time.Duration {
+			secs := getInt("scanner", "http_timeout_seconds", 30)
+			return time.Duration(secs) * time.Second
+		}(),
+	}
+
+	// token.dat overrides api_token in config.ini (token.dat has stricter NTFS ACL).
+	if tok, err := readTokenFile(); err == nil && tok != "" {
+		c.ASTRAToken = tok
 	}
 
 	var errs []string
 	if c.ASTRABaseURL == "" {
-		errs = append(errs, "ASTRA_API_URL is required")
+		errs = append(errs, "api_url missing — set in config.ini [astra] section")
 	}
 	if c.ASTRAToken == "" {
-		errs = append(errs, "ASTRA_API_TOKEN is required")
+		errs = append(errs, "api token missing — re-run the ASTRA installer to write token.dat")
 	}
 	if c.BankIFSC == "" {
-		errs = append(errs, "BANK_IFSC is required")
+		errs = append(errs, "bank_ifsc missing in config.ini [astra] section")
 	}
 	if c.BankID == "" {
-		errs = append(errs, "BANK_ID is required")
+		errs = append(errs, "bank_id missing in config.ini [astra] section")
 	}
 	if c.BranchID == "" {
-		errs = append(errs, "BRANCH_ID is required — set to the ASTRA branch ID from Admin UI (e.g. kotak-mah-vashi-01)")
+		errs = append(errs, "branch_id missing in config.ini [astra] section — re-run installer and select this branch")
 	}
 	if len(errs) > 0 {
-		return nil, errors.New(strings.Join(errs, "; "))
+		return nil, fmt.Errorf("config validation failed (source: %s)\n  - %s", source, strings.Join(errs, "\n  - "))
 	}
 	return c, nil
 }
 
-func env(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
+// readConfigSource returns the key-value map from config.ini if present,
+// or from environment variables as a fallback for CI / developer machines.
+func readConfigSource() (kv map[string]string, source string, err error) {
+	iniPath, dirErr := configFilePath()
+	if dirErr == nil {
+		if _, statErr := os.Stat(iniPath); statErr == nil {
+			kv, err = parseINI(iniPath)
+			if err != nil {
+				return nil, "", fmt.Errorf("parse %s: %w", iniPath, err)
+			}
+			return kv, iniPath, nil
+		}
 	}
-	return fallback
+	// Fall back to env vars (CI, developer workstation without installer)
+	return envMap(), "environment variables", nil
 }
 
-func envBool(key string, fallback bool) bool {
-	v := os.Getenv(key)
-	if v == "" {
-		return fallback
+// configFilePath returns the expected path of config.ini.
+// On Windows: same directory as the running exe.
+// On other OS (CI Linux runner): current working directory.
+func configFilePath() (string, error) {
+	if runtime.GOOS == "windows" {
+		exe, err := os.Executable()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(filepath.Dir(exe), "config.ini"), nil
 	}
-	b, err := strconv.ParseBool(v)
+	wd, err := os.Getwd()
 	if err != nil {
-		return fallback
+		return "", err
 	}
-	return b
+	return filepath.Join(wd, "config.ini"), nil
 }
 
-func envInt(key string, fallback int) int {
-	v := os.Getenv(key)
-	if v == "" {
-		return fallback
-	}
-	n, err := strconv.Atoi(v)
+// readTokenFile reads token.dat from the same directory as config.ini.
+// The file contains only the raw bearer token on a single line.
+// Written by the installer with restricted NTFS ACL (SYSTEM + Administrators only).
+func readTokenFile() (string, error) {
+	iniPath, err := configFilePath()
 	if err != nil {
-		return fallback
+		return "", err
 	}
-	return n
+	tokenPath := filepath.Join(filepath.Dir(iniPath), "token.dat")
+	data, err := os.ReadFile(tokenPath)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(data)), nil
 }
 
-func envDuration(key string, fallback time.Duration) time.Duration {
-	v := os.Getenv(key)
-	if v == "" {
-		return fallback
-	}
-	secs, err := strconv.Atoi(v)
+// parseINI parses a simple INI file into a flat key-value map.
+// Keys are namespaced as "section.key". Lines starting with # or ; are comments.
+// Duplicate keys: last value wins.
+func parseINI(path string) (map[string]string, error) {
+	f, err := os.Open(path)
 	if err != nil {
-		return fallback
+		return nil, err
 	}
-	return time.Duration(secs) * time.Second
+	defer f.Close()
+
+	kv := make(map[string]string)
+	section := ""
+	scanner := bufio.NewScanner(f)
+	lineNum := 0
+
+	for scanner.Scan() {
+		lineNum++
+		line := strings.TrimSpace(scanner.Text())
+
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
+			continue
+		}
+		if strings.HasPrefix(line, "[") {
+			end := strings.Index(line, "]")
+			if end < 0 {
+				return nil, fmt.Errorf("line %d: unclosed section header: %q", lineNum, line)
+			}
+			section = strings.ToLower(strings.TrimSpace(line[1:end]))
+			continue
+		}
+		eq := strings.IndexByte(line, '=')
+		if eq < 0 {
+			return nil, fmt.Errorf("line %d: expected key=value, got: %q", lineNum, line)
+		}
+		key := strings.ToLower(strings.TrimSpace(line[:eq]))
+		val := strings.TrimSpace(line[eq+1:])
+		// Strip inline comments after value (e.g. "50  ; recommended")
+		if ci := strings.IndexByte(val, ';'); ci >= 0 {
+			val = strings.TrimSpace(val[:ci])
+		}
+		if section != "" {
+			kv[section+"."+key] = val
+		} else {
+			kv[key] = val
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("reading %s: %w", path, err)
+	}
+	return kv, nil
+}
+
+// envMap builds the same section.key namespace from environment variables.
+// Used as fallback when no config.ini is present (CI / dev machines).
+func envMap() map[string]string {
+	return map[string]string{
+		"astra.api_url":               os.Getenv("ASTRA_API_URL"),
+		"astra.api_token":             os.Getenv("ASTRA_API_TOKEN"),
+		"astra.bank_id":               os.Getenv("BANK_ID"),
+		"astra.bank_ifsc":             os.Getenv("BANK_IFSC"),
+		"astra.branch_id":             os.Getenv("BRANCH_ID"),
+		"scanner.operator_id":         os.Getenv("OPERATOR_ID"),
+		"scanner.session_prefix":      os.Getenv("SESSION_PREFIX"),
+		"scanner.listen_addr":         os.Getenv("LISTEN_ADDR"),
+		"scanner.port":                os.Getenv("SCANNER_PORT"),
+		"scanner.discovery_mode":      os.Getenv("SCANNER_DISCOVERY_MODE"),
+		"scanner.device_name":         os.Getenv("SCANNER_DEVICE_NAME"),
+		"scanner.serial":              os.Getenv("SCANNER_SERIAL"),
+		"scanner.ip":                  os.Getenv("SCANNER_IP"),
+		"scanner.mac":                 os.Getenv("SCANNER_MAC"),
+		"scanner.csd_dll_path":        os.Getenv("CSD_DLL_PATH"),
+		"scanner.mocr_weight":         os.Getenv("SCANNER_MOCR_WEIGHT"),
+		"scanner.enable_iqa":          os.Getenv("SCANNER_ENABLE_IQA"),
+		"scanner.enable_uv_scan":      os.Getenv("ENABLE_UV_SCAN"),
+		"scanner.enable_imprinter":    os.Getenv("ENABLE_IMPRINTER"),
+		"scanner.endorsement_text":    os.Getenv("ENDORSEMENT_TEXT"),
+		"scanner.http_timeout_seconds": os.Getenv("HTTP_TIMEOUT_SECONDS"),
+	}
 }
