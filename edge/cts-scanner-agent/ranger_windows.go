@@ -84,11 +84,10 @@ package main
 #define CSD_IQA_BRIGHTNESS_TOOLIGHT    1
 #define CSD_IQA_BRIGHTNESS_TOODARK     2
 
-// --- UV lamp parameter (CR-120 UV / CR-150 UV models only) ---
-// CSDP_UV enables the UV fluorescence lamp for security-feature verification.
-// Confirm this offset against CSDP_UV in CsdScan.h from the CR-150 UV driver
-// installation before deploying on UV hardware.  Non-UV models ignore it silently.
-#define CSDP_UV  380
+// CSDP_UV offset is NOT defined here — it is read from config.ini at runtime
+// via Config.UVParamID (default 380).  Canon must confirm the exact value from
+// CsdScan.h in the CR-150 UV driver installation; change uv_param_id in config.ini,
+// no rebuild required.
 
 // --- TIFF output constants ---
 #define CSD_TIFF_FILE  1
@@ -370,12 +369,14 @@ func (t *CanonTransport) StartJob(endorsementText string, enableImprinter bool) 
 	}
 
 	// UV lamp — CR-120 UV / CR-150 UV models only.
+	// Parameter ID comes from Config.UVParamID (config.ini: uv_param_id, default 380).
 	// When enabled, CsdReadPage yields a third page per cheque (UV image of the front)
 	// after the regular front+rear duplex pair.
 	if t.cfg.EnableUVScan {
-		if ret := C.astra_par_set_long(C.CSDP_UV, 1); int32(ret) != csdOK {
-			t.logger.Warn("UV lamp enable failed — continuing without UV (non-UV model or unsupported driver?)",
-				"code", int32(ret))
+		uvParam := C.UINT(t.cfg.UVParamID)
+		if ret := C.astra_par_set_long(uvParam, C.LONG(1)); int32(ret) != csdOK {
+			t.logger.Warn("UV lamp enable failed — continuing without UV (non-UV model, wrong uv_param_id, or unsupported driver?)",
+				"code", int32(ret), "uv_param_id", t.cfg.UVParamID)
 			// Don't fail the job; UV is advisory, not mandatory for CTS clearance.
 		}
 	}
