@@ -17,6 +17,8 @@ Early removal requires written sign-off from all banks listed in "Banks still us
 
 ## CTS Module Endpoints
 
+### Inward Clearing (Drawee Bank)
+
 | Method | Endpoint | V1 Status | V2 Status | Deprecated In | Sunset Date | Banks Still on V1 |
 |---|---|---|---|---|---|---|
 | POST | `/cts/inward/{id}/submit` | CURRENT | — | — | — | — |
@@ -26,14 +28,26 @@ Early removal requires written sign-off from all banks listed in "Banks still us
 | POST | `/cts/human-review/{id}/decide` | CURRENT | — | — | — | — |
 | GET | `/cts/vault/signature/{account_hash}` | CURRENT | — | — | — | — |
 
-## EJ Module Endpoints
+### Outward Clearing (Presentee Bank — Scanner Agent)
 
-| Method | Endpoint | V1 Status | V2 Status | Deprecated In | Sunset Date | Banks Still on V1 |
-|---|---|---|---|---|---|---|
-| POST | `/ej/inward/log` | CURRENT | — | — | — | — |
-| GET | `/ej/canonical/{log_id}` | CURRENT | — | — | — | — |
-| GET | `/ej/disputes/{dispute_id}` | CURRENT | — | — | — | — |
-| GET | `/ej/fleet/atm/{atm_id}/health` | CURRENT | — | — | — | — |
+| Method | Endpoint | Auth | V1 Status | Notes |
+|---|---|---|---|---|
+| POST | `/cts/outward/scan/upload-url` | Session JWT | CURRENT | Provision presigned MinIO PUT URLs; `include_uv=true` for UV lamp models |
+| POST | `/cts/outward/scan/submit` | Session JWT | CURRENT | Submit scan after image upload; passes s3:// object URLs to OutwardScanWorkflow |
+| POST | `/cts/outward/scan/event` | Session JWT | CURRENT | Lightweight non-submit events: DOUBLE_FEED, IQA_REJECTED, PAPER_JAM, COVER_OPEN |
+| GET | `/cts/outward/scan-events` | Session JWT | CURRENT | Read scan events for BranchScanMonitor |
+
+### Scanner Fleet & Agent
+
+| Method | Endpoint | Auth | V1 Status | Notes |
+|---|---|---|---|---|
+| POST | `/cts/scanner/register` | Session JWT (bank_it_admin) | CURRENT | Provision SDK scanner slot |
+| POST | `/cts/scanner/{id}/heartbeat` | Bearer machine token | CURRENT | SDK scanner 30s heartbeat → `scanner_registrations` |
+| POST | `/cts/scanner/agent/heartbeat` | Bearer machine token | CURRENT | CGO agent 30s heartbeat → `scanner_tokens`; body carries `active_session_id` |
+| GET | `/cts/scanner/agent/status` | Session JWT | CURRENT | Returns ACTIVE/IDLE/OFFLINE for a branch; polled by BranchDashboard |
+| GET | `/cts/scanner/fleet` | Session JWT (ops_manager+) | CURRENT | SDK scanner fleet overview |
+| GET | `/cts/scanner/{branch_ifsc}/status` | Session JWT (ops_manager+) | CURRENT | Per-branch SDK scanner status |
+| DELETE | `/cts/scanner/{id}` | Session JWT (bank_it_admin) | CURRENT | Deactivate SDK scanner registration |
 
 ## Platform Endpoints
 
@@ -47,14 +61,17 @@ Early removal requires written sign-off from all banks listed in "Banks still us
 
 ## Kafka Event Schema Versions
 
+> EJ topics (`ej.*`) are no longer in this repo — see `9va4admin/atm-ej-platform`.
+
 | Topic Pattern | V1 Schema | V2 Schema | V1 Sunset | Producers still on V1 |
 |---|---|---|---|---|
 | `cts.inward.{bank_id}` | CURRENT | — | — | — |
 | `cts.decisions.{bank_id}` | CURRENT | — | — | — |
-| `ej.raw.ingested.{bank_id}` | CURRENT | — | — | — |
-| `ej.canonical.{bank_id}` | CURRENT | — | — | — |
+| `cts.outward.scan.{bank_id}` | CURRENT | — | — | — |
+| `cts.ocr.feedback.{bank_id}` | CURRENT | — | — | — |
 | `platform.audit.events` | CURRENT | — | — | — |
 | `platform.notifications` | CURRENT | — | — | — |
+| `platform.config.changed` | CURRENT | — | — | — |
 
 ---
 

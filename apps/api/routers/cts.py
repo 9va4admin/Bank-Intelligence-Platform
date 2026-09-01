@@ -1591,6 +1591,103 @@ async def trigger_smb_vault_sync(
 
 
 # ---------------------------------------------------------------------------
+# Outward scan — /v1/cts/outward/scan/upload-url
+# Called by the local scanner agent BEFORE submit to obtain presigned MinIO PUT
+# URLs for direct image upload from the teller PC. The agent never touches the
+# MinIO credentials — presigned URLs are scoped to exactly one object for 5 min.
+# ---------------------------------------------------------------------------
+
+_CTS_IMAGES_BUCKET = "cts-images"
+_UPLOAD_URL_EXPIRY_SECONDS = 300
+
+
+class ScanUploadURLRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    scan_id: str
+    include_uv: bool = False  # True when scanner has UV lamp (CR-120 UV model)
+
+
+class ScanUploadURLResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    front_presigned_url: str
+    rear_presigned_url: str
+    front_object_url: str            # s3://... passed back as-is in submit request
+    rear_object_url: str
+    uv_presigned_url: Optional[str] = None   # only when include_uv=True
+    uv_object_url: Optional[str] = None
+    expires_at: int                  # Unix timestamp
+
+
+@router_v1.post(
+    "/outward/scan/upload-url",
+    response_model=ScanUploadURLResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def request_scan_upload_urls(
+    body: ScanUploadURLRequest,
+    request: Request,
+    bank_id: str = Depends(get_current_bank_id),
+) -> ScanUploadURLResponse:
+    """
+    Provision presigned MinIO PUT URLs for scanner agent image upload.
+
+    The scanner agent calls this once per cheque, before submit:
+      1. POST /outward/scan/upload-url  → get presigned PUT URLs (this endpoint)
+      2. PUT front.tiff / rear.tiff / uv.tiff directly to MinIO (agent to MinIO)
+      3. POST /outward/scan/submit       → pass the returned object URLs
+
+    Object paths are deterministic — the same scan_id always maps to the same
+    object keys, making retries safe (PUT is idempotent in object stores).
+    """
+    from datetime import timedelta as _td
+
+    front_key = f"{bank_id}/outward/{body.scan_id}/front.tiff"
+    rear_key  = f"{bank_id}/outward/{body.scan_id}/rear.tiff"
+    uv_key    = f"{bank_id}/outward/{body.scan_id}/uv.tiff"
+
+    front_obj = f"s3://{_CTS_IMAGES_BUCKET}/{front_key}"
+    rear_obj  = f"s3://{_CTS_IMAGES_BUCKET}/{rear_key}"
+    uv_obj    = f"s3://{_CTS_IMAGES_BUCKET}/{uv_key}"
+
+    expires_at = int(time.time()) + _UPLOAD_URL_EXPIRY_SECONDS
+    expiry_td  = _td(seconds=_UPLOAD_URL_EXPIRY_SECONDS)
+
+    minio_client = getattr(request.app.state, "minio_client", None)
+    if minio_client is not None:
+        try:
+            front_url = minio_client.presigned_put_object(
+                _CTS_IMAGES_BUCKET, front_key, expires=expiry_td)
+            rear_url  = minio_client.presigned_put_object(
+                _CTS_IMAGES_BUCKET, rear_key,  expires=expiry_td)
+            uv_url    = minio_client.presigned_put_object(
+                _CTS_IMAGES_BUCKET, uv_key, expires=expiry_td) if body.include_uv else None
+        except Exception as exc:
+            log.error("cts.upload_url.minio_error", scan_id=body.scan_id, bank_id=bank_id, error=str(exc))
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Could not provision upload URLs — MinIO unavailable",
+            ) from exc
+    else:
+        # Dev / test mode — return placeholder URLs so the agent can be tested
+        # without a running MinIO instance.
+        front_url = f"http://minio-dev.local/{_CTS_IMAGES_BUCKET}/{front_key}?presigned=1"
+        rear_url  = f"http://minio-dev.local/{_CTS_IMAGES_BUCKET}/{rear_key}?presigned=1"
+        uv_url    = f"http://minio-dev.local/{_CTS_IMAGES_BUCKET}/{uv_key}?presigned=1" if body.include_uv else None
+
+    log.info("cts.upload_url.issued", scan_id=body.scan_id, bank_id=bank_id, include_uv=body.include_uv)
+
+    return ScanUploadURLResponse(
+        front_presigned_url=front_url,
+        rear_presigned_url=rear_url,
+        front_object_url=front_obj,
+        rear_object_url=rear_obj,
+        uv_presigned_url=uv_url,
+        uv_object_url=uv_obj if body.include_uv else None,
+        expires_at=expires_at,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Outward scan — /v1/cts/outward/scan/submit
 # Called by the local scanner agent (edge/cts-scanner-agent/) running on the
 # teller PC after it has uploaded images to MinIO and extracted hardware MICR.
@@ -1619,6 +1716,11 @@ class OutwardScanSubmitRequest(BaseModel):
     # Hardware MICR from Ranger Transport API TransportGetMICR() — present on CR-120 path.
     # When provided, OutwardScanWorkflow skips GOT-OCR2 and uses a single Qwen2-VL call.
     micr_hardware_raw: Optional[str] = None
+
+    # UV wavelength image — set when scanner has UV lamp (CR-120 UV model) and
+    # enable_uv_scan=true in config.ini. Passed to OutwardScanWorkflow for
+    # security feature verification. Optional and additive (non-breaking).
+    image_uv_url: Optional[str] = None
 
     pu_id: Optional[str] = None     # processing unit identifier (multi-PU teller desks)
     branch_id: Optional[str] = None
@@ -1683,6 +1785,7 @@ async def submit_outward_scan(
         front_file_size_kb=body.front_file_size_kb,
         rear_file_size_kb=body.rear_file_size_kb,
         micr_hardware_raw=body.micr_hardware_raw,
+        image_uv_url=body.image_uv_url,
         pu_id=body.pu_id,
         branch_id=body.branch_id,
     )
