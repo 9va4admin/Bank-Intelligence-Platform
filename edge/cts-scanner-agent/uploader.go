@@ -96,6 +96,8 @@ type ScanSubmitRequest struct {
 	ScanID           string   `json:"scan_id"`
 	InstrumentID     string   `json:"instrument_id"`
 	BankIFSC         string   `json:"bank_ifsc"`
+	BankID           string   `json:"bank_id"`
+	BranchID         string   `json:"branch_id"`         // ASTRA branch ID — required for ops dashboard routing
 	SessionID        string   `json:"session_id"`
 	ImageFrontURL    string   `json:"image_front_url"`
 	ImageRearURL     string   `json:"image_rear_url"`
@@ -109,9 +111,21 @@ type ScanSubmitRequest struct {
 	// MICRHardwareRaw is the raw E13B string from TransportGetMICR().
 	// When present, the backend uses the CR-120 single-pass Qwen2-VL path.
 	// Never logged in full on the server side — contains account number.
-	MICRHardwareRaw *string `json:"micr_hardware_raw,omitempty"`
-	PuID            *string `json:"pu_id,omitempty"`
-	BranchID        *string `json:"branch_id,omitempty"`
+	MICRHardwareRaw  *string `json:"micr_hardware_raw,omitempty"`
+	ImprinterStamped bool    `json:"imprinter_stamped"`  // true = rear endorsement was printed
+	PuID             *string `json:"pu_id,omitempty"`
+}
+
+// ScanEventRequest mirrors POST /v1/cts/outward/scan/event — lightweight event
+// for non-submit outcomes: double-feed detection, imprinter fault, etc.
+type ScanEventRequest struct {
+	BankID          string `json:"bank_id"`
+	BranchID        string `json:"branch_id"`
+	SessionID       string `json:"session_id"`
+	ScanID          string `json:"scan_id"`           // generated even for failed scans
+	EventType       string `json:"event_type"`        // DOUBLE_FEED_DETECTED | IMPRINTER_FAULT
+	PositionInBatch int    `json:"position_in_batch"` // counter within the session
+	MICRSuffix      string `json:"micr_suffix,omitempty"` // last 4 chars only
 }
 
 // ScanSubmitResponse mirrors POST /v1/cts/outward/scan/submit response body.
@@ -121,6 +135,34 @@ type ScanSubmitResponse struct {
 	WorkflowID   string `json:"workflow_id"`
 	Status       string `json:"status"` // "ACCEPTED"
 	Path         string `json:"path"`   // "CR120" | "LEGACY"
+}
+
+// ReportScanEvent calls POST /v1/cts/outward/scan/event for non-submit outcomes
+// (double-feed, imprinter fault). The scan is held at the branch and not processed
+// centrally — the ops dashboard shows it as requiring re-scan.
+func (c *ASTRAClient) ReportScanEvent(ctx context.Context, req *ScanEventRequest) error {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("report scan event marshal: %w", err)
+	}
+	httpReq, err := http.NewRequestWithContext(ctx,
+		http.MethodPost, c.baseURL+"/v1/cts/outward/scan/event", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("report scan event request: %w", err)
+	}
+	c.setHeaders(httpReq)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("report scan event http: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
+		return fmt.Errorf("report scan event: server returned %d: %s", resp.StatusCode, b)
+	}
+	return nil
 }
 
 // SubmitScan calls POST /v1/cts/outward/scan/submit and returns the workflow ID.
@@ -197,13 +239,16 @@ func processScannedItem(
 
 	// Step 4 — submit scan metadata
 	submitReq := &ScanSubmitRequest{
-		ScanID:       scanID,
-		InstrumentID: instrumentID,
-		BankIFSC:     cfg.BankIFSC,
-		SessionID:    sessionID,
-		ImageFrontURL: urls.FrontObjectURL,
-		ImageRearURL:  urls.RearObjectURL,
-		ChequeNumber: chequeNumber,
+		ScanID:           scanID,
+		InstrumentID:     instrumentID,
+		BankIFSC:         cfg.BankIFSC,
+		BankID:           cfg.BankID,
+		BranchID:         cfg.BranchID,
+		SessionID:        sessionID,
+		ImageFrontURL:    urls.FrontObjectURL,
+		ImageRearURL:     urls.RearObjectURL,
+		ChequeNumber:     chequeNumber,
+		ImprinterStamped: item.ImprinterStamped,
 	}
 
 	// Populate optional hardware metrics

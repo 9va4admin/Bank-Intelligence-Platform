@@ -5,9 +5,34 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
+
+// SessionItemStatus represents the processing outcome of one cheque in the session.
+type SessionItemStatus string
+
+const (
+	StatusSubmitted       SessionItemStatus = "SUBMITTED"
+	StatusDoubleFeed      SessionItemStatus = "DOUBLE_FEED_DETECTED"
+	StatusImprinterFault  SessionItemStatus = "IMPRINTER_FAULT"
+	StatusUploadFailed    SessionItemStatus = "UPLOAD_FAILED"
+)
+
+// SessionItem is a teller-visible record of one cheque position in the scan session.
+// Shown in the Branch Scan Dashboard — doubles as the local session log.
+type SessionItem struct {
+	Position         int               `json:"position"`           // 1-based counter within session
+	ScanID           string            `json:"scan_id"`
+	InstrumentID     string            `json:"instrument_id,omitempty"`
+	WorkflowID       string            `json:"workflow_id,omitempty"`
+	Status           SessionItemStatus `json:"status"`
+	ImprinterStamped bool              `json:"imprinter_stamped"`
+	MICRSuffix       string            `json:"micr_suffix"`        // last 4 chars — safe to display
+	Timestamp        time.Time         `json:"timestamp"`
+	ErrorMessage     string            `json:"error_message,omitempty"`
+}
 
 // ScanSession manages the lifecycle of one clearing session on a teller terminal.
 // One session maps to one clearing window (e.g. morning session, afternoon session).
@@ -21,6 +46,9 @@ type ScanSession struct {
 	sessionID string
 	counter   atomic.Uint64 // per-session instrument counter for scan ID generation
 	active    atomic.Bool
+
+	itemsMu sync.RWMutex
+	items   []SessionItem // in-memory session log — survives for the life of the session
 }
 
 func newScanSession(cfg *Config, transport Transport, client *ASTRAClient, logger *slog.Logger) *ScanSession {
@@ -79,6 +107,21 @@ func (s *ScanSession) IsActive() bool {
 	return s.active.Load()
 }
 
+// GetItems returns a snapshot of all session items — safe for concurrent reads.
+func (s *ScanSession) GetItems() []SessionItem {
+	s.itemsMu.RLock()
+	defer s.itemsMu.RUnlock()
+	out := make([]SessionItem, len(s.items))
+	copy(out, s.items)
+	return out
+}
+
+func (s *ScanSession) appendItem(item SessionItem) {
+	s.itemsMu.Lock()
+	defer s.itemsMu.Unlock()
+	s.items = append(s.items, item)
+}
+
 func (s *ScanSession) runLoop(ctx context.Context) error {
 	for {
 		item, err := s.transport.ReadItem()
@@ -103,27 +146,63 @@ func (s *ScanSession) runLoop(ctx context.Context) error {
 		}
 
 		if item.DoubleFeedDetected {
-			s.logger.Warn("double feed detected — item skipped",
-				"session_id", s.sessionID)
-			// Operator must re-scan; scanner ejects the multi-feed automatically
+			position := int(s.counter.Add(1))
+			scanID := s.buildScanID(position)
+			s.logger.Warn("double feed detected — held at branch, not sent to central",
+				"session_id", s.sessionID,
+				"position", position,
+				"scan_id", scanID,
+			)
+
+			// Record in local session log so Branch Dashboard shows it
+			s.appendItem(SessionItem{
+				Position:   position,
+				ScanID:     scanID,
+				Status:     StatusDoubleFeed,
+				MICRSuffix: micrSuffix(item.MICRRaw),
+				Timestamp:  time.Now().UTC(),
+			})
+
+			// Report to central so the Branch Dashboard (React) can surface it.
+			// Best-effort — a network failure must not block the scan session.
+			go func(pos int, sid string) {
+				reportCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				if err := s.client.ReportScanEvent(reportCtx, &ScanEventRequest{
+					BankID:          s.cfg.BankID,
+					BranchID:        s.cfg.BranchID,
+					SessionID:       s.sessionID,
+					ScanID:          sid,
+					EventType:       "DOUBLE_FEED_DETECTED",
+					PositionInBatch: pos,
+					MICRSuffix:      micrSuffix(item.MICRRaw),
+				}); err != nil {
+					s.logger.Warn("double feed event report failed — local log still present",
+						"scan_id", sid, "error", err)
+				}
+			}(position, scanID)
+
+			// Scanner has already physically ejected the overlapping documents.
+			// Operator must separate them and re-feed individually.
 			continue
 		}
 
 		// Hardware endorsement stamp — called while the cheque is still inside
 		// the scanner transport path, before it exits to the output pocket.
 		// Must happen immediately after ReadItem, before the next cheque is fed.
+		imprinterFault := false
 		if s.cfg.EnableImprinter {
 			if printErr := s.transport.PrintItem(s.cfg.EndorsementText); printErr != nil {
 				s.logger.Error("imprinter hardware fault — cheque not stamped",
 					"session_id", s.sessionID, "error", printErr)
-				// Non-fatal: log and continue. The item's ImprinterStamped remains false,
-				// so ASTRA knows this cheque needs a manual re-stamp before lodgement.
+				imprinterFault = true
+				// Non-fatal: cheque continues but ASTRA flags it needs manual re-stamp.
 			} else {
 				item.ImprinterStamped = true
 			}
 		}
 
-		if err := s.handleItem(ctx, item); err != nil {
+		if err := s.handleItem(ctx, item, imprinterFault); err != nil {
 			// Log and continue — one bad cheque must not kill the session
 			s.logger.Error("item processing failed",
 				"session_id", s.sessionID, "error", err)
@@ -131,25 +210,66 @@ func (s *ScanSession) runLoop(ctx context.Context) error {
 	}
 }
 
-func (s *ScanSession) handleItem(ctx context.Context, item *ScannedItem) error {
-	scanID := s.generateScanID()
+func (s *ScanSession) handleItem(ctx context.Context, item *ScannedItem, imprinterFault bool) error {
+	position := int(s.counter.Add(1))
+	scanID := s.buildScanID(position)
 	instrumentID := "INS-" + scanID
 
-	// cheque_number is extracted from the MICR line if present.
 	chequeNumber := extractChequeNumber(item.MICRRaw)
+	suffix := micrSuffix(item.MICRRaw)
 
 	s.logger.Info("processing scanned cheque",
 		"scan_id", scanID,
 		"session_id", s.sessionID,
-		"micr_suffix", micrSuffix(item.MICRRaw), // last 4 chars only — never full MICR
+		"position", position,
+		"micr_suffix", suffix,
 		"imprinter_stamped", item.ImprinterStamped,
+		"imprinter_fault", imprinterFault,
 	)
+
+	// Determine initial status — imprinter fault is advisory, not a hold.
+	status := StatusSubmitted
+	if imprinterFault {
+		status = StatusImprinterFault
+	}
+
+	// Optimistically append to session log before upload; update on failure.
+	sessionItem := SessionItem{
+		Position:         position,
+		ScanID:           scanID,
+		InstrumentID:     instrumentID,
+		Status:           status,
+		ImprinterStamped: item.ImprinterStamped,
+		MICRSuffix:       suffix,
+		Timestamp:        time.Now().UTC(),
+	}
+	s.appendItem(sessionItem)
 
 	resp, err := processScannedItem(ctx, s.client, s.cfg,
 		s.sessionID, scanID, instrumentID, item, chequeNumber)
 	if err != nil {
+		// Update the session item to reflect upload/submit failure.
+		s.itemsMu.Lock()
+		for i := range s.items {
+			if s.items[i].ScanID == scanID {
+				s.items[i].Status = StatusUploadFailed
+				s.items[i].ErrorMessage = err.Error()
+				break
+			}
+		}
+		s.itemsMu.Unlock()
 		return fmt.Errorf("processScannedItem scan_id=%s: %w", scanID, err)
 	}
+
+	// Update session item with workflow ID returned from central.
+	s.itemsMu.Lock()
+	for i := range s.items {
+		if s.items[i].ScanID == scanID {
+			s.items[i].WorkflowID = resp.WorkflowID
+			break
+		}
+	}
+	s.itemsMu.Unlock()
 
 	s.logger.Info("cheque submitted to ASTRA",
 		"scan_id", resp.ScanID,
@@ -159,12 +279,12 @@ func (s *ScanSession) handleItem(ctx context.Context, item *ScannedItem) error {
 	return nil
 }
 
-// generateScanID produces a deterministic, per-session unique scan ID.
-// Format: SCAN-{YYYYMMDD}-{SessionPrefix}-{counter:05d}
-func (s *ScanSession) generateScanID() string {
-	n := s.counter.Add(1)
+// buildScanID produces a deterministic, per-session unique scan ID from a position.
+// Format: SCAN-{YYYYMMDD}-{SessionPrefix}-{position:05d}
+// position is the 1-based counter already incremented by the caller.
+func (s *ScanSession) buildScanID(position int) string {
 	date := time.Now().UTC().Format("20060102")
-	return fmt.Sprintf("SCAN-%s-%s-%05d", date, s.cfg.SessionPrefix, n)
+	return fmt.Sprintf("SCAN-%s-%s-%05d", date, s.cfg.SessionPrefix, position)
 }
 
 // extractChequeNumber parses the first field of the MICR line as the cheque number.

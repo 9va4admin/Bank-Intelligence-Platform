@@ -135,4 +135,18 @@ func registerHandlers(mux *http.ServeMux, session *ScanSession, logger *slog.Log
 			"active": session.IsActive(),
 		})
 	})
+
+	// GET /session/items — Branch Dashboard polls this for the live session log.
+	// Returns all instruments scanned in the current session, including double-feeds.
+	// Double-feed items have status DOUBLE_FEED_DETECTED and must be re-scanned by the teller.
+	mux.HandleFunc("GET /session/items", func(w http.ResponseWriter, r *http.Request) {
+		items := session.GetItems()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"session_id": session.sessionID,
+			"active":     session.IsActive(),
+			"total":      len(items),
+			"items":      items,
+		})
+	})
 }
