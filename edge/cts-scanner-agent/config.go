@@ -51,7 +51,19 @@ type Config struct {
 
 	// Scan options
 	EnableUVScan    bool
-	UVParamID       int  // CSDP_UV offset in CsdScan.h — default 380; override in config.ini if Canon confirms a different value
+	UVParamID       int // CSDP_UV offset in CsdScan.h — default 380; confirm with Canon on UV hardware
+
+	// Scan quality — tunable without a rebuild
+	ScanDPI          int // XRESOLUTION + YRESOLUTION; CTS-2010 minimum is 200; some banks use 300 for archival
+	ScanModeValue    int // value passed to CSDP_MODE; 16=binary fine-text (default); other values select grayscale or colour modes
+
+	// IQA parameter offsets — model-dependent like CSDP_UV; confirm from CsdScan.h if IQA fails unexpectedly
+	IQABrightnessParamID int // CSDP_IQA_BRIGHTNESS offset; default 355
+	IQAResultParamID     int // CSDP_IQA_BRIGHTNESS_RESULT offset; default 356
+
+	// Feeder polling
+	FeederPollMS int // sleep between NoPaper restart attempts; default 300ms
+
 	EnableImprinter bool
 	EndorsementText string
 }
@@ -120,6 +132,13 @@ func loadConfig() (*Config, error) {
 
 		EnableUVScan:    getBool("scanner", "enable_uv_scan", false),
 		UVParamID:       getInt("scanner", "uv_param_id", 380),
+
+		ScanDPI:              getInt("scanner", "scan_dpi", 200),
+		ScanModeValue:        getInt("scanner", "scan_mode_value", 16),
+		IQABrightnessParamID: getInt("scanner", "iqa_brightness_param_id", 355),
+		IQAResultParamID:     getInt("scanner", "iqa_result_param_id", 356),
+		FeederPollMS:         getInt("scanner", "feeder_poll_ms", 300),
+
 		EnableImprinter: getBool("scanner", "enable_imprinter", true),
 		EndorsementText: get("scanner", "endorsement_text", "ASTRA/CTS"),
 
@@ -280,8 +299,13 @@ func envMap() map[string]string {
 		"scanner.csd_dll_path":        os.Getenv("CSD_DLL_PATH"),
 		"scanner.mocr_weight":         os.Getenv("SCANNER_MOCR_WEIGHT"),
 		"scanner.enable_iqa":          os.Getenv("SCANNER_ENABLE_IQA"),
-		"scanner.enable_uv_scan":      os.Getenv("ENABLE_UV_SCAN"),
-		"scanner.uv_param_id":         os.Getenv("SCANNER_UV_PARAM_ID"),
+		"scanner.enable_uv_scan":           os.Getenv("ENABLE_UV_SCAN"),
+		"scanner.uv_param_id":              os.Getenv("SCANNER_UV_PARAM_ID"),
+		"scanner.scan_dpi":                 os.Getenv("SCANNER_DPI"),
+		"scanner.scan_mode_value":          os.Getenv("SCANNER_MODE_VALUE"),
+		"scanner.iqa_brightness_param_id":  os.Getenv("SCANNER_IQA_BRIGHTNESS_PARAM_ID"),
+		"scanner.iqa_result_param_id":      os.Getenv("SCANNER_IQA_RESULT_PARAM_ID"),
+		"scanner.feeder_poll_ms":           os.Getenv("SCANNER_FEEDER_POLL_MS"),
 		"scanner.enable_imprinter":    os.Getenv("ENABLE_IMPRINTER"),
 		"scanner.endorsement_text":    os.Getenv("ENDORSEMENT_TEXT"),
 		"scanner.http_timeout_seconds": os.Getenv("HTTP_TIMEOUT_SECONDS"),
