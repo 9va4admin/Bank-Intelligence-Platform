@@ -1818,6 +1818,34 @@ async def submit_outward_scan(
                 ) from exc
 
     path = "CR120" if body.micr_hardware_raw else "LEGACY"
+
+    # ── Real-time lot + session tracking (fire-and-forget, best-effort) ──────
+    # Increment eeh_sessions.total_uploaded and manage the OPEN scanning batch
+    # lot for this branch. Failures are logged and skipped — never block the scan.
+    if body.session_id and body.branch_id:
+        state = getattr(getattr(request, "app", None), "state", None)
+        _db_pool = getattr(state, "db_pool_cts", None) if state else None
+        if _db_pool is not None:
+            try:
+                async with _db_pool.acquire() as _conn:
+                    await _conn.execute(
+                        "UPDATE cts.eeh_sessions SET total_uploaded = total_uploaded + 1 "
+                        "WHERE session_id = $1",
+                        body.session_id,
+                    )
+                    await _ensure_open_lot(
+                        _conn,
+                        bank_id=bank_id,
+                        branch_id=body.branch_id,
+                        session_id=body.session_id,
+                        clearing_date=date.today(),
+                    )
+            except Exception as _lot_exc:
+                log.warning(
+                    "cts.outward_scan.lot_tracking_error",
+                    scan_id=body.scan_id, bank_id=bank_id, error=str(_lot_exc),
+                )
+
     log.info(
         "cts.outward_scan_submitted",
         scan_id=body.scan_id,
@@ -3124,19 +3152,27 @@ async def get_allocation_status(
     return AllocationStatusResponse(bank_id=bank_id, active_claims=claims, total=len(claims))
 
 
-# ── Hub Summary ────────────────────────────────────────────────────────────────
-# GET /v1/cts/outward/hub-summary
+# ── Hub Summary + Scanning Batch Lot Management ────────────────────────────────
 #
-# Returns per-branch aggregation used by CTSHubDashboard in POC/PROD mode.
-# Joins: cts.branches + cts.eeh_sessions (today, ACTIVE) + cts.scanner_registrations
+# Hub dashboard for CTSHubDashboard in POC/PROD mode.
 #
-# Demo-only fields (current_lot, lots_sealed_today, total_held, eeh_latency_ms)
-# are NOT returned — the frontend guards them with optional-chaining and ?? 0.
+# Data sources:
+#   cts.branches          — branch master
+#   cts.eeh_sessions      — today's ACTIVE scanning session per branch
+#   cts.scanner_registrations — scanner hardware health
+#   cts.lots              — scanning batch lots (OPEN/SEALED, max 25 per lot)
+#
+# Lot lifecycle (server-managed):
+#   scan submitted → _ensure_open_lot() → increment instrument_count
+#   instrument_count == max_instruments → auto-seal → create next lot
+#   Hub Manager → PATCH /v1/cts/outward/lots/{lot_id}/seal (manual early seal)
+#   Window close → POST /v1/cts/outward/lots/seal-all
 #
 # Allowed roles: bank_it_admin, platform_admin, ops_manager
 # ─────────────────────────────────────────────────────────────────────────────
 
-_HUB_READ_ROLES = {"bank_it_admin", "platform_admin", "ops_manager"}
+_HUB_READ_ROLES  = {"bank_it_admin", "platform_admin", "ops_manager"}
+_HUB_WRITE_ROLES = {"bank_it_admin", "platform_admin", "ops_manager"}
 
 _HUB_SUMMARY_SQL = """
     SELECT
@@ -3150,7 +3186,13 @@ _HUB_SUMMARY_SQL = """
         s.opened_at,
         s.total_uploaded,
         s.total_accepted,
-        s.total_rejected
+        s.total_rejected,
+        COALESCE(s.total_held, 0)            AS total_held,
+        cl.lot_id                            AS current_lot_id,
+        cl.instrument_count                  AS current_lot_filled,
+        cl.max_instruments                   AS current_lot_max,
+        cl.status                            AS current_lot_status,
+        COALESCE(sl.sealed_count, 0)         AS lots_sealed_today
     FROM cts.branches b
     LEFT JOIN cts.eeh_sessions s
         ON  s.branch_id     = b.branch_id
@@ -3160,9 +3202,27 @@ _HUB_SUMMARY_SQL = """
         ON  r.branch_id = b.branch_id
         AND r.bank_id   = $1
         AND r.is_active = true
+    LEFT JOIN cts.lots cl
+        ON  cl.branch_id     = b.branch_id
+        AND cl.clearing_date = $2
+        AND cl.status        = 'OPEN'
+    LEFT JOIN (
+        SELECT branch_id, COUNT(*) AS sealed_count
+        FROM cts.lots
+        WHERE bank_id = $1 AND clearing_date = $2 AND status = 'SEALED'
+        GROUP BY branch_id
+    ) sl ON sl.branch_id = b.branch_id
     WHERE b.bank_id = $1
     ORDER BY b.branch_id
 """
+
+
+class LotInfo(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    lot_id: str
+    filled: int
+    max:    int
+    status: str
 
 
 class BranchSessionInfo(BaseModel):
@@ -3173,16 +3233,19 @@ class BranchSessionInfo(BaseModel):
     total_uploaded:  int
     total_accepted:  int
     total_rejected:  int
+    total_held:      int = 0
 
 
 class BranchSessionSummary(BaseModel):
     model_config = ConfigDict(frozen=True)
-    branch_id:      str
-    branch_name:    str
-    branch_ifsc:    str
-    hub_type:       str
-    scanner_health: str
-    session:        Optional[BranchSessionInfo]
+    branch_id:         str
+    branch_name:       str
+    branch_ifsc:       str
+    hub_type:          str
+    scanner_health:    str
+    session:           Optional[BranchSessionInfo]
+    current_lot:       Optional[LotInfo] = None
+    lots_sealed_today: int = 0
 
 
 class HubSummaryResponse(BaseModel):
@@ -3207,6 +3270,15 @@ def _row_to_branch_summary(row: dict) -> BranchSessionSummary:
             total_uploaded=row["total_uploaded"] or 0,
             total_accepted=row["total_accepted"] or 0,
             total_rejected=row["total_rejected"] or 0,
+            total_held=row.get("total_held") or 0,
+        )
+    current_lot = None
+    if row.get("current_lot_id") is not None:
+        current_lot = LotInfo(
+            lot_id=row["current_lot_id"],
+            filled=row["current_lot_filled"] or 0,
+            max=row["current_lot_max"] or 25,
+            status=row["current_lot_status"] or "OPEN",
         )
     return BranchSessionSummary(
         branch_id=row["branch_id"],
@@ -3215,7 +3287,67 @@ def _row_to_branch_summary(row: dict) -> BranchSessionSummary:
         hub_type=row.get("hub_type") or "EEH",
         scanner_health=row.get("scanner_health") or "UNKNOWN",
         session=session,
+        current_lot=current_lot,
+        lots_sealed_today=row.get("lots_sealed_today") or 0,
     )
+
+
+async def _ensure_open_lot(
+    conn,
+    bank_id: str,
+    branch_id: str,
+    session_id: str,
+    clearing_date,
+    max_instruments: int = 25,
+) -> tuple[str, int]:
+    """
+    Find or create the OPEN scanning batch lot for this branch today.
+    If the current lot is full, auto-seals it and opens the next one.
+    Returns (lot_id, new_instrument_count).
+    """
+    row = await conn.fetchrow(
+        "SELECT lot_id, instrument_count, max_instruments "
+        "FROM cts.lots "
+        "WHERE branch_id = $1 AND clearing_date = $2 AND status = 'OPEN'",
+        branch_id, clearing_date,
+    )
+
+    if row is None:
+        # No open lot — create lot #(max_seq + 1)
+        seq_row = await conn.fetchrow(
+            "SELECT COALESCE(MAX(sequence_number), 0) AS max_seq "
+            "FROM cts.lots WHERE branch_id = $1 AND clearing_date = $2",
+            branch_id, clearing_date,
+        )
+        seq = (seq_row["max_seq"] or 0) + 1
+        date_str = clearing_date.strftime("%Y%m%d") if hasattr(clearing_date, "strftime") else str(clearing_date).replace("-", "")
+        lot_id = f"LOT-{branch_id}-{date_str}-{seq:04d}"
+        await conn.execute(
+            "INSERT INTO cts.lots "
+            "(lot_id, bank_id, branch_id, session_id, clearing_date, sequence_number, "
+            " status, instrument_count, max_instruments) "
+            "VALUES ($1, $2, $3, $4, $5, $6, 'OPEN', 1, $7)",
+            lot_id, bank_id, branch_id, session_id, clearing_date, seq, max_instruments,
+        )
+        return lot_id, 1
+
+    lot_id = row["lot_id"]
+    new_count = row["instrument_count"] + 1
+
+    if new_count >= row["max_instruments"]:
+        # Lot full — seal it, then recurse to create the next one
+        await conn.execute(
+            "UPDATE cts.lots SET status='SEALED', instrument_count=$1, sealed_at=NOW() "
+            "WHERE lot_id=$2",
+            new_count, lot_id,
+        )
+        return await _ensure_open_lot(conn, bank_id, branch_id, session_id, clearing_date, max_instruments)
+
+    await conn.execute(
+        "UPDATE cts.lots SET instrument_count=$1 WHERE lot_id=$2",
+        new_count, lot_id,
+    )
+    return lot_id, new_count
 
 
 @router_v1.get("/outward/hub-summary", response_model=HubSummaryResponse)
@@ -3224,17 +3356,13 @@ async def get_hub_summary(
     ctx: UserContext = Depends(get_current_user_context),
 ) -> HubSummaryResponse:
     """
-    Hub dashboard branch summary — active sessions + scanner health per branch.
+    Hub dashboard branch summary — sessions + scanner health + lot state per branch.
 
-    Joins cts.branches, cts.eeh_sessions (today's ACTIVE session), and
-    cts.scanner_registrations. Returns empty branch list in POC/dev when no
-    database pool is configured.
+    Joins cts.branches, cts.eeh_sessions, cts.scanner_registrations, and cts.lots.
+    Returns empty branch list in POC/dev when no database pool is configured.
     """
     if ctx.role.value not in _HUB_READ_ROLES:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Insufficient role",
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
 
     bank_id = ctx.bank_id
     today = date.today().isoformat()
@@ -3243,14 +3371,9 @@ async def get_hub_summary(
     db_pool = getattr(state, "db_pool_cts", None) if state else None
 
     if db_pool is None:
-        # POC/dev: no DB pool — return empty list so UI shows "no branches configured"
         return HubSummaryResponse(
-            bank_id=bank_id,
-            clearing_date=today,
-            branches=[],
-            total_branches=0,
-            active_sessions=0,
-            generated_at=generated_at,
+            bank_id=bank_id, clearing_date=today,
+            branches=[], total_branches=0, active_sessions=0, generated_at=generated_at,
         )
 
     try:
@@ -3262,15 +3385,83 @@ async def get_hub_summary(
 
     branches = [_row_to_branch_summary(dict(r)) for r in rows]
     active = sum(1 for b in branches if b.session is not None)
-
     return HubSummaryResponse(
-        bank_id=bank_id,
-        clearing_date=today,
-        branches=branches,
-        total_branches=len(branches),
-        active_sessions=active,
-        generated_at=generated_at,
+        bank_id=bank_id, clearing_date=today,
+        branches=branches, total_branches=len(branches),
+        active_sessions=active, generated_at=generated_at,
     )
+
+
+@router_v1.patch("/outward/lots/{lot_id}/seal")
+async def seal_lot(
+    lot_id: str,
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> dict:
+    """
+    Hub Manager manually seals one scanning batch lot before it is full.
+    Only OPEN lots can be sealed. Returns 409 if already SEALED.
+    """
+    if ctx.role.value not in _HUB_WRITE_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+
+    state = getattr(getattr(request, "app", None), "state", None)
+    db_pool = getattr(state, "db_pool_cts", None) if state else None
+    if db_pool is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database unavailable")
+
+    bank_id = ctx.bank_id
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT lot_id, bank_id, status, instrument_count FROM cts.lots WHERE lot_id=$1",
+            lot_id,
+        )
+        if row is None or row["bank_id"] != bank_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lot not found")
+        if row["status"] != "OPEN":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Lot is already {row['status']}")
+        await conn.execute(
+            "UPDATE cts.lots SET status='SEALED', sealed_at=NOW() WHERE lot_id=$1",
+            lot_id,
+        )
+
+    log.info("cts.lot.sealed", lot_id=lot_id, bank_id=bank_id, operator=ctx.user_id)
+    return {"lot_id": lot_id, "status": "SEALED", "sealed_by": ctx.user_id}
+
+
+@router_v1.post("/outward/lots/seal-all")
+async def seal_all_lots(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> dict:
+    """
+    Hub Manager seals all OPEN scanning batch lots for the bank (clearing window close).
+    Returns count of lots sealed.
+    """
+    if ctx.role.value not in _HUB_WRITE_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+
+    state = getattr(getattr(request, "app", None), "state", None)
+    db_pool = getattr(state, "db_pool_cts", None) if state else None
+    if db_pool is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database unavailable")
+
+    bank_id = ctx.bank_id
+    today = date.today()
+    async with db_pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT lot_id FROM cts.lots WHERE bank_id=$1 AND clearing_date=$2 AND status='OPEN'",
+            bank_id, today,
+        )
+        for row in rows:
+            await conn.execute(
+                "UPDATE cts.lots SET status='SEALED', sealed_at=NOW() WHERE lot_id=$1",
+                row["lot_id"],
+            )
+
+    sealed = len(rows)
+    log.info("cts.lots.seal_all", bank_id=bank_id, sealed=sealed, operator=ctx.user_id)
+    return {"bank_id": bank_id, "sealed": sealed, "sealed_by": ctx.user_id}
 
 
 # ── Session Report ─────────────────────────────────────────────────────────────
