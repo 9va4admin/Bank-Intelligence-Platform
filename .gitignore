@@ -34,3 +34,6 @@ _test_*.jpg
 
 # Temp test-build helpers (content already merged into proper test files)
 tests/**/partial_image_tests_append.py
+
+# Edge scanner agent — compiled Windows binaries (distributed via release, not git)
+edge/cts-scanner-agent/*.exe
