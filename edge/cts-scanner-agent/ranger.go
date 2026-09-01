@@ -1,16 +1,18 @@
 package main
 
-// Transport is the Go abstraction over the Canon Ranger Transport API.
+// Transport is the Go abstraction over the Canon CSD (Cheque Scanner Driver) API.
 //
 // Production implementation (ranger_windows.go, build tag: windows && cgo):
-//   Calls the Ranger COM SDK:
-//     TransportOpen  → TransportStartJob → loop TransportReadItem →
-//     TransportGetMICR / TransportGetImage / TransportPrintItem →
-//     TransportEndJob → TransportClose
+//   Calls the Canon CSD API via CanoCheetah.dll loaded dynamically at runtime:
+//     Open (CsdProbe) → StartJob (CsdParSet × N + CsdStartScan) →
+//     loop ReadItem (CsdReadPage × 2 per cheque — front then rear) →
+//     MICR via CsdParGet(CSDP_MICRDATA) → TIFF via CsdSaveImageEx →
+//     EndJob (CsdStopScan) → Close (CsdTerminate)
 //
 // The real implementation requires:
-//   - Canon Ranger SDK installed on the teller PC (C headers + .lib)
-//   - CGO_ENABLED=1 on a Windows host with a C compiler (MSVC or MinGW)
+//   - Canon CR-120/CR-150 driver installed (provides CanoCheetah.dll, a 32-bit DLL)
+//   - Binary built as GOARCH=386: GOARCH=386 GOOS=windows CGO_ENABLED=1
+//     CC=i686-w64-mingw32-gcc go build
 //   - Build tag: //go:build windows && cgo
 //
 // This file defines the interface and the data types shared across all builds.
