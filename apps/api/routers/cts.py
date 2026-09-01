@@ -3817,6 +3817,135 @@ async def list_outward_scan_events(
 #   - Token is machine-bound → token from Agra branch PC rejected if used on Lucknow PC.
 #   - Central hub trusts branch_id in the token, not the branch_id in the request body.
 
+# ── Generate one-time registration code (Admin UI → Branch Master) ────────────
+
+class ScannerRegCodeRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    branch_id: str   # must belong to the authenticated bank
+
+
+class ScannerRegCodeResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    code:        str   # 8-char alphanumeric, uppercase
+    branch_id:   str
+    branch_name: str
+    bank_id:     str
+    expires_at:  str   # ISO-8601 UTC
+
+
+@router_v1.post(
+    "/admin/scanner/registration-code",
+    response_model=ScannerRegCodeResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def generate_scanner_registration_code(
+    body: ScannerRegCodeRequest,
+    request: Request,
+    bank_id: str = Depends(get_current_bank_id),
+) -> ScannerRegCodeResponse:
+    """
+    Generate a one-time 8-char registration code for a branch scanner.
+    Called by ops_manager / bank_it_admin from Admin UI → Branch Master.
+
+    The code is stored in Redis: key=scanner_reg:{bank_id}:{code}, TTL=86400s.
+    Subsequent call from the installer exchanges this code for a machine-bound
+    API token via POST /v1/cts/admin/scanner/register.
+
+    Generating a new code for a branch invalidates any existing unexpired code
+    for that branch (only one pending code per branch at a time).
+    """
+    import secrets as _secrets
+    import json as _json
+    from datetime import datetime, timedelta, timezone
+
+    branch_id = body.branch_id
+    if not branch_id or len(branch_id) > 128:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail={"error_code": "INVALID_BRANCH_ID", "message": "branch_id is required."})
+
+    # Verify the branch belongs to this bank
+    db_pool  = getattr(request.app.state, "db_pool_cts", None)
+    redis    = getattr(request.app.state, "redis_client", None)
+
+    branch_name = branch_id  # fallback
+    if db_pool is not None:
+        try:
+            async with db_pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT branch_name, bank_ifsc, scanner_input_mode FROM cts.branches "
+                    "WHERE bank_id = $1 AND branch_id = $2 AND is_active = true",
+                    bank_id, branch_id,
+                )
+                if row is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail={"error_code": "BRANCH_NOT_FOUND",
+                                "message": f"Branch {branch_id} not found or not active for bank {bank_id}."},
+                    )
+                branch_name = row["branch_name"]
+                bank_ifsc   = row["bank_ifsc"]
+                if row["scanner_input_mode"] != "SDK_PUSH":
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail={"error_code": "BRANCH_NOT_SDK",
+                                "message": f"Branch {branch_id} is not configured for SDK_PUSH mode."},
+                    )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            log.warning("scanner_reg_code.db_error", bank_id=bank_id, branch_id=branch_id, error=str(exc))
+            branch_name = branch_id
+            bank_ifsc   = ""
+    else:
+        bank_ifsc = ""
+
+    # Generate code — first 4 chars encode bank prefix, last 4 random
+    bank_prefix = bank_id[:4].upper().replace("-", "")[:4].ljust(4, "X")
+    random_part = _secrets.token_hex(2).upper()   # 4 hex chars
+    code = f"{bank_prefix}{random_part}"
+
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+
+    payload = _json.dumps({
+        "bank_id":          bank_id,
+        "branch_id":        branch_id,
+        "branch_name":      branch_name,
+        "bank_ifsc":        bank_ifsc,
+        "endorsement_text": f"PRESENTED BY {bank_id.upper().replace('-', ' ')}",
+        "enable_imprinter": True,
+        "enable_uv_scan":   False,
+        "mocr_weight":      50,
+    })
+
+    if redis is not None:
+        # Invalidate any existing pending code for this branch (one code per branch)
+        existing_keys = await redis.keys(f"scanner_reg:{bank_id}:*")
+        for k in existing_keys:
+            raw = await redis.get(k)
+            if raw:
+                try:
+                    existing = _json.loads(raw)
+                    if existing.get("branch_id") == branch_id:
+                        await redis.delete(k)
+                except Exception:
+                    pass
+
+        await redis.setex(f"scanner_reg:{bank_id}:{code}", 86400, payload)
+
+    log.info("scanner_reg_code.generated",
+             bank_id=bank_id, branch_id=branch_id,
+             code_suffix=code[-4:],
+             expires_at=expires_at.isoformat())
+
+    return ScannerRegCodeResponse(
+        code=code,
+        branch_id=branch_id,
+        branch_name=branch_name,
+        bank_id=bank_id,
+        expires_at=expires_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
+
+
 class ScannerRegisterRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
     registration_code: str   # 8-char code from Admin UI, case-insensitive
