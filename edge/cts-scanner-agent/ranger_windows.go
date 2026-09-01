@@ -476,7 +476,7 @@ func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 				C.astra_release_image(&frontImg)
 				hasFront = false
 			}
-			C.astra_par_set_long(C.CSDP_DBLFEEDSTATUS, csdOK)
+			C.astra_par_set_long(C.CSDP_DBLFEEDSTATUS, C.LONG(csdOK))
 			t.logger.Warn("double-feed detected by ultrasonic sensor")
 			return &ScannedItem{DoubleFeedDetected: true}, nil
 
