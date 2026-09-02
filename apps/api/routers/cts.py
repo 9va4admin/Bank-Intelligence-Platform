@@ -5759,3 +5759,321 @@ async def get_inward_analytics(
             for r in iet_rows
         ],
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 — Session & Clearing Data
+# ---------------------------------------------------------------------------
+
+# ── B10: GET /v1/cts/smb/ledgers — All SMB batch ledgers for the SB today ──
+
+class SMBLedgerEntry(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    sub_member_id: str
+    bank_name: str
+    total_received: int
+    stp_pass: int
+    stp_return: int
+    eyeball: int
+    fraud_hold: int
+    iet_emergency: int
+    soft_hold_active: bool
+    tier2_notification_sent: bool
+    return_rate_pct: float
+    shield_status: str
+
+
+class SMBAllLedgersResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    session_date: str
+    ledgers: list[SMBLedgerEntry]
+
+
+_SMB_LEDGERS_ROLES = {"ops_manager", "bank_it_admin", "compliance_officer"}
+
+
+@router_v1.get("/smb/ledgers", response_model=SMBAllLedgersResponse)
+async def get_all_smb_ledgers(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+    session_date: Optional[str] = None,
+) -> SMBAllLedgersResponse:
+    """
+    Returns batch ledger for ALL sub-members under this SB bank for a given date.
+    SB-only endpoint — SMB users must use GET /v1/cts/smb/{sub_member_id}/ledger.
+    Queries cts.sub_member_batch_ledgers joined with cts.sub_member_banks.
+    """
+    if ctx.bank_type != BankType.SB:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SB-only endpoint")
+    if ctx.role.value not in _SMB_LEDGERS_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+
+    bank_id = ctx.bank_id
+    from datetime import date as _date
+    date_str = session_date or _date.today().isoformat()
+
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return SMBAllLedgersResponse(bank_id=bank_id, session_date=date_str, ledgers=[])
+
+    try:
+        rows = await db.fetch(
+            """
+            SELECT l.sub_member_id, b.bank_name,
+                   l.total_received, l.stp_pass, l.stp_return,
+                   l.eyeball, l.fraud_hold, l.iet_emergency,
+                   l.soft_hold_active, l.tier2_notification_sent
+            FROM cts.sub_member_batch_ledgers l
+            JOIN cts.sub_member_banks b
+              ON b.sub_member_id = l.sub_member_id AND b.bank_id = l.bank_id
+            WHERE l.bank_id = $1 AND l.session_date = $2::date
+            ORDER BY l.total_received DESC
+            """,
+            bank_id, date_str,
+        )
+    except Exception as exc:
+        log.error("cts.smb_ledgers.query_failed", bank_id=bank_id, error=str(exc))
+        return SMBAllLedgersResponse(bank_id=bank_id, session_date=date_str, ledgers=[])
+
+    def _shield(r) -> str:
+        total = r["total_received"] or 1
+        rate = (r["stp_return"] / total) * 100
+        if r["soft_hold_active"]:
+            return "SOFT_HOLD"
+        if rate > 30:
+            return "HIGH_RETURN"
+        return "SAFE"
+
+    ledgers = [
+        SMBLedgerEntry(
+            sub_member_id=r["sub_member_id"],
+            bank_name=r["bank_name"],
+            total_received=r["total_received"],
+            stp_pass=r["stp_pass"],
+            stp_return=r["stp_return"],
+            eyeball=r["eyeball"],
+            fraud_hold=r["fraud_hold"],
+            iet_emergency=r["iet_emergency"],
+            soft_hold_active=r["soft_hold_active"],
+            tier2_notification_sent=r["tier2_notification_sent"],
+            return_rate_pct=round((r["stp_return"] / max(r["total_received"], 1)) * 100, 2),
+            shield_status=_shield(r),
+        )
+        for r in rows
+    ]
+    return SMBAllLedgersResponse(bank_id=bank_id, session_date=date_str, ledgers=ledgers)
+
+
+# ── B11: GET /v1/cts/outward/reconciliation — Sessions + discrepancies ──────
+
+class ReconciliationSessionSummary(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    recon_session_id: str
+    recon_type: str
+    status: str
+    astra_instrument_count: Optional[int]
+    ngch_instrument_count: Optional[int]
+    discrepancy_count: int
+    started_at: Optional[str]
+    completed_at: Optional[str]
+
+
+class DiscrepancyItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    discrepancy_id: str
+    recon_session_id: str
+    instrument_id: Optional[str]
+    cheque_number: Optional[str]
+    discrepancy_type: str
+    astra_value: Optional[dict]
+    ngch_value: Optional[dict]
+    status: str
+    created_at: str
+
+
+class ReconciliationOverviewResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    recon_date: str
+    sessions: list[ReconciliationSessionSummary]
+    discrepancies: list[DiscrepancyItem]
+
+
+_RECON_READ_ROLES = {"ops_manager", "bank_it_admin", "compliance_officer"}
+
+
+@router_v1.get("/outward/reconciliation", response_model=ReconciliationOverviewResponse)
+async def get_outward_reconciliation(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+    recon_date: Optional[str] = None,
+) -> ReconciliationOverviewResponse:
+    """
+    Returns reconciliation session summaries and open discrepancies for a bank/date.
+    Queries cts.reconciliation_sessions and cts.reconciliation_discrepancies.
+    Used by CTSReconciliation.jsx to show NGCH vs CBS comparison per session.
+    """
+    if ctx.role.value not in _RECON_READ_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+
+    bank_id = ctx.bank_id
+    from datetime import date as _date
+    date_str = recon_date or _date.today().isoformat()
+
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return ReconciliationOverviewResponse(
+            bank_id=bank_id, recon_date=date_str, sessions=[], discrepancies=[],
+        )
+
+    try:
+        session_rows = await db.fetch(
+            """
+            SELECT recon_session_id::text, recon_type, status,
+                   astra_instrument_count, ngch_instrument_count, discrepancy_count,
+                   started_at::text, completed_at::text
+            FROM cts.reconciliation_sessions
+            WHERE bank_id = $1 AND recon_date = $2::date
+            ORDER BY started_at DESC
+            """,
+            bank_id, date_str,
+        )
+
+        recon_ids = [r["recon_session_id"] for r in session_rows]
+        disc_rows: list = []
+        if recon_ids:
+            disc_rows = await db.fetch(
+                """
+                SELECT discrepancy_id::text, recon_session_id::text,
+                       instrument_id::text, cheque_number, discrepancy_type,
+                       astra_value, ngch_value, status, created_at::text
+                FROM cts.reconciliation_discrepancies
+                WHERE recon_session_id = ANY($1::uuid[])
+                  AND bank_id = $2
+                ORDER BY created_at DESC
+                LIMIT 200
+                """,
+                recon_ids, bank_id,
+            )
+    except Exception as exc:
+        log.error("cts.reconciliation.query_failed", bank_id=bank_id, error=str(exc))
+        return ReconciliationOverviewResponse(
+            bank_id=bank_id, recon_date=date_str, sessions=[], discrepancies=[],
+        )
+
+    sessions = [
+        ReconciliationSessionSummary(
+            recon_session_id=r["recon_session_id"],
+            recon_type=r["recon_type"],
+            status=r["status"],
+            astra_instrument_count=r["astra_instrument_count"],
+            ngch_instrument_count=r["ngch_instrument_count"],
+            discrepancy_count=r["discrepancy_count"],
+            started_at=r["started_at"],
+            completed_at=r["completed_at"],
+        )
+        for r in session_rows
+    ]
+    discrepancies = [
+        DiscrepancyItem(
+            discrepancy_id=r["discrepancy_id"],
+            recon_session_id=r["recon_session_id"],
+            instrument_id=r["instrument_id"],
+            cheque_number=r["cheque_number"],
+            discrepancy_type=r["discrepancy_type"],
+            astra_value=dict(r["astra_value"]) if r["astra_value"] else None,
+            ngch_value=dict(r["ngch_value"]) if r["ngch_value"] else None,
+            status=r["status"],
+            created_at=r["created_at"],
+        )
+        for r in disc_rows
+    ]
+    return ReconciliationOverviewResponse(
+        bank_id=bank_id, recon_date=date_str, sessions=sessions, discrepancies=discrepancies,
+    )
+
+
+# ── B12: GET /v1/cts/outward/lots — Lot listing for CTSBatches.jsx ──────────
+
+class LotSummaryRow(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    lot_id: str
+    branch_id: str
+    branch_name: Optional[str]
+    session_id: str
+    sequence_number: int
+    status: str
+    instrument_count: int
+    max_instruments: int
+    created_at: str
+    sealed_at: Optional[str]
+
+
+class LotsListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    clearing_date: str
+    lots: list[LotSummaryRow]
+
+
+_LOTS_LIST_ROLES = {"ops_manager", "ops_reviewer", "bank_it_admin", "branch_manager"}
+
+
+@router_v1.get("/outward/lots", response_model=LotsListResponse)
+async def list_outward_lots(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+    clearing_date: Optional[str] = None,
+) -> LotsListResponse:
+    """
+    Returns all scanning lots for the bank on a given clearing date.
+    Joins cts.lots with cts.branches for branch_name.
+    Used by CTSBatches.jsx to populate the lot sidebar in POC/PROD.
+    """
+    if ctx.role.value not in _LOTS_LIST_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+
+    bank_id = ctx.bank_id
+    from datetime import date as _date
+    date_str = clearing_date or _date.today().isoformat()
+
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return LotsListResponse(bank_id=bank_id, clearing_date=date_str, lots=[])
+
+    try:
+        rows = await db.fetch(
+            """
+            SELECT l.lot_id, l.branch_id, b.branch_name,
+                   l.session_id, l.sequence_number, l.status,
+                   l.instrument_count, l.max_instruments,
+                   l.created_at::text, l.sealed_at::text
+            FROM cts.lots l
+            LEFT JOIN cts.branches b
+              ON b.branch_id = l.branch_id AND b.bank_id = l.bank_id
+            WHERE l.bank_id = $1 AND l.clearing_date = $2::date
+            ORDER BY l.created_at ASC
+            """,
+            bank_id, date_str,
+        )
+    except Exception as exc:
+        log.error("cts.lots_list.query_failed", bank_id=bank_id, error=str(exc))
+        return LotsListResponse(bank_id=bank_id, clearing_date=date_str, lots=[])
+
+    lots = [
+        LotSummaryRow(
+            lot_id=r["lot_id"],
+            branch_id=r["branch_id"],
+            branch_name=r["branch_name"],
+            session_id=r["session_id"],
+            sequence_number=r["sequence_number"],
+            status=r["status"],
+            instrument_count=r["instrument_count"],
+            max_instruments=r["max_instruments"],
+            created_at=r["created_at"],
+            sealed_at=r["sealed_at"],
+        )
+        for r in rows
+    ]
+    return LotsListResponse(bank_id=bank_id, clearing_date=date_str, lots=lots)
