@@ -60,8 +60,8 @@ const RPCS = [
   },
 ]
 
-const SESSION_DATE = '2026-06-19'
-const CLEARING_SESSION = 'AM-CLEARING-001'
+const SESSION_DATE = new Date().toISOString().split('T')[0]
+const CLEARING_SESSION = new Date().getHours() < 12 ? 'AM-CLEARING-001' : 'PM-CLEARING-001'
 
 // Cross-centre fraud signals
 const CROSS_CENTRE_ALERTS = [

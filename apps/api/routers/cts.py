@@ -5908,6 +5908,7 @@ async def get_outward_reconciliation(
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
     recon_date: Optional[str] = None,
+    limit: int = Query(200, ge=1, le=500),
 ) -> ReconciliationOverviewResponse:
     """
     Returns reconciliation session summaries and open discrepancies for a bank/date.
@@ -5952,9 +5953,9 @@ async def get_outward_reconciliation(
                 WHERE recon_session_id = ANY($1::uuid[])
                   AND bank_id = $2
                 ORDER BY created_at DESC
-                LIMIT 200
+                LIMIT $3
                 """,
-                recon_ids, bank_id,
+                recon_ids, bank_id, limit,
             )
     except Exception as exc:
         log.error("cts.reconciliation.query_failed", bank_id=bank_id, error=str(exc))
@@ -6226,6 +6227,7 @@ async def get_vault_misses(
     request: Request,
     ctx: UserContext = Depends(get_current_user_context),
     date: Optional[str] = None,
+    limit: int = Query(200, ge=1, le=500),
 ) -> VaultMissesResponse:
     """
     Returns today's vault miss events. Queries cts.vault_miss_events if it
@@ -6253,9 +6255,9 @@ async def get_vault_misses(
             FROM cts.vault_miss_events
             WHERE bank_id = $1 AND event_time::date = $2::date
             ORDER BY event_time DESC
-            LIMIT 200
+            LIMIT $3
             """,
-            bank_id, date_str,
+            bank_id, date_str, limit,
         )
     except Exception:
         # Table may not exist yet — graceful empty
@@ -7672,6 +7674,7 @@ class EndorsementQueueResponse(BaseModel):
 @router_v1.get("/outward/endorsement-queue", response_model=EndorsementQueueResponse)
 async def get_endorsement_queue(
     request: Request,
+    limit: int = Query(200, ge=1, le=500),
     ctx: UserContext = Depends(require_user_context),
 ) -> EndorsementQueueResponse:
     bank_id = ctx.bank_id
@@ -7688,9 +7691,10 @@ async def get_endorsement_queue(
               AND status IN ('PENDING_ENDORSEMENT', 'SCANNED', 'OCR_COMPLETE')
               AND received_at::date = CURRENT_DATE
             ORDER BY lot_number, received_at
-            LIMIT 200
+            LIMIT $2
             """,
             bank_id,
+            limit,
         )
     except Exception as exc:
         log.warning("cts.endorsement_queue.query_failed", bank_id=bank_id, error=str(exc))
