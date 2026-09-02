@@ -15,8 +15,8 @@ import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
-import useDemoData from '../../../shared/hooks/useDemoData'
 import useAnalytics from '../hooks/useAnalytics'
+import useInwardAnalytics from '../hooks/useInwardAnalytics'
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -119,15 +119,15 @@ const MODEL_PERF = [
   { model: 'IndicOCR/Paddle', metric: 'Indic Accuracy', value: 96.8, threshold: 95.0, unit: '%' },
 ]
 
-const IET_TREND = [
-  { date: 'Aug 25', nearBreach: 2 },
-  { date: 'Aug 26', nearBreach: 0 },
-  { date: 'Aug 27', nearBreach: 1 },
-  { date: 'Aug 28', nearBreach: 0 },
-  { date: 'Aug 29', nearBreach: 3 },
-  { date: 'Aug 30', nearBreach: 0 },
-  { date: 'Aug 31', nearBreach: 0 },
-]
+// Colour map for live fraud distribution buckets (mirrors mock colours)
+const _FRAUD_DIST_COLORS = {
+  '0–10':   '#10b981',
+  '10–30':  '#34d399',
+  '30–50':  '#f59e0b',
+  '50–70':  '#f97316',
+  '70–90':  '#ef4444',
+  '90–100': '#dc2626',
+}
 
 // ── Tooltip helper ────────────────────────────────────────────────────────────
 
@@ -172,14 +172,46 @@ export default function CTSAnalytics() {
   usePageHeader({ subtitle: 'Decision analytics · AI model performance · IET safety · 7-day rolling' })
 
   // Live analytics — only fetched in POC/PROD; demo mode uses mock data below
-  const { daily: liveDaily, loading: liveLoading } = useAnalytics({ pollEnabled: !isDemo })
+  const { daily: liveDaily } = useAnalytics({ pollEnabled: !isDemo })
+  const { data: liveInward } = useInwardAnalytics({ pollEnabled: !isDemo })
 
-  const mockDaily      = isSMB ? SMB_DAILY          : SB_DAILY
-  const DAILY          = isDemo ? mockDaily : (liveDaily.length > 0 ? liveDaily : mockDaily)
-  const FRAUD_DIST     = useDemoData(isSMB ? SMB_FRAUD_DIST     : SB_FRAUD_DIST)
-  const RISK_FLAGS     = useDemoData(isSMB ? SMB_RISK_FLAGS     : SB_RISK_FLAGS)
-  const RETURN_REASONS = useDemoData(isSMB ? SMB_RETURN_REASONS : SB_RETURN_REASONS)
-  const BRANCHES       = useDemoData(isSMB ? SMB_BRANCHES       : SB_BRANCHES)
+  const mockDaily = isSMB ? SMB_DAILY : SB_DAILY
+
+  // Merge: outward daily (decision counts) + inward daily (ocr_conf, sig_prec) keyed on date
+  const mergedDaily = (() => {
+    if (isDemo || liveDaily.length === 0) return mockDaily
+    if (liveInward.daily.length === 0) return liveDaily
+    const inwardMap = Object.fromEntries(liveInward.daily.map(r => [r.date, r]))
+    return liveDaily.map(row => {
+      const iw = inwardMap[row.date] ?? {}
+      return { ...row, ocr_conf: iw.ocr_conf ?? row.ocr_conf, sig_prec: iw.sig_prec ?? row.sig_prec }
+    })
+  })()
+
+  const DAILY          = mergedDaily
+  const FRAUD_DIST     = isDemo || liveInward.fraud_dist.length === 0
+    ? (isSMB ? SMB_FRAUD_DIST     : SB_FRAUD_DIST)
+    : liveInward.fraud_dist.map(r => ({ ...r, color: _FRAUD_DIST_COLORS[r.range] ?? '#94a3b8' }))
+  const RISK_FLAGS     = isDemo || liveInward.risk_flags.length === 0
+    ? (isSMB ? SMB_RISK_FLAGS     : SB_RISK_FLAGS)
+    : liveInward.risk_flags
+  const RETURN_REASONS = isDemo || liveInward.return_reasons.length === 0
+    ? (isSMB ? SMB_RETURN_REASONS : SB_RETURN_REASONS)
+    : liveInward.return_reasons
+  const BRANCHES       = isDemo || liveInward.branches.length === 0
+    ? (isSMB ? SMB_BRANCHES       : SB_BRANCHES)
+    : liveInward.branches
+  const IET_TREND      = isDemo || liveInward.iet_trend.length === 0
+    ? [
+        { date: 'Aug 25', nearBreach: 2 },
+        { date: 'Aug 26', nearBreach: 0 },
+        { date: 'Aug 27', nearBreach: 1 },
+        { date: 'Aug 28', nearBreach: 0 },
+        { date: 'Aug 29', nearBreach: 3 },
+        { date: 'Aug 30', nearBreach: 0 },
+        { date: 'Aug 31', nearBreach: 0 },
+      ]
+    : liveInward.iet_trend
 
   const weekTotal   = DAILY.reduce((s, d) => s + d.total, 0)
   const weekConfirm = DAILY.reduce((s, d) => s + d.stp_confirm, 0)
