@@ -8,8 +8,9 @@ import useDemoInterval from '../../../shared/hooks/useDemoInterval'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-// SESSION_ID built dynamically inside component using bankIfsc
-const DATE_STR   = '20260619'
+// SESSION_ID built dynamically inside component using bankIfsc and today's date
+const _today = new Date()
+const DATE_STR = `${_today.getFullYear()}${String(_today.getMonth()+1).padStart(2,'0')}${String(_today.getDate()).padStart(2,'0')}`
 
 // DBC check failure reasons (maps to which AI check failed)
 const FAIL_REASONS = [
@@ -351,7 +352,7 @@ export default function CTSPresentmentFile() {
   const { bankIfsc, bankName, isSB, isSMB, isDemo } = useBankContext()
   const SB_IFSC = bankIfsc
   const SB_NAME = bankName
-  const SESSION_ID = `SES-${bankIfsc || 'BANK'}-20260619-001`
+  const SESSION_ID = `SES-${bankIfsc || 'BANK'}-${DATE_STR}-001`
   const { isDark } = useTheme()
 
   const demoBatch = useDemoData(makeBatch(1, isSMB ? 4 : 14, bankIfsc, SESSION_ID), { items: [], status: 'OPEN', nextSeq: 1, batchNo: 0 })

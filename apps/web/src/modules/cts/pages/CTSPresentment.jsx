@@ -11,16 +11,21 @@ const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
+function _todayPresentment() {
+  const d = new Date()
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`
+}
 function makeSessions(bankIfsc, isSMB) {
   const ifsc = bankIfsc || 'BANK'
+  const td = _todayPresentment()
   if (isSMB) return [
-    { id: `SES-${ifsc}-20260619-001`, window: '10:00–12:00', status: 'ACTIVE',  submitted: 78, accepted: 76, rejected: 2, returned: 1 },
-    { id: `SES-${ifsc}-20260619-002`, window: '12:00–14:00', status: 'PENDING', submitted: 0,  accepted: 0,  rejected: 0, returned: 0 },
+    { id: `SES-${ifsc}-${td}-001`, window: '10:00–12:00', status: 'ACTIVE',  submitted: 78, accepted: 76, rejected: 2, returned: 1 },
+    { id: `SES-${ifsc}-${td}-002`, window: '12:00–14:00', status: 'PENDING', submitted: 0,  accepted: 0,  rejected: 0, returned: 0 },
   ]
   return [
-    { id: `SES-${ifsc}-20260619-001`, window: '10:00–12:00', status: 'ACTIVE',  submitted: 1247, accepted: 1231, rejected: 16, returned: 4 },
-    { id: `SES-${ifsc}-20260619-002`, window: '12:00–14:00', status: 'PENDING', submitted: 0,    accepted: 0,    rejected: 0,  returned: 0 },
-    { id: `SES-${ifsc}-20260619-003`, window: '14:00–16:00', status: 'PENDING', submitted: 0,    accepted: 0,    rejected: 0,  returned: 0 },
+    { id: `SES-${ifsc}-${td}-001`, window: '10:00–12:00', status: 'ACTIVE',  submitted: 1247, accepted: 1231, rejected: 16, returned: 4 },
+    { id: `SES-${ifsc}-${td}-002`, window: '12:00–14:00', status: 'PENDING', submitted: 0,    accepted: 0,    rejected: 0,  returned: 0 },
+    { id: `SES-${ifsc}-${td}-003`, window: '14:00–16:00', status: 'PENDING', submitted: 0,    accepted: 0,    rejected: 0,  returned: 0 },
   ]
 }
 
@@ -83,12 +88,12 @@ function makeBatch(n, startIdx = 0, bankIfsc = 'BANK', sessionId = 'SES-0619-001
         const draweeD = DRAWEE_BANKS[idx % DRAWEE_BANKS.length]
         if (ch === 'PAY_IN_SLIP')     return { depositor_name: payee, depositor_account: fullAcct, deposit_amount: amt, counter_token: `T-${String((idx % 99) + 1).padStart(4, '0')}`, date, branch: draweeD.branch }
         if (ch === 'BACK_ANNOTATION') return { extracted_account: fullAcct, extracted_mobile: `98${String(((idx * 13) % 100000000) + 10000000).slice(0, 8)}`, ocr_confidence: 0.78 + (idx % 5) * 0.04 }
-        return { name: payee, account: fullAcct, txn_id: `CDM-${String(idx).padStart(3, '0')}-20260619`, timestamp: `09:${String((idx * 7) % 60).padStart(2, '0')} AM  19/06/2026` }
+        return { name: payee, account: fullAcct, txn_id: `CDM-${String(idx).padStart(3, '0')}-${_todayPresentment()}`, timestamp: `09:${String((idx * 7) % 60).padStart(2, '0')} AM  ${new Date().toLocaleDateString('en-GB')}` }
       })(),
       zone: zones[idx % zones.length],
       micr: `0${idx % 9}2000${String(idx).padStart(6, '0')}`,
-      date_on_cheque: '19-Jun-2026',
-      lot_number: `LOT_${bankIfsc}_20260619_${sessionId}_${String(lotSeq).padStart(2, '0')}`,
+      date_on_cheque: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+      lot_number: `LOT_${bankIfsc}_${_todayPresentment()}_${sessionId}_${String(lotSeq).padStart(2, '0')}`,
       lot_seq: lotSeq,
       status,
       drawee_bank_name: drawee.name,
