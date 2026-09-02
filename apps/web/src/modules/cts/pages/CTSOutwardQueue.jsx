@@ -389,7 +389,7 @@ function STPSuccessPanel({ item, isDark }) {
 
 export default function CTSOutwardQueue() {
   const { isDark } = useTheme()
-  const { bankId, isSMB } = useBankContext()
+  const { bankId, isSMB, isDemo } = useBankContext()
   const [tab, setTab] = useState('review') // 'review' | 'stp_rejected' | 'stp_success'
   const demoReview    = useDemoData(MOCK_HUMAN_REVIEW)
   const demoRejected  = useDemoData(MOCK_STP_REJECTED)

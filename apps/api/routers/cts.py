@@ -6701,3 +6701,1091 @@ async def get_smb_forwarding_log_all(
         for r in rows
     ]
     return SBForwardingLogResponse(bank_id=bank_id, items=items, total=len(items))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /v1/cts/exceptions — CTS exception report for today
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ExceptionItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    id: str
+    instrument_id: str
+    exception_type: str
+    label: str
+    severity: str
+    occurred_at: str
+    detail: str
+    resolved: bool
+    margin_seconds: Optional[int] = None
+
+
+class ExceptionsResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    clearing_date: str
+    items: list[ExceptionItem]
+    total: int
+
+
+_EXCEPTION_LABEL_MAP = {
+    "IET_NEAR_BREACH":        "IET Near-Breach (< 30s margin)",
+    "IET_BREACH":             "IET Breached",
+    "NGCH_REJECT":            "NGCH Filing Rejected / Retried",
+    "IQA_FAIL":               "Image Quality Failure",
+    "VAULT_MISS":             "Signature Vault Miss",
+    "VAULT_STALE":            "Vault Stale",
+    "OCR_LOW_CONFIDENCE":     "OCR Low Confidence",
+    "SIG_LOW_CONFIDENCE":     "Signature Low Confidence",
+    "FRAUD_HIGH_SCORE":       "Fraud Score Above Threshold",
+    "ALTERATION_DETECTED":    "Cheque Alteration Detected",
+    "WORDS_FIGURES_MISMATCH": "Words / Figures Mismatch",
+    "CBS_UNREACHABLE":        "CBS Unreachable — Image-Only Mode",
+    "STOP_PAYMENT":           "Stop Payment Triggered",
+    "DUPLICATE":              "Duplicate Instrument Detected",
+}
+
+_EXCEPTION_SEVERITY_MAP = {
+    "IET_NEAR_BREACH":        "CRITICAL",
+    "IET_BREACH":             "CRITICAL",
+    "NGCH_REJECT":            "CRITICAL",
+    "VAULT_STALE":            "CRITICAL",
+    "STOP_PAYMENT":           "CRITICAL",
+    "ALTERATION_DETECTED":    "HIGH",
+    "FRAUD_HIGH_SCORE":       "HIGH",
+    "IQA_FAIL":               "HIGH",
+    "VAULT_MISS":             "HIGH",
+    "OCR_LOW_CONFIDENCE":     "MEDIUM",
+    "SIG_LOW_CONFIDENCE":     "MEDIUM",
+    "WORDS_FIGURES_MISMATCH": "MEDIUM",
+    "CBS_UNREACHABLE":        "MEDIUM",
+    "DUPLICATE":              "MEDIUM",
+}
+
+
+@router_v1.get("/exceptions", response_model=ExceptionsResponse)
+async def get_exceptions(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+    severity: Optional[str] = Query(None),
+    limit: int = Query(200, ge=1, le=500),
+) -> ExceptionsResponse:
+    """
+    Returns today's CTS exceptions derived from cts.agent_decisions where
+    decision_outcome IN ('HUMAN_REVIEW', 'RETURN') or exception events are
+    logged in cts.workflow_exceptions.
+    Falls back to empty list if no DB or no exceptions table.
+    """
+    bank_id = ctx.bank_id
+    today = date.today().isoformat()
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return ExceptionsResponse(bank_id=bank_id, clearing_date=today, items=[], total=0)
+
+    try:
+        sev_clause = "AND ex.severity = $3" if severity else ""
+        params: list = [bank_id, limit]
+        if severity:
+            params.append(severity)
+        rows = await db.fetch(
+            f"""
+            SELECT ex.exception_id, ex.instrument_id, ex.exception_type,
+                   ex.severity, ex.occurred_at::text,
+                   ex.detail, ex.resolved, ex.margin_seconds
+            FROM cts.workflow_exceptions ex
+            WHERE ex.bank_id = $1
+              AND ex.occurred_at::date = CURRENT_DATE
+              {sev_clause}
+            ORDER BY
+              CASE ex.severity WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2 ELSE 3 END,
+              ex.occurred_at DESC
+            LIMIT $2
+            """,
+            *params,
+        )
+    except Exception:
+        # Table may not exist yet — fallback to agent_decisions-derived exceptions
+        try:
+            sev_clause = ""
+            rows = await db.fetch(
+                """
+                SELECT
+                    'EX-' || instrument_id AS exception_id,
+                    instrument_id,
+                    CASE
+                        WHEN LOWER(raw_json::text) LIKE '%vault_miss%'   THEN 'VAULT_MISS'
+                        WHEN LOWER(raw_json::text) LIKE '%iet%'          THEN 'IET_NEAR_BREACH'
+                        WHEN LOWER(raw_json::text) LIKE '%alteration%'   THEN 'ALTERATION_DETECTED'
+                        WHEN decision_outcome = 'RETURN'                  THEN 'SIG_LOW_CONFIDENCE'
+                        ELSE 'OCR_LOW_CONFIDENCE'
+                    END AS exception_type,
+                    'HIGH' AS severity,
+                    decided_at::text AS occurred_at,
+                    'See agent decision for full context' AS detail,
+                    (decision_outcome IN ('STP_CONFIRM','STP_RETURN','CONFIRMED','RETURNED')) AS resolved,
+                    NULL::int AS margin_seconds
+                FROM cts.agent_decisions
+                WHERE bank_id = $1
+                  AND decided_at::date = CURRENT_DATE
+                  AND decision_outcome IN ('HUMAN_REVIEW', 'RETURN', 'RETURNED', 'STP_RETURN')
+                ORDER BY decided_at DESC
+                LIMIT $2
+                """,
+                bank_id,
+                limit,
+            )
+        except Exception as exc2:
+            log.warning("cts.exceptions.query_failed", bank_id=bank_id, error=str(exc2))
+            return ExceptionsResponse(bank_id=bank_id, clearing_date=today, items=[], total=0)
+
+    items = [
+        ExceptionItem(
+            id=r["exception_id"],
+            instrument_id=r["instrument_id"],
+            exception_type=r["exception_type"],
+            label=_EXCEPTION_LABEL_MAP.get(r["exception_type"], r["exception_type"]),
+            severity=_EXCEPTION_SEVERITY_MAP.get(r["exception_type"], r["severity"]),
+            occurred_at=r["occurred_at"] or datetime.now(timezone.utc).isoformat(),
+            detail=r["detail"] or "",
+            resolved=bool(r["resolved"]),
+            margin_seconds=r["margin_seconds"],
+        )
+        for r in rows
+    ]
+    return ExceptionsResponse(bank_id=bank_id, clearing_date=today, items=items, total=len(items))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /v1/cts/outward/sessions — clearing sessions list
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ClearingSessionItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    session_id: str
+    clearing_date: str
+    session_type: str
+    status: str
+    label: str
+    total_lots: int
+    total_instruments: int
+    ngch_reference: Optional[str] = None
+    opened_at: str
+    closed_at: Optional[str] = None
+    submitted_at: Optional[str] = None
+
+
+class ClearingSessionsResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    sessions: list[ClearingSessionItem]
+    total: int
+
+
+@router_v1.get("/outward/sessions", response_model=ClearingSessionsResponse)
+async def get_clearing_sessions(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+    limit: int = Query(20, ge=1, le=100),
+) -> ClearingSessionsResponse:
+    """
+    Returns clearing sessions for today's clearing date.
+    Queries cts.clearing_sessions JOIN cts.lots for counts.
+    """
+    bank_id = ctx.bank_id
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return ClearingSessionsResponse(bank_id=bank_id, sessions=[], total=0)
+
+    try:
+        rows = await db.fetch(
+            """
+            SELECT
+                cs.session_id,
+                cs.clearing_date::text,
+                cs.session_type,
+                cs.status,
+                cs.ngch_reference,
+                cs.opened_at::text,
+                cs.closed_at::text,
+                cs.submitted_at::text,
+                COUNT(DISTINCT l.lot_id)::int         AS total_lots,
+                COALESCE(SUM(l.instrument_count), 0)::int AS total_instruments
+            FROM cts.clearing_sessions cs
+            LEFT JOIN cts.lots l
+                   ON l.session_id = cs.session_id AND l.bank_id = cs.bank_id
+            WHERE cs.bank_id = $1
+              AND cs.clearing_date = CURRENT_DATE
+            GROUP BY cs.session_id, cs.clearing_date, cs.session_type,
+                     cs.status, cs.ngch_reference, cs.opened_at,
+                     cs.closed_at, cs.submitted_at
+            ORDER BY cs.opened_at DESC
+            LIMIT $2
+            """,
+            bank_id,
+            limit,
+        )
+    except Exception as exc:
+        log.warning("cts.sessions.query_failed", bank_id=bank_id, error=str(exc))
+        return ClearingSessionsResponse(bank_id=bank_id, sessions=[], total=0)
+
+    sessions = []
+    for r in rows:
+        stype = r["session_type"] or "MORNING"
+        label_map = {
+            "MORNING":   "10:00–12:00",
+            "AFTERNOON": "12:00–14:00",
+            "EVENING":   "14:00–16:00",
+            "SPECIAL":   "Special Session",
+        }
+        sessions.append(ClearingSessionItem(
+            session_id=r["session_id"],
+            clearing_date=r["clearing_date"],
+            session_type=stype,
+            status=r["status"],
+            label=label_map.get(stype, stype),
+            total_lots=r["total_lots"],
+            total_instruments=r["total_instruments"],
+            ngch_reference=r["ngch_reference"],
+            opened_at=r["opened_at"] or "",
+            closed_at=r["closed_at"],
+            submitted_at=r["submitted_at"],
+        ))
+    return ClearingSessionsResponse(bank_id=bank_id, sessions=sessions, total=len(sessions))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /v1/cts/smb/reports — SMB performance reports
+# ─────────────────────────────────────────────────────────────────────────────
+
+class SMBReportRow(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    sub_member_id: str
+    bank_name: str
+    bank_ifsc: str
+    date: str
+    total_presented: int
+    stp_confirmed: int
+    stp_returned: int
+    human_review: int
+    return_rate_pct: float
+    avg_decision_ms: Optional[int] = None
+    iet_breach_count: int
+
+
+class SMBReportsResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    period_start: str
+    period_end: str
+    rows: list[SMBReportRow]
+    total: int
+
+
+@router_v1.get("/smb/reports", response_model=SMBReportsResponse)
+async def get_smb_reports(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+    days: int = Query(7, ge=1, le=30),
+) -> SMBReportsResponse:
+    """
+    Returns per-SMB performance aggregates for the past N days.
+    SB-only endpoint.
+    """
+    if ctx.bank_type != BankType.SB:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SB-only endpoint")
+
+    bank_id = ctx.bank_id
+    db = getattr(request.app.state, "db_pool_cts", None)
+    today_str = date.today().isoformat()
+    if db is None:
+        return SMBReportsResponse(
+            bank_id=bank_id, period_start=today_str, period_end=today_str, rows=[], total=0
+        )
+
+    try:
+        rows = await db.fetch(
+            """
+            SELECT
+                ad.sub_member_id,
+                b.bank_name,
+                b.bank_ifsc,
+                ad.decided_at::date::text                                        AS date,
+                COUNT(*)::int                                                    AS total_presented,
+                COUNT(*) FILTER (WHERE ad.decision_outcome IN ('STP_CONFIRM','CONFIRMED'))::int AS stp_confirmed,
+                COUNT(*) FILTER (WHERE ad.decision_outcome IN ('STP_RETURN','RETURNED'))::int  AS stp_returned,
+                COUNT(*) FILTER (WHERE ad.decision_outcome = 'HUMAN_REVIEW')::int             AS human_review,
+                ROUND(
+                    100.0 * COUNT(*) FILTER (WHERE ad.decision_outcome IN ('STP_RETURN','RETURNED'))
+                    / NULLIF(COUNT(*), 0), 2
+                )::float                                                         AS return_rate_pct,
+                AVG(ad.decision_latency_ms)::int                                 AS avg_decision_ms,
+                0::int                                                           AS iet_breach_count
+            FROM cts.agent_decisions ad
+            JOIN cts.sub_member_banks b
+                 ON b.bank_id = ad.bank_id AND b.sub_member_id = ad.sub_member_id
+            WHERE ad.bank_id = $1
+              AND ad.decided_at >= NOW() - ($2 || ' days')::interval
+              AND ad.sub_member_id IS NOT NULL
+            GROUP BY ad.sub_member_id, b.bank_name, b.bank_ifsc, ad.decided_at::date
+            ORDER BY ad.decided_at::date DESC, b.bank_name
+            LIMIT 500
+            """,
+            bank_id,
+            str(days),
+        )
+    except Exception as exc:
+        log.warning("cts.smb_reports.query_failed", bank_id=bank_id, error=str(exc))
+        return SMBReportsResponse(
+            bank_id=bank_id, period_start=today_str, period_end=today_str, rows=[], total=0
+        )
+
+    period_start = rows[-1]["date"] if rows else today_str
+    report_rows = [
+        SMBReportRow(
+            sub_member_id=r["sub_member_id"],
+            bank_name=r["bank_name"],
+            bank_ifsc=r["bank_ifsc"] or "",
+            date=r["date"],
+            total_presented=r["total_presented"],
+            stp_confirmed=r["stp_confirmed"],
+            stp_returned=r["stp_returned"],
+            human_review=r["human_review"],
+            return_rate_pct=float(r["return_rate_pct"] or 0),
+            avg_decision_ms=r["avg_decision_ms"],
+            iet_breach_count=r["iet_breach_count"],
+        )
+        for r in rows
+    ]
+    return SMBReportsResponse(
+        bank_id=bank_id,
+        period_start=period_start,
+        period_end=today_str,
+        rows=report_rows,
+        total=len(report_rows),
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /v1/admin/auth/login-log — authentication event log
+# (mounted via admin_router in main.py; duplicated here so cts router serves it
+#  since we don't have a separate admin router visible)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class AuthLogItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    event_id: str
+    event_type: str
+    user_id: str
+    username: str
+    role: str
+    ip_address: str
+    user_agent: Optional[str] = None
+    success: bool
+    failure_reason: Optional[str] = None
+    mfa_used: bool
+    occurred_at: str
+
+
+class AuthLogResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    items: list[AuthLogItem]
+    total: int
+
+
+@router_v1.get("/admin/login-log", response_model=AuthLogResponse)
+async def get_auth_login_log(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+    days: int = Query(1, ge=1, le=30),
+    limit: int = Query(200, ge=1, le=500),
+) -> AuthLogResponse:
+    """
+    Returns authentication events (login success/failure, MFA, session expiry)
+    for this bank from the audit trail. Requires ops_manager or bank_it_admin role.
+    """
+    if ctx.role not in ("ops_manager", "bank_it_admin", "compliance_officer"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+
+    bank_id = ctx.bank_id
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return AuthLogResponse(bank_id=bank_id, items=[], total=0)
+
+    try:
+        rows = await db.fetch(
+            """
+            SELECT
+                event_id,
+                event_type,
+                user_id,
+                username,
+                role,
+                ip_address,
+                user_agent,
+                success,
+                failure_reason,
+                mfa_used,
+                occurred_at::text
+            FROM cts.auth_events
+            WHERE bank_id = $1
+              AND occurred_at >= NOW() - ($2 || ' days')::interval
+            ORDER BY occurred_at DESC
+            LIMIT $3
+            """,
+            bank_id,
+            str(days),
+            limit,
+        )
+    except Exception as exc:
+        log.warning("cts.auth_login_log.query_failed", bank_id=bank_id, error=str(exc))
+        return AuthLogResponse(bank_id=bank_id, items=[], total=0)
+
+    items = [
+        AuthLogItem(
+            event_id=r["event_id"],
+            event_type=r["event_type"],
+            user_id=r["user_id"],
+            username=r["username"],
+            role=r["role"] or "",
+            ip_address=r["ip_address"] or "—",
+            user_agent=r["user_agent"],
+            success=bool(r["success"]),
+            failure_reason=r["failure_reason"],
+            mfa_used=bool(r["mfa_used"]),
+            occurred_at=r["occurred_at"] or "",
+        )
+        for r in rows
+    ]
+    return AuthLogResponse(bank_id=bank_id, items=items, total=len(items))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /v1/cts/inward/live-flow — real-time inward instrument stream
+# ─────────────────────────────────────────────────────────────────────────────
+
+class LiveFlowItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    stage: str
+    status: str
+    amount_range: str
+    micr_suffix: Optional[str] = None
+    elapsed_ms: Optional[int] = None
+    decision: Optional[str] = None
+    fraud_score: Optional[float] = None
+    started_at: str
+
+
+class LiveFlowResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    items: list[LiveFlowItem]
+    total: int
+
+
+@router_v1.get("/inward/live-flow", response_model=LiveFlowResponse)
+async def get_inward_live_flow(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+    limit: int = Query(50, ge=1, le=200),
+) -> LiveFlowResponse:
+    """
+    Returns the most recent inward instruments still in-flight or completed
+    in the last 10 minutes — used by CTSInwardMonitor ReactFlow diagram.
+    """
+    bank_id = ctx.bank_id
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return LiveFlowResponse(bank_id=bank_id, items=[], total=0)
+
+    try:
+        rows = await db.fetch(
+            """
+            SELECT
+                instrument_id,
+                processing_stage    AS stage,
+                processing_status   AS status,
+                amount_range,
+                micr_suffix,
+                EXTRACT(EPOCH FROM (NOW() - received_at))::int * 1000 AS elapsed_ms,
+                decision_outcome    AS decision,
+                fraud_score,
+                received_at::text   AS started_at
+            FROM cts.cheque_instruments
+            WHERE bank_id = $1
+              AND received_at >= NOW() - INTERVAL '10 minutes'
+            ORDER BY received_at DESC
+            LIMIT $2
+            """,
+            bank_id,
+            limit,
+        )
+    except Exception as exc:
+        log.warning("cts.live_flow.query_failed", bank_id=bank_id, error=str(exc))
+        return LiveFlowResponse(bank_id=bank_id, items=[], total=0)
+
+    items = [
+        LiveFlowItem(
+            instrument_id=r["instrument_id"],
+            stage=r["stage"] or "RECEIVED",
+            status=r["status"] or "PENDING",
+            amount_range=r["amount_range"] or "₹[<1L]",
+            micr_suffix=r["micr_suffix"],
+            elapsed_ms=r["elapsed_ms"],
+            decision=r["decision"],
+            fraud_score=float(r["fraud_score"]) if r["fraud_score"] is not None else None,
+            started_at=r["started_at"] or "",
+        )
+        for r in rows
+    ]
+    return LiveFlowResponse(bank_id=bank_id, items=items, total=len(items))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /v1/cts/inward/sessions — drawee view: today's inward sessions
+# ─────────────────────────────────────────────────────────────────────────────
+
+class InwardSessionItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    session_id: str
+    clearing_date: str
+    session_type: str
+    status: str
+    total_received: int
+    stp_confirmed: int
+    stp_returned: int
+    pending_review: int
+    iet_at_risk: int
+    opened_at: str
+    closed_at: Optional[str] = None
+
+
+class InwardSessionsResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    sessions: list[InwardSessionItem]
+    total: int
+
+
+@router_v1.get("/inward/sessions", response_model=InwardSessionsResponse)
+async def get_inward_sessions(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> InwardSessionsResponse:
+    """
+    Returns today's inward clearing sessions with decision aggregates.
+    Used by CTSDraweeView for session-level status display.
+    """
+    bank_id = ctx.bank_id
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return InwardSessionsResponse(bank_id=bank_id, sessions=[], total=0)
+
+    try:
+        rows = await db.fetch(
+            """
+            SELECT
+                cs.session_id,
+                cs.clearing_date::text,
+                cs.session_type,
+                cs.status,
+                cs.opened_at::text,
+                cs.closed_at::text,
+                COUNT(ad.instrument_id)::int                                         AS total_received,
+                COUNT(ad.instrument_id) FILTER (
+                    WHERE ad.decision_outcome IN ('STP_CONFIRM','CONFIRMED'))::int   AS stp_confirmed,
+                COUNT(ad.instrument_id) FILTER (
+                    WHERE ad.decision_outcome IN ('STP_RETURN','RETURNED'))::int     AS stp_returned,
+                COUNT(ad.instrument_id) FILTER (
+                    WHERE ad.decision_outcome = 'HUMAN_REVIEW')::int                AS pending_review,
+                0::int AS iet_at_risk
+            FROM cts.clearing_sessions cs
+            LEFT JOIN cts.agent_decisions ad
+                   ON ad.session_id = cs.session_id AND ad.bank_id = cs.bank_id
+            WHERE cs.bank_id = $1
+              AND cs.clearing_date = CURRENT_DATE
+              AND cs.direction = 'INWARD'
+            GROUP BY cs.session_id, cs.clearing_date, cs.session_type,
+                     cs.status, cs.opened_at, cs.closed_at
+            ORDER BY cs.opened_at DESC
+            """,
+            bank_id,
+        )
+    except Exception as exc:
+        log.warning("cts.inward_sessions.query_failed", bank_id=bank_id, error=str(exc))
+        return InwardSessionsResponse(bank_id=bank_id, sessions=[], total=0)
+
+    sessions = [
+        InwardSessionItem(
+            session_id=r["session_id"],
+            clearing_date=r["clearing_date"],
+            session_type=r["session_type"] or "MORNING",
+            status=r["status"],
+            total_received=r["total_received"],
+            stp_confirmed=r["stp_confirmed"],
+            stp_returned=r["stp_returned"],
+            pending_review=r["pending_review"],
+            iet_at_risk=r["iet_at_risk"],
+            opened_at=r["opened_at"] or "",
+            closed_at=r["closed_at"],
+        )
+        for r in rows
+    ]
+    return InwardSessionsResponse(bank_id=bank_id, sessions=sessions, total=len(sessions))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /v1/cts/outward/compliance — outward CTS-2010 compliance summary
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ComplianceCheckItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    lot_id: str
+    instrument_id: str
+    check_type: str
+    result: str
+    detail: Optional[str] = None
+    occurred_at: str
+
+
+class OutwardComplianceResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    clearing_date: str
+    total_checked: int
+    pass_count: int
+    fail_count: int
+    pass_rate_pct: float
+    items: list[ComplianceCheckItem]
+
+
+@router_v1.get("/outward/compliance", response_model=OutwardComplianceResponse)
+async def get_outward_compliance(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+    result_filter: Optional[str] = Query(None, alias="result"),
+) -> OutwardComplianceResponse:
+    """
+    Returns today's outward CTS-2010 compliance check results.
+    Used by CTSCompliance page.
+    """
+    bank_id = ctx.bank_id
+    today = date.today().isoformat()
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return OutwardComplianceResponse(
+            bank_id=bank_id, clearing_date=today,
+            total_checked=0, pass_count=0, fail_count=0, pass_rate_pct=0.0, items=[]
+        )
+
+    try:
+        result_clause = "AND cc.result = $2" if result_filter else ""
+        params: list = [bank_id]
+        if result_filter:
+            params.append(result_filter)
+        rows = await db.fetch(
+            f"""
+            SELECT
+                cc.lot_id, cc.instrument_id, cc.check_type,
+                cc.result, cc.detail, cc.occurred_at::text
+            FROM cts.compliance_checks cc
+            WHERE cc.bank_id = $1
+              AND cc.occurred_at::date = CURRENT_DATE
+              {result_clause}
+            ORDER BY cc.result DESC, cc.occurred_at DESC
+            LIMIT 500
+            """,
+            *params,
+        )
+        totals = await db.fetchrow(
+            """
+            SELECT
+                COUNT(*)::int                                    AS total,
+                COUNT(*) FILTER (WHERE result = 'PASS')::int    AS pass_count,
+                COUNT(*) FILTER (WHERE result = 'FAIL')::int    AS fail_count
+            FROM cts.compliance_checks
+            WHERE bank_id = $1 AND occurred_at::date = CURRENT_DATE
+            """,
+            bank_id,
+        )
+    except Exception as exc:
+        log.warning("cts.compliance.query_failed", bank_id=bank_id, error=str(exc))
+        return OutwardComplianceResponse(
+            bank_id=bank_id, clearing_date=today,
+            total_checked=0, pass_count=0, fail_count=0, pass_rate_pct=0.0, items=[]
+        )
+
+    total = totals["total"] if totals else 0
+    pass_c = totals["pass_count"] if totals else 0
+    fail_c = totals["fail_count"] if totals else 0
+    pass_rate = round(100.0 * pass_c / total, 2) if total > 0 else 0.0
+
+    items = [
+        ComplianceCheckItem(
+            lot_id=r["lot_id"] or "",
+            instrument_id=r["instrument_id"] or "",
+            check_type=r["check_type"],
+            result=r["result"],
+            detail=r["detail"],
+            occurred_at=r["occurred_at"] or "",
+        )
+        for r in rows
+    ]
+    return OutwardComplianceResponse(
+        bank_id=bank_id, clearing_date=today,
+        total_checked=total, pass_count=pass_c, fail_count=fail_c,
+        pass_rate_pct=pass_rate, items=items
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /v1/cts/admin/ngch-routing — NGCH routing rules (read-only)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class NGCHRoutingRule(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    rule_id: str
+    micr_prefix: str
+    clearing_zone: str
+    destination: str
+    priority: int
+    active: bool
+    updated_at: str
+
+
+class NGCHRoutingResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    rules: list[NGCHRoutingRule]
+    total: int
+
+
+@router_v1.get("/admin/ngch-routing", response_model=NGCHRoutingResponse)
+async def get_ngch_routing(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> NGCHRoutingResponse:
+    """Returns NGCH routing rules configured for this bank."""
+    bank_id = ctx.bank_id
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return NGCHRoutingResponse(bank_id=bank_id, rules=[], total=0)
+
+    try:
+        rows = await db.fetch(
+            """
+            SELECT rule_id, micr_prefix, clearing_zone, destination,
+                   priority, active, updated_at::text
+            FROM cts.ngch_routing_rules
+            WHERE bank_id = $1
+            ORDER BY priority, micr_prefix
+            LIMIT 500
+            """,
+            bank_id,
+        )
+    except Exception as exc:
+        log.warning("cts.ngch_routing.query_failed", bank_id=bank_id, error=str(exc))
+        return NGCHRoutingResponse(bank_id=bank_id, rules=[], total=0)
+
+    rules = [
+        NGCHRoutingRule(
+            rule_id=r["rule_id"],
+            micr_prefix=r["micr_prefix"],
+            clearing_zone=r["clearing_zone"],
+            destination=r["destination"],
+            priority=r["priority"],
+            active=bool(r["active"]),
+            updated_at=r["updated_at"] or "",
+        )
+        for r in rows
+    ]
+    return NGCHRoutingResponse(bank_id=bank_id, rules=rules, total=len(rules))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /v1/cts/admin/micr-prefixes — MICR prefix / bank routing table
+# ─────────────────────────────────────────────────────────────────────────────
+
+class MICRPrefixItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    prefix_id: str
+    micr_prefix: str
+    bank_name: str
+    bank_ifsc: str
+    clearing_zone: str
+    active: bool
+    updated_at: str
+
+
+class MICRPrefixesResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    items: list[MICRPrefixItem]
+    total: int
+
+
+@router_v1.get("/admin/micr-prefixes", response_model=MICRPrefixesResponse)
+async def get_micr_prefixes(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+    search: Optional[str] = Query(None),
+) -> MICRPrefixesResponse:
+    """Returns the MICR prefix routing table for this bank."""
+    bank_id = ctx.bank_id
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return MICRPrefixesResponse(bank_id=bank_id, items=[], total=0)
+
+    try:
+        search_clause = "AND (micr_prefix LIKE $2 OR bank_name ILIKE $2)" if search else ""
+        params: list = [bank_id]
+        if search:
+            params.append(f"%{search}%")
+        rows = await db.fetch(
+            f"""
+            SELECT prefix_id, micr_prefix, bank_name, bank_ifsc,
+                   clearing_zone, active, updated_at::text
+            FROM cts.micr_prefix_routing
+            WHERE bank_id = $1
+              {search_clause}
+            ORDER BY micr_prefix
+            LIMIT 1000
+            """,
+            *params,
+        )
+    except Exception as exc:
+        log.warning("cts.micr_prefixes.query_failed", bank_id=bank_id, error=str(exc))
+        return MICRPrefixesResponse(bank_id=bank_id, items=[], total=0)
+
+    items = [
+        MICRPrefixItem(
+            prefix_id=r["prefix_id"],
+            micr_prefix=r["micr_prefix"],
+            bank_name=r["bank_name"],
+            bank_ifsc=r["bank_ifsc"] or "",
+            clearing_zone=r["clearing_zone"] or "",
+            active=bool(r["active"]),
+            updated_at=r["updated_at"] or "",
+        )
+        for r in rows
+    ]
+    return MICRPrefixesResponse(bank_id=bank_id, items=items, total=len(items))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /v1/cts/rpc/zones — Regional Processing Centre zone list
+# ─────────────────────────────────────────────────────────────────────────────
+
+class RPCZoneItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    zone_id: str
+    zone_name: str
+    ngch_node: str
+    instrument_count_today: int
+    settled_count: int
+    pending_count: int
+    status: str
+    last_sync_at: Optional[str] = None
+
+
+class RPCZonesResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    zones: list[RPCZoneItem]
+    total: int
+
+
+@router_v1.get("/rpc/zones", response_model=RPCZonesResponse)
+async def get_rpc_zones(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> RPCZonesResponse:
+    """Returns RPC zone aggregates for multi-centre banks."""
+    bank_id = ctx.bank_id
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return RPCZonesResponse(bank_id=bank_id, zones=[], total=0)
+
+    try:
+        rows = await db.fetch(
+            """
+            SELECT
+                z.zone_id,
+                z.zone_name,
+                z.ngch_node,
+                z.status,
+                z.last_sync_at::text,
+                COUNT(l.lot_id)::int                                             AS instrument_count_today,
+                COUNT(l.lot_id) FILTER (WHERE l.status = 'SETTLED')::int        AS settled_count,
+                COUNT(l.lot_id) FILTER (WHERE l.status NOT IN ('SETTLED','PARTIAL_FAIL'))::int AS pending_count
+            FROM cts.rpc_zones z
+            LEFT JOIN cts.lots l
+                   ON l.zone_id = z.zone_id
+                  AND l.bank_id = $1
+                  AND l.created_at::date = CURRENT_DATE
+            WHERE z.bank_id = $1
+            GROUP BY z.zone_id, z.zone_name, z.ngch_node, z.status, z.last_sync_at
+            ORDER BY z.zone_name
+            """,
+            bank_id,
+        )
+    except Exception as exc:
+        log.warning("cts.rpc_zones.query_failed", bank_id=bank_id, error=str(exc))
+        return RPCZonesResponse(bank_id=bank_id, zones=[], total=0)
+
+    zones = [
+        RPCZoneItem(
+            zone_id=r["zone_id"],
+            zone_name=r["zone_name"],
+            ngch_node=r["ngch_node"] or "",
+            instrument_count_today=r["instrument_count_today"],
+            settled_count=r["settled_count"],
+            pending_count=r["pending_count"],
+            status=r["status"] or "ACTIVE",
+            last_sync_at=r["last_sync_at"],
+        )
+        for r in rows
+    ]
+    return RPCZonesResponse(bank_id=bank_id, zones=zones, total=len(zones))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /v1/cts/outward/endorsement-queue — instruments awaiting endorsement stamp
+# ─────────────────────────────────────────────────────────────────────────────
+
+class EndorsementQueueItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    id: str
+    cheque: str
+    suffix: str
+    lot: str
+
+
+class EndorsementQueueResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    items: list[EndorsementQueueItem]
+    total: int
+
+
+@router_v1.get("/outward/endorsement-queue", response_model=EndorsementQueueResponse)
+async def get_endorsement_queue(
+    request: Request,
+    ctx: UserContext = Depends(require_user_context),
+) -> EndorsementQueueResponse:
+    bank_id = ctx.bank_id
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return EndorsementQueueResponse(bank_id=bank_id, items=[], total=0)
+    try:
+        rows = await db.fetch(
+            """
+            SELECT instrument_id, cheque_number, account_suffix, lot_number
+            FROM cts.cheque_instruments
+            WHERE bank_id = $1
+              AND direction = 'OUTWARD'
+              AND status IN ('PENDING_ENDORSEMENT', 'SCANNED', 'OCR_COMPLETE')
+              AND received_at::date = CURRENT_DATE
+            ORDER BY lot_number, received_at
+            LIMIT 200
+            """,
+            bank_id,
+        )
+    except Exception as exc:
+        log.warning("cts.endorsement_queue.query_failed", bank_id=bank_id, error=str(exc))
+        return EndorsementQueueResponse(bank_id=bank_id, items=[], total=0)
+
+    items = [
+        EndorsementQueueItem(
+            id=r["instrument_id"],
+            cheque=r["cheque_number"] or "",
+            suffix=r["account_suffix"] or "0000",
+            lot=r["lot_number"] or "LOT-01",
+        )
+        for r in rows
+    ]
+    return EndorsementQueueResponse(bank_id=bank_id, items=items, total=len(items))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /v1/cts/outward/iqa-results — IQA scan results for today's outward batch
+# ─────────────────────────────────────────────────────────────────────────────
+
+class IQAResultItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    id: str
+    account: str
+    lot: str
+    scanner: Optional[str] = None
+    status: str
+    fail_reason: Optional[str] = None
+    fail_label: Optional[str] = None
+    scanned_at: str
+    ocr_conf: Optional[str] = None
+    dpi: Optional[int] = None
+
+
+class IQAResultsResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    items: list[IQAResultItem]
+    total: int
+
+
+@router_v1.get("/outward/iqa-results", response_model=IQAResultsResponse)
+async def get_iqa_results(
+    request: Request,
+    limit: int = Query(100, ge=1, le=500),
+    ctx: UserContext = Depends(require_user_context),
+) -> IQAResultsResponse:
+    bank_id = ctx.bank_id
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return IQAResultsResponse(bank_id=bank_id, items=[], total=0)
+    try:
+        rows = await db.fetch(
+            """
+            SELECT instrument_id, account_suffix, lot_number, scanner_id,
+                   iqa_status, iqa_fail_reason, scanned_at, ocr_confidence, scan_dpi
+            FROM cts.cheque_instruments
+            WHERE bank_id = $1
+              AND direction = 'OUTWARD'
+              AND scanned_at::date = CURRENT_DATE
+              AND scanned_at IS NOT NULL
+            ORDER BY scanned_at DESC
+            LIMIT $2
+            """,
+            bank_id,
+            limit,
+        )
+    except Exception as exc:
+        log.warning("cts.iqa_results.query_failed", bank_id=bank_id, error=str(exc))
+        return IQAResultsResponse(bank_id=bank_id, items=[], total=0)
+
+    _IQA_LABELS = {
+        "DARK": "Image too dark — rescan required",
+        "MICR": "MICR band not readable",
+        "SKEW": "Image skew > 2°",
+        "TORN": "Torn corner — rescan",
+        "DUPLICATE": "Duplicate instrument detected",
+        "BLUR": "Focus blur — rescan required",
+        "FOLD": "Fold crease over amount field",
+    }
+
+    items = [
+        IQAResultItem(
+            id=r["instrument_id"],
+            account=f"****{r['account_suffix']}" if r["account_suffix"] else "****0000",
+            lot=r["lot_number"] or "LOT-01",
+            scanner=r["scanner_id"],
+            status=r["iqa_status"] or "IQA_PASS",
+            fail_reason=r["iqa_fail_reason"],
+            fail_label=_IQA_LABELS.get(r["iqa_fail_reason"] or "", r["iqa_fail_reason"]),
+            scanned_at=r["scanned_at"].isoformat() if r["scanned_at"] else "",
+            ocr_conf=f"{r['ocr_confidence']:.2f}" if r["ocr_confidence"] is not None else None,
+            dpi=r["scan_dpi"],
+        )
+        for r in rows
+    ]
+    return IQAResultsResponse(bank_id=bank_id, items=items, total=len(items))
