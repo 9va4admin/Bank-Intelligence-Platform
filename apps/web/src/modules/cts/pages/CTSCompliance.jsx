@@ -1,8 +1,30 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+function useComplianceData({ pollEnabled }) {
+  const [data, setData] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/outward/compliance`, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      setData(json)
+    } catch { /* keep last */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 2 * 60_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return data
+}
 
 // ── CTS-2010 Standard reference (mirrors Python CTS2010Standard) ─────────────
 const CTS2010 = {
@@ -113,12 +135,36 @@ function downloadXml(xml, filename) {
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function CTSCompliance() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const sessionId   = `SES-${bankIfsc || 'BANK'}-20260619-001`
-  const INSTRUMENTS = useMemo(() => makeRawInstruments(bankIfsc).map(evalRecord), [bankIfsc])
-  const LOTS        = useMemo(() => [...new Set(INSTRUMENTS.map(i => i.lot))], [INSTRUMENTS])
-  const [selectedLot, setSelectedLot] = useState(() => LOTS[0])
+
+  const liveData = useComplianceData({ pollEnabled: !isDemo })
+
+  const MOCK_INSTRUMENTS = useMemo(() => makeRawInstruments(bankIfsc).map(evalRecord), [bankIfsc])
+
+  // Map live compliance checks → instrument-like display shape
+  const INSTRUMENTS = useMemo(() => {
+    if (isDemo || !liveData?.items || liveData.items.length === 0) return MOCK_INSTRUMENTS
+    return liveData.items.map(c => ({
+      id: c.instrument_id || c.lot_id,
+      cheque: c.instrument_id || '',
+      lot: c.lot_id || '',
+      result: c.result,
+      reasons: c.detail ? [c.detail] : [],
+      front_dpi: 300, front_colour_depth: 24, front_file_size_kb: 38,
+      front_iqa_score: c.result === 'PASS' ? 0.95 : 0.65,
+      rear_dpi: 300, rear_colour_depth: 24, rear_file_size_kb: 22,
+      rear_iqa_score: c.result === 'PASS' ? 0.91 : 0.60,
+      micr_band_score: c.result === 'PASS' ? 0.96 : 0.70,
+    }))
+  }, [isDemo, liveData, MOCK_INSTRUMENTS])
+
+  const LOTS        = useMemo(() => [...new Set(INSTRUMENTS.map(i => i.lot))].filter(Boolean), [INSTRUMENTS])
+  const [selectedLot, setSelectedLot] = useState(null)
+  useEffect(() => {
+    if (!selectedLot && LOTS.length > 0) setSelectedLot(LOTS[0])
+  }, [LOTS, selectedLot])
   const [filterResult, setFilterResult] = useState('ALL')
 
   const lotItems = INSTRUMENTS.filter(i => i.lot === selectedLot)

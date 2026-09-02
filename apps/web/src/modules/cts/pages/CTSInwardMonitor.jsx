@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import {
   ReactFlow,
   Background,
@@ -11,7 +11,39 @@ import {
 import '@xyflow/react/dist/style.css'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 import IETTimer from '../components/IETTimer'
+
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+function useLiveFlow({ pollEnabled }) {
+  const [items, setItems] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/inward/live-flow?limit=50`, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      // Map API shape → instrument shape that buildInitialNodes expects
+      setItems((json.items ?? []).map(i => ({
+        id: i.instrument_id,
+        stage: i.stage || 'RECEIVED',
+        amount: i.amount_range || '₹[<1L]',
+        micr: i.micr_suffix || '000000000000',
+        fraud: i.fraud_score ?? 0,
+        latency: i.elapsed_ms ?? 0,
+        outcome: i.decision || 'PENDING',
+      })))
+    } catch { /* keep last */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 10_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return items
+}
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 
@@ -288,11 +320,20 @@ function DetailPanel({ instr, onClose, isDark }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-const INSTRUMENTS = makeMockInstruments()
+const _STATIC_INSTRUMENTS = makeMockInstruments()
 
 export default function CTSInwardMonitor() {
   const { isDark } = useTheme()
+  const { isDemo } = useBankContext()
   const [selectedId, setSelectedId] = useState(null)
+
+  const liveFlow = useLiveFlow({ pollEnabled: !isDemo })
+
+  // Demo invariant
+  const INSTRUMENTS = useMemo(() => {
+    if (isDemo || !liveFlow || liveFlow.length === 0) return _STATIC_INSTRUMENTS
+    return liveFlow
+  }, [isDemo, liveFlow])
 
   const th = {
     page:    isDark ? 'bg-navy-950'                    : 'bg-slate-50',
@@ -304,8 +345,11 @@ export default function CTSInwardMonitor() {
     flow:    isDark ? '#03061a'                        : '#f8fafc',
   }
 
-  const initialNodes = useMemo(() => buildInitialNodes(INSTRUMENTS), [])
-  const [nodes, , onNodesChange] = useNodesState(initialNodes)
+  const initialNodes = useMemo(() => buildInitialNodes(INSTRUMENTS), [INSTRUMENTS])
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
+
+  // Keep ReactFlow nodes in sync when live data updates
+  useEffect(() => { setNodes(buildInitialNodes(INSTRUMENTS)) }, [INSTRUMENTS, setNodes])
 
   const onNodeClick = useCallback((_, node) => {
     if (node.type !== 'chequeNode') return

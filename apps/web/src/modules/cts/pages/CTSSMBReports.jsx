@@ -8,12 +8,33 @@
  *
  * smbOnly: SB users see their own aggregated reports elsewhere.
  */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import AppShell from '../../../shared/layout/AppShell'
-import { useEffect } from 'react'
+
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+function useSMBReports({ pollEnabled, days = 7 }) {
+  const [data, setData] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/smb/reports?days=${days}`, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      setData(json)
+    } catch { /* keep last */ }
+  }, [days])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 5 * 60_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return data
+}
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
@@ -331,10 +352,39 @@ function SettlementTab({ data, bankName, bankId, isDark }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CTSSMBReports() {
-  const { bankName, bankId } = useBankContext()
+  const { bankName, bankId, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const { setHeader } = usePageHeader()
   const [activeTab, setActiveTab] = useState(0)
+
+  const liveReports = useSMBReports({ pollEnabled: !isDemo })
+
+  // Map live rows → daily summary sessions shape
+  const liveSessions = useMemo(() => {
+    if (!liveReports?.rows || liveReports.rows.length === 0) return null
+    // Group by date
+    const byDate = {}
+    liveReports.rows.forEach(r => {
+      if (!byDate[r.date]) byDate[r.date] = {
+        session_id: `SES-${r.date}`, date: r.date, slot: 'All Sessions',
+        status: 'SETTLED', total: 0, stp_confirmed: 0, stp_returned: 0,
+        manual_confirmed: 0, manual_returned: 0, value_L: 0, returned_value_L: 0,
+        stp_rate: 0, return_rate: 0,
+      }
+      const d = byDate[r.date]
+      d.total += r.total_presented
+      d.stp_confirmed += r.stp_confirmed
+      d.stp_returned += r.stp_returned
+    })
+    return Object.values(byDate).map(d => ({
+      ...d,
+      stp_rate: d.total ? Math.round(d.stp_confirmed / d.total * 100 * 10) / 10 : 0,
+      return_rate: d.total ? Math.round(d.stp_returned / d.total * 100 * 10) / 10 : 0,
+    }))
+  }, [liveReports])
+
+  const SESSIONS_SRC = (!isDemo && liveSessions && liveSessions.length > 0) ? liveSessions : MOCK_SESSIONS
+  const RRF_SRC = MOCK_RRF  // RRF from live instrument data requires additional endpoint; keep mock as fallback
 
   useEffect(() => {
     setHeader({ title: 'SMB Reports', subtitle: bankName })
@@ -370,8 +420,8 @@ export default function CTSSMBReports() {
 
           {/* Tab content */}
           <div className="p-5">
-            {activeTab === 0 && <SummaryTab sessions={MOCK_SESSIONS} bankId={bankId} isDark={isDark} />}
-            {activeTab === 1 && <RRFTab items={MOCK_RRF} bankId={bankId} isDark={isDark} />}
+            {activeTab === 0 && <SummaryTab sessions={SESSIONS_SRC} bankId={bankId} isDark={isDark} />}
+            {activeTab === 1 && <RRFTab items={RRF_SRC} bankId={bankId} isDark={isDark} />}
             {activeTab === 2 && <SettlementTab data={MOCK_SETTLEMENT} bankName={bankName} bankId={bankId} isDark={isDark} />}
           </div>
         </div>

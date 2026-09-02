@@ -1,9 +1,31 @@
-import { useState } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+function useIQAResults({ pollEnabled }) {
+  const [items, setItems] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/outward/iqa-results?limit=200`, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      setItems(json.items ?? [])
+    } catch { /* keep last */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 30_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return items
+}
 
 // ─── Mock Data ──────────────────────────────────────────────────────────────
 
@@ -93,7 +115,29 @@ function buildStats(instruments) {
 export default function CTSImageQuality() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
-  const [instruments, setInstruments] = useState(() => isDemo ? INSTRUMENTS : [])
+  const liveIQA = useIQAResults({ pollEnabled: !isDemo })
+  const [instruments, setInstruments] = useState(INSTRUMENTS)
+  useEffect(() => {
+    if (isDemo || !liveIQA || liveIQA.length === 0) {
+      setInstruments(INSTRUMENTS)
+    } else {
+      setInstruments(liveIQA.map(item => ({
+        id: item.id,
+        account: item.account,
+        payee: '—',
+        amount: '—',
+        scanner: item.scanner || 'SCN-01',
+        lot: item.lot,
+        lot_seq: parseInt((item.lot || 'LOT-01').replace('LOT-', '')) || 1,
+        status: item.status,
+        fail_reason: item.fail_reason || null,
+        fail_label: item.fail_label || null,
+        scanned_at: item.scanned_at,
+        ocr_conf: item.ocr_conf,
+        dpi: item.dpi || 200,
+      })))
+    }
+  }, [isDemo, liveIQA])
   const [selected, setSelected]       = useState(null)
   const [filter, setFilter]           = useState('ALL')  // ALL | IQA_FAIL | IQA_PASS | RESCAN_PASS
   const [scannerFilter, setScannerFilter] = useState('ALL')

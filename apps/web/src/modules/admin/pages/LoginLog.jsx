@@ -1,7 +1,32 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
+
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+function useAuthLog({ pollEnabled, days = 1 }) {
+  const [items, setItems] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/admin/login-log?days=${days}&limit=200`, {
+        credentials: 'include',
+      })
+      if (!res.ok) return
+      const json = await res.json()
+      setItems(json.items ?? [])
+    } catch { /* keep last */ }
+  }, [days])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 2 * 60_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return items
+}
 
 // Mock login events — SB user sees all (SB + SMB tenants), SMB user sees only own
 const MOCK_EVENTS = [
@@ -148,9 +173,32 @@ function fmt(iso) {
 
 export default function LoginLog() {
   const { isDark } = useTheme()
+  const { isDemo } = useBankContext()
   const [eventTypeFilter, setEventTypeFilter] = useState('ALL')
   const [bankTypeFilter, setBankTypeFilter] = useState('ALL')
   const [search, setSearch] = useState('')
+
+  const liveItems = useAuthLog({ pollEnabled: !isDemo })
+
+  // Demo invariant
+  const ALL_EVENTS = useMemo(() => {
+    if (isDemo || !liveItems || liveItems.length === 0) return MOCK_EVENTS
+    return liveItems.map(i => ({
+      event_id: i.event_id,
+      bank_id: i.bank_id || BANK_CONFIG.bank_id,
+      bank_type: 'SB',
+      user_id: i.user_id,
+      display_name: i.username,
+      email: i.username,
+      event_type: i.event_type,
+      ip_hash: i.ip_address ? i.ip_address.replace(/\d+$/, '***') : '—',
+      user_agent: i.user_agent || '—',
+      session_id: null,
+      failure_reason: i.failure_reason,
+      occurred_at: i.occurred_at,
+      immudb_verified: true,
+    }))
+  }, [isDemo, liveItems])
 
   const th = {
     page:    isDark ? 'bg-transparent' : 'bg-slate-50',
@@ -167,12 +215,12 @@ export default function LoginLog() {
     pill:    isDark ? 'bg-white/5 text-slate-300 border-white/8' : 'bg-slate-100 text-slate-600 border-slate-200',
   }
 
-  const isSB = VIEWER_BANK_TYPE === 'SB'
+  const isSBViewer = VIEWER_BANK_TYPE === 'SB'
 
-  // Scope events by viewer role
-  const scopedEvents = isSB
-    ? MOCK_EVENTS
-    : MOCK_EVENTS.filter(e => e.bank_id === VIEWER_BANK_ID)
+  // ALL_EVENTS already computed above via useMemo (live or mock)
+  const scopedEvents = isSBViewer
+    ? ALL_EVENTS
+    : ALL_EVENTS.filter(e => e.bank_id === VIEWER_BANK_ID)
 
   const filtered = scopedEvents.filter(e => {
     if (eventTypeFilter !== 'ALL' && e.event_type !== eventTypeFilter) return false
