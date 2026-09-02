@@ -59,7 +59,7 @@ const INSTRUMENTS = [
 
 const LOTS = ['LOT-01', 'LOT-02', 'LOT-03', 'LOT-04']
 
-const PRESENTATION_DATE = '2026-06-19'
+const PRESENTATION_DATE = new Date().toISOString().split('T')[0]
 const MAX_ENDORSEMENT_TEXT_LEN = 120
 
 function buildQrData(instr, ifsc) {

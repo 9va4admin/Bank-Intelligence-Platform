@@ -6,13 +6,14 @@ import { useBankContext } from '../../../shared/context/BankContext'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 
 const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+const _IQA_PAGE_LIMIT = Number(import.meta.env.VITE_IQA_PAGE_LIMIT ?? 200)
 
 function useIQAResults({ pollEnabled }) {
   const [items, setItems] = useState(null)
   const timerRef = useRef(null)
   const fetch_ = useCallback(async () => {
     try {
-      const res = await fetch(`${_API_BASE}/v1/cts/outward/iqa-results?limit=200`, { credentials: 'include' })
+      const res = await fetch(`${_API_BASE}/v1/cts/outward/iqa-results?limit=${_IQA_PAGE_LIMIT}`, { credentials: 'include' })
       if (!res.ok) return
       const json = await res.json()
       setItems(json.items ?? [])
