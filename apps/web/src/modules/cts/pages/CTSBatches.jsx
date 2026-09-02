@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
 import AppShell from '../../../shared/layout/AppShell'
+import useLots from '../hooks/useLots'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -128,14 +129,24 @@ function ProgressBar({ lot }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+// ── DB lot status → UI status mapping ──────────────────────────────────────
+const _LOT_DB_STATUS = { OPEN: 'RECEIVED', SEALED: 'IQA_COMPLETE' }
+
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
 export default function CTSBatches() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const [sessionFilter, setSessionFilter] = useState('ALL')
   const [statusFilter,  setStatusFilter]  = useState('ALL')
   const [branchFilter,  setBranchFilter]  = useState('ALL')
   const [selectedLot,   setSelectedLot]   = useState(null)
   const [selInst,       setSelInst]       = useState(null)
+  const [liveInstruments, setLiveInstruments] = useState([])
+  const [loadingInst,     setLoadingInst]     = useState(false)
+
+  // ── Live lot data ──────────────────────────────────────────────────────────
+  const { lots: liveLots } = useLots({ pollEnabled: !isDemo })
 
   const th = {
     page:  isDark ? 'bg-[#020817] text-white'         : 'bg-slate-50 text-slate-900',
@@ -155,19 +166,47 @@ export default function CTSBatches() {
   const demoSessions = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
   const SESSIONS = useDemoData(demoSessions)
   const BRANCHES = isSMB ? SMB_BRANCHES : SB_BRANCHES
-  const ALL_LOTS = useMemo(
+  const mockLots = useMemo(
     () => SESSIONS.length ? makeLots(isSMB ? 5 : 30, SESSIONS, BRANCHES, bankIfsc) : [],
     [isSMB, SESSIONS, BRANCHES, bankIfsc]
   )
+
+  // ── Live lots → display shape ──────────────────────────────────────────────
+  const mappedLiveLots = useMemo(() => {
+    if (!liveLots || liveLots.length === 0) return null
+    return liveLots.map(l => ({
+      id: l.lot_id,
+      lot_number: String(l.sequence_number).padStart(7, '0'),
+      branch: l.branch_name || l.branch_id,
+      session: l.session_id,
+      session_label: l.session_id,
+      instrument_count: l.instrument_count,
+      physical_count: l.instrument_count,
+      count_match: true,
+      status: _LOT_DB_STATUS[l.status] || l.status,
+      total_amount: '—',
+      totalAmtRaw: 0,
+      iqa_fail: 0,
+      confirmed: 0,
+      returned: 0,
+      created_at: l.created_at,
+      scanner_id: '—',
+      instruments: [],
+    }))
+  }, [liveLots])
+
+  // ── Demo invariant for lots ────────────────────────────────────────────────
+  const ALL_LOTS = (isDemo || !mappedLiveLots) ? mockLots : mappedLiveLots
+
   const SUMMARY = useMemo(() => ({
-    lots:      ALL_LOTS.length,
-    instruments: ALL_LOTS.reduce((s, l) => s + l.instrument_count, 0),
-    totalAmt:  '₹' + ALL_LOTS.reduce((s, l) => s + l.totalAmtRaw, 0).toLocaleString('en-IN'),
-    settled:   ALL_LOTS.filter(l => l.status === 'SETTLED').length,
-    pending:   ALL_LOTS.filter(l => !['SETTLED','PARTIAL_FAIL'].includes(l.status)).length,
-    failures:  ALL_LOTS.filter(l => l.status === 'PARTIAL_FAIL').length,
+    lots:         ALL_LOTS.length,
+    instruments:  ALL_LOTS.reduce((s, l) => s + l.instrument_count, 0),
+    totalAmt:     isDemo ? '₹' + ALL_LOTS.reduce((s, l) => s + l.totalAmtRaw, 0).toLocaleString('en-IN') : '—',
+    settled:      ALL_LOTS.filter(l => l.status === 'SETTLED').length,
+    pending:      ALL_LOTS.filter(l => !['SETTLED','PARTIAL_FAIL'].includes(l.status)).length,
+    failures:     ALL_LOTS.filter(l => l.status === 'PARTIAL_FAIL').length,
     countMismatch: ALL_LOTS.filter(l => !l.count_match).length,
-  }), [ALL_LOTS])
+  }), [ALL_LOTS, isDemo])
 
   const filtered = useMemo(() => ALL_LOTS.filter(l => {
     if (sessionFilter !== 'ALL' && l.session !== sessionFilter) return false
@@ -177,6 +216,44 @@ export default function CTSBatches() {
   }), [ALL_LOTS, sessionFilter, statusFilter, branchFilter])
 
   const lot = selectedLot ? ALL_LOTS.find(l => l.id === selectedLot) : null
+
+  // ── Live instrument fetch on lot selection ─────────────────────────────────
+  const fetchLiveInstruments = useCallback(async (lotId) => {
+    setLoadingInst(true)
+    setLiveInstruments([])
+    try {
+      const res = await fetch(`${API_BASE}/v1/cts/outward/lots/${encodeURIComponent(lotId)}/instruments`, {
+        credentials: 'include',
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const json = await res.json()
+      setLiveInstruments((json.instruments ?? []).map(i => ({
+        id: i.instrument_id || i.scan_id,
+        micr: i.micr_suffix,
+        payee: i.payee_display,
+        amount: i.amount_range,
+        amtRaw: 0,
+        account: i.micr_suffix ? `****${i.micr_suffix.slice(-4)}` : '—',
+        status: i.outcome === 'ACCEPTED' ? 'IQA_PASS' : i.outcome === 'REJECTED' ? 'IQA_FAIL' : i.outcome,
+        ocr_conf: null,
+        sig_score: null,
+        fraud_score: null,
+        decision: null,
+      })))
+    } catch {
+      setLiveInstruments([])
+    } finally {
+      setLoadingInst(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isDemo || !selectedLot) return
+    fetchLiveInstruments(selectedLot)
+  }, [selectedLot, isDemo, fetchLiveInstruments])
+
+  // ── Instruments for display ────────────────────────────────────────────────
+  const displayInstruments = isDemo ? (lot?.instruments ?? []) : liveInstruments
 
   return (
     <AppShell>
@@ -193,9 +270,9 @@ export default function CTSBatches() {
               {SESSIONS.map(s => (
                 <span key={s.id} className={`text-[10px] px-2 py-1 rounded border font-mono ${
                   s.status === 'ACTIVE'  ? 'text-emerald-300 bg-emerald-900/30 border-emerald-700/40 animate-pulse' :
-                  s.status === 'CLOSED' ? 'text-slate-500 border-white/10' :
-                  'text-slate-600 border-white/5'}`}>
-                  {s.id.split('-')[2]} · {s.label} · {s.status}
+                  s.status === 'CLOSED' ? (isDark ? 'text-slate-500 border-white/10' : 'text-slate-500 border-slate-200') :
+                  isDark ? 'text-slate-600 border-white/5' : 'text-slate-400 border-slate-100'}`}>
+                  {s.id.split('-')[2] ?? s.id} · {s.label} · {s.status}
                 </span>
               ))}
             </div>
@@ -223,7 +300,7 @@ export default function CTSBatches() {
         <div className={`shrink-0 px-6 py-2 border-b flex items-center gap-2 ${th.divider}`}>
           <select className={`text-xs px-2 py-1.5 rounded-lg border ${th.sel}`} value={sessionFilter} onChange={e => setSessionFilter(e.target.value)}>
             <option value="ALL">All Sessions</option>
-            {SESSIONS.map(s => <option key={s.id} value={s.id}>{s.id} ({s.label})</option>)}
+            {[...new Set(ALL_LOTS.map(l => l.session))].map(sid => <option key={sid} value={sid}>{sid}</option>)}
           </select>
           <select className={`text-xs px-2 py-1.5 rounded-lg border ${th.sel}`} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
             <option value="ALL">All Status</option>
@@ -231,7 +308,7 @@ export default function CTSBatches() {
           </select>
           <select className={`text-xs px-2 py-1.5 rounded-lg border ${th.sel}`} value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
             <option value="ALL">All Branches</option>
-            {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+            {[...new Set(ALL_LOTS.map(l => l.branch).filter(Boolean))].map(b => <option key={b} value={b}>{b}</option>)}
           </select>
           <span className={`text-xs ml-auto ${th.sub}`}>{filtered.length} lots · {filtered.reduce((s, l) => s + l.instrument_count, 0)} instruments</span>
         </div>
@@ -326,7 +403,10 @@ export default function CTSBatches() {
                     </tr>
                   </thead>
                   <tbody>
-                    {lot.instruments.map(inst => {
+                    {loadingInst && (
+                      <tr><td colSpan={8} className={`px-3 py-4 text-center text-xs ${th.sub}`}>Loading instruments…</td></tr>
+                    )}
+                    {!loadingInst && displayInstruments.map(inst => {
                       const isSel = selInst === inst.id
                       return (
                         <tr

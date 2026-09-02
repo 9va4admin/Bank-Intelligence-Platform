@@ -4,6 +4,8 @@ import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
+import useSMBLedgers from '../hooks/useSMBLedgers'
+import useReconciliation from '../hooks/useReconciliation'
 
 // ── Sub-member ledger mock data ───────────────────────────────────────────────
 const SMB_LEDGERS = [
@@ -178,27 +180,97 @@ function downloadCsv(csv, filename) {
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
+// ── Discrepancy type → UI status mapping ─────────────────────────────────────
+function _mapDiscrepancyType(type) {
+  if (type === 'AMOUNT_MISMATCH')    return 'AMOUNT_MISMATCH'
+  if (type === 'MISSING_IN_NGCH')   return 'CBS_ONLY'
+  if (type === 'EXTRA_IN_NGCH')     return 'NGCH_ONLY'
+  if (type === 'DUPLICATE_FILING')  return 'NGCH_ONLY'
+  return 'PENDING'
+}
+
 export default function CTSReconciliation() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const [sessionIdx, setSessionIdx]         = useState(0)
   const [filterStatus, setFilterStatus]     = useState('ALL')
   const [raisedExceptions, setRaisedExceptions] = useState({})
+
+  // ── Live data hooks ────────────────────────────────────────────────────────
+  const { ledgers: liveLedgers } = useSMBLedgers({ pollEnabled: !isDemo })
+  const { data: reconData }      = useReconciliation({ pollEnabled: !isDemo })
 
   const demoSessions  = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
   const SESSIONS      = useDemoData(demoSessions)
   const demoReconData = useMemo(() => makeReconData(SESSIONS, isSMB), [SESSIONS, isSMB])
   const RECON_DATA    = useDemoData(demoReconData)
 
+  // ── SMB Ledger: demo invariant ─────────────────────────────────────────────
+  const DISPLAY_LEDGERS = useMemo(() => {
+    if (isDemo || !liveLedgers || liveLedgers.length === 0) return SMB_LEDGERS
+    return liveLedgers.map(l => ({
+      ...l,
+      sponsor_bank_id: bankId,
+      return_rate_threshold_pct: 15.0,
+      tier1_sent: l.stp_return,
+      tier2_sent: l.tier2_notification_sent,
+    }))
+  }, [isDemo, liveLedgers, bankId])
+
+  // ── Live reconciliation sessions (from reconData) ─────────────────────────
+  const liveSessions = useMemo(() => {
+    if (!reconData?.sessions?.length) return null
+    return reconData.sessions.map(s => ({
+      id: s.recon_session_id,
+      date: s.recon_date || reconData.recon_date,
+      label: `${s.recon_date || reconData.recon_date} — ${s.recon_type.replace(/_/g, ' ')}`,
+      _recon: s,
+    }))
+  }, [reconData])
+
+  // ── Live recon items: discrepancies mapped to UI shape ────────────────────
+  const liveReconItems = useMemo(() => {
+    if (!reconData?.discrepancies) return {}
+    const bySession = {}
+    for (const d of reconData.discrepancies) {
+      const sid = d.recon_session_id
+      if (!bySession[sid]) bySession[sid] = []
+      bySession[sid].push({
+        id: d.discrepancy_id,
+        cheque: d.cheque_number || '—',
+        suffix: '',
+        ngch: d.astra_value?.status || '—',
+        cbs: d.ngch_value?.status || '—',
+        ngch_amt: d.astra_value?.amount_range || '—',
+        cbs_amt: d.ngch_value?.amount_range || '—',
+        status: _mapDiscrepancyType(d.discrepancy_type),
+      })
+    }
+    return bySession
+  }, [reconData])
+
+  // ── Sessions / RECON_DATA: demo invariant ─────────────────────────────────
+  const ACTIVE_SESSIONS = (isDemo || !liveSessions) ? SESSIONS : liveSessions
+  const ACTIVE_RECON    = (isDemo || !liveSessions) ? RECON_DATA : liveReconItems
+
   useEffect(() => { setSessionIdx(0); setFilterStatus('ALL') }, [isSMB])
 
-  const session = SESSIONS.length ? SESSIONS[Math.min(sessionIdx, SESSIONS.length - 1)] : null
-  const items   = (session && RECON_DATA[session.id]) || []
+  const session = ACTIVE_SESSIONS.length
+    ? ACTIVE_SESSIONS[Math.min(sessionIdx, ACTIVE_SESSIONS.length - 1)]
+    : null
+  const items = (session && ACTIVE_RECON[session.id]) || []
 
-  const matched    = items.filter(i => i.status === 'MATCHED').length
-  const pending    = items.filter(i => i.status === 'PENDING').length
-  const exceptions = items.filter(i => EXCEPTION_STATUSES.has(i.status)).length
-  const matchRate  = items.length ? ((matched / items.length) * 100).toFixed(1) : '0.0'
+  // In live mode, derive summary from reconData session stats when available
+  const reconSession = !isDemo && session?._recon ? session._recon : null
+  const total        = reconSession ? (reconSession.astra_instrument_count ?? items.length) : items.length
+  const exceptions   = reconSession
+    ? reconSession.discrepancy_count
+    : items.filter(i => EXCEPTION_STATUSES.has(i.status)).length
+  const matched      = reconSession
+    ? Math.max(0, total - reconSession.discrepancy_count)
+    : items.filter(i => i.status === 'MATCHED').length
+  const pending      = items.filter(i => i.status === 'PENDING').length
+  const matchRate    = total > 0 ? ((matched / total) * 100).toFixed(1) : '0.0'
 
   const visible = filterStatus === 'ALL' ? items : items.filter(i => i.status === filterStatus)
 
@@ -289,7 +361,7 @@ export default function CTSReconciliation() {
           onChange={e => { setSessionIdx(Number(e.target.value)); setFilterStatus('ALL') }}
           className={`text-xs border rounded-lg px-3 py-1.5 ${th.select}`}
         >
-          {SESSIONS.map((s, i) => (
+          {ACTIVE_SESSIONS.map((s, i) => (
             <option key={s.id} value={i}>{s.label}</option>
           ))}
         </select>
@@ -325,7 +397,7 @@ export default function CTSReconciliation() {
           <div className={`w-px h-5 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`} />
           <div className="flex items-center gap-1.5">
             <span className={`text-[10px] uppercase tracking-wider font-medium ${th.faint}`}>Total</span>
-            <span className={`text-sm font-bold ${th.heading}`}>{items.length}</span>
+            <span className={`text-sm font-bold ${th.heading}`}>{total}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className={`w-2 h-2 rounded-full bg-emerald-400 shrink-0`} />
@@ -349,6 +421,13 @@ export default function CTSReconciliation() {
             </div>
           )}
         </div>
+
+        {/* Live-mode banner: exceptions only */}
+        {!isDemo && reconSession && (
+          <div className={`mb-4 px-4 py-2 rounded-lg border text-xs ${isDark ? 'bg-sky-900/20 border-sky-700/40 text-sky-300' : 'bg-sky-50 border-sky-200 text-sky-700'}`}>
+            Live data · Showing {exceptions} exception{exceptions !== 1 ? 's' : ''} — {matched.toLocaleString()} of {total.toLocaleString()} instruments reconciled successfully.
+          </div>
+        )}
 
         {/* Filter bar */}
         <div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -478,7 +557,7 @@ export default function CTSReconciliation() {
           </div>
 
           <div className="space-y-3">
-            {SMB_LEDGERS.map(smb => {
+            {DISPLAY_LEDGERS.map(smb => {
               const shieldCls    = SHIELD[smb.shield_status] || SHIELD.SAFE
               const returnBarPct = Math.min(100, (smb.return_rate_pct / smb.return_rate_threshold_pct) * 100)
               const barColor     = smb.shield_status === 'HARD_STOP' ? 'bg-red-400' : smb.shield_status === 'SOFT_HOLD' ? 'bg-amber-400' : 'bg-emerald-400'
