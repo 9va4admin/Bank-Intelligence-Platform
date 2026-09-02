@@ -27,11 +27,19 @@ tracer = trace.get_tracer("astra.rate_limit")
 # endpoint_slug → (limit_per_minute, bank_scope)
 # bank_scope: True = limit per bank_id, False = limit per user_id
 _ENDPOINT_LIMITS: dict[str, tuple[int, bool]] = {
-    # CTS
+    # CTS — write/decision paths
     "cts_inward_submit": (600, True),
     "cts_review_decide": (120, True),
     "cts_decisions_get": (300, True),
     "cts_queue_get": (60, True),
+    # CTS — live-status read paths (polled every 10–30s by UI)
+    "cts_status_get":     (120, True),   # exceptions, inward/live-flow, inward/sessions, compliance
+    "cts_ops_get":        (60,  True),   # outward/sessions, smb/reports, rpc/zones, outward/clearing-window
+    "cts_workstation_get":(120, True),   # endorsement-queue, iqa-results (polled every 30s)
+    # CTS — admin/config read paths (polled every 5 min)
+    "cts_admin_read":     (30,  True),   # admin/login-log, admin/ngch-routing, admin/micr-prefixes
+    # CTS — vault read paths
+    "cts_vault_read":     (60,  True),   # vault/health, vault/misses, vault/pps, vault/stop-cheques
     # EJ
     "ej_inward_log": (100, True),
     "ej_canonical_get": (200, True),
@@ -47,12 +55,32 @@ _ENDPOINT_LIMITS: dict[str, tuple[int, bool]] = {
     "auth_mfa_enrol":  (5,  False),
 }
 
-# Maps URL path prefixes to endpoint slugs
+# Maps URL path prefixes to endpoint slugs.
+# IMPORTANT: More-specific prefixes MUST come before less-specific ones —
+# _resolve_slug() returns on first match. Longer prefix = higher specificity.
 _PATH_TO_SLUG: dict[str, str] = {
-    "/v1/cts/inward": "cts_inward_submit",
-    "/v1/cts/review": "cts_review_decide",
-    "/v1/cts/decisions": "cts_decisions_get",
-    "/v1/cts/queue": "cts_queue_get",
+    # CTS — specific paths first (before generic /v1/cts/inward prefix)
+    "/v1/cts/inward/live-flow":          "cts_status_get",
+    "/v1/cts/inward/sessions":           "cts_status_get",
+    "/v1/cts/inward":                    "cts_inward_submit",
+    "/v1/cts/outward/endorsement-queue": "cts_workstation_get",
+    "/v1/cts/outward/iqa-results":       "cts_workstation_get",
+    "/v1/cts/outward/compliance":        "cts_status_get",
+    "/v1/cts/outward/sessions":          "cts_ops_get",
+    "/v1/cts/outward":                   "cts_ops_get",
+    "/v1/cts/exceptions":                "cts_status_get",
+    "/v1/cts/smb/reports":               "cts_ops_get",
+    "/v1/cts/rpc/zones":                 "cts_ops_get",
+    "/v1/cts/admin/login-log":           "cts_admin_read",
+    "/v1/cts/admin/ngch-routing":        "cts_admin_read",
+    "/v1/cts/admin/micr-prefixes":       "cts_admin_read",
+    "/v1/cts/vault/health":              "cts_vault_read",
+    "/v1/cts/vault/misses":              "cts_vault_read",
+    "/v1/cts/vault/pps":                 "cts_vault_read",
+    "/v1/cts/vault/stop-cheques":        "cts_vault_read",
+    "/v1/cts/review":                    "cts_review_decide",
+    "/v1/cts/decisions":                 "cts_decisions_get",
+    "/v1/cts/queue":                     "cts_queue_get",
     "/v1/ej/inward": "ej_inward_log",
     "/v1/ej/canonical": "ej_canonical_get",
     "/v1/ej/atm": "ej_atm_health",

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useMemo } from 'react'
+﻿import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
@@ -6,6 +6,8 @@ import useDemoData from '../../../shared/hooks/useDemoData'
 import useDemoInterval from '../../../shared/hooks/useDemoInterval'
 import ChequeImageViewer from '../components/ChequeImageViewer'
 import { demoChequeUrl } from '../demoImages'
+
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -668,9 +670,78 @@ export default function CTSPresentment() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const demoSessions = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
-  const SESSIONS = useDemoData(demoSessions)
-  const demoInitialBatch = useMemo(() => makeBatch(isSMB ? 8 : 42, 0, bankIfsc || 'BANK', SESSIONS[0]?.id || 'SES-0619-001'), [bankIfsc, isSMB, SESSIONS])
+  const demoInitialBatch = useMemo(() => makeBatch(isSMB ? 8 : 42, 0, bankIfsc || 'BANK', demoSessions[0]?.id || 'SES-0619-001'), [bankIfsc, isSMB, demoSessions])
   const initialBatch = useDemoData(demoInitialBatch)
+
+  // Live sessions + batch
+  const [liveSessions, setLiveSessions] = useState([])
+  const [liveBatch, setLiveBatch] = useState([])
+  const liveTimerRef = useRef(null)
+
+  const fetchLive = useCallback(async () => {
+    if (isDemo) return
+    try {
+      const [sesRes, lotsRes] = await Promise.all([
+        fetch(`${_API_BASE}/v1/cts/outward/sessions`, { credentials: 'include' }),
+        fetch(`${_API_BASE}/v1/cts/outward/lots?status=OPEN&limit=5`, { credentials: 'include' }),
+      ])
+      if (sesRes.ok) {
+        const sesData = await sesRes.json()
+        setLiveSessions((sesData.sessions ?? []).map(s => ({
+          id: s.session_id,
+          window: `${s.start_time ?? '—'} – ${s.end_time ?? '—'}`,
+          status: s.status,
+          submitted: s.submitted ?? 0,
+          accepted: s.accepted ?? 0,
+          rejected: s.rejected ?? 0,
+          returned: s.returned ?? 0,
+        })))
+      }
+      if (lotsRes.ok) {
+        const lotsData = await lotsRes.json()
+        const firstLot = (lotsData.lots ?? [])[0]
+        if (firstLot?.lot_id) {
+          const instrRes = await fetch(
+            `${_API_BASE}/v1/cts/outward/lots/${encodeURIComponent(firstLot.lot_id)}/instruments`,
+            { credentials: 'include' }
+          )
+          if (instrRes.ok) {
+            const instrData = await instrRes.json()
+            setLiveBatch((instrData.instruments ?? []).map((r, idx) => ({
+              instrument_id: r.instrument_id,
+              account_display: `****${r.micr_suffix ?? '0000'}`,
+              payee: r.payee_display ?? '—',
+              amount: r.amount_range ?? '—',
+              micr: r.micr_suffix ?? '—',
+              date_on_cheque: r.scanned_at ? new Date(r.scanned_at).toLocaleDateString('en-IN') : '—',
+              passed: r.outcome === 'ACCEPTED',
+              fail_code: r.outcome !== 'ACCEPTED' ? r.outcome : null,
+              fail_label: r.outcome !== 'ACCEPTED' ? r.outcome : null,
+              status: r.outcome ?? 'CAPTURED',
+              lot_id: firstLot.lot_id,
+              seq_in_batch: idx + 1,
+              image_bw: null,
+              images_all: [],
+              arrived_at: r.scanned_at,
+            })))
+          }
+        }
+      }
+    } catch { /* keep last */ }
+  }, [isDemo])
+
+  useEffect(() => {
+    if (isDemo) return
+    fetchLive()
+    liveTimerRef.current = setInterval(fetchLive, 15_000)
+    return () => clearInterval(liveTimerRef.current)
+  }, [isDemo, fetchLive])
+
+  const SESSIONS = useMemo(() => {
+    if (isDemo || !liveSessions.length) return demoSessions
+    return liveSessions
+  }, [isDemo, liveSessions, demoSessions])
+
   const [batch, setBatch] = useState(() => initialBatch)
   const [selected, setSelected] = useState(() => initialBatch[0] ?? null)
   const [activeSession, setActiveSession] = useState(0)
@@ -679,8 +750,14 @@ export default function CTSPresentment() {
   const [search, setSearch] = useState('')
   const addedRef = useRef(isSMB ? 8 : 42)
 
+  // Sync batch from live data when available
   useEffect(() => {
-    if (!isDemo) { setBatch([]); setSelected(null); return }
+    if (!isDemo && liveBatch.length > 0) {
+      setBatch(liveBatch)
+      setSelected(liveBatch[0] ?? null)
+      return
+    }
+    if (!isDemo) return
     const n = isSMB ? 8 : 42
     addedRef.current = n
     const b = makeBatch(n, 0, bankIfsc || 'BANK', SESSIONS[0]?.id || 'SES-0619-001')
@@ -690,7 +767,7 @@ export default function CTSPresentment() {
     setFilterStatus('ALL')
     setFilterLot('ALL')
     setSearch('')
-  }, [isSMB, bankIfsc, isDemo]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isSMB, bankIfsc, isDemo, liveBatch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Simulate incoming captures from scanner feed
   useDemoInterval(() => {
