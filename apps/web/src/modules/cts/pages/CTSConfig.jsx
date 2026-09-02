@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { getReturnReasons, saveReturnReasons, getDefaultReturnReasons } from '../data/returnReasons'
+import useConfigChanges from '../hooks/useConfigChanges'
 
 const LAYER3_CONFIG = [
   { key: 'iet_minutes',                  label: 'IET Window',                value: 180,      unit: 'minutes', desc: 'RBI mandated clearing window. Breach = deemed approval.',       editable: true,  warn: true  },
@@ -42,7 +43,7 @@ function nowStr() {
 }
 
 export default function CTSConfig() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const [values, setValues] = useState(
     Object.fromEntries(LAYER3_CONFIG.map(c => [c.key, c.value]))
@@ -52,6 +53,25 @@ export default function CTSConfig() {
   )
   const [pendingChanges, setPendingChanges] = useState([])
   const [changeLog, setChangeLog] = useState(MOCK_CHANGE_LOG)
+
+  // Live change log — seed from API in POC/PROD; MOCK_CHANGE_LOG remains the fallback
+  const { changes: liveChanges } = useConfigChanges()
+  useEffect(() => {
+    if (isDemo || !liveChanges || liveChanges.length === 0) return
+    setChangeLog(
+      liveChanges.map(c => ({
+        key:        c.config_key,
+        old:        c.old_value,
+        new:        c.new_value,
+        by:         c.submitted_by,
+        approvedBy: c.actioned_by ?? '—',
+        at:         c.actioned_at ?? c.submitted_at,
+        status:     c.status === 'APPROVED' ? 'APPROVED'
+                  : c.status === 'PENDING_APPROVAL' ? 'PENDING'
+                  : 'REJECTED',
+      }))
+    )
+  }, [liveChanges, isDemo])
 
   // Return reasons management
   const [returnReasons, setReturnReasons] = useState(() => getReturnReasons())
@@ -400,7 +420,13 @@ export default function CTSConfig() {
                     <td className={`px-4 py-2.5 ${th.muted}`}>{entry.approvedBy}</td>
                     <td className={`px-4 py-2.5 ${th.faint}`}>{entry.at}</td>
                     <td className="px-4 py-2.5 text-center">
-                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase tracking-wide">
+                      <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wide border ${
+                        entry.status === 'APPROVED'
+                          ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                          : entry.status === 'PENDING'
+                            ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                            : 'bg-red-500/10 text-red-500 border-red-500/20'
+                      }`}>
                         {entry.status}
                       </span>
                     </td>
