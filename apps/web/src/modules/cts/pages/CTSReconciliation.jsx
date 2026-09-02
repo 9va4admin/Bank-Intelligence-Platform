@@ -68,18 +68,29 @@ function buildSmbCsv(ledger) {
 }
 
 // ── Mock data ────────────────────────────────────────────────────────────────
+function _dateStr(daysAgo = 0) {
+  const d = new Date(); d.setDate(d.getDate() - daysAgo)
+  return d.toISOString().split('T')[0]
+}
+function _compact(daysAgo = 0) {
+  return _dateStr(daysAgo).replace(/-/g, '')
+}
+function _label(daysAgo = 0) {
+  const d = new Date(); d.setDate(d.getDate() - daysAgo)
+  return `${d.toLocaleString('default', { month: 'short' })} ${d.getDate()} — Session 1`
+}
 function makeSessions(bankIfsc, isSMB) {
   const ifsc = bankIfsc || 'BANK'
   if (isSMB) {
     return [
-      { id: `SES-${ifsc}-20260619-001`, date: '2026-06-19', label: 'Jun 19 — Session 1' },
-      { id: `SES-${ifsc}-20260618-001`, date: '2026-06-18', label: 'Jun 18 — Session 1' },
+      { id: `SES-${ifsc}-${_compact(0)}-001`, date: _dateStr(0), label: _label(0) },
+      { id: `SES-${ifsc}-${_compact(1)}-001`, date: _dateStr(1), label: _label(1) },
     ]
   }
   return [
-    { id: `SES-${ifsc}-20260619-001`, date: '2026-06-19', label: 'Jun 19 — Session 1' },
-    { id: `SES-${ifsc}-20260618-001`, date: '2026-06-18', label: 'Jun 18 — Session 1' },
-    { id: `SES-${ifsc}-20260617-001`, date: '2026-06-17', label: 'Jun 17 — Session 1' },
+    { id: `SES-${ifsc}-${_compact(0)}-001`, date: _dateStr(0), label: _label(0) },
+    { id: `SES-${ifsc}-${_compact(1)}-001`, date: _dateStr(1), label: _label(1) },
+    { id: `SES-${ifsc}-${_compact(2)}-001`, date: _dateStr(2), label: _label(2) },
   ]
 }
 
