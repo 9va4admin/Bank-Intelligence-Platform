@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
+import useVaultPPS from '../hooks/useVaultPPS'
 
 // ── Mock data ──────────────────────────────────────────────────────────────
 
@@ -78,13 +79,15 @@ function StatusPill({ status, isDark }) {
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function CTSVaultSync() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const [tab, setTab] = useState('pps')
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState(null)
   const [ppsSearch, setPpsSearch] = useState('')
   const [stopSearch, setStopSearch] = useState('')
+
+  const { ppsEntries: livePPS, stopCheques: liveStop } = useVaultPPS({ pollEnabled: !isDemo })
 
   const th = {
     page:    isDark ? '' : 'bg-slate-50',
@@ -129,11 +132,39 @@ export default function CTSVaultSync() {
   const stopSource  = useDemoData(MOCK_STOP)
   const syncStatus  = useDemoData(MOCK_SYNC_STATUS, { cbs_connector: '—', last_run_at: null, triggered_by: '—', pps_records_loaded: 0, stop_cheque_records_loaded: 0, next_scheduled: null })
   const syncHistory = useDemoData(MOCK_SYNC_HISTORY)
-  const filteredPPS = ppsSource.filter((r) =>
-    !ppsSearch || r.account_display.includes(ppsSearch) || r.cheque_series_from.includes(ppsSearch)
+
+  // Demo invariant: use live data when available in non-demo mode
+  const activePPS  = useMemo(() => {
+    if (isDemo || !livePPS || livePPS.length === 0) return ppsSource
+    // Map live PPSEntry to the shape the UI expects
+    return livePPS.map(e => ({
+      account_display: e.account_display,
+      cheque_series_from: e.cheque_number,
+      cheque_series_to: e.cheque_number,
+      amount: e.amount_range,
+      payee_display: '—',
+      valid_from: e.registered_at ? e.registered_at.slice(0, 10) : '—',
+      valid_to: e.expires_at || '—',
+      status: e.status === 'REGISTERED' ? 'ACTIVE' : e.status,
+    }))
+  }, [isDemo, livePPS, ppsSource])
+
+  const activeStop = useMemo(() => {
+    if (isDemo || !liveStop || liveStop.length === 0) return stopSource
+    return liveStop.map(s => ({
+      account_display: s.account_display,
+      cheque_number: s.cheque_number || '—',
+      reason: s.reason,
+      requested_at: s.created_at,
+      status: s.status,
+    }))
+  }, [isDemo, liveStop, stopSource])
+
+  const filteredPPS = activePPS.filter((r) =>
+    !ppsSearch || r.account_display.includes(ppsSearch) || (r.cheque_series_from || '').includes(ppsSearch)
   )
-  const filteredStop = stopSource.filter((r) =>
-    !stopSearch || r.account_display.includes(stopSearch) || r.cheque_number.includes(stopSearch)
+  const filteredStop = activeStop.filter((r) =>
+    !stopSearch || r.account_display.includes(stopSearch) || (r.cheque_number || '').includes(stopSearch)
   )
 
   return (

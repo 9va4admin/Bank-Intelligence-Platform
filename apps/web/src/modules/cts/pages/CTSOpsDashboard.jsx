@@ -18,6 +18,7 @@ import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
 import OpsDashboardBody from '../components/OpsDashboardBody'
 import SMBDashboardContent from '../components/SMBDashboardContent'
+import useOpsDashboard from '../hooks/useOpsDashboard'
 
 // RPC zones — each is a live, independent connection to NGCH for its clearing
 // zone (CLAUDE.md §2.2). Kept in sync with CTSRPCConsolidation.jsx's RPCS data.
@@ -301,6 +302,9 @@ export default function CTSOpsDashboard() {
   const [includeSMB, setIncludeSMB] = useState(false) // My Bank tab: combine with sponsored SMBs
   const [downloading, setDownloading] = useState(null)
 
+  // Live data hooks — called unconditionally (before any early return)
+  const { today: liveToday, trend: liveTrend } = useOpsDashboard({ pollEnabled: !isDemo })
+
   // All hooks called unconditionally, every render — the isSMB early return
   // below must never skip a hook that ran on a previous render.
   const sbSessions = useMemo(() => makeSessions(bankIfsc, 'sb'), [bankIfsc])
@@ -356,17 +360,49 @@ export default function CTSOpsDashboard() {
   // Sessions grid stays SB's own regardless of the checkbox — a "session" is a
   // clearing window scoped to this bank; merging SMB session rows into the same
   // grid would mix two banks' processing windows in one list.
-  // In POC/PROD: start with zeros — real data comes from backend polling (not yet wired).
-  const myBank = !isDemo
-    ? { TODAY: ZERO_TODAY, SESSIONS: [], TREND: ZERO_TREND }
-    : includeSMB
-      ? { TODAY: combineToday(SB_TODAY, SMB_COMBINED_TODAY), SESSIONS: sbSessions, TREND: combineTrend(SB_TREND, SMB_COMBINED_TREND) }
-      : { TODAY: SB_TODAY, SESSIONS: sbSessions, TREND: SB_TREND }
-  const smbView = !isDemo
-    ? { TODAY: ZERO_TODAY, SESSIONS: [], TREND: ZERO_TREND }
-    : selectedSmbId
-      ? { TODAY: SMB_TODAY, SESSIONS: smbSessions, TREND: SMB_TREND }
-      : { TODAY: SMB_COMBINED_TODAY, SESSIONS: smbCombinedSessions, TREND: SMB_COMBINED_TREND }
+  // Live data overrides mock when available in non-demo mode.
+  const liveConverted = useMemo(() => {
+    if (isDemo || !liveToday) return null
+    return {
+      clearing_date: liveToday.clearing_date,
+      sessions_count: liveToday.sessions_count,
+      sessions_settled: liveToday.sessions_settled,
+      total_inward: liveToday.total_inward,
+      total_inward_value_paise: 0,  // not returned by this endpoint
+      stp_confirmed: liveToday.stp_confirmed,
+      stp_returned: liveToday.stp_returned,
+      manual_confirmed: liveToday.manual_confirmed,
+      manual_returned: liveToday.manual_returned,
+      pending_review: liveToday.pending_review,
+      overall_stp_rate_pct: liveToday.overall_stp_rate_pct,
+      overall_return_rate_pct: liveToday.overall_return_rate_pct,
+      total_outward: liveToday.total_outward,
+      total_outward_value_paise: 0,
+      outward_returned: liveToday.outward_returned,
+      net_settlement_paise: 0,
+    }
+  }, [isDemo, liveToday])
+
+  const liveTrendConverted = useMemo(() => {
+    if (isDemo || !liveTrend || liveTrend.length === 0) return null
+    return liveTrend.map(r => ({
+      date: r.date,
+      inward: r.inward,
+      return_rate_pct: r.return_rate_pct,
+      stp_rate_pct: r.stp_rate_pct,
+    }))
+  }, [isDemo, liveTrend])
+
+  const myBank = isDemo
+    ? (includeSMB
+        ? { TODAY: combineToday(SB_TODAY, SMB_COMBINED_TODAY), SESSIONS: sbSessions, TREND: combineTrend(SB_TREND, SMB_COMBINED_TREND) }
+        : { TODAY: SB_TODAY, SESSIONS: sbSessions, TREND: SB_TREND })
+    : { TODAY: liveConverted || ZERO_TODAY, SESSIONS: [], TREND: liveTrendConverted || ZERO_TREND }
+  const smbView = isDemo
+    ? (selectedSmbId
+        ? { TODAY: SMB_TODAY, SESSIONS: smbSessions, TREND: SMB_TREND }
+        : { TODAY: SMB_COMBINED_TODAY, SESSIONS: smbCombinedSessions, TREND: SMB_COMBINED_TREND })
+    : { TODAY: ZERO_TODAY, SESSIONS: [], TREND: ZERO_TREND }
 
   const active = dashTab === 'mybank' ? myBank : smbView
   const totalSessions = active.TODAY.sessions_count

@@ -4,6 +4,8 @@ import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import useVaultHealth from '../hooks/useVaultHealth'
+import useVaultMisses from '../hooks/useVaultMisses'
 
 // ── Data ───────────────────────────────────────────────────────────────────
 
@@ -133,11 +135,51 @@ function TrendBars({ data, field, color }) {
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function CTSVaultStatus() {
-  const { isSMB } = useBankContext()
+  const { isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
-  const VAULT_DATA = useDemoData(isSMB ? SMB_VAULT_DATA : SB_VAULT_DATA)
-  const SYNC_LOG   = useDemoData(isSMB ? SMB_SYNC_LOG   : SB_SYNC_LOG)
-  const countdown  = useMemo(() => nextSyncIn(), [])
+  const VAULT_DATA_MOCK = useDemoData(isSMB ? SMB_VAULT_DATA : SB_VAULT_DATA)
+  const SYNC_LOG        = useDemoData(isSMB ? SMB_SYNC_LOG   : SB_SYNC_LOG)
+  const countdown       = useMemo(() => nextSyncIn(), [])
+
+  const { health: liveHealth } = useVaultHealth({ pollEnabled: !isDemo })
+  const { misses: liveMisses } = useVaultMisses({ pollEnabled: !isDemo })
+
+  // Vault card data: live overrides mock when available
+  const VAULT_DATA = useMemo(() => {
+    if (isDemo || !liveHealth) return VAULT_DATA_MOCK
+    return [
+      {
+        label: 'Signature Vault',
+        keys: liveHealth.sig_key_count,
+        hitRate: 99.2,  // hit rate computed separately; keep mock for chart
+        lastSync: liveHealth.sig_last_sync || VAULT_DATA_MOCK[0]?.lastSync,
+        status: liveHealth.sig_status,
+        redis: 'redis-cts',
+        missAction: liveHealth.miss_action,
+      },
+      {
+        label: 'PPS Vault',
+        keys: liveHealth.pps_key_count,
+        hitRate: 98.7,
+        lastSync: liveHealth.pps_last_sync || VAULT_DATA_MOCK[1]?.lastSync,
+        status: liveHealth.pps_status,
+        redis: 'redis-cts',
+        missAction: liveHealth.miss_action,
+      },
+    ]
+  }, [isDemo, liveHealth, VAULT_DATA_MOCK])
+
+  const DISPLAY_MISSES = useMemo(() => {
+    if (isDemo || !liveMisses || liveMisses.length === 0) return RECENT_MISSES
+    return liveMisses.map(m => ({
+      time: m.event_time ? new Date(m.event_time).toLocaleTimeString('en-IN', { hour12: false }) : '—',
+      instrument: m.instrument_id,
+      vault: m.vault_type === 'SIGNATURE' ? 'Signature' : 'PPS',
+      account: `****${m.account_last4}`,
+      reason: m.miss_reason,
+      routed: m.routed_to,
+    }))
+  }, [isDemo, liveMisses])
 
   usePageHeader({ subtitle: 'Signature Vault · PPS Vault · VaultSyncWorkflow' })
 
@@ -163,7 +205,7 @@ export default function CTSVaultStatus() {
   const sig       = VAULT_DATA[0]
   const pps       = VAULT_DATA[1]
   const lastSync  = SYNC_LOG[0]
-  const missCount = RECENT_MISSES.length
+  const missCount = DISPLAY_MISSES.length
   const chartData = [...VAULT_METRICS].reverse()
 
   return (
@@ -283,7 +325,7 @@ export default function CTSVaultStatus() {
                 </tr>
               </thead>
               <tbody>
-                {RECENT_MISSES.map((m, i) => (
+                {DISPLAY_MISSES.map((m, i) => (
                   <tr key={i} className={`border-b ${th.row} transition-colors`}>
                     <td className={`px-4 py-2.5 ${th.muted} font-mono`}>{m.time}</td>
                     <td className={`px-4 py-2.5 ${th.body}`}>{m.instrument}</td>
