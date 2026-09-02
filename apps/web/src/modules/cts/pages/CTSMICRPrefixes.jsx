@@ -1,7 +1,32 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+function useMICRPrefixes({ pollEnabled, search }) {
+  const [items, setItems] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const url = search
+        ? `${_API_BASE}/v1/cts/admin/micr-prefixes?search=${encodeURIComponent(search)}`
+        : `${_API_BASE}/v1/cts/admin/micr-prefixes`
+      const res = await fetch(url, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      setItems(json.items ?? [])
+    } catch { /* keep last */ }
+  }, [search])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 5 * 60_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return items
+}
 
 const MOCK_MICR_PREFIXES = [
   { id: 1, prefix: '400002',  bank: 'State Bank of India',          branch: 'Fort, Mumbai',           zone: 'MUMBAI', grid: 'CTS-MUMBAI', status: 'ACTIVE'   },
@@ -17,7 +42,22 @@ const MOCK_MICR_PREFIXES = [
 const ZONES = ['ALL', 'MUMBAI', 'DELHI', 'CHENNAI']
 
 export default function CTSMICRPrefixes() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
+
+  const liveItems = useMICRPrefixes({ pollEnabled: !isDemo, search })
+
+  const MICR_SOURCE = useMemo(() => {
+    if (isDemo || !liveItems || liveItems.length === 0) return MOCK_MICR_PREFIXES
+    return liveItems.map(i => ({
+      id: i.prefix_id,
+      prefix: i.micr_prefix,
+      bank: i.bank_name,
+      branch: `IFSC: ${i.bank_ifsc}`,
+      zone: i.clearing_zone || 'MUMBAI',
+      grid: `CTS-${i.clearing_zone || 'MUMBAI'}`,
+      status: i.active ? 'ACTIVE' : 'INACTIVE',
+    }))
+  }, [isDemo, liveItems])
   const { isDark } = useTheme()
   const [search, setSearch] = useState('')
   const [zone, setZone] = useState('ALL')
@@ -35,7 +75,7 @@ export default function CTSMICRPrefixes() {
     badge:   isDark ? 'bg-white/5 text-slate-300' : 'bg-slate-100 text-slate-600',
   }
 
-  const filtered = MOCK_MICR_PREFIXES.filter(m =>
+  const filtered = MICR_SOURCE.filter(m =>
     (zone === 'ALL' || m.zone === zone) &&
     (m.prefix.includes(search) || m.bank.toLowerCase().includes(search.toLowerCase()) || m.branch.toLowerCase().includes(search.toLowerCase()))
   )
@@ -123,7 +163,7 @@ export default function CTSMICRPrefixes() {
             </tbody>
           </table>
           <div className={`px-4 py-2 border-t text-xs ${th.divider} ${th.muted}`}>
-            {filtered.length} of {MOCK_MICR_PREFIXES.length} prefixes
+            {filtered.length} of {MICR_SOURCE.length} prefixes
           </div>
         </div>
 

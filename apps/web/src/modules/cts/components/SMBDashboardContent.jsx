@@ -7,10 +7,35 @@
  * what "Dashboard" shows for an SMB user (CTSOpsDashboard.jsx) — same content,
  * one source of truth, per the SB/SMB dashboard restructure.
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+
+const _SMB_API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+function useSMBDashboard({ pollEnabled }) {
+  const [data, setData] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const [todayRes, queueRes] = await Promise.all([
+        fetch(`${_SMB_API_BASE}/v1/cts/dashboard/today`, { credentials: 'include' }),
+        fetch(`${_SMB_API_BASE}/v1/cts/queue?limit=10`, { credentials: 'include' }),
+      ])
+      const today = todayRes.ok ? await todayRes.json() : null
+      const queue = queueRes.ok ? await queueRes.json() : null
+      if (today) setData({ today, recentDecisions: queue?.items ?? [] })
+    } catch { /* keep last */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 30_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return data
+}
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
@@ -172,8 +197,39 @@ function QuickLink({ to, label, icon, isDark }) {
 // ─── Main content ───────────────────────────────────────────────────────────
 
 export default function SMBDashboardContent() {
-  const { bankName, bankIfsc, bankId, sponsorBankId, sponsorBankName } = useBankContext()
+  const { bankName, bankIfsc, bankId, sponsorBankId, sponsorBankName, isDemo } = useBankContext()
   const { isDark } = useTheme()
+
+  const liveData = useSMBDashboard({ pollEnabled: !isDemo })
+
+  // Demo invariant
+  const today = useMemo(() => {
+    if (isDemo || !liveData?.today) return MOCK_TODAY
+    const d = liveData.today
+    return {
+      clearing_date: d.clearing_date,
+      sessions_count: d.sessions_count,
+      sessions_open: d.sessions_count - d.sessions_settled,
+      total_inward: d.total_inward,
+      stp_confirmed: d.stp_confirmed,
+      stp_returned: d.stp_returned,
+      pending_review: d.pending_review,
+      iet_at_risk: 0,
+      overall_stp_rate_pct: d.overall_stp_rate_pct,
+    }
+  }, [isDemo, liveData])
+
+  const recentDecisions = useMemo(() => {
+    if (isDemo || !liveData?.recentDecisions || liveData.recentDecisions.length === 0) return MOCK_RECENT
+    return liveData.recentDecisions.map(i => ({
+      instrument_id: i.instrument_id,
+      decision: i.decision || i.outcome || 'HUMAN_REVIEW',
+      filed_by: i.assigned_to || 'ASTRA Agent',
+      filed_at: i.received_at ? new Date(i.received_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '--:--',
+      amount_range: i.amount_range || '₹[<1L]',
+      reason: i.reason || null,
+    }))
+  }, [isDemo, liveData])
 
   const th = {
     card:     isDark ? 'bg-navy-900 border-white/8'             : 'bg-white border-slate-200',
@@ -186,7 +242,7 @@ export default function SMBDashboardContent() {
   }
 
   const initials = (bankName || 'SMB').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-  const today = MOCK_TODAY
+  // `today` and `recentDecisions` resolved above via useMemo
   const stpRateColor = today.overall_stp_rate_pct >= 90
     ? (isDark ? 'text-emerald-400' : 'text-emerald-600')
     : today.overall_stp_rate_pct >= 80
@@ -235,7 +291,7 @@ export default function SMBDashboardContent() {
       </section>
 
       {/* IET Countdown (only shown when items at-risk) */}
-      {MOCK_IET_ITEMS.length > 0 && (
+      {MOCK_IET_ITEMS.length > 0 && today.iet_at_risk > 0 && (
         <section>
           <h2 className={`text-xs font-semibold uppercase tracking-widest mb-3 ${th.muted}`}>IET Countdown</h2>
           <div className="space-y-2">
@@ -253,7 +309,7 @@ export default function SMBDashboardContent() {
             <h2 className={`text-sm font-semibold ${th.heading}`}>Recent Decisions</h2>
             <Link to="/cts/decisions" className={`text-xs ${th.muted} hover:underline`}>View all →</Link>
           </div>
-          <RecentDecisionsTable items={MOCK_RECENT} isDark={isDark} />
+          <RecentDecisionsTable items={recentDecisions} isDark={isDark} />
         </div>
 
         {/* Quick Actions */}

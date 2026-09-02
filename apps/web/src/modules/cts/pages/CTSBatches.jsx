@@ -4,6 +4,7 @@ import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
 import AppShell from '../../../shared/layout/AppShell'
 import useLots from '../hooks/useLots'
+import useSessions from '../hooks/useSessions'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -164,7 +165,18 @@ export default function CTSBatches() {
   }
 
   const demoSessions = useMemo(() => makeSessions(bankIfsc, isSMB), [bankIfsc, isSMB])
-  const SESSIONS = useDemoData(demoSessions)
+  const { sessions: liveSessions } = useSessions({ pollEnabled: !isDemo })
+
+  // Demo invariant: mock when isDemo or no live sessions
+  const SESSIONS = useMemo(() => {
+    if (isDemo || !liveSessions || liveSessions.length === 0) return demoSessions
+    return liveSessions.map(s => ({
+      id: s.session_id,
+      label: s.label || s.session_type,
+      status: s.status === 'OPEN' ? 'ACTIVE' : s.status === 'CLOSED' ? 'CLOSED' : 'UPCOMING',
+    }))
+  }, [isDemo, liveSessions, demoSessions])
+
   const BRANCHES = isSMB ? SMB_BRANCHES : SB_BRANCHES
   const mockLots = useMemo(
     () => SESSIONS.length ? makeLots(isSMB ? 5 : 30, SESSIONS, BRANCHES, bankIfsc) : [],

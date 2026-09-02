@@ -1,10 +1,31 @@
-import { useState } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
-import useDemoData from '../../../shared/hooks/useDemoData'
+
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+function useEndorsementQueue({ pollEnabled }) {
+  const [items, setItems] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/outward/endorsement-queue`, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      setItems(json.items ?? [])
+    } catch { /* keep last */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 30_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return items
+}
 
 // ── Mock batch ────────────────────────────────────────────────────────────────
 // TEMPLATE built inside component from bankContext
@@ -46,7 +67,7 @@ function buildQrData(instr, ifsc) {
 }
 
 export default function CTSEndorsement() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const TEMPLATE = {
     bank_name: bankName || 'South View Co-operative Bank',
     branch_name: 'Fort Branch',
@@ -78,10 +99,17 @@ export default function CTSEndorsement() {
   }
   const STATUS = isDark ? STATUS_D : STATUS_L
 
-  const activeInstruments = useDemoData(INSTRUMENTS)
+  const liveQueue = useEndorsementQueue({ pollEnabled: !isDemo })
+  const activeInstruments = useMemo(() => {
+    if (isDemo || !liveQueue || liveQueue.length === 0) return INSTRUMENTS
+    return liveQueue
+  }, [isDemo, liveQueue])
   const [statuses, setStatuses] = useState(() =>
-    Object.fromEntries(activeInstruments.map(i => [i.id, 'PENDING']))
+    Object.fromEntries(INSTRUMENTS.map(i => [i.id, 'PENDING']))
   )
+  useEffect(() => {
+    setStatuses(Object.fromEntries(activeInstruments.map(i => [i.id, 'PENDING'])))
+  }, [activeInstruments])
   const [endorsingLot, setEndorsingLot]     = useState(null)
   const [selected, setSelected]             = useState(null)
   const [endorsementText, setEndorsementText] = useState(TEMPLATE.endorsement_text)

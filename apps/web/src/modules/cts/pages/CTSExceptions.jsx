@@ -5,12 +5,34 @@
  *                  Human Review, Words/Figures Mismatch, Alteration Detected,
  *                  OCR Low Confidence, Signature Low Confidence, Fraud High Score.
  */
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { MOCK_QUEUE } from '../data/mockQueue'
+
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+function useExceptions({ pollEnabled }) {
+  const [items, setItems] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/exceptions?limit=200`, { credentials: 'include' })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const json = await res.json()
+      setItems(json.items ?? [])
+    } catch { /* keep last */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 2 * 60_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return items
+}
 
 // ── Exception data ────────────────────────────────────────────────────────
 
@@ -204,7 +226,14 @@ export default function CTSExceptions() {
   const { isDark } = useTheme()
   const [severityFilter, setSeverityFilter] = useState('All')
   const [showResolved, setShowResolved]     = useState(true)
-  const ALL_EXCEPTIONS = isDemo ? EXCEPTIONS : []
+
+  const liveExceptions = useExceptions({ pollEnabled: !isDemo })
+
+  const ALL_EXCEPTIONS = useMemo(() => {
+    if (isDemo || !liveExceptions || liveExceptions.length === 0) return EXCEPTIONS
+    return liveExceptions
+  }, [isDemo, liveExceptions])
+
   const predictive = isDemo ? buildPredictiveSignals(MOCK_QUEUE.filter(i => i.status === 'PENDING')) : []
 
   const th = {

@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
+import useSMBList from '../hooks/useSMBList'
 
 // ── Derive sub-member session data from BANK_CONFIG.smbs ─────────────────────
 
@@ -233,7 +234,7 @@ function DetailPanel({ smb, onClose, isDark, BUCKET_COLORS }) {
 }
 
 export default function CTSSubMember() {
-  const { bankName, bankIfsc, isSB, isSMB } = useBankContext()
+  const { bankName, bankIfsc, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const [selected, setSelected] = useState(null)
 
@@ -253,7 +254,39 @@ export default function CTSSubMember() {
     input:   isDark ? 'bg-navy-800 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900',
   }
 
-  const subMembers = MOCK_SMBS
+  const { subMembers: liveSubMembers } = useSMBList({ pollEnabled: !isDemo })
+
+  // Demo invariant: use live data only when non-empty
+  const subMembers = useMemo(() => {
+    if (isDemo || !liveSubMembers || liveSubMembers.length === 0) return MOCK_SMBS
+    // Map SMBListItem → CTSSubMember display shape
+    return liveSubMembers.map((m, i) => {
+      const total = m.cheques_today ?? 0
+      const stp_return = Math.round(total * (m.return_rate_today ?? 0) / 100)
+      const eyeball = Math.round(total * 0.02)
+      const fraud_hold = Math.round(total * 0.005)
+      const stp_pass = Math.max(0, total - stp_return - eyeball - fraud_hold)
+      const rt = m.return_rate_today ?? 0
+      return {
+        id: m.sub_member_id,
+        bank_name: m.bank_name,
+        ifsc_prefix: m.bank_ifsc?.slice(0, 4) ?? 'SMBB',
+        micr_prefix: m.micr_prefix || `${400 + i * 11}${String(i + 1).padStart(3, '0')}`,
+        sponsor: m.sponsor_bank_name || 'Sponsor Bank',
+        session: 'Today',
+        total,
+        stp_pass,
+        stp_return,
+        eyeball,
+        fraud_hold,
+        iet_emergency: 0,
+        soft_hold: rt >= (m.hard_stop_threshold ?? 20),
+        bm_email: '',
+        return_threshold: 0.12,
+        soft_hold_threshold: (m.hard_stop_threshold ?? 20) / 100,
+      }
+    })
+  }, [isDemo, liveSubMembers])
   const totalInward  = subMembers.reduce((s, m) => s + m.total, 0)
   const totalReturns = subMembers.reduce((s, m) => s + m.stp_return, 0)
   const totalEyeball = subMembers.reduce((s, m) => s + m.eyeball, 0)

@@ -12,11 +12,33 @@
  *   - Which branches have high return rates (branch health)
  *   - Combined net position with inward for the day
  */
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
 import AppShell from '../../../shared/layout/AppShell'
+
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+function useInwardSessions({ pollEnabled }) {
+  const [sessions, setSessions] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/inward/sessions`, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      setSessions(json.sessions ?? [])
+    } catch { /* keep last */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 60_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return sessions
+}
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
@@ -90,10 +112,21 @@ function ReturnReasonBar({ reasons, total, isDark }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CTSDraweeView() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
-  const activeSessions = useDemoData(SESSIONS)
-  const [selectedSession, setSelectedSession] = useState(useDemoData(SESSIONS[1], null))
+
+  const liveSessions = useInwardSessions({ pollEnabled: !isDemo })
+
+  const demoSessions = useDemoData(SESSIONS)
+  const activeSessions = useMemo(() => {
+    if (isDemo || !liveSessions || liveSessions.length === 0) return demoSessions
+    return liveSessions.map(s => s.session_id)
+  }, [isDemo, liveSessions, demoSessions])
+
+  const [selectedSession, setSelectedSession] = useState(null)
+  useEffect(() => {
+    if (!selectedSession && activeSessions.length > 0) setSelectedSession(activeSessions[1] ?? activeSessions[0])
+  }, [activeSessions, selectedSession])
   const [sortBy, setSortBy] = useState('returned_desc')
 
   // Outward & Combined Position is SB-only — SMBs present cheques via their sponsor bank

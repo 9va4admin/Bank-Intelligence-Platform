@@ -1,7 +1,29 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+function useNGCHRouting({ pollEnabled }) {
+  const [rules, setRules] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/admin/ngch-routing`, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      setRules(json.rules ?? [])
+    } catch { /* keep last */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 5 * 60_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return rules
+}
 
 const ROUTING_RULES = [
   {
@@ -109,7 +131,23 @@ const TYPE_COLORS_L = {
 }
 
 export default function CTSNGCHRouting() {
-  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB } = useBankContext()
+  const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
+
+  const liveRules = useNGCHRouting({ pollEnabled: !isDemo })
+
+  const DISPLAY_RULES = useMemo(() => {
+    if (isDemo || !liveRules || liveRules.length === 0) return ROUTING_RULES
+    return liveRules.map(r => ({
+      id: r.rule_id,
+      name: r.destination,
+      condition: `MICR prefix ${r.micr_prefix}`,
+      destination: r.destination,
+      grid: r.clearing_zone,
+      priority: r.priority,
+      type: 'ZONE',
+      status: r.active ? 'ACTIVE' : 'INACTIVE',
+    }))
+  }, [isDemo, liveRules])
   const { isDark } = useTheme()
   const [selected, setSelected] = useState(null)
 
@@ -177,7 +215,7 @@ export default function CTSNGCHRouting() {
               </tr>
             </thead>
             <tbody>
-              {ROUTING_RULES.sort((a, b) => a.priority - b.priority).map(r => (
+              {DISPLAY_RULES.sort((a, b) => a.priority - b.priority).map(r => (
                 <tr key={r.id} className={`border-b transition-colors ${th.row}`} onClick={() => setSelected(r)}>
                   <td className={`px-4 py-3 font-mono font-bold ${r.priority <= 3 ? (isDark ? 'text-red-300' : 'text-red-600') : th.heading}`}>
                     P{r.priority}

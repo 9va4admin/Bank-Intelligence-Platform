@@ -9,11 +9,40 @@
  * this is an sbOnly page because only the agency itself operates it.
  * SMB users never see this page (AppShell sbOnly gate + useBankContext guard).
  */
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+const AGENCY_POLL_MS = 60_000
+
+function useAgencyData({ pollEnabled }) {
+  const [data, setData] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const [connRes, sessRes] = await Promise.all([
+        fetch(`${_API_BASE}/v1/cts/smb?active_only=false`, { credentials: 'include' }),
+        fetch(`${_API_BASE}/v1/cts/outward/sessions`, { credentials: 'include' }),
+      ])
+      const connJson = connRes.ok ? await connRes.json() : null
+      const sessJson = sessRes.ok ? await sessRes.json() : null
+      setData({
+        connections: connJson?.sub_members ?? [],
+        sessions: sessJson?.sessions ?? [],
+      })
+    } catch { /* stay with last data */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, AGENCY_POLL_MS)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return data
+}
 
 // ── Mock data ──────────────────────────────────────────────────────────────
 const MOCK_SB_CONNECTIONS = [
@@ -281,9 +310,11 @@ function SessionRow({ session, isDark }) {
 // ── Main page ──────────────────────────────────────────────────────────────
 export default function CTSAgencyCC() {
   const { isDark } = useTheme()
-  const { bankName, bankId } = useBankContext()
+  const { bankName, bankId, isDemo } = useBankContext()
   const { setHeader } = usePageHeader?.() ?? { setHeader: () => {} }
   const [activeTab, setActiveTab] = useState(0)
+
+  const liveData = useAgencyData({ pollEnabled: !isDemo })
 
   const th = {
     page:    isDark ? 'bg-navy-950' : 'bg-slate-50',
@@ -299,10 +330,41 @@ export default function CTSAgencyCC() {
       : (isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'),
   }
 
-  const totalInstruments = MOCK_SESSIONS.reduce((s, r) => s + r.total_instruments, 0)
-  const submittedSessions = MOCK_SESSIONS.filter(s => s.status === 'SUBMITTED').length
-  const exceptionSessions = MOCK_SESSIONS.filter(s => s.status === 'EXCEPTION').length
-  const activeSBs = MOCK_SB_CONNECTIONS.filter(c => c.is_active).length
+  // Demo invariant: always fall back to MOCK when !liveData or isDemo
+  const SB_CONNECTIONS = useMemo(() => {
+    if (isDemo || !liveData || liveData.connections.length === 0) return MOCK_SB_CONNECTIONS
+    // map SMBListItem → connection shape
+    return liveData.connections.map(m => ({
+      sb_connection_id: m.sub_member_id,
+      sb_name: m.bank_name,
+      sb_bank_id: m.sub_member_id,
+      connector_type: m.cbs_connector || 'SFTP_GENERIC',
+      is_active: m.status === 'ACTIVE',
+      last_tested_at: m.last_active_at || new Date().toISOString(),
+      last_test_latency_ms: null,
+      smb_count: 0,
+    }))
+  }, [isDemo, liveData])
+
+  const SESSIONS_DATA = useMemo(() => {
+    if (isDemo || !liveData || liveData.sessions.length === 0) return MOCK_SESSIONS
+    return liveData.sessions.map(s => ({
+      session_id: s.session_id,
+      sb_bank_id: s.session_id,
+      sb_name: s.session_type,
+      session_type: s.session_type,
+      status: s.status,
+      total_instruments: s.total_instruments,
+      sb_reference: s.ngch_reference || null,
+      opened_at: s.opened_at,
+      submitted_at: s.submitted_at || null,
+    }))
+  }, [isDemo, liveData])
+
+  const totalInstruments = SESSIONS_DATA.reduce((s, r) => s + (r.total_instruments || 0), 0)
+  const submittedSessions = SESSIONS_DATA.filter(s => s.status === 'SUBMITTED').length
+  const exceptionSessions = SESSIONS_DATA.filter(s => s.status === 'EXCEPTION').length
+  const activeSBs = SB_CONNECTIONS.filter(c => c.is_active).length
 
   const TABS = ['SB Connections', 'Clearing Sessions', 'Inward Relay', 'SMB Push Sessions']
 
@@ -329,7 +391,7 @@ export default function CTSAgencyCC() {
           <div>
             <h1 className={`text-lg font-bold ${th.heading}`}>Agency Command Center</h1>
             <p className={`text-xs mt-0.5 ${th.muted}`}>
-              {bankName} · AGENCY_SB_RELAY mode · {MOCK_SB_CONNECTIONS.length} Sponsor Banks configured
+              {bankName} · AGENCY_SB_RELAY mode · {SB_CONNECTIONS.length} Sponsor Banks configured
             </p>
           </div>
           <div className={`text-xs px-3 py-1.5 rounded border ${
@@ -344,8 +406,8 @@ export default function CTSAgencyCC() {
           <StatCard
             label="Active SBs"
             value={activeSBs}
-            sub={`of ${MOCK_SB_CONNECTIONS.length} configured`}
-            accent={activeSBs < MOCK_SB_CONNECTIONS.length ? (isDark ? 'text-amber-400' : 'text-amber-600') : undefined}
+            sub={`of ${SB_CONNECTIONS.length} configured`}
+            accent={activeSBs < SB_CONNECTIONS.length ? (isDark ? 'text-amber-400' : 'text-amber-600') : undefined}
             isDark={isDark}
           />
           <StatCard
@@ -357,7 +419,7 @@ export default function CTSAgencyCC() {
           <StatCard
             label="Sessions Submitted"
             value={submittedSessions}
-            sub={`of ${MOCK_SESSIONS.length} sessions today`}
+            sub={`of ${SESSIONS_DATA.length} sessions today`}
             accent={isDark ? 'text-emerald-400' : 'text-emerald-600'}
             isDark={isDark}
           />
@@ -404,7 +466,7 @@ export default function CTSAgencyCC() {
         {activeTab === 0 && (
           <div className="space-y-3">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {MOCK_SB_CONNECTIONS.map(conn => (
+              {SB_CONNECTIONS.map(conn => (
                 <SBConnectionCard key={conn.sb_connection_id} conn={conn} isDark={isDark} />
               ))}
             </div>
@@ -429,13 +491,13 @@ export default function CTSAgencyCC() {
                   </tr>
                 </thead>
                 <tbody>
-                  {MOCK_SESSIONS.map(session => (
+                  {SESSIONS_DATA.map(session => (
                     <SessionRow key={session.session_id} session={session} isDark={isDark} />
                   ))}
                 </tbody>
               </table>
             </div>
-            {MOCK_SESSIONS.length === 0 && (
+            {SESSIONS_DATA.length === 0 && (
               <div className={`py-10 text-center text-sm ${th.muted}`}>No clearing sessions today yet</div>
             )}
           </div>
