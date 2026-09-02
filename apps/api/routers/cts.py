@@ -5465,3 +5465,297 @@ async def get_outward_analytics_daily(
         days=days,
         daily=daily_list,
     )
+
+
+# ---------------------------------------------------------------------------
+# B10 — GET /v1/cts/inward/analytics
+# Aggregates from cts.agent_decisions for the Analytics page inward metrics:
+# daily throughput + AI confidence, fraud score distribution, risk flags,
+# return reasons, branch breakdown, and IET near-breach trend.
+# ---------------------------------------------------------------------------
+
+class InwardDailyRow(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    date: str
+    total: int
+    stp_confirm: int
+    stp_return: int
+    human_review: int
+    avg_ms: float
+    ocr_conf: Optional[float]
+    sig_prec: Optional[float]
+
+
+class FraudDistRow(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    range: str
+    count: int
+
+
+class RiskFlagRow(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    flag: str
+    count: int
+
+
+class ReturnReasonRow(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    reason: str
+    count: int
+
+
+class BranchRow(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    branch: str
+    processed: int
+    hrq_pct: float
+    vault_miss: int
+    avg_ms: float
+    returns: int
+
+
+class IETTrendRow(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    date: str
+    nearBreach: int
+
+
+class InwardAnalyticsResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    days: int
+    daily: list[InwardDailyRow]
+    fraud_dist: list[FraudDistRow]
+    risk_flags: list[RiskFlagRow]
+    return_reasons: list[ReturnReasonRow]
+    branches: list[BranchRow]
+    iet_trend: list[IETTrendRow]
+
+
+_INWARD_ANALYTICS_READ_ROLES = {
+    Role.OPS_MANAGER, Role.FRAUD_ANALYST, Role.BANK_IT_ADMIN,
+    Role.OPS_REVIEWER, Role.COMPLIANCE_OFFICER,
+}
+
+_FRAUD_DIST_COLORS = {
+    "0–10":   "#10b981",
+    "10–30":  "#34d399",
+    "30–50":  "#f59e0b",
+    "50–70":  "#f97316",
+    "70–90":  "#ef4444",
+    "90–100": "#dc2626",
+}
+
+
+@router_v1.get("/inward/analytics", response_model=InwardAnalyticsResponse)
+async def get_inward_analytics(
+    request: Request,
+    ctx: UserContext = Depends(require_user_context),
+    days: int = 7,
+):
+    bank_id = ctx.bank_id
+    if ctx.role not in _INWARD_ANALYTICS_READ_ROLES:
+        raise HTTPException(status_code=403, detail="Insufficient role")
+
+    pool = getattr(request.app.state, "db_pool_cts", None)
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    days = max(1, min(days, 30))
+
+    async with pool.acquire() as conn:
+        # 1 — daily throughput + AI confidence means
+        daily_rows = await conn.fetch(
+            """
+            SELECT
+                TO_CHAR(ad.processing_started_at AT TIME ZONE 'Asia/Kolkata', 'Mon DD') AS date,
+                COUNT(*)::int                                                              AS total,
+                COUNT(*) FILTER (WHERE ad.decision = 'STP_CONFIRM')::int                  AS stp_confirm,
+                COUNT(*) FILTER (WHERE ad.decision = 'STP_RETURN')::int                   AS stp_return,
+                COUNT(*) FILTER (WHERE ad.decision = 'HUMAN_REVIEW')::int                 AS human_review,
+                COALESCE(ROUND(AVG(ad.processing_duration_ms)), 0)::float                 AS avg_ms,
+                ROUND(AVG(ad.ocr_confidence) * 100, 2)                                   AS ocr_conf,
+                ROUND(AVG(ad.signature_match_score) * 100, 2)                            AS sig_prec
+            FROM cts.agent_decisions ad
+            WHERE ad.bank_id = $1
+              AND ad.processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
+            GROUP BY DATE(ad.processing_started_at AT TIME ZONE 'Asia/Kolkata'),
+                     TO_CHAR(ad.processing_started_at AT TIME ZONE 'Asia/Kolkata', 'Mon DD')
+            ORDER BY DATE(ad.processing_started_at AT TIME ZONE 'Asia/Kolkata')
+            """,
+            bank_id, days,
+        )
+
+        # 2 — fraud score distribution (6 buckets)
+        fraud_rows = await conn.fetch(
+            """
+            SELECT
+                CASE
+                    WHEN fraud_score < 0.10 THEN '0–10'
+                    WHEN fraud_score < 0.30 THEN '10–30'
+                    WHEN fraud_score < 0.50 THEN '30–50'
+                    WHEN fraud_score < 0.70 THEN '50–70'
+                    WHEN fraud_score < 0.90 THEN '70–90'
+                    ELSE '90–100'
+                END AS range,
+                COUNT(*)::int AS count
+            FROM cts.agent_decisions
+            WHERE bank_id = $1
+              AND fraud_score IS NOT NULL
+              AND processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
+            GROUP BY 1
+            ORDER BY MIN(fraud_score)
+            """,
+            bank_id, days,
+        )
+
+        # 3 — risk flag counts (single aggregate row)
+        flags_row = await conn.fetchrow(
+            """
+            SELECT
+                SUM(CASE WHEN ci.amount_range = 'HIGH_VALUE'      THEN 1 ELSE 0 END)::int AS high_value,
+                SUM(CASE WHEN ci.amount_range = 'VERY_HIGH_VALUE' THEN 1 ELSE 0 END)::int AS very_high_value,
+                SUM(CASE WHEN ad.signature_verdict = 'VAULT_MISS'
+                          OR  ad.pps_verdict       = 'VAULT_MISS' THEN 1 ELSE 0 END)::int AS vault_miss,
+                SUM(CASE WHEN ad.alteration_detected = true        THEN 1 ELSE 0 END)::int AS alteration,
+                SUM(CASE WHEN ad.pps_verdict = 'MISMATCH'          THEN 1 ELSE 0 END)::int AS stop_payment,
+                SUM(CASE WHEN ad.ocr_confidence < 0.90             THEN 1 ELSE 0 END)::int AS ocr_low_conf,
+                SUM(CASE WHEN ad.signature_verdict = 'LOW_CONFIDENCE' THEN 1 ELSE 0 END)::int AS sig_low_conf,
+                SUM(CASE WHEN ad.cbs_balance_status = 'ACCOUNT_FROZEN' THEN 1 ELSE 0 END)::int AS dormant
+            FROM cts.agent_decisions ad
+            LEFT JOIN cts.cheque_instruments ci
+                   ON ci.instrument_id = ad.instrument_id AND ci.bank_id = ad.bank_id
+            WHERE ad.bank_id = $1
+              AND ad.processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
+            """,
+            bank_id, days,
+        )
+
+        # 4 — return reasons (STP_RETURN breakdown)
+        return_rows = await conn.fetch(
+            """
+            SELECT
+                CASE
+                    WHEN decision_reason ILIKE '%FRAUD%'                               THEN 'Fraud Risk'
+                    WHEN decision_reason ILIKE '%SIGNATURE%' OR decision_reason ILIKE '%SIG%' THEN 'Sig Mismatch'
+                    WHEN decision_reason ILIKE '%ALTERATION%'                          THEN 'Alteration'
+                    WHEN decision_reason ILIKE '%INSUFFICIENT%' OR decision_reason ILIKE '%BALANCE%' THEN 'Insufficient Funds'
+                    WHEN decision_reason ILIKE '%STOP%' OR decision_reason ILIKE '%PPS%' THEN 'Stop Payment'
+                    WHEN decision_reason ILIKE '%FROZEN%' OR decision_reason ILIKE '%DORMANT%' THEN 'Dormant Account'
+                    ELSE 'Other'
+                END AS reason,
+                COUNT(*)::int AS count
+            FROM cts.agent_decisions
+            WHERE bank_id = $1
+              AND decision = 'STP_RETURN'
+              AND processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
+            GROUP BY 1
+            ORDER BY count DESC
+            """,
+            bank_id, days,
+        )
+
+        # 5 — branch breakdown (group by presenting_ifsc from cheque_instruments)
+        branch_rows = await conn.fetch(
+            """
+            SELECT
+                COALESCE(ci.presenting_ifsc, 'UNKNOWN')                               AS branch,
+                COUNT(*)::int                                                          AS processed,
+                COALESCE(ROUND(
+                    100.0 * COUNT(*) FILTER (WHERE ad.decision = 'HUMAN_REVIEW')
+                    / NULLIF(COUNT(*), 0), 1
+                ), 0.0)::float                                                         AS hrq_pct,
+                COUNT(*) FILTER (
+                    WHERE ad.signature_verdict = 'VAULT_MISS'
+                       OR ad.pps_verdict       = 'VAULT_MISS'
+                )::int                                                                 AS vault_miss,
+                COALESCE(ROUND(AVG(ad.processing_duration_ms)), 0)::float             AS avg_ms,
+                COUNT(*) FILTER (WHERE ad.decision = 'STP_RETURN')::int               AS returns
+            FROM cts.agent_decisions ad
+            LEFT JOIN cts.cheque_instruments ci
+                   ON ci.instrument_id = ad.instrument_id AND ci.bank_id = ad.bank_id
+            WHERE ad.bank_id = $1
+              AND ad.processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
+            GROUP BY ci.presenting_ifsc
+            ORDER BY COUNT(*) DESC
+            LIMIT 10
+            """,
+            bank_id, days,
+        )
+
+        # 6 — IET near-breach trend (margin ≤ 30 seconds)
+        iet_rows = await conn.fetch(
+            """
+            SELECT
+                TO_CHAR(processing_started_at AT TIME ZONE 'Asia/Kolkata', 'Mon DD') AS date,
+                COUNT(*) FILTER (
+                    WHERE iet_margin_seconds IS NOT NULL AND iet_margin_seconds <= 30
+                )::int AS near_breach
+            FROM cts.agent_decisions
+            WHERE bank_id = $1
+              AND processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
+            GROUP BY DATE(processing_started_at AT TIME ZONE 'Asia/Kolkata'),
+                     TO_CHAR(processing_started_at AT TIME ZONE 'Asia/Kolkata', 'Mon DD')
+            ORDER BY DATE(processing_started_at AT TIME ZONE 'Asia/Kolkata')
+            """,
+            bank_id, days,
+        )
+
+    # Build risk flags list (sorted by count desc, exclude zeros)
+    flag_map = {
+        "HIGH_VALUE":     flags_row["high_value"]     if flags_row else 0,
+        "VERY_HIGH_VALUE":flags_row["very_high_value"] if flags_row else 0,
+        "VAULT_MISS":     flags_row["vault_miss"]      if flags_row else 0,
+        "ALTERATION":     flags_row["alteration"]      if flags_row else 0,
+        "STOP_PAYMENT":   flags_row["stop_payment"]    if flags_row else 0,
+        "OCR_LOW_CONF":   flags_row["ocr_low_conf"]    if flags_row else 0,
+        "SIG_LOW_CONF":   flags_row["sig_low_conf"]    if flags_row else 0,
+        "DORMANT_ACCOUNT":flags_row["dormant"]         if flags_row else 0,
+    }
+    risk_flags_list = [
+        RiskFlagRow(flag=k, count=v)
+        for k, v in sorted(flag_map.items(), key=lambda x: -x[1])
+        if v > 0
+    ]
+
+    return InwardAnalyticsResponse(
+        bank_id=bank_id,
+        days=days,
+        daily=[
+            InwardDailyRow(
+                date=r["date"],
+                total=r["total"],
+                stp_confirm=r["stp_confirm"],
+                stp_return=r["stp_return"],
+                human_review=r["human_review"],
+                avg_ms=float(r["avg_ms"] or 0),
+                ocr_conf=float(r["ocr_conf"]) if r["ocr_conf"] is not None else None,
+                sig_prec=float(r["sig_prec"]) if r["sig_prec"] is not None else None,
+            )
+            for r in daily_rows
+        ],
+        fraud_dist=[
+            FraudDistRow(range=r["range"], count=r["count"])
+            for r in fraud_rows
+        ],
+        risk_flags=risk_flags_list,
+        return_reasons=[
+            ReturnReasonRow(reason=r["reason"], count=r["count"])
+            for r in return_rows
+        ],
+        branches=[
+            BranchRow(
+                branch=r["branch"],
+                processed=r["processed"],
+                hrq_pct=float(r["hrq_pct"] or 0),
+                vault_miss=r["vault_miss"],
+                avg_ms=float(r["avg_ms"] or 0),
+                returns=r["returns"],
+            )
+            for r in branch_rows
+        ],
+        iet_trend=[
+            IETTrendRow(date=r["date"], nearBreach=r["near_breach"])
+            for r in iet_rows
+        ],
+    )
