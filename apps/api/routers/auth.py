@@ -275,17 +275,39 @@ async def logout(
     # even if the httpOnly cookie was captured (e.g., network intercept, XSS on a
     # misconfigured CSP). TTL = remaining session lifetime so Redis auto-expires it.
     token = request.cookies.get(_COOKIE)
-    if token and redis is not None:
+    if token:
         session_service = getattr(request.app.state, "session_service", None)
         if session_service is not None:
             try:
+                import datetime as _dt
                 claims = session_service.validate(token)
                 remaining_ttl = max(1, int(claims.expires_at - time.time()))
-                await redis.setex(
-                    f"revoked:session:{claims.session_id}",
-                    remaining_ttl,
-                    "1",
-                )
+                expires_dt = _dt.datetime.fromtimestamp(claims.expires_at, tz=_dt.timezone.utc)
+
+                # Primary: Redis (fast lookup on every request)
+                if redis is not None:
+                    await redis.setex(
+                        f"revoked:session:{claims.session_id}",
+                        remaining_ttl,
+                        "1",
+                    )
+
+                # Fallback: YugabyteDB (survives Redis restart)
+                db = getattr(request.app.state, "db_pool_cts", None)
+                if db is not None:
+                    await db.execute(
+                        """
+                        INSERT INTO cts.revoked_sessions
+                            (session_id, bank_id, user_id, revoked_at, expires_at)
+                        VALUES ($1, $2, $3, now(), $4)
+                        ON CONFLICT (session_id) DO NOTHING
+                        """,
+                        claims.session_id,
+                        claims.bank_id,
+                        claims.user_id,
+                        expires_dt,
+                    )
+
                 log.info(
                     "auth.session_revoked",
                     bank_id=claims.bank_id,

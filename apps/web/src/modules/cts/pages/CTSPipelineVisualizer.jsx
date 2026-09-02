@@ -791,15 +791,18 @@ function BatchSummaryBar({ confirmCount, returnCount, reviewCount, onClickStat }
 
 // ─── Main page component ──────────────────────────────────────────────────────
 
+const _API_BASE_PV = import.meta.env.VITE_API_BASE ?? ''
+
 export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Bank' }) {
   const { isDemo } = useBankContext()
   const reviewDockSeed = useDemoData(MOCK_QUEUE)
   const exceptionsSeed = useDemoData(MOCK_EXCEPTIONS)
-  const manualConfirm  = useDemoData(53, 0)
-  const manualReject   = useDemoData(11, 0)
 
   const zeroStats = useMemo(() => STAGES.map(() => ({ throughput: 0, avgMs: 0, errRate: 0 })), [])
   const statsSeed = useDemoData(initStats(), zeroStats)
+
+  const [manualConfirm, setManualConfirm] = useState(() => isDemo ? 53 : 0)
+  const [manualReject,  setManualReject]  = useState(() => isDemo ? 11 : 0)
 
   const [running, setRunning] = useState(true)
   // Pre-seed particles across ALL stages — including Decision (8) and NGCH (9) so
@@ -826,6 +829,40 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
   runningRef.current = running
   const frameRef = useRef(null)
   const spawnRef = useRef(null)
+  const liveTimerPV = useRef(null)
+
+  // Live data: seed reviewDock + counters from backend
+  useEffect(() => {
+    if (isDemo) return
+    const fetch_ = async () => {
+      try {
+        const [qRes, dashRes] = await Promise.all([
+          fetch(`${_API_BASE_PV}/v1/cts/queue?limit=20`, { credentials: 'include' }),
+          fetch(`${_API_BASE_PV}/v1/cts/dashboard/today`, { credentials: 'include' }),
+        ])
+        if (qRes.ok) {
+          const qData = await qRes.json()
+          const items = (qData.items ?? []).map(i => ({
+            id: i.instrument_id,
+            cheque: i.cheque_number ?? '—',
+            amount: i.amount_range ?? '—',
+            payee: i.payee_display ?? '—',
+            risk: i.fraud_score > 0.5 ? 'HIGH' : i.fraud_score > 0.3 ? 'MED' : 'LOW',
+            fraud_score: i.fraud_score ?? 0,
+          }))
+          if (items.length > 0) setReviewDock(items)
+        }
+        if (dashRes.ok) {
+          const dash = await dashRes.json()
+          setManualConfirm(dash.stp_confirm ?? 0)
+          setManualReject(dash.stp_return ?? 0)
+        }
+      } catch { /* keep last */ }
+    }
+    fetch_()
+    liveTimerPV.current = setInterval(fetch_, 30_000)
+    return () => clearInterval(liveTimerPV.current)
+  }, [isDemo])
 
   usePageHeader({
     subtitle: 'Live · 500 agents · <600ms wall clock',

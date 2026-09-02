@@ -35,22 +35,38 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         # Resolve JWT (synchronous — crypto + expiry only).
         claims = self._resolve(request)
 
-        # Revocation check: consult Redis for the JTI blocklist.
-        # Fail-open: if Redis is unavailable, the 15-min JWT TTL is the fallback safety net.
+        # Revocation check: Redis primary, YugabyteDB fallback (survives Redis restart).
         if claims is not None:
             redis = getattr(request.app.state, "redis_cts", None)
+            revoked = False
             if redis is not None:
                 try:
-                    if await redis.exists(f"revoked:session:{claims.session_id}"):
-                        log.warning(
-                            "auth.token_replay_attempt",
-                            session_id=claims.session_id,
-                            bank_id=claims.bank_id,
-                            user_id=claims.user_id,
-                        )
-                        claims = None
+                    revoked = bool(await redis.exists(f"revoked:session:{claims.session_id}"))
                 except Exception:
-                    pass  # Redis error → fail-open
+                    # Redis unavailable — fall through to DB check
+                    redis = None
+
+            if not revoked and redis is None:
+                # DB fallback: only if Redis was unavailable (not on every request)
+                db = getattr(request.app.state, "db_pool_cts", None)
+                if db is not None:
+                    try:
+                        row = await db.fetchrow(
+                            "SELECT 1 FROM cts.revoked_sessions WHERE session_id = $1 AND expires_at > now()",
+                            claims.session_id,
+                        )
+                        revoked = row is not None
+                    except Exception:
+                        pass  # DB error → fail-open (JWT expiry is last resort)
+
+            if revoked:
+                log.warning(
+                    "auth.token_replay_attempt",
+                    session_id=claims.session_id,
+                    bank_id=claims.bank_id,
+                    user_id=claims.user_id,
+                )
+                claims = None
 
         request.state.user = claims
         # RateLimitMiddleware keys per-bank limits off this (falls back to IP if unset).
