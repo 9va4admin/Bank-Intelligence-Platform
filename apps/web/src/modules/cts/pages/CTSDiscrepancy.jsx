@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import AppShell from '../../../shared/layout/AppShell'
+import useMismatches from '../hooks/useMismatches'
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -99,6 +100,8 @@ export default function CTSDiscrepancy() {
   const [selected,     setSelected]     = useState(null)
   const [search,       setSearch]       = useState('')
 
+  const { mismatches: liveMismatches } = useMismatches({ pollEnabled: !isDemo })
+
   const DISC_TYPES = isDark ? DISC_TYPES_D : DISC_TYPES_L
   const STATUS_META = isDark ? STATUS_D : STATUS_L
 
@@ -109,7 +112,10 @@ export default function CTSDiscrepancy() {
       ? [`SES-${ifsc}-20260619-001 (10:00–12:00)`]
       : [`SES-${ifsc}-20260619-001 (10:00–12:00)`, `SES-${ifsc}-20260619-002 (12:00–14:00)`]
   }, [bankIfsc, isSMB])
-  const ALL_DISCS  = useMemo(() => isDemo ? seed(isSMB ? 8 : 48, BRANCHES, SESSIONS_DISC, bankIfsc) : [], [isDemo, isSMB, BRANCHES, SESSIONS_DISC, bankIfsc])
+  const ALL_DISCS  = useMemo(() => {
+    if (isDemo) return seed(isSMB ? 8 : 48, BRANCHES, SESSIONS_DISC, bankIfsc)
+    return liveMismatches ?? []
+  }, [isDemo, isSMB, BRANCHES, SESSIONS_DISC, bankIfsc, liveMismatches])
   const SUMMARY    = useMemo(() => ({
     total:     ALL_DISCS.length,
     open:      ALL_DISCS.filter(d => d.status === 'OPEN').length,
