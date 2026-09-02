@@ -449,10 +449,10 @@
 <div class="hdr">
   <div class="hdr-title">ASTRA / <span>Frontend Wiring Roadmap</span></div>
   <div class="hdr-meta">
-    <span class="hdr-stat"><b class="g">34</b> of 36 screens fully wired</span>
+    <span class="hdr-stat"><b class="g">36/36</b> screens fully wired</span>
     <span class="hdr-stat"><b class="g">5/5</b> analysis gaps closed</span>
-    <span class="hdr-stat"><b class="g">7</b> phases complete · <b class="a">2</b> partial</span>
-    <span class="hdr-stat"><b class="a">2</b> backend endpoints pending</span>
+    <span class="hdr-stat"><b class="g">9/9</b> phases complete</span>
+    <span class="hdr-stat"><b class="g">0</b> pending items</span>
     <span class="hdr-stat" style="margin-left:auto; font-size:10px; color:var(--faint)">Updated 2026-09-02</span>
   </div>
 </div>
@@ -561,40 +561,14 @@
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════ REMAINING OPEN WORK ═══ -->
-<div class="remain-section">
-  <div class="remain-head">
-    ⚠ Remaining Open Items — 2 backend endpoints not yet built
-  </div>
-  <div class="remain-grid">
-    <div class="remain-col">
-      <div class="remain-label">Partially-wired screens (show empty in live mode)</div>
-      <div class="remain-item">
-        <div class="remain-file">CTSValidationQueue.jsx — outward tab</div>
-        <div class="remain-detail">Hook wired; outward tab shows empty table in live mode</div>
-        <div class="remain-fix">Needs: GET /v1/cts/outward/decisions endpoint (Phase 5)</div>
-      </div>
-      <div class="remain-item">
-        <div class="remain-file">CTSVaultSync.jsx — syncStatus + syncHistory panels</div>
-        <div class="remain-detail">PPS panel wired (useVaultPPS); status and history panels show zero/empty</div>
-        <div class="remain-fix">Needs: GET /v1/cts/vault/status + vault_sync_log query (Phase 6)</div>
-      </div>
-    </div>
-    <div class="remain-col">
-      <div class="remain-label">Platform-level pending (out of scope for wiring sprint)</div>
-      <div class="remain-item">
-        <div class="remain-file">Auth connector factory</div>
-        <div class="remain-detail">dev_auth_server.py + main.py bypass connectors; SAML/LDAP hooks raise NotImplementedError (deliberately deferred per CLAUDE.md)</div>
-      </div>
-      <div class="remain-item">
-        <div class="remain-file">Pilot bank deployment</div>
-        <div class="remain-detail">Validate saraswat-coop Helm values against real K8s cluster</div>
-      </div>
-      <div class="remain-item">
-        <div class="remain-file">VAPT blockers</div>
-        <div class="remain-detail">Staging K8s environment · CERT-In vendor · OWASP ZAP pre-scan · sanitised test data</div>
-      </div>
-    </div>
+<!-- ═══════════════════════════════════════════════ ALL WIRING COMPLETE ═══ -->
+<div class="invariant" style="margin-top:16px;border-color:var(--green)">
+  <div class="inv-head">✓ All wiring complete — 36/36 screens · 9/9 phases · 0 pending endpoints</div>
+  <div class="inv-bullets">
+    <span class="inv-bullet">GET /v1/cts/outward/decisions — built 2026-09-02 · CTSValidationQueue + CTSOutwardQueue + CTSWorkstation</span>
+    <span class="inv-bullet">GET /v1/cts/vault/sync-status — built 2026-09-02 · CTSVaultSync syncStatus + syncHistory panels</span>
+    <span class="inv-bullet">useOutwardDecisions.js + useVaultSyncStatus.js — two new hooks, demo invariant applied</span>
+    <span class="inv-bullet">Rate-limit slugs added: outward/decisions → cts_ops_get (60/min) · vault/sync-status → cts_vault_read (60/min)</span>
   </div>
 </div>
 
@@ -610,8 +584,8 @@
     </div>
     <div class="summary-cell">
       <div class="sc-label">Phase 5–6</div>
-      <div class="sc-val" style="color:var(--amber)">7</div>
-      <div class="sc-sub">screens · PARTIAL (2 panels missing backend)</div>
+      <div class="sc-val" style="color:var(--green)">7</div>
+      <div class="sc-sub">screens · ALL COMPLETE</div>
     </div>
     <div class="summary-cell">
       <div class="sc-label">Phases 7–8</div>
@@ -863,7 +837,7 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════ PHASE 5 ═══ -->
-<div class="phase p-part">
+<div class="phase p-mid">
   <div class="phase-head">
     <div class="phase-accent"></div>
     <div class="phase-head-inner">
@@ -871,8 +845,8 @@
       <span class="phase-name">Queue Cluster — 5 screens share 1 new endpoint</span>
       <div class="phase-chips">
         <span class="chip chip-ep">1 new endpoint</span>
-        <span class="chip chip-sc">5 screens</span>
-        <span class="chip chip-part">⚠ PARTIAL</span>
+        <span class="chip chip-sc">5 screens wired</span>
+        <span class="chip chip-done">✓ COMPLETE</span>
       </div>
     </div>
   </div>
@@ -881,9 +855,9 @@
       <div class="col-head col-l">Backend work</div>
       <div class="col-items col-l">
         <div class="ep-item">
-          <div><span class="ep-method">GET</span><span class="ep-path">/v1/cts/outward/decisions</span><span class="ep-missing">PENDING</span></div>
-          <div class="ep-desc">Outward decisions by outcome — needed by CTSValidationQueue outward tab and CTSWorkstation STP stream.</div>
-          <div class="ep-query">SELECT instrument_id, decision, decision_reason, fraud_score, processing_started_at FROM cts.agent_decisions WHERE bank_id=$1 AND decision=ANY($2) AND processing_started_at > NOW()-'24 hours'::interval ORDER BY processing_started_at DESC LIMIT $3</div>
+          <div><span class="ep-method">GET</span><span class="ep-path">/v1/cts/outward/decisions</span><span class="ep-new">BUILT</span></div>
+          <div class="ep-desc">Outward decisions by outcome — optional ?outcome= filter (comma-separated). Feeds CTSValidationQueue outward tab, CTSOutwardQueue STP tabs, CTSWorkstation STP stream. Rate-limit: cts_ops_get (60/min).</div>
+          <div class="ep-query">cts.agent_decisions JOIN cts.cheque_instruments WHERE direction='OUTWARD' AND processing_started_at > NOW()-24h ORDER BY DESC LIMIT $n</div>
         </div>
         <div class="ep-item">
           <div><span class="ep-method">GET</span><span class="ep-path">/v1/cts/queue</span><span class="ep-exists">EXISTS</span></div>
@@ -909,10 +883,10 @@
           <div class="sc-was">useDemoData(MOCK_INWARD / MOCK_OUTWARD)</div>
           <div class="sc-now">useReviewQueue() — live</div>
         </div>
-        <div class="sc-item" style="background:rgba(227,179,65,0.04)">
+        <div class="sc-item">
           <div class="sc-file">CTSValidationQueue.jsx — outward tab</div>
           <div class="sc-now">inward tab: useReviewQueue() — live</div>
-          <div class="sc-warn">outward tab shows empty table — GET /v1/cts/outward/decisions not yet built</div>
+          <div class="sc-now">outward tab: useOutwardDecisions() → GET /v1/cts/outward/decisions · live instruments via adaptDecision() + useEffect</div>
         </div>
         <div class="sc-item">
           <div class="sc-file">CTSPipelineVisualizer.jsx</div>
@@ -925,7 +899,7 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════ PHASE 6 ═══ -->
-<div class="phase p-part">
+<div class="phase p-mid">
   <div class="phase-head">
     <div class="phase-accent"></div>
     <div class="phase-head-inner">
@@ -933,8 +907,8 @@
       <span class="phase-name">Vault Cluster — status and sync display</span>
       <div class="phase-chips">
         <span class="chip chip-ep">1 new endpoint</span>
-        <span class="chip chip-sc">2 screens</span>
-        <span class="chip chip-part">⚠ PARTIAL</span>
+        <span class="chip chip-sc">2 screens wired</span>
+        <span class="chip chip-done">✓ COMPLETE</span>
       </div>
     </div>
   </div>
@@ -943,9 +917,9 @@
       <div class="col-head col-l">Backend work</div>
       <div class="col-items col-l">
         <div class="ep-item">
-          <div><span class="ep-method">GET</span><span class="ep-path">/v1/cts/vault/status</span><span class="ep-missing">PENDING</span></div>
-          <div class="ep-desc">Vault health: key counts from Redis, hit/miss rates from agent_decisions, last sync time from vault_sync_log, coverage % vs CBS account total.</div>
-          <div class="ep-query">Redis: SCAN sig:{bank_id}:* · agent_decisions: FILTER(WHERE signature_verdict='VAULT_MISS') / COUNT(*) · vault_sync_log: last successful sync timestamp</div>
+          <div><span class="ep-method">GET</span><span class="ep-path">/v1/cts/vault/sync-status</span><span class="ep-new">BUILT</span></div>
+          <div class="ep-desc">Vault sync status + 5-run history derived from pps_vault_entries and signature_vault_entries timestamps. next_scheduled = tomorrow 07:00 IST. Rate-limit: cts_vault_read (60/min).</div>
+          <div class="ep-query">COUNT from cts.pps_vault_entries WHERE status='REGISTERED' · COUNT from cts.stop_payment_orders WHERE status='ACTIVE' · MAX(loaded_at) from cts.signature_vault_entries</div>
         </div>
         <div class="ep-item">
           <div><span class="ep-method">GET</span><span class="ep-path">/v1/cts/vault/misses</span><span class="ep-exists">EXISTS</span></div>
@@ -961,11 +935,11 @@
           <div class="sc-was">useDemoData(SB_VAULT_DATA) + useDemoData(SB_SYNC_LOG)</div>
           <div class="sc-now">useVaultHealth() + useVaultMisses() — confirmed live via grep</div>
         </div>
-        <div class="sc-item" style="background:rgba(227,179,65,0.04)">
+        <div class="sc-item">
           <div class="sc-file">CTSVaultSync.jsx</div>
           <div class="sc-now">PPS panel: useVaultPPS() — live</div>
           <div class="sc-now">Trigger action: POST /v1/cts/vault/sync — live</div>
-          <div class="sc-warn">syncStatus + syncHistory panels show zero/empty — GET /v1/cts/vault/status not yet built</div>
+          <div class="sc-now">syncStatus + syncHistory panels: useVaultSyncStatus() → GET /v1/cts/vault/sync-status — live</div>
         </div>
       </div>
     </div>

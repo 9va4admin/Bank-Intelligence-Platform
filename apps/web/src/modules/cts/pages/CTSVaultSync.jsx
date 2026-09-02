@@ -5,6 +5,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
 import useVaultPPS from '../hooks/useVaultPPS'
+import useVaultSyncStatus from '../hooks/useVaultSyncStatus'
 
 // ── Mock data ──────────────────────────────────────────────────────────────
 
@@ -88,6 +89,7 @@ export default function CTSVaultSync() {
   const [stopSearch, setStopSearch] = useState('')
 
   const { ppsEntries: livePPS, stopCheques: liveStop } = useVaultPPS({ pollEnabled: !isDemo })
+  const { syncStatus: liveSyncStatus, syncHistory: liveSyncHistory } = useVaultSyncStatus({ pollEnabled: !isDemo })
 
   const th = {
     page:    isDark ? '' : 'bg-slate-50',
@@ -130,8 +132,9 @@ export default function CTSVaultSync() {
 
   const ppsSource   = useDemoData(MOCK_PPS)
   const stopSource  = useDemoData(MOCK_STOP)
-  const syncStatus  = useDemoData(MOCK_SYNC_STATUS, { cbs_connector: '—', last_run_at: null, triggered_by: '—', pps_records_loaded: 0, stop_cheque_records_loaded: 0, next_scheduled: null })
-  const syncHistory = useDemoData(MOCK_SYNC_HISTORY)
+  // Demo invariant: use live data when available in non-demo mode
+  const syncStatus  = isDemo || !liveSyncStatus ? MOCK_SYNC_STATUS : liveSyncStatus
+  const syncHistory = isDemo || !liveSyncHistory || liveSyncHistory.length === 0 ? MOCK_SYNC_HISTORY : liveSyncHistory
 
   // Demo invariant: use live data when available in non-demo mode
   const activePPS  = useMemo(() => {

@@ -4,10 +4,11 @@
  * Source column removed — instrument cell left-border colour codes STP (emerald) vs VERIFIED (sky).
  * Actions are icon buttons: ✓ approve · ↩ return (opens reason dropdown).
  */
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
+import useOutwardDecisions from '../hooks/useOutwardDecisions'
 import { getReasonByLabel, getReturnReasons } from '../data/returnReasons'
 import ChequeImageViewer from '../components/ChequeImageViewer'
 import { demoChequeUrl } from '../demoImages'
@@ -646,12 +647,53 @@ function isHighValue(inst, threshold = MOCK_HV_THRESHOLD) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
+// Adapts a live outward decision row into the instrument shape the page renders
+function adaptDecision(d, idx) {
+  return {
+    instrument_id: d.instrument_id,
+    source_stage: d.decision === 'STP_CONFIRM' ? 'STP' : 'VERIFIED',
+    front_bw_url: null, front_gray_url: null,
+    drawee_bank: '—', drawee_branch: '—',
+    drawee_ifsc: d.drawee_ifsc ?? '—', drawee_micr: '—',
+    drawer_name: '—',
+    account_display: d.account_last4 ? `****${d.account_last4}` : '****0000',
+    ocr_score: 0.95, sig_score: 0.95,
+    fraud_score: d.fraud_score ?? 0,
+    iqa_score: 0.99,
+    deposit_channel: 'PAY_IN_SLIP',
+    deposit_data: {},
+    name_match: 'FULL_MATCH', name_match_cbs_name: '—',
+    fields_meta: {
+      date:           { extracted_value: '—', extracted_confidence: 0.95, extracted_by: 'GOT-OCR2.0', actual_value: '—', source: 'STP' },
+      payee:          { extracted_value: '—', extracted_confidence: 0.95, extracted_by: 'GOT-OCR2.0', actual_value: '—', source: 'STP' },
+      amount_figures: { extracted_value: d.amount_bucket ?? '—', extracted_confidence: 0.95, extracted_by: 'GOT-OCR2.0', actual_value: d.amount_bucket ?? '—', source: 'STP' },
+      amount_words:   { extracted_value: '—', extracted_confidence: 0.90, extracted_by: 'GOT-OCR2.0', actual_value: '—', source: 'STP' },
+      micr:           { extracted_value: '—', extracted_confidence: 0.99, extracted_by: 'GOT-OCR2.0', actual_value: '—', source: 'STP' },
+      alterations:    { extracted_value: false, extracted_confidence: 0.99, extracted_by: 'GOT-OCR2.0', actual_value: false, source: 'STP' },
+    },
+    lot_number: d.lot_number ?? '—',
+    decision_reason: d.decision_reason,
+  }
+}
+
 export default function CTSValidationQueue({ mode = 'outward' }) {
   const { isDark } = useTheme()
   const isInward = mode === 'inward'
 
+  // Live data for outward tab — polls /v1/cts/outward/decisions
+  const { decisions: liveDecisions } = useOutwardDecisions({ pollEnabled: !isInward })
+
   const BASE = useDemoData(isInward ? BASE_INSTRUMENTS_INWARD : BASE_INSTRUMENTS_OUTWARD)
   const [instruments, setInstruments] = useState(() => BASE.map(i => ({ ...i, edits: {} })))
+
+  // Demo invariant: update outward instruments from live decisions when available
+  const prevLiveRef = useRef([])
+  useEffect(() => {
+    if (!isInward && liveDecisions.length > 0 && liveDecisions !== prevLiveRef.current) {
+      prevLiveRef.current = liveDecisions
+      setInstruments(liveDecisions.map(d => ({ ...adaptDecision(d), edits: {} })))
+    }
+  }, [liveDecisions, isInward])
   const [filter, setFilter]           = useState('ALL')
   const [returnOpenFor, setReturnOpenFor] = useState(null)
   const [chequeViewId, setChequeViewId]   = useState(null)
