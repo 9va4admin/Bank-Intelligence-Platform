@@ -6,6 +6,7 @@ import QueueCard from '../components/QueueCard'
 import ReviewPanel from '../components/ReviewPanel'
 import { BATCH_STATS, getStpStream } from '../data/mockQueue'
 import useReviewQueue from '../hooks/useReviewQueue'
+import useInwardAnalytics from '../hooks/useInwardAnalytics'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
@@ -136,6 +137,23 @@ export default function CTSWorkstation() {
   const [stpSuccessQueue]           = useState(useDemoData(MOCK_STP_SUCCESS_IQ))
   const [batchStats, setBatchStats] = useState(useDemoData({ ...BATCH_STATS }, ZERO_BATCH))
   const [now, setNow] = useState(new Date())
+
+  // Live analytics — seed today's batch stats in POC/PROD mode
+  const { data: analytics } = useInwardAnalytics({ pollEnabled: !isDemo })
+  useEffect(() => {
+    if (isDemo) return
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const today = analytics.daily.find(r => r.date === todayStr)
+    if (!today) return
+    setBatchStats({
+      total_inward:    today.total,
+      stp_confirmed:   today.stp_confirm,
+      stp_returned:    today.stp_return,
+      human_review:    today.human_review,
+      stp_rate:        today.total > 0 ? ((today.stp_confirm + today.stp_return) / today.total * 100) : 0,
+      avg_decision_ms: Math.round(today.avg_ms),
+    })
+  }, [analytics, isDemo])
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000)

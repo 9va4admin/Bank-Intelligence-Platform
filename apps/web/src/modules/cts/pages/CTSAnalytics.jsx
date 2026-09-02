@@ -17,6 +17,7 @@ import { useBankContext } from '../../../shared/context/BankContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import useAnalytics from '../hooks/useAnalytics'
 import useInwardAnalytics from '../hooks/useInwardAnalytics'
+import useModelHealth from '../hooks/useModelHealth'
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -119,6 +120,15 @@ const MODEL_PERF = [
   { model: 'IndicOCR/Paddle', metric: 'Indic Accuracy', value: 96.8, threshold: 95.0, unit: '%' },
 ]
 
+// Static NFR thresholds per model — merges with live current_value + drift_pct from /ops/model-health
+const _MODEL_THRESHOLDS = {
+  'GOT-OCR2.0':      { threshold: 99.0,  unit: '%' },
+  'Siamese-SigNet':  { threshold: 97.0,  unit: '%' },
+  'XGBoost-Fraud':   { threshold: 0.920, unit: '' },
+  'Qwen2-VL 72B':    { threshold: 0.900, unit: '' },
+  'IndicOCR/Paddle': { threshold: 95.0,  unit: '%' },
+}
+
 // Colour map for live fraud distribution buckets (mirrors mock colours)
 const _FRAUD_DIST_COLORS = {
   '0–10':   '#10b981',
@@ -174,6 +184,7 @@ export default function CTSAnalytics() {
   // Live analytics — only fetched in POC/PROD; demo mode uses mock data below
   const { daily: liveDaily } = useAnalytics({ pollEnabled: !isDemo })
   const { data: liveInward } = useInwardAnalytics({ pollEnabled: !isDemo })
+  const { data: modelHealth } = useModelHealth({ pollEnabled: !isDemo })
 
   const mockDaily = isSMB ? SMB_DAILY : SB_DAILY
 
@@ -212,6 +223,23 @@ export default function CTSAnalytics() {
         { date: 'Aug 31', nearBreach: 0 },
       ]
     : liveInward.iet_trend
+
+  const DISPLAY_MODEL_PERF = (() => {
+    const liveModels = modelHealth?.models ?? []
+    if (isDemo || liveModels.length === 0) return MODEL_PERF
+    return liveModels.map(entry => {
+      const meta = _MODEL_THRESHOLDS[entry.model_name] ?? { threshold: 0, unit: '' }
+      return {
+        model:       entry.model_name,
+        metric:      entry.metric,
+        value:       entry.current_value,
+        threshold:   meta.threshold,
+        unit:        meta.unit,
+        drift:       entry.drift_pct,
+        alertStatus: entry.alert_status,
+      }
+    })
+  })()
 
   const weekTotal   = DAILY.reduce((s, d) => s + d.total, 0)
   const weekConfirm = DAILY.reduce((s, d) => s + d.stp_confirm, 0)
@@ -413,10 +441,10 @@ export default function CTSAnalytics() {
                   </tr>
                 </thead>
                 <tbody>
-                  {MODEL_PERF.map((m, i) => {
+                  {DISPLAY_MODEL_PERF.map((m, i) => {
                     const margin = (m.value - m.threshold).toFixed(3)
-                    const ok = parseFloat(margin) >= 0
-                    const drift = (Math.random() * 0.8 - 0.1).toFixed(2)
+                    const ok = m.alertStatus ? m.alertStatus === 'SAFE' : parseFloat(margin) >= 0
+                    const drift = m.drift != null ? m.drift.toFixed(2) : (Math.random() * 0.8 - 0.1).toFixed(2)
                     return (
                       <tr key={i} className={`border-b transition-colors ${th.row}`}>
                         <td className={`px-5 py-3 font-semibold ${th.heading}`}>{m.model}</td>
@@ -428,7 +456,7 @@ export default function CTSAnalytics() {
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${ok
                             ? (isDark ? 'bg-emerald-900/40 text-emerald-300 border-emerald-700/40' : 'bg-emerald-50 text-emerald-700 border-emerald-200')
                             : (isDark ? 'bg-red-900/40 text-red-300 border-red-700/40' : 'bg-red-50 text-red-700 border-red-200')
-                          }`}>{ok ? 'OK' : 'WARN'}</span>
+                          }`}>{m.alertStatus ?? (ok ? 'OK' : 'WARN')}</span>
                         </td>
                         <td className={`px-5 py-3 font-mono text-xs ${parseFloat(drift) < 0 ? 'text-red-400' : 'text-emerald-500'}`}>
                           {parseFloat(drift) >= 0 ? '+' : ''}{drift}%

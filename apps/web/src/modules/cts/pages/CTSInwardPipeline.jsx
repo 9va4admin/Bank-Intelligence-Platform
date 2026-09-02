@@ -6,6 +6,7 @@ import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
 import useDemoInterval from '../../../shared/hooks/useDemoInterval'
 import { getStpStream } from '../data/mockQueue'
+import useInwardAnalytics from '../hooks/useInwardAnalytics'
 
 // ─── Sub-member bank definitions (mock — live data via Kafka cts.smb.inbound) ─
 
@@ -522,6 +523,19 @@ export default function CTSInwardPipeline() {
   const [ietMinutes,  setIetMinutes]  = useState(useDemoData(142, 180))
   const [totalMs,     setTotalMs]     = useState(useDemoData(612, 0))
   const [now,         setNow]         = useState(new Date())
+
+  // Live analytics — seed today's decision counters in POC/PROD mode
+  const { data: analytics } = useInwardAnalytics({ pollEnabled: !isDemo })
+  useEffect(() => {
+    if (isDemo) return
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const today = analytics.daily.find(r => r.date === todayStr)
+    if (!today) return
+    setConfirms(today.stp_confirm)
+    setReturns(today.stp_return)
+    setHumanReview(today.human_review)
+    if (today.avg_ms > 0) setTotalMs(Math.round(today.avg_ms))
+  }, [analytics, isDemo])
 
   // SMB child pipelines state
   const [smbCounts, setSmbCounts] = useState(() =>
