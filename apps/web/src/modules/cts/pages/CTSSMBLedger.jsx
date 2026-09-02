@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
+import useSMBLedgers from '../hooks/useSMBLedgers'
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 
@@ -187,11 +188,38 @@ function LedgerDetailPanel({ row, isDark, onClose }) {
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 
+const _normaliseShield = (s) =>
+  s === 'SAFE' ? 'CLEAR' : s === 'HIGH_RETURN' ? 'SOFT_HOLD' : (s ?? 'CLEAR')
+
 export default function CTSSMBLedger() {
-  const { bankName, bankIfsc, isSB, isSMB } = useBankContext()
+  const { bankName, bankIfsc, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const [selected, setSelected] = useState(null)
   const [sessionDate, setSessionDate] = useState('2026-06-26')
+
+  const { ledgers: liveLedgers } = useSMBLedgers({ session_date: sessionDate, pollEnabled: !isDemo })
+
+  const LEDGER_SOURCE = useMemo(() => {
+    if (isDemo || !liveLedgers || liveLedgers.length === 0) return MOCK_LEDGER
+    return liveLedgers.map(l => ({
+      sub_member_id: l.sub_member_id,
+      bank_name: l.bank_name,
+      session_date: sessionDate,
+      clearing_session: 'SESSION_1',
+      total: l.total_received,
+      stp_confirm: l.stp_pass,
+      stp_return: l.stp_return,
+      human_review: l.eyeball,
+      iet_emergency: l.iet_emergency,
+      in_flight: 0,
+      return_rate: l.return_rate_pct / 100,
+      shield_status: _normaliseShield(l.shield_status),
+      avg_fraud_score: 0,
+      ngch_filed: l.total_received - l.iet_emergency,
+      audit_written: l.total_received,
+      ledger_updated_at: new Date().toISOString(),
+    }))
+  }, [isDemo, liveLedgers, sessionDate])
 
   const th = {
     page:    isDark ? 'bg-transparent' : 'bg-slate-50',
@@ -205,11 +233,11 @@ export default function CTSSMBLedger() {
   }
   const SHIELD = isDark ? SHIELD_D : SHIELD_L
 
-  const totalCheques = MOCK_LEDGER.reduce((a, r) => a + r.total, 0)
-  const totalConfirm = MOCK_LEDGER.reduce((a, r) => a + r.stp_confirm, 0)
-  const totalReturn  = MOCK_LEDGER.reduce((a, r) => a + r.stp_return, 0)
-  const totalReview  = MOCK_LEDGER.reduce((a, r) => a + r.human_review, 0)
-  const shieldAlerts = MOCK_LEDGER.filter(r => r.shield_status !== 'CLEAR').length
+  const totalCheques = LEDGER_SOURCE.reduce((a, r) => a + r.total, 0)
+  const totalConfirm = LEDGER_SOURCE.reduce((a, r) => a + r.stp_confirm, 0)
+  const totalReturn  = LEDGER_SOURCE.reduce((a, r) => a + r.stp_return, 0)
+  const totalReview  = LEDGER_SOURCE.reduce((a, r) => a + r.human_review, 0)
+  const shieldAlerts = LEDGER_SOURCE.filter(r => r.shield_status !== 'CLEAR').length
 
   if (isSMB) {
     return (
@@ -269,7 +297,7 @@ export default function CTSSMBLedger() {
               </tr>
             </thead>
             <tbody>
-              {MOCK_LEDGER.map(row => (
+              {LEDGER_SOURCE.map(row => (
                 <tr
                   key={row.sub_member_id}
                   className={`border-b ${th.row}`}

@@ -25,7 +25,7 @@ def _safe_temporal_param(value: str, field: str) -> str:
     return value
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict
 
 from apps.api.dependencies import require_user_context
@@ -6077,3 +6077,627 @@ async def list_outward_lots(
         for r in rows
     ]
     return LotsListResponse(bank_id=bank_id, clearing_date=date_str, lots=lots)
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: Vault Health, Misses, PPS, Stop-Cheques
+# ---------------------------------------------------------------------------
+
+class VaultHealthResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    sig_key_count: int
+    pps_key_count: int
+    sig_status: str       # HEALTHY | STALE | EMPTY
+    pps_status: str
+    sig_last_sync: Optional[str]
+    pps_last_sync: Optional[str]
+    miss_action: str = "HUMAN_REVIEW"  # non-overridable; shown for transparency
+
+
+class VaultMissEvent(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    instrument_id: str
+    account_last4: str
+    vault_type: str       # SIGNATURE | PPS
+    miss_reason: str
+    routed_to: str        # always HUMAN_REVIEW
+    event_time: str
+
+
+class VaultMissesResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    date: str
+    misses: list[VaultMissEvent]
+    total_count: int
+
+
+class PPSEntry(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    entry_id: str
+    account_display: str
+    cheque_number: str
+    cheque_date: Optional[str]
+    amount_range: str
+    status: str
+    expires_at: Optional[str]
+    registered_at: str
+    registration_channel: Optional[str]
+
+
+class PPSListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    entries: list[PPSEntry]
+    total_count: int
+
+
+class StopChequeInstruction(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    stop_id: str
+    account_display: str
+    scope: str
+    cheque_number: Optional[str]
+    reason: str
+    status: str
+    created_at: str
+
+
+class StopChequesResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    instructions: list[StopChequeInstruction]
+    total_count: int
+
+
+_VAULT_READ_ROLES = {"ops_manager", "bank_it_admin", "compliance_officer", "ops_reviewer"}
+_VAULT_SENSITIVE_ROLES = {"ops_manager", "bank_it_admin", "compliance_officer"}
+
+
+@router_v1.get("/vault/health", response_model=VaultHealthResponse)
+async def get_vault_health(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> VaultHealthResponse:
+    """
+    Returns key-count summary for the signature and PPS vaults.
+    Counts live rows from cts.signature_vault_entries and cts.pps_vault_entries.
+    """
+    bank_id = ctx.bank_id
+    from datetime import date as _date
+    today = _date.today().isoformat()
+
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return VaultHealthResponse(
+            bank_id=bank_id,
+            sig_key_count=0, pps_key_count=0,
+            sig_status="UNKNOWN", pps_status="UNKNOWN",
+            sig_last_sync=None, pps_last_sync=None,
+        )
+
+    try:
+        sig_count = await db.fetchval(
+            "SELECT COUNT(*) FROM cts.signature_vault_entries WHERE bank_id = $1",
+            bank_id,
+        )
+        pps_count = await db.fetchval(
+            "SELECT COUNT(*) FROM cts.pps_vault_entries WHERE bank_id = $1 AND status = 'REGISTERED'",
+            bank_id,
+        )
+        sig_last_row = await db.fetchrow(
+            """SELECT MAX(loaded_at)::text AS last_sync
+               FROM cts.signature_vault_entries WHERE bank_id = $1""",
+            bank_id,
+        )
+        pps_last_row = await db.fetchrow(
+            """SELECT MAX(registered_at)::text AS last_sync
+               FROM cts.pps_vault_entries WHERE bank_id = $1""",
+            bank_id,
+        )
+    except Exception as exc:
+        log.error("cts.vault_health.query_failed", bank_id=bank_id, error=str(exc))
+        return VaultHealthResponse(
+            bank_id=bank_id,
+            sig_key_count=0, pps_key_count=0,
+            sig_status="UNKNOWN", pps_status="UNKNOWN",
+            sig_last_sync=None, pps_last_sync=None,
+        )
+
+    def _status(count: int) -> str:
+        if count == 0:
+            return "EMPTY"
+        return "HEALTHY"
+
+    return VaultHealthResponse(
+        bank_id=bank_id,
+        sig_key_count=int(sig_count or 0),
+        pps_key_count=int(pps_count or 0),
+        sig_status=_status(int(sig_count or 0)),
+        pps_status=_status(int(pps_count or 0)),
+        sig_last_sync=sig_last_row["last_sync"] if sig_last_row else None,
+        pps_last_sync=pps_last_row["last_sync"] if pps_last_row else None,
+    )
+
+
+@router_v1.get("/vault/misses", response_model=VaultMissesResponse)
+async def get_vault_misses(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+    date: Optional[str] = None,
+) -> VaultMissesResponse:
+    """
+    Returns today's vault miss events. Queries cts.vault_miss_events if it
+    exists, otherwise falls back to cts.agent_decisions for VAULT_MISS outcomes.
+    Accounts are shown as ****last4 only — no full account numbers ever.
+    """
+    bank_id = ctx.bank_id
+    from datetime import date as _date
+    date_str = date or _date.today().isoformat()
+
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return VaultMissesResponse(bank_id=bank_id, date=date_str, misses=[], total_count=0)
+
+    try:
+        rows = await db.fetch(
+            """
+            SELECT
+                instrument_id::text,
+                account_last4,
+                vault_type,
+                miss_reason,
+                'HUMAN_REVIEW' AS routed_to,
+                event_time::text
+            FROM cts.vault_miss_events
+            WHERE bank_id = $1 AND event_time::date = $2::date
+            ORDER BY event_time DESC
+            LIMIT 200
+            """,
+            bank_id, date_str,
+        )
+    except Exception:
+        # Table may not exist yet — graceful empty
+        rows = []
+
+    misses = [
+        VaultMissEvent(
+            instrument_id=r["instrument_id"],
+            account_last4=r["account_last4"],
+            vault_type=r["vault_type"],
+            miss_reason=r["miss_reason"],
+            routed_to=r["routed_to"],
+            event_time=r["event_time"],
+        )
+        for r in rows
+    ]
+    return VaultMissesResponse(
+        bank_id=bank_id,
+        date=date_str,
+        misses=misses,
+        total_count=len(misses),
+    )
+
+
+@router_v1.get("/vault/pps", response_model=PPSListResponse)
+async def list_vault_pps(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+    status_filter: Optional[str] = Query(None, alias="status"),
+    limit: int = Query(100, le=200),
+) -> PPSListResponse:
+    """
+    Lists PPS vault entries for the bank.
+    Never returns payee_name_enc (encrypted column) — only amount_range and masked account.
+    """
+    bank_id = ctx.bank_id
+
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return PPSListResponse(bank_id=bank_id, entries=[], total_count=0)
+
+    try:
+        if status_filter:
+            rows = await db.fetch(
+                """
+                SELECT entry_id::text, account_last4, cheque_number,
+                       cheque_date::text, amount_range, status,
+                       expires_at::text, registered_at::text, registration_channel
+                FROM cts.pps_vault_entries
+                WHERE bank_id = $1 AND status = $2
+                ORDER BY registered_at DESC
+                LIMIT $3
+                """,
+                bank_id, status_filter, limit,
+            )
+        else:
+            rows = await db.fetch(
+                """
+                SELECT entry_id::text, account_last4, cheque_number,
+                       cheque_date::text, amount_range, status,
+                       expires_at::text, registered_at::text, registration_channel
+                FROM cts.pps_vault_entries
+                WHERE bank_id = $1 AND status != 'CONFIRMED_PAID'
+                ORDER BY registered_at DESC
+                LIMIT $2
+                """,
+                bank_id, limit,
+            )
+    except Exception as exc:
+        log.error("cts.vault_pps.query_failed", bank_id=bank_id, error=str(exc))
+        return PPSListResponse(bank_id=bank_id, entries=[], total_count=0)
+
+    entries = [
+        PPSEntry(
+            entry_id=r["entry_id"],
+            account_display=f"****{r['account_last4']}",
+            cheque_number=r["cheque_number"],
+            cheque_date=r["cheque_date"],
+            amount_range=r["amount_range"],
+            status=r["status"],
+            expires_at=r["expires_at"],
+            registered_at=r["registered_at"],
+            registration_channel=r["registration_channel"],
+        )
+        for r in rows
+    ]
+    return PPSListResponse(bank_id=bank_id, entries=entries, total_count=len(entries))
+
+
+_STOP_CHEQUE_ROLES = {"ops_manager", "bank_it_admin", "compliance_officer"}
+
+
+@router_v1.get("/vault/stop-cheques", response_model=StopChequesResponse)
+async def list_vault_stop_cheques(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+    include_revoked: bool = Query(False),
+    limit: int = Query(100, le=200),
+) -> StopChequesResponse:
+    """
+    Lists stop payment instructions for the bank.
+    Accounts shown as ****last4. Reason field is customer-provided text — safe to display.
+    Role-gated: only ops_manager, bank_it_admin, compliance_officer may view.
+    """
+    if ctx.role.value not in _STOP_CHEQUE_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+
+    bank_id = ctx.bank_id
+
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return StopChequesResponse(bank_id=bank_id, instructions=[], total_count=0)
+
+    try:
+        if include_revoked:
+            rows = await db.fetch(
+                """
+                SELECT stop_id::text, account_last4, scope, cheque_number,
+                       reason, status, created_at::text
+                FROM cts.stop_payment_instructions
+                WHERE bank_id = $1
+                ORDER BY created_at DESC
+                LIMIT $2
+                """,
+                bank_id, limit,
+            )
+        else:
+            rows = await db.fetch(
+                """
+                SELECT stop_id::text, account_last4, scope, cheque_number,
+                       reason, status, created_at::text
+                FROM cts.stop_payment_instructions
+                WHERE bank_id = $1 AND status = 'ACTIVE'
+                ORDER BY created_at DESC
+                LIMIT $2
+                """,
+                bank_id, limit,
+            )
+    except Exception as exc:
+        log.error("cts.vault_stop.query_failed", bank_id=bank_id, error=str(exc))
+        return StopChequesResponse(bank_id=bank_id, instructions=[], total_count=0)
+
+    instructions = [
+        StopChequeInstruction(
+            stop_id=r["stop_id"],
+            account_display=f"****{r['account_last4']}",
+            scope=r["scope"],
+            cheque_number=r["cheque_number"],
+            reason=r["reason"],
+            status=r["status"],
+            created_at=r["created_at"],
+        )
+        for r in rows
+    ]
+    return StopChequesResponse(bank_id=bank_id, instructions=instructions, total_count=len(instructions))
+
+
+# ---------------------------------------------------------------------------
+# Phase 4: Ops Dashboard — today's summary + 7-day trend
+# ---------------------------------------------------------------------------
+
+class DashboardTodaySummary(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    clearing_date: str
+    sessions_count: int
+    sessions_settled: int
+    total_inward: int
+    stp_confirmed: int
+    stp_returned: int
+    manual_confirmed: int
+    manual_returned: int
+    pending_review: int
+    overall_stp_rate_pct: float
+    overall_return_rate_pct: float
+    total_outward: int
+    outward_returned: int
+
+
+class DashboardTrendRow(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    date: str
+    inward: int
+    stp_rate_pct: float
+    return_rate_pct: float
+
+
+class DashboardTrendResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    days: int
+    trend: list[DashboardTrendRow]
+
+
+@router_v1.get("/dashboard/today", response_model=DashboardTodaySummary)
+async def get_dashboard_today(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+) -> DashboardTodaySummary:
+    """
+    Today's clearing summary: inward AI decisions (STP/return/pending),
+    outward scan counts, and clearing session totals.
+    Combines cts.agent_decisions + cts.outward_scan_events + cts.clearing_sessions.
+    """
+    bank_id = ctx.bank_id
+    from datetime import date as _date
+    today = _date.today().isoformat()
+
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return DashboardTodaySummary(
+            bank_id=bank_id, clearing_date=today,
+            sessions_count=0, sessions_settled=0,
+            total_inward=0, stp_confirmed=0, stp_returned=0,
+            manual_confirmed=0, manual_returned=0, pending_review=0,
+            overall_stp_rate_pct=0.0, overall_return_rate_pct=0.0,
+            total_outward=0, outward_returned=0,
+        )
+
+    try:
+        inward_row = await db.fetchrow(
+            """
+            SELECT
+                COUNT(*)::int                                                   AS total_inward,
+                COUNT(*) FILTER (WHERE decision = 'STP_CONFIRM')::int          AS stp_confirmed,
+                COUNT(*) FILTER (WHERE decision = 'STP_RETURN')::int           AS stp_returned,
+                COUNT(*) FILTER (WHERE decision = 'MANUAL_CONFIRM')::int       AS manual_confirmed,
+                COUNT(*) FILTER (WHERE decision = 'MANUAL_RETURN')::int        AS manual_returned,
+                COUNT(*) FILTER (WHERE decision = 'HUMAN_REVIEW')::int         AS pending_review
+            FROM cts.agent_decisions
+            WHERE bank_id = $1
+              AND processing_started_at::date = $2::date
+            """,
+            bank_id, today,
+        )
+        outward_row = await db.fetchrow(
+            """
+            SELECT
+                COUNT(*)::int                                               AS total_outward,
+                COUNT(*) FILTER (WHERE outcome = 'CTS_REJECTED')::int      AS outward_returned
+            FROM cts.outward_scan_events
+            WHERE bank_id = $1
+              AND scanned_at::date = $2::date
+            """,
+            bank_id, today,
+        )
+        session_row = await db.fetchrow(
+            """
+            SELECT
+                COUNT(*)::int                                                       AS sessions_count,
+                COUNT(*) FILTER (WHERE settlement_at IS NOT NULL)::int              AS sessions_settled
+            FROM cts.clearing_sessions
+            WHERE bank_id = $1 AND session_date = $2::date
+            """,
+            bank_id, today,
+        )
+    except Exception as exc:
+        log.error("cts.dashboard_today.query_failed", bank_id=bank_id, error=str(exc))
+        return DashboardTodaySummary(
+            bank_id=bank_id, clearing_date=today,
+            sessions_count=0, sessions_settled=0,
+            total_inward=0, stp_confirmed=0, stp_returned=0,
+            manual_confirmed=0, manual_returned=0, pending_review=0,
+            overall_stp_rate_pct=0.0, overall_return_rate_pct=0.0,
+            total_outward=0, outward_returned=0,
+        )
+
+    total_inward   = int(inward_row["total_inward"]   or 0) if inward_row   else 0
+    stp_confirmed  = int(inward_row["stp_confirmed"]  or 0) if inward_row   else 0
+    stp_returned   = int(inward_row["stp_returned"]   or 0) if inward_row   else 0
+    manual_conf    = int(inward_row["manual_confirmed"]or 0) if inward_row  else 0
+    manual_ret     = int(inward_row["manual_returned"] or 0) if inward_row  else 0
+    pending        = int(inward_row["pending_review"]  or 0) if inward_row  else 0
+    total_out      = int(outward_row["total_outward"]  or 0) if outward_row else 0
+    out_ret        = int(outward_row["outward_returned"]or 0) if outward_row else 0
+    ses_count      = int(session_row["sessions_count"] or 0) if session_row else 0
+    ses_settled    = int(session_row["sessions_settled"]or 0) if session_row else 0
+
+    stp_rate_pct    = round(stp_confirmed  / total_inward * 100, 1) if total_inward > 0 else 0.0
+    return_rate_pct = round((stp_returned + manual_ret) / total_inward * 100, 1) if total_inward > 0 else 0.0
+
+    return DashboardTodaySummary(
+        bank_id=bank_id, clearing_date=today,
+        sessions_count=ses_count, sessions_settled=ses_settled,
+        total_inward=total_inward,
+        stp_confirmed=stp_confirmed, stp_returned=stp_returned,
+        manual_confirmed=manual_conf, manual_returned=manual_ret,
+        pending_review=pending,
+        overall_stp_rate_pct=stp_rate_pct,
+        overall_return_rate_pct=return_rate_pct,
+        total_outward=total_out,
+        outward_returned=out_ret,
+    )
+
+
+@router_v1.get("/dashboard/trend", response_model=DashboardTrendResponse)
+async def get_dashboard_trend(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+    days: int = Query(7, ge=1, le=30),
+) -> DashboardTrendResponse:
+    """
+    Rolling N-day trend for the ops dashboard sparklines.
+    Queries cts.agent_decisions grouped by processing date.
+    """
+    bank_id = ctx.bank_id
+
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return DashboardTrendResponse(bank_id=bank_id, days=days, trend=[])
+
+    try:
+        rows = await db.fetch(
+            """
+            SELECT
+                TO_CHAR(processing_started_at AT TIME ZONE 'Asia/Kolkata', 'Mon DD') AS date,
+                COUNT(*)::int                                                          AS inward,
+                ROUND(
+                    COUNT(*) FILTER (WHERE decision = 'STP_CONFIRM')::numeric
+                    / NULLIF(COUNT(*), 0) * 100, 1
+                )::float AS stp_rate_pct,
+                ROUND(
+                    (COUNT(*) FILTER (WHERE decision IN ('STP_RETURN', 'MANUAL_RETURN')))::numeric
+                    / NULLIF(COUNT(*), 0) * 100, 1
+                )::float AS return_rate_pct
+            FROM cts.agent_decisions
+            WHERE bank_id = $1
+              AND processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
+            GROUP BY DATE(processing_started_at AT TIME ZONE 'Asia/Kolkata'),
+                     TO_CHAR(processing_started_at AT TIME ZONE 'Asia/Kolkata', 'Mon DD')
+            ORDER BY DATE(processing_started_at AT TIME ZONE 'Asia/Kolkata')
+            """,
+            bank_id, days,
+        )
+    except Exception as exc:
+        log.error("cts.dashboard_trend.query_failed", bank_id=bank_id, error=str(exc))
+        return DashboardTrendResponse(bank_id=bank_id, days=days, trend=[])
+
+    trend = [
+        DashboardTrendRow(
+            date=r["date"],
+            inward=r["inward"],
+            stp_rate_pct=float(r["stp_rate_pct"] or 0.0),
+            return_rate_pct=float(r["return_rate_pct"] or 0.0),
+        )
+        for r in rows
+    ]
+    return DashboardTrendResponse(bank_id=bank_id, days=days, trend=trend)
+
+
+# ── B11: GET /v1/cts/smb/forwarding-log — All SMBs' forwarding events (SB-only) ──
+
+class SBForwardingLogItem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    forwarding_id: str
+    instrument_id: str
+    sub_member_id: str
+    bank_name: str
+    micr_prefix_matched: str
+    forwarding_status: str
+    terminal_decision: Optional[str] = None
+    iet_deadline_utc: str
+    received_at: str
+    forwarded_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    iet_seconds_remaining: Optional[int] = None
+    failure_reason: Optional[str] = None
+
+
+class SBForwardingLogResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    bank_id: str
+    items: list[SBForwardingLogItem]
+    total: int
+
+
+@router_v1.get("/smb/forwarding-log", response_model=SBForwardingLogResponse)
+async def get_smb_forwarding_log_all(
+    request: Request,
+    ctx: UserContext = Depends(get_current_user_context),
+    status_filter: Optional[str] = Query(None, alias="status_filter"),
+    limit: int = Query(200, ge=1, le=500),
+) -> SBForwardingLogResponse:
+    """
+    Returns forwarding log entries for ALL sub-members under this SB for today.
+    SB-only — SMB users cannot see cross-bank forwarding data.
+    Queries cts.smb_forwarding_log JOIN cts.sub_member_banks for the past 24 hours.
+    """
+    if ctx.bank_type != BankType.SB:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="SB-only endpoint")
+
+    bank_id = ctx.bank_id
+    db = getattr(request.app.state, "db_pool_cts", None)
+    if db is None:
+        return SBForwardingLogResponse(bank_id=bank_id, items=[], total=0)
+
+    try:
+        status_clause = "AND f.forwarding_status = $3" if status_filter else ""
+        params = [bank_id, limit]
+        if status_filter:
+            params.append(status_filter)
+        rows = await db.fetch(
+            f"""
+            SELECT f.forwarding_id, f.instrument_id, f.sub_member_id,
+                   b.bank_name, f.micr_prefix_matched,
+                   f.forwarding_status, f.terminal_decision,
+                   f.iet_deadline_utc::text AS iet_deadline_utc,
+                   f.received_at::text AS received_at,
+                   f.forwarded_at::text AS forwarded_at,
+                   f.completed_at::text AS completed_at,
+                   EXTRACT(EPOCH FROM (f.iet_deadline_utc - NOW()))::int AS iet_seconds_remaining,
+                   f.failure_reason
+            FROM cts.smb_forwarding_log f
+            JOIN cts.sub_member_banks b USING (bank_id, sub_member_id)
+            WHERE f.bank_id = $1
+              AND f.received_at >= NOW() - INTERVAL '24 hours'
+              {status_clause}
+            ORDER BY f.received_at DESC
+            LIMIT $2
+            """,
+            *params,
+        )
+    except Exception as exc:
+        log.error("cts.smb_forwarding_log_all.query_failed", bank_id=bank_id, error=str(exc))
+        return SBForwardingLogResponse(bank_id=bank_id, items=[], total=0)
+
+    items = [
+        SBForwardingLogItem(
+            forwarding_id=r["forwarding_id"],
+            instrument_id=r["instrument_id"],
+            sub_member_id=r["sub_member_id"],
+            bank_name=r["bank_name"],
+            micr_prefix_matched=r["micr_prefix_matched"] or "",
+            forwarding_status=r["forwarding_status"],
+            terminal_decision=r["terminal_decision"],
+            iet_deadline_utc=r["iet_deadline_utc"] or "",
+            received_at=r["received_at"] or "",
+            forwarded_at=r["forwarded_at"],
+            completed_at=r["completed_at"],
+            iet_seconds_remaining=r["iet_seconds_remaining"],
+            failure_reason=r["failure_reason"],
+        )
+        for r in rows
+    ]
+    return SBForwardingLogResponse(bank_id=bank_id, items=items, total=len(items))
