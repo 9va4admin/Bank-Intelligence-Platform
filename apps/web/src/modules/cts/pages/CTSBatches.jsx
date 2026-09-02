@@ -24,16 +24,21 @@ const STATUS_ORDER = ['RECEIVED', 'IQA_COMPLETE', 'EXTRACTED', 'PKI_SIGNED', 'SU
 const SB_BRANCHES  = ['Andheri (W)', 'Bandra (E)', 'Churchgate', 'Dadar', 'Goregaon', 'Kurla', 'Malad', 'Vashi', 'Borivali', 'Thane']
 const SMB_BRANCHES = ['Main Branch', 'City Office']
 
+function _todayCompact() {
+  const d = new Date()
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`
+}
 function makeSessions(bankIfsc, isSMB) {
   const ifsc = bankIfsc || 'BANK'
+  const td = _todayCompact()
   if (isSMB) return [
-    { id: `SES-${ifsc}-20260619-001`, label: '10:00–12:00', status: 'CLOSED' },
-    { id: `SES-${ifsc}-20260619-002`, label: '12:00–14:00', status: 'ACTIVE' },
+    { id: `SES-${ifsc}-${td}-001`, label: '10:00–12:00', status: 'CLOSED' },
+    { id: `SES-${ifsc}-${td}-002`, label: '12:00–14:00', status: 'ACTIVE' },
   ]
   return [
-    { id: `SES-${ifsc}-20260619-001`, label: '10:00–12:00', status: 'CLOSED'   },
-    { id: `SES-${ifsc}-20260619-002`, label: '12:00–14:00', status: 'ACTIVE'   },
-    { id: `SES-${ifsc}-20260619-003`, label: '14:00–16:00', status: 'UPCOMING' },
+    { id: `SES-${ifsc}-${td}-001`, label: '10:00–12:00', status: 'CLOSED'   },
+    { id: `SES-${ifsc}-${td}-002`, label: '12:00–14:00', status: 'ACTIVE'   },
+    { id: `SES-${ifsc}-${td}-003`, label: '14:00–16:00', status: 'UPCOMING' },
   ]
 }
 
@@ -77,7 +82,7 @@ function makeLots(n, sessions, branches, bankIfsc) {
     const physicalCount = status === 'PARTIAL_FAIL' ? count + 1 : count
     const totalAmt = (count * (50000 + (i * 23751) % 450000))
     const lotNum  = String(i + 1).padStart(7, '0')
-    const lotId   = `LOT_${ifsc}${lotNum}_20260619_${session.id}`
+    const lotId   = `LOT_${ifsc}${lotNum}_${_todayCompact()}_${session.id}`
     const instruments = makeInstruments(lotId, count, status)
     const confirmed   = instruments.filter(x => x.decision === 'CONFIRM').length
     const returned    = instruments.filter(x => x.decision === 'RETURN').length

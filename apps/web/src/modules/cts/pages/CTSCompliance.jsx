@@ -49,10 +49,15 @@ function evalRecord(r) {
   return { ...r, result: reasons.length === 0 ? 'PASS' : 'FAIL', reasons }
 }
 
+function _compactToday() {
+  const d = new Date()
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`
+}
 function makeRawInstruments(bankIfsc) {
   const ifsc = bankIfsc || 'BANK'
-  const lot1 = `LOT_${ifsc}_20260619_SES-${ifsc}-20260619-001_01`
-  const lot2 = `LOT_${ifsc}_20260619_SES-${ifsc}-20260619-001_02`
+  const td = _compactToday()
+  const lot1 = `LOT_${ifsc}_${td}_SES-${ifsc}-${td}-001_01`
+  const lot2 = `LOT_${ifsc}_${td}_SES-${ifsc}-${td}-001_02`
   return [
     { id:'CHQ-OUT-00001', cheque:'100001', lot:lot1, front_dpi:300, front_colour_depth:24, front_file_size_kb:38.2, front_iqa_score:0.94, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:22.5, rear_iqa_score:0.91, micr_band_score:0.96 },
     { id:'CHQ-OUT-00002', cheque:'100002', lot:lot1, front_dpi:300, front_colour_depth:24, front_file_size_kb:41.7, front_iqa_score:0.92, rear_dpi:300, rear_colour_depth:24, rear_file_size_kb:19.8, rear_iqa_score:0.88, micr_band_score:0.93 },
@@ -137,7 +142,7 @@ function downloadXml(xml, filename) {
 export default function CTSCompliance() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
-  const sessionId   = `SES-${bankIfsc || 'BANK'}-20260619-001`
+  const sessionId   = `SES-${bankIfsc || 'BANK'}-${_compactToday()}-001`
 
   const liveData = useComplianceData({ pollEnabled: !isDemo })
 
@@ -177,7 +182,7 @@ export default function CTSCompliance() {
 
   const lotSeqMatch  = selectedLot.match(/_(\d{2})$/)
   const lotSeq       = lotSeqMatch ? lotSeqMatch[1] : '01'
-  const certFilename = `CTS2010_CERT_${bankIfsc || 'BANK'}_20260619_${sessionId}_LOT${lotSeq}.xml`
+  const certFilename = `CTS2010_CERT_${bankIfsc || 'BANK'}_${_compactToday()}_${sessionId}_LOT${lotSeq}.xml`
 
   const th = {
     page:    isDark ? 'bg-navy-950' : 'bg-slate-50',

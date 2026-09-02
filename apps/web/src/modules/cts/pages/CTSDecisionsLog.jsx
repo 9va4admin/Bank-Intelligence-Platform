@@ -532,7 +532,8 @@ function RrfModal({ returns, sessionMeta, onClose, isDark }) {
 export default function CTSDecisionsLog() {
   const { bankIfsc, bankName, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
-  const sessionId = `SES-${bankIfsc || 'BANK'}-20260619-001`
+  const _td = new Date(); const _tdStr = `${_td.getFullYear()}${String(_td.getMonth()+1).padStart(2,'0')}${String(_td.getDate()).padStart(2,'0')}`
+  const sessionId = `SES-${bankIfsc || 'BANK'}-${_tdStr}-001`
   const sessionMeta = {
     bank_ifsc:     bankIfsc,
     bank_name:     bankName,
