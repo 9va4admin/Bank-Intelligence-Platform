@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
+import useSMBList from '../hooks/useSMBList'
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 
@@ -172,11 +173,40 @@ function SMBDetailPanel({ smb, isDark, onClose, onVaultSync }) {
 // ── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CTSSMBRegistry() {
-  const { bankName, bankIfsc, isSB, isSMB } = useBankContext()
+  const { bankName, bankIfsc, isSB, isSMB, isDemo } = useBankContext()
   const { isDark } = useTheme()
   const navigate = useNavigate()
   const [selected, setSelected] = useState(null)
   const [syncingId, setSyncingId] = useState(null)
+
+  const { subMembers: liveSmbs } = useSMBList({ pollEnabled: !isDemo && isSB })
+
+  const SMB_SOURCE = useMemo(() => {
+    if (isDemo || !liveSmbs || liveSmbs.length === 0) return MOCK_SMBS
+    return liveSmbs.map(s => ({
+      sub_member_id: s.sub_member_id,
+      bank_name: s.bank_name,
+      micr_prefix: s.micr_prefix,
+      cbs_connector: '-',
+      is_active: s.is_active,
+      return_rate_today: 0,
+      soft_hold_threshold: s.soft_hold_threshold,
+      hard_stop_threshold: s.soft_hold_threshold + 0.15,
+      shield_status: s.vault_sync_status === 'SYNC_FAILED' ? 'SOFT_HOLD' : 'CLEAR',
+      signature_count: s.signature_count,
+      pps_entry_count: s.pps_entry_count,
+      last_vault_sync_at: s.last_vault_sync_at
+        ? new Date(s.last_vault_sync_at * 1000).toISOString()
+        : null,
+      last_sync_status: s.vault_sync_status === 'SYNC_OK' ? 'SUCCESS'
+        : s.vault_sync_status === 'SYNC_FAILED' ? 'FAILED'
+        : s.vault_sync_status === 'NEVER_SYNCED' ? 'NEVER'
+        : 'RUNNING',
+      cheques_today: 0,
+      forwarding_today: 0,
+      iet_headroom_breaches: 0,
+    }))
+  }, [isDemo, liveSmbs])
 
   const th = {
     page:    isDark ? 'bg-transparent' : 'bg-slate-50',
@@ -191,9 +221,9 @@ export default function CTSSMBRegistry() {
   const SHIELD = isDark ? SHIELD_D : SHIELD_L
   const SYNC   = isDark ? SYNC_D   : SYNC_L
 
-  const totalCheques = MOCK_SMBS.reduce((a, s) => a + s.cheques_today, 0)
-  const activeCount  = MOCK_SMBS.filter(s => s.is_active).length
-  const holdCount    = MOCK_SMBS.filter(s => s.shield_status !== 'CLEAR').length
+  const totalCheques = SMB_SOURCE.reduce((a, s) => a + s.cheques_today, 0)
+  const activeCount  = SMB_SOURCE.filter(s => s.is_active).length
+  const holdCount    = SMB_SOURCE.filter(s => s.shield_status !== 'CLEAR').length
 
   const syncMutation = useMutation({
     mutationFn: async (sub_member_id) => {
@@ -247,7 +277,7 @@ export default function CTSSMBRegistry() {
         {/* KPI strip */}
         <div className="grid grid-cols-4 gap-3 mb-5">
           {[
-            { label: 'Sub-Members', value: MOCK_SMBS.length },
+            { label: 'Sub-Members', value: SMB_SOURCE.length },
             { label: 'Active', value: activeCount },
             { label: 'Cheques Today', value: totalCheques.toLocaleString() },
             { label: 'Shield Alerts', value: holdCount, warn: holdCount > 0 },
@@ -270,7 +300,7 @@ export default function CTSSMBRegistry() {
               </tr>
             </thead>
             <tbody>
-              {MOCK_SMBS.map(smb => (
+              {SMB_SOURCE.map(smb => (
                 <tr
                   key={smb.sub_member_id}
                   className={`border-b ${th.row}`}
