@@ -373,8 +373,14 @@ func (t *CanonTransport) StartJob(endorsementText string, enableImprinter bool) 
 	C.astra_par_set_long(C.CSDP_XRESOLUTION, C.LONG(t.cfg.ScanDPI))
 	C.astra_par_set_long(C.CSDP_YRESOLUTION, C.LONG(t.cfg.ScanDPI))
 
-	// Scan width — set to maximum so the full cheque width is captured regardless
-	// of physical cheque width variation (standard Indian CTS cheques are 200mm wide).
+	// Scan area — width at scanner maximum (cheques vary slightly); length fixed to
+	// standard Indian CTS cheque height (90 mm).  Units are 1/1200-inch dots:
+	//   90 mm = 3.543 inch × 1200 = 4252 dots  (NPCI CTS-2010 standard cheque)
+	// Using CSDP_MAXLENGTH here caused a large black area below each cheque because
+	// the scanner captured the full transport path (~200 mm) regardless of actual
+	// cheque height.  A fixed 90 mm length matches the physical document and
+	// eliminates the trailing black pixels.  Override via scan_doc_length_dots in
+	// config.ini if your bank uses non-standard cheque stock (default 4252).
 	var maxW C.LONG
 	if C.astra_par_get_long(C.CSDP_MAXWIDTH, &maxW) == C.INT32(csdOK) && maxW > 0 {
 		C.astra_par_set_long(C.CSDP_WIDTH, maxW)
@@ -382,12 +388,12 @@ func (t *CanonTransport) StartJob(endorsementText string, enableImprinter bool) 
 	} else {
 		t.logger.Warn("could not read CSDP_MAXWIDTH — using driver default (image may be cropped)")
 	}
-	// NOTE: CSDP_LENGTH is intentionally NOT overridden.
-	// Setting it to CSDP_MAXLENGTH causes the scanner to capture the full transport
-	// path (~200mm) regardless of how long the cheque actually is, producing a
-	// large black area below the cheque image. Leave CSDP_LENGTH at the driver
-	// default — the CR-120/150 detects document end via the paper sensor and stops
-	// the scan there, giving an image that matches the actual cheque height.
+	docLengthDots := C.LONG(t.cfg.DocLengthDots)
+	if docLengthDots <= 0 {
+		docLengthDots = 4252 // 90 mm at 1/1200 inch — standard Indian CTS cheque
+	}
+	C.astra_par_set_long(C.CSDP_LENGTH, docLengthDots)
+	t.logger.Info("scan area length set", "dots", int32(docLengthDots), "mm_approx", int(float64(docLengthDots)/1200*25.4))
 
 	// MICR: enable hardware reader, E13B font (Indian CTS-2010 standard).
 	if ret := C.astra_par_set_long(C.CSDP_MICR, 1); int32(ret) != csdOK {
