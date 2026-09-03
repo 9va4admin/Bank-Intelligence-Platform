@@ -51,10 +51,11 @@ package main
 #define CSD_NOPAPER      6
 #define CSD_JAM          7
 #define CSD_COVEROPEN    8
+#define CSD_NOTREADY    16
+#define CSD_HARDERROR   17
 #define CSD_DOUBLEFEED  20
 #define CSD_CANCEL      29
 #define CSD_TIMEOUT     35
-#define CSD_HARDERROR   17
 
 // --- CSD parameter IDs (from CsdScan.h) ---
 #define CSDP_FEEDER           3
@@ -254,6 +255,7 @@ const (
 	csdNoPaper    = int32(C.CSD_NOPAPER)
 	csdJam        = int32(C.CSD_JAM)
 	csdCoverOpen  = int32(C.CSD_COVEROPEN)
+	csdNotReady   = int32(C.CSD_NOTREADY)
 	csdDoubleFeed = int32(C.CSD_DOUBLEFEED)
 	csdCancel     = int32(C.CSD_CANCEL)
 	csdTimeout    = int32(C.CSD_TIMEOUT)
@@ -309,6 +311,8 @@ func (t *CanonTransport) Open() error {
 	}
 
 	// CsdProbe (or CsdProbeEx with driver name for USB named-device discovery).
+	// CSD_NOTREADY (16) means the scanner firmware/rollers are still initialising
+	// after power-on or USB reconnect — retry up to 5 times (3 s apart) before failing.
 	driverName := "" // empty = auto-detect via CsdProbe
 	if t.cfg.ScannerDiscoveryMode == "devname" && t.cfg.ScannerDeviceName != "" {
 		driverName = t.cfg.ScannerDeviceName
@@ -316,9 +320,21 @@ func (t *CanonTransport) Open() error {
 	cDriver := C.CString(driverName)
 	defer C.free(unsafe.Pointer(cDriver))
 
-	if ret := C.astra_probe(cDriver); int32(ret) != csdOK {
+	const probeMaxAttempts = 5
+	var probeRet C.INT32
+	for attempt := 1; attempt <= probeMaxAttempts; attempt++ {
+		probeRet = C.astra_probe(cDriver)
+		if int32(probeRet) == csdOK {
+			break
+		}
+		if int32(probeRet) == csdNotReady && attempt < probeMaxAttempts {
+			t.logger.Warn("CsdProbe: scanner not ready — retrying",
+				"attempt", attempt, "max", probeMaxAttempts)
+			time.Sleep(3 * time.Second)
+			continue
+		}
 		C.astra_unload_dll()
-		return fmt.Errorf("CsdProbe failed: code %d — scanner not detected", ret)
+		return fmt.Errorf("CsdProbe failed: code %d — scanner not detected", int32(probeRet))
 	}
 
 	t.logger.Info("canon CSD driver initialised",
