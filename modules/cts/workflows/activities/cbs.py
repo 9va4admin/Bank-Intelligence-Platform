@@ -19,7 +19,10 @@ from temporalio import activity
 from shared.cbs_connector.base import AccountStatus
 from shared.cbs_connector.exceptions import AccountNotFoundError, CBSUnavailableError
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 _RETURN_STATUSES = {AccountStatus.FROZEN, AccountStatus.CLOSED, AccountStatus.NPA}
 _HUMAN_REVIEW_STATUSES = {AccountStatus.DORMANT}
@@ -50,52 +53,55 @@ async def check_account_status(
     Separated from check_cbs_balance so drawee workflow checks status independently.
     Degrades gracefully: CBS unavailable → CBS_UNAVAILABLE (caller routes to HUMAN_REVIEW).
     """
-    try:
-        account_info = await cbs_connector.get_account_info(
-            inp.account_number, inp.bank_id
-        )
-    except AccountNotFoundError:
-        log.info(
-            "cbs_activity.account_status.not_found",
-            account_last4=inp.account_number[-4:],
-            bank_id=inp.bank_id,
-        )
-        return CBSActivityResult(outcome="RETURN", account_status="NOT_FOUND")
-    except CBSUnavailableError as exc:
-        log.warning(
-            "cbs_activity.account_status.cbs_unavailable",
-            instrument_id=inp.instrument_id,
-            bank_id=inp.bank_id,
-            error=str(exc),
-        )
-        return CBSActivityResult(outcome="CBS_UNAVAILABLE", degraded=True)
-    except Exception as exc:
-        log.error(
-            "cbs_activity.account_status.unexpected_error",
-            instrument_id=inp.instrument_id,
-            bank_id=inp.bank_id,
-            error=str(exc),
-        )
-        return CBSActivityResult(outcome="CBS_UNAVAILABLE", degraded=True)
+    with tracer.start_as_current_span("activity.check_account_status") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        try:
+            account_info = await cbs_connector.get_account_info(
+                inp.account_number, inp.bank_id
+            )
+        except AccountNotFoundError:
+            log.info(
+                "cbs_activity.account_status.not_found",
+                account_last4=inp.account_number[-4:],
+                bank_id=inp.bank_id,
+            )
+            return CBSActivityResult(outcome="RETURN", account_status="NOT_FOUND")
+        except CBSUnavailableError as exc:
+            log.warning(
+                "cbs_activity.account_status.cbs_unavailable",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                error=str(exc),
+            )
+            return CBSActivityResult(outcome="CBS_UNAVAILABLE", degraded=True)
+        except Exception as exc:
+            log.error(
+                "cbs_activity.account_status.unexpected_error",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                error=str(exc),
+            )
+            return CBSActivityResult(outcome="CBS_UNAVAILABLE", degraded=True)
 
-    status = account_info.status
+        status = account_info.status
 
-    if status in _RETURN_STATUSES:
+        if status in _RETURN_STATUSES:
+            return CBSActivityResult(
+                outcome="RETURN",
+                account_status=status.value,
+            )
+
+        if status in _HUMAN_REVIEW_STATUSES:
+            return CBSActivityResult(
+                outcome="HUMAN_REVIEW",
+                account_status=status.value,
+            )
+
         return CBSActivityResult(
-            outcome="RETURN",
+            outcome="PROCEED",
             account_status=status.value,
         )
-
-    if status in _HUMAN_REVIEW_STATUSES:
-        return CBSActivityResult(
-            outcome="HUMAN_REVIEW",
-            account_status=status.value,
-        )
-
-    return CBSActivityResult(
-        outcome="PROCEED",
-        account_status=status.value,
-    )
 
 
 @activity.defn
@@ -107,52 +113,55 @@ async def check_cbs_balance(
     Fetch account status and balance from CBS.
     Never raises — degrades gracefully to CBS_UNAVAILABLE on connector failure.
     """
-    try:
-        account_info = await cbs_connector.get_account_info(
-            inp.account_number, inp.bank_id
-        )
-    except AccountNotFoundError:
-        log.info(
-            "cbs_activity.account_not_found",
-            account_last4=inp.account_number[-4:],
-            bank_id=inp.bank_id,
-        )
-        return CBSActivityResult(outcome="RETURN", account_status="NOT_FOUND")
-    except CBSUnavailableError as exc:
-        log.warning(
-            "cbs_activity.cbs_unavailable",
-            instrument_id=inp.instrument_id,
-            bank_id=inp.bank_id,
-            error=str(exc),
-        )
-        return CBSActivityResult(outcome="CBS_UNAVAILABLE", degraded=True)
-    except Exception as exc:
-        log.error(
-            "cbs_activity.unexpected_error",
-            instrument_id=inp.instrument_id,
-            bank_id=inp.bank_id,
-            error=str(exc),
-        )
-        return CBSActivityResult(outcome="CBS_UNAVAILABLE", degraded=True)
+    with tracer.start_as_current_span("activity.check_cbs_balance") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        try:
+            account_info = await cbs_connector.get_account_info(
+                inp.account_number, inp.bank_id
+            )
+        except AccountNotFoundError:
+            log.info(
+                "cbs_activity.account_not_found",
+                account_last4=inp.account_number[-4:],
+                bank_id=inp.bank_id,
+            )
+            return CBSActivityResult(outcome="RETURN", account_status="NOT_FOUND")
+        except CBSUnavailableError as exc:
+            log.warning(
+                "cbs_activity.cbs_unavailable",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                error=str(exc),
+            )
+            return CBSActivityResult(outcome="CBS_UNAVAILABLE", degraded=True)
+        except Exception as exc:
+            log.error(
+                "cbs_activity.unexpected_error",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                error=str(exc),
+            )
+            return CBSActivityResult(outcome="CBS_UNAVAILABLE", degraded=True)
 
-    status = account_info.status
+        status = account_info.status
 
-    if status in _RETURN_STATUSES:
+        if status in _RETURN_STATUSES:
+            return CBSActivityResult(
+                outcome="RETURN",
+                account_status=status.value,
+                available_balance=account_info.available_balance,
+            )
+
+        if status in _HUMAN_REVIEW_STATUSES:
+            return CBSActivityResult(
+                outcome="HUMAN_REVIEW",
+                account_status=status.value,
+                available_balance=account_info.available_balance,
+            )
+
         return CBSActivityResult(
-            outcome="RETURN",
+            outcome="PROCEED",
             account_status=status.value,
             available_balance=account_info.available_balance,
         )
-
-    if status in _HUMAN_REVIEW_STATUSES:
-        return CBSActivityResult(
-            outcome="HUMAN_REVIEW",
-            account_status=status.value,
-            available_balance=account_info.available_balance,
-        )
-
-    return CBSActivityResult(
-        outcome="PROCEED",
-        account_status=status.value,
-        available_balance=account_info.available_balance,
-    )

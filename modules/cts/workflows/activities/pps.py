@@ -24,7 +24,10 @@ from temporalio import activity
 from modules.cts.compliance.models import NON_CUSTOMER_FAULT_CODES
 from shared.utils.masking import mask_amount, mask_customer_name
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 _AMOUNT_TOLERANCE = 1.0  # ₹1 tolerance for floating-point
 
@@ -78,78 +81,81 @@ async def lookup_pps(
     Look up cheque in PPS vault and apply 5-flag NPCI decision tree.
     config must provide 'pps_mandatory_threshold' (Layer 3 — bank-configurable).
     """
-    if config is None:
-        config = {}
+    with tracer.start_as_current_span("activity.lookup_pps") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        if config is None:
+            config = {}
 
-    vault_result = await vault.lookup(inp.account_number, inp.cheque_number)
+        vault_result = await vault.lookup(inp.account_number, inp.cheque_number)
 
-    if vault_result.outcome != "FOUND":
-        log.info(
-            "pps_activity.vault_miss",
-            instrument_id=inp.instrument_id,
-            miss_reason=vault_result.miss_reason,
-        )
-        return _threshold_route(inp.presented_amount, config)
+        if vault_result.outcome != "FOUND":
+            log.info(
+                "pps_activity.vault_miss",
+                instrument_id=inp.instrument_id,
+                miss_reason=vault_result.miss_reason,
+            )
+            return _threshold_route(inp.presented_amount, config)
 
-    entry = vault_result.pps_entry
-    npci_flag: Optional[str] = entry.get("npci_flag")
+        entry = vault_result.pps_entry
+        npci_flag: Optional[str] = entry.get("npci_flag")
 
-    # ── 5-flag NPCI decision tree ──────────────────────────────────────────
-    if npci_flag == "P":
-        return PPSActivityResult(outcome="PROCEED", npci_flag="P")
+        # ── 5-flag NPCI decision tree ──────────────────────────────────────────
+        if npci_flag == "P":
+            return PPSActivityResult(outcome="PROCEED", npci_flag="P")
 
-    if npci_flag == "D":
-        code = "41"
-        return PPSActivityResult(
-            outcome="AUTO_RETURN",
-            npci_flag="D",
-            return_reason_code=code,
-            is_customer_fault=_is_customer_fault(code),
-        )
-
-    if npci_flag == "Y":
-        return PPSActivityResult(
-            outcome="HUMAN_REVIEW",
-            npci_flag="Y",
-            financial_reason_takes_priority=True,
-            mismatch_reason="PPS_FINANCIAL_MISMATCH",
-        )
-
-    if npci_flag == "Z":
-        result = _threshold_route(inp.presented_amount, config)
-        return PPSActivityResult(
-            outcome=result.outcome,
-            npci_flag="Z",
-            mismatch_reason=result.mismatch_reason,
-        )
-
-    if npci_flag == "N":
-        return PPSActivityResult(outcome="PROCEED", npci_flag="N")
-
-    # ── Legacy path: no NPCI flag in vault entry — use amount/payee match ─
-    reasons = []
-
-    registered_amount = entry.get("amount")
-    if registered_amount is not None:
-        if abs(inp.presented_amount - float(registered_amount)) > _AMOUNT_TOLERANCE:
-            reasons.append(
-                f"amount_mismatch: presented={mask_amount(inp.presented_amount)} "
-                f"registered={mask_amount(float(registered_amount))}"
+        if npci_flag == "D":
+            code = "41"
+            return PPSActivityResult(
+                outcome="AUTO_RETURN",
+                npci_flag="D",
+                return_reason_code=code,
+                is_customer_fault=_is_customer_fault(code),
             )
 
-    registered_payee = entry.get("payee", "")
-    if registered_payee and inp.presented_payee.strip().lower() != registered_payee.strip().lower():
-        reasons.append(
-            f"payee_mismatch: presented={mask_customer_name(inp.presented_payee)} "
-            f"registered={mask_customer_name(registered_payee)}"
-        )
+        if npci_flag == "Y":
+            return PPSActivityResult(
+                outcome="HUMAN_REVIEW",
+                npci_flag="Y",
+                financial_reason_takes_priority=True,
+                mismatch_reason="PPS_FINANCIAL_MISMATCH",
+            )
 
-    if reasons:
-        log.info(
-            "pps_activity.mismatch",
-            instrument_id=inp.instrument_id,
-            reasons=reasons,
-        )
-        return PPSActivityResult(outcome="HUMAN_REVIEW", mismatch_reason="; ".join(reasons))
+        if npci_flag == "Z":
+            result = _threshold_route(inp.presented_amount, config)
+            return PPSActivityResult(
+                outcome=result.outcome,
+                npci_flag="Z",
+                mismatch_reason=result.mismatch_reason,
+            )
 
-    return PPSActivityResult(outcome="PROCEED")
+        if npci_flag == "N":
+            return PPSActivityResult(outcome="PROCEED", npci_flag="N")
+
+        # ── Legacy path: no NPCI flag in vault entry — use amount/payee match ─
+        reasons = []
+
+        registered_amount = entry.get("amount")
+        if registered_amount is not None:
+            if abs(inp.presented_amount - float(registered_amount)) > _AMOUNT_TOLERANCE:
+                reasons.append(
+                    f"amount_mismatch: presented={mask_amount(inp.presented_amount)} "
+                    f"registered={mask_amount(float(registered_amount))}"
+                )
+
+        registered_payee = entry.get("payee", "")
+        if registered_payee and inp.presented_payee.strip().lower() != registered_payee.strip().lower():
+            reasons.append(
+                f"payee_mismatch: presented={mask_customer_name(inp.presented_payee)} "
+                f"registered={mask_customer_name(registered_payee)}"
+            )
+
+        if reasons:
+            log.info(
+                "pps_activity.mismatch",
+                instrument_id=inp.instrument_id,
+                reasons=reasons,
+            )
+            return PPSActivityResult(outcome="HUMAN_REVIEW", mismatch_reason="; ".join(reasons))
+
+        return PPSActivityResult(outcome="PROCEED")

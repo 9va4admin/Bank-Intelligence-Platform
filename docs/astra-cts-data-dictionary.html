@@ -1,0 +1,1194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CTS Data Dictionary</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* ── Tokens ─────────────────────────────────────────────────────────────── */
+:root {
+  --bg:         #0f1117;
+  --surf1:      #181d26;
+  --surf2:      #1e2435;
+  --border:     #2d3548;
+  --border-sub: #232a3a;
+  --text:       #dce3f0;
+  --muted:      #8694b0;
+  --faint:      #4e5a78;
+  --accent:     #4c9aff;
+  --accent-bg:  rgba(76,154,255,.12);
+  --green:      #26a641;
+  --green-bg:   rgba(38,166,65,.12);
+  --red:        #e5534b;
+  --red-bg:     rgba(229,83,75,.14);
+  --amber:      #c69026;
+  --amber-bg:   rgba(198,144,38,.13);
+  --read-bg:    rgba(76,154,255,.15);
+  --read-text:  #7ab8ff;
+  --write-bg:   rgba(198,144,38,.18);
+  --write-text: #e0a84a;
+  --mono:       'JetBrains Mono', 'Fira Code', monospace;
+  --sans:       'Inter', system-ui, -apple-system, sans-serif;
+  --r:          6px;
+  --topbar-h:   52px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg:         #f5f7fa;
+    --surf1:      #ffffff;
+    --surf2:      #eef1f7;
+    --border:     #cdd4e0;
+    --border-sub: #dde3ee;
+    --text:       #1a2035;
+    --muted:      #536080;
+    --faint:      #94a3b8;
+    --accent:     #1a6ccc;
+    --accent-bg:  rgba(26,108,204,.09);
+    --green:      #1a7f2e;
+    --green-bg:   rgba(26,127,46,.09);
+    --red:        #c0392b;
+    --red-bg:     rgba(192,57,43,.09);
+    --amber:      #8a5c00;
+    --amber-bg:   rgba(138,92,0,.09);
+    --read-bg:    rgba(26,108,204,.10);
+    --read-text:  #1a6ccc;
+    --write-bg:   rgba(138,92,0,.12);
+    --write-text: #7a4e00;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:         #0f1117;
+  --surf1:      #181d26;
+  --surf2:      #1e2435;
+  --border:     #2d3548;
+  --border-sub: #232a3a;
+  --text:       #dce3f0;
+  --muted:      #8694b0;
+  --faint:      #4e5a78;
+  --accent:     #4c9aff;
+  --accent-bg:  rgba(76,154,255,.12);
+  --green:      #26a641;
+  --green-bg:   rgba(38,166,65,.12);
+  --red:        #e5534b;
+  --red-bg:     rgba(229,83,75,.14);
+  --amber:      #c69026;
+  --amber-bg:   rgba(198,144,38,.13);
+  --read-bg:    rgba(76,154,255,.15);
+  --read-text:  #7ab8ff;
+  --write-bg:   rgba(198,144,38,.18);
+  --write-text: #e0a84a;
+}
+
+/* ── Reset / base ─────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; scroll-behavior: smooth; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+  min-height: 100vh;
+}
+
+/* ── Topbar ───────────────────────────────────────────────────────────── */
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: var(--topbar-h);
+  background: var(--surf1);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 18px;
+}
+#topbar h1 {
+  font-size: .875rem; font-weight: 700; letter-spacing: .03em;
+  color: var(--text); white-space: nowrap; flex-shrink: 0;
+}
+#topbar h1 span { color: var(--accent); }
+#search-wrap { flex: 1; max-width: 420px; position: relative; }
+#search {
+  width: 100%; height: 30px;
+  background: var(--surf2); border: 1px solid var(--border);
+  border-radius: var(--r); color: var(--text);
+  font-family: var(--mono); font-size: .78rem;
+  padding: 0 10px 0 30px; outline: none;
+}
+#search:focus { border-color: var(--accent); }
+#search-icon {
+  position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
+  width: 14px; height: 14px; color: var(--faint); pointer-events: none;
+}
+#stats-line { margin-left: auto; font-size: .75rem; color: var(--muted); white-space: nowrap; }
+#theme-btn {
+  background: var(--surf2); border: 1px solid var(--border);
+  border-radius: var(--r); width: 28px; height: 28px;
+  color: var(--muted); cursor: pointer; font-size: .9rem; flex-shrink: 0;
+  display: grid; place-items: center;
+}
+#theme-btn:hover { color: var(--text); }
+
+/* ── Layout ───────────────────────────────────────────────────────────── */
+#layout {
+  display: flex;
+  margin-top: var(--topbar-h);
+}
+#sidebar {
+  width: 228px; flex-shrink: 0;
+  position: sticky; top: var(--topbar-h);
+  height: calc(100vh - var(--topbar-h));
+  overflow-y: auto; overflow-x: hidden;
+  border-right: 1px solid var(--border);
+  padding: 14px 0;
+}
+#sidebar::-webkit-scrollbar { width: 4px; }
+#sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.sidebar-group { margin-bottom: 6px; }
+.sg-label {
+  font-size: .65rem; font-weight: 700; letter-spacing: .1em;
+  color: var(--faint); text-transform: uppercase;
+  padding: 6px 16px 3px;
+}
+.sg-link {
+  display: block; padding: 3px 16px 3px 14px;
+  font-family: var(--mono); font-size: .74rem; color: var(--muted);
+  text-decoration: none; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; border-left: 2px solid transparent;
+}
+.sg-link:hover { color: var(--text); }
+.sg-link.phantom { color: var(--red); opacity: .8; }
+.sg-link.phantom:hover { opacity: 1; }
+
+#main {
+  flex: 1; min-width: 0;
+  padding: 22px 28px 60px;
+}
+
+/* ── Group header ─────────────────────────────────────────────────────── */
+.group-section { margin-bottom: 8px; }
+.group-title {
+  font-size: .7rem; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--faint);
+  padding: 22px 0 8px; border-bottom: 1px solid var(--border-sub);
+  margin-bottom: 12px;
+}
+.group-title.phantom-group { color: var(--red); border-color: color-mix(in srgb, var(--red) 25%, transparent); }
+
+/* ── Table card ───────────────────────────────────────────────────────── */
+.tcard {
+  background: var(--surf1);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.tcard.phantom { border-color: color-mix(in srgb, var(--red) 40%, var(--border)); }
+
+.tcard-head {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 11px 14px 10px;
+  border-bottom: 1px solid var(--border-sub);
+  background: var(--surf2);
+}
+.tname {
+  font-family: var(--mono); font-size: .82rem; font-weight: 500;
+  color: var(--accent); text-decoration: none;
+}
+.tcard.phantom .tname { color: var(--red); }
+.badge {
+  font-size: .62rem; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; padding: 2px 7px;
+  border-radius: 99px; border: 1px solid;
+}
+.badge-ok  { background: var(--green-bg); color: var(--green); border-color: color-mix(in srgb, var(--green) 35%, transparent); }
+.badge-phantom { background: var(--red-bg); color: var(--red); border-color: color-mix(in srgb, var(--red) 35%, transparent); }
+.badge-group {
+  font-size: .62rem; font-weight: 600; color: var(--muted);
+  background: transparent; border-color: var(--border);
+}
+.migration {
+  margin-left: auto; font-family: var(--mono); font-size: .72rem;
+  color: var(--faint); white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; max-width: 360px;
+}
+
+.tcard-body { padding: 11px 14px 13px; display: flex; flex-direction: column; gap: 9px; }
+
+.section-label {
+  font-size: .65rem; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--faint); margin-bottom: 4px;
+}
+.cols-grid {
+  display: flex; flex-wrap: wrap; gap: 4px 8px;
+}
+.col-item {
+  font-family: var(--mono); font-size: .73rem;
+  background: var(--surf2); border: 1px solid var(--border-sub);
+  border-radius: 4px; padding: 2px 7px;
+}
+.col-name { color: var(--text); }
+.col-type { color: var(--muted); }
+.col-pii { color: var(--amber); }
+
+.callers { display: flex; flex-direction: column; gap: 3px; }
+.caller-row { display: flex; align-items: flex-start; gap: 7px; flex-wrap: wrap; }
+.caller-tag {
+  font-size: .62rem; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; padding: 2px 6px; border-radius: 3px;
+  white-space: nowrap; flex-shrink: 0; margin-top: 1px;
+}
+.tag-read  { background: var(--read-bg);  color: var(--read-text); }
+.tag-write { background: var(--write-bg); color: var(--write-text); }
+.caller-files {
+  font-family: var(--mono); font-size: .74rem;
+  color: var(--muted); line-height: 1.7;
+}
+.caller-files span { color: var(--text); }
+.caller-files span:not(:last-child)::after { content: ', '; color: var(--faint); }
+
+.tnotes {
+  font-size: .78rem; color: var(--muted); line-height: 1.6;
+  padding: 8px 10px;
+  background: var(--surf2); border-radius: 4px;
+  border-left: 3px solid var(--border);
+}
+.tcard.phantom .tnotes { border-left-color: var(--red); }
+
+/* ── No results ───────────────────────────────────────────────────────── */
+#no-results {
+  display: none; text-align: center; padding: 60px 20px;
+  color: var(--muted); font-size: .9rem;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────── */
+@media (max-width: 800px) {
+  #sidebar { display: none; }
+  #main { padding: 16px 14px 40px; }
+  .migration { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>ASTRA <span>CTS</span> Data Dictionary</h1>
+  <div id="search-wrap">
+    <svg id="search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="6.5" cy="6.5" r="4"/><line x1="10" y1="10" x2="14" y2="14"/>
+    </svg>
+    <input id="search" type="text" placeholder="table, column, file…" autocomplete="off" spellcheck="false">
+  </div>
+  <span id="stats-line"></span>
+  <button id="theme-btn" title="Toggle theme">☀</button>
+</div>
+
+<div id="layout">
+  <nav id="sidebar"></nav>
+  <main id="main">
+    <div id="no-results">No tables match your search.</div>
+  </main>
+</div>
+
+<script>
+/* ─── Data ──────────────────────────────────────────────────────────────────
+   cols: [ [name, type_display] ... ]
+         type_display may contain "PII" to render amber colour
+   readBy / writeBy: arrays of file paths (short form)
+   migration: short filename only
+──────────────────────────────────────────────────────────────────────────── */
+const GROUPS = [
+  { id: "core",      label: "Core Cheque Processing" },
+  { id: "vaults",   label: "Vaults & PPS" },
+  { id: "lifecycle", label: "Cheque Leaf Lifecycle" },
+  { id: "smb",      label: "SMB & Routing" },
+  { id: "outward",  label: "Outward Clearing" },
+  { id: "scanner",  label: "Scanner & Hardware" },
+  { id: "infra",    label: "Infrastructure & Config" },
+  { id: "auth",     label: "Auth & Security" },
+  { id: "phantom",  label: "Phantom Tables — No Migration" },
+];
+
+const TABLES = [
+// ── CORE ──────────────────────────────────────────────────────────────────
+{
+  name: "cts.cheque_instruments",
+  group: "core", status: "ok",
+  migration: "20260618_003_cheque_instruments_and_images.py (+20260619_013, +20260706)",
+  cols: [
+    ["instrument_id","UUID PK, partitioned monthly"],["bank_id","Text FK platform.banks"],
+    ["presenting_ifsc","Text"],["drawee_ifsc","Text"],["cheque_number","VARCHAR(6)"],
+    ["micr_code","VARCHAR(9)"],["account_hash","Text (HMAC-SHA256)"],["account_last4","VARCHAR(4)"],
+    ["payee_name_enc","BYTEA PII","PII"],["drawer_name_enc","BYTEA PII","PII"],
+    ["amount_paise","BIGINT"],["amount_range","Text"],["cheque_date","Date"],
+    ["iet_deadline","DOUBLE PRECISION"],["iet_breached","Boolean"],
+    ["status","Text"],["received_at","TIMESTAMPTZ (partition key)"],
+    ["workflow_id","Text"],["principal_tag","Text (DIRECT|SMB)"],
+    ["sub_member_id","Text nullable FK cts.sub_member_banks"],
+    ["branch_id","Text nullable"],["clearing_session_id","Text nullable"],
+    ["vision_result","JSONB nullable"],["vision_cascade_level","Text nullable"],
+  ],
+  readBy: ["apps/api/routers/cts.py","apps/api/routers/cts_ops.py","apps/api/routers/observability.py","modules/cts/lot/lot_store.py","modules/cts/workflows/activities/platform_health_activities.py"],
+  writeBy: ["modules/cts/consumers/human_review_consumer.py","modules/cts/consumers/decision_consumer.py","apps/api/routers/cts.py"],
+  notes: "Monthly range-partitioned by received_at. PII columns (payee_name_enc, drawer_name_enc) are pgcrypto-encrypted — never SELECT *. Initial INSERT via EEH→Temporal→Kafka ingest path.",
+},
+{
+  name: "cts.cheque_image_metadata",
+  group: "core", status: "ok",
+  migration: "20260618_003_cheque_instruments_and_images.py",
+  cols: [
+    ["image_id","UUID PK"],["instrument_id","UUID FK cheque_instruments"],
+    ["bank_id","Text"],["image_side","Text (FRONT|BACK|GREY)"],
+    ["minio_bucket","Text"],["minio_object_key","Text"],
+    ["content_hash","Text"],["received_at","TIMESTAMPTZ"],
+  ],
+  readBy: ["apps/api/routers/cts.py"],
+  writeBy: ["(EEH image ingest path)"],
+  notes: "Three rows per instrument — FRONT, BACK, GREY per CTS-2010 standard. MinIO object keys served via pre-signed URLs; raw paths never returned to client.",
+},
+{
+  name: "cts.agent_decisions",
+  group: "core", status: "ok",
+  migration: "20260618_005 (+20260706, +20260815_017, +20260819)",
+  cols: [
+    ["decision_id","UUID PK"],["instrument_id","UUID"],["bank_id","Text FK"],
+    ["workflow_id","Text UNIQUE"],["ocr_confidence","Numeric(5,4)"],
+    ["ocr_extracted","JSONB"],["alteration_detected","Boolean"],
+    ["signature_match_score","Numeric(5,4)"],["signature_verdict","Text"],
+    ["fraud_score","Numeric(5,4)"],["shap_values","JSONB (XGBoost explainability)"],
+    ["fraud_rationale","Text"],["decision","Text"],["decision_reason","Text"],
+    ["decision_confidence","Numeric(5,4)"],["processing_duration_ms","Integer"],
+    ["iet_margin_seconds","Integer"],["degraded_mode","Boolean"],
+    ["pu_id","Text nullable"],["smb_id","Text nullable"],
+    ["ocr_engines_used","JSONB nullable"],["indic_ocr_kill_switch_active","Boolean nullable"],
+    ["steps_digest","JSONB nullable"],["registry_version","String(10) nullable"],
+  ],
+  readBy: ["apps/api/routers/cts.py","apps/api/routers/cts_ops.py","apps/api/routers/observability.py"],
+  writeBy: ["modules/cts/workflows/activities/persist_decision.py"],
+  notes: "One row per ChequeProcessingWorkflow terminal decision. UNIQUE on workflow_id + ON CONFLICT DO NOTHING guard prevents duplicate Temporal retries. shap_values is required before NGCH filing.",
+},
+{
+  name: "cts.ngch_submissions",
+  group: "core", status: "ok",
+  migration: "20260618_005 (+20260706)",
+  cols: [
+    ["submission_id","UUID PK"],["instrument_id","UUID FK"],["bank_id","Text FK"],
+    ["workflow_id","Text"],["submission_type","Text (OUTWARD|RETURN)"],
+    ["ngch_batch_ref","Text nullable"],["submitted_at","TIMESTAMPTZ nullable"],
+    ["status","Text (PENDING|SUBMITTED|ACKED|FAILED)"],
+    ["pu_id","Text nullable"],["session_id","Text nullable"],
+  ],
+  readBy: ["apps/api/routers/cts.py"],
+  writeBy: ["(NGCH Temporal activities — ngch_filer.py)"],
+  notes: "Exactly-once NGCH submission tracking. workflow_id idempotency prevents duplicate filings. session_id links to clearing_sessions.",
+},
+{
+  name: "cts.human_review_items",
+  group: "core", status: "ok",
+  migration: "20260618_005",
+  cols: [
+    ["review_id","UUID PK"],["instrument_id","UUID FK"],["bank_id","Text FK"],
+    ["workflow_id","Text"],["routed_to","Text"],["review_reason","Text"],
+    ["reviewer_decision","Text nullable"],["reviewer_notes","Text nullable"],
+    ["routed_at","TIMESTAMPTZ"],["reviewed_at","TIMESTAMPTZ nullable"],
+  ],
+  readBy: ["apps/api/routers/cts.py","apps/api/routers/cts_ops.py"],
+  writeBy: ["(ChequeProcessingWorkflow when decision=HUMAN_REVIEW)"],
+  notes: "Drives ops_reviewer inbox. reviewer_decision feeds back into Temporal signal chain via HumanReviewWorkflow.receive_review_decision().",
+},
+
+// ── VAULTS ────────────────────────────────────────────────────────────────
+{
+  name: "cts.signature_vault_entries",
+  group: "vaults", status: "ok",
+  migration: "20260618_006_vault_db_entries.py",
+  cols: [
+    ["entry_id","UUID PK"],["bank_id","Text FK"],["account_hash","Text"],
+    ["specimen_label","Text"],["image_minio_path","Text"],
+    ["source","Text"],["created_at","TIMESTAMPTZ"],
+  ],
+  readBy: ["(legacy — audit trail only)"],
+  writeBy: ["(CBS sync path)"],
+  notes: "Legacy table superseded by cts.signature_embeddings for live verification. Retained for audit trail. Active signature verification uses the embeddings table.",
+},
+{
+  name: "cts.signature_embeddings",
+  group: "vaults", status: "ok",
+  migration: "20260723_015_signature_embeddings.py (+20260810_017)",
+  cols: [
+    ["id","UUID PK"],["bank_id","Text"],["account_hash","Text"],
+    ["specimen_index","SMALLINT (0–9)"],["embedding","BYTEA (512-dim float32, 2048 B)"],
+    ["source","Text (CBS|CBS_FALLBACK)"],
+    ["signatory_id","Text NOT NULL default PRIMARY"],
+    ["UNIQUE","(bank_id, account_hash, signatory_id, specimen_index)"],
+  ],
+  readBy: ["apps/api/routers/admin.py","apps/api/routers/observability.py","apps/api/routers/platform.py","modules/cts/vaults/signature_vault.py","modules/cts/workflows/vault_sync_workflow.py","modules/cts/workflows/activities/platform_health_activities.py"],
+  writeBy: ["modules/cts/vaults/signature_vault.py"],
+  notes: "Hot-path vault. 512-dim float32 embeddings (2048 bytes raw BYTEA). Up to 10 specimens per account+signatory. Loaded into Redis for sub-5ms cosine similarity; DB is the cold fallback.",
+},
+{
+  name: "cts.account_signatories",
+  group: "vaults", status: "ok",
+  migration: "20260810_017_signature_embeddings_add_signatory.py",
+  cols: [
+    ["id","UUID PK"],["bank_id","Text"],["account_hash","Text"],
+    ["signatory_id","Text"],["role","Text (PRIMARY|SECONDARY)"],
+    ["name_masked","Text default ***"],["mandate_rule","Text (ANY_ONE|ALL_OF|N_OF)"],
+    ["quorum_n","SMALLINT default 1"],["is_active","Boolean"],["synced_at","TIMESTAMPTZ"],
+  ],
+  readBy: ["modules/cts/vaults/signature_vault.py"],
+  writeBy: ["modules/cts/vaults/vault_upload_processor.py"],
+  notes: "Multi-signatory mandate support. mandate_rule determines verification logic. name_masked stores '***' — never store raw holder names here; use account_vault_detail with pgcrypto.",
+},
+{
+  name: "cts.account_vault",
+  group: "vaults", status: "ok",
+  migration: "20260803_add_account_vault.py (+20260805, +20260811)",
+  cols: [
+    ["bank_id","Text NOT NULL, PK part 1"],
+    ["account_hash","Text NOT NULL, PK part 2 (HMAC-SHA256)"],
+    ["account_number_last4","Text NOT NULL"],["account_type","Text"],
+    ["branch_code","Text"],["branch_name","Text"],["branch_ifsc","Text"],
+    ["branch_manager_email","Text"],["last_synced_at","TIMESTAMPTZ"],
+    ["account_status","Text default ACTIVE"],
+    ["holder_name_display","Text default ***"],
+    ["holder_names","JSONB default []"],
+  ],
+  readBy: ["modules/cts/vaults/account_vault.py","demo/run_outward_pipeline.py"],
+  writeBy: ["modules/cts/vaults/account_vault.py"],
+  notes: "Two-tier vault (Redis hot + YugabyteDB cold). INSERT … ON CONFLICT DO UPDATE upsert pattern for CBS sync. Raw account numbers never stored — only HMAC hash + last4.",
+},
+{
+  name: "cts.account_vault_detail",
+  group: "vaults", status: "ok",
+  migration: "20260818_cheque_leaf_lifecycle.py",
+  cols: [
+    ["id","UUID PK"],["bank_id","Text"],["account_hash","Text"],
+    ["holder_seq","Integer (1-based, joint accounts)"],
+    ["holder_name_encrypted","LargeBinary PII","PII"],
+    ["holder_name_display","Text (masked)"],["role","Text"],
+    ["pan_last4","Text nullable"],["is_active","Boolean"],
+  ],
+  readBy: ["modules/cts/vaults/vault_upload_processor.py"],
+  writeBy: ["modules/cts/vaults/vault_upload_processor.py"],
+  notes: "PII table — holder_name_encrypted uses pgcrypto. holder_name_display stores masked form (e.g. 'R*** S***'). History tracked in cts.account_vault_detail_history.",
+},
+{
+  name: "cts.account_vault_detail_history",
+  group: "vaults", status: "ok",
+  migration: "20260818_cheque_leaf_lifecycle.py",
+  cols: [
+    ["id","UUID PK"],["detail_id","UUID FK account_vault_detail"],
+    ["bank_id","Text"],["account_hash","Text"],
+    ["change_action","Text"],["changed_by","Text"],["changed_at","TIMESTAMPTZ"],
+    ["(all account_vault_detail columns snapshot)","—"],
+  ],
+  readBy: ["(audit query only)"],
+  writeBy: ["modules/cts/vaults/vault_upload_processor.py"],
+  notes: "Append-only audit shadow. PII-bearing (holder_name_encrypted copied from parent). Never SELECT * here.",
+},
+{
+  name: "cts.pps_vault_entries",
+  group: "vaults", status: "ok",
+  migration: "20260618_006_vault_db_entries.py (+20260818_pps_vault_fix.py)",
+  cols: [
+    ["entry_id","UUID PK"],["bank_id","Text FK"],["account_hash","Text"],
+    ["account_last4","VARCHAR(4)"],["cheque_number","VARCHAR(6)"],
+    ["cheque_date","Date"],["amount_paise","BIGINT"],["amount_range","Text"],
+    ["payee_name_enc","LargeBinary PII","PII"],
+    ["status","Text (REGISTERED|CONFIRMED|EXPIRED|CANCELLED)"],
+    ["registered_at","TIMESTAMPTZ"],["expires_at","Date"],
+    ["cbs_pps_ref","Text nullable"],["last_synced_at","TIMESTAMPTZ"],
+    ["registered_by","Text"],["upload_batch_id","UUID nullable"],
+  ],
+  readBy: ["apps/api/routers/cts.py","modules/cts/vaults/pps_vault.py"],
+  writeBy: ["modules/cts/vaults/pps_vault.py"],
+  notes: "RBI-mandated Positive Pay — required for cheques ≥ ₹5 lakh. payee_name_enc is pgcrypto-encrypted. History in cts.pps_vault_entries_history. Vault miss → HUMAN_REVIEW, never AUTO_RETURN.",
+},
+{
+  name: "cts.pps_vault_entries_history",
+  group: "vaults", status: "ok",
+  migration: "20260818_pps_vault_fix.py",
+  cols: [
+    ["id","UUID PK"],["entry_id","UUID FK pps_vault_entries"],
+    ["bank_id","Text"],["account_hash","Text"],["cheque_number","Text"],
+    ["payee_name_enc","LargeBinary PII","PII"],["status","Text"],
+    ["change_action","Text"],["changed_by","Text"],["changed_at","TIMESTAMPTZ"],
+  ],
+  readBy: ["apps/api/routers/cts.py"],
+  writeBy: ["modules/cts/vaults/pps_vault.py"],
+  notes: "Append-only audit shadow of pps_vault_entries. PII-bearing (payee_name_enc copied). Never SELECT *.",
+},
+
+// ── CHEQUE LIFECYCLE ──────────────────────────────────────────────────────
+{
+  name: "cts.cheque_books",
+  group: "lifecycle", status: "ok",
+  migration: "20260818_cheque_leaf_lifecycle.py",
+  cols: [
+    ["id","UUID PK"],["bank_id","Text"],["account_hash","Text"],
+    ["account_number_last4","Text"],["series_start","Text"],["series_end","Text"],
+    ["issued_date","Date"],["branch_code","Text nullable"],
+    ["cbs_book_ref","Text nullable"],["is_active","Boolean"],
+    ["upload_batch_id","UUID nullable FK vault_upload_batches"],
+  ],
+  readBy: ["modules/cts/vaults/cheque_leaf_vault.py"],
+  writeBy: ["modules/cts/vaults/cheque_leaf_vault.py"],
+  notes: "Cheque book series registry. is_active=false = depleted or cancelled. History in cts.cheque_books_history.",
+},
+{
+  name: "cts.cheque_books_history",
+  group: "lifecycle", status: "ok",
+  migration: "20260818_cheque_leaf_lifecycle.py",
+  cols: [
+    ["id","UUID PK"],["book_id","UUID FK cheque_books"],
+    ["bank_id","Text"],["change_action","Text"],
+    ["changed_by","Text"],["changed_at","TIMESTAMPTZ"],
+    ["(all cheque_books columns as snapshot)","—"],
+  ],
+  readBy: ["apps/api/routers/cts.py"],
+  writeBy: ["modules/cts/vaults/cheque_leaf_vault.py"],
+  notes: "Append-only audit shadow. Never UPDATE or DELETE here.",
+},
+{
+  name: "cts.cheque_leaves",
+  group: "lifecycle", status: "ok",
+  migration: "20260818_cheque_leaf_lifecycle.py",
+  cols: [
+    ["id","UUID PK"],["bank_id","Text"],["account_hash","Text"],
+    ["cheque_number","Text"],
+    ["status","Text (ACTIVE|PRESENTED|PAID|RETURNED|CANCELLED|STOP_PAYMENT)"],
+    ["issued_date","Date nullable"],["book_id","UUID nullable FK cheque_books"],
+    ["instrument_id","Text nullable (linked on PRESENTED)"],
+    ["return_reason_code","Text nullable"],["reported_by","Text nullable"],
+    ["upload_batch_id","UUID nullable"],
+  ],
+  readBy: ["modules/cts/vaults/cheque_leaf_vault.py","modules/cts/workflows/activities/leaf_lifecycle.py"],
+  writeBy: ["modules/cts/vaults/cheque_leaf_vault.py","modules/cts/workflows/activities/leaf_lifecycle.py"],
+  notes: "STOP_PAYMENT check is a ChequeProcessingWorkflow gate — instrument routed to RETURN immediately. instrument_id linked when cheque is PRESENTED. History in cts.cheque_leaves_history.",
+},
+{
+  name: "cts.cheque_leaves_history",
+  group: "lifecycle", status: "ok",
+  migration: "20260818_cheque_leaf_lifecycle.py",
+  cols: [
+    ["id","UUID PK"],["leaf_id","UUID FK cheque_leaves"],
+    ["bank_id","Text"],["cheque_number","Text"],
+    ["change_action","Text (CREATED|PRESENTED|PAID|RETURNED|CANCELLED|STOP_PAYMENT)"],
+    ["changed_by","Text"],["changed_at","TIMESTAMPTZ"],
+    ["(all cheque_leaves columns as snapshot)","—"],
+  ],
+  readBy: ["apps/api/routers/cts.py"],
+  writeBy: ["modules/cts/vaults/cheque_leaf_vault.py","modules/cts/workflows/activities/leaf_lifecycle.py"],
+  notes: "Append-only audit shadow. Never UPDATE or DELETE here.",
+},
+
+// ── SMB ───────────────────────────────────────────────────────────────────
+{
+  name: "cts.sub_member_banks",
+  group: "smb", status: "ok",
+  migration: "20260619_013_sub_member_banks_and_ledger.py",
+  cols: [
+    ["sub_member_id","Text PK"],["bank_id","Text FK platform.banks"],
+    ["bank_name","Text"],["sponsor_bank_id","Text"],
+    ["micr_prefix","VARCHAR(6)"],["ifsc_prefix","VARCHAR(11)"],
+    ["branch_manager_email_enc","BYTEA PII","PII"],
+    ["ops_head_email_enc","BYTEA PII","PII"],["gm_email_enc","BYTEA PII","PII"],
+    ["return_rate_threshold","Numeric(5,4) default 0.1500"],
+    ["soft_hold_threshold","Numeric(5,4) default 0.2500"],
+    ["is_active","Boolean"],
+  ],
+  readBy: ["apps/api/routers/cts.py","apps/api/routers/cts_ops.py"],
+  writeBy: ["apps/api/routers/cts.py"],
+  notes: "PII table — email addresses pgcrypto-encrypted. return_rate_threshold and soft_hold_threshold drive OPA Layer 4 risk escalation rules.",
+},
+{
+  name: "cts.micr_prefix_routing",
+  group: "smb", status: "ok",
+  migration: "20260619_013_sub_member_banks_and_ledger.py",
+  cols: [
+    ["prefix_id","UUID PK"],["bank_id","Text FK"],["micr_prefix","VARCHAR(6)"],
+    ["sub_member_id","Text FK sub_member_banks"],
+    ["effective_from","Date"],["effective_to","Date nullable"],
+    ["created_by","Text"],["created_at","TIMESTAMPTZ"],
+  ],
+  readBy: ["(MICR routing lookup during inward cheque identification)"],
+  writeBy: ["apps/api/routers/cts.py"],
+  notes: "Time-boxed routing. effective_to NULL = currently active. Partial unique index on effective_from prevents overlapping active prefixes per bank.",
+},
+{
+  name: "cts.sub_member_batch_ledgers",
+  group: "smb", status: "ok",
+  migration: "20260619_013_sub_member_banks_and_ledger.py",
+  cols: [
+    ["ledger_id","UUID PK"],["bank_id","Text FK"],["sub_member_id","Text FK"],
+    ["session_date","Date"],["clearing_session","Text (MORNING|AFTERNOON|SPECIAL)"],
+    ["total_received","Integer"],["stp_pass","Integer"],["stp_return","Integer"],
+    ["eyeball","Integer"],["fraud_hold","Integer"],["iet_emergency","Integer"],
+    ["soft_hold_active","Boolean"],["risk_event_emitted","Boolean"],
+    ["tier2_notification_sent","Boolean"],
+    ["UNIQUE","(bank_id, sub_member_id, session_date, clearing_session)"],
+  ],
+  readBy: ["apps/api/routers/cts_ops.py"],
+  writeBy: ["modules/cts/sub_member/activities.py"],
+  notes: "Running counters per SMB per clearing session. soft_hold_active and tier2_notification_sent flags prevent duplicate OPA escalation signals.",
+},
+{
+  name: "cts.smb_forwarding_log",
+  group: "smb", status: "ok",
+  migration: "20260626_014_smb_forwarding_log_and_vault_config.py",
+  cols: [
+    ["forwarding_id","UUID PK"],["bank_id","Text FK"],["sponsor_bank_id","Text"],
+    ["sub_member_id","Text FK sub_member_banks"],["instrument_id","Text"],
+    ["micr_prefix_matched","VARCHAR(6)"],["routing_confidence","Numeric(5,4)"],
+    ["forwarding_status","Text (RECEIVED|FORWARDING|FORWARDED|COMPLETED|FAILED)"],
+    ["iet_deadline_utc","TIMESTAMPTZ"],["terminal_decision","Text nullable"],
+    ["failure_reason","Text nullable"],
+  ],
+  readBy: ["apps/api/routers/cts_ops.py"],
+  writeBy: ["modules/cts/workflows/activities/smb_forwarding_activities.py"],
+  notes: "Immutable audit trail of every sponsor→SMB routing hop. IET deadline tracked here because SMB forwarding failures must be resolved before IET breach.",
+},
+{
+  name: "cts.smb_vault_config",
+  group: "smb", status: "ok",
+  migration: "20260626_014_smb_forwarding_log_and_vault_config.py",
+  cols: [
+    ["config_id","UUID PK"],["bank_id","Text FK"],["sub_member_id","Text FK"],
+    ["cbs_connector_type","Text (finacle|bancs|flexcube|manual_upload)"],
+    ["vault_sync_cron","Text default 0 6 * * *"],
+    ["ocr_min_confidence_override","Numeric(5,4) nullable"],
+    ["signature_min_score_override","Numeric(5,4) nullable"],
+    ["fraud_threshold_override","Numeric(5,4) nullable"],
+    ["last_vault_sync_at","TIMESTAMPTZ nullable"],["last_sync_status","Text"],
+    ["signature_count","Integer"],["pps_entry_count","Integer"],
+  ],
+  readBy: ["(SMB vault sync workflow)"],
+  writeBy: ["(vault sync workflow on each CBS sync run)"],
+  notes: "Per-SMB threshold overrides (NULL = use sponsor bank Layer 3 defaults). smb_vault_prefix drives Redis key namespacing so SMB entries stay isolated.",
+},
+{
+  name: "cts.smb_kafka_topics",
+  group: "smb", status: "ok",
+  migration: "20260626_014_smb_forwarding_log_and_vault_config.py",
+  cols: [
+    ["topic_id","UUID PK"],["bank_id","Text FK"],["sub_member_id","Text FK"],
+    ["inward_topic","Text"],["decisions_topic","Text"],["notifications_topic","Text"],
+    ["keda_scaled_object_name","Text"],["is_provisioned","Boolean"],
+    ["provisioned_at","TIMESTAMPTZ nullable"],
+  ],
+  readBy: ["(provisioning tooling / Helm scripts)"],
+  writeBy: ["(SMB onboarding admin tooling)"],
+  notes: "Informational registry only — actual Kafka topic creation is a Helm/Strimzi concern. KEDA ScaledObject names follow cts.smb.inward.{sb_id}.{smb_id} pattern.",
+},
+{
+  name: "cts.smb_push_sessions",
+  group: "smb", status: "ok",
+  migration: "20260705_add_smb_push_sessions.py",
+  cols: [
+    ["id","UUID PK"],["agency_id","Text"],["smb_id","Text"],
+    ["file_type","Text"],["file_hash","Text UNIQUE (SHA-256 idempotency key)"],
+    ["file_path","Text"],["records_received","Integer nullable"],
+    ["records_processed","Integer nullable"],["outcome","Text"],
+    ["failure_reason","Text nullable"],["received_at","TIMESTAMPTZ"],
+  ],
+  readBy: ["apps/api/routers/cts_ops.py","modules/cts/workflows/activities/smb_vault_push_activities.py"],
+  writeBy: ["modules/cts/workflows/activities/smb_vault_push_activities.py"],
+  notes: "Tracks SMBVaultPushIngestWorkflow sessions. file_hash UNIQUE is the idempotency key — same file re-pushed returns existing record without re-processing.",
+},
+
+// ── OUTWARD ───────────────────────────────────────────────────────────────
+{
+  name: "cts.clearing_sessions",
+  group: "outward", status: "ok",
+  migration: "20260705_add_clearing_sessions.py",
+  cols: [
+    ["session_id","Text PK"],["bank_id","Text"],["sb_connection_id","Text nullable"],
+    ["clearing_date","Date"],["session_type","Text (MORNING|AFTERNOON|EVENING)"],
+    ["status","Text (OPEN|SEALED|SUBMITTED|RECONCILED)"],
+    ["sealed_at","TIMESTAMPTZ nullable"],["submitted_at","TIMESTAMPTZ nullable"],
+    ["npci_ack_ref","Text nullable"],["total_instruments","Integer"],
+    ["rrf_generated","Boolean"],
+  ],
+  readBy: ["apps/api/routers/cts.py","apps/api/routers/cts_ops.py","apps/api/routers/batch.py","modules/cts/workflows/activities/clearing_session_activities.py","modules/cts/workflows/activities/generate_session_report.py"],
+  writeBy: ["modules/cts/workflows/activities/clearing_session_activities.py","apps/api/dev_auth_server.py"],
+  notes: "One row per bank per clearing_date per session_type. rrf_generated prevents duplicate RRF generation. Status machine: OPEN→SEALED→SUBMITTED→RECONCILED.",
+},
+{
+  name: "cts.eeh_sessions",
+  group: "outward", status: "ok",
+  migration: "20260705_add_eeh_sessions.py (+20260902)",
+  cols: [
+    ["session_id","Text PK"],["bank_id","Text"],["branch_id","Text"],
+    ["operator_id","Text"],["cert_fingerprint","Text"],
+    ["hub_type","Text (EEH|IEH)"],["status","Text (ACTIVE|SEALED|REVOKED)"],
+    ["clearing_date","Date"],["opened_at","TIMESTAMPTZ"],["expires_at","TIMESTAMPTZ"],
+    ["total_uploaded","Integer"],["total_accepted","Integer"],
+    ["total_rejected","Integer"],["total_held","Integer"],
+    ["revocation_reason","Text nullable"],
+  ],
+  readBy: ["apps/api/routers/cts.py","apps/api/routers/cts_ops.py","apps/eeh/session.py","apps/eeh/grpc_server.py"],
+  writeBy: ["apps/api/routers/cts.py","apps/eeh/session.py","apps/eeh/grpc_server.py"],
+  notes: "cert_fingerprint ties session to EEH operator X.509 certificate (mTLS). expires_at enforces clearing-day session timeout. total_held incremented on MISMATCH_HELD routing.",
+},
+{
+  name: "cts.lots",
+  group: "outward", status: "ok",
+  migration: "20260902_lots.py",
+  cols: [
+    ["lot_id","Text PK"],["bank_id","Text"],["branch_id","Text FK branches"],
+    ["session_id","Text FK eeh_sessions"],["clearing_date","Date"],
+    ["sequence_number","Integer (1-based, per branch+day)"],
+    ["status","Text (OPEN|SEALED)"],["instrument_count","Integer"],
+    ["max_instruments","Integer default 25"],
+    ["sealed_at","TIMESTAMPTZ nullable"],
+    ["PARTIAL UNIQUE","(branch_id, clearing_date) WHERE status='OPEN'"],
+  ],
+  readBy: ["apps/api/routers/cts.py","apps/eeh/grpc_server.py","modules/cts/workflows/activities/clearing_session_activities.py"],
+  writeBy: ["apps/api/routers/cts.py","apps/eeh/grpc_server.py","modules/cts/workflows/activities/batch_endorsement_activities.py"],
+  notes: "At most one OPEN lot per branch per clearing day (partial unique index). Auto-seals when instrument_count reaches max_instruments (25). Real-time source for CTSHubDashboard.",
+},
+{
+  name: "cts.outward_scan_events",
+  group: "outward", status: "ok",
+  migration: "20260803_add_outward_scan_events.py",
+  cols: [
+    ["event_id","UUID PK"],["bank_id","Text NOT NULL"],["branch_id","Text nullable"],
+    ["session_id","Text nullable"],["scan_id","Text NOT NULL"],
+    ["instrument_id","Text nullable"],["micr_suffix","VARCHAR(4) nullable"],
+    ["payee_display","Text nullable"],["amount_range","Text nullable"],
+    ["outcome","Text NOT NULL"],["lot_id","Text nullable"],
+    ["mismatch_id","Text nullable"],["mismatch_fields","Text[] nullable"],
+    ["reject_reason","Text nullable"],["scanned_at","TIMESTAMPTZ default NOW()"],
+  ],
+  readBy: ["apps/api/routers/cts.py","modules/cts/workflows/activities/generate_session_report.py","modules/cts/lot/lot_store.py"],
+  writeBy: ["modules/cts/workflows/activities/outward_scan_activities.py","apps/api/routers/cts.py"],
+  notes: "Outcome-level — one row per OutwardScanWorkflow completion. Distinct from cts.outward_scan_session_events (position-level, 20260901). scan_id is Go scanner SDK submission ID.",
+},
+{
+  name: "cts.outward_scan_session_events",
+  group: "outward", status: "ok",
+  migration: "20260901_outward_scan_events.py",
+  cols: [
+    ["event_id","Text PK"],["bank_id","Text NOT NULL"],["branch_id","Text nullable"],
+    ["session_id","Text NOT NULL"],["scan_id","Text NOT NULL"],
+    ["instrument_id","Text nullable"],["workflow_id","Text nullable"],
+    ["event_type","Text (SUBMITTED|DOUBLE_FEED_DETECTED|IMPRINTER_FAULT|UPLOAD_FAILED)"],
+    ["position_in_batch","Integer nullable"],["cheque_number","Text nullable"],
+    ["micr_suffix","Text nullable"],["imprinter_stamped","Boolean default false"],
+    ["micr_source","Text nullable"],["created_at","TIMESTAMPTZ default now()"],
+  ],
+  readBy: ["(no Python read path wired yet — added for forthcoming scanner SDK integration)"],
+  writeBy: ["(no Python write path wired yet)"],
+  notes: "Position-level event log for the Branch Scan Dashboard. Distinct from cts.outward_scan_events (outcome-level). Not yet wired to application code — migration created in advance.",
+},
+{
+  name: "cts.mismatch_queue",
+  group: "outward", status: "ok",
+  migration: "20260705_add_mismatch_queue.py (+20260818_mismatch_queue_add_bank_id.py)",
+  cols: [
+    ["mismatch_id","Text PK"],["instrument_id","Text"],["branch_id","Text"],
+    ["pu_id","Text"],["lot_id","Text nullable"],
+    ["vision_finding","JSONB"],["scanner_data","JSONB"],
+    ["mismatch_fields","JSONB"],["status","Text (HELD|RESOLVED|RESUBMITTED)"],
+    ["held_at","TIMESTAMPTZ"],["resolved_by","Text nullable"],
+    ["resolution_note","Text nullable"],["workflow_run_id","Text nullable"],
+    ["bank_id","Text NOT NULL — added 20260818"],
+  ],
+  readBy: ["apps/api/routers/cts.py","apps/eeh/grpc_server.py"],
+  writeBy: ["modules/cts/workflows/mismatch_resolution_workflow.py","apps/api/routers/cts.py","apps/eeh/grpc_server.py"],
+  notes: "Instruments enter HELD when Vision LLM disagrees with scanner OCR on amount/payee/date. vision_finding and scanner_data store raw JSON for side-by-side review. bank_id FK added in 20260818.",
+},
+{
+  name: "cts.session_reports",
+  group: "outward", status: "ok",
+  migration: "20260811_add_session_reports.py",
+  cols: [
+    ["report_id","UUID PK"],["session_id","Text NOT NULL"],["bank_id","Text NOT NULL"],
+    ["branch_id","Text NOT NULL"],["branch_ifsc","Text NOT NULL"],
+    ["clearing_date","Date NOT NULL"],["session_type","Text NOT NULL"],
+    ["html_minio_path","Text nullable"],["pdf_minio_path","Text nullable"],
+    ["instrument_count","Integer"],["lot_count","Integer"],["accepted_count","Integer"],
+    ["rejected_count","Integer"],["held_count","Integer"],
+    ["immudb_tx_id","BIGINT nullable"],["status","Text (GENERATING|DONE|FAILED)"],
+    ["UNIQUE","(session_id, bank_id)"],
+  ],
+  readBy: ["apps/api/routers/cts.py","apps/api/routers/vault_upload.py"],
+  writeBy: ["modules/cts/workflows/activities/generate_session_report.py"],
+  notes: "MinIO object keys served via pre-signed URLs. immudb_tx_id anchors report to Immudb tamper-evident ledger. UNIQUE prevents duplicate report generation.",
+},
+{
+  name: "cts.instrument_holds",
+  group: "outward", status: "ok",
+  migration: "20260803_add_instrument_holds.py (+20260803_add_hold_iet_timing.py)",
+  cols: [
+    ["hold_id","Text PK"],["instrument_id","Text NOT NULL"],["bank_id","Text NOT NULL"],
+    ["held_by","Text"],["held_at","DOUBLE PRECISION (Unix epoch)"],
+    ["iet_deadline","DOUBLE PRECISION (Unix epoch)"],["hold_reason","Text"],
+    ["branch_notified_at","DOUBLE PRECISION nullable"],
+    ["released_at","DOUBLE PRECISION nullable"],
+    ["iet_remaining_at_hold_start","DOUBLE PRECISION nullable"],
+    ["hold_duration_seconds","DOUBLE PRECISION nullable"],
+    ["iet_remaining_at_release","DOUBLE PRECISION nullable"],
+    ["released_by","Text nullable"],
+  ],
+  readBy: ["apps/api/routers/cts.py","modules/cts/workflows/activities/hold_escalation.py"],
+  writeBy: ["modules/cts/hold/hold_service.py","apps/api/routers/cts.py"],
+  notes: "Times stored as DOUBLE PRECISION Unix epoch (not TIMESTAMPTZ) for sub-second IET arithmetic. IET timing columns support IET-consumed-on-hold analytics.",
+},
+
+// ── SCANNER ───────────────────────────────────────────────────────────────
+{
+  name: "cts.scanner_registrations",
+  group: "scanner", status: "ok",
+  migration: "20260811_scanner_registrations.py",
+  cols: [
+    ["registration_id","Text PK"],["bank_id","Text"],["branch_id","Text"],
+    ["branch_ifsc","Text"],["scanner_config_id","Text nullable"],
+    ["sdk_version","Text nullable"],["registration_token_hash","Text (HMAC-SHA256)"],
+    ["status","Text (PENDING|ACTIVE|REVOKED)"],
+    ["last_heartbeat_at","TIMESTAMPTZ nullable"],
+    ["last_scan_submitted_at","TIMESTAMPTZ nullable"],
+    ["heartbeat_interval_seconds","Integer default 60"],
+    ["scans_today","Integer"],["errors_today","Integer"],
+    ["last_error","Text nullable"],["registered_by","Text"],
+  ],
+  readBy: ["apps/api/routers/scanner.py","apps/api/routers/cts_ops.py"],
+  writeBy: ["apps/api/routers/scanner.py","apps/api/dev_auth_server.py"],
+  notes: "SDK_PUSH scanner lifecycle. raw token never stored — only HMAC hash. 'health' is computed from status + last_heartbeat_at staleness, never a stored column.",
+},
+{
+  name: "cts.scanner_tokens",
+  group: "scanner", status: "ok",
+  migration: "20260901_scanner_tokens.py (+20260901_scanner_tokens_add_session.py)",
+  cols: [
+    ["token_id","Text PK"],["bank_id","Text"],["branch_id","Text"],
+    ["machine_id","Text (Go scanner agent fingerprint)"],
+    ["token_hash","Text (HMAC-SHA256 — raw token returned once, never stored)"],
+    ["issued_at","TIMESTAMPTZ"],["expires_at","TIMESTAMPTZ"],
+    ["last_seen","TIMESTAMPTZ nullable"],["revoked","Boolean"],
+    ["revoked_at","TIMESTAMPTZ nullable"],["revoked_by","Text nullable"],
+    ["active_session_id","Text nullable FK eeh_sessions"],
+  ],
+  readBy: ["apps/api/routers/scanner.py"],
+  writeBy: ["apps/api/routers/cts.py","apps/api/routers/scanner.py"],
+  notes: "Machine-bound API tokens for Go scanner agents. raw token returned once at issuance. active_session_id links token to its current eeh_sessions row.",
+},
+{
+  name: "cts.scanner_configs",
+  group: "scanner", status: "ok",
+  migration: "20260705_add_scanner_configs.py",
+  cols: [
+    ["scanner_config_id","Text PK"],["bank_id","Text"],["branch_id","Text nullable"],
+    ["scanner_oem","Text"],["scanner_model","Text"],["output_format","Text"],
+    ["field_mapping","JSONB"],["image_naming_pattern","Text"],
+    ["image_side_mapping","JSONB"],["drop_folder_path","Text"],["is_active","Boolean"],
+  ],
+  readBy: ["apps/api/routers/scanner_configs.py"],
+  writeBy: ["apps/api/routers/scanner_configs.py"],
+  notes: "OEM scanner config. field_mapping and image_side_mapping are JSONB because each scanner vendor uses different column headers and image file suffix conventions.",
+},
+
+// ── INFRA / CONFIG ────────────────────────────────────────────────────────
+{
+  name: "cts.processing_units",
+  group: "infra", status: "ok",
+  migration: "20260705_add_processing_units.py",
+  cols: [
+    ["pu_id","Text PK"],["bank_id","Text"],["pu_name","Text"],
+    ["clearing_zone","Text"],["ngch_participant_code","Text"],
+    ["temporal_task_queue","Text"],["kafka_inward_topic","Text"],
+    ["max_agent_swarm_size","Integer default 200"],["is_active","Boolean"],
+  ],
+  readBy: ["apps/api/routers/processing_units.py"],
+  writeBy: ["apps/api/routers/processing_units.py","apps/api/dev_auth_server.py"],
+  notes: "One PU = one clearing zone = one KEDA-scaled Temporal task queue. max_agent_swarm_size caps ChequeProcessingWorkflow concurrency per PU.",
+},
+{
+  name: "cts.branches",
+  group: "infra", status: "ok",
+  migration: "20260705_add_branches.py (+20260806, +20260811 ×2)",
+  cols: [
+    ["branch_id","Text PK"],["bank_id","Text"],["smb_id","Text nullable"],
+    ["branch_name","Text"],["branch_ifsc","Text"],["city","Text nullable"],
+    ["state","Text nullable"],["pu_id","Text nullable"],
+    ["is_scanning_enabled","Boolean"],["is_active","Boolean"],
+    ["address","Text nullable"],["district","Text nullable"],
+    ["pin_code","Text nullable"],["phone_number","Text nullable"],
+    ["scanner_input_mode","Text (UI_UPLOAD|SDK_PUSH|EEH_GRPC)"],
+    ["drop_folder_base_path","⚠ DROPPED in 20260811 — do not reference"],
+  ],
+  readBy: ["apps/api/routers/branches.py","apps/api/routers/processing_units.py","apps/api/routers/platform.py","apps/api/routers/cts_ops.py","modules/cts/crl/service.py"],
+  writeBy: ["apps/api/routers/branches.py","apps/api/dev_auth_server.py"],
+  notes: "drop_folder_base_path was DROPPED in 20260811 — any code referencing it will crash. scanner_input_mode drives which upload channel the branch uses.",
+},
+{
+  name: "cts.mcp_connection_configs",
+  group: "infra", status: "ok",
+  migration: "20260701_add_mcp_connection_configs.py",
+  cols: [
+    ["id","Text PK"],["bank_id","Text"],["connection_type","Text"],
+    ["smb_id","Text nullable"],["cbs_vendor","Text nullable"],
+    ["endpoint_url_encrypted","LargeBinary PII (pgcrypto)","PII"],
+    ["vault_secret_ref","Text nullable"],["status","Text"],
+    ["last_tested_at","TIMESTAMPTZ nullable"],["last_test_latency_ms","Integer nullable"],
+    ["vault_record_count","Integer nullable"],["error_message","Text nullable"],
+  ],
+  readBy: ["apps/api/routers/mcp_connections.py"],
+  writeBy: ["apps/api/routers/mcp_connections.py"],
+  notes: "MCP configs for SB CBS, SMB CBS, Signature Vault, PPS Vault, Cancelled Leaf. endpoint_url_encrypted pgcrypto-encrypted — never log or return raw value.",
+},
+{
+  name: "cts.sb_connections",
+  group: "infra", status: "ok",
+  migration: "20260705_add_sb_connections.py",
+  cols: [
+    ["sb_connection_id","Text PK"],["agency_id","Text"],["sb_bank_id","Text"],
+    ["connector_type","Text"],["endpoint_ref","Text"],
+    ["submission_buffer_minutes","Integer default 30"],["is_active","Boolean"],
+    ["last_tested_at","TIMESTAMPTZ nullable"],["error_message","Text nullable"],
+  ],
+  readBy: ["apps/api/routers/cts.py"],
+  writeBy: ["apps/api/routers/cts.py"],
+  notes: "Only used in AGENCY_SB_RELAY deployment mode. Not used in direct SB deployments.",
+},
+{
+  name: "cts.ifsc_registry",
+  group: "infra", status: "ok",
+  migration: "20260730_016_ifsc_registry.py",
+  cols: [
+    ["id","UUID PK"],["bank_id","Text"],["bank_type","Text (SB|SMB)"],
+    ["smb_id","Text nullable"],["ifsc_code","VARCHAR(11)"],
+    ["branch_name","Text nullable"],["branch_city","Text nullable"],
+    ["micr_code","VARCHAR(9) nullable"],["is_active","Boolean"],
+    ["effective_from","Date"],["effective_till","Date nullable"],
+    ["status","Text (PENDING|ACTIVE|SUPERSEDED)"],
+    ["created_by","Text"],["approved_by","Text nullable"],
+  ],
+  readBy: ["modules/cts/ifsc/repository.py","apps/api/routers/cts.py"],
+  writeBy: ["modules/cts/ifsc/repository.py"],
+  notes: "Maker-checker workflow — entries start PENDING, require approval for is_active=TRUE. Used for drawee_ifsc and presenting_ifsc validation in inward processing.",
+},
+{
+  name: "cts.ocr_corpus_events",
+  group: "infra", status: "ok",
+  migration: "20260818_add_ocr_corpus_events.py",
+  cols: [
+    ["event_id","UUID PK"],["bank_id","Text"],["instrument_id","Text"],
+    ["corpus_type","Text (INDIC_OCR|VISION_LLM)"],["failure_mode","Text"],
+    ["name_match_score","DOUBLE PRECISION nullable"],["rationale","Text nullable"],
+    ["created_at","TIMESTAMPTZ"],
+  ],
+  readBy: ["apps/api/routers/observability.py"],
+  writeBy: ["modules/cts/workflows/activities/feedback_activities.py"],
+  notes: "Per-cheque OCR feedback signal log. Feeds the MLflow retraining trigger in cts.model_retrain_runs when accumulated events exceed the config threshold.",
+},
+{
+  name: "cts.model_retrain_runs",
+  group: "infra", status: "ok",
+  migration: "20260818_add_model_retrain_runs.py",
+  cols: [
+    ["run_id","Text PK"],["bank_id","Text"],["corpus_type","Text"],
+    ["mlflow_run_id","Text nullable"],["triggered_at","TIMESTAMPTZ"],
+    ["completed_at","TIMESTAMPTZ nullable"],["status","Text (RUNNING|DONE|FAILED)"],
+    ["accuracy_before","DOUBLE PRECISION nullable"],
+    ["accuracy_after","DOUBLE PRECISION nullable"],["improvement_pct","DOUBLE PRECISION nullable"],
+    ["promoted","Boolean nullable"],
+  ],
+  readBy: ["apps/api/routers/observability.py"],
+  writeBy: ["modules/cts/workflows/activities/feedback_activities.py"],
+  notes: "Tracks OCR model retraining. promoted=TRUE means retrained model promoted to production. mlflow_run_id links to on-prem MLflow tracking server.",
+},
+{
+  name: "cts.vault_upload_batches",
+  group: "infra", status: "ok",
+  migration: "20260818_cheque_leaf_lifecycle.py (+20260819_vault_batch_error_file.py)",
+  cols: [
+    ["id","UUID PK"],["bank_id","Text"],
+    ["vault_type","Text (CHEQUE_BOOK|CHEQUE_LEAF|ACCOUNT_DETAIL|SIGNATORY|PPS)"],
+    ["filename","Text nullable"],["upload_channel","Text (UI|API|SFTP)"],
+    ["uploaded_by","Text"],["status","Text (PENDING|PROCESSING|DONE|FAILED)"],
+    ["rows_total","Integer nullable"],["rows_processed","Integer"],
+    ["rows_failed","Integer"],["errors_json","JSONB default []"],
+    ["error_file_path","Text nullable (MinIO object key)"],
+    ["completed_at","TIMESTAMPTZ nullable"],
+  ],
+  readBy: ["apps/api/routers/vault_upload.py","apps/api/routers/cts.py"],
+  writeBy: ["modules/cts/vaults/vault_upload_processor.py"],
+  notes: "error_file_path is a MinIO object key for the CSV error report. First N inline errors go in errors_json; full set in MinIO. vault_type drives which processor handles the batch.",
+},
+
+// ── AUTH ──────────────────────────────────────────────────────────────────
+{
+  name: "cts.revoked_sessions",
+  group: "auth", status: "ok",
+  migration: "20260902_018_revoked_sessions_table.py",
+  cols: [
+    ["session_id","Text PK (JWT JTI)"],["bank_id","Text"],
+    ["user_id","Text"],["revoked_at","TIMESTAMPTZ default now()"],
+    ["expires_at","TIMESTAMPTZ"],
+  ],
+  readBy: ["apps/api/routers/auth.py"],
+  writeBy: ["apps/api/routers/auth.py"],
+  notes: "Redis-restart-safe JTI blocklist. Written on every logout alongside Redis SET. Auth middleware checks this table ONLY when Redis is unavailable. Rows removed after expires_at.",
+},
+
+// ── PHANTOMS ──────────────────────────────────────────────────────────────
+{
+  name: "cts.postdated_holds",
+  group: "phantom", status: "phantom",
+  migration: "⚠ NO MIGRATION — table does not exist",
+  cols: [["(schema unknown — migration not found)","—"]],
+  readBy: [],
+  writeBy: ["modules/cts/workflows/activities/postdated_hold_activities.py"],
+  notes: "PHANTOM: PostDatedHoldWorkflow activities INSERT and UPDATE this table, but no CREATE TABLE migration exists in infra/migrations/cts/. Any activation of PostDatedHoldWorkflow will crash with a DB error. A migration must be written and applied before enabling this workflow.",
+},
+{
+  name: "cts.rrf_sessions",
+  group: "phantom", status: "phantom",
+  migration: "⚠ NO MIGRATION — table does not exist",
+  cols: [["(schema: session_id, bank_id — inferred from ON CONFLICT clause)","—"]],
+  readBy: [],
+  writeBy: ["modules/cts/workflows/activities/session_reconciliation_activities.py"],
+  notes: "PHANTOM: session_reconciliation_activities.py does INSERT … ON CONFLICT (session_id, bank_id) DO UPDATE into this table. RRF = Return Reason File tracking. Migration pending with reconciliation module build.",
+},
+{
+  name: "cts.rpc_alerts",
+  group: "phantom", status: "phantom",
+  migration: "⚠ NO MIGRATION — table does not exist",
+  cols: [["(schema unknown — migration not found)","—"]],
+  readBy: ["apps/api/routers/cts_ops.py (cross_centre_alerts endpoint — returns degraded:true, skips DB)"],
+  writeBy: [],
+  notes: "PHANTOM: Referenced by the /rpc/cross-centre-alerts endpoint. Code explicitly returns degraded:true and skips the DB query with a comment 'migration pending with RPC module build.' Safe at runtime — but a migration is needed for the endpoint to become functional.",
+},
+];
+
+/* ─── Rendering ──────────────────────────────────────────────────────────── */
+const ABBR = {
+  "apps/api/routers/": "routers/",
+  "modules/cts/workflows/activities/": "activities/",
+  "modules/cts/workflows/": "workflows/",
+  "modules/cts/vaults/": "vaults/",
+  "modules/cts/": "cts/",
+};
+function shorten(p) {
+  for (const [k,v] of Object.entries(ABBR)) {
+    if (p.startsWith(k)) return '<span title="'+p+'">'+v+p.slice(k.length)+'</span>';
+  }
+  return '<span>'+p+'</span>';
+}
+
+function renderCols(cols) {
+  return cols.map(([n,t,flag])=>{
+    const pii = flag==="PII";
+    return `<span class="col-item"><span class="col-name${pii?' col-pii':''}">${n}</span><span class="col-type"> ${t}</span></span>`;
+  }).join('');
+}
+
+function renderCallers(label, arr, cls) {
+  if (!arr || arr.length === 0) return '';
+  return `<div class="caller-row">
+    <span class="caller-tag ${cls}">${label}</span>
+    <span class="caller-files">${arr.map(shorten).join(' ')}</span>
+  </div>`;
+}
+
+function cardHTML(t) {
+  const phantom = t.status === 'phantom';
+  const groupLabel = GROUPS.find(g=>g.id===t.group)?.label ?? t.group;
+  return `
+<article class="tcard${phantom?' phantom':''}" id="${t.name.replace('.','-')}">
+  <div class="tcard-head">
+    <a class="tname" href="#${t.name.replace('.','-')}">${t.name}</a>
+    <span class="badge ${phantom?'badge-phantom':'badge-ok'}">${phantom?'PHANTOM':'CONFIRMED'}</span>
+    <span class="badge badge-group">${groupLabel}</span>
+    <span class="migration">${t.migration}</span>
+  </div>
+  <div class="tcard-body">
+    <div>
+      <div class="section-label">Columns</div>
+      <div class="cols-grid">${renderCols(t.cols)}</div>
+    </div>
+    <div class="callers">
+      ${renderCallers('READ', t.readBy, 'tag-read')}
+      ${renderCallers('WRITE', t.writeBy, 'tag-write')}
+    </div>
+    ${t.notes ? `<div class="tnotes">${t.notes}</div>` : ''}
+  </div>
+</article>`;
+}
+
+function buildSidebar() {
+  const sb = document.getElementById('sidebar');
+  GROUPS.forEach(g => {
+    const tables = TABLES.filter(t=>t.group===g.id);
+    if (tables.length === 0) return;
+    const div = document.createElement('div');
+    div.className = 'sidebar-group';
+    div.innerHTML = `<div class="sg-label">${g.label}</div>` +
+      tables.map(t=>`<a class="sg-link${t.status==='phantom'?' phantom':''}"
+        href="#${t.name.replace('.','-')}">${t.name.replace('cts.','')}</a>`).join('');
+    sb.appendChild(div);
+  });
+}
+
+function buildMain(filter) {
+  const main = document.getElementById('main');
+  // Clear existing group sections
+  main.querySelectorAll('.group-section').forEach(e=>e.remove());
+  document.getElementById('no-results').style.display = 'none';
+
+  const q = (filter||'').toLowerCase().trim();
+  let total = 0;
+
+  GROUPS.forEach(g => {
+    let tables = TABLES.filter(t=>t.group===g.id);
+    if (q) {
+      tables = tables.filter(t =>
+        t.name.toLowerCase().includes(q) ||
+        t.migration.toLowerCase().includes(q) ||
+        t.cols.some(c=>c[0].toLowerCase().includes(q)||c[1].toLowerCase().includes(q)) ||
+        (t.readBy||[]).some(f=>f.toLowerCase().includes(q)) ||
+        (t.writeBy||[]).some(f=>f.toLowerCase().includes(q)) ||
+        (t.notes||'').toLowerCase().includes(q)
+      );
+    }
+    if (tables.length === 0) return;
+    total += tables.length;
+
+    const sec = document.createElement('div');
+    sec.className = 'group-section';
+    const phantom = g.id === 'phantom';
+    sec.innerHTML = `<div class="group-title${phantom?' phantom-group':''}">${g.label} — ${tables.length} table${tables.length!==1?'s':''}</div>` +
+      tables.map(cardHTML).join('');
+    main.appendChild(sec);
+  });
+
+  if (total === 0) document.getElementById('no-results').style.display = 'block';
+
+  const confirmed = TABLES.filter(t=>t.status==='ok').length;
+  const phantoms = TABLES.filter(t=>t.status==='phantom').length;
+  document.getElementById('stats-line').textContent = q
+    ? `${total} of ${TABLES.length} tables`
+    : `${confirmed} confirmed · ${phantoms} phantom`;
+}
+
+buildSidebar();
+buildMain('');
+
+document.getElementById('search').addEventListener('input', e => buildMain(e.target.value));
+
+// Theme toggle
+const root = document.documentElement;
+let darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+function syncTheme() {
+  root.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+  document.getElementById('theme-btn').textContent = darkMode ? '☀' : '🌙';
+}
+syncTheme();
+document.getElementById('theme-btn').addEventListener('click', () => {
+  darkMode = !darkMode; syncTheme();
+});
+</script>
+</body>
+</html>

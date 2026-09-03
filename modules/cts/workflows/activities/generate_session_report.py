@@ -22,7 +22,10 @@ import structlog
 from pydantic import BaseModel, ConfigDict
 from temporalio import activity
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 _REPORT_BUCKET = "astra-cts-reports"
 
@@ -52,88 +55,90 @@ async def generate_session_report(inp: GenerateReportInput) -> GenerateReportRes
     Fails gracefully: on any error, writes a FAILED row to session_reports and
     returns status=FAILED so the workflow can continue without blocking NGCH flow.
     """
-    from shared.config.config_service import config_service
-    from shared.audit.audit_event import AuditEvent, AuditEventType
+    with tracer.start_as_current_span("activity.generate_session_report") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        from shared.config.config_service import config_service
+        from shared.audit.audit_event import AuditEvent, AuditEventType
 
-    report_id = str(uuid.uuid4())
+        report_id = str(uuid.uuid4())
 
-    with activity.start_heartbeat_timeout():
-        pass  # heartbeat not needed for this short activity
-
-    log.info(
-        "generate_session_report.start",
-        session_id=inp.session_id,
-        bank_id=inp.bank_id,
-        branch_ifsc=inp.branch_ifsc,
-    )
-
-    try:
-        db_url   = await config_service.get_secret(f"db.cts.dsn")
-        minio_ep = await config_service.get("minio.endpoint")
-        minio_ak = await config_service.get_secret("minio.access_key")
-        minio_sk = await config_service.get_secret("minio.secret_key")
-
-        report = await _assemble_report(inp, report_id, db_url)
-
-        from modules.cts.reports.html_template import render_html
-        from modules.cts.reports.pdf_renderer  import render_pdf
-        from modules.cts.reports.session_report_builder import minio_path
-
-        html_bytes = render_html(report).encode("utf-8")
-        pdf_bytes  = render_pdf(render_html(report))
-
-        html_path = minio_path(report, "html")
-        pdf_path  = minio_path(report, "pdf")
-
-        await _upload_minio(minio_ep, minio_ak, minio_sk, html_path, html_bytes, "text/html")
-        await _upload_minio(minio_ep, minio_ak, minio_sk, pdf_path,  pdf_bytes,  "application/pdf")
-
-        await _write_db_row(db_url, report, html_path, pdf_path, "READY")
-
-        await _write_audit(
-            bank_id=inp.bank_id,
-            session_id=inp.session_id,
-            report_id=report_id,
-            html_path=html_path,
-            pdf_path=pdf_path,
-            instrument_count=report.instrument_count,
-        )
+        with activity.start_heartbeat_timeout():
+            pass  # heartbeat not needed for this short activity
 
         log.info(
-            "generate_session_report.done",
-            session_id=inp.session_id,
-            report_id=report_id,
-            instrument_count=report.instrument_count,
-        )
-        return GenerateReportResult(
-            report_id=report_id,
-            html_minio_path=html_path,
-            pdf_minio_path=pdf_path,
-            instrument_count=report.instrument_count,
-            status="READY",
-        )
-
-    except Exception as exc:
-        log.error(
-            "generate_session_report.failed",
+            "generate_session_report.start",
             session_id=inp.session_id,
             bank_id=inp.bank_id,
-            error=str(exc),
+            branch_ifsc=inp.branch_ifsc,
         )
+
         try:
-            await _write_failed_row(db_url, inp, report_id, str(exc))
-        except Exception:
-            pass
-        return GenerateReportResult(
-            report_id=report_id,
-            html_minio_path="",
-            pdf_minio_path="",
-            instrument_count=0,
-            status="FAILED",
-        )
+            db_url   = await config_service.get_secret(f"db.cts.dsn")
+            minio_ep = await config_service.get("minio.endpoint")
+            minio_ak = await config_service.get_secret("minio.access_key")
+            minio_sk = await config_service.get_secret("minio.secret_key")
+
+            report = await _assemble_report(inp, report_id, db_url)
+
+            from modules.cts.reports.html_template import render_html
+            from modules.cts.reports.pdf_renderer  import render_pdf
+            from modules.cts.reports.session_report_builder import minio_path
+
+            html_bytes = render_html(report).encode("utf-8")
+            pdf_bytes  = render_pdf(render_html(report))
+
+            html_path = minio_path(report, "html")
+            pdf_path  = minio_path(report, "pdf")
+
+            await _upload_minio(minio_ep, minio_ak, minio_sk, html_path, html_bytes, "text/html")
+            await _upload_minio(minio_ep, minio_ak, minio_sk, pdf_path,  pdf_bytes,  "application/pdf")
+
+            await _write_db_row(db_url, report, html_path, pdf_path, "READY")
+
+            await _write_audit(
+                bank_id=inp.bank_id,
+                session_id=inp.session_id,
+                report_id=report_id,
+                html_path=html_path,
+                pdf_path=pdf_path,
+                instrument_count=report.instrument_count,
+            )
+
+            log.info(
+                "generate_session_report.done",
+                session_id=inp.session_id,
+                report_id=report_id,
+                instrument_count=report.instrument_count,
+            )
+            return GenerateReportResult(
+                report_id=report_id,
+                html_minio_path=html_path,
+                pdf_minio_path=pdf_path,
+                instrument_count=report.instrument_count,
+                status="READY",
+            )
+
+        except Exception as exc:
+            log.error(
+                "generate_session_report.failed",
+                session_id=inp.session_id,
+                bank_id=inp.bank_id,
+                error=str(exc),
+            )
+            try:
+                await _write_failed_row(db_url, inp, report_id, str(exc))
+            except Exception:
+                pass
+            return GenerateReportResult(
+                report_id=report_id,
+                html_minio_path="",
+                pdf_minio_path="",
+                instrument_count=0,
+                status="FAILED",
+            )
 
 
-# ── Internal helpers ──────────────────────────────────────────────────────────
+    # ── Internal helpers ──────────────────────────────────────────────────────────
 
 async def _assemble_report(
     inp: GenerateReportInput,

@@ -34,6 +34,7 @@ from modules.cts.workflows.human_review_workflow import ReviewDecision
 from shared.auth.rbac import BankType, Role, PermissionLevel, RBACPolicy, UserContext
 from shared.config.config_service import config_service
 from shared.event_bus.producer import EventProducer as KafkaEventProducer
+from shared.utils.masking import mask_amount
 
 log = structlog.get_logger()
 
@@ -5572,6 +5573,9 @@ async def get_inward_analytics(
 
     days = max(1, min(days, 30))
 
+    cts_cfg = await config_service.get_cts_config(bank_id)
+    ocr_min_conf = float(cts_cfg.get("cts.ocr_min_confidence", 0.90))
+
     async with pool.acquire() as conn:
         # 1 — daily throughput + AI confidence means
         daily_rows = await conn.fetch(
@@ -5628,7 +5632,7 @@ async def get_inward_analytics(
                           OR  ad.pps_verdict       = 'VAULT_MISS' THEN 1 ELSE 0 END)::int AS vault_miss,
                 SUM(CASE WHEN ad.alteration_detected = true        THEN 1 ELSE 0 END)::int AS alteration,
                 SUM(CASE WHEN ad.pps_verdict = 'MISMATCH'          THEN 1 ELSE 0 END)::int AS stop_payment,
-                SUM(CASE WHEN ad.ocr_confidence < 0.90             THEN 1 ELSE 0 END)::int AS ocr_low_conf,
+                SUM(CASE WHEN ad.ocr_confidence < $3               THEN 1 ELSE 0 END)::int AS ocr_low_conf,
                 SUM(CASE WHEN ad.signature_verdict = 'LOW_CONFIDENCE' THEN 1 ELSE 0 END)::int AS sig_low_conf,
                 SUM(CASE WHEN ad.cbs_balance_status = 'ACCOUNT_FROZEN' THEN 1 ELSE 0 END)::int AS dormant
             FROM cts.agent_decisions ad
@@ -5637,7 +5641,7 @@ async def get_inward_analytics(
             WHERE ad.bank_id = $1
               AND ad.processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
             """,
-            bank_id, days,
+            bank_id, days, ocr_min_conf,
         )
 
         # 4 — return reasons (STP_RETURN breakdown)
@@ -7775,17 +7779,6 @@ async def get_outward_decisions(
     except Exception as exc:
         log.warning("cts.outward_decisions.query_failed", bank_id=bank_id, error=str(exc))
         return OutwardDecisionsResponse(bank_id=bank_id, items=[], total=0)
-
-    from shared.utils.masking import mask_amount
-
-    def _bucket(score: Optional[float]) -> str:
-        if score is None:
-            return "₹[unknown]"
-        if score < 0.3:
-            return "₹[<1L]"
-        if score < 0.6:
-            return "₹[1L-5L]"
-        return "₹[>5L]"
 
     items = [
         OutwardDecisionItem(
