@@ -55,6 +55,7 @@ type Config struct {
 	// Scan quality — tunable without a rebuild
 	ScanDPI          int // XRESOLUTION + YRESOLUTION; NPCI guideline default is 300; CTS-2010 minimum is 200
 	ScanModeValue    int // value passed to CSDP_MODE; 16=binary fine-text (default); other values select grayscale or colour modes
+	DocLengthDots    int // CSDP_LENGTH in 1/1200-inch dots; 4252=90mm standard Indian CTS cheque; 0=use default 4252
 
 	// IQA parameter offsets — model-dependent like CSDP_UV; confirm from CsdScan.h if IQA fails unexpectedly
 	IQABrightnessParamID int // CSDP_IQA_BRIGHTNESS offset; default 355
@@ -134,6 +135,7 @@ func loadConfig() (*Config, error) {
 
 		ScanDPI:              getInt("scanner", "scan_dpi", 300),
 		ScanModeValue:        getInt("scanner", "scan_mode_value", 2),
+		DocLengthDots:        getInt("scanner", "scan_doc_length_dots", 4252),
 		IQABrightnessParamID: getInt("scanner", "iqa_brightness_param_id", 355),
 		IQAResultParamID:     getInt("scanner", "iqa_result_param_id", 356),
 		FeederPollMS:         getInt("scanner", "feeder_poll_ms", 300),
@@ -302,6 +304,7 @@ func envMap() map[string]string {
 		"scanner.uv_param_id":              os.Getenv("SCANNER_UV_PARAM_ID"),
 		"scanner.scan_dpi":                 os.Getenv("SCANNER_DPI"),
 		"scanner.scan_mode_value":          os.Getenv("SCANNER_MODE_VALUE"),
+		"scanner.scan_doc_length_dots":     os.Getenv("SCANNER_DOC_LENGTH_DOTS"),
 		"scanner.iqa_brightness_param_id":  os.Getenv("SCANNER_IQA_BRIGHTNESS_PARAM_ID"),
 		"scanner.iqa_result_param_id":      os.Getenv("SCANNER_IQA_RESULT_PARAM_ID"),
 		"scanner.feeder_poll_ms":           os.Getenv("SCANNER_FEEDER_POLL_MS"),
