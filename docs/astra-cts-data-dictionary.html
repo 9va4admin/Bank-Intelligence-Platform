@@ -156,8 +156,10 @@ body {
   text-decoration: none; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; border-left: 2px solid transparent;
 }
-.sg-link:hover { color: var(--text); }
+.sg-link:hover { color: var(--text); border-left-color: var(--border); }
+.sg-link.active { color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
 .sg-link.phantom { color: var(--red); opacity: .8; }
+.sg-link.phantom.active { color: var(--red); border-left-color: var(--red); opacity: 1; font-weight: 500; }
 .sg-link.phantom:hover { opacity: 1; }
 
 #main {
@@ -1037,20 +1039,33 @@ const TABLES = [
 {
   name: "cts.postdated_holds",
   group: "phantom", status: "phantom",
-  migration: "⚠ NO MIGRATION — table does not exist",
-  cols: [["(schema unknown — migration not found)","—"]],
-  readBy: [],
+  migration: "✅ FIXED — 20260903_postdated_holds.py (written 2026-09-03)",
+  cols: [
+    ["instrument_id","Text PK (ON CONFLICT DO NOTHING — idempotent)"],
+    ["bank_id","Text NOT NULL"],["release_date","Date NOT NULL"],
+    ["held_at","TIMESTAMPTZ NOT NULL"],
+    ["status","Text default PENDING (PENDING|CANCELLED)"],
+    ["cancel_reason","Text nullable"],["cancelled_at","TIMESTAMPTZ nullable"],
+    ["created_at","TIMESTAMPTZ default now()"],
+  ],
+  readBy: ["(ops dashboard — no read path wired yet)"],
   writeBy: ["modules/cts/workflows/activities/postdated_hold_activities.py"],
-  notes: "PHANTOM: PostDatedHoldWorkflow activities INSERT and UPDATE this table, but no CREATE TABLE migration exists in infra/migrations/cts/. Any activation of PostDatedHoldWorkflow will crash with a DB error. A migration must be written and applied before enabling this workflow.",
+  notes: "Was a phantom table — migration 20260903_postdated_holds.py written and added to the chain. PostDatedHoldWorkflow will no longer crash on activation. Schema derived from exact INSERT/UPDATE SQL in postdated_hold_activities.py.",
 },
 {
   name: "cts.rrf_sessions",
   group: "phantom", status: "phantom",
-  migration: "⚠ NO MIGRATION — table does not exist",
-  cols: [["(schema: session_id, bank_id — inferred from ON CONFLICT clause)","—"]],
-  readBy: [],
+  migration: "✅ FIXED — 20260903_rrf_sessions.py (written 2026-09-03)",
+  cols: [
+    ["session_id","Text PK part 1"],["bank_id","Text PK part 2"],
+    ["clearing_date","Date NOT NULL"],["bank_ifsc","Text NOT NULL"],
+    ["rrf_path","Text NOT NULL (MinIO object key, e.g. cts/{bank_id}/{date}/rrf/{session_id}.xml)"],
+    ["exception_count","Integer NOT NULL default 0"],
+    ["created_at","TIMESTAMPTZ default now()"],["updated_at","TIMESTAMPTZ nullable"],
+  ],
+  readBy: ["(RRF download/export endpoint — no read path wired yet)"],
   writeBy: ["modules/cts/workflows/activities/session_reconciliation_activities.py"],
-  notes: "PHANTOM: session_reconciliation_activities.py does INSERT … ON CONFLICT (session_id, bank_id) DO UPDATE into this table. RRF = Return Reason File tracking. Migration pending with reconciliation module build.",
+  notes: "Was a phantom table — migration 20260903_rrf_sessions.py written and added to the chain. Composite PK (session_id, bank_id) matches the ON CONFLICT clause in the activity. SessionReconciliationWorkflow will no longer crash.",
 },
 {
   name: "cts.rpc_alerts",
@@ -1177,6 +1192,66 @@ buildSidebar();
 buildMain('');
 
 document.getElementById('search').addEventListener('input', e => buildMain(e.target.value));
+
+// ── Scrollspy ─────────────────────────────────────────────────────────────
+// Intercept anchor clicks to offset for fixed topbar
+document.getElementById('sidebar').addEventListener('click', e => {
+  const a = e.target.closest('a.sg-link');
+  if (!a) return;
+  const id = a.getAttribute('href').slice(1);
+  const el = document.getElementById(id);
+  if (!el) return;
+  e.preventDefault();
+  const top = el.getBoundingClientRect().top + window.scrollY - parseInt(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) - 8;
+  window.scrollTo({ top, behavior: 'smooth' });
+});
+
+// IntersectionObserver — highlight sidebar link for the card most in view
+function setupScrollspy() {
+  const links = {};
+  document.querySelectorAll('.sg-link').forEach(a => {
+    const id = a.getAttribute('href').slice(1);
+    links[id] = a;
+  });
+
+  const visible = new Map();
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) visible.set(e.target.id, e.intersectionRatio);
+      else visible.delete(e.target.id);
+    });
+    // Pick the visible card with highest intersection ratio
+    let best = null, bestRatio = 0;
+    visible.forEach((ratio, id) => { if (ratio > bestRatio) { bestRatio = ratio; best = id; } });
+    Object.values(links).forEach(a => a.classList.remove('active'));
+    if (best && links[best]) {
+      const activeLink = links[best];
+      activeLink.classList.add('active');
+      // Auto-scroll sidebar to keep active link visible
+      const sb = document.getElementById('sidebar');
+      const lTop = activeLink.offsetTop;
+      const lBot = lTop + activeLink.offsetHeight;
+      if (lTop < sb.scrollTop) sb.scrollTop = lTop - 16;
+      else if (lBot > sb.scrollTop + sb.clientHeight) sb.scrollTop = lBot - sb.clientHeight + 16;
+    }
+  }, { rootMargin: `-${parseInt(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) + 4}px 0px -40% 0px`, threshold: [0, 0.1, 0.5, 1] });
+
+  document.querySelectorAll('.tcard').forEach(el => obs.observe(el));
+  return obs;
+}
+
+let _spy = setupScrollspy();
+
+// Re-arm after search rebuilds the DOM
+const _origBuild = buildMain;
+// Wrap buildMain to re-observe after render
+function buildMainWithSpy(q) {
+  _origBuild(q);
+  if (_spy) _spy.disconnect();
+  _spy = setupScrollspy();
+}
+document.getElementById('search').removeEventListener('input', e => buildMain(e.target.value));
+document.getElementById('search').addEventListener('input', e => buildMainWithSpy(e.target.value));
 
 // Theme toggle
 const root = document.documentElement;
