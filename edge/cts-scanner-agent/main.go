@@ -21,13 +21,18 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"runtime"
+	"sort"
 	"syscall"
 	"time"
 )
@@ -156,4 +161,67 @@ func registerHandlers(mux *http.ServeMux, session *ScanSession, logger *slog.Log
 			"items":      items,
 		})
 	})
+
+	// GET /scan-summary.csv — live CSV of all scanned folders with MICR data.
+	// Walk the scanned/ directory next to the exe; include all folders that have micr.txt.
+	// Folders without micr.txt are included with an empty micr_raw column.
+	// Saves the file to scanned/scan_summary.csv and also streams it as the response.
+	mux.HandleFunc("GET /scan-summary.csv", func(w http.ResponseWriter, r *http.Request) {
+		csv, path, err := buildScanSummaryCSV()
+		if err != nil {
+			http.Error(w, fmt.Sprintf("scan summary error: %s", err), http.StatusInternalServerError)
+			return
+		}
+		// Persist alongside the scan folders so Windows Explorer can open it directly.
+		_ = os.WriteFile(path, csv, 0o644)
+		w.Header().Set("Content-Type", "text/csv")
+		w.Header().Set("Content-Disposition", "attachment; filename=\"scan_summary.csv\"")
+		w.Write(csv)
+	})
+}
+
+// buildScanSummaryCSV walks the scanned/ directory and returns a CSV with
+// columns: scan_id, folder_name, micr_raw.
+// It also returns the path where the file should be saved.
+func buildScanSummaryCSV() ([]byte, string, error) {
+	base := "scanned"
+	if runtime.GOOS == "windows" {
+		if exe, err := os.Executable(); err == nil {
+			base = filepath.Join(filepath.Dir(exe), "scanned")
+		}
+	}
+
+	entries, err := os.ReadDir(base)
+	if err != nil {
+		return nil, "", fmt.Errorf("read scanned dir: %w", err)
+	}
+
+	type row struct {
+		scanID  string
+		micrRaw string
+	}
+	var rows []row
+	for _, e := range entries {
+		if !e.IsDir() || len(e.Name()) == 0 || e.Name()[0] == '.' {
+			continue
+		}
+		micrPath := filepath.Join(base, e.Name(), "micr.txt")
+		var micr string
+		if data, err2 := os.ReadFile(micrPath); err2 == nil {
+			micr = string(bytes.TrimSpace(data))
+		}
+		rows = append(rows, row{scanID: e.Name(), micrRaw: micr})
+	}
+
+	sort.Slice(rows, func(i, j int) bool { return rows[i].scanID < rows[j].scanID })
+
+	var buf bytes.Buffer
+	buf.WriteString("scan_id,folder_name,micr_raw\n")
+	for _, r := range rows {
+		// Wrap MICR in quotes — E13B contains '<' and '@' but not commas
+		fmt.Fprintf(&buf, "%s,%s,\"%s\"\n", r.scanID, r.scanID, r.micrRaw)
+	}
+
+	csvPath := filepath.Join(base, "scan_summary.csv")
+	return buf.Bytes(), csvPath, nil
 }
