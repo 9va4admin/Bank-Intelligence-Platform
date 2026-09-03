@@ -504,12 +504,17 @@ func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 			switch {
 			case !hasFront && !hasRear:
 				// Pass 1 — front side of the cheque.
+				// NOTE: do NOT call readMICR() here.
+				// On the CR-120 the magnetic MICR head is positioned AFTER the front
+				// camera in the physical transport path. In single-cheque mode there is
+				// enough idle time for the hardware to commit the data before we ask for
+				// it, but in batch mode the next cheque pushes through immediately and
+				// overwrites the CSDP_MICRDATA register before we read it. We defer
+				// readMICR() to Pass 2 (rear) — by then the cheque has fully cleared
+				// the MICR head and the buffer is stable for this cheque.
 				frontImg = img
 				hasFront = true
 				frontDPI = int(img.lXResolution)
-
-				// MICR is decoded by hardware during the first transport pass.
-				micrRaw = t.readMICR()
 
 				// IQA brightness check on the front image.
 				// On failure: eject the cheque back to the operator tray via
@@ -525,14 +530,17 @@ func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 							if r2 := int32(C.astra_start_scan()); r2 != csdOK {
 								return nil, fmt.Errorf("restart scan after IQA reject: code %d", r2)
 							}
-							return &ScannedItem{IQAFailed: true, MICRRaw: micrRaw}, nil
+							return &ScannedItem{IQAFailed: true}, nil
 						}
 					}
 				}
 
 			case hasFront && !hasRear:
-				// Pass 2 — rear side.  Save both TIFFs now; they are released here.
+				// Pass 2 — rear side.
+				// The cheque has now fully passed the MICR head — read MICR here so
+				// the buffer is stable and cannot be overwritten by the next cheque.
 				rearDPI = int(img.lXResolution)
+				micrRaw = t.readMICR()
 
 				var err error
 				frontTIFF, err = t.saveImageToBytes(&frontImg)
