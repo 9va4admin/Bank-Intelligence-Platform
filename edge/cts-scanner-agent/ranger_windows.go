@@ -373,23 +373,21 @@ func (t *CanonTransport) StartJob(endorsementText string, enableImprinter bool) 
 	C.astra_par_set_long(C.CSDP_XRESOLUTION, C.LONG(t.cfg.ScanDPI))
 	C.astra_par_set_long(C.CSDP_YRESOLUTION, C.LONG(t.cfg.ScanDPI))
 
-	// Scan area — read scanner's maximum supported dimensions and set them as the
-	// active scan window. Without this the driver uses a default crop area that
-	// cuts the cheque. Units are scanner-native (1/1200-inch dots on CR-120/150);
-	// we pass back whatever the scanner reports so this is model-agnostic.
-	var maxW, maxL C.LONG
+	// Scan width — set to maximum so the full cheque width is captured regardless
+	// of physical cheque width variation (standard Indian CTS cheques are 200mm wide).
+	var maxW C.LONG
 	if C.astra_par_get_long(C.CSDP_MAXWIDTH, &maxW) == C.INT32(csdOK) && maxW > 0 {
 		C.astra_par_set_long(C.CSDP_WIDTH, maxW)
 		t.logger.Info("scan area width set to scanner max", "dots", int32(maxW))
 	} else {
 		t.logger.Warn("could not read CSDP_MAXWIDTH — using driver default (image may be cropped)")
 	}
-	if C.astra_par_get_long(C.CSDP_MAXLENGTH, &maxL) == C.INT32(csdOK) && maxL > 0 {
-		C.astra_par_set_long(C.CSDP_LENGTH, maxL)
-		t.logger.Info("scan area length set to scanner max", "dots", int32(maxL))
-	} else {
-		t.logger.Warn("could not read CSDP_MAXLENGTH — using driver default (image may be cropped)")
-	}
+	// NOTE: CSDP_LENGTH is intentionally NOT overridden.
+	// Setting it to CSDP_MAXLENGTH causes the scanner to capture the full transport
+	// path (~200mm) regardless of how long the cheque actually is, producing a
+	// large black area below the cheque image. Leave CSDP_LENGTH at the driver
+	// default — the CR-120/150 detects document end via the paper sensor and stops
+	// the scan there, giving an image that matches the actual cheque height.
 
 	// MICR: enable hardware reader, E13B font (Indian CTS-2010 standard).
 	if ret := C.astra_par_set_long(C.CSDP_MICR, 1); int32(ret) != csdOK {
@@ -504,17 +502,18 @@ func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 			switch {
 			case !hasFront && !hasRear:
 				// Pass 1 — front side of the cheque.
-				// NOTE: do NOT call readMICR() here.
-				// On the CR-120 the magnetic MICR head is positioned AFTER the front
-				// camera in the physical transport path. In single-cheque mode there is
-				// enough idle time for the hardware to commit the data before we ask for
-				// it, but in batch mode the next cheque pushes through immediately and
-				// overwrites the CSDP_MICRDATA register before we read it. We defer
-				// readMICR() to Pass 2 (rear) — by then the cheque has fully cleared
-				// the MICR head and the buffer is stable for this cheque.
+				// Read MICR HERE immediately after CsdReadPage returns — this is the
+				// only guaranteed-valid window in the Canon CSD API. The MICR head
+				// sits before the front camera in the transport path; by the time
+				// CsdReadPage(front) returns the hardware has fully decoded E13B.
+				// Reading at the rear pass causes alternating empty MICR because the
+				// cheque has already exited the transport and the register is cleared.
+				// MOCR weight=0 ensures pure magnetic (synchronous) decode with no
+				// async optical component that caused @ corruption in batch.
 				frontImg = img
 				hasFront = true
 				frontDPI = int(img.lXResolution)
+				micrRaw = t.readMICR()
 
 				// IQA brightness check on the front image.
 				// On failure: eject the cheque back to the operator tray via
@@ -530,17 +529,14 @@ func (t *CanonTransport) ReadItem() (*ScannedItem, error) {
 							if r2 := int32(C.astra_start_scan()); r2 != csdOK {
 								return nil, fmt.Errorf("restart scan after IQA reject: code %d", r2)
 							}
-							return &ScannedItem{IQAFailed: true}, nil
+							return &ScannedItem{IQAFailed: true, MICRRaw: micrRaw}, nil
 						}
 					}
 				}
 
 			case hasFront && !hasRear:
 				// Pass 2 — rear side.
-				// The cheque has now fully passed the MICR head — read MICR here so
-				// the buffer is stable and cannot be overwritten by the next cheque.
 				rearDPI = int(img.lXResolution)
-				micrRaw = t.readMICR()
 
 				var err error
 				frontTIFF, err = t.saveImageToBytes(&frontImg)
