@@ -126,14 +126,14 @@ func loadConfig() (*Config, error) {
 		ScannerIP:            get("scanner", "ip", ""),
 		ScannerMACAddress:    get("scanner", "mac", ""),
 		CSDDLLPath:           get("scanner", "csd_dll_path", ""),
-		MICROCRWeight:        getInt("scanner", "mocr_weight", 50),
+		MICROCRWeight:        getInt("scanner", "mocr_weight", 0),
 		EnableIQA:            getBool("scanner", "enable_iqa", true),
 
 		EnableUVScan:    getBool("scanner", "enable_uv_scan", false),
 		UVParamID:       getInt("scanner", "uv_param_id", 380),
 
 		ScanDPI:              getInt("scanner", "scan_dpi", 300),
-		ScanModeValue:        getInt("scanner", "scan_mode_value", 16),
+		ScanModeValue:        getInt("scanner", "scan_mode_value", 2),
 		IQABrightnessParamID: getInt("scanner", "iqa_brightness_param_id", 355),
 		IQAResultParamID:     getInt("scanner", "iqa_result_param_id", 356),
 		FeederPollMS:         getInt("scanner", "feeder_poll_ms", 300),
