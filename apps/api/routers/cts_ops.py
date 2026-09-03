@@ -635,60 +635,24 @@ async def cross_centre_alerts(
     limit: int = Query(default=50, le=100),
     ctx: UserContext = Depends(_ctx),
 ) -> CrossCentreAlertsResponse:
-    bank_id = ctx.bank_id
-    db = getattr(request.app.state, "db_pool_cts", None)
-    empty = CrossCentreAlertsResponse(items=[], total=0, degraded=True)
-    if db is None:
-        return empty
-    try:
-        rows = await db.fetch(
-            """
-            SELECT
-                alert_id,
-                rpc_id,
-                description,
-                severity,
-                detected_at
-            FROM cts.rpc_alerts
-            WHERE bank_id = $1
-            ORDER BY detected_at DESC
-            LIMIT $2
-            """,
-            bank_id, limit,
-        )
-        count_row = await db.fetchrow(
-            "SELECT COUNT(*) AS n FROM cts.rpc_alerts WHERE bank_id = $1",
-            bank_id,
-        )
-        items = [
-            CrossCentreAlert(
-                alert_id=r["alert_id"],
-                rpc_id=r["rpc_id"],
-                description=r["description"],
-                severity=r["severity"],
-                detected_at=r["detected_at"].isoformat() if r["detected_at"] else "",
-            )
-            for r in rows
-        ]
-        return CrossCentreAlertsResponse(
-            items=items,
-            total=int(count_row["n"]) if count_row else 0,
-            degraded=False,
-        )
-    except Exception as exc:
-        log.warning("cts.cross_centre_alerts.failed", bank_id=bank_id, error=str(exc))
-        return CrossCentreAlertsResponse(items=[], total=0, degraded=True)
+    # cts.rpc_alerts table not yet created — migration pending with RPC module build.
+    # Return degraded until the table and its Temporal writer activity exist.
+    return CrossCentreAlertsResponse(items=[], total=0, degraded=True)
 
 
 # ─── Outward Audit Events ─────────────────────────────────────────────────────
+# Reads from cts.outward_scan_events — schema defined by 20260803_add_outward_scan_events.py.
+# Columns: event_id (UUID), bank_id, branch_id, session_id, scan_id, instrument_id,
+#          micr_suffix, payee_display, amount_range, outcome, lot_id, mismatch_id,
+#          mismatch_fields, reject_reason, scanned_at.
 
 class OutwardAuditEvent(BaseModel):
     model_config = ConfigDict(frozen=True)
     event_id: str
     branch_id: str
-    event_type: str
-    instrument_count: int
-    occurred_at: str
+    outcome: str
+    scan_id: str
+    scanned_at: str
 
 
 class OutwardAuditEventsResponse(BaseModel):
@@ -713,14 +677,14 @@ async def outward_audit_events(
         rows = await db.fetch(
             """
             SELECT
-                event_id,
-                branch_id,
-                event_type,
-                COALESCE(instrument_count, 0) AS instrument_count,
-                occurred_at
+                event_id::text,
+                COALESCE(branch_id, '—') AS branch_id,
+                outcome,
+                scan_id,
+                scanned_at
             FROM cts.outward_scan_events
             WHERE bank_id = $1
-            ORDER BY occurred_at DESC
+            ORDER BY scanned_at DESC
             LIMIT $2
             """,
             bank_id, limit,
@@ -733,9 +697,9 @@ async def outward_audit_events(
             OutwardAuditEvent(
                 event_id=r["event_id"],
                 branch_id=r["branch_id"],
-                event_type=r["event_type"],
-                instrument_count=int(r["instrument_count"]),
-                occurred_at=r["occurred_at"].isoformat() if r["occurred_at"] else "",
+                outcome=r["outcome"],
+                scan_id=r["scan_id"],
+                scanned_at=r["scanned_at"].isoformat() if r["scanned_at"] else "",
             )
             for r in rows
         ]
@@ -939,14 +903,41 @@ async def branch_sessions(
 
 
 # ─── Branch EEH Health ────────────────────────────────────────────────────────
+# Reads from cts.scanner_registrations — schema defined by 20260811_scanner_registrations.py.
+# Columns: registration_id (PK), bank_id, branch_id, branch_ifsc, scanner_config_id,
+#          sdk_version, registration_token_hash, status, last_heartbeat_at,
+#          last_scan_submitted_at, heartbeat_interval_seconds, scans_today,
+#          errors_today, last_error, registered_at, registered_by, is_active.
+# `health` is NOT stored — derived from status + last_heartbeat_at staleness.
+
+def _derive_health(status: str, last_heartbeat_at: Optional[object], interval_s: int) -> str:
+    if status == "REVOKED":
+        return "REVOKED"
+    if status == "PENDING":
+        return "PENDING"
+    if last_heartbeat_at is None:
+        return "UNKNOWN"
+    import datetime as _dt
+    now = _dt.datetime.now(_dt.timezone.utc)
+    stale_after = _dt.timedelta(seconds=max(interval_s * 3, 300))
+    if hasattr(last_heartbeat_at, "tzinfo") and last_heartbeat_at.tzinfo is None:
+        last_heartbeat_at = last_heartbeat_at.replace(tzinfo=_dt.timezone.utc)
+    age = now - last_heartbeat_at
+    if age > stale_after:
+        return "STALE"
+    return "OK" if status == "ACTIVE" else status
+
 
 class EEHHealthScanner(BaseModel):
     model_config = ConfigDict(frozen=True)
+    registration_id: str
     branch_id: str
-    scanner_id: str
     is_active: bool
     health: str
-    last_seen: Optional[str]
+    status: str
+    scans_today: int
+    errors_today: int
+    last_heartbeat_at: Optional[str]
 
 
 class EEHHealthResponse(BaseModel):
@@ -973,11 +964,13 @@ async def branch_eeh_health(
             rows = await db.fetch(
                 """
                 SELECT
-                    branch_id, scanner_id, is_active, health, last_seen_at
+                    registration_id, branch_id, status, is_active,
+                    last_heartbeat_at, heartbeat_interval_seconds,
+                    scans_today, errors_today
                 FROM cts.scanner_registrations
                 WHERE bank_id = $1
                   AND branch_id = $2
-                ORDER BY scanner_id ASC
+                ORDER BY registration_id ASC
                 """,
                 bank_id, branch_id,
             )
@@ -985,20 +978,29 @@ async def branch_eeh_health(
             rows = await db.fetch(
                 """
                 SELECT
-                    branch_id, scanner_id, is_active, health, last_seen_at
+                    registration_id, branch_id, status, is_active,
+                    last_heartbeat_at, heartbeat_interval_seconds,
+                    scans_today, errors_today
                 FROM cts.scanner_registrations
                 WHERE bank_id = $1
-                ORDER BY branch_id ASC, scanner_id ASC
+                ORDER BY branch_id ASC, registration_id ASC
                 """,
                 bank_id,
             )
         scanners = [
             EEHHealthScanner(
+                registration_id=r["registration_id"],
                 branch_id=r["branch_id"],
-                scanner_id=r["scanner_id"],
                 is_active=bool(r["is_active"]),
-                health=r["health"] or "UNKNOWN",
-                last_seen=r["last_seen_at"].isoformat() if r.get("last_seen_at") else None,
+                status=r["status"],
+                health=_derive_health(
+                    r["status"],
+                    r["last_heartbeat_at"],
+                    int(r["heartbeat_interval_seconds"]),
+                ),
+                scans_today=int(r["scans_today"]),
+                errors_today=int(r["errors_today"]),
+                last_heartbeat_at=r["last_heartbeat_at"].isoformat() if r["last_heartbeat_at"] else None,
             )
             for r in rows
         ]

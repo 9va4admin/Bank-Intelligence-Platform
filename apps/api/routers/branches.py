@@ -571,9 +571,10 @@ async def update_branch(
                             f"{k} = ${i+2}" for i, k in enumerate(updates)
                         )
                         set_clauses += f", updated_at = ${len(updates)+2}"
-                        params = [ifsc] + list(updates.values()) + [datetime.now(timezone.utc)]
+                        params = [ifsc] + list(updates.values()) + [datetime.now(timezone.utc), bank_id]
                         await conn.execute(
-                            f"UPDATE cts.branches SET {set_clauses} WHERE branch_ifsc = $1",
+                            f"UPDATE cts.branches SET {set_clauses} "
+                            f"WHERE branch_ifsc = $1 AND bank_id = ${len(updates) + 3}",
                             *params,
                         )
 
@@ -582,8 +583,8 @@ async def update_branch(
                         "state, address, pin_code, phone_number, pu_id, smb_id, "
                         "scanner_input_mode, "
                         "is_scanning_enabled, is_active, created_at, updated_at, created_by "
-                        "FROM cts.branches WHERE branch_ifsc = $1",
-                        ifsc,
+                        "FROM cts.branches WHERE branch_ifsc = $1 AND bank_id = $2",
+                        ifsc, bank_id,
                     )
             except HTTPException:
                 raise
@@ -649,16 +650,16 @@ async def delete_branch(
                     now = datetime.now(timezone.utc)
                     await conn.execute(
                         "UPDATE cts.branches SET is_active = false, updated_at = $2 "
-                        "WHERE branch_ifsc = $1",
-                        ifsc, now,
+                        "WHERE branch_ifsc = $1 AND bank_id = $3",
+                        ifsc, now, bank_id,
                     )
                     row = await conn.fetchrow(
                         "SELECT branch_id, bank_id, branch_name, branch_ifsc, city, district, "
                         "state, address, pin_code, phone_number, pu_id, smb_id, "
                         "scanner_input_mode, "
                         "is_scanning_enabled, is_active, created_at, updated_at, created_by "
-                        "FROM cts.branches WHERE branch_ifsc = $1",
-                        ifsc,
+                        "FROM cts.branches WHERE branch_ifsc = $1 AND bank_id = $2",
+                        ifsc, bank_id,
                     )
             except HTTPException:
                 raise
