@@ -15,12 +15,13 @@ import AppShell from '../../../shared/layout/AppShell'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
-function useModelHealth(bankId) {
+function useModelHealth(bankId, { enabled = true } = {}) {
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
 
   const load = useCallback(async () => {
+    if (!enabled) return
     setLoading(true)
     setError(null)
     try {
@@ -32,9 +33,9 @@ function useModelHealth(bankId) {
     } finally {
       setLoading(false)
     }
-  }, [bankId])
+  }, [bankId, enabled])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { if (enabled) load() }, [load, enabled])
 
   return { data, loading, error, reload: load }
 }
@@ -76,8 +77,8 @@ function DriftBar({ drift, isDark }) {
 
 export default function ModelHealth() {
   const { isDark } = useTheme()
-  const { bankId } = useBankContext()
-  const { data, loading, error, reload } = useModelHealth(bankId)
+  const { bankId, isDemo } = useBankContext()
+  const { data, loading, error, reload } = useModelHealth(bankId, { enabled: !isDemo })
 
   const th = {
     page:    isDark ? 'bg-navy-950'                 : 'bg-slate-50',

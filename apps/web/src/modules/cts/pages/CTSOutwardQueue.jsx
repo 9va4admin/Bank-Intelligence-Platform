@@ -396,7 +396,7 @@ export default function CTSOutwardQueue() {
   const demoSuccess   = useDemoData(MOCK_STP_SUCCESS)
   const [review, setReview]     = useState(demoReview)
   const [rejected, setRejected] = useState(demoRejected)
-  const [stpSuccess]            = useState(demoSuccess)
+  const [stpSuccess, setStpSuccess] = useState(demoSuccess)
   const [decided, setDecided]   = useState([])
   const [selected, setSelected] = useState(null)
 
@@ -431,6 +431,17 @@ export default function CTSOutwardQueue() {
         pu: i.branch_id ?? '—',
         branch: i.branch_id ?? '—',
         reject_reason: i.review_reason ?? i.outcome,
+        received_at: i.received_at,
+        ocr_fields: {},
+      })))
+      setStpSuccess(items.filter(i => i.outcome === 'STP_CONFIRMED').map(i => ({
+        instrument_id: i.instrument_id,
+        cheque_no: i.cheque_number,
+        amount: i.amount_range,
+        payee: i.payee_display,
+        bank_slug: bankId,
+        pu: i.branch_id ?? '—',
+        branch: i.branch_id ?? '—',
         received_at: i.received_at,
         ocr_fields: {},
       })))

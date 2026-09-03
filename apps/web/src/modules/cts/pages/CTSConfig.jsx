@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
@@ -55,6 +55,25 @@ export default function CTSConfig() {
   const [changeLog, setChangeLog] = useState(MOCK_CHANGE_LOG)
 
   // Live change log — seed from API in POC/PROD; MOCK_CHANGE_LOG remains the fallback
+  // Fetch live Layer 3 config values on mount (non-demo only)
+  const fetchLiveConfig = useCallback(async () => {
+    if (isDemo) return
+    try {
+      const res = await fetch(`/v1/cts/admin/config?bank_id=${bankId}`, { credentials: 'include' })
+      if (!res.ok) return
+      const data = await res.json()
+      const liveValues = {}
+      LAYER3_CONFIG.forEach(c => {
+        if (data[c.key] !== undefined) liveValues[c.key] = data[c.key]
+      })
+      if (Object.keys(liveValues).length > 0) {
+        setValues(v => ({ ...v, ...liveValues }))
+        setDraftValues(v => ({ ...v, ...liveValues }))
+      }
+    } catch { /* keep defaults */ }
+  }, [isDemo, bankId])
+  useEffect(() => { fetchLiveConfig() }, [fetchLiveConfig])
+
   const { changes: liveChanges } = useConfigChanges()
   useEffect(() => {
     if (isDemo || !liveChanges || liveChanges.length === 0) return
@@ -107,19 +126,26 @@ export default function CTSConfig() {
   }
 
   function handleSubmit(key) {
+    if (isDemo) return
     const cfg = LAYER3_CONFIG.find(c => c.key === key)
     if (!cfg) return
     const oldValue = values[key]
     const newValue = draftValues[key]
     if (String(oldValue) === String(newValue)) return
-    // Replace any existing pending for this key
     setPendingChanges(prev => [
       ...prev.filter(p => p.key !== key),
       { key, oldValue, newValue, submittedAt: nowStr(), submittedBy: 'ops_manager@svcb' },
     ])
+    fetch(`/v1/cts/admin/config/submit`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bank_id: bankId, key, old_value: oldValue, new_value: newValue }),
+    }).catch(() => { /* non-blocking */ })
   }
 
   function handleApprove(key) {
+    if (isDemo) return
     const pending = pendingChanges.find(p => p.key === key)
     if (!pending) return
     setValues(v => ({ ...v, [key]: pending.newValue }))
@@ -137,6 +163,12 @@ export default function CTSConfig() {
       ...prev,
     ])
     setPendingChanges(prev => prev.filter(p => p.key !== key))
+    fetch(`/v1/cts/admin/config/approve`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bank_id: bankId, key, new_value: pending.newValue }),
+    }).catch(() => { /* non-blocking */ })
   }
 
   function handleReject(key) {
