@@ -214,10 +214,10 @@ func (c *ASTRAClient) setHeaders(req *http.Request) {
 	req.Header.Set("User-Agent", "astra-cts-scanner-agent/1.0")
 }
 
-// saveImagesLocally writes front, rear, and UV TIFF images to a scanned/ folder
-// next to the exe for immediate local visibility. Called before upload so images
-// are always accessible even if the ASTRA API is unreachable.
-func saveImagesLocally(scanID string, front, rear, uv []byte) {
+// saveImagesLocally writes front, rear, UV TIFF images and raw MICR data to
+// a scanned/ folder next to the exe for immediate local visibility.
+// Called before upload so files exist even if the ASTRA API is unreachable.
+func saveImagesLocally(scanID string, front, rear, uv []byte, micrRaw string) {
 	dir := localScannedDir(scanID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		slog.Warn("local image save: mkdir failed", "dir", dir, "error", err)
@@ -237,6 +237,9 @@ func saveImagesLocally(scanID string, front, rear, uv []byte) {
 	write("front.tif", front)
 	write("rear.tif", rear)
 	write("uv.tif", uv)
+	if micrRaw != "" {
+		write("micr.txt", []byte(micrRaw))
+	}
 }
 
 // localScannedDir returns the path to the per-scan image folder:
@@ -267,8 +270,8 @@ func processScannedItem(
 	item *ScannedItem,
 	chequeNumber string,
 ) (*ScanSubmitResponse, error) {
-	// Step 0 — save locally so images are visible regardless of upload outcome
-	saveImagesLocally(scanID, item.FrontImage, item.RearImage, item.UVImage)
+	// Step 0 — save locally so images and MICR are visible regardless of upload outcome
+	saveImagesLocally(scanID, item.FrontImage, item.RearImage, item.UVImage, item.MICRRaw)
 
 	uploadCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
