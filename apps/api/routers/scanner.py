@@ -518,16 +518,16 @@ async def deactivate_scanner(
                     await conn.execute(
                         "UPDATE cts.scanner_registrations "
                         "SET status = 'OFFLINE', is_active = false "
-                        "WHERE registration_id = $1",
-                        registration_id,
+                        "WHERE registration_id = $1 AND bank_id = $2",
+                        registration_id, bank_id,
                     )
                     row = await conn.fetchrow(
                         "SELECT registration_id, bank_id, branch_id, branch_ifsc, sdk_version, "
                         "status, last_heartbeat_at, last_scan_submitted_at, "
                         "heartbeat_interval_seconds, scans_today, errors_today, last_error, "
                         "registered_at, registered_by, is_active "
-                        "FROM cts.scanner_registrations WHERE registration_id = $1",
-                        registration_id,
+                        "FROM cts.scanner_registrations WHERE registration_id = $1 AND bank_id = $2",
+                        registration_id, bank_id,
                     )
             except HTTPException:
                 raise
