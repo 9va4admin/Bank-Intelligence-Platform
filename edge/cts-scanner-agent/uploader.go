@@ -6,7 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 )
 
@@ -210,7 +214,45 @@ func (c *ASTRAClient) setHeaders(req *http.Request) {
 	req.Header.Set("User-Agent", "astra-cts-scanner-agent/1.0")
 }
 
+// saveImagesLocally writes front, rear, and UV TIFF images to a scanned/ folder
+// next to the exe for immediate local visibility. Called before upload so images
+// are always accessible even if the ASTRA API is unreachable.
+func saveImagesLocally(scanID string, front, rear, uv []byte) {
+	dir := localScannedDir(scanID)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		slog.Warn("local image save: mkdir failed", "dir", dir, "error", err)
+		return
+	}
+	write := func(name string, data []byte) {
+		if len(data) == 0 {
+			return
+		}
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, data, 0o644); err != nil {
+			slog.Warn("local image save: write failed", "path", path, "error", err)
+		} else {
+			slog.Info("local image saved", "path", path)
+		}
+	}
+	write("front.tif", front)
+	write("rear.tif", rear)
+	write("uv.tif", uv)
+}
+
+// localScannedDir returns the path to the per-scan image folder:
+//   <exe-dir>/scanned/<scan_id>/
+func localScannedDir(scanID string) string {
+	base := "scanned"
+	if runtime.GOOS == "windows" {
+		if exe, err := os.Executable(); err == nil {
+			base = filepath.Join(filepath.Dir(exe), "scanned")
+		}
+	}
+	return filepath.Join(base, scanID)
+}
+
 // processScannedItem is the full pipeline for a single cheque after scan:
+//  0. Save images locally (always — visible even when upload fails)
 //  1. Request upload URLs from ASTRA
 //  2. Upload front image to MinIO
 //  3. Upload rear image to MinIO
@@ -225,6 +267,9 @@ func processScannedItem(
 	item *ScannedItem,
 	chequeNumber string,
 ) (*ScanSubmitResponse, error) {
+	// Step 0 — save locally so images are visible regardless of upload outcome
+	saveImagesLocally(scanID, item.FrontImage, item.RearImage, item.UVImage)
+
 	uploadCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
