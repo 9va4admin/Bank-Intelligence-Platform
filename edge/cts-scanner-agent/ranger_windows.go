@@ -294,7 +294,17 @@ func newTransport(cfg *Config) Transport {
 }
 
 // Open loads CanoCheetah.dll and initialises the Canon CSD driver via CsdProbe.
+// It also resets the session-end channel so this session's ReadItem loop does
+// not immediately exit.  EndJob from a prior session closes the previous done
+// channel via doneOnce; without this reset, every subsequent AutoFeeder cycle
+// would see a closed channel and return nil on the first csdNoPaper, preventing
+// the scanner from accepting any cheque after the first session ends.
 func (t *CanonTransport) Open() error {
+	t.mu.Lock()
+	t.done = make(chan struct{})
+	t.doneOnce = sync.Once{}
+	t.mu.Unlock()
+
 	dllPath := t.cfg.CSDDLLPath
 	var cPath *C.char
 	if dllPath != "" {
