@@ -6,6 +6,7 @@
  */
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useTheme } from '../../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../../shared/context/BankContext'
 import AppShell from '../../../../shared/layout/AppShell'
@@ -176,7 +177,21 @@ function SessionRow({ sess, isDark, onDownload }) {
 export default function BranchSessionHistory() {
   const { isDark } = useTheme()
   const { bankId, isDemo } = useBankContext()
-  const [sessions] = useState(() => isDemo ? MOCK_SESSIONS : [])
+
+  const { data: liveSessionData } = useQuery({
+    queryKey: ['branch-session-history', bankId],
+    queryFn: async () => {
+      const res = await fetch(`/v1/cts/branch/sessions?bank_id=${bankId}&limit=50`, { credentials: 'include' })
+      if (!res.ok) return null
+      return res.json()
+    },
+    enabled: !isDemo,
+    staleTime: 60_000,
+    retry: false,
+  })
+  const sessions = isDemo || !liveSessionData?.sessions?.length
+    ? MOCK_SESSIONS
+    : liveSessionData.sessions
 
   const th = {
     page:    isDark ? 'bg-navy-950' : 'bg-slate-50',

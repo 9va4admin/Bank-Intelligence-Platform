@@ -25,6 +25,25 @@ function useNGCHRouting({ pollEnabled }) {
   return rules
 }
 
+function useNGCHStatus({ pollEnabled }) {
+  const [status, setStatus] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/admin/ngch-status`, { credentials: 'include' })
+      if (!res.ok) return
+      setStatus(await res.json())
+    } catch { /* keep last */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 30_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return status
+}
+
 const ROUTING_RULES = [
   {
     id: 'R001',
@@ -133,7 +152,9 @@ const TYPE_COLORS_L = {
 export default function CTSNGCHRouting() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
 
-  const liveRules = useNGCHRouting({ pollEnabled: !isDemo })
+  const liveRules  = useNGCHRouting({ pollEnabled: !isDemo })
+  const liveStatus = useNGCHStatus({ pollEnabled: !isDemo })
+  const ngchStatus = isDemo || !liveStatus ? NGCH_STATUS : liveStatus
 
   const DISPLAY_RULES = useMemo(() => {
     if (isDemo || !liveRules || liveRules.length === 0) return ROUTING_RULES
@@ -179,16 +200,16 @@ export default function CTSNGCHRouting() {
             <span className={`text-xs font-semibold ${th.muted}`}>NGCH CONNECTIVITY</span>
             <span className={`flex items-center gap-1.5 text-xs font-medium ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              {NGCH_STATUS.connectivity}
+              {ngchStatus.connectivity}
             </span>
           </div>
           <div className="grid grid-cols-5 gap-4 text-xs">
             {[
-              ['SFTP Host', NGCH_STATUS.sftp_host],
-              ['Filed Today', NGCH_STATUS.total_filed_today.toLocaleString()],
-              ['Pending Queue', NGCH_STATUS.pending_queue],
-              ['Avg ACK Latency', `${NGCH_STATUS.avg_ack_latency_ms} ms`],
-              ['Cert Expiry', NGCH_STATUS.cert_expiry],
+              ['SFTP Host', ngchStatus.sftp_host],
+              ['Filed Today', ngchStatus.total_filed_today.toLocaleString()],
+              ['Pending Queue', ngchStatus.pending_queue],
+              ['Avg ACK Latency', `${ngchStatus.avg_ack_latency_ms} ms`],
+              ['Cert Expiry', ngchStatus.cert_expiry],
             ].map(([label, val]) => (
               <div key={label}>
                 <div className={th.muted}>{label}</div>
@@ -197,7 +218,7 @@ export default function CTSNGCHRouting() {
             ))}
           </div>
           <div className={`mt-3 pt-3 border-t text-xs ${th.divider} ${th.muted}`}>
-            Last batch filed: <span className={`font-mono ${th.body}`}>{NGCH_STATUS.last_batch_filed}</span>
+            Last batch filed: <span className={`font-mono ${th.body}`}>{ngchStatus.last_batch_filed}</span>
           </div>
         </div>
 

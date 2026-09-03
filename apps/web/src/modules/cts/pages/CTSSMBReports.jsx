@@ -16,6 +16,25 @@ import AppShell from '../../../shared/layout/AppShell'
 
 const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
+function useSMBSettlement({ pollEnabled }) {
+  const [data, setData] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/smb/settlement`, { credentials: 'include' })
+      if (!res.ok) return
+      setData(await res.json())
+    } catch { /* keep last */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 5 * 60_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return data
+}
+
 function useSMBReports({ pollEnabled, days = 7 }) {
   const [data, setData] = useState(null)
   const timerRef = useRef(null)
@@ -358,6 +377,7 @@ export default function CTSSMBReports() {
   const [activeTab, setActiveTab] = useState(0)
 
   const liveReports = useSMBReports({ pollEnabled: !isDemo })
+  const liveSettlement = useSMBSettlement({ pollEnabled: !isDemo })
 
   // Map live rows → daily summary sessions shape
   const liveSessions = useMemo(() => {
@@ -385,6 +405,7 @@ export default function CTSSMBReports() {
 
   const SESSIONS_SRC = (!isDemo && liveSessions && liveSessions.length > 0) ? liveSessions : MOCK_SESSIONS
   const RRF_SRC = MOCK_RRF  // RRF from live instrument data requires additional endpoint; keep mock as fallback
+  const settlementData = isDemo || !liveSettlement ? MOCK_SETTLEMENT : liveSettlement
 
   useEffect(() => {
     setHeader({ title: 'SMB Reports', subtitle: bankName })
@@ -422,7 +443,7 @@ export default function CTSSMBReports() {
           <div className="p-5">
             {activeTab === 0 && <SummaryTab sessions={SESSIONS_SRC} bankId={bankId} isDark={isDark} />}
             {activeTab === 1 && <RRFTab items={RRF_SRC} bankId={bankId} isDark={isDark} />}
-            {activeTab === 2 && <SettlementTab data={MOCK_SETTLEMENT} bankName={bankName} bankId={bankId} isDark={isDark} />}
+            {activeTab === 2 && <SettlementTab data={settlementData} bankName={bankName} bankId={bankId} isDark={isDark} />}
           </div>
         </div>
       </div>

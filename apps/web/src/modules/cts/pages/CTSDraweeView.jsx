@@ -20,6 +20,26 @@ import AppShell from '../../../shared/layout/AppShell'
 
 const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
+function useDraweeStats({ pollEnabled, bankId, sessionId }) {
+  const [data, setData] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    if (!sessionId) return
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/inward/drawee-stats?bank_id=${bankId}&session=${sessionId}`, { credentials: 'include' })
+      if (!res.ok) return
+      setData(await res.json())
+    } catch { /* keep last */ }
+  }, [bankId, sessionId])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 60_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return data
+}
+
 function useInwardSessions({ pollEnabled }) {
   const [sessions, setSessions] = useState(null)
   const timerRef = useRef(null)
@@ -129,6 +149,11 @@ export default function CTSDraweeView() {
   }, [activeSessions, selectedSession])
   const [sortBy, setSortBy] = useState('returned_desc')
 
+  const liveDraweeStats = useDraweeStats({ pollEnabled: !isDemo, bankId, sessionId: selectedSession })
+  const branches = isDemo || !liveDraweeStats?.branches?.length ? BRANCHES : liveDraweeStats.branches
+  const returnReasons = isDemo || !liveDraweeStats?.return_reasons ? RETURN_REASONS_TOTAL : liveDraweeStats.return_reasons
+  const presentingBanks = isDemo || !liveDraweeStats?.presenting_banks?.length ? PRESENTING_BANKS : liveDraweeStats.presenting_banks
+
   // Outward & Combined Position is SB-only — SMBs present cheques via their sponsor bank
   if (isSMB) {
     return (
@@ -160,11 +185,11 @@ export default function CTSDraweeView() {
       : (isDark ? 'text-slate-400 border-white/8 hover:text-white' : 'text-slate-500 border-slate-200 hover:text-slate-800'),
   }
 
-  const totalOutward = BRANCHES.reduce((s, b) => s + b.outward, 0)
-  const totalReturned = BRANCHES.reduce((s, b) => s + b.returned, 0)
-  const totalValueCr  = BRANCHES.reduce((s, b) => s + b.value_cr, 0)
+  const totalOutward = branches.reduce((s, b) => s + b.outward, 0)
+  const totalReturned = branches.reduce((s, b) => s + b.returned, 0)
+  const totalValueCr  = branches.reduce((s, b) => s + b.value_cr, 0)
 
-  const sorted = [...BRANCHES].sort((a, b) => {
+  const sorted = [...branches].sort((a, b) => {
     if (sortBy === 'returned_desc') return b.returned - a.returned
     if (sortBy === 'rate_desc')     return (b.returned / b.outward) - (a.returned / a.outward)
     if (sortBy === 'volume_desc')   return b.outward - a.outward
@@ -272,10 +297,10 @@ export default function CTSDraweeView() {
             {/* Return reasons */}
             <div className={`border rounded-xl p-4 ${th.card}`}>
               <div className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted} mb-4`}>Return Reasons</div>
-              <ReturnReasonBar reasons={RETURN_REASONS_TOTAL} total={totalReturned} isDark={isDark} />
+              <ReturnReasonBar reasons={returnReasons} total={totalReturned} isDark={isDark} />
               <div className={`mt-4 pt-4 border-t ${th.divider}`}>
                 <div className={`text-[11px] font-semibold uppercase tracking-wide ${th.muted} mb-3`}>By Presenting Bank</div>
-                {PRESENTING_BANKS.map(b => (
+                {presentingBanks.map(b => (
                   <div key={b.ifsc} className={`flex items-center justify-between py-1.5 border-b ${th.divider}`}>
                     <span className={`text-[11px] ${th.body}`}>{b.name}</span>
                     <div className="flex items-center gap-2">

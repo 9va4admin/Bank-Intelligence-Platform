@@ -10,7 +10,7 @@
  * SMB users: no tabs — this page IS their own SMB dashboard
  *   (SMBDashboardContent, shared with the standalone /cts/smb/dashboard route).
  */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../../shared/theme/ThemeContext'
@@ -277,6 +277,29 @@ function SMBFilterBar({ smbs, selectedSmbId, onSelect, isDark }) {
   )
 }
 
+// ─── SMB live data hook ───────────────────────────────────────────────────────
+
+function useSMBOpsData({ pollEnabled, bankId, smbId }) {
+  const [data, setData] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({ bank_id: bankId })
+      if (smbId) params.set('smb_id', smbId)
+      const res = await fetch(`/v1/cts/smb/ops-summary?${params}`, { credentials: 'include' })
+      if (!res.ok) return
+      setData(await res.json())
+    } catch { /* keep last */ }
+  }, [bankId, smbId])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 30_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return data
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const ZERO_TODAY = {
@@ -304,6 +327,7 @@ export default function CTSOpsDashboard() {
 
   // Live data hooks — called unconditionally (before any early return)
   const { today: liveToday, trend: liveTrend } = useOpsDashboard({ pollEnabled: !isDemo })
+  const liveSMBOps = useSMBOpsData({ pollEnabled: !isDemo && !isSMB, bankId: undefined, smbId: selectedSmbId })
 
   // All hooks called unconditionally, every render — the isSMB early return
   // below must never skip a hook that ran on a previous render.
@@ -402,7 +426,7 @@ export default function CTSOpsDashboard() {
     ? (selectedSmbId
         ? { TODAY: SMB_TODAY, SESSIONS: smbSessions, TREND: SMB_TREND }
         : { TODAY: SMB_COMBINED_TODAY, SESSIONS: smbCombinedSessions, TREND: SMB_COMBINED_TREND })
-    : { TODAY: ZERO_TODAY, SESSIONS: [], TREND: ZERO_TREND }
+    : { TODAY: liveSMBOps?.today || ZERO_TODAY, SESSIONS: [], TREND: liveSMBOps?.trend || ZERO_TREND }
 
   const active = dashTab === 'mybank' ? myBank : smbView
   const totalSessions = active.TODAY.sessions_count

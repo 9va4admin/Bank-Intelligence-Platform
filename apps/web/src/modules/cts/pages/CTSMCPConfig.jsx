@@ -549,7 +549,7 @@ function PreflightBanner({ connections, isDark }) {
 
 export default function CTSMCPConfig() {
   const { isDark } = useTheme()
-  const { bankId, bankName, isSB, bankMode } = useBankContext()
+  const { bankId, bankName, isSB, bankMode, isDemo } = useBankContext()
   const effectiveConnectionTypes = bankMode === 'SB_ONLY'
     ? CONNECTION_TYPES.filter(ct => ct.type !== 'SMB_CBS')
     : CONNECTION_TYPES
@@ -587,7 +587,8 @@ export default function CTSMCPConfig() {
       return res.json()
     },
     staleTime: 30_000,
-    refetchInterval: 30_000,
+    refetchInterval: isDemo ? false : 30_000,
+    enabled: !isDemo,
   })
   const allConns = connData?.connections ?? (isSB ? effectiveMockConns : effectiveMockConns.filter(c => c.connection_type === 'SMB_CBS'))
 

@@ -4,11 +4,34 @@
  * Source column removed — instrument cell left-border colour codes STP (emerald) vs VERIFIED (sky).
  * Actions are icon buttons: ✓ approve · ↩ return (opens reason dropdown).
  */
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
 import useOutwardDecisions from '../hooks/useOutwardDecisions'
+
+const _VQ_API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+function useInwardValidationQueue({ pollEnabled, bankId }) {
+  const [items, setItems] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_VQ_API_BASE}/v1/cts/inward/human-review-queue?bank_id=${bankId}&limit=100`, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      setItems(json.items ?? [])
+    } catch { /* keep last */ }
+  }, [bankId])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 15_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return items
+}
 import { getReasonByLabel, getReturnReasons } from '../data/returnReasons'
 import ChequeImageViewer from '../components/ChequeImageViewer'
 import { demoChequeUrl } from '../demoImages'
@@ -678,15 +701,19 @@ function adaptDecision(d, idx) {
 
 export default function CTSValidationQueue({ mode = 'outward' }) {
   const { isDark } = useTheme()
+  const { bankId, isDemo } = useBankContext()
   const isInward = mode === 'inward'
 
   // Live data for outward tab — polls /v1/cts/outward/decisions
-  const { decisions: liveDecisions } = useOutwardDecisions({ pollEnabled: !isInward })
+  const { decisions: liveDecisions } = useOutwardDecisions({ pollEnabled: !isInward && !isDemo })
+
+  // Live data for inward tab — polls /v1/cts/inward/human-review-queue
+  const liveInwardItems = useInwardValidationQueue({ pollEnabled: isInward && !isDemo, bankId })
 
   const BASE = useDemoData(isInward ? BASE_INSTRUMENTS_INWARD : BASE_INSTRUMENTS_OUTWARD)
   const [instruments, setInstruments] = useState(() => BASE.map(i => ({ ...i, edits: {} })))
 
-  // Demo invariant: update outward instruments from live decisions when available
+  // Demo invariant: update instruments from live data when available
   const prevLiveRef = useRef([])
   useEffect(() => {
     if (!isInward && liveDecisions.length > 0 && liveDecisions !== prevLiveRef.current) {
@@ -694,6 +721,16 @@ export default function CTSValidationQueue({ mode = 'outward' }) {
       setInstruments(liveDecisions.map(d => ({ ...adaptDecision(d), edits: {} })))
     }
   }, [liveDecisions, isInward])
+
+  const prevInwardRef = useRef(null)
+  useEffect(() => {
+    if (isInward && liveInwardItems && liveInwardItems !== prevInwardRef.current) {
+      prevInwardRef.current = liveInwardItems
+      if (liveInwardItems.length > 0) {
+        setInstruments(liveInwardItems.map(d => ({ ...d, edits: {} })))
+      }
+    }
+  }, [liveInwardItems, isInward])
   const [filter, setFilter]           = useState('ALL')
   const [returnOpenFor, setReturnOpenFor] = useState(null)
   const [chequeViewId, setChequeViewId]   = useState(null)

@@ -204,7 +204,7 @@ export default function CTSVaultStatus() {
 
   const sig       = VAULT_DATA[0]
   const pps       = VAULT_DATA[1]
-  const lastSync  = SYNC_LOG[0]
+  const lastSync  = SYNC_LOG?.[0]
   const missCount = DISPLAY_MISSES.length
   const chartData = [...VAULT_METRICS].reverse()
 
@@ -363,7 +363,7 @@ export default function CTSVaultStatus() {
                 </tr>
               </thead>
               <tbody>
-                {SYNC_LOG.map((s, i) => (
+                {(SYNC_LOG ?? []).map((s, i) => (
                   <tr key={i} className={`border-b ${th.row} transition-colors`}>
                     <td className={`px-4 py-2.5 ${th.faint} font-mono`}>{s.time}</td>
                     <td className={`px-4 py-2.5 ${th.body}`}>{s.event}</td>

@@ -6,7 +6,8 @@
  * session submission window: NGCH closes at 12:00 and 16:00. Instruments not
  * submitted in time are deferred to the next session.
  */
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   ReactFlow,
   Background,
@@ -356,12 +357,24 @@ function DetailPanel({ instr, onClose, isDark }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-const INSTRUMENTS = makeMockInstruments()
-
 export default function CTSOutwardPipelineMonitor() {
   const { isDark } = useTheme()
-  const { bankName } = useBankContext()
+  const { bankId, bankName, isDemo } = useBankContext()
   const [selectedId, setSelectedId] = useState(null)
+
+  const { data: pipelineData } = useQuery({
+    queryKey: ['outward-pipeline', bankId],
+    queryFn: async () => {
+      const res = await fetch(`/v1/cts/outward/pipeline?bank_id=${bankId}`, { credentials: 'include' })
+      if (!res.ok) return null
+      return res.json()
+    },
+    enabled: !isDemo,
+    refetchInterval: isDemo ? false : 5_000,
+    staleTime: 0,
+    retry: false,
+  })
+  const INSTRUMENTS = isDemo || !pipelineData?.instruments ? makeMockInstruments() : pipelineData.instruments
 
   const th = {
     page:    isDark ? 'bg-navy-950'                    : 'bg-slate-50',
@@ -373,8 +386,9 @@ export default function CTSOutwardPipelineMonitor() {
     flow:    isDark ? '#03061a'                         : '#f8fafc',
   }
 
-  const initialNodes = useMemo(() => buildInitialNodes(INSTRUMENTS), [])
-  const [nodes, , onNodesChange] = useNodesState(initialNodes)
+  const initialNodes = useMemo(() => buildInitialNodes(INSTRUMENTS), [INSTRUMENTS])
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
+  useEffect(() => { setNodes(buildInitialNodes(INSTRUMENTS)) }, [INSTRUMENTS, setNodes])
 
   const onNodeClick = useCallback((_, node) => {
     if (node.type !== 'chequeNode') return

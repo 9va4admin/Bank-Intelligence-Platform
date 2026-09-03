@@ -234,7 +234,7 @@ export default function CTSExceptions() {
     return liveExceptions
   }, [isDemo, liveExceptions])
 
-  const predictive = isDemo ? buildPredictiveSignals(MOCK_QUEUE.filter(i => i.status === 'PENDING')) : []
+  const predictive = buildPredictiveSignals(isDemo ? MOCK_QUEUE.filter(i => i.status === 'PENDING') : [])
 
   const th = {
     page:    isDark ? 'bg-navy-950' : 'bg-slate-50',

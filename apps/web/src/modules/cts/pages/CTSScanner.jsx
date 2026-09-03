@@ -219,7 +219,7 @@ function ScanImagePanel({ scan, isDark, onClose }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function CTSScanner() {
-  const { bankId, bankIfsc } = useBankContext()
+  const { bankId, bankIfsc, isDemo } = useBankContext()
   const { isDark } = useTheme()
 
   // Scanner agent config
@@ -249,21 +249,21 @@ export default function CTSScanner() {
   // Pipeline KPIs
   const [kpis, setKpis] = useState({ accepted: 0, cts_rejected: 0, mismatch: 0, human_review: 0 })
 
-  // Audit feed
+  // Audit feed — mock only in demo mode; empty in live mode (populated by live poll below)
   const [auditEvents, setAuditEvents] = useState(() =>
-    Array.from({ length: 8 }, (_, i) => mkAuditEvent(i, bankId ?? 'demo-bank'))
+    isDemo ? Array.from({ length: 8 }, (_, i) => mkAuditEvent(i, bankId ?? 'demo-bank')) : []
   )
   const auditIdxRef = useRef(8)
 
-  // Lots
-  const [lots, setLots] = useState(() => Array.from({ length: 3 }, (_, i) => mkLot(i)))
+  // Lots — mock only in demo mode
+  const [lots, setLots] = useState(() => isDemo ? Array.from({ length: 3 }, (_, i) => mkLot(i)) : [])
 
-  // Kafka mock stats
-  const [kafkaStats, setKafkaStats] = useState({
+  // Kafka stats — mock only in demo mode
+  const [kafkaStats, setKafkaStats] = useState(isDemo ? {
     scanned:   { lag: 0, rate: 0 },
     sealed:    { lag: 0, rate: 0 },
     submitted: { lag: 0, rate: 0 },
-  })
+  } : null)
 
   // Right panel tab
   const [rightTab, setRightTab] = useState('audit') // 'audit' | 'lots' | 'taxonomy'
@@ -284,8 +284,35 @@ export default function CTSScanner() {
     return () => clearInterval(t)
   }, [pingAgent])
 
+  // ── Live polling (audit events + lots) when not in demo and no active session ──
+  useEffect(() => {
+    if (isDemo || sessionActive) return
+    const poll = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/v1/cts/outward/audit-events?bank_id=${bankId}&limit=20`, { credentials: 'include' })
+        if (res.ok) { const json = await res.json(); setAuditEvents(json.events ?? []) }
+      } catch {}
+      try {
+        const res = await fetch(`${API_BASE}/v1/cts/outward/lots?bank_id=${bankId}&active=true`, { credentials: 'include' })
+        if (res.ok) { const json = await res.json(); setLots(json.lots ?? []) }
+      } catch {}
+      try {
+        const res = await fetch(`${API_BASE}/v1/cts/admin/kafka-stats?bank_id=${bankId}`, { credentials: 'include' })
+        if (res.ok) { const json = await res.json(); setKafkaStats(json ?? null) }
+      } catch {}
+    }
+    poll()
+    const t = setInterval(poll, 30_000)
+    return () => clearInterval(t)
+  }, [isDemo, sessionActive, bankId])
+
   // ── Session control ─────────────────────────────────────────────────────────
   async function startSession() {
+    if (isDemo) {
+      setSessionId(`SES-DEMO-${Date.now().toString(36).toUpperCase()}`)
+      setSessionActive(true)
+      return
+    }
     setKpis({ accepted: 0, cts_rejected: 0, mismatch: 0, human_review: 0 })
     setScans([])
     scanIdxRef.current = 0

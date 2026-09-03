@@ -94,9 +94,33 @@ function LotProgress({ filled, target, isDark }) {
 
 export default function BranchDashboard() {
   const { isDark } = useTheme()
-  const { bankId, bankName } = useBankContext()
-  const [session] = useState(SESSION_MOCK)
-  const [eehHealth] = useState(EEH_HEALTH)
+  const { bankId, bankName, isDemo } = useBankContext()
+
+  const { data: sessionData } = useQuery({
+    queryKey: ['branch-session', bankId],
+    queryFn: async () => {
+      const res = await fetch(`/v1/cts/branch/session?bank_id=${bankId}`, { credentials: 'include' })
+      if (!res.ok) return null
+      return res.json()
+    },
+    enabled: !isDemo,
+    refetchInterval: isDemo ? false : 15_000,
+    retry: false,
+  })
+  const session = isDemo || !sessionData ? SESSION_MOCK : sessionData
+
+  const { data: eehData } = useQuery({
+    queryKey: ['eeh-health', bankId],
+    queryFn: async () => {
+      const res = await fetch(`/v1/cts/branch/eeh-health?bank_id=${bankId}`, { credentials: 'include' })
+      if (!res.ok) return null
+      return res.json()
+    },
+    enabled: !isDemo,
+    refetchInterval: isDemo ? false : 15_000,
+    retry: false,
+  })
+  const eehHealth = isDemo || !eehData ? EEH_HEALTH : eehData
   const [elapsed, setElapsed] = useState(0)
 
   const branchId = session?.branch_id ?? ''

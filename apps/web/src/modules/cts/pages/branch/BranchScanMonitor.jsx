@@ -252,8 +252,8 @@ export default function BranchScanMonitor() {
 
   const rateCps = (() => {
     if (instruments.length < 2) return 0
-    const first = new Date(rawEvents[rawEvents.length - 1]?.scanned_at)
-    const last  = new Date(rawEvents[0]?.scanned_at)
+    const first = new Date(instruments[instruments.length - 1]?._sort_ts)
+    const last  = new Date(instruments[0]?._sort_ts)
     const secs  = (last - first) / 1000
     return secs > 0 ? (instruments.length / secs).toFixed(1) : 0
   })()
