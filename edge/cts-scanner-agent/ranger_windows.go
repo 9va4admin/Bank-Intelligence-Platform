@@ -96,7 +96,8 @@ package main
 
 // --- TIFF output constants ---
 #define CSD_TIFF_FILE  1
-#define CSD_COMP_MMR   3   // CCITT Group 4 — CTS-2010 mandated compression
+#define CSD_COMP_LZW   2   // LZW — used for grayscale and colour TIFFs (CTS-2010 front face)
+#define CSD_COMP_MMR   3   // CCITT Group 4 — binary only (CTS-2010 rear face)
 
 // --- CEIIMAGEINFO: image descriptor filled by CsdReadPage ---
 // Default 4-byte alignment matches SDK's pshpack4.h requirement on 32-bit.
@@ -230,13 +231,16 @@ static INT32 astra_abort_scan(void)              { return g_CsdAbortScan(); }
 static INT32 astra_terminate(void)               { return g_CsdTerminate(); }
 static INT32 astra_release_image(CEIIMAGEINFO *img) { return g_CsdReleaseImage(img); }
 
-// astra_save_tiff: saves the raw pixel buffer in img to a TIFF Group 4 file at path.
-// This is the CTS-2010 mandated compression (CCITT MMR / Group 4).
+// astra_save_tiff: saves the raw pixel buffer in img to a TIFF file at path.
+// Compression is chosen automatically from the image bit depth:
+//   1 bpp (binary)    → CCITT Group 4 / MMR  (CTS-2010 rear face)
+//   8 bpp (grayscale) → LZW                  (CTS-2010 front face, default scan mode)
+//   other             → LZW                  (safe fallback for colour)
 static INT32 astra_save_tiff(CEIIMAGEINFO *img, const char *path) {
     CEIIMAGEFILEINFO fi;
     fi.cbSize       = sizeof(fi);
     fi.nFileType    = CSD_TIFF_FILE;
-    fi.nCompType    = CSD_COMP_MMR;
+    fi.nCompType    = (img->lBps == 1) ? CSD_COMP_MMR : CSD_COMP_LZW;
     fi.nPage        = -1;
     fi.nJpegQuality = 0;
     return g_CsdSaveImageEx(img, &fi, path);
@@ -358,8 +362,9 @@ func (t *CanonTransport) StartJob(endorsementText string, enableImprinter bool) 
 		return fmt.Errorf("set duplex mode failed: %d", ret)
 	}
 
-	// Scan mode — default 16 (CSD_BINARY_FINETEXTFILTERING, sharpest B&W for printed cheques).
-	// Override via scan_mode_value in config.ini for grayscale or colour capture.
+	// Scan mode — default 2 (8-bit grayscale; CTS-2010 requires grayscale for the front face).
+	// Use 16 (CSD_BINARY_FINETEXTFILTERING) only when both faces must be binary.
+	// TIFF compression is auto-selected: LZW for grayscale, CCITT G4 for binary.
 	if ret := C.astra_par_set_long(C.CSDP_MODE, C.LONG(t.cfg.ScanModeValue)); int32(ret) != csdOK {
 		return fmt.Errorf("set scan mode failed: %d", ret)
 	}
