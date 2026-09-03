@@ -42,7 +42,10 @@ import structlog
 from pydantic import BaseModel, ConfigDict, Field
 from temporalio import activity
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 _HIGH_VALUE_FALLBACK = 500_000.0  # used only when config_service is absent (tests)
 
@@ -152,102 +155,105 @@ async def analyze_uv_security(
     Uses vision LLM (cts-vision queue) to analyse three physical security
     features. Gracefully degrades if the model or image is unavailable.
     """
-    cts_config = {}
-    if config_service is not None:
+    with tracer.start_as_current_span("activity.analyze_uv_security") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        cts_config = {}
+        if config_service is not None:
+            try:
+                cts_config = await config_service.get_cts_config(inp.bank_id)
+            except Exception:
+                pass
+        high_value_limit: float = float(cts_config.get("high_value_amount_threshold", _HIGH_VALUE_FALLBACK))
+
+        if orchestrator is None:
+            log.warning(
+                "uv_security.no_orchestrator",
+                instrument_id=inp.instrument_id,
+            )
+            return UVSecurityResult(degraded=True, requires_human_review=True)
+
+        # ── call vision LLM ───────────────────────────────────────────────────
         try:
-            cts_config = await config_service.get_cts_config(inp.bank_id)
-        except Exception:
-            pass
-    high_value_limit: float = float(cts_config.get("high_value_amount_threshold", _HIGH_VALUE_FALLBACK))
+            vision_result = await orchestrator.call_vision(
+                image_url=inp.uv_image_url,
+                prompt=_UV_SECURITY_PROMPT,
+                cheque_amount=inp.cheque_amount,
+            )
+            data = json.loads(vision_result.content)
+        except Exception as exc:
+            log.warning(
+                "uv_security.model_failed",
+                instrument_id=inp.instrument_id,
+                error=str(exc),
+            )
+            return UVSecurityResult(degraded=True, requires_human_review=True)
 
-    if orchestrator is None:
-        log.warning(
-            "uv_security.no_orchestrator",
+        # ── parse per-check results ───────────────────────────────────────────
+        try:
+            pento   = data.get("pentograph", {})
+            thread  = data.get("security_thread", {})
+            wm      = data.get("uv_watermark", {})
+
+            pentograph_authentic     = bool(pento.get("authentic", False))
+            pentograph_confidence    = _clamp(float(pento.get("confidence", 0.0)))
+            pentograph_notes         = str(pento.get("notes", ""))
+
+            thread_present           = bool(thread.get("present", False))
+            thread_confidence        = _clamp(float(thread.get("confidence", 0.0)))
+            thread_position          = thread.get("position") or None
+            thread_notes             = str(thread.get("notes", ""))
+
+            watermark_present        = bool(wm.get("present", False))
+            watermark_confidence     = _clamp(float(wm.get("confidence", 0.0)))
+            watermark_notes          = str(wm.get("notes", ""))
+
+            uv_risk_score            = _clamp(float(data.get("overall_uv_risk_score", 0.0)))
+            model_wants_review       = bool(data.get("requires_human_review", False))
+
+        except Exception as exc:
+            log.warning(
+                "uv_security.parse_failed",
+                instrument_id=inp.instrument_id,
+                error=str(exc),
+            )
+            return UVSecurityResult(degraded=True, requires_human_review=True)
+
+        # ── all three must pass ───────────────────────────────────────────────
+        uv_passed = pentograph_authentic and thread_present and watermark_present
+
+        # high-value always requires human review regardless of UV result
+        is_high_value = inp.cheque_amount >= high_value_limit
+        requires_review = model_wants_review or not uv_passed or is_high_value
+
+        log.info(
+            "uv_security.complete",
             instrument_id=inp.instrument_id,
+            bank_id=inp.bank_id,
+            uv_passed=uv_passed,
+            uv_risk_score=uv_risk_score,
+            pentograph_ok=pentograph_authentic,
+            thread_ok=thread_present,
+            watermark_ok=watermark_present,
+            requires_review=requires_review,
         )
-        return UVSecurityResult(degraded=True, requires_human_review=True)
 
-    # ── call vision LLM ───────────────────────────────────────────────────
-    try:
-        vision_result = await orchestrator.call_vision(
-            image_url=inp.uv_image_url,
-            prompt=_UV_SECURITY_PROMPT,
-            cheque_amount=inp.cheque_amount,
+        return UVSecurityResult(
+            pentograph_authentic=pentograph_authentic,
+            pentograph_confidence=pentograph_confidence,
+            pentograph_notes=pentograph_notes,
+            security_thread_present=thread_present,
+            security_thread_confidence=thread_confidence,
+            security_thread_position=thread_position,
+            security_thread_notes=thread_notes,
+            uv_watermark_present=watermark_present,
+            uv_watermark_confidence=watermark_confidence,
+            uv_watermark_notes=watermark_notes,
+            uv_security_passed=uv_passed,
+            uv_risk_score=uv_risk_score,
+            requires_human_review=requires_review,
+            degraded=False,
         )
-        data = json.loads(vision_result.content)
-    except Exception as exc:
-        log.warning(
-            "uv_security.model_failed",
-            instrument_id=inp.instrument_id,
-            error=str(exc),
-        )
-        return UVSecurityResult(degraded=True, requires_human_review=True)
-
-    # ── parse per-check results ───────────────────────────────────────────
-    try:
-        pento   = data.get("pentograph", {})
-        thread  = data.get("security_thread", {})
-        wm      = data.get("uv_watermark", {})
-
-        pentograph_authentic     = bool(pento.get("authentic", False))
-        pentograph_confidence    = _clamp(float(pento.get("confidence", 0.0)))
-        pentograph_notes         = str(pento.get("notes", ""))
-
-        thread_present           = bool(thread.get("present", False))
-        thread_confidence        = _clamp(float(thread.get("confidence", 0.0)))
-        thread_position          = thread.get("position") or None
-        thread_notes             = str(thread.get("notes", ""))
-
-        watermark_present        = bool(wm.get("present", False))
-        watermark_confidence     = _clamp(float(wm.get("confidence", 0.0)))
-        watermark_notes          = str(wm.get("notes", ""))
-
-        uv_risk_score            = _clamp(float(data.get("overall_uv_risk_score", 0.0)))
-        model_wants_review       = bool(data.get("requires_human_review", False))
-
-    except Exception as exc:
-        log.warning(
-            "uv_security.parse_failed",
-            instrument_id=inp.instrument_id,
-            error=str(exc),
-        )
-        return UVSecurityResult(degraded=True, requires_human_review=True)
-
-    # ── all three must pass ───────────────────────────────────────────────
-    uv_passed = pentograph_authentic and thread_present and watermark_present
-
-    # high-value always requires human review regardless of UV result
-    is_high_value = inp.cheque_amount >= high_value_limit
-    requires_review = model_wants_review or not uv_passed or is_high_value
-
-    log.info(
-        "uv_security.complete",
-        instrument_id=inp.instrument_id,
-        bank_id=inp.bank_id,
-        uv_passed=uv_passed,
-        uv_risk_score=uv_risk_score,
-        pentograph_ok=pentograph_authentic,
-        thread_ok=thread_present,
-        watermark_ok=watermark_present,
-        requires_review=requires_review,
-    )
-
-    return UVSecurityResult(
-        pentograph_authentic=pentograph_authentic,
-        pentograph_confidence=pentograph_confidence,
-        pentograph_notes=pentograph_notes,
-        security_thread_present=thread_present,
-        security_thread_confidence=thread_confidence,
-        security_thread_position=thread_position,
-        security_thread_notes=thread_notes,
-        uv_watermark_present=watermark_present,
-        uv_watermark_confidence=watermark_confidence,
-        uv_watermark_notes=watermark_notes,
-        uv_security_passed=uv_passed,
-        uv_risk_score=uv_risk_score,
-        requires_human_review=requires_review,
-        degraded=False,
-    )
 
 
 def _clamp(v: float) -> float:

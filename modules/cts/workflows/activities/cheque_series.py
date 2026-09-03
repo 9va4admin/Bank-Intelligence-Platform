@@ -35,7 +35,10 @@ from temporalio import activity
 
 from shared.cbs_connector.exceptions import AccountNotFoundError, CBSUnavailableError
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 _STOLEN_LOST_STATUSES = {"LOST", "STOLEN"}
 _CANCELLED_STATUS = "CANCELLED"
@@ -71,19 +74,22 @@ async def validate_cheque_series(
 
     Never raises. Degrades to HUMAN_REVIEW on any infrastructure failure.
     """
-    mode = await _resolve_mode(inp.bank_id, config_service)
+    with tracer.start_as_current_span("activity.validate_cheque_series") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        mode = await _resolve_mode(inp.bank_id, config_service)
 
-    if mode == "VAULT" and cheque_leaf_vault is not None:
-        return await _validate_via_vault(inp, cheque_leaf_vault)
+        if mode == "VAULT" and cheque_leaf_vault is not None:
+            return await _validate_via_vault(inp, cheque_leaf_vault)
 
-    if mode == "VAULT" and cheque_leaf_vault is None:
-        log.warning(
-            "cheque_series.vault_mode_not_wired_falling_back_to_cbs",
-            instrument_id=inp.instrument_id,
-            bank_id=inp.bank_id,
-        )
+        if mode == "VAULT" and cheque_leaf_vault is None:
+            log.warning(
+                "cheque_series.vault_mode_not_wired_falling_back_to_cbs",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+            )
 
-    return await _validate_via_cbs(inp, cbs_connector)
+        return await _validate_via_cbs(inp, cbs_connector)
 
 
 # ---------------------------------------------------------------------------

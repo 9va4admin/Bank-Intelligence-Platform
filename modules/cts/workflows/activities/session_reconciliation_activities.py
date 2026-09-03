@@ -15,7 +15,10 @@ import structlog
 from pydantic import BaseModel, ConfigDict
 from temporalio import activity
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 
 # ── fetch_ngch_settlement_report ──────────────────────────────────────────────
@@ -45,27 +48,29 @@ async def fetch_ngch_settlement_report(
     Fetches settlement report for the session from NGCH adapter.
     Degrades gracefully when ngch_client is unavailable.
     """
-    if ngch_client is None:
-        log.warning(
-            "fetch_ngch_settlement_report.ngch_unavailable",
+    with tracer.start_as_current_span("activity.fetch_ngch_settlement_report") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if ngch_client is None:
+            log.warning(
+                "fetch_ngch_settlement_report.ngch_unavailable",
+                session_id=inp.session_id,
+                bank_id=inp.bank_id,
+            )
+            return FetchSettlementResult(rows=[], degraded=True)
+
+        rows = await ngch_client.fetch_settlement_report(
+            session_id=inp.session_id,
+            clearing_date=inp.clearing_date,
+            bank_ifsc=inp.bank_ifsc,
+        )
+
+        log.info(
+            "fetch_ngch_settlement_report.complete",
             session_id=inp.session_id,
             bank_id=inp.bank_id,
+            row_count=len(rows),
         )
-        return FetchSettlementResult(rows=[], degraded=True)
-
-    rows = await ngch_client.fetch_settlement_report(
-        session_id=inp.session_id,
-        clearing_date=inp.clearing_date,
-        bank_ifsc=inp.bank_ifsc,
-    )
-
-    log.info(
-        "fetch_ngch_settlement_report.complete",
-        session_id=inp.session_id,
-        bank_id=inp.bank_id,
-        row_count=len(rows),
-    )
-    return FetchSettlementResult(rows=list(rows), degraded=False)
+        return FetchSettlementResult(rows=list(rows), degraded=False)
 
 
 # ── match_submitted_vs_settled ────────────────────────────────────────────────
@@ -98,40 +103,42 @@ async def match_submitted_vs_settled(
     Instruments with status != SETTLED are flagged as exceptions.
     Degrades gracefully when db_pool is unavailable.
     """
-    if db_pool is None:
-        log.warning(
-            "match_submitted_vs_settled.db_unavailable",
+    with tracer.start_as_current_span("activity.match_submitted_vs_settled") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if db_pool is None:
+            log.warning(
+                "match_submitted_vs_settled.db_unavailable",
+                session_id=inp.session_id,
+                bank_id=inp.bank_id,
+            )
+            return MatchResult(
+                matched_count=0,
+                exception_count=0,
+                outcome="RECONCILED",
+                exception_instruments=[],
+            )
+
+        settled = [r for r in inp.settlement_rows if r.get("status") == "SETTLED"]
+        exceptions = [r for r in inp.settlement_rows if r.get("status") != "SETTLED"]
+
+        matched_count = len(settled)
+        exception_count = len(exceptions)
+        outcome = "EXCEPTIONS_FLAGGED" if exception_count > 0 else "RECONCILED"
+
+        log.info(
+            "match_submitted_vs_settled.complete",
             session_id=inp.session_id,
             bank_id=inp.bank_id,
+            matched_count=matched_count,
+            exception_count=exception_count,
+            outcome=outcome,
         )
         return MatchResult(
-            matched_count=0,
-            exception_count=0,
-            outcome="RECONCILED",
-            exception_instruments=[],
+            matched_count=matched_count,
+            exception_count=exception_count,
+            outcome=outcome,
+            exception_instruments=exceptions,
         )
-
-    settled = [r for r in inp.settlement_rows if r.get("status") == "SETTLED"]
-    exceptions = [r for r in inp.settlement_rows if r.get("status") != "SETTLED"]
-
-    matched_count = len(settled)
-    exception_count = len(exceptions)
-    outcome = "EXCEPTIONS_FLAGGED" if exception_count > 0 else "RECONCILED"
-
-    log.info(
-        "match_submitted_vs_settled.complete",
-        session_id=inp.session_id,
-        bank_id=inp.bank_id,
-        matched_count=matched_count,
-        exception_count=exception_count,
-        outcome=outcome,
-    )
-    return MatchResult(
-        matched_count=matched_count,
-        exception_count=exception_count,
-        outcome=outcome,
-        exception_instruments=exceptions,
-    )
 
 
 # ── generate_rrf ──────────────────────────────────────────────────────────────
@@ -164,56 +171,58 @@ async def generate_rrf(
     Skips generation when there are no exceptions.
     Degrades gracefully when db_pool is unavailable.
     """
-    if not inp.exception_instruments:
+    with tracer.start_as_current_span("activity.generate_rrf") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if not inp.exception_instruments:
+            log.info(
+                "generate_rrf.skipped_no_exceptions",
+                session_id=inp.session_id,
+                bank_id=inp.bank_id,
+            )
+            return GenerateRRFResult(generated=False)
+
+        if db_pool is None:
+            log.warning(
+                "generate_rrf.db_unavailable",
+                session_id=inp.session_id,
+                bank_id=inp.bank_id,
+            )
+            return GenerateRRFResult(generated=False)
+
+        # Record the RRF generation request in DB.
+        # Actual XML assembly via RRFGenerator.to_xml(RRFDocument(...)) happens in
+        # the RRF download/export flow when full ReturnItem metadata is available
+        # (drawee_ifsc, amount_range, iet_deadline, etc. — fetched from cheque_instruments).
+        rrf_path = (
+            f"cts/{inp.bank_id}/{inp.clearing_date}/rrf/{inp.session_id}.xml"
+        )
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO cts.rrf_sessions
+                       (session_id, bank_id, clearing_date, bank_ifsc, rrf_path, exception_count)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                ON CONFLICT (session_id, bank_id) DO UPDATE
+                   SET rrf_path = EXCLUDED.rrf_path,
+                       exception_count = EXCLUDED.exception_count
+                """,
+                inp.session_id,
+                inp.bank_id,
+                inp.clearing_date,
+                inp.bank_ifsc,
+                rrf_path,
+                len(inp.exception_instruments),
+            )
+
         log.info(
-            "generate_rrf.skipped_no_exceptions",
+            "generate_rrf.complete",
             session_id=inp.session_id,
             bank_id=inp.bank_id,
+            record_count=len(inp.exception_instruments),
+            rrf_path=rrf_path,
         )
-        return GenerateRRFResult(generated=False)
-
-    if db_pool is None:
-        log.warning(
-            "generate_rrf.db_unavailable",
-            session_id=inp.session_id,
-            bank_id=inp.bank_id,
+        return GenerateRRFResult(
+            generated=True,
+            rrf_path=rrf_path,
+            record_count=len(inp.exception_instruments),
         )
-        return GenerateRRFResult(generated=False)
-
-    # Record the RRF generation request in DB.
-    # Actual XML assembly via RRFGenerator.to_xml(RRFDocument(...)) happens in
-    # the RRF download/export flow when full ReturnItem metadata is available
-    # (drawee_ifsc, amount_range, iet_deadline, etc. — fetched from cheque_instruments).
-    rrf_path = (
-        f"cts/{inp.bank_id}/{inp.clearing_date}/rrf/{inp.session_id}.xml"
-    )
-    async with db_pool.acquire() as conn:
-        await conn.execute(
-            """
-            INSERT INTO cts.rrf_sessions
-                   (session_id, bank_id, clearing_date, bank_ifsc, rrf_path, exception_count)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            ON CONFLICT (session_id, bank_id) DO UPDATE
-               SET rrf_path = EXCLUDED.rrf_path,
-                   exception_count = EXCLUDED.exception_count
-            """,
-            inp.session_id,
-            inp.bank_id,
-            inp.clearing_date,
-            inp.bank_ifsc,
-            rrf_path,
-            len(inp.exception_instruments),
-        )
-
-    log.info(
-        "generate_rrf.complete",
-        session_id=inp.session_id,
-        bank_id=inp.bank_id,
-        record_count=len(inp.exception_instruments),
-        rrf_path=rrf_path,
-    )
-    return GenerateRRFResult(
-        generated=True,
-        rrf_path=rrf_path,
-        record_count=len(inp.exception_instruments),
-    )

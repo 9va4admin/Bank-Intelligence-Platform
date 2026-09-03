@@ -302,7 +302,9 @@ class FlexCubeCBSConnector(CBSConnector):
         inquiry_name: str,
         bank_id: str,
         name_match_threshold: float = 0.80,
+        high_confidence_threshold: Optional[float] = None,
     ) -> BeneficiaryValidationResult:
+        _high_conf = high_confidence_threshold if high_confidence_threshold is not None else 0.92
         _inactive = {AccountStatus.FROZEN, AccountStatus.CLOSED, AccountStatus.NPA, AccountStatus.DORMANT}
         self._assert_ready()
         body = (
@@ -347,7 +349,7 @@ class FlexCubeCBSConnector(CBSConnector):
 
         score = self._name_match_score(inquiry_name, holder_name)
         display = self._payee_display(holder_name)
-        confidence = "HIGH" if score >= 0.92 else ("MEDIUM" if score >= 0.80 else "LOW")
+        confidence = "HIGH" if score >= _high_conf else ("MEDIUM" if score >= name_match_threshold else "LOW")
 
         if score < name_match_threshold:
             return BeneficiaryValidationResult(

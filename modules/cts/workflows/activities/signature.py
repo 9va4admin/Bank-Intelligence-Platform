@@ -35,7 +35,10 @@ from temporalio import activity
 
 from shared.ai.signature_embedding import EmbeddingModelUnavailableError, cosine_similarity
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -337,136 +340,149 @@ async def verify_signature(
 
     Vault error or model unavailable → HUMAN_REVIEW (degraded=True). Never raises.
     """
-    ai_config = await config_service.get_ai_config(inp.bank_id)
-    min_match_score: float = ai_config["ai.signature.min_match_score"]
+    with tracer.start_as_current_span("activity.verify_signature") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        ai_config = await config_service.get_ai_config(inp.bank_id)
+        min_match_score: float = ai_config["ai.signature.min_match_score"]
 
-    # Step 1 — need embedding model first; fail fast if absent
-    if embedding_model is None:
-        log.warning(
-            "verify_signature.no_embedding_model",
-            instrument_id=inp.instrument_id,
-        )
-        return SignatureActivityResult(
-            outcome="HUMAN_REVIEW",
-            miss_reason="MODEL_UNAVAILABLE",
-            degraded=True,
-        )
-
-    # Step 2 — embed all detected ink signatures on the cheque
-    bboxes = inp.sig_bboxes if inp.sig_bboxes else [[]]  # empty → full image
-    cheque_vectors: list[list[float]] = []
-    for bbox in bboxes:
-        vec = await _embed_image(inp.signature_image_url, bbox, embedding_model, inp.bank_id)
-        if vec is not None:
-            cheque_vectors.append(vec)
-
-    if not cheque_vectors:
-        log.warning(
-            "verify_signature.all_crops_failed",
-            instrument_id=inp.instrument_id,
-            bbox_count=len(bboxes),
-        )
-        return SignatureActivityResult(
-            outcome="HUMAN_REVIEW",
-            miss_reason="MODEL_UNAVAILABLE",
-            degraded=True,
-        )
-
-    # Step 3 — load signatory specimens
-    cbs_fallback_used = False
-    mandate_rule = "ANY_ONE"
-
-    if smb_proxy is not None and inp.smb_id:
-        # SMB proxy path: flat result wrapped as PRIMARY
-        vault_result = await _fetch_via_proxy(smb_proxy, inp)
-        if vault_result.outcome != "FOUND":
+        # Step 1 — need embedding model first; fail fast if absent
+        if embedding_model is None:
+            log.warning(
+                "verify_signature.no_embedding_model",
+                instrument_id=inp.instrument_id,
+            )
             return SignatureActivityResult(
                 outcome="HUMAN_REVIEW",
-                miss_reason=vault_result.miss_reason,
-                degraded=vault_result.miss_reason == "SMB_PROXY_UNAVAILABLE",
+                miss_reason="MODEL_UNAVAILABLE",
+                degraded=True,
             )
-        specimens_by_sig = {"PRIMARY": vault_result.embeddings}
-        # ANY_ONE is the only sensible mandate for an SMB proxy result
-    else:
-        specimens_by_sig = await vault.get_specimens_by_signatory(
-            inp.account_number, inp.bank_id
-        )
-        mandate_rule = await vault.get_mandate_rule(inp.account_number, inp.bank_id)
 
-        if not specimens_by_sig:
-            if cbs_connector is not None:
-                specimens_by_sig, cbs_fallback_used = await _cbs_signatory_fallback(
-                    inp, vault, cbs_connector, embedding_model
+        # Step 2 — embed all detected ink signatures on the cheque
+        bboxes = inp.sig_bboxes if inp.sig_bboxes else [[]]  # empty → full image
+        cheque_vectors: list[list[float]] = []
+        for bbox in bboxes:
+            vec = await _embed_image(inp.signature_image_url, bbox, embedding_model, inp.bank_id)
+            if vec is not None:
+                cheque_vectors.append(vec)
+
+        if not cheque_vectors:
+            log.warning(
+                "verify_signature.all_crops_failed",
+                instrument_id=inp.instrument_id,
+                bbox_count=len(bboxes),
+            )
+            return SignatureActivityResult(
+                outcome="HUMAN_REVIEW",
+                miss_reason="MODEL_UNAVAILABLE",
+                degraded=True,
+            )
+
+        # Step 3 — load signatory specimens
+        cbs_fallback_used = False
+        mandate_rule = "ANY_ONE"
+
+        if smb_proxy is not None and inp.smb_id:
+            # SMB proxy path: flat result wrapped as PRIMARY
+            vault_result = await _fetch_via_proxy(smb_proxy, inp)
+            if vault_result.outcome != "FOUND":
+                return SignatureActivityResult(
+                    outcome="HUMAN_REVIEW",
+                    miss_reason=vault_result.miss_reason,
+                    degraded=vault_result.miss_reason == "SMB_PROXY_UNAVAILABLE",
+                )
+            specimens_by_sig = {"PRIMARY": vault_result.embeddings}
+            # ANY_ONE is the only sensible mandate for an SMB proxy result
+        else:
+            specimens_by_sig = await vault.get_specimens_by_signatory(
+                inp.account_number, inp.bank_id
+            )
+            mandate_rule = await vault.get_mandate_rule(inp.account_number, inp.bank_id)
+
+            if not specimens_by_sig:
+                if cbs_connector is not None:
+                    specimens_by_sig, cbs_fallback_used = await _cbs_signatory_fallback(
+                        inp, vault, cbs_connector, embedding_model
+                    )
+
+            if not specimens_by_sig:
+                log.info(
+                    "verify_signature.no_specimens",
+                    instrument_id=inp.instrument_id,
+                    account_last4=inp.account_number[-4:],
+                    cbs_fallback_used=cbs_fallback_used,
+                )
+                return SignatureActivityResult(
+                    outcome="HUMAN_REVIEW",
+                    miss_reason="NO_SIGNATURE_IN_VAULT",
+                    cbs_fallback_used=cbs_fallback_used,
+                    degraded=cbs_fallback_used,  # CBS was tried but empty/errored
                 )
 
-        if not specimens_by_sig:
-            log.info(
-                "verify_signature.no_specimens",
-                instrument_id=inp.instrument_id,
-                account_last4=inp.account_number[-4:],
-                cbs_fallback_used=cbs_fallback_used,
-            )
-            return SignatureActivityResult(
-                outcome="HUMAN_REVIEW",
-                miss_reason="NO_SIGNATURE_IN_VAULT",
-                cbs_fallback_used=cbs_fallback_used,
-                degraded=cbs_fallback_used,  # CBS was tried but empty/errored
-            )
+        # Step 4 — per-signatory match
+        # For each signatory: find the highest cosine score across
+        #   ALL their vault specimens × ALL detected ink sigs on the cheque.
+        per_signatory: list[SignatoryVerdict] = []
 
-    # Step 4 — per-signatory match
-    # For each signatory: find the highest cosine score across
-    #   ALL their vault specimens × ALL detected ink sigs on the cheque.
-    per_signatory: list[SignatoryVerdict] = []
+        for sig_id, specimens in specimens_by_sig.items():
+            if not specimens:
+                per_signatory.append(SignatoryVerdict(
+                    signatory_id=sig_id,
+                    best_score=0.0,
+                    specimen_index=None,
+                    verdict="NO_SPECIMENS",
+                ))
+                continue
 
-    for sig_id, specimens in specimens_by_sig.items():
-        if not specimens:
+            best_score = 0.0
+            best_spec_idx: Optional[int] = None
+
+            for spec_idx, spec_vec in enumerate(specimens):
+                for chq_vec in cheque_vectors:
+                    score = cosine_similarity(chq_vec, spec_vec)
+                    if score > best_score:
+                        best_score = score
+                        best_spec_idx = spec_idx
+
+            verdict = "MATCHED" if best_score >= min_match_score else "NO_MATCH"
             per_signatory.append(SignatoryVerdict(
                 signatory_id=sig_id,
-                best_score=0.0,
-                specimen_index=None,
-                verdict="NO_SPECIMENS",
+                best_score=round(best_score, 6),
+                specimen_index=best_spec_idx if verdict == "MATCHED" else None,
+                verdict=verdict,
             ))
-            continue
 
-        best_score = 0.0
-        best_spec_idx: Optional[int] = None
+        # Step 5 — mandate BRE
+        matched_count = sum(1 for r in per_signatory if r.verdict == "MATCHED")
+        total_count = len(per_signatory)
+        required = _mandate_required_count(mandate_rule, total_count)
+        overall_score = max((r.best_score for r in per_signatory), default=0.0)
 
-        for spec_idx, spec_vec in enumerate(specimens):
-            for chq_vec in cheque_vectors:
-                score = cosine_similarity(chq_vec, spec_vec)
-                if score > best_score:
-                    best_score = score
-                    best_spec_idx = spec_idx
+        log.info(
+            "verify_signature.result",
+            instrument_id=inp.instrument_id,
+            bank_id=inp.bank_id,
+            mandate_rule=mandate_rule,
+            signatories_total=total_count,
+            signatories_matched=matched_count,
+            signatories_required=required,
+            overall_score=overall_score,
+            detected_sigs=len(cheque_vectors),
+        )
 
-        verdict = "MATCHED" if best_score >= min_match_score else "NO_MATCH"
-        per_signatory.append(SignatoryVerdict(
-            signatory_id=sig_id,
-            best_score=round(best_score, 6),
-            specimen_index=best_spec_idx if verdict == "MATCHED" else None,
-            verdict=verdict,
-        ))
+        if matched_count < required:
+            return SignatureActivityResult(
+                outcome="HUMAN_REVIEW",
+                match_score=overall_score,
+                per_signatory=per_signatory,
+                mandate_rule=mandate_rule,
+                signatories_matched=matched_count,
+                signatories_required=required,
+                cbs_fallback_used=cbs_fallback_used,
+            )
 
-    # Step 5 — mandate BRE
-    matched_count = sum(1 for r in per_signatory if r.verdict == "MATCHED")
-    total_count = len(per_signatory)
-    required = _mandate_required_count(mandate_rule, total_count)
-    overall_score = max((r.best_score for r in per_signatory), default=0.0)
-
-    log.info(
-        "verify_signature.result",
-        instrument_id=inp.instrument_id,
-        bank_id=inp.bank_id,
-        mandate_rule=mandate_rule,
-        signatories_total=total_count,
-        signatories_matched=matched_count,
-        signatories_required=required,
-        overall_score=overall_score,
-        detected_sigs=len(cheque_vectors),
-    )
-
-    if matched_count < required:
         return SignatureActivityResult(
-            outcome="HUMAN_REVIEW",
+            outcome="PROCEED",
             match_score=overall_score,
             per_signatory=per_signatory,
             mandate_rule=mandate_rule,
@@ -474,13 +490,3 @@ async def verify_signature(
             signatories_required=required,
             cbs_fallback_used=cbs_fallback_used,
         )
-
-    return SignatureActivityResult(
-        outcome="PROCEED",
-        match_score=overall_score,
-        per_signatory=per_signatory,
-        mandate_rule=mandate_rule,
-        signatories_matched=matched_count,
-        signatories_required=required,
-        cbs_fallback_used=cbs_fallback_used,
-    )

@@ -24,6 +24,9 @@ from temporalio import activity
 from shared.config.config_service import config_service
 from modules.cts.preprocessing.payee_normalizer import payee_names_match
 
+from shared.observability.otel_setup import get_tracer
+tracer = get_tracer(__name__)
+
 PayeeDecision = Literal["MATCH", "FUZZY", "MISMATCH", "UNDECIDABLE"]
 OutwardSource = Literal["deposit_slip", "kiosk", "cheque_reverse"]
 
@@ -55,21 +58,24 @@ async def check_outward_payee(input: OutwardPayeeCheckInput) -> OutwardPayeeChec
     Threshold sourced from config_service — never hardcoded.
     Operates on OUTWARD side only (we are the presenting bank).
     """
-    cts_cfg = await config_service.get_cts_config(input.bank_id)
-    threshold: float = cts_cfg.get("payee_match_threshold", 0.82)
+    with tracer.start_as_current_span("activity.check_outward_payee") as span:
+        span.set_attribute("bank_id", input.bank_id)
+        span.set_attribute("instrument_id", input.instrument_id)
+        cts_cfg = await config_service.get_cts_config(input.bank_id)
+        threshold: float = cts_cfg.get("payee_match_threshold", 0.82)
 
-    match_result = payee_names_match(
-        ocr_name=input.ocr_payee_name,
-        cbs_name=input.cbs_account_holder_name,
-        threshold=threshold,
-        script=input.script,
-    )
+        match_result = payee_names_match(
+            ocr_name=input.ocr_payee_name,
+            cbs_name=input.cbs_account_holder_name,
+            threshold=threshold,
+            script=input.script,
+        )
 
-    return OutwardPayeeCheckResult(
-        decision=match_result.decision,
-        score=match_result.score,
-        normalized_ocr=match_result.normalized_ocr,
-        normalized_cbs=match_result.normalized_cbs,
-        instrument_id=input.instrument_id,
-        source=input.source,
-    )
+        return OutwardPayeeCheckResult(
+            decision=match_result.decision,
+            score=match_result.score,
+            normalized_ocr=match_result.normalized_ocr,
+            normalized_cbs=match_result.normalized_cbs,
+            instrument_id=input.instrument_id,
+            source=input.source,
+        )

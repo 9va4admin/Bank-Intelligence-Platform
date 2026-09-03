@@ -12,7 +12,10 @@ import structlog
 from pydantic import BaseModel, ConfigDict
 from temporalio import activity
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 
 # ── notify_representation_pending ─────────────────────────────────────────────
@@ -44,34 +47,37 @@ async def notify_representation_pending(
     Notifies ops team that the instrument needs to be fixed and re-presented.
     Degrades gracefully when dispatcher is unavailable.
     """
-    if dispatcher is None:
-        log.warning(
-            "notify_representation_pending.dispatcher_unavailable",
+    with tracer.start_as_current_span("activity.notify_representation_pending") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        if dispatcher is None:
+            log.warning(
+                "notify_representation_pending.dispatcher_unavailable",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                return_reason_code=inp.return_reason_code,
+            )
+            return NotifyRepresentationResult(notified=False, degraded=True)
+
+        await dispatcher.send(
+            channel="UI",
+            bank_id=inp.bank_id,
+            message_key="CTS_OUT_REPRESENTATION_PENDING",
+            variables={
+                "instrument_id": inp.instrument_id,
+                "return_reason_code": inp.return_reason_code,
+                "representation_window_hours": str(inp.representation_window_hours),
+            },
+        )
+
+        log.info(
+            "notify_representation_pending.complete",
             instrument_id=inp.instrument_id,
             bank_id=inp.bank_id,
             return_reason_code=inp.return_reason_code,
+            representation_window_hours=inp.representation_window_hours,
         )
-        return NotifyRepresentationResult(notified=False, degraded=True)
-
-    await dispatcher.send(
-        channel="UI",
-        bank_id=inp.bank_id,
-        message_key="CTS_OUT_REPRESENTATION_PENDING",
-        variables={
-            "instrument_id": inp.instrument_id,
-            "return_reason_code": inp.return_reason_code,
-            "representation_window_hours": str(inp.representation_window_hours),
-        },
-    )
-
-    log.info(
-        "notify_representation_pending.complete",
-        instrument_id=inp.instrument_id,
-        bank_id=inp.bank_id,
-        return_reason_code=inp.return_reason_code,
-        representation_window_hours=inp.representation_window_hours,
-    )
-    return NotifyRepresentationResult(notified=True, degraded=False)
+        return NotifyRepresentationResult(notified=True, degraded=False)
 
 
 # ── re_submit_to_ngch_for_representation ──────────────────────────────────────
@@ -104,29 +110,32 @@ async def re_submit_to_ngch_for_representation(
     Re-files the instrument to NGCH via the ngch_filer pathway.
     Degrades gracefully when ngch_client is unavailable.
     """
-    if ngch_client is None:
-        log.warning(
-            "re_submit_to_ngch_for_representation.ngch_unavailable",
+    with tracer.start_as_current_span("activity.re_submit_to_ngch_for_representation") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        if ngch_client is None:
+            log.warning(
+                "re_submit_to_ngch_for_representation.ngch_unavailable",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+            )
+            return ResubmitNgchResult(submitted=False, degraded=True)
+
+        ngch_reference = await ngch_client.submit_representation(
+            instrument_id=inp.instrument_id,
+            bank_ifsc=inp.bank_ifsc,
+            return_reason_code=inp.return_reason_code,
+            original_session_id=inp.original_session_id,
+        )
+
+        log.info(
+            "re_submit_to_ngch_for_representation.complete",
             instrument_id=inp.instrument_id,
             bank_id=inp.bank_id,
+            ngch_reference=ngch_reference,
         )
-        return ResubmitNgchResult(submitted=False, degraded=True)
-
-    ngch_reference = await ngch_client.submit_representation(
-        instrument_id=inp.instrument_id,
-        bank_ifsc=inp.bank_ifsc,
-        return_reason_code=inp.return_reason_code,
-        original_session_id=inp.original_session_id,
-    )
-
-    log.info(
-        "re_submit_to_ngch_for_representation.complete",
-        instrument_id=inp.instrument_id,
-        bank_id=inp.bank_id,
-        ngch_reference=ngch_reference,
-    )
-    return ResubmitNgchResult(
-        submitted=True,
-        ngch_reference=ngch_reference,
-        degraded=False,
-    )
+        return ResubmitNgchResult(
+            submitted=True,
+            ngch_reference=ngch_reference,
+            degraded=False,
+        )

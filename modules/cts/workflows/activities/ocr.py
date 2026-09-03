@@ -33,7 +33,10 @@ from modules.cts.sub_member.router import MICRPrefixRouter
 from modules.cts.workflows.activities.amount_words_parser import amounts_match
 from shared.ai.model_cascade import CascadeOrchestrator
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 
 class OCRActivityInput(BaseModel):
@@ -112,53 +115,56 @@ async def ocr_extract(
     Latin cheques: one GOT-OCR2 call, same latency as before.
     Indic cheques: one GOT-OCR2 call + targeted zone call(s) for Indic fields only.
     """
-    ai_config = await config_service.get_ai_config(inp.bank_id)
-    min_confidence: float = ai_config["ai.ocr.min_confidence"]
-    indic_ocr_url: str = ai_config.get("services.indic_ocr.url", "")
-    indic_min_confidence: float = float(ai_config.get("ai.ocr.min_indic_confidence", 0.60))
+    with tracer.start_as_current_span("activity.ocr_extract") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        ai_config = await config_service.get_ai_config(inp.bank_id)
+        min_confidence: float = ai_config["ai.ocr.min_confidence"]
+        indic_ocr_url: str = ai_config.get("services.indic_ocr.url", "")
+        indic_min_confidence: float = float(ai_config.get("ai.ocr.min_indic_confidence", 0.60))
 
-    # ── Stage 1: Full image → GOT-OCR2 ───────────────────────────────────────
-    raw = await _extract_got_ocr2(inp, orchestrator)
-    if raw is None:
-        return OCRActivityResult(
-            outcome="HUMAN_REVIEW", degraded=True,
-            low_confidence_reason="MODEL_UNAVAILABLE",
-            ocr_engines_used=["got-ocr2.0:unavailable"],
+        # ── Stage 1: Full image → GOT-OCR2 ───────────────────────────────────────
+        raw = await _extract_got_ocr2(inp, orchestrator)
+        if raw is None:
+            return OCRActivityResult(
+                outcome="HUMAN_REVIEW", degraded=True,
+                low_confidence_reason="MODEL_UNAVAILABLE",
+                ocr_engines_used=["got-ocr2.0:unavailable"],
+            )
+
+        fields, cascade_level = raw
+
+        engines_used = [f"got-ocr2.0:cascade-{cascade_level}"]
+
+        # ── IndicOCR kill switch ──────────────────────────────────────────────────
+        # Fail-open: missing / unreadable config key = NONE (do not block OCR).
+        indic_ks_active = False
+        try:
+            indic_ks_raw = await config_service.get("cts.indic_ocr.kill_mode")
+            if indic_ks_raw == "KC":
+                indic_ks_active = True
+                log.warning("ocr.indic_ocr_kill_switch_active",
+                            instrument_id=inp.instrument_id, bank_id=inp.bank_id)
+        except Exception:
+            pass
+
+        # ── Stage 2: Indic zone refinement (skipped when KC or URL absent) ───────
+        indic_refined: list[str] = []
+        if indic_ocr_url and not indic_ks_active:
+            indic_refined, indic_backend = await _refine_indic_zones(
+                inp, fields, indic_ocr_url, min_confidence, indic_min_confidence
+            )
+            if indic_refined:
+                engines_used.append(indic_backend)
+        elif indic_ks_active:
+            log.info("ocr.indic_stage2_skipped_kill_switch",
+                     instrument_id=inp.instrument_id, bank_id=inp.bank_id)
+
+        # ── Stage 3: Confidence gate + amount cross-check ─────────────────────────
+        return _build_result(
+            fields, min_confidence, cascade_level, indic_refined,
+            routing_table, inp, engines_used, indic_ks_active,
         )
-
-    fields, cascade_level = raw
-
-    engines_used = [f"got-ocr2.0:cascade-{cascade_level}"]
-
-    # ── IndicOCR kill switch ──────────────────────────────────────────────────
-    # Fail-open: missing / unreadable config key = NONE (do not block OCR).
-    indic_ks_active = False
-    try:
-        indic_ks_raw = await config_service.get("cts.indic_ocr.kill_mode")
-        if indic_ks_raw == "KC":
-            indic_ks_active = True
-            log.warning("ocr.indic_ocr_kill_switch_active",
-                        instrument_id=inp.instrument_id, bank_id=inp.bank_id)
-    except Exception:
-        pass
-
-    # ── Stage 2: Indic zone refinement (skipped when KC or URL absent) ───────
-    indic_refined: list[str] = []
-    if indic_ocr_url and not indic_ks_active:
-        indic_refined, indic_backend = await _refine_indic_zones(
-            inp, fields, indic_ocr_url, min_confidence, indic_min_confidence
-        )
-        if indic_refined:
-            engines_used.append(indic_backend)
-    elif indic_ks_active:
-        log.info("ocr.indic_stage2_skipped_kill_switch",
-                 instrument_id=inp.instrument_id, bank_id=inp.bank_id)
-
-    # ── Stage 3: Confidence gate + amount cross-check ─────────────────────────
-    return _build_result(
-        fields, min_confidence, cascade_level, indic_refined,
-        routing_table, inp, engines_used, indic_ks_active,
-    )
 
 
 # ── Stage 1 ───────────────────────────────────────────────────────────────────

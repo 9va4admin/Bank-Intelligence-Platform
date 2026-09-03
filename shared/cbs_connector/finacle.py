@@ -8,7 +8,7 @@ not yet implemented (finacle_soap.py) for banks still on Finacle 7.x.
 Status mapping from Finacle status strings → AccountStatus enum.
 """
 import base64
-from typing import Any
+from typing import Any, Optional
 
 import structlog
 
@@ -166,7 +166,9 @@ class FinacleCBSConnector(CBSConnector):
         inquiry_name: str,
         bank_id: str,
         name_match_threshold: float = 0.80,
+        high_confidence_threshold: Optional[float] = None,
     ) -> BeneficiaryValidationResult:
+        _high_conf = high_confidence_threshold if high_confidence_threshold is not None else 0.92
         _inactive = {AccountStatus.FROZEN, AccountStatus.CLOSED, AccountStatus.NPA, AccountStatus.DORMANT}
         try:
             # Finacle GET /accounts/{account_number} returns accountHolderName in the payload.
@@ -196,7 +198,7 @@ class FinacleCBSConnector(CBSConnector):
         holder_name: str = data.get("accountHolderName", "")
         score = self._name_match_score(inquiry_name, holder_name)
         display = self._payee_display(holder_name)
-        confidence = "HIGH" if score >= 0.92 else ("MEDIUM" if score >= 0.80 else "LOW")
+        confidence = "HIGH" if score >= _high_conf else ("MEDIUM" if score >= name_match_threshold else "LOW")
 
         if score < name_match_threshold:
             return BeneficiaryValidationResult(

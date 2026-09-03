@@ -204,8 +204,11 @@ async def _resolve_hf_base_url(bank_id: str) -> str:
         return await config_service.get_secret("demo.hf_base_url")
     except Exception:
         pass
-    import os
-    return os.environ.get("ASTRA_DEMO_HF_BASE_URL", _HF_BASE_URL_FALLBACK)
+    try:
+        return await config_service.get("demo.hf_base_url")
+    except Exception:
+        pass
+    return _HF_BASE_URL_FALLBACK
 
 
 async def _resolve_hf_token(bank_id: str) -> Optional[str]:
@@ -227,34 +230,39 @@ async def _resolve_hf_token(bank_id: str) -> Optional[str]:
     except Exception as exc:
         log.warning("demo.cloud_extract.vault_hf_token_unavailable", bank_id=bank_id, error=str(exc))
 
-    import os
-    env_token = os.environ.get("ASTRA_DEMO_HF_TOKEN")
-    if env_token:
-        log.info("demo.cloud_extract.using_env_hf_token_fallback", bank_id=bank_id)
-        return env_token
+    try:
+        return await config_service.get("demo.hf_token")
+    except Exception:
+        pass
     return None
 
 
 async def _resolve_sig_detector_url(bank_id: str) -> str:
-    """Config service → env var → localhost fallback."""
+    """Config service first, constant fallback last."""
     from shared.config.config_service import config_service
     try:
         return await config_service.get_secret("demo.sig_detector_url")
     except Exception:
         pass
-    import os
-    return os.environ.get("ASTRA_SIG_DETECTOR_URL", _SIG_DETECTOR_URL_FALLBACK)
+    try:
+        return await config_service.get("demo.sig_detector_url")
+    except Exception:
+        pass
+    return _SIG_DETECTOR_URL_FALLBACK
 
 
 async def _resolve_indic_ocr_url(bank_id: str) -> str:
-    """Config service → env var → localhost fallback."""
+    """Config service first, constant fallback last."""
     from shared.config.config_service import config_service
     try:
         return await config_service.get_secret("demo.indic_ocr_url")
     except Exception:
         pass
-    import os
-    return os.environ.get("ASTRA_INDIC_OCR_URL", _INDIC_OCR_URL_FALLBACK)
+    try:
+        return await config_service.get("demo.indic_ocr_url")
+    except Exception:
+        pass
+    return _INDIC_OCR_URL_FALLBACK
 
 
 async def _call_indic_ocr_zones(

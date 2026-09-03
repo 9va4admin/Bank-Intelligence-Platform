@@ -9,7 +9,7 @@ BaNCS status codes:
   I → DORMANT     N → NPA        D → DORMANT
 """
 import base64
-from typing import Any
+from typing import Any, Optional
 
 import structlog
 
@@ -172,7 +172,9 @@ class BaNCSCBSConnector(CBSConnector):
         inquiry_name: str,
         bank_id: str,
         name_match_threshold: float = 0.80,
+        high_confidence_threshold: Optional[float] = None,
     ) -> BeneficiaryValidationResult:
+        _high_conf = high_confidence_threshold if high_confidence_threshold is not None else 0.92
         _inactive = {AccountStatus.FROZEN, AccountStatus.CLOSED, AccountStatus.NPA, AccountStatus.DORMANT}
         try:
             # BaNCS GET /api/v1/accounts/{account_number}/details — returns custName field
@@ -199,7 +201,7 @@ class BaNCSCBSConnector(CBSConnector):
         holder_name: str = data.get("custName", "")
         score = self._name_match_score(inquiry_name, holder_name)
         display = self._payee_display(holder_name)
-        confidence = "HIGH" if score >= 0.92 else ("MEDIUM" if score >= 0.80 else "LOW")
+        confidence = "HIGH" if score >= _high_conf else ("MEDIUM" if score >= name_match_threshold else "LOW")
 
         if score < name_match_threshold:
             return BeneficiaryValidationResult(

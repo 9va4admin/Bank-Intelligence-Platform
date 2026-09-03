@@ -16,7 +16,10 @@ from temporalio import activity
 
 from modules.cts.kill_switch.vision_ai_kill_switch import VisionAIKillSwitch
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 
 class KillSwitchLookupInput(BaseModel):
@@ -44,17 +47,19 @@ async def get_kill_switch_status(
     defaults to NONE on a missing or unreadable config key, matching the
     documented "missing key = NONE" semantics in vision_ai_kill_switch.py.
     """
-    checker = VisionAIKillSwitch(config_service)
-    status = await checker.check(bank_id=inp.bank_id, smb_id=inp.smb_id)
-    log.info(
-        "kill_switch_lookup.resolved",
-        bank_id=inp.bank_id,
-        smb_id=inp.smb_id,
-        mode=status.mode.value,
-        scope=status.scope.value if status.scope else None,
-    )
-    return KillSwitchLookupResult(
-        mode=status.mode.value,
-        scope=status.scope.value if status.scope else None,
-        smb_id=status.smb_id,
-    )
+    with tracer.start_as_current_span("activity.get_kill_switch_status") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        checker = VisionAIKillSwitch(config_service)
+        status = await checker.check(bank_id=inp.bank_id, smb_id=inp.smb_id)
+        log.info(
+            "kill_switch_lookup.resolved",
+            bank_id=inp.bank_id,
+            smb_id=inp.smb_id,
+            mode=status.mode.value,
+            scope=status.scope.value if status.scope else None,
+        )
+        return KillSwitchLookupResult(
+            mode=status.mode.value,
+            scope=status.scope.value if status.scope else None,
+            smb_id=status.smb_id,
+        )
