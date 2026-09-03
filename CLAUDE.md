@@ -356,10 +356,9 @@ NEVER: silent failure | NEVER: IET breach | NEVER: duplicate NGCH filing
 **Completed:** Phases 1–15 (Foundation → CTS Core → Observability → Hardening → Multi-Scenario CTS → Auth Connectors → Smoke Tests → Security Remediation → Incident Management → Audit/Notification Gap Closure → TOTP/MFA + MSV → @workflow.defn/@activity.defn + DI gaps → ASTRA Ops Dashboard + alert engine → POC E2E + Federal Bank onboarding → `__astra-admin` platform super admin + `platform_admin` RBAC role → 9-script Indic transliteration + Malayalam Christian-name lexicon → automated OCR feedback loop: failure classifier + corpus accumulation + `FeedbackAccumulatorWorkflow` + `ModelRetrainWorkflow` → `FeedbackEmitWorkflow` wired into `ChequeProcessingWorkflow` (fire-and-forget child, every decision) → `persist_agent_decision` activity + `cts.agent_decisions` table + `GET /v1/cts/decisions` list endpoint + `CTSDecisionsLog` React page → HIGH-1 fix: `get_workflow_thresholds()` wired into `submit_inward_cheque`; `HumanReviewWorkflow` timeout now truly config-driven → 18K scale test 26 scenario classes + handwritten PIL + vault miss explicit routing in cheque_workflow + `GET /v1/cts/vault-gaps` + `CTSVaultGapReport.jsx` post-banking-hours enrollment report → outward workflow test fixed: `persist_mismatch_hold_db` + `resolve_mismatch_db` now registered in test worker)
 
 **Immediate Next (priority order):**
-1. **Wire AuthConnectorFactory into real login flow** — `dev_auth_server.py` + `main.py` bypass connectors entirely; SAML/LDAP hooks still raise `NotImplementedError` (deliberately deferred)
-2. **Pilot bank deployment** — validate `saraswat-coop` Helm values against real K8s cluster
-3. **NPCI API Modernisation Phase A** — trigger: NPCI concept note acceptance; see [docs/npci-readiness-plan.md](docs/npci-readiness-plan.md)
-4. **Security hardening** — OWASP ZAP + pen test prep
+1. **Pilot bank deployment** — validate `saraswat-coop` Helm values against real K8s cluster
+2. **NPCI API Modernisation Phase A** — trigger: NPCI concept note acceptance; see [docs/npci-readiness-plan.md](docs/npci-readiness-plan.md)
+3. **Security hardening** — OWASP ZAP + pen test prep
 
 **Open security findings:** All code-level findings closed as of `4b9a3e1` (2026-08-18). Closed in this sprint: token revocation JTI blocklist, login rate limiting, SSRF in MCP endpoint_url, FastAPI 422 schema disclosure, IDOR (403→404 on cross-bank schedule and cross-SMB MCP connection access). See `docs/astra-vapt-security-architecture.html` for the architecture reference package (DFD, network topology, threat model, port matrix).
 
