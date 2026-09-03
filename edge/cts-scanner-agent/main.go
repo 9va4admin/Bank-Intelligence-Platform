@@ -66,6 +66,9 @@ func main() {
 	// Non-blocking: a missed heartbeat logs a warning, never stops scanning.
 	go StartHeartbeatLoop(ctx, cfg, client, session, logger)
 
+	// Auto-feeder — scans as soon as a cheque is loaded; no /session/start required.
+	go session.StartAutoFeeder(ctx)
+
 	go func() {
 		logger.Info("scanner agent listening", "addr", cfg.ListenAddr)
 		if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
@@ -95,8 +98,8 @@ func registerHandlers(mux *http.ServeMux, session *ScanSession, logger *slog.Log
 		})
 	})
 
-	// POST /session/start — teller opens a clearing session
-	// Body: {"session_id": "..."}
+	// POST /session/start — force a new session (ops override; normally auto-started on paper detect).
+	// Body: {"session_id": "..."} — session_id is optional; auto-generated from date if omitted.
 	mux.HandleFunc("POST /session/start", func(w http.ResponseWriter, r *http.Request) {
 		if session.IsActive() {
 			http.Error(w, `{"error":"session already active"}`, http.StatusConflict)
@@ -105,13 +108,13 @@ func registerHandlers(mux *http.ServeMux, session *ScanSession, logger *slog.Log
 		var body struct {
 			SessionID string `json:"session_id"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.SessionID == "" {
-			http.Error(w, `{"error":"session_id required"}`, http.StatusBadRequest)
-			return
+		// Ignore decode error — body is entirely optional
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body.SessionID == "" {
+			body.SessionID = session.autoSessionID()
 		}
 
 		go func() {
-			// Run the scan loop in a goroutine — /session/stop will unblock it.
 			if err := session.Start(context.Background(), body.SessionID); err != nil {
 				logger.Error("scan session error", "session_id", body.SessionID, "error", err)
 			}

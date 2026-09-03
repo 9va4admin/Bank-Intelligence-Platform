@@ -64,6 +64,38 @@ func newScanSession(cfg *Config, transport Transport, client *ASTRAClient, logge
 	}
 }
 
+// autoSessionID generates today's session ID from config prefix.
+// Format: {prefix}-{YYYYMMDD}  — one session per calendar day.
+// If the agent restarts mid-day it reuses the same ID, which is fine:
+// uniqueness is at the scan_id level, not the session_id level.
+func (s *ScanSession) autoSessionID() string {
+	return fmt.Sprintf("%s-%s", s.cfg.SessionPrefix, time.Now().UTC().Format("20060102"))
+}
+
+// StartAutoFeeder runs for the lifetime of the process. It opens the scanner,
+// generates a date-based session ID, and starts scanning as soon as a cheque
+// is fed — no manual /session/start call required.
+//
+// On hardware error or scanner disconnect it retries every 10 seconds.
+// On ctx cancellation it exits cleanly.
+func (s *ScanSession) StartAutoFeeder(ctx context.Context) {
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+		sessionID := s.autoSessionID()
+		s.logger.Info("auto-feeder ready — load cheques into hopper", "session_id", sessionID)
+		if err := s.Start(ctx, sessionID); err != nil {
+			s.logger.Error("auto-feeder: session ended with error — retrying in 10s", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(10 * time.Second):
+		}
+	}
+}
+
 // Start opens the scanner, starts a job, and runs the scan loop until ctx is cancelled.
 // sessionID is the clearing session identifier provided by the teller UI.
 func (s *ScanSession) Start(ctx context.Context, sessionID string) error {
