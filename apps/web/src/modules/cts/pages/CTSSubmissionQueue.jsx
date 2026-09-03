@@ -2,7 +2,7 @@
  * CTSSubmissionQueue — Submission stage (Stage 3).
  * Cheque image visible in the detail panel via tabs: Front | Back | Pay-in Slip | Fields.
  */
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
@@ -11,6 +11,53 @@ import useDemoData from '../../../shared/hooks/useDemoData'
 import { getReasonByLabel, getReturnReasons } from '../data/returnReasons'
 import ChequeImageViewer from '../components/ChequeImageViewer'
 import { demoChequeUrl } from '../demoImages'
+
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+function useOutwardQueue({ pollEnabled }) {
+  const [items, setItems] = useState([])
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    if (!pollEnabled) return
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/outward/human-review-queue?limit=100`, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      setItems(json.items ?? [])
+    } catch { /* keep last */ }
+  }, [pollEnabled])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 30_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return items
+}
+
+function adaptQueueItem(d) {
+  const src = d.status === 'STP_RETURN' ? 'STP' : 'HUMAN_REVIEW'
+  return {
+    instrument_id: d.instrument_id,
+    drawee_bank: '—', drawee_branch: '—',
+    source_stage: src,
+    date: '—',
+    payee: d.payee_display ?? '—',
+    drawer_name: '—',
+    account_display: d.account_display ?? '—',
+    amount_figures: d.amount_range ?? '—',
+    amount_words: '—',
+    micr: '—',
+    alterations: false,
+    manual_fields: [],
+    iet_deadline: null,
+    lot_id: d.lot_id ?? '—',
+    status: d.status ?? 'HUMAN_REVIEW',
+    fraud_score: d.fraud_score ?? 0,
+    micr_confidence: d.ocr_confidence ?? 0.95,
+    checks: { cts_valid: true, date_valid: true, signature_present: true, amount_words_match: true },
+  }
+}
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -539,12 +586,25 @@ function isHV(inst, threshold = MOCK_HV_THRESHOLD_SQ) {
 
 export default function CTSSubmissionQueue({ mode = 'outward' }) {
   const { isDark } = useTheme()
+  const { isDemo } = useBankContext()
   const isInward = mode === 'inward'
   const BASE = useDemoData(isInward ? MOCK_INWARD : MOCK_OUTWARD)
+
+  const liveOutward = useOutwardQueue({ pollEnabled: !isInward && !isDemo })
+  const prevLiveRef = useRef([])
 
   const [instruments, setInstruments] = useState(BASE)
   const [selected, setSelected]       = useState(BASE[0]?.instrument_id ?? null)
   const [filter, setFilter]           = useState('ALL')
+
+  useEffect(() => {
+    if (!isInward && liveOutward.length > 0 && liveOutward !== prevLiveRef.current) {
+      prevLiveRef.current = liveOutward
+      const adapted = liveOutward.map(adaptQueueItem)
+      setInstruments(adapted)
+      setSelected(prev => adapted.find(i => i.instrument_id === prev) ? prev : adapted[0]?.instrument_id ?? null)
+    }
+  }, [liveOutward, isInward])
 
   const th = {
     page:    isDark ? 'bg-navy-950'       : 'bg-slate-50',

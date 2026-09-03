@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
+import { useTheme } from '../../../shared/theme/ThemeContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import useDemoData from '../../../shared/hooks/useDemoData'
 import useDemoInterval from '../../../shared/hooks/useDemoInterval'
@@ -377,7 +378,7 @@ function ChildPanel({ item, onClose, isException }) {
               <ChequeImageViewer
                 views={chqViews}
                 fields={chqFields}
-                isDark={true}
+                isDark={isDark}
                 compact={false}
                 title={item.id}
               />
@@ -793,7 +794,7 @@ function BatchSummaryBar({ confirmCount, returnCount, reviewCount, onClickStat }
 
 const _API_BASE_PV = import.meta.env.VITE_API_BASE ?? ''
 
-export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Bank' }) {
+export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Bank', isDark = true }) {
   const { isDemo } = useBankContext()
   const reviewDockSeed = useDemoData(MOCK_QUEUE)
   const exceptionsSeed = useDemoData(MOCK_EXCEPTIONS)
@@ -1190,9 +1191,10 @@ export function PipelineLiveBoard({ fullscreenMode = false, bankName = 'ASTRA Ba
 
 export default function CTSPipelineVisualizer() {
   const { bankId, bankName, bankIfsc, bankType, isSB, isSMB, isDemo } = useBankContext()
+  const { isDark } = useTheme()
   return (
     <AppShell>
-      <PipelineLiveBoard bankName={bankName} />
+      <PipelineLiveBoard bankName={bankName} isDark={isDark} />
     </AppShell>
   )
 }

@@ -41,6 +41,15 @@ router_v1 = APIRouter(prefix="/v1/cts", tags=["CTS v1"])
 
 _policy = RBACPolicy()
 
+# SQL row caps — named constants so the intent is explicit and auditable
+_VAULT_GAP_MAX_ROWS    = 2000  # post-hours vault-gap report; groups by account_last4
+_SCAN_LOG_MAX_ROWS     = 500   # per-session outward scan event log
+_ANALYTICS_TOP_N       = 10   # top-N IFSC analytics (intentional, not paginated)
+_SMB_REPORTS_MAX_ROWS  = 500   # per-SMB daily aggregate report
+_COMPLIANCE_MAX_ROWS   = 500   # outward CTS-2010 compliance checks per clearing day
+_NGCH_ROUTING_MAX_ROWS = 500   # NGCH routing rules per bank
+_MICR_PREFIX_MAX_ROWS  = 1000  # MICR prefix routing table
+
 
 # ---------------------------------------------------------------------------
 # Auth dependency
@@ -685,7 +694,7 @@ async def get_vault_gaps(
               AND d.decision_reason ILIKE '%NO_SIGNATURE_IN_VAULT%'
               AND d.created_at::date = $2::date
             ORDER BY i.account_last4, d.created_at ASC
-            LIMIT 2000
+            LIMIT {_VAULT_GAP_MAX_ROWS}
         """.strip()
 
         try:
@@ -4166,7 +4175,7 @@ async def get_scan_session_log(
               AND session_id = $2
               AND ($3::text IS NULL OR branch_id = $3)
             ORDER BY COALESCE(position_in_batch, 999999), created_at ASC
-            LIMIT 500
+            LIMIT {_SCAN_LOG_MAX_ROWS}
         """.strip()
         try:
             async with db_pool.acquire() as conn:
@@ -5678,7 +5687,7 @@ async def get_inward_analytics(
               AND ad.processing_started_at >= NOW() - ($2 * INTERVAL '1 day')
             GROUP BY ci.presenting_ifsc
             ORDER BY COUNT(*) DESC
-            LIMIT 10
+            LIMIT {_ANALYTICS_TOP_N}
             """,
             bank_id, days,
         )
@@ -7030,7 +7039,7 @@ async def get_smb_reports(
               AND ad.sub_member_id IS NOT NULL
             GROUP BY ad.sub_member_id, b.bank_name, b.bank_ifsc, ad.decided_at::date
             ORDER BY ad.decided_at::date DESC, b.bank_name
-            LIMIT 500
+            LIMIT {_SMB_REPORTS_MAX_ROWS}
             """,
             bank_id,
             str(days),
@@ -7396,7 +7405,7 @@ async def get_outward_compliance(
               AND cc.occurred_at::date = CURRENT_DATE
               {result_clause}
             ORDER BY cc.result DESC, cc.occurred_at DESC
-            LIMIT 500
+            LIMIT {_COMPLIANCE_MAX_ROWS}
             """,
             *params,
         )
@@ -7482,7 +7491,7 @@ async def get_ngch_routing(
             FROM cts.ngch_routing_rules
             WHERE bank_id = $1
             ORDER BY priority, micr_prefix
-            LIMIT 500
+            LIMIT {_NGCH_ROUTING_MAX_ROWS}
             """,
             bank_id,
         )
@@ -7552,7 +7561,7 @@ async def get_micr_prefixes(
             WHERE bank_id = $1
               {search_clause}
             ORDER BY micr_prefix
-            LIMIT 1000
+            LIMIT {_MICR_PREFIX_MAX_ROWS}
             """,
             *params,
         )

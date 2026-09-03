@@ -264,7 +264,10 @@ async def create_config(
                         now, current_user["user_id"],
                     )
                     row = await conn.fetchrow(
-                        "SELECT * FROM cts.scanner_configs WHERE scanner_config_id = $1", config_id
+                        "SELECT scanner_config_id, bank_id, branch_id, branch_ifsc, scanner_oem, scanner_model, "
+                        "output_format, date_format, amount_format, field_mapping, image_naming_pattern, "
+                        "image_side_mapping, drop_folder_path, is_active, created_at, updated_at, created_by "
+                        "FROM cts.scanner_configs WHERE scanner_config_id = $1", config_id
                     )
             except HTTPException:
                 raise
@@ -393,7 +396,10 @@ async def update_config(
                             *params,
                         )
                     row = await conn.fetchrow(
-                        "SELECT * FROM cts.scanner_configs WHERE scanner_config_id = $1", config_id
+                        "SELECT scanner_config_id, bank_id, branch_id, branch_ifsc, scanner_oem, scanner_model, "
+                        "output_format, date_format, amount_format, field_mapping, image_naming_pattern, "
+                        "image_side_mapping, drop_folder_path, is_active, created_at, updated_at, created_by "
+                        "FROM cts.scanner_configs WHERE scanner_config_id = $1", config_id
                     )
             except HTTPException:
                 raise
@@ -460,7 +466,10 @@ async def delete_config(
                         config_id, datetime.now(timezone.utc),
                     )
                     row = await conn.fetchrow(
-                        "SELECT * FROM cts.scanner_configs WHERE scanner_config_id = $1", config_id
+                        "SELECT scanner_config_id, bank_id, branch_id, branch_ifsc, scanner_oem, scanner_model, "
+                        "output_format, date_format, amount_format, field_mapping, image_naming_pattern, "
+                        "image_side_mapping, drop_folder_path, is_active, created_at, updated_at, created_by "
+                        "FROM cts.scanner_configs WHERE scanner_config_id = $1", config_id
                     )
             except HTTPException:
                 raise
