@@ -58,23 +58,27 @@ package main
 #define CSD_TIMEOUT     35
 
 // --- CSD parameter IDs (from CsdScan.h) ---
+#define CSDP_WIDTH            1
+#define CSDP_LENGTH           2
 #define CSDP_FEEDER           3
-#define CSDP_MODE            22
 #define CSDP_XRESOLUTION      6
 #define CSDP_YRESOLUTION      7
+#define CSDP_MODE            22
+#define CSDP_IMPRINTER       60
+#define CSDP_IMPSTRING       62
 #define CSDP_MICR           131
 #define CSDP_MICRDATALEN    132
 #define CSDP_MICRDATA       133
 #define CSDP_MICR_FONT      170
 #define CSDP_DBLFEEDUSS     174
-#define CSDP_IMPRINTER       60
-#define CSDP_IMPSTRING       62
 #define CSDP_IMPCHARFONT    225
 #define CSDP_IMPDYNAMIC     325
 #define CSDP_IQA_BRIGHTNESS 355
 #define CSDP_IQA_BRIGHTNESS_RESULT 356
-#define CSDP_MOCR           367
 #define CSDP_DBLFEEDSTATUS  366
+#define CSDP_MOCR           367
+#define CSDP_MAXWIDTH       105
+#define CSDP_MAXLENGTH      106
 
 // --- CSD parameter values ---
 #define CSD_FEEDER_DUPLEX              1
@@ -363,6 +367,24 @@ func (t *CanonTransport) StartJob(endorsementText string, enableImprinter bool) 
 	// DPI — NPCI guideline default is 300; CTS-2010 minimum is 200 (override via scan_dpi in config.ini).
 	C.astra_par_set_long(C.CSDP_XRESOLUTION, C.LONG(t.cfg.ScanDPI))
 	C.astra_par_set_long(C.CSDP_YRESOLUTION, C.LONG(t.cfg.ScanDPI))
+
+	// Scan area — read scanner's maximum supported dimensions and set them as the
+	// active scan window. Without this the driver uses a default crop area that
+	// cuts the cheque. Units are scanner-native (1/1200-inch dots on CR-120/150);
+	// we pass back whatever the scanner reports so this is model-agnostic.
+	var maxW, maxL C.LONG
+	if C.astra_par_get_long(C.CSDP_MAXWIDTH, &maxW) == C.INT32(csdOK) && maxW > 0 {
+		C.astra_par_set_long(C.CSDP_WIDTH, maxW)
+		t.logger.Info("scan area width set to scanner max", "dots", int32(maxW))
+	} else {
+		t.logger.Warn("could not read CSDP_MAXWIDTH — using driver default (image may be cropped)")
+	}
+	if C.astra_par_get_long(C.CSDP_MAXLENGTH, &maxL) == C.INT32(csdOK) && maxL > 0 {
+		C.astra_par_set_long(C.CSDP_LENGTH, maxL)
+		t.logger.Info("scan area length set to scanner max", "dots", int32(maxL))
+	} else {
+		t.logger.Warn("could not read CSDP_MAXLENGTH — using driver default (image may be cropped)")
+	}
 
 	// MICR: enable hardware reader, E13B font (Indian CTS-2010 standard).
 	if ret := C.astra_par_set_long(C.CSDP_MICR, 1); int32(ret) != csdOK {
