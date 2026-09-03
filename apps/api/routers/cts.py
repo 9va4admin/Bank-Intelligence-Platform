@@ -13,7 +13,7 @@ No business logic — delegates to Temporal workflow client.
 import re
 import time
 from datetime import date, datetime, timezone
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 _TEMPORAL_PARAM_RE = re.compile(r'^[a-zA-Z0-9\-_]{1,64}$')
 
