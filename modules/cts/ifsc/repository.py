@@ -118,9 +118,9 @@ class IFSCRepository:
         return _row_to_entry(row) if row else None
 
     async def get_ifsc_by_id(self, entry_id: str) -> Optional[IFSCEntry]:
-        query = "SELECT id, bank_id, bank_type, smb_id, ifsc_code, branch_name, branch_city,
+        query = """SELECT id, bank_id, bank_type, smb_id, ifsc_code, branch_name, branch_city,
                        micr_code, is_active, effective_from, effective_till, status,
-                       created_by, approved_by FROM cts.ifsc_registry WHERE id = $1 LIMIT 1"
+                       created_by, approved_by FROM cts.ifsc_registry WHERE id = $1 LIMIT 1"""
         row = await self._db.fetchrow(query, entry_id)
         return _row_to_entry(row) if row else None
 
