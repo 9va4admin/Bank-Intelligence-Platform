@@ -14,7 +14,10 @@ import structlog
 from pydantic import BaseModel, ConfigDict
 from temporalio import activity
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -50,36 +53,38 @@ async def build_ngch_file(
     lot_store is DI-injected. Falls back to a stub path when unavailable
     (submission will still be attempted — NGCH will reject if file is bad).
     """
-    if lot_store is None:
-        log.warning(
-            "build_ngch_file.lot_store_unavailable",
+    with tracer.start_as_current_span("activity.build_ngch_file") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if lot_store is None:
+            log.warning(
+                "build_ngch_file.lot_store_unavailable",
+                lot_number=inp.lot_number,
+                bank_id=inp.bank_id,
+            )
+            return BuildNGCHFileResult(
+                file_path=f"cts/ngch/{inp.bank_id}/{inp.lot_number}/ngch_file.xml",
+                checksum_sha256="unavailable",
+                instrument_count=inp.instrument_count,
+            )
+
+        file_path, checksum = await lot_store.build_ngch_file(
             lot_number=inp.lot_number,
             bank_id=inp.bank_id,
+            bank_ifsc=inp.bank_ifsc,
+            session_id=inp.session_id,
+            clearing_date=inp.clearing_date,
+        )
+        log.info(
+            "build_ngch_file.built",
+            lot_number=inp.lot_number,
+            bank_id=inp.bank_id,
+            file_path=file_path,
         )
         return BuildNGCHFileResult(
-            file_path=f"cts/ngch/{inp.bank_id}/{inp.lot_number}/ngch_file.xml",
-            checksum_sha256="unavailable",
+            file_path=file_path,
+            checksum_sha256=checksum,
             instrument_count=inp.instrument_count,
         )
-
-    file_path, checksum = await lot_store.build_ngch_file(
-        lot_number=inp.lot_number,
-        bank_id=inp.bank_id,
-        bank_ifsc=inp.bank_ifsc,
-        session_id=inp.session_id,
-        clearing_date=inp.clearing_date,
-    )
-    log.info(
-        "build_ngch_file.built",
-        lot_number=inp.lot_number,
-        bank_id=inp.bank_id,
-        file_path=file_path,
-    )
-    return BuildNGCHFileResult(
-        file_path=file_path,
-        checksum_sha256=checksum,
-        instrument_count=inp.instrument_count,
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -112,39 +117,41 @@ async def submit_to_ngch(
     Submits the NGCH file via the ngch_adapter MCP tool.
     ngch_client is injected at worker startup.
     """
-    if ngch_client is None:
-        log.warning(
-            "submit_to_ngch.ngch_client_unavailable",
-            lot_number=inp.lot_number,
-            bank_id=inp.bank_id,
-        )
-        return SubmitToNGCHResult(
-            submitted=False,
-            failure_reason="NGCH_CLIENT_UNAVAILABLE",
-        )
+    with tracer.start_as_current_span("activity.submit_to_ngch") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if ngch_client is None:
+            log.warning(
+                "submit_to_ngch.ngch_client_unavailable",
+                lot_number=inp.lot_number,
+                bank_id=inp.bank_id,
+            )
+            return SubmitToNGCHResult(
+                submitted=False,
+                failure_reason="NGCH_CLIENT_UNAVAILABLE",
+            )
 
-    try:
-        ref = await ngch_client.submit_outward_lot(
-            bank_ifsc=inp.bank_ifsc,
-            lot_number=inp.lot_number,
-            file_path=inp.file_path,
-            checksum=inp.checksum_sha256,
-        )
-        log.info(
-            "submit_to_ngch.submitted",
-            lot_number=inp.lot_number,
-            bank_id=inp.bank_id,
-            ngch_reference=ref,
-        )
-        return SubmitToNGCHResult(submitted=True, ngch_reference=ref)
-    except Exception as exc:
-        log.error(
-            "submit_to_ngch.failed",
-            lot_number=inp.lot_number,
-            bank_id=inp.bank_id,
-            error=str(exc),
-        )
-        return SubmitToNGCHResult(submitted=False, failure_reason=str(exc)[:200])
+        try:
+            ref = await ngch_client.submit_outward_lot(
+                bank_ifsc=inp.bank_ifsc,
+                lot_number=inp.lot_number,
+                file_path=inp.file_path,
+                checksum=inp.checksum_sha256,
+            )
+            log.info(
+                "submit_to_ngch.submitted",
+                lot_number=inp.lot_number,
+                bank_id=inp.bank_id,
+                ngch_reference=ref,
+            )
+            return SubmitToNGCHResult(submitted=True, ngch_reference=ref)
+        except Exception as exc:
+            log.error(
+                "submit_to_ngch.failed",
+                lot_number=inp.lot_number,
+                bank_id=inp.bank_id,
+                error=str(exc),
+            )
+            return SubmitToNGCHResult(submitted=False, failure_reason=str(exc)[:200])
 
 
 # ---------------------------------------------------------------------------
@@ -174,46 +181,48 @@ async def confirm_acknowledgement(
     Polls NGCH for acknowledgement of the submitted lot.
     If ngch_reference is None (submission failed), returns not-acknowledged immediately.
     """
-    if inp.ngch_reference is None:
-        return ConfirmAcknowledgementResult(
-            acknowledged=False,
-            reason="NO_NGCH_REFERENCE",
-        )
+    with tracer.start_as_current_span("activity.confirm_acknowledgement") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if inp.ngch_reference is None:
+            return ConfirmAcknowledgementResult(
+                acknowledged=False,
+                reason="NO_NGCH_REFERENCE",
+            )
 
-    if ngch_client is None:
-        log.warning(
-            "confirm_acknowledgement.ngch_client_unavailable",
-            lot_number=inp.lot_number,
-            bank_id=inp.bank_id,
-        )
-        return ConfirmAcknowledgementResult(
-            acknowledged=False,
-            reason="NGCH_CLIENT_UNAVAILABLE",
-        )
+        if ngch_client is None:
+            log.warning(
+                "confirm_acknowledgement.ngch_client_unavailable",
+                lot_number=inp.lot_number,
+                bank_id=inp.bank_id,
+            )
+            return ConfirmAcknowledgementResult(
+                acknowledged=False,
+                reason="NGCH_CLIENT_UNAVAILABLE",
+            )
 
-    try:
-        ack = await ngch_client.query_status(reference=inp.ngch_reference)
-        acknowledged = getattr(ack, "acknowledged", False)
-        log.info(
-            "confirm_acknowledgement.result",
-            lot_number=inp.lot_number,
-            bank_id=inp.bank_id,
-            acknowledged=acknowledged,
-            reference=inp.ngch_reference,
-        )
-        return ConfirmAcknowledgementResult(
-            acknowledged=acknowledged,
-            reference_number=inp.ngch_reference,
-            reason=None if acknowledged else getattr(ack, "reason", "NGCH_REJECTED"),
-        )
-    except Exception as exc:
-        log.error(
-            "confirm_acknowledgement.error",
-            lot_number=inp.lot_number,
-            bank_id=inp.bank_id,
-            error=str(exc),
-        )
-        return ConfirmAcknowledgementResult(
-            acknowledged=False,
-            reason=str(exc)[:200],
-        )
+        try:
+            ack = await ngch_client.query_status(reference=inp.ngch_reference)
+            acknowledged = getattr(ack, "acknowledged", False)
+            log.info(
+                "confirm_acknowledgement.result",
+                lot_number=inp.lot_number,
+                bank_id=inp.bank_id,
+                acknowledged=acknowledged,
+                reference=inp.ngch_reference,
+            )
+            return ConfirmAcknowledgementResult(
+                acknowledged=acknowledged,
+                reference_number=inp.ngch_reference,
+                reason=None if acknowledged else getattr(ack, "reason", "NGCH_REJECTED"),
+            )
+        except Exception as exc:
+            log.error(
+                "confirm_acknowledgement.error",
+                lot_number=inp.lot_number,
+                bank_id=inp.bank_id,
+                error=str(exc),
+            )
+            return ConfirmAcknowledgementResult(
+                acknowledged=False,
+                reason=str(exc)[:200],
+            )

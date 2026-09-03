@@ -21,7 +21,10 @@ from temporalio import activity
 
 from shared.incidents.signal import emit_incident_signal
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 _VALID_EVENT_TYPES = {
     # Aligned with shared/messages/locales/messages.yaml — the single source
@@ -94,74 +97,77 @@ async def write_audit(
     When hsm is provided, signs the canonical event bytes and stores the hex
     signature as _hsm_signature in the payload.
     """
-    # Degrade gracefully when Immudb is unavailable (dev/POC mode — no container).
-    # In production this path is never reached: immudb_client is always wired.
-    if immudb_client is None:
-        log.warning(
-            "write_audit.immudb_unavailable_skipped",
-            event_type=inp.event_type,
-            instrument_id=inp.instrument_id,
-            bank_id=inp.bank_id,
-        )
-        return WriteAuditResult(success=False, immudb_tx_id=None)
-
-    if inp.event_type not in _VALID_EVENT_TYPES:
-        log.warning(
-            "write_audit.unknown_event_type",
-            event_type=inp.event_type,
-            instrument_id=inp.instrument_id,
-            bank_id=inp.bank_id,
-        )
-
-    payload_to_store = dict(inp.payload)
-
-    if hsm is not None:
-        canonical = json.dumps({
-            "event_type": inp.event_type,
-            "bank_id": inp.bank_id,
-            "instrument_id": inp.instrument_id,
-            "payload": inp.payload,
-        }, sort_keys=True, default=str).encode()
-        try:
-            sig_bytes = hsm.sign(canonical)
-            payload_to_store["_hsm_signature"] = sig_bytes.hex()
-            log.info("write_audit.hsm_signed", bank_id=inp.bank_id, event_type=inp.event_type)
-        except Exception as exc:
+    with tracer.start_as_current_span("activity.write_audit") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        # Degrade gracefully when Immudb is unavailable (dev/POC mode — no container).
+        # In production this path is never reached: immudb_client is always wired.
+        if immudb_client is None:
             log.warning(
-                "write_audit.hsm_sign_failed",
-                bank_id=inp.bank_id,
+                "write_audit.immudb_unavailable_skipped",
                 event_type=inp.event_type,
-                error=str(exc),
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+            )
+            return WriteAuditResult(success=False, immudb_tx_id=None)
+
+        if inp.event_type not in _VALID_EVENT_TYPES:
+            log.warning(
+                "write_audit.unknown_event_type",
+                event_type=inp.event_type,
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
             )
 
-    try:
-        tx_id = await immudb_client.write(
-            collection=f"cts_{inp.bank_id}",
-            event_type=inp.event_type,
-            bank_id=inp.bank_id,
-            instrument_id=inp.instrument_id,
-            payload=payload_to_store,
-        )
-    except Exception as exc:
-        log.error(
-            "write_audit.immudb_error",
-            event_type=inp.event_type,
-            instrument_id=inp.instrument_id,
-            bank_id=inp.bank_id,
-            error=str(exc),
-        )
-        # The audit pipeline itself just failed — a P0 safety-boundary signal
-        # in its own right (see docs/astra-incident-management-plan §08),
-        # independent of whatever event_type failed to get written.
-        emit_incident_signal("PLATFORM_AUDIT_WRITE_FAILED", bank_id=inp.bank_id)
-        raise   # re-raise so Temporal retries with AUDIT_RETRY policy
+        payload_to_store = dict(inp.payload)
 
-    log.info(
-        "write_audit.written",
-        event_type=inp.event_type,
-        instrument_id=inp.instrument_id,
-        bank_id=inp.bank_id,
-        immudb_tx_id=tx_id,
-    )
-    emit_incident_signal(inp.event_type, bank_id=inp.bank_id)
-    return WriteAuditResult(success=True, immudb_tx_id=tx_id)
+        if hsm is not None:
+            canonical = json.dumps({
+                "event_type": inp.event_type,
+                "bank_id": inp.bank_id,
+                "instrument_id": inp.instrument_id,
+                "payload": inp.payload,
+            }, sort_keys=True, default=str).encode()
+            try:
+                sig_bytes = hsm.sign(canonical)
+                payload_to_store["_hsm_signature"] = sig_bytes.hex()
+                log.info("write_audit.hsm_signed", bank_id=inp.bank_id, event_type=inp.event_type)
+            except Exception as exc:
+                log.warning(
+                    "write_audit.hsm_sign_failed",
+                    bank_id=inp.bank_id,
+                    event_type=inp.event_type,
+                    error=str(exc),
+                )
+
+        try:
+            tx_id = await immudb_client.write(
+                collection=f"cts_{inp.bank_id}",
+                event_type=inp.event_type,
+                bank_id=inp.bank_id,
+                instrument_id=inp.instrument_id,
+                payload=payload_to_store,
+            )
+        except Exception as exc:
+            log.error(
+                "write_audit.immudb_error",
+                event_type=inp.event_type,
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                error=str(exc),
+            )
+            # The audit pipeline itself just failed — a P0 safety-boundary signal
+            # in its own right (see docs/astra-incident-management-plan §08),
+            # independent of whatever event_type failed to get written.
+            emit_incident_signal("PLATFORM_AUDIT_WRITE_FAILED", bank_id=inp.bank_id)
+            raise   # re-raise so Temporal retries with AUDIT_RETRY policy
+
+        log.info(
+            "write_audit.written",
+            event_type=inp.event_type,
+            instrument_id=inp.instrument_id,
+            bank_id=inp.bank_id,
+            immudb_tx_id=tx_id,
+        )
+        emit_incident_signal(inp.event_type, bank_id=inp.bank_id)
+        return WriteAuditResult(success=True, immudb_tx_id=tx_id)

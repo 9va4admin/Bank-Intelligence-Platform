@@ -27,7 +27,10 @@ import structlog
 from pydantic import BaseModel, ConfigDict
 from temporalio import activity
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 
 class IFSCValidatorInput(BaseModel):
@@ -56,80 +59,83 @@ async def validate_ifsc(
 
     Never raises — degrades to HUMAN_REVIEW on any infrastructure failure.
     """
-    if repo is None:
-        log.warning(
-            "ifsc_validator.no_repo",
-            instrument_id=inp.instrument_id,
-            bank_id=inp.bank_id,
-        )
-        return IFSCValidatorResult(
-            outcome="HUMAN_REVIEW",
-            reason="IFSC_REGISTRY_UNAVAILABLE",
-            degraded=True,
-        )
+    with tracer.start_as_current_span("activity.validate_ifsc") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        span.set_attribute("instrument_id", inp.instrument_id)
+        if repo is None:
+            log.warning(
+                "ifsc_validator.no_repo",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+            )
+            return IFSCValidatorResult(
+                outcome="HUMAN_REVIEW",
+                reason="IFSC_REGISTRY_UNAVAILABLE",
+                degraded=True,
+            )
 
-    try:
-        entry = await repo.lookup_ifsc(
-            inp.bank_id,
-            inp.ifsc_to_validate,
-            smb_id=inp.smb_id,
-            active_only=False,  # fetch any status so we can give a specific reason
-        )
-    except Exception as exc:
-        log.warning(
-            "ifsc_validator.registry_error",
-            instrument_id=inp.instrument_id,
-            bank_id=inp.bank_id,
-            error=str(exc),
-        )
-        return IFSCValidatorResult(
-            outcome="HUMAN_REVIEW",
-            reason="IFSC_REGISTRY_UNAVAILABLE",
-            degraded=True,
-        )
+        try:
+            entry = await repo.lookup_ifsc(
+                inp.bank_id,
+                inp.ifsc_to_validate,
+                smb_id=inp.smb_id,
+                active_only=False,  # fetch any status so we can give a specific reason
+            )
+        except Exception as exc:
+            log.warning(
+                "ifsc_validator.registry_error",
+                instrument_id=inp.instrument_id,
+                bank_id=inp.bank_id,
+                error=str(exc),
+            )
+            return IFSCValidatorResult(
+                outcome="HUMAN_REVIEW",
+                reason="IFSC_REGISTRY_UNAVAILABLE",
+                degraded=True,
+            )
 
-    if entry is None:
+        if entry is None:
+            log.info(
+                "ifsc_validator.not_found",
+                instrument_id=inp.instrument_id,
+                ifsc=inp.ifsc_to_validate,
+                bank_id=inp.bank_id,
+            )
+            return IFSCValidatorResult(
+                outcome="HUMAN_REVIEW",
+                reason="IFSC_NOT_IN_REGISTRY",
+                return_reason_code="36",  # URRBCH 36: WRONGLY_DELIVERED
+            )
+
+        if entry.status == "PENDING":
+            log.info(
+                "ifsc_validator.pending_entry",
+                instrument_id=inp.instrument_id,
+                ifsc=inp.ifsc_to_validate,
+                bank_id=inp.bank_id,
+            )
+            return IFSCValidatorResult(
+                outcome="HUMAN_REVIEW",
+                reason="IFSC_NOT_YET_APPROVED",
+            )
+
+        if entry.status == "INACTIVE" or not entry.is_active:
+            log.info(
+                "ifsc_validator.inactive_branch",
+                instrument_id=inp.instrument_id,
+                ifsc=inp.ifsc_to_validate,
+                bank_id=inp.bank_id,
+            )
+            return IFSCValidatorResult(
+                outcome="HUMAN_REVIEW",
+                reason="IFSC_BRANCH_INACTIVE",
+            )
+
         log.info(
-            "ifsc_validator.not_found",
+            "ifsc_validator.verified",
             instrument_id=inp.instrument_id,
             ifsc=inp.ifsc_to_validate,
             bank_id=inp.bank_id,
+            bank_type=entry.bank_type,
         )
-        return IFSCValidatorResult(
-            outcome="HUMAN_REVIEW",
-            reason="IFSC_NOT_IN_REGISTRY",
-            return_reason_code="36",  # URRBCH 36: WRONGLY_DELIVERED
-        )
-
-    if entry.status == "PENDING":
-        log.info(
-            "ifsc_validator.pending_entry",
-            instrument_id=inp.instrument_id,
-            ifsc=inp.ifsc_to_validate,
-            bank_id=inp.bank_id,
-        )
-        return IFSCValidatorResult(
-            outcome="HUMAN_REVIEW",
-            reason="IFSC_NOT_YET_APPROVED",
-        )
-
-    if entry.status == "INACTIVE" or not entry.is_active:
-        log.info(
-            "ifsc_validator.inactive_branch",
-            instrument_id=inp.instrument_id,
-            ifsc=inp.ifsc_to_validate,
-            bank_id=inp.bank_id,
-        )
-        return IFSCValidatorResult(
-            outcome="HUMAN_REVIEW",
-            reason="IFSC_BRANCH_INACTIVE",
-        )
-
-    log.info(
-        "ifsc_validator.verified",
-        instrument_id=inp.instrument_id,
-        ifsc=inp.ifsc_to_validate,
-        bank_id=inp.bank_id,
-        bank_type=entry.bank_type,
-    )
-    return IFSCValidatorResult(outcome="PROCEED")
+        return IFSCValidatorResult(outcome="PROCEED")

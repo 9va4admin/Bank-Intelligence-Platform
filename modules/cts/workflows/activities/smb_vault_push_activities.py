@@ -16,7 +16,10 @@ import structlog
 from pydantic import BaseModel, ConfigDict
 from temporalio import activity
 
+from shared.observability.otel_setup import get_tracer
+
 log = structlog.get_logger()
+tracer = get_tracer(__name__)
 
 
 # ── parse_and_validate_smb_push ───────────────────────────────────────────────
@@ -54,83 +57,85 @@ async def parse_and_validate_smb_push(
 
     Degrades gracefully when db_pool is None.
     """
-    if db_pool is None:
-        log.warning(
-            "parse_and_validate_smb_push.db_unavailable",
-            agency_id=inp.agency_id,
-            smb_id=inp.smb_id,
-            file_hash=inp.file_hash,
-        )
-        return ParseSMBPushResult(error="DB_UNAVAILABLE")
-
-    async with db_pool.acquire() as conn:
-        existing = await conn.fetchrow(
-            "SELECT file_hash FROM cts.smb_push_sessions WHERE file_hash = $1 AND smb_id = $2",
-            inp.file_hash,
-            inp.smb_id,
-        )
-        if existing:
-            log.info(
-                "parse_and_validate_smb_push.duplicate",
+    with tracer.start_as_current_span("activity.parse_and_validate_smb_push") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if db_pool is None:
+            log.warning(
+                "parse_and_validate_smb_push.db_unavailable",
                 agency_id=inp.agency_id,
                 smb_id=inp.smb_id,
                 file_hash=inp.file_hash,
             )
-            return ParseSMBPushResult(duplicate=True)
+            return ParseSMBPushResult(error="DB_UNAVAILABLE")
 
-    try:
-        import pathlib
+        async with db_pool.acquire() as conn:
+            existing = await conn.fetchrow(
+                "SELECT file_hash FROM cts.smb_push_sessions WHERE file_hash = $1 AND smb_id = $2",
+                inp.file_hash,
+                inp.smb_id,
+            )
+            if existing:
+                log.info(
+                    "parse_and_validate_smb_push.duplicate",
+                    agency_id=inp.agency_id,
+                    smb_id=inp.smb_id,
+                    file_hash=inp.file_hash,
+                )
+                return ParseSMBPushResult(duplicate=True)
 
-        from shared.config.config_service import config_service
-        pepper = config_service.get_secret(f"banks.{inp.bank_id}.pii_hash_pepper")
+        try:
+            import pathlib
 
-        path = pathlib.Path(inp.file_path)
-        if not path.exists():
-            raise FileNotFoundError(f"SMB push file not found: {inp.file_path}")
+            from shared.config.config_service import config_service
+            pepper = config_service.get_secret(f"banks.{inp.bank_id}.pii_hash_pepper")
 
-        from modules.cts.smb_ingest.parser import SMBPushParser
+            path = pathlib.Path(inp.file_path)
+            if not path.exists():
+                raise FileNotFoundError(f"SMB push file not found: {inp.file_path}")
 
-        parser = SMBPushParser(
-            file_type=inp.file_type,
-            smb_id=inp.smb_id,
-            bank_id=inp.bank_id,
-            pepper=pepper,
-        )
-        records = parser.parse(path.read_bytes())
-    except Exception as exc:
-        log.error(
-            "parse_and_validate_smb_push.error",
+            from modules.cts.smb_ingest.parser import SMBPushParser
+
+            parser = SMBPushParser(
+                file_type=inp.file_type,
+                smb_id=inp.smb_id,
+                bank_id=inp.bank_id,
+                pepper=pepper,
+            )
+            records = parser.parse(path.read_bytes())
+        except Exception as exc:
+            log.error(
+                "parse_and_validate_smb_push.error",
+                agency_id=inp.agency_id,
+                smb_id=inp.smb_id,
+                error=str(exc),
+            )
+            return ParseSMBPushResult(error=str(exc))
+
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO cts.smb_push_sessions (agency_id, smb_id, file_type, file_hash, record_count)
+                VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT (file_hash) DO NOTHING
+                """,
+                inp.agency_id,
+                inp.smb_id,
+                inp.file_type,
+                inp.file_hash,
+                len(records),
+            )
+
+        log.info(
+            "parse_and_validate_smb_push.complete",
             agency_id=inp.agency_id,
             smb_id=inp.smb_id,
-            error=str(exc),
+            file_type=inp.file_type,
+            record_count=len(records),
         )
-        return ParseSMBPushResult(error=str(exc))
-
-    async with db_pool.acquire() as conn:
-        await conn.execute(
-            """
-            INSERT INTO cts.smb_push_sessions (agency_id, smb_id, file_type, file_hash, record_count)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (file_hash) DO NOTHING
-            """,
-            inp.agency_id,
-            inp.smb_id,
-            inp.file_type,
-            inp.file_hash,
-            len(records),
-        )
-
-    log.info(
-        "parse_and_validate_smb_push.complete",
-        agency_id=inp.agency_id,
-        smb_id=inp.smb_id,
-        file_type=inp.file_type,
-        record_count=len(records),
-    )
-    return ParseSMBPushResult(records=records, record_count=len(records))
+        return ParseSMBPushResult(records=records, record_count=len(records))
 
 
-# ── update_smb_vault ──────────────────────────────────────────────────────────
+    # ── update_smb_vault ──────────────────────────────────────────────────────────
 
 class UpdateSMBVaultInput(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -163,43 +168,45 @@ async def update_smb_vault(
     Uses Redis pipeline for bulk writes.
     Degrades gracefully when redis_client is None.
     """
-    if redis_client is None:
-        log.warning(
-            "update_smb_vault.redis_unavailable",
+    with tracer.start_as_current_span("activity.update_smb_vault") as span:
+        span.set_attribute("bank_id", inp.bank_id)
+        if redis_client is None:
+            log.warning(
+                "update_smb_vault.redis_unavailable",
+                agency_id=inp.agency_id,
+                smb_id=inp.smb_id,
+                file_type=inp.file_type,
+            )
+            return UpdateSMBVaultResult(updated_count=0, error="REDIS_UNAVAILABLE")
+
+        # Key formats MUST match the canonical vault key formats used at lookup time:
+        #   stop payment : stop:{bank_id}:{account_hash}:{cheque_number}
+        #   PPS          : pps:{bank_id}:{account_hash}:{cheque_number}  (PPSVault._make_key)
+        #   signature    : sig:{bank_id}:{account_hash}:PRIMARY           (SignatureVault._make_key)
+        async with redis_client.pipeline() as pipe:
+            for record in inp.records:
+                account_hash = record.get("account_number_hash", "")
+                cheque_number = record.get("cheque_number", "")
+                if inp.file_type == "STOP_PAYMENTS":
+                    key = f"stop:{inp.bank_id}:{account_hash}:{cheque_number}"
+                    pipe.set(key, "1")
+                elif inp.file_type == "PPS_ENTRIES":
+                    key = f"pps:{inp.bank_id}:{account_hash}:{cheque_number}"
+                    pipe.hset(key, mapping={
+                        "amount_range": record.get("amount_range", ""),
+                        "payee_hash": record.get("payee_hash", ""),
+                        "status": "REGISTERED",
+                    })
+                elif inp.file_type == "SIGNATURES":
+                    key = f"sig:{inp.bank_id}:{account_hash}:PRIMARY"
+                    pipe.set(key, str(record))
+            await pipe.execute()
+
+        log.info(
+            "update_smb_vault.complete",
             agency_id=inp.agency_id,
             smb_id=inp.smb_id,
             file_type=inp.file_type,
+            updated_count=len(inp.records),
         )
-        return UpdateSMBVaultResult(updated_count=0, error="REDIS_UNAVAILABLE")
-
-    # Key formats MUST match the canonical vault key formats used at lookup time:
-    #   stop payment : stop:{bank_id}:{account_hash}:{cheque_number}
-    #   PPS          : pps:{bank_id}:{account_hash}:{cheque_number}  (PPSVault._make_key)
-    #   signature    : sig:{bank_id}:{account_hash}:PRIMARY           (SignatureVault._make_key)
-    async with redis_client.pipeline() as pipe:
-        for record in inp.records:
-            account_hash = record.get("account_number_hash", "")
-            cheque_number = record.get("cheque_number", "")
-            if inp.file_type == "STOP_PAYMENTS":
-                key = f"stop:{inp.bank_id}:{account_hash}:{cheque_number}"
-                pipe.set(key, "1")
-            elif inp.file_type == "PPS_ENTRIES":
-                key = f"pps:{inp.bank_id}:{account_hash}:{cheque_number}"
-                pipe.hset(key, mapping={
-                    "amount_range": record.get("amount_range", ""),
-                    "payee_hash": record.get("payee_hash", ""),
-                    "status": "REGISTERED",
-                })
-            elif inp.file_type == "SIGNATURES":
-                key = f"sig:{inp.bank_id}:{account_hash}:PRIMARY"
-                pipe.set(key, str(record))
-        await pipe.execute()
-
-    log.info(
-        "update_smb_vault.complete",
-        agency_id=inp.agency_id,
-        smb_id=inp.smb_id,
-        file_type=inp.file_type,
-        updated_count=len(inp.records),
-    )
-    return UpdateSMBVaultResult(updated_count=len(inp.records))
+        return UpdateSMBVaultResult(updated_count=len(inp.records))
