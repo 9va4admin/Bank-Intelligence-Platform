@@ -69,7 +69,9 @@ class IFSCRepository:
         if smb_id is not None:
             if active_only:
                 query = """
-                    SELECT * FROM cts.ifsc_registry
+                    SELECT id, bank_id, bank_type, smb_id, ifsc_code, branch_name, branch_city,
+                       micr_code, is_active, effective_from, effective_till, status,
+                       created_by, approved_by FROM cts.ifsc_registry
                     WHERE bank_id = $1
                       AND ifsc_code = $2
                       AND smb_id = $3
@@ -80,7 +82,9 @@ class IFSCRepository:
                 row = await self._db.fetchrow(query, bank_id, ifsc_code.upper(), smb_id)
             else:
                 query = """
-                    SELECT * FROM cts.ifsc_registry
+                    SELECT id, bank_id, bank_type, smb_id, ifsc_code, branch_name, branch_city,
+                       micr_code, is_active, effective_from, effective_till, status,
+                       created_by, approved_by FROM cts.ifsc_registry
                     WHERE bank_id = $1
                       AND ifsc_code = $2
                       AND smb_id = $3
@@ -90,7 +94,9 @@ class IFSCRepository:
         else:
             if active_only:
                 query = """
-                    SELECT * FROM cts.ifsc_registry
+                    SELECT id, bank_id, bank_type, smb_id, ifsc_code, branch_name, branch_city,
+                       micr_code, is_active, effective_from, effective_till, status,
+                       created_by, approved_by FROM cts.ifsc_registry
                     WHERE bank_id = $1
                       AND ifsc_code = $2
                       AND status = 'ACTIVE'
@@ -100,7 +106,9 @@ class IFSCRepository:
                 row = await self._db.fetchrow(query, bank_id, ifsc_code.upper())
             else:
                 query = """
-                    SELECT * FROM cts.ifsc_registry
+                    SELECT id, bank_id, bank_type, smb_id, ifsc_code, branch_name, branch_city,
+                       micr_code, is_active, effective_from, effective_till, status,
+                       created_by, approved_by FROM cts.ifsc_registry
                     WHERE bank_id = $1
                       AND ifsc_code = $2
                     LIMIT 1
@@ -110,7 +118,9 @@ class IFSCRepository:
         return _row_to_entry(row) if row else None
 
     async def get_ifsc_by_id(self, entry_id: str) -> Optional[IFSCEntry]:
-        query = "SELECT * FROM cts.ifsc_registry WHERE id = $1 LIMIT 1"
+        query = "SELECT id, bank_id, bank_type, smb_id, ifsc_code, branch_name, branch_city,
+                       micr_code, is_active, effective_from, effective_till, status,
+                       created_by, approved_by FROM cts.ifsc_registry WHERE id = $1 LIMIT 1"
         row = await self._db.fetchrow(query, entry_id)
         return _row_to_entry(row) if row else None
 
@@ -143,7 +153,9 @@ class IFSCRepository:
 
         where = " AND ".join(conditions)
         query = f"""
-            SELECT * FROM cts.ifsc_registry
+            SELECT id, bank_id, bank_type, smb_id, ifsc_code, branch_name, branch_city,
+                       micr_code, is_active, effective_from, effective_till, status,
+                       created_by, approved_by FROM cts.ifsc_registry
             WHERE {where}
             ORDER BY ifsc_code ASC
             LIMIT {limit}

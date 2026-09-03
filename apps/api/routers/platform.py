@@ -25,6 +25,8 @@ from pydantic import BaseModel, ConfigDict
 
 from apps.api.dependencies import require_user_context
 from shared.auth.rbac import UserContext
+from shared.config.config_service import config_service
+from shared.config.exceptions import ConfigKeyNotFoundError
 
 log = structlog.get_logger()
 
@@ -301,11 +303,14 @@ async def _check_ops_users(bank_id: str, db_pool: Any) -> ReadinessItem:
 
 def _check_inward_folder() -> ReadinessItem:
     """POC-only: verify inward watch folder is configured and accessible."""
-    folder = os.environ.get("CTS_INWARD_FOLDER_PATH", "")
+    try:
+        folder = config_service.get_platform("cts.inward.folder_path")
+    except ConfigKeyNotFoundError:
+        folder = ""
     if not folder:
         return ReadinessItem(
             check_id="inward_folder", label="Inward watch folder (POC)",
-            status="FAIL", detail="CTS_INWARD_FOLDER_PATH not set",
+            status="FAIL", detail="cts.inward.folder_path not configured",
             action_url="/cts/config",
             deployment_modes=["POC"],
         )
@@ -327,11 +332,14 @@ def _check_inward_folder() -> ReadinessItem:
 
 def _check_outward_folder() -> ReadinessItem:
     """POC-only: verify outward output folder is configured and accessible."""
-    folder = os.environ.get("CTS_OUTWARD_FOLDER_PATH", "")
+    try:
+        folder = config_service.get_platform("cts.outward.folder_path")
+    except ConfigKeyNotFoundError:
+        folder = ""
     if not folder:
         return ReadinessItem(
             check_id="outward_folder", label="Outward output folder (POC)",
-            status="FAIL", detail="CTS_OUTWARD_FOLDER_PATH not set",
+            status="FAIL", detail="cts.outward.folder_path not configured",
             action_url="/cts/config",
             deployment_modes=["POC"],
         )
@@ -513,10 +521,13 @@ async def _run_test_vault_seeded(state: Any, bank_id: str) -> SmokeTestResult:
 
 
 def _run_test_scanner_folder() -> SmokeTestResult:
-    folder = os.environ.get("CTS_INWARD_FOLDER_PATH", "")
+    try:
+        folder = config_service.get_platform("cts.inward.folder_path")
+    except ConfigKeyNotFoundError:
+        folder = ""
     if not folder:
         return SmokeTestResult(test_id="test_scanner_folder", status="WARN",
-                               message="CTS_INWARD_FOLDER_PATH not set — configure folder path")
+                               message="cts.inward.folder_path not configured — set in Helm values")
     if not os.path.isdir(folder):
         return SmokeTestResult(test_id="test_scanner_folder", status="FAIL",
                                message=f"Folder not found: {folder}")
@@ -615,12 +626,11 @@ _TIER_LABELS = ["Foundation", "Data Layer", "Orchestration", "AI Inference"]
 _INTER_TIER_SLEEP = 15  # seconds between real Docker tiers (let services stabilise)
 
 # Default path is the dev compose file co-located in this repo.
-# Override with ASTRA_COMPOSE_FILE env var for staging/prod environments.
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_COMPOSE_FILE = os.environ.get(
-    "ASTRA_COMPOSE_FILE",
-    str(_REPO_ROOT / "infra" / "docker-compose.dev.yml"),
-)
+try:
+    _COMPOSE_FILE = config_service.get_platform("astra.compose_file")
+except ConfigKeyNotFoundError:
+    _COMPOSE_FILE = str(_REPO_ROOT / "infra" / "docker-compose.dev.yml")
 
 
 async def _docker_inspect_running(container: str) -> bool:
