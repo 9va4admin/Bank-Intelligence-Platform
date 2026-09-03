@@ -23,15 +23,21 @@ function useAgencyData({ pollEnabled }) {
   const timerRef = useRef(null)
   const fetch_ = useCallback(async () => {
     try {
-      const [connRes, sessRes] = await Promise.all([
+      const [connRes, sessRes, relayRes, pushRes] = await Promise.all([
         fetch(`${_API_BASE}/v1/cts/smb?active_only=false`, { credentials: 'include' }),
         fetch(`${_API_BASE}/v1/cts/outward/sessions`, { credentials: 'include' }),
+        fetch(`${_API_BASE}/v1/cts/agency/inward-relay-stats`, { credentials: 'include' }),
+        fetch(`${_API_BASE}/v1/cts/agency/push-sessions`, { credentials: 'include' }),
       ])
-      const connJson = connRes.ok ? await connRes.json() : null
-      const sessJson = sessRes.ok ? await sessRes.json() : null
+      const connJson  = connRes.ok  ? await connRes.json()  : null
+      const sessJson  = sessRes.ok  ? await sessRes.json()  : null
+      const relayJson = relayRes.ok ? await relayRes.json() : null
+      const pushJson  = pushRes.ok  ? await pushRes.json()  : null
       setData({
-        connections: connJson?.sub_members ?? [],
-        sessions: sessJson?.sessions ?? [],
+        connections:   connJson?.sub_members  ?? [],
+        sessions:      sessJson?.sessions     ?? [],
+        inwardStats:   relayJson ?? null,
+        pushSessions:  pushJson?.sessions     ?? [],
       })
     } catch { /* stay with last data */ }
   }, [])
@@ -361,6 +367,9 @@ export default function CTSAgencyCC() {
     }))
   }, [isDemo, liveData])
 
+  const inwardStats  = isDemo || !liveData?.inwardStats  ? MOCK_INWARD_STATS   : liveData.inwardStats
+  const pushSessions = isDemo || !liveData?.pushSessions?.length ? MOCK_PUSH_SESSIONS : liveData.pushSessions
+
   const totalInstruments = SESSIONS_DATA.reduce((s, r) => s + (r.total_instruments || 0), 0)
   const submittedSessions = SESSIONS_DATA.filter(s => s.status === 'SUBMITTED').length
   const exceptionSessions = SESSIONS_DATA.filter(s => s.status === 'EXCEPTION').length
@@ -512,24 +521,24 @@ export default function CTSAgencyCC() {
                 <div className="flex justify-between">
                   <span className={`text-sm ${th.body}`}>Total received from SBs</span>
                   <span className={`text-sm font-bold tabular-nums ${th.heading}`}>
-                    {MOCK_INWARD_STATS.total_received.toLocaleString('en-IN')}
+                    {inwardStats.total_received.toLocaleString('en-IN')}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className={`text-sm ${th.body}`}>Routed to PUs</span>
                   <span className={`text-sm font-bold tabular-nums ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
-                    {MOCK_INWARD_STATS.routed.toLocaleString('en-IN')}
+                    {inwardStats.routed.toLocaleString('en-IN')}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className={`text-sm ${th.body}`}>CRL misses</span>
-                  <span className={`text-sm font-bold tabular-nums ${MOCK_INWARD_STATS.crl_misses > 0 ? (isDark ? 'text-amber-400' : 'text-amber-700') : (isDark ? 'text-slate-400' : 'text-slate-500')}`}>
-                    {MOCK_INWARD_STATS.crl_misses}
+                  <span className={`text-sm font-bold tabular-nums ${inwardStats.crl_misses > 0 ? (isDark ? 'text-amber-400' : 'text-amber-700') : (isDark ? 'text-slate-400' : 'text-slate-500')}`}>
+                    {inwardStats.crl_misses}
                   </span>
                 </div>
                 <div className={`pt-2 border-t ${th.divider} flex justify-between`}>
                   <span className={`text-xs ${th.muted}`}>Last relay</span>
-                  <span className={`text-xs font-mono ${th.muted}`}>{fmtTime(MOCK_INWARD_STATS.last_relay_at)}</span>
+                  <span className={`text-xs font-mono ${th.muted}`}>{fmtTime(inwardStats.last_relay_at)}</span>
                 </div>
               </div>
             </div>
@@ -569,7 +578,7 @@ export default function CTSAgencyCC() {
                     </tr>
                   </thead>
                   <tbody>
-                    {MOCK_PUSH_SESSIONS.map(s => (
+                    {pushSessions.map(s => (
                       <tr key={s.id} className={`border-b ${th.row} transition-colors`}>
                         <td className={`py-2.5 px-3 text-xs font-medium ${th.body}`}>{s.smb_name}</td>
                         <td className={`py-2.5 px-3 text-xs font-mono ${th.muted}`}>{s.file_type}</td>

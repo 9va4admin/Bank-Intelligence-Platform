@@ -63,6 +63,26 @@ const RPCS = [
 const SESSION_DATE = new Date().toISOString().split('T')[0]
 const CLEARING_SESSION = new Date().getHours() < 12 ? 'AM-CLEARING-001' : 'PM-CLEARING-001'
 
+function useCrossCentreAlerts({ pollEnabled }) {
+  const [alerts, setAlerts] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/rpc/cross-centre-alerts`, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      setAlerts(json.alerts ?? [])
+    } catch { /* keep last */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 60_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return alerts
+}
+
 // Cross-centre fraud signals
 const CROSS_CENTRE_ALERTS = [
   { id: 'XALERT-001', type: 'DUPLICATE_SIGNATURE', severity: 'HIGH',
@@ -82,7 +102,9 @@ export default function CTSRPCConsolidation() {
   const { isDark } = useTheme()
   const [selected, setSelected] = useState(null)
 
-  const liveZones = useRPCZones({ pollEnabled: !isDemo })
+  const liveZones  = useRPCZones({ pollEnabled: !isDemo })
+  const liveAlerts = useCrossCentreAlerts({ pollEnabled: !isDemo })
+  const alerts = isDemo || !liveAlerts ? CROSS_CENTRE_ALERTS : liveAlerts
   const rpcs = useMemo(() => {
     if (isDemo || !liveZones || liveZones.length === 0) return RPCS
     return liveZones.map(z => ({
@@ -255,9 +277,9 @@ export default function CTSRPCConsolidation() {
         <div className={`border rounded-xl overflow-hidden ${th.card} mb-5`}>
           <div className={`px-4 py-2.5 border-b ${th.divider} flex items-center justify-between`}>
             <span className={`text-sm font-medium ${th.heading}`}>Cross-Centre Intelligence</span>
-            <span className={`text-[10px] ${th.muted}`}>{CROSS_CENTRE_ALERTS.length} signals</span>
+            <span className={`text-[10px] ${th.muted}`}>{alerts.length} signals</span>
           </div>
-          {CROSS_CENTRE_ALERTS.map(alert => (
+          {alerts.map(alert => (
             <div key={alert.id} className={`flex items-start gap-3 px-4 py-3 border-b ${th.row}`}>
               <span className={`text-[10px] px-2 py-0.5 rounded border font-medium shrink-0 ${sev[alert.severity]}`}>{alert.severity}</span>
               <div className="flex-1 min-w-0">

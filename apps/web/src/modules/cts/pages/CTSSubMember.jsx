@@ -1,10 +1,32 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
 import { usePageHeader } from '../../../shared/layout/PageHeaderContext'
 import { useBankContext } from '../../../shared/context/BankContext'
 import { BANK_CONFIG } from '../../../shared/config/bank.config'
 import useSMBList from '../hooks/useSMBList'
+
+const _API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+function useReturnEvents({ pollEnabled }) {
+  const [events, setEvents] = useState(null)
+  const timerRef = useRef(null)
+  const fetch_ = useCallback(async () => {
+    try {
+      const res = await fetch(`${_API_BASE}/v1/cts/smb/return-events?limit=200`, { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      setEvents(json.events ?? [])
+    } catch { /* keep last */ }
+  }, [])
+  useEffect(() => {
+    if (!pollEnabled) return
+    fetch_()
+    timerRef.current = setInterval(fetch_, 60_000)
+    return () => clearInterval(timerRef.current)
+  }, [fetch_, pollEnabled])
+  return events
+}
 
 // ── Derive sub-member session data from BANK_CONFIG.smbs ─────────────────────
 
@@ -128,7 +150,7 @@ function ShieldBadge({ status, isDark }) {
   )
 }
 
-function DetailPanel({ smb, onClose, isDark, BUCKET_COLORS }) {
+function DetailPanel({ smb, onClose, isDark, BUCKET_COLORS, returnEvents: allReturnEvents }) {
   const th = {
     panel:   isDark ? 'bg-navy-900 border-white/10' : 'bg-white border-slate-200',
     heading: isDark ? 'text-white' : 'text-slate-900',
@@ -141,7 +163,7 @@ function DetailPanel({ smb, onClose, isDark, BUCKET_COLORS }) {
   const rate = smb.stp_return / smb.total
   const status = shieldStatus(smb)
 
-  const returnItems = RETURN_EVENTS.filter(e => e.smb === smb.id)
+  const returnItems = (allReturnEvents ?? RETURN_EVENTS).filter(e => e.smb === smb.id)
 
   return (
     <div className={`border rounded-lg p-4 mb-4 ${th.panel}`}>
@@ -255,6 +277,8 @@ export default function CTSSubMember() {
   }
 
   const { subMembers: liveSubMembers } = useSMBList({ pollEnabled: !isDemo })
+  const liveReturnEvents = useReturnEvents({ pollEnabled: !isDemo })
+  const returnEvents = isDemo || !liveReturnEvents ? RETURN_EVENTS : liveReturnEvents
 
   // Demo invariant: use live data only when non-empty
   const subMembers = useMemo(() => {
@@ -343,6 +367,7 @@ export default function CTSSubMember() {
             onClose={() => setSelected(null)}
             isDark={isDark}
             BUCKET_COLORS={BUCKET_COLORS}
+            returnEvents={returnEvents}
           />
         )}
 
@@ -442,7 +467,7 @@ export default function CTSSubMember() {
               </tr>
             </thead>
             <tbody>
-              {RETURN_EVENTS.map(e => {
+              {returnEvents.map(e => {
                 const smb = subMembers.find(m => m.id === e.smb)
                 const bc = BUCKET_COLORS[e.bucket]
                 const tierColor = e.tier === 3

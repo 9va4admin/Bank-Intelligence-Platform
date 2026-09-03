@@ -9,6 +9,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppShell from '../../../shared/layout/AppShell'
 import { useTheme } from '../../../shared/theme/ThemeContext'
+import { useBankContext } from '../../../shared/context/BankContext'
 import useVaultGaps from '../hooks/useVaultGaps'
 
 function nextClearingCountdown() {
@@ -35,13 +36,14 @@ function fmtDate(epoch) {
 
 export default function CTSVaultGapReport() {
   const { isDark } = useTheme()
+  const { isDemo } = useBankContext()
   const navigate = useNavigate()
   const today = new Date().toISOString().split('T')[0]
   const [selectedDate, setSelectedDate] = useState(today)
   const clearing = useMemo(() => nextClearingCountdown(), [])
   const [expanded, setExpanded] = useState(null)
 
-  const { data, loading, error, refetch } = useVaultGaps({ date: selectedDate })
+  const { data, loading, error, refetch } = useVaultGaps({ date: selectedDate, enabled: !isDemo })
 
   const th = {
     page:    isDark ? 'bg-navy-950'                    : 'bg-slate-50',
