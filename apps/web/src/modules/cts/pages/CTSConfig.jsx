@@ -59,19 +59,20 @@ export default function CTSConfig() {
   const fetchLiveConfig = useCallback(async () => {
     if (isDemo) return
     try {
-      const res = await fetch(`/v1/cts/admin/config?bank_id=${bankId}`, { credentials: 'include' })
+      const res = await fetch('/v1/admin/config/thresholds', { credentials: 'include' })
       if (!res.ok) return
       const data = await res.json()
       const liveValues = {}
       LAYER3_CONFIG.forEach(c => {
-        if (data[c.key] !== undefined) liveValues[c.key] = data[c.key]
+        const entry = data.thresholds?.find(t => t.config_key === c.key)
+        if (entry) liveValues[c.key] = entry.current_value
       })
       if (Object.keys(liveValues).length > 0) {
         setValues(v => ({ ...v, ...liveValues }))
         setDraftValues(v => ({ ...v, ...liveValues }))
       }
     } catch { /* keep defaults */ }
-  }, [isDemo, bankId])
+  }, [isDemo])
   useEffect(() => { fetchLiveConfig() }, [fetchLiveConfig])
 
   const { changes: liveChanges } = useConfigChanges()
@@ -125,7 +126,7 @@ export default function CTSConfig() {
     saveReturnReasons(defaults)
   }
 
-  function handleSubmit(key) {
+  async function handleSubmit(key) {
     if (isDemo) return
     const cfg = LAYER3_CONFIG.find(c => c.key === key)
     if (!cfg) return
@@ -134,20 +135,32 @@ export default function CTSConfig() {
     if (String(oldValue) === String(newValue)) return
     setPendingChanges(prev => [
       ...prev.filter(p => p.key !== key),
-      { key, oldValue, newValue, submittedAt: nowStr(), submittedBy: 'ops_manager@svcb' },
+      { key, oldValue, newValue, submittedAt: nowStr(), submittedBy: 'ops_manager@svcb', changeId: null },
     ])
-    fetch(`/v1/cts/admin/config/submit`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bank_id: bankId, key, old_value: oldValue, new_value: newValue }),
-    }).catch(() => { /* non-blocking */ })
+    try {
+      const res = await fetch('/v1/admin/config/thresholds', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          config_key: key,
+          new_value: String(newValue),
+          reason: 'Updated via ASTRA Admin UI',
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setPendingChanges(prev =>
+          prev.map(p => p.key === key ? { ...p, changeId: data.change_id } : p)
+        )
+      }
+    } catch { /* pending change stays; approval will be blocked by null changeId guard */ }
   }
 
-  function handleApprove(key) {
+  async function handleApprove(key) {
     if (isDemo) return
     const pending = pendingChanges.find(p => p.key === key)
-    if (!pending) return
+    if (!pending || !pending.changeId) return
     setValues(v => ({ ...v, [key]: pending.newValue }))
     setDraftValues(v => ({ ...v, [key]: pending.newValue }))
     setChangeLog(prev => [
@@ -163,12 +176,13 @@ export default function CTSConfig() {
       ...prev,
     ])
     setPendingChanges(prev => prev.filter(p => p.key !== key))
-    fetch(`/v1/cts/admin/config/approve`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bank_id: bankId, key, new_value: pending.newValue }),
-    }).catch(() => { /* non-blocking */ })
+    try {
+      await fetch(`/v1/admin/config/thresholds/${pending.changeId}/approve`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      })
+    } catch { /* non-blocking */ }
   }
 
   function handleReject(key) {
