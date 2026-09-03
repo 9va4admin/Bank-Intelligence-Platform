@@ -373,27 +373,26 @@ func (t *CanonTransport) StartJob(endorsementText string, enableImprinter bool) 
 	C.astra_par_set_long(C.CSDP_XRESOLUTION, C.LONG(t.cfg.ScanDPI))
 	C.astra_par_set_long(C.CSDP_YRESOLUTION, C.LONG(t.cfg.ScanDPI))
 
-	// Scan area — width at scanner maximum (cheques vary slightly); length fixed to
-	// standard Indian CTS cheque height (90 mm).  Units are 1/1200-inch dots:
-	//   90 mm = 3.543 inch × 1200 = 4252 dots  (NPCI CTS-2010 standard cheque)
-	// Using CSDP_MAXLENGTH here caused a large black area below each cheque because
-	// the scanner captured the full transport path (~200 mm) regardless of actual
-	// cheque height.  A fixed 90 mm length matches the physical document and
-	// eliminates the trailing black pixels.  Override via scan_doc_length_dots in
-	// config.ini if your bank uses non-standard cheque stock (default 4252).
-	var maxW C.LONG
+	// Scan area — set both dimensions to the scanner's reported maximums.
+	// CSDP_MAXWIDTH/MAXLENGTH are in scanner-native units (model-dependent).
+	// Using max ensures no cheque is cropped regardless of physical size.
+	// The black border below the cheque is a cosmetic artefact of capturing
+	// the full transport path; it does not affect MICR or image content.
+	// TODO: once CSDP_LENGTH unit (dots vs 1/100mm) is confirmed from Canon SDK
+	// docs, set a cheque-height value (90mm) to eliminate the black border.
+	var maxW, maxL C.LONG
 	if C.astra_par_get_long(C.CSDP_MAXWIDTH, &maxW) == C.INT32(csdOK) && maxW > 0 {
 		C.astra_par_set_long(C.CSDP_WIDTH, maxW)
 		t.logger.Info("scan area width set to scanner max", "dots", int32(maxW))
 	} else {
 		t.logger.Warn("could not read CSDP_MAXWIDTH — using driver default (image may be cropped)")
 	}
-	docLengthDots := C.LONG(t.cfg.DocLengthDots)
-	if docLengthDots <= 0 {
-		docLengthDots = 4252 // 90 mm at 1/1200 inch — standard Indian CTS cheque
+	if C.astra_par_get_long(C.CSDP_MAXLENGTH, &maxL) == C.INT32(csdOK) && maxL > 0 {
+		C.astra_par_set_long(C.CSDP_LENGTH, maxL)
+		t.logger.Info("scan area length set to scanner max", "dots", int32(maxL))
+	} else {
+		t.logger.Warn("could not read CSDP_MAXLENGTH — using driver default (image may be cropped)")
 	}
-	C.astra_par_set_long(C.CSDP_LENGTH, docLengthDots)
-	t.logger.Info("scan area length set", "dots", int32(docLengthDots), "mm_approx", int(float64(docLengthDots)/1200*25.4))
 
 	// MICR: enable hardware reader, E13B font (Indian CTS-2010 standard).
 	if ret := C.astra_par_set_long(C.CSDP_MICR, 1); int32(ret) != csdOK {
