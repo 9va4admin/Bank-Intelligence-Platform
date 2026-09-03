@@ -234,9 +234,8 @@ func saveImagesLocally(scanID string, front, rear, uv []byte, micrRaw string) {
 			slog.Info("local image saved", "path", path)
 		}
 	}
-	write("front.tif", front)      // primary front image (grayscale 8-bit, CTS-2010 front face)
-	write("front_gray.tif", front) // same data, grey-named copy for visual review / CTS-2010 compliance
-	write("rear.tif", rear)
+	write("MICR_F_GR.tif", front) // front face — grayscale 8-bit (NPCI CTS-2010 standard name)
+	write("MICR_B_BW.tif", rear)  // rear face  — binary 1-bit  (NPCI CTS-2010 standard name)
 	write("uv.tif", uv)
 	if micrRaw != "" {
 		write("micr.txt", []byte(micrRaw))
