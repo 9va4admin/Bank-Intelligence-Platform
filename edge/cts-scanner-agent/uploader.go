@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -217,6 +218,7 @@ func (c *ASTRAClient) setHeaders(req *http.Request) {
 // saveImagesLocally writes front, rear, UV TIFF images and raw MICR data to
 // a scanned/ folder next to the exe for immediate local visibility.
 // Called before upload so files exist even if the ASTRA API is unreachable.
+// File names use the MICR cheque number as prefix: {MICR_NO}_F_GR.tif etc.
 func saveImagesLocally(scanID string, front, rear, uv []byte, micrRaw string) {
 	dir := localScannedDir(scanID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -234,12 +236,47 @@ func saveImagesLocally(scanID string, front, rear, uv []byte, micrRaw string) {
 			slog.Info("local image saved", "path", path)
 		}
 	}
-	write("MICR_F_GR.tif", front) // front face — grayscale 8-bit (NPCI CTS-2010 standard name)
-	write("MICR_B_BW.tif", rear)  // rear face  — binary 1-bit  (NPCI CTS-2010 standard name)
+	pfx := micrFilePrefix(micrRaw)
+	write(pfx+"_F_GR.tif", front) // front face grayscale  — NPCI CTS-2010
+	write(pfx+"_B_BW.tif", rear)  // rear face binary       — NPCI CTS-2010
 	write("uv.tif", uv)
 	if micrRaw != "" {
 		write("micr.txt", []byte(micrRaw))
 	}
+}
+
+// micrFilePrefix derives a safe filesystem prefix from the raw E13B MICR string.
+// E13B format: <CHEQUE_NO<MICR_CODE:ACCOUNT_NO<SERIAL
+// We extract the cheque serial number (digits between the first pair of '<').
+// Example: "<888741<400532011:004461<31"  →  "888741"
+// If the cheque number cannot be parsed, we sanitise the full MICR string.
+// Falls back to "NOMICRR" when the MICR line is empty (scanner read failed).
+func micrFilePrefix(micrRaw string) string {
+	if micrRaw == "" {
+		return "NOMICRR"
+	}
+	// Strip leading '<' then take digits up to the next '<' or ':'
+	s := strings.TrimLeft(micrRaw, "<")
+	if idx := strings.IndexAny(s, "<:"); idx > 0 {
+		candidate := strings.TrimSpace(s[:idx])
+		if candidate != "" {
+			return candidate
+		}
+	}
+	// Fallback: replace every non-alphanumeric char with '_', trim edges
+	var b strings.Builder
+	for _, r := range micrRaw {
+		if (r >= '0' && r <= '9') || (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('_')
+		}
+	}
+	pfx := strings.Trim(b.String(), "_")
+	if pfx == "" {
+		return "NOMICRR"
+	}
+	return pfx
 }
 
 // localScannedDir returns the path to the per-scan image folder:
