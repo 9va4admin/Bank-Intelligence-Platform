@@ -51,88 +51,84 @@ func (b ContentBounds) CroppedHeight() int { return b.Bottom - b.Top + 1 }
 // Algorithm:
 //  1. Average a 20×20-px patch from each of the four corners — those patches
 //     are always pure scanner background regardless of cheque placement.
-//  2. Any pixel that deviates from bgLevel by more than tolerance (25) is
-//     "content".
-//  3. Scan all rows and columns to find the extreme content coordinates.
-//  4. Add a 30-px safety margin on every side so the cheque edge is not clipped.
+//     bgLevel is the resulting reference value.
+//  2. Per row: find leftmost and rightmost content pixels (deviation > 25 from
+//     bgLevel).  Compute row "content span" = rightmost − leftmost.
+//  3. Use ONLY rows whose content span exceeds half the image width to set the
+//     left / right / top / bottom bounds.  This filters out thin vertical
+//     scanner alignment marks (1–2 px wide) that would otherwise pull the left
+//     boundary to the very edge of the image.
+//  4. Add a 30-px safety margin on all four sides.
 func findContentBounds(pixels []byte, srcStride, width, fullHeight int) ContentBounds {
 	full := ContentBounds{Top: 0, Left: 0, Bottom: fullHeight - 1, Right: width - 1}
 	if len(pixels) == 0 || srcStride <= 0 || width <= 0 || fullHeight <= 0 {
 		return full
 	}
 
-	// --- 1. measure background level from four corner patches ---
+	// --- 1. background level from four corner patches ---
 	patch := 20
-	if patch > width/4 {
-		patch = width / 4
-	}
-	if patch > fullHeight/4 {
-		patch = fullHeight / 4
-	}
-	if patch < 1 {
-		patch = 1
-	}
+	if patch > width/4    { patch = width / 4 }
+	if patch > fullHeight/4 { patch = fullHeight / 4 }
+	if patch < 1           { patch = 1 }
 	var sum int64
 	n := int64(patch * patch * 4)
 	for row := 0; row < patch; row++ {
 		for col := 0; col < patch; col++ {
-			sum += int64(pixels[row*srcStride+col])                                     // top-left
-			sum += int64(pixels[row*srcStride+(width-1-col)])                           // top-right
-			sum += int64(pixels[(fullHeight-1-row)*srcStride+col])                     // bottom-left
-			sum += int64(pixels[(fullHeight-1-row)*srcStride+(width-1-col)])           // bottom-right
+			sum += int64(pixels[row*srcStride+col])
+			sum += int64(pixels[row*srcStride+(width-1-col)])
+			sum += int64(pixels[(fullHeight-1-row)*srcStride+col])
+			sum += int64(pixels[(fullHeight-1-row)*srcStride+(width-1-col)])
 		}
 	}
 	bgLevel := int(sum / n)
 
-	// --- 2. scan for content bounding box ---
-	const tolerance = 25
-	top    := fullHeight // sentinel: no content found yet
+	// --- 2 & 3. scan rows; only use "wide" rows for bounds ---
+	const tolerance  = 25
+	const minSpanFrac = 2 // row content span must be > width/minSpanFrac (50%)
+
+	top    := fullHeight // sentinel
 	left   := width
 	bottom := -1
 	right  := -1
 
 	for y := 0; y < fullHeight; y++ {
-		rowBase := y * srcStride
+		rowBase  := y * srcStride
+		rowLeft  := -1
+		rowRight := -1
 		for x := 0; x < width; x++ {
 			v := int(pixels[rowBase+x])
 			if v < bgLevel-tolerance || v > bgLevel+tolerance {
-				// content pixel
-				if y < top    { top = y }
-				if y > bottom { bottom = y }
-				if x < left   { left = x }
-				if x > right  { right = x }
+				if rowLeft < 0 { rowLeft = x }
+				rowRight = x
 			}
 		}
+		if rowLeft < 0 {
+			continue // blank row
+		}
+		span := rowRight - rowLeft
+		if span <= width/minSpanFrac {
+			// Thin content (alignment mark, edge noise) — skip for left/right/top/bottom.
+			continue
+		}
+		// Wide row → definitely the cheque body.
+		if y < top    { top = y }
+		if y > bottom { bottom = y }
+		if rowLeft  < left  { left  = rowLeft }
+		if rowRight > right { right = rowRight }
 	}
 
-	// No content found at all — return full image
 	if bottom < 0 {
+		// Nothing wide enough found — return the full image uncropped.
 		full.BGLevel = bgLevel
 		return full
 	}
 
-	// --- 3. add 30-px safety margin on all sides ---
+	// --- 4. add 30-px safety margin ---
 	const margin = 30
-	if top > margin {
-		top -= margin
-	} else {
-		top = 0
-	}
-	if left > margin {
-		left -= margin
-	} else {
-		left = 0
-	}
-	if bottom < fullHeight-1-margin {
-		bottom += margin
-	} else {
-		bottom = fullHeight - 1
-	}
-	if right < width-1-margin {
-		right += margin
-	} else {
-		right = width - 1
-	}
+	if top    > margin           { top    -= margin } else { top    = 0 }
+	if left   > margin           { left   -= margin } else { left   = 0 }
+	if bottom < fullHeight-1-margin { bottom += margin } else { bottom = fullHeight - 1 }
+	if right  < width-1-margin   { right  += margin } else { right  = width - 1 }
 
 	return ContentBounds{Top: top, Left: left, Bottom: bottom, Right: right, BGLevel: bgLevel}
 }
