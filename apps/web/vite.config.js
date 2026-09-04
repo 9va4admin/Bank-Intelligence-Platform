@@ -31,7 +31,7 @@ export default defineConfig({
   server: {
     port: 4000,
     proxy: {
-      '/v1': { target: 'http://127.0.0.1:8001', changeOrigin: true },
+      '/v1': { target: 'http://127.0.0.1:8005', changeOrigin: true },
     },
   },
   test: {
