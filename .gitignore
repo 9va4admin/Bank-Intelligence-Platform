@@ -39,3 +39,6 @@ tests/**/partial_image_tests_append.py
 edge/cts-scanner-agent/*.exe
 # Canon SDK sample cheques captured during local dev/testing — not committed
 edge/cts-scanner-agent/scannned-chqs/
+.env.dev
+.dev/
+edge/cts-scanner-agent/token.dat
